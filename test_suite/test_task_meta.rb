@@ -16,13 +16,14 @@ class TC_TaskMeta < Test::Unit::TestCase
     end
 
     def setup
-        if !TestTask.has_event?(:begin)
-            # Must raise because :begin is not set
+        if !TestTask.has_event?(:start)
+            # Must raise because :start is not set
             assert_raise(TaskModelViolation) { task = TestTask.new }
-            TestTask.event :begin
+            TestTask.event :start
 
             # Must raise because there is not terminal event
             assert_raise(TaskModelViolation) { task = TestTask.new }
+            assert(! TestTask.has_event?(:stop))
             TestTask.event :ev_terminal, :terminal => true
         end
 
@@ -63,10 +64,7 @@ class TC_TaskMeta < Test::Unit::TestCase
 
         # Check :controlable => [proc] behaviour
         assert( TestTask::EvRedirected.controlable? )
-        assert_equal( :ev_method, TestTask::EvRedirected.call(task, :ev_redirected) )
-        assert_equal( :ev_method, TestTask::EvRedirected.call(task) )
-        assert_not_equal( :ev_method, TestTask::EvRedirected.call(task, :other_event) )
-
+        
         # Check that :command => false disables controlable?
         assert( :ev_not_controlable, !TestTask::EvNotControlable.controlable? )
 
@@ -75,34 +73,32 @@ class TC_TaskMeta < Test::Unit::TestCase
     end
 
     def test_event_handling
-        assert( task.has_event?(:end) )
+        assert( task.has_event?(:stop) )
         assert( !task.running? )
         assert( !task.finished? )
         
         event_called = false
         alias_called = false
-        task.on(:ev_terminal) { event_called = true }
-        # One handler for the aliasing, one for the explicit handler
+        task.on(:ev_terminal)   { event_called = true }
+        task.on(:stop)          { alias_called = true }
         assert_equal(2, task.enum_for(:each_handler, :ev_terminal).to_a.size)
-        task.on(:end) { alias_called = true }
-        assert_equal(1, task.enum_for(:each_handler, :end).to_a.size)
 
-        # Checks that we need :begin to be called before firing any other event
+        # Checks that we need :start to be called before firing any other event
         assert_raise(TaskModelViolation) { task.emit :ev_terminal }
 
-        task.emit :begin
+        task.emit :start
         assert( task.running? )
         assert( !task.finished? )
 
         task.emit :ev_terminal
-        assert( !task.running? )
-        assert( task.finished? )
-        
         assert event_called
         assert alias_called
+        assert( task.finished? )
+        assert( !task.running? )
+        
 
         # Checks that we can't fire an event when the task is finished
-        assert_raise(TaskModelViolation) { task.emit :begin }
+        assert_raise(TaskModelViolation) { task.emit :start }
         assert_raise(TaskModelViolation) { task.emit :ev_terminal }
     end
 end
