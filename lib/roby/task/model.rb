@@ -91,7 +91,8 @@ module Roby
             end
 
             if command_handler
-                new_event.singleton_class.send(:define_method, :call) do |task, context|
+                new_event.singleton_class.send(:define_method, :call) do |task, *context|
+                    context = *context
                     command_handler.call(task, context)
                 end
                 
