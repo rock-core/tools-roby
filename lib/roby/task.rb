@@ -25,7 +25,7 @@ module Roby
                 # Create the stop event for this task, if it is not defined
                 stop_ev = model.event(:stop, :terminal => true, :command => false)
                 model.terminal_events.each do |ev|
-                    on(ev, self, stop_ev) if ev != stop_ev
+                    model.on(ev, stop_ev) if ev != stop_ev
                 end
             end
 
