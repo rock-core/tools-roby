@@ -8,7 +8,7 @@ module Roby
         # Builds a task object using this task model
         # The task object can be configured by a given block. After the 
         # block is called, two things are checked:
-        # * the task shall have a +begin+ event
+        # * the task shall have a +start+ event
         # * the task shall have at least one terminal event. If no +end+ event
         #   is defined, then all terminal events are aliased to +end+
         def initialize #:yields: task_object
@@ -16,14 +16,14 @@ module Roby
             @event_handlers = Hash.new { |h, k| h[k] = Array.new }
             yield self if block_given?
 
-            raise TaskModelViolation, "no begin event defined" unless has_event?(:begin)
+            raise TaskModelViolation, "no start event defined" unless has_event?(:start)
 
             # Check that this task has at least one terminal event defined
             if model.terminal_events.empty?
                 raise TaskModelViolation, "no terminal event for this task"
-            elsif !model.has_event?(:end)
-                # Create the end event for this class, if it not defined
-                model.alias_event :end, model.terminal_events
+            elsif !model.has_event?(:stop)
+                # Create the stop event for this class, if it not defined
+                model.alias_event :stop, model.terminal_events
             end
 
             super

@@ -1,6 +1,6 @@
 module Roby
     class Task
-        # The event history. The first event should always be +begin+, the last
+        # The event history. The first event should always be +start+, the last
         # always +end+. It is an array of [ date, event object ] pairs
         #   [
         #       [ begin_date, begin_event ],
@@ -23,7 +23,7 @@ module Roby
             klass = model.validate_events(name).first 
             if finished?
                 raise TaskModelViolation, "emit called but the task has finished"
-            elsif !running? && name != :begin
+            elsif !running? && name != :start
                 raise TaskModelViolation, "emit called for event #{name}, but the task is not running"
             end
 

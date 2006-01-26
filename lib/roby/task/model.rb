@@ -121,10 +121,10 @@ module Roby
         def self.validate_event_definition_request(ev, options) #:nodoc:
             if has_event?(ev)
                 raise ArgumentError, "event #{ev} already defined"
-            elsif ev.to_sym == :begin && options[:terminal]
-                raise TaskModelViolation, "the 'begin' event cannot be terminal"
-            elsif ev.to_sym == :end && options.has_key?(:terminal) && !options[:terminal]
-                raise TaskModelViolation, "the 'end' event cannot be non-terminal"
+            elsif ev.to_sym == :start && options[:terminal]
+                raise TaskModelViolation, "the 'start' event cannot be terminal"
+            elsif ev.to_sym == :stop && options.has_key?(:terminal) && !options[:terminal]
+                raise TaskModelViolation, "the 'stop' event cannot be non-terminal"
             end
         end
 
