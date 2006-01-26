@@ -56,37 +56,29 @@ module Roby
             end
         
             # Defines an event alias
+            #
+            # An event aliases a group G of events if the following constraints are met:
+            # * the alias is fired if any event of G is fired
+            # * if the alias is controlable, then its command shall emit
+            #   at least one of the events in G
+            #
+            # A consequence of these two rules is that if the alias is terminal, then 
+            # all events in G shall be terminal
             # 
             # ==== Valid options
-            # +command+:: the command for this event, if the alias should be controlable. An alias cannot 
-            #             be controlable if one of its events is not controlable itself
+            # +command+:: the command for this event, if the alias should be controlable
             # +model+::   the event class to use as a base class for this alias. This class shall define
             #             +each_aliased_events+ which iterates on all events this event model aliases. 
             #             Uses EventAlias by default
             #
-            # ==== About terminal events
-            # The event model dictates two things:
-            # * you can't mix terminal and non-terminal events in the same alias
-            # * an alias is terminal if all its events are
-            # 
             def alias_event(new_name, events, options = nil)
                 options = validate_options(options, [:command])
                 events  = validate_events(*events)
 
-                # Check consistency between options[:command] and the events in _events_
-                if options[:command]
-                    if e = events.find { |e| !e.controlable? }
-                        raise TaskModelViolation, "trying to create a commandable alias #{new_name} to #{e} while #{e} is not controlable"
-                    end
-                end
-
-                # Check that all events in _events_ are either terminal or non-terminal
-                # Check consistency between options[:terminal] and the events in events
+                # Check consistency between options[:terminal] and the events in the event set
                 if events.all? { |e| e.terminal? }
                     options[:terminal] = true
-                elsif events.all? { |e| !e.terminal? }
-                    options[:terminal] = false
-                else
+                elsif options[:terminal]
                     raise ArgumentError, "aliased events must be either all terminal or all non-terminal"
                 end
 
@@ -100,7 +92,8 @@ module Roby
 
     # Add alias support in Task
     class Task
-        include EventAliasHandling
+        # Disabled for now, I don't know if all this alias thing is useful at all
+        # include EventAliasHandling
     end
 end
 
