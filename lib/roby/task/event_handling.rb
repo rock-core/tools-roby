@@ -47,13 +47,15 @@ module Roby
         end
 
         # call-seq:
-        #   on(from, task, event1, event2, ...) { |task, event| ... }
+        #   on(from, task, event1, event2, ...) { |task, event, context| ... }
         #
         # Adds an event handler for the event +from+. When +from+ is fired,
         # * all provided events will be provoked in +task+. As such, all of these
         #   events shall be controlable
-        # * calls the supplied handler when _from_ is triggered in the receiver. The block
-        #   is called with the originating task, and the event object
+        # * the supplied handler will be called with this task, the event name
+        #   and the event context
+        # 
+        # This method calls the added_event_handler callback
         def on(from, *args, &user_handler)
             from = model.validate_events(from).first
             unless args.size >= 2 || (args.size == 0 && user_handler)
