@@ -7,7 +7,7 @@ module Roby
 
     class Task
         # The task model
-        def model; singleton_class end
+        def model; self.class end
 
         # If a model of +event+ is defined in this task model
         def has_event?(event); model.has_event?(event) end
@@ -61,37 +61,44 @@ module Roby
             ev_s = ev.to_s
             ev = ev.to_sym
 
-            if options[:terminal] && has_event?(:end)
-                raise ArgumentError, "trying to define a terminal event, but the end event is already defined"
+            if options[:terminal] && has_event?(:stop)
+                raise ArgumentError, "trying to define a terminal event, but the stop event is already defined"
             end
 
             # Set self_task to the task class we are defining
             # to use it in the Event class definition
-            self_task = self
 
             if options.has_key?(:command)
                 if options[:command].respond_to?(:call)
                     command_handler = options[:command]
                 elsif options[:command] == true
-                    command_handler = lambda { |task, event, *context| task.emit(event, *context) }
+                    command_handler = lambda { |task, context| task.emit(ev, context) }
                 elsif options[:command]
                     raise ArgumentError, "Allowed values for :command option: true, false, nil and an object responding to #call. Got #{options[:command]}"
                 end
-            elsif self_task.instance_methods.include?(ev_s)
-                command_handler = lambda { |task, *args| task.send(ev, *args) }
+            elsif instance_methods.include?(ev_s)
+                command_handler = lambda { |task, context| task.send(ev, context) }
             end
 
             # Define the event class
             new_event = Class.new(options[:model]) do
-                @symbol = ev
+                @symbol   = ev
                 @terminal = options[:terminal]
 
-                @command_handler = command_handler
-                if @command_handler
-                    # Forwarder to provide a default argument for +event+
-                    def self.call(task, event = self.symbol, *args) #:nodoc:
-                        @command_handler.call(task, event, *args)
-                    end
+                class << self
+                    attr_accessor :command_handler
+                end
+            end
+
+            if command_handler
+                new_event.singleton_class.send(:define_method, :call) do |task, context|
+                    command_handler.call(task, context)
+                end
+                
+                # Define a bang method on self which calls the command
+                define_method(ev_s + '!') do |*context|
+                    context = *context
+                    new_event.call(self, context) 
                 end
             end
 
@@ -159,7 +166,7 @@ module Roby
             alias :has_event? :find_event
 
             def event_handlers #:nodoc:
-                @event_handlers ||= Hash.new
+                @event_handlers ||= Hash.new { |h, k| h[k] = Array.new }
             end
             
             private :validate_event_definition_request

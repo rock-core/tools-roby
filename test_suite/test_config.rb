@@ -1,3 +1,4 @@
+$LOAD_PATH.unshift File.join(File.dirname(__FILE__))
 $LOAD_PATH.unshift File.join(File.dirname(__FILE__), "../lib")
 BASE_TEST_DIR=File.expand_path(File.dirname(__FILE__))
 
