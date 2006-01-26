@@ -44,7 +44,6 @@ module Roby
                 raise TaskModelViolation, "emit(#{event_model}) called but the task is not running"
             end
 
-            puts "#{self.inspect} is emitting #{event_model.symbol}"
             event = event_model.new(self, context)
 
             # Add the event to our history
