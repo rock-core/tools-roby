@@ -74,7 +74,7 @@ module Roby
             end
             handlers << user_handler if user_handler
                     
-            @event_handlers[from.symbol] |= handlers
+            event_handlers[from.symbol] |= handlers
             handlers.each { |h| added_event_handler(from, h) }
         end
         
@@ -85,8 +85,8 @@ module Roby
             
             model.each_handler(event, &iterator)
             
-            return unless @event_handlers.has_key?(event)
-            @event_handlers[event].each(&iterator)
+            return unless event_handlers.has_key?(event)
+            event_handlers[event].each(&iterator)
         end
 
         # call-seq:
@@ -100,13 +100,15 @@ module Roby
         def self.on(from, *args, &user_handler)
             from = validate_events(from).first
 
+            event_handlers[from.symbol] ||= Array.new
+
             if user_handler
-                @event_handlers[from.symbol] << user_handler
+                event_handlers[from.symbol] << user_handler
             end
 
             if !args.empty?
                 args = validate_events(*args)
-                @event_handlers[from.symbol] << lambda do |from_task, event|
+                event_handlers[from.symbol] << lambda do |from_task, event|
                     args.each { |ev| ev.call(from_task, e, event.context) }
                 end
             end
