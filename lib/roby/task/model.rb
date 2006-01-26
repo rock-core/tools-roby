@@ -131,8 +131,12 @@ module Roby
                 raise ArgumentError, "event #{ev} already defined"
             elsif ev.to_sym == :start && options[:terminal]
                 raise TaskModelViolation, "the 'start' event cannot be terminal"
-            elsif ev.to_sym == :stop && options.has_key?(:terminal) && !options[:terminal]
-                raise TaskModelViolation, "the 'stop' event cannot be non-terminal"
+            elsif ev.to_sym == :stop
+                if options.has_key?(:terminal) && !options[:terminal]
+                    raise TaskModelViolation, "the 'stop' event cannot be non-terminal"
+                else 
+                    options[:terminal] = true
+                end
             end
         end
 
