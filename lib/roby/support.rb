@@ -28,6 +28,26 @@ class Module
         rescue NameError
         end
     end
+
+    # Defines a new constant under a given module
+    # :call-seq:
+    #   define_under(name, value)   ->              value
+    #   define_under(name) { ... }  ->              value
+    #
+    # In the first form, the method gets its value from its argument. 
+    # In the second case, it calls the provided block
+    def define_under(name, value = nil)
+        begin
+            curdef = const_get(name)
+            if !(kind === curdef)
+                raise TypeError, "#{name} is already defined but it is a #{curdef.class}"
+            end
+            return curdef
+        rescue NameError
+            value = yield if !value
+            const_set(name, value)
+        end
+    end
 end
 
 module Kernel
