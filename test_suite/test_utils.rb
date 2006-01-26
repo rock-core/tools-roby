@@ -26,6 +26,7 @@ module BaseClassExtension
 end
 
 class TC_Utils < Test::Unit::TestCase
+    include Roby
     def test_string_extensions
         assert_equal("DoCamelizeThat", "do_camelize_that".camelize)
     end

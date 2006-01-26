@@ -1,9 +1,9 @@
-$LOAD_PATH << File.join(File.dirname(__FILE__), '../lib')
-
+require 'test_config'
 require 'test/unit/testcase'
 require 'roby/task'
 
 class TC_TaskMeta < Test::Unit::TestCase 
+    include Roby
     class TestTask < Task
         def ev_not_controlable;     end
         def ev_method(event = :ev_method); :ev_method if event == :ev_redirected end
