@@ -1,10 +1,7 @@
-require 'active_support/inflector'
+require 'active_support/core_ext/string/inflections'
 
 class String
-    # Camelize this class
-    def camelize
-        Inflector.camelize(self)
-    end
+    include ActiveSupport::CoreExtensions::String::Inflections
 end
 
 class Object
