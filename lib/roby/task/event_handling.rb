@@ -99,7 +99,7 @@ module Roby
             end
             handlers << user_handler if user_handler
                     
-            @event_handlers[event_model.symbol] |= handlers
+            @event_handlers[event_model.symbol] += handlers
             handlers.each { |h| added_event_handler(event_model, h) }
         end
 
