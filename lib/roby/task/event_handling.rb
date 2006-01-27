@@ -104,9 +104,9 @@ module Roby
         end
 
         # Calls the command for +event+ on this task, in the given context
-        def send_command(event_model, *context)
+        def send_command(event_model, context = nil)
             event_model = model.validate_events(event_model).first
-            event_model.call(task, *args)
+            event_model.call(self, context)
         end
         
         # Iterates on all event handlers defined for +event+. This includes
