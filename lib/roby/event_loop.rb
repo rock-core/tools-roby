@@ -16,7 +16,8 @@ module Roby
         end
 
         cycle_start, cycle_server, cycle_handlers = nil
-        @quit = false
+        
+        yield if block_given?
         loop do
             # Current time
             cycle_start = Time.now
@@ -28,7 +29,7 @@ module Roby
                     cycle_server = Time.now
                     "Processing server commands"
                 }
-                Thread.now.process_events
+                Thread.current.process_events
                 Roby.debug { "Server events processed in #{Time.now - cycle_server}" }
             end
             
