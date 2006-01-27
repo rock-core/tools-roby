@@ -1,4 +1,5 @@
 require 'active_support/core_ext/string/inflections'
+require 'thread'
 
 class String
     include ActiveSupport::CoreExtensions::String::Inflections
@@ -91,6 +92,21 @@ module Kernel
         end
 
         options
+    end
+end
+
+class Thread
+    def send_to(object, name, *args, &prc)
+        @msg_queue ||= Queue.new
+        @msg_queue << [ object, name, args, prc ]
+    end
+    def process_events
+        @msg_queue ||= Queue.new
+        while !@msg_queue.empty?
+            object, event = *@msg_queue.deq
+            event[0]
+            @server.send(*@msg_queue.deq)
+        end
     end
 end
 
