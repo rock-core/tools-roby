@@ -21,31 +21,32 @@ module Roby
         loop do
             # Current time
             cycle_start = Time.now
-            Roby.debug { "Starting cycle at #{cycle_start}" }
 
             # Get the events received by the server and process them
+            cycle_server = nil
             if drb_uri
-                Roby.debug {
-                    cycle_server = Time.now
-                    "Processing server commands"
-                }
+                cycle_server = Time.now
                 Thread.current.process_events
-                Roby.debug { "Server events processed in #{Time.now - cycle_server}" }
             end
             
             # Call event processing registered by other modules
-            Roby.debug {
-                cycle_handlers = Time.now
-                "Processing server commands"
-            }
+            cycle_handlers = Time.now
             event_processing.each { |prc| prc.call }
-            Roby.debug { "Event handlers processed in #{Time.now - cycle_handlers}" }
             
             cycle_end = Time.now
             cycle_duration = cycle_end - cycle_start
-            Roby.debug { "Event processing took #{cycle_duration}" }
 
-            sleep(cycle - cycle_duration)
+            Roby.debug { 
+                [
+                    "Started cycle at #{cycle_start}",
+                    cycle_server ? "  server events processing took #{cycle_handlers - cycle_server}" : nil,
+                    "  event handlers took #{cycle_end - cycle_handlers}",
+                    "end of cycle at #{cycle_end}. Event processing took #{cycle_duration}s" 
+                ].compact.join("\n")
+            }
+            if cycle > cycle_duration
+                sleep(cycle - cycle_duration)
+            end
         end
 
     rescue Interrupt
