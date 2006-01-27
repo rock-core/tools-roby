@@ -1,3 +1,4 @@
+require 'roby/event_loop'
 require 'roby/base'
 require 'roby/task'
 require 'genom/module'
@@ -6,14 +7,44 @@ require 'genom/environment'
 module Roby
     module Genom
         include ::Genom
-        @pending = Array.new
+        @activities = Array.new
         class << self
-            attr_reader :pending # :nodoc:
+            attr_reader :activities # :nodoc:
         end
+
+        # The event_reader routines will emit +event+ on +request+ when 
+        # +activity+ reached the status +status
+        Running = Struct.new(:request, :abort)
+
+        def self.process_request(request, activity, abort_request)
+            # Check abort status. This can raise ReplyTimeout, which is
+            # the only event we are interested in
+            abort_request.status if abort_request
+
+            task.emit :end, activity.output if !activity.status
+
+        rescue ReplyTimeout => e # timeout waiting for reply
+            raise TaskModelViolation, "failed to start the task: #{e.message}"
+
+        rescue ActivityInterrupt # interrupted
+            task.emit :start, nil if !task.started?
+            task.emit :interrupted 
+
+        rescue GenomError => e # the request failed
+            if !task.started?
+                raise TaskModelViolation, "failed to start the task: #{e.message}"
+            else
+                task.emit :failed, e.message
+            end
+        end
+
+        # Register the event processing in Roby event loop
+        Roby.event_processing << lambda do activities.each { |a, r| process_request(r.request, a, r.abort) } end
 
         # Base class for the task models defined
         # for Genom modules requests
         #
+        # 
         # See Roby::Genom
         class Request < Roby::Task
             class << self
@@ -26,25 +57,19 @@ module Roby
             end
             
             def start(context)
-                context << timeout
-                @activity = @module.call(@request, context, timeout)
-                Genom.pending[:start] << [self, @activity]
+                @activity = @module.send(@request, context, timeout)
+                Genom.requests[@activity] = Running.new(self)
             end
             
             event :success, :terminal => true
             event :failed, :terminal => true
+            event :interrupted, :terminal => true
             event :stop, :terminal => true
 
-            on :success, :stop
-            def success
-            end
-
-            on :failed, :stop
-            def failed
-            end
+            on :success => :stop, :failed => :stop, :interrupted => [ :failed, :stop ]
 
             def stop
-                Genom.pending[:stop] << [self, @activity.abort]
+                Genom.activities[@activity].abort = @activity.abort
             end
         end
 
