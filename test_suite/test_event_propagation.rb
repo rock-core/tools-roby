@@ -34,6 +34,7 @@ class TC_EventPropagation < Test::Unit::TestCase
         if_node.on(:stop) { raise Interrupt }
             
         Roby.event_processing << lambda do 
+            next unless next_event
             task, event = *next_event
             next_event = nil
             task.send_command(event)
