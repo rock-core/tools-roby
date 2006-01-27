@@ -7,8 +7,6 @@ module Roby
     @logger.formatter = lambda { |severity, time, progname, msg| "#{progname}: #{msg}\n" }
 
     class << self
-        # The logger used by Genom.rb 
-        # The default logger severity is set to WARN
         attr_accessor :logger
 
         [ :debug, :info, :warn, :error, :fatal, :unknown ].each do |level|
