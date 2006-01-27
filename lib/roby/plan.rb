@@ -1,9 +1,9 @@
 require 'set'
-require 'relations/hierarchy'
+require 'roby/relations/hierarchy'
 
 module Roby
     class Task
-        include TaskRelationship::Hierarchy
+        include TaskRelationships::Hierarchy
     end
 
     class Plan
