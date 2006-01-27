@@ -7,12 +7,12 @@ module Roby
     end
 
     # The main event loop
-    def self.run(cycle = 0.1, drb_uri = nil)
-        # Start the Drb server if needed
+    def self.run(drb_uri = nil, cycle = 0.1)
+        # Start the DRb server if needed
         if drb_uri
-            require 'drb-server'
-            Drb.start_service(drb_uri, Server.new(Thread.now))
-            Roby.info "Started Drb server on #{drb_uri}"
+            require 'roby/drb'
+            DRb.start_service(drb_uri, Server.new(Thread.current))
+            Roby.info "Started DRb server on #{drb_uri}"
         end
 
         cycle_start, cycle_server, cycle_handlers = nil
@@ -50,8 +50,7 @@ module Roby
 
     rescue Interrupt
         if drb_uri
-            Drb.thread.raise Interrupt
-            Drb.thread.join
+            DRb.stop_service
         end
         puts "Quitting"
     end
