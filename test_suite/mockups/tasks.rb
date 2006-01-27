@@ -6,7 +6,7 @@ if !defined?(EmptyTask)
     class EmptyTask < Roby::Task
         event :start, :command => true
         event :stop, :terminal => true
-        on :start, :stop
+        on :start => :stop
     end
 
     class ChoiceTask < Roby::Task

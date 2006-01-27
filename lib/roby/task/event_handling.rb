@@ -120,29 +120,36 @@ module Roby
         end
 
         # call-seq:
-        #   on(event_model, event1[, event2, ...]) { |event| ... }
+        #   on(event_model) { |event| ... }
+        #   on(event_model => ev1, ev2 => [ ev3, ev4 ]) { |event| ... }
         #
         # Adds an event handler for the given event model. When the event is fired,
         # all events given in argument will be called. If they are controlable,
         # then the command is called. If not, they are just fired
-        def self.on(event_model, *args, &user_handler)
-            event_model = validate_events(event_model).first
+        def self.on(mappings, &user_handler)
+            source_events = []
+            if Hash === mappings
+                mappings.each do |from, to|
+                    from = validate_events(from).first
+                    source_events << from
+                    to   = validate_events(*to)
 
-            if user_handler
-                event_handlers[event_model.symbol] << user_handler
-            end
-
-            if !args.empty?
-                args = validate_events(*args)
-                event_handlers[event_model.symbol] << lambda do |event|
-                    args.each { |ev| 
-                        if ev.respond_to?(:call)
-                            ev.call(from_task, event.context) 
-                        else
-                            event.task.emit(ev, event.context)
-                        end
-                    }
+                    event_handlers[from.symbol] << lambda do |src_event|
+                        to.each { |to_model| 
+                            if to_model.respond_to?(:call)
+                                to_model.call(src_event.task, src_event.context) 
+                            else
+                                src_event.task.emit(to_model, src_event.context)
+                            end
+                        }
+                    end
                 end
+            else
+                source_events += validate_events(mappings)
+            end
+                    
+            if user_handler
+                source_events.each { |model| event_handlers[model.symbol] << user_handler }
             end
         end
 
