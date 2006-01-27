@@ -140,6 +140,10 @@ module Roby
             end
         end
 
+        def self.event_model(event)
+            validate_event_models(event).first
+        end
+
         # Checks that all events in +events+ are valid events for this task.
         # The requested events can be either an event name (symbol or string)
         # or an event class
