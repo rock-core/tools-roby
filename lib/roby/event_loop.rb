@@ -16,6 +16,8 @@ module Roby
         end
 
         cycle_start, cycle_server, cycle_handlers = nil
+        GC.disable
+        GC.start
         
         yield if block_given?
         loop do
@@ -37,6 +39,13 @@ module Roby
             cycle_duration = cycle_end - cycle_start
 
             Roby.debug { 
+                "Object allocation profile:" <<
+                ObjectStats.profile { GC.start }.collect do |klass, count|
+                    "  #{klass}: #{count}"
+                end.join("\n")
+            }
+
+            Roby.debug { 
                 [
                     "Started cycle at #{cycle_start}",
                     cycle_server ? "  server events processing took #{cycle_handlers - cycle_server}" : nil,
@@ -44,7 +53,9 @@ module Roby
                     "end of cycle at #{cycle_end}. Event processing took #{cycle_duration}s" 
                 ].compact.join("\n")
             }
+
             if cycle > cycle_duration
+                GC.start
                 sleep(cycle - cycle_duration)
             end
         end
