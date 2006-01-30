@@ -55,7 +55,7 @@ module Roby
             }
 
             GC.start
-            cycle_duration = Time.now cycle_start
+            cycle_duration = Time.now - cycle_start
             if cycle > cycle_duration
                 sleep(cycle - cycle_duration)
             end
