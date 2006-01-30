@@ -1,0 +1,41 @@
+require 'test/unit'
+require 'test_config'
+require 'roby/task'
+require 'roby/relations'
+require 'roby/relations/hierarchy'
+require 'mockups/tasks'
+
+class TC_Relations < Test::Unit::TestCase
+    include Roby
+    def test_hierarchy
+        a = EmptyTask.new
+        b = EmptyTask.new
+
+        a.realized_by b => true
+        assert( !a.realizes?(b) )
+        assert( b.realizes?(a) )
+        assert( a.realized_by?(b) )
+        assert( !b.realized_by?(a) )
+
+        assert_equal([],  a.enum_for(:each_parent).to_a)
+        assert_equal([b], a.enum_for(:each_child).to_a)
+        assert_equal([a], b.enum_for(:each_parent).to_a)
+        assert_equal([],  b.enum_for(:each_child).to_a)
+        assert_equal(b.enum_for(:each_relation).to_a, a.enum_for(:each_relation).to_a )
+
+        a.remove_relation(TaskRelationships::Hierarchy, b)
+        assert( !a.realizes?(b) )
+        assert( !b.realizes?(a) )
+        assert( !a.realized_by?(b) )
+        assert( !b.realized_by?(a) )
+
+        assert_equal([], a.enum_for(:each_parent).to_a)
+        assert_equal([], a.enum_for(:each_child).to_a)
+        assert_equal([], b.enum_for(:each_parent).to_a)
+        assert_equal([], b.enum_for(:each_child).to_a)
+        assert_equal([], b.enum_for(:each_relation).to_a)
+        assert_equal([], a.enum_for(:each_relation).to_a )
+    end
+
+end
+
