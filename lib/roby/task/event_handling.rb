@@ -109,16 +109,6 @@ module Roby
             event_model.call(self, context)
         end
         
-        # Iterates on all event handlers defined for +event+. This includes
-        # the handlers defined in the task model by Task::each_handler
-        def each_handler(event, &iterator)
-            event = model.validate_events(event).first.symbol
-            
-            model.each_handler(event, &iterator)
-            return unless event_handlers.has_key?(event)
-            event_handlers[event].each(&iterator)
-        end
-
         # call-seq:
         #   on(event_model) { |event| ... }
         #   on(event_model => ev1, ev2 => [ ev3, ev4 ]) { |event| ... }
@@ -153,13 +143,28 @@ module Roby
             end
         end
 
+        # Iterates on all event handlers defined for +event+. This includes
+        # the handlers defined in the task models, by calling model.each_handler
+        # See below for Task::each_handler
+        def each_handler(event, &iterator)
+            event = model.validate_events(event).first.symbol
+            
+            model.each_handler(event, &iterator)
+            return unless event_handlers.has_key?(event)
+            event_handlers[event].each(&iterator)
+        end
+
         # call-seq:
         #   each_handler(event) { |event| ... }
         #   
         # Enumerates all event handlers defined for +event+ in the task model
         def self.each_handler(event, &iterator) 
-            return unless event_handlers.has_key?(event)
-            event_handlers[event].each(&iterator)
+            if superclass.respond_to?(:each_handler)
+                superclass.each_handler(event, &iterator)
+            end
+            if event_handlers.has_key?(event)
+                event_handlers[event].each(&iterator)
+            end
         end
 
         # Callback called when an event handler is added for +event+
