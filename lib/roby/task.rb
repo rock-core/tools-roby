@@ -23,7 +23,7 @@ module Roby
                 raise TaskModelViolation, "no terminal event for this task"
             elsif !model.has_event?(:stop)
                 # Create the stop event for this task, if it is not defined
-                stop_ev = model.event(:stop, :terminal => true, :command => false)
+                stop_ev = model.event(:stop, :terminal => true)
                 model.terminal_events.each do |ev|
                     model.on(ev => stop_ev) if ev != stop_ev
                 end
