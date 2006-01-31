@@ -19,6 +19,10 @@ class TC_EventPropagation < Test::Unit::TestCase
         start_node.on(:stop, if_node, :start)
         start_node.start!
         assert(start_node.finished? && if_node.finished?)
+
+        multi_hop = MultiEventTask.new
+        multi_hop.emit :start
+        assert(multi_hop.finished?)
     end
 
     def test_event_loop
@@ -43,3 +47,4 @@ class TC_EventPropagation < Test::Unit::TestCase
         assert(start_node.finished? && if_node.finished?)
     end
 end
+
