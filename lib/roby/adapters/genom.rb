@@ -1,3 +1,4 @@
+require 'roby/state'
 require 'roby/support'
 require 'roby/event_loop'
 require 'roby/base'
@@ -139,6 +140,11 @@ module Roby
 
             @genom_modules[name] = rb_mod
         end
+        class Genom < ExtendableStruct
+            def dataflow(type, links)
+            end
+        end
+        State.genom = Genom.new
     end
 end
 
