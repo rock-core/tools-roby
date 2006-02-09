@@ -120,7 +120,7 @@ module Roby
         def self.GenomModule(name)
             return @genom_modules[name] if @genom_modules.has_key?(name)
 
-            gen_mod = GenomModule.load(name, :auto_attributes => true, :lazy_poster_init => true)
+            gen_mod = GenomModule.new(name, :auto_attributes => true, :lazy_poster_init => true)
             modname = gen_mod.name.classify
 
             Roby.info { "Defining namespace #{modname} for genom module #{name}" }
