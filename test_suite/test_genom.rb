@@ -17,13 +17,13 @@ class TC_Genom < Test::Unit::TestCase
     end
 
     def teardown
-        Genom.connect do
+        ::Genom.connect do
             @env.stop_modules('mockup')
         end
     end
 
     def test_event_handling
-        Genom.connect do
+        ::Genom.connect do
             mod = Genom::GenomModule('mockup')
             @env.start_modules('mockup')
 

@@ -8,7 +8,6 @@ require 'genom/environment'
 
 module Roby
     # Import the whole Genom.rb library into Roby::Genom
-    Genom = ::Genom
     module Genom
         include ::Genom
         @activities = Hash.new
