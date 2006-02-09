@@ -139,11 +139,11 @@ module Roby
 
             @genom_modules[name] = rb_mod
         end
-        class Genom < ExtendableStruct
+        class GenomState < ExtendableStruct
             def dataflow(type, links)
             end
         end
-        State.genom = Genom.new
+        State.genom = GenomState.new
     end
 end
 
