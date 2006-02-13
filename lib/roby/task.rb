@@ -405,6 +405,10 @@ module Roby
     end
 end
 
+require 'roby/relations'
+require 'roby/relations/hierarchy'
+require 'roby/task-operations'
+
 # Notes on event handlers, event commands and event models
 #
 #   * when an event if fired, it is done in a certain context, which
