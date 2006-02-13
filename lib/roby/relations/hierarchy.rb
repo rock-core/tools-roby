@@ -10,7 +10,7 @@ module Roby::TaskRelations
         end
 
         def realized_by(tasks)
-            if !Hash === tasks
+            unless Hash === tasks
                 tasks = { tasks => :stop }
             end
 
