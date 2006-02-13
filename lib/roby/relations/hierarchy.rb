@@ -17,15 +17,15 @@ module Roby::TaskRelations
             tasks.each do |task, events|
                 @realized_by[task] = events
                 task.send(:realizes) << self
-                added_task_relationship(Hierarchy, self, task, events)
+                added_task_relation(Hierarchy, self, task, events)
             end
         end
 
         def remove_hierarchy(task)
             if events = @realized_by.delete(task)
                 task.send(:realizes).delete(self)
-                removed_task_relationship(Hierarchy, self, task, events)
-                task.removed_task_relationship(Hierarchy, self, task, events)
+                removed_task_relation(Hierarchy, self, task, events)
+                task.removed_task_relation(Hierarchy, self, task, events)
                 true
             elsif @realizes.include?(task)
                 task.remove_hierarchy(self)
@@ -86,7 +86,7 @@ end
 
 module Roby
     class Task
-        include TaskRelationships::Hierarchy
+        include TaskRelations::Hierarchy
     end
 end
 

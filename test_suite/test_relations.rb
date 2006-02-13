@@ -23,7 +23,7 @@ class TC_Relations < Test::Unit::TestCase
         assert_equal([],  b.enum_for(:each_child).to_a)
         assert_equal(b.enum_for(:each_relation).to_a, a.enum_for(:each_relation).to_a )
 
-        a.remove_relation(TaskRelationships::Hierarchy, b)
+        a.remove_relation(TaskRelations::Hierarchy, b)
         assert( !a.realizes?(b) )
         assert( !b.realizes?(a) )
         assert( !a.realized_by?(b) )

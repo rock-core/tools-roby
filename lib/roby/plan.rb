@@ -3,7 +3,7 @@ require 'roby/relations/hierarchy'
 
 module Roby
     class Task
-        include TaskRelationships::Hierarchy
+        include TaskRelations::Hierarchy
     end
 
     class Plan
