@@ -146,9 +146,10 @@ module Roby
         def each_handler(event, &iterator)
             event = model.validate_events(event).first.symbol
             
+            if event_handlers.has_key?(event)
+                event_handlers[event].each(&iterator)
+            end
             model.each_handler(event, &iterator)
-            return unless event_handlers.has_key?(event)
-            event_handlers[event].each(&iterator)
         end
 
         # :section: Callbacks
