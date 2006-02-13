@@ -48,31 +48,60 @@ class TC_EventPropagation < Test::Unit::TestCase
         assert(start_node.finished? && if_node.finished?)
     end
 
-    def test_aggregator
+    def setup_aggregation(mock)
         empty = EmptyTask.new
         multi = MultiEventTask.new
-        empty.on(:stop) { multi.emit(:start) }
+
+        (empty.event(:start) & empty.event(:stop) & multi.event(:inter)).
+            on { mock.and }
+
+        (empty.event(:stop) | multi.event(:start)).
+            on { mock.or }
+
+        ((empty.event(:stop) & multi.event(:start)) | multi.event(:inter)).
+            on { mock.and_or }
+
+        ((empty.event(:stop) & multi.event(:start)) | multi.event(:inter)).
+            on { mock.and_or_p }.
+            permanent!
+
+        ((empty.event(:stop) | multi.event(:start)) & multi.event(:inter)).
+            on { mock.or_and }
+
+
+        [empty, multi]
+    end
+
+    def test_aggregator
+        FlexMock.use do |mock|
+            empty, multi = setup_aggregation(mock)
+            empty.on(:stop) { multi.emit(:start) }
+            mock.should_receive(:or).once
+            mock.should_receive(:and).once
+            mock.should_receive(:and_or).once
+            mock.should_receive(:and_or_p).twice
+            mock.should_receive(:or_and).once
+            empty.emit(:start)
+        end
 
         FlexMock.use do |mock|
-            mock.should_receive(:transient_or).once
-            mock.should_receive(:transient_and).once
-            mock.should_receive(:transient_complex).once
-            mock.should_receive(:permanent_complex).twice
-
-            (empty.event(:start) & empty.event(:stop) & multi.event(:inter)).
-                on { mock.transient_and }
-
-            (empty.event(:stop) | multi.event(:start)).
-                on { mock.transient_or }
-
-            ((empty.event(:stop) & multi.event(:start)) | multi.event(:inter)).
-                on { mock.transient_complex }
-
-            ((empty.event(:stop) & multi.event(:start)) | multi.event(:inter)).
-                on { mock.permanent_complex }.
-                permanent!
-
+            empty, multi = setup_aggregation(mock)
+            mock.should_receive(:or).once
+            mock.should_receive(:and).never
+            mock.should_receive(:and_or).never
+            mock.should_receive(:and_or_p).never
+            mock.should_receive(:or_and).never
             empty.emit(:start)
+        end
+
+        FlexMock.use do |mock|
+            empty, multi = setup_aggregation(mock)
+            mock.should_receive(:or).once
+            mock.should_receive(:and).never
+            mock.should_receive(:and_or).once
+            mock.should_receive(:and_or_p).once
+            mock.should_receive(:or_and).once
+            multi.emit(:start)
         end
     end
 end
