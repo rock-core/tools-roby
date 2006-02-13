@@ -1,5 +1,5 @@
 module Roby
-    module TaskRelationships
+    module TaskRelations
         # There is one kind of relation by module in Roby::TaskRelationships
         # These modules are included in tasks which need a given relation type
         module Interface
@@ -14,16 +14,16 @@ module Roby
             
             # Callback called by the relationship modules
             # when a relation involving self is created
-            def added_task_relationship(kind, first_task, second_task, args); end
+            def added_task_relation(kind, first_task, second_task, args); end
             # Callback called by the relationship modules
             # when a relation involving self is removed
-            def removed_task_relationship(kind, first_task, second_task, args); end
+            def removed_task_relation(kind, first_task, second_task, args); end
         end
     end
 
     class Task
         # Must be the first of all TaskRelationships included
-        include TaskRelationships::Interface
+        include TaskRelations::Interface
         
         # Removes all relations of the given kind between this task and other
         # Returns true if there was something to remove

@@ -1,7 +1,7 @@
 require 'roby/relations'
 require 'set'
 
-module Roby::TaskRelationships
+module Roby::TaskRelations
     module Hierarchy
         def initialize(*args, &proc)
             @realizes    = Set.new
