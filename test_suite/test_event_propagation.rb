@@ -104,5 +104,19 @@ class TC_EventPropagation < Test::Unit::TestCase
             multi.emit(:start)
         end
     end
+
+    def test_task_aggregator
+        t1, t2 = EmptyTask.new, EmptyTask.new
+        p = t1 | t2
+        p.start!(nil)
+        assert(t1.finished? && t2.finished?)
+        assert(p.finished?)
+
+        t1, t2 = EmptyTask.new, EmptyTask.new
+        s = t1 + t2
+        s.start!(nil)
+        assert(t1.finished? && t2.finished?)
+        assert(s.finished?)
+    end
 end
 
