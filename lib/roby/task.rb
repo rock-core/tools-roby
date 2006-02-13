@@ -151,6 +151,8 @@ module Roby
             event_handlers[event].each(&iterator)
         end
 
+        # :section: Callbacks
+        
         # Callback called when an event handler is added for +event+
         # *Return* false to discard the handler
         def added_event_handler(event, handler); true end
@@ -166,12 +168,10 @@ module Roby
         # emitting the event +e+
         def after_calling_handler(e, h); end
 
-    end
 
 
-
-    # Module which defines the task models methods and attributes
-    module TaskModel
+        # :section: Event model
+        
         # call-seq:
         #   self.event(name, options = nil)                   -> event class or nil
         #
@@ -214,7 +214,7 @@ module Roby
         # will be an instance of this particular class. To override the base class
         # for a particular event, use the <tt>:model</tt> option
         #
-        def event(ev, options = nil)
+        def self.event(ev, options = nil)
             options = validate_options(options, :command => nil, :terminal => nil, :model => Event)
             validate_event_definition_request(ev, options)
 
@@ -270,7 +270,7 @@ module Roby
         end
 
         # Iterates on all event models defined for this task model
-        def each_event(&iterator) # :yields: event
+        def self.each_event(&iterator) # :yields: event
             constants.each do |const_name|
                 const_value = const_get(const_name)
                 if const_value.has_ancestor?(Event)
@@ -280,13 +280,13 @@ module Roby
         end
 
         # Get the list of terminal events for this model
-        def terminal_events; enum_for(:each_event).find_all { |e| e.terminal? } end
+        def self.terminal_events; enum_for(:each_event).find_all { |e| e.terminal? } end
         # Find the event class for +event+, or nil if +event+ is not an event name for this model
-        def find_event(event); 
+        def self.find_event(event); 
             enum_for(:each_event).find { |e| e.symbol == event.to_sym } 
         end
           
-        def validate_event_definition_request(ev, options) #:nodoc:
+        def self.validate_event_definition_request(ev, options) #:nodoc:
             if has_event?(ev)
                 raise ArgumentError, "event #{ev} already defined"
             elsif ev.to_sym == :start && options[:terminal]
@@ -301,7 +301,7 @@ module Roby
         end
 
         # Get the event model for +event+. +event+ must follow the rules for validate_event_models
-        def event_model(event)
+        def self.event_model(event)
             validate_event_models(event).first
         end
 
@@ -310,7 +310,7 @@ module Roby
         # or an event class
         #
         # Returns the corresponding array of event classes
-        def validate_events(*events) #:nodoc:
+        def self.validate_events(*events) #:nodoc:
             events.map { |e|
                 if e.respond_to?(:to_sym)
                     ev_model = find_event(e.to_sym)
@@ -331,21 +331,23 @@ module Roby
             }
         end
 
-        # Checks if _name_ is a name for an event of this task
-        alias :has_event? :find_event
-
-        def event_handlers #:nodoc:
+        def self.event_handlers #:nodoc:
             @event_handlers ||= Hash.new { |h, k| h[k] = Array.new }
         end
         
-        private :validate_event_definition_request
+        class << self
+            # Checks if _name_ is a name for an event of this task
+            alias :has_event? :find_event
+
+            private :validate_event_definition_request
+        end
     
         # Callback called when an event class has been defined, but before it is registered.
         #
         # Returns true if the event should be registered, false otherwise. The preferred
         # way to abort an event definition is to raise a TaskModelViolation exception.
         # 
-        def new_event_model(klass)
+        def self.new_event_model(klass)
             if superclass.respond_to?(:new_event_model)
                 superclass.new_event_model(klass)
             else
@@ -357,7 +359,7 @@ module Roby
         #   each_handler(event) { |event| ... }
         #   
         # Enumerates all event handlers defined for +event+ in the task model
-        def each_handler(event, &iterator) 
+        def self.each_handler(event, &iterator) 
             if superclass.respond_to?(:each_handler)
                 superclass.each_handler(event, &iterator)
             end
@@ -373,7 +375,7 @@ module Roby
         # Adds an event handler for the given event model. When the event is fired,
         # all events given in argument will be called. If they are controlable,
         # then the command is called. If not, they are just fired
-        def on(mappings, &user_handler)
+        def self.on(mappings, &user_handler)
             source_events = []
             if Hash === mappings
                 mappings.each do |from, to|
@@ -400,10 +402,6 @@ module Roby
             end
         end
 
-    end
-
-    class << Task
-        include TaskModel
     end
 end
 

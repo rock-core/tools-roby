@@ -5,7 +5,6 @@ require 'roby/event'
 require 'roby/plan'
 
 module Roby
-    # Mark core classes to be undumpable
     class Task
         include DRbUndumped
     end

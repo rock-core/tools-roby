@@ -30,6 +30,5 @@ if !defined?(EmptyTask)
         event :stop
         on :start => :inter, :inter => :stop
     end
-        
 end
 
