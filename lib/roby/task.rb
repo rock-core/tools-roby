@@ -87,6 +87,13 @@ module Roby
             event
         end
 
+        # Returns an BoundEvent object which represents the given event bound
+        # from this particular task
+        def event(event_model)
+            event_model = model.validate_events(event_model).first
+            BoundEvent.new(self, event_model)
+        end
+
         # call-seq:
         #   on(event_model[, task, event1, event2, ...]) { |event| ... }
         #

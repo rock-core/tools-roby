@@ -1,3 +1,4 @@
+require 'flexmock'
 require 'test_config'
 require 'roby/event_loop'
 require 'mockups/tasks'
@@ -45,6 +46,34 @@ class TC_EventPropagation < Test::Unit::TestCase
         end
         assert_doesnt_timeout(1) { Roby.run }
         assert(start_node.finished? && if_node.finished?)
+    end
+
+    def test_aggregator
+        empty = EmptyTask.new
+        multi = MultiEventTask.new
+        empty.on(:stop) { multi.emit(:start) }
+
+        FlexMock.use do |mock|
+            mock.should_receive(:transient_or).once
+            mock.should_receive(:transient_and).once
+            mock.should_receive(:transient_complex).once
+            mock.should_receive(:permanent_complex).twice
+
+            (empty.event(:start) & empty.event(:stop) & multi.event(:inter)).
+                on { mock.transient_and }
+
+            (empty.event(:stop) | multi.event(:start)).
+                on { mock.transient_or }
+
+            ((empty.event(:stop) & multi.event(:start)) | multi.event(:inter)).
+                on { mock.transient_complex }
+
+            ((empty.event(:stop) & multi.event(:start)) | multi.event(:inter)).
+                on { mock.permanent_complex }.
+                permanent!
+
+            empty.emit(:start)
+        end
     end
 end
 
