@@ -7,9 +7,7 @@ require 'genom/module'
 require 'genom/environment'
 
 module Roby
-    # Import the whole Genom.rb library into Roby::Genom
     module Genom
-        include ::Genom
         @activities = Hash.new
         class << self
             attr_reader :activities # :nodoc:
@@ -31,14 +29,14 @@ module Roby
                 task.emit :success, activity.output
             end
 
-        rescue ReplyTimeout => e # timeout waiting for reply
+        rescue ::Genom::ReplyTimeout => e # timeout waiting for reply
             raise TaskModelViolation, "failed to start the task: #{e.message}"
 
-        rescue ActivityInterrupt # interrupted
+        rescue ::Genom::ActivityInterrupt # interrupted
             task.emit :start, nil if !task.running?
             task.emit :interrupted 
 
-        rescue GenomError => e # the request failed
+        rescue ::Genom::GenomError => e # the request failed
             raise
             if !task.running?
                 raise TaskModelViolation, "failed to start the task: #{e.message}"
@@ -118,9 +116,7 @@ module Roby
         
         # Loads a new Genom module and defines the task models for it
         def self.GenomModule(name)
-            return @genom_modules[name] if @genom_modules.has_key?(name)
-
-            gen_mod = GenomModule.new(name, :auto_attributes => true, :lazy_poster_init => true)
+            gen_mod = ::Genom::GenomModule.new(name, :auto_attributes => true, :lazy_poster_init => true)
             modname = gen_mod.name.classify
 
             Roby.info { "Defining namespace #{modname} for genom module #{name}" }

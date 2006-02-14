@@ -13,7 +13,7 @@ class TC_Genom < Test::Unit::TestCase
     end
 
     def setup
-        @env = Genom::Runner.h2 
+        @env = ::Genom::Runner.environment || ::Genom::Runner.h2 
     end
 
     def teardown
