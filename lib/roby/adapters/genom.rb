@@ -3,6 +3,7 @@ require 'roby/support'
 require 'roby/event_loop'
 require 'roby/base'
 require 'roby/task'
+require 'roby/relations/executed_by'
 require 'genom/module'
 require 'genom/environment'
 
@@ -124,13 +125,33 @@ module Roby
             Roby.info { "Defining namespace #{modname} for genom module #{name}" }
             rb_mod = Genom.define_under(modname) do 
                 Module.new do
+                    @module = gen_mod
                     class << self
-                        attr_accessor :module
+                        attr_reader :module
+                        def new_task; Runner.new end
                     end
                 end
             end
-            
-            rb_mod.module = gen_mod
+
+            rb_mod.define_under('Runner') do
+                Class.new(Roby::Task) do
+                    @module_name = name
+                    def self.module_name; @module_name end
+
+                    def start(context)
+                        ::Genom::Runner.environment.start_modules self.class.module_name
+                        emit :start
+                    end
+                    event :start
+
+                    def stop(context)
+                        ::Genom::Runner.environment.stop_modules self.class.module_name
+                        emit :stop
+                    end
+                    event :stop
+                end
+            end
+
             gen_mod.request_info.each do |req_name, req_def|
                 define_request(rb_mod, req_name) if !req_def.control?
             end
