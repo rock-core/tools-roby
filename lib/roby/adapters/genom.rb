@@ -169,7 +169,8 @@ module Roby
             end
         end
         class GenomState < ExtendableStruct
-            def dataflow(type, links)
+            def using(*modules)
+                modules.each { |modname| GenomModule(modname) }
             end
         end
         State.genom = GenomState.new
