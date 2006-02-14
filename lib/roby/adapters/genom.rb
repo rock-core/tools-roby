@@ -54,8 +54,7 @@ module Roby
         # Base class for the task models defined
         # for Genom modules requests
         #
-        # 
-        # See Roby::Genom
+        # See Roby::Genom::GenomModule
         class Request < Roby::Task
             attr_reader :activity
 
@@ -114,6 +113,19 @@ module Roby
         end
         
         # Loads a new Genom module and defines the task models for it
+        # GenomModule('foo') defines the following:
+        # * a Roby::Genom::Foo namespace
+        # * a Roby::Genom::Foo::Runner task which deals with running the module itself
+        # * a Roby::Genom::Foo::<RequestName> for each request in foo
+        #
+        # Moreover, it defines a #module attribute in the Foo namespace, which is the 
+        # ::Genom::GenomModule object, and a #request_name method which returns
+        # RequestName.new
+        #
+        # The main module defines the singleton method new_task so that a module
+        # can be used in ExecutedBy relationships
+        # 
+        # 
         def self.GenomModule(name)
             gen_mod = ::Genom::GenomModule.new(name, :auto_attributes => true, :lazy_poster_init => true)
             modname = gen_mod.name.classify
@@ -122,8 +134,8 @@ module Roby
             rescue NameError
             end
 
-            Roby.info { "Defining namespace #{modname} for genom module #{name}" }
-            rb_mod = Genom.define_under(modname) do 
+            Roby.debug { "Defining namespace #{modname} for genom module #{name}" }
+            rb_mod = ::Roby::Genom.define_under(modname) do 
                 Module.new do
                     @module = gen_mod
                     class << self
