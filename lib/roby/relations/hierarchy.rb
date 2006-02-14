@@ -1,3 +1,4 @@
+require 'enumerator'
 require 'roby/relations'
 require 'set'
 
@@ -11,12 +12,15 @@ module Roby::TaskRelations
 
         HierarchyLink = Struct.new(:done_with, :fails_on)
 
-        def realized_by(task, options = nil)
-            options = validate_options(options, :done_with => [:stop], :fails_on => [])
-
-            @realized_by[task] = HierarchyLink.new([*options[:done_with]], [*options[:fails_on]])
+        def realized_by(task, options = {:done_with => :stop})
+            options = validate_options(options, HierarchyLink.members)
+            new_relation = HierarchyLink.new([*options[:done_with]], [*options[:fails_on]])
+            
+            @realized_by[task] = new_relation
             task.realizes << self
-            added_task_relation(Hierarchy, self, task, @realized_by)
+            added_task_relation(Hierarchy, self, task, new_relation)
+            task.added_task_relation(Hierarchy, self, task, new_relation)
+            self
         end
 
         def remove_hierarchy(task)
@@ -29,6 +33,7 @@ module Roby::TaskRelations
                 task.remove_hierarchy(self)
                 true
             end
+            self
         end
         def self.delete(first, second)
             first.remove_hierarchy(second) # remove_hierarchy is symmetric
@@ -38,16 +43,18 @@ module Roby::TaskRelations
         def realizes?(task); @realizes.include?(task) end
 
         # If the given task is one of our children. If
-        # +event+ is provided, checks that the event is
-        # one of the exit conditions
-        def realized_by?(task, event = nil)
+        # +options+ is provided, it is checked for inclusion.
+        # See #realized_by for valid options
+        def realized_by?(task, options = nil)
+            options = validate_options(options, HierarchyLink.members)
             return false unless events = @realized_by[task]
-            return true  unless event
-            if events.respond_to?(:include?)
-                events.include?(event)
-            else
-                true
+            return true unless options
+            
+            options.each do |kind, value|
+                value = [*value]
+                return false unless value.all? { |v| events[kind].include?(v) }
             end
+            return true
         end
 
         # Iterates on all parent tasks
