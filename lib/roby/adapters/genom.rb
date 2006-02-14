@@ -112,12 +112,14 @@ module Roby
             rb_mod.singleton_class.send(:define_method, method_name) { |*args| rq_class.new }
         end
         
-        @genom_modules = Hash.new
-        
         # Loads a new Genom module and defines the task models for it
         def self.GenomModule(name)
             gen_mod = ::Genom::GenomModule.new(name, :auto_attributes => true, :lazy_poster_init => true)
             modname = gen_mod.name.classify
+            begin
+                return ::Roby::Genom.const_get(modname)
+            rescue NameError
+            end
 
             Roby.info { "Defining namespace #{modname} for genom module #{name}" }
             rb_mod = Genom.define_under(modname) do 
@@ -132,8 +134,6 @@ module Roby
             gen_mod.request_info.each do |req_name, req_def|
                 define_request(rb_mod, req_name) if !req_def.control?
             end
-
-            @genom_modules[name] = rb_mod
         end
         class GenomState < ExtendableStruct
             def dataflow(type, links)
