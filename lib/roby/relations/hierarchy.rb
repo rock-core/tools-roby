@@ -9,16 +9,14 @@ module Roby::TaskRelations
             super
         end
 
-        def realized_by(tasks)
-            unless Hash === tasks
-                tasks = { tasks => :stop }
-            end
+        HierarchyLink = Struct.new(:done_with, :fails_on)
 
-            tasks.each do |task, events|
-                @realized_by[task] = events
-                task.send(:realizes) << self
-                added_task_relation(Hierarchy, self, task, events)
-            end
+        def realized_by(task, options = nil)
+            options = validate_options(options, :done_with => [:stop], :fails_on => [])
+
+            @realized_by[task] = HierarchyLink.new([*options[:done_with]], [*options[:fails_on]])
+            task.realizes << self
+            added_task_relation(Hierarchy, self, task, @realized_by)
         end
 
         def remove_hierarchy(task)
@@ -51,7 +49,7 @@ module Roby::TaskRelations
                 true
             end
         end
-           
+
         # Iterates on all parent tasks
         def each_parent(&iter); realizes.each(&iter) end
         # Iterates on all child tasks
@@ -78,8 +76,8 @@ module Roby::TaskRelations
             super
         end
 
-     private
-         def realized_by_hash; @realized_by end
+    protected
+        def realized_by_hash; @realized_by end
         attr_reader :realizes
     end
 end

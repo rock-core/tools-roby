@@ -11,7 +11,7 @@ class TC_Relations < Test::Unit::TestCase
         a = EmptyTask.new
         b = EmptyTask.new
 
-        a.realized_by b => true
+        a.realized_by b
         assert( !a.realizes?(b) )
         assert( b.realizes?(a) )
         assert( a.realized_by?(b) )
