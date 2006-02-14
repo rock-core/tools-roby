@@ -128,7 +128,10 @@ module Roby
                     }
                 end
             end
-            handlers << user_handler if user_handler
+            if user_handler
+                check_arity(user_handler, 1)
+                handlers << user_handler
+            end
                     
             @event_handlers[event_model.symbol] += handlers
             handlers.each { |h| added_event_handler(event_model, h) }
@@ -229,16 +232,21 @@ module Roby
             # Set self_task to the task class we are defining
             # to use it in the Event class definition
 
+            if !options.has_key?(:command) && instance_methods.include?(ev_s)
+                method = instance_method(ev)
+                check_arity(method, 1)
+                options[:command] = lambda { |t, c| method.bind(t).call(c) }
+            end
+
             if options.has_key?(:command)
                 if options[:command].respond_to?(:call)
+                    check_arity(options[:command], 2)
                     command_handler = options[:command]
                 elsif options[:command] == true
                     command_handler = lambda { |task, context| task.emit(ev, context) }
                 elsif options[:command]
                     raise ArgumentError, "Allowed values for :command option: true, false, nil and an object responding to #call. Got #{options[:command]}"
                 end
-            elsif instance_methods.include?(ev_s)
-                command_handler = lambda { |task, context| task.send(ev, context) }
             end
 
             # Define the event class

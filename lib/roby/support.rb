@@ -94,6 +94,12 @@ module Kernel
 
         options
     end
+
+    def check_arity(object, arity)
+        unless object.arity == arity || (object.arity < 0 && object.arity > - arity - 2)
+            raise ArgumentError, "#{object} cannot take #{arity} argument(s)"
+        end
+    end
 end
 
 class Thread
