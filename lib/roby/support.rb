@@ -67,7 +67,7 @@ module Kernel
     # In the second form, +known_array+ is an array of option
     # keys. +option_hash+ keys shall be in +known_array+
     #
-    # +nil+ is treated as an option hash
+    # +nil+ is treated as an empty option hash
     #
     # All option keys are converted into symbols
     #

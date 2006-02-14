@@ -88,7 +88,7 @@ module Roby
         end
 
         # Returns an BoundEvent object which represents the given event bound
-        # from this particular task
+        # to this particular task
         def event(event_model)
             event_model = model.validate_events(event_model).first
             BoundEvent.new(self, event_model)
@@ -323,7 +323,12 @@ module Roby
             events.map { |e|
                 if e.respond_to?(:to_sym)
                     ev_model = find_event(e.to_sym)
-                    raise ArgumentError, "#{e} is not an event of #{name}" unless ev_model
+                    unless ev_model
+                        all_events = enum_for(:each_event).
+                            to_a.
+                            map { |ev| ev.symbol }
+                        raise ArgumentError, "#{e} is not an event of #{name} #{all_events.inspect}" unless ev_model
+                    end
                 elsif e.has_ancestor?(Event)
                     # Check that e is an event class for us
                     ev_model = find_event(e.symbol)
