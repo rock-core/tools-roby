@@ -60,7 +60,13 @@ module Roby::TaskRelations
         # Iterates on all parent tasks
         def each_parent(&iter); realizes.each(&iter) end
         # Iterates on all child tasks
-        def each_child(&iter); @realized_by.each_key(&iter) end
+        def each_child(whole_tree = false, &iter)
+            queue = @realized_by.keys
+            queue.each do |task|
+                yield(task)
+                task.each_child(true) { |child| queue << child } if whole_tree
+            end
+        end
 
         # See Interface::related?
         def related?(task)
