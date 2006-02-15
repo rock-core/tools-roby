@@ -114,30 +114,5 @@ module Roby
     class Task
         include TaskRelations::Hierarchy
     end
-
-    class ParentTask < Task
-        def start(context)
-            started = enum_for(:each_child).
-                map { |child| child.event(:start) }.
-                inject { |started, event| started & event }
-            started.on { emit :start }
-
-            each_child { |child| child.start! }
-        end
-        event :start
-
-        def stop(context)
-            running = enum_for(:each_child).
-                find_all { |child| child.running? }
-
-            stopped = running.
-                map { |child| child.event(:stop) }.
-                inject { |stopped, event| stopped & event }
-            stopped.on { |event| emit :stop }
-
-            each_child { |child| child.stop! }
-        end
-        event :stop
-    end
 end
 
