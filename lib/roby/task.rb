@@ -54,6 +54,16 @@ module Roby
         # If this task ran and is finished
         def finished?;  !history.empty? && history.last[1].symbol == :stop end
             
+        def propagate(event)
+            # Add the event to our history
+            history << [Time.now, event]
+
+            handlers = []
+            handlers = super if defined? super
+
+            [[event, enum_for(:each_handler, event.symbol).to_a]] + handlers
+        end
+        
         # Emits +name+ in the given +context+. Event handlers are fired.
         # This is not meant to fire commandable events. Use #send_command for that
         #
@@ -62,27 +72,23 @@ module Roby
         #
         def emit(event_model, context = nil)
             event_model = model.validate_events(event_model).first 
-            if finished?
-                raise TaskModelViolation, "emit(#{event_model}) called but the task has finished"
-            elsif !running? && event_model.symbol != :start
-                raise TaskModelViolation, "emit(#{event_model}) called but the task is not running"
-            end
-
             event = event_model.new(self, context)
-
-            # Add the event to our history
-            history << [Time.now, event]
-
-            if fired_event(event)
-                # Call event handlers
-                each_handler(event_model.symbol) { |h| 
-                    if before_calling_handler(event, h)
-                        h.call(event) 
-                    end
-                    after_calling_handler(event, h)
-                }
-            end
             
+            firing_event(event)
+            
+            handlers = propagate(event)
+
+            # Call event handlers
+            handlers.each do |event, event_handlers|
+                task = event.task
+                event_handlers.each do |handler|
+                    if task.before_calling_handler(event, handler)
+                        handler.call(event) 
+                    end
+                    task.after_calling_handler(event, handler)
+                end
+            end
+
             # Return the event object
             event
         end
@@ -162,8 +168,14 @@ module Roby
         def added_event_handler(event, handler); true end
         # Callback called in Task#emit when an event has been fired, before the event
         # handlers are called
-        # *Return* true if the handlers are to be called, false otherwise
-        def fired_event(e); true end
+        def firing_event(event)
+            if finished? && event.class.symbol != :stop
+                raise TaskModelViolation, "emit(#{event.class.symbol}: #{event.class}) called but the task has finished"
+            elsif !running? && !finished? && event.class.symbol != :start
+                raise TaskModelViolation, "emit(#{event.class.symbol}: #{event.class}) called but the task is not running"
+            end
+        end
+
         # Callback called in Task#emit just before calling the event handler +h+
         # because we are emitting +e+
         # *Return* true if the handler is to be called, false otherwise
