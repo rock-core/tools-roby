@@ -11,6 +11,21 @@ module Roby::TaskRelations
         end
 
         HierarchyLink = Struct.new(:done_with, :fails_on)
+         
+        # Return an array of the task for which the :start event is not
+        # signalled by a child event
+        def first_children
+            alone = Hash.new
+            each_child(true) do |child|
+                alone[child] = true
+                child.each_event do |source|
+                    child.each_signal(source.symbol) { |task, event| 
+                        alone[task] = false if event.symbol == :start
+                    }
+                end
+            end
+            alone.keys.find_all { |task| alone[task] }
+        end
 
         def realized_by(task, options = {:done_with => :stop})
             options = validate_options(options, HierarchyLink.members)
