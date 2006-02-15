@@ -56,7 +56,7 @@ class TC_TaskMeta < Test::Unit::TestCase
         # Check for the definition of :call
         assert_equal(:ev_controlable, TestTask::EvControlable.call(task, :ev_controlable))
         # Check for default argument in :call
-        assert_equal(task.ev_controlable, TestTask::EvControlable.call(task))
+        assert_equal(task.ev_controlable, TestTask::EvControlable.call(task, nil))
         assert( TestTask::EvControlable.controlable? )
 
         # Check Event.terminal? if :terminal => true

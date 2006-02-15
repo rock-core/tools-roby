@@ -12,7 +12,9 @@ module Roby
         # * the task shall have at least one terminal event. If no +end+ event
         #   is defined, then all terminal events are aliased to +end+
         def initialize #:yields: task_object
-            @history = []
+            @history = Array.new
+            @signalling = Hash.new
+
             @event_handlers = Hash.new { |h, k| h[k] = Array.new }
             yield self if block_given?
 
@@ -54,14 +56,55 @@ module Roby
         # If this task ran and is finished
         def finished?;  !history.empty? && history.last[1].symbol == :stop end
             
-        def propagate(event)
-            # Add the event to our history
+        # Do event propagation. Return an array of [event, [handlers]] pair
+        # of the fired being fired in the propagation and the handlers 
+        # that should be called
+        #
+        # Task#propagate handles event signalling, that is the event propagation
+        # set by Task#on(from, task, to)
+        PropagationResult = Struct.new(:commands, :handlers)
+        class << PropagationResult
+            def |(other)
+                PropagationResult.new self.commands | other.commands, self.handlers | other.handlers
+            end
+        end
+
+        def propagate(event_model, context)
+            event_model = model.validate_events(event_model).first 
+ 
+            if !event_model.controlable?
+                raise TaskModelViolation, "event #{event_model} is not controlable"
+            elsif event_model.command_handler
+                result = PropagationResult.new [], []
+                result.commands = [ self, context, event_model ]
+                return result
+            else
+                return fire_event(event_model, context)
+            end
+        end
+        
+        def fire_event(event_model, context)
+            if finished? && event_model.symbol != :stop
+                raise TaskModelViolation, "emit(#{event_model.symbol}: #{event_model}) called but the task has finished"
+            elsif !running? && !finished? && event_model.symbol != :start
+                raise TaskModelViolation, "emit(#{event_model.symbol}: #{event_model}) called but the task is not running"
+            end
+
+            # Fire the event ourselves
+            event = event_model.new(self, context)
             history << [Time.now, event]
 
-            handlers = []
-            handlers = super if defined? super
+            result = PropagationResult.new [], []
+            result.handlers << [ event, enum_for(:each_handler, event.symbol).to_a ]
 
-            [[event, enum_for(:each_handler, event.symbol).to_a]] + handlers
+            if @signalling.has_key?(event_model.symbol)
+                @signalling[event_model.symbol].each do |task, event|
+                    result |= task.propagate(event)
+                end
+            end
+
+            result |= super if defined? super
+            return result
         end
         
         # Emits +name+ in the given +context+. Event handlers are fired.
@@ -72,14 +115,11 @@ module Roby
         #
         def emit(event_model, context = nil)
             event_model = model.validate_events(event_model).first 
-            event = event_model.new(self, context)
-            
-            firing_event(event)
-            
-            handlers = propagate(event)
+
+            result = fire_event(event_model, context)
 
             # Call event handlers
-            handlers.each do |event, event_handlers|
+            result.handlers.each do |event, event_handlers|
                 task = event.task
                 event_handlers.each do |handler|
                     if task.before_calling_handler(event, handler)
@@ -89,8 +129,12 @@ module Roby
                 end
             end
 
-            # Return the event object
-            event
+            # Call event commands
+            result.commands.each do |task, context, event_model|
+                event_model.call(task, context)
+            end
+
+            self
         end
 
         # Returns an BoundEvent object which represents the given event bound
@@ -166,15 +210,6 @@ module Roby
         # Callback called when an event handler is added for +event+
         # *Return* false to discard the handler
         def added_event_handler(event, handler); true end
-        # Callback called in Task#emit when an event has been fired, before the event
-        # handlers are called
-        def firing_event(event)
-            if finished? && event.class.symbol != :stop
-                raise TaskModelViolation, "emit(#{event.class.symbol}: #{event.class}) called but the task has finished"
-            elsif !running? && !finished? && event.class.symbol != :start
-                raise TaskModelViolation, "emit(#{event.class.symbol}: #{event.class}) called but the task is not running"
-            end
-        end
 
         # Callback called in Task#emit just before calling the event handler +h+
         # because we are emitting +e+
@@ -239,49 +274,45 @@ module Roby
 
             if options[:terminal] && has_event?(:stop)
                 raise ArgumentError, "trying to define a terminal event, but the stop event is already defined"
+            elsif options[:command] && options[:command] != true && !options[:command].respond_to?(:call)
+                raise ArgumentError, "Allowed values for :command option: true, false, nil and an object responding to #call. Got #{options[:command]}"
             end
-
-            # Set self_task to the task class we are defining
-            # to use it in the Event class definition
 
             if !options.has_key?(:command) && instance_methods.include?(ev_s)
                 method = instance_method(ev)
                 check_arity(method, 1)
                 options[:command] = lambda { |t, c| method.bind(t).call(c) }
             end
-
-            if options.has_key?(:command)
-                if options[:command].respond_to?(:call)
-                    check_arity(options[:command], 2)
-                    command_handler = options[:command]
-                elsif options[:command] == true
-                    command_handler = lambda { |task, context| task.emit(ev, context) }
-                elsif options[:command]
-                    raise ArgumentError, "Allowed values for :command option: true, false, nil and an object responding to #call. Got #{options[:command]}"
-                end
-            end
-
+            
             # Define the event class
             new_event = Class.new(options[:model]) do
                 @symbol   = ev
                 @terminal = options[:terminal]
+                @command_handler = options[:command]
 
                 class << self
-                    attr_accessor :command_handler
+                    attr_reader :command_handler
                 end
             end
 
-            if command_handler
-                new_event.singleton_class.send(:define_method, :call) do |task, *context|
-                    context = *context
-                    command_handler.call(task, context)
+            if options[:command]
+                if options[:command].respond_to?(:call)
+                    check_arity(options[:command], 2)
+                    def new_event.call(task, context)
+                        command_handler.call(task, context)
+                    end
+                else
+                    def new_event.call(task, context)
+                        task.emit symbol, context
+                    end
                 end
                 
                 # Define a bang method on self which calls the command
-                define_method(ev_s + '!') do |*context|
-                    context = *context
-                    new_event.call(self, context) 
-                end
+                define_method ev_s + '!', 
+                    &lambda { |*context| 
+                        context = *context
+                        new_event.call(self, context) 
+                    }
             end
 
             if new_event_model(new_event)
