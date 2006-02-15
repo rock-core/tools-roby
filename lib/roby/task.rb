@@ -9,8 +9,8 @@ module Roby
         # The task object can be configured by a given block. After the 
         # block is called, two things are checked:
         # * the task shall have a +start+ event
-        # * the task shall have at least one terminal event. If no +end+ event
-        #   is defined, then all terminal events are aliased to +end+
+        # * the task shall have at least one terminal event. If no +stop+ event
+        #   is defined, then all terminal events are aliased to +stop+
         def initialize #:yields: task_object
             @history = Array.new
             @signalling = Hash.new
