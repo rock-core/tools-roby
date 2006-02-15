@@ -16,6 +16,10 @@ class TC_EventPropagation < Test::Unit::TestCase
         assert(start_node.finished?)
 
         start_node = EmptyTask.new
+        start_node.propagate(:start, nil)
+        assert(start_node.finished?)
+
+        start_node = EmptyTask.new
         if_node = ChoiceTask.new
         start_node.on(:stop, if_node, :start)
         start_node.start!

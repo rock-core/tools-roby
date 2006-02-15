@@ -81,7 +81,8 @@ class TC_TaskMeta < Test::Unit::TestCase
         alias_called = false
         task.on(:ev_terminal)   { event_called = true }
         task.on(:stop)          { alias_called = true }
-        assert_equal(2, task.enum_for(:each_handler, :ev_terminal).to_a.size)
+        assert_equal(1, task.enum_for(:each_handler, :ev_terminal).to_a.size)
+        assert_equal(1, task.enum_for(:each_signal, :ev_terminal).to_a.size)
 
         # Checks that we need :start to be called before firing any other event
         assert_raise(TaskModelViolation) { task.emit :ev_terminal }

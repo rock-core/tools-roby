@@ -13,7 +13,7 @@ module Roby
         #   is defined, then all terminal events are aliased to +stop+
         def initialize #:yields: task_object
             @history = Array.new
-            @signalling = Hash.new
+            @signalling = Hash.new { |h, k| h[k] = Array.new }
 
             @event_handlers = Hash.new { |h, k| h[k] = Array.new }
             yield self if block_given?
@@ -49,6 +49,7 @@ module Roby
         #   ]
         attr_reader :history
 
+        attr_reader :signalling # :nodoc:
         attr_reader :event_handlers # :nodoc:
 
         # If this task is currently running
@@ -63,7 +64,7 @@ module Roby
         # Task#propagate handles event signalling, that is the event propagation
         # set by Task#on(from, task, to)
         PropagationResult = Struct.new(:commands, :handlers)
-        class << PropagationResult
+        class PropagationResult
             def |(other)
                 PropagationResult.new self.commands | other.commands, self.handlers | other.handlers
             end
@@ -72,11 +73,9 @@ module Roby
         def propagate(event_model, context)
             event_model = model.validate_events(event_model).first 
  
-            if !event_model.controlable?
-                raise TaskModelViolation, "event #{event_model} is not controlable"
-            elsif event_model.command_handler
+            if event_model.command_handler
                 result = PropagationResult.new [], []
-                result.commands = [ self, context, event_model ]
+                result.commands = [[ self, context, event_model ]]
                 return result
             else
                 return fire_event(event_model, context)
@@ -97,10 +96,8 @@ module Roby
             result = PropagationResult.new [], []
             result.handlers << [ event, enum_for(:each_handler, event.symbol).to_a ]
 
-            if @signalling.has_key?(event_model.symbol)
-                @signalling[event_model.symbol].each do |task, event|
-                    result |= task.propagate(event)
-                end
+            each_signal(event_model.symbol) do |task, event|
+                result |= (task || self).propagate(event, context)
             end
 
             result |= super if defined? super
@@ -168,22 +165,14 @@ module Roby
                     raise ArgumentError, "all target events shall be controlable, #{not_controlable} is not"
                 end
 
-                handlers << lambda do |event|
-                    to_events.each { |e| 
-                        if e.controlable?
-                            e.call(to_task, event.context) 
-                        else
-                            self.emit(e, event.context)
-                        end
-                    }
-                end
+                signalling[event_model.symbol] += to_events.map { |ev| [to_task, ev] }
             end
             if user_handler
                 check_arity(user_handler, 1)
                 handlers << user_handler
             end
                     
-            @event_handlers[event_model.symbol] += handlers
+            event_handlers[event_model.symbol] += handlers
             handlers.each { |h| added_event_handler(event_model, h) }
         end
 
@@ -193,18 +182,6 @@ module Roby
             event_model.call(self, context)
         end
         
-        # Iterates on all event handlers defined for +event+. This includes
-        # the handlers defined in the task models, by calling model.each_handler
-        # See TaskModel::each_handler
-        def each_handler(event, &iterator)
-            event = model.validate_events(event).first.symbol
-            
-            if event_handlers.has_key?(event)
-                event_handlers[event].each(&iterator)
-            end
-            model.each_handler(event, &iterator)
-        end
-
         # :section: Callbacks
         
         # Callback called when an event handler is added for +event+
@@ -283,12 +260,14 @@ module Roby
                 check_arity(method, 1)
                 options[:command] = lambda { |t, c| method.bind(t).call(c) }
             end
+
+            command_handler = options[:command] if options[:command].respond_to?(:call)
             
             # Define the event class
             new_event = Class.new(options[:model]) do
                 @symbol   = ev
                 @terminal = options[:terminal]
-                @command_handler = options[:command]
+                @command_handler = command_handler
 
                 class << self
                     attr_reader :command_handler
@@ -388,6 +367,9 @@ module Roby
             }
         end
 
+        def self.signalling
+            @signalling ||= Hash.new { |h, k| h[k] = Array.new }
+        end
         def self.event_handlers #:nodoc:
             @event_handlers ||= Hash.new { |h, k| h[k] = Array.new }
         end
@@ -412,17 +394,34 @@ module Roby
             end
         end
 
+        # Iterates on all event handlers defined for +event+. This includes
+        # the handlers defined in the task models, by calling model.each_handler
+        # See TaskModel::each_handler
+        def each_handler(event, &iterator)
+            event_handlers[event].each(&iterator)
+            model.each_handler(event, &iterator)
+        end
+
         # call-seq:
         #   each_handler(event) { |event| ... }
         #   
         # Enumerates all event handlers defined for +event+ in the task model
         def self.each_handler(event, &iterator) 
-            if superclass.respond_to?(:each_handler)
-                superclass.each_handler(event, &iterator)
-            end
-            if event_handlers.has_key?(event)
-                event_handlers[event].each(&iterator)
-            end
+            superclass.each_handler(event, &iterator) if superclass.respond_to?(:each_handler)
+            event_handlers[event].each(&iterator)
+        end
+
+        def each_signal(event, &iterator)
+            signalling[event].each(&iterator)
+            model.each_signal(event, &iterator)
+        end
+
+        # call-seq:
+        #   each_signal(event) { |task, event| ... }
+        # Enumerates all event signals that comes from +event+
+        def self.each_signal(event, &iterator)
+            superclass.each_signal(event, &iterator) if superclass.respond_to?(:each_signal)
+            signalling[event].each(&iterator)
         end
 
         # call-seq:
@@ -434,31 +433,21 @@ module Roby
         # then the command is called. If not, they are just fired
         def self.on(mappings, &user_handler)
             source_events = []
-            if Hash === mappings
-                mappings.each do |from, to|
-                    from = validate_events(from).first
-                    source_events << from
-                    to   = validate_events(*to)
+            mappings = [*mappings].zip([]) unless Hash === mappings
 
-                    event_handlers[from.symbol] << lambda do |src_event|
-                        to.each { |to_model| 
-                            if to_model.respond_to?(:call)
-                                to_model.call(src_event.task, src_event.context) 
-                            else
-                                src_event.task.emit(to_model, src_event.context)
-                            end
-                        }
-                    end
-                end
-            else
-                source_events += validate_events(mappings)
+            mappings.each do |from, to|
+                from = validate_events(from).first
+                source_events << from
+                next unless to && ![*to].empty?
+                to   = validate_events(*to)
+
+                signalling[from.symbol] += to.map { |event| [nil, event] }
             end
                     
             if user_handler
                 source_events.each { |model| event_handlers[model.symbol] << user_handler }
             end
         end
-
     end
 end
 
