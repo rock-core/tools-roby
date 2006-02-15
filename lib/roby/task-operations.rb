@@ -75,7 +75,7 @@ module Roby::TaskAggregator
         include Operations
         def initialize
             @tasks = Set.new 
-            @stop_aggregator = Roby::EventAggregator::And.new do |event|
+            @stop_aggregator = Roby::AndEvent.new do |event|
                 emit :stop, event
             end
             super
