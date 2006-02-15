@@ -300,6 +300,7 @@ module Roby
             end
         end
 
+        def each_event(&iterator); self.class.each_event(&iterator) end
         # Iterates on all event models defined for this task model
         def self.each_event(&iterator) # :yields: event
             constants.each do |const_name|
