@@ -49,8 +49,8 @@ module Roby
         #   ]
         attr_reader :history
 
-        attr_reader :signalling # :nodoc:
-        attr_reader :event_handlers # :nodoc:
+        model_enumerator :signal,  :signalling
+        model_enumerator :handler, :event_handlers
 
         # If this task is currently running
         def running?;   !history.empty? && history.last[1].symbol != :stop end
@@ -393,36 +393,6 @@ module Roby
             else
                 true
             end
-        end
-
-        # Iterates on all event handlers defined for +event+. This includes
-        # the handlers defined in the task models, by calling model.each_handler
-        # See TaskModel::each_handler
-        def each_handler(event, &iterator)
-            event_handlers[event].each(&iterator)
-            model.each_handler(event, &iterator)
-        end
-
-        # call-seq:
-        #   each_handler(event) { |event| ... }
-        #   
-        # Enumerates all event handlers defined for +event+ in the task model
-        def self.each_handler(event, &iterator) 
-            superclass.each_handler(event, &iterator) if superclass.respond_to?(:each_handler)
-            event_handlers[event].each(&iterator)
-        end
-
-        def each_signal(event, &iterator)
-            signalling[event].each(&iterator)
-            model.each_signal(event, &iterator)
-        end
-
-        # call-seq:
-        #   each_signal(event) { |task, event| ... }
-        # Enumerates all event signals that comes from +event+
-        def self.each_signal(event, &iterator)
-            superclass.each_signal(event, &iterator) if superclass.respond_to?(:each_signal)
-            signalling[event].each(&iterator)
         end
 
         # call-seq:
