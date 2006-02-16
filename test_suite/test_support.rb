@@ -50,7 +50,7 @@ class TC_Utils < Test::Unit::TestCase
     end
 
     class A
-        model_enumerator :sig
+        model_enumerator(:signature, :sig)
 
         @sig = [ :in_a ]
         def initialize
@@ -65,25 +65,25 @@ class TC_Utils < Test::Unit::TestCase
     end
 
     def test_model_enumerator
-        assert(A.respond_to?(:each_sig))
-        assert(A.new.respond_to?(:each_sig))
+        assert(A.respond_to?(:each_signature))
+        assert(A.new.respond_to?(:each_signature))
         assert(A.respond_to?(:sig))
         assert(A.new.respond_to?(:sig))
 
-        assert_equal([:in_a], A.enum_for(:each_sig).to_a)
-        assert_equal([:in_b, :in_a], B.enum_for(:each_sig).to_a)
+        assert_equal([:in_a], A.enum_for(:each_signature).to_a)
+        assert_equal([:in_b, :in_a], B.enum_for(:each_signature).to_a)
 
         a = A.new
         class << a
             @sig = [ :in_a_singleton ]
         end
-        assert_equal([:in_a_object, :in_a_singleton, :in_a], a.enum_for(:each_sig).to_a)
+        assert_equal([:in_a_object, :in_a_singleton, :in_a], a.enum_for(:each_signature).to_a)
 
         b = B.new
         class << b
             @sig = [ :in_b_singleton ]
         end
-        assert_equal([:in_b_object, :in_b_singleton, :in_b, :in_a], b.enum_for(:each_sig).to_a)
+        assert_equal([:in_b_object, :in_b_singleton, :in_b, :in_a], b.enum_for(:each_signature).to_a)
     end
 end
 

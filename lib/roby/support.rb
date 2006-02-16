@@ -68,21 +68,29 @@ class Class
     # ...
     #
     # It defines also #{name} as being an rw attribute
-    def model_enumerator(name, enumerate_with = :each)
+    def model_enumerator(name, attribute_name = name, enumerate_with = :each)
         class_eval <<-EOF
-        def each_#{name}(&iterator)
-            #{name}.#{enumerate_with}(&iterator) if #{name}
-            singleton_class.each_#{name}(&iterator) 
-            self.class.each_#{name}(&iterator) # Not needed in ruby 1.9
+        def each_#{name}(key = nil, &iterator)
+            if key
+                #{attribute_name}[key].#{enumerate_with}(&iterator) if #{attribute_name}
+            else
+                #{attribute_name}.#{enumerate_with}(&iterator) if #{attribute_name}
+            end
+            singleton_class.each_#{name}(key, &iterator) 
+            self.class.each_#{name}(key, &iterator) # Not needed in ruby 1.9
         end
 
-        def self.each_#{name}(&iterator)
-            #{name}.#{enumerate_with}(&iterator) if #{name}
-            superclass.each_#{name}(&iterator) if superclass.respond_to?(:each_#{name})
+        def self.each_#{name}(key = nil, &iterator)
+            if key
+                #{attribute_name}[key].#{enumerate_with}(&iterator) if #{attribute_name}
+            else
+                #{attribute_name}.#{enumerate_with}(&iterator) if #{attribute_name}
+            end
+            superclass.each_#{name}(key, &iterator) if superclass.respond_to?(:each_#{name})
         end
-        attr_accessor :#{name}
+        attr_accessor :#{attribute_name}
         class << self
-            attr_accessor :#{name}
+            attr_accessor :#{attribute_name}
         end
         EOF
     end
