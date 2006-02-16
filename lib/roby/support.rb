@@ -52,6 +52,43 @@ class Module
     end
 end
 
+class Class
+    # Defines an attribute as being enumerable in the class
+    # instance and in the whole class inheritance hierarchy
+    # 
+    # More specifically, it defines
+    # a each_#{name}(&iterator) instance method and a 
+    # each_#{name}(&iterator) class
+    # method which iterates (in order) on 
+    # - the class instance #{name} attribute
+    # - the singleton class #{name} attribute
+    # - the class #{name} attribute
+    # - the superclass #{name} attribute
+    # - the superclass' superclass #{name} attribute
+    # ...
+    #
+    # It defines also #{name} as being an rw attribute
+    def model_enumerator(name, enumerate_with = :each)
+        class_eval <<-EOF
+        def each_#{name}(&iterator)
+            #{name}.#{enumerate_with}(&iterator) if #{name}
+            singleton_class.each_#{name}(&iterator) 
+            self.class.each_#{name}(&iterator) # Not needed in ruby 1.9
+        end
+
+        def self.each_#{name}(&iterator)
+            #{name}.#{enumerate_with}(&iterator) if #{name}
+            superclass.each_#{name}(&iterator) if superclass.respond_to?(:each_#{name})
+        end
+        attr_accessor :#{name}
+        class << self
+            attr_accessor :#{name}
+        end
+        EOF
+    end
+end
+
+
 module Kernel
     # Validates an option hash, with default value support
     # 

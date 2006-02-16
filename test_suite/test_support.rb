@@ -26,7 +26,6 @@ module BaseClassExtension
 end
 
 class TC_Utils < Test::Unit::TestCase
-    include Roby
     def test_string_extensions
         assert_equal("DoCamelizeThat", "do_camelize_that".camelize)
     end
@@ -48,6 +47,43 @@ class TC_Utils < Test::Unit::TestCase
         assert_nothing_raised(ArgumentError) { new_options = validate_options(valid_test, default_values) }
         assert( new_options.has_key?(:d) )
         assert( !new_options.has_key?(:b) )
+    end
+
+    class A
+        model_enumerator :sig
+
+        @sig = [ :in_a ]
+        def initialize
+            @sig = [ :in_a_object ]
+        end
+    end
+    class B < A
+        @sig = [ :in_b ]
+        def initialize
+            @sig = [ :in_b_object ]
+        end
+    end
+
+    def test_model_enumerator
+        assert(A.respond_to?(:each_sig))
+        assert(A.new.respond_to?(:each_sig))
+        assert(A.respond_to?(:sig))
+        assert(A.new.respond_to?(:sig))
+
+        assert_equal([:in_a], A.enum_for(:each_sig).to_a)
+        assert_equal([:in_b, :in_a], B.enum_for(:each_sig).to_a)
+
+        a = A.new
+        class << a
+            @sig = [ :in_a_singleton ]
+        end
+        assert_equal([:in_a_object, :in_a_singleton, :in_a], a.enum_for(:each_sig).to_a)
+
+        b = B.new
+        class << b
+            @sig = [ :in_b_singleton ]
+        end
+        assert_equal([:in_b_object, :in_b_singleton, :in_b, :in_a], b.enum_for(:each_sig).to_a)
     end
 end
 
