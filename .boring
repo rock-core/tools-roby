@@ -36,3 +36,4 @@
 ^test_suite/modules/mockup/(server|.genom|autoconf|codels/posix-obj)(/|$)
 ^test_suite/modules/mockup/(Makefile(\.in)?|config\..+|configure|libtool|local\.mk|mockup\.pc|autogen)$
 ^test_suite/modules/mockup.*/Makefile$
+^html
