@@ -44,6 +44,7 @@ module Roby::TaskAggregator
         event :stop
         
         def unshift(task)
+            raise "trying to do Sequence#unshift on a running sequence" if running?
             task.on(:stop, @tasks.first, :start)
             @tasks.unshift(task)
             added(task)
