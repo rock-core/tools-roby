@@ -19,8 +19,8 @@ module Roby::TaskRelations
             each_child(true) do |child|
                 alone[child] = true
                 child.each_event do |source|
-                    child.each_signal(source.symbol) { |task, event| 
-                        alone[task] = false if event.symbol == :start
+                    source.each_signal { |signalled|
+                        alone[signalled.task] = false if signalled.symbol == :start
                     }
                 end
             end

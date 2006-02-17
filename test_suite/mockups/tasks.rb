@@ -25,7 +25,7 @@ if !defined?(EmptyTask)
     end
 
     class MultiEventTask < Roby::Task
-        event :start
+        event :start, :command => true
         event :inter
         event :stop
         on :start => :inter, :inter => :stop

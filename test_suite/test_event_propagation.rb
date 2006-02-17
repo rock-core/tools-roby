@@ -4,19 +4,23 @@ require 'roby/event_loop'
 require 'mockups/tasks'
 
 class TC_EventPropagation < Test::Unit::TestCase
-    def check_handlers_respond_to(task)
-        assert( task.event_handlers.all? { |_, handlers| handlers.all? { |h| h.respond_to?(:call) } } )
-    end
-
     def test_propagation
-        check_handlers_respond_to(EmptyTask)   
         start_node = EmptyTask.new
-        check_handlers_respond_to(start_node)   
+
+        start_event = start_node.event(:start)
+        assert_equal(start_event, start_node.event(:start))
+        assert_equal([], start_event.handlers)
+        assert_equal([], start_event.signals)
+        start_model = start_node.event_model(:start)
+        assert_equal(start_model, start_event.event_model)
+
+        assert_equal([start_node.event_model(:stop)], start_model.enum_for(:each_signal).to_a)
+        
         start_node.start!
         assert(start_node.finished?)
 
         start_node = EmptyTask.new
-        start_node.propagate(:start, nil)
+        start_node.event(:start).send(:propagate, nil)
         assert(start_node.finished?)
 
         start_node = EmptyTask.new
@@ -26,7 +30,7 @@ class TC_EventPropagation < Test::Unit::TestCase
         assert(start_node.finished? && if_node.finished?)
 
         multi_hop = MultiEventTask.new
-        multi_hop.emit :start
+        multi_hop.start!
         assert(multi_hop.finished?)
     end
 
@@ -46,7 +50,7 @@ class TC_EventPropagation < Test::Unit::TestCase
             next unless next_event
             task, event = *next_event
             next_event = nil
-            task.send_command(event)
+            task.event(event).call(nil)
         end
         assert_doesnt_timeout(1) { Roby.run }
         assert(start_node.finished? && if_node.finished?)
@@ -79,13 +83,13 @@ class TC_EventPropagation < Test::Unit::TestCase
     def test_aggregator
         FlexMock.use do |mock|
             empty, multi = setup_aggregation(mock)
-            empty.on(:stop) { multi.emit(:start) }
+            empty.on(:stop) { multi.start! }
             mock.should_receive(:or).once
             mock.should_receive(:and).once
             mock.should_receive(:and_or).once
             mock.should_receive(:and_or_p).twice
             mock.should_receive(:or_and).once
-            empty.emit(:start)
+            empty.start!
         end
 
         FlexMock.use do |mock|
@@ -95,7 +99,7 @@ class TC_EventPropagation < Test::Unit::TestCase
             mock.should_receive(:and_or).never
             mock.should_receive(:and_or_p).never
             mock.should_receive(:or_and).never
-            empty.emit(:start)
+            empty.start!
         end
 
         FlexMock.use do |mock|
@@ -105,7 +109,7 @@ class TC_EventPropagation < Test::Unit::TestCase
             mock.should_receive(:and_or).once
             mock.should_receive(:and_or_p).once
             mock.should_receive(:or_and).once
-            multi.emit(:start)
+            multi.start!
         end
     end
 

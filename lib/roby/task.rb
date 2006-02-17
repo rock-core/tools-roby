@@ -13,9 +13,8 @@ module Roby
         #   is defined, then all terminal events are aliased to +stop+
         def initialize #:yields: task_object
             @history = Array.new
-            @signalling = Hash.new { |h, k| h[k] = Array.new }
+            @bound_events = Hash.new
 
-            @event_handlers = Hash.new { |h, k| h[k] = Array.new }
             yield self if block_given?
 
             raise TaskModelViolation, "no start event defined" unless has_event?(:start)
@@ -34,7 +33,6 @@ module Roby
             super
         end
 
-        # The task model
         def model; self.class end
 
         # If a model of +event+ is defined in the task model
@@ -49,96 +47,47 @@ module Roby
         #   ]
         attr_reader :history
 
-        model_enumerator :signal,  :signalling
-        model_enumerator :handler, :event_handlers
-
         # If this task is currently running
         def running?;   !history.empty? && history.last[1].symbol != :stop end
         # If this task ran and is finished
         def finished?;  !history.empty? && history.last[1].symbol == :stop end
             
-        # Do event propagation. Return an array of [event, [handlers]] pair
-        # of the fired being fired in the propagation and the handlers 
-        # that should be called
-        #
-        # Task#propagate handles event signalling, that is the event propagation
-        # set by Task#on(from, task, to)
-        PropagationResult = Struct.new(:commands, :handlers)
-        class PropagationResult
-            def |(other)
-                PropagationResult.new self.commands | other.commands, self.handlers | other.handlers
-            end
-        end
-
-        def propagate(event_model, context)
-            event_model = model.validate_events(event_model).first 
- 
-            if event_model.command_handler
-                result = PropagationResult.new [], []
-                result.commands = [[ self, context, event_model ]]
-                return result
-            else
-                return fire_event(event_model, context)
-            end
-        end
-        
-        def fire_event(event_model, context)
-            if finished? && event_model.symbol != :stop
-                raise TaskModelViolation, "emit(#{event_model.symbol}: #{event_model}) called but the task has finished"
-            elsif !running? && !finished? && event_model.symbol != :start
-                raise TaskModelViolation, "emit(#{event_model.symbol}: #{event_model}) called but the task is not running"
+        # This method is called by BoundEventModel#fire just before the event handlers
+        # and commands are called
+        # It can return a BoundEventModel::PropagationResult instance to give
+        # additional handlers & commands to call
+        def fire_event(event)
+            if finished? && event.symbol != :stop
+                raise TaskModelViolation, "emit(#{event.symbol}: #{event.model}) called but the task has finished"
+            elsif !running? && !finished? && event.symbol != :start
+                raise TaskModelViolation, "emit(#{event.symbol}: #{event.model}) called but the task is not running"
             end
 
-            # Fire the event ourselves
-            event = event_model.new(self, context)
+            # Add it to our history
             history << [Time.now, event]
 
-            result = PropagationResult.new [], []
-            result.handlers << [ event, enum_for(:each_handler, event.symbol).to_a ]
-
-            each_signal(event_model.symbol) do |task, event|
-                result |= (task || self).propagate(event, context)
-            end
-
+            result = nil
             result |= super if defined? super
             return result
         end
         
+        attr_reader :bound_events
+
         # Emits +name+ in the given +context+. Event handlers are fired.
-        # This is not meant to fire commandable events. Use #send_command for that
         #
         # call-seq:
         #   emit(name, context)                       event object
         #
         def emit(event_model, context = nil)
-            event_model = model.validate_events(event_model).first 
-
-            result = fire_event(event_model, context)
-
-            # Call event handlers
-            result.handlers.each do |event, event_handlers|
-                task = event.task
-                event_handlers.each do |handler|
-                    if task.before_calling_handler(event, handler)
-                        handler.call(event) 
-                    end
-                    task.after_calling_handler(event, handler)
-                end
-            end
-
-            # Call event commands
-            result.commands.each do |task, context, event_model|
-                event_model.call(task, context)
-            end
-
+            event(*model.validate_event_models(event_model)).emit(context)
             self
         end
 
         # Returns an BoundEvent object which represents the given event bound
         # to this particular task
         def event(event_model)
-            event_model = model.validate_events(event_model).first
-            BoundEvent.new(self, event_model)
+            event_model = *model.validate_event_models(event_model)
+            bound_events[event_model] ||= BoundEventModel.new(self, event_model)
         end
 
         # call-seq:
@@ -152,41 +101,32 @@ module Roby
         # 
         # This method calls the added_event_handler callback
         def on(event_model, *args, &user_handler)
-            event_model = model.validate_events(event_model).first
+            bound_event = event(*model.validate_event_models(event_model))
             unless args.size >= 2 || (args.size == 0 && user_handler)
                 raise ArgumentError, "Bad call for Task#on. Got #{args.size + 1} arguments and #{block_given? ? 1 : 0} block"
             end
 
-            handlers = []
-            if args.size >= 2
-                to_task, *to_events = *args
-                to_events = to_task.model.validate_events(*to_events)
-                if to_task != self && not_controlable = to_events.find { |e| !e.controlable? }
-                    raise ArgumentError, "all target events shall be controlable, #{not_controlable} is not"
-                end
+            to_events = if args.size >= 2
+                            to_task, *to_events = *args
+                            to_events = to_events.map { |ev_model| to_task.event(ev_model) }
+                            if to_task != self && not_controlable = to_events.find { |e| !e.controlable? }
+                                raise ArgumentError, "target event #{not_controlable} is not controlable"
+                            end
+                            to_events
+                        else
+                            []
+                        end
+            bound_event.on(*to_events, &user_handler)
 
-                signalling[event_model.symbol] += to_events.map { |ev| [to_task, ev] }
-            end
-            if user_handler
-                check_arity(user_handler, 1)
-                handlers << user_handler
-            end
-                    
-            event_handlers[event_model.symbol] += handlers
-            handlers.each { |h| added_event_handler(event_model, h) }
+            self
         end
 
-        # Calls the command for +event+ on this task, in the given context
-        def send_command(event_model, context = nil)
-            event_model = model.validate_events(event_model).first
-            event_model.call(self, context)
-        end
-        
+       
         # :section: Callbacks
         
         # Callback called when an event handler is added for +event+
         # *Return* false to discard the handler
-        def added_event_handler(event, handler); true end
+        def added_event_handler(bound_event, handler); true end
 
         # Callback called in Task#emit just before calling the event handler +h+
         # because we are emitting +e+
@@ -275,23 +215,19 @@ module Roby
             end
 
             if options[:command]
-                if options[:command].respond_to?(:call)
+                if command_handler
                     check_arity(options[:command], 2)
-                    def new_event.call(task, context)
-                        command_handler.call(task, context)
-                    end
+                    define_method("#{ev_s}!") { |*context| context = *context; command_handler.call(self, *context) }
                 else
-                    def new_event.call(task, context)
-                        task.emit symbol, context
+                    define_method("#{ev_s}!") { |*context| context = *context; emit(ev, context) }
+                end
+                event_method = instance_method("#{ev_s}!")
+                new_event.instance_eval do
+                    @event_method    = event_method
+                    def call(task, context)
+                        @event_method.bind(task).call(context)
                     end
                 end
-                
-                # Define a bang method on self which calls the command
-                define_method ev_s + '!', 
-                    &lambda { |*context| 
-                        context = *context
-                        new_event.call(self, context) 
-                    }
             end
 
             if new_event_model(new_event)
@@ -300,24 +236,29 @@ module Roby
             end
         end
 
-        def each_event(&iterator); self.class.each_event(&iterator) end
+        # Iterates on all the events defined for this 
+        # task
+        def each_event(only_bound = true, &iterator) # :yield:bound_event
+            if only_bound
+                @bound_events.each_value(&iterator)
+            else
+                model.each_event { |model| yield event(model) }
+            end
+        end
+
         # Iterates on all event models defined for this task model
-        def self.each_event(&iterator) # :yields: event
+        def self.each_event(&iterator)
             constants.each do |const_name|
-                const_value = const_get(const_name)
-                if const_value.has_ancestor?(Event)
-                    yield const_value
+                event_model = const_get(const_name)
+                if event_model.has_ancestor?(Event)
+                    yield(event_model)
                 end
             end
         end
 
-        # Get the list of terminal events for this model
+        # Get the list of terminal event model for this task model
         def self.terminal_events; enum_for(:each_event).find_all { |e| e.terminal? } end
-        # Find the event class for +event+, or nil if +event+ is not an event name for this model
-        def self.find_event(event); 
-            enum_for(:each_event).find { |e| e.symbol == event.to_sym } 
-        end
-          
+         
         def self.validate_event_definition_request(ev, options) #:nodoc:
             if has_event?(ev)
                 raise ArgumentError, "event #{ev} already defined"
@@ -333,8 +274,14 @@ module Roby
         end
 
         # Get the event model for +event+. +event+ must follow the rules for validate_event_models
-        def self.event_model(event)
-            validate_event_models(event).first
+        def self.event_model(model)
+            validate_event_models(model).first
+        end
+        def event_model(model); self.model.event_model(model) end
+
+        # Find the event class for +event+, or nil if +event+ is not an event name for this model
+        def self.find_event_model(name)
+            enum_for(:each_event).find { |e| e.symbol == name.to_sym } 
         end
 
         # Checks that all events in +events+ are valid events for this task.
@@ -342,19 +289,18 @@ module Roby
         # or an event class
         #
         # Returns the corresponding array of event classes
-        def self.validate_events(*events) #:nodoc:
-            events.map { |e|
+        def self.validate_event_models(*models) #:nodoc:
+            models.map { |e|
                 if e.respond_to?(:to_sym)
-                    ev_model = find_event(e.to_sym)
+                    ev_model = find_event_model(e.to_sym)
                     unless ev_model
                         all_events = enum_for(:each_event).
-                            to_a.
-                            map { |ev| ev.symbol }
+                            to_a.map { |ev| ev.symbol }
                         raise ArgumentError, "#{e} is not an event of #{name} #{all_events.inspect}" unless ev_model
                     end
                 elsif e.has_ancestor?(Event)
                     # Check that e is an event class for us
-                    ev_model = find_event(e.symbol)
+                    ev_model = find_event_model(e.symbol)
                     if !ev_model
                         raise ArgumentError, "no #{e.symbol} event in #{name}"
                     elsif ev_model != e
@@ -367,17 +313,10 @@ module Roby
                 ev_model
             }
         end
-
-        def self.signalling
-            @signalling ||= Hash.new { |h, k| h[k] = Array.new }
-        end
-        def self.event_handlers #:nodoc:
-            @event_handlers ||= Hash.new { |h, k| h[k] = Array.new }
-        end
-        
+       
         class << self
             # Checks if _name_ is a name for an event of this task
-            alias :has_event? :find_event
+            alias :has_event? :find_event_model
 
             private :validate_event_definition_request
         end
@@ -403,20 +342,14 @@ module Roby
         # all events given in argument will be called. If they are controlable,
         # then the command is called. If not, they are just fired
         def self.on(mappings, &user_handler)
-            source_events = []
             mappings = [*mappings].zip([]) unless Hash === mappings
-
             mappings.each do |from, to|
-                from = validate_events(from).first
-                source_events << from
-                next unless to && ![*to].empty?
-                to   = validate_events(*to)
+                from = *validate_event_models(from)
+                to = if to; validate_event_models(*to)
+                     else;  []
+                     end
 
-                signalling[from.symbol] += to.map { |event| [nil, event] }
-            end
-                    
-            if user_handler
-                source_events.each { |model| event_handlers[model.symbol] << user_handler }
+                from.on(*to, &user_handler)
             end
         end
     end

@@ -19,12 +19,13 @@ class TC_TaskMeta < Test::Unit::TestCase
         if !TestTask.has_event?(:start)
             # Must raise because :start is not set
             assert_raise(TaskModelViolation) { task = TestTask.new }
-            TestTask.event :start
+            TestTask.event :start, :command => true
 
             # Must raise because there is not terminal event
             assert_raise(TaskModelViolation) { task = TestTask.new }
             assert(! TestTask.has_event?(:stop))
-            TestTask.event :ev_terminal, :terminal => true
+            TestTask.event :ev_terminal, :terminal => true, :command => true
+            assert( TestTask.new.respond_to?(:start!))
         end
 
         @task = nil
@@ -81,17 +82,15 @@ class TC_TaskMeta < Test::Unit::TestCase
         alias_called = false
         task.on(:ev_terminal)   { event_called = true }
         task.on(:stop)          { alias_called = true }
-        assert_equal(1, task.enum_for(:each_handler, :ev_terminal).to_a.size)
-        assert_equal(1, task.enum_for(:each_signal, :ev_terminal).to_a.size)
 
         # Checks that we need :start to be called before firing any other event
-        assert_raise(TaskModelViolation) { task.emit :ev_terminal }
+        assert_raise(TaskModelViolation) { task.ev_terminal! }
 
-        task.emit :start
+        task.start!
         assert( task.running? )
         assert( !task.finished? )
 
-        task.emit :ev_terminal
+        task.ev_terminal!
         assert event_called
         assert alias_called
         assert( task.finished? )
@@ -99,8 +98,8 @@ class TC_TaskMeta < Test::Unit::TestCase
         
 
         # Checks that we can't fire an event when the task is finished
-        assert_raise(TaskModelViolation) { task.emit :start }
-        assert_raise(TaskModelViolation) { task.emit :ev_terminal }
+        assert_raise(TaskModelViolation) { task.start! }
+        assert_raise(TaskModelViolation) { task.ev_terminal! }
     end
 end
 
