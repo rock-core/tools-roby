@@ -50,40 +50,23 @@ class TC_Utils < Test::Unit::TestCase
     end
 
     class A
-        model_enumerator(:signature, :sig)
-
-        @sig = [ :in_a ]
-        def initialize
-            @sig = [ :in_a_object ]
-        end
+        class_inherited_enumerable(:signature, :sig) { Array.new }
     end
     class B < A
-        @sig = [ :in_b ]
-        def initialize
-            @sig = [ :in_b_object ]
-        end
     end
 
-    def test_model_enumerator
+    def test_inherited_enumerable
         assert(A.respond_to?(:each_signature))
-        assert(A.new.respond_to?(:each_signature))
         assert(A.respond_to?(:sig))
-        assert(A.new.respond_to?(:sig))
+        assert(B.respond_to?(:each_signature))
+        assert(B.respond_to?(:sig))
+
+        A.sig << :in_a
+        B.sig << :in_b
 
         assert_equal([:in_a], A.enum_for(:each_signature).to_a)
         assert_equal([:in_b, :in_a], B.enum_for(:each_signature).to_a)
 
-        a = A.new
-        class << a
-            @sig = [ :in_a_singleton ]
-        end
-        assert_equal([:in_a_object, :in_a_singleton, :in_a], a.enum_for(:each_signature).to_a)
-
-        b = B.new
-        class << b
-            @sig = [ :in_b_singleton ]
-        end
-        assert_equal([:in_b_object, :in_b_singleton, :in_b, :in_a], b.enum_for(:each_signature).to_a)
     end
 end
 

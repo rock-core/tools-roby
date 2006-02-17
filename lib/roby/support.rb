@@ -50,6 +50,22 @@ class Module
             const_set(name, value)
         end
     end
+
+    # Define 'name' to be a read-only enumerable attribute
+    def attr_enumerable(name, attr_name = name, enumerator = :each)
+        class_eval <<-EOF
+            attr_accessor :#{attr_name}
+            private :#{attr_name}=
+            def each_#{name}(key = nil, &iterator)
+                return unless #{attr_name}
+                if key
+                    #{attr_name}[key].#{enumerator}(&iterator)
+                else
+                    #{attr_name}.#{enumerator}(&iterator)
+                end
+            end
+        EOF
+    end
 end
 
 class Class
@@ -68,29 +84,32 @@ class Class
     # ...
     #
     # It defines also #{name} as being an rw attribute
-    def model_enumerator(name, attribute_name = name, enumerate_with = :each)
-        class_eval <<-EOF
-        def each_#{name}(key = nil, &iterator)
-            if key
-                #{attribute_name}[key].#{enumerate_with}(&iterator) if #{attribute_name}
-            else
-                #{attribute_name}.#{enumerate_with}(&iterator) if #{attribute_name}
-            end
-            singleton_class.each_#{name}(key, &iterator) 
-            self.class.each_#{name}(key, &iterator) # Not needed in ruby 1.9
+    def class_inherited_enumerable(name, attribute_name = name, enumerate_with = :each, &init)
+        if init
+            self.class.class_eval <<-EOF
+                def #{attribute_name}
+                    @#{attribute_name} ||= @@inherited_enumerable_#{attribute_name}_init.call
+                end
+            EOF
+            self.class.instance_eval { class_variable_set("@@inherited_enumerable_#{attribute_name}_init", init) }
+        else
+            self.class.instance_eval { attr_reader attribute_name }
         end
+        self.class.instance_eval { 
+            attr_writer attribute_name
+            private "#{attribute_name}="
+        }
 
-        def self.each_#{name}(key = nil, &iterator)
-            if key
-                #{attribute_name}[key].#{enumerate_with}(&iterator) if #{attribute_name}
-            else
-                #{attribute_name}.#{enumerate_with}(&iterator) if #{attribute_name}
-            end
-            superclass.each_#{name}(key, &iterator) if superclass.respond_to?(:each_#{name})
-        end
-        attr_accessor :#{attribute_name}
+        class_eval <<-EOF
         class << self
-            attr_accessor :#{attribute_name}
+            def each_#{name}(key = nil, &iterator)
+                if key
+                    #{attribute_name}[key].#{enumerate_with}(&iterator) if #{attribute_name}
+                else
+                    #{attribute_name}.#{enumerate_with}(&iterator) if #{attribute_name}
+                end
+                superclass.each_#{name}(key, &iterator) if superclass.respond_to?(:each_#{name})
+            end
         end
         EOF
     end
