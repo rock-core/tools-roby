@@ -29,6 +29,10 @@ module Roby::TaskAggregator
         end
 
         def start(context)
+            class << self; private :unshift end
+            @tasks.first.
+                on(:start) { emit :start }.
+                start!
             @tasks.first.start!
         end
         event :start
