@@ -13,7 +13,7 @@ ENV['PATH'] = path.join(':')
 ENV['PKG_CONFIG_PATH'] = pkg_config_path.join(':')
 
 module Test::Unit::Assertions
-    class FailedTimeout < Exception; end
+    class FailedTimeout < RuntimeError; end
     def assert_doesnt_timeout(seconds)
         watched_thread = Thread.current
         watchdog = Thread.new do
