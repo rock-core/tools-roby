@@ -363,6 +363,16 @@ module Roby
         end
 
         def inspect; "#{model.name} (#{object_id})" end
+
+        def null?; false end
+    end
+
+    class NullTask < Task
+        event :start, :command => true
+        event :stop
+        on :start => :stop
+
+        def null?; true end
     end
 end
 
