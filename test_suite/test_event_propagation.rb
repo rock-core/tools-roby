@@ -20,7 +20,7 @@ class TC_EventPropagation < Test::Unit::TestCase
         assert(start_node.finished?)
 
         start_node = EmptyTask.new
-        start_node.event(:start).send(:propagate, nil)
+        start_node.start!
         assert(start_node.finished?)
 
         start_node = EmptyTask.new

@@ -2,7 +2,14 @@ require 'roby/event'
 require 'roby/support'
 
 module Roby
-    class TaskModelViolation < RuntimeError; end
+    class TaskModelViolation < RuntimeError
+        attr_reader :event
+        def initialize(event); @event = event end
+        def to_s
+            history = event.task.history.map { |time, event| [time, event.model.name] }.join("\n  ")
+            super + "\n#{event.task.model.name} (#{event.task.object_id})\n  #{history.inspect}"
+        end
+    end
 
     class Task
         # Builds a task object using this task model
@@ -58,9 +65,11 @@ module Roby
         # additional handlers & commands to call
         def fire_event(event)
             if finished? && event.symbol != :stop
-                raise TaskModelViolation, "emit(#{event.symbol}: #{event.model}) called but the task has finished"
+                raise TaskModelViolation.new(event), "emit(#{event.symbol}: #{event.model}) called but the task has finished (history.map"
             elsif !running? && !finished? && event.symbol != :start
-                raise TaskModelViolation, "emit(#{event.symbol}: #{event.model}) called but the task is not running"
+                raise TaskModelViolation.new(event), "emit(#{event.symbol}: #{event.model}) called but the task is not running"
+            elsif running? && event.symbol == :start
+                raise TaskModelViolation.new(event), "emit(#{event.symbol}: #{event.model}) called but the task is already running"
             end
 
             # Add it to our history
@@ -352,6 +361,8 @@ module Roby
                 from.on(*to, &user_handler)
             end
         end
+
+        def inspect; "#{model.name} (#{object_id})" end
     end
 end
 

@@ -82,7 +82,7 @@ module Roby
             @handlers, @signals = [], []
 
             if event_model.respond_to?(:call)
-                def call(context)
+                def self.call(context)
                     event_model.call(task, context) 
                 end
             end
@@ -90,6 +90,7 @@ module Roby
 
         attr_enumerable(:handler, :handlers) { Array.new }
         attr_enumerable(:signal, :signals) { Array.new }
+
         # Establishes signalling and/or event handlers from this event model
         def on(*signals, &handler)
             unless signals.all? { |e| BoundEventModel === e }
@@ -104,55 +105,51 @@ module Roby
             end
         end
 
-        PropagationResult = Struct.new(:commands, :handlers)
         class PropagationResult
+            attr_accessor :events, :handlers
+            def initialize(events = [], handlers = [])
+                @events, @handlers = events, handlers 
+            end
             def |(other)
-                PropagationResult.new self.commands | other.commands, self.handlers | other.handlers
+                PropagationResult.new self.events | other.events, self.handlers | other.handlers
             end
         end
 
-        # Do event propagation. Return an array of [event, [handlers]] pair
-        # of the fired being fired in the propagation and the handlers 
-        # that should be called
-        def propagate(context)
-            if event_model.command_handler
-                result = PropagationResult.new [], []
-                result.commands = [[ self, context ]]
-                return result
-            else
-                return fire(context)
+        def emit(context)
+            result = fire(context)
+            if @@gather_emit
+                @@gather_emit |= result
+                return
             end
         end
+
         def fire(context)
-            event = new(context)
-            result = task.fire_event(event) || PropagationResult.new([], [])
+            event  = new(context)
+            result = task.fire_event(event) || PropagationResult.new
 
-            # Propagate model signals
-            result = event_model.enum_for(:each_signal).inject(result) do |result, signalled|
-                # we *can* call propagate event on non-controlable events (this is an acceptable 
-                # behaviour for internal signals). Use send to go around the private protection
-                # on propagate
-                result | task.event(signalled).propagate(context)
+            # Get model signals
+            result.events |= event_model.enum_for(:each_signal).collect do |signalled|
+                task.event(signalled)
+            end
+            result.events |= enum_for(:each_signal).to_a
+
+            if bad_event = result.events.find { |ev| !(ev.controlable? || ev.task == task) || !ev.respond_to?(:task)}
+                raise TaskModelViolation, "trying to signal a non-controlable event #{bad_event}"
             end
 
-            result = enum_for(:each_signal).inject(result) do |result, signalled|
-                unless signalled.controlable? || signalled.task == task
-                    raise TaskModelViolation, "trying to signal a non-controlable event"
-                end
-                result | signalled.propagate(context)
-            end
             result.handlers << [ event, handlers ]
             result.handlers << [ event, event_model.enum_for(:each_handler).to_a ]
 
             return result
         end
-        protected :propagate, :fire
+        protected :fire
 
         @@gather_emit = nil
         def gather_emit
-            @@gather_emit = PropagationResult.new([], [])
+            raise "nested calls to #gather_emit" if @@gather_emit
+            @@gather_emit = PropagationResult.new
             yield
-            unless @@gather_emit.commands.empty? && @@gather_emit.handlers.empty?
+            unless @@gather_emit.events.empty? && @@gather_emit.handlers.empty?
                 return @@gather_emit
             end
         ensure
@@ -167,8 +164,19 @@ module Roby
             end
 
             while result
-                # Gather all emit's needed by the event handlers and event commands
                 new_result = gather_emit do
+                    # Call event signalled by this task
+                    # Note that internal signalling does not need a #call
+                    # method (hence the respond_to? check). The fact that the
+                    # event can or cannot be fired is checked in #fire
+                    result.events.each { |event| 
+                        if event.respond_to?(:call)
+                            event.call(context) 
+                        else
+                            event.task.emit(event.event_model)
+                        end
+                    }
+
                     # Call event handlers
                     result.handlers.each do |event, event_handlers|
                         task = event.task
@@ -178,11 +186,6 @@ module Roby
                             end
                             task.after_calling_handler(event, handler)
                         end
-                    end
-
-                    # Call event commands
-                    result.commands.each do |bound_event, context|
-                        bound_event.call(context)
                     end
                 end
                 result = new_result
@@ -196,6 +199,8 @@ module Roby
 
         # If this event already happened
         def happened?; task.history.find { |_, ev| ev.class == event_model } end
+
+        def to_s; "#<Roby::BoundEventModel:#{object_id} task=#{task}, event_model=#{event_model}>" end
     end
 
     # Base class for events that are not bound to a particular task
@@ -234,7 +239,7 @@ module Roby
             event_model.on do |event|
                 if !done? || permanent
                     @waiting.delete(event_model)
-                    emit :stop if done?
+                    emit(nil) if done?
                 end
             end
             self
@@ -259,10 +264,10 @@ module Roby
             @waiting = Set.new
         end
 
-        def << (event_model)
-            @waiting << event_model
-            event_model.on do |event_model| 
-                emit(event_model) if !done? || permanent
+        def << (event)
+            @waiting << event
+            event.on do |event_model| 
+                emit(event) if !done? || permanent
                 @done = true
             end
             self
