@@ -164,6 +164,8 @@ module Roby
             gen_mod.request_info.each do |req_name, req_def|
                 define_request(rb_mod, req_name) if !req_def.control?
             end
+
+            return rb_mod
         end
         class GenomState < ExtendableStruct
             def using(*modules)
