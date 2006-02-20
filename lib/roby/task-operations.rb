@@ -33,7 +33,6 @@ module Roby::TaskAggregator
             @tasks.first.
                 on(:start) { emit :start }.
                 start!
-            @tasks.first.start!
         end
         event :start
 
@@ -61,11 +60,6 @@ module Roby::TaskAggregator
     private
         def added(task)
             self.realized_by(task)
-            task.on(:start) do |event|
-                if event.task == @tasks.first
-                    emit(:start, event.context)
-                end
-            end
             task.on(:stop) do |event|
                 if event.task == @tasks.last
                     emit(:stop, event.context) 
