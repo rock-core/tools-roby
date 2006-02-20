@@ -4,6 +4,8 @@ require 'set'
 
 module Roby::TaskStructure
     module Hierarchy
+        include Roby::TaskStructure::Interface
+
         def initialize(*args, &proc)
             @realizes    = Set.new
             @realized_by = Hash.new

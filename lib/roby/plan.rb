@@ -2,10 +2,6 @@ require 'set'
 require 'roby/relations/hierarchy'
 
 module Roby
-    class Task
-        include TaskRelations::Hierarchy
-    end
-
     class Plan
         def initialize
             @tasks = Set.new

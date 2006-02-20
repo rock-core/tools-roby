@@ -22,9 +22,6 @@ module Roby
     end
 
     class Task
-        # Must be the first of all TaskRelationships included
-        include TaskRelations::Interface
-        
         # Removes all relations of the given kind between this task and other
         # Returns true if there was something to remove
         def remove_relation(kind, other)
