@@ -25,7 +25,7 @@ class TC_Relations < Test::Unit::TestCase
         assert_equal(b.enum_for(:each_relation).to_a, a.enum_for(:each_relation).to_a )
 
         b.realized_by c
-        assert_equal([b, c], a.enum_for(:each_child, true).to_a)
+        assert_equal([[b, a], [c, b]], a.enum_bfs(:each_child).to_a)
         assert_equal([c], b.enum_for(:each_child).to_a)
         assert_equal([b, c].to_set, a.first_children.to_set)
         assert_equal([c], b.first_children)

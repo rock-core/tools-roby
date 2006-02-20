@@ -18,7 +18,7 @@ module Roby::TaskStructure
         # signalled by a child event
         def first_children
             alone = Hash.new
-            each_child(true) do |child|
+            enum_bfs(:each_child) do |child, _|
                 alone[child] = true
                 child.each_event do |source|
                     source.each_signal { |signalled|
@@ -77,13 +77,7 @@ module Roby::TaskStructure
         # Iterates on all parent tasks
         def each_parent(&iter); realizes.each(&iter) end
         # Iterates on all child tasks
-        def each_child(whole_tree = false, &iter)
-            queue = @realized_by.keys
-            queue.each do |task|
-                yield(task)
-                task.each_child(true) { |child| queue << child } if whole_tree
-            end
-        end
+        def each_child(&iter); @realized_by.each_key(&iter) end
 
     protected
         attr_reader :realizes
