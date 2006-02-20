@@ -68,5 +68,12 @@ class TC_Utils < Test::Unit::TestCase
         assert_equal([:in_b, :in_a], B.enum_for(:each_signature).to_a)
 
     end
+
+    def test_object_stats
+        GC.disable
+        Hash.new
+        assert([Hash, 1], ObjectStats.profile { Hash.new }.collect { |klass, count| [klass, count] })
+        assert([Hash, -1], ObjectStats.profile { GC.start }.collect { |klass, count| [klass, count] })
+    end
 end
 
