@@ -85,29 +85,7 @@ module Roby::TaskStructure
             end
         end
 
-        # See Interface::related?
-        def related?(task)
-            each_parent { |t| return true if t == task }
-            each_child { |t| return true if t == task }
-            super
-        end
-
-        # See Interface::each_relation
-        # For Hierarchy relations, yields [Hierarchy, parent, child, events]
-        def each_relation(kind = nil, &iter)
-            return unless !kind || kind == Hierarchy
-            @realizes.each do |task|
-                events = task.send(:realized_by_hash)[self]
-                yield(Hierarchy, task, self, events)
-            end
-            @realized_by.each do |task, events|
-                yield(Hierarchy, self, task, events)
-            end
-            super
-        end
-
     protected
-        def realized_by_hash; @realized_by end
         attr_reader :realizes
     end
 end
