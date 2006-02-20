@@ -30,7 +30,7 @@ class TC_Relations < Test::Unit::TestCase
         assert_equal([b, c].to_set, a.first_children.to_set)
         assert_equal([c], b.first_children)
 
-        a.remove_relation(TaskRelations::Hierarchy, b)
+        a.remove_relation(TaskStructure::Hierarchy, b)
         assert( !a.realizes?(b) )
         assert( !b.realizes?(a) )
         assert( !a.realized_by?(b) )

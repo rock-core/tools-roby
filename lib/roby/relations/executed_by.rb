@@ -1,6 +1,6 @@
 require 'roby/task'
 
-module Roby::TaskRelations
+module Roby::TaskStructure
     module ExecutedBy
         def initialize
             if self.class.execution_agent

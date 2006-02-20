@@ -1,5 +1,5 @@
 module Roby
-    module TaskRelations
+    module TaskStructure
         # There is one kind of relation by module in Roby::TaskRelationships
         # These modules are included in tasks which need a given relation type
         module Interface

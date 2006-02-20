@@ -2,7 +2,7 @@ require 'enumerator'
 require 'roby/relations'
 require 'set'
 
-module Roby::TaskRelations
+module Roby::TaskStructure
     module Hierarchy
         def initialize(*args, &proc)
             @realizes    = Set.new
@@ -112,7 +112,7 @@ end
 
 module Roby
     class Task
-        include TaskRelations::Hierarchy
+        include TaskStructure::Hierarchy
     end
 end
 
