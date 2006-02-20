@@ -1,9 +1,11 @@
+require 'test/unit'
+
 BASE_TEST_DIR=File.expand_path(File.dirname(__FILE__))
 $LOAD_PATH.unshift BASE_TEST_DIR
 $LOAD_PATH.unshift File.expand_path("../lib", File.dirname(__FILE__))
 
 path=ENV['PATH'].split(':')
-pkg_config_path=ENV['PKG_CONFIG_PATH'].split(':')
+pkg_config_path=(ENV['PKG_CONFIG_PATH'] || "").split(':')
 
 Dir.glob("#{BASE_TEST_DIR}/prefix.*") do |p|
     path << "#{p}/bin"
