@@ -21,26 +21,28 @@ module Roby
                 @members.has_key?(name) 
             end
         end
-        def method_missing(name, *args, &proc)
+        def method_missing(name, *args, &update)
             attach
             name = name.to_s
             if name[-1] == ?= # Setter
                 if stable?
-                    super
+                    raise NoMethodError, "cannot use #{name} while #{self} is stable"
                 else
-                    @members[name[0..-2]] = args.first
+                    return @members[name[0..-2]] = args.first
                 end
-            else # update
+            elsif args.empty?
                 member = @members[name]
                 member ||= ExtendableStruct.new(self, name) unless stable?
                 super unless member
 
-                if member.respond_to?(:update)
-                    member.update(*args, &proc)
-                else
-                    member
+                if update
+                    return member.update(&update)
+                elsif !update
+                    return member
                 end
             end
+
+            super
         end
 
         def update(hash = nil)
