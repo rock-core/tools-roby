@@ -6,10 +6,69 @@ class String
     include ActiveSupport::CoreExtensions::String::Inflections
 end
 
+class BFSEnumerator
+    def initialize(root, enum_with, args)
+        @root = root
+        @enum_with = enum_with
+        @args = args
+    end
+
+    def each(&iterator)
+        queue = [@root]
+        while !queue.empty?
+            current = queue.shift
+            current.send(@enum_with, *@args) do |node|
+                yield(node, current)
+                queue << node
+            end
+        end
+    end
+
+    include Enumerable
+end
+
+class DFSEnumerator
+    def initialize(root, enum_with, args)
+        @root = root
+        @enum_with = enum_with
+        @args = args
+    end
+
+    def each(&iterator); enumerate(@root, &iterator) end
+
+    def enumerate(object, &iterator)
+        object.send(@enum_with, *@args) do |node|
+            yield(node, object)
+            enumerate(node, &iterator)
+        end
+    end
+
+    include Enumerable
+end
+
 class Object
     # Get the singleton class for this object
     def singleton_class
         class << self; self; end
+    end
+
+    # Enumerates an iterator-based graph depth-first
+    def enum_dfs(enum_with = :each, *args, &iterator) 
+        enumerator = DFSEnumerator.new(self, enum_with, args) 
+        if iterator
+            enumerator.each(&iterator)
+        else
+            enumerator
+        end
+    end
+    # Enumerates an iterator-based graph breadth-first
+    def enum_bfs(enum_with = :each, *args, &iterator)
+        enumerator = BFSEnumerator.new(self, enum_with, args) 
+        if iterator
+            enumerator.each(&iterator)
+        else
+            enumerator
+        end
     end
 end
 
