@@ -32,7 +32,9 @@ module Roby
             ObjectStats.profile { GC.start }.collect do |klass, count|
                 "  #{klass}: #{count}"
             end.join("\n")
+        }
 
+        Roby.debug { 
             [
                 "Started cycle at #{cycle_start}",
                 cycle_server ? "  server events processing took #{cycle_handlers - cycle_server}" : nil,
