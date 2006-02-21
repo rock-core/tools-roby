@@ -169,7 +169,7 @@ module Roby
         end
         class GenomState < ExtendableStruct
             def using(*modules)
-                modules.each { |modname| GenomModule(modname) }
+                modules.each { |modname| ::Roby::Genom::GenomModule(modname) }
             end
         end
         State.genom = GenomState.new
