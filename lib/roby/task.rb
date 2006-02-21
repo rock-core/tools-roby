@@ -82,13 +82,15 @@ module Roby
         
         attr_reader :bound_events
 
-        # Emits +name+ in the given +context+. Event handlers are fired.
-        #
         # call-seq:
         #   emit(name, context)                       event object
         #
+        # Emits +name+ in the given +context+. Event handlers are fired.
+        # This is equivalent to
+        #   event(event_model).emit(context)
+        #
         def emit(event_model, context = nil)
-            event(*model.validate_event_models(event_model)).emit(context)
+            event(event_model).emit(context)
             self
         end
 
@@ -110,7 +112,7 @@ module Roby
         # 
         # This method calls the added_event_handler callback
         def on(event_model, *args, &user_handler)
-            bound_event = event(*model.validate_event_models(event_model))
+            bound_event = event(event_model)
             unless args.size >= 2 || (args.size == 0 && user_handler)
                 raise ArgumentError, "Bad call for Task#on. Got #{args.size + 1} arguments and #{block_given? ? 1 : 0} block"
             end
