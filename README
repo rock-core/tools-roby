@@ -1,3 +1,6 @@
 
+ * for now, OrGenerator and AndGenerator cannot be used to route inside a task (i.e. fire
+   non-controlable events). Maybe fix that (check that all input events are from the same
+   task than the output)
 
 
