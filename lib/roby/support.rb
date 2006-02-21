@@ -331,6 +331,17 @@ class Logger
     end
 end
 
+require 'logger'
+module Roby
+    @logger = Logger.new(STDOUT)
+    @logger.level = Logger::DEBUG
+    @logger.progname = "Roby"
+    @logger.formatter = lambda { |severity, time, progname, msg| "#{progname}: #{msg}\n" }
+
+    extend Logger::Hierarchy
+    extend Logger::Forward
+end
+
 if __FILE__ == $0
     require 'pp'
     raise "Object allocation profile changed" if !ObjectStats.profile { ObjectStats.count }.empty?
