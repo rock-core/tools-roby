@@ -1,108 +1,57 @@
 require 'set'
+require 'roby/event_loop'
 require 'roby/support'
 
 module Roby
-    # Base class for event models
-    # When events are emitted, then the created object is 
-    # an instance of a particular Event class
     class Event
-        # The task which fired this event
-        attr_reader :task
-        # The event context
         attr_reader :context
-        
-        def initialize(task, context = nil)
-            @task, @context = task, context
+        def initialize(context)
+            @context = context
         end
 
         def model; self.class end
 
-        # If the event model defines a controlable event
-        # By default, an event is controlable if the model
-        # responds to #call
-        def self.controlable?; respond_to?(:call) end
-        # If the event is controlable
-        def controlable?; self.class.controlable? end
-        # If the event model defines a terminal event
-        def self.terminal?; @terminal end
-        # If the event is terminal
-        def terminal?; self.class.terminal? end
-        # The event symbol
-        def self.symbol; @symbol end
-        # The event symbol
-        def symbol; self.class.symbol end
-
-        # A list of event handlers attached to this model
-        class_inherited_enumerable(:handler, :handlers) { Array.new }
-        # A list of event signals attached to this model
-        class_inherited_enumerable(:signal, :signals) { Array.new }
-
-        class << self
-            def on(*signals, &handler)
-                self.signals  += signals
-                self.handlers << handler if handler
-            end
-        end
     end
 
-    # Generic double-dispatchers for operation on
-    # bound events, based on to_and and to_or
-    module Event::ModelOperations
+    
+    class EventGenerator
+        # Generic double-dispatchers for operation on
+        # bound events, based on to_and and to_or
         def |(event_model)
             if event_model.respond_to?(:to_or)
                 event_model.to_or | self
             else
-                OrEvent.new << self << event_model
+                OrGenerator.new << self << event_model
             end
         end
         def &(event_model)
             if event_model.respond_to?(:to_and)
                 event_model.to_and & self
             else
-                AndEvent.new << self << event_model
-            end
-        end
-
-    end
-
-    # An event model bound to a particular task instance
-    # The Task/BoundEventModel/Event relationship is 
-    # comparable to the Class/UnboundMethod/Method one:
-    # * a Task object is a model for a task, a Class in a model for an object
-    # * an Event object is a model for an event instance (the instance being unspecified), 
-    #   an UnboundMethod is a model for an instance method
-    # * a BoundEvent object represents a particular event model 
-    #   *bound* to a particular task instance,
-    #   a Method object represents a particular method bound to a particular object
-    class BoundEventModel
-        include Event::ModelOperations
-        attr_reader :task, :event_model
-        def initialize(task, event_model)
-            @task, @event_model = task, event_model
-            @handlers, @signals = [], []
-
-            if event_model.respond_to?(:call)
-                def self.call(context)
-                    event_model.call(task, context) 
-                end
+                AndGenerator.new << self << event_model
             end
         end
 
         attr_enumerable(:handler, :handlers) { Array.new }
         attr_enumerable(:signal, :signals) { Array.new }
 
+        def initialize
+            @handlers, @signals = [], []
+        end
+
         # Establishes signalling and/or event handlers from this event model
         def on(*signals, &handler)
-            unless signals.all? { |e| BoundEventModel === e }
-                raise ArgumentError, "arguments to BoundEventModel#on shall be bound event models, got #{signals.inspect}" 
+            unless signals.all? { |e| EventGenerator === e }
+                raise ArgumentError, "arguments to EventGenerator#on shall be EventGenerator objects, got #{signals.inspect}" 
             end
             self.signals |= signals
 
             if handler
                 check_arity(handler, 1)
                 self.handlers << handler
-                task.added_event_handler(self, handler)
             end
+
+            self
         end
 
         class PropagationResult
@@ -115,34 +64,9 @@ module Roby
             end
         end
 
-        def emit(context)
-            result = fire(context)
-            if @@gather_emit
-                @@gather_emit |= result
-                return
-            end
-        end
+        # If this event can signal +event+
+        def can_signal?(event); event.controlable?  end
 
-        def fire(context)
-            event  = new(context)
-            result = task.fire_event(event) || PropagationResult.new
-
-            # Get model signals
-            result.events |= event_model.enum_for(:each_signal).collect do |signalled|
-                task.event(signalled)
-            end
-            result.events |= enum_for(:each_signal).to_a
-
-            if bad_event = result.events.find { |ev| !(ev.controlable? || ev.task == task) || !ev.respond_to?(:task)}
-                raise TaskModelViolation, "trying to signal a non-controlable event #{bad_event}"
-            end
-
-            result.handlers << [ event, handlers ]
-            result.handlers << [ event, event_model.enum_for(:each_handler).to_a ]
-
-            return result
-        end
-        protected :fire
 
         @@gather_emit = nil
         def gather_emit
@@ -155,9 +79,25 @@ module Roby
         ensure
             @@gather_emit = nil
         end
+        
+        def fire(event)
+            @happened = event
+
+            result = PropagationResult.new
+            result.events   |= enum_for(:each_signal).to_a
+            result.handlers << [ event, handlers ]
+
+            if bad_event = result.events.find { |ev| !can_signal?(ev) }
+                raise TaskModelViolation, "trying to signal #{bad_event} from #{self}"
+            end
+
+            return result
+        end
+        private :fire
 
         def emit(context)
-            result = fire(context)
+            event   = new(context)
+            result  = fire(event)
             if @@gather_emit
                 @@gather_emit |= result
                 return
@@ -168,70 +108,76 @@ module Roby
                     # Call event signalled by this task
                     # Note that internal signalling does not need a #call
                     # method (hence the respond_to? check). The fact that the
-                    # event can or cannot be fired is checked in #fire
+                    # event can or cannot be fired is checked in #fire (using can_signal?)
                     result.events.each { |event| 
                         if event.respond_to?(:call)
                             event.call(context) 
                         else
-                            event.task.emit(event.event_model)
+                            event.emit(context)
                         end
                     }
 
                     # Call event handlers
                     result.handlers.each do |event, event_handlers|
-                        task = event.task
                         event_handlers.each do |handler|
-                            if task.before_calling_handler(event, handler)
-                                handler.call(event) 
-                            end
-                            task.after_calling_handler(event, handler)
+                            handler.call(event) 
                         end
                     end
                 end
                 result = new_result
+            end        
+        end
+
+        def controlable?; false end
+        def happened?;  !!@happened end
+        def last;       @happened end
+
+        def ever; EverGenerator.new(self) end
+    end
+
+    class EverGenerator < EventGenerator
+        attr_reader :base
+
+        @pending = Array.new
+        class << self
+            attr_reader :pending
+        end
+        Roby.event_processing << lambda do
+            pending.each { |ev| ev.emit(nil) }
+            pending.clear
+        end
+
+        def new(context = nil)
+            event = base.last
+            raise ModelViolation, "cannot change the context of an EverEvent" if context && context != event.context
+            event
+        end
+
+        def initialize(base, &handler)
+            @base = base
+            super(&handler)
+
+            if base.controlable?
+                def self.call
+                    base.call unless base.happened?
+                end
+            elsif base.happened?
+                EverGenerator.pending << self
+            else
+                base.on { self.emit }
             end
         end
-
-        def controlable?; event_model.controlable? end
-        def terminal?;    event_model.terminal? end
-        def symbol;       event_model.symbol end
-        def new(context); event_model.new(task, context) end
-
-        # If this event already happened
-        def happened?; task.history.find { |_, ev| ev.class == event_model } end
-
-        def to_s; "#<Roby::BoundEventModel:#{object_id} task=#{task}, event_model=#{event_model}>" end
     end
 
-    # Base class for events that are not bound to a particular task
-    class ExternalEvent
-        include Event::ModelOperations
-        attr_accessor :handler
-
-        def initialize(&handler); @handler = handler end
-
-        def emit(context); handler.call(context) if handler end
-        def on(&handler)
-            ##### FIXME
-            # on should have the same signature than Task#on
-            raise "there is already a handler defined" if @handler
-            @handler = handler 
-            self
-        end
-
-        attr_accessor :permanent
-        def permanent!
-            @permanent = true 
-            self
-        end
-    end
-
-    class AndEvent < ExternalEvent
+    class AndGenerator < EventGenerator
         def initialize
             super
             @events = Set.new
             @waiting  = Set.new
         end
+
+        attr_accessor :permanent
+        def permanent!; self.permanent = true end
 
         def << (event_model)
             @events  << event_model
@@ -252,31 +198,42 @@ module Roby
         def to_and; self end
         def &(event_model); self << event_model end
 
+        def new(context); Event.new(context) end
+
     protected
         attr_reader :waiting
         def initialize_copy(from); @waiting = from.waiting.dup end
     end
 
-    class OrEvent < ExternalEvent
+    class OrGenerator < EventGenerator
         def initialize
             super
-            @done = false
-            @waiting = Set.new
+            @done       = []
+            @waiting    = Set.new
         end
+
+        attr_accessor :permanent
+        def permanent!; self.permanent = true end
 
         def << (event)
             @waiting << event
             event.on do |event_model| 
-                emit(event) if !done? || permanent
-                @done = true
+                emit(nil) if !done? || permanent
+                @done << event
             end
             self
         end
 
-        def reset; @done = false end
-        def done?; @done end
+        def reset; @done.clear end
+        def done?; !(@done.empty?) end
         def to_or; self end
         def |(event_model); self << task end
+
+        def new(context = nil)
+            event = @done.last
+            raise ModelViolation, "cannot change the context of a OrGenerator" if context && context != event.context
+            event
+        end
 
     protected
         attr_reader :waiting

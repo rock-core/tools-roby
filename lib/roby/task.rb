@@ -11,6 +11,93 @@ module Roby
         end
     end
 
+    # Base class for task events
+    # When events are emitted, then the created object is 
+    # an instance of a class derived from this one
+    class TaskEvent < Event
+        # The task which fired this event
+        attr_reader :task
+        
+        def initialize(task, context = nil)
+            @task = task
+            super(context)
+        end
+
+        # If the event model defines a controlable event
+        # By default, an event is controlable if the model
+        # responds to #call
+        def self.controlable?; respond_to?(:call) end
+        # If the event is controlable
+        def controlable?; self.class.controlable? end
+        # If the event model defines a terminal event
+        def self.terminal?; @terminal end
+        # If the event is terminal
+        def terminal?; self.class.terminal? end
+        # The event symbol
+        def self.symbol; @symbol end
+        # The event symbol
+        def symbol; self.class.symbol end
+
+        # A list of event handlers attached to this model
+        class_inherited_enumerable(:handler, :handlers) { Array.new }
+        # A list of event signals attached to this model
+        class_inherited_enumerable(:signal, :signals)   { Array.new }
+
+        class << self
+            def on(*signals, &handler)
+                self.signals  += signals
+                self.handlers << handler if handler
+            end
+        end
+    end
+
+    # A task event model bound to a particular task instance
+    # The Task/TaskEvent/TaskEventGenerator relationship is 
+    # comparable to the Class/UnboundMethod/Method one:
+    # * a Task object is a model for a task, a Class in a model for an object
+    # * a TaskEvent object is a model for an event instance (the instance being unspecified), 
+    #   an UnboundMethod is a model for an instance method
+    # * a TaskEventGenerator object represents a particular event model 
+    #   *bound* to a particular task instance, a Method object represents a particular method 
+    #   bound to a particular object
+    class TaskEventGenerator < EventGenerator
+        attr_reader :task, :event_model
+        def initialize(task, event_model)
+            super()
+            @task, @event_model = task, event_model
+
+            if event_model.respond_to?(:call)
+                def self.call(context)
+                    event_model.call(task, context) 
+                end
+            end
+        end
+
+        def can_signal?(event); super || (event.respond_to?(:task) && task == event.task) end
+
+        def fire(event)
+            result = task.fire_event(event) || PropagationResult.new
+            
+            # Get model signals and handlers
+            result.events |= event_model.enum_for(:each_signal).collect do |signalled|
+                task.event(signalled)
+            end
+            result.handlers << [ event, event_model.enum_for(:each_handler).to_a ]
+
+            result | super
+        end
+
+        def controlable?; event_model.controlable? end
+        def terminal?;    event_model.terminal? end
+        def symbol;       event_model.symbol end
+        def new(context); event_model.new(task, context) end
+
+        # If this event already happened
+        def happened?; task.history.find { |_, ev| ev.class == event_model } end
+
+        def to_s; "#<Roby::TaskEventGenerator:#{object_id} task=#{task}, event_model=#{event_model}>" end
+    end
+
     class Task
         # Builds a task object using this task model
         # The task object can be configured by a given block. After the 
@@ -59,9 +146,9 @@ module Roby
         # If this task ran and is finished
         def finished?;  !history.empty? && history.last[1].symbol == :stop end
             
-        # This method is called by BoundEventModel#fire just before the event handlers
+        # This method is called by TaskEventGenerator#fire just before the event handlers
         # and commands are called
-        # It can return a BoundEventModel::PropagationResult instance to give
+        # It can return a TaskEventGenerator::PropagationResult instance to give
         # additional handlers & commands to call
         def fire_event(event)
             if finished? && event.symbol != :stop
@@ -94,11 +181,11 @@ module Roby
             self
         end
 
-        # Returns an BoundEvent object which represents the given event bound
+        # Returns an TaskEventGenerator object which is the given task event bound
         # to this particular task
         def event(event_model)
             event_model = *model.validate_event_models(event_model)
-            bound_events[event_model] ||= BoundEventModel.new(self, event_model)
+            bound_events[event_model] ||= TaskEventGenerator.new(self, event_model)
         end
 
         # call-seq:
@@ -109,14 +196,13 @@ module Roby
         # * all provided events will be provoked in +task+. As such, all of these
         #   events shall be controlable
         # * the supplied handler will be called with the event object
-        # 
-        # This method calls the added_event_handler callback
+        #
         def on(event_model, *args, &user_handler)
-            bound_event = event(event_model)
             unless args.size >= 2 || (args.size == 0 && user_handler)
                 raise ArgumentError, "Bad call for Task#on. Got #{args.size + 1} arguments and #{block_given? ? 1 : 0} block"
             end
 
+            bound_event = event(event_model)
             to_events = if args.size >= 2
                             to_task, *to_events = *args
                             to_events = to_events.map { |ev_model| to_task.event(ev_model) }
@@ -128,26 +214,8 @@ module Roby
                             []
                         end
             bound_event.on(*to_events, &user_handler)
-
             self
         end
-
-       
-        # :section: Callbacks
-        
-        # Callback called when an event handler is added for +event+
-        # *Return* false to discard the handler
-        def added_event_handler(bound_event, handler); true end
-
-        # Callback called in Task#emit just before calling the event handler +h+
-        # because we are emitting +e+
-        # *Return* true if the handler is to be called, false otherwise
-        def before_calling_handler(e, h); true end
-        # Callback called in Task#emit just after the event handler +h+ has been called while
-        # emitting the event +e+
-        def after_calling_handler(e, h); end
-
-
 
         # :section: Event model
         
@@ -172,7 +240,7 @@ module Roby
         #
         # <tt>:model</tt>::
         #   base class for the event model (see "Event models" below). The default is the 
-        #   Event class
+        #   TaskEvent class
         #
         #
         # ==== Automatic event command
@@ -188,13 +256,13 @@ module Roby
         # ==== Event models
         #
         # The event model is described using a Ruby class. Task::event defines a 
-        # class, usually a subclass of Event and stores it in MyTask::MyEvent
+        # class, usually a subclass of TaskEvent and stores it in MyTask::MyEvent
         # for a my_event event. Then, when the event is emitted, the event object
         # will be an instance of this particular class. To override the base class
         # for a particular event, use the <tt>:model</tt> option
         #
-        def self.event(ev, options = nil)
-            options = validate_options(options, :command => nil, :terminal => nil, :model => Event)
+        def self.event(ev, options = Hash.new)
+            options = validate_options(options, :command => nil, :terminal => nil, :model => TaskEvent)
             validate_event_definition_request(ev, options)
 
             ev_s = ev.to_s
@@ -261,7 +329,7 @@ module Roby
         def self.each_event(&iterator)
             constants.each do |const_name|
                 event_model = const_get(const_name)
-                if event_model.has_ancestor?(Event)
+                if event_model.has_ancestor?(TaskEvent)
                     yield(event_model)
                 end
             end
@@ -309,7 +377,7 @@ module Roby
                             to_a.map { |ev| ev.symbol }
                         raise ArgumentError, "#{e} is not an event of #{name} #{all_events.inspect}" unless ev_model
                     end
-                elsif e.has_ancestor?(Event)
+                elsif e.has_ancestor?(TaskEvent)
                     # Check that e is an event class for us
                     ev_model = find_event_model(e.symbol)
                     if !ev_model
