@@ -131,18 +131,33 @@ module ::Roby
             gen_mod = ::Genom::GenomModule.new(name, :auto_attributes => true, :lazy_poster_init => true)
             modname = gen_mod.name.classify
             begin
-                return ::Roby::Genom.const_get(modname)
+                rb_mod = ::Roby::Genom.const_get(modname)
             rescue NameError
             end
 
-            Roby.debug { "Defining namespace #{modname} for genom module #{name}" }
-            rb_mod = ::Roby::Genom.define_under(modname) do 
-                Module.new do
-                    @module = gen_mod
-                    class << self
-                        attr_reader :module
-                        def new_task; Runner.new end
+            if rb_mod
+                if !rb_mod.is_a?(Module)
+                    raise "module #{modname} already defined, but it is not a Ruby module"
+                end
+
+                if rb_mod.respond_to?(:module)
+                    if rb_mod.module == gen_mod
+                        return rb_mod
+                    else
+                        raise "module #{modname} already defined, but it does not seem to be associated to #{name}"
                     end
+                end
+                Roby.debug { "Extending #{modname} for genom module #{name}" }
+            else
+                Roby.debug { "Defining #{modname} for genom module #{name}" }
+                rb_mod = ::Roby::Genom.define_under(modname) { Module.new }
+            end
+
+            rb_mod.class_eval do
+                @module = gen_mod
+                class << self
+                    attr_reader :module
+                    def new_task; Runner.new end
                 end
             end
 
