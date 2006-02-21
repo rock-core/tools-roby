@@ -79,4 +79,8 @@ Rake::RDocTask.new("rdoc") do |rdoc|
   rdoc.rdoc_files.exclude('doc/**/*_attrs.rdoc')
 end
 
+task :test do
+    system("testrb test_suite/test_*")
+end
+
 
