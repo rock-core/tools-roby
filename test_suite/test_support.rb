@@ -52,7 +52,7 @@ class TC_Utils < Test::Unit::TestCase
 
     class A
         class_inherited_enumerable(:signature, :signatures) { Array.new }
-        class_inherited_enumerable(:mapped, :map, :key => true) { Hash.new }
+        class_inherited_enumerable(:mapped, :map, :map => true) { Hash.new }
     end
     class B < A
     end

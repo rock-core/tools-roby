@@ -167,7 +167,7 @@ class Class
             private "#{attribute_name}="
         end
 
-        if options[:key]
+        if options[:map]
             class_eval <<-EOF
             def self.each_#{name}(key = nil, &iterator)
                 if key
