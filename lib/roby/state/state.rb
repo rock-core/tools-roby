@@ -2,9 +2,10 @@ module Roby
     class ExtendableStruct
         def initialize(attach_to = nil, attach_name = nil)
             @members = Hash.new
-            if attach_to
-                @attach = lambda { attach_to.send("#{attach_name}=", self) } 
-            end
+            @attach = if attach_to
+                          lambda { attach_to.send("#{attach_name}=", self) } 
+                      end
+            @stable = false
         end
         def attach
             return unless @attach
