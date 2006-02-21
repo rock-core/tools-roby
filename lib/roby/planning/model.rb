@@ -1,158 +1,128 @@
+require 'roby/planning/task'
 require 'roby/task'
 require 'roby/event_loop'
 
 module Roby
-    # An empty task which should be planned by a 
-    # planning task (the planning task can be retrieved
-    # using #planning_task)
-    #
-    # The goal of the Roby supervisor is to make sure that 
-    # the task is planned *before* it is needed. In this case,
-    # the PlannedTask is replaced by the generated plan, et voila.
-    #
-    # Otherwise, the planned task starts the planner, inserts
-    # the new plan in its task subtree and starts it
-    # 
-    class PlannedTask < Roby::Task
-        def start(context)
-            planner = planning_task
-            realized_by planner, :fails_on => :failed
-
-            planner.
-                event(:start).ever.on { emit :start }.
-                on(:done) { |event| 
-                    emit :ready
-
-                    plan = event.context
-                    realized_by(plan)
-                    plan.start!
-                }
-            planner.start! unless planner.running?
-        end
-        event :start
-
-        event :ready    # called when the task has been successfully planned
-        event :no_plan, :terminal => true  # no plan has been found
-        event :stop
-    end
-
-    # An asynchronous planning task using Ruby threads
-    class PlanningTask < Roby::Task
-        attr_reader :plan_model, :plan_method
-        def initialize(model, method)
-            @plan_model, @plan_method = model, method
-            
-            task = PlannedTask.new
-            task.extend TaskStructure::PlannedBy
-            task.planned_by self
-
-            super()
+    module Planning
+        # Violation of the plan model
+        class PlanModelError < RuntimeError
+            attr_reader :planner
+            def initialize(planner); @planner = planner end
         end
 
-        @planning_tasks = Array.new
-        class << self
-            attr_reader :planning_tasks
+        class NotFound < PlanModelError
+            attr_reader :errors
+            attr_accessor :method_name, :method_options
+            def initialize(planner, errors)
+                @errors = errors
+                super(planner)
+            end
         end
 
-        Roby.event_processing << lambda do 
-            planning_tasks.each do |task|
-                unless task.thread.alive?
-                    if task[:plan]
-                        task.emit(:found, task[:plan])
+        # A plan model
+        class Planner
+            def initialize
+                @tasks    = Set.new
+                @stack    = Array.new
+            end
+
+            class MethodDefinition
+                attr_accessor :name, :options, :body
+                def initialize(name, options, &body)
+                    @name, @options, @body = name, options, body
+                end
+
+                def id;         options[:id] end
+                def recursive?; options[:recursive] end
+                def call;       body.call end
+
+                def to_s; "#{name}:#{id}" end
+            end
+
+            @@method_id = 0
+            def self.new_id; (@@method_id += 1).to_s end
+
+            class_inherited_enumerable(:method, :methods, :map => true) { Hash.new }
+
+            def self.validate_method_query(name, options, other_options = [])
+                name = name.to_s
+                options[:id] = options[:id].to_s if options[:id]
+                options = validate_options(options, [:id, :recursive] + other_options)
+
+                other_options, method_options = options.partition { |n, v| other_options.include?(n) }
+
+                [name, Hash[*method_options.flatten], Hash[*other_options.flatten]]
+            end
+
+            def self.method(name, options = Hash.new, &body)
+                name, options = validate_method_query(name, options)
+                id = (options[:id] ||= Planner.new_id)
+
+                methods[name] ||= Hash.new
+                debug { "overwriting #{name}:#{method_id}" } if methods[name][id]
+                methods[name][id] = MethodDefinition.new(name, options, &body)
+            end
+
+            def find_methods(method_name, options = Hash.new)
+                method_name, method_selection, other_options = self.class.validate_method_query(method_name, options, [:lazy])
+
+                self.class.enum_for(:each_method, method_name).collect do |methods| 
+                    methods.collect { |_, m| m if m.options.merge(method_selection) == m.options }
+                end.compact.flatten
+            end
+
+            def respond_to?(name); super || has_method?(name.to_s) end
+            def has_method?(name); self.class.has_method?(name.to_s) end
+            def method_missing(method_name, *args)
+                method_name = method_name.to_s
+                if has_method?(method_name)
+                    m = find_methods(method_name)
+                    options = *args
+                    options ||= {}
+                    if options[:lazy]
+                        PlanningTask.new(self.class, method_name, options)
                     else
-                        task.emit(:failed)
+                        plan(Hash.new, *m)
+                    end
+                else
+                    super
+                end
+            
+            rescue NotFound => e
+                e.method_name       = method_name
+                e.method_options    = options
+                raise e
+            end
+
+            # Chooses one of these methods 
+            def plan(errors, method, *methods)
+                if @stack.include?(method.name)
+                    if !method.recursive?
+                        raise PlanModelError.new(self), "#{method} method called recursively, but the :recursive option was not set"
+                    else
+                        return PlanningTask.new(self.class, method)
                     end
                 end
-            end
-        end
 
-        attr_reader :thread
-        def start(context)
-            on(:stop) { 
-                @thread = nil 
-                self.class.planning_tasks.delete(self)
-            }
-            self.class.planning_tasks << self
-            @thread = Thread.new do
-                Thread[:plan] = @plan_model.new.send(@plan_method)
-            end
-            emit :start
-        end
-        event :start
-
-        event :failed, :terminal => true
-        event :found, :terminal => true
-
-        def stop(context); @thread.kill end
-        event :stop
-    end
-
-    # Violation of the plan model
-    class PlanModelError < RuntimeError
-        attr_reader :model
-        def initialize(model); @model = model end
-    end
-
-    # A plan model
-    class PlanningModel
-        def initialize
-            @tasks    = Set.new
-            @stack    = Array.new
-        end
-
-        class MethodDefinition
-            attr_accessor :name, :body, :options
-            def initialize(name, options, &body)
-                @name, @options, @body = name, options, body
-            end
-                
-            def recursive?; options[:recursive] end
-            def call; body.call end
-        end
-
-        class_inherited_enumerable(:method, :methods) { Hash.new }
-        def self.method(name, options = Hash.new, &body)
-            @methods ||= Hash.new
-            name = name.to_s
-            @methods[name] = MethodDefinition.new(name, options, &body)
-        end
-
-        def method(name)
-            self.class.each_method { |method_name, method| return method if name.to_s == method_name }
-        end
-
-        def respond_to?(name); super || method(name) end
-        def method_missing(name, *args)
-            if (m = method(name)) && args.size < 2
-                args = *args
-                if args && args[:lazy]
-                    PlanningTask.new(self.class, method)
-                else
-                    plan(m)
+                begin
+                    @stack.push method.name
+                    (instance_eval(&method.body) || NullTask.new)
+                ensure
+                    @stack.pop
                 end
-            else
-                super
-            end
-        end
 
-        def plan(method)
-            if @stack.include?(method)
-                if !method.recursive?
-                    raise PlanModelError.new(self), "#{method.name} method called recursively, but the :recursive option was not set"
+            rescue PlanModelError => e
+                errors[method] = e
+                if methods.empty?
+                    raise NotFound.new(self, errors)
                 else
-                    return PlanningTask.new(self.class, method)
+                    plan(errors, *methods)
                 end
-            end
-            
-            begin
-                @stack.push method
-                instance_eval(&method.body) || NullTask.new
-            ensure
-                @stack.pop
-            end
-        end
 
-        private :plan
+            end
+
+            private :plan
+        end
     end
 end
 
