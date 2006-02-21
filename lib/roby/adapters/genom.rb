@@ -1,10 +1,14 @@
 require 'roby'
 require 'roby/event_loop'
 require 'roby/relations/executed_by'
+
+module ::Roby::Genom
+end
+
 require 'genom/module'
 require 'genom/environment'
 
-module Roby
+module ::Roby
     module Genom
         @activities = Hash.new
         class << self
