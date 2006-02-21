@@ -303,6 +303,29 @@ module ObjectStats
     end
 end
 
+class Logger
+    module Hierarchy
+        attr_writer :logger
+        def logger(parent_module = Module.nesting[1])
+            return @logger if defined?(@logger) && @logger
+            if kind_of?(Module)
+                modname = self.name
+                modname = modname.split("::")[0..-2].join("::")
+                const_get(modname).logger
+            else
+                self.class.logger
+            end
+        end
+    end
+    module Forward
+        [ :debug, :info, :warn, :error, :fatal, :unknown ].each do |level|
+            class_eval <<-EOF
+                def #{level}(*args, &proc); logger.#{level}(*args, &proc) end
+            EOF
+        end
+    end
+end
+
 if __FILE__ == $0
     require 'pp'
     raise "Object allocation profile changed" if !ObjectStats.profile { ObjectStats.count }.empty?

@@ -1,4 +1,5 @@
 require 'logger'
+require 'roby/support'
 
 module Roby
     @logger = Logger.new(STDOUT)
@@ -6,18 +7,10 @@ module Roby
     @logger.progname = "Roby"
     @logger.formatter = lambda { |severity, time, progname, msg| "#{progname}: #{msg}\n" }
 
-    class << self
-        attr_accessor :logger
-
-        [ :debug, :info, :warn, :error, :fatal, :unknown ].each do |level|
-            class_eval <<-EOF
-            def #{level}(*args, &proc); @logger.#{level}(*args, &proc) end
-            EOF
-        end
-    end
+    extend Logger::Hierarchy
+    extend Logger::Forward
 end
 
-require 'roby/support'
 require 'roby/event'
 require 'roby/task'
 require 'roby/state'
