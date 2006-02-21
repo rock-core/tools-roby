@@ -32,7 +32,11 @@ module ::Roby
             end
 
         rescue ::Genom::ReplyTimeout => e # timeout waiting for reply
-            raise TaskModelViolation, "failed to start the task: #{e.message}"
+            if abort_request
+                raise TaskModelViolation, "failed to emit :stop (#{e.message})"
+            else
+                raise TaskModelViolation, "failed to emit :start (#{e.message})"
+            end
 
         rescue ::Genom::ActivityInterrupt # interrupted
             task.emit :start, nil if !task.running?
