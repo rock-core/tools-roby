@@ -39,7 +39,7 @@ class TC_TaskMeta < Test::Unit::TestCase
         my_event = nil
         assert_nothing_raised   { my_event = TestTask.const_get(:EvContingent) }
         assert_raise(NameError) { TestTask.superclass.const_get(:EvContingent) }
-        assert_equal( Event, my_event.superclass )
+        assert_equal( TaskEvent, my_event.superclass )
         assert_equal( :ev_contingent, my_event.symbol )
         assert( TestTask.has_event?(:ev_contingent) )
     
