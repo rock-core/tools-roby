@@ -1,4 +1,4 @@
-require 'roby'
+require 'roby/support'
 
 module Roby
     @event_processing = []
