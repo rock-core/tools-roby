@@ -70,6 +70,23 @@ class Object
             enumerator
         end
     end
+
+    def attribute(*attr_def, &init)
+        attr_def = attr_def[0..-2] + attr_def.last.to_a if Hash === attr_def.last
+        attr_def.each do |name, defval|
+            iv_name = "@#{name}"
+            define_method(name) do
+                iv = instance_variable_get(iv_name) 
+                return iv if iv 
+
+                newval = defval || (instance_eval(&init) if init)
+                send("#{name}=", newval)
+            end
+            class_eval <<-EOF
+            attr_writer :#{name}
+            EOF
+        end
+    end
 end
 
 
@@ -143,34 +160,36 @@ class Class
     # ...
     #
     # It defines also #{name} as being an rw attribute
-    def class_inherited_enumerable(name, attribute_name = name, enumerate_with = :each, &init)
-        if init
-            self.class.class_eval <<-EOF
-                def #{attribute_name}
-                    @#{attribute_name} ||= @@inherited_enumerable_#{attribute_name}_init.call
-                end
-            EOF
-            self.class.instance_eval { class_variable_set("@@inherited_enumerable_#{attribute_name}_init", init) }
-        else
-            self.class.instance_eval { attr_reader attribute_name }
-        end
-        self.class.instance_eval { 
-            attr_writer attribute_name
+    def class_inherited_enumerable(name, attribute_name = name, options = Hash.new, enumerate_with = :each, &init)
+        # Set up the attribute accessor
+        self.class.instance_eval do
+            attribute(attribute_name, &init)
             private "#{attribute_name}="
-        }
+        end
 
-        class_eval <<-EOF
-        class << self
-            def each_#{name}(key = nil, &iterator)
+        if options[:key]
+            class_eval <<-EOF
+            def self.each_#{name}(key = nil, &iterator)
                 if key
-                    #{attribute_name}[key].#{enumerate_with}(&iterator) if #{attribute_name}
+                    iterator[#{attribute_name}[key]] if #{attribute_name}.has_key?(key)
                 else
-                    #{attribute_name}.#{enumerate_with}(&iterator) if #{attribute_name}
+                    #{attribute_name}.each(&iterator)
                 end
                 superclass.each_#{name}(key, &iterator) if superclass.respond_to?(:each_#{name})
             end
+            def self.has_#{name}?(key)
+                return true if #{attribute_name}[key]
+                superclass.has_#{name}?(name) if superclass.respond_to?(:has_#{name}?)
+            end
+            EOF
+        else
+            class_eval <<-EOF
+            def self.each_#{name}(&iterator)
+                #{attribute_name}.#{enumerate_with}(&iterator) if #{attribute_name}
+                superclass.each_#{name}(&iterator) if superclass.respond_to?(:each_#{name})
+            end
+            EOF
         end
-        EOF
     end
 end
 

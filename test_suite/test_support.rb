@@ -2,6 +2,7 @@ $LOAD_PATH << File.join(File.dirname(__FILE__), '../lib')
 
 require 'test/unit/testcase'
 require 'roby/support'
+require 'set'
 
 class BaseClass
     class << self
@@ -50,23 +51,39 @@ class TC_Utils < Test::Unit::TestCase
     end
 
     class A
-        class_inherited_enumerable(:signature, :sig) { Array.new }
+        class_inherited_enumerable(:signature, :signatures) { Array.new }
+        class_inherited_enumerable(:mapped, :map, :key => true) { Hash.new }
     end
     class B < A
     end
 
     def test_inherited_enumerable
-        assert(A.respond_to?(:each_signature))
-        assert(A.respond_to?(:sig))
-        assert(B.respond_to?(:each_signature))
-        assert(B.respond_to?(:sig))
+        # Test simple value (non-hash)
+        [A, B].each do |klass|
+            assert(klass.respond_to?(:each_signature))
+            assert(klass.respond_to?(:signatures))
+            assert(!klass.respond_to?(:has_signature?))
+            assert(!klass.respond_to?(:find_signatures))
 
-        A.sig << :in_a
-        B.sig << :in_b
+            assert(klass.respond_to?(:each_mapped))
+            assert(klass.respond_to?(:map))
+            assert(klass.respond_to?(:has_mapped?))
+        end
+
+        A.signatures << :in_a
+        B.signatures << :in_b
+
+        A.map[:a] = 10
+        A.map[:b] = 20
+        B.map[:a] = 15
+        B.map[:c] = 25
 
         assert_equal([:in_a], A.enum_for(:each_signature).to_a)
         assert_equal([:in_b, :in_a], B.enum_for(:each_signature).to_a)
-
+        assert_equal([10, 15].to_set, B.enum_for(:each_mapped, :a).to_set)
+        assert_equal([10].to_set, A.enum_for(:each_mapped, :a).to_set)
+        assert_equal([20].to_set, B.enum_for(:each_mapped, :b).to_set)
+        assert_equal([[:a, 10], [:b, 20], [:a, 15], [:c, 25]].to_set, B.enum_for(:each_mapped).to_set)
     end
 
     def test_object_stats
