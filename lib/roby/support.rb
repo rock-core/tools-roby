@@ -75,14 +75,19 @@ class Object
         attr_def = attr_def[0..-2] + attr_def.last.to_a if Hash === attr_def.last
         attr_def.each do |name, defval|
             iv_name = "@#{name}"
-            define_method(name) do
-                iv = instance_variable_get(iv_name) 
-                return iv if iv 
-
+            define_method("#{name}_attribute_init") do
                 newval = defval || (instance_eval(&init) if init)
-                send("#{name}=", newval)
+                self.send("#{name}=", newval)
             end
+
             class_eval <<-EOF
+            def #{name}
+                if defined? @#{name}
+                    @#{name}
+                else
+                    #{name}_attribute_init
+                end
+            end
             attr_writer :#{name}
             EOF
         end
