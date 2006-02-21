@@ -20,8 +20,6 @@ end
 BASEDIR = File.expand_path(File.join(File.dirname(__FILE__), "test_suite"))
 
 def mockup_module(mod, genopt = nil, configopt = nil)
-    FileUtils.rm_rf "#{BASEDIR}/prefix.#{mod}"
-
     moddir = "#{BASEDIR}/modules/#{mod}"
     prefixdir = "#{BASEDIR}/prefix.#{mod}"
     
