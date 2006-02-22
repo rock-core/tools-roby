@@ -37,7 +37,7 @@ module Roby
 
                     class << node
                         attr_accessor :task, :events
-                        attr_accessor :x, :height, :width
+                        attr_accessor :x, :y, :height, :width
                     end
                     node.width  = width + event_radius * 2
                     node.height = height + font_size
@@ -111,9 +111,10 @@ module Roby
                     end
                     self.tree(graph_group, tree[root], :each)
 
-                    # Propagate the x coordinates
+                    # Set x and y global coordinates
                     tree[root].enum_bfs(:each) do |child, parent|
                         child.display_group.x += parent.display_group.x
+                        child.display_group.y =  parent.display_group.y + interline
                     end
 
                     # Add the missing graph links
@@ -136,8 +137,9 @@ module Roby
                 end
 
                 root.display_group = group.g do |parent_group|
-                    class << parent_group; attr_accessor :x, :width end
+                    class << parent_group; attr_accessor :x, :y, :width end
                     parent_group.x = 0
+                    parent_group.y = 0
 
                     children_group = parent_group.g do |children_group|
                         children.map! { |child| tree(children_group, child, enum_with) }
