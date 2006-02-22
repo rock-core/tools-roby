@@ -120,10 +120,12 @@ module Roby
                     # Add the missing graph links
                     levels.each_with_index do |children, index|
                         children.each do |child, (_, *parents)|
+                            child.display_group = tree[child].display_group
                             next unless parents
                             parents.each { |p| 
-                                graph_group.line(tree[child].display_group.x, index * interline, 
-                                           tree[p].display_group.x, level_of[p] * interline + height) 
+                                p.display_group = tree[p].display_group
+                                graph_group.line(child.display_group.x, child.display_group.y, 
+                                           p.display_group.x, p.display_group.y + height) 
                             }
                         end
                     end
@@ -181,6 +183,7 @@ if $0 == __FILE__
     end
     class TaskMockup
         attr_reader :name, :children
+        attr_accessor :display_group
         def initialize(name)
             @name = name 
             @children = []
