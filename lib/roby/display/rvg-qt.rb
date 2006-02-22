@@ -10,8 +10,11 @@ module Qt
 
         def translate(tx, ty = 0)
             moveBy(tx, ty)
+            yield(self) if block_given?
+            self
         end
-        def styles(options)
+        def styles(options, &block)
+            yield(self) if block_given?
             self
         end
     end
