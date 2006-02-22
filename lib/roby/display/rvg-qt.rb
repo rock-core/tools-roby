@@ -47,15 +47,9 @@ module Qt
             super
         end
 
-        def translate(*args)
-            super
+        def translate(*args, &block)
             @inner.translate(*args) if @inner
-        end
-
-        def z; (@inner.z if @inner) || super end
-        def z=(value)
-            super(value)
-            @inner.z = value + 1 if @inner
+            super
         end
 
         def styles(options)
@@ -113,10 +107,13 @@ module Qt
         def background_fill=(color)
             self.background_color = Color.new(color)
         end
+        @@z = 0
+
         def rect(w, h, x = 0, y = 0)
             CanvasRectangle.new(x, y, w, h, self) do |shape|
                 shape.visible = true
                 shape.brush = Brush.new(Color.new('black'))
+                shape.z = (@@z += 1)
                 yield(shape) if block_given?
             end
         end
@@ -125,13 +122,12 @@ module Qt
             setup = lambda do |shape|
                 shape.visible = true
                 shape.translate(x, y)
+                shape.z = (@@z += 1)
                 shape.brush = Brush.new(Color.new('black'))
             end
-            inner = CanvasEllipse.new(r * 2 , r * 2, self, &setup)
             outer = CanvasEllipse.new((r + 1) * 2 , (r + 1) * 2, self, &setup)
+            inner = CanvasEllipse.new(r * 2 , r * 2, self, &setup)
             outer.instance_variable_set("@inner", inner)
-
-            outer.z = 0
             outer.styles :stroke => 'black', :stroke_width => 1, :fill => 'black'
 
             yield(outer) if block_given?
@@ -141,10 +137,21 @@ module Qt
             CanvasText.new(text, self) do |shape|
                 shape.translate(x, y)
                 shape.text_flags = CanvasText::RVG_VALIGN + AlignLeft
+                shape.z = (@@z += 1)
                 shape.visible = true
                 yield(shape) if block_given?
             end
         end
+
+        def line(x1 = 0, y1 = 0, x2 = 0, y2 = 0)
+            CanvasLine.new(self) do |shape|
+                shape.setPoints(x1, y1, x2, y2)
+                shape.z = (@@z += 1)
+                shape.visible = true
+                yield(shape) if block_given?
+            end
+        end
+
         def group(&block)
             Group.new(self, &block)
         end
@@ -176,10 +183,8 @@ module Qt
                         shape.send(name, *args, &block)
                     end
 
-                    yield(shape) if block_given?
-
-                    shape.z = @objects.last.z + 1 unless @objects.empty?
                     @objects << shape
+                    yield(shape) if block_given?
                 end
             end
         end
