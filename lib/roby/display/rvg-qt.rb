@@ -37,6 +37,10 @@ module Qt
         include CanvasItemOperations
         include PolygonalItemStyles
     end
+    class CanvasLine
+        include CanvasItemOperations
+        include PolygonalItemStyles
+    end
     class CanvasEllipse
         include CanvasItemOperations
         include PolygonalItemStyles
@@ -174,9 +178,11 @@ module Qt
                 self
             end
 
+            def g(*args, &block); shape(:g, *args, &block) end
             def circle(*args, &block); shape(:circle, *args, &block) end
             def rect(*args, &block); shape(:rect, *args, &block) end
             def text(*args, &block); shape(:text, *args, &block) end
+            def line(*args, &block); shape(:line, *args, &block) end
             def shape(type, *args)
                 canvas.send(type, *args) do |shape|
                     @pending.each do |name, args, block|
