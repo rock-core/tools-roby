@@ -38,8 +38,8 @@ class DFSEnumerator
 
     def enumerate(object, &iterator)
         object.send(@enum_with, *@args) do |node|
-            yield(node, object)
             enumerate(node, &iterator)
+            yield(node, object)
         end
     end
 
