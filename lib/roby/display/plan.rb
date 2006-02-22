@@ -1,25 +1,30 @@
 require 'roby/support'
+require 'pp'
 
 module Roby
-    module Display
-        class Graph
-            def initialize(options = Hash.new)
-                @nodes      = Hash.new
-                @options    = options
-                yield(self) if block_given?
-            end
+    class Task
+        attr_accessor :display_group, :display_node
+        def display(group)
+            display_node = Roby::Display::Graph.node(group)
+        end
+    end
 
-            attr_reader :options
-            def font_size;  options[:font_size] || 12 end
-            def height;     options[:height] || 16 end
-            def interline
-                options[:interline] || (font_size + height * 2)
+    module Display
+        module Graph
+            @options    = Hash.new
+            class << self
+                attr_reader :options
+                def font_size;  options[:font_size] || 12 end
+                def height;     options[:height] || 16 end
+                def interline
+                    options[:interline] || (font_size + height * 2)
+                end
+                def event_radius; options[:event_radius] || height / 4 end
+                def spacing; options[:spacing] || (event_radius * 2) end
             end
-            def event_radius; options[:event_radius] || height / 4 end
-            def spacing; options[:spacing] || (event_radius * 2) end
 
             # Builds a canvas group which displays the task itself
-            def node(group, task)
+            def self.node(group, task)
                 events = task.bound_events
 
                 width = if events.size > 2
@@ -31,12 +36,13 @@ module Roby
                     node.styles(:stroke=>'black', :stroke_width=>1, :fill => 'white')
 
                     class << node
-                        attr_accessor :events
-                        attr_accessor :height, :width
+                        attr_accessor :task, :events
+                        attr_accessor :x, :height, :width
                     end
-                    node.width = width + event_radius * 2
+                    node.width  = width + event_radius * 2
                     node.height = height + font_size
                     node.events = Hash.new
+                    node.task   = task
 
                     left_x = -width / 2
                     node.rect(width, height, left_x, 0).
@@ -58,56 +64,106 @@ module Roby
                 end
             end
 
-            def hierarchy(group, root, enum_with = :each_child)
-                children = root.enum_for(enum_with).to_a
-                if children.empty?
-                    node(group, root)
-                else
-                    group.g do |parent_group|
-                        children_group = parent_group.g do |children_group|
-                            # Build the hierarchy graphs for each child
-                            children.map! { |child| hierarchy(children_group, child) }
+            class ArrayNode < Array
+                attr_reader :node
+                attr_accessor :display_group
+                def initialize(node)
+                    super() { |h, k| h[k] = Array.new }
+                    @node = node
+                end
+                def display(group)
+                    Graph.node(group, node)
+                end
+            end
 
-                            # Compute the subgroup width
-                            class << children_group; attr_accessor :width end
-                            children_group.width = line_width = 
-                                children.inject(0) { |w, child| w + child.width } + spacing * (children.size - 1)
+            # Builds a group which includes +root+ and its subtree
+            def self.hierarchy(group, root, enum_with = :each_child)
+                # It is a hierarchy *graph*, not a tree
+                # We first build a tree and use #tree to draw it and
+                # then create the rest of the links
+                
+                # Sort the nodes by level
+                level_of = Hash.new
+                level_of[root] = 0
+                levels = [ { root => nil } ]
 
-                            # Create the horizontal part of the connector
-                            connector_y = [-interline / 4, -font_size].min
-                            if (children.size > 1)
-                                children_group.line(-line_width / 2 + children.first.width / 2, connector_y, 
-                                                    line_width / 2 - children.last.width / 2, connector_y)
-                            end
+                root.enum_bfs(enum_with) do |child, parent|
+                    level_of[child] ||= (level_of[parent] + 1)
 
-                            # Move each child and connect them to the connector
-                            x = -line_width / 2
-                            children.each do |child|
-                                child_x = (x + child.width / 2)
+                    idx = level_of[child]
+                    levels[idx] ||= Hash.new { |h, k| h[k] = Array.new }
+                    levels[idx][child] << parent
+                end
 
-                                child.translate(child_x, 0)
-                                children_group.line(child_x, 0, child_x, connector_y) if children.size > 1
-                                                    
-                                x = x + child.width + spacing
-                            end
+                # Sort the childs by their first parent (no smart management 
+                # of graph structures and/or time structure for now)
+                levels.map! do |children|
+                    children.sort_by { |child, parents| parents.first.object_id if parents }
+                end
+
+                group.g do |graph_group|
+                    # Build a hash-based tree for use with #tree, and display the tree
+                    tree = Hash.new { |h, k| h[k] = ArrayNode.new(k) }
+                    levels.each do |children|
+                        children.each do |child, (parent, _)|
+                            tree[parent] << tree[child]
                         end
-                        # Move the children
-                        children_group.translate(0, interline)
-                        
-                        # Connect the parent to the connector
-                        if children.size > 1
-                            parent_group.line(0, 0, 0, 3 * interline / 4)
-                        else
-                            parent_group.line(0, 0, 0, interline)
+                    end
+                    self.tree(graph_group, tree[root], :each)
+
+                    # Propagate the x coordinates
+                    tree[root].enum_bfs(:each) do |child, parent|
+                        child.display_group.x += parent.display_group.x
+                    end
+
+                    # Add the missing graph links
+                    levels.each_with_index do |children, index|
+                        children.each do |child, (_, *parents)|
+                            next unless parents
+                            parents.each { |p| 
+                                graph_group.line(tree[child].display_group.x, index * interline, 
+                                           tree[p].display_group.x, level_of[p] * interline + height) 
+                            }
                         end
-                        # Build the parent node
-                        node(parent_group, root)
                     end
                 end
             end
 
-            # Add a signal between parent and child
-            def signal(parent, child)
+            def self.tree(group, root, enum_with = :each_child)
+                children = root.enum_for(enum_with).to_a
+                if children.empty?
+                    return root.display_group = root.display(group)
+                end
+
+                root.display_group = group.g do |parent_group|
+                    class << parent_group; attr_accessor :x, :width end
+                    parent_group.x = 0
+
+                    children_group = parent_group.g do |children_group|
+                        children.map! { |child| tree(children_group, child, enum_with) }
+                        
+                        # Compute the group width
+                        line_width = children.inject(0) { |w, child| w + child.width } + spacing * (children.size - 1)
+                        parent_group.width = line_width
+
+                        x = -line_width / 2
+                        children.each do |child|
+                            child_x = (x + child.width / 2)
+
+                            child.translate(child_x, 0)
+                            child.x = child_x
+                                                
+                            x = x + child.width + spacing
+                        end
+                    end
+                    # Move the children
+                    children_group.translate(0, interline)
+                    
+                    # Connect the parent to the children
+                    children.each { |child| parent_group.line(child.x, interline, 0, height) }
+                    # Build the parent node
+                    root.display(parent_group)
+                end
             end
         end
     end
@@ -148,11 +204,17 @@ if $0 == __FILE__
         left = TaskMockup.new('left')
         right = TaskMockup.new('right')
         root.children << left << right
+        common = TaskMockup.new 'common'
+        left.children << common
+        right.children << common
         
-        Roby::Display::Graph.new do |graph|
-            #graph.node(canvas, root).translate(128, 16)
-            graph.hierarchy(canvas, root).translate(128, 16)
-        end
+        include Roby::Display
+        Graph.hierarchy(canvas, root).translate(128, 16)
+        #Roby::Display::Graph.hier
+        #    #graph.node(canvas, root).translate(128, 16)
+        #    #graph.tree(canvas, root).translate(128, 16)
+        #    graph.
+        #end
     end
 
     if true
