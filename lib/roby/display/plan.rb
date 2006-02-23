@@ -7,8 +7,30 @@ require 'builder'
 module Roby
     class Task
         attr_accessor :display_group, :display_node
-        def display(group)
+        def make_node(group)
             display_node = Roby::Display::Graph.node(group)
+        end
+        def display(view = nil, x = 0)
+            if view
+                group = Display::Graph.hierarchy(view.canvas, self)
+                group.
+                    translate( x + group.width / 2, 16 ).
+                    visible = true
+            else
+                require 'Qt'
+                require 'roby/display/rvg-qt'
+                a = Qt::Application.new( ARGV )
+
+                canvas = Qt::Canvas.new(512, 256)
+                view   = Qt::CanvasView.new(canvas)
+                a.setMainWidget( view )
+
+                display(view, 256)
+                
+                view.show()
+                canvas.update()
+                a.exec()
+            end
         end
     end
 
@@ -74,7 +96,7 @@ module Roby
                     super() { |h, k| h[k] = Array.new }
                     @node = node
                 end
-                def display(group)
+                def make_node(group)
                     Graph.node(group, node)
                 end
             end
@@ -105,6 +127,8 @@ module Roby
                 end
 
                 group.g do |graph_group|
+                    class << graph_group; attr_accessor :width end
+
                     # Build a hash-based tree for use with #tree, and display the tree
                     tree = Hash.new { |h, k| h[k] = ArrayNode.new(k) }
                     profile("temporary tree building") {
@@ -139,13 +163,15 @@ module Roby
                             end
                         end
                     }
+
+                    graph_group.width = root.display_group.width
                 end
             end
 
             def self.tree(group, root, enum_with = :each_child)
                 children = root.enum_for(enum_with).to_a
                 if children.empty?
-                    return root.display_group = root.display(group)
+                    return root.display_group = root.make_node(group)
                 end
 
                 root.display_group = group.g do |parent_group|
@@ -176,7 +202,7 @@ module Roby
                     # Connect the parent to the children
                     children.each { |child| parent_group.line(child.x, interline, 0, height) }
                     # Build the parent node
-                    root.display(parent_group)
+                    root.make_node(parent_group)
                 end
             end
         end
@@ -225,11 +251,16 @@ else
         end
 
         def each_child(&iterator); @children.each(&iterator) end
+
+        def display(view)
+            group = Graph.hierarchy(view.canvas, self)
+            group.
+                translate( group.width / 2, 16 ).
+                visible = true
+        end
     end
 
-    def fill_canvas(canvas)
-        canvas.background_fill = 'white'
-
+    def fill_canvas(view)
         root    = TaskMockup.new('root')
         left    = TaskMockup.new('left')
         right   = TaskMockup.new('right')
@@ -239,21 +270,20 @@ else
         right.children << common
         
         include Roby::Display
-        Graph.spacing   = 50
-        Graph.interline = 50
-        group = Graph.hierarchy(canvas, root).translate(128, 16)
-        group.visible = true if group.respond_to?(:visible=)
+        root.display(view)
     end
 
     require 'Qt'
     require 'rvg-qt'
     include Qt
     a = Application.new( ARGV )
-
     canvas = Canvas.new(512, 256)
+    canvas.background_fill = 'white'
+    view   = CanvasView.new(canvas)
+    a.setMainWidget( view )
 
     profile "rendering" do
-        fill_canvas(canvas)
+        fill_canvas(view)
     end
     display_profile
 
@@ -261,8 +291,6 @@ else
         io.puts canvas.to_svg
     end
 
-    view   = CanvasView.new(canvas)
-    a.setMainWidget( view )
     view.show()
     canvas.update()
     view.update()
