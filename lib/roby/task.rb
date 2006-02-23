@@ -61,14 +61,14 @@ module Roby
     #   *bound* to a particular task instance, a Method object represents a particular method 
     #   bound to a particular object
     class TaskEventGenerator < EventGenerator
-        attr_reader :task, :event_model
-        def initialize(task, event_model)
+        attr_reader :task, :model
+        def initialize(task, model)
             super()
-            @task, @event_model = task, event_model
+            @task, @model = task, model
 
-            if event_model.respond_to?(:call)
+            if model.respond_to?(:call)
                 def self.call(context)
-                    event_model.call(task, context) 
+                    model.call(task, context) 
                 end
             end
         end
@@ -79,23 +79,23 @@ module Roby
             result = task.fire_event(event) || PropagationResult.new
             
             # Get model signals and handlers
-            result.events |= event_model.enum_for(:each_signal).collect do |signalled|
+            result.events |= model.enum_for(:each_signal).collect do |signalled|
                 task.event(signalled)
             end
-            result.handlers << [ event, event_model.enum_for(:each_handler).to_a ]
+            result.handlers << [ event, model.enum_for(:each_handler).to_a ]
 
             result | super
         end
 
-        def controlable?; event_model.controlable? end
-        def terminal?;    event_model.terminal? end
-        def symbol;       event_model.symbol end
-        def new(context); event_model.new(task, context) end
+        def controlable?; model.controlable? end
+        def terminal?;    model.terminal? end
+        def symbol;       model.symbol end
+        def new(context); model.new(task, context) end
 
         # If this event already happened
-        def happened?; task.history.find { |_, ev| ev.class == event_model } end
+        def happened?; task.history.find { |_, ev| ev.class == model } end
 
-        def to_s; "#<Roby::TaskEventGenerator:#{object_id} task=#{task}, event_model=#{event_model}>" end
+        def to_s; "#<Roby::TaskEventGenerator:#{object_id} task=#{task}, model=#{model}>" end
     end
 
     class Task

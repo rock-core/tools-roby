@@ -1,4 +1,5 @@
 require 'roby/task'
+require 'roby/relations/planned_by'
 require 'roby/event_loop'
 
 module Roby
@@ -38,9 +39,9 @@ module Roby
 
     # An asynchronous planning task using Ruby threads
     class PlanningTask < Roby::Task
-        attr_reader :plan_model, :plan_method
-        def initialize(model, method)
-            @plan_model, @plan_method = model, method
+        attr_reader :plan_model, :plan_method, :method_options
+        def initialize(model, method, options)
+            @plan_model, @plan_method, @method_options = model, method, options
             
             task = PlannedTask.new
             task.extend TaskStructure::PlannedBy
@@ -74,7 +75,7 @@ module Roby
             }
             self.class.planning_tasks << self
             @thread = Thread.new do
-                Thread[:plan] = @plan_model.new.send(@plan_method)
+                Thread[:plan] = @plan_model.new.send(@plan_method, @method_options)
             end
             emit :start
         end
