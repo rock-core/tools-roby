@@ -6,8 +6,10 @@ module Roby
     module Planning
         # Violation of the plan model
         class PlanModelError < RuntimeError
-            attr_reader :planner
-            def initialize(planner); @planner = planner end
+            attr_accessor :planner
+            def initialize(planner = nil)
+                @planner = planner 
+            end
         end
 
         class NotFound < PlanModelError
@@ -16,6 +18,11 @@ module Roby
             def initialize(planner, errors)
                 @errors = errors
                 super(planner)
+            end
+
+            def to_s
+                "cannot find a #{method_name}(#{method_options}) method\n" + 
+                    errors.inject("") { |s, (m, e)| s << "  in #{m}: #{e} (#{e.backtrace[0]})\n" }
             end
         end
 
@@ -112,13 +119,13 @@ module Roby
                 end
 
             rescue PlanModelError => e
+                e.planner = self unless e.planner
                 errors[method] = e
                 if methods.empty?
                     raise NotFound.new(self, errors)
                 else
                     plan(errors, *methods)
                 end
-
             end
 
             private :plan
