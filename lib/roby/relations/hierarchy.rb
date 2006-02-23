@@ -31,6 +31,7 @@ module Roby::TaskStructure
 
         def realized_by(task, options = {:done_with => :stop})
             options = validate_options(options, HierarchyLink.members)
+            raise TypeError, "#{task.inspect} is not a Task object" unless Task === task
             new_relation = HierarchyLink.new([*options[:done_with]], [*options[:fails_on]])
             
             @realized_by[task] = new_relation
