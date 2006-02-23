@@ -154,11 +154,9 @@ module Qt
                 shape.setPoints(x1, y1, x2, y2)
             end
         end
-
-        def group(&block)
+        def g(register = true, &block)
             Group.new(self, &block)
         end
-        alias :g :group
 
         class Group
             attr_reader :canvas
