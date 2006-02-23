@@ -50,12 +50,33 @@ module Roby
 
             # Builds a canvas group which displays the task itself
             def self.node(group, task)
-                events = task.bound_events
-
+                events = 
+                    task.enum_for(:each_event, false).
+                    collect { |event| event }.
+                    sort do |a, b| 
+                        case a.symbol
+                        when :start
+                            -1
+                        when :stop
+                            1
+                        else
+                            case b.symbol
+                            when :start
+                                1
+                            when :stop
+                                -1
+                            else
+                                0
+                            end
+                        end
+                    end
+                
+                task_name   = task.model.name.gsub(/Roby::(?:Genom::)/, '')
+                name_width  = task_name.size * font_size
                 width = if events.size > 2
                             height * (events.size - 1)
                         end
-                width = height * 2 unless width && (width > height * 2)
+                width = name_width unless width && (width > name_width)
 
                 group.g do |node|
                     node.styles(:stroke=>'black', :stroke_width=>1, :fill => 'white')
@@ -72,7 +93,7 @@ module Roby
                     left_x = -width / 2
                     node.rect(width, height, left_x, 0).
                         styles :stroke_width => 1
-                    node.text(0, 0, task.model.name).
+                    node.text(0, 0, task_name).
                         styles :text_anchor => 'middle', :font_size => font_size, :font_weight => 'lighter'
 
                     ev_spacing = width / (events.size - 1)
