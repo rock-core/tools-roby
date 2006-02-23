@@ -113,46 +113,45 @@ module Qt
         end
         @@z = 0
 
-        def rect(w, h, x = 0, y = 0)
-            CanvasRectangle.new(x, y, w, h, self) do |shape|
-                shape.visible = true
-                shape.brush = Brush.new(Color.new('black'))
+        def shape(klass, user_block, *args)
+            klass.new(*args) do |shape|
                 shape.z = (@@z += 1)
+                shape.visible = true
                 yield(shape) if block_given?
+                user_block[shape] if user_block
             end
         end
-        def circle(r, x = 0, y = 0)
-            # Emulate the possibility to have a pen in canvasellipse by using two circles
-            setup = lambda do |shape|
-                shape.visible = true
-                shape.translate(x, y)
-                shape.z = (@@z += 1)
+
+        def rect(w, h, x = 0, y = 0, register = true, &block)
+            shape(CanvasRectangle, block, x, y, w, h, self) do |shape|
                 shape.brush = Brush.new(Color.new('black'))
             end
-            outer = CanvasEllipse.new((r + 1) * 2 , (r + 1) * 2, self, &setup)
-            inner = CanvasEllipse.new(r * 2 , r * 2, self, &setup)
+        end
+        def circle(r, x = 0, y = 0, register = true)
+            # Emulate the possibility to have a pen in canvasellipse by using two circles
+            setup = lambda do |shape|
+                shape.translate(x, y)
+                shape.brush = Brush.new(Color.new('black'))
+            end
+            outer = shape(CanvasEllipse, nil, (r + 1) * 2 , (r + 1) * 2, self, &setup)
+            inner = shape(CanvasEllipse, nil, r * 2 , r * 2, self, &setup)
             outer.instance_variable_set("@inner", inner)
             outer.styles :stroke => 'black', :stroke_width => 1, :fill => 'black'
 
             yield(outer) if block_given?
             outer
         end
-        def text(x = 0, y = 0, text = nil)
-            CanvasText.new(text, self) do |shape|
+
+               
+        def text(x = 0, y = 0, text = nil, register = true, &block)
+            shape(CanvasText, block, text, self) do |shape|
                 shape.translate(x, y)
                 shape.text_flags = CanvasText::RVG_VALIGN + AlignLeft
-                shape.z = (@@z += 1)
-                shape.visible = true
-                yield(shape) if block_given?
             end
         end
-
-        def line(x1 = 0, y1 = 0, x2 = 0, y2 = 0)
-            CanvasLine.new(self) do |shape|
+        def line(x1 = 0, y1 = 0, x2 = 0, y2 = 0, register = true, &block)
+            shape(CanvasLine, block, self) do |shape|
                 shape.setPoints(x1, y1, x2, y2)
-                shape.z = (@@z += 1)
-                shape.visible = true
-                yield(shape) if block_given?
             end
         end
 
