@@ -1,6 +1,22 @@
 require 'roby/support'
 require 'pp'
 
+require 'stringio'
+require 'builder'
+
+@@profile_data = Hash.new(0)
+def profile(key) 
+    before = Time.now
+    yield
+ensure
+    @@profile_data[key] += Time.now - before
+end
+def display_profile
+    @@profile_data.each do |key, length|
+        puts "#{key}: #{Integer(length * 1000)}"
+    end
+end
+
 module Roby
     class Task
         attr_accessor :display_group, :display_node
@@ -104,31 +120,38 @@ module Roby
                 group.g do |graph_group|
                     # Build a hash-based tree for use with #tree, and display the tree
                     tree = Hash.new { |h, k| h[k] = ArrayNode.new(k) }
-                    levels.each do |children|
-                        children.each do |child, (parent, _)|
-                            tree[parent] << tree[child]
+                    profile("temporary tree building") {
+                        levels.each do |children|
+                            children.each do |child, (parent, _)|
+                                tree[parent] << tree[child]
+                            end
                         end
-                    end
-                    self.tree(graph_group, tree[root], :each)
+                    }
 
-                    # Set x and y global coordinates
-                    tree[root].enum_bfs(:each) do |child, parent|
-                        child.display_group.x += parent.display_group.x
-                        child.display_group.y =  parent.display_group.y + interline
-                    end
+                    profile("tree rendering") {
+                        self.tree(graph_group, tree[root], :each)
+                    }
 
-                    # Add the missing graph links
-                    levels.each_with_index do |children, index|
-                        children.each do |child, (_, *parents)|
-                            child.display_group = tree[child].display_group
-                            next unless parents
-                            parents.each { |p| 
-                                p.display_group = tree[p].display_group
-                                graph_group.line(child.display_group.x, child.display_group.y, 
-                                           p.display_group.x, p.display_group.y + height) 
-                            }
+                    profile("graph rendering") {
+                        # Set x and y global coordinates
+                        tree[root].enum_bfs(:each) do |child, parent|
+                            child.display_group.x += parent.display_group.x
+                            child.display_group.y =  parent.display_group.y + interline
                         end
-                    end
+
+                        # Add the missing graph links
+                        levels.each_with_index do |children, index|
+                            children.each do |child, (_, *parents)|
+                                child.display_group = tree[child].display_group
+                                next unless parents
+                                parents.each { |p| 
+                                    p.display_group = tree[p].display_group
+                                    graph_group.line(child.display_group.x, child.display_group.y, 
+                                               p.display_group.x, p.display_group.y + height) 
+                                }
+                            end
+                        end
+                    }
                 end
             end
 
@@ -205,54 +228,42 @@ if $0 == __FILE__
     def fill_canvas(canvas)
         canvas.background_fill = 'white'
 
-        root = TaskMockup.new('root')
-        left = TaskMockup.new('left')
-        right = TaskMockup.new('right')
+        root    = TaskMockup.new('root')
+        left    = TaskMockup.new('left')
+        right   = TaskMockup.new('right')
         root.children << left << right
-        common = TaskMockup.new 'common'
+        common  = TaskMockup.new 'common'
         left.children << common
         right.children << common
         
         include Roby::Display
-        Graph.hierarchy(canvas, root).translate(128, 16)
-        #Roby::Display::Graph.hier
-        #    #graph.node(canvas, root).translate(128, 16)
-        #    #graph.tree(canvas, root).translate(128, 16)
-        #    graph.
-        #end
+        Graph.spacing   = 50
+        Graph.interline = 50
+        group = Graph.hierarchy(canvas, root).translate(128, 16)
+        group.visible = true if group.respond_to?(:visible=)
     end
 
-    if true
-        require 'RMagick'
-        require 'rvg/rvg'
+    require 'Qt'
+    require 'rvg-qt'
+    include Qt
+    a = Application.new( ARGV )
 
-        include Magick
-        RVG::dpi = 100
-        canvas = RVG.new(512, 256)
+    canvas = Canvas.new(512, 256)
+
+    profile "rendering" do
         fill_canvas(canvas)
     end
+    display_profile
 
-    if false
-        canvas.draw.display
+    File.open('plan.svg', 'w') do |io|
+        io.puts canvas.to_svg
     end
-    
-    if true
-        canvas.draw.write('plan.png')
 
-        require 'Qt'
-        require 'rvg-qt'
-        include Qt
-        a = Application.new( ARGV )
-
-        canvas = Canvas.new(512, 256)
-        fill_canvas(canvas)
-
-        view   = CanvasView.new(canvas)
-        a.setMainWidget( view )
-        view.show()
-        canvas.update()
-        view.update()
-        a.exec()
-    end
+    view   = CanvasView.new(canvas)
+    a.setMainWidget( view )
+    view.show()
+    canvas.update()
+    view.update()
+    a.exec()
 end
 
