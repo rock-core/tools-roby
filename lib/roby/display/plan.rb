@@ -4,19 +4,6 @@ require 'pp'
 require 'stringio'
 require 'builder'
 
-@@profile_data = Hash.new(0)
-def profile(key) 
-    before = Time.now
-    yield
-ensure
-    @@profile_data[key] += Time.now - before
-end
-def display_profile
-    @@profile_data.each do |key, length|
-        puts "#{key}: #{Integer(length * 1000)}"
-    end
-end
-
 module Roby
     class Task
         attr_accessor :display_group, :display_node
@@ -196,7 +183,22 @@ module Roby
     end
 end
 
-if $0 == __FILE__
+unless $0 == __FILE__
+    def profile(key); yield end
+else
+    @@profile_data = Hash.new(0)
+    def profile(key) 
+        before = Time.now
+        yield
+    ensure
+        @@profile_data[key] += Time.now - before
+    end
+    def display_profile
+        @@profile_data.each do |key, length|
+            puts "#{key}: #{Integer(length * 1000)}"
+        end
+    end
+
     class EventMockup
         attr_reader :name
         Model = Struct.new :symbol
