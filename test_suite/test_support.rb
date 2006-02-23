@@ -53,8 +53,16 @@ class TC_Utils < Test::Unit::TestCase
     class A
         class_inherited_enumerable(:signature, :signatures) { Array.new }
         class_inherited_enumerable(:mapped, :map, :map => true) { Hash.new }
+        attribute(:array_attribute) { Array.new }
     end
     class B < A
+    end
+
+    def test_attribute
+        a = A.new
+        assert_equal(a.array_attribute, a.array_attribute)
+        a.array_attribute << 1
+        assert_equal([1], a.array_attribute)
     end
 
     def test_inherited_enumerable
