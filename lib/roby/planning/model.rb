@@ -87,37 +87,49 @@ module Roby
 
             def respond_to?(name); super || has_method?(name.to_s) end
             def has_method?(name); self.class.has_method?(name.to_s) end
+
             def method_missing(method_name, *args)
                 method_name = method_name.to_s
                 if has_method?(method_name)
-                    m = find_methods(method_name)
                     options = *args
-                    options ||= {}
-                    if options[:lazy]
-                        PlanningTask.new(self.class, method_name, options)
-                    else
-                        plan(Hash.new, *m)
-                    end
+
+                    plan(method_name, options || Hash.new)
                 else
                     super
                 end
             
+            end
+
+            # Find a suitable development for the +name+ method.
+            # +options+ is used for method selection, see find_methods
+            def plan(name, options = Hash.new)
+                name    = name.to_s
+
+                if @stack.include?(name)
+                    options[:recursive] = true
+                    options[:lazy] = true
+                end
+
+                m = find_methods(name, options)
+                if m.empty?
+                    raise NotFound.new(self, Hash.new)
+                elsif options[:lazy]
+                    PlanningTask.new(self.class, name, options)
+                else
+                    plan_method(Hash.new, *m)
+                end
+
             rescue NotFound => e
-                e.method_name       = method_name
+                e.method_name       = name
                 e.method_options    = options
                 raise e
             end
 
-            # Chooses one of these methods 
-            def plan(errors, method, *methods)
-                if @stack.include?(method.name)
-                    if !method.recursive?
-                        raise PlanModelError.new(self), "#{method} method called recursively, but the :recursive option was not set"
-                    else
-                        return PlanningTask.new(self.class, method)
-                    end
-                end
-
+            # Develops each method in turn, running the next one if 
+            # the previous one was unsuccessful
+            #
+            # It raises NotFound if no method was suitable
+            def plan_method(errors, method, *methods)
                 begin
                     @stack.push method.name
                     (instance_eval(&method.body) || NullTask.new)
@@ -135,7 +147,7 @@ module Roby
                 end
             end
 
-            private :plan
+            private :plan_method
         end
     end
 end

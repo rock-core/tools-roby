@@ -11,12 +11,17 @@ class TC_Planner < Test::Unit::TestCase
     def test_support
         model = Class.new(Planner) do 
             method(:root) do end
+            method(:recursive, :recursive => true) do end
         end
         planner = model.new
 
         assert(planner.respond_to?(:root))
         assert(planner.find_methods(:root).first.name == 'root')
         assert(planner.root.null?)
+
+        assert(planner.respond_to?(:recursive))
+        assert_equal(1, planner.find_methods(:recursive, :recursive => true).size)
+        assert_equal(0, planner.find_methods(:recursive, :recursive => false).size)
     end
 
     def test_recursive
@@ -42,6 +47,7 @@ class TC_Planner < Test::Unit::TestCase
         assert_raises(NotFound) { planner.not_recursive }
 
         plan = nil
+        assert_nothing_raised { plan = planner.plan(:recursive) }
         assert_nothing_raised { plan = planner.recursive }
         
         assert(TaskAggregator::Sequence === plan)
@@ -50,7 +56,7 @@ class TC_Planner < Test::Unit::TestCase
         assert_equal(2, sequence.size)
         assert(sequence.all? { |node| PlanningTask === node })
         methods = sequence.map { |node| node.plan_method }
-        assert_equal([planner.find_methods(:recursive), planner.find_methods(:root)].flatten.to_set, methods.to_set)
+        assert_equal(['recursive', 'root'].to_set, methods.to_set)
     end
 end
 
