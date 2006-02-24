@@ -73,9 +73,16 @@ module Roby
             def find_methods(method_name, options = Hash.new)
                 method_name, method_selection, other_options = self.class.validate_method_query(method_name, options, [:lazy])
 
-                self.class.enum_for(:each_method, method_name).collect do |methods| 
-                    methods.collect { |_, m| m if m.options.merge(method_selection) == m.options }
-                end.compact.flatten
+                result = self.class.enum_for(:each_method, method_name).collect do |methods| 
+                    methods.collect do |_, m| 
+                        if m.name == method_name && m.options.merge(method_selection) == m.options 
+                            m
+                        end
+                    end
+                end
+                result.flatten!
+                result.compact!
+                result
             end
 
             def respond_to?(name); super || has_method?(name.to_s) end
