@@ -164,7 +164,7 @@ module Roby
             elsif base.happened?
                 EverGenerator.pending << self
             else
-                base.on { self.emit }
+                base.on { self.emit(nil) }
             end
 
             base.causal_links << self
