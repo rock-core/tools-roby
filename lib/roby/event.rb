@@ -1,6 +1,7 @@
 require 'set'
 require 'roby/event_loop'
 require 'roby/support'
+require 'roby/relations/causal'
 
 module Roby
     class Event
@@ -12,7 +13,6 @@ module Roby
         def model; self.class end
 
     end
-
     
     class EventGenerator
         # Generic double-dispatchers for operation on
@@ -166,6 +166,8 @@ module Roby
             else
                 base.on { self.emit }
             end
+
+            base.causal_links << self
         end
     end
 
@@ -188,6 +190,9 @@ module Roby
                     emit(nil) if done?
                 end
             end
+
+            event_model.causal_links << self
+            
             self
         end
 
@@ -221,6 +226,9 @@ module Roby
                 emit(nil) if !done? || permanent
                 @done << event
             end
+
+            event.causal_links << self
+            
             self
         end
 

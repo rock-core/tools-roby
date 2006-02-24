@@ -12,7 +12,7 @@ class TC_EventPropagation < Test::Unit::TestCase
         assert_equal([], start_event.handlers)
         assert_equal([], start_event.signals)
         start_model = start_node.event_model(:start)
-        assert_equal(start_model, start_event.event_model)
+        assert_equal(start_model, start_event.model)
 
         assert_equal([start_node.event_model(:stop)], start_model.enum_for(:each_signal).to_a)
         
@@ -111,6 +111,29 @@ class TC_EventPropagation < Test::Unit::TestCase
             mock.should_receive(:or_and).once
             multi.start!
         end
+    end
+
+    def test_aggregator_causal
+        a = EmptyTask.new
+        b = EmptyTask.new
+        c = EmptyTask.new
+
+        and_event = a.event(:stop) & b.event(:stop)
+        and_event.on(c.event(:start))
+        assert( a.event(:stop).enum_for(:each_causal_link).find { |ev| ev == and_event } )
+        assert( b.event(:stop).enum_for(:each_causal_link).find { |ev| ev == and_event } )
+        assert( and_event.enum_for(:each_causal_link).find { |ev| ev == c.event(:start) } )
+
+        ever_event = a.event(:start).ever
+        ever_event.on(c.event(:start))
+        assert( a.event(:start).enum_for(:each_causal_link).find { |ev| ev == ever_event } )
+        assert( ever_event.enum_for(:each_causal_link).find { |ev| ev == c.event(:start) } )
+
+        d = EmptyTask.new
+        or_event = (b.event(:start) | c.event(:stop))
+        or_event.on(d.event(:stop))
+        assert( b.event(:start).enum_for(:each_causal_link).find { |ev| ev == or_event } )
+        assert( or_event.enum_for(:each_causal_link).find { |ev| ev == d.event(:stop) } )
     end
 
     def test_task_aggregator
