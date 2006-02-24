@@ -1,6 +1,7 @@
 require 'active_support/core_ext/string/inflections'
 require 'enumerator'
 require 'thread'
+require 'set'
 
 class String
     include ActiveSupport::CoreExtensions::String::Inflections
@@ -15,9 +16,14 @@ class BFSEnumerator
 
     def each(&iterator)
         queue = [@root]
+        seen  = Set.new
         while !queue.empty?
             current = queue.shift
+
+            seen << current
             current.send(@enum_with, *@args) do |node|
+                next if seen.include?(node)
+                seen << node
                 yield(node, current)
                 queue << node
             end
@@ -32,12 +38,18 @@ class DFSEnumerator
         @root = root
         @enum_with = enum_with
         @args = args
+        @seen = Set.new
     end
 
-    def each(&iterator); enumerate(@root, &iterator) end
+    def each(&iterator)
+        enumerate(@root, &iterator) 
+    end
 
     def enumerate(object, &iterator)
         object.send(@enum_with, *@args) do |node|
+            next if @seen.include?(node)
+            @seen << node
+            
             enumerate(node, &iterator)
             yield(node, object)
         end
