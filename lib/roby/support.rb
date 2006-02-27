@@ -30,6 +30,26 @@ class BFSEnumerator
         end
     end
 
+    def topological
+        levels = Hash.new(-1)
+        levels[@root] = 0
+        max_level = 0
+
+        each do |child, parent|
+            parent_level, child_level = levels[parent], levels[child]
+            if child_level <= parent_level
+                child_level = parent_level + 1
+                levels[child] = child_level
+            end
+            max_level = child_level if max_level < child_level
+        end
+
+        sorting = Array.new(max_level + 1) { Array.new }
+        levels.each { |node, level| sorting[level] << node }
+
+        sorting
+    end
+
     include Enumerable
 end
 

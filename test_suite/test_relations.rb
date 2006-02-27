@@ -26,6 +26,7 @@ class TC_Relations < Test::Unit::TestCase
 
         b.realized_by c
         assert_equal([[b, a], [c, b]], a.enum_bfs(:each_child).to_a)
+        assert_equal([[a], [b], [c]], a.enum_bfs(:each_child).topological)
         assert_equal([c], b.enum_for(:each_child).to_a)
         assert_equal([b, c].to_set, a.first_children.to_set)
         assert_equal([c], b.first_children)
