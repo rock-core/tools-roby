@@ -21,11 +21,15 @@ module Roby
                          end
 
                 @graph["compound"] = "true"
+                @graph["fontsize"] = "8"
                 @graph.edge["lhead"] = ""
                 @graph.edge["ltail"] = ""
                 @graph.node["color"] = "black"
-                @graph.node["shape"] = "ellipse"
-                
+                @graph.node["fontsize"] = "8"
+                @graph.node["height"] = "0"
+                @graph.node["width"] = "0"
+
+    
                 @task_graphs = Hash.new
                 @event_nodes = Hash.new
                 @relations   = Hash.new { |h, k| h[k] = Set.new }
