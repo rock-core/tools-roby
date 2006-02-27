@@ -103,26 +103,29 @@ class Object
         end
     end
 
-    def attribute(*attr_def, &init)
-        attr_def = attr_def[0..-2] + attr_def.last.to_a if Hash === attr_def.last
-        attr_def.each do |name, defval|
-            iv_name = "@#{name}"
-            define_method("#{name}_attribute_init") do
-                newval = defval || (instance_eval(&init) if init)
-                self.send("#{name}=", newval)
-            end
-
-            class_eval <<-EOF
-            def #{name}
-                if defined? @#{name}
-                    @#{name}
-                else
-                    #{name}_attribute_init
-                end
-            end
-            attr_writer :#{name}
-            EOF
+    def attribute(attr_def, &init)
+        if Hash === attr_def
+            name, defval = attr_def.to_a.flatten
+        else
+            name = attr_def
         end
+
+        iv_name = "@#{name}"
+        define_method("#{name}_attribute_init") do
+            newval = defval || (instance_eval(&init) if init)
+            self.send("#{name}=", newval)
+        end
+
+        class_eval <<-EOF
+        def #{name}
+            if defined? @#{name}
+                @#{name}
+            else
+                #{name}_attribute_init
+            end
+        end
+        attr_writer :#{name}
+        EOF
     end
 end
 
