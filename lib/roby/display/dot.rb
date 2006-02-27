@@ -1,4 +1,5 @@
 require 'roby/support'
+require 'roby/event'
 require 'graphviz'
 require 'set'
 
@@ -9,8 +10,6 @@ module Roby
             attr_reader :task_graphs, :event_nodes
             attr_reader :relations
 
-            @@cluster = 0
-            @@id = "a"
             def initialize(graph = nil)
                 @graph = if graph.respond_to?(:to_str)
                              GraphViz.new(graph)
@@ -37,13 +36,14 @@ module Roby
 
             def task(task)
                 return task_graphs[task] if task_graphs[task]
-
-                graph_id = "cluster#{@@cluster += 1}"
+                
+                task_label  = task.class.name.gsub('Roby::', '')
+                graph_id    = "cluster_#{task_label.gsub('::', '_')}"
                 task_graph = graph.add_graph(graph_id)
                 class << task_graph; attr_accessor :name end
                 task_graph.name     = graph_id
                 task_graphs[task]   = task_graph
-                task_graph["label"] = task.class.name.gsub('Roby::', '')
+                task_graph["label"] = task_label
                 task_graph["style"] = "filled"
                 task_graph["color"] = "lightgrey"
                 task.each_event(false) { |ev| event(ev) }
@@ -51,16 +51,26 @@ module Roby
                 return task_graph
             end
 
+            EVENT_GENERATOR_NAMES = { 
+                OrGenerator => '|', 
+                AndGenerator => '&',
+                EverGenerator => 'ever'
+            }
+                
             def event(event)
                 return event_nodes[event] if event_nodes[event]
 
-                cluster = if event.respond_to?(:task)
-                              task(event.task)
-                          else
-                              self.graph
-                          end
+                if event.respond_to?(:task)
+                    cluster = task(event.task)
+                    name    = event.symbol.to_s
+                    id      = "#{cluster.name.gsub(/^cluster_/, '')}_#{name}"
+                else
+                    cluster = self.graph
+                    name    = EVENT_GENERATOR_NAMES[event.class]
+                    id      = "#{name}_#{event.object_id}"
+                end
 
-                node = cluster.add_node(@@id, "label" => event.symbol.to_s)
+                node = cluster.add_node(id, "label" => name)
                 if event.respond_to?(:task)
                     if [:start, :stop].include?(event.symbol)
                         node["style"] = "filled"
@@ -72,7 +82,6 @@ module Roby
                     end
                 end
 
-                @@id = @@id.next
                 event_nodes[event] = node
             end
 
