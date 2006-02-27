@@ -132,7 +132,9 @@ module Roby
         def happened?;  !!@happened end
         def last;       @happened end
 
-        def ever; EverGenerator.new(self) end
+        def ever
+            @ever ||= EverGenerator.new(self) 
+        end
     end
 
     class EverGenerator < EventGenerator
