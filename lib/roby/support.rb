@@ -285,6 +285,16 @@ module Kernel
         options
     end
 
+    def validate_option(options, name, required, message = nil)
+        if required && !options.has_key?(name)
+            raise ArgumentError, "missing required option #{name}"
+        elsif options.has_key?(name) && block_given?
+            if !yield(options[name])
+                raise ArgumentError, (message || "invalid option value #{options[name]} for #{name}")
+            end
+        end
+    end
+
     def check_arity(object, arity)
         unless object.arity == arity || (object.arity < 0 && object.arity > - arity - 2)
             raise ArgumentError, "#{object} does not accept to be called with #{arity} argument(s)"
