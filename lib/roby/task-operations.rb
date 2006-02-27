@@ -71,6 +71,13 @@ module Roby::TaskAggregator
     private
         def added(task)
             self.realized_by(task)
+            if task == @tasks.last
+                if old_last = @tasks[-2]
+                    event(:stop).causal_links.delete(old_last.event(:stop))
+                end
+                event(:stop).causal_links << task.event(:stop)
+            end
+
             task.on(:stop) do |event|
                 if event.task == @tasks.last
                     emit(:stop, event.context) 
@@ -88,6 +95,7 @@ module Roby::TaskAggregator
             @stop_aggregator = Roby::AndGenerator.new.on do |event|
                 emit :stop, event
             end
+            event(:stop).causal_links << @stop_aggregator
             super
         end
 
