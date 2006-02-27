@@ -101,5 +101,31 @@ class TC_TaskMeta < Test::Unit::TestCase
         assert_raise(TaskModelViolation) { task.start! }
         assert_raise(TaskModelViolation) { task.ev_terminal! }
     end
+
+    def test_inheritance
+        base = Class.new(Roby::Task) do 
+            extend Test::Unit::Assertions
+            event :ctrl, :command => true
+            event :start, :command => false
+            event :failed, :terminal => true
+
+            event :stop, :command => false
+            assert(!find_event_model(:stop).controlable?)
+        end
+
+        derived = Class.new(base) do
+            extend Test::Unit::Assertions
+
+            assert_nothing_raised { event :start, :command => true }
+
+            assert_raises(ArgumentError) { event :ctrl, :command => false }
+            assert_raises(ArgumentError) { event :failed, :terminal => false }
+
+            def stop(context)
+            end
+            assert_nothing_raised { event :stop }
+            assert(find_event_model(:stop).controlable?)
+        end
+    end
 end
 

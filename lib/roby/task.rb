@@ -268,12 +268,6 @@ module Roby
             ev_s = ev.to_s
             ev = ev.to_sym
 
-            if options[:terminal] && has_event?(:stop)
-                raise ArgumentError, "trying to define a terminal event, but the stop event is already defined"
-            elsif options[:command] && options[:command] != true && !options[:command].respond_to?(:call)
-                raise ArgumentError, "Allowed values for :command option: true, false, nil and an object responding to #call. Got #{options[:command]}"
-            end
-
             if !options.has_key?(:command) && instance_methods.include?(ev_s)
                 method = instance_method(ev)
                 check_arity(method, 1)
@@ -309,48 +303,56 @@ module Roby
                 end
             end
 
-            if new_event_model(new_event)
-                const_set(ev_s.camelize, new_event)
-                new_event
+            events << new_event
+            const_set(ev_s.camelize, new_event)
+            new_event
+        end
+
+        def self.validate_event_definition_request(ev, options) #:nodoc:
+            if ev.to_sym == :start && options[:terminal]
+                raise TaskModelViolation, "the 'start' event cannot be terminal"
+            elsif options[:terminal] && has_event?(:stop)
+                raise ArgumentError, "trying to define a terminal event, but the stop event is already defined"
+            elsif options[:command] && options[:command] != true && !options[:command].respond_to?(:call)
+                raise ArgumentError, "Allowed values for :command option: true, false, nil and an object responding to #call. Got #{options[:command]}"
+            end
+
+            if ev.to_sym == :stop
+                if options.has_key?(:terminal) && !options[:terminal]
+                    raise TaskModelViolation, "the 'stop' event cannot be non-terminal"
+                end
+                options[:terminal] = true
+            end
+
+            # Check for inheritance rules
+            if old_event = find_event_model(ev)
+                # Make sure that it has not been defined at this level of the hierarchy
+                if has_event?(ev, false)
+                    raise ArgumentError, "event #{ev} already defined" 
+                end
+
+                if old_event.terminal? && (options.has_key?(:terminal) && !options[:terminal])
+                    raise ArgumentError, "trying to override a terminal event into a non-terminal one"
+                elsif old_event.controlable? && (options.has_key?(:command) && !options[:command])
+                    raise ArgumentError, "trying to override a controlable event into a non-controlable one"
+                end
             end
         end
 
-        # Iterates on all the events defined for this 
-        # task
+        # Events defined by the task model
+        class_inherited_enumerable(:event, :events) { Array.new }
+
+        # Iterates on all the events defined for this task
         def each_event(only_bound = true, &iterator) # :yield:bound_event
             if only_bound
-                @bound_events.each_value(&iterator)
+                bound_events.each_value(&iterator)
             else
                 model.each_event { |model| yield event(model) }
             end
         end
 
-        # Iterates on all event models defined for this task model
-        def self.each_event(&iterator)
-            constants.each do |const_name|
-                event_model = const_get(const_name)
-                if event_model.has_ancestor?(TaskEvent)
-                    yield(event_model)
-                end
-            end
-        end
-
-        # Get the list of terminal event model for this task model
+        # Get the list of terminal events for this task model
         def self.terminal_events; enum_for(:each_event).find_all { |e| e.terminal? } end
-         
-        def self.validate_event_definition_request(ev, options) #:nodoc:
-            if has_event?(ev)
-                raise ArgumentError, "event #{ev} already defined"
-            elsif ev.to_sym == :start && options[:terminal]
-                raise TaskModelViolation, "the 'start' event cannot be terminal"
-            elsif ev.to_sym == :stop
-                if options.has_key?(:terminal) && !options[:terminal]
-                    raise TaskModelViolation, "the 'stop' event cannot be non-terminal"
-                else 
-                    options[:terminal] = true
-                end
-            end
-        end
 
         # Get the event model for +event+. +event+ must follow the rules for validate_event_models
         def self.event_model(model)
@@ -359,8 +361,12 @@ module Roby
         def event_model(model); self.model.event_model(model) end
 
         # Find the event class for +event+, or nil if +event+ is not an event name for this model
-        def self.find_event_model(name)
-            enum_for(:each_event).find { |e| e.symbol == name.to_sym } 
+        def self.find_event_model(name, inherited = true)
+            if inherited
+                enum_for(:each_event, inherited).find { |e| e.symbol == name.to_sym } 
+            else
+                events && events.find { |e| e.symbol == name.to_sym } 
+            end
         end
 
         # Checks that all events in +events+ are valid events for this task.
@@ -369,7 +375,7 @@ module Roby
         #
         # Returns the corresponding array of event classes
         def self.validate_event_models(*models) #:nodoc:
-            models.map { |e|
+            models.map do |e|
                 if e.respond_to?(:to_sym)
                     ev_model = find_event_model(e.to_sym)
                     unless ev_model
@@ -390,7 +396,7 @@ module Roby
                 end
 
                 ev_model
-            }
+            end
         end
        
         class << self
