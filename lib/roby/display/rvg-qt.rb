@@ -72,6 +72,13 @@ module Qt
             super
         end
 
+        def z=(value)
+            if @inner
+                @inner.z = value + 1
+            end
+            super
+        end
+
         def styles(options)
             super(options) if defined? super
             if @inner
@@ -172,7 +179,7 @@ module Qt
             outer = shape(CanvasEllipse, block, r * 2 , r * 2, canvas) do |outer|
                 setup[outer]
                 outer.instance_variable_set("@inner", inner)
-                outer.z, inner.z = inner.z, outer.z
+                outer.z = Canvas.new_z
                 outer.styles :stroke => 'black', :stroke_width => 1, :fill => 'black'
                 objects << outer
             end
@@ -204,16 +211,24 @@ module Qt
         end
         def g
             Canvas::Group.new(self) do |group|
-                yield(group) if block_given?
+                group.z = Canvas.new_z
                 objects << group
+
+                yield(group) if block_given?
             end
         end
 
         attribute(:xform)   { Array.new }
         attribute(:pending) { Array.new }
         attribute(:objects) { Array.new }
+        attr_accessor :width, :x, :y
 
         # :section: transformations
+        attr_reader :z
+        def z=(value)
+            objects.each { |obj| obj.z = value }
+            @z = value
+        end
         
         # translation of the whole group
         def translate(tx, ty = 0, &block) 

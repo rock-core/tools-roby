@@ -5,6 +5,14 @@ require 'stringio'
 require 'builder'
 
 module Roby
+
+    # Node
+    #   x
+    #   y
+    #   width
+    #   height
+
+
     class Task
         attr_accessor :display_group, :display_node
         def make_node(group)
@@ -26,7 +34,7 @@ module Roby
                 a.setMainWidget( view )
 
                 display(view, 256)
-                
+
                 view.show()
                 canvas.update()
                 a.exec()
@@ -38,74 +46,81 @@ module Roby
         module Graph
             @options    = Hash.new
             class << self
-                attr_reader :options
-                def font_size;  options[:font_size] || 12 end
-                def height;     options[:height] || 16 end
-                def interline
-                    options[:interline] || (font_size + height * 2)
-                end
-                def event_radius; options[:event_radius] || height / 4 end
-                def spacing; options[:spacing] || (event_radius * 2) end
+                attribute :font_size => 12, :event_radius => 6, :event_names => false
+
+                attr_writer :spacing, :height, :interline
+                def margin; font_size / 4 end
+                def event_height; event_radius * 2 + (event_names ? (margin + font_size) : 0) end
+                def height; margin + font_size + margin * 2 + event_height + margin end
+                def interline;  @interline || (font_size + height * 2) end
+                def spacing;    @spacing || event_radius end
             end
 
-            # Builds a canvas group which displays the task itself
-            def self.node(group, task)
-                events = 
-                    task.enum_for(:each_event, false).
-                    collect { |event| event }.
-                    sort do |a, b| 
-                        case a.symbol
-                        when :start
-                            -1
-                        when :stop
-                            1
-                        else
-                            case b.symbol
-                            when :start
-                                1
-                            when :stop
-                                -1
-                            else
-                                0
-                            end
-                        end
-                    end
-                
-                task_name   = task.model.name.gsub(/Roby::(?:Genom::)/, '')
-                name_width  = task_name.size * font_size
-                width = if events.size > 2
-                            height * (events.size - 1)
-                        end
-                width = name_width unless width && (width > name_width)
-
-                group.g do |node|
-                    node.styles(:stroke=>'black', :stroke_width=>1, :fill => 'white')
-
-                    class << node
-                        attr_accessor :task, :events
-                        attr_accessor :x, :y, :height, :width
-                    end
-                    node.width  = width + event_radius * 2
-                    node.height = height + font_size
-                    node.events = Hash.new
-                    node.task   = task
-
-                    left_x = -width / 2
-                    node.rect(width, height, left_x, 0).
-                        styles :stroke_width => 1
-                    node.text(0, 0, task_name).
-                        styles :text_anchor => 'middle', :font_size => font_size, :font_weight => 'lighter'
-
-                    ev_spacing = width / (events.size - 1)
-                    events.each_with_index do |ev, idx|
-                        spot = node.circle(event_radius, left_x + idx * ev_spacing, height / 2).
-                            styles :stroke => 'black', :stroke_width => 2
+            # Order events in the same task
+            def self.events(group, events)
+                events.enum_for(:each_with_index).collect do |ev, idx|
+                    event_group = group.g do |event_group|
+                        spot = event_group.circle(event_radius).
+                            styles :stroke => 'black', :stroke_width => 2, :fill => 'white'
                         if ev.model.symbol == :start
                             spot.styles :stroke => '#00BB00'
                         else
                             spot.styles :stroke => '#BB0000'
                         end
-                        node.events[ev] = spot
+
+                        if event_names
+                            event_name = ev.model.symbol.to_s
+                            event_group.
+                                text(0, event_radius + margin + font_size, event_name).
+                                styles :text_anchor => 'middle'
+                            event_group.width = [ text_width(event_name), event_radius * 2 ].max
+                        else
+                            event_group.width = event_radius * 2
+                        end
+                    end
+
+                    [ev, event_group]
+                end
+            end
+
+            def self.text_width(text)
+                text.size * font_size
+            end
+
+            # Builds a canvas group which displays the task itself
+            def self.task(group, task)
+                group.g do |node|
+                    class << node; attr_accessor :task, :events, :height end
+                    node.styles :stroke => 'black', :fill => 'white'
+
+                    event_nodes = self.events(node, task.enum_for(:each_event, false).to_a)
+                    node.events = event_nodes = Hash[*event_nodes.flatten]
+                    event_width = event_nodes.values.
+                        inject(-spacing) { |w, event_group| w + event_group.width + spacing }
+
+                    task_name   = task.model.name.gsub(/Roby::(?:Genom::)/, '')
+                    width       = [ event_width, text_width(task_name) ].max + 2*margin
+                    
+                    event_spacing = spacing + (width - event_width) / event_nodes.size
+
+                    node.x = 0
+                    node.y = 0
+                    node.width  = width 
+                    node.height = height
+                    node.task   = task
+
+                    node_rect = node.rect(width, height, -width/2, 0).
+                        styles :stroke_width => 1
+                    node.line(-width / 2, 2 * margin + font_size, width / 2, 2 * margin + font_size)
+                    node.text(0, font_size + margin, task_name).
+                        styles :text_anchor => 'middle', :font_size => font_size, :font_weight => 'lighter'
+
+                    x = -width/2 + event_spacing / 2
+                    event_nodes.each do |_, event_group|
+                        event_group.
+                            translate(x + event_group.width / 2, margin * 3 + font_size + event_radius).
+                            z = node_rect.z + 1
+                        x += event_group.width + event_spacing
                     end
                 end
             end
@@ -118,7 +133,7 @@ module Roby
                     @node = node
                 end
                 def make_node(group)
-                    Graph.node(group, node)
+                    Graph.task(group, node)
                 end
             end
 
@@ -127,7 +142,7 @@ module Roby
                 # It is a hierarchy *graph*, not a tree
                 # We first build a tree and use #tree to draw it and
                 # then create the rest of the links
-                
+
                 # Sort the nodes by level
                 level_of = Hash.new
                 level_of[root] = 0
@@ -152,38 +167,32 @@ module Roby
 
                     # Build a hash-based tree for use with #tree, and display the tree
                     tree = Hash.new { |h, k| h[k] = ArrayNode.new(k) }
-                    profile("temporary tree building") {
-                        levels.each do |children|
-                            children.each do |child, (parent, _)|
-                                tree[parent] << tree[child]
+                    levels.each do |children|
+                        children.each do |child, (parent, _)|
+                            tree[parent] << tree[child]
+                        end
+                    end
+
+                    self.tree(graph_group, tree[root], :each)
+
+                    # Set x and y global coordinates
+                    tree[root].enum_bfs(:each) do |child, parent|
+                        child.display_group.x += parent.display_group.x
+                        child.display_group.y =  parent.display_group.y + interline
+                    end
+
+                    # Add the missing graph links
+                    levels.each_with_index do |children, index|
+                        children.each do |child, (_, *parents)|
+                            child.display_group = tree[child].display_group
+                            next unless parents
+                            parents.each do |p| 
+                                p.display_group = tree[p].display_group
+                                graph_group.line(child.display_group.x, child.display_group.y, 
+                                                 p.display_group.x, p.display_group.y + height)
                             end
                         end
-                    }
-
-                    profile("tree rendering") {
-                        self.tree(graph_group, tree[root], :each)
-                    }
-
-                    profile("graph rendering") {
-                        # Set x and y global coordinates
-                        tree[root].enum_bfs(:each) do |child, parent|
-                            child.display_group.x += parent.display_group.x
-                            child.display_group.y =  parent.display_group.y + interline
-                        end
-
-                        # Add the missing graph links
-                        levels.each_with_index do |children, index|
-                            children.each do |child, (_, *parents)|
-                                child.display_group = tree[child].display_group
-                                next unless parents
-                                parents.each { |p| 
-                                    p.display_group = tree[p].display_group
-                                    graph_group.line(child.display_group.x, child.display_group.y, 
-                                               p.display_group.x, p.display_group.y + height) 
-                                }
-                            end
-                        end
-                    }
+                    end
 
                     graph_group.width = root.display_group.width
                 end
@@ -202,7 +211,7 @@ module Roby
 
                     children_group = parent_group.g do |children_group|
                         children.map! { |child| tree(children_group, child, enum_with) }
-                        
+
                         # Compute the group width
                         line_width = children.inject(0) { |w, child| w + child.width } + spacing * (children.size - 1)
                         parent_group.width = line_width
@@ -213,13 +222,13 @@ module Roby
 
                             child.translate(child_x, 0)
                             child.x = child_x
-                                                
+
                             x = x + child.width + spacing
                         end
                     end
                     # Move the children
                     children_group.translate(0, interline)
-                    
+
                     # Connect the parent to the children
                     children.each { |child| parent_group.line(child.x, interline, 0, height) }
                     # Build the parent node
@@ -261,7 +270,7 @@ else
             @children = []
         end
         def bound_events 
-            [ EventMockup.new(:start, false), EventMockup.new(:stop, true) ]
+            @bound_events ||= [ EventMockup.new(:start, false), EventMockup.new(:stop, true) ]
         end
 
         Model = Struct.new(:name)
@@ -272,6 +281,7 @@ else
         end
 
         def each_child(&iterator); @children.each(&iterator) end
+        def each_event(only_bounded, &iterator); bound_events.each(&iterator) end
 
         def display(view)
             group = Graph.hierarchy(view.canvas, self)
@@ -289,8 +299,9 @@ else
         common  = TaskMockup.new 'common'
         left.children << common
         right.children << common
-        
+
         include Roby::Display
+        Graph.event_names = true
         root.display(view)
     end
 
@@ -303,14 +314,7 @@ else
     view   = CanvasView.new(canvas)
     a.setMainWidget( view )
 
-    profile "rendering" do
-        fill_canvas(view)
-    end
-    display_profile
-
-    File.open('plan.svg', 'w') do |io|
-        io.puts canvas.to_svg
-    end
+    fill_canvas(view)
 
     view.show()
     canvas.update()
