@@ -91,12 +91,13 @@ module Roby::TaskAggregator
     class Parallel < Roby::Task
         include Operations
         def initialize
+            super
+
             @tasks = Set.new 
             @stop_aggregator = Roby::AndGenerator.new.on do |event|
                 emit :stop, event
             end
             event(:stop).causal_links << @stop_aggregator
-            super
         end
 
         def start(context)
