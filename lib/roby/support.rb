@@ -220,7 +220,7 @@ class Class
                 end
                 self
             end
-            def self.has_#{name}?(key)
+            def self.has_#{name}?(key, inherited = true)
                 return true if #{attribute_name}[key]
                 if inherited && superclass.respond_to?(:has_#{name}?)
                     superclass.has_#{name}?(name)
