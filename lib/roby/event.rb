@@ -163,13 +163,15 @@ module Roby
                 def self.call
                     base.call unless base.happened?
                 end
-            elsif base.happened?
+                self.causal_links << base
+            end
+            
+            if base.happened?
                 EverGenerator.pending << self
             else
-                base.on { self.emit(nil) }
+                base.on { emit(nil) }
+                base.causal_links << self
             end
-
-            base.causal_links << self
         end
     end
 
