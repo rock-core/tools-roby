@@ -206,24 +206,32 @@ class Class
 
         if options[:map]
             class_eval <<-EOF
-            def self.each_#{name}(key = nil, &iterator)
+            def self.each_#{name}(key = nil, inherited = true, &iterator)
                 if key
                     iterator[#{attribute_name}[key]] if #{attribute_name}.has_key?(key)
                 else
                     #{attribute_name}.each(&iterator)
                 end
-                superclass.each_#{name}(key, &iterator) if superclass.respond_to?(:each_#{name})
+                if inherited && superclass.respond_to?(:each_#{name})
+                    superclass.each_#{name}(key, &iterator)
+                end
+                self
             end
             def self.has_#{name}?(key)
                 return true if #{attribute_name}[key]
-                superclass.has_#{name}?(name) if superclass.respond_to?(:has_#{name}?)
+                if inherited && superclass.respond_to?(:has_#{name}?)
+                    superclass.has_#{name}?(name)
+                end
             end
             EOF
         else
             class_eval <<-EOF
-            def self.each_#{name}(&iterator)
+            def self.each_#{name}(inherited = true, &iterator)
                 #{attribute_name}.#{enumerate_with}(&iterator) if #{attribute_name}
-                superclass.each_#{name}(&iterator) if superclass.respond_to?(:each_#{name})
+                if inherited && superclass.respond_to?(:each_#{name})
+                    superclass.each_#{name}(&iterator)
+                end
+                self
             end
             EOF
         end
