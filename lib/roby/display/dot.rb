@@ -76,7 +76,7 @@ module Roby
                 event_nodes[event] = node
             end
 
-            def task_relation(kind, task, enum_with)
+            def task_relation(kind, task, enum_with, style = Hash.new)
                 return if relations[kind].include?(task)
                 relations[kind] << task
                 self.task(task)
@@ -88,17 +88,18 @@ module Roby
 
                     parent_event = event(parent.event(:start))
                     child_event  = event(child.event(:start))
-                    graph.add_edge( parent_event, child_event, "lhead" => task(child).name, "ltail" => task(parent).name )
+                    edge_style = style.merge "lhead" => task(child).name, "ltail" => task(parent).name
+                    graph.add_edge( parent_event, child_event, edge_style )
                 end
             end
-            def event_relation(kind, event, enum_with)
+            def event_relation(kind, event, enum_with, style = Hash.new)
                 return if relations[kind].include?(event)
                 relations[kind] << event
 
                 event.enum_dfs(enum_with) do |child, parent|
                     next if relations.include?(child)
                     relations[kind] << child
-                    graph.add_edge( event(parent), event(child) )
+                    graph.add_edge( event(parent), event(child), style )
                 end
             end
 
