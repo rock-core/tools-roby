@@ -16,12 +16,12 @@ class TC_Planner < Test::Unit::TestCase
         planner = model.new
 
         assert(planner.respond_to?(:root))
-        assert(planner.find_methods(:root).first.name == 'root')
+        assert(planner.class.find_methods(:root).first.name == 'root')
         assert(planner.root.null?)
 
         assert(planner.respond_to?(:recursive))
-        assert_equal(1, planner.find_methods(:recursive, :recursive => true).size)
-        assert_equal(0, planner.find_methods(:recursive, :recursive => false).size)
+        assert_equal(1, planner.class.find_methods(:recursive, :recursive => true).size)
+        assert_equal(nil, planner.class.find_methods(:recursive, :recursive => false))
     end
 
     def test_recursive
@@ -40,7 +40,7 @@ class TC_Planner < Test::Unit::TestCase
         assert(planner.has_method?(:recursive))
         assert(planner.respond_to?(:recursive))
 
-        recursive = planner.find_methods(:recursive)
+        recursive = planner.class.find_methods(:recursive)
         assert_equal(1, recursive.size)
         assert(recursive.first.recursive?)
 
@@ -57,6 +57,55 @@ class TC_Planner < Test::Unit::TestCase
         assert(sequence.all? { |node| PlanningTask === node })
         methods = sequence.map { |node| node.plan_method }
         assert_equal(['recursive', 'root'].to_set, methods.to_set)
+    end
+
+    def test_model
+        base_task_model = Class.new(Roby::Task) do
+            event :start
+            event :stop
+        end
+        derived_task_model = Class.new(base_task_model)
+        not_a_task = Class.new
+        another_kind_of_task = Class.new(Roby::Task)
+
+        base = Class.new(Planner) do
+            extend Test::Unit::Assertions
+            
+            method(:root, :returns => base_task_model)
+            assert( method_model(:root) )
+            assert( method_model(:root).returns == base_task_model )
+
+            method(:root, :id => 1) do
+            end
+            assert_equal(2, next_id)
+
+            method(:root, :id => 10) do
+            end
+            assert_equal(11, next_id)
+            method(:root) do
+            end
+
+            
+            assert_raises(ArgumentError) { method(:root, :returns => not_a_task) }
+            assert_raises(ArgumentError) { method(:root, :returns => another_kind_of_task) }
+        end
+
+        base_root_methods = base.find_methods(:root)
+        assert_equal([], base_root_methods.find_all { |m| !(m.returns == base_task_model) } )
+        assert_equal([1, 10, 12].to_set, base_root_methods.collect { |m| m.id }.to_set)
+
+        base.class_eval do
+            assert_raises(ArgumentError) { method(:root, :returns => derived_task_model) }
+            assert_nothing_raised { method(:root, :returns => base_task_model) {} }
+        end
+
+        derived = Class.new(base) do
+            assert_raises(ArgumentError) { method(:root, :returns => another_kind_of_task) }
+            assert_nothing_raised { method(:root, :returns => derived_task_model) }
+            assert( method_model(:root).returns == derived_task_model )
+            assert_raises(ArgumentError) { method(:root, :returns => base_task_model) {} }
+            assert_nothing_raised { method(:root, :returns => derived_task_model) {} }
+        end
     end
 end
 
