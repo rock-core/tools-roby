@@ -26,7 +26,7 @@ class TC_Genom < Test::Unit::TestCase
     def test_module_task
         ::Genom.connect do
             Genom::GenomModule('mockup')
-            start_task  = Genom::Mockup.start
+            start_task  = Genom::Mockup.start!
 
             Genom::Mockup::Runner.new.start!
             start_activity
@@ -43,7 +43,7 @@ class TC_Genom < Test::Unit::TestCase
     end
 
     def start_activity
-        task = Genom::Mockup.start
+        task = Genom::Mockup.start!
         task.start!
         activity = task.activity
         

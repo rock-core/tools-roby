@@ -121,7 +121,7 @@ module ::Roby
                     end
                 end
             end
-            rb_mod.singleton_class.send(:define_method, method_name) { |*args| rq_class.new }
+            rb_mod.singleton_class.send(:define_method, method_name + '!') { |*args| rq_class.new }
         end
         
         # Loads a new Genom module and defines the task models for it
