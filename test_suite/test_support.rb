@@ -56,6 +56,7 @@ class TC_Utils < Test::Unit::TestCase
         attribute(:array_attribute) { Array.new }
     end
     class B < A
+	class_attribute :a => 10
     end
 
     def test_attribute
@@ -63,6 +64,9 @@ class TC_Utils < Test::Unit::TestCase
         assert_equal(a.array_attribute, a.array_attribute)
         a.array_attribute << 1
         assert_equal([1], a.array_attribute)
+
+	assert(B.respond_to?(:a))
+	assert_equal(10, B.a)
     end
 
     def test_inherited_enumerable

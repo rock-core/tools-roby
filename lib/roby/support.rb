@@ -127,6 +127,12 @@ class Object
         attr_writer :#{name}
         EOF
     end
+
+    def class_attribute(attr_def, &init)
+	self.class.instance_eval do 
+	    attribute(attr_def, &init)
+	end
+    end
 end
 
 
