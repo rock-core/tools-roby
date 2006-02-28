@@ -10,6 +10,15 @@ require 'genom/environment'
 
 module ::Roby
     module Genom
+	module RobyMapping
+	    def roby_module;  self.class.roby_module end
+	    def genom_module; self.class.roby_module.genom_module end
+	    module ClassExtension
+		attr_reader :roby_module
+		def genom_module; roby_module.genom_module end
+	    end
+	end
+    
         @activities = Hash.new
         class << self
             attr_reader :activities # :nodoc:
@@ -61,11 +70,15 @@ module ::Roby
         #
         # See Roby::Genom::GenomModule
         class Request < Roby::Task
-            attr_reader :activity
+	    include RobyMapping
 
-            def initialize(gen_mod, gen_request)
-                @module     = gen_mod
-                @request    = gen_request
+            attr_reader :activity
+	    class << self
+		attr_reader :timeout
+	    end
+
+            def initialize(genom_request)
+		@request = genom_request
                 super()
             end
             
@@ -93,24 +106,18 @@ module ::Roby
         # Define a Task model for the given request
         # The new model is a subclass of Roby::Genom::Request
         def self.define_request(rb_mod, rq_name) # :nodoc:
-            gen_mod     = rb_mod.module
+            gen_mod     = rb_mod.genom_module
             klassname   = rq_name.classify
             method_name = gen_mod.request_info[rq_name].request_method
 
-            Roby.info { "Defining task model #{klassname} for request #{rq_name}" }
+            Roby.debug { "Defining task model #{klassname} for request #{rq_name}" }
             rq_class = rb_mod.define_under(klassname) do
                 Class.new(Request) do
-                    class << self
-                        attr_reader :timeout
-                    end
+		    @roby_module = rb_mod
+		    class_attribute :request_method => gen_mod.method(method_name)
 
-                    @module  = gen_mod
-                    @request_method = gen_mod.method(method_name)
-                    class << self
-                        attr_reader :module, :request_method
-                    end
                     def initialize
-                        super(self.class.module, self.class.request_method)
+                        super(self.class.request_method)
                     end
                 end
             end
@@ -144,8 +151,8 @@ module ::Roby
                     raise "module #{modname} already defined, but it is not a Ruby module"
                 end
 
-                if rb_mod.respond_to?(:module)
-                    if rb_mod.module == gen_mod
+                if rb_mod.respond_to?(:genom_module)
+                    if rb_mod.genom_module == gen_mod
                         return rb_mod
                     else
                         raise "module #{modname} already defined, but it does not seem to be associated to #{name}"
@@ -158,26 +165,44 @@ module ::Roby
             end
 
             rb_mod.class_eval do
-                @module = gen_mod
+                @genom_module = gen_mod
+		@name = "Roby::Genom::#{modname}"
                 class << self
-                    attr_reader :module
+                    attr_reader :genom_module, :name
                     def new_task; Runner.new end
                 end
             end
 
             rb_mod.define_under('Runner') do
                 Class.new(Roby::Task) do
-                    @module_name = name
-                    def self.module_name; @module_name end
+		    include RobyMapping
+		    @roby_module = rb_mod
+
+		    def initialize
+			# Make sure there is a init() method defined in the Roby module if there is one in the
+			# Genom module
+			if !roby_module.respond_to?(:init) && genom_module.respond_to?(:init)
+			    init_requests = genom_module.request_info.
+				find_all { |rq| rq.init? }.
+				map { |rq| rq.name }.
+				join(", ")
+			    
+			    raise ArgumentError, "The Genom module '#{genom_module.name}' defines the following init requests: #{init_requests}. You must define an init method in '#{roby_module.name}' which calls one of these."
+			end
+			super
+		    end
 
                     def start(context)
-                        ::Genom::Runner.environment.start_modules self.class.module_name
+                        ::Genom::Runner.environment.start_modules genom_module.name
+			if roby_module.respond_to?(:init)
+			    roby_module.init 
+			end
                         emit :start
                     end
                     event :start
 
                     def stop(context)
-                        ::Genom::Runner.environment.stop_modules self.class.module_name
+                        ::Genom::Runner.environment.stop_modules genom_module.name
                         emit :stop
                     end
                     event :stop
