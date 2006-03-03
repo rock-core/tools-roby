@@ -32,13 +32,14 @@
 	  back at using one model for everybody
 	* a subclass can overload a specific method by setting :id explicitely
 	* the :returns option can be overriden as follows:
-	    - the :returns of a method should be a subclass of the :returns of its models
+	    - the :returns of a method should be a subclass of the :returns of its model
 	      and of the overloaded methods (methods in the inheritance hierarchy with the
 	      same id)
-	    - the returns of a method model shall be a subclass of the returns of the 
-	      parent models
-	* a model is frozen if a model with the same name is defined in subclasses or 
-	  if a method is defined based on this model
+	    - you cannot overload a method model, because it would lead to inconsistencies:
+		if a method in the parent planner is defined w.r.t. the parent method model,
+		then this method could be inconsistent with the method model defined in the 
+		submodel
+	* a model is frozen as soon as a method is defined based on it
 
 == Current limitations
     - For now, OrGenerator and AndGenerator cannot be used to route inside a task (i.e. fire

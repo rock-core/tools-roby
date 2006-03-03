@@ -13,6 +13,7 @@ module Roby
             end
         end
 
+	# A plan has not been found
         class NotFound < PlanModelError
             attr_reader :errors
             attr_accessor :method_name, :method_options
@@ -48,6 +49,7 @@ module Roby
                     options
                 end
             end
+
             class MethodDefinition
                 include MethodInheritance
 
@@ -74,17 +76,14 @@ module Roby
                     validate_options(new_options, [:returns])
                     validate_option(new_options, :returns, false) { |rettype| 
                         if options[:returns]
-                            # Check that overloading is possible
-                            if !(rettype < options[:returns])
-                                raise ArgumentError, "cannot overload a method model with a return type not subclass of the parent model: #{rettype} is not a subclass of #{options[:returns]}"
-                            end
+			    raise ArgumentError, "return type already specified for method #{name}"
                         end
                         options[:returns] = rettype
                     }
                 end
                         
-                def freeze!
-                    options.freeze! 
+                def freeze
+                    options.freeze
                     super
                 end
                 def initialize_copy(from)
@@ -94,8 +93,6 @@ module Roby
 
                 def to_s; "#{name}(#{options.inspect})" end
             end
-
-            class_inherited_enumerable(:method, :methods, :map => true) { Hash.new }
 
             def self.validate_method_query(name, options, other_options = [])
                 name = name.to_s
@@ -110,42 +107,43 @@ module Roby
                 [name, Hash[*method_options.flatten], Hash[*other_options.flatten]]
             end
 
-            class_inherited_enumerable(:method_model, :method_models, :map => true) { Hash.new }
-
-            def self.method_model(name, readonly = true)
-                name = name.to_s
-                
-                model = enum_for(:each_method_model, name, readonly).find { true }
-                if !readonly
-                    if model # the model is defined at this inheritance level
-                        if model.frozen?
-                            raise ArgumentError, "cannot change a method model if it already overloaded or used by a method definition"
-                        else
-                            return model
-                        end
-                    elsif model = enum_for(:each_method_model, name).find { true } # try to get a model from our ancestors
-                        method_models[name] = model.freeze.dup if model
-                    end
-                end
-
-                method_models[name] ||= MethodModel.new(name)
-                if readonly
-                    method_models[name].freeze
-                else
-                    method_models[name]
-                end
-            end
+            def self.method_model(name)
+		model = send("#{name}_model")
+		
+	    rescue NoMethodError
+	    end
 
             class << self
-                attribute(:last_id => 0)
+		def last_id; @@last_id ||= 0 end
+		def last_id=(new_value); @@last_id = new_value end
                 def next_id; self.last_id += 1 end
             end
+
+	    # Creates, overloads or updates a method model
+	    def self.update_method_model(name, options)
+		name = name.to_s
+		if respond_to?("#{name}_methods")
+		    raise ArgumentError, "cannot change the method model for #{name} since methods are already using it"
+		elsif respond_to?("#{name}_model")
+		    send("#{name}_model").merge options
+		else
+		    singleton_class.class_eval <<-EOD
+			def #{name}_model
+			    @#{name}_model || superclass.#{name}_model
+			end
+		    EOD
+		    new_model = MethodModel.new(name)
+		    new_model.merge(options)
+		    instance_variable_set("@#{name}_model", new_model)
+		end
+	    end
 
             def self.method(name, options = Hash.new, &body)
                 name, options = validate_method_query(name, options)
 
-                if !body # update the method model
-                    method_model(name, false).merge options
+		# We are updating the method model
+                if !body
+                    update_method_model(name, options)
                     return
                 end
                 
@@ -157,60 +155,71 @@ module Roby
                     method_id = (options[:id] ||= next_id)
                 end
 
-                if model = method_model(name, true)
+		# Get the method model (if any)
+                if model = method_model(name)
                     unless options = model.validate(options)
                         raise ArgumentError, "#{name}:#{method_id}(#{options.inspect}) does not match the model #{model}"
                     end
+		    model.freeze
                 end
 
-                if old_method = find_methods(name, :id => options[:id])
+		# Define the method enumerator and the method selection method
+		if !respond_to?("#{name}_methods")
+		    class_inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) { Hash.new }
+		    class_eval <<-PLANNING_METHOD_END
+		    def #{name}(options = Hash.new)
+			plan("#{name}", options)
+		    end
+		    PLANNING_METHOD_END
+		end
+
+		# Check if we are overloading an old method
+		if send("#{name}_methods")[method_id]
+		    raise ArgumentError, "method #{name}:#{method_id} is already defined on this planning model"
+
+                elsif old_method = find_methods(name, :id => options[:id])
                     old_method = *old_method
                     unless old_method.validate(options)
                         raise ArgumentError, "#{name}:#{method_id}(#{options.inspect}) cannot overload #{old_method.inspect}"
                     end
                     Planning.debug { "overloading #{name}:#{method_id}" } 
                 end
-                methods[name] ||= Hash.new
-                methods[name][method_id] = MethodDefinition.new(name, options, &body)
+
+		# Register the method definition
+		send("#{name}_methods")[method_id] = MethodDefinition.new(name, options, &lambda(&body) )
             end
 
-            def self.find_methods(method_name, options = Hash.new)
-                method_name, method_selection, other_options = validate_method_query(method_name, options, [:lazy])
+	    def self.each_method(name, id, &iterator)
+		send("each_#{name}_method", id, &iterator)
+	    rescue NoMethodError
+	    end
 
-                seen = Set.new
-                result = enum_for(:each_method, method_name).collect do |methods| 
-                    methods.collect do |id, m| 
-                        next if seen.include?(id)
-                        seen << m.id
-                        if m.name == method_name && m.options.merge(method_selection) == m.options 
-                            m
-                        end
-                    end
-                end
-                result.flatten!
-                result.compact!
+            def self.find_methods(name, options = Hash.new)
+                name, method_selection, other_options = validate_method_query(name, options, [:lazy])
 
-                if result.empty?
-                    nil
-                else
-                    result
-                end
+		if options[:id]
+		    result = enum_for(:each_method, name, options[:id]).find { true }
+		    result = if result && result.options.merge(method_selection) == result.options
+				 [result]
+			     else
+				 []
+			     end
+		else
+		    result = enum_for(:each_method, name, nil).collect do |id, m|
+			if m.options.merge(method_selection) == m.options 
+			    m
+			end
+		    end.compact
+		end
+
+		if result.empty?
+		    nil
+		else
+		    result
+		end
             end
 
-            def respond_to?(name); super || has_method?(name.to_s) end
-            def has_method?(name); self.class.has_method?(name.to_s) end
-
-            def method_missing(method_name, *args)
-                method_name = method_name.to_s
-                if has_method?(method_name)
-                    options = *args
-
-                    plan(method_name, options || Hash.new)
-                else
-                    super
-                end
-            
-            end
+            def has_method?(name); self.class.respond_to?("#{name}_methods") end
 
             # Find a suitable development for the +name+ method.
             # +options+ is used for method selection, see find_methods
@@ -261,6 +270,28 @@ module Roby
 
             private :plan_method
         end
+
+	module Library
+	    def planning_methods; @methods ||= Array.new end
+	    def method(name, options = Hash.new, &body)
+		planning_methods << [name, options, body]
+	    end
+
+	    def included(klass)
+		super
+		return unless klass < Planner
+		ancestors.enum_for(:reverse_each).
+		    find_all { |mod| mod.respond_to?(:planning_methods) }.
+		    each { |mod| mod.planning_methods.each { |name, options, body| klass.method(name, options, &body) } }
+	    end
+	    def self.new(&block)
+		Module.new do
+		    extend Library
+		    class_eval(&block)
+		end
+	    end
+	end
+	
     end
 end
 
