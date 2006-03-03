@@ -239,36 +239,45 @@ class Class
     # ...
     #
     # It defines also #{name} as a readonly attribute
-    def class_inherited_enumerable(name, attribute_name = name, options = Hash.new, enumerate_with = :each, &init)
+    def class_inherited_enumerable(name, attribute_name = name, options = Hash.new, &init)
         # Set up the attribute accessor
 	class_attribute(attribute_name, &init)
 	singleton_class.class_eval { private "#{attribute_name}=" }
 
+	options[:enum_with] ||= :each
+
         if options[:map]
             class_eval <<-EOF
-            def self.each_#{name}(key = nil, inherited = true, &iterator)
-                if key
-                    iterator[#{attribute_name}[key]] if #{attribute_name}.has_key?(key)
-                else
-                    #{attribute_name}.each(&iterator)
-                end
-                if inherited && superclass.respond_to?(:each_#{name})
-                    superclass.each_#{name}(key, &iterator)
+            def self.each_#{name}(key = nil, uniq = true, &iterator)
+		if key
+		    if #{attribute_name}.has_key?(key)
+			iterator[#{attribute_name}[key]] 
+			return if uniq
+		    end
+		elsif uniq
+		    enum_uniq(:each_#{name}, nil, false) { |k, v| k }.
+			each(&iterator)
+		    return
+		else
+                    #{attribute_name}.#{options[:enum_with]}(&iterator)
+		end
+                if superclass.respond_to?(:each_#{name})
+                    superclass.each_#{name}(key, uniq, &iterator)
                 end
                 self
             end
-            def self.has_#{name}?(key, inherited = true)
+            def self.has_#{name}?(key)
                 return true if #{attribute_name}[key]
-                if inherited && superclass.respond_to?(:has_#{name}?)
-                    superclass.has_#{name}?(name)
+                if superclass.respond_to?(:has_#{name}?)
+                    return superclass.has_#{name}?(name)
                 end
             end
             EOF
         else
             class_eval <<-EOF
-            def self.each_#{name}(inherited = true, &iterator)
-                #{attribute_name}.#{enumerate_with}(&iterator) if #{attribute_name}
-                if inherited && superclass.respond_to?(:each_#{name})
+            def self.each_#{name}(&iterator)
+                #{attribute_name}.#{options[:enum_with]}(&iterator) if #{attribute_name}
+                if superclass.respond_to?(:each_#{name})
                     superclass.each_#{name}(&iterator)
                 end
                 self

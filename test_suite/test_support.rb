@@ -106,10 +106,12 @@ class TC_Utils < Test::Unit::TestCase
 
         assert_equal([:in_a], a.enum_for(:each_signature).to_a)
         assert_equal([:in_b, :in_a], b.enum_for(:each_signature).to_a)
-        assert_equal([10, 15].to_set, b.enum_for(:each_mapped, :a).to_set)
+        assert_equal([10, 15].to_set, b.enum_for(:each_mapped, :a, false).to_set)
+        assert_equal([15].to_set, b.enum_for(:each_mapped, :a, true).to_set)
         assert_equal([10].to_set, a.enum_for(:each_mapped, :a).to_set)
         assert_equal([20].to_set, b.enum_for(:each_mapped, :b).to_set)
-        assert_equal([[:a, 10], [:b, 20], [:a, 15], [:c, 25]].to_set, b.enum_for(:each_mapped).to_set)
+        assert_equal([[:a, 15], [:b, 20], [:c, 25]].to_set, b.enum_for(:each_mapped, nil, true).to_set)
+        assert_equal([[:a, 10], [:b, 20], [:a, 15], [:c, 25]].to_set, b.enum_for(:each_mapped, nil, false).to_set)
     end
 
     def test_enum_uniq
