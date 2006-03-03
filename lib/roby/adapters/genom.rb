@@ -204,10 +204,18 @@ module ::Roby
 
                     def start(context)
                         ::Genom::Runner.environment.start_modules genom_module.name
-			if roby_module.respond_to?(:init)
-			    roby_module.init 
+			inited = if roby_module.respond_to?(:init)
+				     config.stable!
+				     roby_module.init
+				 end
+
+			if inited && inited < Roby::Task
+			    inited = inited.event(:stop)
+			elsif inited && inited.respond_to?(:on)
+			    inited.on { |context| emit(:start, context) }
+			else 
+			    emit :start
 			end
-                        emit :start
                     end
                     event :start
 
