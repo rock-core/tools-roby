@@ -129,7 +129,7 @@ class Object
     end
 
     def class_attribute(attr_def, &init)
-	self.class.instance_eval do 
+	singleton_class.class_eval do
 	    attribute(attr_def, &init)
 	end
     end
@@ -205,13 +205,11 @@ class Class
     # - the superclass' superclass #{name} attribute
     # ...
     #
-    # It defines also #{name} as being an rw attribute
+    # It defines also #{name} as a readonly attribute
     def class_inherited_enumerable(name, attribute_name = name, options = Hash.new, enumerate_with = :each, &init)
         # Set up the attribute accessor
-        self.class.instance_eval do
-            attribute(attribute_name, &init)
-            private "#{attribute_name}="
-        end
+	class_attribute(attribute_name, &init)
+	singleton_class.class_eval { private "#{attribute_name}=" }
 
         if options[:map]
             class_eval <<-EOF
