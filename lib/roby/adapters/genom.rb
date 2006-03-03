@@ -10,6 +10,9 @@ require 'genom/environment'
 
 module ::Roby
     module Genom
+        extend Logger::Hierarchy
+        extend Logger::Forward
+	
 	module RobyMapping
 	    def roby_module;  self.class.roby_module end
 	    def genom_module; self.class.roby_module.genom_module end
