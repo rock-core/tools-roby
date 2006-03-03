@@ -307,7 +307,7 @@ module Roby
                 end
             end
 
-            events << new_event
+            events[new_event.symbol] = new_event
             const_set(ev_s.camelize, new_event)
             new_event
         end
@@ -329,12 +329,9 @@ module Roby
             end
 
             # Check for inheritance rules
-            if old_event = find_event_model(ev)
-                # Make sure that it has not been defined at this level of the hierarchy
-                if has_event?(ev, false)
-                    raise ArgumentError, "event #{ev} already defined" 
-                end
-
+	    if events.include?(ev)
+		raise ArgumentError, "event #{ev} already defined" 
+            elsif old_event = find_event_model(ev)
                 if old_event.terminal? && (options.has_key?(:terminal) && !options[:terminal])
                     raise ArgumentError, "trying to override a terminal event into a non-terminal one"
                 elsif old_event.controlable? && (options.has_key?(:command) && !options[:command])
@@ -344,19 +341,26 @@ module Roby
         end
 
         # Events defined by the task model
-        class_inherited_enumerable(:event, :events) { Array.new }
+        class_inherited_enumerable(:event, :events, :map => true) { Hash.new }
 
         # Iterates on all the events defined for this task
         def each_event(only_bound = true, &iterator) # :yield:bound_event
             if only_bound
                 bound_events.each_value(&iterator)
             else
-                model.each_event { |model| yield event(model) }
+                model.each_event { |symbol, model| 
+		    $stderr.puts "#{symbol}: #{model.name}"
+		    yield event(model) 
+		}
             end
         end
 
         # Get the list of terminal events for this task model
-        def self.terminal_events; enum_for(:each_event).find_all { |e| e.terminal? } end
+        def self.terminal_events
+	    enum_for(:each_event).
+		find_all { |_, e| e.terminal? }.
+		map { |_, e| e }
+	end
 
         # Get the event model for +event+. +event+ must follow the rules for validate_event_models
         def self.event_model(model)
@@ -365,12 +369,10 @@ module Roby
         def event_model(model); self.model.event_model(model) end
 
         # Find the event class for +event+, or nil if +event+ is not an event name for this model
-        def self.find_event_model(name, inherited = true)
-            if inherited
-                enum_for(:each_event, inherited).find { |e| e.symbol == name.to_sym } 
-            else
-                events && events.find { |e| e.symbol == name.to_sym } 
-            end
+        def self.find_event_model(name)
+	    name = name.to_sym
+	    each_event { |sym, e| return e if sym == name }
+	    nil
         end
 
         # Checks that all events in +events+ are valid events for this task.
@@ -383,8 +385,7 @@ module Roby
                 if e.respond_to?(:to_sym)
                     ev_model = find_event_model(e.to_sym)
                     unless ev_model
-                        all_events = enum_for(:each_event).
-                            to_a.map { |ev| ev.symbol }
+                        all_events = enum_for(:each_event).map { |name, _| name }
                         raise ArgumentError, "#{e} is not an event of #{name} #{all_events.inspect}" unless ev_model
                     end
                 elsif e.has_ancestor?(TaskEvent)
