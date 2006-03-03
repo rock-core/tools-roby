@@ -75,7 +75,8 @@ module ::Roby
         class Request < Roby::Task
 	    include RobyMapping
 
-            attr_reader :activity
+	    def self.config; roby_module.config end
+
 	    class << self
 		attr_reader :timeout
 	    end
@@ -179,6 +180,10 @@ module ::Roby
                     attr_reader :genom_module, :name
                     def new_task; Runner.new end
                 end
+
+		def self.config
+		    State.genom.send(genom_module.name)
+		end
             end
 
             rb_mod.define_under('Runner') do
