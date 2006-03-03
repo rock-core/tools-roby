@@ -3,11 +3,15 @@ require 'roby/support'
 
 module Roby
     class TaskModelViolation < RuntimeError
-        attr_reader :event
-        def initialize(event); @event = event end
+        attr_reader :task
+        def initialize(task); @task = task end
         def to_s
-            history = event.task.history.map { |time, event| [time, event.model.name] }.join("\n  ")
-            super + "\n#{event.task.model.name} (#{event.task.object_id})\n  #{history.inspect}"
+	    if task
+		history = task.history.map { |time, event| [time, event.model.name] }.join("\n  ")
+		super + "\n#{task.model.name} (#{task.object_id})\n  #{history.inspect}"
+	    else
+		super
+	    end
         end
     end
 
@@ -111,11 +115,11 @@ module Roby
 
             yield self if block_given?
 
-            raise TaskModelViolation, "no start event defined" unless has_event?(:start)
+            raise TaskModelViolation.new(self), "no start event defined" unless has_event?(:start)
 
             # Check that this task has at least one terminal event defined
             if model.terminal_events.empty?
-                raise TaskModelViolation, "no terminal event for this task"
+                raise TaskModelViolation.new(self), "no terminal event for this task"
             elsif !model.has_event?(:stop)
                 # Create the stop event for this task, if it is not defined
                 stop_ev = model.event(:stop, :terminal => true)
@@ -152,11 +156,11 @@ module Roby
         # additional handlers & commands to call
         def fire_event(event)
             if finished? && event.symbol != :stop
-                raise TaskModelViolation.new(event), "emit(#{event.symbol}: #{event.model}) called but the task has finished (history.map"
+                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task has finished (history.map"
             elsif !running? && !finished? && event.symbol != :start
-                raise TaskModelViolation.new(event), "emit(#{event.symbol}: #{event.model}) called but the task is not running"
+                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task is not running"
             elsif running? && event.symbol == :start
-                raise TaskModelViolation.new(event), "emit(#{event.symbol}: #{event.model}) called but the task is already running"
+                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task is already running"
             end
 
             # Add it to our history
@@ -310,7 +314,7 @@ module Roby
 
         def self.validate_event_definition_request(ev, options) #:nodoc:
             if ev.to_sym == :start && options[:terminal]
-                raise TaskModelViolation, "the 'start' event cannot be terminal"
+                raise TaskModelViolation.new(nil), "the 'start' event cannot be terminal"
             elsif options[:terminal] && has_event?(:stop)
                 raise ArgumentError, "trying to define a terminal event, but the stop event is already defined"
             elsif options[:command] && options[:command] != true && !options[:command].respond_to?(:call)
@@ -319,7 +323,7 @@ module Roby
 
             if ev.to_sym == :stop
                 if options.has_key?(:terminal) && !options[:terminal]
-                    raise TaskModelViolation, "the 'stop' event cannot be non-terminal"
+                    raise TaskModelViolation.new(nil), "the 'stop' event cannot be non-terminal"
                 end
                 options[:terminal] = true
             end
