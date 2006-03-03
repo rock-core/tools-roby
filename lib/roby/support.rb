@@ -78,6 +78,35 @@ class DFSEnumerator
     include Enumerable
 end
 
+class UniqEnumerator
+    def initialize(root, enum_with, args, key = :object_id)
+	@root, @enum_with, @args = root, enum_with, args
+
+	@key = if key.respond_to?(:call)
+		   key
+	       elsif key
+		   lambda { |v| v.send(key) }
+	       else
+		   lambda { |v| v }
+	       end
+
+	@seen = Set.new
+    end
+
+    def each
+	@seen.clear
+	@root.send(@enum_with, *@args) do |v|
+	    k = @key[v]
+	    if !@seen.include?(k)
+		@seen << k
+		yield(v)
+	    end
+	end
+    end
+
+    include Enumerable
+end
+
 class Object
     # Get the singleton class for this object
     def singleton_class
@@ -101,6 +130,10 @@ class Object
         else
             enumerator
         end
+    end
+    # Enumerate removing the duplicate entries
+    def enum_uniq(enum_with = :each, *args, &filter)
+	UniqEnumerator.new(self, enum_with, args, filter)
     end
 
     def attribute(attr_def, &init)
