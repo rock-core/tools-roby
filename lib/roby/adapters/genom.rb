@@ -219,8 +219,21 @@ module ::Roby
             return rb_mod
         end
         class GenomState < ExtendableStruct
+	    attribute(:autoload_path) { Array.new }
             def using(*modules)
-                modules.each { |modname| ::Roby::Genom::GenomModule(modname) }
+                modules.each { |modname| 
+		    modname = modname.to_s
+		    ::Roby::Genom::GenomModule(modname) 
+		    self.autoload_path.each do |path|
+			begin
+			    extfile = File.join(path, modname)
+			    if require extfile
+				Genom.debug "loaded #{extfile}"
+			    end
+			rescue LoadError
+			end
+		    end
+		}
             end
         end
         State.genom = GenomState.new
