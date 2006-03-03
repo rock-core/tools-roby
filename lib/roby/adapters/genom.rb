@@ -101,7 +101,7 @@ module ::Roby
             event :success, :terminal => true
             event :failed, :terminal => true
 
-            def interrupted(context); Genom.activities[@activity].abort = @activity.abort end
+            def interrupted(context); Genom.activities[activity].abort = activity.abort end
             event :interrupted, :terminal => true
 
             event :stop
