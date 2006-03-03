@@ -80,15 +80,20 @@ module ::Roby
 		attr_reader :timeout
 	    end
 
-            def initialize(genom_request)
-		@request = genom_request
+	    # The genom activity if the task is running, or nil
+            attr_reader :activity
+	    # Arguments for the request itself
+	    attr_reader :arguments
+
+            def initialize(arguments, genom_request)
+		@arguments  = arguments
+		@request    = genom_request
                 super()
             end
             
             def start(context = nil)
-                args = [context, self.class.timeout].compact
-                @activity = @request.call(*args)
-                Genom.activities[@activity] = RunningActivity.new(self)
+                @activity = @request.call(*arguments)
+                Genom.activities[activity] = RunningActivity.new(self)
             end
             event :start
             
@@ -119,12 +124,12 @@ module ::Roby
 		    @roby_module = rb_mod
 		    class_attribute :request_method => gen_mod.method(method_name)
 
-                    def initialize
-                        super(self.class.request_method)
+                    def initialize(arguments = Hash.new)
+                        super(arguments, self.class.request_method)
                     end
                 end
             end
-            rb_mod.singleton_class.send(:define_method, method_name + '!') { |*args| rq_class.new }
+            rb_mod.singleton_class.send(:define_method, method_name + '!') { |*args| rq_class.new(*args) }
         end
         
         # Loads a new Genom module and defines the task models for it
