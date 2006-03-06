@@ -116,7 +116,7 @@ module ::Roby
         # The new model is a subclass of Roby::Genom::Request
         def self.define_request(rb_mod, rq_name) # :nodoc:
             gen_mod     = rb_mod.genom_module
-            klassname   = rq_name.classify
+            klassname   = rq_name.camelize
             method_name = gen_mod.request_info[rq_name].request_method
 
             Roby.debug { "Defining task model #{klassname} for request #{rq_name}" }
@@ -149,7 +149,7 @@ module ::Roby
         # 
         def self.GenomModule(name)
             gen_mod = ::Genom::GenomModule.new(name, :auto_attributes => true, :lazy_poster_init => true)
-            modname = gen_mod.name.classify
+            modname = gen_mod.name.camelize
             begin
                 rb_mod = ::Roby::Genom.const_get(modname)
             rescue NameError

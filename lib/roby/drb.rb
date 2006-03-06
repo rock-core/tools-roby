@@ -22,7 +22,7 @@ module Roby
             @event_loop = event_loop
         end
         def insert(task_model_name)
-            task_model_name = task_model_name.classify
+            task_model_name = task_model_name.camelize
             new_task = Roby.const_get(task_kind).new
             
             yield(new_t.ask) if block_given?
