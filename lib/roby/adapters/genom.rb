@@ -10,6 +10,8 @@ require 'genom/environment'
 
 module ::Roby
     module Genom
+	include Genom
+
         extend Logger::Hierarchy
         extend Logger::Forward
 	
@@ -148,7 +150,7 @@ module ::Roby
         # 
         # 
         def self.GenomModule(name)
-            gen_mod = ::Genom::GenomModule.new(name, :auto_attributes => true, :lazy_poster_init => true)
+            gen_mod = ::Genom::GenomModule.new(name, :auto_attributes => true, :lazy_poster_init => true, :constant => false)
             modname = gen_mod.name.camelize
             begin
                 rb_mod = ::Roby::Genom.const_get(modname)
