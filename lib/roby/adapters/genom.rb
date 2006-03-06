@@ -2,258 +2,259 @@ require 'roby'
 require 'roby/event_loop'
 require 'roby/relations/executed_by'
 
-module ::Roby::Genom
+module Roby::Genom
 end
 
 require 'genom/module'
 require 'genom/environment'
 
-module ::Roby
-    module Genom
-	include Genom
+module Roby::Genom
+    include Genom
+    extend Logger::Hierarchy
+    extend Logger::Forward
+    
+    module RobyMapping
+	def roby_module;  self.class.roby_module end
+	def genom_module; self.class.roby_module.genom_module end
+	module ClassExtension
+	    attr_reader :roby_module
+	    def genom_module; roby_module.genom_module end
+	end
+    end
 
-        extend Logger::Hierarchy
-        extend Logger::Forward
+    @running = Array.new
+    class << self
+	# The list of running Genom tasks
+	attr_reader :running
+    end
+
+    # Register the event processing in Roby event loop
+    Roby.event_processing << lambda do 
+	Roby::Genom.running.each { |task| task.poll } 
+    end
+
+    # Base class for the task models defined for Genom modules requests
+    #
+    # See Roby::Genom::GenomModule
+    class Request < Roby::Task
+	include RobyMapping
+
+	def self.config; roby_module.config end
+
+	class << self
+	    attr_reader :timeout
+	end
+
+	# The genom activity if the task is running, or nil
+	attr_reader :activity
+	# The abort activity if we are currently aborting, or nil
+	attr_reader :abort_activity
+	# Arguments for the request itself
+	attr_reader :arguments
+
+	def initialize(arguments, genom_request)
+	    @arguments  = arguments
+	    @request    = genom_request
+	    super()
+
+	    on(:stop) { @abort_activity = @activity = nil }
+	end
+
+
+	def start(context = nil)
+	    @activity = @request.call(*arguments)
+	    Roby::Genom.running << self
+	end
+	event :start
 	
-	module RobyMapping
-	    def roby_module;  self.class.roby_module end
-	    def genom_module; self.class.roby_module.genom_module end
-	    module ClassExtension
-		attr_reader :roby_module
-		def genom_module; roby_module.genom_module end
+	event :success, :terminal => true
+	event :failed,  :terminal => true
+
+	def interrupted(context); stop!(context) end
+	event :interrupted
+	on :interrupted => :failed
+
+	def stop(context); @abort_activity = @activity.abort end
+	event :stop
+	on(:stop) { |event| Roby::Genom.running.delete(event.task) }
+
+	# Poll on the status of the activity
+	def poll
+	    # Check abort status. This can raise ReplyTimeout, which is
+	    # the only event we are interested in
+	    abort_activity.try_wait if abort_activity
+
+	    activity.try_wait # update status
+	    if !running? && activity.reached?(:intermediate)
+		emit :start
+	    elsif activity.reached?(:final)
+		emit :success, activity.output
+	    end
+
+	rescue ::Genom::ReplyTimeout => e # timeout waiting for reply
+	    if abort_activity
+		raise TaskModelViolation, "failed to emit :stop (#{e.message})"
+	    else
+		raise TaskModelViolation, "failed to emit :start (#{e.message})"
+	    end
+
+	rescue ::Genom::ActivityInterrupt # interrupted
+	    emit :start, nil if !running?
+	    emit :interrupted 
+
+	rescue ::Genom::GenomError => e # the request failed
+	    if !running?
+		raise TaskModelViolation, "failed to start the task: #{e.message}"
+	    else
+		emit :failed, e.message
 	    end
 	end
+    end
+
+    # Define a Task model for the given request
+    # The new model is a subclass of Roby::Genom::Request
+    def self.define_request(rb_mod, rq_name) # :nodoc:
+	gen_mod     = rb_mod.genom_module
+	klassname   = rq_name.camelize
+	method_name = gen_mod.request_info[rq_name].request_method
+
+	Roby.debug { "Defining task model #{klassname} for request #{rq_name}" }
+	rq_class = rb_mod.define_under(klassname) do
+	    Class.new(Request) do
+		@roby_module = rb_mod
+		class_attribute :request_method => gen_mod.method(method_name)
+
+		def initialize(arguments = Hash.new)
+		    super(arguments, self.class.request_method)
+		end
+	    end
+	end
+	rb_mod.singleton_class.send(:define_method, method_name + '!') { |*args| rq_class.new(*args) }
+    end
     
-        @activities = Hash.new
-        class << self
-            attr_reader :activities # :nodoc:
-        end
+    # Loads a new Genom module and defines the task models for it
+    # GenomModule('foo') defines the following:
+    # * a Roby::Genom::Foo namespace
+    # * a Roby::Genom::Foo::Runner task which deals with running the module itself
+    # * a Roby::Genom::Foo::<RequestName> for each request in foo
+    #
+    # Moreover, it defines a #module attribute in the Foo namespace, which is the 
+    # ::Genom::GenomModule object, and a #request_name method which returns
+    # RequestName.new
+    #
+    # The main module defines the singleton method new_task so that a module
+    # can be used in ExecutedBy relationships
+    # 
+    # 
+    def self.GenomModule(name)
+	gen_mod = ::Genom::GenomModule.new(name, :auto_attributes => true, :lazy_poster_init => true, :constant => false)
+	modname = gen_mod.name.camelize
+	begin
+	    rb_mod = ::Roby::Genom.const_get(modname)
+	rescue NameError
+	end
 
-        # The event_reader routines will emit +event+ on +request+ when 
-        # +activity+ reached the status +status
-        RunningActivity = Struct.new(:task, :abort)
-
-        def self.process_request(task, activity, abort_request)
-            # Check abort status. This can raise ReplyTimeout, which is
-            # the only event we are interested in
-            abort_request.try_wait if abort_request
-
-            activity.try_wait # update status
-            if !task.running? && activity.reached?(:intermediate)
-                task.emit :start
-            elsif activity.reached?(:final)
-                task.emit :success, activity.output
-            end
-
-        rescue ::Genom::ReplyTimeout => e # timeout waiting for reply
-            if abort_request
-                raise TaskModelViolation, "failed to emit :stop (#{e.message})"
-            else
-                raise TaskModelViolation, "failed to emit :start (#{e.message})"
-            end
-
-        rescue ::Genom::ActivityInterrupt # interrupted
-            task.emit :start, nil if !task.running?
-            task.emit :interrupted 
-
-        rescue ::Genom::GenomError => e # the request failed
-            raise
-            if !task.running?
-                raise TaskModelViolation, "failed to start the task: #{e.message}"
-            else
-                task.emit :failed, e.message
-            end
-        end
-
-        # Register the event processing in Roby event loop
-        Roby.event_processing << lambda do 
-            activities.each { |a, r| process_request(r.task, a, r.abort) } 
-        end
-
-        # Base class for the task models defined
-        # for Genom modules requests
-        #
-        # See Roby::Genom::GenomModule
-        class Request < Roby::Task
-	    include RobyMapping
-
-	    def self.config; roby_module.config end
-
-	    class << self
-		attr_reader :timeout
+	if rb_mod
+	    if !rb_mod.is_a?(Module)
+		raise "module #{modname} already defined, but it is not a Ruby module"
 	    end
 
-	    # The genom activity if the task is running, or nil
-            attr_reader :activity
-	    # Arguments for the request itself
-	    attr_reader :arguments
-
-            def initialize(arguments, genom_request)
-		@arguments  = arguments
-		@request    = genom_request
-                super()
-            end
-            
-            def start(context = nil)
-                @activity = @request.call(*arguments)
-                Genom.activities[activity] = RunningActivity.new(self)
-            end
-            event :start
-            
-            event :success, :terminal => true
-            event :failed, :terminal => true
-
-            def interrupted(context); Genom.activities[activity].abort = activity.abort end
-            event :interrupted, :terminal => true
-
-            event :stop
-            on(:stop) { |event| Genom.activities.delete(event.task.activity) }
-
-            on :success => :stop
-            on :failed => :stop
-            on :interrupted => :failed
-        end
-
-        # Define a Task model for the given request
-        # The new model is a subclass of Roby::Genom::Request
-        def self.define_request(rb_mod, rq_name) # :nodoc:
-            gen_mod     = rb_mod.genom_module
-            klassname   = rq_name.camelize
-            method_name = gen_mod.request_info[rq_name].request_method
-
-            Roby.debug { "Defining task model #{klassname} for request #{rq_name}" }
-            rq_class = rb_mod.define_under(klassname) do
-                Class.new(Request) do
-		    @roby_module = rb_mod
-		    class_attribute :request_method => gen_mod.method(method_name)
-
-                    def initialize(arguments = Hash.new)
-                        super(arguments, self.class.request_method)
-                    end
-                end
-            end
-            rb_mod.singleton_class.send(:define_method, method_name + '!') { |*args| rq_class.new(*args) }
-        end
-        
-        # Loads a new Genom module and defines the task models for it
-        # GenomModule('foo') defines the following:
-        # * a Roby::Genom::Foo namespace
-        # * a Roby::Genom::Foo::Runner task which deals with running the module itself
-        # * a Roby::Genom::Foo::<RequestName> for each request in foo
-        #
-        # Moreover, it defines a #module attribute in the Foo namespace, which is the 
-        # ::Genom::GenomModule object, and a #request_name method which returns
-        # RequestName.new
-        #
-        # The main module defines the singleton method new_task so that a module
-        # can be used in ExecutedBy relationships
-        # 
-        # 
-        def self.GenomModule(name)
-            gen_mod = ::Genom::GenomModule.new(name, :auto_attributes => true, :lazy_poster_init => true, :constant => false)
-            modname = gen_mod.name.camelize
-            begin
-                rb_mod = ::Roby::Genom.const_get(modname)
-            rescue NameError
-            end
-
-            if rb_mod
-                if !rb_mod.is_a?(Module)
-                    raise "module #{modname} already defined, but it is not a Ruby module"
-                end
-
-                if rb_mod.respond_to?(:genom_module)
-                    if rb_mod.genom_module == gen_mod
-                        return rb_mod
-                    else
-                        raise "module #{modname} already defined, but it does not seem to be associated to #{name}"
-                    end
-                end
-                Roby.debug { "Extending #{modname} for genom module #{name}" }
-            else
-                Roby.debug { "Defining #{modname} for genom module #{name}" }
-                rb_mod = ::Roby::Genom.define_under(modname) { Module.new }
-            end
-
-            rb_mod.class_eval do
-                @genom_module = gen_mod
-		@name = "Roby::Genom::#{modname}"
-                class << self
-                    attr_reader :genom_module, :name
-                    def new_task; Runner.new end
-                end
-
-		def self.config
-		    State.genom.send(genom_module.name)
+	    if rb_mod.respond_to?(:genom_module)
+		if rb_mod.genom_module == gen_mod
+		    return rb_mod
+		else
+		    raise "module #{modname} already defined, but it does not seem to be associated to #{name}"
 		end
-            end
+	    end
+	    Roby.debug { "Extending #{modname} for genom module #{name}" }
+	else
+	    Roby.debug { "Defining #{modname} for genom module #{name}" }
+	    rb_mod = ::Roby::Genom.define_under(modname) { Module.new }
+	end
 
-            rb_mod.define_under('Runner') do
-                Class.new(Roby::Task) do
-		    include RobyMapping
-		    @roby_module = rb_mod
+	rb_mod.class_eval do
+	    @genom_module = gen_mod
+	    @name = "Roby::Genom::#{modname}"
+	    class << self
+		attr_reader :genom_module, :name
+		def new_task; Runner.new end
+	    end
 
-		    def initialize
-			# Make sure there is a init() method defined in the Roby module if there is one in the
-			# Genom module
-			if !roby_module.respond_to?(:init) && genom_module.respond_to?(:init)
-			    init_request = genom_module.request_info.find { |rq| rq.init? }.name
-			    
-			    raise ArgumentError, "The Genom module '#{genom_module.name}' defines the init request #{init_request}. You must define a singleton 'init' method in '#{roby_module.name}' which initializes the module"
-			end
-			super
+	    def self.config
+		State.genom.send(genom_module.name)
+	    end
+
+	    def self.method_missing(name, *args, &block)
+		genom_module.send(name, *args, &block)
+	    end
+		
+	end
+
+	rb_mod.define_under('Runner') do
+	    Class.new(Roby::Task) do
+		include RobyMapping
+		@roby_module = rb_mod
+
+		def initialize
+		    # Make sure there is a init() method defined in the Roby module if there is one in the
+		    # Genom module
+		    if !roby_module.respond_to?(:init) && genom_module.respond_to?(:init)
+			init_request = genom_module.request_info.find { |rq| rq.init? }.name
+			
+			raise ArgumentError, "The Genom module '#{genom_module.name}' defines the init request #{init_request}. You must define a singleton 'init' method in '#{roby_module.name}' which initializes the module"
 		    end
+		    super
+		end
 
-                    def start(context)
-                        ::Genom::Runner.environment.start_modules genom_module.name
-			inited = if roby_module.respond_to?(:init)
-				     config.stable!
-				     roby_module.init
-				 end
+		def start(context)
+		    ::Genom::Runner.environment.start_modules genom_module.name
+		    inited = if roby_module.respond_to?(:init)
+				 config.stable!
+				 roby_module.init
+			     end
 
-			if inited && inited < Roby::Task
-			    inited = inited.event(:stop)
-			elsif inited && inited.respond_to?(:on)
-			    inited.on { |context| emit(:start, context) }
-			else 
-			    emit :start
-			end
-                    end
-                    event :start
-
-                    def stop(context)
-                        ::Genom::Runner.environment.stop_modules genom_module.name
-                        emit :stop
-                    end
-                    event :stop
-                end
-            end
-
-            gen_mod.request_info.each do |req_name, req_def|
-                define_request(rb_mod, req_name) if !req_def.control?
-            end
-
-            return rb_mod
-        end
-        class GenomState < ExtendableStruct
-	    attribute(:autoload_path) { Array.new }
-            def using(*modules)
-                modules.each { |modname| 
-		    modname = modname.to_s
-		    ::Roby::Genom::GenomModule(modname) 
-		    self.autoload_path.each do |path|
-			begin
-			    extfile = File.join(path, modname)
-			    if require extfile
-				Genom.debug "loaded #{extfile}"
-			    end
-			rescue LoadError
-			end
+		    if inited && inited < Roby::Task
+			inited = inited.event(:stop)
+		    elsif inited && inited.respond_to?(:on)
+			inited.on { |context| emit(:start, context) }
+		    else 
+			emit :start
 		    end
-		}
-            end
-        end
-        State.genom = GenomState.new
+		end
+		event :start
+
+		def stop(context)
+		    ::Genom::Runner.environment.stop_modules genom_module.name
+		    emit :stop
+		end
+		event :stop
+	    end
+	end
+
+	gen_mod.request_info.each do |req_name, req_def|
+	    define_request(rb_mod, req_name) if !req_def.control?
+	end
+
+	return rb_mod
     end
+    class GenomState < Roby::ExtendableStruct
+	attribute(:autoload_path) { Array.new }
+	def using(*modules)
+	    modules.each { |modname| 
+		modname = modname.to_s
+		::Roby::Genom::GenomModule(modname) 
+		self.autoload_path.each do |path|
+		    begin
+			extfile = File.join(path, modname)
+			if require extfile
+			    Genom.debug "loaded #{extfile}"
+			end
+		    rescue LoadError
+		    end
+		end
+	    }
+	end
+    end
+    Roby::State.genom = GenomState.new
 end
 
