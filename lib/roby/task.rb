@@ -122,10 +122,7 @@ module Roby
                 raise TaskModelViolation.new(self), "no terminal event for this task"
             elsif !model.has_event?(:stop)
                 # Create the stop event for this task, if it is not defined
-                stop_ev = model.event(:stop, :terminal => true)
-                model.terminal_events.each do |ev|
-                    model.on(ev => stop_ev) if ev != stop_ev
-                end
+                model.event(:stop)
             end
 
             super
@@ -306,6 +303,12 @@ module Roby
                     end
                 end
             end
+
+	    if new_event.symbol != :stop && options[:terminal] && has_event?(:stop)
+		on(new_event) { |ev| ev.task.emit :stop }
+	    elsif new_event.symbol == :stop
+		terminal_events.each { |terminal| on(terminal) { |ev| ev.task.emit :stop } }
+	    end
 
             events[new_event.symbol] = new_event
             const_set(ev_s.camelize, new_event)
