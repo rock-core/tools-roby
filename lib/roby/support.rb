@@ -239,8 +239,8 @@ class Class
 	options[:enum_with] ||= :each
 
         if options[:map]
-            class_eval <<-EOF
-            def self.each_#{name}(key = nil, uniq = true, &iterator)
+            singleton_class.class_eval <<-EOF
+            def each_#{name}(key = nil, uniq = true, &iterator)
 		if key
 		    if #{attribute_name}.has_key?(key)
 			iterator[#{attribute_name}[key]] 
@@ -253,25 +253,19 @@ class Class
 		else
                     #{attribute_name}.#{options[:enum_with]}(&iterator)
 		end
-                if superclass.respond_to?(:each_#{name})
-                    superclass.each_#{name}(key, uniq, &iterator)
-                end
+		superclass_call(:each_#{name}, key, uniq, &iterator)
                 self
             end
-            def self.has_#{name}?(key)
+            def has_#{name}?(key)
                 return true if #{attribute_name}[key]
-                if superclass.respond_to?(:has_#{name}?)
-                    return superclass.has_#{name}?(name)
-                end
+		superclass_call(:has_#{name}, key)
             end
             EOF
         else
-            class_eval <<-EOF
-            def self.each_#{name}(&iterator)
+            singleton_class.class_eval <<-EOF
+            def each_#{name}(&iterator)
                 #{attribute_name}.#{options[:enum_with]}(&iterator) if #{attribute_name}
-                if superclass.respond_to?(:each_#{name})
-                    superclass.each_#{name}(&iterator)
-                end
+		superclass_call(:each_#{name}, &iterator)
                 self
             end
             EOF

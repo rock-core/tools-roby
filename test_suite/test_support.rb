@@ -56,7 +56,6 @@ class TC_Utils < Test::Unit::TestCase
 	    class_inherited_enumerable(:only_in_child) { Hash.new }
 	end
 
-        # Test simple value (non-hash)
         [a, b].each do |klass|
             assert(klass.respond_to?(:each_signature))
             assert(klass.respond_to?(:signatures))
@@ -89,6 +88,13 @@ class TC_Utils < Test::Unit::TestCase
         assert_equal([20].to_set, b.enum_for(:each_mapped, :b).to_set)
         assert_equal([[:a, 15], [:b, 20], [:c, 25]].to_set, b.enum_for(:each_mapped, nil, true).to_set)
         assert_equal([[:a, 10], [:b, 20], [:a, 15], [:c, 25]].to_set, b.enum_for(:each_mapped, nil, false).to_set)
+
+	# Test for singleton class support
+	object = b.new
+	assert(object.singleton_class.respond_to?(:signatures))
+	object.singleton_class.signatures << :in_singleton
+	assert_equal([:in_singleton], object.singleton_class.signatures)
+        assert_equal([:in_singleton, :in_b, :in_a], object.singleton_class.enum_for(:each_signature).to_a)
     end
 
     def test_enum_uniq
