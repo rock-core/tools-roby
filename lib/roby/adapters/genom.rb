@@ -111,6 +111,15 @@ module Roby::Genom
 	end
     end
 
+    # Builds and registers a task class as a subclass of the module.
+    # Additionally, it defines a task_name!(*args) singleton method
+    # to build a task instance more easily
+    def self.define_task(mod, name, &block)
+	klass = mod.define_under(name, &block)
+	method_name = name.underscore
+	mod.singleton_class.send(:define_method, method_name + '!') { |*args| klass.new(*args) }
+    end
+
     # Define a Task model for the given request
     # The new model is a subclass of Roby::Genom::Request
     def self.define_request(rb_mod, rq_name) # :nodoc:
@@ -119,7 +128,7 @@ module Roby::Genom
 	method_name = gen_mod.request_info[rq_name].request_method
 
 	Roby.debug { "Defining task model #{klassname} for request #{rq_name}" }
-	rq_class = rb_mod.define_under(klassname) do
+	define_task(rb_mod, klassname) do
 	    Class.new(Request) do
 		@roby_module = rb_mod
 		class_attribute :request_method => gen_mod.method(method_name)
@@ -129,7 +138,6 @@ module Roby::Genom
 		end
 	    end
 	end
-	rb_mod.singleton_class.send(:define_method, method_name + '!') { |*args| rq_class.new(*args) }
     end
     
     # Loads a new Genom module and defines the task models for it
@@ -147,19 +155,16 @@ module Roby::Genom
     # 
     # 
     def self.GenomModule(name)
+	# Get the genom module
 	gen_mod = ::Genom::GenomModule.new(name, :auto_attributes => true, :lazy_poster_init => true, :constant => false)
-	modname = gen_mod.name.camelize
-	begin
-	    rb_mod = ::Roby::Genom.const_get(modname)
-	rescue NameError
-	end
 
-	if rb_mod
+	# Check for a module with the same name
+	modname = gen_mod.name.camelize
+	begin 
+	    rb_mod =  ::Roby::Genom.const_get(modname)
 	    if !rb_mod.is_a?(Module)
 		raise "module #{modname} already defined, but it is not a Ruby module"
-	    end
-
-	    if rb_mod.respond_to?(:genom_module)
+	    elsif rb_mod.respond_to?(:genom_module)
 		if rb_mod.genom_module == gen_mod
 		    return rb_mod
 		else
@@ -167,11 +172,12 @@ module Roby::Genom
 		end
 	    end
 	    Roby.debug { "Extending #{modname} for genom module #{name}" }
-	else
+	rescue NameError
 	    Roby.debug { "Defining #{modname} for genom module #{name}" }
 	    rb_mod = ::Roby::Genom.define_under(modname) { Module.new }
 	end
 
+	# Define the base services for the module
 	rb_mod.class_eval do
 	    @genom_module = gen_mod
 	    @name = "Roby::Genom::#{modname}"
@@ -190,7 +196,8 @@ module Roby::Genom
 		
 	end
 
-	rb_mod.define_under('Runner') do
+	# Define the runner task
+	define_task(rb_mod, 'Runner') do
 	    Class.new(Roby::Task) do
 		include RobyMapping
 		@roby_module = rb_mod
@@ -237,6 +244,7 @@ module Roby::Genom
 
 	return rb_mod
     end
+
     class GenomState < Roby::ExtendableStruct
 	attribute(:autoload_path) { Array.new }
 	def using(*modules)
