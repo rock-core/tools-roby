@@ -23,7 +23,7 @@ module Roby
             end
 
             def to_s
-                "cannot find a #{method_name}(#{method_options}) method\n" + 
+                "cannot find a #{method_name}(#{method_options.inspect}) method\n" + 
                     errors.inject("") { |s, (m, e)| s << "  in #{m}: #{e} (#{e.backtrace[0]})\n" }
             end
         end
