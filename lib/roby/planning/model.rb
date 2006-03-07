@@ -238,7 +238,7 @@ module Roby
 		end
             end
 
-            def has_method?(name); self.class.respond_to?("#{name}_methods") end
+            def has_method?(name); singleton_class.respond_to?("#{name}_methods") end
 
             # Find a suitable development for the +name+ method.
             # +options+ is used for method selection, see find_methods
@@ -250,7 +250,7 @@ module Roby
                     options[:lazy] = true
                 end
 
-                m = self.class.find_methods(name, options)
+                m = singleton_class.find_methods(name, options)
                 if !m
                     raise NotFound.new(self, Hash.new)
                 elsif options[:lazy]
