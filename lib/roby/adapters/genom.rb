@@ -191,7 +191,11 @@ module Roby::Genom
 	    end
 
 	    def self.method_missing(name, *args, &block)
-		genom_module.send(name, *args, &block)
+		# Do not forward requests for which there is a task
+		if !respond_to?("#{name}!") && genom_module.respond_to?(name)
+		    return genom_module.send(name, *args, &block)
+		end
+		super
 	    end
 		
 	end
