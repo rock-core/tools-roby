@@ -36,10 +36,10 @@ module Roby
 
         Roby.debug { 
             [
-                "Started cycle at #{cycle_start}",
-                cycle_server ? "  server events processing took #{cycle_handlers - cycle_server}" : nil,
-                "  event handlers took #{cycle_end - cycle_handlers}",
-                "end of cycle at #{cycle_end}. Event processing took #{cycle_duration}s" 
+		"start: #{cycle_start}, end: #{cycle_end}",
+                cycle_server ? "  server events: #{cycle_handlers - cycle_server}" : nil,
+                "  event handlers: #{cycle_end - cycle_handlers}",
+		"Total: #{cycle_duration}s" 
             ].compact.join("\n")
         }
 
