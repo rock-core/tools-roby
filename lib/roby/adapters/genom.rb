@@ -251,6 +251,8 @@ module Roby::Genom
 
     class GenomState < Roby::ExtendableStruct
 	attribute(:autoload_path) { Array.new }
+	attribute(:uses) { Array.new }
+	def uses?(name); uses.include?(name.to_s) end
 	def using(*modules)
 	    modules.each { |modname| 
 		modname = modname.to_s
@@ -266,6 +268,8 @@ module Roby::Genom
 		    end
 		end
 	    }
+	    
+	    uses |= modules.map { |name| name.to_s }
 	end
     end
     Roby::State.genom = GenomState.new
