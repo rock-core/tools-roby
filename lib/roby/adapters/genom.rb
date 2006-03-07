@@ -256,12 +256,13 @@ module Roby::Genom
 		modname = modname.to_s
 		::Roby::Genom::GenomModule(modname) 
 		self.autoload_path.each do |path|
+		    extfile = File.join(path, modname)
 		    begin
-			extfile = File.join(path, modname)
 			if require extfile
 			    Genom.debug "loaded #{extfile}"
 			end
-		    rescue LoadError
+		    rescue LoadError => e
+			raise if e.backtrace.find { |level| level =~ /#{Regexp.quote(extfile)}/ }
 		    end
 		end
 	    }
