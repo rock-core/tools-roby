@@ -183,7 +183,7 @@ module Roby
 		    model.freeze
                 end
 
-		# Define the method enumerator and the method selection method
+		# Define the method enumerator and the method selection
 		if !respond_to?("#{name}_methods")
 		    class_inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) { Hash.new }
 		    class_eval <<-PLANNING_METHOD_END
