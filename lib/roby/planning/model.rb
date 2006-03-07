@@ -119,6 +119,23 @@ module Roby
                 def next_id; self.last_id += 1 end
             end
 
+	    # Some validation on the method IDs
+	    #   an integer represented as a string is converted to integer form
+	    #   a symbol is converted to string
+	    def self.validate_method_id(method_id)
+		method_id = if method_id.respond_to?(:to_sym)
+				method_id.to_s
+			    elsif method_id.respond_to?(:to_int)
+				method_id.to_int
+			    end
+
+		if method_id.respond_to?(:to_str) && method_id.to_str =~ /^\d+$/
+		    Integer(method_id)
+		else
+		    method_id
+		end
+	    end
+
 	    # Creates, overloads or updates a method model
 	    def self.update_method_model(name, options)
 		name = name.to_s
@@ -147,14 +164,17 @@ module Roby
                     return
                 end
                 
-                # Update the last_id attribute if options[id] is an integer
-                if options[:id].respond_to?(:to_int)
-                    method_id = options[:id].to_int
-                    self.last_id = method_id if self.last_id < method_id
-                else
-                    method_id = (options[:id] ||= next_id)
-                end
-
+		# Handle the method ID
+		if method_id = options[:id]
+		    method_id = validate_method_id(method_id)
+		    if method_id.respond_to?(:to_int)
+			self.last_id = method_id if self.last_id < method_id
+		    end
+		else
+		    method_id = next_id
+		end
+		options[:id] = method_id
+		
 		# Get the method model (if any)
                 if model = method_model(name)
                     unless options = model.validate(options)
@@ -177,7 +197,7 @@ module Roby
 		if send("#{name}_methods")[method_id]
 		    raise ArgumentError, "method #{name}:#{method_id} is already defined on this planning model"
 
-                elsif old_method = find_methods(name, :id => options[:id])
+                elsif old_method = find_methods(name, :id => method_id)
                     old_method = *old_method
                     unless old_method.validate(options)
                         raise ArgumentError, "#{name}:#{method_id}(#{options.inspect}) cannot overload #{old_method.inspect}"
@@ -197,12 +217,11 @@ module Roby
             def self.find_methods(name, options = Hash.new)
                 name, method_selection, other_options = validate_method_query(name, options, [:lazy])
 
-		if options[:id]
-		    result = enum_for(:each_method, name, options[:id]).find { true }
+		if method_id = method_selection[:id]
+		    method_selection[:id] = method_id = validate_method_id(method_id)
+		    result = enum_for(:each_method, name, method_id).find { true }
 		    result = if result && result.options.merge(method_selection) == result.options
 				 [result]
-			     else
-				 []
 			     end
 		else
 		    result = enum_for(:each_method, name, nil).collect do |id, m|
@@ -212,7 +231,7 @@ module Roby
 		    end.compact
 		end
 
-		if result.empty?
+		if result.nil? || result.empty?
 		    nil
 		else
 		    result

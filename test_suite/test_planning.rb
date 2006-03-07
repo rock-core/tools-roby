@@ -8,29 +8,40 @@ class TC_Planner < Test::Unit::TestCase
     include Roby
     include Roby::Planning
 
+    def test_id_validation
+	assert_equal(15, Planner.validate_method_id("15"))
+	assert_equal('foo', Planner.validate_method_id(:foo))
+	assert_equal('foo', Planner.validate_method_id('foo'))
+    end
+
     def test_method_definition
-	assert(!Planner.respond_to?(:root_methods))
         model = Class.new(Planner) do 
 	    method(:root)
             method(:root) {}
-            method(:root, :id => 15) {}
+            method(:root, :id => "15") {}
+            method(:root, :id => :foobar) {}
+            method(:root, :id => 'barfoo') {}
             method(:recursive, :recursive => true) {}
         end
 	assert_equal(17, model.next_id)
 	
 	assert(model.respond_to?(:root_methods))
 	assert(model.respond_to?(:each_root_method), model.methods.find_all { |name| name =~ /root/ }.inspect)
-	assert_equal(2, model.enum_for(:each_root_method).to_a.size)
+	assert_equal(4, model.enum_for(:each_root_method).to_a.size)
 	assert(model.root_methods[1])
 
 	assert(model.respond_to?(:root_model))
 
 	assert(model.find_methods(:root))
-	assert_equal(2, model.find_methods(:root).size)
+	assert_equal(4, model.find_methods(:root).size)
 	assert(model.find_methods(:root, :id => 1))
 	assert_equal(1, model.find_methods(:root, :id => 1).size)
-	assert(model.find_methods(:root, :id => 15))
+	assert(model.find_methods(:root, :id => 15)) # Check handling of the string -> integer convertion
 	assert_equal(1, model.find_methods(:root, :id => 15).size)
+	assert(model.find_methods(:root, :id => 15)) # Check handling of the symbol -> string convertion
+	assert_equal(1, model.find_methods(:root, :id => 'foobar').size)
+	assert_equal(1, model.find_methods(:root, :id => :barfoo).size)
+
 	assert_equal(nil, model.find_methods('recursive', :recursive => false))
 	assert_equal(1, model.find_methods('recursive', :recursive => true).size)
 
