@@ -176,22 +176,18 @@ module Roby::Genom
 
 	# Check for a module with the same name
 	modname = gen_mod.name.camelize
-	begin 
-	    rb_mod =  ::Roby::Genom.const_get(modname)
-	    if !rb_mod.is_a?(Module)
-		raise "module #{modname} already defined, but it is not a Ruby module"
-	    elsif rb_mod.respond_to?(:genom_module)
-		if rb_mod.genom_module == gen_mod
-		    return rb_mod
-		else
-		    raise "module #{modname} already defined, but it does not seem to be associated to #{name}"
-		end
+	rb_mod = Roby::Genom.define_under(modname) { Module.new }
+
+	if !rb_mod.is_a?(Module)
+	    raise "module #{modname} already defined, but it is not a Ruby module"
+	elsif rb_mod.respond_to?(:genom_module)
+	    if rb_mod.genom_module == gen_mod
+		return rb_mod
+	    else
+		raise "module #{modname} already defined, but it does not seem to be associated to #{name}"
 	    end
-	    Roby.debug { "Extending #{modname} for genom module #{name}" }
-	rescue NameError
-	    Roby.debug { "Defining #{modname} for genom module #{name}" }
-	    rb_mod = ::Roby::Genom.define_under(modname) { Module.new }
 	end
+	Roby.debug { "Defining #{modname} for genom module #{name}" }
 
 	# Define the base services for the module
 	rb_mod.class_eval do
