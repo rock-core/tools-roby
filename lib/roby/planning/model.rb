@@ -123,11 +123,7 @@ module Roby
 	    #   an integer represented as a string is converted to integer form
 	    #   a symbol is converted to string
 	    def self.validate_method_id(method_id)
-		method_id = if method_id.respond_to?(:to_sym)
-				method_id.to_s
-			    elsif method_id.respond_to?(:to_int)
-				method_id.to_int
-			    end
+		method_id = method_id.to_s if Symbol === method_id
 
 		if method_id.respond_to?(:to_str) && method_id.to_str =~ /^\d+$/
 		    Integer(method_id)
