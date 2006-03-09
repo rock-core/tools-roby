@@ -203,7 +203,6 @@ module Roby
 
 	    def self.each_method(name, id, &iterator)
 		send("each_#{name}_method", id, &iterator)
-	    rescue NoMethodError
 	    end
 
             def self.find_methods(name, options = Hash.new)
