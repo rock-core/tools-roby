@@ -163,10 +163,16 @@ module Roby::Genom
     # The main module defines the singleton method new_task so that a module
     # can be used in ExecutedBy relationships
     # 
+    # If options is given, it is forwarded to GenomModule.new. Note that the :constant option
+    # cannot be set when mapping Genom modules into Roby
     # 
-    def self.GenomModule(name)
+    def self.GenomModule(name, options = Hash.new)
 	# Get the genom module
-	gen_mod = ::Genom::GenomModule.new(name, :auto_attributes => true, :lazy_poster_init => true, :constant => false)
+	if options[:constant]
+	    raise ArgumentError, "the :constant option cannot be set when running in Roby"
+	end
+	options = { :auto_attributes => true, :lazy_poster_init => true, :constant => false }.merge(options)
+	gen_mod = Genom::GenomModule.new(name, options)
 
 	# Check for a module with the same name
 	modname = gen_mod.name.camelize
