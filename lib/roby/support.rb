@@ -174,7 +174,8 @@ class Module
         __instance_include__ mod
         begin
             extend mod.const_get(:ClassExtension)
-        rescue NameError
+        rescue NameError => e
+	    raise unless e.name == :ClassExtension
         end
     end
 
@@ -187,14 +188,10 @@ class Module
     # In the second case, it calls the provided block
     def define_under(name, value = nil)
         begin
-            curdef = const_get(name)
-            if !(kind === curdef)
-                raise TypeError, "#{name} is already defined but it is a #{curdef.class}"
-            end
-            return curdef
-        rescue NameError
-            value = yield if !value
-            const_set(name, value)
+            return const_get(name)
+        rescue NameError => e
+	    raise unless e.name == name.to_sym
+            const_set(name, (value || yield))
         end
     end
 
