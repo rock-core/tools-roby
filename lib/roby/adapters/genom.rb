@@ -235,7 +235,7 @@ module Roby::Genom
 				 roby_module.init
 			     end
 
-		    if inited && inited < Roby::Task
+		    if inited && Roby::Task === inited
 			inited = inited.event(:stop)
 		    elsif inited && inited.respond_to?(:on)
 			inited.on { |context| emit(:start, context) }
