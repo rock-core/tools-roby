@@ -173,9 +173,7 @@ module Roby
 		
 		# Get the method model (if any)
                 if model = method_model(name)
-                    unless options = model.validate(options)
-                        raise ArgumentError, "#{name}:#{method_id}(#{options.inspect}) does not match the model #{model}"
-                    end
+                    options = model.validate(options)
 		    model.freeze
                 end
 
@@ -195,9 +193,7 @@ module Roby
 
                 elsif old_method = find_methods(name, :id => method_id)
                     old_method = *old_method
-                    unless old_method.validate(options)
-                        raise ArgumentError, "#{name}:#{method_id}(#{options.inspect}) cannot overload #{old_method.inspect}"
-                    end
+                    options = old_method.validate(options)
                     Planning.debug { "overloading #{name}:#{method_id}" } 
                 end
 
