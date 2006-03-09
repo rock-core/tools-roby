@@ -4,7 +4,31 @@ require 'set'
 
 require 'genom/support'
 
+module EnumeratorOperations
+    def +(other_enumerator)
+	SequenceEnumerator.new << self << other_enumerator
+    end
+end
+
+class SequenceEnumerator
+    extend Forwardable
+    def initialize; @sequence = Array.new end
+
+    def <<(object); @sequence << object; self end
+
+    def each(&iterator)
+	@sequence.each { |enum| enum.each(&iterator) }
+    end
+    include EnumeratorOperations
+    include Enumerable
+end
+
+class Enumerable::Enumerator
+    include EnumeratorOperations
+end
+
 class BFSEnumerator
+    include EnumeratorOperations
     def initialize(root, enum_with, args)
         @root = root
         @enum_with = enum_with
@@ -51,6 +75,7 @@ class BFSEnumerator
 end
 
 class DFSEnumerator
+    include EnumeratorOperations
     def initialize(root, enum_with, args)
         @root = root
         @enum_with = enum_with
@@ -76,6 +101,7 @@ class DFSEnumerator
 end
 
 class UniqEnumerator
+    include EnumeratorOperations
     def initialize(root, enum_with, args, key = :object_id)
 	@root, @enum_with, @args = root, enum_with, args
 

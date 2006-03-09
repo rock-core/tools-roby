@@ -107,6 +107,12 @@ class TC_Utils < Test::Unit::TestCase
 	assert_equal([a, b, d], [a, b, c, d].enum_uniq { |v| v.b }.to_a)
     end
 
+    def test_enum_sequence
+	c1 = [:a, :b, :c]
+	c2 = [:d, :e, :f]
+	assert_equal([:a, :b, :c, :d, :e, :f], (c1.to_enum + c2.to_enum).to_a)
+    end
+
     def test_enum_tree
 	node = Class.new do
 	    def initialize(id, children)
