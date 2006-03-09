@@ -25,9 +25,12 @@ module Roby::Genom
     module RobyMapping
 	def roby_module;  self.class.roby_module end
 	def genom_module; self.class.roby_module.genom_module end
+	def config;	  self.class.config end
+
 	module ClassExtension
 	    attr_reader :roby_module
-	    def genom_module; roby_module.genom_module end
+	    def config;		roby_module.config end
+	    def genom_module;	roby_module.genom_module end
 	end
     end
 
@@ -47,8 +50,6 @@ module Roby::Genom
     # See Roby::Genom::GenomModule
     class Request < Roby::Task
 	include RobyMapping
-
-	def self.config; roby_module.config end
 
 	class << self
 	    attr_reader :timeout
