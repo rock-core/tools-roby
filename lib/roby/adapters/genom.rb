@@ -143,7 +143,7 @@ module Roby::Genom
 		@roby_module = rb_mod
 		class_attribute :request_method => gen_mod.method(method_name)
 
-		def initialize(arguments = Hash.new)
+		def initialize(*arguments)
 		    super(arguments, self.class.request_method)
 		end
 	    end
