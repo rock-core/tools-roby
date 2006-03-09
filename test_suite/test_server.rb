@@ -23,7 +23,12 @@ class TC_TestDrbServer < Test::Unit::TestCase
 
         @client.quit
         DRb.stop_service
-        assert_doesnt_timeout(1) { Process.waitpid(@server_process) }
+        assert_doesnt_timeout(1) { 
+	    begin
+		Process.waitpid(@server_process) 
+	    rescue Errno::ECHILD
+	    end
+	}
     end
 end
 
