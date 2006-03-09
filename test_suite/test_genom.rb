@@ -47,22 +47,11 @@ class TC_Genom < Test::Unit::TestCase
         task.start!
         activity = task.activity
         
-        assert_doesnt_timeout(5) { 
-            while !task.running?
-                $stderr.puts "waiting for task to start"
-                Roby.process_events
-            end
-        }
+	assert_event( task.event(:start) )
         
         activity.abort.wait
         assert(!task.finished?)
-        assert_doesnt_timeout(5) {
-            while !task.finished?
-                $stderr.puts "waiting for task to end"
-                Roby.process_events
-            end
-        }
-
+	assert_event( task.event(:stop) )
         assert(task.finished?)
     end
 end
