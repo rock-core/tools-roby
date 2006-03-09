@@ -232,7 +232,6 @@ module Roby::Genom
 		def start(context)
 		    ::Genom::Runner.environment.start_modules genom_module.name
 		    inited = if roby_module.respond_to?(:init)
-				 config.stable!
 				 roby_module.init
 			     end
 
