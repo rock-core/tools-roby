@@ -83,4 +83,12 @@ task :test do
     system("testrb test_suite/test_*")
 end
 
+task :test_rcov do
+    Dir.chdir('test_suite') do 
+        Dir.glob('test_*.rb').each do |path|
+            system("rcov -o ../rcov/#{File.basename(path, '.rb')} #{path}")
+        end
+    end
+end
+
 
