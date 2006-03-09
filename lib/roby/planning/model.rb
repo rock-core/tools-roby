@@ -75,7 +75,7 @@ module Roby
                 def merge(new_options)
                     validate_options(new_options, [:returns])
                     validate_option(new_options, :returns, false) { |rettype| 
-                        if options[:returns]
+                        if options[:returns] && options[:returns] != rettype
 			    raise ArgumentError, "return type already specified for method #{name}"
                         end
                         options[:returns] = rettype
