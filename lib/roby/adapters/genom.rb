@@ -1,6 +1,7 @@
 require 'roby'
 require 'roby/event_loop'
 require 'roby/relations/executed_by'
+require 'forwardable'
 
 module Roby::Genom
 end
@@ -10,6 +11,14 @@ require 'genom/environment'
 
 module Roby::Genom
     include Genom
+
+    @genom_rb = ::Genom
+    class << self
+	extend Forwardable
+	def_delegators(:@genom_rb, :connect)
+	def_delegators(:@genom_rb, :disconnect)
+    end
+
     extend Logger::Hierarchy
     extend Logger::Forward
     
