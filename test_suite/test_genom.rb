@@ -5,6 +5,15 @@ require 'genom/runner'
 
 class TC_Genom < Test::Unit::TestCase
     include Roby
+
+    def env; Genom::Runner.environment end
+    def setup
+        Genom::Runner.environment || Genom::Runner.h2 
+    end
+    def teardown
+	Genom.connect { env.stop_modules('mockup') }
+    end
+
     def test_def
         model = Genom::GenomModule('mockup')
         assert_nothing_raised { Roby::Genom::Mockup }
@@ -12,32 +21,23 @@ class TC_Genom < Test::Unit::TestCase
         assert_raises(NameError) { Roby::Genom::Mockup::SetIndex }
     end
 
-    def setup
-        @env = ::Genom::Runner.environment || ::Genom::Runner.h2 
-    end
-
-    def teardown
-        ::Genom.connect do
-            @env.stop_modules('mockup')
-        end
-        sleep(1)
-    end
-
-    def test_module_task
-        ::Genom.connect do
+    def test_runner_task
+        Genom.connect do
             Genom::GenomModule('mockup')
-            start_task  = Genom::Mockup.start!
 
-            Genom::Mockup::Runner.new.start!
-            start_activity
+            runner = Genom::Mockup.runner!
+	    runner.start!
+	    assert_event( runner.event(:start) )
+
+	    runner.stop!
+	    assert_event( runner.event(:stop) )
         end
     end
             
 
     def test_event_handling
         ::Genom.connect do
-            mod = Genom::GenomModule('mockup')
-            @env.start_modules('mockup')
+            mod = Genom::GenomModule('mockup', :start => true)
             start_activity
         end
     end

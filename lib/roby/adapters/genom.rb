@@ -135,7 +135,7 @@ module Roby::Genom
     def self.define_request(rb_mod, rq_name) # :nodoc:
 	gen_mod     = rb_mod.genom_module
 	klassname   = rq_name.camelize
-	method_name = gen_mod.request_info[rq_name].request_method
+	method_name = gen_mod.request_info[rq_name].method_name
 
 	Roby.debug { "Defining task model #{klassname} for request #{rq_name}" }
 	define_task(rb_mod, klassname) do
