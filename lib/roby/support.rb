@@ -187,10 +187,9 @@ class Module
     # In the first form, the method gets its value from its argument. 
     # In the second case, it calls the provided block
     def define_under(name, value = nil)
-        begin
-            return const_get(name)
-        rescue NameError => e
-	    raise unless e.name == name.to_sym
+	if old = constants.find { |cn| cn == name.to_s }
+	    return const_get(old)
+	else
             const_set(name, (value || yield))
         end
     end
