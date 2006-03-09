@@ -16,19 +16,29 @@ ENV['PKG_CONFIG_PATH'] = pkg_config_path.join(':')
 
 module Test::Unit::Assertions
     class FailedTimeout < RuntimeError; end
-    def assert_doesnt_timeout(seconds)
+    def assert_doesnt_timeout(seconds, message = "watchdog #{seconds} failed")
         watched_thread = Thread.current
         watchdog = Thread.new do
             sleep(seconds)
             watched_thread.raise FailedTimeout
         end
 
-        begin
-            yield
-            watchdog.kill
-        rescue FailedTimeout
-            flunk("watchdog #{seconds} failed")
-        end
+	assert_block(message) do
+	    begin
+		yield
+		watchdog.kill
+		true
+	    rescue FailedTimeout
+	    end
+	end
+    end
+
+    def assert_event(event, timeout = 5)
+	assert_doesnt_timeout("event #{event.symbol} never happened") do
+	    while !event.happened?
+		Roby.process_events
+	    end
+	end
     end
 end
 
