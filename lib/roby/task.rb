@@ -2,7 +2,7 @@ require 'roby/event'
 require 'roby/support'
 
 module Roby
-    class TaskModelViolation < RuntimeError
+    class TaskModelViolation < ModelViolation
         attr_reader :task
         def initialize(task); @task = task end
         def to_s

@@ -1,4 +1,5 @@
 require 'set'
+require 'roby/exceptions'
 require 'roby/event_loop'
 require 'roby/support'
 require 'roby/relations/causal'
@@ -13,7 +14,7 @@ module Roby
         def model; self.class end
 
     end
-    
+
     class EventGenerator
         # Generic double-dispatchers for operation on
         # bound events, based on to_and and to_or
@@ -99,7 +100,7 @@ module Roby
             result.handlers << [ event, handlers ]
 
             if bad_event = result.events.find { |ev| !can_signal?(ev) }
-                raise TaskModelViolation, "trying to signal #{bad_event} from #{self}"
+                raise ModelViolation, "trying to signal #{bad_event} from #{self}"
             end
 
             return result
