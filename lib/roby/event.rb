@@ -186,16 +186,16 @@ module Roby
     class EverGenerator < EventGenerator
         attr_reader :base
 
-        @pending = Array.new
         class << self
-            attr_reader :pending
+	    # The list of ever events to generate on next event loop
+            attribute(:pending) { Array.new }
         end
         Roby.event_processing << lambda do
             pending.each { |ev| ev.emit(nil) }
             pending.clear
         end
 
-        def new(context = nil)
+        def new(context)
             event = base.last
             raise ModelViolation, "cannot change the context of an EverEvent" if context && context != event.context
             event
