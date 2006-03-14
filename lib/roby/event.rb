@@ -35,8 +35,19 @@ module Roby
         attr_enumerable(:handler, :handlers) { Array.new }
         attr_enumerable(:signal, :signals) { Array.new }
 
-        def initialize
-            @handlers, @signals = [], []
+        def initialize(controlable = nil, &control)
+            @handlers = []
+
+	    @controlable = controlable
+	    if controlable || control
+		if control
+		    define_method(:call, &control)
+		else
+		    def self.call(context)
+			emit(context)
+		    end
+		end
+	    end
         end
 
         # Establishes signalling and/or event handlers from this event model
@@ -67,6 +78,7 @@ module Roby
         # If this event can signal +event+
         def can_signal?(event); event.controlable?  end
 
+	def new(context); Event.new(context) end
 
         @@gather_emit = nil
         def gather_emit
@@ -128,7 +140,7 @@ module Roby
             end        
         end
 
-        def controlable?; false end
+        def controlable?; @controlable end
         def happened?;  !!@happened end
         def last;       @happened end
 
@@ -155,15 +167,13 @@ module Roby
             event
         end
 
-        def initialize(base, &handler)
+        def initialize(base)
             @base = base
-            super(&handler)
-
             if base.controlable?
-                def self.call
-                    base.call unless base.happened?
-                end
-                self.causal_links << base
+		super { base.call unless base.happened? }
+                self.add_causal_link base
+	    else
+		super
             end
             
             if base.happened?
