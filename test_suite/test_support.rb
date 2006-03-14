@@ -150,5 +150,17 @@ class TC_Utils < Test::Unit::TestCase
         assert([Hash, -1], ObjectStats.profile { GC.start }.collect { |klass, count| [klass, count] })
     end
 
+    def test_define_method_with_block
+	klass = Class.new do
+	    attribute(:array) { Array.new }
+	    define_method_with_block('each') do |iterator|
+		@array.each(&iterator)
+	    end
+	    include Enumerable
+	end
+	obj = klass.new
+	obj.array << 1 << 2 << 3 << 4
+	assert_equal([1, 2, 3, 4], obj.to_a)
+    end
 end
 
