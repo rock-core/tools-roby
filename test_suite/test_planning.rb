@@ -78,7 +78,7 @@ class TC_Planner < Test::Unit::TestCase
         assert_nothing_raised { plan = planner.plan(:recursive) }
         assert_nothing_raised { plan = planner.recursive }
         
-        assert(TaskAggregator::Sequence === plan)
+        assert(TaskAggregator::AggregatorTask === plan)
 
         sequence = plan.enum_for(:each_child).to_a
         assert_equal(2, sequence.size)
