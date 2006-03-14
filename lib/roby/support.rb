@@ -10,6 +10,11 @@ module EnumeratorOperations
     end
 end
 
+class NullEnumerator
+    include EnumeratorOperations
+    def each; end
+end
+
 class SequenceEnumerator
     extend Forwardable
     def initialize; @sequence = Array.new end
