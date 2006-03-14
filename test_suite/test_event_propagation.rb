@@ -139,15 +139,29 @@ class TC_EventPropagation < Test::Unit::TestCase
     def test_task_aggregator
         t1, t2 = EmptyTask.new, EmptyTask.new
         p = t1 | t2
-        p.start!(nil)
-        assert(t1.finished? && t2.finished?)
-        assert(p.finished?)
+	assert(p.start_event.controlable?)
+	assert(p.event(:start) == p.start_event)
+	assert(p.event(:stop) == p.stop_event)
+	FlexMock.use do |mock|
+	    p.on(:start) { mock.started }
+	    p.on(:stop)  { mock.stopped }
+	    mock.should_receive(:started)
+	    mock.should_receive(:stopped)
+	    p.event(:start).call
+	end
+	assert(t1.finished? && t2.finished?)
+	assert(p.event(:stop).happened?)
+	assert(p.finished?)
 
-        t1, t2 = EmptyTask.new, EmptyTask.new
-        s = t1 + t2
-        s.start!(nil)
-        assert(t1.finished? && t2.finished?)
-        assert(s.finished?)
+        t1, t2, t3 = EmptyTask.new, EmptyTask.new, EmptyTask.new
+        s = t2 + t3
+	s.unshift t1
+
+	assert(s.start_event.controlable?)
+        s.event(:start).call
+        assert(t1.finished? && t2.finished? && t3.finished?)
+        assert(s.event(:stop).happened?)
+	assert(s.finished?)
     end
 end
 
