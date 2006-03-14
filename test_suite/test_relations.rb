@@ -1,89 +1,119 @@
 require 'test/unit'
 require 'test_config'
-require 'roby/task'
 require 'roby/relations'
-require 'roby/relations/hierarchy'
-require 'mockups/tasks'
 
 class TC_Relations < Test::Unit::TestCase
     include Roby
 
-    def test_relations
+    def test_directed_relation_definition
 	klass = Class.new { include DirectedRelationSupport }
-	r1 = Module.new { extend DirectedRelation }
-	r2 = Module.new { extend DirectedRelation }
+
+	r1 = Module.new
+	r2 = Module.new
+	Roby::RelationSpace(klass) do
+	    relation r1
+
+	    relation r2 do
+		relation_name :child
+		parent_enumerator :parent
+	    end
+	end
+
+	assert_equal(r1, r1.relation_type)
+
+	n = klass.new
+	assert( n.respond_to?(:each_child) )
+	assert( n.respond_to?(:add_child) )
+	assert( n.respond_to?(:remove_child) )
+	assert( n.respond_to?(:each_parent) )
+    end
+
+    def test_directed_relation
+	klass = Class.new { include DirectedRelationSupport }
+
+	r1 = Module.new
+	r2 = Module.new
+	Roby::RelationSpace(klass) do
+	    relation r1
+
+	    relation r2 do
+		relation_name :child
+		parent_enumerator :parent
+	    end
+	end
 
 	n1, n2, n3, n4 = 4.enum_for(:times).map { klass.new }
-	n1.add_child(n2, r1)
-	n1.add_child(n3, r2)
-	n2.add_child(n4, r1)
-	
+	n1.add_child_object(n2, r1)
 	assert( n1.child_object?(n2) )
 	assert( n1.child_object?(n2, r1) )
 	assert( !n1.child_object?(n2, r2) )
-	assert_equal( [n2, n3].to_set, n1.enum_for(:each_child_object).to_set )
-	assert_equal( [n2].to_set, n1.enum_for(:each_child_object, r1).to_set )
-
 	assert( n2.parent_object?(n1) )
 	assert( n2.parent_object?(n1, r1) )
 	assert( !n2.parent_object?(n1, r2) )
 	assert_equal( [n1], n2.enum_for(:each_parent_object).to_a )
 
+	n1.add_child_object(n3, r2)
+	n2.add_child_object(n4, r1)
+	
+	assert( n1.child_object?(n2) )
+	assert( n1.child_object?(n2, r1) )
+	assert( !n1.child_object?(n2, r2) )
+	assert( n2.parent_object?(n1) )
+	assert( n2.parent_object?(n1, r1) )
+	assert( !n2.parent_object?(n1, r2) )
+	assert_equal( [], n1.enum_for(:each_parent_object).to_a )
+	assert_equal( [], n3.enum_for(:each_child_object).to_a )
+	assert_equal( [n2, n3].to_set, n1.enum_for(:each_child_object).to_set )
+	assert_equal( [n2].to_a, n1.enum_for(:each_child_object, r1).to_a )
+
 	assert( n2.related_object?(n1) )
 	assert( n2.related_object?(n4) )
 
 	assert_equal( [[r1, n1, n2, nil], [r2, n1, n3, nil]].to_set, n1.enum_for(:each_relation).to_set )
-	assert_equal( [[r1, n2, n4, nil]].to_set, n2.enum_for(:each_relation, true).to_set )
+	assert_equal( [[r1, n2, n4, nil]], n2.enum_for(:each_relation, true).to_a )
 	assert_equal( [[r1, n1, n2, nil], [r1, n2, n4, nil]].to_set, n2.enum_for(:each_relation).to_set )
 
-	n2.remove_child(n4, r1)
+	n2.remove_child_object(n4, r1)
 	assert(! n2.child_object?(n4) )
 	assert(! n4.parent_object?(n2) )
 
-	n1.remove_child(nil, r2)
+	n1.remove_child_object(nil, r2)
 	assert( n1.child_object?(n2) )
 	assert( !n1.child_object?(n3) )
 	assert( !n3.parent_object?(n1) )
 
-	n1.remove_child(n2, nil)
+	n1.remove_child_object(n2, nil)
 	assert( !n1.child_object?(n2) )
 	assert( !n2.parent_object?(n1) )
+
+	n1, n2 = 2.enum_for(:times).map { klass.new }
+	n1.add_child_object(n2, r1)
+	assert_equal(r1.enum_for(:each_relation, n1, false).to_a, r1.enum_for(:each_relation, n2, false).to_a)
+	assert_equal(n1.enum_for(:each_relation).to_a, n2.enum_for(:each_relation).to_a)
     end
-    
-    def test_hierarchy
-        a = EmptyTask.new
-        b = EmptyTask.new
-        c = EmptyTask.new
 
-        a.realized_by b
-        assert( !a.realizes?(b) )
-        assert( b.realizes?(a) )
-        assert( a.realized_by?(b) )
-        assert( !b.realized_by?(a) )
+    def test_relation_enumerators
+      	klass = Class.new { include DirectedRelationSupport }
+	r1 = Module.new { include DirectedRelation }
+	r2 = Module.new { 
+	    include DirectedRelation 
+	}
+    end
 
-        assert_equal([],  a.enum_for(:each_parent).to_a)
-        assert_equal([b], a.enum_for(:each_child).to_a.map { |x, _| x })
-        assert_equal([a], b.enum_for(:each_parent).to_a)
-        assert_equal([],  c.enum_for(:each_child).to_a)
-        assert_equal(b.enum_for(:each_relation).to_a, a.enum_for(:each_relation).to_a )
+    def test_subsets
+	klass = Class.new { include DirectedRelationSupport }
+	r1 = Module.new { include DirectedRelation }
+	r2 = Module.new { 
+	    include DirectedRelation 
+	    superset_of r1
+	}
 
-        b.realized_by c
-        assert_equal([c], b.enum_for(:each_child).to_a.map { |x, _| x })
-        assert_equal([b, c].to_set, a.first_children.to_set)
-        assert_equal([c], b.first_children)
+	n1, n2, n3, n4 = 4.enum_for(:times).map { klass.new }
+	n1.add_child_object(n2, r1)
+	n1.add_child_object(n3, r2)
 
-        a.remove_child(b, TaskStructure::Hierarchy)
-        assert( !a.realizes?(b) )
-        assert( !b.realizes?(a) )
-        assert( !a.realized_by?(b) )
-        assert( !b.realized_by?(a) )
-
-        assert_equal([], a.enum_for(:each_parent).to_a)
-        assert_equal([], a.enum_for(:each_child).to_a)
-        assert_equal([], b.enum_for(:each_parent).to_a)
-        assert_equal([c], b.enum_for(:each_child).to_a)
-        assert_equal([], a.enum_for(:each_relation).to_a )
-        assert_equal(b.enum_for(:each_relation).to_a, c.enum_for(:each_relation).to_a )
+	assert_equal([n2], n1.enum_for(:each_child_object, r1).to_a)
+	assert_equal([n3, n2].to_set, n1.enum_for(:each_child_object, r2).to_set)
     end
 end
 

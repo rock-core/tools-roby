@@ -3,18 +3,18 @@ require 'roby/relations'
 require 'set'
 
 module Roby::TaskStructure
-    task_relation Hierarchy do
-	enumerators :parent, :child
+    relation Hierarchy do
+	relation_name :child
 
         HierarchyLink = Struct.new(:done_with, :fails_on)
          
-	def realizes?(obj); parent_object?(obj, Hierarchy) end
-	def realized_by?(obj); child_object?(obj, Hierarchy) end
+	def realizes?(obj);	parent_object?(obj, Hierarchy) end
+	def realized_by?(obj);  child_object?(obj, Hierarchy) end
         def realized_by(task, options = {:done_with => :stop})
             options = validate_options(options, HierarchyLink.members)
 
             new_relation = HierarchyLink.new([*options[:done_with]], [*options[:fails_on]])
-	    add_child(task, Hierarchy, new_relation)
+	    add_child(task, new_relation)
             self
         end
 
@@ -35,12 +35,6 @@ module Roby::TaskStructure
 
     protected
         attr_reader :realizes
-    end
-end
-
-module Roby
-    class Task
-        include TaskStructure::Hierarchy
     end
 end
 

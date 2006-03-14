@@ -33,7 +33,6 @@ module Roby
         end
 
         attr_enumerable(:handler, :handlers) { Array.new }
-        attr_enumerable(:signal, :signals) { Array.new }
 
         def initialize(controlable = nil, &control)
             @handlers = []
@@ -55,7 +54,7 @@ module Roby
             unless signals.all? { |e| EventGenerator === e }
                 raise ArgumentError, "arguments to EventGenerator#on shall be EventGenerator objects, got #{signals.inspect}" 
             end
-            self.signals |= signals
+	    signals.each { |sig| add_signal(sig) }
 
             if handler
                 check_arity(handler, 1)
@@ -180,7 +179,7 @@ module Roby
                 EverGenerator.pending << self
             else
                 base.on { emit(nil) }
-                base.causal_links << self
+                base.add_causal_link self
             end
         end
     end
@@ -205,7 +204,7 @@ module Roby
                 end
             end
 
-            event_model.causal_links << self
+            event_model.add_causal_link self
             
             self
         end
@@ -241,7 +240,7 @@ module Roby
                 @done << event
             end
 
-            event.causal_links << self
+            event.add_causal_link self
             
             self
         end

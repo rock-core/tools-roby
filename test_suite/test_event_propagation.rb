@@ -10,7 +10,7 @@ class TC_EventPropagation < Test::Unit::TestCase
         start_event = start_node.event(:start)
         assert_equal(start_event, start_node.event(:start))
         assert_equal([], start_event.handlers)
-        assert_equal([], start_event.signals)
+        assert_equal([], start_event.enum_for(:each_signal).to_a)
         start_model = start_node.event_model(:start)
         assert_equal(start_model, start_event.model)
 

@@ -1,7 +1,9 @@
 require 'roby/task'
 
 module Roby::TaskStructure
-    task_relation ExecutedBy do
+    relation ExecutedBy do
+	relation_name :execution_agent
+
         def initialize
             if self.class.execution_agent
                 executed_by self.class.execution_agent.new_task(self)
@@ -22,7 +24,7 @@ module Roby::TaskStructure
             super
         end
         
-	def execution_agent; children[ExecutedBy].find { true } end
+	def execution_agent; enum_for(:each_execution_agent).find { true } end
         def executed_by(agent)
             raise "an agent is already defined for this task" if execution_agent
 	    add_relation(ExecutedBy, agent, nil)
