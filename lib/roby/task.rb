@@ -449,6 +449,7 @@ module Roby
         def inspect; "#{model.name} (#{object_id})" end
 
         def null?; false end
+	def to_task; self end
     end
 
     class NullTask < Task
