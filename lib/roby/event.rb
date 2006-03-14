@@ -149,6 +149,40 @@ module Roby
         end
     end
 
+    class ForwarderGenerator < EventGenerator
+	attr_reader :aliases
+	def initialize(*aliases)
+	    @aliases = aliases.to_set
+	end
+
+	def controlable?; aliases.all? { |ev| ev.controlable? } end
+	def call(context = nil)
+	    aliases.each { |ev| ev.call(context) }
+	end
+
+	def new(context)
+	    Event.new(context)
+	end
+	
+	def <<(event)
+	    return if aliases.include?(event)
+	    on(event)
+	    aliases << event
+
+	    if controlable? && !respond_to?(:call)
+		singleton_class.class_eval { public :call }
+	    elsif !controlable? && respond_to?(:call)
+		singleton_class.class_eval { private :call }
+	    end
+	end
+	def delete(event)
+	    if aliases.delete(event)
+		remove_signal(event)
+		event
+	    end
+	end
+    end
+
     class EverGenerator < EventGenerator
         attr_reader :base
 
