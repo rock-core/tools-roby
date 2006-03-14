@@ -247,7 +247,13 @@ module Roby
                 elsif options[:lazy]
                     PlanningTask.new(self.class, name, options)
                 else
-                    plan_method(Hash.new, *m)
+                    result = plan_method(Hash.new, *m)
+		    if result
+			if !result.respond_to?(:to_task)
+			    raise PlanModelError, "#{name}(#{options}) did not return a Task object"
+			end
+			result = result.to_task
+		    end
                 end
 
             rescue NotFound => e
