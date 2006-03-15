@@ -60,21 +60,16 @@ class BFSEnumerator < GraphEnumerator
 end
 
 class DFSEnumerator < GraphEnumerator
-    def initialize(root, enum_with, args)
-        @seen = Set.new
-	super
-    end
-
     def each_edge(&iterator)
-        enumerate(@root, &iterator) 
+        enumerate(@root, Set.new, &iterator) 
 	self
     end
 
-    def enumerate(object, &iterator)
+    def enumerate(object, seen, &iterator)
         object.send(@enum_with, *@args) do |node|
-	    unless @seen.include?(node)
-		enumerate(node, &iterator)
-		@seen << node
+	    unless seen.include?(node)
+		seen << node
+		enumerate(node, seen, &iterator)
 	    end
             yield [node, object]
         end
