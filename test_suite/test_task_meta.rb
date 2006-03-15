@@ -127,5 +127,24 @@ class TC_TaskMeta < Test::Unit::TestCase
             assert(find_event_model(:stop).controlable?)
         end
     end
+
+    def test_singleton
+	model = Class.new(Task) do
+	    def initialize
+		singleton_class.event(:start)
+		singleton_class.event(:stop)
+	    end
+	    event :inter
+	end
+
+	ev_models = Hash[*model.enum_for(:each_event).to_a.flatten]
+	assert_equal([:inter], ev_models.keys)
+
+	task = model.new
+	ev_models = Hash[*task.model.enum_for(:each_event).to_a.flatten]
+	assert_equal(3, ev_models.keys.size)
+	assert( ev_models[:start].symbol )
+	assert( ev_models[:start].name || ev_models[:start].name.length > 0 )
+    end
 end
 

@@ -128,7 +128,7 @@ module Roby
             super
         end
 
-        def model; self.class end
+        def model; singleton_class end
 
         # If a model of +event+ is defined in the task model
         def has_event?(event); model.has_event?(event) end
@@ -312,6 +312,12 @@ module Roby
 
             events[new_event.symbol] = new_event
             const_set(ev_s.camelize, new_event)
+	    if respond_to?(:singleton_instance)
+		new_event.singleton_class.class_eval do
+		    define_method(:name) { "#{self.inspect}::#{ev_s.camelize}" }
+		end
+	    end
+		    
             new_event
         end
 
@@ -447,7 +453,6 @@ module Roby
         end
 
         def inspect; "#{model.name} (#{object_id})" end
-
         def null?; false end
 	def to_task; self end
     end
