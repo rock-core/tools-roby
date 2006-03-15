@@ -13,15 +13,13 @@ module Roby
 
 	def each_parent_object(type = nil, &iterator)
 	    enum_for(:apply_selection, type, relations, :each).
-		map { |type| type.enum_for(:each_parent_object, self) }.
-		inject(NullEnumerator.new) { |enum, new_enum| enum + new_enum }.
+		inject(NullEnumerator.new) { |enum, type| enum + type.enum_for(:each_parent_object, self) }.
 		enum_uniq { |obj| obj }.
 		each(&iterator)
 	end
 	def each_child_object(type = nil)
 	    enum_for(:apply_selection, type, relations, :each).
-		map { |type| type.enum_for(:each_child_object, self) }.
-		inject(NullEnumerator.new) { |enum, new_enum| enum + new_enum }.
+		inject(NullEnumerator.new) { |enum, type| enum + type.enum_for(:each_child_object, self) }.
 		enum_uniq { |obj| obj }.
 		each { |child, _| yield(child) }
 	end
