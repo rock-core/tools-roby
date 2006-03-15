@@ -129,7 +129,7 @@ class TC_Utils < Test::Unit::TestCase
 	assert_equal([:a, :b, :c, :d, :e, :f], (c1.to_enum + c2.to_enum).to_a)
     end
 
-    def test_enum_tree
+    def test_enum_graph
 	node = Class.new do
 	    def initialize(id, children)
 		@id, @children = id, children
@@ -149,20 +149,22 @@ class TC_Utils < Test::Unit::TestCase
 	as_array = []
 	root.enum_dfs(:each_child) { |a| as_array << a }
 	assert_equal(root.enum_dfs(:each_child).to_a, as_array)
-	assert_equal([[bottom, left], [left, root], [right, root]], root.enum_dfs(:each_child).to_a)
+	assert_equal([bottom, left, right], root.enum_dfs(:each_child).to_a)
+	assert_equal([[left, bottom], [root, left], [right, bottom], [right, left], [root, right]], root.enum_dfs(:each_child).enum_for(:each_edge).to_a)
 
 	# topological is broken for now
 	#assert_equal([right, left, bottom], root.enum_bfs(:each_child).topological)
 	as_array = []
 	root.enum_bfs(:each_child) { |a| as_array << a }
-	assert_equal(root.enum_bfs(:each_child).to_a, as_array)
-	assert_equal([[left, root], [right, root], [bottom, left]], root.enum_bfs(:each_child).to_a)
+	assert_equal(as_array, root.enum_bfs(:each_child).to_a)
+	assert_equal([left, right, bottom], root.enum_bfs(:each_child).to_a)
+	assert_equal([[root, left], [root, right], [left, bottom], [right, bottom], [right, left]], root.enum_bfs(:each_child).enum_for(:each_edge).to_a)
 
 	test = [bottom, right]
 	class << test
 	    alias :each_child :each
 	end
-	assert_equal([bottom].to_set, test.enum_leafs(:each_child).to_set)
+	assert_equal([bottom], test.enum_leafs(:each_child).to_a)
     end
 
     def test_object_stats
