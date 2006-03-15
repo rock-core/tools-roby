@@ -43,20 +43,19 @@ class UniqEnumerator
 		   lambda { |v| v.hash }
 	       end
 
-	@seen = Set.new
     end
 
-    def each
-	@seen.clear
+    def each(&iterator)
+	@result = Hash.new
 	@root.send(@enum_with, *@args) do |v|
 	    k = @key[v]
-	    if !@seen.include?(k)
-		@seen << k
+	    if !@result.has_key?(k)
+		@result[k] = v
 		yield(v)
 	    end
 	end
 
-	self
+	@result.values
     end
 
     include Enumerable
