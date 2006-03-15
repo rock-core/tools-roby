@@ -54,7 +54,9 @@ module Roby
             EVENT_GENERATOR_NAMES = { 
                 OrGenerator => '|', 
                 AndGenerator => '&',
-                EverGenerator => 'ever'
+                EverGenerator => 'ever',
+		ForwarderGenerator => '->',
+		EventGenerator => '->'
             }
                 
             def event(event)
@@ -66,11 +68,11 @@ module Roby
                     id      = "#{cluster.name.gsub(/^cluster_/, '')}_#{name}"
                 else
                     cluster = self.graph
-                    name    = EVENT_GENERATOR_NAMES[event.class]
-                    id      = "#{name}_#{event.object_id}"
+                    name    = EVENT_GENERATOR_NAMES[event.class] || event.class.name
+                    id      = "#{event.class.name.gsub(/::/, '_')}_#{event.object_id}"
                 end
 
-                node = cluster.add_node(id, "label" => name)
+                node = cluster.add_node(id, "label" => name.to_str)
                 if event.respond_to?(:task)
                     if [:start, :stop].include?(event.symbol)
                         node["style"] = "filled"
@@ -85,29 +87,40 @@ module Roby
                 event_nodes[event] = node
             end
 
-            def task_relation(kind, task, enum_with, style = Hash.new)
+            def task_relation(kind, task, style = Hash.new)
                 return if relations[kind].include?(task)
                 relations[kind] << task
                 self.task(task)
 
-                task.enum_dfs(enum_with) do |child, parent|
-                    next if relations.include?(child)
-                    relations[kind] << child
-                    self.task(child)
+		root = task.enum_leafs(:each_parent_object, kind).to_a
+		def root.each_child_object(kind, &iterator)
+		    each(&iterator)
+		end
 
-                    parent_event = event(parent.event(:start))
+                root.enum_dfs(:each_child_object, kind).each_edge do |parent, child|
+		    next if parent == root
+                    next if relations[kind].include? [parent, child]
+                    relations[kind] << [parent, child]
+
                     child_event  = event(child.event(:start))
-                    edge_style = style.merge "lhead" => task(child).name, "ltail" => task(parent).name
-                    graph.add_edge( parent_event, child_event, edge_style )
+		    parent_event = event(parent.event(:start)) 
+		    edge_style   = style.merge "lhead" => task(child).name, "ltail" => task(parent).name
+		    graph.add_edge( parent_event, child_event, edge_style )
                 end
             end
-            def event_relation(kind, event, enum_with, style = Hash.new)
+            def event_relation(kind, event, style = Hash.new)
                 return if relations[kind].include?(event)
                 relations[kind] << event
 
-                event.enum_dfs(enum_with) do |child, parent|
-                    next if relations.include?(child)
-                    relations[kind] << child
+		root = event.enum_leafs(:each_parent_object, kind).to_a
+		def root.each_child_object(kind, &iterator)
+		    each(&iterator)
+		end
+
+		root.enum_dfs(:each_child_object, kind).each_edge do |parent, child|
+		    next if parent == root
+                    next if relations[kind].include?  [parent, child]
+                    relations[kind] << [parent, child]
                     graph.add_edge( event(parent), event(child), style )
                 end
             end
@@ -115,10 +128,8 @@ module Roby
             def display
                 #@graph.output "output" => "dot"
                 Tempfile.open("roby-dot") do |file|
-                    $stderr.puts "generating graph"
                     @graph.output "file" => file.path, "output" => "png"
 
-                    $stderr.puts "displaying graph"
                     require 'RMagick'
                     Magick::Image.read(file.path).first.display
                 end
