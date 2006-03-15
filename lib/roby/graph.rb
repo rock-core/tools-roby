@@ -11,9 +11,10 @@ class GraphEnumerator
         @args = args
     end
 
-    def each(&iterator)
-	enum_uniq(:each_edge) { |child, _| child }.
-	    each(&iterator)
+    def each
+	enum_uniq(:each_edge) { |_, child| child }.
+	    each { |_, child| yield(child) }
+	self
     end
 end
 
@@ -27,7 +28,7 @@ class BFSEnumerator < GraphEnumerator
 
             seen << current
             current.send(@enum_with, *@args) do |node|
-                yield [node, current]
+                yield [current, node]
 		unless seen.include?(node)
 		    seen << node
 		    queue << node
@@ -71,7 +72,7 @@ class DFSEnumerator < GraphEnumerator
 		seen << node
 		enumerate(node, seen, &iterator)
 	    end
-            yield [node, object]
+            yield [object, node]
         end
     end
 end
