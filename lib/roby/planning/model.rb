@@ -1,6 +1,7 @@
 require 'roby/planning/task'
 require 'roby/task'
 require 'roby/event_loop'
+require 'roby/plan'
 require 'set'
 
 module Roby
@@ -30,8 +31,9 @@ module Roby
 
         # A plan model
         class Planner
-            def initialize
-                @tasks    = Set.new
+	    attr_reader :result
+            def initialize(result = Plan.new)
+		@result	  = result
                 @stack    = Array.new
             end
 
@@ -247,12 +249,17 @@ module Roby
                 elsif options[:lazy]
                     PlanningTask.new(self.class, name, options)
                 else
-                    result = plan_method(Hash.new, *m)
-		    if result
-			if !result.respond_to?(:to_task)
+		    if result = plan_method(Hash.new, *m)
+			if result.respond_to?(:each_task)
+			    result.each_task { |t| self.result << t }
+			elsif result.respond_to?(:to_task)
+			    self.result << result.to_task
+			elsif result.respond_to?(:each)
+			    result.each { |t| self.result << t }
+			else
 			    raise PlanModelError, "#{name}(#{options}) did not return a Task object"
 			end
-			result = result.to_task
+			result
 		    end
                 end
 
