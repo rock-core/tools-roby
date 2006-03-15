@@ -3,46 +3,63 @@ require 'roby/relations/hierarchy'
 
 module Roby
     class Plan
-	attribute(:tasks) { Set.new }
+	def initialize
+	    @tasks = Set.new
+	end
 
-        def insert(task)
-	    events = Set.new
-	    class << events # Make the 'events' set look like a relation node
-		alias :each_related_object :each 
-	    end
-	    raise unless events.respond_to?(:each_related_object)
-
-	    tasks << task
-	    # Get all tasks
-	    task.enum_bfs(:each_related_object) do |t, _|
-		next unless t.kind_of? Task
-		tasks << t
-		events.merge t.enum_for(:each_event).to_set
-	    end
-
-	    # Propagate through the event network
-	    events.enum_bfs(:each_related_object) do |ev, _|
-		if TaskEventGenerator === ev
-		    tasks << ev.task
-		end
-	    end
-        end
-	alias :<< :insert
-
-	def has_task?(task); @tasks.include?(task) end
 	def merge(plan)
 	    plan.each_task { |task| @tasks << task }
 	end
-	def each_task(&iterator); @tasks.each(&iterator) end
+
+	def each_task(&iterator)
+	    tasks.each(&iterator)
+	end
+
+	def tasks
+	    tasks	= Set.new
+	    new_tasks	= @tasks.dup
+	    events	= Set.new
+	    new_events	= Set.new
+	    class << new_events # Make the 'events' set look like a relation node
+		alias :each_related_object :each 
+	    end
+
+	    while task = new_tasks.find { true }
+		task.enum_bfs(:each_related_object) do |t, _|
+		    if t.kind_of?(Task) && !tasks.include?(t)
+			tasks << t
+			new_events.merge t.enum_for(:each_event).
+			    find_all { |ev| !events.include?(ev) }
+		    end
+		end
+
+		new_tasks.merge	new_events.enum_bfs(:each_related_object).
+		    each { |ev, _| events << ev }.
+		    find_all { |ev, _| ev.respond_to?(:task) && !tasks.include?(ev.task) }.
+		    map { |ev, _| ev.task }.
+		    to_set
+
+		new_events.clear
+		new_tasks.delete(task)
+		tasks << task
+	    end
+
+	    tasks
+	end
 
         def display(g)
-	    tasks.each do |task, _|
+	    each_task do |task, _|
 		task.each_event(false) do |event|
-		    g.event_relation('causal', event, :each_causal_link)
+		    g.event_relation(EventStructure::CausalLinks, event)
 		end
-		g.task_relation('hierarchy', task, :each_child, "color" => "red")
+		g.task_relation(TaskStructure::Hierarchy, task, "color" => "red")
 	    end
         end
+
+        def insert(task)
+	    @tasks << task
+	end
+	alias :<< :insert
     end
 end
 
