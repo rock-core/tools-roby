@@ -128,11 +128,11 @@ module Roby
 		end
 	    end
 
-	    def each_parent_object(of, &iterator)
+	    def each_parent_object(of, &iterator) # :yield: parent_object
 		of.parents[relation_type].each(&iterator)
 		subsets.each { |mod| mod.each_parent_object(of, &iterator) }
 	    end
-	    def each_child_object(of, &iterator)
+	    def each_child_object(of, &iterator)  # :yield: child_object
 		of.children[relation_type].each_key(&iterator)
 		subsets.each { |mod| mod.each_child_object(of, &iterator) }
 	    end
