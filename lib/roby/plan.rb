@@ -28,8 +28,7 @@ module Roby
 		task.enum_bfs(:each_related_object) do |t|
 		    if t.kind_of?(Task) && !tasks.include?(t)
 			tasks << t
-			new_events.merge t.enum_for(:each_event).
-			    find_all { |ev| !events.include?(ev) }
+			new_events.merge t.enum_for(:each_event).to_set
 		    end
 		end
 
