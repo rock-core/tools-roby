@@ -1,0 +1,126 @@
+require 'roby/enumerate'
+
+class GraphEnumerator
+    include EnumeratorOperations
+    include Enumerable
+
+    attr_reader :root, :enum_with, :args
+    def initialize(root, enum_with, args)
+        @root = root
+        @enum_with = enum_with
+        @args = args
+    end
+
+    def each(&iterator)
+	enum_uniq(:each_edge) { |child, _| child }.
+	    each(&iterator)
+    end
+end
+
+
+class BFSEnumerator < GraphEnumerator
+    def each_edge(&iterator)
+        queue = [@root]
+        seen  = Set.new
+        while !queue.empty?
+            current = queue.shift
+
+            seen << current
+            current.send(@enum_with, *@args) do |node|
+                yield [node, current]
+		unless seen.include?(node)
+		    seen << node
+		    queue << node
+		end
+            end
+        end
+
+	self
+    end
+
+    def topological
+        levels = Hash.new(-1)
+        levels[@root] = 0
+        max_level = 0
+
+        each do |child, parent|
+            parent_level, child_level = levels[parent], levels[child]
+            if child_level <= parent_level
+                child_level = parent_level + 1
+                levels[child] = child_level
+            end
+            max_level = child_level if max_level < child_level
+        end
+
+        sorting = Array.new(max_level + 1) { Array.new }
+        levels.each { |node, level| sorting[level] << node }
+
+        sorting
+    end
+end
+
+class DFSEnumerator < GraphEnumerator
+    def initialize(root, enum_with, args)
+        @seen = Set.new
+	super
+    end
+
+    def each_edge(&iterator)
+        enumerate(@root, &iterator) 
+	self
+    end
+
+    def enumerate(object, &iterator)
+        object.send(@enum_with, *@args) do |node|
+	    unless @seen.include?(node)
+		enumerate(node, &iterator)
+		@seen << node
+	    end
+            yield [node, object]
+        end
+    end
+end
+
+class Object
+    # Enumerates an iterator-based graph depth-first
+    def enum_dfs(enum_with = :each, *args, &iterator) 
+        enumerator = DFSEnumerator.new(self, enum_with, args) 
+        if iterator
+            enumerator.each(&iterator)
+        else
+            enumerator
+        end
+    end
+
+    # Enumerates an iterator-based graph breadth-first
+    def enum_bfs(enum_with = :each, *args, &iterator)
+        enumerator = BFSEnumerator.new(self, enum_with, args) 
+        if iterator
+            enumerator.each(&iterator)
+        else
+            enumerator
+        end
+    end
+
+    # :call-seq:
+    #	enum_leafs(enum_with = :each, *args) { |leaf| ... }	=> leaf set
+    #	enum_leafs(enum_with = :each, *args)			=> leaf set
+    #	
+    # The first form is equivalent to doing
+    #   enum_leafs(...).each { |leaf| ... }
+    #
+    # Enumerate all leafs of an iterator-based graph
+    def enum_leafs(enum_with = :each, *args, &iterator) # :yield: 
+	leafs	= Set.new
+	enum_bfs(enum_with, *args) do |child, parent|
+	    leafs << child unless child.enum_for(enum_with, *args).find { true }
+	end
+
+	if iterator
+	    leafs.each(&iterator)
+	else
+	    leafs
+	end
+    end
+end
+

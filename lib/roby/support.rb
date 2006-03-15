@@ -1,164 +1,10 @@
-require 'enumerator'
 require 'thread'
-require 'set'
-
 require 'genom/support'
 
-module EnumeratorOperations
-    def +(other_enumerator)
-	SequenceEnumerator.new << self << other_enumerator
-    end
-end
-
-class NullEnumerator
-    include EnumeratorOperations
-    def each; end
-end
-
-class SequenceEnumerator
-    extend Forwardable
-    def initialize; @sequence = Array.new end
-
-    def <<(object); @sequence << object; self end
-
-    def each(&iterator)
-	@sequence.each { |enum| enum.each(&iterator) }
-    end
-    include EnumeratorOperations
-    include Enumerable
-end
-
-class Enumerable::Enumerator
-    include EnumeratorOperations
-end
-
-class BFSEnumerator
-    include EnumeratorOperations
-    def initialize(root, enum_with, args)
-        @root = root
-        @enum_with = enum_with
-        @args = args
-    end
-
-    def each(&iterator)
-        queue = [@root]
-        seen  = Set.new
-        while !queue.empty?
-            current = queue.shift
-
-            seen << current
-            current.send(@enum_with, *@args) do |node|
-                next if seen.include?(node)
-                seen << node
-                yield(node, current)
-                queue << node
-            end
-        end
-    end
-
-    def topological
-        levels = Hash.new(-1)
-        levels[@root] = 0
-        max_level = 0
-
-        each do |child, parent|
-            parent_level, child_level = levels[parent], levels[child]
-            if child_level <= parent_level
-                child_level = parent_level + 1
-                levels[child] = child_level
-            end
-            max_level = child_level if max_level < child_level
-        end
-
-        sorting = Array.new(max_level + 1) { Array.new }
-        levels.each { |node, level| sorting[level] << node }
-
-        sorting
-    end
-
-    include Enumerable
-end
-
-class DFSEnumerator
-    include EnumeratorOperations
-    def initialize(root, enum_with, args)
-        @root = root
-        @enum_with = enum_with
-        @args = args
-        @seen = Set.new
-    end
-
-    def each(&iterator)
-        enumerate(@root, &iterator) 
-    end
-
-    def enumerate(object, &iterator)
-        object.send(@enum_with, *@args) do |node|
-            next if @seen.include?(node)
-            @seen << node
-            
-            enumerate(node, &iterator)
-            yield(node, object)
-        end
-    end
-
-    include Enumerable
-end
-
-class UniqEnumerator
-    include EnumeratorOperations
-    def initialize(root, enum_with, args, key = :object_id)
-	@root, @enum_with, @args = root, enum_with, args
-
-	@key = if key.respond_to?(:call)
-		   key
-	       elsif key
-		   lambda { |v| v.send(key) }
-	       else
-		   lambda { |v| v }
-	       end
-
-	@seen = Set.new
-    end
-
-    def each
-	@seen.clear
-	@root.send(@enum_with, *@args) do |v|
-	    k = @key[v]
-	    if !@seen.include?(k)
-		@seen << k
-		yield(v)
-	    end
-	end
-    end
-
-    include Enumerable
-end
+require 'roby/enumerate'
+require 'roby/graph'
 
 class Object
-    # Enumerates an iterator-based graph depth-first
-    def enum_dfs(enum_with = :each, *args, &iterator) 
-        enumerator = DFSEnumerator.new(self, enum_with, args) 
-        if iterator
-            enumerator.each(&iterator)
-        else
-            enumerator
-        end
-    end
-    # Enumerates an iterator-based graph breadth-first
-    def enum_bfs(enum_with = :each, *args, &iterator)
-        enumerator = BFSEnumerator.new(self, enum_with, args) 
-        if iterator
-            enumerator.each(&iterator)
-        else
-            enumerator
-        end
-    end
-    # Enumerate removing the duplicate entries
-    def enum_uniq(enum_with = :each, *args, &filter)
-	UniqEnumerator.new(self, enum_with, args, filter)
-    end
-
     def attribute(attr_def, &init)
         if Hash === attr_def
             name, defval = attr_def.to_a.flatten
@@ -292,12 +138,12 @@ class Class
 		if key
 		    if #{attribute_name}.has_key?(key)
 			iterator[#{attribute_name}[key]] 
-			return if uniq
+			return self if uniq
 		    end
 		elsif uniq
 		    enum_uniq(:each_#{name}, nil, false) { |k, v| k }.
 			each(&iterator)
-		    return
+		    return self
 		else
                     #{attribute_name}.#{options[:enum_with]}(&iterator)
 		end

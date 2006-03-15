@@ -84,10 +84,10 @@ class TC_Utils < Test::Unit::TestCase
         assert_equal([:in_b, :in_a], b.enum_for(:each_signature).to_a)
         assert_equal([10, 15].to_set, b.enum_for(:each_mapped, :a, false).to_set)
         assert_equal([15].to_set, b.enum_for(:each_mapped, :a, true).to_set)
-        assert_equal([10].to_set, a.enum_for(:each_mapped, :a).to_set)
+        assert_equal([10].to_set, a.enum_for(:each_mapped, :a, false).to_set)
         assert_equal([20].to_set, b.enum_for(:each_mapped, :b).to_set)
-        assert_equal([[:a, 15], [:b, 20], [:c, 25]].to_set, b.enum_for(:each_mapped, nil, true).to_set)
         assert_equal([[:a, 10], [:b, 20], [:a, 15], [:c, 25]].to_set, b.enum_for(:each_mapped, nil, false).to_set)
+        assert_equal([[:a, 15], [:b, 20], [:c, 25]].to_set, b.enum_for(:each_mapped, nil, true).to_set)
 
 	# Test for singleton class support
 	object = b.new
@@ -98,13 +98,29 @@ class TC_Utils < Test::Unit::TestCase
     end
 
     def test_enum_uniq
-	# Test the enum_uniq enumerator
-	assert_equal([:a, :b, :c], [:a, :b, :a, :c].enum_uniq.to_a)
+        # Test the enum_uniq enumerator
+        assert_equal([:a, :b, :c], [:a, :b, :a, :c].enum_uniq { |k| k }.to_a)
 
-	klass = Struct.new :a, :b
-	a, b, c, d = [[1, 2], [1, 3], [2, 3], [3, 4]].collect { |values| klass.new(*values) }
-	assert_equal([a, c, d], [a, b, c, d].enum_uniq { |v| v.a }.to_a)
-	assert_equal([a, b, d], [a, b, c, d].enum_uniq { |v| v.b }.to_a)
+        a, b, c, d = [1, 2], [1, 3], [2, 3], [3, 4]
+
+        test = [a, b, c, d]
+        assert_equal([a, c, d], test.enum_uniq { |x, y| x }.to_a)
+        assert_equal([a, b, d], test.enum_uniq { |x, y| y }.to_a)
+
+	klass = Class.new do
+	    def initialize(base); @base = base end
+	    def each(&iterator);  @base.each { |x, y| yield [x, y] } end
+	    include Enumerable
+	end
+	test = klass.new(test)
+        assert_equal([a, c, d], test.enum_uniq { |x, y| x }.to_a)
+        assert_equal([a, b, d], test.enum_uniq { |x, y| y }.to_a)
+
+        klass = Struct.new :x, :y
+	test = test.map { |x, y| klass.new(x, y) }
+        a, b, c, d = *test
+        assert_equal([a, c, d], [a, b, c, d].enum_uniq { |v| v.x }.to_a)
+        assert_equal([a, b, d], [a, b, c, d].enum_uniq { |v| v.y }.to_a)
     end
 
     def test_enum_sequence
@@ -131,16 +147,22 @@ class TC_Utils < Test::Unit::TestCase
 	root	= node.new(:root, [ left, right ])
 
 	as_array = []
-	root.enum_dfs(:each_child) { |*a| as_array << a }
+	root.enum_dfs(:each_child) { |a| as_array << a }
 	assert_equal(root.enum_dfs(:each_child).to_a, as_array)
 	assert_equal([[bottom, left], [left, root], [right, root]], root.enum_dfs(:each_child).to_a)
 
 	# topological is broken for now
 	#assert_equal([right, left, bottom], root.enum_bfs(:each_child).topological)
 	as_array = []
-	root.enum_bfs(:each_child) { |*a| as_array << a }
+	root.enum_bfs(:each_child) { |a| as_array << a }
 	assert_equal(root.enum_bfs(:each_child).to_a, as_array)
 	assert_equal([[left, root], [right, root], [bottom, left]], root.enum_bfs(:each_child).to_a)
+
+	test = [bottom, right]
+	class << test
+	    alias :each_child :each
+	end
+	assert_equal([bottom].to_set, test.enum_leafs(:each_child).to_set)
     end
 
     def test_object_stats
