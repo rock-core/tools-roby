@@ -108,8 +108,9 @@ class Object
     # Enumerate all leafs of an iterator-based graph
     def enum_leafs(enum_with = :each, *args, &iterator) # :yield: 
 	leafs	= Set.new
-	enum_bfs(enum_with, *args) do |child, parent|
-	    leafs << child unless child.enum_for(enum_with, *args).find { true }
+	enum_bfs(enum_with, *args).each_edge do |parent, child|
+	    leafs << child
+	    leafs.delete(parent)
 	end
 
 	if iterator
