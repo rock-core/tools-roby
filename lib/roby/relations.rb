@@ -171,7 +171,6 @@ module Roby
 			super
 		    end
 		end
-		STDERR.puts "adding #{name} to #{relation_space}"
 		relation_space.const_set(name, new_relation)
 	    end
 
