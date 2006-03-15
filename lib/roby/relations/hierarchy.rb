@@ -22,7 +22,7 @@ module Roby::TaskStructure
         # signalled by a child event
         def first_children
             alone = Hash.new
-            enum_bfs(:each_child) do |(child, info), _|
+            enum_bfs(:each_child) do |child, info|
                 alone[child] = true
                 child.each_event do |source|
                     source.each_causal { |caused|

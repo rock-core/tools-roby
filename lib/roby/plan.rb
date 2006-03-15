@@ -25,7 +25,7 @@ module Roby
 	    end
 
 	    while task = new_tasks.find { true }
-		task.enum_bfs(:each_related_object) do |t, _|
+		task.enum_bfs(:each_related_object) do |t|
 		    if t.kind_of?(Task) && !tasks.include?(t)
 			tasks << t
 			new_events.merge t.enum_for(:each_event).
@@ -34,9 +34,9 @@ module Roby
 		end
 
 		new_tasks.merge	new_events.enum_bfs(:each_related_object).
-		    each { |ev, _| events << ev }.
-		    find_all { |ev, _| ev.respond_to?(:task) && !tasks.include?(ev.task) }.
-		    map { |ev, _| ev.task }.
+		    find_all { |ev| !events.include?(ev) && ev.respond_to?(:task) }.
+		    each { |ev| events << ev }.
+		    map  { |ev| ev.task }.
 		    to_set
 
 		new_events.clear

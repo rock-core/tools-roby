@@ -21,7 +21,7 @@ module Roby
 	    enum_for(:apply_selection, type, relations, :each).
 		inject(NullEnumerator.new) { |enum, type| enum + type.enum_for(:each_child_object, self) }.
 		enum_uniq { |obj| obj }.
-		each { |child, _| yield(child) }
+		each { |child| yield(child) }
 	end
 	def each_related_object(type = nil, &iterator)
 	    (enum_for(:each_parent_object, type) + enum_for(:each_child_object, type)).
