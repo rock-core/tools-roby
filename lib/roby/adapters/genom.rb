@@ -146,6 +146,8 @@ module Roby::Genom
 		def initialize(*arguments)
 		    super(arguments, self.class.request_method)
 		end
+
+		executed_by roby_module.const_get(:Runner)
 	    end
 	end
     end

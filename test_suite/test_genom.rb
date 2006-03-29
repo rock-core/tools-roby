@@ -44,6 +44,8 @@ class TC_Genom < Test::Unit::TestCase
 
     def start_activity
         task = Genom::Mockup.start!
+	assert_equal(Genom::Mockup::Runner, task.class.execution_agent)
+	
         task.start!
         activity = task.activity
         
