@@ -6,9 +6,6 @@ module Roby::TaskStructure
 	relation_name :execution_agent
 
         def initialize
-            if self.class.execution_agent
-                executed_by self.class.execution_agent.new_task(self)
-            end
             super
         end
 
