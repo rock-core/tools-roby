@@ -26,10 +26,10 @@ module Roby::TaskStructure
         def executed_by(agent)
 	    if execution_agent
 		Roby.debug "an agent is already defined for this task"
+		remove_execution_agent(execution_agent)
 	    end
 
-	    add_relation(ExecutedBy, agent, nil)
-            realized_by agent, :fails_on => :stop
+	    add_execution_agent(agent)
         end
     end
 
