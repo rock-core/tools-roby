@@ -69,7 +69,7 @@ module Roby
                 else
                     cluster = self.graph
                     name    = EVENT_GENERATOR_NAMES[event.class] || event.class.name
-                    id      = "#{event.class.name.gsub(/::/, '_')}_#{event.object_id}"
+                    id      = "#{event.class.name.gsub(/::/, '_')}_#{event.object_id.abs.to_s(16)}"
                 end
 
                 node = cluster.add_node(id, "label" => name.to_str)
