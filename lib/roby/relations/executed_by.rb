@@ -1,4 +1,5 @@
 require 'roby/task'
+require 'roby/relations/hierarchy'
 
 module Roby::TaskStructure
     relation ExecutedBy do
@@ -31,6 +32,8 @@ module Roby::TaskStructure
             realized_by agent, :fails_on => :stop
         end
     end
+
+    Hierarchy.superset_of ExecutedBy
 end
 
 
