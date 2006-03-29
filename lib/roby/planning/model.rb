@@ -29,7 +29,22 @@ module Roby
             end
         end
 
-        # A plan model
+	# A planner searches a suitable development for a set of methods. 
+	# Methods are defined using Planner::method. You can then ask
+	# for a plan by sending your method name to the Planner object
+	#
+	# For instance
+	#   
+	#   class MyPlanner < Planner
+	#	method(:do_it) {  }
+	#	method(:do_sth_else) { ... }
+	#   end
+	#
+	#   planner = MyPlanner.new
+	#   planner.do_it		=> result of the do_it block
+	# 
+	# See Planner::method for more information on how methods are handled
+	#
         class Planner
 	    attr_reader :result
             def initialize(result = Plan.new)
@@ -153,7 +168,83 @@ module Roby
 		end
 	    end
 
-            def self.method(name, options = Hash.new, &body)
+	    # call-seq:
+	    #	method(name, option1 => value1, option2 => value2) { }	    => self
+	    #	method(name, option1 => value1, option2 => value2)
+	    #
+	    # In the first form, define a new method +name+. The given block
+	    # is used as method definition. It shall either return a Task
+	    # object or an object whose #each method yields task objects, or
+	    # raise a NotFound exception, or one of its subclasses.
+	    #
+	    # The second form defines a method model, which defines
+	    # constraints on the method defined with this name
+	    #
+	    # == Overloading: using the +id+ option
+	    # The +id+ option defines the method ID. The ID can be used 
+	    # to override a method definition in submodels. For instance, 
+	    # if you do
+	    # 
+	    #	class A < Planner
+	    #	    method(:do_it, :id => 'first') { ... }
+	    #	    method(:do_it, :id => 'second') { ... }
+	    #	end
+	    #	class B < A
+	    #	    method(:do_it, :id => 'first') { ... }
+	    #	end
+	    #
+	    # Then calling B.new.do_it will call the +first+ method defined
+	    # in B and the +second+ defined in A
+	    #
+	    # If no method ID is given, an unique number is allocated. Try not
+	    # using numbers as method IDs yourself, since you could overload
+	    # an automatic ID.
+	    #
+	    # == Constraining the return model
+	    # The +returns+ option can be used to constrain the kind of returned
+	    # task a given method can return. When a constraint is given, it is
+	    # defined for all task overloading the one defining constraints
+	    #
+	    # For instance, in
+	    # 
+       	    #	class A < Planner
+	    #	    method(:do_it, :id => 'first', :returns => MyTask) { ... }
+	    #	    method(:do_it, :id => 'second') { ... }
+	    #	end
+	    #	class B < A
+	    #	    method(:do_it, :id => 'first') { ... }
+	    #	end
+	    #
+	    # The +do_it+ method defined in B will have to return a MyTask-derived
+	    # Task object. Method models can be used to put a constraint on all
+	    # methods of a given name. For instance, in the following example, all
+	    # +do_it+ methods would have to return MyTask-based objects
+	    # 
+	    #	class A < Planner
+	    #	    method(:do_it, :returns => MyTask)
+	    #	    method(:do_it, :id => 'first') { ... }
+	    #	    method(:do_it, :id => 'second') { ... }
+	    #	end
+	    #
+	    # == Recursive call to methods
+	    # If the +recursive+ option is true, then the method can be called back even if it
+	    # currently being developed. The default is false
+	    #
+	    # For instance, the following example will raise a NoMethodError:
+	    #
+	    #	class A < Planner
+	    #	    method(:do_it) { do_it }
+	    #	end
+	    #	A.new.do_it
+	    #
+	    # while this one will behave properly
+	    #
+	    #	class A < Planner
+	    #	    method(:do_it) { do_it }
+	    #	    method(:do_it, :recursive => true) { ... }
+	    #	end
+	    #
+	    def self.method(name, options = Hash.new, &body)
                 name, options = validate_method_query(name, options)
 
 		# We are updating the method model
@@ -272,7 +363,7 @@ module Roby
             # Develops each method in turn, running the next one if 
             # the previous one was unsuccessful
             #
-            # It raises NotFound if no method was suitable
+            # It raises NotFound if no successful development has been found
             def plan_method(errors, method, *methods)
                 begin
                     @stack.push method.name
@@ -294,6 +385,30 @@ module Roby
             private :plan_method
         end
 
+	# A planning Library is only a way to gather a set of planning
+	# methods. It is created by
+	#   module MyLibrary
+	#      extend Roby::Planning::Library
+	#      method(:bla) do
+	#      end
+	#   end
+	# or 
+	#   my_library = Roby::Planning::Library.new do
+	#       method(:bla) do end
+	#   end
+	#
+	# It is then used by simply including the library in another library
+	# or in a Planner class (you don't have to use "extend Roby::Planning::Library"
+	# since you already include a library)
+	# 
+	#	module AnotherLibrary
+	#	    include MyLibrary
+	#	end
+	#
+	#	class MyPlanner < Planner
+	#	    include AnotherLibrary
+	#	end
+	#
 	module Library
 	    def planning_methods; @methods ||= Array.new end
 	    def method(name, options = Hash.new, &body)
@@ -303,10 +418,14 @@ module Roby
 	    def included(klass)
 		super
 		return unless klass < Planner
+
+		# Define all library methods, beggining with the first included module (last
+		# in the ancestors array)
 		ancestors.enum_for(:reverse_each).
 		    find_all { |mod| mod.respond_to?(:planning_methods) }.
 		    each { |mod| mod.planning_methods.each { |name, options, body| klass.method(name, options, &body) } }
 	    end
+
 	    def self.new(&block)
 		Module.new do
 		    extend Library
