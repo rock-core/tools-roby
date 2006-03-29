@@ -15,13 +15,13 @@ module Roby::TaskStructure
                 # Defines a model of execution agent
                 # model.new_task(task) shall return the task instance which
                 # will execute this task 
-                def executed_by(model)
+                def executed_by(agent)
                     @execution_agent = agent
                 end
             end
             super
         end
-        
+
 	def execution_agent; enum_for(:each_execution_agent).find { true } end
         def executed_by(agent)
             raise "an agent is already defined for this task" if execution_agent
