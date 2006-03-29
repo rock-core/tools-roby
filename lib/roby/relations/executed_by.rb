@@ -24,7 +24,10 @@ module Roby::TaskStructure
 
 	def execution_agent; enum_for(:each_execution_agent).find { true } end
         def executed_by(agent)
-            raise "an agent is already defined for this task" if execution_agent
+	    if execution_agent
+		Roby.debug "an agent is already defined for this task"
+	    end
+
 	    add_relation(ExecutedBy, agent, nil)
             realized_by agent, :fails_on => :stop
         end
