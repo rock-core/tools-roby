@@ -48,7 +48,7 @@ module Roby::Genom
     # Base class for the task models defined for Genom modules requests
     #
     # See Roby::Genom::GenomModule
-    class Request < Roby::Task
+    class RequestTask < Roby::Task
 	include RobyMapping
 
 	class << self
@@ -139,7 +139,7 @@ module Roby::Genom
 
 	Roby.debug { "Defining task model #{klassname} for request #{rq_name}" }
 	define_task(rb_mod, klassname) do
-	    Class.new(Request) do
+	    Class.new(RequestTask) do
 		@roby_module = rb_mod
 		class_attribute :request_method => gen_mod.method(method_name)
 
@@ -147,6 +147,95 @@ module Roby::Genom
 		    super(arguments, self.class.request_method)
 		end
 	    end
+	end
+    end
+
+    # Base functionalities for Runner tasks
+    #
+    # See Roby::Genom::GenomModule
+    class RunnerTask < Roby::Task
+	include RobyMapping
+
+	def initialize
+	    # Make sure there is a init() method defined in the Roby module if there is one in the
+	    # Genom module
+	    if !roby_module.respond_to?(:init) && genom_module.respond_to?(:init)
+		init_request = genom_module.request_info.find { |rq| rq.init? }.name
+
+		raise ArgumentError, "The Genom module '#{genom_module.name}' defines the init request #{init_request}. You must define a singleton 'init' method in '#{roby_module.name}' which initializes the module"
+	    end
+	    super
+	end
+
+	def start(context)
+	    mod = ::Genom::Runner.environment.start_modules(genom_module.name).first
+	    mod.wait_running
+
+	    init = if roby_module.respond_to?(:init)
+		       roby_module.init
+		   end
+
+	    if !init
+		emit :start
+	    elsif init.respond_to? :to_task
+		realized_by init
+		init.on(:stop) { emit(:start, context) }
+	    end
+
+	    if init
+		init.on { |context| emit(:start, context) }
+		init.add_causal_link self.event(:start)
+	    end 
+	end
+	event :start
+
+	def stop(context)
+	    ::Genom::Runner.environment.stop_modules genom_module.name
+	    emit :stop
+	end
+	event :stop
+    end
+
+    # Base functionalities for Genom modules. It extends
+    # the modules defined by GenomModule()
+    module ModuleBase
+	attr_reader :genom_module, :name
+	def new_task; Runner.new end
+
+	def config
+	    State.genom.send(genom_module.name)
+	end
+
+	def method_missing(name, *args, &block)
+	    # Do not forward requests for which there is a task
+	    if !respond_to?("#{name}!") && genom_module.respond_to?(name)
+		return genom_module.send(name, *args, &block)
+	    end
+	    super
+	end
+
+	# Builds a Task object based on a control task object, where
+	# * the start event starts the control task start event
+	# * the start event is emitted when the control task finishes successfully
+	# * the stop event has no effect whatsoever
+	def control_to_exec(name, *args)
+	    control = send(name, *args)
+	    klass = Class.new(Task) do
+		@name = "#{name.to_s.gsub('!', '')}Control"
+		def self.name; @name end
+		def start(context)
+		    control.event(:stop).
+			on { emit :start }.
+			add_causal_link event(:start)
+
+		    control.start!(context)
+		end
+		event :start
+
+		event :stop, :command => true
+	    end
+
+	    klass.new
 	end
     end
     
@@ -193,65 +282,13 @@ module Roby::Genom
 	rb_mod.class_eval do
 	    @genom_module = gen_mod
 	    @name = "Roby::Genom::#{modname}"
-	    class << self
-		attr_reader :genom_module, :name
-		def new_task; Runner.new end
-	    end
-
-	    def self.config
-		State.genom.send(genom_module.name)
-	    end
-
-	    def self.method_missing(name, *args, &block)
-		# Do not forward requests for which there is a task
-		if !respond_to?("#{name}!") && genom_module.respond_to?(name)
-		    return genom_module.send(name, *args, &block)
-		end
-		super
-	    end
-		
+	    extend ModuleBase
 	end
 
 	# Define the runner task
 	define_task(rb_mod, 'Runner') do
-	    Class.new(Roby::Task) do
-		include RobyMapping
+	    Class.new(RunnerTask) do
 		@roby_module = rb_mod
-
-		def initialize
-		    # Make sure there is a init() method defined in the Roby module if there is one in the
-		    # Genom module
-		    if !roby_module.respond_to?(:init) && genom_module.respond_to?(:init)
-			init_request = genom_module.request_info.find { |rq| rq.init? }.name
-			
-			raise ArgumentError, "The Genom module '#{genom_module.name}' defines the init request #{init_request}. You must define a singleton 'init' method in '#{roby_module.name}' which initializes the module"
-		    end
-		    super
-		end
-
-		def start(context)
-		    mod = ::Genom::Runner.environment.start_modules(genom_module.name).first
-		    mod.wait_running
-
-		    inited = if roby_module.respond_to?(:init)
-				 roby_module.init
-			     end
-
-		    if inited && Roby::Task === inited
-			inited = inited.event(:stop)
-		    elsif inited && inited.respond_to?(:on)
-			inited.on { |context| emit(:start, context) }
-		    else 
-			emit :start
-		    end
-		end
-		event :start
-
-		def stop(context)
-		    ::Genom::Runner.environment.stop_modules genom_module.name
-		    emit :stop
-		end
-		event :stop
 	    end
 	end
 
