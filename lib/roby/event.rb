@@ -80,16 +80,17 @@ module Roby
 
 	def new(context); Event.new(context) end
 
-        @@gather_emit = nil
+	def gathering?; Thread.current[:propagated_events] end
         def gather_emit
-            raise "nested calls to #gather_emit" if @@gather_emit
-            @@gather_emit = PropagationResult.new
+            raise "nested call to #gather_emit" if gathering?
+            Thread.current[:propagated_events] = PropagationResult.new
             yield
-            unless @@gather_emit.events.empty? && @@gather_emit.handlers.empty?
-                return @@gather_emit
+	    gathered = Thread.current[:propagated_events]
+            unless gathered.events.empty? && gathered.handlers.empty?
+                return gathered
             end
         ensure
-            @@gather_emit = nil
+            Thread.current[:propagated_events] = nil
         end
         
         def fire(event)
@@ -110,8 +111,8 @@ module Roby
         def emit(context)
             event   = new(context)
             result  = fire(event)
-            if @@gather_emit
-                @@gather_emit |= result
+            if Thread.current[:propagated_events]
+		Thread.current[:propagated_events] |= result
                 return
             end
 
