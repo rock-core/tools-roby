@@ -43,8 +43,10 @@ module Roby
 	    if controlable || control
 		control = lambda { |context| emit(context) } if !control
 		define_method(:call) do |context|
-		    calling(context)
-		    control[context]
+		    catch :filtered do 
+			calling(context)
+			control[context]
+		    end
 		end
 	    end
         end
