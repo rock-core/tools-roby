@@ -221,8 +221,7 @@ module Roby
             if base.happened?
                 EverGenerator.pending << self
             else
-                base.on { emit(nil) }
-                base.add_causal_link self
+		emit_on(base, nil)
             end
         end
     end

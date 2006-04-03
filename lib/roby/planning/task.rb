@@ -19,15 +19,16 @@ module Roby
             planner = planning_task
             realized_by planner, :fails_on => :failed
 
-            planner.
-                event(:start).ever.on { emit :start }.
-                on(:done) { |event| 
-                    emit :ready
+	    planner.event(:done).
+		add_causal_link planner.event(:ready).
+		on(:done) do |event| 
+		    emit :ready
 
-                    plan = event.context
-                    realized_by(plan)
-                    plan.start!
-                }
+		    plan = event.context
+		    realized_by(plan)
+		    plan.start!
+		end
+
             planner.start! unless planner.running?
         end
         event :start

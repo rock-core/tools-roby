@@ -181,13 +181,13 @@ module Roby::Genom
 		emit :start
 	    elsif init.respond_to? :to_task
 		realized_by init
-		init.on(:stop) { emit(:start, context) }
+		init = init.to_task.event(:stop)
+		event(:start).emit_on init.to_task.event(:stop)
 	    end
 
 	    if init
-		init.on { |context| emit(:start, context) }
-		init.add_causal_link self.event(:start)
-	    end 
+		event(:start).emit_on init
+	    end
 	end
 	event :start
 
