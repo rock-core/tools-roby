@@ -145,9 +145,9 @@ class TC_EventPropagation < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    p.on(:start) { mock.started }
 	    p.on(:stop)  { mock.stopped }
-	    mock.should_receive(:started)
-	    mock.should_receive(:stopped)
-	    p.event(:start).call
+	    mock.should_receive(:started).once.ordered(:start_stop)
+	    mock.should_receive(:stopped).once.ordered(:start_stop)
+	    p.start_event.call(nil)
 	end
 	assert(t1.finished? && t2.finished?)
 	assert(p.event(:stop).happened?)

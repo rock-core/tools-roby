@@ -31,7 +31,7 @@ module Roby::TaskAggregator
 
     class TaskAggregator
 	attr_reader :start_event, :stop_event
-	def forward(event, op = nil, *args)
+	def forward(event, op = nil, *args, &block)
 	    event = case event
 		    when :start;    start_event
 		    when :stop;	    stop_event
@@ -39,14 +39,14 @@ module Roby::TaskAggregator
 		    end
 
 	    if op
-		event.send(op, *args)
+		event.send(op, *args, &block)
 	    else
 		event
 	    end
 	end
 
 	def event(event); forward(event) end
-	def on(event, *args); forward(event, :on, *args) end
+	def on(event, *args, &block); forward(event, :on, *args, &block) end
 
 	attr_reader :tasks
 	def each_task(&iterator); tasks.each(&iterator) end
