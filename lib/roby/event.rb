@@ -141,6 +141,17 @@ module Roby
             end        
         end
 
+	# call-seq:
+	#   emit_on event, context  => self
+	#   emit_on event	    => self
+	#   
+	# Call #emit (bypassing any command) when +event+ is fired. If +context+
+	# is not given, it forwards the context of the fired +event+
+	#
+	# This method is equivalent to
+	#
+	#   event.on { |context| self.emit(context) }
+	#   event.add_causal_link self
 	def emit_on(event, *context_override)
 	    event.on do |context| 
 		context = *context_override unless context_override.empty?
