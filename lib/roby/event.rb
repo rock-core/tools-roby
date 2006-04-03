@@ -140,6 +140,14 @@ module Roby
             end        
         end
 
+	def emit_on(event, *context_override)
+	    event.on do |context| 
+		context = *context_override unless context_override.empty?
+		emit(context) 
+	    end
+	    event.add_causal_link self
+	end
+
         def controlable?; @controlable end
         def happened?;  !!@happened end
         def last;       @happened end
