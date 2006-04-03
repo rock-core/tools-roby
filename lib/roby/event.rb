@@ -179,9 +179,7 @@ module Roby
 	    @aliases = aliases.to_set
 
 	    super() do |context|
-		self.aliases.each do |ev|
-		    ev.call(context)
-		end
+		emit(context)
 	    end
 	end
 	def controlable?; aliases.all? { |ev| ev.controlable? } end
@@ -192,8 +190,8 @@ module Roby
 	
 	def <<(event)
 	    return if aliases.include?(event)
-	    on(event)
 	    aliases << event
+	    add_signal event
 
 	    if controlable? && !respond_to?(:call)
 		singleton_class.class_eval { public :call }
