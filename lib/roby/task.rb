@@ -67,14 +67,15 @@ module Roby
     class TaskEventGenerator < EventGenerator
         attr_reader :task, :model
         def initialize(task, model)
-            super()
-            @task, @model = task, model
+	    if model.respond_to?(:call)
+		super() do |context|
+		    model.call(self.task, context)
+		end
+	    else
+		super()
+	    end
 
-            if model.respond_to?(:call)
-                def self.call(context)
-                    model.call(task, context) 
-                end
-            end
+            @task, @model = task, model
         end
 
         def can_signal?(event); super || (event.respond_to?(:task) && task == event.task) end

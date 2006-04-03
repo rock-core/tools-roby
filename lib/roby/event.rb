@@ -40,12 +40,10 @@ module Roby
 
 	    @controlable = controlable
 	    if controlable || control
-		if control
-		    define_method(:call, &control)
-		else
-		    def self.call(context)
-			emit(context)
-		    end
+		control = lambda { |context| emit(context) } if !control
+		define_method(:call) do |context|
+		    calling(context)
+		    control[context]
 		end
 	    end
         end
@@ -167,18 +165,26 @@ module Roby
         def ever
             @ever ||= EverGenerator.new(self) 
         end
+
+	# Hook called when this event generator is called (i.e. the associated command
+	# is), before the command is actually called. Think of it as a pre-call hook.
+	def calling(context)
+	    super if defined? super
+	end
     end
 
     class ForwarderGenerator < EventGenerator
 	attr_reader :aliases
 	def initialize(*aliases)
 	    @aliases = aliases.to_set
-	end
 
-	def controlable?; aliases.all? { |ev| ev.controlable? } end
-	def call(context = nil)
-	    aliases.each { |ev| ev.call(context) }
+	    super() do |context|
+		self.aliases.each do |ev|
+		    ev.call(context)
+		end
+	    end
 	end
+	def controlable?; aliases.all? { |ev| ev.controlable? } end
 
 	def new(context)
 	    Event.new(context)
@@ -227,7 +233,7 @@ module Roby
 		super { base.call unless base.happened? }
                 self.add_causal_link base
 	    else
-		super
+		super(false)
             end
             
             if base.happened?
@@ -240,9 +246,10 @@ module Roby
 
     class AndGenerator < EventGenerator
         def initialize
-            super
             @events = Set.new
             @waiting  = Set.new
+            super()
+	    raise unless handlers
         end
 
         attr_accessor :permanent
@@ -279,7 +286,7 @@ module Roby
 
     class OrGenerator < EventGenerator
         def initialize
-            super
+            super()
             @done       = []
             @waiting    = Set.new
         end
