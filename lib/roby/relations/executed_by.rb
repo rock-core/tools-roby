@@ -22,10 +22,12 @@ module Roby::TaskStructure
         def executed_by(agent)
 	    if execution_agent
 		Roby.debug "an agent is already defined for this task"
-		remove_execution_agent(execution_agent)
+		remove_execution_agent execution_agent
+		event(:start).remove_ensured_event execution_agent.event(:start)
 	    end
 
 	    add_execution_agent(agent)
+	    event(:start).add_ensured_event(agent.event(:start))
         end
 
 	module EventModel
