@@ -31,6 +31,31 @@ module Roby::TaskStructure
 
 	    add_execution_agent(agent)
         end
+
+	module EventModel
+	    def calling(context)
+		super if defined? super
+		return unless respond_to?(:task)
+		return unless agent_model = task.class.execution_agent
+
+		if agent = (task.execution_agent || Roby::Task[agent_model].to_a.first)
+		    task.executed_by agent
+
+		    if agent.finished?
+			raise TaskModelViolation.new(task), "in #{self}: execution agent #{agent} is dead"
+		    elsif !agent.running?
+			callcc do |cont|
+			    agent.on(:start) { cont.call }
+			    agent.start!
+			    throw :filtered
+			end
+		    end
+		else
+		    raise Roby::TaskModelViolation.new(task), "the #{self} model defines an execution agent, but the task has none"
+		end
+	    end
+	end
+	Roby::EventGenerator.include EventModel
     end
 
     Hierarchy.superset_of ExecutedBy

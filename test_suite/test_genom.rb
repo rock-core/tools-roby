@@ -37,7 +37,12 @@ class TC_Genom < Test::Unit::TestCase
 
     def test_event_handling
         ::Genom.connect do
-            mod = Genom::GenomModule('mockup', :start => true)
+            Genom::GenomModule('mockup')
+
+            runner = Genom::Mockup.runner!
+	    runner.start!
+	    assert_event( runner.event(:start) )
+
             start_activity
         end
     end
