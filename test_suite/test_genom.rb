@@ -18,7 +18,7 @@ class TC_Genom < Test::Unit::TestCase
         model = Genom::GenomModule('mockup')
         assert_nothing_raised { Roby::Genom::Mockup }
         assert_nothing_raised { Roby::Genom::Mockup::Start }
-        assert_raises(NameError) { Roby::Genom::Mockup::SetIndex }
+        assert_nothing_raised { Roby::Genom::Mockup::SetIndex }
     end
 
     def test_runner_task
