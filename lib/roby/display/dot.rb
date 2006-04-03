@@ -46,6 +46,7 @@ module Roby
                 task_graph["label"] = task_label
                 task_graph["style"] = "filled"
                 task_graph["color"] = "lightgrey"
+		task_graph["rankdir"] = 'LTR'
                 task.each_event(false) { |ev| event(ev) }
 
                 return task_graph
@@ -55,8 +56,8 @@ module Roby
                 OrGenerator => '|', 
                 AndGenerator => '&',
                 EverGenerator => 'ever',
-		ForwarderGenerator => '->',
-		EventGenerator => '->'
+		ForwarderGenerator => '=>',
+		EventGenerator => '!'
             }
                 
             def event(event)
@@ -121,7 +122,7 @@ module Roby
 		    next if parent == root
                     next if relations[kind].include?  [parent, child]
                     relations[kind] << [parent, child]
-                    graph.add_edge( event(parent), event(child), style )
+                    graph.add_edge( event(parent), event(child), style.merge("constraint" => "false") )
                 end
             end
 
