@@ -296,22 +296,6 @@ module Roby
                 end
             end
 
-            if options[:command]
-                if command_handler
-                    check_arity(options[:command], 2)
-                    define_method("#{ev_s}!") { |*context| context = *context; command_handler.call(self, *context) }
-                else
-                    define_method("#{ev_s}!") { |*context| context = *context; emit(ev, context) }
-                end
-                event_method = instance_method("#{ev_s}!")
-                new_event.instance_eval do
-                    @event_method    = event_method
-                    def call(task, context)
-                        @event_method.bind(task).call(context)
-                    end
-                end
-            end
-
 	    if new_event.symbol != :stop && options[:terminal] && has_event?(:stop)
 		on(new_event) { |ev| ev.task.emit :stop }
 	    elsif new_event.symbol == :stop
@@ -325,6 +309,25 @@ module Roby
 		    define_method(:name) { "#{self.inspect}::#{ev_s.camelize}" }
 		end
 	    end
+
+            if options[:command]
+		# check that the supplied command handler can take two arguments
+		check_arity(command_handler, 2) if command_handler
+
+		# define #call on the event model
+                new_event.singleton_class.class_eval do
+		    if command_handler
+			define_method(:call, &command_handler)
+		    else
+			def call(task, context)
+			    task.emit symbol, context
+			end
+		    end
+                end
+
+		define_method("#{ev_s}!") { |*context| context = *context; event(ev).call(context) }
+            end
+
 		    
             new_event
         end
