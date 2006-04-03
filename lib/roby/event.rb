@@ -3,6 +3,7 @@ require 'roby/exceptions'
 require 'roby/event_loop'
 require 'roby/support'
 require 'roby/relations/causal'
+require 'roby/relations/ensure_on.rb'
 
 module Roby
     class Event

@@ -163,5 +163,34 @@ class TC_EventPropagation < Test::Unit::TestCase
         assert(s.event(:stop).happened?)
 	assert(s.finished?)
     end
+
+    def test_ensure
+	setup = lambda do |mock|
+	    t1, t2 = EmptyTask.new, EmptyTask.new
+	    t1.event(:start).ensure_on t2.event(:start)
+	    t1.event(:start).on { mock.started(t1) }
+	    t2.event(:start).on { mock.started(t2) }
+	    [t1, t2]
+	end
+	FlexMock.use do |mock|
+	    t1, t2 = setup[mock]
+	    mock.should_receive(:started).with(t1).once
+	    mock.should_receive(:started).with(t2).never
+	    t1.start!
+	end
+	FlexMock.use do |mock|
+	    t1, t2 = setup[mock]
+	    mock.should_receive(:started).with(t2).ordered(:t1_t2).once
+	    mock.should_receive(:started).with(t1).ordered(:t1_t2).once
+	    t2.start!
+	end
+	FlexMock.use do |mock|
+	    t1, t2 = setup[mock]
+	    mock.should_receive(:started).with(t1).ordered(:t1_t2).once
+	    mock.should_receive(:started).with(t2).ordered(:t1_t2).once
+	    t1.start!
+	    t2.start!
+	end
+    end
 end
 
