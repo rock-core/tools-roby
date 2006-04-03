@@ -104,6 +104,11 @@ module Roby
     end
 
     class Task
+	@@tasks = Hash.new { |h, k| h[k] = Array.new }
+	def self.[](model)
+	    @@tasks[model]
+	end
+	
         # Builds a task object using this task model
         # The task object can be configured by a given block. After the 
         # block is called, two things are checked:
@@ -125,6 +130,8 @@ module Roby
                 # Create the stop event for this task, if it is not defined
                 model.event(:stop)
             end
+
+	    @@tasks[self.class] << self
 
             super
         end
