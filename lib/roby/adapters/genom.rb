@@ -226,10 +226,7 @@ module Roby::Genom
 		@name = "#{name.to_s.gsub('!', '')}Control"
 		def self.name; @name end
 		def start(context)
-		    control.event(:stop).
-			on { emit :start }.
-			add_causal_link event(:start)
-
+		    event(:start).emit_on control.event(:stop)
 		    control.start!(context)
 		end
 		event :start
