@@ -5,10 +5,6 @@ module Roby::TaskStructure
     relation ExecutedBy do
 	relation_name :execution_agent
 
-        def initialize
-            super
-        end
-
         def self.included(klass)
             class << klass
                 attr_reader :execution_agent
