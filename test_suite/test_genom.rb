@@ -47,6 +47,15 @@ class TC_Genom < Test::Unit::TestCase
         end
     end
 
+    def test_control_to_exec
+	mod = Genom::GenomModule('mockup')
+
+	control_task = mod.set_index!(5)
+	exec_task    = mod.control_to_exec(:set_index!, 5)
+	assert_equal(Genom::Mockup::Runner, control_task.class.execution_agent)
+	assert_equal(Genom::Mockup::Runner, exec_task.class.execution_agent)
+    end
+
     def start_activity
         task = Genom::Mockup.start!
 	assert_equal(Genom::Mockup::Runner, task.class.execution_agent)

@@ -222,7 +222,7 @@ module Roby::Genom
 	# * the stop event has no effect whatsoever
 	def control_to_exec(name, *args)
 	    control = send(name, *args)
-	    klass = Class.new(Task) do
+	    klass = Class.new(Roby::Task) do
 		@name = "#{name.to_s.gsub('!', '')}Control"
 		def self.name; @name end
 		def start(context)
@@ -232,6 +232,8 @@ module Roby::Genom
 		event :start
 
 		event :stop, :command => true
+
+		executed_by control.class.execution_agent
 	    end
 
 	    klass.new
