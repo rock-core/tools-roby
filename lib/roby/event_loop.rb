@@ -27,21 +27,21 @@ module Roby
         cycle_end = Time.now
         cycle_duration = cycle_end - cycle_start
 
-        Roby.debug { 
-            "Object allocation profile:" <<
-            ObjectStats.profile { GC.start }.collect do |klass, count|
-                "  #{klass}: #{count}"
-            end.join("\n")
-        }
+        #Roby.debug { 
+        #    "Object allocation profile:" <<
+        #    ObjectStats.profile { GC.start }.collect do |klass, count|
+        #        "  #{klass}: #{count}"
+        #    end.join("\n")
+        #}
 
-        Roby.debug { 
-            [
-		"start: #{cycle_start}, end: #{cycle_end}",
-                cycle_server ? "  server events: #{cycle_handlers - cycle_server}" : nil,
-                "  event handlers: #{cycle_end - cycle_handlers}",
-		"Total: #{cycle_duration}s" 
-            ].compact.join("\n")
-        }
+        #Roby.debug { 
+        #    [
+	#	"start: #{cycle_start}, end: #{cycle_end}",
+        #        cycle_server ? "  server events: #{cycle_handlers - cycle_server}" : nil,
+        #        "  event handlers: #{cycle_end - cycle_handlers}",
+	#	"Total: #{cycle_duration}s" 
+        #    ].compact.join("\n")
+        #}
 
         cycle_duration
     end
