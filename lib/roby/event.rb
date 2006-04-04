@@ -95,8 +95,6 @@ module Roby
         end
         
         def fire(event)
-            @happened = event
-
             result = PropagationResult.new
             result.events   |= enum_for(:each_signal).to_a
             result.handlers << [ event, handlers ]
@@ -104,6 +102,9 @@ module Roby
             if bad_event = result.events.find { |ev| !can_signal?(ev) }
                 raise ModelViolation, "trying to signal #{bad_event} from #{self}"
             end
+
+	    history << [Time.now, event]
+	    fired(event)
 
             return result
         end
@@ -162,8 +163,9 @@ module Roby
 	end
 
         def controlable?; @controlable end
-        def happened?;  !!@happened end
-        def last;       @happened end
+	attribute(:history) { Array.new }
+        def happened?;  !history.empty? end
+        def last;       history.last end
 
         def ever
             @ever ||= EverGenerator.new(self) 
@@ -172,6 +174,11 @@ module Roby
 	# Hook called when this event generator is called (i.e. the associated command
 	# is), before the command is actually called. Think of it as a pre-call hook.
 	def calling(context)
+	    super if defined? super
+	end
+
+	# Hook called when an event has been fired
+	def fired(event)
 	    super if defined? super
 	end
     end

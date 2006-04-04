@@ -97,9 +97,6 @@ module Roby
         def symbol;       model.symbol end
         def new(context); model.new(task, context) end
 
-        # If this event already happened
-        def happened?; task.history.find { |_, ev| ev.class == model } end
-
         def to_s; "#<Roby::TaskEventGenerator:#{object_id} task=#{task}, model=#{model}>" end
     end
 
@@ -151,9 +148,9 @@ module Roby
         attr_reader :history
 
         # If this task is currently running
-        def running?;   !history.empty? && history.last[1].symbol != :stop end
+        def running?; event(:start).happened? && !(event(:stop).happened?) end
         # If this task ran and is finished
-        def finished?;  !history.empty? && history.last[1].symbol == :stop end
+        def finished?; event(:stop).happened? end
             
         # This method is called by TaskEventGenerator#fire just before the event handlers
         # and commands are called
@@ -167,9 +164,6 @@ module Roby
             elsif running? && event.symbol == :start
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task is already running"
             end
-
-            # Add it to our history
-            history << [Time.now, event]
 
             result = nil
             result |= super if defined? super
