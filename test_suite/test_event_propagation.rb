@@ -158,7 +158,7 @@ class TC_EventPropagation < Test::Unit::TestCase
 	s.unshift t1
 
 	assert(s.start_event.controlable?)
-        s.event(:start).call
+        s.event(:start).call(nil)
         assert(t1.finished? && t2.finished? && t3.finished?)
         assert(s.event(:stop).happened?)
 	assert(s.finished?)
