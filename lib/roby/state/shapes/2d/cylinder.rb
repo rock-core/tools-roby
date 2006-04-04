@@ -1,10 +1,15 @@
 class Cylinder
-    attr_accessor :radius
-    attr_accessor :height
-    def initialize(radius, height = nil)
-        @radius, @height = radius, height
+    attr_accessor :radius, :height, :axis
+    def initialize(radius, height, axis)
+        @radius, @height, @axis = radius, height, axis
     end
-    def diameter;   radius * 2 end
+    def diameter(axis)
+	if axis == self.axis
+	    radius * 2
+	else
+	    raise NotImplementedError
+	end
+    end
     alias :max_length :diameter 
 end
 
