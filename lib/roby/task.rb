@@ -158,7 +158,7 @@ module Roby
         # additional handlers & commands to call
         def fire_event(event)
             if finished? && event.symbol != :stop
-                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task has finished (history.map"
+                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task has finished"
             elsif !running? && !finished? && event.symbol != :start
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task is not running"
             elsif running? && event.symbol == :start
