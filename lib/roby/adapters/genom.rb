@@ -180,9 +180,9 @@ module Roby::Genom
 	    if !init
 		emit :start
 	    elsif init.respond_to? :to_task
+		init = init.to_task
 		realized_by init
-		init = init.to_task.event(:stop)
-		event(:start).emit_on init.to_task.event(:stop)
+		init = init.event(:stop)
 	    end
 
 	    if init
