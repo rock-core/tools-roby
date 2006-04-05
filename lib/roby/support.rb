@@ -4,6 +4,45 @@ require 'genom/support'
 require 'roby/enumerate'
 require 'roby/graph'
 
+# Create a new thread and forward all messages
+# to the +forward_to+ object given at initialization.
+# The messages are sent in the new thread.
+class ThreadServer
+    class Quit < RuntimeError; end
+    attr_reader :thread
+
+    def initialize(forward_to)
+	@forwarded = forward_to
+	@queue = Queue.new
+	@thread = Thread.new do
+	    begin
+		loop do
+		    message = @queue.pop
+		    block = message.pop
+		    puts "#{message.map { |a| a.address.to_s(16) }.join(", ")}"
+		    GC.start
+		    forward_to.send(*message, &block)
+		end
+	    rescue Exception => e
+		puts "#{e.message}(#{e.class.name}):in #{e.backtrace.join("\n  ")}"
+	    rescue Quit
+	    end
+	end
+    end
+    def method_missing(*args, &block)
+	if Thread.current == @thread
+	    super
+	else
+	    args << block
+	    @queue.push args
+	end
+    end
+    def quit!
+	@thread.raise Quit
+	@thread.join
+    end
+end
+
 class Object
     def attribute(attr_def, &init)
         if Hash === attr_def
