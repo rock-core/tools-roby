@@ -10,7 +10,7 @@ module Roby
 	    read, write = IO.pipe
 	    fork do
 		begin
-		    require 'roby/display/status-qt'
+		    require 'roby/display/execution-state-server'
 		    GC.disable
 		    a = Qt::Application.new( ARGV )
 
@@ -48,12 +48,20 @@ module Roby
     module EventHooks
 	def calling(context)
 	    super if defined? super
-	    PlanDisplay.service.pending_event self
+	    puts "calling #{self}"
+	    ExecutionStateDisplay.service.pending_event Time.now, self
 	end
 
 	def fired(event)
 	    super if defined? super
-	    PlanDisplay.service.fired_event self, event
+	    puts "fired #{event}"
+	    ExecutionStateDisplay.service.fired_event Time.now, self, event
+	end
+
+	def signalling(event, to)
+	    super if defined? super
+	    puts "signalling #{event} -> #{to}"
+	    ExecutionStateDisplay.service.signalling Time.now, event, to
 	end
     end
 
@@ -64,78 +72,50 @@ end
 
 if $0 == __FILE__
     STDOUT.sync = true
-    class EventMockup
-	include DRbUndumped 
 
-        attr_reader :name
-        Model = Struct.new :symbol
-        def initialize(name, terminal = false, task = nil)
-	    @name, @terminal, @task = name, terminal, task
-	    singleton_class.class_eval { private :task } unless task
-	end
-	def task
-	    puts @task.inspect
-	    @task
-	end
-        def terminal?; @terminal end
-        def model; Model.new name.to_sym end
-    end
-    class TaskMockup
-	include DRbUndumped 
-
-        attr_reader :name, :children
-        attr_accessor :display_group
-        def initialize(name)
-            @name = name 
-            @children = []
-        end
-        def bound_events 
-            @bound_events ||= [ EventMockup.new(:start, false, self), EventMockup.new(:stop, true, self) ]
-        end
-	def start_event; bound_events.first end
-	def stop_event; bound_events.last end
-
-        Model = Struct.new(:name)
-        def model
-            m = Model.new
-            m.name = name
-            m
-        end
-
-        def each_child(&iterator); @children.each(&iterator) end
-        def each_event(only_bounded, &iterator); bound_events.each(&iterator) end
-
-        def display(view)
-            group = Graph.hierarchy(view.canvas, self)
-            group.
-                translate( group.width / 2, 16 ).
-                visible = true
-        end
+    TaskMockup = Class.new(Roby::Task) do
+	event :start, :command => true
+	event :stop
+	on :start => :stop
     end
 
     def fill(state_display)
-	forwarder = EventMockup.new("=>")
-	task1 = TaskMockup.new('t1')
-	task2 = TaskMockup.new('t2')
+	t1 = TaskMockup.new
+	t1.singleton_class.class_eval do
+	    def name; "t1" end
+	end
 
-	actions = [
-	    [ :pending_event, forwarder ],
-	    [ :fired_event, forwarder, forwarder ],
-	    [ :pending_event, task1.start_event ],
-	    [ :pending_event, task2.start_event ],
-	    [ :fired_event, task2.start_event, task2.start_event ],
-	    [ :pending_event, task2.stop_event ],
-	    [ :fired_event, task1.start_event, task1.start_event ],
-	    [ :fired_event, task2.stop_event, task2.stop_event ]
-	]
-	puts "#{task1.address.to_s(16)} #{task2.address.to_s(16)}"
-	actions.each do |msg, *args|
-	    state_display.send(msg, Time.now, *args)
+	t2 = TaskMockup.new
+	t2.singleton_class.class_eval do
+	    def name; "t2" end
+	end
+		
+	f = Roby::ForwarderGenerator.new(t1.event(:start), t2.event(:start))
+
+	f.call(nil)
+	puts "End"
+	sleep(10)
+    end
+
+    module SlowEventPropagation
+	def calling(context)
+	    super if defined? super
 	    sleep(0.1)
 	end
 
-	#state_display.thread.join
+	def fired(event)
+	    super if defined? super
+	    sleep(0.1)
+	end
+
+	def signalling(event, to)
+	    super if defined? super
+	    sleep(0.1)
+	end
     end
+    Roby::EventGenerator.include SlowEventPropagation
+
+	
 
     begin
 	Thread.abort_on_exception = true
