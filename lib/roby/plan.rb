@@ -57,6 +57,11 @@ module Roby
 
         def insert(task)
 	    @tasks << task
+	    @first_task = task
+	end
+	attr_reader :first_task
+	def start!(context)
+	    first_task.start!(context)
 	end
 	alias :<< :insert
     end
