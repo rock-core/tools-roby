@@ -84,9 +84,9 @@ module Roby
             result = task.fire_event(event) || PropagationResult.new
             
             # Get model signals and handlers
-            result.events |= model.enum_for(:each_signal).collect do |signalled|
-                task.event(signalled)
-            end
+	    
+	    signalled = model.enum_for(:each_signal).map { |ev| task.event(ev) }
+            result.events << [ event, signalled ]
             result.handlers << [ event, model.enum_for(:each_handler).to_a ]
 
             result | super
