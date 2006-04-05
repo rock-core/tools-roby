@@ -362,7 +362,6 @@ module Roby
                 bound_events.each_value(&iterator)
             else
                 model.each_event { |symbol, model| 
-		    $stderr.puts "#{symbol}: #{model.name}"
 		    yield event(model) 
 		}
             end
