@@ -14,6 +14,7 @@ module Roby
 
         def model; self.class end
 
+	def to_s; "#<Event:0x#{address.to_s(16)} generator=#{generator} model=#{model}" end
     end
 
     class EventGenerator
