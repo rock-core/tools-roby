@@ -74,8 +74,16 @@ class Object
 	    attribute(attr_def, &init)
 	end
     end
-end
 
+    def address
+	id = object_id
+	if id < 0
+	    0xFFFFFFFF + id
+	else
+	    id
+	end
+    end
+end
 
 class Module
     # Check if +klass+ is an ancestor of this class/module
