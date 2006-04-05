@@ -209,10 +209,6 @@ module Roby
 	end
 	def controlable?; aliases.all? { |ev| ev.controlable? } end
 
-	def new(context)
-	    Event.new(context)
-	end
-	
 	def <<(event)
 	    return if aliases.include?(event)
 	    aliases << event
@@ -299,8 +295,6 @@ module Roby
         
         def to_and; self end
         def &(event_model); self << event_model end
-
-        def new(context); Event.new(context) end
 
     protected
         attr_reader :waiting
