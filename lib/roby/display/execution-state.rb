@@ -2,17 +2,6 @@ require 'roby/support'
 require 'drb'
 require 'enumerator'
 
-class Object
-    def address
-	id = object_id
-	if id < 0
-	    0xFFFFFFFF + id
-	else
-	    id
-	end
-    end
-end
-
 module Roby
     class ExecutionStateDisplay
 	@@service = nil
