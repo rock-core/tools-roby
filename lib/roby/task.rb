@@ -113,7 +113,6 @@ module Roby
         # * the task shall have at least one terminal event. If no +stop+ event
         #   is defined, then all terminal events are aliased to +stop+
         def initialize #:yields: task_object
-            @history = Array.new
             @bound_events = Hash.new
 
             yield self if block_given?
@@ -138,19 +137,19 @@ module Roby
         # If a model of +event+ is defined in the task model
         def has_event?(event); model.has_event?(event) end
         
-        # The event history. The first event should always be +start+, the last
-        # always +end+. It is an array of [ date, event object ] pairs
-        #   [
-        #       [ begin_date, begin_event ],
-        #       [ ..  ]
-        #       [ end_date, end_event ]
-        #   ]
-        attr_reader :history
-
         # If this task is currently running
         def running?; event(:start).happened? && !(event(:stop).happened?) end
         # If this task ran and is finished
         def finished?; event(:stop).happened? end
+
+	def history
+	    history = []
+	    each_event do |event|
+		history += event.history
+	    end
+
+	    history.sort_by { |time, _| time }
+	end
             
         # This method is called by TaskEventGenerator#fire just before the event handlers
         # and commands are called

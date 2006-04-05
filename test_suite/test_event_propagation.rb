@@ -18,10 +18,8 @@ class TC_EventPropagation < Test::Unit::TestCase
         
         start_node.start!
         assert(start_node.finished?)
-
-        start_node = EmptyTask.new
-        start_node.start!
-        assert(start_node.finished?)
+	event_history = start_node.history.map { |_, ev| ev.generator }
+	assert_equal([start_node.event(:start), start_node.event(:stop)], event_history)
 
         start_node = EmptyTask.new
         if_node = ChoiceTask.new
@@ -29,9 +27,19 @@ class TC_EventPropagation < Test::Unit::TestCase
         start_node.start!
         assert(start_node.finished? && if_node.finished?)
 
+	# Check history
+	event_history = if_node.history.map { |_, ev| ev.generator }
+	assert_equal(3, event_history.size, "  " + event_history.join("\n"))
+	assert_equal(if_node.event(:start), event_history.first)
+	assert( if_node.event(:a) == event_history[1] || if_node.event(:b) == event_history[1] )
+	assert_equal(if_node.event(:stop), event_history.last)
+
         multi_hop = MultiEventTask.new
         multi_hop.start!
         assert(multi_hop.finished?)
+	event_history = multi_hop.history.map { |_, ev| ev.generator }
+	expected_history = [:start, :inter, :stop].map { |name| multi_hop.event(name) }
+	assert_equal(expected_history, event_history)
     end
 
     def test_event_loop
