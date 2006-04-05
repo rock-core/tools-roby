@@ -22,9 +22,9 @@ module Roby
         # The task which fired this event
         attr_reader :task
         
-        def initialize(task, context = nil)
+        def initialize(task, generator, context = nil)
             @task = task
-            super(context)
+            super(generator, context)
         end
 
         # If the event model defines a controlable event
@@ -95,7 +95,7 @@ module Roby
         def controlable?; model.controlable? end
         def terminal?;    model.terminal? end
         def symbol;       model.symbol end
-        def new(context); model.new(task, context) end
+        def new(context); model.new(task, self, context) end
 
         def to_s; "#<Roby::TaskEventGenerator:0x#{address.to_s(16)} task=#{task} model=#{model}>" end
     end

@@ -7,9 +7,9 @@ require 'roby/relations/ensured.rb'
 
 module Roby
     class Event
-        attr_reader :context
-        def initialize(context)
-            @context = context
+        attr_reader :generator, :context
+        def initialize(generator, context)
+            @generator, @context = generator, context
         end
 
         def model; self.class end
@@ -80,7 +80,7 @@ module Roby
         # If this event can signal +event+
         def can_signal?(event); event.controlable?  end
 
-	def new(context); Event.new(context) end
+	def new(context); Event.new(self, context) end
 
 	def gathering?; Thread.current[:propagated_events] end
         def gather_emit
