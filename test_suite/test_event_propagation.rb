@@ -7,20 +7,22 @@ class TC_EventPropagation < Test::Unit::TestCase
     def test_propagation
         start_node = EmptyTask.new
 
+	# Check properties on the task and its model
         start_event = start_node.event(:start)
         assert_equal(start_event, start_node.event(:start))
         assert_equal([], start_event.handlers)
         assert_equal([], start_event.enum_for(:each_signal).to_a)
         start_model = start_node.event_model(:start)
         assert_equal(start_model, start_event.model)
-
         assert_equal([start_node.event_model(:stop)], start_model.enum_for(:each_signal).to_a)
         
+	# Check that propagation is done properly in this simple task
         start_node.start!
         assert(start_node.finished?)
 	event_history = start_node.history.map { |_, ev| ev.generator }
 	assert_equal([start_node.event(:start), start_node.event(:stop)], event_history)
 
+	# Check a more complex setup
         start_node = EmptyTask.new
         if_node = ChoiceTask.new
         start_node.on(:stop, if_node, :start)
@@ -208,5 +210,6 @@ class TC_EventPropagation < Test::Unit::TestCase
 	    t2.start!
 	end
     end
+
 end
 
