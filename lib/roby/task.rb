@@ -97,7 +97,7 @@ module Roby
         def symbol;       model.symbol end
         def new(context); model.new(task, context) end
 
-        def to_s; "#<Roby::TaskEventGenerator:#{object_id} task=#{task}, model=#{model}>" end
+        def to_s; "#<Roby::TaskEventGenerator:0x#{address.to_s(16)} task=#{task} model=#{model}>" end
     end
 
     class Task
