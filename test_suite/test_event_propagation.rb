@@ -88,6 +88,14 @@ class TC_EventPropagation < Test::Unit::TestCase
         [empty, multi]
     end
 
+    def test_forwarder
+	destinations = 5.enum_for(:times).map { Roby::EventGenerator.new(true) }
+	source = Roby::ForwarderGenerator.new(*destinations)
+
+	source.call(nil)
+	assert(destinations.all? { |ev| ev.happened? })
+    end
+
     def test_aggregator
         FlexMock.use do |mock|
             empty, multi = setup_aggregation(mock)

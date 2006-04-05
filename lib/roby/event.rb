@@ -201,11 +201,10 @@ module Roby
     class ForwarderGenerator < EventGenerator
 	attr_reader :aliases
 	def initialize(*aliases)
-	    @aliases = aliases.to_set
+	    super(true)
 
-	    super() do |context|
-		emit(context)
-	    end
+	    @aliases = Set.new
+	    aliases.each { |ev| self << ev }
 	end
 	def controlable?; aliases.all? { |ev| ev.controlable? } end
 
