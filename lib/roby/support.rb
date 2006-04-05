@@ -19,7 +19,6 @@ class ThreadServer
 		loop do
 		    message = @queue.pop
 		    block = message.pop
-		    puts "#{message.map { |a| a.address.to_s(16) }.join(", ")}"
 		    GC.start
 		    forward_to.send(*message, &block)
 		end
