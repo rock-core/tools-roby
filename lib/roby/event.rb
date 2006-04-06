@@ -201,6 +201,22 @@ module Roby
 	end
     end
 
+    module EventDisplayHooks
+	def calling(context)
+	    puts "#{self} called with context #{context}"
+	    super if defined? super
+	end
+	def fired(event)
+	    raise unless event
+	    puts "#{self}: fired #{event}"
+	    super if defined? super
+	end
+	def signalling(event, to)
+	    puts "#{self}: #{event} is signalling #{to}"
+	    super if defined? super
+	end
+    end
+
     class ForwarderGenerator < EventGenerator
 	attr_reader :aliases
 	def initialize(*aliases)
