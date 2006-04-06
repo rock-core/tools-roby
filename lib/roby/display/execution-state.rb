@@ -48,19 +48,16 @@ module Roby
     module EventHooks
 	def calling(context)
 	    super if defined? super
-	    puts "calling #{self}"
 	    ExecutionStateDisplay.service.pending_event Time.now, self
 	end
 
 	def fired(event)
 	    super if defined? super
-	    puts "fired #{event}"
 	    ExecutionStateDisplay.service.fired_event Time.now, self, event
 	end
 
 	def signalling(event, to)
 	    super if defined? super
-	    puts "signalling #{event} -> #{to}"
 	    ExecutionStateDisplay.service.signalling Time.now, event, to
 	end
     end

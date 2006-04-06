@@ -112,8 +112,6 @@ module Roby
 	def line_of(event)
 	    if event.respond_to?(:task)
 		task = event.task
-		puts event.inspect
-		puts task.inspect
 
 		# Get the line index for the task
 		idx = @lines.enum_for(:each_with_index).find { |r, idx| r.task == task if r.respond_to?(:task) } ||
