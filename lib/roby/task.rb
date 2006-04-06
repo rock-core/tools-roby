@@ -8,7 +8,7 @@ module Roby
         def to_s
 	    if task
 		history = task.history.map { |time, event| [time, event.model.name] }.join("\n  ")
-		super + "\n#{task.model.name} (#{task.object_id})\n  #{history.inspect}"
+		super + "\n#{task.model.name} (0x#{task.address})\n  #{history.inspect}"
 	    else
 		super
 	    end
