@@ -14,7 +14,7 @@ class TC_EventPropagation < Test::Unit::TestCase
         assert_equal([], start_event.enum_for(:each_signal).to_a)
         start_model = start_node.event_model(:start)
         assert_equal(start_model, start_event.model)
-        assert_equal([start_node.event_model(:stop)], start_model.enum_for(:each_signal).to_a)
+        assert_equal([start_node.event_model(:stop)], start_node.enum_for(:each_signal, start_model).to_a)
         
 	# Check that propagation is done properly in this simple task
         start_node.start!

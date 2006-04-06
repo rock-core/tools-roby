@@ -84,10 +84,9 @@ module Roby
             result = task.fire_event(event) || PropagationResult.new
             
             # Get model signals and handlers
-	    
-	    signalled = model.enum_for(:each_signal).map { |ev| task.event(ev) }
+	    signalled = task.enum_for(:each_signal, model).map { |ev| task.event(ev) }
             result.events << [ event, signalled ]
-            result.handlers << [ event, model.enum_for(:each_handler).to_a ]
+            result.handlers << [ event, task.enum_for(:each_handler, model).to_a ]
 
             result | super
         end
@@ -105,6 +104,26 @@ module Roby
 	def self.[](model)
 	    @@tasks[model]
 	end
+
+	# Map which gives the model-level signals that come from a given
+	# event model
+	class_inherited_enumerable(:signal_set, :signal_sets, :map => true) { Hash.new { |h, k| h[k] = Set.new } }
+	def self.each_signal(model, &iterator)
+	    enum_for(:each_signal_set, model, false).
+		inject(NullEnumerator.new) { |a, b| a + b }.
+		enum_uniq.each(&iterator)
+	end
+	def each_signal(model, &iterator); singleton_class.each_signal(model, &iterator) end
+
+	# Map which gives the model-level event handlers attached to a
+	# given event model
+	class_inherited_enumerable(:handler_set, :handler_sets, :map => true) { Hash.new { |h, k| h[k] = Set.new } }
+	def self.each_handler(model, &iterator)
+	    enum_for(:each_handler_set, model, false).
+		inject(NullEnumerator.new) { |a, b| a + b }.
+		enum_uniq.each(&iterator)
+	end
+	def each_handler(model, &iterator); singleton_class.each_handler(model, &iterator) end
 	
         # Builds a task object using this task model
         # The task object can be configured by a given block. After the 
@@ -156,7 +175,7 @@ module Roby
         # It can return a TaskEventGenerator::PropagationResult instance to give
         # additional handlers & commands to call
         def fire_event(event)
-            if finished? && event.symbol != :stop
+            if finished?
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task has finished"
             elsif !running? && !finished? && event.symbol != :start
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task is not running"
@@ -289,10 +308,10 @@ module Roby
                 end
             end
 
-	    if new_event.symbol != :stop && options[:terminal] && has_event?(:stop)
-		on(new_event) { |ev| ev.task.emit :stop }
-	    elsif new_event.symbol == :stop
+	    if new_event.symbol == :stop
 		terminal_events.each { |terminal| on(terminal) { |ev| ev.task.emit :stop } }
+	    elsif options[:terminal] && has_event?(:stop)
+		on(new_event) { |ev| ev.task.emit :stop }
 	    end
 
             events[new_event.symbol] = new_event
@@ -451,7 +470,8 @@ module Roby
                      else;  []
                      end
 
-                from.on(*to, &user_handler)
+		signal_sets[from] |= to.to_set
+		handler_sets[from] << user_handler if user_handler
             end
         end
 
