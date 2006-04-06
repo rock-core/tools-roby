@@ -39,9 +39,9 @@ module Roby
 
 	    # Get the remote object
 	    server = DRbObject.new(nil, uri)
-	    @@service = server
-	    #@@service = ThreadServer.new(server)
-	    #@@service.thread.priority = -1
+	    #@@service = server
+	    @@service = ThreadServer.new(server)
+	    @@service.thread.priority = -1
 	    @@service
 	end
     end
