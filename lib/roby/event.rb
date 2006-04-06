@@ -207,7 +207,6 @@ module Roby
 	    super if defined? super
 	end
 	def fired(event)
-	    raise unless event
 	    puts "#{self}: fired #{event}"
 	    super if defined? super
 	end
@@ -286,7 +285,6 @@ module Roby
             @events = Set.new
             @waiting  = Set.new
             super()
-	    raise unless handlers
         end
 
         attr_accessor :permanent
