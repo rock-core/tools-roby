@@ -1,6 +1,7 @@
 require 'roby/support'
 require 'drb'
 require 'enumerator'
+require 'roby/task'
 
 module Roby
     class ExecutionStateDisplay
