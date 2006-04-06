@@ -332,8 +332,8 @@ module Roby
         def << (event)
             @waiting << event
             event.on do |event_model| 
-                emit(nil) if !done? || permanent
                 @done << event
+                emit(nil) if @done.size == 1 || permanent
             end
 
             event.add_causal_link self
