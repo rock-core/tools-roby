@@ -112,12 +112,14 @@ module Roby
         end
         private :fire
 
+	# Emit the event with +context+ as the new event context
+	# Returns the new event object
         def emit(context)
             event   = new(context)
             result  = fire(event)
             if Thread.current[:propagated_events]
 		Thread.current[:propagated_events] |= result
-                return
+                return event
             end
 
 	    already_seen = Set.new
@@ -150,6 +152,7 @@ module Roby
                 end
                 result = new_result
             end        
+	    return event
         end
 
 	# call-seq:
