@@ -37,6 +37,10 @@ module Roby
 
         attr_enumerable(:handler, :handlers) { Array.new }
 
+	def model
+	    self.class
+	end
+
         def initialize(controlable = nil, &control)
             @handlers = []
 
