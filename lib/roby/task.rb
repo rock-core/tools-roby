@@ -41,18 +41,6 @@ module Roby
         def self.symbol; @symbol end
         # The event symbol
         def symbol; self.class.symbol end
-
-        # A list of event handlers attached to this model
-        class_inherited_enumerable(:handler, :handlers) { Array.new }
-        # A list of event signals attached to this model
-        class_inherited_enumerable(:signal, :signals)   { Array.new }
-
-        class << self
-            def on(*signals, &handler)
-                self.signals  += signals
-                self.handlers << handler if handler
-            end
-        end
     end
 
     # A task event model bound to a particular task instance
