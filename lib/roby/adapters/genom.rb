@@ -171,7 +171,7 @@ module Roby::Genom
 	    # Make sure there is a init() method defined in the Roby module if there is one in the
 	    # Genom module
 	    if !roby_module.respond_to?(:init) && genom_module.respond_to?(:init)
-		init_request = genom_module.request_info.find { |rq| rq.init? }.name
+		init_request = genom_module.request_info.find { |_, rq| rq.init? }.last.name
 
 		raise ArgumentError, "The Genom module '#{genom_module.name}' defines the init request #{init_request}. You must define a singleton 'init' method in '#{roby_module.name}' which initializes the module"
 	    end
