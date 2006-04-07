@@ -196,6 +196,7 @@ module Roby::Genom
 
 	    if init
 		event(:start).emit_on init
+		init.call(nil)
 	    end
 	end
 	event :start
