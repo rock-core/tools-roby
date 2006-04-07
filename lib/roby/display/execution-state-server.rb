@@ -268,13 +268,14 @@ module Roby
 	end
 
 	def update()
-	    @changed = true
-	    while @changed
-		Thread.pass
-		if !hidden? && changed?
-		    canvas.update
-		    @changed = false
-		end
+	    Thread.pass
+	    if !hidden? && changed?
+		canvas.update
+		@changed = false
+		@updater.change_interval 0
+		sleep 0.1
+	    else
+		@updater.change_interval 500
 	    end
 	end
 	slots "update()"
