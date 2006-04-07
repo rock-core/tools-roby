@@ -28,7 +28,6 @@ module Roby::Genom
 	def config;	  self.class.config end
 
 	module ClassExtension
-	    attr_reader :roby_module
 	    def config;		roby_module.config end
 	    def genom_module;	roby_module.genom_module end
 	end
@@ -69,7 +68,6 @@ module Roby::Genom
 
 	    on(:stop) { @abort_activity = @activity = nil }
 	end
-
 
 	def start(context = nil)
 	    @activity = @request.call(*arguments)
@@ -140,11 +138,18 @@ module Roby::Genom
 	Roby.debug { "Defining task model #{klassname} for request #{rq_name}" }
 	define_task(rb_mod, klassname) do
 	    Class.new(RequestTask) do
-		@roby_module = rb_mod
+		singleton_class.class_eval do
+		    define_method(:roby_module)	    { rb_mod }
+		    define_method(:request_name)    { rq_name }
+		end
+
 		class_attribute :request_method => gen_mod.method(method_name)
 
 		def initialize(*arguments)
 		    super(arguments, self.class.request_method)
+		end
+		def self.name
+		    "#{roby_module.name}::#{request_name}"
 		end
 
 		executed_by roby_module.const_get(:Runner)
@@ -157,6 +162,10 @@ module Roby::Genom
     # See Roby::Genom::GenomModule
     class RunnerTask < Roby::Task
 	include RobyMapping
+
+	singleton_class.class_eval do
+	    define_method(:name) { "#{roby_module.name}::Runner" }
+	end
 
 	def initialize
 	    # Make sure there is a init() method defined in the Roby module if there is one in the
@@ -289,7 +298,9 @@ module Roby::Genom
 	# Define the runner task
 	define_task(rb_mod, 'Runner') do
 	    Class.new(RunnerTask) do
-		@roby_module = rb_mod
+		singleton_class.class_eval do
+		    define_method(:roby_module) { rb_mod }
+		end
 	    end
 	end
 

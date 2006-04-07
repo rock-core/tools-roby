@@ -19,6 +19,10 @@ class TC_Genom < Test::Unit::TestCase
         assert_nothing_raised { Roby::Genom::Mockup }
         assert_nothing_raised { Roby::Genom::Mockup::Start }
         assert_nothing_raised { Roby::Genom::Mockup::SetIndex }
+	assert_equal("Roby::Genom::Mockup::Start", Roby::Genom::Mockup::Start.name)
+
+	task = Roby::Genom::Mockup.start!
+	assert_equal("Roby::Genom::Mockup::Start", task.model.name)
     end
 
     def test_runner_task
@@ -26,6 +30,8 @@ class TC_Genom < Test::Unit::TestCase
             Genom::GenomModule('mockup')
 
             runner = Genom::Mockup.runner!
+	    assert_equal("Roby::Genom::Mockup::Runner", runner.model.name)
+	    
 	    runner.start!
 	    assert_event( runner.event(:start) )
 
@@ -34,7 +40,6 @@ class TC_Genom < Test::Unit::TestCase
         end
     end
             
-
     def test_event_handling
         ::Genom.connect do
             Genom::GenomModule('mockup')
