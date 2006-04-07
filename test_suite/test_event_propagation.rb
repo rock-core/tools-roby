@@ -44,6 +44,18 @@ class TC_EventPropagation < Test::Unit::TestCase
 	assert_equal(expected_history, event_history)
     end
 
+    def test_emit_on
+	t1, t2 = [nil,nil].map { EmptyTask.new }
+	t1.event(:start).emit_on t2.event(:start)
+        FlexMock.use do |mock|
+	    t1.on(:start) { mock.t1 }
+	    t2.on(:start) { mock.t2 }
+	    mock.should_receive(:t2).once.ordered(:events)
+	    mock.should_receive(:t1).once.ordered(:events)
+	    t2.start!
+	end
+    end
+
     def test_event_loop
         watchdog = Thread.new do 
             sleep(2)
