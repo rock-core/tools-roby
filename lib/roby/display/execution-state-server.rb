@@ -1,12 +1,75 @@
 require 'Qt'
 
 module Roby
+    class PendingView < Qt::ListView
+	attr_reader :pending
+
+	class Task < Qt::ListViewItem
+	    def initialize(view, task)
+		super(view)
+		set_text(0, task.model.name << " 0x" << task.method_missing(:address).to_s(16))
+	    end
+	end
+
+	class Event < Qt::ListViewItem
+	    def initialize(parent, kind, time, obj, dest = nil)
+		super(parent)
+		set_text(0, "#{time.tv_sec}:#{"%03i" % (time.tv_usec / 1000)}")
+		set_text(1, kind.to_s)
+
+		obj = obj.generator if obj.respond_to?(:generator)
+		expr = obj.model.name.gsub(/.*::/, '') <<
+		    " 0x" << obj.method_missing(:address).to_s(16)
+
+		if kind == :signal
+		    dest = dest.generator if dest.respond_to?(:generator)
+		    expr << " -> " << dest.model.name.gsub(/.*::/, '') <<
+			" 0x" << dest.method_missing(:address).to_s(16)
+		end
+		set_text(2, expr)
+	    end
+	end
+
+	def initialize(parent)
+	    super(parent)
+	    self.root_is_decorated = true
+	    add_column "at"
+	    add_column "kind"
+	    add_column "events"
+	    @pending = Hash.new
+	end
+
+	def item_parent(generator)
+	    if generator.respond_to?(:task)
+		pending[generator.task] ||= Task.new(self, generator.task)
+	    else
+		self
+	    end
+	end
+
+	def new_event(kind, time, generator, *args)
+	    @reference ||= time
+	    offset = time - @reference
+	    time = Time.at(offset.to_i, (offset - offset.to_i) * 1000000)
+	    Event.new(item_parent(generator), kind, time, generator, *args)
+	end
+	def pending_event(time, generator)
+	    new_event(:pending, time, generator)
+	end
+	def fired_event(time, generator, event)
+	    new_event(:fired, time, generator, event)
+	end
+	def signalling(time, from, to)
+	    new_event(:signal, time, from, to)
+	end
+    end
+    
     class ExecutionStateDisplayServer < Qt::Object
 	BASE_DURATION = 10000
 	BASE_LINES    = 10
 
 	attr_reader :line_height, :resolution, :start_time, :margin
-	attr_reader :canvas, :view
+	attr_reader :canvas, :main
 	attr_reader :event_display, :event_source
 	def initialize
 	    super
@@ -19,7 +82,11 @@ module Roby
 	    @margin	    = 10
 	    
 	    @canvas = Qt::Canvas.new(640, line_height * BASE_LINES + margin * 2)
-	    @view   = Qt::CanvasView.new(canvas)
+	    
+	    @main = Qt::Splitter.new(Qt::Vertical)
+	    
+	    @view   = Qt::CanvasView.new(@canvas, @main)
+	    @pending = PendingView.new(@main)
 
 	    @hidden = true
 	    @event_display = Hash.new
@@ -27,16 +94,16 @@ module Roby
 
 	    @updater = Qt::Timer.new(self, "timer")
 	    @updater.connect(@updater, SIGNAL('timeout()'), self, SLOT('update()'))
-	    @updater.start(0)
+	    @updater.start(100)
  	end
 
 	def hidden?; @hidden end
 	def hide
-	    @view.hide
+	    @main.hide
 	    @hidden = true
 	end
 	def show
-	    @view.show
+	    @main.show
 	    @hidden = false
 	end
 
@@ -95,10 +162,11 @@ module Roby
 		@title = Qt::CanvasText.new(task.model.name, display.canvas) do |t|
 		    t.visible = true
 		    t.y = y + line_height * 0.4
-		    font = t.font
-		    font.pixel_size = line_height / 2
-		    t.font = font
-		    t.text_flags = Qt::AlignTop
+		    #font = t.font
+		    #font.pixel_size = line_height / 2
+		    #t.font = font
+		    #t.text_flags = Qt::AlignTop
+		    t.color = Qt::Color.new('black')
 		end
 
 		self
@@ -132,7 +200,7 @@ module Roby
 	    # TODO make sure x is in the canvas
 	end
 
-	def new_event(time, generator, light_color)
+	def new_event(time, generator, pending)
 	    x	    = x_of(time)
 	    line    = line_of(generator)
 
@@ -146,6 +214,7 @@ module Roby
 
 	    shape.move(x, y)
 	    shape.visible = true
+	    shape.z = pending ? 0 : 1
 
 	    # TODO: manage the case where we have pending more than one command
 	    # TODO: from the same generator
@@ -154,7 +223,7 @@ module Roby
 		colors = line.next_color
 		line.colors[generator] = colors
 	    end
-	    shape.brush = Qt::Brush.new(Qt::Color.new(light_color ? colors[0] : colors[1]))
+	    shape.brush = Qt::Brush.new(Qt::Color.new(pending ? colors[0] : colors[1]))
 	    shape
 	end
 
@@ -174,6 +243,8 @@ module Roby
 		end
 	    end
 
+	    @pending.pending_event(time, event_generator)
+
 	    nil
 	end
 
@@ -182,6 +253,8 @@ module Roby
 	    circle = new_event(time, event_generator, false) do |x, y|
 		Qt::CanvasEllipse.new(line_height / 4, line_height / 4, canvas)
 	    end
+
+	    @pending.fired_event(time, event_generator, event)
 	    
 	    event_display[event] = circle
 
@@ -189,14 +262,19 @@ module Roby
 	end
 
 	def signalling(time, from, to)
+	    changed!
 	    event_source[to] = from
+	    @pending.signalling(time, from, to)
 	end
 
 	def update()
-	    Thread.pass
-	    if !hidden? && changed?
-		canvas.update
-		@changed = false
+	    @changed = true
+	    while @changed
+		Thread.pass
+		if !hidden? && changed?
+		    canvas.update
+		    @changed = false
+		end
 	    end
 	end
 	slots "update()"

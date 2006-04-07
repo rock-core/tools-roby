@@ -23,7 +23,7 @@ module Roby
 		    write.write("OK")
 
 		    display_server.show
-		    a.setMainWidget( display_server.view )
+		    a.setMainWidget( display_server.main )
 		    a.exec()
 		rescue Exception => e
 		    puts "#{e.message}(#{e.class.name}):in #{e.backtrace.join("\n  ")}"
@@ -79,12 +79,11 @@ if $0 == __FILE__
 
     def fill(state_display)
 	t1 = TaskMockup.new
-	t1.singleton_class.class_eval do
+	t1.model.instance_eval do
 	    def name; "t1" end
 	end
-
 	t2 = TaskMockup.new
-	t2.singleton_class.class_eval do
+	t2.model.instance_eval do
 	    def name; "t2" end
 	end
 		
@@ -92,7 +91,6 @@ if $0 == __FILE__
 
 	f.call(nil)
 	puts "End"
-	sleep(10)
     end
 
     module SlowEventPropagation
@@ -121,6 +119,7 @@ if $0 == __FILE__
 	server = Roby::ExecutionStateDisplay.start_service(SERVER_URI)
 
 	fill(server)
+	sleep(10)
     rescue Exception => e
 	puts "#{e.message}(#{e.class.name}):in #{e.backtrace.join("\n  ")}"
     end
