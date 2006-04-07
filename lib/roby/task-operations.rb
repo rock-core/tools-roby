@@ -123,19 +123,17 @@ module Roby::TaskAggregator
 
     class AggregatorTask < Roby::Task
 	def initialize(aggregator)
-	    if aggregator.start_event.controlable?
-		def self.start(context)
-		    aggregator.start_event.call(context)
+	    singleton_class.class_eval do
+		if aggregator.start_event.controlable?
+		    define_method(:start, &aggregator.start_event.method(:call))
+		    event(:start)
 		end
-	    end
-	    singleton_class.event(:start)
 
-	    if aggregator.stop_event.controlable?
-		def self.stop(context)
-		    aggregator.stop_event.call(context)
+		if aggregator.stop_event.controlable?
+		    define_method(:stop, &aggregator.stop_event.method(:call))
+		    event(:stop)
 		end
 	    end
-	    singleton_class.event(:stop)
 
 	    aggregator.each_task do |child|
 		realized_by child
