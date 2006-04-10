@@ -44,6 +44,15 @@ class TC_EventPropagation < Test::Unit::TestCase
 	assert_equal(expected_history, event_history)
     end
 
+    def test_call_causal_warning
+	model = Roby::EventGenerator.new { }
+	model.call(nil)
+
+	source = Roby::EventGenerator.new { }
+	model = Roby::EventGenerator.new { source.add_causal_link model }
+	model.call(nil)
+    end
+
     def test_emit_on
 	t1, t2 = [nil,nil].map { EmptyTask.new }
 	t1.event(:start).emit_on t2.event(:start)
