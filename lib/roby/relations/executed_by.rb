@@ -40,11 +40,9 @@ module Roby::TaskStructure
 		    if agent.finished?
 			raise TaskModelViolation.new(task), "in #{self}: execution agent #{agent} is dead"
 		    elsif !agent.running?
-			callcc do |cont|
-			    agent.on(:start) { cont.call }
-			    agent.start!
-			    throw :filtered
-			end
+			agent.event(:start).on(self)
+			agent.start!
+			throw :filtered
 		    end
 		else
 		    raise Roby::TaskModelViolation.new(task), "the #{self} model defines an execution agent, but the task has none"

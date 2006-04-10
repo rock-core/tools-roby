@@ -5,7 +5,6 @@ module Roby::EventStructure
 	    each_ensured_event do |ev|
 		if !ev.happened?
 		    ev.on self
-		    ev.add_causal_link self
 		    ev.call(context)
 		    throw :filtered
 		end
