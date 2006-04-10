@@ -19,7 +19,7 @@ class SequenceEnumerator
     def <<(object); @sequence << object; self end
 
     def each(&iterator)
-	@sequence.each { |enum| enum.each(&iterator) }
+	@sequence.each { |enum| enum.each(&iterator) } if iterator
 	self
     end
     include EnumeratorOperations
@@ -46,16 +46,20 @@ class UniqEnumerator
     end
 
     def each(&iterator)
-	@result = Hash.new
-	@root.send(@enum_with, *@args) do |v|
-	    k = @key[v]
-	    if !@result.has_key?(k)
-		@result[k] = v
-		yield(v)
+	if iterator
+	    @result = Hash.new
+	    @root.send(@enum_with, *@args) do |v|
+		k = @key[v]
+		if !@result.has_key?(k)
+		    @result[k] = v
+		    yield(v)
+		end
 	    end
-	end
 
-	@result.values
+	    @result.values
+	else
+	    self
+	end
     end
 
     include Enumerable
