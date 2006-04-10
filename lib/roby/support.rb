@@ -125,10 +125,11 @@ class Module
     end
 
     # Define 'name' to be a read-only enumerable attribute
-    def attr_enumerable(name, attr_name = name, enumerator = :each)
+    def attr_enumerable(name, attr_name = name, enumerator = :each, &init_block)
+	class_eval do
+	    attribute(attr_name, &init_block)
+	end
         class_eval <<-EOF
-            attr_accessor :#{attr_name}
-            private :#{attr_name}=
             def each_#{name}(key = nil, &iterator)
                 return unless #{attr_name}
                 if key
