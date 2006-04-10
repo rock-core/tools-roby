@@ -37,8 +37,6 @@ class UniqEnumerator
 
 	@key = if key.respond_to?(:call)
 		   key
-	       elsif key
-		   lambda { |v| v.send(key) }
 	       else
 		   lambda { |v| v.hash }
 	       end
