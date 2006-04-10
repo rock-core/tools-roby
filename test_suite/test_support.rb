@@ -3,6 +3,7 @@ $LOAD_PATH << File.join(File.dirname(__FILE__), '../lib')
 require 'test/unit'
 require 'roby/support'
 require 'set'
+require 'flexmock'
 
 class BaseClass
     class << self
@@ -45,6 +46,37 @@ class TC_Utils < Test::Unit::TestCase
 	    class_attribute :c => 20
 	end
 	assert(!b.respond_to?(:c))
+    end
+
+    def test_attr_enumerable
+	klass = Class.new do
+	    attr_enumerable(:mapped, :map) { Hash.new }
+	end
+
+	obj = klass.new
+	obj.map[:a] = [10, 20]
+	obj.map[:b] = 10
+	assert_equal( [[:a, [10, 20]], [:b, 10]].to_set, obj.enum_for(:each_mapped).to_set )
+	assert_equal( [10, 20], obj.enum_for(:each_mapped, :a).to_a )
+    end
+
+    def test_define_method_with_block
+	FlexMock.use do |mock|
+	    mock.should_receive(:called).once
+	    block_obj = lambda { mock.called }
+	    test_obj = self
+	    method = lambda do |a, b, block|
+		test_obj.assert_equal(a, 1)
+		test_obj.assert_equal(b, 2)
+		test_obj.assert_equal(block, block_obj)
+		block_obj.call
+	    end
+
+	    klass = Class.new do
+		define_method_with_block(:call, &method)
+	    end
+	    klass.new.call(1, 2, &block_obj)
+	end
     end
 
     def test_inherited_enumerable
@@ -100,7 +132,10 @@ class TC_Utils < Test::Unit::TestCase
     def test_enum_uniq
         # Test the enum_uniq enumerator
         assert_equal([:a, :b, :c], [:a, :b, :a, :c].enum_uniq { |k| k }.to_a)
-
+        assert_equal([:a, :b, :c], [:a, :b, :a, :c].enum_uniq.to_a)
+	enum = [:a, :b, :a, :c].enum_uniq
+	assert_equal(enum, enum.each)
+	
         a, b, c, d = [1, 2], [1, 3], [2, 3], [3, 4]
 
         test = [a, b, c, d]
@@ -127,6 +162,20 @@ class TC_Utils < Test::Unit::TestCase
 	c1 = [:a, :b, :c]
 	c2 = [:d, :e, :f]
 	assert_equal([:a, :b, :c, :d, :e, :f], (c1.to_enum + c2.to_enum).to_a)
+	assert_equal([:a, :b, :c, :d, :e, :f], [c1, c2].inject(null_enum) { |a, b| a + b }.to_a)
+    end
+
+    def test_address
+	foo = Object.new
+	foo.to_s =~ /#<Object:0x([0-9a-f]+)>/
+	foo_address = $1
+	assert_equal(foo_address, foo.address.to_s(16), foo.to_s)
+    end
+
+    def test_define_under
+	mod = Module.new
+	new_mod = mod.define_under(:Foo) { Module.new }
+	assert_equal(new_mod, mod.define_under(:Foo) { flunk("block called in #define_under") })
     end
 
     def test_enum_graph
@@ -174,17 +223,41 @@ class TC_Utils < Test::Unit::TestCase
         assert([Hash, -1], ObjectStats.profile { GC.start }.collect { |klass, count| [klass, count] })
     end
 
-    def test_define_method_with_block
-	klass = Class.new do
-	    attribute(:array) { Array.new }
-	    define_method_with_block('each') do |iterator|
-		@array.each(&iterator)
-	    end
-	    include Enumerable
+    def test_thread_server
+	FlexMock.use do |mock|
+	    server = ThreadServer.new(mock)
+	    mock.should_receive(:call).once
+	    server.call
+	    server.quit!
 	end
-	obj = klass.new
-	obj.array << 1 << 2 << 3 << 4
-	assert_equal([1, 2, 3, 4], obj.to_a)
+
+	FlexMock.use do |mock|
+	    block = lambda { mock.call(1, block) }
+	    class << block
+		alias :__call__ :call
+		def call(*args, &block)
+		    @called = true
+		    __call__(*args, &block)
+		end
+		def called?; @called end
+	    end
+		
+	    t = Thread.new do
+		while !block.called?
+		    sleep(0.1)
+		    Thread.current.process_events
+		end
+	    end
+
+	    mock.should_receive(:call).with(1, block).once
+	    t.send_to(block, :call, 1, &block)
+	    t.join
+	end
+    end
+
+    def test_object_stats
+	assert( ObjectStats.profile { ObjectStats.count }.empty?, "Object allocation profile changed" )
+	assert_equal({ Hash => 1 }, ObjectStats.profile { ObjectStats.count_by_class }, "Object allocation profile changed")
     end
 end
 
