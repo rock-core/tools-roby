@@ -3,8 +3,8 @@ require 'roby/relations'
 require 'set'
 
 module Roby::TaskStructure
-    relation Hierarchy do
-	relation_name :child
+    relation :child do
+	module_name :Hierarchy
 
         HierarchyLink = Struct.new(:done_with, :fails_on)
          

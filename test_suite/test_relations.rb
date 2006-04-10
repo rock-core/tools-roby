@@ -8,13 +8,12 @@ class TC_Relations < Test::Unit::TestCase
     def test_directed_relation_definition
 	klass = Class.new { include DirectedRelationSupport }
 
-	r1 = Module.new
-	r2 = Module.new
+	r1, r2 = nil
 	Roby::RelationSpace(klass) do
-	    relation r1
+	    r1 = relation :r1
 
-	    relation r2 do
-		relation_name :child
+	    r2 = relation :child do
+		module_name :R2s
 		parent_enumerator :parent
 	    end
 	end
@@ -31,13 +30,12 @@ class TC_Relations < Test::Unit::TestCase
     def test_directed_relation
 	klass = Class.new { include DirectedRelationSupport }
 
-	r1 = Module.new
-	r2 = Module.new
+	r1, r2 = nil
 	Roby::RelationSpace(klass) do
-	    relation r1
+	    r1 = relation :r1
 
-	    relation r2 do
-		relation_name :child
+	    r2 = relation :child do
+		module_name :R1s
 		parent_enumerator :parent
 	    end
 	end

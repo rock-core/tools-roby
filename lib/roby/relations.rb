@@ -141,11 +141,11 @@ module Roby
 	    # It defines each_#{parent} and each_#{child}. Set either to nil
 	    # to disable the definition
 	    def parent_enumerator(name); @parent_enumerator_name = name end
-	    def relation_name(new_name = nil)
+	    def module_name(new_name = nil)
 		if new_name
-		    @relation_name = new_name 
+		    @module_name = new_name 
 		else
-		    @relation_name
+		    @module_name
 		end
 	    end
 
@@ -163,21 +163,14 @@ module Roby
     def self.RelationSpace(klass, &block)
 	relation_space = Module.new
 	relation_space.singleton_class.class_eval do
-	    define_method(:const_missing) do |name|
-		new_relation = Module.new do
-		    def self.const_missing(name)
-			super
-		    end
-		end
-		relation_space.const_set(name, new_relation)
-	    end
-
-	    define_method(:new_relation_type) do |mod, block|
+	    define_method(:new_relation_type) do |relation_name, block|
+		mod = Module.new
+		
 		mod.include DirectedRelation
 		mod.class_eval(&block) if block
 		mod.class_eval do
 		    relation_type = self.relation_type
-		    relation_name = self.relation_name || self.name.gsub(/.*::/, '').underscore.singularize
+		    module_name(self.module_name || relation_name.to_s.camelize.pluralize)
 		    enumerator = "enumerate_#{relation_name}"
 		    if parent_enumerator_name
 			define_method_with_block("each_#{parent_enumerator_name}") do |iterator|
@@ -192,7 +185,10 @@ module Roby
 		    define_method("add_#{relation_name}")    { |to, *info| self.add_child_object(to, relation_type, *info) }
 		    define_method("remove_#{relation_name}") { |to| self.remove_child_object(to, relation_type) }
 		end
+		relation_space.const_set(mod.module_name, mod)
 		klass.include mod
+
+		mod
 	    end
 	end
 	relation_space.singleton_class.class_eval "def relation(mod, &block); new_relation_type(mod, block) end"

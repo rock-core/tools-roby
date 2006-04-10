@@ -2,9 +2,7 @@ require 'roby/task'
 require 'roby/relations/hierarchy'
 
 module Roby::TaskStructure
-    relation ExecutedBy do
-	relation_name :execution_agent
-
+    relation :execution_agent do
         def self.included(klass)
             class << klass
                 attr_reader :execution_agent
@@ -56,7 +54,7 @@ module Roby::TaskStructure
 	Roby::EventGenerator.include EventModel
     end
 
-    Hierarchy.superset_of ExecutedBy
+    Hierarchy.superset_of ExecutionAgents
 end
 
 

@@ -1,7 +1,5 @@
 module Roby::EventStructure
-    relation Ensured do
-	relation_name :ensured_event
-
+    relation :ensured_event do
 	def calling(context)
 	    super if defined? super
 	    each_ensured_event do |ev|

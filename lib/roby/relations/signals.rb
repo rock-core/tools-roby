@@ -1,4 +1,4 @@
 module Roby::EventStructure
-    relation Signals
+    relation :signal
 end
 
