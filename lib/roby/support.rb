@@ -229,11 +229,11 @@ class Thread
     end
     def process_events
         @msg_queue ||= Queue.new
-        while !@msg_queue.empty?
-            object, event = *@msg_queue.deq
-            event[0]
-            @server.send(*@msg_queue.deq)
+	loop do
+            object, name, args, block = *@msg_queue.deq(true)
+            object.send(name, *args, &block)
         end
+    rescue ThreadError
     end
 end
 
