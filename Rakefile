@@ -74,7 +74,7 @@ Rake::RDocTask.new("rdoc") do |rdoc|
   rdoc.title    = "Roby"
   rdoc.options << '-T' << 'hefss'
   rdoc.options << '--main' << 'README'
-  #rdoc.rdoc_files.include('README', 'CHANGES')
+  rdoc.rdoc_files.include('README')
   rdoc.rdoc_files.include('lib/**/*.rb', 'doc/**/*.rdoc')
   rdoc.rdoc_files.exclude('doc/**/*_attrs.rdoc')
 end
