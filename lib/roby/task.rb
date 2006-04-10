@@ -98,7 +98,7 @@ module Roby
 	class_inherited_enumerable(:signal_set, :signal_sets, :map => true) { Hash.new { |h, k| h[k] = Set.new } }
 	def self.each_signal(model, &iterator)
 	    enum_for(:each_signal_set, model, false).
-		inject(NullEnumerator.new) { |a, b| a + b }.
+		inject(null_enum) { |a, b| a + b }.
 		enum_uniq.each(&iterator)
 	end
 	def each_signal(model, &iterator); singleton_class.each_signal(model, &iterator) end
@@ -108,7 +108,7 @@ module Roby
 	class_inherited_enumerable(:handler_set, :handler_sets, :map => true) { Hash.new { |h, k| h[k] = Set.new } }
 	def self.each_handler(model, &iterator)
 	    enum_for(:each_handler_set, model, false).
-		inject(NullEnumerator.new) { |a, b| a + b }.
+		inject(null_enum) { |a, b| a + b }.
 		enum_uniq.each(&iterator)
 	end
 	def each_handler(model, &iterator); singleton_class.each_handler(model, &iterator) end

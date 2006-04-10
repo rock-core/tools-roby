@@ -13,13 +13,13 @@ module Roby
 
 	def each_parent_object(type = nil, &iterator)
 	    enum_for(:apply_selection, type, relations, :each).
-		inject(NullEnumerator.new) { |enum, type| enum + type.enum_for(:each_parent_object, self) }.
+		inject(null_enum) { |enum, type| enum + type.enum_for(:each_parent_object, self) }.
 		enum_uniq { |obj| obj }.
 		each(&iterator)
 	end
 	def each_child_object(type = nil)
 	    enum_for(:apply_selection, type, relations, :each).
-		inject(NullEnumerator.new) { |enum, type| enum + type.enum_for(:each_child_object, self) }.
+		inject(null_enum) { |enum, type| enum + type.enum_for(:each_child_object, self) }.
 		enum_uniq { |obj| obj }.
 		each { |child| yield(child) }
 	end
@@ -44,7 +44,7 @@ module Roby
 	# If directed is false, then we enumerate both parents
 	# and children.
 	def each_relation(directed = false, &iterator) # :yield: type, parent, child
-	    relations.inject(NullEnumerator.new) { |enum, type| enum + type.enum_for(:each_relation, self, directed) }.
+	    relations.inject(null_enum) { |enum, type| enum + type.enum_for(:each_relation, self, directed) }.
 		enum_uniq { |obj| obj }.
 		each(&iterator)
 	end

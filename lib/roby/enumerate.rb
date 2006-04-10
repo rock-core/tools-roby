@@ -70,3 +70,9 @@ class Object
     end
 end
 
+module Kernel
+    def null_enum
+	@@null_enumerator ||= NullEnumerator.new.freeze
+    end
+end
+
