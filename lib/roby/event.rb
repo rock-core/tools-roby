@@ -41,16 +41,22 @@ module Roby
 	    self.class
 	end
 
+	attr_reader :pending
         def initialize(controlable = nil, &control)
             @handlers = []
+	    @pending  = 0
 
 	    @controlable = controlable
 	    if controlable || control
 		control = lambda { |context| emit(context) } if !control
 		define_method(:call) do |context|
+		    return if pending > 0
+			
 		    catch :filtered do 
 			calling(context)
+			@pending += 1
 			control[context]
+			called(context)
 		    end
 		end
 	    end
@@ -120,6 +126,7 @@ module Roby
 	# Returns the new event object
         def emit(context)
             event   = new(context)
+	    @pending -= 1 if @pending > 0
             result  = fire(event)
             if Thread.current[:propagated_events]
 		Thread.current[:propagated_events] |= result
