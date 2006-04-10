@@ -31,9 +31,10 @@ class ThreadServer
 		    GC.start
 		    forward_to.send(*message, &block)
 		end
+	    rescue ThreadServer::Quit
 	    rescue Exception => e
 		puts "#{e.message}(#{e.class.name}):in #{e.backtrace.join("\n  ")}"
-	    rescue Quit
+		raise
 	    end
 	end
     end
