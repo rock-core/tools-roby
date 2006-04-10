@@ -28,7 +28,6 @@ class ThreadServer
 		loop do
 		    message = @queue.pop
 		    block = message.pop
-		    GC.start
 		    forward_to.send(*message, &block)
 		end
 	    rescue ThreadServer::Quit
