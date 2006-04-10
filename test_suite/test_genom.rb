@@ -22,7 +22,7 @@ class TC_Genom < Test::Unit::TestCase
 	assert_equal("Roby::Genom::Mockup::Start", Roby::Genom::Mockup::Start.name)
 
 	task = Roby::Genom::Mockup.start!
-	assert_equal("Roby::Genom::Mockup::Start", task.model.name)
+	assert_equal("#<Roby::Genom::Mockup::Start!0x#{task.address.to_s(16)}>", task.model.name)
     end
 
     def test_runner_task
@@ -30,7 +30,7 @@ class TC_Genom < Test::Unit::TestCase
             Genom::GenomModule('mockup')
 
             runner = Genom::Mockup.runner!
-	    assert_equal("Roby::Genom::Mockup::Runner", runner.model.name)
+	    assert_equal("#<Roby::Genom::Mockup::Runner!0x#{runner.address.to_s(16)}>", runner.model.name)
 	    
 	    runner.start!
 	    assert_event( runner.event(:start) )
