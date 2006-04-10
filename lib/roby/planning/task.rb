@@ -45,7 +45,6 @@ module Roby
             @plan_model, @plan_method, @method_options = model, method, options
             
             task = PlannedTask.new
-            task.extend TaskStructure::PlannedBy
             task.planned_by self
 
             super()
