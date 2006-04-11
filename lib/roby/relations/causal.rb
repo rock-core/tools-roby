@@ -12,7 +12,7 @@ module Roby::EventStructure
 	    super if defined? super
 
 	    if pending > 0 && !active?
-		Roby.debug { "#{self} has pending events, but it is not active" }
+		Roby.warn { "#{self} has pending events, but it is not active" }
 	    end
 	end
     end
