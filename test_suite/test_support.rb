@@ -214,6 +214,18 @@ class TC_Utils < Test::Unit::TestCase
 	    alias :each_child :each
 	end
 	assert_equal([bottom], test.enum_leafs(:each_child).to_a)
+	
+	# Check for cycle handling
+	right = [ nil ]
+	left = [ nil ]
+	root = [ left, right ]
+	right[0] = root
+	left[0] = root
+	[root, left, right].each do |a| 
+	    def a.hash; object_id end
+	end
+	assert_equal([left, right].map { |a| a.object_id }, root.enum_bfs(:each).map { |a| a.object_id })
+	assert_equal([left, right].map { |a| a.object_id }, root.enum_dfs(:each).map { |a| a.object_id })
     end
 
     def test_object_stats

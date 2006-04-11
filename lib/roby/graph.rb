@@ -13,7 +13,7 @@ class GraphEnumerator
 
     def each
 	enum_uniq(:each_edge) { |_, child| child }.
-	    each { |_, child| yield(child) }
+	    each { |_, child| yield(child) unless child == @root }
 	self
     end
 end
