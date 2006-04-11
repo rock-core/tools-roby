@@ -18,10 +18,11 @@ module Roby::TaskStructure
 
 	def execution_agent; enum_for(:each_execution_agent).find { true } end
         def executed_by(agent)
-	    if execution_agent
+	    return if execution_agent == agent
+	    if old = execution_agent && old != agent
 		Roby.debug "an agent is already defined for this task"
-		remove_execution_agent execution_agent
-		event(:start).remove_ensured_event execution_agent.event(:start)
+		remove_execution_agent old
+		event(:start).remove_ensured_event old.event(:start)
 	    end
 
 	    add_execution_agent(agent)
