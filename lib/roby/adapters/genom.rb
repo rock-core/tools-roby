@@ -191,6 +191,7 @@ module Roby::Genom
 	    elsif init.respond_to? :to_task
 		init = init.to_task
 		realized_by init
+		init.start!
 		init = init.event(:stop)
 	    end
 

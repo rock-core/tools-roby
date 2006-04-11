@@ -1,5 +1,9 @@
 require 'Qt'
 
+class DRbObject
+    def __class;	method_missing(:class) end
+    def __address;	method_missing(:address) end
+end
 module Roby
     class PendingView < Qt::ListView
 	attr_reader :pending
@@ -7,7 +11,7 @@ module Roby
 	class Task < Qt::ListViewItem
 	    def initialize(view, task)
 		super(view)
-		set_text(0, task.model.name << " 0x" << task.method_missing(:address).to_s(16))
+		set_text(0, task.model.name << " 0x" << task.__address.to_s(16))
 	    end
 	end
 
@@ -19,12 +23,15 @@ module Roby
 
 		obj = obj.generator if obj.respond_to?(:generator)
 		expr = obj.model.name.gsub(/.*::/, '') <<
-		    " 0x" << obj.method_missing(:address).to_s(16)
+		    " 0x" << obj.__address.to_s(16)
 
 		if kind == :signal
 		    dest = dest.generator if dest.respond_to?(:generator)
-		    expr << " -> " << dest.model.name.gsub(/.*::/, '') <<
-			" 0x" << dest.method_missing(:address).to_s(16)
+		    
+		    expr << " -> "
+		    expr << "#{dest.task.__class.name}::" if dest.respond_to?(:task)
+		    expr << dest.model.name.gsub(/.*::/, '')
+		    expr << " 0x" << dest.__address.to_s(16)
 		end
 		set_text(2, expr)
 	    end
