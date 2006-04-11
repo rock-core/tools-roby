@@ -300,12 +300,14 @@ class Logger
                 def #{level}(*args, &proc); logger.#{level}(*args, &proc) end
             EOF
         end
+  	def loglevel=(value); logger.level = value end
+	def loglevel; logger.level end
     end
 end
 
 require 'logger'
 module Roby
-    @logger = Logger.new(STDOUT)
+    @logger = Logger.new(STDERR)
     @logger.level = Logger::DEBUG
     @logger.progname = "Roby"
     @logger.formatter = lambda { |severity, time, progname, msg| "#{progname}: #{msg}\n" }
