@@ -316,9 +316,3 @@ module Roby
     extend Logger::Forward
 end
 
-if __FILE__ == $0
-    require 'pp'
-    raise "Object allocation profile changed" if !ObjectStats.profile { ObjectStats.count }.empty?
-    raise "Object allocation profile changed" if { Hash => 1 } != ObjectStats.profile { ObjectStats.count_by_class }
-end
-
