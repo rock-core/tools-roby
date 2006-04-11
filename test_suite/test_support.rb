@@ -169,7 +169,7 @@ class TC_Utils < Test::Unit::TestCase
 	foo = Object.new
 	foo.to_s =~ /#<Object:0x([0-9a-f]+)>/
 	foo_address = $1
-	assert_equal(foo_address, foo.address.to_s(16), foo.to_s)
+	assert_equal(foo_address, foo.address.to_s(16), "#{foo} #{foo.address} #{foo.object_id}")
     end
 
     def test_define_under

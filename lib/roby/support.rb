@@ -85,8 +85,8 @@ class Object
 
     def address
 	id = object_id
-	id = 0xFFFFFFFF + id if id < 0
-	id * 2
+	id = 0xFFFFFFFF - ~id if id < 0
+	(id * 2) & 0xFFFFFFFF
     end
 end
 
