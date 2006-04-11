@@ -82,8 +82,8 @@ module Roby
         def controlable?; model.controlable? end
         def terminal?;    model.terminal? end
 	def active?
-	    return true  if task.running?
 	    return super if symbol == :start
+	    return true if task.running?
 	    return task.event(:start).active?
 	end
         def symbol;       model.symbol end

@@ -192,7 +192,7 @@ module Roby
 
 	# An event generator is active when the current execution context may 
 	# lead to its execution
-	def active?; pending > 0 || each_parent_object(EventStructure::CausalLinks).find { |ev| ev.active? } end
+	def active?; each_parent_object(EventStructure::CausalLinks).find { |ev| ev.active? } end
 
         def ever
             @ever ||= EverGenerator.new(self) 
@@ -324,7 +324,7 @@ module Roby
         def to_and; self end
         def &(event_model); self << event_model end
 
-	def active?; happened? || enum_for(:each_parent_object, EventStructure::CausalLink).all? { |obj| obj.active? } end
+	def active?; each_parent_object(EventStructure::CausalLink).all? { |obj| obj.active? } end
 
     protected
         attr_reader :waiting

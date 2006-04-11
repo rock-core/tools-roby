@@ -47,10 +47,14 @@ class TC_EventPropagation < Test::Unit::TestCase
     def test_call_causal_warning
 	model = Roby::EventGenerator.new { }
 	model.call(nil)
+	assert(! model.active? )
 
 	source = Roby::EventGenerator.new { }
+	def source.active?; true end
 	model = Roby::EventGenerator.new { source.add_causal_link model }
+	assert(! model.active?)
 	model.call(nil)
+	assert(model.active?)
     end
 
     def test_emit_on
