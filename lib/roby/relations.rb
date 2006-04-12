@@ -9,7 +9,7 @@ module Roby
     # to define the relation modules (like TaskSupport::Hierarchy)
     module DirectedRelationSupport
 	# An array of relation types this object is part of
-	attribute(:relations) { Array.new }
+	attribute(:relations) { Set.new }
 
 	def each_parent_object(type = nil, &iterator)
 	    enum_for(:apply_selection, type, relations, :each).
@@ -100,7 +100,7 @@ module Roby
 
     module DirectedRelation
 	module ClassExtension
-	    attribute(:subsets) { Array.new }
+	    attribute(:subsets) { Set.new }
 	    def relation_type; self end
 
 	    def add_child(from, to, info)
