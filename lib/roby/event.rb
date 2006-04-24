@@ -42,6 +42,7 @@ module Roby
 	end
 
 	attr_reader :pending
+	def pending?; pending != 0 end
         def initialize(controlable = nil, &control)
             @handlers = []
 	    @pending  = 0
