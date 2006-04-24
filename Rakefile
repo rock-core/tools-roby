@@ -67,6 +67,7 @@ end
 # Generate, build and install the mockup module
 # It is supposed to depend on nothing
 mockup_module "mockup"
+mockup_module "init"
 
 Rake::RDocTask.new("rdoc") do |rdoc|
   rdoc.options << "--inline-source"

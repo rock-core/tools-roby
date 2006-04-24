@@ -32,9 +32,9 @@
 \#
 \.cvsignore$
 (^|/)Thumbs\.db$
-^test_suite/prefix.mockup
-^test_suite/modules/mockup/(server|.genom|autoconf|codels/posix-obj)(/|$)
-^test_suite/modules/mockup/(Makefile(\.in)?|config\..+|configure|libtool|local\.mk|mockup\.pc|autogen)$
-^test_suite/modules/mockup.*/Makefile$
+^test_suite/prefix.(mockup|init)
+^test_suite/modules/(mockup|init)/(server|.genom|autoconf|codels/posix-obj)(/|$)
+^test_suite/modules/(mockup|init)/(Makefile(\.in)?|config\..+|configure|libtool|local\.mk|mockup\.pc|init\.pc|autogen)$
+^test_suite/modules/(mockup|init).*/Makefile$
 ^html(/|$)
 ^rcov(/|$)
