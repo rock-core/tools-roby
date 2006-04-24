@@ -272,6 +272,8 @@ module Roby::Genom
 	# Get the genom module
 	if options[:constant]
 	    raise ArgumentError, "the :constant option cannot be set when running in Roby"
+	elsif options[:start]
+	    raise ArgumentError, "the :start option cannot be set when running in Roby"
 	end
 	options = { :auto_attributes => true, :lazy_poster_init => true, :constant => false }.merge(options)
 	gen_mod = Genom::GenomModule.new(name, options)
