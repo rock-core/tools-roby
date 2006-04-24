@@ -327,12 +327,16 @@ module Roby
 			define_method(:call, &command_handler)
 		    else
 			def call(task, context)
-			    task.emit symbol, context
+			    task.emit(symbol, context)
 			end
 		    end
                 end
 
-		define_method("#{ev_s}!") { |*context| context = *context; event(ev).call(context) }
+		# define an instance method which calls the event command
+		define_method("#{ev_s}!") do |*context| 
+		    context = *context
+		    event(ev).call(context) 
+		end
             end
 
 		    
@@ -375,9 +379,7 @@ module Roby
             if only_bound
                 bound_events.each_value(&iterator)
             else
-                model.each_event { |symbol, model| 
-		    yield event(model) 
-		}
+                model.each_event { |symbol, model| yield event(model) }
             end
         end
 
