@@ -306,7 +306,7 @@ module Roby::Genom
 	end
 
 	gen_mod.request_info.each do |req_name, req_def|
-	    define_request(rb_mod, req_name)
+	    define_request(rb_mod, req_name) if req_name == req_def.name
 	end
 
 	return rb_mod
