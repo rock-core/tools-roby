@@ -181,13 +181,14 @@ module Roby::Genom
 	def start(context)
 	    mod = ::Genom::Runner.environment.start_modules(genom_module.name).first
 	    mod.wait_running
+	    emit :start
 
 	    init = if roby_module.respond_to?(:init)
 		       roby_module.init
 		   end
 
 	    if !init
-		emit :start
+		emit :ready
 	    elsif init.respond_to? :to_task
 		init = init.to_task
 		realized_by init
@@ -196,10 +197,11 @@ module Roby::Genom
 	    end
 
 	    if init
-		event(:start).emit_on init
+		init.on { emit :ready }
 	    end
 	end
 	event :start
+	event :ready
 
 	def stop(context)
 	    ::Genom::Runner.environment.stop_modules genom_module.name

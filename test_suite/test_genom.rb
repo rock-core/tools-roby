@@ -11,7 +11,9 @@ class TC_Genom < Test::Unit::TestCase
         Genom::Runner.environment || Genom::Runner.h2 
     end
     def teardown
-	Genom.connect { env.stop_modules('mockup') }
+	Genom.connect do
+	    env.stop_modules('mockup', 'init_test')
+	end
     end
 
     def test_def
@@ -38,6 +40,42 @@ class TC_Genom < Test::Unit::TestCase
 	    runner.stop!
 	    assert_event( runner.event(:stop) )
         end
+    end
+
+    def test_init
+	mod = Genom::GenomModule('init_test')
+
+	assert_raises(ArgumentError) do
+	    Genom.connect do
+		mod.runner!
+	    end
+	end
+	
+	init_period = nil
+	mod.class_eval do
+	    singleton_class.class_eval do
+		define_method(:init) do
+		    init_period = init!(42) 
+		end
+	    end
+	end
+
+	did_start = false
+	mod::Init.on(:start) { did_start = true }
+	Genom.connect do
+	    runner = mod.runner!
+	    runner.start!
+
+	    assert( init_period )
+	    assert( Genom.running.include?(init_period) )
+	    assert( init_period.event(:start).pending? )
+
+	    assert_event( runner.event(:ready) )
+
+	    mod.genom_module.poster(:index).wait
+	    assert_equal(42, mod.genom_module.index.update_period)
+	end
+	assert(did_start)
     end
             
     def test_event_handling
