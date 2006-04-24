@@ -173,7 +173,7 @@ module Roby::Genom
 	    if !roby_module.respond_to?(:init) && genom_module.respond_to?(:init)
 		init_request = genom_module.request_info.find { |_, rq| rq.init? }.last.name
 
-		raise ArgumentError, "The Genom module '#{genom_module.name}' defines the init request #{init_request}. You must define a singleton 'init' method in '#{roby_module.name}' which initializes the module"
+		raise ArgumentError, "the Genom module '#{genom_module.name}' defines the init request #{init_request}. You must define a singleton 'init' method in '#{roby_module.name}' which initializes the module"
 	    end
 	    super
 	end
@@ -279,7 +279,7 @@ module Roby::Genom
 	rb_mod = Roby::Genom.define_under(modname) { Module.new }
 
 	if !rb_mod.is_a?(Module)
-	    raise "module #{modname} already defined, but it is not a Ruby module"
+	    raise "module #{modname} already defined, but it is not a Ruby module: #{rb_mod}"
 	elsif rb_mod.respond_to?(:genom_module)
 	    if rb_mod.genom_module == gen_mod
 		return rb_mod
