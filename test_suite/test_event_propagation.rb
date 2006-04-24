@@ -50,7 +50,7 @@ class TC_EventPropagation < Test::Unit::TestCase
 	assert(! model.active? )
 
 	source = Roby::EventGenerator.new { }
-	def source.active?; true end
+	def source.active?(seen); true end
 	model = Roby::EventGenerator.new { source.add_causal_link model }
 	assert(! model.active?)
 	model.call(nil)

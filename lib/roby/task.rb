@@ -81,10 +81,11 @@ module Roby
 
         def controlable?; model.controlable? end
         def terminal?;    model.terminal? end
-	def active?
-	    return super if symbol == :start
-	    return true if task.running?
-	    return task.event(:start).active?
+	def active?(seen = Set.new)
+	    if symbol == :start; super
+	    elsif task.running?; true
+	    else;		 task.event(:start).active?(seen)
+	    end
 	end
         def symbol;       model.symbol end
         def new(context); model.new(task, self, context) end
