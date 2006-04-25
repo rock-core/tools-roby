@@ -112,8 +112,14 @@ module Roby
 
     module DirectedRelation
 	module ClassExtension
-	    attribute(:subsets) { Set.new }
 	    def relation_type; self end
+
+	    attribute(:subsets) { Set.new }
+	    # Returns true if +relation+ is included in this relation (i.e. it is either
+	    # the same relation or one of its subsets)
+	    def include?(relation)
+		relation_type == relation || subsets.each { |subrel| subrel.include?(relation) }
+	    end
 
 	    def add_child(from, to, info)
 		to.parents[relation_type] << from
