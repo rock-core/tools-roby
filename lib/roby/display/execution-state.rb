@@ -12,7 +12,6 @@ module Roby
 	    fork do
 		begin
 		    require 'roby/display/execution-state-server'
-		    GC.disable
 		    a = Qt::Application.new( ARGV )
 
 		    display_server = Roby::ExecutionStateDisplayServer.new
@@ -83,22 +82,29 @@ if $0 == __FILE__
 	on :start => :stop
     end
 
+    def task_mockup(name)
+	t = TaskMockup.new
+	t.model.instance_eval do
+	    singleton_class.class_eval do
+		define_method(:name) { name }
+	    end
+	end
+
+	t
+    end
+
     def fill(state_display)
-	t1 = TaskMockup.new
-	t1.model.instance_eval do
-	    def name; "t1" end
-	end
-	t2 = TaskMockup.new
-	t2.model.instance_eval do
-	    def name; "t2" end
-	end
+	t1 = task_mockup("t1")
+	t2 = task_mockup("t2")
+	t3 = task_mockup("t3")
 		
 	f = Roby::ForwarderGenerator.new(t1.event(:start), t2.event(:start))
-
+	t1.event(:stop).on t3.event(:start)
 	f.call(nil)
 	puts "End"
     end
 
+    # Slow down the event propagation so that we see the display being updated
     module SlowEventPropagation
 	def calling(context)
 	    super if defined? super
@@ -116,8 +122,6 @@ if $0 == __FILE__
 	end
     end
     Roby::EventGenerator.include SlowEventPropagation
-
-	
 
     begin
 	Thread.abort_on_exception = true

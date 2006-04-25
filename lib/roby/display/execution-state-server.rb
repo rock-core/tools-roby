@@ -1,5 +1,10 @@
 require 'Qt'
+require 'style'
 
+class Object
+    def __class;	method_missing(:class) end
+    def __address;	method_missing(:address) end
+end
 class DRbObject
     def __class;	method_missing(:class) end
     def __address;	method_missing(:address) end
@@ -74,6 +79,7 @@ module Roby
     class ExecutionStateDisplayServer < Qt::Object
 	BASE_DURATION = 10000
 	BASE_LINES    = 10
+	include Roby::DisplayStyle
 
 	attr_reader :line_height, :resolution, :start_time, :margin
 	attr_reader :canvas, :main
@@ -114,20 +120,12 @@ module Roby
 	    @hidden = false
 	end
 
-	# [ light, dark ] array of colors for events
-	TASK_COLOR = '#B0FFA6'
-	SIGNAL_COLOR = 'black'
-	EVENT_COLORS = [
-	    [ 'lightgrey', 'black' ],
-	    [ '#AFF6FF', '#4DD0FF' ]
-	]
-
 	class CanvasLine
 	    attr_reader :index
 	    attr_reader :colors
 	    def next_color
-		@color_index = (@color_index + 1) % EVENT_COLORS.size
-		EVENT_COLORS[@color_index]
+		@color_index = (@color_index + 1) % DisplayStyle::EVENT_COLORS.size
+		DisplayStyle::EVENT_COLORS[@color_index]
 	    end
 
 	    def initialize(index)
@@ -159,22 +157,9 @@ module Roby
 		line_height = display.line_height
 		y = index * line_height
 
-		@rectangle = Qt::CanvasRectangle.new(0, y, 0, line_height * 0.4, display.canvas) do |r|
-		    r.brush = Qt::Brush.new(Qt::Color.new(TASK_COLOR))
-		    r.pen = Qt::Pen.new(Qt::Color.new(TASK_COLOR))
-		    r.visible = true
-		    r.z = -1
-		end
-
-		@title = Qt::CanvasText.new(task.model.name, display.canvas) do |t|
-		    t.visible = true
-		    t.y = y + line_height * 0.4
-		    #font = t.font
-		    #font.pixel_size = line_height / 2
-		    #t.font = font
-		    #t.text_flags = Qt::AlignTop
-		    t.color = Qt::Color.new('black')
-		end
+		@rectangle, @title = DisplayStyle.task(task, display)
+		@rectangle.y += y
+		@title.y += y
 
 		self
 	    end
@@ -196,6 +181,7 @@ module Roby
 
 		# Build the task representation if necessary
 		line = (@lines[idx] ||= display_task(task, idx))
+		@tasks << line
 		line
 	    else
 		@lines[0]
@@ -214,14 +200,14 @@ module Roby
 	    if line.respond_to?(:task)
 		line.start = x if !line.start
 		line.stop = x
+		if generator.model.symbol == :stop
+		    @lines[line.index] = nil
+		end
 	    end
 	    
-	    y = line.index * line_height + line_height * 0.2
-	    shape = yield(x, y)
-
+	    y = (line.index + 0.2) * line_height
+	    shape = DisplayStyle.event(generator, self)
 	    shape.move(x, y)
-	    shape.visible = true
-	    shape.z = pending ? 0 : 1
 
 	    # TODO: manage the case where we have pending more than one command
 	    # TODO: from the same generator
@@ -231,6 +217,7 @@ module Roby
 		line.colors[generator] = colors
 	    end
 	    shape.brush = Qt::Brush.new(Qt::Color.new(pending ? colors[0] : colors[1]))
+	    shape.z -= 1 if pending
 	    shape
 	end
 
@@ -244,8 +231,8 @@ module Roby
 		source = event_display[source]
 		Qt::CanvasLine.new(canvas) do |c|
 		    c.set_points source.x, source.y, circle.x, circle.y
-		    c.brush = Qt::Brush.new(Qt::Color.new(SIGNAL_COLOR))
-		    c.pen = Qt::Pen.new(Qt::Color.new(SIGNAL_COLOR))
+		    c.brush = Qt::Brush.new(Qt::Color.new(DisplayStyle::SIGNAL_COLOR))
+		    c.pen = Qt::Pen.new(Qt::Color.new(DisplayStyle::SIGNAL_COLOR))
 		    c.visible = true
 		end
 	    end
