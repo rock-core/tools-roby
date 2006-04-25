@@ -1,5 +1,5 @@
 require 'Qt'
-require 'style'
+require 'roby/display/style'
 
 class Object
     def __class;	method_missing(:class) end

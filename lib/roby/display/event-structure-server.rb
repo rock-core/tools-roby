@@ -1,6 +1,6 @@
 require 'Qt'
 require 'roby/support'
-require 'style'
+require 'roby/display/style'
 require 'roby/task'
 
 module Roby
