@@ -1,50 +1,28 @@
 require 'roby/support'
-require 'drb'
-require 'enumerator'
+require 'roby/drb'
 require 'roby/task'
 
+require 'singleton'
+require 'enumerator'
+
 module Roby
-    class ExecutionStateDisplay
-	@@service = nil
-	def self.service; @@service end
-	def self.start_service(uri = 'druby://localhost:10000')
-	    read, write = IO.pipe
-	    fork do
-		begin
-		    require 'roby/display/execution-state-server'
-		    a = Qt::Application.new( ARGV )
+    class ExecutionStateDisplay < DRbDisplayServer
+	include Singleton
 
-		    display_server = Roby::ExecutionStateDisplayServer.new
-		    DRb.start_service(SERVER_URI, display_server)
-		    DRb.thread.priority = 1
-
-		    read.close
-		    write.write("OK")
-
-		    display_server.show
-		    a.setMainWidget( display_server.main )
-		    a.exec()
-		rescue Exception => e
-		    puts "#{e.message}(#{e.class.name}):in #{e.backtrace.join("\n  ")}"
-		end
+	DEFAULT_URI = 'druby://localhost:10000'
+	def self.service; instance.service end
+	def self.start_service(uri = DEFAULT_URI)
+	    EventGenerator.class_eval do
+		include EventHooks
 	    end
 
-	    check = read.read(2)
-	    if check != "OK"
-		raise "failed to start execution state display server"
+	    instance.start_service(uri) do
+		require 'roby/display/execution-state-server'
+		Roby::ExecutionStateDisplayServer.new
 	    end
-
-	    DRb.start_service
-
-	    # Get the remote object
-	    server = DRbObject.new(nil, uri)
-	    #@@service = server
-	    @@service = ThreadServer.new(server)
-	    @@service.thread.priority = -1
-	    @@service
 	end
     end
-
+	
     module EventHooks
 	def calling(context)
 	    super if defined? super
@@ -66,10 +44,6 @@ module Roby
 		server.signalling Time.now, event, to
 	    end
 	end
-    end
-
-    class EventGenerator
-	include EventHooks
     end
 end
 

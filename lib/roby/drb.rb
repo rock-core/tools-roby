@@ -48,5 +48,47 @@ module Roby
         rescue DRb::DRbConnError
         end
     end
+
+    # A remote display server as a standalone Qt application
+    class DRbDisplayServer
+	attr_reader :service
+	def start_service(uri)
+	    raise RuntimeError, "already started" if @service
+
+	    read, write = IO.pipe
+	    fork do
+		begin
+		    require 'Qt'
+		    a = Qt::Application.new( ARGV )
+
+		    server = yield
+		    DRb.start_service(uri, server)
+		    DRb.thread.priority = 1
+
+		    read.close
+		    write.write("OK")
+
+		    server.show
+		    a.setMainWidget( server.main_window )
+		    a.exec()
+		rescue Exception => e
+		    puts "#{e.message}(#{e.class.name}):in #{e.backtrace.join("\n  ")}"
+		end
+	    end
+
+	    check = read.read(2)
+	    if check != "OK"
+		raise "failed to start execution state display server"
+	    end
+
+	    DRb.start_service unless DRb.primary_server
+
+	    # Get the remote object
+	    server = DRbObject.new(nil, uri)
+	    @service = ThreadServer.new(server)
+	    @service.thread.priority = -1
+	    @service
+	end
+    end
 end
 

@@ -82,7 +82,7 @@ module Roby
 	include Roby::DisplayStyle
 
 	attr_reader :line_height, :resolution, :start_time, :margin
-	attr_reader :canvas, :main
+	attr_reader :canvas, :main_window
 	attr_reader :event_display, :event_source
 	def initialize
 	    super
@@ -96,10 +96,10 @@ module Roby
 	    
 	    @canvas = Qt::Canvas.new(640, line_height * BASE_LINES + margin * 2)
 	    
-	    @main = Qt::Splitter.new(Qt::Vertical)
+	    @main_window = Qt::Splitter.new(Qt::Vertical)
 	    
-	    @view   = Qt::CanvasView.new(@canvas, @main)
-	    @pending = PendingView.new(@main)
+	    @view   = Qt::CanvasView.new(@canvas, @main_window)
+	    @pending = PendingView.new(@main_window)
 
 	    @hidden = true
 	    @event_display = Hash.new
@@ -112,11 +112,11 @@ module Roby
 
 	def hidden?; @hidden end
 	def hide
-	    @main.hide
+	    @main_window.hide
 	    @hidden = true
 	end
 	def show
-	    @main.show
+	    @main_window.show
 	    @hidden = false
 	end
 
