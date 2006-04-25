@@ -49,8 +49,44 @@ module Roby
         end
     end
 
+    module DRbDisplayServer
+	attr_accessor :changed
+	def changed?; @changed end
+	def changed!; @changed = true end
+
+	def self.DisplayUpdater(display)
+	    # Use an anonymous class to avoid requiring 'Qt' in the main code
+	    @@updater_klass ||= Class.new(Qt::Object) do
+		attr_reader :display
+		def initialize(display)
+		    super(display.main_window)
+		    @display = display
+		    @updater = Qt::Timer.new(self, "timer")
+		    @updater.connect(@updater, SIGNAL('timeout()'), self, SLOT('update()'))
+		    @updater.start(100)
+		end
+
+		def update()
+		    Thread.pass
+		    if !display.main_window.hidden? && display.changed?
+			display.canvas.update
+			display.changed = false
+			@updater.change_interval 0
+			sleep 0.1
+		    else
+			@updater.change_interval 500
+		    end
+		end
+		slots "update()"
+	    end
+
+	    @@updater_klass.new(display)
+	end
+
+    end
+    
     # A remote display server as a standalone Qt application
-    class DRbDisplayServer
+    class DRbRemoteDisplay
 	attr_reader :service
 	def start_service(uri)
 	    raise RuntimeError, "already started" if @service
@@ -62,15 +98,19 @@ module Roby
 		    a = Qt::Application.new( ARGV )
 
 		    server = yield
+		    server.extend DRbDisplayServer
+		    updater = Roby::DRbDisplayServer.DisplayUpdater(server)
+
 		    DRb.start_service(uri, server)
 		    DRb.thread.priority = 1
 
 		    read.close
 		    write.write("OK")
 
-		    server.show
+		    server.main_window.show
 		    a.setMainWidget( server.main_window )
 		    a.exec()
+		    
 		rescue Exception => e
 		    puts "#{e.message}(#{e.class.name}):in #{e.backtrace.join("\n  ")}"
 		end

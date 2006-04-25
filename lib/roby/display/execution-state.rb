@@ -6,15 +6,13 @@ require 'singleton'
 require 'enumerator'
 
 module Roby
-    class ExecutionStateDisplay < DRbDisplayServer
+    class ExecutionStateDisplay < DRbRemoteDisplay
 	include Singleton
 
 	DEFAULT_URI = 'druby://localhost:10000'
 	def self.service; instance.service end
 	def self.start_service(uri = DEFAULT_URI)
-	    EventGenerator.class_eval do
-		include EventHooks
-	    end
+	    EventGenerator.include EventHooks
 
 	    instance.start_service(uri) do
 		require 'roby/display/execution-state-server'
@@ -99,8 +97,7 @@ if $0 == __FILE__
 
     begin
 	Thread.abort_on_exception = true
-	SERVER_URI = 'druby://localhost:9001'
-	server = Roby::ExecutionStateDisplay.start_service(SERVER_URI)
+	server = Roby::ExecutionStateDisplay.start_service
 
 	fill(server)
 	sleep(10)

@@ -104,10 +104,6 @@ module Roby
 	    @hidden = true
 	    @event_display = Hash.new
 	    @event_source = Hash.new
-
-	    @updater = Qt::Timer.new(self, "timer")
-	    @updater.connect(@updater, SIGNAL('timeout()'), self, SLOT('update()'))
-	    @updater.start(100)
  	end
 
 	def hidden?; @hidden end
@@ -260,22 +256,6 @@ module Roby
 	    event_source[to] = from
 	    @pending.signalling(time, from, to)
 	end
-
-	def update()
-	    Thread.pass
-	    if !hidden? && changed?
-		canvas.update
-		@changed = false
-		@updater.change_interval 0
-		sleep 0.1
-	    else
-		@updater.change_interval 500
-	    end
-	end
-	slots "update()"
-
-	def changed?; @changed end
-	def changed!; @changed = true end
     end
 end
 
