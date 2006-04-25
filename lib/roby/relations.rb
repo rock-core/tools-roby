@@ -54,6 +54,12 @@ module Roby
 	    relations << type
 	    to.relations << type
 	    type.add_child(self, to, info)
+
+	    added_child_object(to, type, info)
+	end
+	# Hook called after a new child has been added
+	def added_child_object(to, type, info)
+	    super if defined? super
 	end
 
 	# Remove relations where self is a parent
@@ -63,6 +69,12 @@ module Roby
 		    type.remove_child(self, to)
 		end
 	    end
+
+	    removed_child_object(to, type, info)
+	end
+	# Hook called after a child has been removed
+	def removed_child_object(to, type, info)
+	    super if defined? super
 	end
 
 	# Remove relations where self is a child
