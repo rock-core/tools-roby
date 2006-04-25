@@ -86,9 +86,8 @@ module Roby
 	    end
 	end
 
-	# Remove all relations that point to or come from +with+
-	# If with is null, it removes all relations +self+ is
-	# part of
+	# Remove all relations that point to or come from +to+
+	# If +to+ is nil, it removes all relations related to +self+
 	def remove_relations(to = nil, type = nil)
 	    remove_child_object(to, type)
 	    remove_parent_object(to, type)
@@ -96,6 +95,7 @@ module Roby
 
 	def apply_selection(object, container, enumerator, *args, &iterator)
 	    if object
+		# TODO: maybe check that object is in container
 		yield(object)
 	    else
 		container.send(enumerator, &iterator)
