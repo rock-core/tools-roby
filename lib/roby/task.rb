@@ -143,7 +143,7 @@ module Roby
 
 	    @@tasks[self.class] << self
 
-            super
+            super if defined? super
         end
 
         def model; singleton_class end
