@@ -16,6 +16,7 @@ module Roby
 
 	def self.event(event, display)
 	    Qt::CanvasEllipse.new(display.line_height / 4, display.line_height / 4, display.canvas) do |e|
+		yield(e) if block_given?
 		e.z = EVENT_Z
 		e.visible = true
 		e.brush = Qt::Brush.new(Qt::Color.new(EVENT_COLOR))
@@ -30,7 +31,7 @@ module Roby
 		r.visible = true
 	    end
 
-	    title = Qt::CanvasText.new(task.model.name, display.canvas) do |t|
+	    title = Qt::CanvasText.new(task.model.name.gsub(/Roby::(?:Genom::)?/, ''), display.canvas) do |t|
 		t.y = display.line_height * 0.4
 		t.color = Qt::Color.new(TASK_NAME_COLOR)
 		t.visible = true
@@ -41,6 +42,7 @@ module Roby
 
 	def self.arrow(fx, fy, tx, ty, display)
 	    line = Qt::CanvasLine.new(display.canvas) do |line|
+		yield(line) if block_given?
 		line.set_points(fx, fy, tx, ty)
 		line.pen = Qt::Pen.new(Qt::Color.new(ARROW_COLOR))
 		line.visible = true

@@ -8,8 +8,8 @@ module Roby
 	DEFAULT_URI = 'druby://localhost:10001'
 	def self.service; instance.service end
 	def self.start_service(uri = DEFAULT_URI)
-	    Task.include TaskHooks
-	    EventGenerator.include RelationHooks
+	    Roby::Task.include TaskHooks
+	    Roby::EventGenerator.include RelationHooks
 
 	    instance.start_service(uri) do
 		require 'roby/display/event-structure-server'
@@ -22,7 +22,10 @@ module Roby
 	    def initialize(*args)
 		super if defined? super
 
+		STDERR.puts "new task #{self.model.name}"
+
 		return unless server = EventStructureDisplay.service
+		STDERR.puts "bla"
 		server.event(event(:start))
 		server.event(event(:stop))
 	    end
@@ -61,8 +64,8 @@ if $0 == __FILE__
     end
 
     def fill(state_display)
-	t1 = task_mockup("t1")
-	t2 = task_mockup("t2")
+	t1 = task_mockup("a_very_long_name")
+	t2 = task_mockup("another_long_name")
 	t3 = task_mockup("t3")
 		
 	f = Roby::ForwarderGenerator.new(t1.event(:start), t2.event(:start))
