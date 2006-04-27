@@ -61,6 +61,10 @@ module Roby::Genom
 	# Arguments for the request itself
 	attr_reader :arguments
 
+	# Creates a new Task object to map a Genom request
+	# +arguments+ is an array holding the request arguments. TypeError
+	# is raised if their type does not match the request type, and
+	# ArgumentError is raised if the argument count is wrong
 	def initialize(arguments, genom_request)
 	    @arguments  = arguments
 	    @request    = genom_request
