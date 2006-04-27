@@ -101,6 +101,7 @@ module Roby
 		    server.extend DRbDisplayServer
 		    updater = Roby::DRbDisplayServer.DisplayUpdater(server)
 
+		    DRb.stop_service
 		    DRb.start_service(uri, server)
 		    DRb.thread.priority = 1
 
