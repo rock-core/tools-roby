@@ -24,16 +24,21 @@ module Roby::TaskStructure
 	    return if execution_agent == agent
 	    if !agent.event(:start).controlable?
 		raise TaskModelViolation.new(self), "the start event of #{self}'s execution agent #{agent} is not controlable"
+	    elsif !has_event?(:aborted) || !event(:aborted).controlable?
+		raise TaskModelViolation.new(self), "no :aborted controlable event on #{self}. It is needed to use the execution_agent relation"
 	    end
 
 	    if old = execution_agent && old != agent
 		Roby.debug "an agent is already defined for this task"
 		remove_execution_agent old
-		event(:start).remove_ensured_event old.event(:start)
+		agent.event(:stop).remove_causal_link event(:stop)
 	    end
 
 	    add_execution_agent(agent)
-	    event(:start).add_ensured_event(agent.event(:start))
+	    agent.event(:stop).
+		add_causal_link(event(:stop)).
+		until(event(:stop)).
+		    on(event(:aborted))
         end
 
 	module EventModel
