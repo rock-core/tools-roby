@@ -201,7 +201,7 @@ module Roby::Genom
 	    end
 
 	    if init
-		init.on { emit :ready }
+		event(:ready).emit_on init
 	    end
 	end
 	event :start
