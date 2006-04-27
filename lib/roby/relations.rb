@@ -67,13 +67,12 @@ module Roby
 	    apply_selection(type, relations, :each) do |type|
 		apply_selection(to, self, :each_child_object, type) do |to|
 		    type.remove_child(self, to)
+		    removed_child_object(to, type)
 		end
 	    end
-
-	    removed_child_object(to, type, info)
 	end
 	# Hook called after a child has been removed
-	def removed_child_object(to, type, info)
+	def removed_child_object(to, type)
 	    super if defined? super
 	end
 
@@ -82,8 +81,13 @@ module Roby
 	    apply_selection(type, relations, :each) do |type|
 		apply_selection(to, self, :each_parent_object, type) do |to|
 		    type.remove_parent(self, to)
+		    removed_parent_object(to, type)
 		end
 	    end
+	end
+	# Hook called after a parent has been removed
+	def removed_parent_object(to, type)
+	    super if defined? super
 	end
 
 	# Remove all relations that point to or come from +to+
