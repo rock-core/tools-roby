@@ -383,5 +383,50 @@ module Roby
         attr_reader :waiting
         def initialize_copy(from); @waiting = from.waiting.dup end
     end
+
+
+    module Temporal
+	def until(event)
+	    Until.new(self, event)
+	end
+	
+	INVERSE = {
+	    :on => lambda do |generator, *args|
+		block = args.pop
+		generator.handlers.delete(block)
+		args.each { |sig| generator.remove_signal(sig) }
+	    end
+	}
+		
+	class Until
+	    attr_reader :event
+	    def initialize(event, limit)
+		limit.on(&self.method(:revert))
+		@event = event
+		@revert = []
+	    end
+
+	    def method_missing(name, *args, &block)
+		if inverse = INVERSE[name]
+		    event.send(name, *args, &block)
+
+		    args << block
+		    @revert.unshift [inverse, args]
+		else
+		    super
+		end
+	    end
+
+	    def revert(context)
+		@revert.each do |invert, args|
+		    invert.call(event, *args)
+		end
+		@revert.clear
+	    end
+	    private :revert
+	end
+    end
+
+    EventGenerator.include Temporal
 end
 
