@@ -66,6 +66,9 @@ module Roby::Genom
 	# is raised if their type does not match the request type, and
 	# ArgumentError is raised if the argument count is wrong
 	def initialize(arguments, genom_request)
+	    # Check that +arguments+ are valid for genom_request
+	    genom_request.filter_input(*arguments)
+
 	    @arguments  = arguments
 	    @request    = genom_request
 	    super()
@@ -147,10 +150,10 @@ module Roby::Genom
 		    define_method(:request_name)    { rq_name }
 		end
 
-		class_attribute :request_method => gen_mod.method(method_name)
+		class_attribute :request => gen_mod.request_info[method_name]
 
 		def initialize(*arguments)
-		    super(arguments, self.class.request_method)
+		    super(arguments, self.class.request)
 		end
 		def self.name
 		    "#{roby_module.name}::#{request_name}"

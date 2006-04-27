@@ -27,6 +27,12 @@ class TC_Genom < Test::Unit::TestCase
 	assert_equal("#<Roby::Genom::Mockup::Start!0x#{task.address.to_s(16)}>", task.model.name)
     end
 
+    def test_argument_checking
+	model = Genom::GenomModule('mockup')
+	assert_raises(ArgumentError) { model::SetIndex.new(10, 20) }
+	assert_raises(TypeError) { model::SetIndex.new("bla") }
+    end
+
     def test_runner_task
         Genom.connect do
             Genom::GenomModule('mockup')
