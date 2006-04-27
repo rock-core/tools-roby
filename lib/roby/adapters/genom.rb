@@ -332,7 +332,7 @@ module Roby::Genom
 	attribute(:uses) { Array.new }
 	def uses?(name); uses.include?(name.to_s) end
 	def using(*modules)
-	    modules.each { |modname| 
+	    modules.each do |modname| 
 		modname = modname.to_s
 		::Roby::Genom::GenomModule(modname) 
 		self.autoload_path.each do |path|
@@ -345,7 +345,7 @@ module Roby::Genom
 			raise if e.backtrace.find { |level| level =~ /#{Regexp.quote(extfile)}/ }
 		    end
 		end
-	    }
+	    end
 	    
 	    uses |= modules.map { |name| name.to_s }
 	end
