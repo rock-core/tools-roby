@@ -4,9 +4,9 @@ module Roby::EventStructure
 	    super if defined? super
 	    each_ensured_event do |ev|
 		if !ev.happened?
-		    ev.on self
-		    ev.call(context)
-		    throw :filtered
+		    postpone(ev, "waiting for ensured event #{ev}") do
+			ev.call(context) if ev.controlable?
+		    end
 		end
 	    end
 	end
