@@ -144,6 +144,13 @@ module Roby
 	    already_seen = Set.new
             while result
                 new_result = gather_emit do
+                    # Call event handlers
+                    result.handlers.each do |event, event_handlers|
+                        event_handlers.each do |handler|
+                            handler.call(event) 
+                        end
+                    end
+
                     # Call event signalled by this task
                     # Note that internal signalling does not need a #call
                     # method (hence the respond_to? check). The fact that the
@@ -161,13 +168,6 @@ module Roby
 			    end
 			end
 		    end
-
-                    # Call event handlers
-                    result.handlers.each do |event, event_handlers|
-                        event_handlers.each do |handler|
-                            handler.call(event) 
-                        end
-                    end
                 end
                 result = new_result
             end        

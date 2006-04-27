@@ -44,6 +44,18 @@ class TC_EventPropagation < Test::Unit::TestCase
 	assert_equal(expected_history, event_history)
     end
 
+    def test_ordering
+	e1, e2, e3 = 4.enum_for(:times).map { Roby::EventGenerator.new(true) }
+	e1.on(e2)
+	e1.on { e2.remove_signal(e3) }
+	e2.on(e3)
+
+	e1.call(nil)
+	assert( e2.happened? )
+	assert( !e3.happened? )
+    end
+
+
     def test_call_causal_warning
 	model = Roby::EventGenerator.new { }
 	model.call(nil)
