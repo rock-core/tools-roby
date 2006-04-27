@@ -2,6 +2,9 @@ require 'roby/task'
 require 'roby/relations/hierarchy'
 
 module Roby::TaskStructure
+    # The execution_agent defines an agent (process or otherwise) a given
+    # task is executed by. It allows to define a class of these execution agent,
+    # so that the specific agents are managed externally (load-balacing, autospawn, ...)
     relation :execution_agent do
         def self.included(klass)
             class << klass
