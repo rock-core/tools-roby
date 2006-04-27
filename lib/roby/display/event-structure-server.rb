@@ -106,7 +106,6 @@ module Roby
 	class Element
 	    attr_reader :column, :next_elements, :display
 	    def initialize(column, display)
-		@column		= column
 		@display	= display
 		@next_elements	= Set.new
 
@@ -114,15 +113,16 @@ module Roby
 	    end
 
 	    def column=(new)
-		return if new == column
 		column.remove(self) if column
 
 		@column = new
 		new.add(self)
 
-		next_column = (new.next_column || display.newcolumn)
-		next_elements.each do |element|
-		    element.column = next_column
+		unless next_elements.empty?
+		    next_column = (new.next_column || display.newcolumn)
+		    next_elements.each do |element|
+			element.column = next_column
+		    end
 		end
 	    end
 	end
@@ -131,59 +131,56 @@ module Roby
 	    attr_reader :events
 	    attr_reader :x, :y, :width, :span
 	    def initialize(task, column, display)
-		super(column, display)
-
 		@rectangle, @title = DisplayStyle.task(task, display)
 		@events  = []
 		@x, @y = 0, 0
+		@width = @span = display.line_height * 0.5
+
+		super(column, display)
 	    end
 
 	    def update_width
-		@width = events.size * (display.event_radius * 2 + display.event_spacing)
+		@width = events.inject(x = display.event_spacing) { |x, event| x + event.width + display.event_spacing }
 		@span  = [@title.bounding_rect.width, width].max
 		
 		column.width = width * 1.2 if column && column.width < width
 		@rectangle.set_size(width, @rectangle.height)
 	    end
 
-	    # New event for this task. +event+ shall be an Event object.
-	    def event(event)
-		events << event
-		update_width
+	    def event_y; @rectangle.y + display.event_radius * 2 end
 
-		x = @rectangle.x + (events.size - 0.5) * (display.event_spacing + display.event_radius * 2)
-		event.move(x, @rectangle.y + @rectangle.height / 2)
+	    # New event for this task. +event+ shall be an Event object.
+	    def event(new)
+		events << new
+		update_width
+		move(self.x, self.y)
 	    end
     
 	    def move(x, y)
-		puts "moving #{self} -> (#{x}:#{y})"
-		@rectangle.moveBy(x - self.x, y - self.y)
-		@title.moveBy(x - self.x, y - self.y)
+		offset = [x - self.x, y - self.y]
+		@rectangle.moveBy(*offset)
+		@title.moveBy(*offset)
 		@x, @y = x, y
 
-		left_margin = @rectangle.x + display.event_spacing / 2 + display.event_radius
-		x_step	    = display.event_spacing + display.event_radius * 2
-		y	    = @rectangle.y + @rectangle.height / 2
-		events.each_with_index do |ev, idx|
-		    ev.move(left_margin + idx * x_step, y)
+		events.inject(x = @rectangle.x + display.event_spacing) do |x, event| 
+		    event.move(x + event.width / 2, event_y)
+		    x + event.width + display.event_spacing
 		end
 	    end
 	end
 
+	# (x, y) is the disc center
 	class Event < Element
 	    def initialize(event, column, display)
-		super(column, display)
-		@shape = DisplayStyle.event(event, display) do |shape|
-		    shape.move(display.event_radius * 2, display.event_radius * 2)
-		end
+		@circle, @text = DisplayStyle.event(event, display)
 		@watchers = []
+
+		super(column, display)
 	    end
 	    
-	    attr_reader :shape
-
-	    def x; shape.x end
-	    def y; shape.y end
-	    def width; display.event_radius * 4 end
+	    def x; @circle.x end
+	    def y; @circle.y end
+	    def width; [@circle.width, @text.bounding_rect.width].max end
 	    def span; width end
 
 	    def add_watch(&updater)
@@ -191,11 +188,13 @@ module Roby
 	    end
 
 	    def move(x, y)
-		puts "moving #{self} -> (#{x}:#{y})"
-		@watchers.each do |w|
-		    w.call(x, y)
-		end
-		@shape.move(x, y)
+		offset = [x - self.x, y - self.y]
+		@x, @y = x, y
+
+		@circle.moveBy(*offset)
+		@text.moveBy(*offset)
+		
+		@watchers.each { |w| w.call(x, y) }
 	    end
 	end
 	
@@ -209,7 +208,6 @@ module Roby
 	    def column=(new); task.column = new end
 	end
 	
-	attr_reader :event_color, :task_color
 	attr_reader :line_height, :margin, :event_radius, :event_spacing
 	attr_reader :canvas, :view, :main_window
 	attr_reader :tasks, :events, :remaining, :columns
@@ -219,17 +217,16 @@ module Roby
 	    super
 
 	    @start_time	    = nil # start time (time of the first event)
-	    @line_height    = 30  # height of a line in pixel
+	    @line_height    = 40  # height of a line in pixel
 	    @tasks	    = Hash.new # a Roby::Task -> Display::Task map
 	    @events	    = Hash.new # a Roby::Event -> Display::Event map
-	    @columns	    = [] # [first, last] column objects
-	    @remaining	    = []
 	    @margin	    = 10
-	    @event_radius   = line_height / 4
+	    @event_radius   = 4
 	    @event_spacing  = event_radius
 
-	    @task_color  = 'lightblue'
-	    @event_color = 'lightgreen'
+	    first_column = Column.new(margin, self)
+	    @columns	    = [first_column, first_column] # [first, last] column objects
+	    @remaining	    = []
 
 	    @canvas = Qt::Canvas.new(640, line_height * BASE_LINES + margin * 2)
 	    @view   = Qt::CanvasView.new(@canvas, nil)
@@ -252,26 +249,20 @@ module Roby
 	end
 
 	def newcolumn
-	    x = if columns[0]
-		columns[0].inject(margin + columns[0].width) { |x, col| x + col.width }
-	    else
-		0
-	    end
+	    x = columns[0].inject(margin + columns[0].width) { |x, col| x + col.width }
 	    new = Column.new(x, self) 
 
 	    remaining.enum_for(:each_with_index).
 		select { |(task, _), _| task }.
 		each { |(task, w), line_idx| new.allocate(line_idx, task, task.span) }
 
-	    if columns[0]
-		columns.last.next_column = new
-		columns[1] = new
-	    else
-		@columns = [new, new]
-	    end
+	    columns.last.next_column = new
+	    columns[1] = new
 	end
 
-	def task(task); @tasks[task] ||= Task.new(task, columns.first, self) end
+	def task(task)
+	    @tasks[task] ||= Task.new(task, columns.first, self) 
+	end
 
 	def column_index(column)
 	    enum_for(:each_column).enum_for(:each_with_index).
@@ -287,14 +278,13 @@ module Roby
 	    base_column = (from.column ||= columns[0])
 	    unless to.column && base_column.parent_of?(to.column)
 		to.column = (from.column.next_column || newcolumn)
-		puts "#{ev_from} #{ev_to} #{column_index(from.column)}:#{from.column.x} #{column_index(to.column)}:#{to.column.x}"
 		from.next_elements << to
 	    end
 
 	    # Create the link and add updaters in both events
-	    line = DisplayStyle.arrow(from.shape.x, from.shape.y, to.shape.x, to.shape.y, self)
-	    from.add_watch { line.set_points(from.shape.x, from.shape.y, line.end_point.x, line.end_point.y) }
-	    to.add_watch { line.set_points(line.start_point.x, line.start_point.y, to.shape.x, to.shape.y) }
+	    line = DisplayStyle.arrow(from.x, from.y, to.x, to.y, self)
+	    from.add_watch  { line.start_point = [from.x, from.y] }
+	    to.add_watch    { line.end_point = [to.x, to.y] }
 	end
 
 	# def delete(from, to)

@@ -70,6 +70,9 @@ if $0 == __FILE__
 		
 	f = Roby::ForwarderGenerator.new(t1.event(:start), t2.event(:start))
 	t1.event(:stop).on t3.event(:start)
+
+	t4 = task_mockup('t4')
+	t4.event(:stop).on t3.event(:start)
 	puts "End"
     end
 
