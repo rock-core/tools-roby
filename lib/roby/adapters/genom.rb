@@ -320,6 +320,7 @@ module Roby::Genom
 		singleton_class.class_eval do
 		    define_method(:roby_module) { rb_mod }
 		end
+		on(:stop) { genom_module.disconnect if genom_module.connected? }
 	    end
 	end
 
