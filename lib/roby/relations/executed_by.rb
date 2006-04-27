@@ -19,6 +19,10 @@ module Roby::TaskStructure
 	def execution_agent; enum_for(:each_execution_agent).find { true } end
         def executed_by(agent)
 	    return if execution_agent == agent
+	    if !agent.event(:start).controlable?
+		raise TaskModelViolation.new(self), "the start event of #{self}'s execution agent #{agent} is not controlable"
+	    end
+
 	    if old = execution_agent && old != agent
 		Roby.debug "an agent is already defined for this task"
 		remove_execution_agent old
