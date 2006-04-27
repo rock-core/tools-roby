@@ -1,5 +1,24 @@
 module Roby
     module DisplayStyle
+	class CanvasGroup < Array
+	    attr_reader :x, :y
+	    def initialize(*args)
+		super()
+		args.each { |obj| self << obj }
+		@x, @y = 0, 0
+	    end
+
+	    def move(x, y)
+		offset_x = x - @x
+		offset_y = y - @y
+		each { |obj| obj.moveBy(offset_x, offset_y) }
+	    end
+	    def apply(name, *args); each { |obj| obj.send(name, *args) if obj.respond_to?(name) } end
+	    def brush=(brush); apply(:brush=, brush) end
+	    def z=(z); apply(:z=, z) end
+	    def z; first.z end
+	end
+	
 	TASK_COLOR = '#B0FFA6'
 	TASK_Z = -1
 	TASK_NAME_COLOR = 'black'
@@ -16,7 +35,7 @@ module Roby
 	EVENT_Z = 1
 	EVENT_FONTSIZE = 8
 
-	def self.event(event, display)
+	def self.event(event, display, with_label = true)
 	    d = display.event_radius * 2
 	    circle = Qt::CanvasEllipse.new(d, d, display.canvas) do |e|
 		circle = e
@@ -25,22 +44,26 @@ module Roby
 		e.visible = true
 	    end
 
-	    name = event.model.symbol if event.model.respond_to?(:symbol)
-	    
-	    title = Qt::CanvasText.new(name.to_s, display.canvas) do |t|
-		title = t
-		font = t.font
-		font.pixel_size = EVENT_FONTSIZE
-		t.font = font
+	    if !with_label
+		circle
+	    else
+		name = event.model.symbol if event.model.respond_to?(:symbol)
+		
+		title = Qt::CanvasText.new(name.to_s, display.canvas) do |t|
+		    title = t
+		    font = t.font
+		    font.pixel_size = EVENT_FONTSIZE
+		    t.font = font
 
-		w = t.bounding_rect.width
-		t.move(-w / 2, d / 2)
-		t.z = EVENT_Z
-		t.color = Qt::Color.new(TASK_NAME_COLOR)
-		t.visible = true
+		    w = t.bounding_rect.width
+		    t.move(-w / 2, d / 2)
+		    t.z = EVENT_Z
+		    t.color = Qt::Color.new(TASK_NAME_COLOR)
+		    t.visible = true
+		end
+
+		CanvasGroup.new(circle, title)
 	    end
-
-	    [circle, title]
 	end
 
 	def self.task(task, display)
@@ -61,7 +84,7 @@ module Roby
 		t.visible = true
 	    end
 
-	    [rectangle, title]
+	    CanvasGroup.new(rectangle, title)
 	end
 
 	ARROW_Z = 5

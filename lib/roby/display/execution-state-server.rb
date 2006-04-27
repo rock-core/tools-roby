@@ -81,18 +81,20 @@ module Roby
 	BASE_LINES    = 10
 	include Roby::DisplayStyle
 
-	attr_reader :line_height, :resolution, :start_time, :margin
+	attr_reader :line_height, :resolution, :start_time, :margin, :event_radius
 	attr_reader :canvas, :main_window
 	attr_reader :event_display, :event_source
 	def initialize
 	    super
 
-	    @start_time	    = nil # start time (time of the first event)
 	    @resolution	    = BASE_DURATION / 640 # resolution for time axis in ms per pixel
-	    @line_height    = 30  # height of a line in pixel
+	    @line_height    = 40  # height of a line in pixel
+	    @event_radius   = 4
+	    @margin	    = 10
+
+	    @start_time	    = nil # start time (time of the first event)
 	    @lines = [CanvasLine.new(0)] # active tasks for each line, the first line is for events not related to a task
 	    @tasks	    = Array.new # list of known task objects
-	    @margin	    = 10
 	    
 	    @canvas = Qt::Canvas.new(640, line_height * BASE_LINES + margin * 2)
 	    
@@ -202,7 +204,7 @@ module Roby
 	    end
 	    
 	    y = (line.index + 0.2) * line_height
-	    shape = DisplayStyle.event(generator, self)
+	    shape = DisplayStyle.event(generator, self, pending)
 	    shape.move(x, y)
 
 	    # TODO: manage the case where we have pending more than one command

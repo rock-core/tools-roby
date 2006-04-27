@@ -218,10 +218,10 @@ module Roby
 
 	    @start_time	    = nil # start time (time of the first event)
 	    @line_height    = 40  # height of a line in pixel
-	    @tasks	    = Hash.new # a Roby::Task -> Display::Task map
-	    @events	    = Hash.new # a Roby::Event -> Display::Event map
 	    @margin	    = 10
 	    @event_radius   = 4
+	    @tasks	    = Hash.new # a Roby::Task -> Display::Task map
+	    @events	    = Hash.new # a Roby::Event -> Display::Event map
 	    @event_spacing  = event_radius
 
 	    first_column = Column.new(margin, self)
