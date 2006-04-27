@@ -224,6 +224,10 @@ module Roby::Genom
 	    State.genom.send(genom_module.name)
 	end
 
+	def poster(name)
+	    genom_module.poster(name)
+	end
+
 	def method_missing(name, *args, &block)
 	    # Do not forward requests for which there is a task
 	    # if !respond_to?("#{name}!") && genom_module.respond_to?(name)
