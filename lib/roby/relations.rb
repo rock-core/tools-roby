@@ -204,8 +204,8 @@ module Roby
 		    define_method_with_block "each_#{relation_name}" do |iterator|
 			relation_type.each_child_object(self, &iterator)
 		    end
-		    define_method("add_#{relation_name}")    { |to, *info| self.add_child_object(to, relation_type, *info) }
-		    define_method("remove_#{relation_name}") { |to| self.remove_child_object(to, relation_type) }
+		    define_method("add_#{relation_name}")    { |to, *info| self.add_child_object(to, relation_type, *info); self }
+		    define_method("remove_#{relation_name}") { |to| self.remove_child_object(to, relation_type); self }
 		end
 		relation_space.const_set(mod.module_name, mod)
 		klass.include mod
