@@ -16,6 +16,42 @@ module Roby
 		Roby::EventStructureDisplayServer.new
 	    end
 	end
+
+	class DisplayableEvent
+	    @@cache = Hash.new
+	    def self.[](event)
+	       	@@cache[event] ||= DisplayableEvent.new(event)
+	    end
+	    
+	    attr_reader :task, :symbol, :source_id
+	    alias :hash :source_id
+	    def eql?(event); source_id == event.source_id end
+	    def initialize(event)
+		if event.respond_to?(:task)
+		    @task   = DisplayableTask[event.task]
+		else
+		    singleton_class.class_eval { private :task }
+		end
+		@source_id = event.object_id
+		@symbol = (event.model.symbol if event.model.respond_to?(:symbol)) || ""
+	    end
+
+	    def model; self end
+	end
+	class DisplayableTask
+	    @@cache = Hash.new
+	    def self.[](task); @@cache[task] ||= DisplayableTask.new(task) end
+
+	    attr_reader :name, :source_id
+	    alias :hash :source_id
+	    def eql?(task); source_id == task.source_id end
+	    
+	    def initialize(task)
+		@name   = task.model.name
+		@source_id = task.object_id
+	    end
+	    def model; self end
+	end
 	
 	module TaskHooks
 	    # Display the start and stop events for each task created
@@ -25,9 +61,8 @@ module Roby
 		STDERR.puts "new task #{self.model.name}"
 
 		return unless server = EventStructureDisplay.service
-		STDERR.puts "bla"
-		server.event(event(:start))
-		server.event(event(:stop))
+		server.event(DisplayableEvent[event(:start)])
+		server.event(DisplayableEvent[event(:stop)])
 	    end
 	end
 
@@ -37,7 +72,7 @@ module Roby
 
 		return unless server = EventStructureDisplay.service
 		return unless EventStructure::CausalLinks.include?(type)
-		server.add(self, to)
+		server.add(DisplayableEvent[self], DisplayableEvent[to])
 	    end
 	end
     end
