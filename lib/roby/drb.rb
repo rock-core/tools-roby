@@ -57,10 +57,13 @@ module Roby
 	def self.DisplayUpdater(display)
 
 	    def demux(commands)
+		@demuxing = true
 		commands.each do |name, *args| 
 		    block = args.pop
 		    send(name, *args, &block) 
 		end
+	    ensure
+		@demuxing = false
 	    end
 	    
 	    # Use an anonymous class to avoid requiring 'Qt' in the main code
@@ -75,15 +78,15 @@ module Roby
 		end
 
 		def update()
+		    return if display.main_window.hidden?
 		    Thread.pass
-		    if !display.main_window.hidden? && display.changed?
-			display.canvas.update
+		    return unless display.changed
+		    while @demuxing || display.changed
 			display.changed = false
-			@updater.change_interval 0
-			sleep 0.1
-		    else
-			@updater.change_interval 500
+			Thread.pass
 		    end
+
+		    display.canvas.update
 		end
 		slots "update()"
 	    end
