@@ -277,6 +277,7 @@ module Roby
 	end
 
 	def add(ev_from, ev_to)
+	    changed!
 	    # Build canvas objects
 	    from = event(ev_from)
 	    to   = event(ev_to)
@@ -303,6 +304,7 @@ module Roby
 	def event(ev)
 	    return events[ev] if events[ev]
 		
+	    changed!
 	    if ev.respond_to?(:task)
 		task = task(ev.task)
 		events[ev] ||= TaskEvent.new(ev, task, self)
