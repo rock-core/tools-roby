@@ -234,14 +234,6 @@ module Roby::Genom
 	    genom_module.poster(name)
 	end
 
-	def method_missing(name, *args, &block)
-	    # Do not forward requests for which there is a task
-	    # if !respond_to?("#{name}!") && genom_module.respond_to?(name)
-	    #     return genom_module.send(name, *args, &block)
-	    # end
-	    super
-	end
-
 	# Builds a Task object based on a control task object, where
 	# * the start event starts the control task start event
 	# * the start event is emitted when the control task finishes successfully
