@@ -47,7 +47,13 @@ module Roby::TaskStructure
 		return unless respond_to?(:task)
 		return unless agent_model = task.class.execution_agent
 
-		if agent = (task.execution_agent || Roby::Task[agent_model].to_a.first)
+		agent = (task.execution_agent || Roby::Task[agent_model].to_a.first)
+		if !agent
+		    agent = agent_model.new rescue Exception
+		    agent = nil if agent == Exception
+		end
+
+		if agent
 		    task.executed_by agent
 
 		    if agent.finished?
