@@ -60,6 +60,7 @@ module Roby
 
 		STDERR.puts "new task #{self.model.name}"
 
+		return if null?
 		return unless server = EventStructureDisplay.service
 		server.event(DisplayableEvent[event(:start)])
 		server.event(DisplayableEvent[event(:stop)])
