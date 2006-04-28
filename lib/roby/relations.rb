@@ -12,28 +12,33 @@ module Roby
 	attribute(:relations) { Set.new }
 
 	def each_parent_object(type = nil, &iterator)
+	    check_is_relation(type)
 	    enum_for(:apply_selection, type, relations, :each).
 		inject(null_enum) { |enum, type| enum + type.enum_for(:each_parent_object, self) }.
 		enum_uniq { |obj| obj }.
 		each(&iterator)
 	end
 	def each_child_object(type = nil)
+	    check_is_relation(type)
 	    enum_for(:apply_selection, type, relations, :each).
 		inject(null_enum) { |enum, type| enum + type.enum_for(:each_child_object, self) }.
 		enum_uniq { |obj| obj }.
 		each { |child| yield(child) }
 	end
 	def each_related_object(type = nil, &iterator)
+	    check_is_relation(type)
 	    (enum_for(:each_parent_object, type) + enum_for(:each_child_object, type)).
 		enum_uniq { |obj| obj }.
 		each(&iterator)
 	end
 
 	def child_object?(obj, type = nil)
+	    check_is_relation(type)
 	    enum_for(:apply_selection, type, relations, :each).
 		find { |type| type.child_object?(self, obj) }
 	end
 	def parent_object?(obj, type = nil)
+	    check_is_relation(type)
 	    enum_for(:apply_selection, type, relations, :each).
 		find { |type| type.parent_object?(self, obj) }
 	end
@@ -51,6 +56,7 @@ module Roby
 
 	# Add a new relation
 	def add_child_object(to, type, info = nil)
+	    check_is_relation(type)
 	    relations << type
 	    to.relations << type
 	    type.add_child(self, to, info)
@@ -64,6 +70,7 @@ module Roby
 
 	# Remove relations where self is a parent
 	def remove_child_object(to = nil, type = nil)
+	    check_is_relation(type)
 	    apply_selection(type, relations, :each) do |type|
 		apply_selection(to, self, :each_child_object, type) do |to|
 		    type.remove_child(self, to)
@@ -78,6 +85,7 @@ module Roby
 
 	# Remove relations where self is a child
 	def remove_parent_object(to = nil, type = nil)
+	    check_is_relation(type)
 	    apply_selection(type, relations, :each) do |type|
 		apply_selection(to, self, :each_parent_object, type) do |to|
 		    type.remove_parent(self, to)
@@ -93,13 +101,19 @@ module Roby
 	# Remove all relations that point to or come from +to+
 	# If +to+ is nil, it removes all relations related to +self+
 	def remove_relations(to = nil, type = nil)
+	    check_is_relation(type)
 	    remove_child_object(to, type)
 	    remove_parent_object(to, type)
 	end
 
+	def check_is_relation(type)
+	    if type && !type.respond_to?(:relation_type)
+		raise ArgumentError, "#{type} is not a relation type"
+	    end
+	end
+
 	def apply_selection(object, container, enumerator, *args, &iterator)
 	    if object
-		# TODO: maybe check that object is in container
 		yield(object)
 	    else
 		container.send(enumerator, &iterator)
