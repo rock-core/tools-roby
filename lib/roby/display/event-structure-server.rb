@@ -151,7 +151,12 @@ module Roby
 
 	    # New event for this task. +event+ shall be an Event object.
 	    def event(new)
-		events << new
+		if !events.empty? && events.last.event.symbol == :stop
+		    events.insert(-2, new)
+		else
+		    events << new
+		end
+
 		update_width
 		move(self.x, self.y)
 	    end
