@@ -71,20 +71,24 @@ module Roby::TaskAggregator
 
         def unshift(task)
             raise "trying to do Sequence#unshift on a running sequence" if running?
-            task.on(:stop, @tasks.first, :start) unless @tasks.empty?
-	    @start_event.delete(@tasks.first.event(:start))
+	    unless @tasks.empty?
+		task.on(:stop, @tasks.first, :start)
+		@start_event.delete(@tasks.first.event(:start))
+	    end
 
-            @tasks.unshift(task)
 	    @start_event << task.event(:start)
+            @tasks.unshift(task)
         end
 
         def <<(task)
-	    unless @tasks.empty?
+	    if @tasks.empty?
+		unshift(task)
+	    else
 		@tasks.last.on(:stop, task, :start)
 		@tasks.last.event(:stop).remove_signal @stop_event
+		@tasks << task 
 	    end
 
-            @tasks << task 
 	    task.event(:stop).on @stop_event
 	    self
         end
@@ -140,6 +144,8 @@ module Roby::TaskAggregator
 	    end
 
 	    super()
+	    event(:start).on aggregator.start_event
+	    aggregator.stop_event.on event(:stop)
 	end
     end
 

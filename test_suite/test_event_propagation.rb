@@ -131,6 +131,7 @@ class TC_EventPropagation < Test::Unit::TestCase
 	destinations = 5.enum_for(:times).map { Roby::EventGenerator.new(true) }
 	source = Roby::ForwarderGenerator.new(*destinations)
 
+	assert(destinations.all? { |ev| ev.parent_object?(source, Roby::EventStructure::Signals) })
 	source.call(nil)
 	assert(destinations.all? { |ev| ev.happened? })
     end
@@ -196,7 +197,7 @@ class TC_EventPropagation < Test::Unit::TestCase
         p = t1 | t2
 	assert(p.start_event.controlable?)
 	assert(p.event(:start) == p.start_event)
-	assert(p.event(:stop) == p.stop_event)
+	assert(p.event(:stop)  == p.stop_event)
 	FlexMock.use do |mock|
 	    p.on(:start) { mock.started }
 	    p.on(:stop)  { mock.stopped }
@@ -208,6 +209,15 @@ class TC_EventPropagation < Test::Unit::TestCase
 	assert(p.event(:stop).happened?)
 	assert(p.finished?)
 
+        t1, t2 = EmptyTask.new, EmptyTask.new, EmptyTask.new
+	s = t1 + t2
+
+	assert(s.start_event.controlable?)
+        s.event(:start).call(nil)
+        assert(t1.finished? && t2.finished?)
+        assert(s.event(:stop).happened?)
+	assert(s.finished?)
+
         t1, t2, t3 = EmptyTask.new, EmptyTask.new, EmptyTask.new
         s = t2 + t3
 	s.unshift t1
@@ -217,6 +227,7 @@ class TC_EventPropagation < Test::Unit::TestCase
         assert(t1.finished? && t2.finished? && t3.finished?)
         assert(s.event(:stop).happened?)
 	assert(s.finished?)
+
     end
 
     def test_ensure
