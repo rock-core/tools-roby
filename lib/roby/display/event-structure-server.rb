@@ -176,7 +176,9 @@ module Roby
 
 	# (x, y) is the disc center
 	class Event < Element
+	    attr_reader :event
 	    def initialize(event, column, display)
+		@event = event
 		@circle, @text = DisplayStyle.event(event, display)
 		@watchers = []
 
