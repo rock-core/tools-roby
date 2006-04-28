@@ -36,7 +36,6 @@ module Roby::TaskStructure
 
 	    add_execution_agent(agent)
 	    agent.event(:stop).
-		add_causal_link(event(:stop)).
 		until(event(:stop)).
 		    on(event(:aborted))
         end
