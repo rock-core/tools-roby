@@ -20,15 +20,26 @@ class ThreadServer
     class Quit < RuntimeError; end
     attr_reader :thread
 
-    def initialize(forward_to)
+    def initialize(forward_to, multiplex = false)
 	@forwarded = forward_to
 	@queue = Queue.new
 	@thread = Thread.new do
 	    begin
 		loop do
 		    message = @queue.pop
-		    block = message.pop
-		    forward_to.send(*message, &block)
+
+		    if multiplex
+			messages = []
+			messages << message
+			while message = (@queue.pop(true) rescue nil)
+			    messages << message
+			end
+
+			forward_to.demux(messages)
+		    else
+			block = message.pop
+			forward_to.send(*message, &block)
+		    end
 		end
 	    rescue ThreadServer::Quit
 	    rescue Exception => e

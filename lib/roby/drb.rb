@@ -55,6 +55,14 @@ module Roby
 	def changed!; @changed = true end
 
 	def self.DisplayUpdater(display)
+
+	    def demux(commands)
+		commands.each do |name, *args| 
+		    block = args.pop
+		    send(name, *args, &block) 
+		end
+	    end
+	    
 	    # Use an anonymous class to avoid requiring 'Qt' in the main code
 	    @@updater_klass ||= Class.new(Qt::Object) do
 		attr_reader :display
@@ -126,7 +134,7 @@ module Roby
 
 	    # Get the remote object
 	    server = DRbObject.new(nil, uri)
-	    @service = ThreadServer.new(server)
+	    @service = ThreadServer.new(server, true)
 	    @service.thread.priority = -1
 	    @service
 	end
