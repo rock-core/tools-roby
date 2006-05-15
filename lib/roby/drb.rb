@@ -3,6 +3,7 @@ require 'roby/support'
 require 'roby/task'
 require 'roby/event'
 require 'roby/plan'
+require 'yaml'
 
 module Roby
     class Task
@@ -95,11 +96,29 @@ module Roby
 	end
 
     end
+
+    class DRbCommandLogger
+	attr_reader :io
+	def initialize(io); @io = io end
+	def method_missing(name, *args, &block)
+	    raise "no block allowed" if block
+	    STDERR.puts [name, *args].inspect
+	    io.puts [name, *args].to_yaml
+	    io.flush
+	end
+    end
     
     # A remote display server as a standalone Qt application
     class DRbRemoteDisplay
 	attr_reader :service
-	def start_service(uri)
+
+	def start_logger(logfile)
+	    io = File.open(logfile, "w")
+	    io.puts self.class.to_yaml
+	    @service = DRbCommandLogger.new(io)
+	end
+
+	def start_service(replay, uri)
 	    raise RuntimeError, "already started" if @service
 
 	    read, write = IO.pipe
@@ -137,6 +156,21 @@ module Roby
 
 	    # Get the remote object
 	    server = DRbObject.new(nil, uri)
+	    if replay
+		data = File.open(replay) do |io|
+		    first_document = true
+		    YAML.each_document(io) do |doc|
+			# Ignore first document
+			if first_document
+			    first_document = false
+			    next
+			end
+
+			server.send(*doc)
+		    end
+		end
+	    end
+	    
 	    @service = ThreadServer.new(server, true)
 	    @service.thread.priority = -1
 	    @service

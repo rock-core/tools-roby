@@ -7,11 +7,17 @@ module Roby
 
 	DEFAULT_URI = 'druby://localhost:10001'
 	def self.service; instance.service end
-	def self.start_service(uri = DEFAULT_URI)
+	def self.start_logger(logfile)
 	    Roby::Task.include TaskHooks
 	    Roby::EventGenerator.include RelationHooks
 
-	    instance.start_service(uri) do
+	    instance.start_logger(logfile)
+	end
+	def self.start_service(replay = nil, uri = DEFAULT_URI)
+	    Roby::Task.include TaskHooks
+	    Roby::EventGenerator.include RelationHooks
+
+	    instance.start_service(replay, uri) do
 		require 'roby/display/event-structure-server'
 		Roby::EventStructureDisplayServer.new
 	    end
