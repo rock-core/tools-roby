@@ -68,28 +68,35 @@ module Roby::TaskAggregator
 	    @stop_event  = Roby::EventGenerator.new(true)
             super
         end
+	
+	def connect_start(task)
+	    if old = @tasks.first
+		@start_event.delete(old.event(:start))
+		task.on(:stop, old, :start)
+	    end
+	    @start_event << task.event(:start)
+	end
+
+	def connect_stop(task)
+	    if old = @tasks.last
+		old.on(:stop, task, :start)
+		old.event(:stop).remove_signal @stop_event
+	    end
+	    task.event(:stop).on @stop_event
+	end
 
         def unshift(task)
             raise "trying to do Sequence#unshift on a running sequence" if running?
-	    unless @tasks.empty?
-		task.on(:stop, @tasks.first, :start)
-		@start_event.delete(@tasks.first.event(:start))
-	    end
-
-	    @start_event << task.event(:start)
+	    connect_stop(task) if @tasks.empty?
+	    connect_start(task)
             @tasks.unshift(task)
+	    self
         end
 
         def <<(task)
-	    if @tasks.empty?
-		unshift(task)
-	    else
-		@tasks.last.on(:stop, task, :start)
-		@tasks.last.event(:stop).remove_signal @stop_event
-		@tasks << task 
-	    end
-
-	    task.event(:stop).on @stop_event
+	    connect_start(task) if @tasks.empty?
+	    connect_stop(task)
+	    @tasks << task
 	    self
         end
 
@@ -128,15 +135,8 @@ module Roby::TaskAggregator
     class AggregatorTask < Roby::Task
 	def initialize(aggregator)
 	    singleton_class.class_eval do
-		if aggregator.start_event.controlable?
-		    define_method(:start, &aggregator.start_event.method(:call))
-		    event(:start)
-		end
-
-		if aggregator.stop_event.controlable?
-		    define_method(:stop, &aggregator.stop_event.method(:call))
-		    event(:stop)
-		end
+		event(:start, :command => true)
+		event(:stop, :command => true)
 	    end
 
 	    aggregator.each_task do |child|
