@@ -44,6 +44,12 @@ module Roby::Genom
 	Roby::Genom.running.each { |task| task.poll } 
     end
 
+    class RequestTimeout < Roby::TaskModelViolation
+    end
+
+    class StartFailed < Roby::TaskModelViolation
+    end
+
     # Base class for the task models defined for Genom modules requests
     #
     # See Roby::Genom::GenomModule
@@ -111,9 +117,9 @@ module Roby::Genom
 
 	rescue ::Genom::ReplyTimeout => e # timeout waiting for reply
 	    if abort_activity
-		raise TaskModelViolation, "failed to emit :stop (#{e.message})"
+		raise RequestTimeout.new(self), "failed to emit :stop (#{e.message})"
 	    else
-		raise TaskModelViolation, "failed to emit :start (#{e.message})"
+		raise RequestTimeout.new(self), "failed to emit :start (#{e.message})"
 	    end
 
 	rescue ::Genom::ActivityInterrupt # interrupted
@@ -122,7 +128,7 @@ module Roby::Genom
 
 	rescue ::Genom::GenomError => e # the request failed
 	    if !running?
-		raise TaskModelViolation, "failed to start the task: #{e.message}"
+		raise StartFailed.new(self), "failed to start the task: #{e.message}"
 	    else
 		emit :failed, e.message
 	    end
