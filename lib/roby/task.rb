@@ -69,15 +69,21 @@ module Roby
         def can_signal?(event); super || (event.respond_to?(:task) && task == event.task) end
 
         def fire(event)
-            result = task.fire_event(event) || PropagationResult.new
-            
-            # Get model signals and handlers
-	    signalled = task.enum_for(:each_signal, model).map { |ev| task.event(ev) }
-            result.events << [ event, signalled ]
-            result.handlers << [ event, task.enum_for(:each_handler, model).to_a ]
-
-            result | super
+            task.fire_event(event)
+            super
         end
+
+	def each_signal(&iterator)
+	    super
+	    task.each_signal(model) do |event_model|
+		iterator[task.event(event_model)]
+	    end
+	end
+	    
+	def each_handler(&iterator)
+	    super
+	    task.each_handler(model, &iterator)
+	end
 
         def controlable?; model.controlable? end
         def terminal?;    model.terminal? end
@@ -167,8 +173,6 @@ module Roby
             
         # This method is called by TaskEventGenerator#fire just before the event handlers
         # and commands are called
-        # It can return a TaskEventGenerator::PropagationResult instance to give
-        # additional handlers & commands to call
         def fire_event(event)
             if finished?
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task has finished"
@@ -178,9 +182,7 @@ module Roby
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task is already running"
             end
 
-            result = nil
-            result |= super if defined? super
-            return result
+	    super if defined? super
         end
         
         attr_reader :bound_events

@@ -50,18 +50,38 @@ module Roby
 	    @controlable = controlable
 	    if controlable || control
 		control = lambda { |context| emit(context) } if !control
-		define_method(:call) do |context|
-		    return if pending > 0
-			
-		    catch :postponed do 
-			calling(context)
-			@pending += 1
-			control[context]
-			called(context)
+		self.command = control
+		singleton_class.class_eval { public :call }
+	    end
+	end
+
+	def command=(block)
+	    define_method(:call_without_propagation) do |context|
+		return if pending > 0
+
+		catch :postponed do 
+		    calling(context)
+		    @pending += 1
+
+		    propagation_context(self) do
+			block[context]
 		    end
+
+		    called(context)
 		end
 	    end
-        end
+	end
+
+	def call(context)
+	    if gathering?
+		Thread.current[:propagation][self] << [false, Thread.current[:propagation_event], context]
+	    else
+		first_step = gather_propagation do
+		    call_without_propagation(context)
+		end
+		propagate(first_step)
+	    end
+	end
 
 	# Call #postpone in the #calling hook to 
 	def postpone(event, reason = nil)
@@ -85,94 +105,133 @@ module Roby
             self
         end
 
-        class PropagationResult
-            attr_accessor :events, :handlers
-            def initialize(events = [], handlers = [])
-                @events, @handlers = events, handlers 
-            end
-            def |(other)
-                PropagationResult.new self.events | other.events, self.handlers | other.handlers
-            end
-        end
-
         # If this event can signal +event+
         def can_signal?(event); event.controlable?  end
 
+	# Create a new event object for +context+
 	def new(context); Event.new(self, context) end
 
-	def gathering?; Thread.current[:propagated_events] end
-        def gather_emit
-            raise "nested call to #gather_emit" if gathering?
-            Thread.current[:propagated_events] = PropagationResult.new
+	# If we are currently in the propagation stage
+	def gathering?; !!Thread.current[:propagation] end
+	def source_event; Thread.current[:propagation_event] end
+	def source_generator; Thread.current[:propagation_generator] end
+	# Begin a propagation stage
+        def gather_propagation
+            raise "nested call to #gather_propagation" if gathering?
+            Thread.current[:propagation] = Hash.new { |h, k| h[k] = Array.new }
+	    
             yield
-	    gathered = Thread.current[:propagated_events]
-            unless gathered.events.empty? && gathered.handlers.empty?
-                return gathered
-            end
+
+	    return Thread.current[:propagation]
         ensure
-            Thread.current[:propagated_events] = nil
+            Thread.current[:propagation] = nil
         end
+
+	def propagation_context(source)
+	    raise "not in a gathering context in #fire" unless gathering?
+	    event, generator = source_event, source_generator
+
+	    if source.kind_of?(Event)
+		Thread.current[:propagation_event] = source
+		Thread.current[:propagation_generator] = source.generator
+	    else
+		Thread.current[:propagation_event] = nil
+		Thread.current[:propagation_generator] = source
+	    end
+	    yield(Thread.current[:propagation])
+
+	ensure
+	    Thread.current[:propagation_event] = event
+	    Thread.current[:propagation_generator] = generator
+	end
+		  
+
+	def add_signal_to_propagation(event, signalled, context)
+	    if !event.generator.can_signal?(signalled)
+		raise ModelViolation, "trying to signal #{signalled} from #{event.generator}"
+	    end
+
+	    Thread.current[:propagation][signalled] << [false, event, context]
+	end
         
+	# Do fire this event. It gathers the list of signals that are to
+	# be propagated in the next step and calls fired()
         def fire(event)
-            result = PropagationResult.new
-	    signalled = enum_for(:each_signal).to_a
-            result.handlers << [ event, handlers ]
+	    propagation_context(event) do |result|
+		enum_for(:each_signal).each do |signalled|
+		    add_signal_to_propagation(event, signalled, event.context)
+		end
 
-            if bad_event = signalled.find { |ev| !can_signal?(ev) }
-                raise ModelViolation, "trying to signal #{bad_event} from #{self}"
-            end
-            result.events << [ event, signalled ]
+		# Since we are in a gathering context, call
+		# to other objects are not done, but gathered in the 
+		# :propagation TLS
+		each_handler { |h| h.call(event) }
+	    end
 
+	ensure
+	    # Do fire the event
 	    history << [Time.now, event]
 	    fired(event)
-
-            return result
-        end
+	end
         private :fire
+
+	def emit_without_propagation(context)
+	    # Create the event object
+	    event = new(context)
+	    fire(event)
+
+	ensure
+	    @pending -= 1 if @pending > 0
+	end
 
 	# Emit the event with +context+ as the new event context
 	# Returns the new event object
         def emit(context)
-            event   = new(context)
-	    @pending -= 1 if @pending > 0
-            result  = fire(event)
-            if Thread.current[:propagated_events]
-		Thread.current[:propagated_events] |= result
-                return event
-            end
+            if gathering?
+		if source_generator == self
+		    emit_without_propagation(context)
+		else
+		    Thread.current[:propagation][self] << [true, source_event, context]
+		end
+		return
+	    end
 
-	    already_seen = Set.new
-            while result
-                new_result = gather_emit do
-                    # Call event handlers
-                    result.handlers.each do |event, event_handlers|
-                        event_handlers.each do |handler|
-                            handler.call(event) 
-                        end
-                    end
+	    first_step = gather_propagation { emit_without_propagation(context) }
+	    propagate(first_step)
+	end
 
+	def propagate(next_step)
+       	    already_seen = Set.new
+	    # already_seen << self
+
+	    while !next_step.empty?
+                next_step = gather_propagation do
                     # Call event signalled by this task
                     # Note that internal signalling does not need a #call
                     # method (hence the respond_to? check). The fact that the
                     # event can or cannot be fired is checked in #fire (using can_signal?)
-                    result.events.each do |source, events| 
-			events.each do |signalled|
-			    source.generator.signalling(source, signalled)
+		    next_step.each do |signalled, sources|
+			emit, source, context = sources[0]
+			source.generator.signalling(source, signalled) if source
 
-			    next if already_seen.include?(signalled)
-			    already_seen << signalled
-			    if signalled.controlable?
-				signalled.call(context) 
+			if already_seen.include?(signalled) && !(emit && signalled.pending?)
+			    Roby.debug { "#{signalled} has already been signalled" }
+			    next
+			end
+
+			already_seen << signalled
+			propagation_context(source) do |result|
+			    if signalled.controlable? && !emit
+				signalled.call_without_propagation(context) 
 			    else
-				signalled.emit(context)
+				signalled.emit_without_propagation(context)
 			    end
 			end
 		    end
                 end
-                result = new_result
             end        
-	    return event
-        end
+	    return self
+	end
 
 	# call-seq:
 	#   emit_on event, context  => self
