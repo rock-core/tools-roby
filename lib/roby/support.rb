@@ -94,8 +94,8 @@ class Object
 	end
     end
 
-    def address
-	id = object_id
+    def address; Object.address_from_id(object_id) end
+    def self.address_from_id(id)
 	id = 0xFFFFFFFF - ~id if id < 0
 	(id * 2) & 0xFFFFFFFF
     end
