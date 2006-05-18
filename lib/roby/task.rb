@@ -295,13 +295,16 @@ module Roby
             command_handler = options[:command] if options[:command].respond_to?(:call)
             
             # Define the event class
+	    task_klass = singleton_class
             new_event = Class.new(options[:model]) do
                 @symbol   = ev
                 @terminal = options[:terminal]
                 @command_handler = command_handler
 
-                class << self
+                singleton_class.class_eval do
                     attr_reader :command_handler
+		    define_method(:name) { "#{task_klass.name}::#{ev_s.camelize}" }
+		    def to_s; name end
                 end
             end
 
@@ -313,11 +316,6 @@ module Roby
 
             events[new_event.symbol] = new_event
             const_set(ev_s.camelize, new_event)
-	    if respond_to?(:singleton_instance)
-		new_event.singleton_class.class_eval do
-		    define_method(:name) { "#{self.inspect}::#{ev_s.camelize}" }
-		end
-	    end
 
             if options[:command]
 		# check that the supplied command handler can take two arguments
@@ -340,7 +338,6 @@ module Roby
 		    event(ev).call(context) 
 		end
             end
-
 		    
             new_event
         end
