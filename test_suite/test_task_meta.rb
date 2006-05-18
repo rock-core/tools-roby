@@ -1,6 +1,7 @@
 require 'test_config'
 require 'test/unit/testcase'
 require 'roby/task'
+require 'flexmock'
 
 class TC_TaskMeta < Test::Unit::TestCase 
     include Roby
@@ -22,7 +23,6 @@ class TC_TaskMeta < Test::Unit::TestCase
             TestTask.event :start, :command => true
 
             # Must raise because there is not terminal event
-            assert_raise(TaskModelViolation) { task = TestTask.new }
             assert(! TestTask.has_event?(:stop))
             TestTask.event :ev_terminal, :terminal => true, :command => true
             assert( TestTask.new.respond_to?(:start!))
@@ -102,7 +102,7 @@ class TC_TaskMeta < Test::Unit::TestCase
         assert_raise(TaskModelViolation) { task.ev_terminal! }
     end
 
-    def test_inheritance
+    def test_inheritance_overloading
         base = Class.new(Roby::Task) do 
             extend Test::Unit::Assertions
             event :ctrl, :command => true
@@ -133,16 +133,17 @@ class TC_TaskMeta < Test::Unit::TestCase
 	    def initialize
 		singleton_class.event(:start)
 		singleton_class.event(:stop)
+		super
 	    end
 	    event :inter
 	end
 
 	ev_models = Hash[*model.enum_for(:each_event).to_a.flatten]
-	assert_equal([:inter], ev_models.keys)
+	assert_equal([:success, :aborted, :failed, :inter].to_set, ev_models.keys.to_set)
 
 	task = model.new
 	ev_models = Hash[*task.model.enum_for(:each_event).to_a.flatten]
-	assert_equal(3, ev_models.keys.size)
+	assert_equal(6, ev_models.keys.size)
 	assert( ev_models[:start].symbol )
 	assert( ev_models[:start].name || ev_models[:start].name.length > 0 )
     end

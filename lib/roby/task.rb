@@ -139,9 +139,7 @@ module Roby
             raise TaskModelViolation.new(self), "no start event defined" unless has_event?(:start)
 
             # Check that this task has at least one terminal event defined
-            if model.terminal_events.empty?
-                raise TaskModelViolation.new(self), "no terminal event for this task"
-            elsif !model.has_event?(:stop)
+            if !model.has_event?(:stop)
                 # Create the stop event for this task, if it is not defined. Task::event will create
 		# the signals between the terminal events and stop
                 model.event(:stop)
@@ -474,6 +472,25 @@ module Roby
         def inspect; "#{model.name} (#{object_id})" end
         def null?; false end
 	def to_task; self end
+	
+	# TODO: define a meaningful command
+	event :success, :terminal => true
+	event :failed,  :terminal => true
+
+	def self.aborted(task, context)
+	    events = task.enum_for(:each_child).
+		find_all { |child| child.running? }.
+		map { |child| child.event(:aborted) }
+
+	    if events.empty?
+		task.emit(:aborted)
+	    else
+		events.inject { |a, b| a & b }.on { task.emit(:aborted) }
+		events.each { |ev| ev.call(context) }
+	    end
+	end
+	event :aborted, :command => lambda { |task, context| Task.aborted(task, context) }
+	on :aborted => :failed
     end
 
     class NullTask < Task
