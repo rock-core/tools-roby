@@ -102,7 +102,6 @@ module Roby
 	def initialize(io); @io = io end
 	def method_missing(name, *args, &block)
 	    raise "no block allowed" if block
-	    STDERR.puts [name, *args].inspect
 	    io.puts [name, *args].to_yaml
 	    io.flush
 	end
@@ -114,7 +113,7 @@ module Roby
 
 	def start_logger(logfile)
 	    io = File.open(logfile, "w")
-	    io.puts self.class.to_yaml
+	    io.puts self.class.name.gsub(/.*::/, '').to_yaml
 	    @service = DRbCommandLogger.new(io)
 	end
 
