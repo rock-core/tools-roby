@@ -47,7 +47,6 @@ module Roby
             @handlers = []
 	    @pending  = 0
 
-	    @controlable = controlable
 	    if controlable || control
 		control = lambda { |context| emit(context) } if !control
 		self.command = control
@@ -70,6 +69,7 @@ module Roby
 		    called(context)
 		end
 	    end
+	    @controlable = true
 	end
 
 	def call(context)
@@ -82,6 +82,7 @@ module Roby
 		propagate(first_step)
 	    end
 	end
+	private :call
 
 	# Call #postpone in the #calling hook to 
 	def postpone(event, reason = nil)

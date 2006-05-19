@@ -4,12 +4,29 @@ require 'roby/event_loop'
 require 'mockups/tasks'
 
 class TC_EventPropagation < Test::Unit::TestCase
-    def test_propagation
-        start_node = EmptyTask.new
+    def test_event_properties
+	event = Roby::EventGenerator.new
+	assert(! event.respond_to?(:call))
+	assert(! event.controlable?)
 
-	# Check properties on the task and its model
-        start_event = start_node.event(:start)
-        assert_equal(start_event, start_node.event(:start))
+	event = Roby::EventGenerator.new(true)
+	assert(event.respond_to?(:call))
+	assert(event.controlable?)
+
+	FlexMock.use do |mock|
+	    event = Roby::EventGenerator.new { mock.event }
+	    assert(event.respond_to?(:call))
+	    assert(event.controlable?)
+	    mock.should_receive(:event).once
+	    event.call(nil)
+	end
+    end
+
+    def test_task_event_properties
+        task = EmptyTask.new
+	start_event = task.event(:start)
+
+        assert_equal(start_event, task.event(:start))
         assert_equal([], start_event.handlers)
         assert_equal([], start_event.enum_for(:each_signal).to_a)
         start_model = start_node.event_model(:start)
