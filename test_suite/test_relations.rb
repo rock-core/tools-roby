@@ -2,6 +2,9 @@ require 'test/unit'
 require 'test_config'
 require 'roby/relations'
 
+require 'roby/task'
+require 'flexmock'
+
 class TC_Relations < Test::Unit::TestCase
     include Roby
 
@@ -114,6 +117,35 @@ class TC_Relations < Test::Unit::TestCase
 
 	assert_equal([n2], n1.enum_for(:each_child_object, r1).to_a)
 	assert_equal([n3, n2].to_set, n1.enum_for(:each_child_object, r2).to_set)
+    end
+
+    def test_signals
+	e1, e2 = Roby::EventGenerator.new(true), Roby::EventGenerator.new(true)
+
+	e1.on e2
+	assert( e1.child_object?( e2, Roby::EventStructure::Signals ))
+	assert( e2.parent_object?( e1, Roby::EventStructure::Signals ))
+    end
+
+    def test_hierarchy
+	klass = Class.new(Roby::Task) do
+	    event(:start, :command => true)
+	    event(:failed, :command => true)
+	end
+
+	t1, t2 = klass.new, klass.new
+	t1.realized_by t2, :failure => :failed
+
+	assert(t2.event(:failed).child_object?(t1.event(:aborted), Roby::EventStructure::Signals))
+
+	FlexMock.use do |mock|
+	    t1.on(:aborted) { mock.aborted }
+	    mock.should_receive(:aborted).once
+
+	    t1.start!
+	    t2.start!
+	    t2.failed!
+	end
     end
 end
 

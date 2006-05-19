@@ -33,6 +33,23 @@ class TC_TaskMeta < Test::Unit::TestCase
     end
     attr_reader :task
 
+    def test_base_model
+	task = Class.new(Task) do
+	    event(:start)
+	    event(:stop1)
+	    event(:stop2)
+	    event(:stop3)
+	    event(:stop)
+	    on :stop1 => :stop
+	end.new
+	task.on(:stop2, task, :stop1)
+	task.on(:stop3, task, :stop)
+	assert(task.event(:aborted).terminal?)
+	assert(task.event(:stop1).terminal?)
+	assert(task.event(:stop2).terminal?)
+	assert(task.event(:stop3).terminal?)
+    end
+
     # Tests Task::event
     def test_event_declaration
         # Test modifications to the class hierarchy
