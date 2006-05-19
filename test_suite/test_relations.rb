@@ -25,6 +25,8 @@ class TC_Relations < Test::Unit::TestCase
 	assert( n.respond_to?(:add_child) )
 	assert( n.respond_to?(:remove_child) )
 	assert( n.respond_to?(:each_parent) )
+	assert( n.respond_to?(:add_r1) )
+	assert( n.respond_to?(:add_child) )
     end
 
     def test_directed_relation
@@ -50,8 +52,8 @@ class TC_Relations < Test::Unit::TestCase
 	assert( !n2.parent_object?(n1, r2) )
 	assert_equal( [n1], n2.enum_for(:each_parent_object).to_a )
 
-	n1.add_child_object(n3, r2)
-	n2.add_child_object(n4, r1)
+	n1.add_child(n3)
+	n2.add_r1(n4)
 	
 	assert( n1.child_object?(n2) )
 	assert( n1.child_object?(n2, r1) )
