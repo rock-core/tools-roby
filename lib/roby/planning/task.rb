@@ -17,7 +17,7 @@ module Roby
     class PlannedTask < Roby::Task
         def start(context)
             planner = planning_task
-            realized_by planner, :fails_on => :failed
+            realized_by planner, :failure => :failed
 
 	    planner.event(:done).
 		add_causal_link planner.event(:ready).

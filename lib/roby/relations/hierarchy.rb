@@ -6,15 +6,35 @@ module Roby::TaskStructure
     relation :child do
 	module_name :Hierarchy
 
-        HierarchyLink = Struct.new(:done_with, :fails_on)
+	HierarchyLink = Struct.new :success, :failure
          
 	def realizes?(obj);	parent_object?(obj, Hierarchy) end
 	def realized_by?(obj);  child_object?(obj, Hierarchy) end
-        def realized_by(task, options = {:done_with => :stop})
-            options = validate_options(options, HierarchyLink.members)
 
-            new_relation = HierarchyLink.new([*options[:done_with]], [*options[:fails_on]])
-	    add_child(task, new_relation)
+	# Adds +task+ as a child of +self+. You can specify a list of 'success' events
+	# which mark the end of the relationship (i.e. the child task is no more
+	# needed by the parent task), and a list of 'failure' events which are
+	# not accepted by the parent task
+	#
+	# TODO: if :stop is not in :success, it shall be in :failure since
+	# no event in :success can happen. In fact, it is more general. We
+	# should make sure that the events in :success are reachable
+        def realized_by(task, options = {:success => :stop})
+            options = validate_options options, :success => [], :failure => []
+	    options = options.inject({}) { |h, (k, v)| h[k] = [*v]; h }
+
+	    success = options[:success].to_a.map { |ev| task.event(ev) }
+	    failure = options[:failure].to_a.map { |ev| task.event(ev) }
+
+	    failure.each do |event|
+		event.until(event(:stop)).on event(:aborted)
+	    end
+
+	    # if task.has_event?(:failed) && !options.has_key?(:failure)
+	    #     options[:failure] = [:failed]
+	    # end
+
+	    add_child(task, HierarchyLink.new(success, failure))
             self
         end
 
