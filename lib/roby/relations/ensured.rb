@@ -11,8 +11,8 @@ module Roby::EventStructure
 	    end
 	end
 
-	def ensure_on(event)
-	    event.add_ensured_event self
+	def ensure(event)
+	    add_ensured_event event
 	end
     end
 end
