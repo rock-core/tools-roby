@@ -32,16 +32,24 @@ module Roby
 		each(&iterator)
 	end
 
+	# true if +obj+ is a child of +self+ for the relation +type+
+	# If +type+ is nil, it considers all relations
 	def child_object?(obj, type = nil)
 	    check_is_relation(type)
 	    enum_for(:apply_selection, type, relations, :each).
 		find { |type| type.child_object?(self, obj) }
 	end
+
+	# true if +obj+ is a parent of +self+ for the relation +type.
+	# If +type+ is nil, it considers all relations
 	def parent_object?(obj, type = nil)
 	    check_is_relation(type)
 	    enum_for(:apply_selection, type, relations, :each).
 		find { |type| type.parent_object?(self, obj) }
 	end
+
+	# true if +obj+ is related to +self+ for the relation +type+ 
+	# If +type+ is nil, it considers all relations
 	def related_object?(obj, type = nil); child_object?(obj, type) || parent_object?(obj, type) end
 
 
@@ -147,12 +155,16 @@ module Roby
 		to.parents[relation_type].delete(from)
 		from.children[relation_type].delete(to)
 	    end
+
+	    # true if +obj+ is a child of +of+ for this relation
 	    def child_object?(of, obj)
 		of.children[relation_type].has_key?(obj) ||
 		    subsets.find { |mod| mod.child_object?(of, obj) }
 	    end
 
+	    # true if +obj+ is a parent object of +of+ for this relation 
 	    def parent_object?(of, obj); child_object?(obj, of) end
+
 	    def each_relation(of, directed)
 		of.children[relation_type].each do |to, info|
 		    yield(relation_type, of, to, info)
