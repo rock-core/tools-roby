@@ -86,7 +86,10 @@ module Roby
 	end
 
         def controlable?; model.controlable? end
-        def terminal?;    model.terminal? end
+        def terminal?
+	    model.terminal? || 
+		enum_for(:each_signal).find { |ev| ev.respond_to?(:task) && ev.task == self.task && ev.terminal? } 
+	end
 	def active?(seen = Set.new)
 	    if symbol == :start; super
 	    elsif task.running?; true
@@ -156,9 +159,9 @@ module Roby
         def has_event?(event); model.has_event?(event) end
         
         # If this task is currently running
-        def running?; event(:start).happened? && !(event(:stop).happened?) end
+        def running?; event(:start).happened? && !finished? end
         # If this task ran and is finished
-        def finished?; event(:stop).happened? end
+        def finished?; model.terminal_events.find { |ev| event(ev).happened? } end
 
 	def history
 	    history = []
@@ -172,7 +175,7 @@ module Roby
         # This method is called by TaskEventGenerator#fire just before the event handlers
         # and commands are called
         def fire_event(event)
-            if finished?
+            if finished? && (!event.terminal? || event(:stop).happened?)
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task has finished"
             elsif !running? && !finished? && event.symbol != :start
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task is not running"
