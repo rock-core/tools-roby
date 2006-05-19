@@ -305,11 +305,11 @@ module Roby
 	    super if defined? super
 	end
 	def fired(event)
-	    puts "#{self}: fired #{event}"
+	    puts "#{self}: fired #<#{event.class}: 0x#{event.address.to_s(16)}>"
 	    super if defined? super
 	end
 	def signalling(event, to)
-	    puts "#{self}: #{event} is signalling #{to}"
+	    puts "#{self}: #<#{event.class}: 0x#{event.address.to_s(16)}> is signalling #{to}"
 	    super if defined? super
 	end
     end
