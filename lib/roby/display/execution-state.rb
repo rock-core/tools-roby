@@ -1,9 +1,5 @@
-require 'roby/support'
+require 'roby/display/marshallable'
 require 'roby/drb'
-require 'roby/task'
-
-require 'singleton'
-require 'enumerator'
 
 module Roby
     class ExecutionStateDisplay < DRbRemoteDisplay
@@ -11,35 +7,40 @@ module Roby
 
 	DEFAULT_URI = 'druby://localhost:10000'
 	def self.service; instance.service end
-	def self.start_service(uri = DEFAULT_URI)
+	def self.start_logger(logfile)
 	    EventGenerator.include EventHooks
 
-	    instance.start_service(uri) do
+	    instance.start_logger(logfile)
+	end
+	def self.start_service(replay = nil, uri = DEFAULT_URI)
+	    EventGenerator.include EventHooks
+
+	    instance.start_service(replay, uri) do
 		require 'roby/display/execution-state-server'
 		Roby::ExecutionStateDisplayServer.new
 	    end
 	end
-    end
 	
-    module EventHooks
-	def calling(context)
-	    super if defined? super
-	    if server = ExecutionStateDisplay.service
-		server.pending_event Time.now, self
+	module EventHooks
+	    def calling(context)
+		super if defined? super
+		if server = ExecutionStateDisplay.service
+		    server.pending_event Time.now, Display::Event[self]
+		end
 	    end
-	end
 
-	def fired(event)
-	    super if defined? super
-	    if server = ExecutionStateDisplay.service
-		server.fired_event Time.now, self, event
+	    def fired(event)
+		super if defined? super
+		if server = ExecutionStateDisplay.service
+		    server.fired_event Time.now, Display::Event[self], Display::Event[event]
+		end
 	    end
-	end
 
-	def signalling(event, to)
-	    super if defined? super
-	    if server = ExecutionStateDisplay.service
-		server.signalling Time.now, event, to
+	    def signalling(event, to)
+		super if defined? super
+		if server = ExecutionStateDisplay.service
+		    server.signalling Time.now, Display::Event[event], Display::Event[to]
+		end
 	    end
 	end
     end

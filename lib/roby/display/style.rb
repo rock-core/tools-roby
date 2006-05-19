@@ -1,22 +1,31 @@
 module Roby
     module DisplayStyle
-	class CanvasGroup < Array
+	class CanvasGroup
 	    attr_reader :x, :y
-	    def initialize(*args)
+	    attr_reader :objects
+
+	    def initialize(args)
 		super()
-		args.each { |obj| self << obj }
+		@objects = args
+		@objects.each_key do |name| 
+		    singleton_class.class_eval { define_method(name) { objects[name] } }
+		end
 		@x, @y = 0, 0
 	    end
 
+	    def [](name); @objects[name] end
 	    def move(x, y)
 		offset_x = x - @x
 		offset_y = y - @y
-		each { |obj| obj.moveBy(offset_x, offset_y) }
+		objects.each_value { |obj| obj.moveBy(offset_x, offset_y) }
 	    end
-	    def apply(name, *args); each { |obj| obj.send(name, *args) if obj.respond_to?(name) } end
+	    def apply(name, *args); objects.each_value { |obj| obj.send(name, *args) if obj.respond_to?(name) } end
 	    def brush=(brush); apply(:brush=, brush) end
 	    def z=(z); apply(:z=, z) end
-	    def z; first.z end
+	    def z; objects.find { true }.last.z end
+
+	    def show; apply(:show) end
+	    def hide; apply(:hide) end
 	end
 	
 	TASK_COLOR = '#B0FFA6'
@@ -62,7 +71,7 @@ module Roby
 		    t.visible = true
 		end
 
-		CanvasGroup.new(circle, title)
+		CanvasGroup.new(:circle => circle, :title => title)
 	    end
 	end
 
@@ -84,7 +93,7 @@ module Roby
 		t.visible = true
 	    end
 
-	    CanvasGroup.new(rectangle, title)
+	    CanvasGroup.new(:rectangle => rectangle, :title => title)
 	end
 
 	ARROW_Z = 5

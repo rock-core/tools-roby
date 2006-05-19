@@ -47,7 +47,6 @@ module Roby
                 task_graph["style"] = "filled"
                 task_graph["color"] = "lightgrey"
 		task_graph["rankdir"] = 'LTR'
-                task.each_event(false) { |ev| event(ev) }
 
                 return task_graph
             end
@@ -80,13 +79,17 @@ module Roby
                     end
                     if :start == event.symbol
                         node["color"] = "green"
-                    elsif event.terminal?
+                    elsif :stop == event.symbol
                         node["color"] = "red"
                     end
                 end
 
                 event_nodes[event] = node
             end
+
+	    def add(from, to)
+		graph.add_edge( event(from), event(to) )
+	    end
 
             def task_relation(kind, task, style = Hash.new)
                 return if relations[kind].include?(task)

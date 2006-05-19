@@ -1,14 +1,6 @@
 require 'Qt'
 require 'roby/display/style'
 
-class Object
-    def __class;	method_missing(:class) end
-    def __address;	method_missing(:address) end
-end
-class DRbObject
-    def __class;	method_missing(:class) end
-    def __address;	method_missing(:address) end
-end
 module Roby
     class PendingView < Qt::ListView
 	attr_reader :pending
@@ -16,29 +8,34 @@ module Roby
 	class Task < Qt::ListViewItem
 	    def initialize(view, task)
 		super(view)
-		set_text(0, task.model.name << " 0x" << task.__address.to_s(16))
+		set_text(0, task.model.name << " 0x" << task.source_address.to_s(16))
 	    end
 	end
 
 	class Event < Qt::ListViewItem
-	    def initialize(parent, kind, time, obj, dest = nil)
-		super(parent)
+	    def initialize(list, task, kind, time, obj, dest = nil)
+		super(list)
 		set_text(0, "#{time.tv_sec}:#{"%03i" % (time.tv_usec / 1000)}")
-		set_text(1, kind.to_s)
+		if task
+		    set_text(1, task.model.name)
+		else
+		    set_text(1, "toplevel")
+		end
+		set_text(2, kind.to_s)
 
 		obj = obj.generator if obj.respond_to?(:generator)
 		expr = obj.model.name.gsub(/.*::/, '') <<
-		    " 0x" << obj.__address.to_s(16)
+		    " 0x" << obj.source_address.to_s(16)
 
 		if kind == :signal
 		    dest = dest.generator if dest.respond_to?(:generator)
 		    
 		    expr << " -> "
-		    expr << "#{dest.task.__class.name}::" if dest.respond_to?(:task)
+		    expr << "#{dest.task.source_class}::" if dest.respond_to?(:task)
 		    expr << dest.model.name.gsub(/.*::/, '')
-		    expr << " 0x" << dest.__address.to_s(16)
+		    expr << " 0x" << dest.source_address.to_s(16)
 		end
-		set_text(2, expr)
+		set_text(3, expr)
 	    end
 	end
 
@@ -46,6 +43,7 @@ module Roby
 	    super(parent)
 	    self.root_is_decorated = true
 	    add_column "at"
+	    add_column "in"
 	    add_column "kind"
 	    add_column "events"
 	    @pending = Hash.new
@@ -63,7 +61,9 @@ module Roby
 	    @reference ||= time
 	    offset = time - @reference
 	    time = Time.at(offset.to_i, (offset - offset.to_i) * 1000000)
-	    Event.new(item_parent(generator), kind, time, generator, *args)
+
+	    task = generator.task if generator.respond_to?(:task)
+	    Event.new(self, task, kind, time, generator, *args)
 	end
 	def pending_event(time, generator)
 	    new_event(:pending, time, generator)
@@ -139,13 +139,17 @@ module Roby
 	    attr_reader :task
 	    def start=(x)
 		@start = x
-		@rectangle.x = x
-		@title.x = x
+		@display.move(x, @display.y)
 	    end
 
 	    def stop=(x)
 		@stop = x
-		@rectangle.set_size(stop - start, @rectangle.height)
+		r = @display.rectangle
+		r.set_size(stop - start, r.height)
+	    end
+
+	    def width
+		[@stop - @start, @display.title.bounding_rect.width].max
 	    end
 
 	    def initialize(display, task, index)
@@ -155,9 +159,9 @@ module Roby
 		line_height = display.line_height
 		y = index * line_height
 
-		@rectangle, @title = DisplayStyle.task(task, display)
-		@rectangle.y += y
-		@title.y += y
+		@display = DisplayStyle.task(task, display)
+		@display.show
+		@display.move(0, y)
 
 		self
 	    end
@@ -167,13 +171,14 @@ module Roby
 	    CanvasTask.new(self, task, index) { |r| r.visible = true }
 	end
 
-	def line_of(event)
+	def line_of(event, x)
 	    if event.respond_to?(:task)
 		task = event.task
 
 		# Get the line index for the task
-		idx = @lines.enum_for(:each_with_index).find { |r, idx| r.task == task if r.respond_to?(:task) } ||
-		    @lines.enum_for(:each_with_index).find { |r, idx| !r } ||
+		idx = @lines.enum_for(:each_with_index).find { |r, _| r.task == task if r.respond_to?(:task) } ||
+		    @lines.enum_for(:each_with_index).find { |r, _| !r } || 
+		    @lines.enum_for(:each_with_index).find { |r, _| r && r.task.finished? && (r.start + r.width) < x if r.respond_to?(:task) } ||
 		    [nil, @lines.size]
 		idx = idx.last
 
@@ -193,7 +198,7 @@ module Roby
 
 	def new_event(time, generator, pending)
 	    x	    = x_of(time)
-	    line    = line_of(generator)
+	    line    = line_of(generator, x)
 
 	    if line.respond_to?(:task)
 		line.start = x if !line.start

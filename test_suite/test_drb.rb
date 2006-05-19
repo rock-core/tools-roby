@@ -12,15 +12,15 @@ class TC_Display < Test::Unit::TestCase
 	    event :start
 	    event :stop
 	end.new
-	displayable = EventStructureDisplay::DisplayableTask[task]
+	displayable = Display::Task[task]
 	assert_nothing_raised { Marshal.dump(displayable) }
 	assert_nothing_raised { YAML.dump(displayable) }
 
-	displayable = EventStructureDisplay::DisplayableEvent[task.event(:start)]
+	displayable = Display::Event[task.event(:start)]
 	assert_nothing_raised { Marshal.dump(displayable) }
 	assert_nothing_raised { YAML.dump(displayable) }
 
-	displayable = EventStructureDisplay::DisplayableEvent[EventGenerator.new]
+	displayable = Display::Event[EventGenerator.new]
 	assert_nothing_raised { Marshal.dump(displayable) }
 	assert_nothing_raised { YAML.dump(displayable) }
     end

@@ -6,13 +6,16 @@ require 'roby/task'
 module Roby
     # Displays the plan's causal network
     class EventStructureDisplayServer < Qt::Object
+	MINWIDTH = 50
+	
 	class Column
 	    attr_reader :x, :width, :display, :lines
 	    def initialize(x, display)
 		@display = display
 		@x	= x
-		@width  = 0
 		@lines	= []
+
+		@width = MINWIDTH
 	    end
 
 	    attr_accessor :next_column
@@ -23,8 +26,11 @@ module Roby
 		end
 		self
 	    end
+	    def each_line(&iterator); lines.each(&iterator) end
 	    def parent_of?(c); !!find { |child| child == c } end
 	    include Enumerable
+
+	    def empty?; lines.all? { |l| !l } end
 
 	    def width=(new)
 		offset = new - width
@@ -48,6 +54,8 @@ module Roby
 			end
 		    end
 		end
+
+		display.update_canvas_width
 	    end
 
 	    def x=(new)
@@ -55,7 +63,7 @@ module Roby
 		@x = new
 
 		lines.compact.each do |element|
-		    element.move(element.x + offset, element.y)
+		    element.move(element.x + offset, element.y) if element.column == self
 		end
 	    end
 
@@ -63,8 +71,9 @@ module Roby
 		if element.width > width
 		    self.width = element.width * 1.2
 		end
+		raise if lines.index(element)
 
-		line_idx = (1..lines.size).find do |line_idx|
+		line_idx = (0..(lines.size - 1)).find do |line_idx|
 		    allocate(line_idx, element, element.span)
 		end
 
@@ -96,10 +105,12 @@ module Roby
 		end
 	    end
 
-	    def remove(element)
-		return unless line_idx = lines.index(element)
+	    def remove(element, line_idx = nil)
+		return unless (line_idx ||= lines.index(element))
+		return if lines[line_idx] != element
+
 		lines[line_idx] = nil
-		next_column.remove(element) if next_column
+		next_column.remove(element, line_idx) if next_column
 	    end
 	end
 
@@ -108,39 +119,79 @@ module Roby
 	    def initialize(column, display)
 		@display	= display
 		@next_elements	= Set.new
+		@parent		= nil
+		@children	= Array.new
 
 		self.column = column
 	    end
 
 	    def column=(new)
-		column.remove(self) if column
+		column_update(new)
+		propagate_column if column
+		new
+	    end
 
-		@column = new
-		new.add(self)
-
-		unless next_elements.empty?
-		    next_column = (new.next_column || display.newcolumn)
-		    next_elements.each do |element|
-			element.column = next_column
+	    def column_update(new)
+		raise "trying to set the column of a non-root element" if parent
+		if column
+		    display.column_state
+		    column.remove(self)
+		    begin
+			display.each_column { |c| raise if c.lines.index(self) }
+		    rescue
+			display.column_state
+			display.each_column { |c| puts "#{c}: #{c.next_column}" }
+			puts "#{self.address} #{column.x} -> #{new.x}"
+			raise
 		    end
 		end
+
+		@column = new
+		new.add(self) if new
+	    end
+
+	    def propagate_column
+		seen = Set.new
+		seen << self
+		enum_bfs(:each_following_element).each_edge do |from, to|
+		    next if seen.include?(to)
+		    seen << to
+		    next_column = (from.column.next_column || display.newcolumn)
+		    to.column_update(next_column) unless next_column.parent_of?(to.column)
+		end
+	    end
+	    def each_following_element(&iterator)
+		next_elements.each(&iterator)
+	    end
+
+	    protected :column_update
+
+	    attr_accessor :parent
+	    attr_reader   :children
+	    def root; parent || self end
+	    def child(element)
+		element.column = nil
+		element.parent = self
+		children << element
 	    end
 	end
 	
 	class Task < Element
-	    attr_reader :events
 	    attr_reader :x, :y, :width, :span
 	    def initialize(task, column, display)
 		@rectangle, @title = DisplayStyle.task(task, display)
-		@events  = []
 		@x, @y = 0, 0
 		@width = @span = display.line_height * 0.5
 
 		super(column, display)
 	    end
 
+	    def color=(newcolor)
+		@rectangle.brush = Qt::Brush.new Qt::Color.new(newcolor)
+	    end
+
 	    def update_width
-		@width = events.inject(x = display.event_spacing) { |x, event| x + event.width + display.event_spacing }
+		@width = children.inject(x = display.event_spacing) { |x, event| x + event.width + display.event_spacing }
 		@span  = [@title.bounding_rect.width, width].max
 		
 		column.width = width * 1.2 if column && column.width < width
@@ -151,11 +202,13 @@ module Roby
 
 	    # New event for this task. +event+ shall be an Event object.
 	    def event(new)
-		if !events.empty? && events.last.event.symbol == :stop
-		    events.insert(-2, new)
+		if !children.empty? && children.last.event.symbol == :stop
+		    children.insert(-2, new)
 		else
-		    events << new
+		    children << new
 		end
+		new.column = nil
+		new.parent = self
 
 		update_width
 		move(self.x, self.y)
@@ -167,7 +220,7 @@ module Roby
 		@title.moveBy(*offset)
 		@x, @y = x, y
 
-		events.inject(x = @rectangle.x + display.event_spacing) do |x, event| 
+		children.inject(x = @rectangle.x + display.event_spacing) do |x, event| 
 		    event.move(x + event.width / 2, event_y)
 		    x + event.width + display.event_spacing
 		end
@@ -210,14 +263,12 @@ module Roby
 		@task = task
 		super(ev, task.column, display)
 	    end
-	    attr_accessor :task
-	    def column; task.column end
-	    def column=(new); task.column = new end
 	end
 	
 	attr_reader :line_height, :margin, :event_radius, :event_spacing
 	attr_reader :canvas, :view, :main_window
 	attr_reader :tasks, :events, :remaining, :columns
+	attr_reader :event_filters, :arrows
 
 	BASE_LINES = 20
 	def initialize
@@ -230,6 +281,7 @@ module Roby
 	    @tasks	    = Hash.new # a Roby::Task -> Display::Task map
 	    @events	    = Hash.new # a Roby::Event -> Display::Event map
 	    @event_spacing  = event_radius
+	    @arrows	    = Hash.new
 
 	    first_column = Column.new(margin, self)
 	    @columns	    = [first_column, first_column] # [first, last] column objects
@@ -238,8 +290,8 @@ module Roby
 	    @canvas = Qt::Canvas.new(640, line_height * BASE_LINES + margin * 2)
 	    @view   = Qt::CanvasView.new(@canvas, nil)
 	    @main_window = @view
-
-	    newcolumn
+	    
+	    @event_filters = [ lambda { |ev| ev.symbol == :aborted } ]
 	end
 
 	def each_column(&iterator)
@@ -259,12 +311,35 @@ module Roby
 	    x = columns[0].inject(margin + columns[0].width) { |x, col| x + col.width }
 	    new = Column.new(x, self) 
 
+	    # Allocate the elements which were spanning outside the last column
 	    remaining.enum_for(:each_with_index).
 		select { |(task, _), _| task }.
 		each { |(task, w), line_idx| new.allocate(line_idx, task, task.span) }
 
+	    # Update the remaining array
+	    remaining.map! do |task, w| 
+		next [nil, 0] unless task
+		if w > new.width
+		    [task, w - new.width]
+		else
+		    [nil, 0]
+		end
+	    end
+
 	    columns.last.next_column = new
 	    columns[1] = new
+	end
+
+	def needed_canvas_width
+	    w = remaining.map { |_, w| w }.max || 0
+	    w += columns[0].inject(margin + columns[0].width) { |x, col| x + col.width }
+	end
+
+	def update_canvas_width
+	    needed = needed_canvas_width
+	    if canvas.width < needed
+		canvas.resize(canvas.width * 2, canvas.height)
+	    end
 	end
 
 	def task(task)
@@ -277,32 +352,89 @@ module Roby
 	end
 
 	def add(ev_from, ev_to)
-	    changed!
-	    # Build canvas objects
-	    from = event(ev_from)
-	    to   = event(ev_to)
-
-	    # Reorder objects in columns
-	    base_column = (from.column ||= columns[0])
-	    unless to.column && base_column.parent_of?(to.column)
-		to.column = (from.column.next_column || newcolumn)
-		from.next_elements << to
+	    if event_filters.find { |f| f[ev_from] } || event_filters.find { |f| f[ev_to] }
+		return
 	    end
+	    changed!
+
+	    
+	    # Build canvas objects
+	    from, to = event(ev_from), event(ev_to)
 
 	    # Create the link and add updaters in both events
 	    line = DisplayStyle.arrow(from.x, from.y, to.x, to.y, self)
+	    arrows[ [from, to] ] = line
 	    from.add_watch  { line.start_point = [from.x, from.y] }
 	    to.add_watch    { line.end_point = [to.x, to.y] }
+	    
+	    # Reorder objects in columns
+	    base_column = (from.root.column ||= columns[0])
+	    from.root.next_elements << to.root
+	    from.root.propagate_column
+   
+	    # Offset columns if possible
+	    offset_columns
 	end
 
-	# def delete(from, to)
-	# end
+	def offset_columns
+	    dead, first = enum_for(:each_column).enum_cons(2).find { |empty, first| empty.empty? && !first.empty? }
+	    if dead
+	        offset = first.x - columns.first.x
+		dead.next_column = nil
+	        columns[0] = first
+
+	        each_column { |col| col.x -= offset }
+	    end
+	end
+
+	PreferredLine = Struct.new :index, :count, :forbidden
+	def reorder_lines
+	    preferred = Hash.new { |h, k| h[k] = PreferredLine.new(0, 0, []) }
+	    columns[0].each do |col|
+		col.lines.each_with_index do |task, line_idx|
+		    next unless task
+		    preferred[task].index += line_idx
+		    preferred[task].count += 1
+		    preferred[task].forbidden << line_idx
+		end
+	    end
+	end
+
+	def column_state
+	    each_column do |col|
+		puts col.x
+		col.each_line do |l|
+		    puts "  * #{l.x} #{l.address}" if l
+		end
+	    end
+	end
+
+	def started(roby_task)
+	    changed!
+	    task = task(roby_task)
+	    task.color = 'red'
+	end
+
+	def finished(roby_task)
+	    changed!
+	    task = task(roby_task)
+	    task.color = 'lightgrey'
+	end
+
+	def delete(ev_from, ev_to)
+	    from, to = event(ev_from), event(ev_to)
+	    arrows[ [from, to] ].hide if arrows.has_key? [from, to]
+	end
 
 	# def wipe(event)
 	# end
 
 	def event(ev)
 	    return events[ev] if events[ev]
+
+	    if event_filters.find { |f| f[ev] }
+		return
+	    end
 		
 	    changed!
 	    if ev.respond_to?(:task)
