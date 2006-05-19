@@ -75,14 +75,14 @@ module Roby
 
 	def each_signal(&iterator)
 	    super
-	    task.each_signal(model) do |event_model|
+	    task.each_signal(model.symbol) do |event_model|
 		iterator[task.event(event_model)]
 	    end
 	end
 	    
 	def each_handler(&iterator)
 	    super
-	    task.each_handler(model, &iterator)
+	    task.each_handler(model.symbol, &iterator)
 	end
 
         def controlable?; model.controlable? end
@@ -459,8 +459,8 @@ module Roby
         def self.on(mappings, &user_handler)
             mappings = [*mappings].zip([]) unless Hash === mappings
             mappings.each do |from, to|
-                from = *validate_event_models(from)
-                to = if to; validate_event_models(*to)
+                from = *validate_event_models(from).map { |ev| ev.symbol }
+                to = if to; validate_event_models(*to).map { |ev| ev.symbol }
                      else;  []
                      end
 
