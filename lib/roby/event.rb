@@ -55,6 +55,9 @@ module Roby
 	end
 
 	def command=(block)
+	    # Returns true if the command has been called and false otherwise
+	    # The command won't be called if postpone() is called within the
+	    # #calling hook
 	    define_method(:call_without_propagation) do |context|
 		return if pending > 0
 
@@ -67,6 +70,7 @@ module Roby
 		    end
 
 		    called(context)
+		    true
 		end
 	    end
 	    @controlable = true
@@ -76,10 +80,11 @@ module Roby
 	    if gathering?
 		Thread.current[:propagation][self] << [false, Thread.current[:propagation_event], context]
 	    else
+		initial_set = []
 		first_step = gather_propagation do
-		    call_without_propagation(context)
+		    initial_set << self if call_without_propagation(context)
 		end
-		propagate(first_step)
+		propagate(first_step, initial_set)
 	    end
 	end
 	private :call
@@ -128,6 +133,7 @@ module Roby
             Thread.current[:propagation] = nil
         end
 
+	# returns the value returned by the block
 	def propagation_context(source)
 	    raise "not in a gathering context in #fire" unless gathering?
 	    event, generator = source_event, source_generator
@@ -139,7 +145,8 @@ module Roby
 		Thread.current[:propagation_event] = nil
 		Thread.current[:propagation_generator] = source
 	    end
-	    yield(Thread.current[:propagation])
+
+	    yield Thread.current[:propagation]
 
 	ensure
 	    Thread.current[:propagation_event] = event
@@ -176,10 +183,13 @@ module Roby
 	end
         private :fire
 
+	# returns true to match the behavior of #call_without_propagation
 	def emit_without_propagation(context)
 	    # Create the event object
 	    event = new(context)
 	    fire(event)
+
+	    true
 
 	ensure
 	    @pending -= 1 if @pending > 0
@@ -198,12 +208,13 @@ module Roby
 	    end
 
 	    first_step = gather_propagation { emit_without_propagation(context) }
-	    propagate(first_step)
+	    propagate(first_step, self)
 	end
 
-	def propagate(next_step)
-       	    already_seen = Set.new
-	    # already_seen << self
+	def propagate(next_step, *initial_set)
+	    # Problem with postponed: the object is included in already_seen while it
+	    # has not been fired
+       	    already_seen = initial_set.to_set
 
 	    while !next_step.empty?
                 next_step = gather_propagation do
@@ -220,14 +231,14 @@ module Roby
 			    next
 			end
 
-			already_seen << signalled
-			propagation_context(source) do |result|
+			did_call = propagation_context(source) do |result|
 			    if signalled.controlable? && !emit
 				signalled.call_without_propagation(context) 
 			    else
 				signalled.emit_without_propagation(context)
 			    end
 			end
+			already_seen << signalled if did_call
 		    end
                 end
             end        
