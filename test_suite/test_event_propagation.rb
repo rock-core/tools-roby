@@ -28,17 +28,29 @@ class TC_EventPropagation < Test::Unit::TestCase
 
         assert_equal(start_event, task.event(:start))
         assert_equal([], start_event.handlers)
-        assert_equal([], start_event.enum_for(:each_signal).to_a)
-        start_model = start_node.event_model(:start)
+        assert_equal([task.event(:stop)], start_event.enum_for(:each_signal).to_a)
+        start_model = task.event_model(:start)
         assert_equal(start_model, start_event.model)
-        assert_equal([start_node.event_model(:stop)], start_node.enum_for(:each_signal, start_model).to_a)
-        
+        assert_equal([:stop], task.enum_for(:each_signal, :start).to_a)
+     end
+
+    def test_task_propagation
+        start_node = EmptyTask.new
+
+	# Check can_signal? for task events
+        start_event = start_node.event(:start)
+	stop_event  = start_node.event(:stop)
+	assert( start_event.can_signal?(stop_event) )
+
 	# Check that propagation is done properly in this simple task
         start_node.start!
         assert(start_node.finished?)
 	event_history = start_node.history.map { |_, ev| ev.generator }
 	assert_equal([start_node.event(:start), start_node.event(:stop)], event_history)
+    end
 
+    
+    def test_signalling
 	# Check a more complex setup
         start_node = EmptyTask.new
         if_node = ChoiceTask.new
@@ -61,7 +73,20 @@ class TC_EventPropagation < Test::Unit::TestCase
 	assert_equal(expected_history, event_history)
     end
 
-    def test_ordering
+    def test_handlers
+	t1, t2 = EmptyTask.new, EmptyTask.new
+	t1.on(:stop) { t2.start! }
+
+	FlexMock.use do |mock|
+	    t1.on(:stop) { mock.t1 }
+	    t2.on(:stop) { mock.t2 }
+	    mock.should_receive(:t1).once.ordered
+	    mock.should_receive(:t2).once.ordered
+	    t1.start!
+	end
+    end
+
+    def test_simple_signal_handler_ordering
 	e1, e2, e3 = 4.enum_for(:times).map { Roby::EventGenerator.new(true) }
 	e1.on(e2)
 	e1.on { e2.remove_signal(e3) }
@@ -72,6 +97,145 @@ class TC_EventPropagation < Test::Unit::TestCase
 	assert( !e3.happened? )
     end
 
+    def test_check_running
+	task = Class.new(Roby::Task) do
+	    event(:start, :command => true)
+	    event(:inter, :command => true)
+	    event(:stop, :command => true)
+	end.new
+
+	assert_raises(Roby::TaskModelViolation) { task.inter! }
+	assert_equal(0, task.event(:inter).pending)
+	task.start!
+	assert_nothing_raised { task.inter! }
+	task.stop!
+	assert_raises(Roby::TaskModelViolation) { task.inter! }
+	assert_equal(0, task.event(:inter).pending)
+    end
+
+    def test_aborted_until
+	klass = Class.new(Roby::Task) do
+	    event(:start, :command => true)
+	    event(:stop, :command => true)
+	end
+	parent, child = klass.new, klass.new
+
+	# p:start -> c:start -> c:failed --> c:stop -> p:stop
+	#				 |-> p:aborted -> p:stop
+	# we make the c:failed -> p:aborted link being until p:stop
+	#child.on(:stop, parent, :stop)
+	#child.event(:failed).until(parent.event(:stop)).on parent.event(:aborted)
+
+	parent.on(:start, child, :start)
+	child.on(:start, child, :failed)
+	child.on(:failed, parent, :aborted)
+
+        FlexMock.use do |mock|
+	    parent.on(:start)	{ mock.p_start }
+	    child.on(:start)	{ mock.c_start }
+	    child.on(:failed)	{ mock.c_failed }
+	    parent.on(:aborted) { mock.p_aborted }
+	    parent.on(:stop)	{ mock.p_stop }
+	    child.on(:stop)	{ mock.c_stop }
+
+	    mock.should_receive(:p_start).once.ordered
+	    mock.should_receive(:c_start).once.ordered
+	    mock.should_receive(:c_failed).once.ordered
+	    mock.should_receive(:p_aborted).once.ordered(:aborted_stop)
+	    mock.should_receive(:c_stop).once.ordered(:aborted_stop)
+	    mock.should_receive(:p_stop).once.ordered
+
+	    parent.start!
+	end
+    end
+
+    def test_event_hooks
+        FlexMock.use do |mock|
+	    hooks = [:calling, :fired, :called]
+            mod = Module.new do
+		hooks.each do |name|
+		    define_method(name) do |context|
+			mock.send(name, self)
+		    end
+        	end
+            end
+
+            generator = Class.new(Roby::EventGenerator) do
+		include mod
+	    end.new(true)
+            
+	    hooks.each do |name|
+		mock.should_receive(name).once.with(generator).ordered
+	    end
+            generator.call(nil)
+        end
+    end
+
+    def test_postpone
+	# Simple postpone behavior
+	FlexMock.use do |mock|
+	    wait_for = Roby::EventGenerator.new(true)
+	    event = Roby::EventGenerator.new(true)
+	    event.singleton_class.class_eval do
+		define_method(:calling) do |context|
+		    super if defined? super
+		    postpone(wait_for, "bla") {}
+		end
+	    end
+
+	    event.on { mock.event }
+	    mock.should_receive(:event).never
+	    event.call(nil)
+	    assert(! event.happened? )
+	    assert(! event.pending? )
+	end
+
+	# Test propagation when the block given to postpone 
+	# signals some events
+        FlexMock.use do |mock|
+	    wait_for = Roby::EventGenerator.new(true)
+	    event = Roby::EventGenerator.new(true)
+	    event.singleton_class.class_eval do
+		define_method(:calling) do |context|
+		    super if defined? super
+		    if !wait_for.happened?
+			postpone(wait_for, "bla") do
+			    wait_for.call(nil)
+			end
+		    end
+		end
+	    end
+
+	    wait_for.on { mock.wait_for }
+	    event.on { mock.event }
+	    
+	    mock.should_receive(:wait_for).once.ordered
+	    mock.should_receive(:event).once.ordered
+	    event.call(nil)
+        end
+    end
+
+    def test_aborted_default_handler
+	klass = Class.new(Roby::Task) do
+	    event(:start, :command => true)
+	end
+
+	t1, t2 = klass.new, klass.new
+	t1.add_child(t2)
+
+	FlexMock.use do |mock|
+	    t1.on(:start) { mock.t1_start }
+	    t2.event(:aborted).on { mock.t2 }
+	    t1.event(:aborted).on { mock.t1 }
+	    mock.should_receive(:t1_start).once.ordered
+	    mock.should_receive(:t2).once.ordered
+	    mock.should_receive(:t1).once.ordered
+
+	    t1.start!
+	    t2.start!
+	    t1.aborted!
+	end
+    end
 
     def test_call_causal_warning
 	model = Roby::EventGenerator.new { }
@@ -92,23 +256,18 @@ class TC_EventPropagation < Test::Unit::TestCase
         FlexMock.use do |mock|
 	    t1.on(:start) { mock.t1 }
 	    t2.on(:start) { mock.t2 }
-	    mock.should_receive(:t2).once.ordered(:events)
-	    mock.should_receive(:t1).once.ordered(:events)
+	    mock.should_receive(:t2).once.ordered
+	    mock.should_receive(:t1).once.ordered
 	    t2.start!
 	end
     end
 
     def test_event_loop
-        watchdog = Thread.new do 
-            sleep(2)
-            assert(false)
-        end
-
         start_node = EmptyTask.new
         next_event = [ start_node, :start ]
         if_node    = ChoiceTask.new
         start_node.on(:stop) { next_event = [if_node, :start] }
-        if_node.on(:stop) { raise Interrupt }
+	if_node.on(:stop) { raise Interrupt }
             
         Roby.event_processing << lambda do 
             next unless next_event
@@ -117,7 +276,8 @@ class TC_EventPropagation < Test::Unit::TestCase
             task.event(event).call(nil)
         end
         assert_doesnt_timeout(1) { Roby.run }
-        assert(start_node.finished? && if_node.finished?)
+        assert(start_node.finished?)
+	assert(if_node.finished?)
     end
 
     def setup_aggregation(mock)
@@ -160,7 +320,7 @@ class TC_EventPropagation < Test::Unit::TestCase
             mock.should_receive(:or).once
             mock.should_receive(:and).once
             mock.should_receive(:and_or).once
-            mock.should_receive(:and_or_p).twice
+            mock.should_receive(:and_or_p).once
             mock.should_receive(:or_and).once
             empty.start!
         end
@@ -257,29 +417,29 @@ class TC_EventPropagation < Test::Unit::TestCase
     def test_ensure
 	setup = lambda do |mock|
 	    t1, t2 = EmptyTask.new, EmptyTask.new
-	    t1.event(:start).ensure_on t2.event(:start)
-	    t1.event(:start).on { mock.started(t1) }
-	    t2.event(:start).on { mock.started(t2) }
+	    t1.event(:start).ensure t2.event(:start)
+	    t1.event(:start).on { mock.t1 }
+	    t2.event(:start).on { mock.t2 }
 	    [t1, t2]
 	end
 	FlexMock.use do |mock|
 	    t1, t2 = setup[mock]
-	    mock.should_receive(:started).with(t1).once
-	    mock.should_receive(:started).with(t2).never
+	    mock.should_receive(:t2).ordered.once
+	    mock.should_receive(:t1).ordered.once
 	    t1.start!
 	end
 	FlexMock.use do |mock|
 	    t1, t2 = setup[mock]
-	    mock.should_receive(:started).with(t2).ordered(:t1_t2).once
-	    mock.should_receive(:started).with(t1).ordered(:t1_t2).once
+	    mock.should_receive(:t1).never
+	    mock.should_receive(:t2).once
 	    t2.start!
 	end
 	FlexMock.use do |mock|
 	    t1, t2 = setup[mock]
-	    mock.should_receive(:started).with(t1).ordered(:t1_t2).once
-	    mock.should_receive(:started).with(t2).ordered(:t1_t2).once
-	    t1.start!
+	    mock.should_receive(:t2).ordered.once
+	    mock.should_receive(:t1).ordered.once
 	    t2.start!
+	    t1.start!
 	end
     end
 
