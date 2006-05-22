@@ -5,8 +5,7 @@ require 'roby/task'
 if !defined?(EmptyTask)
     class EmptyTask < Roby::Task
         event :start, :command => true
-        event :stop, :terminal => true
-        on :start => :stop
+        on :start => :success
     end
 
     class ChoiceTask < Roby::Task
@@ -18,17 +17,19 @@ if !defined?(EmptyTask)
                 emit :a
             end
         end
-
         event :start
-        event :a, :terminal => true
-        event :b, :terminal => true
+
+        event :a
+	on :a => :success
+        event :b
+	on :b => :success
+	
     end
 
     class MultiEventTask < Roby::Task
         event :start, :command => true
         event :inter
-        event :stop
-        on :start => :inter, :inter => :stop
+        on :start => :inter, :inter => :success
     end
 end
 

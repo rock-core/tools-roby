@@ -130,7 +130,7 @@ class TC_Relations < Test::Unit::TestCase
     def test_hierarchy
 	klass = Class.new(Roby::Task) do
 	    event(:start, :command => true)
-	    event(:failed, :command => true)
+	    event(:failed, :command => true, :terminal => true)
 	end
 
 	t1, t2 = klass.new, klass.new

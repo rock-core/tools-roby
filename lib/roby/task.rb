@@ -363,9 +363,9 @@ module Roby
 	    if events.include?(ev)
 		raise ArgumentError, "event #{ev} already defined" 
             elsif old_event = find_event_model(ev)
-                if old_event.terminal? && (options.has_key?(:terminal) && !options[:terminal])
+                if old_event.terminal? && !options[:terminal]
                     raise ArgumentError, "trying to override a terminal event into a non-terminal one"
-                elsif old_event.controlable? && (options.has_key?(:command) && !options[:command])
+                elsif old_event.controlable? && !options[:command]
                     raise ArgumentError, "trying to override a controlable event into a non-controlable one"
                 end
             end

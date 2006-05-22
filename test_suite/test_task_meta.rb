@@ -123,10 +123,7 @@ class TC_TaskMeta < Test::Unit::TestCase
         base = Class.new(Roby::Task) do 
             extend Test::Unit::Assertions
             event :ctrl, :command => true
-            event :start, :command => false
-            event :failed, :terminal => true
-
-            event :stop, :command => false
+	    event :stop
             assert(!find_event_model(:stop).controlable?)
         end
 
@@ -134,9 +131,9 @@ class TC_TaskMeta < Test::Unit::TestCase
             extend Test::Unit::Assertions
 
             assert_nothing_raised { event :start, :command => true }
-
             assert_raises(ArgumentError) { event :ctrl, :command => false }
             assert_raises(ArgumentError) { event :failed, :terminal => false }
+            assert_raises(ArgumentError) { event :failed }
 
             def stop(context)
             end
