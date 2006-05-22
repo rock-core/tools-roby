@@ -312,9 +312,9 @@ module Roby
             end
 
 	    if new_event.symbol == :stop
-		terminal_events.each { |terminal| on(terminal) { |ev| ev.task.emit :stop } }
+		terminal_events.each { |terminal| on(terminal) { |event| event.task.emit :stop } }
 	    elsif options[:terminal] && has_event?(:stop)
-		on(new_event) { |ev| ev.task.emit :stop }
+		on(new_event) { |event| event.task.emit :stop }
 	    end
 
             events[new_event.symbol] = new_event
