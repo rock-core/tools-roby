@@ -33,30 +33,37 @@ module Roby::TaskStructure
 	    end
 
 	    add_execution_agent(agent)
-	    agent.event(:stop).
-		until(event(:stop)).
-		on(event(:aborted))
+	    event(:start).on do
+		agent.event(:stop).
+		    until(event(:stop)).
+		    on(event(:aborted))
+	    end
         end
 
 	module EventModel
 	    def calling(context)
 		super if defined? super
 		return unless respond_to?(:task)
-		return unless agent_model = task.class.execution_agent
 
-		agent = (task.execution_agent || Roby::Task[agent_model].to_a.first)
-		if !agent
-		    agent = agent_model.new rescue Exception
-		    agent = nil if agent == Exception
+		unless agent = task.execution_agent
+		    unless agent_model = task.class.execution_agent
+			return
+		    end
+		    unless agent = Roby::Task[agent_model].to_a.first
+			agent = agent_model.new rescue nil
+		    end
 		end
 
 		if agent
-		    task.executed_by agent
+		    task.executed_by agent unless task.execution_agent == agent
 
 		    if agent.finished?
 			raise TaskModelViolation.new(task), "in #{self}: execution agent #{agent} is dead"
 		    elsif !agent.running?
 			postpone(agent.event(:ready), "spawning execution agent #{agent} for #{self}") do
+			    agent.event(:stop).until(agent.event(:ready)).on do
+				self.failed
+			    end
 			    agent.start!
 			end
 		    end
