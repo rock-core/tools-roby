@@ -28,10 +28,10 @@ class TC_EventPropagation < Test::Unit::TestCase
 
         assert_equal(start_event, task.event(:start))
         assert_equal([], start_event.handlers)
-        assert_equal([task.event(:stop)], start_event.enum_for(:each_signal).to_a)
+        assert_equal([task.event(:success)], start_event.enum_for(:each_signal).to_a)
         start_model = task.event_model(:start)
         assert_equal(start_model, start_event.model)
-        assert_equal([:stop], task.enum_for(:each_signal, :start).to_a)
+        assert_equal([:success], task.enum_for(:each_signal, :start).to_a)
      end
 
     def test_task_propagation
@@ -46,7 +46,7 @@ class TC_EventPropagation < Test::Unit::TestCase
         start_node.start!
         assert(start_node.finished?)
 	event_history = start_node.history.map { |_, ev| ev.generator }
-	assert_equal([start_node.event(:start), start_node.event(:stop)], event_history)
+	assert_equal([start_node.event(:start), start_node.event(:success), start_node.event(:stop)], event_history)
     end
 
     
@@ -60,7 +60,7 @@ class TC_EventPropagation < Test::Unit::TestCase
 
 	# Check history
 	event_history = if_node.history.map { |_, ev| ev.generator }
-	assert_equal(3, event_history.size, "  " + event_history.join("\n"))
+	assert_equal(4, event_history.size, "  " + event_history.join("\n"))
 	assert_equal(if_node.event(:start), event_history.first)
 	assert( if_node.event(:a) == event_history[1] || if_node.event(:b) == event_history[1] )
 	assert_equal(if_node.event(:stop), event_history.last)
@@ -69,7 +69,7 @@ class TC_EventPropagation < Test::Unit::TestCase
         multi_hop.start!
         assert(multi_hop.finished?)
 	event_history = multi_hop.history.map { |_, ev| ev.generator }
-	expected_history = [:start, :inter, :stop].map { |name| multi_hop.event(name) }
+	expected_history = [:start, :inter, :success, :stop].map { |name| multi_hop.event(name) }
 	assert_equal(expected_history, event_history)
     end
 
