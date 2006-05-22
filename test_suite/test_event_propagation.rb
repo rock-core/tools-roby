@@ -280,6 +280,32 @@ class TC_EventPropagation < Test::Unit::TestCase
 	assert(if_node.finished?)
     end
 
+    def setup_event_aggregator(aggregator)
+	events = 10.enum_for(:times).map { Roby::EventGenerator.new(true) }
+	events.each { |ev| aggregator << ev }
+	events.each do |ev| 
+	    ev.call(nil)
+	    if ev != events[-1]
+		yield
+	    end
+	end
+    end
+
+    def test_or_generator
+	or_event = Roby::OrGenerator.new
+	setup_event_aggregator(or_event) do
+	    assert(or_event.happened?)
+	end
+    end
+
+    def test_and_generator
+	and_event = Roby::AndGenerator.new
+	setup_event_aggregator(and_event) do
+	    assert(!and_event.happened?)
+	end
+	assert(and_event.happened?)
+    end
+
     def setup_aggregation(mock)
         empty = EmptyTask.new
         multi = MultiEventTask.new
@@ -369,49 +395,42 @@ class TC_EventPropagation < Test::Unit::TestCase
         assert( or_event.enum_for(:each_causal_link).find { |ev| ev == d.event(:stop) } )
     end
 
-    def aggregator_test(a, *tasks)
-	if a.respond_to?(:start_event)
-	    assert(a.start_event.controlable?)
-	    assert(a.event(:start) == a.start_event)
-	    assert(a.event(:stop)  == a.stop_event)
-	end
-
+    def test_task_aggregator
+        t1, t2 = EmptyTask.new, EmptyTask.new
+        p = t1 | t2
+	assert(p.start_event.controlable?)
+	assert(p.event(:start) == p.start_event)
+	assert(p.event(:stop)  == p.stop_event)
 	FlexMock.use do |mock|
-	    a.on(:start) { mock.started }
-	    a.on(:stop)  { mock.stopped }
+	    p.on(:start) { mock.started }
+	    p.on(:stop)  { mock.stopped }
 	    mock.should_receive(:started).once.ordered(:start_stop)
 	    mock.should_receive(:stopped).once.ordered(:start_stop)
-	    a.event(:start).call(nil)
+	    p.start_event.call(nil)
 	end
-	assert(tasks.all? { |t| t.finished? })
-	assert(a.event(:stop).happened?)
-	assert(a.finished?)
-    end
+	assert(t1.finished? && t2.finished?)
+	assert(p.event(:stop).happened?)
+	assert(p.finished?)
 
-    def test_task_parallel_aggregator
-        t1, t2 = EmptyTask.new, EmptyTask.new
-	aggregator_test((t1 | t2), t1, t2)
-        t1, t2 = EmptyTask.new, EmptyTask.new
-	aggregator_test( (t1 | t2).to_task, t1, t2 )
-    end
-
-    def test_task_sequence_aggregator
-        t1, t2 = EmptyTask.new, EmptyTask.new
-	aggregator_test( (t1 + t2), t1, t2 )
-        t1, t2 = EmptyTask.new, EmptyTask.new
+        t1, t2 = EmptyTask.new, EmptyTask.new, EmptyTask.new
 	s = t1 + t2
-	aggregator_test( s.to_task, t1, t2 )
-	assert(! t1.event(:stop).related_object?(s.event(:stop)))
+
+	assert(s.start_event.controlable?)
+        s.event(:start).call(nil)
+        assert(t1.finished? && t2.finished?)
+        assert(s.event(:stop).happened?)
+	assert(s.finished?)
 
         t1, t2, t3 = EmptyTask.new, EmptyTask.new, EmptyTask.new
         s = t2 + t3
 	s.unshift t1
-	aggregator_test(s, t1, t2, t3)
-	
-        t1, t2, t3 = EmptyTask.new, EmptyTask.new, EmptyTask.new
-        s = t2 + t3
-	s.unshift t1
-	aggregator_test(s.to_task, t1, t2, t3)
+
+	assert(s.start_event.controlable?)
+        s.event(:start).call(nil)
+        assert(t1.finished? && t2.finished? && t3.finished?)
+        assert(s.event(:stop).happened?)
+	assert(s.finished?)
+
     end
 
     def test_ensure

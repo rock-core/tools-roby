@@ -29,33 +29,12 @@ module Roby::TaskAggregator
             
     end
 
-    class TaskAggregator
-	attr_reader :start_event, :stop_event
-	def forward(event, op = nil, *args, &block)
-	    event = case event
-		    when :start;    start_event
-		    when :stop;	    stop_event
-		    else; raise ArgumentError, "no such event #{event}"
-		    end
-
-	    if op
-		event.send(op, *args, &block)
-	    else
-		event
-	    end
-	end
-
-	def event(event); forward(event) end
-	def on(event, *args, &block); forward(event, :on, *args, &block) end
+    class TaskAggregator < Roby::Task
+	event(:start,	:command => true)
 
 	attr_reader :tasks
+	def initialize; @tasks = Array.new; super end
 	def each_task(&iterator); tasks.each(&iterator) end
-	def running?;  tasks.any? { |t| t.running? } end
-	def finished?; stop_event.happened? end
-
-	def to_task
-	    AggregatorTask.new(self.freeze)
-	end
     end
 
     class Sequence < TaskAggregator
@@ -68,35 +47,28 @@ module Roby::TaskAggregator
 	    @stop_event  = Roby::EventGenerator.new(true)
             super
         end
-	
-	def connect_start(task)
-	    if old = @tasks.first
-		@start_event.delete(old.event(:start))
-		task.on(:stop, old, :start)
-	    end
-	    @start_event << task.event(:start)
-	end
-
-	def connect_stop(task)
-	    if old = @tasks.last
-		old.on(:stop, task, :start)
-		old.event(:stop).remove_signal @stop_event
-	    end
-	    task.event(:stop).on @stop_event
-	end
 
         def unshift(task)
             raise "trying to do Sequence#unshift on a running sequence" if running?
-	    connect_stop(task) if @tasks.empty?
-	    connect_start(task)
+	    unless @tasks.empty?
+		task.on(:stop, @tasks.first, :start)
+		@start_event.delete(@tasks.first.event(:start))
+	    end
+
+	    @start_event << task.event(:start)
             @tasks.unshift(task)
-	    self
         end
 
         def <<(task)
-	    connect_start(task) if @tasks.empty?
-	    connect_stop(task)
-	    @tasks << task
+	    if @tasks.empty?
+		unshift(task)
+	    else
+		@tasks.last.on(:stop, task, :start)
+		@tasks.last.event(:stop).remove_signal @stop_event
+		@tasks << task 
+	    end
+
+	    task.event(:stop).on @stop_event
 	    self
         end
 
@@ -109,19 +81,23 @@ module Roby::TaskAggregator
 
     class Parallel < TaskAggregator
         include Operations
-	attr_reader :tasks
-        def initialize
-            super
 
-            @tasks = Set.new 
-	    @start_event = Roby::ForwarderGenerator.new
-	    @stop_event	= Roby::AndGenerator.new
+	attr_reader :success
+        def initialize
+	    super
+
+	    @success = Roby::AndGenerator.new
+	    event(:success).emit_on @success
         end
 
         def <<(task)
+	    raise "trying to change a running parallel task" if running?
             @tasks << task
-	    start_event << task.event(:start)
-            stop_event << task.event(:stop)
+
+	    on(:start, task, :start)
+	    realized_by task
+	    success << task.event(:success)
+
             self
         end
 
@@ -135,8 +111,15 @@ module Roby::TaskAggregator
     class AggregatorTask < Roby::Task
 	def initialize(aggregator)
 	    singleton_class.class_eval do
-		event(:start, :command => true)
-		event(:stop, :command => true)
+		if aggregator.start_event.controlable?
+		    define_method(:start, &aggregator.start_event.method(:call))
+		    event(:start)
+		end
+
+		if aggregator.stop_event.controlable?
+		    define_method(:stop, &aggregator.stop_event.method(:call))
+		    event(:stop)
+		end
 	    end
 
 	    aggregator.each_task do |child|
