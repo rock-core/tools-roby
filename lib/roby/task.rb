@@ -418,7 +418,7 @@ module Roby
                         all_events = enum_for(:each_event).map { |name, _| name }
                         raise ArgumentError, "#{e} is not an event of #{name} #{all_events.inspect}" unless ev_model
                     end
-                elsif e.has_ancestor?(TaskEvent)
+                elsif e.respond_to?(:has_ancestor?) && e.has_ancestor?(TaskEvent)
                     # Check that e is an event class for us
                     ev_model = find_event_model(e.symbol)
                     if !ev_model
