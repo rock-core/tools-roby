@@ -40,35 +40,41 @@ module Roby::TaskAggregator
     class Sequence < TaskAggregator
         include Operations
 
-	attr_reader :tasks
-        def initialize
-            @tasks = Array.new 
-	    @start_event = Roby::ForwarderGenerator.new
-	    @stop_event  = Roby::EventGenerator.new(true)
-            super
-        end
-
-        def unshift(task)
-            raise "trying to do Sequence#unshift on a running sequence" if running?
-	    unless @tasks.empty?
-		task.on(:stop, @tasks.first, :start)
-		@start_event.delete(@tasks.first.event(:start))
+	def connect_start(task)
+	    if old = @tasks.first
+		event(:start).remove_signal old.event(:start)
+		task.on(:success, old, :start)
 	    end
 
-	    @start_event << task.event(:start)
+	    event(:start).on task.event(:start)
+	end
+
+	def connect_stop(task)
+	    if old = @tasks.last
+		old.on(:success, task, :start)
+		old.event(:success).remove_forwarding event(:success)
+	    end
+	    event(:success).emit_on task.event(:success)
+	end
+	private :connect_stop, :connect_start
+
+        def unshift(task)
+            raise "trying to do Sequence#unshift on a running or finished sequence" if (running? || finished?)
+	    connect_start(task)
+	    connect_stop(task) if @tasks.empty?
+
             @tasks.unshift(task)
+	    realized_by task
+	    self
         end
 
         def <<(task)
-	    if @tasks.empty?
-		unshift(task)
-	    else
-		@tasks.last.on(:stop, task, :start)
-		@tasks.last.event(:stop).remove_signal @stop_event
-		@tasks << task 
-	    end
-
-	    task.event(:stop).on @stop_event
+	    raise "trying to do Sequence#<< on a finished sequence" if finished?
+	    connect_start(task) if @tasks.empty?
+	    connect_stop(task)
+	    
+	    @tasks << task
+	    realized_by task
 	    self
         end
 
@@ -107,31 +113,6 @@ module Roby::TaskAggregator
             self
         end
     end
-
-    class AggregatorTask < Roby::Task
-	def initialize(aggregator)
-	    singleton_class.class_eval do
-		if aggregator.start_event.controlable?
-		    define_method(:start, &aggregator.start_event.method(:call))
-		    event(:start)
-		end
-
-		if aggregator.stop_event.controlable?
-		    define_method(:stop, &aggregator.stop_event.method(:call))
-		    event(:stop)
-		end
-	    end
-
-	    aggregator.each_task do |child|
-		realized_by child
-	    end
-
-	    super()
-	    event(:start).on aggregator.start_event
-	    aggregator.stop_event.on event(:stop)
-	end
-    end
-
 end
 
 module Roby

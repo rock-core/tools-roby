@@ -88,15 +88,9 @@ module Roby::Genom
 	end
 	event :start
 	
-	event :success, :terminal => true
-	event :failed,  :terminal => true
-
 	def interrupted(context); stop!(context) end
 	event :interrupted
 	on :interrupted => :failed
-
-	event :aborted, :command => true
-	on :aborted => :failed
 
 	def stop(context); @abort_activity = @activity.abort end
 	event :stop
