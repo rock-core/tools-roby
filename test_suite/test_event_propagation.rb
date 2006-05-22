@@ -49,7 +49,17 @@ class TC_EventPropagation < Test::Unit::TestCase
 	assert_equal([start_node.event(:start), start_node.event(:success), start_node.event(:stop)], event_history)
     end
 
-    
+    def test_signal_relation
+	e1, e2 = Roby::EventGenerator.new(true), Roby::EventGenerator.new(true)
+
+	e1.on e2
+	assert( e1.child_object?( e2, Roby::EventStructure::Signals ))
+	assert( e2.parent_object?( e1, Roby::EventStructure::Signals ))
+
+	e1.call(nil)
+	assert(e2.happened?)
+    end
+ 
     def test_signalling
 	# Check a more complex setup
         start_node = EmptyTask.new

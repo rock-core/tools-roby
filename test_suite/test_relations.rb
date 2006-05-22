@@ -119,14 +119,7 @@ class TC_Relations < Test::Unit::TestCase
 	assert_equal([n3, n2].to_set, n1.enum_for(:each_child_object, r2).to_set)
     end
 
-    def test_signals
-	e1, e2 = Roby::EventGenerator.new(true), Roby::EventGenerator.new(true)
-
-	e1.on e2
-	assert( e1.child_object?( e2, Roby::EventStructure::Signals ))
-	assert( e2.parent_object?( e1, Roby::EventStructure::Signals ))
-    end
-
+   
     def test_hierarchy
 	klass = Class.new(Roby::Task) do
 	    event(:start, :command => true)
@@ -147,5 +140,6 @@ class TC_Relations < Test::Unit::TestCase
 	    t2.failed!
 	end
     end
+
 end
 
