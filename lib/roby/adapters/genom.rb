@@ -122,7 +122,7 @@ module Roby::Genom
 
 	rescue ::Genom::GenomError => e # the request failed
 	    if !running?
-		raise StartFailed.new(self), "failed to start the task: #{e.message}"
+		event(:start).failed(StartFailed, e.to_s)
 	    else
 		emit :failed, e.message
 	    end
