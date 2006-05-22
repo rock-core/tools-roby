@@ -203,7 +203,7 @@ module Roby::Genom
 		init = init.to_task
 		realized_by init
 		init.start!
-		init = init.event(:stop)
+		init = init.event(:success)
 	    end
 
 	    if init
