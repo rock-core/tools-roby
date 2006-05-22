@@ -127,7 +127,7 @@ class TC_TaskMeta < Test::Unit::TestCase
             assert(!find_event_model(:stop).controlable?)
         end
 
-        derived = Class.new(base) do
+        Class.new(base) do
             extend Test::Unit::Assertions
 
             assert_nothing_raised { event :start, :command => true }
@@ -140,6 +140,12 @@ class TC_TaskMeta < Test::Unit::TestCase
             assert_nothing_raised { event :stop }
             assert(find_event_model(:stop).controlable?)
         end
+
+	Class.new(base) do
+	    def start(context)
+	    end
+	    assert_nothing_raised { event :start }
+	end
     end
 
     def test_singleton

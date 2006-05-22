@@ -281,16 +281,17 @@ module Roby
         #
         def self.event(ev, options = Hash.new)
             options = validate_options(options, :command => nil, :terminal => nil, :model => TaskEvent)
-            validate_event_definition_request(ev, options)
 
             ev_s = ev.to_s
             ev = ev.to_sym
+
 
             if !options.has_key?(:command) && instance_methods.include?(ev_s)
                 method = instance_method(ev)
                 check_arity(method, 1)
                 options[:command] = lambda { |t, c| method.bind(t).call(c) }
             end
+            validate_event_definition_request(ev, options)
 
             command_handler = options[:command] if options[:command].respond_to?(:call)
             
