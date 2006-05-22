@@ -20,7 +20,7 @@ module Roby::TaskStructure
 	# no event in :success can happen. In fact, it is more general. We
 	# should make sure that the events in :success are reachable
         def realized_by(task, options = {:success => :stop})
-            options = validate_options options, :success => [], :failure => []
+            options = validate_options options, :success => [], :failure => [:failed]
 	    options = options.inject({}) { |h, (k, v)| h[k] = [*v]; h }
 
 	    success = options[:success].to_a.map { |ev| task.event(ev) }
