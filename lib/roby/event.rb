@@ -154,12 +154,12 @@ module Roby
 	end
 		  
 
-	def add_signal_to_propagation(event, signalled, context)
-	    if !event.generator.can_signal?(signalled)
+	def add_signal_to_propagation(only_forward, event, signalled, context)
+	    unless only_forward || event.generator.can_signal?(signalled)
 		raise ModelViolation, "trying to signal #{signalled} from #{event.generator}"
 	    end
 
-	    Thread.current[:propagation][signalled] << [false, event, context]
+	    Thread.current[:propagation][signalled] << [only_forward, event, context]
 	end
         
 	# Do fire this event. It gathers the list of signals that are to
@@ -167,7 +167,10 @@ module Roby
         def fire(event)
 	    propagation_context(event) do |result|
 		enum_for(:each_signal).each do |signalled|
-		    add_signal_to_propagation(event, signalled, event.context)
+		    add_signal_to_propagation(false, event, signalled, event.context)
+		end
+		enum_for(:each_forwarding).each do |signalled|
+		    add_signal_to_propagation(true, event, signalled, event.context)
 		end
 
 		# Since we are in a gathering context, call
@@ -223,22 +226,23 @@ module Roby
                     # method (hence the respond_to? check). The fact that the
                     # event can or cannot be fired is checked in #fire (using can_signal?)
 		    next_step.each do |signalled, sources|
-			emit, source, context = sources[0]
-			source.generator.signalling(source, signalled) if source
+			sources.each do |emit, source, context|
+			    source.generator.signalling(source, signalled) if source
 
-			if already_seen.include?(signalled) && !(emit && signalled.pending?)
-			    Roby.debug { "#{signalled} has already been signalled" }
-			    next
-			end
-
-			did_call = propagation_context(source) do |result|
-			    if signalled.controlable? && !emit
-				signalled.call_without_propagation(context) 
-			    else
-				signalled.emit_without_propagation(context)
+			    if already_seen.include?(signalled) && !(emit && signalled.pending?)
+			        Roby.debug { "#{signalled} has already been signalled" }
+			        next
 			    end
+
+			    did_call = propagation_context(source) do |result|
+				if !emit && signalled.controlable?
+				    signalled.call_without_propagation(context) 
+				else
+				    signalled.emit_without_propagation(context)
+				end
+			    end
+			    already_seen << signalled if did_call
 			end
-			already_seen << signalled if did_call
 		    end
                 end
             end        
@@ -257,11 +261,7 @@ module Roby
 	#   event.on { |context| self.emit(context) }
 	#   event.add_causal_link self
 	def emit_on(event, *context_override)
-	    event.on do |context| 
-		context = *context_override unless context_override.empty?
-		emit(context) 
-	    end
-	    event.add_causal_link self
+	    event.add_forwarding(self)
 	end
 
         def controlable?; @controlable end
@@ -380,8 +380,8 @@ module Roby
 
     class AndGenerator < EventGenerator
         def initialize
-            @events = Set.new
-            @waiting  = Set.new
+            @events	= Set.new
+            @waiting	= Set.new
             super()
         end
 
@@ -392,10 +392,10 @@ module Roby
             @events  << event_model
             @waiting << event_model
             event_model.on do |event|
-                if !done? || permanent
-                    @waiting.delete(event_model)
-                    emit(nil) if done?
-                end
+		if !done? || permanent
+		    @waiting.delete(event_model)
+		    emit(nil) if done?
+		end
             end
 
             event_model.add_causal_link self
