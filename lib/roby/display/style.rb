@@ -17,8 +17,14 @@ module Roby
 	    def move(x, y)
 		offset_x = x - @x
 		offset_y = y - @y
+		@x = x
+		@y = y
 		objects.each_value { |obj| obj.moveBy(offset_x, offset_y) }
 	    end
+	    def moveBy(dx, dy)
+		move(x + dx, y + dy)
+	    end
+
 	    def apply(name, *args); objects.each_value { |obj| obj.send(name, *args) if obj.respond_to?(name) } end
 	    def brush=(brush); apply(:brush=, brush) end
 	    def z=(z); apply(:z=, z) end

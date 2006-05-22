@@ -77,7 +77,7 @@ module Roby
     end
     
     class ExecutionStateDisplayServer < Qt::Object
-	BASE_DURATION = 10000
+	BASE_DURATION = 3000
 	BASE_LINES    = 10
 	include Roby::DisplayStyle
 
@@ -203,9 +203,6 @@ module Roby
 	    if line.respond_to?(:task)
 		line.start = x if !line.start
 		line.stop = x
-		if generator.model.symbol == :stop
-		    @lines[line.index] = nil
-		end
 	    end
 	    
 	    y = (line.index + 0.2) * line_height
@@ -231,7 +228,10 @@ module Roby
 	    end
 	    
 	    if source = event_source.delete(event_generator)
+		raise unless event_display.has_key?(source)
 		source = event_display[source]
+		DisplayStyle.arrow(source.x, source.y, circle.x, circle.y, self)
+
 		Qt::CanvasLine.new(canvas) do |c|
 		    c.set_points source.x, source.y, circle.x, circle.y
 		    c.brush = Qt::Brush.new(Qt::Color.new(DisplayStyle::SIGNAL_COLOR))

@@ -125,6 +125,9 @@ module Roby
 		self.column = column
 	    end
 
+	    def x; group.x end
+	    def y; group.y end
+
 	    def column=(new)
 		column_update(new)
 		propagate_column if column
@@ -177,28 +180,27 @@ module Roby
 	end
 	
 	class Task < Element
-	    attr_reader :x, :y, :width, :span
+	    attr_reader :width, :span, :group
 	    def initialize(task, column, display)
-		@rectangle, @title = DisplayStyle.task(task, display)
-		@x, @y = 0, 0
+		@group = DisplayStyle.task(task, display)
 		@width = @span = display.line_height * 0.5
 
 		super(column, display)
 	    end
 
 	    def color=(newcolor)
-		@rectangle.brush = Qt::Brush.new Qt::Color.new(newcolor)
+		group.rectangle.brush = Qt::Brush.new Qt::Color.new(newcolor)
 	    end
 
 	    def update_width
 		@width = children.inject(x = display.event_spacing) { |x, event| x + event.width + display.event_spacing }
-		@span  = [@title.bounding_rect.width, width].max
+		@span  = [group.title.bounding_rect.width, width].max
 		
 		column.width = width * 1.2 if column && column.width < width
-		@rectangle.set_size(width, @rectangle.height)
+		group.rectangle.set_size(width, group.rectangle.height)
 	    end
 
-	    def event_y; @rectangle.y + display.event_radius * 2 end
+	    def event_y; group.y + display.event_radius * 2 end
 
 	    # New event for this task. +event+ shall be an Event object.
 	    def event(new)
@@ -211,16 +213,13 @@ module Roby
 		new.parent = self
 
 		update_width
-		move(self.x, self.y)
+		move(group.x, group.y)
 	    end
     
 	    def move(x, y)
-		offset = [x - self.x, y - self.y]
-		@rectangle.moveBy(*offset)
-		@title.moveBy(*offset)
-		@x, @y = x, y
+		group.move(x, y)
 
-		children.inject(x = @rectangle.x + display.event_spacing) do |x, event| 
+		children.inject(x = group.rectangle.x + display.event_spacing) do |x, event| 
 		    event.move(x + event.width / 2, event_y)
 		    x + event.width + display.event_spacing
 		end
@@ -229,18 +228,16 @@ module Roby
 
 	# (x, y) is the disc center
 	class Event < Element
-	    attr_reader :event
+	    attr_reader :event, :group
 	    def initialize(event, column, display)
 		@event = event
-		@circle, @text = DisplayStyle.event(event, display)
+		@group = DisplayStyle.event(event, display)
 		@watchers = []
 
 		super(column, display)
 	    end
 	    
-	    def x; @circle.x end
-	    def y; @circle.y end
-	    def width; [@circle.width, @text.bounding_rect.width].max end
+	    def width; [group.circle.width, group.title.bounding_rect.width].max end
 	    def span; width end
 
 	    def add_watch(&updater)
@@ -248,12 +245,7 @@ module Roby
 	    end
 
 	    def move(x, y)
-		offset = [x - self.x, y - self.y]
-		@x, @y = x, y
-
-		@circle.moveBy(*offset)
-		@text.moveBy(*offset)
-		
+		group.move(x, y)
 		@watchers.each { |w| w.call(x, y) }
 	    end
 	end
@@ -401,12 +393,12 @@ module Roby
 	end
 
 	def column_state
-	    each_column do |col|
-		puts col.x
-		col.each_line do |l|
-		    puts "  * #{l.x} #{l.address}" if l
-		end
-	    end
+	    # each_column do |col|
+	    #     puts col.x
+	    #     col.each_line do |l|
+	    #         puts "  * #{l.x} #{l.address}" if l
+	    #     end
+	    # end
 	end
 
 	def started(roby_task)
