@@ -70,6 +70,9 @@ module Roby
             DRb.stop_service
         end
         puts "Quitting"
+
+    ensure
+	GC.enable
     end
 end
 
