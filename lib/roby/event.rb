@@ -186,6 +186,12 @@ module Roby
 	end
         private :fire
 
+	# raises an exception object when an event whose command has been called
+	# won't be emitted (ever)
+	def failed(klass = ModelViolation, message = "")
+	    raise klass.new(self), "failed to emit #{self.symbol}(#{self}): #{message}"
+	end
+
 	# returns true to match the behavior of #call_without_propagation
 	def emit_without_propagation(context)
 	    # Create the event object
