@@ -330,7 +330,7 @@ class Logger
     # be returned.
     module Hierarchy
         attr_writer :logger
-        def logger(parent_module = Module.nesting[1])
+        def logger
             return @logger if defined?(@logger) && @logger
             if kind_of?(Module)
                 modname = self.name
