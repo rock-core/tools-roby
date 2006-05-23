@@ -48,15 +48,6 @@ module Roby
 	    tasks
 	end
 
-        def display(g)
-	    each_task do |task, _|
-		task.each_event(false) do |event|
-		    g.event_relation(EventStructure::CausalLinks, event)
-		end
-		g.task_relation(TaskStructure::Hierarchy, task, "color" => "red")
-	    end
-        end
-
         def insert(task)
 	    @tasks << task
 	    @first_task = task
