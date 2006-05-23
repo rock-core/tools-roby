@@ -33,10 +33,11 @@ module Test::Unit::Assertions
 	end
     end
 
-    def assert_event(event, timeout = 5)
-	assert_doesnt_timeout("event #{event.symbol} never happened") do
+    def assert_event(event, timeout = 2)
+	assert_doesnt_timeout(timeout, "event #{event.symbol} never happened") do
 	    while !event.happened?
 		Roby.process_events
+		sleep(0.1)
 	    end
 	end
     end
