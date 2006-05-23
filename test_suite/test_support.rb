@@ -238,8 +238,6 @@ class TC_Utils < Test::Unit::TestCase
 	assert_equal([bottom, left, right], root.enum_dfs(:each_child).to_a)
 	assert_equal([[left, bottom], [root, left], [right, bottom], [right, left], [root, right]], root.enum_dfs(:each_child).enum_for(:each_edge).to_a)
 
-	# topological is broken for now
-	#assert_equal([right, left, bottom], root.enum_bfs(:each_child).topological)
 	as_array = []
 	root.enum_bfs(:each_child) { |a| as_array << a }
 	assert_equal(as_array, root.enum_bfs(:each_child).to_a)
