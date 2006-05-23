@@ -349,8 +349,6 @@ class Logger
                 def #{level}(*args, &proc); logger.#{level}(*args, &proc) end
             EOF
         end
-  	def loglevel=(value); logger.level = value end
-	def loglevel; logger.level end
     end
 end
 
