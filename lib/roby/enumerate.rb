@@ -1,12 +1,15 @@
 require 'enumerator'
 require 'set'
 
-module EnumeratorOperations
-    def +(other_enumerator)
+module EnumeratorOperations # :nodoc
+    # Build an enumeration sequence with +other_enumerator+
+    def +(other_enumerator) # :nodoc
 	SequenceEnumerator.new << self << other_enumerator
     end
 end
 
+# A null enumerator which can be used to seed sequence enumeration. See
+# Kernel#null_enum
 class NullEnumerator
     include EnumeratorOperations
     def each; self end
@@ -30,6 +33,8 @@ class Enumerable::Enumerator
     include EnumeratorOperations
 end
 
+# Enumerator object which removes duplicate entries. See
+# Object#each_uniq
 class UniqEnumerator
     include EnumeratorOperations
     def initialize(root, enum_with, args, key = nil)
@@ -71,6 +76,11 @@ class Object
 end
 
 module Kernel
+    # returns always the same null enumerator, to avoid creating enumeration. 
+    # It can be used as a seed to #inject:
+    #
+    #   enumerators.inject(null_enum) { |a, b| a + b }.each do |element|
+    #   end
     def null_enum
 	@@null_enumerator ||= NullEnumerator.new.freeze
     end

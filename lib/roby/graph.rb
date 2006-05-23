@@ -1,5 +1,10 @@
 require 'roby/enumerate'
 
+# Base class for graph enumeration. Subclasses should define
+#   each_edge { |from, to| ... }
+#
+# and GraphEnumerator defines #each to enumerate the nodes
+#
 class GraphEnumerator
     include EnumeratorOperations
     include Enumerable
@@ -18,7 +23,7 @@ class GraphEnumerator
     end
 end
 
-
+# Breadth-first enumerator
 class BFSEnumerator < GraphEnumerator
     def each_edge(&iterator)
         queue = [@root]
@@ -60,6 +65,7 @@ class BFSEnumerator < GraphEnumerator
     end
 end
 
+# Depth-first enumeration
 class DFSEnumerator < GraphEnumerator
     def each_edge(&iterator)
         enumerate(@root, Set.new, &iterator) 

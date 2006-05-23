@@ -7,6 +7,7 @@ module Roby
 	    @tasks = Set.new
 	end
 
+	# Merge +plan+ into this one
 	def merge(plan)
 	    plan.each_task { |task| @tasks << task }
 	end
@@ -15,6 +16,7 @@ module Roby
 	    tasks.each(&iterator)
 	end
 
+	# List all tasks in the plan
 	def tasks
 	    tasks	= Set.new
 	    new_tasks	= @tasks.dup

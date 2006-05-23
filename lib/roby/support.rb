@@ -20,6 +20,14 @@ class ThreadServer
     class Quit < RuntimeError; end
     attr_reader :thread
 
+    # Create the new thread server. +forward_to+ is the server
+    # object. If +multiplex+ is true, then +forward_to+
+    # is supposed to respond to demux(commands), where
+    # commands is an array of [method, *args, block] elements,
+    # where block is the block given at method call or nil.
+    #
+    # The server object can raise ThreadServer::Quit to 
+    # quit the loop
     def initialize(forward_to, multiplex = false)
 	@forwarded = forward_to
 	@queue = Queue.new
@@ -48,7 +56,8 @@ class ThreadServer
 	    end
 	end
     end
-    def method_missing(*args, &block)
+
+    def method_missing(*args, &block) # :nodoc:
 	if Thread.current == @thread
 	    super
 	else
@@ -56,6 +65,8 @@ class ThreadServer
 	    @queue.push args
 	end
     end
+
+    # Make the server object quit
     def quit!
 	@thread.raise Quit
 	@thread.join
@@ -63,6 +74,15 @@ class ThreadServer
 end
 
 class Object
+    # :call-seq
+    #   attribute :name => default_value
+    #   attribute(:name) { default_value }
+    #
+    # In the first form, defines a read-write attribute
+    # named 'name' with default_value for default value.
+    # In the second form, the block is called if the attribute
+    # is read before it has been ever written, and its return
+    # value is used as default value.
     def attribute(attr_def, &init)
         if Hash === attr_def
             name, defval = attr_def.to_a.flatten
@@ -88,14 +108,17 @@ class Object
         EOF
     end
 
+    # Define an attribute on the singleton class
+    # See Object::attribute for the definition of
+    # default values
     def class_attribute(attr_def, &init)
 	singleton_class.class_eval do
 	    attribute(attr_def, &init)
 	end
     end
 
-    def address; Object.address_from_id(object_id) end
-    def self.address_from_id(id)
+    def address
+	id = object_id
 	id = 0xFFFFFFFF - ~id if id < 0
 	(id * 2) & 0xFFFFFFFF
     end
@@ -120,7 +143,7 @@ class Module
     end
 
     # Defines a new constant under a given module
-    # :call-seq:
+    # :call-seq
     #   define_under(name, value)   ->              value
     #   define_under(name) { ... }  ->              value
     #
@@ -134,7 +157,14 @@ class Module
         end
     end
 
-    # Define 'name' to be a read-only enumerable attribute
+    # Define 'name' to be a read-only enumerable attribute. The method
+    # defines a +attr_name+ read-only attribute and an enumerator method 
+    # each_#{name}. +init_block+ is used to initialize the attribute.
+    #
+    # The enumerator method accepts a +key+ argument. If the attribute is
+    # a key => enumerable map, then the +key+ attribute can be used to iterate
+    # 
+    # +enumerator+ is the name of the enumeration method
     def attr_enumerable(name, attr_name = name, enumerator = :each, &init_block)
 	class_eval do
 	    attribute(attr_name, &init_block)
@@ -161,8 +191,9 @@ class Module
     # Is written as
     #	define_method_with_block('my_method') do |a, block|
     #	end
+    #
+    # +block+ is +nil+ if no block is given on the method call
     def define_method_with_block(name, &mdef)
-	
 	class_eval <<-EOD
 	    def #{name}(*args, &block)
 		args << block
@@ -292,6 +323,23 @@ module ObjectStats
 end
 
 class Logger
+    # Define a hierarchy of loggers mapped to the module hierarchy.
+    # It defines the #logger accessor which either returns the logger
+    # attribute of the module, if one is defined, or its parent logger
+    # attribute.
+    # 
+    # module First
+    #   include Hierarchy
+    #   self.logger = Logger.new
+    #
+    #   module Second
+    #     include Hierarchy
+    #   end
+    # end
+    #
+    # Second.logger will return First.logger. If we do
+    # Second.logger = Logger.new, then this one would
+    # be returned.
     module Hierarchy
         attr_writer :logger
         def logger(parent_module = Module.nesting[1])
@@ -305,6 +353,8 @@ class Logger
             end
         end
     end
+
+    # Forward logger output methods to the logger attribute
     module Forward
         [ :debug, :info, :warn, :error, :fatal, :unknown ].each do |level|
             class_eval <<-EOF
