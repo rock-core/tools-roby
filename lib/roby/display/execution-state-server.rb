@@ -13,7 +13,7 @@ module Roby
 	end
 
 	class Event < Qt::ListViewItem
-	    def initialize(list, task, kind, time, obj, dest = nil)
+	    def initialize(list, task, kind, time, obj, *args)
 		super(list)
 		set_text(0, "#{time.tv_sec}:#{"%03i" % (time.tv_usec / 1000)}")
 		if task
@@ -28,12 +28,20 @@ module Roby
 		    " 0x" << obj.source_address.to_s(16)
 
 		if kind == :signal
+		    dest = *args
 		    dest = dest.generator if dest.respond_to?(:generator)
 		    
 		    expr << " -> "
 		    expr << "#{dest.task.source_class}::" if dest.respond_to?(:task)
 		    expr << dest.model.name.gsub(/.*::/, '')
 		    expr << " 0x" << dest.source_address.to_s(16)
+		elsif kind == :postponed
+		    wait_for, reason = *args
+		    expr << " waiting for "
+		    expr << "#{wait_for.task.source_class.name}::" if wait_for.respond_to?(:task)
+		    expr << wait_for.model.name.gsub(/.*::/, '')
+		    expr << " 0x" << wait_for.source_address.to_s(16)
+		    expr << ": " << reason
 		end
 		set_text(3, expr)
 	    end
@@ -73,6 +81,9 @@ module Roby
 	end
 	def signalling(time, from, to)
 	    new_event(:signal, time, from, to)
+	end
+	def postponed(time, generator, wait_for, reason)
+	    new_event(:postponed, time, generator, wait_for, reason)
 	end
     end
     
@@ -262,6 +273,10 @@ module Roby
 	    changed!
 	    event_source[to] = from
 	    @pending.signalling(time, from, to)
+	end
+
+	def postponed(time, generator, wait_for, reason)
+	    @pending.postponed(time, generator, wait_for, reason)
 	end
     end
 end

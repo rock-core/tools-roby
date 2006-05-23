@@ -43,6 +43,13 @@ module Roby
 		end
 	    end
 	end
+
+	def postponed(context, wait_for, reason)
+	    super if defined? super
+	    if server = ExecutionStateDisplay.service
+		server.postponed Time.now, self, wait_for, reason
+	    end
+	end
     end
 end
 

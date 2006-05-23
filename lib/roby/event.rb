@@ -61,7 +61,7 @@ module Roby
 	    define_method(:call_without_propagation) do |context|
 		return if pending > 0
 
-		catch :postponed do 
+		postponed = catch :postponed do 
 		    calling(context)
 		    @pending += 1
 
@@ -71,6 +71,9 @@ module Roby
 
 		    called(context)
 		    true
+		end
+		if postponed
+		    postponed(context, *postponed)
 		end
 	    end
 	    @controlable = true
@@ -93,8 +96,9 @@ module Roby
 	def postpone(event, reason = nil)
 	    event.on self
 	    yield
-	    throw :postponed
+	    throw :postponed, [event, reason]
 	end
+	def postponed(context, event, reason); super if defined? super end
 
         # Establishes signalling and/or event handlers from this event model
         def on(*signals, &handler)
