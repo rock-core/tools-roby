@@ -41,9 +41,6 @@ class ThreadServer
 		    end
 		end
 	    rescue ThreadServer::Quit
-	    rescue Exception => e
-		puts "#{e.message}(#{e.class.name}):in #{e.backtrace.join("\n  ")}"
-		raise
 	    end
 	end
     end
