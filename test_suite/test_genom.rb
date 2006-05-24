@@ -76,6 +76,7 @@ class TC_Genom < Test::Unit::TestCase
 	    assert( Genom.running.include?(init_period) )
 	    assert( init_period.event(:start).pending? )
 
+	    assert_event( init_period.event(:success) )
 	    assert_event( runner.event(:ready) )
 
 	    mod.genom_module.poster(:index).wait

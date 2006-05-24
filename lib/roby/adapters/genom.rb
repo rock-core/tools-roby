@@ -249,7 +249,7 @@ module Roby::Genom
 		@name = "#{name.to_s.gsub('!', '')}Control"
 		def self.name; @name end
 		def start(context)
-		    event(:start).emit_on control.event(:stop)
+		    event(:start).emit_on control.event(:success)
 		    control.start!(context)
 		end
 		event :start
