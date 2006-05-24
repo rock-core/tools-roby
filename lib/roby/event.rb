@@ -70,10 +70,14 @@ module Roby
 		    end
 
 		    called(context)
-		    true
+		    nil
 		end
+		
 		if postponed
 		    postponed(context, *postponed)
+		    false
+		else
+		    true
 		end
 	    end
 	    @controlable = true
