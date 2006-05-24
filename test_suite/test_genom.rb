@@ -91,9 +91,18 @@ class TC_Genom < Test::Unit::TestCase
 
             runner = Genom::Mockup.runner!
 	    runner.start!
-	    assert_event( runner.event(:start) )
+	    assert_event( runner.event(:ready) )
 
-            start_activity
+	    task = Genom::Mockup.start!
+	    assert_equal(Genom::Mockup::Runner, task.class.execution_agent)
+	    
+	    task.start!
+	    assert_event( task.event(:start) )
+	    
+	    task.stop!
+	    assert(!task.finished?)
+	    assert_event( task.event(:stop) )
+	    assert(task.finished?)
         end
     end
 
@@ -104,21 +113,6 @@ class TC_Genom < Test::Unit::TestCase
 	exec_task    = mod.control_to_exec(:set_index!, 5)
 	assert_equal(Genom::Mockup::Runner, control_task.class.execution_agent)
 	assert_equal(Genom::Mockup::Runner, exec_task.class.execution_agent)
-    end
-
-    def start_activity
-        task = Genom::Mockup.start!
-	assert_equal(Genom::Mockup::Runner, task.class.execution_agent)
-	
-        task.start!
-        activity = task.activity
-        
-	assert_event( task.event(:start) )
-        
-        activity.abort.wait
-        assert(!task.finished?)
-	assert_event( task.event(:stop) )
-        assert(task.finished?)
     end
 end
 
