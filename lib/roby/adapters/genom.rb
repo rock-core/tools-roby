@@ -109,7 +109,9 @@ module Roby::Genom
 	    activity.try_wait # update status
 	    if !running? && activity.reached?(:intermediate)
 		emit :start
-	    elsif activity.reached?(:final)
+	    end
+
+	    if activity.reached?(:final)
 		emit :success, activity.output
 	    end
 
