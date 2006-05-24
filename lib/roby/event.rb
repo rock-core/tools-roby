@@ -192,8 +192,12 @@ module Roby
 
 	# raises an exception object when an event whose command has been called
 	# won't be emitted (ever)
-	def failed(klass = ModelViolation, message = "")
-	    raise klass.new(self), "failed to emit #{self.symbol}(#{self}): #{message}"
+	def failed(what = ModelViolation, message = "")
+	    if Class === what
+		raise klass.new(self), "failed to emit #{self.symbol}(#{self}): #{message}"
+	    else
+		raise what, "failed to emit #{self.symbol}(#{self}): #{message}"	
+	    end
 	end
 
 	# returns true to match the behavior of #call_without_propagation
