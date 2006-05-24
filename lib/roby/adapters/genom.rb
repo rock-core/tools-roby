@@ -88,11 +88,15 @@ module Roby::Genom
 	end
 	event :start
 	
-	def interrupted(context); stop!(context) end
+	def interrupted(context)
+	    @abort_activity = activity.abort
+	end
 	event :interrupted
 	on :interrupted => :failed
 
-	def stop(context); @abort_activity = @activity.abort end
+	def stop(context)
+	    interrupted!(context)
+	end
 	event :stop
 	on(:stop) { |event| Roby::Genom.running.delete(event.task) }
 
