@@ -213,9 +213,14 @@ module Roby::Genom
 	event :start
 	event :ready
 
-	def stop(context)
+	def failed(context)
 	    ::Genom::Runner.environment.stop_modules genom_module.name
-	    emit :stop
+	    emit :failed, context
+	end
+	event :failed, :terminal => true
+
+	def stop(context)
+	    failed!(context)
 	end
 	event :stop
     end
