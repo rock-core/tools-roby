@@ -13,12 +13,24 @@ class TC_EventPropagation < Test::Unit::TestCase
 	assert(event.respond_to?(:call))
 	assert(event.controlable?)
 
+	# Check command & emission behavior for controlable events
 	FlexMock.use do |mock|
-	    event = Roby::EventGenerator.new { mock.event }
+	    event = Roby::EventGenerator.new { |context| mock.call_handler(context); event.emit(context) }
+	    event.on { |event| mock.event_handler(event.context) }
+
 	    assert(event.respond_to?(:call))
 	    assert(event.controlable?)
-	    mock.should_receive(:event).once
-	    event.call(nil)
+	    mock.should_receive(:call_handler).once.with(42)
+	    mock.should_receive(:event_handler).once.with(42)
+	    event.call(42)
+	end
+
+	# Check emission behavior for non-controlable events
+	FlexMock.use do |mock|
+	    event = Roby::EventGenerator.new
+	    event.on { |event| mock.event(event.context) }
+	    mock.should_receive(:event).once.with(42)
+	    event.emit(42)
 	end
     end
 
@@ -43,7 +55,11 @@ class TC_EventPropagation < Test::Unit::TestCase
 	assert( start_event.can_signal?(stop_event) )
 
 	# Check that propagation is done properly in this simple task
-        start_node.start!
+	FlexMock.use do |mock|
+	    start_node.on(:start) { |event| mock.started(event.context) }
+	    mock.should_receive(:started).once.with(42)
+	    start_node.start!(42)
+	end
         assert(start_node.finished?)
 	event_history = start_node.history.map { |_, ev| ev.generator }
 	assert_equal([start_node.event(:start), start_node.event(:success), start_node.event(:stop)], event_history)
