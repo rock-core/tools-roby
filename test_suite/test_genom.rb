@@ -42,6 +42,7 @@ class TC_Genom < Test::Unit::TestCase
 	    
 	    runner.start!
 	    assert_event( runner.event(:start) )
+	    assert_event( runner.event(:ready) )
 
 	    runner.stop!
 	    assert_event( runner.event(:stop) )
