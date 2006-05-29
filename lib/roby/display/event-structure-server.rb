@@ -48,7 +48,7 @@ module Roby
 			break if column.lines[line_idx] != element
 			
 			if remaining <= 0
-			    column.lines[line_idx] = nil
+			    column.remove(element)
 			else
 			    remaining -= column.width
 			end
@@ -91,6 +91,7 @@ module Roby
 
 		remaining = span - width
 		found = if remaining <= 0
+			    display.remaining[index] = [nil, 0] if !next_column
 			    true
 			elsif !next_column
 			    display.remaining[index] = [element, remaining]
@@ -110,7 +111,11 @@ module Roby
 		return if lines[line_idx] != element
 
 		lines[line_idx] = nil
-		next_column.remove(element, line_idx) if next_column
+		if next_column
+		    next_column.remove(element, line_idx)
+		elsif display.remaining[line_idx].first == element
+		    display.remaining[line_idx] = [nil, 0]
+		end
 	    end
 	end
 
@@ -138,6 +143,7 @@ module Roby
 		raise "trying to set the column of a non-root element" if parent
 		if column
 		    column.remove(self)
+		    # check that nothing is broken ...
 		    display.each_column { |c| raise if c.lines.index(self) }
 		end
 
@@ -296,19 +302,10 @@ module Roby
 	    new = Column.new(x, self) 
 
 	    # Allocate the elements which were spanning outside the last column
+	    # It will update the 'remaining' array
 	    remaining.enum_for(:each_with_index).
 		select { |(task, _), _| task }.
-		each { |(task, w), line_idx| new.allocate(line_idx, task, task.span) }
-
-	    # Update the remaining array
-	    remaining.map! do |task, w| 
-		next [nil, 0] unless task
-		if w > new.width
-		    [task, w - new.width]
-		else
-		    [nil, 0]
-		end
-	    end
+		each { |(task, w), line_idx| new.allocate(line_idx, task, w) }
 
 	    columns.last.next_column = new
 	    columns[1] = new
@@ -331,8 +328,10 @@ module Roby
 	end
 
 	def column_index(column)
-	    enum_for(:each_column).enum_for(:each_with_index).
-		find { |c, _| c == column }.last
+	    if cidx = enum_for(:each_column).enum_for(:each_with_index).
+		find { |c, _| c == column }
+		cidx.last
+	    end
 	end
 
 	def add(ev_from, ev_to)
