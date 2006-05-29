@@ -181,7 +181,7 @@ module Roby
 	    end
 
 	    def color=(newcolor)
-		group.rectangle.brush = Qt::Brush.new Qt::Color.new(newcolor)
+		group.rectangle.color = newcolor
 	    end
 
 	    def update_width
@@ -384,25 +384,21 @@ module Roby
 	    end
 	end
 
-	def column_state
-	    # each_column do |col|
-	    #     puts col.x
-	    #     col.each_line do |l|
-	    #         puts "  * #{l.x} #{l.address}" if l
-	    #     end
-	    # end
-	end
-
-	def started(roby_task)
+	def start(roby_task)
 	    changed!
 	    task = task(roby_task)
-	    task.color = 'red'
+	    task.color = DisplayStyle::TASK_COLORS[:running]
 	end
 
-	def finished(roby_task)
+	def success(roby_task)
 	    changed!
 	    task = task(roby_task)
-	    task.color = 'lightgrey'
+	    task.color = DisplayStyle::TASK_COLORS[:success]
+	end
+	def failed(roby_task)
+	    changed!
+	    task = task(roby_task)
+	    task.color = DisplayStyle::TASK_COLORS[:failed]
 	end
 
 	def delete(ev_from, ev_to)

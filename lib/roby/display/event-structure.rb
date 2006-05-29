@@ -10,12 +10,14 @@ module Roby
 	def self.start_logger(logfile)
 	    Roby::Task.include TaskHooks
 	    Roby::EventGenerator.include RelationHooks
+	    Roby::TaskEventGenerator.include TaskEventHooks
 
 	    instance.start_logger(logfile)
 	end
 	def self.start_service(replay = nil, uri = DEFAULT_URI)
 	    Roby::Task.include TaskHooks
 	    Roby::EventGenerator.include RelationHooks
+	    Roby::TaskEventGenerator.include TaskEventHooks
 
 	    instance.start_service(replay, uri) do
 		require 'roby/display/event-structure-server'
@@ -32,9 +34,17 @@ module Roby
 		return unless server = EventStructureDisplay.service
 		server.event(Display::Event[event(:start)])
 		server.event(Display::Event[event(:stop)])
+	    end
+	end
 
-		event(:start).on { server.started(Display::Task[self]) }
-		event(:stop).on  { server.finished(Display::Task[self]) }
+	module TaskEventHooks
+	    def fired(event)
+		super if defined? super
+
+		return unless server = EventStructureDisplay.service
+		if [:start, :success, :failed].include?(event.symbol)
+		    server.send(event.symbol, Display::Task[task])
+		end
 	    end
 	end
 

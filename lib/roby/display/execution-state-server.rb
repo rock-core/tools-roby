@@ -105,7 +105,7 @@ module Roby
 
 	    @start_time	    = nil # start time (time of the first event)
 	    @lines = [CanvasLine.new(0)] # active tasks for each line, the first line is for events not related to a task
-	    @tasks	    = Array.new # list of known task objects
+	    # @tasks	    = Array.new # list of known task objects
 	    
 	    @canvas = Qt::Canvas.new(640, line_height * BASE_LINES + margin * 2)
 	    
@@ -147,7 +147,7 @@ module Roby
 
 	class CanvasTask < CanvasLine
 	    attr_reader :start, :stop
-	    attr_reader :task
+	    attr_reader :task, :display
 	    def start=(x)
 		@start = x
 		@display.move(x, @display.y)
@@ -178,25 +178,34 @@ module Roby
 	    end
 	end
 
-	def display_task(task, index)
-	    CanvasTask.new(self, task, index) { |r| r.visible = true }
+	def allocate_task(task_object, x)
+	    # Get the line index for the task
+	    idx = @lines.enum_for(:each_with_index).find do |r, _| 
+		if !r
+		    true
+		else
+		    r.task.finished? && (r.start + r.width) < x if r.respond_to?(:task)
+		end
+	    end
+
+	    idx = if idx
+		      idx.last
+		  else
+		      @lines.size
+		  end
+
+	    @lines[idx] = CanvasTask.new(self, task_object, idx) { |r| r.visible = true }
+	    [@lines[idx], idx]
+	end
+
+	# Returns [task, line_index] if event.task is already displayed
+	def task_of(event)
+	    @lines.enum_for(:each_with_index).find { |r, _| r.task == event.task if r.respond_to?(:task) }
 	end
 
 	def line_of(event, x)
 	    if event.respond_to?(:task)
-		task = event.task
-
-		# Get the line index for the task
-		idx = @lines.enum_for(:each_with_index).find { |r, _| r.task == task if r.respond_to?(:task) } ||
-		    @lines.enum_for(:each_with_index).find { |r, _| !r } || 
-		    @lines.enum_for(:each_with_index).find { |r, _| r && r.task.finished? && (r.start + r.width) < x if r.respond_to?(:task) } ||
-		    [nil, @lines.size]
-		idx = idx.last
-
-		# Build the task representation if necessary
-		line = (@lines[idx] ||= display_task(task, idx))
-		@tasks << line
-		line
+		(task_of(event) || allocate_task(event.task, x)).first
 	    else
 		@lines[0]
 	    end
@@ -263,8 +272,20 @@ module Roby
 	    end
 
 	    @pending.fired_event(time, event_generator, event)
-	    
 	    event_display[event] = circle
+
+	    if event_generator.respond_to?(:task)
+		task = task_of(event_generator).first
+		case event_generator.symbol
+		when :start
+		    task.display.color = TASK_COLORS[:running]
+		when :failed
+		    task.display.color = TASK_COLORS[:failed]
+		when :success
+		    task.display.color = TASK_COLORS[:success]
+		end
+	    end
+		    
 
 	    nil
 	end

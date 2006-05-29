@@ -1,3 +1,17 @@
+module Qt
+    [CanvasRectangle, CanvasEllipse, CanvasLine].each do |klass|
+	klass.class_eval do
+	    def color=(color)
+		unless Qt::Color === color
+		    color = Qt::Color.new(color)
+		end
+		self.brush = Qt::Brush.new(color)
+		self.pen = Qt::Pen.new(color)
+	    end
+	end
+    end
+end
+
 module Roby
     module DisplayStyle
 	class CanvasGroup
@@ -27,6 +41,8 @@ module Roby
 
 	    def apply(name, *args); objects.each_value { |obj| obj.send(name, *args) if obj.respond_to?(name) } end
 	    def brush=(brush); apply(:brush=, brush) end
+	    def pen=(pen); apply(:pen=, pen) end
+	    def color=(color); apply(:color=, color) end
 	    def z=(z); apply(:z=, z) end
 	    def z; objects.find { true }.last.z end
 
@@ -34,7 +50,12 @@ module Roby
 	    def hide; apply(:hide) end
 	end
 	
-	TASK_COLOR = '#B0FFA6'
+	TASK_COLORS = {
+	    :normal => '#6DF3FF',
+	    :running => '#B0FFA6',
+	    :success => '#E2E2E2',
+	    :failed => '#E2A8A8'
+	}
 	TASK_Z = -1
 	TASK_NAME_COLOR = 'black'
 	TASK_FONTSIZE = 10
@@ -55,7 +76,7 @@ module Roby
 	    circle = Qt::CanvasEllipse.new(d, d, display.canvas) do |e|
 		circle = e
 		e.z = EVENT_Z
-		e.brush = Qt::Brush.new(Qt::Color.new(EVENT_COLOR))
+		e.color = EVENT_COLOR
 		e.visible = true
 	    end
 
@@ -83,8 +104,7 @@ module Roby
 
 	def self.task(task, display)
 	    rectangle = Qt::CanvasRectangle.new(0, 0, 0, display.line_height * 0.6, display.canvas) do |r|
-		r.brush = Qt::Brush.new(Qt::Color.new(TASK_COLOR))
-		r.pen   = Qt::Pen.new(Qt::Color.new(TASK_COLOR))
+		r.color = TASK_COLORS[:normal]
 		r.z	= TASK_Z
 		r.visible = true
 	    end
