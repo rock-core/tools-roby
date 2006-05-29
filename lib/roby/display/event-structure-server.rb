@@ -137,16 +137,8 @@ module Roby
 	    def column_update(new)
 		raise "trying to set the column of a non-root element" if parent
 		if column
-		    display.column_state
 		    column.remove(self)
-		    begin
-			display.each_column { |c| raise if c.lines.index(self) }
-		    rescue
-			display.column_state
-			display.each_column { |c| puts "#{c}: #{c.next_column}" }
-			puts "#{self.address} #{column.x} -> #{new.x}"
-			raise
-		    end
+		    display.each_column { |c| raise if c.lines.index(self) }
 		end
 
 		@column = new
