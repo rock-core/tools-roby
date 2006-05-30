@@ -196,7 +196,7 @@ module Roby
 
 	# raises an exception object when an event whose command has been called
 	# won't be emitted (ever)
-	def failed(what = ModelViolation, message = "")
+	def emit_failed(what = ModelViolation, message = "")
 	    if Class === what
 		raise what.new(self), "failed to emit #{self.symbol}(#{self}): #{message}"
 	    else

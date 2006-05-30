@@ -117,9 +117,9 @@ module Roby::Genom
 
 	rescue ::Genom::ReplyTimeout => e # timeout waiting for reply
 	    if abort_activity
-		event(:stop).failed(RequestTimeout.new(self), e.message)
+		event(:stop).emit_failed(RequestTimeout.new(self), e.message)
 	    else
-		event(:start).failed(RequestTimeout.new(self), e.message)
+		event(:start).emit_failed(RequestTimeout.new(self), e.message)
 	    end
 
 	rescue ::Genom::ActivityInterrupt # interrupted
@@ -128,7 +128,7 @@ module Roby::Genom
 
 	rescue ::Genom::GenomError => e # the request failed
 	    if !running?
-		event(:start).failed(StartFailed, e.to_s)
+		event(:start).emit_failed(StartFailed, e.to_s)
 	    else
 		emit :failed, e.message
 	    end
