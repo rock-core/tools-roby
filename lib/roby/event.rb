@@ -198,9 +198,9 @@ module Roby
 	# won't be emitted (ever)
 	def emit_failed(what = ModelViolation, message = "")
 	    if Class === what
-		raise what.new(self), "failed to emit #{self.symbol}(#{self}): #{message}"
+		raise what.new(self), "failed to emit #{self}: #{message}"
 	    else
-		raise what, "failed to emit #{self.symbol}(#{self}): #{message}"	
+		raise what, "failed to emit #{self}: #{message}"	
 	    end
 	end
 

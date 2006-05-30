@@ -99,7 +99,7 @@ module Roby
         def symbol;       model.symbol end
         def new(context); model.new(task, self, context) end
 
-        def to_s; "#<Roby::TaskEventGenerator:0x#{address.to_s(16)} task=#{task} model=#{model}>" end
+        def to_s; "#<#{self.class.name}:0x#{address.to_s(16)} task=#{task} model=#{model}>" end
     end
 
     class Task
@@ -198,6 +198,8 @@ module Roby
             event(event_model).emit(context)
             self
         end
+
+	def name; model.name end
 
         # Returns an TaskEventGenerator object which is the given task event bound
         # to this particular task
@@ -302,6 +304,7 @@ module Roby
                 @terminal = options[:terminal]
                 @command_handler = command_handler
 
+		define_method(:name) { "#{task.name}::#{ev_s.camelize}" }
                 singleton_class.class_eval do
                     attr_reader :command_handler
 		    define_method(:name) { "#{task_klass.name}::#{ev_s.camelize}" }
@@ -472,7 +475,8 @@ module Roby
             end
         end
 
-        def inspect; "#{model.name} (#{object_id})" end
+        def to_s; "#{model.name}(#{object_id})" end
+	    
         def null?; false end
 	def to_task; self end
 	

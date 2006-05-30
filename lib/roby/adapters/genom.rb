@@ -82,6 +82,10 @@ module Roby::Genom
 	    on(:stop) { @abort_activity = @activity = nil }
 	end
 
+	# def inspect
+	#     super + "|#{genom_request.name}(#{arguments.inspect})|"
+	# end
+
 	def start(context = nil)
 	    @activity = @request.call(*arguments)
 	    Roby::Genom.running << self
