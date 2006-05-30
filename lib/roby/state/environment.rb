@@ -1,7 +1,7 @@
 require 'roby/state/state'
 
 module Roby
-    class Environment < ExtendableStruct
+    class Environment < ExtendedStruct
         def initialize
             super
             @maps = Hash.new

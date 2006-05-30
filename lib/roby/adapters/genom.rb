@@ -334,7 +334,7 @@ module Roby::Genom
 	return rb_mod
     end
 
-    class GenomState < Roby::ExtendableStruct
+    class GenomState < Roby::ExtendedStruct
 	attribute(:autoload_path) { Array.new }
 	attribute(:uses) { Array.new }
 	def uses?(name); uses.include?(name.to_s) end
