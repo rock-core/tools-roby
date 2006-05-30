@@ -338,10 +338,19 @@ module Roby::Genom
 	return rb_mod
     end
 
-    class GenomState < Roby::ExtendedStruct
+    class GenomState < Roby::StateSpace
+	# Each time a module +name+ is loaded by #using, 
+	# we check for "#{name}.rb" in each path
+	# in +autoload_path+ and require it if it exists
 	attribute(:autoload_path) { Array.new }
+
+	# The list of the module names that have been loaded by #using
 	attribute(:uses) { Array.new }
+	# If +name+ is a used module
 	def uses?(name); uses.include?(name.to_s) end
+
+	# Load the following modules and autorequire extension
+	# found in +autoload_path+. Updates the +uses+ attribute
 	def using(*modules)
 	    modules.each do |modname| 
 		modname = modname.to_s
