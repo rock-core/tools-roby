@@ -188,9 +188,9 @@ module Roby
         attr_reader :bound_events
 
         # call-seq:
-        #   emit(name, context)                       event object
+        #   emit(event_model, context)                       event object
         #
-        # Emits +name+ in the given +context+. Event handlers are fired.
+        # Emits +event_model+ in the given +context+. Event handlers are fired.
         # This is equivalent to
         #   event(event_model).emit(context)
         #
