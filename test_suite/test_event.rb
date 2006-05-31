@@ -4,18 +4,20 @@ require 'roby/event_loop'
 require 'mockups/tasks'
 
 class TC_Event < Test::Unit::TestCase
+    include Roby
+
     def test_properties
-	event = Roby::EventGenerator.new
+	event = EventGenerator.new
 	assert(! event.respond_to?(:call))
 	assert(! event.controlable?)
 
-	event = Roby::EventGenerator.new(true)
+	event = EventGenerator.new(true)
 	assert(event.respond_to?(:call))
 	assert(event.controlable?)
 
 	# Check command & emission behavior for controlable events
 	FlexMock.use do |mock|
-	    event = Roby::EventGenerator.new { |context| mock.call_handler(context); event.emit(context) }
+	    event = EventGenerator.new { |context| mock.call_handler(context); event.emit(context) }
 	    event.on { |event| mock.event_handler(event.context) }
 
 	    assert(event.respond_to?(:call))
@@ -27,18 +29,18 @@ class TC_Event < Test::Unit::TestCase
 
 	# Check emission behavior for non-controlable events
 	FlexMock.use do |mock|
-	    event = Roby::EventGenerator.new
+	    event = EventGenerator.new
 	    event.on { |event| mock.event(event.context) }
 	    mock.should_receive(:event).once.with(42)
 	    event.emit(42)
 	end
     end
     def test_emit_failed
-	event = Roby::EventGenerator.new
-	assert_raises(Roby::EventModelViolation) { event.emit_failed }
-	assert_raises(Roby::EventModelViolation) { event.emit_failed("test") }
+	event = EventGenerator.new
+	assert_raises(EventModelViolation) { event.emit_failed }
+	assert_raises(EventModelViolation) { event.emit_failed("test") }
 
-	klass = Class.new(Roby::EventModelViolation)
+	klass = Class.new(EventModelViolation)
 	assert_raises(klass) { event.emit_failed(klass) }
 	assert_raises(klass) { event.emit_failed(klass, "test") }
 	begin; event.emit_failed(klass, "test")
@@ -56,18 +58,18 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_signal_relation
-	e1, e2 = Roby::EventGenerator.new(true), Roby::EventGenerator.new(true)
+	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
 
 	e1.on e2
-	assert( e1.child_object?( e2, Roby::EventStructure::Signals ))
-	assert( e2.parent_object?( e1, Roby::EventStructure::Signals ))
+	assert( e1.child_object?( e2, EventStructure::Signals ))
+	assert( e2.parent_object?( e1, EventStructure::Signals ))
 
 	e1.call(nil)
 	assert(e2.happened?)
     end
  
     def test_handlers
-	e1, e2 = Roby::EventGenerator.new(true), Roby::EventGenerator.new(true)
+	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
 	e1.on { e2.call(nil) }
 
 	FlexMock.use do |mock|
@@ -80,7 +82,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_simple_signal_handler_ordering
-	e1, e2, e3 = 4.enum_for(:times).map { Roby::EventGenerator.new(true) }
+	e1, e2, e3 = 4.enum_for(:times).map { EventGenerator.new(true) }
 	e1.on(e2)
 	e1.on { e2.remove_signal(e3) }
 	e2.on(e3)
@@ -101,7 +103,7 @@ class TC_Event < Test::Unit::TestCase
         	end
             end
 
-            generator = Class.new(Roby::EventGenerator) do
+            generator = Class.new(EventGenerator) do
 		include mod
 	    end.new(true)
             
@@ -115,8 +117,8 @@ class TC_Event < Test::Unit::TestCase
     def test_postpone
 	# Simple postpone behavior
 	FlexMock.use do |mock|
-	    wait_for = Roby::EventGenerator.new(true)
-	    event = Roby::EventGenerator.new(true)
+	    wait_for = EventGenerator.new(true)
+	    event = EventGenerator.new(true)
 	    event.singleton_class.class_eval do
 		define_method(:calling) do |context|
 		    super if defined? super
@@ -134,8 +136,8 @@ class TC_Event < Test::Unit::TestCase
 	# Test propagation when the block given to postpone 
 	# signals some events
         FlexMock.use do |mock|
-	    wait_for = Roby::EventGenerator.new(true)
-	    event = Roby::EventGenerator.new(true)
+	    wait_for = EventGenerator.new(true)
+	    event = EventGenerator.new(true)
 	    event.singleton_class.class_eval do
 		define_method(:calling) do |context|
 		    super if defined? super
@@ -156,21 +158,38 @@ class TC_Event < Test::Unit::TestCase
         end
     end
 
+    def test_can_signal
+	a, b = EventGenerator.new(true), EventGenerator.new
+	assert_raises(EventModelViolation) { a.on b }
+	assert_nothing_raised { b.emit_on a }
+
+	a = EventGenerator.new(true)
+	def a.can_signal?(generator); true end
+	assert_nothing_raised { a.on b }
+	assert_nothing_raised { a.call(nil) }
+
+	a, b = EventGenerator.new(true), EventGenerator.new
+	def a.can_signal?(generator); true end
+	a.on b
+	def a.can_signal?(generator); false end
+	assert_raise(EventModelViolation) { a.call(nil) }
+    end
+
     def test_call_causal_warning
-	model = Roby::EventGenerator.new { }
+	model = EventGenerator.new { }
 	model.call(nil)
 	assert(! model.active? )
 
-	source = Roby::EventGenerator.new { }
+	source = EventGenerator.new { }
 	def source.active?(seen); true end
-	model = Roby::EventGenerator.new { source.add_causal_link model }
+	model = EventGenerator.new { source.add_causal_link model }
 	assert(! model.active?)
 	model.call(nil)
 	assert(model.active?)
     end
 
     def test_emit_on
-	e1, e2 = [nil,nil].map { Roby::EventGenerator.new(true) }
+	e1, e2 = [nil,nil].map { EventGenerator.new(true) }
 	e1.emit_on e2
         FlexMock.use do |mock|
 	    e1.on { mock.e1 }
@@ -182,7 +201,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def setup_event_aggregator(aggregator)
-	events = 10.enum_for(:times).map { Roby::EventGenerator.new(true) }
+	events = 10.enum_for(:times).map { EventGenerator.new(true) }
 	events.each { |ev| aggregator << ev }
 	events.each do |ev| 
 	    ev.call(nil)
@@ -193,31 +212,61 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_or_generator
-	or_event = Roby::OrGenerator.new
+	or_event = OrGenerator.new
 	setup_event_aggregator(or_event) do
 	    assert(or_event.happened?)
 	end
+
+	# Check the behavior of the | operator
+	e1, e2, e3, e4 = 4.enum_for(:times).map { EventGenerator.new(true) }
+	or_event = e1 | e2
+	or_or = or_event | e3
+	assert_equal(or_event, or_or)
+	assert_equal([e1, e2, e3].to_set, or_event.send(:waiting))
+	or_or = e4 | or_event
+	assert_equal(or_event, or_or)
+	assert_equal([e1, e2, e3, e4].to_set, or_event.send(:waiting))
     end
 
     def test_and_generator
-	and_event = Roby::AndGenerator.new
+	and_event = AndGenerator.new
 	setup_event_aggregator(and_event) do
 	    assert(!and_event.happened?)
 	end
 	assert(and_event.happened?)
+	
+	# Check the behavior of the & operator
+	e1, e2, e3, e4 = 4.enum_for(:times).map { EventGenerator.new(true) }
+	and_event = e1 & e2
+	and_and = and_event & e3
+	assert_equal(and_event, and_and)
+	assert_equal([e1, e2, e3].to_set, and_event.send(:waiting))
+	and_and = e4 & and_event
+	assert_equal(and_event, and_and)
+	assert_equal([e4, e1, e2, e3].to_set, and_event.send(:waiting))
     end
 
     def test_forwarder
-	destinations = 5.enum_for(:times).map { Roby::EventGenerator.new(true) }
-	source = Roby::ForwarderGenerator.new(*destinations)
+	e1 = EventGenerator.new(true)
+	forwarder = ForwarderGenerator.new(e1)
+	assert(forwarder.controlable?)
 
-	assert(destinations.all? { |ev| ev.parent_object?(source, Roby::EventStructure::Signals) })
-	source.call(nil)
-	assert(destinations.all? { |ev| ev.happened? })
+	e2 = EventGenerator.new(false)
+	forwarder << e2
+	assert(!forwarder.controlable?)
+
+	forwarder.delete(e2)
+	e2 = EventGenerator.new(true)
+	forwarder << e2
+	assert(forwarder.controlable?)
+
+	assert([e1,e2].all? { |ev| ev.parent_object?(forwarder, EventStructure::Signals) })
+	forwarder.call(nil)
+	assert([e1,e2].all? { |ev| ev.happened? })
     end
 
     def setup_aggregation(mock)
-	e1, e2, m1, m2, m3 = 5.enum_for(:times).map { Roby::EventGenerator.new(true) }
+	e1, e2, m1, m2, m3 = 5.enum_for(:times).map { EventGenerator.new(true) }
 	e1.on e2
 	m1.on m2
 	m2.on m3
@@ -266,7 +315,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_and
-	a, b, c = 3.enum_for(:times).map { Roby::EventGenerator.new(true) }
+	a, b, c = 3.enum_for(:times).map { EventGenerator.new(true) }
 
         and_event = a & b
         and_event.on c
@@ -279,25 +328,35 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_ever
-	a, b, c = 3.enum_for(:times).map { Roby::EventGenerator.new(true) }
-        ever_event = a.ever
-        ever_event.on c
-        assert( a.enum_for(:each_causal_link).find { |ev| ev == ever_event } )
-        assert( ever_event.enum_for(:each_causal_link).find { |ev| ev == c } )
+	# Basic behaviour
+	a, b = 3.enum_for(:times).map { EventGenerator.new(false) }
+        ever = a.ever
+        assert( a.enum_for(:each_causal_link).find { |ev| ev == ever } )
+	assert_equal(ever, a.ever)
 
 	FlexMock.use do |mock|
-	    c.on { mock.c }
-	    
-	    mock.should_receive(:c).twice
-	    a.call(nil)
-	    b.call(nil)
-	    b.ever.on c
+	    mock.should_receive(:called).twice
+
+	    a.ever.on { mock.called }
+	    a.emit(nil)
+	    b.emit(nil)
+	    b.ever.on { mock.called }
 	    Roby.process_events
+	end
+
+	# Test for controlable event
+	a = EventGenerator.new(true)
+	ever = a.ever
+	assert(ever.controlable?)
+	FlexMock.use do |mock|
+	    a.on { mock.a }
+	    mock.should_receive(:a).once
+	    ever.call(nil)
 	end
     end
 
     def test_or
-	a, b, c = 3.enum_for(:times).map { Roby::EventGenerator.new(true) }
+	a, b, c = 3.enum_for(:times).map { EventGenerator.new(true) }
 
         or_event = (a | b)
         or_event.on c
@@ -309,7 +368,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_ensure
 	setup = lambda do |mock|
-	    e1, e2 = Roby::EventGenerator.new(true), Roby::EventGenerator.new(true)
+	    e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
 	    e1.ensure e2
 	    e1.on { mock.e1 }
 	    e2.on { mock.e2 }
@@ -337,7 +396,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_until
-	e1, e2, e3, e4 = 4.enum_for(:times).map { Roby::EventGenerator.new(true) }
+	e1, e2, e3, e4 = 4.enum_for(:times).map { EventGenerator.new(true) }
 	e1.on(e2)
 	e2.on(e3)
 	e3.until(e2).on(e4)
@@ -345,6 +404,25 @@ class TC_Event < Test::Unit::TestCase
 	e1.call(nil)
 	assert( e3.happened? )
 	assert( !e4.happened? )
+
+	assert_raise(NoMethodError) { e3.until(e2).this_method_does_not_exist }
+	assert_raise(NoMethodError) { e3.until(e2).emit_on(e1) }
+    end
+
+    def test_event_creation
+	# Test for validation of the return value of #event
+	generator = Class.new(EventGenerator) do
+	    def new(context); [context] end
+	end.new(true)
+	assert_raises(TypeError) { generator.call(nil) }
+
+	generator = Class.new(EventGenerator) do
+	    def new(context); 
+		event_klass = Struct.new :context, :generator
+		event_klass.new(context, self)
+	    end
+	end.new(true)
+	assert_nothing_raised { generator.call(nil) }
     end
 end
 

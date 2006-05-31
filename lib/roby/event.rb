@@ -397,7 +397,7 @@ module Roby
         def initialize(base)
             @base = base
             if base.controlable?
-		super { base.call unless base.happened? }
+		super { base.call(nil) unless base.happened? }
                 self.add_causal_link base
 	    else
 		super(false)
@@ -475,7 +475,7 @@ module Roby
         def reset; @done.clear end
         def done?; !(@done.empty?) end
         def to_or; self end
-        def |(generator); self << task end
+        def |(generator); self << generator end
 
         def new(context = nil)
             event = @done.last
