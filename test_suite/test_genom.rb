@@ -46,6 +46,12 @@ class TC_Genom < Test::Unit::TestCase
 
 	    runner.stop!
 	    assert_event( runner.event(:stop) )
+
+	    runner = Genom::Mockup.runner!
+	    runner.start!
+	    assert_event( runner.event(:start) )
+	    Process.kill 'INT', Genom::Mockup.genom_module.pid
+	    assert_event( runner.event(:failed) )
         end
     end
 

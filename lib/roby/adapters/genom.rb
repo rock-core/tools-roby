@@ -207,16 +207,31 @@ module Roby::Genom
 		       roby_module.init
 		   end
 
+	    # Redefine GenomModule#dead! so that :failed gets
+	    # emitted when the module process is killed
+	    unless genom_module.respond_to?(:__roby__dead!)
+		genom_module.singleton_class.class_eval do
+		    attr_accessor :roby_runner_task
+		    alias :__roby__dead! :dead!
+		    def dead!
+			__roby__dead!
+			@roby_runner_task.emit(:failed)
+		    end
+		end
+	    end
+	    genom_module.roby_runner_task = self
+
+	    # If there is an init task, wait for it. Otherwise,
+	    # send the event 
 	    if !init
 		emit :ready
-	    elsif init.respond_to? :to_task
-		init = init.to_task
-		realized_by init
-		init.start!
-		init = init.event(:success)
-	    end
-
-	    if init
+	    else
+		if init.respond_to? :to_task
+		    init = init.to_task
+		    realized_by init
+		    init.start!
+		    init = init.event(:success)
+		end
 		event(:ready).emit_on init
 	    end
 	end
@@ -225,7 +240,7 @@ module Roby::Genom
 
 	def failed(context)
 	    ::Genom::Runner.environment.stop_modules genom_module.name
-	    emit :failed, context
+	    # :failed will be emitted by the dead! handler
 	end
 	event :failed, :terminal => true
 
