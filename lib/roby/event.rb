@@ -130,7 +130,7 @@ module Roby
         end
 
         # If this event can signal +event+
-        def can_signal?(generator); generator.controlable?  end
+        def can_signal?(generator); generator != self && generator.controlable?  end
 
 	# Create a new event object for +context+
 	def new(context); Event.new(self, context) end
@@ -173,7 +173,9 @@ module Roby
 		  
 
 	def add_signal_to_propagation(only_forward, event, signalled, context)
-	    unless only_forward || event.generator.can_signal?(signalled)
+	    if event == signalled
+		raise EventModelViolation.new(event.generator), "#{event.generator} is trying to signal itself"
+	    elsif !only_forward && !event.generator.can_signal?(signalled) 
 		raise EventModelViolation.new(event.generator), "trying to signal #{signalled} from #{event.generator}"
 	    end
 
