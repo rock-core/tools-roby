@@ -307,16 +307,10 @@ module Roby
                 end
             end
 
-	    if new_event.symbol == :stop
-		terminal_events.each { |terminal| on(terminal) { |event| event.task.emit :stop } }
-	    elsif options[:terminal] && has_event?(:stop)
-		on(new_event) { |event| event.task.emit :stop }
-	    end
+	    events[new_event.symbol] = new_event
+	    const_set(ev_s.camelize, new_event)
 
-            events[new_event.symbol] = new_event
-            const_set(ev_s.camelize, new_event)
-
-            if options[:command]
+	    if options[:command]
 		# check that the supplied command handler can take two arguments
 		check_arity(command_handler, 2) if command_handler
 
@@ -338,14 +332,19 @@ module Roby
 		end
             end
 		    
-            new_event
+       	    if new_event.symbol == :stop
+		terminal_events.each { |terminal| on(terminal) { |event| event.task.emit :stop } if terminal.symbol != :stop }
+	    elsif options[:terminal] && has_event?(:stop)
+		on(new_event) { |event| event.task.emit :stop }
+	    end
+
+
+	    new_event
         end
 
         def self.validate_event_definition_request(ev, options) #:nodoc:
             if ev.to_sym == :start && options[:terminal]
                 raise TaskModelViolation.new(nil), "the 'start' event cannot be terminal"
-            elsif options[:terminal] && has_event?(:stop)
-                raise ArgumentError, "trying to define a terminal event, but the stop event is already defined"
             elsif options[:command] && options[:command] != true && !options[:command].respond_to?(:call)
                 raise ArgumentError, "Allowed values for :command option: true, false, nil and an object responding to #call. Got #{options[:command]}"
             end
