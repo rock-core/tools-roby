@@ -86,6 +86,7 @@ end
 
 task :test_rcov do
     Dir.chdir('test_suite') do 
+	FileUtils.rm_rf '../rcov'
 	File.open("../rcov/index.html", "w") do |index|
 	    index.puts <<-EOF
 		<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -95,7 +96,7 @@ task :test_rcov do
 	    Dir.glob('test_*.rb').each do |path|
 		puts "\n" * 4 + "=" * 5 + " #{path} " + "=" * 5 + "\n"
 		basename = File.basename(path, '.rb')
-		system("rcov  -x 'active_support,rcov,^test_.*,gems' --include-files rcov --replace-progname -o ../rcov/#{basename} #{path}")
+		system("rcov  -x 'active_support,rcov,^test_.*,gems' --replace-progname -o ../rcov/#{basename} #{path}")
 		index.puts "<div class=\"test\"><a href=\"#{basename}/index.html\">#{basename}</a></div>"
 	    end
 	    index.puts "</body>"
