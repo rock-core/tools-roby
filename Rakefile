@@ -95,7 +95,7 @@ task :test_rcov do
 	    Dir.glob('test_*.rb').each do |path|
 		puts "\n" * 4 + "=" * 5 + " #{path} " + "=" * 5 + "\n"
 		basename = File.basename(path, '.rb')
-		system("rcov --replace-progname -o ../rcov/#{basename} #{path}")
+		system("rcov  -x 'active_support,rcov,^test_.*,gems' --include-files rcov --replace-progname -o ../rcov/#{basename} #{path}")
 		index.puts "<div class=\"test\"><a href=\"#{basename}/index.html\">#{basename}</a></div>"
 	    end
 	    index.puts "</body>"
