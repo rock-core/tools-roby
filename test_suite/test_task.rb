@@ -7,10 +7,6 @@ require 'mockups/tasks'
 class TC_Task < Test::Unit::TestCase 
     include Roby
 
-    def setup
-    end
-    attr_reader :task
-
     def test_base_model
 	task = Class.new(Task) do
 	    event(:start)
