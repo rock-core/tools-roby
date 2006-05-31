@@ -222,18 +222,16 @@ module Roby
                 raise ArgumentError, "Bad call for Task#on. Got #{args.size + 1} arguments and #{block_given? ? 1 : 0} block"
             end
 
-            bound_event = event(event_model)
+            generator = event(event_model)
             to_events = if args.size >= 2
                             to_task, *to_events = *args
-                            to_events = to_events.map { |ev_model| to_task.event(ev_model) }
-                            if to_task != self && not_controlable = to_events.find { |e| !e.controlable? }
-                                raise ArgumentError, "target event #{not_controlable} is not controlable"
-                            end
-                            to_events
+                            to_events.map { |ev_model| to_task.event(ev_model) }
+			    # generator#to_events will check that the generator in to_events
+			    # can be signalled
                         else
                             []
                         end
-            bound_event.on(*to_events, &user_handler)
+            generator.on(*to_events, &user_handler)
             self
         end
 
