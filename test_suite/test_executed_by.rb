@@ -6,7 +6,7 @@ require 'roby/relations/executed_by'
 require 'roby/task'
 require 'flexmock'
 
-class TC_Relations < Test::Unit::TestCase
+class TC_ExecutedBy < Test::Unit::TestCase
     include Roby
 
     def test_nominal
@@ -32,7 +32,7 @@ class TC_Relations < Test::Unit::TestCase
 	end.new
 	task.executed_by exec
 
-	assert_raises(ModelViolation) { task.start! }
+	assert_raises(EventModelViolation) { task.start! }
 	assert(!task.running?)
 	assert(!exec.running?)
 	assert(exec.finished?)
