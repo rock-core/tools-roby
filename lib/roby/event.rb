@@ -367,12 +367,6 @@ module Roby
 	    return if aliases.include?(generator)
 	    aliases << generator
 	    add_signal generator
-
-	    if controlable? && !respond_to?(:call)
-		singleton_class.class_eval { public :call }
-	    elsif !controlable? && respond_to?(:call)
-		singleton_class.class_eval { private :call }
-	    end
 	end
 	def delete(generator)
 	    if aliases.delete(generator)
