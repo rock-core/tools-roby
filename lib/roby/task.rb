@@ -240,10 +240,7 @@ module Roby
         # call-seq:
         #   self.event(name, options = nil)                   -> event class or nil
         #
-        # Define a new event in this task. The event definition can be aborted by the
-        # Task#new_event_model callback. This is usually done by raising a 
-        # TaskModelViolation exception, but can also be done silently. In that case
-        # the method returns nil
+        # Define a new event in this task. 
         #
         # ==== Available options
         #
@@ -440,19 +437,6 @@ module Roby
             private :validate_event_definition_request
         end
     
-        # Callback called when an event class has been defined, but before it is registered.
-        #
-        # Returns true if the event should be registered, false otherwise. The preferred
-        # way to abort an event definition is to raise a TaskModelViolation exception.
-        # 
-        def self.new_event_model(klass)
-            if superclass.respond_to?(:new_event_model)
-                superclass.new_event_model(klass)
-            else
-                true
-            end
-        end
-
         # call-seq:
         #   on(event_model) { |event| ... }
         #   on(event_model => ev1, ev2 => [ ev3, ev4 ]) { |event| ... }
