@@ -43,7 +43,7 @@ module Roby::TaskStructure
 	module EventModel
 	    def calling(context)
 		super if defined? super
-		return unless respond_to?(:task)
+		return unless respond_to?(:task) && symbol == :start
 
 		unless agent = task.execution_agent
 		    unless agent_model = task.class.execution_agent
