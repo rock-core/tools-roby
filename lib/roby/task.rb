@@ -53,7 +53,7 @@ module Roby
     #   *bound* to a particular task instance, a Method object represents a particular method 
     #   bound to a particular object
     class TaskEventGenerator < EventGenerator
-        attr_reader :task, :model
+        attr_reader :task, :event_model
         def initialize(task, model)
 	    if model.respond_to?(:call)
 		super() do |context|
@@ -63,7 +63,7 @@ module Roby
 		super()
 	    end
 
-            @task, @model = task, model
+            @task, @event_model = task, model
         end
 
         def can_signal?(event); super || (event.respond_to?(:task) && task == event.task) end
@@ -75,19 +75,19 @@ module Roby
 
 	def each_signal(&iterator)
 	    super
-	    task.each_signal(model.symbol) do |event_model|
+	    task.each_signal(event_model.symbol) do |event_model|
 		iterator[task.event(event_model)]
 	    end
 	end
 	    
 	def each_handler(&iterator)
 	    super
-	    task.each_handler(model.symbol, &iterator)
+	    task.each_handler(event_model.symbol, &iterator)
 	end
 
-        def controlable?; model.controlable? end
+        def controlable?; event_model.controlable? end
         def terminal?
-	    model.terminal? || 
+	    event_model.terminal? || 
 		enum_for(:each_signal).find { |ev| ev.respond_to?(:task) && ev.task == self.task && ev.terminal? } 
 	end
 	def active?(seen = Set.new)
@@ -96,8 +96,8 @@ module Roby
 	    else;		 task.event(:start).active?(seen)
 	    end
 	end
-        def symbol;       model.symbol end
-        def new(context); model.new(task, self, context) end
+        def symbol;       event_model.symbol end
+        def new(context); event_model.new(task, self, context) end
 
         def to_s
 	    model_name = event_model.name

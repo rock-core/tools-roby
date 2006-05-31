@@ -105,7 +105,7 @@ class TC_Task < Test::Unit::TestCase
         assert_equal([], start_event.handlers)
         assert_equal([task.event(:success)], start_event.enum_for(:each_signal).to_a)
         start_model = task.event_model(:start)
-        assert_equal(start_model, start_event.model)
+        assert_equal(start_model, start_event.event_model)
         assert_equal([:success], task.enum_for(:each_signal, :start).to_a)
      end
 
