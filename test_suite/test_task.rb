@@ -85,7 +85,19 @@ class TC_Task < Test::Unit::TestCase
         assert_raise(ArgumentError) { klass.event :try_event, :command => "bla" }
     end
 
-    def test_task_event_properties
+    def test_event_def_validation
+	Class.new(Task) do
+	    extend Test::Unit::Assertions
+
+	    assert_raise(TaskModelViolation) { event(:start, :terminal => true) }
+	    assert_raise(TaskModelViolation) { event(:stop, :terminal => false) }
+	    event :stop
+	    assert_nothing_raised { event(:inter, :terminal => true) }
+	    assert_raise(ArgumentError) { event(:inter, :terminal => true) }
+	end
+    end
+
+    def test_event_properties
         task = EmptyTask.new
 	start_event = task.event(:start)
 
@@ -96,6 +108,15 @@ class TC_Task < Test::Unit::TestCase
         assert_equal(start_model, start_event.model)
         assert_equal([:success], task.enum_for(:each_signal, :start).to_a)
      end
+
+    def test_signal_validation
+	klass = Class.new(Task) do
+	    event :start
+	    event :stop
+	end
+	t1, t2 = klass.new, klass.new
+	assert_raise(EventModelViolation) { t1.on(:stop, t2, :start) }
+    end
 
     def test_task_propagation
         start_node = EmptyTask.new
@@ -175,6 +196,7 @@ class TC_Task < Test::Unit::TestCase
 	assert_raises(Roby::TaskModelViolation) { task.inter! }
 	assert_equal(0, task.event(:inter).pending)
 	task.start!
+	assert_raise(Roby::TaskModelViolation) { task.start! }
 	assert_nothing_raised { task.inter! }
 	task.stop!
 	assert_raises(Roby::TaskModelViolation) { task.inter! }
