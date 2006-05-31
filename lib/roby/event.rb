@@ -511,13 +511,15 @@ module Roby
 	    end
 
 	    def method_missing(name, *args, &block)
-		if inverse = INVERSE[name]
+		if !generator.respond_to?(name)
+		    super
+		elsif inverse = INVERSE[name]
 		    generator.send(name, *args, &block)
 
 		    args << block
 		    @revert.unshift [inverse, args]
 		else
-		    super
+		    raise NoMethodError, "#{name} is defined in #{name}, but no inverse function exists for it"
 		end
 	    end
 
