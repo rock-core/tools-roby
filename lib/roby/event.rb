@@ -176,6 +176,8 @@ module Roby
 	    if event == signalled
 		raise EventModelViolation.new(event.generator), "#{event.generator} is trying to signal itself"
 	    elsif !only_forward && !event.generator.can_signal?(signalled) 
+		# NOTE: the can_signal? test here is NOT redundant with the test in #on, 
+		# since here we validate calls done in event handlers too
 		raise EventModelViolation.new(event.generator), "trying to signal #{signalled} from #{event.generator}"
 	    end
 
