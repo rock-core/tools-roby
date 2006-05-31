@@ -183,10 +183,6 @@ module Roby::Genom
     class RunnerTask < Roby::Task
 	include RobyMapping
 
-	singleton_class.class_eval do
-	    define_method(:name) { "#{roby_module.name}::Runner" }
-	end
-
 	def initialize
 	    # Make sure there is a init() method defined in the Roby module if there is one in the
 	    # Genom module
@@ -341,7 +337,9 @@ module Roby::Genom
 	    Class.new(RunnerTask) do
 		singleton_class.class_eval do
 		    define_method(:roby_module) { rb_mod }
+		    define_method(:name) { "#{rb_mod.name}::Runner" }
 		end
+
 		on(:stop) { genom_module.disconnect if genom_module.connected? }
 	    end
 	end

@@ -7,8 +7,8 @@ module Roby
         def initialize(task); @task = task end
         def to_s
 	    if task
-		history = task.history.map { |time, event| [time, event.model.name] }.join("\n  ")
-		super + "\n#{task.model.name} (0x#{task.address})\n  #{history.inspect}"
+		history = task.history.map { |time, event| [time, event.name] }.join("\n  ")
+		super + "\n#{task.name} (0x#{task.address.to_s(16)})\n  #{history.inspect}"
 	    else
 		super
 	    end
@@ -99,7 +99,10 @@ module Roby
         def symbol;       model.symbol end
         def new(context); model.new(task, self, context) end
 
-        def to_s; "#<#{self.class.name}:0x#{address.to_s(16)} task=#{task} model=#{model}>" end
+        def to_s
+	    model_name = event_model.name
+	    model_name.gsub! /^#{task.name}::/, ''
+	    "#<#{self.name}:0x#{address.to_s(16)} task=#{task} model=#{model_name}>" end
     end
 
     class Task
@@ -293,7 +296,7 @@ module Roby
             command_handler = options[:command] if options[:command].respond_to?(:call)
             
             # Define the event class
-	    task_klass = singleton_class
+	    task_klass = self
             new_event = Class.new(options[:model]) do
                 @symbol   = ev
                 @terminal = options[:terminal]
@@ -456,7 +459,7 @@ module Roby
             end
         end
 
-        def to_s; "#{model.name}(#{object_id})" end
+        def to_s; "#{model.name}(0x#{address.to_s(16)})" end
 	    
         def null?; false end
 	def to_task; self end

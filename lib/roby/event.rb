@@ -45,9 +45,8 @@ module Roby
 
         attr_enumerable(:handler, :handlers) { Array.new }
 
-	def model
-	    self.class
-	end
+	def model; self.class end
+	def name; model.name end
 
 	attr_reader :pending
 	def pending?; pending != 0 end
