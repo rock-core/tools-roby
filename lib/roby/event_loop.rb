@@ -6,6 +6,10 @@ module Roby
         attr_reader :event_processing
     end
 
+    def self.disable_propagation; EventGenerator.disable_propagation end
+    def self.enable_propagation; EventGenerator.enable_propagation end
+    def self.propagate?; EventGenerator.propagate? end
+
     def self.drb(drb_uri = nil)
         require 'roby/drb'
         DRb.start_service(drb_uri, Server.new(Thread.current))

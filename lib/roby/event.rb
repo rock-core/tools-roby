@@ -26,6 +26,11 @@ module Roby
     end
 
     class EventGenerator
+	@@propagate = true
+	def self.disable_propagation; @@propagate = false end
+	def self.enable_propagation; @@propagate = true end
+	def self.propagate?; @@propagate end
+	
         # Generic double-dispatchers for operation on
         # bound events, based on to_and and to_or
         def |(generator)
@@ -257,6 +262,8 @@ module Roby
 	end
 
 	def propagate(next_step, *initial_set)
+	    return if !EventGenerator.propagate?
+
 	    # Problem with postponed: the object is included in already_seen while it
 	    # has not been fired
        	    already_seen = initial_set.to_set
