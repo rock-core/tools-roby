@@ -26,10 +26,10 @@ module Roby
 		end
 		self
 	    end
-	    def each_line(&iterator); lines.each(&iterator) end
-	    def parent_of?(c); !!find { |child| child == c } end
 	    include Enumerable
 
+	    def each_line(&iterator); lines.each(&iterator) end
+	    def parent_of?(c); !!find { |child| child == c } end
 	    def empty?; lines.all? { |l| !l } end
 
 	    def width=(new)
@@ -42,22 +42,22 @@ module Roby
 		# Adjust spanning
 		lines.each_with_index do |element, line_idx|
 		    next unless element
-		    remaining = element.span - width
-
-		    each do |column|
-			break if column.lines[line_idx] != element
-			
-			if remaining <= 0
-			    column.remove(element)
-			else
-			    remaining -= column.width
-			end
-		    end
+		    update_element_span(element, line_idx)
 		end
-
-		display.update_canvas_width
 	    end
 
+	    def update_element_span(element, index)
+		return unless lines[index] == element
+		remaining = element.span - width
+		if remaining <= 0
+		    remove(element)
+		elsif next_column
+		    next_column.update_element_span(element, index)
+		else
+		    display.remaining[index] = [element, remaining]
+		end
+	    end
+	
 	    def x=(new)
 		offset = new - x
 		@x = new
@@ -65,6 +65,7 @@ module Roby
 		lines.compact.each do |element|
 		    element.move(element.x + offset, element.y) if element.column == self
 		end
+		next_column.x += offset if next_column
 	    end
 
 	    def add(element)
@@ -120,7 +121,7 @@ module Roby
 	end
 
 	class Element
-	    attr_reader :column, :next_elements, :display
+	    attr_reader :next_elements, :display
 	    def initialize(column, display)
 		@display	= display
 		@next_elements	= Set.new
@@ -130,12 +131,20 @@ module Roby
 		self.column = column
 	    end
 
+	    def column
+		display.each_column do |col|
+		    return col if col.lines.index(self)
+		end
+		nil
+	    end
+
 	    def x; group.x end
 	    def y; group.y end
 
 	    def column=(new)
 		column_update(new)
 		propagate_column if column
+		display.check_structure
 		new
 	    end
 
@@ -147,7 +156,6 @@ module Roby
 		    display.each_column { |c| raise if c.lines.index(self) }
 		end
 
-		@column = new
 		new.add(self) if new
 	    end
 
@@ -191,7 +199,7 @@ module Roby
 	    end
 
 	    def update_width
-		@width = children.inject(x = display.event_spacing) { |x, event| x + event.width + display.event_spacing }
+		@width = children.inject(display.event_spacing) { |x, event| x + event.width + display.event_spacing }
 		@span  = [group.title.bounding_rect.width, width].max
 		
 		column.width = width * 1.2 if column && column.width < width
@@ -303,7 +311,7 @@ module Roby
 
 	    # Allocate the elements which were spanning outside the last column
 	    # It will update the 'remaining' array
-	    remaining.enum_for(:each_with_index).
+	    remaining.dup.enum_for(:each_with_index).
 		select { |(task, _), _| task }.
 		each { |(task, w), line_idx| new.allocate(line_idx, task, w) }
 
@@ -359,14 +367,46 @@ module Roby
 	    offset_columns
 	end
 
+	def check_structure
+	    # Check the continuity of task allocations
+	    seen = Hash.new
+	    each_column do |col|
+		col.lines.each_with_index do |task, index|
+		    next unless task
+		    if allowed = seen[task]
+			allowed_index, allowed_columns = allowed
+			unless allowed_index == index && allowed_columns.include?(col) 
+			    raise "error in column #{column_index(col)} for task #{task}: expected #{allowed_index} in columns #{allowed_columns.map { |c| column_index(c) }.sort.to_a.inspect}"
+			end
+		    else
+			allowed_columns = col.inject([col]) do |allowed_columns, c| 
+			    if c.lines[index]
+				allowed_columns << c
+			    else
+				allowed_columns
+			    end
+			end
+			seen[task] = [index, allowed_columns]
+		    end
+		end
+	    end
+
+	    # Check that element.column returns the right one
+	    seen.each do |element, (_, allowed_columns)|
+		if element.column != allowed_columns.first
+		    raise 
+		end
+	    end
+	end
+
 	def offset_columns
 	    dead, first = enum_for(:each_column).enum_cons(2).find { |empty, first| empty.empty? && !first.empty? }
 	    if dead
 	        offset = first.x - columns.first.x
 		dead.next_column = nil
 	        columns[0] = first
-
-	        each_column { |col| col.x -= offset }
+		raise if columns[1] == dead
+		first.x -= offset
 	    end
 	end
 
