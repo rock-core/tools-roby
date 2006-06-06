@@ -12,7 +12,8 @@ class TC_Genom < Test::Unit::TestCase
     end
     def teardown
 	Genom.connect do
-	    env.stop_modules('mockup', 'init_test')
+	    env.stop_module('mockup')
+	    env.stop_module('init_test')
 	end
     end
 

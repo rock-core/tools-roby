@@ -224,7 +224,7 @@ module Roby::Genom
 	# If the module has an init request, the ::init module method is started and :ready is emitted
 	# when if finishes successfully (see #initialize). :ready is emitted immediately otherwise
 	def start(context)
-	    mod = ::Genom::Runner.environment.start_modules(genom_module.name).first
+	    mod = ::Genom::Runner.environment.start_module(genom_module.name)
 	    mod.wait_running
 	    emit :start
 
@@ -268,7 +268,7 @@ module Roby::Genom
 
 	# Stops the module
 	def failed(context)
-	    ::Genom::Runner.environment.stop_modules genom_module.name
+	    ::Genom::Runner.environment.stop_module(genom_module.name)
 	    # :failed will be emitted by the dead! handler
 	end
 	# Emitted when the module process terminated
