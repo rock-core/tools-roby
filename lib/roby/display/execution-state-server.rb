@@ -13,6 +13,24 @@ module Roby
 	end
 
 	class Event < Qt::ListViewItem
+	    def event_name(event, with_task = true)
+		expr = ""
+
+		if event.respond_to?(:task) && with_task
+		    expr << event.task.source_class.to_s
+		end
+
+		if event.respond_to?(:symbol)
+		    expr << "[" << event.symbol.to_s << "]"
+		else
+		    expr << event.model.name
+		end
+
+		expr.gsub!(/^Roby::(?:Genom::)?/, '') 
+		expr << " 0x" << event.source_address.to_s(16)
+	    end
+
+
 	    def initialize(list, task, kind, time, obj, *args)
 		super(list)
 		set_text(0, "#{time.tv_sec}:#{"%03i" % (time.tv_usec / 1000)}")
@@ -23,25 +41,15 @@ module Roby
 		end
 		set_text(2, kind.to_s)
 
-		obj = obj.generator if obj.respond_to?(:generator)
-		expr = obj.model.name.gsub(/.*::/, '') <<
-		    " 0x" << obj.source_address.to_s(16)
+		expr = event_name(obj, false)
 
 		if kind == :signal
 		    dest = *args
-		    dest = dest.generator if dest.respond_to?(:generator)
-		    
-		    expr << " -> "
-		    expr << "#{dest.task.source_class}::" if dest.respond_to?(:task)
-		    expr << dest.model.name.gsub(/.*::/, '')
-		    expr << " 0x" << dest.source_address.to_s(16)
+		    expr << " -> " << event_name(dest)
+
 		elsif kind == :postponed
 		    wait_for, reason = *args
-		    expr << " waiting for "
-		    expr << "#{wait_for.task.source_class.name}::" if wait_for.respond_to?(:task)
-		    expr << wait_for.model.name.gsub(/.*::/, '')
-		    expr << " 0x" << wait_for.source_address.to_s(16)
-		    expr << ": " << reason
+		    expr << " waiting for " << event_name(wait_for) << ": " << reason
 		end
 		set_text(3, expr)
 	    end

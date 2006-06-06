@@ -38,7 +38,7 @@ module Roby
 	    
 	    attr_reader :symbol
 	    def initialize(event)
-		@symbol = (event.model.symbol if event.model.respond_to?(:symbol)) || ""
+		@symbol = (event.symbol if event.respond_to?(:symbol)) || ""
 		super(event)
 	    end
 	end
