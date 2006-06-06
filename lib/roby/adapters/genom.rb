@@ -86,18 +86,21 @@ module Roby::Genom
 	#     super + "|#{genom_request.name}(#{arguments.inspect})|"
 	# end
 
+	# Starts the request
 	def start(context = nil)
 	    @activity = @request.call(*arguments)
 	    Roby::Genom.running << self
 	end
 	event :start
 	
+	# The request has been interrupted
 	def interrupted(context)
 	    @abort_activity = activity.abort
 	end
 	event :interrupted
 	on :interrupted => :failed
 
+	# Stops the request. It emits :interrupted
 	def stop(context)
 	    interrupted!(context)
 	end
@@ -142,7 +145,7 @@ module Roby::Genom
     # Builds and registers a task class as a subclass of the module.
     # Additionally, it defines a task_name!(*args) singleton method
     # to build a task instance more easily
-    def self.define_task(mod, name, &block)
+    def self.define_task(mod, name, &block) # :nodoc:
 	klass = mod.define_under(name, &block)
 	method_name = name.underscore
 	mod.singleton_class.send(:define_method, method_name + '!') { |*args| klass.new(*args) }
@@ -177,12 +180,34 @@ module Roby::Genom
 	end
     end
 
-    # Base functionalities for Runner tasks
+    # Runner tasks represent the module process. The :start event is emitted when the process
+    # is started and can receive a request, :ready when the init request ran successfully and
+    # :failed when the process has quit. :failed is controlable, and sends the abort request.
     #
     # See Roby::Genom::GenomModule
     class RunnerTask < Roby::Task
 	include RobyMapping
 
+	# Create a Runner task
+	#
+	# If the Roby-defined module defines an +init+ module method, this method should
+	# return an event object which is forwarded to the :ready event. Alternatively, 
+	# it can return a task object in which case
+	#   * the Runner task will be a parent of this task
+	#   * :ready is emitted when task.event(:success) is
+	#
+	# For instance, for a Pom module
+	#
+	# module Roby::Genom::Pom
+	#   def self.init
+	#	# call the init request
+	#	# and return an EventGenerator object or a Task object
+	#	# (in which case, task.event(:success) is considered)
+	#   end
+	# end
+	#
+	# If the module has an init request, then the +init+ module method is mandatory and
+	# should run the init request.
 	def initialize
 	    # Make sure there is a init() method defined in the Roby module if there is one in the
 	    # Genom module
@@ -194,6 +219,10 @@ module Roby::Genom
 	    super
 	end
 
+	# Start the module
+	#
+	# If the module has an init request, the ::init module method is started and :ready is emitted
+	# when if finishes successfully (see #initialize). :ready is emitted immediately otherwise
 	def start(context)
 	    mod = ::Genom::Runner.environment.start_modules(genom_module.name).first
 	    mod.wait_running
@@ -231,25 +260,33 @@ module Roby::Genom
 		event(:ready).emit_on init
 	    end
 	end
+	# Event emitted when the module is running
 	event :start
+
+	# Event emitted when the module is running and initialized
 	event :ready
 
+	# Stops the module
 	def failed(context)
 	    ::Genom::Runner.environment.stop_modules genom_module.name
 	    # :failed will be emitted by the dead! handler
 	end
+	# Emitted when the module process terminated
 	event :failed, :terminal => true
 
-	def stop(context)
-	    failed!(context)
-	end
+	def stop(context); failed!(context) end
 	event :stop
     end
 
     # Base functionalities for Genom modules. It extends
     # the modules defined by GenomModule()
     module ModuleBase
-	attr_reader :genom_module, :name
+	# The Genom.rb GenomModule object
+	attr_reader :genom_module
+	# The module name
+       	attr_reader :name
+
+	# Needed by executed_by
 	def new_task; Runner.new end
 
 	def config
