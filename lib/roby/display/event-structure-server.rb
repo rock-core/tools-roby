@@ -165,7 +165,7 @@ module Roby
 		enum_bfs(:each_following_element).each_edge do |from, to|
 		    next if seen.include?(to)
 		    seen << to
-		    next_column = (from.column.next_column || display.newcolumn)
+		    next_column = (from.column.next_column if from.column) || display.newcolumn
 		    to.column_update(next_column) unless next_column.parent_of?(to.column)
 		end
 	    end
@@ -360,6 +360,7 @@ module Roby
 	    
 	    # Reorder objects in columns
 	    base_column = (from.root.column ||= columns[0])
+	    to.root.column ||= columns[0]
 	    from.root.next_elements << to.root
 	    from.root.propagate_column
    
