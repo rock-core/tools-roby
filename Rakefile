@@ -87,6 +87,7 @@ end
 task :test_rcov do
     Dir.chdir('test_suite') do 
 	FileUtils.rm_rf '../rcov'
+	FileUtils.mkdir_p '../rcov'
 	File.open("../rcov/index.html", "w") do |index|
 	    index.puts <<-EOF
 		<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
