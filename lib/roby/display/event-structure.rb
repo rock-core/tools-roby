@@ -6,22 +6,29 @@ module Roby
 	include Singleton
 
 	DEFAULT_URI = 'druby://localhost:10001'
-	def self.service; instance.service end
-	def self.start_logger(logfile)
-	    Roby::Task.include TaskHooks
-	    Roby::EventGenerator.include RelationHooks
-	    Roby::TaskEventGenerator.include TaskEventHooks
-
-	    instance.start_logger(logfile)
+	INIT_SERVER = lambda do
+	    require 'roby/display/event-structure/server'
+	    Roby::EventStructureDisplayServer.new
 	end
-	def self.start_service(replay = nil, uri = DEFAULT_URI)
-	    Roby::Task.include TaskHooks
-	    Roby::EventGenerator.include RelationHooks
-	    Roby::TaskEventGenerator.include TaskEventHooks
 
-	    instance.start_service(replay, uri) do
-		require 'roby/display/event-structure-server'
-		Roby::EventStructureDisplayServer.new
+	class << self
+	    def install_hooks
+		Roby::Task.include TaskHooks
+		Roby::EventGenerator.include RelationHooks
+		Roby::TaskEventGenerator.include TaskEventHooks
+	    end
+	    
+	    def service; instance.service end
+	    def log(logfile)
+		install_hooks
+		instance.log(logfile)
+	    end
+	    def connect(options = {})
+		install_hooks
+		instance.connect(options, &INIT_SERVER)
+	    end
+	    def start_service(uri = DEFAULT_URI)
+		instance.start_service(uri, &INIT_SERVER)
 	    end
 	end
 
