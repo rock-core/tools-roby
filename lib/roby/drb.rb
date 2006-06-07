@@ -15,7 +15,6 @@ module Roby
     class Plan
         include DRbUndumped
     end
-
    
     # The DRb server
     class Server
@@ -48,6 +47,9 @@ module Roby
             super
         rescue DRb::DRbConnError
         end
+
+	def display(kind, server)
+	end
     end
 
     module DRbDisplayServer
@@ -56,8 +58,7 @@ module Roby
 	def changed!; @changed = true end
 
 	def self.DisplayUpdater(display)
-
-	    def demux(commands)
+	    def display.demux(commands)
 		@demuxing = true
 		commands.each do |name, *args| 
 		    block = args.pop
@@ -106,56 +107,91 @@ module Roby
 	    io.flush
 	end
     end
+
+    class DRbDisplayThread < ThreadServer
+	attr_reader :remote_display
+	def initialize(remote_display, forward_to, multiplex = false)
+	    @remote_display = remote_display
+	    super(forward_to, multiplex)
+	end
+
+	def process_messages
+	    super
+
+	rescue DRb::DRbConnError
+	    remote_display.clear!
+	    raise ThreadServer::Quit
+	end
+    end
     
     # A remote display server as a standalone Qt application
     class DRbRemoteDisplay
 	attr_reader :service
 
-	def start_logger(logfile)
+	# Start the display server
+	def start_service(uri, control_pipe = nil)
+	    require 'Qt'
+	    a = Qt::Application.new( ARGV )
+
+	    server = yield
+	    server.extend DRbDisplayServer
+	    updater = Roby::DRbDisplayServer.DisplayUpdater(server)
+
+	    DRb.stop_service
+	    DRb.start_service(uri, server)
+	    DRb.thread.priority = 1
+
+	    control_pipe.write("OK") if control_pipe
+
+	    server.main_window.show
+	    a.setMainWidget( server.main_window )
+	    a.exec()
+
+	rescue Exception => e
+	    puts "#{e.message}(#{e.class.name}):in #{e.backtrace.join("\n  ")}"
+	end
+
+	# Log commands instead of sending them to a display server
+	def log(logfile)
 	    io = File.open(logfile, "w")
 	    io.puts self.class.name.gsub(/.*::/, '').to_yaml
 	    @service = DRbCommandLogger.new(io)
 	end
 
-	def start_service(replay, uri)
+	# Connect to a display server or start it
+	# 
+	# :start => uri the URI on which we should start the server
+	# :server => uri the URI on which we should connect to the server
+	# :server => DRbObject the server object
+	# :replay => replay a logfile after connection (see #log)
+	def connect(options, &init_block)
 	    raise RuntimeError, "already started" if @service
+	    options = validate_options options, [:uri, :server, :replay]
 
-	    read, write = IO.pipe
-	    fork do
-		begin
-		    require 'Qt'
-		    a = Qt::Application.new( ARGV )
-
-		    server = yield
-		    server.extend DRbDisplayServer
-		    updater = Roby::DRbDisplayServer.DisplayUpdater(server)
-
-		    DRb.stop_service
-		    DRb.start_service(uri, server)
-		    DRb.thread.priority = 1
-
+	    if options[:uri]
+		read, write = IO.pipe
+		fork do
 		    read.close
-		    write.write("OK")
-
-		    server.main_window.show
-		    a.setMainWidget( server.main_window )
-		    a.exec()
-		    
-		rescue Exception => e
-		    puts "#{e.message}(#{e.class.name}):in #{e.backtrace.join("\n  ")}"
+		    start_service(options[:uri], write, &init_block)
 		end
-	    end
 
-	    check = read.read(2)
-	    if check != "OK"
-		raise "failed to start execution state display server"
+		check = read.read(2)
+		if check != "OK"
+		    raise RuntimeError, "failed to start execution state display server"
+		end
+
+		options[:server] = options[:uri]
 	    end
 
 	    DRb.start_service unless DRb.primary_server
 
-	    # Get the remote object
-	    server = DRbObject.new(nil, uri)
-	    if replay
+	    # Get the display server object
+	    server = case options[:server]
+		     when DRbObject; options[:server]
+		     else; DRbObject.new(nil, options[:server].to_str)
+		     end
+	    
+	    if replay = options[:replay]
 		data = File.open(replay) do |io|
 		    first_document = true
 		    YAML.each_document(io) do |doc|
@@ -170,9 +206,14 @@ module Roby
 		end
 	    end
 	    
-	    @service = ThreadServer.new(server, true)
+	    @service = DRbDisplayThread.new(self, server, true)
 	    @service.thread.priority = -1
 	    @service
+	end
+
+	def clear!
+	    STDERR.puts "display server has quit"
+	    @service = nil
 	end
     end
 end

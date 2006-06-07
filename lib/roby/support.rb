@@ -18,7 +18,7 @@ end
 # The messages are sent in the new thread.
 class ThreadServer
     class Quit < RuntimeError; end
-    attr_reader :thread
+    attr_reader :thread, :forwarded
 
     # Create the new thread server. +forward_to+ is the server
     # object. If +multiplex+ is true, then +forward_to+
@@ -31,26 +31,33 @@ class ThreadServer
     def initialize(forward_to, multiplex = false)
 	@forwarded = forward_to
 	@queue = Queue.new
+	@multiplex = multiplex
+
 	@thread = Thread.new do
+	    Thread.current.abort_on_exception = true
 	    begin
-		loop do
-		    message = @queue.pop
-
-		    if multiplex
-			messages = []
-			messages << message
-			while message = (@queue.pop(true) rescue nil)
-			    messages << message
-			end
-
-			forward_to.demux(messages)
-		    else
-			block = message.pop
-			forward_to.send(*message, &block)
-		    end
-		end
+		loop { process_messages }
 	    rescue ThreadServer::Quit
 	    end
+	end
+    end
+
+    attr_accessor :multiplex
+
+    def process_messages
+	message = @queue.pop
+
+	if multiplex
+	    messages = []
+	    messages << message
+	    while message = (@queue.pop(true) rescue nil)
+		messages << message
+	    end
+
+	    forwarded.demux(messages)
+	else
+	    block = message.pop
+	    forwarded.send(*message, &block)
 	end
     end
 
