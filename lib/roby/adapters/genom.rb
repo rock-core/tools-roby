@@ -188,6 +188,14 @@ module Roby::Genom
     class RunnerTask < Roby::Task
 	include RobyMapping
 
+	# A redirection for the Genom module output. See Genom::GenomModule.new documentation
+	# for the allowed values
+	#
+	# It is initialized by the value of the :output argument given to GenomModule
+	#
+	# Note that changing it after the :start event is emitted has no effect
+	attr_accessor :output_io
+
 	# Create a Runner task
 	#
 	# If the Roby-defined module defines an +init+ module method, this method should
@@ -209,6 +217,8 @@ module Roby::Genom
 	# If the module has an init request, then the +init+ module method is mandatory and
 	# should run the init request.
 	def initialize
+	    @output_io = roby_module.output_io
+
 	    # Make sure there is a init() method defined in the Roby module if there is one in the
 	    # Genom module
 	    if !roby_module.respond_to?(:init) && genom_module.respond_to?(:init)
@@ -224,7 +234,7 @@ module Roby::Genom
 	# If the module has an init request, the ::init module method is started and :ready is emitted
 	# when if finishes successfully (see #initialize). :ready is emitted immediately otherwise
 	def start(context)
-	    mod = ::Genom::Runner.environment.start_module(genom_module.name)
+	    mod = ::Genom::Runner.environment.start_module(genom_module.name, output_io)
 	    mod.wait_running
 	    emit :start
 
@@ -285,6 +295,8 @@ module Roby::Genom
 	attr_reader :genom_module
 	# The module name
        	attr_reader :name
+	# See Runner#output_io
+	attr_reader :output_io
 
 	# Needed by executed_by
 	def new_task; Runner.new end
@@ -334,9 +346,8 @@ module Roby::Genom
     # The main module defines the singleton method new_task so that a module
     # can be used in ExecutedBy relationships
     # 
-    # If options is given, it is forwarded to GenomModule.new. Note that the :constant option
-    # cannot be set when mapping Genom modules into Roby
-    # 
+    # If options are given, they are forwarded to GenomModule.new. Note however that neither the 
+    # :constant, nor the :start options can be set when mapping Genom modules into Roby
     def self.GenomModule(name, options = Hash.new)
 	# Get the genom module
 	if options[:constant]
@@ -344,6 +355,8 @@ module Roby::Genom
 	elsif options[:start]
 	    raise ArgumentError, "the :start option cannot be set when running in Roby"
 	end
+	output_io = options.delete(:output) # only to be used by the Runner task
+
 	options = { :auto_attributes => true, :lazy_poster_init => true, :constant => false }.merge(options)
 	gen_mod = Genom::GenomModule.new(name, options)
 
@@ -366,6 +379,7 @@ module Roby::Genom
 	rb_mod.class_eval do
 	    @genom_module = gen_mod
 	    @name = "Roby::Genom::#{modname}"
+	    @output_io = output_io
 	    extend ModuleBase
 	end
 
@@ -394,6 +408,8 @@ module Roby::Genom
 	# in +autoload_path+ and require it if it exists
 	attribute(:autoload_path) { Array.new }
 
+	attr_accessor :output_io
+
 	# The list of the module names that have been loaded by #using
 	attribute(:uses) { Array.new }
 	# If +name+ is a used module
@@ -404,7 +420,8 @@ module Roby::Genom
 	def using(*modules)
 	    modules.each do |modname| 
 		modname = modname.to_s
-		::Roby::Genom::GenomModule(modname) 
+		
+		::Roby::Genom::GenomModule(modname, :output => output_io) 
 		self.autoload_path.each do |path|
 		    extfile = File.join(path, modname)
 		    begin
