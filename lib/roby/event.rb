@@ -25,6 +25,17 @@ module Roby
 	def to_s; "#<Event:0x#{address.to_s(16)} generator=#{generator} model=#{model}" end
     end
 
+    # EventGenerator objects are the objects which manage the event generation
+    # process (propagation, event creation, ...). They can be combined logically
+    # using & and |.
+    #
+    # == Standard relations
+    # - signals: calls the *command* of an event when this generator emits
+    # - forwardings: *emits* another event when this generator emits
+    #
+    # In the first case, #can_signal? is checked to ensure that the target
+    # event can be called. In the forwarding case, not checks are done
+    #
     class EventGenerator
 	@@propagate = true
 	def self.disable_propagation; @@propagate = false end
