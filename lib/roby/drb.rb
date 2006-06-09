@@ -52,7 +52,7 @@ module Roby
 	end
     end
 
-    module DRbDisplayServer
+    module DRbDisplayMixin
 	attr_accessor :changed
 	def changed?; @changed end
 	def changed!; @changed = true end
@@ -118,9 +118,69 @@ module Roby
 	def process_messages
 	    super
 
-	rescue DRb::DRbConnError
+	rescue DRb::DRbConnError, ThreadServer::Quit
 	    remote_display.clear!
 	    raise ThreadServer::Quit
+	end
+    end
+
+    class DRbDisplayServer
+	attr_reader :displays, :main_window, :tabs
+	def initialize(uri)
+	    @displays = Hash.new
+
+	    DRb.stop_service
+	    DRb.start_service(uri, self)
+	    DRb.thread.priority = 1
+
+	    @main_window = Qt::Widget.new
+	    main_layout = Qt::VBoxLayout.new(main_window)
+	    @tabs = Qt::TabWidget.new(main_window)
+	    main_layout.add_widget tabs
+
+	    main_window.show
+	end
+
+	def add(name)
+	    base_widget = Qt::Widget.new(tabs, "tab_#{name}")
+	    layout = Qt::GridLayout.new(base_widget, 1, 1, 11, 6, "layout_#{name}")
+
+	    display = yield(base_widget)
+	    display.extend DRbDisplayMixin
+	    updater = Roby::DRbDisplayMixin.DisplayUpdater(display)
+
+	    layout.add_widget(display.main_window, 0, 0)
+	    tabs.add_tab(base_widget, name.to_s)
+
+	    main_window.resize( Qt::Size.new(600, 480).expandedTo(main_window.minimumSizeHint()) )
+	    main_window.hide
+	    main_window.show
+	end
+	private :add
+
+	def get(kind)
+	    kind = kind.to_s
+
+	    if display = displays[kind]
+		display
+	    else
+		file_name  = "roby/display/#{kind.underscore}/server"
+		klass_name = "#{kind.classify}DisplayServer"
+
+		require file_name
+		klass = Roby.const_get(klass_name)
+
+		add(kind) do |base_widget|
+		    displays[kind] = klass.new(base_widget)
+		end
+
+	    end
+
+	    display
+
+	rescue NameError => e
+	    raise unless e.name.to_s == klass_name
+	    raise ArgumentError, "no such display type #{klass_name}"
 	end
     end
     
@@ -128,22 +188,19 @@ module Roby
     class DRbRemoteDisplay
 	attr_reader :service
 
-	# Start the display server
-	def start_service(uri, control_pipe = nil)
+	# Start the display server in a standalone process
+	# and spawn a DRb server to allow connections to it
+	#
+	# +control_pipe+ can be used to notify a parent process
+	# that the initialization has been done properly
+	def standalone(uri, name, control_pipe = nil)
 	    require 'Qt'
 	    a = Qt::Application.new( ARGV )
 
-	    server = yield
-	    server.extend DRbDisplayServer
-	    updater = Roby::DRbDisplayServer.DisplayUpdater(server)
-
-	    DRb.stop_service
-	    DRb.start_service(uri, server)
-	    DRb.thread.priority = 1
-
+	    server  = DRbDisplayServer.new(uri)
+	    display = server.get(name)
 	    control_pipe.write("OK") if control_pipe
 
-	    server.main_window.show
 	    a.setMainWidget( server.main_window )
 	    a.exec()
 
@@ -164,7 +221,7 @@ module Roby
 	# :server => uri the URI on which we should connect to the server
 	# :server => DRbObject the server object
 	# :replay => replay a logfile after connection (see #log)
-	def connect(options, &init_block)
+	def connect(name, options)
 	    raise RuntimeError, "already started" if @service
 	    options = validate_options options, [:uri, :server, :replay]
 
@@ -172,7 +229,7 @@ module Roby
 		read, write = IO.pipe
 		fork do
 		    read.close
-		    start_service(options[:uri], write, &init_block)
+		    standalone(options[:uri], name, write)
 		end
 
 		check = read.read(2)
@@ -190,6 +247,8 @@ module Roby
 		     when DRbObject; options[:server]
 		     else; DRbObject.new(nil, options[:server].to_str)
 		     end
+
+	    server = server.get(name)
 	    
 	    if replay = options[:replay]
 		data = File.open(replay) do |io|
@@ -212,7 +271,6 @@ module Roby
 	end
 
 	def clear!
-	    STDERR.puts "display server has quit"
 	    @service = nil
 	end
     end

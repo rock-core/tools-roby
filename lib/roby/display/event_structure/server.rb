@@ -13,7 +13,7 @@ module Roby
 	attr_reader :event_filters, :arrows
 
 	BASE_LINES = 20
-	def initialize
+	def initialize(root_window)
 	    super
 
 	    @start_time	    = nil # start time (time of the first event)
@@ -30,7 +30,7 @@ module Roby
 	    @remaining	    = []
 
 	    @canvas = Qt::Canvas.new(640, line_height * BASE_LINES + margin * 2)
-	    @view   = Qt::CanvasView.new(@canvas, nil)
+	    @view   = Qt::CanvasView.new(@canvas, root_window)
 	    @main_window = @view
 	    
 	    @event_filters = [ lambda { |ev| ev.symbol == :aborted } ]
@@ -193,9 +193,6 @@ module Roby
 	    arrows[ [from, to] ].hide if arrows.has_key? [from, to]
 	end
 
-	# def wipe(event)
-	# end
-
 	def event(ev)
 	    return events[ev] if events[ev]
 
@@ -217,6 +214,6 @@ module Roby
     end
 end
 
-require 'roby/display/event-structure/structure.rb'
-require 'roby/display/event-structure/elements.rb'
+require 'roby/display/event_structure/structure.rb'
+require 'roby/display/event_structure/elements.rb'
     

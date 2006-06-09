@@ -4,11 +4,11 @@ require 'roby/display/style'
 module Roby
     class ExecutionStateDisplayServer < Qt::Object
 	attr_reader :canvas, :main_window
-	def initialize
+	def initialize(root_window)
 	    super
 
 	    @canvas = ExecutionStateCanvas.new
-	    @main_window = Qt::Splitter.new(Qt::Vertical)
+	    @main_window = Qt::Splitter.new(Qt::Vertical, root_window)
 	    
 	    @view   = Qt::CanvasView.new(@canvas, @main_window)
 	    @pending = EventList.new(@main_window)
@@ -50,6 +50,6 @@ module Roby
     end
 end
 
-require 'roby/display/execution-state/event-list'
-require 'roby/display/execution-state/canvas'
+require 'roby/display/execution_state/event-list'
+require 'roby/display/execution_state/canvas'
 
