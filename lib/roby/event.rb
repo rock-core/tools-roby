@@ -60,12 +60,11 @@ module Roby
 	    @pending  = 0
 
 	    if controlable || control
-		control = lambda { |context| emit(context) } if !control
-		self.command = control
-		singleton_class.class_eval { public :call }
+		self.command = (control || lambda { |context| emit(context) })
 	    end
 	end
 
+	# Sets a command proc for this event generator. Sets controlable to true
 	def command=(block)
 	    # Returns true if the command has been called and false otherwise
 	    # The command won't be called if postpone() is called within the
@@ -84,7 +83,7 @@ module Roby
 		    called(context)
 		    nil
 		end
-		
+
 		if postponed
 		    postponed(context, *postponed)
 		    false
@@ -93,9 +92,17 @@ module Roby
 		end
 	    end
 	    @controlable = true
+	    singleton_class.class_eval { public :call }
 	end
 
-	def call(context)
+	# Call the command associated with self. Note that an event might be
+	# non-controlable and respond to the :call message. Controlability must
+	# be checked using #controlable?
+	def call(context = nil)
+	    if !controlable?
+		raise EventModelViolation.new(self), "#call called on a non-controlable event"
+	    end
+
 	    if gathering?
 		Thread.current[:propagation][self] << [false, Thread.current[:propagation_event], context]
 	    else
