@@ -66,8 +66,8 @@ module Roby
 
 	attr_reader :pending
 	def pending?; pending != 0 end
-        def initialize(controlable = nil, &control)
-            @handlers = []
+	def initialize(controlable = nil, &control)
+	    @handlers = []
 	    @pending  = 0
 
 	    if controlable || control
@@ -126,33 +126,25 @@ module Roby
 	end
 	private :call
 
-	# Call #postpone in the #calling hook to 
-	def postpone(generator, reason = nil)
-	    generator.on self
-	    yield
-	    throw :postponed, [generator, reason]
-	end
-	def postponed(context, generator, reason); super if defined? super end
-
-        # Establishes signalling and/or event handlers from this event model
-        def on(*signals, &handler)
-            if !signals.all? { |e| EventGenerator === e }
-                raise ArgumentError, "arguments to EventGenerator#on shall be EventGenerator objects, got #{signals.inspect}" 
+	# Establishes signalling and/or event handlers from this event model
+	def on(*signals, &handler)
+	    if !signals.all? { |e| EventGenerator === e }
+		raise ArgumentError, "arguments to EventGenerator#on shall be EventGenerator objects, got #{signals.inspect}" 
 	    elsif bad_signal = signals.find { |e| !can_signal?(e) }
 		raise EventModelViolation.new(self), "trying to establish a signal between #{self} and #{bad_signal}"
-            end
+	    end
 	    signals.each { |sig| add_signal(sig) }
 
-            if handler
-                check_arity(handler, 1)
-                self.handlers << handler
-            end
+	    if handler
+		check_arity(handler, 1)
+		self.handlers << handler
+	    end
 
-            self
-        end
+	    self
+	end
 
-        # If this event can signal +event+
-        def can_signal?(generator); generator != self && generator.controlable?  end
+	# If this event can signal +event+
+	def can_signal?(generator); generator != self && generator.controlable?  end
 
 	# Create a new event object for +context+
 	def new(context); Event.new(self, context) end
@@ -162,16 +154,16 @@ module Roby
 	def source_event; Thread.current[:propagation_event] end
 	def source_generator; Thread.current[:propagation_generator] end
 	# Begin a propagation stage
-        def gather_propagation
-            raise "nested call to #gather_propagation" if gathering?
-            Thread.current[:propagation] = Hash.new { |h, k| h[k] = Array.new }
-	    
-            yield
+	def gather_propagation
+	    raise "nested call to #gather_propagation" if gathering?
+	    Thread.current[:propagation] = Hash.new { |h, k| h[k] = Array.new }
+
+	    yield
 
 	    return Thread.current[:propagation]
-        ensure
-            Thread.current[:propagation] = nil
-        end
+	ensure
+	    Thread.current[:propagation] = nil
+	end
 
 	# returns the value returned by the block
 	def propagation_context(source)
@@ -192,7 +184,7 @@ module Roby
 	    Thread.current[:propagation_event] = event
 	    Thread.current[:propagation_generator] = generator
 	end
-		  
+
 
 	def add_signal_to_propagation(only_forward, event, signalled, context)
 	    if event == signalled
@@ -205,10 +197,10 @@ module Roby
 
 	    Thread.current[:propagation][signalled] << [only_forward, event, context]
 	end
-        
+
 	# Do fire this event. It gathers the list of signals that are to
 	# be propagated in the next step and calls fired()
-        def fire(event)
+	def fire(event)
 	    propagation_context(event) do |result|
 		enum_for(:each_signal).each do |signalled|
 		    add_signal_to_propagation(false, event, signalled, event.context)
@@ -228,7 +220,7 @@ module Roby
 	    history << [Time.now, event]
 	    fired(event)
 	end
-        private :fire
+	private :fire
 
 	# raises an exception object when an event whose command has been called
 	# won't be emitted (ever)
@@ -284,14 +276,14 @@ module Roby
 
 	    # Problem with postponed: the object is included in already_seen while it
 	    # has not been fired
-       	    already_seen = initial_set.to_set
+	    already_seen = initial_set.to_set
 
 	    while !next_step.empty?
-                next_step = gather_propagation do
-                    # Call event signalled by this task
-                    # Note that internal signalling does not need a #call
-                    # method (hence the respond_to? check). The fact that the
-                    # event can or cannot be fired is checked in #fire (using can_signal?)
+		next_step = gather_propagation do
+		    # Call event signalled by this task
+		    # Note that internal signalling does not need a #call
+		    # method (hence the respond_to? check). The fact that the
+		    # event can or cannot be fired is checked in #fire (using can_signal?)
 		    next_step.each do |signalled, sources|
 			sources.each do |emit, source, context|
 			    source.generator.signalling(source, signalled) if source
@@ -311,8 +303,8 @@ module Roby
 			    already_seen << signalled if did_call
 			end
 		    end
-                end
-            end        
+		end
+	    end        
 	    return self
 	end
 
@@ -331,7 +323,7 @@ module Roby
 	    generator.add_forwarding(self)
 	end
 
-        def controlable?; @controlable end
+	def controlable?; @controlable end
 	attribute(:history) { Array.new }
         def happened?;  !history.empty? end
         def last;       history.last end
@@ -347,10 +339,22 @@ module Roby
 	    end
 	end
 
-        def ever
-            @ever ||= EverGenerator.new(self) 
-        end
+	def ever
+	    @ever ||= EverGenerator.new(self) 
+	end
 
+	# Call #postpone in the #calling hook to announce that
+	# the event being called is not to be fired now, but will
+	# be called back when +generator+ is emitted.
+	#
+	# A reason string can be provided for debugging purposes
+	def postpone(generator, reason = nil)
+	    generator.on self
+	    yield
+	    throw :postponed, [generator, reason]
+	end
+	def postponed(context, generator, reason); super if defined? super end	
+	
 	# Hook called when this event generator is called (i.e. the associated command
 	# is), before the command is actually called. Think of it as a pre-call hook.
 	def calling(context); super if defined? super end
@@ -405,16 +409,16 @@ module Roby
     end
 
     class EverGenerator < EventGenerator
-        attr_reader :base
+	attr_reader :base
 
-        class << self
+	class << self
 	    # The list of ever events to generate on next event loop
-            attribute(:pending) { Array.new }
-        end
-        Roby.event_processing << lambda do
-            pending.each { |ev| ev.emit(nil) }
-            pending.clear
-        end
+	    attribute(:pending) { Array.new }
+	end
+	Roby.event_processing << lambda do
+	    pending.each { |ev| ev.emit(nil) }
+	    pending.clear
+	end
 
         def new(context)
             event = base.last.last
@@ -422,88 +426,88 @@ module Roby
             event
         end
 
-        def initialize(base)
-            @base = base
-            if base.controlable?
+	def initialize(base)
+	    @base = base
+	    if base.controlable?
 		super { base.call(nil) unless base.happened? }
-                self.add_causal_link base
+		self.add_causal_link base
 	    else
 		super(false)
-            end
-            
-            if base.happened?
-                EverGenerator.pending << self
-            else
+	    end
+
+	    if base.happened?
+		EverGenerator.pending << self
+	    else
 		emit_on(base, nil)
-            end
-        end
+	    end
+	end
     end
 
     class AndGenerator < EventGenerator
-        def initialize
-            @events	= Set.new
-            @waiting	= Set.new
-            super()
-        end
+	def initialize
+	    @events	= Set.new
+	    @waiting	= Set.new
+	    super()
+	end
 
-        attr_accessor :permanent
-        def permanent!; self.permanent = true end
+	attr_accessor :permanent
+	def permanent!; self.permanent = true end
 
-        def << (generator)
-            @events  << generator
-            @waiting << generator
-            generator.on do |event|
+	def << (generator)
+	    @events  << generator
+	    @waiting << generator
+	    generator.on do |event|
 		if !done? || permanent
 		    @waiting.delete(generator)
 		    emit(nil) if done?
 		end
-            end
+	    end
 
-            generator.add_causal_link self
-            
-            self
-        end
+	    generator.add_causal_link self
 
-        def reset; @waiting = @events.dup end
-        def done?; @waiting.empty? end
-        def remaining; @waiting end
-        
-        def to_and; self end
-        def &(generator); self << generator end
+	    self
+	end
+
+	def reset; @waiting = @events.dup end
+	def done?; @waiting.empty? end
+	def remaining; @waiting end
+
+	def to_and; self end
+	def &(generator); self << generator end
 
 	def active?(seen); each_parent_object(EventStructure::CausalLink).all? { |obj| obj.active?(seen) } end
 
     protected
-        attr_reader :waiting
-        def initialize_copy(from); @waiting = from.waiting.dup end
+	attr_reader :waiting
+	def initialize_copy(from); @waiting = from.waiting.dup end
     end
 
     class OrGenerator < EventGenerator
-        def initialize
-            super()
-            @done       = []
-            @waiting    = Set.new
-        end
+	def initialize
+	    super()
+	    @done       = []
+	    @waiting    = Set.new
+	end
 
-        attr_accessor :permanent
-        def permanent!; self.permanent = true end
+	attr_accessor :permanent
+	def permanent!; self.permanent = true end
 
-        def << (generator)
-            @waiting << generator
-            generator.on do |event| 
-                @done << event
-                emit(nil) if @done.size == 1 || permanent
-            end
+	def << (generator)
+	    @waiting << generator
+	    generator.on do |event| 
+		@done << event
+		emit(nil) if @done.size == 1 || permanent
+	    end
 
-            generator.add_causal_link self
-            
-            self
-        end
+	    generator.add_causal_link self
 
-        def reset; @done.clear end
-        def done?; !(@done.empty?) end
-        def to_or; self end
-        def |(generator); self << generator end
+	    self
+	end
+
+	def reset; @done.clear end
+	def done?; !(@done.empty?) end
+	def to_or; self end
+	def |(generator); self << generator end
 
         def new(context = nil)
             event = @done.last
@@ -512,8 +516,8 @@ module Roby
         end
 
     protected
-        attr_reader :waiting
-        def initialize_copy(from); @waiting = from.waiting.dup end
+	attr_reader :waiting
+	def initialize_copy(from); @waiting = from.waiting.dup end
     end
 
 
@@ -521,15 +525,15 @@ module Roby
 	def until(generator)
 	    Until.new(self, generator)
 	end
-	
+
 	INVERSE = {
 	    :on => lambda do |generator, *args|
-		block = args.pop
-		generator.handlers.delete(block)
-		args.each { |sig| generator.remove_signal(sig) }
+	    block = args.pop
+	    generator.handlers.delete(block)
+	    args.each { |sig| generator.remove_signal(sig) }
 	    end
 	}
-		
+
 	class Until
 	    attr_reader :generator
 	    def initialize(generator, limit)
