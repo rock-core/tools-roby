@@ -27,7 +27,7 @@ module Roby::TaskStructure
 	    failure = options[:failure].to_a.map { |ev| task.event(ev) }
 
 	    failure.each do |event|
-		event.until(event(:stop)).on event(:aborted)
+		event.until(event(:stop)).on { emit(:failed) }
 	    end
 
 	    # if task.has_event?(:failed) && !options.has_key?(:failure)

@@ -6,6 +6,8 @@ module Roby::TaskStructure
     # task is executed by. It allows to define a class of these execution agent,
     # so that the specific agents are managed externally (load-balacing, autospawn, ...)
     relation :execution_agent do
+	parent_enumerator :executed_agent
+
         def self.included(klass)
             class << klass
                 attr_reader :execution_agent
@@ -25,6 +27,11 @@ module Roby::TaskStructure
 	    if !agent.event(:start).controlable?
 		raise TaskModelViolation.new(self), "the start event of #{self}'s execution agent #{agent} is not controlable"
 	    end
+	    
+	    # Check that agent defines the :ready event
+	    if !agent.has_event?(:ready)
+		raise ArgumentError, "execution agent tasks should define the :ready event"
+	    end
 
 	    if old = execution_agent && old != agent
 		Roby.debug "an agent is already defined for this task"
@@ -32,11 +39,12 @@ module Roby::TaskStructure
 		agent.event(:stop).remove_causal_link event(:stop)
 	    end
 
+
 	    add_execution_agent(agent)
 	    event(:start).on do
-		agent.event(:stop).
-		    until(event(:stop)).
-		    on(event(:aborted))
+	        agent.event(:stop).
+	            until(event(:stop)).
+	            on { event(:aborted).emit(nil) }
 	    end
         end
 
@@ -61,8 +69,10 @@ module Roby::TaskStructure
 			raise TaskModelViolation.new(task), "in #{self}: execution agent #{agent} is dead"
 		    elsif !agent.running?
 			postpone(agent.event(:ready), "spawning execution agent #{agent} for #{self}") do
-			    agent.event(:stop).until(agent.event(:ready)).on do
-				self.emit_failed "execution agent #{agent} is dead"
+			    agent.event(:start).on do
+				agent.event(:stop).until(agent.event(:ready)).on do
+				    self.emit_failed "execution agent #{agent} failed to initialize"
+				end
 			    end
 			    agent.start!
 			end

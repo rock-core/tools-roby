@@ -470,20 +470,8 @@ module Roby
 	event :success, :terminal => true
 	event :failed,  :terminal => true
 
-	def self.aborted(task, context)
-	    events = task.enum_for(:each_child).
-		find_all { |child| child.running? }.
-		map { |child| child.event(:aborted) }
-
-	    if events.empty?
-		task.emit(:aborted)
-	    else
-		events.inject { |a, b| a & b }.on { task.emit(:aborted) }
-		events.each { |ev| ev.call(context) }
-	    end
-	end
-	event :aborted, :command => lambda { |task, context| Task.aborted(task, context) }
-	on :aborted => :failed
+	event :aborted, :terminal => true
+	on(:aborted) { |event| event.task.emit(:failed) }
     end
 
     class NullTask < Task

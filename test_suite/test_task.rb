@@ -1,5 +1,6 @@
 require 'test_config'
 require 'test/unit/testcase'
+require 'roby/relations/executed_by'
 require 'roby/task'
 require 'flexmock'
 require 'mockups/tasks'
@@ -199,6 +200,7 @@ class TC_Task < Test::Unit::TestCase
 	assert_raise(Roby::TaskModelViolation) { task.start! }
 	assert_nothing_raised { task.inter! }
 	task.stop!
+
 	assert_raises(Roby::TaskModelViolation) { task.inter! }
 	assert_equal(0, task.event(:inter).pending)
     end
@@ -218,7 +220,7 @@ class TC_Task < Test::Unit::TestCase
 
 	parent.on(:start, child, :start)
 	child.on(:start, child, :failed)
-	child.on(:failed, parent, :aborted)
+	parent.event(:aborted).emit_on child.event(:failed)
 
         FlexMock.use do |mock|
 	    parent.on(:start)	{ mock.p_start }
@@ -242,22 +244,30 @@ class TC_Task < Test::Unit::TestCase
     def test_aborted_default_handler
 	klass = Class.new(Roby::Task) do
 	    event(:start, :command => true)
+	    event(:ready, :command => true)
 	end
 
-	t1, t2 = klass.new, klass.new
+	t1, t2, t3 = klass.new, klass.new, klass.new
 	t1.add_child(t2)
+	t1.executed_by(t3)
 
 	FlexMock.use do |mock|
 	    t1.on(:start) { mock.t1_start }
-	    t2.event(:aborted).on { mock.t2 }
+	    t2.on(:stop) { mock.t2_stop }
+
+	    t3.event(:aborted).on { mock.t3 }
 	    t1.event(:aborted).on { mock.t1 }
+
 	    mock.should_receive(:t1_start).once.ordered
-	    mock.should_receive(:t2).once.ordered
+	    mock.should_receive(:t2_stop).never
+	    mock.should_receive(:t3).once.ordered
 	    mock.should_receive(:t1).once.ordered
 
+	    t3.start!
 	    t1.start!
 	    t2.start!
-	    t1.aborted!
+	    t3.ready!
+	    t3.emit(:aborted, nil)
 	end
     end
 

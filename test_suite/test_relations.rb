@@ -129,11 +129,9 @@ class TC_Relations < Test::Unit::TestCase
 	t1, t2 = klass.new, klass.new
 	t1.realized_by t2, :failure => :failed
 
-	assert(t2.event(:failed).child_object?(t1.event(:aborted), Roby::EventStructure::Signals))
-
 	FlexMock.use do |mock|
-	    t1.on(:aborted) { mock.aborted }
-	    mock.should_receive(:aborted).once
+	    t1.on(:failed) { mock.failed }
+	    mock.should_receive(:failed).once
 
 	    t1.start!
 	    t2.start!
