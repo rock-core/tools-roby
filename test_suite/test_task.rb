@@ -65,7 +65,7 @@ class TC_Task < Test::Unit::TestCase
 
         # Check properties on EvControlable
         assert( klass::EvControlable.respond_to?(:call) )
-        event = klass::EvControlable.new(task, nil)
+        event = klass::EvControlable.new(task, 0, 0)
         # Check for the definition of :call
         assert_equal(:ev_controlable, klass::EvControlable.call(task, :ev_controlable))
         # Check for default argument in :call

@@ -22,9 +22,9 @@ module Roby
         # The task which fired this event
         attr_reader :task
         
-        def initialize(task, generator, context = nil)
+        def initialize(task, generator, propagation_id, context = nil)
             @task = task
-            super(generator, context)
+            super(generator, propagation_id, context)
         end
 
         # If the event model defines a controlable event
@@ -97,7 +97,7 @@ module Roby
 	    end
 	end
         def symbol;       event_model.symbol end
-        def new(context); event_model.new(task, self, context) end
+        def new(context); event_model.new(task, self, propagation_id, context) end
 
         def to_s
 	    model_name = event_model.name
@@ -177,7 +177,10 @@ module Roby
         # This method is called by TaskEventGenerator#fire just before the event handlers
         # and commands are called
         def fire_event(event)
-            if finished? && (!event.terminal? || event(:stop).happened?)
+	    final_event = enum_for(:each_event).find { |ev| ev.terminal? && ev.happened? }
+	    final_event = final_event.last if final_event
+
+            if final_event && final_event.propagation_id != event.propagation_id
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task has finished"
             elsif !running? && !finished? && event.symbol != :start
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task is not running"

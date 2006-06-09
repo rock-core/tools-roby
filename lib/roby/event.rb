@@ -15,13 +15,30 @@ module Roby
     end
 
     class Event
-        attr_reader :generator, :context
-        def initialize(generator, context)
-            @generator, @context = generator, context
-        end
+	attr_reader :generator
 
-        def model; self.class end
+	def initialize(generator, propagation_id, context)
+	    raise ArgumentError, "bad value for propagation_id: #{propagation_id}" unless propagation_id
+	    @generator, @propagation_id, @context = generator, propagation_id, context
+	end
 
+	attr_accessor :propagation_id, :context
+	protected :propagation_id=, :context=
+
+	# To be used in the event generators ::new methods, when we need to reemit
+	# an event while changing its 
+	def reemit(new_id, new_context = nil)
+	    if propagation_id != new_id || (new_context && new_context != context)
+		new_event = self.dup
+		new_event.propagation_id = new_id
+		new_event.context = new_context
+		new_event
+	    else
+		self
+	    end
+	end
+
+	def model; self.class end
 	def to_s; "#<Event:0x#{address.to_s(16)} generator=#{generator} model=#{model}" end
     end
 
@@ -117,11 +134,17 @@ module Roby
 	    if gathering?
 		Thread.current[:propagation][self] << [false, Thread.current[:propagation_event], context]
 	    else
-		initial_set = []
-		first_step = gather_propagation do
-		    initial_set << self if call_without_propagation(context)
+		begin
+		    Thread.current[:propagation_id] = (@@propagation_id += 1)
+
+		    initial_set = []
+		    first_step = gather_propagation do
+			initial_set << self if call_without_propagation(context)
+		    end
+		    propagate(first_step, initial_set)
+		ensure
+		    Thread.current[:propagation_id] = nil
 		end
-		propagate(first_step, initial_set)
 	    end
 	end
 	private :call
@@ -147,12 +170,14 @@ module Roby
 	def can_signal?(generator); generator != self && generator.controlable?  end
 
 	# Create a new event object for +context+
-	def new(context); Event.new(self, context) end
+	def new(context); Event.new(self, propagation_id, context) end
 
 	# If we are currently in the propagation stage
 	def gathering?; !!Thread.current[:propagation] end
 	def source_event; Thread.current[:propagation_event] end
 	def source_generator; Thread.current[:propagation_generator] end
+	def propagation_id; Thread.current[:propagation_id] end
+
 	# Begin a propagation stage
 	def gather_propagation
 	    raise "nested call to #gather_propagation" if gathering?
@@ -255,6 +280,7 @@ module Roby
 	    @pending -= 1 if @pending > 0
 	end
 
+	@@propagation_id = 0
 	# Emit the event with +context+ as the new event context
 	# Returns the new event object
         def emit(context)
@@ -267,8 +293,13 @@ module Roby
 		return
 	    end
 
-	    first_step = gather_propagation { emit_without_propagation(context) }
-	    propagate(first_step, self)
+	    begin
+		Thread.current[:propagation_id] = (@@propagation_id += 1)
+		first_step = gather_propagation { emit_without_propagation(context) }
+		propagate(first_step, self)
+	    ensure
+		Thread.current[:propagation_id] = nil
+	    end
 	end
 
 	def propagate(next_step, *initial_set)
@@ -325,8 +356,8 @@ module Roby
 
 	def controlable?; @controlable end
 	attribute(:history) { Array.new }
-        def happened?;  !history.empty? end
-        def last;       history.last end
+	def happened?;  !history.empty? end
+	def last;       history.last[1] end
 
 	# An event generator is active when the current execution context may 
 	# lead to its execution
@@ -420,11 +451,11 @@ module Roby
 	    pending.clear
 	end
 
-        def new(context)
-            event = base.last.last
-            raise EventModelViolation.new(self), "cannot change the context of an EverEvent" if context && context != event.context
-            event
-        end
+	def new(context)
+	    event = base.last
+	    raise EventModelViolation.new(self), "cannot change the context of an EverEvent" if context && context != event.context
+	    event.reemit(propagation_id)
+	end
 
 	def initialize(base)
 	    @base = base
@@ -509,11 +540,11 @@ module Roby
 	def to_or; self end
 	def |(generator); self << generator end
 
-        def new(context = nil)
-            event = @done.last
-            raise EventModelViolation.new(self), "cannot change the context of a OrGenerator" if context && context != event.context
-            event
-        end
+	def new(context = nil)
+	    event = @done.last
+	    raise EventModelViolation.new(self), "cannot change the context of a OrGenerator" if context && context != event.context
+	    event.reemit(propagation_id)
+	end
 
     protected
 	attr_reader :waiting

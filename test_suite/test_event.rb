@@ -35,6 +35,7 @@ class TC_Event < Test::Unit::TestCase
 	    event.emit(42)
 	end
     end
+
     def test_emit_failed
 	event = EventGenerator.new
 	assert_raises(EventModelViolation) { event.emit_failed }
@@ -56,6 +57,22 @@ class TC_Event < Test::Unit::TestCase
 	    assert( e.message =~ /: test$/ )
 	end
     end
+
+    def test_propagation_id
+	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
+	e1.on e2
+	e1.emit(nil)
+	assert_equal(e1.last.propagation_id, e2.last.propagation_id)
+
+	e2.emit(nil)
+	assert(e1.last.propagation_id < e2.last.propagation_id)
+
+	e3 = EventGenerator.new(true)
+	e3.emit(nil)
+	assert(e1.last.propagation_id < e3.last.propagation_id)
+	assert(e2.last.propagation_id < e3.last.propagation_id)
+    end
+
 
     def test_signal_relation
 	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
@@ -339,9 +356,15 @@ class TC_Event < Test::Unit::TestCase
 
 	    a.ever.on { mock.called }
 	    a.emit(nil)
+	    
 	    b.emit(nil)
 	    b.ever.on { mock.called }
+	    
 	    Roby.process_events
+
+	    assert_equal(a.ever.last, a.last)
+	    assert_not_equal(b.ever.last, b.last)
+	    assert(b.ever.last.propagation_id > b.last.propagation_id)
 	end
 
 	# Test for controlable event
@@ -412,14 +435,14 @@ class TC_Event < Test::Unit::TestCase
     def test_event_creation
 	# Test for validation of the return value of #event
 	generator = Class.new(EventGenerator) do
-	    def new(context); [context] end
+	    def new(context); [propagation_id, context] end
 	end.new(true)
 	assert_raises(TypeError) { generator.call(nil) }
 
 	generator = Class.new(EventGenerator) do
 	    def new(context); 
-		event_klass = Struct.new :context, :generator
-		event_klass.new(context, self)
+		event_klass = Struct.new :propagation_id, :context, :generator
+		event_klass.new(propagation_id, context, self)
 	    end
 	end.new(true)
 	assert_nothing_raised { generator.call(nil) }
