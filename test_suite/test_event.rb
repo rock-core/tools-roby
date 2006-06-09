@@ -447,5 +447,19 @@ class TC_Event < Test::Unit::TestCase
 	end.new(true)
 	assert_nothing_raised { generator.call(nil) }
     end
+
+    def test_context_propagation
+	e1, e2 = (1..2).map { EventGenerator.new(true) }
+	e1.on e2
+	
+	FlexMock.use do |mock|
+	    e1.on { |event| mock.e1(event.context) }
+	    e2.on { |event| mock.e2(event.context) }
+
+	    mock.should_receive(:e1).with(mock)
+	    mock.should_receive(:e2).with(mock)
+	    e1.call(mock)
+	end
+    end
 end
 
