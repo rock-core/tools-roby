@@ -320,8 +320,8 @@ module Roby
 			    source.generator.signalling(source, signalled) if source
 
 			    if already_seen.include?(signalled) && !(emit && signalled.pending?)
-			        Roby.debug { "#{signalled} has already been signalled" }
-			        next
+				# Do not fire the same event twice in the same propagation cycle
+				next
 			    end
 
 			    did_call = propagation_context(source) do |result|
