@@ -126,7 +126,7 @@ module Roby::Genom
 	    if abort_activity
 		event(:stop).emit_failed(RequestTimeout.new(self), e.message)
 	    else
-		event(:start).emit_failed(RequestTimeout.new(self), e.message)
+		event(:start).emit_failed(RequestTimeout.new(self), "timeout waiting for intermediate reply: #{e.message}")
 	    end
 
 	rescue ::Genom::ActivityInterrupt # interrupted
@@ -135,9 +135,9 @@ module Roby::Genom
 
 	rescue ::Genom::GenomError => e # the request failed
 	    if !running?
-		event(:start).emit_failed(StartFailed, e.to_s)
+		event(:start).emit_failed(StartFailed, "[#{arguments.inspect}] #{e.message}")
 	    else
-		emit :failed, e.message
+		emit :failed, "[#{arguments.inspect}] #{e.message}"
 	    end
 	end
     end
@@ -250,7 +250,7 @@ module Roby::Genom
 		    alias :__roby__dead! :dead!
 		    def dead!
 			__roby__dead!
-			@roby_runner_task.emit(:failed)
+			@roby_runner_task.emit(:failed, "process died")
 		    end
 		end
 	    end
