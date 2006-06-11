@@ -120,22 +120,31 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_task_propagation
-        start_node = EmptyTask.new
+        task = Class.new(Task) do
+	    event :start, :command => true
+	    event :success, :command => true, :terminal => true
+	end.new
+	    
 
 	# Check can_signal? for task events
-        start_event = start_node.event(:start)
-	stop_event  = start_node.event(:stop)
+        start_event = task.event(:start)
+	stop_event  = task.event(:stop)
 	assert( start_event.can_signal?(stop_event) )
 
 	# Check that propagation is done properly in this simple task
 	FlexMock.use do |mock|
-	    start_node.on(:start) { |event| mock.started(event.context) }
-	    mock.should_receive(:started).once.with(42)
-	    start_node.start!(42)
+	    task.on(:start) { |event| mock.started(event.context) }
+	    task.on(:start) { |event| task.emit(:success, event.context) }
+	    task.on(:success) { |event| mock.success(event.context) }
+	    task.on(:stop) { |event| mock.stopped(event.context) }
+	    mock.should_receive(:started).once.with(42).ordered
+	    mock.should_receive(:success).once.with(42).ordered
+	    mock.should_receive(:stopped).once.with(42).ordered
+	    task.start!(42)
 	end
-        assert(start_node.finished?)
-	event_history = start_node.history.map { |_, ev| ev.generator }
-	assert_equal([start_node.event(:start), start_node.event(:success), start_node.event(:stop)], event_history)
+        assert(task.finished?)
+	event_history = task.history.map { |_, ev| ev.generator }
+	assert_equal([task.event(:start), task.event(:success), task.event(:stop)], event_history)
     end
 
     def test_inheritance_overloading

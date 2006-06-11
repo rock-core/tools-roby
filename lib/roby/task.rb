@@ -339,9 +339,9 @@ module Roby
             end
 		    
        	    if new_event.symbol == :stop
-		terminal_events.each { |terminal| on(terminal) { |event| event.task.emit :stop } if terminal.symbol != :stop }
+		terminal_events.each { |terminal| on(terminal) { |event| event.task.emit(:stop, event.context) } if terminal.symbol != :stop }
 	    elsif options[:terminal] && has_event?(:stop)
-		on(new_event) { |event| event.task.emit :stop }
+		on(new_event) { |event| event.task.emit(:stop, event.context) }
 	    end
 
 
@@ -471,7 +471,7 @@ module Roby
 	event :failed,  :terminal => true
 
 	event :aborted, :terminal => true
-	on(:aborted) { |event| event.task.emit(:failed) }
+	on(:aborted) { |event| event.task.emit(:failed, event.context) }
     end
 
     class NullTask < Task

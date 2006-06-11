@@ -44,7 +44,7 @@ module Roby::TaskStructure
 	    event(:start).on do
 	        agent.event(:stop).
 	            until(event(:stop)).
-	            on { event(:aborted).emit(nil) }
+	            on { |event| event(:aborted).emit(event.context) }
 	    end
         end
 

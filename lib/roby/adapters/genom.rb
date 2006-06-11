@@ -236,7 +236,7 @@ module Roby::Genom
 	def start(context)
 	    mod = ::Genom::Runner.environment.start_module(genom_module.name, output_io)
 	    mod.wait_running
-	    emit :start
+	    emit(:start, context)
 
 	    init = if roby_module.respond_to?(:init)
 		       roby_module.init

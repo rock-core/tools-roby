@@ -77,7 +77,7 @@ module Roby
             @thread = Thread.new do
                 Thread[:plan] = @plan_model.new.send(@plan_method, @method_options)
             end
-            emit :start
+            emit(:start, context)
         end
         event :start
 
