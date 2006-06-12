@@ -527,6 +527,8 @@ module Roby
 	    @waiting << generator
 	    generator.on do |event| 
 		@done << event
+		# Do not specify a context in call of emit() since ::new
+		# does the job for us anyway
 		emit(nil) if @done.size == 1 || permanent
 	    end
 
