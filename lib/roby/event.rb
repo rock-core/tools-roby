@@ -84,6 +84,7 @@ module Roby
 	attr_reader :pending
 	def pending?; pending != 0 end
 	def initialize(controlable = nil, &control)
+	    @preconditions = []
 	    @handlers = []
 	    @pending  = 0
 
@@ -374,6 +375,11 @@ module Roby
 	    @ever ||= EverGenerator.new(self) 
 	end
 
+	def precondition(reason = nil, &block)
+	    @preconditions << [reason, block]
+	end
+	def each_precondition(&iterator); @preconditions.each(&iterator) end
+
 	# Call #postpone in the #calling hook to announce that
 	# the event being called is not to be fired now, but will
 	# be called back when +generator+ is emitted.
@@ -386,9 +392,30 @@ module Roby
 	end
 	def postponed(context, generator, reason); super if defined? super end	
 	
+	class PreconditionFailed < RuntimeError
+	    attr_accessor :generator
+	    def initialize(generator)
+		@generator = generator
+	    end
+	end
+	
 	# Hook called when this event generator is called (i.e. the associated command
 	# is), before the command is actually called. Think of it as a pre-call hook.
-	def calling(context); super if defined? super end
+	def calling(context)
+	    super if defined? super 
+	    each_precondition do |reason, block|
+		result = begin
+			     block.call(context)
+			 rescue PreconditionFailed => e
+			     e.generator = self
+			     raise
+			 end
+
+		if !result
+		   raise PreconditionFailed.new(self), "precondition failed: #{reason}"
+		end
+	    end
+	end
 
 	# Hook called just before the event command has been called
 	def called(context); super if defined? super end

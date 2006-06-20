@@ -84,6 +84,10 @@ module Roby
 	    super
 	    task.each_handler(event_model.symbol, &iterator)
 	end
+	def each_precondition(&iterator)
+	    super
+	    task.each_precondition(event_model.symbol, &iterator)
+	end
 
         def controlable?; event_model.controlable? end
         def terminal?
@@ -111,25 +115,21 @@ module Roby
 	    @@tasks[model]
 	end
 
-	# Map which gives the model-level signals that come from a given
-	# event model
-	class_inherited_enumerable(:signal_set, :signal_sets, :map => true) { Hash.new { |h, k| h[k] = Set.new } }
-	def self.each_signal(model, &iterator)
-	    enum_for(:each_signal_set, model, false).
-		inject(null_enum) { |a, b| a + b }.
-		enum_uniq.each(&iterator)
+	def self.model_attribute_list(name)
+	    class_inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = Set.new } }
+	    class_eval <<-EOD
+		def self.each_#{name}(model, &iterator)
+		    enum_for(:each_#{name}_set, model, false).
+			inject(null_enum) { |a, b| a + b }.
+			enum_uniq.each(&iterator)
+		end
+		def each_#{name}(model, &iterator); singleton_class.each_#{name}(model, &iterator) end
+	    EOD
 	end
-	def each_signal(model, &iterator); singleton_class.each_signal(model, &iterator) end
 
-	# Map which gives the model-level event handlers attached to a
-	# given event model
-	class_inherited_enumerable(:handler_set, :handler_sets, :map => true) { Hash.new { |h, k| h[k] = Set.new } }
-	def self.each_handler(model, &iterator)
-	    enum_for(:each_handler_set, model, false).
-		inject(null_enum) { |a, b| a + b }.
-		enum_uniq.each(&iterator)
-	end
-	def each_handler(model, &iterator); singleton_class.each_handler(model, &iterator) end
+	model_attribute_list('signal')
+	model_attribute_list('handler')
+	model_attribute_list('precondition')
 	
         # Builds a task object using this task model
         # The task object can be configured by a given block. After the 
@@ -461,6 +461,11 @@ module Roby
 		handler_sets[from] << user_handler if user_handler
             end
         end
+
+	def self.precondition(event, reason, &block)
+	    event = validate_event_models(event).first
+	    precondition_sets[event.symbol] << [reason, block]
+	end
 
         def to_s; "#{model.name}(0x#{address.to_s(16)})" end
 	    

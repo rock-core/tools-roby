@@ -461,5 +461,15 @@ class TC_Event < Test::Unit::TestCase
 	    e1.call(mock)
 	end
     end
+
+    def test_preconditions
+	e1 = EventGenerator.new(true)
+	e1.precondition("context must be non-nil") do |context|
+	    context
+	end
+
+	assert_raises(EventGenerator::PreconditionFailed) { e1.call(nil) }
+	assert_nothing_raised { e1.call(true) }
+    end
 end
 
