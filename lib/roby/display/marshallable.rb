@@ -36,9 +36,10 @@ module Roby
 				   end
 	    end
 	    
-	    attr_reader :symbol
+	    attr_reader :symbol, :context
 	    def initialize(event)
 		@symbol = (event.symbol if event.respond_to?(:symbol)) || ""
+		@context = (event.context.to_s if event.respond_to?(:context)) || ""
 		super(event)
 	    end
 	end
