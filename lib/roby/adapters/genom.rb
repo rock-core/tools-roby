@@ -140,6 +140,16 @@ module Roby::Genom
 		emit :failed, "[#{arguments.inspect}] #{e.message}"
 	    end
 	end
+
+	def self.needs(request)
+	    unless Class === request
+		request = roby_module.const_get(request)
+	    end
+
+	    precondition(:start, "#{name} needs #{request} to have been executed at least once") do |context|
+		ObjectSpace.enum_for(:each_object, request).find { |rq| rq.success? }
+	    end
+	end
     end
 
     # Builds and registers a task class as a subclass of the module.

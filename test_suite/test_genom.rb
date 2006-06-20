@@ -122,5 +122,23 @@ class TC_Genom < Test::Unit::TestCase
 	assert_equal(Genom::Mockup::Runner, control_task.class.execution_agent)
 	assert_equal(Genom::Mockup::Runner, exec_task.class.execution_agent)
     end
+
+    def test_needs_precondition
+	mod = Genom::GenomModule('mockup')
+	Roby::Genom::Mockup::Start.class_eval do
+	    needs :SetIndex
+	end
+
+	GC.start
+
+	::Genom.connect do
+            runner = Genom::Mockup.runner!
+	    runner.start!
+	    assert_event( runner.event(:ready) )
+
+	    task = Genom::Mockup.start!
+	    assert_raises(Roby::EventGenerator::PreconditionFailed) { task.start!(nil) }
+	end
+    end
 end
 
