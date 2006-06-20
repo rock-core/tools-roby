@@ -152,7 +152,9 @@ module Roby
             elsif args.empty? # getter
 		attach
 
-		unless member = @members[name]
+		if @members.has_key?(name)
+		    member = @members[name]
+		else
 		    if alias_to = @aliases[name]
 			return send(alias_to)
 		    elsif stable?
