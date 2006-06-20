@@ -137,8 +137,6 @@ module Roby
 	    main_layout = Qt::VBoxLayout.new(main_window)
 	    @tabs = Qt::TabWidget.new(main_window)
 	    main_layout.add_widget tabs
-
-	    main_window.show
 	end
 
 	def add(name)
@@ -158,12 +156,10 @@ module Roby
 	end
 	private :add
 
-	def get(kind)
+	def get(kind, name)
 	    kind = kind.to_s
 
-	    if display = displays[kind]
-		display
-	    else
+	    unless display = displays[ [kind, name] ]
 		file_name  = "roby/display/#{kind.underscore}/server"
 		klass_name = "#{kind.classify}DisplayServer"
 
@@ -171,9 +167,8 @@ module Roby
 		klass = Roby.const_get(klass_name)
 
 		add(kind) do |base_widget|
-		    displays[kind] = klass.new(base_widget)
+		    display = displays[ [kind, name] ] = klass.new(base_widget)
 		end
-
 	    end
 
 	    display
@@ -193,13 +188,16 @@ module Roby
 	#
 	# +control_pipe+ can be used to notify a parent process
 	# that the initialization has been done properly
-	def standalone(uri, name, control_pipe = nil)
+	def standalone(uri, kind, name, control_pipe = nil)
 	    require 'Qt'
 	    a = Qt::Application.new( ARGV )
 
-	    server  = DRbDisplayServer.new(uri)
-	    display = server.get(name)
-	    control_pipe.write("OK") if control_pipe
+	    server = DRbDisplayServer.new(uri)
+	    display = server.get(kind, name)
+	    if control_pipe
+		control_pipe.write("OK")
+		control_pipe.close
+	    end
 
 	    a.setMainWidget( server.main_window )
 	    a.exec()
@@ -215,23 +213,24 @@ module Roby
 	    @service = DRbCommandLogger.new(io)
 	end
 
-	# Connect to a display server or start it
+	# Connects to a display server
 	# 
 	# :start => uri the URI on which we should start the server
 	# :server => uri the URI on which we should connect to the server
 	# :server => DRbObject the server object
-	# :replay => replay a logfile after connection (see #log)
-	def connect(name, options)
+	def connect(kind, options)
 	    raise RuntimeError, "already started" if @service
 	    options = validate_options options, [:uri, :server, :replay]
 
+	    parent_pid = Process.pid
 	    if options[:uri]
 		read, write = IO.pipe
 		fork do
 		    read.close
-		    standalone(options[:uri], name, write)
+		    standalone(options[:uri], kind, parent_pid.to_s, write)
 		end
 
+		write.close
 		check = read.read(2)
 		if check != "OK"
 		    raise RuntimeError, "failed to start execution state display server"
@@ -248,22 +247,7 @@ module Roby
 		     else; DRbObject.new(nil, options[:server].to_str)
 		     end
 
-	    server = server.get(name)
-	    
-	    if replay = options[:replay]
-		data = File.open(replay) do |io|
-		    first_document = true
-		    YAML.each_document(io) do |doc|
-			# Ignore first document
-			if first_document
-			    first_document = false
-			    next
-			end
-
-			server.send(*doc)
-		    end
-		end
-	    end
+	    server = server.get(kind, parent_pid.to_s)
 	    
 	    @service = DRbDisplayThread.new(self, server, true)
 	    @service.thread.priority = -1
