@@ -4,7 +4,7 @@ require 'roby/relations/hierarchy'
 module Roby::TaskStructure
     # The execution_agent defines an agent (process or otherwise) a given
     # task is executed by. It allows to define a class of these execution agent,
-    # so that the specific agents are managed externally (load-balacing, autospawn, ...)
+    # so that the specific agents are managed externally (load-balacing, ...)
     relation :execution_agent do
 	parent_enumerator :executed_agent
 
@@ -57,17 +57,19 @@ module Roby::TaskStructure
 		    unless agent_model = task.class.execution_agent
 			return
 		    end
-		    unless agent = Roby::Task[agent_model].to_a.first
-			agent = agent_model.new rescue nil
-		    end
+
+		    all_agents = Roby::Task[agent_model].to_a
+		    agent = if all_agents.empty?
+				agent_model.new rescue nil
+			    else
+				all_agents.find { |t| !t.finished? }
+			    end
 		end
 
 		if agent
 		    task.executed_by agent unless task.execution_agent == agent
 
-		    if agent.finished?
-			raise TaskModelViolation.new(task), "in #{self}: execution agent #{agent} is dead"
-		    elsif !agent.running?
+		    if !agent.running?
 			postpone(agent.event(:ready), "spawning execution agent #{agent} for #{self}") do
 			    agent.event(:start).on do
 				agent.event(:stop).until(agent.event(:ready)).on do |event|
