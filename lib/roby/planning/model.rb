@@ -406,10 +406,15 @@ module Roby
             # the previous one was unsuccessful
             #
             # It raises NotFound if no successful development has been found
-            def plan_method(errors, method, *methods)
+            def plan_method(errors, options, method, *methods)
                 begin
                     @stack.push method.name
-                    (instance_eval(&method.body) || NullTask.new)
+                    result = (instance_eval(&method.body) || NullTask.new)
+
+		    if method.returns && !result.fullfills?(method.returns, options[:arguments])
+			raise PlanModelError, "#{method} returned #{result}, but a #{method.returns} object was expected"
+		    end
+		    result
                 ensure
                     @stack.pop
                 end

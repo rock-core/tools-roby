@@ -221,7 +221,21 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal(['a', 'b'], planner.find_methods(:root).map { |m| m.id } )
     end
 
-    def test_mergeable
+    def test_return_type
+	task_model = Class.new(Task) do
+	    event :start
+	end
+	
+	planner = Class.new(Planner) do
+	    method(:test, :returns => task_model)
+	    method(:test, :id => "good") { task_model.new }
+	    method(:test, :id => "bad", :reuse => false) { NullTask.new }
+	end.new
+	assert_nothing_raised { planner.test(:id => "good") }
+	assert_raises(Planning::NotFound) { planner.test(:id => "bad") }
+    end
+
+    def test_fullfills
 	task_model = Class.new(Task) do
 	    event :start
 	end
