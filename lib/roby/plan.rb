@@ -3,6 +3,7 @@ require 'roby/relations/hierarchy'
 
 module Roby
     class Plan
+	def size; @tasks.size end
 	def initialize
 	    @tasks = Set.new
 	end
@@ -52,11 +53,12 @@ module Roby
 	    @tasks << task
 	    @first_task = task
 	end
+	alias :<< :insert
+
 	attr_reader :first_task
 	def start!(context)
 	    first_task.start!(context)
 	end
-	alias :<< :insert
     end
 end
 
