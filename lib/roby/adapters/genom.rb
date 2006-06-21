@@ -64,8 +64,6 @@ module Roby::Genom
 	attr_reader :activity
 	# The abort activity if we are currently aborting, or nil
 	attr_reader :abort_activity
-	# Arguments for the request itself
-	attr_reader :arguments
 
 	# Creates a new Task object to map a Genom request
 	# +arguments+ is an array holding the request arguments. TypeError
@@ -75,9 +73,8 @@ module Roby::Genom
 	    # Check that +arguments+ are valid for genom_request
 	    genom_request.filter_input(*arguments)
 
-	    @arguments  = arguments
 	    @request    = genom_request
-	    super()
+	    super(*arguments)
 
 	    on(:stop) { @abort_activity = @activity = nil }
 	end

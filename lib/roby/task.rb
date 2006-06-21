@@ -130,6 +130,8 @@ module Roby
 	model_attribute_list('signal')
 	model_attribute_list('handler')
 	model_attribute_list('precondition')
+
+	attr_reader :arguments
 	
         # Builds a task object using this task model
         # The task object can be configured by a given block. After the 
@@ -137,7 +139,8 @@ module Roby
         # * the task shall have a +start+ event
         # * the task shall have at least one terminal event. If no +stop+ event
         #   is defined, then all terminal events are aliased to +stop+
-        def initialize #:yields: task_object
+        def initialize(*arguments) #:yields: task_object
+	    @arguments = *arguments
             @bound_events = Hash.new
 
             yield self if block_given?
@@ -152,7 +155,7 @@ module Roby
 
 	    @@tasks[self.class] << self
 
-            super if defined? super
+	    super() if defined? super
         end
 
         def model; singleton_class end
