@@ -52,6 +52,60 @@ class TC_Planner < Test::Unit::TestCase
 	assert_raises(Planning::NotFound) { planner.recursive(:recursive => false) }
     end
 
+    def test_reuse
+	task_model = Class.new(Task) do
+	    event :start
+	end
+	planner_model = Class.new(Planner) do
+	    method(:reusable, :returns => task_model)
+	    method(:not_reusable, :returns => task_model, :reuse => false)
+	end
+	assert_raise(ArgumentError) { planner_model.method(:not_reusable, :reuse => true) }
+	assert_nothing_raised { planner_model.method(:not_reusable, :reuse => false) }
+	assert_nothing_raised { planner_model.method(:reusable, :reuse => true) }
+
+	planner_model.class_eval do
+	    method(:reusable)	    { task_model.new }
+	    method(:not_reusable)   { task_model.new }
+
+	    # This one should build two tasks
+	    method(:check_not_reusable, :id => 1) do
+		reusable
+		not_reusable
+	    end
+	    
+	    # This one should build two tasks
+	    method(:check_not_reusable, :id => 2) do
+		not_reusable
+		not_reusable
+	    end
+
+	    # This one should build one task
+	    method(:check_reusable, :id => 1) do
+		not_reusable
+		reusable
+	    end
+
+	    # This one should build only one task
+	    method(:check_reusable, :id => 2) do
+		reusable
+		reusable
+	    end
+	end
+
+	planner = planner_model.new
+
+	planner.check_reusable(:id => 1)
+	assert_equal(1, planner.result.size)
+	planner.clear.check_reusable(:id => 2)
+	assert_equal(1, planner.result.size)
+
+	planner.clear.check_not_reusable(:id => 1)
+	assert_equal(2, planner.result.size)
+	planner.clear.check_not_reusable(:id => 2)
+	assert_equal(2, planner.result.size)
+    end
+
     def test_recursive
         model = Class.new(Planner) do
             method(:not_recursive) do

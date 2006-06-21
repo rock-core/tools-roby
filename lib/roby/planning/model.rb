@@ -68,6 +68,15 @@ module Roby
                         end
                     end
 
+		    if self.options.has_key?(:reuse)
+			if options.has_key?(:reuse) && options[:reuse] != self.options[:reuse]
+			    raise ArgumentError, "the :reuse option is already set on the #{name} model"
+			end
+			options[:reuse] = self.options[:reuse]
+		    else
+			options[:reuse] = true unless options.has_key?(:reuse)
+		    end
+
                     options
                 end
             end
@@ -83,6 +92,7 @@ module Roby
                 def id;         options[:id] end
                 def recursive?; options[:recursive] end
                 def returns;    options[:returns] end
+		def reuse;	options[:reuse] end
                 def call;       body.call end
 
                 def to_s; "#{name}:#{id}(#{options.inspect})" end
@@ -95,13 +105,20 @@ module Roby
                 def initialize(name, options = Hash.new); @name, @options = name, options end
                 def returns;    options[:returns] end
                 def merge(new_options)
-                    validate_options(new_options, [:returns])
-                    validate_option(new_options, :returns, false) { |rettype| 
+                    validate_options(new_options, [:returns, :reuse])
+                    validate_option(new_options, :returns, false) do |rettype| 
                         if options[:returns] && options[:returns] != rettype
 			    raise ArgumentError, "return type already specified for method #{name}"
                         end
                         options[:returns] = rettype
-                    }
+		    end
+		    validate_option(new_options, :reuse, false) do |flag|
+                        if options.has_key?(:reuse) && options[:reuse] != flag
+			    raise ArgumentError, "the reuse flag is already set to #{options[:reuse]} on #{name}"
+                        end
+                        options[:reuse] = flag
+			true
+		    end
                 end
                         
                 def freeze
@@ -118,12 +135,13 @@ module Roby
 
             def self.validate_method_query(name, options, other_options = [])
                 name = name.to_s
+
                 validate_option(options, :returns, false, 
                                 "the ':returns' option must be a subclass of Roby::Task") do |opt| 
                     options[:returns] < Roby::Task
                 end
 
-                options = validate_options(options, [:id, :recursive, :returns] + other_options)
+                options = validate_options(options, [:id, :recursive, :returns, :reuse] + other_options)
                 other_options, method_options = options.partition { |n, v| other_options.include?(n) }
 
                 [name, Hash[*method_options.flatten], Hash[*other_options.flatten]]
@@ -249,6 +267,10 @@ module Roby
 	    #	    method(:do_it, :recursive => true) { ... }
 	    #	end
 	    #
+	    # == Reusing already existing tasks in plan
+	    # If the +reuse+ flag is set (the default), call to methods that define a 
+	    # +returns+ can lead to reusing an already planned task
+	    #
 	    def self.method(name, options = Hash.new, &body)
                 name, options = validate_method_query(name, options)
 
@@ -304,7 +326,7 @@ module Roby
 	    end
 
             def self.find_methods(name, options = Hash.new)
-                name, method_selection, other_options = validate_method_query(name, options, [:lazy])
+                name, method_selection, other_options = validate_method_query(name, options, [:lazy, :reuse])
 
 		if method_id = method_selection[:id]
 		    method_selection[:id] = method_id = validate_method_id(method_id)
@@ -343,21 +365,36 @@ module Roby
                 if !m
                     raise NotFound.new(self, Hash.new)
                 elsif options[:lazy]
-                    PlanningTask.new(self.class, name, options)
-                else
-		    if result = plan_method(Hash.new, *m)
-			if result.respond_to?(:each_task)
-			    result.each_task { |t| self.result << t }
-			elsif result.respond_to?(:to_task)
-			    self.result << result.to_task
-			elsif result.respond_to?(:each)
-			    result.each { |t| self.result << t }
-			else
-			    raise PlanModelError, "#{name}(#{options}) did not return a Task object"
+                    task = PlanningTask.new(self.class, name, options)
+		    self.result << task
+		    return task
+		end
+		
+		# Check if we can reuse a task in #result
+		m.each do |method|
+		    if method.returns && method.reuse
+			task = self.result.enum_for(:each_task).find do |task|
+			    task.fullfills?(method.returns, options[:arguments])
 			end
-			result
+			if task
+			    self.result << task
+			    return task
+			end
 		    end
-                end
+		end
+
+		if result = plan_method(Hash.new, options, *m)
+		    if result.respond_to?(:each_task)
+			result.each_task { |t| self.result << t }
+		    elsif result.respond_to?(:to_task)
+			self.result << result.to_task
+		    elsif result.respond_to?(:each)
+			result.each { |t| self.result << t }
+		    else
+			raise PlanModelError, "#{name}(#{options}) did not return a Task object"
+		    end
+		    result
+		end
 
             rescue NotFound => e
                 e.method_name       = name
