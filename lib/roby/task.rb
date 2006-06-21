@@ -140,7 +140,7 @@ module Roby
         # * the task shall have at least one terminal event. If no +stop+ event
         #   is defined, then all terminal events are aliased to +stop+
         def initialize(*arguments) #:yields: task_object
-	    @arguments = *arguments
+	    @arguments = arguments
             @bound_events = Hash.new
 
             yield self if block_given?
