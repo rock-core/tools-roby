@@ -166,6 +166,37 @@ class TC_Planner < Test::Unit::TestCase
 	assert( planner.find_methods(:root) )
 	assert_equal(['a', 'b'], planner.find_methods(:root).map { |m| m.id } )
     end
-end
 
+    def test_mergeable
+	task_model = Class.new(Task) do
+	    event :start
+	    mergeable
+	end
+
+	t1, t2 = task_model.new, task_model.new
+	assert(t1.respond_to?(:mergeable?))
+	assert(t1.mergeable?(t2))
+
+	t3 = task_model.new(42)
+	assert(!t3.mergeable?(t1))
+
+	t3 = Class.new(Task) do
+	    event :start
+	    mergeable { |model, args| model == task_model }
+	end.new
+	assert(t3.mergeable?(t1))
+
+	t3 = Class.new(Task) do
+	    event :start
+	    mergeable
+	end.new
+	assert(!t1.mergeable?(t3))
+
+	t3 = Class.new(task_model) do
+	    event :start
+	end.new
+	assert(!t1.mergeable?(t3))
+	assert(t3.mergeable?(t1))
+    end
+end
 

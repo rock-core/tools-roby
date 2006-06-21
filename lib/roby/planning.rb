@@ -9,5 +9,6 @@ end
 
 require 'roby/planning/task'
 require 'roby/planning/model'
+require 'roby/planning/merge'
 
 
