@@ -52,6 +52,11 @@ module Roby
                 @stack    = Array.new
             end
 
+	    def clear
+		@result = Plan.new
+		self
+	    end
+
             module MethodInheritance
                 # Checks that options in +options+ can be used to overload +self+. Updates options if needed
                 def validate(options)
