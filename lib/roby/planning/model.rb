@@ -425,7 +425,7 @@ module Roby
                 if methods.empty?
                     raise NotFound.new(self, errors)
                 else
-                    plan(errors, *methods)
+                    plan_method(errors, options, *methods)
                 end
             end
 
