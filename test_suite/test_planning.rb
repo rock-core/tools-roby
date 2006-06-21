@@ -224,33 +224,35 @@ class TC_Planner < Test::Unit::TestCase
     def test_mergeable
 	task_model = Class.new(Task) do
 	    event :start
-	    mergeable
 	end
 
 	t1, t2 = task_model.new, task_model.new
-	assert(t1.respond_to?(:mergeable?))
-	assert(t1.mergeable?(t2))
+	assert(t1.respond_to?(:fullfills?))
+	assert(t1.fullfills?(t2))
+	
+	t2 = task_model.new(2)
+	assert(!t1.fullfills?(t2))
+	assert(t1.fullfills?(task_model, nil))
 
 	t3 = task_model.new(42)
-	assert(!t3.mergeable?(t1))
+	assert(!t3.fullfills?(t1))
 
 	t3 = Class.new(Task) do
 	    event :start
-	    mergeable { |model, args| model == task_model }
+	    fullfills { |model, args| model == task_model }
 	end.new
-	assert(t3.mergeable?(t1))
+	assert(t3.fullfills?(t1))
 
 	t3 = Class.new(Task) do
 	    event :start
-	    mergeable
 	end.new
-	assert(!t1.mergeable?(t3))
+	assert(!t1.fullfills?(t3))
 
 	t3 = Class.new(task_model) do
 	    event :start
 	end.new
-	assert(!t1.mergeable?(t3))
-	assert(t3.mergeable?(t1))
+	assert(!t1.fullfills?(t3))
+	assert(t3.fullfills?(t1))
     end
 end
 
