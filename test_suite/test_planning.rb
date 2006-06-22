@@ -3,6 +3,7 @@ require 'test_config'
 require 'pp'
 require 'roby/planning'
 require 'roby/relations/planned_by'
+require 'flexmock'
 
 class TC_Planner < Test::Unit::TestCase
     include Roby
@@ -267,6 +268,48 @@ class TC_Planner < Test::Unit::TestCase
 	end.new
 	assert(!t1.fullfills?(t3))
 	assert(t3.fullfills?(t1))
+    end
+
+    def test_method_filter
+	base = Class.new(Planner) do
+	    method(:test, :id => 1) { arguments.first.m(1) }
+	    method(:test, :id => 2) { arguments.first.m(2) }
+	end
+
+	filter_block = lambda { true }
+	planner = Class.new(base) do
+	    filter(:test, &filter_block)
+	end
+	assert(planner.respond_to?(:each_test_filter))
+	assert_equal([filter_block], planner.enum_for(:each_test_filter).to_a)
+	assert_equal(2, planner.find_methods('test', :args => 10).size)
+
+	planner = Class.new(base) do
+	    filter(:test) { false }
+	end
+	assert(!planner.find_methods('test', :args => 10))
+	
+	
+	(1..2).each do |i|
+	    FlexMock.use do |mock|
+		planner = Class.new(base) do
+		    filter(:test) do |m| 
+			mock.filtered(m.id)
+			m.id == i 
+		    end
+		end.new
+
+		mock.should_receive(:m).with(i).once
+		mock.should_receive(:filtered).with(2).once
+		mock.should_receive(:filtered).with(1).once
+		planner.test(:args => mock)
+	    end
+	end
+	
+	planner = Class.new(base) do
+	    filter(:test) { false }
+	end.new
+	assert_raises(Planning::NotFound) { planner.test }
     end
 end
 

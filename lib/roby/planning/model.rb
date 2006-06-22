@@ -337,6 +337,13 @@ module Roby
 		send("#{name}_methods")[method_id] = MethodDefinition.new(name, options, &lambda(&body) )
             end
 
+	    def self.filter(name, &filter)
+		if !respond_to?("#{name}_filters")
+		    class_inherited_enumerable("#{name}_filter", "#{name}_filters") { Array.new }
+		end
+		send("#{name}_filters") << filter
+	    end
+
 	    def self.each_method(name, id, &iterator)
 		send("each_#{name}_method", id, &iterator)
 	    end
@@ -360,10 +367,16 @@ module Roby
 		    end.compact
 		end
 
-		if result.nil? || result.empty?
-		    nil
-		else
-		    result
+		return nil if !result
+
+		filter_method = "each_#{name}_filter"
+		if respond_to?(filter_method)
+		    # Remove results for which at least one filter returns false
+		    result.reject! { |m| enum_for(filter_method).any? { |f| !f[m] } }
+		end
+
+		if result.empty?; nil
+		else; result
 		end
             end
 
