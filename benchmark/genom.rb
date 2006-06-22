@@ -1,6 +1,6 @@
 TOP_SRC_DIR = File.expand_path( File.join(File.dirname(__FILE__), '..') )
 $LOAD_PATH.unshift TOP_SRC_DIR
-$LOAD_PATH.unshift File.join(TOP_SRC_DIR, 'test_suite')
+$LOAD_PATH.unshift File.join(TOP_SRC_DIR, 'test')
 require 'test_config'
 require 'genom/runner'
 require 'roby/adapters/genom'

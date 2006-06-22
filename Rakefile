@@ -17,7 +17,7 @@ def add_prefix_pkgconfig(prefix)
 end
 
 
-BASEDIR = File.expand_path(File.join(File.dirname(__FILE__), "test_suite"))
+BASEDIR = File.expand_path(File.join(File.dirname(__FILE__), "test"))
 
 def mockup_module(mod, genopt = nil, configopt = nil)
     moddir = "#{BASEDIR}/modules/#{mod}"
@@ -81,11 +81,11 @@ Rake::RDocTask.new("rdoc") do |rdoc|
 end
 
 task :test do
-    system("testrb test_suite/test_*")
+    system("testrb test/test_*")
 end
 
 task :test_rcov do
-    Dir.chdir('test_suite') do 
+    Dir.chdir('test') do 
 	FileUtils.rm_rf '../rcov'
 	FileUtils.mkdir_p '../rcov'
 	File.open("../rcov/index.html", "w") do |index|
