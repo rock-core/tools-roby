@@ -4,15 +4,6 @@ require 'genom/support'
 require 'roby/enumerate'
 require 'roby/graph'
 
-module Kernel
-    alias :__system__ :system
-    def system(*args)
-	__system__(*args)
-    rescue TypeError
-	true
-    end
-end
-
 # Create a new thread and forward all messages
 # to the +forward_to+ object given at initialization.
 # The messages are sent in the new thread.
