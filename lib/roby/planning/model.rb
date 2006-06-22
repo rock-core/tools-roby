@@ -151,7 +151,16 @@ module Roby
 
                 options = validate_options(options, [:id, :recursive, :returns, :reuse, :args] + other_options)
 
-                [name, Hash[*method_options.flatten], Hash[*other_options.flatten]]
+		other, method = {}, {}
+		options.each do |n, v|
+		    if other_options.include?(n)
+			other[n] = v
+		    else
+			method[n] = v
+		    end
+		end
+
+                [name, method, other]
             end
 
             def self.method_model(name)
