@@ -136,13 +136,20 @@ module Roby
             def self.validate_method_query(name, options, other_options = [])
                 name = name.to_s
 
+		if args = options[:args]
+		    options[:args] = if args.respond_to?(:to_ary)
+					 args.to_ary
+				     else
+					 [args]
+				     end
+		end
+
                 validate_option(options, :returns, false, 
                                 "the ':returns' option must be a subclass of Roby::Task") do |opt| 
                     options[:returns] < Roby::Task
                 end
 
-                options = validate_options(options, [:id, :recursive, :returns, :reuse] + other_options)
-                other_options, method_options = options.partition { |n, v| other_options.include?(n) }
+                options = validate_options(options, [:id, :recursive, :returns, :reuse, :args] + other_options)
 
                 [name, Hash[*method_options.flatten], Hash[*other_options.flatten]]
             end
@@ -326,7 +333,9 @@ module Roby
 	    end
 
             def self.find_methods(name, options = Hash.new)
-                name, method_selection, other_options = validate_method_query(name, options, [:lazy, :reuse])
+		# validate the options hash, and split it into the options that are used for
+		# method selection and the ones that are ignored here
+                name, method_selection, other_options = validate_method_query(name, options, [:lazy, :reuse, :args])
 
 		if method_id = method_selection[:id]
 		    method_selection[:id] = method_id = validate_method_id(method_id)
@@ -374,7 +383,7 @@ module Roby
 		m.each do |method|
 		    if method.returns && method.reuse
 			task = self.result.enum_for(:each_task).find do |task|
-			    task.fullfills?(method.returns, options[:arguments])
+			    task.fullfills?(method.returns, options[:args])
 			end
 			if task
 			    self.result << task
@@ -402,6 +411,8 @@ module Roby
                 raise e
             end
 
+	    attr_reader :arguments
+
             # Develops each method in turn, running the next one if 
             # the previous one was unsuccessful
             #
@@ -409,13 +420,15 @@ module Roby
             def plan_method(errors, options, method, *methods)
                 begin
                     @stack.push method.name
+		    @arguments = options[:args]
                     result = (instance_eval(&method.body) || NullTask.new)
 
-		    if method.returns && !result.fullfills?(method.returns, options[:arguments])
+		    if method.returns && !result.fullfills?(method.returns, options[:args])
 			raise PlanModelError, "#{method} returned #{result}, but a #{method.returns} object was expected"
 		    end
 		    result
                 ensure
+		    @arguments = nil
                     @stack.pop
                 end
 
