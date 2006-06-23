@@ -92,7 +92,7 @@ module Roby
                 def id;         options[:id] end
                 def recursive?; options[:recursive] end
                 def returns;    options[:returns] end
-		def reuse;	options[:reuse] end
+		def reuse?;	options[:reuse] end
                 def call;       body.call end
 
                 def to_s; "#{name}:#{id}(#{options.inspect})" end
@@ -104,6 +104,11 @@ module Roby
                 attr_reader :name, :options
                 def initialize(name, options = Hash.new); @name, @options = name, options end
                 def returns;    options[:returns] end
+		def reuse?;	options[:reuse] end
+		def ==(model)
+		    name == model.name && options == model.options
+		end
+
                 def merge(new_options)
                     validate_options(new_options, [:returns, :reuse])
                     validate_option(new_options, :returns, false) do |rettype| 
@@ -191,10 +196,17 @@ module Roby
 	    # Creates, overloads or updates a method model
 	    def self.update_method_model(name, options)
 		name = name.to_s
+
+		old_model = send("#{name}_model") if respond_to?("#{name}_model")
+		new_model = MethodModel.new(name)
+		new_model.merge(options)
+		
+		return if old_model == new_model
+
 		if respond_to?("#{name}_methods")
 		    raise ArgumentError, "cannot change the method model for #{name} since methods are already using it"
-		elsif respond_to?("#{name}_model")
-		    send("#{name}_model").merge options
+		elsif old_model
+		    old_model.merge options
 		else
 		    singleton_class.class_eval <<-EOD
 			def #{name}_model
