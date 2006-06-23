@@ -439,7 +439,7 @@ module Roby
 		    elsif result.respond_to?(:each)
 			result.each { |t| self.result << t }
 		    else
-			raise PlanModelError, "#{name}(#{options}) did not return a Task object"
+			raise PlanModelError.new(self), "#{name}(#{options}) did not return a Task object"
 		    end
 		    result
 		end
@@ -465,8 +465,8 @@ module Roby
                     @stack.push method.name
                     result = (instance_eval(&method.body) || NullTask.new)
 
-		    if method.returns && !result.fullfills?(method.returns, options[:args])
-			raise PlanModelError, "#{method} returned #{result}, but a #{method.returns} object was expected"
+		    if method.returns && !result.fullfills?(method.returns, arguments)
+			raise PlanModelError.new(self), "#{method} returned #{result} which does not fullfill #{method.returns}[#{arguments.inspect}]"
 		    end
 		    result
                 ensure
