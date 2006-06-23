@@ -24,7 +24,7 @@ module Roby
 	end
 
 	fullfills do |model, arguments|
-	    arguments ||= []
+	    arguments = nil if arguments.respond_to?(:empty?) && arguments.empty?
 	    (self.class < model || self.class == model) && arguments == self.arguments
 	end
 

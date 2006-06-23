@@ -275,7 +275,7 @@ class TC_Planner < Test::Unit::TestCase
 	assert(t1.respond_to?(:fullfills?))
 	assert(t1.fullfills?(t2))
 	
-	t2 = task_model.new(2)
+	t2 = task_model.new(:index => 2)
 	assert(!t1.fullfills?(t2))
 	assert(t1.fullfills?(task_model, nil))
 
@@ -302,8 +302,8 @@ class TC_Planner < Test::Unit::TestCase
 
     def test_method_filter
 	base = Class.new(Planner) do
-	    method(:test, :id => 1) { arguments.first.m(1) }
-	    method(:test, :id => 2) { arguments.first.m(2) }
+	    method(:test, :id => 1) { arguments[:mock].m(1) }
+	    method(:test, :id => 2) { arguments[:mock].m(2) }
 	end
 
 	filter_block = lambda { true }
@@ -312,12 +312,12 @@ class TC_Planner < Test::Unit::TestCase
 	end
 	assert(planner.respond_to?(:each_test_filter))
 	assert_equal([filter_block], planner.enum_for(:each_test_filter).to_a)
-	assert_equal(2, planner.find_methods('test', :args => 10).size)
+	assert_equal(2, planner.find_methods('test', :index => 10).size)
 
 	planner = Class.new(base) do
 	    filter(:test) { false }
 	end
-	assert(!planner.find_methods('test', :args => 10))
+	assert(!planner.find_methods('test', :index => 10))
 	
 	
 	(1..2).each do |i|
@@ -332,7 +332,7 @@ class TC_Planner < Test::Unit::TestCase
 		mock.should_receive(:m).with(i).once
 		mock.should_receive(:filtered).with(2).once
 		mock.should_receive(:filtered).with(1).once
-		planner.test(:args => mock)
+		planner.test(:mock => mock)
 	    end
 	end
 	

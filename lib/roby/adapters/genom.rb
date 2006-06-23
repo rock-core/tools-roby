@@ -72,9 +72,8 @@ module Roby::Genom
 	def initialize(arguments, genom_request)
 	    # Check that +arguments+ are valid for genom_request
 	    genom_request.filter_input(*arguments)
-
 	    @request    = genom_request
-	    super(*arguments)
+	    super(arguments)
 
 	    on(:stop) { @abort_activity = @activity = nil }
 	end
@@ -155,7 +154,7 @@ module Roby::Genom
     def self.define_task(mod, name, &block) # :nodoc:
 	klass = mod.define_under(name, &block)
 	method_name = name.underscore
-	mod.singleton_class.send(:define_method, method_name + '!') { |*args| klass.new(*args) }
+	mod.singleton_class.send(:define_method, method_name + '!') { |*args| klass.new(args) }
     end
 
     # Define a Task model for the given request
@@ -175,7 +174,7 @@ module Roby::Genom
 
 		class_attribute :request => gen_mod.request_info[method_name]
 
-		def initialize(*arguments)
+		def initialize(arguments = nil)
 		    super(arguments, self.class.request)
 		end
 		def self.name
@@ -223,7 +222,7 @@ module Roby::Genom
 	#
 	# If the module has an init request, then the +init+ module method is mandatory and
 	# should run the init request.
-	def initialize
+	def initialize(arguments = nil)
 	    @output_io = roby_module.output_io
 
 	    # Make sure there is a init() method defined in the Roby module if there is one in the

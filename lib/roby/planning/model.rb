@@ -11,6 +11,7 @@ module Roby
             attr_accessor :planner
             def initialize(planner = nil)
                 @planner = planner 
+		super()
             end
         end
 
@@ -138,34 +139,22 @@ module Roby
                 def to_s; "#{name}(#{options.inspect})" end
             end
 
-            def self.validate_method_query(name, options, other_options = [])
-                name = name.to_s
+	    METHOD_SELECTION_OPTIONS = [:id, :recursive, :returns]
+	    KNOWN_OPTIONS = [:lazy, :reuse] + METHOD_SELECTION_OPTIONS
 
-		if args = options[:args]
-		    options[:args] = if args.respond_to?(:to_ary)
-					 args.to_ary
-				     else
-					 [args]
-				     end
-		end
+            def self.validate_method_query(name, options)
+                name = name.to_s
+		options = options.keys_to_sym
 
                 validate_option(options, :returns, false, 
                                 "the ':returns' option must be a subclass of Roby::Task") do |opt| 
                     options[:returns] < Roby::Task
                 end
 
-                options = validate_options(options, [:id, :recursive, :returns, :reuse, :args] + other_options)
-
-		other, method = {}, {}
-		options.each do |n, v|
-		    if other_options.include?(n)
-			other[n] = v
-		    else
-			method[n] = v
-		    end
-		end
-
-                [name, method, other]
+		roby_options, method_arguments = {}, {}
+		roby_options	    = options.slice(*KNOWN_OPTIONS)
+		method_arguments    = options.slice(*(options.keys - KNOWN_OPTIONS))
+		[name, roby_options, method_arguments]
             end
 
             def self.method_model(name)
@@ -363,7 +352,8 @@ module Roby
             def self.find_methods(name, options = Hash.new)
 		# validate the options hash, and split it into the options that are used for
 		# method selection and the ones that are ignored here
-                name, method_selection, other_options = validate_method_query(name, options, [:lazy, :reuse, :args])
+                name, options = validate_method_query(name, options)
+		method_selection = options.slice(*METHOD_SELECTION_OPTIONS)
 
 		if method_id = method_selection[:id]
 		    method_selection[:id] = method_id = validate_method_id(method_id)
@@ -398,6 +388,13 @@ module Roby
             # +options+ is used for method selection, see find_methods
             def plan(name, options = Hash.new)
                 name    = name.to_s
+		options = options.keys_to_sym
+		# Save the user arguments in the +arguments+ attribute
+		@arguments = if options.respond_to?(:args)
+				 options[:args]
+			     else
+				 options.slice(*(options.keys - KNOWN_OPTIONS))
+			     end
 
 		# Check for recursion
                 if @stack.include?(name)
@@ -425,7 +422,7 @@ module Roby
 		    
 		all_returns.each do |return_type|
 		    task = self.result.enum_for(:each_task).find do |task|
-			task.fullfills?(return_type, options[:args])
+			task.fullfills?(return_type, arguments)
 		    end
 		    if task
 			self.result << task
@@ -451,9 +448,13 @@ module Roby
                 e.method_name       = name
                 e.method_options    = options
                 raise e
+		
+	    ensure
+		@arguments = nil
             end
 
 	    attr_reader :arguments
+	    private :arguments
 
             # Develops each method in turn, running the next one if 
             # the previous one was unsuccessful
@@ -462,7 +463,6 @@ module Roby
             def plan_method(errors, options, method, *methods)
                 begin
                     @stack.push method.name
-		    @arguments = options[:args]
                     result = (instance_eval(&method.body) || NullTask.new)
 
 		    if method.returns && !result.fullfills?(method.returns, options[:args])
@@ -470,7 +470,6 @@ module Roby
 		    end
 		    result
                 ensure
-		    @arguments = nil
                     @stack.pop
                 end
 
