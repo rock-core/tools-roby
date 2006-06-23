@@ -429,6 +429,7 @@ module Roby
 			task.fullfills?(return_type, arguments)
 		    end
 		    if task
+			Planning.debug "selecting task #{task} instead of planning #{name}[#{arguments}]"
 			self.result << task
 			return task
 		    end
@@ -467,12 +468,16 @@ module Roby
             def plan_method(errors, options, method, *methods)
                 begin
                     @stack.push method.name
+		    Planning.debug "calling #{method.name}:#{method.id} with arguments #{arguments.inspect}"
                     result = (instance_eval(&method.body) || NullTask.new)
 
 		    if method.returns && !result.fullfills?(method.returns, arguments)
 			raise PlanModelError.new(self), "#{method} returned #{result} which does not fullfill #{method.returns}[#{arguments.inspect}]"
 		    end
+		    Planning.debug "found #{result}"
+
 		    result
+
                 ensure
                     @stack.pop
                 end
