@@ -238,6 +238,18 @@ class TC_Planner < Test::Unit::TestCase
 
 	assert( planner.find_methods(:root) )
 	assert_equal(['a', 'b'], planner.find_methods(:root).map { |m| m.id } )
+
+	c = Module.new do
+	    planning_library
+	    using a
+	end
+	planner = Class.new(Planner) { include c }
+	assert_equal(['a'], planner.find_methods(:root).map { |m| m.id } )
+
+	d = Module.new do
+	    include b
+	end
+	assert_nothing_raised { d.method(:root, :id => 'c') { } }
     end
 
     def test_return_type

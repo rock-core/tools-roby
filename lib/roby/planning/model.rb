@@ -490,7 +490,7 @@ module Roby
 	# A planning Library is only a way to gather a set of planning
 	# methods. It is created by
 	#   module MyLibrary
-	#      extend Roby::Planning::Library
+	#      planning_library
 	#      method(:bla) do
 	#      end
 	#   end
@@ -541,8 +541,25 @@ module Roby
 		    class_eval(&block)
 		end
 	    end
+
+	    def using(mod)
+		if mod.respond_to?(:planning_methods)
+		    include mod
+		elsif mod = (mod.const_get('Planning') rescue nil)
+		    include mod
+		else
+		    raise ArgumentError, "#{mod} is not a planning library and has no Planning module which is one"
+		end
+	    end
 	end
-	
+
+    end
+end
+
+
+class Module
+    def planning_library
+	extend Roby::Planning::Library
     end
 end
 
