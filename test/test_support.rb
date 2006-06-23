@@ -116,6 +116,13 @@ class TC_Utils < Test::Unit::TestCase
 	end
     end
 
+    def test_keys_to_sym
+	assert_equal({ :a => 10, :b => 20 }, { 'a' => 10, 'b' => 20 }.keys_to_sym)
+    end
+    def test_slice
+	assert_equal({ :a => 10, :c => 30 }, { :a => 10, :b => 20, :c => 30 }.slice(:a, :c))
+    end
+
     def test_inherited_enumerable
 	a = Class.new do
 	    class_inherited_enumerable(:signature, :signatures) { Array.new }

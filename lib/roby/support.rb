@@ -322,6 +322,15 @@ module ObjectStats
     end
 end
 
+class Hash
+    def keys_to_sym
+	inject({}) { |h, (k, v)| h[k.to_sym] = v; h }
+    end
+    def slice(*keys)
+	keys.inject({}) { |h, k| h[k] = self[k] if has_key?(k); h }
+    end
+end
+
 class Logger
     # Define a hierarchy of loggers mapped to the module hierarchy.
     # It defines the #logger accessor which either returns the logger
