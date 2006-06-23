@@ -50,7 +50,8 @@ module Roby
 	    attr_reader :result
             def initialize(result = Plan.new)
 		@result	  = result
-                @stack    = Array.new
+                @stack     = Array.new
+		@arguments = Array.new
             end
 
 	    def clear
@@ -390,11 +391,15 @@ module Roby
                 name    = name.to_s
 		options = options.keys_to_sym
 		# Save the user arguments in the +arguments+ attribute
-		@arguments = if options.respond_to?(:args)
-				 options[:args]
-			     else
-				 options.slice(*(options.keys - KNOWN_OPTIONS))
-			     end
+		args = if options.respond_to?(:args)
+			   options[:args]
+		       else
+			   options.slice(*(options.keys - KNOWN_OPTIONS))
+		       end
+
+		@arguments.push args
+
+		Planning.debug "planning #{name}[#{arguments.inspect}]"
 
 		# Check for recursion
                 if @stack.include?(name)
@@ -419,7 +424,6 @@ module Roby
 		end
 		all_returns.compact!
 				  
-		    
 		all_returns.each do |return_type|
 		    task = self.result.enum_for(:each_task).find do |task|
 			task.fullfills?(return_type, arguments)
@@ -450,10 +454,10 @@ module Roby
                 raise e
 		
 	    ensure
-		@arguments = nil
+		@arguments.pop
             end
 
-	    attr_reader :arguments
+	    def arguments; @arguments.last end
 	    private :arguments
 
             # Develops each method in turn, running the next one if 
