@@ -158,7 +158,7 @@ module Roby
 		    if alias_to = @aliases[name]
 			return send(alias_to)
 		    elsif stable?
-			raise NoMethodError, "#{self} is stable"
+			raise NoMethodError, "no such attribute #{name} (#{self} is stable)"
 		    else
 			member = children_class.new(children_class, self, name)
 			@pending[name] = member
