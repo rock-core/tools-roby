@@ -519,7 +519,14 @@ module Roby
 
 	    def included(klass)
 		super
-		return unless klass < Planner
+		unless klass < Planner
+		    if Class === klass
+			Roby.debug "including a planning library in a class, which is useless"
+		    else
+			klass.extend Library unless (Class === klass)
+		    end
+		    return
+		end
 
 		# Define all library methods, beggining with the first included module (last
 		# in the ancestors array)
