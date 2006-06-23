@@ -57,6 +57,7 @@ class TC_Planner < Test::Unit::TestCase
 	task_model = Class.new(Task) do
 	    event :start
 	end
+	derived_model = Class.new(task_model)
 	planner_model = Class.new(Planner) do
 	    method(:reusable, :returns => task_model)
 	    method(:not_reusable, :returns => task_model, :reuse => false)
@@ -66,12 +67,13 @@ class TC_Planner < Test::Unit::TestCase
 	assert_nothing_raised { planner_model.method(:reusable, :reuse => true) }
 
 	planner_model.class_eval do
-	    method(:reusable)	    { task_model.new }
+	    method(:reusable, :id => 'base')	    { task_model.new }
+	    method(:reusable, :id => 'derived', :returns => derived_model) { derived_model.new }
 	    method(:not_reusable)   { task_model.new }
 
 	    # This one should build two tasks
 	    method(:check_not_reusable, :id => 1) do
-		reusable
+		reusable(:id => 'base')
 		not_reusable
 	    end
 	    
@@ -84,13 +86,25 @@ class TC_Planner < Test::Unit::TestCase
 	    # This one should build one task
 	    method(:check_reusable, :id => 1) do
 		not_reusable
-		reusable
+		reusable(:id => 'base')
 	    end
 
 	    # This one should build only one task
 	    method(:check_reusable, :id => 2) do
-		reusable
-		reusable
+		reusable(:id => 'base')
+		reusable(:id => 'base')
+	    end
+
+	    # This one whouls build two tasks
+	    method(:check_reusable, :id => 3) do
+		reusable(:id => 'base')
+		reusable(:id => 'derived')
+	    end
+	    
+	    # This one whouls build one task
+	    method(:check_reusable, :id => 4) do
+		reusable(:id => 'derived')
+		reusable(:id => 'base')
 	    end
 	end
 
@@ -99,6 +113,10 @@ class TC_Planner < Test::Unit::TestCase
 	planner.check_reusable(:id => 1)
 	assert_equal(1, planner.result.size)
 	planner.clear.check_reusable(:id => 2)
+	assert_equal(1, planner.result.size)
+	planner.clear.check_reusable(:id => 3)
+	assert_equal(2, planner.result.size)
+	planner.clear.check_reusable(:id => 4)
 	assert_equal(1, planner.result.size)
 
 	planner.clear.check_not_reusable(:id => 1)

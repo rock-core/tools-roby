@@ -399,13 +399,15 @@ module Roby
             def plan(name, options = Hash.new)
                 name    = name.to_s
 
+		# Check for recursion
                 if @stack.include?(name)
                     options[:recursive] = true
                     options[:lazy] = true
                 end
-
-                m = singleton_class.find_methods(name, options)
-                if !m
+		
+		# Get all valid methods
+                methods = singleton_class.find_methods(name, options)
+                if !methods
                     raise NotFound.new(self, Hash.new)
                 elsif options[:lazy]
                     task = PlanningTask.new(self.class, name, options)
@@ -413,20 +415,26 @@ module Roby
 		    return task
 		end
 		
-		# Check if we can reuse a task in #result
-		m.each do |method|
-		    if method.returns && method.reuse
-			task = self.result.enum_for(:each_task).find do |task|
-			    task.fullfills?(method.returns, options[:args])
-			end
-			if task
-			    self.result << task
-			    return task
-			end
+		# Check if we can reuse a task already in #result
+		all_returns = methods.map { |m| m.returns if m.reuse? }
+		if (model = self.class.method_model(name)) && !options[:id]
+		    all_returns << model.returns if model.reuse?
+		end
+		all_returns.compact!
+				  
+		    
+		all_returns.each do |return_type|
+		    task = self.result.enum_for(:each_task).find do |task|
+			task.fullfills?(return_type, options[:args])
+		    end
+		    if task
+			self.result << task
+			return task
 		    end
 		end
 
-		if result = plan_method(Hash.new, options, *m)
+		# Call the methods
+		if result = plan_method(Hash.new, options, *methods)
 		    if result.respond_to?(:each_task)
 			result.each_task { |t| self.result << t }
 		    elsif result.respond_to?(:to_task)
