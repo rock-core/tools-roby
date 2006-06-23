@@ -130,10 +130,20 @@ module Roby::Genom
 	    emit :interrupted 
 
 	rescue ::Genom::GenomError => e # the request failed
+	    this = self
+	    e.singleton_class.class_eval do
+		define_method(:request) { this }
+		alias :__to_s__ :to_s
+		def to_s
+		    "[#{request.arguments.inspect}] #{__to_s__}"
+		end
+	    end
+	    
+
 	    if !running?
-		event(:start).emit_failed(StartFailed, "[#{arguments.inspect}] #{e.message}")
+		event(:start).emit_failed(StartFailed, e)
 	    else
-		emit :failed, "[#{arguments.inspect}] #{e.message}"
+		emit :failed, e
 	    end
 	end
 
