@@ -31,7 +31,7 @@ class Roby::ExecutionStateDisplayServer
 
 	    def initialize(list, task, kind, time, obj, *args)
 		super(list)
-		set_text(0, "#{time.tv_sec}:#{"%03i" % (time.tv_usec / 1000)}")
+		set_text(0, "%02i:%02i:%03i" % [time.tv_sec / 60, time.tv_sec % 60, time.tv_usec / 1000])
 		if task
 		    set_text(1, task.model.name)
 		else
