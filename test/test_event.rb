@@ -261,6 +261,21 @@ class TC_Event < Test::Unit::TestCase
 	and_and = e4 & and_event
 	assert_equal(and_event, and_and)
 	assert_equal([e4, e1, e2, e3].to_set, and_event.send(:waiting))
+
+	# Check controlability
+	e1, e2, e3 = EventGenerator.new(true), EventGenerator.new(true), EventGenerator.new(false)
+	assert((e1 & e2).controlable?)
+	assert(!(e2 & e3).controlable?)
+	and_event = (e1 & e2)
+	FlexMock.use do |mock|
+	    e1.on { mock.e1 }
+	    e2.on { mock.e2 }
+	    and_event.on { mock.and }
+	    mock.should_receive(:e1).once
+	    mock.should_receive(:e2).once
+	    mock.should_receive(:and).once
+	    and_event.call(nil)
+	end
     end
 
     def test_forwarder

@@ -505,11 +505,14 @@ module Roby
 	def initialize
 	    @events	= Set.new
 	    @waiting	= Set.new
-	    super()
+	    super do |context|
+		@events.each { |ev| ev.call(context) }
+	    end
 	end
 
 	attr_accessor :permanent
 	def permanent!; self.permanent = true end
+	def controlable?; @events.all? { |ev| ev.controlable? } end
 
 	def << (generator)
 	    @events  << generator
