@@ -246,6 +246,15 @@ module Roby
             self
         end
 
+	attr_accessor :calling_event
+	def method_missing(name, *args, &block)
+	    if calling_event && calling_event.respond_to?(name)
+		calling_event.send(name, *args, &block)
+	    else
+		super
+	    end
+	end
+
         # :section: Event model
         
         # call-seq:
@@ -297,7 +306,14 @@ module Roby
             if !options.has_key?(:command) && instance_methods.include?(ev_s)
                 method = instance_method(ev)
                 check_arity(method, 1)
-                options[:command] = lambda { |t, c| method.bind(t).call(c) }
+                options[:command] = lambda do |t, c| 
+		    begin
+			t.calling_event = t.event(ev)
+			method.bind(t).call(c) 
+		    ensure
+			t.calling_event = nil
+		    end
+		end
             end
             validate_event_definition_request(ev, options)
 
