@@ -30,6 +30,19 @@ module Roby
             end
         end
 
+	# Some common tools for Planner and Library
+	module Tools
+	    def using(mod)
+		if mod.respond_to?(:planning_methods)
+		    include mod
+		elsif mod = (mod.const_get('Planning') rescue nil)
+		    include mod
+		else
+		    raise ArgumentError, "#{mod} is not a planning library and has no Planning module which is one"
+		end
+	    end
+	end
+
 	# A planner searches a suitable development for a set of methods. 
 	# Methods are defined using Planner::method. You can then ask
 	# for a plan by sending your method name to the Planner object
@@ -47,6 +60,8 @@ module Roby
 	# See Planner::method for more information on how methods are handled
 	#
         class Planner
+	    extend Tools
+
 	    attr_reader :result
             def initialize(result = Plan.new)
 		@result	  = result
@@ -520,6 +535,8 @@ module Roby
 	#	end
 	#
 	module Library
+	    include Tools
+
 	    def planning_methods; @methods ||= Array.new end
 	    def method(name, options = Hash.new, &body)
 		planning_methods << [name, options, body]
@@ -547,16 +564,6 @@ module Roby
 		Module.new do
 		    extend Library
 		    class_eval(&block)
-		end
-	    end
-
-	    def using(mod)
-		if mod.respond_to?(:planning_methods)
-		    include mod
-		elsif mod = (mod.const_get('Planning') rescue nil)
-		    include mod
-		else
-		    raise ArgumentError, "#{mod} is not a planning library and has no Planning module which is one"
 		end
 	    end
 	end
