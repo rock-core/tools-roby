@@ -412,7 +412,7 @@ module Roby
 			   options.slice(*(options.keys - KNOWN_OPTIONS))
 		       end
 
-		@arguments.push args
+		@arguments.push(args || {})
 
 		Planning.debug "planning #{name}[#{arguments.inspect}]"
 

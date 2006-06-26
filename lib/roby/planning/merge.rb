@@ -15,7 +15,7 @@ module Roby
 		define_method(:fullfills?) do |*args|
 		    if args.size == 1
 		        task = args.first
-		        __fullfills_p__(task.class, task.arguments || [])
+		        __fullfills_p__(task.class, task.arguments || {})
 		    elsif args.size == 2
 		        __fullfills_p__(*args)
 		    end
@@ -24,8 +24,10 @@ module Roby
 	end
 
 	fullfills do |model, arguments|
-	    arguments = nil if arguments.respond_to?(:empty?) && arguments.empty?
-	    (self.class < model || self.class == model) && arguments == self.arguments
+	    self_args = self.arguments || {}
+	    args = arguments || {}
+
+	    (self.class < model || self.class == model) && self_args.slice(*args.keys) == args
 	end
 
     end

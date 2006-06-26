@@ -279,8 +279,9 @@ class TC_Planner < Test::Unit::TestCase
 	assert(!t1.fullfills?(t2))
 	assert(t1.fullfills?(task_model, nil))
 
-	t3 = task_model.new(42)
-	assert(!t3.fullfills?(t1))
+	t3 = task_model.new(:universe => 42)
+	assert(t3.fullfills?(t1))
+	assert(!t1.fullfills?(t3))
 
 	t3 = Class.new(Task) do
 	    event :start
