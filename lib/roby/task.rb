@@ -186,11 +186,11 @@ module Roby
 	    final_event = final_event.last if final_event
 
             if final_event && final_event.propagation_id != event.propagation_id
-                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task has finished"
+                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called but the task has finished"
             elsif !running? && !finished? && event.symbol != :start
-                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task is not running"
+                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called but the task is not running"
             elsif running? && event.symbol == :start
-                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}) called but the task is already running"
+                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called but the task is already running"
             end
 
 	    super if defined? super

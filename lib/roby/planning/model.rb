@@ -487,7 +487,7 @@ module Roby
                     result = (instance_eval(&method.body) || NullTask.new)
 
 		    if method.returns && !result.fullfills?(method.returns, arguments)
-			raise PlanModelError.new(self), "#{method} returned #{result} which does not fullfill #{method.returns}[#{arguments.inspect}]"
+			raise PlanModelError.new(self), "#{method} returned #{result}[#{result.arguments.inspect}] which does not fullfill #{method.returns}[#{arguments.inspect}]"
 		    end
 		    Planning.debug "found #{result}"
 
