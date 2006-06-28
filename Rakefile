@@ -54,11 +54,10 @@ def mockup_module(mod, genopt = nil, configopt = nil)
     task "#{mod}_clean" do
         FileUtils.rm_rf prefixdir
         Dir.chdir("#{moddir}") do
-            unless
-                system("make distclean") && 
-                system("genom-clean")
-                raise "Unable to clean the #{mod} module"
-            end
+	    if File.file?('Makefile')
+		system("make distclean")
+	    end
+	    system("genom-clean")
         end
     end
     task :test_clean => "#{mod}_clean"
