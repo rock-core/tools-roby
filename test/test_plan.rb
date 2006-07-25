@@ -44,6 +44,8 @@ class TC_Plan < Test::Unit::TestCase
 
 	result = plan.query.fullfills('TC_Plan::TaskModel', :value => 2).to_set
 	assert_equal([t2].to_set, result)
+
+	assert_marshallable(Query.new)
     end
 end
 

@@ -84,7 +84,14 @@ module Roby
 
 	# find by model
 	def with_model(model)
-	    @model = model
+	    # We keep only the module names since we want Query to 
+	    # be marshallable
+	    @model = if Class === model
+			 model.name
+		     else
+			 model.to_str
+		     end
+
 	    self
 	end
 	

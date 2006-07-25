@@ -42,6 +42,14 @@ module Test::Unit::Assertions
 	    end
 	end
     end
+
+    def assert_marshallable(object)
+	begin
+	    Marshal.dump(object)
+	    true
+	rescue TypeError
+	end
+    end
 end
 
 
