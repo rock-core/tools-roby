@@ -1,0 +1,24 @@
+#! /usr/bin/ruby
+
+require 'roby'
+require 'roby/drb'
+
+uri = ARGV.shift
+
+DRb.start_service
+control = DRbObject.new nil, uri
+
+IRB.setup(nil)
+
+ws  = IRB::WorkSpace.new(binding)
+irb = IRB::Irb.new(ws)
+IRB.conf[:MAIN_CONTEXT] = irb.context
+
+trap("SIGINT") do
+    irb.signal_handle
+end
+
+catch(:IRB_EXIT) do
+    irb.eval_input
+end
+
