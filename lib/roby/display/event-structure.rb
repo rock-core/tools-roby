@@ -1,5 +1,5 @@
 require 'roby/display/marshallable'
-require 'roby/drb'
+require 'roby/display/drb'
 
 module Roby
     class EventStructureDisplay < DRbRemoteDisplay
