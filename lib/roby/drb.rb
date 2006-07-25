@@ -21,18 +21,6 @@ module Roby
         def initialize(event_loop)
             @event_loop = event_loop
         end
-        def insert(task_model_name)
-            task_model_name = task_model_name.camelize
-            new_task = Roby.const_get(task_kind).new
-            
-            yield(new_t.ask) if block_given?
-            @event_loop.sent_to(@plan, insert, new_task)
-            
-        end
-        def call(task, event, context)
-            event_model = task.event_model(event)
-            @event_loop.send_to(event_model, :call, task, context)
-        end
         def quit
             @event_loop.raise Interrupt
         end
