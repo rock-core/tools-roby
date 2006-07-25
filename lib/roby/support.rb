@@ -267,8 +267,12 @@ end
 
 class Thread
     def send_to(object, name, *args, &prc)
-        @msg_queue ||= Queue.new
-        @msg_queue << [ object, name, args, prc ]
+	if Thread.current == self
+	    object.send(name, *args, &prc)
+	else
+	    @msg_queue ||= Queue.new
+	    @msg_queue << [ object, name, args, prc ]
+	end
     end
     def process_events
         @msg_queue ||= Queue.new
