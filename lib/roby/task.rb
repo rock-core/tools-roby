@@ -103,10 +103,11 @@ module Roby
         def symbol;       event_model.symbol end
         def new(context); event_model.new(task, self, propagation_id, context) end
 
-        def to_s
+        def inspect
 	    model_name = event_model.name
 	    model_name.gsub! /^#{task.name}::/, ''
-	    "#<#{self.name}:0x#{address.to_s(16)} task=#{task} model=#{model_name}>" end
+	    "#<#{self.name}:0x#{address.to_s(16)} task=#{task} model=#{model_name}>" 
+	end
     end
 
     class Task
