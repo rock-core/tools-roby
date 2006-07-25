@@ -1,6 +1,6 @@
 require 'roby/planning/task'
 require 'roby/task'
-require 'roby/event_loop'
+require 'roby/control'
 require 'roby/plan'
 require 'set'
 

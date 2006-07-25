@@ -1,6 +1,6 @@
 require 'roby/task'
 require 'roby/relations/planned_by'
-require 'roby/event_loop'
+require 'roby/control'
 
 module Roby
     # An empty task which should be planned by a 
@@ -55,7 +55,7 @@ module Roby
             attr_reader :planning_tasks
         end
 
-        Roby.event_processing << lambda do 
+        Control.event_processing << lambda do 
             planning_tasks.each do |task|
                 unless task.thread.alive?
                     if task[:plan]

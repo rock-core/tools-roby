@@ -1,6 +1,6 @@
 require 'test_config'
 require 'roby/drb'
-require 'roby/event_loop'
+require 'roby/control'
 
 class TC_TestDrbServer < Test::Unit::TestCase
     URI="druby://localhost:9000"
@@ -10,7 +10,7 @@ class TC_TestDrbServer < Test::Unit::TestCase
         @server_process = fork do
             Roby.logger.level = Logger::WARN
             $stderr.puts "Starting the Roby server"
-            Roby.run(URI) { 
+            Roby::Control.run(URI) { 
                 $stderr.puts "Roby server started on #{URI}"
                 writer.write "OK"
             }

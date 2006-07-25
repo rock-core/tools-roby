@@ -3,6 +3,7 @@ require 'roby/support'
 require 'roby/task'
 require 'roby/event'
 require 'roby/plan'
+require 'roby/control'
 
 module Roby
     class Task
@@ -17,11 +18,8 @@ module Roby
 
     # The DRb server
     class Server
-        def initialize(event_loop)
-            @event_loop = event_loop
-        end
         def quit
-            @event_loop.raise Interrupt
+            Control.quit
         end
     end
 

@@ -1,5 +1,5 @@
 require 'roby'
-require 'roby/event_loop'
+require 'roby/control'
 require 'roby/relations/executed_by'
 require 'forwardable'
 
@@ -40,7 +40,7 @@ module Roby::Genom
     end
 
     # Register the event processing in Roby event loop
-    Roby.event_processing << lambda do 
+    Roby::Control.event_processing << lambda do 
 	Roby::Genom.running.each { |task| task.poll } 
     end
 

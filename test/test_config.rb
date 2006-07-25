@@ -1,4 +1,5 @@
 require 'test/unit'
+require 'roby/control'
 
 BASE_TEST_DIR=File.expand_path(File.dirname(__FILE__)) unless defined? BASE_TEST_DIR
 $LOAD_PATH.unshift BASE_TEST_DIR
@@ -36,7 +37,7 @@ module Test::Unit::Assertions
     def assert_event(event, timeout = 5)
 	assert_doesnt_timeout(timeout, "event #{event.symbol} never happened") do
 	    while !event.happened?
-		Roby.process_events
+		Roby::Control.process_events
 		sleep(0.1)
 	    end
 	end

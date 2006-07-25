@@ -1,6 +1,6 @@
 require 'set'
 require 'roby/exceptions'
-require 'roby/event_loop'
+require 'roby/control'
 require 'roby/support'
 require 'roby/relations/causal'
 require 'roby/relations/ensured.rb'
@@ -473,7 +473,7 @@ module Roby
 	    # The list of ever events to generate on next event loop
 	    attribute(:pending) { Array.new }
 	end
-	Roby.event_processing << lambda do
+	Control.event_processing << lambda do
 	    pending.each { |ev| ev.emit(nil) }
 	    pending.clear
 	end
