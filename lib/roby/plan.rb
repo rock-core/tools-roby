@@ -52,6 +52,7 @@ module Roby
         def insert(task)
 	    @tasks << task
 	    @first_task = task
+	    self
 	end
 	alias :<< :insert
 
