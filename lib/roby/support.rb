@@ -4,6 +4,7 @@ require 'genom/support'
 require 'roby/enumerate'
 require 'roby/graph'
 require 'facet/kernel/constant'
+require 'facet/module/dirname'
 
 # Create a new thread and forward all messages
 # to the +forward_to+ object given at initialization.
@@ -355,9 +356,7 @@ class Logger
         def logger
             return @logger if defined?(@logger) && @logger
             if kind_of?(Module)
-                modname = self.name
-                modname = modname.split("::")[0..-2].join("::")
-                constant(modname).logger
+                constant(self.dirname).logger
             else
                 self.class.logger
             end
