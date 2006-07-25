@@ -21,6 +21,9 @@ module Roby
         def quit
             Control.quit
         end
+	def query(query)
+	    query.apply(Control.main)
+	end
     end
 
     # The DRb client
