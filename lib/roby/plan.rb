@@ -1,5 +1,7 @@
 require 'set'
 require 'roby/relations/hierarchy'
+require 'facet/kernel/constant'
+require 'facet/kernel/returning'
 
 module Roby
     class Plan
@@ -59,6 +61,67 @@ module Roby
 	attr_reader :first_task
 	def start!(context)
 	    first_task.start!(context)
+	end
+
+	def query
+	    Query.new(self)
+	end
+    end
+
+    # The query class represents a search in a plan. 
+    # It can be used locally on any Plan object, but 
+    # is mainly used as an argument to DRb::Server#find
+    class Query
+	attr_reader :model, :arguments
+	def initialize(plan = nil)
+	    @plan = plan
+	end
+
+	# shortcut to set both model and argument 
+	def fullfills(model, arguments = nil)
+	    with_model(model).with_arguments(arguments)
+	end
+
+	# find by model
+	def with_model(model)
+	    @model = model
+	    self
+	end
+	
+	# find by argument
+	def with_arguments(arguments)
+	    @arguments = arguments
+	    self
+	end
+
+	def self.add_to_result(result, found)
+	    found = found.to_set
+	    if result
+		result &= found
+	    else
+		found
+	    end
+	end
+	private_class_method :add_to_result
+
+	def each(plan = nil)
+	    plan ||= @plan
+	    plan.enum_for(:each_task).each do |task|
+		yield(task) if task.fullfills?(constant(model), arguments)
+	    end
+	    self
+	end
+	include Enumerable
+
+	# Define singleton classes. For instance, calling Query.fullfills is equivalent
+	# to Query.new.fullfills
+	QUERY_METHODS = %w{fullfills with_model with_arguments}
+	QUERY_METHODS.each do |name|
+	    Query.singleton_class.class_eval do
+		define_method(name) do |*args|
+		    Query.new.send(name, *args)
+		end
+	    end
 	end
     end
 end

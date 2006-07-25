@@ -36,5 +36,6 @@ class TC_Display < Test::Unit::TestCase
 	assert_not_equal(Display::Event[t1.event(:start)].hash, Display::Event[t1.event(:stop)].hash)
 	assert(!Display::Event[t1.event(:start)].eql?(Display::Event[t1.event(:stop)]))
     end
+
 end
 
