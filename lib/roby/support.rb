@@ -3,6 +3,7 @@ require 'genom/support'
 
 require 'roby/enumerate'
 require 'roby/graph'
+require 'facet/kernel/constant'
 
 # Create a new thread and forward all messages
 # to the +forward_to+ object given at initialization.
@@ -356,7 +357,7 @@ class Logger
             if kind_of?(Module)
                 modname = self.name
                 modname = modname.split("::")[0..-2].join("::")
-                const_get(modname).logger
+                constant(modname).logger
             else
                 self.class.logger
             end
