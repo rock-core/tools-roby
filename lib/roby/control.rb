@@ -16,6 +16,22 @@ module Roby
 	    attr_reader :event_processing
 	end
 
+	# Inject +plan+ in +main+
+	def insert(plan)
+	    if @main
+		raise NotImplemetedError, "there is already a plan running"
+	    else
+		@main = plan
+	    end
+	    self
+	end
+
+	# Call +event+ in the context of the event loop
+	def call(event, context)
+	    @thread.send_to(event, :call, context)
+	    self
+	end
+
 	# Disable all event propagation
 	def disable_propagation; EventGenerator.disable_propagation end
 	# Enable all event propagation
@@ -103,6 +119,8 @@ module Roby
 	def quit
 	    @thread.raise Interrupt if @thread
 	end
+
+	def running?; !!@thread end
     end
 end
 
