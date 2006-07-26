@@ -116,6 +116,7 @@ module Roby
 		GC.start
 		cycle_duration = Time.now - cycle_start
 		if cycle > cycle_duration
+		    Thread.pass
 		    sleep(cycle - cycle_duration)
 		end
 	    end
