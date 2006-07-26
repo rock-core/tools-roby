@@ -19,16 +19,28 @@ module Roby
 	# Inject +plan+ in +main+
 	def insert(plan)
 	    if @main
-		raise NotImplemetedError, "there is already a plan running"
+		raise NotImplementedError, "there is already a plan running"
 	    else
-		@main = plan
+		send_to_event_loop(self, :do_insert, plan)
 	    end
 	    self
 	end
 
+	def do_insert(plan)
+	    @main = plan
+	end
+
+	def send_to_event_loop(object, *funcall, &block)
+	    if @thread && Thread.current != @thread
+		@thread.send_to(object, *funcall, &block)
+	    else
+		object.send(*funcall, &block)
+	    end
+	end
+
 	# Call +event+ in the context of the event loop
 	def call(event, context)
-	    @thread.send_to(event, :call, context)
+	    send_to_event_loop(event, :call, context)
 	    self
 	end
 
@@ -70,24 +82,35 @@ module Roby
 	    [whole_cycle, server_handling, processing]
 	end
 
-	# Main event loop. +cycle+ is the expected polling cycle duration
-	# in seconds. A DRb server is started if +drb_uri+ is non-nil and is
-	# terminated when #run returns. The event loop is started in its own 
-	# thread if +own_thread+ is true.
-	def run(drb_uri = nil, cycle = 0.1, own_thread = false)
-	    if own_thread
-		Thread.new { run(drb_uri, cycle, false) }
+	attr_accessor :thread
+
+	# Main event loop. Valid options are
+	# cycle::   the cycle duration in seconds (default: 0.1)
+	# drb_uri:: address of the DRuby server if one should be started (default: nil)
+	# detach::  if true, start in its own thread (default: false)
+	# control_gc::	if true, automatic garbage collection is disabled but
+	#		GC.start is called at each event cycle
+	def run(options)
+	    options = validate_options options, 
+		:drb_uri => nil, :cycle => 0.1, :detach => false, 
+		:control_gc => false
+		
+	    if options[:detach]
+		self.thread = Thread.new { run(options.merge(:detach => false)) }
+		STDERR.puts self
+		STDERR.puts self.thread
 		return
 	    end
 
-	    @thread = Thread.current
+	    self.thread = Thread.current
 
-	    drb(drb_uri) if drb_uri
+	    drb(options[:drb_uri]) if options[:drb_uri]
 	    cycle_start, cycle_server, cycle_handlers = nil
-	    GC.disable
+	    GC.disable if options[:control_gc]
 	    GC.start
 
 	    yield if block_given?
+	    cycle = options[:cycle]
 	    loop do
 		cycle_start = Time.now
 		process_events
@@ -100,24 +123,25 @@ module Roby
 	    end
 
 	rescue Interrupt
-	    if drb_uri
-		DRb.stop_service
-	    end
-	    puts "Quitting"
+	    STDERR.puts "Interrupted"
+
+	rescue Exeception => e
+	    STDERR.puts "Control quitting because of unhandled exception #{e.message}(#{e.class})"
 
 	ensure
 	    GC.enable
-	    @thread = nil unless own_thread
+	    DRb.stop_service if options[:drb_uri]
+	    @thread = nil unless options[:detach]
 	end
 
 	# If the event thread has been started in its own thread, 
 	# wait for it to terminate
 	def join
-	    @thread.join if @thread
+	    thread.join if thread
 	end
 
 	def quit
-	    @thread.raise Interrupt if @thread
+	    thread.raise Interrupt if thread
 	end
 
 	def running?; !!@thread end
