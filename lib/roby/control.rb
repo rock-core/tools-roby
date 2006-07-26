@@ -124,7 +124,7 @@ module Roby
 	rescue Interrupt
 	    STDERR.puts "Interrupted"
 
-	rescue Exeception => e
+	rescue Exception => e
 	    STDERR.puts "Control quitting because of unhandled exception #{e.message}(#{e.class})"
 
 	ensure
