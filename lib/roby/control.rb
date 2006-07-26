@@ -54,7 +54,7 @@ module Roby
 	# Start a DRuby server on drb_uri
 	def drb(drb_uri = nil)
 	    require 'roby/drb'
-	    DRb.start_service(drb_uri, Server.new)
+	    DRb.start_service(drb_uri, Control.instance)
 	    Roby.info "Started DRb server on #{drb_uri}"
 	end
 
