@@ -86,13 +86,13 @@ module Roby
 
 	# Main event loop. Valid options are
 	# cycle::   the cycle duration in seconds (default: 0.1)
-	# drb_uri:: address of the DRuby server if one should be started (default: nil)
+	# drb:: address of the DRuby server if one should be started (default: nil)
 	# detach::  if true, start in its own thread (default: false)
 	# control_gc::	if true, automatic garbage collection is disabled but
 	#		GC.start is called at each event cycle
 	def run(options)
 	    options = validate_options options, 
-		:drb_uri => nil, :cycle => 0.1, :detach => false, 
+		:drb => nil, :cycle => 0.1, :detach => false, 
 		:control_gc => false
 		
 	    if options[:detach]
@@ -104,7 +104,7 @@ module Roby
 
 	    self.thread = Thread.current
 
-	    drb(options[:drb_uri]) if options[:drb_uri]
+	    drb(options[:drb]) if options[:drb]
 	    cycle_start, cycle_server, cycle_handlers = nil
 	    GC.disable if options[:control_gc]
 	    GC.start
@@ -130,7 +130,7 @@ module Roby
 
 	ensure
 	    GC.enable
-	    DRb.stop_service if options[:drb_uri]
+	    DRb.stop_service if options[:drb]
 	    @thread = nil unless options[:detach]
 	end
 
