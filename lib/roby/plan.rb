@@ -70,6 +70,18 @@ module Roby
 	def query
 	    Query.new(self)
 	end
+
+	def tasks_state
+	    enum_for(:each_task).map do |task|
+		state = if task.running?; "running"
+			elsif task.finished?; "finished"
+			else "pending"
+			end
+
+		last_event = task.history.last[1] unless task.history.empty?
+		[task.class.name, task.object_id, state, last_event.inspect]
+	    end
+	end
     end
 
     # The query class represents a search in a plan. 
