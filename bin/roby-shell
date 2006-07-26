@@ -2,6 +2,7 @@
 
 require 'roby'
 require 'roby/drb'
+require 'irb'
 
 uri = ARGV.shift
 
