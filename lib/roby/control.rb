@@ -97,8 +97,6 @@ module Roby
 		
 	    if options[:detach]
 		self.thread = Thread.new { run(options.merge(:detach => false)) }
-		STDERR.puts self
-		STDERR.puts self.thread
 		return
 	    end
 
