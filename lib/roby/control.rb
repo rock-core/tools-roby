@@ -1,4 +1,5 @@
 require 'roby/support'
+require 'drb'
 
 module Roby
     class Control
@@ -53,7 +54,6 @@ module Roby
 
 	# Start a DRuby server on drb_uri
 	def drb(drb_uri = nil)
-	    require 'roby/drb'
 	    DRb.start_service(drb_uri, Control.instance)
 	    Roby.info "Started DRb server on #{drb_uri}"
 	end
@@ -144,6 +144,19 @@ module Roby
 	end
 
 	def running?; !!@thread end
+    end
+
+    class Client < DRbObject
+	attr_reader :uri
+	def initialize(uri)
+	    @uri = uri
+	    super(nil, uri)
+	end
+	def quit
+	    super
+	rescue DRb::DRbConnError
+	    Roby.info "remote server at #{uri} has quit"
+	end
     end
 end
 

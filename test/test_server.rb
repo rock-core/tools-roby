@@ -1,5 +1,4 @@
 require 'test_config'
-require 'roby/drb'
 require 'roby/control'
 
 class TC_TestDrbServer < Test::Unit::TestCase
