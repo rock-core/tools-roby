@@ -39,7 +39,7 @@ module Roby
 	end
 
 	def model; self.class end
-	def to_s; "#<Event:0x#{address.to_s(16)} generator=#{generator} model=#{model}" end
+	def inspect; "#<#{model.to_s}:0x#{address.to_s(16)} generator=#{generator.inspect} model=#{model.inspect}" end
     end
 
     # EventGenerator objects are the objects which manage the event generation
@@ -434,11 +434,11 @@ module Roby
 	    super if defined? super
 	end
 	def fired(event)
-	    puts "#{self}: fired #<#{event.class}: 0x#{event.address.to_s(16)}>"
+	    puts "#{self}: fired #<#{event.model.to_s}:0x#{event.address.to_s(16)}>"
 	    super if defined? super
 	end
 	def signalling(event, to)
-	    puts "#{self}: #<#{event.class}: 0x#{event.address.to_s(16)}> is signalling #{to}"
+	    puts "#{self}: #<#{event.model.to_s}:0x#{event.address.to_s(16)}> is signalling #{to}"
 	    super if defined? super
 	end
     end
