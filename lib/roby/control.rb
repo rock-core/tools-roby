@@ -90,7 +90,7 @@ module Roby
 	# detach::  if true, start in its own thread (default: false)
 	# control_gc::	if true, automatic garbage collection is disabled but
 	#		GC.start is called at each event cycle
-	def run(options)
+	def run(options = {})
 	    options = validate_options options, 
 		:drb => nil, :cycle => 0.1, :detach => false, 
 		:control_gc => false
