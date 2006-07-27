@@ -85,7 +85,6 @@ module Roby
 
 	    DRb.stop_service
 	    DRb.start_service(uri, self)
-	    DRb.thread.priority = 1
 
 	    @main_window = Qt::Widget.new
 	    main_layout = Qt::VBoxLayout.new(main_window)
@@ -204,8 +203,6 @@ module Roby
 	    server = server.get(kind, parent_pid.to_s)
 	    
 	    @service = DRbDisplayThread.new(self, server, true)
-	    @service.thread.priority = -1
-	    @service
 	end
 
 	def clear!
