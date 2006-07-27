@@ -10,7 +10,7 @@ class TC_TestDrbServer < Test::Unit::TestCase
         @server_process = fork do
             Roby.logger.level = Logger::WARN
             $stderr.puts "Starting the Roby server"
-            Roby::Control.run(URI) { 
+            Roby::Control.run(:drb => URI) { 
                 $stderr.puts "Roby server started on #{URI}"
                 writer.write "OK"
             }
