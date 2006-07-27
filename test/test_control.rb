@@ -5,7 +5,7 @@ require 'mockups/tasks'
 class TC_Control < Test::Unit::TestCase 
     include Roby
 
-    def test_control
+    def test_event_loop
         start_node = EmptyTask.new
         next_event = [ start_node, :start ]
         if_node    = ChoiceTask.new
