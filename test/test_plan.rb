@@ -47,5 +47,31 @@ class TC_Plan < Test::Unit::TestCase
 
 	assert_marshallable(Query.new)
     end
+
+    def test_query_information
+	t1 = Class.new(Task) do
+	    event(:start)
+	    needs :source_info
+	    improves :other_info
+	end.new
+	t2 = Class.new(Task) do
+	    event(:start)
+	    needs :source_info
+	    improves :yet_another_info
+	end.new
+
+	plan = Plan.new
+	plan << t1 << t2
+	result = Query.which_needs(:source_info).enum_for(:each, plan).to_set
+	assert_equal([t1, t2].to_set, result)
+	result = Query.which_needs(:foo_bar).enum_for(:each, plan).to_set
+	assert_equal(Set.new, result)
+	result = Query.which_improves(:foo_bar).enum_for(:each, plan).to_set
+	assert_equal(Set.new, result)
+	result = Query.which_improves(:other_info).enum_for(:each, plan).to_set
+	assert_equal([t1].to_set, result)
+	result = Query.which_needs(:source_info).which_improves(:yet_another_info).enum_for(:each, plan).to_set
+	assert_equal([t2].to_set, result)
+    end
 end
 

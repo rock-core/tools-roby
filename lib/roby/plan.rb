@@ -90,7 +90,9 @@ module Roby
     class Query
 	attr_reader :model, :arguments
 	def initialize(plan = nil)
-	    @plan = plan
+	    @plan    = plan
+	    @improved_information   = []
+	    @needed_information	    = []
 	end
 
 	# shortcut to set both model and argument 
@@ -117,34 +119,47 @@ module Roby
 	    self
 	end
 
-	def self.add_to_result(result, found)
-	    found = found.to_set
-	    if result
-		result &= found
-	    else
-		found
-	    end
+	# find tasks which improves information contained in +info+
+	def which_improves(info)
+	    @improved_information ||= Array.new
+	    @improved_information << info
+	    self
 	end
-	private_class_method :add_to_result
+
+	# find tasks which need information contained in +info+
+	def which_needs(info)
+	    @needed_information ||= Array.new
+	    @needed_information << info
+	    self
+	end
 
 	def each(plan = nil)
 	    plan ||= @plan
-	    plan.enum_for(:each_task).each do |task|
-		yield(task) if task.fullfills?(constant(model), arguments)
+	    (plan || @plan).each_task do |task|
+		if model
+		    next unless task.fullfills?(constant(model), arguments) 
+		end
+		next unless @improved_information.all? { |info| task.improves?(info) }
+		next unless @needed_information.all? { |info| task.needs?(info) }
+		yield(task)
 	    end
+
 	    self
 	end
 	include Enumerable
 
-	# Define singleton classes. For instance, calling Query.fullfills is equivalent
-	# to Query.new.fullfills
-	QUERY_METHODS = %w{fullfills with_model with_arguments}
-	QUERY_METHODS.each do |name|
+	def self.declare_class_method(name)
+	    raise "no instance method #{name} on Query" unless Query.instance_methods.include?(name)
 	    Query.singleton_class.class_eval do
 		define_method(name) do |*args|
 		    Query.new.send(name, *args)
 		end
 	    end
+	end
+	# Define singleton classes. For instance, calling Query.which_fullfills is equivalent
+	# to Query.new.which_fullfills
+	%w{which_fullfills with_model with_arguments which_needs which_improves}.each do |name|
+	    declare_class_method(name)
 	end
     end
 end

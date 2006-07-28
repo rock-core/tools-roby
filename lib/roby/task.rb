@@ -1,5 +1,6 @@
 require 'roby/event'
 require 'roby/support'
+require 'roby/state/information'
 
 module Roby
     class TaskModelViolation < ModelViolation
