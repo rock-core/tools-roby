@@ -67,7 +67,7 @@ module Roby
 	    first_task.start!(context)
 	end
 
-	def query
+	def find_tasks
 	    Query.new(self)
 	end
 
@@ -94,7 +94,7 @@ module Roby
 	end
 
 	# shortcut to set both model and argument 
-	def fullfills(model, arguments = nil)
+	def which_fullfills(model, arguments = nil)
 	    with_model(model).with_arguments(arguments)
 	end
 

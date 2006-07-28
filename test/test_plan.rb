@@ -25,7 +25,7 @@ class TC_Plan < Test::Unit::TestCase
 	assert( tasks.include?(t3) )
     end
 
-    def test_query
+    def test_query_fullfills
 	task_model = Class.new(Task) do
 	    event(:start)
 	end
@@ -36,13 +36,13 @@ class TC_Plan < Test::Unit::TestCase
 	plan = Plan.new
 	plan << t1 << t2
 
-	result = Query.fullfills('TC_Plan::TaskModel').enum_for(:each, plan).to_set
+	result = Query.which_fullfills('TC_Plan::TaskModel').enum_for(:each, plan).to_set
 	assert_equal([t1, t2].to_set, result)
 
-	result = Query.fullfills('TC_Plan::TaskModel', :value => 1).enum_for(:each, plan).to_set
+	result = Query.which_fullfills('TC_Plan::TaskModel', :value => 1).enum_for(:each, plan).to_set
 	assert_equal([t1].to_set, result)
 
-	result = plan.query.fullfills('TC_Plan::TaskModel', :value => 2).to_set
+	result = plan.find_tasks.which_fullfills('TC_Plan::TaskModel', :value => 2).to_set
 	assert_equal([t2].to_set, result)
 
 	assert_marshallable(Query.new)
