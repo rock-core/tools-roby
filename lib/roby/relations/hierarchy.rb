@@ -4,6 +4,7 @@ require 'set'
 
 module Roby::TaskStructure
     relation :child do
+	parent_enumerator :parent_task
 	module_name :Hierarchy
 
 	HierarchyLink = Struct.new :success, :failure
