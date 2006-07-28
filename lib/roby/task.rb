@@ -297,8 +297,8 @@ module Roby
         # will be an instance of this particular class. To override the base class
         # for a particular event, use the <tt>:model</tt> option
         #
-        def self.event(ev, options = Hash.new)
-            options = validate_options(options, :command => nil, :terminal => nil, :model => TaskEvent)
+        def self.event(ev, options = Hash.new, &block)
+            options = validate_options(options, :command => block, :terminal => nil, :model => TaskEvent)
 
             ev_s = ev.to_s
             ev = ev.to_sym
