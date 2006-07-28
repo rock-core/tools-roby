@@ -169,6 +169,8 @@ module Roby
         # If a model of +event+ is defined in the task model
         def has_event?(event); model.has_event?(event) end
         
+	# If this task never ran
+	def pending?; !event(:start).happened? end
         # If this task is currently running
         def running?; event(:start).happened? && !finished? end
         # If this task ran and is finished
