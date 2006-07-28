@@ -16,6 +16,7 @@ module Roby
 
     class Event
 	attr_reader :generator
+
 	def initialize(generator, propagation_id, context)
 	    raise ArgumentError, "bad value for propagation_id: #{propagation_id}" unless propagation_id
 	    @generator, @propagation_id, @context = generator, propagation_id, context
@@ -90,11 +91,7 @@ module Roby
 	    if controlable || control
 		self.command = (control || lambda { |context| emit(context) })
 	    end
-	    @blackhole = false
 	end
-
-	def blackhole?; @blackhole end
-	def blackhole!; @blackhole = true end
 
 	# Sets a command proc for this event generator. Sets controlable to true
 	def command=(block)
@@ -131,7 +128,6 @@ module Roby
 	# non-controlable and respond to the :call message. Controlability must
 	# be checked using #controlable?
 	def call(context = nil)
-	    return if blackhole?
 	    if !controlable?
 		raise EventModelViolation.new(self), "#call called on a non-controlable event"
 	    end
@@ -328,7 +324,6 @@ module Roby
 				# Do not fire the same event twice in the same propagation cycle
 				next
 			    end
-			    next if signalled.blackhole?
 
 			    did_call = propagation_context(source) do |result|
 				if !emit && signalled.controlable?

@@ -486,25 +486,5 @@ class TC_Event < Test::Unit::TestCase
 	assert_raises(EventGenerator::PreconditionFailed) { e1.call(nil) }
 	assert_nothing_raised { e1.call(true) }
     end
-
-    def test_blackhole
-	source = EventGenerator.new(true)
-	events = (1..3).map { EventGenerator.new(true) }
-
-	FlexMock.use do |mock|
-	    source.on events[0]
-	    source.add_forwarding(events[1])
-
-	    events.each_with_index do |ev, idx|
-		ev.on { |event| mock.send("e#{idx}", event.context) }
-		mock.should_receive(:"e#{idx}").never
-		ev.blackhole!
-		assert(ev.blackhole?)
-	    end
-
-	    source.call(nil)
-	    events[2].call(nil)
-	end
-    end
 end
 
