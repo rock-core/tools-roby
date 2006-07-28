@@ -162,6 +162,10 @@ module Roby
 
         def model; singleton_class end
 
+	# Make this task answer to no signal and commands
+	def dead!; @dead = true end
+	def dead?; finished? || @dead end
+
         # If a model of +event+ is defined in the task model
         def has_event?(event); model.has_event?(event) end
         
