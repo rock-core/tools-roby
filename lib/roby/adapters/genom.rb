@@ -233,6 +233,9 @@ module Roby::Genom
 	# If the module has an init request, then the +init+ module method is mandatory and
 	# should run the init request.
 	def initialize(arguments = nil)
+	    # Never garbage-collect runner tasks
+	    Roby::Control.protect(self)
+
 	    @output_io = roby_module.output_io
 
 	    # Make sure there is a init() method defined in the Roby module if there is one in the

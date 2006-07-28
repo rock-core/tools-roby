@@ -1,5 +1,6 @@
 require 'roby/support'
 require 'drb'
+require 'set'
 
 module Roby
     class Control
@@ -15,6 +16,13 @@ module Roby
 	class << self
 	    # List of procs which are called at each event cycle
 	    attr_reader :event_processing
+	end
+
+	def initialize
+	    @cycle_index = 0
+	    @keep    = Set.new
+	    @garbage = Hash.new
+	    @garbage_can  = Set.new
 	end
 
 	# Inject +plan+ in +main+
@@ -83,6 +91,7 @@ module Roby
 	end
 
 	attr_accessor :thread
+	def running?; !!@thread end
 
 	# Main event loop. Valid options are
 	# cycle::   the cycle duration in seconds (default: 0.1)
@@ -119,6 +128,8 @@ module Roby
 		    Thread.pass
 		    sleep(cycle - cycle_duration)
 		end
+		garbage_mark
+		garbage_collect
 	    end
 
 	rescue Interrupt
@@ -133,6 +144,69 @@ module Roby
 	    @thread = nil unless options[:detach]
 	end
 
+	# Tell the controller that this particular task should not be 
+	# killed even when it seems that it is not useful anymore
+	def protect(task); @keep << task end
+
+	# True if task is protected. See #protect
+	def protected?(task); @keep.include?(task) end
+
+	# Tell the controller that +task+ should not be controlled
+	# anymore. See Control#protect.
+	def unprotect(task); @keep.delete(task) end
+
+	def marked?(task)
+	    @garbage[task] || @garbage_can.include?(task)
+	end
+	def useful?(task)
+	    protected?(task) || task.enum_for(:each_parent_task).any? { |task| !task.dead? }
+	end
+
+	# Mark tasks for garbage collection. It marks all unused tasks
+	# to be killed next time garbage_collect is called
+	#
+	# If a parent task is marked as being garbage, we *do not*
+	# mark its children since the parent task can have a cleanup
+	# routine.
+	def garbage_mark
+	    return unless main
+
+	    # @garbage is a task -> count map which gives the cycle count for which +task+
+	    # has not been useful
+	    main.each_task { |task| mark_task(task) }
+	end
+	def mark_task(task)
+	    @garbage[task] ||= cycle_index unless useful?(task)
+	end
+
+	def garbage_collect
+	    return unless main
+
+	    # @garbage_can contains the tasks that are being killed by the garbage collector
+	    @garbage.dup.each do |task, cycle_index|
+		task.dead!
+		@garbage.delete(task)
+
+		if task.running?
+		    next if @garbage_can.include?(task)
+
+		    @garbage_can << task
+		    task.on(:stop) { @garbage_can.delete(task) }
+
+		    stop = task.event(:stop)
+		    stop.call("not useful anymore !") if stop.controlable?
+
+		elsif task.pending?
+		    @garbage_can << task
+
+		    task.each_child do |child|
+			next if marked?(child)
+			mark_task(child) unless useful?(child)
+		    end
+		end
+	    end
+	end
+
 	# If the event thread has been started in its own thread, 
 	# wait for it to terminate
 	def join
@@ -142,8 +216,7 @@ module Roby
 	def quit
 	    thread.raise Interrupt if thread
 	end
-
-	def running?; !!@thread end
+	attr_reader :cycle_index
     end
 
     class Client < DRbObject
