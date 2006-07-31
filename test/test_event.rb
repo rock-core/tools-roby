@@ -375,7 +375,7 @@ class TC_Event < Test::Unit::TestCase
 	    b.emit(nil)
 	    b.ever.on { mock.called }
 	    
-	    Control.process_events
+	    Control.instance.process_events
 
 	    assert_equal(a.ever.last, a.last)
 	    assert_not_equal(b.ever.last, b.last)

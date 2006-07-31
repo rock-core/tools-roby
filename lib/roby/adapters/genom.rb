@@ -234,7 +234,7 @@ module Roby::Genom
 	# should run the init request.
 	def initialize(arguments = nil)
 	    # Never garbage-collect runner tasks
-	    Roby::Control.protect(self)
+	    Roby::Control.instance.protect(self)
 
 	    @output_io = roby_module.output_io
 

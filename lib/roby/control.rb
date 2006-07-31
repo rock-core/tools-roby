@@ -5,9 +5,6 @@ require 'set'
 module Roby
     class Control
 	include Singleton
-	def self.method_missing(name, *args, &block)
-	    instance.send(name, *args, &block)
-	end
 
 	# The main plan (i.e. the one which is being executed)
 	attr_accessor :main
