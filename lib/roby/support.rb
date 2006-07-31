@@ -1,8 +1,8 @@
 require 'thread'
 require 'genom/support'
 
-require 'roby/enumerate'
 require 'roby/graph'
+require 'utilrb/enumerable'
 require 'facet/kernel/constant'
 require 'facet/module/dirname'
 
@@ -70,80 +70,7 @@ class ThreadServer
     end
 end
 
-class Object
-    # :call-seq
-    #   attribute :name => default_value
-    #   attribute(:name) { default_value }
-    #
-    # In the first form, defines a read-write attribute
-    # named 'name' with default_value for default value.
-    # In the second form, the block is called if the attribute
-    # is read before it has been ever written, and its return
-    # value is used as default value.
-    def attribute(attr_def, &init)
-        if Hash === attr_def
-            name, defval = attr_def.to_a.flatten
-        else
-            name = attr_def
-        end
-
-        iv_name = "@#{name}"
-        define_method("#{name}_attribute_init") do
-            newval = defval || (instance_eval(&init) if init)
-            self.send("#{name}=", newval)
-        end
-
-        class_eval <<-EOF
-        def #{name}
-            if defined? @#{name}
-                @#{name}
-            else
-                #{name}_attribute_init
-            end
-        end
-        attr_writer :#{name}
-        EOF
-    end
-
-    # Define an attribute on the singleton class
-    # See Object::attribute for the definition of
-    # default values
-    def class_attribute(attr_def, &init)
-	singleton_class.class_eval do
-	    attribute(attr_def, &init)
-	end
-    end
-
-    # Return the object address (for non immediate
-    # objects). 
-    def address; Object.address_from_id(object_id) end
-
-    # Converts the object_id of a non-immediate object
-    # to its 32 bits address
-    def self.address_from_id(id)
-	id = 0xFFFFFFFF - ~id if id < 0
-	(id * 2) & 0xFFFFFFFF
-    end
-end
-
 class Module
-    # Check if +klass+ is an ancestor of this class/module
-    def has_ancestor?(klass); ancestors.find { |a| a == klass } end
-
-    alias :__instance_include__  :include
-    # Includes a module in this one, with singleton class inclusion
-    # If a module defines a ClassExtension submodule, then 
-    # the module itself is included normally, and ClassExtension 
-    # is included in the target singleton class
-    def include(mod)
-        __instance_include__ mod
-        begin
-            extend mod.const_get(:ClassExtension)
-        rescue NameError => e
-	    raise unless e.name == :ClassExtension
-        end
-    end
-
     # Defines a new constant under a given module
     # :call-seq
     #   define_under(name, value)   ->              value
@@ -158,112 +85,7 @@ class Module
             const_set(name, (value || yield))
         end
     end
-
-    # Define 'name' to be a read-only enumerable attribute. The method
-    # defines a +attr_name+ read-only attribute and an enumerator method 
-    # each_#{name}. +init_block+ is used to initialize the attribute.
-    #
-    # The enumerator method accepts a +key+ argument. If the attribute is
-    # a key => enumerable map, then the +key+ attribute can be used to iterate
-    # 
-    # +enumerator+ is the name of the enumeration method
-    def attr_enumerable(name, attr_name = name, enumerator = :each, &init_block)
-	class_eval do
-	    attribute(attr_name, &init_block)
-	end
-        class_eval <<-EOF
-            def each_#{name}(key = nil, &iterator)
-                return unless #{attr_name}
-                if key
-                    #{attr_name}[key].#{enumerator}(&iterator)
-                else
-                    #{attr_name}.#{enumerator}(&iterator)
-                end
-            end
-        EOF
-    end
-
-    # Emulate block-passing by converting the block into a Proc object
-    # and passing it to the given block as last argument
-    #
-    # For instance
-    #   define_method('my_method') do |a, &block|
-    #   end
-    #
-    # Is written as
-    #	define_method_with_block('my_method') do |a, block|
-    #	end
-    #
-    # +block+ is +nil+ if no block is given on the method call
-    def define_method_with_block(name, &mdef)
-	class_eval <<-EOD
-	    def #{name}(*args, &block)
-		args << block
-		dmwb_#{name}_user_definition(*args) 
-	    end
-	EOD
-	define_method("dmwb_#{name}_user_definition", &mdef)
-    end
 end
-
-class Class
-    # Defines an attribute as being enumerable in the class
-    # instance and in the whole class inheritance hierarchy
-    # 
-    # More specifically, it defines
-    # a each_#{name}(&iterator) instance method and a 
-    # each_#{name}(&iterator) class
-    # method which iterates (in order) on 
-    # - the class instance #{name} attribute
-    # - the singleton class #{name} attribute
-    # - the class #{name} attribute
-    # - the superclass #{name} attribute
-    # - the superclass' superclass #{name} attribute
-    # ...
-    #
-    # It defines also #{name} as a readonly attribute
-    def class_inherited_enumerable(name, attribute_name = name, options = Hash.new, &init)
-        # Set up the attribute accessor
-	class_attribute(attribute_name, &init)
-	singleton_class.class_eval { private "#{attribute_name}=" }
-
-	options[:enum_with] ||= :each
-
-        if options[:map]
-            singleton_class.class_eval <<-EOF
-            def each_#{name}(key = nil, uniq = true, &iterator)
-		if key
-		    if #{attribute_name}.has_key?(key)
-			iterator[#{attribute_name}[key]] 
-			return self if uniq
-		    end
-		elsif uniq
-		    enum_uniq(:each_#{name}, nil, false) { |k, v| k }.
-			each(&iterator)
-		    return self
-		else
-                    #{attribute_name}.#{options[:enum_with]}(&iterator)
-		end
-		superclass_call(:each_#{name}, key, uniq, &iterator)
-                self
-            end
-            def has_#{name}?(key)
-                return true if #{attribute_name}[key]
-		superclass_call(:has_#{name}, key)
-            end
-            EOF
-        else
-            singleton_class.class_eval <<-EOF
-            def each_#{name}(&iterator)
-                #{attribute_name}.#{options[:enum_with]}(&iterator) if #{attribute_name}
-		superclass_call(:each_#{name}, &iterator)
-                self
-            end
-            EOF
-        end
-    end
-end
-
 
 class Thread
     def send_to(object, name, *args, &prc)
@@ -281,50 +103,6 @@ class Thread
             object.send(name, *args, &block)
         end
     rescue ThreadError
-    end
-end
-
-module ObjectStats
-    # Allocates no object
-    def self.count
-        count = 0
-        ObjectSpace.each_object { |obj| count += 1}
-    end
-
-    # Allocates 1 Hash, which is included in the count
-    def self.count_by_class
-        by_class = Hash.new(0)
-        ObjectSpace.each_object { |obj|
-            by_class[obj.class] += 1
-            by_class
-        }
-        by_class
-    end
-
-    def self.profile
-        enabled = !GC.disable
-        before = count_by_class
-        yield
-        after  = count_by_class
-        GC.enable if enabled
-
-        after[Hash] -= 1 # Correction for the call of count_by_class
-        profile = before.
-            merge(after) { |klass, old, new| new - old }.
-            delete_if { |klass, count| count == 0 }
-    end
-
-    def self.stats(filter = nil)
-        total_count = 0
-        output = ""
-        count_by_class.each do |klass, obj_count|
-            total_count += obj_count
-            if !filter || klass.name =~ filter
-                output << klass.name << " " << obj_count.to_s << "\n"
-            end
-        end
-        
-        (output << "Total object count: #{total_count}")
     end
 end
 

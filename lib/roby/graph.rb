@@ -1,4 +1,4 @@
-require 'roby/enumerate'
+require 'utilrb/enumerable'
 
 # Base class for graph enumeration. Subclasses should define
 #   each_edge { |from, to| ... }
@@ -6,7 +6,6 @@ require 'roby/enumerate'
 # and GraphEnumerator defines #each to enumerate the nodes
 #
 class GraphEnumerator
-    include EnumeratorOperations
     include Enumerable
 
     attr_reader :root, :enum_with, :args
