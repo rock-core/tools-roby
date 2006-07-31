@@ -11,32 +11,35 @@ module Roby
 	# An array of relation types this object is part of
 	attribute(:relations) { Set.new }
 
-	def each_parent_object(type = nil, &iterator)
+	def each_object(type, e1, e2 = nil)
+	    apply_selection(type, relations).each do |type|
+		type.send(e1, self) { |o| yield(o) }
+		type.send(e2, self) { |o| yield(o) } if e2
+	    end
+	end
+	private :each_object
+
+	def each_parent_object(type = nil)
 	    check_is_relation(type)
-	    enum_for(:apply_selection, type, relations, :each).
-		inject(null_enum) { |enum, type| enum + type.enum_for(:each_parent_object, self) }.
-		enum_uniq { |obj| obj }.
-		each(&iterator)
+	    enum_for(:each_object, type, :each_parent_object).
+		each_uniq { |o| yield(o) }
 	end
 	def each_child_object(type = nil)
 	    check_is_relation(type)
-	    enum_for(:apply_selection, type, relations, :each).
-		inject(null_enum) { |enum, type| enum + type.enum_for(:each_child_object, self) }.
-		enum_uniq { |obj| obj }.
-		each { |child| yield(child) }
+	    enum_for(:each_object, type, :each_child_object).
+		each_uniq { |o| yield(o) }
 	end
-	def each_related_object(type = nil, &iterator)
+	def each_related_object(type = nil)
 	    check_is_relation(type)
-	    (enum_for(:each_parent_object, type) + enum_for(:each_child_object, type)).
-		enum_uniq { |obj| obj }.
-		each(&iterator)
+	    enum_for(:each_object, type, :each_parent_object, :each_child_object).
+		each_uniq { |o| yield(o) }
 	end
 
 	# true if +obj+ is a child of +self+ for the relation +type+
 	# If +type+ is nil, it considers all relations
 	def child_object?(obj, type = nil)
 	    check_is_relation(type)
-	    enum_for(:apply_selection, type, relations, :each).
+	    apply_selection(type, relations).
 		find { |type| type.child_object?(self, obj) }
 	end
 
@@ -44,7 +47,7 @@ module Roby
 	# If +type+ is nil, it considers all relations
 	def parent_object?(obj, type = nil)
 	    check_is_relation(type)
-	    enum_for(:apply_selection, type, relations, :each).
+	    apply_selection(type, relations).
 		find { |type| type.parent_object?(self, obj) }
 	end
 
@@ -56,10 +59,9 @@ module Roby
 	# Enumerate all relations this object is part of.
 	# If directed is false, then we enumerate both parents
 	# and children.
-	def each_relation(directed = false, &iterator) # :yield: type, parent, child
+	def each_relation(directed = false) # :yield: type, parent, child
 	    relations.inject(null_enum) { |enum, type| enum + type.enum_for(:each_relation, self, directed) }.
-		enum_uniq { |obj| obj }.
-		each(&iterator)
+		each_uniq { |o| yield(o) }
 	end
 
 	# Add a new relation
@@ -79,8 +81,8 @@ module Roby
 	# Remove relations where self is a parent
 	def remove_child_object(to = nil, type = nil)
 	    check_is_relation(type)
-	    apply_selection(type, relations, :each) do |type|
-		apply_selection(to, self, :each_child_object, type) do |to|
+	    apply_selection(type, relations) do |type|
+		apply_selection(to, enum_for(:each_child_object, type)) do |to|
 		    type.remove_child(self, to)
 		    removed_child_object(to, type)
 		end
@@ -94,8 +96,8 @@ module Roby
 	# Remove relations where self is a child
 	def remove_parent_object(to = nil, type = nil)
 	    check_is_relation(type)
-	    apply_selection(type, relations, :each) do |type|
-		apply_selection(to, self, :each_parent_object, type) do |to|
+	    apply_selection(type, relations) do |type|
+		apply_selection(to, enum_for(:each_parent_object, type)) do |to|
 		    type.remove_parent(self, to)
 		    removed_parent_object(to, type)
 		end
@@ -120,11 +122,15 @@ module Roby
 	    end
 	end
 
-	def apply_selection(object, container, enumerator, *args, &iterator)
-	    if object
-		yield(object)
+	def apply_selection(object, enumerator)
+	    if block_given?
+		if object; yield(object)
+		else enumerator.each { |o| yield(o) }
+		end
 	    else
-		container.send(enumerator, &iterator)
+		if object; [object]
+		else; enumerator
+		end
 	    end
 	end
 	private :apply_selection
@@ -176,13 +182,13 @@ module Roby
 		end
 	    end
 
-	    def each_parent_object(of, &iterator) # :yield: parent_object
-		of.parents[relation_type].each(&iterator)
-		subsets.each { |mod| mod.each_parent_object(of, &iterator) }
+	    def each_parent_object(of) # :yield: parent_object
+		of.parents[relation_type].each { |o| yield(o) }
+		subsets.each { |mod| mod.each_parent_object(of) { |o| yield(o) } }
 	    end
-	    def each_child_object(of, &iterator)  # :yield: child_object
-		of.children[relation_type].each_key(&iterator)
-		subsets.each { |mod| mod.each_child_object(of, &iterator) }
+	    def each_child_object(of)  # :yield: child_object
+		of.children[relation_type].each_key { |o| yield(o) }
+		subsets.each { |mod| mod.each_child_object(of) { |o| yield(o) } }
 	    end
 	    
 	    # Defines enumerators in the node objects for this relationship. 

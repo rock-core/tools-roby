@@ -15,10 +15,10 @@ module Roby
 	    plan.each_task { |task| @tasks << task }
 	end
 
-	def each_task(&iterator)
-	    tasks.each(&iterator)
+	def each_task
+	    tasks.each { |t| yield(t) }
 	end
-
+	
 	# List all tasks in the plan
 	def tasks
 	    tasks	= Set.new

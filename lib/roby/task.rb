@@ -74,20 +74,20 @@ module Roby
             super
         end
 
-	def each_signal(&iterator)
+	def each_signal
 	    super
 	    task.each_signal(event_model.symbol) do |event_model|
-		iterator[task.event(event_model)]
+		yield(task.event(event_model))
 	    end
 	end
 	    
-	def each_handler(&iterator)
+	def each_handler
 	    super
-	    task.each_handler(event_model.symbol, &iterator)
+	    task.each_handler(event_model.symbol) { |o| yield(o) }
 	end
-	def each_precondition(&iterator)
+	def each_precondition
 	    super
-	    task.each_precondition(event_model.symbol, &iterator)
+	    task.each_precondition(event_model.symbol) { |o| yield(o) }
 	end
 
         def controlable?; event_model.controlable? end
@@ -120,12 +120,12 @@ module Roby
 	def self.model_attribute_list(name)
 	    class_inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = Set.new } }
 	    class_eval <<-EOD
-		def self.each_#{name}(model, &iterator)
+		def self.each_#{name}(model)
 		    enum_for(:each_#{name}_set, model, false).
 			inject(null_enum) { |a, b| a + b }.
-			enum_uniq.each(&iterator)
+			each_uniq { |o| yield(o) }
 		end
-		def each_#{name}(model, &iterator); singleton_class.each_#{name}(model, &iterator) end
+		def each_#{name}(model); singleton_class.each_#{name}(model) { |o| yield(o) } end
 	    EOD
 	end
 
@@ -223,7 +223,7 @@ module Roby
         # Returns an TaskEventGenerator object which is the given task event bound
         # to this particular task
         def event(event_model)
-            event_model = *model.validate_event_models(event_model)
+            event_model = self.event_model(event_model)
             bound_events[event_model] ||= TaskEventGenerator.new(self, event_model)
         end
 
@@ -362,7 +362,7 @@ module Roby
 
 		# define an instance method which calls the event command
 		define_method("#{ev_s}!") do |*context| 
-		    context = *context
+		    context = *context # emulate default value for blocks
 		    event(ev).call(context) 
 		end
             end
@@ -422,10 +422,7 @@ module Roby
 		map { |_, e| e }
 	end
 
-        # Get the event model for +event+. +event+ must follow the rules for validate_event_models
-        def self.event_model(model)
-            validate_event_models(model).first
-        end
+        # Get the event model for +event+
         def event_model(model); self.model.event_model(model) end
 
         # Find the event class for +event+, or nil if +event+ is not an event name for this model
@@ -440,28 +437,26 @@ module Roby
         # or an event class
         #
         # Returns the corresponding array of event classes
-        def self.validate_event_models(*models) #:nodoc:
-            models.map do |e|
-                if e.respond_to?(:to_sym)
-                    ev_model = find_event_model(e.to_sym)
-                    unless ev_model
-                        all_events = enum_for(:each_event).map { |name, _| name }
-                        raise ArgumentError, "#{e} is not an event of #{name} #{all_events.inspect}" unless ev_model
-                    end
-                elsif e.respond_to?(:has_ancestor?) && e.has_ancestor?(TaskEvent)
-                    # Check that e is an event class for us
-                    ev_model = find_event_model(e.symbol)
-                    if !ev_model
-                        raise ArgumentError, "no #{e.symbol} event in #{name}"
-                    elsif ev_model != e
-                        raise ArgumentError, "the event model #{e} is not a model for #{name} (found #{ev_model} with the same name)"
-                    end
-                else 
-                    raise ArgumentError, "wanted either a symbol or an event class, got #{e}"
-                end
+        def self.event_model(model_def) #:nodoc:
+	    if model_def.respond_to?(:to_sym)
+		ev_model = find_event_model(model_def.to_sym)
+		unless ev_model
+		    all_events = enum_for(:each_event).map { |name, _| name }
+		    raise ArgumentError, "#{model_def} is not an event of #{name} #{all_events.inspect}" unless ev_model
+		end
+	    elsif model_def.respond_to?(:has_ancestor?) && model_def.has_ancestor?(TaskEvent)
+		# Check that model_def is an event class for us
+		ev_model = find_event_model(model_def.symbol)
+		if !ev_model
+		    raise ArgumentError, "no #{model_def.symbol} event in #{name}"
+		elsif ev_model != model_def
+		    raise ArgumentError, "the event model #{model_def} is not a model for #{name} (found #{ev_model} with the same name)"
+		end
+	    else 
+		raise ArgumentError, "wanted either a symbol or an event class, got #{model_def}"
+	    end
 
-                ev_model
-            end
+	    ev_model
         end
        
         class << self
@@ -481,8 +476,8 @@ module Roby
         def self.on(mappings, &user_handler)
             mappings = [*mappings].zip([]) unless Hash === mappings
             mappings.each do |from, to|
-                from = *validate_event_models(from).map { |ev| ev.symbol }
-                to = if to; validate_event_models(*to).map { |ev| ev.symbol }
+                from = event_model(from).symbol
+                to = if to; Array[*to].map { |ev| event_model(ev).symbol }
                      else;  []
                      end
 
@@ -492,7 +487,7 @@ module Roby
         end
 
 	def self.precondition(event, reason, &block)
-	    event = validate_event_models(event).first
+	    event = event_model(event)
 	    precondition_sets[event.symbol] << [reason, block]
 	end
 

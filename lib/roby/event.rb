@@ -297,13 +297,13 @@ module Roby
 	    begin
 		Thread.current[:propagation_id] = (@@propagation_id += 1)
 		first_step = gather_propagation { emit_without_propagation(context) }
-		propagate(first_step, self)
+		propagate(first_step, [self])
 	    ensure
 		Thread.current[:propagation_id] = nil
 	    end
 	end
 
-	def propagate(next_step, *initial_set)
+	def propagate(next_step, initial_set)
 	    return if !EventGenerator.propagate?
 
 	    # Problem with postponed: the object is included in already_seen while it
@@ -367,7 +367,7 @@ module Roby
 		false
 	    else
 		seen << self
-		each_parent_object(EventStructure::CausalLinks).find { |ev| ev.active?(seen) }
+		enum_for(:each_parent_object, EventStructure::CausalLinks).find { |ev| ev.active?(seen) }
 	    end
 	end
 
@@ -378,7 +378,7 @@ module Roby
 	def precondition(reason = nil, &block)
 	    @preconditions << [reason, block]
 	end
-	def each_precondition(&iterator); @preconditions.each(&iterator) end
+	def each_precondition; @preconditions.each { |o| yield(o) } end
 
 	# Call #postpone in the #calling hook to announce that
 	# the event being called is not to be fired now, but will

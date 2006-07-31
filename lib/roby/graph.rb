@@ -16,15 +16,19 @@ class GraphEnumerator
     end
 
     def each
-	enum_uniq(:each_edge) { |_, child| child }.
-	    each { |_, child| yield(child) unless child == @root }
+	known = Set.new
+	each_edge do |_, child|
+	    next if child == @root || known.include?(child)
+	    known << child
+	    yield(child)
+	end
 	self
     end
 end
 
 # Breadth-first enumerator
 class BFSEnumerator < GraphEnumerator
-    def each_edge(&iterator)
+    def each_edge
         queue = [@root]
         seen  = Set.new
         while !queue.empty?
@@ -74,10 +78,10 @@ class Object
     end
 
     # Enumerates an iterator-based graph breadth-first
-    def enum_bfs(enum_with = :each, *args, &iterator)
+    def enum_bfs(enum_with = :each, *args)
         enumerator = BFSEnumerator.new(self, enum_with, args) 
-        if iterator
-            enumerator.each(&iterator)
+        if block_given?
+            enumerator.each { |o| yield(o) }
         else
             enumerator
         end
@@ -91,15 +95,15 @@ class Object
     #   enum_leafs(...).each { |leaf| ... }
     #
     # Enumerate all leafs of an iterator-based graph
-    def enum_leafs(enum_with = :each, *args, &iterator) # :yield: 
+    def enum_leafs(enum_with = :each, *args) # :yield: leaf
 	leafs	= Set.new
 	enum_bfs(enum_with, *args).each_edge do |parent, child|
 	    leafs << child
 	    leafs.delete(parent)
 	end
 
-	if iterator
-	    leafs.each(&iterator)
+	if block_given?
+	    leafs.each { |l| yield(l) }
 	else
 	    leafs
 	end
