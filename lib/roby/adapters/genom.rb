@@ -71,7 +71,7 @@ module Roby::Genom
 	# ArgumentError is raised if the argument count is wrong
 	def initialize(arguments, genom_request)
 	    # Check that +arguments+ are valid for genom_request
-	    genom_request.filter_input(*arguments)
+	    genom_request.filter_input(arguments)
 	    @request    = genom_request
 	    super(arguments)
 
