@@ -21,38 +21,59 @@ module Roby
 	
 	# List all tasks in the plan
 	def tasks
-	    tasks	= Set.new
-	    new_tasks	= @tasks.dup
-	    events	= Set.new
-	    new_events	= Set.new
-	    class << new_events # Make the 'events' set look like a relation node
-		alias :each_related_object :each 
-	    end
+	    known_tasks	    = @tasks.dup # the list of already known tasks
+	    all_tasks	    = Set.new # the target set
+	    related_tasks   = Set.new
+	    events	    = Array.new
 
-	    while task = new_tasks.find { true }
-		next if tasks.include?(task)
+	    while task = known_tasks.find { true }
+		known_tasks.delete(task)
+		raise if all_tasks.include?(task)
+		all_tasks << task
 
-		new_events.clear
-		new_tasks.delete(task)
-		tasks << task
-		
-		task.enum_bfs(:each_related_object) do |t|
-		    if t.kind_of?(Task)
-			tasks << t
-			new_tasks.delete(t)
-			new_events.merge t.enum_for(:each_event).
-			    find_all { |ev| !events.include?(ev) }
+		related_tasks.clear
+
+		task.each_parent_object { |related| related_tasks << related if related.kind_of?(Task) }
+		task.each_child_object { |related| related_tasks << related if related.kind_of?(Task) }
+
+		events.clear
+
+		task.each_event do |ev|
+		    ev.each_parent_object do |related|
+			next unless related.kind_of?(EventGenerator)
+			if related.respond_to?(:task); related_tasks << related.task
+			else; events << related
+			end
+		    end
+		    ev.each_child_object do |related|
+			next unless related.kind_of?(EventGenerator)
+			if related.respond_to?(:task); related_tasks << related.task
+			else; events << related
+			end
+		    end
+		end
+		events.each do |ev|
+		    ev.each_parent_object do |related|
+			next unless related.kind_of?(EventGenerator)
+			if related.respond_to?(:task); related_tasks << related.task
+			else; events << related
+			end
+		    end
+		    ev.each_child_object do |related|
+			next unless related.kind_of?(EventGenerator)
+			if related.respond_to?(:task); related_tasks << related.task
+			else; events << related
+			end
 		    end
 		end
 
-		new_tasks.merge	new_events.enum_bfs(:each_related_object).
-		    find_all { |ev| !events.include?(ev) && ev.respond_to?(:task) && !tasks.include?(ev.task) }.
-		    each { |ev| events << ev }.
-		    map  { |ev| ev.task }.
-		    to_set
+		related_tasks.each do |related|
+		    next if all_tasks.include?(related)
+		    known_tasks << related
+		end
 	    end
 
-	    tasks
+	    @tasks = all_tasks
 	end
 
         def insert(task)
