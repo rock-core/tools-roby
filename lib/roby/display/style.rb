@@ -22,7 +22,7 @@ module Roby
 		super()
 		@objects = args
 		@objects.each_key do |name| 
-		    singleton_class.class_eval { define_method(name) { objects[name] } }
+		    singleton_class.send(:define_method, name) { objects[name] }
 		end
 		@x, @y = 0, 0
 	    end

@@ -98,7 +98,7 @@ module Roby
 	    # Returns true if the command has been called and false otherwise
 	    # The command won't be called if postpone() is called within the
 	    # #calling hook
-	    define_method(:call_without_propagation) do |context|
+	    singleton_class.send(:define_method, :call_without_propagation) do |context|
 		return if pending > 0
 
 		postponed = catch :postponed do 

@@ -81,9 +81,7 @@ if $0 == __FILE__
     def task_mockup(name)
 	t = TaskMockup.new
 	t.model.instance_eval do
-	    singleton_class.class_eval do
-		define_method(:name) { name }
-	    end
+	    singleton_class.send(:define_method, :name) { name }
 	end
 
 	t
