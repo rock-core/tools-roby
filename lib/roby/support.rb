@@ -337,6 +337,15 @@ class Hash
     end
 end
 
+module GC
+    def self.force
+	enabled_gc = GC.enable
+	GC.start
+    ensure
+	GC.disable unless enabled_gc
+    end
+end
+
 class Logger
     # Define a hierarchy of loggers mapped to the module hierarchy.
     # It defines the #logger accessor which either returns the logger
