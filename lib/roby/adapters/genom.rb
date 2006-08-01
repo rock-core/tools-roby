@@ -153,7 +153,7 @@ module Roby::Genom
 	    end
 
 	    precondition(:start, "#{name} needs #{request} to have been executed at least once") do |context|
-		ObjectSpace.enum_for(:each_object, request).find { |rq| rq.success? }
+		Roby::Task[request].find { |rq| rq.success? }
 	    end
 	end
     end
