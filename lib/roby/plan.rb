@@ -170,11 +170,9 @@ module Roby
 	include Enumerable
 
 	def self.declare_class_method(name)
-	    raise "no instance method #{name} on Query" unless Query.instance_methods.include?(name)
-	    Query.singleton_class.class_eval do
-		define_method(name) do |*args|
-		    Query.new.send(name, *args)
-		end
+	    raise "no instance method #{name} on Query" unless Query.method_defined?(name)
+	    Query.singleton_class.send(:define_method, name) do |*args|
+		Query.new.send(name, *args)
 	    end
 	end
 	# Define singleton classes. For instance, calling Query.which_fullfills is equivalent
