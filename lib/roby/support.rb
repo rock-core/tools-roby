@@ -5,6 +5,7 @@ require 'roby/graph'
 require 'utilrb/enumerable'
 require 'facet/kernel/constant'
 require 'facet/module/dirname'
+require 'monitor'
 
 # Create a new thread and forward all messages
 # to the +forward_to+ object given at initialization.
@@ -12,6 +13,8 @@ require 'facet/module/dirname'
 class ThreadServer
     class Quit < RuntimeError; end
     attr_reader :thread, :forwarded
+
+    include MonitorMixin
 
     # Create the new thread server. +forward_to+ is the server
     # object. If +multiplex+ is true, then +forward_to+
@@ -22,17 +25,28 @@ class ThreadServer
     # The server object can raise ThreadServer::Quit to 
     # quit the loop
     def initialize(forward_to, multiplex = false)
+	super()
+
 	@forwarded = forward_to
 	@queue = Queue.new
 	@multiplex = multiplex
 
+	started = false
+	started_signal = new_cond
+
 	@thread = Thread.new do
 	    Thread.current.abort_on_exception = true
 	    begin
+		synchronize do
+		    started = true
+		    started_signal.signal
+		end
 		loop { process_messages }
 	    rescue ThreadServer::Quit
 	    end
 	end
+	
+	synchronize { started_signal.wait_until { started } }
     end
 
     attr_accessor :multiplex
