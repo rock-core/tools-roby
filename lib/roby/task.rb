@@ -311,7 +311,7 @@ module Roby
             ev = ev.to_sym
 
 
-            if !options.has_key?(:command) && instance_methods.include?(ev_s)
+            if !options.has_key?(:command) && method_defined?(ev_s)
                 method = instance_method(ev)
                 check_arity(method, 1)
                 options[:command] = lambda do |t, c| 
