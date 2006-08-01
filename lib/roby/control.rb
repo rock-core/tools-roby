@@ -110,16 +110,16 @@ module Roby
 
 	    drb(options[:drb]) if options[:drb]
 	    cycle_start, cycle_server, cycle_handlers = nil
-	    GC.disable if options[:control_gc]
-	    GC.start
+	    already_disabled_gc = GC.disable if options[:control_gc]
+	    GC.force
 
 	    yield if block_given?
 	    cycle = options[:cycle]
 	    loop do
 		cycle_start = Time.now
 		process_events
-
-		GC.start
+		
+		GC.force
 		cycle_duration = Time.now - cycle_start
 		if cycle > cycle_duration
 		    Thread.pass
@@ -136,9 +136,12 @@ module Roby
 	    STDERR.puts "Control quitting because of unhandled exception #{e.message}(#{e.class})"
 
 	ensure
-	    GC.enable
-	    DRb.stop_service if options[:drb]
-	    @thread = nil unless options[:detach]
+	    if Thread.current == self.thread
+		# reset the options only if we are in the event thread
+		@thread = nil
+		DRb.stop_service if options[:drb]
+		GC.enable unless already_disabled_gc
+	    end
 	end
 
 	# Tell the controller that this particular task should not be 
