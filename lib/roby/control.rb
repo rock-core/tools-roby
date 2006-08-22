@@ -133,7 +133,7 @@ module Roby
 	    STDERR.puts "Interrupted"
 
 	rescue Exception => e
-	    STDERR.puts "Control quitting because of unhandled exception #{e.message}(#{e.class})"
+	    STDERR.puts "Control quitting because of unhandled exception\n#{e.message}(#{e.class})\n  #{e.backtrace.join("\n  ")}"
 
 	ensure
 	    if Thread.current == self.thread
