@@ -184,13 +184,14 @@ module Roby::Genom
 
 		class_attribute :request => gen_mod.request_info[method_name]
 
-		def initialize(arguments = nil)
+		def initialize(arguments = nil) # :nodoc:
 		    super(arguments, self.class.request)
 		end
-		def self.name
+		def self.name # :nodoc:
 		    "#{roby_module.name}::#{request_name}"
 		end
 
+		# requests need the module process
 		executed_by roby_module.const_get(:Runner)
 	    end
 	end
@@ -199,6 +200,26 @@ module Roby::Genom
     # Runner tasks represent the module process. The :start event is emitted when the process
     # is started and can receive a request, :ready when the init request ran successfully and
     # :failed when the process has quit. :failed is controlable, and sends the abort request.
+    #
+    # == Module initialization
+    # If the Roby-defined module defines an +init+ module method, this method should
+    # return an event object which is then forwarded to the :ready event. Alternatively, 
+    # it can return a task object in which case
+    #   * the Runner task will be a parent of this task
+    #   * :ready is emitted when task.event(:success) is
+    #
+    # For instance, for a Pom module
+    #
+    # module Roby::Genom::Pom
+    #   def self.init
+    #	# call the init request
+    #	# and return an EventGenerator object or a Task object
+    #	# (in which case, task.event(:success) is considered)
+    #   end
+    # end
+    #
+    # If the module has an init request, then this +init+ module method is mandatory and
+    # should run genom's init request.
     #
     # See Roby::Genom::GenomModule
     class RunnerTask < Roby::Task
@@ -212,26 +233,6 @@ module Roby::Genom
 	# Note that changing it after the :start event is emitted has no effect
 	attr_accessor :output_io
 
-	# Create a Runner task
-	#
-	# If the Roby-defined module defines an +init+ module method, this method should
-	# return an event object which is forwarded to the :ready event. Alternatively, 
-	# it can return a task object in which case
-	#   * the Runner task will be a parent of this task
-	#   * :ready is emitted when task.event(:success) is
-	#
-	# For instance, for a Pom module
-	#
-	# module Roby::Genom::Pom
-	#   def self.init
-	#	# call the init request
-	#	# and return an EventGenerator object or a Task object
-	#	# (in which case, task.event(:success) is considered)
-	#   end
-	# end
-	#
-	# If the module has an init request, then the +init+ module method is mandatory and
-	# should run the init request.
 	def initialize(arguments = nil)
 	    # Never garbage-collect runner tasks
 	    Roby::Control.instance.protect(self)
@@ -251,7 +252,7 @@ module Roby::Genom
 	# Start the module
 	#
 	# If the module has an init request, the ::init module method is started and :ready is emitted
-	# when if finishes successfully (see #initialize). :ready is emitted immediately otherwise
+	# when if finishes successfully (see RunnerTask). Otherwise, :ready is emitted immediately otherwise
 	def start(context)
 	    mod = ::Genom::Runner.environment.start_module(genom_module.name, output_io)
 	    mod.wait_running
@@ -292,7 +293,7 @@ module Roby::Genom
 	# Event emitted when the module is running
 	event :start
 
-	# Event emitted when the module is running and initialized
+	# Event emitted when the module has been initialized
 	event :ready
 
 	# Stops the module
@@ -300,6 +301,7 @@ module Roby::Genom
 	    ::Genom::Runner.environment.stop_module(genom_module.name)
 	    # :failed will be emitted by the dead! handler
 	end
+
 	# Emitted when the module process terminated
 	event :failed, :terminal => true
 
@@ -310,20 +312,22 @@ module Roby::Genom
     # Base functionalities for Genom modules. It extends
     # the modules defined by GenomModule()
     module ModuleBase
-	# The Genom.rb GenomModule object
+	# The Genom.rb's GenomModule object
 	attr_reader :genom_module
 	# The module name
        	attr_reader :name
-	# See Runner#output_io
+	# See RunnerTask#output_io
 	attr_reader :output_io
 
 	# Needed by executed_by
-	def new_task; Runner.new end
+	def new_task; runner!(nil) end
 
+	# The configuration structure got from the State object
 	def config
 	    State.genom.send(genom_module.name)
 	end
 
+	# Get the poster_info object for +name+
 	def poster(name)
 	    genom_module.poster(name)
 	end
@@ -353,36 +357,40 @@ module Roby::Genom
     end
     
     # Loads a new Genom module and defines the task models for it
-    # GenomModule('foo') defines the following:
-    # * a Roby::Genom::Foo namespace
-    # * a Roby::Genom::Foo::Runner task which deals with running the module itself
-    # * a Roby::Genom::Foo::<RequestName> for each request in foo
     #
-    # Moreover, it defines a #module attribute in the Foo namespace, which is the 
-    # ::Genom::GenomModule object, and a #request_name method which returns
+    # For a +foo+ genom module, GenomModule('foo') defines the following:
+    # * a Roby::Genom::Foo namespace
+    # * a Roby::Genom::Foo::Runner task which represents the module process itself (subclass of Roby::Genom::RunnerTask)
+    # * a Roby::Genom::Foo::MyRequest for each request in foo (subclass of Roby::Genom::RequestTask)
+    #
+    # Moreover, it defines a #genom_module attribute in the Foo namespace, which is Genom.rb's 
+    # GenomModule object, and a #request_name method which returns
     # RequestName.new
     #
-    # The main module defines the singleton method new_task so that a module
-    # can be used in ExecutedBy relationships
-    # 
-    # If options are given, they are forwarded to GenomModule.new. Note however that neither the 
+    # See the documentation of ModuleBase, which defines the common methods and
+    # attributes for each generated module.
+    #
+    # == Options
+    # This method takes the same arguments as Genom.rb's GenomModule.new method. Note however that neither the 
     # :constant, nor the :start options can be set when mapping Genom modules into Roby
+    # It adds the +output+ option, which gives an IO object to which the module 
+    # output should be redirected.
+    #
+    #
     def self.GenomModule(name, options = Hash.new)
-	# Get the genom module
-	if options[:constant]
-	    raise ArgumentError, "the :constant option cannot be set when running in Roby"
-	elsif options[:start]
-	    raise ArgumentError, "the :start option cannot be set when running in Roby"
+	# Handle options
+	if options[:constant] || options[:start]
+	    raise ArgumentError, "neither the :constant nor the :start options can be set when running in Roby"
 	end
 	output_io = options.delete(:output) # only to be used by the Runner task
-
 	options = { :auto_attributes => true, :lazy_poster_init => true, :constant => false }.merge(options)
+
+	# Get the genom module
 	gen_mod = Genom::GenomModule.new(name, options)
 
-	# Check for a module with the same name
+	# Check for the presence of a module with the same name
 	modname = gen_mod.name.camelize
 	rb_mod = Roby::Genom.define_under(modname) { Module.new }
-
 	if !rb_mod.is_a?(Module)
 	    raise "module #{modname} already defined, but it is not a Ruby module: #{rb_mod}"
 	elsif rb_mod.respond_to?(:genom_module)
@@ -392,6 +400,7 @@ module Roby::Genom
 		raise "module #{modname} already defined, but it does not seem to be associated to #{name}"
 	    end
 	end
+
 	Roby.debug { "Defining #{modname} for genom module #{name}" }
 
 	# Define the base services for the module
