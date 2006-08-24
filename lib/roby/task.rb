@@ -8,8 +8,16 @@ module Roby
         def initialize(task); @task = task end
         def to_s
 	    if task
-		history = task.history.map { |time, event| [time, event.name] }.join("\n  ")
-		super + "\n#{task.name} (0x#{task.address.to_s(16)})\n  #{history.inspect}"
+		history = task.history.map do |time, event|
+			"@%i[%s.%03i] %s" % [
+			    event.propagation_id,
+			    time.strftime("%Y/%m/%d %H:%M:%S"),
+			    time.tv_usec / 1000,
+			    event.name
+			]
+		    end
+
+		super + "\n#{task.name} (0x#{task.address.to_s(16)}) history\n   #{history.join("\n   ")}"
 	    else
 		super
 	    end
