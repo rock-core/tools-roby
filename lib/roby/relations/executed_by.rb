@@ -33,19 +33,13 @@ module Roby::TaskStructure
 		raise ArgumentError, "execution agent tasks should define the :ready event"
 	    end
 
-	    if old = execution_agent && old != agent
+	    old_agent = execution_agent
+	    if old_agent && old_agent != agent
 		Roby.debug "an agent is already defined for this task"
-		remove_execution_agent old
-		agent.event(:stop).remove_causal_link event(:stop)
+		remove_execution_agent old_agent
 	    end
-
 
 	    add_execution_agent(agent)
-	    event(:start).on do
-	        agent.event(:stop).
-	            until(event(:stop)).
-	            on { |event| event(:aborted).emit(event.context) }
-	    end
         end
 
 	module EventModel
@@ -78,6 +72,12 @@ module Roby::TaskStructure
 			    end
 			    agent.start!
 			end
+		    end
+
+		    task.event(:start).on do
+			agent.event(:stop).
+			    until(task.event(:stop)).
+			    on { |stopped| task.event(:aborted).emit(stopped.context) }
 		    end
 		else
 		    raise Roby::TaskModelViolation.new(task), "the #{self} model defines an execution agent, but the task has none"

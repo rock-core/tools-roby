@@ -11,15 +11,19 @@ class TC_ExecutedBy < Test::Unit::TestCase
 
     def test_nominal
 	task = Class.new(Task) { event(:start, :command => true) }.new
-	exec = Class.new(Task) do
+	exec_klass = Class.new(Task) do
 	    event(:start, :command => true)
 	    event(:ready)
 	    on :start => :ready
-	end.new
-	task.executed_by exec
+	end
+	exec1, exec2 = exec_klass.new, exec_klass.new
+	task.executed_by exec2
+
+	task.executed_by exec1
 
 	task.start!
-	assert(exec.running?)
+	assert(exec1.running?)
+	assert(!exec2.running?)
 	assert(task.running?)
     end
 
