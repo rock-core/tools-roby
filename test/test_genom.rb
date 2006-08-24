@@ -88,7 +88,7 @@ class TC_Genom < Test::Unit::TestCase
 	    assert_event( runner.event(:ready) )
 
 	    mod.genom_module.poster(:index).wait
-	    assert_equal(42, mod.genom_module.index.update_period)
+	    assert_equal(42, mod.genom_module.index!.update_period)
 	end
 	assert(did_start)
     end
