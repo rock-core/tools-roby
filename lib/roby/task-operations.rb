@@ -40,6 +40,10 @@ module Roby::TaskAggregator
     class Sequence < TaskAggregator
         include Operations
 
+	def name
+	    @tasks.map { |t| t.name }.join("+")
+	end
+
 	def connect_start(task)
 	    if old = @tasks.first
 		event(:start).remove_signal old.event(:start)
@@ -87,6 +91,10 @@ module Roby::TaskAggregator
 
     class Parallel < TaskAggregator
         include Operations
+
+	def name
+	    @tasks.map { |t| t.name }.join("|")
+	end
 
 	attr_reader :success
         def initialize
