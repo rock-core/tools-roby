@@ -1,3 +1,4 @@
+require 'weakref'
 require 'roby/event'
 require 'roby/support'
 require 'roby/state/information'
@@ -120,11 +121,16 @@ module Roby
     end
 
     class Task
-	@@tasks = Hash.new { |h, k| h[k] = Array.new }
-	def self.[](model)
-	    @@tasks[model]
+	@@tasks = Hash.new
+	def self.each_task(model)
+	    return unless tasks = @@tasks[model]
+	    tasks.each do |t|
+		if t.weakref_alive?
+		    t = t.__getobj__ rescue nil
+		    yield(t) if t
+		end
+	    end
 	end
-
 	def self.model_attribute_list(name)
 	    class_inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = Set.new } }
 	    class_eval <<-EOD
@@ -163,7 +169,8 @@ module Roby
                 model.event(:stop)
             end
 
-	    @@tasks[self.class] << self
+	    @@tasks[self.class] ||= []
+	    @@tasks[self.class] << WeakRef.new(self)
 
 	    super() if defined? super
         end

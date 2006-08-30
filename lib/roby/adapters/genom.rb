@@ -153,7 +153,8 @@ module Roby::Genom
 	    end
 
 	    precondition(:start, "#{name} needs #{request} to have been executed at least once") do |context|
-		Roby::Task[request].find { |rq| rq.success? }
+		Roby::Task.each_task(request) { |rq| break(true) if rq.success? }
+		false
 	    end
 	end
     end

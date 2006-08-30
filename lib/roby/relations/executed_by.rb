@@ -52,12 +52,14 @@ module Roby::TaskStructure
 			return
 		    end
 
-		    all_agents = Roby::Task[agent_model].to_a
-		    agent = if all_agents.empty?
-				agent_model.new rescue nil
-			    else
-				all_agents.find { |t| !t.finished? }
-			    end
+		    # Try to find an already existing agent
+		    agent = Roby::Task.enum_for(:each_task, agent_model).
+			find { |t| !t.finished? }
+
+		    # ... or create a new one
+		    if !agent
+			agent = agent_model.new rescue nil
+		    end
 		end
 
 		if agent
