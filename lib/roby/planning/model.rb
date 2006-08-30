@@ -8,7 +8,8 @@ module Roby
     # The Planning module provides basic tools to create plans (graph of tasks
     # and events)
     module Planning
-        # Violation of the plan model
+        # Violation of plan models, for instance if a method returns a Task object
+	# which is of a wrong model
         class PlanModelError < RuntimeError
             attr_accessor :planner
             def initialize(planner = nil)
@@ -59,7 +60,8 @@ module Roby
 	#   planner = MyPlanner.new
 	#   planner.do_it		=> result of the do_it block
 	# 
-	# See Planner::method for more information on how methods are handled
+	# See Planner::method for a detailed description of the development
+	# search
 	#
         class Planner
 	    extend Tools
@@ -100,6 +102,7 @@ module Roby
                 end
             end
 
+	    # A particular method
             class MethodDefinition
                 include MethodInheritance
 
@@ -108,8 +111,11 @@ module Roby
                     @name, @options, @body = name, options, body
                 end
 
+		# The method ID
                 def id;         options[:id] end
+		# If this method handles recursion
                 def recursive?; options[:recursive] end
+		# What kind of task this method returns
                 def returns;    options[:returns] end
 		def reuse?;	options[:reuse] end
                 def call;       body.call end
@@ -117,17 +123,28 @@ module Roby
                 def to_s; "#{name}:#{id}(#{options.inspect})" end
             end
 
+	    # A method model
             class MethodModel
                 include MethodInheritance
 
-                attr_reader :name, :options
-                def initialize(name, options = Hash.new); @name, @options = name, options end
+		# If this model defines a return type
                 def returns;    options[:returns] end
+		# If the model allows reusing tasks already in the plan
 		def reuse?;	options[:reuse] end
+
+		# The model name
+                attr_reader :name
+		# The model options, as a Hash
+		attr_reader :options
+
+                def initialize(name, options = Hash.new); @name, @options = name, options end
 		def ==(model)
 		    name == model.name && options == model.options
 		end
 
+		# Add new options in this model. Raises ArgumentError if the
+		# new options cannot be merged because they are incompatible
+		# with the current model definition
                 def merge(new_options)
                     validate_options(new_options, [:returns, :reuse])
                     validate_option(new_options, :returns, false) do |rettype| 
@@ -145,11 +162,13 @@ module Roby
 		    end
                 end
                         
+		# Do not allow changing this model anymore
                 def freeze
                     options.freeze
                     super
                 end
-                def initialize_copy(from)
+
+                def initialize_copy(from) # :nodoc:
                     @name    = from.name.dup
                     @options = from.options.dup
                 end
@@ -157,6 +176,12 @@ module Roby
                 def to_s; "#{name}(#{options.inspect})" end
             end
 
+	    # A list of options on which the methods are selected
+	    # in find_methods
+	    # 
+	    # When calling a planning method, only the methods for
+	    # which these options match the user-provided options
+	    # are called. The other options are not considered
 	    METHOD_SELECTION_OPTIONS = [:id, :recursive, :returns]
 	    KNOWN_OPTIONS = [:lazy, :reuse] + METHOD_SELECTION_OPTIONS
 
@@ -175,6 +200,7 @@ module Roby
 		[name, roby_options, method_arguments]
             end
 
+	    # Return the method model for +name+, or nil
             def self.method_model(name)
 		model = send("#{name}_model")
 		
@@ -188,8 +214,8 @@ module Roby
             end
 
 	    # Some validation on the method IDs
-	    #   an integer represented as a string is converted to integer form
-	    #   a symbol is converted to string
+	    # * an integer represented as a string is converted to integer form
+	    # * a symbol is converted to string
 	    def self.validate_method_id(method_id)
 		method_id = method_id.to_s if Symbol === method_id
 
@@ -233,7 +259,7 @@ module Roby
 	    # In the first form, define a new method +name+. The given block
 	    # is used as method definition. It shall either return a Task
 	    # object or an object whose #each method yields task objects, or
-	    # raise a NotFound exception, or one of its subclasses.
+	    # raise a PlanModelError exception, or of one of its subclasses.
 	    #
 	    # The second form defines a method model, which defines
 	    # constraints on the method defined with this name
@@ -258,10 +284,9 @@ module Roby
 	    # using numbers as method IDs yourself, since you could overload
 	    # an automatic ID.
 	    #
-	    # == Constraining the return model
-	    # The +returns+ option can be used to constrain the kind of returned
-	    # task a given method can return. When a constraint is given, it is
-	    # defined for all task overloading the one defining constraints
+	    # == Constraining the returned object
+	    # The +returns+ option defines what kind of Task object this method
+	    # shall return. 
 	    #
 	    # For instance, in
 	    # 
@@ -303,9 +328,16 @@ module Roby
 	    #	end
 	    #
 	    # == Reusing already existing tasks in plan
-	    # If the +reuse+ flag is set (the default), call to methods that define a 
-	    # +returns+ can lead to reusing an already planned task
+	    # If the +reuse+ flag is set (the default), instead of calling a method
+	    # definition, the planner will try to find a suitable task in the current 
+	    # plan if the developed method defines a :returns attribute. Compatibility
+	    # is checked using Task#fullfills?
 	    #
+	    # == Defined attributes
+	    # For each method +name+, the planner class gets a few attributes and methods:
+	    # * each_name_method iterates on all MethodDefinition objects for +name+
+	    # * name_model returns the method model. It is not defined if no method model exists
+	    # * each_name_filter iterates on all filters for +name+
 	    def self.method(name, options = Hash.new, &body)
                 name, options = validate_method_query(name, options)
 
@@ -356,6 +388,9 @@ module Roby
 		send("#{name}_methods")[method_id] = MethodDefinition.new(name, options, &lambda(&body) )
             end
 
+	    # Add a selection filter on the +name+ method. When developing the +name+
+	    # method, the filter is called with each MethodDefinition object, and should return
+	    # +false+ if the method is to be discarded, and +true+ otherwise
 	    def self.filter(name, &filter)
 		if !respond_to?("#{name}_filters")
 		    class_inherited_enumerable("#{name}_filter", "#{name}_filters") { Array.new }
@@ -367,6 +402,11 @@ module Roby
 		send("each_#{name}_method", id, &iterator)
 	    end
 
+	    # Find all methods that can be used to plan +[name, options]+. The selection is
+	    # done in two steps:
+	    # * we search all definition of +name+ that are compatible with +options. In this
+	    #   stage, only the options listed in METHOD_SELECTION_OPTIONS are compared
+	    # * we call the method filters (if any) to remove unsuitable methods
             def self.find_methods(name, options = Hash.new)
 		# validate the options hash, and split it into the options that are used for
 		# method selection and the ones that are ignored here
@@ -400,10 +440,10 @@ module Roby
 		end
             end
 
+	    # If there is method definitions for +name+
             def has_method?(name); singleton_class.respond_to?("#{name}_methods") end
 
             # Find a suitable development for the +name+ method.
-            # +options+ is used for method selection, see find_methods
             def plan(name, options = Hash.new)
                 name    = name.to_s
 		options = options.keys_to_sym
@@ -478,10 +518,9 @@ module Roby
 	    def arguments; @arguments.last end
 	    private :arguments
 
-            # Develops each method in turn, running the next one if 
-            # the previous one was unsuccessful
+            # Tries to find a successfull development in the provided method list.
             #
-            # It raises NotFound if no successful development has been found
+            # It raises NotFound if none of the methods returned successfully
             def plan_method(errors, options, method, *methods)
                 begin
                     @stack.push method.name
@@ -525,8 +564,7 @@ module Roby
 	#   end
 	#
 	# It is then used by simply including the library in another library
-	# or in a Planner class (you don't have to use "extend Roby::Planning::Library"
-	# since you already include a library)
+	# or in a Planner class 
 	# 
 	#	module AnotherLibrary
 	#	    include MyLibrary
@@ -534,6 +572,22 @@ module Roby
 	#
 	#	class MyPlanner < Planner
 	#	    include AnotherLibrary
+	#	end
+	#
+	# Alternatively, you can use Planner::use and Library::use, which search
+	# for a Planning module in the given module. For instance
+	#
+	#	module Namespace
+	#	    module Planning
+	#	    planning_library
+	#	    [...]
+	# 	    end
+	# 	end
+	#
+	# can be used with
+	#	    
+	#	class MyPlanner < Planner
+	#	    using Namespace
 	#	end
 	#
 	module Library
@@ -548,7 +602,7 @@ module Roby
 		super
 		unless klass < Planner
 		    if Class === klass
-			Roby.debug "including a planning library in a class, which is useless"
+			Roby.debug "including a planning library in a class which is not a Planner, which is useless"
 		    else
 			klass.extend Library unless (Class === klass)
 		    end
