@@ -384,7 +384,7 @@ module Roby
 	def each_precondition; @preconditions.each { |o| yield(o) } end
 
 	# Call #postpone in the #calling hook to announce that
-	# the event being called is not to be fired now, but will
+	# the event being called is not to be called now, but will
 	# be called back when +generator+ is emitted.
 	#
 	# A reason string can be provided for debugging purposes
