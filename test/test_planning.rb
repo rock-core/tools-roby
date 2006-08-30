@@ -160,36 +160,59 @@ class TC_Planner < Test::Unit::TestCase
 
     def test_method_model
 	# Some task models
-        base_task_model		= Class.new(Roby::Task) do
-            event :start
-            event :stop
-        end
-        derived_task_model	= Class.new(base_task_model)
-        not_a_task		= Class.new
-        another_kind_of_task	= Class.new(Roby::Task)
+        tm_a = Class.new(Roby::Task)
+        tm_a_a = Class.new(tm_a)
+        tm_b = Class.new(Roby::Task)
+        foo_klass = Class.new
 
 	# The planning model
         model = Class.new(Planner)
 	
-	# Check method model validation
-	assert_raises(ArgumentError) { model.method(:root, :returns => not_a_task) }
-	model.method(:root, :returns => base_task_model)
+	# Fails because foo_klass is not a task
+	assert_raises(ArgumentError) { model.method(:root, :returns => foo_klass) }
+	# Check the definition of instance methods on Planner instances
+	model.method(:root, :returns => tm_a)
 	assert_equal( model.root_model, model.method_model(:root) )
-	assert( model.method_model(:root).returns == base_task_model, model.method_model(:root).inspect )
-	assert_raises(ArgumentError) { model.method(:root, :returns => another_kind_of_task) }
-	assert_nothing_raised { model.method(:root, :returns => base_task_model) }
+	assert( model.method_model(:root).returns == tm_a, model.method_model(:root).inspect )
+	# Fails because we can't override a :returns option
+	assert_raises(ArgumentError) { model.method(:root, :returns => tm_b) }
+	# Does not fail since tm_a is the curren :returns task model
+	assert_nothing_raised { model.method(:root, :returns => tm_a) }
 
-	# Define a method based on the model
+	# Define tasks based on the model, and check that :returns is properly validated
 	model.method(:root, :id => 1) {}
-	assert_raises(ArgumentError) { model.method(:root, :returns => not_a_task) {} }
-	assert_nothing_raised { model.method(:root, :returns => base_task_model) {} }
-	assert_nothing_raised { model.method(:root, :returns => derived_task_model) {} }
+	assert_raises(ArgumentError) { model.method(:root, :returns => tm_b) {} }
+	assert_nothing_raised { model.method(:root, :returns => tm_a) {} }
+	assert_nothing_raised { model.method(:root, :returns => tm_a_a) {} }
+
+	# Cannot redefine the model since there are methods
+	assert_raises(ArgumentError) { model.method(:root, :returns => tm_a) }
 
 	# Check that we can't override an already-defined method
 	assert_raises(ArgumentError) { model.method(:root, :id => 1) {} }
     end
 
     def test_model_inheritance
+	# Some task models
+        tm_a = Class.new(Roby::Task)
+        tm_a_a = Class.new(tm_a)
+        tm_b = Class.new(Roby::Task)
+        foo_klass = Class.new
+
+	# The planning models
+        base = Class.new(Planner)
+	base.method(:root, :returns => tm_a)
+	derived = Class.new(base)
+
+	# Check that we can override the model on derived
+	assert_raises(ArgumentError) { derived.method(:root, :returns => tm_b) }
+	assert_nothing_raised { derived.method(:root, :returns => tm_a_a) }
+	assert_equal(base.root_model.returns, tm_a)
+	assert_equal(derived.root_model.returns, tm_a_a)
+    end
+
+    def test_method_inheritance
+	# Define a few task models
         tm_a	    = Class.new(Roby::Task)
         tm_b	    = Class.new(Roby::Task)
         tm_a_a	    = Class.new(tm_a)
@@ -202,13 +225,14 @@ class TC_Planner < Test::Unit::TestCase
 	end
 	base_root = base.enum_for(:each_root_method).to_a
 
-	# Test inheritance rules
         d1 = Class.new(base)
+	# There are methods defined on :root, cannot override the :returns option
 	assert_raises(ArgumentError)	{ d1.method(:root, :returns => tm_a_a) }
 	assert_raises(ArgumentError)	{ d1.method(:root, :returns => tm_b) }
 	assert_raises(ArgumentError)	{ d1.method(:root, :returns => tm_b) {} }
 
 	d1_root = []
+	# Define a few methods and check :returns is validated properly
 	assert_nothing_raised { d1_root << d1.method(:root, :returns => tm_a) {} }
 	assert_nothing_raised { d1_root << d1.method(:root, :returns => tm_a_a) {} }
 	assert_nothing_raised { d1_root << d1.method(:root, :returns => tm_b_a) {} }
@@ -218,6 +242,7 @@ class TC_Planner < Test::Unit::TestCase
 	d2 = Class.new(d1)
 	assert_nothing_raised { d2_root << d2.method(:root, :id => 1, :returns => tm_a_a_a) {} }
 
+	# Check that methods are defined at the proper level in the class hierarchy
 	assert_equal(base_root.to_set, base.enum_for(:each_root_method).to_set)
 	assert_equal(d1_root.to_set, d1.enum_for(:each_root_method).map { |_, x| x }.to_set)
 	assert_equal(d2_root.to_set, d2.enum_for(:each_root_method).map { |_, x| x }.to_set)

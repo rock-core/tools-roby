@@ -169,6 +169,21 @@ module Roby
 
 		    self
                 end
+
+		def overload(old_model)
+		    if old_returns = old_model.returns
+			if returns && !(returns < old_returns)
+			    raise ArgumentError, "new return type #{returns} is not a subclass of the old one #{old_returns}"
+			elsif !returns
+			    options[:returns] = old_returns
+			end
+		    end
+		    if options.has_key?(:reuse) && old_model.options.has_key?(:reuse) && options[:reuse] != old_model.reuse
+			raise ArgumentError, "the reuse flag for #{name}h as already been set to #{options[:reuse]} on our parent model"
+		    elsif !options.has_key?(:reuse) && old_model.options.has_key?(:reuse)
+			options[:reuse] = old_model.reuse
+		    end
+		end
                         
 		# Do not allow changing this model anymore
                 def freeze
@@ -238,25 +253,33 @@ module Roby
 	    # Returns the MethodModel object
 	    def self.update_method_model(name, options)
 		name = name.to_s
-
-		old_model = send("#{name}_model") if respond_to?("#{name}_model")
-		new_model = MethodModel.new(name)
-		new_model.merge(options)
-		
-		return if old_model == new_model
-
 		if respond_to?("#{name}_methods")
 		    raise ArgumentError, "cannot change the method model for #{name} since methods are already using it"
-		elsif old_model
-		    old_model.merge options
+		end
+
+		old_model = method_model(name)
+		new_model = MethodModel.new(name)
+		new_model.merge(options)
+
+		if old_model == new_model
+		    if !instance_variable_get("@#{name}_model")
+			instance_variable_set("@#{name}_model", new_model)
+		    end
+		    return new_model
+		elsif respond_to?("#{name}_methods")
+		    raise ArgumentError, "cannot change the method model for #{name} since methods are already using it"
+		elsif instance_variable_get("@#{name}_model")
+		    # old_model is defined at this level
+		    return old_model.merge(options)
 		else
-		    singleton_class.class_eval <<-EOD
-			def #{name}_model
-			    @#{name}_model || superclass.#{name}_model
-			end
-		    EOD
-		    new_model = MethodModel.new(name)
-		    new_model.merge(options)
+		    unless respond_to?("#{name}_model")
+			singleton_class.class_eval <<-EOD
+			    def #{name}_model
+				@#{name}_model || superclass.#{name}_model
+			    end
+			EOD
+		    end
+		    new_model.overload(old_model) if old_model
 		    instance_variable_set("@#{name}_model", new_model)
 		end
 	    end
@@ -611,7 +634,7 @@ module Roby
 		    if Class === klass
 			Roby.debug "including a planning library in a class which is not a Planner, which is useless"
 		    else
-			klass.extend Library unless (Class === klass)
+			klass.extend Library
 		    end
 		    return
 		end
