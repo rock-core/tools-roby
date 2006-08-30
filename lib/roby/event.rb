@@ -14,6 +14,9 @@ module Roby
 	end
     end
 
+    class EventCanceled < EventModelViolation; end
+    class EventPreconditionFailed < EventModelViolation; end
+
     class Event
 	attr_reader :generator
 
@@ -392,11 +395,11 @@ module Roby
 	end
 	def postponed(context, generator, reason); super if defined? super end	
 	
-	class PreconditionFailed < RuntimeError
-	    attr_accessor :generator
-	    def initialize(generator)
-		@generator = generator
-	    end
+	# Call this method in the #calling hook to avoid calling
+	# the event command. This raises a PreconditionFailed
+	# exception
+	def cancel(reason = nil)
+	    raise EventCanceled.new(self)
 	end
 	
 	# Hook called when this event generator is called (i.e. the associated command
@@ -406,13 +409,13 @@ module Roby
 	    each_precondition do |reason, block|
 		result = begin
 			     block.call(context)
-			 rescue PreconditionFailed => e
+			 rescue EventPreconditionFailed => e
 			     e.generator = self
 			     raise
 			 end
 
 		if !result
-		   raise PreconditionFailed.new(self), "precondition failed: #{reason}"
+		   raise EventPreconditionFailed.new(self), "precondition #{reason} failed"
 		end
 	    end
 	end

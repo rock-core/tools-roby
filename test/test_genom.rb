@@ -137,7 +137,7 @@ class TC_Genom < Test::Unit::TestCase
 	    assert_event( runner.event(:ready) )
 
 	    task = Genom::Mockup.start!
-	    assert_raises(Roby::EventGenerator::PreconditionFailed) { task.start!(nil) }
+	    assert_raises(Roby::EventPreconditionFailed) { task.start!(nil) }
 	end
     end
 end

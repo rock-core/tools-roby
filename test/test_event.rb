@@ -483,8 +483,17 @@ class TC_Event < Test::Unit::TestCase
 	    context
 	end
 
-	assert_raises(EventGenerator::PreconditionFailed) { e1.call(nil) }
+	assert_raises(EventPreconditionFailed) { e1.call(nil) }
 	assert_nothing_raised { e1.call(true) }
+    end
+
+    def test_cancel
+	e1 = Class.new(EventGenerator) do
+	    def calling(context)
+		cancel("testing cancel method")
+	    end
+	end.new(true)
+	assert_raises(EventCanceled) { e1.call(nil) }
     end
 end
 
