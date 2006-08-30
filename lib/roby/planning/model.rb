@@ -5,6 +5,8 @@ require 'roby/plan'
 require 'set'
 
 module Roby
+    # The Planning module provides basic tools to create plans (graph of tasks
+    # and events)
     module Planning
         # Violation of the plan model
         class PlanModelError < RuntimeError
