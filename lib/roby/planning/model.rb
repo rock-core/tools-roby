@@ -117,7 +117,10 @@ module Roby
                 def recursive?; options[:recursive] end
 		# What kind of task this method returns
                 def returns;    options[:returns] end
-		def reuse?;	options[:reuse] end
+		# If the method allows reusing tasks already in the plan
+		# reuse? is always false if there is no return type defined
+		def reuse?;	options[:reuse] if returns end
+		# Call the method definition
                 def call;       body.call end
 
                 def to_s; "#{name}:#{id}(#{options.inspect})" end
