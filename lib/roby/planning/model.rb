@@ -145,6 +145,9 @@ module Roby
 		    name == model.name && options == model.options
 		end
 
+		# :call-seq
+		#   merge(new_options)	    => self
+		#
 		# Add new options in this model. Raises ArgumentError if the
 		# new options cannot be merged because they are incompatible
 		# with the current model definition
@@ -163,6 +166,8 @@ module Roby
                         options[:reuse] = flag
 			true
 		    end
+
+		    self
                 end
                         
 		# Do not allow changing this model anymore
@@ -230,6 +235,7 @@ module Roby
 	    end
 
 	    # Creates, overloads or updates a method model
+	    # Returns the MethodModel object
 	    def self.update_method_model(name, options)
 		name = name.to_s
 
@@ -256,8 +262,8 @@ module Roby
 	    end
 
 	    # call-seq:
-	    #	method(name, option1 => value1, option2 => value2) { }	    => self
-	    #	method(name, option1 => value1, option2 => value2)
+	    #	method(name, option1 => value1, option2 => value2) { }	    => method definition
+	    #	method(name, option1 => value1, option2 => value2)	    => method model
 	    #
 	    # In the first form, define a new method +name+. The given block
 	    # is used as method definition. It shall either return a Task
@@ -346,8 +352,7 @@ module Roby
 
 		# We are updating the method model
                 if !body
-                    update_method_model(name, options)
-                    return
+                    return update_method_model(name, options)
                 end
                 
 		# Handle the method ID
@@ -380,7 +385,6 @@ module Roby
 		# Check if we are overloading an old method
 		if send("#{name}_methods")[method_id]
 		    raise ArgumentError, "method #{name}:#{method_id} is already defined on this planning model"
-
                 elsif old_method = find_methods(name, :id => method_id)
                     old_method = *old_method
                     options = old_method.validate(options)
