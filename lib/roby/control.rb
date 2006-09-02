@@ -124,11 +124,13 @@ module Roby
 		
 		GC.force if control_gc
 		cycle_duration = Time.now - cycle_start
-		if cycle > cycle_duration
+		if (cycle - cycle_duration) / cycle_duration > 0.1
 		    Thread.pass
-		    sleep(cycle - cycle_duration)
+		    # Take the time we pass in other threads into account
+		    sleep_time = Time.now - cycle_start - cycle_duration
+		    sleep(sleep_time) if sleep_time > 0
 		end
-		garbage_mark
+
 		garbage_collect
 	    end
 
