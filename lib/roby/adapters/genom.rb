@@ -236,7 +236,7 @@ module Roby::Genom
 
 	def initialize(arguments = nil)
 	    # Never garbage-collect runner tasks
-	    Roby::Control.instance.protect(self)
+	    Roby::Control.instance.mission(self)
 
 	    @output_io = roby_module.output_io
 

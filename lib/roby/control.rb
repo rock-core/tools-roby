@@ -17,8 +17,8 @@ module Roby
 
 	def initialize
 	    @cycle_index = 0
-	    @keep    = Set.new
-	    @garbage = Hash.new
+	    @missions    = Set.new
+	    @garbage = Set.new
 	    @garbage_can  = Set.new
 	end
 
@@ -105,7 +105,6 @@ module Roby
 		self.thread = Thread.new { run(options.merge(:detach => false)) }
 		return
 	    end
-
 	    self.thread = Thread.current
 
 	    drb(options[:drb]) if options[:drb]
@@ -119,6 +118,8 @@ module Roby
 	    yield if block_given?
 	    cycle = options[:cycle]
 	    loop do
+		garbage_mark
+
 		cycle_start = Time.now
 		process_events
 		
@@ -151,20 +152,20 @@ module Roby
 
 	# Tell the controller that this particular task should not be 
 	# killed even when it seems that it is not useful anymore
-	def protect(task); @keep << task end
+	def mission(task); @missions << task end
 
-	# True if task is protected. See #protect
-	def protected?(task); @keep.include?(task) end
+	# True if task is a mission. See #protect
+	def mission?(task); @missions.include?(task) end
 
 	# Tell the controller that +task+ should not be controlled
 	# anymore. See Control#protect.
-	def unprotect(task); @keep.delete(task) end
+	def discard(task); @missions.delete(task) end
 
 	def marked?(task)
-	    @garbage[task] || @garbage_can.include?(task)
+	    @garbage.include?(task) || @garbage_can.include?(task)
 	end
 	def useful?(task)
-	    protected?(task) || task.enum_for(:each_parent_task).any? { |task| !task.dead? }
+	    mission?(task) || task.enum_for(:each_parent_task).any? { |task| !task.dead? }
 	end
 
 	# Mark tasks for garbage collection. It marks all unused tasks
@@ -175,39 +176,30 @@ module Roby
 	# routine.
 	def garbage_mark
 	    return unless main
-
-	    # @garbage is a task -> count map which gives the cycle count for which +task+
-	    # has not been useful
 	    main.each_task { |task| mark_task(task) }
 	end
 	def mark_task(task)
-	    @garbage[task] ||= cycle_index unless useful?(task)
+	    if !useful?(task) && task.event(:stop).controlable?
+		@garbage << task
+	    end
 	end
 
 	def garbage_collect
 	    return unless main
 
 	    # @garbage_can contains the tasks that are being killed by the garbage collector
-	    @garbage.dup.each do |task, cycle_index|
+	    @garbage.dup.each do |task|
 		task.dead!
+		next if @garbage_can.include?(task)
 		@garbage.delete(task)
 
 		if task.running?
-		    next if @garbage_can.include?(task)
-
 		    @garbage_can << task
 		    task.on(:stop) { @garbage_can.delete(task) }
-
-		    stop = task.event(:stop)
-		    stop.call("not useful anymore !") if stop.controlable?
+		    task.stop!(nil)
 
 		elsif task.pending?
 		    @garbage_can << task
-
-		    task.each_child do |child|
-			next if marked?(child)
-			mark_task(child) unless useful?(child)
-		    end
 		end
 	    end
 	end

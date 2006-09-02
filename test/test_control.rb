@@ -27,11 +27,8 @@ class TC_Control < Test::Unit::TestCase
     def check_garbage_collection(selections)
 	selections.each do |kind, tasks|
 	    set = Control.instance.instance_eval { eval "@#{kind}" }
-	    assert_equal(tasks, set)
+	    assert_equal(tasks.to_set, set)
 	end
-    end
-    def bump_cycle_index
-	Control.instance.instance_eval { @cycle_index += 1 }
     end
 
     def test_garbage_collect
@@ -53,37 +50,34 @@ class TC_Control < Test::Unit::TestCase
 	end
 	t1.add_child t2
 	t4.add_child t5
-	[t1, t3, t4].each { |t| control.protect(t) }
+	[t1, t3, t4].each { |t| control.mission(t) }
 
 	control.garbage_mark
-	check_garbage_collection :garbage => {}, :garbage_can => Set.new
+	check_garbage_collection :garbage => Set.new, :garbage_can => Set.new
 
-	control.unprotect(t3)
+	control.discard(t3)
 	assert(!control.useful?(t3))
 	control.garbage_mark
-	check_garbage_collection :garbage => { t3 => 0 }, :garbage_can => Set.new
-	bump_cycle_index
+	check_garbage_collection :garbage => [t3], :garbage_can => Set.new
 
 	t1.start!(nil)
 	t1.failed!(nil)
 	assert(t1.finished?)
 	control.garbage_mark
 	assert(!control.useful?(t2))
-	check_garbage_collection :garbage => { t2 => 1, t3 => 0 }, :garbage_can => Set.new
-	bump_cycle_index
+	check_garbage_collection :garbage => [t2, t3], :garbage_can => Set.new
 
 	#t2.start!(nil)
-	control.unprotect(t4)
+	control.discard(t4)
 	control.garbage_mark
-	check_garbage_collection :garbage => { t4 => 2, t2 => 1, t3 => 0 }, :garbage_can => Set.new
-	bump_cycle_index
+	check_garbage_collection :garbage => [t4, t2, t3], :garbage_can => Set.new
 
 	assert(control.useful?(t5))
 	assert(t4.pending? && control.marked?(t4))
 	assert_nothing_raised { control.garbage_collect } # t3 should not be terminated since it is not running
 	assert(t4.dead?)
-	check_garbage_collection :garbage_can => [t4, t3, t2].to_set
-	check_garbage_collection :garbage => { t5 => 3 }
+	check_garbage_collection :garbage_can => [t4, t3, t2]
+	#check_garbage_collection :garbage => [t5]
     end
 end
 
