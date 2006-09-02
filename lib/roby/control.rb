@@ -109,9 +109,12 @@ module Roby
 	    self.thread = Thread.current
 
 	    drb(options[:drb]) if options[:drb]
-	    cycle_start, cycle_server, cycle_handlers = nil
-	    already_disabled_gc = GC.disable if options[:control_gc]
-	    GC.force
+
+	    control_gc = options[:control_gc]
+	    if control_gc
+		already_disabled_gc = GC.disable
+		GC.force
+	    end
 
 	    yield if block_given?
 	    cycle = options[:cycle]
@@ -119,7 +122,7 @@ module Roby
 		cycle_start = Time.now
 		process_events
 		
-		GC.force
+		GC.force if control_gc
 		cycle_duration = Time.now - cycle_start
 		if cycle > cycle_duration
 		    Thread.pass
@@ -140,7 +143,7 @@ module Roby
 		# reset the options only if we are in the event thread
 		@thread = nil
 		DRb.stop_service if options[:drb]
-		GC.enable unless already_disabled_gc
+		GC.enable if control_gc && !already_disabled_gc
 	    end
 	end
 
