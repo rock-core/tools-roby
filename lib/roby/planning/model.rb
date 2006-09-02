@@ -628,8 +628,15 @@ module Roby
 		planning_methods << [name, options, body]
 	    end
 
-	    def included(klass)
+	    # Cannot use included here because included() is called *after* the module
+	    # has been included
+	    def append_features(klass)
+		new_libraries = ancestors.enum_for.
+		    reject { |mod| klass < mod }.
+		    find_all { |mod| mod.respond_to?(:planning_methods) }
+
 		super
+
 		unless klass < Planner
 		    if Class === klass
 			Roby.debug "including a planning library in a class which is not a Planner, which is useless"
@@ -639,11 +646,12 @@ module Roby
 		    return
 		end
 
-		# Define all library methods, beggining with the first included module (last
-		# in the ancestors array)
-		ancestors.enum_for(:reverse_each).
-		    find_all { |mod| mod.respond_to?(:planning_methods) }.
-		    each { |mod| mod.planning_methods.each { |name, options, body| klass.method(name, options, &body) } }
+		new_libraries.reverse_each do |mod|
+		    mod.planning_methods.each { |name, options, body| klass.method(name, options, &body) }
+		end
+
+	    rescue ArgumentError => e
+		raise ArgumentError, "cannot include the #{self} library in #{klass}: #{e.message}", caller(0)
 	    end
 
 	    def self.new(&block)
