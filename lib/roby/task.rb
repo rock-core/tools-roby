@@ -189,7 +189,7 @@ module Roby
         # If this task is currently running
         def running?; event(:start).happened? && !finished? end
         # If this task ran and is finished
-        def finished?; model.terminal_events.find { |ev| event(ev).happened? } end
+        def finished?; enum_for(:each_event).find { |ev| ev.terminal? && ev.happened? } end
 	# If this task ran and succeeded
 	def success?; event(:success).happened? end
 
