@@ -67,7 +67,7 @@ class TC_Relations < Test::Unit::TestCase
 	assert_equal( [], n1.enum_for(:each_parent_object).to_a )
 	assert_equal( [], n3.enum_for(:each_child_object).to_a )
 	assert_equal( [n2, n3].to_set, n1.enum_for(:each_child_object).to_set )
-	assert_equal( [n2].to_a, n1.enum_for(:each_child_object, r1).to_a )
+	assert_equal( [n2].to_a, r1.enum_for(:each_child_object, n1).to_a )
 
 	assert( n2.related_object?(n1) )
 	assert( n2.related_object?(n4) )
@@ -80,12 +80,12 @@ class TC_Relations < Test::Unit::TestCase
 	assert(! n2.child_object?(n4) )
 	assert(! n4.parent_object?(n2) )
 
-	n1.remove_child_object(nil, r2)
+	n1.remove_children(r2)
 	assert( n1.child_object?(n2) )
 	assert( !n1.child_object?(n3) )
 	assert( !n3.parent_object?(n1) )
 
-	n1.remove_child_object(n2, nil)
+	n1.remove_child_object(n2)
 	assert( !n1.child_object?(n2) )
 	assert( !n2.parent_object?(n1) )
 
@@ -115,8 +115,8 @@ class TC_Relations < Test::Unit::TestCase
 	n1.add_child_object(n2, r1)
 	n1.add_child_object(n3, r2)
 
-	assert_equal([n2], n1.enum_for(:each_child_object, r1).to_a)
-	assert_equal([n3, n2].to_set, n1.enum_for(:each_child_object, r2).to_set)
+	assert_equal([n2], r1.enum_for(:each_child_object, n1).to_a)
+	assert_equal([n3, n2].to_set, r2.enum_for(:each_child_object, n1).to_set)
     end
 
    

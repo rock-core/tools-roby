@@ -101,8 +101,9 @@ module Roby
 
         def controlable?; event_model.controlable? end
         def terminal?
-	    event_model.terminal? || 
-		enum_for(:each_signal).find { |ev| ev.respond_to?(:task) && ev.task == self.task && ev.terminal? } 
+	    return true if event_model.terminal?
+	    each_signal { |ev| return true if ev.respond_to?(:task) && ev.task == self.task && ev.terminal? } 
+	    false
 	end
 	def active?(seen = Set.new)
 	    if symbol == :start; super
@@ -189,7 +190,10 @@ module Roby
         # If this task is currently running
         def running?; event(:start).happened? && !finished? end
         # If this task ran and is finished
-        def finished?; enum_for(:each_event).find { |ev| ev.terminal? && ev.happened? } end
+        def finished?
+	    each_event { |ev| return true if ev.terminal? && ev.happened? } 
+	    false
+	end
 	# If this task ran and succeeded
 	def success?; event(:success).happened? end
 

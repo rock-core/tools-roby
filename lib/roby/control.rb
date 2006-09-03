@@ -165,7 +165,9 @@ module Roby
 	    @garbage.include?(task) || @garbage_can.include?(task)
 	end
 	def useful?(task)
-	    mission?(task) || task.enum_for(:each_parent_task).any? { |task| !task.dead? }
+	    return true if mission?(task)
+	    task.each_parent_task { |task| return true if !task.dead? }
+	    false
 	end
 
 	# Mark tasks for garbage collection. It marks all unused tasks

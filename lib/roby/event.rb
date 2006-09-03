@@ -370,7 +370,7 @@ module Roby
 		false
 	    else
 		seen << self
-		enum_for(:each_parent_object, EventStructure::CausalLinks).find { |ev| ev.active?(seen) }
+		EventStructure::CausalLinks.enum_for(:each_parent_object, self).find { |ev| ev.active?(seen) }
 	    end
 	end
 

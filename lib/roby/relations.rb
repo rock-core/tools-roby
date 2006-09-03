@@ -11,28 +11,26 @@ module Roby
 	# An array of relation types this object is part of
 	attribute(:relations) { Set.new }
 
-	def each_object(type, e1, e2 = nil)
-	    apply_selection(type, relations).each do |type|
-		type.send(e1, self) { |o| yield(o) }
-		type.send(e2, self) { |o| yield(o) } if e2
+	def each_object_aux(parent, child)
+	    relations.each do |type|
+		type.each_parent_object(self) { |o| yield(o) } if parent
+		type.each_child_object(self)  { |o| yield(o) } if child
 	    end
 	end
-	private :each_object
+	private :each_object_aux
 
-	def each_parent_object(type = nil)
-	    check_is_relation(type)
-	    enum_for(:each_object, type, :each_parent_object).
-		each_uniq { |o| yield(o) }
+	def each_parent_object
+	    enum = (@__each_parent_enum__ ||= enum_for(:each_object_aux, true, false))
+	    enum.each_uniq { |o| yield(o) }
 	end
-	def each_child_object(type = nil)
-	    check_is_relation(type)
-	    enum_for(:each_object, type, :each_child_object).
-		each_uniq { |o| yield(o) }
+	def each_child_object
+	    enum = (@__each_child_enum__ ||= enum_for(:each_object_aux, false, true))
+	    enum.each_uniq { |o| yield(o) }
 	end
-	def each_related_object(type = nil)
-	    check_is_relation(type)
-	    enum_for(:each_object, type, :each_parent_object, :each_child_object).
-		each_uniq { |o| yield(o) }
+	# Cannot have the same object as parent and child
+	def each_related_object
+	    each_parent_object { |o| yield(o) }
+	    each_child_object { |o| yield(o) }
 	end
 
 	# true if +obj+ is a child of +self+ for the relation +type+
@@ -79,12 +77,17 @@ module Roby
 	end
 
 	# Remove relations where self is a parent
-	def remove_child_object(to = nil, type = nil)
+	def remove_child_object(to, type = nil)
 	    check_is_relation(type)
 	    apply_selection(type, relations) do |type|
-		apply_selection(to, enum_for(:each_child_object, type)) do |to|
-		    type.remove_child(self, to)
-		    removed_child_object(to, type)
+		type.remove_child(self, to)
+		removed_child_object(to, type)
+	    end
+	end
+	def remove_children(type = nil)
+	    apply_selection(type, relations) do |type|
+		type.each_child_object(self) do |to|
+		    remove_child_object(to, type)
 		end
 	    end
 	end
@@ -94,12 +97,18 @@ module Roby
 	end
 
 	# Remove relations where self is a child
-	def remove_parent_object(to = nil, type = nil)
+	def remove_parent_object(to, type = nil)
 	    check_is_relation(type)
 	    apply_selection(type, relations) do |type|
-		apply_selection(to, enum_for(:each_parent_object, type)) do |to|
-		    type.remove_parent(self, to)
-		    removed_parent_object(to, type)
+		type.remove_parent(self, to)
+		removed_parent_object(to, type)
+	    end
+	end
+	def remove_parents(type = nil)
+	    check_is_relation(type)
+	    apply_selection(type, relations) do |type|
+		type.each_parent_object(self) do |to|
+		    remove_parent_object(type, to)
 		end
 	    end
 	end
@@ -190,6 +199,10 @@ module Roby
 		of.children[relation_type].each_key { |o| yield(o) }
 		subsets.each { |mod| mod.each_child_object(of) { |o| yield(o) } }
 	    end
+	    def each_related_object(of, &iterator)
+		each_parent_object(of, &iterator)
+		each_child_object(of, &iterator)
+	    end
 	    
 	    # Defines enumerators in the node objects for this relationship. 
 	    # It defines each_#{parent} and each_#{child}. Set either to nil
@@ -222,23 +235,32 @@ module Roby
 		
 		mod.include DirectedRelation
 		mod.class_eval(&block) if block
-		mod.class_eval do
-		    relation_type = self.relation_type
-		    module_name(self.module_name || relation_name.to_s.camelize.pluralize)
-		    enumerator = "enumerate_#{relation_name}"
-		    if parent_enumerator_name
-			define_method_with_block("each_#{parent_enumerator_name}") do |iterator|
-			    relation_type.each_parent_object(self, &iterator)
-			end
-		    end
+		mod.module_name(mod.module_name || relation_name.to_s.camelize.pluralize)
 
-		    
-		    define_method_with_block "each_#{relation_name}" do |iterator|
-			relation_type.each_child_object(self, &iterator)
+		if mod.parent_enumerator_name
+		    mod.class_eval <<-EOD
+		    def each_#{mod.parent_enumerator_name}(&iterator)
+			@@__r_#{relation_name}__.each_parent_object(self, &iterator)
 		    end
-		    define_method("add_#{relation_name}")    { |to, *info| self.add_child_object(to, relation_type, *info); self }
-		    define_method("remove_#{relation_name}") { |to| self.remove_child_object(to, relation_type); self }
+		    EOD
 		end
+		    
+		mod.singleton_class.class_eval { define_method("__r_#{relation_name}__") { mod } }
+		mod.class_eval <<-EOD
+		@@__r_#{relation_name}__ = __r_#{relation_name}__
+		def each_#{relation_name}(&iterator)
+		    @@__r_#{relation_name}__.each_child_object(self, &iterator)
+		end
+		def add_#{relation_name}(to, info = nil)
+		    add_child_object(to, @@__r_#{relation_name}__, info)
+		    self
+		end
+		def remove_#{relation_name}(to)
+		    remove_child_object(to, @@__r_#{relation_name}__)
+		    self
+		end
+		EOD
+
 		relation_space.const_set(mod.module_name, mod)
 		klass.include mod
 
