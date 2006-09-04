@@ -135,10 +135,16 @@ module Roby
 	def self.model_attribute_list(name)
 	    class_inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = Set.new } }
 	    class_eval <<-EOD
+		class << self
+		    attribute("__#{name}_enumerator__") { Hash.new }
+		end
+
+		def self.each_#{name}_aux(model)
+		    each_#{name}_set(model, false) { |models| models.each { |m| yield(m) } }
+		end
 		def self.each_#{name}(model)
-		    enum_for(:each_#{name}_set, model, false).
-			inject(null_enum) { |a, b| a + b }.
-			each_uniq { |o| yield(o) }
+		    enumerator = (__#{name}_enumerator__[model] ||= enum_for(:each_#{name}_aux, model))
+		    enumerator.each_uniq { |o| yield(o) }
 		end
 		def each_#{name}(model); singleton_class.each_#{name}(model) { |o| yield(o) } end
 	    EOD
@@ -189,11 +195,14 @@ module Roby
 	def pending?; !event(:start).happened? end
         # If this task is currently running
         def running?; event(:start).happened? && !finished? end
-        # If this task ran and is finished
-        def finished?
-	    each_event { |ev| return true if ev.terminal? && ev.happened? } 
-	    false
+	# A terminal event that has already happened. nil if the task
+	# is not finished
+	def final_event
+	    each_event { |ev| return ev if ev.terminal? && ev.happened? } 
+	    nil
 	end
+        # If this task ran and is finished
+	def finished?; !!final_event end
 	# If this task ran and succeeded
 	def success?; event(:success).happened? end
 
@@ -209,7 +218,7 @@ module Roby
         # This method is called by TaskEventGenerator#fire just before the event handlers
         # and commands are called
         def fire_event(event)
-	    final_event = enum_for(:each_event).find { |ev| ev.terminal? && ev.happened? }
+	    final_event = self.final_event
 	    final_event = final_event.last if final_event
 
             if final_event && final_event.propagation_id != event.propagation_id

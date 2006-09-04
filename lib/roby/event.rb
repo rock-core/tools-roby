@@ -233,10 +233,10 @@ module Roby
 	# be propagated in the next step and calls fired()
 	def fire(event)
 	    propagation_context(event) do |result|
-		enum_for(:each_signal).each do |signalled|
+		each_signal do |signalled|
 		    add_signal_to_propagation(false, event, signalled, event.context)
 		end
-		enum_for(:each_forwarding).each do |signalled|
+		each_forwarding do |signalled|
 		    add_signal_to_propagation(true, event, signalled, event.context)
 		end
 
