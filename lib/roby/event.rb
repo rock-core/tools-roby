@@ -91,6 +91,8 @@ module Roby
 	    @handlers = []
 	    @pending  = 0
 
+	    super() if defined? super
+
 	    if controlable || control
 		self.command = (control || lambda { |context| emit(context) })
 	    end
