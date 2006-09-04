@@ -157,36 +157,41 @@ module Roby
 	    end
 
 	    # true if +obj+ is a child of +of+ for this relation
-	    def child_object?(of, obj)
-		of.children[relation_type].has_key?(obj) ||
-		    subsets.find { |mod| mod.child_object?(of, obj) }
+	    def child_object?(node, child)
+		node.children[relation_type].has_key?(child) ||
+		    subsets.find { |mod| mod.child_object?(node, child) }
 	    end
 
-	    # true if +obj+ is a parent object of +of+ for this relation 
-	    def parent_object?(of, obj); child_object?(obj, of) end
+	    # true if +parent+ is a parent object of +node+ for this relation 
+	    def parent_object?(node, parent); child_object?(parent, node) end
 
-	    def each_relation(of, directed = false)
-		of.children[relation_type].each do |to, info|
-		    yield(relation_type, of, to, info)
+	    # enumerates the relations +node+ is part of
+	    # if +directed+ is true, only children are enumerated (parent is always +node+)
+	    def each_relation(node, directed = false) # :yield: relation_type, parent, child, info
+		node.children[relation_type].each do |to, info|
+		    yield(relation_type, node, to, info)
 		end
 		if !directed
-		    of.parents[relation_type].each do |_, parent|
-			yield(relation_type, parent, of, parent.children[relation_type][of])
+		    node.parents[relation_type].each_key do |parent|
+			yield(relation_type, parent, node, parent.children[relation_type][node])
 		    end
 		end
 	    end
 
-	    def each_parent_object(of) # :yield: parent_object
-		of.parents[relation_type].each { |_, o| yield(o) }
-		subsets.each { |mod| mod.each_parent_object(of) { |_, o| yield(o) } }
+	    # Enumerates the parents of +node+
+	    def each_parent_object(node) # :yield: parent_object
+		node.parents[relation_type].each_key { |o| yield(o) }
+		subsets.each { |mod| mod.each_parent_object(node) { |o| yield(o) } }
 	    end
-	    def each_child_object(of)  # :yield: child_object
-		of.children[relation_type].each_key { |o| yield(o) }
-		subsets.each { |mod| mod.each_child_object(of) { |o| yield(o) } }
+	    # Enumerates the children of +node+
+	    def each_child_object(node)  # :yield: child_object
+		node.children[relation_type].each_key { |o| yield(o) }
+		subsets.each { |mod| mod.each_child_object(node) { |o| yield(o) } }
 	    end
-	    def each_related_object(of, &iterator)
-		each_parent_object(of, &iterator)
-		each_child_object(of, &iterator)
+	    # Enumerates the objects that are either parent or child of +node+
+	    def each_related_object(node, &iterator)
+		each_parent_object(node, &iterator)
+		each_child_object(node, &iterator)
 	    end
 	    
 	    # Defines enumerators in the node objects for this relationship. 
