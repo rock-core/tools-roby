@@ -1,4 +1,11 @@
 require 'roby/support'
+require 'roby/faster'
+
+class Hash
+    def <<(obj)
+	self[obj] = obj
+    end
+end
 
 module Roby
     class NoRelationError < RuntimeError; end
@@ -10,28 +17,6 @@ module Roby
     module DirectedRelationSupport
 	# An array of relation types this object is part of
 	attribute(:relations) { Set.new }
-
-	def each_object_aux(parent, child)
-	    relations.each do |type|
-		type.each_parent_object(self) { |o| yield(o) } if parent
-		type.each_child_object(self)  { |o| yield(o) } if child
-	    end
-	end
-	private :each_object_aux
-
-	def each_parent_object
-	    enum = (@__each_parent_enum__ ||= enum_for(:each_object_aux, true, false))
-	    enum.each_uniq { |o| yield(o) }
-	end
-	def each_child_object
-	    enum = (@__each_child_enum__ ||= enum_for(:each_object_aux, false, true))
-	    enum.each_uniq { |o| yield(o) }
-	end
-	# Cannot have the same object as parent and child
-	def each_related_object
-	    each_parent_object { |o| yield(o) }
-	    each_child_object { |o| yield(o) }
-	end
 
 	# true if +obj+ is a child of +self+ for the relation +type+
 	# If +type+ is nil, it considers all relations
@@ -146,7 +131,7 @@ module Roby
 	
 	## The following attributes are used by SimpleDirectedRelation
 	# A type -> parent map
-	attribute(:parents) do Hash.new { |h, k| h[k] = Set.new } end
+	attribute(:parents) do Hash.new { |h, k| h[k] = Hash.new } end
 	# A type -> children map
 	attribute(:children) do Hash.new { |h, k| h[k] = Hash.new } end
     end
@@ -180,20 +165,20 @@ module Roby
 	    # true if +obj+ is a parent object of +of+ for this relation 
 	    def parent_object?(of, obj); child_object?(obj, of) end
 
-	    def each_relation(of, directed)
+	    def each_relation(of, directed = false)
 		of.children[relation_type].each do |to, info|
 		    yield(relation_type, of, to, info)
 		end
 		if !directed
-		    of.parents[relation_type].each do |parent|
+		    of.parents[relation_type].each do |_, parent|
 			yield(relation_type, parent, of, parent.children[relation_type][of])
 		    end
 		end
 	    end
 
 	    def each_parent_object(of) # :yield: parent_object
-		of.parents[relation_type].each { |o| yield(o) }
-		subsets.each { |mod| mod.each_parent_object(of) { |o| yield(o) } }
+		of.parents[relation_type].each { |_, o| yield(o) }
+		subsets.each { |mod| mod.each_parent_object(of) { |_, o| yield(o) } }
 	    end
 	    def each_child_object(of)  # :yield: child_object
 		of.children[relation_type].each_key { |o| yield(o) }
