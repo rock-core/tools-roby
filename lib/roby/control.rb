@@ -66,25 +66,31 @@ module Roby
 	# Process the pending events. Returns a [cycle, server, processing]
 	# array which are the duration of the whole cycle, the handling of
 	# the server commands and the event processing
-	def process_events
+	def process_events(timings, do_gc)
 	    # Current time
-	    cycle_start = Time.now
+	    timings[:start] = Time.now
+
+	    # Mark garbage tasks
+	    garbage_mark
+	    timings[:garbage_mark] = Time.now
 
 	    # Get the events received by the server and process them
-	    cycle_server = Time.now
 	    Thread.current.process_events
+	    timings[:server] = Time.now
 	    
 	    # Call event processing registered by other modules
-	    cycle_handlers = Time.now
 	    Control.event_processing.each { |prc| prc.call }
-	    
-	    cycle_end = Time.now
-	    
-	    whole_cycle = cycle_end - cycle_start
-	    server_handling = cycle_server - cycle_start
-	    processing = cycle_handlers - cycle_server
+	    timings[:events] = Time.now
 
-	    [whole_cycle, server_handling, processing]
+	    garbage_collect
+	    timings[:end] = timings[:garbage_collect] = Time.now
+
+	    if do_gc
+		GC.force
+		timings[:end] = timings[:ruby_gc] = Time.now
+	    end
+
+	    timings
 	end
 
 	attr_accessor :thread
@@ -99,13 +105,14 @@ module Roby
 	def run(options = {})
 	    options = validate_options options, 
 		:drb => nil, :cycle => 0.1, :detach => false, 
-		:control_gc => false
+		:control_gc => false, :log => false
 		
 	    if options[:detach]
 		self.thread = Thread.new { run(options.merge(:detach => false)) }
 		return
 	    end
 	    self.thread = Thread.current
+	    self.thread.priority = 10
 
 	    drb(options[:drb]) if options[:drb]
 
@@ -116,23 +123,26 @@ module Roby
 	    end
 
 	    yield if block_given?
-	    cycle = options[:cycle]
+	    cycle   = options[:cycle]
+	    log	    = options[:log]
+	    timings = {}
 	    loop do
-		garbage_mark
-
-		cycle_start = Time.now
-		process_events
+		timings = process_events(timings, control_gc)
 		
-		GC.force if control_gc
-		cycle_duration = Time.now - cycle_start
-		if (cycle - cycle_duration) / cycle_duration > 0.1
+		cycle_duration = timings[:end] - timings[:start]
+		if cycle - cycle_duration > 0.01
 		    Thread.pass
-		    # Take the time we pass in other threads into account
-		    sleep_time = Time.now - cycle_start - cycle_duration
-		    sleep(sleep_time) if sleep_time > 0
+		    timings[:pass] = Time.now
+
+		    # Take the time we passed in other threads into account
+		    sleep_time = cycle - (Time.now - timings[:start])
+		    if sleep_time > 0
+			sleep(sleep_time) 
+			timings[:sleep] = Time.now
+		    end
 		end
 
-		garbage_collect
+		log << Marshal.dump(timings) if log
 	    end
 
 	rescue Interrupt
