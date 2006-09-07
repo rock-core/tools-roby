@@ -437,9 +437,11 @@ static VALUE vertex_each_graph(VALUE self)
 
 /*
  * call-seq:
- *  vertex.parent_object?(object)		=> true of false
+ *  vertex.parent_object?(object[, graph])		=> true of false
  *
- * Checks if +object+ is a parent of +vertex+
+ * Checks if +object+ is a parent of +vertex+. If +graph+ is given,
+ * check only in this graph. Otherwise, check in all graphs +vertex+
+ * is part of.
  */
 static VALUE vertex_parent_p(int argc, VALUE* argv, VALUE self)
 { 
@@ -465,10 +467,11 @@ static VALUE vertex_parent_p(int argc, VALUE* argv, VALUE self)
 
 /*
  * call-seq:
- *	vertex.child_vertex?(object)		=> true or false
+ *	vertex.child_vertex?(object[, graph])		=> true or false
  *
- * Checks if +object+ is a child of +vertex+ in +graph+. If +graph+ 
- * is nil, check in all graphs
+ * Checks if +object+ is a child of +vertex+ in +graph+. If +graph+ is given,
+ * check only in this graph. Otherwise, check in all graphs +vertex+ is part
+ * of.
  */
 static VALUE vertex_child_p(int argc, VALUE* argv, VALUE self)
 { 
@@ -478,10 +481,11 @@ static VALUE vertex_child_p(int argc, VALUE* argv, VALUE self)
 
 /*
  * call-seq:
- *	vertex.related_vertex?(object)		=> true or false
+ *	vertex.related_vertex?(object[, graph])		=> true or false
  *
- * Checks if +object+ is a child or a parent of +vertex+ in +graph+.
- * If +graph+ is nil, check in all graphs
+ * Checks if +object+ is a child or a parent of +vertex+ in +graph+.  If
+ * +graph+ is given, check only in this graph. Otherwise, check in all graphs
+ * +vertex+ is part of.
  */
 static VALUE vertex_related_p(int argc, VALUE* argv, VALUE self)
 {
