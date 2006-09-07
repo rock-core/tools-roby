@@ -5,9 +5,7 @@ module Roby::TaskStructure
     # The execution_agent defines an agent (process or otherwise) a given
     # task is executed by. It allows to define a class of these execution agent,
     # so that the specific agents are managed externally (load-balacing, ...)
-    relation :execution_agent do
-	parent_enumerator :executed_agent
-
+    relation :execution_agent, :parent_enumerator => :executed_agent, :noinfo => true do
         def self.included(klass)
             class << klass
                 attr_reader :execution_agent

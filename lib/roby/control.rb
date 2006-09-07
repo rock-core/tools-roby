@@ -106,15 +106,21 @@ module Roby
 	    options = validate_options options, 
 		:drb => nil, :cycle => 0.1, :detach => false, 
 		:control_gc => false, :log => false
-		
+	
+	    # Start DRb as soon as possible so that the caller knows
+	    # that DRb is up when #run returns, event when :detach is true.
+	    #
+	    # It allows to do
+	    #	Control.run :drb => DRB_SERVER, :detach => true
+	    #	<do something with DRb>	    
+	    drb(options[:drb]) if options[:drb]
+	    
 	    if options[:detach]
-		self.thread = Thread.new { run(options.merge(:detach => false)) }
+		self.thread = Thread.new { run(options.merge(:detach => false, :drb => nil)) }
 		return
 	    end
 	    self.thread = Thread.current
 	    self.thread.priority = 10
-
-	    drb(options[:drb]) if options[:drb]
 
 	    control_gc = options[:control_gc]
 	    if control_gc

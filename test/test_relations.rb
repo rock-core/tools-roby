@@ -12,18 +12,13 @@ class TC_Relations < Test::Unit::TestCase
 	klass = Class.new { include DirectedRelationSupport }
 
 	r1, r2 = nil
-	Roby::RelationSpace(klass) do
+	space = Roby::RelationSpace(klass) do
 	    r1 = relation :r1
-
-	    r2 = relation :child do
-		module_name :R2s
-		parent_enumerator :parent
-	    end
+	    r2 = relation :child, :const_name => :R2s, :parent_enumerator => :parent
 	end
 
-	assert_equal(r1, r1.relation_type)
-
 	n = klass.new
+	assert_equal(r2, space.constant('R2s'))
 	assert( n.respond_to?(:each_child) )
 	assert( n.respond_to?(:add_child) )
 	assert( n.respond_to?(:remove_child) )
@@ -38,11 +33,7 @@ class TC_Relations < Test::Unit::TestCase
 	r1, r2 = nil
 	Roby::RelationSpace(klass) do
 	    r1 = relation :r1
-
-	    r2 = relation :child do
-		module_name :R1s
-		parent_enumerator :parent
-	    end
+	    r2 = relation :child, :parent_enumerator => :parent
 	end
 
 	n1, n2, n3, n4 = 4.enum_for(:times).map { klass.new }
@@ -54,9 +45,6 @@ class TC_Relations < Test::Unit::TestCase
 	assert( n2.parent_object?(n1, r1) )
 	assert( !n2.parent_object?(n1, r2) )
 	assert_equal( [n1], n2.enum_for(:each_parent_object).to_a )
-	assert_equal( [n1], r1.enum_for(:each_parent_object, n2).to_a )
-	assert_equal( [[r1, n1, n2, nil]], n2.enum_for(:each_relation).to_a )
-	assert_equal( [[r1, n1, n2, nil]], r1.enum_for(:each_relation, n1).to_a )
 
 	n1.add_r1(n3)
 	n2.add_child(n4)
@@ -70,22 +58,9 @@ class TC_Relations < Test::Unit::TestCase
 	assert_equal( [], n1.enum_for(:each_parent_object).to_a )
 	assert_equal( [], n3.enum_for(:each_child_object).to_a )
 	assert_equal( [n2, n3].to_set, n1.enum_for(:each_child_object).to_set )
-	assert_equal( [n2, n3].to_set, r1.enum_for(:each_child_object, n1).to_set )
-	assert_equal( [n2], r2.enum_for(:each_parent_object, n4).to_a )
 
 	assert( n2.related_object?(n1) )
 	assert( n2.related_object?(n4) )
-
-	# Test node#each_relation
-	assert_equal( [[r1, n1, n2, nil], [r1, n1, n3, nil]].to_set, n1.enum_for(:each_relation).to_set )
-	assert_equal( [[r1, n1, n2, nil], [r2, n2, n4, nil]].to_set, n2.enum_for(:each_relation).to_set )
-	assert_equal( [[r2, n2, n4, nil]], n2.enum_for(:each_relation, true).to_a )
-	assert_equal( [[r1, n1, n2, nil], [r2, n2, n4, nil]].to_set, n2.enum_for(:each_relation).to_set )
-	assert_equal( [[r1, n1, n2, nil], [r2, n2, n4, nil]].to_set, n2.enum_for(:each_relation).to_set )
-
-	# Test relation#each_relation
-	assert_equal( [[r1, n1, n2, nil]].to_set, r1.enum_for(:each_relation, n2).to_set )
-	assert_equal( [[r2, n2, n4, nil]].to_set, r2.enum_for(:each_relation, n2).to_set )
 
 	n2.remove_child_object(n4, r2)
 	assert(! n2.child_object?(n4) )
@@ -100,34 +75,25 @@ class TC_Relations < Test::Unit::TestCase
 	assert( !n1.child_object?(n2) )
 	assert( !n2.parent_object?(n1) )
 
-	n1, n2 = 2.enum_for(:times).map { klass.new }
-	n1.add_child_object(n2, r1)
-	assert_equal(r1.enum_for(:each_relation, n1, false).to_a, r1.enum_for(:each_relation, n2, false).to_a)
-	assert_equal(n1.enum_for(:each_relation).to_a, n2.enum_for(:each_relation).to_a)
     end
 
-    def test_relation_enumerators
-      	klass = Class.new { include DirectedRelationSupport }
-	r1 = Module.new { include DirectedRelation }
-	r2 = Module.new { 
-	    include DirectedRelation 
-	}
-    end
 
     def test_subsets
 	klass = Class.new { include DirectedRelationSupport }
-	r1 = Module.new { include DirectedRelation }
-	r2 = Module.new { 
-	    include DirectedRelation 
-	    superset_of r1
-	}
+	r1, r2 = nil
+	Roby::RelationSpace(klass) do
+	    r1 = relation :r1
+	    r2 = relation :r2, :subsets => [r1]
+	end
+	assert_equal(r2, r1.parent)
 
-	n1, n2, n3, n4 = 4.enum_for(:times).map { klass.new }
+	n1, n2, n3 = 3.enum_for(:times).map { klass.new }
 	n1.add_child_object(n2, r1)
+	assert(n1.child_object?(n2, r2))
 	n1.add_child_object(n3, r2)
 
-	assert_equal([n2], r1.enum_for(:each_child_object, n1).to_a)
-	assert_equal([n3, n2].to_set, r2.enum_for(:each_child_object, n1).to_set)
+	assert_equal([n2], n1.enum_for(:each_child_object, r1).to_a)
+	assert_equal([n3, n2].to_set, n1.enum_for(:each_child_object, r2).to_set)
     end
 
    

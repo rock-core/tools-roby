@@ -1,11 +1,5 @@
 require 'roby/support'
-require 'roby/faster'
-
-class Hash
-    def <<(obj)
-	self[obj] = obj
-    end
-end
+require 'roby/bgl'
 
 module Roby
     class NoRelationError < RuntimeError; end
@@ -15,45 +9,21 @@ module Roby
     # It is used by the DirectedRelation module, which is used
     # to define the relation modules (like TaskSupport::Hierarchy)
     module DirectedRelationSupport
-	# An array of relation types this object is part of
-	attribute(:relations) { Set.new }
+	include BGL::Vertex
 
-	# true if +obj+ is a child of +self+ for the relation +type+
-	# If +type+ is nil, it considers all relations
-	def child_object?(obj, type = nil)
-	    check_is_relation(type)
-	    apply_selection(type, relations).
-		find { |type| type.child_object?(self, obj) }
-	end
+	alias :child_object?	:child_vertex?	
+	alias :parent_object?	:parent_vertex?	
+	alias :related_object?	:related_vertex?
+	alias :each_child_object 	:each_child_vertex
+	alias :each_parent_object 	:each_parent_vertex
 
-	# true if +obj+ is a parent of +self+ for the relation +type.
-	# If +type+ is nil, it considers all relations
-	def parent_object?(obj, type = nil)
-	    check_is_relation(type)
-	    apply_selection(type, relations).
-		find { |type| type.parent_object?(self, obj) }
-	end
-
-	# true if +obj+ is related to +self+ for the relation +type+ 
-	# If +type+ is nil, it considers all relations
-	def related_object?(obj, type = nil); child_object?(obj, type) || parent_object?(obj, type) end
-
-
-	# Enumerate all relations this object is part of.
-	# If directed is false, then we enumerate both parents
-	# and children.
-	def each_relation(directed = false) # :yield: type, parent, child
-	    relations.inject(null_enum) { |enum, type| enum + type.enum_for(:each_relation, self, directed) }.
-		each_uniq { |o| yield(o) }
-	end
+	def enum_relations; @enum_relations ||= enum_for(:each_graph) end
+	def relations; enum_relations.to_a end
 
 	# Add a new relation
 	def add_child_object(to, type, info = nil)
 	    check_is_relation(type)
-	    relations << type
-	    to.relations << type
-	    type.add_child(self, to, info)
-
+	    type.link(self, to, info)
 	    added_child_object(to, type, info)
 	end
 	# Hook called after a new child has been added
@@ -64,14 +34,14 @@ module Roby
 	# Remove relations where self is a parent
 	def remove_child_object(to, type = nil)
 	    check_is_relation(type)
-	    apply_selection(type, relations) do |type|
-		type.remove_child(self, to)
+	    apply_selection(type, enum_relations) do |type|
+		type.unlink(self, to)
 		removed_child_object(to, type)
 	    end
 	end
 	def remove_children(type = nil)
-	    apply_selection(type, relations) do |type|
-		type.each_child_object(self) do |to|
+	    apply_selection(type, enum_relations) do |type|
+		self.each_child_object(type) do |to|
 		    remove_child_object(to, type)
 		end
 	    end
@@ -84,14 +54,14 @@ module Roby
 	# Remove relations where self is a child
 	def remove_parent_object(to, type = nil)
 	    check_is_relation(type)
-	    apply_selection(type, relations) do |type|
-		type.remove_parent(self, to)
+	    apply_selection(type, enum_relations) do |type|
+		type.unlink(to, self)
 		removed_parent_object(to, type)
 	    end
 	end
 	def remove_parents(type = nil)
 	    check_is_relation(type)
-	    apply_selection(type, relations) do |type|
+	    apply_selection(type, enum_relations) do |type|
 		type.each_parent_object(self) do |to|
 		    remove_parent_object(type, to)
 		end
@@ -106,12 +76,11 @@ module Roby
 	# If +to+ is nil, it removes all relations related to +self+
 	def remove_relations(to = nil, type = nil)
 	    check_is_relation(type)
-	    remove_child_object(to, type)
-	    remove_parent_object(to, type)
+	    clear_links(type)
 	end
 
 	def check_is_relation(type)
-	    if type && !type.respond_to?(:relation_type)
+	    if type && !(RelationGraph === type)
 		raise ArgumentError, "#{type} is not a relation type"
 	    end
 	end
@@ -128,136 +97,110 @@ module Roby
 	    end
 	end
 	private :apply_selection
-	
-	## The following attributes are used by SimpleDirectedRelation
-	# A type -> parent map
-	attribute(:parents) do Hash.new { |h, k| h[k] = Hash.new } end
-	# A type -> children map
-	attribute(:children) do Hash.new { |h, k| h[k] = Hash.new } end
     end
 
-    module DirectedRelation
-	module ClassExtension
-	    def relation_type; self end
+    class RelationGraph < BGL::Graph
+	attr_accessor :parent
+	attr_reader :subsets
 
-	    attribute(:subsets) { Set.new }
-	    # Returns true if +relation+ is included in this relation (i.e. it is either
-	    # the same relation or one of its subsets)
-	    def include?(relation)
-		relation_type == relation || subsets.each { |subrel| subrel.include?(relation) }
-	    end
+	def initialize(subsets)
+	    @subsets = Set.new
+	    subsets.each { |r| superset_of(r) }
+	end
 
-	    def add_child(from, to, info)
-		to.parents[relation_type] << from
-		from.children[relation_type][to] = info
-	    end
-	    def remove_child(from, to)
-		to.parents[relation_type].delete(from)
-		from.children[relation_type].delete(to)
-	    end
+	def link(from, to, info = nil)
+	    parent.link(from, to, info) if parent
+	    super
+	end
+	def unlink(from, to)
+	    parent.unlink(from, to) if parent
+	    super
+	end
+	
+	# Returns true if +relation+ is included in this relation (i.e. it is either
+	# the same relation or one of its subsets)
+	def subset?(relation)
+	    relation_type == relation || subsets.each { |subrel| subrel.subset?(relation) }
+	end
 
-	    # true if +obj+ is a child of +of+ for this relation
-	    def child_object?(node, child)
-		node.children[relation_type].has_key?(child) ||
-		    subsets.find { |mod| mod.child_object?(node, child) }
-	    end
-
-	    # true if +parent+ is a parent object of +node+ for this relation 
-	    def parent_object?(node, parent); child_object?(parent, node) end
-
-	    # enumerates the relations +node+ is part of
-	    # if +directed+ is true, only children are enumerated (parent is always +node+)
-	    def each_relation(node, directed = false) # :yield: relation_type, parent, child, info
-		node.children[relation_type].each do |to, info|
-		    yield(relation_type, node, to, info)
-		end
-		if !directed
-		    node.parents[relation_type].each_key do |parent|
-			yield(relation_type, parent, node, parent.children[relation_type][node])
-		    end
+	def linked_in_hierarchy?(source, target)
+	    linked?(source, target) || (parent.linked?(source, target) if parent)
+	end
+	def superset_of(relation)
+	    relation.each_edge do |source, target, info|
+		if linked_in_hierarchy?(source, target)
+		    raise ArgumentError, "relation and self already share an edge"
 		end
 	    end
 
-	    # Enumerates the parents of +node+
-	    def each_parent_object(node) # :yield: parent_object
-		node.parents[relation_type].each_key { |o| yield(o) }
-		subsets.each { |mod| mod.each_parent_object(node) { |o| yield(o) } }
-	    end
-	    # Enumerates the children of +node+
-	    def each_child_object(node)  # :yield: child_object
-		node.children[relation_type].each_key { |o| yield(o) }
-		subsets.each { |mod| mod.each_child_object(node) { |o| yield(o) } }
-	    end
-	    # Enumerates the objects that are either parent or child of +node+
-	    def each_related_object(node, &iterator)
-		each_parent_object(node, &iterator)
-		each_child_object(node, &iterator)
-	    end
-	    
-	    # Defines enumerators in the node objects for this relationship. 
-	    # It defines each_#{parent} and each_#{child}. Set either to nil
-	    # to disable the definition
-	    def parent_enumerator(name); @parent_enumerator_name = name end
-	    def module_name(new_name = nil)
-		if new_name
-		    @module_name = new_name 
-		else
-		    @module_name
-		end
-	    end
-
-	    attr_reader :parent_enumerator_name
-
-	    # Declare that this relation is a superset of the following relations.
-	    # For practical purposes, this means that each_parent_object and each_child_object will also
-	    # enumerate the relations defined by the subset relations
-	    def superset_of(relation)
-		subsets << relation
+	    relation.parent = self
+	    subsets << relation
+	    relation.each_edge do |source, target, info|
+		link(source, target, info)
 	    end
 	end
+
+	# The support module that gets included in graph objects
+	attr_accessor :support
     end
 
     def self.RelationSpace(klass, &block)
 	relation_space = Module.new
 	relation_space.singleton_class.class_eval do
-	    define_method(:new_relation_type) do |relation_name, block|
-		mod = Module.new
-		
-		mod.include DirectedRelation
-		mod.class_eval(&block) if block
-		mod.module_name(mod.module_name || relation_name.to_s.camelize.pluralize)
+	    define_method(:new_relation_type) do |relation_name, options, block|
+		options = validate_options options, 
+			    :const_name => relation_name.to_s.camelize.pluralize, 
+			    :subsets => Set.new,
+			    :parent_enumerator => nil,
+			    :noinfo => false
 
-		if mod.parent_enumerator_name
+		graph = RelationGraph.new options[:subsets]
+
+		mod = Module.new
+		mod.class_eval(&block) if block
+
+		if parent_enumerator = options[:parent_enumerator]
 		    mod.class_eval <<-EOD
-		    def each_#{mod.parent_enumerator_name}(&iterator)
-			@@__r_#{relation_name}__.each_parent_object(self, &iterator)
+		    def each_#{parent_enumerator}(&iterator)
+			self.each_parent_object(@@__r_#{relation_name}__, &iterator)
 		    end
 		    EOD
 		end
 		    
-		mod.singleton_class.class_eval { define_method("__r_#{relation_name}__") { mod } }
+		mod.singleton_class.class_eval { define_method("__r_#{relation_name}__") { graph } }
+		if options[:noinfo]
+		    mod.class_eval <<-EOD
+		    def each_#{relation_name}(&iterator)
+			each_child_object(@@__r_#{relation_name}__, &iterator)
+		    end
+		    EOD
+		else
+		    mod.class_eval <<-EOD
+		    def each_#{relation_name}
+			each_child_object(@@__r_#{relation_name}__) { |child| yield(child, self[child, @@__r_#{relation_name}__]) }
+		    end
+		    EOD
+		end
 		mod.class_eval <<-EOD
 		@@__r_#{relation_name}__ = __r_#{relation_name}__
-		def each_#{relation_name}(&iterator)
-		    @@__r_#{relation_name}__.each_child_object(self, &iterator)
-		end
 		def add_#{relation_name}(to, info = nil)
-		    add_child_object(to, @@__r_#{relation_name}__, info)
+		    @@__r_#{relation_name}__.link(self, to, info)
 		    self
 		end
 		def remove_#{relation_name}(to)
-		    remove_child_object(to, @@__r_#{relation_name}__)
+		    @@__r_#{relation_name}__.unlink(self, to)
 		    self
 		end
 		EOD
 
-		relation_space.const_set(mod.module_name, mod)
+		graph.support = mod
+		relation_space.const_set(options[:const_name], graph)
 		klass.include mod
 
-		mod
+		graph
 	    end
 	end
-	relation_space.singleton_class.class_eval "def relation(mod, &block); new_relation_type(mod, block) end"
+	relation_space.singleton_class.class_eval "def relation(mod, options = {}, &block); new_relation_type(mod, options, block) end"
 	relation_space.class_eval(&block) if block_given?
 	relation_space
     end

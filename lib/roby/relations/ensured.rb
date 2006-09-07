@@ -1,5 +1,5 @@
 module Roby::EventStructure
-    relation :ensured_event do
+    relation :ensured_event, :noinfo => true do
 	def calling(context)
 	    super if defined? super
 	    each_ensured_event do |ev|

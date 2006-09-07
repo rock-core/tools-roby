@@ -1,5 +1,5 @@
 module Roby::EventStructure
-    relation :signal
-    relation :forwarding
+    relation :signal, :noinfo => true
+    relation :forwarding, :noinfo => true
 end
 

@@ -3,10 +3,7 @@ require 'roby/relations'
 require 'set'
 
 module Roby::TaskStructure
-    relation :child do
-	parent_enumerator :parent_task
-	module_name :Hierarchy
-
+    relation :child, :parent_enumerator => :parent_task, :const_name => :Hierarchy do
 	HierarchyLink = Struct.new :success, :failure
          
 	def realizes?(obj);	parent_object?(obj, Hierarchy) end
