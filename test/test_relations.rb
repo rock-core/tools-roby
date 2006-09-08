@@ -77,6 +77,28 @@ class TC_Relations < Test::Unit::TestCase
 
     end
 
+    def test_hooks
+	FlexMock.use do |mock|
+	    hooks = Module.new do
+		define_method(:added_child_object) { |to, type, info| mock.add(to, type, info) }
+		define_method(:removed_child_object) { |to, type| mock.remove(to, type) }
+	    end
+
+	    klass = Class.new do
+		include DirectedRelationSupport 
+		include hooks
+	    end
+		
+	    r1 = nil
+	    Roby::RelationSpace(klass) { r1 = relation :r1 }
+
+	    v1, v2 = klass.new, klass.new
+	    mock.should_receive(:add).with(v2, r1, 1).once
+	    mock.should_receive(:remove).with(v2, r1).once
+	    v1.add_r1(v2, 1)
+	    v1.remove_r1(v2)
+	end
+    end
 
     def test_subsets
 	klass = Class.new { include DirectedRelationSupport }

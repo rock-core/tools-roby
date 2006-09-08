@@ -186,11 +186,11 @@ module Roby
 		mod.class_eval <<-EOD
 		@@__r_#{relation_name}__ = __r_#{relation_name}__
 		def add_#{relation_name}(to, info = nil)
-		    @@__r_#{relation_name}__.link(self, to, info)
+		    add_child_object(to, @@__r_#{relation_name}__, info)
 		    self
 		end
 		def remove_#{relation_name}(to)
-		    @@__r_#{relation_name}__.unlink(self, to)
+		    remove_child_object(to, @@__r_#{relation_name}__)
 		    self
 		end
 		EOD
