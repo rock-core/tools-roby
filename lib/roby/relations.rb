@@ -120,7 +120,7 @@ module Roby
 	# Returns true if +relation+ is included in this relation (i.e. it is either
 	# the same relation or one of its subsets)
 	def subset?(relation)
-	    relation_type == relation || subsets.each { |subrel| subrel.subset?(relation) }
+	    self.eql?(relation) || subsets.any? { |subrel| subrel.subset?(relation) }
 	end
 
 	def linked_in_hierarchy?(source, target)
@@ -139,7 +139,7 @@ module Roby
 		link(source, target, info)
 	    end
 	end
-
+	
 	# The support module that gets included in graph objects
 	attr_accessor :support
     end

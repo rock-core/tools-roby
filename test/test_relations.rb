@@ -86,6 +86,8 @@ class TC_Relations < Test::Unit::TestCase
 	    r2 = relation :r2, :subsets => [r1]
 	end
 	assert_equal(r2, r1.parent)
+	assert(! r1.subset?(r2))
+	assert(r2.subset?(r1))
 
 	n1, n2, n3 = 3.enum_for(:times).map { klass.new }
 	n1.add_child_object(n2, r1)
