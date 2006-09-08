@@ -1,6 +1,6 @@
 
-class Roby::ExecutionStateDisplayServer
-    class EventList < Qt::ListView
+class Roby::Display::ExecutionStateServer
+    class PendingView < Qt::ListView
 	attr_reader :pending
 
 	class Task < Qt::ListViewItem
@@ -41,18 +41,13 @@ class Roby::ExecutionStateDisplayServer
 
 		expr = event_name(obj, false)
 
-		case kind
-		when :signal
+		if kind == :signal
 		    dest = *args
 		    expr << " -> " << event_name(dest)
-		when :postponed
+
+		elsif kind == :postponed
 		    wait_for, reason = *args
 		    expr << " waiting for " << event_name(wait_for) << ": " << reason
-		when :fired
-		    context = args.first.context
-		    unless context.empty?
-			expr << ": " << context
-		    end
 		end
 		set_text(3, expr)
 	    end

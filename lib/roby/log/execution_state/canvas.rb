@@ -1,14 +1,14 @@
 module Roby
-    class ExecutionStateCanvas < Qt::Canvas
-	include Roby::DisplayStyle
+    class Display::ExecutionStateCanvas < Qt::Canvas
+	include Roby::Display::Style
 
 	BASE_DURATION = 6000
 	BASE_LINES    = 10
 
 	def canvas; self end
 
-	attr_reader :line_height, :resolution, :start_time, :margin, :event_radius
-	attr_reader :event_display, :event_source
+	attr_reader :line_height, :resolution, :start_time, :margin
+	attr_reader :event_radius, :event_display, :event_source
 	def initialize
 	    @resolution	    = BASE_DURATION / 640 # resolution for time axis in ms per pixel
 	    @line_height    = 40  # height of a line in pixel
@@ -24,19 +24,15 @@ module Roby
 	end
 
 	def allocate_task(task_object, x)
-	    # Get the line index for the task
+	    # Get a line index for the task
 	    idx = @lines.enum_for(:each_with_index).find do |r, _| 
-		if !r
-		    true
-		else
-		    r.task.finished? && (r.start + r.width) < x if r.respond_to?(:task)
+		if !r then true
+		else r.finished? && (r.start + r.width) < x if r.respond_to?(:task)
 		end
 	    end
 
-	    idx = if idx
-		      idx.last
-		  else
-		      @lines.size
+	    idx = if idx then idx.last
+		  else @lines.size
 		  end
 
 	    @lines[idx] = CanvasTask.new(self, task_object, idx) { |r| r.visible = true }
@@ -51,8 +47,7 @@ module Roby
 	def line_of(event, x)
 	    if event.respond_to?(:task)
 		(task_of(event) || allocate_task(event.task, x)).first
-	    else
-		@lines[0]
+	    else @lines[0]
 	    end
 	end
 	def x_of(time)
@@ -68,10 +63,12 @@ module Roby
 	    if line.respond_to?(:task)
 		line.start = x if !line.start
 		line.stop = x
+
+		line.new_event(generator)
 	    end
 	    
 	    y = (line.index + 0.2) * line_height
-	    shape = DisplayStyle.event(generator, self, pending)
+	    shape = Display::Style.event(generator, self, pending)
 	    shape.move(x, y)
 
 	    new_width	= self.width * 2 if x > self.width
@@ -92,13 +89,12 @@ module Roby
 	    shape
 	end
 
-
 	class CanvasLine
 	    attr_reader :index
 	    attr_reader :colors
 	    def next_color
-		@color_index = (@color_index + 1) % DisplayStyle::EVENT_COLORS.size
-		DisplayStyle::EVENT_COLORS[@color_index]
+		@color_index = (@color_index + 1) % Display::Style::EVENT_COLORS.size
+		Display::Style::EVENT_COLORS[@color_index]
 	    end
 
 	    def initialize(index)
@@ -111,6 +107,24 @@ module Roby
 	class CanvasTask < CanvasLine
 	    attr_reader :start, :stop
 	    attr_reader :task, :display
+	    # Task state: :pending, :running, :success or :failed
+	    attr_reader :state
+	    STATES = { nil => :pending, :start => :running, :success => :success, :failed => :failed }
+	    def state=(state)
+		@state = state
+		display.color = TASK_COLORS[state] if TASK_COLORS.has_key?(state)
+	    end
+
+	    attr_accessor :state
+
+	    def finished?; state == :success || state == :failed end
+
+	    def new_event(generator)
+		if STATES.has_key?(generator.symbol)
+		    self.state = STATES[generator.symbol]
+		end
+	    end
+
 	    def start=(x)
 		@start = x
 		@display.move(x, @display.y)
@@ -133,54 +147,41 @@ module Roby
 		line_height = display.line_height
 		y = index * line_height
 
-		@display = DisplayStyle.task(task, display)
+		@display = Display::Style.task(task, display)
 		@display.show
 		@display.move(0, y)
 	    end
 	end
 
 
-	def pending_event(time, event_generator)
-	    circle = new_event(time, event_generator, true) do |x, y|
+	def generator_calling(time, generator, context)
+	    circle = new_event(time, generator, true) do |x, y|
 		Qt::CanvasEllipse.new(line_height / 4, line_height / 4, self)
 	    end
 	    
-	    if source = event_source.delete(event_generator)
+	    if source = event_source.delete(generator)
 		raise unless event_display.has_key?(source)
 		source = event_display[source]
-		DisplayStyle.arrow(source.x, source.y, circle.x, circle.y, self)
+		Display::Style.arrow(source.x, source.y, circle.x, circle.y, self)
 
 		Qt::CanvasLine.new(self) do |c|
 		    c.set_points source.x, source.y, circle.x, circle.y
-		    c.brush = Qt::Brush.new(Qt::Color.new(DisplayStyle::SIGNAL_COLOR))
-		    c.pen = Qt::Pen.new(Qt::Color.new(DisplayStyle::SIGNAL_COLOR))
+		    c.brush = Qt::Brush.new(Qt::Color.new(Display::Style::SIGNAL_COLOR))
+		    c.pen = Qt::Pen.new(Qt::Color.new(Display::Style::SIGNAL_COLOR))
 		    c.visible = true
 		end
 	    end
 	end
 
-	def fired_event(time, event_generator, event)
-	    circle = new_event(time, event_generator, false) do |x, y|
+	def generator_fired(time, event)
+	    circle = new_event(time, event.generator, false) do |x, y|
 		Qt::CanvasEllipse.new(line_height / 4, line_height / 4, self)
 	    end
-
 	    event_display[event] = circle
-
-	    if event_generator.respond_to?(:task)
-		task = task_of(event_generator).first
-		case event_generator.symbol
-		when :start
-		    task.display.color = TASK_COLORS[:running]
-		when :failed
-		    task.display.color = TASK_COLORS[:failed]
-		when :success
-		    task.display.color = TASK_COLORS[:success]
-		end
-	    end
 	end
 
-	def signalling(time, from, to)
-	    event_source[to] = from
+	def generator_signalling(time, event, generator)
+	    event_source[generator] = event
 	end
     end
 end

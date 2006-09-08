@@ -1,10 +1,10 @@
 require 'Qt'
 require 'roby/support'
-require 'roby/display/style'
+require 'roby/log/style'
 
-module Roby
+module Roby::Display
     # Displays the plan's causal network
-    class EventStructureDisplayServer < Qt::Object
+    class EventStructureServer < Qt::Object
 	MINWIDTH = 50
 
 	attr_reader :line_height, :margin, :event_radius, :event_spacing
@@ -33,7 +33,7 @@ module Roby
 	    @view   = Qt::CanvasView.new(@canvas, root_window)
 	    @main_window = @view
 	    
-	    @event_filters = [ lambda { |ev| ev.symbol == :aborted } ]
+	    @event_filters = [ lambda { |ev| ev.symbol == :aborted if ev.respond_to?(:symbol) } ]
 	end
 
 	def each_column(&iterator)
@@ -84,32 +84,6 @@ module Roby
 		find { |c, _| c == column }
 		cidx.last
 	    end
-	end
-
-	def add(ev_from, ev_to)
-	    if event_filters.find { |f| f[ev_from] } || event_filters.find { |f| f[ev_to] }
-		return
-	    end
-	    changed!
-
-	    
-	    # Build canvas objects
-	    from, to = event(ev_from), event(ev_to)
-
-	    # Create the link and add updaters in both events
-	    line = DisplayStyle.arrow(from.x, from.y, to.x, to.y, self)
-	    arrows[ [from, to] ] = line
-	    from.add_watch  { line.start_point = [from.x, from.y] }
-	    to.add_watch    { line.end_point = [to.x, to.y] }
-	    
-	    # Reorder objects in columns
-	    base_column = (from.root.column ||= columns[0])
-	    to.root.column ||= columns[0]
-	    from.root.next_elements << to.root
-	    from.root.propagate_column
-   
-	    # Offset columns if possible
-	    offset_columns
 	end
 
 	def check_structure
@@ -168,32 +142,45 @@ module Roby
 	    end
 	end
 
-	def clear
+	def added_relation(time, ev_from, ev_to)
+	    if event_filters.find { |f| f[ev_from] } || event_filters.find { |f| f[ev_to] }
+		return
+	    end
+	    changed!
+
+	    
+	    # Build canvas objects
+	    from, to = define_generator(ev_from), define_generator(ev_to)
+
+	    # Create the link and add updaters in both events
+	    line = Display::Style.arrow(from.x, from.y, to.x, to.y, self)
+	    arrows[ [from, to] ] = line
+	    from.add_watch  { line.start_point = [from.x, from.y] }
+	    to.add_watch    { line.end_point = [to.x, to.y] }
+	    
+	    # Reorder objects in columns
+	    base_column = (from.root.column ||= columns[0])
+	    to.root.column ||= columns[0]
+	    from.root.next_elements << to.root
+	    from.root.propagate_column
+   
+	    # Offset columns if possible
+	    offset_columns
 	end
 
-	def start(roby_task)
+	def state_change(roby_task, symbol)
+	    symbol = :running if symbol == :start
 	    changed!
-	    task = task(roby_task)
-	    task.color = DisplayStyle::TASK_COLORS[:running]
+	    task = task(task)
+	    task.colod = Display::Style::TASK_COLORS[symbol]
 	end
 
-	def success(roby_task)
-	    changed!
-	    task = task(roby_task)
-	    task.color = DisplayStyle::TASK_COLORS[:success]
-	end
-	def failed(roby_task)
-	    changed!
-	    task = task(roby_task)
-	    task.color = DisplayStyle::TASK_COLORS[:failed]
-	end
-
-	def delete(ev_from, ev_to)
-	    from, to = event(ev_from), event(ev_to)
+	def removed_relation(time, ev_from, ev_to)
+	    from, to = define_generator(ev_from), define_generator(ev_to)
 	    arrows[ [from, to] ].hide if arrows.has_key? [from, to]
 	end
 
-	def event(ev)
+	def define_generator(ev)
 	    return events[ev] if events[ev]
 
 	    if event_filters.find { |f| f[ev] }
@@ -211,9 +198,14 @@ module Roby
 
 	    events[ev]
 	end
+
+	def task_initialize(time, task, start, stop)
+	    define_generator(start)
+	    define_generator(stop)
+	end
     end
 end
 
-require 'roby/display/event_structure/structure.rb'
-require 'roby/display/event_structure/elements.rb'
+require 'roby/log/event_structure/structure.rb'
+require 'roby/log/event_structure/elements.rb'
     

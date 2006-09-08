@@ -1,5 +1,5 @@
 
-class Roby::EventStructureDisplayServer
+class Roby::Display::EventStructureServer
     class Column
 	attr_reader :x, :width, :display, :lines
 	def initialize(x, display)

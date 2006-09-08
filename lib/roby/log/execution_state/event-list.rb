@@ -1,6 +1,6 @@
 
-class Roby::ExecutionStateDisplayServer
-    class PendingView < Qt::ListView
+class Roby::Display::ExecutionStateServer
+    class EventList < Qt::ListView
 	attr_reader :pending
 
 	class Task < Qt::ListViewItem
@@ -21,7 +21,7 @@ class Roby::ExecutionStateDisplayServer
 		if event.respond_to?(:symbol)
 		    expr << "[" << event.symbol.to_s << "]"
 		else
-		    expr << event.model.name
+		    expr << event.model_name
 		end
 
 		expr.gsub!(/^Roby::(?:Genom::)?/, '') 
@@ -41,13 +41,18 @@ class Roby::ExecutionStateDisplayServer
 
 		expr = event_name(obj, false)
 
-		if kind == :signal
+		case kind
+		when :signal
 		    dest = *args
 		    expr << " -> " << event_name(dest)
-
-		elsif kind == :postponed
+		when :postponed
 		    wait_for, reason = *args
 		    expr << " waiting for " << event_name(wait_for) << ": " << reason
+		when :fired
+		    context = obj.context
+		    unless context.empty?
+			expr << ": " << context
+		    end
 		end
 		set_text(3, expr)
 	    end
@@ -82,8 +87,8 @@ class Roby::ExecutionStateDisplayServer
 	def pending_event(time, generator)
 	    new_event(:pending, time, generator)
 	end
-	def fired_event(time, generator, event)
-	    new_event(:fired, time, generator, event)
+	def fired_event(time, event)
+	    new_event(:fired, time, event)
 	end
 	def signalling(time, from, to)
 	    new_event(:signal, time, from, to)

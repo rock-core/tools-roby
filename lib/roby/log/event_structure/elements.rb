@@ -1,10 +1,10 @@
 require 'roby/task'
 
-class Roby::EventStructureDisplayServer
+class Roby::Display::EventStructureServer
     class Task < Element
 	attr_reader :width, :span, :group
 	def initialize(task, column, display)
-	    @group = DisplayStyle.task(task, display)
+	    @group = Display::Style.task(task, display)
 	    @width = @span = display.line_height * 0.5
 
 	    super(column, display)
@@ -53,7 +53,7 @@ class Roby::EventStructureDisplayServer
 	attr_reader :event, :group
 	def initialize(event, column, display)
 	    @event = event
-	    @group = DisplayStyle.event(event, display)
+	    @group = Display::Style.event(event, display)
 	    @watchers = []
 
 	    super(column, display)

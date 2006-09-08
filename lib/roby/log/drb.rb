@@ -5,7 +5,7 @@ require 'roby/event'
 require 'roby/plan'
 require 'facet/kernel/constant'
 
-module Roby
+module Roby::Display
     module DRbDisplayMixin
 	attr_accessor :changed
 	def changed?; @changed end
@@ -73,7 +73,7 @@ module Roby
 	    super
 
 	rescue DRb::DRbConnError, ThreadServer::Quit
-	    remote_display.clear!
+	    remote_display.disconnect
 	    raise ThreadServer::Quit
 	end
     end
@@ -98,7 +98,7 @@ module Roby
 
 	    display = yield(base_widget)
 	    display.extend DRbDisplayMixin
-	    updater = Roby::DRbDisplayMixin.DisplayUpdater(display)
+	    updater = DRbDisplayMixin.DisplayUpdater(display)
 
 	    layout.add_widget(display.main_window, 0, 0)
 	    tabs.add_tab(base_widget, name.to_s)
@@ -113,11 +113,11 @@ module Roby
 	    kind = kind.to_s
 
 	    unless display = displays[ [kind, name] ]
-		file_name  = "roby/display/#{kind.underscore}/server"
-		klass_name = "#{kind.classify}DisplayServer"
+		file_name  = "roby/log/#{kind.underscore}/server"
+		klass_name = "#{kind.classify}Server"
 
 		require file_name
-		klass = Roby.constant(klass_name)
+		klass = Roby::Display.constant(klass_name)
 
 		add(kind) do |base_widget|
 		    display = displays[ [kind, name] ] = klass.new(base_widget)
@@ -173,14 +173,14 @@ module Roby
 	# :server => DRbObject the server object
 	def connect(kind, options)
 	    raise RuntimeError, "already started" if @service
-	    options = validate_options options, [:uri, :server, :replay]
+	    options = validate_options options, [:start, :server, :replay]
 
 	    parent_pid = Process.pid
-	    if options[:uri]
+	    if options[:start]
 		read, write = IO.pipe
 		fork do
 		    read.close
-		    standalone(options[:uri], kind, parent_pid.to_s, write)
+		    standalone(options[:server], kind, parent_pid.to_s, write)
 		end
 
 		write.close
@@ -188,8 +188,6 @@ module Roby
 		if check != "OK"
 		    raise RuntimeError, "failed to start execution state display server"
 		end
-
-		options[:server] = options[:uri]
 	    end
 
 	    DRb.start_service unless DRb.primary_server
@@ -205,7 +203,7 @@ module Roby
 	    @service = DRbDisplayThread.new(self, server, true)
 	end
 
-	def clear!
+	def disconnect
 	    @service = nil
 	end
     end

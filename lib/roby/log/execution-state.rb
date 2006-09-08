@@ -1,56 +1,29 @@
-require 'roby/display/marshallable'
-require 'roby/display/drb'
+require 'roby/log/marshallable'
+require 'roby/log/drb'
+require 'roby/log/log'
 
-module Roby
-    class ExecutionStateDisplay < DRbRemoteDisplay
+module Roby::Display
+    class ExecutionState < DRbRemoteDisplay
 	include Singleton
 
 	DEFAULT_URI = 'druby://localhost:10000'
 
 	class << self
-	    def install_hooks; EventGenerator.include EventHooks end
-
-
 	    def service; instance.service end
-	    def log(logfile)
-		install_hooks
-		instance.log(logfile)
-	    end
-
 	    def connect(options = {})
-		install_hooks
+		Roby::Log.loggers << instance
+		options[:server] ||= DEFAULT_URI
 		instance.connect("execution_state", options)
 	    end
 	end
-	
-	module EventHooks
-	    def calling(context)
-		super if defined? super
-		if server = ExecutionStateDisplay.service
-		    server.pending_event Time.now, Display::Event[self]
-		end
-	    end
 
-	    def fired(event)
-		super if defined? super
-		if server = ExecutionStateDisplay.service
-		    server.fired_event Time.now, Display::Event[self], Display::Event[event]
-		end
-	    end
-
-	    def signalling(event, to)
-		super if defined? super
-		if server = ExecutionStateDisplay.service
-		    server.signalling Time.now, Display::Event[event], Display::Event[to]
-		end
-	    end
+	[:generator_calling, :generator_signalling, :generator_fired].each do |m| 
+	    define_method(m) { |*args| service.send(m, *args) }
 	end
 
-	def postponed(context, wait_for, reason)
-	    super if defined? super
-	    if server = ExecutionStateDisplay.service
-		server.postponed Time.now, self, wait_for, reason
-	    end
+	def disconnect
+	    Roby::Log.loggers.delete(service)
+	    super
 	end
     end
 end
@@ -105,7 +78,7 @@ if $0 == __FILE__
 
     begin
 	Thread.abort_on_exception = true
-	server = Roby::ExecutionStateDisplay.start_service
+	server = Roby::Display::ExecutionState.connect :start => true
 
 	fill(server)
 	sleep(10)

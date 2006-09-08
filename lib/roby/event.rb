@@ -447,6 +447,24 @@ module Roby
 	    super if defined? super
 	end
     end
+    
+    # Slow down the event propagation (for debugging purposes)
+    module SlowEventPropagation
+	def calling(context)
+	    super if defined? super
+	    sleep(0.1)
+	end
+
+	def fired(event)
+	    super if defined? super
+	    sleep(0.1)
+	end
+
+	def signalling(event, to)
+	    super if defined? super
+	    sleep(0.1)
+	end
+    end
 
     class ForwarderGenerator < EventGenerator
 	attr_reader :aliases
