@@ -34,11 +34,17 @@ if $0 == __FILE__
     TaskMockup = Class.new(Roby::Task) do
 	event :start, :command => true
 	event :stop
-	on :start => :stop
+
+	def initialize(fails)
+	    super()
+	    if fails then on(:start, self, :failed)
+	    else on(:start, self, :success)
+	    end
+	end
     end
 
-    def task_mockup(name)
-	t = TaskMockup.new
+    def task_mockup(name, fails)
+	t = TaskMockup.new(fails)
 	t.model.instance_eval do
 	    singleton_class.send(:define_method, :name) { name }
 	end
@@ -47,9 +53,9 @@ if $0 == __FILE__
     end
 
     def fill(state_display)
-	t1 = task_mockup("t1")
-	t2 = task_mockup("t2")
-	t3 = task_mockup("t3")
+	t1 = task_mockup("t1", true)
+	t2 = task_mockup("t2", false)
+	t3 = task_mockup("t3", true)
 		
 	f = Roby::ForwarderGenerator.new(t1.event(:start), t2.event(:start))
 	t1.event(:stop).on t3.event(:start)

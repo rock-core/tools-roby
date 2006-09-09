@@ -24,7 +24,7 @@ module Roby
 	end
 
 	def allocate_task(task_object, x)
-	    # Get a line index for the task
+	    # Get an empty line for the task
 	    idx = @lines.enum_for(:each_with_index).find do |r, _| 
 		if !r then true
 		else r.finished? && (r.start + r.width) < x if r.respond_to?(:task)
@@ -107,21 +107,16 @@ module Roby
 	class CanvasTask < CanvasLine
 	    attr_reader :start, :stop
 	    attr_reader :task, :display
-	    # Task state: :pending, :running, :success or :failed
+	    # Task state: nil, :start, :success or :failed
 	    attr_reader :state
-	    STATES = { nil => :pending, :start => :running, :success => :success, :failed => :failed }
-	    def state=(state)
-		@state = state
-		display.color = TASK_COLORS[state] if TASK_COLORS.has_key?(state)
-	    end
-
-	    attr_accessor :state
 
 	    def finished?; state == :success || state == :failed end
 
 	    def new_event(generator)
-		if STATES.has_key?(generator.symbol)
-		    self.state = STATES[generator.symbol]
+		state = generator.symbol.to_sym
+		if Display::Style::TASK_COLORS.has_key?(state)
+		    @state = state
+		    display.color = Display::Style::TASK_COLORS[state]
 		end
 	    end
 

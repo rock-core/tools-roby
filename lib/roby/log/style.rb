@@ -50,8 +50,8 @@ module Roby::Display::Style
     end
     
     TASK_COLORS = {
-	:normal => '#6DF3FF',
-	:running => '#B0FFA6',
+	nil => '#6DF3FF',
+	:start => '#B0FFA6',
 	:success => '#E2E2E2',
 	:failed => '#E2A8A8'
     }
@@ -103,7 +103,7 @@ module Roby::Display::Style
 
     def self.task(task, display)
 	rectangle = Qt::CanvasRectangle.new(0, 0, 0, display.line_height * 0.6, display.canvas) do |r|
-	    r.color = TASK_COLORS[:normal]
+	    r.color = TASK_COLORS[nil]
 	    r.z	= TASK_Z
 	    r.visible = true
 	end

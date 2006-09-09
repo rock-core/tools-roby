@@ -15,7 +15,7 @@ class Roby::Display::ExecutionStateServer
 		expr = ""
 
 		if event.respond_to?(:task) && with_task
-		    expr << event.task.source_class.to_s
+		    expr << event.task.model_name
 		end
 
 		if event.respond_to?(:symbol)
@@ -32,11 +32,11 @@ class Roby::Display::ExecutionStateServer
 	    def initialize(list, task, kind, time, obj, *args)
 		super(list)
 		set_text(0, "%02i:%02i:%03i" % [time.tv_sec / 60, time.tv_sec % 60, time.tv_usec / 1000])
-		if task
-		    set_text(1, task.model_name)
-		else
-		    set_text(1, "toplevel")
-		end
+		task_name = if obj.respond_to?(:task) then obj.task.model_name
+			    else "toplevel"
+			    end
+
+		set_text(1, task_name)
 		set_text(2, kind.to_s)
 
 		expr = event_name(obj, false)
