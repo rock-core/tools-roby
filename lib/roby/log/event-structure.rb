@@ -1,5 +1,5 @@
 require 'roby/log/marshallable'
-require 'roby/log/log'
+require 'roby/log/hooks'
 require 'roby/log/drb'
 
 module Roby::Display

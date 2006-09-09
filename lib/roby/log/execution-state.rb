@@ -1,6 +1,6 @@
 require 'roby/log/marshallable'
 require 'roby/log/drb'
-require 'roby/log/log'
+require 'roby/log/hooks'
 
 module Roby::Display
     class ExecutionState < DRbRemoteDisplay

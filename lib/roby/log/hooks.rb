@@ -1,20 +1,8 @@
 require 'roby/log/marshallable'
+require 'roby/log/logger'
 
 module Roby::Log
     Wrapper = Roby::Marshallable::Wrapper
-
-    @loggers = Array.new
-    class << self
-	attr_reader :loggers
-
-	# Iterates on all the logger objects. If +m+ is given, yields only the loggers
-	# which respond to this method.
-	def each_logger(m = nil)
-	    @loggers.each do |log|
-		yield(log) if !m || log.respond_to?(m)
-	    end
-	end
-    end
 
     module RelationHooks
 	def added_child_object(to, type, info)
