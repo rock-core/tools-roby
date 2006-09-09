@@ -33,7 +33,7 @@ class Roby::Display::ExecutionStateServer
 		super(list)
 		set_text(0, "%02i:%02i:%03i" % [time.tv_sec / 60, time.tv_sec % 60, time.tv_usec / 1000])
 		if task
-		    set_text(1, task.model.name)
+		    set_text(1, task.model_name)
 		else
 		    set_text(1, "toplevel")
 		end
@@ -84,14 +84,14 @@ class Roby::Display::ExecutionStateServer
 	    task = generator.task if generator.respond_to?(:task)
 	    Event.new(self, task, kind, time, generator, *args)
 	end
-	def pending_event(time, generator)
+	def generator_calling(time, generator, context)
 	    new_event(:pending, time, generator)
 	end
-	def fired_event(time, event)
+	def generator_fired(time, event)
 	    new_event(:fired, time, event)
 	end
-	def signalling(time, from, to)
-	    new_event(:signal, time, from, to)
+	def generator_signalling(time, event, generator)
+	    new_event(:signal, time, event, generator)
 	end
 	def postponed(time, generator, wait_for, reason)
 	    new_event(:postponed, time, generator, wait_for, reason)

@@ -10,8 +10,8 @@ module Roby::Display
 	    @canvas = ExecutionStateCanvas.new
 	    @main_window = Qt::Splitter.new(Qt::Vertical, root_window)
 	    
-	    @view   = Qt::CanvasView.new(@canvas, @main_window)
 	    @pending = EventList.new(@main_window)
+	    @view   = Qt::CanvasView.new(@canvas, @main_window)
 
 	    @hidden = true
  	end
@@ -28,19 +28,19 @@ module Roby::Display
 
 	def generator_calling(time, event_generator, context)
 	    changed!
-	    #@pending.generator_calling(time, event_generator, context)
+	    @pending.generator_calling(time, event_generator, context)
 	    @canvas.generator_calling(time, event_generator, context)
 	end
 
 	def generator_fired(time, event)
 	    changed!
-	    #@pending.generator_fired(time, event)
+	    @pending.generator_fired(time, event)
 	    @canvas.generator_fired(time, event)
 	end
 
 	def generator_signalling(time, event, generator)
 	    changed!
-	    #@pending.generator_signalling(time, event, generator)
+	    @pending.generator_signalling(time, event, generator)
 	    @canvas.generator_signalling(time, event, generator)
 	end
 
