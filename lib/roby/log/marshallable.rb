@@ -84,13 +84,10 @@ module Roby
 	    attr_reader :task
 	    # The generator symbol
 	    attr_reader :symbol
-	    def initialize
-		super
-		@symbol = generator.model.symbol
-	    end
 
 	    def initialize(generator)
 		super(generator)
+		@symbol = generator.symbol
 		@task = Wrapper[generator.task]
 	    end
 	end
