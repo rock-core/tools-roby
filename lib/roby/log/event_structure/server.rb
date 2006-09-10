@@ -169,10 +169,9 @@ module Roby::Display
 	end
 
 	def state_change(roby_task, symbol)
-	    symbol = :running if symbol == :start
 	    changed!
 	    task = task(task)
-	    task.colod = Display::Style::TASK_COLORS[symbol]
+	    task.color = Display::Style::TASK_COLORS[symbol]
 	end
 
 	def removed_relation(time, ev_from, ev_to)
