@@ -1,5 +1,5 @@
 require 'roby/log/marshallable'
-require 'roby/log/logger'
+require 'set'
 
 module Roby::Log
     Wrapper = Roby::Marshallable::Wrapper
