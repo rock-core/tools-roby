@@ -122,6 +122,8 @@ module Roby
     end
 
     class Task
+	def name; model(false).name end
+
 	@@tasks = Hash.new
 	def self.each_task(model)
 	    return unless tasks = @@tasks[model]
@@ -182,7 +184,11 @@ module Roby
 	    super() if defined? super
         end
 
-        def model; singleton_class end
+        def model(create = true)
+	    if create || has_singleton?; singleton_class 
+	    else self.class
+	    end
+	end
 
 	# Make this task answer to no signal and commands
 	def dead!; @dead = true end
@@ -245,8 +251,6 @@ module Roby
             event(event_model).emit(context)
             self
         end
-
-	def name; model.name end
 
         # Returns an TaskEventGenerator object which is the given task event bound
         # to this particular task
@@ -439,7 +443,7 @@ module Roby
             if only_bound
                 bound_events.each_value(&iterator)
             else
-                model.each_event { |symbol, model| yield event(model) }
+                model(false).each_event { |symbol, model| yield event(model) }
             end
         end
 
@@ -451,7 +455,7 @@ module Roby
 	end
 
         # Get the event model for +event+
-        def event_model(model); self.model.event_model(model) end
+        def event_model(model); self.model(false).event_model(model) end
 
         # Find the event class for +event+, or nil if +event+ is not an event name for this model
         def self.find_event_model(name)
@@ -519,7 +523,7 @@ module Roby
 	    precondition_sets[event.symbol] << [reason, block]
 	end
 
-        def to_s; "#{model.name}(0x#{address.to_s(16)})" end
+        def to_s; name end
 	    
         def null?; false end
 	def to_task; self end

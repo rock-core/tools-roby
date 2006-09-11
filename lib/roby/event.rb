@@ -41,6 +41,7 @@ module Roby
 	    end
 	end
 
+	def name; model.name end
 	def model; self.class end
 	def inspect; "#<#{model.to_s}:0x#{address.to_s(16)} generator=#{generator.inspect} model=#{model.inspect}" end
     end
@@ -61,6 +62,8 @@ module Roby
 	def self.disable_propagation; @@propagate = false end
 	def self.enable_propagation; @@propagate = true end
 	def self.propagate?; @@propagate end
+
+	def name; model.name end
 	
         # Generic double-dispatchers for operation on
         # bound events, based on to_and and to_or

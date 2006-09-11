@@ -78,10 +78,6 @@ module Roby::Genom
 	    on(:stop) { @abort_activity = @activity = nil }
 	end
 
-	# def inspect
-	#     super + "|#{genom_request.name}(#{arguments.inspect})|"
-	# end
-
 	# Starts the request
 	def start(context = nil)
 	    @activity = @request.call(*arguments)
@@ -188,10 +184,7 @@ module Roby::Genom
 		def initialize(arguments = nil) # :nodoc:
 		    super(arguments, self.class.request)
 		end
-		def self.name # :nodoc:
-		    "#{roby_module.name}::#{request_name}"
-		end
-
+		
 		# requests need the module process
 		executed_by roby_module.const_get(:Runner)
 	    end
