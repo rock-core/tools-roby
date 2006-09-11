@@ -157,7 +157,10 @@ module Roby
 	    if source = event_source.delete(generator)
 		raise unless event_display.has_key?(source)
 		source = event_display[source]
-		Display::Style.arrow(source.x, source.y, circle.x, circle.y, self)
+		Display::Style.arrow(self) do |arrow|
+		    arrow.start_point = [source.x, source.y]
+		    arrow.end_point = [circle.x, circle.y]
+		end
 
 		Qt::CanvasLine.new(self) do |c|
 		    c.set_points source.x, source.y, circle.x, circle.y

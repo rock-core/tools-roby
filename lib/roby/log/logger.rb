@@ -33,25 +33,23 @@ module Roby::Log
 	@dumped[:added_relation] = Marshal.dump(:added_relation)
 	def added_relation(time, type, from, to, info)
 	    io << FileLogger.dumped[:added_relation] << 
-		Marshal.dump([time, type.to_s, from, to, info.to_s])
+		Marshal.dump([time, type.name, from, to, info.to_s])
 	end
 	@dumped[:removed_relation] = Marshal.dump(:removed_relation)
 	def removed_relation(time, type, from, to)
 	    io << FileLogger.dumped[:removed_relation] << 
-		Marshal.dump([time, type.to_s, from, to])
+		Marshal.dump([time, type.name, from, to])
 	end
 
 	def self.replay(io)
 	    loop do
 		method_name = Marshal.load(io)
 		method_args = Marshal.load(io)
-		method_args = case method_name
-			      when :added_relation, :removed_relation
-				  method_args[1] = Module.constant(method_args[1])
-			      else method_args
-			      end
+		if method_name == :added_relation || method_name == :removed_relation
+		    method_args[1] = Module.constant(method_args[1])
+		end
 
-		Logger.each(method_name) do |log|
+		Log.each_logger(method_name) do |log|
 		    log.send(method_name, *method_args)
 		end
 	    end

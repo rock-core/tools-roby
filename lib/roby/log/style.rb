@@ -26,6 +26,10 @@ module Roby::Display::Style
 	    @x, @y = 0, 0
 	end
 
+	def position=(newpos)
+	    @x, @y = *newpos
+	end
+
 	def [](name); @objects[name] end
 	def move(x, y)
 	    offset_x = x - @x
@@ -37,6 +41,12 @@ module Roby::Display::Style
 	def moveBy(dx, dy)
 	    move(x + dx, y + dy)
 	end
+	def xmin; @objects.map { |_, o| o.x }.min end
+	def xmax; @objects.map { |_, o| o.x + o.width }.max end
+	def width; xmax - xmin end
+	def ymin; @objects.map { |_, o| o.y }.min end
+	def ymax; @objects.map { |_, o| o.y + o.height }.max end
+	def height; ymax - ymin end
 
 	def apply(name, *args); objects.each_value { |obj| obj.send(name, *args) if obj.respond_to?(name) } end
 	def brush=(brush); apply(:brush=, brush) end
@@ -48,6 +58,7 @@ module Roby::Display::Style
 	def show; apply(:show) end
 	def hide; apply(:hide) end
     end
+
     
     TASK_COLORS = {
 	nil => '#6DF3FF',
@@ -101,6 +112,12 @@ module Roby::Display::Style
 	end
     end
 
+    def self.task_name(task)
+	task_name = task.name.
+	    gsub(/Roby::(?:Genom::)?/, '').
+	    gsub(/!0x[0-9a-f]+/, '')
+    end
+
     def self.task(task, display)
 	rectangle = Qt::CanvasRectangle.new(0, 0, 0, display.line_height * 0.6, display.canvas) do |r|
 	    r.color = TASK_COLORS[nil]
@@ -108,7 +125,7 @@ module Roby::Display::Style
 	    r.visible = true
 	end
 
-	title = Qt::CanvasText.new(task.model_name.gsub(/Roby::(?:Genom::)?/, ''), display.canvas) do |t|
+	title = Qt::CanvasText.new(task_name(task), display.canvas) do |t|
 	    font = t.font
 	    font.pixel_size = TASK_FONTSIZE
 	    t.font = font
@@ -124,13 +141,14 @@ module Roby::Display::Style
     ARROW_Z = 5
     ARROWEND_SIZE  = 20 # arrow size in pixels
     ARROWEND_WIDTH = 44 # Arrow openness in degrees
-    def self.arrow(fx, fy, tx, ty, display)
+    def self.arrow(display)
 	line = Qt::CanvasLine.new(display.canvas) do |l|
-	    l.set_points(fx, fy, tx, ty)
+	    l.set_points(0, 0, 0, 0)
 	    l.pen = Qt::Pen.new(Qt::Color.new(ARROW_COLOR))
 	    l.visible = true
 	    l.z = ARROW_Z
 	end
+	yield(line) if block_given?
 
 	# end of arrow
 	arrowend = Qt::CanvasEllipse.new(ARROWEND_SIZE, ARROWEND_SIZE, display.canvas) do |e|
@@ -139,13 +157,18 @@ module Roby::Display::Style
 	    e.z = ARROW_Z
 	end
 
+
 	arrow_update = lambda do |sx, sy, ex, ey|
 	    dy, dx = [sy - ey, sx - ex]
 	    angle = Math.atan2(dy, dx) / Math::PI * 180
 
 	    n = Math.sqrt(dx * dx + dy * dy)
 
-	    arrowend.move(ex + dx / n * display.event_radius, ey + dy / n * display.event_radius)
+	    if n > 0
+		arrowend.move(ex + dx / n * display.event_radius, ey + dy / n * display.event_radius)
+	    else
+		arrowend.move(ex, ey);
+	    end
 	    arrowend.set_angles(-(angle + ARROWEND_WIDTH / 2) * 16, ARROWEND_WIDTH * 16)
 	end
 	line.watchers << arrow_update
@@ -169,3 +192,13 @@ class Qt::CanvasLine
     end
 end
 
+class Qt::CanvasText
+    def height
+	fm = Qt::FontMetrics.new(font)
+	fm.bounding_rect(text).height
+    end
+    def width
+	fm = Qt::FontMetrics.new(font)
+	fm.bounding_rect(text).width
+    end
+end

@@ -9,14 +9,17 @@ module Roby
 	    # Returns a marshallable wrapper for +object+
 	    def self.[](object)
 		ObjectSpace.define_finalizer(object, &method(:finalized))
-		@@cache[object.object_id] ||= 
+		wrapper = (@@cache[object.object_id] ||= 
 		    case object
 		    when Roby::TaskEvent:   TaskEvent.new(object)
 		    when Roby::Event:	    Event.new(object)
 		    when Roby::TaskEventGenerator:   TaskEventGenerator.new(object)
 		    when Roby::EventGenerator:	    EventGenerator.new(object)
 		    when Roby::Task:	    Task.new(object)
-		    end
+		    end)
+
+		wrapper.update(object)
+		wrapper
 	    end
 	    # Called by the GC when a wrapped object is finalized
 	    def self.finalized(id)
@@ -33,13 +36,16 @@ module Roby
 	    attr_reader :source_class
 	    # Address of the real object
 	    def source_address; Object.address_from_id(source_id) end
-	    # Model name of the real object
-	    attr_reader :model_name
+	    # Name of the real object
+	    attr_reader :name
 
 	    def initialize(source)
+		update(source)
+	    end
+	    def update(source)
 		@source_id    = source.object_id
 		@source_class = source.class.name
-		@model_name   = source.model.name
+		@name	      = source.name
 	    end
 	end
 	
@@ -52,11 +58,11 @@ module Roby
 	    # The event context
 	    attr_reader :context
 
-	    def initialize(event)
+	    def update(event)
+		super(event)
 		@symbol    = event.propagation_id
 		@context   = event.context.to_s
 		@generator = Wrapper[event.generator]
-		super(event)
 	    end
 	end
 
@@ -67,7 +73,7 @@ module Roby
 	    # The event symbol
 	    attr_reader :symbol
 
-	    def initialize(event)
+	    def update(event)
 		super(event)
 		@task	= Wrapper[event.task]
 		@symbol = event.symbol
@@ -85,7 +91,7 @@ module Roby
 	    # The generator symbol
 	    attr_reader :symbol
 
-	    def initialize(generator)
+	    def update(generator)
 		super(generator)
 		@symbol = generator.symbol
 		@task = Wrapper[generator.task]

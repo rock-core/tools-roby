@@ -1,210 +1,261 @@
 require 'Qt'
 require 'roby/support'
+require 'roby/log/marshallable'
 require 'roby/log/style'
+require 'set'
+require 'tempfile'
+require 'pp'
 
 module Roby::Display
+    class DotLayout
+	def self.dot_name(object)
+	    Object.address_from_id(object.source_id).to_s
+	end
+
+	def self.layout(display, scale)
+	    clusters = Hash.new
+
+	    # Write dot file
+	    dot		= Tempfile.new("roby_dot")
+	    dot_layout  = Tempfile.new("roby_layout")
+
+	    dot << "strict digraph event_structure {\n"
+
+	    display.each_event(nil) do |ev|
+		dot << "#{dot_name(ev)}[label=#{ev.symbol}];\n"
+	    end
+
+	    display.each_task do |task|
+		task_dot_name = dot_name(task)
+		clusters[task_dot_name] = task
+		dot << "subgraph cluster_#{task_dot_name} {\n"
+		display.each_event(task) do |ev|
+		    dot << "#{dot_name(ev)}[label=#{ev.symbol}];\n"
+		end
+		dot << "};\n"
+	    end
+
+	    display.each_relation do |from, to|
+		dot << "#{dot_name(from)} -> #{dot_name(to)};\n"
+	    end
+	    dot << "};\n"
+
+	    dot.flush
+	    system("dot #{dot.path} > #{dot_layout.path}") 
+
+	    # Load only task bounding boxes from dot, update arrows later
+	    task, graph_size = nil
+	    lines = File.open(dot_layout.path) { |io| io.readlines  }
+	    lines.each do |line|
+		if line =~ /subgraph cluster_(\w+) \{/
+		    task = clusters[$1]
+		elsif line =~ /graph \[bb="(\d+),(\d+),(\d+),(\d+)"\]/
+		    bb = [$1, $2, $3, $4].map { |i| Integer(i) }
+		    if !task
+			graph_size = [bb[2] * scale, bb[3] * scale]
+			canvas = display.canvas
+			sizes = [canvas.width, canvas.height].zip(graph_size)
+
+			if sizes.find { |d, c| d > c }
+			    new_size = sizes.map { |s| s.max }
+			    STDERR.puts new_size.inspect
+			    canvas.resize(*new_size)
+			end
+		    else
+			pos = [(bb[0] + bb[2]) / 2, 
+			       (bb[1] + bb[3]) / 2].map { |i| i *= scale }
+			
+
+			element = display.canvas_task(task)
+			element.move(pos[0], graph_size[1] - pos[1])
+		    end
+		end
+	    end
+
+	    display.each_relation { |from, to| display.canvas_arrow(from, to) }
+	    display.changed!
+	end
+    end
+
     # Displays the plan's causal network
     class EventStructureServer < Qt::Object
 	MINWIDTH = 50
 
-	attr_reader :line_height, :margin, :event_radius, :event_spacing
+	attr_reader :line_height, :margin, :event_radius, :event_spacing, :dot_scale
 	attr_reader :canvas, :view, :main_window
-	attr_reader :tasks, :events, :remaining, :columns
-	attr_reader :event_filters, :arrows
+	attr_reader :events, :tasks, :relations
+	attr_reader :canvas_tasks, :canvas_events, :canvas_arrows
+	attr_reader :by_task
 
 	BASE_LINES = 20
 	def initialize(root_window)
 	    super
 
-	    @start_time	    = nil # start time (time of the first event)
-	    @line_height    = 40  # height of a line in pixel
+	    # object_id => marshallable maps
+	    @events = Hash.new
+	    @tasks	= Hash.new
+	    @relations	= Set.new
+
+	    # a task_id => [event_id, ...] map
+	    @by_task	= Hash.new { |h, k| h[k] = Set.new }
+
+	    # canvas items for tasks, events and arrows
+	    @canvas_tasks  = Hash.new # task_id => task_item
+	    @canvas_events = Hash.new # event_id => event_item
+	    @canvas_arrows = Hash.new # [event_id, event_id] => arrow_item
+
+	    # Some graphical parameters
+	    @line_height    = 40
 	    @margin	    = 10
 	    @event_radius   = 4
-	    @tasks	    = Hash.new # a Roby::Task -> Display::Task map
-	    @events	    = Hash.new # a Roby::Event -> Display::Event map
 	    @event_spacing  = event_radius
-	    @arrows	    = Hash.new
+	    @dot_scale	    = 0.7
 
-	    first_column = Column.new(margin, self)
-	    @columns	    = [first_column, first_column] # [first, last] column objects
-	    @remaining	    = []
-
+	    # Qt objects
 	    @canvas = Qt::Canvas.new(640, line_height * BASE_LINES + margin * 2)
 	    @view   = Qt::CanvasView.new(@canvas, root_window)
 	    @main_window = @view
-	    
-	    @event_filters = [ lambda { |ev| ev.symbol == :aborted if ev.respond_to?(:symbol) } ]
 	end
 
-	def each_column(&iterator)
-	    if columns.first
-		yield(columns.first)
-		columns.first.each(&iterator)
+	class CanvasTask
+	    attr_reader :canvas_item, :display, :events, :task
+	    def initialize(task, display)
+		@task	     = task
+		@canvas_item = Display::Style.task(task, display)
+		# Put [0, 0] at the center of the item
+		@canvas_item.move(-@canvas_item[:rectangle].width / 2, -@canvas_item[:rectangle].height / 2)
+		@canvas_item.position = [0, 0]
+
+		@display     = display
+		@events	     = Hash.new
 	    end
-	    self
-	end
 
-	def newline
-	    each_column { |c| c.lines << nil }
-	    remaining << [nil, 0]
-	end
-
-	def newcolumn
-	    x = columns[0].inject(margin + columns[0].width) { |x, col| x + col.width }
-	    new = Column.new(x, self) 
-
-	    # Allocate the elements which were spanning outside the last column
-	    # It will update the 'remaining' array
-	    remaining.dup.enum_for(:each_with_index).
-		select { |(task, _), _| task }.
-		each { |(task, w), line_idx| new.allocate(line_idx, task, w) }
-
-	    columns.last.next_column = new
-	    columns[1] = new
-	end
-
-	def needed_canvas_width
-	    w = remaining.map { |_, w| w }.max || 0
-	    w += columns[0].inject(margin + columns[0].width) { |x, col| x + col.width }
-	end
-
-	def update_canvas_width
-	    needed = needed_canvas_width
-	    if canvas.width < needed
-		canvas.resize(canvas.width * 2, canvas.height)
+	    def update(task)
+		@task = task
+		@canvas_item[:text].text = Display::Style.task_name(task)
 	    end
-	end
 
-	def task(task)
-	    @tasks[task] ||= Task.new(task, columns.first, self) 
-	end
+	    def event(event)
+		unless item = events[event.symbol]
+		    item = events[event.symbol] = Display::Style.event(event, display)
+		end
 
-	def column_index(column)
-	    if cidx = enum_for(:each_column).enum_for(:each_with_index).
-		find { |c, _| c == column }
-		cidx.last
+		layout
+		item
 	    end
-	end
 
-	def check_structure
-	    # Check the continuity of task allocations
-	    seen = Hash.new
-	    each_column do |col|
-		col.lines.each_with_index do |task, index|
-		    next unless task
-		    if allowed = seen[task]
-			allowed_index, allowed_columns = allowed
-			unless allowed_index == index && allowed_columns.include?(col) 
-			    raise "error in column #{column_index(col)} for task #{task}: expected #{allowed_index} in columns #{allowed_columns.map { |c| column_index(c) }.sort.to_a.inspect}"
-			end
-		    else
-			allowed_columns = col.inject([col]) do |allowed_columns, c| 
-			    if c.lines[index]
-				allowed_columns << c
-			    else
-				allowed_columns
-			    end
-			end
-			seen[task] = [index, allowed_columns]
+	    def event_width
+		events.map { |_, e| e.width }.max
+	    end
+	    def width
+		(events.size - 1) * (event_width + display.event_spacing)
+	    end
+
+	    def layout
+		min_width = width
+		if canvas_item[:rectangle].width < min_width
+		    canvas_item[:rectangle].set_size(min_width, canvas_item[:rectangle].height)
+		end
+
+		spacing = event_width + display.event_spacing
+		y = canvas_item[:rectangle].y + canvas_item[:rectangle].height / 3
+
+		events = self.events.sort do |(x_symbol, x_ev), (y_symbol, y_ev)| 
+		    if x_symbol == :start || y_symbol == :stop then -1
+		    elsif x_symbol == :stop || y_symbol == :start then 1
+		    else x_symbol.to_s <=> y_symbol.to_s
 		    end
 		end
-	    end
 
-	    # Check that element.column returns the right one
-	    seen.each do |element, (_, allowed_columns)|
-		if element.column != allowed_columns.first
-		    raise 
+		events.inject(canvas_item[:rectangle].x) do |x, (_, ev)|
+		    ev.move(x, y)
+		    x + spacing
 		end
 	    end
-	end
 
-	def offset_columns
-	    dead, first = enum_for(:each_column).enum_cons(2).find { |empty, first| empty.empty? && !first.empty? }
-	    if dead
-	        offset = first.x - columns.first.x
-		dead.next_column = nil
-	        columns[0] = first
-		raise if columns[1] == dead
-		first.x -= offset
+	    def move(x, y)
+		offset_x, offset_y = x - canvas_item.x, y - canvas_item.y
+		canvas_item.move(x, y)
+		events.each { |_, ev| ev.moveBy(offset_x, offset_y) }
 	    end
 	end
 
-	PreferredLine = Struct.new :index, :count, :forbidden
-	def reorder_lines
-	    preferred = Hash.new { |h, k| h[k] = PreferredLine.new(0, 0, []) }
-	    columns[0].each do |col|
-		col.lines.each_with_index do |task, line_idx|
-		    next unless task
-		    preferred[task].index += line_idx
-		    preferred[task].count += 1
-		    preferred[task].forbidden << line_idx
+	def canvas_task(task)
+	    if !(canvas_item = canvas_tasks[task])
+		canvas_item = canvas_tasks[task] = CanvasTask.new(task, self)
+		each_event(task) do |ev|
+		    canvas_item.event(ev)
 		end
 	    end
+
+	    canvas_item
 	end
+	def event_pos(event)
+	    canvas_item = if event.respond_to?(:task)
+			      canvas_task(event.task).event(event)
+			  end
+	    [canvas_item.x, canvas_item.y]
+	end
+	def canvas_arrow(from, to)
+	    arrow = (canvas_arrows[ [from, to] ] ||= Display::Style.arrow(self))
 
-	def added_relation(time, ev_from, ev_to)
-	    if event_filters.find { |f| f[ev_from] } || event_filters.find { |f| f[ev_to] }
-		return
-	    end
-	    changed!
-
-	    
-	    # Build canvas objects
-	    from, to = define_generator(ev_from), define_generator(ev_to)
-
-	    # Create the link and add updaters in both events
-	    line = Display::Style.arrow(from.x, from.y, to.x, to.y, self)
-	    arrows[ [from, to] ] = line
-	    from.add_watch  { line.start_point = [from.x, from.y] }
-	    to.add_watch    { line.end_point = [to.x, to.y] }
-	    
-	    # Reorder objects in columns
-	    base_column = (from.root.column ||= columns[0])
-	    to.root.column ||= columns[0]
-	    from.root.next_elements << to.root
-	    from.root.propagate_column
-   
-	    # Offset columns if possible
-	    offset_columns
+	    from = event_pos(from)
+	    to = event_pos(to)
+	    arrow.start_point = from
+	    arrow.end_point = to
 	end
 
 	def state_change(roby_task, symbol)
-	    changed!
-	    task = task(task)
-	    task.color = Display::Style::TASK_COLORS[symbol]
+	    #changed!
+	    #task = task(roby_task)
+	    #task.color = Display::Style::TASK_COLORS[symbol]
 	end
 
+	def each_event(task, &iterator)
+	    source_id = task.source_id if task
+	    by_task[source_id].each { |id| yield(events[id]) }
+	end
+	def each_task(&iterator)
+	    tasks.each_value(&iterator)
+	end
+	def each_relation(&iterator)
+	    relations.each { |f, t| yield(events[f], events[t]) }
+	end
+
+	def event(gen)
+	    if gen.respond_to?(:task)
+		task_id = gen.task.source_id
+		tasks[task_id] = gen.task
+		if task_item = canvas_tasks[task_id]
+		    task_item.update(gen.task)
+		end
+	    end
+	    events[gen.source_id] = gen
+	    by_task[task_id] << gen.source_id
+	end
+
+	def added_relation(time, ev_from, ev_to)
+	    relations << [ev_from.source_id, ev_to.source_id]
+	    event(ev_from)
+	    event(ev_to)
+	end
 	def removed_relation(time, ev_from, ev_to)
-	    from, to = define_generator(ev_from), define_generator(ev_to)
-	    arrows[ [from, to] ].hide if arrows.has_key? [from, to]
-	end
-
-	def define_generator(ev)
-	    return events[ev] if events[ev]
-
-	    if event_filters.find { |f| f[ev] }
-		return
-	    end
-		
-	    changed!
-	    if ev.respond_to?(:task)
-		task = task(ev.task)
-		events[ev] ||= TaskEvent.new(ev, task, self)
-		task.event(events[ev])
-	    else
-		events[ev] ||= Event.new(ev, columns[0], self)
-	    end
-
-	    events[ev]
+	    relations.delete( [ev_from.source_id, ev_to.source_id] )
 	end
 
 	def task_initialize(time, task, start, stop)
-	    define_generator(start)
-	    define_generator(stop)
+	    tasks[task.source_id] = task
+	    event(start)
+	    event(stop)
+	end
+
+	def next_id
+	    @id ||= 0
+	    @id += 1
+	end
+	def layout
+	    DotLayout.layout(self, dot_scale)
 	end
     end
 end
 
-require 'roby/log/event_structure/structure.rb'
-require 'roby/log/event_structure/elements.rb'
-    

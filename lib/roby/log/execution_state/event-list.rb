@@ -15,13 +15,13 @@ class Roby::Display::ExecutionStateServer
 		expr = ""
 
 		if event.respond_to?(:task) && with_task
-		    expr << event.task.model_name
+		    expr << Display::Style.task_name(event.task)
 		end
 
 		if event.respond_to?(:symbol)
 		    expr << "[" << event.symbol.to_s << "]"
 		else
-		    expr << event.model_name
+		    expr << event.name
 		end
 
 		expr.gsub!(/^Roby::(?:Genom::)?/, '') 
@@ -32,7 +32,7 @@ class Roby::Display::ExecutionStateServer
 	    def initialize(list, task, kind, time, obj, *args)
 		super(list)
 		set_text(0, "%02i:%02i:%03i" % [time.tv_sec / 60, time.tv_sec % 60, time.tv_usec / 1000])
-		task_name = if obj.respond_to?(:task) then obj.task.model_name
+		task_name = if obj.respond_to?(:task) then Display::Style.task_name(obj.task)
 			    else "toplevel"
 			    end
 
