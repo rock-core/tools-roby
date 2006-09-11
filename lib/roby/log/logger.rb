@@ -12,6 +12,20 @@ module Roby::Log
 		yield(log) if !m || log.respond_to?(m)
 	    end
 	end
+
+	# Requires all displays. Returns the display classes
+	def load_all_displays
+	    basedir = File.dirname(__FILE__)
+	    Dir.glob("#{basedir}/*") do |path|
+		next unless File.directory?(path)
+		req = File.basename(path).gsub('_', '-')
+		next unless File.file?("#{path}/server.rb") && File.file?("#{basedir}/#{req}.rb")
+		require "roby/log/#{req}"
+	    end
+
+	    ObjectSpace.enum_for(:each_object, Class).
+		find_all { |k| k < Roby::Display::DRbRemoteDisplay && k.respond_to?(:connect) }
+	end
     end
 
     class FileLogger
