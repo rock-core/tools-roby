@@ -1,5 +1,4 @@
-require 'roby/log/marshallable'
-require 'roby/log/hooks'
+require 'roby/log/logger'
 require 'roby/log/drb'
 
 module Roby::Display
@@ -47,9 +46,7 @@ module Roby::Display
 
     class EventStructure < Relations
 	class << self
-	    def default_structure
-		Roby::EventStructure::CausalLinks
-	    end
+	    def default_structure; Roby::EventStructure::CausalLinks end
 	end
 
 	def task_initialize(time, task, start, stop)
@@ -65,48 +62,26 @@ module Roby::Display
 	    end
 	end
     end
-end
 
-if $0 == __FILE__
-    include Roby
-    STDOUT.sync = true
-
-    TaskMockup = Class.new(Roby::Task) do
-	event :start, :command => true
-	event :stop
-	on :start => :stop
-    end
-
-    def task_mockup(name)
-	t = TaskMockup.new
-	t.model.instance_eval do
-	    singleton_class.send(:define_method, :name) { name }
+    class TaskStructure < Relations
+	class << self
+	    def default_structure; TaskStructure::Hierarchy end
 	end
 
-	t
+	def task_initialize(time, task, start, stop)
+	    service.task_initialize(time, task, start, stop)
+	end
+
+	STATE_EVENTS = [:start, :success, :failed]
+	def generator_fired(time, event)
+	    generator = event.generator
+	    return unless generator.respond_to?(:symbol)
+	    if STATE_EVENTS.include?(generator.symbol)
+		service.state_change(generator.task, generator.symbol)
+	    end
+	end
     end
 
-    def fill(state_display)
-	t1 = task_mockup("a_very_long_name")
-	t2 = task_mockup("another_long_name")
-	t3 = task_mockup("t3")
-		
-	f = Roby::ForwarderGenerator.new(t1.event(:start), t2.event(:start))
-	t1.event(:stop).on t3.event(:start)
-
-	t4 = task_mockup('t4')
-	t4.event(:stop).on t3.event(:start)
-	puts "End"
-    end
-
-    Roby::EventGenerator.include SlowEventPropagation
-
-    begin
-	server = Roby::Display::EventStructure.connect :start => true
-	fill(server)
-	sleep(10)
-    rescue Exception => e
-	puts "#{e.message}(#{e.class.name}):in #{e.backtrace.join("\n  ")}"
-    end
 end
+
 
