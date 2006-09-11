@@ -15,6 +15,7 @@ require 'monitor'
 class ThreadServer
     class Quit < RuntimeError; end
     attr_reader :thread, :forwarded
+    attr_reader :empty_queue
 
     include MonitorMixin
 
@@ -29,12 +30,13 @@ class ThreadServer
     def initialize(forward_to, multiplex = false)
 	super()
 
-	@forwarded = forward_to
-	@queue = Queue.new
-	@multiplex = multiplex
+	@forwarded  = forward_to
+	@queue	    = Queue.new
+	@multiplex  = multiplex
 
 	started = false
 	started_signal = new_cond
+	@empty_queue = new_cond
 
 	@thread = Thread.new do
 	    Thread.current.abort_on_exception = true
@@ -68,6 +70,12 @@ class ThreadServer
 	    block = message.pop
 	    forwarded.send(*message, &block)
 	end
+
+	synchronize do
+	    if @queue.empty?
+		empty_queue.signal
+	    end
+	end
     end
 
     def method_missing(*args, &block) # :nodoc:
@@ -83,6 +91,10 @@ class ThreadServer
     def quit!
 	@thread.raise Quit
 	@thread.join
+    end
+
+    def flush
+        synchronize { empty_queue.wait_until { @queue.empty? } }
     end
 end
 
