@@ -6,13 +6,10 @@ module Roby::Display
     class ExecutionState < DRbRemoteDisplay
 	include Singleton
 
-	DEFAULT_URI = 'druby://localhost:10000'
-
 	class << self
 	    def service; instance.service end
 	    def connect(options = {})
 		Roby::Log.loggers << instance
-		options[:server] ||= DEFAULT_URI
 		instance.connect("execution_state", options)
 	    end
 	end

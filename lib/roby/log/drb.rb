@@ -6,6 +6,8 @@ require 'roby/plan'
 require 'facet/kernel/constant'
 
 module Roby::Display
+    DEFAULT_REMOTE_DISPLAY_URI = "druby://localhost:10000"
+
     module DRbDisplayMixin
 	attr_accessor :changed
 	def changed?; @changed end
@@ -162,15 +164,15 @@ module Roby::Display
 
 	# Connects to a display server
 	# 
-	# :start => uri the URI on which we should start the server
+	# :start => true if we should start a standalone display, false if we connect to an already existing one
 	# :server => uri the URI on which we should connect to the server
 	# :server => DRbObject the server object
 	def connect(kind, options)
 	    raise RuntimeError, "already started" if @service
-	    options = validate_options options, [:start, :server, :replay, :name]
+	    options = validate_options options, :start => false, 
+		:server => DEFAULT_REMOTE_DISPLAY_URI, 
+		:name => Process.pid.to_s
 
-	    parent_pid = Process.pid
-	    options[:name] ||= parent_pid.to_s
 	    if options[:start]
 		read, write = IO.pipe
 		fork do

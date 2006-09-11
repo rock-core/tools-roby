@@ -3,8 +3,6 @@ require 'roby/log/hooks'
 require 'roby/log/drb'
 
 module Roby::Display
-    DEFAULT_URI = "druby://localhost:10000"
-
     class Relations < DRbRemoteDisplay
 	@@displays = []
 	class << self
@@ -16,7 +14,6 @@ module Roby::Display
 	    end
 
 	    def connect(options = {})
-		options[:server]    ||= DEFAULT_URI
 		relation = (options.delete(:relation) || default_structure)
 
 		instance = display(relation)
