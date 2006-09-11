@@ -216,5 +216,12 @@ module Roby
     
     TaskStructure   = RelationSpace(Task)
     EventStructure  = RelationSpace(EventGenerator)
+
+    # Requires all Roby relation files (all files in relations/)
+    def self.load_all_relations
+	Dir.glob("#{File.dirname(__FILE__)}/relations/*.rb").each do |file|
+	    require "roby/relations/#{File.basename(file, '.rb')}"
+	end
+    end
 end
 
