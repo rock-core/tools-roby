@@ -160,13 +160,6 @@ module Roby::Display
 	    STDERR.puts "#{e.message}(#{e.class.name}):in #{e.backtrace.join("\n  ")}"
 	end
 
-	# Log commands instead of sending them to a display server
-	def log(logfile)
-	    io = File.open(logfile, "w")
-	    io.puts self.class.name.gsub(/.*::/, '').to_yaml
-	    @service = DRbCommandLogger.new(io)
-	end
-
 	# Connects to a display server
 	# 
 	# :start => uri the URI on which we should start the server
