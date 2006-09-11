@@ -4,7 +4,8 @@ require 'optparse'
 
 display = nil
 parser = OptionParser.new do |opts|
-    opts.banner = "roby-eventlog [options] logfile"
+    opts.banner = "roby-eventlog [options] logfile\nDisplay the event logs which are saved by FileLogger"
+    opts.separator ""
     opts.on("-d DISPLAY", "--display DISPLAY", String, 
 	    "display log using DISPLAY. Available displays are: stdout, execution or a relation name") do |display|
     end
@@ -52,5 +53,8 @@ else
     Display::Relations.connect :start => true, :relation => rel
 end
 
+if ARGV.empty?
+    STDERR.puts "no file given on command line, reading stdin"
+end
 Log::FileLogger.replay(ARGF)
 
