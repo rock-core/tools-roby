@@ -55,16 +55,6 @@ module Roby::Display
 
     end
 
-    class DRbCommandLogger
-	attr_reader :io
-	def initialize(io); @io = io end
-	def method_missing(name, *args, &block)
-	    raise "no block allowed" if block
-	    io.puts [name, *args].to_yaml
-	    io.flush
-	end
-    end
-
     class DRbDisplayThread < ThreadServer
 	attr_reader :remote_display
 	def initialize(remote_display, forward_to, multiplex = false)
@@ -116,13 +106,15 @@ module Roby::Display
 	    kind = kind.to_s
 
 	    unless display = displays[ [kind, name] ]
-		file_name  = "roby/log/#{kind.underscore}/server"
+		begin
+		    require "roby/log/#{kind.underscore}/server"
+		rescue LoadError
+		    require "roby/log/#{kind.underscore.gsub('_', '-')}-server"
+		end
 		klass_name = "#{kind.classify}Server"
-
-		require file_name
 		klass = Roby::Display.constant(klass_name)
 
-		add(kind) do |base_widget|
+		add(name) do |base_widget|
 		    display = displays[ [kind, name] ] = klass.new(base_widget)
 		end
 	    end
@@ -183,7 +175,7 @@ module Roby::Display
 		write.close
 		check = read.read(2)
 		if check != "OK"
-		    raise RuntimeError, "failed to start execution state display server"
+		    raise RuntimeError, "failed to start #{self.class}"
 		end
 	    end
 
