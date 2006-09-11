@@ -3,22 +3,56 @@ require 'roby/log/hooks'
 require 'roby/log/drb'
 
 module Roby::Display
-    class EventStructure < DRbRemoteDisplay
-	include Singleton
+    DEFAULT_URI = "druby://localhost:10000"
 
-	DEFAULT_URI = 'druby://localhost:10001'
-
+    class Relations < DRbRemoteDisplay
+	@@displays = []
 	class << self
-	    def service; instance.service end
+	    def display(relation)
+		unless instance = @@displays.assoc(relation)
+		    @@displays << (instance = [name, EventStructure.new(relation)])
+		end
+		instance.last
+	    end
+
 	    def connect(options = {})
+		options[:server]    ||= DEFAULT_URI
+		relation = (options.delete(:relation) || default_structure)
+
+		instance = display(relation)
 		Roby::Log.loggers << instance
-		options[:server] ||= DEFAULT_URI
-		instance.connect("event_structure", options)
+		instance.connect("event_structure", options.merge(:name => relation.name))
 	    end
 	end
 
+	attr_reader :relation
+	def initialize(relation)
+	    @relation = relation
+	end
+
 	def disconnect
-	    Roby::Log.loggers.delete(instance)
+	    @displays.delete(@displays.rassoc(self))
+	    Roby::Log.loggers.delete(self)
+	end
+
+	def added_relation(time, type, from, to, info)
+	    if relation.subset?(type)
+		service.added_relation(time, from, to)
+	    end
+	end
+
+	def removed_relation(time, type, from, to)
+	    if relation.subset?(type)
+		service.removed_relation(time, from, to)
+	    end
+	end
+    end
+
+    class EventStructure < Relations
+	class << self
+	    def default_structure
+		Roby::EventStructure::CausalLinks
+	    end
 	end
 
 	def task_initialize(time, task, start, stop)
@@ -31,18 +65,6 @@ module Roby::Display
 	    return unless generator.respond_to?(:symbol)
 	    if STATE_EVENTS.include?(generator.symbol)
 		service.state_change(generator.task, generator.symbol)
-	    end
-	end
-
-	def added_relation(time, type, from, to, info)
-	    if Roby::EventStructure::CausalLinks.subset?(type)
-		service.added_relation(time, from, to)
-	    end
-	end
-
-	def removed_relation(time, type, from, to)
-	    if Roby::EventStructure::CausalLinks.subset?(type)
-		service.removed_relation(time, from, to)
 	    end
 	end
     end

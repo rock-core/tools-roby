@@ -58,7 +58,6 @@ module Roby::Display
 
 			if sizes.find { |d, c| d > c }
 			    new_size = sizes.map { |s| s.max }
-			    STDERR.puts new_size.inspect
 			    canvas.resize(*new_size)
 			end
 		    else
@@ -73,7 +72,7 @@ module Roby::Display
 	    end
 
 	    display.each_relation { |from, to| display.canvas_arrow(from, to) }
-	    display.changed!
+	    display.canvas.update
 	end
     end
 
@@ -118,9 +117,9 @@ module Roby::Display
 	end
 
 	class CanvasTask
-	    attr_reader :canvas_item, :display, :events, :task
+	    attr_reader :canvas_item, :display, :events, :task_id
 	    def initialize(task, display)
-		@task	     = task
+		@task_id     = task.source_id
 		@canvas_item = Display::Style.task(task, display)
 		# Put [0, 0] at the center of the item
 		@canvas_item.move(-@canvas_item[:rectangle].width / 2, -@canvas_item[:rectangle].height / 2)
@@ -130,10 +129,8 @@ module Roby::Display
 		@events	     = Hash.new
 	    end
 
-	    def update(task)
-		@task = task
-		@canvas_item[:text].text = Display::Style.task_name(task)
-	    end
+	    def task; display.tasks[task_id] end
+	    def update; @canvas_item[:title].text = Display::Style.task_name(task); self end
 
 	    def event(event)
 		unless item = events[event.symbol]
@@ -150,6 +147,7 @@ module Roby::Display
 	    def width
 		(events.size - 1) * (event_width + display.event_spacing)
 	    end
+	    def color=(new_color); canvas_item[:rectangle].color = new_color end
 
 	    def layout
 		min_width = width
@@ -181,8 +179,8 @@ module Roby::Display
 	end
 
 	def canvas_task(task)
-	    if !(canvas_item = canvas_tasks[task])
-		canvas_item = canvas_tasks[task] = CanvasTask.new(task, self)
+	    if !(canvas_item = canvas_tasks[task.source_id])
+		canvas_item = canvas_tasks[task.source_id] = CanvasTask.new(task, self)
 		each_event(task) do |ev|
 		    canvas_item.event(ev)
 		end
@@ -205,10 +203,10 @@ module Roby::Display
 	    arrow.end_point = to
 	end
 
-	def state_change(roby_task, symbol)
-	    #changed!
-	    #task = task(roby_task)
-	    #task.color = Display::Style::TASK_COLORS[symbol]
+	def state_change(task, symbol)
+	    task_item = canvas_task(task)
+	    task_item.color = Display::Style::TASK_COLORS[symbol]
+	    changed!
 	end
 
 	def each_event(task, &iterator)
@@ -223,14 +221,15 @@ module Roby::Display
 	end
 
 	def event(gen)
+	    events[gen.source_id] = gen
 	    if gen.respond_to?(:task)
 		task_id = gen.task.source_id
+
 		tasks[task_id] = gen.task
-		if task_item = canvas_tasks[task_id]
-		    task_item.update(gen.task)
-		end
+		canvas_task(gen.task).
+		    update.
+		    event(gen)
 	    end
-	    events[gen.source_id] = gen
 	    by_task[task_id] << gen.source_id
 	end
 
@@ -238,15 +237,19 @@ module Roby::Display
 	    relations << [ev_from.source_id, ev_to.source_id]
 	    event(ev_from)
 	    event(ev_to)
+	    changed!
 	end
 	def removed_relation(time, ev_from, ev_to)
 	    relations.delete( [ev_from.source_id, ev_to.source_id] )
+	    changed!
 	end
 
 	def task_initialize(time, task, start, stop)
 	    tasks[task.source_id] = task
+	    canvas_task(task)
 	    event(start)
 	    event(stop)
+	    changed!
 	end
 
 	def next_id
@@ -256,6 +259,7 @@ module Roby::Display
 	def layout
 	    DotLayout.layout(self, dot_scale)
 	end
+	alias :timer_update :layout
     end
 end
 
