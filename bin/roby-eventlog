@@ -1,0 +1,56 @@
+#! /usr/bin/ruby
+
+require 'optparse'
+
+display = nil
+parser = OptionParser.new do |opts|
+    opts.banner = "roby-eventlog [options] logfile"
+    opts.on("-d DISPLAY", "--display DISPLAY", String, 
+	    "display log using DISPLAY. Available displays are: stdout, execution or a relation name") do |display|
+    end
+    opts.on("--help", "this help") do 
+	puts opts
+	puts
+	exit
+    end
+end
+parser.parse! ARGV
+
+require 'roby/log/logger'
+require 'roby/relations'
+require 'roby/log/logger'
+
+include Roby
+Roby.load_all_relations
+displays = Roby::Log.load_all_displays
+
+# Check what is the needed display
+case display
+when "help"
+    task_relations = Roby::TaskStructure.constants.
+	find_all { |cst| Roby::TaskStructure.const_get(cst).is_a?(Roby::RelationGraph) }
+    event_relations = Roby::EventStructure.constants.
+	find_all { |cst| Roby::EventStructure.const_get(cst).is_a?(Roby::RelationGraph) }
+
+    STDERR.puts "allowed values for --display are 'exec' or a relation name"
+    STDERR.puts "Available task relations: #{task_relations.join(", ")}"
+    STDERR.puts "Available event relations: #{event_relations.join(", ")}"
+    STDERR.puts
+    STDERR.puts "if no --display option is given, outputs the events on the console"
+    exit(1)
+when nil
+    Log.loggers << Log::ConsoleLogger.new(STDOUT)
+when /^exec/
+    Display::ExecutionState.connect :start => true
+else
+    unless rel = Roby::TaskStructure.constant(display) rescue nil
+	rel = Roby::EventStructure.constant(display) rescue nil
+    end
+    if !rel
+	raise ArgumentError, "no such display #{display}, use --display help to get the list of available displays"
+    end
+    Display::Relations.connect :start => true, :relation => rel
+end
+
+Log::FileLogger.replay(ARGF)
+
