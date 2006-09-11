@@ -156,7 +156,7 @@ module Roby
 			    :parent_enumerator => nil,
 			    :noinfo => false
 
-		graph = RelationGraph.new relation_name, options[:subsets]
+		graph = RelationGraph.new "#{relation_space.name}::#{options[:const_name]}", options[:subsets]
 
 		mod = Module.new
 		mod.class_eval(&block) if block
