@@ -42,6 +42,7 @@ module Roby::Display
 			Thread.pass
 		    end
 
+		    display.timer_update if display.respond_to?(:timer_update)
 		    display.canvas.update
 		end
 		slots "update()"
