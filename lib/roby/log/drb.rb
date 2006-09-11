@@ -188,7 +188,8 @@ module Roby::Display
 		     end
 
 	    server = server.get(kind, options[:name])
-	    
+	    # Using a ThreadServer allows to multiplex events before sending
+	    # them via DRb. As DRb is damn slow, it speeds things a lot
 	    @service = DRbDisplayThread.new(self, server, true)
 	end
 
