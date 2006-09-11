@@ -167,14 +167,15 @@ module Roby::Display
 	# :server => DRbObject the server object
 	def connect(kind, options)
 	    raise RuntimeError, "already started" if @service
-	    options = validate_options options, [:start, :server, :replay]
+	    options = validate_options options, [:start, :server, :replay, :name]
 
 	    parent_pid = Process.pid
+	    options[:name] ||= parent_pid.to_s
 	    if options[:start]
 		read, write = IO.pipe
 		fork do
 		    read.close
-		    standalone(options[:server], kind, parent_pid.to_s, write)
+		    standalone(options[:server], kind, options[:name], write)
 		end
 
 		write.close
@@ -192,7 +193,7 @@ module Roby::Display
 		     else; DRbObject.new(nil, options[:server].to_str)
 		     end
 
-	    server = server.get(kind, parent_pid.to_s)
+	    server = server.get(kind, options[:name])
 	    
 	    @service = DRbDisplayThread.new(self, server, true)
 	end
