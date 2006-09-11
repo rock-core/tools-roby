@@ -17,7 +17,7 @@ module Roby::Display
 
 		instance = display(relation)
 		Roby::Log.loggers << instance
-		instance.connect("event_structure", options.merge(:name => relation.name))
+		instance.connect(self.name.gsub(/.*::/, ''), options.merge(:name => relation.name))
 	    end
 	end
 
@@ -65,7 +65,7 @@ module Roby::Display
 
     class TaskStructure < Relations
 	class << self
-	    def default_structure; TaskStructure::Hierarchy end
+	    def default_structure; Roby::TaskStructure::Hierarchy end
 	end
 
 	def task_initialize(time, task, start, stop)
