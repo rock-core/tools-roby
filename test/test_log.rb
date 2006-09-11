@@ -68,6 +68,7 @@ class TC_Log < Test::Unit::TestCase
 	    source.add_signal(dest)
 	    source.call
 	    source.remove_signal(dest)
+	    Log.flush
 	    io.string
 	end
 
@@ -91,7 +92,7 @@ class TC_Log < Test::Unit::TestCase
 	assert_equal(source.object_id, args[2].source_id)
 	assert_equal(dest.object_id, args[3].source_id)
 
-	_, args = next_logged_method(result, :added_relation)
+	_, args = next_logged_method(result, :added_event_relation)
 	assert_equal(source.object_id, args[2].source_id)
 	assert_equal(dest.object_id, args[3].source_id)
 
@@ -104,7 +105,7 @@ class TC_Log < Test::Unit::TestCase
 	assert_equal(source.object_id, args[1].generator.source_id)
 	assert_equal(dest.object_id, args[2].source_id)
 
-	_, args = next_logged_method(result[-2, 2], :removed_relation)
+	_, args = next_logged_method(result[-2, 2], :removed_event_relation)
 	assert_equal(source.object_id, args[2].source_id)
 	assert_equal(dest.object_id, args[3].source_id)
     end

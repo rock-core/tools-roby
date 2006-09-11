@@ -162,13 +162,7 @@ module Roby::Display::Style
 	    dy, dx = [sy - ey, sx - ex]
 	    angle = Math.atan2(dy, dx) / Math::PI * 180
 
-	    n = Math.sqrt(dx * dx + dy * dy)
-
-	    if n > 0
-		arrowend.move(ex + dx / n * display.event_radius, ey + dy / n * display.event_radius)
-	    else
-		arrowend.move(ex, ey);
-	    end
+	    arrowend.move(ex, ey);
 	    arrowend.set_angles(-(angle + ARROWEND_WIDTH / 2) * 16, ARROWEND_WIDTH * 16)
 	end
 	line.watchers << arrow_update

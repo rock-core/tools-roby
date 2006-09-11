@@ -12,40 +12,49 @@ module Roby::Display
 	end
 
 	def self.layout(display, scale)
-	    clusters = Hash.new
-
 	    # Write dot file
-	    dot = $dot		= Tempfile.new("roby_dot")
-	    dot_layout = $dot_layout  = Tempfile.new("roby_layout")
+	    dot = Tempfile.new("roby_dot")
+	    dot_layout = Tempfile.new("roby_layout")
 
-	    dot << "strict digraph relations {\n"
+	    dot << "digraph relations {\n"
 
+	    # Events that are not task events
 	    display.each_event(nil) do |ev|
 		dot << "#{dot_name(ev)}[label=#{ev.symbol}];\n"
 	    end
 
+	    # Clusters is a task_cluster_name => [task, reference_node] hash
+	    clusters = Hash.new
 	    display.each_task do |task|
 		task_dot_name = dot_name(task)
-		clusters[task_dot_name] = task
+		clusters[task_dot_name] = [task]
+
 		dot << "subgraph #{task_dot_name} {\n"
+		has_event = false
 		display.each_event(task) do |ev|
 		    dot << "#{dot_name(ev)}[label=#{ev.symbol}];\n"
+		    if !has_event
+			has_event = true
+			clusters[task_dot_name] << dot_name(ev)
+		    end
+		    has_event = true
+		end
+		if !has_event
+		    blind_event = task_dot_name.gsub('cluster_', '')
+		    dot << "#{blind_event};"
+		    clusters[task_dot_name] << blind_event
 		end
 		dot << "};\n"
 	    end
 
-	    if display.respond_to?(:each_task_relation)
-		display.each_task_relation do |from, to|
-		    from = display.enum_for(:each_event, from).find { true }
-		    to = display.enum_for(:each_event, to).find { true }
-		    dot << "#{dot_name(from)} -> #{dot_name(to)};\n"
-		end
-	    else
-		display.each_relation do |from, to|
-		    from = display.enum_for(:each_event, from).find { true }
-		    to = display.enum_for(:each_event, to).find { true }
-		    dot << "#{dot_name(from)} -> #{dot_name(to)};\n"
-		end
+	    display.each_task_relation do |from, to|
+		# Find one event in each task to define an edge between the tasks
+		from = clusters[dot_name(from)].last
+		to = clusters[dot_name(to)].last
+		dot << "#{from} -> #{to};\n"
+	    end
+	    display.each_event_relation do |from, to|
+		dot << "#{dot_name(from)} -> #{dot_name(to)};\n"
 	    end
 	    dot << "};\n"
 
@@ -57,7 +66,7 @@ module Roby::Display
 	    lines = File.open(dot_layout.path) { |io| io.readlines  }
 	    lines.each do |line|
 		if line =~ /subgraph (cluster_\w+) \{/
-		    task = clusters[$1]
+		    task = clusters[$1].first
 		elsif line =~ /graph \[bb="(\d+),(\d+),(\d+),(\d+)"\]/
 		    bb = [$1, $2, $3, $4].map { |i| Integer(i) }
 		    if !task
@@ -80,8 +89,13 @@ module Roby::Display
 		end
 	    end
 
-	    display.each_relation { |from, to| display.canvas_arrow(from, to) }
+	    display.each_task_relation { |from, to| display.canvas_arrow(from, to) }
+	    display.each_event_relation { |from, to| display.canvas_arrow(from, to) }
 	    display.canvas.update
+
+	ensure
+	    dot.close! if dot
+	    dot_layout.close! if dot_layout
 	end
     end
 end

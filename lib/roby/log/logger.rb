@@ -14,11 +14,33 @@ module Roby::Log
 	    end
 	end
 
-	# Requires all displays. Returns the display classes
+	# Returns true if there is at least one loggr for the +m+ message
+	def has_logger?(m); loggers.any? { |log| log.respond_to?(m) } end
+
+	# call-seq:
+	#   Log.log(message) { args }
+	#
+	# Logs +message+ with argument +args+. The block is called only once if
+	# there is at least one logger which listens for +message+.
+	def log(m, args = nil)
+	    if has_logger?(m)
+		args = yield if block_given?
+	        each_logger(m) do |log|
+		    log.send(m, *args)
+		end
+	    end
+	end
+
+	def flush
+	    each_logger(:flush) do |log|
+		log.flush
+	    end
+	end
+
+	# Requires all displays
 	def load_all_displays
-	    require 'roby/log/relation-display'
+	    require 'roby/log/relations'
 	    require 'roby/log/execution-state'
-	    [ConsoleLogger, Roby::Display::EventStructure, Roby::Display::TaskStructure, Roby::Display::ExecutionState]
 	end
     end
 
@@ -40,30 +62,34 @@ module Roby::Log
 	    @dumped[m] = Marshal.dump(m)
 	    define_method(m) { |*args| io << FileLogger.dumped[m] << Marshal.dump(args) }
 	end
-	@dumped[:added_relation] = Marshal.dump(:added_relation)
-	def added_relation(time, type, from, to, info)
-	    io << FileLogger.dumped[:added_relation] << 
-		Marshal.dump([time, type.name, from, to, info.to_s])
+	[:added_task_relation, :added_event_relation].each do |m|
+	    @dumped[m] = Marshal.dump(m)
+	    define_method(m) do |time, type, from, to, info|
+		io << FileLogger.dumped[m] << 
+		    Marshal.dump([time, type.name, from, to, info.to_s])
+	    end
 	end
-	@dumped[:removed_relation] = Marshal.dump(:removed_relation)
-	def removed_relation(time, type, from, to)
-	    io << FileLogger.dumped[:removed_relation] << 
-		Marshal.dump([time, type.name, from, to])
+	[:removed_task_relation, :removed_event_relation].each do |m|
+	    @dumped[m] = Marshal.dump(m)
+	    define_method(m) do |time, type, from, to|
+		io << FileLogger.dumped[m] << 
+		    Marshal.dump([time, type.name, from, to])
+	    end
 	end
 
 	def self.replay(io)
 	    loop do
 		method_name = Marshal.load(io)
 		method_args = Marshal.load(io)
-		if method_name == :added_relation || method_name == :removed_relation
+		if method_name.to_s =~ /_relation$/
 		    method_args[1] = Module.constant(method_args[1])
 		end
 
-		Log.each_logger(method_name) do |log|
-		    log.send(method_name, *method_args)
-		end
+		Log.log(method_name, method_args)
 	    end
 	rescue EOFError
+	ensure
+	    Log.flush
 	end
     end
 

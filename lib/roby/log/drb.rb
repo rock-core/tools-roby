@@ -65,8 +65,10 @@ module Roby::Display
 	def process_messages
 	    super
 
-	rescue DRb::DRbConnError, ThreadServer::Quit
-	    remote_display.disconnect
+	rescue RuntimeError => e
+	    Roby.warn "display server #{self} disabled because of exception: #{e.message}(#{e.class})"
+	    remote_display.disabled
+
 	    raise ThreadServer::Quit
 	end
     end
@@ -193,9 +195,11 @@ module Roby::Display
 	    @service = DRbDisplayThread.new(self, server, true)
 	end
 
-	def disconnect
+	def disabled
 	    @service = nil
 	end
+
+	def flush; @service.flush if @service end
     end
 end
 
