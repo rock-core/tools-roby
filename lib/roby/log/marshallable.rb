@@ -32,6 +32,10 @@ module Roby
 	    def eql?(obj); source_id == obj.source_id end
 	    alias :== :eql?
 
+	    def source_address
+		Object.address_from_id(source_id)
+	    end
+
 	    # Class of the real object
 	    attr_reader :source_class
 	    # Address of the real object
