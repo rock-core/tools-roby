@@ -494,11 +494,27 @@ static VALUE vertex_related_p(int argc, VALUE* argv, VALUE self)
     return vertex_child_p(argc, argv, self);
 }
 
-template<typename iterator, typename range_t>
-static void vertex_each_related(BGLGraph& graph, range_t range, set<VALUE>& already_seen)
+/** Iterates on all vertices in the range */
+template <typename Range, typename F>
+static bool for_each_value(Range range, BGLGraph& graph, F f)
 {
-    iterator it, end;
+    typedef typename Range::first_type Iterator;
+    Iterator it, end;
     for (tie(it, end) = range; it != end; ++it)
+    {
+	if (!f(graph[*it]))
+	    return false;
+    }
+    return true;
+}
+
+/** Iterates on each adjacent vertex of +v+ in +graph+ which are not yet in +already_seen+ */
+template <typename Iterator>
+static bool for_each_adjacent_uniq(vertex_descriptor v, BGLGraph& graph, set<VALUE>& already_seen, 
+	std::pair<Iterator, Iterator>(*get_range)(vertex_descriptor, BGLGraph&))
+{
+    Iterator it, end;
+    for (tie(it, end) = get_range(v, graph); it != end; ++it)
     {
 	VALUE related_object = graph[*it];
 	bool inserted;
@@ -506,23 +522,56 @@ static void vertex_each_related(BGLGraph& graph, range_t range, set<VALUE>& alre
 	if (inserted)
 	    rb_yield_values(1, related_object);
     }
+    return true;
 }
-template<typename iterator, typename range_getter>
-static void vertex_each_related(VALUE vertex, range_getter f, std::set<VALUE>& already_seen)
+
+/* Iterates on all graphs +vertex+ is part of, calling f(BGLGraph&, vertex_descriptor). If the calling
+ * function returns false, stop iteration here */
+template<typename F>
+static bool for_each_graph(VALUE vertex, F f)
 {
     graph_map::iterator graph, graph_end;
     for (tie(graph, graph_end) = vertex_descriptors(vertex); graph != graph_end; ++graph)
     {
 	BGLGraph& g	    = graph_wrapped(graph->first);
 	vertex_descriptor v = graph->second;
-	vertex_each_related<iterator>(g, f(v, g), already_seen);
+	if (!f(v, g))
+	    return false;
     }
+    return true;
 }
 
 
 
-static std::pair<BGLGraph::inv_adjacency_iterator, BGLGraph::inv_adjacency_iterator>
-vertex_parent_range(vertex_descriptor v, BGLGraph& graph) { return inv_adjacent_vertices(v, graph); }
+template<typename Iterator> std::pair<Iterator, Iterator> vertex_range(vertex_descriptor v, BGLGraph& g);
+template<> static std::pair<BGLGraph::inv_adjacency_iterator, BGLGraph::inv_adjacency_iterator>
+vertex_range<BGLGraph::inv_adjacency_iterator>(vertex_descriptor v, BGLGraph& graph) { return inv_adjacent_vertices(v, graph); }
+template<> static std::pair<BGLGraph::adjacency_iterator, BGLGraph::adjacency_iterator>
+vertex_range<BGLGraph::adjacency_iterator>(vertex_descriptor v, BGLGraph& graph) { return adjacent_vertices(v, graph); }
+template <typename Iterator>
+static VALUE vertex_each_related(int argc, VALUE* argv, VALUE self)
+{
+    VALUE graph = Qnil;
+    rb_scan_args(argc, argv, "01", &graph);
+
+    if (NIL_P(graph))
+    {
+	set<VALUE> already_seen;
+	for_each_graph(self, 
+		bind(for_each_adjacent_uniq<Iterator>, _1, _2, boost::ref(already_seen), &vertex_range<Iterator>));
+    }
+    else
+    {
+	vertex_descriptor v; bool exists;
+	tie(v, exists) = rb_to_vertex(self, graph);
+	if (! exists)
+	    return self;
+
+	BGLGraph& g = graph_wrapped(graph);
+	for_each_value(vertex_range<Iterator>(v, g), g, rb_yield);
+    }
+    return self;
+}
 
 /*
  * call-seq:
@@ -532,30 +581,7 @@ vertex_parent_range(vertex_descriptor v, BGLGraph& graph) { return inv_adjacent_
  * the vertices that are parent in +graph+.
  */
 static VALUE vertex_each_parent(int argc, VALUE* argv, VALUE self)
-{ 
-    VALUE graph = Qnil;
-    rb_scan_args(argc, argv, "01", &graph);
-    set<VALUE> already_seen;
-
-    if (NIL_P(graph))
-	vertex_each_related<BGLGraph::inv_adjacency_iterator>(self, &vertex_parent_range, already_seen);
-    else
-    {
-	vertex_descriptor target; bool exists;
-	tie(target, exists) = rb_to_vertex(self, graph);
-	if (! exists)
-	    return self;
-
-	BGLGraph& g = graph_wrapped(graph);
-	vertex_each_related<BGLGraph::inv_adjacency_iterator>(g, inv_adjacent_vertices(target, g), already_seen);
-    }
-    return self;
-}
-
-
-
-static std::pair<BGLGraph::adjacency_iterator, BGLGraph::adjacency_iterator>
-vertex_child_range(vertex_descriptor v, BGLGraph& graph) { return adjacent_vertices(v, graph); }
+{ return vertex_each_related<BGLGraph::inv_adjacency_iterator>(argc, argv, self); }
 
 /*
  * call-seq:
@@ -565,26 +591,7 @@ vertex_child_range(vertex_descriptor v, BGLGraph& graph) { return adjacent_verti
  * the vertices which are a child of +vertex+ in +graph+
  */
 static VALUE vertex_each_child(int argc, VALUE* argv, VALUE self)
-{
-    VALUE graph = Qnil;
-    rb_scan_args(argc, argv, "01", &graph);
-    set<VALUE> already_seen;
-
-    if (NIL_P(graph))
-	vertex_each_related<BGLGraph::adjacency_iterator>(self, &vertex_child_range, already_seen);
-    else
-    {
-	vertex_descriptor source; bool exists;
-	tie(source, exists) = rb_to_vertex(self, graph);
-	if (! exists)
-	    return self;
-
-	BGLGraph& g = graph_wrapped(graph);
-	vertex_each_related<BGLGraph::adjacency_iterator>(g, adjacent_vertices(source, g), already_seen);
-
-    }
-    return self;
-}
+{ return vertex_each_related<BGLGraph::adjacency_iterator>(argc, argv, self); }
 
 /*
  * call-seq:
@@ -612,6 +619,59 @@ static VALUE vertex_get_info(VALUE self, VALUE child, VALUE rb_graph)
 
     return graph[e];
 }
+
+/*
+ * call-seq:
+ *  vertex.root?([graph])		    => true or false
+ *
+ * Check if +vertex+ is a root node in +graph+, or if +graph+ is not given, in all graphs
+ * it is part of
+ */
+// Returns true if +v+ has either no child or no parents
+template<typename Iterator>
+static bool vertex_end_p_i(vertex_descriptor v, BGLGraph& g)
+{
+    Iterator begin, end;
+    tie(begin, end) = vertex_range<Iterator>(v, g);
+    return begin == end;
+}
+template<typename Iterator>
+static VALUE vertex_end_p(int argc, VALUE* argv, VALUE self)
+{
+    VALUE graph = Qnil;
+    rb_scan_args(argc, argv, "01", &graph);
+
+    bool result;
+    if (NIL_P(graph))
+	result = for_each_graph(self, vertex_end_p_i<Iterator>);
+    else
+    {
+	vertex_descriptor v; bool exists;
+	tie(v, exists) = rb_to_vertex(self, graph);
+	if (! exists)
+	    return Qtrue;
+
+	BGLGraph& g = graph_wrapped(graph);
+	result = vertex_end_p_i<Iterator>(v, g);
+    }
+    return result ? Qtrue : Qfalse;
+}
+/*
+ * call-seq:
+ *   vertex.root?([graph])
+ *
+ * Checks if +vertex+ is a root node in +graph+ (it has no parents), or if graph is not given, in all graphs 
+ */
+static VALUE vertex_root_p(int argc, VALUE* argv, VALUE self)
+{ return vertex_end_p<BGLGraph::inv_adjacency_iterator>(argc, argv, self); }
+/*
+ * call-seq:
+ *   vertex.leaf?([graph])
+ *
+ * Checks if +vertex+ is a root node in +graph+ (it has no children), or if graph is not given, in all graphs 
+ */
+static VALUE vertex_leaf_p(int argc, VALUE* argv, VALUE self)
+{ return vertex_end_p<BGLGraph::adjacency_iterator>(argc, argv, self); }
 
 
 /**********************************************************************
@@ -687,6 +747,8 @@ extern "C" void Init_bgl()
     rb_define_method(bglVertex, "each_child_vertex",	RUBY_METHOD_FUNC(vertex_each_child), -1);
     rb_define_method(bglVertex, "each_parent_vertex",	RUBY_METHOD_FUNC(vertex_each_parent), -1);
     rb_define_method(bglVertex, "each_graph",		RUBY_METHOD_FUNC(vertex_each_graph), 0);
-    rb_define_method(bglVertex, "[]",		RUBY_METHOD_FUNC(vertex_get_info), 2);
+    rb_define_method(bglVertex, "root?",		RUBY_METHOD_FUNC(vertex_root_p), -1);
+    rb_define_method(bglVertex, "leaf?",		RUBY_METHOD_FUNC(vertex_leaf_p), -1);
+    rb_define_method(bglVertex, "[]",			RUBY_METHOD_FUNC(vertex_get_info), 2);
 }
 
