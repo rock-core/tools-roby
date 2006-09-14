@@ -36,10 +36,10 @@ static VALUE vertex_descriptor_to_rb(vertex_descriptor descriptor)
  * association between the ruby object and the graphs it is included
  * in
  */
-typedef std::map<VALUE, vertex_descriptor>	graph_map;
+typedef map<VALUE, vertex_descriptor>	graph_map;
 
 static graph_map& vertex_descriptor_map(VALUE self);
-static std::pair<vertex_descriptor, bool> rb_to_vertex(VALUE vertex, VALUE graph);
+static pair<vertex_descriptor, bool> rb_to_vertex(VALUE vertex, VALUE graph);
 
 /**********************************************************************
  *  BGL::Graph
@@ -404,7 +404,7 @@ static graph_map& vertex_descriptor_map(VALUE self)
 /* Returns a range for all descriptors of +self+
  */
 static
-std::pair<graph_map::iterator, graph_map::iterator> vertex_descriptors(VALUE self)
+pair<graph_map::iterator, graph_map::iterator> vertex_descriptors(VALUE self)
 {
     graph_map& descriptors = vertex_descriptor_map(self);
     return make_pair(descriptors.begin(), descriptors.end());
@@ -414,7 +414,7 @@ std::pair<graph_map::iterator, graph_map::iterator> vertex_descriptors(VALUE sel
  * +self+ is in graph, and false otherwise.
  */
 static
-std::pair<vertex_descriptor, bool> rb_to_vertex(VALUE vertex, VALUE graph)
+pair<vertex_descriptor, bool> rb_to_vertex(VALUE vertex, VALUE graph)
 {
     graph_map& descriptors = vertex_descriptor_map(vertex);
     graph_map::iterator it = descriptors.find(graph);
@@ -475,7 +475,7 @@ static VALUE vertex_parent_p(int argc, VALUE* argv, VALUE self)
  */
 static VALUE vertex_child_p(int argc, VALUE* argv, VALUE self)
 { 
-    std::swap(argv[0], self);
+    swap(argv[0], self);
     return vertex_parent_p(argc, argv, self);
 }
 
@@ -511,7 +511,7 @@ static bool for_each_value(Range range, BGLGraph& graph, F f)
 /** Iterates on each adjacent vertex of +v+ in +graph+ which are not yet in +already_seen+ */
 template <typename Iterator>
 static bool for_each_adjacent_uniq(vertex_descriptor v, BGLGraph& graph, set<VALUE>& already_seen, 
-	std::pair<Iterator, Iterator>(*get_range)(vertex_descriptor, BGLGraph&))
+	pair<Iterator, Iterator>(*get_range)(vertex_descriptor, BGLGraph&))
 {
     Iterator it, end;
     for (tie(it, end) = get_range(v, graph); it != end; ++it)
@@ -543,10 +543,10 @@ static bool for_each_graph(VALUE vertex, F f)
 
 
 
-template<typename Iterator> std::pair<Iterator, Iterator> vertex_range(vertex_descriptor v, BGLGraph& g);
-template<> static std::pair<BGLGraph::inv_adjacency_iterator, BGLGraph::inv_adjacency_iterator>
+template<typename Iterator> pair<Iterator, Iterator> vertex_range(vertex_descriptor v, BGLGraph& g);
+template<> static pair<BGLGraph::inv_adjacency_iterator, BGLGraph::inv_adjacency_iterator>
 vertex_range<BGLGraph::inv_adjacency_iterator>(vertex_descriptor v, BGLGraph& graph) { return inv_adjacent_vertices(v, graph); }
-template<> static std::pair<BGLGraph::adjacency_iterator, BGLGraph::adjacency_iterator>
+template<> static pair<BGLGraph::adjacency_iterator, BGLGraph::adjacency_iterator>
 vertex_range<BGLGraph::adjacency_iterator>(vertex_descriptor v, BGLGraph& graph) { return adjacent_vertices(v, graph); }
 template <typename Iterator>
 static VALUE vertex_each_related(int argc, VALUE* argv, VALUE self)
@@ -558,7 +558,7 @@ static VALUE vertex_each_related(int argc, VALUE* argv, VALUE self)
     {
 	set<VALUE> already_seen;
 	for_each_graph(self, 
-		bind(for_each_adjacent_uniq<Iterator>, _1, _2, boost::ref(already_seen), &vertex_range<Iterator>));
+		bind(for_each_adjacent_uniq<Iterator>, _1, _2, ref(already_seen), &vertex_range<Iterator>));
     }
     else
     {
