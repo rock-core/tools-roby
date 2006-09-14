@@ -128,5 +128,29 @@ class TC_BGL < Test::Unit::TestCase
 	g2.link(v2, v4, nil)
 	assert(v4.leaf?)
     end
+
+    def assert_components(expected, graph)
+	found = graph.components
+	assert_equal(expected.size, found.size)
+	# Equality of set-of-set does not work, don't know why
+	assert_equal(expected.map { |c| c.sort_by { |e| e.object_id } }.to_set, 
+		     found.map { |c| c.sort_by { |e| e.object_id } }.to_set)
+    end
+
+    def test_graph_components
+	graph = Graph.new
+	klass = Class.new { include Vertex }
+
+	vertices = (1..4).map { klass.new }
+	v1, v2, v3, v4 = *vertices
+	vertices.each { |v| graph.insert(v) }
+
+	graph.link v1, v2, nil
+	assert_components([[v1, v2], [v3], [v4]], graph)
+	graph.link v4, v3, nil
+	assert_components([[v1, v2], [v3, v4]], graph)
+	graph.link v1, v3, nil
+	assert_components([[v1, v2, v3, v4]], graph)
+    end
 end
 

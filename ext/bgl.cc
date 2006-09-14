@@ -1,6 +1,6 @@
 #include <ruby.h>
 #include <boost/graph/adjacency_list.hpp>
-#include <boost/graph/subgraph.hpp>
+#include <boost/graph/depth_first_search.hpp>
 #include <boost/static_assert.hpp>
 #include <boost/type_traits/is_same.hpp>
 #include <boost/bind.hpp>
@@ -674,6 +674,117 @@ static VALUE vertex_leaf_p(int argc, VALUE* argv, VALUE self)
 { return vertex_end_p<BGLGraph::adjacency_iterator>(argc, argv, self); }
 
 
+struct components_visitor : public default_dfs_visitor
+{
+    size_t				index;
+    set< size_t >&			mergers;
+    map<vertex_descriptor, size_t>&     components;
+
+public:
+    components_visitor( size_t idx, 
+	    set< size_t >& mergers,
+	    map<vertex_descriptor, size_t>& components)
+	: index(idx), mergers(mergers), components(components) { }
+
+    void discover_vertex(vertex_descriptor& u, BGLGraph const&)
+    { components[u] = index; }
+
+    void forward_or_cross_edge(edge_descriptor e, BGLGraph const& g)
+    {
+	vertex_descriptor v = target(e, g);
+	size_t v_component = components[v];
+	if (v_component != index)
+	    mergers.insert(v_component);
+    }
+};
+
+/*
+ * call-seq:
+ *  vertex.component => vertex_array
+ *
+ * Returns the component this vertex is part of. This component is the union of all components in all
+ * graphs +vertex+ is.
+ */
+static size_t graph_components_i(BGLGraph& graph, map<vertex_descriptor, size_t>& components)
+{
+    map<vertex_descriptor, default_color_type> colors;
+    set<size_t>				    mergers;
+    vector<bool>				    indexes;
+    indexes.push_back(true);
+
+    vertex_iterator it, end;
+    for (tie(it, end) = vertices(graph); it != end; ++it)
+    {
+	// We run the DFS only on roots
+	if (!vertex_end_p_i<BGLGraph::inv_adjacency_iterator>(*it, graph))
+	    continue;
+
+	size_t component_idx = find(indexes.begin(), indexes.end(), true) - indexes.begin();
+	if (component_idx == indexes.size())
+	    indexes.push_back(true);
+
+	mergers.clear();
+	depth_first_visit(graph, *it, 
+		components_visitor(component_idx, mergers, components), 
+		make_assoc_property_map(colors));
+
+	if (mergers.empty())
+	{
+	    indexes[component_idx] = false;
+	    continue;
+	}
+
+	// Merge all components in +mergers+ into the lowest index
+	size_t reference = *mergers.begin();
+	mergers.erase(mergers.begin());
+	mergers.insert(mergers.end(), component_idx);
+	for (set<size_t>::const_iterator it = mergers.begin(); it != mergers.end(); ++it)
+	    indexes[*it] = true;
+
+	for (map<vertex_descriptor, size_t>::iterator it = components.begin(); it != components.end(); ++it)
+	{
+	    if ( mergers.find(it->second) != mergers.end() )
+		it->second = reference;
+	}
+    }
+
+    return indexes.size();
+}
+/* call-seq:
+ *	graph.components		=> component list
+ *
+ * Returns an array of arrays, where each subarray is the list of a connected component
+ * of +graph+
+ */
+static VALUE graph_components(VALUE self)
+{
+    map<vertex_descriptor, size_t> components;
+    BGLGraph& graph = graph_wrapped(self);
+    size_t end_index = graph_components_i(graph, components);
+
+    // maps component_index to result_index
+    vector<int> component_result_map(end_index, -1);
+
+    VALUE ret = rb_ary_new();
+    for (map<vertex_descriptor, size_t>::const_iterator it = components.begin(); it != components.end(); ++it)
+    {
+	int result_index = component_result_map[it->second];
+	VALUE rb_component;
+	if (result_index == -1)
+	{
+	    component_result_map[it->second] = RARRAY(ret)->len;
+	    rb_component = rb_ary_new();
+	    rb_ary_push(ret, rb_component);
+	}
+	else
+	    rb_component = rb_ary_entry(ret, result_index);
+
+	rb_ary_push(rb_component, graph[it->first]);
+    }
+    return ret;
+}
+
+
 /**********************************************************************
  *  Extension initialization
  */
@@ -736,6 +847,7 @@ extern "C" void Init_bgl()
     rb_define_method(bglGraph, "link",	    RUBY_METHOD_FUNC(graph_link), 3);
     rb_define_method(bglGraph, "unlink",    RUBY_METHOD_FUNC(graph_unlink), 2);
     rb_define_method(bglGraph, "linked?",   RUBY_METHOD_FUNC(graph_linked_p), 2);
+    rb_define_method(bglGraph, "components",   RUBY_METHOD_FUNC(graph_components), 0);
 
     rb_define_method(bglGraph, "each_vertex",	RUBY_METHOD_FUNC(graph_each_vertex), 0);
     rb_define_method(bglGraph, "each_edge",	RUBY_METHOD_FUNC(graph_each_edge), 0);
