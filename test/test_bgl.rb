@@ -147,10 +147,47 @@ class TC_BGL < Test::Unit::TestCase
 
 	graph.link v1, v2, nil
 	assert_components([[v1, v2], [v3], [v4]], graph)
+	assert_equal([v1, v2].to_set, v1.component(graph).to_set)
+	assert_equal([v1, v2].to_set, v2.component.to_set)
+	assert_equal([v3], v3.component)
+
 	graph.link v4, v3, nil
 	assert_components([[v1, v2], [v3, v4]], graph)
+
 	graph.link v1, v3, nil
 	assert_components([[v1, v2, v3, v4]], graph)
+	assert_equal([v1, v2, v3, v4].to_set, v1.component(graph).to_set)
+	assert_equal([v1, v2, v3, v4].to_set, v2.component.to_set)
+	assert_equal([v1, v2, v3, v4].to_set, v3.component.to_set)
+
+	g2 = Graph.new
+	graph.unlink v4, v3
+	g2.link v4, v3, nil
+	assert_equal([v4], v4.component(graph))
+	assert_equal([v4, v3].to_set, v4.component(g2).to_set)
+	assert_equal([v1, v2, v4, v3].to_set, v4.component.to_set)
+    end
+
+    def test_vertex_component
+	graph = Graph.new
+	klass = Class.new { include Vertex }
+
+	vertices = (1..4).map { klass.new }
+	v1, v2, v3, v4 = *vertices
+	vertices.each { |v| graph.insert(v) }
+
+	graph.link v1, v2, nil
+	assert_equal([v1, v2].to_set, v1.component(graph).to_set)
+	assert_equal([v1, v2].to_set, v2.component.to_set)
+	assert_equal([v3], v3.component)
+
+	graph.link v1, v3, nil
+
+	g2 = Graph.new
+	g2.link v4, v3, nil
+	assert_equal([v1, v2, v4, v3].to_set, v4.component.to_set)
+	assert_equal([v4], v4.component(graph))
+	assert_equal([v4, v3].to_set, v4.component(g2).to_set)
     end
 end
 

@@ -674,42 +674,64 @@ static VALUE vertex_leaf_p(int argc, VALUE* argv, VALUE self)
 { return vertex_end_p<BGLGraph::adjacency_iterator>(argc, argv, self); }
 
 
+
+typedef map<VALUE, size_t> Components;
+
 struct components_visitor : public default_dfs_visitor
 {
-    size_t				index;
-    set< size_t >&			mergers;
-    map<vertex_descriptor, size_t>&     components;
+    size_t		index;
+    set< size_t >&	mergers;
+    Components&		components;
 
 public:
-    components_visitor( size_t idx, 
-	    set< size_t >& mergers,
-	    map<vertex_descriptor, size_t>& components)
+    components_visitor( size_t idx, set< size_t >& mergers, Components& components)
 	: index(idx), mergers(mergers), components(components) { }
 
-    void discover_vertex(vertex_descriptor& u, BGLGraph const&)
-    { components[u] = index; }
+    void discover_vertex(vertex_descriptor u, BGLGraph const& g)
+    { 
+	VALUE v = g[u];
+	Components::iterator it = components.find(v);
+	if (it == components.end())
+	    components[v] = index;
+	else if (it->second != index)
+	    mergers.insert(it->second);
+    }
 
     void forward_or_cross_edge(edge_descriptor e, BGLGraph const& g)
-    {
-	vertex_descriptor v = target(e, g);
-	size_t v_component = components[v];
-	if (v_component != index)
-	    mergers.insert(v_component);
-    }
+    { discover_vertex(target(e, g), g); }
 };
 
-/*
- * call-seq:
- *  vertex.component => vertex_array
- *
- * Returns the component this vertex is part of. This component is the union of all components in all
- * graphs +vertex+ is.
- */
-static size_t graph_components_i(BGLGraph& graph, map<vertex_descriptor, size_t>& components)
+// Converts the component map into a Ruby array
+static VALUE component_to_ruby(BGLGraph& graph, Components& components, int max_index)
 {
-    map<vertex_descriptor, default_color_type> colors;
-    set<size_t>				    mergers;
-    vector<bool>				    indexes;
+    // maps component_index to result_index
+    vector<int> component_result_map(max_index, -1);
+
+    VALUE ret = rb_ary_new();
+    for (Components::const_iterator it = components.begin(); it != components.end(); ++it)
+    {
+	int result_index = component_result_map[it->second];
+	VALUE rb_component;
+	if (result_index == -1)
+	{
+	    component_result_map[it->second] = RARRAY(ret)->len;
+	    rb_component = rb_ary_new();
+	    rb_ary_push(ret, rb_component);
+	}
+	else
+	    rb_component = rb_ary_entry(ret, result_index);
+
+	rb_ary_push(rb_component, it->first);
+    }
+    return ret;
+}
+
+// Builds the component map of +graph+ and returns the maximum component number + 1
+static size_t graph_components_i(BGLGraph& graph, Components& components)
+{
+    map<vertex_descriptor, default_color_type>	colors;
+    set<size_t>					mergers;
+    vector<bool>			        indexes;
     indexes.push_back(true);
 
     vertex_iterator it, end;
@@ -741,7 +763,7 @@ static size_t graph_components_i(BGLGraph& graph, map<vertex_descriptor, size_t>
 	for (set<size_t>::const_iterator it = mergers.begin(); it != mergers.end(); ++it)
 	    indexes[*it] = true;
 
-	for (map<vertex_descriptor, size_t>::iterator it = components.begin(); it != components.end(); ++it)
+	for (Components::iterator it = components.begin(); it != components.end(); ++it)
 	{
 	    if ( mergers.find(it->second) != mergers.end() )
 		it->second = reference;
@@ -758,32 +780,44 @@ static size_t graph_components_i(BGLGraph& graph, map<vertex_descriptor, size_t>
  */
 static VALUE graph_components(VALUE self)
 {
-    map<vertex_descriptor, size_t> components;
+    Components components;
     BGLGraph& graph = graph_wrapped(self);
     size_t end_index = graph_components_i(graph, components);
-
-    // maps component_index to result_index
-    vector<int> component_result_map(end_index, -1);
-
-    VALUE ret = rb_ary_new();
-    for (map<vertex_descriptor, size_t>::const_iterator it = components.begin(); it != components.end(); ++it)
-    {
-	int result_index = component_result_map[it->second];
-	VALUE rb_component;
-	if (result_index == -1)
-	{
-	    component_result_map[it->second] = RARRAY(ret)->len;
-	    rb_component = rb_ary_new();
-	    rb_ary_push(ret, rb_component);
-	}
-	else
-	    rb_component = rb_ary_entry(ret, result_index);
-
-	rb_ary_push(rb_component, graph[it->first]);
-    }
-    return ret;
+    return component_to_ruby(graph, components, end_index);
 }
 
+/*
+ * call-seq:
+ *  vertex.component => vertex_array
+ *
+ * Returns the component this vertex is part of. This component is the union of all components in all
+ * graphs +vertex+ is.
+ */
+static VALUE vertex_component(int argc, VALUE* argv, VALUE self)
+{
+    VALUE graph = Qnil;
+    rb_scan_args(argc, argv, "01", &graph);
+
+    Components components;
+
+    if (! NIL_P(graph))
+    {
+	BGLGraph& bglgraph = graph_wrapped(graph);
+	graph_components_i(bglgraph, components);
+    }
+    else
+	for_each_graph(self, bind(graph_components_i, _2, ref(components)) );
+    
+    // Get component number of +self+ and build the corresponding ruby array
+    size_t index = components[self];
+    VALUE result = rb_ary_new();
+    for (Components::const_iterator it = components.begin(); it != components.end(); ++it)
+    {
+	if (it->second == index)
+	    rb_ary_push(result, it->first);
+    }
+    return result;
+}
 
 /**********************************************************************
  *  Extension initialization
@@ -862,5 +896,6 @@ extern "C" void Init_bgl()
     rb_define_method(bglVertex, "root?",		RUBY_METHOD_FUNC(vertex_root_p), -1);
     rb_define_method(bglVertex, "leaf?",		RUBY_METHOD_FUNC(vertex_leaf_p), -1);
     rb_define_method(bglVertex, "[]",			RUBY_METHOD_FUNC(vertex_get_info), 2);
+    rb_define_method(bglVertex, "component",		RUBY_METHOD_FUNC(vertex_component), -1);
 }
 
