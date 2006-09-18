@@ -1,6 +1,6 @@
 $LOAD_PATH.unshift File.join(File.expand_path(File.dirname(__FILE__)), '../lib')
 require 'test/unit'
-require 'roby/bgl'
+require 'roby/graph'
 require 'enumerator'
 require 'set'
 
@@ -148,6 +148,7 @@ class TC_BGL < Test::Unit::TestCase
 	graph.link v1, v2, nil
 	assert_components([[v1, v2], [v3], [v4]], graph.components)
 	assert_components([[v1, v2]], graph.components(v1))
+	assert_components([[v4]], graph.components(v4))
 
 	graph.link v4, v3, nil
 	assert_components([[v1, v2], [v3, v4]], graph.components)
@@ -161,6 +162,10 @@ class TC_BGL < Test::Unit::TestCase
 	g2.link v4, v3, nil
 	assert_components([[v4]], graph.components(v4))
 	assert_components([[v4, v3]], g2.components(v3))
+
+	v5 = klass.new
+	# Check that we get a singleton component even if v5 is not in the graph
+	assert_components([[v5]], graph.components(v5))
     end
 
     def test_vertex_component

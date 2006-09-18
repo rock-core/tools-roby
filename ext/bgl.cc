@@ -10,6 +10,9 @@
 #include <functional>
 #include <iostream>
 
+static VALUE utilrbValueSet;
+static ID id_new;
+
 using namespace boost;
 using namespace std;
 
@@ -787,65 +790,82 @@ static bool connected_component(set<VALUE>& component, vertex_descriptor v, BGLG
     return true;
 }
 
-static VALUE set_to_rb_ary(set<VALUE> const& source)
+static VALUE set_to_rb(set<VALUE>& source)
 {
-    VALUE result = rb_ary_new2(source.size());
-    for (set<VALUE>::const_iterator it = source.begin(); it != source.end(); ++it)
-	rb_ary_push(result, *it);
+    VALUE result = rb_funcall(utilrbValueSet, id_new, 0);
+    set<VALUE>* result_set;
+    Data_Get_Struct(result, set<VALUE>, result_set);
+
+    result_set->swap(source);
     return result;
 }
 
 template<typename Iterator>
-static VALUE graph_components_i(BGLGraph& g, Iterator it, Iterator end)
+static VALUE graph_components_i(VALUE result, BGLGraph& g, Iterator it, Iterator end)
 {
-    VALUE all_components = rb_ary_new();
     ColorMap colors;
 
     for (; it != end; ++it)
     {
-	if (0 == *it) // use NULL vertex descriptor to remove unwanted vertices
+	if (0 == *it) // elements not in +g+  are handled by graph_components_root_descriptor
 	    continue;
 	if (colors[*it] != color_traits<default_color_type>::white())
 	    continue;
 
 	set<VALUE> component;
 	connected_component(component, *it, g, colors);
-	rb_ary_push(all_components, set_to_rb_ary(component));
+	rb_ary_push(result, set_to_rb(component));
     }
 
-    return all_components;
+    return result;
 }
 
-static vertex_descriptor graph_components_root_descriptor(VALUE v, VALUE g)
+static vertex_descriptor graph_components_root_descriptor(VALUE result, VALUE v, VALUE g)
 {
     vertex_descriptor d;
     bool exists;
     tie(d, exists) = rb_to_vertex(v, g);
     if (! exists)
+    {
+	set<VALUE> component;
+	component.insert(v);
+	rb_ary_push(result, set_to_rb(component));
 	return NULL;
+    }
     return d;
 }
 static VALUE graph_components(int argc, VALUE* argv, VALUE self)
 {
     BGLGraph& g = graph_wrapped(self);
 
+    VALUE result = rb_ary_new();
     if (argc == 0)
     {
 	BGLGraph::vertex_iterator it, end;
 	tie(it, end) = vertices(g);
-	//return graph_component_i(g, it, end);
-	return graph_components_i(g, 
-		make_filter_iterator(bind(vertex_has_adjacent_i<BGLGraph::inv_adjacency_iterator>, _1, ref(g)), it, end),
-		make_filter_iterator(bind(vertex_has_adjacent_i<BGLGraph::inv_adjacency_iterator>, _1, ref(g)), end, end));
+	return graph_components_i(result, g, 
+		make_filter_iterator(
+		    bind(
+			vertex_has_adjacent_i<BGLGraph::inv_adjacency_iterator>, 
+			_1, ref(g)
+		    ), it, end
+		),
+		make_filter_iterator(
+		    bind(
+			vertex_has_adjacent_i<BGLGraph::inv_adjacency_iterator>, 
+			_1, ref(g)
+		    ), end, end
+		)
+	    );
     }
     else
     {
-	return graph_components_i(g, 
+	return graph_components_i(result, g, 
 		make_transform_iterator(argv, 
-		    bind(graph_components_root_descriptor, _1, self)
+		    bind(graph_components_root_descriptor, result, _1, self)
 		),
 		make_transform_iterator(argv + argc, 
-		    bind(graph_components_root_descriptor, _1, self)
+		    bind(graph_components_root_descriptor, result, _1, self)
 		));
     }
 }
@@ -1060,6 +1080,8 @@ static VALUE bglVertex;
 extern "C" void Init_bgl()
 {
     id_rb_graph_map = rb_intern("@__bgl_graphs__");
+    id_new = rb_intern("new");
+    utilrbValueSet = rb_define_class("ValueSet", rb_cObject);
 
     bglModule = rb_define_module("BGL");
     bglGraph  = rb_define_class_under(bglModule, "Graph", rb_cObject);
