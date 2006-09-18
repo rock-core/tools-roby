@@ -53,6 +53,7 @@ class TC_BGL < Test::Unit::TestCase
 	graph.remove v1
 	assert(!graph.include?(v1))
 	assert_equal([], graph.enum_for(:each_vertex).to_a)
+	assert_equal([], v1.enum_for(:each_graph).to_a)
     end
 
     def test_edge_objects
@@ -129,8 +130,7 @@ class TC_BGL < Test::Unit::TestCase
 	assert(v4.leaf?)
     end
 
-    def assert_components(expected, graph)
-	found = graph.components
+    def assert_components(expected, found)
 	assert_equal(expected.size, found.size)
 	# Equality of set-of-set does not work, don't know why
 	assert_equal(expected.map { |c| c.sort_by { |e| e.object_id } }.to_set, 
@@ -146,26 +146,21 @@ class TC_BGL < Test::Unit::TestCase
 	vertices.each { |v| graph.insert(v) }
 
 	graph.link v1, v2, nil
-	assert_components([[v1, v2], [v3], [v4]], graph)
-	assert_equal([v1, v2].to_set, v1.component(graph).to_set)
-	assert_equal([v1, v2].to_set, v2.component.to_set)
-	assert_equal([v3], v3.component)
+	assert_components([[v1, v2], [v3], [v4]], graph.components)
+	assert_components([[v1, v2]], graph.components(v1))
 
 	graph.link v4, v3, nil
-	assert_components([[v1, v2], [v3, v4]], graph)
+	assert_components([[v1, v2], [v3, v4]], graph.components)
 
 	graph.link v1, v3, nil
-	assert_components([[v1, v2, v3, v4]], graph)
-	assert_equal([v1, v2, v3, v4].to_set, v1.component(graph).to_set)
-	assert_equal([v1, v2, v3, v4].to_set, v2.component.to_set)
-	assert_equal([v1, v2, v3, v4].to_set, v3.component.to_set)
+	assert_components([[v1, v2, v3, v4]], graph.components)
+	assert_components([[v1, v2, v3, v4]], graph.components(v1))
 
 	g2 = Graph.new
 	graph.unlink v4, v3
 	g2.link v4, v3, nil
-	assert_equal([v4], v4.component(graph))
-	assert_equal([v4, v3].to_set, v4.component(g2).to_set)
-	assert_equal([v1, v2, v4, v3].to_set, v4.component.to_set)
+	assert_components([[v4]], graph.components(v4))
+	assert_components([[v4, v3]], g2.components(v3))
     end
 
     def test_vertex_component
@@ -177,17 +172,15 @@ class TC_BGL < Test::Unit::TestCase
 	vertices.each { |v| graph.insert(v) }
 
 	graph.link v1, v2, nil
-	assert_equal([v1, v2].to_set, v1.component(graph).to_set)
-	assert_equal([v1, v2].to_set, v2.component.to_set)
-	assert_equal([v3], v3.component)
-
-	graph.link v1, v3, nil
+	graph.link v3, v2, nil
+	graph.link v3, v4, nil
+	graph.link v2, v4, nil
+	assert_components([[v1, v2, v3, v4]], graph.components(v1))
+	assert_components([[v1, v2, v3, v4]], graph.components(v2))
 
 	g2 = Graph.new
 	g2.link v4, v3, nil
-	assert_equal([v1, v2, v4, v3].to_set, v4.component.to_set)
-	assert_equal([v4], v4.component(graph))
-	assert_equal([v4, v3].to_set, v4.component(g2).to_set)
+	assert_components([[v4, v3]], g2.components(v4))
     end
 end
 

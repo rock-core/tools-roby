@@ -2,8 +2,13 @@
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/depth_first_search.hpp>
 #include <boost/static_assert.hpp>
-#include <boost/type_traits/is_same.hpp>
 #include <boost/bind.hpp>
+#include <boost/graph/reverse_graph.hpp>
+#include <boost/iterator/transform_iterator.hpp>
+#include <boost/iterator/filter_iterator.hpp>
+
+#include <functional>
+#include <iostream>
 
 using namespace boost;
 using namespace std;
@@ -620,30 +625,23 @@ static VALUE vertex_get_info(VALUE self, VALUE child, VALUE rb_graph)
     return graph[e];
 }
 
-/*
- * call-seq:
- *  vertex.root?([graph])		    => true or false
- *
- * Check if +vertex+ is a root node in +graph+, or if +graph+ is not given, in all graphs
- * it is part of
- */
 // Returns true if +v+ has either no child or no parents
 template<typename Iterator>
-static bool vertex_end_p_i(vertex_descriptor v, BGLGraph& g)
+static bool vertex_has_adjacent_i(vertex_descriptor v, BGLGraph& g)
 {
     Iterator begin, end;
     tie(begin, end) = vertex_range<Iterator>(v, g);
     return begin == end;
 }
 template<typename Iterator>
-static VALUE vertex_end_p(int argc, VALUE* argv, VALUE self)
+static VALUE vertex_has_adjacent(int argc, VALUE* argv, VALUE self)
 {
     VALUE graph = Qnil;
     rb_scan_args(argc, argv, "01", &graph);
 
     bool result;
     if (NIL_P(graph))
-	result = for_each_graph(self, vertex_end_p_i<Iterator>);
+	result = for_each_graph(self, vertex_has_adjacent_i<Iterator>);
     else
     {
 	vertex_descriptor v; bool exists;
@@ -652,7 +650,7 @@ static VALUE vertex_end_p(int argc, VALUE* argv, VALUE self)
 	    return Qtrue;
 
 	BGLGraph& g = graph_wrapped(graph);
-	result = vertex_end_p_i<Iterator>(v, g);
+	result = vertex_has_adjacent_i<Iterator>(v, g);
     }
     return result ? Qtrue : Qfalse;
 }
@@ -663,7 +661,9 @@ static VALUE vertex_end_p(int argc, VALUE* argv, VALUE self)
  * Checks if +vertex+ is a root node in +graph+ (it has no parents), or if graph is not given, in all graphs 
  */
 static VALUE vertex_root_p(int argc, VALUE* argv, VALUE self)
-{ return vertex_end_p<BGLGraph::inv_adjacency_iterator>(argc, argv, self); }
+{ return vertex_has_adjacent<BGLGraph::inv_adjacency_iterator>(argc, argv, self); }
+
+
 /*
  * call-seq:
  *   vertex.leaf?([graph])
@@ -671,153 +671,352 @@ static VALUE vertex_root_p(int argc, VALUE* argv, VALUE self)
  * Checks if +vertex+ is a root node in +graph+ (it has no children), or if graph is not given, in all graphs 
  */
 static VALUE vertex_leaf_p(int argc, VALUE* argv, VALUE self)
-{ return vertex_end_p<BGLGraph::adjacency_iterator>(argc, argv, self); }
+{ return vertex_has_adjacent<BGLGraph::adjacency_iterator>(argc, argv, self); }
 
 
 
-typedef map<VALUE, size_t> Components;
+
+
+
+
+
+
+/* If +key+ is found in +assoc+, returns its value. Otherwise, initializes 
+ * +key+ to +default_value+ in +assoc+ and returns it
+ */
+template<typename Key, typename Value>
+Value& get(map<Key, Value>& assoc, Key const& key, Value const& default_value)
+{
+    typename map<Key, Value>::iterator it = assoc.find(key);
+    if (it != assoc.end())
+	return it->second;
+
+    tie(it, tuples::ignore) = assoc.insert( make_pair(key, default_value) );
+    return it->second;
+}
+
+/* If +key+ is found in +assoc+, returns its value. Otherwise, initializes 
+ * +key+ to +default_value+ in +assoc+ and returns it
+ */
+template<typename Key, typename Value>
+Value const& get(map<Key, Value> const& assoc, Key const& key, Value const& default_value)
+{
+    typename map<Key, Value>::const_iterator it = assoc.find(key);
+    if (it != assoc.end())
+	return it->second;
+
+    return default_value;
+}
+
+/* ColorMap is a map with default value */
+class ColorMap : private map<vertex_descriptor, default_color_type>
+{
+    template<typename Key, typename Value>
+    friend Value& get(map<Key, Value>&, Key const&, Value const&);
+
+    default_color_type const default_value;
+
+    typedef map<vertex_descriptor, default_color_type> Super;
+
+public:
+
+    typedef Super::key_type	key_type;
+    typedef Super::value_type	value_type;
+
+    Super::clear;
+
+    ColorMap()
+	: default_value(color_traits<default_color_type>::white()) {}
+
+    default_color_type& operator[](vertex_descriptor key)
+    { 
+	default_color_type& c = get(*this, key, default_value); 
+	return c;
+    }
+
+};
+
+typedef list<vertex_descriptor> vertex_list;
 
 struct components_visitor : public default_dfs_visitor
 {
-    size_t		index;
-    set< size_t >&	mergers;
-    Components&		components;
-
 public:
-    components_visitor( size_t idx, set< size_t >& mergers, Components& components)
-	: index(idx), mergers(mergers), components(components) { }
+    vertex_descriptor root;
+    set<VALUE>&  component;
+    vertex_list& reverse;
+    components_visitor( vertex_descriptor root, set<VALUE>& component, vertex_list& reverse )
+	: root(root), component(component), reverse(reverse) { }
 
-    void discover_vertex(vertex_descriptor u, BGLGraph const& g)
-    { 
-	VALUE v = g[u];
-	Components::iterator it = components.find(v);
-	if (it == components.end())
-	    components[v] = index;
-	else if (it->second != index)
-	    mergers.insert(it->second);
+    template<typename G>
+    void discover_vertex(vertex_descriptor u, G const& g)
+    {
+	component.insert(g[u]);
+
+	typename G::in_edge_iterator it, end;
+	tie(it, end) = in_edges(u, g);
+	// never add root automatically, it has to be handled by the algorithm itself
+	if (u != root && ++it != end)
+	    reverse.push_back(u);
     }
-
-    void forward_or_cross_edge(edge_descriptor e, BGLGraph const& g)
-    { discover_vertex(target(e, g), g); }
 };
 
-// Converts the component map into a Ruby array
-static VALUE component_to_ruby(BGLGraph& graph, Components& components, int max_index)
+static bool connected_component(set<VALUE>& component, vertex_descriptor v, BGLGraph& graph, ColorMap& colors)
 {
-    // maps component_index to result_index
-    vector<int> component_result_map(max_index, -1);
+    vertex_list roots;
+    vertex_list reverse_roots;
 
-    VALUE ret = rb_ary_new();
-    for (Components::const_iterator it = components.begin(); it != components.end(); ++it)
+    associative_property_map<ColorMap> color_map(colors);
+    boost::reverse_graph<BGLGraph> reverse_graph(graph);
+
+    roots.push_back(v);
+    reverse_roots.push_back(v);
+    while(true)
     {
-	int result_index = component_result_map[it->second];
-	VALUE rb_component;
-	if (result_index == -1)
-	{
-	    component_result_map[it->second] = RARRAY(ret)->len;
-	    rb_component = rb_ary_new();
-	    rb_ary_push(ret, rb_component);
-	}
-	else
-	    rb_component = rb_ary_entry(ret, result_index);
+	if (roots.empty()) break;
+	for (list<vertex_descriptor>::const_iterator it = roots.begin(); it != roots.end(); ++it)
+	    depth_first_visit(graph, *it, components_visitor(*it, component, reverse_roots), color_map);
 
-	rb_ary_push(rb_component, it->first);
+	roots.clear();
+
+	if (reverse_roots.empty()) break;
+	for (list<vertex_descriptor>::const_iterator it = reverse_roots.begin(); it != reverse_roots.end(); ++it)
+	    depth_first_visit(reverse_graph, *it, components_visitor(*it, component, roots), color_map);
+
+	reverse_roots.clear();
     }
-    return ret;
+    return true;
 }
 
-// Builds the component map of +graph+ and returns the maximum component number + 1
-static size_t graph_components_i(BGLGraph& graph, Components& components)
+static VALUE set_to_rb_ary(set<VALUE> const& source)
 {
-    map<vertex_descriptor, default_color_type>	colors;
-    set<size_t>					mergers;
-    vector<bool>			        indexes;
-    indexes.push_back(true);
-
-    vertex_iterator it, end;
-    for (tie(it, end) = vertices(graph); it != end; ++it)
-    {
-	// We run the DFS only on roots
-	if (!vertex_end_p_i<BGLGraph::inv_adjacency_iterator>(*it, graph))
-	    continue;
-
-	size_t component_idx = find(indexes.begin(), indexes.end(), true) - indexes.begin();
-	if (component_idx == indexes.size())
-	    indexes.push_back(true);
-
-	mergers.clear();
-	depth_first_visit(graph, *it, 
-		components_visitor(component_idx, mergers, components), 
-		make_assoc_property_map(colors));
-
-	if (mergers.empty())
-	{
-	    indexes[component_idx] = false;
-	    continue;
-	}
-
-	// Merge all components in +mergers+ into the lowest index
-	size_t reference = *mergers.begin();
-	mergers.erase(mergers.begin());
-	mergers.insert(mergers.end(), component_idx);
-	for (set<size_t>::const_iterator it = mergers.begin(); it != mergers.end(); ++it)
-	    indexes[*it] = true;
-
-	for (Components::iterator it = components.begin(); it != components.end(); ++it)
-	{
-	    if ( mergers.find(it->second) != mergers.end() )
-		it->second = reference;
-	}
-    }
-
-    return indexes.size();
-}
-/* call-seq:
- *	graph.components		=> component list
- *
- * Returns an array of arrays, where each subarray is the list of a connected component
- * of +graph+
- */
-static VALUE graph_components(VALUE self)
-{
-    Components components;
-    BGLGraph& graph = graph_wrapped(self);
-    size_t end_index = graph_components_i(graph, components);
-    return component_to_ruby(graph, components, end_index);
-}
-
-/*
- * call-seq:
- *  vertex.component => vertex_array
- *
- * Returns the component this vertex is part of. This component is the union of all components in all
- * graphs +vertex+ is.
- */
-static VALUE vertex_component(int argc, VALUE* argv, VALUE self)
-{
-    VALUE graph = Qnil;
-    rb_scan_args(argc, argv, "01", &graph);
-
-    Components components;
-
-    if (! NIL_P(graph))
-    {
-	BGLGraph& bglgraph = graph_wrapped(graph);
-	graph_components_i(bglgraph, components);
-    }
-    else
-	for_each_graph(self, bind(graph_components_i, _2, ref(components)) );
-    
-    // Get component number of +self+ and build the corresponding ruby array
-    size_t index = components[self];
-    VALUE result = rb_ary_new();
-    for (Components::const_iterator it = components.begin(); it != components.end(); ++it)
-    {
-	if (it->second == index)
-	    rb_ary_push(result, it->first);
-    }
+    VALUE result = rb_ary_new2(source.size());
+    for (set<VALUE>::const_iterator it = source.begin(); it != source.end(); ++it)
+	rb_ary_push(result, *it);
     return result;
 }
+
+template<typename Iterator>
+static VALUE graph_components_i(BGLGraph& g, Iterator it, Iterator end)
+{
+    VALUE all_components = rb_ary_new();
+    ColorMap colors;
+
+    for (; it != end; ++it)
+    {
+	if (0 == *it) // use NULL vertex descriptor to remove unwanted vertices
+	    continue;
+	if (colors[*it] != color_traits<default_color_type>::white())
+	    continue;
+
+	set<VALUE> component;
+	connected_component(component, *it, g, colors);
+	rb_ary_push(all_components, set_to_rb_ary(component));
+    }
+
+    return all_components;
+}
+
+static vertex_descriptor graph_components_root_descriptor(VALUE v, VALUE g)
+{
+    vertex_descriptor d;
+    bool exists;
+    tie(d, exists) = rb_to_vertex(v, g);
+    if (! exists)
+	return NULL;
+    return d;
+}
+static VALUE graph_components(int argc, VALUE* argv, VALUE self)
+{
+    BGLGraph& g = graph_wrapped(self);
+
+    if (argc == 0)
+    {
+	BGLGraph::vertex_iterator it, end;
+	tie(it, end) = vertices(g);
+	//return graph_component_i(g, it, end);
+	return graph_components_i(g, 
+		make_filter_iterator(bind(vertex_has_adjacent_i<BGLGraph::inv_adjacency_iterator>, _1, ref(g)), it, end),
+		make_filter_iterator(bind(vertex_has_adjacent_i<BGLGraph::inv_adjacency_iterator>, _1, ref(g)), end, end));
+    }
+    else
+    {
+	return graph_components_i(g, 
+		make_transform_iterator(argv, 
+		    bind(graph_components_root_descriptor, _1, self)
+		),
+		make_transform_iterator(argv + argc, 
+		    bind(graph_components_root_descriptor, _1, self)
+		));
+    }
+}
+
+
+//
+//class Components : public map<VALUE, size_t>
+//{
+//    set<size_t> free;
+//
+//public:
+//    size_t discover(VALUE v, size_t c)
+//    {
+//	iterator it = find(v);
+//	if (it == end())
+//	    insert( make_pair(v, c) );
+//	else if (it->second != c)
+//	    c = merge(it->second, c);
+//
+//	return c;
+//    }
+//    
+//    size_t merge(size_t into, size_t what)
+//    {
+//	free.insert(what);
+//
+//	iterator const end = this->end();
+//	for (iterator it = begin(); it != end; ++it)
+//	{
+//	    if (it->second == what)
+//		it->second = into;
+//	}
+//	return into;
+//    }
+//
+//    size_t free_index() {
+//	size_t idx = *free.begin();
+//	free.erase(free.begin());
+//	return idx;
+//    }
+//};
+//
+//
+//
+//struct components_visitor : public default_dfs_visitor
+//{
+//    size_t		index;
+//    set< size_t >&	mergers;
+//    Components&		components;
+//
+//public:
+//    components_visitor( size_t idx, Components& components)
+//	: index(idx), mergers(mergers), components(components) { }
+//    void discover_vertex(vertex_descriptor u, BGLGraph const& g)
+//    { components.discover(g[u], index); }
+//    void forward_or_cross_edge(edge_descriptor e, BGLGraph const& g)
+//    { components.discover(g[target(e, g)], index); }
+//};
+//
+//// Converts the component map into a Ruby array
+//static VALUE component_to_ruby(BGLGraph& graph, Components& components)
+//{
+//    // maps component_index to result_index
+//    map<size_t, VALUE> component_result_map;
+//
+//    VALUE ret = rb_ary_new();
+//    for (Components::const_iterator it = components.begin(); it != components.end(); ++it)
+//    {
+//	VALUE rb_component = get(component_result_map, it->second, Qnil);
+//	if (NIL_P(rb_component))
+//	{
+//	    rb_component = rb_ary_new();
+//	    component_result_map[it->second] = rb_component;
+//	    rb_ary_push(ret, rb_component);
+//	}
+//
+//	rb_ary_push(rb_component, it->first);
+//    }
+//    return ret;
+//}
+//
+//// Merges the tree which begins at +root+ in +graph+ into +components+ using
+//// an already initialized color map
+//static void graph_components_merge(
+//	vertex_descriptor v, BGLGraph& graph, 
+//	Components& components, ColorMap& colors )
+//{
+//    depth_first_visit(graph, v, 
+//	    components_visitor(components.free_index(), components), 
+//	    make_assoc_property_map(colors));
+//}
+//// Merges the tree which begins at +root+ in +graph+ into +components+
+//static size_t graph_components_merge(vertex_descriptor v, BGLGraph& graph, Components& components)
+//{
+//    ColorMap colors;
+//    graph_components_merge(v, graph, components, colors);
+//}
+//
+//// Builds the component map of +graph+
+//static bool graph_components_i(BGLGraph& graph, Components& components)
+//{
+//    ColorMap colors;
+//
+//    vertex_iterator it, end;
+//    for (tie(it, end) = vertices(graph); it != end; ++it)
+//    {
+//	// We run the DFS only on roots
+//	if (!vertex_end_p_i<BGLGraph::inv_adjacency_iterator>(*it, graph))
+//	    continue;
+//
+//	graph_components_merge(*it, graph, components, colors);
+//    }
+//    return true;
+//}
+//
+///* call-seq:
+// *	graph.components		=> component list
+// *
+// * Returns an array of arrays, where each subarray is the list of a connected component
+// * of +graph+
+// */
+//static VALUE graph_components(VALUE self)
+//{
+//    Components components;
+//    BGLGraph& graph = graph_wrapped(self);
+//    graph_components_i(graph, components);
+//    return component_to_ruby(graph, components);
+//}
+//
+///* call-seq:
+// *	BGL::Graph.component_union(g1, g2, ...)		=> component_list
+// *
+// * Returns the union of the components of the given graphs
+// */
+//// static VALUE graph_component_union(int argc, VALUE* argv, VALUE self)
+//// {
+////     for_each_graph(self, bind(graph_components_i, _2, ref(components)) );
+//// }
+//
+///*
+// * call-seq:
+// *  vertex.component => vertex_array
+// *
+// * Returns the component this vertex is part of. This component is the union of all components in all
+// * graphs +vertex+ is.
+// */
+//static VALUE vertex_component(int argc, VALUE* argv, VALUE self)
+//{
+//    VALUE graph = Qnil;
+//    rb_scan_args(argc, argv, "01", &graph);
+//
+//    Components components;
+//
+//    if (! NIL_P(graph))
+//    {
+//	BGLGraph& bglgraph = graph_wrapped(graph);
+//	graph_components_i(bglgraph, components);
+//    }
+//    else
+//	for_each_graph(self, bind(graph_components_i, _2, ref(components)) );
+//    
+//    // Get component number of +self+ and build the corresponding ruby array
+//    size_t index = components[self];
+//    VALUE result = rb_ary_new();
+//    for (Components::const_iterator it = components.begin(); it != components.end(); ++it)
+//    {
+//	if (it->second == index)
+//	    rb_ary_push(result, it->first);
+//    }
+//    return result;
+//}
 
 /**********************************************************************
  *  Extension initialization
@@ -874,14 +1073,14 @@ extern "C" void Init_bgl()
     rb_define_method(bglGraph, "remove_edge",	RUBY_METHOD_FUNC(graph_remove_edge), 2);
     rb_define_method(bglGraph, "edge_data",	RUBY_METHOD_FUNC(graph_edge_data), 2);
 
-    // Functions to manipulate BGL::Vertex objects
+    // Functions to manipulate BGL::Vertex objects in Graphs
     rb_define_method(bglGraph, "insert",    RUBY_METHOD_FUNC(graph_insert), 1);
     rb_define_method(bglGraph, "remove",    RUBY_METHOD_FUNC(graph_remove), 1);
     rb_define_method(bglGraph, "include?",  RUBY_METHOD_FUNC(graph_include_p), 1);
     rb_define_method(bglGraph, "link",	    RUBY_METHOD_FUNC(graph_link), 3);
     rb_define_method(bglGraph, "unlink",    RUBY_METHOD_FUNC(graph_unlink), 2);
     rb_define_method(bglGraph, "linked?",   RUBY_METHOD_FUNC(graph_linked_p), 2);
-    rb_define_method(bglGraph, "components",   RUBY_METHOD_FUNC(graph_components), 0);
+    rb_define_method(bglGraph, "components",   RUBY_METHOD_FUNC(graph_components), -1);
 
     rb_define_method(bglGraph, "each_vertex",	RUBY_METHOD_FUNC(graph_each_vertex), 0);
     rb_define_method(bglGraph, "each_edge",	RUBY_METHOD_FUNC(graph_each_edge), 0);
@@ -896,6 +1095,6 @@ extern "C" void Init_bgl()
     rb_define_method(bglVertex, "root?",		RUBY_METHOD_FUNC(vertex_root_p), -1);
     rb_define_method(bglVertex, "leaf?",		RUBY_METHOD_FUNC(vertex_leaf_p), -1);
     rb_define_method(bglVertex, "[]",			RUBY_METHOD_FUNC(vertex_get_info), 2);
-    rb_define_method(bglVertex, "component",		RUBY_METHOD_FUNC(vertex_component), -1);
+    // rb_define_method(bglVertex, "component",		RUBY_METHOD_FUNC(vertex_component), -1);
 }
 
