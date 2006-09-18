@@ -7,12 +7,12 @@ module Roby
     class Plan
 	attr_reader :known_tasks, :missions
 
-	def size; known_tasks.size end
 	def initialize
 	    @missions	 = ValueSet.new
 	    @known_tasks = ValueSet.new
 	end
 
+	# Inserts a new mission in the plan. Its child tree is automatically inserted too.
         def insert(task)
 	    discover(task)
 	    missions << task
@@ -20,34 +20,71 @@ module Roby
 	end
 	alias :<< :insert
 
+	# Mark +task+ as not being a task anymore
 	def discard(task)
 	    discover(task)
 	    missions.delete(task)
 	    self
 	end
 
+	# call-seq:
+	#   plan.discover(t1, t2, ...)	    => plan
+	#   plan.discover		    => plan
+	#
+	# Updates Plan#known_tasks with either the child tree of t1, t2, ... or the missions
+	# child trees.
 	def discover(*tasks)
 	    tasks = missions if tasks.empty?
-	    @known_tasks = TaskStructure::Hierarchy.components(*tasks).
+	    @known_tasks = TaskStructure::Hierarchy.directed_components(*tasks).
 		inject(known_tasks) { |r, c| r.merge(c) }
 
 	    self
 	end
 
+	# Returns the set of needed tasks
 	def useful_tasks
-	    TaskStructure::Hierarchy.components(*missions).
+	    TaskStructure::Hierarchy.directed_components(*missions).
 		inject do |useful, component|
 		    useful.merge(component)
 		end
 	end
 
+	# Returns the set of unused tasks
+	def unneeded_tasks; known_tasks - useful_tasks end
+	# Checks if +task+ is included in this plan
 	def include?(task); known_tasks.include?(task) end
+	# Checks if +task+ is a mission of this plan
 	def mission?(task); missions.include?(task) end
-	def each_task
-	    known_tasks.each { |t| yield(t) }
+	# Count of tasks in this plan
+	def size; known_tasks.size end
+	# Iterates on all tasks
+	def each_task; known_tasks.each { |t| yield(t) } end
+	# Returns a Query object on this plan
+	def find_tasks; Query.new(self) end
+
+	# Kills and removes all unneeded tasks
+	def garbage_collect
+	    children = unneeded_tasks
+	    loop do
+		roots, children = children.partition { |t| t.root?(TaskStructure::Hierarchy) }
+		break if roots.empty?
+
+		while t = roots.shift
+		    if !t.running?
+			t.clear
+			known_tasks.delete(t)
+			finalized(t)
+		    elsif t.event(:stop).controlable? && !t.event(:stop).pending?
+			t.stop!(nil)
+			# 'stop' may have been achieved instantly
+			# In that case, add it back to root so that it is handled here
+			roots << t if t.finished?
+		    end
+		end
+	    end
 	end
 
-	def find_tasks; Query.new(self) end
+	def finalized(task); super if defined? super end
     end
 
     # The query class represents a search in a plan. 

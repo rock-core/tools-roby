@@ -81,8 +81,67 @@ class TC_Plan < Test::Unit::TestCase
 	assert_equal(Set.new, result)
 	result = Query.which_improves(:other_info).enum_for(:each, plan).to_set
 	assert_equal([t1].to_set, result)
-	result = Query.which_needs(:source_info).which_improves(:yet_another_info).enum_for(:each, plan).to_set
+	result = Query.which_needs(:source_info).
+	    which_improves(:yet_another_info).
+	    enum_for(:each, plan).to_set
+
 	assert_equal([t2].to_set, result)
+    end
+
+    def test_garbage_collect
+	klass = Class.new(Task) do
+	    attr_accessor :delays
+
+	    event(:start, :command => true)
+	    def stop(context)
+		if delays
+		    return
+		else
+		    emit(:stop)
+		end
+	    end
+	    event(:stop)
+	end
+
+	tasks = (1..5).map { klass.new }
+	t1, t2, t3, t4, t5 = *tasks
+	t1.realized_by t3
+	t2.realized_by t3
+	t5.realized_by t4
+	t3.realized_by t4
+
+	plan = Class.new(Plan) do
+	    attr_accessor :finalized_tasks
+	    def finalized(task)
+		@finalized_tasks << task
+		super if defined? super
+	    end
+	end.new
+
+	[t1, t2, t5].each { |t| plan.insert(t) }
+
+	plan.finalized_tasks = []
+	plan.garbage_collect
+	assert_equal([], plan.finalized_tasks)
+
+	plan.discard(t1)
+	assert_equal([t1], plan.unneeded_tasks.to_a)
+	plan.garbage_collect
+	assert_equal([t1], plan.finalized_tasks)
+	assert(! plan.include?(t1))
+
+	plan.finalized_tasks = []
+	t2.start!(nil)
+	plan.discard(t2)
+	plan.garbage_collect
+	assert_equal([t2, t3], plan.finalized_tasks)
+
+	plan.finalized_tasks = []
+	t5.delays = true
+	t5.start!(nil)
+	plan.discard(t5)
+	plan.garbage_collect
+	assert_equal([], plan.finalized_tasks)
     end
 end
 
