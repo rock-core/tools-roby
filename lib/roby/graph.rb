@@ -110,3 +110,12 @@ class Object
     end
 end
 
+
+module BGL
+    module Vertex
+	def clear
+	    each_graph { |g| g.remove(self) }
+	end
+    end
+end
+

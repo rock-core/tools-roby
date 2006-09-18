@@ -54,6 +54,13 @@ class TC_BGL < Test::Unit::TestCase
 	assert(!graph.include?(v1))
 	assert_equal([], graph.enum_for(:each_vertex).to_a)
 	assert_equal([], v1.enum_for(:each_graph).to_a)
+
+	g1, g2 = Graph.new, Graph.new
+	g1.insert(v1)
+	g2.insert(v1)
+	v1.clear
+	assert(!g1.include?(v1))
+	assert(!g2.include?(v1))
     end
 
     def test_edge_objects
