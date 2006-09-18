@@ -193,6 +193,7 @@ VALUE graph_remove(VALUE self, VALUE vertex)
     if (it == vertex_graphs.end())
 	return self;
 
+    clear_vertex(it->second, graph);
     remove_vertex(it->second, graph);
     vertex_graphs.erase(it);
     return self;
