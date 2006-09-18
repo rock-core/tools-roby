@@ -43,6 +43,7 @@ module Roby
 
 	# Returns the set of needed tasks
 	def useful_tasks
+	    return ValueSet.new if missions.empty?
 	    TaskStructure::Hierarchy.directed_components(*missions).
 		inject do |useful, component|
 		    useful.merge(component)
