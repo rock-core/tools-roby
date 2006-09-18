@@ -1,5 +1,5 @@
 require 'roby/support'
-require 'roby/bgl'
+require 'roby/graph'
 
 module Roby
     class NoRelationError < RuntimeError; end
