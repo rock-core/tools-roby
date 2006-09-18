@@ -21,7 +21,17 @@ class TC_Plan < Test::Unit::TestCase
 	plan.insert(t1)
 	assert( plan.include?(t1) )
 	assert( plan.include?(t2) )
+	assert( plan.mission?(t1) )
+	assert( !plan.mission?(t2) )
+	# t3 is not related by the hierarchy relation
 	assert( !plan.include?(t3) )
+
+	assert_equal([t1, t2].to_value_set, plan.useful_tasks)
+	plan.insert(t3)
+	assert_equal([t1, t2, t3].to_value_set, plan.useful_tasks)
+	plan.discard(t1)
+	assert_equal([t3].to_value_set, plan.useful_tasks)
+	assert_equal([t1, t2].to_value_set, plan.unneeded_tasks)
     end
 
     def test_query_fullfills

@@ -764,7 +764,7 @@ public:
     }
 };
 
-static bool connected_component(set<VALUE>& component, vertex_descriptor v, BGLGraph& graph, ColorMap& colors)
+static bool connected_component(bool directed, set<VALUE>& component, vertex_descriptor v, BGLGraph& graph, ColorMap& colors)
 {
     vertex_list roots;
     vertex_list reverse_roots;
@@ -782,7 +782,7 @@ static bool connected_component(set<VALUE>& component, vertex_descriptor v, BGLG
 
 	roots.clear();
 
-	if (reverse_roots.empty()) break;
+	if (directed || reverse_roots.empty()) break;
 	for (list<vertex_descriptor>::const_iterator it = reverse_roots.begin(); it != reverse_roots.end(); ++it)
 	    depth_first_visit(reverse_graph, *it, components_visitor(*it, component, roots), color_map);
 
@@ -802,7 +802,7 @@ static VALUE set_to_rb(set<VALUE>& source)
 }
 
 template<typename Iterator>
-static VALUE graph_components_i(VALUE result, BGLGraph& g, Iterator it, Iterator end)
+static VALUE graph_components_i(bool directed, VALUE result, BGLGraph& g, Iterator it, Iterator end)
 {
     ColorMap colors;
 
@@ -814,7 +814,7 @@ static VALUE graph_components_i(VALUE result, BGLGraph& g, Iterator it, Iterator
 	    continue;
 
 	set<VALUE> component;
-	connected_component(component, *it, g, colors);
+	connected_component(directed, component, *it, g, colors);
 	rb_ary_push(result, set_to_rb(component));
     }
 
@@ -835,7 +835,7 @@ static vertex_descriptor graph_components_root_descriptor(VALUE result, VALUE v,
     }
     return d;
 }
-static VALUE graph_components(int argc, VALUE* argv, VALUE self)
+static VALUE graph_do_components(bool directed, int argc, VALUE* argv, VALUE self)
 {
     BGLGraph& g = graph_wrapped(self);
 
@@ -844,7 +844,7 @@ static VALUE graph_components(int argc, VALUE* argv, VALUE self)
     {
 	BGLGraph::vertex_iterator it, end;
 	tie(it, end) = vertices(g);
-	return graph_components_i(result, g, 
+	return graph_components_i(directed, result, g, 
 		make_filter_iterator(
 		    bind(
 			vertex_has_adjacent_i<BGLGraph::inv_adjacency_iterator>, 
@@ -861,7 +861,7 @@ static VALUE graph_components(int argc, VALUE* argv, VALUE self)
     }
     else
     {
-	return graph_components_i(result, g, 
+	return graph_components_i(directed, result, g, 
 		make_transform_iterator(argv, 
 		    bind(graph_components_root_descriptor, result, _1, self)
 		),
@@ -870,6 +870,23 @@ static VALUE graph_components(int argc, VALUE* argv, VALUE self)
 		));
     }
 }
+/*
+ * call-seq:
+ *   graph.components([v1, v2, ...])			    => components
+ *
+ * Returns an array of vertex sets. Each set is a connected component of +graph+. If
+ * a list of vertices is provided, returns only the components the vertices are part of.
+ * The graph is treated as if it were not directed.
+ */
+static VALUE graph_components(int argc, VALUE* argv, VALUE self)
+{ return graph_do_components(false, argc, argv, self); }
+/* call-seq:
+ *   graph.directed_components([v1, v2, ...])		   => components
+ *
+ * Like Graph#components, but do not go backwards on edges
+ */
+static VALUE graph_directed_components(int argc, VALUE* argv, VALUE self)
+{ return graph_do_components(true, argc, argv, self); }
 
 /**********************************************************************
  *  Extension initialization
@@ -936,6 +953,7 @@ extern "C" void Init_bgl()
     rb_define_method(bglGraph, "unlink",    RUBY_METHOD_FUNC(graph_unlink), 2);
     rb_define_method(bglGraph, "linked?",   RUBY_METHOD_FUNC(graph_linked_p), 2);
     rb_define_method(bglGraph, "components",   RUBY_METHOD_FUNC(graph_components), -1);
+    rb_define_method(bglGraph, "directed_components",   RUBY_METHOD_FUNC(graph_directed_components), -1);
 
     rb_define_method(bglGraph, "each_vertex",	RUBY_METHOD_FUNC(graph_each_vertex), 0);
     rb_define_method(bglGraph, "each_edge",	RUBY_METHOD_FUNC(graph_each_edge), 0);
