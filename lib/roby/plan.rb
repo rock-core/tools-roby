@@ -1,108 +1,53 @@
-require 'set'
+require 'roby/graph'
 require 'roby/relations/hierarchy'
 require 'facet/kernel/constant'
-require 'facet/kernel/returning'
+require 'pp'
 
 module Roby
     class Plan
-	def size; @tasks.size end
+	attr_reader :known_tasks, :missions
+
+	def size; known_tasks.size end
 	def initialize
-	    @tasks = Set.new
-	end
-
-	# Merge +plan+ into this one
-	def merge(plan)
-	    plan.each_task { |task| @tasks << task }
-	end
-
-	def each_task
-	    tasks.each { |t| yield(t) }
-	end
-	
-	# List all tasks in the plan
-	def tasks
-	    known_tasks	    = @tasks.dup # the list of already known tasks
-	    all_tasks	    = Set.new # the target set
-	    related_tasks   = Set.new
-	    events	    = Array.new
-
-	    while task = known_tasks.find { true }
-		known_tasks.delete(task)
-		raise if all_tasks.include?(task)
-		all_tasks << task
-
-		related_tasks.clear
-
-		task.each_parent_object { |related| related_tasks << related if related.kind_of?(Task) }
-		task.each_child_object { |related| related_tasks << related if related.kind_of?(Task) }
-
-		events.clear
-
-		task.each_event do |ev|
-		    ev.each_parent_object do |related|
-			next unless related.kind_of?(EventGenerator)
-			if related.respond_to?(:task); related_tasks << related.task
-			else; events << related
-			end
-		    end
-		    ev.each_child_object do |related|
-			next unless related.kind_of?(EventGenerator)
-			if related.respond_to?(:task); related_tasks << related.task
-			else; events << related
-			end
-		    end
-		end
-		events.each do |ev|
-		    ev.each_parent_object do |related|
-			next unless related.kind_of?(EventGenerator)
-			if related.respond_to?(:task); related_tasks << related.task
-			else; events << related
-			end
-		    end
-		    ev.each_child_object do |related|
-			next unless related.kind_of?(EventGenerator)
-			if related.respond_to?(:task); related_tasks << related.task
-			else; events << related
-			end
-		    end
-		end
-
-		related_tasks.each do |related|
-		    next if all_tasks.include?(related)
-		    known_tasks << related
-		end
-	    end
-
-	    @tasks = all_tasks
+	    @missions	 = ValueSet.new
+	    @known_tasks = ValueSet.new
 	end
 
         def insert(task)
-	    @tasks << task
-	    @first_task = task
+	    discover(task)
+	    missions << task
 	    self
 	end
 	alias :<< :insert
 
-	attr_reader :first_task
-	def start!(context)
-	    first_task.start!(context)
+	def discard(task)
+	    discover(task)
+	    missions.delete(task)
+	    self
 	end
 
-	def find_tasks
-	    Query.new(self)
+	def discover(*tasks)
+	    tasks = missions if tasks.empty?
+	    @known_tasks = TaskStructure::Hierarchy.components(*tasks).
+		inject(known_tasks) { |r, c| r.merge(c) }
+
+	    self
 	end
 
-	def tasks_state
-	    enum_for(:each_task).map do |task|
-		state = if task.running?; "running"
-			elsif task.finished?; "finished"
-			else "pending"
-			end
-
-		last_event = task.history.last[1] unless task.history.empty?
-		[task.class.name, task.object_id, state, last_event.inspect]
-	    end
+	def useful_tasks
+	    TaskStructure::Hierarchy.components(*missions).
+		inject do |useful, component|
+		    useful.merge(component)
+		end
 	end
+
+	def include?(task); known_tasks.include?(task) end
+	def mission?(task); missions.include?(task) end
+	def each_task
+	    known_tasks.each { |t| yield(t) }
+	end
+
+	def find_tasks; Query.new(self) end
     end
 
     # The query class represents a search in a plan. 
@@ -155,7 +100,6 @@ module Roby
 	end
 
 	def each(plan = nil)
-	    plan ||= @plan
 	    (plan || @plan).each_task do |task|
 		if model
 		    next unless task.fullfills?(constant(model), arguments) 

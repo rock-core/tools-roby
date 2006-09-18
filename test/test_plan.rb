@@ -8,7 +8,6 @@ require 'roby/plan'
 class TC_Plan < Test::Unit::TestCase
     include Roby
     def test_base
-	plan = Plan.new
 	task_model = Class.new(Task) do 
 	    event :start
 	    event :stop, :command => true
@@ -18,11 +17,11 @@ class TC_Plan < Test::Unit::TestCase
 	t1.realized_by t2
 	t2.on(:start, t3, :stop)
 
+	plan = Plan.new
 	plan.insert(t1)
-	tasks = plan.tasks
-	assert( tasks.include?(t1) )
-	assert( tasks.include?(t2) )
-	assert( tasks.include?(t3) )
+	assert( plan.include?(t1) )
+	assert( plan.include?(t2) )
+	assert( !plan.include?(t3) )
     end
 
     def test_query_fullfills
@@ -34,7 +33,9 @@ class TC_Plan < Test::Unit::TestCase
 	t2 = task_model.new(:value => 2)
 
 	plan = Plan.new
-	plan << t1 << t2
+	assert(plan.insert(t1))
+	plan.insert(t2)
+	assert(plan.include?(t1))
 
 	result = Query.which_fullfills('TC_Plan::TaskModel').enum_for(:each, plan).to_set
 	assert_equal([t1, t2].to_set, result)
