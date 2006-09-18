@@ -1,13 +1,11 @@
 require 'roby/support'
+require 'roby/plan'
 require 'drb'
 require 'set'
 
 module Roby
-    class Control
+    class Control < Plan
 	include Singleton
-
-	# The main plan (i.e. the one which is being executed)
-	attr_accessor :main
 
 	@event_processing = []
 	class << self
@@ -16,24 +14,8 @@ module Roby
 	end
 
 	def initialize
+	    super
 	    @cycle_index = 0
-	    @missions    = Set.new
-	    @garbage = Set.new
-	    @garbage_can  = Set.new
-	end
-
-	# Inject +plan+ in +main+
-	def insert(plan)
-	    if @main
-		raise NotImplementedError, "there is already a plan running"
-	    else
-		send_to_event_loop(self, :do_insert, plan)
-	    end
-	    self
-	end
-
-	def do_insert(plan)
-	    @main = plan
 	end
 
 	def send_to_event_loop(object, *funcall, &block)
@@ -70,10 +52,6 @@ module Roby
 	    # Current time
 	    timings[:start] = Time.now
 
-	    # Mark garbage tasks
-	    garbage_mark
-	    timings[:garbage_mark] = Time.now
-
 	    # Get the events received by the server and process them
 	    Thread.current.process_events
 	    timings[:server] = Time.now
@@ -81,7 +59,8 @@ module Roby
 	    # Call event processing registered by other modules
 	    Control.event_processing.each { |prc| prc.call }
 	    timings[:events] = Time.now
-
+	    
+	    # Mark garbage tasks
 	    garbage_collect
 	    timings[:end] = timings[:garbage_collect] = Time.now
 
@@ -163,62 +142,6 @@ module Roby
 		@thread = nil
 		DRb.stop_service if options[:drb]
 		GC.enable if control_gc && !already_disabled_gc
-	    end
-	end
-
-	# Tell the controller that this particular task should not be 
-	# killed even when it seems that it is not useful anymore
-	def mission(task); @missions << task end
-
-	# True if task is a mission. See #protect
-	def mission?(task); @missions.include?(task) end
-
-	# Tell the controller that +task+ should not be controlled
-	# anymore. See Control#protect.
-	def discard(task); @missions.delete(task) end
-
-	def marked?(task)
-	    @garbage.include?(task) || @garbage_can.include?(task)
-	end
-	def useful?(task)
-	    return true if mission?(task)
-	    task.each_parent_task { |task| return true if !task.dead? }
-	    false
-	end
-
-	# Mark tasks for garbage collection. It marks all unused tasks
-	# to be killed next time garbage_collect is called
-	#
-	# If a parent task is marked as being garbage, we *do not*
-	# mark its children since the parent task can have a cleanup
-	# routine.
-	def garbage_mark
-	    return unless main
-	    main.each_task { |task| mark_task(task) }
-	end
-	def mark_task(task)
-	    if !useful?(task) && task.event(:stop).controlable?
-		@garbage << task
-	    end
-	end
-
-	def garbage_collect
-	    return unless main
-
-	    # @garbage_can contains the tasks that are being killed by the garbage collector
-	    @garbage.dup.each do |task|
-		task.dead!
-		next if @garbage_can.include?(task)
-		@garbage.delete(task)
-
-		if task.running?
-		    @garbage_can << task
-		    task.on(:stop) { @garbage_can.delete(task) }
-		    task.stop!(nil)
-
-		elsif task.pending?
-		    @garbage_can << task
-		end
 	    end
 	end
 
