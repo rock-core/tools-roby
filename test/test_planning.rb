@@ -291,41 +291,6 @@ class TC_Planner < Test::Unit::TestCase
 	assert_raises(Planning::NotFound) { planner.test(:id => "bad") }
     end
 
-    def test_fullfills
-	task_model = Class.new(Task) do
-	    event :start
-	end
-
-	t1, t2 = task_model.new, task_model.new
-	assert(t1.respond_to?(:fullfills?))
-	assert(t1.fullfills?(t2))
-	
-	t2 = task_model.new(:index => 2)
-	assert(!t1.fullfills?(t2))
-	assert(t1.fullfills?(task_model, nil))
-
-	t3 = task_model.new(:universe => 42)
-	assert(t3.fullfills?(t1))
-	assert(!t1.fullfills?(t3))
-
-	t3 = Class.new(Task) do
-	    event :start
-	    fullfills { |model, args| model == task_model }
-	end.new
-	assert(t3.fullfills?(t1))
-
-	t3 = Class.new(Task) do
-	    event :start
-	end.new
-	assert(!t1.fullfills?(t3))
-
-	t3 = Class.new(task_model) do
-	    event :start
-	end.new
-	assert(!t1.fullfills?(t3))
-	assert(t3.fullfills?(t1))
-    end
-
     def test_method_filter
 	base = Class.new(Planner) do
 	    method(:test, :id => 1) { arguments[:mock].m(1) }
