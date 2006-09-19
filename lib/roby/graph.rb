@@ -11,6 +11,20 @@ module BGL
 	def clear_vertex
 	    each_graph { |g| g.remove(self) }
 	end
+	def replace_vertex(from, to)
+	    each_graph { |g| g.replace_vertex(from, to) }
+	end
+    end
+    class Graph
+	def replace_vertex(from, to)
+	    from.each_parent_vertex(self) do |parent|
+		link(parent, to, parent[from, self])
+	    end
+	    from.each_child_vertex(self) do |child|
+		link(to, child, from[child, self])
+	    end
+	    remove(from)
+	end
     end
 end
 

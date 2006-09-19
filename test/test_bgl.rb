@@ -63,6 +63,22 @@ class TC_BGL < Test::Unit::TestCase
 	assert(!g2.include?(v1))
     end
 
+    def test_replace
+	graph = Graph.new
+	klass = Class.new { include Vertex }
+
+	v1, v2, v3 = (1..3).map { klass.new }
+	graph.link(v1, v2, 1)
+	graph.link(v2, v3, 2)
+
+	v4 = klass.new
+	graph.replace_vertex(v2, v4)
+	assert(! graph.linked?(v1, v2))
+	assert(! graph.linked?(v2, v3))
+	assert_equal(1, v1[v4, graph])
+	assert_equal(2, v4[v3, graph])
+    end
+
     def test_edge_objects
 	g1, g2 = Graph.new, Graph.new
 	klass = Class.new { include Vertex }
