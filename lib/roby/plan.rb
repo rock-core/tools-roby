@@ -4,6 +4,15 @@ require 'facet/kernel/constant'
 require 'pp'
 
 module Roby
+    class InvalidPlanOperation < RuntimeError
+    end
+
+    class InvalidReplace < RuntimeError
+	def initialize(from, to, error)
+	    @from, @to, @error = from, to, error
+	end
+    end
+
     class Plan
 	attr_reader :known_tasks, :missions
 
@@ -25,6 +34,27 @@ module Roby
 	    discover(task)
 	    missions.delete(task)
 	    self
+	end
+
+	# Replaces +from+ by +to+. If +to+ cannot replace +from+, an
+	# InvalidReplace exception is raised.
+	def replace(from, to)
+	    # Check that +to+ is valid in all hierarchy relations where +from+ is a child
+	    if !to.fullfills?(*from.fullfilled_model)
+		raise InvalidReplace.new(from, to, "to does not fullfills the needed models")
+	    end
+
+	    # Check that +to+ is in the same execution state than +from+
+	    if !to.same_state?(from)
+		raise InvalidReplace.new(from, to, "state")
+	    end
+
+	    # Copy all graph relations on +from+ events that are in +to+
+	    from.each_event do |ev|
+		next unless to.has_event?(ev.symbol)
+		ev.replace_vertex_by(to.event(ev.symbol))
+	    end
+	    from.replace_vertex_by(to)
 	end
 
 	# call-seq:

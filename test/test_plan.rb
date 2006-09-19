@@ -143,5 +143,26 @@ class TC_Plan < Test::Unit::TestCase
 	plan.garbage_collect
 	assert_equal([], plan.finalized_tasks)
     end
+
+    def test_replace
+	klass = Class.new(Task) do
+	    event(:start, :command => true)
+	    event(:stop)
+	    on :start => :stop
+	end
+
+	p, c1, c2, c3 = (1..4).map { klass.new }
+	p.realized_by c1
+	p.realized_by c2
+	c1.on(:stop, c2, :start)
+
+	plan = Plan.new
+	plan.insert(p)
+	assert_nothing_raised { plan.replace(c1, c3) }
+
+	assert( p.child_object?(c3, TaskStructure::Hierarchy) )
+	assert( !p.child_object?(c1, TaskStructure::Hierarchy) )
+	assert( c3.event(:stop).child_object?(c2.event(:start), EventStructure::Signals) )
+    end
 end
 
