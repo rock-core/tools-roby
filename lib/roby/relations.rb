@@ -100,9 +100,9 @@ module Roby
     end
 
     class RelationGraph < BGL::Graph
-	attr_reader :name
+	attr_reader   :name
 	attr_accessor :parent
-	attr_reader :subsets
+	attr_reader   :subsets
 
 	def initialize(name, subsets)
 	    @name = name
@@ -111,8 +111,14 @@ module Roby
 	end
 
 	def link(from, to, info = nil)
-	    parent.link(from, to, info) if parent
-	    super
+	    if linked?(from, to)
+		if from[to, self] != info
+		    raise ArgumentError, "edge already exists and info differs"
+		end
+	    else
+		parent.link(from, to, info) if parent
+		super
+	    end
 	end
 	def unlink(from, to)
 	    parent.unlink(from, to) if parent

@@ -38,6 +38,9 @@ class TC_Relations < Test::Unit::TestCase
 
 	n1, n2, n3, n4 = 4.enum_for(:times).map { klass.new }
 	n1.add_child_object(n2, r1)
+	assert_nothing_raised { n1.add_child_object(n2, r1) }
+	assert_raises(ArgumentError) { n1.add_child_object(n2, r1, true) }
+
 	assert( n1.child_object?(n2) )
 	assert( n1.child_object?(n2, r1) )
 	assert( !n1.child_object?(n2, r2) )
