@@ -568,7 +568,7 @@ module Roby
 	    args = arguments || {}
 	    model ||= Task
 
-	    (self.class < model || self.class == model) && self_args.slice(*args.keys) == args
+	    (self.model == model || self.class < model || self.class == model) && self_args.slice(*args.keys) == args
 	end
     end
 
