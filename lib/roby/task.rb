@@ -211,6 +211,12 @@ module Roby
 	def finished?; !!final_event end
 	# If this task ran and succeeded
 	def success?; event(:success).happened? end
+	
+	# Remove all relations in which +self+ or its event are involved
+	def clear_relations
+	    each_event { |ev| ev.clear_vertex }
+	    self.clear_vertex
+	end
 
 	def history
 	    history = []

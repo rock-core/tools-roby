@@ -72,7 +72,7 @@ module Roby
 
 		while t = roots.shift
 		    if !t.running?
-			t.clear
+			t.clear_relations
 			known_tasks.delete(t)
 			finalized(t)
 		    elsif t.event(:stop).controlable? && !t.event(:stop).pending?
