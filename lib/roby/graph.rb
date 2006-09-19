@@ -11,6 +11,13 @@ module BGL
 	def clear_vertex
 	    each_graph { |g| g.remove(self) }
 	end
+	def component(graph)
+	    graph.components(self).first
+	end
+	def directed_component(graph)
+	    graph.directed_components(self).first
+	end
+
 	def replace_vertex(from, to)
 	    each_graph { |g| g.replace_vertex(from, to) }
 	end
