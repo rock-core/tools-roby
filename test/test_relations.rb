@@ -126,19 +126,31 @@ class TC_Relations < Test::Unit::TestCase
 	    event(:start, :command => true)
 	    event(:failed, :command => true, :terminal => true)
 	end
+	t1 = klass.new
+	# Check validation of the :model argument
+	assert_nothing_raised { t1.realized_by klass.new, :model => klass }
+	assert_nothing_raised { t1.realized_by klass.new, :model => [Roby::Task, {}] }
+	assert_raises(ArgumentError) { t1.realized_by klass.new, :model => [Class.new(Roby::Task), {}] }
 
-	t1, t2 = klass.new, klass.new
-	t1.realized_by t2, :failure => :failed
+	# Check edge annotation
+	t2 = klass.new; t1.realized_by t2, :model => klass
+	assert_equal([klass, {}], t1[t2, TaskStructure::Hierarchy][:model])
+	t2 = klass.new; t1.realized_by t2, :model => [klass, {}]
+	assert_equal([klass, {}], t1[t2, TaskStructure::Hierarchy][:model])
 
-	FlexMock.use do |mock|
-	    t1.on(:failed) { mock.failed }
-	    mock.should_receive(:failed).once
+	# Check #fullfilled_model
+	p1, p2, child = (1..3).map { klass.new }
+	p1.realized_by child, :model => klass
+	p2.realized_by child, :model => Roby::Task
+	assert_equal([klass, {}], child.fullfilled_model)
+	p1.remove_child(child)
+	assert_equal([Roby::Task, {}], child.fullfilled_model)
 
-	    t1.start!
-	    t2.start!
-	    t2.failed!
-	end
+	# Check #first_children
+	p, c1, c2 = (1..3).map { klass.new }
+	p.realized_by c1
+	p.realized_by c2
+	assert_equal([c1, c2].to_value_set, p.first_children)
     end
-
 end
 

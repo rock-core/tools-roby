@@ -4,52 +4,60 @@ require 'set'
 
 module Roby::TaskStructure
     relation :child, :parent_enumerator => :parent_task, :const_name => :Hierarchy do
-	HierarchyLink = Struct.new :success, :failure
-         
 	def realizes?(obj);	parent_object?(obj, Hierarchy) end
 	def realized_by?(obj);  child_object?(obj, Hierarchy) end
 
-	# Adds +task+ as a child of +self+. You can specify a list of 'success' events
-	# which mark the end of the relationship (i.e. the child task is no more
-	# needed by the parent task), and a list of 'failure' events which are
-	# not accepted by the parent task
-	#
-	# TODO: if :stop is not in :success, it shall be in :failure since
-	# no event in :success can happen. In fact, it is more general. We
-	# should make sure that the events in :success are reachable
-        def realized_by(task, options = {:success => :stop})
-            options = validate_options options, :success => [], :failure => [:failed]
-	    options = options.inject({}) { |h, (k, v)| h[k] = [*v]; h }
+	# Adds +task+ as a child of +self+. The following options are allowed:
+	# success:: the list of success events
+	# failure:: the list of failing event
+	# model:: a [task_model, arguments] pair which defines the task model the
+	#	  relation parent is expecting
+        def realized_by(task, options = {})
+            options = validate_options options, :model => [task.model, {}], :success => [:success], :failure => [:failed]
 
-	    success = options[:success].to_a.map { |ev| task.event(ev) }
-	    failure = options[:failure].to_a.map { |ev| task.event(ev) }
+	    options[:success] = Array[*options[:success]].map { |ev| task.event(ev) }
+	    options[:failure] = Array[*options[:failure]].map { |ev| task.event(ev) }
 
-	    failure.each do |event|
-		event.until(event(:stop)).on { |event| emit(:failed, event.context) }
+	    options[:model] = [options[:model], {}] unless Array === options[:model]
+	    if !task.fullfills?(*options[:model])
+		raise ArgumentError, "task #{task} does not fullfills the provided model #{options[:model].inspect}"
 	    end
+	    
 
-	    # if task.has_event?(:failed) && !options.has_key?(:failure)
-	    #     options[:failure] = [:failed]
-	    # end
-
-	    add_child(task, HierarchyLink.new(success, failure))
+	    add_child(task, options)
             self
         end
 
         # Return an array of the task for which the :start event is not
         # signalled by a child event
         def first_children
-            alone = Hash.new
-            enum_bfs(:each_child) do |child, info|
-                alone[child] = true
-                child.each_event do |source|
-                    source.each_causal { |caused|
-                        alone[caused.task] = false if caused.symbol == :start
-                    }
-                end
-            end
-            alone.keys.find_all { |task| alone[task] }
+	    result = ValueSet.new
+
+	    directed_component(Hierarchy).each do |task|
+		next if task == self
+		if task.event(:start).root?(Roby::EventStructure::CausalLinks)
+		    result << task
+		end
+	    end
+	    result
         end
+
+	# Return the model this task is fullfilling
+	def fullfilled_model
+	    model, arguments = Roby::Task, {}
+
+	    each_parent_task do |parent|
+		m, a = parent[self, Hierarchy][:model]
+		if m < model
+		    model = m
+		elsif !(model < m) && model != m
+		    raise "inconsistency in fullfilled models"
+		end
+		a.merge!(arguments) { |old, new| raise "inconsistency in fullfilled models" if old != new }
+	    end
+
+	    [model, arguments]
+	end
 
     protected
         attr_reader :realizes
