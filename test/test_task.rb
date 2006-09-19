@@ -351,6 +351,21 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal(expected_history, event_history)
     end
 
+    def test_task_same_state
+	klass = Class.new(Task) do
+	    event(:start, :command => true)
+	    event(:stop, :command => true)
+	end
+	t1, t2 = klass.new, klass.new
 
+	assert(t1.same_state?(t2))
+	t1.start!; assert(! t1.same_state?(t2) && !t2.same_state?(t1))
+	t1.stop!; assert(! t1.same_state?(t2) && !t2.same_state?(t1))
+
+	t1 = klass.new
+	t1.start!
+	t2.start!; assert(t1.same_state?(t2) && t2.same_state?(t1))
+	t1.stop!; assert(! t1.same_state?(t2) && !t2.same_state?(t1))
+    end
 end
 

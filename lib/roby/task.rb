@@ -534,6 +534,12 @@ module Roby
 	event :aborted, :terminal => true
 	on(:aborted) { |event| event.task.emit(:failed, event.context) }
 
+	# Checks if +task+ is in the same execution state than +self+
+	# Returns true if they are either both running or both pending
+	def same_state?(task)
+	    !(finished? || task.finished?) && !(running? ^ task.running?)
+	end
+
 	# Define a fullfills? predicate for this task model.
 	#
 	# The fullfills? predicate checks if this task can be used
