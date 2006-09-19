@@ -8,7 +8,7 @@ end
 
 module BGL
     module Vertex
-	def clear
+	def clear_vertex
 	    each_graph { |g| g.remove(self) }
 	end
     end

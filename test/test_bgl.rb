@@ -58,7 +58,7 @@ class TC_BGL < Test::Unit::TestCase
 	g1, g2 = Graph.new, Graph.new
 	g1.insert(v1)
 	g2.insert(v1)
-	v1.clear
+	v1.clear_vertex
 	assert(!g1.include?(v1))
 	assert(!g2.include?(v1))
     end
