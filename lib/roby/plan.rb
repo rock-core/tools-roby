@@ -170,7 +170,7 @@ module Roby
 	def each(plan = nil)
 	    (plan || @plan).each_task do |task|
 		if model
-		    next unless task.fullfills?(constant(model), arguments) 
+		    next unless task.fullfills?(constant(model), arguments || {}) 
 		end
 		next unless @improved_information.all? { |info| task.improves?(info) }
 		next unless @needed_information.all? { |info| task.needs?(info) }

@@ -165,7 +165,7 @@ module Roby
         # * the task shall have at least one terminal event. If no +stop+ event
         #   is defined, then all terminal events are aliased to +stop+
         def initialize(arguments = nil) #:yields: task_object
-	    @arguments = arguments
+	    @arguments = (arguments || {})
             @bound_events = Hash.new
 
             yield self if block_given?
@@ -546,35 +546,16 @@ module Roby
 	    !(finished? || task.finished?) && !(running? ^ task.running?)
 	end
 
-	# Define a fullfills? predicate for this task model.
-	#
 	# The fullfills? predicate checks if this task can be used
 	# to fullfill the need of the given +model+ and +arguments+
 	# The default is to check if
 	#   * the needed task model is an ancestor of this task
-	#   * the task arguments are the same
-	def self.fullfills(&block)
-	    raise ArgumentError, "no block given" unless block
-
-	    class_eval do
-		define_method(:__fullfills_p__, &block)
-		define_method(:fullfills?) do |*args|
-		    if args.size == 1
-		        task = args.first
-		        __fullfills_p__(task.class, task.arguments || {})
-		    elsif args.size == 2
-		        __fullfills_p__(*args)
-		    end
-		end
+	#   * +args+ is included in the task arguments
+	def fullfills?(model, args = {})
+	    if Task === model
+		model, args = model.class, model.arguments
 	    end
-	end
-
-	fullfills do |model, arguments|
-	    self_args = self.arguments || {}
-	    args = arguments || {}
-	    model ||= Task
-
-	    (self.model == model || self.class < model || self.class == model) && self_args.slice(*args.keys) == args
+	    (self.model == model || self.class < model || self.class == model) && self.arguments.slice(*args.keys) == args
 	end
     end
 
