@@ -13,7 +13,7 @@ module Roby::TaskStructure
 	# model:: a [task_model, arguments] pair which defines the task model the
 	#	  relation parent is expecting
         def realized_by(task, options = {})
-            options = validate_options options, :model => [task.model, {}], :success => [:success], :failure => [:failed]
+            options = validate_options options, :model => [task.class, {}], :success => [:success], :failure => [:failed]
 
 	    options[:success] = Array[*options[:success]].map { |ev| task.event(ev) }
 	    options[:failure] = Array[*options[:failure]].map { |ev| task.event(ev) }
