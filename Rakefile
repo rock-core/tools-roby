@@ -68,6 +68,15 @@ end
 mockup_module "mockup"
 mockup_module "init"
 
+task :setup => :test_build do
+    # Build the extension
+    Dir.chdir('ext') do
+	system("ruby", "extconf.rb")
+	system("make")
+    end
+    FileUtils.ln_sf "../../ext/bgl.so", "lib/roby/bgl.so"
+end
+
 Rake::RDocTask.new("rdoc") do |rdoc|
   rdoc.options << "--inline-source"
   rdoc.rdoc_dir = 'html'
