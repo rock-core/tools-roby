@@ -9,6 +9,9 @@ class TC_Planner < Test::Unit::TestCase
     include Roby
     include Roby::Planning
 
+    def setup; Planner.last_id = 0 end
+    def teardown; Planner.last_id = 0 end
+
     def test_id_validation
 	assert_equal(15, Planner.validate_method_id("15"))
 	assert_equal('foo', Planner.validate_method_id(:foo))
