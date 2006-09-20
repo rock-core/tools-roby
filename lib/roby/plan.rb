@@ -55,6 +55,13 @@ module Roby
 		ev.replace_vertex_by(to.event(ev.symbol))
 	    end
 	    from.replace_vertex_by(to)
+
+	    if mission?(from)
+		missions.delete(from)
+		missions.insert(to)
+	    else
+		discover(to)
+	    end
 	end
 
 	# call-seq:

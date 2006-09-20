@@ -153,7 +153,12 @@ class TC_Plan < Test::Unit::TestCase
 
 	plan = Plan.new
 	plan.insert(p)
+	plan.insert(c1)
 	assert_nothing_raised { plan.replace(c1, c3) }
+	assert(! plan.mission?(c1) )
+	assert( plan.include?(c1) )
+	plan.garbage_collect
+	assert(! plan.include?(c1) )
 
 	assert( p.child_object?(c3, TaskStructure::Hierarchy) )
 	assert( !p.child_object?(c1, TaskStructure::Hierarchy) )
