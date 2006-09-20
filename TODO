@@ -17,6 +17,7 @@
 
 * abstract classes. Tasks like Roby::Task or yet-to-be-planned tasks are
   abstract since they will never be executable. Think about using modules to
-  define abstract tasks. This is possible since in effect, included modules
-  look like base classes.
+  define some abstract tasks. This is possible since in effect, included modules
+  look like base classes. However, we want to be able to make *some* abstract
+  classes instanciable, so we can't use only modules
 
