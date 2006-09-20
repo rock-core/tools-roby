@@ -1,0 +1,22 @@
+* in #replace, use Hierarchy#fullfilled_events to check that
+  all needed events are provided. If some are missing, use 
+  define_event to try to add a new one dynamically
+
+* add per-model arguments attribute for tasks, which gives the list
+  of expected arguments. These lists will then be used in fullfills? 
+  checks. realized_by will use them too: if we give only a model
+  and no arguments, initialize the argument list by taking only
+  the needed arguments from the provided task.
+
+* add a multiplicity parameter for hierarchy relations which tells
+  how many child task of a given kind are expected by the parent
+  task. Add a 'realized_by' transition for that. For instance, in
+  case of Pom::Localization, we can tell that the task expects at
+  least one Pom::Estimator. If the last estimator breaks, we can
+  repair the plan online by adding a transition.
+
+* abstract classes. Tasks like Roby::Task, Planning::PlannedTask are
+  abstract since they will never be executable. Think about using modules to
+  define abstract tasks. This is possible since in effect, included modules
+  look like base classes.
+
