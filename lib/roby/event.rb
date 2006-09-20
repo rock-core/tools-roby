@@ -357,8 +357,7 @@ module Roby
 	#
 	# This method is equivalent to
 	#
-	#   event.on { |context| self.emit(context) }
-	#   event.add_causal_link self
+	#   event.add_forwarding(self)
 	def emit_on(generator, *context_override)
 	    generator.add_forwarding(self)
 	end
