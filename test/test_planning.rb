@@ -148,7 +148,7 @@ class TC_Planner < Test::Unit::TestCase
         sequence = plan.enum_for(:each_task).to_a
         assert_equal(2, sequence.size)
         assert(sequence.all? { |node| PlanningTask === node })
-        methods = sequence.map { |node| node.plan_method }
+        methods = sequence.map { |node| node.method_name }
         assert_equal(['recursive', 'root'].to_set, methods.to_set)
     end
 

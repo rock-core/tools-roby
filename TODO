@@ -15,7 +15,7 @@
   least one Pom::Estimator. If the last estimator breaks, we can
   repair the plan online by adding a transition.
 
-* abstract classes. Tasks like Roby::Task, Planning::PlannedTask are
+* abstract classes. Tasks like Roby::Task or yet-to-be-planned tasks are
   abstract since they will never be executable. Think about using modules to
   define abstract tasks. This is possible since in effect, included modules
   look like base classes.

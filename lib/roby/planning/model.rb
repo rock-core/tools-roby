@@ -506,7 +506,7 @@ module Roby
                 if !methods
                     raise NotFound.new(self, Hash.new)
                 elsif options[:lazy]
-                    task = PlanningTask.new(self.class, name, options)
+                    task = PlanningTask.new(self, name, options)
 		    return task
 		end
 		
