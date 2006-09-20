@@ -24,6 +24,8 @@ module Roby
 	    @control = control
 	end
 
+	def quit; control.quit end
+
 	def method_missing(name, *args)
 	    # Check if +name+ is a planner method, and in that case
 	    # add a planning method for it and plan it
