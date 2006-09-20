@@ -48,7 +48,7 @@ module Roby
 	# Process the pending events. Returns a [cycle, server, processing]
 	# array which are the duration of the whole cycle, the handling of
 	# the server commands and the event processing
-	def process_events(timings, do_gc)
+	def process_events(timings = {}, do_gc = false)
 	    # Current time
 	    timings[:start] = Time.now
 
