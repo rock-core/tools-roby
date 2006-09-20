@@ -512,7 +512,7 @@ module Roby
 		
 		# Check if we can reuse a task already in #result
 		all_returns = methods.map { |m| m.returns if m.reuse? }
-		if (model = self.class.method_model(name)) && !options[:id]
+		if (model = singleton_class.method_model(name)) && !options[:id]
 		    all_returns << model.returns if model.reuse?
 		end
 		all_returns.compact!
