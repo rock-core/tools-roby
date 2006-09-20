@@ -18,11 +18,11 @@ class TC_Planner < Test::Unit::TestCase
     def test_method_definition
         model = Class.new(Planner) do 
 	    method(:root)
-            method(:root) {}
-            method(:root, :id => "15") {}
-            method(:root, :id => :foobar) {}
-            method(:root, :id => 'barfoo') {}
-            method(:recursive, :recursive => true) {}
+            method(:root) { NullTask.new }
+            method(:root, :id => "15") { NullTask.new }
+            method(:root, :id => :foobar) { NullTask.new }
+            method(:root, :id => 'barfoo') { NullTask.new }
+            method(:recursive, :recursive => true) { NullTask.new }
         end
 	assert_equal(17, model.next_id)
 	
@@ -46,7 +46,7 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal(nil, model.find_methods('recursive', :recursive => false))
 	assert_equal(1, model.find_methods('recursive', :recursive => true).size)
 
-        planner = model.new
+        planner = model.new(Plan.new)
         assert(planner.respond_to?(:root))
         assert(planner.root.null?)
         assert(planner.respond_to?(:recursive))
@@ -108,21 +108,18 @@ class TC_Planner < Test::Unit::TestCase
 	    end
 	end
 
-	planner = planner_model.new
+	assert_result_plan_size(1, planner_model, :check_reusable, :id => 1)
+	assert_result_plan_size(1, planner_model, :check_reusable, :id => 2)
+	assert_result_plan_size(2, planner_model, :check_reusable, :id => 3)
+	assert_result_plan_size(1, planner_model, :check_reusable, :id => 4)
 
-	planner.check_reusable(:id => 1)
-	assert_equal(1, planner.result.size)
-	planner.clear.check_reusable(:id => 2)
-	assert_equal(1, planner.result.size)
-	planner.clear.check_reusable(:id => 3)
-	assert_equal(2, planner.result.size)
-	planner.clear.check_reusable(:id => 4)
-	assert_equal(1, planner.result.size)
-
-	planner.clear.check_not_reusable(:id => 1)
-	assert_equal(2, planner.result.size)
-	planner.clear.check_not_reusable(:id => 2)
-	assert_equal(2, planner.result.size)
+	assert_result_plan_size(2, planner_model, :check_not_reusable, :id => 1)
+	assert_result_plan_size(2, planner_model, :check_not_reusable, :id => 2)
+    end
+    def assert_result_plan_size(size, planner_model, method, options)
+	planner = planner_model.new(Plan.new)
+	planner.send(method, options)
+	assert_equal(size, planner.plan.size)
     end
 
     def test_recursive
@@ -137,7 +134,7 @@ class TC_Planner < Test::Unit::TestCase
                 recursive + not_recursive
             end
         end
-        planner = model.new
+        planner = model.new(Plan.new)
         assert(planner.has_method?(:recursive))
         assert(planner.respond_to?(:recursive))
 
@@ -148,7 +145,6 @@ class TC_Planner < Test::Unit::TestCase
         assert_raises(NotFound) { planner.not_recursive }
 
         plan = nil
-        assert_nothing_raised { plan = planner.plan(:recursive) }
         assert_nothing_raised { plan = planner.recursive }
         
         sequence = plan.enum_for(:each_task).to_a
@@ -286,7 +282,7 @@ class TC_Planner < Test::Unit::TestCase
 	    method(:test, :returns => task_model)
 	    method(:test, :id => "good") { task_model.new }
 	    method(:test, :id => "bad", :reuse => false) { NullTask.new }
-	end.new
+	end.new(Plan.new)
 	assert_nothing_raised { planner.test(:id => "good") }
 	assert_raises(Planning::NotFound) { planner.test(:id => "bad") }
     end
@@ -318,9 +314,9 @@ class TC_Planner < Test::Unit::TestCase
 			mock.filtered(m.id)
 			m.id == i 
 		    end
-		end.new
+		end.new(Plan.new)
 
-		mock.should_receive(:m).with(i).once
+		mock.should_receive(:m).with(i).once.returns(NullTask.new)
 		mock.should_receive(:filtered).with(2).once
 		mock.should_receive(:filtered).with(1).once
 		planner.test(:mock => mock)
@@ -329,7 +325,7 @@ class TC_Planner < Test::Unit::TestCase
 	
 	planner = Class.new(base) do
 	    filter(:test) { false }
-	end.new
+	end.new(Plan.new)
 	assert_raises(Planning::NotFound) { planner.test }
     end
 end

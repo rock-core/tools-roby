@@ -66,17 +66,15 @@ module Roby
         class Planner
 	    extend Tools
 
-	    attr_reader :result
-            def initialize(result = Plan.new)
-		@result	  = result
+	    # The resulting plan
+	    attr_reader :plan
+
+	    # Creates a Planner object which acts on +plan+
+            def initialize(plan)
+		@plan	   = plan
                 @stack     = Array.new
 		@arguments = Array.new
             end
-
-	    def clear
-		@result = Plan.new
-		self
-	    end
 
             module MethodInheritance
                 # Checks that options in +options+ can be used to overload +self+. Updates options if needed
@@ -400,7 +398,15 @@ module Roby
 		    class_inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) { Hash.new }
 		    class_eval <<-PLANNING_METHOD_END
 		    def #{name}(options = Hash.new)
-			plan("#{name}", options)
+			result = plan_method("#{name}", options)
+			if !result
+			    raise PlanModelError.new(self), "root methods should return either a Task or a Task collection"
+			elsif result.respond_to?(:each)
+			    result.each { |t| plan.insert(t) }
+			else
+			    plan.insert(result)
+			end
+			result
 		    end
 		    PLANNING_METHOD_END
 		end
@@ -474,7 +480,7 @@ module Roby
             def has_method?(name); singleton_class.respond_to?("#{name}_methods") end
 
             # Find a suitable development for the +name+ method.
-            def plan(name, options = Hash.new)
+            def plan_method(name, options = Hash.new)
                 name    = name.to_s
 		options = options.keys_to_sym
 		# Save the user arguments in the +arguments+ attribute
@@ -500,7 +506,6 @@ module Roby
                     raise NotFound.new(self, Hash.new)
                 elsif options[:lazy]
                     task = PlanningTask.new(self.class, name, options)
-		    self.result << task
 		    return task
 		end
 		
@@ -512,29 +517,17 @@ module Roby
 		all_returns.compact!
 				  
 		all_returns.each do |return_type|
-		    task = self.result.enum_for(:each_task).find do |task|
+		    task = plan.enum_for(:each_task).find do |task|
 			task.fullfills?(return_type, arguments)
 		    end
 		    if task
 			Planning.debug { "selecting task #{task} instead of planning #{name}[#{arguments}]" }
-			self.result << task
 			return task
 		    end
 		end
 
 		# Call the methods
-		if result = plan_method(Hash.new, options, *methods)
-		    if result.respond_to?(:each_task)
-			result.each_task { |t| self.result << t }
-		    elsif result.respond_to?(:to_task)
-			self.result << result.to_task
-		    elsif result.respond_to?(:each)
-			result.each { |t| self.result << t }
-		    else
-			raise PlanModelError.new(self), "#{name}(#{options}) did not return a Task object"
-		    end
-		    result
-		end
+		call_planning_methods(Hash.new, options, *methods)
 
             rescue NotFound => e
                 e.method_name       = name
@@ -551,14 +544,17 @@ module Roby
             # Tries to find a successfull development in the provided method list.
             #
             # It raises NotFound if none of the methods returned successfully
-            def plan_method(errors, options, method, *methods)
+            def call_planning_methods(errors, options, method, *methods)
                 begin
                     @stack.push method.name
 		    Planning.debug { "calling #{method.name}:#{method.id} with arguments #{arguments.inspect}" }
-                    result = (instance_eval(&method.body) || NullTask.new)
+                    result = instance_eval(&method.body)
 
-		    if method.returns && !result.fullfills?(method.returns, arguments)
-			raise PlanModelError.new(self), "#{method} returned #{result}[#{result.arguments.inspect}] which does not fullfill #{method.returns}[#{arguments.inspect}]"
+		    if method.returns && (!result || !result.fullfills?(method.returns, arguments))
+			if !result then result = "nil"
+			else result = "#{result}[#{result.arguments.inspect}]"
+			end
+			raise PlanModelError.new(self), "#{method} returned #{result} which does not fullfill #{method.returns}[#{arguments.inspect}]"
 		    end
 		    Planning.debug { "found #{result}" }
 
@@ -574,11 +570,11 @@ module Roby
                 if methods.empty?
                     raise NotFound.new(self, errors)
                 else
-                    plan_method(errors, options, *methods)
+                    call_planning_methods(errors, options, *methods)
                 end
             end
 
-            private :plan_method
+            private :call_planning_methods
         end
 
 	# A planning Library is only a way to gather a set of planning
