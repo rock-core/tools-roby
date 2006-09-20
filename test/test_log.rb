@@ -30,10 +30,7 @@ class TC_Log < Test::Unit::TestCase
 	end
 	generator.call(nil)
 
-	task = Class.new(Task) do 
-	    event :start
-	    event :stop
-	end.new
+	task = Task.new
 
 	w_task = assert_marshallable_wrapper(task)
 	w_task_start = assert_marshallable_wrapper(task.event(:start))

@@ -9,7 +9,6 @@ class TC_Plan < Test::Unit::TestCase
     include Roby
     def test_base
 	task_model = Class.new(Task) do 
-	    event :start
 	    event :stop, :command => true
 	end
 
@@ -35,9 +34,7 @@ class TC_Plan < Test::Unit::TestCase
     end
 
     def test_query_fullfills
-	task_model = Class.new(Task) do
-	    event(:start)
-	end
+	task_model = Class.new(Task)
 	TC_Plan.const_set(:TaskModel, task_model)
 	t1 = task_model.new(:value => 1)
 	t2 = task_model.new(:value => 2)
@@ -61,12 +58,10 @@ class TC_Plan < Test::Unit::TestCase
 
     def test_query_information
 	t1 = Class.new(Task) do
-	    event(:start)
 	    needs :source_info
 	    improves :other_info
 	end.new
 	t2 = Class.new(Task) do
-	    event(:start)
 	    needs :source_info
 	    improves :yet_another_info
 	end.new

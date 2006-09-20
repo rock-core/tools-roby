@@ -54,9 +54,7 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_reuse
-	task_model = Class.new(Task) do
-	    event :start
-	end
+	task_model = Class.new(Task)
 	derived_model = Class.new(task_model)
 	planner_model = Class.new(Planner) do
 	    method(:reusable, :returns => task_model)
@@ -274,10 +272,7 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_return_type
-	task_model = Class.new(Task) do
-	    event :start
-	end
-	
+	task_model = Class.new(Task)
 	planner = Class.new(Planner) do
 	    method(:test, :returns => task_model)
 	    method(:test, :id => "good") { task_model.new }

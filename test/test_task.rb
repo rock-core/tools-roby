@@ -10,7 +10,6 @@ class TC_Task < Test::Unit::TestCase
 
     def test_base_model
 	task = Class.new(Task) do
-	    event(:start)
 	    event(:stop1)
 	    event(:stop2)
 	    event(:stop3)
@@ -37,10 +36,6 @@ class TC_Task < Test::Unit::TestCase
 	    event :ev_not_controlable, :command => false
 	    event :ev_redirected, :command => lambda { |task, event, *args| task.ev_method(event) }
 	end
-
-	# Must raise because :start is not set
-	assert_raise(TaskModelViolation) { task = klass.new }
-	klass.event :start, :command => true
 
 	# Must raise because there is not terminal event
 	klass.event :ev_terminal, :terminal => true, :command => true
@@ -111,19 +106,13 @@ class TC_Task < Test::Unit::TestCase
      end
 
     def test_signal_validation
-	klass = Class.new(Task) do
-	    event :start
-	    event :stop
-	end
+	klass = Class.new(Task) 
 	t1, t2 = klass.new, klass.new
-	assert_raise(EventModelViolation) { t1.on(:stop, t2, :start) }
+	assert_raise(EventModelViolation) { t1.on(:stop, t2, :stop) }
     end
 
     def test_task_propagation
-        task = Class.new(Task) do
-	    event :start, :command => true
-	    event :success, :command => true, :terminal => true
-	end.new
+        task = Class.new(Task).new
 
 	# Check can_signal? for task events
         start_event = task.event(:start)
@@ -178,7 +167,7 @@ class TC_Task < Test::Unit::TestCase
     def test_singleton
 	model = Class.new(Task) do
 	    def initialize
-		singleton_class.event(:start)
+		singleton_class.event(:start, :command => true)
 		singleton_class.event(:stop)
 		super
 	    end
@@ -186,7 +175,7 @@ class TC_Task < Test::Unit::TestCase
 	end
 
 	ev_models = Hash[*model.enum_for(:each_event).to_a.flatten]
-	assert_equal([:success, :aborted, :failed, :inter].to_set, ev_models.keys.to_set)
+	assert_equal([:start, :success, :aborted, :failed, :inter].to_set, ev_models.keys.to_set)
 
 	task = model.new
 	ev_models = Hash[*task.model.enum_for(:each_event).to_a.flatten]
@@ -368,10 +357,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_fullfills
-	task_model = Class.new(Task) do
-	    event :start
-	end
-
+	task_model = Class.new(Task)
 	t1, t2 = task_model.new, task_model.new
 	assert(t1.fullfills?(t1.model))
 	assert(t1.fullfills?(t2))
@@ -383,14 +369,10 @@ class TC_Task < Test::Unit::TestCase
 	assert(t3.fullfills?(t1))
 	assert(!t1.fullfills?(t3))
 
-	t3 = Class.new(Task) do
-	    event :start
-	end.new
+	t3 = Class.new(Task).new
 	assert(!t1.fullfills?(t3))
 
-	t3 = Class.new(task_model) do
-	    event :start
-	end.new
+	t3 = Class.new(task_model).new
 	assert(!t1.fullfills?(t3))
 	assert(t3.fullfills?(t1))
     end

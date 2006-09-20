@@ -534,6 +534,7 @@ module Roby
         def null?; false end
 	def to_task; self end
 	
+	event :start, :command => true
 	event :success, :terminal => true
 	event :failed,  :terminal => true
 
