@@ -78,8 +78,8 @@ class TC_Event < Test::Unit::TestCase
 	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
 
 	e1.on e2
-	assert( e1.child_object?( e2, EventStructure::Signals ))
-	assert( e2.parent_object?( e1, EventStructure::Signals ))
+	assert( e1.child_object?( e2, EventStructure::Signal ))
+	assert( e2.parent_object?( e1, EventStructure::Signal ))
 
 	e1.call(nil)
 	assert(e2.happened?)
@@ -292,7 +292,7 @@ class TC_Event < Test::Unit::TestCase
 	forwarder << e2
 	assert(forwarder.controlable?)
 
-	assert([e1,e2].all? { |ev| ev.parent_object?(forwarder, EventStructure::Signals) })
+	assert([e1,e2].all? { |ev| ev.parent_object?(forwarder, EventStructure::Signal) })
 	forwarder.call(nil)
 	assert([e1,e2].all? { |ev| ev.happened? })
     end

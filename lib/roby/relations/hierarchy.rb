@@ -3,7 +3,7 @@ require 'roby/relations'
 require 'set'
 
 module Roby::TaskStructure
-    relation :child, :parent_enumerator => :parent_task, :const_name => :Hierarchy do
+    relation :Hierarchy, :child_name => :child, :parent_name => :parent_task do
 	def realizes?(obj);	parent_object?(obj, Hierarchy) end
 	def realized_by?(obj);  child_object?(obj, Hierarchy) end
 
@@ -35,7 +35,7 @@ module Roby::TaskStructure
 
 	    directed_component(Hierarchy).each do |task|
 		next if task == self
-		if task.event(:start).root?(Roby::EventStructure::CausalLinks)
+		if task.event(:start).root?(Roby::EventStructure::CausalLink)
 		    result << task
 		end
 	    end

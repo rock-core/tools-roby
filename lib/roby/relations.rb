@@ -157,17 +157,17 @@ module Roby
 	relation_space.singleton_class.class_eval do
 	    define_method(:new_relation_type) do |relation_name, options, block|
 		options = validate_options options, 
-			    :const_name => relation_name.to_s.camelize.pluralize, 
+			    :child_name => relation_name.to_s.underscore,
+			    :parent_name => nil,
 			    :subsets => Set.new,
-			    :parent_enumerator => nil,
 			    :noinfo => false
 
-		graph = RelationGraph.new "#{relation_space.name}::#{options[:const_name]}", options[:subsets]
+		graph = RelationGraph.new "#{relation_space.name}::#{relation_name}", options[:subsets]
 
 		mod = Module.new
 		mod.class_eval(&block) if block
 
-		if parent_enumerator = options[:parent_enumerator]
+		if parent_enumerator = options[:parent_name]
 		    mod.class_eval <<-EOD
 		    def each_#{parent_enumerator}(&iterator)
 			self.each_parent_object(@@__r_#{relation_name}__, &iterator)
@@ -178,31 +178,31 @@ module Roby
 		mod.singleton_class.class_eval { define_method("__r_#{relation_name}__") { graph } }
 		if options[:noinfo]
 		    mod.class_eval <<-EOD
-		    def each_#{relation_name}(&iterator)
+		    def each_#{options[:child_name]}(&iterator)
 			each_child_object(@@__r_#{relation_name}__, &iterator)
 		    end
 		    EOD
 		else
 		    mod.class_eval <<-EOD
-		    def each_#{relation_name}
+		    def each_#{options[:child_name]}
 			each_child_object(@@__r_#{relation_name}__) { |child| yield(child, self[child, @@__r_#{relation_name}__]) }
 		    end
 		    EOD
 		end
 		mod.class_eval <<-EOD
 		@@__r_#{relation_name}__ = __r_#{relation_name}__
-		def add_#{relation_name}(to, info = nil)
+		def add_#{options[:child_name]}(to, info = nil)
 		    add_child_object(to, @@__r_#{relation_name}__, info)
 		    self
 		end
-		def remove_#{relation_name}(to)
+		def remove_#{options[:child_name]}(to)
 		    remove_child_object(to, @@__r_#{relation_name}__)
 		    self
 		end
 		EOD
 
 		graph.support = mod
-		relation_space.const_set(options[:const_name], graph)
+		relation_space.const_set(relation_name, graph)
 		klass.include mod
 
 		graph

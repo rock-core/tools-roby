@@ -162,7 +162,7 @@ class TC_Plan < Test::Unit::TestCase
 
 	assert( p.child_object?(c3, TaskStructure::Hierarchy) )
 	assert( !p.child_object?(c1, TaskStructure::Hierarchy) )
-	assert( c3.event(:stop).child_object?(c2.event(:start), EventStructure::Signals) )
+	assert( c3.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )
     end
 end
 

@@ -3,6 +3,6 @@ require 'roby/relations'
 require 'roby/relations/signals'
 
 module Roby::EventStructure
-    relation :causal_link, :subsets => [Signals, Forwardings], :noinfo => true
+    relation :CausalLink, :subsets => [Signal, Forwarding], :noinfo => true
 end
 

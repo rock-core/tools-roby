@@ -13,8 +13,8 @@ class TC_Relations < Test::Unit::TestCase
 
 	r1, r2 = nil
 	space = Roby::RelationSpace(klass) do
-	    r1 = relation :r1
-	    r2 = relation :child, :const_name => :R2s, :parent_enumerator => :parent
+	    r1 = relation :R1
+	    r2 = relation :R2s, :child_name => :child, :parent_name => :parent
 	end
 
 	n = klass.new
@@ -32,8 +32,8 @@ class TC_Relations < Test::Unit::TestCase
 
 	r1, r2 = nil
 	Roby::RelationSpace(klass) do
-	    r1 = relation :r1
-	    r2 = relation :child, :parent_enumerator => :parent
+	    r1 = relation :R1
+	    r2 = relation :Child, :parent_name => :parent
 	end
 
 	n1, n2, n3, n4 = 4.enum_for(:times).map { klass.new }
@@ -93,7 +93,7 @@ class TC_Relations < Test::Unit::TestCase
 	    end
 		
 	    r1 = nil
-	    Roby::RelationSpace(klass) { r1 = relation :r1 }
+	    Roby::RelationSpace(klass) { r1 = relation :R1 }
 
 	    v1, v2 = klass.new, klass.new
 	    mock.should_receive(:add).with(v2, r1, 1).once
@@ -107,8 +107,8 @@ class TC_Relations < Test::Unit::TestCase
 	klass = Class.new { include DirectedRelationSupport }
 	r1, r2 = nil
 	Roby::RelationSpace(klass) do
-	    r1 = relation :r1
-	    r2 = relation :r2, :subsets => [r1]
+	    r1 = relation :R1
+	    r2 = relation :R2, :subsets => [r1]
 	end
 	assert_equal(r2, r1.parent)
 	assert(! r1.subset?(r2))
