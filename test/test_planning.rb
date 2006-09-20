@@ -19,39 +19,36 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_method_definition
+	base_model, base_1, base_15, base_foobar, base_barfoo, recursive = nil
         model = Class.new(Planner) do 
-	    method(:root)
-            method(:root) { NullTask.new }
-            method(:root, :id => "15") { NullTask.new }
-            method(:root, :id => :foobar) { NullTask.new }
-            method(:root, :id => 'barfoo') { NullTask.new }
-            method(:recursive, :recursive => true) { NullTask.new }
+	    base_model = method(:base)
+            base_1 = method(:base) { NullTask.new }
+            base_15 = method(:base, :id => "15") { NullTask.new }
+            base_foobar = method(:base, :id => :foobar) { NullTask.new }
+            base_barfoo = method(:base, :id => 'barfoo') { NullTask.new }
+            recursive = method(:recursive, :recursive => true) { NullTask.new }
         end
 	assert_equal(17, model.next_id)
 	
-	assert(model.respond_to?(:root_methods))
-	assert(model.respond_to?(:each_root_method), model.methods.find_all { |name| name =~ /root/ }.inspect)
-	assert_equal(4, model.enum_for(:each_root_method).to_a.size)
-	assert(model.root_methods[1])
+	assert(model.respond_to?(:base_methods))
+	assert(model.respond_to?(:each_base_method), model.methods.find_all { |name| name =~ /base/ }.inspect)
+	assert_equal({ 1 => base_1, 15 => base_15, "foobar" => base_foobar, "barfoo" => base_barfoo }.to_set, model.enum_for(:each_base_method).to_set)
 
-	assert(model.respond_to?(:root_model))
+	assert(model.respond_to?(:base_model))
 
-	assert(model.find_methods(:root))
-	assert_equal(4, model.find_methods(:root).size)
-	assert(model.find_methods(:root, :id => 1))
-	assert_equal(1, model.find_methods(:root, :id => 1).size)
-	assert(model.find_methods(:root, :id => 15)) # Check handling of the string -> integer convertion
-	assert_equal(1, model.find_methods(:root, :id => 15).size)
-	assert(model.find_methods(:root, :id => 15)) # Check handling of the symbol -> string convertion
-	assert_equal(1, model.find_methods(:root, :id => 'foobar').size)
-	assert_equal(1, model.find_methods(:root, :id => :barfoo).size)
+	assert(model.find_methods(:base))
+	assert_equal(4, model.find_methods(:base).size)
+	assert_equal(1, model.find_methods(:base, :id => 1).size)
+	assert_equal(1, model.find_methods(:base, :id => 15).size) # Check handling of the string -> integer convertion
+	assert_equal(1, model.find_methods(:base, :id => 'foobar').size) # Check handling of the symbol -> string convertion
+	assert_equal(1, model.find_methods(:base, :id => :barfoo).size)
 
 	assert_equal(nil, model.find_methods('recursive', :recursive => false))
-	assert_equal(1, model.find_methods('recursive', :recursive => true).size)
+	assert_equal([recursive], model.find_methods('recursive', :recursive => true))
 
         planner = model.new(Plan.new)
-        assert(planner.respond_to?(:root))
-        assert(planner.root.null?)
+        assert(planner.respond_to?(:base))
+        assert(planner.base.null?)
         assert(planner.respond_to?(:recursive))
 	assert_raises(Planning::NotFound) { planner.recursive(:recursive => false) }
     end
