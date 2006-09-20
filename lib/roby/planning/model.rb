@@ -2,6 +2,7 @@ require 'roby/planning/task'
 require 'roby/task'
 require 'roby/control'
 require 'roby/plan'
+require 'utilrb/module/ancestor_p'
 require 'set'
 
 module Roby
@@ -212,7 +213,7 @@ module Roby
 
                 validate_option(options, :returns, false, 
                                 "the ':returns' option must be a subclass of Roby::Task") do |opt| 
-                    options[:returns] < Roby::Task
+                    options[:returns].has_ancestor?(Roby::Task)
                 end
 
 		roby_options, method_arguments = {}, {}

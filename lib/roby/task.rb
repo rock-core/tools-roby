@@ -556,7 +556,7 @@ module Roby
 	    if Task === model
 		model, args = model.class, model.arguments
 	    end
-	    (self.model == model || self.class < model || self.class == model) && self.arguments.slice(*args.keys) == args
+	    (self.model == model || self.class.has_ancestor?(model)) && self.arguments.slice(*args.keys) == args
 	end
     end
 
