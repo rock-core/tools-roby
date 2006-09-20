@@ -135,6 +135,21 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal([task.event(:start), task.event(:success), task.event(:stop)], event_history)
     end
 
+    def test_context_propagation
+	FlexMock.use do |mock|
+	    task = Class.new(Task) do
+		on(:start) { |event| mock.started(event.context) }
+		event(:stop)
+		on(:stop) { |event| mock.stopped(event.context) }
+	    end.new
+
+	    mock.should_receive(:started).with(42)
+	    mock.should_receive(:stopped).with(21)
+	    task.start!(42)
+	    task.emit(:stop, 21)
+	end
+    end
+
     def test_inheritance_overloading
         base = Class.new(Roby::Task) do 
             extend Test::Unit::Assertions
