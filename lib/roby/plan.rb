@@ -36,6 +36,13 @@ module Roby
 	    self
 	end
 
+	# Remove all tasks
+	def clear
+	    known_tasks.each { |t| t.clear_relations }
+	    known_tasks.clear
+	    missions.clear
+	end
+
 	# Replaces +from+ by +to+. If +to+ cannot replace +from+, an
 	# InvalidReplace exception is raised.
 	def replace(from, to)
