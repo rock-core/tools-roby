@@ -479,6 +479,14 @@ module Roby
 
 	    # If there is method definitions for +name+
             def has_method?(name); singleton_class.respond_to?("#{name}_methods") end
+	    def method_model(name, options)
+		base_model = singleton_class.method_model(name)
+		if options[:id]
+		    singleton_class.send("#{name}_methods").each { |m| return(m) if m.id == options[:id] } || base_model
+		else
+		    base_model
+		end
+	    end
 
             # Find a suitable development for the +name+ method.
             def plan_method(name, options = Hash.new)
