@@ -551,7 +551,12 @@ module Roby
 		    Planning.debug { "calling #{method.name}:#{method.id} with arguments #{arguments.inspect}" }
                     result = instance_eval(&method.body)
 
-		    if method.returns && (!result || !result.fullfills?(method.returns, arguments))
+		    # Check that result is a task or a task collection
+		    unless result && (result.respond_to?(:to_task) || result.respond_to?(:each) || !result.respond_to?(:each_task))
+			raise PlanModelError.new(self), "#{method} returned #{result}, which is neither a task nor a task collection"
+		    end
+
+		    if method.returns && !result.fullfills?(method.returns, arguments)
 			if !result then result = "nil"
 			else result = "#{result}[#{result.arguments.inspect}]"
 			end

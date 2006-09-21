@@ -272,9 +272,11 @@ class TC_Planner < Test::Unit::TestCase
 	    method(:test, :returns => task_model)
 	    method(:test, :id => "good") { task_model.new }
 	    method(:test, :id => "bad", :reuse => false) { NullTask.new }
+	    method(:not_a_task, :reuse => false) { nil }
 	end.new(Plan.new)
 	assert_nothing_raised { planner.test(:id => "good") }
 	assert_raises(Planning::NotFound) { planner.test(:id => "bad") }
+	assert_raises(Planning::NotFound) { planner.not_a_task }
     end
 
     def test_method_filter
