@@ -46,6 +46,10 @@ module Roby::Display
 	    end
 	end
 
+	def finalized_task(time, plan, task)
+	    service.state_change(task, :finalized)
+	end
+
 	[:added_task_relation, :added_event_relation, :removed_task_relation, :removed_event_relation].each do |m|
 	    define_method(m) do |time, type, from, to, *args| 
 		if relation.subset?(type)
