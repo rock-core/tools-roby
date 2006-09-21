@@ -26,13 +26,13 @@ module Roby
 		raise TaskModelViolation.new(self), "we are not planning any task"
 	    end
 
-            PlanningTask.planning_tasks << self
             @thread = Thread.new do
 		@result = begin
 			      @planner.send(@method_name, @method_options)
 			  rescue Exception => e; e
 			  end
             end
+            PlanningTask.planning_tasks << self
             emit(:start, context)
         end
         event :start
