@@ -47,40 +47,38 @@ module Roby::TaskStructure
 
 		unless agent = task.execution_agent
 		    unless agent_model = task.class.execution_agent
+			# There is no need for an execution agent
 			return
 		    end
 
 		    # Try to find an already existing agent
-		    agent = Roby::Task.enum_for(:each_task, agent_model).
-			find { |t| !t.finished? }
-
-		    # ... or create a new one
-		    if !agent
-			agent = agent_model.new rescue nil
-		    end
-		end
-
-		if agent
-		    task.executed_by agent unless task.execution_agent == agent
-
-		    if !agent.running?
-			postpone(agent.event(:ready), "spawning execution agent #{agent} for #{self}") do
-			    agent.event(:start).on do
-				agent.event(:stop).until(agent.event(:ready)).on do |event|
-				    self.emit_failed "execution agent #{agent} failed to initialize\n  #{event.context}"
-				end
-			    end
-			    agent.start!
+		    unless agent = Roby::Task.enum_for(:each_task, agent_model).find { |t| !t.finished? }
+			# ... or create a new one
+			begin
+			    agent = agent_model.new
+			rescue Exception => e
+			    raise Roby::TaskModelViolation.new(task), "the #{self} model defines an execution agent, but #{agent_model}::new raised #{e.message}(#{e.class})", e.backtrace
 			end
 		    end
 
-		    task.event(:start).on do
-			agent.event(:stop).
-			    until(task.event(:stop)).
-			    on { |stopped| task.event(:aborted).emit(stopped.context) }
+		    task.executed_by agent
+		end
+
+		if !agent.running?
+		    postpone(agent.event(:ready), "spawning execution agent #{agent} for #{self}") do
+			agent.event(:start).on do
+			    agent.event(:stop).until(agent.event(:ready)).on do |event|
+				self.emit_failed "execution agent #{agent} failed to initialize\n  #{event.context}"
+			    end
+			end
+			agent.start!
 		    end
-		else
-		    raise Roby::TaskModelViolation.new(task), "the #{self} model defines an execution agent, but the task has none"
+		end
+
+		task.event(:start).on do
+		    agent.event(:stop).
+			until(task.event(:stop)).
+			on { |stopped| task.event(:aborted).emit(stopped.context) }
 		end
 	    end
 	end
