@@ -21,18 +21,30 @@ module Roby
 	    @known_tasks = ValueSet.new
 	end
 
+	def apply(task)
+	    if task.respond_to?(:each) then task.each { |t| yield(t.to_task) }
+	    elsif task.respond_to?(:each_task) then task.each_task { |t| yield(t.to_task) }
+	    elsif task.respond_to?(:to_task) then yield(task.to_task)
+	    else raise TypeError, "expecting a task or a task collection, got #{task}"
+	    end
+	end
+
 	# Inserts a new mission in the plan. Its child tree is automatically inserted too.
-        def insert(task)
-	    discover(task)
-	    missions << task
-	    self
+        def insert(tasks)
+	    apply(tasks) do |t|
+		discover(t)
+		missions << t
+		self
+	    end
 	end
 	alias :<< :insert
 
 	# Mark +task+ as not being a task anymore
-	def discard(task)
-	    discover(task)
-	    missions.delete(task)
+	def discard(tasks)
+	    apply(tasks) do |t|
+		discover(t)
+		missions.delete(t)
+	    end
 	    self
 	end
 
@@ -77,8 +89,13 @@ module Roby
 	#
 	# Updates Plan#known_tasks with either the child tree of t1, t2, ... or the missions
 	# child trees.
-	def discover(*tasks)
-	    tasks = missions if tasks.empty?
+	def discover(tasks = nil)
+	    tasks = missions unless tasks
+	    tasks = if tasks.respond_to?(:each_task) then tasks.enum_for(:each_task).to_a
+		    elsif tasks.respond_to?(:each) then tasks.to_a
+		    else [tasks]
+		    end
+
 	    @known_tasks = TaskStructure::Hierarchy.directed_components(*tasks).
 		inject(known_tasks) { |r, c| r.merge(c) }
 
