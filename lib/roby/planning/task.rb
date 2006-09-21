@@ -52,7 +52,7 @@ module Roby
 		plan.replace(planned_task, result)
 		emit(:success)
 	    else
-		raise "expected an exception or a Task, got #{task.result.inspect}"
+		raise "expected an exception or a Task, got #{result.inspect}"
 	    end
 	end
 
