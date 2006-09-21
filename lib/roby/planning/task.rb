@@ -20,9 +20,8 @@ module Roby
             planning_tasks.each { |task| task.poll }
         end
 
-        attr_reader :thread, :planned_task, :result
+        attr_reader :thread, :result
         def start(context)
-	    @planned_task = enum_for(:each_parent_object, TaskStructure::PlannedBy).find { true }
 	    if !planned_task
 		raise TaskModelViolation.new(self), "we are not planning any task"
 	    end
