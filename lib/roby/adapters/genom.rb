@@ -70,17 +70,26 @@ module Roby::Genom
 	# is raised if their type does not match the request type, and
 	# ArgumentError is raised if the argument count is wrong
 	def initialize(arguments, genom_request)
-	    # Check that +arguments+ are valid for genom_request
-	    genom_request.filter_input(arguments)
-	    @request    = genom_request
 	    super(arguments)
+
+	    # Check that +arguments+ are valid for genom_request
+	    genom_request.filter_input(genom_arguments)
+	    @request    = genom_request
 
 	    on(:stop) { @abort_activity = @activity = nil }
 	end
 
+	def genom_arguments
+	    if arguments.has_key?(:request_options)
+		arguments[:request_options]
+	    else
+		arguments
+	    end
+	end
+
 	# Starts the request
 	def start(context = nil)
-	    @activity = @request.call(*arguments)
+	    @activity = @request.call(*genom_arguments)
 	    Roby::Genom.running << self
 	end
 	event :start
@@ -164,6 +173,14 @@ module Roby::Genom
 	mod.singleton_class.send(:define_method, method_name + '!') { |*args| klass.new(args) }
     end
 
+    def self.arguments_genom_to_roby(arguments)
+	case arguments
+	when Array then Hash[:request_options, arguments]
+	when Hash then arguments
+	else raise TypeError, "unexpected #{arguments}"
+	end
+    end
+
     # Define a Task model for the given request
     # The new model is a subclass of Roby::Genom::Request
     def self.define_request(rb_mod, rq_name) # :nodoc:
@@ -181,7 +198,9 @@ module Roby::Genom
 
 		class_attribute :request => gen_mod.request_info[method_name]
 
-		def initialize(arguments = nil) # :nodoc:
+		def initialize(arguments = {}) # :nodoc:
+		    arguments = Roby::Genom.arguments_genom_to_roby(arguments)
+
 		    super(arguments, self.class.request)
 		end
 		
@@ -227,7 +246,7 @@ module Roby::Genom
 	# Note that changing it after the :start event is emitted has no effect
 	attr_accessor :output_io
 
-	def initialize(arguments = nil)
+	def initialize(arguments = {})
 	    # Never garbage-collect runner tasks
 	    Roby::Control.instance.insert(self)
 
@@ -240,7 +259,9 @@ module Roby::Genom
 
 		raise ArgumentError, "the Genom module '#{genom_module.name}' defines the init request #{init_request}. You must define a singleton 'init' method in '#{roby_module.name}' which initializes the module"
 	    end
-	    super
+	    
+	    arguments = Roby::Genom.arguments_genom_to_roby(arguments)
+	    super(arguments)
 	end
 
 	# Start the module
