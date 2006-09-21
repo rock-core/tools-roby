@@ -71,38 +71,32 @@ class TC_Planner < Test::Unit::TestCase
 
 	    # This one should build two tasks
 	    method(:check_not_reusable, :id => 1) do
-		reusable(:id => 'base')
-		not_reusable
+		[reusable(:id => 'base'), not_reusable]
 	    end
 	    
 	    # This one should build two tasks
 	    method(:check_not_reusable, :id => 2) do
-		not_reusable
-		not_reusable
+		[not_reusable, not_reusable]
 	    end
 
 	    # This one should build one task
 	    method(:check_reusable, :id => 1) do
-		not_reusable
-		reusable(:id => 'base')
+		[not_reusable, reusable(:id => 'base')]
 	    end
 
 	    # This one should build only one task
 	    method(:check_reusable, :id => 2) do
-		reusable(:id => 'base')
-		reusable(:id => 'base')
+		[reusable(:id => 'base'), reusable(:id => 'base')]
 	    end
 
 	    # This one whouls build two tasks
 	    method(:check_reusable, :id => 3) do
-		reusable(:id => 'base')
-		reusable(:id => 'derived')
+		[reusable(:id => 'base'), reusable(:id => 'derived')]
 	    end
 	    
 	    # This one whouls build one task
 	    method(:check_reusable, :id => 4) do
-		reusable(:id => 'derived')
-		reusable(:id => 'base')
+		[reusable(:id => 'derived'), reusable(:id => 'base')]
 	    end
 	end
 
@@ -116,8 +110,9 @@ class TC_Planner < Test::Unit::TestCase
     end
     def assert_result_plan_size(size, planner_model, method, options)
 	planner = planner_model.new(Plan.new)
-	planner.send(method, options)
-	assert_equal(size, planner.plan.size)
+	result = planner.send(method, options)
+	planner.plan.insert(result)
+	assert_equal(size, planner.plan.size, planner.plan.known_tasks.to_a.inspect)
     end
 
     def test_recursive

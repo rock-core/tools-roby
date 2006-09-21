@@ -399,15 +399,7 @@ module Roby
 		    class_inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) { Hash.new }
 		    class_eval <<-PLANNING_METHOD_END
 		    def #{name}(options = Hash.new)
-			result = plan_method("#{name}", options)
-			if !result
-			    raise PlanModelError.new(self), "root methods should return either a Task or a Task collection"
-			elsif result.respond_to?(:each)
-			    result.each { |t| plan.insert(t) }
-			else
-			    plan.insert(result)
-			end
-			result
+			plan_method("#{name}", options)
 		    end
 		    PLANNING_METHOD_END
 		end
@@ -567,6 +559,8 @@ module Roby
 		    end
 		    Planning.debug { "found #{result}" }
 
+		    # Insert resulting tasks in +plan+
+		    plan.discover(result)
 		    result
 
                 ensure
