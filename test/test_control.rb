@@ -1,13 +1,15 @@
 require 'test_config'
-require 'roby/control'
-require 'roby/plan'
 require 'mockups/tasks'
+
+require 'roby/control'
+require 'roby/control_interface'
+require 'roby/planning'
 
 class TC_Control < Test::Unit::TestCase 
     include Roby
 
-    def setup; Control.instance.clear end
-    def teardown; Control.instance.clear end
+    def setup; Control.instance.plan.clear end
+    def teardown; Control.instance.plan.clear end
 
     def test_event_loop
         start_node = EmptyTask.new
@@ -39,13 +41,13 @@ class TC_Control < Test::Unit::TestCase
         result_task = nil
         planner = Class.new(Planner) do
             method(:null_task) { result_task = task_model.new }
-        end.new(control)
+        end.new(control.plan)
         control.planners << planner
 
         planning = iface.null_task
         assert(PlanningTask === planning)
         assert(planning.running?)
-        mock_task = control.missions.find { true }
+        mock_task = control.plan.missions.find { true }
         assert(Task === mock_task, mock_task.class.inspect)
 
         poll(0.5) do
@@ -55,7 +57,7 @@ class TC_Control < Test::Unit::TestCase
             break unless planning.running?
         end
 
-	plan_task = control.missions.find { true }
+	plan_task = control.plan.missions.find { true }
         assert(plan_task == result_task, plan_task)
     end
 end

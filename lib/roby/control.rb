@@ -1,7 +1,9 @@
-require 'roby/plan'
+require 'roby/support'
+require 'drb'
+require 'set'
 
 module Roby
-    class Control < Plan
+    class Control
 	include Singleton
 
 	@event_processing = []
@@ -9,54 +11,13 @@ module Roby
 	    # List of procs which are called at each event cycle
 	    attr_reader :event_processing
 	end
-    end
-end
-
-require 'roby/support'
-require 'roby/planning'
-require 'drb'
-require 'set'
-
-module Roby
-    class ControlInterface
-	attr_reader :control
-	def initialize(control)
-	    @control = control
-	end
-
-	def quit; control.quit end
-
-	def method_missing(name, *args)
-	    # Check if +name+ is a planner method, and in that case
-	    # add a planning method for it and plan it
-	    planner = control.planners.find do |planner|
-		planner.has_method?(name)
-	    end
-	    super if !planner
-	    if args.size > 1
-		raise ArgumentError, "wrong number of arguments (#{args.size} for 1) in `#{planner}##{name}'"
-	    end
-	    options = args.first || {}
-
-	    m = planner.method_model(name, options)
-	    task = (m.returns.new if m) || Task.new
-	    planner = PlanningTask.new(planner, name, options)
-	    task.planned_by planner
-
-	    control.insert(task)
-	    planner.start!(nil)
-
-	    planner
-	end
-    end
-
-    class Control < Plan
-	attr_reader :planners
+	attr_reader :plan, :planners
 
 	def initialize
 	    super
 	    @cycle_index = 0
 	    @planners = []
+	    @plan     = Plan.new
 	end
 
 	def send_to_event_loop(object, *funcall, &block)
@@ -82,6 +43,7 @@ module Roby
 
 	# Start a DRuby server on drb_uri
 	def drb(drb_uri = nil)
+	    require 'roby/control_interface'
 	    DRb.start_service(drb_uri, ControlInterface.new(self))
 	    Roby.info "Started DRb server on #{drb_uri}"
 	end
@@ -101,8 +63,8 @@ module Roby
 	    Control.event_processing.each { |prc| prc.call }
 	    timings[:events] = Time.now
 	    
-	    # Mark garbage tasks
-	    garbage_collect
+	    # Do garbage collection
+	    plan.garbage_collect
 	    timings[:end] = timings[:garbage_collect] = Time.now
 
 	    if do_gc

@@ -248,7 +248,7 @@ module Roby::Genom
 
 	def initialize(arguments = {})
 	    # Never garbage-collect runner tasks
-	    Roby::Control.instance.insert(self)
+	    Roby::Control.instance.plan.insert(self)
 
 	    @output_io = roby_module.output_io
 
