@@ -14,7 +14,7 @@ class TC_Control < Test::Unit::TestCase
         next_event = [ start_node, :start ]
         if_node    = ChoiceTask.new
         start_node.on(:stop) { next_event = [if_node, :start] }
-	if_node.on(:stop) { raise Interrupt }
+	if_node.on(:stop) {  }
             
         Control.event_processing << lambda do 
             next unless next_event
@@ -22,8 +22,10 @@ class TC_Control < Test::Unit::TestCase
             next_event = nil
             task.event(event).call(nil)
         end
-        assert_doesnt_timeout(1) { Control.instance.run }
+        Control.instance.process_events
         assert(start_node.finished?)
+	
+        Control.instance.process_events
 	assert(if_node.finished?)
     end
 
