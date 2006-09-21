@@ -1,3 +1,4 @@
+require 'roby/log/logger'
 require 'roby/log/marshallable'
 require 'set'
 
