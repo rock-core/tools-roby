@@ -104,6 +104,9 @@ module Roby
 
 	# Returns the set of needed tasks
 	def useful_tasks
+	    missions.each do |t|
+		discard(t) if t.finished?
+	    end
 	    return ValueSet.new if missions.empty?
 	    TaskStructure::Hierarchy.directed_components(*missions).
 		inject do |useful, component|
