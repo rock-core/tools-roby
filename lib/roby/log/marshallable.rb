@@ -16,6 +16,7 @@ module Roby
 		    when Roby::TaskEventGenerator:   TaskEventGenerator.new(object)
 		    when Roby::EventGenerator:	    EventGenerator.new(object)
 		    when Roby::Task:	    Task.new(object)
+		    when Roby::Plan:	    Plan.new(object)
 		    end)
 
 		wrapper.update(object)
@@ -50,6 +51,19 @@ module Roby
 		@source_id    = source.object_id
 		@source_class = source.class.name
 		@name	      = source.name
+	    end
+	end
+
+	# Marshallable representation of plans
+	class Plan < Wrapper
+	    # The missions
+	    attr_reader :missions
+	    # The plan size
+	    attr_reader :size
+
+	    def update(plan)
+		@size = plan.size
+		@missions = plan.missions.map { |t| Wrapper[t] }
 	    end
 	end
 	

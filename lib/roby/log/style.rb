@@ -64,7 +64,8 @@ module Roby::Display::Style
 	nil => '#6DF3FF',
 	:start => '#B0FFA6',
 	:success => '#E2E2E2',
-	:failed => '#E2A8A8'
+	:failed => '#E2A8A8',
+	:finalized => '#000000'
     }
     TASK_Z = -1
     TASK_NAME_COLOR = 'black'

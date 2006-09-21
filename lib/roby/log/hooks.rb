@@ -23,6 +23,14 @@ module Roby::Log
     end
     Roby::Task.include TaskHooks
 
+    module PlanHooks
+	def finalized(task)
+	    super if defined? super
+	    Roby::Log.log(:finalized_task) { [Time.now, Wrapper[self], Wrapper[task]] }
+	end
+    end
+    Roby::Plan.include PlanHooks
+
     module EventGeneratorHooks
 	def added_child_object(to, type, info)
 	    super if defined? super
