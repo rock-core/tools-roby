@@ -28,8 +28,9 @@ module Roby
 	    task.planned_by planner
 
 	    control.plan.insert(task)
-	    planner.start!(nil)
+	    yield(planner) if block_given?
 
+	    planner.start!(nil)
 	    planner
 	end
     end
