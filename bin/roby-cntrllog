@@ -28,6 +28,7 @@ if ARGV.empty?
     STDERR.puts "no file given on command line, reading stdin"
 end
 begin
+    puts(([REF_TIMING] + ALL_TIMINGS).join("\t"))
     loop do
 	timings = Marshal.load(ARGF)
 	ref = timings.delete(REF_TIMING)
