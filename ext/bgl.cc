@@ -49,6 +49,57 @@ typedef map<VALUE, vertex_descriptor>	graph_map;
 static graph_map& vertex_descriptor_map(VALUE self);
 static pair<vertex_descriptor, bool> rb_to_vertex(VALUE vertex, VALUE graph);
 
+namespace details
+{
+    template<typename Graph, bool direct> struct vertex_range;
+
+    template<typename Graph>
+    struct vertex_range<Graph, true>
+    { 
+	typedef typename Graph::adjacency_iterator iterator;
+	typedef pair<iterator, iterator> range;
+
+	static range get(vertex_descriptor v, Graph& graph) 
+	{ return adjacent_vertices(v, graph); }
+	static range get(vertex_descriptor v, Graph const& graph) 
+	{ return adjacent_vertices(v, graph); }
+    };
+
+    template<typename Graph>
+    struct vertex_range<Graph, false>
+    { 
+	typedef typename Graph::inv_adjacency_iterator iterator;
+	typedef pair<iterator, iterator> range;
+
+	static range get(vertex_descriptor v, Graph& graph) 
+	{ return inv_adjacent_vertices(v, graph); }
+	static range get(vertex_descriptor v, Graph const& graph) 
+	{ return inv_adjacent_vertices(v, graph); }
+    };
+
+    // Reverse graphs do not have an adjacency_iterator
+    template<typename Graph>
+    struct vertex_range< reverse_graph<Graph, Graph&>, false>
+    {
+	typedef typename Graph::adjacency_iterator iterator;
+	typedef pair<iterator, iterator> range;
+
+	static range get(vertex_descriptor v, reverse_graph<Graph, Graph&> const& graph) 
+	{ return adjacent_vertices(v, graph.m_g); }
+    };
+
+    template<typename Graph>
+    struct vertex_range< reverse_graph<Graph, Graph const&>, false>
+    {
+	typedef typename Graph::adjacency_iterator iterator;
+	typedef pair<iterator, iterator> range;
+
+	static range get(vertex_descriptor v, reverse_graph<Graph, Graph const&> const& graph) 
+	{ return adjacent_vertices(v, graph.m_g); }
+    };
+}
+
+
 /**********************************************************************
  *  BGL::Graph
  */
@@ -518,12 +569,14 @@ static bool for_each_value(Range range, BGLGraph& graph, F f)
 }
 
 /** Iterates on each adjacent vertex of +v+ in +graph+ which are not yet in +already_seen+ */
-template <typename Iterator>
-static bool for_each_adjacent_uniq(vertex_descriptor v, BGLGraph& graph, set<VALUE>& already_seen, 
-	pair<Iterator, Iterator>(*get_range)(vertex_descriptor, BGLGraph&))
+template <typename Graph, bool directed>
+static bool for_each_adjacent_uniq(vertex_descriptor v, Graph const& graph, set<VALUE>& already_seen)
 {
+    typedef details::vertex_range<Graph, directed>	getter;
+    typedef typename getter::iterator		        Iterator;
+
     Iterator it, end;
-    for (tie(it, end) = get_range(v, graph); it != end; ++it)
+    for (tie(it, end) = details::vertex_range<Graph, directed>::get(v, graph); it != end; ++it)
     {
 	VALUE related_object = graph[*it];
 	bool inserted;
@@ -552,12 +605,7 @@ static bool for_each_graph(VALUE vertex, F f)
 
 
 
-template<typename Iterator> pair<Iterator, Iterator> vertex_range(vertex_descriptor v, BGLGraph& g);
-template<> static pair<BGLGraph::inv_adjacency_iterator, BGLGraph::inv_adjacency_iterator>
-vertex_range<BGLGraph::inv_adjacency_iterator>(vertex_descriptor v, BGLGraph& graph) { return inv_adjacent_vertices(v, graph); }
-template<> static pair<BGLGraph::adjacency_iterator, BGLGraph::adjacency_iterator>
-vertex_range<BGLGraph::adjacency_iterator>(vertex_descriptor v, BGLGraph& graph) { return adjacent_vertices(v, graph); }
-template <typename Iterator>
+template <bool directed>
 static VALUE vertex_each_related(int argc, VALUE* argv, VALUE self)
 {
     VALUE graph = Qnil;
@@ -566,8 +614,7 @@ static VALUE vertex_each_related(int argc, VALUE* argv, VALUE self)
     if (NIL_P(graph))
     {
 	set<VALUE> already_seen;
-	for_each_graph(self, 
-		bind(for_each_adjacent_uniq<Iterator>, _1, _2, ref(already_seen), &vertex_range<Iterator>));
+	for_each_graph(self, bind(for_each_adjacent_uniq<BGLGraph, directed>, _1, _2, ref(already_seen)));
     }
     else
     {
@@ -577,7 +624,7 @@ static VALUE vertex_each_related(int argc, VALUE* argv, VALUE self)
 	    return self;
 
 	BGLGraph& g = graph_wrapped(graph);
-	for_each_value(vertex_range<Iterator>(v, g), g, rb_yield);
+	for_each_value(details::vertex_range<BGLGraph, directed>::get(v, g), g, rb_yield);
     }
     return self;
 }
@@ -590,7 +637,7 @@ static VALUE vertex_each_related(int argc, VALUE* argv, VALUE self)
  * the vertices that are parent in +graph+.
  */
 static VALUE vertex_each_parent(int argc, VALUE* argv, VALUE self)
-{ return vertex_each_related<BGLGraph::inv_adjacency_iterator>(argc, argv, self); }
+{ return vertex_each_related<false>(argc, argv, self); }
 
 /*
  * call-seq:
@@ -600,7 +647,7 @@ static VALUE vertex_each_parent(int argc, VALUE* argv, VALUE self)
  * the vertices which are a child of +vertex+ in +graph+
  */
 static VALUE vertex_each_child(int argc, VALUE* argv, VALUE self)
-{ return vertex_each_related<BGLGraph::adjacency_iterator>(argc, argv, self); }
+{ return vertex_each_related<true>(argc, argv, self); }
 
 /*
  * call-seq:
@@ -629,15 +676,17 @@ static VALUE vertex_get_info(VALUE self, VALUE child, VALUE rb_graph)
     return graph[e];
 }
 
-// Returns true if +v+ has either no child or no parents
-template<typename Iterator>
-static bool vertex_has_adjacent_i(vertex_descriptor v, BGLGraph& g)
+// Returns true if +v+ has either no child (if +directed+ is true) or no parents (if +directed+ is false)
+template<typename Graph, bool directed>
+static bool vertex_has_adjacent_i(vertex_descriptor v, Graph const& g)
 {
-    Iterator begin, end;
-    tie(begin, end) = vertex_range<Iterator>(v, g);
+    typedef typename details::vertex_range<Graph, directed> getter;
+    typename getter::iterator begin, end;
+    tie(begin, end) = getter::get(v, g);
     return begin == end;
 }
-template<typename Iterator>
+
+template<bool directed>
 static VALUE vertex_has_adjacent(int argc, VALUE* argv, VALUE self)
 {
     VALUE graph = Qnil;
@@ -645,7 +694,7 @@ static VALUE vertex_has_adjacent(int argc, VALUE* argv, VALUE self)
 
     bool result;
     if (NIL_P(graph))
-	result = for_each_graph(self, vertex_has_adjacent_i<Iterator>);
+	result = for_each_graph(self, vertex_has_adjacent_i<BGLGraph, directed>);
     else
     {
 	vertex_descriptor v; bool exists;
@@ -654,7 +703,7 @@ static VALUE vertex_has_adjacent(int argc, VALUE* argv, VALUE self)
 	    return Qtrue;
 
 	BGLGraph& g = graph_wrapped(graph);
-	result = vertex_has_adjacent_i<Iterator>(v, g);
+	result = vertex_has_adjacent_i<BGLGraph, directed>(v, g);
     }
     return result ? Qtrue : Qfalse;
 }
@@ -665,7 +714,7 @@ static VALUE vertex_has_adjacent(int argc, VALUE* argv, VALUE self)
  * Checks if +vertex+ is a root node in +graph+ (it has no parents), or if graph is not given, in all graphs 
  */
 static VALUE vertex_root_p(int argc, VALUE* argv, VALUE self)
-{ return vertex_has_adjacent<BGLGraph::inv_adjacency_iterator>(argc, argv, self); }
+{ return vertex_has_adjacent<false>(argc, argv, self); }
 
 
 /*
@@ -675,7 +724,7 @@ static VALUE vertex_root_p(int argc, VALUE* argv, VALUE self)
  * Checks if +vertex+ is a root node in +graph+ (it has no children), or if graph is not given, in all graphs 
  */
 static VALUE vertex_leaf_p(int argc, VALUE* argv, VALUE self)
-{ return vertex_has_adjacent<BGLGraph::adjacency_iterator>(argc, argv, self); }
+{ return vertex_has_adjacent<true>(argc, argv, self); }
 
 
 
@@ -764,13 +813,14 @@ public:
     }
 };
 
-static bool connected_component(bool directed, set<VALUE>& component, vertex_descriptor v, BGLGraph& graph, ColorMap& colors)
+template<typename Graph>
+static bool connected_component(bool directed, set<VALUE>& component, vertex_descriptor v, Graph const& graph, ColorMap& colors)
 {
     vertex_list roots;
     vertex_list reverse_roots;
 
     associative_property_map<ColorMap> color_map(colors);
-    boost::reverse_graph<BGLGraph> reverse_graph(graph);
+    boost::reverse_graph<Graph, const Graph&> reverse_graph(graph);
 
     roots.push_back(v);
     reverse_roots.push_back(v);
@@ -801,8 +851,8 @@ static VALUE set_to_rb(set<VALUE>& source)
     return result;
 }
 
-template<typename Iterator>
-static VALUE graph_components_i(bool directed, VALUE result, BGLGraph& g, Iterator it, Iterator end)
+template<typename Graph, typename Iterator>
+static VALUE graph_components_i(bool directed, VALUE result, Graph const& g, Iterator it, Iterator end)
 {
     ColorMap colors;
 
@@ -835,10 +885,9 @@ static vertex_descriptor graph_components_root_descriptor(VALUE result, VALUE v,
     }
     return d;
 }
-static VALUE graph_do_components(bool directed, int argc, VALUE* argv, VALUE self)
+template<typename Graph>
+static VALUE graph_do_components(bool directed, int argc, VALUE* argv, Graph const& g, VALUE self)
 {
-    BGLGraph& g = graph_wrapped(self);
-
     VALUE result = rb_ary_new();
     if (argc == 0)
     {
@@ -847,13 +896,13 @@ static VALUE graph_do_components(bool directed, int argc, VALUE* argv, VALUE sel
 	return graph_components_i(directed, result, g, 
 		make_filter_iterator(
 		    bind(
-			vertex_has_adjacent_i<BGLGraph::inv_adjacency_iterator>, 
+			vertex_has_adjacent_i<Graph, false>, 
 			_1, ref(g)
 		    ), it, end
 		),
 		make_filter_iterator(
 		    bind(
-			vertex_has_adjacent_i<BGLGraph::inv_adjacency_iterator>, 
+			vertex_has_adjacent_i<Graph, false>, 
 			_1, ref(g)
 		    ), end, end
 		)
@@ -879,14 +928,22 @@ static VALUE graph_do_components(bool directed, int argc, VALUE* argv, VALUE sel
  * The graph is treated as if it were not directed.
  */
 static VALUE graph_components(int argc, VALUE* argv, VALUE self)
-{ return graph_do_components(false, argc, argv, self); }
+{ return graph_do_components(false, argc, argv, graph_wrapped(self), self); }
 /* call-seq:
  *   graph.directed_components([v1, v2, ...])		   => components
  *
  * Like Graph#components, but do not go backwards on edges
  */
 static VALUE graph_directed_components(int argc, VALUE* argv, VALUE self)
-{ return graph_do_components(true, argc, argv, self); }
+{ return graph_do_components(true, argc, argv, graph_wrapped(self), self); }
+/* call-seq:
+ *   graph.directed_components([v1, v2, ...])		   => components
+ *
+ * Like Graph#directed_components, but on the reverse graph of +graph+ (where edges has
+ * been swapped)
+ */
+static VALUE graph_reverse_directed_components(int argc, VALUE* argv, VALUE self)
+{ return graph_do_components(true, argc, argv, make_reverse_graph(graph_wrapped(self)), self); }
 
 /**********************************************************************
  *  Extension initialization
@@ -954,6 +1011,7 @@ extern "C" void Init_bgl()
     rb_define_method(bglGraph, "linked?",   RUBY_METHOD_FUNC(graph_linked_p), 2);
     rb_define_method(bglGraph, "components",   RUBY_METHOD_FUNC(graph_components), -1);
     rb_define_method(bglGraph, "directed_components",   RUBY_METHOD_FUNC(graph_directed_components), -1);
+    rb_define_method(bglGraph, "reverse_directed_components",   RUBY_METHOD_FUNC(graph_reverse_directed_components), -1);
 
     rb_define_method(bglGraph, "each_vertex",	RUBY_METHOD_FUNC(graph_each_vertex), 0);
     rb_define_method(bglGraph, "each_edge",	RUBY_METHOD_FUNC(graph_each_edge), 0);

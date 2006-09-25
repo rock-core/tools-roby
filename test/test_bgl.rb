@@ -172,16 +172,18 @@ class TC_BGL < Test::Unit::TestCase
 	assert_components([[v1, v2], [v3], [v4]], graph.components)
 	assert_components([[v1, v2]], graph.components(v1))
 	assert_components([[v2]], graph.directed_components(v2))
+	assert_components([[v1, v2]], graph.reverse_directed_components(v2))
 	assert_components([[v4]], graph.components(v4))
 
 	graph.link v4, v3, nil
 	assert_components([[v1, v2], [v3, v4]], graph.components)
 	assert_components([[v2], [v3]], graph.directed_components(v2, v3))
+	assert_components([[v1, v2], [v4, v3]], graph.reverse_directed_components(v2, v3))
+	assert_components([[v3, v4]], graph.directed_components(v4))
 
 	graph.link v1, v3, nil
 	assert_components([[v1, v2, v3, v4]], graph.components)
 	assert_components([[v1, v2, v3, v4]], graph.components(v1))
-	assert_components([[v3, v4]], graph.directed_components(v4))
 
 	g2 = Graph.new
 	graph.unlink v4, v3

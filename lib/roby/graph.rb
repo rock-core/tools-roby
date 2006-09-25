@@ -17,6 +17,9 @@ module BGL
 	def directed_component(graph)
 	    graph.directed_components(self).first
 	end
+	def reverse_directed_component(graph)
+	    graph.reverse_directed_components(self).first
+	end
 
 	def replace_vertex_by(to)
 	    each_graph { |g| g.replace_vertex(self, to) }
