@@ -1,9 +1,8 @@
 require 'set'
 require 'roby/exceptions'
-require 'roby/control'
 require 'roby/support'
 require 'roby/relations/causal'
-require 'roby/relations/ensured.rb'
+require 'roby/relations/ensured'
 
 module Roby
     class EventModelViolation < ModelViolation
