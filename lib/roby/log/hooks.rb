@@ -1,5 +1,6 @@
 require 'roby/log/logger'
 require 'roby/log/marshallable'
+require 'roby/plan'
 require 'set'
 
 module Roby::Log
