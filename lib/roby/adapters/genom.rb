@@ -277,10 +277,6 @@ module Roby::Genom
 	    mod.wait_running
 	    emit(:start, context)
 
-	    init = if roby_module.respond_to?(:init)
-		       roby_module.init
-		   end
-
 	    # Redefine GenomModule#dead! so that :failed gets
 	    # emitted when the module process is killed
 	    unless genom_module.respond_to?(:__roby__dead!)
@@ -294,6 +290,11 @@ module Roby::Genom
 		end
 	    end
 	    genom_module.roby_runner_task = self
+
+	    # Get the init request if it is needed
+	    init = if roby_module.respond_to?(:init)
+		       roby_module.init
+		   end
 
 	    # If there is an init task, wait for it. Otherwise,
 	    # send the event 

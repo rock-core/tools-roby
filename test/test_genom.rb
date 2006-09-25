@@ -66,11 +66,10 @@ class TC_Genom < Test::Unit::TestCase
 	end
 	
 	init_period = nil
-	mod.class_eval do
-	    singleton_class.class_eval do
-		define_method(:init) do
-		    init_period = init!(42) 
-		end
+	mod.singleton_class.class_eval do
+	    define_method(:init) do
+		raise unless mod.genom_module.roby_runner_task.running?
+	       	init_period = init!(42)
 	    end
 	end
 
