@@ -21,3 +21,9 @@
   look like base classes. However, we want to be able to make *some* abstract
   classes instanciable, so we can't use only modules
 
+* a better synchronous event propagation based on continuations. When methods
+  like happened? are called in a propagation context, and we don't know the 
+  result yet (happened? = false), register a continuation and its dependency
+  on the event. Call the continuation when we propagated the other branches of
+  the context.
+
