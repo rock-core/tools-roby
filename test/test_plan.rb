@@ -12,25 +12,27 @@ class TC_Plan < Test::Unit::TestCase
 	    event :stop, :command => true
 	end
 
-	t1, t2, t3 = 3.enum_for(:times).map { task_model.new }
+	t1, t2, t3, t4 = 4.enum_for(:times).map { task_model.new }
 	t1.realized_by t2
 	t2.on(:start, t3, :stop)
+	t2.planned_by t4
 
 	plan = Plan.new
 	plan.insert(t1)
 	assert( plan.include?(t1) )
 	assert( plan.include?(t2) )
+	assert( !plan.include?(t3) ) # t3 not related because of hierarchy
+	assert( plan.include?(t4) )
+
 	assert( plan.mission?(t1) )
 	assert( !plan.mission?(t2) )
-	# t3 is not related by the hierarchy relation
-	assert( !plan.include?(t3) )
 
-	assert_equal([t1, t2].to_value_set, plan.useful_tasks)
+	assert_equal([t1, t2, t4].to_value_set, plan.useful_tasks)
 	plan.insert(t3)
-	assert_equal([t1, t2, t3].to_value_set, plan.useful_tasks)
+	assert_equal([t1, t2, t3, t4].to_value_set, plan.useful_tasks)
 	plan.discard(t1)
 	assert_equal([t3].to_value_set, plan.useful_tasks)
-	assert_equal([t1, t2].to_value_set, plan.unneeded_tasks)
+	assert_equal([t1, t2, t4].to_value_set, plan.unneeded_tasks)
     end
 
     def test_query_fullfills
