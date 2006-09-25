@@ -35,7 +35,18 @@ module Roby
 	end
 
 	# Disable all event propagation
-	def disable_propagation; EventGenerator.disable_propagation end
+	def disable_propagation
+	    if block_given?
+		begin
+		    EventGenerator.disable_propagation 
+		    yield
+		ensure
+		    EventGenerator.enable_propagation 
+		end
+	    else
+		EventGenerator.disable_propagation 
+	    end
+	end
 	# Enable all event propagation
 	def enable_propagation; EventGenerator.enable_propagation end
 	# Check if event propagation is enabled or not

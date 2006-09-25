@@ -11,9 +11,11 @@ class TC_Genom < Test::Unit::TestCase
         Genom::Runner.environment || Genom::Runner.h2 
     end
     def teardown
-	Genom.connect do
-	    env.stop_module('mockup')
-	    env.stop_module('init_test')
+	Control.instance.disable_propagation do
+	    Genom.connect do
+		env.stop_module('mockup')
+		env.stop_module('init_test')
+	    end
 	end
     end
 
