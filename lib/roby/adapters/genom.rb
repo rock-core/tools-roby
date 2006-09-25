@@ -252,9 +252,11 @@ module Roby::Genom
 	attr_accessor :output_io
 
 	def initialize(arguments = {})
+	    arguments = Roby::Genom.arguments_genom_to_roby(arguments)
+	    super(arguments)
+
 	    # Never garbage-collect runner tasks
 	    Roby::Control.instance.plan.insert(self)
-
 	    @output_io = roby_module.output_io
 
 	    # Make sure there is a init() method defined in the Roby module if there is one in the
@@ -264,9 +266,6 @@ module Roby::Genom
 
 		raise ArgumentError, "the Genom module '#{genom_module.name}' defines the init request #{init_request}. You must define a singleton 'init' method in '#{roby_module.name}' which initializes the module"
 	    end
-	    
-	    arguments = Roby::Genom.arguments_genom_to_roby(arguments)
-	    super(arguments)
 	end
 
 	# Start the module
