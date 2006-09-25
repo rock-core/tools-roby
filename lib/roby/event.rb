@@ -28,18 +28,18 @@ module Roby
 	attr_accessor :propagation_id, :context
 	protected :propagation_id=, :context=
 
-	# To be used in the event generators ::new methods, when we need to reemit
-	# an event while changing its 
-	def reemit(new_id, new_context = nil)
-	    if propagation_id != new_id || (new_context && new_context != context)
-		new_event = self.dup
-		new_event.propagation_id = new_id
-		new_event.context = new_context
-		new_event
-	    else
-		self
+	    # To be used in the event generators ::new methods, when we need to reemit
+	    # an event while changing its 
+	    def reemit(new_id, new_context = nil)
+		if propagation_id != new_id || (new_context && new_context != context)
+		    new_event = self.dup
+		    new_event.propagation_id = new_id
+		    new_event.context = new_context
+		    new_event
+		else
+		    self
+		end
 	    end
-	end
 
 	def name; model.name end
 	def model; self.class end
@@ -64,25 +64,25 @@ module Roby
 	def self.propagate?; @@propagate end
 
 	def name; model.name end
-	
-        # Generic double-dispatchers for operation on
-        # bound events, based on to_and and to_or
-        def |(generator)
-            if generator.respond_to?(:to_or)
-                generator.to_or | self
-            else
-                OrGenerator.new << self << generator
-            end
-        end
-        def &(generator)
-            if generator.respond_to?(:to_and)
-                generator.to_and & self
-            else
-                AndGenerator.new << self << generator
-            end
-        end
 
-        attr_enumerable(:handler, :handlers) { Array.new }
+	# Generic double-dispatchers for operation on
+	# bound events, based on to_and and to_or
+	def |(generator)
+	    if generator.respond_to?(:to_or)
+		generator.to_or | self
+	    else
+		OrGenerator.new << self << generator
+	    end
+	end
+	def &(generator)
+	    if generator.respond_to?(:to_and)
+		generator.to_and & self
+	    else
+		AndGenerator.new << self << generator
+	    end
+	end
+
+	attr_enumerable(:handler, :handlers) { Array.new }
 
 	def model; self.class end
 	def name; model.name end
@@ -292,8 +292,8 @@ module Roby
 	@@propagation_id = 0
 	# Emit the event with +context+ as the new event context
 	# Returns the new event object
-        def emit(context)
-            if gathering?
+	def emit(context)
+	    if gathering?
 		if source_generator == self
 		    emit_without_propagation(context)
 		else
@@ -364,8 +364,8 @@ module Roby
 
 	def controlable?; @controlable end
 	attribute(:history) { Array.new }
-	def happened?;  !history.empty? end
-	def last;       history.last[1] end
+	def happened?; !history.empty?  end
+	def last; history.last[1] end
 
 	# An event generator is active when the current execution context may 
 	# lead to its execution
@@ -398,14 +398,14 @@ module Roby
 	    throw :postponed, [generator, reason]
 	end
 	def postponed(context, generator, reason); super if defined? super end	
-	
+
 	# Call this method in the #calling hook to avoid calling
 	# the event command. This raises a PreconditionFailed
 	# exception
 	def cancel(reason = nil)
 	    raise EventCanceled.new(self)
 	end
-	
+
 	# Hook called when this event generator is called (i.e. the associated command
 	# is), before the command is actually called. Think of it as a pre-call hook.
 	def calling(context)
@@ -419,7 +419,7 @@ module Roby
 			 end
 
 		if !result
-		   raise EventPreconditionFailed.new(self), "precondition #{reason} failed"
+		    raise EventPreconditionFailed.new(self), "precondition #{reason} failed"
 		end
 	    end
 	end
@@ -449,7 +449,7 @@ module Roby
 	    super if defined? super
 	end
     end
-    
+
     # Slow down the event propagation (for debugging purposes)
     module SlowEventPropagation
 	def calling(context)
@@ -563,7 +563,7 @@ module Roby
 
 	def active?(seen); each_parent_object(EventStructure::CausalLink).all? { |obj| obj.active?(seen) } end
 
-    protected
+	protected
 	attr_reader :waiting
 	def initialize_copy(from); @waiting = from.waiting.dup end
     end
@@ -603,7 +603,7 @@ module Roby
 	    event.reemit(propagation_id)
 	end
 
-    protected
+	protected
 	attr_reader :waiting
 	def initialize_copy(from); @waiting = from.waiting.dup end
     end
