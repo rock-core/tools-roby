@@ -174,3 +174,5 @@ module Roby
     end
 end
 
+require 'roby/planning/model'
+
