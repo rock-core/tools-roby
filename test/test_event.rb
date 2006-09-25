@@ -359,40 +359,6 @@ class TC_Event < Test::Unit::TestCase
 	b.call(nil)
     end
 
-    def test_ever
-	# Basic behaviour
-	a, b = 3.enum_for(:times).map { EventGenerator.new(false) }
-        ever = a.ever
-        assert( a.enum_for(:each_causal_link).find { |ev| ev == ever } )
-	assert_equal(ever, a.ever)
-
-	FlexMock.use do |mock|
-	    mock.should_receive(:called).twice
-
-	    a.ever.on { mock.called }
-	    a.emit(nil)
-	    
-	    b.emit(nil)
-	    b.ever.on { mock.called }
-	    
-	    Control.instance.process_events({}, false)
-
-	    assert_equal(a.ever.last, a.last)
-	    assert_not_equal(b.ever.last, b.last)
-	    assert(b.ever.last.propagation_id > b.last.propagation_id)
-	end
-
-	# Test for controlable event
-	a = EventGenerator.new(true)
-	ever = a.ever
-	assert(ever.controlable?)
-	FlexMock.use do |mock|
-	    a.on { mock.a }
-	    mock.should_receive(:a).once
-	    ever.call(nil)
-	end
-    end
-
     def test_or
 	a, b, c = 3.enum_for(:times).map { EventGenerator.new(true) }
 

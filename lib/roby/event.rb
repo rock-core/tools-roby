@@ -378,10 +378,6 @@ module Roby
 	    end
 	end
 
-	def ever
-	    @ever ||= EverGenerator.new(self) 
-	end
-
 	def precondition(reason = nil, &block)
 	    @preconditions << [reason, block]
 	end
@@ -487,41 +483,6 @@ module Roby
 	    if aliases.delete(generator)
 		remove_signal(generator)
 		generator
-	    end
-	end
-    end
-
-    class EverGenerator < EventGenerator
-	attr_reader :base
-
-	class << self
-	    # The list of ever events to generate on next event loop
-	    attribute(:pending) { Array.new }
-	end
-	Control.event_processing << lambda do
-	    pending.each { |ev| ev.emit(nil) }
-	    pending.clear
-	end
-
-	def new(context)
-	    event = base.last
-	    raise EventModelViolation.new(self), "cannot change the context of an EverEvent" if context && context != event.context
-	    event.reemit(propagation_id)
-	end
-
-	def initialize(base)
-	    @base = base
-	    if base.controlable?
-		super { base.call(nil) unless base.happened? }
-		self.add_causal_link base
-	    else
-		super(false)
-	    end
-
-	    if base.happened?
-		EverGenerator.pending << self
-	    else
-		emit_on(base, nil)
 	    end
 	end
     end
