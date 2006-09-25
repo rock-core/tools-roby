@@ -39,11 +39,10 @@ class TC_Genom < Test::Unit::TestCase
             Genom::GenomModule('mockup')
 
             runner = Genom::Mockup.runner!
-	    # assert_equal("#<Roby::Genom::Mockup::Runner!0x#{runner.address.to_s(16)}>", runner.model.name)
 	    
 	    runner.start!
-	    assert_event( runner.event(:start) )
-	    assert_event( runner.event(:ready) )
+	    assert(runner.running?)
+	    assert(runner.event(:ready).happened?)
 
 	    runner.stop!
 	    assert_event( runner.event(:stop) )
@@ -59,12 +58,12 @@ class TC_Genom < Test::Unit::TestCase
     def test_init
 	mod = Genom::GenomModule('init_test')
 
+	# There is no init singleton method, should fail
 	assert_raises(ArgumentError) do
-	    Genom.connect do
-		mod.runner!
-	    end
+	    Genom.connect { mod.runner! }
 	end
 	
+	# Create the ::init singleton method
 	init_period = nil
 	mod.singleton_class.class_eval do
 	    define_method(:init) do
