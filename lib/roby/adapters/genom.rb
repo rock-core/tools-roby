@@ -89,7 +89,12 @@ module Roby::Genom
 
 	# Starts the request
 	def start(context = nil)
-	    @activity = @request.call(*genom_arguments)
+	    args = genom_arguments
+	    if Hash === args
+		@activity = @request.call(args)
+	    else
+		@activity = @request.call(*args)
+	    end
 	    Roby::Genom.running << self
 	end
 	event :start
