@@ -52,15 +52,20 @@ module Roby::TaskStructure
 		    end
 
 		    # Try to find an already existing agent
-		    unless agent = Roby::Task.enum_for(:each_task, agent_model).find { |t| !t.finished? }
+		    agents = Roby::Task.enum_for(:each_task, agent_model).find_all { |t| !t.finished? }
+		    if agents.empty?
 			# ... or create a new one
 			begin
-			    agent = agent_model.new
+			    agents = [agent_model.new]
 			rescue Exception => e
 			    raise Roby::TaskModelViolation.new(task), "the #{self} model defines an execution agent, but #{agent_model}::new raised #{e.message}(#{e.class})", e.backtrace
 			end
 		    end
 
+		    running_agents, pending_agents = agents.partition { |t| t.running? }
+		    agent = if !running_agents.empty? then running_agents.first
+			    else pending_agents.first
+			    end
 		    task.executed_by agent
 		end
 
