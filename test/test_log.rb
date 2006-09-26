@@ -4,6 +4,7 @@ require 'roby/event'
 require 'roby/task'
 require 'roby/log/marshallable'
 require 'roby/log/logger'
+require 'roby/log/file'
 require 'yaml'
 require 'stringio'
 

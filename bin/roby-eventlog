@@ -17,9 +17,9 @@ parser = OptionParser.new do |opts|
 end
 parser.parse! ARGV
 
-require 'roby/log/logger'
+require 'roby/log/console'
+require 'roby/log/file'
 require 'roby/relations'
-require 'roby/log/logger'
 
 include Roby
 Roby.load_all_relations
