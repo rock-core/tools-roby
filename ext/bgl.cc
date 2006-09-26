@@ -651,30 +651,6 @@ static VALUE vertex_each_child(int argc, VALUE* argv, VALUE self)
 
 /*
  * call-seq:
- *      graph.each_child_vertex(vertex) { |child, info| ... }			=> graph
- *
- * Iterates on the parents of +vertex+ in +graph+
- */
-static VALUE graph_each_child_vertex(VALUE self, VALUE vertex)
-{  
-    vertex_each_related<true>(1, &self, vertex);
-    return self;
-}
-
-/*
- * call-seq:
- *      graph.each_parent_vertex(vertex) { |parent, info| ... }			=> graph
- *
- * Iterates on the children of +vertex+ in +graph+
- */
-static VALUE graph_each_parent_vertex(VALUE self, VALUE vertex)
-{
-    vertex_each_related<false>(1, &self, vertex); 
-    return self;
-}
-
-/*
- * call-seq:
  *	vertex[child, graph]				    => info
  *
  * Get the data associated with the vertex => +child+ edge in +graph+.
@@ -1036,8 +1012,6 @@ extern "C" void Init_bgl()
     rb_define_method(bglGraph, "components",   RUBY_METHOD_FUNC(graph_components), -1);
     rb_define_method(bglGraph, "directed_components",   RUBY_METHOD_FUNC(graph_directed_components), -1);
     rb_define_method(bglGraph, "reverse_directed_components",   RUBY_METHOD_FUNC(graph_reverse_directed_components), -1);
-    rb_define_method(bglGraph, "each_parent_vertex", RUBY_METHOD_FUNC(graph_each_parent_vertex), 1);
-    rb_define_method(bglGraph, "each_child_vertex", RUBY_METHOD_FUNC(graph_each_child_vertex), 1);
 
     rb_define_method(bglGraph, "each_vertex",	RUBY_METHOD_FUNC(graph_each_vertex), 0);
     rb_define_method(bglGraph, "each_edge",	RUBY_METHOD_FUNC(graph_each_edge), 0);

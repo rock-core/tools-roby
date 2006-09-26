@@ -33,10 +33,10 @@ module BGL
 	end
 
 	def replace_vertex(from, to)
-	    each_parent_vertex(from) do |parent|
+	    from.each_parent_vertex(self) do |parent|
 		link(parent, to, parent[from, self])
 	    end
-	    each_child_vertex(from) do |child|
+	    from.each_child_vertex(self) do |child|
 		link(to, child, from[child, self])
 	    end
 	    remove(from)
