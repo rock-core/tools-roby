@@ -68,8 +68,9 @@ class TC_Genom < Test::Unit::TestCase
 	# Create the ::init singleton method
 	init_period = nil
 	mod.singleton_class.class_eval do
+	    include Test::Unit::Assertions
 	    define_method(:init) do
-		raise unless mod.genom_module.roby_runner_task.running?
+		assert(mod.genom_module.roby_runner_task.running?)
 	       	init_period = init!(42)
 	    end
 	end
