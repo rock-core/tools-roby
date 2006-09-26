@@ -25,7 +25,13 @@ module BGL
 	    each_graph { |g| g.replace_vertex(self, to) }
 	end
     end
+
     class Graph
+	def initialize_copy(source)
+	    source.each_vertex { |v| insert(v) }
+	    source.each_edge { |s, t, i| link(s, t, i) }
+	end
+
 	def replace_vertex(from, to)
 	    each_parent_vertex(from) do |parent|
 		link(parent, to, parent[from, self])

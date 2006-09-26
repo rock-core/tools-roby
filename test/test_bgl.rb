@@ -218,5 +218,23 @@ class TC_BGL < Test::Unit::TestCase
 	g2.link v4, v3, nil
 	assert_components([[v4, v3]], g2.components(v4))
     end
+
+    def test_dup
+	graph = Graph.new
+	klass = Class.new { include Vertex }
+
+	vertices = (1..4).map { klass.new }
+	v1, v2, v3, v4 = *vertices
+	vertices.each { |v| graph.insert(v) }
+
+	graph.link v1, v2, nil
+	graph.link v3, v2, nil
+	graph.link v3, v4, nil
+	graph.link v2, v4, nil
+
+	copy = graph.dup
+	assert_not_same(copy, graph)
+	assert_equal(copy, graph)
+    end
 end
 
