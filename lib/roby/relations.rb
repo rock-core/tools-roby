@@ -118,11 +118,15 @@ module Roby
 	attr_reader   :name
 	attr_accessor :parent
 	attr_reader   :subsets
+	attr_reader   :options
 
-	def initialize(name, subsets)
+	def initialize(name, options = {})
 	    @name = name
+	    @options = options
 	    @subsets = Set.new
-	    subsets.each { |r| superset_of(r) }
+	    if options[:subsets]
+		options[:subsets].each(&method(:superset_of))
+	    end
 	end
 
 	def link(from, to, info = nil)
@@ -169,7 +173,12 @@ module Roby
 
     class RelationSpace < Module
 	def apply_on(klass); applied << klass end
-	attribute(:applied) { Array.new }
+	attribute(:relations) { Array.new }
+	attribute(:applied)   { Array.new }
+
+	def each_relation(&iterator)
+	    relations.each(&iterator)
+	end
 
 	def relation(relation_name, options = {}, &block)
 	    options = validate_options options, 
@@ -179,7 +188,8 @@ module Roby
 			:noinfo => false,
 			:graph => RelationGraph
 
-	    graph = options[:graph].new "#{self.name}::#{relation_name}", options[:subsets]
+	    options[:const_name] = relation_name
+	    graph = options[:graph].new "#{self.name}::#{relation_name}", options
 
 	    mod = Module.new do
 		singleton_class.class_eval do
@@ -223,6 +233,7 @@ module Roby
 
 	    graph.support = mod
 	    const_set(relation_name, graph)
+	    relations << graph
 	    applied.each { |klass| klass.include mod }
 
 	    graph
