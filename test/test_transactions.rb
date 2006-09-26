@@ -75,5 +75,84 @@ class TC_Transactions < Test::Unit::TestCase
 	    assert_is_proxy_of(task.event(proxy_event.symbol), proxy_event, EventGenerator)
 	end
     end
+
+    def choose_vertex_pair(graph)
+	all_vertices = graph.enum_for(:each_vertex).to_a
+	assert(all_vertices.size >= 2)
+
+	result = [all_vertices.shift, all_vertices.shift]
+	all_vertices.each do |v|
+	    idx = rand(4)
+	    if idx < 2
+		result[idx] = v
+	    end
+	end
+
+	result
+    end
+
+    def assert_same_graph(expected, found, message = "")
+	if expected != found
+	    expected_vertices = expected.enum_for(:each_vertex).to_set
+	    found_vertices = found.enum_for(:each_vertex).to_set
+	    additional = found_vertices - expected_vertices
+	    missing    = expected_vertices - found_vertices
+	    message += "\nmissing vertices: #{missing.inspect}"
+	    message += "\nadditional vertices: #{additional.inspect}"
+
+	    expected_edges = expected.enum_for(:each_edge).to_set
+	    found_edges = found.enum_for(:each_edge).to_set
+	    additional = found_edges - expected_edges
+	    missing    = expected_edges - found_edges
+	    message += "\nmissing edges: #{missing.inspect}"
+	    message += "\nadditional edges: #{additional.inspect}"
+
+	    flunk message
+	end
+    end
+    
+    def test_graph
+	vertex = Class.new { include BGL::Vertex }
+	base   = BGL::Graph.new
+
+	# Add 200 vertices to +base+ and create 100 edges randomly
+	200.times { base.insert(vertex.new) }
+	(1..100).each do |i|
+	    v1, v2 = choose_vertex_pair(base)
+	    base.link(v1, v2) rescue nil
+	end
+	base_backup = base.dup
+	result = base.dup
+	assert_equal(result, base)
+
+	# Create an empty transaction graph, and check that == works
+	trsc = RelationGraph.new(base)
+	assert_equal(base, trsc)
+
+	# We now do a set of operations on both result and the transaction, and
+	# check that they are always equal
+	ops = [
+	    Proc.new { |v1, v2, linked| [:link, v1, v2, nil] if !linked },
+	    Proc.new { |v1, v2, linked| [:unlink, v1, v2] if linked },
+	    Proc.new { |_, _| [:insert, vertex.new] },
+	    Proc.new { |v1, _| [:remove, v1] }
+	]
+	
+	history = []
+	100.times do
+	    v1, v2 = choose_vertex_pair(result)
+	    op, *args = ops[rand(4)].call(v1, v2, result.linked?(v1, v2))
+	    if op
+		result.send(op, *args)
+		trsc.send(op, *args)
+		history << [op, *args].inspect
+	    end
+	    assert_same_graph(result, trsc, history.join("\n"))
+	end
+
+	assert_same_graph(base_backup, base)
+	trsc.apply
+	assert_same_graph(result, base)
+    end
 end
 
