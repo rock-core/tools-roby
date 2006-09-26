@@ -180,6 +180,20 @@ module Roby
 	    relations.each(&iterator)
 	end
 
+	# Creates a new relation in this RelationSpace module. This defines a relation graph
+	# in the RelationSpace, and iteration methods on the vertices. If a block is given,
+	# it is class_eval'd in the context of the vertex class.
+	#
+	# = Options
+	# child_name:: define a each_#{child_name} method to iterate on the vertex children. 
+	#              Uses the relation name by default (a Child relation would be defined 
+	#              a each_child method)
+	# parent_name:: define a each_#{parent_name} method to iterate on the vertex parents.
+	#              If nil, or if none is given, no method is defined
+	# subsets:: a list of subgraphs. See RelationGraph#superset_of
+	# noinfo:: if the relation embeds some additional information. If true, the child iterator method
+	#          (each_#{child_name}) will yield (child, info) instead of only child
+	# graph:: the relation graph class
 	def relation(relation_name, options = {}, &block)
 	    options = validate_options options, 
 			:child_name => relation_name.to_s.underscore,
