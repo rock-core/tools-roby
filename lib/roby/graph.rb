@@ -35,6 +35,15 @@ module BGL
 	    end
 	    remove(from)
 	end
+
+	# Two graphs are the same if they have the same vertex set
+	# and the same edge set
+	def ==(other)
+	    # cannot use to_value_set for edges since we are comparing arrays (and ValueSet
+	    # bases its comparison on VALUE)
+	    (other.enum_for(:each_vertex).to_value_set == enum_for(:each_vertex).to_value_set) && 
+		(other.enum_for(:each_edge).to_set == enum_for(:each_edge).to_set)
+	end
     end
 end
 
