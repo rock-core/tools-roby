@@ -8,14 +8,15 @@ require 'flexmock'
 class TC_Relations < Test::Unit::TestCase
     include Roby
 
-    def test_directed_relation_definition
-	klass = Class.new { include DirectedRelationSupport }
+    def test_definition
+	klass = Class.new
 
 	r1, r2 = nil
 	space = Roby::RelationSpace(klass) do
 	    r1 = relation :R1
 	    r2 = relation :R2s, :child_name => :child, :parent_name => :parent
 	end
+	assert(Module === space)
 
 	n = klass.new
 	assert_equal(r2, space.constant('R2s'))

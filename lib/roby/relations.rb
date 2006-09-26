@@ -152,63 +152,72 @@ module Roby
 	attr_accessor :support
     end
 
-    def self.RelationSpace(klass, &block)
-	relation_space = Module.new
-	relation_space.singleton_class.class_eval do
-	    define_method(:new_relation_type) do |relation_name, options, block|
-		options = validate_options options, 
-			    :child_name => relation_name.to_s.underscore,
-			    :parent_name => nil,
-			    :subsets => Set.new,
-			    :noinfo => false
+    class RelationSpace < Module
+	def apply_on(klass); applied << klass end
+	attribute(:applied) { Array.new }
 
-		graph = RelationGraph.new "#{relation_space.name}::#{relation_name}", options[:subsets]
+	def relation(relation_name, options = {}, &block)
+	    options = validate_options options, 
+			:child_name => relation_name.to_s.underscore,
+			:parent_name => nil,
+			:subsets => Set.new,
+			:noinfo => false
 
-		mod = Module.new
-		mod.class_eval(&block) if block
+	    graph = RelationGraph.new "#{self.name}::#{relation_name}", options[:subsets]
 
-		if parent_enumerator = options[:parent_name]
-		    mod.class_eval <<-EOD
-		    def each_#{parent_enumerator}(&iterator)
-			self.each_parent_object(@@__r_#{relation_name}__, &iterator)
-		    end
-		    EOD
+	    mod = Module.new do
+		singleton_class.class_eval do
+		    define_method("__r_#{relation_name}__") { graph }
 		end
-		    
-		mod.singleton_class.class_eval { define_method("__r_#{relation_name}__") { graph } }
-		if options[:noinfo]
-		    mod.class_eval <<-EOD
-		    def each_#{options[:child_name]}(&iterator)
-			each_child_object(@@__r_#{relation_name}__, &iterator)
-		    end
-		    EOD
-		else
-		    mod.class_eval <<-EOD
-		    def each_#{options[:child_name]}
-			each_child_object(@@__r_#{relation_name}__) { |child| yield(child, self[child, @@__r_#{relation_name}__]) }
-		    end
-		    EOD
-		end
+		class_eval "@@__r_#{relation_name}__ = __r_#{relation_name}__"
+		class_eval(&block) if block_given?
+	    end
+
+	    if parent_enumerator = options[:parent_name]
 		mod.class_eval <<-EOD
-		@@__r_#{relation_name}__ = __r_#{relation_name}__
-		def add_#{options[:child_name]}(to, info = nil)
-		    add_child_object(to, @@__r_#{relation_name}__, info)
-		    self
-		end
-		def remove_#{options[:child_name]}(to)
-		    remove_child_object(to, @@__r_#{relation_name}__)
-		    self
+		def each_#{parent_enumerator}(&iterator)
+		    self.each_parent_object(@@__r_#{relation_name}__, &iterator)
 		end
 		EOD
-
-		graph.support = mod
-		relation_space.const_set(relation_name, graph)
-		klass.include mod
-
-		graph
 	    end
+		
+	    if options[:noinfo]
+		mod.class_eval <<-EOD
+		def each_#{options[:child_name]}(&iterator)
+		    each_child_object(@@__r_#{relation_name}__, &iterator)
+		end
+		EOD
+	    else
+		mod.class_eval <<-EOD
+		def each_#{options[:child_name]}
+		    each_child_object(@@__r_#{relation_name}__) { |child| yield(child, self[child, @@__r_#{relation_name}__]) }
+		end
+		EOD
+	    end
+	    mod.class_eval <<-EOD
+	    def add_#{options[:child_name]}(to, info = nil)
+		add_child_object(to, @@__r_#{relation_name}__, info)
+		self
+	    end
+	    def remove_#{options[:child_name]}(to)
+		remove_child_object(to, @@__r_#{relation_name}__)
+		self
+	    end
+	    EOD
+
+	    graph.support = mod
+	    const_set(relation_name, graph)
+	    applied.each { |klass| klass.include mod }
+
+	    graph
 	end
-	relation_space.singleton_class.class_eval "def relation(mod, options = {}, &block); new_relation_type(mod, options, block) end"
+    end
+
+    def self.RelationSpace(klass, &block)
+	klass.include DirectedRelationSupport
+	relation_space = RelationSpace.new do
+	    apply_on klass
+	end
 	relation_space.class_eval(&block) if block_given?
 	relation_space
     end
