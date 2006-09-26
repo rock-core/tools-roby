@@ -109,10 +109,13 @@ class TC_BGL < Test::Unit::TestCase
 	assert_equal([v1, v3].to_set, v2.enum_for(:each_parent_vertex).to_set)
 	assert_equal([v1, v3].to_set, v2.enum_for(:each_parent_vertex, g2).to_set)
 	assert_equal([v1].to_set, v2.enum_for(:each_parent_vertex, g1).to_set)
+	assert_equal([v1].to_set, g1.enum_for(:each_parent_vertex, v2).to_set)
 
 	assert_equal([v2], v3.enum_for(:each_child_vertex).to_a)
 	assert_equal([v2], v3.enum_for(:each_child_vertex, g2).to_a)
 	assert_equal([], v3.enum_for(:each_child_vertex, g1).to_a)
+	assert_equal([v2], g2.enum_for(:each_child_vertex, v3).to_a)
+	assert_equal([], g1.enum_for(:each_child_vertex, v3).to_a)
 
 	# Test predicates
 	#   .... on all graphs

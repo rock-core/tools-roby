@@ -27,10 +27,10 @@ module BGL
     end
     class Graph
 	def replace_vertex(from, to)
-	    from.each_parent_vertex(self) do |parent|
+	    each_parent_vertex(from) do |parent|
 		link(parent, to, parent[from, self])
 	    end
-	    from.each_child_vertex(self) do |child|
+	    each_child_vertex(from) do |child|
 		link(to, child, from[child, self])
 	    end
 	    remove(from)
