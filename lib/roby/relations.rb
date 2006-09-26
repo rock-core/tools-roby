@@ -176,9 +176,10 @@ module Roby
 			:child_name => relation_name.to_s.underscore,
 			:parent_name => nil,
 			:subsets => Set.new,
-			:noinfo => false
+			:noinfo => false,
+			:graph => RelationGraph
 
-	    graph = RelationGraph.new "#{self.name}::#{relation_name}", options[:subsets]
+	    graph = options[:graph].new "#{self.name}::#{relation_name}", options[:subsets]
 
 	    mod = Module.new do
 		singleton_class.class_eval do
