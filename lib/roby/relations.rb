@@ -11,18 +11,43 @@ module Roby
     module DirectedRelationSupport
 	include BGL::Vertex
 
-	alias :child_object?	:child_vertex?	
-	alias :parent_object?	:parent_vertex?	
-	alias :related_object?	:related_vertex?
-	alias :each_child_object 	:each_child_vertex
-	alias :each_parent_object 	:each_parent_vertex
+	private :child_vertex?	
+	private :parent_vertex?	
+	private :related_vertex?
+	private :each_child_vertex
+	private :each_parent_vertex
 
+	def child_object?(v, type = nil)
+	    apply_selection(type, enum_relations).
+		find { |type| type.linked?(self, v) }
+	end
+	def parent_object?(v, type = nil); v.child_object?(self, type) end
+	def related_object?(v); child_object?(v) || parent_object?(v) end
+	def each_parent_object(type = nil, &iterator)
+	    if type
+		type.each_parent_vertex(self, &iterator)
+	    else
+		enum_all_parents.each(&iterator)
+	    end
+	end
+
+	def each_child_object(type = nil, &iterator)
+	    if type
+		type.each_child_vertex(self, &iterator)
+	    else
+		enum_all_children.each_uniq(&iterator)
+	    end
+	end
+	    
 	def enum_relations; @enum_relations ||= enum_for(:each_graph) end
+	def each_child_object_aux(&iterator); each_graph { |r| r.each_child_vertex(self, &iterator) } end
+	def enum_all_children; @enum_all_children ||= enum_for(:each_child_object_aux) end
+	def each_parent_object_aux(&iterator); each_graph { |r| r.each_parent_vertex(self, &iterator) } end
+	def enum_all_parents; @enum_all_parents ||= enum_for(:each_parent_object_aux) end
 	def relations; enum_relations.to_a end
 
 	# Add a new relation
 	def add_child_object(to, type, info = nil)
-	    check_is_relation(type)
 	    type.link(self, to, info)
 	    added_child_object(to, type, info)
 	end
@@ -33,7 +58,6 @@ module Roby
 
 	# Remove relations where self is a parent
 	def remove_child_object(to, type = nil)
-	    check_is_relation(type)
 	    apply_selection(type, enum_relations) do |type|
 		type.unlink(self, to)
 		removed_child_object(to, type)
@@ -41,7 +65,7 @@ module Roby
 	end
 	def remove_children(type = nil)
 	    apply_selection(type, enum_relations) do |type|
-		self.each_child_object(type) do |to|
+		type.each_child_vertex(self) do |to|
 		    remove_child_object(to, type)
 		end
 	    end
@@ -53,16 +77,14 @@ module Roby
 
 	# Remove relations where self is a child
 	def remove_parent_object(to, type = nil)
-	    check_is_relation(type)
 	    apply_selection(type, enum_relations) do |type|
 		type.unlink(to, self)
 		removed_parent_object(to, type)
 	    end
 	end
 	def remove_parents(type = nil)
-	    check_is_relation(type)
 	    apply_selection(type, enum_relations) do |type|
-		type.each_parent_object(self) do |to|
+		type.each_parent_vertex(self) do |to|
 		    remove_parent_object(type, to)
 		end
 	    end
@@ -75,14 +97,7 @@ module Roby
 	# Remove all relations that point to or come from +to+
 	# If +to+ is nil, it removes all relations related to +self+
 	def remove_relations(to = nil, type = nil)
-	    check_is_relation(type)
 	    clear_links(type)
-	end
-
-	def check_is_relation(type)
-	    if type && !(RelationGraph === type)
-		raise ArgumentError, "#{type} is not a relation type"
-	    end
 	end
 
 	def apply_selection(object, enumerator)
@@ -176,7 +191,7 @@ module Roby
 	    if parent_enumerator = options[:parent_name]
 		mod.class_eval <<-EOD
 		def each_#{parent_enumerator}(&iterator)
-		    self.each_parent_object(@@__r_#{relation_name}__, &iterator)
+		    @@__r_#{relation_name}__.each_parent_vertex(self, &iterator)
 		end
 		EOD
 	    end
@@ -184,13 +199,13 @@ module Roby
 	    if options[:noinfo]
 		mod.class_eval <<-EOD
 		def each_#{options[:child_name]}(&iterator)
-		    each_child_object(@@__r_#{relation_name}__, &iterator)
+		    @@__r_#{relation_name}__.each_child_vertex(self, &iterator)
 		end
 		EOD
 	    else
 		mod.class_eval <<-EOD
 		def each_#{options[:child_name]}
-		    each_child_object(@@__r_#{relation_name}__) { |child| yield(child, self[child, @@__r_#{relation_name}__]) }
+		    @@__r_#{relation_name}__.each_child_vertex(self) { |child| yield(child, self[child, @@__r_#{relation_name}__]) }
 		end
 		EOD
 	    end
