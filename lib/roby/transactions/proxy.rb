@@ -31,6 +31,17 @@ module Roby::Transactions
 	def self.may_wrap(object)
 	    wrap(object) rescue object
 	end
+
+	# Returns the object wrapped by +wrapper+
+	def self.unwrap(wrapper); wrapper.__getobj__ end
+	# If wrapper is a proxy, returns the wrapped object. Otherwise,
+	# returns +object+ itself
+	def self.may_unwrap(wrapper)
+	    if wrapper.respond_to?(:__getobj__) then wrapper.__getobj__
+	    else wrapper
+	    end
+	end
+
 	# Declare that +proxy_klass+ should be used to wrap objects of +real_klass+.
 	# Order matters: if more than one wrapping matches, we will use the one
 	# defined last.
