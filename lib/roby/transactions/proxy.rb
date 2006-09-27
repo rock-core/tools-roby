@@ -142,6 +142,18 @@ module Roby::Transactions
 		end
 	    end
 	end
+
+	extend ClassExtension
+
+	proxy_component :component
+	proxy_component :directed_component
+	proxy_component :reverse_directed_component
+
+	discover_before :child_object?
+	discover_before :parent_object?
+	discover_before :related_object?
+	discover_before :each_child_object
+	discover_before :each_parent_object
     end
 
     # Proxy for Roby::EventGenerator
@@ -151,11 +163,6 @@ module Roby::Transactions
 
 	forbid_call :call
 	forbid_call :emit
-	discover_before :child_object?, :child_vertex?	
-	discover_before :parent_object?, :parent_vertex?	
-	discover_before :related_object?, :related_vertex?
-	discover_before :each_child_object, :each_child_vertex
-	discover_before :each_parent_object, :each_parent_vertex
     end
 
     # Proxy for Roby::Task
@@ -166,11 +173,6 @@ module Roby::Transactions
 	proxy :event
 	proxy :each_event
 	forbid_call :emit
-	discover_before :child_object?, :child_vertex?	
-	discover_before :parent_object?, :parent_vertex?	
-	discover_before :related_object?, :related_vertex?
-	discover_before :each_child_object, :each_child_vertex
-	discover_before :each_parent_object, :each_parent_vertex
 
 	def self.forbidden_command
 	    raise NotImplementedError, "calling event commands is forbidden in a transaction"
@@ -196,5 +198,6 @@ module Roby::Transactions
 	    end
 	end
     end
+
 end
 
