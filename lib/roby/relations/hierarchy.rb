@@ -42,6 +42,15 @@ module Roby::TaskStructure
 	    result
         end
 
+	# The set of events that are needed by the parent tasks
+	def fullfilled_events
+	    needed = Set.new
+	    each_parent_task do |parent|
+		needed |= parent[self, Hierarchy][:success]
+	    end
+	    needed
+	end
+
 	# Return the model this task is fullfilling
 	def fullfilled_model
 	    model, arguments = Roby::Task, {}
