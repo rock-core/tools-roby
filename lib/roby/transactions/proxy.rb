@@ -77,8 +77,7 @@ module Roby::Transactions
 	    def proxy_for(klass); Proxy.proxy_for(self, klass) end
 
 	    def proxy_code(m)
-		"args = args.map(&Proxy.method(:may_wrap))
-		result = if block_given?
+		"result = if block_given?
 			     __getobj__.#{m}(*args) { |*objects| yield(*objects.map(&Proxy.method(:may_wrap))) }
 			 else
 			     __getobj__.#{m}(*args)
