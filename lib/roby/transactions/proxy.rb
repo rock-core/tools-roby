@@ -45,7 +45,7 @@ module Roby::Transactions
 
 	# Fix DelegateClass#== so that comparing the same proxy works
 	def ==(other)
-	    if other.respond_to?(:__getobj__)
+	    if other.class.has_ancestor?(Proxy)
 		self.eql?(other)
 	    else
 		__getobj__ == other
