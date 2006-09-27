@@ -179,10 +179,64 @@ class TC_Transactions < Test::Unit::TestCase
 	    end
 	    assert_same_graph(result, trsc, history.join("\n"))
 	end
+    end
+    def random_task_graph(task_count, task_relation_count, event_relation_count, *task_classes)
+	tasks = (1..task_count).map do 
+	    task_classes.random_element.new
+	end
+	add_random_relations(Roby::TaskStructure.relations, task_relation_count) do 
+	    [tasks.random_element, tasks.random_element]
+	end
+	add_random_relations(Roby::EventStructure.relations, event_relation_count) do
+	    (1..2).map { tasks.random_element.enum_for(:each_event, false).random_element }
+	end
 
-	assert_same_graph(base_backup, base)
-	trsc.apply
-	assert_same_graph(result, base)
+	@all_tasks += tasks
+	tasks
+    end
+
+    # Tests that the graph of proxys is separated from
+    # the Task and EventGenerator graphs
+    def test_proxy_graph_separation
+	tasks = (1..4).map { Roby::Task.new }
+	proxies = tasks.map { |t| Proxy.wrap(t) }
+
+	t1, t2, t3, _ = tasks
+	p1, p2, p3, _ = proxies
+	p1.add_child_object(p2, Hierarchy)
+
+	assert_equal([], t1.enum_for(:each_child_object, Hierarchy).to_a)
+	t2.realized_by t3
+	assert(! Hierarchy.linked?(p2, p3))
+    end
+
+    Hierarchy = Roby::TaskStructure::Hierarchy
+    def test_discover
+	tasks = (1..4).map { Roby::Task.new }
+	@all_tasks += tasks
+
+	root, t1, t2, t03, _ = tasks
+	root.realized_by t1
+	root.realized_by t2
+	t1.realized_by t03
+	t2.realized_by t03
+	assert(Hierarchy.linked?(root, t1))
+	assert(root.child_object?(t1, Hierarchy))
+
+	wroot = Proxy.wrap(root)
+	wt1   = Proxy.wrap(t1)
+	assert(! wroot.discovered?(Hierarchy))
+	assert(! Hierarchy.linked?(wroot, wt1))
+	assert(wroot.child_object?(wt1, Hierarchy))
+	assert_equal([wt1, Proxy.wrap(t2)].to_set, wroot.enum_for(:each_child_object, Hierarchy).to_set)
+	assert(wroot.discovered?(Hierarchy))
+	assert(! wt1.discovered?(Hierarchy))
+
+	wt03 = Proxy.wrap(t03)
+	wt2 = Proxy.wrap(t2)
+	wt03.each_child_object(Hierarchy) { }
+	assert(wt03.discovered?(Hierarchy))
+	assert(Hierarchy.linked?(wt2, wt03))
     end
 end
 
