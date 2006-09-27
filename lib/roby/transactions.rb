@@ -1,5 +1,4 @@
 require 'roby/transactions/proxy'
-require 'roby/transactions/graph'
 require 'roby/plan'
 
 module Roby

@@ -141,45 +141,6 @@ class TC_Transactions < Test::Unit::TestCase
 	end
     end
     
-    def test_graph
-	vertex = Class.new { include BGL::Vertex }
-	base   = BGL::Graph.new
-
-	# Add 200 vertices to +base+ and create 100 edges randomly
-	200.times { base.insert(vertex.new) }
-	(1..100).each do |i|
-	    v1, v2 = choose_vertex_pair(base)
-	    base.link(v1, v2) rescue nil
-	end
-	base_backup = base.dup
-	result = base.dup
-	assert_equal(result, base)
-
-	# Create an empty transaction graph, and check that == works
-	trsc = RelationGraph.new(base)
-	assert_equal(base, trsc)
-
-	# We now do a set of operations on both result and the transaction, and
-	# check that they are always equal
-	ops = [
-	    Proc.new { |v1, v2, linked| [:link, v1, v2, nil] if !linked },
-	    Proc.new { |v1, v2, linked| [:unlink, v1, v2] if linked },
-	    Proc.new { |_, _| [:insert, vertex.new] },
-	    Proc.new { |v1, _| [:remove, v1] }
-	]
-	
-	history = []
-	100.times do
-	    v1, v2 = choose_vertex_pair(result)
-	    op, *args = ops[rand(4)].call(v1, v2, result.linked?(v1, v2))
-	    if op
-		result.send(op, *args)
-		trsc.send(op, *args)
-		history << [op, *args].inspect
-	    end
-	    assert_same_graph(result, trsc, history.join("\n"))
-	end
-    end
     def random_task_graph(task_count, task_relation_count, event_relation_count, *task_classes)
 	tasks = (1..task_count).map do 
 	    task_classes.random_element.new
