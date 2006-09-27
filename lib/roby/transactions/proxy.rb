@@ -102,6 +102,24 @@ module Roby::Transactions
 		end
 	    end
 
+	    def proxy_component(*methods)
+		methods.each do |m|
+		    class_eval <<-EOD
+		    def #{m}(relation) 
+			component = super
+			component.inject(ValueSet.new) do |set, task|
+			    wrapper = Proxy.wrap(task)
+			    set << wrapper
+			    wrapper.discover(relation)
+
+			    set
+			end
+			component
+		    end
+		    EOD
+		end
+	    end
+
 	    def discover_before(*methods)
 		methods.each do |m|
 		    class_eval <<-EOD
