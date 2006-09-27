@@ -51,6 +51,7 @@ module Roby::Transactions
 
 	def initialize(object)
 	    @@proxys[object] = self
+	    @discovered = Hash.new
 	    super(object)
 	end
 
@@ -88,7 +89,8 @@ module Roby::Transactions
 	    def proxy_for(klass); Proxy.proxy_for(self, klass) end
 
 	    def proxy_code(m)
-		"result = if block_given?
+		"args = args.map(&Proxy.method(:may_unwrap))
+		result = if block_given?
 			     __getobj__.#{m}(*args) { |*objects| yield(*objects.map(&Proxy.method(:may_wrap))) }
 			 else
 			     __getobj__.#{m}(*args)
@@ -176,6 +178,8 @@ module Roby::Transactions
 
 	proxy :event
 	proxy :each_event
+	proxy :fullfills?
+
 	forbid_call :emit
 
 	def self.forbidden_command

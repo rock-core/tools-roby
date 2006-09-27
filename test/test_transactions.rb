@@ -99,6 +99,13 @@ class TC_Transactions < Test::Unit::TestCase
 	assert_raises(NotImplementedError) { proxy.dynamic!(nil) }
     end
 
+    def test_task_proxy
+	t1, t2 = (1..2).map { Roby::Task.new }
+	p1, p2 = Proxy.wrap(t1), Proxy.wrap(t2)
+	assert(p1.fullfills?(t1))
+	assert(p1.fullfills?(p2))
+    end
+
     def choose_vertex_pair(graph)
 	all_vertices = graph.enum_for(:each_vertex).to_a
 	assert(all_vertices.size >= 2)
