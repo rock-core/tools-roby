@@ -157,7 +157,14 @@ module Roby
     end
 
     class RelationSpace < Module
-	def apply_on(klass); applied << klass end
+	def apply_on(klass)
+	    klass.include DirectedRelationSupport
+	    each_relation do |graph|
+		klass.include graph.support
+	    end
+
+	    applied << klass 
+	end
 	attribute(:relations) { Array.new }
 	attribute(:applied)   { Array.new }
 
