@@ -108,7 +108,7 @@ module Roby::Transactions
 		methods.each do |m|
 		    class_eval <<-EOD
 			def #{m}(*args, &block)
-			    raise NotImplementedError, "call to #{m} is forbidden in transaction proxys" 
+			    raise NotImplementedError, "calls to #{m} are forbidden in transactions" 
 			end
 		    EOD
 		end
