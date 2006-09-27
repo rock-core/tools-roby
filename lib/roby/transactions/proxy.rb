@@ -55,27 +55,49 @@ module Roby::Transactions
 	# Remove this proxy object
 	def discard; @@proxys.delete(__getobj__) end
 
+	def discovered?(relation)
+	    @discovered[relation]
+	end
+	def discover(relation)
+	    unless discovered?(relation)
+		@discovered[relation] = true
+
+		relation.each_parent_object(__getobj__) do |parent|
+		    wrapper = Proxy.wrap(parent)
+		    wrapper.add_child_object(self, parent[__getobj__, relation])
+		end
+		relation.each_child_object(__getobj__) do |child|
+		    wrapper = Proxy.wrap(child)
+		    add_child_object(wrapper, __getobj__[child, relation])
+		end
+	    end
+	end
+
 	module ClassExtension
 	    def proxy_for(klass); Proxy.proxy_for(self, klass) end
 
-	    # Wrap objects that are yield by the methods defined on the real object
-	    def proxy_iterator(*methods)
+	    def proxy_code(m)
+		"args = args.map(&Proxy.method(:may_wrap))
+		result = if block_given?
+			     __getobj__.#{m}(*args) { |*objects| yield(*objects.map(&Proxy.method(:may_wrap))) }
+			 else
+			     __getobj__.#{m}(*args)
+			 end
+		Proxy.may_wrap(result)"
+	    end
+
+	    def proxy(*methods)
 		methods.each do |m|
-		    class_eval <<-EOD
-		    def #{m}(*args, &block)
-			result = __getobj__.#{m}(*args) { |*objects| yield(*objects.map(&Proxy.method(:may_wrap))) }
-			Proxy.may_wrap(result)
-		    end
-		    EOD
+		    class_eval "def #{m}(*args); #{proxy_code(m)} end"
 		end
 	    end
 
-	    # Wrap objects returned by +methods+
-	    def proxy_forward(*methods)
+	    def discover_before(*methods)
 		methods.each do |m|
 		    class_eval <<-EOD
-		    def #{m}(*args, &block)
-			Proxy.may_wrap(__getobj__.#{m}(*args, &block))
+		    def #{m}(relation, *args)
+			discover(relation)
+			super
 		    end
 		    EOD
 		end
@@ -100,6 +122,12 @@ module Roby::Transactions
 	proxy_for Roby::EventGenerator
 
 	forbid_call :call
+	forbid_call :emit
+	discover_before :child_object?, :child_vertex?	
+	discover_before :parent_object?, :parent_vertex?	
+	discover_before :related_object?, :related_vertex?
+	discover_before :each_child_object, :each_child_vertex
+	discover_before :each_parent_object, :each_parent_vertex
     end
 
     # Proxy for Roby::Task
@@ -107,9 +135,14 @@ module Roby::Transactions
 	include Proxy
 	proxy_for Roby::Task
 
-	proxy_forward  :event
-	proxy_iterator :each_event
-    end
+	proxy :event
+	proxy :each_event
+	forbid_call :emit
+	discover_before :child_object?, :child_vertex?	
+	discover_before :parent_object?, :parent_vertex?	
+	discover_before :related_object?, :related_vertex?
+	discover_before :each_child_object, :each_child_vertex
+	discover_before :each_parent_object, :each_parent_vertex
 
 end
 

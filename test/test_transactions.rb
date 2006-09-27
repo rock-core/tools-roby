@@ -7,12 +7,12 @@ class TC_Transactions < Test::Unit::TestCase
 	assert_equal(object, wrapper.__getobj__)
     end
 
-    def test_proxy_wrap
+    def test_proxy_wrapping
 	real_klass = Class.new do
 	    define_method("forbidden") {}
 	end
 
-	proxy_klass = Class.new(DelegateClass(real_klass)) do
+	proxy_klass = Class.new(DelegateClass(Object)) do
 	    include Proxy
 
 	    proxy_for real_klass
@@ -60,7 +60,7 @@ class TC_Transactions < Test::Unit::TestCase
 	assert_is_proxy_of(derv_obj, Proxy.wrap(derv_obj), proxy_derv_klass)
     end
 
-    def test_proxy_forward
+    def test_proxy_class_selection
 	task  = Roby::Task.new
 	proxy = Proxy.wrap(task)
 
@@ -74,6 +74,23 @@ class TC_Transactions < Test::Unit::TestCase
 	proxy.each_event do |proxy_event|
 	    assert_is_proxy_of(task.event(proxy_event.symbol), proxy_event, EventGenerator)
 	end
+    end
+
+    def test_proxy_disables_command
+	task  = Class.new(Roby::Task) do
+	    event :start, :command => true
+	    event :intermediate, :command => true
+	end.new
+	proxy = Proxy.wrap(task)
+
+	assert_nothing_raised { task.event(:start).emit(nil) }
+	assert_nothing_raised { task.intermediate!(nil) }
+	assert_raises(NotImplementedError) { proxy.event(:start).emit(nil) }
+	assert_raises(NotImplementedError) { proxy.emit(:start) }
+	assert_raises(NotImplementedError) { proxy.start!(nil) }
+	# Checks that events that are only in the subclass of Task
+	# are handled as well
+	assert_raises(NotImplementedError) { proxy.intermediate!(nil) }
     end
 
     def choose_vertex_pair(graph)
