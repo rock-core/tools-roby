@@ -144,6 +144,29 @@ module Roby::Transactions
 	discover_before :each_child_object, :each_child_vertex
 	discover_before :each_parent_object, :each_parent_vertex
 
-end
+	def self.forbidden_command
+	    raise NotImplementedError, "calling event commands is forbidden in a transaction"
+	end
 
+	def initialize(object)
+	    super
+	    object.singleton_class.enum_for(:each_event).
+		find_all { |_, ev| ev.controlable? }.
+		each do |name, _|
+		    instance_eval <<-EOD
+		    def self.#{name}!(context); Task.forbidden_command end
+		    EOD
+		end
+	end
+
+	def method_missing(m, *args, &block)
+	    if m.to_s =~ /^(\w+)!$/ && has_event?($1) && 
+	        __getobj__.model.event_model($1).controlable?
+	        raise NotImplementedError, "it is forbidden to call an event command when in a transaction"
+	    else
+	        super
+	    end
+	end
+    end
+end
 

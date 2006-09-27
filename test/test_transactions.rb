@@ -88,9 +88,15 @@ class TC_Transactions < Test::Unit::TestCase
 	assert_raises(NotImplementedError) { proxy.event(:start).emit(nil) }
 	assert_raises(NotImplementedError) { proxy.emit(:start) }
 	assert_raises(NotImplementedError) { proxy.start!(nil) }
-	# Checks that events that are only in the subclass of Task
-	# are handled as well
+
+	# Check that events that are only in the subclass of Task
+	# are forbidden
 	assert_raises(NotImplementedError) { proxy.intermediate!(nil) }
+
+	# Check that dynamic events are forbidden
+	task.model.class_eval { event(:dynamic, :command => true) }
+	assert_nothing_raised { task.dynamic!(nil) }
+	assert_raises(NotImplementedError) { proxy.dynamic!(nil) }
     end
 
     def choose_vertex_pair(graph)
