@@ -73,13 +73,13 @@ module Roby::Transactions
 	    unless discovered?(relation)
 		@discovered[relation] = true
 
-		relation.each_parent_object(__getobj__) do |parent|
+		__getobj__.each_parent_object(relation) do |parent|
 		    wrapper = Proxy.wrap(parent)
-		    wrapper.add_child_object(self, parent[__getobj__, relation])
+		    wrapper.add_child_object(self, relation, parent[__getobj__, relation])
 		end
-		relation.each_child_object(__getobj__) do |child|
+		__getobj__.each_child_object(relation) do |child|
 		    wrapper = Proxy.wrap(child)
-		    add_child_object(wrapper, __getobj__[child, relation])
+		    add_child_object(wrapper, relation, __getobj__[child, relation])
 		end
 	    end
 	end
@@ -123,8 +123,8 @@ module Roby::Transactions
 	    def discover_before(*methods)
 		methods.each do |m|
 		    class_eval <<-EOD
-		    def #{m}(relation, *args)
-			discover(relation)
+		    def #{m}(*args)
+			args.each { |rel| discover(rel) if Roby::RelationGraph === rel }
 			super
 		    end
 		    EOD
