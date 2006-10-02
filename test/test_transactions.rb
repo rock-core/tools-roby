@@ -1,4 +1,5 @@
 require 'roby/transactions'
+require 'test_plan.rb'
 
 module PlanGeneration
     include Test::Unit::Assertions
@@ -106,17 +107,22 @@ module PlanGeneration
     end
 end
 
+# Check that a transaction behaves like a plan
+class TC_TransactionAsPlan < Test::Unit::TestCase
+    include TC_PlanStatic
+
+    def setup
+	@real_plan = Plan.new
+	@plan = Transaction.new(@real_plan)
+    end
+    def teardown
+	@plan.commit
+    end
+end
+
 
 class TC_Transactions < Test::Unit::TestCase
     include Roby::Transactions
-    def setup
-	@all_tasks = []
-    end
-    def teardown
-	@all_tasks.each do |t|
-	    t.clear_vertex
-	end
-    end
 
     def assert_is_proxy_of(object, wrapper, klass)
 	assert_instance_of(klass, wrapper)
@@ -275,7 +281,6 @@ class TC_Transactions < Test::Unit::TestCase
     Hierarchy = Roby::TaskStructure::Hierarchy
     def test_discover
 	tasks = (1..4).map { Roby::Task.new }
-	@all_tasks += tasks
 
 	root, t1, t2, t03, _ = tasks
 	root.realized_by t1
