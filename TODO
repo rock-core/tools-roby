@@ -27,3 +27,5 @@
   on the event. Call the continuation when we propagated the other branches of
   the context.
 
+* make all tasks non-executable until the time they are inserted in a Plan.
+  Check in #fired that the parent task *is* executable
