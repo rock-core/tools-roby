@@ -18,7 +18,8 @@ class TC_Plan < Test::Unit::TestCase
 	t2.planned_by t4
 
 	plan = Plan.new
-	plan.insert(t1)
+	result = plan.insert(t1)
+	assert_equal(plan, result)
 	assert( plan.include?(t1) )
 	assert( plan.include?(t2) )
 	assert( !plan.include?(t3) ) # t3 not related because of hierarchy
