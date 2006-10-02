@@ -37,7 +37,7 @@ module Roby
         def insert(tasks)
 	    apply(tasks) do |t|
 		discover(t)
-		missions << t
+		@missions << t
 		self
 	    end
 	    self
@@ -48,7 +48,7 @@ module Roby
 	def discard(tasks)
 	    apply(tasks) do |t|
 		discover(t)
-		missions.delete(t)
+		@missions.delete(t)
 	    end
 	    self
 	end
@@ -57,7 +57,7 @@ module Roby
 	def clear
 	    known_tasks.each { |t| t.clear_relations }
 	    known_tasks.clear
-	    missions.clear
+	    @missions.clear
 	end
 
 	# Replaces +from+ by +to+. If +to+ cannot replace +from+, an
@@ -81,8 +81,8 @@ module Roby
 	    from.replace_vertex_by(to)
 
 	    if mission?(from)
-		missions.delete(from)
-		missions.insert(to)
+		@missions.delete(from)
+		@missions.insert(to)
 	    else
 		discover(to)
 	    end
@@ -101,7 +101,7 @@ module Roby
 		    else [tasks]
 		    end
 
-	    known_tasks.merge useful_component(tasks)
+	    @known_tasks.merge useful_component(tasks)
 
 	    self
 	end
@@ -169,7 +169,8 @@ module Roby
 
 	def remove_task(t)
 	    t.clear_relations
-	    known_tasks.delete(t)
+	    @missions.delete(t)
+	    @known_tasks.delete(t)
 	    finalized(t)
 	end
 
