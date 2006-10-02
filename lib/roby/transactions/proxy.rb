@@ -47,6 +47,7 @@ module Roby::Transactions
 	# defined last.
 	def self.proxy_for(proxy_klass, real_klass)
 	    @@proxy_klass << [proxy_klass, real_klass]
+	    proxy_klass.extend Forwardable
 	end
 
 	def initialize(object)
@@ -164,7 +165,6 @@ module Roby::Transactions
 	Roby::EventStructure.apply_on self
 
 	include Proxy
-	extend Forwardable
 	proxy_for Roby::EventGenerator
 	
 	def_delegator :@__getobj__, :symbol
@@ -178,7 +178,6 @@ module Roby::Transactions
 	Roby::TaskStructure.apply_on self
 
 	include Proxy
-	extend Forwardable
 	proxy_for Roby::Task
 
 	def_delegator :@__getobj__, :running?
@@ -191,12 +190,10 @@ module Roby::Transactions
 
 	forbid_call :emit
 
+	def to_task; self end
+
 	def self.forbidden_command
 	    raise NotImplementedError, "calling event commands is forbidden in a transaction"
-	end
-
-	def initialize(object)
-	    super
 	end
 
 	def clear_relations

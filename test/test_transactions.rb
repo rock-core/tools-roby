@@ -1,7 +1,123 @@
 require 'roby/transactions'
 
+module PlanGeneration
+    include Test::Unit::Assertions
+    Plan = Roby::Plan
+    TaskStructure = Roby::TaskStructure
+    EventStructure = Roby::EventStructure
+    include Roby::Transactions
+
+    def random_plan(task_count = 10, task_relation_count = 5, event_relation_count = 5, task_classes = [Roby::Task])
+	plan = Plan.new
+	random_task_modifications(plan, task_count, 0, task_relation_count, 0, task_classes)
+	random_event_modifications(plan, task_relation_count, 0)
+
+	plan
+    end
+
+    def random_task_modifications(plan, new_tasks = 10, remove_tasks = 5, add_relation = 10, remove_relation = 5, task_classes = [Roby::Task])
+	operations = (1..remove_tasks).map do
+	    t = plan.known_tasks.random_element
+	    plan.remove_task(t)
+	    [plan, :remove_task, t]
+	end
+
+	operations += (1..new_tasks).map do 
+	    t = task_classes.random_element.new
+	    plan.discover(t)
+	    [plan, :discover, t]
+	end
+
+	tasks = plan.known_tasks
+	operations += remove_random_relations(Roby::TaskStructure.relations, remove_relation)
+	operations += add_random_relations(Roby::TaskStructure.relations, add_relation) do 
+	    [tasks.random_element, tasks.random_element]
+	end
+
+	operations
+    end
+
+    def random_event_modifications(plan, add_count = 10, remove_count = 5)
+	operations = remove_random_relations(Roby::EventStructure.relations, remove_count)
+	tasks = plan.known_tasks
+	operations += add_random_relations(Roby::EventStructure.relations, add_count) do
+	    (1..2).map { tasks.random_element.enum_for(:each_event, false).random_element }
+	end
+
+	operations
+    end
+
+    def add_random_relations(relations, count)
+	(1..count).map do
+	    rel = relations.random_element
+	    n1, n2 = yield
+	    next if n1 == n2
+
+	    if !n1.directed_component(rel).include?(n2)
+		n1.add_child_object(n2, rel)
+		[n1, :add_child_object, n2, rel]
+	    elsif !n2.directed_component(rel).include?(n1)
+		n2.add_child_object(n1, rel)
+		[n2, :add_child_object, n1, rel]
+	    end
+	end.compact
+    end
+
+    def remove_random_relations(relations, count)
+	(1..count).map do
+	    rel = relations.random_element
+	    n1, n2, _ = rel.enum_for(:each_edge).random_element
+	    next unless n1
+	    n1.remove_child_object(n2, rel)
+	    [n1, :remove_child_object, n2, rel]
+	end.compact
+    end
+
+    def plan_save(plan)
+	relations = TaskStructure.enum_for(:each_relation).map { |graph| [graph, graph.dup] }
+	relations = Hash[*relations.flatten]
+	event_relations = EventStructure.enum_for(:each_relation).map { |graph| [graph, graph.dup] }
+	relations.merge Hash[*event_relations.flatten]
+
+	backup = Plan.new(relations[TaskStructure::Hierarchy], [relations[TaskStructure::PlannedBy]])
+	plan.missions.each { |t| backup.insert(t) }
+	plan.known_tasks.each { |t| backup.discover(t) }
+	assert_equal(plan.known_tasks, backup.known_tasks)
+
+	[backup, relations]
+    end
+
+    def apply_on_backup(operations, backup)
+	backup, relations = *backup
+
+	pp operations.map { |_, x, _| x }
+	operations.each do |obj, op, *args|
+	    if Plan === obj
+		return backup.send(op, *args)
+	    elsif (op == :add_child_object || op == :remove_child_object)
+		child, relation = *args
+		obj   = obj.__getobj__ if Proxy === obj
+		child = child.__getobj__ if Proxy === child
+		return obj.send(op, child, relations[relation])
+	    else
+		raise "unknown operation #{op} on #{obj}"
+	    end
+	end
+    end
+end
+
+
 class TC_Transactions < Test::Unit::TestCase
     include Roby::Transactions
+    def setup
+	@all_tasks = []
+    end
+    def teardown
+	@all_tasks.each do |t|
+	    t.clear_vertex
+	end
+    end
+
     def assert_is_proxy_of(object, wrapper, klass)
 	assert_instance_of(klass, wrapper)
 	assert_equal(object, wrapper.__getobj__)
@@ -141,21 +257,6 @@ class TC_Transactions < Test::Unit::TestCase
 	end
     end
     
-    def random_task_graph(task_count, task_relation_count, event_relation_count, *task_classes)
-	tasks = (1..task_count).map do 
-	    task_classes.random_element.new
-	end
-	add_random_relations(Roby::TaskStructure.relations, task_relation_count) do 
-	    [tasks.random_element, tasks.random_element]
-	end
-	add_random_relations(Roby::EventStructure.relations, event_relation_count) do
-	    (1..2).map { tasks.random_element.enum_for(:each_event, false).random_element }
-	end
-
-	@all_tasks += tasks
-	tasks
-    end
-
     # Tests that the graph of proxys is separated from
     # the Task and EventGenerator graphs
     def test_proxy_graph_separation
@@ -198,6 +299,64 @@ class TC_Transactions < Test::Unit::TestCase
 	wt03.each_child_object(Hierarchy) { }
 	assert(wt03.discovered?(Hierarchy))
 	assert(Hierarchy.linked?(wt2, wt03))
+    end
+
+    def transaction(plan)
+	trsc = Roby::Transaction.new(plan)
+	yield(trsc)
+	trsc.commit
+    end
+
+    # Tests insertion and removal of tasks
+    def test_add_remove
+	plan = Roby::Plan.new
+	t1, t2, t3 = (1..3).map { Roby::Task.new }
+	plan.insert(t1)
+
+	transaction(plan) do |trsc|
+	    assert(trsc.include?(t1))
+	    assert(trsc.mission?(t1))
+	    assert(trsc.include?(Proxy.wrap(t1)))
+	    assert(trsc.mission?(Proxy.wrap(t1)))
+	end
+
+	transaction(plan) do |trsc| 
+	    trsc.discover(t3)
+	    assert(trsc.include?(t3))
+	    assert(!trsc.mission?(t3))
+	    assert(!plan.include?(t3))
+	    assert(!plan.mission?(t3))
+	end
+	assert(plan.include?(t3))
+	assert(!plan.mission?(t3))
+
+	transaction(plan) do |trsc| 
+	    trsc.insert(t2) 
+	    assert(trsc.include?(t2))
+	    assert(trsc.mission?(t2))
+	    assert(!plan.include?(t2))
+	    assert(!plan.mission?(t2))
+	end
+	assert(plan.include?(t2))
+	assert(plan.mission?(t2))
+
+	transaction(plan) do |trsc|
+	    trsc.discard(t2)
+	    assert(trsc.include?(t2))
+	    assert(!trsc.mission?(t2))
+	    assert(plan.include?(t2))
+	    assert(plan.mission?(t2))
+	end
+	assert(plan.include?(t2))
+	assert(!plan.mission?(t2))
+
+	transaction(plan) do |trsc|
+	    trsc.remove_task(Proxy.wrap(t3)) 
+	    assert(!trsc.include?(t3))
+	    assert(plan.include?(t3))
+	end
+	assert(!plan.include?(t3))
+	assert(!plan.mission?(t3))
     end
 end
 
