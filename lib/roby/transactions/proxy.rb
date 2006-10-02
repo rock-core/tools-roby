@@ -108,15 +108,13 @@ module Roby::Transactions
 		methods.each do |m|
 		    class_eval <<-EOD
 		    def #{m}(relation) 
-			component = super
-			component.inject(ValueSet.new) do |set, task|
-			    wrapper = Proxy.wrap(task)
-			    set << wrapper
-			    wrapper.discover(relation)
-
-			    set
+			# Discover all tasks that are supposed to be in the
+			# component on the real object, and then compute
+			# the component on this graph
+			__getobj__.#{m}(relation).each do |task|
+			    Proxy.wrap(task).discover(relation)
 			end
-			component
+			super
 		    end
 		    EOD
 		end
