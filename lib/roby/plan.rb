@@ -16,6 +16,7 @@ module Roby
 
     class Plan
 	attr_reader :known_tasks, :missions
+	attr_reader :hierarchy, :service_relations
 
 	def initialize(hierarchy = Roby::TaskStructure::Hierarchy, service_relations = [Roby::TaskStructure::PlannedBy])
 	    @hierarchy = hierarchy

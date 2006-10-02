@@ -16,6 +16,8 @@ module Roby
 
 	attr_reader :plan
 	def initialize(plan)
+	    super(plan.hierarchy, plan.service_relations)
+
 	    @plan = plan
 	end
 
