@@ -52,8 +52,9 @@ module Roby::Transactions
 	def initialize(object)
 	    @@proxys[object] = self
 	    @discovered = Hash.new
-	    super(object)
+	    @__getobj__ = object
 	end
+	attr_reader :__getobj__
 
 	# Fix DelegateClass#== so that comparing the same proxy works
 	def ==(other)
@@ -154,25 +155,35 @@ module Roby::Transactions
 	discover_before :related_object?
 	discover_before :each_child_object
 	discover_before :each_parent_object
+	discover_before :add_child_object
+	discover_before :remove_child_object
     end
 
     # Proxy for Roby::EventGenerator
-    class EventGenerator < DelegateClass(Roby::EventGenerator)
+    class EventGenerator
 	Roby::EventStructure.apply_on self
 
 	include Proxy
+	extend Forwardable
 	proxy_for Roby::EventGenerator
+	
+	def_delegator :@__getobj__, :symbol
 
 	forbid_call :call
 	forbid_call :emit
     end
 
     # Proxy for Roby::Task
-    class Task < DelegateClass(Roby::Task)
+    class Task
 	Roby::TaskStructure.apply_on self
 
 	include Proxy
+	extend Forwardable
 	proxy_for Roby::Task
+
+	def_delegator :@__getobj__, :running?
+	def_delegator :@__getobj__, :finished?
+	def_delegator :@__getobj__, :pending?
 
 	proxy :event
 	proxy :each_event
@@ -186,17 +197,15 @@ module Roby::Transactions
 
 	def initialize(object)
 	    super
-	    object.singleton_class.enum_for(:each_event).
-		find_all { |_, ev| ev.controlable? }.
-		each do |name, _|
-		    instance_eval <<-EOD
-		    def self.#{name}!(context); Task.forbidden_command end
-		    EOD
-		end
+	end
+
+	def clear_relations
+	    each_event { |ev| ev.clear_vertex }
+	    self.clear_vertex
 	end
 
 	def method_missing(m, *args, &block)
-	    if m.to_s =~ /^(\w+)!$/ && has_event?($1) && 
+	    if m.to_s =~ /^(\w+)!$/ && __getobj__.has_event?($1) && 
 	        __getobj__.model.event_model($1).controlable?
 	        raise NotImplementedError, "it is forbidden to call an event command when in a transaction"
 	    else
