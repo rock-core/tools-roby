@@ -1,5 +1,6 @@
 require 'roby/graph'
 require 'roby/relations/hierarchy'
+require 'roby/relations/planned_by'
 require 'facet/kernel/constant'
 require 'pp'
 
@@ -16,7 +17,9 @@ module Roby
     class Plan
 	attr_reader :known_tasks, :missions
 
-	def initialize
+	def initialize(hierarchy = Roby::TaskStructure::Hierarchy, service_relations = [Roby::TaskStructure::PlannedBy])
+	    @hierarchy = hierarchy
+	    @service_relations = service_relations
 	    @missions	 = ValueSet.new
 	    @known_tasks = ValueSet.new
 	end
@@ -30,12 +33,14 @@ module Roby
 	end
 
 	# Inserts a new mission in the plan. Its child tree is automatically inserted too.
+	# Returns the plan
         def insert(tasks)
 	    apply(tasks) do |t|
 		discover(t)
 		missions << t
 		self
 	    end
+	    self
 	end
 	alias :<< :insert
 
@@ -96,15 +101,27 @@ module Roby
 		    else [tasks]
 		    end
 
-	    # Get all tasks related by hierarchy
-	    TaskStructure::Hierarchy.directed_components(*tasks).
-		inject(known_tasks) { |tasks, component| tasks.merge(component) }
-
-	    # Get all tasks related by planning
-	    known_tasks.find_all { |t| raise if !t ; TaskStructure::PlannedBy.include?(t) }.
-		inject(known_tasks) { |tasks, t| tasks.merge t.directed_component(TaskStructure::PlannedBy) }
+	    known_tasks.merge useful_component(tasks)
 
 	    self
+	end
+
+	def useful_component(tasks)
+	    # Get all tasks related by hierarchy
+	    tasks = @hierarchy.directed_components(*tasks).
+		inject { |tasks, component| tasks.merge(component) }
+
+	    # Get all tasks related to a useful task by a service
+	    # relation
+	    tasks.dup.each do |t|
+		@service_relations.each do |rel|
+		    if rel.include?(t)
+			tasks.merge t.directed_component(rel)
+		    end
+		end
+	    end
+
+	    tasks
 	end
 
 	# Returns the set of needed tasks
@@ -113,13 +130,8 @@ module Roby
 
 	    # Remove all missions that are finished
 	    missions.each { |t| discard(t) if t.finished? }
-	    # Get all tasks marked as useful because of hierarchy
-	    tasks = TaskStructure::Hierarchy.directed_components(*missions).
-		inject { |useful, component| useful.merge(component) }
 
-	    # Get all tasks that are useful because they plan a useful task
-	    tasks.find_all { |t| TaskStructure::PlannedBy.include?(t) }.
-		inject(tasks) { |tasks, t| tasks.merge t.directed_component(TaskStructure::PlannedBy) }
+	    useful_component(missions)
 	end
 
 	# Returns the set of unused tasks
@@ -144,9 +156,7 @@ module Roby
 
 		while t = roots.shift
 		    if !t.running?
-			t.clear_relations
-			known_tasks.delete(t)
-			finalized(t)
+			remove_task(t)
 		    elsif t.event(:stop).controlable? && !t.event(:stop).pending?
 			t.stop!(nil)
 			# 'stop' may have been achieved instantly
@@ -155,6 +165,12 @@ module Roby
 		    end
 		end
 	    end
+	end
+
+	def remove_task(t)
+	    t.clear_relations
+	    known_tasks.delete(t)
+	    finalized(t)
 	end
 
 	def finalized(task); super if defined? super end
