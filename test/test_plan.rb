@@ -7,6 +7,31 @@ require 'roby/plan'
 
 class TC_Plan < Test::Unit::TestCase
     include Roby
+    def test_add_remove
+	t1 = Task.new
+	plan = Plan.new
+
+	plan.discover(t1)
+	assert(plan.include?(t1))
+	assert(plan.known_tasks.include?(t1))
+	assert(!plan.missions.include?(t1))
+
+	plan.remove_task(t1)
+	assert(!plan.include?(t1))
+	assert(!plan.known_tasks.include?(t1))
+	assert(!plan.missions.include?(t1))
+
+	plan.insert(t1)
+	assert(plan.include?(t1))
+	assert(plan.known_tasks.include?(t1))
+	assert(plan.missions.include?(t1))
+
+	plan.discard(t1)
+	assert(plan.include?(t1))
+	assert(plan.known_tasks.include?(t1))
+	assert(!plan.missions.include?(t1))
+    end
+
     def test_base
 	task_model = Class.new(Task) do 
 	    event :stop, :command => true
