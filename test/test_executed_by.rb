@@ -10,8 +10,8 @@ class TC_ExecutedBy < Test::Unit::TestCase
     include Roby
 
     def test_nominal
-	task = Class.new(Task) { event(:start, :command => true) }.new
-	exec_klass = Class.new(Task) do
+	task = SimpleTask.new
+	exec_klass = Class.new(ExecutableTask) do
 	    event(:start, :command => true)
 	    event(:ready)
 	    on :start => :ready
@@ -28,8 +28,8 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_agent_start_failed
-	task = Class.new(Task) { event(:start, :command => true) }.new
-	exec = Class.new(Task) do
+	task = SimpleTask.new
+	exec = Class.new(ExecutableTask) do
 	    event(:start, :command => true)
 	    event(:ready)
 	    on :start => :failed
@@ -43,8 +43,8 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_agent_model
-	task_model = Class.new(Task) { event(:start, :command => true) }
-	exec_model = Class.new(Task) do
+	task_model = Class.new(SimpleTask)
+	exec_model = Class.new(ExecutableTask) do
 	    event(:start, :command => true)
 	    event(:ready)
 	    on :start => :ready

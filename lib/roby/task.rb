@@ -180,19 +180,30 @@ module Roby
 
 	    @@tasks[self.class] ||= []
 	    @@tasks[self.class] << WeakRef.new(self)
+	    @executable = false
 
 	    super() if defined? super
         end
+
+	def executable?; @executable end
+	def executable=(flag)
+	    return if flag == @executable
+
+	    if flag && !pending? 
+		raise TaskModelViolation.new(self), "cannot set the executable flag on a task which is not pending"
+	    elsif !flag && running?
+		raise TaskModelViolation.new(self), "cannot unset the executable flag on a task which is running"
+	    end
+
+	    each_event { |ev| ev.executable = flag }
+	    @executable = flag
+	end
 
         def model(create = true)
 	    if create || has_singleton?; singleton_class 
 	    else self.class
 	    end
 	end
-
-	# Make this task answer to no signal and commands
-	def dead!; @dead = true end
-	def dead?; finished? || @dead end
 
         # If a model of +event+ is defined in the task model
         def has_event?(event); model.has_event?(event) end
@@ -230,6 +241,10 @@ module Roby
         # This method is called by TaskEventGenerator#fire just before the event handlers
         # and commands are called
         def fire_event(event)
+	    if !executable?
+		raise NotExecutable.new(self), "trying to fire #{event.generator.symbol} on #{self} but #{self} is not executable"
+	    end
+
 	    final_event = self.final_event
 	    final_event = final_event.last if final_event
 
@@ -262,7 +277,9 @@ module Roby
         # to this particular task
         def event(event_model)
             event_model = self.event_model(event_model)
-            bound_events[event_model] ||= TaskEventGenerator.new(self, event_model)
+            event = (bound_events[event_model] ||= TaskEventGenerator.new(self, event_model))
+	    event.executable = self.executable?
+	    event
         end
 
         # call-seq:
@@ -400,6 +417,10 @@ module Roby
 
 		# define an instance method which calls the event command
 		define_method("#{ev_s}!") do |*context| 
+		    if !executable?
+			raise NotExecutable.new(self), "cannot call event command #{ev_s} because the task is not executable"
+		    end
+
 		    context = *context # emulate default value for blocks
 		    event(ev).call(context) 
 		end

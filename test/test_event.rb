@@ -36,6 +36,32 @@ class TC_Event < Test::Unit::TestCase
 	end
     end
 
+    def test_executable
+	event = EventGenerator.new(true)
+	event.executable = false
+	assert_raises(NotExecutable) { event.call(nil) }
+	assert_raises(NotExecutable) { event.emit(nil) }
+
+	event.executable = true
+	assert_nothing_raised { event.call(nil) }
+	assert_nothing_raised { event.emit(nil) }
+
+	other = EventGenerator.new(true)
+	other.executable = false
+	event.on other
+	assert_raises(NotExecutable) { event.call(nil) }
+
+	event.remove_signal(other)
+	assert_nothing_raised { event.emit(nil) }
+	other.emit_on event
+	assert_raises(NotExecutable) { event.call(nil) }
+
+	event.remove_forwarding(other)
+	assert_nothing_raised { event.emit(nil) }
+	event.on { other.emit(nil) }
+	assert_raises(NotExecutable) { event.call(nil) }
+    end
+
     def test_emit_failed
 	event = EventGenerator.new
 	assert_raises(EventModelViolation) { event.emit_failed }

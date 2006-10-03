@@ -5,6 +5,15 @@ require 'roby/relations/causal'
 require 'roby/relations/ensured'
 
 module Roby
+
+    class NotExecutable < ModelViolation
+	attr_reader :object
+	def initialize(object)
+	    @object = object
+	    super()
+	end
+    end
+
     class EventModelViolation < ModelViolation
 	attr_reader :generator
 	def initialize(generator)
@@ -12,7 +21,6 @@ module Roby
 	    super()
 	end
     end
-
     class EventCanceled < EventModelViolation; end
     class EventPreconditionFailed < EventModelViolation; end
 
@@ -63,6 +71,8 @@ module Roby
 	def self.propagate?; @@propagate end
 
 	def name; model.name end
+	attr_writer :executable
+	def executable?; @executable end
 
 	# Generic double-dispatchers for operation on
 	# bound events, based on to_and and to_or
@@ -92,6 +102,7 @@ module Roby
 	    @preconditions = []
 	    @handlers = []
 	    @pending  = 0
+	    @executable = true
 
 	    super() if defined? super
 
@@ -137,6 +148,8 @@ module Roby
 	def call(context = nil)
 	    if !controlable?
 		raise EventModelViolation.new(self), "#call called on a non-controlable event"
+	    elsif !executable?
+		raise NotExecutable.new(self), "#call called on a non-executable event"
 	    end
 
 	    if gathering?
@@ -275,6 +288,10 @@ module Roby
 
 	# returns true to match the behavior of #call_without_propagation
 	def emit_without_propagation(context)
+	    if !executable?
+		raise NotExecutable.new(self), "#emit called on a non-executable event"
+	    end
+
 	    # Create the event object
 	    event = new(context)
 	    unless event.respond_to?(:context)
@@ -292,6 +309,10 @@ module Roby
 	# Emit the event with +context+ as the new event context
 	# Returns the new event object
 	def emit(context)
+	    if !executable?
+		raise NotExecutable.new(self), "#emit called on a non-executable event"
+	    end
+
 	    if gathering?
 		if source_generator == self
 		    emit_without_propagation(context)

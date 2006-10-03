@@ -55,7 +55,7 @@ class TC_Log < Test::Unit::TestCase
 	    logger = Log::FileLogger.new(io)
 	    Log::loggers << logger
 
-	    task = Class.new(Task) do
+	    task = Class.new(ExecutableTask) do
 		event :start, :command => true
 		event :stop
 		on :start => :stop

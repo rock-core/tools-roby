@@ -102,7 +102,11 @@ module Roby
 		    else [tasks]
 		    end
 
-	    @known_tasks.merge useful_component(tasks)
+	    new_tasks = useful_component(tasks)
+	    new_tasks.each do |t|
+		t.executable = true
+	    end
+	    @known_tasks.merge new_tasks
 
 	    self
 	end
@@ -169,6 +173,7 @@ module Roby
 	end
 
 	def remove_task(t)
+	    t.executable = false
 	    t.clear_relations
 	    @missions.delete(t)
 	    @known_tasks.delete(t)

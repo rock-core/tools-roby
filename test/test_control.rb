@@ -8,8 +8,15 @@ require 'roby/planning'
 class TC_Control < Test::Unit::TestCase 
     include Roby
 
-    def setup; Control.instance.plan.clear end
-    def teardown; Control.instance.plan.clear end
+    def setup
+	Control.instance.plan.clear 
+    end
+    def teardown
+	Control.instance.plan.clear 
+    end
+    def plan
+	Control.instance.plan
+    end
 
     def test_event_loop
         start_node = EmptyTask.new

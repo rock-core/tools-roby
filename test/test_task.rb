@@ -112,7 +112,12 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_task_propagation
-        task = Class.new(Task).new
+        task = Class.new(Task) do
+	    def initialize
+		super
+		self.executable = true
+	    end
+	end.new
 
 	# Check can_signal? for task events
         start_event = task.event(:start)
@@ -142,6 +147,7 @@ class TC_Task < Test::Unit::TestCase
 		event(:stop)
 		on(:stop) { |event| mock.stopped(event.context) }
 	    end.new
+	    task.executable = true
 
 	    mock.should_receive(:started).with(42)
 	    mock.should_receive(:stopped).with(21)
@@ -200,10 +206,8 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_check_running
-	task = Class.new(Roby::Task) do
-	    event(:start, :command => true)
+	task = Class.new(SimpleTask) do
 	    event(:inter, :command => true)
-	    event(:stop, :command => true)
 	end.new
 
 	assert_raises(Roby::TaskModelViolation) { task.inter! }
@@ -218,11 +222,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_aborted_until
-	klass = Class.new(Roby::Task) do
-	    event(:start, :command => true)
-	    event(:stop, :command => true)
-	end
-	parent, child = klass.new, klass.new
+	parent, child = SimpleTask.new, SimpleTask.new
 
 	# p:start -> c:start -> c:failed --> c:stop -> p:stop
 	#				 |-> p:aborted -> p:stop
@@ -253,10 +253,30 @@ class TC_Task < Test::Unit::TestCase
 	end
     end
 
+    def test_executable
+	task = Class.new(SimpleTask) do 
+	    event(:inter, :command => true)
+	end.new
+	task.executable = false
+
+	assert_raises(NotExecutable) { task.start!(nil) }
+	assert_raises(NotExecutable) { task.event(:start).call(nil) }
+
+	task.executable = true
+	assert_nothing_raised { task.event(:start).call(nil) }
+
+	# The task is running, cannot change the executable flag
+	assert_raises(TaskModelViolation) { task.executable = false }
+    end
+
     def test_aborted_default_handler
 	klass = Class.new(Roby::Task) do
 	    event(:start, :command => true)
 	    event(:ready, :command => true)
+	    def initialize
+		super
+		self.executable = true
+	    end
 	end
 
 	t1, t2, t3 = klass.new, klass.new, klass.new
@@ -295,6 +315,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def aggregator_test(a, *tasks)
+	a.executable = true
 	FlexMock.use do |mock|
 	    [:start, :success, :stop].each do |name|
 		a.on(name) { mock.send(name) }
@@ -312,23 +333,34 @@ class TC_Task < Test::Unit::TestCase
 	aggregator_test( (t1 | t2).to_task, t1, t2 )
     end
 
-    def test_task_sequence_aggregator
-        t1, t2 = EmptyTask.new, EmptyTask.new
-	aggregator_test( (t1 + t2), t1, t2 )
-        t1, t2 = EmptyTask.new, EmptyTask.new
-	s = t1 + t2
-	aggregator_test( s.to_task, t1, t2 )
-	assert(! t1.event(:stop).related_object?(s.event(:stop)))
+    def task_tuple(count)
+	tasks = (1..count).map do 
+	    t = EmptyTask.new
+	    t.executable = true
+	    t
+	end
+	yield(tasks)
+    end
 
-        t1, t2, t3 = EmptyTask.new, EmptyTask.new, EmptyTask.new
-        s = t2 + t3
-	s.unshift t1
-	aggregator_test(s, t1, t2, t3)
+    def test_task_sequence_aggregator
+	task_tuple(2) { |t1, t2| aggregator_test( (t1 + t2), t1, t2 ) }
+        task_tuple(2) do |t1, t2| 
+	    s = t1 + t2
+	    aggregator_test( s.to_task, t1, t2 )
+	    assert(! t1.event(:stop).related_object?(s.event(:stop)))
+	end
+
+	task_tuple(3) do |t1, t2, t3|
+	    s = t2 + t3
+	    s.unshift t1
+	    aggregator_test(s, t1, t2, t3)
+	end
 	
-        t1, t2, t3 = EmptyTask.new, EmptyTask.new, EmptyTask.new
-        s = t2 + t3
-	s.unshift t1
-	aggregator_test(s.to_task, t1, t2, t3)
+	task_tuple(3) do |t1, t2, t3|
+	    s = t2 + t3
+	    s.unshift t1
+	    aggregator_test(s.to_task, t1, t2, t3)
+	end
     end
 
     def test_multi_task_signalling
@@ -355,17 +387,13 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_task_same_state
-	klass = Class.new(Task) do
-	    event(:start, :command => true)
-	    event(:stop, :command => true)
-	end
-	t1, t2 = klass.new, klass.new
+	t1, t2 = SimpleTask.new, SimpleTask.new
 
 	assert(t1.same_state?(t2))
 	t1.start!; assert(! t1.same_state?(t2) && !t2.same_state?(t1))
 	t1.stop!; assert(! t1.same_state?(t2) && !t2.same_state?(t1))
 
-	t1 = klass.new
+	t1 = SimpleTask.new
 	t1.start!
 	t2.start!; assert(t1.same_state?(t2) && t2.same_state?(t1))
 	t1.stop!; assert(! t1.same_state?(t2) && !t2.same_state?(t1))
