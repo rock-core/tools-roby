@@ -39,6 +39,19 @@ class TC_BGL < Test::Unit::TestCase
 	assert_equal('foo', g.edge_data(v2, v1))
 	assert_equal([[d2, d1, 'foo']], g.enum_for(:each_edge).to_a)
     end
+
+    def test_graph_list
+	graph = Graph.new
+	klass = Class.new { include Vertex }
+
+	v = klass.new
+	graph.insert v
+	assert_equal([graph], v.enum_for(:each_graph).to_a)
+
+	graph.remove v
+	assert_equal([], v.enum_for(:each_graph).to_a)
+    end
+
     
     def test_vertex_objects
 	graph = Graph.new
