@@ -84,9 +84,8 @@ module Roby
 	    if mission?(from)
 		@missions.delete(from)
 		@missions.insert(to)
-	    else
-		discover(to)
 	    end
+	    discover(to)
 	end
 
 	# call-seq:
