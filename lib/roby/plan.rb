@@ -82,10 +82,11 @@ module Roby
 	    from.replace_vertex_by(to)
 
 	    if mission?(from)
-		@missions.delete(from)
-		@missions.insert(to)
+		discard(from)
+		insert(to)
+	    else
+		discover(to)
 	    end
-	    discover(to)
 	end
 
 	def executable?; true end
