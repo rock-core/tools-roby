@@ -16,6 +16,15 @@ end
 ENV['PATH'] = path.join(':')
 ENV['PKG_CONFIG_PATH'] = pkg_config_path.join(':')
 
+def clear_plan_objects
+    ObjectSpace.each_object(Roby::Task) do |t|
+	t.clear_vertex
+    end
+    ObjectSpace.each_object(Roby::EventGenerator) do |e|
+	e.clear_vertex
+    end
+end
+
 module Test::Unit::Assertions
     class FailedTimeout < RuntimeError; end
     def assert_doesnt_timeout(seconds, message = "watchdog #{seconds} failed")

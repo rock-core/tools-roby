@@ -8,11 +8,9 @@ require 'roby/planning'
 class TC_Control < Test::Unit::TestCase 
     include Roby
 
-    def setup
-	Control.instance.plan.clear 
-    end
     def teardown
 	Control.instance.plan.clear 
+	clear_plan_objects
     end
     def plan
 	Control.instance.plan

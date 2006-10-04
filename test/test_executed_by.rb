@@ -9,6 +9,10 @@ require 'flexmock'
 class TC_ExecutedBy < Test::Unit::TestCase
     include Roby
 
+    def teardown
+	clear_plan_objects
+    end
+
     def test_nominal
 	task = SimpleTask.new
 	exec_klass = Class.new(ExecutableTask) do

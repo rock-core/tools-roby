@@ -10,13 +10,25 @@ class TC_TransactionAsPlan < Test::Unit::TestCase
 	@plan = Transaction.new(@real_plan)
     end
     def teardown
-	@plan.commit
+	@plan.commit_transaction
+	@real_plan.clear
     end
 end
 
 
 class TC_Transactions < Test::Unit::TestCase
     include Roby::Transactions
+    Hierarchy = Roby::TaskStructure::Hierarchy
+    PlannedBy = Roby::TaskStructure::PlannedBy
+    Signal = Roby::EventStructure::Signal
+
+    attr_reader :plan
+    def setup
+	@plan = Roby::Plan.new
+    end
+    def teardown
+	plan.clear
+    end
 
     def transaction_commit(plan)
 	trsc = Roby::Transaction.new(plan)

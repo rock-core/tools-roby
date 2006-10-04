@@ -10,7 +10,9 @@ class TC_Planner < Test::Unit::TestCase
     include Roby::Planning
 
     def setup; Planner.last_id = 0 end
-    def teardown; Planner.last_id = 0 end
+    def teardown
+	Planner.last_id = 0 
+    end
 
     def test_id_validation
 	assert_equal(15, Planner.validate_method_id("15"))
@@ -109,10 +111,13 @@ class TC_Planner < Test::Unit::TestCase
 	assert_result_plan_size(2, planner_model, :check_not_reusable, :id => 2)
     end
     def assert_result_plan_size(size, planner_model, method, options)
-	planner = planner_model.new(Plan.new)
+	plan = Plan.new
+	planner = planner_model.new(plan)
 	result = planner.send(method, options)
 	planner.plan.insert(result)
 	assert_equal(size, planner.plan.size, planner.plan.known_tasks.to_a.inspect)
+
+	plan.clear
     end
 
     def test_recursive

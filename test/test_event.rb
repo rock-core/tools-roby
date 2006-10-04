@@ -6,6 +6,10 @@ require 'mockups/tasks'
 class TC_Event < Test::Unit::TestCase
     include Roby
 
+    def teardown
+	clear_plan_objects
+    end
+
     def test_properties
 	event = EventGenerator.new
 	assert(! event.respond_to?(:call))

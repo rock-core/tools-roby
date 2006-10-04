@@ -17,6 +17,7 @@ class TC_Genom < Test::Unit::TestCase
 		env.stop_module('init_test')
 	    end
 	end
+	clear_plan_objects
     end
 
     def test_def

@@ -8,6 +8,10 @@ require 'mockups/tasks'
 class TC_Task < Test::Unit::TestCase 
     include Roby
 
+    def teardown
+	clear_plan_objects
+    end
+
     def test_base_model
 	task = Class.new(Task) do
 	    event(:stop1)
