@@ -72,9 +72,6 @@ module Roby
 
 
 	def insert(t)
-	    removed.delete(Proxy.may_unwrap(t))
-	    discarded.delete(Proxy.may_unwrap(t))
-
 	    t = if plan.include?(t) then self[t]
 		else Proxy.may_unwrap(t)
 		end
@@ -84,8 +81,6 @@ module Roby
 
 	def discover(tasks = nil)
 	    apply(tasks) do |t|
-		removed.delete(Proxy.may_unwrap(t))
-
 		t = if plan.include?(t) then self[t]
 		    else Proxy.may_unwrap(t)
 		    end
@@ -106,7 +101,6 @@ module Roby
 	def remove_task(t)
 	    unwrapped = Proxy.may_unwrap(t)
 	    if plan.known_tasks.include? unwrapped
-		discarded.delete(unwrapped)
 		removed.insert(unwrapped)
 	    else
 		super
