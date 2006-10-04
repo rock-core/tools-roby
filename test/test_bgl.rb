@@ -245,6 +245,10 @@ class TC_BGL < Test::Unit::TestCase
 	copy = graph.dup
 	assert_not_same(copy, graph)
 	assert_equal(copy, graph)
+
+	vertices.each do |v|
+	    assert( [graph, copy].to_set, v.enum_for(:each_graph).to_set )
+	end
     end
 end
 
