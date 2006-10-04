@@ -278,10 +278,12 @@ module Roby::Transactions
 	def_delegator :@__getobj__, :pending?
 	def_delegator :@__getobj__, :model
 	def_delegator :@__getobj__, :class
+	def_delegator :@__getobj__, :arguments
 
 	proxy :event
 	proxy :each_event
 	proxy :fullfills?
+	proxy :same_state?
 
 	forbid_call :emit
 	forbid_call :start!
