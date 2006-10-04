@@ -149,7 +149,7 @@ module Roby
 	    if !controlable?
 		raise EventModelViolation.new(self), "#call called on a non-controlable event"
 	    elsif !executable?
-		raise NotExecutable.new(self), "#call called on a non-executable event"
+		raise NotExecutable.new(self), "#call called on #{self} which is non-executable event"
 	    end
 
 	    if gathering?
@@ -287,7 +287,7 @@ module Roby
 	# returns true to match the behavior of #call_without_propagation
 	def emit_without_propagation(context)
 	    if !executable?
-		raise NotExecutable.new(self), "#emit called on a non-executable event"
+		raise NotExecutable.new(self), "#emit called on #{self} which is not executable"
 	    end
 
 	    # Create the event object
@@ -308,7 +308,7 @@ module Roby
 	# Returns the new event object
 	def emit(context)
 	    if !executable?
-		raise NotExecutable.new(self), "#emit called on a non-executable event"
+		raise NotExecutable.new(self), "#emit called on #{self} which is not executable"
 	    end
 
 	    if gathering?
