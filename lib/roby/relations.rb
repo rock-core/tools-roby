@@ -108,7 +108,15 @@ module Roby
 	# If +to+ is nil, it removes all relations related to +self+
 	def remove_relations(to = nil, type = nil)
 	    check_is_relation(type)
-	    clear_links(type)
+	    if to
+		remove_parent_object(to, type)
+		remove_child_object(to, type)
+	    else
+		apply_selection(type, enum_relations) do |type|
+		    each_parent_object(type) { |parent| remove_parent_object(parent, type) }
+		    each_child_object(type) { |child| remove_child_object(child, type) }
+		end
+	    end
 	end
 
 	def check_is_relation(type)
