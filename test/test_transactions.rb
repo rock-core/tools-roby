@@ -44,6 +44,9 @@ class TC_Transactions < Test::Unit::TestCase
 		end
 	    end
 	end
+	plan.known_tasks.each do |t|
+	    assert_kind_of(Roby::Task, t)
+	end
     end
 
     # Tests insertion and removal of tasks
