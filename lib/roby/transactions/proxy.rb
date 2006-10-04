@@ -177,10 +177,22 @@ module Roby::Transactions
 	    discover(type)
 	    other.discover(type) if other.kind_of?(Proxy)
 	end
-	alias :adding_child_object :relation_discover
-	alias :adding_parent_object :relation_discover
-	alias :removing_child_object :relation_discover
-	alias :removing_parent_object :relation_discover
+	def adding_child_object(other, type, info)
+	    relation_discover(other, type)
+	    super if defined? super
+	end
+	def adding_parent_object(other, type, info)
+	    relation_discover(other, type)
+	    super if defined? super
+	end
+	def removing_child_object(other, type)
+	    relation_discover(other, type)
+	    super if defined? super
+	end
+	def removing_parent_object(other, type)
+	    relation_discover(other, type)
+	    super if defined? super
+	end
 
 	discover_before :child_object?, 1
 	discover_before :parent_object?, 1
