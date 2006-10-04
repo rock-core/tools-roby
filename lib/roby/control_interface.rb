@@ -13,18 +13,20 @@ module Roby
 	def method_missing(name, *args)
 	    # Check if +name+ is a planner method, and in that case
 	    # add a planning method for it and plan it
-	    planner = control.planners.find do |planner|
-		planner.has_method?(name)
+	    planner_model = control.planners.find do |planner_model|
+		planner_model.has_method?(name)
 	    end
-	    super if !planner
+	    super if !planner_model
+
 	    if args.size > 1
-		raise ArgumentError, "wrong number of arguments (#{args.size} for 1) in `#{planner}##{name}'"
+		raise ArgumentError, "wrong number of arguments (#{args.size} for 1) in `#{planner_model}##{name}'"
 	    end
 	    options = args.first || {}
 
-	    m = planner.method_model(name, options)
+	    m = planner_model.model_of(name, options)
 	    task = (m.returns.new if m) || Task.new
-	    planner = PlanningTask.new(planner, name, options)
+
+	    planner = PlanningTask.new(control.plan, planner_model, name, options)
 	    task.planned_by planner
 
 	    control.plan.insert(task)

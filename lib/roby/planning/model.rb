@@ -470,11 +470,13 @@ module Roby
             end
 
 	    # If there is method definitions for +name+
-            def has_method?(name); singleton_class.respond_to?("#{name}_methods") end
-	    def method_model(name, options)
-		base_model = singleton_class.method_model(name)
+	    def has_method?(name); singleton_class.has_method?(name) end
+	    def self.has_method?(name); respond_to?("#{name}_methods") end
+
+	    def self.model_of(name, options)
+		base_model = method_model(name)
 		if options[:id]
-		    singleton_class.send("#{name}_methods").each { |m| return(m) if m.id == options[:id] } || base_model
+		    send("#{name}_methods").each { |m| return(m) if m.id == options[:id] } || base_model
 		else
 		    base_model
 		end
@@ -506,7 +508,7 @@ module Roby
                 if !methods
                     raise NotFound.new(self, Hash.new)
                 elsif options[:lazy]
-                    task = PlanningTask.new(self, name, options)
+                    task = PlanningTask.new(self.plan, self.class, name, options)
 		    return task
 		end
 		

@@ -1,13 +1,15 @@
 require 'roby/task'
 require 'roby/relations/planned_by'
 require 'roby/control'
+require 'roby/transactions'
 
 module Roby
     # An asynchronous planning task using Ruby threads
     class PlanningTask < Roby::Task
         attr_reader :planner, :method_name, :method_options
-        def initialize(planner, method, options)
-            @planner, @method_name, @method_options = planner, method, options
+        def initialize(plan, planner_model, method, options)
+	    @planner = planner_model.new(Transaction.new(plan))
+            @method_name, @method_options = method, options
             super()
         end
 
@@ -45,10 +47,12 @@ module Roby
 
 	    case result
 	    when Planning::PlanModelError
+		planner.plan.discard_transaction
 		emit(:failed, task.result)
 	    when Roby::Task
 		plan = planner.plan
-		plan.replace(planned_task, result)
+		plan.replace(plan[planned_task], result)
+		plan.commit_transaction
 		emit(:success)
 	    else
 		raise "expected an exception or a Task, got #{result.inspect}"

@@ -46,7 +46,7 @@ class TC_Control < Test::Unit::TestCase
         result_task = nil
         planner = Class.new(Planner) do
             method(:null_task) { result_task = task_model.new }
-        end.new(control.plan)
+        end
         control.planners << planner
 
         planning = iface.null_task
