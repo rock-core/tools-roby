@@ -478,7 +478,10 @@ pair<vertex_descriptor, bool> rb_to_vertex(VALUE vertex, VALUE graph)
 {
     graph_map& descriptors = vertex_descriptor_map(vertex);
     graph_map::iterator it = descriptors.find(graph);
-    return make_pair(it->second, it != descriptors.end());
+    if(it == descriptors.end())
+	return make_pair(static_cast<void*>(0), false);
+    else
+	return make_pair(it->second, true);
 }
 
 /*
