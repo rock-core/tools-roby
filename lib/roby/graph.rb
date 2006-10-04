@@ -8,6 +8,13 @@ end
 
 module BGL
     module Vertex
+	def initialize_copy(v)
+	    super
+
+	    @__bgl_graphs__ = nil
+	    v.each_graph(&g.method(:insert))
+	end
+
 	def clear_vertex
 	    each_graph { |g| g.remove(self) }
 	end
@@ -28,6 +35,8 @@ module BGL
 
     class Graph
 	def initialize_copy(source)
+	    super
+
 	    source.each_vertex { |v| insert(v) }
 	    source.each_edge { |s, t, i| link(s, t, i) }
 	end
