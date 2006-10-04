@@ -155,8 +155,12 @@ VALUE graph_each_vertex(VALUE self)
     vertex_iterator begin, end;
     tie(begin, end) = vertices(graph);
 
-    for (vertex_iterator it = begin; it != end; ++it)
-	rb_yield_values(1, graph[*it]);
+    for (vertex_iterator it = begin; it != end;)
+    {
+	VALUE vertex = graph[*it];
+	++it;
+	rb_yield(vertex);
+    }
     return self;
 }
 
@@ -417,11 +421,12 @@ VALUE graph_each_edge(VALUE self)
     edge_iterator	  begin, end;
     tie(begin, end) = edges(graph);
 
-    for (edge_iterator it = begin; it != end; ++it)
+    for (edge_iterator it = begin; it != end;)
     {
 	VALUE from	= graph[source(*it, graph)];
 	VALUE to	= graph[target(*it, graph)];
 	VALUE data	= graph[*it];
+	++it;
 
 	rb_yield_values(3, from, to, data);
     }
@@ -493,8 +498,14 @@ pair<vertex_descriptor, bool> rb_to_vertex(VALUE vertex, VALUE graph)
 static VALUE vertex_each_graph(VALUE self)
 {
     graph_map& graphs = vertex_descriptor_map(self);
-    for (graph_map::iterator it = graphs.begin(); it != graphs.end(); ++it)
-	rb_yield_values(1, it->first);
+    for (graph_map::iterator it = graphs.begin(); it != graphs.end();)
+    {
+	VALUE graph = it->first;
+	// increment before calling rb_yield since the block
+	// can call Graph#remove for instance
+	++it;
+	rb_yield(graph);
+    }
     return self;
 }
 
@@ -563,9 +574,12 @@ static bool for_each_value(Range range, BGLGraph& graph, F f)
 {
     typedef typename Range::first_type Iterator;
     Iterator it, end;
-    for (tie(it, end) = range; it != end; ++it)
+    for (tie(it, end) = range; it != end; )
     {
-	if (!f(graph[*it]))
+	VALUE value = graph[*it];
+	++it;
+
+	if (!f(value))
 	    return false;
     }
     return true;
@@ -579,11 +593,13 @@ static bool for_each_adjacent_uniq(vertex_descriptor v, Graph const& graph, set<
     typedef typename getter::iterator		        Iterator;
 
     Iterator it, end;
-    for (tie(it, end) = details::vertex_range<Graph, directed>::get(v, graph); it != end; ++it)
+    for (tie(it, end) = details::vertex_range<Graph, directed>::get(v, graph); it != end; )
     {
 	VALUE related_object = graph[*it];
 	bool inserted;
 	tie(tuples::ignore, inserted) = already_seen.insert(related_object);
+	++it;
+
 	if (inserted)
 	    rb_yield_values(1, related_object);
     }
@@ -596,10 +612,12 @@ template<typename F>
 static bool for_each_graph(VALUE vertex, F f)
 {
     graph_map::iterator graph, graph_end;
-    for (tie(graph, graph_end) = vertex_descriptors(vertex); graph != graph_end; ++graph)
+    for (tie(graph, graph_end) = vertex_descriptors(vertex); graph != graph_end;)
     {
 	BGLGraph& g	    = graph_wrapped(graph->first);
 	vertex_descriptor v = graph->second;
+	++graph;
+
 	if (!f(v, g))
 	    return false;
     }
