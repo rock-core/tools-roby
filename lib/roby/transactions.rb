@@ -2,48 +2,66 @@ require 'roby/transactions/proxy'
 require 'utilrb/value_set'
 require 'roby/plan'
 require 'facet/kernel/as'
+require 'utilrb/kernel/swap'
 
 module Roby
     # A transaction is a special kind of plan. It allows to build plans in a separate
-    # sandbox, and then to apply the modifications to the real plan (using #commit), or
+    # sandbox, and then to apply the modifications to the real plan (using #commit_transaction), or
     # to discard all modifications (using #discard)
     class Transaction < Plan
 	Proxy = Transactions::Proxy
 
+	# Get the transaction proxy for +object+
 	def [](object)
-	    if object.class.has_ancestor?(Proxy)
-		object
-	    else
-		Proxy.wrap(object)
-	    end
+	    object = if object.kind_of?(Proxy)
+			 object
+		     else wrap(object)
+		     end
+
+	    object
 	end
 
-	attr_reader :plan, :discarded, :removed
+	def wrap(object)
+	    if proxy = proxies[object]
+		return proxy
+	    end
+	    proxies[object] = Proxy.proxy_class(object).new(object, self)
+	end
+	def may_wrap(object); wrap(object) rescue object end
+
+	def discovered(object)
+	    discovered_objects << object
+	end
+	
+
+	attr_reader :plan, :discarded, :removed, :proxies, :discovered_objects
 	def initialize(plan)
 	    super(plan.hierarchy, plan.service_relations)
 
 	    @plan = plan
 
+	    @proxies   = Hash.new
+	    @discovered_objects = ValueSet.new
 	    @removed   = ValueSet.new
 	    @discarded = ValueSet.new
 	end
 
-	def include?(t); super || super(Proxy.may_wrap(t)) end
-	def mission?(t); super || super(Proxy.may_wrap(t)) end
+	def include?(t); super || super(may_wrap(t)) end
+	def mission?(t); super || super(may_wrap(t)) end
 
 	def missions
 	    plan_missions = plan.missions.
 		difference(discarded).
 		difference(removed)
 
-	    super.union(plan_missions.map(&Proxy.method(:wrap)))
+	    super.union(plan_missions.map(&method(:[])))
 	end
 
 	def known_tasks
 	    plan_tasks = plan.known_tasks. 
 		difference(removed)
 
-	    super.union(plan_tasks.map(&Proxy.method(:wrap)))
+	    super.union(plan_tasks.map(&method(:[])))
 	end
 
 
@@ -51,21 +69,23 @@ module Roby
 	    removed.delete(Proxy.may_unwrap(t))
 	    discarded.delete(Proxy.may_unwrap(t))
 
-	    t = if plan.include?(t) then Proxy.wrap(t)
+	    t = if plan.include?(t) then self[t]
 		else Proxy.may_unwrap(t)
 		end
 
 	    super(t)
 	end
 
-	def discover(t)
-	    removed.delete(Proxy.may_unwrap(t))
+	def discover(tasks = nil)
+	    apply(tasks) do |t|
+		removed.delete(Proxy.may_unwrap(t))
 
-	    t = if plan.include?(t) then Proxy.wrap(t)
-		else Proxy.may_unwrap(t)
-		end
+		t = if plan.include?(t) then self[t]
+		    else Proxy.may_unwrap(t)
+		    end
 
-	    super(t)
+		super(t)
+	    end
 	end
 
 	def discard(t)
@@ -87,55 +107,36 @@ module Roby
 	    end
 	end
 
-	def commit
+	# Commit all modifications that have been registered
+	# in this transaction
+	def commit_transaction
 	    discarded.each { |t| plan.discard(t) }
 	    removed.each { |t| plan.remove_task(t) }
 
-	    as_plan = as(Roby::Plan)
-
-	    # Get all discovered proxies and map their relationship to
-	    # their relations present in +plan+
-	    TaskStructure.each_relation do |rel|
-		tasks = as_plan.known_tasks.find_all do |t| 
-		    if Proxy === t 
-			t.discovered?(rel)
-		    else
-			true
-		    end
-		end
-
-		tasks.each do |proxy|
-		    obj = if Proxy === proxy
-			      proxy.__getobj__
-			  else proxy
-			  end
-
-		    proxy_children = proxy.enum_for(:each_child_object, rel).to_a 
-		    plan_children  = obj.enum_for(:each_child_object, rel).to_a
-
-		    (proxy_children - plan_children).each do |child|
-			unwrapped_child = Proxy.may_unwrap(child)
-
-			if obj != proxy
-			    obj.add_child_object(unwrapped_child, rel, proxy[child, rel])
-			end
-
-			if unwrapped_child != child
-			    proxy.remove_child_object(child, rel)
-			end
-		    end
-		    (plan_children - proxy_children).each do |child|
-			obj.remove_child_object(Proxy.may_unwrap(child), rel)
-		    end
-		end
+	    discovered_objects.each { |proxy| proxy.commit_transaction }
+	    proxies.each { |_, proxy| proxy.disable_discovery! }
+	    proxies.each { |_, proxy| proxy.clear_vertex }
+	    proxies.each do |object, proxy|
+		# Make sure +proxy+ won't be discovered
+		Kernel.swap! proxy, Proxy.forwarder(proxy).new(object)
 	    end
 
-	    as_plan.known_tasks.dup.each do |t|
-		as_plan.remove_task(t) if Proxy === t
-	    end
+	    @missions.each    { |t| plan.insert(t) }
+	    @known_tasks.each { |t| plan.discover(t) }
+	end
 
-	    as_plan.missions.each { |t| plan.insert(t) }
-	    as_plan.known_tasks.each { |t| plan.discover(t) }
+	# Discard all the modifications that have been registered 
+	# in this transaction
+	def discard_transaction
+	    # Clear the underlying plan
+	    clear
+
+	    # Clear all remaining proxies
+	    proxies.each { |_, proxy| proxy.discard_transaction }
+	    proxies.clear
+	    discovered_objects.clear
+	    removed.clear
+	    discarded.clear
 	end
     end
 end

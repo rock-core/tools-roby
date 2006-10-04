@@ -1,5 +1,6 @@
 require 'roby/task'
 require 'roby/event'
+require 'utilrb/module/ancestor_p'
 
 # The Transactions module define all tools needed to implement
 # the Transaction class
@@ -10,26 +11,16 @@ module Roby::Transactions
     # The Proxy module define base functionalities for these proxy objects
     module Proxy
 	@@proxy_klass = []
-	@@proxys	  = Hash.new
+	@@forwarders  = Hash.new
 
 	# Returns the proxy for +object+. Raises ArgumentError if +object+ is
 	# not an object which should be wrapped
-	def self.wrap(object)
-	    if proxy = @@proxys[object]
-		return proxy
-	    end
-	    all_proxys = @@proxy_klass.find_all { |_, real_klass| object.class.has_ancestor?(real_klass) }
+	def self.proxy_class(object)
+	    all_proxys = @@proxy_klass.find_all { |_, real_klass| object.kind_of?(real_klass) }
 	    if all_proxys.empty?
 		raise ArgumentError, "no proxy for #{object.class}"
 	    end
-
-	    # Proxy#initialize adds us to @@proxy
-	    all_proxys.last[0].new(object)
-	end
-
-	# Returns the proxy for +object+ if there is one, or +object+ itself
-	def self.may_wrap(object)
-	    wrap(object) rescue object
+	    all_proxys.last[0]
 	end
 
 	# Returns the object wrapped by +wrapper+
@@ -50,39 +41,60 @@ module Roby::Transactions
 	    proxy_klass.extend Forwardable
 	end
 
-	def initialize(object)
-	    @@proxys[object] = self
-	    @discovered = Hash.new
+	# Returns a class that forwards every calls to +proxy.__getobj__+
+	def self.forwarder(proxy)
+	    klass = proxy.__getobj__.class
+	    @@forwarders[klass] ||= DelegateClass(klass)
+	    @@forwarders[klass]
+	end
+
+	def initialize(object, transaction)
+	    @discovered  = Hash.new
+	    @transaction = transaction
 	    @__getobj__ = object
 	end
+	attr_reader :transaction
 	attr_reader :__getobj__
 
 	# Fix DelegateClass#== so that comparing the same proxy works
 	def ==(other)
-	    if other.class.has_ancestor?(Proxy)
+	    if other.kind_of?(Proxy)
 		self.eql?(other)
 	    else
 		__getobj__ == other
 	    end
 	end
 
-	# Remove this proxy object
-	def discard; @@proxys.delete(__getobj__) end
-
+	def disable_discovery!
+	    relations.each { |rel| @discovered[rel] = true }
+	end
 	def discovered?(relation)
 	    @discovered[relation]
 	end
 	def discover(relation)
-	    unless discovered?(relation)
-		@discovered[relation] = true
+	    if @discovered.empty?
+		transaction.discovered(self)
+	    end
 
+	    unless discovered?(relation)
+		if relation.parent && !discovered?(relation.parent)
+		    return discover(relation.parent)
+		end
+
+		@discovered[relation] = true
+		relation.subsets.each { |rel| discover(rel) }
+
+		# Bypass add_ and remove_ hooks by using the RelationGraph#link
+		# methods directly. This is needed because we don't really
+		# add new relations, but only copy already existing relations
+		# from the real plan to the transaction graph
 		__getobj__.each_parent_object(relation) do |parent|
-		    wrapper = Proxy.wrap(parent)
-		    wrapper.add_child_object(self, relation, parent[__getobj__, relation])
+		    wrapper = transaction[parent]
+		    relation.link(wrapper, self, parent[__getobj__, relation])
 		end
 		__getobj__.each_child_object(relation) do |child|
-		    wrapper = Proxy.wrap(child)
-		    add_child_object(wrapper, relation, __getobj__[child, relation])
+		    wrapper = transaction[child]
+		    relation.link(self, wrapper, __getobj__[child, relation])
 		end
 	    end
 	end
@@ -93,11 +105,14 @@ module Roby::Transactions
 	    def proxy_code(m)
 		"args = args.map(&Proxy.method(:may_unwrap))
 		result = if block_given?
-			     __getobj__.#{m}(*args) { |*objects| yield(*objects.map(&Proxy.method(:may_wrap))) }
+			     __getobj__.#{m}(*args) do |*objects| 
+				objects.map! { |o| transaction.may_wrap(o) }
+				yield(*objects)
+			     end
 			 else
 			     __getobj__.#{m}(*args)
 			 end
-		Proxy.may_wrap(result)"
+		transaction.may_wrap(result)"
 	    end
 
 	    def proxy(*methods)
@@ -112,9 +127,9 @@ module Roby::Transactions
 		    def #{m}(relation) 
 			# Discover all tasks that are supposed to be in the
 			# component on the real object, and then compute
-			# the component on this graph
+			# the component on the transaction graph
 			__getobj__.#{m}(relation).each do |task|
-			    Proxy.wrap(task).discover(relation)
+			    transaction[task].discover(relation)
 			end
 			super
 		    end
@@ -122,11 +137,18 @@ module Roby::Transactions
 		end
 	    end
 
-	    def discover_before(*methods)
-		methods.each do |m|
+	    def discover_before(m, relation_pos = nil)
+		if relation_pos
 		    class_eval <<-EOD
 		    def #{m}(*args)
-			args.each { |rel| discover(rel) if Roby::RelationGraph === rel }
+			discover(args[#{relation_pos}])
+			super
+		    end
+		    EOD
+		else
+		    class_eval <<-EOD
+		    def #{m}(*args)
+			transaction.discovered(self)
 			super
 		    end
 		    EOD
@@ -151,30 +173,87 @@ module Roby::Transactions
 	proxy_component :directed_component
 	proxy_component :reverse_directed_component
 
-	discover_before :child_object?
-	discover_before :parent_object?
-	discover_before :related_object?
-	discover_before :each_child_object
-	discover_before :each_parent_object
-	discover_before :add_child_object
-	discover_before :remove_child_object
+	def relation_discover(other, type, unused = nil)
+	    discover(type)
+	    other.discover(type) if other.kind_of?(Proxy)
+	end
+	alias :adding_child_object :relation_discover
+	alias :adding_parent_object :relation_discover
+	alias :removing_child_object :relation_discover
+	alias :removing_parent_object :relation_discover
+
+	discover_before :child_object?, 1
+	discover_before :parent_object?, 1
+	discover_before :related_object?, 1
+	discover_before :each_child_object, 0
+	discover_before :each_parent_object, 0
+
+	def commit_relations(enum, is_parent)
+	    relations.each do |rel|
+		next unless discovered?(rel)
+
+		trsc_others = enum_for(enum, rel).to_value_set
+		plan_others = __getobj__.enum_for(enum, rel).map { |t| transaction[t] }.to_value_set
+
+		new = (trsc_others - plan_others)
+		del = (plan_others - trsc_others)
+
+		if is_parent
+		    new.each do |other|
+			__getobj__.add_child_object(Proxy.may_unwrap(other), rel, self[other, rel])
+		    end
+		    del.each do |other|
+			__getobj__.remove_child_object(Proxy.may_unwrap(other), rel)
+		    end
+		else
+		    new.each do |other|
+			Proxy.may_unwrap(other).add_child_object(__getobj__, rel, other[self, rel])
+		    end
+		    del.each do |other|
+			Proxy.may_unwrap(other).remove_child_object(__getobj__, rel)
+		    end
+		end
+	    end
+	end
+
+	# Called when we need to commit modifications to the plan
+	# Proxy#commit_transaction commits relation modification. Override in specific proxies if
+	# more is needed
+	def commit_transaction
+	    commit_relations(:each_child_object, true)
+	    commit_relations(:each_parent_object, false)
+	end
+
+	# Called when we need to discard the modifications. Proxy#commit
+	# simply removes all relations
+	def discard_transaction
+	    clear_vertex
+	end
     end
 
     # Proxy for Roby::EventGenerator
-    class EventGenerator
+    class EventGenerator < Roby::EventGenerator
 	Roby::EventStructure.apply_on self
 
 	include Proxy
 	proxy_for Roby::EventGenerator
 	
 	def_delegator :@__getobj__, :symbol
+	def_delegator :@__getobj__, :controlable?
+	proxy :can_signal?
+	discover_before :on
 
 	forbid_call :call
 	forbid_call :emit
+
+	def commit_transaction
+	    super
+	    handlers.each { |h| __getobj__.on(&h) }
+	end
     end
 
     # Proxy for Roby::Task
-    class Task
+    class Task < Roby::Task
 	Roby::TaskStructure.apply_on self
 
 	include Proxy
@@ -183,12 +262,18 @@ module Roby::Transactions
 	def_delegator :@__getobj__, :running?
 	def_delegator :@__getobj__, :finished?
 	def_delegator :@__getobj__, :pending?
+	def_delegator :@__getobj__, :model
+	def_delegator :@__getobj__, :class
 
 	proxy :event
 	proxy :each_event
 	proxy :fullfills?
 
 	forbid_call :emit
+	forbid_call :start!
+	forbid_call :failed!
+	forbid_call :stop!
+	forbid_call :success!
 
 	def to_task; self end
 
@@ -196,9 +281,8 @@ module Roby::Transactions
 	    raise NotImplementedError, "calling event commands is forbidden in a transaction"
 	end
 
-	def clear_relations
-	    each_event { |ev| ev.clear_vertex }
-	    self.clear_vertex
+	def discard_transaction
+	    clear_relations
 	end
 
 	def method_missing(m, *args, &block)
@@ -210,6 +294,5 @@ module Roby::Transactions
 	    end
 	end
     end
-
 end
 

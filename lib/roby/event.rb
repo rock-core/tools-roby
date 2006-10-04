@@ -172,9 +172,7 @@ module Roby
 
 	# Establishes signalling and/or event handlers from this event model
 	def on(*signals, &handler)
-	    if !signals.all? { |e| EventGenerator === e }
-		raise ArgumentError, "arguments to EventGenerator#on shall be EventGenerator objects, got #{signals.inspect}" 
-	    elsif bad_signal = signals.find { |e| !can_signal?(e) }
+	    if bad_signal = signals.find { |e| !can_signal?(e) }
 		raise EventModelViolation.new(self), "trying to establish a signal between #{self} and #{bad_signal}"
 	    end
 	    signals.each { |sig| add_signal(sig) }
