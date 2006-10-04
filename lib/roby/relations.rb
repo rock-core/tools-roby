@@ -20,56 +20,88 @@ module Roby
 	def enum_relations; @enum_relations ||= enum_for(:each_graph) end
 	def relations; enum_relations.to_a end
 
-	# Add a new relation
-	def add_child_object(to, type, info = nil)
+	# Add a new child object in the +type+ relation. This calls
+	# * self.adding_child_object and child.adding_parent_object just before the relation is added
+	# * self.added_child_object and child.added_child_object just after
+	def add_child_object(child, type, info = nil)
 	    check_is_relation(type)
-	    type.link(self, to, info)
-	    added_child_object(to, type, info)
+
+	    adding_child_object(child, type, info)
+	    type.link(self, child, info)
+	    added_child_object(child, type, info)
 	end
-	# Hook called after a new child has been added
-	def added_child_object(to, type, info)
-	    super if defined? super
+	# Add a new parent object in the +type+ relation
+	# * self.adding_child_object and child.adding_parent_object just before the relation is added
+	# * self.added_child_object and child.added_child_object just after
+	def add_parent_object(parent, type, info = nil)
+	    parent.add_child_object(self, type, info)
 	end
 
-	# Remove relations where self is a parent
-	def remove_child_object(to, type = nil)
+	# Hook called before a new child is added
+	def adding_child_object(child, type, info)
+	    child.adding_parent_object(self, type, info)
+	    super if defined? super 
+	end
+	# Hook called after a new child has been added
+	def added_child_object(child, type, info)
+	    child.added_parent_object(self, type, info)
+	    super if defined? super 
+	end
+	# Hook called after a new parent has been added
+	def added_parent_object(parent, type, info); super if defined? super end
+	# Hook called after a new parent is being added
+	def adding_parent_object(parent, type, info); super if defined? super end
+
+	# Remove the relation between +self+ and +child+. If +type+
+	# is given, remove only a +type+ relation
+	def remove_child_object(child, type = nil)
 	    check_is_relation(type)
 	    apply_selection(type, enum_relations) do |type|
-		type.unlink(self, to)
-		removed_child_object(to, type)
+		removing_child_object(child, type)
+		type.unlink(self, child)
+		removed_child_object(child, type)
 	    end
 	end
+	# Remove relations where self is a parent. If +type+
+	# is not nil, remove only the +type+ relations
 	def remove_children(type = nil)
 	    apply_selection(type, enum_relations) do |type|
-		self.each_child_object(type) do |to|
-		    remove_child_object(to, type)
+		self.each_child_object(type) do |child|
+		    remove_child_object(child, type)
 		end
 	    end
 	end
-	# Hook called after a child has been removed
-	def removed_child_object(to, type)
-	    super if defined? super
-	end
 
-	# Remove relations where self is a child
-	def remove_parent_object(to, type = nil)
-	    check_is_relation(type)
-	    apply_selection(type, enum_relations) do |type|
-		type.unlink(to, self)
-		removed_parent_object(to, type)
-	    end
+	# Remove relations where +self+ is a child. If +type+
+	# is not nil, remove only the +type+ relations
+	def remove_parent_object(parent, type = nil)
+	    parent.remove_child_object(self, type)
 	end
+	# Remove all parents of +self+. If +type+ is not nil,
+	# remove only the parents in the +type+ relation
 	def remove_parents(type = nil)
 	    check_is_relation(type)
 	    apply_selection(type, enum_relations) do |type|
-		type.each_parent_object(self) do |to|
-		    remove_parent_object(type, to)
+		type.each_parent_object(self) do |parent|
+		    remove_parent_object(type, parent)
 		end
 	    end
 	end
+
 	# Hook called after a parent has been removed
-	def removed_parent_object(to, type)
-	    super if defined? super
+	def removing_parent_object(parent, type); super if defined? super end
+	# Hook called after a child has been removed
+	def removing_child_object(child, type)
+	    child.removing_parent_object(self, type)
+	    super if defined? super 
+	end
+
+	# Hook called after a parent has been removed
+	def removed_parent_object(parent, type); super if defined? super end
+	# Hook called after a child has been removed
+	def removed_child_object(child, type)
+	    child.removed_parent_object(self, type)
+	    super if defined? super 
 	end
 
 	# Remove all relations that point to or come from +to+
