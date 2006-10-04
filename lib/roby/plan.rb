@@ -77,9 +77,9 @@ module Roby
 	    # Copy all graph relations on +from+ events that are in +to+
 	    from.each_event do |ev|
 		next unless to.has_event?(ev.symbol)
-		ev.replace_vertex_by(to.event(ev.symbol))
+		ev.replace_object_by(to.event(ev.symbol))
 	    end
-	    from.replace_vertex_by(to)
+	    from.replace_object_by(to)
 
 	    if mission?(from)
 		discard(from)
