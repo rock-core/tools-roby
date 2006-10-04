@@ -34,7 +34,10 @@ module Roby::TaskAggregator
 
 	attr_reader :tasks
 	def initialize; @tasks = Array.new; super end
-	def each_task(&iterator); tasks.each(&iterator) end
+	def each_task(&iterator)
+	    yield(self)
+	    tasks.each(&iterator) 
+	end
     end
 
     class Sequence < TaskAggregator
