@@ -122,7 +122,6 @@ module Roby
     end
 
     class Task
-	attr_accessor :plan
 	def name; model(false).name end
 
 	@@tasks = Hash.new
@@ -186,17 +185,27 @@ module Roby
 	    super() if defined? super
         end
 
-	def executable?; @executable end
+	attr_reader :plan
+	def plan=(new_plan)
+	    if !pending?
+		raise TaskModelViolation.new(self), "cannot change the plan of a running task"
+	    end
+
+	    @plan = new_plan
+	    flag = executable?
+	    each_event { |ev| ev.executable = flag }
+	end
+	def executable?
+	    @executable || (plan && plan.executable?)
+	end
 	def executable=(flag)
 	    return if flag == @executable
-
 	    if flag && !pending? 
 		raise TaskModelViolation.new(self), "cannot set the executable flag on a task which is not pending"
 	    elsif !flag && running?
 		raise TaskModelViolation.new(self), "cannot unset the executable flag on a task which is running"
 	    end
 
-	    each_event { |ev| ev.executable = flag }
 	    @executable = flag
 	end
 

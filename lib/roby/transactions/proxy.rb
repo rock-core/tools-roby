@@ -287,7 +287,10 @@ module Roby::Transactions
 	forbid_call :stop!
 	forbid_call :success!
 
-	def to_task; self end
+	def plan=(new_plan)
+	    @plan = new_plan
+	    each_event { |ev| ev.executable = executable? }
+	end
 
 	def self.forbidden_command
 	    raise NotImplementedError, "calling event commands is forbidden in a transaction"

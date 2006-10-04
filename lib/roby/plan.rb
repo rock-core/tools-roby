@@ -104,11 +104,8 @@ module Roby
 		    else [tasks]
 		    end
 
-	    new_tasks = useful_component(tasks)
-	    new_tasks.each do |t|
-		t.executable = executable?
-		t.plan = self
-	    end
+	    new_tasks = useful_component(tasks).difference(@known_tasks)
+	    new_tasks.each { |t| t.plan = self }
 	    @known_tasks.merge new_tasks
 
 	    self
