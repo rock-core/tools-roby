@@ -223,5 +223,34 @@ class TC_Transactions < Test::Unit::TestCase
 	    e.call(nil)
 	end
     end
+
+    def test_commit_replace
+	t1, t2 = Roby::Task.new, Roby::Task.new
+	t1.realized_by t2
+	plan.insert(t1)
+
+	r = Roby::Task.new
+	transaction_commit(plan) do |trsc|
+	    p1, p2 = trsc[t1], trsc[t2]
+	    trsc.replace(p1, r)
+	    assert(Hierarchy.linked?(r, p2))
+	    assert(!Hierarchy.linked?(r, t2))
+	end
+	assert(Hierarchy.linked?(r, t2))
+	assert_equal([r], plan.missions.to_a)
+
+	t1, t2 = Roby::Task.new, Roby::Task.new
+	t1.realized_by t2
+	plan.insert(t1)
+
+	r = Roby::Task.new
+	transaction_commit(plan) do |trsc|
+	    p1, p2 = trsc[t1], trsc[t2]
+	    trsc.replace(p2, r)
+	    assert(Hierarchy.linked?(p1, r))
+	    assert(!Hierarchy.linked?(t1, r))
+	end
+	assert(Hierarchy.linked?(t1, r))
+    end
 end
 
