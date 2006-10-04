@@ -18,8 +18,14 @@ module Roby
 		     else wrap(object)
 		     end
 
+	    if object.kind_of?(Task)
+		object.plan = self
+	    end
+
 	    object
 	end
+
+	def executable?; false end
 
 	def wrap(object)
 	    if proxy = proxies[object]
@@ -113,16 +119,17 @@ module Roby
 	    discarded.each { |t| plan.discard(t) }
 	    removed.each { |t| plan.remove_task(t) }
 
+	    @missions.each    { |t| plan.insert(t) }
+	    @known_tasks.each { |t| plan.discover(t) }
+
 	    discovered_objects.each { |proxy| proxy.commit_transaction }
 	    proxies.each { |_, proxy| proxy.disable_discovery! }
 	    proxies.each { |_, proxy| proxy.clear_vertex }
+
 	    proxies.each do |object, proxy|
 		# Make sure +proxy+ won't be discovered
 		Kernel.swap! proxy, Proxy.forwarder(proxy).new(object)
 	    end
-
-	    @missions.each    { |t| plan.insert(t) }
-	    @known_tasks.each { |t| plan.discover(t) }
 	end
 
 	# Discard all the modifications that have been registered 

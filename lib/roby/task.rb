@@ -122,6 +122,7 @@ module Roby
     end
 
     class Task
+	attr_accessor :plan
 	def name; model(false).name end
 
 	@@tasks = Hash.new
@@ -490,6 +491,20 @@ module Roby
 	    each_event { |sym, e| return e if sym == name }
 	    nil
         end
+
+	def check_relation_same_plan(child, type, info)
+	    if child.plan && plan && child.plan != plan
+		raise InvalidPlanOperation, "trying to establish a relation of type #{type} between two tasks not of the same plan"
+	    end
+	end
+	def adding_child_object(child, type, info)
+	    super if defined? super
+	    check_relation_same_plan(child, type, info)
+	end
+	def adding_parent_object(child, type, info)
+	    super if defined? super
+	    check_relation_same_plan(child, type, info)
+	end
 
         # Checks that all events in +events+ are valid events for this task.
         # The requested events can be either an event name (symbol or string)

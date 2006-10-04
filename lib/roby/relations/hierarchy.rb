@@ -11,7 +11,7 @@ module Roby::TaskStructure
 	# success:: the list of success events
 	# failure:: the list of failing event
 	# model:: a [task_model, arguments] pair which defines the task model the
-	#	  relation parent is expecting
+	#	  parent is expecting
         def realized_by(task, options = {})
             options = validate_options options, :model => [task.class, {}], :success => [:success], :failure => [:failed]
 
@@ -22,9 +22,9 @@ module Roby::TaskStructure
 	    if !task.fullfills?(*options[:model])
 		raise ArgumentError, "task #{task} does not fullfills the provided model #{options[:model].inspect}"
 	    end
-	    
 
 	    add_child(task, options)
+	    plan.discover(task) if plan
             self
         end
 

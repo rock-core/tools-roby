@@ -88,6 +88,8 @@ module Roby
 	    discover(to)
 	end
 
+	def executable?; true end
+
 	# call-seq:
 	#   plan.discover(t1, t2, ...)	    => plan
 	#   plan.discover		    => plan
@@ -103,7 +105,8 @@ module Roby
 
 	    new_tasks = useful_component(tasks)
 	    new_tasks.each do |t|
-		t.executable = true
+		t.executable = executable?
+		t.plan = self
 	    end
 	    @known_tasks.merge new_tasks
 

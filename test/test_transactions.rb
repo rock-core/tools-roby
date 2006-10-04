@@ -97,11 +97,23 @@ class TC_Transactions < Test::Unit::TestCase
 	assert(!plan.mission?(t3))
     end
 
-    def test_commit_task_relations
+    def test_discover
 	t1, t2, t3, t4 = (1..4).map { Roby::Task.new }
 	plan.insert [t1, t2]
 	t1.realized_by t2
 
+	transaction_commit(plan) do |trsc|
+	    trsc[t2].planned_by t3
+	    t4.realized_by trsc[t1]
+	end
+    end
+
+    def test_commit_task_relations
+	t1, t2 = (1..2).map { Roby::Task.new }
+	plan.insert [t1, t2]
+	t1.realized_by t2
+
+	t3, t4 = (1..2).map { Roby::Task.new }
 	transaction_commit(plan) do |trsc|
 	    trsc.discover t3
 	    trsc.discover t4
@@ -109,26 +121,23 @@ class TC_Transactions < Test::Unit::TestCase
 	end
 	assert(PlannedBy.linked?(t3, t4))
 
+	t = Roby::Task.new
 	transaction_commit(plan) do |trsc|
 	    p1, p2 = trsc[t1], trsc[t2]
-	    t4.realized_by p1
-	    assert(Hierarchy.linked?(t4, p1))
-	    assert(!Hierarchy.linked?(t4, t1))
-	    assert(Hierarchy.linked?(p1, p2))
-	    assert(!Hierarchy.linked?(p1, t2))
-	    assert(!Hierarchy.linked?(t1, p2))
-	    assert(Hierarchy.linked?(t1, t2))
+	    t.realized_by p1
+	    assert(Hierarchy.linked?(t, p1))
+	    assert(!Hierarchy.linked?(t, t1))
 	end
-	assert(Hierarchy.linked?(t1, t2))
-	assert(Hierarchy.linked?(t4, t1))
+	assert(Hierarchy.linked?(t, t1))
 
+	t = Roby::Task.new
 	transaction_commit(plan) do |trsc|
 	    p1, p2 = trsc[t1], trsc[t2]
-	    p2.realized_by t3
-	    assert(Hierarchy.linked?(p2, t3))
-	    assert(!Hierarchy.linked?(t2, t3))
+	    p2.realized_by t
+	    assert(Hierarchy.linked?(p2, t))
+	    assert(!Hierarchy.linked?(t2, t))
 	end
-	assert(Hierarchy.linked?(t2, t3))
+	assert(Hierarchy.linked?(t2, t))
 
 	transaction_commit(plan) do |trsc|
 	    p1, p2 = trsc[t1], trsc[t2]
