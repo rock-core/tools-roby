@@ -154,6 +154,8 @@ module Roby
 	    end
 	end
 
+	def to_s; name end
+
 	def link(from, to, info = nil)
 	    if linked?(from, to)
 		if from[to, self] != info
