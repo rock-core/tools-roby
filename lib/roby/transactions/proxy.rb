@@ -77,6 +77,10 @@ module Roby::Transactions
 	    if @discovered.empty?
 		transaction.discovered(self)
 	    end
+	    if !relation
+		__getobj__.each_relation(&method(:discover))
+		return
+	    end
 
 	    unless discovered?(relation)
 		if relation.parent && !discovered?(relation.parent)
@@ -139,21 +143,26 @@ module Roby::Transactions
 		end
 	    end
 
-	    def discover_before(m, relation_pos = nil)
-		if relation_pos
+	    def discover_before(m, relation = nil)
+		if Roby::RelationGraph === relation || !relation
+		    class_eval do
+			class_variable_set("@@_#{m}_discovered_relation_", relation)
+		    end
 		    class_eval <<-EOD
-		    def #{m}(*args)
-			discover(args[#{relation_pos}])
+			def #{m}(*args, &block)
+			    discover(@@_#{m}_discovered_relation_)
+			    super
+			end
+		    EOD
+		elsif relation.kind_of?(Integer)
+		    class_eval <<-EOD
+		    def #{m}(*args, &block)
+			discover(args[#{relation}])
 			super
 		    end
 		    EOD
 		else
-		    class_eval <<-EOD
-		    def #{m}(*args)
-			transaction.discovered(self)
-			super
-		    end
-		    EOD
+		    raise ArgumentError, "invalid value #{relation.inspect}"
 		end
 	    end
 
@@ -199,6 +208,8 @@ module Roby::Transactions
 	discover_before :child_object?, 1
 	discover_before :parent_object?, 1
 	discover_before :related_object?, 1
+	discover_before :relations
+	discover_before :each_relation
 	discover_before :each_child_object, 0
 	discover_before :each_parent_object, 0
 
@@ -255,7 +266,7 @@ module Roby::Transactions
 	def_delegator :@__getobj__, :symbol
 	def_delegator :@__getobj__, :controlable?
 	proxy :can_signal?
-	discover_before :on
+	discover_before :on, Roby::EventStructure::CausalLink
 
 	forbid_call :call
 	forbid_call :emit
@@ -279,6 +290,7 @@ module Roby::Transactions
 	def_delegator :@__getobj__, :model
 	def_delegator :@__getobj__, :class
 	def_delegator :@__getobj__, :arguments
+	def_delegator :@__getobj__, :has_event?
 
 	proxy :event
 	proxy :each_event
