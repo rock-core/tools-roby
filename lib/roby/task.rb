@@ -190,7 +190,9 @@ module Roby
 
 	attr_reader :plan
 	def plan=(new_plan)
-	    if !pending?
+	    if @plan == new_plan
+		return
+	    elsif !pending?
 		raise TaskModelViolation.new(self), "cannot change the plan of a running task"
 	    end
 
