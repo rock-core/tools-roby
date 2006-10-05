@@ -1,7 +1,7 @@
 require 'roby/task'
 
 module Roby::TaskStructure
-    relation :PlannedBy, :child_name => :planning_task, :parent_name => :planned_task do
+    relation :PlannedBy, :child_name => :planning_task, :parent_name => :planned_task, :noinfo => true do
 	def planned_task; enum_for(:each_planned_task).find { true } end
 	def planning_task; enum_for(:each_planning_task).find { true } end
         def planned_by(task)
