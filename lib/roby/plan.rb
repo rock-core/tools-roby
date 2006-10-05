@@ -64,6 +64,8 @@ module Roby
 	# Replaces +from+ by +to+. If +to+ cannot replace +from+, an
 	# InvalidReplace exception is raised.
 	def replace(from, to)
+	    return if from == to
+
 	    # Check that +to+ is valid in all hierarchy relations where +from+ is a child
 	    if !to.fullfills?(*from.fullfilled_model)
 		raise InvalidReplace.new(from, to, "to does not fullfills the needed models")
