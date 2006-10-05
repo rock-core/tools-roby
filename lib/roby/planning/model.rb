@@ -482,6 +482,13 @@ module Roby
 		end
 	    end
 
+	    # Returns true if this planner is currently planning for +task+
+	    def planning?(task)
+		if planning_task = task.planning_task
+		    planning_task.planner == self
+		end
+	    end
+
             # Find a suitable development for the +name+ method.
             def plan_method(name, options = Hash.new)
                 name    = name.to_s
@@ -512,7 +519,7 @@ module Roby
 		    return task
 		end
 		
-		# Check if we can reuse a task already in #result
+		# Check if we can reuse a task already in the plan
 		all_returns = methods.map { |m| m.returns if m.reuse? }
 		if (model = singleton_class.method_model(name)) && !options[:id]
 		    all_returns << model.returns if model.reuse?
@@ -521,7 +528,7 @@ module Roby
 				  
 		all_returns.each do |return_type|
 		    task = plan.enum_for(:each_task).find do |task|
-			task.fullfills?(return_type, arguments)
+			task.fullfills?(return_type, arguments) && !planning?(task)
 		    end
 		    if task
 			Planning.debug { "selecting task #{task} instead of planning #{name}[#{arguments}]" }
