@@ -227,6 +227,7 @@ class TC_Transactions < Test::Unit::TestCase
     def test_commit_replace
 	t1, t2 = Roby::Task.new, Roby::Task.new
 	t1.realized_by t2
+	t1.event(:stop).on t2.event(:start)
 	plan.insert(t1)
 
 	r = Roby::Task.new
@@ -235,12 +236,16 @@ class TC_Transactions < Test::Unit::TestCase
 	    trsc.replace(p1, r)
 	    assert(Hierarchy.linked?(r, p2))
 	    assert(!Hierarchy.linked?(r, t2))
+	    assert(Signal.linked?(r.event(:stop), p2.event(:start)))
+	    assert(!Signal.linked?(r.event(:stop), t2.event(:start)))
 	end
 	assert(Hierarchy.linked?(r, t2))
 	assert_equal([r], plan.missions.to_a)
+	assert(Signal.linked?(r.event(:stop), t2.event(:start)))
 
 	t1, t2 = Roby::Task.new, Roby::Task.new
 	t1.realized_by t2
+	t1.event(:stop).on t2.event(:start)
 	plan.insert(t1)
 
 	r = Roby::Task.new
@@ -249,8 +254,11 @@ class TC_Transactions < Test::Unit::TestCase
 	    trsc.replace(p2, r)
 	    assert(Hierarchy.linked?(p1, r))
 	    assert(!Hierarchy.linked?(t1, r))
+	    assert(Signal.linked?(p1.event(:stop), r.event(:start)))
+	    assert(!Signal.linked?(t1.event(:stop), r.event(:start)))
 	end
 	assert(Hierarchy.linked?(t1, r))
+	assert(Signal.linked?(t1.event(:stop), r.event(:start)))
     end
 end
 
