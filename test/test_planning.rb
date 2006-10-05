@@ -324,5 +324,31 @@ class TC_Planner < Test::Unit::TestCase
 	end.new(Plan.new)
 	assert_raises(Planning::NotFound) { planner.test }
     end
+
+    def test_planning_task
+	result_task = ExecutableTask.new
+	planner = Class.new(Planning::Planner) do
+	    method(:task) { result_task }
+	end
+
+	plan  = Plan.new
+	planning_task = PlanningTask.new(plan, planner, :task, {})
+	planned_task = Task.new
+	planned_task.planned_by planning_task
+
+	planning_task.on(:success, planned_task, :start)
+	planning_task.executable = true
+	planning_task.start!
+
+        poll(0.5) do
+            thread_finished = !planning_task.thread.alive?
+            Control.instance.process_events
+            assert(planning_task.running? ^ thread_finished)
+            break unless planning_task.running?
+        end
+
+	plan_task = plan.missions.find { true }
+        assert(plan_task == result_task, plan_task)
+    end
 end
 
