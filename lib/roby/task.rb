@@ -195,8 +195,18 @@ module Roby
 	    flag = executable?
 	    each_event { |ev| ev.executable = flag }
 	end
+
+	class << self
+	    attr_reader :abstract
+	    alias :abstract? :abstract
+	    def abstract
+		@abstract = true
+	    end
+	end
+	abstract
+
 	def executable?
-	    @executable || (plan && plan.executable?)
+	    !self.class.abstract? && (@executable || (plan && plan.executable?))
 	end
 	def executable=(flag)
 	    return if flag == @executable
