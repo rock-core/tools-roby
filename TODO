@@ -1,3 +1,5 @@
+* error handling
+
 * in #replace, use Hierarchy#fullfilled_events to check that
   all needed events are provided. If some are missing, use 
   define_event to try to add a new one dynamically
@@ -27,8 +29,12 @@
   on the event. Call the continuation when we propagated the other branches of
   the context.
 
+* gather all events before doing any propagation. This can be simply done by calling
+  event_processing in a gather_propagation context
+
 * make all tasks non-executable until the time they are inserted in a Plan.
   Check in #fired that the parent task *is* executable
+  [DONE: 20061003150012-bd67f-d897752373b665e4707ff8d45cdbabcf7fda6c59]
 
 * we NEED plan merging:
     - is we reuse a task which is already running, it should be transparent for
