@@ -1,0 +1,302 @@
+<!DOCTYPE UI><UI version="3.3" stdsetdef="1">
+<class>DisplayControl</class>
+<widget class="QDialog">
+    <property name="name">
+        <cstring>DisplayControl</cstring>
+    </property>
+    <property name="geometry">
+        <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>586</width>
+            <height>497</height>
+        </rect>
+    </property>
+    <property name="caption">
+        <string>Display control</string>
+    </property>
+    <vbox>
+        <property name="name">
+            <cstring>unnamed</cstring>
+        </property>
+        <widget class="QLayoutWidget">
+            <property name="name">
+                <cstring>layout7</cstring>
+            </property>
+            <hbox>
+                <property name="name">
+                    <cstring>unnamed</cstring>
+                </property>
+                <widget class="QLabel">
+                    <property name="name">
+                        <cstring>textLabel1_2</cstring>
+                    </property>
+                    <property name="text">
+                        <string>File</string>
+                    </property>
+                </widget>
+                <widget class="QLabel">
+                    <property name="name">
+                        <cstring>lbl_file_name</cstring>
+                    </property>
+                    <property name="sizePolicy">
+                        <sizepolicy>
+                            <hsizetype>3</hsizetype>
+                            <vsizetype>5</vsizetype>
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                        </sizepolicy>
+                    </property>
+                    <property name="text">
+                        <string></string>
+                    </property>
+                </widget>
+                <widget class="QPushButton">
+                    <property name="name">
+                        <cstring>btn_file_open</cstring>
+                    </property>
+                    <property name="text">
+                        <string>Open</string>
+                    </property>
+                </widget>
+            </hbox>
+        </widget>
+        <widget class="QButtonGroup">
+            <property name="name">
+                <cstring>grp_display</cstring>
+            </property>
+            <property name="enabled">
+                <bool>false</bool>
+            </property>
+            <property name="title">
+                <string>Display</string>
+            </property>
+            <vbox>
+                <property name="name">
+                    <cstring>unnamed</cstring>
+                </property>
+                <widget class="QRadioButton">
+                    <property name="name">
+                        <cstring>execution_flow</cstring>
+                    </property>
+                    <property name="text">
+                        <string>execution flow display</string>
+                    </property>
+                    <property name="checked">
+                        <bool>true</bool>
+                    </property>
+                </widget>
+                <widget class="QRadioButton">
+                    <property name="name">
+                        <cstring>relation_display</cstring>
+                    </property>
+                    <property name="text">
+                        <string>relation display</string>
+                    </property>
+                </widget>
+                <widget class="QListView">
+                    <column>
+                        <property name="text">
+                            <string>Relation</string>
+                        </property>
+                        <property name="clickable">
+                            <bool>true</bool>
+                        </property>
+                        <property name="resizable">
+                            <bool>true</bool>
+                        </property>
+                    </column>
+                    <property name="name">
+                        <cstring>relation_display_list</cstring>
+                    </property>
+                    <property name="enabled">
+                        <bool>false</bool>
+                    </property>
+                    <property name="rootIsDecorated">
+                        <bool>true</bool>
+                    </property>
+                </widget>
+                <widget class="QLayoutWidget">
+                    <property name="name">
+                        <cstring>layout5</cstring>
+                    </property>
+                    <hbox>
+                        <property name="name">
+                            <cstring>unnamed</cstring>
+                        </property>
+                        <spacer>
+                            <property name="name">
+                                <cstring>spacer3</cstring>
+                            </property>
+                            <property name="orientation">
+                                <enum>Horizontal</enum>
+                            </property>
+                            <property name="sizeType">
+                                <enum>Expanding</enum>
+                            </property>
+                            <property name="sizeHint">
+                                <size>
+                                    <width>231</width>
+                                    <height>20</height>
+                                </size>
+                            </property>
+                        </spacer>
+                        <widget class="QPushButton">
+                            <property name="name">
+                                <cstring>btn_update</cstring>
+                            </property>
+                            <property name="text">
+                                <string>Update</string>
+                            </property>
+                        </widget>
+                    </hbox>
+                </widget>
+            </vbox>
+        </widget>
+        <widget class="QGroupBox">
+            <property name="name">
+                <cstring>grp_play</cstring>
+            </property>
+            <property name="enabled">
+                <bool>false</bool>
+            </property>
+            <property name="title">
+                <string>Play</string>
+            </property>
+            <vbox>
+                <property name="name">
+                    <cstring>unnamed</cstring>
+                </property>
+                <widget class="QLayoutWidget">
+                    <property name="name">
+                        <cstring>layout4</cstring>
+                    </property>
+                    <hbox>
+                        <property name="name">
+                            <cstring>unnamed</cstring>
+                        </property>
+                        <widget class="QSlider">
+                            <property name="name">
+                                <cstring>sld_position</cstring>
+                            </property>
+                            <property name="orientation">
+                                <enum>Horizontal</enum>
+                            </property>
+                        </widget>
+                        <widget class="QLCDNumber">
+                            <property name="name">
+                                <cstring>dsp_position</cstring>
+                            </property>
+                            <property name="numDigits">
+                                <number>6</number>
+                            </property>
+                            <property name="segmentStyle">
+                                <enum>Flat</enum>
+                            </property>
+                            <property name="value" stdset="0">
+                                <number>0</number>
+                            </property>
+                        </widget>
+                    </hbox>
+                </widget>
+                <widget class="QLayoutWidget">
+                    <property name="name">
+                        <cstring>layout8</cstring>
+                    </property>
+                    <hbox>
+                        <property name="name">
+                            <cstring>unnamed</cstring>
+                        </property>
+                        <widget class="QLabel">
+                            <property name="name">
+                                <cstring>textLabel1</cstring>
+                            </property>
+                            <property name="text">
+                                <string>Speed</string>
+                            </property>
+                        </widget>
+                        <widget class="QLineEdit">
+                            <property name="name">
+                                <cstring>edt_speed</cstring>
+                            </property>
+                            <property name="text">
+                                <string>1</string>
+                            </property>
+                            <property name="alignment">
+                                <set>AlignRight</set>
+                            </property>
+                        </widget>
+                        <spacer>
+                            <property name="name">
+                                <cstring>spacer1</cstring>
+                            </property>
+                            <property name="orientation">
+                                <enum>Horizontal</enum>
+                            </property>
+                            <property name="sizeType">
+                                <enum>Expanding</enum>
+                            </property>
+                            <property name="sizeHint">
+                                <size>
+                                    <width>120</width>
+                                    <height>20</height>
+                                </size>
+                            </property>
+                        </spacer>
+                        <widget class="QPushButton">
+                            <property name="name">
+                                <cstring>btn_seek_start</cstring>
+                            </property>
+                            <property name="text">
+                                <string>|&lt;&lt;</string>
+                            </property>
+                            <property name="accel">
+                                <string></string>
+                            </property>
+                        </widget>
+                        <widget class="QPushButton">
+                            <property name="name">
+                                <cstring>btn_play</cstring>
+                            </property>
+                            <property name="text">
+                                <string>&gt;</string>
+                            </property>
+                            <property name="accel">
+                                <string></string>
+                            </property>
+                            <property name="toggleButton">
+                                <bool>true</bool>
+                            </property>
+                        </widget>
+                        <widget class="QPushButton">
+                            <property name="name">
+                                <cstring>btn_fast_forward</cstring>
+                            </property>
+                            <property name="text">
+                                <string>&gt;&gt;</string>
+                            </property>
+                        </widget>
+                        <widget class="QPushButton">
+                            <property name="name">
+                                <cstring>btn_seek_end</cstring>
+                            </property>
+                            <property name="text">
+                                <string>&gt;&gt;|</string>
+                            </property>
+                        </widget>
+                    </hbox>
+                </widget>
+            </vbox>
+        </widget>
+    </vbox>
+</widget>
+<connections>
+    <connection>
+        <sender>relation_display</sender>
+        <signal>toggled(bool)</signal>
+        <receiver>relation_display_list</receiver>
+        <slot>setEnabled(bool)</slot>
+    </connection>
+</connections>
+<layoutdefaults spacing="6" margin="11"/>
+</UI>

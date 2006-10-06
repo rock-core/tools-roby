@@ -13,6 +13,18 @@ module Roby::Display
 	def changed?; @changed end
 	def changed!; @changed = true end
 
+	def update?; @update end
+	def disable_updates; @update = false end
+	def enable_updates
+	    @update = true 
+	    changed!
+	end
+
+	def update
+	    timer_update if respond_to?(:timer_update)
+	    canvas.update
+	end
+
 	def self.DisplayUpdater(display)
 	    def display.demux(commands)
 		@demuxing = true
@@ -20,6 +32,7 @@ module Roby::Display
 		    block = args.pop
 		    send(name, *args, &block) 
 		end
+
 	    ensure
 		@demuxing = false
 	    end
@@ -35,17 +48,19 @@ module Roby::Display
 		    @updater.start(100)
 		end
 
-		def update()
-		    return if display.main_window.hidden?
+		def update?; @update end
+
+		def update
 		    Thread.pass
-		    return unless display.changed
-		    while @demuxing || display.changed
+
+		    return if display.main_window.hidden?
+		    return unless display.changed?
+		    while @demuxing || display.changed?
 			display.changed = false
 			Thread.pass
 		    end
 
-		    display.timer_update if display.respond_to?(:timer_update)
-		    display.canvas.update
+		    update if display.update?
 		end
 		slots "update()"
 	    end
@@ -88,15 +103,18 @@ module Roby::Display
 	end
 
 	def add(name)
-	    base_widget = Qt::Widget.new(tabs, "tab_#{name}")
-	    layout = Qt::GridLayout.new(base_widget, 1, 1, 11, 6, "layout_#{name}")
+	    # base_widget = Qt::Widget.new(tabs, "tab_#{name}")
+	    # layout = Qt::GridLayout.new(base_widget, 1, 1, 11, 6, "layout_#{name}")
 
-	    display = yield(base_widget)
+	    #display = yield(base_widget)
+	    display = yield(tabs)
 	    display.extend DRbDisplayMixin
+	    display.enable_updates
 	    updater = DRbDisplayMixin.DisplayUpdater(display)
 
-	    layout.add_widget(display.main_window, 0, 0)
-	    tabs.add_tab(base_widget, name.to_s)
+	    # layout.add_widget(display.main_window, 0, 0)
+	    # tabs.add_tab(base_widget, name.to_s)
+	    tabs.add_tab(display.main_window, name.to_s)
 
 	    main_window.resize( Qt::Size.new(600, 480).expandedTo(main_window.minimumSizeHint()) )
 	    main_window.hide
@@ -104,6 +122,9 @@ module Roby::Display
 	end
 	private :add
 
+	# Returns a display of the right kind and name. If the display
+	# already exists, it is returned. Otherwise, it is created. +kind+
+	# can be either 'relations' or 'execution_state'.
 	def get(kind, name)
 	    kind = kind.to_s
 
@@ -127,11 +148,25 @@ module Roby::Display
 	    raise unless e.name.to_s == klass_name
 	    raise ArgumentError, "no such display type #{klass_name}"
 	end
+
+	def delete(display)
+	    (k, n), _ = displays.find { |k, d| d == display }
+	    return if !k
+	    displays.delete( [k, n] )
+
+	    display.main_window.hide
+	    tabs.remove_page display.main_window
+	end
     end
     
     # A remote display server as a standalone Qt application
     class DRbRemoteDisplay
-	attr_reader :service
+	# The display server
+	attr_reader :display_server
+	# The remote display itself
+	attr_reader :display
+	# The display thread
+	attr_reader :display_thread
 
 	# Start the display server in a standalone process
 	# and spawn a DRb server to allow connections to it
@@ -162,7 +197,7 @@ module Roby::Display
 	# :server => uri the URI on which we should connect to the server
 	# :server => DRbObject the server object
 	def connect(kind, options)
-	    raise RuntimeError, "already started" if @service
+	    raise RuntimeError, "already started" if @display
 	    options = validate_options options, :start => false, 
 		:server => DEFAULT_REMOTE_DISPLAY_URI, 
 		:name => Process.pid.to_s
@@ -184,22 +219,45 @@ module Roby::Display
 	    DRb.start_service unless DRb.primary_server
 
 	    # Get the display server object
-	    server = case options[:server]
-		     when DRbObject; options[:server]
-		     else; DRbObject.new(nil, options[:server].to_str)
-		     end
+	    @display_server = if options[:server].respond_to?(:to_str)
+				  DRbObject.new(nil, options[:server].to_str)
+			      else options[:server]
+			      end
 
-	    server = server.get(kind, options[:name])
+	    @display = display_server.get(kind, options[:name])
 	    # Using a ThreadServer allows to multiplex events before sending
 	    # them via DRb. As DRb is damn slow, it speeds things a lot
-	    @service = DRbDisplayThread.new(self, server, true)
+	    @display_thread = DRbDisplayThread.new(self, display, true)
+
+	    self
+	end
+
+	def delete
+	    display_server.delete(display) if display
+	    disabled
+	end
+
+	def enable_updates; display_thread.enable_updates end
+	def disable_updates(&block)
+	    display_thread.disable_updates
+	    if block_given?
+		begin
+		    yield
+		ensure
+		    enable_updates
+		    display_thread.update
+		end
+	    end
 	end
 
 	def disabled
-	    @service = nil
+	    @display = nil
+	    @display_server = nil
+	    @display_thread = nil
 	end
+	def enabled?; @display end
 
-	def flush; @service.flush if @service end
+	def flush; display_thread.flush if display_thread end
     end
 end
 

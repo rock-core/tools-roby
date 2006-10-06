@@ -1,6 +1,6 @@
 
-class Roby::Display::ExecutionStateServer
-    class EventList < Qt::ListView
+module Roby::Display
+    class ExecutionStateServer::EventList < Qt::ListView
 	attr_reader :pending
 
 	class Task < Qt::ListViewItem
@@ -15,7 +15,7 @@ class Roby::Display::ExecutionStateServer
 		expr = ""
 
 		if event.respond_to?(:task) && with_task
-		    expr << Display::Style.task_name(event.task)
+		    expr << Style.task_name(event.task)
 		end
 
 		if event.respond_to?(:symbol)
@@ -32,7 +32,7 @@ class Roby::Display::ExecutionStateServer
 	    def initialize(list, task, kind, time, obj, *args)
 		super(list)
 		set_text(0, "%02i:%02i:%03i" % [time.tv_sec / 60, time.tv_sec % 60, time.tv_usec / 1000])
-		task_name = if obj.respond_to?(:task) then Display::Style.task_name(obj.task)
+		task_name = if obj.respond_to?(:task) then Style.task_name(obj.task)
 			    else "toplevel"
 			    end
 
@@ -60,12 +60,19 @@ class Roby::Display::ExecutionStateServer
 
 	def initialize(parent)
 	    super(parent)
+
 	    self.root_is_decorated = true
 	    add_column "at"
 	    add_column "in"
 	    add_column "kind"
 	    add_column "events"
+	    clear
+	end
+
+	def clear
 	    @pending = Hash.new
+	    @reference = nil
+	    super
 	end
 
 	def item_parent(generator)
@@ -98,5 +105,5 @@ class Roby::Display::ExecutionStateServer
 	end
     end
 end
-    
+
 

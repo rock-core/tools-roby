@@ -6,6 +6,13 @@ require 'roby/log/dot'
 
 require 'set'
 
+class Qt::Canvas
+    def clear
+	all_items.each { |item| item.dispose }
+	update
+    end
+end
+
 module Roby::Display
     class RelationServer < Qt::Object
 	MINWIDTH = 50
@@ -20,21 +27,6 @@ module Roby::Display
 	BASE_LINES = 20
 	def initialize(root_window)
 	    super
-
-	    # object_id => marshallable maps
-	    @events		= Hash.new
-	    @tasks		= Hash.new
-	    @task_relations	= Set.new
-	    @event_relations	= Set.new
-	    @task_states	= Hash.new
-
-	    # a task_id => [event_id, ...] map
-	    @by_task	= Hash.new { |h, k| h[k] = Set.new }
-
-	    # canvas items for tasks, events and arrows
-	    @canvas_tasks  = Hash.new # task_id => task_item
-	    @canvas_events = Hash.new # event_id => event_item
-	    @canvas_arrows = Hash.new # [event_id, event_id] => arrow_item
 
 	    # Some graphical parameters
 	    @line_height    = 40
@@ -68,13 +60,34 @@ module Roby::Display
 
 	    @view      = Qt::CanvasView.new(@canvas, @main_window)
 	    toplevel_layout.add_widget(@view)
+
+	    clear
+	end
+
+	def clear
+	    @canvas.clear
+
+	    # object_id => marshallable maps
+	    @events		= Hash.new
+	    @tasks		= Hash.new
+	    @task_relations	= Set.new
+	    @event_relations	= Set.new
+	    @task_states	= Hash.new
+
+	    # a task_id => [event_id, ...] map
+	    @by_task	= Hash.new { |h, k| h[k] = Set.new }
+
+	    # canvas items for tasks, events and arrows
+	    @canvas_tasks  = Hash.new # task_id => task_item
+	    @canvas_events = Hash.new # event_id => event_item
+	    @canvas_arrows = Hash.new # [event_id, event_id] => arrow_item
 	end
 
 	class CanvasTask
 	    attr_reader :canvas_item, :display, :events, :task_id
 	    def initialize(task, display)
 		@task_id     = task.source_id
-		@canvas_item = Display::Style.task(task, display)
+		@canvas_item = Style.task(task, display)
 		# Put [0, 0] at the center of the item
 		@canvas_item.move(-@canvas_item[:rectangle].width / 2, -@canvas_item[:rectangle].height / 2)
 		@canvas_item.position = [0, 0]
@@ -85,11 +98,11 @@ module Roby::Display
 	    end
 
 	    def task; display.tasks[task_id] end
-	    def update; @canvas_item[:title].text = Display::Style.task_name(task); self end
+	    def update; @canvas_item[:title].text = Style.task_name(task); self end
 
 	    def event(event)
 		unless item = events[event.symbol]
-		    item = events[event.symbol] = Display::Style.event(event, display)
+		    item = events[event.symbol] = Style.event(event, display)
 		    item.visible = self.visible?
 		end
 
@@ -169,7 +182,9 @@ module Roby::Display
 	    event = events[event_id]
 	    canvas_item = if event.respond_to?(:task)
 			      canvas_task(event.task).event(event)
+			  else canvas_events[event_id]
 			  end
+
 	    [canvas_item.x, canvas_item.y]
 	end
 
@@ -206,7 +221,7 @@ module Roby::Display
 	def relation_node_info(from, to)
 	    # Get element information (arrow, positions, id)
 	    from_id, to_id = from.source_id, to.source_id
-	    arrow = (canvas_arrows[ [from_id, to_id] ] ||= Display::Style.arrow(self))
+	    arrow = (canvas_arrows[ [from_id, to_id] ] ||= Style.arrow(self))
 	    from_pos, to_pos = yield(from_id), yield(to_id)
 	    [arrow, from_pos, to_pos]
 	end
@@ -255,7 +270,7 @@ module Roby::Display
 	def state_change(task, symbol)
 	    task_states[task] = symbol
 	    task_item = canvas_task(task)
-	    task_item.color = Display::Style::TASK_COLORS[symbol]
+	    task_item.color = Style::TASK_COLORS[symbol]
 
 	    task_visibility(task)
 	    changed!
@@ -283,21 +298,23 @@ module Roby::Display
 		canvas_task(gen.task).
 		    update.
 		    event(gen)
+	    else
+		canvas_events[gen.source_id] ||= Style.event(gen, self)
 	    end
 	    by_task[task_id] << gen.source_id
 	end
 
 	def removed_relation(from, to)
 	    if arrow = canvas_arrows.delete( [from.source_id, to.source_id] )
-		arrow.hide
+		arrow.dispose
 	    end
 	end
 	private :removed_relation
 
 	def added_event_relation(time, from, to)
-	    event_relations << [from.source_id, to.source_id]
 	    event(from)
 	    event(to)
+	    event_relations << [from.source_id, to.source_id]
 	    changed!
 	end
 	def removed_event_relation(time, from, to)
@@ -323,10 +340,6 @@ module Roby::Display
 	    changed!
 	end
 
-	def next_id
-	    @id ||= 0
-	    @id += 1
-	end
 	def layout
 	    DotLayout.layout(self, dot_scale)
 	end

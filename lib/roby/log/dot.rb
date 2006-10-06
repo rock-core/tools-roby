@@ -1,5 +1,7 @@
 require 'tempfile'
 module Roby::Display
+    Marshallable = Roby::Marshallable
+
     class DotLayout
 	def self.dot_name(object)
 	    id = Object.address_from_id(object.source_id).to_s
@@ -20,7 +22,7 @@ module Roby::Display
 
 	    # Events that are not task events
 	    display.each_event(nil) do |ev|
-		dot << "#{dot_name(ev)}[label=#{ev.symbol}];\n"
+		dot << "#{dot_name(ev)}[label=#{ev.source_id}];\n"
 	    end
 
 	    # Clusters is a task_cluster_name => [task, reference_node] hash

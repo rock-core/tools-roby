@@ -12,6 +12,7 @@ module Roby::Display
 	    
 	    @pending = EventList.new(@main_window)
 	    @view   = Qt::CanvasView.new(@canvas, @main_window)
+	    @canvas.view = @view
 
 	    @hidden = true
  	end
@@ -42,6 +43,12 @@ module Roby::Display
 	    changed!
 	    @pending.generator_signalling(time, event, generator)
 	    @canvas.generator_signalling(time, event, generator)
+	end
+
+	def clear
+	    @pending.clear
+	    @canvas.clear
+	    @canvas.update
 	end
 
 	#def postponed(time, generator, wait_for, reason)

@@ -14,11 +14,11 @@ module Roby::Display
 	end
 
 	[:generator_calling, :generator_signalling, :generator_fired].each do |m| 
-	    define_method(m) { |*args| @service.send(m, *args) }
+	    define_method(m) { |*args| display_thread.send(m, *args) }
 	end
 
 	def disabled
-	    Roby::Log.loggers.delete(service)
+	    Roby::Log.loggers.delete(self)
 	    super
 	end
     end

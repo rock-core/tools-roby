@@ -9,17 +9,23 @@ module Roby
 
 	attr_reader :line_height, :resolution, :start_time, :margin
 	attr_reader :event_radius, :event_display, :event_source
+	attr_accessor :view
 	def initialize
 	    @resolution	    = BASE_DURATION / 640 # resolution for time axis in ms per pixel
 	    @line_height    = 40  # height of a line in pixel
 	    @event_radius   = 4
 	    @margin	    = 10
-	    @event_display = Hash.new
-	    @event_source  = Hash.new
+
+	    super(640, line_height * BASE_LINES + margin * 2)
+	    clear
+	end
+
+	def clear
+	    all_items.each { |it| it.dispose }
 
 	    @start_time	    = nil # start time (time of the first event)
-	    super(640, line_height * BASE_LINES + margin * 2)
-
+	    @event_display = Hash.new
+	    @event_source  = Hash.new
 	    @lines = [CanvasLine.new(0)] # active tasks for each line, the first line is for events not related to a task
 	end
 
@@ -77,8 +83,7 @@ module Roby
 		resize(new_width || self.width, new_height || self.height)
 	    end
 
-	    # TODO: manage the case where we have pending more than one command
-	    # TODO: from the same generator
+	    view.ensure_visible(x, self.height / 2)
 
 	    unless colors = line.colors.delete(generator)
 		colors = line.next_color
