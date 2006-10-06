@@ -51,10 +51,11 @@ class TC_Control < Test::Unit::TestCase
 
         planning = iface.null_task
         assert(PlanningTask === planning)
-        assert(planning.running?)
+
         mock_task = control.plan.missions.find { true }
         assert(Task === mock_task, mock_task.class.inspect)
 
+	planning.start!
         poll(0.5) do
             thread_finished = !planning.thread.alive?
             control.process_events

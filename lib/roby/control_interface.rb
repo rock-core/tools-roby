@@ -22,6 +22,7 @@ module Roby
 		raise ArgumentError, "wrong number of arguments (#{args.size} for 1) in `#{planner_model}##{name}'"
 	    end
 	    options = args.first || {}
+	    do_start = options.delete(:start) || options.delete('start')
 
 	    m = planner_model.model_of(name, options)
 	    task = (m.returns.new if m) || Task.new
@@ -32,7 +33,10 @@ module Roby
 	    control.plan.insert(task)
 	    yield(planner) if block_given?
 
-	    planner.start!(nil)
+	    if do_start
+		planner.on(:success, task, :start)
+	    end
+
 	    planner
 	end
     end
