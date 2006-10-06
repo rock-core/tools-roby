@@ -15,16 +15,18 @@ module Roby::Display
 	attr_reader :events, :tasks, :task_relations, :event_relations
 	attr_reader :canvas_tasks, :canvas_events, :canvas_arrows
 	attr_reader :by_task
+	attr_reader :task_states
 
 	BASE_LINES = 20
 	def initialize(root_window)
 	    super
 
 	    # object_id => marshallable maps
-	    @events = Hash.new
-	    @tasks	= Hash.new
+	    @events		= Hash.new
+	    @tasks		= Hash.new
 	    @task_relations	= Set.new
 	    @event_relations	= Set.new
+	    @task_states	= Hash.new
 
 	    # a task_id => [event_id, ...] map
 	    @by_task	= Hash.new { |h, k| h[k] = Set.new }
@@ -43,8 +45,29 @@ module Roby::Display
 
 	    # Qt objects
 	    @canvas = Qt::Canvas.new(640, line_height * BASE_LINES + margin * 2)
-	    @view   = Qt::CanvasView.new(@canvas, root_window)
-	    @main_window = @view
+
+	    @main_window = Qt::Widget.new(root_window)
+	    toplevel_layout = Qt::VBoxLayout.new(@main_window)
+
+	    buttonbar = Qt::HBoxLayout.new(@main_window)
+	    toplevel_layout.add_layout(buttonbar)
+
+	    relayout       = Qt::PushButton.new("Redo layout", @main_window)
+	    @show_finished  = Qt::PushButton.new("Finished", @main_window)
+	    @show_finished.toggle_button = true
+	    @show_finished.on = true
+	    @show_finalized = Qt::PushButton.new("Finalized", @main_window)
+	    @show_finalized.toggle_button = true
+
+	    connect(relayout, SIGNAL('pressed()'), self, SLOT('layout()'))
+	    connect(@show_finished, SIGNAL('toggled(bool)'), self, SLOT('update_task_show()'))
+	    connect(@show_finalized, SIGNAL('toggled(bool)'), self, SLOT('update_task_show()'))
+	    buttonbar.add_widget(relayout)
+	    buttonbar.add_widget(@show_finished)
+	    buttonbar.add_widget(@show_finalized)
+
+	    @view      = Qt::CanvasView.new(@canvas, @main_window)
+	    toplevel_layout.add_widget(@view)
 	end
 
 	class CanvasTask
@@ -67,6 +90,7 @@ module Roby::Display
 	    def event(event)
 		unless item = events[event.symbol]
 		    item = events[event.symbol] = Display::Style.event(event, display)
+		    item.visible = self.visible?
 		end
 
 		layout
@@ -104,8 +128,14 @@ module Roby::Display
 
 		events.inject(canvas_item[:rectangle].x + init) do |x, (_, ev)|
 		    ev.move(x, y)
-		    x + spacing
+		x + spacing
 		end
+	    end
+
+	    def visible?; canvas_item.visible?  end
+	    def visible=(flag)
+		canvas_item.visible = flag 
+		events.each { |_, ev| ev.visible = flag }
 	    end
 
 	    def move(x, y)
@@ -126,6 +156,14 @@ module Roby::Display
 	    canvas_item
 	end
 
+	def hidden?(object)
+	    if t = canvas_tasks[object.source_id]
+		!t.visible?
+	    elsif e = canvas_events[object.source_id]
+		!e.visible?
+	    end
+	end
+
 	# Returns the reference position for +event_id+
 	def event_pos(event_id)
 	    event = events[event_id]
@@ -143,9 +181,10 @@ module Roby::Display
 		arrow.end_point = to_pos
 		return
 	    end
-	    
+
 	    arrow.start_point = from_pos.zip(u).map { |from_pos, d| from_pos + d * event_radius }
-	    arrow.end_point = to_pos.zip(u).map { |to_pos, d| to_pos - d * event_radius }
+	    arrow.end_point   = to_pos.zip(u).map { |to_pos, d| to_pos - d * event_radius }
+	    arrow.visible = !(hidden?(from) || hidden?(to))
 	end
 
 	# Returns the reference position for +task_id+
@@ -171,7 +210,7 @@ module Roby::Display
 	    from_pos, to_pos = yield(from_id), yield(to_id)
 	    [arrow, from_pos, to_pos]
 	end
-	    
+
 	# Returns or updates the from -> to arrow
 	def canvas_task_arrow(from, to)
 	    arrow, from_pos, to_pos = relation_node_info(from, to, &method(:task_pos))
@@ -184,25 +223,26 @@ module Roby::Display
 	    from_pos, to_pos = [ [from, from_pos, :+], [to, to_pos, :-] ].
 		map { |el, pos, op| [canvas_task(el).canvas_item[:rectangle], pos, op] }.
 		map do |item, pos, op|
-		    x_scale = (u[0] / (item.width / 2)).abs
-		    y_scale = (u[1] / (item.height / 2)).abs
-		    if x_scale == 0
-			pos[0] = item.x + item.width / 2
-			pos[1] = (item.y + item.height / 2).send(op, (u[1] <=> 0) * item.height / 2)
-		    elsif y_scale == 0
-			pos[0] = (item.x + item.width / 2).send(op, (u[0] <=> 0) * item.width / 2)
-			pos[1] = item.y + item.height / 2
-		    else
-			scale = [x_scale, y_scale].max
-			pos[0] = pos[0].send(op, u[0] / scale)
-			pos[1] = pos[1].send(op, u[1] / scale)
-		    end
-
-		    pos
+		x_scale = (u[0] / (item.width / 2)).abs
+		y_scale = (u[1] / (item.height / 2)).abs
+		if x_scale == 0
+		    pos[0] = item.x + item.width / 2
+		    pos[1] = (item.y + item.height / 2).send(op, (u[1] <=> 0) * item.height / 2)
+		elsif y_scale == 0
+		    pos[0] = (item.x + item.width / 2).send(op, (u[0] <=> 0) * item.width / 2)
+		    pos[1] = item.y + item.height / 2
+		else
+		    scale = [x_scale, y_scale].max
+		    pos[0] = pos[0].send(op, u[0] / scale)
+		    pos[1] = pos[1].send(op, u[1] / scale)
 		end
-	    
+
+		pos
+	    end
+
 	    arrow.start_point = from_pos
 	    arrow.end_point = to_pos
+	    arrow.visible = !(hidden?(from) || hidden?(to))
 	end
 
 	def canvas_arrow(from, to)
@@ -213,8 +253,11 @@ module Roby::Display
 	end
 
 	def state_change(task, symbol)
+	    task_states[task] = symbol
 	    task_item = canvas_task(task)
 	    task_item.color = Display::Style::TASK_COLORS[symbol]
+
+	    task_visibility(task)
 	    changed!
 	end
 
@@ -287,7 +330,33 @@ module Roby::Display
 	def layout
 	    DotLayout.layout(self, dot_scale)
 	end
+	slots 'layout()'
 	alias :timer_update :layout
+
+	def task_visibility(t)
+	    next unless s = task_states[t]
+
+	    if (s == :success || s == :failed)
+		flag = @show_finished.on?
+	    elsif (s == :finalized)
+		flag = @show_finalized.on?
+	    else return
+	    end
+
+	    canvas_tasks[t.source_id].visible = flag
+	    each_task_relation do |from, to|
+		if from == t || to == t
+		    arrow = canvas_arrows[ [from.source_id, to.source_id] ]
+		    arrow.visible = flag if arrow
+		end
+	    end
+	end
+
+	def update_task_show
+	    task_states.each { |t, _| task_visibility(t)  }
+	    changed!
+	end
+	slots 'update_task_show()'
     end
 end
 

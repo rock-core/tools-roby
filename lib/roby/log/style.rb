@@ -57,6 +57,8 @@ module Roby::Display::Style
 
 	def show; apply(:show) end
 	def hide; apply(:hide) end
+	def visible?; @objects.enum_for(:each_value).any? { |o| o.visible? } end
+	def visible=(flag); @objects.each_value { |o| o.visible = flag } end
     end
 
     
@@ -140,8 +142,6 @@ module Roby::Display::Style
     end
 
     ARROW_Z = 5
-    ARROWEND_SIZE  = 20 # arrow size in pixels
-    ARROWEND_WIDTH = 44 # Arrow openness in degrees
     def self.arrow(display)
 	line = Qt::CanvasLine.new(display.canvas) do |l|
 	    l.set_points(0, 0, 0, 0)
@@ -151,39 +151,48 @@ module Roby::Display::Style
 	end
 	yield(line) if block_given?
 
-	# end of arrow
-	arrowend = Qt::CanvasEllipse.new(ARROWEND_SIZE, ARROWEND_SIZE, display.canvas) do |e|
-	    e.brush = Qt::Brush.new(Qt::Color.new(ARROW_COLOR))
-	    e.visible = true
-	    e.z = ARROW_Z
-	end
-
-
-	arrow_update = lambda do |sx, sy, ex, ey|
-	    dy, dx = [sy - ey, sx - ex]
-	    angle = Math.atan2(dy, dx) / Math::PI * 180
-
-	    arrowend.move(ex, ey);
-	    arrowend.set_angles(-(angle + ARROWEND_WIDTH / 2) * 16, ARROWEND_WIDTH * 16)
-	end
-	line.watchers << arrow_update
-	arrow_update.call(line.start_point.x, line.start_point.y, line.end_point.x, line.end_point.y)
-
+	line.create_arrow_end
 	line
     end
 end
 
 class Qt::CanvasLine
-    attribute(:watchers) { Set.new }
+    attr_accessor :arrow_end
+    ARROW_END_SIZE  = 20 # arrow size in pixels
+    ARROW_END_WIDTH = 44 # Arrow openness in degrees
+    def create_arrow_end
+	self.arrow_end = Qt::CanvasEllipse.new(ARROW_END_SIZE, ARROW_END_SIZE, self.canvas) do |e|
+	    e.brush = Qt::Brush.new(self.pen.color)
+	    e.visible = true
+	    e.z = self.z
+	end
+	update_arrow_end
+    end
+
+    def update_arrow_end
+	return unless arrow_end
+
+	sx, sy, ex, ey = start_point.x, start_point.y, end_point.x, end_point.y
+	dy, dx = [sy - ey, sx - ex]
+	angle = Math.atan2(dy, dx) / Math::PI * 180
+
+	arrow_end.move(ex, ey);
+	arrow_end.set_angles(-(angle + ARROW_END_WIDTH / 2) * 16, ARROW_END_WIDTH * 16)
+    end
+
     def end_point=(coord)
 	new = [start_point.x, start_point.y, *coord]
 	set_points(*new)
-	watchers.each { |w| w.call(*new) }
+	update_arrow_end
     end
     def start_point=(coord)
 	new = ([*coord] << end_point.x << end_point.y)
 	set_points(*new)
-	watchers.each { |w| w.call(*new) }
+	update_arrow_end
+    end
+    def visible=(flag)
+	arrow_end.visible = flag if arrow_end
+	super
     end
 end
 

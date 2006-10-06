@@ -26,12 +26,15 @@ module Roby::Display
 	    # Clusters is a task_cluster_name => [task, reference_node] hash
 	    clusters = Hash.new
 	    display.each_task do |task|
+		next if display.hidden?(task)
 		task_dot_name = dot_name(task)
 		clusters[task_dot_name] = [task]
 
 		dot << "subgraph #{task_dot_name} {\n"
 		has_event = false
 		display.each_event(task) do |ev|
+		    next if display.hidden?(ev)
+
 		    dot << "#{dot_name(ev)}[label=#{ev.symbol}];\n"
 		    if !has_event
 			has_event = true
@@ -48,12 +51,15 @@ module Roby::Display
 	    end
 
 	    display.each_task_relation do |from, to|
+		next if display.hidden?(from) || display.hidden?(to)
+
 		# Find one event in each task to define an edge between the tasks
 		from = clusters[dot_name(from)].last
-		to = clusters[dot_name(to)].last
+		to   = clusters[dot_name(to)].last
 		dot << "#{from} -> #{to};\n"
 	    end
 	    display.each_event_relation do |from, to|
+		next if display.hidden?(from) || display.hidden?(to)
 		dot << "#{dot_name(from)} -> #{dot_name(to)};\n"
 	    end
 	    dot << "};\n"
@@ -89,7 +95,7 @@ module Roby::Display
 		end
 	    end
 
-	    display.each_task_relation { |from, to| display.canvas_arrow(from, to) }
+	    display.each_task_relation  { |from, to| display.canvas_arrow(from, to) }
 	    display.each_event_relation { |from, to| display.canvas_arrow(from, to) }
 	    display.canvas.update
 
