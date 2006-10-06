@@ -29,3 +29,10 @@
 
 * make all tasks non-executable until the time they are inserted in a Plan.
   Check in #fired that the parent task *is* executable
+
+* we NEED plan merging:
+    - is we reuse a task which is already running, it should be transparent for
+      the new process: this new task tree will call start!, but the task is running.
+      Moreover, if it is synchronizing on the start event, it should appear "as if"
+      the event has been emitted
+
