@@ -55,7 +55,7 @@ module Roby
 		plan.commit_transaction
 		emit(:success)
 	    else
-		raise "expected an exception or a Task, got #{result.inspect}"
+		raise result, "expected an exception or a Task, got #{result.inspect} in #{caller[0]}", result.backtrace
 	    end
 	end
 
