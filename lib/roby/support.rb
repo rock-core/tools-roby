@@ -7,6 +7,8 @@ require 'utilrb/logger'
 require 'utilrb/gc/force'
 require 'facet/kernel/constant'
 require 'facet/module/dirname'
+require 'utilrb/array/to_s'
+require 'utilrb/hash/to_s'
 require 'monitor'
 
 # Create a new thread and forward all messages

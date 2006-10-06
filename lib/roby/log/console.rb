@@ -51,12 +51,12 @@ module Roby::Log
 	private :display
 
 	def generator_calling(time, gen, context) # :nodoc:
-	    display(time, ConsoleLogger.gen_source(gen), ConsoleLogger.gen_name(gen), "call", "ctxt=#{context.inspect}")
+	    display(time, ConsoleLogger.gen_source(gen), ConsoleLogger.gen_name(gen), "call", "ctxt=#{context}")
 	end
 	def generator_fired(time, event) # :nodoc:
 	    display(time, ConsoleLogger.gen_source(event.generator), 
 		    ConsoleLogger.gen_name(event.generator), "fired", 
-		    "#{ConsoleLogger.gen_name(event)}!#{event.source_address.to_s(16)} ctxt=#{event.context.inspect}")
+		    "#{ConsoleLogger.gen_name(event)}!#{event.source_address.to_s(16)} ctxt=#{event.context}")
 	end
 	def generator_signalling(time, event, generator) # :nodoc:
 	    display(time, ConsoleLogger.gen_source(event.generator), 

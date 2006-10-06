@@ -29,7 +29,7 @@ module Roby
             end
 
             def to_s
-                "cannot find a #{method_name}(#{method_options.inspect}) method\n" + 
+                "cannot find a #{method_name}(#{method_options}) method\n" + 
                     errors.inject("") { |s, (m, e)| s << "  in #{m}: #{e} (#{e.backtrace[0]})\n" }
             end
         end
@@ -122,7 +122,7 @@ module Roby
 		# Call the method definition
                 def call;       body.call end
 
-                def to_s; "#{name}:#{id}(#{options.inspect})" end
+                def to_s; "#{name}:#{id}(#{options})" end
             end
 
 	    # A method model
@@ -195,7 +195,7 @@ module Roby
                     @options = from.options.dup
                 end
 
-                def to_s; "#{name}(#{options.inspect})" end
+                def to_s; "#{name}(#{options})" end
             end
 
 	    # A list of options on which the methods are selected
@@ -502,7 +502,7 @@ module Roby
 
 		@arguments.push(args || {})
 
-		Planning.debug { "planning #{name}[#{arguments.inspect}]" }
+		Planning.debug { "planning #{name}[#{arguments}]" }
 
 		# Check for recursion
                 if @stack.include?(name)
@@ -557,7 +557,7 @@ module Roby
             def call_planning_methods(errors, options, method, *methods)
                 begin
                     @stack.push method.name
-		    Planning.debug { "calling #{method.name}:#{method.id} with arguments #{arguments.inspect}" }
+		    Planning.debug { "calling #{method.name}:#{method.id} with arguments #{arguments}" }
                     result = instance_eval(&method.body)
 
 		    # Check that result is a task or a task collection
@@ -567,9 +567,9 @@ module Roby
 
 		    if method.returns && !result.fullfills?(method.returns, arguments)
 			if !result then result = "nil"
-			else result = "#{result}[#{result.arguments.inspect}]"
+			else result = "#{result}(#{result.arguments})"
 			end
-			raise PlanModelError.new(self), "#{method} returned #{result} which does not fullfill #{method.returns}[#{arguments.inspect}]"
+			raise PlanModelError.new(self), "#{method} returned #{result} which does not fullfill #{method.returns}(#{arguments})"
 		    end
 		    Planning.debug { "found #{result}" }
 

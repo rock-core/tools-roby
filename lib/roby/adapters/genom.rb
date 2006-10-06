@@ -144,9 +144,7 @@ module Roby::Genom
 	    e.singleton_class.class_eval do
 		define_method(:request) { this }
 		alias :__to_s__ :to_s
-		def to_s
-		    "[#{request.arguments.inspect}] #{__to_s__}"
-		end
+		def to_s; "[#{request.arguments}] #{__to_s__}" end
 	    end
 	    
 

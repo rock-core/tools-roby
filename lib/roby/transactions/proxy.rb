@@ -162,7 +162,7 @@ module Roby::Transactions
 		    end
 		    EOD
 		else
-		    raise ArgumentError, "invalid value #{relation.inspect}"
+		    raise ArgumentError, "invalid value #{relation}"
 		end
 	    end
 

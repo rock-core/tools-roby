@@ -9,7 +9,7 @@ module Roby::Log
     module TaskHooks
 	def added_child_object(to, type, info)
 	    super if defined? super
-	    Roby::Log.log(:added_task_relation) { [Time.now, type, Wrapper[self], Wrapper[to], info.inspect] }
+	    Roby::Log.log(:added_task_relation) { [Time.now, type, Wrapper[self], Wrapper[to], info.to_s] }
 	end
 
 	def removed_child_object(to, type)
@@ -35,7 +35,7 @@ module Roby::Log
     module EventGeneratorHooks
 	def added_child_object(to, type, info)
 	    super if defined? super
-	    Roby::Log.log(:added_event_relation) { [Time.now, type, Wrapper[self], Wrapper[to], info.inspect] }
+	    Roby::Log.log(:added_event_relation) { [Time.now, type, Wrapper[self], Wrapper[to], info.to_s] }
 	end
 
 	def removed_child_object(to, type)

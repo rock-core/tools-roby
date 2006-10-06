@@ -20,7 +20,7 @@ module Roby::TaskStructure
 
 	    options[:model] = [options[:model], {}] unless Array === options[:model]
 	    if !task.fullfills?(*options[:model])
-		raise ArgumentError, "task #{task} does not fullfills the provided model #{options[:model].inspect}"
+		raise ArgumentError, "task #{task} does not fullfills the provided model #{options[:model]}"
 	    end
 
 	    add_child(task, options)

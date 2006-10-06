@@ -13,6 +13,10 @@ module Roby
             super()
         end
 
+	def to_s
+	    "#{super}[#{method_name}:#{method_options}] -> #{planned_task}"
+	end
+
         @planning_tasks = Array.new
         class << self
             attr_reader :planning_tasks
@@ -55,7 +59,7 @@ module Roby
 		plan.commit_transaction
 		emit(:success)
 	    else
-		raise result, "expected an exception or a Task, got #{result.inspect} in #{caller[0]}", result.backtrace
+		raise result, "expected an exception or a Task, got #{result} in #{caller[0]}", result.backtrace
 	    end
 	end
 

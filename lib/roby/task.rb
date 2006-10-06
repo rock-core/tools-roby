@@ -118,11 +118,6 @@ module Roby
 	def to_s
 	    "#{task}/#{symbol}"
 	end
-        def inspect
-	    model_name = event_model.name
-	    model_name.gsub! /^#{task.name}::/, ''
-	    "#<#{self.name}:0x#{address.to_s(16)} task=#{task} model=#{model_name}>" 
-	end
     end
 
     class Task
@@ -541,7 +536,7 @@ module Roby
 		ev_model = find_event_model(model_def.to_sym)
 		unless ev_model
 		    all_events = enum_for(:each_event).map { |name, _| name }
-		    raise ArgumentError, "#{model_def} is not an event of #{name} #{all_events.inspect}" unless ev_model
+		    raise ArgumentError, "#{model_def} is not an event of #{name}: #{all_events}" unless ev_model
 		end
 	    elsif model_def.respond_to?(:has_ancestor?) && model_def.has_ancestor?(TaskEvent)
 		# Check that model_def is an event class for us
