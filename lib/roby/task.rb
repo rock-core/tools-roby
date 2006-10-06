@@ -77,6 +77,7 @@ module Roby
         end
 
         def can_signal?(event); super || (event.respond_to?(:task) && task == event.task) end
+	def executable?; task.executable? end
 
         def fire(event)
             task.fire_event(event)
