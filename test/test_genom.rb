@@ -40,10 +40,14 @@ class TC_Genom < Test::Unit::TestCase
     def test_runner_task
         Genom.connect do
             Genom::GenomModule('mockup')
-
             runner = Genom::Mockup.runner!
 	    
 	    runner.start!
+	    poll(0.5) do
+		Control.instance.process_events
+		break if runner.running?
+	    end
+
 	    assert(runner.running?)
 	    assert(runner.event(:ready).happened?)
 
@@ -82,6 +86,11 @@ class TC_Genom < Test::Unit::TestCase
 	    runner = mod.runner!
 	    runner.start!
 
+	    poll(0.5) do
+		Control.instance.process_events
+		break if runner.running?
+	    end
+
 	    assert( init_period )
 	    assert( Genom.running.include?(init_period) )
 	    assert( init_period.event(:start).pending? )
@@ -100,10 +109,12 @@ class TC_Genom < Test::Unit::TestCase
             Genom::GenomModule('mockup')
 
             runner = Genom::Mockup.runner!
+	    runner.executable = true
 	    runner.start!
 	    assert_event( runner.event(:ready) )
 
 	    task = Genom::Mockup.start!
+	    task.executable = true
 	    assert_equal(Genom::Mockup::Runner, task.class.execution_agent)
 	    
 	    task.start!
@@ -135,10 +146,12 @@ class TC_Genom < Test::Unit::TestCase
 
 	::Genom.connect do
             runner = Genom::Mockup.runner!
+	    runner.executable = true
 	    runner.start!
 	    assert_event( runner.event(:ready) )
 
 	    task = Genom::Mockup.start!
+	    task.executable = true
 	    assert_raises(Roby::EventPreconditionFailed) { task.start!(nil) }
 	end
     end

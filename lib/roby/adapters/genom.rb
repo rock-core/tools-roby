@@ -273,10 +273,6 @@ module Roby::Genom
 	# If the module has an init request, the ::init module method is started and :ready is emitted
 	# when if finishes successfully (see RunnerTask). Otherwise, :ready is emitted immediately otherwise
 	def start(context)
-	    mod = ::Genom::Runner.environment.start_module(genom_module.name, output_io)
-	    mod.wait_running
-	    emit(:start, context)
-
 	    # Redefine GenomModule#dead! so that :failed gets
 	    # emitted when the module process is killed
 	    unless genom_module.respond_to?(:__roby__dead!)
@@ -291,6 +287,24 @@ module Roby::Genom
 	    end
 	    genom_module.roby_runner_task = self
 
+	    Roby::Control.event_processing << method(:poll_running)
+	    ::Genom::Runner.environment.start_module(genom_module.name, output_io)
+	end
+	# Event emitted when the module is running
+	event :start
+
+	def poll_running
+	    if genom_module.wait_running(true)
+		Roby::Control.event_processing.delete(method(:poll_running))
+		emit :start, nil
+		ready
+	    end
+
+	rescue RuntimeError => e
+	    event(:start).emit_failed e.message
+	end
+
+	def ready
 	    # Get the init request if it is needed
 	    init = if roby_module.respond_to?(:init)
 		       roby_module.init
@@ -310,11 +324,8 @@ module Roby::Genom
 		event(:ready).emit_on init
 	    end
 	end
-	# Event emitted when the module is running
-	event :start
-
 	# Event emitted when the module has been initialized
-	event :ready
+	event :ready, :command => false
 
 	# Stops the module
 	def failed(context)
