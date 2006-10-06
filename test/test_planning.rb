@@ -335,9 +335,9 @@ class TC_Planner < Test::Unit::TestCase
 	planning_task = PlanningTask.new(plan, planner, :task, {})
 	planned_task = Task.new
 	planned_task.planned_by planning_task
+	plan.insert(planned_task)
 
 	planning_task.on(:success, planned_task, :start)
-	planning_task.executable = true
 	planning_task.start!
 
         poll(0.5) do
