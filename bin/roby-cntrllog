@@ -1,6 +1,8 @@
 #! /usr/bin/ruby
 #
 require 'optparse'
+require 'set'
+require 'enumerator'
 
 do_cumulative = false
 parser = OptionParser.new do |opts|
@@ -22,39 +24,39 @@ def timeval_to_s(t)
 end
 
 REF_TIMING = :start
-ALL_TIMINGS = [ :garbage_mark, :server, :events, :ruby_gc, :end, :pass, :sleep ]
+ALL_TIMINGS = [ :real_start, :server, :events, :garbage_collect, :ruby_gc, :end, :pass, :sleep ]
 
 if ARGV.empty?
     STDERR.puts "no file given on command line, reading stdin"
 end
 begin
-    puts(([REF_TIMING] + ALL_TIMINGS).join("\t"))
+    header = ([REF_TIMING] + ALL_TIMINGS).enum_for(:each_with_index).
+       map { |n, i| "#{i + 1}_#{n}" }.
+       join("\t")
+
+    puts header
     loop do
 	timings = Marshal.load(ARGF)
 	ref = timings.delete(REF_TIMING)
 
+	unknown_timings = (timings.keys.to_set - ALL_TIMINGS.to_set)
+	raise "invalid list of timings: unknown #{unknown_timings.join(", ")}" unless unknown_timings.empty?
 	timings = ALL_TIMINGS.map do |name|
 	    timings[name]
 	end
 
 	result = [timeval_to_s(ref)]
 	if do_cumulative
-	    timings.inject(0) do |last, t| 
-		if t 
-		    result << (t - ref) 
-		    t
-		else 
-		    last
-		end
+	    timings.inject(ref) do |last, t| 
+		t ||= last
+		result << (t - ref)
+		t
 	    end
 	else
-	    timings.inject(ref) do|last, t| 
-		if t
-		    result << (t - last)
-		    t
-		else
-		    last
-		end
+	    timings.inject(ref) do |last, t| 
+		t ||= last
+		result << (t - last)
+		t
 	    end
 	end
 
