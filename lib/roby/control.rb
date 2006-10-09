@@ -63,8 +63,7 @@ module Roby
 	# array which are the duration of the whole cycle, the handling of
 	# the server commands and the event processing
 	def process_events(timings = {}, do_gc = false)
-	    # Current time
-	    timings[:start] = Time.now
+	    timings[:real_start] = Time.now
 
 	    # Get the events received by the server and process them
 	    Thread.current.process_events
@@ -125,9 +124,14 @@ module Roby
 	    cycle   = options[:cycle]
 	    log	    = options[:log]
 	    timings = {}
+	    timings[:start] = Time.now
 	    loop do
+		while Time.now > timings[:start] + cycle
+		    timings[:start] += cycle
+		end
 		timings = process_events(timings, control_gc)
 		
+		timings[:pass] = timings[:sleep] = timings[:end]
 		cycle_duration = timings[:end] - timings[:start]
 		if cycle - cycle_duration > 0.01
 		    Thread.pass
@@ -142,6 +146,7 @@ module Roby
 		end
 
 		log << Marshal.dump(timings) if log
+		timings[:start] += cycle
 	    end
 
 	rescue Interrupt
