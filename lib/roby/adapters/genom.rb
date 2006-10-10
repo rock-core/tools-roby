@@ -472,11 +472,36 @@ module Roby::Genom
 	# If +name+ is a used module
 	def uses?(name); uses.include?(name.to_s) end
 
+	attribute(:ignores) { Set.new }
+
+	# Ignore configuration for the given modules. For instance, in
+	#
+	#   State::Genom do |g|
+	#	g.ignoring :pom
+	#	g.pom do |p|
+	#	    p.some_configuration = true
+	#	end
+	#   end
+	#
+	# The block given to g#pom is never called
+	def ignoring(*modules)
+	    modules.map { |n| ignores << n.to_s }
+	end
+
+	# Redefine method_missing to disable module-specific configuration
+	# when the module is not in use
+        def method_missing(name, *args, &update) # :nodoc:
+	    return if ignores.include?(name.to_s) && update
+	    super
+	end
+
 	# Load the following modules and autorequire extension
 	# found in +autoload_path+. Updates the +uses+ attribute
 	def using(*modules)
 	    modules.each do |modname| 
 		modname = modname.to_s
+		next if uses?(modname) # already loaded
+		uses << modname
 		
 		::Roby::Genom::GenomModule(modname, :output => output_io) 
 		self.autoload_path.each do |path|
@@ -490,8 +515,6 @@ module Roby::Genom
 		    end
 		end
 	    end
-	    
-	    uses |= modules.map { |name| name.to_s }
 	end
     end
     Roby::State.genom = GenomState.new
