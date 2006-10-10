@@ -356,6 +356,11 @@ module Roby::Genom
 	    State.genom.send(genom_module.name)
 	end
 
+	# True if we are running in simulation
+	def simulation?
+	    defined?(::Genom::Runner::Simulation) && ::Genom::Runner::Simulation === ::Genom::Runner.environment
+	end
+
 	# Get the poster_info object for +name+
 	def poster(name)
 	    genom_module.poster(name)
