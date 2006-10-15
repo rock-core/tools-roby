@@ -120,10 +120,31 @@ module Roby
 	end
     end
 
+    # Tasks represent processes in a plan. Task subclasses model specific tasks
+    # Tasks are made of events, which are
+    # defined by calling Task::event on a Task class.
+    #
+    # === Executability
+    # By default, a task is not executable, which means that no event command
+    # can be called and no event can be emitted. A task becomes executable either
+    # because Task#executable= has been called or because it has been inserted
+    # in a Plan object. This constraint has been added to make sure that no
+    # task is executed outside of the plan supervision. Note that tasks inserted
+    # in transactions are *not* executable either. An abstract task is a task
+    # which can never be executed. Call Task::abstract in the class definition
+    # to make a task abstract.
+    #
+    # === Inheritance
+    # * a task subclass has all events of its parent class
+    # * some event attributes can be overriden. The rules are:
+    #   - a non-controlable event can become a controlable one
+    #   - a non-terminal event can become a terminal one
     class Task
 	def name; model(false).name end
 
 	@@tasks = Hash.new
+
+	# Enumerates all tasks of model +model+ defined in the system. 
 	def self.each_task(model)
 	    return unless tasks = @@tasks[model]
 	    tasks.each do |t|
@@ -133,6 +154,7 @@ module Roby
 		end
 	    end
 	end
+
 	def self.model_attribute_list(name)
 	    class_inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = Set.new } }
 	    class_eval <<-EOD
@@ -155,9 +177,11 @@ module Roby
 	model_attribute_list('handler')
 	model_attribute_list('precondition')
 
+	# The task arguments as a hash
 	attr_reader :arguments
 	
         # Builds a task object using this task model
+	#
         # The task object can be configured by a given block. After the 
         # block is called, two things are checked:
         # * the task shall have a +start+ event
@@ -184,7 +208,10 @@ module Roby
 	    super() if defined? super
         end
 
+	# The plan this task is part of (can be a transaction object)
 	attr_reader :plan
+
+	# Set the plan this task is part of
 	def plan=(new_plan)
 	    if @plan == new_plan
 		return
@@ -198,17 +225,27 @@ module Roby
 	end
 
 	class << self
+	    # If this task is an abstract task
+	    # Abstract tasks are not executable. This attribute is
+	    # not inherited in the task hierarchy
 	    attr_reader :abstract
 	    alias :abstract? :abstract
+
+	    # Mark this task model as an abstract model
 	    def abstract
 		@abstract = true
 	    end
 	end
+
+	# Roby::Task is an abstract model
 	abstract
 
+	# Check if this task is executable
 	def executable?
 	    !self.class.abstract? && (@executable || (plan && plan.executable?))
 	end
+	# Set the executable flag. executable cannot be set to +false+ is the 
+	# task is running, and cannot be set to true on a finished task.
 	def executable=(flag)
 	    return if flag == @executable
 	    if flag && !pending? 
@@ -220,6 +257,7 @@ module Roby
 	    @executable = flag
 	end
 
+	# Returns the task model
         def model(create = true)
 	    if create || has_singleton?; singleton_class 
 	    else self.class
@@ -250,6 +288,8 @@ module Roby
 	    self.clear_vertex
 	end
 
+	# List of [time, event] pair for all events that
+	# have already been achieved in this task.
 	def history
 	    history = []
 	    each_event do |event|
@@ -280,6 +320,7 @@ module Roby
 	    super if defined? super
         end
         
+	# List of EventGenerator objects bound to this task
         attr_reader :bound_events
 
         # call-seq:
@@ -308,7 +349,7 @@ module Roby
         #
         # Adds an event handler for the given event model. When an event of this
         # model is fired by this task
-        # * all provided events will be provoked in +task+. As such, all of these
+        # * all provided events will be called in +task+. As such, all of these
         #   events shall be controlable
         # * the supplied handler will be called with the event object
         #
