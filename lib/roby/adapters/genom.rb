@@ -271,8 +271,8 @@ module Roby::Genom
 	# If the module has an init request, the ::init module method is started and :ready is emitted
 	# when if finishes successfully (see RunnerTask). Otherwise, :ready is emitted immediately otherwise
 	def start(context)
-	    Roby::Control.event_processing << method(:poll_running)
 	    ::Genom::Runner.environment.start_module(genom_module.name, output_io)
+	    Roby::Control.event_processing << method(:poll_running)
 	end
 	# Event emitted when the module is running
 	event :start
