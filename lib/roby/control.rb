@@ -6,6 +6,10 @@ module Roby
     class Control
 	include Singleton
 
+	# Do not sleep or call Thread#pass if there is less that
+	# SLEEP_MIN_TIME time left in the cycle
+	SLEEP_MIN_TIME = 0.01
+
 	@event_processing = []
 	class << self
 	    # List of procs which are called at each event cycle
@@ -88,6 +92,9 @@ module Roby
 	attr_accessor :thread
 	def running?; !!@thread end
 
+	# The cycle length in seconds
+	attr_reader :cycle_length
+
 	# Main event loop. Valid options are
 	# cycle::   the cycle duration in seconds (default: 0.1)
 	# drb:: address of the DRuby server if one should be started (default: nil)
@@ -98,6 +105,8 @@ module Roby
 	    options = validate_options options, 
 		:drb => nil, :cycle => 0.1, :detach => false, 
 		:control_gc => false, :log => false
+
+	    @cycle_length = options[:cycle]
 	
 	    # Start DRb as soon as possible so that the caller knows
 	    # that DRb is up when #run returns, event when :detach is true.
@@ -133,7 +142,9 @@ module Roby
 		
 		timings[:pass] = timings[:sleep] = timings[:end]
 		cycle_duration = timings[:end] - timings[:start]
-		if cycle - cycle_duration > 0.01
+		if cycle - cycle_duration > SLEEP_MIN_TIME
+		    cycle_end(timings)
+
 		    Thread.pass
 		    timings[:pass] = Time.now
 
@@ -163,6 +174,9 @@ module Roby
 		GC.enable if control_gc && !already_disabled_gc
 	    end
 	end
+	
+	# Called at each cycle end
+	def cycle_end(timings); super if defined? super end
 
 	# If the event thread has been started in its own thread, 
 	# wait for it to terminate
