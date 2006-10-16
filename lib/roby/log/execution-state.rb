@@ -13,8 +13,20 @@ module Roby::Display
 	    end
 	end
 
+	PING_PERIOD = 1
+
 	[:generator_calling, :generator_signalling, :generator_fired].each do |m| 
-	    define_method(m) { |*args| display_thread.send(m, *args) }
+	    define_method(m) do |*args| 
+		@last_ping = args[0]
+		display_thread.send(m, *args)
+	    end
+	end
+
+	def cycle_end(time, timings)
+	    if !@last_ping || (time - @last_ping > PING_PERIOD)
+		display_thread.cycle_end(time, timings)
+		@last_ping = time
+	    end
 	end
 
 	def disabled

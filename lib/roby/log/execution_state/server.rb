@@ -51,6 +51,11 @@ module Roby::Display
 	    @canvas.update
 	end
 
+	def cycle_end(time, timings)
+	    canvas.ping(time)
+	    changed!
+	end
+
 	#def postponed(time, generator, wait_for, reason)
 	#    @pending.postponed(time, generator, wait_for, reason)
 	#end

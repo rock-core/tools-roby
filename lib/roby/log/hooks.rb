@@ -1,6 +1,9 @@
 require 'roby/log/logger'
 require 'roby/log/marshallable'
 require 'roby/plan'
+require 'roby/task'
+require 'roby/event'
+require 'roby/control'
 require 'set'
 
 module Roby::Log
@@ -59,5 +62,13 @@ module Roby::Log
 	end
     end
     Roby::EventGenerator.include EventGeneratorHooks
+
+    module ControlHooks
+	def cycle_end(timings)
+	    super if defined? super
+	    Roby::Log.log(:cycle_end) { [Time.now, timings] }
+	end
+    end
+    Roby::Control.include ControlHooks
 end
 

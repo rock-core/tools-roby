@@ -62,28 +62,39 @@ module Roby
 	    # TODO make sure x is in the canvas
 	end
 
+	def ping(time)
+	    x	    = x_of(time)
+	    @lines.each do |t|
+		next unless t.respond_to?(:task)
+		unless t.finished?
+		    t.start = x if !t.start
+		    t.stop = x
+		end
+	    end
+
+	    if x > self.width
+		new_width	= self.width * 2  
+		resize(new_width, self.height)
+	    end
+
+	    view.ensure_visible(x, self.height / 2)
+	end
+
 	def new_event(time, generator, pending)
+	    ping(time)
+
 	    x	    = x_of(time)
 	    line    = line_of(generator, x)
-
-	    if line.respond_to?(:task)
-		line.start = x if !line.start
-		line.stop = x
-
-		line.new_event(generator)
-	    end
+	    line.new_event(generator)
 	    
 	    y = (line.index + 0.2) * line_height
 	    shape = Display::Style.event(generator, self, pending)
 	    shape.move(x, y)
 
-	    new_width	= self.width * 2 if x > self.width
-	    new_height	= self.height * 2 if y + line_height > self.height
-	    if new_width || new_height
-		resize(new_width || self.width, new_height || self.height)
+	    if y + line_height > self.height
+		new_height	= self.height * 2 
+		resize(self.width, new_height)
 	    end
-
-	    view.ensure_visible(x, self.height / 2)
 
 	    unless colors = line.colors.delete(generator)
 		colors = line.next_color

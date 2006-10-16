@@ -41,6 +41,13 @@ module Roby::Log
 		    Marshal.dump([time, plan, task])
 	    end
 	end
+	[:cycle_end].each do |m|
+	    @dumped[m] = Marshal.dump(m)
+	    define_method(m) do |time, timings|
+		io << FileLogger.dumped[m] <<
+		    Marshal.dump([time, timings])
+	    end
+	end
 
 	def self.replay(io)
 	    loop do
