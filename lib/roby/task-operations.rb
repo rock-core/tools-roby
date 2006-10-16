@@ -38,6 +38,9 @@ module Roby::TaskAggregator
 	    yield(self)
 	    tasks.each(&iterator) 
 	end
+	def executable?
+	    tasks.enum_for(:each).all? { |t| t.executable? }
+	end
     end
 
     class Sequence < TaskAggregator
