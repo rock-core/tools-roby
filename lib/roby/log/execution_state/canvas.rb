@@ -2,7 +2,8 @@ module Roby
     class Display::ExecutionStateCanvas < Qt::Canvas
 	include Roby::Display::Style
 
-	BASE_DURATION = 6000
+	BASE_WINDOW_WIDTH = 640
+	BASE_RESOLUTION = 50 # ms per pixel
 	BASE_LINES    = 10
 
 	def canvas; self end
@@ -11,12 +12,12 @@ module Roby
 	attr_reader :event_radius, :event_display, :event_source
 	attr_accessor :view
 	def initialize
-	    @resolution	    = BASE_DURATION / 640 # resolution for time axis in ms per pixel
+	    @resolution	    = BASE_RESOLUTION # resolution for time axis in ms per pixel
 	    @line_height    = 40  # height of a line in pixel
 	    @event_radius   = 4
 	    @margin	    = 10
 
-	    super(640, line_height * BASE_LINES + margin * 2)
+	    super(BASE_WINDOW_WIDTH, line_height * BASE_LINES + margin * 2)
 	    clear
 	end
 
@@ -59,7 +60,6 @@ module Roby
 	def x_of(time)
 	    @start_time = time if !start_time
 	    x = (time - @start_time) * 1000 / resolution
-	    # TODO make sure x is in the canvas
 	end
 
 	def ping(time)
