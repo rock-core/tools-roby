@@ -46,6 +46,7 @@ module Roby::Display
 		    @updater = Qt::Timer.new(self, "timer")
 		    @updater.connect(@updater, SIGNAL('timeout()'), self, SLOT('update()'))
 		    @updater.start(100)
+		    display.enable_updates
 		end
 
 		def update?; @update end
@@ -60,7 +61,7 @@ module Roby::Display
 			Thread.pass
 		    end
 
-		    update if display.update?
+		    display.update if display.update?
 		end
 		slots "update()"
 	    end
