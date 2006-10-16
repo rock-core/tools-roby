@@ -1,60 +1,262 @@
 #! /usr/bin/ruby
-
-require 'optparse'
-
-display = nil
-parser = OptionParser.new do |opts|
-    opts.banner = "roby-eventlog [options] logfile\nDisplay the event logs which are saved by FileLogger"
-    opts.separator ""
-    opts.on("-d DISPLAY", "--display DISPLAY", String, 
-	    "display log using DISPLAY. Available displays are: stdout, execution or a relation name") do |display|
-    end
-    opts.on("--help", "this help") do 
-	puts opts
-	puts
-	exit
-    end
-end
-parser.parse! ARGV
-
-require 'roby/log/console'
-require 'roby/log/file'
+require 'roby/log/offline_control_ui'
 require 'roby/relations'
+require 'roby/log/logger'
+require 'roby/log/drb'
 
-include Roby
-Roby.load_all_relations
-displays = Roby::Log.load_all_displays
+require 'roby/log/execution-state'
+require 'roby/log/relations'
 
-# Check what is the needed display
-case display
-when "help"
-    task_relations = Roby::TaskStructure.constants.
-	find_all { |cst| Roby::TaskStructure.const_get(cst).is_a?(Roby::RelationGraph) }
-    event_relations = Roby::EventStructure.constants.
-	find_all { |cst| Roby::EventStructure.const_get(cst).is_a?(Roby::RelationGraph) }
+module Roby::Log
+    class DisplayControl < ::DisplayControl
+	# The display server
+	attr_reader :server
+	# A relation_graph => checkbox hash
+	attr_reader :relations
+	# The log file IO object
+	attr_reader :file
+	# The current logger object
+	attr_reader :logger
+	# The time of the first sample
+	attr_reader :first_sample
+	# The time of the last sample
+	attr_reader :last_sample
 
-    STDERR.puts "allowed values for --display are 'exec' or a relation name"
-    STDERR.puts "Available task relations: #{task_relations.join(", ")}"
-    STDERR.puts "Available event relations: #{event_relations.join(", ")}"
-    STDERR.puts
-    STDERR.puts "if no --display option is given, outputs the events on the console"
-    exit(1)
-when nil
-    Log.loggers << Log::ConsoleLogger.new(STDOUT)
-when /^exec/
-    Display::ExecutionState.connect :start => true
-else
-    unless rel = Roby::TaskStructure.constant(display) rescue nil
-	rel = Roby::EventStructure.constant(display) rescue nil
+	def initialize(*args, &block)
+	    @server = Roby::Display::DRbDisplayServer.new(Roby::Display::DEFAULT_REMOTE_DISPLAY_URI)
+
+	    super(*args, &block)
+
+	    Roby.load_all_relations
+	    @relations = Hash.new
+
+	    task_root = Qt::ListViewItem.new(relation_display_list, "Task relations")
+	    event_root = Qt::ListViewItem.new(relation_display_list, "Event relations")
+	    setup_relations(Roby::TaskStructure, task_root)
+	    setup_relations(Roby::EventStructure, event_root)
+
+	    connect(btn_file_open, SIGNAL('pressed()'), self, SLOT('open()'))
+	    connect(btn_update, SIGNAL('pressed()'), self, SLOT('update_display()'))
+	    connect(btn_play, SIGNAL('toggled(bool)'), self, SLOT('play()'))
+	    connect(btn_fast_forward, SIGNAL('pressed()'), self, SLOT('fast_forward()'))
+	    connect(btn_seek_start, SIGNAL('pressed()'), self, SLOT('seek_start()'))
+	    connect(btn_seek_end, SIGNAL('pressed()'), self, SLOT('seek_end()'))
+
+	    @cycle_size = 0.1
+	    @play_timer = Qt::Timer.new(self)
+	    connect(@play_timer, SIGNAL('timeout()'), self, SLOT('play_step()'))
+	end
+
+	# Add the relations in +relation_space+ to the relation list, using +root_item+ as
+	# their parent item
+	def setup_relations(relation_space, root_item)
+	    relation_space.each_relation do |rel|
+		name = rel.name.gsub(/.*Structure::/, '')
+		relations[rel] = Qt::CheckListItem.new(root_item, name, Qt::CheckListItem::CheckBox)
+	    end
+	    root_item.open = true
+	end
+
+	# Open a new file
+	def open(file_name = nil)
+	    clear_display
+	    grp_display.enabled = false
+	    grp_play.enabled = false
+
+	    if file
+		file.close 
+		@file = nil
+	    end
+
+	    file_name ||= Qt::FileDialog.get_open_file_name
+	    return unless file_name
+	    lbl_file_name.text = file_name
+	    
+	    # Read the time of the first and last samples
+	    @first_sample, @last_sample = nil
+	    begin
+		@file = File.open(file_name)
+		time = nil
+		begin
+		    loop do
+			Marshal.load(file)
+			time, _ = Marshal.load(file)
+			@first_sample ||= time
+		    end
+		rescue EOFError
+		rescue ArgumentError => format_error
+		    raise if format_error.message !~ /dump format error/
+
+		ensure
+		    file.seek(0)
+		end
+		@last_sample = time
+
+	    rescue Exception => e
+	    end
+
+	    unless @first_sample && @last_sample
+		STDERR.puts e.inspect
+		lbl_file_name.text = ''
+		Qt::MessageBox.warning self, 'Cannot open file', "#{file_name} does not exist, is not readable, or is not a valid log file"
+		return
+	    end
+		    
+	    sld_position.min_value = 0
+	    sld_position.max_value = Integer((last_sample - first_sample) * 1000)
+
+	    seek(0, true)
+
+	    update_display
+	    grp_display.enabled = true
+	    grp_play.enabled = true
+	end
+	slots 'open()'
+
+	attr_reader :play_timer
+
+	# Read a step of data from the logfile and send it to Log
+	def read_step
+	    loop do
+		file_pos = file.tell
+
+		method_name = Marshal.load(file)
+		method_args = Marshal.load(file)
+		if method_name.to_s =~ /_relation$/
+		    method_args[1] = Module.constant(method_args[1])
+		end
+
+		sample_time = method_args.first
+		if (sample_time - @step_start) > step_size
+		    file.seek(file_pos)
+		    break
+		end
+
+		Roby::Log.log(method_name, method_args)
+		@cur_sample = sample_time
+	    end
+	    @step_start += step_size
+
+	    if !logger.enabled?
+		stop
+		Qt::MessageBox.information self, 'Event log display', 'display failed because of internal error'
+	    end
+	end
+
+	def update_position_display
+	    int_pos = Integer((@step_start - first_sample) * 1000)
+	    sld_position.value = int_pos
+
+	    if int_pos == 0 then dsp_position.num_digits = 3
+	    else dsp_position.num_digits = Integer(Math.log10(int_pos)) + 2
+	    end
+
+	    dsp_position.display(Float(int_pos) / 1000)
+	end
+
+	# Called by a timer to send a time step to the display
+	def play_step
+	    logger.disable_updates { read_step }
+	    update_position_display
+
+	rescue EOFError, ArgumentError => format_error
+	    raise if format_error.message !~ /dump format error/
+	    stop
+	end
+	slots 'play_step()'
+
+	def play_position; first_sample + Float(sld_position.value) / 1000 end
+	def play_speed; Integer(edt_speed.text) end
+	def play_timer_interval; Integer(cycle_size * 1000) end
+	attr_reader :cycle_size
+	def step_size; cycle_size * play_speed end
+
+	# Start playing at current position
+	def play
+	    if btn_play.on?
+	        play_timer.start( play_timer_interval, false ) 
+	    else
+		stop
+	    end
+	end
+	slots 'play()'
+
+	def stop
+	    play_timer.stop
+	    btn_play.down = false
+	end
+
+	# Seek at pos +pos+. The position is given in seconds,
+	# relative to beginning
+	def seek(pos, force_reset = false)
+
+	    if force_reset || (first_sample + pos) < play_position
+		sld_position.value = 0
+		@step_start = first_sample
+		@cur_sample = first_sample
+		file.seek(0)
+		logger.display.clear if logger
+	    end
+
+	    if logger
+		logger.disable_updates do
+		    begin
+			while play_position < (first_sample + pos)
+			    read_step
+			end
+		    rescue EOFError, ArgumentError => format_error
+			raise if format_error && !format_error.message =~ /dump format error/
+		    end
+		    logger.flush
+		end
+	    end
+	    update_position_display
+	end
+	def seek_start; seek(0) end
+	def seek_end; seek(last_sample - first_sample) end
+	slots 'seek_start()', 'seek_end()'
+
+	def fast_forward
+	    edt_speed.text = (play_speed * 2).to_s
+	    play_timer.change_interval play_timer_interval
+	end
+	slots 'fast_forward()'
+
+	def file_name; lbl_file_name.text end
+
+	def clear_display
+	    logger.delete if logger
+	end
+
+	# Update the display
+	def update_display
+	    clear_display
+
+	    @logger = if execution_flow.checked?
+			  Roby::Display::ExecutionState.connect :server => server
+		      else
+			  relations = @relations.find_all { |_, item| item.on? }.map { |r, _| r }
+			  Roby::Display::Relations.connect :server => server, :relations => relations
+		      end
+
+	    replay
+	end
+	slots 'update_display()'
+
+	def replay
+	    seek(play_position - first_sample, true)
+	end
     end
-    if !rel
-	raise ArgumentError, "no such display #{display}, use --display help to get the list of available displays"
-    end
-    Display::Relations.connect :start => true, :relation => rel
 end
 
-if ARGV.empty?
-    STDERR.puts "no file given on command line, reading stdin"
+if $0 == __FILE__
+    require 'Qt'
+    a = Qt::Application.new( ARGV )
+
+    display = Roby::Log::DisplayControl.new
+    display.show
+    display.open(ARGV.shift)
+    a.setMainWidget( display )
+    a.exec()
 end
-Log::FileLogger.replay(ARGF)
 
