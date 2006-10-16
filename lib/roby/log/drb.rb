@@ -217,12 +217,12 @@ module Roby::Display
 		end
 	    end
 
-	    DRb.start_service unless DRb.primary_server
-
 	    # Get the display server object
 	    @display_server = if options[:server].respond_to?(:to_str)
+				  DRb.start_service unless DRb.primary_server
 				  DRbObject.new(nil, options[:server].to_str)
 			      else options[:server]
+				  options[:server]
 			      end
 
 	    @display = display_server.get(kind, options[:name])
