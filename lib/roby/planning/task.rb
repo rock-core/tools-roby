@@ -8,9 +8,15 @@ module Roby
     class PlanningTask < Roby::Task
         attr_reader :planner, :method_name, :method_options
         def initialize(plan, planner_model, method, options)
-	    @planner = planner_model.new(Transaction.new(plan))
-            @method_name, @method_options = method, options
             super()
+	    @planner = planner_model.new(Transaction.new(plan))
+
+	    loop_size = options.delete(:every) || options.delete('every')
+	    if !loop_size
+		on(:found_plan, self, :success)
+	    end
+
+            @method_name, @method_options = method, options
         end
 
 	def to_s
@@ -32,6 +38,12 @@ module Roby
 		raise TaskModelViolation.new(self), "we are not planning any task"
 	    end
 
+	    start_planning
+            emit(:start, context)
+        end
+        event :start
+
+	def start_planning
             @thread = Thread.new do
 		@result = begin
 			      @planner.send(@method_name, @method_options)
@@ -39,9 +51,8 @@ module Roby
 			  end
             end
             PlanningTask.planning_tasks << self
-            emit(:start, context)
-        end
-        event :start
+	end
+	event :found_plan
 
 	def poll
 	    return if thread.alive?
@@ -57,7 +68,7 @@ module Roby
 		plan = planner.plan
 		plan.replace(plan[planned_task], result)
 		plan.commit_transaction
-		emit(:success)
+		emit(:found_plan)
 	    else
 		raise result, "expected an exception or a Task, got #{result} in #{caller[0]}", result.backtrace
 	    end
