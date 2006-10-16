@@ -8,8 +8,9 @@ module Roby::Display
 
 	class << self
 	    def connect(options = {})
-		Roby::Log.loggers << instance
 		instance.connect("execution_state", options)
+		Roby::Log.loggers << instance
+		instance
 	    end
 	end
 
