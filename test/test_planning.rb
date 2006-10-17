@@ -142,13 +142,14 @@ class TC_Planner < Test::Unit::TestCase
 
         assert_raises(NotFound) { planner.not_recursive }
 
+	# This should produce a sequence of two PlanningTask
         plan = nil
         assert_nothing_raised { plan = planner.recursive }
-        
-        sequence = plan.enum_for(:each_task).to_a
-        methods = sequence.map { |node| node.method_name }
+        tasks = plan.enum_for(:each_task).to_a
+	assert_equal(3, tasks.size)
+        planners = tasks.find_all { |node| PlanningTask === node }
+	methods = planners.map { |t| t.method_name }
         assert_equal(['recursive', 'root'].to_set, methods.to_set)
-        assert(sequence.all? { |node| PlanningTask === node })
     end
 
     def test_method_model
