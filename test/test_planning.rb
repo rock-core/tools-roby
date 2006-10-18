@@ -355,7 +355,7 @@ class TC_Planner < Test::Unit::TestCase
 	assert_raises(Planning::NotFound) { planner.test }
     end
 
-    def test_planning_task
+    def test_planning_task_one_shot
 	result_task = ExecutableTask.new
 	planner = Class.new(Planning::Planner) do
 	    method(:task) { result_task }
@@ -379,6 +379,47 @@ class TC_Planner < Test::Unit::TestCase
 
 	plan_task = plan.missions.find { true }
         assert(plan_task == result_task, plan_task)
+    end
+
+    def test_planning_task_loop
+	result_task = nil
+	planner = Class.new(Planning::Planner) do
+	    method(:task) { result_task = SimpleTask.new }
+	end
+
+	plan  = Plan.new
+
+	planning_task = PlanningTask.new(plan, planner, :task, :every => 0)
+	plan.insert(planning_task.planned_task)
+	planning_task.on(:success, planning_task.planned_task, :start)
+	planning_task.start!
+
+	planned_task = nil
+	(1..2).each do |i|
+	    poll(0.5) do
+		thread_finished = !planning_task.thread.alive?
+		Control.instance.process_events
+
+		assert(planning_task.running? ^ thread_finished, [planning_task.finished?, thread_finished].inspect)
+		break if planning_task.finished?
+	    end
+
+	    planned_task = planning_task.planned_task
+	    assert_equal(result_task, planned_task)
+	    assert(planned_task.running?)
+	    planned_task.success!
+
+	    # There is 
+	    #   - the initial proxy, the first planning task and its planned task
+	    #   - the second proxy and its planning task
+	    assert_equal((i + 1) * 3 - 1, plan.enum_for(:each_task).to_a.size)
+
+	    # Find the new planning task
+	    new_planning_task = plan.enum_for(:each_task).find { |t| PlanningTask === t && t != planning_task }
+	    assert(plan.mission?(new_planning_task.planned_task))
+	    assert(new_planning_task.running?)
+	    planning_task = new_planning_task
+	end
     end
 end
 

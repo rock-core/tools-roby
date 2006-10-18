@@ -604,6 +604,23 @@ module Roby
             end
 
             private :call_planning_methods
+
+	    # Builds a loop in a plan (i.e. a method which is generated in
+	    # loop)
+	    def make_loop(every, &block)
+		m = self.class.method("loops", &block)
+
+		options = arguments.merge :id => m.id, :every => every
+		
+		planner = PlanningTask.new plan.real_plan, self.class, "loops", options
+		
+		task = block.call
+		task.planned_by planner
+		# PlanningTask#start takes care of *not* planning
+		# if the child task is already running
+		task.on(:start, planner, :start)
+		task
+	    end
         end
 
 	# A planning Library is only a way to gather a set of planning
