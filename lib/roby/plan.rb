@@ -33,6 +33,16 @@ module Roby
 	    end
 	end
 
+	# If this plan is a toplevel plan, returns self. If it is a transaction,
+	# returns the underlying plan
+	def real_plan
+	    ret = self
+	    while ret.respond_to?(:plan)
+		ret = ret.plan
+	    end
+	    ret
+	end
+
 	# Inserts a new mission in the plan. Its child tree is automatically inserted too.
 	# Returns the plan
         def insert(tasks)
