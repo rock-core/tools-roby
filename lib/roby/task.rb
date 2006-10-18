@@ -631,6 +631,22 @@ module Roby
 	end
 
         def to_s; name end
+	def pretty_print(pp)
+	    pp.text to_s
+	    pp.group(2, ' {', '}') do
+		pp.breakable
+		pp.text "relations: "
+		pp.seplist(relations) { |r| pp.text r.name }
+
+		pp.breakable
+		pp.text "arguments: "
+		pp.pp arguments
+
+		pp.breakable
+		pp.text "bound events: "
+		pp.seplist(bound_events) { |e| pp.text e[1].symbol.to_s }
+	    end
+	end
 	    
         def null?; false end
 	def to_task; self end
