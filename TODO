@@ -50,3 +50,20 @@
       Moreover, if it is synchronizing on the start event, it should appear "as if"
       the event has been emitted
 
+* Error handling
+  - when a task dies, fire a ChildFailed exception. These exceptions are a **stack** of
+    task that failed: if a child task fails, then we consider that the parent task
+    failed as well if it cannot repair and so one. What the ChildFailed exception keeps
+    is the list of failing tasks.
+    If the task is killed because of the exception, we kill the higher task under
+    the principle that it can have cleanup routines for its children
+  - exceptions are gathered in during event propagation
+    - if an exception occured in a particular event, do not fire events that should have
+      been fired by this handler
+  - exception handlers are defined by an exception matcher (which is tested against the
+    exception object using ===).
+  - if two parent branches can repair, select the one which can do that the most locally 
+  - problem of multiple exceptions in the same execution cycle:
+    - no task is killed before all exception have been propagated. This ensures that all
+      tasks are able to handle the provided exceptions
+
