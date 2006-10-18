@@ -515,7 +515,10 @@ module Roby
                 if !methods
                     raise NotFound.new(self, Hash.new)
                 elsif options[:lazy]
-                    task = PlanningTask.new(self.plan, self.class, name, options)
+		    task_model = singleton_class.model_of(name, options).returns
+		    task    = task_model.new
+		    planner = PlanningTask.new(self.plan.real_plan, self.class, name, options)
+		    task.planned_by planner
 		    return task
 		end
 		

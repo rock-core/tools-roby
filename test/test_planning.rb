@@ -121,13 +121,11 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_recursive
+	t_not_rec = Class.new(Task)
+	t_rec = Class.new(Task)
         model = Class.new(Planner) do
-            method(:not_recursive) do
-                root
-            end
-            method(:recursive, :recursive => true) do
-                root
-            end
+            method(:not_recursive) { root }
+            method(:recursive, :recursive => true) { root }
             method(:root, :recursive => true) do
                 recursive + not_recursive
             end
@@ -135,21 +133,30 @@ class TC_Planner < Test::Unit::TestCase
         planner = model.new(Plan.new)
         assert(planner.has_method?(:recursive))
         assert(planner.respond_to?(:recursive))
-
         recursive = planner.class.find_methods(:recursive)
         assert_equal(1, recursive.size)
         assert(recursive.first.recursive?)
 
-        assert_raises(NotFound) { planner.not_recursive }
+	# Calls:
+	#   not_recursive
+	#    - root
+	#	- recursive
+	#	- not_recursive <= FAILS HERE
+        assert_raises(NotFound) { model.new(Plan.new).not_recursive }
 
-	# This should produce a sequence of two PlanningTask
-        plan = nil
-        assert_nothing_raised { plan = planner.recursive }
-        tasks = plan.enum_for(:each_task).to_a
-	assert_equal(3, tasks.size)
+	# Calls:
+	#   recursive
+	#    - root
+	#	- recursive => Task (with a planning task)
+	#	- not_recursive
+	#	    - root => Task (with a planning task)
+        planner = model.new(Plan.new)
+        assert_nothing_raised { planner.recursive }
+        tasks = planner.plan.enum_for(:each_task).to_a
+	assert_equal(5, tasks.size)
         planners = tasks.find_all { |node| PlanningTask === node }
-	methods = planners.map { |t| t.method_name }
-        assert_equal(['recursive', 'root'].to_set, methods.to_set)
+        assert_equal ['recursive', 'root'].to_set, planners.map { |t| t.method_name }.to_set
+	assert_equal [Task, Task].to_set, planners.map { |t| t.planned_task.class }.to_set
     end
 
     def test_method_model
