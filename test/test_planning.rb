@@ -174,13 +174,13 @@ class TC_Planner < Test::Unit::TestCase
 	# Check the definition of instance methods on Planner instances
 	model.method(:root, :returns => tm_a)
 	assert_equal( model.root_model, model.method_model(:root) )
-	assert( model.method_model(:root).returns == tm_a, model.method_model(:root).inspect )
+	assert_equal(tm_a, model.method_model(:root).returns)
 	# Fails because we can't override a :returns option
 	assert_raises(ArgumentError) { model.method(:root, :returns => tm_b) }
 	# Does not fail since tm_a is the curren :returns task model
 	assert_nothing_raised { model.method(:root, :returns => tm_a) }
 
-	# Define tasks based on the model, and check that :returns is properly validated
+	# Check that :returns is properly validated on methods
 	model.method(:root, :id => 1) {}
 	assert_raises(ArgumentError) { model.method(:root, :returns => tm_b) {} }
 	assert_nothing_raised { model.method(:root, :returns => tm_a) {} }

@@ -116,12 +116,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_task_propagation
-        task = Class.new(Task) do
-	    def initialize
-		super
-		self.executable = true
-	    end
-	end.new
+        task = Class.new(ExecutableTask).new
 
 	# Check can_signal? for task events
         start_event = task.event(:start)
@@ -146,12 +141,11 @@ class TC_Task < Test::Unit::TestCase
 
     def test_context_propagation
 	FlexMock.use do |mock|
-	    task = Class.new(Task) do
+	    task = Class.new(ExecutableTask) do
 		on(:start) { |event| mock.started(event.context) }
 		event(:stop)
 		on(:stop) { |event| mock.stopped(event.context) }
 	    end.new
-	    task.executable = true
 
 	    mock.should_receive(:started).with(42)
 	    mock.should_receive(:stopped).with(21)
