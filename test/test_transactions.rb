@@ -260,5 +260,48 @@ class TC_Transactions < Test::Unit::TestCase
 	assert(Hierarchy.linked?(t1, r))
 	assert(Signal.linked?(t1.event(:stop), r.event(:start)))
     end
+
+    def test_relation_validation
+	t1, t2 = (1..2).map { ExecutableTask.new }
+	plan.insert(t1)
+	transaction_commit(plan) do |trsc|
+	    trsc.insert(t2)
+	    assert_equal(plan, t1.plan)
+	    assert_equal(trsc, t2.plan)
+	    assert_raises(Roby::InvalidPlanOperation) { t1.realized_by t2 }
+	    assert_equal(plan, t1.event(:start).plan)
+	    assert_equal(trsc, t2.event(:start).plan)
+	    assert_raises(Roby::InvalidPlanOperation) { t1.event(:start).on t2.event(:start) }
+	end
+    end
+
+    def test_and_event_aggregator
+	t1, t2, t3 = (1..3).map { ExecutableTask.new }
+	plan.insert(t1)
+	transaction_commit(plan) do |trsc|
+	    trsc.insert(t2)
+	    trsc.insert(t3)
+	    (trsc[t1].event(:start) & t2.event(:start)).on t3.event(:start)
+	end
+
+	t1.start!
+	assert(!t3.running?)
+	t2.start!
+	assert(t3.running?)
+    end
+
+    def test_or_event_aggregator
+	t1, t2, t3 = (1..3).map { ExecutableTask.new }
+	plan.insert(t1)
+	transaction_commit(plan) do |trsc|
+	    trsc.insert(t2)
+	    trsc.insert(t3)
+	    (trsc[t1].event(:start) | t2.event(:start)).on t3.event(:start)
+	end
+
+	t1.start!
+	assert(t3.running?)
+	assert_nothing_raised { t2.start! }
+    end
 end
 
