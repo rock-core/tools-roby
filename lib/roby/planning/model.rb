@@ -473,13 +473,22 @@ module Roby
 	    def has_method?(name); singleton_class.has_method?(name) end
 	    def self.has_method?(name); respond_to?("#{name}_methods") end
 
-	    def self.model_of(name, options)
-		base_model = method_model(name)
-		if options[:id]
-		    send("#{name}_methods").each { |m| return(m) if m.id == options[:id] } || base_model
-		else
-		    base_model
-		end
+	    # Returns the method model that should be considered when using
+	    # the result of the method +name+ with options +options+
+	    #
+	    # This model should be used for instance when adding a new
+	    # hierarchy relation between a parent and the result of 
+	    # <tt>plan.#{name}(options)</tt>
+	    def self.model_of(name, options = {})
+		model = if options[:id]
+			    enum_for("each_method", name, options[:id]).find { true }
+			end
+		model ||= method_model(name)
+		model || default_method_model(name)
+	    end
+
+	    def self.default_method_model(name)
+		MethodModel.new(name, :returns => Task)
 	    end
 
 	    # Returns true if this planner is currently planning for +task+

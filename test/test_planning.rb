@@ -193,7 +193,29 @@ class TC_Planner < Test::Unit::TestCase
 	assert_raises(ArgumentError) { model.method(:root, :id => 1) {} }
     end
 
-    def test_model_inheritance
+    def test_model_of
+        tm1 = Class.new(Roby::Task)
+	tm2 = Class.new(tm1)
+	tm3 = Class.new(tm2)
+	base = Class.new(Planner) do
+	    method(:root, :returns => tm1)
+	    method(:root, :id => 'nil') { }
+	    method(:root, :id => 'tm2', :returns => tm2) { }
+	end
+	derived = Class.new(base) do
+	    method(:root, :id => 'derived', :returns => tm2) { }
+	end
+
+	assert_equal(tm1, base.model_of(:root).returns)
+	assert_equal(tm1, base.model_of(:root, :id => 'nil').returns)
+	assert_equal(tm2, base.model_of(:root, :id => 'tm2').returns)
+	assert_equal(tm1, derived.model_of(:root).returns)
+	assert_equal(tm1, derived.model_of(:root, :id => 'nil').returns)
+	assert_equal(tm2, derived.model_of(:root, :id => 'tm2').returns)
+	assert_equal(tm2, derived.model_of(:root, :id => 'derived').returns)
+    end
+
+    def test_returns_inheritance
 	# Some task models
         tm_a = Class.new(Roby::Task)
         tm_a_a = Class.new(tm_a)
