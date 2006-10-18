@@ -203,7 +203,7 @@ module Roby
 
 	    @@tasks[self.class] ||= []
 	    @@tasks[self.class] << WeakRef.new(self)
-	    @executable = false
+	    @executable = nil
 
 	    super() if defined? super
         end
@@ -242,7 +242,7 @@ module Roby
 
 	# Check if this task is executable
 	def executable?
-	    !self.class.abstract? && (@executable || (plan && plan.executable?))
+	    !self.class.abstract? && (@executable || (@executable.nil? && plan && plan.executable?))
 	end
 	# Set the executable flag. executable cannot be set to +false+ is the 
 	# task is running, and cannot be set to true on a finished task.

@@ -271,6 +271,15 @@ class TC_Task < Test::Unit::TestCase
 
 	# The task is running, cannot change the executable flag
 	assert_raises(TaskModelViolation) { task.executable = false }
+
+	task = SimpleTask.new
+	plan = Plan.new
+	plan.insert(task)
+	assert(task.executable?)
+	task.executable = false
+	assert(!task.executable?)
+	task.executable = nil
+	assert(task.executable?)
     end
 
     def test_aborted_default_handler
