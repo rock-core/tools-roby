@@ -18,7 +18,12 @@ if !defined?(EmptyTask)
 
     class SimpleTask < ExecutableTask
 	event :start, :command => true
-	event :stop, :command => true
+	event :success, :command => true, :terminal => true
+	event :failed, :command => true, :terminal => true
+	def stop(context)
+	    failed!(context)
+	end
+	event :stop
     end
 
     class ChoiceTask < ExecutableTask
