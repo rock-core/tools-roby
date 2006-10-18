@@ -4,6 +4,14 @@
   all needed events are provided. If some are missing, use 
   define_event to try to add a new one dynamically
 
+* when replacing an event generator, what to do with its handlers ?
+  - either we discard them, because some handlers are used in a specific
+    way
+  - either we apply them on the new task
+  - unfortunately there is no good answer... Both are useful and it is difficult
+    (if not impossible) to know what to do. Having no solution for this problem
+    reduces the usefulness of event handlers greatly.
+
 * add per-model arguments attribute for tasks, which gives the list
   of expected arguments. These lists will then be used in fullfills? 
   checks. realized_by will use them too: if we give only a model
