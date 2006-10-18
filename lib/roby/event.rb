@@ -71,6 +71,11 @@ module Roby
 	def self.enable_propagation; @@propagate = true end
 	def self.propagate?; @@propagate end
 
+	# How to handle this event during propagation
+	#   * nil (the default): call only once in a propagation cycle
+	#   * :always_call: always call, event if it has already been called in this cycle
+	attr_accessor :propagation_mode
+
 	def name; model.name end
 	attr_writer :executable
 	def executable?; @executable end
@@ -118,8 +123,6 @@ module Roby
 	    # The command won't be called if postpone() is called within the
 	    # #calling hook
 	    singleton_class.send(:define_method, :call_without_propagation) do |context|
-		return if pending > 0
-
 		postponed = catch :postponed do 
 		    calling(context)
 		    @pending += 1
@@ -341,7 +344,6 @@ module Roby
 
 	    while !next_step.empty?
 		next_step = gather_propagation do
-		    # Call event signalled by this task
 		    # Note that internal signalling does not need a #call
 		    # method (hence the respond_to? check). The fact that the
 		    # event can or cannot be fired is checked in #fire (using can_signal?)
@@ -349,9 +351,9 @@ module Roby
 			sources.each do |emit, source, context|
 			    source.generator.signalling(source, signalled) if source
 
-			    if already_seen.include?(signalled) && !(emit && signalled.pending?)
+			    if already_seen.include?(signalled) && !(emit && signalled.pending?) 
 				# Do not fire the same event twice in the same propagation cycle
-				next
+				next unless signalled.propagation_mode == :always_call
 			    end
 
 			    did_call = propagation_context(source) do |result|
@@ -386,17 +388,9 @@ module Roby
 	def controlable?; @controlable end
 	attribute(:history) { Array.new }
 	def happened?; !history.empty?  end
-	def last; history.last[1] end
-
-	# An event generator is active when the current execution context may 
-	# lead to its execution
-	def active?(seen = Set.new)
-	    if seen.include?(self)
-		false
-	    else
-		seen << self
-		enum_for(:each_parent_object, EventStructure::CausalLink).find { |ev| ev.active?(seen) }
-	    end
+	def last
+	    return if history.empty?
+	    history.last[1] 
 	end
 
 	def precondition(reason = nil, &block)
@@ -510,84 +504,59 @@ module Roby
 
     class AndGenerator < EventGenerator
 	def initialize
-	    @events	= Set.new
-	    @waiting	= Set.new
-	    super do |context|
-		@events.each { |ev| ev.call(context) }
-	    end
+	    super(&method(:emit_if_achieved))
+	    self.propagation_mode = :always_call
+	    @events = Hash.new
 	end
 
-	attr_accessor :permanent
-	def permanent!; self.permanent = true end
-	def controlable?; @events.all? { |ev| ev.controlable? } end
+	def emit_if_achieved(context)
+	    return if happened?
+	    each_parent_object(EventStructure::Signal) do |source|
+		return if @events[source] == source.last
+	    end
+	    emit(nil)
+	end
+	
+	def added_parent_object(parent, type, info)
+	    super if defined? super
+	    return unless type == EventStructure::Signal
+	    @events[parent] = parent.last
+	end
+	def removed_parent_object(parent, type, info)
+	    super if defined? super
+	    return unless type == EventStructure::Signal
+	    @events.delete(parent)
+	end
+
+	def events;  enum_for(:each_parent_object, EventStructure::Signal).to_a end
+	def waiting; enum_for(:each_parent_object, EventStructure::Signal).find_all { |ev| @events[ev] == ev.last } end
 
 	def << (generator)
-	    @events  << generator
-	    @waiting << generator
-	    generator.on do |event|
-		if !done? || permanent
-		    @waiting.delete(generator)
-		    emit(nil) if done?
-		end
-	    end
-
-	    generator.add_causal_link self
-
+	    generator.add_signal self
 	    self
 	end
 
-	def reset; @waiting = @events.dup end
-	def done?; @waiting.empty? end
-	def remaining; @waiting end
-
 	def to_and; self end
 	def &(generator); self << generator end
-
-	def active?(seen); each_parent_object(EventStructure::CausalLink).all? { |obj| obj.active?(seen) } end
-
-	protected
-	attr_reader :waiting
-	def initialize_copy(from); @waiting = from.waiting.dup end
     end
 
     class OrGenerator < EventGenerator
 	def initialize
-	    super()
-	    @done       = []
-	    @waiting    = Set.new
+	    super(&method(:emit_if_first))
 	end
 
-	attr_accessor :permanent
-	def permanent!; self.permanent = true end
+	def emit_if_first(context)
+	    return if happened?
+	    emit(context)
+	end
 
 	def << (generator)
-	    @waiting << generator
-	    generator.on do |event| 
-		@done << event
-		# Do not specify a context in call of emit() since ::new
-		# does the job for us anyway
-		emit(nil) if @done.size == 1 || permanent
-	    end
-
-	    generator.add_causal_link self
-
+	    generator.add_signal self
 	    self
 	end
 
-	def reset; @done.clear end
-	def done?; !(@done.empty?) end
 	def to_or; self end
 	def |(generator); self << generator end
-
-	def new(context = nil)
-	    event = @done.last
-	    raise EventModelViolation.new(self), "cannot change the context of a OrGenerator" if context && context != event.context
-	    event.reemit(propagation_id)
-	end
-
-	protected
-	attr_reader :waiting
-	def initialize_copy(from); @waiting = from.waiting.dup end
     end
 
 

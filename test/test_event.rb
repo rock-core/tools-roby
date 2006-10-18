@@ -222,19 +222,6 @@ class TC_Event < Test::Unit::TestCase
 	assert_raise(EventModelViolation) { a.call(nil) }
     end
 
-    def test_call_causal_warning
-	model = EventGenerator.new { }
-	model.call(nil)
-	assert(! model.active? )
-
-	source = EventGenerator.new { }
-	def source.active?(seen); true end
-	model = EventGenerator.new { source.add_causal_link model }
-	assert(! model.active?)
-	model.call(nil)
-	assert(model.active?)
-    end
-
     def test_emit_on
 	e1, e2 = [nil,nil].map { EventGenerator.new(true) }
 	e1.emit_on e2
@@ -269,10 +256,8 @@ class TC_Event < Test::Unit::TestCase
 	or_event = e1 | e2
 	or_or = or_event | e3
 	assert_equal(or_event, or_or)
-	assert_equal([e1, e2, e3].to_set, or_event.send(:waiting))
 	or_or = e4 | or_event
 	assert_equal(or_event, or_or)
-	assert_equal([e1, e2, e3, e4].to_set, or_event.send(:waiting))
     end
 
     def test_and_generator
@@ -283,29 +268,29 @@ class TC_Event < Test::Unit::TestCase
 	assert(and_event.happened?)
 	
 	# Check the behavior of the & operator
-	e1, e2, e3, e4 = 4.enum_for(:times).map { EventGenerator.new(true) }
+	e1, e2, e3, e4 = (1..4).map { EventGenerator.new(true) }
 	and_event = e1 & e2
 	and_and = and_event & e3
 	assert_equal(and_event, and_and)
-	assert_equal([e1, e2, e3].to_set, and_event.send(:waiting))
+	assert_equal([e1, e2, e3].to_set, and_event.waiting.to_set)
 	and_and = e4 & and_event
 	assert_equal(and_event, and_and)
-	assert_equal([e4, e1, e2, e3].to_set, and_event.send(:waiting))
+	assert_equal([e4, e1, e2, e3].to_set, and_event.waiting.to_set)
 
-	# Check controlability
-	e1, e2, e3 = EventGenerator.new(true), EventGenerator.new(true), EventGenerator.new(false)
-	assert((e1 & e2).controlable?)
-	assert(!(e2 & e3).controlable?)
-	and_event = (e1 & e2)
-	FlexMock.use do |mock|
-	    e1.on { mock.e1 }
-	    e2.on { mock.e2 }
-	    and_event.on { mock.and }
-	    mock.should_receive(:e1).once
-	    mock.should_receive(:e2).once
-	    mock.should_receive(:and).once
-	    and_event.call(nil)
-	end
+	# Check dynamic behaviour
+	a, b, c = (1..3).map { EventGenerator.new(true) }
+        and_event = a & b
+        and_event.on c
+        assert_equal([and_event], a.enum_for(:each_signal).to_a)
+        assert_equal([and_event], b.enum_for(:each_signal).to_a)
+        assert_equal([c], and_event.enum_for(:each_signal).to_a)
+	a.call(nil)
+	assert_equal([b], and_event.waiting)
+	assert(! and_event.happened?)
+	b.call(nil)
+	assert_equal([], and_event.waiting)
+	assert(and_event.waiting.empty?)
+	assert(and_event.happened?)
     end
 
     def test_forwarder
@@ -336,8 +321,6 @@ class TC_Event < Test::Unit::TestCase
         (e1 & e2 & m2).on { mock.and }
         (e2 | m1).on { mock.or }
         ((e2 & m1) | m2).on { mock.and_or }
-        ((e2 & m1) | m2).on { mock.and_or_p }.
-            permanent!
 
         ((e2 | m1) & m2).on { mock.or_and }
         [e1, e2, m1, m2, m3]
@@ -350,7 +333,6 @@ class TC_Event < Test::Unit::TestCase
             mock.should_receive(:or).once
             mock.should_receive(:and).once
             mock.should_receive(:and_or).once
-            mock.should_receive(:and_or_p).once
             mock.should_receive(:or_and).once
             e1.call(nil)
         end
@@ -360,7 +342,6 @@ class TC_Event < Test::Unit::TestCase
             mock.should_receive(:or).once
             mock.should_receive(:and).never
             mock.should_receive(:and_or).never
-            mock.should_receive(:and_or_p).never
             mock.should_receive(:or_and).never
             e1.call(nil)
         end
@@ -370,23 +351,17 @@ class TC_Event < Test::Unit::TestCase
             mock.should_receive(:or).once
             mock.should_receive(:and).never
             mock.should_receive(:and_or).once
-            mock.should_receive(:and_or_p).once
             mock.should_receive(:or_and).once
             m1.call(nil)
         end
     end
 
-    def test_and
-	a, b, c = 3.enum_for(:times).map { EventGenerator.new(true) }
+#	require 'roby/log/logger'
+#	require 'roby/log/console'
+#	Log.loggers << Log::ConsoleLogger.new(STDERR)
 
-        and_event = a & b
-        and_event.on c
-        assert( a.enum_for(:each_causal_link).find { |ev| ev == and_event } )
-        assert( b.enum_for(:each_causal_link).find { |ev| ev == and_event } )
-        assert( and_event.enum_for(:each_causal_link).find { |ev| ev == c } )
-	a.call(nil)
-	assert(! c.happened?)
-	b.call(nil)
+
+    def test_and
     end
 
     def test_or
