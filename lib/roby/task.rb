@@ -680,16 +680,3 @@ require 'roby/relations'
 require 'roby/relations/hierarchy'
 require 'roby/task-operations'
 
-# Notes on event handlers, event commands and event models
-#
-#   * when an event if fired, it is done in a certain context, which
-#     is the part of the state of the world which is relevant for this
-#     event propagation.
-#   * a fired event takes the form of an event object, which is an instance
-#     of the event model (i.e. the event class defined by Task::event).
-#     emit() creates this event object
-#   * *all* event handlers are called with only one argument: this event object
-#   * controlable events define a *singleton* method +call(task, context)+ whose
-#     purpose is to lead to the emission of the given event on the given task
-#     The context is event-specific
-
