@@ -34,6 +34,10 @@ class TC_Transactions < Test::Unit::TestCase
     def transaction_commit(plan)
 	trsc = Roby::Transaction.new(plan)
 	yield(trsc)
+
+	# Check that no task in trsc are in plan, and that no task of plan are in trsc
+	assert( (trsc.known_tasks & plan.known_tasks).empty?, (trsc.known_tasks & plan.known_tasks))
+
 	trsc.commit_transaction
 
 	# Check that there is no proxy left in the graph
@@ -45,7 +49,7 @@ class TC_Transactions < Test::Unit::TestCase
 	    end
 	end
 	plan.known_tasks.each do |t|
-	    assert_kind_of(Roby::Task, t)
+	    assert_kind_of(Roby::Task, t, t.class.ancestors.inspect)
 	end
     end
 
