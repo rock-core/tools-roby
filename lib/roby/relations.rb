@@ -19,7 +19,24 @@ module Roby
 	alias :each_relation	:each_graph
 
 	def enum_relations; @enum_relations ||= enum_for(:each_graph) end
+	def enum_parent_objects(type)
+	    @enum_parent_objects ||= Hash.new
+	    @enum_parent_objects[relation] ||= enum_for(:each_parent_object, relation)
+	end
+	def enum_child_objects(type)
+	    @enum_child_objects ||= Hash.new
+	    @enum_child_objects[relation] ||= enum_for(:each_child_object, relation)
+	end
 	def relations; enum_relations.to_a end
+
+	# Set of all parent objects in +type+
+	def parent_objects(relation)
+	    enum_parent_objects(relation).to_value_set
+	end
+	# Set of all child object in +type+
+	def child_objects(relation)
+	    enum_child_objects(relation).to_value_set
+	end
 
 	# Add a new child object in the +type+ relation. This calls
 	# * self.adding_child_object and child.adding_parent_object just before the relation is added
