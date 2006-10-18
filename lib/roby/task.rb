@@ -76,21 +76,25 @@ module Roby
             @task, @event_model = task, model
         end
 
+	# True if a signal between self and +event+ can be established
         def can_signal?(event); super || (event.respond_to?(:task) && task == event.task) end
+	# True if this event generator is executable (can be called and/or emitted)
 	def executable?; task.executable? end
 
+	# Fire the event
         def fire(event)
             task.fire_event(event)
             super
         end
 
+	# Enumerates all signals that come from this generator
 	def each_signal
 	    super
 	    task.each_signal(event_model.symbol) do |event_model|
 		yield(task.event(event_model))
 	    end
 	end
-	    
+
 	def each_handler
 	    super
 	    task.each_handler(event_model.symbol) { |o| yield(o) }
