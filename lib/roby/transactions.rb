@@ -134,19 +134,25 @@ module Roby
 
 	    raise unless (@missions - @known_tasks).empty?
 	    # Set the plan to nil in known tasks to avoid having 
-	    # the check on #plan to raise an exception
-	    @known_tasks.each { |t| t.plan = self.plan }
+	    # the checks on #plan to raise an exception
+	    @missions.each { |t| t.plan = self.plan unless t.kind_of?(Proxy) }
+	    @known_tasks.each { |t| t.plan = self.plan unless t.kind_of?(Proxy) }
 
 	    discovered_objects.each { |proxy| proxy.commit_transaction }
+	    proxies.each do |object, proxy|
+		raise if plan.known_tasks.include?(proxy)
+	    end
+
 	    proxies.each { |_, proxy| proxy.disable_discovery! }
 	    proxies.each { |_, proxy| proxy.clear_vertex }
 
 	    # Call #insert and #discover *after* we have cleared relations
-	    @missions.each    { |t| plan.insert(t) unless t.kind_of?(Proxy) }
+	    @missions.each    { |t| plan.insert(t)   unless t.kind_of?(Proxy) }
 	    @known_tasks.each { |t| plan.discover(t) unless t.kind_of?(Proxy) }
 
+	    # Replace proxies by forwarder objects
 	    proxies.each do |object, proxy|
-		# Make sure +proxy+ won't be discovered
+		raise if plan.known_tasks.include?(proxy)
 		Kernel.swap! proxy, Proxy.forwarder(proxy).new(object)
 	    end
 	end
