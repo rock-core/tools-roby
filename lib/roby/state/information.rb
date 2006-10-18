@@ -37,7 +37,7 @@ module Roby
 	end
     end
 
-    class Task
+    class Task < PlanObject
 	class_inherited_enumerable(:needed_information) { Array.new }
 	class_inherited_enumerable(:improved_information) { Array.new }
 	

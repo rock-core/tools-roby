@@ -7,7 +7,6 @@ module Roby::TaskStructure
         def planned_by(task)
             raise TaskModelViolation.new(self), "this task already has a planner" if planning_task
 	    add_planning_task(task)
-	    plan.discover(self) if plan
         end
     end
 end

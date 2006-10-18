@@ -79,14 +79,33 @@ module Roby
 	    super(t)
 	end
 
-	def discover(tasks = nil)
-	    apply(tasks) do |t|
-		t = if plan.include?(t) then self[t]
-		    else Proxy.may_unwrap(t)
+	def discover(objects = nil)
+	    return super if !objects
+		
+	    events, tasks = partition_event_task(objects)
+	    task_collection(tasks) do |t|
+		unwrapped = Proxy.may_unwrap(t)
+		t = if plan.include?(unwrapped) then self[t]
+		    else unwrapped
 		    end
 
 		super(t)
 	    end
+
+	    event_collection(events) do |e|
+		unwrapped = Proxy.may_unwrap(e)
+		e = if plan.free_events.include?(e) then self[e]
+		    else unwrapped
+		    end
+		super(e)
+	    end
+
+	    # Consistency check
+	    unless (@known_tasks & plan.known_tasks).empty? && (@free_events & plan.free_events).empty?
+		raise PlanModelViolation, "transactions and plans cannot share tasks. Use proxys"
+	    end
+
+	    self
 	end
 
 	def discard(t)
@@ -113,6 +132,7 @@ module Roby
 	    discarded.each { |t| plan.discard(t) }
 	    removed.each { |t| plan.remove_task(t) }
 
+	    raise unless (@missions - @known_tasks).empty?
 	    # Set the plan to nil in known tasks to avoid having 
 	    # the check on #plan to raise an exception
 	    @known_tasks.each { |t| t.plan = self.plan }

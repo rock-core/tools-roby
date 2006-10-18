@@ -1,4 +1,5 @@
 require 'set'
+require 'roby/plan-object'
 require 'roby/exceptions'
 require 'roby/support'
 require 'roby/relations/causal'
@@ -64,7 +65,7 @@ module Roby
     # In the first case, #can_signal? is checked to ensure that the target
     # event can be called. In the forwarding case, not checks are done
     #
-    class EventGenerator
+    class EventGenerator < PlanObject
 	@@propagate = true
 	def self.disable_propagation; @@propagate = false end
 	def self.enable_propagation; @@propagate = true end
@@ -187,6 +188,8 @@ module Roby
 
 	# If this event can signal +event+
 	def can_signal?(generator); generator != self && generator.controlable?  end
+
+	def to_event; self end
 
 	# Create a new event object for +context+
 	def new(context); Event.new(self, propagation_id, context) end

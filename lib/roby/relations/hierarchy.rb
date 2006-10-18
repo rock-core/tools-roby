@@ -24,7 +24,6 @@ module Roby::TaskStructure
 	    end
 
 	    add_child(task, options)
-	    plan.discover(task) if plan
             self
         end
 

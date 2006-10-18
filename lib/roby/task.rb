@@ -75,6 +75,9 @@ module Roby
 
             @task, @event_model = task, model
         end
+	
+	# The plan this event is part of
+	def plan; task.plan end
 
 	# True if a signal between self and +event+ can be established
         def can_signal?(event); super || (event.respond_to?(:task) && task == event.task) end
@@ -143,7 +146,7 @@ module Roby
     # * some event attributes can be overriden. The rules are:
     #   - a non-controlable event can become a controlable one
     #   - a non-terminal event can become a terminal one
-    class Task
+    class Task < PlanObject
 	def name; model(false).name end
 
 	@@tasks = Hash.new
@@ -207,25 +210,15 @@ module Roby
 
 	    @@tasks[self.class] ||= []
 	    @@tasks[self.class] << WeakRef.new(self)
-	    @executable = nil
 
 	    super() if defined? super
         end
 
-	# The plan this task is part of (can be a transaction object)
-	attr_reader :plan
-
-	# Set the plan this task is part of
 	def plan=(new_plan)
-	    if @plan == new_plan
-		return
-	    elsif !pending?
+	    if !pending? && @plan != new_plan
 		raise TaskModelViolation.new(self), "cannot change the plan of a running task"
 	    end
-
-	    @plan = new_plan
-	    flag = executable?
-	    each_event { |ev| ev.executable = flag }
+	    super
 	end
 
 	class << self
@@ -245,9 +238,7 @@ module Roby
 	abstract
 
 	# Check if this task is executable
-	def executable?
-	    !self.class.abstract? && (@executable || (@executable.nil? && plan && plan.executable?))
-	end
+	def executable?; !self.class.abstract? && super end
 	# Set the executable flag. executable cannot be set to +false+ is the 
 	# task is running, and cannot be set to true on a finished task.
 	def executable=(flag)
@@ -257,8 +248,7 @@ module Roby
 	    elsif !flag && running?
 		raise TaskModelViolation.new(self), "cannot unset the executable flag on a task which is running"
 	    end
-
-	    @executable = flag
+	    super
 	end
 
 	# Returns the task model

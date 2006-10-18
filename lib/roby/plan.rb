@@ -14,8 +14,12 @@ module Roby
 	end
     end
 
+    class PlanModelViolation < ModelViolation
+    end
+
     class Plan
 	attr_reader :known_tasks, :missions
+	attr_reader :free_events
 	attr_reader :hierarchy, :service_relations
 
 	def initialize(hierarchy = Roby::TaskStructure::Hierarchy, service_relations = [Roby::TaskStructure::PlannedBy])
@@ -23,13 +27,39 @@ module Roby
 	    @service_relations = service_relations
 	    @missions	 = ValueSet.new
 	    @known_tasks = ValueSet.new
+	    @free_events = ValueSet.new
 	end
 
-	def apply(task)
-	    if task.respond_to?(:each) then task.each { |t| yield(t.to_task) }
-	    elsif task.respond_to?(:each_task) then task.each_task { |t| yield(t.to_task) }
-	    elsif task.respond_to?(:to_task) then yield(task.to_task)
-	    else raise TypeError, "expecting a task or a task collection, got #{task}"
+	# call-seq:
+	#   plan.partition_event_task(objects) => events, tasks
+	#
+	def partition_event_task(objects)
+	    if objects.respond_to?(:each_task) then return *[[], objects.enum_for(:each_task).to_a]
+	    elsif objects.respond_to?(:to_task) then return *[[], [objects.to_task]]
+	    elsif objects.respond_to?(:each_event) then return *[objects.enum_for(:each_event).to_a, []]
+	    elsif objects.respond_to?(:to_event) then return *[[objects.to_event], []]
+	    elsif !objects.respond_to?(:each)
+		raise TypeError, "expecting a task, event, or a collection of tasks and events, got #{objects}"
+	    end
+
+	    return *objects.partition { |o| o.respond_to?(:to_event) }
+	end
+
+	def event_collection(objects)
+	    if objects.respond_to?(:each) then objects.each { |e| yield(e.to_event) }
+	    elsif objects.respond_to?(:each_event) then objects.each_event { |e| yield(e.to_event) }
+	    elsif objects.respond_to?(:to_event) then yield(objects.to_event)
+	    else
+		raise TypeError, "expecting a event or a event collection, got #{objects}"
+	    end
+	end
+
+	def task_collection(objects)
+	    if objects.respond_to?(:each) then objects.each { |t| yield(t.to_task) }
+	    elsif objects.respond_to?(:each_task) then objects.each_task { |t| yield(t.to_task) }
+	    elsif objects.respond_to?(:to_task) then yield(objects.to_task)
+	    else
+		raise TypeError, "expecting a task or a task collection, got #{objects}"
 	    end
 	end
 
@@ -46,7 +76,7 @@ module Roby
 	# Inserts a new mission in the plan. Its child tree is automatically inserted too.
 	# Returns the plan
         def insert(tasks)
-	    apply(tasks) do |t|
+	    task_collection(tasks) do |t|
 		discover(t)
 		@missions << t
 		self
@@ -57,7 +87,7 @@ module Roby
 
 	# Mark +task+ as not being a task anymore
 	def discard(tasks)
-	    apply(tasks) do |t|
+	    task_collection(tasks) do |t|
 		discover(t)
 		@missions.delete(t)
 	    end
@@ -102,23 +132,28 @@ module Roby
 	end
 
 	def executable?; true end
-
+	
 	# call-seq:
 	#   plan.discover(t1, t2, ...)	    => plan
 	#   plan.discover		    => plan
 	#
 	# Updates Plan#known_tasks with either the child tree of t1, t2, ... or the missions
 	# child trees.
-	def discover(tasks = nil)
-	    tasks = missions unless tasks
-	    tasks = if tasks.respond_to?(:each_task) then tasks.enum_for(:each_task).to_a
-		    elsif tasks.respond_to?(:each) then tasks.to_a
-		    else [tasks]
-		    end
+	def discover(objects = nil)
+	    if !objects
+		events, tasks = [], missions
+	    else
+		events, tasks = partition_event_task(objects)
+	    end
 
-	    new_tasks = useful_component(tasks).difference(@known_tasks)
-	    new_tasks.each { |t| t.plan = self }
-	    @known_tasks.merge new_tasks
+	    unless events.empty?
+		free_events |= events
+	    end
+	    unless tasks.empty?
+		new_tasks = useful_component(tasks).difference(@known_tasks)
+		new_tasks.each { |t| t.plan = self }
+		@known_tasks.merge new_tasks
+	    end
 
 	    self
 	end
