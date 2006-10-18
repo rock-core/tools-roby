@@ -1,8 +1,10 @@
 #! /usr/bin/ruby
 require 'roby/log/offline_control_ui'
 require 'roby/relations'
+require 'roby/control'
 require 'roby/log/logger'
 require 'roby/log/drb'
+require 'roby/log/marshallable'
 
 require 'roby/log/execution-state'
 require 'roby/log/relations'
@@ -85,7 +87,7 @@ module Roby::Log
 		    end
 		rescue EOFError
 		rescue ArgumentError => format_error
-		    raise if format_error.message !~ /dump format error/
+		    # raise if format_error.message !~ /dump format error/
 
 		ensure
 		    file.seek(0)
@@ -160,7 +162,7 @@ module Roby::Log
 	    update_position_display
 
 	rescue EOFError, ArgumentError => format_error
-	    raise if format_error.message !~ /dump format error/
+	    # raise if format_error.message !~ /dump format error/
 	    stop
 	end
 	slots 'play_step()'
