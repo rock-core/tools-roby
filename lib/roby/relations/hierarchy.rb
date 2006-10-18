@@ -1,5 +1,4 @@
-require 'enumerator'
-require 'roby/relations'
+require 'roby/task'
 require 'set'
 
 module Roby::TaskStructure

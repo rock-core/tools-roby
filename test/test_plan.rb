@@ -3,6 +3,7 @@ require 'test/unit'
 
 require 'roby'
 require 'roby/plan'
+require 'roby/state/information'
 
 module TC_PlanStatic
     include Roby

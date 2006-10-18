@@ -260,8 +260,6 @@ module Roby::Transactions
 
     # Proxy for Roby::EventGenerator
     class EventGenerator < Roby::EventGenerator
-	Roby::EventStructure.apply_on self
-
 	include Proxy
 	proxy_for Roby::EventGenerator
 	
@@ -281,8 +279,6 @@ module Roby::Transactions
 
     # Proxy for Roby::Task
     class Task < Roby::Task
-	Roby::TaskStructure.apply_on self
-
 	include Proxy
 	proxy_for Roby::Task
 

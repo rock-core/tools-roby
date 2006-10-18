@@ -327,16 +327,6 @@ module Roby
 	relation_space
     end
 
-    class Task
-	include DirectedRelationSupport
-    end
-    class EventGenerator
-	include DirectedRelationSupport
-    end
-    
-    TaskStructure   = RelationSpace(Task)
-    EventStructure  = RelationSpace(EventGenerator)
-
     # Requires all Roby relation files (all files in relations/)
     def self.load_all_relations
 	Dir.glob("#{File.dirname(__FILE__)}/relations/*.rb").each do |file|

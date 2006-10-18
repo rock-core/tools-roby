@@ -1,5 +1,4 @@
 require 'roby/task'
-require 'roby/relations/hierarchy'
 
 module Roby::TaskAggregator
     module Operations

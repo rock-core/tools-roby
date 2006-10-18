@@ -1,8 +1,6 @@
-require 'roby/graph'
+require 'facet/kernel/constant'
 require 'roby/relations/hierarchy'
 require 'roby/relations/planned_by'
-require 'facet/kernel/constant'
-require 'pp'
 
 module Roby
     class InvalidPlanOperation < RuntimeError

@@ -1,7 +1,7 @@
-require 'weakref'
+require 'roby/relations'
 require 'roby/event'
-require 'roby/support'
-require 'roby/state/information'
+require 'roby/plan-object'
+require 'weakref'
 
 module Roby
     class TaskModelViolation < ModelViolation
@@ -147,6 +147,8 @@ module Roby
     #   - a non-controlable event can become a controlable one
     #   - a non-terminal event can become a terminal one
     class Task < PlanObject
+	include DirectedRelationSupport
+
 	def name; model(false).name end
 
 	@@tasks = Hash.new
@@ -667,6 +669,8 @@ module Roby
 	end
     end
 
+    TaskStructure   = RelationSpace(Task)
+
     class NullTask < Task
         event :start, :command => true
         event :stop
@@ -676,7 +680,6 @@ module Roby
     end
 end
 
-require 'roby/relations'
 require 'roby/relations/hierarchy'
 require 'roby/task-operations'
 

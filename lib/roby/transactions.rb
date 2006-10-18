@@ -38,7 +38,6 @@ module Roby
 	def discovered(object)
 	    discovered_objects << object
 	end
-	
 
 	attr_reader :plan, :discarded, :removed, :proxies, :discovered_objects
 	def initialize(plan)

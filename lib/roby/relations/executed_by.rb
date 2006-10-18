@@ -1,5 +1,4 @@
 require 'roby/task'
-require 'roby/relations/hierarchy'
 
 module Roby::TaskStructure
     # The execution_agent defines an agent (process or otherwise) a given
