@@ -218,7 +218,9 @@ module Roby::Transactions
 		next unless discovered?(rel)
 
 		trsc_others = enum_for(enum, rel).to_value_set
-		plan_others = __getobj__.enum_for(enum, rel).map { |t| transaction[t] }.to_value_set
+		plan_others = __getobj__.enum_for(enum, rel).
+		    map(&transaction.method(:[])).
+		    to_value_set
 
 		new = (trsc_others - plan_others)
 		del = (plan_others - trsc_others)
