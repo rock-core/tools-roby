@@ -168,7 +168,7 @@ module Roby::Log
 	slots 'play_step()'
 
 	def play_position; first_sample + Float(sld_position.value) / 1000 end
-	def play_speed; Integer(edt_speed.text) end
+	def play_speed; Float(edt_speed.text) end
 	def play_timer_interval; Integer(cycle_size * 1000) end
 	attr_reader :cycle_size
 	def step_size; cycle_size * play_speed end
