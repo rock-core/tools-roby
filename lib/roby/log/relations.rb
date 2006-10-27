@@ -29,7 +29,7 @@ module Roby::Display
 	end
 
 	def task_initialize(time, task, start, stop)
-	    display_thread.task_initialize(time, task, start, stop)
+	    display_thread.task_initialize(display, time, task, start, stop)
 	end
 
 	STATE_EVENTS = [:start, :success, :failed]
@@ -37,18 +37,18 @@ module Roby::Display
 	    generator = event.generator
 	    return unless generator.respond_to?(:symbol)
 	    if STATE_EVENTS.include?(generator.symbol)
-		display_thread.state_change(generator.task, generator.symbol)
+		display_thread.state_change(display, generator.task, generator.symbol)
 	    end
 	end
 
 	def finalized_task(time, plan, task)
-	    display_thread.state_change(task, :finalized)
+	    display_thread.state_change(display, task, :finalized)
 	end
 
 	[:added_task_relation, :added_event_relation, :removed_task_relation, :removed_event_relation].each do |m|
 	    define_method(m) do |time, type, from, to, *args| 
 		if relations.find { |rel| rel.subset?(type) }
-		    display_thread.send(m, time, from, to)
+		    display_thread.send(m, display, time, from, to)
 		end
 	    end
 	end

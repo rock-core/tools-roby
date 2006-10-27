@@ -1,4 +1,4 @@
-require 'Qt'
+ 'Qt'
 require 'roby/log/style'
 
 module Roby::Display
@@ -16,6 +16,8 @@ module Roby::Display
 
 	    @hidden = true
  	end
+
+	def update; @canvas.update end
 
 	def hidden?; @hidden end
 	def hide

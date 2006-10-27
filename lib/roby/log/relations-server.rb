@@ -141,7 +141,7 @@ module Roby::Display
 
 		events.inject(canvas_item[:rectangle].x + init) do |x, (_, ev)|
 		    ev.move(x, y)
-		x + spacing
+		    x + spacing
 		end
 	    end
 
@@ -344,7 +344,8 @@ module Roby::Display
 	    DotLayout.layout(self, dot_scale)
 	end
 	slots 'layout()'
-	alias :timer_update :layout
+	alias :update :layout
+
 
 	def task_visibility(t)
 	    next unless s = task_states[t]

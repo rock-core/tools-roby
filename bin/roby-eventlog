@@ -4,6 +4,7 @@ require 'roby/relations'
 require 'roby/control'
 require 'roby/log/logger'
 require 'roby/log/drb'
+require 'roby/log/drb-qt'
 require 'roby/log/marshallable'
 
 require 'roby/log/execution-state'
@@ -162,14 +163,13 @@ module Roby::Log
 	end
 
 	def disable_updates
-	    loggers.each { |l| l.disable_updates }
+	    server.disable_updates
 	    yield
+
 	ensure
-	    loggers.each do |l| 
-		l.flush
-		l.enable_updates
-		l.display.update 
-	    end
+	    loggers.each { |l| l.flush }
+	    server.enable_updates
+	    server.update
 	end
 
 
