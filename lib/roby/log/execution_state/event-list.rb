@@ -89,7 +89,8 @@ module Roby::Display
 	    time = Time.at(offset.to_i, (offset - offset.to_i) * 1000000)
 
 	    task = generator.task if generator.respond_to?(:task)
-	    Event.new(self, task, kind, time, generator, *args)
+	    new_event = Event.new(self, task, kind, time, generator, *args)
+	    ensure_item_visible new_event
 	end
 	def generator_calling(time, generator, context)
 	    new_event(:pending, time, generator)
