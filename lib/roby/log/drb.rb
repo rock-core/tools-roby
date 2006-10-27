@@ -101,6 +101,7 @@ module Roby::Display
 	    main_layout = Qt::VBoxLayout.new(main_window)
 	    @tabs = Qt::TabWidget.new(main_window)
 	    main_layout.add_widget tabs
+	    @display_id = 0
 	end
 
 	def add(name)
@@ -123,11 +124,16 @@ module Roby::Display
 	end
 	private :add
 
+	def new_id
+	    @display_id += 1
+	end
+
 	# Returns a display of the right kind and name. If the display
 	# already exists, it is returned. Otherwise, it is created. +kind+
 	# can be either 'relations' or 'execution_state'.
-	def get(kind, name)
+	def get(from, kind, name)
 	    kind = kind.to_s
+	    name = "#{kind} (#{from}:#{new_id})" if !name
 
 	    unless display = displays[ [kind, name] ]
 		begin
@@ -174,12 +180,11 @@ module Roby::Display
 	#
 	# +control_pipe+ can be used to notify a parent process
 	# that the initialization has been done properly
-	def standalone(uri, kind, name, control_pipe = nil)
+	def standalone(uri, control_pipe = nil)
 	    require 'Qt'
 	    a = Qt::Application.new( ARGV )
 
 	    server = DRbDisplayServer.new(uri)
-	    display = server.get(kind, name)
 	    if control_pipe
 		control_pipe.write("OK")
 		control_pipe.close
@@ -201,13 +206,13 @@ module Roby::Display
 	    raise RuntimeError, "already started" if @display
 	    options = validate_options options, :start => false, 
 		:server => DEFAULT_REMOTE_DISPLAY_URI, 
-		:name => Process.pid.to_s
+		:name => nil
 
 	    if options[:start]
 		read, write = IO.pipe
 		fork do
 		    read.close
-		    standalone(options[:server], kind, options[:name], write)
+		    standalone(options[:server], write)
 		end
 
 		write.close
@@ -225,7 +230,7 @@ module Roby::Display
 				  options[:server]
 			      end
 
-	    @display = display_server.get(kind, options[:name])
+	    @display = display_server.get(Process.pid, kind, options[:name])
 	    # Using a ThreadServer allows to multiplex events before sending
 	    # them via DRb. As DRb is damn slow, it speeds things a lot
 	    @display_thread = DRbDisplayThread.new(self, display, true)
