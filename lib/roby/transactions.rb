@@ -138,9 +138,6 @@ module Roby
 	    @known_tasks.each { |t| t.plan = self.plan unless t.kind_of?(Proxy) }
 
 	    discovered_objects.each { |proxy| proxy.commit_transaction }
-	    proxies.each do |object, proxy|
-		raise if plan.known_tasks.include?(proxy)
-	    end
 
 	    proxies.each { |_, proxy| proxy.disable_discovery! }
 	    proxies.each { |_, proxy| proxy.clear_vertex }
