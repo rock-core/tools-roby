@@ -1,6 +1,6 @@
 # Form implementation generated from reading ui file 'lib/roby/log/offline_control.ui'
 #
-# Created: Fri Oct 6 15:45:03 2006
+# Created: Fri Oct 27 21:12:46 2006
 #      by: The QtRuby User Interface Compiler (rbuic)
 #
 # WARNING! All changes made in this file will be lost!
@@ -17,7 +17,7 @@ class DisplayControl < Qt::Dialog
     attr_reader :execution_flow
     attr_reader :relation_display
     attr_reader :relation_display_list
-    attr_reader :btn_update
+    attr_reader :btn_new_display
     attr_reader :grp_play
     attr_reader :sld_position
     attr_reader :dsp_position
@@ -76,8 +76,8 @@ class DisplayControl < Qt::Dialog
         @spacer3 = Qt::SpacerItem.new(231, 20, Qt::SizePolicy::Expanding, Qt::SizePolicy::Minimum)
         @layout5.addItem(@spacer3)
 
-        @btn_update = Qt::PushButton.new(@grp_display, "btn_update")
-        @layout5.addWidget(@btn_update)
+        @btn_new_display = Qt::PushButton.new(@grp_display, "btn_new_display")
+        @layout5.addWidget(@btn_new_display)
         @grp_displayLayout.addLayout(@layout5)
         @DisplayControlLayout.addWidget(@grp_display)
 
@@ -147,7 +147,7 @@ class DisplayControl < Qt::Dialog
         @execution_flow.setText( trUtf8("execution flow display") )
         @relation_display.setText( trUtf8("relation display") )
         @relation_display_list.header().setLabel( 0, trUtf8("Relation") )
-        @btn_update.setText( trUtf8("Update") )
+        @btn_new_display.setText( trUtf8("New") )
         @grp_play.setTitle( trUtf8("Play") )
         @textLabel1.setText( trUtf8("Speed") )
         @edt_speed.setText( trUtf8("1") )

@@ -17,12 +17,14 @@ module Roby::Log
 	attr_reader :relations
 	# The log file IO object
 	attr_reader :file
-	# The current logger object
-	attr_reader :logger
 	# The time of the first sample
 	attr_reader :first_sample
 	# The time of the last sample
 	attr_reader :last_sample
+	# The time of the last successfully read sample
+	attr_reader :current_time
+	# The current logger object
+	attr_reader :loggers
 
 	def initialize(*args, &block)
 	    @server = Roby::Display::DRbDisplayServer.new(Roby::Display::DEFAULT_REMOTE_DISPLAY_URI)
@@ -38,7 +40,7 @@ module Roby::Log
 	    setup_relations(Roby::EventStructure, event_root)
 
 	    connect(btn_file_open, SIGNAL('pressed()'), self, SLOT('open()'))
-	    connect(btn_update, SIGNAL('pressed()'), self, SLOT('update_display()'))
+	    connect(btn_new_display, SIGNAL('pressed()'), self, SLOT('new_display()'))
 	    connect(btn_play, SIGNAL('toggled(bool)'), self, SLOT('play()'))
 	    connect(btn_fast_forward, SIGNAL('pressed()'), self, SLOT('fast_forward()'))
 	    connect(btn_seek_start, SIGNAL('pressed()'), self, SLOT('seek_start()'))
@@ -47,6 +49,8 @@ module Roby::Log
 	    @cycle_size = 0.1
 	    @play_timer = Qt::Timer.new(self)
 	    connect(@play_timer, SIGNAL('timeout()'), self, SLOT('play_step()'))
+
+	    @loggers = Array.new
 	end
 
 	# Add the relations in +relation_space+ to the relation list, using +root_item+ as
@@ -61,7 +65,8 @@ module Roby::Log
 
 	# Open a new file
 	def open(file_name = nil)
-	    clear_display
+	    loggers.each { |l| l.display.clear }
+
 	    grp_display.enabled = false
 	    grp_play.enabled = false
 
@@ -76,77 +81,77 @@ module Roby::Log
 	    
 	    # Read the time of the first and last samples
 	    @first_sample, @last_sample = nil
-	    begin
-		@file = File.open(file_name)
-		time = nil
-		begin
-		    loop do
-			Marshal.load(file)
-			time, _ = Marshal.load(file)
-			@first_sample ||= time
-		    end
-		rescue EOFError
-		rescue ArgumentError => format_error
-		    # raise if format_error.message !~ /dump format error/
-
-		ensure
-		    file.seek(0)
-		end
-		@last_sample = time
-
-	    rescue Exception => e
-	    end
-
-	    unless @first_sample && @last_sample
-		STDERR.puts e.inspect
+	    @file = File.open(file_name) rescue nil
+	    unless @file
 		lbl_file_name.text = ''
 		Qt::MessageBox.warning self, 'Cannot open file', "#{file_name} does not exist, is not readable, or is not a valid log file"
 		return
 	    end
-		    
+
+	    begin
+		# Remove all cycle_end events at the top of the log
+		loop do
+		    pos, m, time, *_ = read_sample
+		    next if m == :cycle_end
+
+		    unless @first_sample
+			@first_sample = time
+			@start	      = pos
+		    end
+		    @eof	  = pos
+		    @last_sample  = time
+		end
+	    rescue EOFError
+	    end
+
 	    sld_position.min_value = 0
 	    sld_position.max_value = Integer((last_sample - first_sample) * 1000)
 
 	    seek(0, true)
 
-	    update_display
 	    grp_display.enabled = true
-	    grp_play.enabled = true
+	    grp_play.enabled    = true
 	end
 	slots 'open()'
 
 	attr_reader :play_timer
 
+	def read_sample
+	    file_pos = file.tell
+
+	    method_name = Marshal.load(file)
+	    method_args = Marshal.load(file)
+	    if method_name.to_s =~ /_relation$/
+		method_args[1] = Module.constant(method_args[1])
+	    end
+	    return [file_pos, method_name, *method_args]
+
+	rescue EOFError, TypeError, ArgumentError
+	    file.seek(file_pos)
+	    raise EOFError
+	end
+
 	# Read a step of data from the logfile and send it to Log
-	def read_step
+	def read_until(limit)
 	    loop do
-		file_pos = file.tell
-
-		method_name = Marshal.load(file)
-		method_args = Marshal.load(file)
-		if method_name.to_s =~ /_relation$/
-		    method_args[1] = Module.constant(method_args[1])
-		end
-
-		sample_time = method_args.first
-		if (sample_time - @step_start) > step_size
-		    file.seek(file_pos)
+		pos, name, time, *args = read_sample
+		if time >= limit
+		    file.seek(pos)
+		    @current_time = limit
 		    break
 		end
 
-		Roby::Log.log(method_name, method_args)
-		@cur_sample = sample_time
-	    end
-	    @step_start += step_size
-
-	    if !logger.enabled?
-		stop
-		Qt::MessageBox.information self, 'Event log display', 'display failed because of internal error'
+		@current_time = time
+		Roby::Log.log(name, [time, *args])
 	    end
 	end
 
+	def read_step
+	    read_until(@current_time + step_size)
+	end
+
 	def update_position_display
-	    int_pos = Integer((@step_start - first_sample) * 1000)
+	    int_pos = Integer((@current_time - first_sample) * 1000)
 	    sld_position.value = int_pos
 
 	    if int_pos == 0 then dsp_position.num_digits = 3
@@ -156,13 +161,23 @@ module Roby::Log
 	    dsp_position.display(Float(int_pos) / 1000)
 	end
 
+	def disable_updates
+	    loggers.each { |l| l.disable_updates }
+	    yield
+	ensure
+	    loggers.each do |l| 
+		l.flush
+		l.enable_updates
+		l.display.update 
+	    end
+	end
+
+
 	# Called by a timer to send a time step to the display
 	def play_step
-	    logger.disable_updates { read_step }
+	    disable_updates { read_step }
 	    update_position_display
-
-	rescue EOFError, ArgumentError => format_error
-	    # raise if format_error.message !~ /dump format error/
+	rescue EOFError
 	    stop
 	end
 	slots 'play_step()'
@@ -184,8 +199,9 @@ module Roby::Log
 	slots 'play()'
 
 	def stop
+	    update_position_display
 	    play_timer.stop
-	    btn_play.down = false
+	    btn_play.set_on false
 	end
 
 	# Seek at pos +pos+. The position is given in seconds,
@@ -194,23 +210,14 @@ module Roby::Log
 
 	    if force_reset || (first_sample + pos) < play_position
 		sld_position.value = 0
-		@step_start = first_sample
-		@cur_sample = first_sample
-		file.seek(0)
-		logger.display.clear if logger
+		@current_time = @first_sample
+
+		file.seek(@start)
+		loggers.each { |l| l.display.clear }
 	    end
 
-	    if logger
-		logger.disable_updates do
-		    begin
-			while play_position < (first_sample + pos)
-			    read_step
-			end
-		    rescue EOFError, ArgumentError => format_error
-			raise if format_error && !format_error.message =~ /dump format error/
-		    end
-		    logger.flush
-		end
+	    disable_updates do
+		read_until(first_sample + pos) rescue nil
 	    end
 	    update_position_display
 	end
@@ -226,24 +233,19 @@ module Roby::Log
 
 	def file_name; lbl_file_name.text end
 
-	def clear_display
-	    logger.delete if logger
-	end
-
 	# Update the display
-	def update_display
-	    clear_display
+	def new_display
+	    new_logger = if execution_flow.checked?
+			     Roby::Display::ExecutionState.connect :server => server
+			 else
+			     relations = @relations.find_all { |_, item| item.on? }.map { |r, _| r }
+			     Roby::Display::Relations.connect :server => server, :relations => relations
+			 end
 
-	    @logger = if execution_flow.checked?
-			  Roby::Display::ExecutionState.connect :server => server
-		      else
-			  relations = @relations.find_all { |_, item| item.on? }.map { |r, _| r }
-			  Roby::Display::Relations.connect :server => server, :relations => relations
-		      end
-
+	    loggers << new_logger
 	    replay
 	end
-	slots 'update_display()'
+	slots 'new_display()'
 
 	def replay
 	    seek(play_position - first_sample, true)

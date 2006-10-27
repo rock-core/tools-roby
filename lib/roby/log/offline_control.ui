@@ -143,10 +143,10 @@
                         </spacer>
                         <widget class="QPushButton">
                             <property name="name">
-                                <cstring>btn_update</cstring>
+                                <cstring>btn_new_display</cstring>
                             </property>
                             <property name="text">
-                                <string>Update</string>
+                                <string>New</string>
                             </property>
                         </widget>
                     </hbox>
