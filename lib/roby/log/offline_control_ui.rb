@@ -1,6 +1,6 @@
 # Form implementation generated from reading ui file 'lib/roby/log/offline_control.ui'
 #
-# Created: Fri Oct 27 21:12:46 2006
+# Created: Sat Oct 28 16:06:07 2006
 #      by: The QtRuby User Interface Compiler (rbuic)
 #
 # WARNING! All changes made in this file will be lost!
@@ -68,6 +68,7 @@ class DisplayControl < Qt::Dialog
 
         @relation_display_list = Qt::ListView.new(@grp_display, "relation_display_list")
         @relation_display_list.addColumn(trUtf8("Relation"))
+        @relation_display_list.addColumn(trUtf8("Color"))
         @relation_display_list.setEnabled( false )
         @relation_display_list.setRootIsDecorated( true )
         @grp_displayLayout.addWidget(@relation_display_list)
@@ -147,6 +148,7 @@ class DisplayControl < Qt::Dialog
         @execution_flow.setText( trUtf8("execution flow display") )
         @relation_display.setText( trUtf8("relation display") )
         @relation_display_list.header().setLabel( 0, trUtf8("Relation") )
+        @relation_display_list.header().setLabel( 1, trUtf8("Color") )
         @btn_new_display.setText( trUtf8("New") )
         @grp_play.setTitle( trUtf8("Play") )
         @textLabel1.setText( trUtf8("Speed") )

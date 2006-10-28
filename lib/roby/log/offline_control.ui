@@ -106,6 +106,17 @@
                             <bool>true</bool>
                         </property>
                     </column>
+                    <column>
+                        <property name="text">
+                            <string>Color</string>
+                        </property>
+                        <property name="clickable">
+                            <bool>true</bool>
+                        </property>
+                        <property name="resizable">
+                            <bool>true</bool>
+                        </property>
+                    </column>
                     <property name="name">
                         <cstring>relation_display_list</cstring>
                     </property>

@@ -52,7 +52,7 @@ module Roby::Display
 		dot << "};\n"
 	    end
 
-	    display.each_task_relation do |from, to|
+	    display.each_task_relation do |kind, from, to|
 		next if display.hidden?(from) || display.hidden?(to)
 
 		# Find one event in each task to define an edge between the tasks
@@ -60,7 +60,7 @@ module Roby::Display
 		to   = clusters[dot_name(to)].last
 		dot << "#{from} -> #{to};\n"
 	    end
-	    display.each_event_relation do |from, to|
+	    display.each_event_relation do |kind, from, to|
 		next if display.hidden?(from) || display.hidden?(to)
 		dot << "#{dot_name(from)} -> #{dot_name(to)};\n"
 	    end
@@ -97,8 +97,8 @@ module Roby::Display
 		end
 	    end
 
-	    display.each_task_relation  { |from, to| display.canvas_arrow(from, to) }
-	    display.each_event_relation { |from, to| display.canvas_arrow(from, to) }
+	    display.each_task_relation  { |kind, from, to| display.canvas_arrow(kind, from, to) }
+	    display.each_event_relation { |kind, from, to| display.canvas_arrow(kind, from, to) }
 	    display.canvas.update
 
 	ensure

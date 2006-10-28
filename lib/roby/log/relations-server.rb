@@ -3,6 +3,8 @@ require 'roby/support'
 require 'roby/log/marshallable'
 require 'roby/log/style'
 require 'roby/log/dot'
+require 'facet/time/elapse'
+require 'utilrb/time/to_hms'
 
 require 'set'
 
@@ -14,9 +16,85 @@ class Qt::Canvas
 end
 
 module Roby::Display
-    class RelationServer < Qt::Object
+    class CanvasTask
 	MINWIDTH = 50
 
+	attr_reader :canvas_item, :display, :events, :task_id
+	def initialize(task, display)
+	    @task_id     = task.source_id
+	    @canvas_item = Style.task(task, display)
+	    # Put [0, 0] at the center of the item
+	    @canvas_item.move(-@canvas_item[:rectangle].width / 2, -@canvas_item[:rectangle].height / 2)
+	    @canvas_item.position = [0, 0]
+
+	    @display     = display
+	    @events	     = Hash.new
+	    layout
+	end
+
+	def task; display.tasks[task_id] end
+	def update; @canvas_item[:title].text = Style.task_name(task); self end
+
+	def event(event)
+	    unless item = events[event.symbol]
+		item = events[event.symbol] = Style.event(event, display)
+		item.visible = self.visible?
+	    end
+
+	    layout
+	    item
+	end
+
+	def event_width
+	    events.map { |_, e| e.width }.max || 0
+	end
+	def width
+	    [(events.size - 1) * (event_width + display.event_spacing), MINWIDTH].max
+	end
+	def color=(new_color); canvas_item[:rectangle].color = new_color end
+
+	def layout
+	    min_width = width
+	    if canvas_item[:rectangle].width < min_width
+		canvas_item[:rectangle].set_size(min_width, canvas_item[:rectangle].height)
+	    end
+
+	    init, spacing = if events.size > 1
+				[0, [event_width + display.event_spacing, width / (events.size - 1)].max]
+			    else
+				[width / 2, 0]
+			    end
+
+	    y = canvas_item[:rectangle].y + canvas_item[:rectangle].height / 3
+
+	    events = self.events.sort do |(x_symbol, x_ev), (y_symbol, y_ev)| 
+		if x_symbol == :start || y_symbol == :stop then -1
+		elsif x_symbol == :stop || y_symbol == :start then 1
+		else x_symbol.to_s <=> y_symbol.to_s
+		end
+	    end
+
+	    events.inject(canvas_item[:rectangle].x + init) do |x, (_, ev)|
+		ev.move(x, y)
+	    x + spacing
+	    end
+	end
+
+	def visible?; canvas_item.visible?  end
+	def visible=(flag)
+	    canvas_item.visible = flag 
+	    events.each { |_, ev| ev.visible = flag }
+	end
+
+	def move(x, y)
+	    offset_x, offset_y = x - canvas_item.x, y - canvas_item.y
+	    canvas_item.move(x, y)
+	    events.each { |_, ev| ev.moveBy(offset_x, offset_y) }
+	end
+    end
+
+
+    class RelationServer < Qt::Object
 	attr_reader :line_height, :margin, :event_radius, :event_spacing, :dot_scale
 	attr_reader :canvas, :view, :main_window
 	attr_reader :events, :tasks, :task_relations, :event_relations
@@ -34,6 +112,7 @@ module Roby::Display
 	    @event_radius   = 4
 	    @event_spacing  = event_radius
 	    @dot_scale	    = 1
+	    @colors	    = Hash.new
 
 	    # Qt objects
 	    @canvas = Qt::Canvas.new(640, line_height * BASE_LINES + margin * 2)
@@ -64,6 +143,14 @@ module Roby::Display
 	    clear
 	end
 
+	attr_reader :colors
+	def colors=(color_map)
+	    @colors = color_map.inject({}) do |pens, (rel, color)|
+	        pens[rel] = Qt::Pen.new(Qt::Color.new(color))
+	        pens
+	    end
+	end
+
 	def clear
 	    @canvas.clear
 
@@ -81,81 +168,6 @@ module Roby::Display
 	    @canvas_tasks  = Hash.new # task_id => task_item
 	    @canvas_events = Hash.new # event_id => event_item
 	    @canvas_arrows = Hash.new # [event_id, event_id] => arrow_item
-	end
-
-	class CanvasTask
-	    attr_reader :canvas_item, :display, :events, :task_id
-	    def initialize(task, display)
-		@task_id     = task.source_id
-		@canvas_item = Style.task(task, display)
-		# Put [0, 0] at the center of the item
-		@canvas_item.move(-@canvas_item[:rectangle].width / 2, -@canvas_item[:rectangle].height / 2)
-		@canvas_item.position = [0, 0]
-
-		@display     = display
-		@events	     = Hash.new
-		layout
-	    end
-
-	    def task; display.tasks[task_id] end
-	    def update; @canvas_item[:title].text = Style.task_name(task); self end
-
-	    def event(event)
-		unless item = events[event.symbol]
-		    item = events[event.symbol] = Style.event(event, display)
-		    item.visible = self.visible?
-		end
-
-		layout
-		item
-	    end
-
-	    def event_width
-		events.map { |_, e| e.width }.max || 0
-	    end
-	    def width
-		[(events.size - 1) * (event_width + display.event_spacing), MINWIDTH].max
-	    end
-	    def color=(new_color); canvas_item[:rectangle].color = new_color end
-
-	    def layout
-		min_width = width
-		if canvas_item[:rectangle].width < min_width
-		    canvas_item[:rectangle].set_size(min_width, canvas_item[:rectangle].height)
-		end
-
-		init, spacing = if events.size > 1
-				    [0, [event_width + display.event_spacing, width / (events.size - 1)].max]
-				else
-				    [width / 2, 0]
-				end
-
-		y = canvas_item[:rectangle].y + canvas_item[:rectangle].height / 3
-
-		events = self.events.sort do |(x_symbol, x_ev), (y_symbol, y_ev)| 
-		    if x_symbol == :start || y_symbol == :stop then -1
-		    elsif x_symbol == :stop || y_symbol == :start then 1
-		    else x_symbol.to_s <=> y_symbol.to_s
-		    end
-		end
-
-		events.inject(canvas_item[:rectangle].x + init) do |x, (_, ev)|
-		    ev.move(x, y)
-		    x + spacing
-		end
-	    end
-
-	    def visible?; canvas_item.visible?  end
-	    def visible=(flag)
-		canvas_item.visible = flag 
-		events.each { |_, ev| ev.visible = flag }
-	    end
-
-	    def move(x, y)
-		offset_x, offset_y = x - canvas_item.x, y - canvas_item.y
-		canvas_item.move(x, y)
-		events.each { |_, ev| ev.moveBy(offset_x, offset_y) }
-	    end
 	end
 
 	def canvas_task(task)
@@ -189,8 +201,8 @@ module Roby::Display
 	end
 
 	# Builds or updates the from -> to arrow, where from and to are events
-	def canvas_event_arrow(from, to)
-	    arrow, from_pos, to_pos = relation_node_info(from, to, &method(:event_pos))
+	def canvas_event_arrow(kind, from, to)
+	    arrow, from_pos, to_pos = relation_node_info(kind, from, to, &method(:event_pos))
 	    if !(u = unit_vector(from_pos, to_pos))
 		arrow.start_point = from_pos
 		arrow.end_point = to_pos
@@ -217,18 +229,21 @@ module Roby::Display
 	    end
 	end
 
+	BlackPen = Qt::Pen.new(Qt::Color.new('black'))
+
 	# relation_node_info(from, to) -> arrow, from_pos, to_pos
-	def relation_node_info(from, to)
+	def relation_node_info(kind, from, to)
 	    # Get element information (arrow, positions, id)
 	    from_id, to_id = from.source_id, to.source_id
-	    arrow = (canvas_arrows[ [from_id, to_id] ] ||= Style.arrow(self))
+	    arrow = (canvas_arrows[ [kind, from_id, to_id] ] ||= Style.arrow(self))
+	    arrow.pen = colors[kind] || BlackPen
 	    from_pos, to_pos = yield(from_id), yield(to_id)
 	    [arrow, from_pos, to_pos]
 	end
 
 	# Returns or updates the from -> to arrow
-	def canvas_task_arrow(from, to)
-	    arrow, from_pos, to_pos = relation_node_info(from, to, &method(:task_pos))
+	def canvas_task_arrow(kind, from, to)
+	    arrow, from_pos, to_pos = relation_node_info(kind, from, to, &method(:task_pos))
 	    if !(u = unit_vector(from_pos, to_pos))
 		arrow.start_point = from_pos
 		arrow.end_point = to_pos
@@ -260,10 +275,10 @@ module Roby::Display
 	    arrow.visible = !(hidden?(from) || hidden?(to))
 	end
 
-	def canvas_arrow(from, to)
+	def canvas_arrow(kind, from, to)
 	    case from
-	    when Marshallable::Task: canvas_task_arrow(from, to)
-	    else canvas_event_arrow(from, to)
+	    when Marshallable::Task: canvas_task_arrow(kind, from, to)
+	    else canvas_event_arrow(kind, from, to)
 	    end
 	end
 
@@ -281,8 +296,8 @@ module Roby::Display
 	    by_task[source_id].each { |id| yield(events[id]) }
 	end
 	def each_task(&iterator); tasks.each_value(&iterator) end
-	def each_task_relation; task_relations.each { |f, t| yield(tasks[f], tasks[t]) } end
-	def each_event_relation; event_relations.each { |f, t| yield(events[f], events[t]) } end
+	def each_task_relation;  task_relations.each { |k, f, t| yield(k, tasks[f], tasks[t]) } end
+	def each_event_relation; event_relations.each { |k, f, t| yield(k, events[f], events[t]) } end
 
 	def task(task)
 	    tasks[task.source_id] = task
@@ -304,34 +319,34 @@ module Roby::Display
 	    by_task[task_id] << gen.source_id
 	end
 
-	def removed_relation(from, to)
-	    if arrow = canvas_arrows.delete( [from.source_id, to.source_id] )
+	def removed_relation(kind, from, to)
+	    if arrow = canvas_arrows.delete( [kind, from.source_id, to.source_id] )
 		arrow.dispose
 	    end
 	end
 	private :removed_relation
 
-	def added_event_relation(time, from, to)
+	def added_event_relation(time, kind, from, to)
 	    event(from)
 	    event(to)
-	    event_relations << [from.source_id, to.source_id]
+	    event_relations << [kind, from.source_id, to.source_id]
 	    changed!
 	end
-	def removed_event_relation(time, from, to)
-	    event_relations.delete( [from.source_id, to.source_id] )
-	    removed_relation(from, to)
+	def removed_event_relation(time, kind, from, to)
+	    event_relations.delete( [kind, from.source_id, to.source_id] )
+	    removed_relation(kind, from, to)
 	    changed!
 	end
 
-	def added_task_relation(time, from, to)
-	    task_relations << [from.source_id, to.source_id]
+	def added_task_relation(time, kind, from, to)
 	    task(from)
 	    task(to)
+	    task_relations << [kind, from.source_id, to.source_id]
 	    changed!
 	end
-	def removed_task_relation(time, from, to)
-	    task_relations.delete( [from.source_id, to.source_id] )
-	    removed_relation(from, to)
+	def removed_task_relation(time, kind, from, to)
+	    task_relations.delete( [kind, from.source_id, to.source_id] )
+	    removed_relation(kind, from, to)
 	    changed!
 	end
 
@@ -341,7 +356,8 @@ module Roby::Display
 	end
 
 	def layout
-	    DotLayout.layout(self, dot_scale)
+	    layout = Time.elapse { DotLayout.layout(self, dot_scale) }
+	    STDERR.puts "layout: #{Time.at(layout).to_hms}"
 	end
 	slots 'layout()'
 	alias :update :layout
@@ -358,7 +374,7 @@ module Roby::Display
 	    end
 
 	    canvas_tasks[t.source_id].visible = flag
-	    each_task_relation do |from, to|
+	    each_task_relation do |kind, from, to|
 		if from == t || to == t
 		    arrow = canvas_arrows[ [from.source_id, to.source_id] ]
 		    arrow.visible = flag if arrow

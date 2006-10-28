@@ -8,14 +8,18 @@ module Roby::Display
 		if !(relations = options.delete(:relations))
 		    raise ArgumentError, "no relation given"
 		end
-		relations = Array[*relations]
-		if relations.size == 1
-		    options.merge(:name => relations.first.name)
-		end
+
+		relations = case relations
+			    when Array then Hash[*relations.zip([]).flatten]
+			    when Hash then relations
+			    else { relations => nil }
+			    end
 
 		instance = Relations.new(relations)
 		Roby::Log.loggers << instance
 		instance.connect("relations", options)
+		instance.display.send('colors=', relations)
+		instance
 	    end
 	end
 
@@ -24,7 +28,8 @@ module Roby::Display
 	    @relations = relations
 	end
 
-	def disabled
+	def disconnected
+	    super
 	    Roby::Log.loggers.delete(self)
 	end
 
@@ -47,8 +52,8 @@ module Roby::Display
 
 	[:added_task_relation, :added_event_relation, :removed_task_relation, :removed_event_relation].each do |m|
 	    define_method(m) do |time, type, from, to, *args| 
-		if relations.find { |rel| rel.subset?(type) }
-		    display_thread.send(m, display, time, from, to)
+		if relations.find { |rel, _| rel.eql?(type) }
+		    display_thread.send(m, display, time, type, from, to)
 		end
 	    end
 	end

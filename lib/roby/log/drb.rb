@@ -32,7 +32,7 @@ module Roby::Display
 
 	rescue RuntimeError => e
 	    Roby.warn "display server #{self} disabled because of exception: #{e.message}(#{e.class})"
-	    remote_display.disconnected
+	    remote_display.disable
 
 	    raise ThreadServer::Quit
 	end
@@ -116,15 +116,15 @@ module Roby::Display
 
 	def delete
 	    display_server.delete(display) if display
-	    disabled
+	    disconnected
 	end
 
-	def disabled
+	def disconnected
 	    @display = nil
 	    @display_server = nil
 	    @display_thread = nil
 	end
-	def enabled?; @display end
+	def connected?; @display end
 
 	def flush; display_thread.flush if display_thread end
     end

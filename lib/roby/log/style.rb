@@ -73,8 +73,9 @@ module Roby::Display::Style
     TASK_NAME_COLOR = 'black'
     TASK_FONTSIZE = 10
 
-    SIGNAL_COLOR = 'black'
+    ARROW_Z = 5
     ARROW_COLOR  = 'black'
+
     EVENT_COLOR  = 'black' # default color for events
     # [ light, dark ] array of colors for events
     EVENT_COLORS = [
@@ -141,7 +142,6 @@ module Roby::Display::Style
 	CanvasGroup.new(:rectangle => rectangle, :title => title)
     end
 
-    ARROW_Z = 5
     def self.arrow(display)
 	line = Qt::CanvasLine.new(display.canvas) do |l|
 	    l.set_points(0, 0, 0, 0)
@@ -167,6 +167,13 @@ class Qt::CanvasLine
 	    e.z = self.z
 	end
 	update_arrow_end
+    end
+
+    def pen=(new_pen)
+	super(new_pen)
+	if arrow_end
+	    arrow_end.brush = Qt::Brush.new(new_pen.color)
+	end
     end
 
     def update_arrow_end

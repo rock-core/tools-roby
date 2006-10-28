@@ -15,7 +15,7 @@ module Roby::Log
 	# The display server
 	attr_reader :server
 	# A relation_graph => checkbox hash
-	attr_reader :relations
+	attr_reader :relation_item
 	# The log file IO object
 	attr_reader :file
 	# The time of the first sample
@@ -26,14 +26,22 @@ module Roby::Log
 	attr_reader :current_time
 	# The current logger object
 	attr_reader :loggers
+	# A relation => color hash
+	attr_reader :relation_color
+	# The last allocated color
+	attr_reader :current_color
+
+	COLORS = %w{#97EB79 #6464FF #FFC832 #FF6464}
 
 	def initialize(*args, &block)
 	    @server = Roby::Display::DRbDisplayServer.new(Roby::Display::DEFAULT_REMOTE_DISPLAY_URI)
+	    @current_color = 0
+	    @relation_item = Hash.new
+	    @relation_color = Hash.new
 
 	    super(*args, &block)
 
 	    Roby.load_all_relations
-	    @relations = Hash.new
 
 	    task_root = Qt::ListViewItem.new(relation_display_list, "Task relations")
 	    event_root = Qt::ListViewItem.new(relation_display_list, "Event relations")
@@ -52,6 +60,20 @@ module Roby::Log
 	    connect(@play_timer, SIGNAL('timeout()'), self, SLOT('play_step()'))
 
 	    @loggers = Array.new
+
+	    connect(relation_display_list, SIGNAL('doubleClicked( QListViewItem *, const QPoint &, int )'), 
+		    self, SLOT('change_color()'))
+	end
+
+	def allocate_color
+	    @current_color = (current_color + 1) % COLORS.size
+	    COLORS[current_color]
+	end
+
+	def set_color_pixmap(item, color)
+	    color_pix = Qt::Pixmap.new(50, item.height)
+	    color_pix.fill Qt::Color.new(color)
+	    item.set_pixmap 1, color_pix
 	end
 
 	# Add the relations in +relation_space+ to the relation list, using +root_item+ as
@@ -59,7 +81,12 @@ module Roby::Log
 	def setup_relations(relation_space, root_item)
 	    relation_space.each_relation do |rel|
 		name = rel.name.gsub(/.*Structure::/, '')
-		relations[rel] = Qt::CheckListItem.new(root_item, name, Qt::CheckListItem::CheckBox)
+		color = relation_color[rel] = allocate_color
+		item  = Qt::CheckListItem.new(root_item, name, Qt::CheckListItem::CheckBox)
+		set_color_pixmap(item, color)
+
+		relation_item[rel] = item
+		relation_color[rel] = color
 	    end
 	    root_item.open = true
 	end
@@ -238,7 +265,8 @@ module Roby::Log
 	    new_logger = if execution_flow.checked?
 			     Roby::Display::ExecutionState.connect :server => server
 			 else
-			     relations = @relations.find_all { |_, item| item.on? }.map { |r, _| r }
+			     relations = @relation_item.find_all { |_, item| item.on? }.map { |r, _| r }
+			     relations = relations.inject({}) { |rels, r| rels[r] = relation_color[r]; rels }
 			     Roby::Display::Relations.connect :server => server, :relations => relations
 			 end
 
@@ -250,17 +278,25 @@ module Roby::Log
 	def replay
 	    seek(play_position - first_sample, true)
 	end
+
+	def change_color()
+	    item = relation_display_list.current_item
+	    rel = relation_item.find { |_, i| i == item }.first
+	    color = relation_color[rel] || 'black'
+
+	    color = Qt::ColorDialog::get_color(Qt::Color.new(color))
+	    relation_color[rel] = color.name
+	    set_color_pixmap(item, color.name)
+	end
+	slots 'change_color()'
     end
 end
 
-if $0 == __FILE__
-    require 'Qt'
-    a = Qt::Application.new( ARGV )
-
-    display = Roby::Log::DisplayControl.new
-    display.show
-    display.open(ARGV.shift)
-    a.setMainWidget( display )
-    a.exec()
-end
+require 'Qt'
+a = Qt::Application.new( ARGV )
+display = Roby::Log::DisplayControl.new
+display.show
+display.open(ARGV.shift)
+a.main_widget = display
+a.exec()
 
