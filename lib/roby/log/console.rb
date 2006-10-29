@@ -18,24 +18,21 @@ module Roby::Log
 	    else gen.name
 	    end
 	end
-	
+
 	attr_reader :io, :columns
 	def initialize(io)
 	    @io = io
-	    @columns = Array.new
+	    @columns = Hash.new { |h, k| h[k] = Array.new }
 	end
 
-	def display(time, *args) # :nodoc:
+	def display(time, m, *args) # :nodoc:
 	    @reftime ||= time
 
-	    if @last_ref == args[0, 2]
-		args[0, 2] = ["", ""]
-	    else
-		@last_ref = args[0, 2]
-	    end
-
-	    args.unshift(Time.at(time - @reftime).to_hms)
-	    args = args.map(&ConsoleLogger.method(:filter_names))
+	    args.map!(&ConsoleLogger.method(:filter_names))
+	    args.unshift(m).
+		unshift(Time.at(time - @reftime).to_hms)
+		
+	    columns = self.columns[m]
 	    args.each_with_index do |str, i|
 		if !columns[i] || (str.length > columns[i])
 		    columns[i] = str.length
@@ -50,24 +47,10 @@ module Roby::Log
 	end
 	private :display
 
-	def generator_calling(time, gen, context) # :nodoc:
-	    display(time, ConsoleLogger.gen_source(gen), ConsoleLogger.gen_name(gen), "call", "ctxt=#{context}")
-	end
-	def generator_fired(time, event) # :nodoc:
-	    display(time, ConsoleLogger.gen_source(event.generator), 
-		    ConsoleLogger.gen_name(event.generator), "fired", 
-		    "#{ConsoleLogger.gen_name(event)}!#{event.source_address.to_s(16)} ctxt=#{event.context}")
-	end
-	def generator_signalling(time, event, generator) # :nodoc:
-	    display(time, ConsoleLogger.gen_source(event.generator), 
-		    ConsoleLogger.gen_name(event.generator), "signal", 
-		    "#{ConsoleLogger.gen_name(event)}!#{event.source_address.to_s(16)} -> #{ConsoleLogger.gen_source(generator)}::#{ConsoleLogger.gen_name(generator)}")
-	end
-	def task_initialize(time, task, start, stop) # :nodoc:
-	    display(time, task.name, "", "new_task")
-	end
-	def finalized_task(time, plan, task)
-	    display(time, task.name, "", "finalized")
+	[TransactionHooks, PlanHooks, TaskHooks, EventGeneratorHooks, ControlHooks].each do |klass|
+	    klass::HOOKS.each do |m|
+		define_method(m) { |time, *args| display(time, m, *args.map { |a| a.to_s }) }
+	    end
 	end
     end
 end
