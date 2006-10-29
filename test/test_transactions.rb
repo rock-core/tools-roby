@@ -16,20 +16,11 @@ class TC_TransactionAsPlan < Test::Unit::TestCase
     end
 end
 
-
-class TC_Transactions < Test::Unit::TestCase
+module TC_TransactionBehaviour
     include Roby::Transactions
     Hierarchy = Roby::TaskStructure::Hierarchy
     PlannedBy = Roby::TaskStructure::PlannedBy
     Signal = Roby::EventStructure::Signal
-
-    attr_reader :plan
-    def setup
-	@plan = Roby::Plan.new
-    end
-    def teardown
-	plan.clear
-    end
 
     def transaction_commit(plan)
 	trsc = Roby::Transaction.new(plan)
@@ -306,6 +297,32 @@ class TC_Transactions < Test::Unit::TestCase
 	t1.start!
 	assert(t3.running?)
 	assert_nothing_raised { t2.start! }
+    end
+end
+
+class TC_Transactions < Test::Unit::TestCase
+    include TC_TransactionBehaviour
+
+    attr_reader :plan
+    def setup
+	@plan = Roby::Plan.new
+    end
+    def teardown
+	plan.clear
+    end
+end
+
+class TC_RecursiveTransaction < Test::Unit::TestCase
+    include TC_TransactionBehaviour
+
+    attr_reader :plan
+    def setup
+	@real_plan = Roby::Plan.new
+	@plan = Roby::Transaction.new(@real_plan)
+    end
+    def teardown
+	plan.discard_transaction
+	@real_plan.clear
     end
 end
 
