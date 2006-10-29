@@ -9,16 +9,18 @@ module Roby::Display
 		    raise ArgumentError, "no relation given"
 		end
 
-		relations = case relations
-			    when Array then Hash[*relations.zip([]).flatten]
-			    when Hash then relations
-			    else { relations => nil }
-			    end
+		colors = case relations
+			 when Array then Hash[*relations.zip([]).flatten]
+			 when Hash then relations
+			 else { relations => nil }
+			 end
 
-		instance = Relations.new(relations)
+		instance = Relations.new(colors.keys)
 		Roby::Log.loggers << instance
 		instance.connect("relations", options)
-		instance.display.send('colors=', relations)
+
+		colors = colors.map { |r, c| [r.name, c] }
+		instance.display.send('colors=', colors)
 		instance
 	    end
 	end
@@ -52,7 +54,7 @@ module Roby::Display
 
 	[:added_task_relation, :added_event_relation, :removed_task_relation, :removed_event_relation].each do |m|
 	    define_method(m) do |time, type, from, to, *args| 
-		if relations.find { |rel, _| rel.eql?(type) }
+		if relations.find { |rel| rel.name == type }
 		    display_thread.send(m, display, time, type, from, to)
 		end
 	    end

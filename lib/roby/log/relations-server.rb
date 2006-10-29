@@ -95,6 +95,8 @@ module Roby::Display
 
 
     class RelationServer < Qt::Object
+	include DRbDisplayMixin
+
 	attr_reader :line_height, :margin, :event_radius, :event_spacing, :dot_scale
 	attr_reader :canvas, :view, :main_window
 	attr_reader :events, :tasks, :task_relations, :event_relations
@@ -146,7 +148,7 @@ module Roby::Display
 	attr_reader :colors
 	def colors=(color_map)
 	    @colors = color_map.inject({}) do |pens, (rel, color)|
-	        pens[rel] = Qt::Pen.new(Qt::Color.new(color))
+	        pens[rel] = Qt::Pen.new(Qt::Color.new(color || 'black'))
 	        pens
 	    end
 	end
@@ -168,6 +170,8 @@ module Roby::Display
 	    @canvas_tasks  = Hash.new # task_id => task_item
 	    @canvas_events = Hash.new # event_id => event_item
 	    @canvas_arrows = Hash.new # [event_id, event_id] => arrow_item
+
+	    changed!
 	end
 
 	def canvas_task(task)

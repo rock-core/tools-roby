@@ -41,6 +41,10 @@ class TC_Log < Test::Unit::TestCase
 	    assert_equal(w_event.generator, w_task_start)
 	    assert_equal(w_event.task, w_task)
 	end
+
+	plan = Plan.new
+	assert_marshallable_wrapper(plan)
+	assert_marshallable_wrapper(Transaction.new(plan))
     end
 
     def next_logged_method(data, expected)

@@ -17,9 +17,22 @@ module Roby
 		    when Roby::EventGenerator:	    EventGenerator.new(object)
 		    when Roby::Task:	    Task.new(object)
 		    when Roby::Plan:	    Plan.new(object)
+		    else 
+			if object.respond_to?(:each)
+			    object.map do |o| 
+				w = Wrapper[o]
+				w.update(o)
+				w
+			    end
+			else
+			    raise TypeError, "unmarshallable object #{object}"
+			end
 		    end)
 
-		wrapper.update(object)
+		unless wrapper.respond_to?(:each)
+		    wrapper.update(object)
+		end
+		
 		wrapper
 	    end
 	    # Called by the GC when a wrapped object is finalized

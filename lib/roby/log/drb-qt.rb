@@ -14,6 +14,9 @@ module Roby::Display
 
 	    @updater = Qt::Timer.new(self, "timer")
 	    @updater.connect(@updater, SIGNAL('timeout()'), self, SLOT('update()'))
+	    # We MUST have the timer running at all times. Otherwise, DRb thread never
+	    # gets executed
+	    @updater.start(100)
 	    enable_updates
 
 	    @display_id = 0
@@ -21,12 +24,7 @@ module Roby::Display
 
 	def add(name)
 	    display = yield
-	    display.extend DRbDisplayMixin
 	    display.server = self
-
-	    if displays.empty?
-		@updater.start(100)
-	    end
 
 	    display.main_window.set_name name
 	    display.main_window.show
@@ -73,10 +71,6 @@ module Roby::Display
 	    return if !k
 	    displays.delete( [k, n] )
 	    display.main_window.hide
-
-	    if displays.empty?
-		@updater.stop
-	    end
 	end
 
 	def demux(commands)

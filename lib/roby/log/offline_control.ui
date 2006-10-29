@@ -212,29 +212,47 @@
                 </widget>
                 <widget class="QLayoutWidget">
                     <property name="name">
-                        <cstring>layout13</cstring>
+                        <cstring>layout9</cstring>
                     </property>
                     <hbox>
                         <property name="name">
                             <cstring>unnamed</cstring>
                         </property>
-                        <spacer>
+                        <widget class="QButtonGroup">
                             <property name="name">
-                                <cstring>spacer1</cstring>
+                                <cstring>btn_grp_playmode</cstring>
                             </property>
-                            <property name="orientation">
-                                <enum>Horizontal</enum>
+                            <property name="frameShape">
+                                <enum>NoFrame</enum>
                             </property>
-                            <property name="sizeType">
-                                <enum>MinimumExpanding</enum>
+                            <property name="title">
+                                <string></string>
                             </property>
-                            <property name="sizeHint">
-                                <size>
-                                    <width>132</width>
-                                    <height>20</height>
-                                </size>
-                            </property>
-                        </spacer>
+                            <vbox>
+                                <property name="name">
+                                    <cstring>unnamed</cstring>
+                                </property>
+                                <widget class="QRadioButton">
+                                    <property name="name">
+                                        <cstring>btn_play_time</cstring>
+                                    </property>
+                                    <property name="text">
+                                        <string>time</string>
+                                    </property>
+                                    <property name="checked">
+                                        <bool>true</bool>
+                                    </property>
+                                </widget>
+                                <widget class="QRadioButton">
+                                    <property name="name">
+                                        <cstring>btn_play_events</cstring>
+                                    </property>
+                                    <property name="text">
+                                        <string>events</string>
+                                    </property>
+                                </widget>
+                            </vbox>
+                        </widget>
                         <widget class="QLayoutWidget">
                             <property name="name">
                                 <cstring>layout12</cstring>
@@ -409,7 +427,7 @@
         <sender>btn_seek_next</sender>
         <signal>clicked()</signal>
         <receiver>DisplayControl</receiver>
-        <slot>play_step()</slot>
+        <slot>seek_next()</slot>
     </connection>
     <connection>
         <sender>btn_file_open</sender>
@@ -427,13 +445,31 @@
         <sender>btn_faster</sender>
         <signal>clicked()</signal>
         <receiver>DisplayControl</receiver>
-        <slot>fast_forward()</slot>
+        <slot>faster()</slot>
     </connection>
     <connection>
         <sender>btn_new_display</sender>
         <signal>clicked()</signal>
         <receiver>DisplayControl</receiver>
         <slot>new_display()</slot>
+    </connection>
+    <connection>
+        <sender>btn_slower</sender>
+        <signal>clicked()</signal>
+        <receiver>DisplayControl</receiver>
+        <slot>slower()</slot>
+    </connection>
+    <connection>
+        <sender>btn_play_time</sender>
+        <signal>toggled(bool)</signal>
+        <receiver>DisplayControl</receiver>
+        <slot>change_play_mode()</slot>
+    </connection>
+    <connection>
+        <sender>btn_play_events</sender>
+        <signal>toggled(bool)</signal>
+        <receiver>DisplayControl</receiver>
+        <slot>change_play_mode()</slot>
     </connection>
 </connections>
 <slots>
@@ -443,8 +479,11 @@
     <slot>open()</slot>
     <slot>new_display()</slot>
     <slot>play()</slot>
-    <slot>fast_forward()</slot>
+    <slot>faster()</slot>
     <slot>play_step()</slot>
+    <slot>slower()</slot>
+    <slot>seek_next()</slot>
+    <slot>change_play_mode()</slot>
 </slots>
 <layoutdefaults spacing="6" margin="11"/>
 </UI>

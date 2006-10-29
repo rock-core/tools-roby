@@ -24,6 +24,10 @@ module Roby::Log
 	attr_reader :last_sample
 	# The time of the last successfully read sample
 	attr_reader :current_time
+	# The index of the last successfully read sample
+	attr_reader :current_sample
+	# The count of meaningful samples in file
+	attr_reader :sample_count
 	# The current logger object
 	attr_reader :loggers
 	# A relation => color hash
@@ -31,7 +35,53 @@ module Roby::Log
 	# The last allocated color
 	attr_reader :current_color
 
+	# Base period for the playing timer
+	PLAY_BASE_PERIOD = 0.1
+	# Base period in samples when play_mode == :events
+	PLAY_BASE_EVENTSTEP = 1
+
 	COLORS = %w{'black' #800000 #008000 #000080 #C05800 #6633FF #CDBE70 #CD8162 #A2B5CD}
+	# returns the next color in COLORS, cycles if at the end of the array
+	def allocate_color
+	    @current_color = (current_color + 1) % COLORS.size
+	    COLORS[current_color]
+	end
+
+	# Sets the color display for the list item +item+
+	def set_color_pixmap(item, color)
+	    color_pix = Qt::Pixmap.new(50, item.height)
+	    color_pix.fill Qt::Color.new(color)
+	    item.set_pixmap 1, color_pix
+	end
+
+	# Changes the color for the relation currently selected in the list
+	def change_color()
+	    item = relation_display_list.current_item
+	    return unless rel = relation_item.find { |_, i| i == item }
+
+	    rel = rel.first
+	    color = relation_color[rel] || 'black'
+
+	    color = Qt::ColorDialog::get_color(Qt::Color.new(color))
+	    relation_color[rel] = color.name
+	    set_color_pixmap(item, color.name)
+	end
+	slots 'change_color()'
+
+	# Add the relations in +relation_space+ to the relation list, using +root_item+ as
+	# their parent item
+	def setup_relations(relation_space, root_item)
+	    relation_space.each_relation do |rel|
+		name = rel.name.gsub(/.*Structure::/, '')
+		color = relation_color[rel] = allocate_color
+		item  = Qt::CheckListItem.new(root_item, name, Qt::CheckListItem::CheckBox)
+		set_color_pixmap(item, color)
+
+		relation_item[rel] = item
+		relation_color[rel] = color
+	    end
+	    root_item.open = true
+	end
 
 	def initialize(*args, &block)
 	    @server = Roby::Display::DRbDisplayServer.new(Roby::Display::DEFAULT_REMOTE_DISPLAY_URI)
@@ -48,7 +98,6 @@ module Roby::Log
 	    setup_relations(Roby::TaskStructure, task_root)
 	    setup_relations(Roby::EventStructure, event_root)
 
-	    @cycle_size = 0.1
 	    @play_timer = Qt::Timer.new(self)
 	    connect(@play_timer, SIGNAL('timeout()'), self, SLOT('play_step()'))
 
@@ -58,31 +107,7 @@ module Roby::Log
 		    self, SLOT('change_color()'))
 	end
 
-	def allocate_color
-	    @current_color = (current_color + 1) % COLORS.size
-	    COLORS[current_color]
-	end
-
-	def set_color_pixmap(item, color)
-	    color_pix = Qt::Pixmap.new(50, item.height)
-	    color_pix.fill Qt::Color.new(color)
-	    item.set_pixmap 1, color_pix
-	end
-
-	# Add the relations in +relation_space+ to the relation list, using +root_item+ as
-	# their parent item
-	def setup_relations(relation_space, root_item)
-	    relation_space.each_relation do |rel|
-		name = rel.name.gsub(/.*Structure::/, '')
-		color = relation_color[rel] = allocate_color
-		item  = Qt::CheckListItem.new(root_item, name, Qt::CheckListItem::CheckBox)
-		set_color_pixmap(item, color)
-
-		relation_item[rel] = item
-		relation_color[rel] = color
-	    end
-	    root_item.open = true
-	end
+	def file_name; lbl_file_name.text end
 
 	# Open a new file
 	def open(file_name = nil)
@@ -109,16 +134,20 @@ module Roby::Log
 		return
 	    end
 
+	    @sample_count = 0
 	    begin
 		# Remove all cycle_end events at the top of the log
 		loop do
 		    pos, m, time, *_ = read_sample
 		    next if m == :cycle_end
 
-		    unless @first_sample
+		    if @first_sample
+			@sample_count += 1
+		    else
 			@first_sample = time
 			@start	      = pos
 		    end
+
 		    @eof	  = pos
 		    @last_sample  = time
 		end
@@ -126,7 +155,12 @@ module Roby::Log
 	    end
 
 	    sld_position.min_value = 0
-	    sld_position.max_value = Integer((last_sample - first_sample) * 1000)
+	    sld_position.max_value = Integer(1000)
+
+	    @current_time   = @first_sample
+	    @current_sample = 0
+	    @position = 0
+	    change_play_mode
 
 	    seek(0, true)
 
@@ -134,51 +168,42 @@ module Roby::Log
 	    grp_play.enabled    = true
 	end
 
-	attr_reader :play_timer
 
-	def read_sample
-	    file_pos = file.tell
-
-	    method_name = Marshal.load(file)
-	    method_args = Marshal.load(file)
-	    if method_name.to_s =~ /_relation$/
-		method_args[1] = Module.constant(method_args[1])
-	    end
-	    return [file_pos, method_name, *method_args]
-
-	rescue EOFError, TypeError, ArgumentError
-	    file.seek(file_pos)
-	    raise EOFError
-	end
-
-	# Read a step of data from the logfile and send it to Log
-	def read_until(limit)
+	# Reads data until the block returns true and sends samples
+	# to the loggers. The block argument is the play position
+	# (either the sample index or the sample time, according
+	# to play_mode)
+	def read_until
 	    loop do
-		pos, name, time, *args = read_sample
-		if time >= limit
-		    file.seek(pos)
-		    @current_time = limit
-		    break
+		filepos, name, time, *args = read_sample
+		position = if play_mode == :time then
+			       time - first_sample
+			   else current_sample + 1
+			   end
+
+		if yield(position)
+		    file.seek(filepos)
+		    return
 		end
 
-		@current_time = time
+		@current_time   = time
+		@current_sample += 1
+		@position = position
 		Roby::Log.log(name, [time, *args])
 	    end
 	end
 
-	def read_step
-	    read_until(@current_time + step_size)
-	end
+	# Min and max values for #position
+	attr_reader :max, :position
 
+	# Updates both the slider and the position display
 	def update_position_display
-	    int_pos = Integer((@current_time - first_sample) * 1000)
-	    sld_position.value = int_pos
+	    sld_position.value = Integer(Float(position) / max * 1000)
+	    dsp_position.num_digits = if position == 0 then 4
+				      else Integer(Math.log10(position)) + 4
+				      end
 
-	    if int_pos == 0 then dsp_position.num_digits = 3
-	    else dsp_position.num_digits = Integer(Math.log10(int_pos)) + 2
-	    end
-
-	    dsp_position.display(Float(int_pos) / 1000)
+	    dsp_position.display(position)
 	end
 
 	def disable_updates
@@ -192,19 +217,34 @@ module Roby::Log
 	end
 
 
+	# The timer which calls play_step when playing
+	attr_reader :play_timer
+	# The speed factor
+	def play_speed; Float(edt_speed.text) end
+	# The timer interval in milliseconds
+	def play_timer_interval; Integer(PLAY_BASE_PERIOD * 1000) end
+
 	# Called by a timer to send a time step to the display
 	def play_step
-	    disable_updates { read_step }
+	    disable_updates do
+		old_pos = position
+		limit = old_pos + step_size
+		read_until { |pos| pos >= limit }
+		@position = limit
+	    end
 	    update_position_display
+
 	rescue EOFError
 	    stop
 	end
 
-	def play_position; first_sample + Float(sld_position.value) / 1000 end
-	def play_speed; Float(edt_speed.text) end
-	def play_timer_interval; Integer(cycle_size * 1000) end
-	attr_reader :cycle_size
-	def step_size; cycle_size * play_speed end
+	def step_size
+	    if play_mode == :time then
+		PLAY_BASE_PERIOD * play_speed 
+	    else
+		PLAY_BASE_EVENTSTEP * play_speed
+	    end
+	end
 
 	# Start playing at current position
 	def play
@@ -221,38 +261,52 @@ module Roby::Log
 	    btn_play.set_on false
 	end
 
+	attr_reader :play_mode
+	def change_play_mode
+	    if btn_play_time.on? 
+		@play_mode = :time
+		@max = last_sample - first_sample
+		@position = current_time - first_sample
+		update_position_display
+	    else 
+		@play_mode = :events
+		@max = sample_count
+		@position = current_sample
+		update_position_display
+	    end
+	end
+
 	# Seek at pos +pos+. The position is given in seconds,
 	# relative to beginning
 	def seek(pos, force_reset = false)
-	    if pos < 0
-		pos = 0
-	    elsif pos > last_sample - first_sample
-		pos = last_sample - first_sample
+	    if pos < 0 then pos = 0
+	    elsif pos > max then pos = max
 	    end
 
 	    disable_updates do
-		if force_reset || (first_sample + pos) < play_position
+		if force_reset || pos < position
 		    sld_position.value = 0
-		    @current_time = @first_sample
+		    @current_time   = @first_sample
+		    @current_sample = 0
+		    @position = 0
+		    change_play_mode
 
 		    file.seek(@start)
 		    loggers.each { |l| l.display.clear }
 		end
 
-		read_until(first_sample + pos) rescue nil
+		read_until { |p| p >= pos } rescue nil
+		@position = pos
 	    end
 	    update_position_display
 	end
-	def seek_start; seek(0) end
-	def seek_end; seek(last_sample - first_sample) end
-	def seek_previous; seek(current_time - first_sample - step_size) end
+	def seek_start;    seek(0) end
+	def seek_end;      seek(max) end
+	def seek_previous; seek(position - step_size) end
+	def seek_next;	   seek(position + step_size) end
 
-	def fast_forward
-	    edt_speed.text = (play_speed * 2).to_s
-	    play_timer.change_interval play_timer_interval
-	end
-
-	def file_name; lbl_file_name.text end
+	def slower; edt_speed.text = (play_speed / 2).to_s end
+	def faster; edt_speed.text = (play_speed * 2).to_s end
 
 	# Update the display
 	def new_display
@@ -269,19 +323,22 @@ module Roby::Log
 	end
 
 	def replay
-	    seek(play_position - first_sample, true)
+	    seek(position, true)
 	end
 
-	def change_color()
-	    item = relation_display_list.current_item
-	    rel = relation_item.find { |_, i| i == item }.first
-	    color = relation_color[rel] || 'black'
+    private
+	def read_sample
+	    file_pos = file.tell
 
-	    color = Qt::ColorDialog::get_color(Qt::Color.new(color))
-	    relation_color[rel] = color.name
-	    set_color_pixmap(item, color.name)
+	    method_name = Marshal.load(file)
+	    method_args = Marshal.load(file)
+	    return [file_pos, method_name, *method_args]
+
+	rescue EOFError, TypeError, ArgumentError
+	    file.seek(file_pos)
+	    raise EOFError
 	end
-	slots 'change_color()'
+
     end
 end
 

@@ -22,8 +22,7 @@ module Roby::Display
 
     class DRbDisplayThread < ThreadServer
 	attr_reader :remote_display
-	def initialize(remote_display, forward_to, multiplex = false)
-	    @remote_display = remote_display
+	def initialize(forward_to, multiplex = false)
 	    super(forward_to, multiplex)
 	end
 
@@ -32,7 +31,12 @@ module Roby::Display
 
 	rescue RuntimeError => e
 	    Roby.warn "display server #{self} disabled because of exception: #{e.message}(#{e.class})"
-	    remote_display.disable
+	    Log.loggers.dup.each do |o| 
+		if o.respond_to?(:display_thread) && o.display_thread == self
+		    o.disconnected
+		end
+	    end
+
 
 	    raise ThreadServer::Quit
 	end
@@ -58,7 +62,7 @@ module Roby::Display
 	# +control_pipe+ can be used to notify a parent process
 	# that the initialization has been done properly
 	def standalone(uri, control_pipe = nil)
-	    require 'drb-qt'
+	    require 'roby/log/drb-qt'
 	    a = Qt::Application.new( ARGV )
 
 	    server = DRbDisplayServer.new(uri)
@@ -66,8 +70,11 @@ module Roby::Display
 		control_pipe.write("OK")
 		control_pipe.close
 	    end
+	    
+	    main_widget = Qt::Widget.new
+	    main_widget.show
 
-	    a.setMainWidget( server.main_window )
+	    a.setMainWidget( main_widget )
 	    a.exec()
 
 	rescue Exception => e
@@ -103,13 +110,13 @@ module Roby::Display
 	    @display_server = if options[:server].respond_to?(:to_str)
 				  DRb.start_service unless DRb.primary_server
 				  uri = options[:server].to_str
-				  @@servers[uri] ||= DRbObject.new(nil, options[:server].to_str)
+				  @@servers[uri] ||= DRbObject.new_with_uri(options[:server].to_str)
 			      else options[:server]
 				  options[:server]
 			      end
 
 	    @display = display_server.get(Process.pid, kind, options[:name])
-	    @display_thread = (@@threads[@display_server] ||= DRbDisplayThread.new(self, display_server, true))
+	    @display_thread = (@@threads[@display_server] ||= DRbDisplayThread.new(display_server, true))
 
 	    self
 	end

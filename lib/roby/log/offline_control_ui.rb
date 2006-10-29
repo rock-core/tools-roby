@@ -1,6 +1,6 @@
 # Form implementation generated from reading ui file 'lib/roby/log/offline_control.ui'
 #
-# Created: Sun Oct 29 12:16:16 2006
+# Created: Sun Oct 29 18:26:51 2006
 #      by: The QtRuby User Interface Compiler (rbuic)
 #
 # WARNING! All changes made in this file will be lost!
@@ -17,8 +17,11 @@ class DisplayControl < Qt::Dialog
     'open()',
     'new_display()',
     'play()',
-    'fast_forward()',
-    'play_step()'
+    'faster()',
+    'play_step()',
+    'slower()',
+    'seek_next()',
+    'change_play_mode()'
 
     attr_reader :textLabel1_2
     attr_reader :lbl_file_name
@@ -31,6 +34,9 @@ class DisplayControl < Qt::Dialog
     attr_reader :grp_play
     attr_reader :sld_position
     attr_reader :dsp_position
+    attr_reader :btn_grp_playmode
+    attr_reader :btn_play_time
+    attr_reader :btn_play_events
     attr_reader :textLabel1
     attr_reader :edt_speed
     attr_reader :btn_slower
@@ -116,9 +122,23 @@ class DisplayControl < Qt::Dialog
         @layout4.addWidget(@dsp_position)
         @grp_playLayout.addLayout(@layout4)
 
-        @layout13 = Qt::HBoxLayout.new(nil, 0, 6, 'layout13')
-        @spacer1 = Qt::SpacerItem.new(132, 20, Qt::SizePolicy::MinimumExpanding, Qt::SizePolicy::Minimum)
-        @layout13.addItem(@spacer1)
+        @layout9 = Qt::HBoxLayout.new(nil, 0, 6, 'layout9')
+
+        @btn_grp_playmode = Qt::ButtonGroup.new(@grp_play, "btn_grp_playmode")
+        @btn_grp_playmode.setFrameShape( Qt::ButtonGroup::NoFrame )
+        @btn_grp_playmode.setColumnLayout( 0, Qt::Vertical )
+        @btn_grp_playmode.layout().setSpacing(6)
+        @btn_grp_playmode.layout().setMargin(11)
+        @btn_grp_playmodeLayout = Qt::VBoxLayout.new(@btn_grp_playmode.layout() )
+        @btn_grp_playmodeLayout.setAlignment( AlignTop )
+
+        @btn_play_time = Qt::RadioButton.new(@btn_grp_playmode, "btn_play_time")
+        @btn_play_time.setChecked( true )
+        @btn_grp_playmodeLayout.addWidget(@btn_play_time)
+
+        @btn_play_events = Qt::RadioButton.new(@btn_grp_playmode, "btn_play_events")
+        @btn_grp_playmodeLayout.addWidget(@btn_play_events)
+        @layout9.addWidget(@btn_grp_playmode)
 
         @layout12 = Qt::VBoxLayout.new(nil, 0, 6, 'layout12')
 
@@ -145,22 +165,22 @@ class DisplayControl < Qt::Dialog
         @layout11.addWidget(@btn_faster)
         @layout12.addLayout(@layout11)
 
-        @layout9 = Qt::HBoxLayout.new(nil, 0, 6, 'layout9')
+        @layout9_2 = Qt::HBoxLayout.new(nil, 0, 6, 'layout9_2')
 
         @btn_seek_start = Qt::PushButton.new(@grp_play, "btn_seek_start")
-        @layout9.addWidget(@btn_seek_start)
+        @layout9_2.addWidget(@btn_seek_start)
 
         @btn_seek_previous = Qt::PushButton.new(@grp_play, "btn_seek_previous")
-        @layout9.addWidget(@btn_seek_previous)
+        @layout9_2.addWidget(@btn_seek_previous)
 
         @btn_seek_next = Qt::PushButton.new(@grp_play, "btn_seek_next")
-        @layout9.addWidget(@btn_seek_next)
+        @layout9_2.addWidget(@btn_seek_next)
 
         @btn_seek_end = Qt::PushButton.new(@grp_play, "btn_seek_end")
-        @layout9.addWidget(@btn_seek_end)
-        @layout12.addLayout(@layout9)
-        @layout13.addLayout(@layout12)
-        @grp_playLayout.addLayout(@layout13)
+        @layout9_2.addWidget(@btn_seek_end)
+        @layout12.addLayout(@layout9_2)
+        @layout9.addLayout(@layout12)
+        @grp_playLayout.addLayout(@layout9)
         @DisplayControlLayout.addWidget(@grp_play)
         languageChange()
         resize( Qt::Size.new(475, 671).expandedTo(minimumSizeHint()) )
@@ -170,11 +190,14 @@ class DisplayControl < Qt::Dialog
         Qt::Object.connect(@btn_seek_start, SIGNAL("clicked()"), self, SLOT("seek_start()") )
         Qt::Object.connect(@btn_seek_end, SIGNAL("clicked()"), self, SLOT("seek_end()") )
         Qt::Object.connect(@btn_seek_previous, SIGNAL("clicked()"), self, SLOT("seek_previous()") )
-        Qt::Object.connect(@btn_seek_next, SIGNAL("clicked()"), self, SLOT("play_step()") )
+        Qt::Object.connect(@btn_seek_next, SIGNAL("clicked()"), self, SLOT("seek_next()") )
         Qt::Object.connect(@btn_file_open, SIGNAL("clicked()"), self, SLOT("open()") )
         Qt::Object.connect(@btn_play, SIGNAL("clicked()"), self, SLOT("play()") )
-        Qt::Object.connect(@btn_faster, SIGNAL("clicked()"), self, SLOT("fast_forward()") )
+        Qt::Object.connect(@btn_faster, SIGNAL("clicked()"), self, SLOT("faster()") )
         Qt::Object.connect(@btn_new_display, SIGNAL("clicked()"), self, SLOT("new_display()") )
+        Qt::Object.connect(@btn_slower, SIGNAL("clicked()"), self, SLOT("slower()") )
+        Qt::Object.connect(@btn_play_time, SIGNAL("toggled(bool)"), self, SLOT("change_play_mode()") )
+        Qt::Object.connect(@btn_play_events, SIGNAL("toggled(bool)"), self, SLOT("change_play_mode()") )
     end
 
     #
@@ -193,6 +216,9 @@ class DisplayControl < Qt::Dialog
         @relation_display_list.header().setLabel( 1, trUtf8("Color") )
         @btn_new_display.setText( trUtf8("New") )
         @grp_play.setTitle( trUtf8("Play") )
+        @btn_grp_playmode.setTitle( nil )
+        @btn_play_time.setText( trUtf8("time") )
+        @btn_play_events.setText( trUtf8("events") )
         @textLabel1.setText( trUtf8("Speed") )
         @edt_speed.setText( trUtf8("1") )
         @btn_slower.setText( trUtf8("<<") )
@@ -233,12 +259,24 @@ class DisplayControl < Qt::Dialog
         print("DisplayControl.play(): Not implemented yet.\n")
     end
 
-    def fast_forward(*k)
-        print("DisplayControl.fast_forward(): Not implemented yet.\n")
+    def faster(*k)
+        print("DisplayControl.faster(): Not implemented yet.\n")
     end
 
     def play_step(*k)
         print("DisplayControl.play_step(): Not implemented yet.\n")
+    end
+
+    def slower(*k)
+        print("DisplayControl.slower(): Not implemented yet.\n")
+    end
+
+    def seek_next(*k)
+        print("DisplayControl.seek_next(): Not implemented yet.\n")
+    end
+
+    def change_play_mode(*k)
+        print("DisplayControl.change_play_mode(): Not implemented yet.\n")
     end
 
 end

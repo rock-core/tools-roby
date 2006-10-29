@@ -3,6 +3,8 @@ require 'roby/log/style'
 
 module Roby::Display
     class ExecutionStateServer < Qt::Object
+	include DRbDisplayMixin
+
 	attr_reader :canvas, :main_window
 	def initialize(root_window)
 	    super
@@ -50,6 +52,7 @@ module Roby::Display
 	def clear
 	    @pending.clear
 	    @canvas.clear
+	    changed!
 	end
 
 	def cycle_end(time, timings)
