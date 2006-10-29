@@ -31,11 +31,11 @@ module Roby::Log
 	# The last allocated color
 	attr_reader :current_color
 
-	COLORS = %w{#97EB79 #6464FF #FFC832 #FF6464}
+	COLORS = %w{'black' #800000 #008000 #000080 #C05800 #6633FF #CDBE70 #CD8162 #A2B5CD}
 
 	def initialize(*args, &block)
 	    @server = Roby::Display::DRbDisplayServer.new(Roby::Display::DEFAULT_REMOTE_DISPLAY_URI)
-	    @current_color = 0
+	    @current_color = -1
 	    @relation_item = Hash.new
 	    @relation_color = Hash.new
 
@@ -47,13 +47,6 @@ module Roby::Log
 	    event_root = Qt::ListViewItem.new(relation_display_list, "Event relations")
 	    setup_relations(Roby::TaskStructure, task_root)
 	    setup_relations(Roby::EventStructure, event_root)
-
-	    connect(btn_file_open, SIGNAL('pressed()'), self, SLOT('open()'))
-	    connect(btn_new_display, SIGNAL('pressed()'), self, SLOT('new_display()'))
-	    connect(btn_play, SIGNAL('toggled(bool)'), self, SLOT('play()'))
-	    connect(btn_fast_forward, SIGNAL('pressed()'), self, SLOT('fast_forward()'))
-	    connect(btn_seek_start, SIGNAL('pressed()'), self, SLOT('seek_start()'))
-	    connect(btn_seek_end, SIGNAL('pressed()'), self, SLOT('seek_end()'))
 
 	    @cycle_size = 0.1
 	    @play_timer = Qt::Timer.new(self)
@@ -140,7 +133,6 @@ module Roby::Log
 	    grp_display.enabled = true
 	    grp_play.enabled    = true
 	end
-	slots 'open()'
 
 	attr_reader :play_timer
 
@@ -207,7 +199,6 @@ module Roby::Log
 	rescue EOFError
 	    stop
 	end
-	slots 'play_step()'
 
 	def play_position; first_sample + Float(sld_position.value) / 1000 end
 	def play_speed; Float(edt_speed.text) end
@@ -223,7 +214,6 @@ module Roby::Log
 		stop
 	    end
 	end
-	slots 'play()'
 
 	def stop
 	    update_position_display
@@ -234,29 +224,33 @@ module Roby::Log
 	# Seek at pos +pos+. The position is given in seconds,
 	# relative to beginning
 	def seek(pos, force_reset = false)
-
-	    if force_reset || (first_sample + pos) < play_position
-		sld_position.value = 0
-		@current_time = @first_sample
-
-		file.seek(@start)
-		loggers.each { |l| l.display.clear }
+	    if pos < 0
+		pos = 0
+	    elsif pos > last_sample - first_sample
+		pos = last_sample - first_sample
 	    end
 
 	    disable_updates do
+		if force_reset || (first_sample + pos) < play_position
+		    sld_position.value = 0
+		    @current_time = @first_sample
+
+		    file.seek(@start)
+		    loggers.each { |l| l.display.clear }
+		end
+
 		read_until(first_sample + pos) rescue nil
 	    end
 	    update_position_display
 	end
 	def seek_start; seek(0) end
 	def seek_end; seek(last_sample - first_sample) end
-	slots 'seek_start()', 'seek_end()'
+	def seek_previous; seek(current_time - first_sample - step_size) end
 
 	def fast_forward
 	    edt_speed.text = (play_speed * 2).to_s
 	    play_timer.change_interval play_timer_interval
 	end
-	slots 'fast_forward()'
 
 	def file_name; lbl_file_name.text end
 
@@ -273,7 +267,6 @@ module Roby::Log
 	    loggers << new_logger
 	    replay
 	end
-	slots 'new_display()'
 
 	def replay
 	    seek(play_position - first_sample, true)

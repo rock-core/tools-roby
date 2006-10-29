@@ -8,8 +8,8 @@
         <rect>
             <x>0</x>
             <y>0</y>
-            <width>586</width>
-            <height>497</height>
+            <width>475</width>
+            <height>671</height>
         </rect>
     </property>
     <property name="caption">
@@ -212,31 +212,12 @@
                 </widget>
                 <widget class="QLayoutWidget">
                     <property name="name">
-                        <cstring>layout8</cstring>
+                        <cstring>layout13</cstring>
                     </property>
                     <hbox>
                         <property name="name">
                             <cstring>unnamed</cstring>
                         </property>
-                        <widget class="QLabel">
-                            <property name="name">
-                                <cstring>textLabel1</cstring>
-                            </property>
-                            <property name="text">
-                                <string>Speed</string>
-                            </property>
-                        </widget>
-                        <widget class="QLineEdit">
-                            <property name="name">
-                                <cstring>edt_speed</cstring>
-                            </property>
-                            <property name="text">
-                                <string>1</string>
-                            </property>
-                            <property name="alignment">
-                                <set>AlignRight</set>
-                            </property>
-                        </widget>
                         <spacer>
                             <property name="name">
                                 <cstring>spacer1</cstring>
@@ -245,55 +226,153 @@
                                 <enum>Horizontal</enum>
                             </property>
                             <property name="sizeType">
-                                <enum>Expanding</enum>
+                                <enum>MinimumExpanding</enum>
                             </property>
                             <property name="sizeHint">
                                 <size>
-                                    <width>120</width>
+                                    <width>132</width>
                                     <height>20</height>
                                 </size>
                             </property>
                         </spacer>
-                        <widget class="QPushButton">
+                        <widget class="QLayoutWidget">
                             <property name="name">
-                                <cstring>btn_seek_start</cstring>
+                                <cstring>layout12</cstring>
                             </property>
-                            <property name="text">
-                                <string>|&lt;&lt;</string>
-                            </property>
-                            <property name="accel">
-                                <string></string>
-                            </property>
-                        </widget>
-                        <widget class="QPushButton">
-                            <property name="name">
-                                <cstring>btn_play</cstring>
-                            </property>
-                            <property name="text">
-                                <string>&gt;</string>
-                            </property>
-                            <property name="accel">
-                                <string></string>
-                            </property>
-                            <property name="toggleButton">
-                                <bool>true</bool>
-                            </property>
-                        </widget>
-                        <widget class="QPushButton">
-                            <property name="name">
-                                <cstring>btn_fast_forward</cstring>
-                            </property>
-                            <property name="text">
-                                <string>&gt;&gt;</string>
-                            </property>
-                        </widget>
-                        <widget class="QPushButton">
-                            <property name="name">
-                                <cstring>btn_seek_end</cstring>
-                            </property>
-                            <property name="text">
-                                <string>&gt;&gt;|</string>
-                            </property>
+                            <vbox>
+                                <property name="name">
+                                    <cstring>unnamed</cstring>
+                                </property>
+                                <widget class="QLayoutWidget">
+                                    <property name="name">
+                                        <cstring>layout11</cstring>
+                                    </property>
+                                    <hbox>
+                                        <property name="name">
+                                            <cstring>unnamed</cstring>
+                                        </property>
+                                        <widget class="QLabel">
+                                            <property name="name">
+                                                <cstring>textLabel1</cstring>
+                                            </property>
+                                            <property name="text">
+                                                <string>Speed</string>
+                                            </property>
+                                        </widget>
+                                        <widget class="QLineEdit">
+                                            <property name="name">
+                                                <cstring>edt_speed</cstring>
+                                            </property>
+                                            <property name="sizePolicy">
+                                                <sizepolicy>
+                                                    <hsizetype>1</hsizetype>
+                                                    <vsizetype>0</vsizetype>
+                                                    <horstretch>1</horstretch>
+                                                    <verstretch>0</verstretch>
+                                                </sizepolicy>
+                                            </property>
+                                            <property name="maximumSize">
+                                                <size>
+                                                    <width>80</width>
+                                                    <height>32767</height>
+                                                </size>
+                                            </property>
+                                            <property name="text">
+                                                <string>1</string>
+                                            </property>
+                                            <property name="alignment">
+                                                <set>AlignRight</set>
+                                            </property>
+                                        </widget>
+                                        <widget class="QPushButton">
+                                            <property name="name">
+                                                <cstring>btn_slower</cstring>
+                                            </property>
+                                            <property name="text">
+                                                <string>&lt;&lt;</string>
+                                            </property>
+                                        </widget>
+                                        <widget class="QPushButton">
+                                            <property name="name">
+                                                <cstring>btn_play</cstring>
+                                            </property>
+                                            <property name="sizePolicy">
+                                                <sizepolicy>
+                                                    <hsizetype>3</hsizetype>
+                                                    <vsizetype>0</vsizetype>
+                                                    <horstretch>2</horstretch>
+                                                    <verstretch>0</verstretch>
+                                                </sizepolicy>
+                                            </property>
+                                            <property name="text">
+                                                <string>&gt;</string>
+                                            </property>
+                                            <property name="accel">
+                                                <string></string>
+                                            </property>
+                                            <property name="toggleButton">
+                                                <bool>true</bool>
+                                            </property>
+                                        </widget>
+                                        <widget class="QPushButton">
+                                            <property name="name">
+                                                <cstring>btn_faster</cstring>
+                                            </property>
+                                            <property name="text">
+                                                <string>&gt;&gt;</string>
+                                            </property>
+                                        </widget>
+                                    </hbox>
+                                </widget>
+                                <widget class="QLayoutWidget">
+                                    <property name="name">
+                                        <cstring>layout9</cstring>
+                                    </property>
+                                    <hbox>
+                                        <property name="name">
+                                            <cstring>unnamed</cstring>
+                                        </property>
+                                        <widget class="QPushButton">
+                                            <property name="name">
+                                                <cstring>btn_seek_start</cstring>
+                                            </property>
+                                            <property name="text">
+                                                <string>|&lt;&lt;</string>
+                                            </property>
+                                            <property name="accel">
+                                                <string></string>
+                                            </property>
+                                        </widget>
+                                        <widget class="QPushButton">
+                                            <property name="name">
+                                                <cstring>btn_seek_previous</cstring>
+                                            </property>
+                                            <property name="text">
+                                                <string>|&lt;</string>
+                                            </property>
+                                            <property name="accel">
+                                                <string></string>
+                                            </property>
+                                        </widget>
+                                        <widget class="QPushButton">
+                                            <property name="name">
+                                                <cstring>btn_seek_next</cstring>
+                                            </property>
+                                            <property name="text">
+                                                <string>&gt;|</string>
+                                            </property>
+                                        </widget>
+                                        <widget class="QPushButton">
+                                            <property name="name">
+                                                <cstring>btn_seek_end</cstring>
+                                            </property>
+                                            <property name="text">
+                                                <string>&gt;&gt;|</string>
+                                            </property>
+                                        </widget>
+                                    </hbox>
+                                </widget>
+                            </vbox>
                         </widget>
                     </hbox>
                 </widget>
@@ -308,6 +387,64 @@
         <receiver>relation_display_list</receiver>
         <slot>setEnabled(bool)</slot>
     </connection>
+    <connection>
+        <sender>btn_seek_start</sender>
+        <signal>clicked()</signal>
+        <receiver>DisplayControl</receiver>
+        <slot>seek_start()</slot>
+    </connection>
+    <connection>
+        <sender>btn_seek_end</sender>
+        <signal>clicked()</signal>
+        <receiver>DisplayControl</receiver>
+        <slot>seek_end()</slot>
+    </connection>
+    <connection>
+        <sender>btn_seek_previous</sender>
+        <signal>clicked()</signal>
+        <receiver>DisplayControl</receiver>
+        <slot>seek_previous()</slot>
+    </connection>
+    <connection>
+        <sender>btn_seek_next</sender>
+        <signal>clicked()</signal>
+        <receiver>DisplayControl</receiver>
+        <slot>play_step()</slot>
+    </connection>
+    <connection>
+        <sender>btn_file_open</sender>
+        <signal>clicked()</signal>
+        <receiver>DisplayControl</receiver>
+        <slot>open()</slot>
+    </connection>
+    <connection>
+        <sender>btn_play</sender>
+        <signal>clicked()</signal>
+        <receiver>DisplayControl</receiver>
+        <slot>play()</slot>
+    </connection>
+    <connection>
+        <sender>btn_faster</sender>
+        <signal>clicked()</signal>
+        <receiver>DisplayControl</receiver>
+        <slot>fast_forward()</slot>
+    </connection>
+    <connection>
+        <sender>btn_new_display</sender>
+        <signal>clicked()</signal>
+        <receiver>DisplayControl</receiver>
+        <slot>new_display()</slot>
+    </connection>
 </connections>
+<slots>
+    <slot>seek_start()</slot>
+    <slot>seek_end()</slot>
+    <slot>seek_previous()</slot>
+    <slot>open()</slot>
+    <slot>new_display()</slot>
+    <slot>play()</slot>
+    <slot>fast_forward()</slot>
+    <slot>play_step()</slot>
+</slots>
 <layoutdefaults spacing="6" margin="11"/>
 </UI>

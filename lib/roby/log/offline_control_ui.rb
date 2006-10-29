@@ -1,6 +1,6 @@
 # Form implementation generated from reading ui file 'lib/roby/log/offline_control.ui'
 #
-# Created: Sat Oct 28 16:06:07 2006
+# Created: Sun Oct 29 12:16:16 2006
 #      by: The QtRuby User Interface Compiler (rbuic)
 #
 # WARNING! All changes made in this file will be lost!
@@ -9,6 +9,16 @@
 require 'Qt'
 
 class DisplayControl < Qt::Dialog
+
+    slots 'languageChange()',
+    'seek_start()',
+    'seek_end()',
+    'seek_previous()',
+    'open()',
+    'new_display()',
+    'play()',
+    'fast_forward()',
+    'play_step()'
 
     attr_reader :textLabel1_2
     attr_reader :lbl_file_name
@@ -23,9 +33,12 @@ class DisplayControl < Qt::Dialog
     attr_reader :dsp_position
     attr_reader :textLabel1
     attr_reader :edt_speed
-    attr_reader :btn_seek_start
+    attr_reader :btn_slower
     attr_reader :btn_play
-    attr_reader :btn_fast_forward
+    attr_reader :btn_faster
+    attr_reader :btn_seek_start
+    attr_reader :btn_seek_previous
+    attr_reader :btn_seek_next
     attr_reader :btn_seek_end
 
 
@@ -103,36 +116,65 @@ class DisplayControl < Qt::Dialog
         @layout4.addWidget(@dsp_position)
         @grp_playLayout.addLayout(@layout4)
 
-        @layout8 = Qt::HBoxLayout.new(nil, 0, 6, 'layout8')
+        @layout13 = Qt::HBoxLayout.new(nil, 0, 6, 'layout13')
+        @spacer1 = Qt::SpacerItem.new(132, 20, Qt::SizePolicy::MinimumExpanding, Qt::SizePolicy::Minimum)
+        @layout13.addItem(@spacer1)
+
+        @layout12 = Qt::VBoxLayout.new(nil, 0, 6, 'layout12')
+
+        @layout11 = Qt::HBoxLayout.new(nil, 0, 6, 'layout11')
 
         @textLabel1 = Qt::Label.new(@grp_play, "textLabel1")
-        @layout8.addWidget(@textLabel1)
+        @layout11.addWidget(@textLabel1)
 
         @edt_speed = Qt::LineEdit.new(@grp_play, "edt_speed")
+        @edt_speed.setSizePolicy( Qt::SizePolicy.new(1, 0, 1, 0, @edt_speed.sizePolicy().hasHeightForWidth()) )
+        @edt_speed.setMaximumSize( Qt::Size.new(80, 32767) )
         @edt_speed.setAlignment( Qt::LineEdit::AlignRight )
-        @layout8.addWidget(@edt_speed)
-        @spacer1 = Qt::SpacerItem.new(120, 20, Qt::SizePolicy::Expanding, Qt::SizePolicy::Minimum)
-        @layout8.addItem(@spacer1)
+        @layout11.addWidget(@edt_speed)
 
-        @btn_seek_start = Qt::PushButton.new(@grp_play, "btn_seek_start")
-        @layout8.addWidget(@btn_seek_start)
+        @btn_slower = Qt::PushButton.new(@grp_play, "btn_slower")
+        @layout11.addWidget(@btn_slower)
 
         @btn_play = Qt::PushButton.new(@grp_play, "btn_play")
+        @btn_play.setSizePolicy( Qt::SizePolicy.new(3, 0, 2, 0, @btn_play.sizePolicy().hasHeightForWidth()) )
         @btn_play.setToggleButton( true )
-        @layout8.addWidget(@btn_play)
+        @layout11.addWidget(@btn_play)
 
-        @btn_fast_forward = Qt::PushButton.new(@grp_play, "btn_fast_forward")
-        @layout8.addWidget(@btn_fast_forward)
+        @btn_faster = Qt::PushButton.new(@grp_play, "btn_faster")
+        @layout11.addWidget(@btn_faster)
+        @layout12.addLayout(@layout11)
+
+        @layout9 = Qt::HBoxLayout.new(nil, 0, 6, 'layout9')
+
+        @btn_seek_start = Qt::PushButton.new(@grp_play, "btn_seek_start")
+        @layout9.addWidget(@btn_seek_start)
+
+        @btn_seek_previous = Qt::PushButton.new(@grp_play, "btn_seek_previous")
+        @layout9.addWidget(@btn_seek_previous)
+
+        @btn_seek_next = Qt::PushButton.new(@grp_play, "btn_seek_next")
+        @layout9.addWidget(@btn_seek_next)
 
         @btn_seek_end = Qt::PushButton.new(@grp_play, "btn_seek_end")
-        @layout8.addWidget(@btn_seek_end)
-        @grp_playLayout.addLayout(@layout8)
+        @layout9.addWidget(@btn_seek_end)
+        @layout12.addLayout(@layout9)
+        @layout13.addLayout(@layout12)
+        @grp_playLayout.addLayout(@layout13)
         @DisplayControlLayout.addWidget(@grp_play)
         languageChange()
-        resize( Qt::Size.new(586, 497).expandedTo(minimumSizeHint()) )
+        resize( Qt::Size.new(475, 671).expandedTo(minimumSizeHint()) )
         clearWState( WState_Polished )
 
         Qt::Object.connect(@relation_display, SIGNAL("toggled(bool)"), @relation_display_list, SLOT("setEnabled(bool)") )
+        Qt::Object.connect(@btn_seek_start, SIGNAL("clicked()"), self, SLOT("seek_start()") )
+        Qt::Object.connect(@btn_seek_end, SIGNAL("clicked()"), self, SLOT("seek_end()") )
+        Qt::Object.connect(@btn_seek_previous, SIGNAL("clicked()"), self, SLOT("seek_previous()") )
+        Qt::Object.connect(@btn_seek_next, SIGNAL("clicked()"), self, SLOT("play_step()") )
+        Qt::Object.connect(@btn_file_open, SIGNAL("clicked()"), self, SLOT("open()") )
+        Qt::Object.connect(@btn_play, SIGNAL("clicked()"), self, SLOT("play()") )
+        Qt::Object.connect(@btn_faster, SIGNAL("clicked()"), self, SLOT("fast_forward()") )
+        Qt::Object.connect(@btn_new_display, SIGNAL("clicked()"), self, SLOT("new_display()") )
     end
 
     #
@@ -153,14 +195,50 @@ class DisplayControl < Qt::Dialog
         @grp_play.setTitle( trUtf8("Play") )
         @textLabel1.setText( trUtf8("Speed") )
         @edt_speed.setText( trUtf8("1") )
-        @btn_seek_start.setText( trUtf8("|<<") )
-        @btn_seek_start.setAccel( Qt::KeySequence.new(nil) )
+        @btn_slower.setText( trUtf8("<<") )
         @btn_play.setText( trUtf8(">") )
         @btn_play.setAccel( Qt::KeySequence.new(nil) )
-        @btn_fast_forward.setText( trUtf8(">>") )
+        @btn_faster.setText( trUtf8(">>") )
+        @btn_seek_start.setText( trUtf8("|<<") )
+        @btn_seek_start.setAccel( Qt::KeySequence.new(nil) )
+        @btn_seek_previous.setText( trUtf8("|<") )
+        @btn_seek_previous.setAccel( Qt::KeySequence.new(nil) )
+        @btn_seek_next.setText( trUtf8(">|") )
         @btn_seek_end.setText( trUtf8(">>|") )
     end
     protected :languageChange
 
+
+    def seek_start(*k)
+        print("DisplayControl.seek_start(): Not implemented yet.\n")
+    end
+
+    def seek_end(*k)
+        print("DisplayControl.seek_end(): Not implemented yet.\n")
+    end
+
+    def seek_previous(*k)
+        print("DisplayControl.seek_previous(): Not implemented yet.\n")
+    end
+
+    def open(*k)
+        print("DisplayControl.open(): Not implemented yet.\n")
+    end
+
+    def new_display(*k)
+        print("DisplayControl.new_display(): Not implemented yet.\n")
+    end
+
+    def play(*k)
+        print("DisplayControl.play(): Not implemented yet.\n")
+    end
+
+    def fast_forward(*k)
+        print("DisplayControl.fast_forward(): Not implemented yet.\n")
+    end
+
+    def play_step(*k)
+        print("DisplayControl.play_step(): Not implemented yet.\n")
+    end
 
 end
