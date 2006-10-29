@@ -16,6 +16,7 @@ module Roby
 		    when Roby::TaskEventGenerator:   TaskEventGenerator.new(object)
 		    when Roby::EventGenerator:	    EventGenerator.new(object)
 		    when Roby::Task:	    Task.new(object)
+		    when Roby::Transaction: Transaction.new(object)
 		    when Roby::Plan:	    Plan.new(object)
 		    else 
 			if object.respond_to?(:each)
@@ -77,6 +78,14 @@ module Roby
 	    def update(plan)
 		@size = plan.size
 		@missions = plan.missions.map { |t| Wrapper[t] }
+	    end
+	end
+	class Transaction < Plan
+	    attr_reader :plan
+
+	    def update(trsc)
+		super
+		@plan = Wrapper[trsc.plan]
 	    end
 	end
 	

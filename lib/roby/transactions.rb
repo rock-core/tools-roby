@@ -49,7 +49,10 @@ module Roby
 	    @discovered_objects = ValueSet.new
 	    @removed_tasks      = ValueSet.new
 	    @discarded_tasks    = ValueSet.new
+
+	    new_transaction
 	end
+	def new_transaction; super if defined? super end
 
 	def include?(t); super || super(may_wrap(t)) end
 	def mission?(t); super || super(may_wrap(t)) end
@@ -151,7 +154,10 @@ module Roby
 		raise if plan.known_tasks.include?(proxy)
 		Kernel.swap! proxy, Proxy.forwarder(proxy).new(object)
 	    end
+
+	    committed_transaction
 	end
+	def committed_transaction; super if defined? super end
 
 	# Discard all the modifications that have been registered 
 	# in this transaction
@@ -165,7 +171,10 @@ module Roby
 	    discovered_objects.clear
 	    removed_tasks.clear
 	    discarded_tasks.clear
+
+	    discarded_transaction
 	end
+	def discarded_transaction; super if defined? super end
     end
 end
 

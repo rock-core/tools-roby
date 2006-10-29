@@ -56,6 +56,24 @@ module Roby::Log
     end
     Roby::Plan.include PlanHooks
 
+    module TransactionHooks
+	HOOKS = %w{new_transaction committed_transaction discarded_transaction}
+
+	def new_transaction
+	    super if defined? super
+	    Roby::Log.log(:new_transaction) { [Time.now, Wrapper[self]] }
+	end
+	def committed_transaction
+	    super if defined? super
+	    Roby::Log.log(:committed_transaction) { [Time.now, Wrapper[self]] }
+	end
+	def discarded_transaction
+	    super if defined? super
+	    Roby::Log.log(:discarded_transaction) { [Time.now, Wrapper[self]] }
+	end
+    end
+    Roby::Transaction.include TransactionHooks
+
     module EventGeneratorHooks
 	HOOKS = %w{added_event_relation removed_event_relation generator_calling generator_fired generator_signalling}
 

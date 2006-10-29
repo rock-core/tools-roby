@@ -14,7 +14,7 @@ module Roby::Log
 	    @io = io
 	end
 
-	[TaskHooks, PlanHooks, EventGeneratorHooks, ControlHooks].each do |klass|
+	[TransactionHooks, TaskHooks, PlanHooks, EventGeneratorHooks, ControlHooks].each do |klass|
 	    klass::HOOKS.each do |m|
 		m = m.to_sym
 		define_method(m) { |*args| io << Marshal.dump(m) << Marshal.dump(args) }
