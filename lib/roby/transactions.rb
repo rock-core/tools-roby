@@ -28,27 +28,27 @@ module Roby
 	def executable?; false end
 
 	def wrap(object)
-	    if proxy = proxies[object]
+	    if proxy = proxy_objects[object]
 		return proxy
 	    end
-	    proxies[object] = Proxy.proxy_class(object).new(object, self)
+	    proxy_objects[object] = Proxy.proxy_class(object).new(object, self)
 	end
 	def may_wrap(object); wrap(object) rescue object end
 
-	def discovered(object)
+	def discovered_object(object)
 	    discovered_objects << object
 	end
 
-	attr_reader :plan, :discarded, :removed, :proxies, :discovered_objects
+	attr_reader :plan, :discarded_tasks, :removed_tasks, :proxy_objects, :discovered_objects
 	def initialize(plan)
 	    super(plan.hierarchy, plan.service_relations)
 
 	    @plan = plan
 
-	    @proxies   = Hash.new
+	    @proxy_objects      = Hash.new
 	    @discovered_objects = ValueSet.new
-	    @removed   = ValueSet.new
-	    @discarded = ValueSet.new
+	    @removed_tasks      = ValueSet.new
+	    @discarded_tasks    = ValueSet.new
 	end
 
 	def include?(t); super || super(may_wrap(t)) end
@@ -56,15 +56,15 @@ module Roby
 
 	def missions
 	    plan_missions = plan.missions.
-		difference(discarded).
-		difference(removed)
+		difference(discarded_tasks).
+		difference(removed_tasks)
 
 	    super.union(plan_missions.map(&method(:[])))
 	end
 
 	def known_tasks
 	    plan_tasks = plan.known_tasks. 
-		difference(removed)
+		difference(removed_tasks)
 
 	    super.union(plan_tasks.map(&method(:[])))
 	end
@@ -110,7 +110,7 @@ module Roby
 	def discard(t)
 	    unwrapped = Proxy.may_unwrap(t)
 	    if plan.missions.include?(unwrapped)
-		discarded.insert(unwrapped)
+		discarded_tasks.insert(unwrapped)
 	    else
 		super
 	    end
@@ -119,7 +119,7 @@ module Roby
 	def remove_task(t)
 	    unwrapped = Proxy.may_unwrap(t)
 	    if plan.known_tasks.include? unwrapped
-		removed.insert(unwrapped)
+		removed_tasks.insert(unwrapped)
 	    else
 		super
 	    end
@@ -128,8 +128,8 @@ module Roby
 	# Commit all modifications that have been registered
 	# in this transaction
 	def commit_transaction
-	    discarded.each { |t| plan.discard(t) }
-	    removed.each { |t| plan.remove_task(t) }
+	    discarded_tasks.each { |t| plan.discard(t) }
+	    removed_tasks.each { |t| plan.remove_task(t) }
 
 	    raise unless (@missions - @known_tasks).empty?
 	    # Set the plan to nil in known tasks to avoid having 
@@ -139,15 +139,15 @@ module Roby
 
 	    discovered_objects.each { |proxy| proxy.commit_transaction }
 
-	    proxies.each { |_, proxy| proxy.disable_discovery! }
-	    proxies.each { |_, proxy| proxy.clear_vertex }
+	    proxy_objects.each { |_, proxy| proxy.disable_discovery! }
+	    proxy_objects.each { |_, proxy| proxy.clear_vertex }
 
 	    # Call #insert and #discover *after* we have cleared relations
 	    @missions.each    { |t| plan.insert(t)   unless t.kind_of?(Proxy) }
 	    @known_tasks.each { |t| plan.discover(t) unless t.kind_of?(Proxy) }
 
 	    # Replace proxies by forwarder objects
-	    proxies.each do |object, proxy|
+	    proxy_objects.each do |object, proxy|
 		raise if plan.known_tasks.include?(proxy)
 		Kernel.swap! proxy, Proxy.forwarder(proxy).new(object)
 	    end
@@ -160,11 +160,11 @@ module Roby
 	    clear
 
 	    # Clear all remaining proxies
-	    proxies.each { |_, proxy| proxy.discard_transaction }
-	    proxies.clear
+	    proxy_objects.each { |_, proxy| proxy.discard_transaction }
+	    proxy_objects.clear
 	    discovered_objects.clear
-	    removed.clear
-	    discarded.clear
+	    removed_tasks.clear
+	    discarded_tasks.clear
 	end
     end
 end

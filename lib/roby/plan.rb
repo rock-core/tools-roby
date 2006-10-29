@@ -79,8 +79,10 @@ module Roby
 		@missions << t
 		self
 	    end
+	    inserted(tasks)
 	    self
 	end
+	def inserted(tasks); super if defined? super end
 	alias :<< :insert
 
 	# Mark +task+ as not being a task anymore
@@ -89,8 +91,10 @@ module Roby
 		discover(t)
 		@missions.delete(t)
 	    end
+	    discarded(tasks)
 	    self
 	end
+	def discarded(tasks); super if defined? super end
 
 	# Remove all tasks
 	def clear
@@ -121,6 +125,7 @@ module Roby
 	    end
 	    from.replace_object_by(to)
 
+	    replaced(from, to)
 	    if mission?(from)
 		discard(from)
 		insert(to)
@@ -128,6 +133,7 @@ module Roby
 		discover(to)
 	    end
 	end
+	def replaced(from, to); super if defined? super end
 
 	def executable?; true end
 	
@@ -149,12 +155,14 @@ module Roby
 	    end
 	    unless tasks.empty?
 		new_tasks = useful_component(tasks).difference(@known_tasks)
+		discovered(new_tasks)
 		new_tasks.each { |t| t.plan = self }
 		@known_tasks.merge new_tasks
 	    end
 
 	    self
 	end
+	def discovered(tasks); super if defined? super end
 
 	def useful_component(tasks)
 	    # Get all tasks related by hierarchy

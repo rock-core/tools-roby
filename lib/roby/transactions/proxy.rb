@@ -75,7 +75,7 @@ module Roby::Transactions
 	end
 	def discover(relation)
 	    if @discovered.empty?
-		transaction.discovered(self)
+		transaction.discovered_object(self)
 	    end
 	    if !relation
 		__getobj__.each_relation(&method(:discover))
