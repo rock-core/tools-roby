@@ -57,6 +57,7 @@ module Roby
 	    def source_address; Object.address_from_id(source_id) end
 	    # Name of the real object
 	    attr_reader :name
+	    def to_s; name || "#{source_class}:#{source_id}" end
 
 	    def initialize(source)
 		update(source)
