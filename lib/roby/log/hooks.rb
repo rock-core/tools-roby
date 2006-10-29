@@ -10,7 +10,7 @@ module Roby::Log
     Wrapper = Roby::Marshallable::Wrapper
 
     module TaskHooks
-	HOOKS = %w{added_task_relation removed_task_relation, task_initialize}
+	HOOKS = %w{added_task_relation removed_task_relation task_initialize}
 
 	def added_child_object(to, type, info)
 	    super if defined? super
