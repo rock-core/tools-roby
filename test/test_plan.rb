@@ -4,6 +4,7 @@ require 'test/unit'
 require 'roby'
 require 'roby/plan'
 require 'roby/state/information'
+require 'flexmock'
 
 module TC_PlanStatic
     include Roby
@@ -127,7 +128,23 @@ module TC_PlanStatic
 
 	plan.insert(p)
 	plan.insert(c1)
-	assert_nothing_raised { plan.replace(c1, c3) }
+	FlexMock.use do |mock|
+	    p.singleton_class.class_eval do
+		define_method('removed_child_object') do |child, type|
+		    mock.removed_hook(p, child, type)
+		end
+	    end
+	    c1.singleton_class.class_eval do
+		define_method('removed_parent_object') do |parent, type|
+		    mock.removed_hook(c1, parent, type)
+		end
+	    end
+
+	    mock.should_receive(:removed_hook).with(p, c1, TaskStructure::Hierarchy)
+	    mock.should_receive(:removed_hook).with(c1, p, TaskStructure::Hierarchy)
+	    assert_nothing_raised { plan.replace(c1, c3) }
+	end
+
 	assert(! plan.mission?(c1) )
 	assert( plan.include?(c1) )
 	plan.garbage_collect
