@@ -1,5 +1,6 @@
 require 'roby/log/logger'
 require 'roby/log/drb'
+require 'roby/log/hooks'
 
 module Roby::Display
     class Relations < DRbRemoteDisplay
@@ -38,6 +39,20 @@ module Roby::Display
 	def task_initialize(time, task, start, stop)
 	    display_thread.task_initialize(display, time, task, start, stop)
 	end
+	def discovered_tasks(time, plan, tasks)
+	    display_thread.discovered_tasks(display, time, plan, tasks)
+	end
+	Roby::Log::TransactionHooks::HOOKS.each do |m|
+	    define_method(m) { |*args| display_thread.send(m, display, *args) }
+	end
+
+	[:added_task_relation, :added_event_relation, :removed_task_relation, :removed_event_relation].each do |m|
+	    define_method(m) do |time, type, from, to, *args| 
+		if relations.find { |rel| rel.name == type }
+		    display_thread.send(m, display, time, type, from, to)
+		end
+	    end
+	end
 
 	STATE_EVENTS = [:start, :success, :failed]
 	def generator_fired(time, event)
@@ -50,14 +65,6 @@ module Roby::Display
 
 	def finalized_task(time, plan, task)
 	    display_thread.state_change(display, task, :finalized)
-	end
-
-	[:added_task_relation, :added_event_relation, :removed_task_relation, :removed_event_relation].each do |m|
-	    define_method(m) do |time, type, from, to, *args| 
-		if relations.find { |rel| rel.name == type }
-		    display_thread.send(m, display, time, type, from, to)
-		end
-	    end
 	end
     end
 end

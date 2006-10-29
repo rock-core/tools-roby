@@ -76,7 +76,7 @@ module Roby::Display
 
 	    events.inject(canvas_item[:rectangle].x + init) do |x, (_, ev)|
 		ev.move(x, y)
-	    x + spacing
+		x + spacing
 	    end
 	end
 
@@ -86,6 +86,9 @@ module Roby::Display
 	    events.each { |_, ev| ev.visible = flag }
 	end
 
+	def x; canvas_item.x end
+	def y; canvas_item.y end
+	def height; canvas_item.height * 2 end
 	def move(x, y)
 	    offset_x, offset_y = x - canvas_item.x, y - canvas_item.y
 	    canvas_item.move(x, y)
@@ -100,9 +103,10 @@ module Roby::Display
 	attr_reader :line_height, :margin, :event_radius, :event_spacing, :dot_scale
 	attr_reader :canvas, :view, :main_window
 	attr_reader :events, :tasks, :task_relations, :event_relations
-	attr_reader :canvas_tasks, :canvas_events, :canvas_arrows
+	attr_reader :canvas_tasks, :canvas_events, :canvas_arrows, :canvas_plans
 	attr_reader :by_task
 	attr_reader :task_states
+	attr_reader :plans
 
 	BASE_LINES = 20
 	def initialize(root_window)
@@ -145,6 +149,17 @@ module Roby::Display
 	    clear
 	end
 
+	def each_plan
+	    seen_tasks = ValueSet.new
+	    plans.each do |obj, tasks|
+		seen_tasks |= tasks
+		yield(obj, tasks)
+	    end
+
+	    free_tasks = (tasks.values.to_value_set - seen_tasks)
+	    yield(0, free_tasks) unless free_tasks.empty?
+	end
+
 	attr_reader :colors
 	def colors=(color_map)
 	    @colors = color_map.inject({}) do |pens, (rel, color)|
@@ -159,9 +174,11 @@ module Roby::Display
 	    # object_id => marshallable maps
 	    @events		= Hash.new
 	    @tasks		= Hash.new
+	    @plans		= Hash.new
 	    @task_relations	= Set.new
 	    @event_relations	= Set.new
 	    @task_states	= Hash.new
+	    @plans		= Hash.new { |h, k| h[k] = [] }
 
 	    # a task_id => [event_id, ...] map
 	    @by_task	= Hash.new { |h, k| h[k] = Set.new }
@@ -170,10 +187,12 @@ module Roby::Display
 	    @canvas_tasks  = Hash.new # task_id => task_item
 	    @canvas_events = Hash.new # event_id => event_item
 	    @canvas_arrows = Hash.new # [event_id, event_id] => arrow_item
+	    @canvas_plans  = Array.new # array of rectangles
 
 	    changed!
 	end
 
+	# Returns or builds the canvas item for +task+
 	def canvas_task(task)
 	    if !(canvas_item = canvas_tasks[task.source_id])
 		canvas_item = canvas_tasks[task.source_id] = CanvasTask.new(task, self)
@@ -185,12 +204,14 @@ module Roby::Display
 	    canvas_item
 	end
 
-	def hidden?(object)
-	    if t = canvas_tasks[object.source_id]
-		!t.visible?
-	    elsif e = canvas_events[object.source_id]
-		!e.visible?
+	def canvas_plan(x0, y0, x1, y1)
+	    item = Qt::CanvasRectangle.new(x0, y0, x1 - x0, y1 - y0, canvas) do |r|
+		r.brush = Qt::Brush.new Qt::Brush::NoBrush
+		r.pen = Qt::Pen.new Qt::Color.new('black')
+		r.visible = true
+		r.z = 10
 	    end
+	    canvas_plans << item
 	end
 
 	# Returns the reference position for +event_id+
@@ -359,14 +380,54 @@ module Roby::Display
 	    changed!
 	end
 
+
+
+
+	def new_transaction(time, trsc)
+	    plans[trsc.plan] << trsc
+	end
+	def committed_transaction(time, trsc)
+	    STDERR.puts "commited"
+	    plans[trsc.plan.source_id].delete(trsc)
+	    plans.delete(trsc.source_id)
+	    changed!
+	end
+	def discarded_transaction(time, trsc)
+	    plans[trsc.plan.source_id].delete(trsc)
+	    plans.delete(trsc.source_id)
+	    changed!
+	end
+
+	def discovered_tasks(time, plan, tasks)
+	    plans[plan.source_id] += tasks
+	    changed!
+	end
+
+
+
+
+	# Layouts the current graph using dot
 	def layout
+	    canvas_plans.each { |p| p.dispose }
+	    canvas_plans.clear
+
 	    layout = Time.elapse { DotLayout.layout(self, dot_scale) }
 	    STDERR.puts "layout: #{Time.at(layout).to_hms}"
 	end
 	slots 'layout()'
 	alias :update :layout
 
+	# Checks if the canvas item for +object+ is hidden
+	def hidden?(object)
+	    if t = canvas_tasks[object.source_id]
+		!t.visible?
+	    elsif e = canvas_events[object.source_id]
+		!e.visible?
+	    end
+	end
 
+	# Updates the visibility of task +t+ according to its state
+	# and the 'finished' and 'finalized' buttons
 	def task_visibility(t)
 	    next unless s = task_states[t]
 
@@ -386,6 +447,8 @@ module Roby::Display
 	    end
 	end
 
+	# Updates the visibility of all tasks
+	# See #task_visibility
 	def update_task_show
 	    task_states.each { |t, _| task_visibility(t)  }
 	    changed!

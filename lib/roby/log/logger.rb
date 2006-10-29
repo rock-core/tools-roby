@@ -24,7 +24,7 @@ module Roby::Log
 	# there is at least one logger which listens for +message+.
 	def log(m, args = nil)
 	    each_logger(m) do |log|
-		if block_given?
+		if !args && block_given?
 		    args ||= yield
 		end
 		log.send(m, *args)
