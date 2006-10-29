@@ -25,11 +25,11 @@ module Roby::Log
 	    loop do
 		method_name = Marshal.load(io)
 		method_args = Marshal.load(io)
-		Log.log(method_name, method_args)
+		Roby::Log.log(method_name, method_args)
 	    end
 	rescue EOFError
 	ensure
-	    Log.flush
+	    Roby::Log.flush
 	end
     end
 end
