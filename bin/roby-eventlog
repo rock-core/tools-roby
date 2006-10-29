@@ -1,14 +1,36 @@
 #! /usr/bin/ruby
-require 'roby/log/offline_control_ui'
 require 'roby/relations'
 require 'roby/control'
 require 'roby/log/logger'
 require 'roby/log/drb'
-require 'roby/log/drb-qt'
 require 'roby/log/marshallable'
 
 require 'roby/log/execution-state'
 require 'roby/log/relations'
+
+require 'optparse'
+gui = true
+parser = OptionParser.new do |opts|
+    opts.on("--[no-]gui", "(do not) start GUI") do |gui|
+    end
+end
+parser.parse! ARGV
+STDERR.puts gui
+
+file = ARGV.shift
+unless gui
+    require 'roby/log/console'
+    require 'roby/log/file'
+
+    Roby::Log.loggers << Roby::Log::ConsoleLogger.new(STDOUT)
+    File.open(file, &Roby::Log::FileLogger.method(:replay))
+    exit
+end
+
+require 'Qt'
+require 'roby/log/offline_control_ui'
+require 'roby/log/drb-qt'
+
 
 module Roby::Log
     class DisplayControl < ::DisplayControl
@@ -342,11 +364,14 @@ module Roby::Log
     end
 end
 
-require 'Qt'
 a = Qt::Application.new( ARGV )
 display = Roby::Log::DisplayControl.new
 display.show
-display.open(ARGV.shift)
+display.open(file)
 a.main_widget = display
 a.exec()
+
+
+
+
 
