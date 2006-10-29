@@ -65,7 +65,7 @@ module Roby
 	    def update(source)
 		@source_id    = source.object_id
 		@source_class = source.class.name
-		@name	      = source.name
+		@name	      = source.name if source.respond_to?(:name)
 	    end
 	end
 
@@ -77,6 +77,7 @@ module Roby
 	    attr_reader :size
 
 	    def update(plan)
+		super
 		@size = plan.size
 		@missions = plan.missions.map { |t| Wrapper[t] }
 	    end
@@ -100,7 +101,7 @@ module Roby
 	    attr_reader :context
 
 	    def update(event)
-		super(event)
+		super
 		@symbol    = event.propagation_id
 		@context   = event.context.to_s
 		@generator = Wrapper[event.generator]
@@ -115,7 +116,7 @@ module Roby
 	    attr_reader :symbol
 
 	    def update(event)
-		super(event)
+		super
 		@task	= Wrapper[event.task]
 		@symbol = event.symbol
 	    end
@@ -133,7 +134,7 @@ module Roby
 	    attr_reader :symbol
 
 	    def update(generator)
-		super(generator)
+		super
 		@symbol = generator.symbol
 		@task = Wrapper[generator.task]
 	    end
