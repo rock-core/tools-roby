@@ -109,8 +109,18 @@ module Roby::Display
 	end
 	slots "update()"
 
-	def enable_updates; @update = true end
-	def disable_updates; @update = false end
+	def enable_updates
+	    @update = true
+	    displays.each_value do |d|
+		d.enable_updates if d.respond_to?(:enable_updates)
+	    end
+	end
+	def disable_updates
+	    @update = false 
+	    displays.each_value do |d|
+		d.disable_updates if d.respond_to?(:disable_updates)
+	    end
+	end
 	def update?; @update end
     end
 end

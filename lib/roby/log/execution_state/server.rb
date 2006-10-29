@@ -50,7 +50,6 @@ module Roby::Display
 	def clear
 	    @pending.clear
 	    @canvas.clear
-	    @canvas.update
 	end
 
 	def cycle_end(time, timings)
@@ -61,6 +60,15 @@ module Roby::Display
 	#def postponed(time, generator, wait_for, reason)
 	#    @pending.postponed(time, generator, wait_for, reason)
 	#end
+	
+	def enable_updates
+	    @view.updates_enabled = true
+	    @pending.updates_enabled = true
+	end
+	def disable_updates
+	    @view.updates_enabled = false
+	    @pending.updates_enabled = false
+	end
     end
 end
 
