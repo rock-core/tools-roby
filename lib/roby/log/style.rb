@@ -75,6 +75,7 @@ module Roby::Display::Style
 
     ARROW_Z = 5
     ARROW_COLOR  = 'black'
+    SIGNAL_COLOR = 'black'
 
     EVENT_COLOR  = 'black' # default color for events
     # [ light, dark ] array of colors for events
