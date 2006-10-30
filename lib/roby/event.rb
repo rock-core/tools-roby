@@ -63,11 +63,6 @@ module Roby
     # event can be called. In the forwarding case, not checks are done
     #
     class EventGenerator < PlanObject
-	@@propagate = true
-	def self.disable_propagation; @@propagate = false end
-	def self.enable_propagation; @@propagate = true end
-	def self.propagate?; @@propagate end
-
 	# How to handle this event during propagation
 	#   * nil (the default): call only once in a propagation cycle
 	#   * :always_call: always call, event if it has already been called in this cycle
@@ -124,7 +119,7 @@ module Roby
 		    calling(context)
 		    @pending += 1
 
-		    propagation_context(self) do
+		    EventGenerator.propagation_context(self) do
 			block[context]
 		    end
 
@@ -153,19 +148,11 @@ module Roby
 		raise NotExecutable.new(self), "#call called on #{self} which is non-executable event"
 	    end
 
-	    if gathering?
+	    if EventGenerator.gathering?
 		Thread.current[:propagation][self] << [false, Thread.current[:propagation_event], context]
 	    else
-		begin
-		    Thread.current[:propagation_id] = (@@propagation_id += 1)
-
-		    initial_set = []
-		    first_step = gather_propagation do
-			initial_set << self if call_without_propagation(context)
-		    end
-		    propagate(first_step, initial_set)
-		ensure
-		    Thread.current[:propagation_id] = nil
+		EventGenerator.propagate do |initial_set|
+		    initial_set << self if call_without_propagation(context)
 		end
 	    end
 	end
@@ -192,63 +179,13 @@ module Roby
 	def to_event; self end
 
 	# Create a new event object for +context+
-	def new(context); Event.new(self, propagation_id, context) end
+	def new(context); Event.new(self, EventGenerator.propagation_id, context) end
 
-	# If we are currently in the propagation stage
-	def gathering?; !!Thread.current[:propagation] end
-	def source_event; Thread.current[:propagation_event] end
-	def source_generator; Thread.current[:propagation_generator] end
-	def propagation_id; Thread.current[:propagation_id] end
-
-	# Begin a propagation stage
-	def gather_propagation
-	    raise "nested call to #gather_propagation" if gathering?
-	    Thread.current[:propagation] = Hash.new { |h, k| h[k] = Array.new }
-
-	    yield
-
-	    return Thread.current[:propagation]
-	ensure
-	    Thread.current[:propagation] = nil
-	end
-
-	# returns the value returned by the block
-	def propagation_context(source)
-	    raise "not in a gathering context in #fire" unless gathering?
-	    event, generator = source_event, source_generator
-
-	    if source.kind_of?(Event)
-		Thread.current[:propagation_event] = source
-		Thread.current[:propagation_generator] = source.generator
-	    else
-		Thread.current[:propagation_event] = nil
-		Thread.current[:propagation_generator] = source
-	    end
-
-	    yield Thread.current[:propagation]
-
-	ensure
-	    Thread.current[:propagation_event] = event
-	    Thread.current[:propagation_generator] = generator
-	end
-
-
-	def add_signal_to_propagation(only_forward, event, signalled, context)
-	    if event == signalled
-		raise EventModelViolation.new(event.generator), "#{event.generator} is trying to signal itself"
-	    elsif !only_forward && !event.generator.can_signal?(signalled) 
-		# NOTE: the can_signal? test here is NOT redundant with the test in #on, 
-		# since here we validate calls done in event handlers too
-		raise EventModelViolation.new(event.generator), "trying to signal #{signalled} from #{event.generator}"
-	    end
-
-	    Thread.current[:propagation][signalled] << [only_forward, event, context]
-	end
 
 	# Do fire this event. It gathers the list of signals that are to
 	# be propagated in the next step and calls fired()
 	def fire(event)
-	    propagation_context(event) do |result|
+	    EventGenerator.propagation_context(event) do |result|
 		each_signal do |signalled|
 		    add_signal_to_propagation(false, event, signalled, event.context)
 		end
@@ -314,58 +251,19 @@ module Roby
 		raise NotExecutable.new(self), "#emit called on #{self} which is not executable"
 	    end
 
-	    if gathering?
-		if source_generator == self
+	    if EventGenerator.gathering?
+		if EventGenerator.source_generator == self
 		    emit_without_propagation(context)
 		else
-		    Thread.current[:propagation][self] << [true, source_event, context]
+		    Thread.current[:propagation][self] << [true, EventGenerator.source_event, context]
 		end
 		return
 	    end
 
-	    begin
-		Thread.current[:propagation_id] = (@@propagation_id += 1)
-		first_step = gather_propagation { emit_without_propagation(context) }
-		propagate(first_step, [self])
-	    ensure
-		Thread.current[:propagation_id] = nil
+	    EventGenerator.propagate do |initial_set|
+		initial_set << self
+		emit_without_propagation(context)
 	    end
-	end
-
-	def propagate(next_step, initial_set)
-	    return if !EventGenerator.propagate?
-
-	    # Problem with postponed: the object is included in already_seen while it
-	    # has not been fired
-	    already_seen = initial_set.to_set
-
-	    while !next_step.empty?
-		next_step = gather_propagation do
-		    # Note that internal signalling does not need a #call
-		    # method (hence the respond_to? check). The fact that the
-		    # event can or cannot be fired is checked in #fire (using can_signal?)
-		    next_step.each do |signalled, sources|
-			sources.each do |emit, source, context|
-			    source.generator.signalling(source, signalled) if source
-
-			    if already_seen.include?(signalled) && !(emit && signalled.pending?) 
-				# Do not fire the same event twice in the same propagation cycle
-				next unless signalled.propagation_mode == :always_call
-			    end
-
-			    did_call = propagation_context(source) do |result|
-				if !emit && signalled.controlable?
-				    signalled.call_without_propagation(context) 
-				else
-				    signalled.emit_without_propagation(context)
-				end
-			    end
-			    already_seen << signalled if did_call
-			end
-		    end
-		end
-	    end        
-	    return self
 	end
 
 	# call-seq:
@@ -610,4 +508,5 @@ end
 
 require 'roby/relations/causal'
 require 'roby/relations/ensured'
+require 'roby/propagation'
 

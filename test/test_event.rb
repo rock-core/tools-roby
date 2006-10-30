@@ -421,14 +421,14 @@ class TC_Event < Test::Unit::TestCase
     def test_event_creation
 	# Test for validation of the return value of #event
 	generator = Class.new(EventGenerator) do
-	    def new(context); [propagation_id, context] end
+	    def new(context); [EventGenerator.propagation_id, context] end
 	end.new(true)
 	assert_raises(TypeError) { generator.call(nil) }
 
 	generator = Class.new(EventGenerator) do
 	    def new(context); 
 		event_klass = Struct.new :propagation_id, :context, :generator
-		event_klass.new(propagation_id, context, self)
+		event_klass.new(EventGenerator.propagation_id, context, self)
 	    end
 	end.new(true)
 	assert_nothing_raised { generator.call(nil) }
