@@ -384,7 +384,7 @@ module Roby::Display
 
 
 	def new_transaction(time, trsc)
-	    plans[trsc.plan] << trsc
+	    plans[trsc.plan.source_id] << trsc
 	end
 	def committed_transaction(time, trsc)
 	    STDERR.puts "commited"
