@@ -184,6 +184,8 @@ module Roby
 
 	# Do fire this event. It gathers the list of signals that are to
 	# be propagated in the next step and calls fired()
+	#
+	# This method is always called in a propagation context
 	def fire(event)
 	    EventGenerator.propagation_context(event) do |result|
 		each_signal do |signalled|
@@ -206,7 +208,7 @@ module Roby
 	end
 	private :fire
 
-	# raises an exception object when an event whose command has been called
+	# Raises an exception object when an event whose command has been called
 	# won't be emitted (ever)
 	def emit_failed(*what)
 	    what, message = *what
@@ -224,7 +226,8 @@ module Roby
 	    end
 	end
 
-	# returns true to match the behavior of #call_without_propagation
+	# Emits the event regardless of wether we are in a propagation context or not
+	# Returns true to match the behavior of #call_without_propagation
 	def emit_without_propagation(context)
 	    if !executable?
 		raise NotExecutable.new(self), "#emit called on #{self} which is not executable"
@@ -244,7 +247,6 @@ module Roby
 	end
 
 	# Emit the event with +context+ as the new event context
-	# Returns the new event object
 	def emit(context)
 	    if !executable?
 		raise NotExecutable.new(self), "#emit called on #{self} which is not executable"
@@ -266,16 +268,13 @@ module Roby
 	end
 
 	# call-seq:
-	#   emit_on event, context  => self
 	#   emit_on event	    => self
 	#   
-	# Call #emit (bypassing any command) when +event+ is fired. If +context+
-	# is not given, it forwards the context of the fired +event+
-	#
+	# Call #emit (bypassing any command) when +event+ is fired.
 	# This method is equivalent to
 	#
-	#   event.add_forwarding(self)
-	def emit_on(generator, *context_override)
+	#   self.add_forwarding(self)
+	def emit_on(generator)
 	    generator.add_forwarding(self)
 	end
 
