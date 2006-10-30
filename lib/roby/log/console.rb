@@ -25,9 +25,20 @@ module Roby::Log
 	    @columns = Hash.new { |h, k| h[k] = Array.new }
 	end
 
+	def arg_to_s(arg)
+	    case arg
+	    when Time then Time.at(arg - @reftime).to_hms
+	    when Array then arg.map(&method(:arg_to_s)).to_s
+	    when Hash === arg then arg.map { |k, v| [arg_to_s(k), arg_to_s(v)].join(" => ") }.to_s
+	    else arg.to_s
+	    end
+	end
+
+
 	def display(time, m, *args) # :nodoc:
 	    @reftime ||= time
 
+	    args.map! { |a| arg_to_s(a) }
 	    args.map!(&ConsoleLogger.method(:filter_names))
 	    args.unshift(m).
 		unshift(Time.at(time - @reftime).to_hms)
@@ -44,12 +55,15 @@ module Roby::Log
 		io << ("%-#{w}s  " % arg)
 	    end
 	    io << "\n"
+	rescue
+	    STDERR.puts "#{time} #{m} #{args}"
+	    raise
 	end
 	private :display
 
 	[TransactionHooks, PlanHooks, TaskHooks, EventGeneratorHooks, ControlHooks].each do |klass|
 	    klass::HOOKS.each do |m|
-		define_method(m) { |time, *args| display(time, m, *args.map { |a| a.to_s }) }
+		define_method(m) { |time, *args| display(time, m, *args) }
 	    end
 	end
     end

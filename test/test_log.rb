@@ -43,8 +43,19 @@ class TC_Log < Test::Unit::TestCase
 	end
 
 	plan = Plan.new
-	assert_marshallable_wrapper(plan)
-	assert_marshallable_wrapper(Transaction.new(plan))
+	w_plan = assert_marshallable_wrapper(plan)
+	trsc = Transaction.new(plan)
+	w_trsc = assert_marshallable_wrapper(trsc)
+
+	array = assert_marshallable_wrapper([1, 2, plan, task])
+	assert_equal(1, array[0])
+	assert_equal(2, array[1])
+	assert_equal(w_plan, array[2])
+	assert_equal(w_task, array[3])
+
+	hash = assert_marshallable_wrapper( { 1 => plan, trsc => task } )
+	assert_equal(w_plan, hash[1])
+	assert_equal(w_task, hash[w_trsc])
     end
 
     def next_logged_method(data, expected)
