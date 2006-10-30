@@ -187,10 +187,10 @@ module Roby
 	def fire(event)
 	    EventGenerator.propagation_context(event) do |result|
 		each_signal do |signalled|
-		    add_signal_to_propagation(false, event, signalled, event.context)
+		    EventGenerator.add_signal_to_propagation(false, event, signalled, event.context)
 		end
 		each_forwarding do |signalled|
-		    add_signal_to_propagation(true, event, signalled, event.context)
+		    EventGenerator.add_signal_to_propagation(true, event, signalled, event.context)
 		end
 
 		# Since we are in a gathering context, call

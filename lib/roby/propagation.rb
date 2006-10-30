@@ -45,7 +45,7 @@ module Roby
 	end
 
 
-	def add_signal_to_propagation(only_forward, event, signalled, context)
+	def self.add_signal_to_propagation(only_forward, event, signalled, context)
 	    if event == signalled
 		raise EventModelViolation.new(event.generator), "#{event.generator} is trying to signal itself"
 	    elsif !only_forward && !event.generator.can_signal?(signalled) 
@@ -63,7 +63,7 @@ module Roby
 	# the block argument is the initial set of events: the events we should
 	# consider as already emitted in the following propagation
 	def self.propagate
-	    return if !EventGenerator.propagate?
+	    return if !propagate?
 
 	    Thread.current[:propagation_id] = (@@propagation_id += 1)
 
@@ -77,7 +77,7 @@ module Roby
 	    already_seen = initial_set.to_set
 
 	    while !next_step.empty?
-		next_step = EventGenerator.gather_propagation do
+		next_step = gather_propagation do
 		    # Note that internal signalling does not need a #call
 		    # method (hence the respond_to? check). The fact that the
 		    # event can or cannot be fired is checked in #fire (using can_signal?)
