@@ -6,6 +6,9 @@ module Roby::Marshallable
     class Transaction
 	def dot(layout); layout.plan(source_id, layout.display.plans[source_id]) end
     end
+    class TransactionProxy
+	def dot(layout); layout.task(self) end
+    end
 end
 
 module Roby::Display

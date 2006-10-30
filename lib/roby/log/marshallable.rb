@@ -1,5 +1,7 @@
 require 'roby/event'
 require 'roby/task'
+require 'roby/plan'
+require 'roby/transactions'
 require 'typelib'
 
 module Roby
@@ -22,13 +24,14 @@ module Roby
 		unless wrapper = @@cache[object.object_id] 
 		    wrapper = @@cache[object.object_id] =
 			case object
-			when Roby::TaskEvent:   TaskEvent.new(object)
-			when Roby::Event:	    Event.new(object)
-			when Roby::TaskEventGenerator:   TaskEventGenerator.new(object)
-			when Roby::EventGenerator:	    EventGenerator.new(object)
-			when Roby::Task:	    Task.new(object)
-			when Roby::Transaction: Transaction.new(object)
-			when Roby::Plan:	    Plan.new(object)
+			when Roby::Transactions::Proxy:	TransactionProxy.new(object)
+			when Roby::TaskEvent:		TaskEvent.new(object)
+			when Roby::Event:		Event.new(object)
+			when Roby::TaskEventGenerator:	TaskEventGenerator.new(object)
+			when Roby::EventGenerator:	EventGenerator.new(object)
+			when Roby::Task:		Task.new(object)
+			when Roby::Transaction:		Transaction.new(object)
+			when Roby::Plan:		Plan.new(object)
 			when Module
 			    object.name
 			when Hash
@@ -106,6 +109,20 @@ module Roby
 	    def update(trsc)
 		super
 		@plan = Wrapper[trsc.plan]
+	    end
+	end
+
+	class TransactionProxy < Wrapper
+	    attr_reader :proxy_for
+	    # Beware: we don't have a :transaction attribute since
+	    # it would introduce a stack overflow:
+	    #	Plan#update wraps missions -> a TransactionProxy is wrapped -> 
+	    #	    Transaction#update is called -> Plan#update is called
+	    def name; "Proxy(#{proxy_for.name})" end
+
+	    def update(proxy)
+		super
+		@proxy_for = Wrapper[proxy.__getobj__]
 	    end
 	end
 	

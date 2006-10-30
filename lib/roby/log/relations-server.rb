@@ -394,18 +394,18 @@ module Roby::Display
 	    plans[trsc.plan.source_id] << trsc
 	    transactions << trsc.source_id
 	end
-	def committed_transaction(time, trsc)
+	def delete_transaction(trsc)
 	    plans[trsc.plan.source_id].delete(trsc)
+	    plans[trsc.source_id].each do |t|
+		task_visibility(t, false) if Marshallable::TransactionProxy === t
+	    end
+
 	    plans.delete(trsc.source_id)
 	    transactions.delete(trsc.source_id)
 	    changed!
 	end
-	def discarded_transaction(time, trsc)
-	    plans[trsc.plan.source_id].delete(trsc)
-	    plans.delete(trsc.source_id)
-	    transactions.delete(trsc.source_id)
-	    changed!
-	end
+	def committed_transaction(time, trsc); delete_transaction(trsc) end
+	def discarded_transaction(time, trsc); delete_transaction(trsc) end
 
 	def discovered_tasks(time, plan, tasks)
 	    plans[plan.source_id] += tasks
@@ -437,14 +437,16 @@ module Roby::Display
 
 	# Updates the visibility of task +t+ according to its state
 	# and the 'finished' and 'finalized' buttons
-	def task_visibility(t)
-	    next unless s = task_states[t]
+	def task_visibility(t, flag = nil)
+	    if flag.nil?
+		next unless s = task_states[t]
 
-	    if (s == :success || s == :failed)
-		flag = @show_finished.on?
-	    elsif (s == :finalized)
-		flag = @show_finalized.on?
-	    else return
+		if (s == :success || s == :failed)
+		    flag = @show_finished.on?
+		elsif (s == :finalized)
+		    flag = @show_finalized.on?
+		else return
+		end
 	    end
 
 	    canvas_tasks[t.source_id].visible = flag
