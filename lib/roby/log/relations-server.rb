@@ -106,7 +106,7 @@ module Roby::Display
 	attr_reader :canvas_tasks, :canvas_events, :canvas_arrows, :canvas_plans
 	attr_reader :by_task
 	attr_reader :task_states
-	attr_reader :plans
+	attr_reader :plans, :transactions
 
 	BASE_LINES = 20
 	def initialize(root_window)
@@ -149,11 +149,13 @@ module Roby::Display
 	    clear
 	end
 
-	def each_plan
+	def each_plan(include_transactions = false)
 	    seen_tasks = ValueSet.new
-	    plans.each do |obj, tasks|
+	    plans.each do |plan_id, tasks|
+		next if !include_transactions && transactions.include?(plan_id)
+
 		seen_tasks |= tasks
-		yield(obj, tasks)
+		yield(plan_id, tasks)
 	    end
 
 	    free_tasks = (tasks.values.to_value_set - seen_tasks)
@@ -174,11 +176,11 @@ module Roby::Display
 	    # object_id => marshallable maps
 	    @events		= Hash.new
 	    @tasks		= Hash.new
-	    @plans		= Hash.new
 	    @task_relations	= Set.new
 	    @event_relations	= Set.new
 	    @task_states	= Hash.new
 	    @plans		= Hash.new { |h, k| h[k] = [] }
+	    @transactions	= Array.new
 
 	    # a task_id => [event_id, ...] map
 	    @by_task	= Hash.new { |h, k| h[k] = Set.new }
@@ -204,12 +206,17 @@ module Roby::Display
 	    canvas_item
 	end
 
-	def canvas_plan(x0, y0, x1, y1)
+	def canvas_plan(level_count, level, x0, y0, x1, y1)
+	    STDERR.puts "#{level} #{level_count} #{x0} #{y0} #{x1} #{y1}"
 	    item = Qt::CanvasRectangle.new(x0, y0, x1 - x0, y1 - y0, canvas) do |r|
-		r.brush = Qt::Brush.new Qt::Brush::NoBrush
-		r.pen = Qt::Pen.new Qt::Color.new('black')
+		color = Style::PLAN_MIN_COLOR.zip(Style::PLAN_MAX_COLOR).map do |min, max|
+		    Integer(min + Float(max - min) * level / level_count)
+		end
+		color = Qt::Color.new(*color)
+		r.brush = Qt::Brush.new color
+		r.pen = Qt::Pen.new color
 		r.visible = true
-		r.z = 10
+		r.z = Roby::Display::Style::PLAN_BASE_Z + level - level_count
 	    end
 	    canvas_plans << item
 	end
@@ -385,16 +392,18 @@ module Roby::Display
 
 	def new_transaction(time, trsc)
 	    plans[trsc.plan.source_id] << trsc
+	    transactions << trsc.source_id
 	end
 	def committed_transaction(time, trsc)
-	    STDERR.puts "commited"
 	    plans[trsc.plan.source_id].delete(trsc)
 	    plans.delete(trsc.source_id)
+	    transactions.delete(trsc.source_id)
 	    changed!
 	end
 	def discarded_transaction(time, trsc)
 	    plans[trsc.plan.source_id].delete(trsc)
 	    plans.delete(trsc.source_id)
+	    transactions.delete(trsc.source_id)
 	    changed!
 	end
 

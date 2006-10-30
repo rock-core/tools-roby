@@ -86,6 +86,10 @@ module Roby::Display::Style
     EVENT_Z = 1
     EVENT_FONTSIZE = 8
 
+    PLAN_BASE_Z = -5
+    PLAN_MIN_COLOR = [120, 255, 120]
+    PLAN_MAX_COLOR = [120, 120, 255]
+
     def self.event(event, display, with_label = true)
 	d = display.event_radius * 2
 	circle = Qt::CanvasEllipse.new(d, d, display.canvas) do |e|

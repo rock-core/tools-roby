@@ -18,9 +18,13 @@ module Roby::Display
 	attr_reader :dot
 	# The display object
 	attr_reader :display
+	# The level of nesting for each plan
+	attr_reader :plan_levels
 
 	def initialize
 	    @task_clusters = Hash.new
+	    @plan_level = 1
+	    @plan_levels = Hash.new
 	end
 
 	def dot_id(object)
@@ -29,7 +33,10 @@ module Roby::Display
 
 	def plan(id, objects)
 	    dot << "subgraph cluster_plan_#{id} {\n"
+	    plan_levels[id] = @plan_level
+	    @plan_level += 1
 	    objects.each { |o| o.dot(self) }
+	    @plan_level -= 1
 	    dot << "};\n"
 	end
 
@@ -74,7 +81,9 @@ module Roby::Display
 		dot << "#{dot_name(ev)}[label=#{ev.source_id}];\n"
 	    end
 
+	    plan_levels.clear
 	    display.each_plan(&method(:plan))
+	    plan_levels[0] = 0
 
 	    display.each_task_relation do |kind, from, to|
 		next if display.hidden?(from) || display.hidden?(to)
@@ -112,6 +121,7 @@ module Roby::Display
 		    task = nil
 		end
 	    end
+	    return unless graph_bb
 
 	    # Resize the canvas if needed
 	    graph_size  = [graph_bb[2] * scale, graph_bb[3] * scale]
@@ -121,8 +131,12 @@ module Roby::Display
 		display.canvas.resize(*needed_size)
 	    end
 
+	    max_level = plan_levels.values.max
+	    plan_levels[nil] = 0
+
 	    STDERR.puts "plan count: #{display.plans.size}"
-	    display.each_plan do |_, tasks|
+	    display.each_plan(true) do |id, tasks|
+		next if tasks.empty?
 		plan_bb = [display.canvas.width, display.canvas.height, 0, 0]
 		tasks.each do |t|
 		    next unless bb = tasks_bb[t]
@@ -137,7 +151,7 @@ module Roby::Display
 		    plan_bb[2] = [plan_bb[2], element.x + element.width * 4 / 3].max
 		    plan_bb[3] = [plan_bb[3], element.y + element.height].max
 		end
-		display.canvas_plan(*plan_bb)
+		display.canvas_plan(max_level + 1, plan_levels[id], *plan_bb)
 	    end
 
 	    display.each_task_relation  { |kind, from, to| display.canvas_arrow(kind, from, to) }
