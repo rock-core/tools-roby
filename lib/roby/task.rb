@@ -667,6 +667,42 @@ module Roby
 	    end
 	    (self.model == model || self.kind_of?(model)) && self.arguments.slice(*args.keys) == args
 	end
+
+	class_inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }
+
+	# call-seq:
+	#   task_model.on_exception(TaskModelViolation, ...) { |task, exception_object| ... }
+	#   task_model.on_exception(TaskModelViolation, ...) do |task, exception_object|
+	#	....
+	#	task.pass
+	#   end
+	#
+	# Defines an exception handler. We use matcher === exception_object
+	# to determine if the handler should be called when +exception_object+
+	# has been fired. The first matching handler is called. Call #pass
+	# to pass the exception to previous handlers
+	def self.on_exception(*matchers, &handler)
+	    exception_handlers.unshift [matchers, handler]
+	end
+
+	# Passes the exception to the next matching exception handler
+	def pass_exception
+	    throw :next_exception_handler
+	end
+
+	# Calls the exception handlers defined in this task for +exception_object.exception+
+	# Returns true if the exception has been handled, false otherwise
+	def handle_exception(exception_object)
+	    model(false).each_exception_handler do |matchers, handler|
+		if matchers.find { |m| m === exception_object.exception }
+		    catch(:next_exception_handler) do 
+			handler[self, exception_object]
+			return true
+		    end
+		end
+	    end
+	    return false
+	end
     end
 
     TaskStructure   = RelationSpace(Task)
