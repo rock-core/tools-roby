@@ -6,6 +6,8 @@ module Roby
 	def self.enable_propagation; @@propagate = true end
 	def self.propagate?; @@propagate end
 
+	@@propagation_id = 0
+
 	# If we are currently in the propagation stage
 	def self.gathering?; !!Thread.current[:propagation] end
 	def self.source_event; Thread.current[:propagation_event] end

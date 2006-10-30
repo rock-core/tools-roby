@@ -243,7 +243,6 @@ module Roby
 	    @pending -= 1 if @pending > 0
 	end
 
-	@@propagation_id = 0
 	# Emit the event with +context+ as the new event context
 	# Returns the new event object
 	def emit(context)
