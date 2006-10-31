@@ -21,11 +21,11 @@ module Roby
 	def enum_relations; @enum_relations ||= enum_for(:each_graph) end
 	def enum_parent_objects(type)
 	    @enum_parent_objects ||= Hash.new
-	    @enum_parent_objects[relation] ||= enum_for(:each_parent_object, relation)
+	    @enum_parent_objects[type] ||= enum_for(:each_parent_object, type)
 	end
 	def enum_child_objects(type)
 	    @enum_child_objects ||= Hash.new
-	    @enum_child_objects[relation] ||= enum_for(:each_child_object, relation)
+	    @enum_child_objects[type] ||= enum_for(:each_child_object, type)
 	end
 	def relations; enum_relations.to_a end
 

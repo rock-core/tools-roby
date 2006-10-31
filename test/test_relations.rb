@@ -45,6 +45,8 @@ class TC_Relations < Test::Unit::TestCase
 	n1.add_child_object(n2, r1)
 	assert_nothing_raised { n1.add_child_object(n2, r1) }
 	assert_raises(ArgumentError) { n1.add_child_object(n2, r1, true) }
+	assert_equal([n2], n1.child_objects(r1).to_a)
+	assert_equal([n1], n2.parent_objects(r1).to_a)
 
 	assert( n1.child_object?(n2) )
 	assert( n1.child_object?(n2, r1) )
