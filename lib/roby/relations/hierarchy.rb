@@ -26,6 +26,9 @@ module Roby::TaskStructure
             self
         end
 
+	def parents; parent_objects(Hierarchy) end
+	def children; child_objects(Hierarchy) end
+
         # Return an array of the task for which the :start event is not
         # signalled by a child event
         def first_children
