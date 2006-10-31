@@ -95,7 +95,8 @@ module Roby
 
 	    @every = planning_options[:every]
 	    @planned_model = planning_options[:planned_model] || 
-		planner_model.model_of(method, options).returns
+		planner_model.model_of(method, options).returns ||
+		Task
         end
 
 	def to_s

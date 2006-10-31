@@ -115,6 +115,9 @@ module Roby
 		# If this method handles recursion
                 def recursive?; options[:recursive] end
 		# What kind of task this method returns
+		#
+		# If this is nil, the method may return a task array or a task
+		# aggregation
                 def returns;    options[:returns] end
 		# If the method allows reusing tasks already in the plan
 		# reuse? is always false if there is no return type defined
@@ -129,7 +132,10 @@ module Roby
             class MethodModel
                 include MethodInheritance
 
-		# If this model defines a return type
+		# The return type the method model defines
+		#
+		# If this is nil, methods of this model may return a task array
+		# or a task aggregation
                 def returns;    options[:returns] end
 		# If the model allows reusing tasks already in the plan
 		def reuse?;	options[:reuse] end
