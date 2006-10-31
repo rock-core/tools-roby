@@ -1,7 +1,6 @@
 require 'roby/relations'
 require 'roby/event'
 require 'roby/plan-object'
-require 'weakref'
 
 module Roby
     class TaskModelViolation < ModelViolation
@@ -151,19 +150,6 @@ module Roby
 
 	def name; model(false).name end
 
-	@@tasks = Hash.new
-
-	# Enumerates all tasks of model +model+ defined in the system. 
-	def self.each_task(model)
-	    return unless tasks = @@tasks[model]
-	    tasks.each do |t|
-		if t.weakref_alive?
-		    t = t.__getobj__ rescue nil
-		    yield(t) if t
-		end
-	    end
-	end
-
 	def self.model_attribute_list(name)
 	    class_inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = Set.new } }
 	    class_eval <<-EOD
@@ -228,9 +214,6 @@ module Roby
 		# the signals between the terminal events and stop
                 model.event(:stop)
             end
-
-	    @@tasks[self.class] ||= []
-	    @@tasks[self.class] << WeakRef.new(self)
 
 	    super() if defined? super
         end

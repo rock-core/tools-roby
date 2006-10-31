@@ -51,7 +51,7 @@ module Roby::TaskStructure
 		    end
 
 		    # Try to find an already existing agent
-		    agents = Roby::Task.enum_for(:each_task, agent_model).find_all { |t| !t.finished? }
+		    agents = plan.enum_for(:each_task).find_all { |t| t.kind_of?(agent_model) && !t.finished? }
 		    if agents.empty?
 			# ... or create a new one
 			begin

@@ -9,7 +9,12 @@ require 'flexmock'
 class TC_ExecutedBy < Test::Unit::TestCase
     include Roby
 
+    attr_reader :plan
+    def setup
+	@plan = Plan.new
+    end
     def teardown
+	plan.clear
 	clear_plan_objects
     end
 
@@ -56,6 +61,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 
 	task_model.executed_by exec_model
 	task = task_model.new
+	plan.insert(task)
 
 	task.start!
 	assert(task.execution_agent)
