@@ -186,6 +186,25 @@ module Roby
 	model_attribute_list('handler')
 	model_attribute_list('precondition')
 
+	class_inherited_enumerable("argument_set", "argument_set") { Set.new }
+	# Returns the list of static arguments required by this task model
+	def self.arguments; enum_for(:each_argument_set).to_set end
+	# Declares a set of arguments required by this task model
+	def self.argument(*args); args.each(&argument_set.method(:<<)) end
+	# Check that all arguments required by the task model have a value
+	def partially_instanciated?; !(model.arguments - arguments.keys.to_set).empty?  end
+	# Sets an argument (cannot be used to *change* an argument, only to
+	# set an argument which has not been set yet)
+	def set(values)
+	    values.each do |n, v|
+		if arguments.has_key?(n)
+		    raise TaskModelViolation.new(self), "cannot change an argument value"
+		else
+		    arguments[n] = v
+		end
+	    end
+	end
+
 	# The task arguments as a hash
 	attr_reader :arguments
 	
@@ -665,7 +684,10 @@ module Roby
 	    if Task === model
 		model, args = model.class, model.arguments
 	    end
-	    (self.model == model || self.kind_of?(model)) && self.arguments.slice(*args.keys) == args
+	    # Check the arguments that are required by the model
+	    args	= args.slice(*model.arguments)
+	    self_args	= self.arguments.slice(*args.keys)
+	    (self.model == model || self.kind_of?(model)) && self_args == args
 	end
 
 	class_inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }

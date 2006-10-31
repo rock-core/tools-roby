@@ -65,7 +65,9 @@ module TC_PlanStatic
     def test_query_fullfills
 	task_model = TC_Plan.const_get(:TaskModel) rescue nil
 	unless task_model
-	    task_model = Class.new(Task)
+	    task_model = Class.new(Task) do
+		argument :value
+	    end
 	    TC_Plan.const_set(:TaskModel, task_model)
 	end
 

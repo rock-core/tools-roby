@@ -19,6 +19,8 @@ class TC_Task < Test::Unit::TestCase
 	    event(:stop3)
 	    event(:stop)
 	    on :stop1 => :stop
+
+	    argument :to
 	end.new
 	task.on(:stop2, task, :stop1)
 	task.on(:stop3, task, :stop)
@@ -26,6 +28,13 @@ class TC_Task < Test::Unit::TestCase
 	assert(task.event(:stop1).terminal?)
 	assert(task.event(:stop2).terminal?)
 	assert(task.event(:stop3).terminal?)
+	assert_equal([].to_set, Task.arguments)
+	assert_equal([:to].to_set, task.model.arguments)
+	assert(task.partially_instanciated?)
+	task.set :to => 'A'
+	assert_equal('A', task.arguments[:to])
+	assert(!task.partially_instanciated?)
+	assert_raises(TaskModelViolation) { task.set :to => 10 }
     end
 
     # Tests Task::event
@@ -407,7 +416,10 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_fullfills
-	task_model = Class.new(Task)
+	task_model = Class.new(Task) do
+	    argument :index, :universe
+	end
+
 	t1, t2 = task_model.new, task_model.new
 	assert(t1.fullfills?(t1.model))
 	assert(t1.fullfills?(t2))
