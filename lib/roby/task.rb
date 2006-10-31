@@ -120,7 +120,7 @@ module Roby
 	    end
 	end
         def symbol;       event_model.symbol end
-        def new(context); event_model.new(task, self, EventGenerator.propagation_id, context) end
+        def new(context); event_model.new(task, self, Propagation.propagation_id, context) end
 
 	def to_s
 	    "#{task}/#{symbol}"

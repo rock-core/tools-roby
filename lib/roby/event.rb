@@ -119,7 +119,7 @@ module Roby
 		    calling(context)
 		    @pending += 1
 
-		    EventGenerator.propagation_context(self) do
+		    Propagation.propagation_context([self]) do
 			block[context]
 		    end
 
@@ -148,10 +148,10 @@ module Roby
 		raise NotExecutable.new(self), "#call called on #{self} which is non-executable event"
 	    end
 
-	    if EventGenerator.gathering?
-		Thread.current[:propagation][self] << [false, Thread.current[:propagation_event], context]
+	    if Propagation.gathering?
+		Propagation.add_event_propagation(false, Propagation.source_events, self, context)
 	    else
-		EventGenerator.propagate do |initial_set|
+		Propagation.propagate_events do |initial_set|
 		    initial_set << self if call_without_propagation(context)
 		end
 	    end
@@ -179,20 +179,32 @@ module Roby
 	def to_event; self end
 
 	# Create a new event object for +context+
-	def new(context); Event.new(self, EventGenerator.propagation_id, context) end
+	def new(context); Event.new(self, Propagation.propagation_id, context) end
 
+	def add_propagation(only_forward, event, signalled, context)
+	    if self == signalled
+		raise EventModelViolation.new(self), "#{self} is trying to signal itself"
+	    elsif !only_forward && !can_signal?(signalled) 
+		# NOTE: the can_signal? test here is NOT redundant with the test in #on, 
+		# since here we validate calls done in event handlers too
+		raise EventModelViolation.new(self), "trying to signal #{signalled} from #{self}"
+	    end
+
+	    Propagation.add_event_propagation(only_forward, [event], signalled, context)
+	end
+	private :add_propagation
 
 	# Do fire this event. It gathers the list of signals that are to
 	# be propagated in the next step and calls fired()
 	#
 	# This method is always called in a propagation context
 	def fire(event)
-	    EventGenerator.propagation_context(event) do |result|
+	    Propagation.propagation_context([event]) do |result|
 		each_signal do |signalled|
-		    EventGenerator.add_signal_to_propagation(false, event, signalled, event.context)
+		    add_propagation(false, event, signalled, event.context)
 		end
 		each_forwarding do |signalled|
-		    EventGenerator.add_signal_to_propagation(true, event, signalled, event.context)
+		    add_propagation(true, event, signalled, event.context)
 		end
 
 		# Since we are in a gathering context, call
@@ -252,16 +264,16 @@ module Roby
 		raise NotExecutable.new(self), "#emit called on #{self} which is not executable"
 	    end
 
-	    if EventGenerator.gathering?
-		if EventGenerator.source_generator == self
+	    if Propagation.gathering?
+		if Propagation.source_generators.include?(self)
 		    emit_without_propagation(context)
 		else
-		    Thread.current[:propagation][self] << [true, EventGenerator.source_event, context]
+		    Propagation.add_event_propagation(true, Propagation.source_events, self, context)
 		end
 		return
 	    end
 
-	    EventGenerator.propagate do |initial_set|
+	    Propagation.propagate_events do |initial_set|
 		initial_set << self
 		emit_without_propagation(context)
 	    end

@@ -1,6 +1,7 @@
 require 'test_config'
 require 'flexmock'
 require 'roby/task'
+require 'roby/propagation'
 
 class TC_Exceptions < Test::Unit::TestCase 
     include Roby
@@ -70,12 +71,12 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    error = ExecutionException.new(TaskModelViolation.new(t2))
 	    mock.should_receive(:handler).with(error, t1, t0)
-	    assert_equal([], Roby.propagate_exceptions([error]))
+	    assert_equal([], Propagation.propagate_exceptions([error]))
 	    assert_equal([error], error.siblings)
 	    assert_equal([t2, t1], error.stack)
 
 	    error = ExecutionException.new(RuntimeError.new, t2)
-	    assert_equal([error], Roby.propagate_exceptions([error]))
+	    assert_equal([error], Propagation.propagate_exceptions([error]))
 	end
     end
 
@@ -96,11 +97,11 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    error = ExecutionException.new(TaskModelViolation.new(t2))
 	    mock.should_receive(:handler).with(error, t1, t0)
-	    assert_equal([], Roby.propagate_exceptions([error]))
+	    assert_equal([], Propagation.propagate_exceptions([error]))
 	    assert_equal([t2, t1], error.stack)
 
 	    error = ExecutionException.new(RuntimeError.new, t2)
-	    assert(fatal = Roby.propagate_exceptions([error]))
+	    assert(fatal = Propagation.propagate_exceptions([error]))
 	    assert_equal(2, fatal.size)
 	    e1 = fatal.find { |e| e == error }
 	    e2 = fatal.find { |e| e != error }
@@ -130,7 +131,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    error = ExecutionException.new(TaskModelViolation.new(t2))
 	    mock.should_receive(:handler).with(ExecutionException, [t1, t3].to_set, t0).once
-	    assert_equal([], Roby.propagate_exceptions([error]))
+	    assert_equal([], Propagation.propagate_exceptions([error]))
 	    assert_equal([t2, [t3, t1]].to_set, found_exception.stack.to_set)
 	end
     end
