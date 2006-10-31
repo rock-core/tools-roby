@@ -67,3 +67,7 @@
     - no task is killed before all exception have been propagated. This ensures that all
       tasks are able to handle the provided exceptions
 
+* Need to tag hierarchy relations with a name so that we can find what is what (kind of 'roles'). 
+  For instance, in PlanningLoop, we would tag the seeds (i.e. the planned tasks) with a certain
+  name which would allow to add any child without the loop code noticing
+
