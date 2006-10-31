@@ -9,9 +9,19 @@ class TC_Planner < Test::Unit::TestCase
     include Roby
     include Roby::Planning
 
-    def setup; Planner.last_id = 0 end
+    def setup
+	Planner.last_id = 0 
+	new_plan
+    end
     def teardown
 	Planner.last_id = 0 
+	plan.clear if plan
+    end
+
+    attr_reader :plan
+    def new_plan
+	plan.clear if plan
+	@plan = Plan.new
     end
 
     def test_id_validation
@@ -48,7 +58,7 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal(nil, model.find_methods('recursive', :recursive => false))
 	assert_equal([recursive], model.find_methods('recursive', :recursive => true))
 
-        planner = model.new(Plan.new)
+        planner = model.new(plan)
         assert(planner.respond_to?(:base))
         assert(planner.base.null?)
         assert(planner.respond_to?(:recursive))
@@ -111,7 +121,6 @@ class TC_Planner < Test::Unit::TestCase
 	assert_result_plan_size(2, planner_model, :check_not_reusable, :id => 2)
     end
     def assert_result_plan_size(size, planner_model, method, options)
-	plan = Plan.new
 	planner = planner_model.new(plan)
 	result = planner.send(method, options)
 	planner.plan.insert(result)
@@ -130,7 +139,8 @@ class TC_Planner < Test::Unit::TestCase
                 recursive + not_recursive
             end
         end
-        planner = model.new(Plan.new)
+
+        planner = model.new(plan)
         assert(planner.has_method?(:recursive))
         assert(planner.respond_to?(:recursive))
         recursive = planner.class.find_methods(:recursive)
@@ -142,7 +152,7 @@ class TC_Planner < Test::Unit::TestCase
 	#    - root
 	#	- recursive
 	#	- not_recursive <= FAILS HERE
-        assert_raises(NotFound) { model.new(Plan.new).not_recursive }
+        assert_raises(NotFound) { model.new(new_plan).not_recursive }
 
 	# Calls:
 	#   recursive
@@ -150,7 +160,7 @@ class TC_Planner < Test::Unit::TestCase
 	#	- recursive => Task (with a planning task)
 	#	- not_recursive
 	#	    - root => Task (with a planning task)
-        planner = model.new(Plan.new)
+        planner = model.new(new_plan)
         assert_nothing_raised { planner.recursive }
         tasks = planner.plan.enum_for(:each_task).to_a
 	assert_equal(5, tasks.size)
@@ -307,7 +317,7 @@ class TC_Planner < Test::Unit::TestCase
 	    method(:test, :id => "good") { task_model.new }
 	    method(:test, :id => "bad", :reuse => false) { NullTask.new }
 	    method(:not_a_task, :reuse => false) { nil }
-	end.new(Plan.new)
+	end.new(plan)
 	assert_nothing_raised { planner.test(:id => "good") }
 	assert_raises(Planning::NotFound) { planner.test(:id => "bad") }
 	assert_raises(Planning::NotFound) { planner.not_a_task }
@@ -340,7 +350,7 @@ class TC_Planner < Test::Unit::TestCase
 			mock.filtered(m.id)
 			m.id == i 
 		    end
-		end.new(Plan.new)
+		end.new(plan)
 
 		mock.should_receive(:m).with(i).once.returns(NullTask.new)
 		mock.should_receive(:filtered).with(2).once
@@ -351,7 +361,7 @@ class TC_Planner < Test::Unit::TestCase
 	
 	planner = Class.new(base) do
 	    filter(:test) { false }
-	end.new(Plan.new)
+	end.new(plan)
 	assert_raises(Planning::NotFound) { planner.test }
     end
 
@@ -361,7 +371,6 @@ class TC_Planner < Test::Unit::TestCase
 	    method(:task) { result_task }
 	end
 
-	plan  = Plan.new
 	planning_task = PlanningTask.new(plan, planner, :task, {})
 	planned_task = Task.new
 	planned_task.planned_by planning_task
