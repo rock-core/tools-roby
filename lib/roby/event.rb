@@ -33,18 +33,18 @@ module Roby
 	attr_accessor :propagation_id, :context
 	protected :propagation_id=, :context=
 
-	    # To be used in the event generators ::new methods, when we need to reemit
-	    # an event while changing its 
-	    def reemit(new_id, new_context = nil)
-		if propagation_id != new_id || (new_context && new_context != context)
-		    new_event = self.dup
-		    new_event.propagation_id = new_id
-		    new_event.context = new_context
-		    new_event
-		else
-		    self
-		end
+	# To be used in the event generators ::new methods, when we need to reemit
+	# an event while changing its 
+	def reemit(new_id, new_context = nil)
+	    if propagation_id != new_id || (new_context && new_context != context)
+		new_event = self.dup
+		new_event.propagation_id = new_id
+		new_event.context = new_context
+		new_event
+	    else
+		self
 	    end
+	end
 
 	def name; model.name end
 	def model; self.class end

@@ -68,9 +68,6 @@ module Roby::TaskStructure
 
 	    [model, arguments]
 	end
-
-    protected
-        attr_reader :realizes
     end
 end
 
