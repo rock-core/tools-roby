@@ -390,45 +390,69 @@ class TC_Planner < Test::Unit::TestCase
         assert(plan_task == result_task, plan_task)
     end
 
-    def test_planning_task_loop
-	result_task = nil
-	planner = Class.new(Planning::Planner) do
-	    method(:task) { result_task = SimpleTask.new }
+
+
+
+    def check_loop_planning_task(loop_planner, initial_planner, planner_model)
+	loop_tasks = loop_planner.children
+	
+	# Check that we have one planned task and one non-planned task
+	assert_equal(2, loop_tasks.size)
+	loop_tasks.delete(initial_planner.result_task)
+
+	nonplanned_task = *loop_tasks
+	planning_task = nonplanned_task.planning_task
+	assert_kind_of(Task          , nonplanned_task)
+	assert_equal([planning_task] , loop_planner.enum_for(:each_pattern_planning).to_a)
+	assert_equal(planning_task   , loop_planner.last_planning_task)
+	assert_equal(nonplanned_task , loop_planner.last_planned_task)
+	assert_equal(planner_model   , planning_task.planner.class)
+
+	# Start the loop and check that #reschedule works as expected
+	loop_planner.start!
+	assert(initial_planner.result_task.running?)
+	assert(planning_task.running?)
+	
+	# Wait for the planner to finish
+	poll(0.5) do
+	    thread_finished = !planning_task.thread.alive?
+	    Control.instance.process_events
+
+	    assert(planning_task.running? ^ thread_finished, [planning_task.finished?, thread_finished].inspect)
+	    break if planning_task.finished?
 	end
 
-	plan  = Plan.new
+	assert_kind_of(SimpleTask, planning_task.planned_task)
+	assert_equal(planning_task.planned_task, planning_task.planner.result_task)
+    end
 
-	planning_task = PlanningTask.new(plan, planner, :task, :every => 0)
-	plan.insert(planning_task.planned_task)
-	planning_task.on(:success, planning_task.planned_task, :start)
-	planning_task.start!
+    def test_loop_planning_task
+	planner_model = Class.new(Planning::Planner) do
+	    @result_task = nil
+	    attr_reader :result_task
+	    method(:task) { @result_task = SimpleTask.new }
+	end
 
-	planned_task = nil
-	(1..2).each do |i|
-	    poll(0.5) do
-		thread_finished = !planning_task.thread.alive?
-		Control.instance.process_events
+	initial_planner = planner_model.new(plan)
+	loop_planner = PlanningLoop.new(0, 1, plan, initial_planner, :task)
+	check_loop_planning_task(loop_planner, initial_planner, planner_model)
+    end
 
-		assert(planning_task.running? ^ thread_finished, [planning_task.finished?, thread_finished].inspect)
-		break if planning_task.finished?
+    def test_make_loop
+	planner_model = Class.new(Planning::Planner) do
+	    @result_task = nil
+	    attr_reader :result_task
+	    method(:task) {  @result_task = SimpleTask.new }
+	    method(:my_looping_task) do
+		make_loop(0) do
+		    task
+		end
 	    end
-
-	    planned_task = planning_task.planned_task
-	    assert_equal(result_task, planned_task)
-	    assert(planned_task.running?)
-	    planned_task.success!
-
-	    # There is 
-	    #   - the initial proxy, the first planning task and its planned task
-	    #   - the second proxy and its planning task
-	    assert_equal((i + 1) * 3 - 1, plan.enum_for(:each_task).to_a.size)
-
-	    # Find the new planning task
-	    new_planning_task = plan.enum_for(:each_task).find { |t| PlanningTask === t && t != planning_task }
-	    assert(plan.mission?(new_planning_task.planned_task))
-	    assert(new_planning_task.running?)
-	    planning_task = new_planning_task
 	end
+
+	initial_planner = planner_model.new(plan)
+	loop_planner = initial_planner.my_looping_task
+	check_loop_planning_task(loop_planner, initial_planner, planner_model)
     end
 end
 

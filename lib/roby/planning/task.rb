@@ -4,6 +4,80 @@ require 'roby/control'
 require 'roby/transactions'
 
 module Roby
+    class PlanningLoop < Roby::Task
+	# The period. Zero means continuously
+	attr_reader :period
+	# How many loops do we unroll
+	attr_reader :lookahead
+
+	attr_reader :plan, :planner_model, :method_name, :method_options
+
+	def initialize(repeat, lookahead, plan, planner, method_name, method_options = {})
+	    super()
+
+	    # Loop parameters
+	    raise NotImplementedError, "repeat should be zero" unless repeat == 0
+	    @repeat, @lookahead = repeat, lookahead
+
+	    # Planner parameters
+	    @plan, @planner_model, @method_name, @method_options = 
+		plan, planner.class, method_name, method_options
+	    
+	    # Build the initial setup
+	    initial_task = planner.send(method_name, method_options)
+	    realized_by initial_task
+	    on(:start, initial_task, :start)
+
+	    planning_task = reschedule(initial_task)
+	    on(:start, planning_task, :start)
+	    (lookahead - 1).times { reschedule(self.last_planned_task) }
+	end
+
+	event(:start, :command => true)
+	event(:failed, :command => true, :terminal => true)
+	def stop(context); failed!  end
+	event(:stop, :terminal => true)
+
+	def each_pattern_planning
+	    children.each do |child|
+		planning = child.planning_task
+		yield(planning) if planning
+	    end
+	end
+
+	# The last planned task
+	def last_planned_task; last_planning_task.planned_task end
+	# The last PlanningTask object
+	def last_planning_task
+	    enum_for(:each_pattern_planning).find do |planning|
+		!enum_for(:each_pattern_planning).find do |t| 
+		    planning.event(:success).child_object?(t.event(:start), EventStructure::Signal)
+		end
+	    end
+	end
+	
+	# Creates one pattern at the end of the already developed patterns.
+	# Returns the new planning task
+	def reschedule(last_planned_task)
+	    planning = PlanningTask.new(plan, planner_model, method_name, method_options)
+	    planned  = planning.planned_task
+
+	    (planning.event(:success) & 
+		 last_planned_task.event(:success)).on planned.event(:start)
+
+	    # There is not last_planning_task the first time
+	    if last_planning_task = self.last_planning_task
+		last_planning_task.on(:success, planning, :start)
+	    end
+	    planning.on(:success) { reschedule(self.last_planned_task) }
+
+	    # Add the relation last as it changes last_planning_task and last_planned_task
+	    realized_by planned
+	    planning
+	end
+    end
+
+
     # An asynchronous planning task using Ruby threads
     class PlanningTask < Roby::Task
         attr_reader :planner, :method_name, :method_options, :every, :planned_model
@@ -55,17 +129,13 @@ module Roby
 
 	# Starts planning
         def start(context)
-	    if planned_task.running?
-		reschedule
-	    else
-		@thread = Thread.new do
-		    @result = begin
-				  @planner.send(@method_name, @method_options)
-			      rescue Exception => e; e
-			      end
-		end
-		PlanningTask.planning_tasks << self
+	    @thread = Thread.new do
+		@result = begin
+			      @planner.send(@method_name, @method_options)
+			  rescue Exception => e; e
+			  end
 	    end
+	    PlanningTask.planning_tasks << self
 	    emit(:start, context)
         end
         event :start
@@ -83,32 +153,10 @@ module Roby
 		emit(:failed, task.result)
 	    when Roby::Task
 		transaction.replace(transaction[planned_task], result)
-		reschedule if every
 		transaction.commit_transaction
 		emit(:success)
 	    else
 		raise result, "expected an exception or a Task, got #{result} in #{caller[0]}", result.backtrace
-	    end
-	end
-
-	# Reschedule a planner in case we are planning loops
-	def reschedule
-	    if every == 0
-		planning = PlanningTask.new(transaction.real_plan, planner.class, method_name, 
-			method_options.merge(:every => every, :planned_model => planned_model))
-		new_planned_task = planning.planned_task # make planning create its planned_task
-
-		if plan.mission?(planned_task)
-		    transaction.insert(new_planned_task)
-		else
-		    transaction.discover(new_planned_task)
-		end
-
-		(planning.event(:success) & transaction[self].planned_task.event(:success)).on new_planned_task.event(:start)
-		transaction[self].on(:success, planning, :start)
-
-	    else
-		raise NotImplementedError
 	    end
 	end
 

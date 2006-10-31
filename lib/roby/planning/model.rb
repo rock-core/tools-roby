@@ -607,19 +607,10 @@ module Roby
 
 	    # Builds a loop in a plan (i.e. a method which is generated in
 	    # loop)
-	    def make_loop(every, &block)
-		m = self.class.method("loops", &block)
-
-		options = arguments.merge :id => m.id, :every => every
-		
-		planner = PlanningTask.new plan.real_plan, self.class, "loops", options
-		
-		task = block.call
-		task.planned_by planner
-		# PlanningTask#start takes care of *not* planning
-		# if the child task is already running
-		task.on(:start, planner, :start)
-		task
+	    def make_loop(repeat = 0, lookahead = 1, options = {}, &block)
+		m = self.class.method("loops", options, &block)
+		options = arguments.merge :id => m.id
+		PlanningLoop.new(repeat, lookahead, plan.real_plan, self, "loops", options)
 	    end
         end
 
