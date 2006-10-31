@@ -132,7 +132,8 @@ class TC_Exceptions < Test::Unit::TestCase
 	    error = ExecutionException.new(TaskModelViolation.new(t2))
 	    mock.should_receive(:handler).with(ExecutionException, [t1, t3].to_set, t0).once
 	    assert_equal([], Propagation.propagate_exceptions([error]))
-	    assert_equal([t2, [t3, t1]].to_set, found_exception.stack.to_set)
+	    assert_equal(t2, found_exception.stack[0])
+	    assert_equal([t3, t1].to_set, found_exception.stack[1].to_set)
 	end
     end
 end
