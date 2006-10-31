@@ -316,10 +316,12 @@ class TC_Planner < Test::Unit::TestCase
 	    method(:test, :returns => task_model)
 	    method(:test, :id => "good") { task_model.new }
 	    method(:test, :id => "bad", :reuse => false) { NullTask.new }
+	    method(:test, :id => "array", :reuse => false) { [task_model.new] }
 	    method(:not_a_task, :reuse => false) { nil }
 	end.new(plan)
 	assert_nothing_raised { planner.test(:id => "good") }
 	assert_raises(Planning::NotFound) { planner.test(:id => "bad") }
+	assert_raises(Planning::NotFound) { planner.test(:id => "array") }
 	assert_raises(Planning::NotFound) { planner.not_a_task }
     end
 
