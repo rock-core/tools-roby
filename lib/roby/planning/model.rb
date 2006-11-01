@@ -211,27 +211,24 @@ module Roby
 	    # which these options match the user-provided options
 	    # are called. The other options are not considered
 	    METHOD_SELECTION_OPTIONS = [:id, :recursive, :returns]
-	    KNOWN_OPTIONS = [:lazy, :reuse] + METHOD_SELECTION_OPTIONS
+	    KNOWN_OPTIONS = [:lazy, :reuse, :args] + METHOD_SELECTION_OPTIONS
 
             def self.validate_method_query(name, options)
                 name = name.to_s
-		options = options.keys_to_sym
+		roby_options, method_arguments = 
+		    filter_options options, KNOWN_OPTIONS
 
                 validate_option(options, :returns, false, 
                                 "the ':returns' option must be a subclass of Roby::Task") do |opt| 
                     options[:returns].has_ancestor?(Roby::Task)
                 end
 
-		roby_options, method_arguments = {}, {}
-		roby_options	    = options.slice(*KNOWN_OPTIONS)
-		method_arguments    = options.slice(*(options.keys - KNOWN_OPTIONS))
 		[name, roby_options, method_arguments]
             end
 
 	    # Return the method model for +name+, or nil
             def self.method_model(name)
 		model = send("#{name}_model")
-		
 	    rescue NoMethodError
 	    end
 
@@ -507,15 +504,16 @@ module Roby
             # Find a suitable development for the +name+ method.
             def plan_method(name, options = Hash.new)
                 name    = name.to_s
-		options = options.keys_to_sym
-		# Save the user arguments in the +arguments+ attribute
-		args = if options.respond_to?(:args)
-			   options[:args]
-		       else
-			   options.slice(*(options.keys - KNOWN_OPTIONS))
-		       end
 
-		@arguments.push(args || {})
+		planning_options, method_options = 
+		    filter_options options, KNOWN_OPTIONS
+
+		if method_options.empty?
+		    method_options = planning_options.delete(:args) || {}
+		elsif planning_options[:args] && !planning_options[:args].empty?
+		    raise ArgumentError, "provided method-specific options through both :args and the option hash"
+		end
+		@arguments.push(method_options)
 
 		Planning.debug { "planning #{name}[#{arguments}]" }
 

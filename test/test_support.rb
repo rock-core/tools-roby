@@ -6,32 +6,6 @@ require 'set'
 require 'flexmock'
 
 class TC_Utils < Test::Unit::TestCase
-    def test_attribute
-	a = Class.new do
-	    attribute(:array_attribute) { Array.new }
-	end.new
-        assert_equal(a.array_attribute, a.array_attribute)
-        a.array_attribute << 1
-        assert_equal([1], a.array_attribute)
-
-	b = Class.new do
-	    class_attribute :a => 10
-	end
-	assert(b.respond_to?(:a))
-	assert_equal(10, b.a)
-
-	c = Class.new(b) do
-	    class_attribute :c => 20
-	end
-	assert(!b.respond_to?(:c))
-    end
-
-    def test_keys_to_sym
-	assert_equal({ :a => 10, :b => 20 }, { 'a' => 10, 'b' => 20 }.keys_to_sym)
-    end
-    def test_slice
-	assert_equal({ :a => 10, :c => 30 }, { :a => 10, :b => 20, :c => 30 }.slice(:a, :c))
-    end
     def test_define_under
 	mod = Module.new
 	new_mod = mod.define_under(:Foo) { Module.new }

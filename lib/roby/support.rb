@@ -1,15 +1,16 @@
 require 'thread'
 require 'genom/support'
 
+require 'monitor'
 require 'roby/graph'
+require 'facet/kernel/constant'
+require 'facet/module/dirname'
 require 'utilrb/enumerable'
 require 'utilrb/logger'
 require 'utilrb/gc/force'
-require 'facet/kernel/constant'
-require 'facet/module/dirname'
+require 'utilrb/hash/to_sym_keys'
 require 'utilrb/array/to_s'
 require 'utilrb/hash/to_s'
-require 'monitor'
 
 # Create a new thread and forward all messages
 # to the +forward_to+ object given at initialization.
@@ -133,15 +134,6 @@ class Thread
             object.send(name, *args, &block)
         end
     rescue ThreadError
-    end
-end
-
-class Hash
-    def keys_to_sym
-	inject({}) { |h, (k, v)| h[k.to_sym] = v; h }
-    end
-    def slice(*keys)
-	keys.inject({}) { |h, k| h[k] = self[k] if has_key?(k); h }
     end
 end
 
