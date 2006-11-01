@@ -1,9 +1,8 @@
-require 'test/unit'
 require 'test_config'
-require 'pp'
+require 'flexmock'
+require 'mockups/tasks'
 require 'roby/planning'
 require 'roby/relations/planned_by'
-require 'flexmock'
 
 class TC_Planner < Test::Unit::TestCase
     include Roby
@@ -422,7 +421,7 @@ class TC_Planner < Test::Unit::TestCase
 	    thread_finished = !planning_task.thread.alive?
 	    Control.instance.process_events
 
-	    assert(planning_task.running? ^ thread_finished, [planning_task.finished?, thread_finished].inspect)
+	    assert(!thread_finished || planning_task.finished?)
 	    break if planning_task.finished?
 	end
 
