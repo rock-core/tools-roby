@@ -1,11 +1,14 @@
 $LOAD_PATH.unshift File.join(File.expand_path(File.dirname(__FILE__)), '../lib')
-require 'test/unit'
+require 'test_config'
 require 'roby/graph'
 require 'enumerator'
 require 'set'
 
 class TC_BGL < Test::Unit::TestCase
     include BGL
+
+    include CommonTestBehaviour
+
     def test_vertices_descriptors
 	g = Graph.new
 	v1 = g.add_vertex(d1 = 'a')

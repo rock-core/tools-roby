@@ -2,6 +2,8 @@ require 'test_config'
 require 'roby/control'
 
 class TC_TestDrbServer < Test::Unit::TestCase
+    include CommonTestBehaviour
+
     URI="druby://localhost:9000"
     def test_server_spawning
         # Start the event loop within a subprocess

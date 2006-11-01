@@ -10,6 +10,7 @@ module TC_PlanStatic
     include Roby
 
     attr_reader :plan
+
     def test_add_remove
 	t1 = Task.new
 
@@ -161,12 +162,11 @@ end
 
 class TC_Plan < Test::Unit::TestCase
     include TC_PlanStatic
+    include CommonTestBehaviour
+
     def setup
 	@plan = Plan.new
-    end
-    def teardown
-	@plan.clear
-	clear_plan_objects
+	super
     end
 
     def test_garbage_collect

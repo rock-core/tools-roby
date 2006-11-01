@@ -7,10 +7,7 @@ require 'flexmock'
 
 class TC_Relations < Test::Unit::TestCase
     include Roby
-
-    def teardown
-	clear_plan_objects
-    end
+    include CommonTestBehaviour
 
     def test_definition
 	klass = Class.new

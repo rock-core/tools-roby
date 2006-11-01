@@ -1,6 +1,7 @@
 require 'test/unit'
-require 'mockups/tasks'
-require 'roby/control'
+require 'utilrb/objectstats'
+require 'roby/task'
+require 'roby/event'
 
 BASE_TEST_DIR=File.expand_path(File.dirname(__FILE__)) unless defined? BASE_TEST_DIR
 $LOAD_PATH.unshift BASE_TEST_DIR
@@ -16,12 +17,29 @@ end
 ENV['PATH'] = path.join(':')
 ENV['PKG_CONFIG_PATH'] = pkg_config_path.join(':')
 
-def clear_plan_objects
-    ObjectSpace.each_object(Roby::Task) do |t|
-	t.clear_vertex
+module CommonTestBehaviour
+    class << self
+	attr_accessor :check_allocation_count
     end
-    ObjectSpace.each_object(Roby::EventGenerator) do |e|
-	e.clear_vertex
+
+    def setup
+    end
+
+    def teardown
+	if respond_to?(:plan) && plan
+	    plan.clear
+	end
+
+	# Clear all relation graphs in TaskStructure and EventStructure
+	[Roby::TaskStructure, Roby::EventStructure].each do |space|
+	    space.relations.each { |rel| rel.each_vertex { |v| v.clear_vertex } }
+	end
+	
+
+	if CommonTestBehaviour.check_allocation_count
+	    GC.start
+	    STDERR.puts ObjectStats.count
+	end
     end
 end
 

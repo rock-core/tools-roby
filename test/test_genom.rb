@@ -5,6 +5,7 @@ require 'genom/runner'
 
 class TC_Genom < Test::Unit::TestCase
     include Roby
+    include CommonTestBehaviour
 
     def env; Genom::Runner.environment end
     def setup
@@ -17,7 +18,7 @@ class TC_Genom < Test::Unit::TestCase
 		env.stop_module('init_test')
 	    end
 	end
-	clear_plan_objects
+	super
     end
 
     def test_def

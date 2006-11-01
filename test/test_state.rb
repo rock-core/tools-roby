@@ -3,6 +3,7 @@ require 'roby/state/state'
 
 class TC_State < Test::Unit::TestCase
     include Roby
+    include CommonTestBehaviour
 
     def test_openstruct_behavior
 	s = ExtendedStruct.new

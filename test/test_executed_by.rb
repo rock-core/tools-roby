@@ -8,14 +8,12 @@ require 'flexmock'
 
 class TC_ExecutedBy < Test::Unit::TestCase
     include Roby
+    include CommonTestBehaviour
 
     attr_reader :plan
     def setup
 	@plan = Plan.new
-    end
-    def teardown
-	plan.clear
-	clear_plan_objects
+	super
     end
 
     def test_nominal

@@ -1,11 +1,12 @@
-$LOAD_PATH << File.join(File.dirname(__FILE__), '../lib')
-
-require 'test/unit'
-require 'roby/support'
+require 'test_config'
 require 'set'
 require 'flexmock'
 
+require 'roby/support'
+
 class TC_Utils < Test::Unit::TestCase
+    include CommonTestBehaviour
+
     def test_define_under
 	mod = Module.new
 	new_mod = mod.define_under(:Foo) { Module.new }

@@ -5,6 +5,7 @@ require 'roby/propagation'
 
 class TC_Propagation < Test::Unit::TestCase
     include Roby
+    include CommonTestBehaviour
 
     def test_gather_propagation
 	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
@@ -59,5 +60,5 @@ class TC_Propagation < Test::Unit::TestCase
 	    e2.emit_on s2
 	end
     end
-
 end
+

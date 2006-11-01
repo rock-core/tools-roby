@@ -3,15 +3,17 @@ require 'test_plan.rb'
 
 class TC_TransactionsProxy < Test::Unit::TestCase
     include Roby::Transactions
+    include CommonTestBehaviour
 
     attr_reader :transaction, :plan
     def setup
 	@plan = Roby::Plan.new
 	@transaction = Roby::Transaction.new(plan)
+	super
     end
     def teardown
 	transaction.discard_transaction
-	plan.clear
+	super
     end
 
     def assert_is_proxy_of(object, wrapper, klass)

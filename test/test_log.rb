@@ -10,9 +10,11 @@ require 'stringio'
 
 class TC_Log < Test::Unit::TestCase
     include Roby
+    include CommonTestBehaviour
 
     def teardown
 	Log::loggers.clear
+	super
     end
 
     def assert_marshallable_wrapper(object)

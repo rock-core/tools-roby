@@ -7,10 +7,11 @@ require 'roby/planning'
 
 class TC_Control < Test::Unit::TestCase 
     include Roby
+    include CommonTestBehaviour
 
     def teardown
 	Control.instance.plan.clear 
-	clear_plan_objects
+	super
     end
     def plan
 	Control.instance.plan

@@ -5,19 +5,23 @@ require 'flexmock'
 # Check that a transaction behaves like a plan
 class TC_TransactionAsPlan < Test::Unit::TestCase
     include TC_PlanStatic
+    include CommonTestBehaviour
 
     def setup
 	@real_plan = Plan.new
 	@plan = Transaction.new(@real_plan)
+	super
     end
     def teardown
-	@plan.commit_transaction
+	@plan.discard_transaction
 	@real_plan.clear
+	super
     end
 end
 
 module TC_TransactionBehaviour
     include Roby::Transactions
+
     Hierarchy = Roby::TaskStructure::Hierarchy
     PlannedBy = Roby::TaskStructure::PlannedBy
     Signal = Roby::EventStructure::Signal
@@ -302,6 +306,7 @@ end
 
 class TC_Transactions < Test::Unit::TestCase
     include TC_TransactionBehaviour
+    include CommonTestBehaviour
 
     attr_reader :plan
     def setup
@@ -314,6 +319,7 @@ end
 
 class TC_RecursiveTransaction < Test::Unit::TestCase
     include TC_TransactionBehaviour
+    include CommonTestBehaviour
 
     attr_reader :plan
     def setup

@@ -8,14 +8,16 @@ require 'flexmock'
 class TC_Planner < Test::Unit::TestCase
     include Roby
     include Roby::Planning
+    include CommonTestBehaviour
 
     def setup
 	Planner.last_id = 0 
 	new_plan
+	super
     end
     def teardown
 	Planner.last_id = 0 
-	plan.clear if plan
+	super
     end
 
     attr_reader :plan

@@ -1,16 +1,13 @@
 require 'test_config'
-require 'test/unit/testcase'
-require 'roby/relations/executed_by'
-require 'roby/task'
 require 'flexmock'
+
+require 'roby/plan'
+require 'roby/relations/executed_by'
 require 'mockups/tasks'
 
 class TC_Task < Test::Unit::TestCase 
     include Roby
-
-    def teardown
-	clear_plan_objects
-    end
+    include CommonTestBehaviour
 
     def test_base_model
 	task = Class.new(Task) do

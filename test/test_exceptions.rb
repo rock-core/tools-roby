@@ -5,6 +5,7 @@ require 'roby/propagation'
 
 class TC_Exceptions < Test::Unit::TestCase 
     include Roby
+    include CommonTestBehaviour
 
     def test_execution_exception_initialize
 	task = Task.new
