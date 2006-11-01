@@ -87,7 +87,9 @@ class TC_Exceptions < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    t1, t2, t3 = Task.new, Task.new, Task.new
 	    t0 = Class.new(Task) do 
+		attr_accessor :handled_exception
 		on_exception(TaskModelViolation) do |task, exception|
+		    task.handled_exception = exception
 		    mock.handler(exception, exception.task, task)
 		end
 	    end.new
@@ -96,17 +98,29 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t3.realized_by t2
 
 	    error = ExecutionException.new(TaskModelViolation.new(t2))
-	    mock.should_receive(:handler).with(error, t1, t0)
+	    mock.should_receive(:handler).with(ExecutionException, t1, t0)
+	    # There are two possibilities here:
+	    #	1/ the error propagation begins with t1 -> t0, in which case +error+
+	    #	   is t0.handled_exception and there may be no sibling (the error is
+	    #	   never tested on t3
+	    #	2/ propagation begins with t3, in which case +error+ is a sibling of
+	    #	   t0.handled_exception
 	    assert_equal([], Propagation.propagate_exceptions([error]))
-	    assert_equal([t2, t1], error.stack)
+	    assert_equal([t2, t1], t0.handled_exception.stack)
+	    if t0.handled_exception != error
+		assert_equal([t2, t3], error.stack)
+		assert_equal([t0.handled_exception, error].to_set, error.siblings.to_set)
+	    end
 
 	    error = ExecutionException.new(RuntimeError.new, t2)
 	    assert(fatal = Propagation.propagate_exceptions([error]))
 	    assert_equal(2, fatal.size)
-	    e1 = fatal.find { |e| e == error }
-	    e2 = fatal.find { |e| e != error }
-	    assert_equal([e1, e2], e2.siblings)
-	    assert_equal([t2, t3], e2.stack)
+	    e1 = fatal.find { |e| e.stack.include?(t2) }
+	    e2 = fatal.find { |e| e != e1 }
+	    assert_same(e1.siblings, e2.siblings)
+	    assert_equal([e1, e2].to_set, e2.siblings.to_set)
+	    assert_equal([t2, t3], e1.stack)
+	    assert_equal([t2, t1, t0], e2.stack)
 	end
     end
 
