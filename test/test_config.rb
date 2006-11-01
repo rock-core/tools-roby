@@ -37,8 +37,10 @@ module CommonTestBehaviour
 	
 
 	if CommonTestBehaviour.check_allocation_count
+	    count = ObjectStats.count
 	    GC.start
-	    STDERR.puts ObjectStats.count
+	    remains = ObjectStats.count
+	    STDERR.puts "#{count} -> #{remains} (#{count - remains})"
 	end
     end
 end
