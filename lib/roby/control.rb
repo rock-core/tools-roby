@@ -73,8 +73,11 @@ module Roby
 	    Thread.current.process_events
 	    timings[:server] = Time.now
 	    
-	    # Call event processing registered by other modules
-	    Control.event_processing.each { |prc| prc.call }
+	    # Call event processing registered by other modules 
+	    # and propagate events
+	    Propagation.propagate_events do
+		Control.event_processing.each { |prc| prc.call }
+	    end
 	    timings[:events] = Time.now
 	    
 	    # Do garbage collection
