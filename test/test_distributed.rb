@@ -11,6 +11,7 @@ class TC_Distributed < Test::Unit::TestCase
     end
 
     def teardown 
+	Distributed.unpublish
 	DRb.stop_service if DRb.thread
 	stop_remote_process
     end

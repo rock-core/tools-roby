@@ -161,7 +161,14 @@ module Roby::Distributed
 	attr_reader :server
 
 	# Publish Distributed.state on the network
+	def published?; !!@server end
 	def publish(options = {}); @server = RingServer.new(state, options) end
+	def unpublish
+	    if server 
+		server.close
+		@server = nil
+	    end
+	end
 
 	# The list of known neighbours. See ConnectionSpace#neighbours
 	def neighbours; state.neighbours end
