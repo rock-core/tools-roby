@@ -1,5 +1,5 @@
 require 'test_config'
-require 'roby/distributed/discovery'
+require 'roby/distributed/connection_space'
 
 class TC_Distributed < Test::Unit::TestCase
     include Roby
