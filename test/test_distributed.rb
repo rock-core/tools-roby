@@ -40,17 +40,40 @@ class TC_Distributed < Test::Unit::TestCase
 	@remote_pid = nil
     end
 
-    def test_centralized_discovery
-	central_tuplespace = TupleSpace.new
-
-	Distributed.state = ConnectionSpace.new :ring_discovery => false, 
-	    :discovery_tuplespace => central_tuplespace
-	host2 = ConnectionSpace.new :ring_discovery => false, 
-	    :discovery_tuplespace => central_tuplespace
-
+    def assert_has_neighbour(&check)
 	Distributed.state.start_neighbour_discovery
 	Distributed.state.wait_discovery
-	assert(Distributed.neighbours.find { |n| n[0] == host2 })
+
+	assert(!Distributed.state.discovering?)
+	assert(1, Distributed.neighbours.size)
+	assert(Distributed.neighbours.find(&check))
+    end
+
+    def test_centralized_local_discovery
+	central_tuplespace = TupleSpace.new
+
+	remote = ConnectionSpace.new :ring_discovery => false, 
+	    :discovery_tuplespace => central_tuplespace
+	Distributed.state = ConnectionSpace.new :ring_discovery => false, 
+	    :discovery_tuplespace => central_tuplespace
+	assert_has_neighbour { |n| n.tuplespace == remote }
+    end
+
+    def test_centralized_drb_discovery
+	central_tuplespace = TupleSpace.new
+	DRb.start_service 'druby://localhost:1245', central_tuplespace
+
+	remote_process do
+	    DRb.stop_service
+	    DRb.start_service
+	    central_tuplespace = DRbObject.new_with_uri('druby://localhost:1245')
+
+	    Distributed.state = ConnectionSpace.new :ring_discovery => false, 
+		:discovery_tuplespace => central_tuplespace
+	end
+	Distributed.state = ConnectionSpace.new :ring_discovery => false, 
+	    :discovery_tuplespace => central_tuplespace
+	assert_has_neighbour { |n| n.name == "#{Socket.gethostname}-#{remote_pid}" }
     end
 
     BROADCAST = (1..10).map { |i| "127.0.0.#{i}" }
@@ -65,12 +88,43 @@ class TC_Distributed < Test::Unit::TestCase
 	Distributed.state = ConnectionSpace.new :period => 0.5, :ring_discovery => true, :ring_broadcast => BROADCAST
 	Distributed.publish :bind => '127.0.0.1'
 
-	Distributed.state.start_neighbour_discovery
-	Distributed.state.wait_discovery
-	assert(Distributed.neighbours.find { |n| n[1] == "#{Socket.gethostname}-#{remote_pid}" })
+	assert_has_neighbour { |n| n.name == "#{Socket.gethostname}-#{remote_pid}" }
     end
 
     def test_connection
+	central_tuplespace = TupleSpace.new
+
+	remote = ConnectionSpace.new :ring_discovery => false, 
+	    :discovery_tuplespace => central_tuplespace, :name => "remote"
+	here   = ConnectionSpace.new :ring_discovery => false, 
+	    :discovery_tuplespace => central_tuplespace, :name => 'here'
+
+	Distributed.state = here
+	here.start_neighbour_discovery(true)
+
+	n_remote = Distributed.neighbours.find { true }
+	p_remote = Peer.new(here, n_remote)
+	assert(! p_remote.alive?)
+	assert(! p_remote.connected?)
+	assert_equal(here, p_remote.keepalive['tuplespace'])
+	assert_equal(remote, p_remote.neighbour.tuplespace)
+	assert_nothing_raised { remote.read(p_remote.keepalive.value, 0) }
+
+	remote.start_neighbour_discovery(true)
+	p_here = remote.peers.find { |_, p_here| p_here.neighbour.tuplespace == here }
+	assert(p_here)
+	p_here = p_here.last
+	assert_equal(remote, p_here.keepalive['tuplespace'])
+	assert_equal(here, p_here.neighbour.tuplespace)
+	assert_nothing_raised { here.read(p_here.keepalive.value, 0) }
+	assert(p_here.connected?)
+	assert(p_here.alive?)
+	assert(! p_remote.alive?)
+	assert(! p_remote.connected?)
+
+	here.start_neighbour_discovery(true)
+	assert(p_remote.connected?)
+	assert(p_remote.alive?)
     end
 end
 
