@@ -2,6 +2,7 @@ require 'rinda/ring'
 require 'rinda/tuplespace'
 require 'roby/distributed/drb'
 require 'roby/distributed/peer'
+require 'utilrb/kernel/options'
 
 module Roby::Distributed
     # A neighbour is a named remote ConnectionSpace object
