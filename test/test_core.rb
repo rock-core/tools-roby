@@ -17,4 +17,5 @@ require 'test_server.rb'
 require 'test_state.rb'
 require 'test_control.rb'
 require 'test_log.rb'
+require 'test_distributed.rb'
 
