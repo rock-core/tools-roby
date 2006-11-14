@@ -50,6 +50,8 @@ class TC_Distributed < Test::Unit::TestCase
 	assert(Distributed.neighbours.find(&check))
     end
 
+    # Test neighbour discovery using a local tuplespace as the neighbour list. This is
+    # mainly useful for testing purposes
     def test_centralized_local_discovery
 	central_tuplespace = TupleSpace.new
 
@@ -60,6 +62,7 @@ class TC_Distributed < Test::Unit::TestCase
 	assert_has_neighbour { |n| n.tuplespace == remote }
     end
 
+    # Test neighbour discovery using a remote central tuplespace as neighbour list
     def test_centralized_drb_discovery
 	central_tuplespace = TupleSpace.new
 	DRb.start_service 'druby://localhost:1245', central_tuplespace
@@ -78,6 +81,7 @@ class TC_Distributed < Test::Unit::TestCase
     end
 
     BROADCAST = (1..10).map { |i| "127.0.0.#{i}" }
+    # Test neighbour discovery using UDP for discovery
     def test_ringserver_discovery
 	remote_process do
 	    DRb.start_service
@@ -92,6 +96,7 @@ class TC_Distributed < Test::Unit::TestCase
 	assert_has_neighbour { |n| n.name == "#{Socket.gethostname}-#{remote_pid}" }
     end
 
+    # Test establishing peer-to-peer connection between two ConnectionSpace objects
     def test_connection
 	central_tuplespace = TupleSpace.new
 
@@ -158,11 +163,9 @@ class TC_Distributed < Test::Unit::TestCase
 	return [remote, p_remote, local, p_local]
     end
 
+    # Check that we can query the remote plan database
     def test_query
 	remote, p_remote, local, p_local = peer2peer
-	assert(p_local.connected?)
-	assert(p_remote.connected?)
-
 	mission, subtask = Task.new, Task.new
 	mission.realized_by subtask
 	remote.plan.insert(mission)
