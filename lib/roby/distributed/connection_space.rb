@@ -2,9 +2,13 @@ require 'rinda/ring'
 require 'rinda/tuplespace'
 require 'roby/distributed/drb'
 require 'roby/distributed/peer'
+require 'utilrb/time/to_hms'
 require 'utilrb/kernel/options'
 
 module Roby::Distributed
+    extend Logger::Hierarchy
+    extend Logger::Forward
+
     # A neighbour is a named remote ConnectionSpace object
     Neighbour = Struct.new :name, :tuplespace
 
@@ -122,17 +126,28 @@ module Roby::Distributed
 		end
 
 		if central_discovery?
+		    Roby::Distributed.debug "doing centralized neighbour discovery"
 		    discovery_tuplespace.read_all([:host, nil, nil]).
-			each { |n| new_neighbours << Neighbour.new(n[2], n[1]) unless n[0] == self }
+			each do |n| 
+			    next if n[0] == self
+			    n = Neighbour.new(n[2], n[1]) 
+			    Roby::Distributed.debug { "new neighbour: #{n.name} #{n.tuplespace}" }
+			    new_neighbours << n
+			end
 		end
 
 		if discovery_period
 		    remaining = (@discovery_start + discovery_period) - Time.now
+		    Roby::Distributed.debug { "#{Integer(remaining * 1000)}ms left for discovery" }
 		end
 
 		if ring_discovery?
+		    Roby::Distributed.debug "doing RingServer neighbour discovery"
 		    finger.lookup_ring(remaining) do |ts|
-			new_neighbours << Neighbour.new(ts.name, ts) unless ts == self
+			next if ts == self
+
+			Roby::Distributed.debug { "new neighbour: #{ts.name} #{ts}" }
+			new_neighbours << Neighbour.new(ts.name, ts)
 		    end
 
 		elsif discovery_period

@@ -20,9 +20,11 @@ module Roby::Distributed
 	    connection_space.read_all( { 'kind' => :peer, 'tuplespace' => nil, 'remote' => nil } ).each do |entry|
 		tuplespace = entry['tuplespace']
 		if peer = connection_space.peers[tuplespace]
+		    Roby::Distributed.debug { "Peer #{peer} finalized handshake" }
 		    # The peer finalized the handshake
 		    peer.connected = true if peer.connected.nil?
 		elsif neighbour = connection_space.neighbours.find { |n| n.tuplespace == tuplespace }
+		    Roby::Distributed.debug { "Peer #{peer} asking for connection" }
 		    # New connection attempt from a known neighbour
 		    Peer.new(connection_space, neighbour).connected = true
 		end
