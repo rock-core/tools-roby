@@ -1,8 +1,21 @@
+require 'roby/control'
+require 'roby/plan'
+
+module Roby
+    class Control; include DRbUndumped end
+    class Plan; include DRbUndumped end
+end
+
 module Roby::Distributed
+    class NotAliveError < RuntimeError; end
     class PeerServer
 	include DRbUndumped
 	attr_reader :peer
-	def initialize(peer); @peer = peer end
+	def initialize(peer)
+	    @peer = peer 
+	end
+
+	def plan; peer.connection_space.plan end
     end
 
     class Peer
@@ -22,7 +35,7 @@ module Roby::Distributed
 		if peer = connection_space.peers[tuplespace]
 		    Roby::Distributed.debug { "Peer #{peer} finalized handshake" }
 		    # The peer finalized the handshake
-		    peer.connected = true if peer.connected.nil?
+		    peer.connected = true if peer.connected?.nil?
 		elsif neighbour = connection_space.neighbours.find { |n| n.tuplespace == tuplespace }
 		    Roby::Distributed.debug { "Peer #{peer} asking for connection" }
 		    # New connection attempt from a known neighbour
@@ -30,6 +43,8 @@ module Roby::Distributed
 		end
 	    end
 	end
+
+	attr_writer :connected
 
 	# Creates a new peer management object for the remote agent
 	# at +tuplespace+
@@ -48,8 +63,6 @@ module Roby::Distributed
 	    raise "Already connected" if connected?
 	    ping
 	end
-
-	attr_accessor :connected
 
 	# Updates our keepalive token on the peer
 	def ping(timeout = nil)
@@ -72,12 +85,27 @@ module Roby::Distributed
 	# Returns true if the connection has been established. See also #alive?
 	def connected?; @connected end
 
+	# The server object we use to access the remote plan database
+	def remote_server
+	    unless alive?
+		raise NotAliveError, "connection not currently alive"
+	    end
+	    return @entry['remote']
+	end
+
 	# Checks if the connection is currently alive
 	def alive?
 	    return false unless connected?
 	    return false unless connection_space.neighbours.find { |n| n.tuplespace == neighbour.tuplespace }
-	    entry = connection_space.read({'kind' => :peer, 'tuplespace' => neighbour.tuplespace, 'remote' => nil}, 0) rescue nil
-	    return !!entry
+	    @entry = connection_space.read({'kind' => :peer, 'tuplespace' => neighbour.tuplespace, 'remote' => nil}, 0) rescue nil
+	    return !!@entry
+	end
+
+	# Get the remote plan
+	def plan; remote_server.plan end
+
+	# Subscribe to a particular remote object
+	def subscribe(object)
 	end
     end
 end

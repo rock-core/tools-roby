@@ -136,6 +136,44 @@ class TC_Distributed < Test::Unit::TestCase
 	assert(p_remote.connected?)
 	assert(p_remote.alive?)
     end
-end
 
+    # Establishes a peer to peer connection between two ConnectionSpace objects
+    def peer2peer
+	central_tuplespace = TupleSpace.new
+	remote = ConnectionSpace.new :ring_discovery => false, 
+	    :discovery_tuplespace => central_tuplespace, :name => "remote",
+	    :plan => Plan.new
+
+	local   = ConnectionSpace.new :ring_discovery => false, 
+	    :discovery_tuplespace => central_tuplespace, :name => 'local',
+	    :plan => Plan.new
+
+	local.start_neighbour_discovery(true)
+	n_remote = local.neighbours.find { true }
+	p_remote = Peer.new(local, n_remote)
+	remote.start_neighbour_discovery(true)
+	local.start_neighbour_discovery(true)
+	p_local = remote.peers.find { true }.last
+
+	return [remote, p_remote, local, p_local]
+    end
+
+    def test_query
+	remote, p_remote, local, p_local = peer2peer
+	assert(p_local.connected?)
+	assert(p_remote.connected?)
+
+	mission, subtask = Task.new, Task.new
+	mission.realized_by subtask
+	remote.plan.insert(mission)
+
+	# Get the remote missions
+	r_missions = p_remote.plan.missions
+	assert_equal([mission].to_a, r_missions.to_a)
+
+	# Get the remote tasks
+	r_missions = p_remote.plan.known_tasks
+	assert_equal([mission, subtask].to_set, r_missions.to_set)
+    end
+end
 
