@@ -44,6 +44,8 @@ module Roby::Distributed
 	attr_reader :start_discovery
 	# A condition variable which is signalled when discovery finishes
 	attr_reader :finished_discovery
+	# The plan we are publishing, usually Control.instance.plan
+	attr_reader :plan
 
 	# The agent name on the network
 	attr_reader :name
@@ -51,10 +53,11 @@ module Roby::Distributed
 	def initialize(options = {})
 	    options = validate_options options, 
 		:name => "#{Socket.gethostname}-#{Process.pid}", # the name of this host
-	    :period => nil,				    # the discovery period
+		:period => nil,				    # the discovery period
 		:ring_discovery => true,		    # wether we should do discovery based on Rinda::RingFinger
 		:ring_broadcast => '',			    # the broadcast address for discovery
-		:discovery_tuplespace => nil		    # a central tuplespace which lists hosts (including ourselves)
+		:discovery_tuplespace => nil,		    # a central tuplespace which lists hosts (including ourselves)
+		:plan => nil				    # the plan we publish, uses Control.instance.plan if nil
 
 	    if options[:ring_discovery] && !options[:period]
 		raise ArgumentError, "you must provide a discovery period when using ring discovery"
@@ -67,6 +70,7 @@ module Roby::Distributed
 	    @peers		  = Hash.new
 	    @connection_listeners = Array.new
 	    @connection_listeners << Peer.method(:connection_listener)
+	    @plan		  = options[:plan] || Roby::Control.instance.plan
 
 	    @discovery_period     = options[:period]
 	    @ring_discovery       = options[:ring_discovery]
