@@ -71,3 +71,7 @@
   For instance, in PlanningLoop, we would tag the seeds (i.e. the planned tasks) with a certain
   name which would allow to add any child without the loop code noticing
 
+* Use a fully asynchronous model for peer-to-peer connection, only feeding the control thread once
+  in each execution cycle. This could allow to reduce peer-to-peer handshake length (which is currently
+  of 3 cycles). Note however that connection should be subject to decision control, so the connection
+  filtering should be done in the control thread ... Needs more thought.
