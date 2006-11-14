@@ -97,33 +97,42 @@ class TC_Distributed < Test::Unit::TestCase
 
 	remote = ConnectionSpace.new :ring_discovery => false, 
 	    :discovery_tuplespace => central_tuplespace, :name => "remote"
-	here   = ConnectionSpace.new :ring_discovery => false, 
-	    :discovery_tuplespace => central_tuplespace, :name => 'here'
+	local   = ConnectionSpace.new :ring_discovery => false, 
+	    :discovery_tuplespace => central_tuplespace, :name => 'local'
+	Distributed.state = local
 
-	Distributed.state = here
-	here.start_neighbour_discovery(true)
-
+	# Initiate the connection from +local+ and check we did ask for
+	# connection on +remote+
+	local.start_neighbour_discovery(true)
 	n_remote = Distributed.neighbours.find { true }
-	p_remote = Peer.new(here, n_remote)
-	assert(! p_remote.alive?)
-	assert(! p_remote.connected?)
-	assert_equal(here, p_remote.keepalive['tuplespace'])
+	p_remote = Peer.new(local, n_remote)
+	assert_equal(local,  p_remote.keepalive['tuplespace'])
 	assert_equal(remote, p_remote.neighbour.tuplespace)
 	assert_nothing_raised { remote.read(p_remote.keepalive.value, 0) }
+	# The connection is not alive yet since +remote+ does not have
+	# finalized the handshake yet
+	assert(! p_remote.connected?)
+	assert(! p_remote.alive?)
 
+	# After +remote+ has finished neighbour discovery, all connection
+	# attempts should have been finalized, so we should have a Peer object
+	# for +local+
 	remote.start_neighbour_discovery(true)
-	p_here = remote.peers.find { |_, p_here| p_here.neighbour.tuplespace == here }
-	assert(p_here)
-	p_here = p_here.last
-	assert_equal(remote, p_here.keepalive['tuplespace'])
-	assert_equal(here, p_here.neighbour.tuplespace)
-	assert_nothing_raised { here.read(p_here.keepalive.value, 0) }
-	assert(p_here.connected?)
-	assert(p_here.alive?)
+	p_local = remote.peers.find { |_, p_local| p_local.neighbour.tuplespace == local }
+	assert(p_local)
+	p_local = p_local.last
+	assert_equal(remote, p_local.keepalive['tuplespace'])
+	assert_equal(local,  p_local.neighbour.tuplespace)
+	assert_nothing_raised { local.read(p_local.keepalive.value, 0) }
+	assert(p_local.connected?)
+	assert(p_local.alive?)
+	# p_remote is still not alive since +local+ does not know the
+	# connection is finalized
 	assert(! p_remote.alive?)
 	assert(! p_remote.connected?)
 
-	here.start_neighbour_discovery(true)
+	# Finalize the connection
+	local.start_neighbour_discovery(true)
 	assert(p_remote.connected?)
 	assert(p_remote.alive?)
     end
