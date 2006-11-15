@@ -126,13 +126,9 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    error = ExecutionException.new(RuntimeError.new, t2)
 	    assert(fatal = Propagation.propagate_exceptions([error]))
-	    assert_equal(2, fatal.size)
-	    e1 = fatal.find { |e| e.stack.include?(t2) }
-	    e2 = fatal.find { |e| e != e1 }
-	    assert_same(e1.siblings, e2.siblings)
-	    assert_equal([e1, e2].to_set, e2.siblings.to_set)
-	    assert_equal([t2, t3], e1.stack)
-	    assert_equal([t2, t1, t0], e2.stack)
+	    assert_equal(1, fatal.size)
+	    e = *fatal
+	    assert_equal([t2, t1, [t3, t0]], e.stack)
 	end
     end
 

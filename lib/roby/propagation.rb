@@ -186,7 +186,15 @@ module Roby::Propagation
 		    has_parent = true
 		end
 
-		fatal << e unless has_parent
+		# Add unhandled exceptions to the fatal set. Merge siblings
+		# exceptions if possible
+		unless has_parent
+		    if s = fatal.find { |s| s.siblings.include?(e) }
+			s.merge(e)
+		    else fatal << e
+		    end
+		end
+
 		by_task
 	    end
 
