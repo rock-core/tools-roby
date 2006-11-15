@@ -31,6 +31,10 @@ module Roby
 	    siblings.each { |e| yield(e) unless e == self }
 	end
 
+	# Creates a new execution exception object with the specified source
+	# If +source+ is nil, tries to guess the source from +exception+: if
+	# +exception+ responds to #task or #generator we use either #task or
+	# call #generator.task
 	def initialize(exception, source = nil)
 	    @exception = exception
 	    @discarded = Array.new
@@ -39,7 +43,7 @@ module Roby
 
 	    if source
 		if source.respond_to?(:to_task)
-		    @stack << source
+		    @stack << source.to_task
 		elsif EventGenerator === source
 		    @generator = source
 		end
@@ -54,6 +58,10 @@ module Roby
 
 	    if !task && generator.respond_to?(:task)
 		@stack << generator.task
+	    end
+
+	    if !task && !generator
+		raise ArgumentError, "invalid exception specification: cannot get the exception source"
 	    end
 	end
 

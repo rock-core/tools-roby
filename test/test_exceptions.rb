@@ -56,7 +56,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    assert(task.handle_exception(error))
 	    assert(task.handle_exception(error))
 
-	    error = ExecutionException.new(RuntimeError.new)
+	    error = ExecutionException.new(RuntimeError.new, task)
 	    assert(! task.handle_exception(error))
 	end
     end
