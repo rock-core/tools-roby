@@ -78,6 +78,15 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    error = ExecutionException.new(RuntimeError.new, t2)
 	    assert_equal([error], Propagation.propagate_exceptions([error]))
+	    assert_equal(t0, error.task)
+
+	    # Redo that but this time define a global exception handler
+	    error = ExecutionException.new(RuntimeError.new, t2)
+	    Roby.on_exception(RuntimeError) do |mod, exception|
+		mock.global_handler(exception, exception.task, mod)
+	    end
+	    mock.should_receive(:global_handler).with(error, t0, Roby).once
+	    assert_equal([], Propagation.propagate_exceptions([error]))
 	end
     end
 

@@ -10,6 +10,30 @@ module Roby::Propagation
 	end
     end
 
+    # This module is to be included in all objects that are
+    # able to handle exception. These objects should define
+    # #each_exception_handler { |matchers, handler| ... }
+    module ExceptionHandlingObject
+	# Passes the exception to the next matching exception handler
+	def pass_exception
+	    throw :next_exception_handler
+	end
+
+	# Calls the exception handlers defined in this task for +exception_object.exception+
+	# Returns true if the exception has been handled, false otherwise
+	def handle_exception(exception_object)
+	    each_exception_handler do |matchers, handler|
+		if matchers.find { |m| m === exception_object.exception }
+		    catch(:next_exception_handler) do 
+			handler[self, exception_object]
+			return true
+		    end
+		end
+	    end
+	    return false
+	end
+    end
+
     @@propagate = true
     def self.disable_propagation; @@propagate = false end
     def self.enable_propagation; @@propagate = true end
@@ -195,12 +219,25 @@ module Roby::Propagation
 	    exceptions = new_exceptions
 	end
 
-	# Remove from fatal the exceptions which have a sibling which has
-	# been handled
-	fatal.find_all { |e| !e.handled? }
+	# Call global exception handlers for exceptions in +fatal+. Return the
+	# set of still unhandled exceptions
+	fatal.
+	    find_all { |e| !e.handled? }.
+	    find_all { |e| !Roby.handle_exception(e) }
     end
     # Hook called when an exception +e+ has been handled by +task+
     def self.handled_exception(e, task); super if defined? super end
+end
+
+module Roby
+    @exception_handlers = Array.new
+    class << self
+	attr_reader :exception_handlers
+	def each_exception_handler(&iterator); exception_handlers.each(&iterator) end
+	# define_method(:each_exception_handler, &Roby::Propagation.exception_handlers.method(:each))
+	def on_exception(*matchers, &handler); exception_handlers.unshift [matchers, handler] end
+	include Propagation::ExceptionHandlingObject
+    end
 end
 
 

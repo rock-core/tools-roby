@@ -1,6 +1,7 @@
 require 'roby/relations'
 require 'roby/event'
 require 'roby/plan-object'
+require 'roby/propagation'
 
 module Roby
     class TaskModelViolation < ModelViolation
@@ -673,7 +674,9 @@ module Roby
 	    (self.model == model || self.kind_of?(model)) && self_args == args
 	end
 
+	include Propagation::ExceptionHandlingObject
 	class_inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }
+	def each_exception_handler(&iterator); model(false).each_exception_handler(&iterator) end
 
 	# call-seq:
 	#   task_model.on_exception(TaskModelViolation, ...) { |task, exception_object| ... }
@@ -688,25 +691,6 @@ module Roby
 	# to pass the exception to previous handlers
 	def self.on_exception(*matchers, &handler)
 	    exception_handlers.unshift [matchers, handler]
-	end
-
-	# Passes the exception to the next matching exception handler
-	def pass_exception
-	    throw :next_exception_handler
-	end
-
-	# Calls the exception handlers defined in this task for +exception_object.exception+
-	# Returns true if the exception has been handled, false otherwise
-	def handle_exception(exception_object)
-	    model(false).each_exception_handler do |matchers, handler|
-		if matchers.find { |m| m === exception_object.exception }
-		    catch(:next_exception_handler) do 
-			handler[self, exception_object]
-			return true
-		    end
-		end
-	    end
-	    return false
 	end
     end
 
