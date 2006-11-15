@@ -1,4 +1,5 @@
 require 'roby/exceptions'
+require 'utilrb/exception/full_message'
 
 # This module contains all code necessary for the propagation steps during execution. This includes
 # event propagation and exception propagation
@@ -47,18 +48,37 @@ module Roby::Propagation
     def self.source_generators; Thread.current[:propagation_generators] end
     def self.propagation_id; Thread.current[:propagation_id] end
 
-    # Begin a propagation stage
+    def self.to_execution_exception(error, source = nil)
+	Roby::ExecutionException.new(error, source)
+
+    rescue ArgumentError
+	Roby::Propagation.error <<-EOM
+got an exception which did not specify its source
+#{error.full_message}
+	EOM
+    end
+
+    # Begin an event propagation stage
     def self.gather_propagation
 	raise "nested call to #gather_propagation" if gathering?
 	Thread.current[:propagation] = Hash.new
 
-	propagation_context(nil) do
-	    yield
-	end
+	propagation_context(nil) { yield }
 
 	return Thread.current[:propagation]
     ensure
 	Thread.current[:propagation] = nil
+    end
+
+    # Gather any exception raised by the block and saves it # for later
+    # processing by the event loop. If +source+ is given, it is used as the
+    # exception source
+    def self.gather_exceptions(source = nil)
+	begin
+	    yield
+	rescue RuntimeError => e
+	    Thread.current[:propagation_exceptions] << to_execution_exception(e, source)
+	end
     end
 
     # Sets the source_event and source_generator variables according
@@ -107,16 +127,22 @@ module Roby::Propagation
     # Calls its block in a #gather_propagation context and propagate events
     # that have been called and/or emitted by the block
     #
-    # the block argument is the initial set of events: the events we should
-    # consider as already emitted in the following propagation
-    def self.propagate_events
+    # If a block is given, it is called with the initial set of events: the
+    # events we should consider as already emitted in the following propagation.
+    # +seeds+ si a list of procs which should be called to initiate the propagation
+    # (i.e. build an initial set of events)
+    def self.propagate_events(seeds = [])
 	return if !propagate?
 
 	Thread.current[:propagation_id] = (@@propagation_id += 1)
+	Thread.current[:propagation_exceptions] = []
 
 	initial_set = []
 	next_step = gather_propagation do
-	    yield(initial_set)
+	    gather_exceptions { yield(initial_set) }
+	    seeds.each do |s|
+		gather_exceptions { s.call }
+	    end
 	end
 
 	# Problem with postponed: the object is included in already_seen while it
@@ -126,10 +152,11 @@ module Roby::Propagation
 	while !next_step.empty?
 	    next_step = event_propagation_step(next_step, already_seen)
 	end        
-	return self
+	return Thread.current[:propagation_exceptions]
 
     ensure
 	Thread.current[:propagation_id] = nil
+	Thread.current[:propagation_exceptions] = nil
     end
 
     def self.event_propagation_step(current_step, already_seen)
@@ -150,10 +177,12 @@ module Roby::Propagation
 		end
 
 		did_call = propagation_context(sources) do |result|
-		    if !forward && signalled.controlable?
-			signalled.call_without_propagation(context) 
-		    else
-			signalled.emit_without_propagation(context)
+		    gather_exceptions do
+			if !forward && signalled.controlable?
+			    signalled.call_without_propagation(context) 
+			else
+			    signalled.emit_without_propagation(context)
+			end
 		    end
 		end
 

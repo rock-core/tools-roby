@@ -263,8 +263,8 @@ class TC_Task < Test::Unit::TestCase
 	end.new
 	task.executable = false
 
-	assert_raises(NotExecutable) { task.start!(nil) }
-	assert_raises(NotExecutable) { task.event(:start).call(nil) }
+	assert_raises(TaskNotExecutable) { task.start!(nil) }
+	assert_raises(EventNotExecutable) { task.event(:start).call(nil) }
 
 	task.executable = true
 	assert_nothing_raised { task.event(:start).call(nil) }

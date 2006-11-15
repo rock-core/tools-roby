@@ -4,14 +4,6 @@ require 'roby/exceptions'
 require 'roby/relations'
 
 module Roby
-    class NotExecutable < ModelViolation
-	attr_reader :object
-	def initialize(object)
-	    @object = object
-	    super()
-	end
-    end
-
     class EventModelViolation < ModelViolation
 	attr_reader :generator
 	def initialize(generator)
@@ -19,6 +11,8 @@ module Roby
 	    super()
 	end
     end
+
+    class EventNotExecutable < EventModelViolation; end
     class EventCanceled < EventModelViolation; end
     class EventPreconditionFailed < EventModelViolation; end
 
@@ -145,15 +139,16 @@ module Roby
 	    if !controlable?
 		raise EventModelViolation.new(self), "#call called on a non-controlable event"
 	    elsif !executable?
-		raise NotExecutable.new(self), "#call called on #{self} which is non-executable event"
+		raise EventNotExecutable.new(self), "#call called on #{self} which is non-executable event"
 	    end
 
 	    if Propagation.gathering?
 		Propagation.add_event_propagation(false, Propagation.source_events, self, context)
 	    else
-		Propagation.propagate_events do |initial_set|
+		exceptions = Propagation.propagate_events do |initial_set|
 		    initial_set << self if call_without_propagation(context)
 		end
+		exceptions.each { |e| raise e.exception }
 	    end
 	end
 	private :call
@@ -242,7 +237,7 @@ module Roby
 	# Returns true to match the behavior of #call_without_propagation
 	def emit_without_propagation(context)
 	    if !executable?
-		raise NotExecutable.new(self), "#emit called on #{self} which is not executable"
+		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"
 	    end
 
 	    # Create the event object
@@ -261,7 +256,7 @@ module Roby
 	# Emit the event with +context+ as the new event context
 	def emit(context)
 	    if !executable?
-		raise NotExecutable.new(self), "#emit called on #{self} which is not executable"
+		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"
 	    end
 
 	    if Propagation.gathering?
@@ -273,10 +268,11 @@ module Roby
 		return
 	    end
 
-	    Propagation.propagate_events do |initial_set|
+	    exceptions = Propagation.propagate_events do |initial_set|
 		initial_set << self
 		emit_without_propagation(context)
 	    end
+	    exceptions.each { |e| raise e.exception }
 	end
 
 	# call-seq:

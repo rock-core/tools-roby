@@ -206,8 +206,9 @@ module Roby
 	def find_tasks; Query.new(self) end
 
 	# Kills and removes all unneeded tasks
-	def garbage_collect
-	    children = unneeded_tasks
+	def garbage_collect(force_on = [])
+	    children = unneeded_tasks | force_on.to_value_set
+
 	    loop do
 		roots, children = children.partition { |t| t.root?(TaskStructure::Hierarchy) }
 		break if roots.empty?

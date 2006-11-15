@@ -25,6 +25,8 @@ module Roby
         end
     end
 
+    class TaskNotExecutable < TaskModelViolation; end
+
     # Base class for task events
     # When events are emitted, then the created object is 
     # an instance of a class derived from this one
@@ -302,7 +304,7 @@ module Roby
         # and commands are called
         def fire_event(event)
 	    if !executable?
-		raise NotExecutable.new(self), "trying to fire #{event.generator.symbol} on #{self} but #{self} is not executable"
+		raise EventNotExecutable.new(self), "trying to fire #{event.generator.symbol} on #{self} but #{self} is not executable"
 	    end
 
 	    final_event = self.final_event
@@ -479,7 +481,7 @@ module Roby
 		# define an instance method which calls the event command
 		define_method("#{ev_s}!") do |*context| 
 		    if !executable?
-			raise NotExecutable.new(self), "cannot call event command #{ev_s} on #{self} because the task is not executable"
+			raise TaskNotExecutable.new(self), "cannot call event command #{ev_s} on #{self} because the task is not executable"
 		    end
 
 		    context = *context # emulate default value for blocks

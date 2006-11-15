@@ -1,6 +1,7 @@
 require 'roby/support'
 require 'drb'
 require 'set'
+require 'utilrb/exception/full_message'
 
 module Roby
     class Control
@@ -10,10 +11,17 @@ module Roby
 	# SLEEP_MIN_TIME time left in the cycle
 	SLEEP_MIN_TIME = 0.01
 
-	@event_processing = []
+	@event_processing	= []
+	@structure_checks	= []
 	class << self
 	    # List of procs which are called at each event cycle
 	    attr_reader :event_processing
+	    # List of procs to be called for task structure checking
+	    #
+	    # These should raise exceptions for each problem in the task
+	    # structure. The exception *must* respond to #task to know
+	    # from which task the problem comes.
+	    attr_reader :structure_checks
 	end
 	attr_reader :plan, :planners
 
@@ -63,6 +71,25 @@ module Roby
 	    Roby.info "Started DRb server on #{drb_uri}"
 	end
 
+	# Perform the structure checking step by calling the procs registered
+	# in Control::structure_checks. These procs are supposed to return a
+	# collection of exception objects, or nil if no error has been found
+	def structure_checking
+	    # Do structure checking and gather the raised exceptions
+	    exceptions = Control.structure_checks.
+		map { |prc| prc.call }.
+		compact.
+		flatten
+
+	    exceptions.map! do |error|
+		next unless error
+		Propagation.to_execution_exception(error)
+	    end
+
+	    exceptions.compact!
+	    exceptions
+	end
+
 	# Process the pending events. Returns a [cycle, server, processing]
 	# array which are the duration of the whole cycle, the handling of
 	# the server commands and the event processing
@@ -73,15 +100,25 @@ module Roby
 	    Thread.current.process_events
 	    timings[:server] = Time.now
 	    
-	    # Call event processing registered by other modules 
-	    # and propagate events
-	    Propagation.propagate_events do
+	    # Gather new events and propagate them
+	    exceptions = Propagation.propagate_events do
 		Control.event_processing.each { |prc| prc.call }
 	    end
 	    timings[:events] = Time.now
-	    
-	    # Do garbage collection
-	    plan.garbage_collect
+
+	    # Propagate exceptions that came from event propagation
+	    Propagation.propagate_exceptions(exceptions)
+	    timings[:events_exceptions] = Time.now
+
+	    # Generate exceptions from task structure
+	    exceptions = structure_checking
+	    timings[:structure_check] = Time.now
+	    Propagation.propagate_exceptions(exceptions)
+	    timings[:structure_check_exceptions] = Time.now
+
+	    # Do garbage collection, forcing GC on remaining problematic tasks
+	    all_tasks = structure_checking.map { |error| error.task }
+	    plan.garbage_collect(all_tasks)
 	    timings[:end] = timings[:garbage_collect] = Time.now
 
 	    if do_gc
