@@ -42,13 +42,13 @@ module Roby
 	def disable_propagation
 	    if block_given?
 		begin
-		    EventGenerator.disable_propagation 
+		    Propagation.disable_propagation 
 		    yield
 		ensure
-		    EventGenerator.enable_propagation 
+		    Propagation.enable_propagation 
 		end
 	    else
-		EventGenerator.disable_propagation 
+		Propagation.disable_propagation 
 	    end
 	end
 	# Enable all event propagation
