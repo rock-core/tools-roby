@@ -439,8 +439,8 @@ class TC_Event < Test::Unit::TestCase
 	    e1.on { |event| mock.e1(event.context) }
 	    e2.on { |event| mock.e2(event.context) }
 
-	    mock.should_receive(:e1).with(mock)
-	    mock.should_receive(:e2).with(mock)
+	    mock.should_receive(:e1).with(mock).once
+	    mock.should_receive(:e2).with(mock).once
 	    e1.call(mock)
 	end
     end

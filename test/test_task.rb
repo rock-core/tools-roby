@@ -153,8 +153,8 @@ class TC_Task < Test::Unit::TestCase
 		on(:stop) { |event| mock.stopped(event.context) }
 	    end.new
 
-	    mock.should_receive(:started).with(42)
-	    mock.should_receive(:stopped).with(21)
+	    mock.should_receive(:started).with(42).once
+	    mock.should_receive(:stopped).with(21).once
 	    task.start!(42)
 	    task.emit(:stop, 21)
 	end

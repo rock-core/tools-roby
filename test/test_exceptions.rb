@@ -51,8 +51,10 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    task  = klass.new
 	    error = ExecutionException.new(TaskModelViolation.new(task))
-	    mock.should_receive(:handler2).with(error, task, task).ordered
-	    mock.should_receive(:handler1).with(error, task, task).ordered
+	    mock.should_receive(:handler2).with(error, task, task).once.ordered
+	    mock.should_receive(:handler1).with(error, task, task).once.ordered
+	    assert(task.handle_exception(error))
+	    assert(task.handle_exception(error))
 
 	    error = ExecutionException.new(RuntimeError.new)
 	    assert(! task.handle_exception(error))
@@ -71,7 +73,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t1.realized_by t2
 
 	    error = ExecutionException.new(TaskModelViolation.new(t2))
-	    mock.should_receive(:handler).with(error, t1, t0)
+	    mock.should_receive(:handler).with(error, t1, t0).once
 	    assert_equal([], Propagation.propagate_exceptions([error]))
 	    assert_equal([error], error.siblings)
 	    assert_equal([t2, t1], error.stack)
@@ -108,7 +110,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t3.realized_by t2
 
 	    error = ExecutionException.new(TaskModelViolation.new(t2))
-	    mock.should_receive(:handler).with(ExecutionException, t1, t0)
+	    mock.should_receive(:handler).with(ExecutionException, t1, t0).once
 	    # There are two possibilities here:
 	    #	1/ the error propagation begins with t1 -> t0, in which case +error+
 	    #	   is t0.handled_exception and there may be no sibling (the error is
