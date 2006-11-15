@@ -19,13 +19,12 @@ end
 
 module Roby
     module Distributed
-	DEFAULT_RING_PORT = 48932
 	# Reimplements Rinda::RingServer, removing the tuplespace intermediate and
 	# the creation of most threads. This is done for performance reasons.
 	class RingServer < Rinda::RingServer
 	    # Added a :bind option
 	    def initialize(ts, options = {})
-		options = validate_options options, :bind => '', :port => Distributed::DEFAULT_RING_PORT
+		options = validate_options options, :bind => '', :port => Rinda::Ring_PORT
 		@ts  = ts
 		@soc = UDPSocket.new
 		@soc.bind options[:bind], options[:port]
