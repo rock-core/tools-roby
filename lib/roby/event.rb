@@ -262,6 +262,8 @@ module Roby
 
 	    if Propagation.gathering?
 		if Propagation.source_generators.include?(self)
+		    # WTF ? an event calling itself ? I remember that there is a good 
+		    # reason for that, but can't recall which. That sucks.
 		    emit_without_propagation(context)
 		else
 		    Propagation.add_event_propagation(true, Propagation.source_events, self, context)
