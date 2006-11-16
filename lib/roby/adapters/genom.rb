@@ -296,7 +296,7 @@ module Roby::Genom
 		    alias :__roby__dead! :dead!
 		    def dead!
 			__roby__dead!
-			@roby_runner_task.emit(:failed, "process died") if Roby::EventGenerator.propagate?
+			@roby_runner_task.emit(:failed, "process died") if Roby::Propagation.propagate?
 		    end
 		end
 	    end
