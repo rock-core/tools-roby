@@ -75,3 +75,13 @@
   in each execution cycle. This could allow to reduce peer-to-peer handshake length (which is currently
   of 3 cycles). Note however that connection should be subject to decision control, so the connection
   filtering should be done in the control thread ... Needs more thought.
+
+* Better handling of emit() in exception context. emit() SHALL be sent whatever exception happens. For
+  instance, if an already running task calls emit() we MUST propagate that event (the timepoint has
+  been reached). Nonetheless, the task will be killed by exception handling of course ;-)
+
+* Check that we can fix the behaviour of #happened?(true) to return false when the event is already
+  in history, but from the same propagation cycle. This would need to have a new propagation ID for
+  each call to #event_propagation_step instead of only #event_propagation since each step is supposed
+  to represent (a false view of) the partial ordering of events.
+
