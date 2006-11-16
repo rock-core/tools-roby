@@ -2,6 +2,8 @@ require 'test_config'
 require 'flexmock'
 require 'roby/task'
 require 'roby/propagation'
+require 'roby/control'
+require 'mockups/tasks'
 
 class TC_Exceptions < Test::Unit::TestCase 
     include Roby
@@ -183,6 +185,77 @@ class TC_Exceptions < Test::Unit::TestCase
 	    assert_equal(t2, found_exception.origin)
 	    assert_equal([t3, t1].to_set, found_exception.task.to_set)
 	end
+    end
+
+    def test_event_propagation_with_exception
+	ev = EventGenerator.new do |context|
+	    raise RuntimeError
+	    ev.emit(context)
+	end
+	assert_raises(RuntimeError) { ev.call(nil) }
+	assert(!ev.happened?)
+
+	# Check that the event is emitted anyway
+	ev = EventGenerator.new do |context|
+	    ev.emit(context)
+	    raise RuntimeError
+	end
+	assert_raises(RuntimeError) { ev.call(nil) }
+	assert(ev.happened?)
+
+	# Check signalling
+	ev = EventGenerator.new do |context|
+	    ev.emit(context)
+	    raise RuntimeError
+	end
+	ev2 = EventGenerator.new(true)
+	ev.on ev2
+
+	assert_raises(RuntimeError) { ev.call(nil) }
+	assert(ev.happened?)
+	assert(ev2.happened?)
+
+	# Check event handlers
+	FlexMock.use do |mock|
+	    ev = EventGenerator.new(true)
+	    ev.on { mock.handler ; raise RuntimeError }
+	    ev.on { mock.handler ; raise RuntimeError }
+	    mock.should_receive(:handler).twice
+	    assert_raises(RuntimeError) { ev.call }
+	end
+    end
+
+    # Tests exception handling mechanism during event propagation
+    def test_task_propagation_with_exception
+	task = Class.new(ExecutableTask) do
+	    def start(context)
+		emit(:start)
+		raise RuntimeError, "failed"
+	    end
+	    event :start
+	end.new
+
+	FlexMock.use do |mock|
+	    parent = Class.new(Task) do
+		on_exception RuntimeError do
+		    mock.exception
+		    task.pass_exception
+		end
+	    end.new
+	    mock.should_receive(:exception).once
+
+	    parent.realized_by task
+
+	    Roby::Control.once { task.start! }
+
+	    mock.should_receive(:other_once_handler).once
+	    mock.should_receive(:other_event_processing).once
+	    Roby::Control.once { mock.other_once_handler }
+	    Roby::Control.event_processing << lambda { mock.other_event_processing }
+
+	    assert_raises(RuntimeError) { Roby::Control.instance.process_events }
+	end
+	assert(task.event(:start).happened?)
     end
 end
 
