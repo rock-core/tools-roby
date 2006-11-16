@@ -112,9 +112,7 @@ module Roby
 	    timings[:server] = Time.now
 	    
 	    # Gather new events and propagate them
-	    exceptions = Propagation.propagate_events do
-		Control.event_processing.each { |prc| prc.call }
-	    end
+	    exceptions = Propagation.propagate_events(Control.event_processing)
 	    timings[:events] = Time.now
 
 	    # Propagate exceptions that came from event propagation
