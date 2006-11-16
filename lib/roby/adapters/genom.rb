@@ -281,14 +281,13 @@ module Roby::Genom
 	    if genom_module.wait_running(true)
 		Roby::Control.event_processing.delete(method(:poll_running))
 		emit :start, nil
-		ready
 	    end
 
 	rescue RuntimeError => e
 	    event(:start).emit_failed e.message
 	end
 
-	def ready
+	def ready(context)
 	    # Redefine GenomModule#dead! so that :failed gets
 	    # emitted when the module process is killed
 	    unless genom_module.respond_to?(:__roby__dead!)
@@ -323,7 +322,8 @@ module Roby::Genom
 	    end
 	end
 	# Event emitted when the module has been initialized
-	event :ready, :command => false
+	event :ready
+	on :start => :ready
 
 	# Stops the module
 	def failed(context)
