@@ -114,11 +114,10 @@ module Roby
 		    @pending += 1
 
 		    Propagation.propagation_context([self]) do
-			block[context]
+			Propagation.gather_exceptions(self) { block[context] }
 		    end
-
 		    called(context)
-		    nil
+		    false
 		end
 
 		if postponed
@@ -205,7 +204,9 @@ module Roby
 		# Since we are in a gathering context, call
 		# to other objects are not done, but gathered in the 
 		# :propagation TLS
-		each_handler { |h| h.call(event) }
+		each_handler do |h| 
+		    Propagation.gather_exceptions(self) { h.call(event) }
+		end
 	    end
 
 	ensure
