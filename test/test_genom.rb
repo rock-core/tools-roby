@@ -7,9 +7,14 @@ class TC_Genom < Test::Unit::TestCase
     include Roby
     include CommonTestBehaviour
 
+    attr_reader :plan
+
     def env; Genom::Runner.environment end
     def setup
+	super
+
         Genom::Runner.environment || Genom::Runner.h2 
+	@plan = Plan.new
     end
     def teardown
 	Control.instance.disable_propagation do
@@ -110,12 +115,14 @@ class TC_Genom < Test::Unit::TestCase
             Genom::GenomModule('mockup')
 
             runner = Genom::Mockup.runner!
-	    runner.executable = true
+	    plan.insert(runner)
+
 	    runner.start!
 	    assert_event( runner.event(:ready) )
 
 	    task = Genom::Mockup.start!
-	    task.executable = true
+	    plan.insert(task)
+
 	    assert_equal(Genom::Mockup::Runner, task.class.execution_agent)
 	    
 	    task.start!
@@ -146,13 +153,15 @@ class TC_Genom < Test::Unit::TestCase
 	GC.start
 
 	::Genom.connect do
-            runner = Genom::Mockup.runner!
-	    runner.executable = true
+	    runner = Genom::Mockup.runner!
+	    plan.insert(runner)
+
 	    runner.start!
 	    assert_event( runner.event(:ready) )
 
 	    task = Genom::Mockup.start!
-	    task.executable = true
+	    plan.insert(task)
+
 	    assert_raises(Roby::EventPreconditionFailed) { task.start!(nil) }
 	end
     end
