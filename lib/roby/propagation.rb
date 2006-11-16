@@ -55,16 +55,6 @@ module Roby::Propagation
 	Thread.current[:current_propagation_set].has_key?(generator)
     end
 
-    def self.to_execution_exception(error, source = nil)
-	Roby::ExecutionException.new(error, source)
-
-    rescue ArgumentError
-	Roby::Propagation.error <<-EOM
-got an exception which did not specify its source
-#{error.full_message}
-	EOM
-    end
-
     # Begin an event propagation stage
     def self.gather_propagation
 	raise "nested call to #gather_propagation" if gathering?
@@ -79,14 +69,27 @@ got an exception which did not specify its source
 	Thread.current[:current_propagation_set] = nil
     end
 
-    # Gather any exception raised by the block and saves it # for later
+    def self.to_execution_exception(error, source = nil)
+	Roby::ExecutionException.new(error, source)
+
+    rescue ArgumentError
+	Roby.error <<-EOM
+got an exception which did not specify its source
+#{error.full_message}
+	EOM
+	nil
+    end
+
+    # Gather any exception raised by the block and saves it for later
     # processing by the event loop. If +source+ is given, it is used as the
     # exception source
     def self.gather_exceptions(source = nil)
 	begin
 	    yield
+
 	rescue RuntimeError => e
-	    Thread.current[:propagation_exceptions] << to_execution_exception(e, source)
+	    e = to_execution_exception(e, source)
+	    Thread.current[:propagation_exceptions] << e if e
 	end
     end
 
