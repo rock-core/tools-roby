@@ -324,7 +324,7 @@ module Roby
 	    super if defined? super 
 	    each_precondition do |reason, block|
 		result = begin
-			     block.call(context)
+			     block.call(self, context)
 			 rescue EventPreconditionFailed => e
 			     e.generator = self
 			     raise

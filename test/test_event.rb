@@ -447,7 +447,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_preconditions
 	e1 = EventGenerator.new(true)
-	e1.precondition("context must be non-nil") do |context|
+	e1.precondition("context must be non-nil") do |generator, context|
 	    context
 	end
 

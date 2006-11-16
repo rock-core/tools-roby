@@ -160,9 +160,10 @@ module Roby::Genom
 		request = roby_module.const_get(request)
 	    end
 
-	    precondition(:start, "#{name} needs #{request} to have been executed at least once") do |context|
-		Roby::Task.each_task(request) { |rq| break(true) if rq.success? }
-		false
+	    precondition(:start, "#{name} needs #{request} to have been executed at least once") do |generator, context|
+		generator.plan.enum_for(:each_task).any? do |task|
+		    request === task && request.success?
+		end
 	    end
 	end
     end
