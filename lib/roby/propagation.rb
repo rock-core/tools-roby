@@ -1,9 +1,13 @@
+require 'roby/support'
 require 'roby/exceptions'
 require 'utilrb/exception/full_message'
 
 # This module contains all code necessary for the propagation steps during execution. This includes
 # event propagation and exception propagation
 module Roby::Propagation
+    extend Logger::Hierarchy
+    extend Logger::Forward
+
     class PropagationException < Roby::ModelViolation
 	attr_reader :sources
 	def initialize(sources)
