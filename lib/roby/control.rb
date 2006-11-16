@@ -11,6 +11,8 @@ module Roby
 	# SLEEP_MIN_TIME time left in the cycle
 	SLEEP_MIN_TIME = 0.01
 
+	attr_accessor :abort_on_exception
+
 	@event_processing	= []
 	@structure_checks	= []
 	class << self
@@ -90,6 +92,15 @@ module Roby
 	    exceptions
 	end
 
+	def reraise(exceptions)
+	    if !exceptions.empty? && abort_on_exception
+		exceptions.each do |e|
+		    e = e.exception
+		    raise e, e.message, e.backtrace
+		end
+	    end
+	end
+
 	# Process the pending events. Returns a [cycle, server, processing]
 	# array which are the duration of the whole cycle, the handling of
 	# the server commands and the event processing
@@ -107,14 +118,18 @@ module Roby
 	    timings[:events] = Time.now
 
 	    # Propagate exceptions that came from event propagation
-	    Propagation.propagate_exceptions(exceptions)
+	    exceptions = Propagation.propagate_exceptions(exceptions)
 	    timings[:events_exceptions] = Time.now
+
+	    reraise(exceptions) if abort_on_exception
 
 	    # Generate exceptions from task structure
 	    exceptions = structure_checking
 	    timings[:structure_check] = Time.now
-	    Propagation.propagate_exceptions(exceptions)
+	    exceptions = Propagation.propagate_exceptions(exceptions)
 	    timings[:structure_check_exceptions] = Time.now
+
+	    reraise(exceptions) if abort_on_exception
 
 	    # Do garbage collection, forcing GC on remaining problematic tasks
 	    all_tasks = structure_checking.map { |error| error.task }
