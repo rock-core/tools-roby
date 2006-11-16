@@ -22,10 +22,32 @@ module CommonTestBehaviour
 	attr_accessor :check_allocation_count
     end
 
+    attribute(:original_collections) { Array.new }
+    def save_collection(obj)
+	original_collections << [obj, obj.dup]
+    end
+    def restore_collections
+	original_collections.each do |col, backup|
+	    col.delete_if { |obj| !backup.include?(obj) }
+	end
+    end
+
     def setup
+	# Save and restore Control's global arrays
+	if defined? Roby::Control
+	    save_collection Roby::Control.event_processing
+	    save_collection Roby::Control.structure_checks
+	    Roby::Control.instance.abort_on_exception = true
+	end
+
+	if defined? Roby.exception_handlers
+	    save_collection Roby.exception_handlers
+	end
     end
 
     def teardown
+	restore_collections
+
 	if respond_to?(:plan) && plan
 	    plan.clear
 	end
@@ -35,6 +57,10 @@ module CommonTestBehaviour
 	    space.relations.each { |rel| rel.each_vertex { |v| v.clear_vertex } }
 	end
 	
+
+	if defined? Roby::Control
+	    Roby::Control.instance.abort_on_exception = false
+	end
 
 	if CommonTestBehaviour.check_allocation_count
 	    count = ObjectStats.count
