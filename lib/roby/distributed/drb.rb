@@ -22,9 +22,15 @@ module Roby
 	# Reimplements Rinda::RingServer, removing the tuplespace intermediate and
 	# the creation of most threads. This is done for performance reasons.
 	class RingServer < Rinda::RingServer
+	    attr_reader :bind, :port
+
 	    # Added a :bind option
 	    def initialize(ts, options = {})
 		options = validate_options options, :bind => '', :port => Rinda::Ring_PORT
+
+		@bind = options[:bind]
+		@port = options[:port]
+
 		@ts  = ts
 		@soc = UDPSocket.new
 		@soc.bind options[:bind], options[:port]

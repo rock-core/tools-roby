@@ -9,6 +9,8 @@ module Roby::Distributed
     extend Logger::Hierarchy
     extend Logger::Forward
 
+    DISCOVERY_RING_PORT = 48932
+
     # A neighbour is a named remote ConnectionSpace object
     Neighbour = Struct.new :name, :tuplespace
 
@@ -100,13 +102,20 @@ module Roby::Distributed
 	# after #neighbours have been updated
 	attr_reader :connection_listeners
 
+	def discovery_port
+	    if Roby::Distributed.server
+		Roby::Distributed.server.port
+	    else DISCOVERY_RING_PORT
+	    end
+	end
+
 	# Loop which does neighbour_discovery
 	def neighbour_discovery
 	    new_neighbours = Queue.new
-	    finger = Rinda::RingFinger.new(ring_broadcast) if ring_discovery?
 
 	    # Initialize so that @discovery_start == discovery_start
 	    discovery_start = nil
+	    finger	    = nil
 	    loop do
 		synchronize do 
 		    @last_discovery = discovery_start
@@ -123,6 +132,10 @@ module Roby::Distributed
 			start_discovery.wait
 		    end
 		    discovery_start = @discovery_start
+
+		    if ring_discovery? && (!finger || (finger.port != discovery_port))
+			finger = Rinda::RingFinger.new(ring_broadcast, discovery_port)
+		    end
 		end
 
 		if central_discovery?
@@ -181,7 +194,10 @@ module Roby::Distributed
 
 	# Publish Distributed.state on the network
 	def published?; !!@server end
-	def publish(options = {}); @server = RingServer.new(state, options) end
+	def publish(options = {})
+	    options[:port] ||= DISCOVERY_RING_PORT
+	    @server = RingServer.new(state, options) 
+	end
 	def unpublish
 	    if server 
 		server.close
