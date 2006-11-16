@@ -190,7 +190,7 @@ got an exception which did not specify its source
 		end
 
 		did_call = propagation_context(sources) do |result|
-		    gather_exceptions do
+		    gather_exceptions(signalled) do
 			if !forward && signalled.controlable?
 			    signalled.call_without_propagation(context) 
 			else
