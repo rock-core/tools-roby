@@ -142,6 +142,22 @@ module Roby
 	    timings
 	end
 
+	class << self
+	    attribute(:process_once) { Queue.new }
+	    def call_once
+		while (p = process_once.pop(true) rescue nil)
+		    Propagation.gather_exceptions { p.call }
+		end
+	    end
+	    Control.event_processing << Control.method(:call_once)
+
+	    # Call block once during event processing
+	    def once(&block)
+		process_once.push block
+	    end
+	end
+
+
 	attr_accessor :thread
 	def running?; !!@thread end
 
