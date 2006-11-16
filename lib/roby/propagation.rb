@@ -151,7 +151,7 @@ got an exception which did not specify its source
 
 	initial_set = []
 	next_step = gather_propagation do
-	    gather_exceptions { yield(initial_set) }
+	    gather_exceptions { yield(initial_set) } if block_given?
 	    seeds.each do |s|
 		gather_exceptions { s.call }
 	    end
