@@ -47,6 +47,9 @@ module Roby::Propagation
     def self.source_events; Thread.current[:propagation_events] end
     def self.source_generators; Thread.current[:propagation_generators] end
     def self.propagation_id; Thread.current[:propagation_id] end
+    def self.pending_event?(generator)
+	Thread.current[:current_propagation_set].has_key?(generator)
+    end
 
     def self.to_execution_exception(error, source = nil)
 	Roby::ExecutionException.new(error, source)
@@ -62,12 +65,14 @@ got an exception which did not specify its source
     def self.gather_propagation
 	raise "nested call to #gather_propagation" if gathering?
 	Thread.current[:propagation] = Hash.new
+	Thread.current[:current_propagation_set] ||= Hash.new
 
 	propagation_context(nil) { yield }
 
 	return Thread.current[:propagation]
     ensure
 	Thread.current[:propagation] = nil
+	Thread.current[:current_propagation_set] = nil
     end
 
     # Gather any exception raised by the block and saves it # for later
@@ -160,6 +165,7 @@ got an exception which did not specify its source
     end
 
     def self.event_propagation_step(current_step, already_seen)
+	Thread.current[:current_propagation_set] = current_step
 	gather_propagation do
 	    # Note that internal signalling does not need a #call
 	    # method (hence the respond_to? check). The fact that the

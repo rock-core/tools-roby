@@ -288,7 +288,10 @@ module Roby
 
 	def controlable?; @controlable end
 	attribute(:history) { Array.new }
-	def happened?; !history.empty?  end
+	def happened?(strict = true)
+	    !history.empty? || 
+		(!strict && Propagation.gathering? && Propagation.pending_event?(self))
+	end
 	def last
 	    return if history.empty?
 	    history.last[1] 

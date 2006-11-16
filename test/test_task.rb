@@ -223,6 +223,21 @@ class TC_Task < Test::Unit::TestCase
 
 	assert_raises(Roby::TaskModelViolation) { task.inter! }
 	assert_equal(0, task.event(:inter).pending)
+
+	task = Class.new(Task) do
+	    def start(context)
+		inter(nil)
+		emit :start
+	    end
+	    event :start
+
+	    def inter(context)
+		emit :inter
+	    end
+	    event :inter
+	end.new
+	task.executable = true
+	assert_nothing_raised { task.start! }
     end
 
     def test_aborted_until
