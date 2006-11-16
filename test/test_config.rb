@@ -45,6 +45,9 @@ module CommonTestBehaviour
     end
 end
 
+#require 'roby/log/console'
+#Roby::Log.loggers << Roby::Log::ConsoleLogger.new(STDERR)
+
 module Test::Unit::Assertions
     class FailedTimeout < RuntimeError; end
     def assert_doesnt_timeout(seconds, message = "watchdog #{seconds} failed")
