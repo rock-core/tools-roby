@@ -32,9 +32,6 @@ module Roby
 	attr_reader :generator
 	# The exception object
 	attr_reader :exception
-	# A list of propagation that have not been done
-	# because of exception handling
-	attr_reader :discarded
 
 	# If this specific exception has been marked has handled
 	attr_accessor :handled
