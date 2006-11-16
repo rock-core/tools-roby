@@ -11,23 +11,48 @@ class TC_Exceptions < Test::Unit::TestCase
 	task = Task.new
 	error = ExecutionException.new(TaskModelViolation.new(task))
 	assert_equal(task, error.task)
-	assert_equal([task], error.stack)
+	assert_equal([task], error.trace)
 	assert_equal(nil, error.generator)
     end
 
     def test_execution_exception_fork
 	task = Task.new
-	error = ExecutionException.new(TaskModelViolation.new(task))
-	s = error.fork
+	e = ExecutionException.new(TaskModelViolation.new(task))
+	s = e.fork
 
-	assert_equal([error, s], error.siblings)
-	assert_equal([error, s], s.siblings)
-	s.stack << (t2 = Task.new)
-	assert_equal([task], error.stack)
-	assert_equal([task, t2], s.stack)
+	assert_equal([e, s], e.siblings)
+	assert_equal([e, s], s.siblings)
+	e.trace << (t1 = Task.new)
+	s.trace << (t2 = Task.new)
+	assert_equal([task, t1], e.trace)
+	assert_equal([task, t2], s.trace)
 
-	error.merge(s)
-	assert_equal([task, t2], error.task)
+	e.merge(s)
+	assert_equal([task, [t1, t2]], e.trace)
+
+	s = e.fork
+	e.merge(s)
+	assert_equal([t1, t2], e.task)
+	assert_equal(task, e.origin)
+
+	s = e.fork
+	s.trace << (t3 = Task.new)
+	e.merge(s)
+	assert_equal([t1, t2, t3], e.task)
+	assert_equal(task, e.origin)
+
+	e = ExecutionException.new(TaskModelViolation.new(task))
+	s = e.fork
+	s.trace << (t1 = Task.new) << (t2 = Task.new)
+	e.merge(s)
+	assert_equal([task, t2], e.task)
+	assert_equal(task, e.origin)
+
+	e = ExecutionException.new(TaskModelViolation.new(task))
+	s = e.fork
+	e.merge(s)
+	assert_equal(task, e.task)
+	assert_equal(task, e.origin)
     end
 
     def test_task_handle_exception
@@ -76,7 +101,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    mock.should_receive(:handler).with(error, t1, t0).once
 	    assert_equal([], Propagation.propagate_exceptions([error]))
 	    assert_equal([error], error.siblings)
-	    assert_equal([t2, t1], error.stack)
+	    assert_equal([t2, t1], error.trace)
 
 	    error = ExecutionException.new(RuntimeError.new, t2)
 	    assert_equal([error], Propagation.propagate_exceptions([error]))
@@ -118,9 +143,9 @@ class TC_Exceptions < Test::Unit::TestCase
 	    #	2/ propagation begins with t3, in which case +error+ is a sibling of
 	    #	   t0.handled_exception
 	    assert_equal([], Propagation.propagate_exceptions([error]))
-	    assert_equal([t2, t1], t0.handled_exception.stack)
+	    assert_equal([t2, t1], t0.handled_exception.trace)
 	    if t0.handled_exception != error
-		assert_equal([t2, t3], error.stack)
+		assert_equal([t2, t3], error.trace)
 		assert_equal([t0.handled_exception, error].to_set, error.siblings.to_set)
 	    end
 
@@ -128,7 +153,8 @@ class TC_Exceptions < Test::Unit::TestCase
 	    assert(fatal = Propagation.propagate_exceptions([error]))
 	    assert_equal(1, fatal.size)
 	    e = *fatal
-	    assert_equal([t2, t1, [t3, t0]], e.stack)
+	    assert_equal(t2, e.origin)
+	    assert_equal([t3, t0], e.task)
 	end
     end
 
@@ -146,16 +172,16 @@ class TC_Exceptions < Test::Unit::TestCase
 		    mock.handler(exception, exception.task.to_set, task)
 		end
 	    end.new
-	    t0.realized_by t1
-	    t1.realized_by t2
-	    t3.realized_by t2
-	    t0.realized_by t3
+	    t0.realized_by t1 ; t1.realized_by t2
+	    t0.realized_by t3 ; t3.realized_by t2
+	    
 
 	    error = ExecutionException.new(TaskModelViolation.new(t2))
 	    mock.should_receive(:handler).with(ExecutionException, [t1, t3].to_set, t0).once
 	    assert_equal([], Propagation.propagate_exceptions([error]))
-	    assert_equal(t2, found_exception.stack[0])
-	    assert_equal([t3, t1].to_set, found_exception.stack[1].to_set)
+	    assert_equal(2, found_exception.trace.size, found_exception.trace)
+	    assert_equal(t2, found_exception.origin)
+	    assert_equal([t3, t1].to_set, found_exception.task.to_set)
 	end
     end
 end

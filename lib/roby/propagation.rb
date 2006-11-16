@@ -248,7 +248,7 @@ got an exception which did not specify its source
 			# We do not have the framework to handle concurrent repairs
 			# For now, the first handler is the one ... 
 			new_exceptions << e
-			e.stack << task
+			e.trace << task
 		    end
 		end
 	    end
