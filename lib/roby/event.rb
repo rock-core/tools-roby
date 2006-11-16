@@ -266,14 +266,13 @@ module Roby
 		else
 		    Propagation.add_event_propagation(true, Propagation.source_events, self, context)
 		end
-		return
+	    else
+		exceptions = Propagation.propagate_events do |initial_set|
+		    initial_set << self
+		    emit_without_propagation(context)
+		end
+		exceptions.each { |e| raise e.exception }
 	    end
-
-	    exceptions = Propagation.propagate_events do |initial_set|
-		initial_set << self
-		emit_without_propagation(context)
-	    end
-	    exceptions.each { |e| raise e.exception }
 	end
 
 	# call-seq:
