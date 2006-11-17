@@ -1,6 +1,4 @@
-# :file:drb.rb
-#
-# This file contains extension to DRuby and Rinda classes which are needed to 
+# This file contains extension to dRuby and Rinda classes which are needed to 
 # make Distributed Roby work
 #
 # Some are direct modification of the standard library (through reopening classes),
