@@ -1,4 +1,5 @@
 require 'test_config'
+require 'flexmock'
 require 'mockups/tasks'
 
 require 'roby/control'
@@ -35,6 +36,20 @@ class TC_Control < Test::Unit::TestCase
 	
         Control.instance.process_events
 	assert(if_node.finished?)
+    end
+
+    def test_once
+	FlexMock.use do |mock|
+	    Control.once { mock.called }
+	    mock.should_receive(:called).once
+	    Control.instance.process_events
+	end
+	FlexMock.use do |mock|
+	    Control.once { mock.called }
+	    mock.should_receive(:called).once
+	    Control.instance.process_events
+	    Control.instance.process_events
+	end
     end
 
     include Roby::Planning
