@@ -16,9 +16,19 @@ module Roby
     end
 
     class Plan
-	attr_reader :known_tasks, :missions
+	# The list of tasks that are included in this plan
+	attr_reader :known_tasks
+	# The list of missions in this plan
+	attr_reader :missions
+	# The list of events that are not included in a task
 	attr_reader :free_events
-	attr_reader :hierarchy, :service_relations
+
+	# The hierarchy relation
+	attr_reader :hierarchy
+	# A list of "service" relations that should be considered during GC. If
+	# a task is the parent of a useful task in a service relation, then
+	# this task is tagged as useful
+	attr_reader :service_relations
 
 	def initialize(hierarchy = Roby::TaskStructure::Hierarchy, service_relations = [Roby::TaskStructure::PlannedBy])
 	    @hierarchy = hierarchy
@@ -61,8 +71,8 @@ module Roby
 	    end
 	end
 
-	# If this plan is a toplevel plan, returns self. If it is a transaction,
-	# returns the underlying plan
+	# If this plan is a toplevel plan, returns self. If it is a
+	# transaction, returns the underlying plan
 	def real_plan
 	    ret = self
 	    while ret.respond_to?(:plan)
@@ -71,8 +81,8 @@ module Roby
 	    ret
 	end
 
-	# Inserts a new mission in the plan. Its child tree is automatically inserted too.
-	# Returns the plan
+	# Inserts a new mission in the plan. Its child tree is automatically
+	# inserted too.  Returns the plan
         def insert(tasks)
 	    task_collection(tasks) do |t|
 		discover(t)
@@ -85,7 +95,7 @@ module Roby
 	def inserted(tasks); super if defined? super end
 	alias :<< :insert
 
-	# Mark +task+ as not being a task anymore
+	# Removes the task in +tasks+ from the list of missions
 	def discard(tasks)
 	    task_collection(tasks) do |t|
 		discover(t)
@@ -141,8 +151,8 @@ module Roby
 	#   plan.discover(t1, t2, ...)	    => plan
 	#   plan.discover		    => plan
 	#
-	# Updates Plan#known_tasks with either the child tree of t1, t2, ... or the missions
-	# child trees.
+	# Updates Plan#known_tasks with either the child tree of the tasks in
+	# +objects+, or if +objects+ is nil the child tree of the plan missions
 	def discover(objects = nil)
 	    if !objects
 		events, tasks = [], missions
