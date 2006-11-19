@@ -169,6 +169,18 @@ class TC_Plan < Test::Unit::TestCase
 	super
     end
 
+    def assert_finalizes(plan, unneeded, finalized = nil)
+	finalized ||= unneeded
+	plan.finalized_tasks = []
+
+	yield if block_given?
+
+	assert_equal(unneeded.to_set, plan.unneeded_tasks.to_set)
+	plan.garbage_collect
+	assert_equal(finalized.to_set, plan.finalized_tasks.to_set)
+	assert(! finalized.any? { |t| plan.include?(t) })
+    end
+
     def test_garbage_collect
 	klass = Class.new(Task) do
 	    attr_accessor :delays
@@ -184,12 +196,13 @@ class TC_Plan < Test::Unit::TestCase
 	    event(:stop)
 	end
 
-	tasks = (1..5).map { klass.new }
-	t1, t2, t3, t4, t5 = *tasks
+	t1, t2, t3, t4, t5, t6, p1 = (1..7).map { klass.new }
 	t1.realized_by t3
 	t2.realized_by t3
-	t5.realized_by t4
 	t3.realized_by t4
+	t5.realized_by t4
+	t5.planned_by p1
+	p1.realized_by t6
 
 	class << plan
 	    attribute(:finalized_tasks) { Array.new }
@@ -200,29 +213,21 @@ class TC_Plan < Test::Unit::TestCase
 
 	[t1, t2, t5].each { |t| plan.insert(t) }
 
-	plan.finalized_tasks = []
-	plan.garbage_collect
-	assert_equal([], plan.finalized_tasks)
-
-	plan.discard(t1)
-	assert_equal([t1], plan.unneeded_tasks.to_a)
-	plan.garbage_collect
-	assert_equal([t1], plan.finalized_tasks)
-	assert(! plan.include?(t1))
-
-	plan.finalized_tasks = []
-	t2.start!(nil)
-	plan.discard(t2)
-	plan.garbage_collect
-	assert_equal([t2, t3], plan.finalized_tasks)
-
-	plan.finalized_tasks = []
-	t5.delays = true
-	t5.start!(nil)
-	plan.discard(t5)
-	plan.garbage_collect
-	assert_equal([], plan.finalized_tasks)
+	assert_finalizes(plan, [])
+	assert_finalizes(plan, [t1]) { plan.discard(t1) }
+	assert_finalizes(plan, [t2, t3]) do
+	    t2.start!(nil)
+	    plan.discard(t2)
+	end
+	assert_finalizes(plan, [t5, t4, p1, t6], [p1, t6]) do
+	    t5.delays = true
+	    t5.start!(nil)
+	    plan.discard(t5)
+	end
+	assert(t5.event(:stop).pending?)
+	assert_finalizes(plan, [t5, t4]) do
+	    t5.event(:stop).emit(nil)
+	end
     end
-
 end
 

@@ -176,20 +176,24 @@ module Roby
 
 	def useful_component(tasks)
 	    # Get all tasks related by hierarchy
-	    tasks = @hierarchy.directed_components(*tasks).
-		inject { |tasks, component| tasks.merge(component) }
+	    useful_tasks = @hierarchy.directed_components(*tasks).
+		inject { |useful_tasks, component| useful_tasks.merge(component) }
 
 	    # Get all tasks related to a useful task by a service
 	    # relation
-	    tasks.dup.each do |t|
+	    useful_tasks.dup.each do |t|
 		@service_relations.each do |rel|
 		    if rel.include?(t)
-			tasks.merge t.directed_component(rel)
+			useful_tasks.merge t.directed_component(rel)
 		    end
 		end
 	    end
 
-	    tasks
+	    if useful_tasks == tasks
+		useful_tasks
+	    else
+		useful_component(useful_tasks)
+	    end
 	end
 
 	# Returns the set of needed tasks
