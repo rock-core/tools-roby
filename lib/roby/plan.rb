@@ -184,6 +184,8 @@ module Roby
 	    useful_tasks = @hierarchy.directed_components(*tasks).
 		inject { |useful_tasks, component| useful_tasks.merge(component) }
 
+	    return ValueSet.new unless useful_tasks
+
 	    # Get all tasks related to a useful task by a service
 	    # relation
 	    useful_tasks.dup.each do |t|
@@ -227,22 +229,23 @@ module Roby
 	# Kills and removes all unneeded tasks
 	def garbage_collect(force_on = [])
 	    force_gc.merge(force_on)
-	    children = unneeded_tasks | force_gc
 
 	    loop do
-		roots, children = children.partition { |t| t.root?(@hierarchy) }
-		break if roots.empty?
-
-		while t = roots.shift
-		    if !t.running?
-			remove_task(t)
-		    elsif t.event(:stop).controlable? && !t.event(:stop).pending?
-			t.stop!(nil)
-			# 'stop' may have been achieved instantly
-			# In that case, add it back to root so that it is handled here
-			roots << t if t.finished?
+		tasks = unneeded_tasks | force_gc
+		did_something = false
+		tasks.find_all { |t| t.root?(@hierarchy) }.
+		    each do |t|
+			if !t.running?
+			    remove_task(t)
+			    did_something = true
+			elsif t.event(:stop).controlable? && !t.event(:stop).pending?
+			    t.stop!(nil)
+			    remove_task(t) unless t.running?
+			    did_something = true
+			end
 		    end
-		end
+
+		break unless did_something
 	    end
 	end
 
