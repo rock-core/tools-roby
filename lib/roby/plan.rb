@@ -250,6 +250,8 @@ module Roby
 	    force_gc.delete(t)
 	    t.executable = false
 	    t.clear_relations
+	    # NOTE: we MUST use instance variables directly here. Otherwise,
+	    # transaction commits would be broken
 	    @missions.delete(t)
 	    @known_tasks.delete(t)
 	    finalized(t)
