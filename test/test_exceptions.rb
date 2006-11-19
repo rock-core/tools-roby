@@ -108,6 +108,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    error = ExecutionException.new(RuntimeError.new, t2)
 	    assert_equal([error], Propagation.propagate_exceptions([error]))
 	    assert_equal(t0, error.task)
+	    assert_equal([t2, t1, t0], error.trace)
 
 	    # Redo that but this time define a global exception handler
 	    error = ExecutionException.new(RuntimeError.new, t2)
