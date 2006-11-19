@@ -82,6 +82,68 @@ class TC_Control < Test::Unit::TestCase
 	plan_task = control.plan.missions.find { true }
         assert(plan_task == result_task, plan_task)
     end
+
+    def test_unhandled_event_exceptions
+	Control.instance.abort_on_exception = false
+	t = Class.new(Task) do
+	    def start(context)
+		raise RuntimeError, "bla"
+	    end
+	    event :start
+	end.new
+
+	Control.once { t.start!(nil) }
+	Control.instance.process_events
+	assert(! plan.include?(t))
+    end
+
+    def test_structure_checking
+	Control.instance.abort_on_exception = false
+
+	# Check on a single task
+	Control.structure_checks.clear
+	t = SimpleTask.new
+	plan.insert(t)
+	Control.structure_checks << lambda { TaskModelViolation.new(t) }
+
+	Control.instance.process_events
+	assert(! plan.include?(t))
+
+	# Make sure that a task which has been repaired will not be killed
+	Control.structure_checks.clear
+	t = SimpleTask.new
+	plan.insert(t)
+	did_once = false
+	Control.structure_checks << lambda { 
+	    unless did_once
+		did_once = true
+		TaskModelViolation.new(t)
+	    end
+	}
+	Control.instance.process_events
+	assert(plan.include?(t))
+
+	# Check that the whole task trees are killed
+	tasks = (1..4).map { SimpleTask.new }
+	t0, t1, t2, t3 = *tasks
+	t0.realized_by t2
+	t1.realized_by t2
+	t2.realized_by t3
+
+	plan.insert(t0)
+	plan.insert(t1)
+	FlexMock.use do |mock|
+	    Control.structure_checks.clear
+	    Control.structure_checks << lambda { mock.checking ; TaskModelViolation.new(t2) }
+	    mock.should_receive(:checking).twice
+
+	    Control.instance.process_events
+	end
+	assert(!plan.include?(t0))
+	assert(!plan.include?(t1))
+	assert(!plan.include?(t2))
+	assert(!plan.include?(t3))
+    end
 end
 
 

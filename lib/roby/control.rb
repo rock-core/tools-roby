@@ -80,7 +80,6 @@ module Roby
 	    # Do structure checking and gather the raised exceptions
 	    exceptions = Control.structure_checks.
 		map { |prc| prc.call }.
-		compact.
 		flatten
 
 	    exceptions.map! do |error|
@@ -112,26 +111,35 @@ module Roby
 	    timings[:server] = Time.now
 	    
 	    # Gather new events and propagate them
-	    exceptions = Propagation.propagate_events(Control.event_processing)
+	    events_exceptions = Propagation.propagate_events(Control.event_processing)
 	    timings[:events] = Time.now
 
 	    # Propagate exceptions that came from event propagation
-	    exceptions = Propagation.propagate_exceptions(exceptions)
+	    events_exceptions = Propagation.propagate_exceptions(events_exceptions)
 	    timings[:events_exceptions] = Time.now
 
-	    reraise(exceptions) if abort_on_exception
+	    reraise(events_exceptions) if abort_on_exception
 
 	    # Generate exceptions from task structure
-	    exceptions = structure_checking
+	    structure_exceptions = structure_checking
 	    timings[:structure_check] = Time.now
-	    exceptions = Propagation.propagate_exceptions(exceptions)
+	    structure_exceptions = Propagation.propagate_exceptions(structure_exceptions)
 	    timings[:structure_check_exceptions] = Time.now
 
-	    reraise(exceptions) if abort_on_exception
+	    reraise(structure_exceptions) if abort_on_exception
 
-	    # Do garbage collection, forcing GC on remaining problematic tasks
-	    all_tasks = structure_checking.map { |error| error.task }
-	    plan.garbage_collect(all_tasks)
+	    # Recheck structure, taking into account the changes from exception handlers
+	    fatal_errors = structure_checking
+	    # Get the list of tasks we should kill because of fatal_errors
+	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, e|
+		kill_tasks.merge(e.task.reverse_directed_component(TaskStructure::Hierarchy))
+	    end
+
+	    events_exceptions.each do |e|
+		kill_tasks.merge(e.trace)
+	    end
+	    
+	    plan.garbage_collect(kill_tasks)
 	    timings[:end] = timings[:garbage_collect] = Time.now
 
 	    if do_gc
