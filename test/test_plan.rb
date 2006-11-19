@@ -3,6 +3,7 @@ require 'test/unit'
 
 require 'roby'
 require 'roby/plan'
+require 'mockups/tasks'
 require 'roby/state/information'
 require 'flexmock'
 
@@ -251,9 +252,8 @@ class TC_Plan < Test::Unit::TestCase
 	    plan.garbage_collect([t1])
 	end
 	assert(t1.event(:stop).pending?)
-	assert_finalizes(plan, [t2], [t1, t2]) do
+	assert_finalizes(plan, [], [t1, t2]) do
 	    t1.event(:stop).emit(nil)
-	    plan.garbage_collect
 	end
     end
 end
