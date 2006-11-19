@@ -30,12 +30,17 @@ module Roby
 	# this task is tagged as useful
 	attr_reader :service_relations
 
+	# A set of tasks which are useful (and as such would not been garbage
+	# collected), but we want to GC anyway
+	attr_reader :force_gc
+
 	def initialize(hierarchy = Roby::TaskStructure::Hierarchy, service_relations = [Roby::TaskStructure::PlannedBy])
 	    @hierarchy = hierarchy
 	    @service_relations = service_relations
 	    @missions	 = ValueSet.new
 	    @known_tasks = ValueSet.new
 	    @free_events = ValueSet.new
+	    @force_gc    = ValueSet.new
 	end
 
 	# call-seq:
@@ -221,7 +226,8 @@ module Roby
 
 	# Kills and removes all unneeded tasks
 	def garbage_collect(force_on = [])
-	    children = unneeded_tasks | force_on.to_value_set
+	    force_gc.merge(force_on)
+	    children = unneeded_tasks | force_gc
 
 	    loop do
 		roots, children = children.partition { |t| t.root?(TaskStructure::Hierarchy) }
@@ -241,6 +247,7 @@ module Roby
 	end
 
 	def remove_task(t)
+	    force_gc.delete(t)
 	    t.executable = false
 	    t.clear_relations
 	    @missions.delete(t)

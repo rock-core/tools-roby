@@ -229,5 +229,32 @@ class TC_Plan < Test::Unit::TestCase
 	    t5.event(:stop).emit(nil)
 	end
     end
+    
+    def test_force_garbage_collect
+	t1 = Class.new(Task) do
+	    def stop(context); end
+	    event :stop
+	end.new
+	t2 = Task.new
+	t1.realized_by t2
+
+	class << plan
+	    attribute(:finalized_tasks) { Array.new }
+	    def finalized(task)
+		finalized_tasks << task
+	    end
+	end
+
+	plan.insert(t1)
+	t1.start!
+	assert_finalizes(plan, []) do
+	    plan.garbage_collect([t1])
+	end
+	assert(t1.event(:stop).pending?)
+	assert_finalizes(plan, [t2], [t1, t2]) do
+	    t1.event(:stop).emit(nil)
+	    plan.garbage_collect
+	end
+    end
 end
 
