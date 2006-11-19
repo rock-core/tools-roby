@@ -230,7 +230,7 @@ module Roby
 	    children = unneeded_tasks | force_gc
 
 	    loop do
-		roots, children = children.partition { |t| t.root?(TaskStructure::Hierarchy) }
+		roots, children = children.partition { |t| t.root?(@hierarchy) }
 		break if roots.empty?
 
 		while t = roots.shift
