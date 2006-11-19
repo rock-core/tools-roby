@@ -28,7 +28,8 @@ module CommonTestBehaviour
     end
     def restore_collections
 	original_collections.each do |col, backup|
-	    col.delete_if { |obj| !backup.include?(obj) }
+	    col.clear
+	    backup.each(&col.method(:<<))
 	end
     end
 
