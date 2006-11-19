@@ -1,4 +1,5 @@
 require 'roby/task'
+require 'roby/control'
 require 'set'
 
 module Roby::TaskStructure
@@ -14,8 +15,9 @@ module Roby::TaskStructure
         def realized_by(task, options = {})
             options = validate_options options, :model => [task.class, {}], :success => [:success], :failure => [:failed]
 
-	    options[:success] = Array[*options[:success]].map { |ev| task.event(ev) }
-	    options[:failure] = Array[*options[:failure]].map { |ev| task.event(ev) }
+	    # Validate failure and success event names
+	    options[:success] = Array[*options[:success]].each { |ev| task.event(ev) }
+	    options[:failure] = Array[*options[:failure]].each { |ev| task.event(ev) }
 
 	    options[:model] = [options[:model], {}] unless Array === options[:model]
 	    if !task.fullfills?(*options[:model])
@@ -69,5 +71,30 @@ module Roby::TaskStructure
 	    [model, arguments]
 	end
     end
+
+    class ChildFailedError < Roby::TaskModelViolation; end
+
+    # Checks the structure of +plan+. It raises ChildFailedError for all failed
+    # hierarchy relations
+    def Hierarchy.check_structure(plan)
+	result = []
+
+	plan.known_tasks.each do |parent|
+	    next if parent.finished?
+	    parent.each_child do |child, options|
+		success = options[:success]
+		failure = options[:failure]
+
+		next if success.any? { |e| child.event(e).happened? }
+		if failure.any? { |e| child.event(e).happened? }
+		    result << ChildFailedError.new(child)
+		end
+	    end
+	end
+
+	result
+    end
+
+    Roby::Control.structure_checks << Hierarchy.method(:check_structure)
 end
 

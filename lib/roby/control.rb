@@ -79,7 +79,7 @@ module Roby
 	def structure_checking
 	    # Do structure checking and gather the raised exceptions
 	    exceptions = Control.structure_checks.
-		map { |prc| prc.call }.
+		map { |prc| prc.call(plan) }.
 		flatten
 
 	    exceptions.map! do |error|
