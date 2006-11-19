@@ -1,5 +1,7 @@
 require 'test/unit'
 require 'test_config'
+require 'mockups/tasks'
+require 'roby/plan'
 require 'roby/relations'
 require 'roby/relations/executed_by'
 

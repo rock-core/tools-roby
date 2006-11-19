@@ -1,5 +1,6 @@
 require 'test/unit'
 require 'test_config'
+require 'mockups/tasks'
 require 'roby/event'
 require 'roby/task'
 require 'roby/log/marshallable'
