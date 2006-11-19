@@ -36,6 +36,24 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	assert(task.running?)
     end
 
+    def test_agent_fails
+	task = SimpleTask.new
+	exec = Class.new(SimpleTask) do
+	    event(:start, :command => true)
+	    event(:ready)
+	    on :start => :ready
+	end.new
+	task.executed_by exec
+	task.start!
+
+	FlexMock.use do |mock|
+	    task.on(:aborted) { mock.aborted }
+	    mock.should_receive(:aborted).once
+	    exec.stop!
+	end
+	assert(!task.running?)
+    end
+
     def test_agent_start_failed
 	task = SimpleTask.new
 	exec = Class.new(ExecutableTask) do
