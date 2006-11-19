@@ -1,4 +1,5 @@
 require 'roby/transactions'
+require 'mockups/tasks'
 require 'test_plan.rb'
 require 'flexmock'
 
