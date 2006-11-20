@@ -4,6 +4,28 @@ require 'roby/plan-object'
 require 'roby/propagation'
 
 module Roby
+    class TaskModelTag < Module
+	module ClassExtension
+	    # Returns the list of static arguments required by this task model
+	    def arguments; enum_for(:each_argument_set).to_set end
+	    # Declares a set of arguments required by this task model
+	    def argument(*args); args.each(&argument_set.method(:<<)) end
+	end
+	include TaskModelTag::ClassExtension
+
+	def initialize(&block)
+	    super do
+		inherited_enumerable("argument_set", "argument_set") { Set.new }
+		unless const_defined? :ClassExtension
+		    const_set(:ClassExtension, Module.new)
+		end
+
+		self::ClassExtension.include TaskModelTag::ClassExtension
+	    end
+	    class_eval(&block) if block_given?
+	end
+    end
+
     class TaskModelViolation < ModelViolation
         attr_reader :task
         def initialize(task); @task = task end
@@ -150,6 +172,7 @@ module Roby
     #   - a non-terminal event can become a terminal one
     class Task < PlanObject
 	include DirectedRelationSupport
+	include TaskModelTag.new
 
 	def name; model(false).name end
 
@@ -175,13 +198,6 @@ module Roby
 	model_attribute_list('handler')
 	model_attribute_list('precondition')
 
-	class_inherited_enumerable("argument_set", "argument_set") { Set.new }
-	# Returns the list of static arguments required by this task model
-	def self.arguments; enum_for(:each_argument_set).to_set end
-	# Declares a set of arguments required by this task model
-	def self.argument(*args); args.each(&argument_set.method(:<<)) end
-	# Check that all arguments required by the task model have a value
-	def partially_instanciated?; !(model.arguments - arguments.keys.to_set).empty?  end
 	# Sets an argument (cannot be used to *change* an argument, only to
 	# set an argument which has not been set yet)
 	def set(values)
@@ -257,6 +273,9 @@ module Roby
 	    end
 	    super
 	end
+	
+	# Check that all arguments required by the task model have a value
+	def partially_instanciated?; !(model.arguments - arguments.keys.to_set).empty?  end
 
 	# Returns the task model
         def model(create = true)

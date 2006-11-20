@@ -9,6 +9,20 @@ class TC_Task < Test::Unit::TestCase
     include Roby
     include CommonTestBehaviour
 
+    def test_model_tag
+	my_tag = TaskModelTag.new do
+	    argument :model_tag
+	end
+	assert(my_tag.const_defined?(:ClassExtension))
+	assert(my_tag::ClassExtension.method_defined?(:argument))
+	task = Class.new(Task) do
+	    include my_tag
+	    argument :task_tag
+	end
+	assert_equal([:task_tag, :model_tag].to_set, task.arguments.to_set)
+    end
+
+
     def test_base_model
 	task = Class.new(Task) do
 	    event(:stop1)
@@ -428,13 +442,18 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_fullfills
+	abstract_task_model = TaskModelTag.new do
+	    argument :abstract
+	end
 	task_model = Class.new(Task) do
+	    include abstract_task_model
 	    argument :index, :universe
 	end
 
 	t1, t2 = task_model.new, task_model.new
 	assert(t1.fullfills?(t1.model))
 	assert(t1.fullfills?(t2))
+	assert(t1.fullfills?(abstract_task_model))
 	
 	t2 = task_model.new(:index => 2)
 	assert(!t1.fullfills?(t2))
