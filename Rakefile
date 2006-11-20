@@ -77,7 +77,7 @@ task :setup => :test_build do
     FileUtils.ln_sf "../../ext/bgl.so", "lib/roby/bgl.so"
 end
 
-Rake::RDocTask.new("rdoc") do |rdoc|
+Rake::RDocTask.new("docs") do |rdoc|
   rdoc.options << "--inline-source"
   rdoc.rdoc_dir = 'html'
   rdoc.title    = "Roby"
