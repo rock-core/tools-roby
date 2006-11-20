@@ -74,8 +74,8 @@ module Roby::TaskStructure
 
     class ChildFailedError < Roby::TaskModelViolation; end
 
-    # Checks the structure of +plan+. It raises ChildFailedError for all failed
-    # hierarchy relations
+    # Checks the structure of +plan+. It returns an array of ChildFailedError
+    # for all failed hierarchy relations
     def Hierarchy.check_structure(plan)
 	result = []
 
