@@ -154,7 +154,7 @@ module Roby
 	def name; model(false).name end
 
 	def self.model_attribute_list(name)
-	    class_inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = Set.new } }
+	    inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = Set.new } }
 	    class_eval <<-EOD
 		class << self
 		    attribute("__#{name}_enumerator__") { Hash.new }
@@ -526,7 +526,7 @@ module Roby
         end
 
         # Events defined by the task model
-        class_inherited_enumerable(:event, :events, :map => true) { Hash.new }
+        inherited_enumerable(:event, :events, :map => true) { Hash.new }
 
         # Iterates on all the events defined for this task
         def each_event(only_bound = true, &iterator) # :yield:bound_event
@@ -677,7 +677,7 @@ module Roby
 	end
 
 	include Propagation::ExceptionHandlingObject
-	class_inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }
+	inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }
 	def each_exception_handler(&iterator); model(false).each_exception_handler(&iterator) end
 
 	# call-seq:

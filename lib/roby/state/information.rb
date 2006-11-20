@@ -38,8 +38,8 @@ module Roby
     end
 
     class Task < PlanObject
-	class_inherited_enumerable(:needed_information) { Array.new }
-	class_inherited_enumerable(:improved_information) { Array.new }
+	inherited_enumerable(:needed_information) { Array.new }
+	inherited_enumerable(:improved_information) { Array.new }
 	
 	# This task is influenced by the information contained in +info+
 	def self.needs(info); needed_information << info end

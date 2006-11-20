@@ -399,7 +399,7 @@ module Roby
 
 		# Define the method enumerator and the method selection
 		if !respond_to?("#{name}_methods")
-		    class_inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) { Hash.new }
+		    inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) { Hash.new }
 		    class_eval <<-PLANNING_METHOD_END
 		    def #{name}(options = Hash.new)
 			plan_method("#{name}", options)
@@ -425,7 +425,7 @@ module Roby
 	    # +false+ if the method is to be discarded, and +true+ otherwise
 	    def self.filter(name, &filter)
 		if !respond_to?("#{name}_filters")
-		    class_inherited_enumerable("#{name}_filter", "#{name}_filters") { Array.new }
+		    inherited_enumerable("#{name}_filter", "#{name}_filters") { Array.new }
 		end
 		send("#{name}_filters") << filter
 	    end
