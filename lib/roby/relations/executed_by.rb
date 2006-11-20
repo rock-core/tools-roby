@@ -88,8 +88,6 @@ module Roby::TaskStructure
 	end
 	Roby::EventGenerator.include EventModel
     end
-
-    Hierarchy.superset_of ExecutionAgent
 end
 
 
