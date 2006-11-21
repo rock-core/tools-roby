@@ -30,7 +30,7 @@ module Roby::Propagation
 	    each_exception_handler do |matchers, handler|
 		if matchers.find { |m| m === exception_object.exception }
 		    catch(:next_exception_handler) do 
-			handler[self, exception_object]
+			handler.call(self, exception_object)
 			return true
 		    end
 		end

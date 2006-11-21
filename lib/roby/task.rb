@@ -699,6 +699,8 @@ module Roby
 	inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }
 	def each_exception_handler(&iterator); model(false).each_exception_handler(&iterator) end
 
+	@@exception_handler_id = 0
+
 	# call-seq:
 	#   task_model.on_exception(TaskModelViolation, ...) { |task, exception_object| ... }
 	#   task_model.on_exception(TaskModelViolation, ...) do |task, exception_object|
@@ -711,7 +713,9 @@ module Roby
 	# has been fired. The first matching handler is called. Call #pass
 	# to pass the exception to previous handlers
 	def self.on_exception(*matchers, &handler)
-	    exception_handlers.unshift [matchers, handler]
+	    id = (@@exception_handler_id += 1)
+	    define_method("exception_handler_#{id}", &handler)
+	    exception_handlers.unshift [matchers, instance_method("exception_handler_#{id}")]
 	end
     end
 

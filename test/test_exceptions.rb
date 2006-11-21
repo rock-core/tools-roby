@@ -61,18 +61,18 @@ class TC_Exceptions < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    received_handler2 = false
 	    klass = Class.new(Task) do 
-		on_exception(TaskModelViolation) do |task, exception|
-		    mock.handler1(exception, exception.task, task)
+		on_exception(TaskModelViolation) do |exception|
+		    mock.handler1(exception, exception.task, self)
 		end
-		on_exception(TaskModelViolation) do |task, exception|
+		on_exception(TaskModelViolation) do |exception|
 		    if received_handler2
-			task.pass_exception
+			pass_exception
 		    end
 		    received_handler2 = true
-		    mock.handler2(exception, exception.task, task)
+		    mock.handler2(exception, exception.task, self)
 		end
-		on_exception(RuntimeError) do |task, exception|
-		    task.pass_exception
+		on_exception(RuntimeError) do |exception|
+		    pass_exception
 		end
 	    end
 
@@ -92,8 +92,8 @@ class TC_Exceptions < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    t1, t2 = Task.new, Task.new
 	    t0 = Class.new(Task) do 
-		on_exception(TaskModelViolation) do |task, exception|
-		    mock.handler(exception, exception.task, task)
+		on_exception(TaskModelViolation) do |exception|
+		    mock.handler(exception, exception.task, self)
 		end
 	    end.new
 	    t0.realized_by t1
@@ -128,9 +128,9 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t1, t2, t3 = Task.new, Task.new, Task.new
 	    t0 = Class.new(Task) do 
 		attr_accessor :handled_exception
-		on_exception(TaskModelViolation) do |task, exception|
-		    task.handled_exception = exception
-		    mock.handler(exception, exception.task, task)
+		on_exception(TaskModelViolation) do |exception|
+		    self.handled_exception = exception
+		    mock.handler(exception, exception.task, self)
 		end
 	    end.new
 	    t0.realized_by t1
@@ -170,9 +170,9 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    found_exception = nil
 	    t0 = Class.new(Task) do 
-		on_exception(TaskModelViolation) do |task, exception|
+		on_exception(TaskModelViolation) do |exception|
 		    found_exception = exception
-		    mock.handler(exception, exception.task.to_set, task)
+		    mock.handler(exception, exception.task.to_set, self)
 		end
 	    end.new
 	    t0.realized_by t1 ; t1.realized_by t2
