@@ -49,6 +49,11 @@ module Roby::Log
 	    Roby::Log.log(:discovered_tasks) { [Time.now, Wrapper[self], Wrapper[tasks]] }
 	end
 
+	def garbage(task)
+	    super if defined? super
+	    Roby::Log.log(:garbage_task) { [Time.now, Wrapper[self], Wrapper[task]] }
+	end
+
 	def finalized(task)
 	    super if defined? super
 	    Roby::Log.log(:finalized_task) { [Time.now, Wrapper[self], Wrapper[task]] }

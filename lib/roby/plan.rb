@@ -239,6 +239,7 @@ module Roby
 			    remove_task(t)
 			    did_something = true
 			elsif t.event(:stop).controlable? && !t.event(:stop).pending?
+			    garbage(t)
 			    t.stop!(nil)
 			    remove_task(t) unless t.running?
 			    did_something = true
@@ -260,6 +261,7 @@ module Roby
 	    finalized(t)
 	end
 
+	def garbage(task); super if defined? super end
 	def finalized(task); super if defined? super end
     end
 
