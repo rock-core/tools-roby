@@ -57,7 +57,7 @@ module Roby::TaskStructure
 			begin
 			    agents = [agent_model.new]
 			rescue Exception => e
-			    raise Roby::TaskModelViolation.new(task), "the #{self} model defines an execution agent, but #{agent_model}::new raised #{e.message}(#{e.class})", e.backtrace
+			    raise Roby::TaskModelViolation.new(task), "the #{self} model defines an execution agent, but #{agent_model}::new raised #{e.full_message}"
 			end
 		    end
 

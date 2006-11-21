@@ -94,8 +94,7 @@ module Roby
 	def reraise(exceptions)
 	    if !exceptions.empty? && abort_on_exception
 		exceptions.each do |e|
-		    e = e.exception
-		    raise e, e.message, e.backtrace
+		    raise e.exception
 		end
 	    end
 	end
@@ -241,7 +240,7 @@ module Roby
 	    STDERR.puts "Interrupted"
 
 	rescue Exception => e
-	    STDERR.puts "Control quitting because of unhandled exception\n#{e.message}(#{e.class})\n  #{e.backtrace.join("\n  ")}"
+	    STDERR.puts "Control quitting because of unhandled exception\n#{e.full_message}"
 
 	ensure
 	    if Thread.current == self.thread
@@ -251,7 +250,7 @@ module Roby
 		GC.enable if control_gc && !already_disabled_gc
 	    end
 	end
-	
+
 	# Called at each cycle end
 	def cycle_end(timings); super if defined? super end
 

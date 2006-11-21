@@ -308,8 +308,7 @@ module Roby
 	    if Control.instance.abort_on_exception
 		raise error, error.message, error.backtrace
 	    else
-		Roby.error "Application error during #{event} in #{origin}: #{error.message}:in #{error.backtrace[0]}\n\t" + 
-		    error.backtrace[1..-1].join("\n\t")
+		Roby.error "Application error during #{event} in #{origin}:#{error.full_message}"
 	    end
 
 	    nil

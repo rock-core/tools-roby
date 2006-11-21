@@ -4,6 +4,7 @@ require 'roby/task'
 require 'roby/event'
 require 'roby/plan'
 require 'facet/kernel/constant'
+require 'utilrb/exception/full_message'
 
 module Roby::Display
     DEFAULT_REMOTE_DISPLAY_URI = "druby://localhost:10000"
@@ -78,7 +79,7 @@ module Roby::Display
 	    a.exec()
 
 	rescue Exception => e
-	    STDERR.puts "#{e.message}(#{e.class.name}):in #{e.backtrace.join("\n  ")}"
+	    STDERR.puts e.full_message
 	end
 
 	# Connects to a display server
