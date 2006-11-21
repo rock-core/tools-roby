@@ -17,6 +17,23 @@ class TC_Control < Test::Unit::TestCase
     def plan
 	Control.instance.plan
     end
+    
+    def test_application_error
+	# Shut up the logger in this test
+	Roby.logger.level = Logger::FATAL
+	exception = begin; raise RuntimeError
+		    rescue; $!
+		    end
+
+	Control.instance.abort_on_exception = false
+	assert_nothing_raised { Roby.application_error(:exceptions, exception, Task) }
+
+	Control.instance.abort_on_exception = true
+	assert_raises(RuntimeError) { Roby.application_error(:exceptions, exception, Task) }
+
+    ensure
+	Roby.logger.level = Logger::DEBUG
+    end
 
     def test_event_loop
         start_node = EmptyTask.new

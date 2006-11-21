@@ -290,6 +290,17 @@ module Roby
 	# define_method(:each_exception_handler, &Roby::Propagation.exception_handlers.method(:each))
 	def on_exception(*matchers, &handler); exception_handlers.unshift [matchers, handler] end
 	include Propagation::ExceptionHandlingObject
+
+	def application_error(event, error, origin)
+	    if Control.instance.abort_on_exception
+		raise error, error.message, error.backtrace
+	    else
+		Roby.error "Application error during #{event} in #{origin}: #{error.message}:in #{error.backtrace[0]}\n\t" + 
+		    error.backtrace[1..-1].join("\n\t")
+	    end
+
+	    nil
+	end
     end
 end
 
