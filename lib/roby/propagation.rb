@@ -257,10 +257,17 @@ got an exception which did not specify its source
 		end
 
 		task_exceptions.each do |e|
-		    if task.handle_exception(e)
+		    next if e.handled?
+		    handled = begin
+				  task.handle_exception(e)
+			      rescue Exception => handler_error
+				  Roby.application_error(:exception_handling, handler_error, task.class)
+			      end
+
+		    if handled
 			handled_exception(e, task)
 			e.handled = true
-		    elsif !e.handled?
+		    else
 			# We do not have the framework to handle concurrent repairs
 			# For now, the first handler is the one ... 
 			new_exceptions << e
@@ -276,7 +283,13 @@ got an exception which did not specify its source
 	# set of still unhandled exceptions
 	fatal.
 	    find_all { |e| !e.handled? }.
-	    find_all { |e| !Roby.handle_exception(e) }
+	    reject do |e| 
+		begin
+		    Roby.handle_exception(e)
+		rescue Exception => handler_error
+		    Roby.application_error(:exception_handling, handler_error, Roby)
+		end
+	    end
     end
     # Hook called when an exception +e+ has been handled by +task+
     def self.handled_exception(e, task); super if defined? super end

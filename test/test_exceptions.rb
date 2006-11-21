@@ -88,6 +88,44 @@ class TC_Exceptions < Test::Unit::TestCase
 	end
     end
 
+    def test_exception_in_handler
+	Roby.logger.level = Logger::FATAL
+
+	Control.instance.abort_on_exception = false
+	FlexMock.use do |mock|
+	    klass = Class.new(ExecutableTask) do
+		define_method(:mock) { mock }
+		def start(context)
+		    mock.event_called
+		    raise TaskModelViolation.new(self)
+		end
+		event :start
+
+		on_exception(RuntimeError) do |exception|
+		    mock.task_handler_called
+		    raise 
+		end
+	    end
+
+	    Roby.on_exception(RuntimeError) do |task, exception|
+		mock.global_handler_called
+		raise
+	    end
+
+	    t1, t2 = klass.new, klass.new
+	    t1.realized_by t2
+
+	    mock.should_receive(:event_called).once.ordered
+	    mock.should_receive(:task_handler_called).once.ordered
+	    mock.should_receive(:global_handler_called).once.ordered
+	    Control.once { t2.start! }
+	    assert_nothing_raised { Control.instance.process_events }
+	end
+
+    ensure
+	Roby.logger.level = Logger::DEBUG
+    end
+
     def test_linear_propagation
 	FlexMock.use do |mock|
 	    t1, t2 = Task.new, Task.new
