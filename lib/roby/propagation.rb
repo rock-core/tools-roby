@@ -29,9 +29,13 @@ module Roby::Propagation
 	def handle_exception(exception_object)
 	    each_exception_handler do |matchers, handler|
 		if matchers.find { |m| m === exception_object.exception }
-		    catch(:next_exception_handler) do 
-			handler.call(self, exception_object)
-			return true
+		    begin
+			catch(:next_exception_handler) do 
+			    handler.call(self, exception_object)
+			    return true
+			end
+		    rescue Exception => handler_error
+			Roby.application_error(:exception_handling, handler_error, self)
 		    end
 		end
 	    end
@@ -260,11 +264,7 @@ got an exception which did not specify its source
 
 		task_exceptions.each do |e|
 		    next if e.handled?
-		    handled = begin
-				  task.handle_exception(e)
-			      rescue Exception => handler_error
-				  Roby.application_error(:exception_handling, handler_error, task.class)
-			      end
+		    handled = task.handle_exception(e)
 
 		    if handled
 			Roby::Control.handled_exception(e, task)
@@ -285,13 +285,7 @@ got an exception which did not specify its source
 	# set of still unhandled exceptions
 	fatal.
 	    find_all { |e| !e.handled? }.
-	    reject do |e| 
-		begin
-		    Roby.handle_exception(e)
-		rescue Exception => handler_error
-		    Roby.application_error(:exception_handling, handler_error, Roby)
-		end
-	    end
+	    reject { |e| Roby.handle_exception(e) }
     end
 end
 
