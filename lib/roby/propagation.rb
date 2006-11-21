@@ -145,6 +145,9 @@ got an exception which did not specify its source
     # (i.e. build an initial set of events)
     def self.propagate_events(seeds = [])
 	return if !propagate?
+	if Thread.current[:propagation_exceptions]
+	    raise "recursive call to propagate_events"
+	end
 
 	Thread.current[:propagation_id] = (@@propagation_id += 1)
 	Thread.current[:propagation_exceptions] = []
