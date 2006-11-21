@@ -218,13 +218,14 @@ got an exception which did not specify its source
 
 	while !exceptions.empty?
 	    by_task = Hash.new { |h, k| h[k] = Array.new }
-	    by_task = exceptions.inject(by_task) do |by_task, e|	
+	    by_task = exceptions.inject(by_task) do |by_task, (e, parents)|
 		unless e.task
 		    raise NotImplementedError, "we do not yet handle exceptions from external event generators"
 		end
+		parents ||= e.task.parent_objects(Roby::TaskStructure::Hierarchy)
 
 		has_parent = false
-		e.task.each_parent_object(Roby::TaskStructure::Hierarchy) do |parent|
+		[*parents].each do |parent|
 		    next if parent.finished?
 
 		    e = e.fork if has_parent # we have more than one parent

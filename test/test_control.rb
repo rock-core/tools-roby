@@ -160,7 +160,23 @@ class TC_Control < Test::Unit::TestCase
 	assert(!plan.include?(t1))
 	assert(!plan.include?(t2))
 	assert(!plan.include?(t3))
+
+
+	# Check that we can kill selectively by returning a hash
+	tasks = (1..3).map { SimpleTask.new }
+	t0, t1, t2 = tasks
+	t0.realized_by t2
+	t1.realized_by t2
+	plan.insert(t0)
+	plan.insert(t1)
+	Control.structure_checks.clear
+	Control.structure_checks << lambda { { TaskModelViolation.new(t2) => t0 } }
+	Control.instance.process_events
+	assert(!plan.include?(t0))
+	assert(plan.include?(t1))
+	assert(plan.include?(t2))
     end
+
 end
 
 

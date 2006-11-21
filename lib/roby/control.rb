@@ -80,16 +80,18 @@ module Roby
 	# collection of exception objects, or nil if no error has been found
 	def structure_checking
 	    # Do structure checking and gather the raised exceptions
-	    exceptions = Control.structure_checks.
-		map { |prc| prc.call(plan) }.
-		flatten
+	    exceptions = {}
+	    Control.structure_checks.each do |prc|
+		new_exceptions = prc.call(plan)
+		next unless new_exceptions
+		new_exceptions = [new_exceptions] if Exception === new_exceptions
 
-	    exceptions.map! do |error|
-		next unless error
-		Propagation.to_execution_exception(error)
+		new_exceptions.each do |e, tasks|
+		    e = Propagation.to_execution_exception(e)
+		    next unless e
+		    exceptions[e] = tasks
+		end
 	    end
-
-	    exceptions.compact!
 	    exceptions
 	end
 
@@ -130,18 +132,22 @@ module Roby
 	    reraise(structure_exceptions) if abort_on_exception
 
 	    # Recheck structure, taking into account the changes from exception handlers
-	    fatal_errors = structure_checking
+	    fatal_errors = structure_checking + events_exceptions
 	    # Get the list of tasks we should kill because of fatal_errors
-	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, e|
-		new_tasks = e.task.reverse_directed_component(TaskStructure::Hierarchy)
-		Control.fatal_exception(e, new_tasks)
-		kill_tasks.merge(new_tasks)
+	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (e, tasks)|
+		if tasks
+		    [*tasks].each do |parent|
+			new_tasks = parent.reverse_directed_component(TaskStructure::Hierarchy)
+			Control.fatal_exception(e, new_tasks)
+			kill_tasks.merge(new_tasks)
+		    end
+		else
+		    new_tasks = e.task.reverse_directed_component(TaskStructure::Hierarchy)
+		    Control.fatal_exception(e, new_tasks)
+		    kill_tasks.merge(new_tasks)
+		end
 	    end
 
-	    events_exceptions.each do |e|
-		kill_tasks.merge(e.trace)
-	    end
-	    
 	    plan.garbage_collect(kill_tasks)
 	    timings[:end] = timings[:garbage_collect] = Time.now
 
