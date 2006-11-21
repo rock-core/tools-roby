@@ -28,7 +28,12 @@ module Roby
 
     class TaskModelViolation < ModelViolation
         attr_reader :task
-        def initialize(task); @task = task end
+        def initialize(obj)
+	    @task = if obj.respond_to?(:to_task) then obj
+		    elsif obj.respond_to?(:task) then obj.task
+		    else raise TypeError, "not a task" 
+		    end
+	end
         def to_s
 	    if task
 		history = task.history.map do |time, event|
@@ -520,14 +525,14 @@ module Roby
 
         def self.validate_event_definition_request(ev, options) #:nodoc:
             if ev.to_sym == :start && options[:terminal]
-                raise TaskModelViolation.new(nil), "the 'start' event cannot be terminal"
+                raise ArgumentError, "the 'start' event cannot be terminal"
             elsif options[:command] && options[:command] != true && !options[:command].respond_to?(:call)
                 raise ArgumentError, "Allowed values for :command option: true, false, nil and an object responding to #call. Got #{options[:command]}"
             end
 
             if ev.to_sym == :stop
                 if options.has_key?(:terminal) && !options[:terminal]
-                    raise TaskModelViolation.new(nil), "the 'stop' event cannot be non-terminal"
+                    raise ArgumentError, "the 'stop' event cannot be non-terminal"
                 end
                 options[:terminal] = true
             end

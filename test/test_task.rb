@@ -109,8 +109,8 @@ class TC_Task < Test::Unit::TestCase
 	Class.new(Task) do
 	    extend Test::Unit::Assertions
 
-	    assert_raise(TaskModelViolation) { event(:start, :terminal => true) }
-	    assert_raise(TaskModelViolation) { event(:stop, :terminal => false) }
+	    assert_raise(ArgumentError) { event(:start, :terminal => true) }
+	    assert_raise(ArgumentError) { event(:stop, :terminal => false) }
 	    event :stop
 	    assert_nothing_raised { event(:inter, :terminal => true) }
 	    assert_raise(ArgumentError) { event(:inter, :terminal => true) }
