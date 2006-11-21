@@ -10,7 +10,16 @@ module Roby
 
 	attr_reader :line_height, :resolution, :start_time, :margin
 	attr_reader :event_radius, :event_display, :event_source
-	attr_accessor :view
+	
+	attr_reader :view
+	def view=(view)
+	    @view = view
+	    connect(view, SIGNAL('horizontalSliderPressed()'),
+		    SLOT('disable_scrolling()'))
+	    connect(view, SIGNAL('horizontalSliderReleased()'),
+		    SLOT('scrolled_horizontal()'))
+	end
+
 	def initialize
 	    @resolution	    = BASE_RESOLUTION # resolution for time axis in ms per pixel
 	    @line_height    = 40  # height of a line in pixel
@@ -18,6 +27,7 @@ module Roby
 	    @margin	    = 10
 
 	    super(BASE_WINDOW_WIDTH, line_height * BASE_LINES + margin * 2)
+
 	    clear
 	end
 
@@ -62,6 +72,17 @@ module Roby
 	    x = (time - @start_time) * 1000 / resolution
 	end
 
+	def scrolling?
+	    @scrolling != false
+	end
+	def disable_scrolling; @scrolling = false end
+	slots 'disable_scrolling()'
+	def scrolled_horizontal
+	    scrollbar = view.horizontal_scroll_bar
+	    @scrolling = (scrollbar.value == scrollbar.max_value)
+	end
+	slots 'scrolled_horizontal()'
+
 	def ping(time)
 	    x	    = x_of(time)
 	    @lines.each do |t|
@@ -77,7 +98,9 @@ module Roby
 		resize(new_width, self.height)
 	    end
 
-	    view.ensure_visible(x, self.height / 2)
+	    if scrolling?
+		view.ensure_visible(x, self.height / 2)
+	    end
 	end
 
 	def new_event(time, generator, pending)
