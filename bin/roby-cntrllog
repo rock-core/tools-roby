@@ -40,7 +40,7 @@ begin
 	ref = timings.delete(REF_TIMING)
 
 	unknown_timings = (timings.keys.to_set - ALL_TIMINGS.to_set)
-	raise "invalid list of timings: unknown #{unknown_timings.join(", ")}" unless unknown_timings.empty?
+	raise "invalid list of timings: unknown #{unknown_timings.to_a.join(", ")}" unless unknown_timings.empty?
 	timings = ALL_TIMINGS.map do |name|
 	    timings[name]
 	end
