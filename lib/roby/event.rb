@@ -117,9 +117,9 @@ module Roby
 		    Propagation.propagation_context([self]) do
 			Propagation.gather_exceptions(self) { block[context] }
 		    end
-		    called(context)
 		    false
 		end
+		called(context)
 
 		if postponed
 		    postponed(context, *postponed)
