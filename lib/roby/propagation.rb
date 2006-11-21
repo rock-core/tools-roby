@@ -299,6 +299,14 @@ module Roby
 	def on_exception(*matchers, &handler); exception_handlers.unshift [matchers, handler] end
 	include Propagation::ExceptionHandlingObject
 
+	# Called when an exception has been raised by application code. +error+ is the
+	# exception itself and +origin+ its origin.
+	#
+	# +event+ can be one of:
+	#   [exception_handling]:: error in exception handler. +origin+ is either
+	#			   the task of the handler or the Roby module for
+	#			   global exceptions
+	#
 	def application_error(event, error, origin)
 	    if Control.instance.abort_on_application_exception || error.kind_of?(SignalException)
 		raise error
