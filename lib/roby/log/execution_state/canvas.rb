@@ -149,13 +149,15 @@ module Roby
 	    # Task state: nil, :start, :success or :failed
 	    attr_reader :state
 
+	    TASK_STATES = [nil, :start, :stop, :success, :failed]
+
 	    def finished?; state == :success || state == :failed end
 
 	    def new_event(generator)
-		state = generator.symbol.to_sym
-		if Display::Style::TASK_COLORS.has_key?(state)
-		    @state = state
-		    display.color = Display::Style::TASK_COLORS[state]
+		new_state = generator.symbol.to_sym
+		if TASK_STATES.index(new_state) && (TASK_STATES.index(new_state) > TASK_STATES.index(state))
+		    @state = new_state
+		    display.color = Display::Style::TASK_COLORS[new_state]
 		end
 	    end
 
