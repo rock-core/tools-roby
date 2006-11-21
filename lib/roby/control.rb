@@ -133,7 +133,9 @@ module Roby
 	    fatal_errors = structure_checking
 	    # Get the list of tasks we should kill because of fatal_errors
 	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, e|
-		kill_tasks.merge(e.task.reverse_directed_component(TaskStructure::Hierarchy))
+		new_tasks = e.task.reverse_directed_component(TaskStructure::Hierarchy)
+		Control.fatal_exception(e, new_tasks)
+		kill_tasks.merge(new_tasks)
 	    end
 
 	    events_exceptions.each do |e|
@@ -266,6 +268,11 @@ module Roby
 	    thread.raise Interrupt if thread
 	end
 	attr_reader :cycle_index
+
+	# Hook called when a set of tasks is being killed because of an exception
+	def self.fatal_exception(error, tasks); super if defined? super end
+	# Hook called when an exception +e+ has been handled by +task+
+	def self.handled_exception(e, task); super if defined? super end
     end
 
     class Client < DRbObject

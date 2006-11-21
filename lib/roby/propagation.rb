@@ -265,7 +265,7 @@ got an exception which did not specify its source
 			      end
 
 		    if handled
-			handled_exception(e, task)
+			Roby::Control.handled_exception(e, task)
 			e.handled = true
 		    else
 			# We do not have the framework to handle concurrent repairs
@@ -291,8 +291,6 @@ got an exception which did not specify its source
 		end
 	    end
     end
-    # Hook called when an exception +e+ has been handled by +task+
-    def self.handled_exception(e, task); super if defined? super end
 end
 
 module Roby
