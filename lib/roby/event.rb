@@ -7,7 +7,8 @@ module Roby
     class EventModelViolation < ModelViolation
 	attr_reader :generator
 	def initialize(generator)
-	    @generator = generator
+	    raise TypeError, "not an event" unless generator.respond_to?(:to_event)
+	    @generator = generator.to_event
 	    super()
 	end
     end
