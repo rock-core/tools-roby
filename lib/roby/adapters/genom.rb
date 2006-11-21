@@ -149,11 +149,8 @@ module Roby::Genom
 	    end
 	    
 
-	    if !running?
-		event(:start).emit_failed(StartFailed, e)
-	    else
-		emit :failed, e
-	    end
+	    emit :start, nil if !running?
+	    emit :failed, e
 	end
 	def start_polling; Roby::Genom.running << self end
 	def stop_polling; Roby::Genom.running.delete(self) end
