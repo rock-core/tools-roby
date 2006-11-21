@@ -235,7 +235,10 @@ module Roby
 		did_something = false
 		tasks.find_all { |t| t.root?(@hierarchy) }.
 		    each do |t|
-			if !t.running?
+			if t.event(:start).pending?
+			    # wait for task to be started before killing it
+			elsif !t.running?
+			    garbage(t)
 			    remove_task(t)
 			    did_something = true
 			elsif t.event(:stop).controlable? && !t.event(:stop).pending?
