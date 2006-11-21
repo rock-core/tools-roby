@@ -85,3 +85,7 @@
   each call to #event_propagation_step instead of only #event_propagation since each step is supposed
   to represent (a false view of) the partial ordering of events.
 
+* Check the capability we have to put every application block in transaction context. This would allow
+  for instance to discard **all** plan modification done by an exception handler (or plan command, event
+  handler, you get ny drift) if an exception is raised. I think it would be a worthy feature
+
