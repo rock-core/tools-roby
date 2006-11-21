@@ -305,8 +305,8 @@ module Roby
 	include Propagation::ExceptionHandlingObject
 
 	def application_error(event, error, origin)
-	    if Control.instance.abort_on_exception
-		raise error, error.message, error.backtrace
+	    if Control.instance.abort_on_application_exception || error.kind_of?(SignalException)
+		raise error
 	    else
 		Roby.error "Application error during #{event} in #{origin}:#{error.full_message}"
 	    end

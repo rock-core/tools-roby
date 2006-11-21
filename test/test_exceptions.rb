@@ -91,7 +91,7 @@ class TC_Exceptions < Test::Unit::TestCase
     def test_exception_in_handler
 	Roby.logger.level = Logger::FATAL
 
-	Control.instance.abort_on_exception = false
+	Control.instance.abort_on_application_exception = false
 	FlexMock.use do |mock|
 	    klass = Class.new(ExecutableTask) do
 		define_method(:mock) { mock }
@@ -119,7 +119,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    mock.should_receive(:task_handler_called).once.ordered
 	    mock.should_receive(:global_handler_called).once.ordered
 	    Control.once { t2.start! }
-	    assert_nothing_raised { Control.instance.process_events }
+	    assert_raises(TaskModelViolation) { Control.instance.process_events }
 	end
 
     ensure

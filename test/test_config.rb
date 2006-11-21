@@ -39,6 +39,8 @@ module CommonTestBehaviour
 	    save_collection Roby::Control.event_processing
 	    save_collection Roby::Control.structure_checks
 	    Roby::Control.instance.abort_on_exception = true
+	    Roby::Control.instance.abort_on_application_exception = true
+	    Roby::Control.instance.abort_on_framework_exception = true
 	end
 
 	if defined? Roby.exception_handlers
@@ -61,6 +63,8 @@ module CommonTestBehaviour
 
 	if defined? Roby::Control
 	    Roby::Control.instance.abort_on_exception = false
+	    Roby::Control.instance.abort_on_application_exception = false
+	    Roby::Control.instance.abort_on_framework_exception = false
 	end
 
 	if CommonTestBehaviour.check_allocation_count

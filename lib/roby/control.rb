@@ -12,6 +12,8 @@ module Roby
 	SLEEP_MIN_TIME = 0.01
 
 	attr_accessor :abort_on_exception
+	attr_accessor :abort_on_application_exception
+	attr_accessor :abort_on_framework_exception
 
 	@event_processing	= []
 	@structure_checks	= []

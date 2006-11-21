@@ -25,10 +25,10 @@ class TC_Control < Test::Unit::TestCase
 		    rescue; $!
 		    end
 
-	Control.instance.abort_on_exception = false
+	Control.instance.abort_on_application_exception = false
 	assert_nothing_raised { Roby.application_error(:exceptions, exception, Task) }
 
-	Control.instance.abort_on_exception = true
+	Control.instance.abort_on_application_exception = true
 	assert_raises(RuntimeError) { Roby.application_error(:exceptions, exception, Task) }
 
     ensure
