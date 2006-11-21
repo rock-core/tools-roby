@@ -221,6 +221,8 @@ got an exception which did not specify its source
 
 		has_parent = false
 		e.task.each_parent_object(Roby::TaskStructure::Hierarchy) do |parent|
+		    next if parent.finished?
+
 		    e = e.fork if has_parent # we have more than one parent
 		    exceptions = by_task[parent] 
 		    if s = exceptions.find { |s| s.siblings.include?(e) }
