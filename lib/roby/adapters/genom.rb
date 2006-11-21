@@ -95,7 +95,7 @@ module Roby::Genom
 	    else
 		@activity = @request.call(*args)
 	    end
-	    Roby::Genom.running << self
+	    start_polling
 	end
 	event :start
 	
@@ -132,6 +132,7 @@ module Roby::Genom
 	    if abort_activity
 		event(:stop).emit_failed(RequestTimeout.new(self), e.message)
 	    else
+		stop_polling
 		event(:start).emit_failed(RequestTimeout.new(self), "timeout waiting for intermediate reply: #{e.message}")
 	    end
 
@@ -154,6 +155,8 @@ module Roby::Genom
 		emit :failed, e
 	    end
 	end
+	def start_polling; Roby::Genom.running << self end
+	def stop_polling; Roby::Genom.running.delete(self) end
 
 	def self.needs(request)
 	    unless Class === request
