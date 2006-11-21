@@ -29,7 +29,7 @@ module Roby::Log
 	    case arg
 	    when Time then Time.at(arg - @reftime).to_hms
 	    when Array then arg.map(&method(:arg_to_s)).to_s
-	    when Hash === arg then arg.map { |k, v| [arg_to_s(k), arg_to_s(v)].join(" => ") }.to_s
+	    when Hash then arg.map { |k, v| [arg_to_s(k), arg_to_s(v)].join(" => ") }.to_s
 	    else arg.to_s
 	    end
 	end
