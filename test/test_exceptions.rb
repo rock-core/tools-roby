@@ -15,6 +15,12 @@ class TC_Exceptions < Test::Unit::TestCase
 	assert_equal(task, error.task)
 	assert_equal([task], error.trace)
 	assert_equal(nil, error.generator)
+
+	ev = task.event(:start)
+	error = ExecutionException.new(EventModelViolation.new(ev))
+	assert_equal(task, error.task)
+	assert_equal(ev, error.generator)
+	assert_equal([task], error.trace)
     end
 
     def test_execution_exception_fork
