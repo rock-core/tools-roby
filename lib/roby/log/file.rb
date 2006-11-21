@@ -14,11 +14,8 @@ module Roby::Log
 	    @io = io
 	end
 
-	[TransactionHooks, TaskHooks, PlanHooks, EventGeneratorHooks, ControlHooks].each do |klass|
-	    klass::HOOKS.each do |m|
-		m = m.to_sym
-		define_method(m) { |*args| io << Marshal.dump(m) << Marshal.dump(args) }
-	    end
+	Roby::Log.each_hook do |klass, m|
+	    define_method(m) { |*args| io << Marshal.dump(m) << Marshal.dump(args) }
 	end
 
 	def self.replay(io)

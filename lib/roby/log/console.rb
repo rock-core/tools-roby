@@ -45,6 +45,7 @@ module Roby::Log
 		
 	    columns = self.columns[m]
 	    args.each_with_index do |str, i|
+		str = str.to_s
 		if !columns[i] || (str.length > columns[i])
 		    columns[i] = str.length
 		end
@@ -61,10 +62,8 @@ module Roby::Log
 	end
 	private :display
 
-	[TransactionHooks, PlanHooks, TaskHooks, EventGeneratorHooks, ControlHooks].each do |klass|
-	    klass::HOOKS.each do |m|
-		define_method(m) { |time, *args| display(time, m, *args) }
-	    end
+	Roby::Log.each_hook do |klass, m|
+	    define_method(m) { |time, *args| display(time, m, *args) }
 	end
     end
 end

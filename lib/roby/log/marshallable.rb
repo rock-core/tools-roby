@@ -32,6 +32,7 @@ module Roby
 			when Roby::Task:		Task.new(object)
 			when Roby::Transaction:		Transaction.new(object)
 			when Roby::Plan:		Plan.new(object)
+			when Exception:			WrappedException.new(object)
 			when Module
 			    object.name
 			when Hash
@@ -87,6 +88,18 @@ module Roby
 		@source_id    = source.object_id
 		@source_class = source.class.name
 		@name	      = source.name if source.respond_to?(:name)
+	    end
+	end
+
+	class WrappedException
+	    attr_reader :message, :backtrace, :type
+	    def initialize(obj)
+		@message = obj.message
+		@backtrace = obj.backtrace
+		@type = obj.class.name
+	    end
+	    def to_s
+		"'(#{type})#{message}'"
 	    end
 	end
 

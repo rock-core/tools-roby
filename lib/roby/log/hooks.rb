@@ -75,7 +75,7 @@ module Roby::Log
     Roby::Transaction.include TransactionHooks
 
     module EventGeneratorHooks
-	HOOKS = %w{added_event_relation removed_event_relation generator_calling generator_fired generator_signalling}
+	HOOKS = %w{added_event_relation removed_event_relation generator_calling generator_fired generator_signalling generator_postponed}
 
 	def added_child_object(to, type, info)
 	    super if defined? super
@@ -101,6 +101,11 @@ module Roby::Log
 	    super if defined? super
 	    Roby::Log.log(:generator_signalling) { [Time.now, Wrapper[event], Wrapper[to]] }
 	end
+
+	def postponed(context, generator, reason)
+	    super if defined? super 
+	    Roby::Log.log(:generator_postponed) { [Time.now, Wrapper[self], context.to_s, reason.to_s, Wrapper[generator]] }
+	end	
     end
     Roby::EventGenerator.include EventGeneratorHooks
 
@@ -111,7 +116,28 @@ module Roby::Log
 	    super if defined? super
 	    Roby::Log.log(:cycle_end) { [Time.now, timings] }
 	end
+
+	module ClassExtension
+	    HOOKS = %w{fatal_exception handled_exception}
+
+	    def fatal_exception(error, tasks)
+		super if defined? super
+		Roby::Log.log(:fatal_exception) { [Time.now, Wrapper[error.exception], Wrapper[tasks]] }
+	    end
+	    def handled_exception(error, task)
+		super if defined? super
+		Roby::Log.log(:handled_exception) { [Time.now, Wrapper[error.exception], Wrapper[task]] }
+	    end
+	end
     end
     Roby::Control.include ControlHooks
+
+    def self.each_hook
+	[TransactionHooks, TaskHooks, PlanHooks, EventGeneratorHooks, ControlHooks, ControlHooks::ClassExtension].each do |klass|
+	    klass::HOOKS.each do |m|
+		yield(klass, m.to_sym)
+	    end
+	end
+    end
 end
 
