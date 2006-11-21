@@ -220,6 +220,8 @@ module Roby
 	# Raises an exception object when an event whose command has been called
 	# won't be emitted (ever)
 	def emit_failed(*what)
+	    @pending -= 1
+
 	    what, message = *what
 	    what ||= EventModelViolation
 

@@ -83,6 +83,12 @@ class TC_Event < Test::Unit::TestCase
 	    assert_equal(event, e.generator)
 	    assert( e.message =~ /: test$/ )
 	end
+
+	event = EventGenerator.new { }
+	event.call
+	assert(event.pending?)
+	assert_raises(EventModelViolation) { event.emit_failed }
+	assert(!event.pending?)
     end
 
     def test_propagation_id
