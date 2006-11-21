@@ -129,7 +129,7 @@ module Roby
 	    end
 
 	    # Check that +to+ is in the same execution state than +from+
-	    if !to.same_state?(from)
+	    if !to.compatible_state?(from)
 		raise InvalidReplace.new(from, to, "state")
 	    end
 

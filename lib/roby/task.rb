@@ -681,8 +681,8 @@ module Roby
 
 	# Checks if +task+ is in the same execution state than +self+
 	# Returns true if they are either both running or both pending
-	def same_state?(task)
-	    !(finished? || task.finished?) && !(running? ^ task.running?)
+	def compatible_state?(task)
+	    finished? || !(running? ^ task.running?)
 	end
 
 	# The fullfills? predicate checks if this task can be used

@@ -431,14 +431,14 @@ class TC_Task < Test::Unit::TestCase
     def test_task_same_state
 	t1, t2 = SimpleTask.new, SimpleTask.new
 
-	assert(t1.same_state?(t2))
-	t1.start!; assert(! t1.same_state?(t2) && !t2.same_state?(t1))
-	t1.stop!; assert(! t1.same_state?(t2) && !t2.same_state?(t1))
+	assert(t1.compatible_state?(t2))
+	t1.start!; assert(! t1.compatible_state?(t2) && !t2.compatible_state?(t1))
+	t1.stop!; assert(t1.compatible_state?(t2) && t2.compatible_state?(t1))
 
 	t1 = SimpleTask.new
 	t1.start!
-	t2.start!; assert(t1.same_state?(t2) && t2.same_state?(t1))
-	t1.stop!; assert(! t1.same_state?(t2) && !t2.same_state?(t1))
+	t2.start!; assert(t1.compatible_state?(t2) && t2.compatible_state?(t1))
+	t1.stop!; assert(t1.compatible_state?(t2) && !t2.compatible_state?(t1))
     end
 
     def test_fullfills
