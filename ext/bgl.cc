@@ -1,11 +1,13 @@
 #include <ruby.h>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/depth_first_search.hpp>
+#include <boost/graph/breadth_first_search.hpp>
 #include <boost/static_assert.hpp>
 #include <boost/bind.hpp>
 #include <boost/graph/reverse_graph.hpp>
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/iterator/filter_iterator.hpp>
+#include <queue>
 
 #include <functional>
 #include <iostream>
@@ -15,6 +17,13 @@ static ID id_new;
 
 using namespace boost;
 using namespace std;
+
+template<typename T>
+struct Queue : std::queue<T>
+{
+    T& top() { return this->front(); }
+    T const& top() const { return this->front(); }
+};
 
 /**********************************************************************
  *  Definition of base C++ types
@@ -1015,7 +1024,53 @@ static VALUE graph_each_dfs(VALUE self, VALUE root, VALUE mode)
 
     depth_first_search(graph, ruby_dfs_visitor(FIX2INT(mode)), color_map, v);
     return self;
+}
 
+
+
+
+struct ruby_bfs_visitor : public default_bfs_visitor
+{
+    int m_mode;
+    ruby_bfs_visitor(int mode)
+	: m_mode(mode) { } 
+
+    void tree_edge(edge_descriptor e, BGLGraph const& graph)
+    { yield_edge(e, graph, VISIT_TREE_EDGES); }
+    void non_tree_edge(edge_descriptor e, BGLGraph const& graph)
+    { yield_edge(e, graph, VISIT_NON_TREE_EDGES); }
+
+    void yield_edge(edge_descriptor e, BGLGraph const& graph, int what)
+    {
+	if (!(what & m_mode))
+	    return;
+
+	VALUE source = graph[boost::source(e, graph)];
+	VALUE target = graph[boost::target(e, graph)];
+	VALUE info = graph[e];
+	rb_yield_values(4, source, target, info, INT2FIX(what));
+    }
+};
+
+static VALUE graph_each_bfs(VALUE self, VALUE root, VALUE mode)
+{
+    int intmode = FIX2INT(mode);
+    if ((intmode & VISIT_NON_TREE_EDGES) && ((intmode & VISIT_NON_TREE_EDGES) != VISIT_NON_TREE_EDGES))
+	rb_raise(rb_eArgError, "cannot use FORWARD_OR_CROSS and BACK");
+
+    BGLGraph& graph = graph_wrapped(self);
+    vertex_descriptor v; bool exists;
+    tie(v, exists) = rb_to_vertex(root, self);
+    if (! exists)
+	return self;
+
+    typedef map<vertex_descriptor, default_color_type> SimpleColorMap;
+    SimpleColorMap colors;
+    associative_property_map<SimpleColorMap> color_map(colors);
+    Queue<vertex_descriptor> queue;
+
+    breadth_first_search(graph, v, queue, ruby_bfs_visitor(intmode), color_map);
+    return self;
 }
 
 /**********************************************************************
@@ -1094,6 +1149,7 @@ extern "C" void Init_bgl()
     rb_define_method(bglGraph, "each_vertex",	RUBY_METHOD_FUNC(graph_each_vertex), 0);
     rb_define_method(bglGraph, "each_edge",	RUBY_METHOD_FUNC(graph_each_edge), 0);
     rb_define_method(bglGraph, "each_dfs",	RUBY_METHOD_FUNC(graph_each_dfs), 2);
+    rb_define_method(bglGraph, "each_bfs",	RUBY_METHOD_FUNC(graph_each_bfs), 2);
 
     bglVertex = rb_define_module_under(bglModule, "Vertex");
     rb_define_method(bglVertex, "related_vertex?",	RUBY_METHOD_FUNC(vertex_related_p), -1);

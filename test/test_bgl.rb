@@ -254,16 +254,47 @@ class TC_BGL < Test::Unit::TestCase
 	end
     end
 
-    def assert_trace(branch1, branch2, graph, root, filter)
+    def assert_trace(branch1, branch2, trace, filter)
 	branch1 = branch1.find_all { |_, _, _, kind| kind & filter != 0 }
 	branch2 = branch2.find_all { |_, _, _, kind| kind & filter != 0 }
 
-	trace = graph.enum_for(:each_dfs, root, filter).to_a
+	trace = trace.to_a
 	if trace[0] == branch1[0]
 	    assert_equal(branch1 + branch2, trace)
 	else
 	    assert_equal(branch2 + branch1, trace)
 	end
+    end
+
+    def test_each_bfs
+	graph = Graph.new
+	klass = Class.new { include Vertex }
+
+	vertices = (1..4).map { klass.new }
+	v1, v2, v3, v4 = *vertices
+	vertices.each { |v| graph.insert(v) }
+
+	graph.link v1, v2, 1
+	graph.link v1, v3, 2
+
+	graph.link v2, v3, 3
+	graph.link v3, v4, 4
+
+	# back edge
+	graph.link v4, v2, 5
+
+	trace = [
+	    [v1, v2, 1, Graph::TREE], 
+	    [v1, v3, 2, Graph::TREE], 
+	    [v2, v3, 3, Graph::NON_TREE], 
+	    [v3, v4, 4, Graph::TREE],
+	    [v4, v2, 5, Graph::NON_TREE]
+	]
+	assert_trace(trace, [], graph.enum_for(:each_bfs, v1, Graph::ALL), Graph::ALL)
+	assert_trace(trace, [], graph.enum_for(:each_bfs, v1, Graph::TREE), Graph::TREE)
+	assert_trace(trace, [], graph.enum_for(:each_bfs, v1, Graph::NON_TREE), Graph::NON_TREE)
+	assert_raises(ArgumentError) { graph.each_bfs(v1, Graph::FORWARD_OR_CROSS) {} }
+	assert_raises(ArgumentError) { graph.each_bfs(v1, Graph::BACK) {} }
     end
 
     def test_each_dfs
@@ -294,10 +325,10 @@ class TC_BGL < Test::Unit::TestCase
 	    [v3, v4, 3, Graph::TREE], 
 	    [v4, v2, 4, Graph::BACK]
 	]
-	assert_trace(trace_v5, trace_v2, graph, v1, Graph::ALL)
-	assert_trace(trace_v5, trace_v2, graph, v1, Graph::TREE)
-	assert_trace(trace_v5, trace_v2, graph, v1, Graph::FORWARD_OR_CROSS)
-	assert_trace(trace_v5, trace_v2, graph, v1, Graph::BACK)
+	assert_trace(trace_v5, trace_v2, graph.enum_for(:each_dfs, v1, Graph::ALL), Graph::ALL)
+	assert_trace(trace_v5, trace_v2, graph.enum_for(:each_dfs, v1, Graph::TREE), v1, Graph::TREE)
+	assert_trace(trace_v5, trace_v2, graph.enum_for(:each_dfs, v1, Graph::FORWARD_OR_CROSS), v1, Graph::FORWARD_OR_CROSS)
+	assert_trace(trace_v5, trace_v2, graph.enum_for(:each_dfs, v1, Graph::BACK), v1, Graph::BACK)
     end
 end
 
