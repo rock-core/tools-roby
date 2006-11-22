@@ -966,6 +966,58 @@ static VALUE graph_directed_components(int argc, VALUE* argv, VALUE self)
 static VALUE graph_reverse_directed_components(int argc, VALUE* argv, VALUE self)
 { return graph_do_components(true, argc, argv, make_reverse_graph(graph_wrapped(self)), self); }
 
+
+
+
+static const int VISIT_TREE_EDGES = 1;
+static const int VISIT_BACK_EDGES = 2;
+static const int VISIT_FORWARD_OR_CROSS_EDGES = 4;
+static const int VISIT_NON_TREE_EDGES = 6;
+static const int VISIT_ALL_EDGES = 7;
+
+struct ruby_dfs_visitor : public default_dfs_visitor
+{
+
+    int m_mode;
+    ruby_dfs_visitor(int mode)
+	: m_mode(mode) { } 
+
+    void tree_edge(edge_descriptor e, BGLGraph const& graph)
+    { yield_edge(e, graph, VISIT_TREE_EDGES); }
+    void back_edge(edge_descriptor e, BGLGraph const& graph)
+    { yield_edge(e, graph, VISIT_BACK_EDGES); }
+    void forward_or_cross_edge(edge_descriptor e, BGLGraph const& graph)
+    { yield_edge(e, graph, VISIT_FORWARD_OR_CROSS_EDGES); }
+
+    void yield_edge(edge_descriptor e, BGLGraph const& graph, int what)
+    {
+	if (!(what & m_mode))
+	    return;
+
+	VALUE source = graph[boost::source(e, graph)];
+	VALUE target = graph[boost::target(e, graph)];
+	VALUE info = graph[e];
+	rb_yield_values(4, source, target, info, INT2FIX(what));
+    }
+};
+
+static VALUE graph_each_dfs(VALUE self, VALUE root, VALUE mode)
+{
+    BGLGraph& graph = graph_wrapped(self);
+    vertex_descriptor v; bool exists;
+    tie(v, exists) = rb_to_vertex(root, self);
+    if (! exists)
+	return self;
+
+    typedef map<vertex_descriptor, default_color_type> SimpleColorMap;
+    SimpleColorMap colors;
+    associative_property_map<SimpleColorMap> color_map(colors);
+
+    depth_first_search(graph, ruby_dfs_visitor(FIX2INT(mode)), color_map, v);
+    return self;
+
+}
+
 /**********************************************************************
  *  Extension initialization
  */
@@ -1033,9 +1085,15 @@ extern "C" void Init_bgl()
     rb_define_method(bglGraph, "components",   RUBY_METHOD_FUNC(graph_components), -1);
     rb_define_method(bglGraph, "directed_components",   RUBY_METHOD_FUNC(graph_directed_components), -1);
     rb_define_method(bglGraph, "reverse_directed_components",   RUBY_METHOD_FUNC(graph_reverse_directed_components), -1);
+    rb_define_const(bglGraph , "TREE"             , INT2FIX(VISIT_TREE_EDGES));
+    rb_define_const(bglGraph , "FORWARD_OR_CROSS" , INT2FIX(VISIT_FORWARD_OR_CROSS_EDGES));
+    rb_define_const(bglGraph , "BACK"             , INT2FIX(VISIT_BACK_EDGES));
+    rb_define_const(bglGraph , "NON_TREE"         , INT2FIX(VISIT_NON_TREE_EDGES));
+    rb_define_const(bglGraph , "ALL"              , INT2FIX(VISIT_ALL_EDGES));
 
     rb_define_method(bglGraph, "each_vertex",	RUBY_METHOD_FUNC(graph_each_vertex), 0);
     rb_define_method(bglGraph, "each_edge",	RUBY_METHOD_FUNC(graph_each_edge), 0);
+    rb_define_method(bglGraph, "each_dfs",	RUBY_METHOD_FUNC(graph_each_dfs), 2);
 
     bglVertex = rb_define_module_under(bglModule, "Vertex");
     rb_define_method(bglVertex, "related_vertex?",	RUBY_METHOD_FUNC(vertex_related_p), -1);
