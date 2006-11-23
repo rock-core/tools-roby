@@ -2,6 +2,7 @@ $LOAD_PATH.unshift File.join(File.expand_path(File.dirname(__FILE__)), '../lib')
 require 'test_config'
 require 'roby/graph'
 require 'enumerator'
+require 'flexmock'
 require 'set'
 
 class TC_BGL < Test::Unit::TestCase
@@ -352,6 +353,27 @@ class TC_BGL < Test::Unit::TestCase
 	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph, :reverse_each_dfs, v2, Graph::TREE)
 	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph, :reverse_each_dfs, v2, Graph::FORWARD_OR_CROSS)
 	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph, :reverse_each_dfs, v2, Graph::BACK)
+    end
+
+    def test_dfs_prune
+	graph = Graph.new
+	klass = Class.new { include Vertex }
+	vertices = (1..5).map { klass.new }
+	v1, v2, v3 = *vertices
+	vertices.each { |v| graph.insert(v) }
+
+	graph.link v1, v2, 1
+	graph.link v2, v3, 2
+	graph.link v1, v3, 1
+
+	FlexMock.use do |mock|
+	    mock.should_receive(:found).with(v1, v2).once
+	    mock.should_receive(:found).with(v1, v3).once
+	    graph.each_dfs(v1, Graph::ALL) do |s, t, _, _| 
+		mock.found(s, t) 
+		graph.prune
+	    end
+	end
     end
 
     def test_neighborhood

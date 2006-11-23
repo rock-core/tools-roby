@@ -714,6 +714,7 @@ public:
 };
 
 
+
 /** Converts a std::set<VALUE> into a ValueSet object */
 static VALUE set_to_rb(set<VALUE>& source)
 {
@@ -924,6 +925,23 @@ struct ruby_dfs_visitor : public default_dfs_visitor
     }
 };
 
+template<typename G>
+static bool search_terminator(vertex_descriptor u, G const& g)
+{ 
+    VALUE thread = rb_thread_current();
+    bool result = RTEST(rb_thread_local_aref(thread, rb_intern("@prune")));
+    if (result)
+	rb_thread_local_aset(thread, rb_intern("@prune"), Qfalse);
+    return result;
+}
+
+static VALUE graph_prune(VALUE self)
+{
+    VALUE thread = rb_thread_current();
+    rb_thread_local_aset(thread, rb_intern("@prune"), Qtrue);
+    return Qtrue;
+}
+
 template<typename Graph>
 static VALUE graph_each_dfs(VALUE self, Graph& graph, VALUE root, VALUE mode)
 {
@@ -936,7 +954,7 @@ static VALUE graph_each_dfs(VALUE self, Graph& graph, VALUE root, VALUE mode)
     SimpleColorMap colors;
     associative_property_map<SimpleColorMap> color_map(colors);
 
-    depth_first_search(graph, ruby_dfs_visitor(FIX2INT(mode)), color_map, v);
+    depth_first_visit(graph, v, ruby_dfs_visitor(FIX2INT(mode)), color_map, search_terminator<Graph>);
     return self;
 }
 
@@ -1014,6 +1032,7 @@ static VALUE graph_each_bfs_reverse(VALUE self, VALUE root, VALUE mode)
     return graph_each_bfs(self, reverse_graph, root, mode);
 }
 
+
 /**********************************************************************
  *  Extension initialization
  */
@@ -1085,6 +1104,7 @@ extern "C" void Init_bgl()
     rb_define_method(bglGraph, "reverse_each_dfs",	RUBY_METHOD_FUNC(graph_each_dfs_reverse), 2);
     rb_define_method(bglGraph, "each_bfs",	RUBY_METHOD_FUNC(graph_each_bfs_direct), 2);
     rb_define_method(bglGraph, "reverse_each_bfs",	RUBY_METHOD_FUNC(graph_each_bfs_reverse), 2);
+    rb_define_method(bglGraph, "prune",		RUBY_METHOD_FUNC(graph_prune), 0);
 
     bglVertex = rb_define_module_under(bglModule, "Vertex");
     rb_define_method(bglVertex, "related_vertex?",	RUBY_METHOD_FUNC(vertex_related_p), -1);
