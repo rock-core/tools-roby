@@ -2,18 +2,14 @@
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/depth_first_search.hpp>
 #include <boost/graph/breadth_first_search.hpp>
-#include <boost/static_assert.hpp>
-#include <boost/bind.hpp>
 #include <boost/graph/reverse_graph.hpp>
 #include <boost/iterator/transform_iterator.hpp>
-#include <boost/graph/connected_components.hpp>
 #include <boost/iterator/filter_iterator.hpp>
-#include <queue>
-
+#include <boost/graph/connected_components.hpp>
+#include <boost/bind.hpp>
 #include <utilmm/undirected_graph.hh>
-
+#include <queue>
 #include <functional>
-#include <iostream>
 
 static VALUE utilrbValueSet;
 static ID id_new;
