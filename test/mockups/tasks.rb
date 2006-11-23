@@ -5,7 +5,7 @@ require 'roby/task'
 if !defined?(EmptyTask)
     # A	task that is executable event when outside a plan
     class ExecutableTask < Roby::Task
-	def initialize
+	def initialize(arguments = {})
 	    super
 	    self.executable = true
 	end
