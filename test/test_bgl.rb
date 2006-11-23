@@ -9,40 +9,6 @@ class TC_BGL < Test::Unit::TestCase
 
     include CommonTestBehaviour
 
-    def test_vertices_descriptors
-	g = Graph.new
-	v1 = g.add_vertex(d1 = 'a')
-	v2 = g.add_vertex(d2 = 'b')
-	assert_equal([d1, d2].to_set, g.enum_for(:each_vertex).to_set)
-	assert_equal(d1, g.vertex_data(v1))
-
-	g.remove_vertex(v1)
-	assert_equal([d2].to_set, g.enum_for(:each_vertex).to_set)
-
-	v3 = g.add_vertex(d3 = 'c')
-	assert_equal([d2, d3].to_set, g.enum_for(:each_vertex).to_set)
-    end
-
-    def test_edges_descriptors
-	g = Graph.new
-	v1 = g.add_vertex(d1 = 'a')
-	v2 = g.add_vertex(d2 = 'b')
-
-	g.add_edge(v1, v2, 'bla')
-	assert_equal('bla', g.edge_data(v1, v2))
-	assert_raises(ArgumentError) { g.add_edge(v1, v2, nil) }
-	assert_raises(ArgumentError) { g.edge_data(v2, v1) }
-	assert_equal([[d1, d2, 'bla']], g.enum_for(:each_edge).to_a)
-
-	g.remove_edge(v1, v2)
-	assert_raises(ArgumentError) { g.edge_data(v1, v2) }
-	assert_equal([], g.enum_for(:each_edge).to_a)
-
-	g.add_edge(v2, v1, 'foo')
-	assert_equal('foo', g.edge_data(v2, v1))
-	assert_equal([[d2, d1, 'foo']], g.enum_for(:each_edge).to_a)
-    end
-
     def test_graph_list
 	graph = Graph.new
 	klass = Class.new { include Vertex }

@@ -36,18 +36,6 @@ typedef BGLGraph::vertex_descriptor	vertex_descriptor;
 typedef BGLGraph::edge_iterator		edge_iterator;
 typedef BGLGraph::edge_descriptor	edge_descriptor;
 
-// This is highly GCC-specific ...
-BOOST_STATIC_ASSERT(( boost::is_pointer<vertex_descriptor>::value ));
-static vertex_descriptor rb_to_vertex_descriptor(VALUE descriptor)
-{ return reinterpret_cast<vertex_descriptor>(descriptor & ~((VALUE)0x1)); }
-static VALUE vertex_descriptor_to_rb(vertex_descriptor descriptor)
-{ 
-    VALUE v = reinterpret_cast<VALUE>(descriptor);
-    assert(! (v & 0x1));
-    return v | 0x1;
-}
-
-
 /* A Graph => vertex_descriptor map used in BGL::Vertex to keep
  * association between the ruby object and the graphs it is included
  * in
@@ -174,53 +162,6 @@ VALUE graph_each_vertex(VALUE self)
 
 /*
  * call-seq:
- *   graph.vertex_data(descriptor)		    => value
- *
- * Returns the vertex object associated with +descriptor+.
- */
-static
-VALUE graph_vertex_data(VALUE self, VALUE rb_descriptor)
-{
-    BGLGraph& graph = graph_wrapped(self);
-    vertex_descriptor descriptor = rb_to_vertex_descriptor(rb_descriptor);
-    return graph[descriptor];
-
-}
-
-/*
- * call-seq:
- *   graph.add_vertex(value)		    => descriptor
- *
- * Creates a new vertex in this subgraph and all its parents
- */
-static
-VALUE graph_add_vertex(VALUE self, VALUE vertex)
-{
-    BGLGraph&	graph = graph_wrapped(self);
-    
-    BGLGraph::vertex_descriptor descriptor = add_vertex(vertex, graph);
-    return vertex_descriptor_to_rb(descriptor);
-}
-
-/*
- * call-seq:
- *  graph.remove_vertex(descriptor)		=> graph
- *
- * Removes +descriptor+ from the root graph and all subgraphs. There
- * is no way to remove a descriptor from only one subgraph
- */
-static 
-VALUE graph_remove_vertex(VALUE self, VALUE rb_descriptor)
-{
-    BGLGraph&	graph = graph_wrapped(self);
-    
-    BGLGraph::vertex_descriptor descriptor = rb_to_vertex_descriptor(rb_descriptor);
-    remove_vertex(descriptor, graph);
-    return self;
-}
-
-/*
- * call-seq:
  *  graph.insert(vertex)		    => graph
  *
  * Add +vertex+ in this graph.
@@ -275,66 +216,6 @@ VALUE graph_include_p(VALUE self, VALUE vertex)
     tie(tuples::ignore, includes) = rb_to_vertex(vertex, self);
     return includes ? Qtrue : Qfalse;
 }
-
-
-/*
- * call-seq:
- *    graph.add_edge(source_descriptor, target_descriptor, info)	    => graph
- *
- * Adds an edge between the nodes whose descriptors are +source_descriptor+ and
- * +target_descriptor+. +info+ is the object associated with the edge, which can
- * be retrieved later with #edge_data
- */
-static
-VALUE graph_add_edge(VALUE self, VALUE source, VALUE target, VALUE info)
-{
-    BGLGraph& graph = graph_wrapped(self);
-    bool inserted = add_edge(rb_to_vertex_descriptor(source), rb_to_vertex_descriptor(target), info, graph).second;
-    if (! inserted)
-	rb_raise(rb_eArgError, "edge already exists");
-
-    return self;
-}
-
-/*
- * call-seq:
- *    graph.edge_data(source_descriptor, target_descriptor)	    => info
- *
- * Returns the object associated with the edge between +source_descriptor+ and
- * +target_descriptor+. Raised ArgumentError if there is no such edge.
- */
-static
-VALUE graph_edge_data(VALUE self, VALUE rb_source, VALUE rb_target)
-{
-    BGLGraph& graph = graph_wrapped(self);
-    vertex_descriptor source = rb_to_vertex_descriptor(rb_source), 
-		      target = rb_to_vertex_descriptor(rb_target);
-
-    bool b;
-    edge_descriptor e;
-    tie(e, b) = edge(source, target, graph);
-    if (!b)
-	rb_raise(rb_eArgError, "no such edge");
-
-    return graph[e];
-}
-
-/*
- * call-seq:
- *    graph.remove_edge(source_descriptor, target_descriptor)	    => graph
- *
- * Removes the edge between +source_descriptor+ and +target_descriptor+. Does
- * nothing if the edge does not exist.
- */
-static
-VALUE graph_remove_edge(VALUE self, VALUE source, VALUE target)
-{
-    BGLGraph& graph = graph_wrapped(self);
-    vertex_descriptor s = rb_to_vertex_descriptor(source), t = rb_to_vertex_descriptor(target);
-    remove_edge(s, t, graph);
-    return self;
-}
-
 
 // Make sure that the Vertex object +vertex+ is present in +self+, and returns
 // its descriptor
@@ -1150,14 +1031,6 @@ extern "C" void Init_bgl()
     bglModule = rb_define_module("BGL");
     bglGraph  = rb_define_class_under(bglModule, "Graph", rb_cObject);
     rb_define_alloc_func(bglGraph, graph_alloc);
-
-    // Functions which manipulates descriptors
-    rb_define_method(bglGraph, "add_vertex",	RUBY_METHOD_FUNC(graph_add_vertex), 1);
-    rb_define_method(bglGraph, "remove_vertex", RUBY_METHOD_FUNC(graph_remove_vertex), 1);
-    rb_define_method(bglGraph, "vertex_data",	RUBY_METHOD_FUNC(graph_vertex_data), 1);
-    rb_define_method(bglGraph, "add_edge",	RUBY_METHOD_FUNC(graph_add_edge), 3);
-    rb_define_method(bglGraph, "remove_edge",	RUBY_METHOD_FUNC(graph_remove_edge), 2);
-    rb_define_method(bglGraph, "edge_data",	RUBY_METHOD_FUNC(graph_edge_data), 2);
 
     // Functions to manipulate BGL::Vertex objects in Graphs
     rb_define_method(bglGraph, "insert",    RUBY_METHOD_FUNC(graph_insert), 1);
