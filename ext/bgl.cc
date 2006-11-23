@@ -901,14 +901,18 @@ struct ruby_dfs_visitor : public default_dfs_visitor
     ruby_dfs_visitor(int mode)
 	: m_mode(mode) { } 
 
-    void tree_edge(edge_descriptor e, BGLGraph const& graph)
+    template<typename G>
+    void tree_edge(edge_descriptor e, G const& graph)
     { yield_edge(e, graph, VISIT_TREE_EDGES); }
-    void back_edge(edge_descriptor e, BGLGraph const& graph)
+    template<typename G>
+    void back_edge(edge_descriptor e, G const& graph)
     { yield_edge(e, graph, VISIT_BACK_EDGES); }
-    void forward_or_cross_edge(edge_descriptor e, BGLGraph const& graph)
+    template<typename G>
+    void forward_or_cross_edge(edge_descriptor e, G const& graph)
     { yield_edge(e, graph, VISIT_FORWARD_OR_CROSS_EDGES); }
 
-    void yield_edge(edge_descriptor e, BGLGraph const& graph, int what)
+    template<typename G>
+    void yield_edge(edge_descriptor e, G const& graph, int what)
     {
 	if (!(what & m_mode))
 	    return;
@@ -920,9 +924,9 @@ struct ruby_dfs_visitor : public default_dfs_visitor
     }
 };
 
-static VALUE graph_each_dfs(VALUE self, VALUE root, VALUE mode)
+template<typename Graph>
+static VALUE graph_each_dfs(VALUE self, Graph& graph, VALUE root, VALUE mode)
 {
-    BGLGraph& graph = graph_wrapped(self);
     vertex_descriptor v; bool exists;
     tie(v, exists) = rb_to_vertex(root, self);
     if (! exists)
@@ -936,6 +940,18 @@ static VALUE graph_each_dfs(VALUE self, VALUE root, VALUE mode)
     return self;
 }
 
+static VALUE graph_each_dfs_direct(VALUE self, VALUE root, VALUE mode)
+{
+    BGLGraph& graph = graph_wrapped(self);
+    return graph_each_dfs(self, graph, root, mode);
+}
+static VALUE graph_each_dfs_reverse(VALUE self, VALUE root, VALUE mode)
+{
+    BGLGraph& graph = graph_wrapped(self);
+    boost::reverse_graph<BGLGraph, const BGLGraph&> reverse_graph(graph);
+    return graph_each_dfs(self, reverse_graph, root, mode);
+}
+
 
 
 
@@ -945,12 +961,14 @@ struct ruby_bfs_visitor : public default_bfs_visitor
     ruby_bfs_visitor(int mode)
 	: m_mode(mode) { } 
 
-    void tree_edge(edge_descriptor e, BGLGraph const& graph)
+    template<typename G>
+    void tree_edge(edge_descriptor e, G const& graph)
     { yield_edge(e, graph, VISIT_TREE_EDGES); }
-    void non_tree_edge(edge_descriptor e, BGLGraph const& graph)
+    template<typename G>
+    void non_tree_edge(edge_descriptor e, G const& graph)
     { yield_edge(e, graph, VISIT_NON_TREE_EDGES); }
-
-    void yield_edge(edge_descriptor e, BGLGraph const& graph, int what)
+    template<typename G>
+    void yield_edge(edge_descriptor e, G const& graph, int what)
     {
 	if (!(what & m_mode))
 	    return;
@@ -962,13 +980,13 @@ struct ruby_bfs_visitor : public default_bfs_visitor
     }
 };
 
-static VALUE graph_each_bfs(VALUE self, VALUE root, VALUE mode)
+template<typename Graph>
+static VALUE graph_each_bfs(VALUE self, Graph& graph, VALUE root, VALUE mode)
 {
     int intmode = FIX2INT(mode);
     if ((intmode & VISIT_NON_TREE_EDGES) && ((intmode & VISIT_NON_TREE_EDGES) != VISIT_NON_TREE_EDGES))
 	rb_raise(rb_eArgError, "cannot use FORWARD_OR_CROSS and BACK");
 
-    BGLGraph& graph = graph_wrapped(self);
     vertex_descriptor v; bool exists;
     tie(v, exists) = rb_to_vertex(root, self);
     if (! exists)
@@ -981,6 +999,19 @@ static VALUE graph_each_bfs(VALUE self, VALUE root, VALUE mode)
 
     breadth_first_search(graph, v, queue, ruby_bfs_visitor(intmode), color_map);
     return self;
+}
+
+static VALUE graph_each_bfs_direct(VALUE self, VALUE root, VALUE mode)
+{
+    BGLGraph& graph = graph_wrapped(self);
+    return graph_each_bfs(self, graph, root, mode);
+}
+
+static VALUE graph_each_bfs_reverse(VALUE self, VALUE root, VALUE mode)
+{
+    BGLGraph& graph = graph_wrapped(self);
+    boost::reverse_graph<BGLGraph, const BGLGraph&> reverse_graph(graph);
+    return graph_each_bfs(self, reverse_graph, root, mode);
 }
 
 /**********************************************************************
@@ -1050,8 +1081,10 @@ extern "C" void Init_bgl()
 
     rb_define_method(bglGraph, "each_vertex",	RUBY_METHOD_FUNC(graph_each_vertex), 0);
     rb_define_method(bglGraph, "each_edge",	RUBY_METHOD_FUNC(graph_each_edge), 0);
-    rb_define_method(bglGraph, "each_dfs",	RUBY_METHOD_FUNC(graph_each_dfs), 2);
-    rb_define_method(bglGraph, "each_bfs",	RUBY_METHOD_FUNC(graph_each_bfs), 2);
+    rb_define_method(bglGraph, "each_dfs",	RUBY_METHOD_FUNC(graph_each_dfs_direct), 2);
+    rb_define_method(bglGraph, "reverse_each_dfs",	RUBY_METHOD_FUNC(graph_each_dfs_reverse), 2);
+    rb_define_method(bglGraph, "each_bfs",	RUBY_METHOD_FUNC(graph_each_bfs_direct), 2);
+    rb_define_method(bglGraph, "reverse_each_bfs",	RUBY_METHOD_FUNC(graph_each_bfs_reverse), 2);
 
     bglVertex = rb_define_module_under(bglModule, "Vertex");
     rb_define_method(bglVertex, "related_vertex?",	RUBY_METHOD_FUNC(vertex_related_p), -1);

@@ -158,7 +158,7 @@ class TC_BGL < Test::Unit::TestCase
 	assert_components([[v4]], graph.components(v4))
 
 	graph.link v4, v3, nil
-	assert_components([[v1, v2], [v3, v4]], graph.components)
+	assert_components([[v1, v2], [v4, v3]], graph.components)
 	assert_components([[v2], [v3]], graph.directed_components(v2, v3))
 	assert_components([[v1, v2], [v4, v3]], graph.reverse_directed_components(v2, v3))
 	assert_components([[v3, v4]], graph.directed_components(v4))
@@ -220,15 +220,14 @@ class TC_BGL < Test::Unit::TestCase
 	end
     end
 
-    def assert_trace(branch1, branch2, trace, filter)
-	branch1 = branch1.find_all { |_, _, _, kind| kind & filter != 0 }
-	branch2 = branch2.find_all { |_, _, _, kind| kind & filter != 0 }
-
+    def assert_bfs_trace(expected, sets, trace)
 	trace = trace.to_a
-	if trace[0] == branch1[0]
-	    assert_equal(branch1 + branch2, trace)
-	else
-	    assert_equal(branch2 + branch1, trace)
+	current_index = 0
+	sets.each do |s|
+	    s = (s..s) if Fixnum === s
+	    range_size = s.to_a.size
+	    assert_equal(expected[s].to_set, trace[current_index, range_size].to_set)
+	    current_index += range_size
 	end
     end
 
@@ -242,12 +241,14 @@ class TC_BGL < Test::Unit::TestCase
 
 	graph.link v1, v2, 1
 	graph.link v1, v3, 2
-
 	graph.link v2, v3, 3
 	graph.link v3, v4, 4
-
-	# back edge
 	graph.link v4, v2, 5
+
+	#
+	# v1 ----->v3--->v4
+	#  |-->v2--^      |
+	#       ^---------|
 
 	trace = [
 	    [v1, v2, 1, Graph::TREE], 
@@ -256,14 +257,104 @@ class TC_BGL < Test::Unit::TestCase
 	    [v3, v4, 4, Graph::TREE],
 	    [v4, v2, 5, Graph::NON_TREE]
 	]
-	assert_trace(trace, [], graph.enum_for(:each_bfs, v1, Graph::ALL), Graph::ALL)
-	assert_trace(trace, [], graph.enum_for(:each_bfs, v1, Graph::TREE), Graph::TREE)
-	assert_trace(trace, [], graph.enum_for(:each_bfs, v1, Graph::NON_TREE), Graph::NON_TREE)
+	assert_bfs_trace(trace, [0..1, 2..3, 4], graph.enum_for(:each_bfs, v1, Graph::ALL))
+	assert_bfs_trace(trace, [0..1, 3], graph.enum_for(:each_bfs, v1, Graph::TREE))
+	assert_bfs_trace(trace, [2, 4], graph.enum_for(:each_bfs, v1, Graph::NON_TREE))
 	assert_raises(ArgumentError) { graph.each_bfs(v1, Graph::FORWARD_OR_CROSS) {} }
 	assert_raises(ArgumentError) { graph.each_bfs(v1, Graph::BACK) {} }
     end
 
+    def assert_dfs_trace(branches, graph, enum, root, filter)
+	branches.map! do |b|
+	    b.find_all { |e| e[3] & filter != 0 }
+	end
+	trace = graph.enum_for(enum, root, filter).to_a
+
+	begin
+	    assert( branches.find { |b| b == trace } )
+	rescue 
+	    pp trace
+	    raise
+	end
+    end
+
     def test_each_dfs
+	graph = Graph.new
+	klass = Class.new { include Vertex }
+
+	vertices = (1..5).map { klass.new }
+	v1, v2, v3, v4, v5 = *vertices
+	vertices.each { |v| graph.insert(v) }
+
+	# v1---->v2-->v3-->v4
+	# |       ^---------|
+	# |-->v5--^     
+	graph.link v1, v2, 1
+	graph.link v2, v3, 2
+	graph.link v3, v4, 3
+	# back edge
+	graph.link v4, v2, 4
+	# cross edge
+	graph.link v1, v5, 5
+	graph.link v5, v2, 6
+
+	trace1 = [
+	    [v1, v5, 5, Graph::TREE], 
+	    [v5, v2, 6, Graph::TREE],
+	    [v2, v3, 2, Graph::TREE], 
+	    [v3, v4, 3, Graph::TREE], 
+	    [v4, v2, 4, Graph::BACK],
+	    [v1, v2, 1, Graph::FORWARD_OR_CROSS]
+	]
+	trace2 = [
+	    [v1, v2, 1, Graph::TREE], 
+	    [v2, v3, 2, Graph::TREE], 
+	    [v3, v4, 3, Graph::TREE], 
+	    [v4, v2, 4, Graph::BACK],
+	    [v1, v5, 5, Graph::TREE], 
+	    [v5, v2, 6, Graph::FORWARD_OR_CROSS]
+	]
+	assert_dfs_trace([trace1, trace2], graph, :each_dfs, v1, Graph::ALL)
+	assert_dfs_trace([trace1, trace2], graph, :each_dfs, v1, Graph::TREE)
+	assert_dfs_trace([trace1, trace2], graph, :each_dfs, v1, Graph::FORWARD_OR_CROSS)
+	assert_dfs_trace([trace1, trace2], graph, :each_dfs, v1, Graph::BACK)
+
+	# v1---->v2-->v3-->v4
+	# |       ^---------|
+	# |-->v5--^     
+	rtrace1 = [
+	    [v2, v1, 1, Graph::TREE], 
+	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::FORWARD_OR_CROSS], 
+	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK]
+	]
+	rtrace2 = [
+	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::TREE],
+	    [v2, v1, 1, Graph::FORWARD_OR_CROSS],
+	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK]
+	]
+	rtrace3 = [
+	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::TREE],
+	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK],
+	    [v2, v1, 1, Graph::FORWARD_OR_CROSS]
+	]
+	rtrace4 = [
+	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK],
+	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::TREE],
+	    [v2, v1, 1, Graph::FORWARD_OR_CROSS]
+	]
+	rtrace5 = [
+	    [v2, v1, 1, Graph::TREE],
+	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK],
+	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::FORWARD_OR_CROSS]
+	]
+
+	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph, :reverse_each_dfs, v2, Graph::ALL)
+	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph, :reverse_each_dfs, v2, Graph::TREE)
+	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph, :reverse_each_dfs, v2, Graph::FORWARD_OR_CROSS)
+	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph, :reverse_each_dfs, v2, Graph::BACK)
+    end
+
+    def test_neighborhood
 	graph = Graph.new
 	klass = Class.new { include Vertex }
 
@@ -280,21 +371,6 @@ class TC_BGL < Test::Unit::TestCase
 	# cross edge
 	graph.link v1, v5, 5
 	graph.link v5, v2, 6
-
-	trace_v5 = [
-	    [v1, v5, 5, Graph::TREE], 
-	    [v5, v2, 6, Graph::FORWARD_OR_CROSS]
-	]
-	trace_v2 = [
-	    [v1, v2, 1, Graph::TREE], 
-	    [v2, v3, 2, Graph::TREE], 
-	    [v3, v4, 3, Graph::TREE], 
-	    [v4, v2, 4, Graph::BACK]
-	]
-	assert_trace(trace_v5, trace_v2, graph.enum_for(:each_dfs, v1, Graph::ALL), Graph::ALL)
-	assert_trace(trace_v5, trace_v2, graph.enum_for(:each_dfs, v1, Graph::TREE), v1, Graph::TREE)
-	assert_trace(trace_v5, trace_v2, graph.enum_for(:each_dfs, v1, Graph::FORWARD_OR_CROSS), v1, Graph::FORWARD_OR_CROSS)
-	assert_trace(trace_v5, trace_v2, graph.enum_for(:each_dfs, v1, Graph::BACK), v1, Graph::BACK)
     end
 end
 
