@@ -950,11 +950,9 @@ static VALUE graph_each_dfs(VALUE self, Graph& graph, VALUE root, VALUE mode)
     if (! exists)
 	return self;
 
-    typedef map<vertex_descriptor, default_color_type> SimpleColorMap;
-    SimpleColorMap colors;
-    associative_property_map<SimpleColorMap> color_map(colors);
-
-    depth_first_visit(graph, v, ruby_dfs_visitor(FIX2INT(mode)), color_map, search_terminator<Graph>);
+    map<vertex_descriptor, default_color_type> colors;
+    depth_first_visit(graph, v, ruby_dfs_visitor(FIX2INT(mode)), 
+	    make_assoc_property_map(colors), &search_terminator<Graph>);
     return self;
 }
 
@@ -979,22 +977,22 @@ struct ruby_bfs_visitor : public default_bfs_visitor
     ruby_bfs_visitor(int mode)
 	: m_mode(mode) { } 
 
-    template<typename G>
-    void tree_edge(edge_descriptor e, G const& graph)
+    template<typename E, typename G>
+    void tree_edge(E e, G const& graph)
     { yield_edge(e, graph, VISIT_TREE_EDGES); }
-    template<typename G>
-    void non_tree_edge(edge_descriptor e, G const& graph)
+    template<typename E, typename G>
+    void non_tree_edge(E e, G const& graph)
     { yield_edge(e, graph, VISIT_NON_TREE_EDGES); }
-    template<typename G>
-    void yield_edge(edge_descriptor e, G const& graph, int what)
+    template<typename E, typename G>
+    void yield_edge(E e, G const& graph, int what)
     {
 	if (!(what & m_mode))
 	    return;
 
-	VALUE source = graph[boost::source(e, graph)];
-	VALUE target = graph[boost::target(e, graph)];
+	VALUE source_vertex = graph[source(e, graph)];
+	VALUE target_vertex = graph[target(e, graph)];
 	VALUE info = graph[e];
-	rb_yield_values(4, source, target, info, INT2FIX(what));
+	rb_yield_values(4, source_vertex, target_vertex, info, INT2FIX(what));
     }
 };
 
@@ -1010,12 +1008,10 @@ static VALUE graph_each_bfs(VALUE self, Graph& graph, VALUE root, VALUE mode)
     if (! exists)
 	return self;
 
-    typedef map<vertex_descriptor, default_color_type> SimpleColorMap;
-    SimpleColorMap colors;
-    associative_property_map<SimpleColorMap> color_map(colors);
+    map<vertex_descriptor, default_color_type> colors;
     Queue<vertex_descriptor> queue;
-
-    breadth_first_search(graph, v, queue, ruby_bfs_visitor(intmode), color_map);
+    breadth_first_search(graph, v, queue, ruby_bfs_visitor(intmode), 
+	    make_assoc_property_map(colors));
     return self;
 }
 
@@ -1031,7 +1027,12 @@ static VALUE graph_each_bfs_reverse(VALUE self, VALUE root, VALUE mode)
     boost::reverse_graph<BGLGraph, const BGLGraph&> reverse_graph(graph);
     return graph_each_bfs(self, reverse_graph, root, mode);
 }
-
+static VALUE graph_each_bfs_undirected(VALUE self, VALUE root, VALUE mode)
+{
+    BGLGraph& graph = graph_wrapped(self);
+    utilmm::undirected_graph<BGLGraph, const BGLGraph&> undirected_graph(graph);
+    return graph_each_bfs(self, undirected_graph, root, mode);
+}
 
 /**********************************************************************
  *  Extension initialization
@@ -1104,6 +1105,7 @@ extern "C" void Init_bgl()
     rb_define_method(bglGraph, "reverse_each_dfs",	RUBY_METHOD_FUNC(graph_each_dfs_reverse), 2);
     rb_define_method(bglGraph, "each_bfs",	RUBY_METHOD_FUNC(graph_each_bfs_direct), 2);
     rb_define_method(bglGraph, "reverse_each_bfs",	RUBY_METHOD_FUNC(graph_each_bfs_reverse), 2);
+    rb_define_method(bglGraph, "undirected_each_bfs",	RUBY_METHOD_FUNC(graph_each_bfs_undirected), 2);
     rb_define_method(bglGraph, "prune",		RUBY_METHOD_FUNC(graph_prune), 0);
 
     bglVertex = rb_define_module_under(bglModule, "Vertex");
