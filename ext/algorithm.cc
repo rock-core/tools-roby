@@ -7,6 +7,7 @@
 #include <boost/bind.hpp>
 #include <boost/graph/reverse_graph.hpp>
 #include <utilmm/undirected_graph.hh>
+#include <utilmm/undirected_dfs.hh>
 #include <queue>
 #include <functional>
 
@@ -327,26 +328,26 @@ struct ruby_dfs_visitor : public default_dfs_visitor
     ruby_dfs_visitor(int mode)
 	: m_mode(mode) { } 
 
-    template<typename G>
-    void tree_edge(edge_descriptor e, G const& graph)
+    template<typename E, typename G>
+    void tree_edge(E e, G const& graph)
     { yield_edge(e, graph, VISIT_TREE_EDGES); }
-    template<typename G>
-    void back_edge(edge_descriptor e, G const& graph)
+    template<typename E, typename G>
+    void back_edge(E e, G const& graph)
     { yield_edge(e, graph, VISIT_BACK_EDGES); }
-    template<typename G>
-    void forward_or_cross_edge(edge_descriptor e, G const& graph)
+    template<typename E, typename G>
+    void forward_or_cross_edge(E e, G const& graph)
     { yield_edge(e, graph, VISIT_FORWARD_OR_CROSS_EDGES); }
 
-    template<typename G>
-    void yield_edge(edge_descriptor e, G const& graph, int what)
+    template<typename E, typename G>
+    void yield_edge(E e, G const& graph, int what)
     {
 	if (!(what & m_mode))
 	    return;
 
-	VALUE source = graph[boost::source(e, graph)];
-	VALUE target = graph[boost::target(e, graph)];
-	VALUE info = graph[e];
-	rb_yield_values(4, source, target, info, INT2FIX(what));
+	VALUE rb_source = graph[source(e, graph)];
+	VALUE rb_target = graph[target(e, graph)];
+	VALUE info = graph[e].info;
+	rb_yield_values(4, rb_source, rb_target, info, INT2FIX(what));
     }
 };
 
@@ -368,7 +369,7 @@ static VALUE graph_prune(VALUE self)
 }
 
 template<typename Graph>
-static VALUE graph_each_dfs(VALUE self, Graph& graph, VALUE root, VALUE mode)
+static VALUE graph_each_dfs(VALUE self, Graph const& graph, VALUE root, VALUE mode)
 {
     rb_thread_local_aset(rb_thread_current(), rb_intern("@prune"), Qfalse);
 
@@ -395,7 +396,30 @@ static VALUE graph_reverse_each_dfs(VALUE self, VALUE root, VALUE mode)
     boost::reverse_graph<RubyGraph, const RubyGraph&> reverse_graph(graph);
     return graph_each_dfs(real_graph, reverse_graph, root, mode);
 }
+static VALUE graph_undirected_each_dfs(VALUE self, VALUE root, VALUE mode)
+{
+    VALUE real_graph = graph_view_of(self);
+    RubyGraph& graph = graph_wrapped(real_graph);
+    typedef utilmm::undirected_graph<RubyGraph> Undirected;
+    Undirected undirected(graph);
 
+    vertex_descriptor v; bool exists;
+    tie(v, exists) = rb_to_vertex(root, real_graph);
+    if (! exists)
+	return self;
+
+    ColorMap colors;
+    edge_iterator ei, ei_end;
+    for(tie(ei, ei_end) = edges(graph); ei != ei_end; ++ei)
+	graph[*ei].color = boost::white_color;
+
+    rb_thread_local_aset(rb_thread_current(), rb_intern("@prune"), Qfalse);
+    utilmm::undirected_depth_first_visit(undirected, v, ruby_dfs_visitor(FIX2INT(mode)),
+	    make_assoc_property_map(colors), 
+	    utilmm::make_undirected_edge_map(get(&EdgeProperty::color, graph)), 
+	    &search_terminator<Undirected>);
+    return self;
+}
 
 
 
@@ -419,7 +443,7 @@ struct ruby_bfs_visitor : public default_bfs_visitor
 
 	VALUE source_vertex = graph[source(e, graph)];
 	VALUE target_vertex = graph[target(e, graph)];
-	VALUE info = graph[e];
+	VALUE info = graph[e].info;
 	rb_yield_values(4, source_vertex, target_vertex, info, INT2FIX(what));
     }
 };
@@ -525,6 +549,7 @@ void Init_graph_algorithms()
 
     bglUndirectedGraph = rb_define_class_under(bglGraph, "Undirected", rb_cObject);
     rb_define_method(bglUndirectedGraph, "generated_subgraphs",  RUBY_METHOD_FUNC(graph_undirected_components), -1);
+    rb_define_method(bglUndirectedGraph, "each_dfs",	RUBY_METHOD_FUNC(graph_undirected_each_dfs), 2);
     rb_define_method(bglUndirectedGraph, "each_bfs",	RUBY_METHOD_FUNC(graph_undirected_each_bfs), 2);
     rb_define_method(bglUndirectedGraph, "prune",	RUBY_METHOD_FUNC(graph_prune), 0);
 }

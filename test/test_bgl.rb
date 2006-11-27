@@ -272,11 +272,14 @@ class TC_BGL < Test::Unit::TestCase
 	assert_raises(ArgumentError) { graph.each_bfs(v1, Graph::BACK) {} }
     end
 
-    def assert_dfs_trace(branches, graph, enum, root, filter)
+    def assert_dfs_trace(branches, graph, enum, root, filter, check_kind = true)
 	branches.map! do |b|
 	    b.find_all { |e| e[3] & filter != 0 }
 	end
 	trace = graph.enum_for(enum, root, filter).to_a
+	if !check_kind
+	    trace.map! { |edge| edge[0..-2] }
+	end
 
 	begin
 	    assert( branches.find { |b| b == trace } )
@@ -286,7 +289,7 @@ class TC_BGL < Test::Unit::TestCase
 	end
     end
 
-    def test_each_dfs
+    def setup_test_graph
 	graph = Graph.new
 	klass = Class.new { include Vertex }
 
@@ -305,6 +308,16 @@ class TC_BGL < Test::Unit::TestCase
 	# cross edge
 	graph.link v1, v5, 5
 	graph.link v5, v2, 6
+
+	[graph, vertices]
+    end
+
+    def test_each_dfs
+	# v1---->v2-->v3-->v4
+	# |       ^---------|
+	# |-->v5--^     
+	graph, vertices = setup_test_graph
+	v1, v2, v3, v4, v5 = *vertices
 
 	trace1 = [
 	    [v1, v5, 5, Graph::TREE], 
@@ -326,10 +339,15 @@ class TC_BGL < Test::Unit::TestCase
 	assert_dfs_trace([trace1, trace2], graph, :each_dfs, v1, Graph::TREE)
 	assert_dfs_trace([trace1, trace2], graph, :each_dfs, v1, Graph::FORWARD_OR_CROSS)
 	assert_dfs_trace([trace1, trace2], graph, :each_dfs, v1, Graph::BACK)
+    end
 
+    def test_reverse_each_dfs
 	# v1---->v2-->v3-->v4
 	# |       ^---------|
 	# |-->v5--^     
+	graph, vertices = setup_test_graph
+	v1, v2, v3, v4, v5 = *vertices
+
 	rtrace1 = [
 	    [v2, v1, 1, Graph::TREE], 
 	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::FORWARD_OR_CROSS], 
@@ -383,17 +401,48 @@ class TC_BGL < Test::Unit::TestCase
 	end
     end
 
-    def test_neighborhood
-	graph = Graph.new
-	klass = Class.new { include Vertex }
-
-	vertices = (1..5).map { klass.new }
+    def test_undirected_dfs
+	# v1---->v2-->v3-->v4
+	# |       ^---------|
+	# |-->v5--^     
+	graph, vertices = setup_test_graph
 	v1, v2, v3, v4, v5 = *vertices
-	vertices.each { |v| graph.insert(v) }
 
-	graph.link v1, v2, 1
-	graph.link v2, v3, 2
-	graph.link v3, v4, 3
+	utrace1 = [
+	    [v2, v1, 1], [v1, v5, 5], [v5, v2, 6],
+	    [v2, v3, 2], [v3, v4, 3], [v4, v2, 4]
+	]
+	utrace2 = [
+	    [v2, v3, 2], [v3, v4, 3], [v4, v2, 4],
+	    [v2, v1, 1], [v1, v5, 5], [v5, v2, 6]
+	]
+	utrace3 = [
+	    [v2, v5, 6], [v5, v1, 5], [v1, v2, 1], 
+	    [v2, v3, 2], [v3, v4, 3], [v4, v2, 4]
+	]
+	utrace4 = [
+	    [v2, v3, 2], [v3, v4, 3], [v4, v2, 4],
+	    [v2, v5, 6], [v5, v1, 5], [v1, v2, 1]
+	]
+	utrace5 = [
+	    [v2, v4, 4], [v4, v3, 3], [v3, v2, 2],
+	    [v2, v5, 6], [v5, v1, 5], [v1, v2, 1]
+	]
+	utrace6 = [
+	    [v2, v5, 6], [v5, v1, 5], [v1, v2, 1],
+	    [v2, v4, 4], [v4, v3, 3], [v3, v2, 2]
+	]
+	utrace7 = [
+	    [v2, v1, 1], [v1, v5, 5], [v5, v2, 6],
+	    [v2, v4, 4], [v4, v3, 3], [v3, v2, 2]
+	]
+	utrace8 = [
+	    [v2, v4, 4], [v4, v3, 3], [v3, v2, 2],
+	    [v2, v1, 1], [v1, v5, 5], [v5, v2, 6]
+	]
+	assert_dfs_trace([utrace1, utrace2, utrace2, utrace3, utrace4, utrace5, utrace6, utrace7, utrace8], 
+			 graph.undirected, :each_dfs, v2, Graph::ALL, false)
+    end
 
 	# back edge
 	graph.link v4, v2, 4
