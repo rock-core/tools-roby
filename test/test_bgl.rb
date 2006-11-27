@@ -22,6 +22,13 @@ class TC_BGL < Test::Unit::TestCase
 	assert_equal([], v.enum_for(:each_graph).to_a)
     end
 
+    def test_graph_view
+	g = Graph.new
+	r = g.reverse
+	assert_kind_of(Graph::Reverse, r)
+	u = g.undirected
+	assert_kind_of(Graph::Undirected, u)
+    end
     
     def test_vertex_objects
 	graph = Graph.new
@@ -154,15 +161,15 @@ class TC_BGL < Test::Unit::TestCase
 	graph.link v1, v2, nil
 	assert_components([[v1, v2], [v3], [v4]], graph.components)
 	assert_components([[v1, v2]], graph.components(v1))
-	assert_components([[v2]], graph.directed_components(v2))
-	assert_components([[v1, v2]], graph.reverse_directed_components(v2))
+	assert_components([[v2]], graph.generated_subgraphs(v2))
+	assert_components([[v1, v2]], graph.reverse.generated_subgraphs(v2))
 	assert_components([[v4]], graph.components(v4))
 
 	graph.link v4, v3, nil
 	assert_components([[v1, v2], [v4, v3]], graph.components)
-	assert_components([[v2], [v3]], graph.directed_components(v2, v3))
-	assert_components([[v1, v2], [v4, v3]], graph.reverse_directed_components(v2, v3))
-	assert_components([[v3, v4]], graph.directed_components(v4))
+	assert_components([[v2], [v3]], graph.generated_subgraphs(v2, v3))
+	assert_components([[v1, v2], [v4, v3]], graph.reverse.generated_subgraphs(v2, v3))
+	assert_components([[v3, v4]], graph.generated_subgraphs(v4))
 
 	graph.link v1, v3, nil
 	assert_components([[v1, v2, v3, v4]], graph.components)
@@ -349,10 +356,10 @@ class TC_BGL < Test::Unit::TestCase
 	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::FORWARD_OR_CROSS]
 	]
 
-	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph, :reverse_each_dfs, v2, Graph::ALL)
-	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph, :reverse_each_dfs, v2, Graph::TREE)
-	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph, :reverse_each_dfs, v2, Graph::FORWARD_OR_CROSS)
-	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph, :reverse_each_dfs, v2, Graph::BACK)
+	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph.reverse, :each_dfs, v2, Graph::ALL)
+	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph.reverse, :each_dfs, v2, Graph::TREE)
+	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph.reverse, :each_dfs, v2, Graph::FORWARD_OR_CROSS)
+	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph.reverse, :each_dfs, v2, Graph::BACK)
     end
 
     def test_dfs_prune
