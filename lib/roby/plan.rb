@@ -217,6 +217,7 @@ module Roby
 	def unneeded_tasks; known_tasks - useful_tasks end
 	# Checks if +task+ is included in this plan
 	def include?(task); known_tasks.include?(task) end
+	def owned?(object); object.owners.empty? || object.owners.include?(self) end
 	# Checks if +task+ is a mission of this plan
 	def mission?(task); missions.include?(task) end
 	# Count of tasks in this plan

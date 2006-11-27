@@ -3,6 +3,9 @@ module Roby
 	# The plan this object belongs to
 	attr_reader :plan
 
+	# The object owners
+	attribute(:owners) { Array.new }
+
 	# Set the plan this task is part of
 	def plan=(new_plan)
 	    @plan = new_plan
