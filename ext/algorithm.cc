@@ -229,12 +229,11 @@ static VALUE graph_components(int argc, VALUE* argv, VALUE self)
 { 
     // Compute the connected components
     RubyGraph const& g = graph_wrapped(self);
-    utilmm::undirected_graph<RubyGraph> undirected(g);
 
     typedef std::map<vertex_descriptor, int> ComponentMap;
     ComponentMap component_map;
     ColorMap	 color_map;
-    int count = connected_components(undirected, 
+    int count = connected_components(utilmm::make_undirected_graph(g),
 	    make_assoc_property_map(component_map), 
 	    boost::color_map( make_assoc_property_map(color_map) ));
 
@@ -393,8 +392,7 @@ static VALUE graph_reverse_each_dfs(VALUE self, VALUE root, VALUE mode)
 {
     VALUE real_graph = graph_view_of(self);
     RubyGraph& graph = graph_wrapped(real_graph);
-    boost::reverse_graph<RubyGraph, const RubyGraph&> reverse_graph(graph);
-    return graph_each_dfs(real_graph, reverse_graph, root, mode);
+    return graph_each_dfs(real_graph, make_reverse_graph(graph), root, mode);
 }
 static VALUE graph_undirected_each_dfs(VALUE self, VALUE root, VALUE mode)
 {
