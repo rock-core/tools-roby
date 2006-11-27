@@ -444,11 +444,19 @@ class TC_BGL < Test::Unit::TestCase
 			 graph.undirected, :each_dfs, v2, Graph::ALL, false)
     end
 
-	# back edge
-	graph.link v4, v2, 4
-	# cross edge
-	graph.link v1, v5, 5
-	graph.link v5, v2, 6
+    def test_neighborhood
+	# v1---->v2-->v3-->v4
+	# |       ^---------|
+	# |-->v5--^     
+	graph, vertices = setup_test_graph
+	v1, v2, v3, v4, v5 = *vertices
+
+	neigh1 = [[v1, v2, 1], [v1, v5, 5]]
+	assert_equal(neigh1.to_set, graph.neighborhood(v1, 1).to_set)
+	neigh2 = neigh1 + [[v4, v2, 4], [v2, v3, 2], [v5, v2, 6]]
+	assert_equal(neigh2.to_set, graph.neighborhood(v1, 2).to_set)
+	neigh3 = neigh2 + [[v3, v4, 3]]
+	assert_equal(neigh3.to_set, graph.neighborhood(v1, 3).to_set)
     end
 end
 

@@ -79,15 +79,29 @@ module BGL
 	end
 
 	def neighborhood(vertex, distance)
-	    seen   = Set.new
 	    result = []
-	    each_bfs(vertex, TREE) do |from, to, info, _|
-		unless seen.include?(from)
-		    break if distance == 0
-		    distance -= 1
-		    seen.insert(from)
+	    seen = Set.new
+	    depth = { vertex => 0 }
+	    undirected.each_bfs(vertex, ALL) do |from, to, info, kind|
+		new_depth = depth[from] + 1
+		if kind == TREE
+		    depth[to] = new_depth
+		else
+		    next if seen.include?(to)
 		end
-		result << [from, to, info]
+		seen << from
+
+		if depth[from] > distance
+		    break
+		end
+
+		if new_depth <= distance
+		    if linked?(from, to)
+			result << [from, to, info]
+		    else
+			result << [to, from, info]
+		    end
+		end
 	    end
 	    result
 	end
