@@ -370,6 +370,8 @@ static VALUE graph_prune(VALUE self)
 template<typename Graph>
 static VALUE graph_each_dfs(VALUE self, Graph& graph, VALUE root, VALUE mode)
 {
+    rb_thread_local_aset(rb_thread_current(), rb_intern("@prune"), Qfalse);
+
     vertex_descriptor v; bool exists;
     tie(v, exists) = rb_to_vertex(root, self);
     if (! exists)
@@ -434,6 +436,7 @@ static VALUE graph_each_bfs(VALUE self, Graph const& graph, VALUE root, VALUE mo
     if (! exists)
 	return self;
 
+    rb_thread_local_aset(rb_thread_current(), rb_intern("@prune"), Qfalse);
     map<vertex_descriptor, default_color_type> colors;
     Queue<vertex_descriptor> queue;
     breadth_first_search(graph, v, queue, ruby_bfs_visitor(intmode), 
