@@ -137,12 +137,12 @@ module Roby
 	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (e, tasks)|
 		if tasks
 		    [*tasks].each do |parent|
-			new_tasks = parent.reverse_directed_component(TaskStructure::Hierarchy)
+			new_tasks = parent.reverse_generated_subgraph(TaskStructure::Hierarchy)
 			Control.fatal_exception(e, new_tasks)
 			kill_tasks.merge(new_tasks)
 		    end
 		else
-		    new_tasks = e.task.reverse_directed_component(TaskStructure::Hierarchy)
+		    new_tasks = e.task.reverse_generated_subgraph(TaskStructure::Hierarchy)
 		    Control.fatal_exception(e, new_tasks)
 		    kill_tasks.merge(new_tasks)
 		end

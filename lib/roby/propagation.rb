@@ -251,7 +251,7 @@ got an exception which did not specify its source
 	    end
 
 	    parent_trees = by_task.map do |task, _|
-		[task, task.reverse_directed_component(Roby::TaskStructure::Hierarchy)]
+		[task, task.reverse_generated_subgraph(Roby::TaskStructure::Hierarchy)]
 	    end
 
 	    # Handle the exception in all tasks that are in no other parent

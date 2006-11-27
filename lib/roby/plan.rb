@@ -181,7 +181,7 @@ module Roby
 
 	def useful_component(tasks)
 	    # Get all tasks related by hierarchy
-	    useful_tasks = @hierarchy.directed_components(*tasks).
+	    useful_tasks = @hierarchy.generated_subgraphs(*tasks).
 		inject { |useful_tasks, component| useful_tasks.merge(component) }
 
 	    return ValueSet.new unless useful_tasks
@@ -191,7 +191,7 @@ module Roby
 	    useful_tasks.dup.each do |t|
 		@service_relations.each do |rel|
 		    if rel.include?(t)
-			useful_tasks.merge t.directed_component(rel)
+			useful_tasks.merge t.generated_subgraph(rel)
 		    end
 		end
 	    end

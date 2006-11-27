@@ -182,8 +182,8 @@ module Roby::Transactions
 	extend ClassExtension
 
 	proxy_component :component
-	proxy_component :directed_component
-	proxy_component :reverse_directed_component
+	proxy_component :generated_subgraph
+	proxy_component :reverse_generated_subgraph
 
 	def relation_discover(other, type, unused = nil)
 	    discover(type)

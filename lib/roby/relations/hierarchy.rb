@@ -36,7 +36,7 @@ module Roby::TaskStructure
         def first_children
 	    result = ValueSet.new
 
-	    directed_component(Hierarchy).each do |task|
+	    generated_subgraph(Hierarchy).each do |task|
 		next if task == self
 		if task.event(:start).root?(Roby::EventStructure::CausalLink)
 		    result << task
