@@ -360,6 +360,11 @@ static bool search_terminator(vertex_descriptor u, G const& g)
     return result;
 }
 
+/* call-seq:
+ *  graph.prune
+ *
+ * In #each_dfs, call this method to stop developing the current branch
+ */
 static VALUE graph_prune(VALUE self)
 {
     VALUE thread = rb_thread_current();
@@ -383,17 +388,40 @@ static VALUE graph_each_dfs(VALUE self, Graph const& graph, VALUE root, VALUE mo
     return self;
 }
 
+/* call-seq:
+ *  graph.each_dfs(root, mode) { |source, dest, info, kind| ... }
+ *
+ * Enumerates edges of the graph following a depth-first search order.
+ * +mode+ is a filter on the kind of edge which shall be enumerated (TREE,
+ * FORWARD_OR_CROSS, BACK and ALL) and +root+ is the source of the search
+ */
 static VALUE graph_direct_each_dfs(VALUE self, VALUE root, VALUE mode)
 {
     RubyGraph& graph = graph_wrapped(self);
     return graph_each_dfs(self, graph, root, mode);
 }
+
+/* call-seq:
+ *  graph.each_dfs(root, mode) { |source, dest, info, kind| ... }
+ *
+ * Enumerates edges of the graph following a depth-first search order.
+ * +mode+ is a filter on the kind of edge which shall be enumerated (TREE,
+ * NON_TREE and ALL) and +root+ is the source of the search
+ */
 static VALUE graph_reverse_each_dfs(VALUE self, VALUE root, VALUE mode)
 {
     VALUE real_graph = graph_view_of(self);
     RubyGraph& graph = graph_wrapped(real_graph);
     return graph_each_dfs(real_graph, make_reverse_graph(graph), root, mode);
 }
+
+/* call-seq:
+ *  graph.each_dfs(root, mode) { |source, dest, info, kind| ... }
+ *
+ * Enumerates edges of the graph following a depth-first search order.
+ * +mode+ is a filter on the kind of edge which shall be enumerated (TREE,
+ * FORWARD_OR_CROSS, BACK and ALL) and +root+ is the source of the search
+ */
 static VALUE graph_undirected_each_dfs(VALUE self, VALUE root, VALUE mode)
 {
     VALUE real_graph = graph_view_of(self);
@@ -466,18 +494,40 @@ static VALUE graph_each_bfs(VALUE self, Graph const& graph, VALUE root, VALUE mo
     return self;
 }
 
+/* call-seq:
+ *  graph.each_bfs(root, mode) { |source, dest, info, kind| ... }
+ *
+ * Enumerates edges of the graph following a breadth-first search order.
+ * +mode+ is a filter on the kind of edge which shall be enumerated (TREE,
+ * NON_TREE and ALL) and +root+ is the source of the search
+ */
 static VALUE graph_direct_each_bfs(VALUE self, VALUE root, VALUE mode)
 {
     RubyGraph& graph = graph_wrapped(self);
     return graph_each_bfs(self, graph, root, mode);
 }
 
+/* call-seq:
+ *  graph.each_bfs(root, mode) { |source, dest, info, kind| ... }
+ *
+ * Enumerates edges of the graph following a breadth-first search order.
+ * +mode+ is a filter on the kind of edge which shall be enumerated (TREE,
+ * NON_TREE and ALL) and +root+ is the source of the search
+ */
 static VALUE graph_reverse_each_bfs(VALUE self, VALUE root, VALUE mode)
 {
     VALUE real_graph = graph_view_of(self);
     RubyGraph& graph = graph_wrapped(real_graph);
     return graph_each_bfs(real_graph, make_reverse_graph(graph), root, mode);
 }
+
+/* call-seq:
+ *  graph.each_bfs(root, mode) { |source, dest, info, kind| ... }
+ *
+ * Enumerates edges of the graph following a breadth-first search order.
+ * +mode+ is a filter on the kind of edge which shall be enumerated (TREE,
+ * NON_TREE and ALL) and +root+ is the source of the search
+ */
 static VALUE graph_undirected_each_bfs(VALUE self, VALUE root, VALUE mode)
 {
     VALUE real_graph = graph_view_of(self);
