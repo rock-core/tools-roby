@@ -292,7 +292,7 @@ static VALUE graph_components(int argc, VALUE* argv, VALUE self)
  */
 static
 VALUE graph_undirected_components(int argc, VALUE* argv, VALUE self)
-{ return graph_components(argc, argv, rb_iv_get(self, "@__bgl_real_graph__")); }
+{ return graph_components(argc, argv, graph_view_of(self)); }
 
 /* call-seq:
  *   graph.generated_subgraph([v1, v2, ...])		   => components
