@@ -144,7 +144,7 @@ module Roby::Distributed
 			each do |n| 
 			    next if n[0] == self
 			    n = Neighbour.new(n[2], n[1]) 
-			    Roby::Distributed.debug { "new neighbour: #{n.name} #{n.tuplespace}" }
+			    Roby::Distributed.debug { "found neighbour: #{n.name} #{n.tuplespace}" }
 			    new_neighbours << n
 			end
 		end
@@ -159,7 +159,7 @@ module Roby::Distributed
 		    finger.lookup_ring(remaining) do |ts|
 			next if ts == self
 
-			Roby::Distributed.debug { "new neighbour: #{ts.name} #{ts}" }
+			Roby::Distributed.debug { "found neighbour: #{ts.name} #{ts}" }
 			new_neighbours << Neighbour.new(ts.name, ts)
 		    end
 
