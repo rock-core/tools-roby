@@ -1,5 +1,7 @@
 require 'test_config'
+require 'mockups/tasks'
 require 'roby/distributed/connection_space'
+require 'roby/distributed/proxy'
 
 class TC_Distributed < Test::Unit::TestCase
     include Roby
@@ -177,6 +179,155 @@ class TC_Distributed < Test::Unit::TestCase
 	# Get the remote tasks
 	r_missions = p_remote.plan.known_tasks
 	assert_equal([mission, subtask].to_set, r_missions.to_set)
+    end
+
+    def test_remote_proxy
+	remote, remote_peer, local, local_peer = peer2peer
+
+	proxy_model = Distributed.RemoteProxyModel(SimpleTask)
+	assert(proxy_model.ancestors.include?(TaskProxy))
+
+	remote_task = SimpleTask.new
+	remote.plan.insert(remote_task)
+
+	proxy = nil
+	assert_nothing_raised { proxy = proxy_model.new(remote_peer, remote_task) }
+	assert_raises(TypeError) { proxy_model.new(remote_peer, Task.new) }
+	local.plan.insert(proxy)
+
+	task = Task.new
+	assert(proxy.read_only?)
+	proxy.update do
+	    assert( !proxy.read_only?)
+	    assert_nothing_raised do
+		proxy.realized_by task
+		proxy.remove_child task
+		task.realized_by proxy
+		task.remove_child proxy
+	    end
+	end
+
+	assert_raises(InvalidRemoteOperation) { proxy.realized_by task }
+	assert_raises(InvalidRemoteOperation) { task.realized_by proxy }
+	proxy.update { proxy.realized_by task }
+	assert_nothing_raised { proxy.remove_child task }
+	proxy.update { task.realized_by proxy }
+	assert_nothing_raised { task.remove_child proxy }
+
+	other_proxy = proxy_model.new(remote_peer, SimpleTask.new)
+	assert_raises(InvalidRemoteOperation) { proxy.realized_by other_proxy }
+	assert_raises(InvalidRemoteOperation) { other_proxy.realized_by proxy }
+	proxy.update { other_proxy.update { proxy.realized_by other_proxy } }
+	assert_raises(InvalidRemoteOperation) { proxy.remove_child other_proxy }
+	proxy.update { other_proxy.update { other_proxy.realized_by proxy } }
+	assert_raises(InvalidRemoteOperation) { other_proxy.remove_child proxy }
+
+	# Test Peer#proxy
+	task = Task.new
+	assert(proxy = remote_peer.proxy(task))
+	assert_equal(local.plan, proxy.plan)
+	assert_equal([remote_peer], proxy.owners)
+    end
+
+    attr_reader :remote, :p_remote, :local, :p_local
+    def apply_remote_command
+	# flush the command queue
+	p_remote.flush
+	p_local.flush
+	# make the remote host actually apply the commands
+	remote.start_neighbour_discovery(true)
+	# read the result
+	local.start_neighbour_discovery(true)
+	yield
+    end
+    def assert_proxy_of(object, proxy)
+	assert_equal(object, proxy.remote_object)
+    end
+
+    # Test that the remote plan structure is properly mapped to the local
+    # plan database
+    def test_structure_discovery
+	@remote, @p_remote, @local, @p_local = peer2peer
+	mission, subtask, next_mission = (1..3).map { Task.new }
+
+	mission.realized_by subtask
+	remote.plan.insert(mission)
+	r_mission = p_remote.plan.missions.find { true }
+
+	proxy = p_remote.proxy(r_mission)
+	mission.on(:stop, next_mission, :start)
+	remote.plan.insert(next_mission)
+
+	# We don't know about the remote relations
+	assert_equal([], proxy.enum_for(:each_child_object, Roby::TaskStructure::Hierarchy).to_a)
+	assert_equal([], proxy.event(:stop).enum_for(:each_child_object, Roby::EventStructure::Signal).to_a)
+
+	# Discover remote relations
+	p_remote.discover_neighborhood(r_mission, 1)
+	apply_remote_command do
+	    proxies = proxy.enum_for(:each_child_object, Roby::TaskStructure::Hierarchy).to_a
+	    assert_proxy_of(subtask, proxies.first)
+	    proxies = proxy.event(:stop).enum_for(:each_child_object, Roby::EventStructure::Signal).to_a
+	    assert_equal(p_remote.proxy(next_mission).event(:start), proxies.first)
+	end
+
+	# Check that #subscribe updates the relations between subscribed objects
+	proxy.clear_relations
+	p_remote.subscribe(r_mission)
+	apply_remote_command do
+	    assert_equal([], proxy.enum_for(:each_child_object, Roby::TaskStructure::Hierarchy).to_a)
+	    assert_equal([], proxy.event(:stop).enum_for(:each_child_object, Roby::EventStructure::Signal).to_a)
+	end
+
+	p_remote.plan.known_tasks.each do |t|
+	    p_remote.subscribe(t)
+	end
+	apply_remote_command do
+	    proxies = proxy.enum_for(:each_child_object, Roby::TaskStructure::Hierarchy).to_a
+	    assert_proxy_of(subtask, proxies.first)
+	    proxies = proxy.event(:stop).enum_for(:each_child_object, Roby::EventStructure::Signal).to_a
+	    assert_equal(p_remote.proxy(next_mission).event(:start), proxies.first)
+	end
+
+	# Check that #subscribe removes old relations as well
+	p_remote.unsubscribe(subtask, false)
+	mission.remove_child(subtask)
+	p_remote.subscribe(subtask)
+	apply_remote_command do
+	    proxies = proxy.enum_for(:each_child_object, Roby::TaskStructure::Hierarchy).to_a
+	    assert(proxies.empty?)
+	end
+
+	# Check dynamic updates
+	mission.realized_by(subtask)
+	apply_remote_command do
+	    proxies = proxy.enum_for(:each_child_object, Roby::TaskStructure::Hierarchy).to_a
+	    assert_proxy_of(subtask, proxies.first)
+	end
+
+	mission.remove_child(subtask)
+	apply_remote_command do
+	    proxies = proxy.enum_for(:each_child_object, Roby::TaskStructure::Hierarchy).to_a
+	    assert(proxies.empty?)
+	end
+
+	mission.event(:stop).remove_signal(next_mission.event(:start))
+	apply_remote_command do
+	    proxies = proxy.event(:stop).enum_for(:each_child_object, Roby::EventStructure::Signal).to_a
+	    assert(proxies.empty?)
+	end
+
+	mission.event(:stop).remove_signal(next_mission.event(:start))
+	apply_remote_command do
+	    proxies = proxy.event(:stop).enum_for(:each_child_object, Roby::EventStructure::Signal).to_a
+	    assert(proxies.empty?)
+	end
+
+	p_remote.unsubscribe(subtask, true)
+	apply_remote_command do
+	    proxies = proxy.enum_for(:each_child_object, Roby::TaskStructure::Hierarchy).to_a
+	    assert(proxies.empty?)
+	end
     end
 end
 

@@ -14,8 +14,11 @@ module Roby::Distributed
     class PeerServer
 	include DRbUndumped
 	attr_reader :peer
+	attr_reader :subscriptions
+
 	def initialize(peer)
-	    @peer = peer 
+	    @peer	    = peer 
+	    @subscriptions  = ValueSet.new
 	end
 	
 	def demux(calls)
@@ -26,6 +29,131 @@ module Roby::Distributed
 	end
 
 	def plan; peer.connection_space.plan end
+	def discover_neighborhood(object, distance)
+	    edges = object.neighborhood(distance)
+	    if object.kind_of?(Roby::Task)
+		object.each_event do |obj_ev|
+		    edges += obj_ev.neighborhood(distance)
+		end
+	    end
+
+	    # Replace the relation graphs by their name
+	    edges.map! do |rel, *args|
+		[rel.name, args]
+	    end
+	    peer.send(:update_relations, :link, edges)
+	end
+
+	def subscribe(object)
+	    return if subscribed?(object)
+
+	    subscriptions << object
+	    send_subscribed_relations(object)
+
+	    if object.respond_to?(:each_event)
+		object.each_event(&method(:subscribe))
+	    end
+	end
+	def subscribed?(object); subscriptions.include?(object) end
+
+	def send_subscribed_relations(object)
+	    result = []
+	    object.each_graph do |graph|
+		graph_edges = []
+		object.each_child_object(graph) do |child|
+		    if subscribed?(child)
+			graph_edges << [object, child, object[child, graph]]
+		    end
+		end
+		object.each_parent_object(graph) do |parent|
+		    if subscribed?(parent)
+			graph_edges << [parent, object, parent[object, graph]]
+		    end
+		end
+		unless graph_edges.empty?
+		    result << [graph, graph_edges]
+		end
+	    end
+
+	    # Send event if +result+ is empty, so that relations are
+	    # removed if needed on the other side
+	    peer.send(:set_relations, object, result)
+	end
+
+	def unsubscribe(object)
+	    subscriptions.delete(object)
+	end
+
+	def apply(receiver, args)
+	    if receiver.respond_to?(:to_str)
+		receiver = constant(receiver)
+	    end
+	    args.map! do |a|
+		if peer.proxying?(a)
+		    peer.proxy(a)
+		else a
+		end
+	    end
+
+	    if block_given?
+		yield(receiver, args)
+	    else
+		receiver.send(op, *args)
+	    end
+	end
+
+	# Receive the list of relations of +object+. The relations are given in
+	# an array like [[graph, from, to, info], [...], ...]
+	def set_relations(object, relations)
+	    parents  = Hash.new { |h, k| h[k] = Array.new }
+	    children = Hash.new { |h, k| h[k] = Array.new }
+
+	    object = peer.proxy(object)
+	    
+	    # Add or update existing relations
+	    relations.each do |graph, graph_relations|
+		graph_relations.each do |args|
+		    apply(graph, args) do |graph, (from, to, info)|
+			if to == object
+			    parents[graph]  << from
+			elsif from == object
+			    children[graph] << to
+			else
+			    raise ArgumentError, "trying to set a relation #{from} -> #{to} in which self(#{object}) in neither parent nor child"
+			end
+
+			if graph.linked?(from, to)
+			    from[to, graph] = info
+			else
+			    graph.link(from, to, info)
+			end
+		    end
+		end
+	    end
+
+	    object.each_relation do |rel|
+		# Remove relations that do not exist anymore
+		(object.parent_objects(rel) - parents[rel]).each do |p|
+		    rel.unlink p, object if p.owners == [peer]
+		end
+		(object.child_objects(rel) - children[rel]).each do |c|
+		    rel.unlink object, c if p.owners == [peer]
+		end
+	    end
+	end
+
+	# Receive an update on the relation graphs
+	#  object:: the object being updated
+	#  action:: a list of actions to perform, of the form [[method_name, args], [...], ...]
+	def update_relations(op, data)
+	    Roby::Distributed.debug { "received update from #{peer.name}: [#{op}|#{data.size}]" }
+
+	    data.each do |rel, args|
+		apply(rel, args) do |rel, args|
+		    rel.send(op, *args)
+		end
+	    end
+	end
     end
 
     class Peer
@@ -174,8 +302,43 @@ module Roby::Distributed
 	# Get the remote plan
 	def plan; remote_server.plan end
 
-	# Subscribe to a particular remote object
+	# Get a proxy for a task or an event. If +as+ is given, the proxy will be acting
+	# as-if +object+ is of class +as+. This can be used to map objects whose
+	# model we don't know (while we know a more abstract model)
+	def proxy(object, as = nil)
+	    @proxies[object] ||=
+		Roby::Distributed.RemoteProxy(as || object.class, self, object)
+	    connection_space.plan.discover(@proxies[object])
+
+	    @proxies[object]
+	end
+
+	# Check if +object+ should be proxied
+	def proxying?(object)
+	    case object
+	    when Roby::Task, Roby::EventGenerator
+		true
+	    end
+	end
+
+	# Discovers all objects at a distance +dist+ from +obj+. The object
+	# can be either a remote proxy or the remote object itself
+	def discover_neighborhood(object, distance)
+	    if object.respond_to?(:remote_object)
+		object = object.remote_object
+	    end
+	    send(:discover_neighborhood, object, distance)
+	end
+
+	# Make the remote pDB send us all updates about +object+
 	def subscribe(object)
+	    send(:subscribe, object)
+	end
+	def unsubscribe(object, remove_object = true)
+	    send(:unsubscribe, object)
+	    if remove_object
+		connection_space.plan.remove(object)
+	    end
 	end
     end
 end
