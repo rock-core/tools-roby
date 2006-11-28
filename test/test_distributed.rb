@@ -233,8 +233,11 @@ class TC_Distributed < Test::Unit::TestCase
     attr_reader :remote, :p_remote, :local, :p_local
     def apply_remote_command
 	# flush the command queue
-	p_remote.flush
-	p_local.flush
+	loop do
+	    did_something = p_remote.flush
+	    did_something ||= p_local.flush
+	    break unless did_something
+	end
 	# make the remote host actually apply the commands
 	remote.start_neighbour_discovery(true)
 	# read the result

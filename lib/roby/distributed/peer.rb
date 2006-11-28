@@ -240,11 +240,14 @@ module Roby::Distributed
 	    end
 	end
 
+	# Flushes all commands that are currently queued for this peer. Returns
+	# true if there were commands waiting, false otherwise
 	def flush
 	    synchronize do
-		break unless @sending
+		return false unless @sending
 		send_flushed.wait
 	    end
+	    true
 	end
 
 	def connected=(value)
