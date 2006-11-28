@@ -312,6 +312,23 @@ class TC_BGL < Test::Unit::TestCase
 	[graph, vertices]
     end
 
+    def test_linked?
+	graph, vertices = setup_test_graph
+	v1, v2, v3, v4, v5 = *vertices
+	assert( graph.linked?(v1, v2) )
+	assert( graph.linked?(v2, v3) )
+	assert( graph.linked?(v3, v4) )
+	assert( graph.linked?(v4, v2) )
+	assert( graph.linked?(v1, v5) )
+	assert( graph.linked?(v5, v2) )
+	assert( !graph.linked?(v2, v1) )
+	assert( !graph.linked?(v3, v2) )
+	assert( !graph.linked?(v4, v3) )
+	assert( !graph.linked?(v2, v4) )
+	assert( !graph.linked?(v5, v1) )
+	assert( !graph.linked?(v2, v5) )
+    end
+
     def test_each_dfs
 	# v1---->v2-->v3-->v4
 	# |       ^---------|
