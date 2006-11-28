@@ -1,5 +1,8 @@
 require 'roby/control'
 require 'roby/plan'
+require 'roby/distributed/proxy'
+require 'utilrb/queue'
+require 'utilrb/array/to_s'
 
 module Roby
     class Control; include DRbUndumped end
@@ -14,6 +17,13 @@ module Roby::Distributed
 	def initialize(peer)
 	    @peer = peer 
 	end
+	
+	def demux(calls)
+	    calls.each do |obj, args|
+		Roby::Distributed.debug { "received #{obj}.#{args} from #{peer}" }
+		obj.send(*args)
+	    end
+	end
 
 	def plan; peer.connection_space.plan end
     end
@@ -25,17 +35,24 @@ module Roby::Distributed
 	attr_reader :local
 	# The neighbour we are connected to
 	attr_reader :neighbour
-	# The last 'keepalive' tuple we wrote on neighbour ConnectionSpace
+	# The last 'keepalive' tuple we wrote on the neighbour's ConnectionSpace
 	attr_reader :keepalive
+
+	include MonitorMixin
+	attr_reader :send_flushed
+
+	def name; neighbour.name end
 
 	# Listens for new connections on Distributed.state
 	def self.connection_listener(connection_space)
 	    connection_space.read_all( { 'kind' => :peer, 'tuplespace' => nil, 'remote' => nil } ).each do |entry|
 		tuplespace = entry['tuplespace']
-		if peer = connection_space.peers[tuplespace]
+		peer = connection_space.peers[tuplespace]
+
+		if peer
 		    Roby::Distributed.debug { "Peer #{peer} finalized handshake" }
 		    # The peer finalized the handshake
-		    peer.connected = true if peer.connected?.nil?
+		    peer.connected = true
 		elsif neighbour = connection_space.neighbours.find { |n| n.tuplespace == tuplespace }
 		    Roby::Distributed.debug { "Peer #{peer} asking for connection" }
 		    # New connection attempt from a known neighbour
@@ -44,16 +61,69 @@ module Roby::Distributed
 	    end
 	end
 
-	attr_writer :connected
-
 	# Creates a new peer management object for the remote agent
 	# at +tuplespace+
 	def initialize(connection_space, neighbour)
+	    super() if defined? super
+
 	    @connection_space = connection_space
 	    @neighbour	  = neighbour
-	    @local		  ||= PeerServer.new(self)
+	    @local        = PeerServer.new(self)
+	    @proxies	  = Hash.new
+	    @send_queue   = Queue.new
+	    @send_flushed = new_cond
 	    connection_space.peers[neighbour.tuplespace] = self
+
 	    connect
+	end
+
+	def send(*args)
+	    @sending = true
+	    Roby::Distributed.debug { "queueing #{remote_server}.#{args[0]}" }
+	    @send_queue.push([remote_server, args])
+	end
+
+	def send_thread
+	    @send_thread ||= Thread.new do
+		while calls = @send_queue.get
+		    break unless connected?
+		    while !alive?
+			break unless connected?
+			connection_space.wait_discovery
+		    end
+
+		    # Mux all calls into one array and send them
+		    synchronize do
+			Roby::Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
+			remote_server.demux(calls)
+			send_flushed.broadcast
+			@sending = false
+		    end
+		end
+
+		Roby::Distributed.debug "sending thread quit for #{neighbour.name}"
+		send_flushed.broadcast
+	    end
+	end
+
+	def flush
+	    synchronize do
+		break unless @sending
+		send_flushed.wait
+	    end
+	end
+
+	def connected=(value)
+	    @connected = value
+
+	    if value
+		send_thread
+	    else
+		send_queue.push(nil)
+		@send_thread.join
+		@send_queue.clear
+		@send_thread = nil
+	    end
 	end
 
 	# Writes a connection tuple into the peer tuplespace
