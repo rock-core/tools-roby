@@ -89,3 +89,10 @@
   for instance to discard **all** plan modification done by an exception handler (or plan command, event
   handler, you get ny drift) if an exception is raised. I think it would be a worthy feature
 
+* Implement our own marshalling mechanism for dRoby. The rules of this mechanism is to:
+    - marshall everything that is marshallable
+    - marshall all "global" model classes and all relations using their name
+      and unmarshall them using constant(). Alternatively, for task models,
+      send all the model ancestry so that we can select a more generic model if the
+      specific model is not available
+
