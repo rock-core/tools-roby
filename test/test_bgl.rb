@@ -83,6 +83,8 @@ class TC_BGL < Test::Unit::TestCase
 	g2.link v3, v2, 2
 	assert_raises(ArgumentError) { g2.link v3, v2, 2 }
 	assert_equal(2, v3[v2, g2])
+	v3[v2, g2] = 3
+	assert_equal(3, v3[v2, g2])
 
 	g2.link v1, v2, 3
 	assert(g1.linked?(v1, v2))

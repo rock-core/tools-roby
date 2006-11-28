@@ -424,6 +424,34 @@ static VALUE vertex_get_info(VALUE self, VALUE child, VALUE rb_graph)
 
 /*
  * call-seq:
+ *	vertex[child, graph] = new_value		    => new_value
+ *
+ * Sets the data associated with the vertex => +child+ edge in +graph+.
+ * Raises ArgumentError if there is no such edge.
+ */
+static VALUE vertex_set_info(VALUE self, VALUE child, VALUE rb_graph, VALUE new_value)
+{
+    vertex_descriptor source, target; bool exists;
+
+    tie(source, exists) = rb_to_vertex(self, rb_graph);
+    if (! exists)
+	rb_raise(rb_eArgError, "self is not in graph");
+    tie(target, exists) = rb_to_vertex(child, rb_graph);
+    if (! exists)
+	rb_raise(rb_eArgError, "child is not in graph");
+
+    RubyGraph& graph = graph_wrapped(rb_graph);
+    edge_descriptor e;
+    tie(e, exists) = edge(source, target, graph);
+    if (! exists)
+	rb_raise(rb_eArgError, "no such edge in graph");
+
+    return (graph[e].info = new_value);
+}
+
+
+/*
+ * call-seq:
  *   vertex.root?([graph])
  *
  * Checks if +vertex+ is a root node in +graph+ (it has no parents), or if graph is not given, in all graphs 
@@ -470,6 +498,7 @@ extern "C" void Init_bgl()
     rb_define_method(bglVertex, "root?",		RUBY_METHOD_FUNC(vertex_root_p), -1);
     rb_define_method(bglVertex, "leaf?",		RUBY_METHOD_FUNC(vertex_leaf_p), -1);
     rb_define_method(bglVertex, "[]",			RUBY_METHOD_FUNC(vertex_get_info), 2);
+    rb_define_method(bglVertex, "[]=",			RUBY_METHOD_FUNC(vertex_set_info), 3);
 
     bglReverseGraph    = rb_define_class_under(bglGraph, "Reverse", rb_cObject);
     bglUndirectedGraph = rb_define_class_under(bglGraph, "Undirected", rb_cObject);
