@@ -42,7 +42,7 @@ module BGL
 	def neighborhood(distance, graph = nil)
 	    if graph
 		graph.neighborhood(self, distance).
-		    map! { |*args| args << graph }
+		    map! { |args| args.unshift(graph) }
 	    else
 		edges = []
 		each_graph do |graph|
