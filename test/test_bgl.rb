@@ -273,7 +273,7 @@ class TC_BGL < Test::Unit::TestCase
     end
 
     def assert_dfs_trace(branches, graph, enum, root, filter, check_kind = true)
-	branches.map! do |b|
+	branches = branches.map do |b|
 	    b.find_all { |e| e[3] & filter != 0 }
 	end
 	trace = graph.enum_for(enum, root, filter).to_a
@@ -336,7 +336,8 @@ class TC_BGL < Test::Unit::TestCase
 	graph, vertices = setup_test_graph
 	v1, v2, v3, v4, v5 = *vertices
 
-	trace1 = [
+	traces = []
+	traces << [
 	    [v1, v5, 5, Graph::TREE], 
 	    [v5, v2, 6, Graph::TREE],
 	    [v2, v3, 2, Graph::TREE], 
@@ -344,7 +345,7 @@ class TC_BGL < Test::Unit::TestCase
 	    [v4, v2, 4, Graph::BACK],
 	    [v1, v2, 1, Graph::FORWARD_OR_CROSS]
 	]
-	trace2 = [
+	traces << [
 	    [v1, v2, 1, Graph::TREE], 
 	    [v2, v3, 2, Graph::TREE], 
 	    [v3, v4, 3, Graph::TREE], 
@@ -352,10 +353,10 @@ class TC_BGL < Test::Unit::TestCase
 	    [v1, v5, 5, Graph::TREE], 
 	    [v5, v2, 6, Graph::FORWARD_OR_CROSS]
 	]
-	assert_dfs_trace([trace1, trace2], graph, :each_dfs, v1, Graph::ALL)
-	assert_dfs_trace([trace1, trace2], graph, :each_dfs, v1, Graph::TREE)
-	assert_dfs_trace([trace1, trace2], graph, :each_dfs, v1, Graph::FORWARD_OR_CROSS)
-	assert_dfs_trace([trace1, trace2], graph, :each_dfs, v1, Graph::BACK)
+	assert_dfs_trace(traces, graph, :each_dfs, v1, Graph::ALL)
+	assert_dfs_trace(traces, graph, :each_dfs, v1, Graph::TREE)
+	assert_dfs_trace(traces, graph, :each_dfs, v1, Graph::FORWARD_OR_CROSS)
+	assert_dfs_trace(traces, graph, :each_dfs, v1, Graph::BACK)
     end
 
     def test_reverse_each_dfs
@@ -365,36 +366,43 @@ class TC_BGL < Test::Unit::TestCase
 	graph, vertices = setup_test_graph
 	v1, v2, v3, v4, v5 = *vertices
 
-	rtrace1 = [
+	traces = []
+	traces << [
 	    [v2, v1, 1, Graph::TREE], 
 	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::FORWARD_OR_CROSS], 
 	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK]
 	]
-	rtrace2 = [
+	traces << [
 	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::TREE],
 	    [v2, v1, 1, Graph::FORWARD_OR_CROSS],
 	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK]
 	]
-	rtrace3 = [
+	traces << [
 	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::TREE],
 	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK],
 	    [v2, v1, 1, Graph::FORWARD_OR_CROSS]
 	]
-	rtrace4 = [
-	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK],
-	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::TREE],
-	    [v2, v1, 1, Graph::FORWARD_OR_CROSS]
-	]
-	rtrace5 = [
+	traces << [
 	    [v2, v1, 1, Graph::TREE],
 	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK],
+	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::TREE],
+	]
+	traces << [
+	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK],
+	    [v2, v1, 1, Graph::TREE],
 	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::FORWARD_OR_CROSS]
 	]
 
-	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph.reverse, :each_dfs, v2, Graph::ALL)
-	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph.reverse, :each_dfs, v2, Graph::TREE)
-	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph.reverse, :each_dfs, v2, Graph::FORWARD_OR_CROSS)
-	assert_dfs_trace([rtrace1, rtrace2, rtrace3, rtrace4, rtrace5], graph.reverse, :each_dfs, v2, Graph::BACK)
+	traces << [
+	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK],
+	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::TREE],
+	    [v2, v1, 1, Graph::FORWARD_OR_CROSS]
+	]
+
+	assert_dfs_trace(traces, graph.reverse, :each_dfs, v2, Graph::ALL)
+	assert_dfs_trace(traces, graph.reverse, :each_dfs, v2, Graph::TREE)
+	assert_dfs_trace(traces, graph.reverse, :each_dfs, v2, Graph::FORWARD_OR_CROSS)
+	assert_dfs_trace(traces, graph.reverse, :each_dfs, v2, Graph::BACK)
     end
 
     def test_dfs_prune
@@ -425,40 +433,40 @@ class TC_BGL < Test::Unit::TestCase
 	graph, vertices = setup_test_graph
 	v1, v2, v3, v4, v5 = *vertices
 
-	utrace1 = [
+	traces = []
+	traces << [
 	    [v2, v1, 1], [v1, v5, 5], [v5, v2, 6],
 	    [v2, v3, 2], [v3, v4, 3], [v4, v2, 4]
 	]
-	utrace2 = [
+	traces << [
 	    [v2, v3, 2], [v3, v4, 3], [v4, v2, 4],
 	    [v2, v1, 1], [v1, v5, 5], [v5, v2, 6]
 	]
-	utrace3 = [
+	traces << [
 	    [v2, v5, 6], [v5, v1, 5], [v1, v2, 1], 
 	    [v2, v3, 2], [v3, v4, 3], [v4, v2, 4]
 	]
-	utrace4 = [
+	traces << [
 	    [v2, v3, 2], [v3, v4, 3], [v4, v2, 4],
 	    [v2, v5, 6], [v5, v1, 5], [v1, v2, 1]
 	]
-	utrace5 = [
+	traces << [
 	    [v2, v4, 4], [v4, v3, 3], [v3, v2, 2],
 	    [v2, v5, 6], [v5, v1, 5], [v1, v2, 1]
 	]
-	utrace6 = [
+	traces << [
 	    [v2, v5, 6], [v5, v1, 5], [v1, v2, 1],
 	    [v2, v4, 4], [v4, v3, 3], [v3, v2, 2]
 	]
-	utrace7 = [
+	traces << [
 	    [v2, v1, 1], [v1, v5, 5], [v5, v2, 6],
 	    [v2, v4, 4], [v4, v3, 3], [v3, v2, 2]
 	]
-	utrace8 = [
+	traces << [
 	    [v2, v4, 4], [v4, v3, 3], [v3, v2, 2],
 	    [v2, v1, 1], [v1, v5, 5], [v5, v2, 6]
 	]
-	assert_dfs_trace([utrace1, utrace2, utrace2, utrace3, utrace4, utrace5, utrace6, utrace7, utrace8], 
-			 graph.undirected, :each_dfs, v2, Graph::ALL, false)
+	assert_dfs_trace(traces, graph.undirected, :each_dfs, v2, Graph::ALL, false)
     end
 
     def test_neighborhood
