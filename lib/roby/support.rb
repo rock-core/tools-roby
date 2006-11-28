@@ -139,7 +139,7 @@ end
 
 module Roby
     @logger = Logger.new(STDERR)
-    @logger.level = Logger::DEBUG
+    @logger.level = Logger::WARN
     @logger.progname = "Roby"
     @logger.formatter = lambda { |severity, time, progname, msg| "#{progname}: #{msg}\n" }
 
