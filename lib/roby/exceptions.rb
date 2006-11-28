@@ -50,7 +50,6 @@ module Roby
 	# call #generator.task
 	def initialize(exception, source = nil)
 	    @exception = exception
-	    @discarded = Array.new
 	    @trace = Array.new
 	    @siblings = [self]
 
