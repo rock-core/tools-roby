@@ -126,7 +126,7 @@ module Roby::Distributed
 		    end
 
 		    connection_listeners.each { |listen| listen.call(self) }
-		    finished_discovery.signal
+		    finished_discovery.broadcast
 
 		    if @discovery_start == @last_discovery
 			start_discovery.wait
