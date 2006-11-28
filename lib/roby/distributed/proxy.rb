@@ -7,6 +7,23 @@ module Roby::Distributed
     end
     class InvalidRemoteOperation < RemoteTaskError; end
 
+    @updated_objects = []
+    class << self
+	attr_reader :updated_objects
+	def update(*objects)
+	    objects.map! do |o|
+		unless @updated_objects.include?(o)
+		    @updated_objects << o
+		end
+	    end
+
+	    yield
+
+	ensure
+	    objects.each { |o| @updated_objects.delete(o) if o }
+	end
+    end
+
     @@proxy_model = Hash.new
 
     # Builds a remote proxy model for +object_model+. +object_model+ is
@@ -48,7 +65,7 @@ module Roby::Distributed
 	end
 
 	def update?; @update end
-	def read_only?; !@update end
+	def read_only?; !Roby::Distributed.updated_objects.include?(self) && !@update end
 	def update
 	    raise "recursive call to #update" if @update
 

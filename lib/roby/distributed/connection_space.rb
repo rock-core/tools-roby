@@ -14,6 +14,32 @@ module Roby::Distributed
     # A neighbour is a named remote ConnectionSpace object
     Neighbour = Struct.new :name, :tuplespace
 
+    module RelationModificationHooks
+	def added_child_object(child, type, info)
+	    super if defined? super
+
+	    Roby::Distributed.peers.each_value do |peer|
+		s = peer.local.subscriptions
+		if s.include?(self) && s.include?(child)
+		    peer.send(:update_relation, [self, :add_child_object, child, type.name, info])
+		end
+	    end
+	end
+
+	def removed_child_object(child, type)
+	    super if defined? super
+
+	    Roby::Distributed.peers.each_value do |peer|
+		s = peer.local.subscriptions
+		if s.include?(self) && s.include?(child)
+		    peer.send(:update_relation, [self, :remove_child_object, child, type.name])
+		end
+	    end
+	end
+    end
+    Roby::Task.include(RelationModificationHooks)
+    Roby::EventGenerator.include(RelationModificationHooks)
+
     # Connection discovery based on Rinda::RingServer
     #
     # Each plan database spawns its own RingServer, providing:

@@ -14,6 +14,7 @@ class TC_Distributed < Test::Unit::TestCase
 
     def teardown 
 	Distributed.unpublish
+	Distributed.state = nil
 	DRb.stop_service if DRb.thread
 	stop_remote_process
     end
@@ -249,6 +250,7 @@ class TC_Distributed < Test::Unit::TestCase
     def test_structure_discovery
 	@remote, @p_remote, @local, @p_local = peer2peer
 	mission, subtask, next_mission = (1..3).map { Task.new }
+	Distributed.state = remote
 
 	mission.realized_by subtask
 	remote.plan.insert(mission)
@@ -317,10 +319,10 @@ class TC_Distributed < Test::Unit::TestCase
 	    assert(proxies.empty?)
 	end
 
-	mission.event(:stop).remove_signal(next_mission.event(:start))
+	mission.event(:stop).add_signal(next_mission.event(:start))
 	apply_remote_command do
 	    proxies = proxy.event(:stop).enum_for(:each_child_object, Roby::EventStructure::Signal).to_a
-	    assert(proxies.empty?)
+	    assert_equal(p_remote.proxy(next_mission).event(:start), proxies.first)
 	end
 
 	p_remote.unsubscribe(subtask, true)

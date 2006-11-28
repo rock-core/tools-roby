@@ -23,7 +23,7 @@ module Roby::Distributed
 	
 	def demux(calls)
 	    calls.each do |obj, args|
-		Roby::Distributed.debug { "received #{obj}.#{args} from #{peer}" }
+		Roby::Distributed.debug { "received #{obj}.#{args[0]}(#{args[1..-1]}) from #{peer}" }
 		obj.send(*args)
 	    end
 	end
@@ -38,10 +38,10 @@ module Roby::Distributed
 	    end
 
 	    # Replace the relation graphs by their name
-	    edges.map! do |rel, *args|
-		[rel.name, args]
+	    edges.map! do |rel, from, to, info|
+		[peer.remote_server, [:update_relation, [from, :add_child_object, to, rel.name, info]]]
 	    end
-	    peer.send(:update_relations, :link, edges)
+	    peer.send(:demux, edges)
 	end
 
 	def subscribe(object)
@@ -84,10 +84,7 @@ module Roby::Distributed
 	    subscriptions.delete(object)
 	end
 
-	def apply(receiver, args)
-	    if receiver.respond_to?(:to_str)
-		receiver = constant(receiver)
-	    end
+	def apply(args)
 	    args.map! do |a|
 		if peer.proxying?(a)
 		    peer.proxy(a)
@@ -95,11 +92,7 @@ module Roby::Distributed
 		end
 	    end
 
-	    if block_given?
-		yield(receiver, args)
-	    else
-		receiver.send(op, *args)
-	    end
+	    yield(args)
 	end
 
 	# Receive the list of relations of +object+. The relations are given in
@@ -112,8 +105,9 @@ module Roby::Distributed
 	    
 	    # Add or update existing relations
 	    relations.each do |graph, graph_relations|
+		graph = constant(graph)
 		graph_relations.each do |args|
-		    apply(graph, args) do |graph, (from, to, info)|
+		    apply(args) do |from, to, info|
 			if to == object
 			    parents[graph]  << from
 			elsif from == object
@@ -125,7 +119,9 @@ module Roby::Distributed
 			if graph.linked?(from, to)
 			    from[to, graph] = info
 			else
-			    graph.link(from, to, info)
+			    Roby::Distributed.update(from, to) do
+				from.add_child_object(to, graph, info)
+			    end
 			end
 		    end
 		end
@@ -134,10 +130,18 @@ module Roby::Distributed
 	    object.each_relation do |rel|
 		# Remove relations that do not exist anymore
 		(object.parent_objects(rel) - parents[rel]).each do |p|
-		    rel.unlink p, object if p.owners == [peer]
+		    if p.owners == [peer]
+			Roby::Distributed.update(p, object) do
+			    p.remove_child_object(object, rel)
+			end
+		    end
 		end
 		(object.child_objects(rel) - children[rel]).each do |c|
-		    rel.unlink object, c if p.owners == [peer]
+		    if c.owners == [peer]
+			Roby::Distributed.update(c, object) do
+			    object.remove_child_object(c, rel) if c.owners == [peer]
+			end
+		    end
 		end
 	    end
 	end
@@ -145,12 +149,14 @@ module Roby::Distributed
 	# Receive an update on the relation graphs
 	#  object:: the object being updated
 	#  action:: a list of actions to perform, of the form [[method_name, args], [...], ...]
-	def update_relations(op, data)
-	    Roby::Distributed.debug { "received update from #{peer.name}: [#{op}|#{data.size}]" }
+	def update_relation(args)
+	    apply(args) do |args|
+		object, op, other, graph, *args = args
+		Roby::Distributed.debug { "received update from #{peer.name}: #{object}.#{op}(#{other}, #{graph}, ...)" }
+		graph = constant(graph)
 
-	    data.each do |rel, args|
-		apply(rel, args) do |rel, args|
-		    rel.send(op, *args)
+		Roby::Distributed.update(object, other) do
+		    object.send(op, other, graph, *args)
 		end
 	    end
 	end
@@ -336,8 +342,8 @@ module Roby::Distributed
 	end
 	def unsubscribe(object, remove_object = true)
 	    send(:unsubscribe, object)
-	    if remove_object
-		connection_space.plan.remove(object)
+	    if remove_object && object.kind_of?(Roby::Task)
+		connection_space.plan.remove_task(object) 
 	    end
 	end
     end
