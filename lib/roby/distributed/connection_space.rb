@@ -18,6 +18,7 @@ module Roby::Distributed
 	def added_child_object(child, type, info)
 	    super if defined? super
 
+	    return unless Roby::Distributed.state
 	    Roby::Distributed.peers.each_value do |peer|
 		s = peer.local.subscriptions
 		if s.include?(self) && s.include?(child)
@@ -29,6 +30,7 @@ module Roby::Distributed
 	def removed_child_object(child, type)
 	    super if defined? super
 
+	    return unless Roby::Distributed.state
 	    Roby::Distributed.peers.each_value do |peer|
 		s = peer.local.subscriptions
 		if s.include?(self) && s.include?(child)
