@@ -32,6 +32,13 @@ module BGL
 	    each_graph { |g| g.replace_vertex(self, to) }
 	end
 
+	# call-seq:
+	#   v.neighborhood(distance, graph) => [[graph, v, v1, data], [graph, v2, v, data], ...]
+	#   v.neighborhood(distance)	    => [[g1, v, v1, data], [g2, v2, v, data], ...]
+	#
+	# Returns a list of [graph, edge] representing all edges at a maximum distance
+	# of +distance+ from +self+. If +graph+ is given, only enumerate the neighborhood
+	# in +graph+.
 	def neighborhood(distance, graph = nil)
 	    if graph
 		graph.neighborhood(self, distance).
