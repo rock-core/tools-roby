@@ -151,7 +151,7 @@ module Roby
 
 	def check_is_relation(type)
 	    if type && !(RelationGraph === type)
-		raise ArgumentError, "#{type} is not a relation type"
+		raise ArgumentError, "#{type} (of class #{type.class}) is not a relation type"
 	    end
 	end
 
