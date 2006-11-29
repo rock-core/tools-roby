@@ -63,7 +63,6 @@ module Roby
 	#   * :always_call: always call, event if it has already been called in this cycle
 	attr_accessor :propagation_mode
 
-	def name; model.name end
 	attr_writer :executable
 	def executable?; @executable end
 
