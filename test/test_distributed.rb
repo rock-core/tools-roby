@@ -7,9 +7,13 @@ class TC_Distributed < Test::Unit::TestCase
     include Roby
     include Roby::Distributed
     include Rinda
+    include CommonTestBehaviour
 
     def setup
 	Thread.abort_on_exception = true
+	DRb.always_wrap = true
+
+	super
     end
 
     def teardown 
@@ -17,6 +21,9 @@ class TC_Distributed < Test::Unit::TestCase
 	Distributed.state = nil
 	DRb.stop_service if DRb.thread
 	stop_remote_process
+	DRb.always_wrap = false
+
+	super
     end
 
     attr_reader :remote_pid, :quit_r, :quit_w

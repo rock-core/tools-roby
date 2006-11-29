@@ -15,6 +15,21 @@ module Rinda
     end
 end
 
+module DRb
+    class << self
+	alias :__drb_here__ :here?
+	def here?(uri)
+	    !always_wrap? && __drb_here__(uri)
+	end
+
+	@always_wrap = false
+	def always_wrap=(flag)
+	    @always_wrap = flag
+	end
+	def always_wrap?; @always_wrap end
+    end
+end
+
 module Roby
     module Distributed
 	# Reimplements Rinda::RingServer, removing the tuplespace intermediate and
