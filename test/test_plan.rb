@@ -159,6 +159,22 @@ module TC_PlanStatic
 	assert( c3.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )
     end
 
+    def test_remove_task
+	t1, t2, t3 = (1..3).map { Roby::Task.new }
+	t1.realized_by t2
+	t1.on(:stop, t3, :start)
+
+	plan.insert(t1)
+	plan.insert(t3)
+
+	assert(!t1.child_objects(TaskStructure::Hierarchy).empty?)
+	plan.remove_task(t2)
+	assert(t1.child_objects(TaskStructure::Hierarchy).empty?)
+
+	assert(!t1.event(:stop).child_objects(EventStructure::Signal).empty?)
+	plan.remove_task(t3)
+	assert(t1.event(:stop).child_objects(EventStructure::Signal).empty?)
+    end
 end
 
 class TC_Plan < Test::Unit::TestCase
