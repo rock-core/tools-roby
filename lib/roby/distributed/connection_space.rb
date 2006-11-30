@@ -22,7 +22,7 @@ module Roby::Distributed
 	    Roby::Distributed.peers.each_value do |peer|
 		s = peer.local.subscriptions
 		if s.include?(self) && s.include?(child)
-		    peer.send(:update_relation, [self, :add_child_object, child, type.name, info])
+		    peer.send(:update_relation, [self, :add_child_object, child, type, info])
 		end
 	    end
 	end
@@ -34,7 +34,7 @@ module Roby::Distributed
 	    Roby::Distributed.peers.each_value do |peer|
 		s = peer.local.subscriptions
 		if s.include?(self) && s.include?(child)
-		    peer.send(:update_relation, [self, :remove_child_object, child, type.name])
+		    peer.send(:update_relation, [self, :remove_child_object, child, type])
 		end
 	    end
 	end
@@ -82,6 +82,8 @@ module Roby::Distributed
 	attr_reader :finished_discovery
 	# The plan we are publishing, usually Control.instance.plan
 	attr_reader :plan
+	# How many errors are allowed before killing a peer to peer connection
+	attr_reader :max_allowed_errors
 
 	# The agent name on the network
 	attr_reader :name
@@ -93,7 +95,8 @@ module Roby::Distributed
 		:ring_discovery => true,		    # wether we should do discovery based on Rinda::RingFinger
 		:ring_broadcast => '',			    # the broadcast address for discovery
 		:discovery_tuplespace => nil,		    # a central tuplespace which lists hosts (including ourselves)
-		:plan => nil				    # the plan we publish, uses Control.instance.plan if nil
+		:plan => nil,				    # the plan we publish, uses Control.instance.plan if nil
+		:max_allowed_errors => 10
 
 	    if options[:ring_discovery] && !options[:period]
 		raise ArgumentError, "you must provide a discovery period when using ring discovery"
@@ -107,6 +110,7 @@ module Roby::Distributed
 	    @connection_listeners = Array.new
 	    @connection_listeners << Peer.method(:connection_listener)
 	    @plan		  = options[:plan] || Roby::Control.instance.plan
+	    @max_allowed_errors   = options[:max_allowed_errors]
 
 	    @discovery_period     = options[:period]
 	    @ring_discovery       = options[:ring_discovery]

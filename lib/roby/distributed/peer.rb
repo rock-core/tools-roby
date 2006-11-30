@@ -20,12 +20,22 @@ module Roby::Distributed
 	    @peer	    = peer 
 	    @subscriptions  = ValueSet.new
 	end
+
+	def client_name; peer.connection_space.name end
+	def server_name; peer.neighbour.name end
 	
 	def demux(calls)
+	    idx = 0
 	    calls.each do |obj, args|
-		Roby::Distributed.debug { "received #{obj}.#{args[0]}(#{args[1..-1]}) from #{peer}" }
+		Roby::Distributed.debug { "processing #{obj}.#{args[0]}(#{args[1..-1].join(", ")})" }
 		obj.send(*args)
+		idx += 1
 	    end
+
+	    [idx, nil]
+
+	rescue
+	    [idx, $!]
 	end
 
 	def plan; peer.connection_space.plan end
@@ -39,20 +49,25 @@ module Roby::Distributed
 
 	    # Replace the relation graphs by their name
 	    edges.map! do |rel, from, to, info|
-		[peer.remote_server, [:update_relation, [from, :add_child_object, to, rel.name, info]]]
+		[peer.remote_server, [:update_relation, [from, :add_child_object, to, rel, info]]]
 	    end
 	    peer.send(:demux, edges)
+	    nil
 	end
 
 	def subscribe(object)
 	    return if subscribed?(object)
 
+	    unless object.kind_of?(Roby::Task) || object.kind_of?(Roby::EventGenerator)
+		raise TypeError, "cannot subscribe a #{object.class} object"
+	    end
 	    subscriptions << object
 	    send_subscribed_relations(object)
 
 	    if object.respond_to?(:each_event)
-		object.each_event(&method(:subscribe))
+		object.each_event(false, &method(:subscribe))
 	    end
+	    nil
 	end
 	def subscribed?(object); subscriptions.include?(object) end
 
@@ -70,9 +85,7 @@ module Roby::Distributed
 			graph_edges << [parent, object, parent[object, graph]]
 		    end
 		end
-		unless graph_edges.empty?
-		    result << [graph, graph_edges]
-		end
+		result << [graph, graph_edges]
 	    end
 
 	    # Send event if +result+ is empty, so that relations are
@@ -82,6 +95,10 @@ module Roby::Distributed
 
 	def unsubscribe(object)
 	    subscriptions.delete(object)
+	    if object.respond_to?(:each_event)
+		object.each_event(&method(:unsubscribe))
+	    end
+	    nil
 	end
 
 	def apply(args)
@@ -105,7 +122,6 @@ module Roby::Distributed
 	    
 	    # Add or update existing relations
 	    relations.each do |graph, graph_relations|
-		graph = constant(graph)
 		graph_relations.each do |args|
 		    apply(args) do |from, to, info|
 			if to == object
@@ -139,28 +155,43 @@ module Roby::Distributed
 		(object.child_objects(rel) - children[rel]).each do |c|
 		    if c.owners == [peer]
 			Roby::Distributed.update(c, object) do
-			    object.remove_child_object(c, rel) if c.owners == [peer]
+			    object.remove_child_object(c, rel)
 			end
 		    end
 		end
 	    end
+
+	    nil
 	end
 
 	# Receive an update on the relation graphs
 	#  object:: the object being updated
 	#  action:: a list of actions to perform, of the form [[method_name, args], [...], ...]
 	def update_relation(args)
-	    apply(args) do |args|
-		object, op, other, graph, *args = args
-		Roby::Distributed.debug { "received update from #{peer.name}: #{object}.#{op}(#{other}, #{graph}, ...)" }
-		graph = constant(graph)
-
-		Roby::Distributed.update(object, other) do
-		    object.send(op, other, graph, *args)
-		end
+	    unmarshall_and_update(args) do |args|
+	        Roby::Distributed.debug { "received update from #{peer.name}: #{args[0]}.#{args[1]}(#{args[2..-1].join(", ")})" }
+	        args[0].send(*args[1..-1])
 	    end
 	end
+
+
+	def unmarshall_and_update(args)
+	    updating = []
+	    args.map! do |o|
+		if o.respond_to?(:remote_object)
+		    proxy = peer.proxy(o)
+		    updating << proxy
+		    proxy
+		else o
+		end
+	    end
+	    Roby::Distributed.update(*updating) do 
+		yield(args)
+	    end
+	    nil
+	end
     end
+    allow_remote_access PeerServer
 
     class Peer
 	# The ConnectionSpace object we act on
@@ -181,9 +212,11 @@ module Roby::Distributed
 	def self.connection_listener(connection_space)
 	    connection_space.read_all( { 'kind' => :peer, 'tuplespace' => nil, 'remote' => nil } ).each do |entry|
 		tuplespace = entry['tuplespace']
-		peer = connection_space.peers[tuplespace]
+		peer = connection_space.peers.find { |ts, peer| ts.remote_id == tuplespace.remote_id }
+		peer = peer.last if peer
 
 		if peer
+		    next if peer.connected?
 		    Roby::Distributed.debug { "Peer #{peer} finalized handshake" }
 		    # The peer finalized the handshake
 		    peer.connected = true
@@ -202,24 +235,29 @@ module Roby::Distributed
 
 	    @connection_space = connection_space
 	    @neighbour	  = neighbour
+	    @name	  = neighbour.name
 	    @local        = PeerServer.new(self)
 	    @proxies	  = Hash.new
-	    @send_queue   = Queue.new
 	    @send_flushed = new_cond
+	    @max_allowed_errors = connection_space.max_allowed_errors
 	    connection_space.peers[neighbour.tuplespace] = self
 
 	    connect
 	end
 
-	def send(*args)
+	attr_reader :name, :max_allowed_errors
+
+	def send(*args, &block)
+	    Roby::Distributed.debug { "queueing #{neighbour.name}.#{args[0]}" }
+	    @send_queue.push([[remote_server, args], block])
 	    @sending = true
-	    Roby::Distributed.debug { "queueing #{remote_server}.#{args[0]}" }
-	    @send_queue.push([remote_server, args])
 	end
 
 	def send_thread
-	    @send_thread ||= Thread.new do
-		while calls = @send_queue.get
+	    @send_queue = Queue.new
+	    @send_thread = Thread.new do
+		error_count = 0
+		while calls ||= @send_queue.get
 		    break unless connected?
 		    while !alive?
 			break unless connected?
@@ -228,15 +266,51 @@ module Roby::Distributed
 
 		    # Mux all calls into one array and send them
 		    synchronize do
+			calls += @send_queue.get(true)
 			Roby::Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
-			remote_server.demux(calls)
-			send_flushed.broadcast
-			@sending = false
+			success, error = begin remote_server.demux(calls.map { |a| a.first })
+					 rescue; [0, $!]
+					 end
+			Roby::Distributed.debug { "#{neighbour.name} processed #{success} commands" }
+			(0...success).each do |i|
+			    if block = calls[i][1]
+				block.call rescue nil
+			    end
+			end
+
+			error_count = 0 if success > 0
+			if error
+			    Roby::Distributed.warn  { "#{name} reports an error on #{calls[success][1..-1]}: #{error.to_s}" }
+			    Roby::Distributed.debug { error.full_message }
+			    if DRb::DRbConnError === error
+				# We have a connection error, mark the connection as not being alive
+				dead_connection!
+			    end
+
+			    calls = calls[success..-1]
+			    error_count += 1
+			else
+			    calls = nil
+			    @sending = !@send_queue.empty?
+			    send_flushed.broadcast unless @sending
+			end
+
+			if (error_count += 1) > self.max_allowed_errors
+			    Roby::Distributed.fatal do
+				"#{name} disconnecting from #{neighbour.name} because of too much errors"
+			    end
+			    disconnect
+			    break
+			end
 		    end
 		end
 
 		Roby::Distributed.debug "sending thread quit for #{neighbour.name}"
-		send_flushed.broadcast
+		@sending = nil
+		@send_queue.clear
+		synchronize do
+		    send_flushed.broadcast
+		end
 	    end
 	end
 
@@ -286,7 +360,7 @@ module Roby::Distributed
 	    keepalive.cancel if keepalive
 
 	    neighbour.tuplespace.take({ 'kind' => :peer, 'tuplespace' => neighbour.tuplespace, 'remote' => nil }, 0)
-	rescue RequestExpiredError
+	rescue Rinda::RequestExpiredError
 	end
 
 	# Returns true if the connection has been established. See also #alive?
@@ -298,6 +372,10 @@ module Roby::Distributed
 		raise NotAliveError, "connection not currently alive"
 	    end
 	    return @entry['remote']
+	end
+    
+	def dead_connection!
+	    connection_space.take({'kind' => :peer, 'tuplespace' => neighbour.tuplespace, 'remote' => nil}, 0)
 	end
 
 	# Checks if the connection is currently alive
@@ -314,9 +392,9 @@ module Roby::Distributed
 	# Get a proxy for a task or an event. If +as+ is given, the proxy will be acting
 	# as-if +object+ is of class +as+. This can be used to map objects whose
 	# model we don't know (while we know a more abstract model)
-	def proxy(object, as = nil)
-	    @proxies[object] ||=
-		Roby::Distributed.RemoteProxy(as || object.class, self, object)
+	def proxy(marshalled)
+	    object = marshalled.remote_object
+	    @proxies[object] ||= marshalled.proxy(self)
 	    connection_space.plan.discover(@proxies[object])
 
 	    @proxies[object]
@@ -324,29 +402,28 @@ module Roby::Distributed
 
 	# Check if +object+ should be proxied
 	def proxying?(object)
-	    case object
-	    when Roby::Task, Roby::EventGenerator
-		true
-	    end
+	    object.respond_to?(:remote_object)
 	end
 
 	# Discovers all objects at a distance +dist+ from +obj+. The object
 	# can be either a remote proxy or the remote object itself
 	def discover_neighborhood(object, distance)
-	    if object.respond_to?(:remote_object)
-		object = object.remote_object
-	    end
-	    send(:discover_neighborhood, object, distance)
+	    send(:discover_neighborhood, object.remote_object, distance)
 	end
 
 	# Make the remote pDB send us all updates about +object+
 	def subscribe(object)
-	    send(:subscribe, object)
+	    send(:subscribe, object.remote_object)
 	end
 	def unsubscribe(object, remove_object = true)
-	    send(:unsubscribe, object)
-	    if remove_object && object.kind_of?(Roby::Task)
-		connection_space.plan.remove_task(object) 
+	    unless object.kind_of?(RemoteObjectProxy)
+		object = proxy(object)
+	    end
+
+	    send(:unsubscribe, object.remote_object) do
+		if remove_object && object.kind_of?(Roby::Task)
+		    connection_space.plan.remove_task(object)
+		end
 	    end
 	end
     end

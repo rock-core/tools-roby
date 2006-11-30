@@ -1,4 +1,7 @@
-# This file contains extension to dRuby and Rinda classes which are needed to 
+require 'rinda/rinda'
+require 'roby/distributed/protocol'
+
+#  This file contains extension to dRuby and Rinda classes which are needed to 
 # make Distributed Roby work
 #
 # Some are direct modification of the standard library (through reopening classes),

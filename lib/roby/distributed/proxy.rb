@@ -29,25 +29,15 @@ module Roby::Distributed
     # Builds a remote proxy model for +object_model+. +object_model+ is
     # either a string or a class. In the first case, it is interpreted
     # as a constant name.
-    def self.RemoteProxy(object_model, peer, remote_object)
-	if object_model.has_ancestor?(Roby::TaskEventGenerator)
-	    peer.proxy(remote_object.task).event(remote_object.symbol)
-	else
-	    RemoteProxyModel(object_model).new(peer, remote_object)
-	end
-    end
-
     def self.RemoteProxyModel(object_model)
-	object_model = constant(object_model) if object_model.respond_to?(:to_str)
-
 	@@proxy_model[object_model] ||= 
 	    if object_model.has_ancestor?(Roby::Task)
 		Class.new(object_model) { include TaskProxy }
 	    elsif object_model.has_ancestor?(Roby::EventGenerator)
 		Class.new(object_model) { include EventGeneratorProxy }
-	    else
-		raise TypeError, "no proxy for #{object_model}"
-	    end
+	else
+	    raise TypeError, "no proxy for #{object_model}"
+	end
     end
 
     module RemoteObjectProxy
@@ -55,13 +45,17 @@ module Roby::Distributed
 	attr_reader :remote_object
 
 	def initialize_remote_proxy(peer, remote_object)
-	    unless remote_object.kind_of?(self.class.superclass)
-		raise TypeError, "invalid remote task type. Was expecting #{self.class.name}, got #{remote_object.class}"
+	    unless remote_object.ancestors.find { |klass| klass == self.class.superclass }
+		raise TypeError, "invalid remote task type. Was expecting #{self.class.superclass.name}, got #{remote_object.ancestors}"
 	    end
 
-	    @remote_object = remote_object
+	    @remote_object = remote_object.remote_object
 	    @update	 = false
 	    owners << peer
+	end
+
+	module ClassExtension
+	    def name; "Proxy(#{super})" end
 	end
 
 	def update?; @update end
@@ -107,10 +101,10 @@ module Roby::Distributed
 
     module EventGeneratorProxy
 	include RemoteObjectProxy
-	def initialize(peer, remote_object)
-	    initialize_remote_proxy(peer, remote_object)
-	    @controlable = remote_object.controlable?
-	    @history	 = remote_object.history
+	def initialize_remote_proxy(peer, marshalled_object)
+	    initialize_remote_proxy(peer, marshalled_object)
+	    @controlable = marshalled_object.controlable
+	    @history	 = marshalled_object.history
 
 	    if @controlable
 		super() do
@@ -131,19 +125,11 @@ module Roby::Distributed
 	end
     end
 
-    #     include EventGeneratorProxy
-    #     def initialize(peer, remote_object)
-    #         super(peer, remote_object)
-    #         @event_model   = remote_object.event_model
-    #         @task	   = peer.proxy(remote_object.task)
-    #     end
-    # end
-
     module TaskProxy
 	include RemoteObjectProxy
-	def initialize(peer, remote_object)
-	    initialize_remote_proxy(peer, remote_object)
-	    super(remote_object.arguments)
+	def initialize(peer, marshalled_object)
+	    initialize_remote_proxy(peer, marshalled_object)
+	    super(marshalled_object.arguments)
 	end
     end
 end
