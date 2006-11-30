@@ -1,14 +1,9 @@
 $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
-require 'test_config'
+require 'distributed/common.rb'
 require 'mockups/tasks'
-require 'roby/distributed/connection_space'
-require 'roby/distributed/proxy'
 
-class TC_Distributed < Test::Unit::TestCase
-    include Roby
-    include Roby::Distributed
-    include Rinda
-    include RobyTestCommon
+class TC_DistributedStructureMapping < Test::Unit::TestCase
+    include DistributedTestCommon
 
     def setup
 	Roby::Distributed.allow_remote_access Roby::Distributed::Peer
@@ -20,37 +15,6 @@ class TC_Distributed < Test::Unit::TestCase
 	Distributed.state = nil
 
 	super
-    end
-
-    BASE_PORT     = 1245
-    DISCOVERY_URI = "roby://localhost:#{BASE_PORT}"
-    REMOTE_URI    = "roby://localhost:#{BASE_PORT + 1}"
-    LOCAL_URI     = "roby://localhost:#{BASE_PORT + 2}"
-    # Start a central discovery service, a remote connectionspace and a local
-    # connection space. It yields the remote connection space *in the forked
-    # child* if a block is given.
-    def start_peers
-	remote_process do
-	    DRb.start_service DISCOVERY_URI, TupleSpace.new
-	end
-
-	remote_process do
-	    central_tuplespace = DRbObject.new_with_uri(DISCOVERY_URI)
-	    Distributed.state = ConnectionSpace.new :ring_discovery => false, 
-		:discovery_tuplespace => central_tuplespace, :name => "remote",
-		:plan => Plan.new do |remote|
-		DRb.start_service REMOTE_URI, remote
-	    end
-	    yield(Distributed.state) if block_given?
-	end
-
-	DRb.start_service LOCAL_URI
-	@central_tuplespace = DRbObject.new_with_uri(DISCOVERY_URI)
-	@remote  = DRbObject.new_with_uri(REMOTE_URI)
-	@local   = ConnectionSpace.new :ring_discovery => false, 
-	    :discovery_tuplespace => central_tuplespace, :name => 'local',
-	    :max_allowed_errors => 1
-	Distributed.state = local
     end
 
     # Test establishing peer-to-peer connection between two ConnectionSpace objects
@@ -97,22 +61,6 @@ class TC_Distributed < Test::Unit::TestCase
     end
 
 
-    # Establishes a peer to peer connection between two ConnectionSpace objects
-    def peer2peer(&block)
-	start_peers(&block)
-	local.start_neighbour_discovery(true)
-	n_remote = local.neighbours.find { true }
-	remote_peer = Peer.new(local, n_remote)
-	remote.start_neighbour_discovery(true)
-	local_peer = remote.peers.find { true }.last
-	local.start_neighbour_discovery(true)
-
-	assert(local_peer.connected?)
-	assert(remote_peer.connected?)
-
-	@remote, @remote_peer, @local, @local_peer =
-	    remote, remote_peer, local, local_peer
-    end
 
     # Check that we can query the remote plan database
     def test_query
