@@ -15,58 +15,42 @@ module Rinda
     end
 end
 
-module DRb
-    class << self
-	alias :__drb_here__ :here?
-	def here?(uri)
-	    !always_wrap? && __drb_here__(uri)
+module Roby::Distributed
+    # Reimplements Rinda::RingServer, removing the tuplespace intermediate and
+    # the creation of most threads. This is done for performance reasons.
+    class RingServer < Rinda::RingServer
+	attr_reader :bind, :port
+
+	# Added a :bind option
+	def initialize(ts, options = {})
+	    options = validate_options options, :bind => '', :port => Rinda::Ring_PORT
+
+	    @bind = options[:bind]
+	    @port = options[:port]
+
+	    @ts  = ts
+	    @soc = UDPSocket.new
+	    @soc.bind options[:bind], options[:port]
+	    @service = service
 	end
 
-	@always_wrap = false
-	def always_wrap=(flag)
-	    @always_wrap = flag
-	end
-	def always_wrap?; @always_wrap end
-    end
-end
-
-module Roby
-    module Distributed
-	# Reimplements Rinda::RingServer, removing the tuplespace intermediate and
-	# the creation of most threads. This is done for performance reasons.
-	class RingServer < Rinda::RingServer
-	    attr_reader :bind, :port
-
-	    # Added a :bind option
-	    def initialize(ts, options = {})
-		options = validate_options options, :bind => '', :port => Rinda::Ring_PORT
-
-		@bind = options[:bind]
-		@port = options[:port]
-
-		@ts  = ts
-		@soc = UDPSocket.new
-		@soc.bind options[:bind], options[:port]
-		@service = service
-	    end
-
-	    def service
-		Thread.new do
-		    begin
-			loop do
-			    msg = @soc.recv(1024)
-			    tuple, timeout = Marshal.load(msg)
-			    tuple[1].call(@ts) rescue nil
-			end
-		    rescue Interrupt
+	def service
+	    Thread.new do
+		begin
+		    loop do
+			msg = @soc.recv(1024)
+			tuple, timeout = Marshal.load(msg)
+			tuple[1].call(@ts) rescue nil
 		    end
+		rescue Interrupt
 		end
 	    end
+	end
 
-	    def close
-		@service.raise Interrupt
-		@soc.close
-	    end
+	def close
+	    @service.raise Interrupt
+	    @soc.close
 	end
     end
 end
+
