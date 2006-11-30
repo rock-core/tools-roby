@@ -187,7 +187,7 @@ module Roby::Distributed
 		    Roby::Distributed.debug { "Peer #{peer} finalized handshake" }
 		    # The peer finalized the handshake
 		    peer.connected = true
-		elsif neighbour = connection_space.neighbours.find { |n| n.tuplespace == tuplespace }
+		elsif neighbour = connection_space.neighbours.find { |n| n.tuplespace.remote_id == tuplespace.remote_id }
 		    Roby::Distributed.debug { "Peer #{peer} asking for connection" }
 		    # New connection attempt from a known neighbour
 		    Peer.new(connection_space, neighbour).connected = true

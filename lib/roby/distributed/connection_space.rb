@@ -12,7 +12,7 @@ module Roby::Distributed
     DISCOVERY_RING_PORT = 48932
 
     # A neighbour is a named remote ConnectionSpace object
-    Neighbour = Struct.new :name, :tuplespace
+    Neighbour = Struct.new :name, :remote_id, :tuplespace
 
     module RelationModificationHooks
 	def added_child_object(child, type, info)
@@ -114,7 +114,7 @@ module Roby::Distributed
 	    @finished_discovery   = new_cond
 
 	    if central_discovery?
-		@discovery_tuplespace.write [:host, self, name]
+		@discovery_tuplespace.write [:host, self, object_id, name]
 	    end
 
 	    # Start the discovery thread and wait for it to be initialized
@@ -124,6 +124,7 @@ module Roby::Distributed
 	    end
 	end
 
+	def remote_id; object_id end
 	def discovering?; synchronize { @last_discovery != @discovery_start } end
 
 	# An array of procs called at the end of the neighbour discovery,
@@ -168,10 +169,10 @@ module Roby::Distributed
 
 		if central_discovery?
 		    Roby::Distributed.debug "doing centralized neighbour discovery"
-		    discovery_tuplespace.read_all([:host, nil, nil]).
+		    discovery_tuplespace.read_all([:host, nil, nil, nil]).
 			each do |n| 
-			    next if n[0] == self
-			    n = Neighbour.new(n[2], n[1]) 
+			    next if n[1] == self
+			    n = Neighbour.new(n[3], n[2], n[1]) 
 			    Roby::Distributed.debug { "found neighbour: #{n.name} #{n.tuplespace}" }
 			    new_neighbours << n
 			end
@@ -188,7 +189,7 @@ module Roby::Distributed
 			next if ts == self
 
 			Roby::Distributed.debug { "found neighbour: #{ts.name} #{ts}" }
-			new_neighbours << Neighbour.new(ts.name, ts)
+			new_neighbours << Neighbour.new(ts.name, ts.remote_id, ts)
 		    end
 
 		elsif discovery_period
