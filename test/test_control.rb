@@ -8,7 +8,7 @@ require 'roby/planning'
 
 class TC_Control < Test::Unit::TestCase 
     include Roby
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     def teardown
 	Control.instance.plan.clear 

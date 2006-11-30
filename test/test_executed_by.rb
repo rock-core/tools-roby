@@ -10,7 +10,7 @@ require 'flexmock'
 
 class TC_ExecutedBy < Test::Unit::TestCase
     include Roby
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     attr_reader :plan
     def setup

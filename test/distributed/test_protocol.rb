@@ -6,7 +6,7 @@ require 'roby/distributed/proxy'
 
 class TC_DistributedRobyProtocol < Test::Unit::TestCase
     include Roby::Distributed
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     TEST_ARRAY_SIZE = 6
     def dumpable_array

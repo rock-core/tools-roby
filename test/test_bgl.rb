@@ -8,7 +8,7 @@ require 'set'
 class TC_BGL < Test::Unit::TestCase
     include BGL
 
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     def test_graph_list
 	graph = Graph.new

@@ -179,7 +179,7 @@ end
 
 class TC_Plan < Test::Unit::TestCase
     include TC_PlanStatic
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     def setup
 	@plan = Plan.new

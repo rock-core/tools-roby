@@ -7,7 +7,7 @@ require 'mockups/tasks'
 
 class TC_Task < Test::Unit::TestCase 
     include Roby
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     def test_model_tag
 	my_tag = TaskModelTag.new do

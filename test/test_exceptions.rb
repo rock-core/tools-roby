@@ -7,7 +7,7 @@ require 'mockups/tasks'
 
 class TC_Exceptions < Test::Unit::TestCase 
     include Roby
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     def test_execution_exception_initialize
 	task = Task.new

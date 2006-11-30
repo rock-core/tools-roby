@@ -5,7 +5,7 @@ require 'mockups/tasks'
 
 class TC_Event < Test::Unit::TestCase
     include Roby
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     def test_properties
 	event = EventGenerator.new

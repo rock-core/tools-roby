@@ -5,7 +5,7 @@ require 'flexmock'
 require 'roby/support'
 
 class TC_Utils < Test::Unit::TestCase
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     def test_define_under
 	mod = Module.new

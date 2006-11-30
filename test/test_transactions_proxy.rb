@@ -4,7 +4,7 @@ require 'test_plan.rb'
 
 class TC_TransactionsProxy < Test::Unit::TestCase
     include Roby::Transactions
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     attr_reader :transaction, :plan
     def setup

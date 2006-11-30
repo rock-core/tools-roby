@@ -2,7 +2,7 @@ require 'test_config'
 require 'roby/control'
 
 class TC_TestDrbServer < Test::Unit::TestCase
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     URI="druby://localhost:9000"
     def test_server_spawning

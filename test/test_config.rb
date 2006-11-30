@@ -17,7 +17,7 @@ end
 ENV['PATH'] = path.join(':')
 ENV['PKG_CONFIG_PATH'] = pkg_config_path.join(':')
 
-module CommonTestBehaviour
+module RobyTestCommon
     class << self
 	attr_accessor :check_allocation_count
     end
@@ -73,7 +73,7 @@ module CommonTestBehaviour
 	    Roby::Control.instance.abort_on_framework_exception = false
 	end
 
-	if CommonTestBehaviour.check_allocation_count
+	if RobyTestCommon.check_allocation_count
 	    count = ObjectStats.count
 	    GC.start
 	    remains = ObjectStats.count

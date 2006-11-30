@@ -8,7 +8,7 @@ class TC_DistributedDiscovery < Test::Unit::TestCase
     include Roby
     include Roby::Distributed
     include Rinda
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     def assert_has_neighbour(&check)
 	Distributed.state.start_neighbour_discovery

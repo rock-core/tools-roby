@@ -11,7 +11,7 @@ require 'stringio'
 
 class TC_Log < Test::Unit::TestCase
     include Roby
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     def teardown
 	Log::loggers.clear

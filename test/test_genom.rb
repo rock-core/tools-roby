@@ -5,7 +5,7 @@ require 'genom/runner'
 
 class TC_Genom < Test::Unit::TestCase
     include Roby
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     attr_reader :plan
 

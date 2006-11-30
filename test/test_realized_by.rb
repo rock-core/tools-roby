@@ -4,7 +4,7 @@ require 'mockups/tasks'
 
 class TC_RealizedBy < Test::Unit::TestCase
     include Roby
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     attr_reader :plan
     def setup

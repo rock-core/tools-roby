@@ -6,7 +6,7 @@ require 'flexmock'
 # Check that a transaction behaves like a plan
 class TC_TransactionAsPlan < Test::Unit::TestCase
     include TC_PlanStatic
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     def setup
 	@real_plan = Plan.new
@@ -307,7 +307,7 @@ end
 
 class TC_Transactions < Test::Unit::TestCase
     include TC_TransactionBehaviour
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     attr_reader :plan
     def setup
@@ -320,7 +320,7 @@ end
 
 class TC_RecursiveTransaction < Test::Unit::TestCase
     include TC_TransactionBehaviour
-    include CommonTestBehaviour
+    include RobyTestCommon
 
     attr_reader :plan
     def setup
