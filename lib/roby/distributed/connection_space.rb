@@ -113,6 +113,8 @@ module Roby::Distributed
 	    @start_discovery      = new_cond
 	    @finished_discovery   = new_cond
 
+	    yield(self) if block_given?
+
 	    if central_discovery?
 		@discovery_tuplespace.write [:host, self, object_id, name]
 	    end
