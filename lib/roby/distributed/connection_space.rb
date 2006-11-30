@@ -55,6 +55,8 @@ module Roby::Distributed
     #	[:name, TeamServer, DrbObject, name]
     #
     class ConnectionSpace < Rinda::TupleSpace
+	include DRbUndumped
+
 	# List of discovered neighbours
 	def neighbours; synchronize { @neighbours.dup } end
 	# List of peers
