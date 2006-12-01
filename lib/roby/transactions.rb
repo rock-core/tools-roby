@@ -43,6 +43,7 @@ module Roby
 	def initialize(plan)
 	    super(plan.hierarchy, plan.service_relations)
 
+	    plan.transactions << self
 	    @plan = plan
 
 	    @proxy_objects      = Hash.new
@@ -131,6 +132,10 @@ module Roby
 	# Commit all modifications that have been registered
 	# in this transaction
 	def commit_transaction
+	    unless transactions.empty?
+		raise ArgumentError, "there is still transactions on top of this one"
+	    end
+
 	    discarded_tasks.each { |t| plan.discard(t) }
 	    removed_tasks.each { |t| plan.remove_task(t) }
 
@@ -155,6 +160,7 @@ module Roby
 		Kernel.swap! proxy, Proxy.forwarder(proxy).new(object)
 	    end
 
+	    plan.transactions.delete(self)
 	    committed_transaction
 	end
 	def committed_transaction; super if defined? super end
@@ -162,6 +168,10 @@ module Roby
 	# Discard all the modifications that have been registered 
 	# in this transaction
 	def discard_transaction
+	    unless transactions.empty?
+		raise ArgumentError, "there is still transactions on top of this one"
+	    end
+
 	    # Clear the underlying plan
 	    clear
 
@@ -172,6 +182,7 @@ module Roby
 	    removed_tasks.clear
 	    discarded_tasks.clear
 
+	    plan.transactions.delete(self)
 	    discarded_transaction
 	end
 	def discarded_transaction; super if defined? super end

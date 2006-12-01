@@ -34,6 +34,9 @@ module Roby
 	# collected), but we want to GC anyway
 	attr_reader :force_gc
 
+	# The set of transactions which are built on top of this plan
+	attr_reader :transactions
+
 	def initialize(hierarchy = Roby::TaskStructure::Hierarchy, service_relations = [Roby::TaskStructure::PlannedBy])
 	    @hierarchy = hierarchy
 	    @service_relations = service_relations
@@ -41,6 +44,7 @@ module Roby
 	    @known_tasks = ValueSet.new
 	    @free_events = ValueSet.new
 	    @force_gc    = ValueSet.new
+	    @transactions = ValueSet.new
 	end
 
 	# call-seq:
