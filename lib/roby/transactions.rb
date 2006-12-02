@@ -58,21 +58,31 @@ module Roby
 	def include?(t); super || super(may_wrap(t)) end
 	def mission?(t); super || super(may_wrap(t)) end
 
-	def missions
-	    plan_missions = plan.missions.
-		difference(discarded_tasks).
-		difference(removed_tasks)
+	def missions(own = false)
+	    if own then super()
+	    else
+		plan_missions = plan.missions.
+		    difference(discarded_tasks).
+		    difference(removed_tasks)
 
-	    super.union(plan_missions.map(&method(:[])))
+		super().union(plan_missions.map(&method(:[])))
+	    end
 	end
 
-	def known_tasks
-	    plan_tasks = plan.known_tasks. 
-		difference(removed_tasks)
+	def known_tasks(own = false)
+	    if own then super()
+	    else
+		plan_tasks = plan.known_tasks. 
+		    difference(removed_tasks)
 
-	    super.union(plan_tasks.map(&method(:[])))
+		super().union(plan_tasks.map(&method(:[])))
+	    end
 	end
-
+	def empty?(own = false)
+	    if own then super()
+	    else super() && plan.empty?
+	    end
+	end
 
 	def insert(t)
 	    t = if plan.include?(t) then self[t]
