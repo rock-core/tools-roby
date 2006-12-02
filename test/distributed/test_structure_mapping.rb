@@ -80,14 +80,6 @@ class TC_DistributedStructureMapping < Test::Unit::TestCase
 	assert_equal([1, 2].to_set, r_tasks.map { |t| t.arguments[:id] }.to_set)
     end
 
-    def remote_task(match)
-	result = remote_peer.plan.known_tasks.find do |t|
-	    t.arguments.slice(*match.keys) == match
-	end
-	assert(result, remote_peer.plan.known_tasks)
-	result
-    end
-
     def test_remote_proxy
 	peer2peer do |remote|
 	    remote.plan.insert(SimpleTask.new(:id => 'simple_task'))
@@ -140,18 +132,6 @@ class TC_DistributedStructureMapping < Test::Unit::TestCase
 	assert_equal([remote_peer], proxy.owners)
     end
 
-    attr_reader :central_tuplespace, :remote, :remote_peer, :local, :local_peer
-    def apply_remote_command
-	# flush the command queue
-	loop do
-	    did_something = remote_peer.flush
-	    remote.start_neighbour_discovery(true)
-	    did_something ||= local_peer.flush
-	    local.start_neighbour_discovery(true)
-	    break unless did_something
-	end
-	yield if block_given?
-    end
     def assert_proxy_of(object, proxy)
 	assert_kind_of(Roby::Distributed::RemoteObjectProxy, proxy)
 	assert_equal(object.remote_object, proxy.remote_object)
