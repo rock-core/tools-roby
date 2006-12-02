@@ -312,9 +312,11 @@ class TC_Transactions < Test::Unit::TestCase
     attr_reader :plan
     def setup
 	@plan = Roby::Plan.new
+	super
     end
     def teardown
 	plan.clear
+	super
     end
 end
 
@@ -326,10 +328,12 @@ class TC_RecursiveTransaction < Test::Unit::TestCase
     def setup
 	@real_plan = Roby::Plan.new
 	@plan = Roby::Transaction.new(@real_plan)
+	super
     end
     def teardown
 	plan.discard_transaction
 	@real_plan.clear
+	super
     end
 end
 
