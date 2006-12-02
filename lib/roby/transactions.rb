@@ -9,36 +9,46 @@ module Roby
     # to discard all modifications (using #discard)
     class Transaction < Plan
 	Proxy = Transactions::Proxy
-
-	# Get the transaction proxy for +object+
-	def [](object)
-	    object = if object.kind_of?(Proxy)
-			 object
-		     else wrap(object)
-		     end
-
-	    if object.kind_of?(Task)
-		object.plan = self
-	    end
-
-	    object
-	end
-
+	
+	# A transaction is not an executable plan
 	def executable?; false end
 
+	# Get the transaction proxy for +object+
 	def wrap(object)
-	    if proxy = proxy_objects[object]
+	    if object.plan == self
+		return object
+	    elsif object.kind_of?(Proxy)
+		raise ArgumentError, "#{object} is in #{object.plan}, not from this transaction (#{self})"
+	    elsif proxy = proxy_objects[object]
 		return proxy
+	    else
+		object = proxy_objects[object] = Proxy.proxy_class(object).new(object, self)
+		object
 	    end
-	    proxy_objects[object] = Proxy.proxy_class(object).new(object, self)
 	end
 	def may_wrap(object); wrap(object) rescue object end
+	alias :[] :wrap
 
+	# The list of objects that have been discovered in this transaction
+	# 'discovered' objects are the objects in which relation modifications
+	# will be checked on commit
+	attr_reader :discovered_objects
+
+	# Announce that +object+ has been discovered
 	def discovered_object(object)
 	    discovered_objects << object
 	end
 
-	attr_reader :plan, :discarded_tasks, :removed_tasks, :proxy_objects, :discovered_objects
+	# The list of discarded
+	attr_reader :discarded_tasks
+	# The list of removed tasks
+	attr_reader :removed_tasks
+	# The plan this transaction applies on
+	attr_reader :plan
+	# The proxy objects built for this transaction
+	attr_reader :proxy_objects
+
+	# Creates a new transaction which applies on +plan+
 	def initialize(plan)
 	    super(plan.hierarchy, plan.service_relations)
 

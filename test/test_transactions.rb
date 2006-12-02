@@ -172,7 +172,7 @@ module TC_TransactionBehaviour
 
 	transaction_commit(plan) do |trsc|
 	    p1, p2 = trsc[t1], trsc[t2]
-	    plan.discover t3
+	    trsc.discover t3
 	    t3.event(:stop).on p2.event(:start)
 	    assert(Signal.linked?(t3.event(:stop), p2.event(:start)))
 	    assert(!Signal.linked?(t3.event(:stop), t2.event(:start)))
@@ -189,7 +189,7 @@ module TC_TransactionBehaviour
 
 	transaction_commit(plan) do |trsc|
 	    p1, p2 = trsc[t1], trsc[t2]
-	    plan.discover t4
+	    trsc.discover t4
 	    p1.event(:stop).on t4.event(:start)
 	    assert(Signal.linked?(p1.event(:stop), t4.event(:start)))
 	end

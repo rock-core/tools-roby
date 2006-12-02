@@ -55,6 +55,7 @@ module Roby::Transactions
 	    @discovered  = Hash.new
 	    @transaction = transaction
 	    @__getobj__ = object
+	    self.plan = transaction
 	end
 	attr_reader :transaction
 	attr_reader :__getobj__
@@ -69,7 +70,7 @@ module Roby::Transactions
 	end
 
 	def disable_discovery!
-	    relations.each { |rel| @discovered[rel] = true }
+	    __getobj__.each_relation { |rel| @discovered[rel] = true }
 	end
 	def discovered?(relation)
 	    @discovered[relation]
