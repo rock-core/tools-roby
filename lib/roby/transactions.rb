@@ -1,8 +1,7 @@
-require 'roby/transactions/proxy'
-require 'utilrb/value_set'
 require 'roby/plan'
-require 'facet/kernel/as'
+require 'utilrb/value_set'
 require 'utilrb/kernel/swap'
+require 'roby/transactions/proxy'
 
 module Roby
     # A transaction is a special kind of plan. It allows to build plans in a separate
