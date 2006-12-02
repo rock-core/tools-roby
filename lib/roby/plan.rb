@@ -62,6 +62,8 @@ module Roby
 	    return *objects.partition { |o| o.respond_to?(:to_event) }
 	end
 
+	# Checks that +objects+ is equivalent to an EventGenerator collection
+	# and yields its elements
 	def event_collection(objects)
 	    if objects.respond_to?(:each) then objects.each { |e| yield(e.to_event) }
 	    elsif objects.respond_to?(:each_event) then objects.each_event { |e| yield(e.to_event) }
@@ -71,6 +73,8 @@ module Roby
 	    end
 	end
 
+	# Checks that +objects+ is equivalent to a Task collection and yields
+	# its elements
 	def task_collection(objects)
 	    if objects.respond_to?(:each) then objects.each { |t| yield(t.to_task) }
 	    elsif objects.respond_to?(:each_task) then objects.each_task { |t| yield(t.to_task) }
@@ -79,9 +83,6 @@ module Roby
 		raise TypeError, "expecting a task or a task collection, got #{objects}"
 	    end
 	end
-
-	# Returns true if there is no task in this plan
-	def empty?; @known_tasks.empty? end
 
 	# If this plan is a toplevel plan, returns self. If it is a
 	# transaction, returns the underlying plan
@@ -104,6 +105,7 @@ module Roby
 	    inserted(tasks)
 	    self
 	end
+	# Hook called when +tasks+ have been inserted in this plan
 	def inserted(tasks); super if defined? super end
 	alias :<< :insert
 
@@ -116,6 +118,7 @@ module Roby
 	    discarded(tasks)
 	    self
 	end
+	# Hook called when +tasks+ have been discarded from this plan
 	def discarded(tasks); super if defined? super end
 
 	# Remove all tasks
@@ -155,8 +158,11 @@ module Roby
 		discover(to)
 	    end
 	end
+	# Hook called when +to+ has replaced +from+ in this plan
 	def replaced(from, to); super if defined? super end
 
+	# Check that this is an executable plan. This is always true for
+	# plain Plan objects and false for transcations
 	def executable?; true end
 	
 	# call-seq:
@@ -184,6 +190,7 @@ module Roby
 
 	    self
 	end
+	# Hook called when new tasks have been discovered in this plan
 	def discovered(tasks); super if defined? super end
 
 	def useful_component(tasks)
@@ -209,8 +216,9 @@ module Roby
 		useful_component(useful_tasks)
 	    end
 	end
+	private :useful_component
 
-	# Returns the set of needed tasks
+	# Returns the set of useful tasks
 	def useful_tasks
 	    return ValueSet.new if missions.empty?
 
@@ -229,6 +237,8 @@ module Roby
 	def mission?(task); missions.include?(task) end
 	# Count of tasks in this plan
 	def size; known_tasks.size end
+	# Returns true if there is no task in this plan
+	def empty?; @known_tasks.empty? end
 	# Iterates on all tasks
 	def each_task; known_tasks.each { |t| yield(t) } end
 	# Returns a Query object on this plan
@@ -261,6 +271,7 @@ module Roby
 	    end
 	end
 
+	# Removes the task +t+ from this plan
 	def remove_task(t)
 	    force_gc.delete(t)
 	    t.executable = false
@@ -272,7 +283,10 @@ module Roby
 	    finalized(t)
 	end
 
+	# +task+ has been marked as garbage. It will be garbage collected
+	# as soon as possible
 	def garbage(task); super if defined? super end
+	# +task+ has been removed from this plan
 	def finalized(task); super if defined? super end
     end
 
