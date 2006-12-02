@@ -80,6 +80,9 @@ module Roby
 	    end
 	end
 
+	# Returns true if there is no task in this plan
+	def empty?; @known_tasks.empty? end
+
 	# If this plan is a toplevel plan, returns self. If it is a
 	# transaction, returns the underlying plan
 	def real_plan
