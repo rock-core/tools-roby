@@ -5,8 +5,20 @@ require 'roby/distributed/connection_space'
 require 'roby/distributed/proxy'
 
 class TC_DistributedRobyProtocol < Test::Unit::TestCase
+    include Roby
     include Roby::Distributed
     include RobyTestCommon
+
+    def remote_server(&block)
+	remote_process do
+	    server = Class.new do
+		class_eval(&block)
+	    end.new
+	    DRb.start_service 'roby://localhost:1245', server
+	end
+	DRb.start_service 'roby://localhost:1246'
+	DRbObject.new_with_uri('roby://localhost:1245')
+    end
 
     TEST_ARRAY_SIZE = 6
     def dumpable_array
@@ -42,17 +54,12 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
     def test_enumerables
 	test_case = self
-	remote_process do
-	    server = Class.new do
-		define_method(:array)     { test_case.dumpable_array }
-		define_method(:value_set) { test_case.dumpable_array.to_value_set }
-		define_method(:_hash)     { test_case.dumpable_hash }
-		define_method(:array_of_array) { [test_case.dumpable_array] }
-	    end.new
-	    DRb.start_service 'roby://localhost:1245', server
+	remote = remote_server do
+	    define_method(:array)     { test_case.dumpable_array }
+	    define_method(:value_set) { test_case.dumpable_array.to_value_set }
+	    define_method(:_hash)     { test_case.dumpable_hash }
+	    define_method(:array_of_array) { [test_case.dumpable_array] }
 	end
-	DRb.start_service 'roby://localhost:1246'
-	remote = DRbObject.new_with_uri('roby://localhost:1245')
 
 	array = remote.array
 	assert_kind_of(Array, array)
@@ -73,6 +80,46 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert(set.find { |t| t.kind_of?(MarshalledTask) && t.arguments[:id] == 1 })
 	assert(set.find { |e| e.kind_of?(MarshalledEventGenerator) })
 	assert(set.find { |t| t.kind_of?(MarshalledTask) && t.arguments[:id] == 2 })
+    end
+
+
+    def test_marshal_task
+	DRb.start_service
+	remote = remote_server do
+	    def task
+		task = Class.new(SimpleTask).new(:id => 1)
+		task.plan = Plan.new
+		task
+	    end
+	end
+
+	local_task = Task.new
+	assert_same(local_task, Marshal.load(Distributed.dump(local_task)))
+
+	remote_task = remote.task
+	assert_kind_of(MarshalledTask, remote_task)
+	assert_equal({:id => 1}, remote_task.arguments)
+	assert(! remote_task.plan)
+	assert_equal([SimpleTask, ExecutableTask, Roby::Task], remote_task.ancestors)
+    end
+
+    def test_marshal_task_event
+	DRb.start_service
+	remote = remote_server do
+	    attr_reader :task
+	    def task_event
+		@task = Class.new(SimpleTask).new(:id => 1)
+		task.event(:start)
+	    end
+	end
+
+	local_event = Task.new.event(:start)
+	assert_same(local_event, Marshal.load(Distributed.dump(local_event)))
+
+	remote_event = remote.task_event
+	assert_kind_of(MarshalledTaskEventGenerator, remote_event)
+	assert_equal(remote.task, remote_event.task)
+	assert_equal([TaskEventGenerator, EventGenerator], remote_event.ancestors)
     end
 end
 

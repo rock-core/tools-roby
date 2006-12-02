@@ -237,30 +237,6 @@ module Roby
 	allow_remote_access Rinda::TupleEntry
 	allow_remote_access Roby::Plan
 
-
-
-	module MarshalledObject
-	    module ClassExtension
-		def droby_load(str)
-		    data = Marshal.load(str)
-		    object = data[0]
-		    if !object.kind_of?(DRb::DRbObject)
-			object
-		    else
-			yield(data)
-		    end
-		end
-	    end
-
-	    def proxy(peer)
-		Distributed.RemoteProxyModel(ancestors.first).new(peer, self)
-	    end
-
-	    def ==(obj)
-		obj.respond_to?(:remote_object) && remote_object == obj.remote_object
-	    end
-	end
-
 	def self.dump_ancestors(ancestors, base_class)
 	    dumpable = []
 	    ancestors.each do |klass|
@@ -277,12 +253,46 @@ module Roby
 	    end.compact
 	end
 
+	module MarshalledObject
+	    module ClassExtension
+		def droby_load(str)
+		    data = Marshal.load(str)
+		    object = data[0]
+		    if !object.kind_of?(DRb::DRbObject)
+			object
+		    else
+			data[1] = Distributed.load_ancestors(data[1])
+			yield(data)
+		    end
+		end
+	    end
+
+	    attr_reader :remote_object, :ancestors, :plan
+	    def initialize(remote_object, ancestors, plan)
+		@remote_object, @ancestors, @plan = 
+		    remote_object, ancestors, plan
+	    end
+	    def _dump(base_class)
+		yield([DRbObject.new(remote_object),
+		    Distributed.dump_ancestors(ancestors, base_class),
+		    (DRbObject.new(plan) if plan)])
+	    end
+
+	    def proxy(peer)
+		Distributed.RemoteProxyModel(ancestors.first).new(peer, self)
+	    end
+
+	    def ==(obj)
+		obj.respond_to?(:remote_object) && remote_object == obj.remote_object
+	    end
+	end
+
+
 
 	class MarshalledEventGenerator
 	    include MarshalledObject
 	    def self._load(str)
 		droby_load(str) do |data|
-		    data[1] = Distributed.load_ancestors(data[1])
 		    if block_given? then yield(data)
 		    else new(*data)
 		    end
@@ -290,34 +300,42 @@ module Roby
 	    end
 
 	    def _dump(lvl)
-		Marshal.dump([DRbObject.new(remote_object),
-		     Distributed.dump_ancestors(ancestors, Roby::EventGenerator), 
-		     controlable])
+		super(Roby::EventGenerator) do |ary|
+		    ary << controlable
+		    if block_given? then yield(ary)
+		    else Marshal.dump(ary)
+		    end
+		end
 	    end
 
-	    attr_reader :remote_object, :ancestors, :controlable
-	    def initialize(remote_object, ancestors, controlable)
-		@remote_object, @ancestors, @controlable =
-		    remote_object, ancestors, controlable
+	    attr_reader :controlable
+	    def initialize(remote_object, ancestors, plan, controlable)
+		super(remote_object, ancestors, plan)
+		@controlable = controlable
 	    end
 	end
 	class Roby::EventGenerator
 	    def droby_dump(depth = -1)
-		Marshal.dump(MarshalledEventGenerator.new(self, self.class.ancestors, controlable?))
+		plan = self.plan
+		plan = nil unless plan.kind_of?(Roby::Distributed::Transaction)
+		Marshal.dump(MarshalledEventGenerator.new(self, self.class.ancestors, plan, controlable?))
 	    end
 	end
+
+
+
 	class MarshalledTaskEventGenerator < MarshalledEventGenerator
 	    include MarshalledObject
 	    def self._load(str)
 		super do |data|
-		    data[3] = Marshal.load(data[3])
+		    data[4] = Marshal.load(data[4])
 		    new(*data)
 		end
 	    end
 	    def _dump(lvl)
-		Marshal.dump([DRbObject.new(remote_object),
-		     Distributed.dump_ancestors(ancestors, Roby::TaskEventGenerator), 
-		     controlable, Distributed.dump(task), symbol])
+		super do |ary|
+		    Marshal.dump(ary << Distributed.dump(task) << symbol)
+		end
 	    end
 
 	    def proxy(peer)
@@ -325,15 +343,16 @@ module Roby
 	    end
 
 	    attr_reader :task, :symbol
-	    def initialize(remote_object, ancestors, controlable, task, symbol)
-		super(remote_object, ancestors, controlable)
+	    def initialize(remote_object, ancestors, plan, controlable, task, symbol)
+		super(remote_object, ancestors, plan, controlable)
 		@task   = task
 		@symbol = symbol
 	    end
 	end
 	class Roby::TaskEventGenerator
 	    def droby_dump(depth = -1)
-		Marshal.dump(MarshalledTaskEventGenerator.new(self, self.class.ancestors, controlable?, task, symbol))
+		# no need to marshal the plan, since it is the same than the event task
+		Marshal.dump(MarshalledTaskEventGenerator.new(self, self.class.ancestors, nil, controlable?, task, symbol))
 	    end
 	end
 
@@ -341,28 +360,30 @@ module Roby
 	    include MarshalledObject
 	    def self._load(str)
 		droby_load(str) do |data|
-		    data[1] = Roby::Distributed.load_ancestors(data[1])
-		    data[2] = Marshal.load(data[2])
+		    data[3] = Marshal.load(data[3])
 		    MarshalledTask.new(*data)
 		end
 	    end
 
 	    def _dump(lvl)
-		Marshal.dump([DRbObject.new(remote_object),
-		     Roby::Distributed.dump_ancestors(ancestors, Roby::Task), 
-		     Roby::Distributed.dump(arguments)])
+		super(Roby::Task) do |ary|
+		    Marshal.dump(ary << Roby::Distributed.dump(arguments) << mission)
+		end
 	    end
 
-	    attr_reader :remote_object, :ancestors, :arguments
-	    def initialize(remote_object, ancestors, arguments)
-		@remote_object, @ancestors, @arguments =
-		    remote_object, ancestors, arguments
+	    attr_reader :remote_object, :ancestors, :arguments, :mission
+	    def initialize(remote_object, ancestors, plan, arguments, mission)
+		super(remote_object, ancestors, plan)
+		@arguments, @mission = arguments, mission
 	    end
-
 	end
 	class Roby::Task
 	    def droby_dump(depth = -1)
-		Marshal.dump(MarshalledTask.new(self, self.class.ancestors, arguments))
+		plan = self.plan
+		plan = nil unless plan.kind_of?(Roby::Distributed::Transaction)
+		mission = self.plan.mission?(self) if plan
+
+		Marshal.dump(MarshalledTask.new(self, self.class.ancestors, plan, arguments, mission))
 	    end
 	end
 
