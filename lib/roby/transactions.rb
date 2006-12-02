@@ -52,7 +52,6 @@ module Roby
 	def initialize(plan)
 	    super(plan.hierarchy, plan.service_relations)
 
-	    plan.transactions << self
 	    @plan = plan
 
 	    @proxy_objects      = Hash.new
@@ -60,9 +59,9 @@ module Roby
 	    @removed_tasks      = ValueSet.new
 	    @discarded_tasks    = ValueSet.new
 
-	    new_transaction
+	    plan.transactions << self
+	    plan.added_transaction(self)
 	end
-	def new_transaction; super if defined? super end
 
 	def include?(t); super || super(may_wrap(t)) end
 	def mission?(t); super || super(may_wrap(t)) end
