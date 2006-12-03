@@ -165,7 +165,7 @@ module Roby
         def stop(context); thread.kill end
         event :stop
 
-	class TransactionProxy < Transactions::Task
+	class TransactionProxy < Roby::Transactions::Task
 	    proxy_for PlanningTask
 	    def_delegator :@__getobj__, :planner
 	    def_delegator :@__getobj__, :method_name

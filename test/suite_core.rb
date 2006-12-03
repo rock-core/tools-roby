@@ -9,5 +9,4 @@ require 'test_transactions_proxy'
 require 'test_server'
 require 'test_control'
 require 'test_log'
-require 'suite_distributed'
 

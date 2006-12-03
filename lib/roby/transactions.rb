@@ -51,6 +51,9 @@ module Roby
 	def discovered_object(object)
 	    discovered_objects << object
 	end
+	def discovered_relations_of?(object)
+	    discovered_objects.include?(object)
+	end
 
 	# The list of discarded
 	attr_reader :discarded_tasks
@@ -151,11 +154,18 @@ module Roby
 	    end
 	end
 
+	def valid_transaction?
+	    transactions.empty?
+	end
+
 	# Commit all modifications that have been registered
 	# in this transaction
 	def commit_transaction
 	    unless transactions.empty?
 		raise ArgumentError, "there is still transactions on top of this one"
+	    end
+	    unless valid_transaction?
+		raise ArgumentError, "invalid transaction"
 	    end
 
 	    discarded_tasks.each { |t| plan.discard(t) }

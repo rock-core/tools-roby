@@ -1,5 +1,5 @@
 $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
-require 'test_config'
+require 'distributed/common'
 require 'mockups/tasks'
 require 'roby/distributed/connection_space'
 require 'roby/distributed/proxy'
@@ -7,18 +7,7 @@ require 'roby/distributed/proxy'
 class TC_DistributedRobyProtocol < Test::Unit::TestCase
     include Roby
     include Roby::Distributed
-    include RobyTestCommon
-
-    def remote_server(&block)
-	remote_process do
-	    server = Class.new do
-		class_eval(&block)
-	    end.new
-	    DRb.start_service 'roby://localhost:1245', server
-	end
-	DRb.start_service 'roby://localhost:1246'
-	DRbObject.new_with_uri('roby://localhost:1245')
-    end
+    include DistributedTestCommon
 
     TEST_ARRAY_SIZE = 6
     def dumpable_array
@@ -84,23 +73,34 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
 
     def test_marshal_task
-	DRb.start_service
-	remote = remote_server do
-	    def task
-		task = Class.new(SimpleTask).new(:id => 1)
-		task.plan = Plan.new
-		task
+	peer2peer do |remote|
+	    def remote.task
+	        task = Class.new(SimpleTask).new(:id => 1)
+	        task.plan = Plan.new
+	        task
+	    end
+	    def remote.proxy(object)
+	        peer = peers.to_a[0][1]
+	        peer.proxy(object)
 	    end
 	end
 
 	local_task = Task.new
-	assert_same(local_task, Marshal.load(Distributed.dump(local_task)))
+	remote_proxy = Marshal.load(Distributed.dump(local_task))
+	assert_same(local_task, remote_proxy.remote_object)
+	remote_proxy = Marshal.load(Distributed.dump(remote_proxy))
+	assert_same(local_task, remote_proxy.remote_object)
 
 	remote_task = remote.task
 	assert_kind_of(MarshalledTask, remote_task)
 	assert_equal({:id => 1}, remote_task.arguments)
-	assert(remote_task.plan)
+	assert_kind_of(Plan::DRoby, remote_task.plan)
 	assert_equal([SimpleTask, ExecutableTask, Roby::Task], remote_task.ancestors)
+
+	remote_proxy = remote.proxy(local_task)
+	assert_kind_of(MarshalledTask, remote_proxy)
+	assert_equal(local_task, remote_proxy.remote_object)
+	assert_equal(local_task, remote_peer.proxy(remote_proxy))
     end
 
     def test_marshal_task_event
@@ -114,7 +114,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	end
 
 	local_event = Task.new.event(:start)
-	assert_same(local_event, Marshal.load(Distributed.dump(local_event)))
+	assert_same(local_event, Marshal.load(Distributed.dump(local_event)).remote_object)
 
 	remote_event = remote.task_event
 	assert_kind_of(MarshalledTaskEventGenerator, remote_event)

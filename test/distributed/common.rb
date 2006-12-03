@@ -9,6 +9,13 @@ module DistributedTestCommon
     include Roby::Distributed
     include RobyTestCommon
 
+    attr_reader :plan
+    def setup
+	Roby::Distributed.allow_remote_access Roby::Distributed::Peer
+	@plan = Plan.new
+	super
+    end
+
     BASE_PORT     = 1245
     DISCOVERY_URI = "roby://localhost:#{BASE_PORT}"
     REMOTE_URI    = "roby://localhost:#{BASE_PORT + 1}"
@@ -39,7 +46,8 @@ module DistributedTestCommon
 	@remote  = DRbObject.new_with_uri(REMOTE_URI).get
 	@local   = ConnectionSpace.new :ring_discovery => false, 
 	    :discovery_tuplespace => central_tuplespace, :name => 'local',
-	    :max_allowed_errors => 1
+	    :max_allowed_errors => 1,
+	    :plan => plan
 	Distributed.state = local
     end
 
@@ -83,6 +91,18 @@ module DistributedTestCommon
 	assert(result, remote_peer.plan.known_tasks)
 	result
     end
+
+    def remote_server(&block)
+	remote_process do
+	    server = Class.new do
+		class_eval(&block)
+	    end.new
+	    DRb.start_service 'roby://localhost:1245', server
+	end
+	DRb.start_service 'roby://localhost:1246'
+	DRbObject.new_with_uri('roby://localhost:1245')
+    end
+
 end
 
 

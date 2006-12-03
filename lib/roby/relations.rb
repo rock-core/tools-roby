@@ -43,7 +43,12 @@ module Roby
 	# * self.added_child_object and child.added_child_object just after
 	def add_child_object(child, type, info = nil)
 	    check_is_relation(type)
-	    return if type.linked?(self, child)
+	    if type.linked?(self, child)
+		if self[child, type] != info
+		    raise ArgumentError, "trying to override edge data"
+		end
+		return
+	    end
 
 	    adding_child_object(child, type, info)
 	    type.link(self, child, info)

@@ -5,11 +5,6 @@ require 'mockups/tasks'
 class TC_DistributedStructureMapping < Test::Unit::TestCase
     include DistributedTestCommon
 
-    def setup
-	Roby::Distributed.allow_remote_access Roby::Distributed::Peer
-	super
-    end
-
     def teardown 
 	Distributed.unpublish
 	Distributed.state = nil
@@ -135,7 +130,7 @@ class TC_DistributedStructureMapping < Test::Unit::TestCase
 
     def assert_proxy_of(object, proxy)
 	assert_kind_of(Roby::Distributed::RemoteObjectProxy, proxy)
-	assert_equal(object.remote_object, proxy.remote_object)
+	assert_equal(object.remote_object, proxy.remote_object(remote_peer.remote_id))
     end
 
     # Test that the remote plan structure is properly mapped to the local
@@ -164,7 +159,7 @@ class TC_DistributedStructureMapping < Test::Unit::TestCase
 	assert_equal([], proxy.event(:stop).child_objects(EventStructure::Signal).to_a)
 
 	# Discover remote relations
-	remote_peer.discover_neighborhood(r_mission, 1)
+	remote_peer.discover_neighborhood(proxy.remote_object(remote_peer.remote_id), 1)
 	apply_remote_command do
 	    proxies = proxy.child_objects(TaskStructure::Hierarchy).to_a
 	    assert_proxy_of(r_subtask, proxies.first)

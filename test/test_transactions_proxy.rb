@@ -23,11 +23,11 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     end
 
     def test_proxy_wrapping
-	real_klass = Class.new do
+	real_klass = Class.new(Roby::PlanObject) do
 	    define_method("forbidden") {}
 	end
 
-	proxy_klass = Class.new do
+	proxy_klass = Class.new(Roby::PlanObject) do
 	    include Proxy
 
 	    proxy_for real_klass
@@ -36,6 +36,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	end
 
 	obj   = real_klass.new
+	obj.plan = true
 	proxy = transaction[obj]
 	assert_is_proxy_of(obj, proxy, proxy_klass)
 	assert_same(proxy, transaction[obj])
@@ -50,7 +51,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	# assert_equal(proxy, obj)
 
 	# check that may_wrap returns the object when wrapping cannot be done
-	assert_raises(ArgumentError) { transaction[10] }
+	assert_raises(TypeError) { transaction[10] }
 	assert_equal(10, transaction.may_wrap(10))
 
 	# test forbid_call
@@ -58,28 +59,31 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     end
 
     def test_proxy_derived
-	base_klass = Class.new
+	base_klass = Class.new(Roby::PlanObject)
 	derv_klass = Class.new(base_klass)
-	proxy_base_klass = Class.new do
+	proxy_base_klass = Class.new(Roby::PlanObject) do
 	    include Proxy
 	    proxy_for base_klass
 	    def clear_vertex; end
 	end
 
-	proxy_derv_klass = Class.new do
+	proxy_derv_klass = Class.new(Roby::PlanObject) do
 	    include Proxy
 	    proxy_for derv_klass
 	    def clear_vertex; end
 	end
 
 	base_obj = base_klass.new
+	base_obj.plan = true
 	assert_is_proxy_of(base_obj, transaction[base_obj], proxy_base_klass)
 	derv_obj = derv_klass.new
+	derv_obj.plan = true
 	assert_is_proxy_of(derv_obj, transaction[derv_obj], proxy_derv_klass)
     end
 
     def test_proxy_class_selection
 	task  = Roby::Task.new
+	plan.discover(task)
 	proxy = transaction[task]
 
 	assert_is_proxy_of(task, proxy, Task)
@@ -98,6 +102,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	task  = Class.new(SimpleTask) do
 	    event :intermediate, :command => true
 	end.new
+	plan.discover(task)
 	proxy = transaction[task]
 
 	assert_nothing_raised { task.event(:start).emit(nil) }
@@ -127,6 +132,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     # the Task and EventGenerator graphs
     def test_proxy_graph_separation
 	tasks = (1..4).map { Roby::Task.new }
+	tasks.each { |t| plan.discover(t) }
 	proxies = tasks.map { |t| transaction[t] }
 
 	t1, t2, t3, _ = tasks
@@ -142,6 +148,8 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     def task_pair
 	t1 = Roby::Task.new
 	t2 = Roby::Task.new
+	plan.discover(t1)
+	plan.discover(t2)
 	yield(t1, t2, transaction[t1], transaction[t2])
     end
 
@@ -173,9 +181,11 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     end
 
 
-    def event_pair
-	ev = Roby::EventGenerator.new(true)
+    def event_pair(discover_ev2 = false)
+	ev  = Roby::EventGenerator.new(true)
 	ev2 = Roby::EventGenerator.new(true)
+	plan.discover(ev)
+	plan.discover(ev2) if discover_ev2
 	yield(ev, ev2, transaction[ev], transaction[ev2])
     end
     def test_discover_events
@@ -187,7 +197,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	    ev2.on proxy
 	    assert(proxy.discovered?(Roby::EventStructure::Signal))
 	end
-	event_pair do |ev, ev2, proxy, proxy2|
+	event_pair(true) do |ev, ev2, proxy, proxy2|
 	    proxy2.on proxy
 	    assert(proxy.discovered?(Roby::EventStructure::Signal))
 	    assert(proxy2.discovered?(Roby::EventStructure::Signal))

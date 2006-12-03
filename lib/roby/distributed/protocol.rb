@@ -61,6 +61,7 @@ end
 
 module Roby
     module Distributed
+	class RemotePeerMismatch < RuntimeError; end
 	class DRobyConstant
 	    def initialize(obj)
 		if const_obj = (constant(obj.name) rescue nil)
@@ -256,14 +257,10 @@ module Roby
 	    module ClassExtension
 		def droby_load(str)
 		    data = Marshal.load(str)
-		    object = data[0]
-		    if !object.kind_of?(DRb::DRbObject)
-			object
-		    else
-			data[1] = Distributed.load_ancestors(data[1])
-			data[2] = Marshal.load(data[2])
-			yield(data)
-		    end
+		    object  = data[0]
+		    data[1] = Distributed.load_ancestors(data[1])
+		    data[2] = Marshal.load(data[2])
+		    yield(data)
 		end
 	    end
 
@@ -273,7 +270,9 @@ module Roby
 		    remote_object, ancestors, plan
 	    end
 	    def _dump(base_class)
-		yield([DRbObject.new(remote_object),
+		remote_object = self.remote_object
+		remote_object = DRbObject.new(remote_object) unless remote_object.kind_of?(DRbObject)
+		yield([remote_object,
 		    Distributed.dump_ancestors(ancestors, base_class),
 		    Distributed.dump(plan)])
 	    end
@@ -281,9 +280,9 @@ module Roby
 	    def proxy(peer)
 		Distributed.RemoteProxyModel(ancestors.first).new(peer, self)
 	    end
-
-	    def ==(obj)
-		obj.respond_to?(:remote_object) && remote_object == obj.remote_object
+	    def ==(other)
+		other.kind_of?(MarshalledPlanObject) && 
+		    other.remote_object == remote_object
 	    end
 	end
 
@@ -369,7 +368,7 @@ module Roby
 		end
 	    end
 
-	    attr_reader :remote_object, :ancestors, :arguments, :mission
+	    attr_reader :ancestors, :arguments, :mission
 	    def initialize(remote_object, ancestors, plan, arguments, mission)
 		super(remote_object, ancestors, plan)
 		@arguments, @mission = arguments, mission

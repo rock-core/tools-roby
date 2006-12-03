@@ -42,7 +42,9 @@ module Roby::Distributed
     Roby::Task.include(RelationModificationHooks)
     Roby::EventGenerator.include(RelationModificationHooks)
 
+    def self.remote_id; state end
     def self.owns?(object); state.owns?(object) end
+    def self.peer(remote_id); peers[remote_id] end
 
     # Connection discovery based on Rinda::RingServer
     #
@@ -225,6 +227,19 @@ module Roby::Distributed
 
 	# Disable the keeper thread, we will do cleanup ourselves
 	def start_keeper; end
+
+	def prepare_transaction_commit(trsc)
+	    !trsc.valid_transaction?
+	end
+	def abandon_commit(trsc, reason)
+	    Roby::Control.once { trsc.abandoned_transaction_commit(reason) }
+	end
+	def commit_transaction(trsc)
+	    Roby::Control.once { trsc.commit_transaction(false) }
+	end
+	def discard_transaction(trsc)
+	    Roby::Control.once { trsc.discard_transaction(false) }
+	end
     end
 
     class << self

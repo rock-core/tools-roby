@@ -295,3 +295,4 @@ module Roby
     end
 end
 
+require 'roby/plan'

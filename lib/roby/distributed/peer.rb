@@ -65,7 +65,11 @@ module Roby::Distributed
 		raise TypeError, "cannot subscribe a #{object.class} object"
 	    end
 	    subscriptions << object
-	    send_subscribed_relations(object)
+
+	    relations = subscribed_relations(object)
+	    # Send event event if +result+ is empty, so that relations are
+	    # removed if needed on the other side
+	    peer.send(:set_relations, object, relations)
 
 	    if object.respond_to?(:each_event)
 		object.each_event(false, &method(:subscribe))
@@ -74,7 +78,7 @@ module Roby::Distributed
 	end
 	def subscribed?(object); subscriptions.include?(object) end
 
-	def send_subscribed_relations(object)
+	def subscribed_relations(object)
 	    result = []
 	    object.each_graph do |graph|
 		graph_edges = []
@@ -91,9 +95,7 @@ module Roby::Distributed
 		result << [graph, graph_edges]
 	    end
 
-	    # Send event if +result+ is empty, so that relations are
-	    # removed if needed on the other side
-	    peer.send(:set_relations, object, result)
+	    result
 	end
 
 	def unsubscribe(object)
@@ -103,16 +105,54 @@ module Roby::Distributed
 	    end
 	    nil
 	end
+	def create_transaction(remote_trsc)
+	    if dtrsc = (peer.proxy(remote_trsc) rescue nil)
+		raise ArgumentError, "#{remote_trsc} is already created"
+	    end
+
+	    plan = peer.proxy(remote_trsc.plan)
+	    trsc = Roby::Distributed::Transaction.new(plan)
+	    trsc.owners.merge(remote_trsc.owners)
+	    trsc.remote_siblings[peer.remote_id] = remote_trsc.remote_object
+	    trsc
+	end
+	
+	# Sets all tasks and all relations in +trsc+. This is only valid if the local
+	# copy of +trsc+ is empty
+	def set_transaction(remote_trsc, missions, tasks, free_events)
+	    trsc = peer.proxy(remote_trsc)
+	    unless trsc.empty?(true)
+		raise ArgumentError, "#{trsc} is not empty"
+	    end
+
+	    proxies = []
+	    missions.each do |marshalled_task| 
+		task = peer.proxy(marshalled_task)
+		trsc.insert(task)
+		peer.subscribe(marshalled_task)
+		proxies << task
+	    end
+	    tasks.each do |marshalled_task| 
+		task = peer.proxy(marshalled_task)
+		trsc.discover(task)
+		peer.subscribe(marshalled_task)
+		proxies << task
+	    end
+
+	    # and subscribe the peer to all the local tasks
+	    subscriptions.merge(proxies)
+	end
 
 	def apply(args)
-	    args.map! do |a|
+	    args = args.map do |a|
 		if peer.proxying?(a)
 		    peer.proxy(a)
 		else a
 		end
 	    end
-
-	    yield(args)
+	    if block_given? then yield(args)
+	    else args
+	    end
 	end
 
 	# Receive the list of relations of +object+. The relations are given in
@@ -177,11 +217,10 @@ module Roby::Distributed
 	    end
 	end
 
-
 	def unmarshall_and_update(args)
 	    updating = []
 	    args.map! do |o|
-		if o.respond_to?(:remote_object)
+		if peer.proxying?(o)
 		    proxy = peer.proxy(o)
 		    updating << proxy
 		    proxy
@@ -192,6 +231,19 @@ module Roby::Distributed
 		yield(args)
 	    end
 	    nil
+	end
+
+	def prepare_transaction_commit(trsc)
+	    peer.connection_space.prepare_transaction_commit(peer.proxy(trsc))
+	end
+	def commit_transaction(trsc)
+	    peer.connection_space.commit_transaction(peer.proxy(trsc))
+	end
+	def abandon_commit(trsc)
+	    peer.connection_space.abandon_commit(peer.proxy(trsc))
+	end
+	def discard_transaction(trsc)
+	    peer.connection_space.discard_transaction(peer.proxy(trsc))
 	end
     end
     allow_remote_access PeerServer
@@ -219,7 +271,7 @@ module Roby::Distributed
 
 		if peer
 		    next if peer.connected?
-		    Roby::Distributed.debug { "Peer #{peer} finalized handshake" }
+		    Roby::Distributed.debug { "Peer #{peer.name} finalized handshake" }
 		    # The peer finalized the handshake
 		    peer.connected = true
 		elsif neighbour = connection_space.neighbours.find { |n| n.connection_space == remote_cs }
@@ -242,8 +294,8 @@ module Roby::Distributed
 	    @proxies	  = Hash.new
 	    @send_flushed = new_cond
 	    @max_allowed_errors = connection_space.max_allowed_errors
-	    connection_space.peers[neighbour.connection_space] = self
 
+	    connection_space.peers[remote_id] = self
 	    connect
 	end
 
@@ -283,7 +335,7 @@ module Roby::Distributed
 
 			error_count = 0 if success > 0
 			if error
-			    Roby::Distributed.warn  { "#{name} reports an error on #{calls[success][1..-1]}:" }
+			    Roby::Distributed.warn  { "#{name} reports an error on #{calls[success]}:" }
 			    Roby::Distributed.debug { "\n" + error.full_message }
 			    if DRb::DRbConnError === error
 				# We have a connection error, mark the connection as not being alive
@@ -358,7 +410,7 @@ module Roby::Distributed
 
 	# Disconnects from the peer
 	def disconnect
-	    connection_space.peers.delete(neighbour.connection_space)
+	    connection_space.peers.delete(remote_id)
 	    @connected = false
 	    keepalive.cancel if keepalive
 
@@ -380,7 +432,7 @@ module Roby::Distributed
 	def dead_connection!
 	    connection_space.take({'kind' => :peer, 'connection_space' => neighbour.connection_space, 'remote' => nil}, 0)
 	end
-	def owns?(object); object.owners.include?(neighbour.connection_space) end
+	def owns?(object); object.owners.include?(remote_id) end
 
 	# Checks if the connection is currently alive
 	def alive?
@@ -398,6 +450,7 @@ module Roby::Distributed
 	# model we don't know (while we know a more abstract model)
 	def proxy(marshalled)
 	    object = marshalled.remote_object
+	    return object unless object.kind_of?(DRbObject)
 	    object_proxy = (@proxies[object] ||= marshalled.proxy(self))
 
 	    # marshalled.plan is nil if the object plan is determined by another
@@ -410,30 +463,78 @@ module Roby::Distributed
 	end
 
 	# Check if +object+ should be proxied
-	def proxying?(object)
-	    object.respond_to?(:remote_object)
+	def proxying?(marshalled)
+	    marshalled.respond_to?(:remote_object) && marshalled.respond_to?(:proxy)
 	end
 
 	# Discovers all objects at a distance +dist+ from +obj+. The object
 	# can be either a remote proxy or the remote object itself
-	def discover_neighborhood(object, distance)
-	    send(:discover_neighborhood, object.remote_object, distance)
+	def discover_neighborhood(marshalled, distance)
+	    send(:discover_neighborhood, marshalled, distance)
 	end
 
 	# Make the remote pDB send us all updates about +object+
-	def subscribe(object)
-	    send(:subscribe, object.remote_object)
+	def subscribe(marshalled)
+	    send(:subscribe, marshalled.remote_object)
 	end
-	def unsubscribe(object, remove_object = true)
-	    unless object.kind_of?(RemoteObjectProxy)
-		object = proxy(object)
-	    end
-
-	    send(:unsubscribe, object.remote_object) do
-		if remove_object && object.kind_of?(Roby::Task)
-		    connection_space.plan.remove_task(object)
+	def unsubscribe(marshalled, remove_object = true)
+	    send(:unsubscribe, marshalled.remote_object) do
+		proxy = proxy(marshalled)
+		if remove_object && proxy.kind_of?(Roby::Task)
+		    connection_space.plan.remove_task(proxy)
 		end
 	    end
+	end
+
+	# Create a sibling for +trsc+ on this peer. If a block is given, yields
+	# the remote transaction object from within the communication thread
+	def create_transaction(trsc)
+	    unless trsc.kind_of?(Roby::Distributed::Transaction)
+		raise TypeError, "cannot create a non-distributed transaction"
+	    end
+
+	    send(:create_transaction, trsc) do |remote_transaction|
+		remote_transaction = remote_transaction.remote_object
+		trsc.remote_siblings[remote_id] = remote_transaction
+		yield(remote_transaction) if block_given?
+	    end
+	end
+	def propose_transaction(trsc)
+	    # What do we need to do on the remote side ?
+	    #   - create a new transaction with the right owners
+	    #   - create all needed transaction proxys. Transaction proxys
+	    #     can apply on local and remote tasks
+	    #   - create all needed remote proxys
+	    #   - setup all relations
+	    peer_missions = trsc.missions(true)
+	    peer_tasks    = trsc.known_tasks(true) - peer_missions
+	    free_events   = trsc.free_events
+
+	    create_transaction(trsc) do |ret|
+		send(:set_transaction, trsc, peer_missions, peer_tasks, free_events)
+	    end
+	end
+
+	def remote_id; neighbour.connection_space end
+
+	def find_plan(plan)
+	    base_plan = connection_space.plan
+	    if plan.kind_of?(DRbObject)
+		find_transaction(plan, base_plan)
+	    elsif plan.nil?
+		base_plan
+	    end
+	end
+	def find_transaction(trsc, base_plan = nil)
+	    (base_plan || connection_space.plan).transactions.each do |t|
+		if t.respond_to?(:remote_siblings) && t.remote_siblings[remote_id] == trsc
+		    return t
+		elsif found = find_transaction(trsc, t)
+		    return found
+		end
+	    end
+
+	    nil
 	end
     end
 end

@@ -1,3 +1,4 @@
+require 'roby/distributed/objects'
 require 'roby/transactions/proxy'
 class Roby::Plan
     def owners; @owners ||= [Roby::Distributed.state].to_value_set end
@@ -54,36 +55,8 @@ module Roby::Distributed
 	end
     end
 
-    module RemoteObjectProxy
-	# The remote object we are proxying
-	attr_reader :remote_object
-	attr_reader :owners
-
-	def initialize_remote_proxy(peer, remote_object)
-	    unless remote_object.ancestors.find { |klass| klass == self.class.superclass }
-		raise TypeError, "invalid remote task type. Was expecting #{self.class.superclass.name}, got #{remote_object.ancestors}"
-	    end
-
-	    @remote_object = remote_object.remote_object
-	    @update	   = false
-	    @owners = ValueSet.new
-	    @owners << peer.neighbour.connection_space
-	end
-
-	module ClassExtension
-	    def name; "dProxy(#{super})" end
-	end
-
-	def update?; @update end
-	def read_only?; !Roby::Distributed.updated_objects.include?(self) && !@update end
-	def update
-	    raise "recursive call to #update" if @update
-
-	    @update = true
-	    yield
-	ensure
-	    @update = false
-	end
+    module OwnershipChecking
+	def read_only?; plan && !plan.owners.include_all?(self.owners) end
 
 	# Forbid modification of relations
 	def adding_child_object(child, type, info)
@@ -112,6 +85,47 @@ module Roby::Distributed
 		raise InvalidRemoteTaskOperation.new(self), "cannot change a remote object from outside a transaction"
 	    end
 	    super if defined? super
+	end
+    end
+    Roby::PlanObject.include OwnershipChecking
+
+    module RemoteObjectProxy
+	include RemoteObject
+	# The remote object we are proxying
+	attr_reader :owners
+	# The marshalled object
+	attr_reader :marshalled_object
+
+	def initialize_remote_proxy(peer, marshalled_object)
+	    unless marshalled_object.ancestors.find { |klass| klass == self.class.superclass }
+		raise TypeError, "invalid remote task type. Was expecting #{self.class.superclass.name}, got #{marshalled_object.ancestors}"
+	    end
+	    @remote_object = marshalled_object.remote_object
+	    @peer_id = peer.remote_id
+
+	    @marshalled_object = marshalled_object
+	    @update = false
+	    @owners = [peer.remote_id].to_value_set
+	end
+
+	module ClassExtension
+	    def name; "dProxy(#{super})" end
+	end
+
+	def update?; @update end
+	def read_only?; !(Roby::Distributed.updated_objects.include?(self) || @update) && super end
+	def update
+	    raise "recursive call to #update" if @update
+
+	    @update = true
+	    yield
+	ensure
+	    @update = false
+	end
+
+
+	def droby_dump
+	    marshalled_object.dup
 	end
     end
 
