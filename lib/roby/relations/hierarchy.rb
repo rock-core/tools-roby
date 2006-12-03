@@ -47,9 +47,9 @@ module Roby::TaskStructure
 
 	# The set of events that are needed by the parent tasks
 	def fullfilled_events
-	    needed = Set.new
+	    needed = ValueSet.new
 	    each_parent_task do |parent|
-		needed |= parent[self, Hierarchy][:success]
+		needed.merge(parent[self, Hierarchy][:success])
 	    end
 	    needed
 	end
