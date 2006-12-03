@@ -284,8 +284,8 @@ module Roby::Distributed
 
 			error_count = 0 if success > 0
 			if error
-			    Roby::Distributed.warn  { "#{name} reports an error on #{calls[success][1..-1]}: #{error.to_s}" }
-			    Roby::Distributed.debug { error.full_message }
+			    Roby::Distributed.warn  { "#{name} reports an error on #{calls[success][1..-1]}:" }
+			    Roby::Distributed.debug { "\n" + error.full_message }
 			    if DRb::DRbConnError === error
 				# We have a connection error, mark the connection as not being alive
 				dead_connection!
