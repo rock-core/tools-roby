@@ -71,7 +71,7 @@ module Roby::Distributed
 	end
 
 	module ClassExtension
-	    def name; "Proxy(#{super})" end
+	    def name; "dProxy(#{super})" end
 	end
 
 	def update?; @update end

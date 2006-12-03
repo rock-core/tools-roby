@@ -14,7 +14,7 @@ module Roby::Transactions
 	@@proxy_klass = []
 	@@forwarders  = Hash.new
 
-	def to_s; "Proxy(#{__getobj__.to_s})" end
+	def to_s; "tProxy(#{__getobj__.to_s})" end
 
 	# Returns the proxy for +object+. Raises ArgumentError if +object+ is
 	# not an object which should be wrapped
