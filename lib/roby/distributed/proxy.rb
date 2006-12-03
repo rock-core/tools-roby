@@ -1,3 +1,17 @@
+require 'roby/transactions/proxy'
+class Roby::Plan
+    def owners; @owners ||= [Roby::Distributed.state].to_value_set end
+end
+class Roby::PlanObject
+    def owners; @owners ||= [Roby::Distributed.state].to_value_set end
+end
+class Roby::Transactions::Task
+    def_delegator :@__getobj__, :owners
+end
+class Roby::Transactions::EventGenerator
+    def_delegator :@__getobj__, :owners
+end
+
 module Roby::Distributed
     class RemoteTaskError < Exception
 	attr_reader :task
@@ -43,6 +57,7 @@ module Roby::Distributed
     module RemoteObjectProxy
 	# The remote object we are proxying
 	attr_reader :remote_object
+	attr_reader :owners
 
 	def initialize_remote_proxy(peer, remote_object)
 	    unless remote_object.ancestors.find { |klass| klass == self.class.superclass }
@@ -50,8 +65,9 @@ module Roby::Distributed
 	    end
 
 	    @remote_object = remote_object.remote_object
-	    @update	 = false
-	    owners << peer
+	    @update	   = false
+	    @owners = ValueSet.new
+	    @owners << peer.neighbour.connection_space
 	end
 
 	module ClassExtension
@@ -78,7 +94,7 @@ module Roby::Distributed
 	end
 	# Forbid modification of relations
 	def removing_child_object(child, type)
-	    if read_only? && !plan.owned?(child)
+	    if read_only? && !plan.owners.include_all?(child.owners)
 		raise InvalidRemoteTaskOperation.new(self), "cannot change a remote object from outside a transaction"
 	    end
 	    super if defined? super
@@ -92,7 +108,7 @@ module Roby::Distributed
 	end
 	# Forbid modification of relations
 	def removing_parent_object(parent, type)
-	    if read_only? && !plan.owned?(parent)
+	    if read_only? && !plan.owners.include_all?(parent.owners)
 		raise InvalidRemoteTaskOperation.new(self), "cannot change a remote object from outside a transaction"
 	    end
 	    super if defined? super

@@ -130,7 +130,7 @@ class TC_DistributedStructureMapping < Test::Unit::TestCase
 	# Test Peer#proxy
 	assert(proxy = remote_peer.proxy(r_task))
 	assert_equal(local.plan, proxy.plan)
-	assert_equal([remote_peer.neighbour.connection_space], proxy.owners)
+	assert(remote_peer.owns?(proxy))
     end
 
     def assert_proxy_of(object, proxy)
