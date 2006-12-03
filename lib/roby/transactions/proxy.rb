@@ -80,7 +80,7 @@ module Roby::Transactions
 		transaction.discovered_object(self)
 	    end
 	    if !relation
-		__getobj__.each_relation(&method(:discover))
+		__getobj__.each_relation { |o| discover(o) }
 		return
 	    end
 
