@@ -1,13 +1,8 @@
 module Roby
     class PlanObject
 	# The plan this object belongs to
-	attr_reader :plan
+	attr_accessor :plan
 
-	# Set the plan this task is part of
-	def plan=(new_plan)
-	    @plan = new_plan
-	end
-	
 	# A three-state flag with the following values:
 	# nil:: the object is executable if its plan is
 	# true:: the object is executable
