@@ -15,7 +15,7 @@ class Array
 	    ary
 	end
     end
-    def droby_dump; Marshal.dump(DRoby.new(self)) end
+    def droby_dump; DRoby.new(self) end
 end
 class Hash
     class DRoby < Array::DRoby
@@ -24,19 +24,19 @@ class Hash
 	    super.inject({}) { |h, (k, v)| h[k] = v; h }
 	end
     end
-    def droby_dump; Marshal.dump(DRoby.new(self)) end
+    def droby_dump; DRoby.new(self) end
 end
 class ValueSet
     class DRoby < Array::DRoby
 	def self._load(str); super.to_value_set end
     end
-    def droby_dump; Marshal.dump(DRoby.new(self)) end
+    def droby_dump; DRoby.new(self) end
 end
 
 module Roby
     class RelationGraph
 	def droby_dump
-	    Marshal.dump(Distributed::DRobyConstant.new(self))
+	    Distributed::DRobyConstant.new(self)
 	end
     end
 
@@ -54,7 +54,7 @@ module Roby
 	    end
 	end
 	def droby_dump
-	    Marshal.dump(DRoby.new(self))
+	    DRoby.new(self)
 	end
     end
 end
@@ -117,8 +117,10 @@ module Roby
 	end
 
 	def self.dump(object, error = false)
-	    if object.respond_to?(:droby_dump)
-		object.droby_dump
+	    if object.kind_of?(DRb::DRbObject)
+		Marshal.dump(object)
+	    elsif object.respond_to?(:droby_dump)
+		Marshal.dump(object.droby_dump)
 	    else
 		Marshal.dump(object)
 	    end
@@ -249,6 +251,7 @@ module Roby
 	    end.compact
 	end
 
+
 	module MarshalledPlanObject
 	    module ClassExtension
 		def droby_load(str)
@@ -313,7 +316,7 @@ module Roby
 	end
 	class Roby::EventGenerator
 	    def droby_dump
-		Marshal.dump(MarshalledEventGenerator.new(self, self.class.ancestors, plan, controlable?))
+		MarshalledEventGenerator.new(self, self.class.ancestors, plan, controlable?)
 	    end
 	end
 
@@ -347,7 +350,7 @@ module Roby
 	class Roby::TaskEventGenerator
 	    def droby_dump
 		# no need to marshal the plan, since it is the same than the event task
-		Marshal.dump(MarshalledTaskEventGenerator.new(self, self.class.ancestors, nil, controlable?, task, symbol))
+		MarshalledTaskEventGenerator.new(self, self.class.ancestors, nil, controlable?, task, symbol)
 	    end
 	end
 
@@ -375,7 +378,7 @@ module Roby
 	class Roby::Task
 	    def droby_dump
 		mission = self.plan.mission?(self) if plan
-		Marshal.dump(MarshalledTask.new(self, self.class.ancestors, plan, arguments, mission))
+		MarshalledTask.new(self, self.class.ancestors, plan, arguments, mission)
 	    end
 	end
 
