@@ -11,6 +11,7 @@ end
 
 module Roby::Distributed
     class NotAliveError < RuntimeError; end
+    class DisconnectedError < RuntimeError; end
     class PeerServer
 	include DRbUndumped
 	attr_reader :peer
@@ -25,6 +26,10 @@ module Roby::Distributed
 	def server_name; peer.neighbour.name end
 	
 	def demux(calls)
+	    if !peer.connected?
+		raise Disconnected, "#{server_name} has been disconnected"
+	    end
+
 	    idx = 0
 	    calls.each do |obj, args|
 		Roby::Distributed.debug { "processing #{obj}.#{args[0]}(#{args[1..-1].join(", ")})" }
