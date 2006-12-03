@@ -6,7 +6,6 @@ require 'utilrb/array/to_s'
 
 module Roby
     class Control; include DRbUndumped end
-    class Plan; include DRbUndumped end
 end
 
 module Roby::Distributed
@@ -391,18 +390,23 @@ module Roby::Distributed
 	    return !!@entry
 	end
 
-	# Get the remote plan
-	def plan; remote_server.plan end
+	# Get direct access to the remote plan
+	def plan; remote_server.plan.remote_object end
 
 	# Get a proxy for a task or an event. If +as+ is given, the proxy will be acting
 	# as-if +object+ is of class +as+. This can be used to map objects whose
 	# model we don't know (while we know a more abstract model)
 	def proxy(marshalled)
 	    object = marshalled.remote_object
-	    @proxies[object] ||= marshalled.proxy(self)
-	    connection_space.plan.discover(@proxies[object])
+	    object_proxy = (@proxies[object] ||= marshalled.proxy(self))
 
-	    @proxies[object]
+	    # marshalled.plan is nil if the object plan is determined by another
+	    # object. For instance, in the TaskEventGenerator case, the generator
+	    # plan is the task plan
+	    if marshalled.kind_of?(MarshalledPlanObject) && marshalled.plan
+		proxy(marshalled.plan).discover(object_proxy)
+	    end
+	    object_proxy
 	end
 
 	# Check if +object+ should be proxied

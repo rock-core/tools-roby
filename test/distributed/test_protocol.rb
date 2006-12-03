@@ -99,7 +99,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	remote_task = remote.task
 	assert_kind_of(MarshalledTask, remote_task)
 	assert_equal({:id => 1}, remote_task.arguments)
-	assert(! remote_task.plan)
+	assert(remote_task.plan)
 	assert_equal([SimpleTask, ExecutableTask, Roby::Task], remote_task.ancestors)
     end
 

@@ -1,25 +1,61 @@
 require 'drb'
 require 'utilrb/value_set'
+require 'roby/plan'
 
 class Array
-    def droby_dump
-	Marshal.dump(Roby::Distributed::DRobyArray.new(self))
+    class DRoby
+	def initialize(object); @object = object end
+	def _dump(lvl = -1)
+	    marshalled = @object.map { |o| Roby::Distributed.dump(o) }
+	    Marshal.dump(marshalled)
+	end
+	def self._load(str)
+	    ary = Marshal.load(str)
+	    ary.map! { |o| Marshal.load(o) }
+	    ary
+	end
     end
+    def droby_dump; Marshal.dump(DRoby.new(self)) end
 end
 class Hash
-    def droby_dump
-	Marshal.dump(Roby::Distributed::DRobyHash.new(self))
+    class DRoby < Array::DRoby
+	def initialize(hash); super(hash.to_a) end
+	def self._load(str)
+	    super.inject({}) { |h, (k, v)| h[k] = v; h }
+	end
     end
+    def droby_dump; Marshal.dump(DRoby.new(self)) end
 end
 class ValueSet
-    def droby_dump
-	Marshal.dump(Roby::Distributed::DRobyValueSet.new(self))
+    class DRoby < Array::DRoby
+	def self._load(str); super.to_value_set end
     end
+    def droby_dump; Marshal.dump(DRoby.new(self)) end
 end
 
-class Roby::RelationGraph
-    def droby_dump
-	Marshal.dump(Roby::Distributed::DRobyConstant.new(self))
+module Roby
+    class RelationGraph
+	def droby_dump
+	    Marshal.dump(Distributed::DRobyConstant.new(self))
+	end
+    end
+
+    class Plan
+	# Distributed transactions are marshalled as DRbObjects and #proxy
+	# returns their sibling in the remote pDB (or raises if there is none)
+	class DRoby
+	    def _dump(lvl); Marshal.dump(DRbObject.new(remote_object)) end
+	    def self._load(str); new(Marshal.load(str)) end
+	    def proxy(peer); peer.connection_space.plan end
+
+	    attr_reader :remote_object
+	    def initialize(remote_object)
+		@remote_object = remote_object
+	    end
+	end
+	def droby_dump
+	    Marshal.dump(DRoby.new(self))
+	end
     end
 end
 
@@ -39,45 +75,6 @@ module Roby
 	    def self._load(str)
 		name = Marshal.load(str)
 		constant(name)
-	    end
-	end
-	class DRobyArray
-	    def initialize(array)
-		@array = array
-	    end
-	    def _dump(lvl = -1)
-		marshalled = @array.map do |o|
-		    Distributed.dump(o)
-		end
-		Marshal.dump(marshalled)
-	    end
-	    def self._load(str)
-		Marshal.load(str).map { |o| Marshal.load(o) }
-	    end
-	end
-
-	class DRobyValueSet
-	    def initialize(value_set)
-		@value_set = value_set
-	    end
-	    def _dump(lvl = -1)
-		Distributed.dump(@value_set.to_a)
-	    end
-	    def self._load(str)
-		Marshal.load(str).to_value_set
-	    end
-	end
-
-	class DRobyHash
-	    def initialize(hash)
-		@hash = hash
-	    end
-	    def _dump(lvl = -1)
-		Distributed.dump(@hash.to_a)
-	    end
-	    def self._load(str)
-		Marshal.load(str).
-		    inject({}) { |h, (k, v)| h[k] = v; h }
 	    end
 	end
 
@@ -235,7 +232,6 @@ module Roby
 
 	allow_remote_access Rinda::TupleSpace
 	allow_remote_access Rinda::TupleEntry
-	allow_remote_access Roby::Plan
 
 	def self.dump_ancestors(ancestors, base_class)
 	    dumpable = []
@@ -253,7 +249,7 @@ module Roby
 	    end.compact
 	end
 
-	module MarshalledObject
+	module MarshalledPlanObject
 	    module ClassExtension
 		def droby_load(str)
 		    data = Marshal.load(str)
@@ -262,6 +258,7 @@ module Roby
 			object
 		    else
 			data[1] = Distributed.load_ancestors(data[1])
+			data[2] = Marshal.load(data[2])
 			yield(data)
 		    end
 		end
@@ -275,7 +272,7 @@ module Roby
 	    def _dump(base_class)
 		yield([DRbObject.new(remote_object),
 		    Distributed.dump_ancestors(ancestors, base_class),
-		    (DRbObject.new(plan) if plan)])
+		    Distributed.dump(plan)])
 	    end
 
 	    def proxy(peer)
@@ -290,7 +287,7 @@ module Roby
 
 
 	class MarshalledEventGenerator
-	    include MarshalledObject
+	    include MarshalledPlanObject
 	    def self._load(str)
 		droby_load(str) do |data|
 		    if block_given? then yield(data)
@@ -315,9 +312,7 @@ module Roby
 	    end
 	end
 	class Roby::EventGenerator
-	    def droby_dump(depth = -1)
-		plan = self.plan
-		plan = nil unless plan.kind_of?(Roby::Distributed::Transaction)
+	    def droby_dump
 		Marshal.dump(MarshalledEventGenerator.new(self, self.class.ancestors, plan, controlable?))
 	    end
 	end
@@ -325,7 +320,7 @@ module Roby
 
 
 	class MarshalledTaskEventGenerator < MarshalledEventGenerator
-	    include MarshalledObject
+	    include MarshalledPlanObject
 	    def self._load(str)
 		super do |data|
 		    data[4] = Marshal.load(data[4])
@@ -350,14 +345,14 @@ module Roby
 	    end
 	end
 	class Roby::TaskEventGenerator
-	    def droby_dump(depth = -1)
+	    def droby_dump
 		# no need to marshal the plan, since it is the same than the event task
 		Marshal.dump(MarshalledTaskEventGenerator.new(self, self.class.ancestors, nil, controlable?, task, symbol))
 	    end
 	end
 
 	class MarshalledTask
-	    include MarshalledObject
+	    include MarshalledPlanObject
 	    def self._load(str)
 		droby_load(str) do |data|
 		    data[3] = Marshal.load(data[3])
@@ -378,11 +373,8 @@ module Roby
 	    end
 	end
 	class Roby::Task
-	    def droby_dump(depth = -1)
-		plan = self.plan
-		plan = nil unless plan.kind_of?(Roby::Distributed::Transaction)
+	    def droby_dump
 		mission = self.plan.mission?(self) if plan
-
 		Marshal.dump(MarshalledTask.new(self, self.class.ancestors, plan, arguments, mission))
 	    end
 	end
