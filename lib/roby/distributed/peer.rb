@@ -30,17 +30,16 @@ module Roby::Distributed
 		raise Disconnected, "#{server_name} has been disconnected"
 	    end
 
-	    idx = 0
+	    result = []
 	    calls.each do |obj, args|
 		Roby::Distributed.debug { "processing #{obj}.#{args[0]}(#{args[1..-1].join(", ")})" }
-		obj.send(*args)
-		idx += 1
+		result << obj.send(*args)
 	    end
 
-	    [idx, nil]
+	    [result, nil]
 
 	rescue
-	    [idx, $!]
+	    [result, $!]
 	end
 
 	def plan; peer.connection_space.plan end
@@ -273,13 +272,14 @@ module Roby::Distributed
 		    synchronize do
 			calls += @send_queue.get(true)
 			Roby::Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
-			success, error = begin remote_server.demux(calls.map { |a| a.first })
-					 rescue; [0, $!]
+			results, error = begin remote_server.demux(calls.map { |a| a.first })
+					 rescue; [[], $!]
 					 end
+			success = results.size
 			Roby::Distributed.debug { "#{neighbour.name} processed #{success} commands" }
 			(0...success).each do |i|
 			    if block = calls[i][1]
-				block.call rescue nil
+				block.call(results[i]) rescue nil
 			    end
 			end
 
