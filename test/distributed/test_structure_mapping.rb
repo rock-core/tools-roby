@@ -26,8 +26,8 @@ class TC_DistributedStructureMapping < Test::Unit::TestCase
 	local.start_neighbour_discovery(true)
 	n_remote = Distributed.neighbours.find { true }
 	p_remote = Peer.new(local, n_remote)
-	assert_equal(local,  p_remote.keepalive['tuplespace'])
-	assert_equal(remote, p_remote.neighbour.tuplespace)
+	assert_equal(local,  p_remote.keepalive['connection_space'])
+	assert_equal(remote, p_remote.neighbour.connection_space)
 	assert_nothing_raised { remote.read(p_remote.keepalive.value, 0) }
 	# The connection is not alive yet since +remote+ does not have
 	# finalized the handshake yet
@@ -39,10 +39,11 @@ class TC_DistributedStructureMapping < Test::Unit::TestCase
 	# for +local+
 	remote.start_neighbour_discovery(true)
 	p_local = remote.peers.find { true }.last
-	assert_equal(local, p_local.neighbour.tuplespace)
-	assert_equal(remote, p_local.keepalive['tuplespace'])
-	assert_equal(local,  p_local.neighbour.tuplespace)
+	assert_equal(local, p_local.neighbour.connection_space)
+	assert_equal(remote, p_local.keepalive['connection_space'])
+	assert_equal(local,  p_local.neighbour.connection_space)
 	assert_nothing_raised { local.read(p_local.keepalive.value, 0) }
+
 	assert(p_local.connected?)
 	assert(p_local.alive?)
 	# p_remote is still not alive since +local+ does not know the

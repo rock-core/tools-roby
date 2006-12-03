@@ -26,14 +26,17 @@ module DistributedTestCommon
 	    Distributed.state = ConnectionSpace.new :ring_discovery => false, 
 		:discovery_tuplespace => central_tuplespace, :name => "remote",
 		:plan => Plan.new do |remote|
-		DRb.start_service REMOTE_URI, remote
+
+		getter = Class.new { def get; DRbObject.new(Distributed.state) end }.new
+		DRb.start_service REMOTE_URI, getter
 	    end
+
 	    yield(Distributed.state) if block_given?
 	end
 
 	DRb.start_service LOCAL_URI
 	@central_tuplespace = DRbObject.new_with_uri(DISCOVERY_URI)
-	@remote  = DRbObject.new_with_uri(REMOTE_URI)
+	@remote  = DRbObject.new_with_uri(REMOTE_URI).get
 	@local   = ConnectionSpace.new :ring_discovery => false, 
 	    :discovery_tuplespace => central_tuplespace, :name => 'local',
 	    :max_allowed_errors => 1

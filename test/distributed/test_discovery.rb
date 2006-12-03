@@ -28,7 +28,7 @@ class TC_DistributedDiscovery < Test::Unit::TestCase
 	    :discovery_tuplespace => central_tuplespace
 	Distributed.state = ConnectionSpace.new :ring_discovery => false, 
 	    :discovery_tuplespace => central_tuplespace
-	assert_has_neighbour { |n| n.tuplespace == remote }
+	assert_has_neighbour { |n| n.connection_space == remote }
     end
 
     # Test neighbour discovery using a remote central tuplespace as neighbour list

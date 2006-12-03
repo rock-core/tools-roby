@@ -214,18 +214,17 @@ module Roby::Distributed
 
 	# Listens for new connections on Distributed.state
 	def self.connection_listener(connection_space)
-	    connection_space.read_all( { 'kind' => :peer, 'tuplespace' => nil, 'remote' => nil } ).each do |entry|
-		tuplespace = entry['tuplespace']
-		peer = connection_space.peers.find { |ts, peer| ts.remote_id == tuplespace.remote_id }
-		peer = peer.last if peer
+	    connection_space.read_all( { 'kind' => :peer, 'connection_space' => nil, 'remote' => nil } ).each do |entry|
+		remote_cs = entry['connection_space']
+		peer = connection_space.peers[remote_cs]
 
 		if peer
 		    next if peer.connected?
 		    Roby::Distributed.debug { "Peer #{peer} finalized handshake" }
 		    # The peer finalized the handshake
 		    peer.connected = true
-		elsif neighbour = connection_space.neighbours.find { |n| n.tuplespace.remote_id == tuplespace.remote_id }
-		    Roby::Distributed.debug { "Peer #{peer} asking for connection" }
+		elsif neighbour = connection_space.neighbours.find { |n| n.connection_space == remote_cs }
+		    Roby::Distributed.debug { "Peer #{remote_cs.name} asking for connection" }
 		    # New connection attempt from a known neighbour
 		    Peer.new(connection_space, neighbour).connected = true
 		end
@@ -244,7 +243,7 @@ module Roby::Distributed
 	    @proxies	  = Hash.new
 	    @send_flushed = new_cond
 	    @max_allowed_errors = connection_space.max_allowed_errors
-	    connection_space.peers[neighbour.tuplespace] = self
+	    connection_space.peers[neighbour.connection_space] = self
 
 	    connect
 	end
@@ -353,18 +352,18 @@ module Roby::Distributed
 	# Updates our keepalive token on the peer
 	def ping(timeout = nil)
 	    old, @keepalive = @keepalive, 
-		neighbour.tuplespace.write({ 'kind' => :peer, 'tuplespace' => connection_space, 'remote' => @local }, timeout)
+		neighbour.connection_space.write({ 'kind' => :peer, 'connection_space' => connection_space, 'remote' => @local }, timeout)
 
 	    old.cancel if old
 	end
 
 	# Disconnects from the peer
 	def disconnect
-	    connection_space.peers.delete(neighbour.tuplespace)
+	    connection_space.peers.delete(neighbour.connection_space)
 	    @connected = false
 	    keepalive.cancel if keepalive
 
-	    neighbour.tuplespace.take({ 'kind' => :peer, 'tuplespace' => neighbour.tuplespace, 'remote' => nil }, 0)
+	    neighbour.connection_space.take({ 'kind' => :peer, 'connection_space' => neighbour.connection_space, 'remote' => nil }, 0)
 	rescue Rinda::RequestExpiredError
 	end
 
@@ -380,15 +379,15 @@ module Roby::Distributed
 	end
     
 	def dead_connection!
-	    connection_space.take({'kind' => :peer, 'tuplespace' => neighbour.tuplespace, 'remote' => nil}, 0)
+	    connection_space.take({'kind' => :peer, 'connection_space' => neighbour.connection_space, 'remote' => nil}, 0)
 	end
 	def owns?(object); object.owners.include?(neighbour.connection_space) end
 
 	# Checks if the connection is currently alive
 	def alive?
 	    return false unless connected?
-	    return false unless connection_space.neighbours.find { |n| n.tuplespace == neighbour.tuplespace }
-	    @entry = connection_space.read({'kind' => :peer, 'tuplespace' => neighbour.tuplespace, 'remote' => nil}, 0) rescue nil
+	    return false unless connection_space.neighbours.find { |n| n.connection_space == neighbour.connection_space }
+	    @entry = connection_space.read({'kind' => :peer, 'connection_space' => neighbour.connection_space, 'remote' => nil}, 0) rescue nil
 	    return !!@entry
 	end
 
