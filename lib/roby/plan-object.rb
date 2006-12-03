@@ -24,16 +24,24 @@ module Roby
 	
 	# Checks that we do not link two objects from two different plans
 	# and updates the +plan+ attribute accordingly
-	def adding_child_object(child, type, info)
-	    return if plan == child.plan
+	def synchronize_plan(other)
+	    return if plan == other.plan
 
-	    if child.plan && plan
-		raise InvalidPlanOperation, "cannot add a relation between two objects from different plans. #{self} is from #{plan} and #{child} is from #{child.plan}"
-	    elsif child.plan
-		child.plan.discover(self)
+	    if other.plan && plan
+		raise InvalidPlanOperation, "cannot add a relation between two objects from different plans. #{self} is from #{plan} and #{other} is from #{other.plan}"
 	    elsif plan
-		plan.discover(child)
+		plan.discover(other)
+	    elsif other.plan
+		other.plan.discover(self)
 	    end
+	end
+
+	def adding_child_object(child, type, info)
+	    synchronize_plan(child)
+	    super if defined? super
+	end
+	def adding_parent_object(parent, type, info)
+	    synchronize_plan(parent)
 	    super if defined? super
 	end
     end
