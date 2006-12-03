@@ -15,15 +15,28 @@ module Roby
 
 	# Get the transaction proxy for +object+
 	def wrap(object)
-	    if object.plan == self
-		return object
-	    elsif object.kind_of?(Proxy)
-		raise ArgumentError, "#{object} is in #{object.plan}, not from this transaction (#{self})"
-	    elsif proxy = proxy_objects[object]
-		return proxy
+	    if object.kind_of?(PlanObject)
+		if object.plan == self
+		    return object
+		elsif !object.plan
+		    object.plan = self
+		    return object
+		elsif object.kind_of?(Proxy)
+		    raise ArgumentError, "#{object} is in #{object.plan}, not from this transaction (#{self})"
+		elsif proxy = proxy_objects[object]
+		    return proxy
+		else
+		    object = proxy_objects[object] = Proxy.proxy_class(object).new(object, self)
+		    object
+		end
+	    elsif object.respond_to?(:each) 
+		object.map(&method(:wrap))
+	    elsif object.respond_to?(:each_event)
+		object.enum_for(:each_event).map(&method(:wrap))
+	    elsif object.respond_to?(:each_task)
+		object.enum_for(:each_task).map(&method(:wrap))
 	    else
-		object = proxy_objects[object] = Proxy.proxy_class(object).new(object, self)
-		object
+		raise TypeError, "don't know how to wrap #{object}"
 	    end
 	end
 	def may_wrap(object); wrap(object) rescue object end
@@ -63,8 +76,16 @@ module Roby
 	    plan.added_transaction(self)
 	end
 
-	def include?(t); super || super(may_wrap(t)) end
-	def mission?(t); super || super(may_wrap(t)) end
+	def include?(t)
+	    real_task = Proxy.may_unwrap(t)
+	    (plan.include?(real_task) && !removed_tasks.include?(real_task)) || 
+		super(self[t]) 
+	end
+	def mission?(t)
+	    real_task = Proxy.may_unwrap(t)
+	    (missions.include?(real_task) && !discarded_tasks.include?(real_task)) || 
+		missions.include?(self[t])
+	end
 
 	def missions(own = false)
 	    if own then super()
@@ -91,34 +112,17 @@ module Roby
 	    else super() && plan.empty?
 	    end
 	end
+	
+	# Iterates on all tasks
+	def each_task(own = false); known_tasks(own).each { |t| yield(t) } end
 
 	def insert(t)
-	    t = if plan.include?(t) then self[t]
-		else Proxy.may_unwrap(t)
-		end
-
-	    super(t)
+	    super(self[t])
 	end
 
 	def discover(objects = nil)
-	    return super if !objects
-		
-	    events, tasks = partition_event_task(objects)
-	    task_collection(tasks) do |t|
-		unwrapped = Proxy.may_unwrap(t)
-		t = if plan.include?(unwrapped) then self[t]
-		    else unwrapped
-		    end
-
-		super(t)
-	    end
-
-	    event_collection(events) do |e|
-		unwrapped = Proxy.may_unwrap(e)
-		e = if plan.free_events.include?(e) then self[e]
-		    else unwrapped
-		    end
-		super(e)
+	    if !objects then super
+	    else super(self[objects])
 	    end
 
 	    # Consistency check
@@ -160,8 +164,9 @@ module Roby
 	    raise unless (@missions - @known_tasks).empty?
 	    # Set the plan to nil in known tasks to avoid having 
 	    # the checks on #plan to raise an exception
-	    @missions.each { |t| t.plan = self.plan unless t.kind_of?(Proxy) }
+	    @missions.each    { |t| t.plan = self.plan unless t.kind_of?(Proxy) }
 	    @known_tasks.each { |t| t.plan = self.plan unless t.kind_of?(Proxy) }
+	    @free_events.each { |e| e.plan = self.plan unless e.kind_of?(Proxy) }
 
 	    discovered_objects.each { |proxy| proxy.commit_transaction }
 
@@ -171,6 +176,7 @@ module Roby
 	    # Call #insert and #discover *after* we have cleared relations
 	    @missions.each    { |t| plan.insert(t)   unless t.kind_of?(Proxy) }
 	    @known_tasks.each { |t| plan.discover(t) unless t.kind_of?(Proxy) }
+	    @free_events.each { |e| plan.discover(e) unless e.kind_of?(Proxy) }
 
 	    # Replace proxies by forwarder objects
 	    proxy_objects.each do |object, proxy|

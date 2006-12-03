@@ -123,8 +123,8 @@ module Roby
 
 	# Remove all tasks
 	def clear
-	    known_tasks.each { |t| t.clear_relations }
-	    known_tasks.clear
+	    @known_tasks.each { |t| t.clear_relations }
+	    @known_tasks.clear
 	    @missions.clear
 	end
 
@@ -173,7 +173,7 @@ module Roby
 	# +objects+, or if +objects+ is nil the child tree of the plan missions
 	def discover(objects = nil)
 	    if !objects
-		events, tasks = [], missions
+		events, tasks = [], @missions
 	    else
 		events, tasks = partition_event_task(objects)
 	    end
@@ -225,27 +225,27 @@ module Roby
 
 	# Returns the set of useful tasks
 	def useful_tasks
-	    return ValueSet.new if missions.empty?
+	    return ValueSet.new if @missions.empty?
 
 	    # Remove all missions that are finished
-	    missions.each { |t| discard(t) if t.finished? }
+	    @missions.each { |t| discard(t) if t.finished? }
 
-	    useful_component(missions)
+	    useful_component(@missions)
 	end
 
 	# Returns the set of unused tasks
 	def unneeded_tasks; known_tasks - useful_tasks end
 	# Checks if +task+ is included in this plan
-	def include?(task); known_tasks.include?(task) end
+	def include?(task); @known_tasks.include?(task) end
 	def owned?(object); object.owners.empty? || object.owners.include?(self) end
 	# Checks if +task+ is a mission of this plan
-	def mission?(task); missions.include?(task) end
+	def mission?(task); @missions.include?(task) end
 	# Count of tasks in this plan
-	def size; known_tasks.size end
+	def size; @known_tasks.size end
 	# Returns true if there is no task in this plan
 	def empty?; @known_tasks.empty? end
 	# Iterates on all tasks
-	def each_task; known_tasks.each { |t| yield(t) } end
+	def each_task; @known_tasks.each { |t| yield(t) } end
 	# Returns a Query object on this plan
 	def find_tasks; Query.new(self) end
 
