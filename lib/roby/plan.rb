@@ -179,7 +179,8 @@ module Roby
 	    end
 
 	    unless events.empty?
-		free_events |= events
+		events.each { |e| e.plan = self }
+		@free_events.merge(events)
 	    end
 	    unless tasks.empty?
 		new_tasks = useful_component(tasks).difference(@known_tasks)

@@ -175,6 +175,24 @@ module TC_PlanStatic
 	plan.remove_task(t3)
 	assert(t1.event(:stop).child_objects(EventStructure::Signal).empty?)
     end
+
+    def test_free_events
+	t1, t2, t3 = (1..3).map { Roby::Task.new }
+	plan.insert(t1)
+	t1.realized_by t2
+	assert_equal(plan, t2.plan)
+	assert_equal(plan, t1.event(:start).plan)
+
+	or_generator  = (t1.event(:stop) | t2.event(:stop))
+	assert_equal(plan, or_generator.plan)
+	assert(plan.free_events.include?(or_generator))
+	or_generator.on t3.event(:start)
+	assert_equal(plan, t3.plan)
+
+	and_generator = (t1.event(:stop) & t2.event(:stop))
+	assert_equal(plan, and_generator.plan)
+	assert(plan.free_events.include?(and_generator))
+    end
 end
 
 class TC_Plan < Test::Unit::TestCase

@@ -107,6 +107,7 @@ module Roby
 	
 	# The plan this event is part of
 	def plan; task.plan end
+	def plan=(plan); task.plan=plan end
 
 	# True if a signal between self and +event+ can be established
         def can_signal?(event); super || (event.respond_to?(:task) && task == event.task) end
