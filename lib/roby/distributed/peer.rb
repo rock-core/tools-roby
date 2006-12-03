@@ -198,11 +198,11 @@ module Roby::Distributed
     allow_remote_access PeerServer
 
     class Peer
-	# The ConnectionSpace object we act on
+	# The local ConnectionSpace object we act on
 	attr_reader :connection_space
-	# The local server object for this peer
+	# The local PeerServer object for this peer
 	attr_reader :local
-	# The neighbour we are connected to
+	# The neighbour object describing our peer
 	attr_reader :neighbour
 	# The last 'keepalive' tuple we wrote on the neighbour's ConnectionSpace
 	attr_reader :keepalive
