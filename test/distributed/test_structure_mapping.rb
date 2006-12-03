@@ -111,20 +111,20 @@ class TC_DistributedStructureMapping < Test::Unit::TestCase
 	    end
 	end
 
-	assert_raises(InvalidRemoteOperation) { proxy.realized_by task }
-	assert_raises(InvalidRemoteOperation) { task.realized_by proxy }
+	assert_raises(InvalidRemoteTaskOperation) { proxy.realized_by task }
+	assert_raises(InvalidRemoteTaskOperation) { task.realized_by proxy }
 	proxy.update { proxy.realized_by task }
 	assert_nothing_raised { proxy.remove_child task }
 	proxy.update { task.realized_by proxy }
 	assert_nothing_raised { task.remove_child proxy }
 
 	other_proxy = proxy_model.new(remote_peer, r_other_task)
-	assert_raises(InvalidRemoteOperation) { proxy.realized_by other_proxy }
-	assert_raises(InvalidRemoteOperation) { other_proxy.realized_by proxy }
+	assert_raises(InvalidRemoteTaskOperation) { proxy.realized_by other_proxy }
+	assert_raises(InvalidRemoteTaskOperation) { other_proxy.realized_by proxy }
 	proxy.update { other_proxy.update { proxy.realized_by other_proxy } }
-	assert_raises(InvalidRemoteOperation) { proxy.remove_child other_proxy }
+	assert_raises(InvalidRemoteTaskOperation) { proxy.remove_child other_proxy }
 	proxy.update { other_proxy.update { other_proxy.realized_by proxy } }
-	assert_raises(InvalidRemoteOperation) { other_proxy.remove_child proxy }
+	assert_raises(InvalidRemoteTaskOperation) { other_proxy.remove_child proxy }
 
 	# Test Peer#proxy
 	assert(proxy = remote_peer.proxy(r_task))

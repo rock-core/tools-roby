@@ -5,7 +5,7 @@ module Roby::Distributed
 	    @task = remote_proxy
 	end
     end
-    class InvalidRemoteOperation < RemoteTaskError; end
+    class InvalidRemoteTaskOperation < RemoteTaskError; end
 
     @updated_objects = []
     class << self
@@ -72,28 +72,28 @@ module Roby::Distributed
 	# Forbid modification of relations
 	def adding_child_object(child, type, info)
 	    if read_only?
-		raise InvalidRemoteOperation.new(self), "cannot change a remote object from outside a transaction"
+		raise InvalidRemoteTaskOperation.new(self), "cannot change a remote object from outside a transaction"
 	    end
 	    super if defined? super
 	end
 	# Forbid modification of relations
 	def removing_child_object(child, type)
 	    if read_only? && !plan.owned?(child)
-		raise InvalidRemoteOperation.new(self), "cannot change a remote object from outside a transaction"
+		raise InvalidRemoteTaskOperation.new(self), "cannot change a remote object from outside a transaction"
 	    end
 	    super if defined? super
 	end
 	# Forbid modification of relations
 	def adding_parent_object(parent, type, info)
 	    if read_only?
-		raise InvalidRemoteOperation.new(self), "cannot change a remote object from outside a transaction"
+		raise InvalidRemoteTaskOperation.new(self), "cannot change a remote object from outside a transaction"
 	    end
 	    super if defined? super
 	end
 	# Forbid modification of relations
 	def removing_parent_object(parent, type)
 	    if read_only? && !plan.owned?(parent)
-		raise InvalidRemoteOperation.new(self), "cannot change a remote object from outside a transaction"
+		raise InvalidRemoteTaskOperation.new(self), "cannot change a remote object from outside a transaction"
 	    end
 	    super if defined? super
 	end
