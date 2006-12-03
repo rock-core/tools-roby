@@ -43,6 +43,7 @@ module Roby
 	# * self.added_child_object and child.added_child_object just after
 	def add_child_object(child, type, info = nil)
 	    check_is_relation(type)
+	    return if type.linked?(self, child)
 
 	    adding_child_object(child, type, info)
 	    type.link(self, child, info)
