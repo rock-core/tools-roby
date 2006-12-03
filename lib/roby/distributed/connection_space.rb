@@ -42,6 +42,8 @@ module Roby::Distributed
     Roby::Task.include(RelationModificationHooks)
     Roby::EventGenerator.include(RelationModificationHooks)
 
+    def self.owns?(object); state.owns?(object) end
+
     # Connection discovery based on Rinda::RingServer
     #
     # Each plan database spawns its own RingServer, providing:
@@ -134,6 +136,7 @@ module Roby::Distributed
 
 	def remote_id; object_id end
 	def discovering?; synchronize { @last_discovery != @discovery_start } end
+	def owns?(object); object.owners.include?(self) end
 
 	# An array of procs called at the end of the neighbour discovery,
 	# after #neighbours have been updated

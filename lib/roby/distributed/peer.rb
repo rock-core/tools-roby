@@ -150,14 +150,14 @@ module Roby::Distributed
 	    object.each_relation do |rel|
 		# Remove relations that do not exist anymore
 		(object.parent_objects(rel) - parents[rel]).each do |p|
-		    if p.owners == [peer]
+		    if peer.owns?(p)
 			Roby::Distributed.update(p, object) do
 			    p.remove_child_object(object, rel)
 			end
 		    end
 		end
 		(object.child_objects(rel) - children[rel]).each do |c|
-		    if c.owners == [peer]
+		    if peer.owns?(c)
 			Roby::Distributed.update(c, object) do
 			    object.remove_child_object(c, rel)
 			end
@@ -382,6 +382,7 @@ module Roby::Distributed
 	def dead_connection!
 	    connection_space.take({'kind' => :peer, 'tuplespace' => neighbour.tuplespace, 'remote' => nil}, 0)
 	end
+	def owns?(object); object.owners.include?(neighbour.connection_space) end
 
 	# Checks if the connection is currently alive
 	def alive?
