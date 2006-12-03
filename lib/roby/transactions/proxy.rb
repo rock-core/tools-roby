@@ -19,11 +19,11 @@ module Roby::Transactions
 	# Returns the proxy for +object+. Raises ArgumentError if +object+ is
 	# not an object which should be wrapped
 	def self.proxy_class(object)
-	    all_proxys = @@proxy_klass.find_all { |_, real_klass| object.kind_of?(real_klass) }
-	    if all_proxys.empty?
+	    proxy_class = @@proxy_klass.find { |_, real_klass| object.kind_of?(real_klass) }
+	    unless proxy_class
 		raise ArgumentError, "no proxy for #{object.class}"
 	    end
-	    all_proxys.last[0]
+	    proxy_class[0]
 	end
 
 	# Returns the object wrapped by +wrapper+
@@ -40,7 +40,7 @@ module Roby::Transactions
 	# Order matters: if more than one wrapping matches, we will use the one
 	# defined last.
 	def self.proxy_for(proxy_klass, real_klass)
-	    @@proxy_klass << [proxy_klass, real_klass]
+	    @@proxy_klass.unshift [proxy_klass, real_klass]
 	    proxy_klass.extend Forwardable
 	end
 
