@@ -14,26 +14,32 @@ module Roby
 		super(plan)
 	    end
 
-	    def self_owned
-		@owners << Distributed.state
+	    def self_owned?; @owners.include?(Distributed) end
+	    def self_owned; self.self_owned = true end
+	    def self_owned=(flag)
+		if flag then add_owner(Distributed)
+		else remove_owner(Distributed)
+		end
 	    end
-	    def add_owner(peer)
-		@owners << peer.remote_id
-	    end
+
+	    # Add the Peer +peer+ to the list of owners
+	    def add_owner(peer); @owners << peer.remote_id end
+	    # Removes +peer+ from the list of owners. Raises OwnershipError if
+	    # there are modified tasks in this transaction which are owned by
+	    # +peer+
 	    def remove_owner(peer, do_check = true)
 		if do_check
-		    (transactions | [self]).each do |trsc| 
-			trsc.each_task(true) do |t|
-			    if discovered_relations_of?(t) && peer.owns?(t)
-				raise OwnershipError, "#{peer} still owns tasks in the transaction (#{t})"
-			    end
+		    each_task(true) do |t|
+			if discovered_relations_of?(t) && peer.owns?(t)
+			    raise OwnershipError, "#{peer} still owns tasks in the transaction (#{t})"
 			end
 		    end
 		end
 
-		@owners.delete(peer.neighbour.connection_space)
+		@owners.delete(peer.remote_id)
 	    end
 
+	    # Sends the transaction to +peer+
 	    def propose(peer)
 		peer.propose_transaction(self)
 	    end

@@ -50,28 +50,28 @@ module Roby::Distributed
 	# Forbid modification of relations
 	def adding_child_object(child, type, info)
 	    if read_only?
-		raise InvalidRemoteTaskOperation.new(self), "cannot change a remote object from outside a transaction"
+		raise NotOwner, "cannot change a remote object from outside a transaction"
 	    end
 	    super if defined? super
 	end
 	# Forbid modification of relations
 	def removing_child_object(child, type)
 	    if read_only? && !plan.owners.include_all?(child.owners)
-		raise InvalidRemoteTaskOperation.new(self), "cannot change a remote object from outside a transaction"
+		raise NotOwner, "cannot change a remote object from outside a transaction"
 	    end
 	    super if defined? super
 	end
 	# Forbid modification of relations
 	def adding_parent_object(parent, type, info)
 	    if read_only?
-		raise InvalidRemoteTaskOperation.new(self), "cannot change a remote object from outside a transaction"
+		raise NotOwner, "cannot change a remote object from outside a transaction"
 	    end
 	    super if defined? super
 	end
 	# Forbid modification of relations
 	def removing_parent_object(parent, type)
 	    if read_only? && !plan.owners.include_all?(parent.owners)
-		raise InvalidRemoteTaskOperation.new(self), "cannot change a remote object from outside a transaction"
+		raise NotOwner, "cannot change a remote object from outside a transaction"
 	    end
 	    super if defined? super
 	end

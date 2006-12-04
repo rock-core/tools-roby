@@ -112,11 +112,18 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.remove_owner(remote_peer)
 
 	# Try to discover the task
+	task = Task.new
 	assert_raises(NotOwner) { t_task.discover(TaskStructure::Hierarchy) }
+	assert_raises(NotOwner) { t_task.realized_by task }
 	trsc.add_owner remote_peer
 	assert_nothing_raised { t_task.discover(TaskStructure::Hierarchy) }
-	assert_raises(OwnershipError) { trsc.remove_owner remote_peer }
+	assert_raises(NotOwner) { t_task.realized_by task }
 	assert_raises(NotOwner) { trsc.discard_transaction }
+
+	trsc.self_owned = true
+	assert_nothing_raised { t_task.realized_by task }
+	assert_raises(OwnershipError) { trsc.remove_owner remote_peer }
+	assert_raises(OwnershipError) { trsc.self_owned = false }
 	trsc.self_owned
 	assert_nothing_raised { trsc.discard_transaction }
 	apply_remote_command
@@ -170,9 +177,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	# Now, add a task of our own and link the remote and the local
 	task = Task.new :id => 2
 	trsc.discover(task)
-	assert_raises(InvalidRemoteTaskOperation) { t_task.realized_by task }
 	trsc.self_owned
-	assert_nothing_raised { t_task.realized_by task }
+	t_task.realized_by task
 
 	# Send the transaction to remote_peer and commit it
 	trsc.propose(remote_peer)

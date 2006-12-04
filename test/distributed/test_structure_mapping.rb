@@ -108,20 +108,20 @@ class TC_DistributedStructureMapping < Test::Unit::TestCase
 	end
 	assert(proxy.read_only?)
 
-	assert_raises(InvalidRemoteTaskOperation) { proxy.realized_by task }
-	assert_raises(InvalidRemoteTaskOperation) { task.realized_by proxy }
+	assert_raises(NotOwner) { proxy.realized_by task }
+	assert_raises(NotOwner) { task.realized_by proxy }
 	Distributed.update([proxy]) { proxy.realized_by task }
 	assert_nothing_raised { proxy.remove_child task }
 	Distributed.update([proxy]) { task.realized_by proxy }
 	assert_nothing_raised { task.remove_child proxy }
 
 	other_proxy = proxy_model.new(remote_peer, r_other_task)
-	assert_raises(InvalidRemoteTaskOperation) { proxy.realized_by other_proxy }
-	assert_raises(InvalidRemoteTaskOperation) { other_proxy.realized_by proxy }
+	assert_raises(NotOwner) { proxy.realized_by other_proxy }
+	assert_raises(NotOwner) { other_proxy.realized_by proxy }
 	Distributed.update([proxy, other_proxy]) { proxy.realized_by other_proxy }
-	assert_raises(InvalidRemoteTaskOperation) { proxy.remove_child other_proxy }
+	assert_raises(NotOwner) { proxy.remove_child other_proxy }
 	Distributed.update([proxy, other_proxy]) { other_proxy.realized_by proxy }
-	assert_raises(InvalidRemoteTaskOperation) { other_proxy.remove_child proxy }
+	assert_raises(NotOwner) { other_proxy.remove_child proxy }
 
 	# Test Peer#proxy
 	assert(proxy = remote_peer.proxy(r_task))

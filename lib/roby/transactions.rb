@@ -52,7 +52,7 @@ module Roby
 	    discovered_objects << object
 	end
 	def discovered_relations_of?(object)
-	    discovered_objects.include?(object)
+	    !object.kind_of?(Roby::Transactions::Proxy) || discovered_objects.include?(object)
 	end
 
 	# The list of discarded
