@@ -36,7 +36,7 @@ end
 class Class
     def droby_dump
 	if ancestors.include?(Roby::Task) || ancestors.include?(Roby::EventGenerator)
-	    Roby::Distributed::DRobyModel.new(self)
+	    Roby::Distributed::DRobyModel.new(ancestors)
 	else
 	    raise "can't dump class #{self}"
 	end
@@ -84,26 +84,38 @@ module Roby
 		Marshal.dump(@obj.name)
 	    end
 	    def self._load(str)
-		name = Marshal.load(str)
-		constant(name)
+		constant(Marshal.load(str))
 	    end
 	end
 
 	class DRobyModel
-	    def initialize(model); @model = model end
+	    @@models = Hash.new
+	    attr_reader :ancestors
+
+	    def initialize(ancestors); @ancestors = ancestors end
 	    def _dump(lvl)
-		marshalled = []
-		@model.ancestors.each do |klass|
-		    marshalled << if klass.kind_of?(Class) && klass == (constant(klass.name) rescue nil)
-				      klass.name
-		    end
+		marshalled = ancestors.map do |klass| 
+		    next unless klass.instance_of?(Class) && !klass.is_singleton? 
+		    klass.name 
 		end
 		Marshal.dump(marshalled.compact)
 	    end
 	    def self._load(str)
-		Marshal.load(str).each do |name|
-		    mod = constant(name) rescue nil
-		    return mod if mod
+		ancestors = Marshal.load(str)
+		if model = @@models[name] 
+		    return model
+		else
+		    ancestors.each_with_index do |name, i|
+			next unless !name.empty? && (model = constant(name) rescue nil)
+
+			if i > 0
+			    # The exact model is unknown. Create an anonymous class
+			    model = Class.new(model)
+			    @@models[name] = model
+			end
+			return model
+		    end
+		    raise TypeError, "cannot find model for #{ancestors}"
 		end
 	    end
 	end
@@ -255,21 +267,21 @@ module Roby
 		yield(data)
 	    end
 
-	    attr_reader :remote_object, :ancestors, :plan
-	    def initialize(remote_object, ancestors, plan)
-		@remote_object, @ancestors, @plan = 
-		    remote_object, ancestors, plan
+	    attr_reader :remote_object, :model, :plan
+	    def initialize(remote_object, model, plan)
+		@remote_object, @model, @plan = 
+		    remote_object, model, plan
 	    end
 	    def _dump(base_class)
 		remote_object = self.remote_object
 		remote_object = DRbObject.new(remote_object) unless remote_object.kind_of?(DRbObject)
 		yield([remote_object,
-		    Distributed.dump_ancestors(ancestors, base_class),
+		    Distributed.dump(model),
 		    Distributed.dump(plan)])
 	    end
 
 	    def proxy(peer)
-		Distributed.RemoteProxyModel(ancestors.first).new(peer, self)
+		Distributed.RemoteProxyModel(model).new(peer, self)
 	    end
 	    def ==(other)
 		other.kind_of?(MarshalledPlanObject) && 
@@ -298,18 +310,16 @@ module Roby
 	    end
 
 	    attr_reader :controlable
-	    def initialize(remote_object, ancestors, plan, controlable)
-		super(remote_object, ancestors, plan)
+	    def initialize(remote_object, model, plan, controlable)
+		super(remote_object, model, plan)
 		@controlable = controlable
 	    end
 	end
 	class Roby::EventGenerator
 	    def droby_dump
-		MarshalledEventGenerator.new(self, self.class.ancestors, plan, controlable?)
+		MarshalledEventGenerator.new(self, self.model, plan, controlable?)
 	    end
 	end
-
-
 
 	class MarshalledTaskEventGenerator < MarshalledEventGenerator
 	    def self._load(str)
@@ -329,8 +339,8 @@ module Roby
 	    end
 
 	    attr_reader :task, :symbol
-	    def initialize(remote_object, ancestors, plan, controlable, task, symbol)
-		super(remote_object, ancestors, plan, controlable)
+	    def initialize(remote_object, model, plan, controlable, task, symbol)
+		super(remote_object, model, plan, controlable)
 		@task   = task
 		@symbol = symbol
 	    end
@@ -338,14 +348,14 @@ module Roby
 	class Roby::TaskEventGenerator
 	    def droby_dump
 		# no need to marshal the plan, since it is the same than the event task
-		MarshalledTaskEventGenerator.new(self, self.class.ancestors, nil, controlable?, task, symbol)
+		MarshalledTaskEventGenerator.new(self, self.model, nil, controlable?, task, symbol)
 	    end
 	end
 
 	class MarshalledTask < MarshalledPlanObject
 	    def self._load(str)
 		droby_load(str) do |data|
-		    data[3] = Marshal.load(data[3])
+		    data[3] = Marshal.load(data[3]) # the argument hash
 		    MarshalledTask.new(*data)
 		end
 	    end
@@ -356,16 +366,16 @@ module Roby
 		end
 	    end
 
-	    attr_reader :ancestors, :arguments, :mission
-	    def initialize(remote_object, ancestors, plan, arguments, mission)
-		super(remote_object, ancestors, plan)
+	    attr_reader :arguments, :mission
+	    def initialize(remote_object, model, plan, arguments, mission)
+		super(remote_object, model, plan)
 		@arguments, @mission = arguments, mission
 	    end
 	end
 	class Roby::Task
 	    def droby_dump
 		mission = self.plan.mission?(self) if plan
-		MarshalledTask.new(self, self.class.ancestors, plan, arguments, mission)
+		MarshalledTask.new(self, self.model, plan, arguments, mission)
 	    end
 	end
 

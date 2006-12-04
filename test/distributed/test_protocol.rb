@@ -9,10 +9,15 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     include Roby::Distributed
     include DistributedTestCommon
 
-    TEST_ARRAY_SIZE = 6
+    TEST_ARRAY_SIZE = 7
     def dumpable_array
 	task = Roby::Task.new(:id => 1)
-	[1, task, Roby::EventGenerator.new {}, SimpleTask.new(:id => 2), task.event(:start), Roby::TaskStructure::Hierarchy]
+	[1, task, 
+	    Roby::EventGenerator.new {}, 
+	    SimpleTask.new(:id => 2), 
+	    task.event(:start), 
+	    Roby::TaskStructure::Hierarchy, 
+	    Class.new(Task).new(:id => 3) ]
     end
     def dumpable_hash
 	Hash[*(0...TEST_ARRAY_SIZE).zip(dumpable_array).flatten]
@@ -23,15 +28,15 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
 	assert_kind_of(MarshalledTask, array[1])
 	assert_equal({:id => 1}, array[1].arguments)
-	assert_equal([Roby::Task], array[1].ancestors)
+	assert_equal(Roby::Task, array[1].model)
 
 	assert_kind_of(MarshalledEventGenerator, array[2])
 	assert(array[2].controlable)
-	assert_equal([Roby::EventGenerator], array[2].ancestors)
+	assert_equal(Roby::EventGenerator, array[2].model)
 
 	assert_kind_of(MarshalledTask, array[3])
 	assert_equal({:id => 2}, array[3].arguments)
-	assert_equal([SimpleTask, ExecutableTask, Roby::Task], array[3].ancestors)
+	assert_equal(SimpleTask, array[3].model)
 
 	assert_kind_of(MarshalledTaskEventGenerator, array[4])
 	assert_equal(array[1], array[4].task)
@@ -39,6 +44,9 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
 	assert_kind_of(Roby::RelationGraph, array[5])
 	assert_equal(Roby::TaskStructure::Hierarchy.object_id, array[5].object_id)
+
+	assert_kind_of(MarshalledTask, array[6])
+	assert_not_equal(Task, array[6].model)
     end
 
     def test_enumerables
@@ -95,7 +103,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_kind_of(MarshalledTask, remote_task)
 	assert_equal({:id => 1}, remote_task.arguments)
 	assert_kind_of(Plan::DRoby, remote_task.plan)
-	assert_equal([SimpleTask, ExecutableTask, Roby::Task], remote_task.ancestors)
+	assert_equal(SimpleTask, remote_task.model.ancestors[1])
 
 	remote_proxy = remote.proxy(local_task)
 	assert_kind_of(MarshalledTask, remote_proxy)
@@ -103,6 +111,9 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_equal(local_task, remote_peer.proxy(remote_proxy))
     end
 
+    def assert_marshalled_ancestors(expected, marshalled)
+	assert_equal(expected, marshalled.model.ancestors.find_all { |klass| klass.instance_of?(Class) }[0, expected.size])
+    end
     def test_marshal_task_event
 	DRb.start_service
 	remote = remote_server do
@@ -119,7 +130,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	remote_event = remote.task_event
 	assert_kind_of(MarshalledTaskEventGenerator, remote_event)
 	assert_equal(remote.task, remote_event.task)
-	assert_equal([TaskEventGenerator, EventGenerator], remote_event.ancestors)
+	assert_marshalled_ancestors([TaskEventGenerator, EventGenerator], remote_event)
     end
 end
 

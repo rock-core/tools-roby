@@ -87,8 +87,8 @@ module Roby::Distributed
 	attr_reader :marshalled_object
 
 	def initialize_remote_proxy(peer, marshalled_object)
-	    unless marshalled_object.ancestors.find { |klass| klass == self.class.superclass }
-		raise TypeError, "invalid remote task type. Was expecting #{self.class.superclass.name}, got #{marshalled_object.ancestors}"
+	    unless marshalled_object.model.ancestors.find { |klass| klass == self.class.superclass }
+		raise TypeError, "invalid remote task type. Was expecting #{self.class.superclass.name}, got #{marshalled_object.model.ancestors}"
 	    end
 	    @remote_object = marshalled_object.remote_object
 	    @peer_id = peer.remote_id
