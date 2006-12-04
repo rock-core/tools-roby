@@ -14,35 +14,6 @@ module Roby::Distributed
     # A neighbour is a named remote ConnectionSpace object
     Neighbour = Struct.new :name, :connection_space
 
-    module RelationModificationHooks
-	def added_child_object(child, type, info)
-	    super if defined? super
-
-	    return unless Roby::Distributed.state
-	    return if Roby::Distributed.updating?([self, child])
-	    Roby::Distributed.peers.each_value do |peer|
-		s = peer.local.subscriptions
-		if s.include?(root_object) || s.include?(root_object)
-		    peer.send(:update_relation, [self, :add_child_object, child, type, info])
-		end
-	    end
-	end
-
-	def removed_child_object(child, type)
-	    super if defined? super
-
-	    return unless Roby::Distributed.state
-	    return if Roby::Distributed.updating?([self, child])
-	    Roby::Distributed.peers.each_value do |peer|
-		s = peer.local.subscriptions
-		if s.include?(root_object) || s.include?(root_object)
-		    peer.send(:update_relation, [self, :remove_child_object, child, type])
-		end
-	    end
-	end
-    end
-    Roby::Task.include(RelationModificationHooks)
-    Roby::EventGenerator.include(RelationModificationHooks)
 
     def self.remote_id; state end
     def self.owns?(object); state.owns?(object) end

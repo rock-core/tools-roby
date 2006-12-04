@@ -16,6 +16,9 @@ class Array
 	end
     end
     def droby_dump; DRoby.new(self) end
+    def proxy(peer)
+	map { |o| peer.proxy(o) }
+    end
 end
 class Hash
     class DRoby < Array::DRoby
@@ -25,12 +28,18 @@ class Hash
 	end
     end
     def droby_dump; DRoby.new(self) end
+    def proxy(peer)
+	inject({}) { |h, (k, v)| h[k] = peer.proxy(v); h }
+    end
 end
 class ValueSet
     class DRoby < Array::DRoby
 	def self._load(str); super.to_value_set end
     end
     def droby_dump; DRoby.new(self) end
+    def proxy(peer)
+	map { |o| peer.proxy(o) }.to_value_set
+    end
 end
 
 class Class

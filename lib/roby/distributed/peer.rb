@@ -1,5 +1,6 @@
 require 'roby/control'
 require 'roby/plan'
+require 'roby/distributed/notifications'
 require 'roby/distributed/proxy'
 require 'utilrb/queue'
 require 'utilrb/array/to_s'
@@ -15,6 +16,17 @@ module Roby::Distributed
     class NotAliveError     < ConnectionError; end
     # The peer is disconnected
     class DisconnectedError < ConnectionError; end
+
+    class << self
+	def each_subscribed_peer(*objects)
+	    STDERR.puts objects
+	    peers.each do |name, peer|
+		if objects.any? { |o| peer.local.subscribed?(o) }
+		    yield(peer)
+		end
+	    end
+	end
+    end
 
     class PeerServer
 	include DRbUndumped
@@ -64,21 +76,28 @@ module Roby::Distributed
 	end
 
 	def subscribe(object)
-	    return if subscribed?(object)
+	    case object
+	    when Roby::PlanObject
+		return if subscribed?(object)
+		subscriptions << object
 
-	    unless object.kind_of?(Roby::Task) || object.kind_of?(Roby::EventGenerator)
-		raise TypeError, "cannot subscribe a #{object.class} object"
+		relations = relations_of(object)
+		# Send event event if +result+ is empty, so that relations are
+		# removed if needed on the other side
+		peer.send(:set_relations, object, relations)
+
+		if object.respond_to?(:each_event)
+		    object.each_event(false, &method(:subscribe))
+		end
+
+	    when Roby::Plan
+		object = peer.proxy(object)
+		return if subscribed?(object)
+		subscriptions << object
+		peer.send(:plan_update, :discover, object, object.known_tasks)
+		peer.send(:plan_update, :insert, object, object.missions)
 	    end
-	    subscriptions << object
 
-	    relations = relations_of(object)
-	    # Send event event if +result+ is empty, so that relations are
-	    # removed if needed on the other side
-	    peer.send(:set_relations, object, relations)
-
-	    if object.respond_to?(:each_event)
-		object.each_event(false, &method(:subscribe))
-	    end
 	    nil
 	end
 	def subscribed?(object); subscriptions.include?(object) end
@@ -219,11 +238,14 @@ module Roby::Distributed
 	end
 
 	def unmarshall_and_update(args)
-	    updating = []
-	    args.map! do |o|
+	    updating = ValueSet.new
+	    args = [args] unless args.respond_to?(:map)
+	    args = args.map do |o|
 		if peer.proxying?(o)
 		    proxy = peer.proxy(o)
-		    updating << proxy
+		    if proxy.kind_of?(Roby::PlanObject)
+			updating << proxy
+		    end
 		    proxy
 		else o
 		end
@@ -453,9 +475,14 @@ module Roby::Distributed
 	# as-if +object+ is of class +as+. This can be used to map objects whose
 	# model we don't know (while we know a more abstract model)
 	def proxy(marshalled)
-	    object = marshalled.remote_object
-	    return object unless object.kind_of?(DRbObject)
-	    object_proxy = (@proxies[object] ||= marshalled.proxy(self))
+	    return marshalled unless proxying?(marshalled)
+	    if marshalled.respond_to?(:remote_object)
+		object = marshalled.remote_object
+		return object unless object.kind_of?(DRbObject)
+		object_proxy = (@proxies[object] ||= marshalled.proxy(self))
+	    else
+		object_proxy = marshalled.proxy(self)
+	    end
 
 	    # marshalled.plan is nil if the object plan is determined by another
 	    # object. For instance, in the TaskEventGenerator case, the generator
@@ -468,7 +495,7 @@ module Roby::Distributed
 
 	# Check if +object+ should be proxied
 	def proxying?(marshalled)
-	    marshalled.respond_to?(:remote_object) && marshalled.respond_to?(:proxy)
+	    marshalled.respond_to?(:proxy)
 	end
 
 	# Discovers all objects at a distance +dist+ from +obj+. The object
