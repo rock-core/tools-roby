@@ -14,20 +14,17 @@ class Roby::Transactions::EventGenerator
 end
 
 module Roby::Distributed
-    @updated_objects = []
+    @updated_objects = ValueSet.new
     class << self
 	attr_reader :updated_objects
-	def update(*objects)
-	    objects.map! do |o|
-		unless @updated_objects.include?(o)
-		    @updated_objects << o
-		end
-	    end
+	def update(objects)
+	    old_updated = updated_objects
+	    @updated_objects |= objects
 
 	    yield
 
 	ensure
-	    objects.each { |o| @updated_objects.delete(o) if o }
+	    @updated_objects = old_updated
 	end
     end
 
@@ -96,7 +93,6 @@ module Roby::Distributed
 	    @peer_id = peer.remote_id
 
 	    @marshalled_object = marshalled_object
-	    @update = false
 	    @owners = [peer.remote_id].to_value_set
 	end
 
@@ -104,18 +100,7 @@ module Roby::Distributed
 	    def name; "dProxy(#{super})" end
 	end
 
-	def update?; @update end
-	def read_only?; !(Roby::Distributed.updated_objects.include?(self) || @update) && super end
-	def update
-	    raise "recursive call to #update" if @update
-
-	    @update = true
-	    yield
-	ensure
-	    @update = false
-	end
-
-
+	def read_only?; !Roby::Distributed.updated_objects.include?(self) && super end
 	def droby_dump
 	    marshalled_object.dup
 	end

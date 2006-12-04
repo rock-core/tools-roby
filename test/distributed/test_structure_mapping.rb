@@ -97,7 +97,7 @@ class TC_DistributedStructureMapping < Test::Unit::TestCase
 
 	task = Task.new
 	assert(proxy.read_only?)
-	proxy.update do
+	Distributed.update([proxy]) do
 	    assert( !proxy.read_only?)
 	    assert_nothing_raised do
 		proxy.realized_by task
@@ -106,20 +106,21 @@ class TC_DistributedStructureMapping < Test::Unit::TestCase
 		task.remove_child proxy
 	    end
 	end
+	assert(proxy.read_only?)
 
 	assert_raises(InvalidRemoteTaskOperation) { proxy.realized_by task }
 	assert_raises(InvalidRemoteTaskOperation) { task.realized_by proxy }
-	proxy.update { proxy.realized_by task }
+	Distributed.update([proxy]) { proxy.realized_by task }
 	assert_nothing_raised { proxy.remove_child task }
-	proxy.update { task.realized_by proxy }
+	Distributed.update([proxy]) { task.realized_by proxy }
 	assert_nothing_raised { task.remove_child proxy }
 
 	other_proxy = proxy_model.new(remote_peer, r_other_task)
 	assert_raises(InvalidRemoteTaskOperation) { proxy.realized_by other_proxy }
 	assert_raises(InvalidRemoteTaskOperation) { other_proxy.realized_by proxy }
-	proxy.update { other_proxy.update { proxy.realized_by other_proxy } }
+	Distributed.update([proxy, other_proxy]) { proxy.realized_by other_proxy }
 	assert_raises(InvalidRemoteTaskOperation) { proxy.remove_child other_proxy }
-	proxy.update { other_proxy.update { other_proxy.realized_by proxy } }
+	Distributed.update([proxy, other_proxy]) { other_proxy.realized_by proxy }
 	assert_raises(InvalidRemoteTaskOperation) { other_proxy.remove_child proxy }
 
 	# Test Peer#proxy
