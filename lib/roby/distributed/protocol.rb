@@ -246,32 +246,13 @@ module Roby
 	allow_remote_access Rinda::TupleSpace
 	allow_remote_access Rinda::TupleEntry
 
-	def self.dump_ancestors(ancestors, base_class)
-	    dumpable = []
-	    ancestors.each do |klass|
-		dumpable << if klass.kind_of?(Class) && klass == (constant(klass.name) rescue nil)
-				klass.name
-			    end
-		break if klass == base_class
-	    end
-	    dumpable.compact
-	end
-	def self.load_ancestors(ancestors)
-	    ancestors.map do |name|
-		constant(name) rescue nil
-	    end.compact
-	end
-
-
-	module MarshalledPlanObject
-	    module ClassExtension
-		def droby_load(str)
-		    data = Marshal.load(str)
-		    object  = data[0]
-		    data[1] = Distributed.load_ancestors(data[1])
-		    data[2] = Marshal.load(data[2])
-		    yield(data)
-		end
+	class MarshalledPlanObject
+	    def self.droby_load(str)
+		data = Marshal.load(str)
+		object  = data[0]		    # the remote object
+		data[1] = Marshal.load(data[1]) # the object model
+		data[2] = Marshal.load(data[2]) # the object plan
+		yield(data)
 	    end
 
 	    attr_reader :remote_object, :ancestors, :plan
@@ -298,8 +279,7 @@ module Roby
 
 
 
-	class MarshalledEventGenerator
-	    include MarshalledPlanObject
+	class MarshalledEventGenerator < MarshalledPlanObject
 	    def self._load(str)
 		droby_load(str) do |data|
 		    if block_given? then yield(data)
@@ -332,7 +312,6 @@ module Roby
 
 
 	class MarshalledTaskEventGenerator < MarshalledEventGenerator
-	    include MarshalledPlanObject
 	    def self._load(str)
 		super do |data|
 		    data[4] = Marshal.load(data[4])
@@ -363,8 +342,7 @@ module Roby
 	    end
 	end
 
-	class MarshalledTask
-	    include MarshalledPlanObject
+	class MarshalledTask < MarshalledPlanObject
 	    def self._load(str)
 		droby_load(str) do |data|
 		    data[3] = Marshal.load(data[3])
