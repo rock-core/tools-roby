@@ -19,7 +19,6 @@ module Roby::Distributed
 
     class << self
 	def each_subscribed_peer(*objects)
-	    STDERR.puts objects
 	    peers.each do |name, peer|
 		if objects.any? { |o| peer.local.subscribed?(o) }
 		    yield(peer)
@@ -529,7 +528,6 @@ module Roby::Distributed
 	end
 
 	def remove_unsubscribed_relations(proxy)
-	    STDERR.puts "Cleaning #{proxy}"
 	    keep_proxy = false
 	    proxy.related_tasks.each do |task|
 		if task.kind_of?(RemoteObjectProxy) && task.peer_id == remote_id && 
