@@ -77,9 +77,10 @@ module Roby
 	# will be checked on commit
 	attr_reader :discovered_objects
 
-	# Announce that +object+ has been discovered
-	def discovered_object(object)
+	# Called when +relation+ has been discovered on +object+
+	def discovered_object(object, relation)
 	    discovered_objects << object
+	    super if defined? super
 	end
 	def discovered_relations_of?(object)
 	    !object.kind_of?(Roby::Transactions::Proxy) || discovered_objects.include?(object)

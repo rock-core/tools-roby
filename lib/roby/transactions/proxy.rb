@@ -66,9 +66,6 @@ module Roby::Transactions
 	    @discovered[relation]
 	end
 	def discover(relation)
-	    if @discovered.empty?
-		transaction.discovered_object(self)
-	    end
 	    if !relation
 		__getobj__.each_relation { |o| discover(o) }
 		return
@@ -79,6 +76,7 @@ module Roby::Transactions
 		    return discover(relation.parent)
 		end
 
+		transaction.discovered_object(self, relation)
 		@discovered[relation] = true
 		relation.subsets.each { |rel| discover(rel) }
 
