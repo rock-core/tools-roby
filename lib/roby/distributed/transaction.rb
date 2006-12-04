@@ -102,8 +102,10 @@ module Roby
 				apply_to_owners(true, :abandon_commit, self, error)
 				Control.once { yield(self, false) } if block_given?
 			    else
-				apply_to_owners(false, :commit_transaction, self) do |done, _|
-				    Control.once { yield(self, true) } if block_given? && done
+				Control.once do
+				    apply_to_owners(false, :commit_transaction, self) do |done, _|
+					Control.once { yield(self, true) } if block_given? && done
+				    end
 				end
 			    end
 			end

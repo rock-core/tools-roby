@@ -188,9 +188,21 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	remote.check_transaction(r_trsc)
 
 	# Commit the transaction
-	trsc.commit_transaction(true)
+	did_commit = false
+	trsc.commit_transaction do |commited_transaction, did_commit| 
+	    assert_equal(trsc, commited_transaction) 
+	    assert(did_commit)
+	end
+
+	# Send prepare_commit_transaction to the remote host and read its reply
 	apply_remote_command
+	# Call commit_transaction
 	Control.instance.process_events
+	# Send commit_transaction to the remote host and read its reply
+	apply_remote_command
+	# read the commit result given to 
+	Control.instance.process_events
+
 	assert(r_task.child_object?(task, TaskStructure::Hierarchy))
 	remote.check_plan
 
