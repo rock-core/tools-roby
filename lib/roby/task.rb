@@ -666,7 +666,9 @@ module Roby
 
 		pp.breakable
 		pp.text "bound events: "
-		pp.seplist(bound_events) { |e| pp.text e[1].symbol.to_s }
+		if bound_events
+		    pp.seplist(bound_events) { |e| pp.text e[1].symbol.to_s }
+		end
 	    end
 	end
 	    
