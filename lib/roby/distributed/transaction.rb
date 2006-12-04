@@ -79,7 +79,8 @@ module Roby
 			end
 		    end
 		else
-		    super()
+		    affected_tasks = known_tasks(true).map { |o| Roby::Transactions::Proxy.may_unwrap(o) }
+		    Distributed.update(affected_tasks) { super() }
 		end
 	    end
 	    def abandoned_transaction_commit(reason)
