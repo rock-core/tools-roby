@@ -486,6 +486,12 @@ module Roby::Distributed
 	    send(:subscribe, marshalled.remote_object)
 	end
 	def unsubscribe(marshalled, remove_object = true)
+	    # Get the proxy for +marshalled+
+	    proxy = proxy(marshalled)
+	    if linked_to_local?(proxy)
+		raise InvalidRemoteOperation, "cannot unsubscribe to a task still linked to local tasks"
+	    end
+
 	    send(:unsubscribe, marshalled.remote_object) do
 		proxy = proxy(marshalled)
 		if remove_object && proxy.kind_of?(Roby::Task)
