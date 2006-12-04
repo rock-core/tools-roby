@@ -231,6 +231,7 @@ module Roby
 	    end
 
 	    plan.transactions.delete(self)
+	    plan.removed_transaction(self)
 	    committed_transaction
 	end
 	def committed_transaction; super if defined? super end
@@ -253,6 +254,7 @@ module Roby
 	    discarded_tasks.clear
 
 	    plan.transactions.delete(self)
+	    plan.removed_transaction(self)
 	    discarded_transaction
 	end
 	def discarded_transaction; super if defined? super end
