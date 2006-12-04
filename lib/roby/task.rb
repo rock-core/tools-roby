@@ -104,6 +104,8 @@ module Roby
 
             @task, @event_model = task, model
         end
+
+	alias :root_object :task 
 	
 	# The plan this event is part of
 	def plan; task.plan end

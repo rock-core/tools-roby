@@ -36,6 +36,8 @@ module Roby
 	    synchronize_plan(parent)
 	    super if defined? super
 	end
+
+	def root_object; self end
     end
 end
 

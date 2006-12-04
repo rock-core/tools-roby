@@ -22,7 +22,7 @@ module Roby::Distributed
 	    return if Roby::Distributed.updating?([self, child])
 	    Roby::Distributed.peers.each_value do |peer|
 		s = peer.local.subscriptions
-		if s.include?(self) && s.include?(child)
+		if s.include?(root_object) || s.include?(root_object)
 		    peer.send(:update_relation, [self, :add_child_object, child, type, info])
 		end
 	    end
@@ -35,7 +35,7 @@ module Roby::Distributed
 	    return if Roby::Distributed.updating?([self, child])
 	    Roby::Distributed.peers.each_value do |peer|
 		s = peer.local.subscriptions
-		if s.include?(self) && s.include?(child)
+		if s.include?(root_object) || s.include?(root_object)
 		    peer.send(:update_relation, [self, :remove_child_object, child, type])
 		end
 	    end

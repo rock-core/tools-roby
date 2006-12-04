@@ -71,7 +71,7 @@ module Roby::Distributed
 	    end
 	    subscriptions << object
 
-	    relations = subscribed_relations(object)
+	    relations = relations_of(object)
 	    # Send event event if +result+ is empty, so that relations are
 	    # removed if needed on the other side
 	    peer.send(:set_relations, object, relations)
@@ -83,19 +83,15 @@ module Roby::Distributed
 	end
 	def subscribed?(object); subscriptions.include?(object) end
 
-	def subscribed_relations(object)
+	def relations_of(object)
 	    result = []
 	    object.each_graph do |graph|
 		graph_edges = []
 		object.each_child_object(graph) do |child|
-		    if subscribed?(child)
-			graph_edges << [object, child, object[child, graph]]
-		    end
+		    graph_edges << [object, child, object[child, graph]]
 		end
 		object.each_parent_object(graph) do |parent|
-		    if subscribed?(parent)
-			graph_edges << [parent, object, parent[object, graph]]
-		    end
+		    graph_edges << [parent, object, parent[object, graph]]
 		end
 		result << [graph, graph_edges]
 	    end
@@ -481,10 +477,50 @@ module Roby::Distributed
 	    send(:discover_neighborhood, marshalled, distance)
 	end
 
+	attribute(:subscribed) { ValueSet.new }
 	# Make the remote pDB send us all updates about +object+
 	def subscribe(marshalled)
-	    send(:subscribe, marshalled.remote_object)
+	    send(:subscribe, marshalled.remote_object) do
+		subscribed << marshalled.remote_object
+	    end
 	end
+	def subscribed?(remote_object)
+	    subscribed.include?(remote_object)
+	end
+
+	# Returns true if +object+ is related to any local task
+	def linked_to_local?(proxy)
+	    proxy.each_relation do |rel|
+		if proxy.child_objects(rel).any? { |child| !child.kind_of?(RemoteObjectProxy) }
+		    return true
+		end
+		if proxy.parent_objects(rel).any? { |child| !child.kind_of?(RemoteObjectProxy) }
+		    return true
+		end
+	    end
+	    false
+	end
+
+	def remove_unsubscribed_relations(proxy)
+	    STDERR.puts "Cleaning #{proxy}"
+	    keep_proxy = false
+	    proxy.related_tasks.each do |task|
+		if task.kind_of?(RemoteObjectProxy) && task.peer_id == remote_id && 
+		    !subscribed?(task.remote_object(remote_id))
+
+		    connection_space.plan.remove_task(task)
+		else keep_proxy = true
+		end
+	    end
+	    unless keep_proxy
+		connection_space.plan.remove_object(proxy)
+	    end
+
+	rescue
+	    STDERR.puts $!.full_message
+	    raise
+	end
+
 	def unsubscribe(marshalled, remove_object = true)
 	    # Get the proxy for +marshalled+
 	    proxy = proxy(marshalled)
@@ -493,9 +529,9 @@ module Roby::Distributed
 	    end
 
 	    send(:unsubscribe, marshalled.remote_object) do
-		proxy = proxy(marshalled)
+		subscribed.delete(marshalled.remote_object)
 		if remove_object && proxy.kind_of?(Roby::Task)
-		    connection_space.plan.remove_task(proxy)
+		    remove_unsubscribed_relations(proxy)
 		end
 	    end
 	end
