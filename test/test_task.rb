@@ -470,5 +470,20 @@ class TC_Task < Test::Unit::TestCase
 	assert(t3.fullfills?(t1))
     end
 
+    def test_related_tasks
+	t1, t2, t3 = (1..3).map { SimpleTask.new }
+	t1.realized_by t2
+	t1.event(:start).on t3.event(:start)
+	assert_equal([t3].to_value_set, t1.event(:start).related_tasks)
+	assert_equal([t2].to_value_set, t1.related_objects)
+	assert_equal([t2, t3].to_value_set, t1.related_tasks)
+    end
+
+    def test_related_events
+	t1, t2, t3 = (1..3).map { SimpleTask.new }
+	t1.realized_by t2
+	t1.event(:start).on t3.event(:start)
+	assert_equal([t3.event(:start)].to_value_set, t1.related_events)
+    end
 end
 

@@ -469,5 +469,23 @@ class TC_Event < Test::Unit::TestCase
 	end.new(true)
 	assert_raises(EventCanceled) { e1.call(nil) }
     end
+
+    def test_related_events
+	e1, e2 = (1..2).map { EventGenerator.new(true) }
+
+	assert_equal([].to_value_set, e1.related_events)
+	e1.on e2
+	assert_equal([e2].to_value_set, e1.related_events)
+	assert_equal([e1].to_value_set, e2.related_events)
+    end
+
+    def test_related_tasks
+	e1, e2 = (1..2).map { EventGenerator.new(true) }
+	t1 = Task.new
+
+	assert_equal([].to_value_set, e1.related_tasks)
+	e1.on t1.event(:start)
+	assert_equal([t1].to_value_set, e1.related_tasks)
+    end
 end
 

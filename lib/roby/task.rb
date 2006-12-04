@@ -128,6 +128,12 @@ module Roby
 	    end
 	end
 
+	def related_tasks(result = nil)
+	    tasks = super
+	    tasks.delete(task)
+	    tasks
+	end
+
 	def each_handler
 	    super
 	    task.each_handler(event_model.symbol) { |o| yield(o) }
@@ -323,6 +329,26 @@ module Roby
 	    end
 
 	    history.sort_by { |time, _| time }
+	end
+
+	# Returns the set of tasks directly related to this task, either because 
+	# of task relations or because of task events that are related to other
+	# task events
+	def related_tasks(result = nil)
+	    result = related_objects(nil, result)
+	    each_event(false) do |ev|
+		ev.related_tasks(result)
+	    end
+
+	    result
+	end
+	def related_events(result = nil)
+	    each_event(false) do |ev|
+		result = ev.related_events(result)
+	    end
+
+	    result.reject { |ev| ev.respond_to?(:task) && ev.task == self }.
+		to_value_set
 	end
             
         # This method is called by TaskEventGenerator#fire just before the event handlers

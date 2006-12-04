@@ -172,6 +172,19 @@ module Roby
 
 	def to_event; self end
 
+	# Returns the set of events directly related to this one
+	def related_events(result = nil); related_objects(nil, result) end
+	# Returns the set of tasks directly related to this event
+	def related_tasks(result = nil)
+	    result ||= ValueSet.new
+	    related_events.each do |ev| 
+		if ev.respond_to?(:task)
+		    result << ev.task
+		end
+	    end
+	    result
+	end
+
 	# Create a new event object for +context+
 	def new(context); Event.new(self, Propagation.propagation_id, context) end
 

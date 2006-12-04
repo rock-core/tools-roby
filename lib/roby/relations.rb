@@ -29,6 +29,17 @@ module Roby
 	end
 	def relations; enum_relations.to_a end
 
+	def related_objects(relation = nil, result = nil)
+	    result ||= ValueSet.new
+	    if relation
+		result.merge(parent_objects(relation))
+		result.merge(child_objects(relation))
+	    else
+		each_relation { |rel| related_objects(rel, result) }
+	    end
+	    result
+	end
+
 	# Set of all parent objects in +type+
 	def parent_objects(relation)
 	    enum_parent_objects(relation).to_value_set
