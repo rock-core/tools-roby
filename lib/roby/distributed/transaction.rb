@@ -38,7 +38,14 @@ module Roby
 		peer.propose_transaction(self)
 	    end
 
-	    def apply_to_owners(ignore_missing, *args)
+	    # Sends the provided command to all owners. If +ignore_missing+ is
+	    # true, ignore the owners to which the transaction has not yet been
+	    # proposed. Raises InvalidRemoteOperation if +ignore_missing+.
+	    #
+	    # Yields the value returned by the remote owners to the block
+	    # inside the communication thread. +done+ is true for the last peer
+	    # to reply.
+	    def apply_to_owners(ignore_missing, *args) # :nodoc:
 		if !ignore_missing
 		    owners.each do |remote_id|
 			if remote_id.kind_of?(DRbObject) && !remote_siblings.has_key?(remote_id)
@@ -61,6 +68,20 @@ module Roby
 		    end
 		end
 	    end
+
+	    # call-seq:
+	    #   commit_transaction			=> self
+	    #   commit_transaction { |done| ... }	=> self
+	    #
+	    # Commits the transaction. Distributed commit is done in two steps,
+	    # to make sure that all owners agree on the transaction commit. 
+	    #
+	    # Unlike Roby::Transaction#commit_transaction the transaction is
+	    # *not* yet committed when the method returns. The provided block
+	    # (if any) will be called in the control thread with +result+ to
+	    # true if the transaction has been committed, to false if the
+	    # commit is being canceled. In the latter case,
+	    # #abandoned_transaction_commit is called as well.
 	    def commit_transaction(synchro = true)
 		unless Distributed.owns?(self)
 		    raise NotOwner, "cannot commit a transaction which is not owned locally. #{self} is owned by #{owners.to_a}"
@@ -73,8 +94,11 @@ module Roby
 			if done
 			    if error
 				apply_to_owners(true, :abandon_commit, self, error)
+				Control.once { yield(self, false) } if block_given?
 			    else
-				apply_to_owners(false, :commit_transaction, self)
+				apply_to_owners(false, :commit_transaction, self) do |done, _|
+				    Control.once { yield(self, true) } if block_given? && done
+				end
 			    end
 			end
 		    end
@@ -82,11 +106,21 @@ module Roby
 		    affected_tasks = known_tasks(true).map { |o| Roby::Transactions::Proxy.may_unwrap(o) }
 		    Distributed.update(affected_tasks) { super() }
 		end
+
+		self
 	    end
+
+	    # Hook called when the transaction commit has been abandoned
+	    # because a owner refused it. +reason+ is the value returned by
+	    # this peer.
 	    def abandoned_transaction_commit(reason)
 		Roby.debug { "abandoned commit of #{self} because of #{error}" }
 		super if defined? super 
 	    end
+
+	    # Discards the transaction. Unlike #commit_transaction, this is
+	    # done synchronously on the local plan and cannot be canceled by
+	    # remote peers
 	    def discard_transaction(synchro = true) # :nodoc:
 		unless Distributed.owns?(self)
 		    raise NotOwner, "cannot discard a transaction which is not owned locally. #{self} is owned by #{owners}"

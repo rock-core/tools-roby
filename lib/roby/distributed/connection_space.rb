@@ -232,13 +232,13 @@ module Roby::Distributed
 	    !trsc.valid_transaction?
 	end
 	def abandon_commit(trsc, reason)
-	    Roby::Control.once { trsc.abandoned_transaction_commit(reason) }
+	    trsc.abandoned_transaction_commit(reason)
 	end
 	def commit_transaction(trsc)
-	    Roby::Control.once { trsc.commit_transaction(false) }
+	    trsc.commit_transaction(false)
 	end
 	def discard_transaction(trsc)
-	    Roby::Control.once { trsc.discard_transaction(false) }
+	    trsc.discard_transaction(false)
 	end
     end
 

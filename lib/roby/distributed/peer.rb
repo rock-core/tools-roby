@@ -239,16 +239,16 @@ module Roby::Distributed
 	end
 
 	def prepare_transaction_commit(trsc)
-	    peer.connection_space.prepare_transaction_commit(peer.proxy(trsc))
+	    Roby::Control.once { peer.connection_space.prepare_transaction_commit(peer.proxy(trsc)) }
 	end
 	def commit_transaction(trsc)
-	    peer.connection_space.commit_transaction(peer.proxy(trsc))
+	    Roby::Control.once { peer.connection_space.commit_transaction(peer.proxy(trsc)) }
 	end
 	def abandon_commit(trsc)
-	    peer.connection_space.abandon_commit(peer.proxy(trsc))
+	    Roby::Control.once { peer.connection_space.abandon_commit(peer.proxy(trsc)) }
 	end
 	def discard_transaction(trsc)
-	    peer.connection_space.discard_transaction(peer.proxy(trsc))
+	    Roby::Control.once { peer.connection_space.discard_transaction(peer.proxy(trsc)) }
 	end
     end
     allow_remote_access PeerServer
