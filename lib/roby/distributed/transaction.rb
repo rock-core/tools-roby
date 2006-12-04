@@ -14,8 +14,14 @@ module Roby
 		super(plan)
 	    end
 
+	    # Returns true if the local DB owns this transaction
 	    def self_owned?; @owners.include?(Distributed) end
+	    # Makes this transaction owned by the local DB. This is equivalent
+	    # to trsc.self_owned = true
 	    def self_owned; self.self_owned = true end
+	    # Adds or removes the local DB from the list of owners. This is
+	    # equivalent to calling add_peer(Distributed.state) and
+	    # remove_peer(Distributed.state)
 	    def self_owned=(flag)
 		if flag then add_owner(Distributed)
 		else remove_owner(Distributed)
@@ -39,7 +45,7 @@ module Roby
 		@owners.delete(peer.remote_id)
 	    end
 
-	    # Sends the transaction to +peer+
+	    # Sends the transaction to +peer+. This must be done only once.
 	    def propose(peer)
 		peer.propose_transaction(self)
 	    end
@@ -126,6 +132,9 @@ module Roby
 		super if defined? super 
 	    end
 
+	    # call-seq:
+	    #	discard_transaction	    => self 
+	    #
 	    # Discards the transaction. Unlike #commit_transaction, this is
 	    # done synchronously on the local plan and cannot be canceled by
 	    # remote peers
@@ -138,6 +147,7 @@ module Roby
 		    apply_to_owners(true, :discard_transaction, self)
 		else super()
 		end
+		self
 	    end
 
 	    # What do we need to do on the remote side ?
@@ -150,7 +160,7 @@ module Roby
 	    
 	    # Distributed transactions are marshalled as DRbObjects and #proxy
 	    # returns their sibling in the remote pDB (or raises if there is none)
-	    class DRoby < Roby::Plan::DRoby
+	    class DRoby < Roby::Plan::DRoby # :nodoc:
 		def _dump(lvl)
 		    Distributed.dump([DRbObject.new(remote_object), plan, owners]) 
 		end
@@ -170,12 +180,12 @@ module Roby
 		    @plan, @owners = plan, owners
 		end
 	    end
-	    def droby_dump
+	    def droby_dump # :nodoc:
 		DRoby.new(self, self.plan, self.owners)
 	    end
 	end
 
-	class MarshalledRemoteTransactionProxy
+	class MarshalledRemoteTransactionProxy # :nodoc:
 	    def self._load(str)
 		MarshalledRemoteTransactionProxy.new(*Marshal.load(str))
 	    end
@@ -197,7 +207,7 @@ module Roby
 	    end
 	end
 	module Roby::Transaction::Proxy
-	    def droby_dump
+	    def droby_dump # :nodoc:
 		MarshalledRemoteTransactionProxy.new(self, @__getobj__, transaction)
 	    end
 	end
