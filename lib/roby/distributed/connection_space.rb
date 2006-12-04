@@ -19,6 +19,7 @@ module Roby::Distributed
 	    super if defined? super
 
 	    return unless Roby::Distributed.state
+	    return if Roby::Distributed.updating?([self, child])
 	    Roby::Distributed.peers.each_value do |peer|
 		s = peer.local.subscriptions
 		if s.include?(self) && s.include?(child)
@@ -31,6 +32,7 @@ module Roby::Distributed
 	    super if defined? super
 
 	    return unless Roby::Distributed.state
+	    return if Roby::Distributed.updating?([self, child])
 	    Roby::Distributed.peers.each_value do |peer|
 		s = peer.local.subscriptions
 		if s.include?(self) && s.include?(child)
