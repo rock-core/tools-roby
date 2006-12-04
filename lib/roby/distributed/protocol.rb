@@ -61,7 +61,6 @@ end
 
 module Roby
     module Distributed
-	class RemotePeerMismatch < RuntimeError; end
 	class DRobyConstant
 	    def initialize(obj)
 		if const_obj = (constant(obj.name) rescue nil)

@@ -14,14 +14,6 @@ class Roby::Transactions::EventGenerator
 end
 
 module Roby::Distributed
-    class RemoteTaskError < Exception
-	attr_reader :task
-	def initialize(remote_proxy)
-	    @task = remote_proxy
-	end
-    end
-    class InvalidRemoteTaskOperation < RemoteTaskError; end
-
     @updated_objects = []
     class << self
 	attr_reader :updated_objects

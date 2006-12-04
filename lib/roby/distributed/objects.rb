@@ -1,5 +1,16 @@
 module Roby
     module Distributed
+	class InvalidRemoteOperation < RuntimeError; end
+	class OwnershipError         < InvalidRemoteOperation; end
+	class NotOwner               < OwnershipError; end
+
+	class RemotePeerMismatch     < RuntimeError; end
+
+	class InvalidRemoteTaskOperation < InvalidRemoteOperation
+	    attr_reader :task
+	    def initialize(task); @task = task end
+	end
+
 	module RemoteObject
 	    attr_reader :peer_id
 	    def remote_object(peer_id)

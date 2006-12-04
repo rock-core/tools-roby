@@ -4,8 +4,6 @@ require 'roby/transactions'
 
 module Roby
     module Distributed
-	class InvalidRemoteOperation < RuntimeError; end
-	class OwnershipError < InvalidRemoteOperation; end
 	class Transaction < Roby::Transaction
 	    include DistributedObject
 
@@ -65,7 +63,7 @@ module Roby
 	    end
 	    def commit_transaction(synchro = true)
 		unless Distributed.owns?(self)
-		    raise OwnershipError, "cannot commit a transaction which is not owned locally. #{self} is owned by #{owners.to_a}"
+		    raise NotOwner, "cannot commit a transaction which is not owned locally. #{self} is owned by #{owners.to_a}"
 		end
 
 		if synchro
@@ -90,7 +88,7 @@ module Roby
 	    end
 	    def discard_transaction(synchro = true) # :nodoc:
 		unless Distributed.owns?(self)
-		    raise OwnershipError, "cannot discard a transaction which is not owned locally. #{self} is owned by #{owners}"
+		    raise NotOwner, "cannot discard a transaction which is not owned locally. #{self} is owned by #{owners}"
 		end
 
 		if synchro
@@ -165,7 +163,7 @@ module Roby
 
 	    def discover(relation)
 		unless plan.owners.include_all?(owners)
-		    raise OwnershipError, "transaction owners #{plan.owners.to_a.to_s} do not own #{self.to_s}: #{owners.to_a.to_s}"
+		    raise NotOwner, "transaction owners #{plan.owners.to_a.to_s} do not own #{self.to_s}: #{owners.to_a.to_s}"
 		end
 		super
 	    end

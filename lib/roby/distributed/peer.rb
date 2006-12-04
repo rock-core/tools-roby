@@ -9,8 +9,13 @@ module Roby
 end
 
 module Roby::Distributed
-    class NotAliveError < RuntimeError; end
-    class DisconnectedError < RuntimeError; end
+    # Base class for all communication errors
+    class ConnectionError   < RuntimeError; end
+    # The peer is connected but connection is not alive
+    class NotAliveError     < ConnectionError; end
+    # The peer is disconnected
+    class DisconnectedError < ConnectionError; end
+
     class PeerServer
 	include DRbUndumped
 	attr_reader :peer
