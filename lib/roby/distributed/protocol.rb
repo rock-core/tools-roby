@@ -33,6 +33,17 @@ class ValueSet
     def droby_dump; DRoby.new(self) end
 end
 
+class Class
+    def droby_dump
+	if ancestors.include?(Roby::Task) || ancestors.include?(Roby::EventGenerator)
+	    Roby::Distributed::DRobyModel.new(self)
+	else
+	    raise "can't dump class #{self}"
+	end
+    end
+end
+
+
 module Roby
     class RelationGraph
 	def droby_dump
@@ -89,7 +100,7 @@ module Roby
 		end
 		Marshal.dump(marshalled.compact)
 	    end
-	    def _load(str)
+	    def self._load(str)
 		Marshal.load(str).each do |name|
 		    mod = constant(name) rescue nil
 		    return mod if mod
