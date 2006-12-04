@@ -199,9 +199,11 @@ module Roby
 	    end
 	    unless tasks.empty?
 		new_tasks = useful_component(tasks).difference(@known_tasks)
-		discovered(new_tasks)
-		new_tasks.each { |t| t.plan = self }
-		@known_tasks.merge new_tasks
+		unless new_tasks.empty?
+		    discovered(new_tasks)
+		    new_tasks.each { |t| t.plan = self }
+		    @known_tasks.merge new_tasks
+		end
 	    end
 
 	    self
