@@ -117,8 +117,8 @@ module Roby
 			end
 		    end
 		else
-		    affected_tasks = known_tasks(true).map { |o| may_unwrap(o) }
-		    Distributed.update(affected_tasks) { super() }
+		    affected_objects = (known_tasks(true) | discovered_objects).map { |o| may_unwrap(o) }
+		    Distributed.update(affected_objects) { super() }
 		end
 
 		self

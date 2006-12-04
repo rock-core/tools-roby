@@ -17,7 +17,7 @@ module Roby::Distributed
     @updated_objects = ValueSet.new
     class << self
 	attr_reader :updated_objects
-	def updating?(objects); updated_objects.include_all?(objects) end
+	def updating?(objects); updated_objects.include_all?(objects.map { |obj| obj.root_object }) end
 	def update(objects)
 	    old_updated = updated_objects
 	    @updated_objects |= objects
