@@ -275,23 +275,35 @@ module Roby
 	    end
 	end
 
-	# Removes the task +t+ from this plan
-	def remove_task(t)
-	    force_gc.delete(t)
-	    t.executable = false
-	    t.clear_relations
-	    # NOTE: we MUST use instance variables directly here. Otherwise,
-	    # transaction commits would be broken
-	    @missions.delete(t)
-	    @known_tasks.delete(t)
-	    finalized(t)
+	def remove_object(object)
+	    object.clear_relations
+
+	    case object
+	    when TaskEventGenerator
+	    when EventGenerator
+		@free_events.delete(object)
+		finalized_event(object)
+	    when Task
+		force_gc.delete(object)
+		object.executable = false
+		# NOTE: we MUST use instance variables directly here. Otherwise,
+		# transaction commits would be broken
+		@missions.delete(object)
+		@known_tasks.delete(object)
+		finalized(object)
+	    end
 	end
+
+	# Removes the task +t+ from this plan
+	def remove_task(t); remove_object(t) end
 
 	# +task+ has been marked as garbage. It will be garbage collected
 	# as soon as possible
 	def garbage(task); super if defined? super end
 	# +task+ has been removed from this plan
 	def finalized(task); super if defined? super end
+	# +event+ has been removed from this plan
+	def finalized_event(event); super if defined? super end
     end
 
     # The query class represents a search in a plan. 
