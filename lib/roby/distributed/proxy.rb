@@ -80,7 +80,7 @@ module Roby::Distributed
 
     module RemoteObjectProxy
 	include RemoteObject
-	# The remote object we are proxying
+	# The object owners. This is always [peer_id].to_value_set
 	attr_reader :owners
 	# The marshalled object
 	attr_reader :marshalled_object
