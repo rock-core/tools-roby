@@ -13,34 +13,64 @@ module Roby
 	# A transaction is not an executable plan
 	def executable?; false end
 
+	def do_wrap(object, do_include = false) # :nodoc:
+	    object = proxy_objects[object] = Proxy.proxy_class(object).new(object, self)
+	    object.plan = self
+	    do_include(object) if do_include
+	    object
+	end
+	def do_include(object)
+	    if object.kind_of?(Roby::Task) then @known_tasks << object
+	    elsif object.kind_of?(Roby::EventGenerator) then @free_events << object
+	    end
+	    object
+	end
+
 	# Get the transaction proxy for +object+
-	def wrap(object)
+	def wrap(object, create = true)
 	    if object.kind_of?(PlanObject)
-		if object.plan == self
-		    return object
-		elsif !object.plan
-		    object.plan = self
-		    return object
-		elsif object.kind_of?(Proxy)
-		    raise ArgumentError, "#{object} is in #{object.plan}, not from this transaction (#{self})"
-		elsif proxy = proxy_objects[object]
-		    return proxy
-		else
-		    object = proxy_objects[object] = Proxy.proxy_class(object).new(object, self)
-		    object
+		if object.plan == self then return object
+		elsif proxy = proxy_objects[object] then return proxy
 		end
+
+		if create
+		    if !object.plan
+			object.plan = self
+			return do_include(object)
+		    elsif object.plan == self.plan
+			return do_wrap(object, true)
+		    else
+			raise ArgumentError, "#{object} is in #{object.plan}, this transaction #{self} applies on #{self.plan}"
+		    end
+		end
+		nil
 	    elsif object.respond_to?(:each) 
-		object.map(&method(:wrap))
+		object.map { |o| wrap(o, create) }
 	    elsif object.respond_to?(:each_event)
-		object.enum_for(:each_event).map(&method(:wrap))
+		object.enum_for(:each_event) { |o| wrap(o, create) }
 	    elsif object.respond_to?(:each_task)
-		object.enum_for(:each_task).map(&method(:wrap))
+		object.enum_for(:each_task) { |o| wrap(o, create) }
 	    else
 		raise TypeError, "don't know how to wrap #{object}"
 	    end
 	end
-	def may_wrap(object); wrap(object) rescue object end
 	alias :[] :wrap
+
+	def may_wrap(object); wrap(object) rescue object end
+	
+	# may_unwrap may return objects from transaction
+	def may_unwrap(object)
+	    if object.respond_to?(:plan) 
+		if object.plan == self && object.respond_to?(:__getobj__)
+		    object.__getobj__
+		elsif object.plan == self.plan
+		    object
+		else
+		    object
+		end
+	    else object
+	    end
+	end
 
 	# The list of objects that have been discovered in this transaction
 	# 'discovered' objects are the objects in which relation modifications
@@ -80,14 +110,15 @@ module Roby
 	end
 
 	def include?(t)
-	    real_task = Proxy.may_unwrap(t)
-	    (plan.include?(real_task) && !removed_tasks.include?(real_task)) || 
-		super(self[t]) 
+	    proxy	= self[t, false]
+	    real_task	= may_unwrap(t)
+	    (super(proxy) if proxy) ||
+		((plan.include?(real_task) && !removed_tasks.include?(real_task)) if real_task)
 	end
 	def mission?(t)
-	    real_task = Proxy.may_unwrap(t)
+	    real_task = may_unwrap(t)
 	    (missions.include?(real_task) && !discarded_tasks.include?(real_task)) || 
-		missions.include?(self[t])
+		missions.include?(self[t, false])
 	end
 
 	def missions(own = false)
@@ -120,12 +151,12 @@ module Roby
 	def each_task(own = false); known_tasks(own).each { |t| yield(t) } end
 
 	def insert(t)
-	    super(self[t])
+	    super(self[t, true])
 	end
 
 	def discover(objects = nil)
 	    if !objects then super
-	    else super(self[objects])
+	    else super(self[objects, true])
 	    end
 
 	    # Consistency check
@@ -137,20 +168,24 @@ module Roby
 	end
 
 	def discard(t)
-	    unwrapped = Proxy.may_unwrap(t)
-	    if plan.missions.include?(unwrapped)
-		discarded_tasks.insert(unwrapped)
-	    else
-		super
+	    if proxy = self[t, false]
+		super(proxy)
+	    end
+
+	    t = may_unwrap(t)
+	    if t.plan == self.plan
+		discarded_tasks.insert(t)
 	    end
 	end
 
 	def remove_task(t)
-	    unwrapped = Proxy.may_unwrap(t)
-	    if plan.known_tasks.include? unwrapped
-		removed_tasks.insert(unwrapped)
-	    else
-		super
+	    if proxy = self[t, false]
+		super(proxy)
+	    end
+
+	    t = may_unwrap(t)
+	    if t.plan == self.plan
+		removed_tasks.insert(t)
 	    end
 	end
 

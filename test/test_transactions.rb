@@ -69,6 +69,7 @@ module TC_TransactionBehaviour
 	end
 
 	transaction_commit(plan) do |trsc| 
+	    assert(!trsc.include?(t3))
 	    trsc.discover(t3)
 	    assert(trsc.include?(t3))
 	    assert(!trsc.mission?(t3))
@@ -89,6 +90,7 @@ module TC_TransactionBehaviour
 	assert(plan.mission?(t2))
 
 	transaction_commit(plan) do |trsc|
+	    assert(trsc.include?(t2))
 	    trsc.discard(t2)
 	    assert(trsc.include?(t2))
 	    assert(!trsc.mission?(t2))
@@ -265,9 +267,11 @@ module TC_TransactionBehaviour
 	transaction_commit(plan, t1) do |trsc, p1|
 	    trsc.insert(t2)
 	    assert_equal(plan, t1.plan)
+	    assert_equal(trsc, p1.plan)
 	    assert_equal(trsc, t2.plan)
 	    assert_raises(Roby::InvalidPlanOperation) { t1.realized_by t2 }
 	    assert_equal(plan, t1.event(:start).plan)
+	    assert_equal(trsc, p1.event(:start).plan)
 	    assert_equal(trsc, t2.event(:start).plan)
 	    assert_raises(Roby::InvalidPlanOperation) { t1.event(:start).on t2.event(:start) }
 	end
@@ -278,7 +282,9 @@ module TC_TransactionBehaviour
 	transaction_commit(plan, t1) do |trsc, p1|
 	    trsc.insert(t2)
 	    trsc.insert(t3)
-	    (p1.event(:start) & t2.event(:start)).on t3.event(:start)
+	    and_generator = (p1.event(:start) & t2.event(:start))
+	    assert_equal(trsc, and_generator.plan)
+	    and_generator.on t3.event(:start)
 	end
 
 	t1.start!

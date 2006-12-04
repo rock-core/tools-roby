@@ -36,7 +36,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	end
 
 	obj   = real_klass.new
-	obj.plan = true
+	obj.plan = plan
 	proxy = transaction[obj]
 	assert_is_proxy_of(obj, proxy, proxy_klass)
 	assert_same(proxy, transaction[obj])
@@ -74,10 +74,10 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	end
 
 	base_obj = base_klass.new
-	base_obj.plan = true
+	base_obj.plan = plan
 	assert_is_proxy_of(base_obj, transaction[base_obj], proxy_base_klass)
 	derv_obj = derv_klass.new
-	derv_obj.plan = true
+	derv_obj.plan = plan
 	assert_is_proxy_of(derv_obj, transaction[derv_obj], proxy_derv_klass)
     end
 
@@ -142,6 +142,17 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	assert_equal([], t1.enum_for(:each_child_object, Hierarchy).to_a)
 	t2.realized_by t3
 	assert(! Hierarchy.linked?(p2, p3))
+    end
+
+    def test_proxy_plan
+	task = Roby::Task.new
+	plan.insert(task)
+
+	proxy = transaction[task]
+	assert_equal(plan, task.plan)
+	assert_equal(plan, task.event(:start).plan)
+	assert_equal(transaction, proxy.plan)
+	assert_equal(transaction, proxy.event(:start).plan)
     end
 
     Hierarchy = Roby::TaskStructure::Hierarchy

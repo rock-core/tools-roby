@@ -111,7 +111,7 @@ module Roby
 			end
 		    end
 		else
-		    affected_tasks = known_tasks(true).map { |o| Roby::Transactions::Proxy.may_unwrap(o) }
+		    affected_tasks = known_tasks(true).map { |o| may_unwrap(o) }
 		    Distributed.update(affected_tasks) { super() }
 		end
 

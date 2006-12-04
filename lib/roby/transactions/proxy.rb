@@ -26,16 +26,6 @@ module Roby::Transactions
 	    proxy_class[0]
 	end
 
-	# Returns the object wrapped by +wrapper+
-	def self.unwrap(wrapper); wrapper.__getobj__ end
-	# If wrapper is a proxy, returns the wrapped object. Otherwise,
-	# returns +object+ itself
-	def self.may_unwrap(wrapper)
-	    if wrapper.respond_to?(:__getobj__) then wrapper.__getobj__
-	    else wrapper
-	    end
-	end
-
 	# Declare that +proxy_klass+ should be used to wrap objects of +real_klass+.
 	# Order matters: if more than one wrapping matches, we will use the one
 	# defined last.
@@ -111,7 +101,7 @@ module Roby::Transactions
 	    def proxy_for(klass); Proxy.proxy_for(self, klass) end
 
 	    def proxy_code(m)
-		"args = args.map(&Proxy.method(:may_unwrap))
+		"args = args.map(&plan.method(:may_unwrap))
 		result = if block_given?
 			     __getobj__.#{m}(*args) do |*objects| 
 				objects.map! { |o| transaction.may_wrap(o) }
@@ -229,17 +219,17 @@ module Roby::Transactions
 
 		if is_parent
 		    new.each do |other|
-			__getobj__.add_child_object(Proxy.may_unwrap(other), rel, self[other, rel])
+			__getobj__.add_child_object(plan.may_unwrap(other), rel, self[other, rel])
 		    end
 		    del.each do |other|
-			__getobj__.remove_child_object(Proxy.may_unwrap(other), rel)
+			__getobj__.remove_child_object(plan.may_unwrap(other), rel)
 		    end
 		else
 		    new.each do |other|
-			Proxy.may_unwrap(other).add_child_object(__getobj__, rel, other[self, rel])
+			plan.may_unwrap(other).add_child_object(__getobj__, rel, other[self, rel])
 		    end
 		    del.each do |other|
-			Proxy.may_unwrap(other).remove_child_object(__getobj__, rel)
+			plan.may_unwrap(other).remove_child_object(__getobj__, rel)
 		    end
 		end
 	    end
