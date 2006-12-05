@@ -55,6 +55,11 @@ module Roby
 
 	class PeerServer
 	    NEW_TASK_EVENTS = [:insert, :discover]
+	    def set_plan(marshalled_plan, missions, known_tasks)
+		known_tasks.each do |task|
+		    peer.subscribe(task)
+		end
+	    end
 	    def plan_update(event, marshalled_plan, *args)
 		plan = peer.proxy(marshalled_plan)
 

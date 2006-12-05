@@ -75,11 +75,12 @@ module Roby::Distributed
 	end
 
 	def subscribe(object)
+	    object = peer.proxy(object)
+	    return if subscribed?(object)
+	    subscriptions << object
+
 	    case object
 	    when Roby::PlanObject
-		return if subscribed?(object)
-		subscriptions << object
-
 		relations = relations_of(object)
 		# Send event event if +result+ is empty, so that relations are
 		# removed if needed on the other side
@@ -90,11 +91,7 @@ module Roby::Distributed
 		end
 
 	    when Roby::Plan
-		object = peer.proxy(object)
-		return if subscribed?(object)
-		subscriptions << object
-		peer.send(:plan_update, :discover, object, object.known_tasks)
-		peer.send(:plan_update, :insert, object, object.missions)
+		peer.send(:set_plan, object, object.missions, object.known_tasks)
 	    end
 
 	    nil
