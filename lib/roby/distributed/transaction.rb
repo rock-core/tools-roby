@@ -74,7 +74,7 @@ module Roby
 		    next unless remote_siblings.include?(remote_id)
 		    next unless remote_id.kind_of?(DRbObject)
 
-		    Distributed.peer(remote_id).send(*args) do |result|
+		    Distributed.peer(remote_id).transmit(*args) do |result|
 			waiting_for -= 1
 			yield(waiting_for == 0, result) if block_given?
 		    end
@@ -297,8 +297,8 @@ module Roby
 		    raise TypeError, "cannot create a non-distributed transaction"
 		end
 
-		send(:create_transaction, trsc) do |remote_transaction|
-		    remote_transaction = remote_transaction.remote_object
+		transmit(:create_transaction, trsc) do |marshalled_transaction|
+		    remote_transaction = marshalled_transaction.remote_object
 		    trsc.remote_siblings[remote_id] = remote_transaction
 		    yield(remote_transaction) if block_given?
 		end

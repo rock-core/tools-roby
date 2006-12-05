@@ -71,7 +71,7 @@ module Roby::Distributed
 	    edges.map! do |rel, from, to, info|
 		[peer.remote_server, [:update_relation, [from, :add_child_object, to, rel, info]]]
 	    end
-	    peer.send(:demux, edges)
+	    peer.transmit(:demux, edges)
 	    nil
 	end
 
@@ -85,14 +85,14 @@ module Roby::Distributed
 		relations = relations_of(object)
 		# Send event event if +result+ is empty, so that relations are
 		# removed if needed on the other side
-		peer.send(:set_relations, object, relations)
+		peer.transmit(:set_relations, object, relations)
 
 		if object.respond_to?(:each_event)
 		    object.each_event(false, &method(:subscribe))
 		end
 
 	    when Roby::Plan
-		peer.send(:set_plan, object, object.missions, object.known_tasks)
+		peer.transmit(:set_plan, object, object.missions, object.known_tasks)
 	    end
 
 	    nil
@@ -271,7 +271,7 @@ module Roby::Distributed
 
 	attr_reader :name, :max_allowed_errors
 
-	def send(*args, &block)
+	def transmit(*args, &block)
 	    Roby::Distributed.debug { "queueing #{neighbour.name}.#{args[0]}" }
 	    @send_queue.push([[remote_server, args], block])
 	    @sending = true
@@ -448,7 +448,7 @@ module Roby::Distributed
 	# Discovers all objects at a distance +dist+ from +obj+. The object
 	# can be either a remote proxy or the remote object itself
 	def discover_neighborhood(marshalled, distance)
-	    send(:discover_neighborhood, marshalled, distance)
+	    transmit(:discover_neighborhood, marshalled, distance)
 	end
 
 	# DO NOT USE a ValueSet here. We use DRbObjects to track subscriptions
@@ -457,7 +457,7 @@ module Roby::Distributed
 
 	# Make the remote pDB send us all updates about +object+
 	def subscribe(marshalled)
-	    send(:subscribe, marshalled.remote_object) do
+	    transmit(:subscribe, marshalled.remote_object) do
 		subscriptions << marshalled.remote_object
 	    end
 	end
@@ -504,7 +504,7 @@ module Roby::Distributed
 		raise InvalidRemoteOperation, "cannot unsubscribe to a task still linked to local tasks"
 	    end
 
-	    send(:unsubscribe, marshalled.remote_object) do
+	    transmit(:unsubscribe, marshalled.remote_object) do
 		subscriptions.delete(marshalled.remote_object)
 		if remove_object && proxy.kind_of?(Roby::Task)
 		    remove_unsubscribed_relations(proxy)

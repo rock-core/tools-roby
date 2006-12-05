@@ -91,8 +91,8 @@ module Roby
 	    end
 	end
 	class Peer
-	    def plan_update(*args); send(:plan_update, *args) end
-	    def transaction_update(*args); send(:transaction_update, *args) end
+	    def plan_update(*args); transmit(:plan_update, *args) end
+	    def transaction_update(*args); transmit(:transaction_update, *args) end
 	end
 
 	# Set of hooks to propagate relation modifications for subscribed tasks
@@ -103,7 +103,7 @@ module Roby
 		return unless Distributed.state
 		return if Distributed.updating?([self.root_object, child.root_object])
 		Distributed.each_subscribed_peer(self.root_object, child.root_object) do |peer|
-		    peer.send(:update_relation, [self, :add_child_object, child, type, info])
+		    peer.transmit(:update_relation, [self, :add_child_object, child, type, info])
 		end
 	    end
 
@@ -113,7 +113,7 @@ module Roby
 		return unless Distributed.state
 		return if Distributed.updating?([self.root_object, child.root_object])
 		Distributed.each_subscribed_peer(self.root_object, child.root_object) do |peer|
-		    peer.send(:update_relation, [self, :remove_child_object, child, type])
+		    peer.transmit(:update_relation, [self, :remove_child_object, child, type])
 		end
 	    end
 	end
