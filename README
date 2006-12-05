@@ -1,9 +1,9 @@
 == Installation
 * The Roby engine needs 
-    * +utilrb+, which is available either as a gem or on {my research page}[http://www.laas.fr/~sjoyeux/research.php]
-    * +utilmm+, available on {my research page}[http://www.laas.fr/~sjoyeux/research.php]
-    * Facets, available on RubyForge[http://facets.rubyforge.org] or as a gem
-    * ActiveSupport, available on RubyForge[http://facets.rubyforge.org] or as a gem
+  * +utilrb+, which is available either as a gem or on {my research page}[http://www.laas.fr/~sjoyeux/research.php]
+  * +utilmm+, available on {my research page}[http://www.laas.fr/~sjoyeux/research.php]
+  * Facets, available on RubyForge[http://facets.rubyforge.org] or as a gem
+  * ActiveSupport, available on RubyForge[http://facets.rubyforge.org] or as a gem
 
 * Build the extension in ext/ using:
   cd ext
