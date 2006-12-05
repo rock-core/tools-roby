@@ -34,6 +34,13 @@ module TC_PlanStatic
 	assert(plan.include?(t1))
 	assert(plan.known_tasks.include?(t1))
 	assert(!plan.missions.include?(t1))
+
+	plan.remove_task(t1)
+	plan.discover(t1)
+	assert(plan.include?(t1))
+	assert(!plan.mission?(t1))
+	plan.insert(t1)
+	assert(plan.mission?(t1))
     end
 
     def test_base
