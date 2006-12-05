@@ -47,27 +47,39 @@ module Roby
     end
 
     # EventGenerator objects are the objects which manage the event generation
-    # process (propagation, event creation, ...). They can be combined logically
-    # using & and |.
+    # process (propagation, event creation, ...). They can be combined
+    # logically using & and |.
     #
-    # == Standard relations
+    # === Standard relations
     # - signals: calls the *command* of an event when this generator emits
     # - forwardings: *emits* another event when this generator emits
     #
     # In the first case, #can_signal? is checked to ensure that the target
     # event can be called. In the forwarding case, not checks are done
     #
+    # === Hooks
+    # The following hooks are defined:
+    # * #postponed
+    # * #calling
+    # * #called
+    # * #fired
+    # * #signalling
+    #
     class EventGenerator < PlanObject
+	include DirectedRelationSupport
+
 	# How to handle this event during propagation
-	#   * nil (the default): call only once in a propagation cycle
-	#   * :always_call: always call, event if it has already been called in this cycle
+	# * nil (the default): call only once in a propagation cycle
+	# * :always_call: always call, event if it has already been called in this cycle
 	attr_accessor :propagation_mode
 
 	attr_writer :executable
+	# True if this event is executable. A non-executable event cannot be
+	# called even if it is controlable
 	def executable?; @executable end
 
-	# Generic double-dispatchers for operation on
-	# bound events, based on to_and and to_or
+	# Creates a new Event generator which is emitted as soon as one of this
+	# object and +generator+ is emitted
 	def |(generator)
 	    if generator.respond_to?(:to_or)
 		generator.to_or | self
@@ -75,6 +87,9 @@ module Roby
 		OrGenerator.new << self << generator
 	    end
 	end
+
+	# Creates a AndGenerator object which is emitted when both this object
+	# and +generator+ are emitted
 	def &(generator)
 	    if generator.respond_to?(:to_and)
 		generator.to_and & self
@@ -86,10 +101,24 @@ module Roby
 	attr_enumerable(:handler, :handlers) { Array.new }
 
 	def model; self.class end
+	# The model name
 	def name; model.name end
-
+	# The count of command calls that have not a corresponding emission
 	attr_reader :pending
+	# True if this event has been called but is not emitted yet
 	def pending?; pending != 0 end
+
+	# call-seq:
+	#   EventGenerator.new
+	#   EventGenerator.new(false)
+	#   EventGenerator.new(true)
+	#   EventGenerator.new { |event| ... }
+	#
+	# Create a new event generator. If a block is given, the event is
+	# controlable and the block is its command. If a +true+ argument is
+	# given, the event is controlable and is 'pass-through': it is emitted
+	# as soon as its command is called. If no argument is given (or a
+	# +false+ argument), then it is not controlable
 	def initialize(controlable = nil, &control)
 	    @preconditions = []
 	    @handlers = []
@@ -167,7 +196,7 @@ module Roby
 	    self
 	end
 
-	# If this event can signal +event+
+	# If this event can signal +generator+
 	def can_signal?(generator); generator != self && generator.controlable?  end
 
 	def to_event; self end
@@ -251,7 +280,7 @@ module Roby
 
 	# Emits the event regardless of wether we are in a propagation context or not
 	# Returns true to match the behavior of #call_without_propagation
-	def emit_without_propagation(context)
+	def emit_without_propagation(context) # :nodoc:
 	    if !executable?
 		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"
 	    end
@@ -293,7 +322,7 @@ module Roby
 	end
 
 	# call-seq:
-	#   emit_on event	    => self
+	#   emit_on(event)	    => self
 	#   
 	# Call #emit (bypassing any command) when +event+ is fired.
 	# This method is equivalent to
@@ -301,27 +330,39 @@ module Roby
 	#   self.add_forwarding(self)
 	def emit_on(generator)
 	    generator.add_forwarding(self)
+	    self
 	end
 
+	# True if this event is controlable
 	def controlable?; @controlable end
+
+	# A [time, event] array of past event emitted by this object
 	attribute(:history) { Array.new }
+	# True if this event has been emitted once. If +strict+ is false, returns true
+	# if it is being emitted in this execution cycle.
 	def happened?(strict = true)
 	    !history.empty? || 
 		(!strict && Propagation.gathering? && Propagation.pending_event?(self))
 	end
+	# Last event to have been emitted by this generator
 	def last
 	    return if history.empty?
 	    history.last[1] 
 	end
 
+	# Defines a precondition handler for this event. Precondition handlers
+	# are when #call is called. If the handler returns false, the calling
+	# is aborted by a PreconditionFailed exception
 	def precondition(reason = nil, &block)
 	    @preconditions << [reason, block]
 	end
-	def each_precondition; @preconditions.each { |o| yield(o) } end
+	# Yields all precondition handlers defined for this generator
+	def each_precondition # :yield:reason, block
+	    @preconditions.each { |o| yield(o) } 
+	end
 
-	# Call #postpone in the #calling hook to announce that
-	# the event being called is not to be called now, but will
-	# be called back when +generator+ is emitted.
+	# Call #postpone in #calling to announce that the event should not be
+	# called now, but should be called back when +generator+ is emitted
 	#
 	# A reason string can be provided for debugging purposes
 	def postpone(generator, reason = nil)
@@ -329,13 +370,13 @@ module Roby
 	    yield
 	    throw :postponed, [generator, reason]
 	end
+	# Hook called when the event has been postponed. See #postpone
 	def postponed(context, generator, reason); super if defined? super end	
 
-	# Call this method in the #calling hook to avoid calling
-	# the event command. This raises a PreconditionFailed
-	# exception
+	# Call this method in the #calling hook to avoid calling the event
+	# command. This raises an EventCanceled exception with +reason+ for message
 	def cancel(reason = nil)
-	    raise EventCanceled.new(self)
+	    raise EventCanceled.new(self), (reason || "event canceled")
 	end
 
 	# Hook called when this event generator is called (i.e. the associated command
@@ -356,17 +397,16 @@ module Roby
 	    end
 	end
 
-	# Hook called just before the event command has been called
+	# Hook called just after the event command has been called
 	def called(context); super if defined? super end
 
 	# Hook called when this generator has been fired. +event+ is the Event object
 	def fired(event); super if defined? super end
 
-	# Hook called just before the +to+ generator is signalled 
-	# by +event+, with +event+ being generated by this model
+	# Hook called just before the +to+ generator is signalled by this
+	# generator. +event+ is the Event object which has been generated by
+	# this model
 	def signalling(event, to); super if defined? super end
-
-	include DirectedRelationSupport
     end
 
     EventStructure  = RelationSpace(EventGenerator)
