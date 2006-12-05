@@ -122,44 +122,6 @@ module Roby::Distributed
 	    end
 	    nil
 	end
-	def create_transaction(remote_trsc)
-	    if dtrsc = (peer.proxy(remote_trsc) rescue nil)
-		raise ArgumentError, "#{remote_trsc} is already created"
-	    end
-
-	    plan = peer.proxy(remote_trsc.plan)
-	    trsc = Roby::Distributed::Transaction.new(plan)
-	    trsc.owners.merge(remote_trsc.owners)
-	    trsc.remote_siblings[peer.remote_id] = remote_trsc.remote_object
-	    trsc
-	end
-	
-	# Sets all tasks and all relations in +trsc+. This is only valid if the local
-	# copy of +trsc+ is empty
-	def set_transaction(remote_trsc, missions, tasks, free_events)
-	    trsc = peer.proxy(remote_trsc)
-	    unless trsc.empty?(true)
-		raise ArgumentError, "#{trsc} is not empty"
-	    end
-
-	    proxies = []
-	    missions.each do |marshalled_task| 
-		task = peer.proxy(marshalled_task)
-		trsc.insert(task)
-		peer.subscribe(marshalled_task)
-		proxies << task
-	    end
-	    tasks.each do |marshalled_task| 
-		task = peer.proxy(marshalled_task)
-		trsc.discover(task)
-		peer.subscribe(marshalled_task)
-		proxies << task
-	    end
-
-	    # and subscribe the peer to all the local tasks
-	    subscriptions.merge(proxies)
-	end
-
 	def apply(args)
 	    args = args.map do |a|
 		if peer.proxying?(a)
@@ -253,18 +215,6 @@ module Roby::Distributed
 	    nil
 	end
 
-	def prepare_transaction_commit(trsc)
-	    Roby::Control.once { peer.connection_space.prepare_transaction_commit(peer.proxy(trsc)) }
-	end
-	def commit_transaction(trsc)
-	    Roby::Control.once { peer.connection_space.commit_transaction(peer.proxy(trsc)) }
-	end
-	def abandon_commit(trsc)
-	    Roby::Control.once { peer.connection_space.abandon_commit(peer.proxy(trsc)) }
-	end
-	def discard_transaction(trsc)
-	    Roby::Control.once { peer.connection_space.discard_transaction(peer.proxy(trsc)) }
-	end
     end
     allow_remote_access PeerServer
 
@@ -559,35 +509,6 @@ module Roby::Distributed
 		if remove_object && proxy.kind_of?(Roby::Task)
 		    remove_unsubscribed_relations(proxy)
 		end
-	    end
-	end
-
-	# Create a sibling for +trsc+ on this peer. If a block is given, yields
-	# the remote transaction object from within the communication thread
-	def create_transaction(trsc)
-	    unless trsc.kind_of?(Roby::Distributed::Transaction)
-		raise TypeError, "cannot create a non-distributed transaction"
-	    end
-
-	    send(:create_transaction, trsc) do |remote_transaction|
-		remote_transaction = remote_transaction.remote_object
-		trsc.remote_siblings[remote_id] = remote_transaction
-		yield(remote_transaction) if block_given?
-	    end
-	end
-	def propose_transaction(trsc)
-	    # What do we need to do on the remote side ?
-	    #   - create a new transaction with the right owners
-	    #   - create all needed transaction proxys. Transaction proxys
-	    #     can apply on local and remote tasks
-	    #   - create all needed remote proxys
-	    #   - setup all relations
-	    peer_missions = trsc.missions(true)
-	    peer_tasks    = trsc.known_tasks(true) - peer_missions
-	    free_events   = trsc.free_events
-
-	    create_transaction(trsc) do |ret|
-		send(:set_transaction, trsc, peer_missions, peer_tasks, free_events)
 	    end
 	end
 
