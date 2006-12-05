@@ -295,7 +295,7 @@ module Roby::Distributed
 			calls += @send_queue.get(true)
 			Roby::Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
 			results, error = begin remote_server.demux(calls.map { |a| a.first })
-					 rescue; [[], $!]
+					 rescue Exception; [[], $!]
 					 end
 			success = results.size
 			Roby::Distributed.debug { "#{neighbour.name} processed #{success} commands" }
@@ -493,10 +493,6 @@ module Roby::Distributed
 	    unless keep_proxy
 		connection_space.plan.remove_object(proxy)
 	    end
-
-	rescue
-	    STDERR.puts $!.full_message
-	    raise
 	end
 
 	def unsubscribe(marshalled, remove_object = true)
