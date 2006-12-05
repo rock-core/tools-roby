@@ -20,8 +20,15 @@ module Roby
 	    object
 	end
 	def do_include(object)
-	    if object.kind_of?(Roby::Task) then @known_tasks << object
-	    elsif object.kind_of?(Roby::EventGenerator) then @free_events << object
+	    case object
+	    when Roby::Task
+		@known_tasks << object
+		discovered_tasks([object])
+	    when Roby::EventGenerator 
+		@free_events << object
+		discovered_events([object])
+	    else
+		raise TypeError, "unknown object type #{object} (#{object.class})"
 	    end
 	    object
 	end
