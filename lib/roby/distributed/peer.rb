@@ -433,12 +433,6 @@ module Roby::Distributed
 		object_proxy = marshalled.proxy(self)
 	    end
 
-	    # marshalled.plan is nil if the object plan is determined by another
-	    # object. For instance, in the TaskEventGenerator case, the generator
-	    # plan is the task plan
-	    if marshalled.kind_of?(MarshalledPlanObject) && marshalled.plan
-		proxy(marshalled.plan).discover(object_proxy)
-	    end
 	    object_proxy
 	end
 

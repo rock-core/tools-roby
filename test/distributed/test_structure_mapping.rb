@@ -299,7 +299,7 @@ class TC_DistributedStructureMapping < Test::Unit::TestCase
 	remote.discard_mission
 	apply_remote_command
 	assert_equal(2, local.plan.size)
-	assert(! local.plan.mission?(proxy))
+	assert(local.plan.mission?(proxy))
     end
 
     def test_relation_updates

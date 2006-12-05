@@ -290,7 +290,13 @@ module Roby
 	    end
 
 	    def proxy(peer)
-		Distributed.RemoteProxyModel(model).new(peer, self)
+		proxy = Distributed.RemoteProxyModel(model).new(peer, self)
+		
+		# marshalled.plan is nil if the object plan is determined by another
+		# object. For instance, in the TaskEventGenerator case, the generator
+		# plan is the task plan
+		peer.proxy(plan).discover(proxy) if plan
+		proxy
 	    end
 	    def ==(other)
 		other.kind_of?(MarshalledPlanObject) && 
@@ -373,6 +379,13 @@ module Roby
 		super(Roby::Task) do |ary|
 		    Marshal.dump(ary << Roby::Distributed.dump(arguments) << mission)
 		end
+	    end
+	
+	    def proxy(peer)
+		task = super
+
+		task.plan.insert(task) if mission && task.plan
+		task
 	    end
 
 	    attr_reader :arguments, :mission
