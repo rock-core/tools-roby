@@ -216,7 +216,17 @@ module Roby::Distributed
     end
 
     class << self
-	attr_accessor :state
+	attr_reader :state
+	def state=(new_state)
+	    if log = logger
+		if new_state
+		    logger.progname = "Roby (#{new_state.name})"
+		else
+		    logger.progname = "Roby"
+		end
+	    end
+	    @state = new_state
+	end
 	attr_reader :server
 
 	# Publish Distributed.state on the network
