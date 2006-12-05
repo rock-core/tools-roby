@@ -2,14 +2,14 @@ $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'distributed/common.rb'
 require 'mockups/tasks'
 
-class TC_DistributedStructureMapping < Test::Unit::TestCase
+# This testcase tests local views of remote plans
+class TC_DistributedRemotePlan < Test::Unit::TestCase
     include DistributedTestCommon
 
     def teardown 
 	Distributed.unpublish
-	Distributed.state = nil
-
 	super
+	Distributed.state = nil
     end
 
     # Test establishing peer-to-peer connection between two ConnectionSpace objects
