@@ -68,6 +68,12 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 		    mission.on(:start, next_mission, :start)
 		    plan.insert(next_mission)
 		end
+		def unlink_next_mission; mission.event(:start).remove_signal(next_mission.event(:start)) end
+		def remove_next_mission; plan.remove_object(next_mission) end
+		def unlink_subtask; mission.remove_child(subtask) end
+		def remove_subtask; plan.remove_object(subtask) end
+		def discard_mission; plan.discard(mission) end
+		def remove_mission; plan.remove_object(mission) end
 	    end
 	end
 
@@ -75,12 +81,14 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	remote_plan = remote_peer.remote_server.plan
 	remote_peer.subscribe(remote_plan)
 	apply_remote_command
+	assert(remote_peer.subscribed?(remote_plan.remote_object), remote_peer.subscriptions)
 
 	remote.create_mission
 	apply_remote_command
 	r_mission = remote_task(:id => 'mission')
 	assert_equal(1, local.plan.size)
 	assert(p_mission = local.plan.known_tasks.find { |t| t == remote_peer.proxy(r_mission) })
+	assert(remote_peer.subscribed?(r_mission.remote_object), remote_peer.subscriptions)
 
 	remote.create_subtask
 	apply_remote_command
@@ -88,6 +96,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert_equal(2, local.plan.size)
 	assert(p_subtask = local.plan.known_tasks.find { |t| t == remote_peer.proxy(r_subtask) })
 	assert(p_mission.child_object?(p_subtask, TaskStructure::Hierarchy))
+	assert(remote_peer.subscribed?(r_subtask.remote_object), remote_peer.subscriptions)
 
 	remote.create_next_mission
 	apply_remote_command
@@ -95,5 +104,28 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert_equal(3, local.plan.size)
 	assert(p_next_mission = local.plan.known_tasks.find { |t| t == remote_peer.proxy(r_next_mission) })
 	assert(p_mission.event(:start).child_object?(p_next_mission.event(:start), EventStructure::Signal))
+	assert(remote_peer.subscribed?(r_next_mission.remote_object), remote_peer.subscriptions)
+
+	remote.unlink_next_mission
+	apply_remote_command
+	assert_equal(3, local.plan.size)
+	assert(!p_mission.event(:start).child_object?(p_next_mission.event(:start), EventStructure::Signal))
+
+	remote.remove_next_mission
+	apply_remote_command
+	assert(!remote_peer.subscribed?(r_next_mission.remote_object), remote_peer.subscriptions)
+	assert_equal(2, local.plan.size)
+	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'next_mission' })
+
+	remote.unlink_subtask
+	apply_remote_command
+	assert_equal(2, local.plan.size)
+	assert(!p_mission.child_object?(p_subtask, TaskStructure::Hierarchy))
+
+	remote.remove_subtask
+	apply_remote_command
+	assert(!remote_peer.subscribed?(r_subtask.remote_object), remote_peer.subscriptions)
+	assert_equal(1, local.plan.size)
+	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'subtask' })
     end
 end
