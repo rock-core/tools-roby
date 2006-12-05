@@ -245,6 +245,8 @@ module Roby
 		trsc = Roby::Distributed::Transaction.new(plan)
 		trsc.owners.merge(remote_trsc.owners)
 		trsc.remote_siblings[peer.remote_id] = remote_trsc.remote_object
+
+		# subscribe to the remote transaction to get updates
 		peer.subscribe(remote_trsc)
 		trsc
 	    end
@@ -300,7 +302,9 @@ module Roby
 		transmit(:create_transaction, trsc) do |marshalled_transaction|
 		    remote_transaction = marshalled_transaction.remote_object
 		    trsc.remote_siblings[remote_id] = remote_transaction
-		    yield(remote_transaction) if block_given?
+		    # Subscribe to the remote transaction to get remote updates
+		    subscribe(marshalled_transaction)
+		    yield(marshalled_transaction) if block_given?
 		end
 	    end
 	    def propose_transaction(trsc)
@@ -310,12 +314,7 @@ module Roby
 		#     can apply on local and remote tasks
 		#   - create all needed remote proxys
 		#   - setup all relations
-		peer_missions = trsc.missions(true)
-		peer_tasks    = trsc.known_tasks(true) - peer_missions
-		free_events   = trsc.free_events
-
-		create_transaction(trsc) do |ret|
-		    subscribe(ret)
+		create_transaction(trsc) do |marshalled|
 		end
 	    end
 	end

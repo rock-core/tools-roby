@@ -91,6 +91,8 @@ module Roby::Distributed
 		    object.each_event(false, &method(:subscribe))
 		end
 
+	    when Roby::Transaction
+		peer.transmit(:set_plan, object, object.missions(true), object.known_tasks(true))
 	    when Roby::Plan
 		peer.transmit(:set_plan, object, object.missions, object.known_tasks)
 	    end

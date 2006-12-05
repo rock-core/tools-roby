@@ -137,16 +137,35 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	Control.instance.process_events
     end
 
+    def build_transaction(trsc)
+	r_task = remote_peer.proxy(remote_task(:id => 1))
+	t_task = trsc[r_task]
+	trsc.discover(t_task)
+
+	# Now, add a task of our own and link the remote and the local
+	task = SimpleTask.new :id => 2
+	trsc.discover(task)
+	trsc.self_owned
+
+	# Add relations
+	t_task.realized_by task
+	task.realized_by t_task
+	t_task.event(:start).on task.event(:start)
+	task.event(:stop).on t_task.event(:stop)
+
+	[task, r_task]
+    end
+
     def check_built_transaction(trsc)
 	r_task, task = nil
 	assert_kind_of(Roby::Distributed::Transaction, trsc)
 	assert_equal(2, trsc.known_tasks.size)
 	trsc.known_tasks.each do |t|
 	    if t.arguments[:id] == 1
-		assert_kind_of(Transactions::Proxy, t)
+		#assert_kind_of(Transactions::Proxy, t)
 		r_task = t
 	    else
-		assert_kind_of(Roby::Distributed::RemoteObjectProxy, t)
+		#assert_kind_of(Roby::Distributed::RemoteObjectProxy, t)
 		task = t
 	    end
 	end
@@ -175,8 +194,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert(r_task.child_object?(task, Roby::TaskStructure::Hierarchy))
     end
     def test_propose_commit
-	testcase = self
 	peer2peer do |remote|
+	    testcase = self
 	    remote.plan.insert(SimpleTask.new(:id => 1))
 
 	    remote.class.class_eval do
@@ -188,20 +207,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	end
 	trsc   = Roby::Distributed::Transaction.new(plan)
 	trsc.add_owner remote_peer
-	r_task = remote_peer.proxy(remote_task(:id => 1))
-	t_task = trsc[r_task]
-	trsc.discover(t_task)
 
-	# Now, add a task of our own and link the remote and the local
-	task = SimpleTask.new :id => 2
-	trsc.discover(task)
-	trsc.self_owned
-
-	# Add relations
-	t_task.realized_by task
-	task.realized_by t_task
-	t_task.event(:start).on task.event(:start)
-	task.event(:stop).on t_task.event(:stop)
+	task, r_task = build_transaction(trsc)
 
 	# Send the transaction to remote_peer and commit it
 	trsc.propose(remote_peer)
@@ -210,6 +217,10 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert(r_trsc)
 	remote.check_transaction(r_trsc)
 
+	check_transaction_commit(trsc, task, r_task)
+    end
+
+    def check_transaction_commit(trsc, task, r_task)
 	# Commit the transaction
 	did_commit = false
 	trsc.commit_transaction do |commited_transaction, did_commit| 
@@ -228,30 +239,19 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	assert(r_task.child_object?(task, TaskStructure::Hierarchy))
 	remote.check_plan
-
-	remote_children = r_task.remote_object(remote_peer.remote_id).child_objects(Roby::TaskStructure::Hierarchy)
-	assert_equal(task, remote_children.find { true }.remote_object)
+	check_resulting_plan(local.plan)
     end
 
     def test_synchronization
 	peer2peer do |remote|
-	    remote.plan.insert(Task.new(:id => 1))
-	    class << remote
-		include Test::Unit::Assertions
-	    end
-	    def remote.check_transaction(trsc)
-		r_task, task = nil
-		trsc.known_tasks.each do |t|
-		    if t.arguments[:id] == 1
-			assert_kind_of(Transactions::Proxy, t)
-			r_task = t
-		    else
-			assert_kind_of(Distributed::RemoteTaskProxy, t)
-			task = t
-		    end
-		end
+	    testcase = self
+	    remote.plan.insert(SimpleTask.new(:id => 1))
 
-		assert(r_task.child_object?(task, Roby::TaskStructure::Hierarchy))
+	    remote.class.class_eval do
+		define_method(:check_transaction) do |trsc|
+		    testcase.check_built_transaction(trsc)
+		end
+		define_method(:check_plan) { testcase.check_resulting_plan(remote.plan) }
 	    end
 	end
 
@@ -262,21 +262,18 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.propose(remote_peer)
 	apply_remote_command
 
-	r_task = remote_peer.proxy(remote_task(:id => 1))
-	t_task = trsc[r_task]
-	task = Task.new :id => 2
-	trsc.insert(task)
-	t_task.realized_by task
-	apply_remote_command
+	assert(r_trsc = trsc.remote_siblings[remote_peer.remote_id])
+	assert(remote_peer.subscribed?(r_trsc), remote_peer.subscriptions.to_a.to_s)
+
+	task, r_task = build_transaction(trsc)
 
 	# Check that the remote transaction has been updated
-	r_trsc = trsc.remote_siblings[remote_peer.remote_id]
+	apply_remote_command
 	remote.check_transaction(r_trsc)
+	check_built_transaction(trsc)
 
 	# Commit the transaction
-	trsc.commit
-	assert(r_task.child_object?(task, TaskStructure::Hierarchy))
-	assert_equal(task, r_task.remote_object.child_objects(Roby::TaskStructure::Hierarchy).first)
+	check_transaction_commit(trsc, task, r_task)
     end
 end
 
