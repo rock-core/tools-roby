@@ -4,6 +4,7 @@ require 'roby/distributed/notifications'
 require 'roby/distributed/proxy'
 require 'utilrb/queue'
 require 'utilrb/array/to_s'
+require 'set'
 
 module Roby
     class Control; include DRbUndumped end
@@ -500,15 +501,18 @@ module Roby::Distributed
 	    send(:discover_neighborhood, marshalled, distance)
 	end
 
-	attribute(:subscribed) { ValueSet.new }
+	# DO NOT USE a ValueSet here. We use DRbObjects to track subscriptions
+	# on this side, and they must be compared using #==
+	attribute(:subscriptions) { Set.new }
+
 	# Make the remote pDB send us all updates about +object+
 	def subscribe(marshalled)
 	    send(:subscribe, marshalled.remote_object) do
-		subscribed << marshalled.remote_object
+		subscriptions << marshalled.remote_object
 	    end
 	end
 	def subscribed?(remote_object)
-	    subscribed.include?(remote_object)
+	    subscriptions.include?(remote_object)
 	end
 
 	# Returns true if +object+ is related to any local task
@@ -551,7 +555,7 @@ module Roby::Distributed
 	    end
 
 	    send(:unsubscribe, marshalled.remote_object) do
-		subscribed.delete(marshalled.remote_object)
+		subscriptions.delete(marshalled.remote_object)
 		if remove_object && proxy.kind_of?(Roby::Task)
 		    remove_unsubscribed_relations(proxy)
 		end
