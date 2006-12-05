@@ -196,11 +196,12 @@ module Roby
 	    unless events.empty?
 		events.each { |e| e.plan = self }
 		@free_events.merge(events)
+		discovered_events(events)
 	    end
 	    unless tasks.empty?
 		new_tasks = useful_component(tasks).difference(@known_tasks)
 		unless new_tasks.empty?
-		    discovered(new_tasks)
+		    discovered_tasks(new_tasks)
 		    new_tasks.each { |t| t.plan = self }
 		    @known_tasks.merge new_tasks
 		end
@@ -208,8 +209,18 @@ module Roby
 
 	    self
 	end
-	# Hook called when new tasks have been discovered in this plan
+
+	# DEPRECATED. Use #discovered_tasks instead
 	def discovered(tasks); super if defined? super end
+	# Hook called when new tasks have been discovered in this plan
+	def discovered_tasks(tasks)
+	    discovered(tasks)
+	    super if defined? super 
+	end
+	# Hook called when new events have been discovered in this plan
+	def discovered_events(events)
+	    super if defined? super 
+	end
 
 	# Hook called when a new transaction has been built on top of this plan
 	def added_transaction(trsc); super if defined? super end

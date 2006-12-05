@@ -10,13 +10,15 @@ module Roby
 		    end
 		end
 	    end
-	    def discovered(tasks)
+	    def discovered_tasks(tasks)
 		unless Distributed.updating?([self])
 		    Distributed.each_subscribed_peer(self) do |peer|
 			peer.plan_update(:discover, self, tasks)
 		    end
 		end
 	    end
+	    alias :discovered_events :discovered_tasks
+
 	    def discarded(tasks)
 		unless Distributed.updating?([self])
 		    Distributed.each_subscribed_peer(self) do |peer|
