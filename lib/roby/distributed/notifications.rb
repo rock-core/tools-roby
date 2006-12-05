@@ -64,21 +64,22 @@ module Roby
 	    end
 	    def plan_update(event, marshalled_plan, *args)
 		plan = peer.proxy(marshalled_plan)
+		Distributed.update([plan]) do
+		    unmarshall_and_update(args) do |unmarshalled|
+			plan.send(event, *unmarshalled)
+		    end
 
-		unmarshall_and_update(args) do |unmarshalled|
-		    plan.send(event, *unmarshalled)
-		end
+		    case event
+		    when :discover
+			args[0].each { |obj| peer.subscribe(obj) }
 
-		case event
-		when :discover
-		    args[0].each { |obj| peer.subscribe(obj) }
+		    when :replace 
+			peer.unsubscribe(args[0])
+			peer.subscribe(args[1])
 
-		when :replace 
-		    peer.unsubscribe(args[0])
-		    peer.subscribe(args[1])
-
-		when :remove_object
-		    peer.unsubscribe(args[0])
+		    when :remove_object
+			peer.unsubscribe(args[0])
+		    end
 		end
 	    end
 
