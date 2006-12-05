@@ -195,6 +195,7 @@ class TC_DistributedStructureMapping < Test::Unit::TestCase
 	# Check that #subscribe updates the relations between subscribed objects
 	remote_peer.subscribe(r_root)
 	apply_remote_command do
+	    assert(local.plan.mission?(proxy_root))
 	    assert_equal([proxy], proxy_root.child_objects(TaskStructure::Hierarchy).to_a)
 	    assert_equal([], proxy.child_objects(TaskStructure::Hierarchy).to_a)
 	    assert_equal([], proxy.event(:stop).child_objects(EventStructure::Signal).to_a)
@@ -235,6 +236,7 @@ class TC_DistributedStructureMapping < Test::Unit::TestCase
 	remote_peer.subscribe(r_mission)
 	remote_peer.subscribe(r_subtask)
 	apply_remote_command do
+	    assert(!local.plan.mission?(remote_peer.proxy(r_subtask)))
 	    assert(remote_peer.subscribed?(r_mission.remote_object))
 	    assert(remote_peer.subscribed?(r_subtask.remote_object))
 	end
@@ -255,6 +257,49 @@ class TC_DistributedStructureMapping < Test::Unit::TestCase
 	    proxies = proxy.event(:stop).child_objects(EventStructure::Signal).to_a
 	    assert_equal([], proxies)
 	end
+    end
+
+    def test_plan_notifications
+	peer2peer do |remote|
+	    root, mission, subtask, next_mission =
+		Task.new(:id => 'root'), 
+		Task.new(:id => 'mission'), 
+		Task.new(:id => 'subtask')
+
+	    root.realized_by mission
+	    mission.realized_by subtask
+
+	    remote.plan.insert(root)
+	    remote.plan.insert(mission)
+
+	    remote.class.class_eval do
+		define_method(:remove_subtask) { remote.plan.remove_object(subtask) }
+		define_method(:discard_mission) { remote.plan.discard(mission) }
+		define_method(:remove_mission) { remote.plan.remove_object(mission) }
+	    end
+	end
+	r_root		= remote_task(:id => 'root')
+	proxy_root	= remote_peer.proxy(r_root)
+	r_mission	= remote_task(:id => 'mission')
+	proxy		= remote_peer.proxy(r_mission)
+	r_subtask	= remote_task(:id => 'subtask')
+
+	remote_peer.subscribe(r_root)
+	remote_peer.subscribe(r_mission)
+	remote_peer.subscribe(r_subtask)
+	apply_remote_command
+	assert_equal(3, local.plan.size)
+
+	remote.remove_subtask
+	apply_remote_command
+	assert(!remote_peer.subscribed?(r_subtask.remote_object), remote_peer.subscriptions.inspect)
+	assert_equal(2, local.plan.size)
+	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'subtask' })
+
+	remote.discard_mission
+	apply_remote_command
+	assert_equal(2, local.plan.size)
+	assert(! local.plan.mission?(proxy))
     end
 
     def test_relation_updates
