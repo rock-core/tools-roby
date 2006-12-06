@@ -224,6 +224,7 @@ module Roby::Transactions
 	discover_before :each_relation, false, nil
 	discover_before :each_child_object, false, 0
 	discover_before :each_parent_object, false, 0
+	discover_before :clear_relations, true, nil
 
 	def commit_relations(enum, is_parent)
 	    relations.each do |rel|

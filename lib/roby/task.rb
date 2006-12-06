@@ -317,7 +317,7 @@ module Roby
 	
 	# Remove all relations in which +self+ or its event are involved
 	def clear_relations
-	    each_event { |ev| ev.clear_vertex }
+	    each_event { |ev| ev.clear_relations }
 	    self.clear_vertex
 	end
 

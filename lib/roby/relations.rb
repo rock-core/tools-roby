@@ -17,6 +17,7 @@ module Roby
 	alias :each_child_object 	:each_child_vertex
 	alias :each_parent_object 	:each_parent_vertex
 	alias :each_relation	:each_graph
+	alias :clear_relations  :clear_vertex
 
 	def enum_relations; @enum_relations ||= enum_for(:each_graph) end
 	def enum_parent_objects(type)
