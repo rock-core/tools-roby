@@ -126,36 +126,48 @@ module Roby
 	    super() if defined? super
 
 	    if controlable || control
-		self.command = (control || lambda { |context| emit(context) })
+		self.command = (control || method(:emit))
 	    end
 	end
 
+	# The current command block
+	attr_reader :command
+
 	# Sets a command proc for this event generator. Sets controlable to true
 	def command=(block)
-	    # Returns true if the command has been called and false otherwise
-	    # The command won't be called if postpone() is called within the
-	    # #calling hook
-	    singleton_class.send(:define_method, :call_without_propagation) do |context|
-		postponed = catch :postponed do 
-		    calling(context)
-		    @pending += 1
-
-		    Propagation.propagation_context([self]) do
-			Propagation.gather_exceptions(self) { block[context] }
-		    end
-		    false
-		end
-		called(context)
-
-		if postponed
-		    postponed(context, *postponed)
-		    false
-		else
-		    true
+	    old = @command
+	    @command = block
+	    if block != old
+		if block then singleton_class.class_eval { public :call }
+		else singleton_class.class_eval { private :call }
 		end
 	    end
-	    @controlable = true
-	    singleton_class.class_eval { public :call }
+	end
+	
+	# True if this event is controlable
+	def controlable?; !!@command end
+
+	# Returns true if the command has been called and false otherwise
+	# The command won't be called if postpone() is called within the
+	# #calling hook
+	def call_without_propagation(context) # :nodoc:
+	    postponed = catch :postponed do 
+		calling(context)
+		@pending += 1
+
+		Propagation.propagation_context([self]) do
+		    Propagation.gather_exceptions(self) { command[context] }
+		end
+		false
+	    end
+	    called(context)
+
+	    if postponed
+		postponed(context, *postponed)
+		false
+	    else
+		true
+	    end
 	end
 
 	# Call the command associated with self. Note that an event might be
@@ -330,9 +342,6 @@ module Roby
 	    generator.add_forwarding(self)
 	    self
 	end
-
-	# True if this event is controlable
-	def controlable?; @controlable end
 
 	# A [time, event] array of past event emitted by this object
 	attribute(:history) { Array.new }

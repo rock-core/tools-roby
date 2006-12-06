@@ -359,14 +359,6 @@ class TC_Event < Test::Unit::TestCase
         end
     end
 
-#	require 'roby/log/logger'
-#	require 'roby/log/console'
-#	Log.loggers << Log::ConsoleLogger.new(STDERR)
-
-
-    def test_and
-    end
-
     def test_or
 	a, b, c = 3.enum_for(:times).map { EventGenerator.new(true) }
 
@@ -486,6 +478,26 @@ class TC_Event < Test::Unit::TestCase
 	assert_equal([].to_value_set, e1.related_tasks)
 	e1.on t1.event(:start)
 	assert_equal([t1].to_value_set, e1.related_tasks)
+    end
+
+    def test_command_set
+	FlexMock.use do |mock|
+	    ev = EventGenerator.new
+	    assert(!ev.controlable?)
+
+	    ev.command = lambda { mock.first }
+	    mock.should_receive(:first).once.ordered
+	    assert(ev.controlable?)
+	    ev.call(nil)
+
+	    ev.command = lambda { mock.second }
+	    mock.should_receive(:second).once.ordered
+	    assert(ev.controlable?)
+	    ev.call(nil)
+
+	    ev.command = nil
+	    assert(!ev.controlable?)
+	end
     end
 end
 
