@@ -23,11 +23,11 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     end
 
     def test_proxy_wrapping
-	real_klass = Class.new(Roby::PlanObject) do
+	real_klass = Class.new(Roby::EventGenerator) do
 	    define_method("forbidden") {}
 	end
 
-	proxy_klass = Class.new(Roby::PlanObject) do
+	proxy_klass = Class.new(Roby::EventGenerator) do
 	    include Proxy
 
 	    proxy_for real_klass
@@ -59,19 +59,20 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     end
 
     def test_proxy_derived
-	base_klass = Class.new(Roby::PlanObject)
+	base_klass = Class.new(Roby::EventGenerator)
 	derv_klass = Class.new(base_klass)
-	proxy_base_klass = Class.new(Roby::PlanObject) do
+	proxy_base_klass = Class.new(Roby::EventGenerator) do
 	    include Proxy
 	    proxy_for base_klass
 	    def clear_vertex; end
 	end
 
-	proxy_derv_klass = Class.new(Roby::PlanObject) do
+	proxy_derv_klass = Class.new(Roby::EventGenerator) do
 	    include Proxy
 	    proxy_for derv_klass
 	    def clear_vertex; end
 	end
+
 
 	base_obj = base_klass.new
 	base_obj.plan = plan
