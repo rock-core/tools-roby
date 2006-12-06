@@ -76,7 +76,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_equal([1, 2].to_set, r_tasks.map { |t| t.arguments[:id] }.to_set)
     end
 
-    def test_remote_proxy
+    def test_remote_proxy_update
 	peer2peer do |remote|
 	    remote.plan.insert(SimpleTask.new(:id => 'simple_task'))
 	    remote.plan.discover(Task.new(:id => 'task'))
@@ -90,10 +90,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	r_task        = remote_task(:id => 'task')
 	r_other_task  = remote_task(:id => 'other_task')
 
-	proxy = nil
-	assert_nothing_raised { proxy = proxy_model.new(remote_peer, r_simple_task) }
-	assert_raises(TypeError) { proxy_model.new(remote_peer, r_task) }
-	local.plan.insert(proxy)
+	proxy = remote_peer.proxy(r_simple_task)
 
 	task = Task.new
 	assert(proxy.read_only?)
@@ -122,8 +119,26 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_raises(NotOwner) { proxy.remove_child other_proxy }
 	Distributed.update([proxy, other_proxy]) { other_proxy.realized_by proxy }
 	assert_raises(NotOwner) { other_proxy.remove_child proxy }
+	apply_remote_command
+    end
 
-	# Test Peer#proxy
+    def test_task_proxy
+	peer2peer do |remote|
+	    remote.plan.insert(SimpleTask.new(:id => 'simple_task'))
+	    remote.plan.discover(Task.new(:id => 'task'))
+	end
+
+	proxy_model = Distributed.RemoteProxyModel(SimpleTask)
+	assert(proxy_model.ancestors.include?(TaskProxy))
+
+	r_simple_task = remote_task(:id => 'simple_task')
+	r_task        = remote_task(:id => 'task')
+
+	proxy = nil
+	assert_nothing_raised { proxy = proxy_model.new(remote_peer, r_simple_task) }
+	assert_raises(TypeError) { proxy_model.new(remote_peer, r_task) }
+	local.plan.insert(proxy)
+
 	assert(proxy = remote_peer.proxy(r_task))
 	assert_equal(local.plan, proxy.plan)
 	assert(remote_peer.owns?(proxy))
