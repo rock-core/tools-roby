@@ -15,6 +15,11 @@ module DistributedTestCommon
 	@plan = Plan.new
 	super
     end
+    def teardown
+	apply_remote_command if remote_peer
+	super
+	@remote_peer = nil
+    end
 
     BASE_PORT     = 1245
     DISCOVERY_URI = "roby://localhost:#{BASE_PORT}"
