@@ -134,6 +134,27 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_equal(object.remote_object, proxy.remote_object(remote_peer.remote_id))
     end
 
+    def test_event_proxy
+	peer2peer do |remote|
+	    remote.plan.discover(ev = EventGenerator.new(true))
+	    remote.plan.discover(ev = EventGenerator.new(false))
+	    remote.plan.discover(ev = EventGenerator.new { } )
+	    remote.class.class_eval do
+		define_method(:event_has_happened?) { ev.happened? }
+	    end
+	end
+	assert_equal(3, remote_peer.plan.free_events.size)
+
+	marshalled = remote_peer.plan.free_events
+	marshalled.each { |ev| assert_kind_of(Roby::Distributed::MarshalledEventGenerator, ev) }
+
+	all_events = marshalled.map { |ev| remote_peer.proxy(ev) }
+	all_events.each { |ev| assert_kind_of(Roby::Distributed::EventGeneratorProxy, ev) }
+	
+	assert_equal(1, all_events.find_all { |ev| !ev.controlable? }.size)
+	assert_equal(2, all_events.find_all { |ev| ev.controlable? }.size)
+    end
+
     # Test that the remote plan structure is properly mapped to the local
     # plan database
     def test_discover_neighborhood

@@ -54,7 +54,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     def test_plan_updates
 	peer2peer do |remote|
 	    class << remote
-		attr_reader :mission, :subtask, :next_mission
+		attr_reader :mission, :subtask, :next_mission, :free_event
 		def create_mission
 		    @mission = Roby::Task.new :id => 'mission'
 		    plan.insert(mission)
@@ -67,6 +67,13 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 		    @next_mission = Roby::Task.new :id => 'next_mission'
 		    mission.on(:start, next_mission, :start)
 		    plan.insert(next_mission)
+		end
+		def create_free_event
+		    @free_event = Roby::EventGenerator.new(true)
+		    plan.discover(free_event)
+		end
+		def remove_free_event
+		    plan.remove_object(free_event)
 		end
 		def unlink_next_mission; mission.event(:start).remove_signal(next_mission.event(:start)) end
 		def remove_next_mission; plan.remove_object(next_mission) end
@@ -105,6 +112,14 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert(p_next_mission = local.plan.known_tasks.find { |t| t == remote_peer.proxy(r_next_mission) })
 	assert(p_mission.event(:start).child_object?(p_next_mission.event(:start), EventStructure::Signal))
 	assert(remote_peer.subscribed?(r_next_mission.remote_object), remote_peer.subscriptions)
+
+	remote.create_free_event
+	apply_remote_command
+	assert_equal(1, local.plan.free_events.size)
+
+	remote.remove_free_event
+	apply_remote_command
+	assert_equal(0, local.plan.free_events.size)
 
 	remote.unlink_next_mission
 	apply_remote_command
