@@ -359,7 +359,13 @@ module Roby
 	    end
 
 	    def proxy(peer)
-		peer.proxy(task).event(symbol)
+		task = peer.proxy(self.task)
+		ev   = task.event(symbol)
+		if task.kind_of?(RemoteObjectProxy)
+		    ev.extend EventGeneratorProxy
+		    ev.initialize_remote_proxy(peer, self)
+		end
+		ev
 	    end
 
 	    attr_reader :task, :symbol
