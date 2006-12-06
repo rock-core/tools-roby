@@ -22,9 +22,8 @@ module Roby::Distributed
     class << self
 	def each_subscribed_peer(*objects)
 	    peers.each do |name, peer|
-		if objects.any? { |o| peer.local.subscribed?(o) || peer.owns?(o) }
-		    yield(peer)
-		end
+		next if objects.any? { |o| !o.has_sibling?(peer) }
+		yield(peer) if objects.any? { |o| peer.local.subscribed?(o) || peer.owns?(o) }
 	    end
 	end
     end

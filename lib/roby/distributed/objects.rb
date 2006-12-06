@@ -14,6 +14,7 @@ module Roby
 	module LocalObject
 	    def owners; @owners ||= [Roby::Distributed.remote_id].to_set end
 	    def self_owned?; true end
+	    def has_sibling?(peer); true end
 	end
 
 	module RemoteObject
@@ -27,6 +28,7 @@ module Roby
 	    end
 
 	    def self_owned?; false end
+	    def has_sibling?(peer); true end
 
 	    def ==(obj)
 		obj.kind_of?(RemoteObject) && 
@@ -38,6 +40,11 @@ module Roby
 	module DistributedObject
 	    def self_owned?
 		owners.include?(Distributed.remote_id)
+	    end
+
+	    def has_sibling?(peer)
+		!owners.include?(peer.remote_id) ||
+		    remote_siblings.has_key?(peer.remote_id)
 	    end
 
 	    attribute(:remote_siblings) { Hash.new }
