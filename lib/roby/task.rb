@@ -36,11 +36,11 @@ module Roby
 	end
         def to_s
 	    if task
-		history = task.history.map do |time, event|
+		history = task.history.map do |event|
 			"@%i[%s.%03i] %s" % [
 			    event.propagation_id,
-			    time.strftime("%Y/%m/%d %H:%M:%S"),
-			    time.tv_usec / 1000,
+			    event.time.strftime("%Y/%m/%d %H:%M:%S"),
+			    event.time.tv_usec / 1000,
 			    event.name
 			]
 		    end
@@ -61,9 +61,9 @@ module Roby
         # The task which fired this event
         attr_reader :task
         
-        def initialize(task, generator, propagation_id, context = nil)
+        def initialize(task, generator, propagation_id, context, time = Time.now)
             @task = task
-            super(generator, propagation_id, context)
+            super(generator, propagation_id, context, time)
         end
 
         # If the event model defines a controlable event
@@ -334,7 +334,7 @@ module Roby
 		history += event.history
 	    end
 
-	    history.sort_by { |time, _| time }
+	    history.sort_by { |ev| ev.time }
 	end
 
 	# Returns the set of tasks directly related to this task, either because 

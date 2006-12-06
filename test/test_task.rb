@@ -85,7 +85,7 @@ class TC_Task < Test::Unit::TestCase
 
         # Check properties on EvControlable
         assert( klass::EvControlable.respond_to?(:call) )
-        event = klass::EvControlable.new(task, 0, 0)
+        event = klass::EvControlable.new(task, 0, 0, nil)
         # Check for the definition of :call
         assert_equal(:ev_controlable, klass::EvControlable.call(task, :ev_controlable))
         # Check for default argument in :call
@@ -155,7 +155,7 @@ class TC_Task < Test::Unit::TestCase
 	    task.start!(42)
 	end
         assert(task.finished?)
-	event_history = task.history.map { |_, ev| ev.generator }
+	event_history = task.history.map { |ev| ev.generator }
 	assert_equal([task.event(:start), task.event(:success), task.event(:stop)], event_history)
     end
 
@@ -414,7 +414,7 @@ class TC_Task < Test::Unit::TestCase
         assert(start_node.finished? && if_node.finished?)
 
 	# Check history
-	event_history = if_node.history.map { |_, ev| ev.generator }
+	event_history = if_node.history.map { |ev| ev.generator }
 	assert_equal(4, event_history.size, "  " + event_history.join("\n"))
 	assert_equal(if_node.event(:start), event_history.first)
 	assert( if_node.event(:a) == event_history[1] || if_node.event(:b) == event_history[1] )
@@ -423,7 +423,7 @@ class TC_Task < Test::Unit::TestCase
         multi_hop = MultiEventTask.new
         multi_hop.start!
         assert(multi_hop.finished?)
-	event_history = multi_hop.history.map { |_, ev| ev.generator }
+	event_history = multi_hop.history.map { |ev| ev.generator }
 	expected_history = [:start, :inter, :success, :stop].map { |name| multi_hop.event(name) }
 	assert_equal(expected_history, event_history)
     end
