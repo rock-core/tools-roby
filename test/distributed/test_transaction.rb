@@ -159,6 +159,13 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.self_owned
 
 	# Add relations
+	assert(t_task.owners.subset?(trsc.owners))
+	assert(!t_task.read_only?)
+	assert(!task.read_only?)
+	assert(!t_task.event(:start).read_only?)
+	assert(!t_task.event(:stop).read_only?)
+	assert(!task.event(:start).read_only?)
+	assert(!task.event(:stop).read_only?)
 	t_task.realized_by task
 	task.realized_by t_task
 	t_task.event(:start).on task.event(:start)
