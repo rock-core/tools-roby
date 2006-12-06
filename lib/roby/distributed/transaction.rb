@@ -29,20 +29,52 @@ module Roby
 	    end
 
 	    # Add the Peer +peer+ to the list of owners
-	    def add_owner(peer); @owners << peer.remote_id end
+	    def add_owner(peer, distributed = true)
+		peer_id = if peer.respond_to?(:remote_id) then peer.remote_id
+			  else peer
+			  end
+
+		return if @owners.include?(peer_id)
+
+		if distributed
+		    remote_siblings.each do |_, remote|
+			remote.add_owner(peer_id, false)
+		    end
+		end
+		@owners << peer_id
+		Roby.debug { "added owner to #{self}: #{owners.to_a}" }
+	    end
+
+	    # Checks that +peer_id+ can be removed from the list of owners
+	    def prepare_remove_owner(peer_id)
+		each_task(true) do |t|
+		    if discovered_relations_of?(t) && t.owners.include?(peer_id)
+			raise OwnershipError, "#{peer_id} still owns tasks in the transaction (#{t})"
+		    end
+		end
+	    end
+
 	    # Removes +peer+ from the list of owners. Raises OwnershipError if
 	    # there are modified tasks in this transaction which are owned by
 	    # +peer+
 	    def remove_owner(peer, do_check = true)
+		peer_id = if peer.respond_to?(:remote_id) then peer.remote_id
+			  else peer
+			  end
+
+		return unless @owners.include?(peer_id)
+
 		if do_check
-		    each_task(true) do |t|
-			if discovered_relations_of?(t) && peer.owns?(t)
-			    raise OwnershipError, "#{peer} still owns tasks in the transaction (#{t})"
-			end
+		    prepare_remove_owner(peer_id)
+		    remote_siblings.each do |_, remote|
+			remote.prepare_remove_owner(peer_id)
 		    end
 		end
 
-		@owners.delete(peer.remote_id)
+		@owners.delete(peer_id)
+		remote_siblings.each do |_, remote|
+		    remote.remove_owner(peer_id, false)
+		end
 	    end
 
 	    # Sends the transaction to +peer+. This must be done only once.
