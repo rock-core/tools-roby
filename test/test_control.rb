@@ -100,17 +100,44 @@ class TC_Control < Test::Unit::TestCase
         assert(plan_task == result_task, plan_task)
     end
 
+    class SpecificException < RuntimeError; end
     def test_unhandled_event_exceptions
-	Control.instance.abort_on_exception = false
-	t = Class.new(Task) do
+	Control.instance.abort_on_exception = true
+
+	# Test that the event is not pending if the command raises
+	t = Class.new(SimpleTask) do
 	    def start(context)
-		raise RuntimeError, "bla"
+		raise SpecificException, "bla"
 	    end
 	    event :start
 	end.new
+	begin; t.start!
+	rescue SpecificException
+	end
+	assert(!t.event(:start).pending?)
 
-	Control.once { t.start!(nil) }
-	Control.instance.process_events
+	# Check that the propagation is pruned if the command raises
+	t = nil
+	FlexMock.use do |mock|
+	    t = Class.new(SimpleTask) do
+		define_method(:start) do |context|
+		    mock.command_called
+		    raise SpecificException, "bla"
+		    emit :start
+		end
+		event :start
+		on(:start) { mock.handler_called }
+	    end.new
+
+	    mock.should_receive(:command_called).once
+	    mock.should_receive(:handler_called).never
+
+	    Control.once { t.start!(nil) }
+	    assert_raises(SpecificException) { Control.instance.process_events }
+	    assert_equal(0, t.event(:start).pending)
+	end
+
+	# Check that the task has been garbage collected in the process
 	assert(! plan.include?(t))
     end
 
