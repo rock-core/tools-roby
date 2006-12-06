@@ -36,7 +36,7 @@ module Roby
 	def add_child_object(child, type, info = nil)
 	    changed = synchronize_plan(child)
 	    super
-	    changed.plan.discover(changed) if changed
+	    changed.plan.discover(changed.root_object) if changed
 
 	rescue Exception
 	    changed.plan = nil if changed
