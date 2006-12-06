@@ -125,6 +125,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	task = Task.new
 	assert_raises(NotOwner) { t_task.discover(TaskStructure::Hierarchy, true) }
 	assert_raises(NotOwner) { t_task.realized_by task }
+	assert(! task.plan)
 	trsc.add_owner remote_peer
 	assert_nothing_raised { t_task.discover(TaskStructure::Hierarchy, true) }
 	assert_raises(NotOwner) { t_task.realized_by task }
