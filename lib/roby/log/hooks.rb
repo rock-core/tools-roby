@@ -80,7 +80,7 @@ module Roby::Log
     Roby::Transaction.include TransactionHooks
 
     module EventGeneratorHooks
-	HOOKS = %w{added_event_relation removed_event_relation generator_calling generator_fired generator_signalling generator_postponed}
+	HOOKS = %w{added_event_relation removed_event_relation generator_calling generator_called generator_fired generator_signalling generator_forwarding generator_postponed}
 
 	def added_child_object(to, type, info)
 	    super if defined? super
@@ -97,6 +97,11 @@ module Roby::Log
 	    Roby::Log.log(:generator_calling) { [Time.now, Wrapper[self], context] }
 	end
 
+	def called(context)
+	    super if defined? super
+	    Roby::Log.log(:generator_called) { [Time.now, Wrapper[self], context] }
+	end
+
 	def fired(event)
 	    super if defined? super
 	    Roby::Log.log(:generator_fired) { [Time.now, Wrapper[event]] }
@@ -105,6 +110,11 @@ module Roby::Log
 	def signalling(event, to)
 	    super if defined? super
 	    Roby::Log.log(:generator_signalling) { [Time.now, Wrapper[event], Wrapper[to]] }
+	end
+
+	def forwarding(event, to)
+	    super if defined? super
+	    Roby::Log.log(:generator_forwarding) { [Time.now, Wrapper[event], Wrapper[to]] }
 	end
 
 	def postponed(context, generator, reason)
