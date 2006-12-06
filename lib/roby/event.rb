@@ -139,7 +139,7 @@ module Roby
 	def command=(block)
 	    old = @command
 	    @command = block
-	    if block != old
+	    if !block ^ !old
 		if block then singleton_class.class_eval { public :call }
 		else singleton_class.class_eval { private :call }
 		end
