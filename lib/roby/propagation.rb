@@ -131,17 +131,19 @@ got an exception which did not specify its source
 	Thread.current[:propagation_generator] = generator
     end
 
-    # Adds a propagation to the next propagation step
+    # Adds a propagation to the next propagation step. More specifically, it
+    # adds either forwarding or signalling the set of Event objects +from+ to
+    # the +signalled+ event generator, with the context +context+
     def self.add_event_propagation(only_forward, from, signalled, context)
-	step = (Thread.current[:propagation][signalled] ||= [nil, [], []])
+	step = (Thread.current[:propagation][signalled] ||= [only_forward])
 
-	if !step[0].nil? && step[0] != only_forward
+	if step.first != only_forward
 	    raise PropagationException.new(from), "both signalling and forwarding to #{signalled}"
 	end
-
-	step[0] = only_forward
-	step[1] += from if from
-	step[2] << context if context
+	from = [nil] unless from && !from.empty?
+	from.each do |ev|
+	    step << ev << context
+	end
     end
 
     # Calls its block in a #gather_propagation context and propagate events
@@ -188,7 +190,12 @@ got an exception which did not specify its source
 	    # Note that internal signalling does not need a #call
 	    # method (hence the respond_to? check). The fact that the
 	    # event can or cannot be fired is checked in #fire (using can_signal?)
-	    current_step.each do |signalled, (forward, sources, context)|
+	    current_step.each do |signalled, (forward, *info)|
+		sources, context = [], []
+		info.each_slice(2) do |s, c|
+		    sources << s if s
+		    context << c if c
+		end
 		context = *context
 
 		if !forward && signalled.controlable?
