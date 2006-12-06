@@ -177,10 +177,12 @@ module TC_PlanStatic
 	assert(!t1.child_objects(TaskStructure::Hierarchy).empty?)
 	plan.remove_task(t2)
 	assert(t1.child_objects(TaskStructure::Hierarchy).empty?)
+	assert(!plan.include?(t2))
 
 	assert(!t1.event(:stop).child_objects(EventStructure::Signal).empty?)
 	plan.remove_task(t3)
 	assert(t1.event(:stop).child_objects(EventStructure::Signal).empty?)
+	assert(!plan.include?(t3))
     end
 
     def test_free_events
