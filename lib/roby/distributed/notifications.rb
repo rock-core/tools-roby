@@ -4,6 +4,7 @@ module Roby
 	# Set of hooks to send Plan updates to remote hosts
 	module PlanModificationHooks
 	    def inserted(tasks)
+		super if defined? super
 		unless Distributed.updating?([self])
 		    Distributed.each_subscribed_peer(self) do |peer|
 			peer.plan_update(:insert, self, tasks)
@@ -11,6 +12,7 @@ module Roby
 		end
 	    end
 	    def discovered_tasks(tasks)
+		super if defined? super
 		unless Distributed.updating?([self])
 		    Distributed.each_subscribed_peer(self) do |peer|
 			peer.plan_update(:discover, self, tasks)
@@ -20,6 +22,7 @@ module Roby
 	    alias :discovered_events :discovered_tasks
 
 	    def discarded(tasks)
+		super if defined? super
 		unless Distributed.updating?([self])
 		    Distributed.each_subscribed_peer(self) do |peer|
 			tasks = tasks.find_all { |t| peer.local.subscribed?(t) }
@@ -28,26 +31,31 @@ module Roby
 		end
 	    end
 	    def replaced(from, to)
+		super if defined? super
 		Distributed.each_subscribed_peer(from) do |peer|
 		    peer.plan_update(:replace, self, from, to)
 		end
 	    end
 	    def finalized_task(task)
+		super if defined? super
 		Distributed.each_subscribed_peer(task) do |peer|
 		    peer.plan_update(:remove_object, self, task)
 		end
 	    end
 	    def finalized_event(event)
+		super if defined? super
 		Distributed.each_subscribed_peer(event) do |peer|
 		    peer.plan_update(:remove_object, self, event)
 		end
 	    end
 	    def added_transaction(trsc)
+		super if defined? super
 		Distributed.each_subscribed_peer(self) do |peer|
 		    peer.transaction_update(:added_transaction, self, trsc)
 		end
 	    end
 	    def removed_transaction(trsc)
+		super if defined? super
 		Distributed.each_subscribed_peer(trsc) do |peer|
 		    peer.transaction_update(:removed_transaction, self, trsc)
 		end
