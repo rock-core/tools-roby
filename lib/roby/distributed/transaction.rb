@@ -296,8 +296,7 @@ module Roby
 		end
 
 		plan = peer.proxy(remote_trsc.plan)
-		trsc = Roby::Distributed::Transaction.new(plan)
-		trsc.owners.merge(remote_trsc.owners)
+		trsc = Roby::Distributed::Transaction.new(plan, remote_trsc.owners)
 		trsc.remote_siblings[peer.remote_id] = remote_trsc.remote_object
 
 		# subscribe to the remote transaction to get updates
