@@ -82,6 +82,28 @@ module Roby
 		peer.transaction_propose(self)
 	    end
 
+	    def discover(objects)
+		if objects
+		    events, tasks = partition_event_task(objects)
+		    (events + tasks).each do |object|
+			if !object.kind_of?(Transactions::Proxy) && !object.owners.subset?(owners)
+			    raise NotOwner, "#{object} is not owned by #{owners.to_a} (#{object.owners.to_a})"
+			end
+		    end
+		    super(events)
+		    super(tasks)
+		else
+		    super
+		end
+	    end
+
+	    def discovered_object(object, relation)
+		super if defined? super
+		if discovered_objects.include?(object)
+		    # first time the object is discovered. Subscribe our remote peers to it.
+		end
+	    end
+
 	    # Sends the provided command to all owners. If +ignore_missing+ is
 	    # true, ignore the owners to which the transaction has not yet been
 	    # proposed. Raises InvalidRemoteOperation if +ignore_missing+.

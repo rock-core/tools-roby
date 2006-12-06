@@ -15,6 +15,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     end
 
     def teardown 
+	apply_remote_command
 	Distributed.unpublish
 	Distributed.state = nil
 
@@ -64,6 +65,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.self_owned
 	remote_peer.transaction_create(trsc) { |remote_trsc| remote_trsc = remote_trsc.remote_object }
 	apply_remote_command
+	trsc.add_owner remote_peer
+
 	assert_equal(remote_trsc, trsc.remote_siblings[remote_peer.remote_id])
 	assert(remote_trsc.remote_siblings.has_key?(local_peer.remote_id), remote_trsc.remote_siblings.keys)
 	remote.test_find_transaction(trsc)
@@ -113,7 +116,6 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	t_task = trsc[r_task]
 	assert(!Distributed.owns?(r_task))
 	assert(remote_peer.owns?(t_task))
-	trsc.insert(t_task)
 
 	# Check we still can remove the peer from the transaction owners
 	trsc.add_owner(remote_peer)
@@ -215,6 +217,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	end
 	trsc   = Roby::Distributed::Transaction.new(plan)
 	trsc.add_owner remote_peer
+	trsc.self_owned
 
 	task, r_task = build_transaction(trsc)
 

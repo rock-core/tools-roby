@@ -21,12 +21,14 @@ module Roby
 	end
 	def do_include(object)
 	    case object
-	    when Roby::Task
+	    when Roby::Transactions::Task
 		@known_tasks << object
 		discovered_tasks([object])
-	    when Roby::EventGenerator 
+	    when Roby::Transactions::EventGenerator
 		@free_events << object
 		discovered_events([object])
+	    when Roby::PlanObject
+		discover(object)
 	    else
 		raise TypeError, "unknown object type #{object} (#{object.class})"
 	    end
