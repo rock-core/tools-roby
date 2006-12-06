@@ -282,64 +282,69 @@ module Roby::Distributed
 	def send_thread
 	    @send_queue = Queue.new
 	    @send_thread = Thread.new do
-		error_count = 0
-		while calls ||= @send_queue.get
-		    break unless connected?
-		    while !alive?
+		begin
+		    error_count = 0
+		    while calls ||= @send_queue.get
 			break unless connected?
-			connection_space.wait_discovery
+			while !alive?
+			    break unless connected?
+			    connection_space.wait_discovery
+			end
+
+			# Mux all calls into one array and send them
+			synchronize do
+			    calls += @send_queue.get(true)
+			    Roby::Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
+			    results, error = begin remote_server.demux(calls.map { |a| a.first })
+					     rescue Exception; [[], $!]
+					     end
+			    success = results.size
+			    Roby::Distributed.debug { "#{neighbour.name} processed #{success} commands" }
+			    (0...success).each do |i|
+				if block = calls[i][1]
+				    block.call(results[i]) rescue nil
+				end
+			    end
+
+			    error_count = 0 if success > 0
+			    if error
+				Roby::Distributed.warn  do
+				    call = calls[success].first
+				     "#{name} reports an error on #{call[0]}.#{call[1]}(#{call[2..-1].join(", ")})"
+				end
+				Roby::Distributed.debug { "\n" + error.full_message }
+				if DRb::DRbConnError === error
+				    # We have a connection error, mark the connection as not being alive
+				    dead_connection!
+				end
+
+				calls = calls[success..-1]
+				error_count += 1
+			    else
+				calls = nil
+				@sending = !@send_queue.empty?
+				send_flushed.broadcast unless @sending
+			    end
+
+			    if (error_count += 1) > self.max_allowed_errors
+				Roby::Distributed.fatal do
+				    "#{name} disconnecting from #{neighbour.name} because of too much errors"
+				end
+				disconnect
+				break
+			    end
+			end
 		    end
 
-		    # Mux all calls into one array and send them
+		    Roby::Distributed.debug "sending thread quit for #{neighbour.name}"
+		    @sending = nil
+		    @send_queue.clear
 		    synchronize do
-			calls += @send_queue.get(true)
-			Roby::Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
-			results, error = begin remote_server.demux(calls.map { |a| a.first })
-					 rescue Exception; [[], $!]
-					 end
-			success = results.size
-			Roby::Distributed.debug { "#{neighbour.name} processed #{success} commands" }
-			(0...success).each do |i|
-			    if block = calls[i][1]
-				block.call(results[i]) rescue nil
-			    end
-			end
-
-			error_count = 0 if success > 0
-			if error
-			    Roby::Distributed.warn  do
-				call = calls[success].first
-				 "#{name} reports an error on #{call[0]}.#{call[1]}(#{call[2..-1].join(", ")})"
-			    end
-			    Roby::Distributed.debug { "\n" + error.full_message }
-			    if DRb::DRbConnError === error
-				# We have a connection error, mark the connection as not being alive
-				dead_connection!
-			    end
-
-			    calls = calls[success..-1]
-			    error_count += 1
-			else
-			    calls = nil
-			    @sending = !@send_queue.empty?
-			    send_flushed.broadcast unless @sending
-			end
-
-			if (error_count += 1) > self.max_allowed_errors
-			    Roby::Distributed.fatal do
-				"#{name} disconnecting from #{neighbour.name} because of too much errors"
-			    end
-			    disconnect
-			    break
-			end
+			send_flushed.broadcast
 		    end
-		end
 
-		Roby::Distributed.debug "sending thread quit for #{neighbour.name}"
-		@sending = nil
-		@send_queue.clear
-		synchronize do
-		    send_flushed.broadcast
+		rescue Exception
+		    STDERR.puts "Communication thread dies with #{$!.full_message}"
 		end
 	    end
 	end
