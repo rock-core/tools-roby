@@ -300,6 +300,7 @@ module Roby
         # If a model of +event+ is defined in the task model
         def has_event?(event); model.has_event?(event) end
         
+	def starting?; event(:start).pending? end
 	# If this task never ran
 	def pending?; !event(:start).happened? end
         # If this task is currently running
@@ -309,6 +310,10 @@ module Roby
 	def final_event
 	    each_event { |ev| return ev if ev.terminal? && ev.happened? } 
 	    nil
+	end
+	def finishing?
+	    each_event { |ev| return true if ev.terminal? && ev.pending? }
+	    false
 	end
         # If this task ran and is finished
 	def finished?; !!final_event end
