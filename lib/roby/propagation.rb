@@ -102,7 +102,7 @@ got an exception which did not specify its source
     end
 
     # Sets the source_event and source_generator variables according
-    # to +source+. +source+ is the +from+ argument of #add_propagation_step
+    # to +source+. +source+ is the +from+ argument of #add_event_propagation
     def self.propagation_context(sources)
 	raise "not in a gathering context in #fire" unless gathering?
 
