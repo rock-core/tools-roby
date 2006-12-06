@@ -90,12 +90,12 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	assert_is_proxy_of(task, proxy, Task)
 
 	start_event = proxy.event(:start)
-	assert_is_proxy_of(task.event(:start), start_event, EventGenerator)
+	assert_is_proxy_of(task.event(:start), start_event, TaskEventGenerator)
 
 	proxy.event(:stop)
 	proxy.event(:success)
 	proxy.each_event do |proxy_event|
-	    assert_is_proxy_of(task.event(proxy_event.symbol), proxy_event, EventGenerator)
+	    assert_is_proxy_of(task.event(proxy_event.symbol), proxy_event, TaskEventGenerator)
 	end
     end
 

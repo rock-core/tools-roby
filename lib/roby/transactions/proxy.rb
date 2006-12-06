@@ -290,6 +290,11 @@ module Roby::Transactions
 	end
     end
 
+    class TaskEventGenerator < Roby::Transactions::EventGenerator
+	proxy_for Roby::TaskEventGenerator
+	proxy :task
+    end
+
     # Proxy for Roby::Task
     class Task < Roby::Task
 	include Proxy

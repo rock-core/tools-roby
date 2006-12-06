@@ -24,6 +24,7 @@ module Roby
 	    when Roby::Transactions::Task
 		@known_tasks << object
 		discovered_tasks([object])
+	    when Roby::Transactions::TaskEventGenerator
 	    when Roby::Transactions::EventGenerator
 		@free_events << object
 		discovered_events([object])
