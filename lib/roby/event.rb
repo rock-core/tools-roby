@@ -155,19 +155,20 @@ module Roby
 	def call_without_propagation(context) # :nodoc:
 	    postponed = catch :postponed do 
 		calling(context)
-		@pending += 1
+		old_pending, @pending = @pending, @pending + 1
 
 		Propagation.propagation_context([self]) do
-		    Propagation.gather_exceptions(self) { command[context] }
+		    if error = Propagation.gather_exceptions(self) { command[context] }
+			@pending = old_pending
+		    end
 		end
 		false
 	    end
-	    called(context)
-
 	    if postponed
 		postponed(context, *postponed)
 		false
 	    else
+		called(context)
 		true
 	    end
 	end
@@ -261,7 +262,6 @@ module Roby
 		each_handler do |h| 
 		    Propagation.gather_exceptions(self) { h.call(event) }
 		end
-	    end
 
 		fired(event)
 	    end
@@ -271,8 +271,6 @@ module Roby
 	# Raises an exception object when an event whose command has been called
 	# won't be emitted (ever)
 	def emit_failed(*what)
-	    @pending -= 1
-
 	    what, message = *what
 	    what ||= EventModelViolation
 
@@ -286,6 +284,9 @@ module Roby
 	    else
 		raise what, "failed to emit #{self}: #{message}"	
 	    end
+
+	ensure
+	    @pending -= 1
 	end
 
 	# Emits the event regardless of wether we are in a propagation context or not
