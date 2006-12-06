@@ -9,7 +9,7 @@ module Roby
 
 	    attr_reader :owners
 	    def initialize(plan, owners = nil)
-		@owners = ValueSet.new
+		@owners = Set.new
 		@owners.merge(owners) if owners
 		super(plan)
 	    end
@@ -246,9 +246,9 @@ module Roby
 	module RemoteTransactionProxy
 	    include DistributedObject
 
-	    def discover(relation)
-		unless plan.owners.include_all?(owners)
-		    raise NotOwner, "transaction owners #{plan.owners.to_a.to_s} do not own #{self.to_s}: #{owners.to_a.to_s}"
+	    def discover(relation, mark)
+		unless !mark || Distributed.updating?([self]) || owners.subset?(plan.owners)
+		    raise NotOwner, "transaction owners #{plan.owners.inspect} do not own #{self.to_s}: #{owners.inspect}"
 		end
 		super
 	    end

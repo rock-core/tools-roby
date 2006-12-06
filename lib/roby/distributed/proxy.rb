@@ -1,16 +1,19 @@
 require 'roby/distributed/objects'
 require 'roby/transactions/proxy'
 class Roby::Plan
-    def owners; @owners ||= [Roby::Distributed.state].to_value_set end
+    def owners; @owners ||= [Roby::Distributed.state].to_set end
 end
 class Roby::PlanObject
-    def owners; @owners ||= [Roby::Distributed.state].to_value_set end
+    def owners; @owners ||= [Roby::Distributed.state].to_set end
 end
 class Roby::Transactions::Task
     def_delegator :@__getobj__, :owners
 end
 class Roby::Transactions::EventGenerator
     def_delegator :@__getobj__, :owners
+end
+class Roby::TaskEventGenerator
+    def owners; task.owners end
 end
 
 module Roby::Distributed
@@ -83,7 +86,7 @@ module Roby::Distributed
 
     module RemoteObjectProxy
 	include RemoteObject
-	# The object owners. This is always [peer_id].to_value_set
+	# The object owners. This is always [peer_id].to_set
 	attr_reader :owners
 	# The marshalled object
 	attr_reader :marshalled_object
@@ -96,7 +99,7 @@ module Roby::Distributed
 	    @peer_id = peer.remote_id
 
 	    @marshalled_object = marshalled_object
-	    @owners = [peer.remote_id].to_value_set
+	    @owners = [peer.remote_id].to_set
 	end
 
 	module ClassExtension

@@ -32,6 +32,15 @@ class Hash
 	inject({}) { |h, (k, v)| h[k] = peer.proxy(v); h }
     end
 end
+class Set
+    class DRoby < Array::DRoby
+	def self._load(str); super.to_set end
+    end
+    def droby_dump; DRoby.new(self) end
+    def proxy(peer)
+	map { |o| peer.proxy(o) }.to_set
+    end
+end
 class ValueSet
     class DRoby < Array::DRoby
 	def self._load(str); super.to_value_set end
