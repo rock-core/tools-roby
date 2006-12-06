@@ -46,7 +46,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert_raises(InvalidRemoteOperation) { remote_peer.proxy(dtrsc) }
     end
 
-    def test_create_transaction
+    def test_transaction_create
 	peer2peer do |remote|
 	    class << remote
 		include Test::Unit::Assertions
@@ -61,7 +61,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	end
 	trsc = Distributed::Transaction.new(plan)
 	remote_trsc = nil
-	remote_peer.create_transaction(trsc) { |remote_trsc| }
+	trsc.self_owned
+	remote_peer.transaction_create(trsc) { |remote_trsc| remote_trsc = remote_trsc.remote_object }
 	apply_remote_command
 	assert_equal(remote_trsc, trsc.remote_siblings[remote_peer.remote_id])
 	assert(remote_trsc.remote_siblings.has_key?(local_peer.remote_id), remote_trsc.remote_siblings.keys)
@@ -80,7 +81,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	end
 	trsc = Distributed::Transaction.new(plan)
 	remote_trsc = nil
-	remote_peer.create_transaction(trsc) { |remote_trsc| }
+	remote_peer.transaction_create(trsc) { |remote_trsc| remote_trsc = remote_trsc.remote_object }
 	apply_remote_command
 
 	# Check that marshalling the remote view of a local transaction proxy

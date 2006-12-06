@@ -201,16 +201,16 @@ module Roby::Distributed
 	# Disable the keeper thread, we will do cleanup ourselves
 	def start_keeper; end
 
-	def prepare_transaction_commit(trsc)
+	def transaction_prepare_commit(trsc)
 	    !trsc.valid_transaction?
 	end
-	def abandon_commit(trsc, reason)
-	    trsc.abandoned_transaction_commit(reason)
+	def transaction_abandon_commit(trsc, reason)
+	    trsc.abandoned_commit(reason)
 	end
-	def commit_transaction(trsc)
+	def transaction_commit(trsc)
 	    trsc.commit_transaction(false)
 	end
-	def discard_transaction(trsc)
+	def transaction_discard(trsc)
 	    trsc.discard_transaction(false)
 	end
     end

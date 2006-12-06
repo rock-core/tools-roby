@@ -79,7 +79,7 @@ module Roby
 
 	    # Sends the transaction to +peer+. This must be done only once.
 	    def propose(peer)
-		peer.propose_transaction(self)
+		peer.transaction_propose(self)
 	    end
 
 	    # Sends the provided command to all owners. If +ignore_missing+ is
@@ -125,7 +125,7 @@ module Roby
 	    # (if any) will be called in the control thread with +result+ to
 	    # true if the transaction has been committed, to false if the
 	    # commit is being canceled. In the latter case,
-	    # #abandoned_transaction_commit is called as well.
+	    # #abandoned_commit is called as well.
 	    def commit_transaction(synchro = true)
 		unless Distributed.owns?(self)
 		    raise NotOwner, "cannot commit a transaction which is not owned locally. #{self} is owned by #{owners.to_a}"
@@ -133,15 +133,15 @@ module Roby
 
 		if synchro
 		    error = nil
-		    apply_to_owners(false, :prepare_transaction_commit, self) do |done, result|
+		    apply_to_owners(false, :transaction_prepare_commit, self) do |done, result|
 			error ||= result
 			if done
 			    if error
-				apply_to_owners(true, :abandon_commit, self, error)
+				apply_to_owners(true, :transaction_abandon_commit, self, error)
 				Control.once { yield(self, false) } if block_given?
 			    else
 				Control.once do
-				    apply_to_owners(false, :commit_transaction, self) do |done, _|
+				    apply_to_owners(false, :transaction_commit, self) do |done, _|
 					Control.once { yield(self, true) } if block_given? && done
 				    end
 				end
@@ -159,7 +159,7 @@ module Roby
 	    # Hook called when the transaction commit has been abandoned
 	    # because a owner refused it. +reason+ is the value returned by
 	    # this peer.
-	    def abandoned_transaction_commit(reason)
+	    def abandoned_commit(reason)
 		Roby.debug { "abandoned commit of #{self} because of #{error}" }
 		super if defined? super 
 	    end
@@ -176,7 +176,7 @@ module Roby
 		end
 
 		if synchro
-		    apply_to_owners(true, :discard_transaction, self)
+		    apply_to_owners(true, :transaction_discard, self)
 		else super()
 		end
 		self
@@ -268,7 +268,7 @@ module Roby
 	end
 
 	class PeerServer
-	    def create_transaction(remote_trsc)
+	    def transaction_create(remote_trsc)
 		if dtrsc = (peer.proxy(remote_trsc) rescue nil)
 		    raise ArgumentError, "#{remote_trsc} is already created"
 		end
@@ -285,7 +285,7 @@ module Roby
 	    
 	    # Sets all tasks and all relations in +trsc+. This is only valid if the local
 	    # copy of +trsc+ is empty
-	    def set_transaction(remote_trsc, missions, tasks, free_events)
+	    def transaction_set(remote_trsc, missions, tasks, free_events)
 		trsc = peer.proxy(remote_trsc)
 		unless trsc.empty?(true)
 		    raise ArgumentError, "#{trsc} is not empty"
@@ -309,29 +309,29 @@ module Roby
 		subscriptions.merge(proxies)
 	    end
 
-	    def prepare_transaction_commit(trsc)
-		Roby::Control.once { peer.connection_space.prepare_transaction_commit(peer.proxy(trsc)) }
+	    def transaction_prepare_commit(trsc)
+		Roby::Control.once { peer.connection_space.transaction_prepare_commit(peer.proxy(trsc)) }
 	    end
-	    def commit_transaction(trsc)
-		Roby::Control.once { peer.connection_space.commit_transaction(peer.proxy(trsc)) }
+	    def transaction_commit(trsc)
+		Roby::Control.once { peer.connection_space.transaction_commit(peer.proxy(trsc)) }
 	    end
-	    def abandon_commit(trsc)
-		Roby::Control.once { peer.connection_space.abandon_commit(peer.proxy(trsc)) }
+	    def transaction_abandon_commit(trsc)
+		Roby::Control.once { peer.connection_space.transaction_abandon_commit(peer.proxy(trsc)) }
 	    end
-	    def discard_transaction(trsc)
-		Roby::Control.once { peer.connection_space.discard_transaction(peer.proxy(trsc)) }
+	    def transaction_discard(trsc)
+		Roby::Control.once { peer.connection_space.transaction_discard(peer.proxy(trsc)) }
 	    end
 	end
 
 	class Peer
 	    # Create a sibling for +trsc+ on this peer. If a block is given, yields
 	    # the remote transaction object from within the communication thread
-	    def create_transaction(trsc)
+	    def transaction_create(trsc)
 		unless trsc.kind_of?(Roby::Distributed::Transaction)
 		    raise TypeError, "cannot create a non-distributed transaction"
 		end
 
-		transmit(:create_transaction, trsc) do |marshalled_transaction|
+		transmit(:transaction_create, trsc) do |marshalled_transaction|
 		    remote_transaction = marshalled_transaction.remote_object
 		    trsc.remote_siblings[remote_id] = remote_transaction
 		    # Subscribe to the remote transaction to get remote updates
@@ -339,14 +339,14 @@ module Roby
 		    yield(marshalled_transaction) if block_given?
 		end
 	    end
-	    def propose_transaction(trsc)
+	    def transaction_propose(trsc)
 		# What do we need to do on the remote side ?
 		#   - create a new transaction with the right owners
 		#   - create all needed transaction proxys. Transaction proxys
 		#     can apply on local and remote tasks
 		#   - create all needed remote proxys
 		#   - setup all relations
-		create_transaction(trsc) do |marshalled|
+		transaction_create(trsc) do |marshalled|
 		end
 	    end
 	end
