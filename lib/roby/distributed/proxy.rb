@@ -5,6 +5,7 @@ class Roby::Plan
 end
 class Roby::PlanObject
     def owners; @owners ||= [Roby::Distributed.state].to_set end
+    def read_only?; !Roby::Distributed.updating?([root_object]) && plan && !self.owners.subset?(plan.owners) end
 end
 class Roby::Transactions::Task
     def_delegator :@__getobj__, :owners
@@ -51,8 +52,6 @@ module Roby::Distributed
     end
 
     module OwnershipChecking
-	def read_only?; plan && !plan.owners.include_all?(self.owners) end
-
 	# Forbid modification of relations
 	def adding_child_object(child, type, info)
 	    if read_only?
@@ -106,7 +105,6 @@ module Roby::Distributed
 	    def name; "dProxy(#{super})" end
 	end
 
-	def read_only?; !Roby::Distributed.updated_objects.include?(self) && super end
 	def droby_dump
 	    marshalled_object.dup
 	end

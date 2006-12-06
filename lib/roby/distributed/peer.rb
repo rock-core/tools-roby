@@ -159,7 +159,7 @@ module Roby::Distributed
 			if graph.linked?(from, to)
 			    from[to, graph] = info
 			else
-			    Roby::Distributed.update([from, to]) do
+			    Roby::Distributed.update([from.root_object, to.root_object]) do
 				from.add_child_object(to, graph, info)
 			    end
 			end
@@ -171,14 +171,14 @@ module Roby::Distributed
 		# Remove relations that do not exist anymore
 		(object.parent_objects(rel) - parents[rel]).each do |p|
 		    if peer.owns?(p)
-			Roby::Distributed.update([p, object]) do
+			Roby::Distributed.update([p.root_object, object.root_object]) do
 			    p.remove_child_object(object, rel)
 			end
 		    end
 		end
 		(object.child_objects(rel) - children[rel]).each do |c|
 		    if peer.owns?(c)
-			Roby::Distributed.update([c, object]) do
+			Roby::Distributed.update([c.root_object, object.root_object]) do
 			    object.remove_child_object(c, rel)
 			end
 		    end
@@ -205,7 +205,7 @@ module Roby::Distributed
 		if peer.proxying?(o)
 		    proxy = peer.proxy(o)
 		    if proxy.kind_of?(Roby::PlanObject)
-			updating << proxy
+			updating << proxy.root_object
 		    end
 		    proxy
 		else o
