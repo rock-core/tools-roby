@@ -191,8 +191,10 @@ got an exception which did not specify its source
 	    current_step.each do |signalled, (forward, sources, context)|
 		context = *context
 
-		sources.each do |source|
-		    source.generator.signalling(source, signalled) if source
+		if !forward && signalled.controlable?
+		    sources.each { |source| source.generator.signalling(source, signalled) }
+		else
+		    sources.each { |source| source.generator.forwarding(source, signalled) }
 		end
 
 		if already_seen.include?(signalled) && !(forward && signalled.pending?) 
