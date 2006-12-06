@@ -62,36 +62,44 @@ module Roby::Transactions
 	def disable_discovery!
 	    __getobj__.each_relation { |rel| @discovered[rel] = true }
 	end
-	def discovered?(relation)
-	    @discovered[relation]
+	def discovered?(relation, written)
+	    if written
+		@discovered[relation]
+	    else
+		!@discovered[relation].nil?
+	    end
 	end
-	def discover(relation)
+	def discover(relation, mark)
 	    if !relation
-		__getobj__.each_relation { |o| discover(o) }
+		__getobj__.each_relation { |o| discover(o, mark) }
 		return
 	    end
 
-	    unless discovered?(relation)
-		if relation.parent && !discovered?(relation.parent)
-		    return discover(relation.parent)
-		end
+	    while parent = relation.parent
+		relation = parent
+	    end
+	    do_discover(relation, mark)
+	end
+	def do_discover(relation, mark)
+	    return if discovered?(relation, true)
 
+	    if mark
 		transaction.discovered_object(self, relation)
-		@discovered[relation] = true
-		relation.subsets.each { |rel| discover(rel) }
+	    end
+	    @discovered[relation] = mark
+	    relation.subsets.each { |rel| do_discover(rel, mark) }
 
-		# Bypass add_ and remove_ hooks by using the RelationGraph#link
-		# methods directly. This is needed because we don't really
-		# add new relations, but only copy already existing relations
-		# from the real plan to the transaction graph
-		__getobj__.each_parent_object(relation) do |parent|
-		    wrapper = transaction[parent]
-		    relation.link(wrapper, self, parent[__getobj__, relation])
-		end
-		__getobj__.each_child_object(relation) do |child|
-		    wrapper = transaction[child]
-		    relation.link(self, wrapper, __getobj__[child, relation])
-		end
+	    # Bypass add_ and remove_ hooks by using the RelationGraph#link
+	    # methods directly. This is needed because we don't really
+	    # add new relations, but only copy already existing relations
+	    # from the real plan to the transaction graph
+	    __getobj__.each_parent_object(relation) do |parent|
+		wrapper = transaction[parent]
+		relation.link(wrapper, self, parent[__getobj__, relation])
+	    end
+	    __getobj__.each_child_object(relation) do |child|
+		wrapper = transaction[child]
+		relation.link(self, wrapper, __getobj__[child, relation])
 	    end
 	end
 
@@ -125,7 +133,7 @@ module Roby::Transactions
 			# component on the real object, and then compute
 			# the component on the transaction graph
 			__getobj__.#{m}(relation).each do |task|
-			    transaction[task].discover(relation)
+			    transaction[task].discover(relation, false)
 			end
 			super
 		    end
@@ -133,21 +141,35 @@ module Roby::Transactions
 		end
 	    end
 
-	    def discover_before(m, relation = nil)
+	    # call-seq:
+	    #	discover_before(method_name, mark, relation)
+	    #
+	    # Call #discover when +method+ is called on an object. 
+	    #
+	    # If +relation+ is a relation graph, uses it as the discovered
+	    # relation. If it is an integer, get the relation from the nth
+	    # argument of the call. If there is no +relation+ argument or if it
+	    # nil), discovers all relations the object is part of at the moment
+	    # of the call.
+	    #
+	    # If +mark+ is false, we map the relations on the proxy but we don't 
+	    # mark is as discovered. This allows to do read-only operations on 
+	    # proxies.
+	    def discover_before(m, mark, relation)
 		if Roby::RelationGraph === relation || !relation
 		    class_eval do
 			class_variable_set("@@_#{m}_discovered_relation_", relation)
 		    end
 		    class_eval <<-EOD
 			def #{m}(*args, &block)
-			    discover(@@_#{m}_discovered_relation_)
+			    discover(@@_#{m}_discovered_relation_, #{mark})
 			    super
 			end
 		    EOD
 		elsif relation.kind_of?(Integer)
 		    class_eval <<-EOD
 		    def #{m}(*args, &block)
-			discover(args[#{relation}])
+			discover(args[#{relation}], #{mark})
 			super
 		    end
 		    EOD
@@ -175,37 +197,37 @@ module Roby::Transactions
 	proxy_component :reverse_generated_subgraph
 
 	def relation_discover(other, type, unused = nil)
-	    discover(type)
-	    other.discover(type) if other.kind_of?(Proxy)
+	    discover(type, true)
+	    other.discover(type, true) if other.kind_of?(Proxy)
 	end
 	def adding_child_object(other, type, info)
-	    relation_discover(other, type)
 	    super if defined? super
+	    relation_discover(other, type)
 	end
 	def adding_parent_object(other, type, info)
-	    relation_discover(other, type)
 	    super if defined? super
+	    relation_discover(other, type)
 	end
 	def removing_child_object(other, type)
-	    relation_discover(other, type)
 	    super if defined? super
+	    relation_discover(other, type)
 	end
 	def removing_parent_object(other, type)
-	    relation_discover(other, type)
 	    super if defined? super
+	    relation_discover(other, type)
 	end
 
-	discover_before :child_object?, 1
-	discover_before :parent_object?, 1
-	discover_before :related_object?, 1
-	discover_before :relations
-	discover_before :each_relation
-	discover_before :each_child_object, 0
-	discover_before :each_parent_object, 0
+	discover_before :child_object?, false, 1
+	discover_before :parent_object?, false, 1
+	discover_before :related_object?, false, 1
+	discover_before :relations, false, nil
+	discover_before :each_relation, false, nil
+	discover_before :each_child_object, false, 0
+	discover_before :each_parent_object, false, 0
 
 	def commit_relations(enum, is_parent)
 	    relations.each do |rel|
-		next unless discovered?(rel)
+		next unless discovered?(rel, true)
 
 		trsc_others = enum_for(enum, rel).to_value_set
 		plan_others = __getobj__.enum_for(enum, rel).
@@ -256,7 +278,7 @@ module Roby::Transactions
 	def_delegator :@__getobj__, :symbol
 	def_delegator :@__getobj__, :controlable?
 	proxy :can_signal?
-	discover_before :on, Roby::EventStructure::CausalLink
+	discover_before :on, true, Roby::EventStructure::CausalLink
 
 	forbid_call :call
 	forbid_call :emit

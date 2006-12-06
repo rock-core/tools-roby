@@ -169,26 +169,28 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	task_pair do |t, t2, p, p2|
 	    t.realized_by t2
 
-	    assert(! p.discovered?(Hierarchy))
-	    assert(! p2.discovered?(Hierarchy))
+	    assert(! p.discovered?(Hierarchy, true))
+	    assert(! p2.discovered?(Hierarchy, true))
 	    assert(! Hierarchy.linked?(p, p2))
 
-	    p.discover(Hierarchy)
+	    p.discover(Hierarchy, true)
 
-	    assert(Hierarchy.linked?(p, p2))
-	    assert(p.discovered?(Hierarchy))
-	    assert(!p2.discovered?(Hierarchy))
+	    assert(p.child_object?(p2, Hierarchy))
+	    assert(p.discovered?(Hierarchy, true))
+	    assert(!p2.discovered?(Hierarchy, false))
 	end
     end
 
     def test_discover_metafunction
 	task_pair do |t, t2, p, p2|
-	    t.realized_by t2
 	    p.parent_object?(p2, Hierarchy)
+	    assert(p.discovered?(Hierarchy, false))
+	    assert(!p2.discovered?(Hierarchy, false))
+	    assert(!p.discovered?(Hierarchy, true))
+	    assert(!p2.discovered?(Hierarchy, true))
+	    t.realized_by t2
 
-	    assert(Hierarchy.linked?(p, p2))
-	    assert(p.discovered?(Hierarchy))
-	    assert(!p2.discovered?(Hierarchy))
+	    assert(p.child_object?(p2, Hierarchy))
 	end
     end
 
@@ -200,19 +202,24 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	plan.discover(ev2) if discover_ev2
 	yield(ev, ev2, transaction[ev], transaction[ev2])
     end
+
+    Signal = Roby::EventStructure::Signal
     def test_discover_events
 	event_pair do |ev, ev2, proxy, proxy2|
+	    proxy.child_objects(Signal)
+	    assert(!proxy.discovered?(Signal, true))
+	    assert(proxy.discovered?(Signal, false))
 	    proxy.on ev2
-	    assert(proxy.discovered?(Roby::EventStructure::Signal))
+	    assert(proxy.discovered?(Signal, true))
 	end
 	event_pair do |ev, ev2, proxy, proxy2|
 	    ev2.on proxy
-	    assert(proxy.discovered?(Roby::EventStructure::Signal))
+	    assert(proxy.discovered?(Signal, true))
 	end
 	event_pair(true) do |ev, ev2, proxy, proxy2|
 	    proxy2.on proxy
-	    assert(proxy.discovered?(Roby::EventStructure::Signal))
-	    assert(proxy2.discovered?(Roby::EventStructure::Signal))
+	    assert(proxy.discovered?(Signal, true))
+	    assert(proxy2.discovered?(Signal, true))
 	end
     end
 end
