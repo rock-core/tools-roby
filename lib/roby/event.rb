@@ -66,8 +66,6 @@ module Roby
     # * #signalling
     #
     class EventGenerator < PlanObject
-	include DirectedRelationSupport
-
 	# How to handle this event during propagation
 	# * nil (the default): call only once in a propagation cycle
 	# * :always_call: always call, event if it has already been called in this cycle

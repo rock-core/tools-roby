@@ -1,5 +1,7 @@
 module Roby
     class PlanObject
+	include DirectedRelationSupport
+
 	# The plan this object belongs to
 	attr_accessor :plan
 
@@ -22,19 +24,23 @@ module Roby
 	    if other.plan && plan
 		raise InvalidPlanOperation, "cannot add a relation between two objects from different plans. #{self} is from #{plan} and #{other} is from #{other.plan}"
 	    elsif plan
-		plan.discover(other)
+		other.plan = self.plan
+		return other
 	    elsif other.plan
-		other.plan.discover(self)
+		self.plan = other.plan
+		return self
 	    end
 	end
+	private :synchronize_plan
 
-	def adding_child_object(child, type, info)
-	    synchronize_plan(child)
-	    super if defined? super
-	end
-	def adding_parent_object(parent, type, info)
-	    synchronize_plan(parent)
-	    super if defined? super
+	def add_child_object(child, type, info = nil)
+	    changed = synchronize_plan(child)
+	    super
+	    changed.plan.discover(changed) if changed
+
+	rescue Exception
+	    changed.plan = nil if changed
+	    raise
 	end
 
 	def root_object; self end
