@@ -56,7 +56,8 @@ module Roby
 	    if source
 		if source.respond_to?(:to_task)
 		    @trace << source.to_task
-		elsif EventGenerator === source
+		end
+		if source.kind_of?(EventGenerator)
 		    @generator = source
 		end
 	    else
