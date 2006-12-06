@@ -132,8 +132,7 @@ module Roby::Distributed
 		super()
 	    end
 	end
-	def controlable?; @controlable end
-	def history; @history end
+	def happened?(strict = true); @happened || super end
 
 	def call(context)
 	    raise NotImplementedError

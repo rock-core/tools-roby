@@ -326,29 +326,29 @@ module Roby
 
 	    def _dump(lvl)
 		super(Roby::EventGenerator) do |ary|
-		    ary << controlable
+		    ary << controlable << happened
 		    if block_given? then yield(ary)
 		    else Marshal.dump(ary)
 		    end
 		end
 	    end
 
-	    attr_reader :controlable
-	    def initialize(remote_object, model, plan, controlable)
+	    attr_reader :controlable, :happened
+	    def initialize(remote_object, model, plan, controlable, happened)
 		super(remote_object, model, plan)
-		@controlable = controlable
+		@controlable, @happened = controlable, happened
 	    end
 	end
 	class Roby::EventGenerator
 	    def droby_dump
-		MarshalledEventGenerator.new(self, self.model, plan, controlable?)
+		MarshalledEventGenerator.new(self, self.model, plan, controlable?, happened?(false))
 	    end
 	end
 
 	class MarshalledTaskEventGenerator < MarshalledEventGenerator
 	    def self._load(str)
 		super do |data|
-		    data[4] = Marshal.load(data[4])
+		    data[5] = Marshal.load(data[5])
 		    new(*data)
 		end
 	    end
@@ -369,8 +369,8 @@ module Roby
 	    end
 
 	    attr_reader :task, :symbol
-	    def initialize(remote_object, model, plan, controlable, task, symbol)
-		super(remote_object, model, plan, controlable)
+	    def initialize(remote_object, model, plan, controlable, happened, task, symbol)
+		super(remote_object, model, plan, controlable, happened)
 		@task   = task
 		@symbol = symbol
 	    end
@@ -378,7 +378,7 @@ module Roby
 	class Roby::TaskEventGenerator
 	    def droby_dump
 		# no need to marshal the plan, since it is the same than the event task
-		MarshalledTaskEventGenerator.new(self, self.model, nil, controlable?, task, symbol)
+		MarshalledTaskEventGenerator.new(self, self.model, nil, controlable?, happened?(false), task, symbol)
 	    end
 	end
 
