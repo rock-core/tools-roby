@@ -1,20 +1,22 @@
 require 'roby/distributed/objects'
 require 'roby/transactions/proxy'
-class Roby::Plan
-    def owners; @owners ||= [Roby::Distributed.state].to_set end
-end
-class Roby::PlanObject
-    def owners; @owners ||= [Roby::Distributed.state].to_set end
-    def read_only?; !Roby::Distributed.updating?([root_object]) && plan && !self.owners.subset?(plan.owners) end
-end
-class Roby::Transactions::Task
-    def_delegator :@__getobj__, :owners
-end
-class Roby::Transactions::EventGenerator
-    def_delegator :@__getobj__, :owners
-end
-class Roby::TaskEventGenerator
-    def owners; task.owners end
+
+module Roby
+    class Plan; include Distributed::LocalObject end
+    class PlanObject
+	include Distributed::LocalObject
+	def read_only?; !Distributed.updating?([root_object]) && plan && !self.owners.subset?(plan.owners) end
+    end
+    class TaskEventGenerator
+	def read_only?; super && task.read_only? end
+	def owners; task.owners end
+    end
+    class Transactions::Task
+	def_delegator :@__getobj__, :owners
+    end
+    class Transactions::EventGenerator
+	def_delegator :@__getobj__, :owners
+    end
 end
 
 module Roby::Distributed
@@ -90,7 +92,7 @@ module Roby::Distributed
 
     module RemoteObjectProxy
 	include RemoteObject
-	# The object owners. This is always [peer_id].to_set
+	# The object owners. This is always [remote_peer.remote_id].to_set
 	attr_reader :owners
 	# The marshalled object
 	attr_reader :marshalled_object
@@ -100,7 +102,7 @@ module Roby::Distributed
 		raise TypeError, "invalid remote task type. Was expecting #{self.class.superclass.name}, got #{marshalled_object.model.ancestors}"
 	    end
 	    @remote_object = marshalled_object.remote_object
-	    @peer_id = peer.remote_id
+	    @remote_peer = peer
 
 	    @marshalled_object = marshalled_object
 	    @owners = [peer.remote_id].to_set
