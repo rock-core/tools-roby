@@ -125,7 +125,63 @@ module Roby
 		end
 	    end
 	end
-	Task.include(RelationModificationHooks)
-	EventGenerator.include(RelationModificationHooks)
+	PlanObject.include RelationModificationHooks
+
+	module EventNotifications
+	    def forwarding(event, to)
+		super if defined? super
+		if self_owned? && !Distributed.updating?([self])
+		    Distributed.each_subscribed_peer(self, to) do |peer|
+			peer.transmit(:event_add_propagation, true, self, to, event.time, event.context)
+		    end
+		end
+	    end
+	    def signalling(event, to)
+		super if defined? super
+		if self_owned? && !Distributed.updating?([self])
+		    Distributed.each_subscribed_peer(self, to) do |peer|
+			peer.transmit(:event_add_propagation, false, self, to, event.time, event.context)
+		    end
+		end
+	    end
+	end
+	Roby::EventGenerator.include EventNotifications
+
+	class PeerServer
+	    def event_add_propagation(only_forward, marshalled_from, marshalled_to, time, context)
+		from_generator = peer.proxy(marshalled_from)
+		to             = peer.proxy(marshalled_to)
+		context        = peer.proxy(context)
+		
+		Distributed.pending_signals << [only_forward, from_generator, to, time, context]
+	    end
+	end
+
+	@pending_signals = Queue.new
+	class << self
+	    attr_reader :pending_signals
+	    def distributed_signals
+		pending_signals.get(true).each do |only_forward, from_generator, to_generator, time, context|
+		    from           = from_generator.new(context)
+		    from.send(:time=, time)
+
+		    from_generator.fired(from)
+
+		    # only add the signalling if we own +to+
+		    if to_generator.self_owned?
+			Propagation.add_event_propagation(only_forward, [from], to_generator, context)
+		    else
+			# Call #fired and #signalling to make +from_generator+ look
+			# like as if the event was really fired locally ...
+			Distributed.update([from_generator.root_object, to_generator.root_object]) do
+			    if only_forward then from_generator.forwarding(from, to_generator)
+			    else from_generator.signalling(from, to_generator)
+			    end
+			end
+		    end
+		end
+	    end
+	end
+	Control.event_processing << Distributed.method(:distributed_signals)
     end
 end

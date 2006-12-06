@@ -119,26 +119,29 @@ module Roby::Distributed
 
     module EventGeneratorProxy
 	include RemoteObjectProxy
-	def initialize_remote_proxy(peer, marshalled_object)
-	    initialize_remote_proxy(peer, marshalled_object)
-	    @controlable = marshalled_object.controlable
-	    @history	 = marshalled_object.history
 
-	    if @controlable
-		super() do
-		    raise NotImplementedError
-		end
-	    else
-		super()
+	def initialize(peer, marshalled_object)
+	    initialize_remote_proxy(peer, marshalled_object)
+	    super()
+	end
+	def initialize_remote_proxy(peer, marshalled_object)
+	    super
+	    @happened	 = marshalled_object.happened
+
+	    if marshalled_object.controlable
+		self.command = method(:call_remote_command)
 	    end
 	end
 	def happened?(strict = true); @happened || super end
 
-	def call(context)
-	    raise NotImplementedError
+	def call_remote_command(context)
 	end
-	def emit(context)
-	    raise NotImplementedError
+	def command=(command)
+	    if command == method(:call_remote_command) || !command
+		super
+	    else
+		raise ArgumentError, "cannot change the command of a remote event generator"
+	    end
 	end
     end
 

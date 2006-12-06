@@ -22,7 +22,15 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	peer2peer do |remote|
 	    remote.plan.insert(task = SimpleTask.new(:id => 1))
 	    remote.class.class_eval do
-		define_method(:start_task) { task.start! }
+		include Test::Unit::Assertions
+		define_method(:start_task) do
+		    ev = plan.free_events.find { true }
+		    assert(ev)
+		    assert(ev.controlable?)
+		    assert(task.event(:start).child_object?(ev, Roby::EventStructure::Signal))
+		    task.start! 
+		    assert(task.running?)
+		end
 	    end
 	end
 	r_task = remote_task(:id => 1)
@@ -31,12 +39,18 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    ev = EventGenerator.new do |event|
 		mock.called(event)
+		ev.emit(nil)
 	    end
+	    assert(ev.controlable?)
 
 	    mock.should_receive(:called).once
 	    p_task.event(:start).on ev
-	    remote.start_task
 	    apply_remote_command
+	    remote.start_task
+
+	    apply_remote_command
+	    Control.instance.process_events
+	    assert(ev.happened?)
 	end
     end
 end
