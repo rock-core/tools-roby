@@ -21,7 +21,7 @@ module Roby::Distributed
     class << self
 	def each_subscribed_peer(*objects)
 	    peers.each do |name, peer|
-		if objects.any? { |o| peer.local.subscribed?(o) }
+		if objects.any? { |o| peer.local.subscribed?(o) || peer.owns?(o) }
 		    yield(peer)
 		end
 	    end
@@ -170,17 +170,13 @@ module Roby::Distributed
 	    object.each_relation do |rel|
 		# Remove relations that do not exist anymore
 		(object.parent_objects(rel) - parents[rel]).each do |p|
-		    if peer.owns?(p)
-			Roby::Distributed.update([p.root_object, object.root_object]) do
-			    p.remove_child_object(object, rel)
-			end
+		    Roby::Distributed.update([p.root_object, object.root_object]) do
+			p.remove_child_object(object, rel)
 		    end
 		end
 		(object.child_objects(rel) - children[rel]).each do |c|
-		    if peer.owns?(c)
-			Roby::Distributed.update([c.root_object, object.root_object]) do
-			    object.remove_child_object(c, rel)
-			end
+		    Roby::Distributed.update([c.root_object, object.root_object]) do
+			object.remove_child_object(c, rel)
 		    end
 		end
 	    end
