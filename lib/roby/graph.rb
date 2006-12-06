@@ -34,6 +34,22 @@ module BGL
 	    each_graph { |g| g.replace_vertex(self, to) }
 	end
 
+	def edges
+	    result = []
+	    each_graph do |graph|
+		graph_edges = []
+		each_child_object do |child|
+		    graph_edges << [self, child, self[child, graph]]
+		end
+		each_parent_object do |parent|
+		    graph_edges << [parent, self, parent[self, graph]]
+		end
+		result << [graph, graph_edges]
+	    end
+
+	    result
+	end
+
 	# call-seq:
 	#   v.neighborhood(distance, graph) => [[graph, v, v1, data], [graph, v2, v, data], ...]
 	#   v.neighborhood(distance)	    => [[g1, v, v1, data], [g2, v2, v, data], ...]
@@ -117,7 +133,7 @@ module BGL
 
 	# Two graphs are the same if they have the same vertex set
 	# and the same edge set
-	def ==(other)
+	def same_graph?(other)
 	    unless other.respond_to?(:each_vertex) && other.respond_to?(:each_edge)
 		return false
 	    end
