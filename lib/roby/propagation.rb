@@ -87,13 +87,17 @@ got an exception which did not specify its source
     # Gather any exception raised by the block and saves it for later
     # processing by the event loop. If +source+ is given, it is used as the
     # exception source
+    #
+    # Returns +true+ if an exception has been raised
     def self.gather_exceptions(source = nil)
 	begin
 	    yield
+	    false
 
 	rescue RuntimeError => e
 	    e = to_execution_exception(e, source)
 	    Thread.current[:propagation_exceptions] << e if e
+	    true
 	end
     end
 
@@ -196,12 +200,13 @@ got an exception which did not specify its source
 		    next unless signalled.propagation_mode == :always_call
 		end
 
-		did_call = propagation_context(sources) do |result|
+		did_call = false
+		propagation_context(sources) do |result|
 		    gather_exceptions(signalled) do
 			if !forward && signalled.controlable?
-			    signalled.call_without_propagation(context) 
+			    did_call = signalled.call_without_propagation(context) 
 			else
-			    signalled.emit_without_propagation(context)
+			    did_call = signalled.emit_without_propagation(context)
 			end
 		    end
 		end
