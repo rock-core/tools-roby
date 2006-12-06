@@ -48,8 +48,15 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
     def test_create_transaction
 	peer2peer do |remote|
-	    def remote.test_find_transaction(trsc)
-		peers.to_a[0][1].find_transaction(trsc.remote_object)
+	    class << remote
+		include Test::Unit::Assertions
+		def test_find_transaction(marshalled_trsc)
+		    _, peer = peers.to_a[0]
+		    assert(trsc = peer.find_transaction(marshalled_trsc.remote_object))
+		    assert_equal(marshalled_trsc.remote_object, trsc.remote_siblings[peer.remote_id])
+		    assert(trsc.owners.include?(peer.remote_id))
+		    assert(trsc.owners.include?(Roby::Distributed.remote_id))
+		end
 	    end
 	end
 	trsc = Distributed::Transaction.new(plan)
@@ -58,7 +65,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	apply_remote_command
 	assert_equal(remote_trsc, trsc.remote_siblings[remote_peer.remote_id])
 	assert(remote_trsc.remote_siblings.has_key?(local_peer.remote_id), remote_trsc.remote_siblings.keys)
-	assert(remote.test_find_transaction(trsc), trsc.object_id)
+	remote.test_find_transaction(trsc)
     end
 
     def test_marshal_transaction_proxies
