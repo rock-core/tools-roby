@@ -52,36 +52,41 @@ module Roby::Distributed
     end
 
     module OwnershipChecking
-	# Forbid modification of relations
-	def adding_child_object(child, type, info)
-	    if read_only?
-		raise NotOwner, "cannot change a remote object from outside a transaction"
-	    end
-	    super if defined? super
-	end
-	# Forbid modification of relations
+	# We can remove relation if one of the objects is owned by us
 	def removing_child_object(child, type)
-	    if read_only? && !plan.owners.include_all?(child.owners)
-		raise NotOwner, "cannot change a remote object from outside a transaction"
-	    end
 	    super if defined? super
-	end
-	# Forbid modification of relations
-	def adding_parent_object(parent, type, info)
-	    if read_only?
-		raise NotOwner, "cannot change a remote object from outside a transaction"
+
+	    if read_only? && child.read_only?
+		raise NotOwner, "cannot remove a relation between two tasks we don't own"
 	    end
-	    super if defined? super
-	end
-	# Forbid modification of relations
-	def removing_parent_object(parent, type)
-	    if read_only? && !plan.owners.include_all?(parent.owners)
-		raise NotOwner, "cannot change a remote object from outside a transaction"
-	    end
-	    super if defined? super
 	end
     end
-    Roby::PlanObject.include OwnershipChecking
+
+    module TaskOwnershipChecking
+	include OwnershipChecking
+	# We can't add relations on objects we don't own
+	def adding_child_object(child, type, info)
+	    super if defined? super
+
+	    if read_only? || child.read_only?
+		raise NotOwner, "cannot add a relation between tasks we don't own"
+	    end
+	end
+    end
+
+    module EventOwnershipChecking
+	include OwnershipChecking
+	# We can add a relation if we own the child
+	def adding_child_object(child, type, info)
+	    super if defined? super
+	    
+	    if child.read_only?
+		raise NotOwner, "cannot add an event relation on a child we don't own. #{child} is owned by #{child.owners.to_a} (#{plan.owners.to_a})"
+	    end
+	end
+    end
+    Roby::Task.include TaskOwnershipChecking
+    Roby::EventGenerator.include EventOwnershipChecking
 
     module RemoteObjectProxy
 	include RemoteObject
