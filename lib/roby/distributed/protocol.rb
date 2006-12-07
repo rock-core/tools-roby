@@ -279,21 +279,22 @@ module Roby
 	class MarshalledPlanObject
 	    def self.droby_load(str)
 		data = Marshal.load(str)
-		object  = data[0]		    # the remote object
-		data[1] = Marshal.load(data[1]) # the object model
-		data[2] = Marshal.load(data[2]) # the object plan
+		object  = data[1]		    # the remote object
+		data[2] = Marshal.load(data[2]) # the object model
+		data[3] = Marshal.load(data[3]) # the object plan
 		yield(data)
 	    end
 
-	    attr_reader :remote_object, :model, :plan
-	    def initialize(remote_object, model, plan)
-		@remote_object, @model, @plan = 
-		    remote_object, model, plan
+	    attr_reader :remote_name, :remote_object, :model, :plan
+	    def initialize(remote_name, remote_object, model, plan)
+		@remote_name, @remote_object, @model, @plan = 
+		    remote_name, remote_object, model, plan
 	    end
+	    def to_s; "tMarshalled(#{remote_name})" end
 	    def _dump(base_class)
 		remote_object = self.remote_object
 		remote_object = DRbObject.new(remote_object) unless remote_object.kind_of?(DRbObject)
-		yield([remote_object,
+		yield([remote_name, remote_object,
 		    Distributed.dump(model),
 		    Distributed.dump(plan)])
 	    end
@@ -334,21 +335,21 @@ module Roby
 	    end
 
 	    attr_reader :controlable, :happened
-	    def initialize(remote_object, model, plan, controlable, happened)
-		super(remote_object, model, plan)
+	    def initialize(remote_name, remote_object, model, plan, controlable, happened)
+		super(remote_name, remote_object, model, plan)
 		@controlable, @happened = controlable, happened
 	    end
 	end
 	class Roby::EventGenerator
 	    def droby_dump
-		MarshalledEventGenerator.new(self, self.model, plan, controlable?, happened?(false))
+		MarshalledEventGenerator.new(to_s, self, self.model, plan, controlable?, happened?(false))
 	    end
 	end
 
 	class MarshalledTaskEventGenerator < MarshalledEventGenerator
 	    def self._load(str)
 		super do |data|
-		    data[5] = Marshal.load(data[5])
+		    data[6] = Marshal.load(data[6])
 		    new(*data)
 		end
 	    end
@@ -369,8 +370,8 @@ module Roby
 	    end
 
 	    attr_reader :task, :symbol
-	    def initialize(remote_object, model, plan, controlable, happened, task, symbol)
-		super(remote_object, model, plan, controlable, happened)
+	    def initialize(name, remote_object, model, plan, controlable, happened, task, symbol)
+		super(name, remote_object, model, plan, controlable, happened)
 		@task   = task
 		@symbol = symbol
 	    end
@@ -378,14 +379,14 @@ module Roby
 	class Roby::TaskEventGenerator
 	    def droby_dump
 		# no need to marshal the plan, since it is the same than the event task
-		MarshalledTaskEventGenerator.new(self, self.model, nil, controlable?, happened?(false), task, symbol)
+		MarshalledTaskEventGenerator.new(to_s, self, self.model, nil, controlable?, happened?(false), task, symbol)
 	    end
 	end
 
 	class MarshalledTask < MarshalledPlanObject
 	    def self._load(str)
 		droby_load(str) do |data|
-		    data[3] = Marshal.load(data[3]) # the argument hash
+		    data[4] = Marshal.load(data[4]) # the argument hash
 		    MarshalledTask.new(*data)
 		end
 	    end
@@ -404,15 +405,15 @@ module Roby
 	    end
 
 	    attr_reader :arguments, :mission
-	    def initialize(remote_object, model, plan, arguments, mission)
-		super(remote_object, model, plan)
+	    def initialize(remote_name, remote_object, model, plan, arguments, mission)
+		super(remote_name, remote_object, model, plan)
 		@arguments, @mission = arguments, mission
 	    end
 	end
 	class Roby::Task
 	    def droby_dump
 		mission = self.plan.mission?(self) if plan
-		MarshalledTask.new(self, self.model, plan, arguments, mission)
+		MarshalledTask.new(to_s, self, self.model, plan, arguments, mission)
 	    end
 	end
 
