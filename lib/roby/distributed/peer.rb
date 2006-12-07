@@ -430,6 +430,7 @@ module Roby::Distributed
 		object = marshalled.remote_object
 		return object unless object.kind_of?(DRbObject)
 		object_proxy = (@proxies[object] ||= marshalled.proxy(self))
+		marshalled.update(self, object_proxy) if marshalled.respond_to?(:update)
 	    else
 		object_proxy = marshalled.proxy(self)
 	    end

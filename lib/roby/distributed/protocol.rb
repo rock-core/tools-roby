@@ -299,14 +299,16 @@ module Roby
 		    Distributed.dump(plan)])
 	    end
 
+	    # Creates (or returns) the local object for this marshalled object
 	    def proxy(peer)
 		proxy = Distributed.RemoteProxyModel(model).new(peer, self)
-		
+	    end
+	    # Updates the status of the local object if needed
+	    def update(peer, proxy)
 		# marshalled.plan is nil if the object plan is determined by another
 		# object. For instance, in the TaskEventGenerator case, the generator
 		# plan is the task plan
 		peer.proxy(plan).discover(proxy) if plan
-		proxy
 	    end
 	    def ==(other)
 		other.kind_of?(MarshalledPlanObject) && 
@@ -331,6 +333,12 @@ module Roby
 		    if block_given? then yield(ary)
 		    else Marshal.dump(ary)
 		    end
+		end
+	    end
+
+	    def update(peer, proxy)
+		if happened && !proxy.happened?
+		    proxy.instance_eval { @happened = true }
 		end
 	    end
 
@@ -362,7 +370,7 @@ module Roby
 	    def proxy(peer)
 		task = peer.proxy(self.task)
 		ev   = task.event(symbol)
-		if task.kind_of?(RemoteObjectProxy)
+		if task.kind_of?(RemoteObjectProxy) && !ev.kind_of?(EventGeneratorProxy)
 		    ev.extend EventGeneratorProxy
 		    ev.initialize_remote_proxy(peer, self)
 		end
@@ -397,11 +405,16 @@ module Roby
 		end
 	    end
 	
-	    def proxy(peer)
-		task = super
+	    def update(peer, task)
+		super
+		return unless task.plan
 
-		task.plan.insert(task) if mission && task.plan
-		task
+		is_mission = task.plan.mission?(task)
+		if mission && !is_mission
+		    task.plan.insert(task)
+		elsif !mission && is_mission
+		    task.plan.discard(task)
+		end
 	    end
 
 	    attr_reader :arguments, :mission
