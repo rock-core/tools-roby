@@ -5,6 +5,7 @@ module Roby
 	module PlanModificationHooks
 	    def inserted(tasks)
 		super if defined? super
+		return unless tasks.distribute?
 		unless Distributed.updating?([self])
 		    Distributed.each_subscribed_peer(self) do |peer|
 			peer.plan_update(:insert, self, tasks)
@@ -14,6 +15,7 @@ module Roby
 	    def discovered_tasks(tasks)
 		super if defined? super
 		unless Distributed.updating?([self])
+		    tasks = tasks.find_all { |t| t.distribute? }
 		    Distributed.each_subscribed_peer(self) do |peer|
 			peer.plan_update(:discover, self, tasks)
 		    end
@@ -21,8 +23,9 @@ module Roby
 	    end
 	    alias :discovered_events :discovered_tasks
 
-	    def discarded(tasks)
+	    def discarded(task)
 		super if defined? super
+		return unless task.distribute?
 		unless Distributed.updating?([self])
 		    Distributed.each_subscribed_peer(self) do |peer|
 			tasks = tasks.find_all { |t| peer.local.subscribed?(t) }
@@ -38,12 +41,14 @@ module Roby
 	    end
 	    def finalized_task(task)
 		super if defined? super
+		next unless task.distribute?
 		Distributed.each_subscribed_peer(task) do |peer|
 		    peer.plan_update(:remove_object, self, task)
 		end
 	    end
 	    def finalized_event(event)
 		super if defined? super
+		next unless event.distribute?
 		Distributed.each_subscribed_peer(event) do |peer|
 		    peer.plan_update(:remove_object, self, event)
 		end
@@ -108,7 +113,7 @@ module Roby
 	    def added_child_object(child, type, info)
 		super if defined? super
 
-		return unless Distributed.state
+		return unless type.distribute? && Distributed.state
 		return if Distributed.updating?([self.root_object, child.root_object])
 		Distributed.each_subscribed_peer(self.root_object, child.root_object) do |peer|
 		    peer.transmit(:update_relation, [self, :add_child_object, child, type, info])
@@ -118,7 +123,7 @@ module Roby
 	    def removed_child_object(child, type)
 		super if defined? super
 
-		return unless Distributed.state
+		return unless type.distribute? && Distributed.state
 		return if Distributed.updating?([self.root_object, child.root_object])
 		Distributed.each_subscribed_peer(self.root_object, child.root_object) do |peer|
 		    peer.transmit(:update_relation, [self, :remove_child_object, child, type])

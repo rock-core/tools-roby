@@ -15,6 +15,18 @@ module Roby
 	    def owners; @owners ||= [Roby::Distributed.remote_id].to_set end
 	    def self_owned?; true end
 	    def has_sibling?(peer); true end
+	    
+	    module ClassExtension
+		# Does the object of this class should be sent to remote hosts ?
+		def distribute?; !(@distribute == false) end
+		# Call to make the object of this class local to this host
+		def local_object; @distribute = false end
+	    end
+
+	    attr_writer :distribute
+	    def distribute?
+		@distribute || (@distribute.nil? && self.class.distribute?)
+	    end
 	end
 
 	module RemoteObject
@@ -27,6 +39,7 @@ module Roby
 		end
 	    end
 
+	    def distribute?; true end
 	    def self_owned?; false end
 	    def has_sibling?(peer); true end
 
@@ -41,6 +54,7 @@ module Roby
 	    def self_owned?
 		owners.include?(Distributed.remote_id)
 	    end
+	    def distribute?; true end
 
 	    def has_sibling?(peer)
 		!owners.include?(peer.remote_id) ||
