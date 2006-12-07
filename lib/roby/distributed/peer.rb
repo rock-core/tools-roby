@@ -22,6 +22,7 @@ module Roby::Distributed
     @updated_objects = ValueSet.new
     class << self
 	def each_subscribed_peer(*objects)
+	    return if objects.any? { |o| !o.distribute? }
 	    peers.each do |name, peer|
 		next if objects.any? { |o| !o.has_sibling?(peer) }
 		yield(peer) if objects.any? { |o| peer.local.subscribed?(o) || peer.owns?(o) }
@@ -90,6 +91,7 @@ module Roby::Distributed
 
 	    # Replace the relation graphs by their name
 	    edges.map! do |rel, from, to, info|
+		next unless rel.distribute? && from.distribute? && to.distribute?
 		[peer.remote_server, [:update_relation, [from, :add_child_object, to, rel, info]]]
 	    end
 	    peer.transmit(:demux, edges)
@@ -103,9 +105,9 @@ module Roby::Distributed
 
 	    case object
 	    when Roby::PlanObject
-		relations = relations_of(object)
 		# Send event event if +result+ is empty, so that relations are
 		# removed if needed on the other side
+		relations = relations_of(object)
 		peer.transmit(:set_relations, object, relations)
 
 		if object.respond_to?(:each_event)
@@ -118,9 +120,13 @@ module Roby::Distributed
 		end
 
 	    when Roby::Transaction
-		peer.transmit(:set_plan, object, object.missions(true), object.known_tasks(true))
+		peer.transmit(:set_plan, object, 
+		    object.missions(true).find_all { |t| t.distribute? }, 
+		    object.known_tasks(true).find_all { |t| t.distribute? })
 	    when Roby::Plan
-		peer.transmit(:set_plan, object, object.missions, object.known_tasks)
+		peer.transmit(:set_plan, object, 
+		    object.missions.find_all { |t| t.distribute? }, 
+		    object.known_tasks.find_all { |t| t.distribute? })
 	    end
 
 	    nil
@@ -130,11 +136,15 @@ module Roby::Distributed
 	def relations_of(object)
 	    result = []
 	    object.each_graph do |graph|
+		next unless graph.distribute?
+
 		graph_edges = []
 		object.each_child_object(graph) do |child|
+		    next unless child.distribute?
 		    graph_edges << [object, child, object[child, graph]]
 		end
 		object.each_parent_object(graph) do |parent|
+		    next unless parent.distribute?
 		    graph_edges << [parent, object, parent[object, graph]]
 		end
 		result << [graph, graph_edges]

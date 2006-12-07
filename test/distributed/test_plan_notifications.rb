@@ -21,6 +21,18 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	super
     end
 
+    def test_distribute_p
+	assert(Roby::Task.new.distribute?)
+	klass = Class.new(Roby::Task) do
+	    local_object
+	end
+	assert(!klass.new.distribute?)
+	assert(!ConnectionTask.new.distribute?)
+
+	assert(Roby::TaskStructure::Hierarchy.distribute?)
+	assert(Roby::EventStructure::Signal.distribute?)
+    end
+
     def test_subscribe_plan
 	peer2peer do |remote|
 	    mission = Task.new :id => 'mission'

@@ -203,6 +203,7 @@ module Roby
 	end
 
 	def to_s; name end
+	def distribute?; options[:distribute] end
 
 	def link(from, to, info = nil)
 	    if linked?(from, to)
@@ -282,7 +283,8 @@ module Roby
 			:parent_name => nil,
 			:subsets => Set.new,
 			:noinfo => false,
-			:graph => RelationGraph
+			:graph => RelationGraph,
+			:distribute => true
 
 	    options[:const_name] = relation_name
 	    graph = options[:graph].new "#{self.name}::#{relation_name}", options

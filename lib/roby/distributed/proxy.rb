@@ -10,15 +10,19 @@ module Roby
     class TaskEventGenerator
 	def read_only?; super && task.read_only? end
 	def owners; task.owners end
+	def distribute?; task.distribute? end
+	def has_sibling?; task.has_sibling? end
     end
     class Transactions::Task
 	def_delegator :@__getobj__, :owners
+	def_delegator :@__getobj__, :distribute?
 	def has_sibling?(peer)
 	    plan.has_sibling?(peer)
 	end
     end
     class Transactions::EventGenerator
 	def_delegator :@__getobj__, :owners
+	def_delegator :@__getobj__, :distribute?
 	def has_sibling?(peer)
 	    plan.has_sibling?(peer)
 	end
@@ -26,23 +30,6 @@ module Roby
 end
 
 module Roby::Distributed
-    @updated_objects = ValueSet.new
-    class << self
-	attr_reader :updated_objects
-	def updating?(objects)
-	    updated_objects.include_all?(objects) 
-	end
-	def update(objects)
-	    old_updated = updated_objects
-	    @updated_objects |= objects
-
-	    yield
-
-	ensure
-	    @updated_objects = old_updated
-	end
-    end
-
     @@proxy_model = Hash.new
 
     # Builds a remote proxy model for +object_model+. +object_model+ is
