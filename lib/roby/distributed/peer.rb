@@ -16,6 +16,7 @@ module Roby::Distributed
     class ConnectionTask < Roby::Task
 	event :ready
 	local_object
+	def ready?; event(:ready).happened? end
     end
     class LiveConnectionTask < Roby::Task
 	local_object
@@ -73,11 +74,11 @@ module Roby::Distributed
 	def server_name; peer.neighbour.name end
 	
 	def demux(calls)
+	    result = []
 	    if !peer.connected?
-		raise Disconnected, "#{server_name} has been disconnected"
+		raise DisconnectedError, "#{server_name} has been disconnected"
 	    end
 
-	    result = []
 	    calls.each do |obj, args|
 		Roby::Distributed.debug { "processing #{obj}.#{args[0]}(#{args[1..-1].join(", ")})" }
 		result << obj.send(*args)
@@ -85,7 +86,7 @@ module Roby::Distributed
 
 	    [result, nil]
 
-	rescue
+	rescue Exception
 	    [result, $!]
 	end
 
@@ -278,20 +279,33 @@ module Roby::Distributed
 
 	# Listens for new connections on Distributed.state
 	def self.connection_listener(connection_space)
+	    seen = []
+
 	    connection_space.read_all( { 'kind' => :peer, 'connection_space' => nil, 'remote' => nil } ).each do |entry|
 		remote_cs = entry['connection_space']
+		seen << remote_cs
 		peer = connection_space.peers[remote_cs]
 
-		if peer
-		    next if peer.connected?
-		    Roby::Distributed.debug { "Peer #{peer.name} finalized handshake" }
-		    # The peer finalized the handshake
-		    peer.connected!
+		if peer 
+		    if peer.connecting?
+			Roby::Distributed.debug { "Peer #{peer.name} finalized handshake" }
+			# The peer finalized the handshake
+			peer.connected!
+		    else
+			# ping the remote host
+			peer.ping
+		    end
 		elsif neighbour = connection_space.neighbours.find { |n| n.connection_space == remote_cs }
 		    Roby::Distributed.debug { "Peer #{remote_cs.name} asking for connection" }
 		    # New connection attempt from a known neighbour
 		    Peer.new(connection_space, neighbour).connected!
 		end
+	    end
+
+	    (connection_space.peers.keys - seen).each do |disconnected| 
+		Roby::Distributed.debug { "Peer #{disconnected.name} disconnected" }
+		connection_space.peers[disconnected].disconnected!
+		connection_space.peers.delete(disconnected)
 	    end
 	end
 
@@ -315,78 +329,85 @@ module Roby::Distributed
 	attr_reader :name, :max_allowed_errors, :task
 
 	def transmit(*args, &block)
+	    if !connected?
+		raise DisconnectedError, "we are not currently connected to #{peer.name}"
+	    end
+
 	    Roby::Distributed.debug { "queueing #{neighbour.name}.#{args[0]}" }
 	    @send_queue.push([[remote_server, args], block])
 	    @sending = true
 	end
 
-	def send_thread
-	    @send_queue = Queue.new
-	    @send_thread = Thread.new do
-		begin
-		    error_count = 0
-		    while calls ||= @send_queue.get
-			break unless connected?
-			while !alive?
-			    break unless connected?
-			    connection_space.wait_discovery
-			end
-
-			# Mux all calls into one array and send them
-			synchronize do
-			    calls += @send_queue.get(true)
-			    Roby::Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
-			    results, error = begin remote_server.demux(calls.map { |a| a.first })
-					     rescue Exception; [[], $!]
-					     end
-			    success = results.size
-			    Roby::Distributed.debug { "#{neighbour.name} processed #{success} commands" }
-			    (0...success).each do |i|
-				if block = calls[i][1]
-				    block.call(results[i]) rescue nil
-				end
-			    end
-
-			    error_count = 0 if success > 0
-			    if error
-				Roby::Distributed.warn  do
-				    call = calls[success].first
-				     "#{name} reports an error on #{call[0]}.#{call[1]}(#{call[2..-1].join(", ")})"
-				end
-				Roby::Distributed.debug { "\n" + error.full_message }
-				if DRb::DRbConnError === error
-				    # We have a connection error, mark the connection as not being alive
-				    dead_connection!
-				end
-
-				calls = calls[success..-1]
-				error_count += 1
-			    else
-				calls = nil
-				@sending = !@send_queue.empty?
-				send_flushed.broadcast unless @sending
-			    end
-
-			    if (error_count += 1) > self.max_allowed_errors
-				Roby::Distributed.fatal do
-				    "#{name} disconnecting from #{neighbour.name} because of too much errors"
-				end
-				disconnect
-				break
-			    end
-			end
-		    end
-
-		    Roby::Distributed.debug "sending thread quit for #{neighbour.name}"
-		    @sending = nil
-		    @send_queue.clear
-		    synchronize do
-			send_flushed.broadcast
-		    end
-
-		rescue Exception
-		    STDERR.puts "Communication thread dies with\n#{$!.full_message}"
+	def communication_loop
+	    error_count = 0
+	    while calls ||= @send_queue.get
+		while !link_alive?
+		    break unless connected?
+		    connection_space.wait_discovery
 		end
+		break unless connected?
+
+		# Mux all calls into one array and send them
+		synchronize do
+		    calls += @send_queue.get(true)
+		    Roby::Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
+		    results, error = begin remote_server.demux(calls.map { |a| a.first })
+				     rescue Exception
+					 [[], $!]
+				     end
+		    success = results.size
+		    Roby::Distributed.debug { "#{neighbour.name} processed #{success} commands" }
+		    (0...success).each do |i|
+			if block = calls[i][1]
+			    block.call(results[i]) rescue nil
+			end
+		    end
+
+		    error_count = 0 if success > 0
+		    if error
+			Roby::Distributed.warn  do
+			    call = calls[success].first
+				     "#{name} reports an error on #{call[0]}.#{call[1]}(#{call[2..-1].join(", ")})"
+			end
+
+			case error
+			when DRb::DRbConnError
+			    Roby::Distributed.warn { "it looks like we cannot talk to #{neighbour.name}" }
+			    # We have a connection error, mark the connection as not being alive
+			    dead_link!
+			when DisconnectedError
+			    Roby::Distributed.warn { "#{neighbour.name} has disconnected" }
+			    # The remote host has disconnected, do the same on our side
+			    disconnected!
+			else
+			    Roby::Distributed.debug { "\n" + error.full_message }
+			end
+
+			calls = calls[success..-1]
+			error_count += 1
+		    else
+			calls = nil
+			@sending = !@send_queue.empty?
+			send_flushed.broadcast unless @sending
+		    end
+
+		    if error_count > self.max_allowed_errors
+			Roby::Distributed.fatal do
+				    "#{name} disconnecting from #{neighbour.name} because of too much errors"
+			end
+			disconnect
+		    end
+		end
+	    end
+
+	rescue Exception
+	    STDERR.puts "Communication thread dies with\n#{$!.full_message}"
+
+	ensure
+	    @send_queue.clear
+	    synchronize do
+		@sending = nil
+		send_flushed.broadcast
 	    end
 	end
 
@@ -404,7 +425,7 @@ module Roby::Distributed
 	# We consider that two peers are connected when there
 	# is this kind of tuple in *both* tuplespaces
 	def connect
-	    raise "Already connected" if connected?
+	    raise if task
 
 	    @task = ConnectionTask.new
 	    connection_space.plan.insert(task)
@@ -414,59 +435,71 @@ module Roby::Distributed
 
 	# Called when the handshake is finished
 	def connected!
-	    send_thread
+	    raise if !connecting?
+
+	    @send_queue = Queue.new
+	    @send_thread = Thread.new(&method(:communication_loop))
+
+	    @entry = connection_space.read({'kind' => :peer, 'connection_space' => neighbour.connection_space, 'remote' => nil}, 0)
 	    task.event(:ready).emit(nil)
 	end
 
 	# Updates our keepalive token on the peer
 	def ping(timeout = nil)
+	    @dead = false
 	    old, @keepalive = @keepalive, 
 		neighbour.connection_space.write({ 'kind' => :peer, 'connection_space' => connection_space, 'remote' => @local }, timeout)
 
 	    old.cancel if old
 	end
 
+	# Disconnect this side of the connection. The remote host is supposed to 
+	# acknowledge that by removing its last keepalive tuple from our connection
+	# space
 	def disconnect
-	    keepalive.cancel if keepalive
-	    neighbour.connection_space.take( { 
-		'kind' => :peer, 
-		'connection_space' => neighbour.connection_space, 
-		'remote' => nil }, 0)
-
-	    connection_space.peers.delete(remote_id)
-
-	    send_queue.push(nil)
-	    @send_thread.join
-	    @send_queue.clear
-	    @send_thread = nil
-
 	    task.event(:failed).emit(nil)
+
+	    # Remove the keepalive tuple we wrote on the remote host
+	    keepalive.cancel if keepalive
+
+	    @send_queue.push(nil)
+	    unless Thread.current == @send_thread
+		@send_thread.join
+		@send_thread = nil
+	    end
 
 	rescue Rinda::RequestExpiredError
 	end
 
-	# Returns true if the connection has been established. See also #alive?
+	# Called when the peer acknowledged the fact that we disconnected
+	def disconnected!
+	    disconnect if connected?
+	    @task = nil
+	end
+
+	# Returns true if we are establishing a connection with this peer
+	def connecting?; task && task.running? && !task.event(:ready).happened? end
+	# Returns true if the connection has been established. See also #link_alive?
 	def connected?; task && task.running? && task.event(:ready).happened? end
+	# Returns true if the we disconnected on our side but the peer did not
+	# acknowledge it yet
+	def disconnecting?; task && task.finished? end
 
 	# The server object we use to access the remote plan database
-	def remote_server
-	    unless alive?
-		raise NotAliveError, "connection not currently alive"
-	    end
-	    return @entry['remote']
-	end
+	def remote_server; @entry['remote'] end
     
-	def dead_connection!
-	    connection_space.take({'kind' => :peer, 'connection_space' => neighbour.connection_space, 'remote' => nil}, 0)
-	end
+	# Returns true if this peer owns +object+
 	def owns?(object); object.owners.include?(remote_id) end
 
+	# Mark the link as dead regardless of the last neighbour discovery. This
+	# is reset during the next neighbour discovery
+	def link_dead!; @dead = true end
 	# Checks if the connection is currently alive
-	def alive?
+	def link_alive?
+	    return false if @dead
 	    return false unless connected?
 	    return false unless connection_space.neighbours.find { |n| n.connection_space == neighbour.connection_space }
-	    @entry = connection_space.read({'kind' => :peer, 'connection_space' => neighbour.connection_space, 'remote' => nil}, 0) rescue nil
-	    return !!@entry
+	    true
 	end
 
 	# Get direct access to the remote plan

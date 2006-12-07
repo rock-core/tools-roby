@@ -12,50 +12,6 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	Distributed.state = nil
     end
 
-    # Test establishing peer-to-peer connection between two ConnectionSpace objects
-    def test_connection
-	start_peers
-
-	# Initiate the connection from +local+ and check we did ask for
-	# connection on +remote+
-	local.start_neighbour_discovery(true)
-	n_remote = Distributed.neighbours.find { true }
-	p_remote = Peer.new(local, n_remote)
-	assert_equal(local,  p_remote.keepalive['connection_space'])
-	assert_equal(remote, p_remote.neighbour.connection_space)
-	assert_nothing_raised { remote.read(p_remote.keepalive.value, 0) }
-	# The connection is not alive yet since +remote+ does not have
-	# finalized the handshake yet
-	assert(! p_remote.connected?)
-	assert(! p_remote.alive?)
-
-	# After +remote+ has finished neighbour discovery, all connection
-	# attempts should have been finalized, so we should have a Peer object
-	# for +local+
-	remote.start_neighbour_discovery(true)
-	p_local = remote.peers.find { true }.last
-	assert_equal(local, p_local.neighbour.connection_space)
-	assert_equal(remote, p_local.keepalive['connection_space'])
-	assert_equal(local,  p_local.neighbour.connection_space)
-	assert_nothing_raised { local.read(p_local.keepalive.value, 0) }
-
-	assert(p_local.connected?)
-	assert(p_local.alive?)
-	# p_remote is still not alive since +local+ does not know the
-	# connection is finalized
-	assert(! p_remote.alive?)
-	assert(! p_remote.connected?)
-
-	# Finalize the connection
-	local.start_neighbour_discovery(true)
-	assert(p_remote.connected?)
-	assert(p_remote.alive?)
-
-	assert_equal('remote', p_remote.neighbour.name)
-	assert_equal('remote', p_remote.remote_server.client_name)
-	assert_equal('local', p_remote.remote_server.server_name)
-    end
-
 
 
     # Check that we can query the remote plan database

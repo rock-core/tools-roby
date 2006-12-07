@@ -14,8 +14,10 @@ module DistributedTestCommon
 	Roby::Distributed.allow_remote_access Roby::Distributed::Peer
 	@plan = Plan.new
 	super
+	@old_logger_level = Roby::Distributed.logger.level
     end
     def teardown
+	Roby::Distributed.logger.level = @old_logger_level
 	apply_remote_command if remote_peer
 	super
 	@remote_peer = nil

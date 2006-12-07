@@ -1,14 +1,14 @@
 $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
-require 'test_config'
+require 'distributed/common'
 require 'mockups/tasks'
 require 'roby/distributed/connection_space'
 require 'roby/distributed/proxy'
 
-class TC_DistributedDiscovery < Test::Unit::TestCase
+class TC_DistributedConnection < Test::Unit::TestCase
+    include Rinda
     include Roby
     include Roby::Distributed
-    include Rinda
-    include RobyTestCommon
+    include DistributedTestCommon
 
     def assert_has_neighbour(&check)
 	Distributed.state.start_neighbour_discovery
@@ -64,6 +64,95 @@ class TC_DistributedDiscovery < Test::Unit::TestCase
 
 	assert_has_neighbour { |n| n.name == "#{Socket.gethostname}-#{remote_pid}" }
     end
-end
 
+    # Test establishing peer-to-peer connection between two ConnectionSpace objects
+    # Note that #peer2peer is the exact same process
+    def test_connect
+	start_peers
+
+	# Initiate the connection from +local+ and check we did ask for
+	# connection on +remote+
+	local.start_neighbour_discovery(true)
+	n_remote = Distributed.neighbours.find { true }
+	p_remote = Peer.new(local, n_remote)
+	assert_equal(local,  p_remote.keepalive['connection_space'])
+	assert_equal(remote, p_remote.neighbour.connection_space)
+	assert_nothing_raised { remote.read(p_remote.keepalive.value, 0) }
+	# The connection is not link_alive yet since +remote+ does not have
+	# finalized the handshake yet
+	assert(! p_remote.connected?)
+	assert(! p_remote.link_alive?)
+	assert(p_remote.task)
+	assert(p_remote.task.running?)
+
+	# After +remote+ has finished neighbour discovery, all connection
+	# attempts should have been finalized, so we should have a Peer object
+	# for +local+
+	remote.start_neighbour_discovery(true)
+	p_local = remote.peers.find { true }.last
+	assert_equal(local, p_local.neighbour.connection_space)
+	assert_equal(remote, p_local.keepalive['connection_space'])
+	assert_equal(local,  p_local.neighbour.connection_space)
+	assert_nothing_raised { local.read(p_local.keepalive.value, 0) }
+
+	assert(p_local.connected?)
+	assert(p_local.link_alive?)
+	assert(p_local.task.remote_object.ready?)
+	# p_remote is still not link_alive since +local+ does not know the
+	# connection is finalized
+	assert(! p_remote.link_alive?)
+	assert(! p_remote.connected?)
+	assert(! p_remote.task.ready?)
+
+	# Finalize the connection
+	local.start_neighbour_discovery(true)
+	assert(p_remote.connected?)
+	assert(p_remote.link_alive?)
+	assert(p_remote.task.ready?)
+
+	assert_equal('remote', p_remote.neighbour.name)
+	assert_equal('remote', p_remote.remote_server.client_name)
+	assert_equal('local', p_remote.remote_server.server_name)
+    end
+
+    # Test the normal disconnection process
+    def test_disconnect
+	peer2peer
+	assert(remote_peer.task.ready?)
+
+	remote_peer.disconnect
+	assert(remote_peer.task.finished?)
+	assert(!remote_peer.connected?)
+
+	remote.start_neighbour_discovery(true)
+	assert(!local_peer.task)
+	assert(!local_peer.connected?)
+
+	local.start_neighbour_discovery(true)
+	assert(!remote_peer.task)
+    end
+
+    # Tests that the remote peer disconnects if #demux raises DisconnectedError
+    def test_automatic_disconnect
+	Roby::Distributed.logger.level = Logger::WARN
+
+	peer2peer do |remote|
+	    class << remote
+		include Test::Unit::Assertions
+		def assert_demux_raises
+		    peer = peers.find { true }[1]
+		    peer.transmit(:whatever)
+		    peer.flush
+		end
+	    end
+	end
+	remote_peer.disconnect
+	remote.assert_demux_raises
+	assert(!local_peer.task)
+	assert(!local_peer.connected?)
+
+	local.start_neighbour_discovery(true)
+	assert(!remote_peer.task)
+    end
+end
 
