@@ -1,3 +1,5 @@
+require 'roby/relations'
+
 module Roby
     class PlanObject
 	include DirectedRelationSupport
