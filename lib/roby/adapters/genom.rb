@@ -478,7 +478,8 @@ module Roby::Genom
 	# If +name+ is a used module
 	def uses?(name); uses.include?(name.to_s) end
 
-	attribute(:ignores) { Set.new }
+	attribute(:ignores) { Array.new }
+	def ignores?(name); ignores.include?(name.to_s) end
 
 	# Ignore configuration for the given modules. For instance, in
 	#
@@ -491,7 +492,14 @@ module Roby::Genom
 	#
 	# The block given to g#pom is never called
 	def ignoring(*modules)
-	    modules.map { |n| ignores << n.to_s }
+	    modules.map do |n|
+		n = n.to_s
+		if uses?(n)
+		    raise ArgumentError, "#{n} is both used and ignored", caller(3)
+		end
+		return if ignores?(n)
+	       	ignores << n
+	    end
 	end
 
 	# Redefine method_missing to disable module-specific configuration
@@ -507,6 +515,9 @@ module Roby::Genom
 	    modules.each do |modname| 
 		modname = modname.to_s
 		next if uses?(modname) # already loaded
+		if ignores?(modname)
+		    raise ArgumentError, "#{modname} is both used and ignored", caller(3)
+		end
 		uses << modname
 		
 		::Roby::Genom::GenomModule(modname, :output => output_io) 
