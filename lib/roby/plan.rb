@@ -322,6 +322,8 @@ module Roby
 		@known_tasks.delete(object)
 		finalized_task(object)
 	    end
+
+	    self
 	end
 
 	# Backward compatibility
