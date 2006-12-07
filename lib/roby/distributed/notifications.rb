@@ -128,6 +128,14 @@ module Roby
 	PlanObject.include RelationModificationHooks
 
 	module EventNotifications
+	    def fired(event)
+		super if defined? super
+		if self_owned? && !Distributed.updating?([self])
+		    Distributed.each_subscribed_peer(self) do |peer|
+			peer.transmit(:event_fired, self, event.time, event.context)
+		    end
+		end
+	    end
 	    def forwarding(event, to)
 		super if defined? super
 		if self_owned? && !Distributed.updating?([self])
@@ -148,6 +156,12 @@ module Roby
 	Roby::EventGenerator.include EventNotifications
 
 	class PeerServer
+	    def event_fired(marshalled_from, time, context)
+		from_generator = peer.proxy(marshalled_from)
+		context        = peer.proxy(context)
+		Distributed.pending_fired << [from_generator, time, context]
+	    end
+
 	    def event_add_propagation(only_forward, marshalled_from, marshalled_to, time, context)
 		from_generator = peer.proxy(marshalled_from)
 		to             = peer.proxy(marshalled_to)
@@ -157,25 +171,36 @@ module Roby
 	    end
 	end
 
+	@pending_fired   = Queue.new
 	@pending_signals = Queue.new
+	@pending_events  = Hash.new
 	class << self
-	    attr_reader :pending_signals
+	    attr_reader :pending_events, :pending_fired, :pending_signals
 	    def distributed_signals
+		pending_fired.get(true).each do |generator, time, context|
+		    event = generator.new(context)
+		    event.send(:time=, time)
+		    generator.fired(event)
+		    pending_events[[time, context]] = event
+		end
+
 		pending_signals.get(true).each do |only_forward, from_generator, to_generator, time, context|
-		    from           = from_generator.new(context)
-		    from.send(:time=, time)
+		    unless event = pending_events[[time, context]]
+			event = from_generator.new(context)
+			event.send(:time=, time)
+			from_generator.fired(event)
+		    end
 
-		    from_generator.fired(from)
-
-		    # only add the signalling if we own +to+
+		    # Only add the signalling if we own +to+
 		    if to_generator.self_owned?
-			Propagation.add_event_propagation(only_forward, [from], to_generator, context)
+			Propagation.add_event_propagation(only_forward, [event], to_generator, context)
 		    else
-			# Call #fired and #signalling to make +from_generator+ look
-			# like as if the event was really fired locally ...
+			# Call #signalling or #forwarding to make
+			# +from_generator+ look like as if the event was really
+			# fired locally ...
 			Distributed.update([from_generator.root_object, to_generator.root_object]) do
-			    if only_forward then from_generator.forwarding(from, to_generator)
-			    else from_generator.signalling(from, to_generator)
+			    if only_forward then from_generator.forwarding(event, to_generator)
+			    else from_generator.signalling(event, to_generator)
 			    end
 			end
 		    end
