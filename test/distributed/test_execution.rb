@@ -18,6 +18,69 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	super
     end
 
+    def test_event_status
+	peer2peer do |remote|
+	    class << remote
+		attr_reader :controlable
+		attr_reader :contingent
+		def create
+		    plan.discover(@controlable = Roby::EventGenerator.new(true))
+		    plan.discover(@contingent = Roby::EventGenerator.new(false))
+		end
+		def fire
+		    controlable.call(nil) 
+		    contingent.emit(nil)
+		end
+	    end
+	end
+
+	remote.create
+	r_controlable = remote.controlable
+	r_contingent = remote.contingent
+	p_controlable = remote_peer.proxy(r_controlable)
+	p_contingent = remote_peer.proxy(r_contingent)
+
+	remote.fire
+	remote_peer.subscribe(r_controlable)
+	remote_peer.subscribe(r_contingent)
+	apply_remote_command
+
+	assert(p_controlable.happened?)
+	assert(p_contingent.happened?)
+    end
+
+    def test_task_status
+	peer2peer do |remote|
+	    class << remote
+		attr_reader :task
+		def create_task
+		    plan.clear
+		    plan.insert(@task = SimpleTask.new(:id => 1))
+		end
+		def start_task; task.start! end
+		def stop_task; task.stop! end
+	    end
+	end
+
+	remote.create_task
+	r_task = remote_task(:id => 1)
+	p_task = remote_peer.proxy(r_task)
+
+	remote.start_task
+
+	remote_peer.subscribe(r_task)
+	apply_remote_command
+
+	assert(p_task.event(:start).happened?)
+	assert(p_task.running?)
+
+	remote.stop_task
+	apply_remote_command
+
+	assert(p_task.event(:stop).happened?)
+	assert(p_task.finished?)
+    end
+
     def test_signalling
 	peer2peer do |remote|
 	    remote.plan.insert(task = SimpleTask.new(:id => 1))
