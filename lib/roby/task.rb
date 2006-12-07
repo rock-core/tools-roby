@@ -436,6 +436,8 @@ module Roby
 	    else
 		super
 	    end
+	rescue
+	    raise $!, $!.message, $!.backtrace[1..-1]
 	end
 
         # :section: Event model
