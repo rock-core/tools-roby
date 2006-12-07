@@ -19,12 +19,33 @@ module Roby::Distributed
     # The peer is disconnected
     class DisconnectedError < ConnectionError; end
 
+    @updated_objects = ValueSet.new
     class << self
 	def each_subscribed_peer(*objects)
 	    peers.each do |name, peer|
 		next if objects.any? { |o| !o.has_sibling?(peer) }
 		yield(peer) if objects.any? { |o| peer.local.subscribed?(o) || peer.owns?(o) }
 	    end
+	end
+
+	# The list of objects that are being updated because of remote update
+	attr_reader :updated_objects
+
+	# If we are updating all objects in +objects+
+	def updating?(objects)
+	    updated_objects.include_all?(objects) 
+	end
+
+	# Call the block with the objects in +objects+ added to the
+	# updated_objects set
+	def update(objects)
+	    old_updated = updated_objects
+	    @updated_objects |= objects
+
+	    yield
+
+	ensure
+	    @updated_objects = old_updated
 	end
     end
 
@@ -88,7 +109,12 @@ module Roby::Distributed
 		peer.transmit(:set_relations, object, relations)
 
 		if object.respond_to?(:each_event)
-		    object.each_event(false, &method(:subscribe))
+		    object.each_event do |ev|
+			# Send event event if +result+ is empty, so that relations are
+			# removed if needed on the other side
+			relations = relations_of(ev)
+			peer.transmit(:set_relations, ev, relations)
+		    end
 		end
 
 	    when Roby::Transaction

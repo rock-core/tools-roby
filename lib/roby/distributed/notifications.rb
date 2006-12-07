@@ -135,24 +135,24 @@ module Roby
 	module EventNotifications
 	    def fired(event)
 		super if defined? super
-		if self_owned? && !Distributed.updating?([self])
-		    Distributed.each_subscribed_peer(self) do |peer|
+		if self_owned? && !Distributed.updating?([root_object])
+		    Distributed.each_subscribed_peer(root_object) do |peer|
 			peer.transmit(:event_fired, self, event.time, event.context)
 		    end
 		end
 	    end
 	    def forwarding(event, to)
 		super if defined? super
-		if self_owned? && !Distributed.updating?([self])
-		    Distributed.each_subscribed_peer(self, to) do |peer|
+		if self_owned? && !Distributed.updating?([root_object])
+		    Distributed.each_subscribed_peer(root_object, to.root_object) do |peer|
 			peer.transmit(:event_add_propagation, true, self, to, event.time, event.context)
 		    end
 		end
 	    end
 	    def signalling(event, to)
 		super if defined? super
-		if self_owned? && !Distributed.updating?([self])
-		    Distributed.each_subscribed_peer(self, to) do |peer|
+		if self_owned? && !Distributed.updating?([root_object])
+		    Distributed.each_subscribed_peer(root_object, to.root_object) do |peer|
 			peer.transmit(:event_add_propagation, false, self, to, event.time, event.context)
 		    end
 		end
