@@ -69,36 +69,6 @@ class TC_Control < Test::Unit::TestCase
 	end
     end
 
-    include Roby::Planning
-    def test_control_interface
-        control = Control.instance
-        iface   = ControlInterface.new(control)
-
-        task_model = Class.new(Task)
-
-        result_task = nil
-        planner = Class.new(Planner) do
-            method(:null_task) { result_task = task_model.new }
-        end
-        control.planners << planner
-
-        planning = iface.null_task
-        assert(PlanningTask === planning)
-
-        mock_task = control.plan.missions.find { true }
-        assert(Task === mock_task, mock_task.class.inspect)
-
-	planning.start!
-        poll(0.5) do
-            thread_finished = !planning.thread.alive?
-            control.process_events
-            assert(planning.running? ^ thread_finished)
-            break unless planning.running?
-        end
-
-	plan_task = control.plan.missions.find { true }
-        assert(plan_task == result_task, plan_task)
-    end
 
     class SpecificException < RuntimeError; end
     def test_unhandled_event_exceptions
