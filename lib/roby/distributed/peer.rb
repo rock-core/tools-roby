@@ -385,7 +385,7 @@ module Roby::Distributed
 		    end
 
 		rescue Exception
-		    STDERR.puts "Communication thread dies with #{$!.full_message}"
+		    STDERR.puts "Communication thread dies with\n#{$!.full_message}"
 		end
 	    end
 	end
