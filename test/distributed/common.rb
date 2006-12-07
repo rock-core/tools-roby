@@ -84,6 +84,7 @@ module DistributedTestCommon
 	    remote.start_neighbour_discovery(true)
 	    did_something ||= local_peer.flush
 	    local.start_neighbour_discovery(true)
+	    Control.instance.process_events
 	    break unless did_something
 	end
 	yield if block_given?
