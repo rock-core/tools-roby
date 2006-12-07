@@ -174,19 +174,13 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	[task, r_task]
     end
 
-    def check_built_transaction(trsc)
-	r_task, task = nil
-	assert_kind_of(Roby::Distributed::Transaction, trsc)
-	assert_equal(2, trsc.known_tasks.size)
-	trsc.known_tasks.each do |t|
-	    if t.arguments[:id] == 1
-		#assert_kind_of(Transactions::Proxy, t)
-		r_task = t
-	    else
-		#assert_kind_of(Roby::Distributed::RemoteObjectProxy, t)
-		task = t
-	    end
-	end
+    # Checks that +plan+ looks like the result of #build_transaction
+    def check_resulting_plan(plan)
+	Control.instance.process_events
+
+	assert_equal(3, plan.known_tasks.size)
+	r_task = plan.known_tasks.find { |t| t.arguments[:id] == 1 }
+	task   = plan.known_tasks.find { |t| t.arguments[:id] == 2 }
 
 	assert_equal(1, r_task.child_objects(Roby::TaskStructure::Hierarchy).size)
 	assert(r_task.child_object?(task, Roby::TaskStructure::Hierarchy))
@@ -197,20 +191,24 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert_equal(1, task.event(:stop).child_objects(Roby::EventStructure::Signal).size)
 	assert(task.event(:stop).child_object?(r_task.event(:stop), Roby::EventStructure::Signal))
     end
-    def check_resulting_plan(plan)
-	Control.instance.process_events
-	r_task, task = nil
-	assert_equal(2, plan.known_tasks.size)
-	plan.known_tasks.each do |t|
-	    if t.arguments[:id] == 1 then r_task = t
-	    else task = t
-	    end
+
+    # Commit the transaction and checks the result
+    def check_transaction_commit(trsc, task, r_task)
+	# Commit the transaction
+	did_commit = false
+	trsc.commit_transaction do |commited_transaction, did_commit| 
+	    assert_equal(trsc, commited_transaction) 
+	    assert(did_commit)
 	end
 
-	assert(r_task && task)
-	assert_equal(1, r_task.child_objects(Roby::TaskStructure::Hierarchy).size)
-	assert(r_task.child_object?(task, Roby::TaskStructure::Hierarchy))
+	# Send prepare_commit_transaction to the remote host and read its reply
+	apply_remote_command
+
+	assert(r_task.child_object?(task, TaskStructure::Hierarchy))
+	remote.check_plan
+	check_resulting_plan(local.plan)
     end
+
     def test_propose_commit
 	peer2peer do |remote|
 	    testcase = self
@@ -218,7 +216,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	    remote.class.class_eval do
 		define_method(:check_transaction) do |trsc|
-		    testcase.check_built_transaction(trsc)
+		    testcase.check_resulting_plan(trsc)
 		end
 		define_method(:check_plan) { testcase.check_resulting_plan(remote.plan) }
 	    end
@@ -239,28 +237,6 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	check_transaction_commit(trsc, task, r_task)
     end
 
-    def check_transaction_commit(trsc, task, r_task)
-	# Commit the transaction
-	did_commit = false
-	trsc.commit_transaction do |commited_transaction, did_commit| 
-	    assert_equal(trsc, commited_transaction) 
-	    assert(did_commit)
-	end
-
-	# Send prepare_commit_transaction to the remote host and read its reply
-	apply_remote_command
-	# Call commit_transaction
-	Control.instance.process_events
-	# Send commit_transaction to the remote host and read its reply
-	apply_remote_command
-	# read the commit result given to 
-	Control.instance.process_events
-
-	assert(r_task.child_object?(task, TaskStructure::Hierarchy))
-	remote.check_plan
-	check_resulting_plan(local.plan)
-    end
-
     def test_synchronization
 	peer2peer do |remote|
 	    testcase = self
@@ -268,7 +244,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	    remote.class.class_eval do
 		define_method(:check_transaction) do |trsc|
-		    testcase.check_built_transaction(trsc)
+		    testcase.check_resulting_plan(trsc)
 		end
 		define_method(:check_plan) { testcase.check_resulting_plan(remote.plan) }
 	    end
@@ -289,7 +265,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	# Check that the remote transaction has been updated
 	apply_remote_command
 	remote.check_transaction(r_trsc)
-	check_built_transaction(trsc)
+	check_resulting_plan(trsc)
 
 	# Commit the transaction
 	check_transaction_commit(trsc, task, r_task)

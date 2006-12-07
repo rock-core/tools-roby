@@ -2,6 +2,7 @@ require 'roby/control'
 require 'roby/plan'
 require 'roby/distributed/notifications'
 require 'roby/distributed/proxy'
+require 'roby/relations/executed_by'
 require 'roby/transactions'
 require 'utilrb/queue'
 require 'utilrb/array/to_s'
@@ -12,6 +13,14 @@ module Roby
 end
 
 module Roby::Distributed
+    class ConnectionTask < Roby::Task
+	event :ready
+	local_object
+    end
+    class LiveConnectionTask < Roby::Task
+	local_object
+    end
+
     # Base class for all communication errors
     class ConnectionError   < RuntimeError; end
     # The peer is connected but connection is not alive
@@ -303,7 +312,7 @@ module Roby::Distributed
 	    connect
 	end
 
-	attr_reader :name, :max_allowed_errors
+	attr_reader :name, :max_allowed_errors, :task
 
 	def transmit(*args, &block)
 	    Roby::Distributed.debug { "queueing #{neighbour.name}.#{args[0]}" }
@@ -396,6 +405,10 @@ module Roby::Distributed
 	# is this kind of tuple in *both* tuplespaces
 	def connect
 	    raise "Already connected" if connected?
+
+	    @task = ConnectionTask.new
+	    connection_space.plan.insert(task)
+	    task.event(:start).emit(nil)
 	    ping
 	end
 
@@ -467,8 +480,20 @@ module Roby::Distributed
 	    if marshalled.respond_to?(:remote_object)
 		object = marshalled.remote_object
 		return object unless object.kind_of?(DRbObject)
-		object_proxy = (@proxies[object] ||= marshalled.proxy(self))
-		marshalled.update(self, object_proxy) if marshalled.respond_to?(:update)
+		unless object_proxy = @proxies[object]
+		    object_proxy = @proxies[object] = marshalled.proxy(self)
+
+		    if object_proxy.respond_to?(:execution_agent) && object_proxy.plan
+			connection_task = object_proxy.plan[self.task]
+			Roby::Distributed.update([object_proxy, connection_task]) do
+			    # Get the proxy plan
+			    object_proxy.executed_by connection_task
+			end
+		    end
+		end
+		if marshalled.respond_to?(:update)
+		    marshalled.update(self, object_proxy) 
+		end
 	    else
 		object_proxy = marshalled.proxy(self)
 	    end

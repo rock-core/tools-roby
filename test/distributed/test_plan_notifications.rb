@@ -54,10 +54,10 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	# Check that the remote plan has been mapped locally
 	tasks = local.plan.known_tasks
-	assert_equal(3, tasks.size)
-	assert(p_mission = tasks.find { |t| t == remote_peer.proxy(r_mission) })
-	assert(p_subtask = tasks.find { |t| t == remote_peer.proxy(r_subtask) })
-	assert(p_next_mission = tasks.find { |t| t == remote_peer.proxy(r_next_mission) })
+	assert_equal(4, tasks.size)
+	assert(p_mission = tasks.find { |t| t.arguments[:id] == 'mission' })
+	assert(p_subtask = tasks.find { |t| t.arguments[:id] == 'subtask' })
+	assert(p_next_mission = tasks.find { |t| t.arguments[:id] == 'next_mission' })
 
 	assert(p_mission.child_object?(p_subtask, TaskStructure::Hierarchy))
 	assert(p_mission.event(:start).child_object?(p_next_mission.event(:start), EventStructure::Signal))
@@ -105,14 +105,15 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	remote.create_mission
 	apply_remote_command
 	r_mission = remote_task(:id => 'mission')
-	assert_equal(1, local.plan.size)
+	# NOTE: the count is always remote_tasks + 1 since we have the ConnectionTask for our connection
+	assert_equal(2, local.plan.size, local.plan.known_tasks.to_a)
 	assert(p_mission = local.plan.known_tasks.find { |t| t == remote_peer.proxy(r_mission) })
 	assert(remote_peer.subscribed?(r_mission.remote_object), remote_peer.subscriptions)
 
 	remote.create_subtask
 	apply_remote_command
 	r_subtask = remote_task(:id => 'subtask')
-	assert_equal(2, local.plan.size)
+	assert_equal(3, local.plan.size)
 	assert(p_subtask = local.plan.known_tasks.find { |t| t == remote_peer.proxy(r_subtask) })
 	assert(p_mission.child_object?(p_subtask, TaskStructure::Hierarchy))
 	assert(remote_peer.subscribed?(r_subtask.remote_object), remote_peer.subscriptions)
@@ -120,7 +121,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	remote.create_next_mission
 	apply_remote_command
 	r_next_mission = remote_task(:id => 'next_mission')
-	assert_equal(3, local.plan.size)
+	assert_equal(4, local.plan.size)
 	assert(p_next_mission = local.plan.known_tasks.find { |t| t == remote_peer.proxy(r_next_mission) })
 	assert(p_mission.event(:start).child_object?(p_next_mission.event(:start), EventStructure::Signal))
 	assert(remote_peer.subscribed?(r_next_mission.remote_object), remote_peer.subscriptions)
@@ -135,24 +136,24 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	remote.unlink_next_mission
 	apply_remote_command
-	assert_equal(3, local.plan.size)
+	assert_equal(4, local.plan.size)
 	assert(!p_mission.event(:start).child_object?(p_next_mission.event(:start), EventStructure::Signal))
 
 	remote.remove_next_mission
 	apply_remote_command
 	assert(!remote_peer.subscribed?(r_next_mission.remote_object), remote_peer.subscriptions)
-	assert_equal(2, local.plan.size)
+	assert_equal(3, local.plan.size)
 	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'next_mission' })
 
 	remote.unlink_subtask
 	apply_remote_command
-	assert_equal(2, local.plan.size)
+	assert_equal(3, local.plan.size)
 	assert(!p_mission.child_object?(p_subtask, TaskStructure::Hierarchy))
 
 	remote.remove_subtask
 	apply_remote_command
 	assert(!remote_peer.subscribed?(r_subtask.remote_object), remote_peer.subscriptions)
-	assert_equal(1, local.plan.size)
+	assert_equal(2, local.plan.size)
 	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'subtask' })
     end
 
@@ -174,9 +175,9 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	apply_remote_command
 	remote_peer.unsubscribe(remote_peer.remote_server.plan)
 	apply_remote_command
-	assert_equal(2, local.plan.size)
+	assert_equal(3, local.plan.size)
 	remote.remove_subtask
 	apply_remote_command
-	assert_equal(1, local.plan.size)
+	assert_equal(2, local.plan.size)
     end
 end

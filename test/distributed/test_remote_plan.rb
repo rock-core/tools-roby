@@ -69,11 +69,11 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	# Get the remote missions
 	r_missions = remote_peer.plan.missions
 	assert_kind_of(ValueSet, r_missions)
-	assert_equal(1, r_missions.find { true }.arguments[:id])
+	assert(r_missions.find { |t| t.arguments[:id] == 1 })
 
 	# Get the remote tasks
 	r_tasks = remote_peer.plan.known_tasks
-	assert_equal([1, 2].to_set, r_tasks.map { |t| t.arguments[:id] }.to_set)
+	assert_equal([1, nil, 2].to_set, r_tasks.map { |t| t.arguments[:id] }.to_set)
     end
 
     def test_remote_proxy_update
@@ -199,6 +199,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	remote_peer.discover_neighborhood(proxy.remote_object(remote_peer.remote_id), 1)
 	apply_remote_command do
 	    proxies = proxy.child_objects(TaskStructure::Hierarchy).to_a
+	    assert_equal(1, proxies.size)
 	    assert_proxy_of(r_subtask, proxies.first)
 	    proxies = proxy.event(:stop).child_objects(EventStructure::Signal).to_a
 	    assert_equal(remote_peer.proxy(r_next_mission).event(:start), proxies.first)
@@ -324,17 +325,17 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	remote_peer.subscribe(r_mission)
 	remote_peer.subscribe(r_subtask)
 	apply_remote_command
-	assert_equal(3, local.plan.size)
+	assert_equal(4, local.plan.size)
 
 	remote.remove_subtask
 	apply_remote_command
 	assert(!remote_peer.subscribed?(r_subtask.remote_object), remote_peer.subscriptions.inspect)
-	assert_equal(2, local.plan.size)
+	assert_equal(3, local.plan.size)
 	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'subtask' })
 
 	remote.discard_mission
 	apply_remote_command
-	assert_equal(2, local.plan.size)
+	assert_equal(3, local.plan.size)
 	assert(local.plan.mission?(proxy))
     end
 
