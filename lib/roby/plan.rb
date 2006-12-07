@@ -278,6 +278,20 @@ module Roby
 	# Returns a Query object on this plan
 	def find_tasks; Query.new(self) end
 
+	# Returns +object+ if object is a plan object from this plan, or if
+	# it has no plan yet (in which case it is added to the plan first).
+	# Otherwise, raises ArgumentError.
+	#
+	# This method is provided for consistency with Transaction#[]
+	def [](object)
+	    if object.plan != self
+		raise ArgumentError, "#{object} is not from #{plan}"
+	    elsif !object.plan
+		discover(object)
+	    end
+	    object
+	end
+
 	# Kills and removes all unneeded tasks
 	def garbage_collect(force_on = [])
 	    force_gc.merge(force_on)
