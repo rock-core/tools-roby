@@ -24,10 +24,12 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    remote.class.class_eval do
 		include Test::Unit::Assertions
 		define_method(:start_task) do
-		    ev = plan.free_events.find { true }
-		    assert(ev)
-		    assert(ev.controlable?)
-		    assert(task.event(:start).child_object?(ev, Roby::EventStructure::Signal))
+		    events = plan.free_events.to_a
+		    assert_equal(2, events.size)
+		    assert(sev = events.find { |ev| ev.controlable? })
+		    assert(fev = events.find { |ev| !ev.controlable? })
+		    assert(task.event(:start).child_object?(sev, Roby::EventStructure::Signal))
+		    assert(task.event(:start).child_object?(fev, Roby::EventStructure::Forwarding))
 		    task.start! 
 		    assert(task.running?)
 		end
@@ -37,20 +39,30 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	p_task = remote_peer.proxy(r_task)
 
 	FlexMock.use do |mock|
-	    ev = EventGenerator.new do |event|
-		mock.called(event)
-		ev.emit(nil)
+	    signalled_ev = EventGenerator.new do |context|
+		mock.signal_command
+		signalled_ev.emit(nil)
 	    end
-	    assert(ev.controlable?)
+	    signalled_ev.on { |ev| mock.signal_emitted }
+	    assert(signalled_ev.controlable?)
 
-	    mock.should_receive(:called).once
-	    p_task.event(:start).on ev
+	    forwarded_ev = EventGenerator.new	
+	    forwarded_ev.on { |ev| mock.forward_emitted }
+	    assert(!forwarded_ev.controlable?)
+
+	    p_task.event(:start).on signalled_ev
+	    forwarded_ev.emit_on p_task.event(:start)
+
+	    mock.should_receive(:signal_command).once.ordered('signal')
+	    mock.should_receive(:signal_emitted).once.ordered('signal')
+	    mock.should_receive(:forward_emitted).once
 	    apply_remote_command
 	    remote.start_task
 
 	    apply_remote_command
 	    Control.instance.process_events
-	    assert(ev.happened?)
+	    assert(signalled_ev.happened?)
+	    assert(forwarded_ev.happened?)
 	end
     end
 end
