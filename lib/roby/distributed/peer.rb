@@ -267,11 +267,11 @@ module Roby::Distributed
 		    next if peer.connected?
 		    Roby::Distributed.debug { "Peer #{peer.name} finalized handshake" }
 		    # The peer finalized the handshake
-		    peer.connected = true
+		    peer.connected!
 		elsif neighbour = connection_space.neighbours.find { |n| n.connection_space == remote_cs }
 		    Roby::Distributed.debug { "Peer #{remote_cs.name} asking for connection" }
 		    # New connection attempt from a known neighbour
-		    Peer.new(connection_space, neighbour).connected = true
+		    Peer.new(connection_space, neighbour).connected!
 		end
 	    end
 	end
@@ -381,25 +381,18 @@ module Roby::Distributed
 	    true
 	end
 
-	def connected=(value)
-	    @connected = value
-
-	    if value
-		send_thread
-	    else
-		send_queue.push(nil)
-		@send_thread.join
-		@send_queue.clear
-		@send_thread = nil
-	    end
-	end
-
 	# Writes a connection tuple into the peer tuplespace
 	# We consider that two peers are connected when there
 	# is this kind of tuple in *both* tuplespaces
 	def connect
 	    raise "Already connected" if connected?
 	    ping
+	end
+
+	# Called when the handshake is finished
+	def connected!
+	    send_thread
+	    task.event(:ready).emit(nil)
 	end
 
 	# Updates our keepalive token on the peer
@@ -410,18 +403,27 @@ module Roby::Distributed
 	    old.cancel if old
 	end
 
-	# Disconnects from the peer
 	def disconnect
-	    connection_space.peers.delete(remote_id)
-	    @connected = false
 	    keepalive.cancel if keepalive
+	    neighbour.connection_space.take( { 
+		'kind' => :peer, 
+		'connection_space' => neighbour.connection_space, 
+		'remote' => nil }, 0)
 
-	    neighbour.connection_space.take({ 'kind' => :peer, 'connection_space' => neighbour.connection_space, 'remote' => nil }, 0)
+	    connection_space.peers.delete(remote_id)
+
+	    send_queue.push(nil)
+	    @send_thread.join
+	    @send_queue.clear
+	    @send_thread = nil
+
+	    task.event(:failed).emit(nil)
+
 	rescue Rinda::RequestExpiredError
 	end
 
 	# Returns true if the connection has been established. See also #alive?
-	def connected?; @connected end
+	def connected?; task && task.running? && task.event(:ready).happened? end
 
 	# The server object we use to access the remote plan database
 	def remote_server
