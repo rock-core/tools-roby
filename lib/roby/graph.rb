@@ -1,3 +1,5 @@
+require 'utilrb/module'
+require 'utilrb/kernel'
 require 'utilrb/enumerable'
 require 'utilrb/value_set'
 require 'roby/bgl'

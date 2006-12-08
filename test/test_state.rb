@@ -1,4 +1,5 @@
 require 'test_config'
+
 require 'roby/state/state'
 
 class TC_State < Test::Unit::TestCase

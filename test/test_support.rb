@@ -1,5 +1,4 @@
 require 'test_config'
-require 'set'
 require 'flexmock'
 
 require 'roby/support'

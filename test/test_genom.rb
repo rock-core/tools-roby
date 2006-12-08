@@ -1,5 +1,4 @@
 require 'test_config'
-require 'test/unit'
 require 'roby/adapters/genom'
 require 'genom/runner'
 

@@ -1,7 +1,8 @@
-require 'flexmock'
 require 'test_config'
-require 'roby/control'
-require 'mockups/tasks'
+require 'flexmock'
+
+require 'roby/event'
+require 'roby/task'
 
 class TC_Event < Test::Unit::TestCase
     include Roby

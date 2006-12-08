@@ -1,5 +1,6 @@
 require 'flexmock'
 require 'test_config'
+
 require 'roby/event'
 require 'roby/propagation'
 

@@ -1,6 +1,9 @@
-require 'thread'
-require 'genom/support'
+require 'active_support/core_ext/string/inflections'
+class String
+    include ActiveSupport::CoreExtensions::String::Inflections
+end
 
+require 'thread'
 require 'monitor'
 require 'roby/graph'
 require 'facet/kernel/constant'

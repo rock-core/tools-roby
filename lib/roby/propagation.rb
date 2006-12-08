@@ -1,6 +1,7 @@
 require 'roby/support'
 require 'roby/exceptions'
 require 'utilrb/exception/full_message'
+require 'utilrb/unbound_method'
 
 # This module contains all code necessary for the propagation steps during execution. This includes
 # event propagation and exception propagation

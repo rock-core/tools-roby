@@ -1,6 +1,6 @@
-require 'roby/transactions'
+require 'test_config'
 require 'mockups/tasks'
-require 'test_plan.rb'
+require 'roby/transactions'
 
 class TC_TransactionsProxy < Test::Unit::TestCase
     include Roby::Transactions

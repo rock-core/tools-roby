@@ -1,9 +1,7 @@
-require 'test/unit'
 require 'test_config'
-require 'roby/relations'
-
-require 'roby/task'
 require 'flexmock'
+
+require 'roby/relations'
 
 class TC_Relations < Test::Unit::TestCase
     include Roby

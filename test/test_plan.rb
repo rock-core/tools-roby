@@ -1,11 +1,9 @@
 require 'test_config'
 require 'test/unit'
-
-require 'roby'
-require 'roby/plan'
-require 'mockups/tasks'
-require 'roby/state/information'
 require 'flexmock'
+
+require 'roby/plan'
+require 'roby/state/information'
 
 module TC_PlanStatic
     include Roby

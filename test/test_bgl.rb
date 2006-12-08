@@ -1,9 +1,10 @@
 $LOAD_PATH.unshift File.join(File.expand_path(File.dirname(__FILE__)), '../lib')
 require 'test_config'
+
 require 'roby/graph'
+
 require 'enumerator'
 require 'flexmock'
-require 'set'
 
 class TC_BGL < Test::Unit::TestCase
     include BGL

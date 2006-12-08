@@ -1,7 +1,4 @@
 require 'test/unit'
-require 'utilrb/objectstats'
-require 'roby/task'
-require 'roby/event'
 
 BASE_TEST_DIR=File.expand_path(File.dirname(__FILE__)) unless defined? BASE_TEST_DIR
 $LOAD_PATH.unshift BASE_TEST_DIR
@@ -22,7 +19,7 @@ module RobyTestCommon
 	attr_accessor :check_allocation_count
     end
 
-    attribute(:original_collections) { Array.new }
+    attr_reader :original_collections
     def save_collection(obj)
 	original_collections << [obj, obj.dup]
     end
@@ -34,6 +31,7 @@ module RobyTestCommon
     end
 
     def setup
+	@original_collections = []
 	Thread.abort_on_exception = true
 	@remote_processes = []
 
@@ -63,7 +61,14 @@ module RobyTestCommon
 	end
 
 	# Clear all relation graphs in TaskStructure and EventStructure
-	[Roby::TaskStructure, Roby::EventStructure].each do |space|
+	spaces = []
+	if defined? Roby::TaskStructure
+	    spaces << Roby::TaskStructure
+	end
+	if defined? Roby::EventStructure
+	    spaces << Roby::EventStructure
+	end
+	spaces.each do |space|
 	    space.relations.each { |rel| rel.each_vertex { |v| v.clear_vertex } }
 	end
 
@@ -74,6 +79,7 @@ module RobyTestCommon
 	end
 
 	if RobyTestCommon.check_allocation_count
+	    require 'utilrb/objectstats'
 	    count = ObjectStats.count
 	    GC.start
 	    remains = ObjectStats.count
@@ -112,7 +118,7 @@ end
 
 #require 'roby/log/console'
 #Roby::Log.loggers << Roby::Log::ConsoleLogger.new(STDERR)
-Roby.logger.level = Logger::DEBUG
+#Roby.logger.level = Logger::DEBUG
 
 module Test::Unit::Assertions
     class FailedTimeout < RuntimeError; end

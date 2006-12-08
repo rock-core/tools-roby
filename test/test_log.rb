@@ -1,13 +1,13 @@
-require 'test/unit'
 require 'test_config'
 require 'mockups/tasks'
+require 'yaml'
+require 'stringio'
+
 require 'roby/event'
 require 'roby/task'
 require 'roby/log/marshallable'
 require 'roby/log/logger'
 require 'roby/log/file'
-require 'yaml'
-require 'stringio'
 
 class TC_Log < Test::Unit::TestCase
     include Roby

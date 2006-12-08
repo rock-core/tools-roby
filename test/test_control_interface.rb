@@ -2,7 +2,6 @@ require 'test_config'
 require 'flexmock'
 require 'mockups/tasks'
 
-require 'roby/control'
 require 'roby/control_interface'
 require 'roby/planning'
 

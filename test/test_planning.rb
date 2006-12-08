@@ -1,6 +1,7 @@
 require 'test_config'
 require 'flexmock'
 require 'mockups/tasks'
+
 require 'roby/planning'
 require 'roby/relations/planned_by'
 
