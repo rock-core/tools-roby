@@ -258,7 +258,8 @@ module Roby
 	    return ValueSet.new if @missions.empty?
 
 	    # Remove all missions that are finished
-	    discard(@missions.find_all { |t| t.finished? })
+	    @missions.find_all { |t| t.finished? }.
+		each { |t| discard(t) }
 	    useful_component(@missions)
 	end
 
