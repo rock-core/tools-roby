@@ -1,6 +1,7 @@
 require 'roby/task'
 require 'roby/event'
 require 'delegate'
+require 'forwardable'
 require 'utilrb/module/ancestor_p'
 
 # The Transactions module define all tools needed to implement
