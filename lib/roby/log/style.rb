@@ -2,6 +2,7 @@ module Qt
     [CanvasRectangle, CanvasEllipse, CanvasLine].each do |klass|
 	klass.class_eval do
 	    def color=(color)
+		color ||= 'black'
 		unless Qt::Color === color
 		    color = Qt::Color.new(color)
 		end

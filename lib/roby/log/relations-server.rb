@@ -223,10 +223,13 @@ module Roby::Display
 
 	# Returns the reference position for +event_id+
 	def event_pos(event_id)
-	    event = events[event_id]
+	    unless event = events[event_id]
+		return [0, 0]
+	    end
+
 	    canvas_item = if event.respond_to?(:task)
 			      canvas_task(event.task).event(event)
-			  else canvas_events[event_id]
+			  else event(event)
 			  end
 
 	    [canvas_item.x, canvas_item.y]
@@ -449,11 +452,13 @@ module Roby::Display
 		end
 	    end
 
-	    canvas_tasks[t.source_id].visible = flag
-	    each_task_relation do |kind, from, to|
-		if from == t || to == t
-		    arrow = canvas_arrows[ [from.source_id, to.source_id] ]
-		    arrow.visible = flag if arrow
+	    if task = canvas_tasks[t.source_id]
+		task.visible = flag
+		each_task_relation do |kind, from, to|
+		    if from == t || to == t
+			arrow = canvas_arrows[ [from.source_id, to.source_id] ]
+			arrow.visible = flag if arrow
+		    end
 		end
 	    end
 	end

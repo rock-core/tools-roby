@@ -141,6 +141,9 @@ module Roby
 		@colors = Hash.new
 		@color_index = -1
 	    end
+
+	    def new_event(event)
+	    end
 	end
 
 	class CanvasTask < CanvasLine
