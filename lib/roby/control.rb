@@ -107,6 +107,7 @@ module Roby
 	# array which are the duration of the whole cycle, the handling of
 	# the server commands and the event processing
 	def process_events(timings = {}, do_gc = false)
+	    Thread.critical = true
 	    timings[:real_start] = Time.now
 
 	    # Get the events received by the server and process them
@@ -157,6 +158,8 @@ module Roby
 	    end
 
 	    timings
+	ensure
+	    Thread.critical = false
 	end
 
 	class << self
