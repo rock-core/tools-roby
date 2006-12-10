@@ -286,6 +286,23 @@ class TC_Task < Test::Unit::TestCase
 	end
     end
 
+    def test_finished
+	task = SimpleTask.new
+	FlexMock.use do |mock|
+	    assert(!task.finished?)
+	    task.start!
+	    assert(!task.finished?)
+	    task.on(:stop) do
+	       	mock.finished?(task.finished?) 
+	    end
+
+	    mock.should_receive(:finished?).once.with(true)
+	    task.success!
+	end
+	assert(task.finished?)
+
+    end
+
     def test_executable
 	task = Class.new(SimpleTask) do 
 	    event(:inter, :command => true)

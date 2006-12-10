@@ -258,14 +258,14 @@ module Roby
 		    add_propagation(true, event, signalled, event.context, (self[signalled, EventStructure::Forwarding] rescue nil))
 		end
 
+		fired(event)
+
 		# Since we are in a gathering context, call
 		# to other objects are not done, but gathered in the 
 		# :propagation TLS
 		each_handler do |h| 
 		    Propagation.gather_exceptions(self) { h.call(event) }
 		end
-
-		fired(event)
 	    end
 	end
 	private :fire

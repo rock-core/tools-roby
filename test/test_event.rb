@@ -126,6 +126,8 @@ class TC_Event < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    e1.on { mock.e1 }
 	    e2.on { mock.e2 }
+	    e1.on { mock.happened?(e1.happened?) }
+	    mock.should_receive(:happened?).once.with(true)
 	    mock.should_receive(:e1).once.ordered
 	    mock.should_receive(:e2).once.ordered
 	    e1.call(nil)
