@@ -84,8 +84,8 @@ module Roby::TaskStructure
 		failure = options[:failure]
 
 		next if success.any? { |e| child.event(e).happened? }
-		if failure.any? { |e| child.event(e).happened? }
-		    result << Roby::ChildFailedError.new(child)
+		if failing_event = failure.find { |e| child.event(e).happened? }
+		    result << Roby::ChildFailedError.new(parent, child, child.event(failing_event).last)
 		end
 	    end
 	end
@@ -95,7 +95,19 @@ module Roby::TaskStructure
 end
 
 module Roby
-    class ChildFailedError < TaskModelViolation; end
+    class ChildFailedError < TaskModelViolation
+	alias :child :task
+	attr_reader :parent, :relation, :with
+	def initialize(parent, child, with)
+	    super(child)
+	    @parent = parent
+	    @relation = parent[child, TaskStructure::Hierarchy]
+	    @with = with
+	end
+	def message
+	    "#{parent}.realized_by(#{child}, #{relation}) failed with #{with.symbol}(#{with.context})\n#{super}"
+	end
+    end
     Control.structure_checks << TaskStructure::Hierarchy.method(:check_structure)
 end
 
