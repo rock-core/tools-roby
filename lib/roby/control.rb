@@ -293,6 +293,7 @@ module Roby
 	    Roby.info "remote server at #{uri} has quit"
 	end
     end
+    Control.event_processing << Roby::Propagation.method(:execute_delayed_events)
 end
 
 require 'roby/plan'

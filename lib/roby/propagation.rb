@@ -60,6 +60,21 @@ module Roby::Propagation
 	Thread.current[:current_propagation_set].has_key?(generator)
     end
 
+    @@delayed_events = []
+    def self.delayed_events; @@delayed_events end
+    def self.add_event_delay(time, forward, source, signalled, context)
+	delayed_events << [time, forward, source, signalled, context]
+    end
+    def self.execute_delayed_events
+	reftime = Time.now
+	delayed_events.delete_if do |time, forward, source, signalled, context|
+	    if time < reftime
+		add_event_propagation(forward, [source], signalled, context, nil)
+		true
+	    end
+	end
+    end
+
     # Begin an event propagation stage
     def self.gather_propagation
 	raise "nested call to #gather_propagation" if gathering?
@@ -135,7 +150,7 @@ got an exception which did not specify its source
     # Adds a propagation to the next propagation step. More specifically, it
     # adds either forwarding or signalling the set of Event objects +from+ to
     # the +signalled+ event generator, with the context +context+
-    def self.add_event_propagation(only_forward, from, signalled, context)
+    def self.add_event_propagation(only_forward, from, signalled, context, timespec)
 	step = (Thread.current[:propagation][signalled] ||= [only_forward])
 
 	if step.first != only_forward
@@ -143,7 +158,7 @@ got an exception which did not specify its source
 	end
 	from = [nil] unless from && !from.empty?
 	from.each do |ev|
-	    step << ev << context
+	    step << ev << context << timespec
 	end
     end
 
@@ -185,7 +200,18 @@ got an exception which did not specify its source
 	Thread.current[:propagation_exceptions] = nil
     end
 
+    def self.make_delay(timeref, source, signalled, timespec)
+	if delay = timespec[:delay] then timeref + delay
+	elsif at = timespec[:at] then at
+	else
+	    raise "invalid timespec #{timespec}"
+	end
+    end
+
+
     def self.event_propagation_step(current_step, already_seen)
+	timeref = Time.now
+
 	Thread.current[:current_propagation_set] = current_step
 	gather_propagation do
 	    # Note that internal signalling does not need a #call
@@ -193,11 +219,21 @@ got an exception which did not specify its source
 	    # event can or cannot be fired is checked in #fire (using can_signal?)
 	    current_step.each do |signalled, (forward, *info)|
 		sources, context = [], []
-		info.each_slice(2) do |s, c|
-		    sources << s if s
-		    context << c if c
+		
+		# Will be set to false if there is one immediate propagation
+		delayed = true
+		info.each_slice(3) do |src, ctxt, time|
+		    if time && (delay = make_delay(timeref, src, signalled, time))
+			add_event_delay(delay, forward, src, signalled, ctxt)
+			next
+		    end
+
+		    delayed = false
+		    sources << src if src
+		    context << ctxt if ctxt
 		end
 		context = *context
+		next if delayed
 
 		if !forward && signalled.controlable?
 		    sources.each { |source| source.generator.signalling(source, signalled) }

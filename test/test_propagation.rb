@@ -3,6 +3,7 @@ require 'test_config'
 
 require 'roby/event'
 require 'roby/propagation'
+require 'roby/control'
 
 class TC_Propagation < Test::Unit::TestCase
     include Roby
@@ -38,14 +39,14 @@ class TC_Propagation < Test::Unit::TestCase
 
 	assert(set.has_key?(e1))
 	step = set[e1]
-	assert_equal(5, step.size)
+	assert_equal(7, step.size, step.to_a)
 	assert_equal(false, step[0])
-	assert_equal([s1, s2].to_set, step.values_at(1, 3).map { |e| e.generator }.to_set)
-	assert_equal([1, 2].to_set, step.values_at(2, 4).to_set)
+	assert_equal([s1, s2].to_set, step.values_at(1, 4).map { |e| e.generator }.to_set)
+	assert_equal([1, 2].to_set, step.values_at(2, 5).to_set)
 
 	assert(set.has_key?(e2))
 	step = set[e2]
-	assert_equal(3, step.size)
+	assert_equal(4, step.size)
 	assert_equal(true, step[0])
 	assert_equal(s2, step[1].generator)
 	assert_equal(2, step[2])
@@ -64,6 +65,16 @@ class TC_Propagation < Test::Unit::TestCase
 	    s2.on e1
 	    e2.emit_on s2
 	end
+    end
+    def test_delay
+	s, e = EventGenerator.new(true), EventGenerator.new(true)
+	s.on(e, :delay => 0.1)
+	Control.once { s.call(nil) }
+	Control.instance.process_events
+	assert(!e.happened?)
+	sleep(0.2)
+	Control.instance.process_events
+	assert(e.happened?)
     end
 end
 

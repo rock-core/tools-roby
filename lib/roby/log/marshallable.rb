@@ -14,7 +14,7 @@ module Roby
 		when Time
 		    true
 		else
-		    Kernel.immediate?(object) || object.nil?
+		    Kernel.immediate?(object) || Kernel.numeric?(object) || object.nil?
 		end
 	    end
 

@@ -184,7 +184,7 @@ module Roby
 	    end
 
 	    if Propagation.gathering?
-		Propagation.add_event_propagation(false, Propagation.source_events, self, context)
+		Propagation.add_event_propagation(false, Propagation.source_events, self, context, nil)
 	    else
 		exceptions = Propagation.propagate_events do |initial_set|
 		    initial_set << self if call_without_propagation(context)
@@ -195,11 +195,13 @@ module Roby
 	private :call
 
 	# Establishes signalling and/or event handlers from this event model
-	def on(*signals, &handler)
-	    if bad_signal = signals.find { |e| !can_signal?(e) }
-		raise EventModelViolation.new(self), "trying to establish a signal between #{self} and #{bad_signal}"
+	def on(signal = nil, time = nil, &handler)
+	    if signal
+		if !can_signal?(signal)
+		    raise EventModelViolation.new(self), "trying to establish a signal between #{self} and #{signal}"
+		end
+		add_signal(signal, time)
 	    end
-	    signals.each { |sig| add_signal(sig) }
 
 	    if handler
 		check_arity(handler, 1)
@@ -230,7 +232,7 @@ module Roby
 	# Create a new event object for +context+
 	def new(context); Event.new(self, Propagation.propagation_id, context, Time.now) end
 
-	def add_propagation(only_forward, event, signalled, context)
+	def add_propagation(only_forward, event, signalled, context, timespec)
 	    if self == signalled
 		raise EventModelViolation.new(self), "#{self} is trying to signal itself"
 	    elsif !only_forward && !can_signal?(signalled) 
@@ -239,7 +241,7 @@ module Roby
 		raise EventModelViolation.new(self), "trying to signal #{signalled} from #{self}"
 	    end
 
-	    Propagation.add_event_propagation(only_forward, [event], signalled, context)
+	    Propagation.add_event_propagation(only_forward, [event], signalled, context, timespec)
 	end
 	private :add_propagation
 
@@ -250,10 +252,10 @@ module Roby
 	def fire(event)
 	    Propagation.propagation_context([event]) do |result|
 		each_signal do |signalled|
-		    add_propagation(false, event, signalled, event.context)
+		    add_propagation(false, event, signalled, event.context, (self[signalled, EventStructure::Signal] rescue nil))
 		end
 		each_forwarding do |signalled|
-		    add_propagation(true, event, signalled, event.context)
+		    add_propagation(true, event, signalled, event.context, (self[signalled, EventStructure::Forwarding] rescue nil))
 		end
 
 		# Since we are in a gathering context, call
@@ -321,7 +323,7 @@ module Roby
 		    # reason for that, but can't recall which. That sucks.
 		    emit_without_propagation(context)
 		else
-		    Propagation.add_event_propagation(true, Propagation.source_events, self, context)
+		    Propagation.add_event_propagation(true, Propagation.source_events, self, context, nil)
 		end
 	    else
 		exceptions = Propagation.propagate_events do |initial_set|
@@ -339,8 +341,8 @@ module Roby
 	# This method is equivalent to
 	#
 	#   self.add_forwarding(self)
-	def emit_on(generator)
-	    generator.add_forwarding(self)
+	def emit_on(generator, timespec = nil)
+	    generator.add_forwarding(self, timespec)
 	    self
 	end
 
