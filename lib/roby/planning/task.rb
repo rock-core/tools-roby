@@ -10,18 +10,17 @@ module Roby
 	# How many loops do we unroll
 	attr_reader :lookahead
 
-	attr_reader :plan, :planner_model, :method_name, :method_options
+	attr_reader :planner_model, :method_name, :method_options
 
-	def initialize(repeat, lookahead, plan, planner, method_name, method_options = {})
+	def initialize(period, lookahead, planner, method_name, options = {})
 	    super()
 
-	    # Loop parameters
-	    raise NotImplementedError, "repeat should be zero" unless repeat == 0
-	    @repeat, @lookahead = repeat, lookahead
+	    @period, @lookahead = period, lookahead
 
 	    # Planner parameters
-	    @plan, @planner_model, @method_name, @method_options = 
-		plan, planner.class, method_name, method_options
+	    @planner_model, @method_name = planner.class, method_name
+	    planning_options, @method_options = filter_options(options, [:planned_model])
+	    @planned_model = planning_options[:planned_model]
 	    
 	    # Build the initial setup
 	    initial_task = planner.send(method_name, method_options)
@@ -30,10 +29,14 @@ module Roby
 
 	    planning_task = reschedule(initial_task)
 	    on(:start, planning_task, :start)
-	    (lookahead - 1).times { reschedule(self.last_planned_task) }
 	end
 
-	event(:start, :command => true)
+	def start(context)
+	    emit(:start, context)
+	    (lookahead - 1).times { reschedule }
+	end
+	event :start
+
 	event(:failed, :command => true, :terminal => true)
 	def stop(context); failed!  end
 	event(:stop, :terminal => true)
@@ -58,42 +61,56 @@ module Roby
 	
 	# Creates one pattern at the end of the already developed patterns.
 	# Returns the new planning task
-	def reschedule(last_planned_task)
-	    planning = PlanningTask.new(plan, planner_model, method_name, method_options)
+	def reschedule(last_planned = nil)
+	    emit :reschedule unless last_planned
+
+	    planning = PlanningTask.new(planner_model, method_name, method_options)
 	    planned  = planning.planned_task
 
+	    last_planning = last_planning_task
+	    last_planned  ||= last_planning.planned_task
+
 	    (planning.event(:success) & 
-		 last_planned_task.event(:success)).on planned.event(:start)
+		 last_planned.event(:success)).on(planned.event(:start), :delay => period)
+	    raise if planning.event(:success).happened?
+	    raise "#{last_planned} has already finished" if last_planned.event(:success).happened?
+	    planning.on(:success) do
+		STDERR.puts "finished planning #{planning}"
+	    end
 
 	    # There is not last_planning_task the first time
-	    if last_planning_task = self.last_planning_task
-		last_planning_task.on(:success, planning, :start)
+	    planned.on(:start, self, :reschedule)
+	    if last_planning
+		last_planning.on(:success, planning, :start)
+		if last_planning.finished?
+		    planning.start!
+		end
 	    end
-	    planning.on(:success) { reschedule(self.last_planned_task) }
 
-	    # Add the relation last as it changes last_planning_task and last_planned_task
+	    # Add the relation last as it changes last_planning_task and
+	    # last_planned_task
 	    realized_by planned
 	    planning
+
+	end
+	event :reschedule
+	on(:reschedule) do
+	    STDERR.puts "\n\nRESCHEDULED\n\n"
 	end
     end
 
 
     # An asynchronous planning task using Ruby threads
     class PlanningTask < Roby::Task
-        attr_reader :planner, :method_name, :method_options, :every, :planned_model
-
-	# The transaction (or transaction) we are acting on
+        attr_reader :planner, :planner_model, :method_name, :method_options, :planned_model
 	attr_reader :transaction
 
-        def initialize(plan, planner_model, method, options)
+        def initialize(planner_model, method, options)
             super()
-	    @transaction = Transaction.new(plan)
-	    @planner   = planner_model.new(transaction)
-
+	    @planner_model = planner_model
             @method_name = method
-	    planning_options, @method_options = filter_options(options, [:every, :planned_model])
+	    planning_options, @method_options = filter_options(options, [:planned_model])
 
-	    @every = planning_options[:every]
 	    @planned_model = planning_options[:planned_model] || 
 		planner_model.model_of(method, options).returns ||
 		Task
@@ -130,6 +147,9 @@ module Roby
 
 	# Starts planning
         def start(context)
+	    @transaction = Transaction.new(plan)
+	    @planner     = planner_model.new(transaction)
+
 	    @thread = Thread.new do
 		@result = begin
 			      @planner.send(@method_name, @method_options)

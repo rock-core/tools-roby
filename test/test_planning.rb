@@ -375,7 +375,7 @@ class TC_Planner < Test::Unit::TestCase
 	    method(:task) { result_task }
 	end
 
-	planning_task = PlanningTask.new(plan, planner, :task, {})
+	planning_task = PlanningTask.new(planner, :task, {})
 	planned_task = Task.new
 	planned_task.planned_by planning_task
 	plan.insert(planned_task)
@@ -410,7 +410,6 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal([planning_task] , loop_planner.enum_for(:each_pattern_planning).to_a)
 	assert_equal(planning_task   , loop_planner.last_planning_task)
 	assert_equal(nonplanned_task , loop_planner.last_planned_task)
-	assert_equal(planner_model   , planning_task.planner.class)
 
 	# Start the loop and check that #reschedule works as expected
 	loop_planner.start!
@@ -438,7 +437,7 @@ class TC_Planner < Test::Unit::TestCase
 	end
 
 	initial_planner = planner_model.new(plan)
-	loop_planner = PlanningLoop.new(0, 1, plan, initial_planner, :task)
+	loop_planner = PlanningLoop.new(0, 1, initial_planner, :task)
 	check_loop_planning_task(loop_planner, initial_planner, planner_model)
     end
 

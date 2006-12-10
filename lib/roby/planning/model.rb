@@ -530,7 +530,7 @@ module Roby
                 elsif options[:lazy]
 		    task_model = singleton_class.model_of(name, options).returns
 		    task    = task_model.new
-		    planner = PlanningTask.new(self.plan.real_plan, self.class, name, options)
+		    planner = PlanningTask.new(self.class, name, options)
 		    task.planned_by planner
 		    return task
 		end
@@ -616,7 +616,7 @@ module Roby
 	    def make_loop(repeat = 0, lookahead = 1, options = {}, &block)
 		m = self.class.method("loops", options, &block)
 		options = arguments.merge :id => m.id
-		PlanningLoop.new(repeat, lookahead, plan.real_plan, self, "loops", options)
+		PlanningLoop.new(repeat, lookahead, self, "loops", options)
 	    end
         end
 
