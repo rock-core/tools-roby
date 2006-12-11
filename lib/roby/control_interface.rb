@@ -89,7 +89,7 @@ module Roby
 	    m = planner_model.model_of(name, options)
 	    task = (m.returns.new if m) || Task.new
 
-	    planner = PlanningTask.new(control.plan, planner_model, name, options)
+	    planner = PlanningTask.new(planner_model, name, options)
 	    task.planned_by planner
 
 	    control.plan.insert(task)
