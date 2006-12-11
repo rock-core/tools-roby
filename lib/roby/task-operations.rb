@@ -38,7 +38,7 @@ module Roby::TaskAggregator
 	    tasks.each(&iterator) 
 	end
 	def executable?
-	    tasks.enum_for(:each).all? { |t| t.executable? }
+	    tasks.all? { |t| t.executable? }
 	end
     end
 
