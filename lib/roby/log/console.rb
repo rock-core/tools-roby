@@ -1,3 +1,4 @@
+require 'utilrb/time/to_hms'
 require 'roby/log/logger'
 
 module Roby::Log
