@@ -316,9 +316,9 @@ module Roby
 	    false
 	end
         # If this task ran and is finished
-	def finished?; !!final_event end
+	def finished?; @__finished ||= !!final_event end
 	# If this task ran and succeeded
-	def success?; event(:success).happened? end
+	def success?; @__success ||= event(:success).happened? end
 	
 	# Remove all relations in which +self+ or its event are involved
 	def clear_relations
