@@ -14,6 +14,18 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	super
     end
 
+    def test_relationships
+	task = SimpleTask.new
+	exec_task = Class.new(ExecutableTask) do
+	    event(:start, :command => true)
+	    event(:ready)
+	    on :start => :ready
+	end.new
+
+	task.executed_by exec_task
+	assert_equal(exec_task, task.execution_agent)
+    end
+
     def test_nominal
 	task = SimpleTask.new
 	exec_klass = Class.new(ExecutableTask) do

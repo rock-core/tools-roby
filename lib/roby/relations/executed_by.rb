@@ -18,7 +18,7 @@ module Roby::TaskStructure
             super
         end
 
-	def execution_agent; enum_for(:each_execution_agent).find { true } end
+	def execution_agent; child_objects(ExecutionAgent).find { true } end
         def executed_by(agent)
 	    return if execution_agent == agent
 	    if !agent.event(:start).controlable?
@@ -51,7 +51,7 @@ module Roby::TaskStructure
 		    end
 
 		    # Try to find an already existing agent
-		    agents = plan.enum_for(:each_task).find_all { |t| t.kind_of?(agent_model) && !t.finished? }
+		    agents = plan.known_tasks.find_all { |t| t.kind_of?(agent_model) && !t.finished? }
 		    if agents.empty?
 			# ... or create a new one
 			begin
