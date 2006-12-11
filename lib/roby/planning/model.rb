@@ -36,13 +36,15 @@ module Roby
 
 	# Some common tools for Planner and Library
 	module Tools
-	    def using(mod)
-		if mod.respond_to?(:planning_methods)
-		    include mod
-		elsif mod = (mod.const_get('Planning') rescue nil)
-		    include mod
-		else
-		    raise ArgumentError, "#{mod} is not a planning library and has no Planning module which is one"
+	    def using(*modules)
+		modules.each do |mod|
+		    if mod.respond_to?(:planning_methods)
+			include mod
+		    elsif mod = (mod.const_get('Planning') rescue nil)
+			include mod
+		    else
+			raise ArgumentError, "#{mod} is not a planning library and has no Planning module which is one"
+		    end
 		end
 	    end
 	end
