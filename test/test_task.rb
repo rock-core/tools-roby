@@ -48,6 +48,25 @@ class TC_Task < Test::Unit::TestCase
 	assert_raises(TaskModelViolation) { task.set :to => 10 }
     end
 
+    def test_terminal
+	klass = Class.new(Task) do
+	    event(:terminal_model, :terminal => true)
+	    event(:terminal_model_signal)
+	    event(:terminal_signal)
+	    on :terminal_model_signal => :terminal_model
+	end
+	assert(klass.event_model(:terminal_model).terminal?)
+	assert(klass.event_model(:terminal_model_signal).terminal?)
+	assert(!klass.event_model(:terminal_signal).terminal?)
+
+	task = klass.new
+	assert(!task.event(:terminal_signal).terminal?)
+	task.event(:terminal_signal).on task.event(:terminal_model_signal)
+	assert(task.event(:terminal_signal).terminal?)
+	assert(task.event(:terminal_model_signal).terminal?)
+	assert(task.event(:terminal_model).terminal?)
+    end
+
     # Tests Task::event
     def test_event_declaration
 	klass = Class.new(Task) do

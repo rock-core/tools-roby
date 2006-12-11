@@ -72,6 +72,10 @@ module Roby
         def self.controlable?; respond_to?(:call) end
         # If the event is controlable
         def controlable?; self.class.controlable? end
+	class << self
+	    # Called by Task.update_terminal_flag to update the flag
+	    attr_writer :terminal
+	end
         # If the event model defines a terminal event
         def self.terminal?; @terminal end
         # If the event is terminal
@@ -146,10 +150,19 @@ module Roby
 	end
 
         def controlable?; event_model.controlable? end
-        def terminal?
-	    return true if event_model.terminal?
-	    each_signal { |ev| return true if ev.respond_to?(:task) && ev.task == self.task && ev.terminal? } 
-	    false
+	attr_writer :terminal
+	def terminal?; event_model.terminal? || @terminal end
+	def added_child_object(child, relation, info)
+	    super if defined? super
+	    if relation == EventStructure::Signal && child.respond_to?(:task) && child.task == task
+		task.update_terminal_flag
+	    end
+	end
+	def removed_child_object(child, relation)
+	    super if defined? super
+	    if relation == EventStructure::Signal && child.respond_to?(:task) && child.task == task
+		task.update_terminal_flag
+	    end
 	end
 	def active?(seen = Set.new)
 	    if symbol == :start; super
@@ -324,6 +337,51 @@ module Roby
 	def clear_relations
 	    each_event { |ev| ev.clear_relations }
 	    self.clear_vertex
+	end
+
+	def self.update_terminal_flag
+	    events = enum_for(:each_event).map { |name, model| model }
+	    terminal_events = events.find_all { |ev| ev.terminal? }
+
+	    found = true
+	    while found
+		found = false
+		events -= terminal_events
+
+		events.each do |ev|
+		    each_signal(ev.symbol) do |signalled|
+			if event_model(signalled).terminal?
+			    found = true
+			    ev.terminal = true
+			    terminal_events << ev
+			    break
+			end
+		    end
+		end
+	    end
+	end
+	# Updates the terminal flag for all events in the task
+	def update_terminal_flag
+	    events = bound_events.values
+	    events.each { |t| t.terminal = false }
+	    terminal_events = events.find_all { |ev| event_model(ev.symbol).terminal? }
+
+	    found = true
+	    while found
+		found = false
+		events -= terminal_events
+
+		events.each do |ev|
+		    ev.each_signal do |signalled|
+			if signalled.terminal?
+			    found = true
+			    ev.terminal = true
+			    terminal_events << ev
+			    break
+			end
+		    end
+		end
+	    end
 	end
 
 	# List of [time, event] pair for all events that
@@ -551,7 +609,12 @@ module Roby
             end
 		    
        	    if new_event.symbol == :stop
-		terminal_events.each { |terminal| on(terminal) { |event| event.task.emit(:stop, event.context) } if terminal.symbol != :stop }
+		terminal_events.each do |terminal| 
+		    next if terminal.symbol == :stop 
+		    if !enum_for(:each_signal, terminal.symbol).find { |signalled| event_model(signalled).terminal? }
+			on(terminal) { |event| event.task.emit(:stop, event.context) }
+		    end
+		end
 	    elsif options[:terminal] && has_event?(:stop)
 		on(new_event) { |event| event.task.emit(:stop, event.context) }
 	    end
@@ -665,6 +728,7 @@ module Roby
                      end
 
 		signal_sets[from] |= to.to_set
+		update_terminal_flag
 		handler_sets[from] << user_handler if user_handler
             end
         end
