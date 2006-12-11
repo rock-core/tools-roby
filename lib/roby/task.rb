@@ -200,8 +200,6 @@ module Roby
     class Task < PlanObject
 	include TaskModelTag.new
 
-	def name; model(false).name end
-
 	def self.model_attribute_list(name)
 	    inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = Set.new } }
 	    class_eval <<-EOD
@@ -238,6 +236,8 @@ module Roby
 
 	# The task arguments as a hash
 	attr_reader :arguments
+	# The task name
+	attr_reader :name
 	
         # Builds a task object using this task model
 	#
@@ -249,6 +249,7 @@ module Roby
         def initialize(arguments = nil) #:yields: task_object
 	    @arguments = (arguments || {}).to_hash
             @bound_events = Hash.new
+	    @name = model(false).name
 
             yield self if block_given?
 
