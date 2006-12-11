@@ -474,12 +474,12 @@ module Roby::Genom
 	attr_accessor :output_io
 
 	# The list of the module names that have been loaded by #using
-	attribute(:uses) { Array.new }
+	attribute(:used_modules) { Hash.new }
 	# If +name+ is a used module
-	def uses?(name); uses.include?(name.to_s) end
+	def uses?(modname); used_modules.any? { |n, _| n == modname.to_s } end
 
-	attribute(:ignores) { Array.new }
-	def ignores?(name); ignores.include?(name.to_s) end
+	attribute(:ignored_modules) { Array.new }
+	def ignores?(name); ignored_modules.include?(name.to_s) end
 
 	# Ignore configuration for the given modules. For instance, in
 	#
@@ -498,19 +498,19 @@ module Roby::Genom
 		    raise ArgumentError, "#{n} is both used and ignored", caller(3)
 		end
 		return if ignores?(n)
-	       	ignores << n
+	       	ignored_modules << n
 	    end
 	end
 
 	# Redefine method_missing to disable module-specific configuration
 	# when the module is not in use
         def method_missing(name, *args, &update) # :nodoc:
-	    return if ignores.include?(name.to_s) && update
+	    return if ignored_modules.include?(name.to_s) && update
 	    super
 	end
 
 	# Load the following modules and autorequire extension
-	# found in +autoload_path+. Updates the +uses+ attribute
+	# found in +autoload_path+. Updates the +used_modules+ attribute
 	def using(*modules)
 	    modules.each do |modname| 
 		modname = modname.to_s
@@ -518,9 +518,7 @@ module Roby::Genom
 		if ignores?(modname)
 		    raise ArgumentError, "#{modname} is both used and ignored", caller(3)
 		end
-		uses << modname
-		
-		::Roby::Genom::GenomModule(modname, :output => output_io) 
+		used_modules[modname] = Roby::Genom::GenomModule(modname, :output => output_io)
 		self.autoload_path.each do |path|
 		    extfile = File.join(path, modname)
 		    begin
