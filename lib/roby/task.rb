@@ -396,9 +396,11 @@ module Roby
         # Returns an TaskEventGenerator object which is the given task event bound
         # to this particular task
         def event(event_model)
-            event_model = self.event_model(event_model)
-            event = (bound_events[event_model] ||= TaskEventGenerator.new(self, event_model))
-	    event.executable = self.executable?
+	    unless event = bound_events[event_model]
+		event_model = self.event_model(event_model)
+		event = (bound_events[event_model.symbol] ||= TaskEventGenerator.new(self, event_model))
+		event.executable = self.executable?
+	    end
 	    event
         end
 
