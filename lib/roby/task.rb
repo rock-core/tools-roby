@@ -316,23 +316,34 @@ module Roby
         
 	def starting?; event(:start).pending? end
 	# If this task never ran
-	def pending?; !event(:start).happened? end
+	def pending?; !started? end
         # If this task is currently running
-        def running?; event(:start).happened? && !finished? end
+        def running?; started? && !finished? end
 	# A terminal event that has already happened. nil if the task
 	# is not finished
 	def final_event
-	    each_event { |ev| return ev if ev.terminal? && ev.happened? } 
+	    if finished?
+		each_event { |ev| return ev if ev.terminal? && ev.happened? } 
+	    end
 	    nil
 	end
 	def finishing?
-	    each_event { |ev| return true if ev.terminal? && ev.pending? }
+	    if running?
+		each_event { |ev| return true if ev.terminal? && ev.pending? }
+	    end
 	    false
 	end
         # If this task ran and is finished
-	def finished?; @__finished ||= !!final_event end
-	# If this task ran and succeeded
-	def success?; @__success ||= event(:success).happened? end
+	attr_reader :__started
+	alias :started? :__started
+	attr_reader :__finished
+	alias :finished? :__finished
+	attr_reader :__success
+	alias :success? :__success
+
+	#def finished?; @__finished ||= !!final_event end
+	## If this task ran and succeeded
+	#def success?; @__success ||= event(:success).happened? end
 	
 	# Remove all relations in which +self+ or its event are involved
 	def clear_relations
@@ -433,6 +444,16 @@ module Roby
             elsif running? && event.symbol == :start
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} but the task is already running"
             end
+
+	    if event.symbol == :success
+		@__success = true
+	    elsif event.symbol == :start
+		@__started = true
+	    end
+
+	    if event.terminal?
+		@__finished = true
+	    end
 
 	    super if defined? super
         end
