@@ -224,7 +224,7 @@ class TC_BGL < Test::Unit::TestCase
 
 	copy = graph.dup
 	assert_not_same(copy, graph)
-	assert_equal(copy, graph)
+	assert(copy.same_graph?(graph))
 
 	vertices.each do |v|
 	    assert( [graph, copy].to_set, v.enum_for(:each_graph).to_set )
@@ -285,14 +285,14 @@ class TC_BGL < Test::Unit::TestCase
 	end
 
 	begin
-	    assert( branches.find { |b| b == trace } )
+	    assert( branches.find { |b| b == trace }, trace )
 	rescue 
 	    pp trace
 	    raise
 	end
     end
 
-    def setup_test_graph
+    def setup_test_graph(reverse)
 	graph = Graph.new
 	klass = Class.new { include Vertex }
 
@@ -300,23 +300,25 @@ class TC_BGL < Test::Unit::TestCase
 	v1, v2, v3, v4, v5 = *vertices
 	vertices.each { |v| graph.insert(v) }
 
-	# v1---->v2-->v3-->v4
-	# |       ^---------|
-	# |-->v5--^     
-	graph.link v1, v2, 1
-	graph.link v2, v3, 2
-	graph.link v3, v4, 3
-	# back edge
-	graph.link v4, v2, 4
-	# cross edge
-	graph.link v1, v5, 5
-	graph.link v5, v2, 6
+	links = [[v1, v2, 1],
+	    [v2, v3, 2],
+	    [v3, v4, 3],
+	    [v4, v2, 4],
+	    [v1, v5, 5],
+	    [v5, v2, 6]]
+
+	links.each do |edge|
+	    if reverse
+		edge[0], edge[1] = edge[1], edge[0]
+	    end
+	    graph.link(*edge)
+	end
 
 	[graph, vertices]
     end
 
-    def test_linked?
-	graph, vertices = setup_test_graph
+    def test_linked_p
+	graph, vertices = setup_test_graph(false)
 	v1, v2, v3, v4, v5 = *vertices
 	assert( graph.linked?(v1, v2) )
 	assert( graph.linked?(v2, v3) )
@@ -332,11 +334,7 @@ class TC_BGL < Test::Unit::TestCase
 	assert( !graph.linked?(v2, v5) )
     end
 
-    def test_each_dfs
-	# v1---->v2-->v3-->v4
-	# |       ^---------|
-	# |-->v5--^     
-	graph, vertices = setup_test_graph
+    def check_dfs(graph, vertices)
 	v1, v2, v3, v4, v5 = *vertices
 
 	traces = []
@@ -362,50 +360,18 @@ class TC_BGL < Test::Unit::TestCase
 	assert_dfs_trace(traces, graph, :each_dfs, v1, Graph::BACK)
     end
 
-    def test_reverse_each_dfs
+    def test_each_dfs
 	# v1---->v2-->v3-->v4
 	# |       ^---------|
 	# |-->v5--^     
-	graph, vertices = setup_test_graph
-	v1, v2, v3, v4, v5 = *vertices
-
-	traces = []
-	traces << [
-	    [v2, v1, 1, Graph::TREE], 
-	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::FORWARD_OR_CROSS], 
-	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK]
-	]
-	traces << [
-	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::TREE],
-	    [v2, v1, 1, Graph::FORWARD_OR_CROSS],
-	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK]
-	]
-	traces << [
-	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::TREE],
-	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK],
-	    [v2, v1, 1, Graph::FORWARD_OR_CROSS]
-	]
-	traces << [
-	    [v2, v1, 1, Graph::TREE],
-	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK],
-	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::TREE],
-	]
-	traces << [
-	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK],
-	    [v2, v1, 1, Graph::TREE],
-	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::FORWARD_OR_CROSS]
-	]
-
-	traces << [
-	    [v2, v4, 4, Graph::TREE], [v4, v3, 3, Graph::TREE], [v3, v2, 2, Graph::BACK],
-	    [v2, v5, 6, Graph::TREE], [v5, v1, 5, Graph::TREE],
-	    [v2, v1, 1, Graph::FORWARD_OR_CROSS]
-	]
-
-	assert_dfs_trace(traces, graph.reverse, :each_dfs, v2, Graph::ALL)
-	assert_dfs_trace(traces, graph.reverse, :each_dfs, v2, Graph::TREE)
-	assert_dfs_trace(traces, graph.reverse, :each_dfs, v2, Graph::FORWARD_OR_CROSS)
-	assert_dfs_trace(traces, graph.reverse, :each_dfs, v2, Graph::BACK)
+	graph, vertices = setup_test_graph(false)
+	check_dfs(graph, vertices)
+    end
+    def test_reverse_each_dfs
+	# Build a graph so that doing #each_dfs on #reverse should yield the same result
+	# than in test_each_dfs
+	graph, vertices = setup_test_graph(true)
+	check_dfs(graph.reverse, vertices)
     end
 
     def test_dfs_prune
@@ -433,42 +399,19 @@ class TC_BGL < Test::Unit::TestCase
 	# v1---->v2-->v3-->v4
 	# |       ^---------|
 	# |-->v5--^     
-	graph, vertices = setup_test_graph
+	graph, vertices = setup_test_graph(false)
 	v1, v2, v3, v4, v5 = *vertices
+	
+	# Do instead
+	# v1---->v2
+	# |       ^
+	# |-->v5--^     
+	graph.unlink(v2, v3)
+	graph.unlink(v4, v2)
 
 	traces = []
-	traces << [
-	    [v2, v1, 1], [v1, v5, 5], [v5, v2, 6],
-	    [v2, v3, 2], [v3, v4, 3], [v4, v2, 4]
-	]
-	traces << [
-	    [v2, v3, 2], [v3, v4, 3], [v4, v2, 4],
-	    [v2, v1, 1], [v1, v5, 5], [v5, v2, 6]
-	]
-	traces << [
-	    [v2, v5, 6], [v5, v1, 5], [v1, v2, 1], 
-	    [v2, v3, 2], [v3, v4, 3], [v4, v2, 4]
-	]
-	traces << [
-	    [v2, v3, 2], [v3, v4, 3], [v4, v2, 4],
-	    [v2, v5, 6], [v5, v1, 5], [v1, v2, 1]
-	]
-	traces << [
-	    [v2, v4, 4], [v4, v3, 3], [v3, v2, 2],
-	    [v2, v5, 6], [v5, v1, 5], [v1, v2, 1]
-	]
-	traces << [
-	    [v2, v5, 6], [v5, v1, 5], [v1, v2, 1],
-	    [v2, v4, 4], [v4, v3, 3], [v3, v2, 2]
-	]
-	traces << [
-	    [v2, v1, 1], [v1, v5, 5], [v5, v2, 6],
-	    [v2, v4, 4], [v4, v3, 3], [v3, v2, 2]
-	]
-	traces << [
-	    [v2, v4, 4], [v4, v3, 3], [v3, v2, 2],
-	    [v2, v1, 1], [v1, v5, 5], [v5, v2, 6]
-	]
+	traces << [ [v1, v2, 1], [v2, v5, 6], [v5, v1, 5] ]
+	traces << [ [v1, v5, 5], [v5, v2, 6], [v2, v1, 1] ]
 	assert_dfs_trace(traces, graph.undirected, :each_dfs, v2, Graph::ALL, false)
     end
 
@@ -476,7 +419,7 @@ class TC_BGL < Test::Unit::TestCase
 	# v1---->v2-->v3-->v4
 	# |       ^---------|
 	# |-->v5--^     
-	graph, vertices = setup_test_graph
+	graph, vertices = setup_test_graph(false)
 	v1, v2, v3, v4, v5 = *vertices
 
 	neigh1 = [[v1, v2, 1], [v1, v5, 5]]
