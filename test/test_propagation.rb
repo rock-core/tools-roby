@@ -14,13 +14,13 @@ class TC_Propagation < Test::Unit::TestCase
 
 	set = Propagation.gather_propagation do
 	    e1.call(1)
-	    e1.call(nil)
+	    e1.call(4)
 	    e2.emit(2)
 	    e2.emit(3)
 	    assert_raises(Propagation::PropagationException) { e1.emit(nil) }
 	    assert_raises(Propagation::PropagationException) { e2.call(nil) }
 	end
-	assert_equal({ e1 => [false, nil, 1, nil, nil], e2 => [true, nil, 2, nil, 3] }, set)
+	assert_equal({ e1 => [false, nil, 1, nil, nil, 4, nil], e2 => [true, nil, 2, nil, nil, 3, nil] }, set)
     end
 
     # Common code shared by test_signal_handlers_propagation and test_causal_links_propagation
