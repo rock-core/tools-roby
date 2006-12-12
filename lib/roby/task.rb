@@ -321,12 +321,7 @@ module Roby
         def running?; started? && !finished? end
 	# A terminal event that has already happened. nil if the task
 	# is not finished
-	def final_event
-	    if finished?
-		each_event { |ev| return ev if ev.terminal? && ev.happened? } 
-	    end
-	    nil
-	end
+	attr_reader :final_event
 	def finishing?
 	    if running?
 		each_event { |ev| return true if ev.terminal? && ev.pending? }
@@ -341,10 +336,6 @@ module Roby
 	attr_reader :__success
 	alias :success? :__success
 
-	#def finished?; @__finished ||= !!final_event end
-	## If this task ran and succeeded
-	#def success?; @__success ||= event(:success).happened? end
-	
 	# Remove all relations in which +self+ or its event are involved
 	def clear_relations
 	    each_event { |ev| ev.clear_relations }
@@ -434,9 +425,6 @@ module Roby
 		raise EventNotExecutable.new(self), "trying to fire #{event.generator.symbol} on #{self} but #{self} is not executable"
 	    end
 
-	    final_event = self.final_event
-	    final_event = final_event.last if final_event
-
             if final_event && final_event.propagation_id != event.propagation_id
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} but the task has finished"
             elsif !event(:start).happened?(false) && !final_event && event.symbol != :start
@@ -452,6 +440,7 @@ module Roby
 	    end
 
 	    if event.terminal?
+		@final_event = event
 		@__finished = true
 	    end
 
