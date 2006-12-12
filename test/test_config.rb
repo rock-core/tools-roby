@@ -35,6 +35,11 @@ module RobyTestCommon
 	Thread.abort_on_exception = true
 	@remote_processes = []
 
+	if RobyTestCommon.check_allocation_count
+	    GC.start
+	    GC.disable
+	end
+
 	# Save and restore Control's global arrays
 	if defined? Roby::Control
 	    save_collection Roby::Control.event_processing
