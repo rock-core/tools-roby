@@ -124,6 +124,7 @@ end
 #require 'roby/log/console'
 #Roby::Log.loggers << Roby::Log::ConsoleLogger.new(STDERR)
 #Roby.logger.level = Logger::DEBUG
+#RobyTestCommon.check_allocation_count = true
 
 module Test::Unit::Assertions
     class FailedTimeout < RuntimeError; end
