@@ -6,9 +6,38 @@ require 'typelib'
 
 module Roby
     module Marshallable
+	module CleanupHooks
+	    module Plan
+		def finalized_event(generator)
+		    super if defined? super
+		    Wrapper.cache.delete_if do |generator_id, obj|
+			(generator.object_id == generator_id) ||
+			    (obj.respond_to?(:generator) && obj.generator.source_id == generator.object_id)
+		    end
+		end
+		def finalized_task(task)
+		    super if defined? super
+		    Wrapper.cache.delete_if do |task_id, obj|
+			(task.object_id == task_id) ||
+			    (obj.respond_to?(:task) && obj.task.source_id == task.object_id)
+		    end
+		end
+		def removed_transaction(trsc)
+		    super if defined? super
+		    Wrapper.cache.delete_if do |trsc_id, obj|
+			(trsc.object_id == trsc_id) ||
+			    (obj.respond_to?(:transaction_id) && obj.transaction_id == trsc.object_id)
+		    end
+		end
+	    end
+	    Roby::Plan.include CleanupHooks::Plan
+	end
+
 	# Base class for marshallable versions of plan objects (tasks, event generators, events)
 	class Wrapper
 	    @@cache = Hash.new
+	    def self.cache; @@cache end
+
 	    def self.marshalable?(object)
 		case object
 		when Time
@@ -20,47 +49,43 @@ module Roby
 
 	    # Returns a marshallable wrapper for +object+
 	    def self.[](object)
-		ObjectSpace.define_finalizer(object, &method(:finalized))
-		unless wrapper = @@cache[object.object_id] 
-		    wrapper = @@cache[object.object_id] =
-			case object
-			when Roby::Transactions::Proxy:	TransactionProxy.new(object)
-			when Roby::TaskEvent:		TaskEvent.new(object)
-			when Roby::Event:		Event.new(object)
-			when Roby::TaskEventGenerator:	TaskEventGenerator.new(object)
-			when Roby::EventGenerator:	EventGenerator.new(object)
-			when Roby::Task:		Task.new(object)
-			when Roby::Transaction:		Transaction.new(object)
-			when Roby::Plan:		Plan.new(object)
-			when Exception:			WrappedException.new(object)
-			when Module
-			    object.name
-			when Hash
-			    object.inject({}) do |result, (k, v)| 
-				k, v = Wrapper[k], Wrapper[v]
-				result[k] = v
-				result
-			    end
+		case object
+		when Module then return object.name
+		when Hash
+		    return object.inject({}) do |result, (k, v)| 
+			k, v = Wrapper[k], Wrapper[v]
+			result[k] = v
+			result
+		    end
 
-			else 
-			    if object.respond_to?(:map)
-				object.map(&method(:[]))
-			    elsif marshalable?(object)
-				object
-			    else
-				raise TypeError, "unmarshallable object #{object} of type #{object.class}"
-			    end
-			end
+		else 
+		    if object.respond_to?(:map)
+			return object.map(&method(:[]))
+		    elsif marshalable?(object)
+			return object
+		    end
 		end
 
-		if Wrapper === wrapper
-		    wrapper.update(object)
+		unless wrapper = @@cache[object.object_id]
+		    wrapper = case object
+			      when Roby::Transactions::Proxy:	TransactionProxy.new(object)
+			      when Roby::TaskEvent:		TaskEvent.new(object)
+			      when Roby::Event:		Event.new(object)
+			      when Roby::TaskEventGenerator:	TaskEventGenerator.new(object)
+			      when Roby::EventGenerator:	EventGenerator.new(object)
+			      when Roby::Task:		Task.new(object)
+			      when Roby::Transaction:		Transaction.new(object)
+			      when Roby::Plan:		Plan.new(object)
+			      when Exception:			WrappedException.new(object)
+			      else
+				  raise TypeError, "unmarshallable object #{object} of type #{object.class}"
+			      end
+
+		    @@cache[object.object_id] = wrapper
 		end
+
+		wrapper.update(object)
 		wrapper
-	    end
-	    # Called by the GC when a wrapped object is finalized
-	    def self.finalized(id)
-		@cache.delete(id)
 	    end
 	
 	    # object_id of the real object
@@ -113,7 +138,7 @@ module Roby
 	    def update(plan)
 		super
 		@size = plan.size
-		@missions = plan.missions.map { |t| Wrapper[t] }
+		@missions = [] # plan.missions.map { |t| Wrapper[t] }
 	    end
 	end
 	class Transaction < Plan
@@ -127,6 +152,7 @@ module Roby
 
 	class TransactionProxy < Wrapper
 	    attr_reader :proxy_for
+	    attr_reader :transaction_id
 	    # Beware: we don't have a :transaction attribute since
 	    # it would introduce a stack overflow:
 	    #	Plan#update wraps missions -> a TransactionProxy is wrapped -> 
@@ -135,6 +161,7 @@ module Roby
 
 	    def update(proxy)
 		super
+		@transaction_id = proxy.plan.object_id
 		@proxy_for = Wrapper[proxy.__getobj__]
 	    end
 	end
