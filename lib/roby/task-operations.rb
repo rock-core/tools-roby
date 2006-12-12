@@ -38,7 +38,7 @@ module Roby::TaskAggregator
 	    tasks.each(&iterator) 
 	end
 	def executable?
-	    tasks.all? { |t| t.executable? }
+	    tasks.all? { |t| t.finished? || t.executable? }
 	end
     end
 
