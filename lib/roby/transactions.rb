@@ -225,24 +225,24 @@ module Roby
 	    @free_events.each { |e| e.plan = self.plan unless e.kind_of?(Proxy) }
 
 	    discovered_objects.each { |proxy| proxy.commit_transaction }
-
-	    proxy_objects.each { |_, proxy| proxy.disable_discovery! }
-	    proxy_objects.each { |_, proxy| proxy.clear_vertex }
+	    proxy_objects.each { |_, proxy| proxy.disable_proxying! }
+	    proxy_objects.each { |_, proxy| proxy.clear_relations  }
 
 	    # Call #insert and #discover *after* we have cleared relations
-	    @missions.each    { |t| plan.insert(t)   unless t.kind_of?(Proxy) }
-	    @known_tasks.each { |t| plan.discover(t) unless t.kind_of?(Proxy) }
-	    @free_events.each { |e| plan.discover(e) unless e.kind_of?(Proxy) }
+	    @missions.delete_if    { |t| plan.insert(t)   unless t.kind_of?(Proxy) }
+	    @known_tasks.delete_if { |t| plan.discover(t) unless t.kind_of?(Proxy) }
+	    @free_events.delete_if { |e| plan.discover(e) unless e.kind_of?(Proxy) }
 
+	    proxies = proxy_objects.dup
+	    clear
 	    # Replace proxies by forwarder objects
-	    proxy_objects.each do |object, proxy|
-		raise if plan.known_tasks.include?(proxy)
-		Kernel.swap! proxy, Proxy.forwarder(proxy).new(object)
+	    proxies.each do |object, proxy|
+		Kernel.swap! proxy, Proxy.forwarder(object)
 	    end
 
+	    committed_transaction
 	    plan.transactions.delete(self)
 	    plan.removed_transaction(self)
-	    committed_transaction
 	end
 	def committed_transaction; super if defined? super end
 
@@ -253,21 +253,28 @@ module Roby
 		raise ArgumentError, "there is still transactions on top of this one"
 	    end
 
+	    # Clear proxies
+	    proxy_objects.each { |_, proxy| proxy.discard_transaction }
+
 	    # Clear the underlying plan
 	    clear
 
-	    # Clear all remaining proxies
-	    proxy_objects.each { |_, proxy| proxy.discard_transaction }
-	    proxy_objects.clear
+	    discarded_transaction
+	    plan.transactions.delete(self)
+	    plan.removed_transaction(self)
+	end
+	def discarded_transaction; super if defined? super end
+
+	def clear
 	    discovered_objects.clear
 	    removed_tasks.clear
 	    discarded_tasks.clear
-
-	    plan.transactions.delete(self)
-	    plan.removed_transaction(self)
-	    discarded_transaction
+	    proxy_objects.each do |_, proxy|
+		proxy.clear_relations
+	    end
+	    proxy_objects.clear
+	    super
 	end
-	def discarded_transaction; super if defined? super end
     end
 end
 

@@ -36,10 +36,10 @@ module Roby::Transactions
 	end
 
 	# Returns a class that forwards every calls to +proxy.__getobj__+
-	def self.forwarder(proxy)
-	    klass = proxy.__getobj__.class
+	def self.forwarder(object)
+	    klass = object.class
 	    @@forwarders[klass] ||= DelegateClass(klass)
-	    @@forwarders[klass]
+	    @@forwarders[klass].new(object)
 	end
 
 	def initialize(object, transaction)
@@ -60,8 +60,8 @@ module Roby::Transactions
 	    end
 	end
 
-	def disable_discovery!
-	    __getobj__.each_relation { |rel| @discovered[rel] = true }
+	def disable_proxying!
+	    @disable_proxying = true
 	end
 	def discovered?(relation, written)
 	    if written
@@ -71,6 +71,7 @@ module Roby::Transactions
 	    end
 	end
 	def discover(relation, mark)
+	    return if @disable_proxying
 	    if !relation
 		__getobj__.each_relation { |o| discover(o, mark) }
 		return
@@ -108,7 +109,8 @@ module Roby::Transactions
 	    def proxy_for(klass); Proxy.proxy_for(self, klass) end
 
 	    def proxy_code(m)
-		"args = args.map(&plan.method(:may_unwrap))
+		"return if @disable_proxying
+		args = args.map(&plan.method(:may_unwrap))
 		result = if block_given?
 			     __getobj__.#{m}(*args) do |*objects| 
 				objects.map! { |o| transaction.may_wrap(o) }
@@ -301,6 +303,11 @@ module Roby::Transactions
 	include Proxy
 	proxy_for Roby::Task
 
+	def initialize(*args, &block)
+	    super
+	    @bound_events = Hash.new
+	end
+
 	def_delegator :@__getobj__, :running?
 	def_delegator :@__getobj__, :finished?
 	def_delegator :@__getobj__, :pending?
@@ -319,7 +326,8 @@ module Roby::Transactions
 	forbid_call :failed!
 	forbid_call :stop!
 	forbid_call :success!
-
+	def to_s; "tProxy(#{__getobj__.to_s})" end
+	def history; "" end
 	def plan=(new_plan)
 	    @plan = new_plan
 	    each_event { |ev| ev.executable = executable? }
