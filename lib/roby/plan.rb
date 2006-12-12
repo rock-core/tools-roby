@@ -140,6 +140,8 @@ module Roby
 	def clear
 	    @known_tasks.each { |t| t.clear_relations }
 	    @known_tasks.clear
+	    @free_events.each { |e| e.clear_relations }
+	    @free_events.clear
 	    @missions.clear
 	end
 
