@@ -111,7 +111,7 @@ module Roby
         end
 
 	def to_s
-	    "#{super}[#{method_name}:#{method_options}] -> #{planned_task}"
+	    "#{super}[#{method_name}:#{method_options}] -> #{@planned_task || "nil"}"
 	end
 
         @planning_tasks = Array.new
@@ -151,7 +151,7 @@ module Roby
 			  end
 	    end
 	    PlanningTask.planning_tasks << self
-	    emit(:start, context)
+	    emit(:start)
         end
         event :start
 
@@ -159,19 +159,27 @@ module Roby
 	def poll
 	    return if thread.alive?
 
-	    @thread = nil
-	    PlanningTask.planning_tasks.delete(self)
+	    begin
+		case result
+		when Planning::PlanModelError
+		    transaction.discard_transaction
+		    emit(:failed, result)
+		when Roby::Task
+		    transaction.replace(transaction[planned_task], result)
+		    transaction.commit_transaction
+		    emit(:success)
+		else
+		    raise result, "expected a planning exception or a Task, got #{result} in #{caller[0]}", result.backtrace
+		end
 
-	    case result
-	    when Planning::PlanModelError
-		transaction.discard_transaction
-		emit(:failed, task.result)
-	    when Roby::Task
-		transaction.replace(transaction[planned_task], result)
-		transaction.commit_transaction
-		emit(:success)
-	    else
-		raise result, "expected an exception or a Task, got #{result} in #{caller[0]}", result.backtrace
+	    ensure
+		@thread = nil
+		PlanningTask.planning_tasks.delete(self)
+
+		# Make sure the transaction will be finalized event if the 
+		# planning task is not removed from the plan
+		@transaction = nil
+		@planner = nil
 	    end
 	end
 

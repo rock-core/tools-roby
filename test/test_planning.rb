@@ -426,7 +426,6 @@ class TC_Planner < Test::Unit::TestCase
 	end
 
 	assert_kind_of(SimpleTask, planning_task.planned_task)
-	assert_equal(planning_task.planned_task, planning_task.planner.result_task)
     end
 
     def test_loop_planning_task
