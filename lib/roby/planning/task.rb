@@ -74,9 +74,6 @@ module Roby
 		 last_planned.event(:success)).on(planned.event(:start), :delay => period)
 	    raise if planning.event(:success).happened?
 	    raise "#{last_planned} has already finished" if last_planned.event(:success).happened?
-	    planning.on(:success) do
-		STDERR.puts "finished planning #{planning}"
-	    end
 
 	    # There is not last_planning_task the first time
 	    planned.on(:start, self, :reschedule)
@@ -94,9 +91,6 @@ module Roby
 
 	end
 	event :reschedule
-	on(:reschedule) do
-	    STDERR.puts "\n\nRESCHEDULED\n\n"
-	end
     end
 
 
