@@ -74,6 +74,13 @@ module Roby::Propagation
 	    end
 	end
     end
+    module RemoveDelayedOnFinalized
+	def garbage(task)
+	    super if defined? super
+	    Propagation.delayed_events.delete_if { |_, _, _, event, _| event.respond_to?(:task) && event.task == task }
+	end
+    end
+    Roby::Plan.include RemoveDelayedOnFinalized
 
     # Begin an event propagation stage
     def self.gather_propagation
