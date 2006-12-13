@@ -44,11 +44,9 @@ module Roby::Genom
 	Roby::Genom.running.each { |task| task.poll } 
     end
 
-    class RequestTimeout < Roby::TaskModelViolation
-    end
-
-    class StartFailed < Roby::TaskModelViolation
-    end
+    # Raised when a request failed because of Pocolibs's timeout.
+    # The 'task' attribute is the target request.
+    class RequestTimeout < Roby::TaskModelViolation; end
 
     # Base class for the task models defined for Genom modules requests
     #
