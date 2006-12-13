@@ -80,11 +80,13 @@ module Roby
 			      else
 				  raise TypeError, "unmarshallable object #{object} of type #{object.class}"
 			      end
-
-		    @@cache[object.object_id] = wrapper
 		end
 
-		wrapper.update(object)
+		if wrapper.respond_to?(:update)
+		    @@cache[object.object_id] = wrapper
+		    wrapper.update(object)
+		end
+
 		wrapper
 	    end
 	
