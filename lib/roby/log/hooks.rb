@@ -94,12 +94,12 @@ module Roby::Log
 
 	def calling(context)
 	    super if defined? super
-	    Roby::Log.log(:generator_calling) { [Time.now, Wrapper[self], context] }
+	    Roby::Log.log(:generator_calling) { [Time.now, Wrapper[self], context.to_s] }
 	end
 
 	def called(context)
 	    super if defined? super
-	    Roby::Log.log(:generator_called) { [Time.now, Wrapper[self], context] }
+	    Roby::Log.log(:generator_called) { [Time.now, Wrapper[self], context.to_s] }
 	end
 
 	def fired(event)

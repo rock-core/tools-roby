@@ -15,7 +15,14 @@ module Roby::Log
 	end
 
 	Roby::Log.each_hook do |klass, m|
-	    define_method(m) { |*args| io << Marshal.dump(m) << Marshal.dump(args) }
+	    define_method(m) do |*args| 
+		begin
+		    m_m, m_args = Marshal.dump(m), Marshal.dump(args)
+		    io << m_m << m_args
+		rescue 
+		    STDERR.puts "failed to dump #{m}#{args}"
+		end
+	    end
 	end
 
 	def self.replay(io)
