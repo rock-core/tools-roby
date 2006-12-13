@@ -66,8 +66,8 @@ module Roby
 	#   plan.partition_event_task(objects) => events, tasks
 	#
 	def partition_event_task(objects)
-	    if objects.respond_to?(:each_task) then return *[[], objects.enum_for(:each_task).to_a]
-	    elsif objects.respond_to?(:to_task) then return *[[], [objects.to_task]]
+	    #if objects.respond_to?(:each_task) then return *[[], objects.enum_for(:each_task).to_a]
+	    if objects.respond_to?(:to_task) then return *[[], [objects.to_task]]
 	    elsif objects.respond_to?(:each_event) then return *[objects.enum_for(:each_event).to_a, []]
 	    elsif objects.respond_to?(:to_event) then return *[[objects.to_event], []]
 	    elsif !objects.respond_to?(:each)
@@ -92,7 +92,7 @@ module Roby
 	# its elements
 	def task_collection(objects)
 	    if objects.respond_to?(:each) then objects.each { |t| yield(t.to_task) }
-	    elsif objects.respond_to?(:each_task) then objects.each_task { |t| yield(t.to_task) }
+	    #elsif objects.respond_to?(:each_task) then objects.each_task { |t| yield(t.to_task) }
 	    elsif objects.respond_to?(:to_task) then yield(objects.to_task)
 	    else
 		raise TypeError, "expecting a task or a task collection, got #{objects}"
