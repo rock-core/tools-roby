@@ -1,4 +1,4 @@
-require 'roby/support'
+require 'roby'
 
 module Roby
     module Planning

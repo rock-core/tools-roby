@@ -1,7 +1,8 @@
-require 'roby/support'
+require 'roby'
+require 'utilrb/exception/full_message'
+
 require 'drb'
 require 'set'
-require 'utilrb/exception/full_message'
 
 module Roby
     class Control
@@ -296,7 +297,6 @@ module Roby
 	    Roby.info "remote server at #{uri} has quit"
 	end
     end
-    Control.event_processing << Roby::Propagation.method(:execute_delayed_events)
 end
 
-require 'roby/plan'
+require 'roby/propagation'

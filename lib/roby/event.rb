@@ -1,7 +1,6 @@
-require 'set'
 require 'roby/plan-object'
 require 'roby/exceptions'
-require 'roby/relations'
+require 'set'
 
 module Roby
     class EventModelViolation < ModelViolation
@@ -585,8 +584,4 @@ module Roby
 
     EventGenerator.include Temporal
 end
-
-require 'roby/relations/causal'
-require 'roby/relations/ensured'
-require 'roby/propagation'
 

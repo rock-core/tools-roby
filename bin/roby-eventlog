@@ -1,6 +1,5 @@
 #! /usr/bin/ruby
-require 'roby/relations'
-require 'roby/control'
+require 'roby'
 require 'roby/log/logger'
 require 'roby/log/drb'
 require 'roby/log/marshallable'

@@ -1,6 +1,6 @@
+require 'roby/event'
+require 'roby/task'
 require 'facet/kernel/constant'
-require 'roby/relations/hierarchy'
-require 'roby/relations/planned_by'
 
 module Roby
     class InvalidPlanOperation < RuntimeError; end
@@ -432,4 +432,9 @@ module Roby
 	end
     end
 end
+
+require 'roby/relations/causal'
+require 'roby/relations/signals'
+require 'roby/relations/hierarchy'
+require 'roby/relations/planned_by'
 

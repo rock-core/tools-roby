@@ -1,7 +1,6 @@
-require 'roby/relations'
-require 'roby/event'
 require 'roby/plan-object'
-require 'roby/propagation'
+require 'roby/exceptions'
+require 'roby/event'
 
 module Roby
     class TaskModelTag < Module
@@ -800,7 +799,7 @@ module Roby
 	    (self.model == model || self.kind_of?(model)) && self_args == args
 	end
 
-	include Propagation::ExceptionHandlingObject
+	include ExceptionHandlingObject
 	inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }
 	def each_exception_handler(&iterator); model(false).each_exception_handler(&iterator) end
 
@@ -824,8 +823,6 @@ module Roby
 	end
     end
 
-    TaskStructure   = RelationSpace(Task)
-
     class NullTask < Task
         event :start, :command => true
         event :stop
@@ -833,8 +830,9 @@ module Roby
 
         def null?; true end
     end
+
+    TaskStructure   = RelationSpace(Task)
 end
 
-require 'roby/relations/hierarchy'
 require 'roby/task-operations'
 

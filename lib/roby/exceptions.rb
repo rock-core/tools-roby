@@ -106,5 +106,33 @@ module Roby
 	end
     end
 
+    # This module is to be included in all objects that are
+    # able to handle exception. These objects should define
+    # #each_exception_handler { |matchers, handler| ... }
+    module ExceptionHandlingObject
+	# Passes the exception to the next matching exception handler
+	def pass_exception
+	    throw :next_exception_handler
+	end
+
+	# Calls the exception handlers defined in this task for +exception_object.exception+
+	# Returns true if the exception has been handled, false otherwise
+	def handle_exception(exception_object)
+	    each_exception_handler do |matchers, handler|
+		if matchers.find { |m| m === exception_object.exception }
+		    begin
+			catch(:next_exception_handler) do 
+			    handler.call(self, exception_object)
+			    return true
+			end
+		    rescue Exception => handler_error
+			Roby.application_error(:exception_handling, handler_error, self)
+		    end
+		end
+	    end
+	    return false
+	end
+    end
+
 end
 
