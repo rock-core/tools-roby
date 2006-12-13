@@ -40,6 +40,10 @@ module Roby::TaskAggregator
 	def executable?
 	    tasks.all? { |t| t.finished? || t.executable? }
 	end
+
+	event :failed, :command => true, :terminal => true
+	def stop(context); failed!(context) end
+	event :stop
     end
 
     class Sequence < TaskAggregator
