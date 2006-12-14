@@ -255,7 +255,10 @@ module Roby::Log
 	    end
 	    update_position_display
 
-	rescue EOFError
+	rescue
+	    unless $!.kind_of?(EOFError)
+		STDERR.puts $!.full_message
+	    end
 	    stop
 	end
 
