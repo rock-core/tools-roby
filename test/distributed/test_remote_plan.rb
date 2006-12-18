@@ -17,7 +17,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     # Check that we can query the remote plan database
     def test_query
 	peer2peer do |remote|
-	    mission, subtask = Task.new(:id => 1), Task.new(:id => 2)
+	    local_model = Class.new(SimpleTask)
+
+	    mission, subtask = Task.new(:id => 1), local_model.new(:id => 2)
 	    mission.realized_by subtask
 	    remote.plan.insert(mission)
 	end

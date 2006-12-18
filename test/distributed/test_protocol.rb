@@ -79,6 +79,25 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert(set.find { |t| t.kind_of?(MarshalledTask) && t.arguments[:id] == 2 })
     end
 
+    def test_marshal_model
+	peer2peer do |remote|
+	    def remote.model
+		SimpleTask
+	    end
+	    def remote.anonymous_model
+		@anonymous ||= Class.new(model)
+	    end
+	    def remote.check_anonymous_model(remote)
+		@anonymous == remote
+	    end
+	end
+
+	assert_equal(SimpleTask, remote.model)
+	anonymous = remote.anonymous_model
+	assert_not_equal(anonymous, SimpleTask)
+	assert(anonymous < SimpleTask)
+	assert(remote.check_anonymous_model(anonymous))
+    end
 
     def test_marshal_task
 	peer2peer do |remote|

@@ -107,33 +107,50 @@ module Roby
 	end
 
 	class DRobyModel
-	    @@models = Hash.new
-	    attr_reader :ancestors
+	    # A name -> class map which maps remote models to local anonymous classes
+	    # Remote models are always identified by their name
+	    @@remote_to_local = Hash.new
+	    # A class => ID object which maps the anonymous classes we built for remote
+	    # models to the remote ID of these remote models
+	    @@local_to_remote = Hash.new
 
+	    attr_reader :ancestors
 	    def initialize(ancestors); @ancestors = ancestors end
 	    def _dump(lvl)
 		marshalled = ancestors.map do |klass| 
-		    next unless klass.instance_of?(Class) && !klass.is_singleton? 
-		    klass.name 
+		    if klass.instance_of?(Class) && !klass.is_singleton? 
+			if result = @@local_to_remote[klass]
+			    result
+			else
+			    [klass.name, DRbObject.new(klass)]
+			end
+		    end
 		end
 		Marshal.dump(marshalled.compact)
 	    end
 	    def self._load(str)
 		ancestors = Marshal.load(str)
-		if model = @@models[name] 
-		    return model
-		else
-		    ancestors.each_with_index do |name, i|
-			next unless !name.empty? && (model = constant(name) rescue nil)
+		DRobyModel.local_model(ancestors)
+	    end
+	    
+	    def self.local_model(ancestors)
+		name, id = ancestors.shift
+		if !id.kind_of?(DRbObject)
+		    # this is a local task model
+		    id
+		elsif !name.empty? && model = (constant(name) rescue nil)
+		    model
+		elsif model = @@remote_to_local[id]
+		    model
+		elsif !ancestors.empty?
+		    parent_model = local_model(ancestors)
+		    model = Class.new(parent_model)
+		    @@remote_to_local[id] = model
+		    @@local_to_remote[model] = [name, id]
 
-			if i > 0
-			    # The exact model is unknown. Create an anonymous class
-			    model = Class.new(model)
-			    @@models[name] = model
-			end
-			return model
-		    end
-		    raise TypeError, "cannot find model for #{ancestors}"
+		    model
+		else
+		    raise ArgumentError, "cannot find a root class"
 		end
 	    end
 	end
