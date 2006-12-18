@@ -68,6 +68,13 @@
     descriptive
   - fix name of parameters. Use a marshalled_ prefix for marshalled objects
 
+* Better handling of unknown models
+  - what I'd like to achieve is handling the following situation:
+    peer 1 and 2 know about a SpecificModel task model
+    peer 3 does not
+
+    If 1 sees tasks of 2 *through* the plan of 3, and if these tasks are of the SpecificModel model,
+    then they should be instances of the SpecificModel class 
 
 == DONE
 
