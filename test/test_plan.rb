@@ -6,6 +6,7 @@ require 'roby/state/information'
 
 module TC_PlanStatic
     attr_reader :plan
+    include Roby
 
     def test_add_remove
 	t1 = Task.new
