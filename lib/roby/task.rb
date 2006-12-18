@@ -248,7 +248,7 @@ module Roby
         def initialize(arguments = nil) #:yields: task_object
 	    @arguments = (arguments || {}).to_hash
             @bound_events = Hash.new
-	    @name = model(false).name
+	    @name = model.name
 
             yield self if block_given?
 
@@ -304,8 +304,8 @@ module Roby
 	def partially_instanciated?; !(model.arguments - arguments.keys.to_set).empty?  end
 
 	# Returns the task model
-        def model(create = true)
-	    if create || has_singleton?; singleton_class 
+        def model
+	    if has_singleton?; singleton_class 
 	    else self.class
 	    end
 	end
@@ -667,7 +667,7 @@ module Roby
             if only_bound
                 bound_events.each_value(&iterator)
             else
-                model(false).each_event { |symbol, model| yield event(model) }
+                model.each_event { |symbol, model| yield event(model) }
             end
         end
 
@@ -679,7 +679,7 @@ module Roby
 	end
 
         # Get the event model for +event+
-        def event_model(model); self.model(false).event_model(model) end
+        def event_model(model); self.model.event_model(model) end
 
         # Find the event class for +event+, or nil if +event+ is not an event name for this model
         def self.find_event_model(name)
@@ -801,7 +801,7 @@ module Roby
 
 	include ExceptionHandlingObject
 	inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }
-	def each_exception_handler(&iterator); model(false).each_exception_handler(&iterator) end
+	def each_exception_handler(&iterator); model.each_exception_handler(&iterator) end
 
 	@@exception_handler_id = 0
 
