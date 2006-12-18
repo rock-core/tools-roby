@@ -798,7 +798,7 @@ module Roby
 	#   task_model.on_exception(TaskModelViolation, ...) { |task, exception_object| ... }
 	#   task_model.on_exception(TaskModelViolation, ...) do |task, exception_object|
 	#	....
-	#	task.pass
+	#	task.pass_exception # send to the next handler
 	#   end
 	#
 	# Defines an exception handler. We use matcher === exception_object
