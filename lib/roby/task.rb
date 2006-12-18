@@ -253,13 +253,6 @@ module Roby
             yield self if block_given?
 
             raise TaskModelViolation.new(self), "no start event defined" unless has_event?(:start)
-
-            if !model.has_event?(:stop)
-                # Create the stop event for this task, if it is not defined. Task::event will create
-		# the signals between the terminal events and stop
-                model.event(:stop)
-            end
-
 	    super() if defined? super
         end
 
@@ -618,14 +611,7 @@ module Roby
 		end
             end
 		    
-       	    if new_event.symbol == :stop
-		terminal_events.each do |terminal| 
-		    next if terminal.symbol == :stop 
-		    if !enum_for(:each_signal, terminal.symbol).find { |signalled| event_model(signalled).terminal? }
-			on(terminal) { |event| event.task.emit(:stop, event.context) }
-		    end
-		end
-	    elsif options[:terminal] && has_event?(:stop)
+	    if new_event.symbol != :stop && options[:terminal]
 		on(new_event) { |event| event.task.emit(:stop, event.context) }
 	    end
 
@@ -772,6 +758,9 @@ module Roby
 	def to_task; self end
 	
 	event :start, :command => true
+
+	# Define :stop before any other terminal event
+	event :stop
 	event :success, :terminal => true
 	event :failed,  :terminal => true
 

@@ -233,7 +233,7 @@ class TC_Task < Test::Unit::TestCase
 	end
 
 	ev_models = Hash[*model.enum_for(:each_event).to_a.flatten]
-	assert_equal([:start, :success, :aborted, :failed, :inter].to_set, ev_models.keys.to_set)
+	assert_equal([:start, :success, :aborted, :stop, :failed, :inter].to_set, ev_models.keys.to_set)
 
 	task = model.new
 	ev_models = Hash[*task.model.enum_for(:each_event).to_a.flatten]
