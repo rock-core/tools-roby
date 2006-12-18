@@ -1,5 +1,6 @@
 require 'roby/control'
 require 'roby/plan'
+require 'roby/query'
 require 'roby/distributed/notifications'
 require 'roby/distributed/proxy'
 require 'roby/relations/executed_by'
@@ -28,6 +29,45 @@ module Roby::Distributed
     class NotAliveError     < ConnectionError; end
     # The peer is disconnected
     class DisconnectedError < ConnectionError; end
+
+    class Roby::TaskMatcher
+	class Marshalled
+	    attr_reader :args
+	    def initialize(*args)
+		@args = args
+	    end
+
+	    def _dump(lvl)
+		Roby::Distributed.dump(args)
+	    end
+	    def self._load(str)
+		model, args, improves, needs = Marshal.load(str)
+		Roby::TaskMatcher.new.with_model(model).with_arguments(args || {}).
+		    which_improves(*improves).which_needs(*needs)
+	    end
+	end
+	def droby_dump
+	    Marshalled.new(model, arguments, improved_information, needed_information)
+	end
+    end
+
+    # Performs a plan query on a remote plan. See Peer#query
+    class RemoteQuery
+	attr_reader :peer, :matcher
+	def initialize(peer)
+	    @peer    = peer
+	    @matcher = Roby::TaskMatcher.new
+	end
+	def method_missing(name, *args, &block)
+	    @matcher.send(name, *args, &block)
+	    self
+	end
+
+	def each(&block)
+	    peer.remote_server.query(matcher).each(&block)
+	end
+	include Enumerable
+    end
 
     @updated_objects = ValueSet.new
     class << self
@@ -90,7 +130,14 @@ module Roby::Distributed
 	    [result, $!]
 	end
 
+	# The plan object which is used as a facade for our peer
 	def plan; peer.connection_space.plan end
+
+	# Applies +matcher+ on the local plan and sends back the result
+	def query(matcher)
+	    matcher.enum_for(:each, plan).to_a
+	end
+
 	def discover_neighborhood(object, distance)
 	    edges = object.neighborhood(distance)
 	    if object.kind_of?(Roby::Task)
@@ -267,6 +314,8 @@ module Roby::Distributed
 	attr_reader :connection_space
 	# The local PeerServer object for this peer
 	attr_reader :local
+	# The server object we use to access the remote plan database
+	def remote_server; @entry['remote'] end
 	# The neighbour object describing our peer
 	attr_reader :neighbour
 	# The last 'keepalive' tuple we wrote on the neighbour's ConnectionSpace
@@ -421,6 +470,11 @@ module Roby::Distributed
 	    true
 	end
 
+	# Creates a query object on the peer plan
+	def query
+	    RemoteQuery.new(self)
+	end
+
 	# Writes a connection tuple into the peer tuplespace
 	# We consider that two peers are connected when there
 	# is this kind of tuple in *both* tuplespaces
@@ -485,9 +539,6 @@ module Roby::Distributed
 	# acknowledge it yet
 	def disconnecting?; task && task.finished? end
 
-	# The server object we use to access the remote plan database
-	def remote_server; @entry['remote'] end
-    
 	# Returns true if this peer owns +object+
 	def owns?(object); object.owners.include?(remote_id) end
 
