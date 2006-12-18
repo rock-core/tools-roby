@@ -1,5 +1,4 @@
 require 'test_config'
-require 'test/unit'
 require 'flexmock'
 
 require 'roby/plan'
@@ -67,60 +66,6 @@ module TC_PlanStatic
 	plan.discard(t1)
 	assert_equal([t3].to_value_set, plan.useful_tasks)
 	assert_equal([t1, t2, t4].to_value_set, plan.unneeded_tasks)
-    end
-
-    def test_query_fullfills
-	task_model = TC_Plan.const_get(:TaskModel) rescue nil
-	unless task_model
-	    task_model = Class.new(Task) do
-		argument :value
-	    end
-	    TC_Plan.const_set(:TaskModel, task_model)
-	end
-
-	t1 = task_model.new(:value => 1)
-	t2 = task_model.new(:value => 2)
-
-	assert(plan.insert(t1))
-	plan.insert(t2)
-	assert(plan.include?(t1))
-
-	result = Query.which_fullfills('TC_Plan::TaskModel').enum_for(:each, plan).to_set
-	assert_equal([t1, t2].to_set, result)
-
-	result = Query.which_fullfills('TC_Plan::TaskModel', :value => 1).enum_for(:each, plan).to_set
-	assert_equal([t1].to_set, result)
-
-	result = plan.find_tasks.which_fullfills('TC_Plan::TaskModel', :value => 2).to_set
-	assert_equal([t2].to_set, result)
-
-	assert_marshallable(Query.new)
-    end
-
-    def test_query_information
-	t1 = Class.new(Task) do
-	    needs :source_info
-	    improves :other_info
-	end.new
-	t2 = Class.new(Task) do
-	    needs :source_info
-	    improves :yet_another_info
-	end.new
-
-	plan << t1 << t2
-	result = Query.which_needs(:source_info).enum_for(:each, plan).to_set
-	assert_equal([t1, t2].to_set, result)
-	result = Query.which_needs(:foo_bar).enum_for(:each, plan).to_set
-	assert_equal(Set.new, result)
-	result = Query.which_improves(:foo_bar).enum_for(:each, plan).to_set
-	assert_equal(Set.new, result)
-	result = Query.which_improves(:other_info).enum_for(:each, plan).to_set
-	assert_equal([t1].to_set, result)
-	result = Query.which_needs(:source_info).
-	    which_improves(:yet_another_info).
-	    enum_for(:each, plan).to_set
-
-	assert_equal([t2].to_set, result)
     end
 
     def test_replace
