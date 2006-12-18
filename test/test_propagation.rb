@@ -2,7 +2,7 @@ require 'flexmock'
 require 'test_config'
 
 require 'roby/event'
-require 'roby/propagation'
+require 'roby/plan'
 require 'roby/control'
 
 class TC_Propagation < Test::Unit::TestCase
