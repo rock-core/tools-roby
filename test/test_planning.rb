@@ -6,7 +6,6 @@ require 'roby/planning'
 require 'roby/relations/planned_by'
 
 class TC_Planner < Test::Unit::TestCase
-    include Roby
     include Roby::Planning
     include RobyTestCommon
 

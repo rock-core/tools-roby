@@ -3,7 +3,6 @@ require 'roby/adapters/genom'
 require 'genom/runner'
 
 class TC_Genom < Test::Unit::TestCase
-    include Roby
     include RobyTestCommon
 
     attr_reader :plan

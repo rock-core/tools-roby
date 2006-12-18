@@ -6,7 +6,6 @@ require 'roby/plan'
 require 'roby/control'
 
 class TC_Propagation < Test::Unit::TestCase
-    include Roby
     include RobyTestCommon
 
     def test_gather_propagation

@@ -6,7 +6,6 @@ require 'roby/control_interface'
 require 'roby/planning'
 
 class TC_Control < Test::Unit::TestCase 
-    include Roby
     include RobyTestCommon
 
     def teardown

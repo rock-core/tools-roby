@@ -14,7 +14,10 @@ end
 ENV['PATH'] = path.join(':')
 ENV['PKG_CONFIG_PATH'] = pkg_config_path.join(':')
 
+module Roby; end
 module RobyTestCommon
+    include Roby
+
     class << self
 	attr_accessor :check_allocation_count
     end

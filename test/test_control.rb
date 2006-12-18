@@ -5,7 +5,6 @@ require 'mockups/tasks'
 require 'roby/control'
 
 class TC_Control < Test::Unit::TestCase 
-    include Roby
     include RobyTestCommon
 
     def teardown

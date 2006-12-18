@@ -6,7 +6,6 @@ require 'roby/task'
 require 'roby/propagation'
 
 class TC_Exceptions < Test::Unit::TestCase 
-    include Roby
     include RobyTestCommon
 
     def test_execution_exception_initialize

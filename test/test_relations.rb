@@ -4,7 +4,6 @@ require 'flexmock'
 require 'roby/relations'
 
 class TC_Relations < Test::Unit::TestCase
-    include Roby
     include RobyTestCommon
 
     def test_definition

@@ -6,7 +6,6 @@ require 'roby/task'
 require 'roby/plan'
 
 class TC_Task < Test::Unit::TestCase 
-    include Roby
     include RobyTestCommon
 
     def test_model_tag

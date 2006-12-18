@@ -5,8 +5,6 @@ require 'roby/plan'
 require 'roby/state/information'
 
 module TC_PlanStatic
-    include Roby
-
     attr_reader :plan
 
     def test_add_remove

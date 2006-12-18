@@ -10,7 +10,6 @@ require 'roby/log/logger'
 require 'roby/log/file'
 
 class TC_Log < Test::Unit::TestCase
-    include Roby
     include RobyTestCommon
 
     def teardown

@@ -5,7 +5,6 @@ require 'flexmock'
 require 'roby/relations/executed_by'
 
 class TC_ExecutedBy < Test::Unit::TestCase
-    include Roby
     include RobyTestCommon
 
     attr_reader :plan

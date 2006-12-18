@@ -5,7 +5,6 @@ require 'roby/relations/hierarchy'
 require 'roby/plan'
 
 class TC_RealizedBy < Test::Unit::TestCase
-    include Roby
     include RobyTestCommon
 
     attr_reader :plan

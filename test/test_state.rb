@@ -3,7 +3,6 @@ require 'test_config'
 require 'roby/state/state'
 
 class TC_State < Test::Unit::TestCase
-    include Roby
     include RobyTestCommon
 
     def test_openstruct_behavior
