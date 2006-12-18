@@ -3,6 +3,7 @@ require 'flexmock'
 
 require 'roby/event'
 require 'roby/task'
+require 'roby/relations/ensured'
 
 class TC_Event < Test::Unit::TestCase
     include Roby
