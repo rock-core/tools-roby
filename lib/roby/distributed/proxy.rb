@@ -101,6 +101,10 @@ module Roby::Distributed
 	    @owners = [peer.remote_id].to_set
 	end
 
+	def model
+	    self.class.superclass
+	end
+
 	module ClassExtension
 	    def name; "dProxy(#{super})" end
 	end

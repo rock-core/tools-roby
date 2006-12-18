@@ -281,6 +281,7 @@ module Roby::Transactions
 	
 	def_delegator :@__getobj__, :symbol
 	def_delegator :@__getobj__, :controlable?
+	def_delegator :@__getobj__, :model
 	proxy :can_signal?
 	discover_before :on, true, Roby::EventStructure::CausalLink
 
@@ -312,7 +313,6 @@ module Roby::Transactions
 	def_delegator :@__getobj__, :finished?
 	def_delegator :@__getobj__, :pending?
 	def_delegator :@__getobj__, :model
-	def_delegator :@__getobj__, :class
 	def_delegator :@__getobj__, :arguments
 	def_delegator :@__getobj__, :has_event?
 

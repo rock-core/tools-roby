@@ -18,7 +18,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     end
 
     def assert_is_proxy_of(object, wrapper, klass)
-	assert_instance_of(klass, wrapper)
+	assert_equal(klass, wrapper.model)
 	assert_equal(object, wrapper.__getobj__)
     end
 
