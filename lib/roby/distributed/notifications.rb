@@ -27,9 +27,8 @@ module Roby
 		super if defined? super
 		return unless task.distribute?
 		unless Distributed.updating?([self])
-		    Distributed.each_subscribed_peer(self) do |peer|
-			tasks = tasks.find_all { |t| peer.local.subscribed?(t) }
-			peer.plan_update(:discard, self, tasks)
+		    Distributed.each_subscribed_peer(self, task) do |peer|
+			peer.plan_update(:discard, self, task)
 		    end
 		end
 	    end

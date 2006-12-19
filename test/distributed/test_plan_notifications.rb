@@ -155,6 +155,18 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert(!remote_peer.subscribed?(r_subtask.remote_object), remote_peer.subscriptions)
 	assert_equal(2, local.plan.size)
 	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'subtask' })
+
+	assert(local.plan.missions.find { |t| t.arguments[:id] == 'mission' })
+	remote.discard_mission
+	apply_remote_command
+	assert_equal(2, local.plan.size)
+	assert(!local.plan.missions.find { |t| t.arguments[:id] == 'mission' })
+	assert(local.plan.known_tasks.find { |t| t.arguments[:id] == 'mission' })
+
+	remote.remove_mission
+	apply_remote_command
+	assert_equal(1, local.plan.size)
+	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'mission' })
     end
 
     def test_unsubscribe_plan
