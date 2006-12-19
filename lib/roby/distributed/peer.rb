@@ -155,6 +155,7 @@ module Roby::Distributed
 	    nil
 	end
 
+	# The peer asked for subscription on +object+
 	def subscribe(object)
 	    object = peer.proxy(object)
 	    return if subscribed?(object)
@@ -169,7 +170,7 @@ module Roby::Distributed
 
 		if object.respond_to?(:each_event)
 		    object.each_event do |ev|
-			# Send event event if +result+ is empty, so that relations are
+			# Send event even if +result+ is empty, so that relations are
 			# removed if needed on the other side
 			relations = relations_of(ev)
 			peer.transmit(:set_relations, ev, relations)
@@ -188,7 +189,20 @@ module Roby::Distributed
 
 	    nil
 	end
-	def subscribed?(object); subscriptions.include?(object) end
+
+	# The peer asks to be unsubscribed from +object+
+	def unsubscribe(object)
+	    subscriptions.delete(object)
+	    if object.respond_to?(:each_event)
+		object.each_event(&method(:unsubscribe))
+	    end
+	    nil
+	end
+
+	# Check if changes to +object+ should be notified to this peer
+	def subscribed?(object)
+	    subscriptions.include?(object)
+	end
 
 	def relations_of(object)
 	    result = []
@@ -210,13 +224,6 @@ module Roby::Distributed
 	    result
 	end
 
-	def unsubscribe(object)
-	    subscriptions.delete(object)
-	    if object.respond_to?(:each_event)
-		object.each_event(&method(:unsubscribe))
-	    end
-	    nil
-	end
 	def apply(args)
 	    args = args.map do |a|
 		if peer.proxying?(a)
@@ -278,8 +285,6 @@ module Roby::Distributed
 	end
 
 	# Receive an update on the relation graphs
-	#  object:: the object being updated
-	#  action:: a list of actions to perform, of the form [[method_name, args], [...], ...]
 	def update_relation(args)
 	    unmarshall_and_update(args) do |args|
 	        Roby::Distributed.debug { "received update from #{peer.name}: #{args[0]}.#{args[1]}(#{args[2..-1].join(", ")})" }
