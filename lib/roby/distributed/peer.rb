@@ -585,7 +585,9 @@ module Roby::Distributed
 		    end
 		end
 		if marshalled.respond_to?(:update)
-		    marshalled.update(self, object_proxy) 
+		    Roby::Distributed.update([object_proxy]) do
+			marshalled.update(self, object_proxy) 
+		    end
 		end
 	    else
 		object_proxy = marshalled.proxy(self)
