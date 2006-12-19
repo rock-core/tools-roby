@@ -62,6 +62,10 @@ module Roby
 	    @transactions = ValueSet.new
 	end
 
+	def inspect
+	    "#<#{to_s}: missions=#{missions.to_s} tasks=#{known_tasks.to_s} events=#{free_events.to_s} transactions=#{transactions.to_s}>"
+	end
+
 	# call-seq:
 	#   plan.partition_event_task(objects) => events, tasks
 	#

@@ -175,6 +175,9 @@ module Roby
 	def to_s
 	    "#{task}/#{symbol}"
 	end
+	def inspect
+	    "#{task.inspect}/#{symbol}: #{history.to_s}"
+	end
     end
 
     # Tasks represent processes in a plan. Task subclasses model specific tasks
@@ -237,6 +240,16 @@ module Roby
 	attr_reader :arguments
 	# The task name
 	attr_reader :name
+
+	def inspect
+	    state = if pending? then 'pending'
+		    elsif starting? then 'starting'
+		    elsif running? then 'running'
+		    elsif finishing? then 'finishing'
+		    else 'finished'
+		    end
+	    "#<#{to_s} executable=#{executable?} state=#{state} plan=#{plan.to_s}>"
+	end
 	
         # Builds a task object using this task model
 	#
@@ -248,7 +261,7 @@ module Roby
         def initialize(arguments = nil) #:yields: task_object
 	    @arguments = (arguments || {}).to_hash
             @bound_events = Hash.new
-	    @name = model.name
+	    @name = "#{model.name}#{arguments.to_s}:0x#{address.to_s(16)}"
 
             yield self if block_given?
 
