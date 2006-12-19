@@ -2,6 +2,7 @@ $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'distributed/common.rb'
 require 'roby/distributed/transaction.rb'
 require 'mockups/tasks'
+require 'flexmock'
 
 class TC_DistributedTransaction < Test::Unit::TestCase
     include DistributedTestCommon
@@ -31,6 +32,44 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	assert(Roby::TaskStructure::Hierarchy.distribute?)
 	assert(Roby::EventStructure::Signal.distribute?)
+    end
+
+    def test_triggers
+	Roby::Distributed.allow_remote_access Proc
+	peer2peer do |remote|
+	    def remote.new_task(kind, args)
+		new_task = kind.new(args)
+		yield(new_task) if block_given?
+		plan.insert(new_task)
+		new_task
+	    end
+	end
+
+	notification = TaskMatcher.new.
+	    with_model(SimpleTask).
+	    with_arguments(:id => 2)
+
+	FlexMock.use do |mock|
+	    remote.new_task(SimpleTask, :id => 3)
+	    remote.new_task(Roby::Task, :id => 2)
+	    remote.new_task(SimpleTask, :id => 2) do |inserted|
+		mock.should_receive(:notified).with(remote_peer.proxy(inserted)).once.ordered
+		nil
+	    end
+	    remote_peer.on(notification) do |task|
+		mock.notified(task)
+		nil
+	    end
+	    apply_remote_command
+
+	    remote.new_task(SimpleTask, :id => 3)
+	    remote.new_task(Roby::Task, :id => 2)
+	    remote.new_task(SimpleTask, :id => 2) do |inserted|
+		mock.should_receive(:notified).with(remote_peer.proxy(inserted)).once.ordered
+		nil
+	    end
+	    apply_remote_command
+	end
     end
 
     def test_subscribe_plan

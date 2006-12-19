@@ -7,6 +7,7 @@ module Roby
 		super if defined? super
 		return unless tasks.distribute?
 		unless Distributed.updating?([self])
+		    Distributed.trigger(*tasks)
 		    Distributed.each_subscribed_peer(self) do |peer|
 			peer.plan_update(:insert, self, tasks)
 		    end
@@ -16,6 +17,7 @@ module Roby
 		super if defined? super
 		unless Distributed.updating?([self])
 		    tasks = tasks.find_all { |t| t.distribute? }
+		    Distributed.trigger(*tasks)
 		    Distributed.each_subscribed_peer(self) do |peer|
 			peer.plan_update(:discover, self, tasks)
 		    end
@@ -42,6 +44,7 @@ module Roby
 		super if defined? super
 		next unless task.distribute?
 		unless Distributed.updating?([self])
+		    Distributed.clean_triggered(task)
 		    Distributed.each_subscribed_peer(task) do |peer|
 			peer.plan_update(:remove_object, self, task)
 		    end
@@ -122,6 +125,7 @@ module Roby
 
 		return unless type.distribute? && Distributed.state
 		return if Distributed.updating?([self.root_object, child.root_object])
+		Distributed.trigger(self, child)
 		Distributed.each_subscribed_peer(self.root_object, child.root_object) do |peer|
 		    peer.transmit(:update_relation, [self, :add_child_object, child, type, info])
 		end
@@ -132,6 +136,7 @@ module Roby
 
 		return unless type.distribute? && Distributed.state
 		return if Distributed.updating?([self.root_object, child.root_object])
+		Distributed.trigger(self, child)
 		Distributed.each_subscribed_peer(self.root_object, child.root_object) do |peer|
 		    peer.transmit(:update_relation, [self, :remove_child_object, child, type])
 		end

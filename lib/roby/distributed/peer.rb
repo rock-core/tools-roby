@@ -78,6 +78,30 @@ module Roby::Distributed
 		yield(peer) if objects.any? { |o| peer.local.subscribed?(o) || peer.owns?(o) }
 	    end
 	end
+	
+	def trigger(*objects)
+	    # If +object+ is a trigger, send the :triggered event but do *not*
+	    # act as if +object+ was subscribed
+	    peers.each do |name, peer|
+		peer.local.triggers.each do |id, (matcher, triggered)|
+		    objects.each do |object|
+			if !triggered.include?(object) && matcher === object
+			    triggered << object
+			    peer.transmit(:triggered, id, object)
+			end
+		    end
+		end
+	    end
+	end
+	# Remove +objects+ from the sets of already-triggered objects
+	def clean_triggered(*objects)
+	    objects = objects.to_value_set
+	    peers.each do |name, peer|
+		peer.local.triggers.each do |id, (matcher, triggered)|
+		    peer.local.triggers[id] = [matcher, triggered.difference(triggered)]
+		end
+	    end
+	end
 
 	# The list of objects that are being updated because of remote update
 	attr_reader :updated_objects
@@ -104,10 +128,12 @@ module Roby::Distributed
 	include DRbUndumped
 	attr_reader :peer
 	attr_reader :subscriptions
+	attr_reader :triggers
 
 	def initialize(peer)
 	    @peer	    = peer 
 	    @subscriptions  = ValueSet.new
+	    @triggers	    = Hash.new
 	end
 
 	# The name of the local ConnectionSpace object we are acting on
@@ -140,6 +166,25 @@ module Roby::Distributed
 	    matcher.enum_for(:each, plan).to_a
 	end
 
+	# The peers asks to be notified if a plan object which matches
+	# +matcher+ changes
+	def add_trigger(id, matcher)
+	    triggers[id] = [matcher, (triggered = ValueSet.new)]
+	    matcher.each(plan) do |task|
+		triggered << task
+		peer.transmit(:triggered, id, task)
+	    end
+	end
+
+	# Remove the trigger +id+ defined by this peer
+	def remove_trigger(id)
+	    triggers.delete(id)
+	end
+
+	# The peer tells us that +task+ has triggered the notification +id+
+	def triggered(id, task); peer.triggered(id, task) end
+
+	# Send the neighborhood of +distance+ hops around +object+ to the peer
 	def discover_neighborhood(object, distance)
 	    edges = object.neighborhood(distance)
 	    if object.kind_of?(Roby::Task)
@@ -336,6 +381,9 @@ module Roby::Distributed
 	# The name of the local ConnectionSpace object we are acting on
 	def local_name; connection_space.name end
 
+	# The ID => block hash of all triggers we have defined on the remote plan
+	attr_reader :triggers
+
 	# Listens for new connections on Distributed.state
 	def self.connection_listener(connection_space)
 	    seen = []
@@ -379,6 +427,7 @@ module Roby::Distributed
 	    @proxies	  = Hash.new
 	    @send_flushed = new_cond
 	    @max_allowed_errors = connection_space.max_allowed_errors
+	    @triggers = Hash.new
 
 	    connection_space.peers[remote_id] = self
 	    connect
@@ -494,6 +543,33 @@ module Roby::Distributed
 	    connection_space.plan.insert(task)
 	    task.event(:start).emit(nil)
 	    ping
+	end
+
+	# call-seq:
+	#   peer.on(matcher) { |task| ... }	=> ID
+	#
+	# Call the provided block in the control thread when a task matching
+	# +matcher+ has been found on the remote plan. +task+ is the local
+	# proxy for the matching remote task.
+	#
+	# The return value is an identifier which can be later used to remove
+	# the trigger with Peer#remove_trigger
+	def on(matcher, &block)
+	    triggers[matcher.object_id] = [matcher, block]
+	    transmit(:add_trigger, matcher.object_id, matcher)
+	end
+
+	# Remote a trigger from its ID. +id+ is the return value of Peer#on
+	def remove_trigger(id)
+	    transmit(:remove_trigger, id)
+	    triggers.delete(id)
+	end
+
+	# Calls the block given to Peer#on when +task+ has matched the trigger
+	def triggered(id, task) # :nodoc:
+	    if trigger = triggers[id]
+		trigger.last.call(proxy(task))
+	    end
 	end
 
 	# Called when the handshake is finished
