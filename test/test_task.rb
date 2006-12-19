@@ -30,8 +30,8 @@ class TC_Task < Test::Unit::TestCase
 	    event(:stop)
 	    on :stop1 => :stop
 
-	    argument :to
-	end.new
+	    argument :from, :to
+	end.new(:from => 'B')
 	task.on(:stop2, task, :stop1)
 	task.on(:stop3, task, :stop)
 	assert(task.event(:aborted).terminal?)
@@ -39,12 +39,13 @@ class TC_Task < Test::Unit::TestCase
 	assert(task.event(:stop2).terminal?)
 	assert(task.event(:stop3).terminal?)
 	assert_equal([].to_set, Task.arguments)
-	assert_equal([:to].to_set, task.model.arguments)
+	assert_equal([:from, :to].to_set, task.model.arguments)
+
 	assert(task.partially_instanciated?)
-	task.set :to => 'A'
+	task.arguments[:to] = 'A'
 	assert_equal('A', task.arguments[:to])
 	assert(!task.partially_instanciated?)
-	assert_raises(TaskModelViolation) { task.set :to => 10 }
+	assert_raises(ArgumentError) { task.arguments[:to] = 10 }
     end
 
     def test_terminal

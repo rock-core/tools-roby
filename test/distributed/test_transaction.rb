@@ -209,6 +209,38 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	check_resulting_plan(local.plan)
     end
 
+    def test_argument_updates
+	peer2peer do |remote|
+	    remote.plan.insert(Task.new(:id => 2))
+	    def remote.set_argument(task)
+		peer = Distributed.peers.find { true }.last
+		task = peer.proxy(task)
+		task.arguments[:foo] = :bar
+		nil
+	    end
+	end
+	r_task = remote_peer.proxy(remote_task(:id => 2))
+
+	assert_raises(NotOwner) { r_task.arguments[:foo] = :bar }
+	apply_remote_command
+
+	trsc   = Roby::Distributed::Transaction.new(plan)
+	trsc.add_owner remote_peer
+	trsc.self_owned
+	trsc.propose(remote_peer)
+
+	t_task = trsc[r_task]
+	assert_raises(NotOwner) { t_task.arguments[:foo] = :bar }
+	apply_remote_command
+
+	task = Task.new(:id => 2)
+	t_task = trsc[task]
+	assert_nothing_raised { remote.set_argument(t_task) }
+	apply_remote_command
+
+	assert_equal(:bar, task.arguments[:foo], task)
+    end
+
     def test_propose_commit
 	peer2peer do |remote|
 	    testcase = self

@@ -83,6 +83,16 @@ module Roby::Distributed
     Roby::Task.include TaskOwnershipChecking
     Roby::EventGenerator.include EventOwnershipChecking
 
+    module TaskArgumentsOwnershipChecking
+	def updating
+	    if task.read_only?
+		raise NotOwner, "cannot change the argument set of a task which is not owned"
+	    end
+	    super if defined? super
+	end
+    end
+    Roby::TaskArguments.include TaskArgumentsOwnershipChecking
+
     module RemoteObjectProxy
 	include RemoteObject
 	# The object owners. This is always [remote_peer.remote_id].to_set

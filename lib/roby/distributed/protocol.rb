@@ -432,6 +432,8 @@ module Roby
 		elsif !mission && is_mission
 		    task.plan.discard(task)
 		end
+
+		task.arguments.merge(arguments)
 	    end
 
 	    attr_reader :arguments, :mission

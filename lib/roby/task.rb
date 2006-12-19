@@ -180,6 +180,43 @@ module Roby
 	end
     end
 
+    class TaskArguments < Hash
+	private :delete, :delete_if
+
+	attr_reader :task
+	def initialize(task)
+	    @task = task
+	    super()
+	end
+
+	def []=(key, value)
+	    if has_key?(key)
+		raise ArgumentError, "cannot override task arguments"
+	    else
+		updating
+		super
+		updated
+	    end
+	end
+	def updating; super if defined? super end
+	def updated; super if defined? super end
+	private :merge!
+	def merge(hash)
+	    super do |key, old, new|
+		if old == new then old
+		else
+		    raise ArgumentError, "cannot override task arguments"
+		end
+	    end
+
+	    updating
+	    ret = merge!(hash)
+	    updated
+
+	    ret
+	end
+    end
+
     # Tasks represent processes in a plan. Task subclasses model specific tasks
     # Tasks are made of events, which are
     # defined by calling Task::event on a Task class.
@@ -224,19 +261,7 @@ module Roby
 	model_attribute_list('handler')
 	model_attribute_list('precondition')
 
-	# Sets an argument (cannot be used to *change* an argument, only to
-	# set an argument which has not been set yet)
-	def set(values)
-	    values.each do |n, v|
-		if arguments.has_key?(n)
-		    raise TaskModelViolation.new(self), "cannot change an argument value"
-		else
-		    arguments[n] = v
-		end
-	    end
-	end
-
-	# The task arguments as a hash
+	# The task arguments as symbol => value associative container
 	attr_reader :arguments
 	# The task name
 	attr_reader :name
@@ -259,7 +284,7 @@ module Roby
         # * the task shall have at least one terminal event. If no +stop+ event
         #   is defined, then all terminal events are aliased to +stop+
         def initialize(arguments = nil) #:yields: task_object
-	    @arguments = (arguments || {}).to_hash
+	    @arguments = TaskArguments.new(self).merge(arguments || {})
             @bound_events = Hash.new
 	    @name = "#{model.name}#{arguments.to_s}:0x#{address.to_s(16)}"
 

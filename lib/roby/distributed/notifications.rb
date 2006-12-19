@@ -220,5 +220,28 @@ module Roby
 	    end
 	end
 	Control.event_processing << Distributed.method(:distributed_signals)
+
+
+	module TaskArgumentsNotifications
+	    def updated
+		super if defined? super
+
+		unless Distributed.updating?([task])
+		    Distributed.each_subscribed_peer(task) do |peer|
+			peer.transmit(:updated_arguments, task, task.arguments)
+		    end
+		end
+	    end
+	end
+	TaskArguments.include TaskArgumentsNotifications
+
+	class PeerServer
+	    def updated_arguments(task, arguments)
+		proxy = peer.proxy(task)
+		Distributed.update([proxy]) do
+		    proxy.arguments.merge(arguments || {})
+		end
+	    end
+	end
     end
 end
