@@ -52,6 +52,7 @@ module Roby
 	end
 
 	def ===(task)
+	    return unless task.kind_of?(Roby::Task)
 	    if model
 		return unless task.model == model || task.kind_of?(model)
 	    end
