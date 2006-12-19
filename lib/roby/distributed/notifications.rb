@@ -41,27 +41,35 @@ module Roby
 	    def finalized_task(task)
 		super if defined? super
 		next unless task.distribute?
-		Distributed.each_subscribed_peer(task) do |peer|
-		    peer.plan_update(:remove_object, self, task)
+		unless Distributed.updating?([self])
+		    Distributed.each_subscribed_peer(task) do |peer|
+			peer.plan_update(:remove_object, self, task)
+		    end
 		end
 	    end
 	    def finalized_event(event)
 		super if defined? super
 		next unless event.distribute?
-		Distributed.each_subscribed_peer(event) do |peer|
-		    peer.plan_update(:remove_object, self, event)
+		unless Distributed.updating?([self])
+		    Distributed.each_subscribed_peer(event) do |peer|
+			peer.plan_update(:remove_object, self, event)
+		    end
 		end
 	    end
 	    def added_transaction(trsc)
 		super if defined? super
-		Distributed.each_subscribed_peer(self) do |peer|
-		    peer.transaction_update(:added_transaction, self, trsc)
+		unless Distributed.updating?([self])
+		    Distributed.each_subscribed_peer(self) do |peer|
+			peer.transaction_update(:added_transaction, self, trsc)
+		    end
 		end
 	    end
 	    def removed_transaction(trsc)
 		super if defined? super
-		Distributed.each_subscribed_peer(trsc) do |peer|
-		    peer.transaction_update(:removed_transaction, self, trsc)
+		unless Distributed.updating?([self])
+		    Distributed.each_subscribed_peer(trsc) do |peer|
+			peer.transaction_update(:removed_transaction, self, trsc)
+		    end
 		end
 	    end
 	end
