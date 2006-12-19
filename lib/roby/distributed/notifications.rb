@@ -205,7 +205,7 @@ module Roby
 
 		    # Only add the signalling if we own +to+
 		    if to_generator.self_owned?
-			Propagation.add_event_propagation(only_forward, [event], to_generator, context)
+			Propagation.add_event_propagation(only_forward, [event], to_generator, context, nil)
 		    else
 			# Call #signalling or #forwarding to make
 			# +from_generator+ look like as if the event was really
