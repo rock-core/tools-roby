@@ -157,6 +157,7 @@ module Roby::Distributed
 	def initialize(peer, marshalled_object)
 	    initialize_remote_proxy(peer, marshalled_object)
 	    super(marshalled_object.arguments)
+	    @name << "@#{peer.remote_name}"
 	end
     end
 end

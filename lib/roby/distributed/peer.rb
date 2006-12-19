@@ -110,13 +110,15 @@ module Roby::Distributed
 	    @subscriptions  = ValueSet.new
 	end
 
-	def client_name; peer.connection_space.name end
-	def server_name; peer.neighbour.name end
+	# The name of the local ConnectionSpace object we are acting on
+	def local_name; peer.connection_space.name end
+	# The name of the remote peer
+	def remote_name; peer.neighbour.name end
 	
 	def demux(calls)
 	    result = []
 	    if !peer.connected?
-		raise DisconnectedError, "#{server_name} has been disconnected"
+		raise DisconnectedError, "#{remote_name} has been disconnected"
 	    end
 
 	    calls.each do |obj, args|
@@ -287,7 +289,7 @@ module Roby::Distributed
 	# Receive an update on the relation graphs
 	def update_relation(args)
 	    unmarshall_and_update(args) do |args|
-	        Roby::Distributed.debug { "received update from #{peer.name}: #{args[0]}.#{args[1]}(#{args[2..-1].join(", ")})" }
+	        Roby::Distributed.debug { "received update from #{remote_name}: #{args[0]}.#{args[1]}(#{args[2..-1].join(", ")})" }
 	        args[0].send(*args[1..-1])
 	    end
 	end
@@ -329,7 +331,10 @@ module Roby::Distributed
 	include MonitorMixin
 	attr_reader :send_flushed
 
-	def name; neighbour.name end
+	# The name of the remote peer
+	def remote_name; neighbour.name end
+	# The name of the local ConnectionSpace object we are acting on
+	def local_name; connection_space.name end
 
 	# Listens for new connections on Distributed.state
 	def self.connection_listener(connection_space)
@@ -342,7 +347,7 @@ module Roby::Distributed
 
 		if peer 
 		    if peer.connecting?
-			Roby::Distributed.debug { "Peer #{peer.name} finalized handshake" }
+			Roby::Distributed.debug { "Peer #{peer.remote_name} finalized handshake" }
 			# The peer finalized the handshake
 			peer.connected!
 		    else
@@ -357,7 +362,7 @@ module Roby::Distributed
 	    end
 
 	    (connection_space.peers.keys - seen).each do |disconnected| 
-		Roby::Distributed.debug { "Peer #{disconnected.name} disconnected" }
+		Roby::Distributed.debug { "Peer #{disconnected.remote_name} disconnected" }
 		connection_space.peers[disconnected].disconnected!
 		connection_space.peers.delete(disconnected)
 	    end
@@ -370,7 +375,6 @@ module Roby::Distributed
 
 	    @connection_space = connection_space
 	    @neighbour	  = neighbour
-	    @name	  = neighbour.name
 	    @local        = PeerServer.new(self)
 	    @proxies	  = Hash.new
 	    @send_flushed = new_cond
@@ -384,7 +388,7 @@ module Roby::Distributed
 
 	def transmit(*args, &block)
 	    if !connected?
-		raise DisconnectedError, "we are not currently connected to #{peer.name}"
+		raise DisconnectedError, "we are not currently connected to #{remote_name}"
 	    end
 
 	    Roby::Distributed.debug { "queueing #{neighbour.name}.#{args[0]}" }

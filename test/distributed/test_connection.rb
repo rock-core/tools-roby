@@ -111,8 +111,8 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert(p_remote.task.ready?)
 
 	assert_equal('remote', p_remote.neighbour.name)
-	assert_equal('remote', p_remote.remote_server.client_name)
-	assert_equal('local', p_remote.remote_server.server_name)
+	assert_equal('remote', p_remote.remote_server.local_name)
+	assert_equal('local', p_remote.remote_server.remote_name)
     end
 
     # Test the normal disconnection process
