@@ -39,7 +39,7 @@ module DistributedTestCommon
 	    central_tuplespace = DRbObject.new_with_uri(DISCOVERY_URI)
 	    Distributed.state = ConnectionSpace.new :ring_discovery => false, 
 		:discovery_tuplespace => central_tuplespace, :name => "remote",
-		:plan => Plan.new do |remote|
+		:plan => Plan.new, :max_allowed_errors => 1 do |remote|
 
 		getter = Class.new { def get; DRbObject.new(Distributed.state) end }.new
 		DRb.start_service REMOTE_URI, getter
