@@ -51,6 +51,19 @@ class TC_Task < Test::Unit::TestCase
 	assert_nothing_raised { task.arguments[:bar] = 43 }
     end
 
+    def test_event_command
+	FlexMock.use do |mock|
+	    task = Class.new(SimpleTask) do
+		define_method(:start) do |context|
+		    mock.start(context)
+		end
+		event(:start)
+	    end.new
+	    mock.should_receive(:start).once
+	    task.start!
+	end
+    end
+
     def test_terminal
 	klass = Class.new(Task) do
 	    event(:terminal_model, :terminal => true)
