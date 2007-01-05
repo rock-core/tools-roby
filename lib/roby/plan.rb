@@ -356,6 +356,14 @@ module Roby
 	end
 	# Hook called when +event+ has been removed from this plan
 	def finalized_event(event); super if defined? super end
+
+	# Replace +task+ with a fresh copy of itself
+	def respawn(task)
+	    new_task = task.class.new(task.arguments)
+
+	    replace(task, new_task)
+	    Control.once { new_task.start!(nil) }
+	end
     end
 end
 
