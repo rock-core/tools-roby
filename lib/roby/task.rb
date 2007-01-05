@@ -189,13 +189,17 @@ module Roby
 	    super()
 	end
 
+	def writable?(key)
+	    !(has_key?(key) && task.model.arguments.include?(key))
+	end
+
 	def []=(key, value)
-	    if has_key?(key)
-		raise ArgumentError, "cannot override task arguments"
-	    else
+	    if writable?(key)
 		updating
 		super
 		updated
+	    else
+		raise ArgumentError, "cannot override task arguments"
 	    end
 	end
 	def updating; super if defined? super end
@@ -204,16 +208,11 @@ module Roby
 	def merge(hash)
 	    super do |key, old, new|
 		if old == new then old
+		elsif writable?(key) then new
 		else
 		    raise ArgumentError, "cannot override task arguments"
 		end
 	    end
-
-	    updating
-	    ret = merge!(hash)
-	    updated
-
-	    ret
 	end
     end
 

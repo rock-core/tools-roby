@@ -46,6 +46,9 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal('A', task.arguments[:to])
 	assert(!task.partially_instanciated?)
 	assert_raises(ArgumentError) { task.arguments[:to] = 10 }
+
+	task.arguments[:bar] = 42
+	assert_nothing_raised { task.arguments[:bar] = 43 }
     end
 
     def test_terminal
