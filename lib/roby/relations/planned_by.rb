@@ -10,5 +10,34 @@ module Roby::TaskStructure
 	    add_planning_task(task)
         end
     end
+
+    def PlannedBy.check_planning(plan)
+	result = []
+	plan.known_tasks.each do |planned_task|
+	    next unless planned_task.pending? && !planned_task.executable?
+	    next unless planning_task = planned_task.planning_task
+	    if planning_task.failed?
+		result << Roby::PlanningFailedError.new(planned_task, planning_task)
+	    end
+	end
+
+	result
+    end
+end
+
+module Roby
+    class PlanningFailedError < TaskModelViolation
+	alias :planned_task :task
+	attr_reader :planning_task, :error
+	def initialize(planned_task, planning_task)
+	    super(planned_task)
+	    @planning_task = planning_task
+	    @error = planning_task.event(:failed).last
+	end
+	def message
+	    "failed to plan #{planned_task}.planned_by(#{planning_task}): failed with #{error.symbol}(#{error.context})\n#{super}"
+	end
+    end
+    Control.structure_checks << TaskStructure::PlannedBy.method(:check_planning)
 end
 
