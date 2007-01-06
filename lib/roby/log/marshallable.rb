@@ -83,7 +83,9 @@ module Roby
 		end
 
 		if wrapper.respond_to?(:update)
-		    @@cache[object.object_id] = wrapper
+		    if wrapper.permanent?
+			@@cache[object.object_id] = wrapper
+		    end
 		    wrapper.update(object)
 		end
 
@@ -107,6 +109,8 @@ module Roby
 	    # Name of the real object
 	    attr_reader :name
 	    def to_s; name || "#{source_class}:0x#{Object.address_from_id(source_id).to_s(16)}" end
+
+	    def permanent?; false end
 
 	    def initialize(source)
 		update(source)
@@ -137,6 +141,7 @@ module Roby
 	    # The plan size
 	    attr_reader :size
 
+	    def permanent?; true end
 	    def update(plan)
 		super
 		@size = plan.size
@@ -146,6 +151,7 @@ module Roby
 	class Transaction < Plan
 	    attr_reader :plan
 
+	    def permanent?; true end
 	    def update(trsc)
 		super
 		@plan = Wrapper[trsc.plan]
@@ -161,6 +167,7 @@ module Roby
 	    #	    Transaction#update is called -> Plan#update is called
 	    def name; "Proxy(#{proxy_for.name})" end
 
+	    def permanent?; true end
 	    def update(proxy)
 		super
 		@transaction_id = proxy.plan.object_id
@@ -201,6 +208,7 @@ module Roby
 
 	# Marshallable representation of EventGenerator
 	class EventGenerator < Wrapper
+	    def permanent?; true end
 	end
 
 	# Marshallable representation of TaskEventGenerator
@@ -214,6 +222,7 @@ module Roby
 		"#{task}/#{symbol}"
 	    end
 
+	    def permanent?; true end
 	    def update(generator)
 		super
 		@symbol = generator.symbol
@@ -223,6 +232,7 @@ module Roby
 
 	# Marshallable representation of Task
 	class Task < Wrapper
+	    def permanent?; true end
 	end
     end
 end
