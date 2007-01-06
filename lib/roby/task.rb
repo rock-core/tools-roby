@@ -533,6 +533,24 @@ module Roby
             self
         end
 
+	# Fowards +event_model+ to the events in +to_events+ on task +to_task+
+	# If no destination events are given, use the event in +to_task+ with
+	# the same name than +event_model+: the two following lines are equivalent:
+	#   t1.forward(:start, t2, :start)
+	#   t1.forward(:start, t2)
+	#
+	def forward(event_model, to_task, *to_events)
+            generator = event(event_model)
+	    if to_events.empty?
+		to_events << generator.symbol
+	    end
+
+            to_events.each do |ev_model| 
+		ev = to_task.event(ev_model)
+		ev.emit_on generator
+	    end
+	end
+
 	attr_accessor :calling_event
 	def method_missing(name, *args, &block)
 	    if calling_event && calling_event.respond_to?(name)
