@@ -297,6 +297,23 @@ module Roby
 	    Roby.info "remote server at #{uri} has quit"
 	end
     end
+
+    # Exception raised when a mission has failed
+    class MissionFailedError < TaskModelViolation
+	alias :mission :task
+	def message
+	    "mission #{mission} failed with failed(#{mission.event(:failed).last.context})\n#{super}"
+	end
+    end
+    # Get all missions that have failed
+    def self.check_failed_missions(plan)
+	result = []
+	plan.missions.each do |task|
+	    result << MissionFailedError.new(task) if task.failed?
+	end
+	result
+    end
+    Control.structure_checks << method(:check_failed_missions)
 end
 
 require 'roby/propagation'
