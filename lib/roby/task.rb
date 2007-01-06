@@ -364,6 +364,7 @@ module Roby
 	alias :finished? :__finished
 	attr_reader :__success
 	alias :success? :__success
+	def failed?; finished? && !success? end
 
 	# Remove all relations in which +self+ or its event are involved
 	def clear_relations
