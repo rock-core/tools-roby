@@ -22,22 +22,10 @@ class TC_Task < Test::Unit::TestCase
     end
 
 
-    def test_base_model
+    def test_arguments
 	task = Class.new(Task) do
-	    event(:stop1)
-	    event(:stop2)
-	    event(:stop3)
-	    event(:stop)
-	    on :stop1 => :stop
-
 	    argument :from, :to
 	end.new(:from => 'B')
-	task.on(:stop2, task, :stop1)
-	task.on(:stop3, task, :stop)
-	assert(task.event(:aborted).terminal?)
-	assert(task.event(:stop1).terminal?)
-	assert(task.event(:stop2).terminal?)
-	assert(task.event(:stop3).terminal?)
 	assert_equal([].to_set, Task.arguments)
 	assert_equal([:from, :to].to_set, task.model.arguments)
 
@@ -51,7 +39,9 @@ class TC_Task < Test::Unit::TestCase
 	assert_nothing_raised { task.arguments[:bar] = 43 }
     end
 
-    def test_event_command
+    # Tests that an event is controlable if there is a method with the same
+    # name in the task model
+    def test_method_as_command
 	FlexMock.use do |mock|
 	    task = Class.new(SimpleTask) do
 		define_method(:start) do |context|
@@ -61,6 +51,75 @@ class TC_Task < Test::Unit::TestCase
 	    end.new
 	    mock.should_receive(:start).once
 	    task.start!
+	end
+    end
+
+    # Test the behaviour of Task#on, and event propagation inside a task
+    def test_instance_on
+	t1 = SimpleTask.new
+	assert_raises(ArgumentError) { t1.on(:start) }
+	
+	# Test command handlers
+	task = SimpleTask.new
+	FlexMock.use do |mock|
+	    task.on(:start)   { |event| mock.started(event.context) }
+	    task.on(:start)   { |event| task.emit(:success, event.context) }
+	    task.on(:success) { |event| mock.success(event.context) }
+	    task.on(:stop)    { |event| mock.stopped(event.context) }
+	    mock.should_receive(:started).once.with(42).ordered
+	    mock.should_receive(:success).once.with(42).ordered
+	    mock.should_receive(:stopped).once.with(42).ordered
+	    task.start!(42)
+	end
+        assert(task.finished?)
+	event_history = task.history.map { |ev| ev.generator }
+	assert_equal([task.event(:start), task.event(:success), task.event(:stop)], event_history)
+
+	# Same test, but with signals
+	FlexMock.use do |mock|
+	    t1, t2 = SimpleTask.new, SimpleTask.new
+	    t1.on(:start, t2)
+	    t2.on(:start) { mock.start }
+
+	    mock.should_receive(:start).once
+	    t1.start!
+	end
+
+	FlexMock.use do |mock|
+	    t1, t2 = SimpleTask.new, SimpleTask.new
+	    t2.start!
+
+	    t1.on(:start, t2, :stop)
+	    t2.on(:start) { mock.start }
+	    t2.on(:stop)  { mock.stop }
+
+	    mock.should_receive(:start).never
+	    mock.should_receive(:stop).once
+	    t1.start!
+	end
+    end
+
+    def test_forward
+	FlexMock.use do |mock|
+	    t1, t2 = SimpleTask.new, SimpleTask.new
+	    t1.forward(:start, t2)
+	    t2.on(:start) { mock.start }
+
+	    mock.should_receive(:start).once
+	    t1.start!
+	end
+
+	FlexMock.use do |mock|
+	    t1, t2 = SimpleTask.new, SimpleTask.new
+	    t2.start!
+
+	    t1.forward(:start, t2, :stop)
+	    t2.on(:start) { mock.start }
+	    t2.on(:stop) { mock.stop }
+
+	    mock.should_receive(:start).never
+	    mock.should_receive(:stop).once
+	    t1.start!
 	end
     end
 
@@ -138,21 +197,17 @@ class TC_Task < Test::Unit::TestCase
 
         # Check validation of options[:command]
         assert_raise(ArgumentError) { klass.event :try_event, :command => "bla" }
-    end
 
-    def test_event_def_validation
-	Class.new(Task) do
-	    extend Test::Unit::Assertions
+	#Class.new(Task) do
+	#    extend Test::Unit::Assertions
 
-	    assert_raise(ArgumentError) { event(:start, :terminal => true) }
-	    assert_raise(ArgumentError) { event(:stop, :terminal => false) }
-	    event :stop
-	    assert_nothing_raised { event(:inter, :terminal => true) }
-	    assert_raise(ArgumentError) { event(:inter, :terminal => true) }
-	end
-    end
+	#    assert_raise(ArgumentError) { event(:start, :terminal => true) }
+	#    assert_raise(ArgumentError) { event(:stop, :terminal => false) }
+	#    event :stop
+	#    assert_nothing_raised { event(:inter, :terminal => true) }
+	#    assert_raise(ArgumentError) { event(:inter, :terminal => true) }
+	#end
 
-    def test_event_properties
         task = EmptyTask.new
 	start_event = task.event(:start)
 
@@ -162,36 +217,21 @@ class TC_Task < Test::Unit::TestCase
         start_model = task.event_model(:start)
         assert_equal(start_model, start_event.event_model)
         assert_equal([:success], task.enum_for(:each_signal, :start).to_a)
-     end
+    end
 
     def test_signal_validation
 	klass = Class.new(Task) 
 	t1, t2 = klass.new, klass.new
-	assert_raise(EventModelViolation) { t1.on(:stop, t2, :stop) }
-    end
 
-    def test_task_propagation
+	assert(!t1.event(:stop).can_signal?(t2.event(:stop)))
+	assert_raise(EventModelViolation) { t1.on(:stop, t2, :stop) }
+
         task = Class.new(ExecutableTask).new
 
 	# Check can_signal? for task events
         start_event = task.event(:start)
 	stop_event  = task.event(:stop)
 	assert( start_event.can_signal?(stop_event) )
-
-	# Check that propagation is done properly in this simple task
-	FlexMock.use do |mock|
-	    task.on(:start) { |event| mock.started(event.context) }
-	    task.on(:start) { |event| task.emit(:success, event.context) }
-	    task.on(:success) { |event| mock.success(event.context) }
-	    task.on(:stop) { |event| mock.stopped(event.context) }
-	    mock.should_receive(:started).once.with(42).ordered
-	    mock.should_receive(:success).once.with(42).ordered
-	    mock.should_receive(:stopped).once.with(42).ordered
-	    task.start!(42)
-	end
-        assert(task.finished?)
-	event_history = task.history.map { |ev| ev.generator }
-	assert_equal([task.event(:start), task.event(:success), task.event(:stop)], event_history)
     end
 
     def test_context_propagation
