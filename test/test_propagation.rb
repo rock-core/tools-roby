@@ -1,4 +1,5 @@
 require 'flexmock'
+require 'mockups/tasks'
 require 'test_config'
 
 require 'roby/event'
@@ -74,6 +75,21 @@ class TC_Propagation < Test::Unit::TestCase
 	sleep(0.2)
 	Control.instance.process_events
 	assert(e.happened?)
+    end
+
+    def test_duplicate_signals
+	t = SimpleTask.new # SimpleTask defines a model signal between :start and :success
+	
+	FlexMock.use do |mock|
+	    t.on(:start)   { |event| t.emit(:success, event.context) }
+	    t.on(:start)   { |event| t.emit(:success, event.context) }
+
+	    t.on(:success) { |event| mock.success(event.context) }
+	    t.on(:stop)    { |event| mock.stop(event.context) }
+	    mock.should_receive(:success).with(42).once.ordered
+	    mock.should_receive(:stop).with(42).once.ordered
+	    t.start!(42)
+	end
     end
 end
 

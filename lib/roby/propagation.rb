@@ -237,6 +237,11 @@ got an exception which did not specify its source
 		    end
 
 		    delayed = false
+
+		    # Merge identical signals. Needed because two different event handlers
+		    # can both call #emit, and two signals are set up
+		    next if src && sources.include?(src)
+
 		    sources << src if src
 		    context << ctxt if ctxt
 		end
