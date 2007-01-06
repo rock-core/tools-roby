@@ -503,28 +503,32 @@ module Roby
         end
 
         # call-seq:
-        #   on(event_model[, task, event1, event2, ...]) { |event| ... }
+        #   on(event, task[, event1, event2, ...])
+	#   on(event) { |event| ... }
+        #   on(event[, task, event1, event2, ...]) { |event| ... }
         #
-        # Adds an event handler for the given event model. When an event of this
-        # model is fired by this task
-        # * all provided events will be called in +task+. As such, all of these
-        #   events shall be controlable
+        # Adds an event handler for the given event model. When the corresponding
+	# event is fired,
+	# * all signalled events will be called in +task+. As such, all of
+	#   these events shall be controlable
         # * the supplied handler will be called with the event object
+	#
+	#   on(event, task)
+	# is equivalent to 
+	#   on(event, task, event)
         #
-        def on(event_model, *args, &user_handler)
-            unless args.size >= 2 || (args.size == 0 && user_handler)
-                raise ArgumentError, "Bad call for Task#on. Got #{args.size + 1} arguments and #{block_given? ? 1 : 0} block"
+        def on(event_model, to_task = nil, *to_events, &user_handler)
+            unless to_task || user_handler
+                raise ArgumentError, "Bad call for Task#on. You must provide at least one event or an event handler"
             end
 
             generator = event(event_model)
-            to_events = if args.size >= 2
-                            to_task, *to_events = *args
-                            to_events.map { |ev_model| to_task.event(ev_model) }
-			    # generator#to_events will check that the generator in to_events
-			    # can be signalled
-                        else
-                            []
-                        end
+	    if to_task
+		if to_events.empty?
+		    to_events << generator.symbol
+		end
+		to_events.map! { |ev_model| to_task.event(ev_model) }
+	    end
             generator.on(*to_events, &user_handler)
             self
         end
