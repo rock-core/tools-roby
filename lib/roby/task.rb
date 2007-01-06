@@ -641,7 +641,17 @@ module Roby
                 end
             end
 
+	    # Check that the event is now terminal while it was not before
+	    setup_terminal_handler = false
+	    old_model = find_event_model(ev)
+	    if new_event.symbol != :stop && options[:terminal] && (!old_model || !old_model.terminal?)
+		setup_terminal_handler = true
+	    end
+
 	    events[new_event.symbol] = new_event
+	    if setup_terminal_handler
+		on(new_event) { |event| event.task.emit(:stop, event.context) }
+	    end
 	    const_set(ev_s.camelize, new_event)
 
 	    if options[:command]
@@ -669,10 +679,6 @@ module Roby
 		    event(ev).call(context) 
 		end
             end
-		    
-	    if new_event.symbol != :stop && options[:terminal]
-		on(new_event) { |event| event.task.emit(:stop, event.context) }
-	    end
 
 
 	    new_event
