@@ -62,6 +62,7 @@ module Roby::Display
 	    super(parent)
 
 	    self.root_is_decorated = true
+	    self.all_columns_show_focus = true
 	    add_column "at"
 	    add_column "in"
 	    add_column "kind"
