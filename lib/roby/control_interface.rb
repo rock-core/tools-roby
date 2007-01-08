@@ -93,7 +93,7 @@ module Roby
 	    task.planned_by planner
 
 	    control.plan.insert(task)
-	    yield(planner) if block_given?
+	    yield(planner, task) if block_given?
 
 	    if do_start
 		planner.on(:success, task, :start)
