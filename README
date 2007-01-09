@@ -1,24 +1,28 @@
 == Installation
 * The Roby engine needs 
-  * +utilrb+, which is available either as a gem or on {my research page}[http://www.laas.fr/~sjoyeux/research.php]
+  * +utilrb+, which is available either as a gem or on {my research
+    page}[http://www.laas.fr/~sjoyeux/research.php]
   * +utilmm+, available on {my research page}[http://www.laas.fr/~sjoyeux/research.php]
   * Facets, available on RubyForge[http://facets.rubyforge.org] or as a gem
   * ActiveSupport, available on RubyForge[http://facets.rubyforge.org] or as a gem
 
 * Build the extension in ext/ using:
-  cd ext
-  ruby extconf.rb --with-utilmm-dir=<utilmm prefix>
-  make
-  ln -s $PWD/bgl.so ../lib/roby
+    cd ext
+    ruby extconf.rb
+    make
+    ln -s $PWD/bgl.so ../lib/roby
+  +utilmm+ must be available to pkg-config (make sure that the +<prefix>/lib/pkgconfig+,
+  with <prefix> the directory in which +utilmm+ has been installed is in +PKG_CONFIG_PATH+)
 
-* the Genom bindings need Genom.rb, which in turn needs +typelib+ and +utilmm+. All three are available on 
-{my research page}[http://www.laas.fr/~sjoyeux/research.php]
+* the Genom bindings need Genom.rb, which in turn needs +typelib+ and +utilmm+. 
+  All three are available on {my research
+  page}[http://www.laas.fr/~sjoyeux/research.php]
 
 == Graph structures
 Event structures are declared in Roby::EventStructure, and task structures are declared
 in Roby::TaskStructure
 
-See Roby::RelationSpace and Roby::DirectedRelation
+See Roby::RelationSpace, Roby::DirectedRelationSupport and Roby::RelationGraph
 
 == Events
 The event structure is described by a graph of Roby::EventGenerator objects. The actual events
