@@ -51,6 +51,19 @@ module Roby
 	    @aliases = Hash.new
         end
 
+	def self._load(io)
+	    members, aliases = Marshal.load(io)
+
+	    result = ExtendedStruct.new
+	    result.instance_variable_set("@members", members)
+	    result.instance_variable_set("@aliases", aliases)
+	    result
+	end
+
+	def _dump(lvl = -1)
+	    Marshal.dump([@members, @aliases])
+	end
+
 	attr_reader :children_class
 
 	attr_reader :attach_as
@@ -109,9 +122,10 @@ module Roby
         end
 
         def respond_to?(name) # :nodoc:
-            return true if super
+            return true  if super
 
             name = name.to_s
+	    return false if name =~ /marshal_/
 	    return false if name =~ /^to_/
 
             if name =~ /=$/
@@ -127,6 +141,8 @@ module Roby
 
         def method_missing(name, *args, &update) # :nodoc:
             name = name.to_s
+
+	    raise NoMethodError if name =~ /^marshal_/
 	    super if name =~ /^to_/
             if name =~ /(.+)=$/
 		# Setter
