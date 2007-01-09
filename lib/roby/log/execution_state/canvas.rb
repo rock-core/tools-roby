@@ -26,7 +26,7 @@ module Roby
 	    @event_radius   = 4
 	    @margin	    = 10
 
-	    super(BASE_WINDOW_WIDTH, line_height * BASE_LINES + margin * 2)
+	    super(BASE_WINDOW_WIDTH* 10, line_height * BASE_LINES + margin * 2)
 
 	    clear
 	end
