@@ -244,7 +244,7 @@ module Roby
 	    def updated_arguments(task, arguments)
 		proxy = peer.proxy(task)
 		Distributed.update([proxy]) do
-		    proxy.arguments.merge(arguments || {})
+		    proxy.arguments.merge!(arguments || {})
 		end
 	    end
 	end

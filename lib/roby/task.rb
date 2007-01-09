@@ -204,8 +204,8 @@ module Roby
 	end
 	def updating; super if defined? super end
 	def updated; super if defined? super end
-	private :merge!
-	def merge(hash)
+
+	def merge!(hash)
 	    super do |key, old, new|
 		if old == new then old
 		elsif writable?(key) then new
