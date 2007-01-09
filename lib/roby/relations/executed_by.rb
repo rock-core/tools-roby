@@ -75,7 +75,7 @@ module Roby::TaskStructure
 				self.emit_failed "execution agent #{agent} failed to initialize\n  #{event.context}"
 			    end
 			end
-			agent.start!
+			agent.start! unless agent.event(:start).pending?
 		    end
 		end
 
