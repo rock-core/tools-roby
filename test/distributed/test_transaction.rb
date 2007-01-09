@@ -230,6 +230,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.propose(remote_peer)
 
 	t_task = trsc[r_task]
+	# fails because we cannot override an argument already set
 	assert_raises(NotOwner) { t_task.arguments[:foo] = :bar }
 	apply_remote_command
 
@@ -238,7 +239,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert_nothing_raised { remote.set_argument(t_task) }
 	apply_remote_command
 
-	assert_equal(:bar, task.arguments[:foo], task)
+	assert_equal(:bar, t_task.arguments[:foo], t_task.name)
     end
 
     def test_propose_commit
