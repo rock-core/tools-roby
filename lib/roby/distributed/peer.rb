@@ -5,6 +5,7 @@ require 'roby/distributed/notifications'
 require 'roby/distributed/proxy'
 require 'roby/relations/executed_by'
 require 'roby/transactions'
+require 'roby/state'
 require 'utilrb/queue'
 require 'utilrb/array/to_s'
 require 'set'
@@ -183,6 +184,10 @@ module Roby::Distributed
 
 	# The peer tells us that +task+ has triggered the notification +id+
 	def triggered(id, task); peer.triggered(id, task) end
+
+	def state_update(new_state)
+	    peer.state = new_state
+	end
 
 	# Send the neighborhood of +distance+ hops around +object+ to the peer
 	def discover_neighborhood(object, distance)
@@ -384,11 +389,14 @@ module Roby::Distributed
 	# The ID => block hash of all triggers we have defined on the remote plan
 	attr_reader :triggers
 
+	# The remote state
+	attr_accessor :state
+
 	# Listens for new connections on Distributed.state
 	def self.connection_listener(connection_space)
 	    seen = []
 
-	    connection_space.read_all( { 'kind' => :peer, 'connection_space' => nil, 'remote' => nil } ).each do |entry|
+	    connection_space.read_all( { 'kind' => :peer, 'connection_space' => nil, 'remote' => nil, 'state' => nil } ).each do |entry|
 		remote_cs = entry['connection_space']
 		seen << remote_cs
 		peer = connection_space.peers[remote_cs]
@@ -401,6 +409,8 @@ module Roby::Distributed
 		    else
 			# ping the remote host
 			peer.ping
+			# update the host state
+			peer.state = entry['state']
 		    end
 		elsif neighbour = connection_space.neighbours.find { |n| n.connection_space == remote_cs }
 		    Roby::Distributed.debug { "Peer #{remote_cs.name} asking for connection" }
@@ -428,6 +438,7 @@ module Roby::Distributed
 	    @send_flushed = new_cond
 	    @max_allowed_errors = connection_space.max_allowed_errors
 	    @triggers = Hash.new
+	    @state = nil
 
 	    connection_space.peers[remote_id] = self
 	    connect
@@ -579,7 +590,7 @@ module Roby::Distributed
 	    @send_queue = Queue.new
 	    @send_thread = Thread.new(&method(:communication_loop))
 
-	    @entry = connection_space.read({'kind' => :peer, 'connection_space' => neighbour.connection_space, 'remote' => nil}, 0)
+	    @entry = connection_space.read({'kind' => :peer, 'connection_space' => neighbour.connection_space, 'remote' => nil, 'state' => nil}, 0)
 	    task.event(:ready).emit(nil)
 	end
 
@@ -587,7 +598,7 @@ module Roby::Distributed
 	def ping(timeout = nil)
 	    @dead = false
 	    old, @keepalive = @keepalive, 
-		neighbour.connection_space.write({ 'kind' => :peer, 'connection_space' => connection_space, 'remote' => @local }, timeout)
+		neighbour.connection_space.write({ 'kind' => :peer, 'connection_space' => connection_space, 'remote' => @local, 'state' => Roby::State }, timeout)
 
 	    old.cancel if old
 	end
