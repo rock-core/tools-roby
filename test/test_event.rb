@@ -1,8 +1,7 @@
 require 'test_config'
 require 'flexmock'
 
-require 'roby/event'
-require 'roby/task'
+require 'roby'
 require 'roby/relations/ensured'
 
 class TC_Event < Test::Unit::TestCase
@@ -500,6 +499,17 @@ class TC_Event < Test::Unit::TestCase
 
 	    ev.command = nil
 	    assert(!ev.controlable?)
+	end
+    end
+
+    def test_signal_once
+	ev1, ev2 = EventGenerator.new(true), EventGenerator.new(true)
+	ev1.signal_once ev2
+	FlexMock.use do |mock|
+	    ev2.on { mock.called }
+	    mock.should_receive(:called).once
+	    ev1.call
+	    ev1.call
 	end
     end
 end

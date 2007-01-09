@@ -210,6 +210,10 @@ module Roby
 	    self
 	end
 
+	def signal_once(signal = nil, time = nil, &handler)
+	    on(signal, time) { remove_signal(signal) }
+	end
+
 	# If this event can signal +generator+
 	def can_signal?(generator); generator != self && generator.controlable?  end
 
