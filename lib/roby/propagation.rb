@@ -222,6 +222,9 @@ got an exception which did not specify its source
 
 	Thread.current[:current_propagation_set] = current_step
 	gather_propagation do
+	    terminals, other = current_step.partition { |signalled, _| signalled.respond_to?(:terminal?) && signalled.terminal? }
+	    current_step = other + terminals
+
 	    # Note that internal signalling does not need a #call
 	    # method (hence the respond_to? check). The fact that the
 	    # event can or cannot be fired is checked in #fire (using can_signal?)
