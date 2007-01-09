@@ -492,7 +492,7 @@ module Roby::Distributed
 			when DRb::DRbConnError
 			    Roby::Distributed.warn { "it looks like we cannot talk to #{neighbour.name}" }
 			    # We have a connection error, mark the connection as not being alive
-			    dead_link!
+			    link_dead!
 			when DisconnectedError
 			    Roby::Distributed.warn { "#{neighbour.name} has disconnected" }
 			    # The remote host has disconnected, do the same on our side
