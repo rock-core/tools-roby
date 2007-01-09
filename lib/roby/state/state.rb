@@ -49,6 +49,7 @@ module Roby
 	    @pending = Hash.new
 	    @filters = Hash.new
 	    @aliases = Hash.new
+	    @observers = Hash.new { |h, k| h[k] = [] }
         end
 
 	def self._load(io)
@@ -66,18 +67,27 @@ module Roby
 
 	attr_reader :children_class
 
-	attr_reader :attach_as
+	attr_reader :attach_as, :__parent_struct, :__parent_name
         def attach # :nodoc:
 	    if @attach_as
-		attach_to, attach_name = @attach_as
+		@__parent_struct, @__parent_name = @attach_as
 		@attach_as = nil
-		attach_to.send("#{attach_name}=", self)
+		__parent_struct.attach_child(__parent_name, self)
 	    end
         end
 	def detach
 	    @attach_as = nil
 	end
+	def attach_child(name, obj)
+	    @members[name] = obj
+	end
 	protected :detach, :attach_as
+
+	# Call +block+ with the new value if +name+ changes
+	def on(name = nil, &block)
+	    name = name.to_s if name
+	    @observers[name] << block
+	end
         
 	# Update a set of values on this struct
 	# If a hash is given, it is an name => value hash of attribute
@@ -114,12 +124,24 @@ module Roby
 
 	# Sets the stable attribute of +self+ to +is_stable+. If +recursive+ is true,
 	# set it on the child struct as well. 
+	#
         def stable!(recursive = false, is_stable = true)
             @stable = is_stable
             if recursive
                 @members.each { |name, object| object.stable!(recursive, is_stable) if object.respond_to?(:stable!) }
             end
         end
+
+	def updated(name, value)
+	    if @observers.has_key?(name)
+		@observers[name].each { |b| b.call(value) }
+	    end
+	    @observers[nil].each { |b| b.call(value) }
+
+	    if __parent_struct
+		__parent_struct.updated(__parent_name, self)
+	    end
+	end
 
         def respond_to?(name) # :nodoc:
             return true  if super
@@ -162,7 +184,10 @@ module Roby
 		    if pending && pending != value
 			pending.detach
 		    end
-                    @members[name[0..-2]] = value
+
+		    name = name[0..-2]
+                    @members[name] = value
+		    updated(name, value)
                 end
 
             elsif args.empty? # getter
