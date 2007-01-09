@@ -1,4 +1,5 @@
 require 'test_config'
+require 'flexmock'
 
 require 'roby/state/state'
 
@@ -101,5 +102,35 @@ class TC_State < Test::Unit::TestCase
 	s.test = 10
 	s.value = 42
 	assert_equal(10, s.test)
+    end
+
+    def test_change_notification
+	s = ExtendedStruct.new
+	FlexMock.use do |mock|
+	    s.on(:value) { |v| mock.updated(v) }
+	    mock.should_receive(:updated).with(42).once
+	    s.value = 42
+
+	    s.on(:substruct) { |v| mock.updated_substruct(v.value) }
+	    mock.should_receive(:updated_substruct).with(24).once.ordered
+	    mock.should_receive(:updated_substruct).with(42).once.ordered
+	    s.substruct.value = 24
+	    s.substruct.value = 42
+	end
+    end
+
+    def test_marshalling
+	s = ExtendedStruct.new
+	s.value = 42
+	s.substruct.value = 24
+
+	s.on(:substruct) {}
+	s.filter(:value) { |v| Numeric === v }
+
+	str = nil
+	assert_nothing_raised { str = Marshal.dump(s) }
+	assert_nothing_raised { s = Marshal.load(str) }
+	assert_equal(42, s.value)
+	assert_equal(24, s.substruct.value)
     end
 end
