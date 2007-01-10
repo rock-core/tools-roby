@@ -420,7 +420,9 @@ module Roby::Distributed
 	    end
 
 	    (connection_space.peers.keys - seen).each do |disconnected| 
-		Roby::Distributed.debug { "Peer #{disconnected.remote_name} disconnected" }
+		next if connection_space.peers[disconnected].connecting?
+
+		Roby::Distributed.debug { "Peer #{connection_space.peers[disconnected].remote_name} disconnected" }
 		connection_space.peers[disconnected].disconnected!
 		connection_space.peers.delete(disconnected)
 	    end
