@@ -77,7 +77,11 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	p_remote = Peer.new(local, n_remote)
 	assert_equal(local,  p_remote.keepalive['connection_space'])
 	assert_equal(remote, p_remote.neighbour.connection_space)
-	assert_nothing_raised { remote.read(p_remote.keepalive.value, 0) }
+	info = { 'kind' => p_remote.keepalive['kind'],
+	    'connection_space' => p_remote.keepalive['connection_space'], 
+	    'remote' => p_remote.keepalive['remote'],
+	    'state' => nil }
+	assert_nothing_raised { remote.read(info, 0) }
 	# The connection is not link_alive yet since +remote+ does not have
 	# finalized the handshake yet
 	assert(! p_remote.connected?)
