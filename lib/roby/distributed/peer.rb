@@ -430,7 +430,7 @@ module Roby::Distributed
 
 	# Creates a new peer management object for the remote agent
 	# at +tuplespace+
-	def initialize(connection_space, neighbour)
+	def initialize(connection_space, neighbour, &block)
 	    if neighbour.peer
 		raise ArgumentError, "there is already a peer for #{neighbour.name}"
 	    end
@@ -446,7 +446,7 @@ module Roby::Distributed
 	    @state = nil
 
 	    neighbour.peer = connection_space.peers[remote_id] = self
-	    connect
+	    connect(&block)
 	end
 
 	attr_reader :name, :max_allowed_errors, :task
@@ -549,14 +549,17 @@ module Roby::Distributed
 	    RemoteQuery.new(self)
 	end
 
-	# Writes a connection tuple into the peer tuplespace
-	# We consider that two peers are connected when there
-	# is this kind of tuple in *both* tuplespaces
-	def connect
+	# Initiates a connection with this peer. This inserts a new
+	# ConnectionTask task in the plan and starts it. When the connection is
+	# complete (the peer has finalized the handshake), the 'ready' event of
+	# this task is emitted.
+	def connect(&block)
 	    raise if task
 
 	    @task = ConnectionTask.new
 	    connection_space.plan.insert(task)
+	    task.on(:ready, &block) if block_given?
+
 	    task.event(:start).emit(nil)
 	    ping
 	end
