@@ -12,7 +12,18 @@ module Roby::Distributed
     DISCOVERY_RING_PORT = 48932
 
     # A neighbour is a named remote ConnectionSpace object
-    Neighbour = Struct.new :name, :connection_space
+    class Neighbour
+	attr_reader :name, :connection_space
+	attr_accessor :peer
+	def initialize(name, connection_space)
+	    @name, @connection_space = name, connection_space
+	end
+
+	def connect; Peer.new(ConnectionSpace.state, peer) end
+	def connecting?; peer && peer.connecting?  end
+	def connected?; peer && peer.connected?  end
+    end
+
 
 
     def self.remote_id; state end

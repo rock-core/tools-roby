@@ -75,6 +75,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	local.start_neighbour_discovery(true)
 	n_remote = Distributed.neighbours.find { true }
 	p_remote = Peer.new(local, n_remote)
+	assert_raises(ArgumentError) { Peer.new(local, n_remote) }
 	assert_equal(local,  p_remote.keepalive['connection_space'])
 	assert_equal(remote, p_remote.neighbour.connection_space)
 	info = { 'kind' => p_remote.keepalive['kind'],

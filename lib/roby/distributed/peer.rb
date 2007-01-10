@@ -429,6 +429,9 @@ module Roby::Distributed
 	# Creates a new peer management object for the remote agent
 	# at +tuplespace+
 	def initialize(connection_space, neighbour)
+	    if neighbour.peer
+		raise ArgumentError, "there is already a peer for #{neighbour.name}"
+	    end
 	    super() if defined? super
 
 	    @connection_space = connection_space
@@ -440,7 +443,7 @@ module Roby::Distributed
 	    @triggers = Hash.new
 	    @state = nil
 
-	    connection_space.peers[remote_id] = self
+	    neighbour.peer = connection_space.peers[remote_id] = self
 	    connect
 	end
 
@@ -625,6 +628,8 @@ module Roby::Distributed
 	def disconnected!
 	    disconnect if connected?
 	    @task = nil
+	    neighbour.peer = nil
+	    connection_space.peers.delete(remote_id)
 	end
 
 	# Returns true if we are establishing a connection with this peer
