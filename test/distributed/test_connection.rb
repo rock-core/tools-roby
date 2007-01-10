@@ -157,6 +157,9 @@ class TC_DistributedConnection < Test::Unit::TestCase
 
 	local.start_neighbour_discovery(true)
 	assert(!remote_peer.task)
+
+	# Make sure that we can reconnect
+	test_connect(false)
     end
 
     # Tests that the remote peer disconnects if #demux raises DisconnectedError

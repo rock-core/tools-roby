@@ -66,11 +66,7 @@ module DistributedTestCommon
 	Distributed.state = local
     end
 
-    attr_reader :central_tuplespace, :remote, :remote_peer, :remote_plan, :local, :local_peer
-
-    # Establishes a peer to peer connection between two ConnectionSpace objects
-    def peer2peer(&block)
-	start_peers(&block)
+    def setup_connection
 	local.start_neighbour_discovery(true)
 	n_remote = local.neighbours.find { true }
 	remote_peer = Peer.new(local, n_remote)
@@ -85,6 +81,14 @@ module DistributedTestCommon
 
 	@remote, @remote_peer, @remote_plan, @local, @local_peer =
 	    remote, remote_peer, remote_plan, local, local_peer
+    end
+
+    attr_reader :central_tuplespace, :remote, :remote_peer, :remote_plan, :local, :local_peer
+
+    # Establishes a peer to peer connection between two ConnectionSpace objects
+    def peer2peer(&block)
+	start_peers(&block)
+	setup_connection
     end
 
     def apply_remote_command
