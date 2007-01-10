@@ -428,8 +428,9 @@ module Roby::Distributed
 	    end
 	end
 
-	# Creates a new peer management object for the remote agent
-	# at +tuplespace+
+	# Creates a Peer object for +neighbour+, which is managed by
+	# +connection_space+.  If a block is given, it is called in the control
+	# thread when the connection is finalized
 	def initialize(connection_space, neighbour, &block)
 	    if neighbour.peer
 		raise ArgumentError, "there is already a peer for #{neighbour.name}"
@@ -461,7 +462,7 @@ module Roby::Distributed
 	    @sending = true
 	end
 
-	def communication_loop
+	def communication_loop # :nodoc:
 	    error_count = 0
 	    while calls ||= @send_queue.get
 		while !link_alive?
@@ -490,7 +491,7 @@ module Roby::Distributed
 		    if error
 			Roby::Distributed.warn  do
 			    call = calls[success].first
-				     "#{name} reports an error on #{call[0]}.#{call[1]}(#{call[2..-1].join(", ")})"
+			    "#{name} reports an error on #{call[0]}.#{call[1]}(#{call[2..-1].join(", ")})"
 			end
 
 			case error
@@ -591,10 +592,10 @@ module Roby::Distributed
 	    end
 	end
 
-	# Called when the handshake is finished
-	def connected!
-	    raise if !connecting?
-
+	# Called when the handshake is finished. After this call, the
+	# connection task has emitted its 'ready' event and the connection is
+	# alive
+	def connected! # :nodoc:
 	    @send_queue = Queue.new
 	    @send_thread = Thread.new(&method(:communication_loop))
 
@@ -611,9 +612,11 @@ module Roby::Distributed
 	    old.cancel if old
 	end
 
-	# Disconnect this side of the connection. The remote host is supposed to 
-	# acknowledge that by removing its last keepalive tuple from our connection
-	# space
+	# Disconnect this side of the connection. The remote host is supposed
+	# to acknowledge that by removing its last keepalive tuple from our
+	# connection space.
+	#
+	# The 'failed' event is emitted on the ConnectionTask task
 	def disconnect
 	    task.event(:failed).emit(nil)
 
@@ -630,7 +633,7 @@ module Roby::Distributed
 	end
 
 	# Called when the peer acknowledged the fact that we disconnected
-	def disconnected!
+	def disconnected! # :nodoc:
 	    disconnect if connected?
 	    @task = nil
 	    neighbour.peer = nil
@@ -649,7 +652,7 @@ module Roby::Distributed
 	def owns?(object); object.owners.include?(remote_id) end
 
 	# Mark the link as dead regardless of the last neighbour discovery. This
-	# is reset during the next neighbour discovery
+	# will be reset during the next neighbour discovery
 	def link_dead!; @dead = true end
 	# Checks if the connection is currently alive
 	def link_alive?
@@ -706,19 +709,24 @@ module Roby::Distributed
 
 	# DO NOT USE a ValueSet here. We use DRbObjects to track subscriptions
 	# on this side, and they must be compared using #==
+	
+	# The set of objects we are subscribed to. This is a set of DRbObject
 	attribute(:subscriptions) { Set.new }
 
-	# Make the remote pDB send us all updates about +object+
+	# Subscribe to +marshalled+. We will be notified of all the modifications
+	# that are done to +marshalled+
 	def subscribe(marshalled)
 	    transmit(:subscribe, marshalled.remote_object) do
 		subscriptions << marshalled.remote_object
 	    end
 	end
+
+	# True if we are subscribed to +remote_object+
 	def subscribed?(remote_object)
 	    subscriptions.include?(remote_object)
 	end
 
-	# Returns true if +object+ is related to any local task
+	# Returns true if +proxy+ is related to a local task
 	def linked_to_local?(proxy)
 	    proxy.each_relation do |rel|
 		if proxy.child_objects(rel).any? { |child| !child.kind_of?(RemoteObjectProxy) }
@@ -731,7 +739,9 @@ module Roby::Distributed
 	    false
 	end
 
-	def remove_unsubscribed_relations(proxy)
+	# Clears all relations that should be removed because we unsubscribed
+	# from +proxy+
+	def remove_unsubscribed_relations(proxy) # :nodoc:
 	    keep_proxy = false
 	    proxy.related_tasks.each do |task|
 		if task.kind_of?(RemoteObjectProxy) && task.peer_id == remote_id && 
@@ -746,6 +756,8 @@ module Roby::Distributed
 	    end
 	end
 
+	# Unsubscribe ourselves from +marshalled+. If +remove_object+ is true,
+	# the local proxy for this object is removed from the plan as well
 	def unsubscribe(marshalled, remove_object = true)
 	    # Get the proxy for +marshalled+
 	    proxy = proxy(marshalled)
@@ -767,9 +779,11 @@ module Roby::Distributed
 	    end
 	end
 
+	# The object which identifies this peer on the network
 	def remote_id; neighbour.connection_space end
 
-	def find_plan(plan)
+	# Finds the local plan for +plan+
+	def find_plan(plan) # :nodoc:
 	    base_plan = connection_space.plan
 	    if plan.kind_of?(DRbObject)
 		find_transaction(plan, base_plan)
@@ -777,6 +791,8 @@ module Roby::Distributed
 		base_plan
 	    end
 	end
+
+	# Finds the local transaction for +trsc+
 	def find_transaction(trsc, base_plan = nil)
 	    (base_plan || connection_space.plan).transactions.each do |t|
 		if t.respond_to?(:remote_siblings) && t.remote_siblings[remote_id] == trsc
