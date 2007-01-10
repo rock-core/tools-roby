@@ -403,7 +403,7 @@ module Roby::Distributed
 
 		if peer 
 		    if peer.connecting?
-			Roby::Distributed.debug { "Peer #{peer.remote_name} finalized handshake" }
+			Roby::Distributed.info { "Peer #{peer.remote_name} finalized handshake" }
 			# The peer finalized the handshake
 			peer.connected!
 		    else
@@ -413,7 +413,7 @@ module Roby::Distributed
 			peer.state = entry['state']
 		    end
 		elsif neighbour = connection_space.neighbours.find { |n| n.connection_space == remote_cs }
-		    Roby::Distributed.debug { "Peer #{remote_cs.name} asking for connection" }
+		    Roby::Distributed.info { "Peer #{remote_cs.name} asking for connection" }
 		    # New connection attempt from a known neighbour
 		    Peer.new(connection_space, neighbour).connected!
 		end

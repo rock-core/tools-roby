@@ -143,6 +143,7 @@ module Roby::Distributed
 		    finished_discovery.broadcast
 
 		    if @discovery_start == @last_discovery
+			Roby::Distributed.debug { "waiting next discovery start" }
 			start_discovery.wait
 		    end
 		    discovery_start = @discovery_start
