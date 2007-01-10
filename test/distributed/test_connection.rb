@@ -10,6 +10,13 @@ class TC_DistributedConnection < Test::Unit::TestCase
     include Roby::Distributed
     include DistributedTestCommon
 
+    def setup
+	super
+	Roby::Distributed.allow_remote_access Roby::Distributed::Neighbour
+	Distributed.logger.level = Logger::DEBUG
+    end
+
+
     def assert_has_neighbour(&check)
 	Distributed.state.start_neighbour_discovery
 	Distributed.state.wait_discovery
@@ -67,12 +74,20 @@ class TC_DistributedConnection < Test::Unit::TestCase
 
     # Test establishing peer-to-peer connection between two ConnectionSpace objects
     # Note that #peer2peer is the exact same process
-    def test_connect
-	start_peers
+    def test_connect(standalone = true)
+	if standalone
+	    start_peers
+
+	    notified = []
+	    Distributed.new_neighbours_observers << lambda do |cs, n|
+		notified << [cs, n]
+	    end
+	end
 
 	# Initiate the connection from +local+ and check we did ask for
 	# connection on +remote+
 	local.start_neighbour_discovery(true)
+	Control.instance.process_events
 	n_remote = Distributed.neighbours.find { true }
 	p_remote = Peer.new(local, n_remote)
 	assert_raises(ArgumentError) { Peer.new(local, n_remote) }
@@ -94,6 +109,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	# attempts should have been finalized, so we should have a Peer object
 	# for +local+
 	remote.start_neighbour_discovery(true)
+	Control.instance.process_events
 	p_local = remote.peers.find { true }.last
 	assert_equal(local, p_local.neighbour.connection_space)
 	assert_equal(remote, p_local.keepalive['connection_space'])
@@ -111,6 +127,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 
 	# Finalize the connection
 	local.start_neighbour_discovery(true)
+	Control.instance.process_events
 	assert(p_remote.connected?)
 	assert(p_remote.link_alive?)
 	assert(p_remote.task.ready?)
@@ -118,6 +135,11 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert_equal('remote', p_remote.neighbour.name)
 	assert_equal('remote', p_remote.remote_server.local_name)
 	assert_equal('local', p_remote.remote_server.remote_name)
+
+	if standalone
+	    assert_equal(1, notified.size)
+	    assert_equal([[local, n_remote]], notified)
+	end
     end
 
     # Test the normal disconnection process

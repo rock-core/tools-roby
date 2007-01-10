@@ -97,6 +97,7 @@ module Roby::Distributed
 	    @peers		  = Hash.new
 	    @connection_listeners = Array.new
 	    @connection_listeners << Peer.method(:connection_listener)
+	    @connection_listeners << Roby::Distributed.method(:detect_new_neighbours)
 	    @plan		  = options[:plan] || Roby::Control.instance.plan
 	    @max_allowed_errors   = options[:max_allowed_errors]
 
@@ -260,8 +261,37 @@ module Roby::Distributed
 	def peers; state.peers end
     end
 
-    class TeamServer
-	include DRbUndumped
+    @last_neighbour_set = Array.new
+    @new_neighbours_observers = Array.new
+    @new_neighbours = Queue.new
+    class << self
+	attr_reader :last_neighbour_set, :new_neighbours, :new_neighbours_observers
+	
+	# Called in the neighbour discovery thread to detect new
+	# neighbours. It fills the new_neighbours queue which is read by
+	# notify_new_neighbours to notify application code of new
+	# neighbours in the control thread
+	def detect_new_neighbours(connection_space)
+	    current = connection_space.neighbours
+	    @last_neighbour_set = current.map do |n|
+		if !last_neighbour_set.include?(n.connection_space)
+		    Roby::Distributed.logger.info "new neighbour #{n.name}"
+		    new_neighbours << [connection_space, n]
+		end
+		n.connection_space
+	    end
+
+	    @last_neighbour_set += connection_space.peers.keys
+	end
+
+	def notify_new_neighbours
+	    new_neighbours.get(true).each do |cs, n|
+		new_neighbours_observers.each do |obs|
+		    obs[cs, n]
+		end
+	    end
+	end
     end
+    Roby::Control.event_processing << method(:notify_new_neighbours)
 end
 

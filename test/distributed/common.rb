@@ -11,16 +11,24 @@ module DistributedTestCommon
 
     attr_reader :plan
     def setup
+	super
+
+	save_collection Roby::Distributed.new_neighbours_observers
 	Roby::Distributed.allow_remote_access Roby::Distributed::Peer
 	@plan = Plan.new
-	super
 	@old_logger_level = Roby::Distributed.logger.level
     end
     def teardown
 	Roby::Distributed.logger.level = @old_logger_level
-	apply_remote_command if remote_peer
-	super
+
+	if remote_peer
+	    Control.instance.process_events
+	    apply_remote_command
+	end
 	@remote_peer = nil
+	Roby::Distributed.new_neighbours.clear
+
+	super
     end
 
     BASE_PORT     = 1245
