@@ -189,9 +189,6 @@ module Roby::Distributed
 			Roby::Distributed.debug { "found neighbour: #{ts.name} #{ts}" }
 			new_neighbours << Neighbour.new(ts.name, ts)
 		    end
-
-		elsif discovery_period
-		    sleep(remaining)
 		end
 	    end
 
