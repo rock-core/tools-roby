@@ -558,10 +558,12 @@ module Roby::Distributed
 	    raise if task
 
 	    @task = ConnectionTask.new
-	    connection_space.plan.insert(task)
 	    task.on(:ready, &block) if block_given?
 
-	    task.event(:start).emit(nil)
+	    Roby::Control.once do
+		connection_space.plan.insert(task)
+		task.event(:start).emit(nil)
+	    end
 	    ping
 	end
 
@@ -600,7 +602,7 @@ module Roby::Distributed
 	    @send_thread = Thread.new(&method(:communication_loop))
 
 	    @entry = connection_space.read({'kind' => :peer, 'connection_space' => neighbour.connection_space, 'remote' => nil, 'state' => nil}, 0)
-	    task.event(:ready).emit(nil)
+	    Roby::Control.once { task.event(:ready).emit(nil) }
 	end
 
 	# Updates our keepalive token on the peer
@@ -618,7 +620,9 @@ module Roby::Distributed
 	#
 	# The 'failed' event is emitted on the ConnectionTask task
 	def disconnect
-	    task.event(:failed).emit(nil)
+	    task = self.task
+	    @task = nil
+	    Roby::Control.once { task.event(:failed).emit(nil) }
 
 	    # Remove the keepalive tuple we wrote on the remote host
 	    keepalive.cancel if keepalive
@@ -635,18 +639,17 @@ module Roby::Distributed
 	# Called when the peer acknowledged the fact that we disconnected
 	def disconnected! # :nodoc:
 	    disconnect if connected?
-	    @task = nil
 	    neighbour.peer = nil
 	    connection_space.peers.delete(remote_id)
 	end
 
 	# Returns true if we are establishing a connection with this peer
-	def connecting?; task && task.running? && !task.event(:ready).happened? end
+	def connecting?; task && !task.event(:ready).happened? end
 	# Returns true if the connection has been established. See also #link_alive?
-	def connected?; task && task.running? && task.event(:ready).happened? end
+	def connected?; task && task.event(:ready).happened? end
 	# Returns true if the we disconnected on our side but the peer did not
 	# acknowledge it yet
-	def disconnecting?; task && task.finished? end
+	def disconnecting?; !task && neighbour.peer end
 
 	# Returns true if this peer owns +object+
 	def owns?(object); object.owners.include?(remote_id) end

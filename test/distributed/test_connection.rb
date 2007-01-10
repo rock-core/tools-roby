@@ -89,7 +89,8 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	local.start_neighbour_discovery(true)
 	Control.instance.process_events
 	n_remote = Distributed.neighbours.find { true }
-	p_remote = Peer.new(local, n_remote)
+	handler_called = false
+	p_remote = Peer.new(local, n_remote) { handler_called = true }
 	assert_raises(ArgumentError) { Peer.new(local, n_remote) }
 	assert_equal(local,  p_remote.keepalive['connection_space'])
 	assert_equal(remote, p_remote.neighbour.connection_space)
@@ -103,6 +104,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert(! p_remote.connected?)
 	assert(! p_remote.link_alive?)
 	assert(p_remote.task)
+	Control.instance.process_events
 	assert(p_remote.task.running?)
 
 	# After +remote+ has finished neighbour discovery, all connection
@@ -116,6 +118,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert_equal(local,  p_local.neighbour.connection_space)
 	assert_nothing_raised { local.read(p_local.keepalive.value, 0) }
 
+	remote.process_events
 	assert(p_local.connected?)
 	assert(p_local.link_alive?)
 	assert(p_local.task.remote_object.ready?)
@@ -129,6 +132,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	local.start_neighbour_discovery(true)
 	Control.instance.process_events
 	assert(p_remote.connected?)
+	assert(handler_called)
 	assert(p_remote.link_alive?)
 	assert(p_remote.task.ready?)
 
@@ -148,11 +152,9 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert(remote_peer.task.ready?)
 
 	remote_peer.disconnect
-	assert(remote_peer.task.finished?)
 	assert(!remote_peer.connected?)
 
 	remote.start_neighbour_discovery(true)
-	assert(!local_peer.task)
 	assert(!local_peer.connected?)
 
 	local.start_neighbour_discovery(true)

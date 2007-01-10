@@ -45,14 +45,16 @@ module DistributedTestCommon
 
 	remote_process do
 	    central_tuplespace = DRbObject.new_with_uri(DISCOVERY_URI)
-	    Distributed.state = ConnectionSpace.new :ring_discovery => false, 
+	    cs = ConnectionSpace.new :ring_discovery => false, 
 		:discovery_tuplespace => central_tuplespace, :name => "remote",
 		:plan => Plan.new, :max_allowed_errors => 1 do |remote|
 
 		getter = Class.new { def get; DRbObject.new(Distributed.state) end }.new
 		DRb.start_service REMOTE_URI, getter
 	    end
+	    def cs.process_events; Control.instance.process_events end
 
+	    Distributed.state = cs
 	    yield(Distributed.state) if block_given?
 	end
 
@@ -74,6 +76,11 @@ module DistributedTestCommon
 	local_peer = remote.peers.find { true }.last
 	local.start_neighbour_discovery(true)
 
+	assert(local_peer.connecting?)
+	assert(remote_peer.connecting?)
+
+	Control.instance.process_events
+	remote.process_events
 	assert(local_peer.connected?)
 	assert(remote_peer.connected?)
 
