@@ -194,6 +194,9 @@ module Roby::Distributed
 		    sleep(remaining)
 		end
 	    end
+
+	rescue Exception => e
+	    Roby::Distributed.fatal "neighbour discovery died with\n#{e.full_message}"
 	end
 
 	# Starts one neighbour discovery loop
