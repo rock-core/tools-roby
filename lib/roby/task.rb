@@ -305,6 +305,14 @@ module Roby
 	    def abstract
 		@abstract = true
 	    end
+
+	    def terminates
+		event :failed, :command => true, :terminal => true
+		define_method(:stop) do |context|
+		    failed!(context)
+		end
+		event :stop
+	    end
 	end
 
 	# Roby::Task is an abstract model
