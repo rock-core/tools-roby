@@ -123,15 +123,11 @@ module Roby
 	    events_exceptions = Propagation.propagate_exceptions(events_exceptions)
 	    timings[:events_exceptions] = Time.now
 
-	    reraise(events_exceptions) if abort_on_exception
-
 	    # Generate exceptions from task structure
 	    structure_exceptions = structure_checking
 	    timings[:structure_check] = Time.now
 	    structure_exceptions = Propagation.propagate_exceptions(structure_exceptions)
 	    timings[:structure_check_exceptions] = Time.now
-
-	    reraise(structure_exceptions) if abort_on_exception
 
 	    # Recheck structure, taking into account the changes from exception handlers
 	    fatal_errors = structure_checking + events_exceptions
@@ -157,6 +153,9 @@ module Roby
 		GC.force
 		timings[:end] = timings[:ruby_gc] = Time.now
 	    end
+
+	    reraise(events_exceptions) if abort_on_exception && !quitting?
+	    reraise(structure_exceptions) if abort_on_exception && !quitting?
 
 	    timings
 	ensure
@@ -224,37 +223,57 @@ module Roby
 	    log	    = options[:log]
 	    timings = {}
 	    timings[:start] = Time.now
+	    last_stop_count = nil
 	    loop do
-		while Time.now > timings[:start] + cycle
-		    timings[:start] += cycle
-		end
-		timings = process_events(timings, control_gc)
-		
-		timings[:pass] = timings[:sleep] = timings[:end]
-		cycle_duration = timings[:end] - timings[:start]
-		if cycle - cycle_duration > SLEEP_MIN_TIME
-		    cycle_end(timings)
+		begin
+		    if quitting?
+			plan.keepalive.dup.each { |t| plan.auto(t) }
+			plan.force_gc.merge( plan.missions )
 
-		    Thread.pass
-		    timings[:pass] = Time.now
-
-		    # Take the time we passed in other threads into account
-		    sleep_time = cycle - (Time.now - timings[:start])
-		    if sleep_time > 0
-			sleep(sleep_time) 
-			timings[:sleep] = Time.now
+			remaining = plan.known_tasks.find_all { |t| Plan.can_gc?(t) }
+			if last_stop_count != remaining.size
+			    if last_stop_count == 0
+				Roby.info "control quitting. Waiting for #{remaining.size} tasks to finish"
+			    else
+				Roby.info "waiting for #{remaining.size} tasks to finish"
+			    end
+			    last_stop_count = remaining.size
+			end
+			return if remaining.empty?
 		    end
+
+		    while Time.now > timings[:start] + cycle
+			timings[:start] += cycle
+		    end
+		    timings = process_events(timings, control_gc)
+		    
+		    timings[:pass] = timings[:sleep] = timings[:end]
+		    cycle_duration = timings[:end] - timings[:start]
+		    if cycle - cycle_duration > SLEEP_MIN_TIME
+			cycle_end(timings)
+
+			Thread.pass
+			timings[:pass] = Time.now
+
+			# Take the time we passed in other threads into account
+			sleep_time = cycle - (Time.now - timings[:start])
+			if sleep_time > 0
+			    sleep(sleep_time) 
+			    timings[:sleep] = Time.now
+			end
+		    end
+
+		    log << Marshal.dump(timings) if log
+		    timings[:start] += cycle
+
+		rescue Interrupt
+		    STDERR.puts "Interrupted"
+		    quit
+		rescue Exception => e
+		    STDERR.puts "Control quitting because of unhandled exception\n#{e.full_message}"
+		    quit
 		end
-
-		log << Marshal.dump(timings) if log
-		timings[:start] += cycle
 	    end
-
-	rescue Interrupt
-	    STDERR.puts "Interrupted"
-
-	rescue Exception => e
-	    STDERR.puts "Control quitting because of unhandled exception\n#{e.full_message}"
 
 	ensure
 	    if Thread.current == self.thread
@@ -262,8 +281,17 @@ module Roby
 		@thread = nil
 		DRb.stop_service if options[:drb]
 		GC.enable if control_gc && !already_disabled_gc
+		Control.finalizers.each { |blk| blk.call }
 	    end
 	end
+
+	@finalizers = []
+	def self.finalizers; @finalizers end
+
+	# True if the control thread is currently quitting
+	def quitting?; @quit end
+	# Make control quit
+	def quit; @quit = true end
 
 	# Called at each cycle end
 	def cycle_end(timings); super if defined? super end
@@ -272,11 +300,11 @@ module Roby
 	# wait for it to terminate
 	def join
 	    thread.join if thread
+	rescue Interrupt
+	    quit
+	    retry
 	end
 
-	def quit
-	    thread.raise Interrupt if thread
-	end
 	attr_reader :cycle_index
 
 	# Hook called when a set of tasks is being killed because of an exception
