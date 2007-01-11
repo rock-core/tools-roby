@@ -2,7 +2,7 @@ require 'test_config'
 require 'mockups/tasks'
 require 'flexmock'
 
-require 'roby/relations/executed_by'
+require 'roby'
 
 class TC_ExecutedBy < Test::Unit::TestCase
     include RobyTestCommon
@@ -74,7 +74,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	    t1.on(:start) { mock.t1_start }
 	    t2.on(:stop) { mock.t2_stop }
 
-	    t3.event(:aborted).on { mock.t3 }
+	    t3.event(:failed).on { mock.t3 }
 	    t1.event(:aborted).on { mock.t1 }
 
 	    mock.should_receive(:t1_start).once.ordered
@@ -86,7 +86,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	    t1.start!
 	    t2.start!
 	    t3.ready!
-	    t3.emit(:aborted, nil)
+	    t3.failed!
 	end
     end
 
