@@ -102,7 +102,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	# The connection is not link_alive yet since +remote+ does not have
 	# finalized the handshake yet
 	assert(! p_remote.connected?)
-	assert(! p_remote.link_alive?)
+	assert(p_remote.link_alive?)
 	assert(p_remote.task)
 	Control.instance.process_events
 	assert(p_remote.task.running?)
@@ -124,7 +124,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert(p_local.task.remote_object.ready?)
 	# p_remote is still not link_alive since +local+ does not know the
 	# connection is finalized
-	assert(! p_remote.link_alive?)
+	assert(p_remote.link_alive?)
 	assert(! p_remote.connected?)
 	assert(! p_remote.task.ready?)
 
@@ -152,7 +152,10 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert(remote_peer.task.ready?)
 
 	remote_peer.disconnect
-	assert(!remote_peer.connected?)
+	assert(remote_peer.disconnecting?)
+	# check that the 'disconnecting' status is kept across discoveries
+	local.start_neighbour_discovery(true)
+	assert(remote_peer.disconnecting?)
 
 	remote.start_neighbour_discovery(true)
 	assert(!local_peer.connected?)

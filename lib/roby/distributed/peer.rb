@@ -19,6 +19,12 @@ module Roby::Distributed
 	event :ready
 	local_object
 	def ready?; event(:ready).happened? end
+
+	def peer; arguments[:peer] end
+	def stop(context)
+	    peer.disconnect
+	end
+	event :stop
     end
     class LiveConnectionTask < Roby::Task
 	local_object
@@ -75,6 +81,7 @@ module Roby::Distributed
 	def each_subscribed_peer(*objects)
 	    return if objects.any? { |o| !o.distribute? }
 	    peers.each do |name, peer|
+		next unless peer.connected?
 		next if objects.any? { |o| !o.has_sibling?(peer) }
 		yield(peer) if objects.any? { |o| peer.local.subscribed?(o) || peer.owns?(o) }
 	    end
@@ -406,7 +413,7 @@ module Roby::Distributed
 			Roby::Distributed.info { "Peer #{peer.remote_name} finalized handshake" }
 			# The peer finalized the handshake
 			peer.connected!
-		    else
+		    elsif peer.connected?
 			# ping the remote host
 			peer.ping
 			# update the host state
@@ -465,15 +472,17 @@ module Roby::Distributed
 	def communication_loop # :nodoc:
 	    error_count = 0
 	    while calls ||= @send_queue.get
+		return unless connected?
 		while !link_alive?
-		    break unless connected?
+		    return unless connected?
 		    connection_space.wait_discovery
 		end
-		break unless connected?
 
 		# Mux all calls into one array and send them
 		synchronize do
 		    calls += @send_queue.get(true)
+		    return unless connected?
+
 		    Roby::Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
 		    results, error = begin remote_server.demux(calls.map { |a| a.first })
 				     rescue Exception
@@ -554,14 +563,16 @@ module Roby::Distributed
 	# ConnectionTask task in the plan and starts it. When the connection is
 	# complete (the peer has finalized the handshake), the 'ready' event of
 	# this task is emitted.
-	def connect(&block)
+	def connect
 	    raise if task
 
-	    @task = ConnectionTask.new
-	    task.on(:ready, &block) if block_given?
+	    @task = ConnectionTask.new :peer => self
+	    if block_given?
+		task.on(:ready) { yield(self) }
+	    end
 
 	    Roby::Control.once do
-		connection_space.plan.insert(task)
+		connection_space.plan.permanent(task)
 		task.event(:start).emit(nil)
 	    end
 	    ping
@@ -598,6 +609,7 @@ module Roby::Distributed
 	# connection task has emitted its 'ready' event and the connection is
 	# alive
 	def connected! # :nodoc:
+	    raise "not connecting" unless connecting?
 	    @send_queue = Queue.new
 	    @send_thread = Thread.new(&method(:communication_loop))
 
@@ -608,10 +620,15 @@ module Roby::Distributed
 	# Updates our keepalive token on the peer
 	def ping(timeout = nil)
 	    @dead = false
+	    return unless link_alive?
+
 	    old, @keepalive = @keepalive, 
 		neighbour.connection_space.write({ 'kind' => :peer, 'connection_space' => connection_space, 'remote' => @local, 'state' => Roby::State }, timeout)
 
 	    old.cancel if old
+
+	rescue DRb::DRbConnError
+	    link_dead!
 	end
 
 	# Disconnect this side of the connection. The remote host is supposed
@@ -620,27 +637,27 @@ module Roby::Distributed
 	#
 	# The 'failed' event is emitted on the ConnectionTask task
 	def disconnect
+	    # Remove the keepalive tuple we wrote on the remote host
+	    if keepalive
+		keepalive.cancel rescue Rinda::RequestExpiredError
+	    end
+
 	    task = self.task
 	    @task = nil
 	    Roby::Control.once { task.event(:failed).emit(nil) }
-
-	    # Remove the keepalive tuple we wrote on the remote host
-	    keepalive.cancel if keepalive
 
 	    @send_queue.push(nil)
 	    unless Thread.current == @send_thread
 		@send_thread.join
 		@send_thread = nil
 	    end
-
-	rescue Rinda::RequestExpiredError
 	end
 
 	# Called when the peer acknowledged the fact that we disconnected
 	def disconnected! # :nodoc:
 	    disconnect if connected?
-	    neighbour.peer = nil
 	    connection_space.peers.delete(remote_id)
+	    neighbour.peer = nil
 	end
 
 	# Returns true if we are establishing a connection with this peer
@@ -660,7 +677,6 @@ module Roby::Distributed
 	# Checks if the connection is currently alive
 	def link_alive?
 	    return false if @dead
-	    return false unless connected?
 	    return false unless connection_space.neighbours.find { |n| n.connection_space == neighbour.connection_space }
 	    true
 	end

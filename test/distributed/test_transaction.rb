@@ -14,14 +14,6 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	super
     end
 
-    def teardown 
-	apply_remote_command
-	Distributed.unpublish
-	Distributed.state = nil
-
-	super
-    end
-
     def test_marshal_transactions
 	peer2peer do |remote|
 	    class << remote

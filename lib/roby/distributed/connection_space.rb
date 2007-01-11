@@ -119,6 +119,8 @@ module Roby::Distributed
 		@discovery_thread = Thread.new(&method(:neighbour_discovery))
 		finished_discovery.wait
 	    end
+
+	    Roby::Control.finalizers << method(:quit)
 	end
 
 	def discovering?; synchronize { @last_discovery != @discovery_start } end
@@ -143,12 +145,16 @@ module Roby::Distributed
 	    discovery_start = nil
 	    finger	    = nil
 	    loop do
+		return if @quit_neighbour_thread
 		synchronize do 
 		    @last_discovery = discovery_start
 
 		    @neighbours.clear
 		    while n = (new_neighbours.pop(true) rescue nil)
-			@neighbours << n unless @neighbours.include?(n)
+			unless @neighbours.include?(n)
+			    n.peer = peers[n.connection_space]
+			    @neighbours << n
+			end
 		    end
 
 		    connection_listeners.each { |listen| listen.call(self) }
@@ -158,6 +164,7 @@ module Roby::Distributed
 			Roby::Distributed.debug { "waiting next discovery start" }
 			start_discovery.wait
 		    end
+		    return if @quit_neighbour_thread
 		    discovery_start = @discovery_start
 
 		    if ring_discovery? && (!finger || (finger.port != discovery_port))
@@ -209,6 +216,22 @@ module Roby::Distributed
 		return unless discovering?
 		finished_discovery.wait
 	    end
+	end
+
+	def quit
+	    Roby::Distributed.logger.debug "ConnectionSpace #{self} quitting"
+
+	    # Remove us from the central tuplespace
+	    if central_discovery?
+		@discovery_tuplespace.take [:host, self, nil, nil]
+	    end
+
+	    # Make the neighbour discovery thread quit as well
+	    synchronize do
+		@quit_neighbour_thread = true
+		start_neighbour_discovery(false)
+	    end
+	    @discovery_thread.join
 	end
 
 	# Disable the keeper thread, we will do cleanup ourselves
@@ -290,6 +313,10 @@ module Roby::Distributed
 		    obs[cs, n]
 		end
 	    end
+	end
+
+	def on_neighbour
+	    new_neighbours_observers << lambda { |_, n| yield(n) }
 	end
     end
     Roby::Control.event_processing << method(:notify_new_neighbours)

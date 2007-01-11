@@ -42,7 +42,7 @@ module Roby
 	    end
 	    def finalized_task(task)
 		super if defined? super
-		next unless task.distribute?
+		return unless task.distribute?
 		unless Distributed.updating?([self])
 		    Distributed.clean_triggered(task)
 		    Distributed.each_subscribed_peer(task) do |peer|
@@ -52,7 +52,7 @@ module Roby
 	    end
 	    def finalized_event(event)
 		super if defined? super
-		next unless event.distribute?
+		return unless event.distribute?
 		unless Distributed.updating?([self])
 		    Distributed.each_subscribed_peer(event) do |peer|
 			peer.plan_update(:remove_object, self, event)
