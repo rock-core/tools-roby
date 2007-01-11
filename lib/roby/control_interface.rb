@@ -87,7 +87,12 @@ module Roby
 	    do_start = options.delete(:start) || options.delete('start')
 
 	    m = planner_model.model_of(name, options)
-	    task = (m.returns.new if m) || Task.new
+
+	    # HACK: m.returns should not be nil, but it sometimes happen
+	    returns_model = (m.returns if m && m.returns) || Task.new
+
+	    # Create an abstract task which will be planned
+	    task = returns_model.new
 
 	    planner = PlanningTask.new(planner_model, name, options)
 	    task.planned_by planner
