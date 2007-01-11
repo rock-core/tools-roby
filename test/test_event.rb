@@ -482,7 +482,22 @@ class TC_Event < Test::Unit::TestCase
 	assert_equal([t1].to_value_set, e1.related_tasks)
     end
 
-    def test_command_set
+    def test_command
+	FlexMock.use do |mock|
+	    ev = EventGenerator.new do |context|
+		ev.emit(context)
+		mock.called(context)
+	    end
+
+	    mock.should_receive(:called).with(42).once
+	    ev.call(42)
+
+	    assert(ev.happened?)
+	    assert(!ev.pending?)
+	end
+    end
+
+    def test_set_command
 	FlexMock.use do |mock|
 	    ev = EventGenerator.new
 	    assert(!ev.controlable?)
