@@ -93,14 +93,7 @@ module Roby::Distributed
 	    # If +object+ is a trigger, send the :triggered event but do *not*
 	    # act as if +object+ was subscribed
 	    peers.each do |name, peer|
-		peer.local.triggers.each do |id, (matcher, triggered)|
-		    objects.each do |object|
-			if !triggered.include?(object) && matcher === object
-			    triggered << object
-			    peer.transmit(:triggered, id, object)
-			end
-		    end
-		end
+		peer.local.trigger(*objects)
 	    end
 	end
 	# Remove +objects+ from the sets of already-triggered objects
@@ -144,6 +137,18 @@ module Roby::Distributed
 	    @peer	    = peer 
 	    @subscriptions  = ValueSet.new
 	    @triggers	    = Hash.new
+	end
+
+	# Activate any trigger that may exist on +objects+
+	def trigger(*objects)
+	    triggers.each do |id, (matcher, triggered)|
+		objects.each do |object|
+		    if !triggered.include?(object) && matcher === object
+			triggered << object
+			peer.transmit(:triggered, id, object)
+		    end
+		end
+	    end
 	end
 
 	# The name of the local ConnectionSpace object we are acting on
