@@ -169,12 +169,6 @@ module Roby
 	    if !objects then super
 	    else super(self[objects, true])
 	    end
-
-	    # Consistency check
-	    unless (@known_tasks & plan.known_tasks).empty? && (@free_events & plan.free_events).empty?
-		raise PlanModelViolation, "transactions and plans cannot share tasks. Use proxys"
-	    end
-
 	    self
 	end
 
