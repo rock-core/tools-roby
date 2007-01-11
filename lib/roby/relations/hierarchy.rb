@@ -78,7 +78,7 @@ module Roby::TaskStructure
 	result = []
 
 	plan.known_tasks.each do |parent|
-	    next if parent.finished?
+	    next if parent.finished? || parent.finishing?
 	    parent.each_child do |child, options|
 		success = options[:success]
 		failure = options[:failure]

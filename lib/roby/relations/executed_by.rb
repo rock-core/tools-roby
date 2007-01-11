@@ -39,10 +39,10 @@ module Roby::TaskStructure
 	    add_execution_agent(agent)
         end
 
-	module EventModel
+	module EventHooks
 	    def calling(context)
 		super if defined? super
-		return unless respond_to?(:task) && symbol == :start
+		return unless symbol == :start
 
 		unless agent = task.execution_agent
 		    unless agent_model = task.class.execution_agent
@@ -85,8 +85,15 @@ module Roby::TaskStructure
 			on { |stopped| task.event(:aborted).emit(stopped.context) }
 		end
 	    end
+	
+	    def fired(event)
+		super if defined? super
+		if task.finished? && (agent = task.execution_agent)
+		    task.remove_execution_agent agent
+		end
+	    end
 	end
-	Roby::EventGenerator.include EventModel
+	Roby::TaskEventGenerator.include EventHooks
     end
 end
 
