@@ -100,6 +100,8 @@ module Roby
 	attr_reader :discarded_tasks
 	# The list of removed tasks
 	attr_reader :removed_tasks
+	# The list of permanent tasks that have been auto'ed
+	attr_reader :auto_tasks
 	# The plan this transaction applies on
 	attr_reader :plan
 	# The proxy objects built for this transaction
@@ -115,6 +117,7 @@ module Roby
 	    @discovered_objects = ValueSet.new
 	    @removed_tasks      = ValueSet.new
 	    @discarded_tasks    = ValueSet.new
+	    @auto_tasks	        = ValueSet.new
 
 	    plan.transactions << self
 	    plan.added_transaction(self)
@@ -130,6 +133,11 @@ module Roby
 	    real_task = may_unwrap(t)
 	    (missions.include?(real_task) && !discarded_tasks.include?(real_task)) || 
 		missions.include?(self[t, false])
+	end
+	def permanent?(t)
+	    real_task = may_unwrap(t)
+	    (keepalive.include?(real_task) && !auto_tasks.include?(real_task)) || 
+		keepalive.include?(self[t, false])
 	end
 
 	def missions(own = false)
@@ -152,6 +160,16 @@ module Roby
 		super().union(plan_tasks.map(&method(:[])))
 	    end
 	end
+
+	def keepalive(own = false)
+	    if own then super()
+	    else
+		plan_tasks = plan.keepalive.
+		    difference(auto_tasks)
+		super().union(plan_tasks.map(&method(:[])))
+	    end
+	end
+
 	def empty?(own = false)
 	    if own then super()
 	    else super() && plan.empty?
@@ -161,8 +179,17 @@ module Roby
 	# Iterates on all tasks
 	def each_task(own = false); known_tasks(own).each { |t| yield(t) } end
 
-	def insert(t)
-	    super(self[t, true])
+	def insert(t); super(self[t, true]) end
+	def permanent(t); super(self[t, true]) end
+	def auto(t)
+	    if proxy = self[t, false]
+		super(proxy)
+	    end
+
+	    t = may_unwrap(t)
+	    if t.plan == self.plan
+		auto_tasks.insert(t)
+	    end
 	end
 
 	def discover(objects = nil)
@@ -208,12 +235,12 @@ module Roby
 		raise ArgumentError, "invalid transaction"
 	    end
 
+	    auto_tasks.each { |t| plan.auto(t) }
 	    discarded_tasks.each { |t| plan.discard(t) }
 	    removed_tasks.each { |t| plan.remove_task(t) }
 
-	    raise unless (@missions - @known_tasks).empty?
-	    # Set the plan to nil in known tasks to avoid having 
-	    # the checks on #plan to raise an exception
+	    # Set the plan to nil in known tasks to avoid having the checks on
+	    # #plan to raise an exception
 	    @missions.each    { |t| t.plan = self.plan unless t.kind_of?(Proxy) }
 	    @known_tasks.each { |t| t.plan = self.plan unless t.kind_of?(Proxy) }
 	    @free_events.each { |e| e.plan = self.plan unless e.kind_of?(Proxy) }
@@ -223,9 +250,10 @@ module Roby
 	    proxy_objects.each { |_, proxy| proxy.clear_relations  }
 
 	    # Call #insert and #discover *after* we have cleared relations
-	    @missions.delete_if    { |t| plan.insert(t)   unless t.kind_of?(Proxy) }
-	    @known_tasks.delete_if { |t| plan.discover(t) unless t.kind_of?(Proxy) }
-	    @free_events.delete_if { |e| plan.discover(e) unless e.kind_of?(Proxy) }
+	    @missions.delete_if    { |t| plan.insert(may_unwrap(t)) }
+	    @keepalive.delete_if   { |t| plan.permanent(may_unwrap(t)) }
+	    @known_tasks.delete_if { |t| plan.discover(may_unwrap(t)) }
+	    @free_events.delete_if { |e| plan.discover(may_unwrap(e)) }
 
 	    proxies = proxy_objects.dup
 	    clear

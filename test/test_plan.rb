@@ -13,23 +13,23 @@ module TC_PlanStatic
 
 	plan.discover(t1)
 	assert(plan.include?(t1))
-	assert(plan.known_tasks.include?(t1))
-	assert(!plan.missions.include?(t1))
+	assert(!plan.mission?(t1))
+	assert(!plan.permanent?(t1))
 
 	plan.remove_task(t1)
 	assert(!plan.include?(t1))
-	assert(!plan.known_tasks.include?(t1))
-	assert(!plan.missions.include?(t1))
+	assert(!plan.mission?(t1))
+	assert(!plan.permanent?(t1))
 
 	plan.insert(t1)
 	assert(plan.include?(t1))
-	assert(plan.known_tasks.include?(t1))
-	assert(plan.missions.include?(t1))
+	assert(plan.mission?(t1))
+	assert(!plan.permanent?(t1))
 
 	plan.discard(t1)
 	assert(plan.include?(t1))
-	assert(plan.known_tasks.include?(t1))
-	assert(!plan.missions.include?(t1))
+	assert(!plan.mission?(t1))
+	assert(!plan.permanent?(t1))
 
 	plan.remove_task(t1)
 	plan.discover(t1)
@@ -37,6 +37,22 @@ module TC_PlanStatic
 	assert(!plan.mission?(t1))
 	plan.insert(t1)
 	assert(plan.mission?(t1))
+
+	plan.remove_task(t1)
+	plan.permanent(t1)
+	assert(plan.include?(t1))
+	assert(!plan.mission?(t1))
+	assert(plan.permanent?(t1))
+	plan.auto(t1)
+	assert(plan.include?(t1))
+	assert(!plan.mission?(t1))
+	assert(!plan.permanent?(t1))
+
+	plan.permanent(t1)
+	plan.remove_task(t1)
+	assert(!plan.include?(t1))
+	assert(!plan.mission?(t1))
+	assert(!plan.permanent?(t1))
     end
 
     def test_base
@@ -182,13 +198,15 @@ class TC_Plan < Test::Unit::TestCase
 	    event(:stop)
 	end
 
-	t1, t2, t3, t4, t5, t6, p1 = (1..7).map { klass.new }
+	t1, t2, t3, t4, t5, t6, t7, t8, p1 = (1..9).map { klass.new }
 	t1.realized_by t3
 	t2.realized_by t3
 	t3.realized_by t4
 	t5.realized_by t4
 	t5.planned_by p1
 	p1.realized_by t6
+
+	t7.realized_by t8
 
 	class << plan
 	    attribute(:finalized_tasks) { Array.new }
@@ -198,6 +216,7 @@ class TC_Plan < Test::Unit::TestCase
 	end
 
 	[t1, t2, t5].each { |t| plan.insert(t) }
+	plan.permanent(t7)
 
 	assert_finalizes(plan, [])
 	assert_finalizes(plan, [t1]) { plan.discard(t1) }
@@ -237,7 +256,9 @@ class TC_Plan < Test::Unit::TestCase
 	    plan.garbage_collect([t1])
 	end
 	assert(t1.event(:stop).pending?)
-	assert_finalizes(plan, [], [t1, t2]) do
+
+	assert_finalizes(plan, [t1, t2], [t1, t2]) do
+	    # This stops the mission, which will be automatically discarded
 	    t1.event(:stop).emit(nil)
 	end
     end

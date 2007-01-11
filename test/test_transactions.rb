@@ -109,6 +109,21 @@ module TC_TransactionBehaviour
 	end
 	assert(!plan.include?(t3))
 	assert(!plan.mission?(t3))
+
+	plan.permanent(t3)
+	transaction_commit(plan, t3) do |trsc, p3|
+	    trsc.auto(t3)
+	    assert(!trsc.permanent?(t3))
+	    assert(plan.permanent?(t3))
+	end
+	assert(!plan.permanent?(t3))
+
+	transaction_commit(plan, t3) do |trsc, p3|
+	    trsc.permanent(t3)
+	    assert(trsc.permanent?(t3))
+	    assert(!plan.permanent?(t3))
+	end
+	assert(plan.permanent?(t3))
     end
 
     def test_discover

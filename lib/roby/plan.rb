@@ -37,6 +37,8 @@ module Roby
 	attr_reader :missions
 	# The list of events that are not included in a task
 	attr_reader :free_events
+	# The list of tasks that are kept outside GC
+	attr_reader :keepalive
 
 	# The hierarchy relation
 	attr_reader :hierarchy
@@ -56,6 +58,7 @@ module Roby
 	    @hierarchy = hierarchy
 	    @service_relations = service_relations
 	    @missions	 = ValueSet.new
+	    @keepalive   = ValueSet.new
 	    @known_tasks = ValueSet.new
 	    @free_events = ValueSet.new
 	    @force_gc    = ValueSet.new
@@ -128,6 +131,17 @@ module Roby
 	def inserted(tasks); super if defined? super end
 	alias :<< :insert
 
+	# Forbid the GC to take out +task+
+	def permanent(task)
+	    discover(task)
+	    @keepalive << task
+	end
+	
+	# Make GC finalize +task+ if it is not useful anymore
+	def auto(task); @keepalive.delete(task) end
+
+	def permanent?(task); @keepalive.include?(task) end
+
 	# Removes the task in +tasks+ from the list of missions
 	def discard(tasks)
 	    task_collection(tasks) do |t|
@@ -147,6 +161,7 @@ module Roby
 	    @free_events.each { |e| e.clear_relations }
 	    @free_events.clear
 	    @missions.clear
+	    @keepalive.clear
 	end
 
 	# Replaces +from+ by +to+. If +to+ cannot replace +from+, an
@@ -253,12 +268,15 @@ module Roby
 
 	# Returns the set of useful tasks
 	def useful_tasks
-	    return ValueSet.new if @missions.empty?
-
 	    # Remove all missions that are finished
 	    @missions.find_all { |t| t.finished? }.
 		each { |t| discard(t) }
-	    useful_component(@missions)
+	    @keepalive.find_all { |t| t.finished? }.
+		each { |t| auto(t) }
+
+	    all = @missions | @keepalive
+	    return ValueSet.new if all.empty?
+	    useful_component(all)
 	end
 
 	# Returns the set of unused tasks
@@ -342,6 +360,7 @@ module Roby
 		# transaction commits would be broken
 		@missions.delete(object)
 		@known_tasks.delete(object)
+		@keepalive.delete(object)
 		finalized_task(object)
 	    end
 
