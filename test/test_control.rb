@@ -23,10 +23,10 @@ class TC_Control < Test::Unit::TestCase
 		    end
 
 	Control.instance.abort_on_application_exception = false
-	assert_nothing_raised { Roby.application_error(:exceptions, exception, Task) }
+	assert_nothing_raised { Roby.application_error(:exceptions, Task, exception) }
 
 	Control.instance.abort_on_application_exception = true
-	assert_raises(RuntimeError) { Roby.application_error(:exceptions, exception, Task) }
+	assert_raises(RuntimeError) { Roby.application_error(:exceptions, Task, exception) }
 
     ensure
 	Roby.logger.level = Logger::DEBUG
@@ -100,7 +100,7 @@ class TC_Control < Test::Unit::TestCase
 	    mock.should_receive(:handler_called).never
 
 	    Control.once { t.start!(nil) }
-	    assert_raises(SpecificException) { Control.instance.process_events }
+	    assert_raises(Aborting) { Control.instance.process_events }
 	    assert(!t.event(:start).pending)
 	end
 

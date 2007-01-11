@@ -190,10 +190,10 @@ module Roby
 	    if Propagation.gathering?
 		Propagation.add_event_propagation(false, Propagation.source_events, self, context, nil)
 	    else
-		exceptions = Propagation.propagate_events do |initial_set|
+		errors = Propagation.propagate_events do |initial_set|
 		    initial_set << self if call_without_propagation(context)
 		end
-		exceptions.each { |e| raise e.exception }
+		errors.each { |e| raise e.exception }
 	    end
 	end
 	private :call
@@ -334,11 +334,11 @@ module Roby
 		    Propagation.add_event_propagation(true, Propagation.source_events, self, context, nil)
 		end
 	    else
-		exceptions = Propagation.propagate_events do |initial_set|
+		errors = Propagation.propagate_events do |initial_set|
 		    initial_set << self
 		    emit_without_propagation(context)
 		end
-		exceptions.each { |e| raise e.exception }
+		errors.each { |e| raise e.exception }
 	    end
 	end
 

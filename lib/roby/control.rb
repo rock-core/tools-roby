@@ -5,6 +5,17 @@ require 'drb'
 require 'set'
 
 module Roby
+    class Aborting < RuntimeError
+	attr_reader :all_exceptions
+	def initialize(exceptions); @all_exceptions = exceptions end
+	def message
+	    "#{super}\n  " +
+		all_exceptions.
+		    map { |e| e.exception.full_message }.
+		    join("\n  ")
+	end
+    end
+
     class Control
 	include Singleton
 
@@ -84,25 +95,21 @@ module Roby
 	    # Do structure checking and gather the raised exceptions
 	    exceptions = {}
 	    Control.structure_checks.each do |prc|
-		new_exceptions = prc.call(plan)
+		new_exceptions = nil
+		Propagation.gather_exceptions { new_exceptions = prc.call(plan) }
 		next unless new_exceptions
-		new_exceptions = [new_exceptions] if Exception === new_exceptions
 
-		new_exceptions.each do |e, tasks|
-		    e = Propagation.to_execution_exception(e)
-		    next unless e
-		    exceptions[e] = tasks
+		[*new_exceptions].each do |e, tasks|
+		    if e = Propagation.to_execution_exception(e)
+			exceptions[e] = tasks
+		    end
 		end
 	    end
 	    exceptions
 	end
 
 	def reraise(exceptions)
-	    if !exceptions.empty? && abort_on_exception
-		exceptions.each do |e|
-		    raise e.exception
-		end
-	    end
+	    raise Aborting.new(exceptions)
 	end
 
 	# Process the pending events. Returns a [cycle, server, processing]
@@ -110,31 +117,31 @@ module Roby
 	# the server commands and the event processing
 	def process_events(timings = {}, do_gc = false)
 	    Thread.critical = true
+	    Thread.current[:application_exceptions] = []
+
 	    timings[:real_start] = Time.now
 
-	    # Get the events received by the server and process them
-	    Thread.current.process_events
-	    timings[:server] = Time.now
-	    
 	    # Gather new events and propagate them
-	    events_exceptions = Propagation.propagate_events(Control.event_processing)
+	    events_errors = Propagation.propagate_events(Control.event_processing)
 	    timings[:events] = Time.now
 
 	    # HACK: events_exceptions is sometime nil here. It shouldn't
-	    events_exceptions ||= []
+	    events_errors ||= []
 
 	    # Propagate exceptions that came from event propagation
-	    events_exceptions = Propagation.propagate_exceptions(events_exceptions)
+	    events_errors = Propagation.propagate_exceptions(events_errors)
 	    timings[:events_exceptions] = Time.now
 
 	    # Generate exceptions from task structure
-	    structure_exceptions = structure_checking
+	    structure_errors = structure_checking
 	    timings[:structure_check] = Time.now
-	    structure_exceptions = Propagation.propagate_exceptions(structure_exceptions)
+	    structure_errors = Propagation.propagate_exceptions(structure_errors)
 	    timings[:structure_check_exceptions] = Time.now
 
-	    # Recheck structure, taking into account the changes from exception handlers
-	    fatal_errors = structure_checking + events_exceptions
+	    # Get the remaining problems in the plan structure, and act on it
+	    fatal_structure_errors = structure_checking
+	    fatal_errors = fatal_structure_errors.to_a + events_errors
+	    timings[:fatal_structure_errors] = Time.now
 	    # Get the list of tasks we should kill because of fatal_errors
 	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (e, tasks)|
 		if tasks
@@ -158,12 +165,21 @@ module Roby
 		timings[:end] = timings[:ruby_gc] = Time.now
 	    end
 
-	    reraise(events_exceptions) if abort_on_exception && !quitting?
-	    reraise(structure_exceptions) if abort_on_exception && !quitting?
+	    if abort_on_exception && !quitting? && !(structure_checking.empty? && events_errors.empty?)
+		reraise(fatal_errors.to_a)
+	    end
+	    
+	    application_errors = Thread.current[:application_exceptions]
+	    Thread.current[:application_exceptions] = nil
+	    application_errors.each do |(event, origin), error|
+		Roby.application_error(event, origin, error)
+	    end
 
 	    timings
+
 	ensure
 	    Thread.critical = false
+	    Thread.current[:application_exceptions] = nil
 	end
 
 	class << self
@@ -227,8 +243,8 @@ module Roby
 	    log	    = options[:log]
 	    timings = {}
 	    timings[:start] = Time.now
-	    last_stop_count = nil
 
+	    last_stop_count = 0
 	    @quit = 0
 	    loop do
 		begin
@@ -242,7 +258,7 @@ module Roby
 			    if last_stop_count == 0
 				Roby.info "control quitting. Waiting for #{remaining.size} tasks to finish:\n  #{remaining.join("\n  ")}"
 			    else
-				Roby.info "waiting for #{remaining.size} tasks to finish"
+				Roby.info "waiting for #{remaining.size} tasks to finish:\n  #{remaining.join("\n  ")}"
 			    end
 			    last_stop_count = remaining.size
 			end
@@ -253,30 +269,32 @@ module Roby
 			timings[:start] += cycle
 		    end
 		    timings = process_events(timings, control_gc)
-		    
-		    timings[:pass] = timings[:sleep] = timings[:end]
-		    cycle_duration = timings[:end] - timings[:start]
-		    if cycle - cycle_duration > SLEEP_MIN_TIME
-			cycle_end(timings)
-
-			Thread.pass
-			timings[:pass] = Time.now
-
-			# Take the time we passed in other threads into account
-			sleep_time = cycle - (Time.now - timings[:start])
-			if sleep_time > 0
-			    sleep(sleep_time) 
-			    timings[:sleep] = Time.now
-			end
-		    end
-
-		    log << Marshal.dump(timings) if log
-		    timings[:start] += cycle
-
 		rescue Exception => e
-		    STDERR.puts "Control quitting because of unhandled exception\n#{e.full_message}"
-		    quit
+		    unless quitting?
+			STDERR.puts "Control quitting because of unhandled exception"
+			STDERR.puts e.full_message
+			quit
+		    end
 		end
+		    
+		timings[:pass] = timings[:sleep] = timings[:end]
+		cycle_duration = timings[:end] - timings[:start]
+		if cycle - cycle_duration > SLEEP_MIN_TIME
+		    cycle_end(timings)
+
+		    Thread.pass
+		    timings[:pass] = Time.now
+
+		    # Take the time we passed in other threads into account
+		    sleep_time = cycle - (Time.now - timings[:start])
+		    if sleep_time > 0
+			sleep(sleep_time) 
+			timings[:sleep] = Time.now
+		    end
+		end
+
+		log << Marshal.dump(timings) if log
+		timings[:start] += cycle
 	    end
 
 	ensure

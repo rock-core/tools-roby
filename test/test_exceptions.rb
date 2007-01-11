@@ -78,6 +78,9 @@ class TC_Exceptions < Test::Unit::TestCase
 		on_exception(RuntimeError) do |exception|
 		    pass_exception
 		end
+		on_exception(SignalException) do |exception|
+		    raise
+		end
 	    end
 
 	    task  = klass.new
@@ -89,12 +92,15 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    error = ExecutionException.new(RuntimeError.new, task)
 	    assert(! task.handle_exception(error))
+	    error = ExecutionException.new(SignalException, task)
+	    assert(! task.handle_exception(error))
 	end
     end
 
     def test_exception_in_handler
 	Roby.logger.level = Logger::FATAL
 
+	Control.instance.abort_on_exception = true
 	Control.instance.abort_on_application_exception = false
 	FlexMock.use do |mock|
 	    klass = Class.new(ExecutableTask) do
@@ -123,7 +129,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    mock.should_receive(:task_handler_called).once.ordered
 	    mock.should_receive(:global_handler_called).once.ordered
 	    Control.once { t2.start! }
-	    assert_raises(TaskModelViolation) { Control.instance.process_events }
+	    assert_raises(Aborting) { Control.instance.process_events }
 	end
 
     ensure
@@ -270,6 +276,8 @@ class TC_Exceptions < Test::Unit::TestCase
 
     # Tests exception handling mechanism during event propagation
     def test_task_propagation_with_exception
+	Control.instance.abort_on_exception = true
+
 	task = Class.new(ExecutableTask) do
 	    def start(context)
 		emit(:start)
@@ -296,7 +304,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    Roby::Control.once { mock.other_once_handler }
 	    Roby::Control.event_processing << lambda { mock.other_event_processing }
 
-	    assert_raises(RuntimeError) { Roby::Control.instance.process_events }
+	    assert_raises(Roby::Aborting) { Roby::Control.instance.process_events }
 	end
 	assert(task.event(:start).happened?)
     end

@@ -16,34 +16,6 @@ module Roby::Propagation
 	end
     end
 
-    # This module is to be included in all objects that are
-    # able to handle exception. These objects should define
-    # #each_exception_handler { |matchers, handler| ... }
-    module ExceptionHandlingObject
-	# Passes the exception to the next matching exception handler
-	def pass_exception
-	    throw :next_exception_handler
-	end
-
-	# Calls the exception handlers defined in this task for +exception_object.exception+
-	# Returns true if the exception has been handled, false otherwise
-	def handle_exception(exception_object)
-	    each_exception_handler do |matchers, handler|
-		if matchers.find { |m| m === exception_object.exception }
-		    begin
-			catch(:next_exception_handler) do 
-			    handler.call(self, exception_object)
-			    return true
-			end
-		    rescue Exception => handler_error
-			Roby.application_error(:exception_handling, handler_error, self)
-		    end
-		end
-	    end
-	    return false
-	end
-    end
-
     @@propagate = true
     def self.disable_propagation; @@propagate = false end
     def self.enable_propagation; @@propagate = true end
@@ -99,13 +71,7 @@ module Roby::Propagation
 
     def self.to_execution_exception(error, source = nil)
 	Roby::ExecutionException.new(error, source)
-
     rescue ArgumentError
-	Roby.error <<-EOM
-got an exception which did not specify its source
-#{error.full_message}
-	EOM
-	nil
     end
 
     # Gather any exception raised by the block and saves it for later
@@ -118,9 +84,12 @@ got an exception which did not specify its source
 	    yield
 	    false
 
-	rescue RuntimeError => e
-	    e = to_execution_exception(e, source)
-	    Thread.current[:propagation_exceptions] << e if e
+	rescue Exception => e
+	    if Thread.current[:propagation_exceptions] && (plan_exception = to_execution_exception(e, source))
+		Thread.current[:propagation_exceptions] << plan_exception
+	    else
+		Thread.current[:application_exceptions] << [source, e]
+	    end
 	    true
 	end
     end
@@ -201,7 +170,7 @@ got an exception which did not specify its source
 	while !next_step.empty?
 	    next_step = event_propagation_step(next_step, already_seen)
 	end        
-	return Thread.current[:propagation_exceptions]
+	Thread.current[:propagation_exceptions]
 
     ensure
 	Thread.current[:propagation_id] = nil
@@ -364,7 +333,7 @@ module Roby
 	def each_exception_handler(&iterator); exception_handlers.each(&iterator) end
 	# define_method(:each_exception_handler, &Roby::Propagation.exception_handlers.method(:each))
 	def on_exception(*matchers, &handler); exception_handlers.unshift [matchers, handler] end
-	include Propagation::ExceptionHandlingObject
+	include ExceptionHandlingObject
 
 	# Called when an exception has been raised by application code. +error+ is the
 	# exception itself and +origin+ its origin.
@@ -374,8 +343,10 @@ module Roby
 	#			   the task of the handler or the Roby module for
 	#			   global exceptions
 	#
-	def application_error(event, error, origin)
-	    if Control.instance.abort_on_application_exception || error.kind_of?(SignalException)
+	def application_error(event, origin, error)
+	    if Thread.current[:application_exceptions]
+		Thread.current[:application_exceptions] << [[event, origin], error]
+	    elsif Control.instance.abort_on_application_exception || error.kind_of?(SignalException)
 		raise error
 	    else
 		Roby.error "Application error during #{event} in #{origin}:#{error.full_message}"

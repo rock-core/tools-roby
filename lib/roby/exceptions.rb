@@ -120,13 +120,10 @@ module Roby
 	def handle_exception(exception_object)
 	    each_exception_handler do |matchers, handler|
 		if matchers.find { |m| m === exception_object.exception }
-		    begin
-			catch(:next_exception_handler) do 
-			    handler.call(self, exception_object)
+		    catch(:next_exception_handler) do 
+			unless Propagation.gather_exceptions([:exception_handling, self]) { handler.call(self, exception_object) }
 			    return true
 			end
-		    rescue Exception => handler_error
-			Roby.application_error(:exception_handling, handler_error, self)
 		    end
 		end
 	    end
