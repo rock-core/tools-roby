@@ -184,17 +184,38 @@ module Roby
 
 	class << self
 	    attribute(:process_once) { Queue.new }
-	    def call_once
+	    def call_once # :nodoc:
 		while (p = process_once.pop(true) rescue nil)
 		    Propagation.gather_exceptions { p.call }
 		end
 	    end
 	    Control.event_processing << Control.method(:call_once)
 
-	    # Call block once during event processing
-	    def once(&block)
-		process_once.push block
+	    # Call block once before event processing
+	    def once(&block); process_once.push lambda(&block) end
+	    # Call +block+ at each cycle
+	    def each_cycle(&block); Control.event_processing << lambda(&block) end
+
+
+	    attribute(:process_every) { Array.new }
+	    # Call +block+ every +duration+ seconds. Note that +duration+ is
+	    # round up to the cycle size (time between calls is *at least* duration)
+	    def every(duration, &block)
+		Control.once do
+		    process_every << [lambda(&block), nil, duration]
+		end
 	    end
+
+	    def call_every # :nodoc:
+		now = Time.now
+		process_every.each do |block, last_call, duration|
+		    if !last_call || (now - last_call) > duration
+			Propagation.gather_exceptions { block.call }
+			last_call = now
+		    end
+		end
+	    end
+	    Control.event_processing << Control.method(:call_every)
 	end
 
 
