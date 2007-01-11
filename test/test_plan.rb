@@ -224,13 +224,13 @@ class TC_Plan < Test::Unit::TestCase
 	    t2.start!(nil)
 	    plan.discard(t2)
 	end
-	assert_finalizes(plan, [t5, t4, p1, t6], [p1, t6]) do
+	assert_finalizes(plan, [t5, t4, p1, t6], []) do
 	    t5.delays = true
 	    t5.start!(nil)
 	    plan.discard(t5)
 	end
 	assert(t5.event(:stop).pending?)
-	assert_finalizes(plan, [t5, t4]) do
+	assert_finalizes(plan, [t5, t4, p1, t6]) do
 	    t5.event(:stop).emit(nil)
 	end
     end
