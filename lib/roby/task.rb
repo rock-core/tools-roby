@@ -163,12 +163,6 @@ module Roby
 		task.update_terminal_flag
 	    end
 	end
-	def active?(seen = Set.new)
-	    if symbol == :start; super
-	    elsif task.running?; true
-	    else;		 task.event(:start).active?(seen)
-	    end
-	end
         def symbol;       event_model.symbol end
         def new(context); event_model.new(task, self, Propagation.propagation_id, context) end
 
