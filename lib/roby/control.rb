@@ -236,7 +236,7 @@ module Roby
 			remaining = plan.known_tasks.find_all { |t| Plan.can_gc?(t) }
 			if last_stop_count != remaining.size
 			    if last_stop_count == 0
-				Roby.info "control quitting. Waiting for #{remaining.size} tasks to finish"
+				Roby.info "control quitting. Waiting for #{remaining.size} tasks to finish:\n  #{remaining.join("\n  ")}"
 			    else
 				Roby.info "waiting for #{remaining.size} tasks to finish"
 			    end
