@@ -2,8 +2,7 @@ require 'test_config'
 require 'flexmock'
 require 'mockups/tasks'
 
-require 'roby/task'
-require 'roby/propagation'
+require 'roby'
 
 class TC_Exceptions < Test::Unit::TestCase 
     include RobyTestCommon
