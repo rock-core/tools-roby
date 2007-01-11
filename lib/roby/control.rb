@@ -32,6 +32,7 @@ module Roby
 
 	def initialize
 	    super
+	    @quit = 0
 	    @cycle_index = 0
 	    @planners = []
 	    @plan     = Plan.new
@@ -227,9 +228,12 @@ module Roby
 	    timings = {}
 	    timings[:start] = Time.now
 	    last_stop_count = nil
+
+	    @quit = 0
 	    loop do
 		begin
 		    if quitting?
+			return if forced_exit?
 			plan.keepalive.dup.each { |t| plan.auto(t) }
 			plan.force_gc.merge( plan.missions )
 
@@ -269,9 +273,6 @@ module Roby
 		    log << Marshal.dump(timings) if log
 		    timings[:start] += cycle
 
-		rescue Interrupt
-		    STDERR.puts "Interrupted"
-		    quit
 		rescue Exception => e
 		    STDERR.puts "Control quitting because of unhandled exception\n#{e.full_message}"
 		    quit
@@ -292,9 +293,11 @@ module Roby
 	def self.finalizers; @finalizers end
 
 	# True if the control thread is currently quitting
-	def quitting?; @quit end
+	def quitting?; @quit > 0 end
+	# True if the control thread is currently quitting
+	def forced_exit?; @quit > 1 end
 	# Make control quit
-	def quit; @quit = true end
+	def quit; @quit += 1 end
 
 	# Called at each cycle end
 	def cycle_end(timings); super if defined? super end
@@ -304,6 +307,7 @@ module Roby
 	def join
 	    thread.join if thread
 	rescue Interrupt
+	    Roby.info "received interruption request"
 	    quit
 	    retry
 	end
