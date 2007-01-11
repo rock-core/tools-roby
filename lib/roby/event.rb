@@ -105,7 +105,7 @@ module Roby
 	# The count of command calls that have not a corresponding emission
 	attr_reader :pending
 	# True if this event has been called but is not emitted yet
-	def pending?; pending != 0 end
+	def pending?; pending end
 
 	# call-seq:
 	#   EventGenerator.new
@@ -121,7 +121,7 @@ module Roby
 	def initialize(controlable = nil, &control)
 	    @preconditions = []
 	    @handlers = []
-	    @pending  = 0
+	    @pending  = false
 	    @executable = true
 
 	    super() if defined? super
@@ -152,18 +152,23 @@ module Roby
 	# The command won't be called if postpone() is called within the
 	# #calling hook
 	def call_without_propagation(context) # :nodoc:
+	    error = false
 	    postponed = catch :postponed do 
 		calling(context)
-		old_pending, @pending = @pending, @pending + 1
+		@pending = true
 
 		Propagation.propagation_context([self]) do
-		    if error = Propagation.gather_exceptions(self) { command[context] }
-			@pending = old_pending
-		    end
+		    error = Propagation.gather_exceptions(self) { command[context] }
 		end
+
 		false
 	    end
-	    if postponed
+
+	    if error
+		@pending = false
+		false
+	    elsif postponed
+		@pending = false
 		postponed(context, *postponed)
 		false
 	    else
@@ -291,7 +296,7 @@ module Roby
 	    end
 
 	ensure
-	    @pending -= 1
+	    @pending = false
 	end
 
 	# Emits the event regardless of wether we are in a propagation context or not
@@ -311,7 +316,7 @@ module Roby
 	    true
 
 	ensure
-	    @pending -= 1 if @pending > 0
+	    @pending = false
 	end
 
 	# Emit the event with +context+ as the new event context
@@ -377,7 +382,7 @@ module Roby
 	# A reason string can be provided for debugging purposes
 	def postpone(generator, reason = nil)
 	    generator.on self
-	    yield
+	    yield if block_given?
 	    throw :postponed, [generator, reason]
 	end
 	# Hook called when the event has been postponed. See #postpone

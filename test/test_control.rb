@@ -101,7 +101,7 @@ class TC_Control < Test::Unit::TestCase
 
 	    Control.once { t.start!(nil) }
 	    assert_raises(SpecificException) { Control.instance.process_events }
-	    assert_equal(0, t.event(:start).pending)
+	    assert(!t.event(:start).pending)
 	end
 
 	# Check that the task has been garbage collected in the process

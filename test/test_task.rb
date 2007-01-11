@@ -304,14 +304,14 @@ class TC_Task < Test::Unit::TestCase
 	end.new
 
 	assert_raises(Roby::TaskModelViolation) { task.inter! }
-	assert_equal(0, task.event(:inter).pending)
+	assert(!task.event(:inter).pending)
 	task.start!
 	assert_raise(Roby::TaskModelViolation) { task.start! }
 	assert_nothing_raised { task.inter! }
 	task.stop!
 
 	assert_raises(Roby::TaskModelViolation) { task.inter! }
-	assert_equal(0, task.event(:inter).pending)
+	assert(!task.event(:inter).pending)
 
 	task = Class.new(Task) do
 	    def start(context)
@@ -358,6 +358,8 @@ class TC_Task < Test::Unit::TestCase
 	    mock.should_receive(:p_stop).once.ordered
 
 	    parent.start!
+
+	    assert(!parent.event(:aborted).pending?)
 	end
     end
 
