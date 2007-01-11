@@ -253,7 +253,7 @@ module Roby::Genom
 	    super(arguments)
 
 	    # Never garbage-collect runner tasks
-	    Roby::Control.instance.plan.insert(self)
+	    Roby::Control.instance.plan.permanent(self)
 	    @output_io = roby_module.output_io
 
 	    # Make sure there is a init() method defined in the Roby module if there is one in the
