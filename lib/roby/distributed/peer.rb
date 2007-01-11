@@ -412,7 +412,6 @@ module Roby::Distributed
 
 		if peer 
 		    if peer.connecting?
-			Roby::Distributed.info { "Peer #{peer.remote_name} finalized handshake" }
 			# The peer finalized the handshake
 			peer.connected!
 		    elsif peer.connected?
@@ -422,7 +421,7 @@ module Roby::Distributed
 			peer.state = entry['state']
 		    end
 		elsif neighbour = connection_space.neighbours.find { |n| n.connection_space == remote_cs }
-		    Roby::Distributed.info { "Peer #{remote_cs.name} asking for connection" }
+		    Roby::Distributed.info { "peer #{remote_cs.name} asking for connection" }
 		    # New connection attempt from a known neighbour
 		    Peer.new(connection_space, neighbour).connected!
 		end
@@ -431,7 +430,7 @@ module Roby::Distributed
 	    (connection_space.peers.keys - seen).each do |disconnected| 
 		next if connection_space.peers[disconnected].connecting?
 
-		Roby::Distributed.debug { "Peer #{connection_space.peers[disconnected].remote_name} disconnected" }
+		Roby::Distributed.debug { "peer #{connection_space.peers[disconnected].remote_name} disconnected" }
 		connection_space.peers[disconnected].disconnected!
 		connection_space.peers.delete(disconnected)
 	    end
@@ -666,6 +665,7 @@ module Roby::Distributed
 	    disconnect if connected?
 	    @connection_state = nil
 
+	    Roby::Distributed.info "#{neighbour.name} disconnected"
 	    connection_space.peers.delete(remote_id)
 	    neighbour.peer = nil
 
