@@ -327,17 +327,22 @@ module Roby
 		did_something = false
 		tasks.find_all { |t| t.root?(@hierarchy) && service_relations.all? { |r| t.root?(r) } }.
 		    each do |t|
-			if t.event(:start).pending?
+			if t.starting?
 			    # wait for task to be started before killing it
-			elsif !t.running?
+			    Roby.debug "cannot GC #{t} because it is starting"
+			elsif t.pending? || t.finished?
 			    garbage(t)
 			    remove_task(t)
 			    did_something = true
-			elsif t.event(:stop).controlable? && !t.event(:stop).pending?
-			    garbage(t)
-			    t.stop!(nil)
-			    remove_task(t) unless t.running?
-			    did_something = true
+			elsif !t.finishing?
+			    if t.event(:stop).controlable?
+				garbage(t)
+				t.stop!(nil)
+				remove_task(t) unless t.running?
+				did_something = true
+			    else
+				Roby.debug "cannot GC #{t} because its 'stop' event is not controlable"
+			    end
 			end
 		    end
 
