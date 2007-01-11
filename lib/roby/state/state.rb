@@ -88,6 +88,8 @@ module Roby
 	    name = name.to_s if name
 	    @observers[name] << block
 	end
+
+	def to_hash; @members.dup end
         
 	# Update a set of values on this struct
 	# If a hash is given, it is an name => value hash of attribute
