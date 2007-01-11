@@ -52,7 +52,7 @@ module Roby
 	# The set of transactions which are built on top of this plan
 	attr_reader :transactions
 
-	def initialize(hierarchy = Roby::TaskStructure::Hierarchy, service_relations = [Roby::TaskStructure::PlannedBy])
+	def initialize(hierarchy = Roby::TaskStructure::Hierarchy, service_relations = [Roby::TaskStructure::PlannedBy, Roby::TaskStructure::ExecutionAgent])
 	    @hierarchy = hierarchy
 	    @service_relations = service_relations
 	    @missions	 = ValueSet.new
@@ -295,7 +295,7 @@ module Roby
 	    loop do
 		tasks = unneeded_tasks | force_gc
 		did_something = false
-		tasks.find_all { |t| t.root?(@hierarchy) }.
+		tasks.find_all { |t| t.root?(@hierarchy) && service_relations.all? { |r| t.root?(r) } }.
 		    each do |t|
 			if t.event(:start).pending?
 			    # wait for task to be started before killing it
@@ -371,4 +371,5 @@ require 'roby/relations/causal'
 require 'roby/relations/signals'
 require 'roby/relations/hierarchy'
 require 'roby/relations/planned_by'
+require 'roby/relations/executed_by'
 
