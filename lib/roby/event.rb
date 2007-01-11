@@ -475,9 +475,9 @@ module Roby
 	    @events.delete(parent)
 	end
 
-	def events;  enum_for(:each_parent_object, EventStructure::Signal).to_a end
-	def waiting; enum_for(:each_parent_object, EventStructure::Signal).find_all { |ev| @events[ev] == ev.last } end
-
+	def events;  enum_parent_objects(EventStructure::Signal).to_a end
+	def waiting; enum_parent_objects(EventStructure::Signal).find_all { |ev| @events[ev] == ev.last } end
+	
 	def << (generator)
 	    generator.add_signal self
 	    self
