@@ -119,6 +119,9 @@ module Roby
 	    events_exceptions = Propagation.propagate_events(Control.event_processing)
 	    timings[:events] = Time.now
 
+	    # HACK: events_exceptions is sometime nil here. It shouldn't
+	    events_exceptions ||= []
+
 	    # Propagate exceptions that came from event propagation
 	    events_exceptions = Propagation.propagate_exceptions(events_exceptions)
 	    timings[:events_exceptions] = Time.now
