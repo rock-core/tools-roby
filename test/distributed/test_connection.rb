@@ -149,6 +149,8 @@ class TC_DistributedConnection < Test::Unit::TestCase
     # Test the normal disconnection process
     def test_disconnect
 	peer2peer
+
+	Control.instance.process_events
 	assert(remote_peer.task.ready?)
 
 	remote_peer.disconnect
@@ -161,7 +163,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert(!local_peer.connected?)
 
 	local.start_neighbour_discovery(true)
-	assert(!remote_peer.task)
+	assert(!remote_peer.connected?)
 
 	# Make sure that we can reconnect
 	test_connect(false)
@@ -169,7 +171,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 
     # Tests that the remote peer disconnects if #demux raises DisconnectedError
     def test_automatic_disconnect
-	Roby::Distributed.logger.level = Logger::WARN
+	Roby::Distributed.logger.level = Logger::DEBUG
 
 	peer2peer do |remote|
 	    class << remote
@@ -183,11 +185,13 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	end
 	remote_peer.disconnect
 	remote.assert_demux_raises
-	assert(!local_peer.task)
 	assert(!local_peer.connected?)
 
 	local.start_neighbour_discovery(true)
-	assert(!remote_peer.task)
+	assert(!remote_peer.connected?)
+
+	# Make sure that we can reconnect
+	test_connect(false)
     end
 end
 

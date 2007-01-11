@@ -21,9 +21,11 @@ module Roby::Distributed
 	def ready?; event(:ready).happened? end
 
 	def peer; arguments[:peer] end
-	def stop(context)
-	    peer.disconnect
-	end
+
+	def failed(context); peer.disconnect end
+	event :failed, :terminal => true
+
+	def stop(context); failed!(context) end
 	event :stop
     end
     class LiveConnectionTask < Roby::Task
@@ -559,24 +561,6 @@ module Roby::Distributed
 	    RemoteQuery.new(self)
 	end
 
-	# Initiates a connection with this peer. This inserts a new
-	# ConnectionTask task in the plan and starts it. When the connection is
-	# complete (the peer has finalized the handshake), the 'ready' event of
-	# this task is emitted.
-	def connect
-	    raise if task
-
-	    @task = ConnectionTask.new :peer => self
-	    if block_given?
-		task.on(:ready) { yield(self) }
-	    end
-
-	    Roby::Control.once do
-		connection_space.plan.permanent(task)
-		task.event(:start).emit(nil)
-	    end
-	    ping
-	end
 
 	# call-seq:
 	#   peer.on(matcher) { |task| ... }	=> ID
@@ -605,16 +589,41 @@ module Roby::Distributed
 	    end
 	end
 
+	attr_reader :connection_state
+
+	# Initiates a connection with this peer. This inserts a new
+	# ConnectionTask task in the plan and starts it. When the connection is
+	# complete (the peer has finalized the handshake), the 'ready' event of
+	# this task is emitted.
+	def connect
+	    raise if task
+	    @connection_state = :connecting
+
+	    @task = ConnectionTask.new :peer => self
+	    if block_given?
+		task.on(:ready) { yield(self) }
+	    end
+
+	    Roby::Control.once do
+		connection_space.plan.permanent(task)
+		task.event(:start).emit(nil)
+	    end
+	    ping
+	end
+
 	# Called when the handshake is finished. After this call, the
 	# connection task has emitted its 'ready' event and the connection is
 	# alive
 	def connected! # :nodoc:
 	    raise "not connecting" unless connecting?
+	    @connection_state = :connected
+
 	    @send_queue = Queue.new
 	    @send_thread = Thread.new(&method(:communication_loop))
 
 	    @entry = connection_space.read({'kind' => :peer, 'connection_space' => neighbour.connection_space, 'remote' => nil, 'state' => nil}, 0)
 	    Roby::Control.once { task.event(:ready).emit(nil) }
+	    Roby::Distributed.info { "connected to #{neighbour.name}" }
 	end
 
 	# Updates our keepalive token on the peer
@@ -637,36 +646,39 @@ module Roby::Distributed
 	#
 	# The 'failed' event is emitted on the ConnectionTask task
 	def disconnect
+	    return if disconnecting?
+	    @connection_state = :disconnecting
+
 	    # Remove the keepalive tuple we wrote on the remote host
 	    if keepalive
 		keepalive.cancel rescue Rinda::RequestExpiredError
 	    end
 
-	    task = self.task
-	    @task = nil
-	    Roby::Control.once { task.event(:failed).emit(nil) }
-
 	    @send_queue.push(nil)
 	    unless Thread.current == @send_thread
 		@send_thread.join
-		@send_thread = nil
 	    end
+	    @send_thread = nil
 	end
 
 	# Called when the peer acknowledged the fact that we disconnected
 	def disconnected! # :nodoc:
 	    disconnect if connected?
+	    @connection_state = nil
+
 	    connection_space.peers.delete(remote_id)
 	    neighbour.peer = nil
+
+	    Roby::Control.once { task.event(:failed).emit(nil) }
 	end
 
 	# Returns true if we are establishing a connection with this peer
-	def connecting?; task && !task.event(:ready).happened? end
+	def connecting?; connection_state == :connecting end
 	# Returns true if the connection has been established. See also #link_alive?
-	def connected?; task && task.event(:ready).happened? end
+	def connected?; connection_state == :connected end
 	# Returns true if the we disconnected on our side but the peer did not
 	# acknowledge it yet
-	def disconnecting?; !task && neighbour.peer end
+	def disconnecting?; connection_state == :disconnecting end
 
 	# Returns true if this peer owns +object+
 	def owns?(object); object.owners.include?(remote_id) end

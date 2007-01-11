@@ -76,11 +76,6 @@ module DistributedTestCommon
 	local_peer = remote.peers.find { true }.last
 	local.start_neighbour_discovery(true)
 
-	assert(local_peer.connecting?)
-	assert(remote_peer.connecting?)
-
-	Control.instance.process_events
-	remote.process_events
 	assert(local_peer.connected?)
 	assert(remote_peer.connected?)
 
