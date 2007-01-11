@@ -288,6 +288,18 @@ module Roby
 	    object
 	end
 
+	# True if +task+ can be GCed once it is not useful
+	def self.can_gc?(task)
+	    if task.starting?
+		# wait for the task to be started before deciding ...
+		return true
+	    elsif task.running? && !task.finishing?
+		task.event(:stop).controlable?
+	    else
+		true
+	    end
+	end
+
 	# Kills and removes all unneeded tasks
 	def garbage_collect(force_on = [])
 	    force_gc.merge(force_on)
