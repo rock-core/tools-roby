@@ -283,7 +283,6 @@ module Roby
 	    if Thread.current == self.thread
 		# reset the options only if we are in the control thread
 		@thread = nil
-		DRb.stop_service if options[:drb]
 		GC.enable if control_gc && !already_disabled_gc
 		Control.finalizers.each { |blk| blk.call }
 	    end
