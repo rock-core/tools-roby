@@ -6,28 +6,42 @@ require 'roby/distributed/proxy'
 module DistributedTestCommon
     include Rinda
     include Roby
-    include Roby::Distributed
+    include Distributed
     include RobyTestCommon
 
     attr_reader :plan
     def setup
 	super
 
-	save_collection Roby::Distributed.new_neighbours_observers
-	Roby::Distributed.allow_remote_access Roby::Distributed::Peer
+	save_collection Distributed.new_neighbours_observers
+	Distributed.allow_remote_access Distributed::Peer
 	@plan = Plan.new
-	@old_logger_level = Roby::Distributed.logger.level
+	@old_logger_level = Distributed.logger.level
     end
     def teardown
-	Roby::Distributed.logger.level = @old_logger_level
-
 	if remote_peer
 	    Control.instance.process_events
 	    apply_remote_command
+	    if remote_peer.connected?
+		remote_peer.disconnect
+		assert_doesnt_timeout(5, "watchdog failed") do
+		    loop do
+			apply_remote_command
+			break if remote_peer.task.event(:stop).happened?
+		    end
+		end
+
+	    end
 	end
 	@remote_peer = nil
-	Roby::Distributed.new_neighbours.clear
+	
+	if Distributed.state
+	    Distributed.state.quit
+	    Distributed.state = nil
+	end
 
+    ensure
+	Distributed.logger.level = @old_logger_level
 	super
     end
 
@@ -83,6 +97,10 @@ module DistributedTestCommon
 
 	@remote, @remote_peer, @remote_plan, @local, @local_peer =
 	    remote, remote_peer, remote_plan, local, local_peer
+
+	# we must call #process_events to make sure the ConnectionTask objects
+	# are inserted in both plans
+	apply_remote_command
     end
 
     attr_reader :central_tuplespace, :remote, :remote_peer, :remote_plan, :local, :local_peer
@@ -101,6 +119,7 @@ module DistributedTestCommon
 	    did_something ||= local_peer.flush
 	    local.start_neighbour_discovery(true)
 	    Control.instance.process_events
+	    remote.process_events
 	    break unless did_something
 	end
 	yield if block_given?

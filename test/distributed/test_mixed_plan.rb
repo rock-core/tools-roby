@@ -8,12 +8,6 @@ require 'mockups/tasks'
 class TC_DistributedMixedPlan < Test::Unit::TestCase
     include DistributedTestCommon
 
-    def teardown 
-	Distributed.unpublish
-	super
-	Distributed.state = nil
-    end
-
     def test_direct_modifications
 	peer2peer do |remote|
 	    remote.plan.insert(SimpleTask.new(:id => 1))

@@ -6,14 +6,6 @@ require 'mockups/tasks'
 class TC_DistributedTransaction < Test::Unit::TestCase
     include DistributedTestCommon
 
-    include Roby
-    include Roby::Distributed
-
-    def setup
-	Roby::Distributed.allow_remote_access Roby::Distributed::Peer
-	super
-    end
-
     def test_marshal_transactions
 	peer2peer do |remote|
 	    class << remote

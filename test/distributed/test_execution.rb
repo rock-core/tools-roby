@@ -6,15 +6,8 @@ require 'flexmock'
 class TC_DistributedExecution < Test::Unit::TestCase
     include DistributedTestCommon
 
-    def setup
-	Roby::Distributed.allow_remote_access Roby::Distributed::Peer
-	super
-    end
-
-    def teardown 
-	Distributed.unpublish
-	Distributed.state = nil
-
+    def teardown
+	Distributed.logger.level = Logger::DEBUG
 	super
     end
 

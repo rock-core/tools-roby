@@ -7,21 +7,6 @@ require 'flexmock'
 class TC_DistributedTransaction < Test::Unit::TestCase
     include DistributedTestCommon
 
-    include Roby
-    include Roby::Distributed
-
-    def setup
-	Roby::Distributed.allow_remote_access Roby::Distributed::Peer
-	super
-    end
-
-    def teardown 
-	Distributed.unpublish
-	Distributed.state = nil
-
-	super
-    end
-
     def test_distribute_p
 	assert(Roby::Task.new.distribute?)
 	klass = Class.new(Roby::Task) do

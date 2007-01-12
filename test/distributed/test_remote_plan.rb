@@ -6,14 +6,6 @@ require 'mockups/tasks'
 class TC_DistributedRemotePlan < Test::Unit::TestCase
     include DistributedTestCommon
 
-    def teardown 
-	Distributed.unpublish
-	super
-	Distributed.state = nil
-    end
-
-
-
     # Check that we can query the remote plan database
     def test_query
 	peer2peer do |remote|

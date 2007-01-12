@@ -5,8 +5,6 @@ require 'roby/distributed/connection_space'
 require 'roby/distributed/proxy'
 
 class TC_DistributedRobyProtocol < Test::Unit::TestCase
-    include Roby
-    include Roby::Distributed
     include DistributedTestCommon
 
     TEST_ARRAY_SIZE = 7

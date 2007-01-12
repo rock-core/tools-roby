@@ -7,15 +7,14 @@ require 'roby/distributed/proxy'
 class TC_DistributedConnection < Test::Unit::TestCase
     include Rinda
     include Roby
-    include Roby::Distributed
+    include Distributed
     include DistributedTestCommon
 
     def setup
 	super
-	Roby::Distributed.allow_remote_access Roby::Distributed::Neighbour
+	Distributed.allow_remote_access Distributed::Neighbour
 	Distributed.logger.level = Logger::DEBUG
     end
-
 
     def assert_has_neighbour(&check)
 	Distributed.state.start_neighbour_discovery
@@ -171,7 +170,6 @@ class TC_DistributedConnection < Test::Unit::TestCase
 
     # Tests that the remote peer disconnects if #demux raises DisconnectedError
     def test_automatic_disconnect
-	Roby::Distributed.logger.level = Logger::DEBUG
 
 	peer2peer do |remote|
 	    class << remote
