@@ -159,7 +159,7 @@ module Roby::Distributed
 	def demux(calls)
 	    result = []
 	    if !peer.connected?
-		raise DisconnectedError, "#{remote_name} has been disconnected"
+		raise DisconnectedError, "#{remote_name} is disconnected"
 	    end
 
 	    from = Time.now
@@ -515,7 +515,7 @@ module Roby::Distributed
 		    if error
 			Roby::Distributed.warn  do
 			    call = calls[success].first
-			    "#{name} reports an error on #{call[0]}.#{call[1]}(#{call[2..-1].join(", ")})"
+			    "#{remote_name} reports an error on #{call[0]}.#{call[1]}(#{call[2..-1].join(", ")}):\n#{error.full_message}"
 			end
 
 			case error
