@@ -512,7 +512,11 @@ module Roby::Distributed
 		    error_count = 0 if success > 0
 		    if error
 			Roby::Distributed.warn  do
-			    call = calls[success].first
+			    call = calls[success].first.map do |arg|
+				if arg.kind_of?(DRbObject) then arg.inspect
+				else arg.to_s
+				end
+			    end
 			    "#{remote_name} reports an error on #{call[0]}.#{call[1]}(#{call[2..-1].join(", ")}):\n#{error.full_message}"
 			end
 
