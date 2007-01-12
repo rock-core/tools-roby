@@ -275,6 +275,7 @@ module Roby
 			plan.force_gc.merge( plan.missions )
 
 			remaining = plan.known_tasks.find_all { |t| Plan.can_gc?(t) }
+			return if remaining.empty?
 			if last_stop_count != remaining.size
 			    if last_stop_count == 0
 				Roby.info "control quitting. Waiting for #{remaining.size} tasks to finish:\n  #{remaining.join("\n  ")}"
@@ -283,7 +284,6 @@ module Roby
 			    end
 			    last_stop_count = remaining.size
 			end
-			return if remaining.empty?
 		    end
 
 		    while Time.now > timings[:start] + cycle
