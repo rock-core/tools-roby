@@ -43,10 +43,10 @@ module Roby
 
 	def initialize
 	    super
-	    @quit = 0
+	    @quit        = 0
 	    @cycle_index = 0
-	    @planners = []
-	    @plan     = Plan.new
+	    @planners    = []
+	    @plan        = Plan.new
 	end
 
 	def send_to_event_loop(object, *funcall, &block)
