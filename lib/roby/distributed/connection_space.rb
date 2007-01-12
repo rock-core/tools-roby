@@ -33,7 +33,11 @@ module Roby
 
 
 
-	def self.remote_id; state.tuplespace end
+	def self.remote_id
+	    if state then state.tuplespace 
+	    else nil
+	    end
+	end
 	def self.owns?(object); state.owns?(object) end
 	def self.peer(remote_id); peers[remote_id] end
 
@@ -314,11 +318,24 @@ module Roby
 	    end
 
 	    # The list of known neighbours. See ConnectionSpace#neighbours
-	    def neighbours; state.neighbours end
+	    def neighbours
+		if state then state.neighbours
+		else []
+		end
+	    end
 
-	    def new_neighbours; state.new_neighbours end
+	    def new_neighbours
+		if state then state.new_neighbours
+		else []
+		end
+	    end
+
 	    # The list of known peers. See ConnectionSpace#peers
-	    def peers; state.peers end
+	    def peers; 
+		if state then state.peers 
+		else []
+		end
+	    end
 	end
 	allow_remote_access ConnectionSpace
 
