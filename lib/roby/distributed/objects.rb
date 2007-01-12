@@ -11,6 +11,7 @@ module Roby
 	    def initialize(task); @task = task end
 	end
 
+	# Module included in objects that are located on this pDB
 	module LocalObject
 	    def owners; @owners ||= [Roby::Distributed.remote_id].to_set end
 	    def self_owned?; true end
@@ -23,15 +24,21 @@ module Roby
 		def local_object; @distribute = false end
 	    end
 
+	    # Attribute which overrides the #distribute attribute on object classes
 	    attr_writer :distribute
+	    # True if this object can be seen by remote hosts
 	    def distribute?
 		@distribute || (@distribute.nil? && self.class.distribute?)
 	    end
 	end
 
+	# Module included in objects that are located on one single remote pDB
 	module RemoteObject
+	    # The remote Peer this object is located on
 	    attr_reader :remote_peer
+	    # The Peer ID
 	    def peer_id; remote_peer.remote_id end
+
 	    def remote_object(peer_id)
 		if peer_id == peer_id then @remote_object
 		else 
@@ -50,6 +57,7 @@ module Roby
 	    end
 	end
 
+	# Module included in objects distributed across multiple pDBs
 	module DistributedObject
 	    def self_owned?
 		owners.include?(Distributed.remote_id)
