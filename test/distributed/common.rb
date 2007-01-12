@@ -146,4 +146,13 @@ module DistributedTestCommon
 
 end
 
+# class DRbObject
+#     alias :__call_remote :method_missing
+#     def method_missing(name, *args, &block)
+# 	unless caller[0] =~ /test/
+# 	    STDERR.puts "calling #{name}(#{args.to_s}, &#{block}) from #{caller[0]}"
+# 	end
+# 	__call_remote(name, *args, &block)
+#     end
+# end
 
