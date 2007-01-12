@@ -23,7 +23,7 @@ module Roby::Log
 	# Logs +message+ with argument +args+. The block is called only once if
 	# there is at least one logger which listens for +message+.
 	def log(m, args = nil)
-	    Thread.exclusive do
+	    Roby::Control.synchronize do
 		each_logger(m) do |log|
 		    if !args && block_given?
 			args ||= yield

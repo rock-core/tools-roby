@@ -34,7 +34,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	    :discovery_tuplespace => central_tuplespace
 	Distributed.state = ConnectionSpace.new :ring_discovery => false, 
 	    :discovery_tuplespace => central_tuplespace
-	assert_has_neighbour { |n| n.connection_space == remote }
+	assert_has_neighbour { |n| n.tuplespace == remote.tuplespace }
     end
 
     # Test neighbour discovery using a remote central tuplespace as neighbour list
@@ -91,13 +91,13 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	handler_called = false
 	p_remote = Peer.new(local, n_remote) { handler_called = true }
 	assert_raises(ArgumentError) { Peer.new(local, n_remote) }
-	assert_equal(local,  p_remote.keepalive['connection_space'])
-	assert_equal(remote, p_remote.neighbour.connection_space)
+	assert_equal(local.tuplespace,  p_remote.keepalive['tuplespace'])
+	assert_equal(remote.tuplespace, p_remote.neighbour.tuplespace)
 	info = { 'kind' => p_remote.keepalive['kind'],
-	    'connection_space' => p_remote.keepalive['connection_space'], 
+	    'tuplespace' => p_remote.keepalive['tuplespace'], 
 	    'remote' => p_remote.keepalive['remote'],
 	    'state' => nil }
-	assert_nothing_raised { remote.read(info, 0) }
+	assert_nothing_raised { remote.tuplespace.read(info, 0) }
 	# The connection is not link_alive yet since +remote+ does not have
 	# finalized the handshake yet
 	assert(! p_remote.connected?)
@@ -112,10 +112,10 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	remote.start_neighbour_discovery(true)
 	Control.instance.process_events
 	p_local = remote.peers.find { true }.last
-	assert_equal(local, p_local.neighbour.connection_space)
-	assert_equal(remote, p_local.keepalive['connection_space'])
-	assert_equal(local,  p_local.neighbour.connection_space)
-	assert_nothing_raised { local.read(p_local.keepalive.value, 0) }
+	assert_equal(local.tuplespace, p_local.neighbour.tuplespace)
+	assert_equal(remote.tuplespace, p_local.keepalive['tuplespace'])
+	assert_equal(local.tuplespace,  p_local.neighbour.tuplespace)
+	assert_nothing_raised { local.tuplespace.read(p_local.keepalive.value, 0) }
 
 	remote.process_events
 	assert(p_local.connected?)

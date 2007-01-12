@@ -14,20 +14,26 @@ module Roby
 
 	# A neighbour is a named remote ConnectionSpace object
 	class Neighbour
-	    attr_reader :name, :connection_space
+	    attr_reader :name, :tuplespace
 	    attr_accessor :peer
-	    def initialize(name, connection_space)
-		@name, @connection_space = name, connection_space
+	    def initialize(name, tuplespace)
+		@name, @tuplespace = name, tuplespace
 	    end
 
 	    def connect; Peer.new(ConnectionSpace.state, peer) end
 	    def connecting?; peer && peer.connecting?  end
 	    def connected?; peer && peer.connected?  end
+
+	    def ==(other)
+		other.kind_of?(Neighbour) &&
+		    (tuplespace == other.tuplespace)
+	    end
+	    def eql?(other); other == self end
 	end
 
 
 
-	def self.remote_id; state end
+	def self.remote_id; state.tuplespace end
 	def self.owns?(object); state.owns?(object) end
 	def self.peer(remote_id); peers[remote_id] end
 
@@ -43,11 +49,17 @@ module Roby
 	# * the list of teams it is part of
 	#	[:name, TeamServer, DrbObject, name]
 	#
-	class ConnectionSpace < Rinda::TupleSpace
+	class ConnectionSpace
 	    include DRbUndumped
+	    include MonitorMixin
+
+	    # Our tuplespace
+	    attr_reader :tuplespace
 
 	    # List of discovered neighbours
 	    def neighbours; synchronize { @neighbours.dup } end
+	    # A queue containing all new neighbours
+	    attr_reader :new_neighbours
 	    # List of peers
 	    attr_reader :peers
 	    # The period at which we do discovery
@@ -78,6 +90,8 @@ module Roby
 	    attr_reader :name
 
 	    def initialize(options = {})
+		super()
+
 		options = validate_options options, 
 		    :name => "#{Socket.gethostname}-#{Process.pid}", # the name of this host
 		    :period => nil,				    # the discovery period
@@ -91,29 +105,29 @@ module Roby
 		    raise ArgumentError, "you must provide a discovery period when using ring discovery"
 		end
 
-		super(0)
+		@tuplespace = Rinda::TupleSpace.new
 
-		@name		  = options[:name]
-		@neighbours	  = Array.new
-		@peers		  = Hash.new
-		@connection_listeners = Array.new
-		@connection_listeners << Peer.method(:connection_listener)
-		@connection_listeners << Distributed.method(:detect_new_neighbours)
-		@plan		  = options[:plan] || Roby::Control.instance.plan
+		@name                 = options[:name]
+		@neighbours           = Array.new
+		@peers                = Hash.new
+		@plan                 = options[:plan] || Roby::Control.instance.plan
 		@max_allowed_errors   = options[:max_allowed_errors]
-
 		@discovery_period     = options[:period]
 		@ring_discovery       = options[:ring_discovery]
 		@ring_broadcast       = options[:ring_broadcast]
 		@discovery_tuplespace = options[:discovery_tuplespace]
 		@start_discovery      = new_cond
 		@finished_discovery   = new_cond
+		@new_neighbours	      = Queue.new
+
+		@connection_listeners = Array.new
+		@connection_listeners << Peer.method(:connection_listener)
 
 		yield(self) if block_given?
 
 		if central_discovery?
-		    if (@discovery_tuplespace.write([:host, self, object_id, name]) rescue nil)
-			if @discovery_tuplespace.respond_to?(:__drburi)
+		    if (@discovery_tuplespace.write([:host, tuplespace, tuplespace.object_id, name]) rescue nil)
+			if @discovery_tuplespace.kind_of?(DRbObject)
 			    Distributed.info "published ourselves on #{@discovery_tuplespace.__drburi}"
 			else
 			    Distributed.info "published ourselves on local tuplespace"
@@ -134,7 +148,7 @@ module Roby
 	    end
 
 	    def discovering?; synchronize { @last_discovery != @discovery_start } end
-	    def owns?(object); object.owners.include?(self) end
+	    def owns?(object); object.owners.include?(tuplespace) end
 
 	    # An array of procs called at the end of the neighbour discovery,
 	    # after #neighbours have been updated
@@ -149,25 +163,30 @@ module Roby
 
 	    # Loop which does neighbour_discovery
 	    def neighbour_discovery
-		new_neighbours = Queue.new
+		discovered = []
 
 		# Initialize so that @discovery_start == discovery_start
 		discovery_start = nil
 		finger	    = nil
 		loop do
 		    return if @quit_neighbour_thread
-		    synchronize do 
-			@last_discovery = discovery_start
 
-			@neighbours.clear
-			while n = (new_neighbours.pop(true) rescue nil)
-			    unless @neighbours.include?(n)
-				n.peer = peers[n.connection_space]
-				@neighbours << n
+		    Control.synchronize do
+			old_neighbours, @neighbours = @neighbours, []
+			for new in discovered
+			    unless @neighbours.include?(new)
+				@neighbours << new
+				unless old_neighbours.include?(new)
+				    new_neighbours << [self, new]
+				end
 			    end
 			end
+		    end
 
-			connection_listeners.each { |listen| listen.call(self) }
+		    connection_listeners.each { |listen| listen.call(self) }
+		    synchronize do
+
+			@last_discovery = discovery_start
 			finished_discovery.broadcast
 
 			if @discovery_start == @last_discovery
@@ -182,14 +201,15 @@ module Roby
 			end
 		    end
 
+		    from = Time.now
 		    if central_discovery?
 			Distributed.debug "doing centralized neighbour discovery"
 			discovery_tuplespace.read_all([:host, nil, nil, nil]).
 			    each do |n| 
-				next if n[1] == self
+				next if n[1] == tuplespace
 				n = Neighbour.new(n[3], n[1]) 
-				Distributed.debug { "found neighbour: #{n.name} #{n.connection_space}" }
-				new_neighbours << n
+				Distributed.debug { "found neighbour: #{n.name} #{n.tuplespace.inspect}" }
+				discovered << n
 			    end
 		    end
 
@@ -204,7 +224,7 @@ module Roby
 			    next if ts == self
 
 			    Distributed.debug { "found neighbour: #{ts.name} #{ts}" }
-			    new_neighbours << Neighbour.new(ts.name, ts)
+			    discovered << Neighbour.new(ts.name, ts)
 			end
 		    end
 		end
@@ -233,12 +253,10 @@ module Roby
 
 	    def quit
 		Distributed.debug "ConnectionSpace #{self} quitting"
-		Distributed.new_neighbours.clear
-		Distributed.last_neighbour_set.clear
 
 		# Remove us from the central tuplespace
 		if central_discovery?
-		    @discovery_tuplespace.take [:host, self, nil, nil]
+		    @discovery_tuplespace.take [:host, tuplespace, nil, nil]
 		end
 
 		# Make the neighbour discovery thread quit as well
@@ -297,34 +315,23 @@ module Roby
 
 	    # The list of known neighbours. See ConnectionSpace#neighbours
 	    def neighbours; state.neighbours end
+
+	    def new_neighbours; state.new_neighbours end
 	    # The list of known peers. See ConnectionSpace#peers
 	    def peers; state.peers end
 	end
+	allow_remote_access ConnectionSpace
 
-	@last_neighbour_set = Array.new
 	@new_neighbours_observers = Array.new
-	@new_neighbours = Queue.new
 	class << self
-	    attr_reader :last_neighbour_set, :new_neighbours, :new_neighbours_observers
+	    attr_reader :new_neighbours_observers
 	    
 	    # Called in the neighbour discovery thread to detect new
 	    # neighbours. It fills the new_neighbours queue which is read by
 	    # notify_new_neighbours to notify application code of new
 	    # neighbours in the control thread
-	    def detect_new_neighbours(connection_space)
-		current = connection_space.neighbours
-		@last_neighbour_set = current.map do |n|
-		    if !last_neighbour_set.include?(n.connection_space)
-			Distributed.info "new neighbour #{n.name}"
-			new_neighbours << [connection_space, n]
-		    end
-		    n.connection_space
-		end
-
-		@last_neighbour_set += connection_space.peers.keys
-	    end
-
 	    def notify_new_neighbours
+		return unless Distributed.state
 		new_neighbours.get(true).each do |cs, n|
 		    new_neighbours_observers.each do |obs|
 			obs[cs, n]

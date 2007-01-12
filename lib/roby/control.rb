@@ -18,6 +18,7 @@ module Roby
 
     class Control
 	include Singleton
+	extend MonitorMixin
 
 	# Do not sleep or call Thread#pass if there is less that
 	# SLEEP_MIN_TIME time left in the cycle
@@ -116,7 +117,6 @@ module Roby
 	# array which are the duration of the whole cycle, the handling of
 	# the server commands and the event processing
 	def process_events(timings = {}, do_gc = false)
-	    Thread.critical = true
 	    Thread.current[:application_exceptions] = []
 
 	    timings[:real_start] = Time.now
@@ -178,7 +178,6 @@ module Roby
 	    timings
 
 	ensure
-	    Thread.critical = false
 	    Thread.current[:application_exceptions] = nil
 	end
 
@@ -260,20 +259,33 @@ module Roby
 		GC.force
 	    end
 
+	    @quit = 0
 	    yield if block_given?
-	    cycle   = options[:cycle]
-	    log	    = options[:log]
+	    event_loop(options[:log], options[:cycle], control_gc)
+
+	ensure
+	    if Thread.current == self.thread
+		# reset the options only if we are in the control thread
+		@thread = nil
+		GC.enable if control_gc && !already_disabled_gc
+		Control.finalizers.each { |blk| blk.call }
+	    end
+	end
+
+	def event_loop(log, cycle, control_gc)
 	    timings = {}
 	    timings[:start] = Time.now
 
 	    last_stop_count = 0
-	    @quit = 0
+
 	    loop do
 		begin
 		    if quitting?
 			return if forced_exit?
-			plan.keepalive.dup.each { |t| plan.auto(t) }
-			plan.force_gc.merge( plan.missions )
+			Control.synchronize do
+			    plan.keepalive.dup.each { |t| plan.auto(t) }
+			    plan.force_gc.merge( plan.missions )
+			end
 
 			remaining = plan.known_tasks.find_all { |t| Plan.can_gc?(t) }
 			return if remaining.empty?
@@ -289,27 +301,29 @@ module Roby
 
 		    while Time.now > timings[:start] + cycle
 			timings[:start] += cycle
+			@cycle_index += 1
 		    end
-		    timings = process_events(timings, control_gc)
+		    timings = Control.synchronize { process_events(timings, control_gc) }
+
 		rescue Exception => e
 		    unless quitting?
-			STDERR.puts "Control quitting because of unhandled exception"
-			STDERR.puts e.full_message
+			Roby.warn "Control quitting because of unhandled exception"
+			Roby.warn e.full_message
 			quit
 		    end
 		end
 		    
-		timings[:pass] = timings[:sleep] = timings[:end]
+		timings[:pass] = timings[:sleep] = timings[:expected_sleep] = timings[:end]
 		cycle_duration = timings[:end] - timings[:start]
 		if cycle - cycle_duration > SLEEP_MIN_TIME
 		    cycle_end(timings)
-
 		    Thread.pass
 		    timings[:pass] = Time.now
 
 		    # Take the time we passed in other threads into account
 		    sleep_time = cycle - (Time.now - timings[:start])
 		    if sleep_time > 0
+			timings[:expected_sleep] = Time.now + sleep_time
 			sleep(sleep_time) 
 			timings[:sleep] = Time.now
 		    end
@@ -317,14 +331,7 @@ module Roby
 
 		log << Marshal.dump(timings) if log
 		timings[:start] += cycle
-	    end
-
-	ensure
-	    if Thread.current == self.thread
-		# reset the options only if we are in the control thread
-		@thread = nil
-		GC.enable if control_gc && !already_disabled_gc
-		Control.finalizers.each { |blk| blk.call }
+		@cycle_index += 1
 	    end
 	end
 
@@ -345,6 +352,7 @@ module Roby
 	# wait for it to terminate
 	def join
 	    thread.join if thread
+
 	rescue Interrupt
 	    Roby.info "received interruption request"
 	    quit

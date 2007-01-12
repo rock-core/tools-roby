@@ -24,7 +24,7 @@ def timeval_to_s(t)
 end
 
 REF_TIMING = :start
-ALL_TIMINGS = [ :real_start, :server, :events, :events_exceptions, :structure_check, :structure_check_exceptions, :garbage_collect, :ruby_gc, :end, :pass, :sleep ]
+ALL_TIMINGS = [ :real_start, :server, :events, :events_exceptions, :structure_check, :structure_check_exceptions, :fatal_structure_errors, :garbage_collect, :ruby_gc, :end, :pass, :expected_sleep, :sleep ]
 
 if ARGV.empty?
     STDERR.puts "no file given on command line, reading stdin"
