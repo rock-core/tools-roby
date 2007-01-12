@@ -18,6 +18,9 @@ parser = OptionParser.new do |opts|
     end
 end
 parser.parse! ARGV
+if ARGV.empty?
+    STDERR.puts "no file given on command line, reading stdin"
+end
 
 def timeval_to_s(t)
     '%02i:%02i:%02i.%03i' % [t.tv_sec / 3600, t.tv_sec % 3600 / 60, t.tv_sec % 60, t.tv_usec / 1000]
@@ -26,10 +29,9 @@ end
 REF_TIMING = :start
 ALL_TIMINGS = [ :real_start, :server, :events, :events_exceptions, :structure_check, :structure_check_exceptions, :fatal_structure_errors, :garbage_collect, :ruby_gc, :end, :pass, :expected_sleep, :sleep ]
 
-if ARGV.empty?
-    STDERR.puts "no file given on command line, reading stdin"
-end
-begin
+cycle_size = Marshal.load(ARGF)
+
+def display_timings(do_cumulative)
     header = ([REF_TIMING] + ALL_TIMINGS).enum_for(:each_with_index).
        map { |n, i| "#{i + 1}_#{n}" }.
        join("\t")
@@ -64,3 +66,6 @@ begin
     end
 rescue EOFError
 end
+display_timings(do_cumulative)
+
+

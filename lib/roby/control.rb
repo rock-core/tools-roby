@@ -253,15 +253,19 @@ module Roby
 	    self.thread = Thread.current
 	    self.thread.priority = 10
 
-	    control_gc = options[:control_gc]
-	    if control_gc
+	    @quit = 0
+	    yield if block_given?
+
+	    cycle_length = options[:cycle]
+	    if control_gc = options[:control_gc]
 		already_disabled_gc = GC.disable
 		GC.force
 	    end
+	    if log = options[:log]
+		log << Marshal.dump(cycle_length)
+	    end
 
-	    @quit = 0
-	    yield if block_given?
-	    event_loop(options[:log], options[:cycle], control_gc)
+	    event_loop(log, cycle_length, control_gc)
 
 	ensure
 	    if Thread.current == self.thread
