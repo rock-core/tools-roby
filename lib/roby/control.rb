@@ -208,11 +208,12 @@ module Roby
 
 	    def call_every # :nodoc:
 		now = Time.now
-		process_every.each do |block, last_call, duration|
+		process_every.map! do |block, last_call, duration|
 		    if !last_call || (now - last_call) > duration
 			Propagation.gather_exceptions { block.call }
 			last_call = now
 		    end
+		    [block, last_call, duration]
 		end
 	    end
 	    Control.event_processing << Control.method(:call_every)
