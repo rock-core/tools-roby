@@ -658,6 +658,12 @@ module Roby::Distributed
 
 	rescue DRb::DRbConnError
 	    link_dead!
+	rescue RangeError
+	    # Looks like the remote side is not what we thought it was. It may be for instance that it died
+	    # and restarted. Whatever. Kill the connection
+	    @keepalive = nil
+	    disconnect
+	    disconnected!
 	end
 
 	# Disconnect this side of the connection. The remote host is supposed
