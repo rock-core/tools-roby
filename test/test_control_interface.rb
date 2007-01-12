@@ -2,7 +2,7 @@ require 'test_config'
 require 'flexmock'
 require 'mockups/tasks'
 
-require 'roby/control_interface'
+require 'roby'
 require 'roby/planning'
 
 class TC_Control < Test::Unit::TestCase 
@@ -69,6 +69,34 @@ class TC_Control < Test::Unit::TestCase
 	    Control.instance.process_events
 	    sleep(0.1)
 	end
+    end
+
+    URI="druby://localhost:9000"
+    def test_remote_interface
+	Roby.logger.level = Logger::DEBUG
+
+        # Start the event loop within a subprocess
+        reader, writer = IO.pipe
+        server_process = fork do
+            Roby::Control.instance.run(:drb => URI) do
+                writer.write "OK"
+	    end
+        end
+        reader.read 2
+
+        DRb.start_service
+        client = Roby::Client.new("druby://localhost:9000")
+        client.quit
+
+        assert_doesnt_timeout(10) do
+	    begin
+		Process.waitpid(server_process) 
+	    rescue Errno::ECHILD
+	    end
+	end
+
+    ensure
+        DRb.stop_service
     end
 end
 
