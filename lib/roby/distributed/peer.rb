@@ -542,7 +542,7 @@ module Roby::Distributed
 	    end
 
 	rescue Exception
-	    STDERR.puts "Communication thread dies with\n#{$!.full_message}"
+	    Roby::Distributed.fatal "Communication thread dies with\n#{$!.full_message}"
 
 	ensure
 	    @send_queue.clear
