@@ -165,7 +165,7 @@ module Roby::Distributed
 	    from = Time.now
 	    calls.each do |obj, args|
 		Roby::Distributed.debug { "processing #{obj}.#{args[0]}(#{args[1..-1].join(", ")})" }
-		Control.synchronize do
+		Roby::Control.synchronize do
 		    result << obj.send(*args)
 		end
 	    end
