@@ -1,6 +1,6 @@
 require 'thread'
-require 'roby/control'
-require 'roby/planning/task'
+require 'roby'
+require 'roby/planning'
 require 'facet/basicobject'
 
 module Roby

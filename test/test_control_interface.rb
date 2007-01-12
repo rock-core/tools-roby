@@ -2,8 +2,7 @@ require 'test_config'
 require 'flexmock'
 require 'mockups/tasks'
 
-require 'roby'
-require 'roby/planning'
+require 'roby/control_interface'
 
 class TC_Control < Test::Unit::TestCase 
     include RobyTestCommon
