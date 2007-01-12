@@ -432,8 +432,6 @@ module Roby::Distributed
 			peer.ping
 			# update the host state
 			peer.tuple = entry
-		    elsif peer.disconnecting?
-			Roby::Distributed.info "disconnecting from peer #{peer.remote_name}"
 		    end
 		elsif neighbour = connection_space.neighbours.find { |n| n.tuplespace == remote_ts }
 		    Roby::Distributed.info { "peer #{neighbour.name} asking for connection" }
