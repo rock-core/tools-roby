@@ -20,8 +20,8 @@ module DistributedTestCommon
     end
     def teardown
 	if remote_peer
-	    Control.instance.process_events
 	    apply_remote_command
+	    
 	    if remote_peer.connected?
 		remote_peer.disconnect
 		assert_doesnt_timeout(5, "watchdog failed") do
