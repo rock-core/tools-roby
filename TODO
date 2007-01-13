@@ -1,4 +1,8 @@
 == TODO
+* dynamic events. State prediction in both plan and transaction context: allow
+  to predict the effect of changing the value of dynamic events in transaction
+  context.
+
 * in #replace, use Hierarchy#fullfilled_events to check that
   all needed events are provided. If some are missing, use 
   define_event to try to add a new one dynamically
@@ -11,24 +15,12 @@
     (if not impossible) to know what to do. Having no solution for this problem
     reduces the usefulness of event handlers greatly.
 
-* add per-model arguments attribute for tasks, which gives the list
-  of expected arguments. These lists will then be used in fullfills?  checks.
-  realized_by will use them too: if we give only a model and no arguments,
-  initialize the argument list by taking only the needed arguments from the
-  provided task.
-
 * add a multiplicity parameter for hierarchy relations which tells
-  how many child task of a given kind are expected by the parent
-  task. Add a 'realized_by' transition for that. For instance, in
-  case of Pom::Localization, we can tell that the task expects at
-  least one Pom::Estimator. If the last estimator breaks, we can
-  repair the plan online by adding a transition.
-
-* a better synchronous event propagation based on continuations. When methods
-  like happened? are called in a propagation context, and we don't know the 
-  result yet (happened? = false), register a continuation and its dependency
-  on the event. Call the continuation when we propagated the other branches of
-  the context.
+  how many child task of a given kind are expected by the parent task. Add a
+  'realized_by' transition for that. For instance, in case of
+  Pom::Localization, we can tell that the task expects at least one
+  Pom::Estimator. If the last estimator breaks, we can repair the plan online
+  by adding a transition.
 
 * we NEED plan merging:
     - is we reuse a task which is already running, it should be transparent for
@@ -45,6 +37,20 @@
   of 3 cycles). Note however that connection should be subject to decision control, so the connection
   filtering should be done in the control thread ... Needs more thought.
 
+* a better synchronous event propagation scheme. Two parts:
+    1/ create a Precedence graph in which an edge a -> b exists if b depends on
+       a (signalled, forwarded, or constrainted to be "after"), then use this
+       graph during event propagation. The propagation mechanism will then sort
+       the current set of events according to this graph (kind of topological
+       sort) and propagate only the first on, then loop until there is no more
+       events to be called. Note that would properly fix all kinds of issues
+       regarding 'stop' not being called last, or non-terminal events called
+       *after* 'stop' while they are being called in the same cycle.
+    2/ when predicates like happened? are called in a propagation context, and
+       we don't know the result yet (happened? = false), register a continuation
+       and its dependency on the event. Include this continuation in the event set
+       and sort it accordingly. 
+
 * Check that we can fix the behaviour of #happened?(true) to return false when the event is already
   in history, but from the same propagation cycle. This would need to have a new propagation ID for
   each call to #event_propagation_step instead of only #event_propagation since each step is supposed
@@ -52,14 +58,7 @@
 
 * Check the capability we have to put every application block in transaction context. This would allow
   for instance to discard **all** plan modification done by an exception handler (or plan command, event
-  handler, you get ny drift) if an exception is raised. I think it would be a worthy feature
-
-* Implement our own marshalling mechanism for dRoby. The rules of this mechanism is to:
-    - marshall everything that is marshallable
-    - marshall all "global" model classes and all relations using their name
-      and unmarshall them using constant(). Alternatively, for task models,
-      send all the model ancestry so that we can select a more generic model if the
-      specific model is not available
+  handler, you get my drift) if an exception is raised. I think it would be a worthy feature
 
 
 * fix namings in Distributed. It is quite a mess now ...
@@ -112,4 +111,17 @@
     - no task is killed before all exception have been propagated. This ensures that all
       tasks are able to handle the provided exceptions
 
+* Implement our own marshalling mechanism for dRoby. The rules of this mechanism is to:
+    - marshall everything that is marshallable
+    - marshall all "global" model classes and all relations using their name
+      and unmarshall them using constant(). Alternatively, for task models,
+      send all the model ancestry so that we can select a more generic model if the
+      specific model is not available
 
+* add per-model arguments attribute for tasks, which gives the list
+  of expected arguments. These lists will then be used in fullfills?  checks.
+  realized_by will use them too: if we give only a model and no arguments,
+  initialize the argument list by taking only the needed arguments from the
+  provided task.
+
+ vim: tw=100
