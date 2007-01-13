@@ -13,7 +13,6 @@ class TC_DistributedConnection < Test::Unit::TestCase
     def setup
 	super
 	Distributed.allow_remote_access Distributed::Neighbour
-	Distributed.logger.level = Logger::DEBUG
     end
 
     def assert_has_neighbour(&check)

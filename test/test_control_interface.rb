@@ -72,8 +72,6 @@ class TC_Control < Test::Unit::TestCase
 
     URI="druby://localhost:9000"
     def test_remote_interface
-	Roby.logger.level = Logger::DEBUG
-
         # Start the event loop within a subprocess
         reader, writer = IO.pipe
         server_process = fork do

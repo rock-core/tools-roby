@@ -27,9 +27,6 @@ class TC_Control < Test::Unit::TestCase
 
 	Control.instance.abort_on_application_exception = true
 	assert_raises(RuntimeError) { Roby.application_error(:exceptions, Task, exception) }
-
-    ensure
-	Roby.logger.level = Logger::DEBUG
     end
 
     def test_event_loop

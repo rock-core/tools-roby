@@ -131,9 +131,6 @@ class TC_Exceptions < Test::Unit::TestCase
 	    Control.once { t2.start! }
 	    assert_raises(Aborting) { Control.instance.process_events }
 	end
-
-    ensure
-	Roby.logger.level = Logger::DEBUG
     end
 
     def test_linear_propagation

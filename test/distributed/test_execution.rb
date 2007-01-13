@@ -6,11 +6,6 @@ require 'flexmock'
 class TC_DistributedExecution < Test::Unit::TestCase
     include DistributedTestCommon
 
-    def teardown
-	Distributed.logger.level = Logger::DEBUG
-	super
-    end
-
     def test_event_status
 	peer2peer do |remote|
 	    class << remote
