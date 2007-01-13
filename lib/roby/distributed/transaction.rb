@@ -328,19 +328,24 @@ module Roby
 
 		# and subscribe the peer to all the local tasks
 		subscriptions.merge(proxies)
+		nil
 	    end
 
 	    def transaction_prepare_commit(trsc)
 		Roby::Control.once { peer.connection_space.transaction_prepare_commit(peer.proxy(trsc)) }
+		nil
 	    end
 	    def transaction_commit(trsc)
 		Roby::Control.once { peer.connection_space.transaction_commit(peer.proxy(trsc)) }
+		nil
 	    end
 	    def transaction_abandon_commit(trsc)
 		Roby::Control.once { peer.connection_space.transaction_abandon_commit(peer.proxy(trsc)) }
+		nil
 	    end
 	    def transaction_discard(trsc)
 		Roby::Control.once { peer.connection_space.transaction_discard(peer.proxy(trsc)) }
+		nil
 	    end
 	end
 

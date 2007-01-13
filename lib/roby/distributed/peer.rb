@@ -168,6 +168,7 @@ module Roby::Distributed
 		Roby::Control.synchronize do
 		    result << obj.send(*args)
 		end
+		Roby::Distributed.debug { "done, returns #{result.last}" }
 	    end
 	    Roby.debug "served #{calls.size} calls in #{Time.now - from} seconds"
 
@@ -193,15 +194,20 @@ module Roby::Distributed
 		triggered << task
 		peer.transmit(:triggered, id, task)
 	    end
+	    nil
 	end
 
 	# Remove the trigger +id+ defined by this peer
 	def remove_trigger(id)
 	    triggers.delete(id)
+	    nil
 	end
 
 	# The peer tells us that +task+ has triggered the notification +id+
-	def triggered(id, task); peer.triggered(id, task) end
+	def triggered(id, task)
+	    peer.triggered(id, task) 
+	    nil
+	end
 
 	def state_update(new_state)
 	    peer.state = new_state
@@ -360,6 +366,7 @@ module Roby::Distributed
 	        Roby::Distributed.debug { "received update from #{remote_name}: #{args[0]}.#{args[1]}(#{args[2..-1].join(", ")})" }
 	        args[0].send(*args[1..-1])
 	    end
+	    nil
 	end
 
 	def unmarshall_and_update(args)
@@ -537,8 +544,9 @@ module Roby::Distributed
 			error_count += 1
 		    else
 			calls = nil
-			@sending = !@send_queue.empty?
-			send_flushed.broadcast unless @sending
+			unless @sending = !@send_queue.empty?
+			    send_flushed.broadcast
+			end
 		    end
 
 		    if error_count > self.max_allowed_errors

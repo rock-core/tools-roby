@@ -220,10 +220,18 @@ module Roby
 
 	    def send_reply(stream, succ, result)  # :nodoc:
 		str = begin
-			  dump(succ) + dump(result, !succ)
+			  dumped_succ = dump(succ)
+			  dumped_rslt = dump(result, !succ)
+			  dumped_succ + dumped_rslt
 		      rescue
 			  backtrace = $!.backtrace
-			  new_exception = $!.exception($!.message + " calling #{@current_method[0]}.#{@current_method[1]}(#{@current_method[2..-1].join(", ")})}")
+			  new_exception = $!.exception($!.message + " returning from #{@current_method[0]}.#{@current_method[1]}(#{@current_method[2..-1].join(", ")})}")
+			  if dumped_succ
+			      Roby::Distributed.debug "failed to dump #{result}"
+			  else
+			      Roby::Distributed.debug "failed to dump #{succ}"
+			  end
+
 			  new_exception.set_backtrace(backtrace)
 			  dump(nil) + dump(new_exception, true)
 		      end

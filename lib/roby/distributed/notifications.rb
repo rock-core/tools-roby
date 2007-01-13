@@ -84,6 +84,7 @@ module Roby
 		known_tasks.each do |task|
 		    peer.subscribe(task)
 		end
+		nil
 	    end
 	    def plan_update(event, marshalled_plan, *args)
 		plan = peer.proxy(marshalled_plan)
@@ -104,6 +105,7 @@ module Roby
 			peer.unsubscribe(args[0])
 		    end
 		end
+		nil
 	    end
 
 	    def transaction_update(marshalled_plan, event, marshalled_trsc)
@@ -111,6 +113,7 @@ module Roby
 		if event == :removed_transaction
 		    trsc = peer.proxy(marshalled_trsc)
 		end
+		nil
 	    end
 	end
 	class Peer
@@ -177,14 +180,15 @@ module Roby
 		from_generator = peer.proxy(marshalled_from)
 		context        = peer.proxy(context)
 		Distributed.pending_fired << [from_generator, time, context]
+		nil
 	    end
 
 	    def event_add_propagation(only_forward, marshalled_from, marshalled_to, time, context)
 		from_generator = peer.proxy(marshalled_from)
 		to             = peer.proxy(marshalled_to)
 		context        = peer.proxy(context)
-		
 		Distributed.pending_signals << [only_forward, from_generator, to, time, context]
+		nil
 	    end
 	end
 
@@ -246,6 +250,7 @@ module Roby
 		Distributed.update([proxy]) do
 		    proxy.arguments.merge!(arguments || {})
 		end
+		nil
 	    end
 	end
     end
