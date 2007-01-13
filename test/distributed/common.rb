@@ -28,6 +28,7 @@ module DistributedTestCommon
 		    loop do
 			apply_remote_command
 			break if remote_peer.task.event(:stop).happened?
+			sleep(0.2)
 		    end
 		end
 
