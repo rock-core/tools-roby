@@ -78,8 +78,8 @@ module Roby
 	    end
 
 	    # Sends the transaction to +peer+. This must be done only once.
-	    def propose(peer)
-		peer.transaction_propose(self)
+	    def propose(peer, &block)
+		peer.transaction_propose(self, &block)
 	    end
 
 	    def discover(objects)
@@ -365,15 +365,14 @@ module Roby
 		    yield(marshalled_transaction) if block_given?
 		end
 	    end
-	    def transaction_propose(trsc)
+	    def transaction_propose(trsc, &block)
 		# What do we need to do on the remote side ?
 		#   - create a new transaction with the right owners
 		#   - create all needed transaction proxys. Transaction proxys
 		#     can apply on local and remote tasks
 		#   - create all needed remote proxys
 		#   - setup all relations
-		transaction_create(trsc) do |marshalled|
-		end
+		transaction_create(trsc, &block)
 	    end
 	end
     end
