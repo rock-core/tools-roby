@@ -325,7 +325,7 @@ module Roby
 	    loop do
 		tasks = unneeded_tasks | force_gc
 		did_something = false
-		tasks.find_all { |t| t.root?(@hierarchy) && service_relations.all? { |r| t.root?(r) } }.
+		tasks.find_all { |t| t.self_owned? && t.root?(@hierarchy) && service_relations.all? { |r| t.root?(r) } }.
 		    each do |t|
 			if t.starting?
 			    # wait for task to be started before killing it
