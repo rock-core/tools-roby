@@ -53,7 +53,13 @@ module Roby
         end
 
 	def self._load(io)
-	    members, aliases = Marshal.load(io)
+	    undumped = Marshal.load(io)
+
+	    marshalled_members, aliases = undumped
+	    members = marshalled_members.inject({}) do |h, (n, mv)|
+		h[n] = Marshal.load(mv)
+		h
+	    end
 
 	    result = ExtendedStruct.new
 	    result.instance_variable_set("@members", members)
@@ -62,7 +68,11 @@ module Roby
 	end
 
 	def _dump(lvl = -1)
-	    Marshal.dump([@members, @aliases])
+	    marshalled_members = @members.map do |name, value|
+		[name, Marshal.dump(value)] rescue nil
+	    end
+	    marshalled_members.compact!
+	    Marshal.dump([marshalled_members, @aliases])
 	end
 
 	attr_reader :children_class

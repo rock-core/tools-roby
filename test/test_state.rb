@@ -123,6 +123,7 @@ class TC_State < Test::Unit::TestCase
 	s = ExtendedStruct.new
 	s.value = 42
 	s.substruct.value = 24
+	s.invalid = Proc.new {}
 
 	s.on(:substruct) {}
 	s.filter(:value) { |v| Numeric === v }
@@ -132,5 +133,6 @@ class TC_State < Test::Unit::TestCase
 	assert_nothing_raised { s = Marshal.load(str) }
 	assert_equal(42, s.value)
 	assert_equal(24, s.substruct.value)
+	assert(!s.respond_to?(:invalid))
     end
 end
