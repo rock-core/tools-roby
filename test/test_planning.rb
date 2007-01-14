@@ -435,7 +435,7 @@ class TC_Planner < Test::Unit::TestCase
 	end
 
 	initial_planner = planner_model.new(plan)
-	loop_planner = PlanningLoop.new(0, 1, initial_planner, :task)
+	loop_planner = PlanningLoop.new(:period => 0, :lookahead => 1, :planner => initial_planner, :method_name => :task)
 	check_loop_planning_task(loop_planner, initial_planner, planner_model)
     end
 
@@ -445,14 +445,17 @@ class TC_Planner < Test::Unit::TestCase
 	    attr_reader :result_task
 	    method(:task) {  @result_task = SimpleTask.new }
 	    method(:my_looping_task) do
-		make_loop(0) do
+		make_loop(:period => 0, :child_argument => 2) do
+		    # arguments of 'my_looping_task' shall be forwarded
+		    raise unless arguments[:parent_argument] == 1
+		    raise unless arguments[:child_argument] == 2
 		    task
 		end
 	    end
 	end
 
 	initial_planner = planner_model.new(plan)
-	loop_planner = initial_planner.my_looping_task
+	loop_planner = initial_planner.my_looping_task(:parent_argument => 1)
 	check_loop_planning_task(loop_planner, initial_planner, planner_model)
     end
 end
