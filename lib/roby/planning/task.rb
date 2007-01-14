@@ -119,7 +119,7 @@ module Roby
 	    return if self.pending_patterns >= lookahead
 	    self.pending_patterns += 1
 
-	    planning = PlanningTask.new(planner_model, method_name, method_options)
+	    planning = PlanningTask.new(:planner_model => planner_model, :method_name => method_name, :method_options => method_options)
 	    planned  = planning.planned_task
 
 	    last_planning = last_planning_task
@@ -168,18 +168,35 @@ module Roby
 
     # An asynchronous planning task using Ruby threads
     class PlanningTask < Roby::Task
-        attr_reader :planner, :planner_model, :method_name, :method_options, :planned_model
-	attr_reader :transaction
+        attr_reader :planner_model, :method_name, :method_options, :planned_model
+	attr_reader :planner, :transaction
 
-        def initialize(planner_model, method, options)
-            super()
-	    @planner_model = planner_model
-            @method_name = method
-	    planning_options, @method_options = filter_options(options, [:planned_model])
+	argument :planner_model, :method_name, :method_options, :planned_model
 
-	    @planned_model = planning_options[:planned_model] || 
-		planner_model.model_of(method, options).returns ||
-		Task
+	def self.filter_options(options)
+	    task_options, method_options = Kernel.filter_options options,
+		:planner_model => nil,
+		:method_name => nil,
+		:method_options => {},
+		:planned_model => nil
+
+	    if !task_options[:planner_model]
+		raise ArgumentError, "missing required argument 'planner_model'"
+	    elsif !task_options[:method_name]
+		raise ArgumentError, "missing required argument 'method_name'"
+	    end
+	    [task_options, method_options]
+	end
+
+        def initialize(options)
+	    task_options, planning_options = PlanningTask.filter_options(options)
+            super(task_options)
+
+	    @planner_model, @method_name, @method_options, @planned_model =
+		task_options.values_at(:planner_model, :method_name, :method_options, :planned_model)
+
+	    @method_options.merge!(planning_options)
+	    @planned_model ||= planner_model.model_of(method_name, method_options).returns || Roby::Task
         end
 
 	def to_s

@@ -374,7 +374,7 @@ class TC_Planner < Test::Unit::TestCase
 	    method(:task) { result_task }
 	end
 
-	planning_task = PlanningTask.new(planner, :task, {})
+	planning_task = PlanningTask.new(:planner_model => planner, :method_name => :task)
 	planned_task = Task.new
 	planned_task.planned_by planning_task
 	plan.insert(planned_task)

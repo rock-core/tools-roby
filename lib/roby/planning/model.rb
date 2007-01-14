@@ -535,7 +535,7 @@ module Roby
                 elsif options[:lazy]
 		    task_model = singleton_class.model_of(name, options).returns
 		    task    = task_model.new
-		    planner = PlanningTask.new(self.class, name, options)
+		    planner = PlanningTask.new(:planner_model => self.class, :method_name => name, :method_options => options)
 		    task.planned_by planner
 		    return task
 		end

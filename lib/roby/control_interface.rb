@@ -94,7 +94,7 @@ module Roby
 	    # Create an abstract task which will be planned
 	    task = returns_model.new
 
-	    planner = PlanningTask.new(planner_model, name, options)
+	    planner = PlanningTask.new(:planner_model => planner_model, :method_name => name, :method_options => options)
 	    task.planned_by planner
 
 	    control.plan.insert(task)
