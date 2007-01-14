@@ -522,7 +522,7 @@ module Roby
         #
         def on(event_model, to_task = nil, *to_events, &user_handler)
             unless to_task || user_handler
-                raise ArgumentError, "Bad call for Task#on. You must provide at least one event or an event handler"
+                raise ArgumentError, "you must provide either a task or an event handler"
             end
 
             generator = event(event_model)
