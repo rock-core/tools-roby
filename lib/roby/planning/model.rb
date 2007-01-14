@@ -624,10 +624,16 @@ module Roby
 
 	    # Builds a loop in a plan (i.e. a method which is generated in
 	    # loop)
-	    def make_loop(repeat = 0, lookahead = 1, options = {}, &block)
-		m = self.class.method("loops", options, &block)
-		options = arguments.merge :id => m.id
-		PlanningLoop.new(repeat, lookahead, self, "loops", options)
+	    def make_loop(options = {}, &block)
+		options.merge! :planner => self, :method_name => 'loops'
+		_, planning_options = PlanningLoop.filter_options(options)
+
+		m = self.class.method("loops", planning_options, &block)
+
+		options[:method_options] ||= {}
+		options[:method_options].merge!(arguments)
+		options[:method_options][:id] = m.id
+		PlanningLoop.new(options)
 	    end
         end
 
