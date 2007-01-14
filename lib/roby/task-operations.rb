@@ -32,7 +32,7 @@ module Roby::TaskAggregator
 	event(:start,	:command => true)
 
 	attr_reader :tasks
-	def initialize; @tasks = Array.new; super end
+	def initialize(arguments = {}); @tasks = Array.new; super end
 	def each_task(&iterator)
 	    yield(self)
 	    tasks.each(&iterator) 
@@ -106,7 +106,7 @@ module Roby::TaskAggregator
 	end
 
 	attr_reader :success
-        def initialize
+        def initialize(arguments = {})
 	    super
 
 	    @success = Roby::AndGenerator.new
