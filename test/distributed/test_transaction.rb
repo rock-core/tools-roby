@@ -287,5 +287,33 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	# Commit the transaction
 	check_transaction_commit(trsc, task, r_task)
     end
+
+    def test_mixed_plan_commit
+	peer2peer do |remote|
+	    testcase = self
+	    remote.plan.insert(t1 = SimpleTask.new(:id => 1))
+	    remote.plan.discover(t2 = SimpleTask.new(:id => 2))
+	    t1.realized_by t2
+
+	    remote.class.class_eval do
+		define_method(:check_relation_remains) do
+		    t2.parents.include?(t1)
+		end
+	    end
+	end
+
+	trsc = Roby::Distributed::Transaction.new(plan)
+	trsc.self_owned
+	trsc.add_owner remote_peer
+	trsc.propose(remote_peer)
+	apply_remote_command
+
+	r_t2 = remote_peer.proxy(remote_task(:id => 2))
+	t = SimpleTask.new
+	trsc[t].realized_by trsc[r_t2]
+	trsc.commit_transaction
+
+	assert(remote.check_relation_remains)
+    end
 end
 
