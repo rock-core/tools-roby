@@ -30,7 +30,10 @@ module Roby
 
             def to_s
                 "cannot find a #{method_name}(#{method_options}) method\n" + 
-                    errors.inject("") { |s, (m, e)| s << "  in #{m}: #{e} (#{e.backtrace[0]})\n" }
+                    errors.inject("") do |s, (m, e)| 
+			error_message = e.message
+			s << "  #{e.backtrace[0]}:#{e.message} in #{m}\n  #{e.backtrace[1..-1].join("\n  ")}"
+		    end
             end
         end
 
@@ -576,7 +579,13 @@ module Roby
                 begin
                     @stack.push method.name
 		    Planning.debug { "calling #{method.name}:#{method.id} with arguments #{arguments}" }
-                    result = instance_eval(&method.body)
+		    begin
+			result = instance_eval(&method.body)
+		    rescue PlanModelError
+			raise
+		    rescue Exception => e
+			raise PlanModelError.new(self), e.message, e.backtrace
+		    end
 
 		    # Check that result is a task or a task collection
 		    unless result && (result.respond_to?(:to_task) || result.respond_to?(:each) || !result.respond_to?(:each_task))
