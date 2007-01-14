@@ -215,6 +215,16 @@ module Roby
 	    self
 	end
 
+	# Returns an event which is emitted +seconds+ seconds after this one
+	def delay(seconds)
+	    if seconds == 0 then self
+	    else
+		ev = EventGenerator.new(true)
+		on(ev, :delay => seconds)
+		ev
+	    end
+	end
+
 	def signal_once(signal = nil, time = nil, &handler)
 	    on(signal, time) { remove_signal(signal) }
 	end
