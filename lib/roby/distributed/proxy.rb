@@ -1,34 +1,6 @@
 require 'roby/distributed/objects'
 require 'roby/transactions/proxy'
 
-module Roby
-    class Plan; include Distributed::LocalObject end
-    class PlanObject
-	include Distributed::LocalObject
-	def read_only?; !Distributed.updating?([root_object]) && plan && !self.owners.subset?(plan.owners) end
-    end
-    class TaskEventGenerator
-	def read_only?; super && task.read_only? end
-	def owners; task.owners end
-	def distribute?; task.distribute? end
-	def has_sibling?; task.has_sibling? end
-    end
-    class Transactions::Task
-	def_delegator :@__getobj__, :owners
-	def_delegator :@__getobj__, :distribute?
-	def has_sibling?(peer)
-	    plan.has_sibling?(peer)
-	end
-    end
-    class Transactions::EventGenerator
-	def_delegator :@__getobj__, :owners
-	def_delegator :@__getobj__, :distribute?
-	def has_sibling?(peer)
-	    plan.has_sibling?(peer)
-	end
-    end
-end
-
 module Roby::Distributed
     @@proxy_model = Hash.new
 

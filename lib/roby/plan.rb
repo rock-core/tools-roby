@@ -31,6 +31,8 @@ module Roby
     #   * #finalized_event
     #
     class Plan
+	include Distributed::LocalObject
+
 	# The list of tasks that are included in this plan
 	attr_reader :known_tasks
 	# The list of missions in this plan

@@ -109,6 +109,11 @@ module Roby
         end
 
 	alias :root_object :task 
+
+	def read_only?; super && task.read_only? end
+	def owners; task.owners end
+	def distribute?; task.distribute? end
+	def has_sibling?; task.has_sibling? end
 	
 	# The plan this event is part of
 	def plan; task.plan end

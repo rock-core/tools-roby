@@ -1,4 +1,5 @@
 require 'roby/relations'
+require 'roby/distributed/objects'
 
 module Roby
     class PlanObject
@@ -46,6 +47,9 @@ module Roby
 	end
 
 	def root_object; self end
+
+	include Distributed::LocalObject
+	def read_only?; !Distributed.updating?([root_object]) && plan && !self.owners.subset?(plan.owners) end
     end
 end
 

@@ -350,5 +350,20 @@ module Roby::Transactions
 	    end
 	end
     end
+
+    class Task
+	def_delegator :@__getobj__, :owners
+	def_delegator :@__getobj__, :distribute?
+	def has_sibling?(peer)
+	    plan.has_sibling?(peer)
+	end
+    end
+    class EventGenerator
+	def_delegator :@__getobj__, :owners
+	def_delegator :@__getobj__, :distribute?
+	def has_sibling?(peer)
+	    plan.has_sibling?(peer)
+	end
+    end
 end
 
