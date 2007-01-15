@@ -212,20 +212,16 @@ module Roby
 		Marshal.dump(object)
 	    end
 
-	rescue
+	rescue Exception
 	    if allowed_remote_access?(object)
 		return Marshal.dump(make_proxy(object, error))
-	    elsif $!.kind_of?(TypeError) || $!.kind_of?(DRb::DRbConnError)
-		case $!.message
-		when /can't dump$/, /no marshal_dump/
-		    raise $!, "can't dump #{object.class}", $!.backtrace
-		when /singleton can't be dumped$/
-		    raise $!, "#{object.class} object can't be dumped because it has a singleton", $!.backtrace
-		else
-		    raise
-		end
 	    else
-		raise
+		case $!.message
+		when /while dumping/
+		    raise $!, "#{$!.message}\n  #{object}", $!.backtrace
+		else
+		    raise $!, "#{$!.message} while dumping\n  #{object}", $!.backtrace
+		end
 	    end
 	end
 
