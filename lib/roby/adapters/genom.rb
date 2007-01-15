@@ -58,40 +58,52 @@ module Roby::Genom
 	    attr_reader :timeout
 	end
 
+	argument :request_name
+
 	# The genom activity if the task is running, or nil
 	attr_reader :activity
 	# The abort activity if we are currently aborting, or nil
 	attr_reader :abort_activity
 
+	# The request object itself
+	attr_reader :request
+	attr_reader :request_name
+
 	# Creates a new Task object to map a Genom request
 	# +arguments+ is an array holding the request arguments. TypeError
 	# is raised if their type does not match the request type, and
 	# ArgumentError is raised if the argument count is wrong
-	def initialize(arguments, genom_request)
+	def initialize(arguments)
+	    @request_name = arguments[:request_name]
+
 	    super(arguments)
 
 	    # Check that +arguments+ are valid for genom_request
-	    genom_request.filter_input(genom_arguments)
-	    @request    = genom_request
+	    # No roby_module if we are building a remote proxy
+	    if self.class.respond_to?(:roby_module)
+		@request = roby_module.genom_module.request_info[request_name]
+		request.filter_input(genom_arguments)
 
-	    on(:stop) { @abort_activity = @activity = nil }
+		on(:stop) { @abort_activity = @activity = nil }
+	    end
 	end
 
 	def genom_arguments
-	    if arguments.has_key?(:request_options)
-		arguments[:request_options]
-	    else
-		arguments
-	    end
+	    genom_args = if arguments.has_key?(:request_options)
+			     arguments[:request_options].dup
+			 else arguments.dup
+			 end
+	    genom_args.delete(:request_name)
+	    genom_args
 	end
 
 	# Starts the request
 	def start(context = nil)
 	    args = genom_arguments
 	    if Hash === args
-		@activity = @request.call(args)
+		@activity = request.call(args)
 	    else
-		@activity = @request.call(*args)
+		@activity = request.call(*args)
 	    end
 	    start_polling
 	end
@@ -194,16 +206,14 @@ module Roby::Genom
 	define_task(rb_mod, klassname) do
 	    Class.new(RequestTask) do
 		singleton_class.class_eval do
-		    define_method(:roby_module)	    { rb_mod }
-		    define_method(:request_name)    { rq_name }
+		    define_method(:roby_module)	   { rb_mod }
+		    define_method(:request_name)   { rq_name }
 		end
-
-		class_attribute :request => gen_mod.request_info[method_name]
 
 		def initialize(arguments = {}) # :nodoc:
 		    arguments = Roby::Genom.arguments_genom_to_roby(arguments)
-
-		    super(arguments, self.class.request)
+		    arguments[:request_name] = self.class.request_name
+		    super(arguments)
 		end
 		
 		# requests need the module process
