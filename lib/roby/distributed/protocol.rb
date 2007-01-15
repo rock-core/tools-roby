@@ -165,7 +165,11 @@ module Roby
 		    model
 		elsif !ancestors.empty?
 		    parent_model = local_model(ancestors)
-		    model = Class.new(parent_model)
+		    model = Class.new(parent_model) do
+			singleton_class.class_eval do
+			    define_method(:name) { "AnonModel(#{name})" }
+			end
+		    end
 		    @@remote_to_local[id] = model
 		    @@local_to_remote[model] = [name, id]
 
