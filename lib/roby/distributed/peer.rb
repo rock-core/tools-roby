@@ -295,44 +295,51 @@ module Roby::Distributed
 	# Receive the list of relations of +object+. The relations are given in
 	# an array like [[graph, from, to, info], [...], ...]
 	def set_relations(object, relations)
-	    parents  = Hash.new { |h, k| h[k] = Array.new }
-	    children = Hash.new { |h, k| h[k] = Array.new }
+	    return unless object = peer.proxy(object)
+	    Roby::Distributed.update([object]) do
+		parents  = Hash.new { |h, k| h[k] = Array.new }
+		children = Hash.new { |h, k| h[k] = Array.new }
+		
+		# Add or update existing relations
+		relations.each do |graph, graph_relations|
+		    graph_relations.each do |args|
+			apply(args) do |from, to, info|
+			    if !from || !to
+				next
+			    elsif to == object
+				parents[graph]  << from
+			    elsif from == object
+				children[graph] << to
+			    else
+				raise ArgumentError, "trying to set a relation #{from.inspect} -> #{to.inspect} in which self(#{object.inspect}) in neither parent nor child"
+			    end
 
-	    object = peer.proxy(object)
-	    
-	    # Add or update existing relations
-	    relations.each do |graph, graph_relations|
-		graph_relations.each do |args|
-		    apply(args) do |from, to, info|
-			if to == object
-			    parents[graph]  << from
-			elsif from == object
-			    children[graph] << to
-			else
-			    raise ArgumentError, "trying to set a relation #{from} -> #{to} in which self(#{object}) in neither parent nor child"
-			end
-
-			if graph.linked?(from, to)
-			    from[to, graph] = info
-			else
-			    Roby::Distributed.update([from.root_object, to.root_object]) do
-				from.add_child_object(to, graph, info)
+			    if graph.linked?(from, to)
+				from[to, graph] = info
+			    else
+				Roby::Distributed.update([from.root_object, to.root_object]) do
+				    from.add_child_object(to, graph, info)
+				end
 			    end
 			end
 		    end
 		end
-	    end
 
-	    object.each_relation do |rel|
-		# Remove relations that do not exist anymore
-		(object.parent_objects(rel) - parents[rel]).each do |p|
-		    Roby::Distributed.update([p.root_object, object.root_object]) do
-			p.remove_child_object(object, rel)
+		enumerator = if object.respond_to?(:each_discovered_relation) then :each_discovered_relation
+			     else :each_relation
+			     end
+
+		object.send(enumerator) do |rel|
+		    # Remove relations that do not exist anymore
+		    (object.parent_objects(rel) - parents[rel]).each do |p|
+			Roby::Distributed.update([p.root_object, object.root_object]) do
+			    p.remove_child_object(object, rel)
+			end
 		    end
-		end
-		(object.child_objects(rel) - children[rel]).each do |c|
-		    Roby::Distributed.update([c.root_object, object.root_object]) do
-			object.remove_child_object(c, rel)
+		    (object.child_objects(rel) - children[rel]).each do |c|
+			Roby::Distributed.update([c.root_object, object.root_object]) do
+			    object.remove_child_object(c, rel)
+			end
 		    end
 		end
 	    end
@@ -361,7 +368,7 @@ module Roby::Distributed
 		    proxy
 		else o
 		end
-	    end
+	    end.compact
 	    Roby::Distributed.update(updating) do 
 		yield(args)
 	    end
