@@ -53,7 +53,7 @@ module Roby::Display
 		    next if display.hidden?(ev)
 
 		    dot << "    #{dot_id(ev)}[label=#{ev.symbol}];\n"
-		    cluster << dot_name(ev) if cluster.empty?
+		    cluster << dot_id(ev) if cluster.empty?
 		end
 		if cluster.empty?
 		    dot << "    #{task_id};"
@@ -81,7 +81,7 @@ module Roby::Display
 
 	    # Events that are not task events
 	    display.each_event(nil) do |ev|
-		dot << "#{dot_name(ev)}[label=#{ev.source_id}];\n"
+		dot << "#{dot_id(ev)}[label=#{ev.source_id}];\n"
 	    end
 
 	    plan_levels.clear
@@ -98,7 +98,7 @@ module Roby::Display
 	    end
 	    display.each_event_relation do |kind, from, to|
 		next if display.hidden?(from) || display.hidden?(to)
-		dot << "#{dot_name(from)} -> #{dot_name(to)};\n"
+		dot << "#{dot_id(from)} -> #{dot_id(to)};\n"
 	    end
 	    dot << "};\n"
 
