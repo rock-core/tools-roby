@@ -1,6 +1,5 @@
 $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
-require 'distributed/common.rb'
-require 'roby/distributed/transaction.rb'
+require 'distributed/common'
 require 'mockups/tasks'
 require 'flexmock'
 
@@ -25,8 +24,11 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	    def remote.new_task(kind, args)
 		new_task = kind.new(args)
 		yield(new_task) if block_given?
-		plan.insert(new_task)
+		plan.discover(new_task)
 		new_task
+	    end
+	    def remote.insert_task(task)
+		plan.insert(task)
 	    end
 	end
 
@@ -49,10 +51,13 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	    remote.new_task(SimpleTask, :id => 3)
 	    remote.new_task(Roby::Task, :id => 2)
-	    remote.new_task(SimpleTask, :id => 2) do |inserted|
+	    r2 = remote.new_task(SimpleTask, :id => 2) do |inserted|
 		mock.should_receive(:notified).with(remote_peer.proxy(inserted)).once.ordered
 		nil
 	    end
+	    apply_remote_command
+
+	    remote.insert_task(r2.remote_object)
 	    apply_remote_command
 	end
     end
@@ -73,7 +78,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	# Subscribe to the remote plan
 	remote_plan = remote_peer.remote_server.plan
-	remote_peer.subscribe(remote_plan)
+	remote_peer.subscribe(remote_plan.remote_object)
 	apply_remote_command
 
 	# Check that the remote plan has been mapped locally
@@ -122,7 +127,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	# Subscribe to the remote plan
 	remote_plan = remote_peer.remote_server.plan
-	remote_peer.subscribe(remote_plan)
+	remote_peer.subscribe(remote_plan.remote_object)
 	apply_remote_command
 	assert(remote_peer.subscribed?(remote_plan.remote_object), remote_peer.subscriptions)
 
@@ -207,7 +212,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	    end
 	end
 
-	remote_peer.subscribe(remote_peer.remote_server.plan)
+	remote_peer.subscribe(remote_peer.remote_server.plan.remote_object)
 	apply_remote_command
 	remote_peer.unsubscribe(remote_peer.remote_server.plan)
 	apply_remote_command

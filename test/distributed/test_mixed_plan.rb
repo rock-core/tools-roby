@@ -15,7 +15,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	r_task = remote_task(:id => 1)
 	p_task = remote_peer.proxy(r_task)
 
-	task = Task.new
+	task = Task.new(:id => 'local')
 	assert(p_task.read_only?)
 	assert(!task.read_only?)
 	assert(p_task.event(:start).read_only?)
@@ -24,10 +24,14 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	assert_raises(NotOwner) { task.event(:start).on p_task.event(:start) }
 	assert_nothing_raised { p_task.event(:start).on task.event(:start) }
 
+	assert_equal(local.plan, task.plan)
+
 	trsc = Distributed::Transaction.new(local.plan)
 	trsc.self_owned
 	trsc.add_owner remote_peer
 	trsc.propose(remote_peer)
+	apply_remote_command
+	remote_peer.subscribe(p_task)
 	apply_remote_command
 
 	trsc[p_task].realized_by trsc[task]

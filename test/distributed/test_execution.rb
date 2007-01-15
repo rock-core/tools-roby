@@ -29,8 +29,8 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	p_contingent = remote_peer.proxy(r_contingent)
 
 	remote.fire
-	remote_peer.subscribe(r_controlable)
-	remote_peer.subscribe(r_contingent)
+	remote_peer.subscribe(r_controlable.remote_object)
+	remote_peer.subscribe(r_contingent.remote_object)
 	apply_remote_command
 
 	assert(p_controlable.happened?)
@@ -53,18 +53,21 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	remote.create_task
 	r_task = remote_task(:id => 1)
 	p_task = remote_peer.proxy(r_task)
+	assert(!p_task.event(:start).happened?)
 
+	# Start the task *before* subscribing to test that
+	# #subscribe maps the task status
 	remote.start_task
-
-	remote_peer.subscribe(r_task)
+	apply_remote_command
+	remote_peer.subscribe(r_task.remote_object)
 	apply_remote_command
 
 	assert(p_task.event(:start).happened?)
 	assert(p_task.running?)
 
+	# Stop the task to see if the fired event is propagated
 	remote.stop_task
 	apply_remote_command
-
 	assert(p_task.event(:stop).happened?)
 	assert(p_task.finished?)
     end

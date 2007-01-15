@@ -1,7 +1,6 @@
 require 'test_config'
 require 'rinda/rinda'
-require 'roby/distributed/connection_space'
-require 'roby/distributed/proxy'
+require 'roby/distributed'
 
 module DistributedTestCommon
     include Rinda
