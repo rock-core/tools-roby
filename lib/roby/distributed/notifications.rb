@@ -88,15 +88,24 @@ module Roby
 	Plan.include PlanModificationHooks
 
 	class PeerServer
-	    NEW_TASK_EVENTS = [:insert, :discover]
-	    def set_plan(marshalled_plan, missions, known_tasks)
-		known_tasks.each do |task|
-		    peer.subscribe(task)
+	    # Called during a call to subscribe() to copy the state of the
+	    # remote plan locally
+	    def subscribed_plan(marshalled_plan, missions, known_tasks, relations)
+		plan = peer.proxy(marshalled_plan)
+		Distributed.update([plan]) do
+		    known_tasks.each { |t| peer.subscriptions << t.remote_object }
+		    demux_local(relations)
 		end
 		nil
 	    end
+
+	    # Notification of a plan modification. +event+ is the name of the
+	    # plan method which needs to be called, +marshalled_plan+ the plan
+	    # itself and +args+ the args to +event+
 	    def plan_update(event, marshalled_plan, *args)
 		plan = peer.proxy(marshalled_plan)
+
+		result = []
 		Distributed.update([plan]) do
 		    unmarshall_and_update(args) do |unmarshalled|
 			plan.send(event, *unmarshalled)
@@ -104,17 +113,19 @@ module Roby
 
 		    case event
 		    when :discover
-			args[0].each { |obj| peer.subscribe(obj) }
+			args[0].each { |obj| result << [:subscribe, obj.remote_object] }
 
 		    when :replace 
-			peer.unsubscribe(args[0])
-			peer.subscribe(args[1])
+			# +from+ will be unsubscribed when it is finalized
+			if peer.owns?(to) && !peer.subscribed?(to)
+			    result << [:subscribe, to.remote_object]
+			end
 
 		    when :remove_object
-			peer.unsubscribe(args[0])
+			result << [:unsubscribe, args[0].remote_object]
 		    end
 		end
-		nil
+		result.map! { |call| [peer.remote_server, call] }
 	    end
 
 	    def transaction_update(marshalled_plan, event, marshalled_trsc)
@@ -126,7 +137,11 @@ module Roby
 	    end
 	end
 	class Peer
-	    def plan_update(*args); transmit(:plan_update, *args) end
+	    def plan_update(*args)
+		transmit(:plan_update, *args) do |result|
+		    local.demux_local(result)
+		end
+	    end
 	    def transaction_update(*args); transmit(:transaction_update, *args) end
 	end
 

@@ -187,58 +187,19 @@ module Roby::Distributed
 	    nil
 	end
 
-	# The peer asked for subscription on +object+
-	def subscribe(object)
-	    object = peer.proxy(object)
-	    return if subscribed?(object)
-	    subscriptions << object
-
-	    case object
-	    when Roby::PlanObject
-		# Send event event if +result+ is empty, so that relations are
-		# removed if needed on the other side
-		relations = relations_of(object)
-		peer.transmit(:set_relations, object, relations)
-
-		if object.respond_to?(:each_event)
-		    object.each_event do |ev|
-			# Send event even if +result+ is empty, so that relations are
-			# removed if needed on the other side
-			relations = relations_of(ev)
-			peer.transmit(:set_relations, ev, relations)
-		    end
-		end
-
-	    when Roby::Transaction
-		peer.transmit(:set_plan, object, 
-		    object.missions(true).find_all { |t| t.distribute? }, 
-		    object.known_tasks(true).find_all { |t| t.distribute? })
-	    when Roby::Plan
-		peer.transmit(:set_plan, object, 
-		    object.missions.find_all { |t| t.distribute? }, 
-		    object.known_tasks.find_all { |t| t.distribute? })
-	    end
-
-	    nil
-	end
-
-	# The peer asks to be unsubscribed from +object+
-	def unsubscribe(object)
-	    subscriptions.delete(object)
-	    if object.respond_to?(:each_event)
-		object.each_event(&method(:unsubscribe))
-	    end
-	    nil
-	end
-
-	# Check if changes to +object+ should be notified to this peer
-	def subscribed?(object)
-	    subscriptions.include?(object)
-	end
-
+	# Relations to be sent to the remote host if +object+ is in a plan. The
+	# returned array if formatted as [ [graph, graph_edges], [graph, ..] ]
+	# where graph_edges is [[parent, child, data], ...]
 	def relations_of(object)
 	    result = []
-	    object.each_graph do |graph|
+	    # For transaction proxies, never send non-discovered relations to
+	    # remote hosts
+	    enumerate_with = if object.respond_to?(:each_discovered_relation)
+				 "each_discovered_relation"
+			     else "each_relation"
+			     end
+
+	    object.send(enumerate_with) do |graph|
 		next unless graph.distribute?
 
 		graph_edges = []
@@ -256,13 +217,76 @@ module Roby::Distributed
 	    result
 	end
 
+	# Returns the commands to be fed to #set_relations in order to copy
+	# the state of plan_object on the remote peer
+	#
+	# The returned relation sets can be empty if the plan object does not
+	# have any relations. Since the goal is to *copy* the graph relations...
+	def set_relations_commands(plan_object, relations = [])
+	    relations << [peer.remote_server, [:set_relations, plan_object, relations_of(plan_object)]]
+
+	    if plan_object.respond_to?(:each_event)
+		plan_object.each_event do |ev|
+		    # Send event even if +result+ is empty, so that relations
+		    # are removed if needed on the other side
+		    relations << [peer.remote_server, [:set_relations, ev, relations_of(ev)]]
+		end
+	    end
+	    relations
+	end
+
+	# Called by the peer to subscribe on +object+. Returns an array which
+	# is to be fed to #demux to update the object relations on the remote
+	# host
+	def subscribe(object)
+	    object = peer.proxy(object)
+	    return if subscribed?(object)
+	    subscriptions << object
+
+	    case object
+	    when Roby::PlanObject
+		set_relations_commands(object)
+
+	    when Roby::Plan
+		missions, tasks = if object.kind_of?(Roby::Transaction)
+				      [object.missions(true), object.known_tasks(true)]
+				  else
+				      [object.missions, object.known_tasks]
+				  end
+
+		missions.delete_if { |el| !el.distribute? }
+		tasks.delete_if { |el| !el.distribute? }
+
+		relations = tasks.inject([]) do |relations, t| 
+		    subscriptions << t
+		    set_relations_commands(t, relations)
+		end
+
+		[[peer.remote_server, [:subscribed_plan, object, missions, tasks, relations]]]
+	    end
+	end
+
+	# The peer asks to be unsubscribed from +object+
+	def unsubscribe(object)
+	    subscriptions.delete(object)
+	    if object.respond_to?(:each_event)
+		object.each_event(&method(:unsubscribe))
+	    end
+	    nil
+	end
+
+	# Check if changes to +object+ should be notified to this peer
+	def subscribed?(object)
+	    subscriptions.include?(object)
+	end
+
 	def apply(args)
 	    args = args.map do |a|
 		if peer.proxying?(a)
 		    peer.proxy(a)
 		else a
 		end
-	    end
+	    end.compact
 	    if block_given? then yield(args)
 	    else args
 	    end
@@ -636,15 +660,27 @@ module Roby::Distributed
 	# The set of objects we are subscribed to. This is a set of DRbObject
 	attribute(:subscriptions) { Set.new }
 
-	# Subscribe to +marshalled+. We will be notified of all the modifications
-	# that are done to +marshalled+
-	def subscribe(marshalled)
-	    transmit(:subscribe, marshalled.remote_object) do
-		subscriptions << marshalled.remote_object
+	# Subscribe to +marshalled+.	
+	def subscribe(remote_object)
+	    if remote_object.respond_to?(:remote_object)
+		remote_object = remote_object.remote_object(remote_id)
+	    end
+
+	    return if subscriptions.include?(remote_object)
+	    transmit(:subscribe, remote_object) do |ret|
+		subscriptions << remote_object
+		if ret
+		    error = nil
+		    Roby::Distributed.update([remote_object]) do
+			_, error = local.demux_local(ret)
+		    end
+		    raise error if error
+		end
+		yield if block_given?
 	    end
 	end
 
-	# True if we are subscribed to +remote_object+
+	# True if we are subscribed to +remote_object+ on the peer
 	def subscribed?(remote_object)
 	    subscriptions.include?(remote_object)
 	end

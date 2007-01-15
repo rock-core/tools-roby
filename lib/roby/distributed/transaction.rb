@@ -287,8 +287,7 @@ module Roby
 		trsc = Roby::Distributed::Transaction.new(plan, remote_trsc.owners)
 		trsc.remote_siblings[peer.remote_id] = remote_trsc.remote_object
 
-		# subscribe to the remote transaction to get updates
-		peer.subscribe(remote_trsc)
+		subscriptions << remote_trsc.remote_object
 		trsc
 	    end
 	    
@@ -348,19 +347,23 @@ module Roby
 		transmit(:transaction_create, trsc) do |marshalled_transaction|
 		    remote_transaction = marshalled_transaction.remote_object
 		    trsc.remote_siblings[remote_id] = remote_transaction
-		    # Subscribe to the remote transaction to get remote updates
-		    subscribe(marshalled_transaction)
+
 		    yield(marshalled_transaction) if block_given?
 		end
 	    end
-	    def transaction_propose(trsc, &block)
+	    def transaction_propose(trsc)
 		# What do we need to do on the remote side ?
 		#   - create a new transaction with the right owners
 		#   - create all needed transaction proxys. Transaction proxys
 		#     can apply on local and remote tasks
 		#   - create all needed remote proxys
 		#   - setup all relations
-		transaction_create(trsc, &block)
+		transaction_create(trsc) do |marshalled_transaction|
+		    subscriptions << marshalled_transaction.remote_object
+		    transmit(:demux, local.subscribe(trsc)) do
+			yield if block_given?
+		    end
+		end
 	    end
 	end
     end
