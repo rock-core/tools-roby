@@ -192,6 +192,11 @@ module Roby
 	    !(has_key?(key) && task.model.arguments.include?(key))
 	end
 
+	def dup; self.to_hash end
+	def to_hash
+	    inject({}) { |h, (k, v)| h[k] = v ; h }
+	end
+
 	def []=(key, value)
 	    if writable?(key)
 		updating
