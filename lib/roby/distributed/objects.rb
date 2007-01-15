@@ -77,6 +77,19 @@ module Roby
 		end
 	    end
 	    
+	    # Makes this transaction owned by the local DB. This is equivalent
+	    # to trsc.self_owned = true
+	    def self_owned; self.self_owned = true end
+
+	    # Adds or removes the local DB from the list of owners. This is
+	    # equivalent to calling add_peer(Distributed.state) and
+	    # remove_peer(Distributed.state)
+	    def self_owned=(flag)
+		if flag then add_owner(Distributed)
+		else remove_owner(Distributed)
+		end
+	    end
+	    
 	    def ==(other)
 		super || (other.kind_of?(DistributedObject) && 
 		    remote_siblings.any? { |peer_id, obj| other.remote_siblings[peer_id] == obj })

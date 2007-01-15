@@ -1,6 +1,6 @@
+require 'roby'
 require 'roby/distributed/objects'
 require 'roby/distributed/proxy'
-require 'roby/transactions'
 
 module Roby
     module Distributed
@@ -14,19 +14,7 @@ module Roby
 		super(plan)
 	    end
 
-	    # Returns true if the local DB owns this transaction
-	    def self_owned?; @owners.include?(Distributed) end
-	    # Makes this transaction owned by the local DB. This is equivalent
-	    # to trsc.self_owned = true
-	    def self_owned; self.self_owned = true end
-	    # Adds or removes the local DB from the list of owners. This is
-	    # equivalent to calling add_peer(Distributed.state) and
-	    # remove_peer(Distributed.state)
-	    def self_owned=(flag)
-		if flag then add_owner(Distributed)
-		else remove_owner(Distributed)
-		end
-	    end
+	    include DistributedObject
 
 	    # Add the Peer +peer+ to the list of owners
 	    def add_owner(peer, distributed = true)
