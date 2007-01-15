@@ -57,6 +57,8 @@ class Class
     def droby_dump
 	if ancestors.include?(Roby::Task) || ancestors.include?(Roby::EventGenerator)
 	    Roby::Distributed::DRobyModel.new(ancestors)
+	elsif ancestors.include?(Roby::Planning::Planner)
+	    DRbObject.new(self)
 	else
 	    raise "can't dump class #{self}"
 	end
