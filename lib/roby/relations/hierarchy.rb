@@ -70,6 +70,12 @@ module Roby::TaskStructure
 
 	    [model, arguments]
 	end
+
+	def remove_finished_children
+	    children.to_a.each do |child|
+		remove_child(child) if child.success?
+	    end
+	end
     end
 
     # Checks the structure of +plan+. It returns an array of ChildFailedError
