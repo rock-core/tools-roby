@@ -1,6 +1,8 @@
 require 'drb'
+require 'rinda/tuplespace'
 require 'utilrb/value_set'
-require 'roby/plan'
+
+require 'roby'
 
 class Array
     class DRoby

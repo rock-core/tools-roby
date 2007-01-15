@@ -1,4 +1,6 @@
 require 'rinda/rinda'
+require 'rinda/ring'
+
 require 'roby/distributed/protocol'
 
 #  This file contains extension to dRuby and Rinda classes which are needed to 

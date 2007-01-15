@@ -1,9 +1,10 @@
 require 'rinda/ring'
 require 'rinda/tuplespace'
-require 'roby/distributed/drb'
-require 'roby/distributed/peer'
 require 'utilrb/time/to_hms'
 require 'utilrb/kernel/options'
+
+require 'roby/distributed/drb'
+require 'roby/distributed/peer'
 
 module Roby
     module Distributed
