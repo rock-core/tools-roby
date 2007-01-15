@@ -157,8 +157,11 @@ module Roby
 			end
 		    end
 		else
-		    affected_objects = (known_tasks(true) | discovered_objects).map { |o| may_unwrap(o) }
-		    Distributed.update(affected_objects) { super() }
+		    proxy_objects = (known_tasks(true) | discovered_objects)
+		    plan_objects = proxy_objects.map { |o| may_unwrap(o) }
+		    Distributed.update(proxy_objects | plan_objects) do
+		       	super()
+		    end
 		end
 
 		self
