@@ -60,9 +60,10 @@ module Roby::Transactions
 	    end
 	end
 
-	def disable_proxying!
-	    @disable_proxying = true
-	end
+	def enable_proxying; plan.enable_proxying end
+	def disable_proxying; plan.disable_proxying end
+	def proxying?; plan.proxying? end
+
 	def discovered?(relation, written)
 	    if written
 		@discovered[relation]
@@ -71,7 +72,9 @@ module Roby::Transactions
 	    end
 	end
 	def discover(relation, mark)
-	    return if @disable_proxying
+	    return unless proxying?
+	    raise "transaction is freezed" if plan.freezed?
+
 	    if !relation
 		__getobj__.each_relation { |o| discover(o, mark) }
 		return
@@ -109,7 +112,7 @@ module Roby::Transactions
 	    def proxy_for(klass); Proxy.proxy_for(self, klass) end
 
 	    def proxy_code(m)
-		"return if @disable_proxying
+		"return unless proxying?
 		args = args.map(&plan.method(:may_unwrap))
 		result = if block_given?
 			     __getobj__.#{m}(*args) do |*objects| 

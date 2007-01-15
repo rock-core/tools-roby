@@ -12,8 +12,11 @@ module Roby
 	
 	# A transaction is not an executable plan
 	def executable?; false end
+	def freezed?; @freezed end
 
 	def do_wrap(object, do_include = false) # :nodoc:
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+
 	    object = proxy_objects[object] = Proxy.proxy_class(object).new(object, self)
 	    object.plan = self
 	    do_include(object) if do_include
@@ -89,6 +92,7 @@ module Roby
 
 	# Called when +relation+ has been discovered on +object+
 	def discovered_object(object, relation)
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    discovered_objects << object
 	    super if defined? super
 	end
@@ -182,6 +186,7 @@ module Roby
 	def insert(t); super(self[t, true]) end
 	def permanent(t); super(self[t, true]) end
 	def auto(t)
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if proxy = self[t, false]
 		super(proxy)
 	    end
@@ -193,6 +198,7 @@ module Roby
 	end
 
 	def discover(objects = nil)
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if !objects then super
 	    else super(self[objects, true])
 	    end
@@ -200,6 +206,7 @@ module Roby
 	end
 
 	def discard(t)
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if proxy = self[t, false]
 		super(proxy)
 	    end
@@ -211,6 +218,7 @@ module Roby
 	end
 
 	def remove_task(t)
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if proxy = self[t, false]
 		super(proxy)
 	    end
@@ -235,6 +243,7 @@ module Roby
 		raise ArgumentError, "invalid transaction"
 	    end
 
+	    freezed!
 	    auto_tasks.each { |t| plan.auto(t) }
 	    discarded_tasks.each { |t| plan.discard(t) }
 	    removed_tasks.each { |t| plan.remove_task(t) }
@@ -246,7 +255,6 @@ module Roby
 	    @free_events.each { |e| e.plan = self.plan unless e.kind_of?(Proxy) }
 
 	    discovered_objects.each { |proxy| proxy.commit_transaction }
-	    proxy_objects.each { |_, proxy| proxy.disable_proxying! }
 	    proxy_objects.each { |_, proxy| proxy.clear_relations  }
 
 	    # Call #insert and #discover *after* we have cleared relations
@@ -268,6 +276,10 @@ module Roby
 	end
 	def committed_transaction; super if defined? super end
 
+	def enable_proxying; @disable_proxying = false end
+	def disable_proxying; @disable_proxying = true end
+	def proxying?; !@freezed && !@disable_proxying end
+
 	# Discard all the modifications that have been registered 
 	# in this transaction
 	def discard_transaction
@@ -275,10 +287,8 @@ module Roby
 		raise ArgumentError, "there is still transactions on top of this one"
 	    end
 
-	    # Clear proxies
+	    freezed!
 	    proxy_objects.each { |_, proxy| proxy.discard_transaction }
-
-	    # Clear the underlying plan
 	    clear
 
 	    discarded_transaction
@@ -286,6 +296,10 @@ module Roby
 	    plan.removed_transaction(self)
 	end
 	def discarded_transaction; super if defined? super end
+
+	def freezed!
+	    @freezed = true
+	end
 
 	def clear
 	    discovered_objects.clear

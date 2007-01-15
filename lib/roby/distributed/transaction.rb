@@ -261,6 +261,7 @@ module Roby
 	    include DistributedObject
 
 	    def discover(relation, mark)
+		return unless proxying?
 		unless !mark || Distributed.updating?([self]) || owners.subset?(plan.owners)
 		    raise NotOwner, "transaction owners #{plan.owners.inspect} do not own #{self.to_s}: #{owners.inspect}"
 		end
@@ -324,6 +325,7 @@ module Roby
 
 	    def transaction_prepare_commit(trsc)
 		Roby::Control.once { peer.connection_space.transaction_prepare_commit(peer.proxy(trsc)) }
+		peer.proxy(trsc).freezed!
 		nil
 	    end
 	    def transaction_commit(trsc)
