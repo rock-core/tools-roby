@@ -426,7 +426,7 @@ module Roby
 
 	    def _dump(lvl)
 		super(Roby::Task) do |ary|
-		    Marshal.dump(ary << Roby::Distributed.dump(arguments) << mission)
+		    Marshal.dump(ary << Roby::Distributed.dump(arguments) << flags)
 		end
 	    end
 	
@@ -435,25 +435,33 @@ module Roby
 		return unless task.plan
 
 		is_mission = task.plan.mission?(task)
+		mission = flags[:mission]
 		if mission && !is_mission
 		    task.plan.insert(task)
 		elsif !mission && is_mission
 		    task.plan.discard(task)
 		end
 
+		flags = self.flags
+		task.instance_eval do
+		    @__started = flags[:started]
+		    @__finished = flags[:finished]
+		    @__success = flags[:success]
+		end
+
 		task.arguments.merge(arguments)
 	    end
 
-	    attr_reader :arguments, :mission
-	    def initialize(remote_name, remote_object, model, plan, arguments, mission)
+	    attr_reader :arguments, :flags
+	    def initialize(remote_name, remote_object, model, plan, arguments, flags)
 		super(remote_name, remote_object, model, plan)
-		@arguments, @mission = arguments, mission
+		@arguments, @flags = arguments, flags
 	    end
 	end
 	class Roby::Task
 	    def droby_dump
 		mission = self.plan.mission?(self) if plan
-		MarshalledTask.new(to_s, self, self.model, plan, arguments, mission)
+		MarshalledTask.new(to_s, self, self.model, plan, arguments, :mission => mission, :started => __started, :finished => __finished, :success => __success)
 	    end
 	end
 

@@ -1,4 +1,3 @@
-
 module Roby
     module Distributed
 	# Set of hooks to send Plan updates to remote hosts
@@ -197,20 +196,24 @@ module Roby
 	@pending_events  = Hash.new
 	class << self
 	    attr_reader :pending_events, :pending_fired, :pending_signals
+	    def distributed_fire_event(generator, time, context)
+		event = generator.new(context)
+		event.send(:time=, time)
+		if generator.respond_to?(:task)
+		    generator.task.update_task_status(event)
+		end
+		generator.fired(event)
+
+		event
+	    end
+
 	    def distributed_signals
 		pending_fired.get(true).each do |generator, time, context|
-		    event = generator.new(context)
-		    event.send(:time=, time)
-		    generator.fired(event)
-		    pending_events[[time, context]] = event
+		    pending_events[[time, context]] = distributed_fire_event(generator, time, context)
 		end
 
 		pending_signals.get(true).each do |only_forward, from_generator, to_generator, time, context|
-		    unless event = pending_events[[time, context]]
-			event = from_generator.new(context)
-			event.send(:time=, time)
-			from_generator.fired(event)
-		    end
+		    event = pending_events.delete([time, context]) || distributed_fire_event(from_generator, time, context)
 
 		    # Only add the signalling if we own +to+
 		    if to_generator.self_owned?

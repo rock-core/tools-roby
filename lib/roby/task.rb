@@ -475,6 +475,13 @@ module Roby
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} but the task is already running"
             end
 
+	    update_task_status(event)
+
+	    super if defined? super
+        end
+
+	# Call to update the task status because of +event+
+	def update_task_status(event)
 	    if event.symbol == :success
 		@__success = true
 	    elsif event.symbol == :start
@@ -485,9 +492,7 @@ module Roby
 		@final_event = event
 		@__finished = true
 	    end
-
-	    super if defined? super
-        end
+	end
         
 	# List of EventGenerator objects bound to this task
         attr_reader :bound_events
