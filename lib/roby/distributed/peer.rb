@@ -73,6 +73,7 @@ module Roby::Distributed
 	
 	def trigger(*objects)
 	    # If +object+ is a trigger, send the :triggered event but do *not*
+	    #
 	    # act as if +object+ was subscribed
 	    peers.each do |name, peer|
 		peer.local.trigger(*objects)
@@ -644,7 +645,6 @@ module Roby::Distributed
 		    if object_proxy.respond_to?(:execution_agent) && object_proxy.plan
 			connection_task = object_proxy.plan[self.task]
 			Roby::Distributed.update([object_proxy, connection_task]) do
-			    # Get the proxy plan
 			    object_proxy.executed_by connection_task
 			end
 		    end
@@ -672,10 +672,10 @@ module Roby::Distributed
 	    transmit(:discover_neighborhood, marshalled, distance)
 	end
 
+	# The set of objects we are subscribed to. This is a set of DRbObject
+	#
 	# DO NOT USE a ValueSet here. We use DRbObjects to track subscriptions
 	# on this side, and they must be compared using #==
-	
-	# The set of objects we are subscribed to. This is a set of DRbObject
 	attribute(:subscriptions) { Set.new }
 
 	# Subscribe to +marshalled+.	
