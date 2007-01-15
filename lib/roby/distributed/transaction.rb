@@ -87,9 +87,7 @@ module Roby
 
 	    def discovered_object(object, relation)
 		super if defined? super
-		if discovered_objects.include?(object)
-		    # first time the object is discovered. Subscribe our remote peers to it.
-		end
+
 	    end
 
 	    # Sends the provided command to all owners. If +ignore_missing+ is
@@ -302,33 +300,6 @@ module Roby
 
 		subscriptions << remote_trsc.remote_object
 		trsc
-	    end
-	    
-	    # Sets all tasks and all relations in +trsc+. This is only valid if the local
-	    # copy of +trsc+ is empty
-	    def transaction_set(remote_trsc, missions, tasks, free_events)
-		trsc = peer.proxy(remote_trsc)
-		unless trsc.empty?(true)
-		    raise ArgumentError, "#{trsc} is not empty"
-		end
-
-		proxies = []
-		missions.each do |marshalled_task| 
-		    task = peer.proxy(marshalled_task)
-		    trsc.insert(task)
-		    peer.subscribe(marshalled_task)
-		    proxies << task
-		end
-		tasks.each do |marshalled_task| 
-		    task = peer.proxy(marshalled_task)
-		    trsc.discover(task)
-		    peer.subscribe(marshalled_task)
-		    proxies << task
-		end
-
-		# and subscribe the peer to all the local tasks
-		subscriptions.merge(proxies)
-		nil
 	    end
 
 	    def transaction_prepare_commit(trsc)

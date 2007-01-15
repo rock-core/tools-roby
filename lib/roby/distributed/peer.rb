@@ -170,10 +170,6 @@ module Roby::Distributed
 	    nil
 	end
 
-	def state_update(new_state)
-	    peer.state = new_state
-	end
-
 	# Send the neighborhood of +distance+ hops around +object+ to the peer
 	def discover_neighborhood(object, distance)
 	    edges = object.neighborhood(distance)
