@@ -2,20 +2,23 @@ module Roby
     module Distributed
 	# Set of hooks to send Plan updates to remote hosts
 	module PlanModificationHooks
-	    def inserted(tasks)
+	    def inserted(task)
 		super if defined? super
-		return unless tasks.distribute?
-		unless Distributed.updating?([self])
-		    Distributed.trigger(*tasks)
+		return unless task.distribute? && task.self_owned?
+
+		unless Distributed.updating?([self]) || Distributed.updating?([task])
+		    Distributed.trigger(task)
 		    Distributed.each_subscribed_peer(self) do |peer|
-			peer.plan_update(:insert, self, tasks)
+			peer.plan_update(:insert, self, task)
 		    end
 		end
 	    end
 	    def discovered_tasks(tasks)
 		super if defined? super
-		unless Distributed.updating?([self])
-		    tasks = tasks.find_all { |t| t.distribute? }
+		unless Distributed.updating?([self]) || Distributed.updating?(tasks)
+		    tasks = tasks.find_all { |t| t.distribute? && t.self_owned? }
+		    return if tasks.empty?
+
 		    Distributed.trigger(*tasks)
 		    Distributed.each_subscribed_peer(self) do |peer|
 			peer.plan_update(:discover, self, tasks)
@@ -26,8 +29,9 @@ module Roby
 
 	    def discarded(task)
 		super if defined? super
-		return unless task.distribute?
-		unless Distributed.updating?([self])
+		return unless task.distribute? && task.self_owned?
+
+		unless Distributed.updating?([self]) || Distributed.updating?([task])
 		    Distributed.each_subscribed_peer(self) do |peer|
 			peer.plan_update(:discard, self, task)
 		    end
@@ -35,13 +39,18 @@ module Roby
 	    end
 	    def replaced(from, to)
 		super if defined? super
-		Distributed.each_subscribed_peer(from) do |peer|
-		    peer.plan_update(:replace, self, from, to)
+		if (from.distribute? && to.distribute) && (to.self_owned? || from.self_owned?)
+		    unless Distributed.updating?([self]) || Distributed.updating?([from, to])
+			Distributed.each_subscribed_peer(from) do |peer|
+			    peer.plan_update(:replace, self, from, to)
+			end
+		    end
 		end
 	    end
 	    def finalized_task(task)
 		super if defined? super
-		return unless task.distribute?
+		return unless task.distribute? && task.self_owned?
+
 		unless Distributed.updating?([self])
 		    Distributed.clean_triggered(task)
 		    Distributed.each_subscribed_peer(task) do |peer|
@@ -51,7 +60,8 @@ module Roby
 	    end
 	    def finalized_event(event)
 		super if defined? super
-		return unless event.distribute?
+		return unless event.distribute? && event.self_owned?
+
 		unless Distributed.updating?([self])
 		    Distributed.each_subscribed_peer(event) do |peer|
 			peer.plan_update(:remove_object, self, event)
