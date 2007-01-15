@@ -1,5 +1,5 @@
+require 'roby'
 require 'roby/distributed/objects'
-require 'roby/transactions/proxy'
 
 module Roby::Distributed
     @@proxy_model = Hash.new
@@ -130,6 +130,8 @@ module Roby::Distributed
 	    initialize_remote_proxy(peer, marshalled_object)
 	    super(marshalled_object.arguments)
 	    @name << "@#{peer.remote_name}"
+	rescue ArgumentError
+	    raise $!, $!.message + " (#{self.class.ancestors[1..-1]})", $!.backtrace
 	end
     end
 end
