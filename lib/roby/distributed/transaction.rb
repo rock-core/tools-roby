@@ -216,6 +216,8 @@ module Roby
 		    trsc
 		end
 
+		def to_s; "mdTransaction(#{remote_object.__drbref}/#{plan.remote_object.__drbref})" end
+
 		attr_reader :plan, :owners
 		def initialize(remote_object, plan, owners)
 		    super(remote_object)
@@ -241,6 +243,8 @@ module Roby
 		end
 		local_object
 	    end
+
+	    def to_s; "m(rtProxy(#{real_object}))" end
 
 	    attr_reader :remote_object, :real_object, :transaction
 	    def initialize(remote_object, real_object, transaction)

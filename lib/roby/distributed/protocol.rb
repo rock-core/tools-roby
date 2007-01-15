@@ -81,6 +81,8 @@ module Roby
 	    def self._load(str); new(Marshal.load(str)) end
 	    def proxy(peer); peer.connection_space.plan end
 
+	    def to_s; "m(Plan:0x#{Object.address_from_id(remote_object.__drbref).to_s(16)})" end
+
 	    attr_reader :remote_object
 	    def initialize(remote_object)
 		@remote_object = remote_object
@@ -327,6 +329,7 @@ module Roby
 	allow_remote_access Rinda::TupleEntry
 
 	class MarshalledPlanObject
+	    def to_s; "m(#{remote_name})" end
 	    def self.droby_load(str)
 		data = Marshal.load(str)
 		object  = data[1]		    # the remote object
@@ -340,7 +343,6 @@ module Roby
 		@remote_name, @remote_object, @model, @plan = 
 		    remote_name, remote_object, model, plan
 	    end
-	    def to_s; "tMarshalled(#{remote_name})" end
 	    def _dump(base_class)
 		remote_object = self.remote_object
 		remote_object = DRbObject.new(remote_object) unless remote_object.kind_of?(DRbObject)

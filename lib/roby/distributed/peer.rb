@@ -111,6 +111,8 @@ module Roby::Distributed
 	attr_reader :subscriptions
 	attr_reader :triggers
 
+	def to_s; "PeerServer:#{remote_name}" end
+
 	def initialize(peer)
 	    @peer	    = peer 
 	    @subscriptions  = ValueSet.new
@@ -394,6 +396,8 @@ module Roby::Distributed
 	attr_reader :neighbour
 	# The last 'keepalive' tuple we wrote on the neighbour's ConnectionSpace
 	attr_reader :keepalive
+
+	def to_s; "Peer:#{remote_name}" end
 
 	include MonitorMixin
 	attr_reader :send_flushed
