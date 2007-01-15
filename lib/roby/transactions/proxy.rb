@@ -229,13 +229,28 @@ module Roby::Transactions
 	discover_before :each_parent_object, false, 0
 	discover_before :clear_relations, true, nil
 
-	def commit_relations(enum, is_parent)
-	    relations.each do |rel|
-		next unless discovered?(rel, true)
+	def each_discovered_relation(written = true)
+	    if written
+		@discovered.each { |rel, w| yield(rel) if w }
+	    else
+		@discovered.each { |rel, w| yield(rel) if !w.nil? }
+	    end
+	end
 
-		trsc_others = enum_for(enum, rel).to_value_set
+	def commit_relations(enum, is_parent)
+	    each_discovered_relation(true) do |rel|
+		data = Hash.new
+		trsc_others = enum_for(enum, rel).
+		    map do |obj|
+			if is_parent then info = self[obj, rel]
+			else info = obj[self, rel]
+			end
+			unwrapped = plan.may_unwrap(obj)
+			data[unwrapped] = info
+			unwrapped
+		    end.to_value_set
+
 		plan_others = __getobj__.enum_for(enum, rel).
-		    map(&transaction.method(:[])).
 		    to_value_set
 
 		new = (trsc_others - plan_others)
@@ -243,17 +258,17 @@ module Roby::Transactions
 
 		if is_parent
 		    new.each do |other|
-			__getobj__.add_child_object(plan.may_unwrap(other), rel, self[other, rel])
+			__getobj__.add_child_object(other, rel, data[other])
 		    end
 		    del.each do |other|
-			__getobj__.remove_child_object(plan.may_unwrap(other), rel)
+			__getobj__.remove_child_object(other, rel)
 		    end
 		else
 		    new.each do |other|
-			plan.may_unwrap(other).add_child_object(__getobj__, rel, other[self, rel])
+			other.add_child_object(__getobj__, rel, data[other])
 		    end
 		    del.each do |other|
-			plan.may_unwrap(other).remove_child_object(__getobj__, rel)
+			other.remove_child_object(__getobj__, rel)
 		    end
 		end
 	    end
