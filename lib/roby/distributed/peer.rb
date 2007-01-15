@@ -1,14 +1,13 @@
-require 'roby/control'
-require 'roby/plan'
-require 'roby/query'
-require 'roby/distributed/notifications'
-require 'roby/distributed/proxy'
-require 'roby/relations/executed_by'
-require 'roby/transactions'
-require 'roby/state'
+require 'set'
 require 'utilrb/queue'
 require 'utilrb/array/to_s'
-require 'set'
+
+require 'roby'
+require 'roby/state'
+require 'roby/planning'
+require 'roby/distributed/notifications'
+require 'roby/distributed/proxy'
+require 'roby/distributed/communication'
 
 module Roby
     class Control; include DRbUndumped end
@@ -135,28 +134,6 @@ module Roby::Distributed
 	# The name of the remote peer
 	def remote_name; peer.remote_name end
 	
-	def demux(calls)
-	    result = []
-	    if !peer.connected?
-		raise DisconnectedError, "#{remote_name} is disconnected"
-	    end
-
-	    from = Time.now
-	    calls.each do |obj, args|
-		Roby::Distributed.debug { "processing #{obj}.#{args[0]}(#{args[1..-1].join(", ")})" }
-		Roby::Control.synchronize do
-		    result << obj.send(*args)
-		end
-		Roby::Distributed.debug { "done, returns #{result.last}" }
-	    end
-	    Roby.debug "served #{calls.size} calls in #{Time.now - from} seconds"
-
-	    [result, nil]
-
-	rescue Exception
-	    [result, $!]
-	end
-
 	# The plan object which is used as a facade for our peer
 	def plan; peer.connection_space.plan end
 
@@ -457,106 +434,7 @@ module Roby::Distributed
 	end
 
 	attr_reader :name, :max_allowed_errors, :task
-
-	def transmit(*args, &block)
-	    if !connected?
-		raise DisconnectedError, "we are not currently connected to #{remote_name}"
-	    end
-
-	    Roby::Distributed.debug { "queueing #{neighbour.name}.#{args[0]}" }
-	    @send_queue.push([[remote_server, args], block])
-	    @sending = true
-	end
-
-	def communication_loop # :nodoc:
-	    error_count = 0
-	    while calls ||= @send_queue.get
-		return unless connected?
-		while !link_alive?
-		    return unless connected?
-		    connection_space.wait_discovery
-		end
-
-		# Mux all calls into one array and send them
-		synchronize do
-		    calls += @send_queue.get(true)
-		    return unless connected?
-
-		    Roby::Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
-		    results, error = begin remote_server.demux(calls.map { |a| a.first })
-				     rescue Exception
-					 [[], $!]
-				     end
-		    success = results.size
-		    Roby::Distributed.debug { "#{neighbour.name} processed #{success} commands" }
-		    (0...success).each do |i|
-			if block = calls[i][1]
-			    block.call(results[i]) rescue nil
-			end
-		    end
-
-		    error_count = 0 if success > 0
-		    if error
-			Roby::Distributed.warn  do
-			    call = calls[success].first.map do |arg|
-				if arg.kind_of?(DRbObject) then arg.inspect
-				else arg.to_s
-				end
-			    end
-			    "#{remote_name} reports an error on #{call[0]}.#{call[1]}(#{call[2..-1].join(", ")}):\n#{error.full_message}"
-			end
-
-			case error
-			when DRb::DRbConnError
-			    Roby::Distributed.warn { "it looks like we cannot talk to #{neighbour.name}" }
-			    # We have a connection error, mark the connection as not being alive
-			    link_dead!
-			when DisconnectedError
-			    Roby::Distributed.warn { "#{neighbour.name} has disconnected" }
-			    # The remote host has disconnected, do the same on our side
-			    disconnected!
-			else
-			    Roby::Distributed.debug { "\n" + error.full_message }
-			end
-
-			calls = calls[success..-1]
-			error_count += 1
-		    else
-			calls = nil
-			unless @sending = !@send_queue.empty?
-			    send_flushed.broadcast
-			end
-		    end
-
-		    if error_count > self.max_allowed_errors
-			Roby::Distributed.fatal do
-				    "#{name} disconnecting from #{neighbour.name} because of too much errors"
-			end
-			disconnect
-		    end
-		end
-	    end
-
-	rescue Exception
-	    Roby::Distributed.fatal "Communication thread dies with\n#{$!.full_message}"
-
-	ensure
-	    @send_queue.clear
-	    synchronize do
-		@sending = nil
-		send_flushed.broadcast
-	    end
-	end
-
-	# Flushes all commands that are currently queued for this peer. Returns
-	# true if there were commands waiting, false otherwise
-	def flush
-	    synchronize do
-		return false unless @sending
-		send_flushed.wait
-	    end
-	    true
-	end
+	
 
 	# Creates a query object on the peer plan
 	def query
