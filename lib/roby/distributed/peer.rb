@@ -246,6 +246,9 @@ module Roby::Distributed
 	def subscribe(object)
 	    object = peer.proxy(object)
 	    return if subscribed?(object)
+	    unless object.self_owned?
+		raise "#{remote_name} is trying to subscribe to #{object} which is not owned by us"
+	    end
 	    subscriptions << object
 
 	    case object

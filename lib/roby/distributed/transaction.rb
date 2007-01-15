@@ -265,6 +265,14 @@ module Roby
 		unless !mark || Distributed.updating?([self]) || owners.subset?(plan.owners)
 		    raise NotOwner, "transaction owners #{plan.owners.inspect} do not own #{self.to_s}: #{owners.inspect}"
 		end
+
+		owners.each do |owner|
+		    peer = Distributed.peer(owner)
+		    if !peer.subscribed?(remote_object(owner))
+			raise "must subscribe to #{self} on #{peer} before changing it"
+		    end
+		end
+
 		super
 	    end
 	end
