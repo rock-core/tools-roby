@@ -39,27 +39,6 @@ module Roby::Distributed
     # The peer is disconnected
     class DisconnectedError < ConnectionError; end
 
-    class Roby::TaskMatcher
-	class Marshalled
-	    attr_reader :args
-	    def initialize(*args)
-		@args = args
-	    end
-
-	    def _dump(lvl)
-		Roby::Distributed.dump(args)
-	    end
-	    def self._load(str)
-		model, args, improves, needs = Marshal.load(str)
-		Roby::TaskMatcher.new.with_model(model).with_arguments(args || {}).
-		    which_improves(*improves).which_needs(*needs)
-	    end
-	end
-	def droby_dump
-	    Marshalled.new(model, arguments, improved_information, needed_information)
-	end
-    end
-
     # Performs a plan query on a remote plan. See Peer#query
     class RemoteQuery
 	attr_reader :peer, :matcher
