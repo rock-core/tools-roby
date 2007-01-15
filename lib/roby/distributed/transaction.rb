@@ -258,6 +258,7 @@ module Roby
 	end
 	module RemoteTransactionProxy
 	    include DistributedObject
+	    def has_sibling?(peer); plan.has_sibling?(peer) end
 
 	    def discover(relation, mark)
 		return unless proxying?
