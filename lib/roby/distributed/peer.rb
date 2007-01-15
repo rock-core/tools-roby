@@ -257,7 +257,11 @@ module Roby::Distributed
 
 	    case object
 	    when Roby::PlanObject
-		set_relations_commands(object)
+		result = []
+		if Roby::Transactions::Proxy === object
+		    result.concat(subscribe(object.__getobj__)) if object.__getobj__.self_owned?
+		end
+		result.concat(set_relations_commands(object))
 
 	    when Roby::Plan
 		missions, tasks = if object.kind_of?(Roby::Transaction)
@@ -272,6 +276,17 @@ module Roby::Distributed
 		relations = tasks.inject([]) do |relations, t| 
 		    subscriptions << t
 		    set_relations_commands(t, relations)
+		end
+
+		if object.kind_of?(Roby::Distributed::Transaction)
+		    # Search all proxies in +tasks+ and make sure the remote
+		    # host is subscribed to the tasks these proxies are
+		    # attached
+		    tasks.each do |t|
+			if Roby::Transactions::Proxy === t
+			    relations.concat(subscribe(t.__getobj__)) if t.__getobj__.self_owned?
+			end
+		    end
 		end
 
 		[[peer.remote_server, [:subscribed_plan, object, missions, tasks, relations]]]
