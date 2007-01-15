@@ -421,6 +421,7 @@ module Roby
 
 	    def proxy(peer)
 		task = peer.proxy(self.task)
+		return unless task.has_event?(symbol)
 		ev   = task.event(symbol)
 		if task.kind_of?(RemoteObjectProxy) && !ev.kind_of?(EventGeneratorProxy)
 		    ev.extend EventGeneratorProxy

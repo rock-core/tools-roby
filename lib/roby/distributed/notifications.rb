@@ -201,15 +201,15 @@ module Roby
 
 	class PeerServer
 	    def event_fired(marshalled_from, time, context)
-		from_generator = peer.proxy(marshalled_from)
+		return unless from_generator = peer.proxy(marshalled_from)
 		context        = peer.proxy(context)
 		Distributed.pending_fired << [from_generator, time, context]
 		nil
 	    end
 
 	    def event_add_propagation(only_forward, marshalled_from, marshalled_to, time, context)
-		from_generator = peer.proxy(marshalled_from)
-		to             = peer.proxy(marshalled_to)
+		return unless from_generator = peer.proxy(marshalled_from)
+		return unless to             = peer.proxy(marshalled_to)
 		context        = peer.proxy(context)
 		Distributed.pending_signals << [only_forward, from_generator, to, time, context]
 		nil

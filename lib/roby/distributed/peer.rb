@@ -240,7 +240,7 @@ module Roby::Distributed
 	# is to be fed to #demux to update the object relations on the remote
 	# host
 	def subscribe(object)
-	    object = peer.proxy(object)
+	    return unless object = peer.proxy(object)
 	    return if subscribed?(object)
 	    unless object.self_owned?
 		raise "#{remote_name} is trying to subscribe to #{object} which is not owned by us"
@@ -635,7 +635,7 @@ module Roby::Distributed
 		object = marshalled.remote_object
 		return object unless object.kind_of?(DRbObject)
 		unless object_proxy = @proxies[object]
-		    object_proxy = @proxies[object] = marshalled.proxy(self)
+		    return unless object_proxy = marshalled.proxy(self)
 
 		    if object_proxy.respond_to?(:execution_agent) && object_proxy.plan
 			connection_task = object_proxy.plan[self.task]

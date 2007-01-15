@@ -235,7 +235,8 @@ module Roby
 		Distributed.dump([DRbObject.new(remote_object), real_object, transaction])
 	    end
 	    def proxy(peer)
-		local_object = peer.proxy(transaction)[peer.proxy(real_object)]
+		return unless local_real = peer.proxy(real_object)
+		local_object = peer.proxy(transaction)[local_real]
 		if local_object.respond_to?(:remote_siblings)
 		    local_object.remote_siblings[peer.remote_id] = remote_object
 		end
