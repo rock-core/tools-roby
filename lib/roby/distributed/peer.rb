@@ -146,6 +146,8 @@ module Roby::Distributed
 	# +matcher+ changes
 	def add_trigger(id, matcher)
 	    triggers[id] = [matcher, (triggered = ValueSet.new)]
+	    Roby.info "#{remote_name} wants notification on #{matcher} (#{id})"
+
 	    matcher.each(plan) do |task|
 		triggered << task
 		peer.transmit(:triggered, id, task)
@@ -155,6 +157,7 @@ module Roby::Distributed
 
 	# Remove the trigger +id+ defined by this peer
 	def remove_trigger(id)
+	    Roby.info "#{remote_name} removed #{id} notification"
 	    triggers.delete(id)
 	    nil
 	end
@@ -552,7 +555,8 @@ module Roby::Distributed
 
 	    old.cancel if old
 
-	rescue DRb::DRbConnError
+	rescue DRb::DRbConnError => e
+	    Roby.debug "failed to ping #{remote_name}: #{e.full_message}"
 	    link_dead!
 	rescue RangeError
 	    # Looks like the remote side is not what we thought it was. It may be for instance that it died
