@@ -9,6 +9,10 @@ require 'roby/distributed/notifications'
 require 'roby/distributed/proxy'
 require 'roby/distributed/communication'
 
+class DRbObject
+    def to_s; inspect end
+end
+
 module Roby
     class Control; include DRbUndumped end
 end
