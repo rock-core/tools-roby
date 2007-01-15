@@ -128,6 +128,9 @@ module Roby::Distributed
 	def trigger(*objects)
 	    triggers.each do |id, (matcher, triggered)|
 		objects.each do |object|
+		    next if object.respond_to?(:__getobj__)
+		    next unless object.plan
+		    next unless object.self_owned? && object.plan.has_sibling?(peer)
 		    if !triggered.include?(object) && matcher === object
 			triggered << object
 			peer.transmit(:triggered, id, object)
