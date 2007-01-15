@@ -194,7 +194,7 @@ module Roby
 			finished_discovery.broadcast
 
 			if @discovery_start == @last_discovery
-			    Distributed.debug { "waiting next discovery start" }
+			    #Distributed.debug { "waiting next discovery start" }
 			    start_discovery.wait
 			end
 			return if @quit_neighbour_thread
@@ -207,27 +207,27 @@ module Roby
 
 		    from = Time.now
 		    if central_discovery?
-			Distributed.debug "doing centralized neighbour discovery"
+			#Distributed.debug "doing centralized neighbour discovery"
 			discovery_tuplespace.read_all([:host, nil, nil, nil]).
 			    each do |n| 
 				next if n[1] == tuplespace
 				n = Neighbour.new(n[3], n[1]) 
-				Distributed.debug { "found neighbour: #{n.name} #{n.tuplespace.inspect}" }
+				# Distributed.debug { "found neighbour: #{n.name} #{n.tuplespace.inspect}" }
 				discovered << n
 			    end
 		    end
 
 		    if discovery_period
 			remaining = (@discovery_start + discovery_period) - Time.now
-			Distributed.debug { "#{Integer(remaining * 1000)}ms left for discovery" }
+			#Distributed.debug { "#{Integer(remaining * 1000)}ms left for discovery" }
 		    end
 
 		    if ring_discovery?
-			Distributed.debug "doing RingServer neighbour discovery"
+			#Distributed.debug "doing RingServer neighbour discovery"
 			finger.lookup_ring(remaining) do |ts|
 			    next if ts == self
 
-			    Distributed.debug { "found neighbour: #{ts.name} #{ts}" }
+			    # Distributed.debug { "found neighbour: #{ts.name} #{ts}" }
 			    discovered << Neighbour.new(ts.name, ts)
 			end
 		    end
