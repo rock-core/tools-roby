@@ -102,7 +102,7 @@ module Roby
 	    # Notification of a plan modification. +event+ is the name of the
 	    # plan method which needs to be called, +marshalled_plan+ the plan
 	    # itself and +args+ the args to +event+
-	    def plan_update(event, marshalled_plan, *args)
+	    def plan_update(event, marshalled_plan, init_relations, args)
 		plan = peer.proxy(marshalled_plan)
 
 		result = []
@@ -113,19 +113,21 @@ module Roby
 
 		    case event
 		    when :discover
-			args[0].each { |obj| result << [:subscribe, obj.remote_object] }
+			args[0].each { |obj| peer.subscriptions << obj.remote_object }
 
 		    when :replace 
 			# +from+ will be unsubscribed when it is finalized
 			if peer.owns?(to) && !peer.subscribed?(to)
-			    result << [:subscribe, to.remote_object]
+			    peer.subscriptions << to.remote_object
 			end
 
 		    when :remove_object
-			result << [:unsubscribe, args[0].remote_object]
+			peer.subscriptions.delete(args[0].remote_object)
 		    end
+
+		    demux_local(init_relations)
 		end
-		result.map! { |call| [peer.remote_server, call] }
+		nil
 	    end
 
 	    def transaction_update(marshalled_plan, event, marshalled_trsc)
@@ -137,10 +139,17 @@ module Roby
 	    end
 	end
 	class Peer
-	    def plan_update(*args)
-		transmit(:plan_update, *args) do |result|
-		    local.demux_local(result)
+	    def plan_update(event, plan, *args)
+		init_relations = []
+		case event
+		when :discover
+		    args[0].find_all { |obj| obj.self_owned? }.
+			each { |obj| init_relations.concat(local.subscribe(obj)) }
+		when :remove_object
+		    local.unsubscribe(args[0]) if args[0].self_owned?
 		end
+
+	       	transmit(:plan_update, event, plan, init_relations, args)
 	    end
 	    def transaction_update(*args); transmit(:transaction_update, *args) end
 	end
@@ -154,7 +163,7 @@ module Roby
 		return if Distributed.updating?([self.root_object, child.root_object])
 		Distributed.trigger(self, child)
 		Distributed.each_subscribed_peer(self.root_object, child.root_object) do |peer|
-		    peer.transmit(:update_relation, [self, :add_child_object, child, type, info])
+		    peer.transmit(:update_relation, plan, [self, :add_child_object, child, type, info])
 		end
 	    end
 
@@ -165,7 +174,7 @@ module Roby
 		return if Distributed.updating?([self.root_object, child.root_object])
 		Distributed.trigger(self, child)
 		Distributed.each_subscribed_peer(self.root_object, child.root_object) do |peer|
-		    peer.transmit(:update_relation, [self, :remove_child_object, child, type])
+		    peer.transmit(:update_relation, plan, [self, :remove_child_object, child, type])
 		end
 	    end
 	end
