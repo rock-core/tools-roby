@@ -187,7 +187,7 @@ module Roby::Distributed
 	    # Replace the relation graphs by their name
 	    edges.map! do |rel, from, to, info|
 		next unless rel.distribute? && from.distribute? && to.distribute?
-		[peer.remote_server, [:update_relation, [from, :add_child_object, to, rel, info]]]
+		[peer.remote_server, [:update_relation, object.plan, [from, :add_child_object, to, rel, info]]]
 	    end
 	    peer.transmit(:demux, edges)
 	    nil
@@ -357,10 +357,14 @@ module Roby::Distributed
 	end
 
 	# Receive an update on the relation graphs
-	def update_relation(args)
-	    unmarshall_and_update(args) do |args|
-	        Roby::Distributed.debug { "received update from #{remote_name}: #{args[0]}.#{args[1]}(#{args[2..-1].join(", ")})" }
-	        args[0].send(*args[1..-1])
+	def update_relation(plan, args)
+	    if plan
+		Roby::Distributed.update([peer.proxy(plan)]) { update_relation(nil, args) }
+	    else
+		unmarshall_and_update(args) do |args|
+		    Roby::Distributed.debug { "received update from #{remote_name}: #{args[0]}.#{args[1]}(#{args[2..-1].join(", ")})" }
+		    args[0].send(*args[1..-1])
+		end
 	    end
 	    nil
 	end
@@ -446,7 +450,10 @@ module Roby::Distributed
 	    end
 
 	    (connection_space.peers.keys - seen).each do |disconnected| 
-		next if connection_space.peers[disconnected].connecting?
+		if connection_space.peers[disconnected].connecting?
+		    Roby::Distributed.info "waiting for peer #{connection_space.peers[disconnected].remote_name} to connect"
+		    next
+		end
 
 		Roby::Distributed.debug { "peer #{connection_space.peers[disconnected].remote_name} disconnected" }
 		connection_space.peers[disconnected].disconnected!
@@ -566,6 +573,7 @@ module Roby::Distributed
 	rescue DRb::DRbConnError => e
 	    Roby.debug "failed to ping #{remote_name}: #{e.full_message}"
 	    link_dead!
+
 	rescue RangeError
 	    # Looks like the remote side is not what we thought it was. It may be for instance that it died
 	    # and restarted. Whatever. Kill the connection
