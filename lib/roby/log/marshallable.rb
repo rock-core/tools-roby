@@ -107,7 +107,7 @@ module Roby
 	    # Address of the real object
 	    def source_address; Object.address_from_id(source_id) end
 	    # Name of the real object
-	    attr_reader :name
+	    def name; (@name || "").gsub(/(?:\{[^+|]+\})?:0x[0-9a-f]+/, '') end
 	    def to_s; name || "#{source_class}:0x#{Object.address_from_id(source_id).to_s(16)}" end
 
 	    def permanent?; false end
