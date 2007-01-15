@@ -56,9 +56,9 @@ module Roby::Propagation
     Roby::Control.event_processing << Roby::Propagation.method(:execute_delayed_events)
 
     # Begin an event propagation stage
-    def self.gather_propagation
+    def self.gather_propagation(initial_set = Hash.new)
 	raise "nested call to #gather_propagation" if gathering?
-	Thread.current[:propagation] = Hash.new
+	Thread.current[:propagation] = initial_set
 	Thread.current[:current_propagation_set] ||= Hash.new
 
 	propagation_context(nil) { yield }
@@ -190,61 +190,69 @@ module Roby::Propagation
 	timeref = Time.now
 
 	Thread.current[:current_propagation_set] = current_step
-	gather_propagation do
-	    terminals, other = current_step.partition { |signalled, _| signalled.respond_to?(:terminal?) && signalled.terminal? }
-	    current_step = other + terminals
 
-	    # Note that internal signalling does not need a #call
-	    # method (hence the respond_to? check). The fact that the
-	    # event can or cannot be fired is checked in #fire (using can_signal?)
-	    current_step.each do |signalled, (forward, *info)|
-		sources, context = [], []
-		
-		# Will be set to false if there is one immediate propagation
-		delayed = true
-		info.each_slice(3) do |src, ctxt, time|
-		    if time && (delay = make_delay(timeref, src, signalled, time))
-			add_event_delay(delay, forward, src, signalled, ctxt)
-			next
-		    end
-
-		    delayed = false
-
-		    # Merge identical signals. Needed because two different event handlers
-		    # can both call #emit, and two signals are set up
-		    next if src && sources.include?(src)
-
-		    sources << src if src
-		    context << ctxt if ctxt
-		end
-		context = *context
-		next if delayed
-
-		if !forward && signalled.controlable?
-		    sources.each { |source| source.generator.signalling(source, signalled) }
-		else
-		    sources.each { |source| source.generator.forwarding(source, signalled) }
-		end
-
-		if already_seen.include?(signalled) && !(forward && signalled.pending?) 
-		    # Do not fire the same event twice in the same propagation cycle
-		    next unless signalled.propagation_mode == :always_call
-		end
-
-		did_call = false
-		propagation_context(sources) do |result|
-		    gather_exceptions(signalled) do
-			if !forward && signalled.controlable?
-			    did_call = signalled.call_without_propagation(context) 
-			else
-			    did_call = signalled.emit_without_propagation(context)
-			end
-		    end
-		end
-
-		already_seen << signalled if did_call
+	terminal, other = nil
+	current_step.each do |signalled, _| 
+	    if signalled.respond_to?(:terminal?) && signalled.terminal?
+		terminal = signalled
+	    else
+		other = signalled
+		break
 	    end
 	end
+
+	signalled = other || terminal
+	forward, *info = current_step.delete(signalled)
+
+	sources, context = [], []
+
+	# Will be set to false if there is one immediate propagation
+	delayed = true
+	info.each_slice(3) do |src, ctxt, time|
+	    if time && (delay = make_delay(timeref, src, signalled, time))
+		add_event_delay(delay, forward, src, signalled, ctxt)
+		next
+	    end
+
+	    delayed = false
+
+	    # Merge identical signals. Needed because two different event handlers
+	    # can both call #emit, and two signals are set up
+	    next if src && sources.include?(src)
+
+	    sources << src if src
+	    context << ctxt if ctxt
+	end
+	context = *context
+	return current_step if delayed
+
+	if !forward && signalled.controlable?
+	    sources.each { |source| source.generator.signalling(source, signalled) }
+	else
+	    sources.each { |source| source.generator.forwarding(source, signalled) }
+	end
+
+	if already_seen.include?(signalled) && !(forward && signalled.pending?) 
+	    # Do not fire the same event twice in the same propagation cycle
+	    return current_step unless signalled.propagation_mode == :always_call
+	end
+
+	next_step = gather_propagation(current_step) do
+	    did_call = false
+	    propagation_context(sources) do |result|
+		gather_exceptions(signalled) do
+		    if !forward && signalled.controlable?
+			did_call = signalled.call_without_propagation(context) 
+		    else
+			did_call = signalled.emit_without_propagation(context)
+		    end
+		end
+	    end
+
+	    already_seen << signalled if did_call
+	end
+
+	current_step.merge!(next_step)
     end
 
     # Performs exception propagation for the given ExecutionException objects
