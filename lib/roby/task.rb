@@ -289,7 +289,7 @@ module Roby
         def initialize(arguments = nil) #:yields: task_object
 	    @arguments = TaskArguments.new(self).merge(arguments || {})
             @bound_events = Hash.new
-	    @name = "#{model.name}#{arguments.to_s}:0x#{address.to_s(16)}"
+	    @name = "#{model.name || self.class.name}#{arguments.to_s}:0x#{address.to_s(16)}"
 
             yield self if block_given?
 
