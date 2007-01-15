@@ -310,13 +310,11 @@ module Roby
 
 	# True if +task+ can be GCed once it is not useful
 	def self.can_gc?(task)
-	    if task.starting?
-		# wait for the task to be started before deciding ...
-		return true
+	    if !task.self_owned? then false
+	    elsif task.starting? then true # wait for the task to be started before deciding ...
 	    elsif task.running? && !task.finishing?
 		task.event(:stop).controlable?
-	    else
-		true
+	    else true
 	    end
 	end
 
