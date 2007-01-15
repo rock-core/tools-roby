@@ -683,13 +683,10 @@ module Roby::Distributed
 	    return if subscriptions.include?(remote_object)
 	    transmit(:subscribe, remote_object) do |ret|
 		subscriptions << remote_object
-		if ret
-		    error = nil
-		    Roby::Distributed.update([remote_object]) do
-			_, error = local.demux_local(ret)
-		    end
-		    raise error if error
+		Roby::Distributed.update([remote_object]) do
+		    local.demux_local(ret)
 		end
+
 		yield if block_given?
 	    end
 	end
