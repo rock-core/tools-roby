@@ -247,21 +247,40 @@ module Roby::Distributed
 	# Called by the peer to subscribe on +object+. Returns an array which
 	# is to be fed to #demux to update the object relations on the remote
 	# host
+	#
+	# In case of distributed transaction, it is forbidden to subscribe to a
+	# proxy without having subscribed to the proxied object first. This
+	# method will thus subscribe to both at the same time. Peer#subscribe
+	# is supposed to do the same
+	def subscribe_plan_object(object, init_relations)
+	    subscriptions << object
+
+	    if Roby::Transactions::Proxy === object && object.__getobj__.self_owned?
+		init_relations.concat(subscribe(object.__getobj__)[1])
+	    end
+	    init_relations.concat(set_relations_commands(object))
+	end
+
+	# Subscribe the remote peer to changes on +object+. +object+ must be
+	# an object owned locally.
+	#
+	# Returns a [subscribed, init] pair, where +subscribed+ is the set of
+	# objects actually added to the list of subscriptions, and +init+ an
+	# array which is to be fed to PeerServer#demux_local by the caller.
 	def subscribe(object)
 	    return unless object = peer.proxy(object)
 	    return if subscribed?(object)
 	    unless object.self_owned?
 		raise "#{remote_name} is trying to subscribe to #{object} which is not owned by us"
 	    end
+
+	    old_subscriptions = subscriptions.dup
 	    subscriptions << object
 
+	    init = []
 	    case object
 	    when Roby::PlanObject
-		result = []
-		if Roby::Transactions::Proxy === object
-		    result.concat(subscribe(object.__getobj__)) if object.__getobj__.self_owned?
-		end
-		result.concat(set_relations_commands(object))
+		subscribe_plan_object(object, init)
 
 	    when Roby::Plan
 		missions, tasks = if object.kind_of?(Roby::Transaction)
@@ -270,27 +289,19 @@ module Roby::Distributed
 				      [object.missions, object.known_tasks]
 				  end
 
-		missions.delete_if { |el| !el.distribute? }
-		tasks.delete_if { |el| !el.distribute? }
+		missions.delete_if { |t| !t.distribute? }
+		tasks.delete_if    { |t| !t.distribute? }
+		init << 
+		    [peer.remote_server, [:subscribed_plan, object, missions, tasks]]
 
-		relations = tasks.inject([]) do |relations, t| 
-		    subscriptions << t
-		    set_relations_commands(t, relations)
-		end
-
-		if object.kind_of?(Roby::Distributed::Transaction)
-		    # Search all proxies in +tasks+ and make sure the remote
-		    # host is subscribed to the tasks these proxies are
-		    # attached
-		    tasks.each do |t|
-			if Roby::Transactions::Proxy === t
-			    relations.concat(subscribe(t.__getobj__)) if t.__getobj__.self_owned?
-			end
-		    end
-		end
-
-		[[peer.remote_server, [:subscribed_plan, object, missions, tasks, relations]]]
+		tasks.each { |t| subscribe_plan_object(t, init) }
 	    end
+	    [subscriptions - old_subscriptions, init]
+	end
+
+	# Called by the remote peer to announce that is has subscribed us to +objects+
+	def subscribed(objects)
+	    peer.subscriptions.merge(objects.map { |obj| obj.remote_object })
 	end
 
 	# The peer asks to be unsubscribed from +object+
@@ -711,10 +722,10 @@ module Roby::Distributed
 	    end
 
 	    return if subscriptions.include?(remote_object)
-	    transmit(:subscribe, remote_object) do |ret|
-		subscriptions << remote_object
-		Roby::Distributed.update([remote_object]) do
-		    local.demux_local(ret)
+	    transmit(:subscribe, remote_object) do |subscribed, init_relations|
+		subscriptions.merge(subscribed.map { |obj| obj.remote_object })
+		Roby::Distributed.update(subscribed) do
+		    local.demux_local(init_relations)
 		end
 
 		yield if block_given?

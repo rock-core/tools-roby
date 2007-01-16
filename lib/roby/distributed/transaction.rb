@@ -350,9 +350,10 @@ module Roby
 		#   - setup all relations
 		transaction_create(trsc) do |marshalled_transaction|
 		    subscriptions << marshalled_transaction.remote_object
-		    transmit(:demux, local.subscribe(trsc)) do
-			yield if block_given?
-		    end
+
+		    subscribed, init = local.subscribe(trsc)
+		    init.unshift [remote_server, [:subscribed, subscribed]]
+		    transmit(:demux, init) { yield if block_given? }
 		end
 	    end
 	end

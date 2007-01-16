@@ -90,11 +90,13 @@ module Roby
 	class PeerServer
 	    # Called during a call to subscribe() to copy the state of the
 	    # remote plan locally
-	    def subscribed_plan(marshalled_plan, missions, known_tasks, relations)
+	    def subscribed_plan(marshalled_plan, missions, known_tasks)
 		plan = peer.proxy(marshalled_plan)
 		Distributed.update([plan]) do
-		    known_tasks.each { |t| peer.subscriptions << t.remote_object }
-		    demux_local(relations)
+		    known_tasks.each do |t| 
+			peer.subscriptions << t.remote_object
+			plan.discover(peer.proxy(t))
+		    end
 		end
 		nil
 	    end
@@ -102,7 +104,7 @@ module Roby
 	    # Notification of a plan modification. +event+ is the name of the
 	    # plan method which needs to be called, +marshalled_plan+ the plan
 	    # itself and +args+ the args to +event+
-	    def plan_update(event, marshalled_plan, init_relations, args)
+	    def plan_update(event, marshalled_plan, args)
 		plan = peer.proxy(marshalled_plan)
 
 		result = []
@@ -124,8 +126,6 @@ module Roby
 		    when :remove_object
 			peer.subscriptions.delete(args[0].remote_object)
 		    end
-
-		    demux_local(init_relations)
 		end
 		nil
 	    end
@@ -140,16 +140,23 @@ module Roby
 	end
 	class Peer
 	    def plan_update(event, plan, *args)
-		init_relations = []
 		case event
 		when :discover
+		    subscribed, init = Set.new, []
 		    args[0].find_all { |obj| obj.self_owned? }.
-			each { |obj| init_relations.concat(local.subscribe(obj)) }
+			each do |obj| 
+			    new_subscribed, new_init = local.subscribe(obj)
+			    subscribed.merge(new_subscribed)
+			    init.concat(new_init)
+			end
+		    init.unshift [remote_server, [:subscribed, subscribed]]
+		    transmit(:demux, init)
+
 		when :remove_object
 		    local.unsubscribe(args[0]) if args[0].self_owned?
 		end
 
-	       	transmit(:plan_update, event, plan, init_relations, args)
+	       	transmit(:plan_update, event, plan, args)
 	    end
 	    def transaction_update(*args); transmit(:transaction_update, *args) end
 	end
