@@ -40,7 +40,14 @@ module Roby
 	    end
 	end
 	def self.owns?(object); state.owns?(object) end
-	def self.peer(remote_id); peers[remote_id] end
+	def self.peer(id)
+	    if id.respond_to?(:to_str)
+		peers.each { |_, p| return p if p.remote_name == id.to_str }
+		nil
+	    else
+		peers[id]
+	    end
+	end
 
 	# Connection discovery based on Rinda::RingServer
 	#
