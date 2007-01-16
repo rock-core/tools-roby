@@ -71,6 +71,11 @@ module Roby
 		    raise DisconnectedError, "we are not currently connected to #{remote_name}"
 		end
 
+		# do some sanity checks
+		if !args[0].respond_to?(:to_sym)
+		    raise "invalid call #{args}"
+		end
+
 		Roby::Distributed.debug { "queueing #{neighbour.name}.#{args[0]}" } #\n  #{caller(4).join("\n  ")})" }
 		send_queue.push([[remote_server, args], block, caller])
 		@sending = true
@@ -196,6 +201,10 @@ module Roby
 		flattened = []
 		calls.delete_if do |(object, call), block, trace|
 		    if call.first == :demux
+			args = call.last
+			if !args.all? { |_, c| c.first.respond_to?(:to_sym) }
+			    raise "invalid call specification #{call} queued by\n  #{trace.join("\n  ")}"
+			end
 			flattened.concat(flatten_demux_call(call.last, block, trace))
 		    end
 		end
