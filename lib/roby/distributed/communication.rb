@@ -116,7 +116,9 @@ module Roby
 		end
 
 	    rescue Exception
-		Roby::Distributed.fatal "Communication thread dies with\n#{$!.full_message}"
+		Roby::Distributed.fatal do
+		    "Communication thread dies with\n#{$!.full_message}\nPending calls where:\n  #{calls}"
+		end
 
 	    ensure
 		send_queue.clear
