@@ -679,16 +679,19 @@ module Roby::Distributed
 		unless object_proxy = @proxies[object]
 		    return unless object_proxy = marshalled.proxy(self)
 
-		    if object_proxy.respond_to?(:execution_agent) && object_proxy.plan
-			connection_task = object_proxy.plan[self.task]
-			Roby::Distributed.update([object_proxy, connection_task]) do
-			    object_proxy.executed_by connection_task
-			end
-		    end
+		    @proxies[object] = object_proxy
 		end
 		if marshalled.respond_to?(:update)
 		    Roby::Distributed.update([object_proxy]) do
 			marshalled.update(self, object_proxy) 
+		    end
+		end
+		if !object_proxy.self_owned? && object_proxy.respond_to?(:execution_agent) && object_proxy.plan
+		    if !object_proxy.execution_agent
+			connection_task = object_proxy.plan[self.task]
+			Roby::Distributed.update([object_proxy, connection_task]) do
+			    object_proxy.executed_by connection_task
+			end
 		    end
 		end
 	    else

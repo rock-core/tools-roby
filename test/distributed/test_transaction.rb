@@ -205,6 +205,21 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	check_resulting_plan(local.plan)
     end
 
+    def test_executed_by
+	peer2peer do |remote|
+	    remote.plan.insert(Task.new(:id => 1))
+	end
+	r_task = remote_peer.proxy(remote_task(:id => 1))
+	assert_equal(remote_peer.task, r_task.execution_agent)
+
+	trsc = Roby::Distributed::Transaction.new(plan) 
+	trsc.add_owner remote_peer
+	trsc.self_owned
+	remote_peer.subscribe(r_task) do
+	    assert_equal(nil, trsc[r_task].execution_agent)
+	end
+    end
+
     def test_argument_updates
 	peer2peer do |remote|
 	    remote.plan.insert(Task.new(:id => 2))
