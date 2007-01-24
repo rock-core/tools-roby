@@ -355,7 +355,7 @@ class TC_Task < Test::Unit::TestCase
 	    mock.should_receive(:c_failed).once.ordered
 	    mock.should_receive(:p_aborted).once.ordered(:aborted_stop)
 	    mock.should_receive(:c_stop).once.ordered(:aborted_stop)
-	    mock.should_receive(:p_stop).once.ordered
+	    mock.should_receive(:p_stop).once.ordered(:aborted_stop)
 
 	    parent.start!
 
