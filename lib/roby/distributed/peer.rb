@@ -239,17 +239,16 @@ module Roby::Distributed
 	#
 	# The returned relation sets can be empty if the plan object does not
 	# have any relations. Since the goal is to *copy* the graph relations...
-	def set_relations_commands(plan_object, relations = [])
-	    relations << [peer.remote_server, [:set_relations, plan_object, relations_of(plan_object)]]
+	def set_relations_commands(plan_object)
+	    peer.transmit(:set_relations, plan_object, relations_of(plan_object))
 
 	    if plan_object.respond_to?(:each_event)
 		plan_object.each_event do |ev|
 		    # Send event even if +result+ is empty, so that relations
 		    # are removed if needed on the other side
-		    relations << [peer.remote_server, [:set_relations, ev, relations_of(ev)]]
+		    peer.transmit(:set_relations, ev, relations_of(ev))
 		end
 	    end
-	    relations
 	end
 
 	# Called by the peer to subscribe on +object+. Returns an array which
@@ -260,13 +259,14 @@ module Roby::Distributed
 	# proxy without having subscribed to the proxied object first. This
 	# method will thus subscribe to both at the same time. Peer#subscribe
 	# is supposed to do the same
-	def subscribe_plan_object(object, init_relations)
+	def subscribe_plan_object(object)
 	    subscriptions << object
+	    peer.transmit(:subscribed, [object])
 
 	    if Roby::Transactions::Proxy === object && object.__getobj__.self_owned?
-		init_relations.concat(subscribe(object.__getobj__)[1])
+		subscribe(object.__getobj__)
 	    end
-	    init_relations.concat(set_relations_commands(object))
+	    set_relations_commands(object)
 	end
 
 	# Subscribe the remote peer to changes on +object+. +object+ must be
@@ -282,13 +282,12 @@ module Roby::Distributed
 		raise "#{remote_name} is trying to subscribe to #{object} which is not owned by us"
 	    end
 
-	    old_subscriptions = subscriptions.dup
 	    subscriptions << object
+	    peer.transmit(:subscribed, [object])
 
-	    init = []
 	    case object
 	    when Roby::PlanObject
-		subscribe_plan_object(object, init)
+		subscribe_plan_object(object)
 
 	    when Roby::Plan
 		missions, tasks = if object.kind_of?(Roby::Transaction)
@@ -299,17 +298,18 @@ module Roby::Distributed
 
 		missions.delete_if { |t| !t.distribute? }
 		tasks.delete_if    { |t| !t.distribute? }
-		init << 
-		    [peer.remote_server, [:subscribed_plan, object, missions, tasks]]
+		peer.transmit(:subscribed_plan, object, missions, tasks)
 
-		tasks.each { |t| subscribe_plan_object(t, init) }
+		tasks.each { |t| subscribe_plan_object(t) }
 	    end
-	    [subscriptions - old_subscriptions, init]
+
+	    nil
 	end
 
 	# Called by the remote peer to announce that is has subscribed us to +objects+
 	def subscribed(objects)
 	    peer.subscriptions.merge(objects.map { |obj| obj.remote_object })
+	    nil
 	end
 
 	# The peer asks to be unsubscribed from +object+
@@ -736,15 +736,7 @@ module Roby::Distributed
 	    end
 
 	    return if subscriptions.include?(remote_object)
-	    transmit(:subscribe, remote_object) do |subscribed, init_relations|
-		# PeerServer#subscribe returns nil if we are already subscribed
-		if subscribed
-		    subscriptions.merge(subscribed.map { |obj| obj.remote_object })
-		    Roby::Distributed.update(subscribed) do
-			local.demux_local(init_relations)
-		    end
-		end
-
+	    transmit(:subscribe, remote_object) do
 		yield if block_given?
 	    end
 	end
