@@ -240,7 +240,9 @@ module Roby
 	    def proxy(peer)
 		return unless local_real = peer.proxy(real_object)
 		local_object = peer.proxy(transaction)[local_real]
-		if local_object.respond_to?(:remote_siblings)
+
+		unless local_real.self_owned?
+		    local_object.extend RemoteTransactionProxy
 		    local_object.remote_siblings[peer.remote_id] = remote_object
 		end
 		local_object
@@ -259,6 +261,9 @@ module Roby
 		MarshalledRemoteTransactionProxy.new(self, @__getobj__, transaction)
 	    end
 	end
+
+	# This module gets included in the local representation of remote
+	# transaction proxies
 	module RemoteTransactionProxy
 	    include DistributedObject
 	    def has_sibling?(peer); plan.has_sibling?(peer) end
