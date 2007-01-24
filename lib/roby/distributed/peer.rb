@@ -10,7 +10,15 @@ require 'roby/distributed/proxy'
 require 'roby/distributed/communication'
 
 class DRbObject
-    def to_s; inspect end
+    def to_s
+	if __drbref
+	    "#<DRbObject ref=0x#{Object.address_from_id(__drbref).to_s(16)} uri=#{__drburi}>"
+	else
+	    "#<DRbObject ref=nil uri=#{__drburi}>"
+	end
+    end
+    def inspect; to_s end
+    def pretty_print(pp); pp.text to_s end
 end
 
 module Roby
