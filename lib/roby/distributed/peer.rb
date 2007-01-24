@@ -686,7 +686,10 @@ module Roby::Distributed
 			marshalled.update(self, object_proxy) 
 		    end
 		end
-		if !object_proxy.self_owned? && object_proxy.respond_to?(:execution_agent) && object_proxy.plan
+		if !object_proxy.kind_of?(Roby::Transactions::Proxy) && 
+		    object_proxy.respond_to?(:execution_agent) && 
+		    object_proxy.plan then
+
 		    if !object_proxy.execution_agent
 			connection_task = object_proxy.plan[self.task]
 			Roby::Distributed.update([object_proxy, connection_task]) do
