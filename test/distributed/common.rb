@@ -67,6 +67,7 @@ module DistributedTestCommon
 		DRb.start_service REMOTE_URI, getter
 	    end
 	    def cs.process_events; Control.instance.process_events end
+	    def cs.local_peer; @local_peer ||= Distributed.peer("local") end
 
 	    Distributed.state = cs
 	    yield(Distributed.state) if block_given?
