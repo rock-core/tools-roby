@@ -357,10 +357,14 @@ module Roby
 	    end
 	    # Updates the status of the local object if needed
 	    def update(peer, proxy)
-		# marshalled.plan is nil if the object plan is determined by another
-		# object. For instance, in the TaskEventGenerator case, the generator
-		# plan is the task plan
-		peer.proxy(plan).discover(proxy) if plan
+		if plan
+		    Distributed.update([plan]) do
+			# marshalled.plan is nil if the object plan is determined by another
+			# object. For instance, in the TaskEventGenerator case, the generator
+			# plan is the task plan
+			peer.proxy(plan).discover(proxy)
+		    end
+		end
 	    end
 	    def ==(other)
 		other.kind_of?(MarshalledPlanObject) && 
@@ -462,12 +466,14 @@ module Roby
 		super
 		return unless task.plan
 
-		is_mission = task.plan.mission?(task)
-		mission = flags[:mission]
-		if mission && !is_mission
-		    task.plan.insert(task)
-		elsif !mission && is_mission
-		    task.plan.discard(task)
+		Distributed.update([task.plan]) do
+		    is_mission = task.plan.mission?(task)
+		    mission = flags[:mission]
+		    if mission && !is_mission
+			task.plan.insert(task)
+		    elsif !mission && is_mission
+			task.plan.discard(task)
+		    end
 		end
 
 		flags = self.flags
@@ -477,7 +483,9 @@ module Roby
 		    @__success = flags[:success]
 		end
 
-		task.arguments.merge(arguments)
+		Distributed.update([task]) do
+		    task.arguments.merge(arguments)
+		end
 	    end
 
 	    attr_reader :arguments, :flags

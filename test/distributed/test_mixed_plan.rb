@@ -44,7 +44,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
     # removed from the plan.
     def check_resulting_plan(plan, removed_planner)
 	remote_center_node = plan.known_tasks.find { |t| t.arguments[:id] == "remote-2" }
-	local_center_node = plan.known_tasks.find { |t| t.arguments[:id] == "local-2" }
+	local_center_node  = plan.known_tasks.find { |t| t.arguments[:id] == "local-2" }
 
 	assert_equal(["remote-1"], remote_center_node.parents.map { |obj| obj.arguments[:id] })
 	assert_equal(["local-1", "remote-2"].to_set, local_center_node.parents.map { |obj| obj.arguments[:id] }.to_set)
@@ -71,7 +71,6 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	peer2peer do |remote|
 	    testcase = self
 	    remote.singleton_class.class_eval do
-		def local_peer; @local_peer ||= Distributed.peer("local") end
 		define_method(:add_tasks) do |plan|
 		    testcase.add_tasks(local_peer.proxy(plan), "remote") 
 		end
@@ -167,13 +166,14 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
     # no non-dynamic version for that since we need the transactio to be
     # present on both sides if we want to have remote tasks in it
     def test_rtask_realizes_lproxy
-	Roby.logger.level = Logger::DEBUG
 	common_setup(true) do |trsc|
 	    t1, t2, t3 = add_tasks(local.plan, "local")
 	    r_t1, r_t2, r_t3 = remote.add_tasks(trsc).map { |t| remote_peer.proxy(t) }
-	    r_t2.realized_by trsc[t2]
-
 	    apply_remote_command
+
+	    r_t2.realized_by trsc[t2]
+	    apply_remote_command
+
 	    check_resulting_plan(trsc, false)
 	    remote.check_resulting_plan(trsc, false)
 

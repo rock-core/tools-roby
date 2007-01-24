@@ -113,7 +113,7 @@ module Roby
 			plan.send(event, *unmarshalled)
 		    end
 
-		    case event
+		    case event.to_sym
 		    when :discover
 			args[0].each { |obj| peer.subscriptions << obj.remote_object }
 
@@ -142,15 +142,10 @@ module Roby
 	    def plan_update(event, plan, *args)
 		case event
 		when :discover
-		    subscribed, init = Set.new, []
 		    args[0].find_all { |obj| obj.self_owned? }.
 			each do |obj| 
-			    new_subscribed, new_init = local.subscribe(obj)
-			    subscribed.merge(new_subscribed)
-			    init.concat(new_init)
+			    local.subscribe(obj)
 			end
-		    init.unshift [remote_server, [:subscribed, subscribed]]
-		    transmit(:demux, init)
 
 		when :remove_object
 		    local.unsubscribe(args[0]) if args[0].self_owned?

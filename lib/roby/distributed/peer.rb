@@ -120,7 +120,12 @@ module Roby::Distributed
 
     class PeerServer
 	include DRbUndumped
+
+	# The Peer object we are associated to
 	attr_reader :peer
+
+	# The set of objects the remote peer is subscribed to. Unlike for
+	# Peer#subscriptions, these are local objects
 	attr_reader :subscriptions
 	attr_reader :triggers
 
@@ -260,9 +265,6 @@ module Roby::Distributed
 	# method will thus subscribe to both at the same time. Peer#subscribe
 	# is supposed to do the same
 	def subscribe_plan_object(object)
-	    subscriptions << object
-	    peer.transmit(:subscribed, [object])
-
 	    if Roby::Transactions::Proxy === object && object.__getobj__.self_owned?
 		subscribe(object.__getobj__)
 	    end
@@ -300,7 +302,7 @@ module Roby::Distributed
 		tasks.delete_if    { |t| !t.distribute? }
 		peer.transmit(:subscribed_plan, object, missions, tasks)
 
-		tasks.each { |t| subscribe_plan_object(t) }
+		tasks.each { |t| subscribe(t) }
 	    end
 
 	    nil
@@ -723,7 +725,8 @@ module Roby::Distributed
 	    transmit(:discover_neighborhood, marshalled, distance)
 	end
 
-	# The set of objects we are subscribed to. This is a set of DRbObject
+	# The set of remote objects we are subscribed to. This is a set of
+	# DRbObject
 	#
 	# DO NOT USE a ValueSet here. We use DRbObjects to track subscriptions
 	# on this side, and they must be compared using #==
@@ -749,6 +752,7 @@ module Roby::Distributed
 	# Returns true if +proxy+ is related to a local task
 	def linked_to_local?(proxy)
 	    proxy.each_relation do |rel|
+		next unless rel.distribute?
 		if proxy.child_objects(rel).any? { |child| !child.kind_of?(RemoteObjectProxy) }
 		    return true
 		end

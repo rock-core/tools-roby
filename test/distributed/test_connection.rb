@@ -189,49 +189,6 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	end
     end
 
-    def test_callback_retry
-	Roby.logger.level = Logger::FATAL
-	peer2peer do |remote|
-	    PeerServer.class_eval do
-		def error_once
-		    peer.transmit(:callback_raise, @pass)
-		    peer.transmit(:callback)
-		    @pass ||= true
-		    42
-		end
-		def next_call
-		    84
-		end
-	    end
-	end
-
-	FlexMock.use do |mock|
-	    remote_peer.local.singleton_class.class_eval do
-		define_method(:callback_raise) do |pass|
-		    mock.callback_raise(pass)
-		    raise unless pass
-		end
-		define_method(:callback) do
-		    mock.callback
-		end
-	    end
-
-	    remote_peer.transmit(:error_once) do |result|
-		mock.got_result(result)
-	    end
-	    remote_peer.transmit(:next_call) do |result|
-		mock.next_call(result)
-	    end
-
-	    mock.should_receive(:callback_raise).with(nil).once.ordered
-	    mock.should_receive(:callback_raise).with(true).once.ordered
-	    mock.should_receive(:callback).once.ordered
-	    mock.should_receive(:got_result).with(42).once.ordered
-	    mock.should_receive(:next_call).with(84).once.ordered
-	    apply_remote_command
-	end
-    end
-
     def test_callbacks
 	peer2peer do |remote|
 	    PeerServer.class_eval do

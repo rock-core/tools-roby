@@ -65,6 +65,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	proxy_model = Distributed.RemoteProxyModel(SimpleTask)
 	assert(proxy_model.ancestors.include?(TaskProxy))
 
+	# Get the MarshalledTask objects for remote tasks
 	r_simple_task = remote_task(:id => 'simple_task')
 	r_task        = remote_task(:id => 'task')
 	r_other_task  = remote_task(:id => 'other_task')
@@ -119,6 +120,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	local.plan.insert(proxy)
 
 	assert(proxy = remote_peer.proxy(r_task))
+	assert_equal(proxy.remote_object(remote_peer), r_task.remote_object)
 	assert_equal(local.plan, proxy.plan)
 	assert(remote_peer.owns?(proxy))
     end
@@ -186,6 +188,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_subscribe
+	Roby.logger.level = Logger::DEBUG
 	peer2peer do |remote|
 	    root, mission, subtask, next_mission =
 		Task.new(:id => 'root'), 

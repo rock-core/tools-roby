@@ -1,7 +1,8 @@
 module Roby
     module Distributed
 	class PeerServer
-	    def callbacks; Thread.current[:peer_server_callbacks] end
+	    CALLBACKS_TLS = :peer_server_callbacks
+	    def callbacks; Thread.current[CALLBACKS_TLS] end
 	    def processing?; !!callbacks end
 
 	    # Called by the remote peer to make us process something. See
@@ -11,34 +12,42 @@ module Roby
 	    # N+1 (or nil).
 	    def demux(calls)
 		result = []
-
 		if !peer.connected?
 		    raise DisconnectedError, "#{remote_name} is disconnected"
 		end
 
 		from = Time.now
 
-		calls.each do |obj, args|
-		    Roby::Distributed.debug { "processing #{obj}.#{args[0]}(#{args[1..-1].join(", ")})" }
-		    Roby::Control.synchronize do
-			Thread.current[:peer_server_callbacks] = []
-			result << obj.send(*args)
-			unless callbacks.empty?
-			    return [result, callbacks, nil]
-			end
-		    end
-		    Roby::Distributed.debug { "done, returns #{result.last}" }
-		end
+		Thread.current[CALLBACKS_TLS] = []
+		demux_local(calls, result)
 
-		Roby.debug "served #{calls.size} calls in #{Time.now - from} seconds"
-		[result, nil, nil]
+		Roby.debug "served #{calls.size} calls in #{Time.now - from} seconds, #{callbacks.size} callbacks"
+		[result, callbacks, nil]
 
 	    rescue Exception => e
-		[result, nil, e]
+		[result, [], e]
 
 	    ensure
-		Thread.current[:peer_server_callbacks] = nil
+		Thread.current[CALLBACKS_TLS] = nil
 	    end
+
+	    def demux_local(calls, result)
+		calls.each do |obj, args|
+		    Roby::Distributed.debug { "processing #{obj}.#{args[0]}(#{args[1..-1].join(", ")})" }
+		    if args.first == :demux || args.first == :demux_local
+			demux_local(args[1], result)
+		    else
+			Roby::Control.synchronize do
+			    result << obj.send(*args)
+			end
+		    end
+		    return true unless callbacks.empty?
+		    Roby::Distributed.debug { "done, returns #{result.last}" }
+		end
+	    end
+	    private :demux_local
+
+	    def synchro_point; end
 	end
 
 
@@ -74,14 +83,15 @@ module Roby
 		    raise "invalid call #{args}"
 		end
 
-		Roby::Distributed.debug { "queueing #{neighbour.name}.#{args[0]} from #{caller(5).first}" } #\n  #{caller(4).join("\n  ")})" }
 		call_spec = [[remote_server, args], block, caller]
 		if local.processing?
+		    Roby::Distributed.debug { "adding callback #{neighbour.name}.#{args[0]}" } # from\n  #{caller(5)[0, 5].join("\n  ")}" } #\n  #{caller(4).join("\n  ")})" }
 		    if block_given?
 			raise "no block allowed when calling #transmit during processing of remote request"
 		    end
 		    local.callbacks << call_spec
 		else
+		    Roby::Distributed.debug { "queueing #{neighbour.name}.#{args[0]}" } # from\n  #{caller(5)[0, 5].join("\n  ")}" } #\n  #{caller(4).join("\n  ")})" }
 		    send_queue.push(call_spec)
 		    @sending = true
 		end
@@ -129,7 +139,14 @@ module Roby
 			    end
 			end
 
-			calls = nil if calls && calls.empty?
+			if !calls || calls.empty?
+			    calls = nil
+			    unless @sending = !send_queue.empty?
+				Roby::Distributed.info "sending queue is empty"
+				send_flushed.broadcast
+			    end
+			    nil
+			end
 		    end
 		end
 
@@ -148,6 +165,7 @@ module Roby
 	    end
 
 	    def call_to_s(call)
+		return "" unless call
 		m, args = call.first
 
 		args = ([m] + args).map do |arg|
@@ -219,31 +237,30 @@ module Roby
 		    end
 		    [true, calls[success..-1]]
 
-		elsif callbacks
+		elsif !callbacks.empty?
 		    new_results, new_calls, error = local.demux(callbacks.map { |c| c.first })
-		    if new_calls
+		    if !new_calls.empty?
 			Roby::Distributed.warn do
 			    report_nested_callbacks(new_calls, callbacks[new_results.size - 1], calls[success])
 			end
-			[true, calls[success..-1]]
+			Roby.application_error(:droby_nested_remote_callbacks, callbacks[new_results.size - 1], RuntimeError.exception("nested callbacks"))
+			[false, calls[(success + 1)..-1]]
 		    elsif error 
 			Roby::Distributed.warn do
 			    report_callback_error(callbacks[new_results.size], calls[success], error)
 			end
+			Roby.application_error(:droby_remote_callback, callbacks[new_results.size], error)
 			[true, calls[success..-1]]
 		    else
 			call_attached_block(calls[success], results[success])
 			[false, calls[(success + 1)..-1]]
 		    end
 
-		else
-		    calls = nil
-		    unless @sending = !send_queue.empty?
-			Roby::Distributed.info "sending queue is empty"
-			send_flushed.broadcast
-		    end
-		    nil
 		end
+	    end
+
+	    def synchro_point(&block)
+		transmit(:synchro_point, &block)
 	    end
 
 	    def self.flatten_demux_calls(calls)

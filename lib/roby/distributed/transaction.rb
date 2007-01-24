@@ -239,7 +239,11 @@ module Roby
 	    end
 	    def proxy(peer)
 		return unless local_real = peer.proxy(real_object)
-		local_object = peer.proxy(transaction)[local_real]
+		local_object = nil
+		local_transaction = peer.proxy(transaction)
+		Distributed.update([local_transaction]) do
+		    local_object = local_transaction[local_real]
+		end
 
 		unless local_real.self_owned?
 		    local_object.extend RemoteTransactionProxy
@@ -266,18 +270,20 @@ module Roby
 	# transaction proxies
 	module RemoteTransactionProxy
 	    include DistributedObject
+	    def owners; plan.owners | __getobj__.owners end
 	    def has_sibling?(peer); plan.has_sibling?(peer) end
 
 	    def discover(relation, mark)
 		return unless proxying?
-		unless !mark || Distributed.updating?([self]) || owners.subset?(plan.owners)
+		unless !mark || Distributed.updating?([self]) || __getobj__.owners.subset?(plan.owners)
 		    raise NotOwner, "transaction owners #{plan.owners.inspect} do not own #{self.to_s}: #{owners.inspect}"
 		end
 
 		owners.each do |owner|
 		    peer = Distributed.peer(owner)
-		    if !peer.subscribed?(remote_object(owner))
-			raise "must subscribe to #{self} on #{peer} before changing it"
+		    # peer may be nil if the transaction is owned locally
+		    if peer && !peer.subscribed?(__getobj__.remote_object(owner))
+			raise "must subscribe to #{__getobj__} on #{peer} before changing its transactions proxies"
 		    end
 		end
 
@@ -287,15 +293,11 @@ module Roby
 
 	class TaskTransactionProxy < Roby::Transactions::Task
 	    include RemoteTransactionProxy
-
 	    proxy_for Roby::Distributed::TaskProxy
-	    def_delegator :@__getobj__, :remote_object
 	end
 	class EventGeneratorTransactionProxy < Roby::Transactions::EventGenerator
 	    include RemoteTransactionProxy
-
 	    proxy_for Roby::Distributed::EventGeneratorProxy
-	    def_delegator :@__getobj__, :remote_object
 	end
 
 	class PeerServer
@@ -356,9 +358,10 @@ module Roby
 		transaction_create(trsc) do |marshalled_transaction|
 		    subscriptions << marshalled_transaction.remote_object
 
-		    subscribed, init = local.subscribe(trsc)
-		    init.unshift [remote_server, [:subscribed, subscribed]]
-		    transmit(:demux, init) { yield if block_given? }
+		    local.subscribe(trsc)
+		    synchro_point do
+			yield if block_given?
+		    end
 		end
 	    end
 	end
