@@ -14,6 +14,7 @@ require 'utilrb/gc/force'
 require 'utilrb/hash/to_sym_keys'
 require 'utilrb/array/to_s'
 require 'utilrb/hash/to_s'
+require 'utilrb/set/to_s'
 
 # Create a new thread and forward all messages
 # to the +forward_to+ object given at initialization.
