@@ -729,9 +729,12 @@ module Roby::Distributed
 
 	    return if subscriptions.include?(remote_object)
 	    transmit(:subscribe, remote_object) do |subscribed, init_relations|
-		subscriptions.merge(subscribed.map { |obj| obj.remote_object })
-		Roby::Distributed.update(subscribed) do
-		    local.demux_local(init_relations)
+		# PeerServer#subscribe returns nil if we are already subscribed
+		if subscribed
+		    subscriptions.merge(subscribed.map { |obj| obj.remote_object })
+		    Roby::Distributed.update(subscribed) do
+			local.demux_local(init_relations)
+		    end
 		end
 
 		yield if block_given?

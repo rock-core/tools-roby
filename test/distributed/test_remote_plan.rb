@@ -217,6 +217,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    assert_equal([], proxy.event(:stop).child_objects(EventStructure::Signal).to_a)
 	end
 
+	# Check that subscribing again is handled nicely
+	remote_peer.subscribe(r_root.remote_object)
+
 	remote_peer.subscribe(r_mission.remote_object)
 	apply_remote_command do
 	    proxies = proxy.child_objects(TaskStructure::Hierarchy).to_a
