@@ -75,6 +75,11 @@
     If 1 sees tasks of 2 *through* the plan of 3, and if these tasks are of the SpecificModel model,
     then they should be instances of the SpecificModel class 
 
+* Kill local tasks that are in force_gc even if they have parents, if their parents are remote
+  tasks
+* rename Roby::TaskModelTag::argument into 'arguments' (beware of name clash with the
+  accessor)
+
 == DONE
 
 * Better handling of emit() in exception context. emit() SHALL be sent whatever exception happens. For
