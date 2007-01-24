@@ -1,9 +1,9 @@
+require 'roby'
 require 'test_config'
 require 'mockups/tasks'
 require 'flexmock'
 
 require 'test_plan'
-require 'roby/transactions'
 
 # Check that a transaction behaves like a plan
 class TC_TransactionAsPlan < Test::Unit::TestCase
