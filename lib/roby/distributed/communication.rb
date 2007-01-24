@@ -1,45 +1,43 @@
 module Roby
     module Distributed
 	class PeerServer
+	    def callbacks; Thread.current[:peer_server_callbacks] end
+	    def processing?; !!callbacks end
+
 	    # Called by the remote peer to make us process something. See
 	    # #demux_local for the format of +calls+. Returns [result, error]
 	    # where +result+ is an array containing the list of returned value
 	    # by the N successfull calls, and error is an error raised by call
 	    # N+1 (or nil).
 	    def demux(calls)
-		from = Time.now
 		result = []
-		demux_local(calls, result)
-		Roby.debug "served #{calls.size} calls in #{Time.now - from} seconds"
-		[result, nil]
 
-	    rescue Exception => e
-		[result, e]
-	    end
-
-	    # call-seq:
-	    #	demux_local(calls, result = [])		=> result
-	    #
-	    # Calls the calls in +calls+ in turn and gathers the result in
-	    # +result+. +calls+ is an array whose elements are [object,
-	    # [method, *args]]. No block is allowed.
-	    def demux_local(calls, result = [])
 		if !peer.connected?
 		    raise DisconnectedError, "#{remote_name} is disconnected"
 		end
+
+		from = Time.now
+
 		calls.each do |obj, args|
 		    Roby::Distributed.debug { "processing #{obj}.#{args[0]}(#{args[1..-1].join(", ")})" }
 		    Roby::Control.synchronize do
-			if args.first == :demux || args.first == :demux_local
-			    result << obj.send(:demux_local, args.second, result)
-			else
-			    result << obj.send(*args)
+			Thread.current[:peer_server_callbacks] = []
+			result << obj.send(*args)
+			unless callbacks.empty?
+			    return [result, callbacks, nil]
 			end
 		    end
 		    Roby::Distributed.debug { "done, returns #{result.last}" }
 		end
 
-		result
+		Roby.debug "served #{calls.size} calls in #{Time.now - from} seconds"
+		[result, nil, nil]
+
+	    rescue Exception => e
+		[result, nil, e]
+
+	    ensure
+		Thread.current[:peer_server_callbacks] = nil
 	    end
 	end
 
@@ -76,9 +74,17 @@ module Roby
 		    raise "invalid call #{args}"
 		end
 
-		Roby::Distributed.debug { "queueing #{neighbour.name}.#{args[0]}" } #\n  #{caller(4).join("\n  ")})" }
-		send_queue.push([[remote_server, args], block, caller])
-		@sending = true
+		Roby::Distributed.debug { "queueing #{neighbour.name}.#{args[0]} from #{caller(5).first}" } #\n  #{caller(4).join("\n  ")})" }
+		call_spec = [[remote_server, args], block, caller]
+		if local.processing?
+		    if block_given?
+			raise "no block allowed when calling #transmit during processing of remote request"
+		    end
+		    local.callbacks << call_spec
+		else
+		    send_queue.push(call_spec)
+		    @sending = true
+		end
 	    end
 
 	    # Flushes all commands that are currently queued for this peer.
@@ -87,6 +93,10 @@ module Roby
 		synchronize do
 		    return false unless sending?
 		    send_flushed.wait
+
+		    if !@send_thread
+			raise "communication thread died"
+		    end
 		end
 		true
 	    end
@@ -108,7 +118,8 @@ module Roby
 			calls.concat(send_queue.get(true))
 			calls = Peer.flatten_demux_calls(calls)
 
-			if calls = do_send(calls)
+			error, calls = do_send(calls)
+			if error
 			    error_count += 1 
 			    if error_count > self.max_allowed_errors
 				Roby::Distributed.fatal do
@@ -117,6 +128,8 @@ module Roby
 				disconnect
 			    end
 			end
+
+			calls = nil if calls && calls.empty?
 		    end
 		end
 
@@ -126,21 +139,46 @@ module Roby
 		end
 
 	    ensure
-		send_queue.clear
 		synchronize do
+		    disconnect if connected?
 		    @sending = nil
+		    send_queue.clear
 		    send_flushed.broadcast
 		end
 	    end
 
-	    # Formats an error message because +error+ has been reported by +call+
-	    def format_error_report(call, error)
-		args = call.first.map do |arg|
+	    def call_to_s(call)
+		m, args = call.first
+
+		args = ([m] + args).map do |arg|
 		    if arg.kind_of?(DRbObject) then arg.inspect
 		    else arg.to_s
 		    end
 		end
-			"#{remote_name} reports an error on #{args[0]}.#{args[1]}(#{args[2..-1].join(", ")}):\n#{error.full_message}\ncall was initiated by\n  #{call[2].join("\n  ")}"
+		"#{args[0]}.#{args[1]}(#{args[2..-1].join(", ")})"
+	    end
+	    # Formats an error message because +error+ has been reported by +call+
+	    def report_remote_error(call, error)
+		"#{remote_name} reports an error on #{call_to_s(call)}:\n#{error.full_message}\ncall was initiated by\n  #{call[2].join("\n  ")}"
+	    end
+	    def report_callback_error(callback, remote_call, error)
+		"error while calling callback #{call_to_s(callback)}:\n#{error.full_message}\noriginal call was\n  #{call_to_s(remote_call)}"
+	    end
+	    def report_nested_callbacks(callbacks, local_call, remote_call)
+		callbacks = callbacks.map { |c| call_to_s(c) }
+		"nested callbacks: #{callbacks.join("\n  ")}\n" +
+		"have been queued by #{call_to_s(local_call)}\n" +
+		"original call was #{call_to_s(remote_call)}"
+	    end
+
+	    def call_attached_block(call, result)
+		if block = call[1]
+		    begin
+			block.call(result)
+		    rescue Exception => e
+			Roby.application_error(:droby_callbacks, block, e)
+		    end
+		end
 	    end
 
 	    # Sends the method call listed in +calls+ to the remote host, calls
@@ -150,27 +188,21 @@ module Roby
 	    def do_send(calls) # :nodoc:
 		before_call = Time.now
 		Roby::Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
-		results, error = begin remote_server.demux(calls.map { |a| a.first })
-				 rescue Exception
-				     [[], $!]
-				 end
+		results, callbacks, error = begin remote_server.demux(calls.map { |a| a.first })
+					    rescue Exception
+						[[], $!]
+					    end
 		success = results.size
 		Roby::Distributed.debug { "#{neighbour.name} processed #{success} commands in #{Time.now - before_call} seconds" }
 
-		# Calls the callbacks registered for the succeeded calls
-		(0...success).each do |i|
-		    if block = calls[i][1]
-			begin
-			    block.call(results[i])
-			rescue Exception => e
-			    Roby.application_error(:droby_callbacks, block, e)
-			end
-		    end
-		end
-
+		# Calls the blocks that are waiting for the calls to be processed.
+		# If there are callbacks, they must be processed first
+		success -= 1 if callbacks && !callbacks.empty?
+		(0...success).each { |i| call_attached_block(calls[i], results[i]) }
+		
 		if error
 		    Roby::Distributed.warn do
-			format_error_report(calls[success], error)
+			report_remote_error(calls[success], error)
 		    end
 
 		    case error
@@ -185,8 +217,25 @@ module Roby
 		    else
 			Roby::Distributed.debug { "\n" + error.full_message }
 		    end
+		    [true, calls[success..-1]]
 
-		    calls[success..-1]
+		elsif callbacks
+		    new_results, new_calls, error = local.demux(callbacks.map { |c| c.first })
+		    if new_calls
+			Roby::Distributed.warn do
+			    report_nested_callbacks(new_calls, callbacks[new_results.size - 1], calls[success])
+			end
+			[true, calls[success..-1]]
+		    elsif error 
+			Roby::Distributed.warn do
+			    report_callback_error(callbacks[new_results.size], calls[success], error)
+			end
+			[true, calls[success..-1]]
+		    else
+			call_attached_block(calls[success], results[success])
+			[false, calls[(success + 1)..-1]]
+		    end
+
 		else
 		    calls = nil
 		    unless @sending = !send_queue.empty?

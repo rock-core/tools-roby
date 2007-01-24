@@ -1,6 +1,7 @@
 $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'distributed/common'
 require 'mockups/tasks'
+require 'flexmock'
 require 'roby/distributed/connection_space'
 require 'roby/distributed/proxy'
 
@@ -158,6 +159,113 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	end
     end
 
+    def test_retry
+	peer2peer do |remote|
+	    PeerServer.class_eval do
+		def error_once
+		    unless @pass
+			@pass = true
+			raise
+		    end
+		    42
+		end
+		def next_call
+		    84
+		end
+	    end
+	end
+
+	FlexMock.use do |mock|
+	    remote_peer.transmit(:error_once) do |result|
+		mock.got_result(result)
+	    end
+	    remote_peer.transmit(:next_call) do |result|
+		mock.next_call(result)
+	    end
+	    mock.should_receive(:got_result).with(42).once.ordered
+	    mock.should_receive(:next_call).with(84).once.ordered
+	    apply_remote_command
+	end
+    end
+
+    def test_callback_retry
+	peer2peer do |remote|
+	    PeerServer.class_eval do
+		def error_once
+		    peer.transmit(:callback_raise, @pass)
+		    peer.transmit(:callback)
+		    @pass ||= true
+		    42
+		end
+		def next_call
+		    84
+		end
+	    end
+	end
+
+	FlexMock.use do |mock|
+	    remote_peer.local.singleton_class.class_eval do
+		define_method(:callback_raise) do |pass|
+		    mock.callback_raise(pass)
+		    raise unless pass
+		end
+		define_method(:callback) do
+		    mock.callback
+		end
+	    end
+
+	    remote_peer.transmit(:error_once) do |result|
+		mock.got_result(result)
+	    end
+	    remote_peer.transmit(:next_call) do |result|
+		mock.next_call(result)
+	    end
+
+	    mock.should_receive(:callback_raise).with(nil).once.ordered
+	    mock.should_receive(:callback_raise).with(true).once.ordered
+	    mock.should_receive(:callback).once.ordered
+	    mock.should_receive(:got_result).with(42).once.ordered
+	    mock.should_receive(:next_call).with(84).once.ordered
+	    apply_remote_command
+	end
+    end
+
+    def test_callbacks
+	peer2peer do |remote|
+	    PeerServer.class_eval do
+		def call_back
+		    peer.transmit(:called_back, 1)
+		    peer.transmit(:called_back, 2)
+		    42
+		end
+		def next_call; 84 end
+	    end
+	end
+
+	FlexMock.use do |mock|
+	    remote_peer.synchronize do
+		remote_peer.local.singleton_class.class_eval do
+		    define_method(:called_back) do |arg|
+			mock.called_back(arg)
+		    end
+		end
+
+		remote_peer.transmit(:call_back) do |result|
+		    mock.processed_callback(42)
+		end
+		remote_peer.transmit(:next_call) do |result|
+		    mock.processed_next_call(84)
+		end
+
+		mock.should_receive(:called_back).with(1).once.ordered
+		mock.should_receive(:called_back).with(2).once.ordered
+		mock.should_receive(:processed_callback).with(42).once.ordered
+		mock.should_receive(:processed_next_call).with(84).once.ordered
+	    end
+	    apply_remote_command
+	end
+    end
+
     # Test the normal disconnection process
     def test_disconnect
 	peer2peer
@@ -183,14 +291,14 @@ class TC_DistributedConnection < Test::Unit::TestCase
 
     # Tests that the remote peer disconnects if #demux raises DisconnectedError
     def test_automatic_disconnect
-
+	Roby.logger.level = Logger::DEBUG
 	peer2peer do |remote|
 	    class << remote
 		include Test::Unit::Assertions
 		def assert_demux_raises
 		    peer = peers.find { true }[1]
 		    peer.transmit(:whatever)
-		    peer.flush
+		    assert_raises(RuntimeError) { peer.flush }
 		end
 	    end
 	end
