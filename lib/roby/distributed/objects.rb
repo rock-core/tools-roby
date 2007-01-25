@@ -16,6 +16,7 @@ module Roby
 	    def owners; @owners ||= [Roby::Distributed.remote_id].to_set end
 	    def self_owned?; true end
 	    def has_sibling?(peer); true end
+	    def subscribed?; true end
 	    
 	    module ClassExtension
 		# Does the object of this class should be sent to remote hosts ?
@@ -49,6 +50,7 @@ module Roby
 	    def distribute?; true end
 	    def self_owned?; false end
 	    def has_sibling?(peer); true end
+	    def subscribed?; remote_peer.subscribed?(@remote_object) end
 
 	    def ==(obj)
 		obj.kind_of?(RemoteObject) && 
@@ -63,6 +65,7 @@ module Roby
 		owners.include?(Distributed.remote_id)
 	    end
 	    def distribute?; true end
+	    def subscribed?; self_owned? end
 
 	    def has_sibling?(peer)
 		!owners.include?(peer.remote_id) ||
