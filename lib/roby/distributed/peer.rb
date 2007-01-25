@@ -26,6 +26,18 @@ module Roby
 end
 
 module Roby::Distributed
+    def self.each_object_relation(object)
+	if object.respond_to?(:each_discovered_relation)
+	    object.each_discovered_relation do |rel|
+		yield(rel) if rel.distribute?
+	    end
+	else
+	    object.each_relation do |rel|
+		yield(rel) if rel.distribute?
+	    end
+	end
+    end
+
     class ConnectionTask < Roby::Task
 	event :ready
 	local_object
@@ -216,12 +228,7 @@ module Roby::Distributed
 	    result = []
 	    # For transaction proxies, never send non-discovered relations to
 	    # remote hosts
-	    enumerate_with = if object.respond_to?(:each_discovered_relation)
-				 "each_discovered_relation"
-			     else "each_relation"
-			     end
-
-	    object.send(enumerate_with) do |graph|
+	    Roby::Distributed.each_object_relation(object) do |graph|
 		next unless graph.distribute?
 
 		graph_edges = []
@@ -373,11 +380,7 @@ module Roby::Distributed
 		    end
 		end
 
-		enumerator = if object.respond_to?(:each_discovered_relation) then :each_discovered_relation
-			     else :each_relation
-			     end
-
-		object.send(enumerator) do |rel|
+		Roby::Distributed.each_object_relation(object) do |rel|
 		    # Remove relations that do not exist anymore
 		    (object.parent_objects(rel) - parents[rel]).each do |p|
 			Roby::Distributed.update([p.root_object, object.root_object]) do
@@ -751,12 +754,8 @@ module Roby::Distributed
 
 	# Returns true if +proxy+ is related to a local task
 	def linked_to_local?(proxy)
-	    proxy.each_relation do |rel|
-		next unless rel.distribute?
-		if proxy.child_objects(rel).any? { |child| !child.kind_of?(RemoteObjectProxy) }
-		    return true
-		end
-		if proxy.parent_objects(rel).any? { |child| !child.kind_of?(RemoteObjectProxy) }
+	    Roby::Distributed.each_object_relation(proxy) do |rel|
+		if proxy.related_objects(rel).any? { |obj| !obj.kind_of?(RemoteObjectProxy) }
 		    return true
 		end
 	    end
