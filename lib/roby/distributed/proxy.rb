@@ -108,18 +108,15 @@ module Roby::Distributed
 	    @happened	 = marshalled_object.happened
 
 	    if marshalled_object.controlable
-		self.command = method(:call_remote_command)
+		self.command = true
 	    end
 	end
 	def happened?(strict = true); @happened || super end
-
-	def call_remote_command(context)
-	end
 	def command=(command)
-	    if command == method(:call_remote_command) || !command
-		super
+	    if command 
+		super(lambda {})
 	    else
-		raise ArgumentError, "cannot change the command of a remote event generator"
+		super(nil)
 	    end
 	end
     end
