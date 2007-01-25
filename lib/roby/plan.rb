@@ -354,6 +354,7 @@ module Roby
 
 	def remove_object(object)
 	    object.clear_relations
+	    object.plan = nil
 
 	    case object
 	    when TaskEventGenerator

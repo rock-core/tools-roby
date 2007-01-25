@@ -298,7 +298,7 @@ module Roby
         end
 
 	def plan=(new_plan)
-	    if !pending? && @plan != new_plan
+	    unless (finished? && !new_plan) || pending? || @plan == new_plan
 		raise TaskModelViolation.new(self), "cannot change the plan of a running task"
 	    end
 	    super
