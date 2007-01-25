@@ -250,21 +250,6 @@ class TC_Event < Test::Unit::TestCase
 	end
     end
 
-    def test_or_generator
-	or_event = OrGenerator.new
-	setup_event_aggregator(or_event) do
-	    assert(or_event.happened?)
-	end
-
-	# Check the behavior of the | operator
-	e1, e2, e3, e4 = 4.enum_for(:times).map { EventGenerator.new(true) }
-	or_event = e1 | e2
-	or_or = or_event | e3
-	assert_equal(or_event, or_or)
-	or_or = e4 | or_event
-	assert_equal(or_event, or_or)
-    end
-
     def test_and_generator
 	and_event = AndGenerator.new
 	setup_event_aggregator(and_event) do
@@ -276,11 +261,9 @@ class TC_Event < Test::Unit::TestCase
 	e1, e2, e3, e4 = (1..4).map { EventGenerator.new(true) }
 	and_event = e1 & e2
 	and_and = and_event & e3
-	assert_equal(and_event, and_and)
-	assert_equal([e1, e2, e3].to_set, and_event.waiting.to_set)
+	assert_equal([e1, e2].to_set, and_event.waiting.to_set)
 	and_and = e4 & and_event
-	assert_equal(and_event, and_and)
-	assert_equal([e4, e1, e2, e3].to_set, and_event.waiting.to_set)
+	assert_equal([e1, e2].to_set, and_event.waiting.to_set)
 
 	# Check dynamic behaviour
 	a, b, c = (1..3).map { EventGenerator.new(true) }

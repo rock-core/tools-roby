@@ -80,21 +80,13 @@ module Roby
 	# Creates a new Event generator which is emitted as soon as one of this
 	# object and +generator+ is emitted
 	def |(generator)
-	    if generator.respond_to?(:to_or)
-		generator.to_or | self
-	    else
-		OrGenerator.new << self << generator
-	    end
+	    OrGenerator.new << self << generator
 	end
 
 	# Creates a AndGenerator object which is emitted when both this object
 	# and +generator+ are emitted
 	def &(generator)
-	    if generator.respond_to?(:to_and)
-		generator.to_and & self
-	    else
-		AndGenerator.new << self << generator
-	    end
+	    AndGenerator.new << self << generator
 	end
 
 	attr_enumerable(:handler, :handlers) { Array.new }
@@ -497,9 +489,6 @@ module Roby
 	    generator.add_signal self
 	    self
 	end
-
-	def to_and; self end
-	def &(generator); self << generator end
     end
 
     class OrGenerator < EventGenerator
@@ -516,9 +505,6 @@ module Roby
 	    generator.add_signal self
 	    self
 	end
-
-	def to_or; self end
-	def |(generator); self << generator end
     end
 
 
