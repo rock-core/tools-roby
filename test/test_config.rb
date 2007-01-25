@@ -1,4 +1,5 @@
 require 'test/unit'
+require 'roby'
 
 BASE_TEST_DIR=File.expand_path(File.dirname(__FILE__)) unless defined? BASE_TEST_DIR
 $LOAD_PATH.unshift BASE_TEST_DIR
