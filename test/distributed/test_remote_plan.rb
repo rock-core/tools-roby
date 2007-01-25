@@ -188,7 +188,6 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_subscribe
-	Roby.logger.level = Logger::DEBUG
 	peer2peer do |remote|
 	    root, mission, subtask, next_mission =
 		Task.new(:id => 'root'), 
