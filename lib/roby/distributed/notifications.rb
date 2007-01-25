@@ -39,7 +39,7 @@ module Roby
 	    end
 	    def replaced(from, to)
 		super if defined? super
-		if (from.distribute? && to.distribute) && (to.self_owned? || from.self_owned?)
+		if (from.distribute? && to.distribute?) && (to.self_owned? || from.self_owned?)
 		    unless Distributed.updating?([self]) || Distributed.updating?([from, to])
 			Distributed.each_subscribed_peer(from) do |peer|
 			    peer.plan_update(:replace, self, from, to)
