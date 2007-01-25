@@ -4,17 +4,31 @@ require 'roby/control'
 require 'roby/transactions'
 
 module Roby
+    # This class unrolls a loop in the plan. It maintains +lookahead+ patterns
+    # developped at all times by calling an external planner, and manages the
+    # resulting tasks. 
+    #
+    # The first patterns are developped when +start+ is called. You must then
+    # call +loop_start+ to start the generated tasks.
+    #
+    # If the PlanningLoop task is planning a task, then the generated tasks are
+    # added as child of this task. Otherwise, they are children of the
+    # PlanningLoop itself.
     class PlanningLoop < Roby::Task
 	terminates
 
-	# The period. Zero means continuously
+	# The period. Zero means continuously and false 'on demand'
 	attr_reader :period
 	# How many loops do we have unroll
 	attr_reader :lookahead
-	# How many loops are currently unrolled
-	attr_accessor :pending_patterns
 
-	attr_reader :planner_model, :method_name, :method_options
+	# How many loops are currently unrolled
+	def pending_patterns; start_commands.size end
+
+	# An queue of event generators. Each generator starts the next pending
+	# loop
+	attr_accessor :start_commands
+	private :start_commands
 
 	# For periodic updates. If false, the next loop is started when the
 	# 'loop_start' command is called
@@ -24,6 +38,8 @@ module Roby
 
 	# The task model we should produce
 	argument :planned_model
+
+	attr_reader :planner_model, :method_name, :method_options
 	# The planner model we should use
 	argument :planner_model
 	# The planner method name
@@ -35,16 +51,15 @@ module Roby
 	    task_arguments, planning_options = Kernel.filter_options options, 
 		:period => nil,
 		:lookahead => 1,
-		:planner => nil,
+		:planner_model => nil,
 		:planned_model => Roby::Task,
-		:planned_task => nil,
 		:method_name => nil,
 		:method_options => {}
 
 	    if !task_arguments[:method_name]
 		raise ArgumentError, "required argument :method_name missing"
-	    elsif !task_arguments[:planner]
-		raise ArgumentError, "required argument :planner missing"
+	    elsif !task_arguments[:planner_model]
+		raise ArgumentError, "required argument :planner_model missing"
 	    elsif task_arguments[:lookahead] < 1
 		raise ArgumentError, "lookahead must be at least 1"
 	    end
@@ -53,39 +68,72 @@ module Roby
 
 	def initialize(options)
 	    task_arguments, planning_options = PlanningLoop.filter_options(options)
-
-	    planner      = task_arguments.delete(:planner)
-	    planned_task = task_arguments.delete(:planned_task)
-	    task_arguments[:planner_model] = planner.class
 	    task_arguments[:method_options].merge!(planning_options)
 
 	    super(task_arguments)
 
 	    @period, @lookahead, @planner_model, @method_name, @method_options, @planned_model = 
 		arguments.values_at(:period, :lookahead, :planner_model, :method_name, :method_options, :planned_model)
-
-	    if planned_task
-		planned_task.planned_by self
-	    end
 	    
-	    @pending_patterns = 0
-	    @start_next_loop  = EventGenerator.new
-
-	    # Build the initial setup
-	    initial_task = planner.send(method_name, method_options)
-	    main_task.realized_by initial_task
-	    on(:start, initial_task, :start)
-	    initial_task.forward(:start, self, :loop_start)
-	    initial_task.forward(:success, self, :loop_end)
-
-	    planning_task = reschedule(nil, initial_task)
-	    on(:start, planning_task, :start)
-
-	    (lookahead - 1).times { reschedule }
+	    @start_commands = []
 	end
 
 	# The task on which the children are added
 	def main_task; planned_task || self end
+
+	# Appends a new unplanned pattern after all the patterns already developped
+	def append_pattern
+	    # Create the new pattern
+	    planning = PlanningTask.new(arguments.slice(:planner_model, :planned_model, :method_name, :method_options))
+	    planned  = planning.planned_task
+	    planned.forward(:start, self, :loop_start)
+	    planned.forward(:success, self, :loop_end)
+	    
+	    # Schedule it. We start the new pattern when these three conditions are met:
+	    #	* it has been planned (planning has finished)
+	    #	* the previous one (if any) has finished
+	    #	* the period (if any) has expired or loop_start has been called
+	    start_next = planning.event(:success)
+	    # this event is used to start the next pattern
+	    start_next_loop = EventGenerator.new(true)
+
+	    if last_planning = last_planning_task
+		last_planned = last_planning.planned_task
+		unless last_planned.success?
+		    start_next &= last_planned.event(:success)
+		end
+		if period
+		    start_next = start_next.delay(period) | (start_next & start_next_loop)
+		else
+		    start_next &= start_next_loop
+		end
+
+		last_planning.on(:success, planning, :start)
+		planning.start! if last_planning.success?
+	    else
+		start_next &= start_next_loop
+	    end
+
+	    start_commands.unshift(start_next_loop)
+
+	    main_task.realized_by planned
+	    start_next.on(planned.event(:start))
+	    planning
+	end
+
+	# Generates the first +lookahead+ pattens and start planning the first.
+	# The first tasks are started when +loop_start+ is called, not before.
+	def start(context)
+	    first_planning = nil
+	    while pending_patterns < lookahead
+		new_planning = append_pattern
+		first_planning ||= new_planning
+	    end
+	    on(:start, first_planning)
+
+	    emit :start, context
+	end
+	event :start
 
 	# Enumerates the PlanningTask we have currently added to the plan
 	def each_pattern_planning
@@ -111,57 +159,18 @@ module Roby
 	    end
 	end
 	
-	# Creates one pattern at the end of the already developed patterns.
-	# Returns the new planning task
-	def reschedule(context = nil, last_planned = nil)
-	    emit :reschedule unless last_planned
-
-	    return if self.pending_patterns >= lookahead
-	    self.pending_patterns += 1
-
-	    planning = PlanningTask.new(:planner_model => planner_model, :method_name => method_name, :method_options => method_options)
-	    planned  = planning.planned_task
-
-	    last_planning = last_planning_task
-	    last_planned  ||= last_planning.planned_task
-
-	    start_next = planning.event(:success)
-	    unless last_planned.event(:success).happened?
-		start_next &= last_planned.event(:success)
-	    end
-	    start_next = if period
-			     start_next.delay(period) | (start_next & @start_next_loop)
-			 else
-			     start_next & @start_next_loop
-			 end
-	    start_next.on(planned.event(:start))
-
-	    planned.forward(:start, self, :loop_start)
-	    planned.forward(:success, self, :loop_end)
-
-	    # There is no last_planning_task the first time
-	    planned.on(:start, self, :reschedule)
-	    if last_planning
-		last_planning.on(:success, planning, :start)
-		if last_planning.finished?
-		    planning.start!
-		end
-	    end
-
-	    main_task.remove_finished_children
-
-	    # Add the relation last as it changes last_planning_task and
-	    # last_planned_task
-	    main_task.realized_by planned
-	    planning
-	end
-	event :reschedule
-
 	def loop_start(context)
-	    @start_next_loop.emit(context)
+	    start_commands.last.call(context)
 	end
 	event :loop_start
-	on(:loop_start) { |event| event.task.pending_patterns -= 1 }
+	on(:loop_start) do |event| 
+	    event.task.instance_eval do
+		start_commands.pop
+		append_pattern
+		main_task.remove_finished_children
+	    end
+	end
+
 	event :loop_end
     end
 

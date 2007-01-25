@@ -382,61 +382,174 @@ class TC_Planner < Test::Unit::TestCase
 	planning_task.on(:success, planned_task, :start)
 	planning_task.start!
 
-        poll(0.5) do
-            thread_finished = !planning_task.thread.alive?
-            Control.instance.process_events
-            assert(planning_task.running? ^ thread_finished)
-            break unless planning_task.running?
-        end
+	planning_task.thread.join
+	Control.instance.process_events
 
 	plan_task = plan.missions.find { true }
         assert(plan_task == result_task, plan_task)
     end
 
-
-
-
-    def check_loop_planning_task(loop_planner, initial_planner, planner_model)
-	loop_tasks = loop_planner.children
-	
-	# Check that we have one planned task and one non-planned task
-	assert_equal(2, loop_tasks.size)
-	loop_tasks.delete(initial_planner.result_task)
-
-	nonplanned_task = *loop_tasks
-	planning_task = nonplanned_task.planning_task
-	assert_kind_of(Task          , nonplanned_task)
-	assert_equal([planning_task] , loop_planner.enum_for(:each_pattern_planning).to_a)
-	assert_equal(planning_task   , loop_planner.last_planning_task)
-	assert_equal(nonplanned_task , loop_planner.last_planned_task)
-
-	# Start the loop and check that #reschedule works as expected
-	loop_planner.start!
-	assert(initial_planner.result_task.running?)
-	assert(planning_task.running?)
-	
-	# Wait for the planner to finish
-	poll(0.5) do
-	    thread_finished = !planning_task.thread.alive?
-	    Control.instance.process_events
-
-	    assert(!thread_finished || planning_task.finished?)
-	    break if planning_task.finished?
-	end
-
-	assert_kind_of(SimpleTask, planning_task.planned_task)
-    end
-
-    def test_loop_planning_task
+    def test_planning_loop
+	task_model = Class.new(SimpleTask)
 	planner_model = Class.new(Planning::Planner) do
 	    @result_task = nil
 	    attr_reader :result_task
-	    method(:task) { @result_task = SimpleTask.new }
+	    method(:task) { @result_task = task_model.new }
 	end
 
-	initial_planner = planner_model.new(plan)
-	loop_planner = PlanningLoop.new(:period => 0, :lookahead => 1, :planner => initial_planner, :method_name => :task)
-	check_loop_planning_task(loop_planner, initial_planner, planner_model)
+	plan.insert(main_task = Roby::Task.new)
+	planning_task_options = {:planner_model => planner_model, :planned_model => SimpleTask, :method_name => :task, :method_options => {}}
+	loop_task_options = planning_task_options.merge(:period => nil, :lookahead => 2)
+	loop_planner = PlanningLoop.new(loop_task_options)
+	main_task.planned_by loop_planner
+
+	loop_planner.append_pattern
+	assert_equal(1, main_task.children.size)
+	first_task = main_task.children.find { true }
+	assert_equal(SimpleTask, first_task.class)
+	first_planner = first_task.planning_task
+	assert_equal(planning_task_options, first_task.planning_task.arguments)
+	assert_equal(1, loop_planner.pending_patterns)
+
+	loop_planner.append_pattern
+	assert_equal(2, main_task.children.size)
+	second_task = main_task.children.find { |t| t != first_task }
+	assert_equal(SimpleTask, first_task.class)
+	second_planner = second_task.planning_task
+	assert_equal(planning_task_options, first_task.planning_task.arguments)
+	assert_equal(2, loop_planner.pending_patterns)
+
+	assert_not_same(first_planner, second_planner)
+
+	loop_planner.emit(:start) # bypass the command
+	
+	# Plan the first two patterns (lookahead == 2)
+	first_planner.start!
+	first_planner.thread.join
+	Control.instance.process_events
+
+	assert(first_planner.success?)
+	assert(second_planner.running?)
+
+	first_task = first_planner.planned_task
+	assert(!first_task.running? && !second_task.running?)
+	assert_equal(2, loop_planner.pending_patterns)
+
+	second_planner.thread.join
+	Control.instance.process_events
+	assert(second_planner.success?)
+	second_task = second_planner.planned_task
+	assert(!first_task.running? && !second_task.running?)
+	assert_equal(2, loop_planner.pending_patterns)
+
+	# Start the first pattern, check we have one more planner and that it
+	# is running to keep the lookahead
+	loop_planner.loop_start!
+	assert(first_task.running? && !second_task.running?)
+	assert_equal(3, main_task.children.size)
+	third_task = (main_task.children - [first_task, second_task].to_value_set).to_a.first
+	third_planner = third_task.planning_task
+	assert(third_planner.running?)
+
+	# Stop the first task and call loop_start! again. The second task
+	# should be running, and a fourth planner added and not running
+	first_task.success!
+	assert(!second_task.running?)
+
+	loop_planner.loop_start!
+	assert(first_task.success? && second_task.running?)
+	fourth_task = (main_task.children - [first_task, second_task, third_task].to_value_set).to_a.first
+	fourth_planner = fourth_task.planning_task
+	assert(!fourth_planner.running?)
+
+	# Finish the second task before making the third planner finish
+	second_task.success!
+
+	loop_planner.loop_start!
+	# Finish third planning, check that both the third task and fourth planning are started
+	third_planner.thread.join
+	Control.instance.process_events
+	assert(third_planner.success?)
+	third_task = third_planner.planned_task
+	assert(third_task.running?)
+	assert(fourth_planner.running?)
+    end
+
+    def test_planning_loop_start
+	task_model = Class.new(SimpleTask)
+	planner_model = Class.new(Planning::Planner) { method(:task) { task_model.new } }
+
+	plan.insert(main_task = Roby::Task.new)
+	loop_planner = PlanningLoop.new :period => nil, :lookahead => 2, 
+	    :planner_model => planner_model, :planned_model => SimpleTask, 
+	    :method_name => :task, :method_options => {}	
+	main_task.planned_by loop_planner
+
+	loop_planner.start!
+	assert_equal(2, main_task.children.size)
+	assert(first_task = main_task.children.find { |t| t.planning_task.running? })
+    end
+
+    def test_planning_loop_periodic
+	task_model = Class.new(SimpleTask)
+	planner_model = Class.new(Planning::Planner) do 
+	    method(:task) { task_model.new }
+	end
+
+	plan.insert(main_task = Roby::Task.new)
+	loop_planner = PlanningLoop.new :period => 0.5, :lookahead => 2, 
+	    :planner_model => planner_model, :planned_model => Roby::Task, 
+	    :method_name => :task, :method_options => {}	
+	main_task.planned_by loop_planner
+
+	loop_planner.start!
+	assert(first_task = main_task.children.find { |t| t.planning_task.running? })
+	first_planner = first_task.planning_task
+	first_planner.thread.join
+	Control.instance.process_events
+	assert(first_planner.success?)
+
+	assert(second_task = main_task.children.find { |t| t.planning_task.running? })
+	second_planner = second_task.planning_task
+	second_planner.thread.join
+	Control.instance.process_events
+	assert(second_planner.success?)
+
+	loop_planner.loop_start!
+	# Get the third planner *NOW*... We will call process_events and it will be
+	# harder to get it later
+	assert(third_task = main_task.children.find { |t| t.planning_task.running? })
+	third_planner = third_task.planning_task
+	third_planner.thread.join
+	Control.instance.process_events
+
+	# Checks that the timeout before first_task end and second_task start exists
+	first_task = first_planner.planned_task
+	second_task = second_planner.planned_task
+	third_task = third_planner.planned_task
+
+	assert(first_task.running?)
+	assert(!second_task.running?)
+	first_task.success!
+	assert(!first_task.running? && !second_task.running?)
+	Control.instance.process_events
+	assert(!second_task.running?)
+	sleep(1)
+	Control.instance.process_events
+	assert(second_task.running?)
+
+	# Check that the timeout can be overriden by calling loop_start! on the PlanningLoop
+	# task
+	assert(third_planner.success?)
+	third_task = third_planner.planned_task
+
+	assert(second_task.running? && !third_task.running?)
+	second_task.success!
+	assert(!second_task.running? && !third_task.running?)
+	Control.instance.process_events
+	assert(!third_task.running?)
+	loop_planner.loop_start!
+	assert(third_task.running?, third_task.object_id)
     end
 
     def test_make_loop
@@ -456,7 +569,6 @@ class TC_Planner < Test::Unit::TestCase
 
 	initial_planner = planner_model.new(plan)
 	loop_planner = initial_planner.my_looping_task(:parent_argument => 1)
-	check_loop_planning_task(loop_planner, initial_planner, planner_model)
     end
 end
 
