@@ -476,7 +476,7 @@ module Roby
 	    return unless type == EventStructure::Signal
 	    @events[parent] = parent.last
 	end
-	def removed_parent_object(parent, type, info)
+	def removed_parent_object(parent, type)
 	    super if defined? super
 	    return unless type == EventStructure::Signal
 	    @events.delete(parent)
