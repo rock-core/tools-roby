@@ -212,7 +212,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	    end
 	end
 
-	remote_peer.subscribe(remote_peer.remote_server.plan.remote_object)
+	remote_peer.subscribe(remote_peer.remote_server.plan)
 	apply_remote_command
 	remote_peer.unsubscribe(remote_peer.remote_server.plan)
 	apply_remote_command

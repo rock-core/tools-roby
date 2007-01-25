@@ -231,7 +231,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	end
 
 	## Check that #unsubscribe(..., false) disables dynamic updates
-	remote_peer.unsubscribe(r_mission, false)
+	remote_peer.unsubscribe(proxy, false)
 	apply_remote_command
 	r_mission.remote_object.remove_child(r_subtask.remote_object)
 	apply_remote_command do
@@ -251,7 +251,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	end
 
 	## Re-add the child relation and test #unsubscribe
-	remote_peer.unsubscribe(r_mission, false)
+	remote_peer.unsubscribe(proxy, false)
 	apply_remote_command
 	r_mission.remote_object.realized_by(r_subtask.remote_object)
 	remote_peer.subscribe(r_mission.remote_object)
@@ -262,7 +262,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    assert(remote_peer.subscribed?(r_subtask.remote_object))
 	end
 
-	remote_peer.unsubscribe(r_subtask, true)
+	remote_peer.unsubscribe(remote_peer.proxy(r_subtask), true)
 	apply_remote_command do
 	    assert(! remote_peer.subscribed?(r_subtask.remote_object))
 	    proxies = proxy.child_objects(TaskStructure::Hierarchy).to_a
@@ -271,13 +271,52 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    assert_equal(remote_peer.proxy(r_next_mission).event(:start), proxies.first)
 	end
 
-	remote_peer.unsubscribe(r_mission, true)
+	remote_peer.unsubscribe(proxy, true)
 	apply_remote_command do
 	    proxies = proxy.child_objects(TaskStructure::Hierarchy).to_a
 	    assert(proxies.empty?)
 	    proxies = proxy.event(:stop).child_objects(EventStructure::Signal).to_a
 	    assert_equal([], proxies)
 	end
+    end
+
+    def test_remove_unnecessary
+	peer2peer do |remote|
+	    left, right, middle =
+		Task.new(:id => 'left'), 
+		Task.new(:id => 'right'), 
+		Task.new(:id => 'middle')
+	    left.realized_by middle
+	    right.realized_by middle
+
+	    remote.plan.insert(left)
+	    remote.plan.insert(right)
+	    remote.singleton_class.class_eval do
+		define_method(:remove_last_link) do
+		    left.remove_child(middle)
+		end
+	    end
+	end
+
+	left   = remote_peer.proxy(remote_task(:id => 'left'))
+	right  = remote_peer.proxy(remote_task(:id => 'right'))
+	remote_peer.subscribe(left)
+	remote_peer.subscribe(right)
+	apply_remote_command
+
+	assert(middle = local.plan.known_tasks.find { |t| t.arguments[:id] == 'middle' })
+	assert(!middle.subscribed?)
+	remote_peer.unsubscribe(right)
+	apply_remote_command
+	assert(!right.subscribed?)
+
+	assert(middle = local.plan.known_tasks.find { |t| t.arguments[:id] == 'middle' })
+	assert_equal(1, middle.parent_objects(TaskStructure::Hierarchy).size)
+	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'right' })
+
+	remote.remove_last_link
+	apply_remote_command
+	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'middle' })
     end
 
     def test_plan_notifications

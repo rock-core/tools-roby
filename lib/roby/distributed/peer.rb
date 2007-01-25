@@ -406,6 +406,15 @@ module Roby::Distributed
 		unmarshall_and_update(args) do |args|
 		    Roby::Distributed.debug { "received update from #{remote_name}: #{args[0]}.#{args[1]}(#{args[2..-1].join(", ")})" }
 		    args[0].send(*args[1..-1])
+
+		    from, op, to = args[0], args[1], args[2]
+		    if op == :remove_child_object
+			if peer.unnecessary?(from)
+			    peer.delete(from, true)
+			elsif peer.unnecessary?(to)
+			    peer.delete(to, true)
+			end
+		    end
 		end
 	    end
 	    nil
@@ -718,7 +727,14 @@ module Roby::Distributed
 	end
 
 	# +remote_object+ is not a valid remote object anymore
-	def delete(remote_object)
+	def delete(object, remove_object = false)
+	    if remove_object
+		remote_object, local_object = objects(object)
+		connection_space.plan.remove_object(local_object)
+	    else
+		remote_object = remote_object(object)
+	    end
+
 	    subscriptions.delete(remote_object)
 
 	    proxy = @proxies.delete(remote_object)
@@ -745,11 +761,36 @@ module Roby::Distributed
 	# on this side, and they must be compared using #==
 	attribute(:subscriptions) { Set.new }
 
-	# Subscribe to +marshalled+.	
-	def subscribe(remote_object)
-	    if remote_object.respond_to?(:remote_object)
-		remote_object = remote_object.remote_object(remote_id)
+
+	def remote_object(object)
+	    if object.kind_of?(DRbObject)
+		object
+	    elsif object.respond_to?(:proxy)
+		object.remote_object
+	    else object.remote_object(remote_id)
 	    end
+	end
+	def local_object(object)
+	    if object.respond_to?(:proxy)
+		proxy(object)
+	    elsif object.kind_of?(DRbObject)
+		raise ArgumentError, "got a DRbObject"
+	    else object
+	    end
+	end
+	def objects(object)
+	    if object.respond_to?(:proxy)
+		[object.remote_object, proxy(object)]
+	    elsif object.kind_of?(DRbObject)
+		raise ArgumentError, "got a DRbObject"
+	    else
+		[object.remote_object(self), object]
+	    end
+	end
+
+	# Subscribe to +marshalled+.	
+	def subscribe(object)
+	    remote_object = remote_object(object)
 
 	    return if subscriptions.include?(remote_object)
 	    transmit(:subscribe, remote_object) do
@@ -758,8 +799,8 @@ module Roby::Distributed
 	end
 
 	# True if we are subscribed to +remote_object+ on the peer
-	def subscribed?(remote_object)
-	    subscriptions.include?(remote_object)
+	def subscribed?(object)
+	    subscriptions.include?(remote_object(object))
 	end
 
 	# Returns true if +proxy+ is related to a local task
@@ -772,41 +813,49 @@ module Roby::Distributed
 	    false
 	end
 
-	# Clears all relations that should be removed because we unsubscribed
-	# from +proxy+
-	def remove_unsubscribed_relations(proxy) # :nodoc:
-	    keep_proxy = false
-	    proxy.related_tasks.each do |task|
-		if task.kind_of?(RemoteObjectProxy) && task.peer_id == remote_id && 
-		    !subscribed?(task.remote_object(remote_id))
-
-		    connection_space.plan.remove_task(task)
-		else keep_proxy = true
+	# Returns true if +object+ is a remote task which is not needed anymore
+	# in the local plan
+	def unnecessary?(local_object)
+	    return false if local_object.subscribed?
+	    Roby::Distributed.each_object_relation(local_object) do |rel|
+		if local_object.related_objects(rel).any? { |obj| obj.subscribed? }
+		    return false
 		end
 	    end
-	    unless keep_proxy
-		connection_space.plan.remove_object(proxy)
+	    true
+	end
+
+	# Clears all relations that should be removed because we unsubscribed
+	# from +proxy+
+	def remove_unsubscribed_relations(local_object) # :nodoc:
+	    Roby::Distributed.update([local_object]) do
+		local_object.related_tasks.each do |task|
+		    if !task.subscribed?
+			local_object.remove_relations(task)
+			delete(task, true) if unnecessary?(task)
+		    end
+		end
+		if unnecessary?(local_object)
+		    delete(local_object, true)
+		end
 	    end
 	end
 
 	# Unsubscribe ourselves from +marshalled+. If +remove_object+ is true,
 	# the local proxy for this object is removed from the plan as well
-	def unsubscribe(proxy, remove_object = true)
-	    if proxy.respond_to?(:remote_object)
-		remote_object = proxy.remote_object(remote_id)
-	    else
-		proxy, remote_object = self.proxy(proxy), proxy
-	    end
-	    case proxy
+	def unsubscribe(object, remove_object = true)
+	    remote_object, local_object = objects(object)
+
+	    case local_object
 	    when Roby::PlanObject
-		if linked_to_local?(proxy)
+		if linked_to_local?(local_object)
 		    raise InvalidRemoteOperation, "cannot unsubscribe to a task still linked to local tasks"
 		end
 
 		transmit(:unsubscribe, remote_object) do
 		    subscriptions.delete(remote_object)
 		    if remove_object
-			remove_unsubscribed_relations(proxy)
+			remove_unsubscribed_relations(local_object)
 		    end
 		    yield if block_given?
 		end

@@ -213,7 +213,18 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
     def test_executed_by
 	peer2peer do |remote|
-	    remote.plan.insert(Task.new(:id => 1))
+	    task = Task.new(:id => 1) 
+	    exec = Class.new(Task) do
+		event :ready, :command => true
+	    end.new(:id => 'exec')
+	    task.executed_by exec
+	    remote.plan.insert(task)
+
+	    remote.singleton_class.class_eval do
+		define_method(:check_execution_agent) do
+		    task.execution_agent == exec
+		end
+	    end
 	end
 	r_task = remote_peer.proxy(remote_task(:id => 1))
 	assert_equal(remote_peer.task, r_task.execution_agent)
@@ -222,8 +233,15 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.add_owner remote_peer
 	trsc.self_owned
 	remote_peer.subscribe(r_task) do
-	    assert_equal(nil, trsc[r_task].execution_agent)
+	    assert_equal(trsc[remote_peer.task], trsc[r_task].execution_agent)
 	end
+	trsc.propose(remote_peer)
+	apply_remote_command
+	trsc.commit_transaction
+	apply_remote_command
+
+	assert_equal(remote_peer.task, r_task.execution_agent)
+	assert(remote.check_execution_agent)
     end
 
     def test_argument_updates
