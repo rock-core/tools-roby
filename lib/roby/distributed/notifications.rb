@@ -124,7 +124,7 @@ module Roby
 			end
 
 		    when :remove_object
-			peer.subscriptions.delete(args[0].remote_object)
+			peer.delete(args[0].remote_object)
 		    end
 		end
 		nil

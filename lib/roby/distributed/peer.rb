@@ -717,6 +717,16 @@ module Roby::Distributed
 	    object_proxy
 	end
 
+	# +remote_object+ is not a valid remote object anymore
+	def delete(remote_object)
+	    subscriptions.delete(remote_object)
+
+	    proxy = @proxies.delete(remote_object)
+	    if proxy.respond_to?(:plan) && proxy.plan
+		raise "deleting an object still attached to the plan"
+	    end
+	end
+
 	# Check if +object+ should be proxied
 	def proxying?(marshalled)
 	    marshalled.respond_to?(:proxy)
