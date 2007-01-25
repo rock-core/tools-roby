@@ -781,24 +781,31 @@ module Roby::Distributed
 
 	# Unsubscribe ourselves from +marshalled+. If +remove_object+ is true,
 	# the local proxy for this object is removed from the plan as well
-	def unsubscribe(marshalled, remove_object = true)
-	    # Get the proxy for +marshalled+
-	    proxy = proxy(marshalled)
+	def unsubscribe(proxy, remove_object = true)
+	    if proxy.respond_to?(:remote_object)
+		remote_object = proxy.remote_object(remote_id)
+	    else
+		proxy, remote_object = self.proxy(proxy), proxy
+	    end
 	    case proxy
 	    when Roby::PlanObject
 		if linked_to_local?(proxy)
 		    raise InvalidRemoteOperation, "cannot unsubscribe to a task still linked to local tasks"
 		end
 
-		transmit(:unsubscribe, marshalled.remote_object) do
-		    subscriptions.delete(marshalled.remote_object)
-		    if remove_object && proxy.kind_of?(Roby::Task)
+		transmit(:unsubscribe, remote_object) do
+		    subscriptions.delete(remote_object)
+		    if remove_object
 			remove_unsubscribed_relations(proxy)
 		    end
+		    yield if block_given?
 		end
 
 	    else
-		transmit(:unsubscribe, marshalled.remote_object)
+		transmit(:unsubscribe, remote_object) do
+		    subscriptions.delete(remote_object)
+		    yield if block_given?
+		end
 	    end
 	end
 
