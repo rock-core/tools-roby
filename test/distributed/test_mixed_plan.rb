@@ -92,6 +92,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 
 	yield(trsc)
 
+	apply_remote_command
 	# Check the transaction is still valid, regardless of the
 	# changes we made to the plan
 	check_resulting_plan(trsc, true)
