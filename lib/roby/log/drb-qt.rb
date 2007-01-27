@@ -4,13 +4,15 @@ module Roby::Display
 	attr_reader :displays, :main_window, :tabs
 
 	# Starts a new server listening at +uri+
-	def initialize(uri)
+	def initialize(uri = nil)
 	    super()
 
 	    @displays = Hash.new
 
-	    DRb.stop_service
-	    DRb.start_service(uri, self)
+	    if uri
+		DRb.stop_service
+		DRb.start_service(uri, self)
+	    end
 
 	    @updater = Qt::Timer.new(self, "timer")
 	    @updater.connect(@updater, SIGNAL('timeout()'), self, SLOT('update()'))

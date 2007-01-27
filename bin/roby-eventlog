@@ -105,7 +105,7 @@ module Roby::Log
 	end
 
 	def initialize(*args, &block)
-	    @server = Roby::Display::DRbDisplayServer.new(Roby::Display::DEFAULT_REMOTE_DISPLAY_URI)
+	    @server = Roby::Display::DRbDisplayServer.new(nil)
 	    @current_color = -1
 	    @relation_item = Hash.new
 	    @relation_color = Hash.new
