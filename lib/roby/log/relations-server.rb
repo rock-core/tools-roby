@@ -387,6 +387,7 @@ module Roby::Display
 
 	def task_initialize(time, task, start, stop)
 	    task(task)
+	    canvas_task(task).visible = false
 	    changed!
 	end
 
@@ -410,8 +411,14 @@ module Roby::Display
 	def committed_transaction(time, trsc); delete_transaction(trsc) end
 	def discarded_transaction(time, trsc); delete_transaction(trsc) end
 
+	attribute(:discovered) { ValueSet.new }
 	def discovered_tasks(time, plan, tasks)
 	    plans[plan.source_id] += tasks
+	    tasks.each do |t| 
+		discovered << t.source_id
+		canvas_task(t).visible = true
+	    end
+
 	    changed!
 	end
 
@@ -442,9 +449,11 @@ module Roby::Display
 	# and the 'finished' and 'finalized' buttons
 	def task_visibility(t, flag = nil)
 	    if flag.nil?
-		next unless s = task_states[t]
+		s = task_states[t]
 
-		if (s == :success || s == :failed)
+		if !discovered.include?(t.source_id)
+		    flag = false
+		elsif (s == :success || s == :failed)
 		    flag = @show_finished.on?
 		elsif (s == :finalized)
 		    flag = @show_finalized.on?
