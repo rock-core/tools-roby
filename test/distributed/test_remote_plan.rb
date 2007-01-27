@@ -125,6 +125,40 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert(remote_peer.owns?(proxy))
     end
 
+    # Check that remote events that are unknown locally are properly ignored
+    def test_ignored_events
+	peer2peer do |remote|
+	    model = Class.new(SimpleTask) do
+		event :unknown, :command => true
+	    end
+	    remote.plan.insert(t1 = SimpleTask.new(:id => 1))
+	    remote.plan.insert(t2 = SimpleTask.new(:id => 2))
+	    remote.plan.insert(u = model.new(:id => 0))
+
+	    t1.event(:start).on u.event(:unknown)
+	    t2.event(:start).emit_on u.event(:unknown)
+
+	    remote.singleton_class.class_eval do
+		define_method(:remove_relations) do
+		    t1.event(:start).remove_signal u.event(:unknown)
+		    u.event(:unknown).remove_forwarding t2.event(:start)
+		end
+	    end
+	end
+
+	u = remote_peer.proxy(remote_task(:id => 0))
+	t1 = remote_peer.proxy(remote_task(:id => 1))
+	t2 = remote_peer.proxy(remote_task(:id => 2))
+
+	remote_peer.subscribe(u)
+	assert_nothing_raised { apply_remote_command }
+	assert(remote_peer.connected?)
+
+	remote.remove_relations
+	assert_nothing_raised { apply_remote_command }
+	assert(remote_peer.connected?)
+    end
+
     def assert_proxy_of(object, proxy)
 	assert_kind_of(Roby::Distributed::RemoteObjectProxy, proxy)
 	assert_equal(object.remote_object, proxy.remote_object(remote_peer.remote_id))

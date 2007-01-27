@@ -420,19 +420,27 @@ module Roby::Distributed
 	    nil
 	end
 
+	# Unmarshalls elements of +args+, gets their proxy, calls
+	# Distributed.update and yield
+	#
+	# If one of the objects should be ignored (Peer#proxy returns nil),
+	# the provided block will not get called
 	def unmarshall_and_update(args)
 	    updating = ValueSet.new
 	    args = [args] unless args.respond_to?(:map)
 	    args = args.map do |o|
 		if peer.proxying?(o)
 		    proxy = peer.proxy(o)
+		    if !proxy
+			return
+		    end
 		    if proxy.kind_of?(Roby::PlanObject)
 			updating << proxy.root_object
 		    end
 		    proxy
 		else o
 		end
-	    end.compact
+	    end
 	    Roby::Distributed.update(updating) do 
 		yield(args)
 	    end
