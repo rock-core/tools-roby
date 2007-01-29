@@ -266,19 +266,31 @@ class TC_Event < Test::Unit::TestCase
 	assert_equal([e1, e2].to_set, and_event.waiting.to_set)
 
 	# Check dynamic behaviour
-	a, b, c = (1..3).map { EventGenerator.new(true) }
-        and_event = a & b
-        and_event.on c
-        assert_equal([and_event], a.enum_for(:each_signal).to_a)
-        assert_equal([and_event], b.enum_for(:each_signal).to_a)
-        assert_equal([c], and_event.enum_for(:each_signal).to_a)
+	a, b, c, d = (1..4).map { EventGenerator.new(true) }
+        and1 = a & b
+	and2 = and1 & c
+        and2.on d
+        assert_equal([and1], a.enum_for(:each_signal).to_a)
+        assert_equal([and1], b.enum_for(:each_signal).to_a)
+        assert_equal([and2], and1.enum_for(:each_signal).to_a)
+        assert_equal([and2], c.enum_for(:each_signal).to_a)
+        assert_equal([d], and2.enum_for(:each_signal).to_a)
+
 	a.call(nil)
-	assert_equal([b], and_event.waiting)
-	assert(! and_event.happened?)
+	assert_equal([b], and1.waiting)
+	assert(! and1.happened?)
+
+	c.call(nil)
+	assert_equal([and1], and2.waiting)
+	assert(! and2.happened?)
+	
 	b.call(nil)
-	assert_equal([], and_event.waiting)
-	assert(and_event.waiting.empty?)
-	assert(and_event.happened?)
+	assert(and1.happened?)
+	assert(and2.happened?)
+	assert_equal([], and1.waiting)
+	assert_equal([], and2.waiting)
+
+	assert(d.happened?)
     end
 
     def test_forwarder
