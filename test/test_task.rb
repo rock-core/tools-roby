@@ -7,6 +7,7 @@ require 'roby/plan'
 
 class TC_Task < Test::Unit::TestCase 
     include RobyTestCommon
+    attr_reader :plan
 
     def test_model_tag
 	my_tag = TaskModelTag.new do
@@ -444,7 +445,7 @@ class TC_Task < Test::Unit::TestCase
 	yield(tasks)
     end
 
-    def test_task_sequence_aggregator
+    def test_sequence
 	task_tuple(2) { |t1, t2| aggregator_test( (t1 + t2), t1, t2 ) }
         task_tuple(2) do |t1, t2| 
 	    s = t1 + t2
@@ -463,6 +464,29 @@ class TC_Task < Test::Unit::TestCase
 	    s.unshift t1
 	    aggregator_test(s.to_task, t1, t2, t3)
 	end
+    end
+    def test_sequence_to_task
+	model = Class.new(SimpleTask)
+	t1, t2 = SimpleTask.new, SimpleTask.new
+
+	seq = (t1 + t2)
+	assert(seq.child_object?(t1, TaskStructure::Hierarchy))
+	assert(seq.child_object?(t2, TaskStructure::Hierarchy))
+
+	task = seq.to_task(model)
+
+	@plan = Plan.new
+	plan.insert(task)
+
+	assert(!seq.child_object?(t1, TaskStructure::Hierarchy))
+	assert(!seq.child_object?(t2, TaskStructure::Hierarchy))
+
+	task.start!
+	assert(t1.running?)
+	t1.success!
+	assert(t2.running?)
+	t2.success!
+	assert(task.success?)
     end
 
     def test_multi_task_signalling

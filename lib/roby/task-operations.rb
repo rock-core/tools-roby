@@ -29,7 +29,8 @@ module Roby::TaskAggregator
     end
 
     class TaskAggregator < Roby::Task
-	event(:start,	:command => true)
+	terminates
+	event(:start, :command => true)
 
 	attr_reader :tasks
 	def initialize(arguments = {}); @tasks = Array.new; super end
@@ -41,9 +42,16 @@ module Roby::TaskAggregator
 	    tasks.all? { |t| t.finished? || t.executable? }
 	end
 
-	event :failed, :command => true, :terminal => true
-	def stop(context); failed!(context) end
-	event :stop
+	def delete
+	    if plan
+		plan.remove_object(self)
+	    else
+		clear_relations
+	    end
+
+	    @tasks = nil
+	    freeze
+	end
     end
 
     class Sequence < TaskAggregator
@@ -51,6 +59,19 @@ module Roby::TaskAggregator
 
 	def name
 	    @tasks.map { |t| t.name }.join("+")
+	end
+
+	def to_task(task = nil)
+	    return super() unless task
+	    task = task.new unless task.kind_of?(Roby::Task)
+	    @tasks.each { |t| task.realized_by t }
+
+	    task.on(:start, @tasks.first, :start)
+	    @tasks.last.forward(:success, task, :success)
+
+	    delete
+
+	    task
 	end
 
 	def connect_start(task)
@@ -112,6 +133,21 @@ module Roby::TaskAggregator
 	    @success = Roby::AndGenerator.new
 	    event(:success).emit_on @success
         end
+
+	def to_task(task = nil)
+	    return super() unless task
+
+	    task = task.new unless task.kind_of?(Roby::Task)
+	    @tasks.each do |t| 
+		task.realized_by t
+		task.on(:start, t, :start)
+	    end
+	    task.event(:success).emit_on success
+
+	    delete
+
+	    task
+	end
 
         def <<(task)
 	    raise "trying to change a running parallel task" if running?
