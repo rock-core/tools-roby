@@ -165,16 +165,16 @@ module Roby
 		timings[:end] = timings[:ruby_gc] = Time.now
 	    end
 
-	    if abort_on_exception && !quitting? && !fatal_errors.empty?
-		reraise(fatal_errors.map { |e, _| e })
-	    end
-	    
 	    application_errors = Thread.current[:application_exceptions]
 	    Thread.current[:application_exceptions] = nil
 	    application_errors.each do |(event, origin), error|
 		Roby.application_error(event, origin, error)
 	    end
 
+	    if abort_on_exception && !quitting? && !fatal_errors.empty?
+		reraise(fatal_errors.map { |e, _| e })
+	    end
+	    
 	    timings
 
 	ensure
