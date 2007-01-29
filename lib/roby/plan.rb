@@ -369,6 +369,7 @@ module Roby
 		@missions.delete(object)
 		@known_tasks.delete(object)
 		@keepalive.delete(object)
+		object.each_event { |ev| finalized_event(ev) }
 		finalized_task(object)
 	    end
 
