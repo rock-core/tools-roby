@@ -402,6 +402,7 @@ module Roby
 
 	    replace(task, new_task)
 	    Control.once { new_task.start!(nil) }
+	    new_task
 	end
     end
 end
