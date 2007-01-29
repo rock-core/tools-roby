@@ -398,7 +398,7 @@ module Roby
 
 	# Replace +task+ with a fresh copy of itself
 	def respawn(task)
-	    new_task = task.class.new(task.arguments)
+	    new_task = task.class.new(task.arguments.dup)
 
 	    replace(task, new_task)
 	    Control.once { new_task.start!(nil) }
