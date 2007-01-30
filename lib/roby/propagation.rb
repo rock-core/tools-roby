@@ -272,11 +272,14 @@ module Roby::Propagation
 		[*parents].each do |parent|
 		    next if parent.finished?
 
-		    e = e.fork if has_parent # we have more than one parent
-		    exceptions = by_task[parent] 
-		    if s = exceptions.find { |s| s.siblings.include?(e) }
+		    if has_parent # we have more than one parent
+			e = e.fork
+		    end
+
+		    parent_exceptions = by_task[parent] 
+		    if s = parent_exceptions.find { |s| s.siblings.include?(e) }
 			s.merge(e)
-		    else exceptions << e
+		    else parent_exceptions << e
 		    end
 
 		    has_parent = true
@@ -298,12 +301,11 @@ module Roby::Propagation
 		[task, task.reverse_generated_subgraph(Roby::TaskStructure::Hierarchy)]
 	    end
 
-	    # Handle the exception in all tasks that are in no other parent
-	    # trees
+	    # Handle the exception in all tasks that are in no other parent trees
 	    new_exceptions = ValueSet.new
 	    by_task.each do |task, task_exceptions|
 		if parent_trees.find { |t, tree| t != task && tree.include?(task) }
-		    new_exceptions |= task_exceptions
+		    new_exceptions |= task_exceptions.map { |e| [e, [task]] }
 		    next
 		end
 
