@@ -523,7 +523,7 @@ module Roby
 		Planning.debug { "planning #{name}[#{arguments}]" }
 
 		# Check for recursion
-                if @stack.include?(name)
+                if (options[:id] && @stack.include?([name, options[:id]])) || (!options[:id] && @stack.find { |n, _| n == name })
                     options[:recursive] = true
                     options[:lazy] = true
                 end
@@ -577,7 +577,7 @@ module Roby
             # It raises NotFound if none of the methods returned successfully
             def call_planning_methods(errors, options, method, *methods)
                 begin
-                    @stack.push method.name
+                    @stack.push [method.name, method.id]
 		    Planning.debug { "calling #{method.name}:#{method.id} with arguments #{arguments}" }
 		    begin
 			result = instance_eval(&method.body)
