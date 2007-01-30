@@ -548,10 +548,19 @@ module Roby
 		all_returns.compact!
 				  
 		all_returns.each do |return_type|
-		    task = plan.enum_for(:each_task).find do |task|
+		    candidates = plan.known_tasks.find_all do |task|
 			task.fullfills?(return_type, arguments) && !planning?(task)
 		    end
-		    if task
+		    # Remove candidates that are child of others
+		    candidates.map! do |task|
+			[task, task.generated_subgraph(TaskStructure::Hierarchy)]
+		    end
+		    candidates.delete_if do |task, _|
+			candidates.find { |t, children| t != task && children.include?(task) }
+		    end
+
+		    unless candidates.empty?
+			task = candidates.first.first
 			Planning.debug { "selecting task #{task} instead of planning #{name}[#{arguments}]" }
 			return task
 		    end
