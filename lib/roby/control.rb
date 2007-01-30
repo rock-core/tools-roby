@@ -18,7 +18,14 @@ module Roby
 
     class Control
 	include Singleton
-	extend MonitorMixin
+
+	@mutex = Mutex.new
+	class << self
+	    attr_reader :mutex
+	    def synchronize
+		@mutex.synchronize { yield }
+	    end
+	end
 
 	# Do not sleep or call Thread#pass if there is less that
 	# SLEEP_MIN_TIME time left in the cycle
