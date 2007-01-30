@@ -349,7 +349,7 @@ class TC_Planner < Test::Unit::TestCase
 	(1..2).each do |i|
 	    FlexMock.use do |mock|
 		planner = Class.new(base) do
-		    filter(:test) do |m| 
+		    filter(:test) do |opt, m| 
 			mock.filtered(m.id)
 			m.id == i 
 		    end

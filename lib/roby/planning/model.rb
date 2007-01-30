@@ -469,7 +469,7 @@ module Roby
 		filter_method = "each_#{name}_filter"
 		if respond_to?(filter_method)
 		    # Remove results for which at least one filter returns false
-		    result.reject! { |m| enum_for(filter_method).any? { |f| !f[m] } }
+		    result.reject! { |m| enum_for(filter_method).any? { |f| !f[options, m] } }
 		end
 
 		if result.empty?; nil
