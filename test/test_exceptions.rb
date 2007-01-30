@@ -305,5 +305,34 @@ class TC_Exceptions < Test::Unit::TestCase
 	end
 	assert(task.event(:start).happened?)
     end
+
+    def test_exception_propagation_merging
+	FlexMock.use do |mock|
+	    t11 = Task.new(:id => '11')
+	    t12 = Task.new(:id => '12')
+	    t13 = Task.new(:id => '13')
+
+	    root = Class.new(Task) do
+		include Test::Unit::Assertions
+		on_exception(RuntimeError) do |exception|
+		    assert_equal([t11, t12, t13].to_set, exception.task.to_set)
+		    mock.caught(exception.task)
+		end
+	    end.new(:id => 'root')
+	    root.realized_by(t11)
+	    root.realized_by(t12)
+	    root.realized_by(t13)
+
+	    t11.realized_by(t21 = Task.new(:id => '21'))
+	    t12.realized_by(t21)
+
+	    t13.realized_by(t22 = Task.new(:id => '22'))
+	    t22.realized_by(t31 = Task.new(:id => '31'))
+	    t31.realized_by(t21)
+
+	    mock.should_receive(:caught).once
+	    Propagation.propagate_exceptions([ExecutionException.new(RuntimeError.exception, t21)])
+	end
+    end
 end
 
