@@ -10,17 +10,11 @@ module Roby
 	    module Plan
 		def finalized_event(generator)
 		    super if defined? super
-		    Wrapper.cache.delete_if do |generator_id, obj|
-			(generator.object_id == generator_id) ||
-			    (obj.respond_to?(:generator) && obj.generator.source_id == generator.object_id)
-		    end
+		    Wrapper.cache.delete(generator.object_id)
 		end
 		def finalized_task(task)
 		    super if defined? super
-		    Wrapper.cache.delete_if do |task_id, obj|
-			(task.object_id == task_id) ||
-			    (obj.respond_to?(:task) && obj.task.source_id == task.object_id)
-		    end
+		    Wrapper.cache.delete(task.object_id)
 		end
 		def removed_transaction(trsc)
 		    super if defined? super
@@ -66,7 +60,7 @@ module Roby
 		    end
 		end
 
-		unless wrapper = @@cache[object.object_id]
+		#unless wrapper = @@cache[object.object_id]
 		    wrapper = case object
 			      when Roby::Transactions::Proxy:	TransactionProxy.new(object)
 			      when Roby::TaskEvent:		TaskEvent.new(object)
@@ -80,11 +74,11 @@ module Roby
 			      else
 				  raise TypeError, "unmarshallable object #{object} of type #{object.class}"
 			      end
-		end
+		#end
 
 		if wrapper.respond_to?(:update)
 		    if wrapper.permanent?
-			@@cache[object.object_id] = wrapper
+			#@@cache[object.object_id] = wrapper
 		    end
 		    wrapper.update(object)
 		end
