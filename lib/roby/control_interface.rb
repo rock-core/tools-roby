@@ -96,12 +96,13 @@ module Roby
 
 	    planner = PlanningTask.new(:planner_model => planner_model, :method_name => name, :method_options => options)
 	    task.planned_by planner
-
-	    control.plan.insert(task)
-	    yield(planner, task) if block_given?
-
 	    if do_start
 		planner.on(:success, task, :start)
+	    end
+	    yield(planner, task) if block_given?
+
+	    Control.synchronize do
+		control.plan.insert(task)
 	    end
 
 	    planner
