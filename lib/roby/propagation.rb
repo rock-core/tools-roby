@@ -87,8 +87,10 @@ module Roby::Propagation
 	rescue Exception => e
 	    if Thread.current[:propagation_exceptions] && (plan_exception = to_execution_exception(e, source))
 		Thread.current[:propagation_exceptions] << plan_exception
-	    else
+	    elsif Thread.current[:application_exceptions]
 		Thread.current[:application_exceptions] << [source, e]
+	    else
+		Roby.application_error('unknown', source, e)
 	    end
 	    true
 	end
