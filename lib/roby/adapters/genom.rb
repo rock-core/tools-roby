@@ -3,16 +3,18 @@ require 'roby/control'
 require 'roby/relations/executed_by'
 require 'forwardable'
 
-module Roby::Genom
-end
-
+module Genom; end
+module Roby::Genom; end
+require 'genom'
 require 'genom/module'
 require 'genom/environment'
 
 module Roby::Genom
-    include Genom
-
     @genom_rb = ::Genom
+    if @genom_rb == Roby::Genom
+	raise "you must not load Genom.rb by yourself"
+    end
+
     class << self
 	extend Forwardable
 	def_delegators(:@genom_rb, :connect)
