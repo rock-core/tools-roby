@@ -150,6 +150,10 @@ module Roby
 		    end
 		end
 
+		if ring_discovery?
+		    Distributed.info "doing ring discovery on #{ring_broadcast}"
+		end
+
 		# Start the discovery thread and wait for it to be initialized
 		synchronize do
 		    @discovery_thread = Thread.new(&method(:neighbour_discovery))
