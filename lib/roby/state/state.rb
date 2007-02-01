@@ -100,6 +100,9 @@ module Roby
 	end
 
 	def to_hash; @members.to_sym_keys end
+	def each_member(&block)
+	    @members.each(&block)
+	end
         
 	# Update a set of values on this struct
 	# If a hash is given, it is an name => value hash of attribute
@@ -173,11 +176,12 @@ module Roby
             end
         end
 
+	FORBIDDEN_NAMES=%w{marshal each enum to}
+	FORBIDDEN_NAMES_RX=/^(?:#{FORBIDDEN_NAMES.join("|")})_/
         def method_missing(name, *args, &update) # :nodoc:
             name = name.to_s
 
-	    raise NoMethodError if name =~ /^marshal_/
-	    super if name =~ /^to_/
+	    super(name.to_sym, *args, &update) if name =~ FORBIDDEN_NAMES_RX
             if name =~ /(.+)=$/
 		# Setter
 		attribute_name = $1

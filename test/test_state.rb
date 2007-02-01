@@ -135,4 +135,11 @@ class TC_State < Test::Unit::TestCase
 	assert_equal(24, s.substruct.value)
 	assert(!s.respond_to?(:invalid))
     end
+
+    def test_forbidden_names
+	s = ExtendedStruct.new
+	assert_raises(NoMethodError) { s.each_blah }
+	assert_raises(NoMethodError) { s.enum_blah }
+	assert_raises(NoMethodError) { s.to_blah }
+    end
 end
