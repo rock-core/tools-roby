@@ -99,12 +99,11 @@ module Roby
 	    if do_start
 		planner.on(:success, task, :start)
 	    end
-	    yield(planner, task) if block_given?
 
 	    Control.synchronize do
 		control.plan.insert(task)
+		yield(planner, task) if block_given?
 	    end
-
 	    planner
 	end
     end

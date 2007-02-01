@@ -23,7 +23,11 @@ module Roby
 	class << self
 	    attr_reader :mutex
 	    def synchronize
-		@mutex.synchronize { yield }
+		if Thread.current == Control.instance.thread
+		    yield
+		else
+		    @mutex.synchronize { yield }
+		end
 	    end
 	end
 
@@ -293,7 +297,7 @@ module Roby
 		begin
 		    if quitting?
 			return if forced_exit?
-			Control.synchronize do
+			Control.mutex.synchronize do
 			    plan.keepalive.dup.each { |t| plan.auto(t) }
 			    plan.force_gc.merge( plan.missions )
 			end
@@ -314,7 +318,7 @@ module Roby
 			timings[:start] += cycle
 			@cycle_index += 1
 		    end
-		    timings = Control.synchronize { process_events(timings, control_gc) }
+		    timings = Control.mutex.synchronize { process_events(timings, control_gc) }
 
 		rescue Exception => e
 		    unless quitting?
