@@ -43,8 +43,8 @@ module Roby
 		modules.each do |mod|
 		    if mod.respond_to?(:planning_methods)
 			include mod
-		    elsif mod = (mod.const_get('Planning') rescue nil)
-			include mod
+		    elsif planning_mod = (mod.const_get('Planning') rescue nil)
+			include planning_mod
 		    else
 			raise ArgumentError, "#{mod} is not a planning library and has no Planning module which is one"
 		    end
