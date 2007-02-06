@@ -389,6 +389,15 @@ class TC_Planner < Test::Unit::TestCase
         assert(plan_task == result_task, plan_task)
     end
 
+    def planning_loop_next(main_task)
+	assert(task = main_task.children.find { |t| t.planning_task.running? })
+	planner = task.planning_task
+	planner.thread.join
+	Control.instance.process_events
+	assert(planner.success?)
+
+	[planner.planned_task, planner]
+    end
     def test_planning_loop
 	task_model = Class.new(SimpleTask)
 	planner_model = Class.new(Planning::Planner) do
@@ -503,30 +512,13 @@ class TC_Planner < Test::Unit::TestCase
 	main_task.planned_by loop_planner
 
 	loop_planner.start!
-	assert(first_task = main_task.children.find { |t| t.planning_task.running? })
-	first_planner = first_task.planning_task
-	first_planner.thread.join
-	Control.instance.process_events
-	assert(first_planner.success?)
-
-	assert(second_task = main_task.children.find { |t| t.planning_task.running? })
-	second_planner = second_task.planning_task
-	second_planner.thread.join
-	Control.instance.process_events
-	assert(second_planner.success?)
+	first_task, first_planner = planning_loop_next(main_task)
+	second_task, second_planner = planning_loop_next(main_task)
 
 	loop_planner.loop_start!
 	# Get the third planner *NOW*... We will call process_events and it will be
 	# harder to get it later
-	assert(third_task = main_task.children.find { |t| t.planning_task.running? })
-	third_planner = third_task.planning_task
-	third_planner.thread.join
-	Control.instance.process_events
-
-	# Checks that the timeout before first_task end and second_task start exists
-	first_task = first_planner.planned_task
-	second_task = second_planner.planned_task
-	third_task = third_planner.planned_task
+	third_task, third_planner = planning_loop_next(main_task)
 
 	assert(first_task.running?)
 	assert(!second_task.running?)
@@ -550,6 +542,50 @@ class TC_Planner < Test::Unit::TestCase
 	assert(!third_task.running?)
 	loop_planner.loop_start!
 	assert(third_task.running?, third_task.object_id)
+    end
+
+    def test_planning_loop_zero_lookahead
+	task_model = Class.new(SimpleTask)
+	planner_model = Class.new(Planning::Planner) do 
+	    method(:task) { task_model.new }
+	end
+
+	plan.insert(main_task = Roby::Task.new)
+	loop_planner = PlanningLoop.new :period => 0.5, :lookahead => 0, 
+	    :planner_model => planner_model, :planned_model => Roby::Task, 
+	    :method_name => :task, :method_options => {}	
+	main_task.planned_by loop_planner
+
+	loop_planner.start!
+	assert(!main_task.children.find { |t| t.planning_task.running? })
+	loop_planner.loop_start!
+
+	first_task, first_planner = planning_loop_next(main_task)
+
+	assert_equal(1, main_task.children.size)
+	loop_planner.loop_start!
+	assert_equal(2, main_task.children.size)
+	second_task, second_planner = planning_loop_next(main_task)
+
+	loop_planner.loop_start!
+	assert_equal(3, main_task.children.size)
+	third_task, third_planner = planning_loop_next(main_task)
+
+	assert(first_task.running?)
+	assert(!second_task.running?)
+	assert(!third_task.running?)
+	first_task.success!
+	assert_equal(2, main_task.children.size)
+	assert(!first_task.running?)
+	assert(second_task.running?)
+	assert(!third_task.running?)
+	second_task.success!
+	assert_equal(1, main_task.children.size)
+	assert(!second_task.running?)
+	assert(third_task.running?)
+	third_task.success!
+	assert_equal(0, main_task.children.size)
+	assert(!third_task.running?)
     end
 
     def test_make_loop

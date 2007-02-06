@@ -60,8 +60,8 @@ module Roby
 		raise ArgumentError, "required argument :method_name missing"
 	    elsif !task_arguments[:planner_model]
 		raise ArgumentError, "required argument :planner_model missing"
-	    elsif task_arguments[:lookahead] < 1
-		raise ArgumentError, "lookahead must be at least 1"
+	    elsif task_arguments[:lookahead] < 0
+		raise ArgumentError, "lookahead must be positive"
 	    end
 	    [task_arguments, planning_options]
 	end
@@ -125,11 +125,13 @@ module Roby
 	# The first tasks are started when +loop_start+ is called, not before.
 	def start(context)
 	    first_planning = nil
-	    while pending_patterns < lookahead
-		new_planning = append_pattern
-		first_planning ||= new_planning
+	    if lookahead > 0
+		while pending_patterns < lookahead
+		    new_planning = append_pattern
+		    first_planning ||= new_planning
+		end
+		on(:start, first_planning)
 	    end
-	    on(:start, first_planning)
 
 	    emit :start, context
 	end
@@ -160,13 +162,18 @@ module Roby
 	end
 	
 	def loop_start(context)
-	    start_commands.last.call(context)
+	    if lookahead == 0
+		append_pattern.start!
+		start_commands.first.call(context)
+	    else
+		start_commands.last.call(context)
+	    end
 	end
 	event :loop_start
 	on(:loop_start) do |event| 
 	    event.task.instance_eval do
 		start_commands.pop
-		append_pattern
+		append_pattern unless event.task.lookahead == 0
 		main_task.remove_finished_children
 	    end
 	end
