@@ -1,0 +1,33 @@
+roby:
+    robot:
+        - config/ROBOT.rb
+        - controllers/ROBOT.rb
+        - planners/ROBOT/
+
+    files:
+        - config/
+        - controllers/
+        - data/
+        - scripts/
+        - tasks/
+        - planners/
+        - README
+        - config/roby.yml
+        - config/init.rb
+        - scripts/distributed
+        - scripts/run
+        - scripts/shell
+        - planners/main.rb
+
+genom:
+    requires: roby
+    robot:
+        - config/ROBOT-genom.rb
+        - config/pocosim/ROBOT.conf
+        - config/pocosim/ROBOT/
+
+    files:
+        - scripts/terrain
+        - tasks/genom/
+        - config/pocosim/
+

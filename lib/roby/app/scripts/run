@@ -1,0 +1,9 @@
+#! /usr/bin/env ruby
+APP_DIR = File.expand_path('..', File.dirname(__FILE__))
+ROBOT	= ARGV.shift
+if !ROBOT
+    STDERR.puts "scripts/run robot_name"
+    exit
+end
+
+require 'roby/app/scripts/impl/run'

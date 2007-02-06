@@ -1,0 +1,90 @@
+#! /usr/bin/env ruby
+
+APP_DIR  = Dir.pwd
+ROBY_DIR = File.join(File.expand_path('..', File.dirname(__FILE__)), 'lib', 'roby', 'app')
+
+require 'optparse'
+require 'fileutils'
+require 'yaml'
+
+# Load the template configuration
+template = YAML.load(File.open(File.join(ROBY_DIR, 'template.yml')))
+modules = template.keys
+modules.delete('roby')
+
+MODES = %w{init robot}
+modname = 'roby'
+mode    = nil
+parser = OptionParser.new do |opt|
+    opt.banner = "Usage: roby mode [options]"
+    opt.on('-m', '--module NAME', String, 
+	"the module to set up in 'init'", 
+	"Known modules are: #{modules.join(", ")}") do |modname| end
+    opt.on_tail('-h', '--help', 'this help message') do
+	STDERR.puts opt
+	exit
+    end
+end
+
+parser.parse! ARGV
+mode = ARGV.shift
+unless MODES.include?(mode)
+    STDERR.puts "Invalid mode of operation. Valid modes are #{MODES.join(", ")}"
+    STDERR.puts parser
+    exit(1)
+end
+
+def setup_files(list)
+    list.each do |file|
+	next unless file =~ /\/$/
+	file = yield(file) if block_given?
+
+	FileUtils.mkdir_p file
+    end
+
+    list.each do |file|
+	next if file =~ /\/$/
+	dst = if block_given? then yield(file) 
+	      else file
+	      end
+
+	src = File.join(ROBY_DIR, file)
+	dst = File.join(APP_DIR, dst)
+	unless File.file?(dst)
+	    FileUtils.cp src, dst, :preserve => true
+	end
+    end
+end
+def init_module(config)
+    setup_files(config['files'])
+end
+
+def add_robot(robotname, config)
+    setup_files(config['robot']) do |path|
+	path.gsub /ROBOT/, robotname
+    end
+end
+
+if mode == 'init'
+    unless config = template[modname]
+	STDERR.puts "Unknown module"
+	STDERR.puts parser
+	exit(1)
+    end
+    (config['requires'] || []).each do |required|
+	init_module template[required]
+    end
+    init_module config
+
+elsif mode == 'robot'
+    unless robotname = ARGV.shift
+	STDERR.puts "No robot name given on command line"
+	STDERR.puts parser
+	exit(1)
+    end
+    add_robot robotname, template['roby']
+    if File.directory?(File.join(APP_DIR, 'tasks', 'genom'))
+	add_robot robotname, template['genom']
+    end
+end
+
