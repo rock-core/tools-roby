@@ -546,8 +546,10 @@ class TC_Planner < Test::Unit::TestCase
 
     def test_planning_loop_zero_lookahead
 	task_model = Class.new(SimpleTask)
+
+	id = 0
 	planner_model = Class.new(Planning::Planner) do 
-	    method(:task) { task_model.new }
+	    method(:task) { task_model.new(:id => (id += 1)) }
 	end
 
 	plan.insert(main_task = Roby::Task.new)
@@ -584,7 +586,7 @@ class TC_Planner < Test::Unit::TestCase
 	assert(!second_task.running?)
 	assert(third_task.running?)
 	third_task.success!
-	assert_equal(0, main_task.children.size)
+	assert_equal(1, main_task.children.size)
 	assert(!third_task.running?)
     end
 
