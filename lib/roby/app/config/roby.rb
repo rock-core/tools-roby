@@ -20,13 +20,15 @@ end
 # We expect here that both APP_DIR and ROBOT are set
 conffile = File.join(APP_DIR, 'config', 'roby.yml')
 all_conf = YAML.load(File.open(conffile))
+
+discovery, terrain = nil
+DISCOVERY.merge! discovery if discovery = all_conf['discovery']
+TERRAIN.merge! terrain if terrain = all_conf['terrain']
 if defined? NAME
-    discovery, log, control, droby, terrain = nil
-    DISCOVERY.merge! discovery if discovery = all_conf['discovery']
+    log, control, droby = nil
     LOG.merge! log         if log     = all_conf['log']
     CONTROL.merge! control if control = all_conf['control']
     DROBY.merge! droby     if droby   = all_conf['droby']
-    TERRAIN.merge! terrain if terrain = all_conf['terrain']
 
     if robot_conf = all_conf[NAME.to_s]
 	LOG.merge! log         if log     = robot_conf['log']
