@@ -94,6 +94,7 @@ module Roby::Distributed
 	def trigger(*objects)
 	    # If +object+ is a trigger, send the :triggered event but do *not*
 	    # act as if +object+ was subscribed
+	    objects.delete_if { |o| o.plan != Roby::Distributed.state.plan }
 	    peers.each do |name, peer|
 		peer.local.trigger(*objects)
 	    end
