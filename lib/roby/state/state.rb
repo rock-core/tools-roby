@@ -229,7 +229,7 @@ module Roby
                 end
 
 	    else
-		super
+		super(name.to_sym, *args, &update)
             end
         end
 
