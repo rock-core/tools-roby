@@ -225,7 +225,14 @@ module Roby
         end
 
         Control.event_processing << lambda do 
-            planning_tasks.each { |task| task.poll }
+            planning_tasks.delete_if do |task| 
+		if task.thread.alive?
+		    false
+		else
+		    task.poll
+		    true
+		end
+	    end
         end
 
 	def planned_task
@@ -262,28 +269,22 @@ module Roby
 
 	# Polls for the planning thread end
 	def poll
-	    return if thread.alive?
-
-	    begin
-		case result
-		when Roby::Task
-		    transaction.replace(transaction[planned_task], result)
-		    transaction.commit_transaction
-		    emit(:success)
-		else
-		    transaction.discard_transaction
-		    emit(:failed, result)
-		end
-
-	    ensure
-		@thread = nil
-		PlanningTask.planning_tasks.delete(self)
-
-		# Make sure the transaction will be finalized event if the 
-		# planning task is not removed from the plan
-		@transaction = nil
-		@planner = nil
+	    case result
+	    when Roby::Task
+		transaction.replace(transaction[planned_task], result)
+		transaction.commit_transaction
+		emit(:success)
+	    else
+		transaction.discard_transaction
+		emit(:failed, result)
 	    end
+
+	ensure
+	    # Make sure the transaction will be finalized event if the 
+	    # planning task is not removed from the plan
+	    @thread = nil
+	    @transaction = nil
+	    @planner = nil
 	end
 
 	# Stops the planning thread
