@@ -37,32 +37,17 @@ module Roby::Display
 
 	def plan(id, objects)
 	    dot << "subgraph cluster_plan_#{id} {\n"
-	    plan_levels[id] = @plan_level
-	    @plan_level += 1
-	    objects.each { |o| o.dot(self) }
-	    @plan_level -= 1
+		plan_levels[id] = @plan_level
+		@plan_level += 1
+		objects.each { |o| o.dot(self) }
+		@plan_level -= 1
 	    dot << "};\n"
 	end
 
 	def task(task)
 	    return if display.hidden?(task)
 	    task_id = dot_id(task)
-
-	    cluster = task_clusters[task_id] = []
-	    dot << "  subgraph cluster_task_#{task_id} {\n"
-		dot << "label=\"#{task.name}\";"
-		display.each_event(task) do |ev|
-		    next if display.hidden?(ev)
-
-		    dot << "    #{dot_id(ev)}[label=#{ev.symbol}];\n"
-		    cluster << dot_id(ev) if cluster.empty?
-		end
-		if cluster.empty?
-		    dot << "    #{task_id};"
-		    cluster << task_id
-		end
-		cluster.unshift task
-	    dot << "  };\n"
+	    dot << "  #{task_id}[label=\"#{task.name}\"];\n"
 	end
 
 
@@ -78,8 +63,8 @@ module Roby::Display
 	    dot_layout = Tempfile.new("roby_layout")
 
 	    dot << "digraph relations {\n" +
-		   "  nslimit=2.0\n" +
-		   "  fslimit=2.0\n"
+		   "  nslimit=4.0;\n" +
+		   "  fslimit=4.0;\n"
 
 	    # Events that are not task events
 	    display.each_event(nil) do |ev|
@@ -94,12 +79,14 @@ module Roby::Display
 		next if display.hidden?(from) || display.hidden?(to)
 
 		# Find one event in each task to define an edge between the tasks
-		from = task_clusters[dot_id(from)].last
-		to   = task_clusters[dot_id(to)].last
+		from = dot_id(from)
+		to   = dot_id(to)
 		dot << "#{from} -> #{to};\n"
 	    end
 	    display.each_event_relation do |kind, from, to|
 		next if display.hidden?(from) || display.hidden?(to)
+		from = from.task if from.respond_to?(:task)
+		to   = to.task if to.respond_to?(:task)
 		dot << "#{dot_id(from)} -> #{dot_id(to)};\n"
 	    end
 	    dot << "};\n"
@@ -112,19 +99,18 @@ module Roby::Display
 	    tasks_bb = Hash.new
 
 	    # Load only task bounding boxes from dot, update arrows later
-	    task, graph_size = nil
+	    graph_size = nil
+	    task_pos = Hash.new
 	    lines = File.open(dot_layout.path) { |io| io.readlines  }
 	    lines.each do |line|
-		if line =~ /subgraph cluster_task_(\w+) \{/
-		    task = task_clusters[$1].first
-		elsif line =~ /bb="(\d+),(\d+),(\d+),(\d+)"/
+		case line
+		when /(\d+) \[.*pos="(\d+),(\d+)"/
+		    task_pos[$1] = [Integer($2), Integer($3)]
+		when /bb="(\d+),(\d+),(\d+),(\d+)"/
 		    bb = [$1, $2, $3, $4].map(&method(:Integer))
-		    if !task && !graph_bb
+		    if !graph_bb
 			graph_bb = bb
-		    else
-			tasks_bb[task] = bb
 		    end
-		    task = nil
 		end
 	    end
 	    return unless graph_bb
@@ -140,14 +126,16 @@ module Roby::Display
 	    max_level = plan_levels.values.max
 	    plan_levels[nil] = 0
 
-	    STDERR.puts "plan count: #{display.plans.size}"
 	    display.each_plan(true) do |id, tasks|
 		next if tasks.empty?
 		plan_bb = [display.canvas.width, display.canvas.height, 0, 0]
 		tasks.each do |t|
-		    next unless bb = tasks_bb[t]
-		    pos = [(bb[0] + bb[2]) / 2, 
-			(bb[1] + bb[3]) / 2].map { |i| i *= scale }
+		    if pos = task_pos[dot_id(t)]
+			pos.map! { |i| i *= scale }
+		    else
+			STDERR.puts "WARNING: ignoring #{t.name}:#{dot_id(t)}"
+			next
+		    end
 
 		    element = display.canvas_task(t)
 		    element.move(pos[0], graph_size[1] - pos[1])
