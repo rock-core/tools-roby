@@ -113,7 +113,7 @@ module Roby
 	def read_only?; super && task.read_only? end
 	def owners; task.owners end
 	def distribute?; task.distribute? end
-	def has_sibling?; task.has_sibling? end
+	def has_sibling?(peer); task.has_sibling?(peer) end
 	
 	# The plan this event is part of
 	def plan; task.plan end
