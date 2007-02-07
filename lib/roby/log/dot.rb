@@ -1,4 +1,5 @@
 require 'tempfile'
+require 'fileutils'
 module Roby::Marshallable
     class Task
 	def dot(layout); layout.task(self) end
@@ -49,6 +50,7 @@ module Roby::Display
 
 	    cluster = task_clusters[task_id] = []
 	    dot << "  subgraph cluster_task_#{task_id} {\n"
+		dot << "label=\"#{task.name}\";"
 		display.each_event(task) do |ev|
 		    next if display.hidden?(ev)
 
@@ -103,6 +105,7 @@ module Roby::Display
 	    dot << "};\n"
 
 	    dot.flush
+	    FileUtils.cp(dot.path, "/tmp/dot_layout.bkp")
 	    system("dot #{dot.path} > #{dot_layout.path}")
 
 	    graph_bb = nil
@@ -114,7 +117,7 @@ module Roby::Display
 	    lines.each do |line|
 		if line =~ /subgraph cluster_task_(\w+) \{/
 		    task = task_clusters[$1].first
-		elsif line =~ /graph \[bb="(\d+),(\d+),(\d+),(\d+)"\]/
+		elsif line =~ /bb="(\d+),(\d+),(\d+),(\d+)"/
 		    bb = [$1, $2, $3, $4].map(&method(:Integer))
 		    if !task && !graph_bb
 			graph_bb = bb
