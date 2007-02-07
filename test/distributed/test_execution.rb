@@ -119,5 +119,38 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    assert(forwarded_ev.happened?)
 	end
     end
+
+    # Test that we can 'forget' running tasks that was known to us because they
+    # were related to subscribed tasks
+    def test_forgetting
+	peer2peer do |remote|
+	    parent, child =
+		SimpleTask.new(:id => 'parent'), 
+		SimpleTask.new(:id => 'child')
+	    parent.realized_by child
+
+	    remote.plan.insert(parent)
+	    child.start!
+	    remote.singleton_class.class_eval do
+		define_method(:remove_link) do
+		    parent.remove_child(child)
+		end
+	    end
+	end
+
+	parent   = remote_peer.proxy(remote_task(:id => 'parent'))
+	child    = nil
+	remote_peer.subscribe(parent) do 
+	    assert(child = local.plan.known_tasks.find { |t| t.arguments[:id] == 'child' })
+	    assert(!child.subscribed?)
+	    assert(child.running?)
+	end
+	apply_remote_command
+
+	assert(child)
+	remote.remove_link
+	apply_remote_command
+	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'child' })
+    end
 end
 

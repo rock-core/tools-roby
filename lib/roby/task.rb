@@ -298,7 +298,7 @@ module Roby
         end
 
 	def plan=(new_plan)
-	    unless (finished? && !new_plan) || pending? || @plan == new_plan
+	    unless !self_owned? || (finished? && !new_plan) || pending? || @plan == new_plan
 		raise TaskModelViolation.new(self), "cannot change the plan of a running task"
 	    end
 	    super
@@ -334,6 +334,7 @@ module Roby
 	# task is running, and cannot be set to true on a finished task.
 	def executable=(flag)
 	    return if flag == @executable
+	    return unless self_owned?
 	    if flag && !pending? 
 		raise TaskModelViolation.new(self), "cannot set the executable flag on a task which is not pending"
 	    elsif !flag && running?
