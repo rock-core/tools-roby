@@ -24,6 +24,13 @@ module Roby
 		# Call to make the object of this class local to this host
 		def local_object; @distribute = false end
 	    end
+	    
+	    def remote_object(peer_id)
+		if peer_id == Roby::Distributed then self
+		else
+		    raise RemotePeerMismatch, "#{object} is local"
+		end
+	    end
 
 	    # Attribute which overrides the #distribute attribute on object classes
 	    attr_writer :distribute
@@ -42,6 +49,7 @@ module Roby
 
 	    def remote_object(peer_id)
 		if peer_id == peer_id then @remote_object
+		elsif peer_id == Roby::Distributed then self
 		else 
 		    raise RemotePeerMismatch, "#{self} has no known sibling on #{peer_id} (#{@peer_id})"
 		end
@@ -75,6 +83,7 @@ module Roby
 	    attribute(:remote_siblings) { Hash.new }
 	    def remote_object(peer_id)
 		if sibling = remote_siblings[peer_id] then sibling
+		elsif peer_id == Roby::Distributed then self
 		else 
 		    raise RemotePeerMismatch, "#{self} has no known sibling on #{peer_id}"
 		end

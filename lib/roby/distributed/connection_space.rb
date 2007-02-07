@@ -44,9 +44,17 @@ module Roby
 	    if id.respond_to?(:to_str)
 		peers.each { |_, p| return p if p.remote_name == id.to_str }
 		nil
-	    else
+	    elsif id.kind_of?(DRbObject)
 		peers[id]
+	    elsif id == Roby::Distributed.remote_id
+		Roby::Distributed
+	    else
+		nil
 	    end
+	end
+
+	def self.subscribed?(object)
+	    object.subscribed?
 	end
 
 	# Connection discovery based on Rinda::RingServer

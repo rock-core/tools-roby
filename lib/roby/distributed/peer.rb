@@ -93,7 +93,6 @@ module Roby::Distributed
 	
 	def trigger(*objects)
 	    # If +object+ is a trigger, send the :triggered event but do *not*
-	    #
 	    # act as if +object+ was subscribed
 	    peers.each do |name, peer|
 		peer.local.trigger(*objects)

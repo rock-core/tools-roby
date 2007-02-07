@@ -282,7 +282,7 @@ module Roby
 		owners.each do |owner|
 		    peer = Distributed.peer(owner)
 		    # peer may be nil if the transaction is owned locally
-		    if peer && !peer.subscribed?(__getobj__.remote_object(owner))
+		    if !peer.subscribed?(__getobj__.remote_object(owner))
 			raise "must subscribe to #{__getobj__} on #{peer} before changing its transactions proxies"
 		    end
 		end
