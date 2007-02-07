@@ -264,16 +264,18 @@ module Roby::Genom
 	    arguments = Roby::Genom.arguments_genom_to_roby(arguments)
 	    super(arguments)
 
-	    # Never garbage-collect runner tasks
-	    Roby::Control.instance.plan.permanent(self)
-	    @output_io = roby_module.output_io
+	    if self.class.respond_to?(:roby_module)
+		# Never garbage-collect runner tasks
+		Roby::Control.instance.plan.permanent(self)
+		@output_io = roby_module.output_io
 
-	    # Make sure there is a init() method defined in the Roby module if there is one in the
-	    # Genom module
-	    if !roby_module.respond_to?(:init) && genom_module.respond_to?(:init)
-		init_request = genom_module.request_info.find { |_, rq| rq.init? }.last.name
+		# Make sure there is a init() method defined in the Roby module if there is one in the
+		# Genom module
+		if !roby_module.respond_to?(:init) && genom_module.respond_to?(:init)
+		    init_request = genom_module.request_info.find { |_, rq| rq.init? }.last.name
 
-		raise ArgumentError, "the Genom module '#{genom_module.name}' defines the init request #{init_request}. You must define a singleton 'init' method in '#{roby_module.name}' which initializes the module"
+		    raise ArgumentError, "the Genom module '#{genom_module.name}' defines the init request #{init_request}. You must define a singleton 'init' method in '#{roby_module.name}' which initializes the module"
+		end
 	    end
 	end
 
