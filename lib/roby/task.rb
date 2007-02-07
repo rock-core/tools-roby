@@ -114,6 +114,7 @@ module Roby
 	def owners; task.owners end
 	def distribute?; task.distribute? end
 	def has_sibling?(peer); task.has_sibling?(peer) end
+	def subscribed?; task.subscribed? end
 	
 	# The plan this event is part of
 	def plan; task.plan end
