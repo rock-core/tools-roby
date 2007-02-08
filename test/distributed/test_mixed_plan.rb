@@ -109,7 +109,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
     def test_rproxy_realizes_lproxy(propose_first = false)
 	common_setup(propose_first) do |trsc|
 	    # First, add relations between two nodes that are already existing
-	    r_t1, r_t2, r_t3 = remote.add_tasks(remote.plan).map { |t| remote_peer.proxy(t) }
+	    r_t1, r_t2, r_t3 = remote.add_tasks(remote.plan).map { |t| remote_peer.local_object(t) }
 	    t1, t2, t3 = add_tasks(local.plan, "local")
 
 	    remote_peer.subscribe(r_t2)

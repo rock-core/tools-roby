@@ -355,12 +355,10 @@ module Roby
 	    end
 	    # Updates the status of the local object if needed
 	    def update(peer, proxy)
-		if plan
+		if self.plan
+		    plan = peer.local_object(self.plan)
 		    Distributed.update([plan]) do
-			# marshalled.plan is nil if the object plan is determined by another
-			# object. For instance, in the TaskEventGenerator case, the generator
-			# plan is the task plan
-			peer.proxy(plan).discover(proxy)
+			plan.discover(proxy)
 		    end
 		end
 	    end
@@ -422,7 +420,7 @@ module Roby
 	    end
 
 	    def proxy(peer)
-		task = peer.proxy(self.task)
+		task = peer.local_object(self.task)
 		return unless task.has_event?(symbol)
 		ev   = task.event(symbol)
 		if task.kind_of?(RemoteObjectProxy) && !ev.kind_of?(EventGeneratorProxy)

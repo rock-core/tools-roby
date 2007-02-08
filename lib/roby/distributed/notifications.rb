@@ -93,7 +93,7 @@ module Roby
 	    # plan method which needs to be called, +marshalled_plan+ the plan
 	    # itself and +args+ the args to +event+
 	    def plan_update(event, marshalled_plan, args)
-		plan = peer.proxy(marshalled_plan)
+		plan = peer.local_object(marshalled_plan)
 
 		result = []
 		Distributed.update([plan]) do
@@ -119,9 +119,9 @@ module Roby
 	    end
 
 	    def transaction_update(marshalled_plan, event, marshalled_trsc)
-		plan = peer.proxy(marshalled_plan)
+		plan = peer.local_object(marshalled_plan)
 		if event == :removed_transaction
-		    trsc = peer.proxy(marshalled_trsc)
+		    trsc = peer.local_object(marshalled_trsc)
 		end
 		nil
 	    end
@@ -136,7 +136,7 @@ module Roby
 			end
 
 		when :remove_object
-		    local.unsubscribe(args[0]) if args[0].self_owned?
+		    local.subscriptions.delete(args[0]) if args[0].self_owned?
 		end
 
 	       	transmit(:plan_update, event, plan, args)
@@ -200,16 +200,16 @@ module Roby
 
 	class PeerServer
 	    def event_fired(marshalled_from, time, context)
-		return unless from_generator = peer.proxy(marshalled_from)
-		context        = peer.proxy(context)
+		return unless from_generator = peer.local_object(marshalled_from)
+		context        = peer.local_object(context)
 		Distributed.pending_fired << [from_generator, time, context]
 		nil
 	    end
 
 	    def event_add_propagation(only_forward, marshalled_from, marshalled_to, time, context)
-		return unless from_generator = peer.proxy(marshalled_from)
-		return unless to             = peer.proxy(marshalled_to)
-		context        = peer.proxy(context)
+		return unless from_generator = peer.local_object(marshalled_from)
+		return unless to             = peer.local_object(marshalled_to)
+		context        = peer.local_object(context)
 		Distributed.pending_signals << [only_forward, from_generator, to, time, context]
 		nil
 	    end
@@ -273,7 +273,7 @@ module Roby
 
 	class PeerServer
 	    def updated_arguments(task, arguments)
-		proxy = peer.proxy(task)
+		proxy = peer.local_object(task)
 		Distributed.update([proxy]) do
 		    proxy.arguments.merge!(arguments || {})
 		end

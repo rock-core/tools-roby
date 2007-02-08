@@ -196,6 +196,7 @@ module Roby::Distributed
 
 	# Send the neighborhood of +distance+ hops around +object+ to the peer
 	def discover_neighborhood(object, distance)
+	    object = peer.local_object(object)
 	    edges = object.neighborhood(distance)
 	    if object.kind_of?(Roby::Task)
 		object.each_event do |obj_ev|
@@ -240,7 +241,7 @@ module Roby::Distributed
 	def apply(args)
 	    args = args.map do |a|
 		if peer.proxying?(a)
-		    peer.proxy(a)
+		    peer.local_object(a)
 		else a
 		end
 	    end.compact
@@ -252,7 +253,7 @@ module Roby::Distributed
 	# Receive an update on the relation graphs
 	def update_relation(plan, args)
 	    if plan
-		Roby::Distributed.update([peer.proxy(plan)]) { update_relation(nil, args) }
+		Roby::Distributed.update([peer.local_object(plan)]) { update_relation(nil, args) }
 	    else
 		unmarshall_and_update(args) do |args|
 		    Roby::Distributed.debug { "received update from #{remote_name}: #{args[0]}.#{args[1]}(#{args[2..-1].join(", ")})" }
@@ -281,7 +282,7 @@ module Roby::Distributed
 	    args = [args] unless args.respond_to?(:map)
 	    args = args.map do |o|
 		if peer.proxying?(o)
-		    proxy = peer.proxy(o)
+		    proxy = peer.local_object(o)
 		    if !proxy
 			return
 		    end
@@ -422,7 +423,7 @@ module Roby::Distributed
 	# Calls the block given to Peer#on when +task+ has matched the trigger
 	def triggered(id, task) # :nodoc:
 	    if trigger = triggers[id]
-		trigger.last.call(proxy(task))
+		trigger.last.call(local_object(task))
 	    end
 	end
 

@@ -211,7 +211,7 @@ module Roby
 		    new(*Marshal.load(str))
 		end
 		def proxy(peer)
-		    unless trsc = peer.find_transaction(remote_object, peer.proxy(plan)) 
+		    unless trsc = peer.find_transaction(remote_object, peer.local_object(plan)) 
 			raise InvalidRemoteOperation, "#{remote_object} does not exist on #{peer.connection_space.name}"
 		    end
 		    trsc
@@ -238,14 +238,16 @@ module Roby
 		Distributed.dump([DRbObject.new(remote_object), real_object, transaction])
 	    end
 	    def proxy(peer)
-		return unless local_real = peer.proxy(real_object)
+		return unless local_real = peer.local_object(real_object)
+		return unless local_real.plan
+
 		local_object = nil
-		local_transaction = peer.proxy(transaction)
+		local_transaction = peer.local_object(transaction)
 		Distributed.update([local_transaction]) do
 		    local_object = local_transaction[local_real]
 		end
 
-		unless local_real.self_owned?
+		if !local_real.self_owned?
 		    local_object.extend RemoteTransactionProxy
 		    local_object.remote_siblings[peer.remote_id] = remote_object
 		end
@@ -306,7 +308,7 @@ module Roby
 
 	class PeerServer
 	    def transaction_create(remote_trsc)
-		if dtrsc = (peer.proxy(remote_trsc) rescue nil)
+		if dtrsc = (peer.local_object(remote_trsc) rescue nil)
 		    raise ArgumentError, "#{remote_trsc} is already created"
 		end
 
@@ -319,20 +321,24 @@ module Roby
 	    end
 
 	    def transaction_prepare_commit(trsc)
-		Roby::Control.once { peer.connection_space.transaction_prepare_commit(peer.proxy(trsc)) }
-		peer.proxy(trsc).freezed!
+		trsc = peer.local_object(trsc)
+		Roby::Control.once { peer.connection_space.transaction_prepare_commit(trsc) }
+		trsc.freezed!
 		nil
 	    end
 	    def transaction_commit(trsc)
-		Roby::Control.once { peer.connection_space.transaction_commit(peer.proxy(trsc)) }
+		trsc = peer.local_object(trsc)
+		Roby::Control.once { peer.connection_space.transaction_commit(trsc) }
 		nil
 	    end
-	    def transaction_abandon_commit(trsc)
-		Roby::Control.once { peer.connection_space.transaction_abandon_commit(peer.proxy(trsc)) }
+	    def transaction_abandon_commit(trsc, error)
+		trsc = peer.local_object(trsc)
+		Roby::Control.once { peer.connection_space.transaction_abandon_commit(trsc, error) }
 		nil
 	    end
 	    def transaction_discard(trsc)
-		Roby::Control.once { peer.connection_space.transaction_discard(peer.proxy(trsc)) }
+		trsc = peer.local_object(trsc)
+		Roby::Control.once { peer.connection_space.transaction_discard(trsc) }
 		nil
 	    end
 	end
