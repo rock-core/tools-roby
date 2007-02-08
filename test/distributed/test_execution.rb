@@ -67,7 +67,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 
 	# Stop the task to see if the fired event is propagated
 	remote.stop_task
-	apply_remote_command
+	assert_raises(Roby::Aborting) { apply_remote_command }
 	assert(p_task.event(:stop).happened?)
 	assert(p_task.finished?)
     end
