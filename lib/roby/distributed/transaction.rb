@@ -8,10 +8,11 @@ module Roby
 	    include DistributedObject
 
 	    attr_reader :owners
-	    def initialize(plan, owners = nil)
+	    def initialize(plan, owners = nil, options = {})
 		@owners = Set.new
 		@owners.merge(owners) if owners
-		super(plan)
+		
+		super(plan, options)
 	    end
 
 	    include DistributedObject
@@ -205,7 +206,7 @@ module Roby
 	    # returns their sibling in the remote pDB (or raises if there is none)
 	    class DRoby < Roby::Plan::DRoby # :nodoc:
 		def _dump(lvl)
-		    Distributed.dump([DRbObject.new(remote_object), plan, owners]) 
+		    Distributed.dump([DRbObject.new(remote_object), plan, owners, options]) 
 		end
 		def self._load(str)
 		    new(*Marshal.load(str))
@@ -221,14 +222,14 @@ module Roby
 		    #"mdTransaction(#{remote_object.__drbref}/#{plan.remote_object.__drbref})" 
 		end
 
-		attr_reader :plan, :owners
-		def initialize(remote_object, plan, owners)
+		attr_reader :plan, :owners, :options
+		def initialize(remote_object, plan, owners, options)
 		    super(remote_object)
-		    @plan, @owners = plan, owners
+		    @plan, @owners, @options = plan, owners, options
 		end
 	    end
 	    def droby_dump # :nodoc:
-		DRoby.new(self, self.plan, self.owners)
+		DRoby.new(self, self.plan, self.owners, self.options)
 	    end
 	end
 
@@ -314,8 +315,8 @@ module Roby
 		    raise ArgumentError, "#{remote_trsc} is already created"
 		end
 
-		plan = peer.proxy(remote_trsc.plan)
-		trsc = Roby::Distributed::Transaction.new(plan, remote_trsc.owners)
+		plan = peer.local_object(remote_trsc.plan)
+		trsc = Roby::Distributed::Transaction.new(plan, remote_trsc.owners, remote_trsc.options)
 		trsc.remote_siblings[peer.remote_id] = remote_trsc.remote_object
 
 		subscriptions << remote_trsc.remote_object

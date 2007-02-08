@@ -86,7 +86,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	end
 
 	# Create the transaction, and do the necessary modifications
-	trsc = Distributed::Transaction.new(local.plan)
+	trsc = Distributed::Transaction.new(local.plan, nil, :on_plan_update => :update)
 	trsc.add_owner remote_peer
 	trsc.self_owned
 	trsc.propose(remote_peer) if propose_first
