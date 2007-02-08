@@ -207,13 +207,13 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	proxy = remote_peer.proxy(r_mission)
 
 	# We don't know about the remote relations
-	assert_equal([], proxy.child_objects(TaskStructure::Hierarchy).to_a)
+	assert_equal([], proxy.children.to_a)
 	assert_equal([], proxy.event(:stop).child_objects(EventStructure::Signal).to_a)
 
 	# Discover remote relations
 	remote_peer.discover_neighborhood(proxy.remote_object(remote_peer.remote_id), 1)
 	apply_remote_command do
-	    proxies = proxy.child_objects(TaskStructure::Hierarchy).to_a
+	    proxies = proxy.children.to_a
 	    assert_equal(1, proxies.size)
 	    assert_proxy_of(r_subtask, proxies.first)
 	    proxies = proxy.event(:stop).child_objects(EventStructure::Signal).to_a
@@ -248,8 +248,8 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	remote_peer.subscribe(r_root.remote_object)
 	apply_remote_command do
 	    assert(local.plan.mission?(proxy_root))
-	    assert_equal([proxy], proxy_root.child_objects(TaskStructure::Hierarchy).to_a)
-	    assert_equal([], proxy.child_objects(TaskStructure::Hierarchy).to_a)
+	    assert_equal([proxy], proxy_root.children.to_a)
+	    assert_equal([], proxy.children.to_a)
 	    assert_equal([], proxy.event(:stop).child_objects(EventStructure::Signal).to_a)
 	end
 
@@ -258,7 +258,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	remote_peer.subscribe(r_mission.remote_object)
 	apply_remote_command do
-	    proxies = proxy.child_objects(TaskStructure::Hierarchy).to_a
+	    proxies = proxy.children.to_a
 	    assert_proxy_of(r_subtask, proxies.first)
 	    proxies = proxy.event(:stop).child_objects(EventStructure::Signal).to_a
 	    assert_equal(remote_peer.proxy(r_next_mission).event(:start), proxies.first)
@@ -267,9 +267,10 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	## Check that #unsubscribe(..., false) disables dynamic updates
 	remote_peer.unsubscribe(proxy, false)
 	apply_remote_command
+	assert_equal(1, proxy.children.size)
 	r_mission.remote_object.remove_child(r_subtask.remote_object)
 	apply_remote_command do
-	    proxies = proxy.child_objects(TaskStructure::Hierarchy).to_a
+	    proxies = proxy.children.to_a
 	    assert_proxy_of(r_subtask, proxies.first)
 	    proxies = proxy.event(:stop).child_objects(EventStructure::Signal).to_a
 	    assert_equal(remote_peer.proxy(r_next_mission).event(:start), proxies.first)
@@ -278,7 +279,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	## Check that #subscribe removes old relations as well
 	remote_peer.subscribe(r_mission.remote_object)
 	apply_remote_command do
-	    proxies = proxy.child_objects(TaskStructure::Hierarchy).to_a
+	    proxies = proxy.children.to_a
 	    assert(proxies.empty?)
 	    proxies = proxy.event(:stop).child_objects(EventStructure::Signal).to_a
 	    assert_equal(remote_peer.proxy(r_next_mission).event(:start), proxies.first)
@@ -299,7 +300,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	remote_peer.unsubscribe(remote_peer.proxy(r_subtask), true)
 	apply_remote_command do
 	    assert(! remote_peer.subscribed?(r_subtask.remote_object))
-	    proxies = proxy.child_objects(TaskStructure::Hierarchy).to_a
+	    proxies = proxy.children.to_a
 	    assert(! proxies.empty?)
 	    proxies = proxy.event(:stop).child_objects(EventStructure::Signal).to_a
 	    assert_equal(remote_peer.proxy(r_next_mission).event(:start), proxies.first)
@@ -307,7 +308,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	remote_peer.unsubscribe(proxy, true)
 	apply_remote_command do
-	    proxies = proxy.child_objects(TaskStructure::Hierarchy).to_a
+	    proxies = proxy.children.to_a
 	    assert(proxies.empty?)
 	    proxies = proxy.event(:stop).child_objects(EventStructure::Signal).to_a
 	    assert_equal([], proxies)
@@ -421,13 +422,13 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	# Check dynamic updates
 	r_mission.remote_object.realized_by(r_subtask.remote_object)
 	apply_remote_command do
-	    proxies = proxy.child_objects(TaskStructure::Hierarchy).to_a
+	    proxies = proxy.children.to_a
 	    assert_proxy_of(r_subtask, proxies.first)
 	end
 
 	r_mission.remote_object.remove_child(r_subtask.remote_object)
 	apply_remote_command do
-	    proxies = proxy.child_objects(TaskStructure::Hierarchy).to_a
+	    proxies = proxy.children.to_a
 	    assert(proxies.empty?)
 	end
 

@@ -183,14 +183,11 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	task   = plan.known_tasks.find { |t| t.arguments[:id] == 2 }
 	c_task = plan.known_tasks.find { |t| t.arguments[:id] == 3 }
 
-	assert_equal(2, r_task.child_objects(Roby::TaskStructure::Hierarchy).size, r_task.children)
+	assert_equal(2, r_task.children.size, r_task.children)
 	assert(r_task.child_object?(task, Roby::TaskStructure::Hierarchy))
-	assert_equal(1, r_task.event(:start).child_objects(Roby::EventStructure::Signal).size)
-	assert(r_task.event(:start).child_object?(task.event(:start), Roby::EventStructure::Signal))
-	assert_equal(1, task.child_objects(Roby::TaskStructure::Hierarchy).size)
-	assert(task.child_object?(c_task, Roby::TaskStructure::Hierarchy))
-	assert_equal(1, task.event(:stop).child_objects(Roby::EventStructure::Signal).size)
-	assert(task.event(:stop).child_object?(c_task.event(:stop), Roby::EventStructure::Signal))
+	assert_equal([task.event(:start)], r_task.event(:start).child_objects(Roby::EventStructure::Signal).to_a)
+	assert_equal([c_task], task.children.to_a)
+	assert_equal([c_task.event(:stop)], task.event(:stop).child_objects(Roby::EventStructure::Signal).to_a)
 	assert(r_task.child_object?(c_task, Roby::TaskStructure::Hierarchy))
     end
 

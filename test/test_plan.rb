@@ -132,9 +132,9 @@ module TC_PlanStatic
 	plan.insert(t1)
 	plan.insert(t3)
 
-	assert(!t1.child_objects(TaskStructure::Hierarchy).empty?)
+	assert(!t1.children.empty?)
 	plan.remove_task(t2)
-	assert(t1.child_objects(TaskStructure::Hierarchy).empty?)
+	assert(t1.children.empty?)
 	assert(!plan.include?(t2))
 
 	assert(!t1.event(:stop).child_objects(EventStructure::Signal).empty?)
