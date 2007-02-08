@@ -79,7 +79,13 @@ module Roby
 	    def self._load(str); new(Marshal.load(str)) end
 	    def proxy(peer); peer.connection_space.plan end
 
-	    def to_s; "m(Plan:0x#{Object.address_from_id(remote_object.__drbref).to_s(16)})" end
+	    def to_s
+		if remote_object.kind_of?(DRbObject)
+		    "m(Plan:0x#{Object.address_from_id(remote_object.__drbref).to_s(16)})"
+		else
+		    "m(#{remote_object})"
+		end
+	    end
 
 	    attr_reader :remote_object
 	    def initialize(remote_object)

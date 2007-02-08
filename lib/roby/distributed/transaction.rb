@@ -217,7 +217,9 @@ module Roby
 		    trsc
 		end
 
-		def to_s; "mdTransaction(#{remote_object.__drbref}/#{plan.remote_object.__drbref})" end
+		def to_s
+		    #"mdTransaction(#{remote_object.__drbref}/#{plan.remote_object.__drbref})" 
+		end
 
 		attr_reader :plan, :owners
 		def initialize(remote_object, plan, owners)
