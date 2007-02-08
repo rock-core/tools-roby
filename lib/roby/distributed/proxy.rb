@@ -36,7 +36,7 @@ module Roby::Distributed
 	    super if defined? super
 
 	    if read_only? || child.read_only?
-		raise NotOwner, "cannot add a relation between tasks we don't own"
+		raise NotOwner, "cannot add a relation between tasks we don't own.  #{self} by #{owners.to_a} and #{child} is owned by #{child.owners.to_a}"
 	    end
 	end
     end
