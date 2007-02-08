@@ -18,6 +18,11 @@ module Roby
 	def executable?
 	    @executable || (@executable.nil? && plan && plan.executable?)
 	end
+
+	def freeze
+	    self.plan = nil
+	    super
+	end
 	
 	# Checks that we do not link two objects from two different plans
 	# and updates the +plan+ attribute accordingly

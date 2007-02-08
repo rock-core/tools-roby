@@ -21,7 +21,7 @@ module TC_PlanStatic
 	assert(!plan.mission?(t1))
 	assert(!plan.permanent?(t1))
 
-	plan.insert(t1)
+	plan.insert(t1 = Task.new)
 	assert(plan.include?(t1))
 	assert(plan.mission?(t1))
 	assert(!plan.permanent?(t1))
@@ -32,14 +32,14 @@ module TC_PlanStatic
 	assert(!plan.permanent?(t1))
 
 	plan.remove_task(t1)
-	plan.discover(t1)
+	plan.discover(t1 = Task.new)
 	assert(plan.include?(t1))
 	assert(!plan.mission?(t1))
 	plan.insert(t1)
 	assert(plan.mission?(t1))
 
 	plan.remove_task(t1)
-	plan.permanent(t1)
+	plan.permanent(t1 = Task.new)
 	assert(plan.include?(t1))
 	assert(!plan.mission?(t1))
 	assert(plan.permanent?(t1))

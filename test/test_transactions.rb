@@ -110,7 +110,7 @@ module TC_TransactionBehaviour
 	assert(!plan.include?(t3))
 	assert(!plan.mission?(t3))
 
-	plan.permanent(t3)
+	plan.permanent(t3 = Roby::Task.new)
 	transaction_commit(plan, t3) do |trsc, p3|
 	    trsc.auto(t3)
 	    assert(!trsc.permanent?(t3))

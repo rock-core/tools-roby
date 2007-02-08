@@ -354,7 +354,6 @@ module Roby
 
 	def remove_object(object)
 	    object.clear_relations
-	    object.plan = nil
 
 	    case object
 	    when TaskEventGenerator
@@ -373,6 +372,7 @@ module Roby
 		finalized_task(object)
 	    end
 
+	    object.freeze if object.root_object == object
 	    self
 	end
 
