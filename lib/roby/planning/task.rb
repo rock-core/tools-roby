@@ -151,7 +151,11 @@ module Roby
 	end
 
 	# The last planned task
-	def last_planned_task; last_planning_task.planned_task end
+	def last_planned_task
+	    if last_planning_task
+		last_planning_task.planned_task 
+	    end
+	end
 	# The last PlanningTask object
 	def last_planning_task
 	    enum_for(:each_pattern_planning).find do |planning|
