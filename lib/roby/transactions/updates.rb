@@ -49,7 +49,7 @@ module Roby
     module Transactions
 	module PlanUpdates
 	    def finalized_object(object) 
-		return if object != object.root_object
+		return unless object.root_object?
 		transactions.each do |trsc|
 		    next unless trsc.proxying?
 

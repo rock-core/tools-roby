@@ -376,7 +376,7 @@ module Roby
 		finalized_task(object)
 	    end
 
-	    object.freeze if object.root_object == object
+	    object.freeze if object.root_object?
 	    self
 	end
 
