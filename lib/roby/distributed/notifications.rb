@@ -61,6 +61,7 @@ module Roby
 	    def finalized_event(event)
 		super if defined? super
 		return unless event.distribute? && event.self_owned?
+		return unless event.root_object?
 
 		unless Distributed.updating?([self])
 		    Distributed.each_subscribed_peer(event) do |peer|
