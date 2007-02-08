@@ -29,7 +29,7 @@ module Roby
 	    def remote_object(peer_id)
 		if peer_id == Roby::Distributed then self
 		else
-		    raise RemotePeerMismatch, "#{object} is local"
+		    raise RemotePeerMismatch, "#{self} is local"
 		end
 	    end
 
