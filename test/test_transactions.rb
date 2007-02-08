@@ -56,6 +56,10 @@ module TC_TransactionBehaviour
 	plan.known_tasks.each do |t|
 	    assert_kind_of(Roby::Task, t, t.class.ancestors.inspect)
 	end
+
+    rescue
+	trsc.discard_transaction rescue nil
+	raise
     end
 
     # Tests insertion and removal of tasks
