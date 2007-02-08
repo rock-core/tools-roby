@@ -88,19 +88,6 @@ module Roby
 	Plan.include PlanModificationHooks
 
 	class PeerServer
-	    # Called during a call to subscribe() to copy the state of the
-	    # remote plan locally
-	    def subscribed_plan(marshalled_plan, missions, known_tasks)
-		plan = peer.proxy(marshalled_plan)
-		Distributed.update([plan]) do
-		    known_tasks.each do |t| 
-			peer.subscriptions << t.remote_object
-			plan.discover(peer.proxy(t))
-		    end
-		end
-		nil
-	    end
-
 	    # Notification of a plan modification. +event+ is the name of the
 	    # plan method which needs to be called, +marshalled_plan+ the plan
 	    # itself and +args+ the args to +event+

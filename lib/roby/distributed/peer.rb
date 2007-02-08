@@ -82,15 +82,6 @@ module Roby::Distributed
 
     @updated_objects = ValueSet.new
     class << self
-	def each_subscribed_peer(*objects)
-	    return if objects.any? { |o| !o.distribute? }
-	    peers.each do |name, peer|
-		next unless peer.connected?
-		next if objects.any? { |o| !o.has_sibling?(peer) }
-		yield(peer) if objects.any? { |o| peer.local.subscribed?(o) || peer.owns?(o) }
-	    end
-	end
-	
 	def trigger(*objects)
 	    # If +object+ is a trigger, send the :triggered event but do *not*
 	    # act as if +object+ was subscribed
@@ -246,95 +237,6 @@ module Roby::Distributed
 	    result
 	end
 
-	# Returns the commands to be fed to #set_relations in order to copy
-	# the state of plan_object on the remote peer
-	#
-	# The returned relation sets can be empty if the plan object does not
-	# have any relations. Since the goal is to *copy* the graph relations...
-	def set_relations_commands(plan_object)
-	    peer.transmit(:set_relations, plan_object, relations_of(plan_object))
-
-	    if plan_object.respond_to?(:each_event)
-		plan_object.each_event do |ev|
-		    # Send event even if +result+ is empty, so that relations
-		    # are removed if needed on the other side
-		    peer.transmit(:set_relations, ev, relations_of(ev))
-		end
-	    end
-	end
-
-	# Called by the peer to subscribe on +object+. Returns an array which
-	# is to be fed to #demux to update the object relations on the remote
-	# host
-	#
-	# In case of distributed transaction, it is forbidden to subscribe to a
-	# proxy without having subscribed to the proxied object first. This
-	# method will thus subscribe to both at the same time. Peer#subscribe
-	# is supposed to do the same
-	def subscribe_plan_object(object)
-	    if Roby::Transactions::Proxy === object && object.__getobj__.self_owned?
-		subscribe(object.__getobj__)
-	    end
-	    set_relations_commands(object)
-	end
-
-	# Subscribe the remote peer to changes on +object+. +object+ must be
-	# an object owned locally.
-	#
-	# Returns a [subscribed, init] pair, where +subscribed+ is the set of
-	# objects actually added to the list of subscriptions, and +init+ an
-	# array which is to be fed to PeerServer#demux_local by the caller.
-	def subscribe(object)
-	    return unless object = peer.proxy(object)
-	    return if subscribed?(object)
-	    unless object.self_owned?
-		raise "#{remote_name} is trying to subscribe to #{object} which is not owned by us"
-	    end
-
-	    subscriptions << object
-	    peer.transmit(:subscribed, [object])
-
-	    case object
-	    when Roby::PlanObject
-		subscribe_plan_object(object)
-
-	    when Roby::Plan
-		missions, tasks = if object.kind_of?(Roby::Transaction)
-				      [object.missions(true), object.known_tasks(true)]
-				  else
-				      [object.missions, object.known_tasks]
-				  end
-
-		missions.delete_if { |t| !t.distribute? }
-		tasks.delete_if    { |t| !t.distribute? }
-		peer.transmit(:subscribed_plan, object, missions, tasks)
-
-		tasks.each { |t| subscribe(t) }
-	    end
-
-	    nil
-	end
-
-	# Called by the remote peer to announce that is has subscribed us to +objects+
-	def subscribed(objects)
-	    peer.subscriptions.merge(objects.map { |obj| obj.remote_object })
-	    nil
-	end
-
-	# The peer asks to be unsubscribed from +object+
-	def unsubscribe(object)
-	    subscriptions.delete(object)
-	    if object.respond_to?(:each_event)
-		object.each_event(&method(:unsubscribe))
-	    end
-	    nil
-	end
-
-	# Check if changes to +object+ should be notified to this peer
-	def subscribed?(object)
-	    subscriptions.include?(object)
-	end
-
 	def apply(args)
 	    args = args.map do |a|
 		if peer.proxying?(a)
@@ -345,57 +247,6 @@ module Roby::Distributed
 	    if block_given? then yield(args)
 	    else args
 	    end
-	end
-
-	# Receive the list of relations of +object+. The relations are given in
-	# an array like [[graph, from, to, info], [...], ...]
-	def set_relations(object, relations)
-	    return unless object = peer.proxy(object)
-	    Roby::Distributed.update([object]) do
-		parents  = Hash.new { |h, k| h[k] = Array.new }
-		children = Hash.new { |h, k| h[k] = Array.new }
-		
-		# Add or update existing relations
-		relations.each do |graph, graph_relations|
-		    graph_relations.each do |args|
-			apply(args) do |from, to, info|
-			    if !from || !to
-				next
-			    elsif to == object
-				parents[graph]  << from
-			    elsif from == object
-				children[graph] << to
-			    else
-				raise ArgumentError, "trying to set a relation #{from.inspect} -> #{to.inspect} in which self(#{object.inspect}) in neither parent nor child"
-			    end
-
-			    if graph.linked?(from, to)
-				from[to, graph] = info
-			    else
-				Roby::Distributed.update([from.root_object, to.root_object]) do
-				    from.add_child_object(to, graph, info)
-				end
-			    end
-			end
-		    end
-		end
-
-		Roby::Distributed.each_object_relation(object) do |rel|
-		    # Remove relations that do not exist anymore
-		    (object.parent_objects(rel) - parents[rel]).each do |p|
-			Roby::Distributed.update([p.root_object, object.root_object]) do
-			    p.remove_child_object(object, rel)
-			end
-		    end
-		    (object.child_objects(rel) - children[rel]).each do |c|
-			Roby::Distributed.update([c.root_object, object.root_object]) do
-			    object.remove_child_object(c, rel)
-			end
-		    end
-		end
-	    end
-
-	    nil
 	end
 
 	# Receive an update on the relation graphs
@@ -466,8 +317,8 @@ module Roby::Distributed
 
 	def to_s; "Peer:#{remote_name}" end
 
-	include MonitorMixin
-	attr_reader :send_flushed
+	# The object which identifies this peer on the network
+	def remote_id; neighbour.tuplespace end
 
 	# The name of the remote peer
 	def remote_name; neighbour.name end
@@ -541,14 +392,12 @@ module Roby::Distributed
 	    connect(&block)
 	end
 
-	attr_reader :name, :max_allowed_errors, :task
-	
+	attr_reader :name, :task
 
 	# Creates a query object on the peer plan
 	def query
 	    RemoteQuery.new(self)
 	end
-
 
 	# call-seq:
 	#   peer.on(matcher) { |task| ... }	=> ID
@@ -682,9 +531,6 @@ module Roby::Distributed
 	# acknowledge it yet
 	def disconnecting?; connection_state == :disconnecting end
 
-	# Returns true if this peer owns +object+
-	def owns?(object); object.owners.include?(remote_id) end
-
 	# Mark the link as dead regardless of the last neighbour discovery. This
 	# will be reset during the next neighbour discovery
 	def link_dead!; @dead = true end
@@ -695,12 +541,59 @@ module Roby::Distributed
 	    true
 	end
 
+	# Returns true if this peer owns +object+
+	def owns?(object); object.owners.include?(remote_id) end
+
 	# Get direct access to the remote plan
 	def plan; remote_server.plan.remote_object end
 
-	# Get a proxy for a task or an event. If +as+ is given, the proxy will be acting
-	# as-if +object+ is of class +as+. This can be used to map objects whose
-	# model we don't know (while we know a more abstract model)
+	# Check if +object+ should be proxied
+	def proxying?(marshalled)
+	    marshalled.respond_to?(:proxy)
+	end
+
+	# Returns the remote object for +object+. +object+ can be either a
+	# DRbObject, a marshalled object or a local proxy. In the latter case,
+	# a RemotePeerMismatch exception is raised if the local proxy is not
+	# known to this peer.
+	def remote_object(object)
+	    if object.kind_of?(DRbObject)
+		object
+	    elsif object.respond_to?(:proxy)
+		object.remote_object
+	    else object.remote_object(remote_id)
+	    end
+	end
+	
+	# Returns the local object for +object+. +object+ can be either a
+	# marshalled object or a local proxy. Raises ArgumentError if it is
+	# none of the two. In the latter case, a RemotePeerMismatch exception
+	# is raised if the local proxy is not known to this peer.
+	def local_object(object)
+	    if object.kind_of?(DRbObject)
+		raise ArgumentError, "got a DRbObject"
+	    elsif object.respond_to?(:proxy)
+		proxy(object)
+	    else object
+	    end
+	end
+	
+	# Returns the remote_objec, local_object pair for +object+. +object+
+	# can be either a marshalled object or a local proxy. Raises
+	# ArgumentError if it is none of the two. In the latter case, a
+	# RemotePeerMismatch exception is raised if the local proxy is not
+	# known to this peer.
+	def objects(object)
+	    if object.kind_of?(DRbObject)
+		raise ArgumentError, "got a DRbObject"
+	    elsif object.respond_to?(:proxy)
+		[object.remote_object, proxy(object)]
+	    else
+		[object.remote_object(self), object]
+	    end
+	end
+
+	# Get a proxy for a task or an event. 	
 	def proxy(marshalled)
 	    return marshalled unless proxying?(marshalled)
 	    if marshalled.respond_to?(:remote_object)
@@ -751,64 +644,10 @@ module Roby::Distributed
 	    end
 	end
 
-	# Check if +object+ should be proxied
-	def proxying?(marshalled)
-	    marshalled.respond_to?(:proxy)
-	end
-
 	# Discovers all objects at a distance +dist+ from +obj+. The object
 	# can be either a remote proxy or the remote object itself
 	def discover_neighborhood(marshalled, distance)
 	    transmit(:discover_neighborhood, marshalled, distance)
-	end
-
-	# The set of remote objects we are subscribed to. This is a set of
-	# DRbObject
-	#
-	# DO NOT USE a ValueSet here. We use DRbObjects to track subscriptions
-	# on this side, and they must be compared using #==
-	attribute(:subscriptions) { Set.new }
-
-
-	def remote_object(object)
-	    if object.kind_of?(DRbObject)
-		object
-	    elsif object.respond_to?(:proxy)
-		object.remote_object
-	    else object.remote_object(remote_id)
-	    end
-	end
-	def local_object(object)
-	    if object.respond_to?(:proxy)
-		proxy(object)
-	    elsif object.kind_of?(DRbObject)
-		raise ArgumentError, "got a DRbObject"
-	    else object
-	    end
-	end
-	def objects(object)
-	    if object.respond_to?(:proxy)
-		[object.remote_object, proxy(object)]
-	    elsif object.kind_of?(DRbObject)
-		raise ArgumentError, "got a DRbObject"
-	    else
-		[object.remote_object(self), object]
-	    end
-	end
-
-	# Subscribe to +marshalled+.	
-	def subscribe(object)
-	    remote_object = remote_object(object)
-
-	    return if subscriptions.include?(remote_object)
-	    transmit(:subscribe, remote_object) do
-		yield if block_given?
-	    end
-	end
-
-	# True if we are subscribed to +remote_object+ on the peer
-	def subscribed?(object)
-	    subscriptions.include?(remote_object(object))
 	end
 
 	# Returns true if +proxy+ is related to a local task
@@ -832,52 +671,6 @@ module Roby::Distributed
 	    end
 	    true
 	end
-
-	# Clears all relations that should be removed because we unsubscribed
-	# from +proxy+
-	def remove_unsubscribed_relations(local_object) # :nodoc:
-	    Roby::Distributed.update([local_object]) do
-		local_object.related_tasks.each do |task|
-		    if !task.subscribed?
-			local_object.remove_relations(task)
-			delete(task, true) if unnecessary?(task)
-		    end
-		end
-		if unnecessary?(local_object)
-		    delete(local_object, true)
-		end
-	    end
-	end
-
-	# Unsubscribe ourselves from +marshalled+. If +remove_object+ is true,
-	# the local proxy for this object is removed from the plan as well
-	def unsubscribe(object, remove_object = true)
-	    remote_object, local_object = objects(object)
-
-	    case local_object
-	    when Roby::PlanObject
-		if linked_to_local?(local_object)
-		    raise InvalidRemoteOperation, "cannot unsubscribe to a task still linked to local tasks"
-		end
-
-		transmit(:unsubscribe, remote_object) do
-		    subscriptions.delete(remote_object)
-		    if remove_object
-			remove_unsubscribed_relations(local_object)
-		    end
-		    yield if block_given?
-		end
-
-	    else
-		transmit(:unsubscribe, remote_object) do
-		    subscriptions.delete(remote_object)
-		    yield if block_given?
-		end
-	    end
-	end
-
-	# The object which identifies this peer on the network
-	def remote_id; neighbour.tuplespace end
 
 	# Finds the local plan for +plan+
 	def find_plan(plan) # :nodoc:
@@ -903,4 +696,6 @@ module Roby::Distributed
 	end
     end
 end
+
+require 'roby/distributed/subscription'
 

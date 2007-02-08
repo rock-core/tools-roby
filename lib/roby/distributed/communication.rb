@@ -52,6 +52,12 @@ module Roby
 
 
 	class Peer
+	    include MonitorMixin
+	    attr_reader :send_flushed
+
+	    # How many errors we accept before disconnecting
+	    attr_reader :max_allowed_errors
+
 	    # True if we are currently something. Note that sending? is true when 
 	    # #do_send is sending something to the remote host, so it is possible to
 	    # have #sending? return true while send_queue is empty.
