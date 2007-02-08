@@ -672,16 +672,6 @@ module Roby::Distributed
 	    true
 	end
 
-	# Finds the local plan for +plan+
-	def find_plan(plan) # :nodoc:
-	    base_plan = connection_space.plan
-	    if plan.kind_of?(DRbObject)
-		find_transaction(plan, base_plan)
-	    elsif plan.nil?
-		base_plan
-	    end
-	end
-
 	# Finds the local transaction for +trsc+
 	def find_transaction(trsc, base_plan = nil)
 	    (base_plan || connection_space.plan).transactions.each do |t|
