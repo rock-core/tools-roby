@@ -8,13 +8,13 @@ module DistributedTestCommon
     include Distributed
     include RobyTestCommon
 
-    attr_reader :plan
+    def plan; Control.instance.plan end
+
     def setup
 	super
 
 	save_collection Distributed.new_neighbours_observers
 	Distributed.allow_remote_access Distributed::Peer
-	@plan = Plan.new
 	@old_logger_level = Distributed.logger.level
     end
     def teardown
@@ -34,7 +34,7 @@ module DistributedTestCommon
 	    end
 	end
 	@remote_peer = nil
-	
+
 	if Distributed.state
 	    Distributed.state.quit
 	    Distributed.state = nil
@@ -79,7 +79,7 @@ module DistributedTestCommon
 	@local   = ConnectionSpace.new :ring_discovery => false, 
 	    :discovery_tuplespace => central_tuplespace, :name => 'local',
 	    :max_allowed_errors => 1,
-	    :plan => plan
+	    :plan => Control.instance.plan
 	Distributed.state = local
     end
 
