@@ -170,7 +170,7 @@ module Roby
 	    # Hook called when the transaction commit has been abandoned
 	    # because a owner refused it. +reason+ is the value returned by
 	    # this peer.
-	    def abandoned_commit(reason)
+	    def abandoned_commit(error)
 		Roby.debug { "abandoned commit of #{self} because of #{error}" }
 		super if defined? super 
 	    end
