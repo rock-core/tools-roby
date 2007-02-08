@@ -334,7 +334,7 @@ module Roby
 	abstract
 
 	# Check if this task is executable
-	def executable?; !self.class.abstract? && super end
+	def executable?; !self.class.abstract? && !partially_instanciated? && super end
 	# Set the executable flag. executable cannot be set to +false+ is the 
 	# task is running, and cannot be set to true on a finished task.
 	def executable=(flag)

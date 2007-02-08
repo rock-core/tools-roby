@@ -63,6 +63,7 @@ module Roby
 	    elsif task_arguments[:lookahead] < 0
 		raise ArgumentError, "lookahead must be positive"
 	    end
+	    task_arguments[:period] ||= nil
 	    [task_arguments, planning_options]
 	end
 
@@ -205,6 +206,7 @@ module Roby
 	    elsif !task_options[:method_name]
 		raise ArgumentError, "missing required argument 'method_name'"
 	    end
+	    task_options[:planned_model] ||= nil
 	    [task_options, method_options]
 	end
 

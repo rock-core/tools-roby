@@ -3,6 +3,8 @@ module Roby
     module Test
 	class Goto2D < Roby::Task
 	    terminates
+	    argument :x, :y
+
 	    def speed; State.speed end
 	    def x; arguments[:x] end
 	    def y; arguments[:y] end
