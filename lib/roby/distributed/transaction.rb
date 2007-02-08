@@ -279,11 +279,14 @@ module Roby
 		    raise NotOwner, "transaction owners #{plan.owners.inspect} do not own #{self.to_s}: #{owners.inspect}"
 		end
 
-		owners.each do |owner|
-		    peer = Distributed.peer(owner)
-		    # peer may be nil if the transaction is owned locally
-		    if !peer.subscribed?(__getobj__.remote_object(owner))
-			raise "must subscribe to #{__getobj__} on #{peer} before changing its transactions proxies"
+		if mark
+		    owners.each do |owner|
+			peer = Distributed.peer(owner)
+			raise "unknown owner #{owner}" unless peer
+			# peer may be nil if the transaction is owned locally
+			if !peer.subscribed?(__getobj__.root_object.remote_object(owner))
+			    raise "must subscribe to #{__getobj__} on #{peer} before changing its transactions proxies"
+			end
 		    end
 		end
 
