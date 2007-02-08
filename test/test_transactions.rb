@@ -127,18 +127,40 @@ module TC_TransactionBehaviour
     end
 
     def test_discover
-	t1, t2, t3, t4 = (1..4).map { Roby::Task.new }
+	t1, t2, t3, t4, t5 = (1..5).map { Roby::Task.new }
 	plan.insert [t1, t2]
 	t1.realized_by t2
+	plan.insert t5
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    p2.planned_by t3
 	    t4.realized_by p1
 
-	    assert(trsc.discovered_relations_of?(p1))
-	    assert(trsc.discovered_relations_of?(p2))
-	    assert(trsc.discovered_relations_of?(t3))
-	    assert(trsc.discovered_relations_of?(t4))
+	    [true, false].each do |flag|
+		[p1, t1].each do |test|
+		    assert(trsc.discovered_relations_of?(test, nil, flag))
+		    assert(trsc.discovered_relations_of?(test, Hierarchy, flag))
+		    assert(!trsc.discovered_relations_of?(test, PlannedBy, flag))
+		end
+
+		[p2, t2].each do |test|
+		    assert(trsc.discovered_relations_of?(p2, nil, flag))
+		    assert(!trsc.discovered_relations_of?(p2, Hierarchy, flag))
+		    assert(trsc.discovered_relations_of?(p2, PlannedBy, flag))
+		end
+
+		assert(trsc.discovered_relations_of?(t3, nil, flag))
+		assert(trsc.discovered_relations_of?(t3, Hierarchy, flag))
+		assert(trsc.discovered_relations_of?(t3, PlannedBy, flag))
+		assert(trsc.discovered_relations_of?(t4, nil, flag))
+		assert(trsc.discovered_relations_of?(t4, Hierarchy, flag))
+		assert(trsc.discovered_relations_of?(t4, PlannedBy, flag))
+	    end
+
+	    p5 = trsc[t5]
+	    p5.children
+	    assert(!trsc.discovered_relations_of?(p5, nil, true))
+	    assert(trsc.discovered_relations_of?(p5, nil, false))
 	end
     end
 
@@ -321,6 +343,75 @@ module TC_TransactionBehaviour
 	t1.start!
 	assert(t3.running?)
 	assert_nothing_raised { t2.start! }
+    end
+
+    def test_plan_finalized_task
+	t1, t2, t3 = (1..3).map { ExecutableTask.new }
+	t1.realized_by t2
+	plan.insert(t1)
+
+	assert_raises(Roby::InvalidTransaction) do
+	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+		p1.add_child(t3)
+		assert(trsc.wrap(t1, false))
+		plan.remove_object(t1)
+		assert(trsc.invalid?)
+		assert(!trsc.wrap(t1, false))
+	    end
+	end
+    end
+
+    def test_plan_relation_update_invalidate
+	t1, t2, t3 = (1..3).map { ExecutableTask.new }
+	t1.realized_by t2
+	plan.insert(t1)
+
+	assert_raises(Roby::InvalidTransaction) do
+	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+		trsc.on_plan_update = :invalidate
+		p1.add_child(t3)
+		t1.remove_child(t2)
+		assert(trsc.invalid?)
+	    end
+	end
+
+	t3 = ExecutableTask.new
+	t1.remove_child t2
+	assert_raises(Roby::InvalidTransaction) do
+	    transaction_commit(plan, t1) do |trsc, p1|
+		trsc.on_plan_update = :invalidate
+		p1.add_child(t3)
+		t1.add_child(t2)
+		assert(trsc.invalid?)
+	    end
+	end
+    end
+
+    def test_plan_relation_update_update
+	t1, t2, t3 = (1..3).map { ExecutableTask.new }
+	t1.realized_by t2
+	plan.insert(t1)
+
+	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+	    trsc.on_plan_update = :update
+	    p1.add_child(t3)
+	    assert(p1.child_object?(p2))
+	    t1.remove_child(t2)
+	    assert(!trsc.invalid?)
+	    assert(!p1.child_object?(p2))
+	end
+
+	t3 = ExecutableTask.new
+	t1.remove_child t2
+	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+	    trsc.on_plan_update = :update
+	    p1.add_child(t3)
+	    assert(!p1.child_object?(p2))
+
+	    t1.add_child(t2)
+	    assert(p1.child_object?(p2))
+	    assert(!trsc.invalid?)
+	end
     end
 end
 

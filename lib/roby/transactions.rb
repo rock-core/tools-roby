@@ -4,6 +4,9 @@ require 'utilrb/kernel/swap'
 require 'roby/transactions/proxy'
 
 module Roby
+    # Exception raised when someone tries do commit an invalid transaction
+    class InvalidTransaction < RuntimeError; end
+
     # A transaction is a special kind of plan. It allows to build plans in a separate
     # sandbox, and then to apply the modifications to the real plan (using #commit_transaction), or
     # to discard all modifications (using #discard)
@@ -109,8 +112,18 @@ module Roby
 	    discovered_objects << object
 	    super if defined? super
 	end
-	def discovered_relations_of?(object)
-	    !object.kind_of?(Roby::Transactions::Proxy) || discovered_objects.include?(object)
+	def discovered_relations_of?(object, relation = nil, written = false)
+	    if object.plan != self
+		if proxy = wrap(object, false)
+		    discovered_relations_of?(proxy, relation, written)
+		end
+	    elsif !object.kind_of?(Roby::Transactions::Proxy)
+		true
+	    elsif !discovered_objects.include?(object)
+		false
+	    else
+		object.discovered?(relation, written)
+	    end
 	end
 
 	# The list of discarded
@@ -124,8 +137,33 @@ module Roby
 	# The proxy objects built for this transaction
 	attr_reader :proxy_objects
 
+	attr_accessor :conflict_solver
+
+	attr_reader :options
+
+	PLAN_UPDATE_MODES = [:invalidate, :update, :solver]
+
+	# What to do if we the plan objects which are modifying are changed
+	# inside the plan. Can be either :invalidate, :update or :solver. In
+	# the latter case, the object returned by #conflict_solver is called
+	# with either #add_plan_relation or #remove_plan_relation
+	def on_plan_update; options[:on_plan_update] end
+
+	def on_plan_update=(value)
+	    if !PLAN_UPDATE_MODES.include?(value)
+		raise ArgumentError, "invalid plan update mode #{value}. Known modes are #{PLAN_UPDATE_MODES.join(", ")}"
+	    end
+	    if value == :solver && !conflict_solver
+		raise ArgumentError, "no conflict solver defined"
+	    end
+	    options[:on_plan_update] = value
+	end
+
 	# Creates a new transaction which applies on +plan+
-	def initialize(plan)
+	def initialize(plan, options = {})
+	    @options = validate_options options, 
+		:on_plan_update => :invalidate
+
 	    super(plan.hierarchy, plan.service_relations)
 
 	    @plan = plan
@@ -230,41 +268,82 @@ module Roby
 	    end
 	end
 
-	def valid_transaction?
-	    transactions.empty?
+	attribute(:invalidation_reasons) { Array.new }
+
+	def invalid=(flag)
+	    if !flag
+		invalidation_reasons.clear
+	    end
+	    @invalid = flag
+	end
+
+	def invalid?; @invalid end
+	def valid_transaction?; transactions.empty? && !invalid? end
+	def invalidate(reason = nil)
+	    self.invalid = true
+	    invalidation_reasons << [reason, caller(1)] if reason
+	end
+	def check_valid_transaction
+	    return if valid_transaction?
+
+	    unless transactions.empty?
+		raise InvalidTransaction, "there is still transactions on top of this one"
+	    end
+	    message = invalidation_reasons.map do |reason, trace|
+		"#{trace[0]}: #{reason}\n  #{trace[1..-1].join("\n  ")}"
+	    end.join("\n")
+	    raise InvalidTransaction, "invalid transaction: #{message}"
 	end
 
 	# Commit all modifications that have been registered
 	# in this transaction
 	def commit_transaction
-	    unless transactions.empty?
-		raise ArgumentError, "there is still transactions on top of this one"
-	    end
-	    unless valid_transaction?
-		raise ArgumentError, "invalid transaction"
-	    end
+	    check_valid_transaction
 
 	    freezed!
-	    auto_tasks.each { |t| plan.auto(t) }
+	    auto_tasks.each      { |t| plan.auto(t) }
 	    discarded_tasks.each { |t| plan.discard(t) }
-	    removed_tasks.each { |t| plan.remove_task(t) }
+	    removed_objects.each { |obj| plan.remove_object(obj) }
+
+	    discover  = ValueSet.new
+	    insert    = ValueSet.new
+	    permanent = ValueSet.new
+	    @known_tasks.dup.each do |t|
+		unless t.kind_of?(Transactions::Proxy)
+		    @known_tasks.delete(t)
+		    t.plan = plan
+		end
+
+		unwrapped = may_unwrap(t)
+		raise if unwrapped.kind_of?(Transactions::Proxy)
+		if @missions.include?(t)
+		    @missions.delete(t)
+		    insert << unwrapped
+		elsif @keepalive.include?(t)
+		    @keepalive.delete(t)
+		    permanent << unwrapped
+		else
+		    discover << unwrapped
+		end
+	    end
+	    @free_events.dup.each do |ev|
+		unless ev.kind_of?(Transactions::Proxy)
+		    @free_events.delete(ev)
+		    ev.plan = plan
+		end
+		discover << may_unwrap(ev)
+	    end
 
 	    # Set the plan to nil in known tasks to avoid having the checks on
 	    # #plan to raise an exception
-	    @missions.each    { |t| t.plan = self.plan unless t.kind_of?(Proxy) }
-	    @known_tasks.each { |t| t.plan = self.plan unless t.kind_of?(Proxy) }
-	    @free_events.each { |e| e.plan = self.plan unless e.kind_of?(Proxy) }
-
 	    discovered_objects.each { |proxy| proxy.commit_transaction }
-	    proxy_objects.each { |_, proxy| proxy.clear_relations  }
+	    proxy_objects.each { |_, proxy| proxy; proxy.clear_relations  }
 
-	    # Call #insert and #discover *after* we have cleared relations
-	    @missions.delete_if    { |t| plan.insert(may_unwrap(t)) }
-	    @keepalive.delete_if   { |t| plan.permanent(may_unwrap(t)) }
-	    @known_tasks.delete_if { |t| plan.discover(may_unwrap(t)) }
-	    @free_events.delete_if { |e| plan.discover(may_unwrap(e)) }
+	    plan.discover(discover)
+	    insert.each { |t| plan.insert(t) }
+	    permanent.each { |t| plan.permanent(t) }
 
-	    proxies = proxy_objects.dup
+	    proxies     = proxy_objects.dup
 	    clear
 	    # Replace proxies by forwarder objects
 	    proxies.each do |object, proxy|
@@ -285,7 +364,7 @@ module Roby
 	# in this transaction
 	def discard_transaction
 	    unless transactions.empty?
-		raise ArgumentError, "there is still transactions on top of this one"
+		raise InvalidTransaction, "there is still transactions on top of this one"
 	    end
 
 	    freezed!
@@ -314,4 +393,6 @@ module Roby
 	end
     end
 end
+
+require 'roby/transactions/updates'
 
