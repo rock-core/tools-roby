@@ -112,6 +112,7 @@ module Roby
 
 	def read_only?; super && task.read_only? end
 	def owners; task.owners end
+	def local?; task.local? end
 	def distribute?; task.distribute? end
 	def has_sibling?(peer); task.has_sibling?(peer) end
 	def subscribed?; task.subscribed? end

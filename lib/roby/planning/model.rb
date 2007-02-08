@@ -550,21 +550,8 @@ module Roby
 		all_returns.compact!
 				  
 		all_returns.each do |return_type|
-		    candidates = plan.known_tasks.find_all do |task|
-			task.fullfills?(return_type, arguments) && !planning?(task)
-		    end
-		    # Remove candidates that are child of others
-		    candidates.map! do |task|
-			[task, task.generated_subgraph(TaskStructure::Hierarchy)]
-		    end
-		    candidates.delete_if do |task, _|
-			candidates.find { |t, children| t != task && children.include?(task) }
-		    end
-
-		    unless candidates.empty?
-			task = candidates.first.first
-			Planning.debug { "selecting task #{task} instead of planning #{name}[#{arguments}]" }
-			return task
+		    if task = find_reusable_task(return_type)
+			return plan[task]
 		    end
 		end
 
@@ -579,6 +566,25 @@ module Roby
 	    ensure
 		@arguments.pop
             end
+	    
+	    def find_reusable_task(return_type)
+		candidates = plan.known_tasks.find_all do |task|
+		    task.local? && task.fullfills?(return_type, arguments) && !planning?(task)
+		end
+		# Remove candidates that are child of others
+		candidates.map! do |task|
+		    [task, task.generated_subgraph(TaskStructure::Hierarchy)]
+		end
+		candidates.delete_if do |task, _|
+		    candidates.find { |t, children| t != task && children.include?(task) }
+		end
+
+		unless candidates.empty?
+		    task = candidates.first.first
+		    Planning.debug { "selecting task #{task} instead of planning #{name}[#{arguments}]" }
+		    return task
+		end
+	    end
 
 	    def arguments; @arguments.last end
 	    private :arguments

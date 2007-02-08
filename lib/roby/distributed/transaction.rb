@@ -270,6 +270,7 @@ module Roby
 	# transaction proxies
 	module RemoteTransactionProxy
 	    include DistributedObject
+	    def local?; __getobj__.local? end
 	    def owners; plan.owners | __getobj__.owners end
 	    def has_sibling?(peer); plan.has_sibling?(peer) end
 

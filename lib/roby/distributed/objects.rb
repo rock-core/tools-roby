@@ -14,6 +14,7 @@ module Roby
 	# Module included in objects that are located on this pDB
 	module LocalObject
 	    def owners; [Roby::Distributed.remote_id].to_set end
+	    def local?; true end
 	    def self_owned?; true end
 	    def has_sibling?(peer); true end
 	    def subscribed?; true end
@@ -47,6 +48,8 @@ module Roby
 	    # The Peer ID
 	    def peer_id; remote_peer.remote_id end
 
+	    def local?; false end
+
 	    def remote_object(peer_id)
 		if peer_id == peer_id then @remote_object
 		elsif peer_id == Roby::Distributed then self
@@ -74,6 +77,7 @@ module Roby
 	    end
 	    def distribute?; true end
 	    def subscribed?; self_owned? end
+	    def local?; self_owned? end
 
 	    def has_sibling?(peer)
 		!owners.include?(peer.remote_id) ||
