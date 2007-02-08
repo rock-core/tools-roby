@@ -299,8 +299,12 @@ module Roby
         end
 
 	def plan=(new_plan)
-	    unless !self_owned? || (finished? && !new_plan) || pending? || @plan == new_plan
-		raise TaskModelViolation.new(self), "cannot change the plan of a running task"
+	    if plan != new_plan
+		if plan && plan.include?(self)
+		    raise TaskModelViolation.new(self), "still included in #{plan}, cannot change the plan"
+		elsif self_owned? && running?
+		    raise TaskModelViolation.new(self), "cannot change the plan of a running task"
+		end
 	    end
 	    super
 	end
