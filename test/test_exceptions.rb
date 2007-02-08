@@ -7,6 +7,10 @@ require 'roby'
 class TC_Exceptions < Test::Unit::TestCase 
     include RobyTestCommon
 
+    def plan
+	Control.instance.plan
+    end
+
     def test_execution_exception_initialize
 	task = Task.new
 	error = ExecutionException.new(TaskModelViolation.new(task))
@@ -124,6 +128,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    t1, t2 = klass.new, klass.new
 	    t1.realized_by t2
+	    plan.insert(t1)
 
 	    mock.should_receive(:event_called).once.ordered
 	    mock.should_receive(:task_handler_called).once.ordered
@@ -293,6 +298,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    mock.should_receive(:exception).once
 
 	    parent.realized_by task
+	    plan.insert(parent)
 
 	    Roby::Control.once { task.start! }
 

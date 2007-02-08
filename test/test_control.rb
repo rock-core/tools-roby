@@ -92,6 +92,7 @@ class TC_Control < Test::Unit::TestCase
 		event :start
 		on(:start) { mock.handler_called }
 	    end.new
+	    Control.instance.plan.insert(t)
 
 	    mock.should_receive(:command_called).once
 	    mock.should_receive(:handler_called).never

@@ -353,6 +353,10 @@ module Roby
 	end
 
 	def remove_object(object)
+	    if object.plan != self
+		raise ArgumentError, "#{object} is not from this plan: #{object.plan} != #{self}"
+	    end
+
 	    object.clear_relations
 
 	    case object
