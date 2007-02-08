@@ -73,15 +73,27 @@ module Roby
 	    # Queues a call to the remote host. If a block is given, it is called
 	    # in the communication thread, with the returned value, if the call
 	    # succeeded
-	    def transmit(*args, &block)
+	    def transmit(m, *args, &block)
 		if !connected?
 		    raise DisconnectedError, "we are not currently connected to #{remote_name}"
 		end
 
 		# do some sanity checks
-		if !args[0].respond_to?(:to_sym)
+		if !m.respond_to?(:to_sym)
 		    raise "invalid call #{args}"
 		end
+		# Marshal DRoby-dumped objects now, since the object may be
+		# modified between now and the time it is sent
+		args.map! do |obj| 
+		    if obj.kind_of?(DRbObject)
+			obj
+		    elsif obj.respond_to?(:droby_dump)
+		       	obj.droby_dump
+		    else
+			obj
+		    end
+		end
+		args.unshift m
 
 		call_spec = [[remote_server, args], block, caller]
 		if local.processing?
