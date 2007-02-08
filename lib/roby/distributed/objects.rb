@@ -13,7 +13,7 @@ module Roby
 
 	# Module included in objects that are located on this pDB
 	module LocalObject
-	    def owners; @owners ||= [Roby::Distributed.remote_id].to_set end
+	    def owners; [Roby::Distributed.remote_id].to_set end
 	    def self_owned?; true end
 	    def has_sibling?(peer); true end
 	    def subscribed?; true end
