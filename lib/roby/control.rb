@@ -155,17 +155,13 @@ module Roby
 	    timings[:fatal_structure_errors] = Time.now
 	    # Get the list of tasks we should kill because of fatal_errors
 	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (e, tasks)|
-		if tasks
-		    [*tasks].each do |parent|
-			new_tasks = parent.reverse_generated_subgraph(TaskStructure::Hierarchy)
-			Control.fatal_exception(e, new_tasks)
-			kill_tasks.merge(new_tasks)
-		    end
-		else
-		    new_tasks = e.task.reverse_generated_subgraph(TaskStructure::Hierarchy)
+		tasks ||= [*e.task]
+		[*tasks].each do |parent|
+		    new_tasks = parent.reverse_generated_subgraph(TaskStructure::Hierarchy)
 		    Control.fatal_exception(e, new_tasks)
 		    kill_tasks.merge(new_tasks)
 		end
+		kill_tasks
 	    end
 
 	    plan.garbage_collect(kill_tasks)
