@@ -502,7 +502,9 @@ module Roby
 	    # Returns true if this planner is currently planning for +task+
 	    def planning?(task)
 		if planning_task = task.planning_task
-		    planning_task.planner == self
+		    if planning_task.respond_to?(:planner)
+			planning_task.planner == self
+		    end
 		end
 	    end
 
