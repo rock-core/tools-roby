@@ -77,10 +77,18 @@ module Roby::Transactions
 	def proxying?; plan.proxying? end
 
 	def discovered?(relation, written)
-	    if written
-		@discovered[relation]
+	    return false if @discovered.empty?
+
+	    if relation
+		if written
+		    @discovered[relation]
+		else
+		    @discovered.has_key?(relation)
+		end
+	    elsif written
+		@discovered.values.any? { |v| v }
 	    else
-		!@discovered[relation].nil?
+		true
 	    end
 	end
 	def discover(relation, mark)
@@ -100,9 +108,7 @@ module Roby::Transactions
 	def do_discover(relation, mark)
 	    return if discovered?(relation, true)
 
-	    if mark
-		transaction.discovered_object(self, relation)
-	    end
+	    transaction.discovered_object(self, relation)
 	    @discovered[relation] = mark
 	    relation.subsets.each { |rel| do_discover(rel, mark) }
 
