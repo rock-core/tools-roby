@@ -639,7 +639,7 @@ module Roby::Distributed
 	    subscriptions.delete(remote_object)
 
 	    proxy = @proxies.delete(remote_object)
-	    if proxy.respond_to?(:plan) && proxy.plan
+	    if proxy.root_object? && proxy.respond_to?(:plan) && proxy.plan
 		raise "deleting an object still attached to the plan"
 	    end
 	end
