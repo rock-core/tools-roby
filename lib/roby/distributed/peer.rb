@@ -413,7 +413,7 @@ module Roby::Distributed
 	    transmit(:add_trigger, matcher.object_id, matcher)
 	end
 
-	# Remote a trigger from its ID. +id+ is the return value of Peer#on
+	# Remove a trigger from its ID. +id+ is the return value of Peer#on
 	def remove_trigger(id)
 	    transmit(:remove_trigger, id)
 	    triggers.delete(id)
