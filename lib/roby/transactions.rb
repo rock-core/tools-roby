@@ -69,6 +69,19 @@ module Roby
 	end
 	alias :[] :wrap
 
+	def remove_object(object)
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+
+	    object = may_unwrap(object)
+	    if object.plan == self.plan
+		removed_objects.insert(object)
+	    end
+	    if proxy = self[object, false]
+		proxy_objects.delete(proxy.__getobj__) if proxy.respond_to?(:__getobj__)
+		super(proxy)
+	    end
+	end
+
 	def may_wrap(object); wrap(object) rescue object end
 	
 	# may_unwrap may return objects from transaction
@@ -102,8 +115,8 @@ module Roby
 
 	# The list of discarded
 	attr_reader :discarded_tasks
-	# The list of removed tasks
-	attr_reader :removed_tasks
+	# The list of removed tasks and events
+	attr_reader :removed_objects
 	# The list of permanent tasks that have been auto'ed
 	attr_reader :auto_tasks
 	# The plan this transaction applies on
@@ -119,7 +132,7 @@ module Roby
 
 	    @proxy_objects      = Hash.new
 	    @discovered_objects = ValueSet.new
-	    @removed_tasks      = ValueSet.new
+	    @removed_objects    = ValueSet.new
 	    @discarded_tasks    = ValueSet.new
 	    @auto_tasks	        = ValueSet.new
 
@@ -131,7 +144,7 @@ module Roby
 	    proxy	= self[t, false]
 	    real_task	= may_unwrap(t)
 	    (super(proxy) if proxy) ||
-		((plan.include?(real_task) && !removed_tasks.include?(real_task)) if real_task)
+		((plan.include?(real_task) && !removed_objects.include?(real_task)) if real_task)
 	end
 	def mission?(t)
 	    real_task = may_unwrap(t)
@@ -149,7 +162,7 @@ module Roby
 	    else
 		plan_missions = plan.missions.
 		    difference(discarded_tasks).
-		    difference(removed_tasks)
+		    difference(removed_objects)
 
 		super().union(plan_missions.map(&method(:[])))
 	    end
@@ -159,7 +172,7 @@ module Roby
 	    if own then super()
 	    else
 		plan_tasks = plan.known_tasks. 
-		    difference(removed_tasks)
+		    difference(removed_objects)
 
 		super().union(plan_tasks.map(&method(:[])))
 	    end
@@ -214,18 +227,6 @@ module Roby
 	    t = may_unwrap(t)
 	    if t.plan == self.plan
 		discarded_tasks.insert(t)
-	    end
-	end
-
-	def remove_task(t)
-	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
-	    if proxy = self[t, false]
-		super(proxy)
-	    end
-
-	    t = may_unwrap(t)
-	    if t.plan == self.plan
-		removed_tasks.insert(t)
 	    end
 	end
 
@@ -303,7 +304,7 @@ module Roby
 
 	def clear
 	    discovered_objects.clear
-	    removed_tasks.clear
+	    removed_objects.clear
 	    discarded_tasks.clear
 	    proxy_objects.each do |_, proxy|
 		proxy.clear_relations

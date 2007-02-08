@@ -333,14 +333,14 @@ module Roby
 			elsif t.pending? || t.finished?
 			    garbage(t)
 			    Roby.debug "garbage-collecting #{t} because it is not running"
-			    remove_task(t)
+			    remove_object(t)
 			    did_something = true
 			elsif !t.finishing?
 			    if t.event(:stop).controlable?
 				Roby.debug "stopping #{t} because it is being garbage-collected"
 				garbage(t)
 				t.stop!(nil)
-				remove_task(t) unless t.running?
+				remove_object(t) unless t.running?
 				did_something = true
 			    else
 				Roby.debug "cannot GC #{t} because its 'stop' event is not controlable"
