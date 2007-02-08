@@ -28,6 +28,8 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	t1.realized_by t2
 	t2.planned_by t3
 	plan.insert(t1)
+	plan.permanent(t2)
+	plan.permanent(t3)
 
 	[t1, t2, t3]
     end
