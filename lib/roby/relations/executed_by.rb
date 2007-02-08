@@ -51,7 +51,7 @@ module Roby::TaskStructure
 		    end
 
 		    # Try to find an already existing agent
-		    agents = plan.known_tasks.find_all { |t| t.kind_of?(agent_model) && !t.finished? }
+		    agents = plan.known_tasks.find_all { |t| t.local? && t.kind_of?(agent_model) && !t.finished? }
 		    if agents.empty?
 			# ... or create a new one
 			begin
@@ -88,7 +88,7 @@ module Roby::TaskStructure
 	
 	    def fired(event)
 		super if defined? super
-		if task.finished? && (agent = task.execution_agent)
+		if task.local? && task.finished? && (agent = task.execution_agent)
 		    task.remove_execution_agent agent
 		end
 	    end
