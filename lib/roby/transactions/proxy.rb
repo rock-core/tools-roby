@@ -3,6 +3,7 @@ require 'roby/event'
 require 'delegate'
 require 'forwardable'
 require 'utilrb/module/ancestor_p'
+require 'utilrb/queue/get'
 
 # The Transactions module define all tools needed to implement
 # the Transaction class
@@ -112,17 +113,19 @@ module Roby::Transactions
 	    @discovered[relation] = mark
 	    relation.subsets.each { |rel| do_discover(rel, mark) }
 
-	    # Bypass add_ and remove_ hooks by using the RelationGraph#link
-	    # methods directly. This is needed because we don't really
-	    # add new relations, but only copy already existing relations
-	    # from the real plan to the transaction graph
-	    __getobj__.each_parent_object(relation) do |parent|
-		wrapper = transaction[parent]
-		relation.link(wrapper, self, parent[__getobj__, relation])
-	    end
-	    __getobj__.each_child_object(relation) do |child|
-		wrapper = transaction[child]
-		relation.link(self, wrapper, __getobj__[child, relation])
+	    Roby::Control.synchronize do
+		# Bypass add_ and remove_ hooks by using the RelationGraph#link
+		# methods directly. This is needed because we don't really
+		# add new relations, but only copy already existing relations
+		# from the real plan to the transaction graph
+		__getobj__.each_parent_object(relation) do |parent|
+		    wrapper = transaction[parent]
+		    relation.link(wrapper, self, parent[__getobj__, relation])
+		end
+		__getobj__.each_child_object(relation) do |child|
+		    wrapper = transaction[child]
+		    relation.link(self, wrapper, __getobj__[child, relation])
+		end
 	    end
 	end
 
