@@ -374,6 +374,9 @@ module Roby::Transactions
 	def to_s; "tProxy(#{__getobj__.to_s})" end
 	def history; "" end
 	def plan=(new_plan)
+	    if new_plan && new_plan.plan != __getobj__.plan
+		raise "invalid plan #{new_plan}"
+	    end
 	    @plan = new_plan
 	    each_event { |ev| ev.executable = executable? }
 	end
