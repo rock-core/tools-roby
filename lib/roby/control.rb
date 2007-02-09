@@ -23,10 +23,13 @@ module Roby
 	class << self
 	    attr_reader :mutex
 	    def synchronize
-		if Thread.current == Control.instance.thread
+		if Thread.current[:control_mutex_locked]
 		    yield
 		else
-		    @mutex.synchronize { yield }
+		    @mutex.synchronize do
+			Thread.current[:control_mutex_locked] = true
+			yield
+		    end
 		end
 	    end
 	end
