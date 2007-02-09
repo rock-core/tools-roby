@@ -353,17 +353,19 @@ module Roby
 	end
 
 	def remove_object(object)
-	    if object.plan != self
+	    if !object.root_object?
+		raise ArgumentError, "cannot remove a non-root object"
+	    elsif object.plan != self
 		raise ArgumentError, "#{object} is not from this plan: #{object.plan} != #{self}"
 	    end
 
 	    object.clear_relations
 
 	    case object
-	    when TaskEventGenerator
 	    when EventGenerator
 		@free_events.delete(object)
 		finalized_event(object)
+
 	    when Task
 		force_gc.delete(object)
 		object.executable = false
@@ -374,9 +376,12 @@ module Roby
 		@keepalive.delete(object)
 		object.each_event { |ev| finalized_event(ev) }
 		finalized_task(object)
+
+	    else 
+		raise ArgumentError, "unknown object type #{object}"
 	    end
 
-	    object.freeze if object.root_object?
+	    object.freeze
 	    self
 	end
 
