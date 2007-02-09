@@ -337,6 +337,7 @@ module Roby
 	# Roby::Task is an abstract model
 	abstract
 
+	def abstract?; self.class.abstract? end
 	# Check if this task is executable
 	def executable?; !self.class.abstract? && !partially_instanciated? && super end
 	# Set the executable flag. executable cannot be set to +false+ is the 
@@ -352,8 +353,10 @@ module Roby
 	    super
 	end
 	
-	# Check that all arguments required by the task model have a value
-	def partially_instanciated?; !(model.arguments - arguments.keys.to_set).empty?  end
+	# Check that all arguments required by the task model are set
+	def fully_instanciated?; (model.arguments - arguments.keys.to_set).empty? end
+	# Returns true if one argument required by the task model is not set
+	def partially_instanciated?; !fully_instanciated? end
 
 	# Returns the task model
         def model

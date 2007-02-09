@@ -100,21 +100,66 @@ module Roby
     class TaskMatcher
 	class Marshalled
 	    attr_reader :args
-	    def initialize(*args)
-		@args = args
-	    end
+	    def initialize(*args); @args = args end
+	    def _dump(lvl); Roby::Distributed.dump(args) end
 
-	    def _dump(lvl)
-		Roby::Distributed.dump(args)
-	    end
 	    def self._load(str)
-		model, args, improves, needs = Marshal.load(str)
-		Roby::TaskMatcher.new.with_model(model).with_arguments(args || {}).
+		setup_matcher(TaskMatcher.new, Marshal.load(str))
+	    end
+	    def self.setup_matcher(matcher, args)
+		model, args, improves, needs, predicates, owners = *args
+
+		matcher = matcher.with_model(model).with_arguments(args || {}).
 		    which_improves(*improves).which_needs(*needs)
+		matcher.predicates.merge(predicates)
+		matcher.owners.merge(owners)
+		matcher
+	    end
+	end
+	def droby_dump(klass = Marshalled)
+	    klass.new(model, arguments, improved_information, needed_information, predicates, owners)
+	end
+    end
+    class OrTaskMatcher
+	class Marshalled < TaskMatcher::Marshalled
+	    def self._load(str)
+		args = Marshal.load(str)
+		ops  = args.pop
+		setup_matcher(OrTaskMatcher.new(*ops), args)
 	    end
 	end
 	def droby_dump
-	    Marshalled.new(model, arguments, improved_information, needed_information)
+	    m = super(OrTaskMatcher::Marshalled)
+	    m.args << @ops
+	    m
+	end
+    end
+    class AndTaskMatcher
+	class Marshalled < TaskMatcher::Marshalled
+	    def self._load(str)
+		args = Marshal.load(str)
+		ops  = args.pop
+		setup_matcher(AndTaskMatcher.new(*ops), args)
+	    end
+	end
+	def droby_dump
+	    m = super(AndTaskMatcher::Marshalled)
+	    m.args << @ops
+	    m
+	end
+    end
+    class NegateTaskMatcher
+	class Marshalled < TaskMatcher::Marshalled
+	    def self._load(str)
+		args = Marshal.load(str)
+		op  = args.pop
+		setup_matcher(NegateTaskMatcher.new(op), args)
+	    end
+	end
+	def droby_dump
+	    m = super(NegateTaskMatcher::Marshalled)
+	    m.args << @op
+	    m
 	end
     end
 end

@@ -6,55 +6,6 @@ require 'mockups/tasks'
 class TC_DistributedRemotePlan < Test::Unit::TestCase
     include DistributedTestCommon
 
-    # Check that we can query the remote plan database
-    def test_query
-	peer2peer do |remote|
-	    local_model = Class.new(SimpleTask)
-
-	    mission, subtask = Task.new(:id => 1), local_model.new(:id => 2)
-	    mission.realized_by subtask
-	    remote.plan.insert(mission)
-	end
-
-	# Get the remote missions
-	r_missions = remote_peer.plan.missions
-	assert_kind_of(ValueSet, r_missions)
-	assert(r_missions.find { |t| t.arguments[:id] == 1 })
-
-	# Get the remote tasks
-	r_tasks = remote_peer.plan.known_tasks
-	assert_equal([1, nil, 2].to_set, r_tasks.map { |t| t.arguments[:id] }.to_set)
-
-	# Test queries
-	result = remote_peer.query.to_a
-	assert_equal(3, result.size)
-
-	result = remote_peer.query.
-	    with_arguments(:id => 1).to_a
-	assert_equal(1, result.size)
-	assert_equal(1, result[0].arguments[:id])
-
-	result = remote_peer.query.
-	    with_arguments(:id => 2).to_a
-	assert_equal(1, result.size)
-	assert(2, result[0].arguments[:id])
-
-	result = remote_peer.query.
-	    with_model(Roby::Task).to_a
-	assert_equal(3, result.size)
-
-	result = remote_peer.query.
-	    with_model(SimpleTask).to_a
-	assert_equal(1, result.size)
-	assert(2, result[0].arguments[:id])
-
-	r_subtask = remote_peer.proxy(r_tasks.find { |t| t.arguments[:id] == 2 })
-	result = remote_peer.query.
-	    with_model(r_subtask.model).to_a
-	assert_equal(1, result.size)
-	assert(2, result[0].arguments[:id])
-    end
-
     def test_remote_proxy_update
 	peer2peer do |remote|
 	    remote.plan.insert(SimpleTask.new(:id => 'simple_task'))

@@ -1,6 +1,6 @@
 require 'test_config'
+require 'mockups/tasks'
 require 'flexmock'
-
 require 'roby/query'
 
 class TC_Query < Test::Unit::TestCase
@@ -71,6 +71,55 @@ class TC_Query < Test::Unit::TestCase
 
 	assert_equal([t2].to_set, result)
     end
+
+    def assert_finds_tasks(task_set)
+	assert_equal(task_set.to_set, yield.enum_for(:each, plan).to_set)
+    end
+
+    def test_query_predicates
+	t1 = Class.new(ExecutableTask) { argument :id }.new
+	t2 = Roby::Task.new
+	plan << t1 << t2
+
+	assert_finds_tasks([]) { TaskMatcher.executable }
+	assert_finds_tasks([t2]) { TaskMatcher.abstract }
+	assert_finds_tasks([t1]) { TaskMatcher.partially_instanciated }
+	assert_finds_tasks([t2]) { TaskMatcher.fully_instanciated }
+	t1.arguments[:id] = 2
+	assert_finds_tasks([t1, t2]) { TaskMatcher.fully_instanciated }
+	assert_finds_tasks([t2]) { TaskMatcher.fully_instanciated.abstract }
+    end
+
+    def test_negate
+	t1 = Class.new(ExecutableTask) { argument :id }.new(:id => 1)
+	t2 = Class.new(ExecutableTask) { argument :id }.new(:id => 2)
+	t3 = Roby::Task.new
+	plan << t1 << t2 << t3
+
+	assert_finds_tasks([t3]) { (TaskMatcher.with_arguments(:id => 1) | TaskMatcher.with_arguments(:id => 2)).negate }
+    end
+
+    def test_or
+	t1 = Class.new(ExecutableTask) { argument :id }.new(:id => 1)
+	t2 = Class.new(ExecutableTask) { argument :id }.new(:id => 2)
+	t3 = Roby::Task.new
+	plan << t1 << t2 << t3
+
+	assert_finds_tasks([t1, t2]) { TaskMatcher.with_arguments(:id => 1) | TaskMatcher.with_arguments(:id => 2) }
+    end
+
+    def test_and
+	t1 = Class.new(ExecutableTask) { argument :id }.new(:id => 1)
+	t2 = Class.new(ExecutableTask) { argument :id }.new(:id => 2)
+	t3 = Roby::Task.new
+	plan << t1 << t2 << t3
+
+	assert_finds_tasks([t1, t2]) { TaskMatcher.fully_instanciated & TaskMatcher.executable }
+	assert_finds_tasks([t1]) { (TaskMatcher.fully_instanciated & TaskMatcher.executable).with_arguments(:id => 1) }
+	assert_finds_tasks([t3]) { TaskMatcher.fully_instanciated & TaskMatcher.abstract }
+    end
+
 end
+
 
 

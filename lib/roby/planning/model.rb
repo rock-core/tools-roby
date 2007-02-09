@@ -568,9 +568,8 @@ module Roby
             end
 	    
 	    def find_reusable_task(return_type)
-		candidates = plan.known_tasks.find_all do |task|
-		    task.local? && task.fullfills?(return_type, arguments) && !planning?(task)
-		end
+		candidates = plan.find_tasks.which_fullfills(return_type, arguments).
+		    local.to_a
 		# Remove candidates that are child of others
 		candidates.map! do |task|
 		    [task, task.generated_subgraph(TaskStructure::Hierarchy)]

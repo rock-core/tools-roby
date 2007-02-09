@@ -417,6 +417,27 @@ module TC_TransactionBehaviour
 	    assert(!trsc.invalid?)
 	end
     end
+
+    def test_query
+	model = Class.new(Roby::Task) do
+	    argument :id
+	end
+	t1, t2, t3 = (1..3).map { |i| model.new(:id => i) }
+	t1.realized_by t2
+	plan.discover(t1)
+
+	transaction_commit(plan) do |trsc|
+	    assert(trsc.find_tasks.which_fullfills(SimpleTask).to_a.empty?)
+	    assert(!trsc[t1, false])
+	    assert(!trsc[t2, false])
+	    assert(!trsc[t3, false])
+
+	    result = trsc.find_tasks.which_fullfills(model, :id => 1).to_a
+	    assert_equal([trsc[t1]], result)
+	    assert(!trsc[t2, false])
+	    assert(!trsc[t3, false])
+	end
+    end
 end
 
 class TC_Transactions < Test::Unit::TestCase

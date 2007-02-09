@@ -126,6 +126,18 @@ module Roby
 	    end
 	end
 
+	# Search in the plan and in the transaction separately
+	def each_matching_task(matcher)
+	    seen = ValueSet.new
+	    plan.each_matching_task(matcher) do |task|
+		seen << self[task]
+		yield(self[task])
+	    end
+	    super(matcher) do |task|
+		yield(task) unless seen.include?(task)
+	    end
+	end
+
 	# The list of discarded
 	attr_reader :discarded_tasks
 	# The list of removed tasks and events
