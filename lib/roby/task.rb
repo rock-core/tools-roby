@@ -308,6 +308,9 @@ module Roby
 		end
 	    end
 	    super
+
+	rescue TypeError
+	    raise TypeError, "#{self} is dead because it has been removed from its plan"
 	end
 
 	class << self
