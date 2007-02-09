@@ -331,6 +331,12 @@ module Roby::Transactions
 	    super
 	    handlers.each { |h| __getobj__.on(&h) }
 	end
+
+	def_delegator :@__getobj__, :owners
+	def_delegator :@__getobj__, :distribute?
+	def has_sibling?(peer)
+	    plan.has_sibling?(peer)
+	end
     end
 
     class TaskEventGenerator < Roby::Transactions::EventGenerator
@@ -388,16 +394,7 @@ module Roby::Transactions
 	        super
 	    end
 	end
-    end
 
-    class Task
-	def_delegator :@__getobj__, :owners
-	def_delegator :@__getobj__, :distribute?
-	def has_sibling?(peer)
-	    plan.has_sibling?(peer)
-	end
-    end
-    class EventGenerator
 	def_delegator :@__getobj__, :owners
 	def_delegator :@__getobj__, :distribute?
 	def has_sibling?(peer)
