@@ -107,7 +107,7 @@ module Roby
 		setup_matcher(TaskMatcher.new, Marshal.load(str))
 	    end
 	    def self.setup_matcher(matcher, args)
-		model, args, improves, needs, predicates, owners = *args
+		model, args, improves, needs, predicates, neg_predicates, owners = *args
 
 		matcher = matcher.with_model(model).with_arguments(args || {}).
 		    which_improves(*improves).which_needs(*needs)
@@ -117,7 +117,7 @@ module Roby
 	    end
 	end
 	def droby_dump(klass = Marshalled)
-	    klass.new(model, arguments, improved_information, needed_information, predicates, owners)
+	    klass.new(model, arguments, improved_information, needed_information, predicates, neg_predicates, owners)
 	end
     end
     class OrTaskMatcher

@@ -17,13 +17,14 @@ module Roby
     # is mainly used as an argument to DRb::Server#find
     class TaskMatcher
 	attr_reader :model, :arguments
-	attr_reader :predicates, :owners
+	attr_reader :predicates, :neg_predicates, :owners
 
 	attr_reader :improved_information
 	attr_reader :needed_information
 
 	def initialize
 	    @predicates           = ValueSet.new
+	    @neg_predicates           = ValueSet.new
 	    @owners               = Set.new
 	    @improved_information = ValueSet.new
 	    @needed_information   = ValueSet.new
@@ -95,12 +96,23 @@ module Roby
 		names.each do |name|
 		    class_eval <<-EOD
 		    def #{name}
+			if neg_predicates.include?(:#{name}?)
+			    raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
+		        end
 			predicates << :#{name}?
+			self
+		    end
+		    def not_#{name}
+			if predicates.include?(:#{name}?)
+			    raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
+		        end
+			neg_predicates << :#{name}?
 			self
 		    end
 		    EOD
 		end
 		declare_class_methods(*names)
+		declare_class_methods(*names.map { |n| "not_#{n}" })
 	    end
 	end
 	match_predicates :local, :executable, :abstract, :partially_instanciated, :fully_instanciated,
@@ -117,6 +129,7 @@ module Roby
 	    return unless improved_information.all? { |info| task.improves?(info) }
 	    return unless needed_information.all?   { |info| task.needs?(info) }
 	    return unless predicates.all? { |pred| task.send(pred) }
+	    return if neg_predicates.any? { |pred| task.send(pred) }
 	    return if !owners.empty? && !task.owners.subset?(owners)
 	    true
 	end

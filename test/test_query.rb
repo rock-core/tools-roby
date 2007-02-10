@@ -82,6 +82,7 @@ class TC_Query < Test::Unit::TestCase
 	plan << t1 << t2
 
 	assert_finds_tasks([]) { TaskMatcher.executable }
+	assert_finds_tasks([t1,t2]) { TaskMatcher.not_executable }
 	assert_finds_tasks([t2]) { TaskMatcher.abstract }
 	assert_finds_tasks([t1]) { TaskMatcher.partially_instanciated }
 	assert_finds_tasks([t2]) { TaskMatcher.fully_instanciated }
