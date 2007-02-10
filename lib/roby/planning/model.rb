@@ -551,7 +551,7 @@ module Roby
 				  
 		all_returns.each do |return_type|
 		    if task = find_reusable_task(return_type)
-			return plan[task]
+			return task
 		    end
 		end
 
@@ -568,18 +568,31 @@ module Roby
             end
 	    
 	    def find_reusable_task(return_type)
-		candidates = plan.find_tasks.which_fullfills(return_type, arguments).
-		    local.to_a
-		# Remove candidates that are child of others
-		candidates.map! do |task|
-		    [task, task.generated_subgraph(TaskStructure::Hierarchy)]
-		end
-		candidates.delete_if do |task, _|
-		    candidates.find { |t, children| t != task && children.include?(task) }
+		candidates = plan.find_tasks.
+		    which_fullfills(return_type, arguments).
+		    local.
+		    not_abstract.
+		    not_finished.
+		    to_a
+
+		if candidates.empty?
+		    return
+		elsif candidates.size == 1
+		    return candidates.first
 		end
 
-		unless candidates.empty?
-		    task = candidates.first.first
+		found    = ValueSet.new
+		children = ValueSet.new
+		candidates.each do |task|
+		    next if children.include?(task)
+		    task_children = task.generated_subgraph(TaskStructure::Hierarchy)
+		    found.delete_if { |found_task| task_children.include?(found_task) }
+		    children.merge(task_children)
+		    found << task
+		end
+
+		unless found.empty?
+		    task = found.find { true }
 		    Planning.debug { "selecting task #{task} instead of planning #{name}[#{arguments}]" }
 		    return task
 		end
