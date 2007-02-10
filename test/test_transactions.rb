@@ -436,6 +436,10 @@ module TC_TransactionBehaviour
 	    assert_equal([trsc[t1]], result)
 	    assert(!trsc[t2, false])
 	    assert(!trsc[t3, false])
+
+	    trsc << t3
+	    result = trsc.find_tasks.which_fullfills(model, :id => 3).to_a
+	    assert_equal([t3], result)
 	end
     end
 end
