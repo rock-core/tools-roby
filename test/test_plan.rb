@@ -198,7 +198,7 @@ class TC_Plan < Test::Unit::TestCase
 	    event(:stop)
 	end
 
-	t1, t2, t3, t4, t5, t6, t7, t8, p1 = (1..9).map { klass.new }
+	t1, t2, t3, t4, t5, t6, t7, t8, p1 = (1..9).map { |i| klass.new(:id => i) }
 	t1.realized_by t3
 	t2.realized_by t3
 	t3.realized_by t4
