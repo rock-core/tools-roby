@@ -41,11 +41,11 @@ module Roby
 	end
 	def self.owns?(object); state.owns?(object) end
 	def self.peer(id)
-	    if id.respond_to?(:to_str)
+	    if id.kind_of?(DRbObject)
+		peers[id]
+	    elsif id.respond_to?(:to_str)
 		peers.each { |_, p| return p if p.remote_name == id.to_str }
 		nil
-	    elsif id.kind_of?(DRbObject)
-		peers[id]
 	    elsif id == Roby::Distributed.remote_id
 		Roby::Distributed
 	    else
