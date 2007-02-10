@@ -175,7 +175,7 @@ module Roby
 		super if defined? super
 		if self_owned? && !Distributed.updating?([root_object])
 		    Distributed.each_subscribed_peer(root_object) do |peer|
-			peer.transmit(:event_fired, self, event.time, event.context)
+			peer.transmit(:event_fired, self, event.object_id, event.time, event.context)
 		    end
 		end
 	    end
@@ -183,7 +183,7 @@ module Roby
 		super if defined? super
 		if self_owned? && !Distributed.updating?([root_object])
 		    Distributed.each_subscribed_peer(root_object, to.root_object) do |peer|
-			peer.transmit(:event_add_propagation, true, self, to, event.time, event.context)
+			peer.transmit(:event_add_propagation, true, self, to, event.object_id, event.time, event.context)
 		    end
 		end
 	    end
@@ -191,57 +191,84 @@ module Roby
 		super if defined? super
 		if self_owned? && !Distributed.updating?([root_object])
 		    Distributed.each_subscribed_peer(root_object, to.root_object) do |peer|
-			peer.transmit(:event_add_propagation, false, self, to, event.time, event.context)
+			peer.transmit(:event_add_propagation, false, self, to, event.object_id, event.time, event.context)
 		    end
 		end
 	    end
 	end
 	Roby::EventGenerator.include EventNotifications
 
+	module PlanCacheCleanup
+	    def finalized_event(generator)
+		super if defined? super
+		Distributed.peers.each do |_, peer|
+		    peer.local.pending_events.delete(generator)
+		end
+	    end
+	end
+	Roby::Plan.include PlanCacheCleanup
+
 	class PeerServer
-	    def event_fired(marshalled_from, time, context)
+	    attribute(:pending_events) { Hash.new }
+	    def event_for(generator, event_id, time, context)
+		# This must be done at reception time, or we will invert
+		# operations (for instance, we could do a remove_object on a
+		# task which is not finished yet)
+
+		id, event = pending_events[generator]
+		if id && id == event_id
+		    return event
+		end
+		
+		event = generator.new(context)
+		event.send(:time=, time)
+		if generator.respond_to?(:task)
+		    generator.task.update_task_status(event)
+		end
+		pending_events[generator] = [event_id, event]
+		event
+	    end
+
+	    def event_fired(marshalled_from, event_id, time, context)
 		return unless from_generator = peer.local_object(marshalled_from)
 		context        = peer.local_object(context)
-		Distributed.pending_fired << [from_generator, time, context]
+		Distributed.pending_fired << [from_generator, event_for(from_generator, event_id, time, context)]
 		nil
 	    end
 
-	    def event_add_propagation(only_forward, marshalled_from, marshalled_to, time, context)
+	    def event_add_propagation(only_forward, marshalled_from, marshalled_to, event_id, time, context)
 		return unless from_generator = peer.local_object(marshalled_from)
 		return unless to             = peer.local_object(marshalled_to)
 		context        = peer.local_object(context)
-		Distributed.pending_signals << [only_forward, from_generator, to, time, context]
+		Distributed.pending_signals << [only_forward, from_generator, to, event_for(from_generator, event_id, time, context)]
 		nil
 	    end
 	end
 
 	@pending_fired   = Queue.new
 	@pending_signals = Queue.new
-	@pending_events  = Hash.new
 	class << self
-	    attr_reader :pending_events, :pending_fired, :pending_signals
-	    def distributed_fire_event(generator, time, context)
-		event = generator.new(context)
-		event.send(:time=, time)
-		if generator.respond_to?(:task)
-		    generator.task.update_task_status(event)
-		end
+	    def distributed_fire_event(generator, event)
+		event.send(:propagation_id=, Propagation.propagation_id)
 		generator.fired(event)
-
-		event
 	    end
 
+	    attr_reader :pending_fired, :pending_signals
 	    def distributed_signals
-		pending_fired.get(true).each do |generator, time, context|
-		    pending_events[[time, context]] = distributed_fire_event(generator, time, context)
+		seen = ValueSet.new
+		pending_fired.get(true).each do |generator, event|
+		    seen << event
+		    distributed_fire_event(generator, event)
 		end
 
-		pending_signals.get(true).each do |only_forward, from_generator, to_generator, time, context|
-		    event = pending_events.delete([time, context]) || distributed_fire_event(from_generator, time, context)
+		pending_signals.get(true).each do |only_forward, from_generator, to_generator, event|
+		    unless seen.include?(event)
+			distributed_fire_event(from_generator, event)
+		    end
 
 		    # Only add the signalling if we own +to+
 		    if to_generator.self_owned?
-			Propagation.add_event_propagation(only_forward, [event], to_generator, context, nil)
+			Propagation.add_event_propagation(only_forward, [event], to_generator, event.context, nil)
 		    else
 			# Call #signalling or #forwarding to make
 			# +from_generator+ look like as if the event was really

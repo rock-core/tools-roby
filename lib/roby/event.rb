@@ -20,7 +20,6 @@ module Roby
 	attr_reader :generator
 
 	def initialize(generator, propagation_id, context, time = Time.now)
-	    raise ArgumentError, "bad value for propagation_id: #{propagation_id}" unless propagation_id
 	    @generator, @propagation_id, @context, @time = generator, propagation_id, context, time
 	end
 
