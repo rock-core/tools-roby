@@ -354,7 +354,7 @@ module Roby
 	end
 	
 	# Check that all arguments required by the task model are set
-	def fully_instanciated?; (model.arguments - arguments.keys.to_set).empty? end
+	def fully_instanciated?; @fully_instanciated ||= (model.arguments - arguments.keys.to_set).empty? end
 	# Returns true if one argument required by the task model is not set
 	def partially_instanciated?; !fully_instanciated? end
 
