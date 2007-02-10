@@ -52,7 +52,8 @@ module Roby
 
 
 	class Peer
-	    include MonitorMixin
+	    attr_reader :mutex
+	    def synchronize; @mutex.synchronize { yield } end
 	    attr_reader :send_flushed
 
 	    # How many errors we accept before disconnecting
@@ -120,7 +121,7 @@ module Roby
 	    def flush
 		synchronize do
 		    return false unless sending?
-		    send_flushed.wait
+		    send_flushed.wait(mutex)
 
 		    if !@send_thread
 			raise "communication thread died"

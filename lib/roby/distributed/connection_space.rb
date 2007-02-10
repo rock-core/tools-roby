@@ -71,7 +71,6 @@ module Roby
 	#
 	class ConnectionSpace
 	    include DRbUndumped
-	    include MonitorMixin
 
 	    # Our tuplespace
 	    attr_reader :tuplespace
@@ -97,6 +96,10 @@ module Roby
 	    attr_reader :discovery_tuplespace
 	    # Last time a discovery finished
 	    attr_reader :last_discovery
+	    # The main mutex which is used for synchronization with the discovery
+	    # thread
+	    attr_reader :mutex
+	    def synchronize; mutex.synchronize { yield } end
 	    # A condition variable which is signalled to start a new discovery
 	    attr_reader :start_discovery
 	    # A condition variable which is signalled when discovery finishes
@@ -136,8 +139,10 @@ module Roby
 		@ring_discovery       = options[:ring_discovery]
 		@ring_broadcast       = options[:ring_broadcast]
 		@discovery_tuplespace = options[:discovery_tuplespace]
-		@start_discovery      = new_cond
-		@finished_discovery   = new_cond
+
+		@mutex		      = Mutex.new
+		@start_discovery      = ConditionVariable.new
+		@finished_discovery   = ConditionVariable.new
 		@new_neighbours	      = Queue.new
 
 		@connection_listeners = Array.new
@@ -163,15 +168,21 @@ module Roby
 		end
 
 		# Start the discovery thread and wait for it to be initialized
-		synchronize do
-		    @discovery_thread = Thread.new(&method(:neighbour_discovery))
-		    finished_discovery.wait
-		end
+		@discovery_thread = Thread.new(&method(:neighbour_discovery))
+		start_neighbour_discovery(true)
 
 		Roby::Control.finalizers << method(:quit)
 	    end
 
-	    def discovering?; synchronize { @last_discovery != @discovery_start } end
+	    def discovering?
+	       	synchronize do 
+		    if @last_discovery != @discovery_start
+			yield if block_given?
+			true
+		    end
+		end
+	    end
+
 	    def owns?(object); object.owners.include?(tuplespace) end
 
 	    # An array of procs called at the end of the neighbour discovery,
@@ -215,7 +226,7 @@ module Roby
 
 			if @discovery_start == @last_discovery
 			    #Distributed.debug { "waiting next discovery start" }
-			    start_discovery.wait
+			    start_discovery.wait(mutex)
 			end
 			return if @quit_neighbour_thread
 			discovery_start = @discovery_start
@@ -263,15 +274,14 @@ module Roby
 	    # Starts one neighbour discovery loop
 	    def start_neighbour_discovery(block = false)
 		synchronize do
-		    @discovery_start    = Time.now
+		    @discovery_start = Time.now
 		    start_discovery.signal
 		end
 		wait_discovery if block
 	    end
 	    def wait_discovery
-		synchronize do
-		    return unless discovering?
-		    finished_discovery.wait
+		discovering? do
+		    finished_discovery.wait(mutex)
 		end
 	    end
 
@@ -286,8 +296,8 @@ module Roby
 		# Make the neighbour discovery thread quit as well
 		synchronize do
 		    @quit_neighbour_thread = true
-		    start_neighbour_discovery(false)
 		end
+		start_neighbour_discovery(false)
 		@discovery_thread.join
 	    end
 

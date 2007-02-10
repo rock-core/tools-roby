@@ -367,7 +367,8 @@ module Roby::Distributed
 	    @neighbour	  = neighbour
 	    @local        = PeerServer.new(self)
 	    @proxies	  = Hash.new
-	    @send_flushed = new_cond
+	    @mutex	  = Mutex.new
+	    @send_flushed = ConditionVariable.new
 	    @max_allowed_errors = connection_space.max_allowed_errors
 	    @triggers = Hash.new
 
