@@ -327,28 +327,33 @@ module Roby
 	    loop do
 		tasks = unneeded_tasks | force_gc
 		did_something = false
-		tasks.find_all { |t| t.self_owned? && t.root?(@hierarchy) && service_relations.all? { |r| t.root?(r) } }.
-		    each do |t|
-			if t.starting?
-			    # wait for task to be started before killing it
-			    Roby.debug "cannot GC #{t} because it is starting"
-			elsif t.pending? || t.finished?
+		tasks.each do |t| 
+		    next unless t.self_owned? && 
+			t.root?(@hierarchy) && 
+			service_relations.all? { |r| t.root?(r) }
+
+		    if !t.local?
+			raise NotImplementedError, "GC of non-local tasks is not implemented yet"
+		    elsif t.starting?
+			# wait for task to be started before killing it
+			Roby.debug "cannot GC #{t} because it is starting"
+		    elsif t.pending? || t.finished?
+			garbage(t)
+			Roby.debug "garbage-collecting #{t} because it is not running"
+			remove_object(t)
+			did_something = true
+		    elsif !t.finishing?
+			if t.event(:stop).controlable?
+			    Roby.debug "stopping #{t} because it is being garbage-collected"
 			    garbage(t)
-			    Roby.debug "garbage-collecting #{t} because it is not running"
-			    remove_object(t)
+			    t.stop!(nil)
+			    remove_object(t) unless t.running?
 			    did_something = true
-			elsif !t.finishing?
-			    if t.event(:stop).controlable?
-				Roby.debug "stopping #{t} because it is being garbage-collected"
-				garbage(t)
-				t.stop!(nil)
-				remove_object(t) unless t.running?
-				did_something = true
-			    else
-				Roby.debug "cannot GC #{t} because its 'stop' event is not controlable"
-			    end
+			else
+			    Roby.debug "cannot GC #{t} because its 'stop' event is not controlable"
 			end
 		    end
+		end
 
 		break unless did_something
 	    end
