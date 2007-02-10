@@ -27,8 +27,12 @@ module Roby
 		    yield
 		else
 		    @mutex.synchronize do
-			Thread.current[:control_mutex_locked] = true
-			yield
+			begin
+			    Thread.current[:control_mutex_locked] = true
+			    yield
+			ensure
+			    Thread.current[:control_mutex_locked] = false
+			end
 		    end
 		end
 	    end
@@ -296,7 +300,7 @@ module Roby
 		begin
 		    if quitting?
 			return if forced_exit?
-			Control.mutex.synchronize do
+			Control.synchronize do
 			    plan.keepalive.dup.each { |t| plan.auto(t) }
 			    plan.force_gc.merge( plan.missions )
 			end
@@ -317,7 +321,7 @@ module Roby
 			timings[:start] += cycle
 			@cycle_index += 1
 		    end
-		    timings = Control.mutex.synchronize { process_events(timings, control_gc) }
+		    timings = Control.synchronize { process_events(timings, control_gc) }
 
 		rescue Exception => e
 		    unless quitting?
