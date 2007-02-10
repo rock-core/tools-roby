@@ -143,7 +143,7 @@ static VALUE set_to_rb(set<VALUE>& source)
  * assume that there is no component which includes more than one item in
  * [it, end) */
 template<typename Graph, typename Iterator>
-static VALUE graph_components_i(VALUE result, Graph const& g, Iterator it, Iterator end)
+static VALUE graph_components_i(VALUE result, Graph const& g, Iterator it, Iterator end, bool include_singletons)
 {
     ColorMap   colors;
     set<VALUE> component;
@@ -156,7 +156,8 @@ static VALUE graph_components_i(VALUE result, Graph const& g, Iterator it, Itera
 	    continue;
 
 	depth_first_visit(g, *it, vertex_recorder(component), make_assoc_property_map(colors));
-	rb_ary_push(result, set_to_rb(component));
+	if (component.size() > 1 || include_singletons)
+	    rb_ary_push(result, set_to_rb(component));
 	component.clear();
     }
 
@@ -166,16 +167,19 @@ static VALUE graph_components_i(VALUE result, Graph const& g, Iterator it, Itera
 /** If +v+ is found in +g+, returns the corresponding vertex_descriptor. Otherwise,
  * add a singleton component to +result+ and return NULL.
  */
-static vertex_descriptor graph_components_root_descriptor(VALUE result, VALUE v, VALUE g)
+static vertex_descriptor graph_components_root_descriptor(VALUE result, VALUE v, VALUE g, bool include_singletons)
 {
     vertex_descriptor d;
     bool exists;
     tie(d, exists) = rb_to_vertex(v, g);
     if (! exists)
     {
-	set<VALUE> component;
-	component.insert(v);
-	rb_ary_push(result, set_to_rb(component));
+	if (include_singletons)
+	{
+	    set<VALUE> component;
+	    component.insert(v);
+	    rb_ary_push(result, set_to_rb(component));
+	}
 	return NULL;
     }
     return d;
@@ -183,8 +187,13 @@ static vertex_descriptor graph_components_root_descriptor(VALUE result, VALUE v,
 template<typename Graph>
 static VALUE graph_do_generated_subgraphs(int argc, VALUE* argv, Graph const& g, VALUE self)
 {
+    VALUE roots = Qnil, include_singletons;
+    if (rb_scan_args(argc, argv, "11", &roots, &include_singletons) == 1)
+	include_singletons = Qtrue;
+
+    bool with_singletons = RTEST(include_singletons) ? true : false;
     VALUE result = rb_ary_new();
-    if (argc == 0)
+    if (NIL_P(roots))
     {
 	RubyGraph::vertex_iterator it, end;
 	tie(it, end) = vertices(g);
@@ -202,19 +211,23 @@ static VALUE graph_do_generated_subgraphs(int argc, VALUE* argv, Graph const& g,
 			vertex_has_adjacent_i<Graph, false>, 
 			_1, ref(g)
 		    ), end, end
-		)
+		), with_singletons
 	    );
     }
     else
     {
+	roots = rb_ary_to_ary(roots);
+	VALUE* begin = RARRAY(roots)->ptr;
+	VALUE* end = begin + RARRAY(roots)->len;
+
 	// call graph_components_i with all vertices given in as argument
 	return graph_components_i(result, g, 
-		make_transform_iterator(argv, 
-		    bind(graph_components_root_descriptor, result, _1, self)
+		make_transform_iterator(begin, 
+		    bind(graph_components_root_descriptor, result, _1, self, with_singletons)
 		),
-		make_transform_iterator(argv + argc, 
-		    bind(graph_components_root_descriptor, result, _1, self)
-		));
+		make_transform_iterator(end,
+		    bind(graph_components_root_descriptor, result, _1, self, with_singletons)
+		), with_singletons);
     }
 }
 /*

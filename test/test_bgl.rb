@@ -147,7 +147,6 @@ class TC_BGL < Test::Unit::TestCase
     end
 
     def assert_components(expected, found)
-	assert_equal(expected.size, found.size)
 	# Equality of set-of-set does not work, don't know why
 	assert_equal(expected.map { |c| c.sort_by { |e| e.object_id } }.to_set, 
 		     found.map { |c| c.sort_by { |e| e.object_id } }.to_set)
@@ -157,22 +156,32 @@ class TC_BGL < Test::Unit::TestCase
 	graph = Graph.new
 	klass = Class.new { include Vertex }
 
-	vertices = (1..4).map { klass.new }
+	vertices = (1..5).map { klass.new }
+	v5 = vertices.pop
 	v1, v2, v3, v4 = *vertices
 	vertices.each { |v| graph.insert(v) }
 
 	graph.link v1, v2, nil
 	assert_components([[v1, v2], [v3], [v4]], graph.components)
 	assert_components([[v1, v2]], graph.components(v1))
+	assert_components([[v5]], graph.components(v5))
 	assert_components([[v2]], graph.generated_subgraphs(v2))
+	assert_components([[v2], [v5]], graph.generated_subgraphs([v2, v5]))
+
+	assert_components([], graph.generated_subgraphs(v2, false))
+	assert_components([], graph.generated_subgraphs([v2], false))
+	assert_components([], graph.generated_subgraphs([v2, v5], false))
 	assert_components([[v1, v2]], graph.reverse.generated_subgraphs(v2))
 	assert_components([[v4]], graph.components(v4))
 
 	graph.link v4, v3, nil
 	assert_components([[v1, v2], [v4, v3]], graph.components)
-	assert_components([[v2], [v3]], graph.generated_subgraphs(v2, v3))
-	assert_components([[v1, v2], [v4, v3]], graph.reverse.generated_subgraphs(v2, v3))
+	assert_components([[v2], [v3]], graph.generated_subgraphs([v2, v3]))
+	assert_components([], graph.generated_subgraphs([v3, v2], false))
+	assert_components([[v1, v2], [v4, v3]], graph.reverse.generated_subgraphs([v2, v3]))
+	assert_components([[v1, v2], [v4, v3]], graph.reverse.generated_subgraphs([v2, v3], false))
 	assert_components([[v3, v4]], graph.generated_subgraphs(v4))
+	assert_components([[v3, v4]], graph.generated_subgraphs(v4, false))
 
 	graph.link v1, v3, nil
 	assert_components([[v1, v2, v3, v4]], graph.components)
@@ -285,9 +294,9 @@ class TC_BGL < Test::Unit::TestCase
 	end
 
 	begin
-	    assert( branches.find { |b| b == trace }, trace )
+	    assert( branches.find { |b| b == trace } ) #, trace )
 	rescue 
-	    pp trace
+	    #pp trace
 	    raise
 	end
     end
