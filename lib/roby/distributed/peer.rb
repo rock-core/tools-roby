@@ -62,24 +62,6 @@ module Roby::Distributed
     # The peer is disconnected
     class DisconnectedError < ConnectionError; end
 
-    # Performs a plan query on a remote plan. See Peer#query
-    class RemoteQuery
-	attr_reader :peer, :matcher
-	def initialize(peer)
-	    @peer    = peer
-	    @matcher = Roby::TaskMatcher.new
-	end
-	def method_missing(name, *args, &block)
-	    @matcher.send(name, *args, &block)
-	    self
-	end
-
-	def each(&block)
-	    peer.remote_server.query(matcher).each(&block)
-	end
-	include Enumerable
-    end
-
     @updated_objects = ValueSet.new
     class << self
 	def trigger(*objects)
@@ -394,10 +376,11 @@ module Roby::Distributed
 	end
 
 	attr_reader :name, :task
-
-	# Creates a query object on the peer plan
-	def query
-	    RemoteQuery.new(self)
+	def find_tasks
+	    Roby::Query.new(self)
+	end
+	def each_matching_task(matcher, &block)
+	    remote_server.query(matcher).each(&block)
 	end
 
 	# call-seq:
