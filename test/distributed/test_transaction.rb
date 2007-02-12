@@ -39,23 +39,28 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 		    _, peer = peers.to_a[0]
 		    assert(trsc = peer.find_transaction(marshalled_trsc.remote_object))
 		    assert_equal(marshalled_trsc.remote_object, trsc.remote_siblings[peer.remote_id])
-		    assert(trsc.owners.include?(peer.remote_id))
-		    assert(trsc.owners.include?(Roby::Distributed.remote_id))
+		    assert_equal([peer.remote_id, Roby::Distributed.remote_id].to_set, trsc.owners)
+		    assert_equal([peer.remote_id, Roby::Distributed.remote_id], trsc.editors)
+		    assert(!trsc.editor)
 		    trsc
 		end
 	    end
 	end
 	trsc = Distributed::Transaction.new(plan)
+	assert(trsc.self_owned?)
+	assert(trsc.first_editor?)
+	assert(trsc.editor?)
+
 	remote_trsc = nil
-	trsc.self_owned
 	remote_peer.transaction_create(trsc) { |remote_trsc| remote_trsc = remote_trsc.remote_object }
 	apply_remote_command
 	trsc.add_owner remote_peer
-
 	apply_remote_command
 	remote.test_find_transaction(trsc)
 	assert_equal(remote_trsc, trsc.remote_siblings[remote_peer.remote_id])
 	assert(remote_trsc.remote_siblings.has_key?(local_peer.remote_id), remote_trsc.remote_siblings.keys)
+
+	assert(trsc.editor)
     end
 
     def test_transaction_proxies
@@ -85,6 +90,59 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	marshalled_remote = remote.get_marshalled_tproxy(remote_trsc, t, p)
 	assert_equal(p, remote_peer.proxy(marshalled_remote))
     end
+    def test_edition
+	peer2peer do |remote|
+	    class << remote
+		include Test::Unit::Assertions
+		def edit_transaction(trsc)
+		    trsc = local_peer.local_object(trsc)
+		    trsc.edit
+		    assert(trsc.editor?)
+		end
+		def give_back(trsc)
+		    trsc = local_peer.local_object(trsc)
+		    trsc.release(false)
+		end
+	    end
+	end
+
+	trsc = Distributed::Transaction.new(plan)
+	remote_trsc = nil
+	remote_peer.transaction_create(trsc) { |remote_trsc| remote_trsc = remote_trsc.remote_object }
+	apply_remote_command
+
+	control_thread = Thread.new do
+	    loop do
+		Control.instance.process_events
+		sleep(0.1)
+	    end
+	end
+
+	trsc.edit
+
+	assert(trsc.editor?)
+	assert(!trsc.release(false))
+
+	trsc.add_owner remote_peer
+	assert_equal([Distributed.remote_id, remote_peer.remote_id], trsc.editors)
+	assert_equal(remote_peer.remote_id, trsc.next_editor)
+	assert(trsc.release(true))
+
+	assert_doesnt_timeout(1) do
+	    remote.edit_transaction(trsc)
+	end
+	assert_raises(NotEditor) { trsc.commit_transaction }
+	remote.give_back(trsc)
+
+	assert_doesnt_timeout(1) do
+	    trsc.edit
+	end
+	assert(trsc.edition_reloop)
+	assert_raises(NotReady) { trsc.commit_transaction }
+
+    ensure
+	control_thread.kill
+    end
 
     def test_ownership
 	peer2peer do |remote|
@@ -96,7 +154,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	# Create a transaction for the plan
 	trsc = Roby::Distributed::Transaction.new(plan)
-	assert(!Distributed.owns?(trsc))
+	assert(Distributed.owns?(trsc))
 	assert(!remote_peer.owns?(trsc))
 
 	trsc.add_owner remote_peer
@@ -107,7 +165,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	t_task = trsc[r_task]
 	assert(!Distributed.owns?(r_task))
 	assert(remote_peer.owns?(r_task))
-	assert(!Distributed.owns?(t_task))
+	assert(Distributed.owns?(t_task))
 	assert(remote_peer.owns?(t_task))
 
 	# Check we still can remove the peer from the transaction owners
@@ -125,6 +183,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	apply_remote_command
 
 	assert_nothing_raised { t_task.discover(TaskStructure::Hierarchy, true) }
+	
 	assert_raises(NotOwner) { t_task.realized_by task }
 	assert_raises(NotOwner) { t_task.event(:start).on task.event(:start) }
 	assert_raises(NotOwner) { task.realized_by t_task }
@@ -200,8 +259,13 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	    assert(did_commit)
 	end
 
-	# Send prepare_commit_transaction to the remote host and read its reply
-	apply_remote_command
+	assert_doesnt_timeout(1) do
+	    loop do
+		apply_remote_command
+		break if did_commit
+		sleep(0.2)
+	    end
+	end
 
 	assert(r_task.child_object?(task, TaskStructure::Hierarchy))
 	remote.check_plan

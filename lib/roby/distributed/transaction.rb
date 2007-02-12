@@ -4,18 +4,30 @@ require 'roby/distributed/proxy'
 
 module Roby
     module Distributed
-	class Transaction < Roby::Transaction
-	    include DistributedObject
-
-	    attr_reader :owners
-	    def initialize(plan, owners = nil, options = {})
-		@owners = Set.new
-		@owners.merge(owners) if owners
-		
-		super(plan, options)
+	class << self
+	    attr_accessor :transaction_handler
+	    def on_transaction(&block)
+		Distributed.transaction_handler = block
 	    end
+	end
 
+	class NotEditor < RuntimeError; end
+	class NotReady < RuntimeError; end
+	class Transaction < Roby::Transaction
+	    attr_reader :owners
+	    attr_reader :editors
+	    attr_reader :token_lock, :token_lock_signal
 	    include DistributedObject
+
+	    def initialize(plan, options = {})
+		super
+		@owners  = [Distributed.remote_id].to_set
+		@editors = [Distributed.remote_id]
+		@editor  = true
+
+		@token_lock = Mutex.new
+		@token_lock_signal = ConditionVariable.new
+	    end
 
 	    # Add the Peer +peer+ to the list of owners
 	    def add_owner(peer, distributed = true)
@@ -23,6 +35,9 @@ module Roby
 			  else peer
 			  end
 
+		if !self_owned? && distributed
+		    raise NotOwner, "not transaction owner"
+		end
 		return if @owners.include?(peer_id)
 
 		if distributed
@@ -30,7 +45,9 @@ module Roby
 			remote.add_owner(peer_id, false)
 		    end
 		end
-		@owners << peer_id
+		
+		editors << peer_id
+		owners  << peer_id
 		Roby.debug { "added owner to #{self}: #{owners.to_a}" }
 	    end
 
@@ -68,6 +85,9 @@ module Roby
 
 	    # Sends the transaction to +peer+. This must be done only once.
 	    def propose(peer, &block)
+		if !self_owned?
+		    raise NotOwner, "cannot propose a transaction we don't own"
+		end
 		peer.transaction_propose(self, &block)
 	    end
 
@@ -136,8 +156,14 @@ module Roby
 	    # commit is being canceled. In the latter case,
 	    # #abandoned_commit is called as well.
 	    def commit_transaction(synchro = true)
-		unless Distributed.owns?(self)
+		if !self_owned?
 		    raise NotOwner, "cannot commit a transaction which is not owned locally. #{self} is owned by #{owners.to_a}"
+		elsif synchro
+		    if !editor? || !first_editor?
+			raise NotEditor, "transactions are committed by their first editor"
+		    elsif edition_reloop
+			raise NotReady, "transaction still needs editing"
+		    end
 		end
 
 		if synchro
@@ -194,6 +220,64 @@ module Roby
 		self
 	    end
 
+	    attr_reader :editor
+	    alias :editor? :editor
+	    attr_reader :edition_reloop
+
+	    def first_editor?
+		editors.first == Distributed.remote_id
+	    end
+	    def next_editor
+		if editors.last == Distributed.remote_id
+		    return editors.first
+		end
+
+		editors.each_cons(2) do |first, second|
+		    if first == Distributed.remote_id 
+			return second
+		    end
+		end
+	    end
+
+	    def edit!(reloop)
+		token_lock.synchronize do
+		    @editor = true
+		    @edition_reloop = reloop
+		    token_lock_signal.broadcast
+		end
+	    end
+
+	    # Waits for the edition token
+	    def edit
+		token_lock.synchronize do
+		    if editor # current editor
+			return
+		    else
+			token_lock_signal.wait(token_lock)
+		    end
+		end
+	    end
+
+	    # Releases the edition token
+	    def release(give_back = false)
+		token_lock.synchronize do
+		    if !editor
+			raise ArgumentError, "not editor"
+		    else
+			reloop = if first_editor?
+				     give_back
+				 else
+				     edition_reloop || give_back
+				 end
+
+			return if editors.size == 1
+			@editor = false
+			Distributed.peer(next_editor).transaction_give_token(self, reloop)
+			true
+		    end
+		end
+	    end
+
 	    # What do we need to do on the remote side ?
 	    #   - create a new transaction with the right owners, either on our own plan,
 	    #     or even on another shared transaction.
@@ -206,7 +290,7 @@ module Roby
 	    # returns their sibling in the remote pDB (or raises if there is none)
 	    class DRoby < Roby::Plan::DRoby # :nodoc:
 		def _dump(lvl)
-		    Distributed.dump([DRbObject.new(remote_object), plan, owners, options]) 
+		    Distributed.dump([DRbObject.new(remote_object), plan, owners, editors, options]) 
 		end
 		def self._load(str)
 		    new(*Marshal.load(str))
@@ -222,14 +306,14 @@ module Roby
 		    #"mdTransaction(#{remote_object.__drbref}/#{plan.remote_object.__drbref})" 
 		end
 
-		attr_reader :plan, :owners, :options
-		def initialize(remote_object, plan, owners, options)
+		attr_reader :plan, :owners, :editors, :options
+		def initialize(remote_object, plan, owners, editors, options)
 		    super(remote_object)
-		    @plan, @owners, @options = plan, owners, options
+		    @plan, @owners, @editors, @options = plan, owners, editors, options
 		end
 	    end
 	    def droby_dump # :nodoc:
-		DRoby.new(self, self.plan, self.owners, self.options)
+		DRoby.new(self, self.plan, self.owners, self.editors, self.options)
 	    end
 	end
 
@@ -316,10 +400,23 @@ module Roby
 		end
 
 		plan = peer.local_object(remote_trsc.plan)
-		trsc = Roby::Distributed::Transaction.new(plan, remote_trsc.owners, remote_trsc.options)
+		trsc = Roby::Distributed::Transaction.new(plan, remote_trsc.options)
+		trsc.instance_eval do
+		    @owners  = remote_trsc.owners.to_set
+		    @editors = remote_trsc.editors
+		    @editor  = false
+		end
 		trsc.remote_siblings[peer.remote_id] = remote_trsc.remote_object
 
 		subscriptions << remote_trsc.remote_object
+		
+		Thread.new do
+		    begin
+			Distributed.transaction_handler[trsc] if Distributed.transaction_handler
+		    rescue 
+			STDERR.puts "Transaction handler for #{trsc} failed with #{$!.full_message}"
+		    end
+		end
 		trsc
 	    end
 
@@ -344,6 +441,12 @@ module Roby
 		Roby::Control.once { peer.connection_space.transaction_discard(trsc) }
 		nil
 	    end
+	    def transaction_give_token(trsc, needs_edition)
+		STDERR.puts "\rGOT TOKEN: #{caller.join("\n  ")}"
+		trsc = peer.local_object(trsc)
+		trsc.edit!(needs_edition)
+		nil
+	    end
 	end
 
 	class Peer
@@ -361,6 +464,7 @@ module Roby
 		    yield(marshalled_transaction) if block_given?
 		end
 	    end
+
 	    def transaction_propose(trsc)
 		# What do we need to do on the remote side ?
 		#   - create a new transaction with the right owners
@@ -376,6 +480,10 @@ module Roby
 			yield if block_given?
 		    end
 		end
+	    end
+
+	    def transaction_give_token(trsc, needs_edition)
+		transmit(:transaction_give_token, trsc, needs_edition)
 	    end
 	end
     end
