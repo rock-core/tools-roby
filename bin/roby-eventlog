@@ -6,8 +6,20 @@ require 'roby/log/marshallable'
 
 require 'roby/log/execution-state'
 require 'roby/log/relations'
+require 'zlib'
 
 require 'optparse'
+
+module Roby::Log
+    def self.open(file, &block)
+	if file =~ /\.gz$/
+	    Zlib::GzipReader.open(file, &block)
+	else
+	    File.open(file, &block)
+	end
+    end
+end
+
 gui = true
 parser = OptionParser.new do |opts|
     opts.on("--[no-]gui", "(do not) start GUI") do |gui|
@@ -22,7 +34,7 @@ unless gui
     require 'roby/log/file'
 
     Roby::Log.loggers << Roby::Log::ConsoleLogger.new(STDOUT)
-    File.open(file, &Roby::Log::FileLogger.method(:replay))
+    Roby::Log.open(file, &Roby::Log::FileLogger.method(:replay))
     exit
 end
 
@@ -30,8 +42,15 @@ require 'Qt'
 require 'roby/log/offline_control_ui'
 require 'roby/log/drb-qt'
 
-
 module Roby::Log
+    def self.open(file, &block)
+	if file =~ /\.gz$/
+	    Zlib::GzipFile.open(file, &block)
+	else
+	    File.open(file, &block)
+	end
+    end
+
     class DisplayControl < ::DisplayControl
 	# The display server
 	attr_reader :server
@@ -147,19 +166,36 @@ module Roby::Log
 	    lbl_file_name.text = file_name
 	    
 	    # Read the time of the first and last samples
-	    @first_sample, @last_sample = nil
-	    @file = File.open(file_name) rescue nil
-	    unless @file
+	    unless (@file = Roby::Log.open(file_name) rescue nil)
 		lbl_file_name.text = ''
 		Qt::MessageBox.warning self, 'Cannot open file', "#{file_name} does not exist, is not readable, or is not a valid log file"
 		return
 	    end
 
+	    rewind
+	    sld_position.min_value = 0
+	    sld_position.max_value = Integer(1000)
+
+	    @current_time   = @first_sample
+	    @current_sample = 0
+	    @position = 0
+	    change_play_mode
+
+	    seek(0, true)
+
+	    grp_display.enabled = true
+	    grp_play.enabled    = true
+	end
+
+	def rewind
+	    @first_sample, @last_sample = nil
+	    file.rewind
+
 	    @sample_count = 0
 	    begin
 		# Remove all cycle_end events at the top of the log
 		loop do
-		    pos, m, time, *_ = read_sample
+		    m, time, _ = read_sample
 		    next if m == :cycle_end
 
 		    if @first_sample
@@ -175,20 +211,13 @@ module Roby::Log
 	    rescue EOFError
 	    end
 
-	    sld_position.min_value = 0
-	    sld_position.max_value = Integer(1000)
-
+	    sld_position.value = 0
 	    @current_time   = @first_sample
 	    @current_sample = 0
 	    @position = 0
 	    change_play_mode
-
-	    seek(0, true)
-
-	    grp_display.enabled = true
-	    grp_play.enabled    = true
+	    loggers.each { |l| l.display.clear }
 	end
-
 
 	# Reads data until the block returns true and sends samples
 	# to the loggers. The block argument is the play position
@@ -196,14 +225,20 @@ module Roby::Log
 	# to play_mode)
 	def read_until
 	    loop do
-		filepos, name, time, *args = read_sample
+		if @next_sample
+		    name, time, args = *@next_sample
+		    @next_sample = nil
+		else
+		    name, time, args = read_sample
+		end
+
 		position = if play_mode == :time then
 			       time - first_sample
 			   else current_sample + 1
 			   end
 
 		if yield(position)
-		    file.seek(filepos)
+		    @next_sample = [name, time, args]
 		    return
 		end
 
@@ -309,14 +344,7 @@ module Roby::Log
 
 	    disable_updates do
 		if force_reset || pos < position
-		    sld_position.value = 0
-		    @current_time   = @first_sample
-		    @current_sample = 0
-		    @position = 0
-		    change_play_mode
-
-		    file.seek(@start)
-		    loggers.each { |l| l.display.clear }
+		    rewind
 		end
 
 		read_until { |p| p >= pos } rescue nil
@@ -352,14 +380,14 @@ module Roby::Log
 
     private
 	def read_sample
-	    file_pos = file.tell
+	    raise EOFError if file.eof?
 
 	    method_name = Marshal.load(file)
 	    method_args = Marshal.load(file)
-	    return [file_pos, method_name, *method_args]
+	    time = method_args.shift
+	    return [method_name, time, method_args]
 
 	rescue EOFError, TypeError, ArgumentError
-	    file.seek(file_pos)
 	    raise EOFError
 	end
 
