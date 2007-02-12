@@ -2,24 +2,26 @@ if genom_loglevel = LOG['levels']['Genom']
     ::Genom.logger.level = Logger.const_get(genom_loglevel)
 end
 
-Roby::State.genom do |g|
-    include Roby::Genom
+if defined? NAME
+    Roby::State.genom do |g|
+	include Roby::Genom
 
-    genom_tasks = File.join(APP_DIR, 'tasks', 'genom')
-    if File.directory?(genom_tasks)
-	g.autoload_path << genom_tasks
-    end
-    g.output_io = File.join(APP_DIR, "log", "#{NAME}-%m.log")
+	genom_tasks = File.join(APP_DIR, 'tasks', 'genom')
+	if File.directory?(genom_tasks)
+	    g.autoload_path << genom_tasks
+	end
+	g.output_io = File.join(APP_DIR, "log", "#{NAME}-%m.log")
 
-    genom_config = File.join(APP_DIR, 'config', "#{ROBOT}-genom.rb")
-    if File.file?(genom_config)
-	require genom_config
-    end
+	genom_config = File.join(APP_DIR, 'config', "#{ROBOT}-genom.rb")
+	if File.file?(genom_config)
+	    require genom_config
+	end
 
-    MainPlanner.class_eval do
-	using *g.used_modules.values.
-	    map { |mod| mod::Planning rescue nil }.
-	    compact
+	MainPlanner.class_eval do
+	    using *g.used_modules.values.
+		map { |mod| mod::Planning rescue nil }.
+		compact
+	end
     end
 end
 
@@ -41,8 +43,8 @@ def lockfile(name)
 end
 
 # Start the GDHE display if needed
-def gdhe_display(env)
-    return yield unless display = TERRAIN['display']
+def gdhe_display(env, display = nil)
+    return yield unless (display ||= TERRAIN['display'])
     lockfile("gdhe-#{display}") do |present|
 	if present
 	    STDERR.puts "Not connecting to GDHE server, there is already a simulation environment connected"

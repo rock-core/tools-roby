@@ -5,6 +5,7 @@ require 'fileutils'
 require 'tempfile'
 
 $LOAD_PATH.unshift APP_DIR
+ROBY_DIR = File.expand_path( File.join(File.dirname(__FILE__), '..') )
 
 DISCOVERY = {}
 LOG     = { 'timings' => false, 'events' => false, 'levels' => Hash.new }
