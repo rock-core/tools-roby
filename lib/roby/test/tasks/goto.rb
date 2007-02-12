@@ -19,6 +19,7 @@ module Roby
  		else
 		    State.pos.x = x
 		    State.pos.y = y
+		    emit :success
 		end
 	    end
 
