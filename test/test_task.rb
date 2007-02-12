@@ -22,7 +22,6 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal([:task_tag, :model_tag].to_set, task.arguments.to_set)
     end
 
-
     def test_arguments
 	task = Class.new(Task) do
 	    argument :from, :to
@@ -54,16 +53,16 @@ class TC_Task < Test::Unit::TestCase
 
     # Tests that an event is controlable if there is a method with the same
     # name in the task model
-    def test_method_as_command
+    def test_command_method
 	FlexMock.use do |mock|
 	    task = Class.new(SimpleTask) do
 		define_method(:start) do |context|
-		    mock.start(context)
+		    mock.start(self, context)
 		end
 		event(:start)
 	    end.new
-	    mock.should_receive(:start).once
-	    task.start!
+	    mock.should_receive(:start).once.with(task, 42)
+	    task.start!(42)
 	end
     end
 
