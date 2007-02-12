@@ -327,6 +327,12 @@ module Roby
 
 	    def terminates
 		event :failed, :command => true, :terminal => true
+		interruptible
+	    end
+	    def interruptible
+		if !has_event?(:failed) || !event_model(:failed).controlable?
+		    raise ArgumentError, "failed is not controlable"
+		end
 		define_method(:stop) do |context|
 		    failed!(context)
 		end
