@@ -338,6 +338,21 @@ module Roby
 		end
 		event :stop
 	    end
+	    def polls
+		if !instance_method?(:poll)
+		    raise ArgumentError, "#{self} does not define a 'poll' instance method"
+		end
+		poll(&method(:poll))
+	    end
+	    def poll(&block)
+		if !block_given?
+		    raise "no block given"
+		end
+
+		define_method(:poll, &block)
+		on(:start) { |event| Control.event_processing << event.task.method(:poll) }
+		on(:stop) { |event| Control.event_processing.delete(event.task.method(:poll)) }
+	    end
 	end
 
 	# Roby::Task is an abstract model

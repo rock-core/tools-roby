@@ -9,7 +9,7 @@ module Roby
 	    def x; arguments[:x] end
 	    def y; arguments[:y] end
 
-	    def poll
+	    poll do
 		dx = x - State.pos.x
 		dy = y - State.pos.y
 		d = Math.sqrt(dx * dx + dy * dy)
@@ -20,12 +20,6 @@ module Roby
 		    State.pos.x = x
 		    State.pos.y = y
 		end
-	    end
-	    on(:start) do |event|
-		Control.event_processing << event.task.method(:poll)
-	    end
-	    on(:stop) do |event|
-		Control.event_processing.delete(event.task.method(:poll))
 	    end
 
 	    module Planning
