@@ -499,15 +499,6 @@ module Roby
 		MethodModel.new(name, :returns => Task)
 	    end
 
-	    # Returns true if this planner is currently planning for +task+
-	    def planning?(task)
-		if planning_task = task.planning_task
-		    if planning_task.respond_to?(:planner)
-			planning_task.planner == self
-		    end
-		end
-	    end
-
             # Find a suitable development for the +name+ method.
             def plan_method(name, options = Hash.new)
                 name    = name.to_s
