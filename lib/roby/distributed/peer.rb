@@ -65,6 +65,8 @@ module Roby::Distributed
     @updated_objects = ValueSet.new
     class << self
 	def trigger(*objects)
+	    return unless Roby::Distributed.state 
+
 	    # If +object+ is a trigger, send the :triggered event but do *not*
 	    # act as if +object+ was subscribed
 	    objects.delete_if { |o| o.plan != Roby::Distributed.state.plan }
