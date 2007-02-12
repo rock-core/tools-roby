@@ -67,6 +67,7 @@ module Roby
 	    [task_arguments, planning_options]
 	end
 
+	attr_reader :planning_tasks
 	def initialize(options)
 	    task_arguments, planning_options = PlanningLoop.filter_options(options)
 	    task_arguments[:method_options].merge!(planning_options)
@@ -77,6 +78,7 @@ module Roby
 		arguments.values_at(:period, :lookahead, :planner_model, :method_name, :method_options, :planned_model)
 	    
 	    @start_commands = []
+	    @planning_tasks = []
 	end
 
 	# The task on which the children are added
@@ -89,6 +91,7 @@ module Roby
 	    planned  = planning.planned_task
 	    planned.forward(:start, self, :loop_start)
 	    planned.forward(:success, self, :loop_end)
+	    main_task.realized_by planned
 	    
 	    # Schedule it. We start the new pattern when these three conditions are met:
 	    #	* it has been planned (planning has finished)
@@ -119,8 +122,8 @@ module Roby
 	    end
 
 	    start_commands.unshift(start_next_loop)
+	    planning_tasks.unshift planning
 
-	    main_task.realized_by planned
 	    start_next.on(planned.event(:start))
 	    planning
 	end
@@ -162,11 +165,7 @@ module Roby
 	end
 	# The last PlanningTask object
 	def last_planning_task
-	    enum_for(:each_pattern_planning).find do |planning|
-		!enum_for(:each_pattern_planning).find do |t| 
-		    planning.event(:success).child_object?(t.event(:start), EventStructure::Signal)
-		end
-	    end
+	    planning_tasks.first
 	end
 	
 	def loop_start(context)
@@ -191,6 +190,11 @@ module Roby
 	end
 
 	event :loop_end
+	on(:loop_end) do |event|
+	    event.task.instance_eval do
+		planning_tasks.pop
+	    end
+	end
     end
 
 
