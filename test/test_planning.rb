@@ -600,21 +600,64 @@ class TC_Planner < Test::Unit::TestCase
 
     def test_make_loop
 	planner_model = Class.new(Planning::Planner) do
+	    include Test::Unit::Assertions
+
 	    @result_task = nil
 	    attr_reader :result_task
-	    method(:task) {  @result_task = SimpleTask.new }
-	    method(:my_looping_task) do
-		make_loop(:period => 0, :child_argument => 2) do
+	    method(:task) {  @result_task = SimpleTask.new(:id => arguments[:task_id])}
+	    method(:looping_tasks) do
+		t1 = make_loop(:period => 0, :child_argument => 2) do
 		    # arguments of 'my_looping_task' shall be forwarded
 		    raise unless arguments[:parent_argument] == 1
 		    raise unless arguments[:child_argument] == 2
-		    task
+		    task(:task_id => 'first_loop')
 		end
+		t2 = make_loop do
+		    task(:task_id => 'second_loop')
+		end
+		# Make sure the two loops are different
+		assert(t1.method_options[:id] != t2.method_options[:id])
+		[t1, t2]
 	    end
 	end
 
-	initial_planner = planner_model.new(plan)
-	loop_planner = initial_planner.my_looping_task(:parent_argument => 1)
+	planner = planner_model.new(plan)
+	t1, t2 = planner.looping_tasks(:parent_argument => 1)
+	plan.insert(t1)
+	plan.insert(t2)
+
+	t1.start!
+	assert_event(t1.last_planning_task.event(:success))
+	planned_task = t1.children.find { true }
+	assert_equal('first_loop', planned_task.arguments[:id])
+
+	t2.start!
+	assert_event(t2.last_planning_task.event(:success))
+	planned_task = t2.children.find { true }
+	assert_equal('second_loop', planned_task.arguments[:id])
+
+	t3 = planner.make_loop(:period => 0, :parent_argument => 1, :child_argument => 2) do
+	    task(:task_id => 'third_loop')
+	end
+	plan.insert(t3)
+	t3.start!
+	assert_equal('third_loop', planning_task_result(t3.last_planning_task).arguments[:id])
+
+	# Now, make sure unneccessary methods are created
+	name1, id1 = t1.method_name, t1.method_options[:id]
+	name2, id2 = t2.method_name, t2.method_options[:id]
+	t1, t2 = planner.looping_tasks(:parent_argument => 1)
+	assert_equal(name1, t1.method_name)
+	assert_equal(name2, t2.method_name)
+	assert_equal(id1, t1.method_options[:id])
+	assert_equal(id2, t2.method_options[:id])
+    end
+
+    def planning_task_result(task)
+	plan.insert(task)
+	task.start! if task.pending?
+	assert_event(task.event(:success))
+	task.planned_task
     end
 end
 

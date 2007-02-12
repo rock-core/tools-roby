@@ -642,13 +642,24 @@ module Roby
 
             private :call_planning_methods
 
+	    attribute(:loop_definitions) { Hash.new { |h, k| h[k] = Hash.new } }
 	    # Builds a loop in a plan (i.e. a method which is generated in
 	    # loop)
 	    def make_loop(options = {}, &block)
+		raise ArgumentError, "no block given" unless block
+
 		options.merge! :planner_model => self.class, :method_name => 'loops'
 		_, planning_options = PlanningLoop.filter_options(options)
 
-		m = self.class.method("loops", planning_options, &block)
+		defs = (loop_definitions[block.file][block.line] ||= [])
+		if m = defs.find { |p, _| p.same_body?(block) }
+		    m = m.last
+		else
+		    planning_options[:id] = Planner.next_id
+		    m = self.class.method('loops', planning_options, &block)
+
+		    defs << [block, m]
+		end
 
 		options[:method_options] ||= {}
 		options[:method_options].merge!(arguments || {})
