@@ -1,9 +1,5 @@
 roby:
-    robot:
-        - config/ROBOT.rb
-        - controllers/ROBOT.rb
-        - planners/ROBOT/
-
+    # Files that are added on roby init
     files:
         - config/
         - controllers/
@@ -19,13 +15,24 @@ roby:
         - scripts/shell
         - planners/main.rb
 
+    # Files that are added for each robot creation
+    robot:
+        - config/ROBOT.rb
+        - controllers/ROBOT.rb
+        - planners/ROBOT/
+        - planners/ROBOT/main.rb
+
 genom:
+    # List of modules that must be installed for genom to be usable
     requires: roby
+    
+    # Files that are added on roby init
     robot:
         - config/ROBOT-genom.rb
         - config/pocosim/ROBOT.conf
         - config/pocosim/ROBOT/
 
+    # Files that are added for each robot creation
     files:
         - scripts/terrain
         - tasks/genom/
