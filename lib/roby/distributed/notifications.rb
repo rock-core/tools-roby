@@ -53,8 +53,11 @@ module Roby
 
 		unless Distributed.updating?([self])
 		    Distributed.clean_triggered(task)
-		    Distributed.each_subscribed_peer(task) do |peer|
-			peer.plan_update(:remove_object, self, task)
+		    #Distributed.each_subscribed_peer(task) do |peer|
+		    Distributed.peers.each do |_, peer|
+			if peer.connected?
+			    peer.plan_update(:remove_object, self, task)
+			end
 		    end
 		end
 	    end
@@ -64,8 +67,11 @@ module Roby
 		return unless event.root_object?
 
 		unless Distributed.updating?([self])
-		    Distributed.each_subscribed_peer(event) do |peer|
-			peer.plan_update(:remove_object, self, event)
+		    #Distributed.each_subscribed_peer(event) do |peer|
+		    Distributed.peers.each do |_, peer|
+			if peer.connected?
+			    peer.plan_update(:remove_object, self, event)
+			end
 		    end
 		end
 	    end
@@ -97,22 +103,38 @@ module Roby
 
 		result = []
 		Distributed.update([plan]) do
-		    unmarshall_and_update(args) do |unmarshalled|
-			plan.send(event, *unmarshalled)
-		    end
-
 		    case event.to_sym
 		    when :discover
-			args[0].each { |obj| peer.subscriptions << obj.remote_object }
+			result = ValueSet.new
+			args[0].each do |marshalled|
+			    next unless local = peer.local_object(marshalled)
+			    result << local
+			    peer.subscriptions << marshalled.remote_object
+			end
+			Distributed.update(result) do
+			    plan.discover(result)
+			end
 
 		    when :replace 
 			# +from+ will be unsubscribed when it is finalized
-			if peer.owns?(to) && !peer.subscribed?(to)
-			    peer.subscriptions << to.remote_object
+			marshalled_from, marshalled_to = *args
+			from, to = peer.local_object(marshalled_from), peer.local_object(marshalled_to)
+			return unless from && to
+			if peer.owns?(marshalled_to.remote_object) && !peer.subscribed?(marshalled_to.remote_object)
+			    peer.subscriptions << marshalled_to.remote_object
+			end
+			Distributed.update([from, to]) do
+			    plan.replace(from, to)
 			end
 
 		    when :remove_object
-			peer.delete(args[0].remote_object)
+			marshalled = args[0]
+			local = peer.local_object(marshalled, false)
+			return unless local
+			if local.plan
+			    plan.remove_object(local)
+			end
+			peer.delete(marshalled.remote_object)
 		    end
 		end
 		nil

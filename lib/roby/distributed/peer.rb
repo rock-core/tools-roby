@@ -241,17 +241,27 @@ module Roby::Distributed
 	    if plan
 		Roby::Distributed.update([peer.local_object(plan)]) { update_relation(nil, args) }
 	    else
-		unmarshall_and_update(args) do |args|
-		    Roby::Distributed.debug { "received update from #{remote_name}: #{args[0]}.#{args[1]}(#{args[2..-1].join(", ")})" }
-		    args[0].send(*args[1..-1])
+		m_from, op, m_to, m_rel, m_info = *args
+		from, to = peer.local_object(m_from), 
+		    peer.local_object(m_to)
+		return if !from || !to
 
-		    from, op, to = args[0], args[1], args[2]
-		    if op == :remove_child_object
-			if peer.unnecessary?(from)
-			    peer.delete(from, true)
-			elsif peer.unnecessary?(to)
-			    peer.delete(to, true)
-			end
+		rel = peer.local_object(m_rel)
+		if op == :add_child_object
+		    Roby::Distributed.update([from.root_object, to.root_object]) do
+			from.add_child_object(to, rel, peer.local_object(m_info))
+		    end
+
+		elsif op == :remove_child_object
+		    Roby::Distributed.update([from.root_object, to.root_object]) do
+			from.remove_child_object(to, rel)
+		    end
+
+		    # HACK: the tests on #plan should be unnecessary
+		    if peer.unnecessary?(from)
+			peer.delete(from, from.plan)
+		    elsif peer.unnecessary?(to)
+			peer.delete(to, to.plan)
 		    end
 		end
 	    end
@@ -263,12 +273,12 @@ module Roby::Distributed
 	#
 	# If one of the objects should be ignored (Peer#proxy returns nil),
 	# the provided block will not get called
-	def unmarshall_and_update(args)
+	def unmarshall_and_update(args, create = true)
 	    updating = ValueSet.new
 	    args = [args] unless args.respond_to?(:map)
 	    args = args.map do |o|
 		if peer.proxying?(o)
-		    proxy = peer.local_object(o)
+		    proxy = peer.local_object(o, create)
 		    if !proxy
 			return
 		    end
@@ -410,8 +420,9 @@ module Roby::Distributed
 
 	# Calls the block given to Peer#on when +task+ has matched the trigger
 	def triggered(id, task) # :nodoc:
+	    return unless task = local_object(task)
 	    if trigger = triggers[id]
-		trigger.last.call(local_object(task))
+		trigger.last.call(task)
 	    end
 	end
 
@@ -558,11 +569,11 @@ module Roby::Distributed
 	# marshalled object or a local proxy. Raises ArgumentError if it is
 	# none of the two. In the latter case, a RemotePeerMismatch exception
 	# is raised if the local proxy is not known to this peer.
-	def local_object(object)
+	def local_object(object, create = true)
 	    if object.kind_of?(DRbObject)
 		raise ArgumentError, "got a DRbObject"
 	    elsif object.respond_to?(:proxy)
-		proxy(object)
+		proxy(object, create)
 	    else object
 	    end
 	end
@@ -572,25 +583,25 @@ module Roby::Distributed
 	# ArgumentError if it is none of the two. In the latter case, a
 	# RemotePeerMismatch exception is raised if the local proxy is not
 	# known to this peer.
-	def objects(object)
+	def objects(object, create_local = true)
 	    if object.kind_of?(DRbObject)
 		raise ArgumentError, "got a DRbObject"
 	    elsif object.respond_to?(:proxy)
-		[object.remote_object, proxy(object)]
+		[object.remote_object, proxy(object, create_local)]
 	    else
 		[object.remote_object(self), object]
 	    end
 	end
 
 	# Get a proxy for a task or an event. 	
-	def proxy(marshalled)
+	def proxy(marshalled, create = true)
 	    return marshalled unless proxying?(marshalled)
 	    if marshalled.respond_to?(:remote_object)
 		object = marshalled.remote_object
 		return object unless object.kind_of?(DRbObject)
 		unless object_proxy = @proxies[object]
+		    return if !create
 		    return unless object_proxy = marshalled.proxy(self)
-
 		    @proxies[object] = object_proxy
 		end
 		if marshalled.respond_to?(:update)
@@ -619,7 +630,8 @@ module Roby::Distributed
 	# +remote_object+ is not a valid remote object anymore
 	def delete(object, remove_object = false)
 	    if remove_object
-		remote_object, local_object = objects(object)
+		remote_object, local_object = objects(object, false)
+		return unless local_object
 		connection_space.plan.remove_object(local_object)
 	    else
 		remote_object = remote_object(object)
@@ -628,7 +640,7 @@ module Roby::Distributed
 	    subscriptions.delete(remote_object)
 
 	    proxy = @proxies.delete(remote_object)
-	    if proxy.root_object? && proxy.respond_to?(:plan) && proxy.plan
+	    if proxy && proxy.root_object? && proxy.respond_to?(:plan) && proxy.plan
 		raise "deleting an object still attached to the plan"
 	    end
 	end
