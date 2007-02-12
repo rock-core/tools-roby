@@ -522,5 +522,29 @@ class TC_Event < Test::Unit::TestCase
 	    ev1.call
 	end
     end
+
+    def test_filter
+	ev1 = EventGenerator.new(true)
+
+	ev_block = EventGenerator.new(true)
+	ev_value = EventGenerator.new(true)
+	ev_nil   = EventGenerator.new(true)
+
+	FlexMock.use do |mock|
+	    ev1.filter { |v| v*2 }.on ev_block
+	    ev_block.on { |ev| mock.block_filter(ev.context) }
+
+	    ev1.filter(42).on ev_value
+	    ev_value.on { |ev| mock.value_filter(ev.context) }
+
+	    ev1.filter(nil).on ev_nil
+	    ev_nil.on { |ev| mock.nil_filter(ev.context) }
+
+	    mock.should_receive(:block_filter).with(42).once
+	    mock.should_receive(:value_filter).with(42).once
+	    mock.should_receive(:nil_filter).with(nil).once
+	    ev1.call(21)
+	end
+    end
 end
 
