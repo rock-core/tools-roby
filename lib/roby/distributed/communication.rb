@@ -227,7 +227,7 @@ module Roby
 		Roby::Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
 		results, callbacks, error = begin remote_server.demux(calls.map { |a| a.first })
 					    rescue Exception
-						[[], $!]
+						[[], nil, $!]
 					    end
 		success = results.size
 		Roby::Distributed.debug { "#{neighbour.name} processed #{success} commands in #{Time.now - before_call} seconds" }
