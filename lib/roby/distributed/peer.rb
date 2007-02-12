@@ -629,6 +629,8 @@ module Roby::Distributed
 
 	# +remote_object+ is not a valid remote object anymore
 	def delete(object, remove_object = false)
+	    return if !object.root_object?
+
 	    if remove_object
 		remote_object, local_object = objects(object, false)
 		return unless local_object
