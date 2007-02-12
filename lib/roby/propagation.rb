@@ -47,9 +47,9 @@ module Roby::Propagation
 	end
     end
     module RemoveDelayedOnFinalized
-	def garbage(task)
+	def finalized_event(event)
 	    super if defined? super
-	    Roby::Propagation.delayed_events.delete_if { |_, _, _, event, _| event.respond_to?(:task) && event.task == task }
+	    Roby::Propagation.delayed_events.delete_if { |_, _, _, signalled, _| signalled == event }
 	end
     end
     Roby::Plan.include RemoveDelayedOnFinalized
