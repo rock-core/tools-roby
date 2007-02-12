@@ -19,10 +19,12 @@ class TC_Planner < Test::Unit::TestCase
 	super
     end
 
-    attr_reader :plan
+    def plan
+	Control.instance.plan
+    end
     def new_plan
-	plan.clear if plan
-	@plan = Plan.new
+	plan.clear
+	plan
     end
 
     def test_id_validation
