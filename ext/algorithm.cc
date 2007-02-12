@@ -71,8 +71,7 @@ Value& get(map<Key, Value>& assoc, Key const& key, Value const& default_value)
     return it->second;
 }
 
-/* If +key+ is found in +assoc+, returns its value. Otherwise, initializes 
- * +key+ to +default_value+ in +assoc+ and returns it
+/* If +key+ is found in +assoc+, returns its value. Otherwise, returns +default_value+
  */
 template<typename Key, typename Value>
 Value const& get(map<Key, Value> const& assoc, Key const& key, Value const& default_value)
