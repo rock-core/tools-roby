@@ -253,6 +253,7 @@ module Roby
 
 	    def event_fired(marshalled_from, event_id, time, context)
 		return unless from_generator = peer.local_object(marshalled_from)
+		return unless from_generator.plan
 		context        = peer.local_object(context)
 		Distributed.pending_fired << [from_generator, event_for(from_generator, event_id, time, context)]
 		nil
@@ -260,7 +261,9 @@ module Roby
 
 	    def event_add_propagation(only_forward, marshalled_from, marshalled_to, event_id, time, context)
 		return unless from_generator = peer.local_object(marshalled_from)
+		return unless from_generator.plan
 		return unless to             = peer.local_object(marshalled_to)
+		return unless to.plan
 		context        = peer.local_object(context)
 		Distributed.pending_signals << [only_forward, from_generator, to, event_for(from_generator, event_id, time, context)]
 		nil
