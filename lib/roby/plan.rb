@@ -363,7 +363,10 @@ module Roby
 	    if !object.root_object?
 		raise ArgumentError, "cannot remove a non-root object"
 	    elsif object.plan != self
-		raise ArgumentError, "#{object} is not from this plan: #{object.plan} != #{self}"
+		if known_tasks.include?(object) || free_events.include?(object)
+		    raise ArgumentError, "#{object} is included in #{self} but #plan == #{object.plan}"
+		end
+		raise ArgumentError, "#{object} is not in #{self}: #plan == #{object.plan}"
 	    end
 
 	    object.clear_relations
