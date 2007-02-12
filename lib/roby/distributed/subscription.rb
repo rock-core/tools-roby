@@ -79,7 +79,6 @@ module Roby
 
 		    missions.delete_if { |t| !t.distribute? }
 		    peer.transmit(:subscribed_plan, object, missions, tasks)
-
 		    tasks.each { |t| subscribe(t) }
 		end
 
@@ -189,9 +188,14 @@ module Roby
 	    def subscribe(object)
 		remote_object = remote_object(object)
 
-		return if subscriptions.include?(remote_object)
-		transmit(:subscribe, remote_object) do
+		if subscriptions.include?(remote_object)
 		    yield if block_given?
+		elsif block_given?
+		    transmit(:subscribe, remote_object) do
+			yield if block_given?
+		    end
+		else
+		    transmit(:subscribe, remote_object)
 		end
 	    end
 
