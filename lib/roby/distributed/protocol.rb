@@ -11,6 +11,7 @@ class Array
 	    marshalled = @object.map { |o| Roby::Distributed.dump(o) }
 	    Marshal.dump(marshalled)
 	end
+	def to_s; @object.to_s end
 	def self._load(str)
 	    ary = Marshal.load(str)
 	    ary.map! { |o| Marshal.load(o) }
@@ -25,6 +26,7 @@ end
 class Hash
     class DRoby < Array::DRoby
 	def initialize(hash); super(hash.to_a) end
+	def to_s; "mHash:#{super}" end
 	def self._load(str)
 	    super.inject({}) { |h, (k, v)| h[k] = v; h }
 	end
@@ -37,6 +39,7 @@ end
 class Set
     class DRoby < Array::DRoby
 	def self._load(str); super.to_set end
+	def to_s; "mSet:#{super}" end
     end
     def droby_dump; DRoby.new(self) end
     def proxy(peer)
