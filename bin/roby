@@ -9,29 +9,54 @@ require 'yaml'
 
 # Load the template configuration
 template = YAML.load(File.open(File.join(ROBY_DIR, 'template.yml')))
-modules = template.keys
-modules.delete('roby')
+MODULES = template.keys
+MODULES.delete('roby')
 
 MODES = %w{init robot}
 modname = 'roby'
 mode    = nil
 parser = OptionParser.new do |opt|
     opt.banner = "Usage: roby mode [options]"
-    opt.on('-m', '--module NAME', String, 
-	"the module to set up in 'init'", 
-	"Known modules are: #{modules.join(", ")}") do |modname| end
     opt.on_tail('-h', '--help', 'this help message') do
 	STDERR.puts opt
 	exit
     end
 end
 
-parser.parse! ARGV
-mode = ARGV.shift
-unless MODES.include?(mode)
-    STDERR.puts "Invalid mode of operation. Valid modes are #{MODES.join(", ")}"
+def mode_init(opt)
+    opt.banner = "Usage: roby [global options] init [options]"
+    opt.separator "Creates an application template in the current directory"
+    opt.on('-m', '--module NAME', String, 
+	"Known modules are: #{MODULES.join(", ")}") do |modname| end
+
+    opt.separator ""
+    opt.separator "Global options"
+end
+def mode_robot(opt)
+    opt.banner = "Usage: roby [global options] robot NAME"
+    opt.separator "Creates the template files for a new robot type"
+end
+
+mode      = nil
+remaining = []
+parser.order(ARGV) do |arg|
+    if !mode
+	begin
+	    send("mode_#{arg}", parser)
+	    mode = arg
+	rescue NoMethodError
+	    STDERR.puts "Invalid mode of operation '#{arg}'. Valid modes are: #{MODES.join(", ")}"
+	    STDERR.puts parser
+	    exit(1)
+	end
+    else
+	remaining << arg
+    end
+end
+
+if !mode
     STDERR.puts parser
-    exit(1)
+    exit
 end
 
 def setup_files(list)
@@ -77,7 +102,7 @@ if mode == 'init'
     init_module config
 
 elsif mode == 'robot'
-    unless robotname = ARGV.shift
+    unless robotname = remaining.shift
 	STDERR.puts "No robot name given on command line"
 	STDERR.puts parser
 	exit(1)
