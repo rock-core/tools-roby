@@ -371,7 +371,10 @@ class TC_Planner < Test::Unit::TestCase
     def test_planning_task_one_shot
 	result_task = ExecutableTask.new
 	planner = Class.new(Planning::Planner) do
-	    method(:task) { result_task }
+	    method(:task) do
+		raise unless arguments[:context] == 42
+		result_task
+	    end
 	end
 
 	planning_task = PlanningTask.new(:planner_model => planner, :method_name => :task)
@@ -380,7 +383,7 @@ class TC_Planner < Test::Unit::TestCase
 	plan.insert(planned_task)
 
 	planning_task.on(:success, planned_task, :start)
-	planning_task.start!
+	planning_task.start!(42)
 
 	planning_task.thread.join
 	Control.instance.process_events
@@ -549,7 +552,9 @@ class TC_Planner < Test::Unit::TestCase
 
 	id = 0
 	planner_model = Class.new(Planning::Planner) do 
-	    method(:task) { task_model.new(:id => (id += 1)) }
+	    method(:task) do 
+		task_model.new(arguments[:context])
+	    end
 	end
 
 	plan.insert(main_task = Roby::Task.new)
@@ -560,18 +565,19 @@ class TC_Planner < Test::Unit::TestCase
 
 	loop_planner.start!
 	assert(!main_task.children.find { |t| t.planning_task.running? })
-	loop_planner.loop_start!
+	loop_planner.loop_start!(:id => 1)
 
 	first_task, first_planner = planning_loop_next(main_task)
+	assert_equal(1, first_task.arguments[:id])
 
 	assert_equal(1, main_task.children.size)
-	loop_planner.loop_start!
-	assert_equal(2, main_task.children.size)
-	second_task, second_planner = planning_loop_next(main_task)
-
-	loop_planner.loop_start!
+	loop_planner.loop_start!(:id => 2)
+	loop_planner.loop_start!(:id => 3)
 	assert_equal(3, main_task.children.size)
+	second_task, second_planner = planning_loop_next(main_task)
+	assert_equal(2, second_task.arguments[:id])
 	third_task, third_planner = planning_loop_next(main_task)
+	assert_equal(3, third_task.arguments[:id])
 
 	assert(first_task.running?)
 	assert(!second_task.running?)

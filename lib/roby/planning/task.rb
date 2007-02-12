@@ -83,7 +83,7 @@ module Roby
 	def main_task; planned_task || self end
 
 	# Appends a new unplanned pattern after all the patterns already developped
-	def append_pattern
+	def append_pattern(context = nil)
 	    # Create the new pattern
 	    planning = PlanningTask.new(arguments.slice(:planner_model, :planned_model, :method_name, :method_options))
 	    planned  = planning.planned_task
@@ -109,8 +109,11 @@ module Roby
 		    start_next &= start_next_loop
 		end
 
-		last_planning.on(:success, planning, :start)
-		planning.start! if last_planning.success?
+		if last_planning.success?
+		    planning.start!(context) 
+		else
+		    last_planning.event(:success).filter(context).on(planning.event(:start))
+		end
 	    else
 		start_next &= start_next_loop
 	    end
@@ -168,7 +171,11 @@ module Roby
 	
 	def loop_start(context)
 	    if lookahead == 0
-		append_pattern.start!
+		start_planning = !last_planning_task
+		planning = append_pattern(context)
+		if start_planning
+		    planning.start!(context)
+		end
 		start_commands.first.call(context)
 	    else
 		start_commands.last.call(context)
@@ -264,7 +271,7 @@ module Roby
 
 	    @thread = Thread.new do
 		@result = begin
-			      @planner.send(@method_name, @method_options)
+			      @planner.send(@method_name, @method_options.merge(:context => context))
 			  rescue Exception => e; e
 			  end
 	    end
