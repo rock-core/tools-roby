@@ -305,6 +305,24 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'middle' })
     end
 
+    def test_data_update
+	peer2peer do |remote|
+	    task = Task.new(:id => 'task')
+	    remote.plan.insert(task)
+	    remote.singleton_class.class_eval do 
+		define_method(:change_data) { task.data = [1, 2] }
+	    end
+	end
+	task = remote_peer.local_object(remote_task(:id => 'task'))
+	remote_peer.subscribe(task)
+	assert(!task.data)
+	remote.change_data
+	apply_remote_command
+	apply_remote_command
+
+	assert_equal([1, 2], task.data, task)
+    end
+
     def test_plan_notifications
 	peer2peer do |remote|
 	    root, mission, subtask, next_mission =

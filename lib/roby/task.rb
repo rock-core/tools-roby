@@ -899,6 +899,17 @@ module Roby
 	event :aborted, :terminal => true
 	on(:aborted) { |event| event.task.emit(:failed, event.context) }
 
+	attr_reader :data
+	def data=(value)
+	    @data = value
+	    updated_data
+	    emit :updated_data if running?
+	end
+	def updated_data
+	    super if defined? super
+	end
+	event :updated_data, :command => false
+
 	# Checks if +task+ is in the same execution state than +self+
 	# Returns true if they are either both running or both pending
 	def compatible_state?(task)

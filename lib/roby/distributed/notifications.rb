@@ -284,6 +284,18 @@ module Roby
 	end
 	Control.event_processing << Distributed.method(:distributed_signals)
 
+	module TaskNotifications
+	    def updated_data
+		super if defined? super
+
+		unless Distributed.updating?([self])
+		    Distributed.each_subscribed_peer(self) do |peer|
+			peer.transmit(:updated_data, self, data)
+		    end
+		end
+	    end
+	end
+	Roby::Task.include TaskNotifications
 
 	module TaskArgumentsNotifications
 	    def updated
@@ -299,6 +311,13 @@ module Roby
 	TaskArguments.include TaskArgumentsNotifications
 
 	class PeerServer
+	    def updated_data(task, data)
+		proxy = peer.local_object(task)
+		Distributed.update([proxy]) do
+		    proxy.data = data
+		end
+	    end
+
 	    def updated_arguments(task, arguments)
 		proxy = peer.local_object(task)
 		Distributed.update([proxy]) do
