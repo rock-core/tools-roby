@@ -660,7 +660,7 @@ module Roby
 		m = self.class.method("loops", planning_options, &block)
 
 		options[:method_options] ||= {}
-		options[:method_options].merge!(arguments)
+		options[:method_options].merge!(arguments || {})
 		options[:method_options][:id] = m.id
 		PlanningLoop.new(options)
 	    end
