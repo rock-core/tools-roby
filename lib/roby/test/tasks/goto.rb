@@ -5,7 +5,7 @@ module Roby
 	    terminates
 	    argument :x, :y
 
-	    def speed; State.speed end
+	    def speed; State.goto_speed end
 	    def x; arguments[:x] end
 	    def y; arguments[:y] end
 
