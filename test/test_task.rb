@@ -40,6 +40,18 @@ class TC_Task < Test::Unit::TestCase
 	assert_nothing_raised { task.arguments[:bar] = 43 }
     end
 
+    def test_command_block
+	FlexMock.use do |mock|
+	    task = Class.new(SimpleTask) do 
+		event :start do |context|
+		    mock.start(self, context)
+		end
+	    end.new
+	    mock.should_receive(:start).once.with(task, 42)
+	    task.start!(42)
+	end
+    end
+
     # Tests that an event is controlable if there is a method with the same
     # name in the task model
     def test_method_as_command

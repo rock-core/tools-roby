@@ -617,7 +617,7 @@ module Roby
         # :section: Event model
         
         # call-seq:
-        #   self.event(name, options = nil)                   -> event class or nil
+        #   self.event(name, options = nil) { ... } -> event class or nil
         #
         # Define a new event in this task. 
         #
@@ -627,7 +627,8 @@ module Roby
         #   either an event command for the new event, which is an object which must respond
         #   to proc, +true+ or +false+. If it is true, a default handler is defined which 
         #   simply emits the event. +false+ can be used to override the automatic definition
-        #   of the event command (see below).
+        #   of the event command (see below). If a block is given, it is used as the event
+	#   command.
         #
         # <tt>:terminal</tt>::
         #   set to true if this event is a terminal event
@@ -655,22 +656,36 @@ module Roby
         # will be an instance of this particular class. To override the base class
         # for a particular event, use the <tt>:model</tt> option
         #
+	@@event_command_id = 0
+	def self.allocate_event_command_id
+	    @@event_command_id += 1
+	end
         def self.event(ev, options = Hash.new, &block)
-            options = validate_options(options, :command => block, :terminal => nil, :model => TaskEvent)
+            options = validate_options(options, :command => nil, :terminal => nil, :model => TaskEvent)
+	    if block
+	    end
 
             ev_s = ev.to_s
             ev = ev.to_sym
 
+            if !options.has_key?(:command)
+		if block
+		    id = allocate_event_command_id
+		    define_method("event_command_#{id}", &block)
+		    method = instance_method("event_command_#{id}")
+		elsif method_defined?(ev_s)
+		    method = instance_method(ev)
+		end
 
-            if !options.has_key?(:command) && method_defined?(ev_s)
-                method = instance_method(ev)
-                check_arity(method, 1)
-                options[:command] = lambda do |t, c| 
-		    begin
-			t.calling_event = t.event(ev)
-			method.bind(t).call(c) 
-		    ensure
-			t.calling_event = nil
+		if method
+		    check_arity(method, 1)
+		    options[:command] = lambda do |t, c| 
+			begin
+			    t.calling_event = t.event(ev)
+			    method.bind(t).call(c) 
+			ensure
+			    t.calling_event = nil
+			end
 		    end
 		end
             end
