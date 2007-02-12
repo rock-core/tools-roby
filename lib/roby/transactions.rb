@@ -349,7 +349,7 @@ module Roby
 	    # Set the plan to nil in known tasks to avoid having the checks on
 	    # #plan to raise an exception
 	    discovered_objects.each { |proxy| proxy.commit_transaction }
-	    proxy_objects.each { |_, proxy| proxy; proxy.clear_relations  }
+	    proxy_objects.each { |_, proxy| proxy.clear_relations  }
 
 	    plan.discover(discover)
 	    insert.each { |t| plan.insert(t) }
