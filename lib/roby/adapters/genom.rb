@@ -10,6 +10,8 @@ require 'genom/module'
 require 'genom/environment'
 
 module Roby::Genom
+    def self.component_name; 'genom' end
+
     @genom_rb = ::Genom
     if @genom_rb == Roby::Genom
 	raise "you must not load Genom.rb by yourself"
@@ -549,5 +551,104 @@ module Roby::Genom
 	end
     end
     Roby::State.genom = GenomState.new
+
+    module ApplicationConfig
+	attribute(:pocosim) do
+	    Hash[ 'display' => nil, 'gdhe' => nil, 'gazebo' => nil ]
+	end
+
+	def self.load(config, options)
+	    config.load_option_hashes(options, %w{pocosim})
+	end
+
+	def self.setup(config)
+	    if genom_loglevel = config.log['levels']['Genom']
+		::Genom.logger.level = Logger.const_get(genom_loglevel)
+	    end
+	    if config.simulation?
+		if !config.pocosim['gazebo']
+		    raise ArgumentError, "configuration is missing the gazebo terrain file"
+		end
+	    end
+
+	    Roby::State.genom do |g|
+		include Roby::Genom
+
+		if config.robot_name
+		    genom_tasks = File.join(APP_DIR, 'tasks', 'genom')
+		    if File.directory?(genom_tasks)
+			g.autoload_path << genom_tasks
+		    end
+
+		    g.output_io = File.join(APP_DIR, "log", "#{config.robot_name}-%m.log")
+		    config.require_robotfile(File.join(APP_DIR, 'config', "ROBOT-genom.rb"))
+
+		    MainPlanner.class_eval do
+			using *g.used_modules.values.
+			    map { |mod| mod::Planning rescue nil }.
+			    compact
+		    end
+		end
+	    end
+
+	    require 'roby/app/config/adapters/genom'
+	end
+
+	def self.run(config, &block)
+	    if config.simulation?
+		run_simulation(config, &block)
+	    else
+		raise NotImplementedError
+	    end
+	end
+
+	def self.generate_simulation_config(config)
+	    filename = File.join(APP_DIR, "log", "#{config.robot_name}.pocosim")
+	    File.open(filename, 'w') do |io|
+		io.puts <<-EOF
+		name: #{config.robot_name}
+		log: #{APP_DIR}/log/#{config.robot_name}
+		bridge: gazebo
+		models: #{APP_DIR}/config/pocosim/#{config.robot_type}
+
+		gazebo
+		{
+		    world: data/#{config.pocosim['gazebo']}
+		}
+
+		host
+		{
+		    name: #{config.robot_name}
+		    # map is map: pocosim_name gazebo_name
+		    map: #{config.robot_type} #{config.robot_name}
+		    own: #{config.robot_name}
+		}
+		EOF
+
+		template = File.join(APP_DIR, 'config', 'pocosim', "#{config.robot_type}.conf")
+		if File.file?(template)
+		    io.puts File.read(template)
+		end
+	    end
+
+	    filename
+	end
+	def self.run_simulation(config)
+	    # Build the simulation configuration file based on configuration in config/#{ROBOT}.conf
+	    conffile = generate_simulation_config(config) 
+	    # Start simulation
+	    reuse_gazebo(Genom::Runner.method(:simulation), conffile, :env => config.robot_name, :hostname => config.robot_name) do |env|
+		::Genom.connect do
+		    STDERR.puts "Connected to the Genom environment"
+		    begin
+			yield(env)
+		    ensure
+			Roby::Control.instance.disable_propagation
+			STDERR.puts "Leaving Genom"
+		    end
+		end
+	    end
+	end
+    end
 end
 

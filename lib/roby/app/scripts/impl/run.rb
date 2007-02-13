@@ -1,9 +1,11 @@
-require File.join(APP_DIR, 'config', 'init.rb')
-
-# Here, we are supposed to be initialized. Setup the Roby environment itself
-RobyInit()
-
-# Load the controller
-include Roby
-load File.join(APP_DIR, "controllers", "#{ROBOT}.rb")
+require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app-run.rb')
+config = Roby::Application.config
+config.run do
+    # Load the controller
+    include Roby
+    begin
+	load File.join(APP_DIR, "controllers", "#{config.robot_name}.rb")
+    rescue Interrupt
+    end
+end
 

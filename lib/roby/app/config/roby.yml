@@ -14,8 +14,8 @@ droby:
   # The ring discovery period if we do ring discovery (default: 0.5)
   # period: 0.5
 
-# Terrain configuration
-terrain:
+# Pocosim configuration
+pocosim:
   # The host of the GDHE display
   # display: localhost
 

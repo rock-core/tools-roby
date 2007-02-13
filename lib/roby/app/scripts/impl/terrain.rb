@@ -3,7 +3,7 @@ require 'roby/adapters/genom'
 require File.join(ROBY_DIR, 'config', 'adapters', 'genom')
 require 'genom'
 
-Tempfile.open('terrain_disply') do |io|
+Tempfile.open('terrain_display') do |io|
     io.puts <<-EOF
 name: terrain_display
 bridge: gazebo

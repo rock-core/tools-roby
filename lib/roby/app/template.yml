@@ -34,7 +34,7 @@ genom:
 
     # Files that are added for each robot creation
     files:
-        - scripts/terrain
+        - scripts/pocosim/terrain
         - tasks/genom/
         - config/pocosim/
 
