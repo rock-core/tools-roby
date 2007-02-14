@@ -21,10 +21,15 @@ module Roby
 	    config.load_option_hashes(options, %w{discovery droby})
 	end
 
-	def self.start(config, simulation)
-	    return if config.single?
+	def self.run(config)
+	    return yield if config.single?
 
-	    DRb.start_service "roby://#{config.droby['host']}"
+	    host = config.droby['host']
+	    if host =~ /^:\d+$/
+		host = "#{Socket.gethostname}#{host}"
+	    end
+
+	    DRb.start_service "roby://#{host}"
 	    droby_config = { :ring_discovery => !!config.discovery['ring'],
 		:name => config.robot_name, 
 		:plan => Roby::Control.instance.plan, 
@@ -42,6 +47,8 @@ module Roby
 	    Roby::Control.every(config.droby['period']) do
 		Roby::Distributed.state.start_neighbour_discovery
 	    end
+
+	    yield
 	end
 
 	DISCOVERY_TEMPLATE = [:host, nil, nil, nil]
