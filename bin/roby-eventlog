@@ -43,14 +43,6 @@ require 'roby/log/offline_control_ui'
 require 'roby/log/drb-qt'
 
 module Roby::Log
-    def self.open(file, &block)
-	if file =~ /\.gz$/
-	    Zlib::GzipFile.open(file, &block)
-	else
-	    File.open(file, &block)
-	end
-    end
-
     class DisplayControl < ::DisplayControl
 	# The display server
 	attr_reader :server
