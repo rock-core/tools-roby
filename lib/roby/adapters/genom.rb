@@ -594,6 +594,48 @@ module Roby::Genom
 	    require 'roby/app/config/adapters/genom'
 	end
 
+	DEFAULT_MULTI_PORT = 2000
+
+	def self.start_distributed(config)
+	    unless config.pocosim['server']
+		return "no pocosim server defined, nothing to do"
+	    end
+	    port = DEFAULT_MULTI_PORT
+	    if config.pocosim['server'] =~ /:(\d+)$/
+		port = Integer($1)
+	    end
+	    multi_conf = <<-EOD
+bridge: gazebo-multi
+gazebo
+{
+  world: #{config.pocosim['gazebo']}
+}
+multi
+{
+  port: #{port}
+}
+	    EOD
+	    conffile = File.join(APP_DIR, 'log', 'distributed.pocosim')
+	    File.open(conffile, 'w') do |io|
+		io.write multi_conf
+	    end
+
+	    @pocosim_server = fork do
+		Genom::Runner.h2 :env => 'roby-distributed-server' do
+		    system("sim global #{conffile}")
+		end
+	    end
+	end
+	def self.stop_distributed(config)
+	    return unless @pocosim_server
+
+	    Process.kill('INT', @pocosim_server)
+	    Process.waitpid(@pocosim_server)
+	rescue Errno::ECHILD
+	rescue Interrupt
+	    Process.kill('KILL', @pocosim_server)
+	end
+
 	def self.run(config, &block)
 	    if config.simulation?
 		run_simulation(config, &block)
@@ -603,26 +645,42 @@ module Roby::Genom
 	end
 
 	def self.generate_simulation_config(config)
+	    bridge_config = ""
+
+	    if config.pocosim['server'] && !config.single?
+		config.pocosim['server'] =~ /^([\w\.]+)(?::(\d+))?$/
+		host = $1
+		port = Integer($2) if $2 && !$2.empty?
+
+		bridge_config << "bridge: gazebo-multi\n"
+		bridge_config << "multi {\n"
+		bridge_config << "  server: #{host}\n"
+		bridge_config << "  port: #{port}\n" if port
+		bridge_config << "}\n"
+	    else
+		bridge_config = "bridge: gazebo\n"
+	    end
+	    
 	    filename = File.join(APP_DIR, "log", "#{config.robot_name}.pocosim")
 	    File.open(filename, 'w') do |io|
+		io.puts bridge_config
 		io.puts <<-EOF
-		name: #{config.robot_name}
-		log: #{APP_DIR}/log/#{config.robot_name}
-		bridge: gazebo
-		models: #{APP_DIR}/config/pocosim/#{config.robot_type}
+name: #{config.robot_name}
+log: #{APP_DIR}/log/#{config.robot_name}
+models: #{APP_DIR}/config/pocosim/#{config.robot_type}
 
-		gazebo
-		{
-		    world: data/#{config.pocosim['gazebo']}
-		}
+gazebo
+{
+    world: data/#{config.pocosim['gazebo']}
+}
 
-		host
-		{
-		    name: #{config.robot_name}
-		    # map is map: pocosim_name gazebo_name
-		    map: #{config.robot_type} #{config.robot_name}
-		    own: #{config.robot_name}
-		}
+host
+{
+    name: #{config.robot_name}
+    # map is map: pocosim_name gazebo_name
+    map: #{config.robot_type} #{config.robot_name}
+    own: #{config.robot_name}
+}
 		EOF
 
 		template = File.join(APP_DIR, 'config', 'pocosim', "#{config.robot_type}.conf")
@@ -633,6 +691,7 @@ module Roby::Genom
 
 	    filename
 	end
+
 	def self.run_simulation(config)
 	    # Build the simulation configuration file based on configuration in config/#{ROBOT}.conf
 	    conffile = generate_simulation_config(config) 
