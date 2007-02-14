@@ -176,7 +176,7 @@ module Roby
 		config_extensions = components.map { |_, config| config if config.respond_to?(:run) }.compact
 		run_components(config_extensions, &block)
 	    end
-	    def run_components(mods)
+	    def run_components(mods, &block)
 		control = Roby::Control.instance
 
 		mod = mods.shift
@@ -190,7 +190,7 @@ module Roby
 			    control.join
 			end
 		    else
-			run_component(mods)
+			run_components(mods, &block)
 		    end
 		end
 	    end

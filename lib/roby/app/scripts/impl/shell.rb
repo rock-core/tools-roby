@@ -1,13 +1,11 @@
 require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app-run.rb')
 config = Roby::Application.config
-config.run do
-    control = Control.instance
 
-    require 'irb'
-    IRB.setup(nil)
+require 'irb'
+IRB.setup(nil)
 
-    interface = ControlInterface.new(Control.instance)
-
+control = Roby::ControlInterface.new(Roby::Control.instance)
+begin
     ws  = IRB::WorkSpace.new(binding)
     irb = IRB::Irb.new(ws)
     IRB.conf[:MAIN_CONTEXT] = irb.context
@@ -19,4 +17,10 @@ config.run do
     catch(:IRB_EXIT) do
 	irb.eval_input
     end
+rescue Interrupt
+    Roby::Control.instance.quit
+    Roby::Control.instance.join
+ensure 
+    Roby::Control.instance.join
 end
+

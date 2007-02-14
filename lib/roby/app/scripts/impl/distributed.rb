@@ -1,4 +1,4 @@
-require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app-init.rb')
+require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app-load.rb')
 require 'roby/distributed/connection_space'
 require 'roby/distributed/protocol'
 
