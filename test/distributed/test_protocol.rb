@@ -149,6 +149,41 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_equal(remote.task, remote_event.task)
 	assert_marshalled_ancestors([TaskEventGenerator, EventGenerator], remote_event)
     end
-end
 
+    CommonTaskModelTag = TaskModelTag.new
+    def test_marshal_task_model_tag
+	peer2peer do |remote|
+	    def remote.tag; CommonTaskModelTag end
+	    def remote.anonymous_tag
+		@anonymous ||= TaskModelTag.new do
+		    include CommonTaskModelTag
+		end
+	    end
+	    def remote.tagged_task_model
+		Class.new(SimpleTask) do
+		    include CommonTaskModelTag
+		end
+	    end
+	    def remote.anonymously_tagged_task_model
+		tag = anonymous_tag
+		Class.new(SimpleTask) do
+		    include tag
+		end
+	    end
+	end
+
+	assert_equal(CommonTaskModelTag, remote.tag)
+	tagged_task_model = remote.tagged_task_model
+	assert(tagged_task_model.has_ancestor?(CommonTaskModelTag), tagged_task_model.ancestors)
+
+	anonymous_tag = remote.anonymous_tag
+	assert_not_equal(CommonTaskModelTag, anonymous_tag)
+	assert(anonymous_tag.has_ancestor?(CommonTaskModelTag), anonymous_tag.ancestors)
+	assert_equal(anonymous_tag, remote.anonymous_tag)
+
+	tagged_task_model = remote.anonymously_tagged_task_model
+	assert(tagged_task_model.has_ancestor?(CommonTaskModelTag))
+	assert(tagged_task_model.has_ancestor?(anonymous_tag))
+    end
+end
 

@@ -56,16 +56,77 @@ class ValueSet
     end
 end
 
+class Module
+    def droby_dump
+	raise "can't dump modules"
+    end
+end
+
 class Class
     def droby_dump
-	if ancestors.include?(Roby::Task) || ancestors.include?(Roby::EventGenerator) || ancestors.include?(Roby::Planning::Planner)
+	if ancestors.include?(Roby::Task)
+	    Roby::Distributed::DRobyTaskModel.new(ancestors)
+	elsif ancestors.include?(Roby::EventGenerator) || ancestors.include?(Roby::Planning::Planner)
 	    Roby::Distributed::DRobyModel.new(ancestors)
 	else
 	    raise "can't dump class #{self}"
 	end
     end
 end
+class Roby::TaskModelTag
+    class DRoby
+	@@local_to_remote = Hash.new
+	@@remote_to_local = Hash.new
 
+	attr_reader :name, :tag
+	def initialize(tag); @tag = tag end
+	def _dump(lvl)
+	    unless tagdef = @@local_to_remote[tag]
+		tagdef = tag.ancestors.
+		    map { |mod| mod if mod.instance_of?(Roby::TaskModelTag) }.
+		    compact.
+		    map { |mod| [mod.name, DRbObject.new(mod)] }
+	    end
+	    Marshal.dump(tagdef)
+	end
+
+	def self.local_tag(name, remote_tag)
+	    if !remote_tag.kind_of?(DRbObject)
+		remote_tag
+	    elsif local_model = @@remote_to_local[remote_tag]
+		local_model
+	    else
+		if name && !name.empty?
+		    local_model = constant(name) rescue nil
+		end
+		unless local_model
+		    local_model = Roby::TaskModelTag.new do
+			define_method(:name) { name }
+		    end
+		    @@remote_to_local[remote_tag] = local_model
+		    @@local_to_remote[local_model] = [[name, remote_tag]]
+		    yield(local_model) if block_given?
+		end
+		local_model
+	    end
+	end
+	def self._load(str)
+	    tagdef    = Marshal.load(str).reverse
+	    including = []
+	    tagdef.each do |name, remote_tag|
+		tag = local_tag(name, remote_tag) do |tag|
+		    including.each { |mod| tag.include mod }
+		end
+		including << tag
+	    end
+	    including.last
+	end
+    end
+
+    def droby_dump
+	DRoby.new(self)
+    end
+end
 
 module Roby
     class RelationGraph
@@ -169,6 +230,7 @@ end
 
 module Roby
     module Distributed
+	# Dumps a constant by using its name
 	class DRobyConstant
 	    def initialize(obj)
 		if const_obj = (constant(obj.name) rescue nil)
@@ -185,6 +247,10 @@ module Roby
 	    end
 	end
 
+	# Dumps a model (an event, task or planner class). When unmarshalling,
+	# it tries to search for the same model. If it does not find it, it
+	# rebuilds the same hierarchy using anonymous classes, basing itself on
+	# the less abstract class known to both the remote and local sides.
 	class DRobyModel
 	    # A name -> class map which maps remote models to local anonymous classes
 	    # Remote models are always identified by their name
@@ -238,6 +304,31 @@ module Roby
 	    end
 	end
 
+	# Dumping intermediate for Task classes. This dumps both the ancestor list via
+	# DRobyModel and the list of task tags.
+	class DRobyTaskModel
+	    def _dump(lvl)
+		tags = ancestors.
+		    find_all { |m| m.instance_of?(Roby::TaskModelTag) }.
+		    compact.
+		    map { |tag| tag.droby_dump }
+		Marshal.dump([Roby::Distributed::DRobyModel.new(ancestors), tags])
+	    end
+	    def self._load(str)
+		model, tags = Marshal.load(str)
+		tags.each do |tag|
+		    model.include tag unless model < tag
+		end
+
+		model
+	    end
+	    attr_reader :ancestors
+	    def initialize(ancestors)
+		@ancestors = ancestors
+	    end
+	end
+
+	# Returns true if it is marshallable in DRoby
 	def self.marshallable?(object)
 	    if object.respond_to?(:droby_dump)
 		true
@@ -249,14 +340,19 @@ module Roby
 	end
 
 	@allowed_remote_access = Array.new
+	# Allow objects of class +type+ to be accessed remotely using
+	# DRbObjects
 	def self.allow_remote_access(type)
 	    @allowed_remote_access << type
 	end
+	# Returns true if +object+ can be remotely represented by a DRbObject
+	# proxy
 	def self.allowed_remote_access?(object)
 	    object.kind_of?(Exception) ||
 		@allowed_remote_access.any? { |type| object.kind_of?(type) }
 	end
 
+	# Dumps +object+ in the dRoby protocol
 	def self.dump(object, error = false)
 	    if object.kind_of?(DRb::DRbObject)
 		Marshal.dump(object)
@@ -380,6 +476,8 @@ module Roby
 	allow_remote_access Rinda::TupleSpace
 	allow_remote_access Rinda::TupleEntry
 
+
+	# Base class for all marshalled plan objects.
 	class MarshalledPlanObject
 	    def to_s; "m(#{remote_name})" end
 	    def self.droby_load(str)
@@ -421,8 +519,6 @@ module Roby
 		    other.remote_object == remote_object
 	    end
 	end
-
-
 
 	class MarshalledEventGenerator < MarshalledPlanObject
 	    def self._load(str)
