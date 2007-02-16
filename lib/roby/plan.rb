@@ -120,13 +120,12 @@ module Roby
 
 	# Inserts a new mission in the plan. Its child tree is automatically
 	# inserted too.  Returns the plan
-        def insert(tasks)
-	    task_collection(tasks) do |t|
-		discover(t)
-		@missions << t
-		self
-	    end
-	    inserted(tasks)
+        def insert(task)
+	    return if @missions.include?(task)
+
+	    discover(task)
+	    @missions << task
+	    inserted(task)
 	    self
 	end
 	# Hook called when +tasks+ have been inserted in this plan
@@ -145,12 +144,11 @@ module Roby
 	def permanent?(task); @keepalive.include?(task) end
 
 	# Removes the task in +tasks+ from the list of missions
-	def discard(tasks)
-	    task_collection(tasks) do |t|
-		discover(t)
-		@missions.delete(t)
-	    end
-	    discarded(tasks)
+	def discard(task)
+	    discover(task)
+	    @missions.delete(task)
+
+	    discarded(task)
 	    self
 	end
 	# Hook called when +tasks+ have been discarded from this plan
