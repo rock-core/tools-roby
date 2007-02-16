@@ -114,14 +114,17 @@ module Roby::Transactions
 	    relation.subsets.each { |rel| do_discover(rel, mark) }
 
 	    Roby::Control.synchronize do
-		relation.remove(self)
+		# Bypass add_ and remove_ hooks by using the RelationGraph#link
+		# methods directly. This is needed because we don't really
+		# add new relations, but only copy already existing relations
+		# from the real plan to the transaction graph
 		__getobj__.each_parent_object(relation) do |parent|
 		    wrapper = transaction[parent]
-		    wrapper.add_child_object(self, relation, parent[__getobj__, relation])
+		    relation.link(wrapper, self, parent[__getobj__, relation])
 		end
 		__getobj__.each_child_object(relation) do |child|
 		    wrapper = transaction[child]
-		    add_child_object(wrapper, relation, __getobj__[child, relation])
+		    relation.link(self, wrapper, __getobj__[child, relation])
 		end
 	    end
 	end
@@ -383,7 +386,7 @@ module Roby::Transactions
 	end
 
 	def discard_transaction
-	    clear_vertex
+	    clear_relations
 	end
 
 	def method_missing(m, *args, &block)

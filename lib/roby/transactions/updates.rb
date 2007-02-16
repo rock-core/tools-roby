@@ -24,10 +24,10 @@ module Roby
 	    when :update
 		parent_proxy = wrap(parent)
 		child_proxy  = wrap(child)
-		parent_proxy.add_parent_object(child_proxy, type, info)	   
+		type.link(parent_proxy, child_proxy, info)	   
 	    when :solver
 		invalidate("plan added a relation #{parent} -> #{child} of type #{type} with info #{info}")
-		conflict_solver.adding_plan_relation(parent, child, type, info)
+		conflict_solver.unlink(parent, child, type, info)
 	    end
 	end
 
@@ -38,7 +38,7 @@ module Roby
 	    when :update
 		parent_proxy = wrap(parent)
 		child_proxy  = wrap(child)
-		parent_proxy.remove_child_object(child_proxy, type)
+		type.unlink(parent_proxy, child_proxy)
 	    when :solver
 		invalidate("plan removed the #{parent} -> #{child} relation of type #{type}")
 		conflict_solver.removing_plan_relation(parent, child, type)
