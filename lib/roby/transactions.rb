@@ -346,10 +346,13 @@ module Roby
 		discover << may_unwrap(ev)
 	    end
 
-	    # Set the plan to nil in known tasks to avoid having the checks on
-	    # #plan to raise an exception
 	    discovered_objects.each { |proxy| proxy.commit_transaction }
-	    proxy_objects.each { |_, proxy| proxy.clear_relations  }
+	    proxy_objects.each do |_, proxy| 
+		if proxy.respond_to?(:each_event)
+		    proxy.each_event { |ev| ev.clear_vertex }
+		end
+		proxy.clear_vertex
+	    end
 
 	    plan.discover(discover)
 	    insert.each { |t| plan.insert(t) }
