@@ -178,18 +178,17 @@ module Roby
 	    end
 	    def run_components(mods, &block)
 		control = Roby::Control.instance
-
-		mod = mods.shift
-		mod.run(self) do
-		    if mods.empty?
-			begin
-			    yield
-			    control.join
-			rescue Interrupt
-			    control.quit
-			    control.join
-			end
-		    else
+		if mods.empty?
+		    begin
+			yield
+			control.join
+		    rescue Interrupt
+			control.quit
+			control.join
+		    end
+		else
+		    mod = mods.shift
+		    mod.run(self) do
 			run_components(mods, &block)
 		    end
 		end
