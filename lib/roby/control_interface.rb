@@ -100,11 +100,10 @@ module Roby
 		planner.on(:success, task, :start)
 	    end
 
-	    Control.synchronize do
+	    Control.once do
 		control.plan.insert(task)
 		yield(planner, task) if block_given?
 	    end
-	    planner
 	end
     end
 end
