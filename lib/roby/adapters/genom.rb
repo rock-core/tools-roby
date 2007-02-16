@@ -19,6 +19,7 @@ module Roby::Genom
 
     class << self
 	extend Forwardable
+	attr_reader :genom_rb
 	def_delegators(:@genom_rb, :connect)
 	def_delegators(:@genom_rb, :disconnect)
     end
@@ -536,7 +537,9 @@ module Roby::Genom
 		if ignores?(modname)
 		    raise ArgumentError, "#{modname} is both used and ignored", caller(3)
 		end
-		used_modules[modname] = Roby::Genom::GenomModule(modname, :output => output_io)
+		Roby::Genom.genom_rb::GenomModule.killmodule(modname)
+		genmod = used_modules[modname] = Roby::Genom::GenomModule(modname, :output => output_io)
+		
 		self.autoload_path.each do |path|
 		    extfile = File.join(path, modname)
 		    begin
