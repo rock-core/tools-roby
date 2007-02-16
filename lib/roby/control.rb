@@ -16,6 +16,8 @@ module Roby
 	end
     end
 
+    def self.control; Control.instance end
+    def self.plan; Control.instance.plan end
     class Control
 	include Singleton
 
