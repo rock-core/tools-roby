@@ -22,30 +22,32 @@ module Roby
 	end
 
 	def self.run(config)
-	    return yield if config.single?
+	    if config.single?
+		DRb.start_service "roby://:0"
+	    else
+		host = config.droby['host']
+		if host =~ /^:\d+$/
+		    host = "#{Socket.gethostname}#{host}"
+		end
 
-	    host = config.droby['host']
-	    if host =~ /^:\d+$/
-		host = "#{Socket.gethostname}#{host}"
-	    end
+		DRb.start_service "roby://#{host}"
+		droby_config = { :ring_discovery => !!config.discovery['ring'],
+		    :name => config.robot_name, 
+		    :plan => Roby::Control.instance.plan, 
+		    :max_allowed_errors => config.droby['max_errors'], 
+		    :period => config.droby['period'] }
 
-	    DRb.start_service "roby://#{host}"
-	    droby_config = { :ring_discovery => !!config.discovery['ring'],
-		:name => config.robot_name, 
-		:plan => Roby::Control.instance.plan, 
-		:max_allowed_errors => config.droby['max_errors'], 
-		:period => config.droby['period'] }
+		if config.discovery['tuplespace']
+		    droby_config[:discovery_tuplespace] = DRbObject.new_with_uri("roby://#{config.discovery['tuplespace']}")
+		end
+		Roby::Distributed.state = Roby::Distributed::ConnectionSpace.new(droby_config)
 
-	    if config.discovery['tuplespace']
-		droby_config[:discovery_tuplespace] = DRbObject.new_with_uri("roby://#{config.discovery['tuplespace']}")
-	    end
-	    Roby::Distributed.state = Roby::Distributed::ConnectionSpace.new(droby_config)
-
-	    if config.discovery['ring']
-		Roby::Distributed.publish config.discovery['ring']
-	    end
-	    Roby::Control.every(config.droby['period']) do
-		Roby::Distributed.state.start_neighbour_discovery
+		if config.discovery['ring']
+		    Roby::Distributed.publish config.discovery['ring']
+		end
+		Roby::Control.every(config.droby['period']) do
+		    Roby::Distributed.state.start_neighbour_discovery
+		end
 	    end
 
 	    yield
