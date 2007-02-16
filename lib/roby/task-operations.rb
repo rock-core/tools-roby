@@ -43,14 +43,14 @@ module Roby::TaskAggregator
 	end
 
 	def delete
+	    @name  = self.name
+	    @tasks = nil
 	    if plan
 		plan.remove_object(self)
 	    else
 		clear_relations
+		freeze 
 	    end
-
-	    @tasks = nil
-	    freeze
 	end
     end
 
@@ -58,7 +58,7 @@ module Roby::TaskAggregator
         include Operations
 
 	def name
-	    @tasks.map { |t| t.name }.join("+")
+	    @name || @tasks.map { |t| t.name }.join("+")
 	end
 
 	def to_task(task = nil)
@@ -123,7 +123,7 @@ module Roby::TaskAggregator
         include Operations
 
 	def name
-	    @tasks.map { |t| t.name }.join("|")
+	    @name || @tasks.map { |t| t.name }.join("|")
 	end
 
 	attr_reader :success
