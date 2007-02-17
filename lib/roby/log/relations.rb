@@ -1,6 +1,4 @@
-require 'Qt4'
 require 'stringio'
-require 'roby/adapters/genom'
 require 'roby/log/dot'
 
 module Roby
@@ -302,6 +300,17 @@ module Roby
 		@plans  = Hash.new
 		@tasks  = Hash.new
 		@events = Hash.new
+		@enabled_relations = Set.new
+
+		view.resize 500, 500
+	    end
+
+	    attr_reader :enabled_relations
+	    def relation_enabled?(relation)
+		@enabled_relations.include?(relation)
+	    end
+	    def relation_color(relation)
+		Qt::Color.new('black')
 	    end
 
 	    def local_plan(plan)
