@@ -4,6 +4,7 @@ require 'roby/log/logger'
 module Roby::Log
     # A logger object which dumps events in a human-readable form to an IO object. 
     class ConsoleLogger
+	def splat?; false end
 	def self.filter_names(name)
 	    name.gsub(/Roby::(?:Genom::)?/, '')
 	end
@@ -36,7 +37,7 @@ module Roby::Log
 	end
 
 
-	def display(time, m, *args) # :nodoc:
+	def display(m, time, *args) # :nodoc:
 	    @reftime ||= time
 
 	    args.map! { |a| arg_to_s(a) }
@@ -64,7 +65,7 @@ module Roby::Log
 	private :display
 
 	Roby::Log.each_hook do |klass, m|
-	    define_method(m) { |time, *args| display(time, m, *args) }
+	    define_method(m) { |args| display(m, *args) }
 	end
     end
 end

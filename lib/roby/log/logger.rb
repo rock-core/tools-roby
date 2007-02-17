@@ -23,14 +23,16 @@ module Roby::Log
 	# Logs +message+ with argument +args+. The block is called only once if
 	# there is at least one logger which listens for +message+.
 	def log(m, args = nil)
-	    each_logger(m) do |log|
-		if !args && block_given?
-		    args ||= yield
-		end
-		begin
-		    log.send(m, *args)
-		rescue
-		    STDERR.puts "logger #{log} failed: #{$!.full_message}"
+	    Roby::Control.synchronize do
+		each_logger(m) do |log|
+		    if !args && block_given?
+			args = yield
+		    end
+		    if log.splat?
+			log.send(m, *args)
+		    else
+			log.send(m, args)
+		    end
 		end
 	    end
 	end
