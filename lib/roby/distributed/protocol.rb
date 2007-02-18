@@ -1,59 +1,23 @@
 require 'drb'
 require 'rinda/tuplespace'
 require 'utilrb/value_set'
+require 'roby/droby'
 
 require 'roby'
 
 class Array
-    class DRoby
-	def initialize(object); @object = object end
-	def _dump(lvl = -1)
-	    marshalled = @object.map { |o| Roby::Distributed.dump(o) }
-	    Marshal.dump(marshalled)
-	end
-	def to_s; @object.to_s end
-	def self._load(str)
-	    ary = Marshal.load(str)
-	    ary.map! { |o| Marshal.load(o) }
-	    ary
-	end
-    end
-    def droby_dump; DRoby.new(self) end
-    def proxy(peer)
-	map { |o| peer.proxy(o) }
-    end
+    def proxy(peer); map(&peer.method(:proxy)) end
 end
 class Hash
-    class DRoby < Array::DRoby
-	def initialize(hash); super(hash.to_a) end
-	def to_s; "mHash:#{super}" end
-	def self._load(str)
-	    super.inject({}) { |h, (k, v)| h[k] = v; h }
-	end
-    end
-    def droby_dump; DRoby.new(self) end
     def proxy(peer)
 	inject({}) { |h, (k, v)| h[k] = peer.proxy(v); h }
     end
 end
 class Set
-    class DRoby < Array::DRoby
-	def self._load(str); super.to_set end
-	def to_s; "mSet:#{super}" end
-    end
-    def droby_dump; DRoby.new(self) end
-    def proxy(peer)
-	map { |o| peer.proxy(o) }.to_set
-    end
+    def proxy(peer); map(&peer.method(:proxy)).to_set end
 end
 class ValueSet
-    class DRoby < Array::DRoby
-	def self._load(str); super.to_value_set end
-    end
-    def droby_dump; DRoby.new(self) end
-    def proxy(peer)
-	map { |o| peer.proxy(o) }.to_value_set
-    end
+    def proxy(peer); map(&peer.method(:proxy)).to_value_set end
 end
 
 class Module
@@ -61,74 +25,86 @@ class Module
 	raise "can't dump modules"
     end
 end
-
 class Class
     def droby_dump
-	if ancestors.include?(Roby::Task)
-	    Roby::Distributed::DRobyTaskModel.new(ancestors)
-	elsif ancestors.include?(Roby::EventGenerator) || ancestors.include?(Roby::Planning::Planner)
-	    Roby::Distributed::DRobyModel.new(ancestors)
-	else
-	    raise "can't dump class #{self}"
-	end
-    end
-end
-class Roby::TaskModelTag
-    class DRoby
-	@@local_to_remote = Hash.new
-	@@remote_to_local = Hash.new
-
-	attr_reader :name, :tag
-	def initialize(tag); @tag = tag end
-	def _dump(lvl)
-	    unless tagdef = @@local_to_remote[tag]
-		tagdef = tag.ancestors.
-		    map { |mod| mod if mod.instance_of?(Roby::TaskModelTag) }.
-		    compact.
-		    map { |mod| [mod.name, DRbObject.new(mod)] }
-	    end
-	    Marshal.dump(tagdef)
-	end
-
-	def self.local_tag(name, remote_tag)
-	    if !remote_tag.kind_of?(DRbObject)
-		remote_tag
-	    elsif local_model = @@remote_to_local[remote_tag]
-		local_model
-	    else
-		if name && !name.empty?
-		    local_model = constant(name) rescue nil
-		end
-		unless local_model
-		    local_model = Roby::TaskModelTag.new do
-			define_method(:name) { name }
-		    end
-		    @@remote_to_local[remote_tag] = local_model
-		    @@local_to_remote[local_model] = [[name, remote_tag]]
-		    yield(local_model) if block_given?
-		end
-		local_model
-	    end
-	end
-	def self._load(str)
-	    tagdef    = Marshal.load(str).reverse
-	    including = []
-	    tagdef.each do |name, remote_tag|
-		tag = local_tag(name, remote_tag) do |tag|
-		    including.each { |mod| tag.include mod }
-		end
-		including << tag
-	    end
-	    including.last
-	end
-    end
-
-    def droby_dump
-	DRoby.new(self)
+	raise "can't dump class #{self}"
     end
 end
 
 module Roby
+    class << Task
+	def droby_dump; Roby::Distributed::DRobyTaskModel.new(ancestors) end
+    end
+    class << EventGenerator
+	def droby_dump; Roby::Distributed::DRobyModel.new(ancestors) end
+    end
+    class << Planning::Planner
+	def droby_dump; Roby::Distributed::DRobyModel.new(ancestors) end
+    end
+    class TaskModelTag
+	class DRoby
+	    @@local_to_remote = Hash.new
+	    @@remote_to_local = Hash.new
+	    @@marshalled_tags = Hash.new
+
+	    attr_reader :name, :tag
+	    def initialize(tag); @tag = tag end
+	    def _dump(lvl)
+		unless marshalled = @@marshalled_tags[tag]
+		    tagdef = tag.ancestors.map do |mod|
+			if mod.instance_of?(Roby::TaskModelTag)
+			    unless id = @@local_to_remote[mod]
+				id = [mod.name, DRbObject.new(mod)]
+			    end
+			    id
+			end
+		    end
+		    tagdef.compact!
+		    marshalled = Marshal.dump(tagdef)
+		    @@marshalled_tags[tag] = marshalled
+		end
+		marshalled
+	    end
+
+	    def self._load(str)
+		tagdef    = Marshal.load(str).reverse
+		including = []
+		tagdef.each do |name, remote_tag|
+		    tag = local_tag(name, remote_tag) do |tag|
+			including.each { |mod| tag.include mod }
+		    end
+		    including << tag
+		end
+		including.last
+	    end
+
+	    def self.local_tag(name, remote_tag)
+		if !remote_tag.kind_of?(DRbObject)
+		    remote_tag
+		elsif local_model = @@remote_to_local[remote_tag]
+		    local_model
+		else
+		    if name && !name.empty?
+			local_model = constant(name) rescue nil
+		    end
+		    unless local_model
+			local_model = Roby::TaskModelTag.new do
+			    define_method(:name) { name }
+			end
+			@@remote_to_local[remote_tag] = local_model
+			@@local_to_remote[local_model] = [name, remote_tag]
+			yield(local_model) if block_given?
+		    end
+		    local_model
+		end
+	    end
+	end
+
+	def droby_dump
+	    DRoby.new(self)
+	end
+    end
+
     class RelationGraph
 	def droby_dump
 	    Distributed::DRobyConstant.new(self)
@@ -136,11 +112,9 @@ module Roby
     end
 
     class Plan
-	# Distributed transactions are marshalled as DRbObjects and #proxy
-	# returns their sibling in the remote pDB (or raises if there is none)
 	class DRoby
-	    def _dump(lvl); Marshal.dump(DRbObject.new(remote_object)) end
-	    def self._load(str); new(Marshal.load(str)) end
+	    attr_reader :remote_object
+	    def initialize(remote_object); @remote_object = remote_object end
 	    def proxy(peer); peer.connection_space.plan end
 
 	    def to_s
@@ -150,22 +124,17 @@ module Roby
 		    "m(#{remote_object})"
 		end
 	    end
-
-	    attr_reader :remote_object
-	    def initialize(remote_object)
-		@remote_object = remote_object
-	    end
 	end
-	def droby_dump
-	    DRoby.new(self)
-	end
+	def droby_dump; self end
+	def _dump(lvl); @marshalled ||= Marshal.dump(DRbObject.new(self)) end
+	def self._load(str); DRoby.new(Marshal.load(str)) end
     end
 
     class TaskMatcher
 	class Marshalled
 	    attr_reader :args
 	    def initialize(*args); @args = args end
-	    def _dump(lvl); Roby::Distributed.dump(args) end
+	    def _dump(lvl); Marshal.dump(args.droby_dump) end
 
 	    def self._load(str)
 		setup_matcher(TaskMatcher.new, Marshal.load(str))
@@ -232,16 +201,19 @@ module Roby
     module Distributed
 	# Dumps a constant by using its name
 	class DRobyConstant
+	    @@valid_constants = Hash.new
+
 	    def initialize(obj)
-		if const_obj = (constant(obj.name) rescue nil)
-		    @obj = obj
-		else
-		    raise ArgumentError, "invalid constant name #{obj.name}"
+		@obj = obj
+		unless @@valid_constants[obj]
+		    if const_obj = (constant(obj.name) rescue nil)
+			@@valid_constants[obj] = Marshal.dump(@obj.name)
+		    else
+			raise ArgumentError, "invalid constant name #{obj.name}"
+		    end
 		end
 	    end
-	    def _dump(lvl = -1)
-		Marshal.dump(@obj.name)
-	    end
+	    def _dump(lvl = -1); @@valid_constants[@obj] end
 	    def self._load(str)
 		constant(Marshal.load(str))
 	    end
@@ -260,18 +232,26 @@ module Roby
 	    @@local_to_remote = Hash.new
 
 	    attr_reader :ancestors
-	    def initialize(ancestors); @ancestors = ancestors end
+	    @@marshalled_models = Hash.new
+	    def initialize(ancestors)
+		@ancestors  = ancestors 
+	    end
 	    def _dump(lvl)
-		marshalled = ancestors.map do |klass| 
-		    if klass.instance_of?(Class) && !klass.is_singleton? 
-			if result = @@local_to_remote[klass]
-			    result
-			else
-			    [klass.name, DRbObject.new(klass)]
+		base_model = ancestors.first
+		unless marshalled = @@marshalled_models[base_model]
+		    marshalled = ancestors.map do |klass| 
+			if klass.instance_of?(Class) && !klass.is_singleton? 
+			    if result = @@local_to_remote[klass]
+				result
+			    else
+				[klass.name, DRbObject.new(klass)]
+			    end
 			end
 		    end
+		    marshalled.compact!
+		    @@marshalled_models[base_model] = marshalled = Marshal.dump(marshalled)
 		end
-		Marshal.dump(marshalled.compact)
+		marshalled
 	    end
 	    def self._load(str)
 		ancestors = Marshal.load(str)
@@ -306,25 +286,31 @@ module Roby
 
 	# Dumping intermediate for Task classes. This dumps both the ancestor list via
 	# DRobyModel and the list of task tags.
-	class DRobyTaskModel
+	class DRobyTaskModel < DRobyModel
+	    @@marshalled_task_models = Hash.new
 	    def _dump(lvl)
-		tags = ancestors.
-		    find_all { |m| m.instance_of?(Roby::TaskModelTag) }.
-		    compact.
-		    map { |tag| tag.droby_dump }
-		Marshal.dump([Roby::Distributed::DRobyModel.new(ancestors), tags])
+		base_model = ancestors.first
+		unless marshalled = @@marshalled_task_models[base_model]
+		    marshalled_class = super
+		    tags = ancestors.map do |mod|
+			if mod.instance_of?(Roby::TaskModelTag)
+			    mod.droby_dump
+			end
+		    end
+		    tags.compact!
+		    marshalled = Marshal.dump([tags, marshalled_class])
+		    @@marshalled_task_models[base_model] = marshalled
+		end
+		marshalled
 	    end
 	    def self._load(str)
-		model, tags = Marshal.load(str)
+		tags, model = Marshal.load(str)
+		model = super(model)
 		tags.each do |tag|
 		    model.include tag unless model < tag
 		end
 
 		model
-	    end
-	    attr_reader :ancestors
-	    def initialize(ancestors)
-		@ancestors = ancestors
 	    end
 	end
 
@@ -354,32 +340,18 @@ module Roby
 
 	# Dumps +object+ in the dRoby protocol
 	def self.dump(object, error = false)
-	    if object.kind_of?(DRb::DRbObject)
-		Marshal.dump(object)
-	    elsif object.respond_to?(:droby_dump)
-		Marshal.dump(object.droby_dump)
+	    if error
+		Marshal.dump(DRb::DRbRemoteError.new(object))
 	    else
-		Marshal.dump(object)
+		Marshal.dump(format(object))
 	    end
 
 	rescue Exception
-	    if allowed_remote_access?(object)
-		return Marshal.dump(make_proxy(object, error))
+	    case $!.message
+	    when /while dumping/
+		raise $!, "#{$!.message}\n  #{object}", $!.backtrace
 	    else
-		case $!.message
-		when /while dumping/
-		    raise $!, "#{$!.message}\n  #{object}", $!.backtrace
-		else
-		    raise $!, "#{$!.message} while dumping\n  #{object}", $!.backtrace
-		end
-	    end
-	end
-
-	def self.make_proxy(obj, error=false)
-	    if error
-		DRb::DRbRemoteError.new(obj)
-	    else
-		DRb::DRbObject.new(obj)
+		raise $!, "#{$!.message} while dumping\n  #{object}", $!.backtrace
 	    end
 	end
 
@@ -480,28 +452,27 @@ module Roby
 	# Base class for all marshalled plan objects.
 	class MarshalledPlanObject
 	    def to_s; "m(#{remote_name})" end
-	    def self.droby_load(str)
-		data = Marshal.load(str)
-		object  = data[1]		    # the remote object
-		data[2] = Marshal.load(data[2]) # the object model
-		data[3] = Marshal.load(data[3]) # the object plan
-		yield(data)
-	    end
-
 	    attr_reader :remote_name, :remote_object, :model, :plan
 	    def initialize(remote_name, remote_object, model, plan)
 		@remote_name, @remote_object, @model, @plan = 
 		    remote_name, remote_object, model, plan
 	    end
-	    def _dump(base_class)
-		remote_object = self.remote_object
-		remote_object = DRbObject.new(remote_object) unless remote_object.kind_of?(DRbObject)
-		yield([remote_name, remote_object,
-		    Distributed.dump(model),
-		    Distributed.dump(plan)])
+	    def self.droby_load(str)
+		data = Marshal.load(str)
+		object  = data[1]		    # the remote object
+		yield(data)
 	    end
 
-	    # Creates (or returns) the local object for this marshalled object
+	    def marshal_format
+		remote_object = self.remote_object
+		remote_object = DRbObject.new(remote_object) unless remote_object.kind_of?(DRbObject)
+		[remote_name, remote_object,
+		    Distributed.format(model),
+		    Distributed.format(plan)]
+	    end
+	    def _dump(lvl); Marshal.dump(marshal_format) end
+
+	    # Creates the local object for this marshalled object
 	    def proxy(peer)
 		proxy = Distributed.RemoteProxyModel(model).new(peer, self)
 	    end
@@ -520,6 +491,11 @@ module Roby
 	    end
 	end
 
+	class Roby::EventGenerator
+	    def droby_dump
+		MarshalledEventGenerator.new(to_s, self, self.model, plan, controlable?, happened?(false))
+	    end
+	end
 	class MarshalledEventGenerator < MarshalledPlanObject
 	    def self._load(str)
 		droby_load(str) do |data|
@@ -528,15 +504,7 @@ module Roby
 		    end
 		end
 	    end
-
-	    def _dump(lvl)
-		super(Roby::EventGenerator) do |ary|
-		    ary << controlable << happened
-		    if block_given? then yield(ary)
-		    else Marshal.dump(ary)
-		    end
-		end
-	    end
+	    def marshal_format; super << controlable << happened end
 
 	    def update(peer, proxy)
 		if happened && !proxy.happened?
@@ -550,24 +518,27 @@ module Roby
 		@controlable, @happened = controlable, happened
 	    end
 	end
-	class Roby::EventGenerator
+
+	class Roby::TaskEventGenerator
 	    def droby_dump
-		MarshalledEventGenerator.new(to_s, self, self.model, plan, controlable?, happened?(false))
+		# no need to marshal the plan, since it is the same than the event task
+		MarshalledTaskEventGenerator.new(to_s, self, self.model, nil, controlable?, happened?(false), task, symbol)
 	    end
 	end
-
 	class MarshalledTaskEventGenerator < MarshalledEventGenerator
+	    attr_reader :task, :symbol
+	    def initialize(name, remote_object, model, plan, controlable, happened, task, symbol)
+		super(name, remote_object, model, plan, controlable, happened)
+		@task   = task
+		@symbol = symbol
+	    end
+
 	    def self._load(str)
 		super do |data|
-		    data[6] = Marshal.load(data[6])
 		    new(*data)
 		end
 	    end
-	    def _dump(lvl)
-		super do |ary|
-		    Marshal.dump(ary << Distributed.dump(task) << symbol)
-		end
-	    end
+	    def marshal_format; super << Distributed.format(task) << symbol end
 
 	    def proxy(peer)
 		task = peer.local_object(self.task)
@@ -579,34 +550,27 @@ module Roby
 		end
 		ev
 	    end
-
-	    attr_reader :task, :symbol
-	    def initialize(name, remote_object, model, plan, controlable, happened, task, symbol)
-		super(name, remote_object, model, plan, controlable, happened)
-		@task   = task
-		@symbol = symbol
-	    end
 	end
-	class Roby::TaskEventGenerator
+
+	class Roby::Task
 	    def droby_dump
-		# no need to marshal the plan, since it is the same than the event task
-		MarshalledTaskEventGenerator.new(to_s, self, self.model, nil, controlable?, happened?(false), task, symbol)
+		mission = self.plan.mission?(self) if plan
+		MarshalledTask.new(to_s, self, self.model, plan, arguments, :mission => mission, :started => __started, :finished => __finished, :success => __success)
 	    end
 	end
-
 	class MarshalledTask < MarshalledPlanObject
+	    attr_reader :arguments, :flags
+	    def initialize(remote_name, remote_object, model, plan, arguments, flags)
+		super(remote_name, remote_object, model, plan)
+		@arguments, @flags = arguments, flags
+	    end
+
 	    def self._load(str)
 		droby_load(str) do |data|
-		    data[4] = Marshal.load(data[4]) # the argument hash
 		    MarshalledTask.new(*data)
 		end
 	    end
-
-	    def _dump(lvl)
-		super(Roby::Task) do |ary|
-		    Marshal.dump(ary << Roby::Distributed.dump(arguments) << flags)
-		end
-	    end
+	    def marshal_format; super << arguments.droby_dump << flags end
 	
 	    def update(peer, task)
 		super
@@ -632,18 +596,6 @@ module Roby
 		Distributed.update([task]) do
 		    task.arguments.merge(arguments)
 		end
-	    end
-
-	    attr_reader :arguments, :flags
-	    def initialize(remote_name, remote_object, model, plan, arguments, flags)
-		super(remote_name, remote_object, model, plan)
-		@arguments, @flags = arguments, flags
-	    end
-	end
-	class Roby::Task
-	    def droby_dump
-		mission = self.plan.mission?(self) if plan
-		MarshalledTask.new(to_s, self, self.model, plan, arguments, :mission => mission, :started => __started, :finished => __finished, :success => __success)
 	    end
 	end
 

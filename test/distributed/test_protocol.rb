@@ -172,6 +172,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	    end
 	end
 
+	Marshal.dump(CommonTaskModelTag)
 	assert_equal(CommonTaskModelTag, remote.tag)
 	tagged_task_model = remote.tagged_task_model
 	assert(tagged_task_model.has_ancestor?(CommonTaskModelTag), tagged_task_model.ancestors)
