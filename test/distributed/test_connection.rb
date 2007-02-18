@@ -39,18 +39,6 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert_equal(result, Peer.flatten_demux_calls(calls))
     end
 
-    # Test neighbour discovery using a local tuplespace as the neighbour list. This is
-    # mainly useful for testing purposes
-    def test_centralized_local_discovery
-	central_tuplespace = TupleSpace.new
-
-	remote = ConnectionSpace.new :ring_discovery => false, 
-	    :discovery_tuplespace => central_tuplespace
-	Distributed.state = ConnectionSpace.new :ring_discovery => false, 
-	    :discovery_tuplespace => central_tuplespace
-	assert_has_neighbour { |n| n.tuplespace == remote.tuplespace }
-    end
-
     # Test neighbour discovery using a remote central tuplespace as neighbour list
     def test_centralized_drb_discovery
 	central_tuplespace = TupleSpace.new
