@@ -167,8 +167,11 @@ module Roby
 		    Distributed.info "doing ring discovery on #{ring_broadcast}"
 		end
 
-		# Start the discovery thread and wait for it to be initialized
-		@discovery_thread = Thread.new(&method(:neighbour_discovery))
+		synchronize do
+		    # Start the discovery thread and wait for it to be initialized
+		    @discovery_thread = Thread.new(&method(:neighbour_discovery))
+		    finished_discovery.wait(mutex)
+		end
 		start_neighbour_discovery(true)
 
 		Roby::Control.finalizers << method(:quit)
