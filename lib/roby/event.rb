@@ -209,6 +209,10 @@ module Roby
 	    self
 	end
 
+	# Adds a signal from this event to +generator+
+	def signal(generator); on(generator) end
+	# Forward this event to +generator+
+	def forward(generator); generator.emit_on self end
 	# Returns an event which is emitted +seconds+ seconds after this one
 	def delay(seconds)
 	    if seconds == 0 then self
