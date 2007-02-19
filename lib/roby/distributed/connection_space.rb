@@ -44,7 +44,7 @@ module Roby
 	    if id.kind_of?(DRbObject)
 		peers[id]
 	    elsif id.respond_to?(:to_str)
-		peers.each { |_, p| return p if p.remote_name == id.to_str }
+		peers.each_value { |p| return p if p.remote_name == id.to_str }
 		nil
 	    elsif id == Roby::Distributed.remote_id
 		Roby::Distributed

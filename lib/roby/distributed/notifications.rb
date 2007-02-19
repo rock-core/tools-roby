@@ -7,10 +7,10 @@ module Roby
 		return unless task.distribute? && task.self_owned?
 
 		unless Distributed.updating?([self]) || Distributed.updating?([task])
-		    Distributed.trigger(task)
 		    Distributed.each_subscribed_peer(self) do |peer|
 			peer.plan_update(:insert, self, task)
 		    end
+		    Distributed.trigger(task)
 		end
 	    end
 	    def discovered_tasks(tasks)
@@ -19,10 +19,10 @@ module Roby
 		    tasks = tasks.find_all { |t| t.distribute? && t.self_owned? }
 		    return if tasks.empty?
 
-		    Distributed.trigger(*tasks)
 		    Distributed.each_subscribed_peer(self) do |peer|
 			peer.plan_update(:discover, self, tasks)
 		    end
+		    Distributed.trigger(*tasks)
 		end
 	    end
 	    alias :discovered_events :discovered_tasks
@@ -54,7 +54,7 @@ module Roby
 		unless Distributed.updating?([self])
 		    Distributed.clean_triggered(task)
 		    #Distributed.each_subscribed_peer(task) do |peer|
-		    Distributed.peers.each do |_, peer|
+		    Distributed.peers.each_value do |peer|
 			if peer.connected?
 			    peer.plan_update(:remove_object, self, task)
 			end
@@ -68,7 +68,7 @@ module Roby
 
 		unless Distributed.updating?([self])
 		    #Distributed.each_subscribed_peer(event) do |peer|
-		    Distributed.peers.each do |_, peer|
+		    Distributed.peers.each_value do |peer|
 			if peer.connected?
 			    peer.plan_update(:remove_object, self, event)
 			end
@@ -173,10 +173,10 @@ module Roby
 
 		return unless type.distribute? && Distributed.state
 		return if Distributed.updating?([self.root_object, child.root_object])
-		Distributed.trigger(self, child)
 		Distributed.each_subscribed_peer(self.root_object, child.root_object) do |peer|
 		    peer.transmit(:update_relation, plan, [self, :add_child_object, child, type, info])
 		end
+		Distributed.trigger(self, child)
 	    end
 
 	    def removed_child_object(child, type)
@@ -184,10 +184,10 @@ module Roby
 
 		return unless type.distribute? && Distributed.state
 		return if Distributed.updating?([self.root_object, child.root_object])
-		Distributed.trigger(self, child)
 		Distributed.each_subscribed_peer(self.root_object, child.root_object) do |peer|
 		    peer.transmit(:update_relation, plan, [self, :remove_child_object, child, type])
 		end
+		Distributed.trigger(self, child)
 	    end
 	end
 	PlanObject.include RelationModificationHooks
@@ -223,7 +223,7 @@ module Roby
 	module PlanCacheCleanup
 	    def finalized_event(generator)
 		super if defined? super
-		Distributed.peers.each do |_, peer|
+		Distributed.peers.each_value do |peer|
 		    peer.local.pending_events.delete(generator)
 		end
 	    end

@@ -41,7 +41,7 @@ module Roby
 		return if @owners.include?(peer_id)
 
 		if distributed
-		    remote_siblings.each do |_, remote|
+		    remote_siblings.each_value do |remote|
 			remote.add_owner(peer_id, false)
 		    end
 		end
@@ -72,13 +72,13 @@ module Roby
 
 		if do_check
 		    prepare_remove_owner(peer_id)
-		    remote_siblings.each do |_, remote|
+		    remote_siblings.each_value do |remote|
 			remote.prepare_remove_owner(peer_id)
 		    end
 		end
 
 		@owners.delete(peer_id)
-		remote_siblings.each do |_, remote|
+		remote_siblings.each_value do |remote|
 		    remote.remove_owner(peer_id, false)
 		end
 	    end

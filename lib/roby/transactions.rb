@@ -349,7 +349,7 @@ module Roby
 	    # Set the plan to nil in known tasks to avoid having the checks on
 	    # #plan to raise an exception
 	    discovered_objects.each { |proxy| proxy.commit_transaction }
-	    proxy_objects.each { |_, proxy| proxy.clear_relations  }
+	    proxy_objects.each_value { |proxy| proxy.clear_relations  }
 
 	    plan.discover(discover)
 	    insert.each { |t| plan.insert(t) }
@@ -380,7 +380,7 @@ module Roby
 	    end
 
 	    freezed!
-	    proxy_objects.each { |_, proxy| proxy.discard_transaction }
+	    proxy_objects.each_value { |proxy| proxy.discard_transaction }
 	    clear
 
 	    discarded_transaction
@@ -397,9 +397,7 @@ module Roby
 	    discovered_objects.clear
 	    removed_objects.clear
 	    discarded_tasks.clear
-	    proxy_objects.each do |_, proxy|
-		proxy.clear_relations
-	    end
+	    proxy_objects.each_value { |proxy| proxy.clear_relations }
 	    proxy_objects.clear
 	    super
 	end
