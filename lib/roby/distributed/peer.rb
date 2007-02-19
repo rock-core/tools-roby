@@ -357,8 +357,10 @@ module Roby::Distributed
 	    end
 
 	    (connection_space.peers.keys - seen).each do |disconnected| 
-		if connection_space.peers[disconnected].connecting?
-		    Roby::Distributed.info "waiting for peer #{connection_space.peers[disconnected].remote_name} to connect"
+		peer = connection_space.peers[disconnected]
+		if peer.connecting?
+		    Roby::Distributed.info "waiting for peer #{connection_space.peers[disconnected].remote_name} to connect #{peer.remote_id}"
+		    peer.ping
 		    next
 		end
 
