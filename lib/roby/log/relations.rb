@@ -1,4 +1,5 @@
 require 'Qt4'
+require 'roby/distributed/protocol'
 require 'roby/log/dot'
 require 'roby/log/rebuild'
 
@@ -145,7 +146,6 @@ module Roby
 
 		ending = add_polygon polygon, Qt::Pen.new(ARROW_COLOR), Qt::Brush.new(ARROW_COLOR)
 		line   = add_line    Qt::LineF.new(-1, 0, 0, 0)
-		STDERR.puts "ADD #{ending}"
 
 		line.parent_item = ending
 		ending.singleton_class.class_eval { attr_accessor :line }
@@ -197,7 +197,7 @@ module Roby
 
 	class RelationsDisplay < Qt::Object
 	    def splat?; true end
-	    attr_accessor :builder
+	    attr_accessor :data_source
 	    attr_reader :graphics
 	    attr_reader :arrows
 	    attr_reader :view, :scene
@@ -216,11 +216,14 @@ module Roby
 		view.resize 500, 500
 	    end
 	    def [](item); graphics[item.remote_object] end
-	    def arrow(from, to, info)
-		id = [from.remote_object, to.remote_object]
+	    def arrow(from, to, rel, info)
+		id = [from.remote_object, to.remote_object, rel]
 		unless item = arrows[id]
 		    item = (arrows[id] ||= scene.add_arrow(ARROW_SIZE))
 		    item.z_value = 1
+		    color = Qt::Color.new(relation_color(rel))
+		    item.pen = item.line.pen = Qt::Pen.new(color)
+		    item.brush = Qt::Brush.new(color)
 		end
 		Log.arrow_set item, self[from], self[to]
 	    end
@@ -233,13 +236,45 @@ module Roby
 		COLORS[current_color]
 	    end
 
-	    attr_reader :enabled_relations
 	    def relation_enabled?(relation)
 		@enabled_relations.include?(relation)
 	    end
+	    def enable_relation(relation)
+		return if relation_enabled?(relation)
+		@enabled_relations << relation
+		arrows.each do |(_, _, rel), arrow|
+		    if rel == relation
+			arrow.visible = true 
+			arrow.line.visible = true
+		    end
+		end
+	    end
+	    def disable_relation(relation)
+		return unless relation_enabled?(relation)
+		@enabled_relations.delete(relation)
+		arrows.each do |(_, _, rel), arrow|
+		    if rel == relation
+			arrow.visible = false 
+			arrow.line.visible = false
+		    end
+		end
+	    end
+
 	    attr_reader :relation_colors
 	    def relation_color(relation)
 		relation_colors[relation] ||= allocate_color
+	    end
+	    def update_relation_color(relation, color)
+		relation_colors[relation] = color
+		color = Qt::Color.new(color)
+		pen   = Qt::Pen.new(color)
+		brush = Qt::Brush.new(color)
+		arrows.each do |(_, _, rel), arrow|
+		    if rel == relation
+			arrow.pen = arrow.line.pen = pen
+			arrow.brush = brush
+		    end
+		end
 	    end
 
 	    def displayed?(object)
@@ -247,18 +282,18 @@ module Roby
 		    graphics[object.remote_object].visible?
 		end
 	    end
-	    def display
-		builder.tasks.each_value  { |task| graphics[task.remote_object] ||= task.display_create(scene) }
-		builder.events.each_value do |event| 
+	    def update
+		data_source.tasks.each_value  { |task| graphics[task.remote_object] ||= task.display_create(scene) }
+		data_source.events.each_value do |event| 
 		    unless item = graphics[event.remote_object] 
 			item = graphics[event.remote_object] ||= event.display_create(scene)
 			item.parent_item = self[event.display_parent] if event.display_parent
 		    end
 		end
-		builder.tasks.each_value  { |task| task.display(self, graphics[task.remote_object]) }
-		builder.events.each_value { |event| event.display(self, graphics[event.remote_object]) }
+		data_source.tasks.each_value  { |task| task.display(self, graphics[task.remote_object]) }
+		data_source.events.each_value { |event| event.display(self, graphics[event.remote_object]) }
 
-		builder.plans.find_all { |_, p| p.root_plan }.
+		data_source.plans.find_all { |_, p| p.root_plan }.
 		    each { |_, p| Layout.new.layout(self, p, 1) }
 	    end
 
@@ -268,16 +303,16 @@ module Roby
 		item.children.each do |child|
 		    remove_graphics(child, scene)
 		end
-		scene.remove_item(item)
+		scene.remove_item(item) if scene
 	    end
 	    def removed_task_child(time, parent, rel, child)
-		remove_graphics(arrows.delete([parent.remote_object, child.remote_object]))
+		remove_graphics(arrows.delete([parent.remote_object, child.remote_object, rel]))
 	    end
 	    def removed_event_child(time, parent, rel, child)
-		remove_graphics(arrows.delete([parent.remote_object, child.remote_object]))
+		remove_graphics(arrows.delete([parent.remote_object, child.remote_object, rel]))
 	    end
 	    def clear_arrows(object)
-		arrows.delete_if do |(from, to), arrow|
+		arrows.delete_if do |(from, to, _), arrow|
 		    if from == object || to == object
 			remove_graphics(arrow)
 			true
@@ -295,14 +330,11 @@ module Roby
 		clear_arrows(task)
 	    end
 
-	    def cycle_end(time, timings)
-		display
-	    end
-
 	    def clear
-		builder.clear
 		arrows.each_value(&method(:remove_graphics))
 		graphics.each_value(&method(:remove_graphics))
+		arrows.clear
+		graphics.clear
 	    end
 	end
     end

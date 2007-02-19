@@ -168,14 +168,14 @@
           <number>6</number>
          </property>
          <item>
-          <widget class="QSlider" name="sld_position" >
+          <widget class="QSlider" name="time_slider" >
            <property name="orientation" >
             <enum>Qt::Horizontal</enum>
            </property>
           </widget>
          </item>
          <item>
-          <widget class="QLCDNumber" name="dsp_position" >
+          <widget class="QLCDNumber" name="time_lcd" >
            <property name="numDigits" >
             <number>6</number>
            </property>
@@ -253,7 +253,7 @@ p, li { white-space: pre-wrap; }
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="btn_play" >
+          <widget class="QPushButton" name="play" >
            <property name="sizePolicy" >
             <sizepolicy>
              <hsizetype>3</hsizetype>
@@ -303,7 +303,7 @@ p, li { white-space: pre-wrap; }
           <number>6</number>
          </property>
          <item>
-          <widget class="QPushButton" name="btn_seek_start" >
+          <widget class="QPushButton" name="seek_start" >
            <property name="toolTip" >
             <string>&lt;html>&lt;head>&lt;meta name="qrichtext" content="1" />&lt;style type="text/css">
 p, li { white-space: pre-wrap; }
@@ -335,7 +335,7 @@ p, li { white-space: pre-wrap; }
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="btn_seek_next" >
+          <widget class="QPushButton" name="play_step" >
            <property name="toolTip" >
             <string>&lt;html>&lt;head>&lt;meta name="qrichtext" content="1" />&lt;style type="text/css">
 p, li { white-space: pre-wrap; }

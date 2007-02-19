@@ -5,11 +5,11 @@ require 'optparse'
 gui  = true
 play_now = false
 initial_displays = []
-basedir = nil
+logdir = nil
 
 parser = OptionParser.new do |opt|
     opt.on("--[no-]gui", "do (not) use a GUI") { |gui| }
-    opt.on("--basedir=DIR", String, "the log directory in which we initialize the data sources") do |basedir| end
+    opt.on("--logdir=DIR", String, "the log directory in which we initialize the data sources") do |logdir| end
     opt.on("--relations=REL1,REL2", Array, "create a relation display with the given relations") do |relations|
 	relations = relations.map do |relname|
 	    if rel = Roby::TaskStructure.const_get(relname) rescue nil
@@ -27,7 +27,7 @@ parser = OptionParser.new do |opt|
 	initial_displays << lambda do |gui|
 	    relation_display = gui.add_display('Relations')
 	    relations.each do |rel|
-		relation_display.enabled_relations << rel
+		relation_display.enable_relation(rel)
 	    end
 	end
     end
@@ -58,14 +58,14 @@ initial_displays.each do |prc|
     prc.call(main)
 end
 
-sources = Roby.app.data_sources(basedir)
+sources = Roby.app.data_sources(logdir)
 sources.each do |source|
     main.add_source(source)
 end
 
 main.show
 if play_now
-    main.play
+    main.ui.play.checked = true
 end
 app.exec
 

@@ -76,14 +76,25 @@ end
 
 class FilteredDataSourceListModel < Qt::SortFilterProxyModel
     attr_reader :type, :sources
-    def initialize(type, sources)
+    attr_reader :source_combo
+    attr_reader :display
+    def initialize(source_combo, display, type, sources)
 	super()
+	@display = display
 	@type    = type
 	@sources = sources
+	@source_combo = source_combo
     end
     def filterAcceptsRow(source_row, source_parent)
 	sources[source_row].type == type
     end
+    def selectedSource()
+	index = source_combo.current_index
+	index = self.index(index, 0, Qt::ModelIndex.new)
+	
+	sources[mapToSource(index).row].add_display(display)
+    end
+    slots 'selectedSource()'
 end
 
 class Replay < Qt::MainWindow
@@ -97,6 +108,8 @@ class Replay < Qt::MainWindow
     attr_reader :ui
     def initialize
 	super()
+	@play_speed = 1.0
+
 	@ui = Ui_Replay.new
 	ui.setupUi(self)
 
@@ -109,49 +122,88 @@ class Replay < Qt::MainWindow
 	ui.sources.model = @sources_model
 	connect(ui.add_source, SIGNAL("clicked()"), self, SLOT("add_source()"))
 	connect(ui.remove_source, SIGNAL("clicked()"), self, SLOT("remove_source()"))
+
+	connect(ui.seek_start, SIGNAL("clicked()"), self, SLOT("seek_start()"))
+	connect(ui.play, SIGNAL("toggled(bool)"), self, SLOT("play()"))
+	connect(ui.play_step, SIGNAL("clicked()"), self, SLOT("play_step()"))
+	seek_start
     end
 
-    def allocate_display_number
-	@display_number += 1
+    attr_reader :first_sample
+    def seek_start
+	@time = nil
+	sources.each { |s| s.prepare_seek(nil) }
+	@first_sample = time
+	ui.time_lcd.display 0
     end
+    slots 'seek_start()'
 
+    def allocate_display_number; @display_number += 1 end
     def time
-	displays.map { |d| d.next_time }.min
+	new_time = sources.map { |s| s.next_step_time }.compact.min
+	@first_sample ||= new_time
+	@time ||= new_time
     end
+    def next_step_time; sources.map { |s| s.next_step_time }.compact.min end
 
     BASE_STEP = 0.5
-    def play(speed = 1.0)
-	@play_speed = 1.0
-	@play_timer = Qt::Timer.new(self)
-	connect(play_timer, SIGNAL("timeout()"), self, SLOT("play_step()"))
-	play_timer.start(Integer(BASE_STEP * 1000))
-    end
-
-    def play_step
-	play_until(time + BASE_STEP * play_speed)
-	unless time
+    attr_reader :play_timer, :play_speed
+    def play
+	if ui.play.checked?
+	    @play_timer = Qt::Timer.new(self)
+	    connect(play_timer, SIGNAL("timeout()"), self, SLOT("play_step_timer()"))
+	    play_timer.start(Integer(BASE_STEP * 1000))
+	else
 	    play_timer.stop
 	end
     end
+    slots 'play()'
+
+    def stop
+	ui.play.checked = false
+	play_timer.stop if play_timer
+    end
+    slots 'stop()'
+
+    def play_step; play_until(next_step_time) end
     slots 'play_step()'
 
+    def play_step_timer
+       	play_until(time + BASE_STEP * play_speed) 
+    end
+    slots 'play_step_timer()'
+    
     def play_until(max_time)
-	displays.inject(timeline = []) { |timeline, d| timeline << [d.next_time, d] }
-	while timeline.first < max
-	    timeline.sort_by { |t, _| t }
-	    _, display = timeline.first
+	sources.inject(timeline = []) do |timeline, s| 
+	    if s.next_step_time && !s.displays.empty?
+		timeline << [s.next_step_time, s]
+	    end
+	    timeline
+	end
 
-	    if display.advance
-		timeline[0] = [display.next_time, display]
+	if timeline.empty?
+	    stop
+	    return
+	end
+
+	timeline.sort_by { |t, _| t }
+	while !timeline.empty? && timeline[0][0] <= max_time
+	    timeline.sort_by { |t, _| t }
+	    @time, source = timeline.first
+
+	    source.advance
+	    if next_time = source.next_step_time
+		timeline[0] = [next_time, source]
 	    else
 		timeline.shift
 	    end
 	end
-    end
 
-    def rewind
-	@position = 0
-	displays.each_value { |d| d.clear }
+	ui.time_lcd.display(time - first_sample)
+
+	if timeline.empty?
+	    stop
+	end
     end
 
     def add_source(source = nil)
@@ -177,7 +229,6 @@ class Replay < Qt::MainWindow
 	ui.displays.current_index = idx
 
 	displays[w_ui] = display
-	Roby::Log.loggers << display
 	display.view.window_title = "#{window_title}: #{name}"
 	display.view.show
 	display

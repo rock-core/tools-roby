@@ -1,3 +1,6 @@
+require 'roby/distributed/protocol'
+require 'roby/log/data_source'
+
 module Roby
     module Log
 	def self.update_marshalled(object_set, marshalled)
@@ -83,49 +86,44 @@ module Roby
 
 	# This class is a logger-compatible interface which rebuilds the task and event
 	# graphs from the marshalled events that are saved using for instance FileLogger
-	class PlanRebuild
+	class PlanRebuild < DataSource
 	    def splat?; true end
 	    attr_reader :plans
-
 	    attr_reader :tasks
 	    attr_reader :events
+
 	    attr_reader :io
 	    attr_reader :next_step
 	    attr_reader :displays
 
 	    def initialize(filename)
-		@io     = File.open(filename)
+		@io     = Roby::Log.open(filename)
+		super([filename], 'roby-events')
 		@plans  = Hash.new
 		@tasks  = Hash.new
 		@events = Hash.new
 		@next_step = Array.new
-		@displays = Array.new
 
 		prepare_seek(nil)
 	    end
 	    def clear
+		super
+
+		plans.each { |p| p.clear }
 		plans.clear
 		tasks.clear
 		events.clear
-		displays.each { |d| d.clear }
 	    end
-	    def add_display(display)
-		displays << display
-		initialize_display(display)
-	    end
-	    def remove_display(display)
-		display.clear
-		displays.delete(display)
-	    end
+	    
 	    def prepare_seek(time)
 		if !time || time < current_time
 		    clear
-		    io.seek(0)
+		    io.rewind
 		    read_step
-		    @first_sample = next_step.first[1][0]
 		end
 	    end
 	    
+	    # Replays one cycle
 	    def read_step
 		next_step.clear
 		return if io.eof?
@@ -138,14 +136,15 @@ module Roby
 	    rescue EOFError
 	    end
 	    
-	    def current_time; next_step.first[1][0] unless next_step.empty? end
+	    def current_time;  next_step.first[1][0] unless next_step.empty? end
 	    def next_step_time; next_step.last[1][0] unless next_step.empty? end
 	    def last_time; nil end
-	    def play_step
+	    def advance
 		next_step.each do |name, args|
 		    send(name, *args) if respond_to?(name)
-		    displays.each { |d| d.send(name, args) if d.respond_to?(name) }
+		    displays.each { |d| d.send(name, *args) if d.respond_to?(name) }
 		end
+		displays.each { |d| d.update }
 		read_step
 	    end
 

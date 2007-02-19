@@ -25,10 +25,8 @@ module Ui
 	    @display   = display
 	    @relations = []
 
-	    relations[EVENT_ROOT_INDEX] = Roby::EventStructure.enum_for(:each_relation).
-		map { |rel| [rel, display.relation_color(rel)] }
-	    relations[TASK_ROOT_INDEX] = Roby::TaskStructure.enum_for(:each_relation).
-		map { |rel| [rel, display.relation_color(rel)] }
+	    relations[EVENT_ROOT_INDEX] = Roby::EventStructure.enum_for(:each_relation).to_a
+	    relations[TASK_ROOT_INDEX] = Roby::TaskStructure.enum_for(:each_relation).to_a
 	end
 
 	def index(row, column, parent)
@@ -66,7 +64,7 @@ module Ui
 			    CATEGORIES[index.row]
 			end
 		    else
-			relation, color = relations[category][index.row]
+			relation = relations[category][index.row]
 			if index.column == COL_NAME && role == Qt::CheckStateRole
 			    if display.relation_enabled?(relation) then Qt::Checked.to_i
 			    else Qt::Unchecked.to_i
@@ -74,7 +72,7 @@ module Ui
 			elsif index.column == COL_NAME && role == Qt::DisplayRole
 			    relation.name.gsub(/.*Structure::/, '')
 			elsif index.column == COL_COLOR && role == Qt::DisplayRole
-			    color
+			    display.relation_color(relation)
 			end
 		    end
 
@@ -84,16 +82,17 @@ module Ui
 	end
 	def setData(index, value, role)
 	    category = index.internal_id
-	    relation, color = relations[category][index.row]
+	    relation = relations[category][index.row]
 	    if role == Qt::CheckStateRole
 		if value.to_i == Qt::Checked.to_i
-		    display.enabled_relations << relation
+		    display.enable_relation(relation)
 		else
-		    display.enabled_relations.delete relation
+		    display.disable_relation(relation)
 		end
 	    else
-		relations[category][index.row][1] = value.to_string
+		display.update_relation_color(relation, value.to_string)
 	    end
+	    display.update
 	    emit dataChanged(index, index)
 	end
 	def flags(index)
@@ -149,7 +148,8 @@ module Ui
 	    relations.set_expanded model.task_root_index, true
 	    relations.set_expanded model.event_root_index, true
 
-	    @sources_model = FilteredDataSourceListModel.new('roby-events', main.sources_model.sources)
+	    @sources_model = FilteredDataSourceListModel.new(source, display, 'roby-events', main.sources_model.sources)
+	    Qt::Object.connect(source, SIGNAL("currentIndexChanged(int)"), @sources_model, SLOT("selectedSource()"))
 	    @sources_model.source_model = main.sources_model
 	    source.model = @sources_model
 

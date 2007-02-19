@@ -713,11 +713,21 @@ host
 	    end
 	end
 
-	# Returns the name of the data source type for +filename+ if it is
-	# known to this component
+	class PocosimDataSource < Roby::Log::DataSource
+	    attr_reader :stream
+	    def initialize(files, stream)
+		super(files, 'pocosim')
+		@stream = stream
+	    end
+	    def current_time; nil end
+	    def next_step_time; nil end
+	end
+
+	# Returns the data source objects for +filenames+ if this extension can handle
+	# these files, and nil otherwise
 	def self.data_source(filenames)
 	    if filenames.all? { |f| f =~ /\.\d+\.log/ }
-		Roby::Log::DataSource.new(filenames, 'pocosim', nil)
+		PocosimDataSource.new(filenames, '')
 	    end
 	end
 
@@ -728,7 +738,7 @@ host
 	    pocosim_logs.delete(nil) # remove unmatched files
 	    pocosim_logs.map do |_, fileset|
 		fileset = fileset.sort_by { |name| name =~ /\.(\d+)\.log$/ ; Integer($1) }
-		Roby::Log::DataSource.new(fileset, 'pocosim', nil)
+		PocosimDataSource.new(fileset, '')
 	    end
 	end
     end

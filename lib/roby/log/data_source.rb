@@ -1,11 +1,31 @@
 
 module Roby::Log
     class DataSource
-	attr_accessor :files
-	attr_accessor :type
-	attr_accessor :source
-	def initialize(files = [], type = nil, source = nil)
-	    @files, @type, @source = files, type, source
+	attr_reader :files
+	attr_reader :type
+	attr_reader :displays
+	def initialize(files, type)
+	    @files, @type = files, type
+	    @displays = Array.new
+	end
+
+	def clear
+	    displays.each { |d| d.clear }
+	end
+
+
+	def add_display(display)
+	    if old = display.data_source
+		display.data_source.remove_display(display)
+	    end
+	    displays << display
+	    display.data_source = self
+	    # initialize_display(display)
+	end
+	def remove_display(display)
+	    display.clear
+	    display.data_source = nil
+	    displays.delete(display)
 	end
     end
 end

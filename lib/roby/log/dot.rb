@@ -1,6 +1,8 @@
+require 'roby/distributed/protocol'
 require 'roby/log'
 require 'tempfile'
 require 'fileutils'
+
 module Roby::Marshallable
     class Task
 	def dot(layout); layout.task(self) end
@@ -46,6 +48,7 @@ module Roby
 
 	    def each_displayed_relation(display, space, objects)
 		space.relations.each do |rel|
+		    next unless display.relation_enabled?(rel)
 		    objects.each do |from|
 			next unless display.displayed?(from)
 
@@ -71,7 +74,7 @@ module Roby
 
 	    def layout_relations(positions, display, space, objects)
 		each_displayed_relation(display, space, objects) do |rel, from, to|
-		    display.arrow(from, to, from[to, rel])
+		    display.arrow(from, to, rel, from[to, rel])
 		end
 	    end
 	    

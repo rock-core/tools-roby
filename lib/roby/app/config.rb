@@ -1,4 +1,5 @@
 require 'roby'
+require 'roby/log/rebuild'
 
 module Roby
     def self.app
@@ -37,7 +38,10 @@ module Roby
 	    def each_responding_component(method, all_components = false)
 		components = self.components
 		if all_components
-		    components = COMPONENTS.values.map { |k, m| [k, constant(m)::ApplicationConfig] }
+		    components = COMPONENTS.values.map do |file, mod| 
+			require file
+			[file, constant(mod)::ApplicationConfig]
+		    end
 		end
 
 		components.each do |_, config_extension|
@@ -236,8 +240,8 @@ module Roby
 	    # Guesses the type of +filename+ if it is a source suitable for
 	    # data display in this application
 	    def data_source(filenames)
-		if filenames.size == 1 && filenames.first =~ /-events\.log$/
-		    Roby::Log::DataSource.new filenames, 'roby-events', nil
+		if filenames.size == 1 && filenames.first =~ /-events\.log(\.gz)?$/
+		    Roby::Log::PlanRebuild.new(filenames.first)
 		else
 		    each_responding_component(:data_source, true) do |config|
 			if source = config.data_source(filenames)
@@ -253,8 +257,9 @@ module Roby
 	    def data_sources(logdir = nil)
 		logdir ||= File.join(APP_DIR, 'log')
 		sources = []
-		Dir.glob(File.join(logdir, '*-events.log')).each do |file|
-		    sources << Roby::Log::DataSource.new(file, 'roby-events', Rebuild.new)
+		Dir.glob(File.join(logdir, '*-events.log*')).each do |file|
+		    next unless file =~ /-events\.log(\.gz)?$/
+		    sources << Roby::Log::PlanRebuild.new(file)
 		end
 		each_responding_component(:data_sources, true) do |config|
 		    if s = config.data_sources(logdir)
