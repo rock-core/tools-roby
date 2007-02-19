@@ -22,10 +22,11 @@ module Roby
 	end
 
 	def self.run(config)
+	    host = config.droby['host']
 	    if config.single?
-		DRb.start_service "roby://:0"
+		host =~ /:(\d+)$/
+		DRb.start_service "roby://:#{$1 || '0'}"
 	    else
-		host = config.droby['host']
 		if host =~ /^:\d+$/
 		    host = "#{Socket.gethostname}#{host}"
 		end
