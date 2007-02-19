@@ -387,6 +387,8 @@ module Roby
 	    end
 
 	    def on_neighbour
+		current = neighbours.dup
+		Roby::Control.once { current.each { |n| yield(n) } }
 		new_neighbours_observers << lambda { |_, n| yield(n) }
 	    end
 	end
