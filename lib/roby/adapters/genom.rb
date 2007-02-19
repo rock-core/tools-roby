@@ -587,7 +587,7 @@ module Roby::Genom
 		    g.output_io = File.join(APP_DIR, "log", "#{config.robot_name}-%m.log")
 		    config.require_robotfile(File.join(APP_DIR, 'config', "ROBOT-genom.rb"))
 
-		    MainPlanner.class_eval do
+		    ::MainPlanner.class_eval do
 			using *g.used_modules.values.
 			    map { |mod| mod::Planning rescue nil }.
 			    compact
