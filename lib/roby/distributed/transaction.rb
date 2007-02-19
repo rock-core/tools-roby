@@ -442,7 +442,6 @@ module Roby
 		nil
 	    end
 	    def transaction_give_token(trsc, needs_edition)
-		STDERR.puts "\rGOT TOKEN: #{caller.join("\n  ")}"
 		trsc = peer.local_object(trsc)
 		trsc.edit!(needs_edition)
 		nil
