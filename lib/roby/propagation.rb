@@ -193,17 +193,25 @@ module Roby::Propagation
 
 	Thread.current[:current_propagation_set] = current_step
 
-	terminal, other = nil
-	current_step.each do |signalled, _| 
-	    if signalled.respond_to?(:terminal?) && signalled.terminal?
-		terminal = signalled
-	    else
-		other = signalled
-		break
+	signalled, min = nil, 4
+	current_step.each do |event, _|
+	    value = if event.respond_to?(:terminal?) && event.terminal?
+			2
+		    elsif event.respond_to?(:symbol)
+			if event.symbol == :start
+			    0
+			elsif event.symbol == :stop
+			    3
+			else
+			    1
+			end
+		    else
+			1
+		    end
+	    if value < min
+		signalled = event
 	    end
 	end
-
-	signalled = other || terminal
 	forward, *info = current_step.delete(signalled)
 
 	sources, context = [], []
