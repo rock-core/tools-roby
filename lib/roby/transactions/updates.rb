@@ -27,7 +27,7 @@ module Roby
 		type.link(parent_proxy, child_proxy, info)	   
 	    when :solver
 		invalidate("plan added a relation #{parent} -> #{child} of type #{type} with info #{info}")
-		conflict_solver.unlink(parent, child, type, info)
+		conflict_solver.adding_plan_relation(parent, child, type, info)
 	    end
 	end
 
