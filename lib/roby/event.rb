@@ -189,7 +189,10 @@ module Roby
 	end
 	private :call
 
-	# Establishes signalling and/or event handlers from this event model
+	# Establishes signalling and/or event handlers from this event model.
+	# If +time+ is non-nil, it is a delay (in seconds) which must pass
+	# between the time this event is emitted and the time +signal+ is
+	# called
 	def on(signal = nil, time = nil, &handler)
 	    if signal
 		if !can_signal?(signal)
@@ -216,6 +219,9 @@ module Roby
 	    end
 	end
 
+	# Signal the +signal+ event the first time this event is emitted.  If
+	# +time+ is non-nil, delay the signalling. +handler+ is an optional
+	# event handler to be called once as well.
 	def signal_once(signal = nil, time = nil, &handler)
 	    on(signal, time) { remove_signal(signal) }
 	end
@@ -241,7 +247,7 @@ module Roby
 	# Create a new event object for +context+
 	def new(context); Event.new(self, Propagation.propagation_id, context, Time.now) end
 
-	def add_propagation(only_forward, event, signalled, context, timespec)
+	def add_propagation(only_forward, event, signalled, context, timespec) # :nodoc:
 	    if self == signalled
 		raise EventModelViolation.new(self), "#{self} is trying to signal itself"
 	    elsif !only_forward && !can_signal?(signalled) 
@@ -417,6 +423,7 @@ module Roby
 	def called(context); super if defined? super end
 
 	# Hook called when this generator has been fired. +event+ is the Event object
+	# which has been created by this model
 	def fired(event)
 	    history << event
 	    super if defined? super
@@ -438,6 +445,8 @@ module Roby
 	end
     end
 
+    # This generator reemits an event after having changed its context. See
+    # EventGenerator#filter
     class FilterGenerator < EventGenerator
 	def initialize(context = nil, &block)
 	    if block && context
