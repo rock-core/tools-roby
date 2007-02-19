@@ -26,10 +26,22 @@ module Roby
 		components.any? { |mod, _| mod.component_name == name }
 	    end
 
-	    # Call +method+ on each configuration extension module, with arguments +args+
+	    # Call +method+ on each extension module, with arguments +args+
 	    def call_components(method, *args)
+		each_responding_component(method) do |config_extension|
+		    config_extension.send(method, *args)
+		end
+	    end
+
+	    # Yields each extension modules that respond to +method+
+	    def each_responding_component(method, all_components = false)
+		components = self.components
+		if all_components
+		    components = COMPONENTS.values.map { |k, m| [k, constant(m)::ApplicationConfig] }
+		end
+
 		components.each do |_, config_extension|
-		    config_extension.send(method, *args) if config_extension.respond_to?(method)
+		    yield(config_extension) if config_extension.respond_to?(method)
 		end
 	    end
 
@@ -163,9 +175,15 @@ module Roby
 		    options[:log] = File.open(logfile, 'w')
 		end
 		if log['events']
-		    require 'roby/log/file'
-		    logfile = File.join(APP_DIR, 'log', "#{robot_name}-events.log")
-		    Roby::Log.loggers << Roby::Log::FileLogger.new(File.open(logfile, 'w'))
+		    if log['events'] == 'sqlite'
+			require 'roby/log/sqlite'
+			logfile = File.join(APP_DIR, 'log', "#{robot_name}-events.db")
+			Roby::Log.loggers << Roby::Log::SQLiteLogger.new(logfile)
+		    else
+			require 'roby/log/file'
+			logfile = File.join(APP_DIR, 'log', "#{robot_name}-events.log")
+			Roby::Log.loggers << Roby::Log::FileLogger.new(logfile)
+		    end
 		end
 		control.abort_on_exception = 
 		    control_config['abort_on_exception']
@@ -214,6 +232,37 @@ module Roby
 	    def simulation?; @simulation end
 	    def single; @single = true end
 	    def single?; @single end
+
+	    # Guesses the type of +filename+ if it is a source suitable for
+	    # data display in this application
+	    def data_source(filenames)
+		if filenames.size == 1 && filenames.first =~ /-events\.log$/
+		    Roby::Log::DataSource.new filenames, 'roby-events', nil
+		else
+		    each_responding_component(:data_source, true) do |config|
+			if source = config.data_source(filenames)
+			    return source
+			end
+		    end
+		end
+		nil
+	    end
+
+	    # Returns the list of data sources suitable for data display known
+	    # to the application
+	    def data_sources(logdir = nil)
+		logdir ||= File.join(APP_DIR, 'log')
+		sources = []
+		Dir.glob(File.join(logdir, '*-events.log')).each do |file|
+		    sources << Roby::Log::DataSource.new(file, 'roby-events', Rebuild.new)
+		end
+		each_responding_component(:data_sources, true) do |config|
+		    if s = config.data_sources(logdir)
+			sources += s
+		    end
+		end
+		sources
+	    end
 	end
 	def self.config; Roby::Application::Config.instance end
     end

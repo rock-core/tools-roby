@@ -113,10 +113,10 @@ task :test_rcov do
     end
 end
 
-UIFILES = 'lib/roby/log/offline_control.ui'
+UIFILES = [ 'lib/roby/log/gui/replay.ui', 'lib/roby/log/gui/relations.ui' ]
 task :uic do
     UIFILES.each do |file|
-	system('rbuic', '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
+	system('rbuic4', '-x', '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
     end
 end
 

@@ -1,24 +1,14 @@
-require 'stringio'
+require 'Qt4'
 require 'roby/log/dot'
+require 'roby/log/rebuild'
 
 module Roby
-    module Log::Display
-	def self.update_marshalled(object_set, marshalled)
-	    if old = object_set[marshalled.remote_object]
-		marshalled.copy_from(old)
-		Kernel.swap!(old, marshalled)
-		old.instance_variable_set("@__bgl_graphs__", marshalled.instance_variable_get("@__bgl_graphs__"))
-		old
-	    else
-		object_set[marshalled.remote_object] = marshalled
-	    end
-	end
-
+    module Log
 	EVENT_CIRCLE_RADIUS = 3
 	TASK_EVENT_SPACING  = 5
-	ARROW_COLOR   = 'black'
+	ARROW_COLOR   = Qt::Color.new('black')
 	ARROW_OPENING = 30
-	ARROW_SIZE    = 15
+	ARROW_SIZE    = 10
 
 	TASK_COLOR = {
 	    nil        => '#6DF3FF',
@@ -34,95 +24,48 @@ module Roby
 	EVENT_FONTSIZE = 8
 
 	class Distributed::MarshalledPlanObject
-	    include DirectedRelationSupport
-	    attr_accessor :graphics_item
-	    def displayed?; graphics_item && graphics_item.visible? end
-	    def copy_from(old)
-		self.graphics_item = old.graphics_item
-	    end
-
-	    def display(scene)
-		each_relation do |rel|
-		    each_child_object(rel) do |child|
-			data, arrow = self[child, rel]
-			if !arrow
-			    self[child, rel] = [data, scene.add_arrow(nil, nil, ARROW_SIZE, ARROW_OPENING)]
-			end
-		    end
-		end
-		graphics_item
-	    end
-
-	    # Removes this object from the display
-	    def remove_display
-		scene = graphics_item.scene
-		return unless scene
-		graphics_item.children.each do |child|
-		    scene.remove_item(child)
-		end
-		scene.remove_item(graphics_item)
+	    def display_parent; end
+	    def display_create(scene); end
+	    def display_events; [] end
+	    def display_name; name end
+	    def display(display, graphics_item)
 	    end
 	end
 	class Distributed::MarshalledEventGenerator
-	    attr_reader :circle, :text
+	    def display_create(scene)
+		circle_rect = Qt::RectF.new -EVENT_CIRCLE_RADIUS, -EVENT_CIRCLE_RADIUS, EVENT_CIRCLE_RADIUS * 2, EVENT_CIRCLE_RADIUS * 2
+		circle = scene.add_ellipse(circle_rect)
+		text   = scene.add_text(display_name)
+		circle.brush = Qt::Brush.new(Qt::Color.new(EVENT_COLOR))
+		circle.singleton_class.class_eval { attr_accessor :text }
 
-	    def copy_from(old)
-		super
-		@circle = old.circle
-		@text   = old.text
-
-		if displayed? && (remote_name != old.remote_name)
-		    old_width = text.text_width
-		    text.plain_text = remote_name
-		    text.move_by((text.text_width - old_width) / 2, 0)
-		end
+		text.parent_item = circle
+		text_width   = text.bounding_rect.width
+		text.pos = Qt::PointF.new(-text_width / 2, 0)
+		circle.text = text
+		circle
 	    end
-
-	    def display_name; name end
-	    def display(scene)
-		unless graphics_item
-		    circle_rect = Qt::RectF.new -EVENT_CIRCLE_RADIUS, -EVENT_CIRCLE_RADIUS, EVENT_CIRCLE_RADIUS * 2, EVENT_CIRCLE_RADIUS * 2
-		    @circle = scene.add_ellipse(circle_rect)
-		    @text   = scene.add_text(display_name)
-		    circle.brush = Qt::Brush.new(Qt::Color.new(EVENT_COLOR))
-		    text.parent_item = circle
-		    text_width   = text.bounding_rect.width
-		    text.pos = Qt::PointF.new(-text_width / 2, 0)
-		    @graphics_item = circle
-		end
+	    def display(display, graphics_item)
+		text      = graphics_item.text
+		old_width = text.text_width
+		text.plain_text = display_name
+		text.move_by((text.text_width - old_width) / 2, 0)
 
 		super
-		graphics_item
 	    end
 	end
 
 	class Distributed::MarshalledTaskEventGenerator
-	    attr_writer :plan
-	    attr_writer :task
+	    def display_parent; task end
 	    def display_name; symbol.to_s end
 	end
+
 	class Distributed::MarshalledTask
-	    def events
-		@events ||= ValueSet.new
-	    end
-
-	    # The rectangle representing the task itself
-	    attr_reader :rect
-	    # The task name
-	    attr_reader :text
-
-	    def copy_from(old)
-		super
-		@events = old.events
-		@rect   = old.rect
-		@text   = old.text
-	    end
-
-	    def layout_events
+	    def layout_events(display)
 		width, height = 0, 0
 		height = 0
 		events.each do |e|
-		    e  = e.graphics_item
+		    e  = display[e]
 		    br = (e.bounding_rect | e.children_bounding_rect)
 		    w, h = br.width, br.height
 		    height = h if h > height
@@ -131,116 +74,83 @@ module Roby
 		width  += TASK_EVENT_SPACING * (events.size + 1)
 		height += TASK_EVENT_SPACING
 		coords = Qt::RectF.new -(width / 2), -(height / 2), width, height
-		rect.rect = coords
+
+		graphics_item = display[self]
+		graphics_item.rect = coords
 
 		x = -width  / 2 + TASK_EVENT_SPACING
 		events.each do |e|
-		    e  = e.graphics_item
+		    e  = display[e]
 		    br = (e.bounding_rect | e.children_bounding_rect)
 		    w  = br.width
 		    e.pos = Qt::PointF.new(x + w / 2, -br.height / 2 + EVENT_CIRCLE_RADIUS + TASK_EVENT_SPACING)
 		    x += w + TASK_EVENT_SPACING
 		end
 
+		text = graphics_item.text
 		text.pos = Qt::PointF.new(- text.bounding_rect.width / 2, height / 2 + TASK_EVENT_SPACING)
 	    end
 
 	    def to_s
-		"#{model.name}:0x#{Object.address_from_id(remote_object.__drbref).to_s(16)}"
+		model_name = if model.respond_to?(:remote_name)
+				 model.remote_name
+			     else
+				 model.name
+			     end
+
+		name = "#{model_name}:0x#{Object.address_from_id(remote_object.__drbref).to_s(16)}"
 	    end
 
 	    def display_name
-		name = "#{model.name}:0x#{Object.address_from_id(remote_object.__drbref).to_s(16)}"
+		name = to_s
 		unless arguments.empty?
 		    name += "\n " + arguments.map { |k, v| "#{k}: #{v}" }.join("\n ")
 		end
 		name
 	    end
-	    def display(scene)
-		unless graphics_item
-		    @rect = scene.add_rect Qt::RectF.new(0, 0, 0, 0)
-		    @text = scene.add_text display_name
-		    rect.brush = Qt::Brush.new(Qt::Color.new(TASK_COLOR[nil]))
-		    rect.pen = Qt::Pen.new(Qt::Color.new(TASK_COLOR[nil]))
-		    text.parent_item = rect
-		    @graphics_item   = rect
-		end
 
-		# Display events, and compute the maximum event height
-		events.each do |e| 
-		    item = e.display(scene)
-		    item.parent_item = graphics_item
-		end
-
-		super
-		layout_events
-		graphics_item
+	    def display_create(scene)
+		rect = scene.add_rect Qt::RectF.new(0, 0, 0, 0)
+		text = scene.add_text display_name
+		rect.brush = Qt::Brush.new(Qt::Color.new(TASK_COLOR[nil]))
+		rect.pen = Qt::Pen.new(Qt::Color.new(TASK_COLOR[nil]))
+		text.parent_item = rect
+		rect.singleton_class.class_eval { attr_accessor :text }
+		rect.text = text
+		rect
 	    end
-	    def remove_display
-		events.each do |e| 
-		    e.remove_display if e.graphics_item
-		end
+	    def display(display, graphics_item)
 		super
+		layout_events(display)
 	    end
 	end
 	class Distributed::MarshalledRemoteTransactionProxy
 	    include DirectedRelationSupport
-	    attr_reader :graphics_item
-	    def display(scene)
-	    end
-	    def copy_from(old)
-	    end
-	    def displayed?; false end
+
 	    def events; [] end
-	end
 
-	class Plan
-	    attr_reader   :remote_object
-	    attr_reader   :missions, :known_tasks, :free_events
-	    attr_reader   :transactions
-	    attr_accessor :root_plan
-	    def initialize(remote_object)
-		@root_plan    = true
-		@remote_object = remote_object
-		@missions     = ValueSet.new
-		@known_tasks  = ValueSet.new
-		@free_events  = ValueSet.new
-		@transactions = ValueSet.new
-	    end
-
-	    def display(scene)
-		known_tasks.each  { |t| t.display(scene) }
-		free_events.each  { |e| e.display(scene) }
-		transactions.each { |trsc| trsc.display(scene) }
-	    end
-
-	    def finalized_task(task)
-		missions.delete(task)
-		known_tasks.delete(task)
-	    end
-	    def finalized_event(event)
-		free_events.delete(event)
-	    end
-	    def removed_transaction(trsc)
-		transactions.delete(trsc)
-	    end
+	    def display_parent; end
+	    def display_name; name end
+	    def display_create(scene); end
+	    def display(display, graphics_item); end
 	end
 
 	class Qt::GraphicsScene
-	    def add_arrow(start_object, end_object, size, opening)
-		ellipse = add_ellipse Qt::RectF.new(- size / 2, - size / 2, size, size)
-		line    = add_line    Qt::LineF.new(-1, 0, 0, 0)
-		ellipse.start_angle = Integer((180 - opening) * 16)
-		ellipse.span_angle  = Integer(2 * opening * 16)
+	    def add_arrow(size)
+		polygon = Qt::PolygonF.new [
+			       Qt::PointF.new(0, 0),
+			       Qt::PointF.new(-size, size / 2),
+			       Qt::PointF.new(-size, -size / 2),
+			       Qt::PointF.new(0, 0)]
 
-		line.parent_item = ellipse
-		ellipse.singleton_class.class_eval do
-		    define_method(:line) { line }
-		end
-		if start_object && end_object
-		    Display.arrow_set ellipse, start_object, end_object
-		end
-		ellipse
+		ending = add_polygon polygon, Qt::Pen.new(ARROW_COLOR), Qt::Brush.new(ARROW_COLOR)
+		line   = add_line    Qt::LineF.new(-1, 0, 0, 0)
+		STDERR.puts "ADD #{ending}"
+
+		line.parent_item = ending
+		ending.singleton_class.class_eval { attr_accessor :line }
+		ending.line = line
+		ending
 	    end
 	end
 
@@ -285,172 +195,131 @@ module Roby
 	    arrow.rotate alpha
 	end
 
-	class Relations < Qt::Object
+	class RelationsDisplay < Qt::Object
 	    def splat?; true end
-	    attr_reader :plans
-
-	    attr_reader :tasks
-	    attr_reader :events
-
+	    attr_accessor :builder
+	    attr_reader :graphics
+	    attr_reader :arrows
 	    attr_reader :view, :scene
+
 	    def initialize
 		super()
-		@scene = Qt::GraphicsScene.new
-		@view  = Qt::GraphicsView.new(scene)
-		@plans  = Hash.new
-		@tasks  = Hash.new
-		@events = Hash.new
+
+		@scene   = Qt::GraphicsScene.new
+		@view    = Qt::GraphicsView.new(scene)
+		@graphics = Hash.new
+		@arrows = Hash.new
 		@enabled_relations = Set.new
+		@relation_colors = Hash.new
+		@current_color = 0
 
 		view.resize 500, 500
+	    end
+	    def [](item); graphics[item.remote_object] end
+	    def arrow(from, to, info)
+		id = [from.remote_object, to.remote_object]
+		unless item = arrows[id]
+		    item = (arrows[id] ||= scene.add_arrow(ARROW_SIZE))
+		    item.z_value = 1
+		end
+		Log.arrow_set item, self[from], self[to]
+	    end
+
+	    COLORS = %w{'black' #800000 #008000 #000080 #C05800 #6633FF #CDBE70 #CD8162 #A2B5CD}
+	    attr_reader :current_color
+	    # returns the next color in COLORS, cycles if at the end of the array
+	    def allocate_color
+		@current_color = (current_color + 1) % COLORS.size
+		COLORS[current_color]
 	    end
 
 	    attr_reader :enabled_relations
 	    def relation_enabled?(relation)
 		@enabled_relations.include?(relation)
 	    end
+	    attr_reader :relation_colors
 	    def relation_color(relation)
-		Qt::Color.new('black')
+		relation_colors[relation] ||= allocate_color
 	    end
 
-	    def local_plan(plan)
-		return unless plan
-		@plans[plan.remote_object] ||= Plan.new(plan.remote_object)
-	    end
-
-	    def local_object(set, marshalled)
-		marshalled = Log::Display.update_marshalled(set, marshalled)
-		plan = if marshalled.respond_to?(:transaction)
-			   local_plan(marshalled.transaction)
-		       else
-			   local_plan(marshalled.plan)
-		       end
-		if plan
-		    yield(plan) if block_given?
+	    def displayed?(object)
+		if item = graphics[object.remote_object]
+		    graphics[object.remote_object].visible?
 		end
-		marshalled
-	    end
-
-	    def local_task(task); local_object(tasks, task) end
-	    def local_event(event)
-		if event.respond_to?(:task)
-		    task = local_task(event.task)
-		    event.task = task
-		    event.plan = task.plan
-		    event = local_object(events, event)
-		    task.events << event
-		    event
-		else
-		    local_object(events, event) 
-		end
-	    end
-	    def inserted_tasks(time, plan, task)
-		local_plan(plan).missions << task.remote_object
-	    end
-	    def discarded_tasks(time, plan, task)
-		local_plan(plan).missions.delete(task.remote_object)
-	    end
-	    def replaced_tasks(time, plan, from, to)
-	    end
-	    def discovered_events(time, plan, events)
-		plan = local_plan(plan)
-		events.each { |ev| plan.free_events << local_event(ev) }
-	    end
-	    def discovered_tasks(time, plan, tasks)
-		plan = local_plan(plan)
-		tasks.each { |t| plan.known_tasks << local_task(t) }
-	    end
-	    def garbage_task(time, plan, task)
-	    end
-	    def finalized_event(time, plan, event)
-		event = local_event(event)
-		local_plan(plan).finalized_event(event)
-		if obj = events.delete(event.remote_object)
-		    obj.remove_display if obj.graphics_item
-		end
-	    end
-	    def finalized_task(time, plan, task)
-		task = local_task(task)
-		local_plan(plan).finalized_task(task)
-		if obj = tasks.delete(task.remote_object)
-		    obj.remove_display if obj.graphics_item
-		end
-	    end
-	    def added_transaction(time, plan, trsc)
-		plan = local_plan(plan)
-		trsc = local_plan(trsc)
-		plan.transactions << trsc
-		trsc.root_plan = false
-	    end
-	    def removed_transaction(time, plan, trsc)
-		plan = local_plan(plan)
-		plans.delete(trsc)
-		trsc = local_plan(trsc)
-
-		plan.transactions.delete(trsc)
-		# Removed tasks and proxies that have been moved from the
-		# transaction to the plan before clearing the transaction
-		plan.known_tasks.each do |obj|
-		    trsc.known_tasks.delete(obj)
-		end
-		plan.free_events.each do |obj|
-		    trsc.free_events.delete(obj)
-		end
-	    end
-
-	    def added_task_child(time, parent, rel, child, info)
-		parent = local_task(parent)
-		child  = local_task(child)
-		parent.add_child_object(child, rel, [info, nil])
-	    end
-	    def removed_task_child(time, parent, rel, child)
-		parent = local_task(parent)
-		child  = local_task(child)
-		_, arrow = parent[child, rel]
-		if arrow
-		    arrow.scene.remove_item(arrow)
-		end
-		parent.remove_child_object(child, rel)
-	    end
-	    def added_event_child(time, parent, rel, child, info)
-		parent = local_event(parent)
-		child  = local_event(child)
-		STDERR.puts [parent.object_id, child.object_id].to_s
-		parent.add_child_object(child, rel, [info, nil])
-	    end
-	    def removed_event_child(time, parent, rel, child)
-		parent = local_event(parent)
-		child  = local_event(child)
-		STDERR.puts [parent.object_id, child.object_id].to_s
-		_, arrow = parent[child, rel]
-		if arrow
-		    arrow.scene.remove_item(arrow)
-		end
-		parent.remove_child_object(child, rel)
-	    end
-
-	    def [](remote_id)
-		objects[remote_id]
 	    end
 	    def display
-		plans.find_all { |_, p| p.root_plan }.
-		    each do |_, p|
-			p.display(scene)
-			Layout.new.layout(p, 1)
+		builder.tasks.each_value  { |task| graphics[task.remote_object] ||= task.display_create(scene) }
+		builder.events.each_value do |event| 
+		    unless item = graphics[event.remote_object] 
+			item = graphics[event.remote_object] ||= event.display_create(scene)
+			item.parent_item = self[event.display_parent] if event.display_parent
 		    end
+		end
+		builder.tasks.each_value  { |task| task.display(self, graphics[task.remote_object]) }
+		builder.events.each_value { |event| event.display(self, graphics[event.remote_object]) }
+
+		builder.plans.find_all { |_, p| p.root_plan }.
+		    each { |_, p| Layout.new.layout(self, p, 1) }
+	    end
+
+	    def remove_graphics(item, scene = nil)
+		return unless item
+		scene ||= item.scene
+		item.children.each do |child|
+		    remove_graphics(child, scene)
+		end
+		scene.remove_item(item)
+	    end
+	    def removed_task_child(time, parent, rel, child)
+		remove_graphics(arrows.delete([parent.remote_object, child.remote_object]))
+	    end
+	    def removed_event_child(time, parent, rel, child)
+		remove_graphics(arrows.delete([parent.remote_object, child.remote_object]))
+	    end
+	    def clear_arrows(object)
+		arrows.delete_if do |(from, to), arrow|
+		    if from == object || to == object
+			remove_graphics(arrow)
+			true
+		    end
+		end
+	    end
+	    def finalized_event(time, plan, event)
+		event = event.remote_object
+		remove_graphics(graphics.delete(event))
+		clear_arrows(event)
+	    end
+	    def finalized_task(time, plan, task)
+		task = task.remote_object
+		remove_graphics(graphics.delete(task))
+		clear_arrows(task)
 	    end
 
 	    def cycle_end(time, timings)
-		time_to_s = timings[:start].to_hms
-		if time_to_s == "325455:57:55.020"
-		    raise EOFError
-		end
-
-		STDERR.puts time_to_s
 		display
-		Qt::Application.instance.process_events
+	    end
+
+	    def clear
+		builder.clear
+		arrows.each_value(&method(:remove_graphics))
+		graphics.each_value(&method(:remove_graphics))
 	    end
 	end
     end
+end
+
+
+if $0 == __FILE__
+    require 'roby/log/file'
+    include Roby::Log
+    app     = Qt::Application.new(ARGV)
+    builder = PlanRebuild.new
+    rel     = RelationsDisplay.new(builder)
+    rel.view.show
+    Roby::Log.replay(ARGV[0]) do |method_name, method_args|
+	builder.send(method_name, *method_args) if builder.respond_to?(method_name)
+	rel.send(method_name, *method_args) if rel.respond_to?(method_name)
+    end
+    app.exec
 end
 

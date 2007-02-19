@@ -48,7 +48,37 @@ module Roby::Log
 	    require 'roby/log/relations'
 	    require 'roby/log/execution-state'
 	end
-    end
 
+	def open(file)
+	    if file =~ /\.gz$/
+		require 'zlib'
+		require 'roby/log/file'
+		Zlib::GzipReader.open(file)
+	    elsif file =~ /\.db$/
+		raise NotImplementedError
+	    else
+		require 'roby/log/file'
+		File.open(file)
+	    end
+	end
+
+	def replay(file, &block)
+	    if file =~ /\.gz$/
+		require 'zlib'
+		require 'roby/log/file'
+		Zlib::GzipReader.open(file) do |io|
+		    FileLogger.replay(io, &block)
+		end
+	    elsif file =~ /\.db$/
+		require 'roby/log/sqlite'
+		SQLiteLogger.replay(file, &block)
+	    else
+		require 'roby/log/file'
+		File.open(file) do |io|
+		    FileLogger.replay(io, &block)
+		end
+	    end
+	end
+    end
 end
 

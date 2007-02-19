@@ -14,13 +14,13 @@ module Roby::Marshallable
 end
 
 module Roby
-    module Log::Display
+    module Log
 	Marshallable = Roby::Marshallable
 	class Plan
 	    attr_accessor :layout_level
-	    def all_events
+	    def all_events(display)
 		known_tasks.inject(free_events.dup) do |events, task|
-		    if task.displayed?
+		    if display.displayed?(task)
 			events.merge(task.events)
 		    else
 			events
@@ -28,37 +28,37 @@ module Roby
 		end
 	    end
 
-	    def to_dot(io, level)
+	    def to_dot(display, io, level)
 		@layout_level = level
 		id = io.layout_id(self)
 		io << "subgraph cluster_plan_#{id} {\n"
-		known_tasks.each { |t| t.to_dot(io) }
-		free_events.each { |e| e.to_dot(io) }
+		known_tasks.each { |t| t.to_dot(display, io) }
+		free_events.each { |e| e.to_dot(display, io) }
 		io << "};\n"
 
 		transactions.each do |trsc|
-		    trsc.to_dot(io, level + 1)
+		    trsc.to_dot(display, io, level + 1)
 		end
 
-		relations_to_dot(io, TaskStructure, known_tasks)
-		relations_to_dot(io, EventStructure, all_events)
+		relations_to_dot(display, io, TaskStructure, known_tasks)
+		relations_to_dot(display, io, EventStructure, all_events(display))
 	    end
 
-	    def each_displayed_relation(space, objects)
+	    def each_displayed_relation(display, space, objects)
 		space.relations.each do |rel|
 		    objects.each do |from|
-			next unless from.displayed?
+			next unless display.displayed?(from)
 
 			from.each_child_object(rel) do |to|
-			    next unless to.displayed?
+			    next unless display.displayed?(to)
 			    yield(rel, from, to)
 			end
 		    end
 		end
 	    end
 
-	    def relations_to_dot(io, space, objects)
-		each_displayed_relation(space, objects) do |rel, from, to|
+	    def relations_to_dot(display, io, space, objects)
+		each_displayed_relation(display, space, objects) do |rel, from, to|
 		    from_id = from.dot_id
 		    to_id   = to.dot_id
 		    if from_id && to_id
@@ -69,26 +69,20 @@ module Roby
 		end
 	    end
 
-	    def layout_relations(positions, space, objects)
-		each_displayed_relation(space, objects) do |rel, from, to|
-		    data, arrow = from[to, rel]
-		    if arrow
-			Display.arrow_set arrow, from.graphics_item, to.graphics_item
-			arrow.show
-		    else
-			STDERR.puts "No arrow for #{from} -> #{to} in #{rel}"
-		    end
+	    def layout_relations(positions, display, space, objects)
+		each_displayed_relation(display, space, objects) do |rel, from, to|
+		    display.arrow(from, to, from[to, rel])
 		end
 	    end
 	    
-	    def apply_layout(positions)
-		known_tasks.each { |t| t.apply_layout(positions) }
-		free_events.each { |e| e.apply_layout(positions) }
+	    def apply_layout(positions, display)
+		known_tasks.each { |t| t.apply_layout(positions, display) }
+		free_events.each { |e| e.apply_layout(positions, display) }
 		transactions.each do |trsc|
-		    trsc.apply_layout(positions)
+		    trsc.apply_layout(positions, display)
 		end
-		layout_relations(positions, TaskStructure, known_tasks)
-		layout_relations(positions, EventStructure, all_events)
+		layout_relations(positions, display, TaskStructure, known_tasks)
+		layout_relations(positions, display, EventStructure, all_events(display))
 	    end
 	end
 
@@ -96,17 +90,17 @@ module Roby
 	    attr_reader :dot_id
 
 	    # Adds the dot definition for this object in +io+
-	    def to_dot(io)
-		return unless displayed?
+	    def to_dot(display, io)
+		return unless display.displayed?(self)
 		@dot_id = io.layout_id(self)
 		io << "  #{dot_id}[label=\"#{display_name.split("\n").join('\n')}\"];\n"
 	    end
 
 	    # Applys the layout in +positions+ to this particular object
-	    def apply_layout(positions)
-		return unless displayed?
+	    def apply_layout(positions, display)
+		return unless display.displayed?(self)
 		if p = positions[dot_id]
-		    graphics_item.pos = p
+		    display[self].pos = p
 		else
 		    STDERR.puts "WARN: #{self} has not been layouted"
 		end
@@ -121,8 +115,8 @@ module Roby
 
 	class Distributed::MarshalledRemoteTransactionProxy
 	    def dot_id; end
-	    def to_dot(io); end
-	    def apply_layout(positions); end
+	    def to_dot(display, io); end
+	    def apply_layout(positions, display); end
 	end
 
 	class Layout
@@ -141,7 +135,7 @@ module Roby
 	    attr_reader :dot_input
 
 	    def <<(string); dot_input << string end
-	    def layout(plan, scale)
+	    def layout(display, plan, scale)
 		# Dot input file
 		@dot_input  = Tempfile.new("roby_dot")
 		# Dot output file
@@ -152,13 +146,14 @@ module Roby
 		#       "  nslimit=4.0;\n" +
 		#       "  fslimit=4.0;\n"
 
-		plan.to_dot(self, 0)
+		plan.to_dot(display, self, 0)
 		dot_input << "\n};"
 		dot_input.flush
 		FileUtils.cp(dot_input.path, "/tmp/dot_layout.input.#{@@bkpindex += 1}")
 		system("dot #{dot_input.path} > #{dot_output.path}")
 		FileUtils.cp(dot_output.path, "/tmp/dot_layout.output.#{@@bkpindex}")
 
+		xmin, ymin = 1024, 1024
 		# Load only task bounding boxes from dot, update arrows later
 		graph_bb   = nil
 		object_pos = Hash.new
@@ -175,18 +170,24 @@ module Roby
 		    case full_line
 		    when /([^\s]+_\d+) \[.*pos="(\d+),(\d+)"/
 			x, y = Integer($2), Integer($3)
-			object_pos[$1] = Qt::PointF.new(x * scale, y * scale)
+			xmin = x if x < xmin
+			ymin = y if y < ymin
+			object_pos[$1] = Qt::PointF.new(x, y)
 		    when /bb="(\d+),(\d+),(\d+),(\d+)"/
 			bb = [$1, $2, $3, $4].map(&method(:Integer))
 			if !graph_bb
-			    graph_bb = bb.map { |i| i * scale }
+			    graph_bb = bb
 			end
 		    end
 		    full_line = ""
 		end
 		return unless graph_bb
 
-		plan.apply_layout(object_pos)
+		object_pos.each do |id, pos|
+		    pos.x -= xmin
+		    pos.y -= ymin
+		end
+		plan.apply_layout(object_pos, display)
 
 	    ensure
 		dot_input.close!  if dot_input

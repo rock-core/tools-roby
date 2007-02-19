@@ -271,7 +271,8 @@ module Roby
 		    parent_model = local_model(ancestors)
 		    model = Class.new(parent_model) do
 			singleton_class.class_eval do
-			    define_method(:name) { "AnonModel(#{name})" }
+			    define_method(:remote_name) { name }
+			    define_method(:name) { "AnonModel(#{remote_name})" }
 			end
 		    end
 		    @@remote_to_local[id] = model

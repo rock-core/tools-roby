@@ -1,46 +1,71 @@
+require 'roby'
+Roby.load_all_relations
+
 require 'optparse'
 gui  = true
+play_now = false
+initial_displays = []
+basedir = nil
+
 parser = OptionParser.new do |opt|
-    opt.on("--[no-]gui", "display events on console or use GUI") { |gui| }
+    opt.on("--[no-]gui", "do (not) use a GUI") { |gui| }
+    opt.on("--basedir=DIR", String, "the log directory in which we initialize the data sources") do |basedir| end
+    opt.on("--relations=REL1,REL2", Array, "create a relation display with the given relations") do |relations|
+	relations = relations.map do |relname|
+	    if rel = Roby::TaskStructure.const_get(relname) rescue nil
+		rel
+	    elsif rel = Roby::EventStructure.const_get(relname) rescue nil
+		rel
+	    else
+		STDERR.puts "Unknown relation #{relname}. Available relations are:"
+		STDERR.puts "  Tasks: " + Roby::TaskStructure.enum_for(:each_relation).map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
+		STDERR.puts "  Events: " + Roby::EventStructure.enum_for(:each_relation).map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
+		exit(1)
+	    end
+	end
+
+	initial_displays << lambda do |gui|
+	    relation_display = gui.add_display('Relations')
+	    relations.each do |rel|
+		relation_display.enabled_relations << rel
+	    end
+	end
+    end
+    opt.on("--play", "start playing after loading the event log") do |play_now| end
 end
 parser.parse!(ARGV)
-file = ARGV.shift
 
 require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app-run.rb')
 config = Roby.app
 
 module Roby::Log
-    def self.open(file, &block)
-	if file =~ /\.gz$/
-	    Zlib::GzipReader.open(file, &block)
-	else
-	    File.open(file, &block)
-	end
-    end
 end
 
 require 'roby/log/file'
-require 'roby/log/relations'
-require 'Qt4'
-
 unless gui
     require 'roby/log/console'
-
     Roby::Log.loggers << Roby::Log::ConsoleLogger.new(STDOUT)
-    Roby::Log.open(file, &Roby::Log::FileLogger.method(:replay))
+    Roby::Log.replay(file) do |method, args|
+	Roby::Log.log(method, args)
+    end
     exit
 end
 
-require 'roby/log/relations'
-include Roby::Log
-app = Qt::Application.new(ARGV)
-    require 'roby/log/console'
-    Roby::Log.loggers << Roby::Log::ConsoleLogger.new(STDOUT)
-relation_display = Display::Relations.new
-Roby::Log.loggers << relation_display
+require 'roby/log/gui/replay'
+app  = Qt::Application.new(ARGV)
+main = Replay.new
+initial_displays.each do |prc|
+    prc.call(main)
+end
 
-# app.main_widget = relation_display.view
-relation_display.view.show
-Roby::Log.open(file, &Roby::Log::FileLogger.method(:replay))
+sources = Roby.app.data_sources(basedir)
+sources.each do |source|
+    main.add_source(source)
+end
+
+main.show
+if play_now
+    main.play
+end
 app.exec
 

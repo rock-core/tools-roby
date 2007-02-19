@@ -13,6 +13,7 @@ roby:
         - scripts/distributed
         - scripts/run
         - scripts/shell
+        - scripts/replay
         - planners/main.rb
 
     # Files that are added for each robot creation

@@ -11,5 +11,5 @@ require 'test_realized_by'
 
 require 'test_control'
 require 'test_control_interface'
-require 'test_log'
+#require 'test_log'
 

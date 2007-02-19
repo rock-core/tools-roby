@@ -8,15 +8,12 @@ module Ui
 	COL_NAME    = 0
 	COL_COLOR   = 1
 
-	COLORS = %w{'black' #800000 #008000 #000080 #C05800 #6633FF #CDBE70 #CD8162 #A2B5CD}
-	attr_reader :current_color
-	# returns the next color in COLORS, cycles if at the end of the array
-	def allocate_color
-	    @current_color = (current_color + 1) % COLORS.size
-	    COLORS[current_color]
-	end
-
+	TASK_ROOT_INDEX  = 0
+	EVENT_ROOT_INDEX = 1
 	CATEGORIES = ['Task structure', 'Event structure']
+
+	def event_root_index; create_index(TASK_ROOT_INDEX, 0, -1) end
+	def task_root_index; create_index(EVENT_ROOT_INDEX, 0, -1) end
 
 	attr_reader :relations
 	attr_reader :display
@@ -28,8 +25,10 @@ module Ui
 	    @display   = display
 	    @relations = []
 
-	    relations[1] = Roby::EventStructure.enum_for(:each_relation).map { |rel| [rel, allocate_color] }
-	    relations[0] = Roby::TaskStructure.enum_for(:each_relation).map { |rel| [rel, allocate_color] }
+	    relations[EVENT_ROOT_INDEX] = Roby::EventStructure.enum_for(:each_relation).
+		map { |rel| [rel, display.relation_color(rel)] }
+	    relations[TASK_ROOT_INDEX] = Roby::TaskStructure.enum_for(:each_relation).
+		map { |rel| [rel, display.relation_color(rel)] }
 	end
 
 	def index(row, column, parent)
@@ -136,15 +135,23 @@ module Ui
 	attr_reader :current_color
 	attr_reader :relation_color
 	attr_reader :relation_item
-	def setupUi(widget)
+	attr_reader :model
+	attr_reader :delegate
+	def setupUi(main, widget)
 	    super(widget)
 
-	    display   = Roby::Log::Display::Relations.new
+	    display   = Roby::Log::RelationsDisplay.new
 	    @model    = RelationConfigModel.new(display)
 	    @delegate = RelationDelegate.new
-	    lst_relations.set_item_delegate @delegate
-	    lst_relations.header.resize_mode = Qt::HeaderView::Stretch
-	    lst_relations.model = @model
+	    relations.set_item_delegate @delegate
+	    relations.header.resize_mode = Qt::HeaderView::Stretch
+	    relations.model = @model
+	    relations.set_expanded model.task_root_index, true
+	    relations.set_expanded model.event_root_index, true
+
+	    @sources_model = FilteredDataSourceListModel.new('roby-events', main.sources_model.sources)
+	    @sources_model.source_model = main.sources_model
+	    source.model = @sources_model
 
 	    display
 	end
