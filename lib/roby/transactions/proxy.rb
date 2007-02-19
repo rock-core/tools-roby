@@ -75,7 +75,7 @@ module Roby::Transactions
 	def pretty_print(pp)
 	    disable_proxying { super }
 	end
-	def proxying?; plan.proxying? end
+	def proxying?; plan && plan.proxying? end
 
 	def discovered?(relation, written)
 	    return false if @discovered.empty?
