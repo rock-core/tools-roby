@@ -66,7 +66,8 @@ module Ui
 		    else
 			relation = relations[category][index.row]
 			if index.column == COL_NAME && role == Qt::CheckStateRole
-			    if display.relation_enabled?(relation) then Qt::Checked.to_i
+			    if    display.relation_enabled?(relation) then Qt::Checked.to_i
+			    elsif display.layout_relation?(relation)  then Qt::PartiallyChecked.to_i
 			    else Qt::Unchecked.to_i
 			    end
 			elsif index.column == COL_NAME && role == Qt::DisplayRole
@@ -84,10 +85,13 @@ module Ui
 	    category = index.internal_id
 	    relation = relations[category][index.row]
 	    if role == Qt::CheckStateRole
-		if value.to_i == Qt::Checked.to_i
+		case value.to_i
+		when Qt::Checked.to_i
 		    display.enable_relation(relation)
+		when Qt::PartiallyChecked.to_i
+		    display.layout_relation(relation)
 		else
-		    display.disable_relation(relation)
+		    display.ignore_relation(relation)
 		end
 	    else
 		display.update_relation_color(relation, value.to_string)
@@ -98,7 +102,7 @@ module Ui
 	def flags(index)
 	    if !index.valid? || index.internal_id == -1 then Qt::ItemIsEnabled 
 	    else 
-		flags = Qt::ItemIsSelectable | Qt::ItemIsUserCheckable | Qt::ItemIsEnabled
+		flags = Qt::ItemIsSelectable | Qt::ItemIsTristate | Qt::ItemIsEnabled | Qt::ItemIsUserCheckable
 		if index.column == 1
 		    flags = Qt::ItemIsEditable | flags
 		end

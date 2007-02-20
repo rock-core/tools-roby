@@ -105,6 +105,9 @@ module Roby
 		@next_step = Array.new
 
 		prepare_seek(nil)
+		while next_step.size == 1
+		    read_step
+		end
 	    end
 	    def clear
 		super
@@ -137,14 +140,15 @@ module Roby
 	    end
 	    
 	    def current_time;  next_step.first[1][0] unless next_step.empty? end
-	    def next_step_time; next_step.last[1][0] unless next_step.empty? end
+	    def next_step_time
+		next_step.last[1][0] unless next_step.empty? 
+	    end
 	    def last_time; nil end
 	    def advance
 		next_step.each do |name, args|
 		    send(name, *args) if respond_to?(name)
 		    displays.each { |d| d.send(name, *args) if d.respond_to?(name) }
 		end
-		displays.each { |d| d.update }
 		read_step
 	    end
 

@@ -129,10 +129,14 @@ class Replay < Qt::MainWindow
 	seek_start
     end
 
+    def displayed_sources
+	sources.find_all { |s| !s.displays.empty? }
+    end
+
     attr_reader :first_sample
     def seek_start
 	@time = nil
-	sources.each { |s| s.prepare_seek(nil) }
+	displayed_sources.each { |s| s.prepare_seek(nil) }
 	@first_sample = time
 	ui.time_lcd.display 0
     end
@@ -140,11 +144,15 @@ class Replay < Qt::MainWindow
 
     def allocate_display_number; @display_number += 1 end
     def time
-	new_time = sources.map { |s| s.next_step_time }.compact.min
-	@first_sample ||= new_time
-	@time ||= new_time
+	@time ||= next_step_time
+	@first_sample ||= @time
+	@time
     end
-    def next_step_time; sources.map { |s| s.next_step_time }.compact.min end
+    def next_step_time
+	displayed_sources.
+	    map { |s| s.next_step_time }.
+	    compact.min 
+    end
 
     BASE_STEP = 0.5
     attr_reader :play_timer, :play_speed
@@ -165,17 +173,21 @@ class Replay < Qt::MainWindow
     end
     slots 'stop()'
 
-    def play_step; play_until(next_step_time) end
+    def play_step
+       	play_until(next_step_time) 
+    end
     slots 'play_step()'
 
     def play_step_timer
+	STDERR.puts time
        	play_until(time + BASE_STEP * play_speed) 
     end
     slots 'play_step_timer()'
     
     def play_until(max_time)
-	sources.inject(timeline = []) do |timeline, s| 
-	    if s.next_step_time && !s.displays.empty?
+	start_time = @time
+	displayed_sources.inject(timeline = []) do |timeline, s| 
+	    if s.next_step_time
 		timeline << [s.next_step_time, s]
 	    end
 	    timeline
@@ -199,11 +211,15 @@ class Replay < Qt::MainWindow
 	    end
 	end
 
-	ui.time_lcd.display(time - first_sample)
-
-	if timeline.empty?
-	    stop
+	displayed_sources.each do |source|
+	    source.displays.each { |d| d.update }
 	end
+
+	if timeline.empty? then stop
+	else @time = max_time
+	end
+
+	ui.time_lcd.display(time - first_sample)
     end
 
     def add_source(source = nil)

@@ -35,7 +35,9 @@ module Roby
 		id = io.layout_id(self)
 		io << "subgraph cluster_plan_#{id} {\n"
 		known_tasks.each { |t| t.to_dot(display, io) }
-		free_events.each { |e| e.to_dot(display, io) }
+		if display.display_events?
+		    free_events.each { |e| e.to_dot(display, io) }
+		end
 		io << "};\n"
 
 		transactions.each do |trsc|
@@ -188,7 +190,7 @@ module Roby
 
 		object_pos.each do |id, pos|
 		    pos.x -= xmin
-		    pos.y -= ymin
+		    pos.y = graph_bb[1] - pos.y + ymin
 		end
 		plan.apply_layout(object_pos, display)
 

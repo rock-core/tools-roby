@@ -2,21 +2,23 @@ require 'Qt4'
 require 'roby/distributed/protocol'
 require 'roby/log/dot'
 require 'roby/log/rebuild'
+require 'roby/log/gui/relations_view'
 
 module Roby
     module Log
 	EVENT_CIRCLE_RADIUS = 3
 	TASK_EVENT_SPACING  = 5
+	DEFAULT_TASK_WIDTH = 20
+	DEFAULT_TASK_HEIGHT = 10
 	ARROW_COLOR   = Qt::Color.new('black')
 	ARROW_OPENING = 30
 	ARROW_SIZE    = 10
 
-	TASK_COLOR = {
-	    nil        => '#6DF3FF',
-	    :start     => '#B0FFA6',
-	    :success   => '#E2E2E2',
-	    :failed    => '#E2A8A8',
-	    :finalized => '#000000'
+	TASK_COLORS = {
+	    :pending  => Qt::Color.new('#6DF3FF'),
+	    :started  => Qt::Color.new('#B0FFA6'),
+	    :success  => Qt::Color.new('#E2E2E2'),
+	    :failed   => Qt::Color.new('#E2A8A8')
 	}
 	TASK_NAME_COLOR = 'black'
 	TASK_FONTSIZE = 10
@@ -28,7 +30,7 @@ module Roby
 	    def display_parent; end
 	    def display_create(scene); end
 	    def display_events; [] end
-	    def display_name; name end
+	    def display_name; remote_name end
 	    def display(display, graphics_item)
 	    end
 	end
@@ -63,31 +65,35 @@ module Roby
 
 	class Distributed::MarshalledTask
 	    def layout_events(display)
-		width, height = 0, 0
-		height = 0
-		events.each do |e|
-		    e  = display[e]
-		    br = (e.bounding_rect | e.children_bounding_rect)
-		    w, h = br.width, br.height
-		    height = h if h > height
-		    width += w
-		end
-		width  += TASK_EVENT_SPACING * (events.size + 1)
-		height += TASK_EVENT_SPACING
-		coords = Qt::RectF.new -(width / 2), -(height / 2), width, height
-
 		graphics_item = display[self]
-		graphics_item.rect = coords
 
-		x = -width  / 2 + TASK_EVENT_SPACING
-		events.each do |e|
-		    e  = display[e]
-		    br = (e.bounding_rect | e.children_bounding_rect)
-		    w  = br.width
-		    e.pos = Qt::PointF.new(x + w / 2, -br.height / 2 + EVENT_CIRCLE_RADIUS + TASK_EVENT_SPACING)
-		    x += w + TASK_EVENT_SPACING
+		width, height = 0, 0
+		if display.display_events?
+		    events.each do |e|
+			e  = display[e]
+			br = (e.bounding_rect | e.children_bounding_rect)
+			w, h = br.width, br.height
+			height = h if h > height
+			width += w
+		    end
+		    width  += TASK_EVENT_SPACING * (events.size + 1)
+		    height += TASK_EVENT_SPACING
+
+		    x = -width  / 2 + TASK_EVENT_SPACING
+		    events.each do |e|
+			e  = display[e]
+			br = (e.bounding_rect | e.children_bounding_rect)
+			w  = br.width
+			e.pos = Qt::PointF.new(x + w / 2, -br.height / 2 + EVENT_CIRCLE_RADIUS + TASK_EVENT_SPACING)
+			x += w + TASK_EVENT_SPACING
+		    end
+		else
+		    width = DEFAULT_TASK_WIDTH
+		    height = DEFAULT_TASK_HEIGHT
 		end
 
+		coords = Qt::RectF.new -(width / 2), -(height / 2), width, height
+		graphics_item.rect = coords
 		text = graphics_item.text
 		text.pos = Qt::PointF.new(- text.bounding_rect.width / 2, height / 2 + TASK_EVENT_SPACING)
 	    end
@@ -103,24 +109,37 @@ module Roby
 	    end
 
 	    def display_name
-		name = to_s
-		unless arguments.empty?
-		    name += "\n " + arguments.map { |k, v| "#{k}: #{v}" }.join("\n ")
-		end
-		name
+		model_name = if model.respond_to?(:remote_name)
+				 model.remote_name
+			     else model.name
+			     end
+
+		"#{model_name}\n0x#{Object.address_from_id(remote_object.__drbref).to_s(16)}"
+		#unless arguments.empty?
+		#    name += "\n " + arguments.map { |k, v| "#{k}: #{v}" }.join("\n ")
+		#end
 	    end
 
 	    def display_create(scene)
 		rect = scene.add_rect Qt::RectF.new(0, 0, 0, 0)
 		text = scene.add_text display_name
-		rect.brush = Qt::Brush.new(Qt::Color.new(TASK_COLOR[nil]))
-		rect.pen = Qt::Pen.new(Qt::Color.new(TASK_COLOR[nil]))
+		rect.brush = Qt::Brush.new(TASK_COLORS[:pending])
+		rect.pen = Qt::Pen.new(TASK_COLORS[:pending])
 		text.parent_item = rect
 		rect.singleton_class.class_eval { attr_accessor :text }
 		rect.text = text
 		rect
 	    end
 	    def display(display, graphics_item)
+		if flags[:finished]
+		    if flags[:success]
+			graphics_item.brush = Qt::Brush.new(TASK_COLORS[:success])
+		    else
+			graphics_item.brush = Qt::Brush.new(TASK_COLORS[:failed])
+		    end
+		elsif flags[:started]
+		    graphics_item.brush = Qt::Brush.new(TASK_COLORS[:started])
+		end
 		super
 		layout_events(display)
 	    end
@@ -200,21 +219,29 @@ module Roby
 	    attr_accessor :data_source
 	    attr_reader :graphics
 	    attr_reader :arrows
-	    attr_reader :view, :scene
+	    attr_reader :ui, :scene
+	    def view; ui.graphics end
 
 	    def initialize
+		@scene = Qt::GraphicsScene.new
 		super()
 
-		@scene   = Qt::GraphicsScene.new
-		@view    = Qt::GraphicsView.new(scene)
+		@main_widget = Qt::Widget.new
+		@ui    = Ui::RelationsView.new
+		ui.setupUi(@main_widget)
+		@main_widget.show
+		view.scene = scene
+		
 		@graphics = Hash.new
 		@arrows = Hash.new
 		@enabled_relations = Set.new
+		@layout_relations = Set.new
 		@relation_colors = Hash.new
 		@current_color = 0
 
 		view.resize 500, 500
 	    end
+
 	    def [](item); graphics[item.remote_object] end
 	    def arrow(from, to, rel, info)
 		id = [from.remote_object, to.remote_object, rel]
@@ -236,9 +263,9 @@ module Roby
 		COLORS[current_color]
 	    end
 
-	    def relation_enabled?(relation)
-		@enabled_relations.include?(relation)
-	    end
+	    def relation_enabled?(relation); @enabled_relations.include?(relation) end
+	    def layout_relation?(relation); relation_enabled?(relation) || @layout_relations.include?(relation) end
+
 	    def enable_relation(relation)
 		return if relation_enabled?(relation)
 		@enabled_relations << relation
@@ -249,6 +276,17 @@ module Roby
 		    end
 		end
 	    end
+
+	    attr_reader :enabled_relations
+	    def layout_relation(relation)
+		disable_relation(relation)
+		@layout_relations << relation
+	    end
+	    def ignore_relation(relation)
+		disable_relation(relation)
+		@layout_relations.delete(relation)
+	    end
+
 	    def disable_relation(relation)
 		return unless relation_enabled?(relation)
 		@enabled_relations.delete(relation)
@@ -282,12 +320,21 @@ module Roby
 		    graphics[object.remote_object].visible?
 		end
 	    end
+	    def display_events?
+		enabled_relations.find { |rel| rel.name =~ /EventStructure/ }
+	    end
+
 	    def update
 		data_source.tasks.each_value  { |task| graphics[task.remote_object] ||= task.display_create(scene) }
+
 		data_source.events.each_value do |event| 
 		    unless item = graphics[event.remote_object] 
-			item = graphics[event.remote_object] ||= event.display_create(scene)
+			item = (graphics[event.remote_object] ||= event.display_create(scene))
 			item.parent_item = self[event.display_parent] if event.display_parent
+		    end
+		    # display_create may have returned a nil object
+		    if item
+			item.visible = display_events?
 		    end
 		end
 		data_source.tasks.each_value  { |task| task.display(self, graphics[task.remote_object]) }
