@@ -5,6 +5,8 @@ require 'drb'
 require 'set'
 
 module Roby
+    # Exception raised when the event loop aborts because of an unhandled
+    # exception
     class Aborting < RuntimeError
 	attr_reader :all_exceptions
 	def initialize(exceptions); @all_exceptions = exceptions end
@@ -16,8 +18,13 @@ module Roby
 	end
     end
 
+    # Returns the only one Control object
     def self.control; Control.instance end
+    # Returns the executed plan
     def self.plan; Control.instance.plan end
+
+    # This singleton class is the central object: it handles the event loop,
+    # event propagation and exception propagation.
     class Control
 	include Singleton
 
@@ -44,8 +51,11 @@ module Roby
 	# SLEEP_MIN_TIME time left in the cycle
 	SLEEP_MIN_TIME = 0.01
 
+	# If true, abort if an unhandled exception is found
 	attr_accessor :abort_on_exception
+	# If true, abort if an application exception is found
 	attr_accessor :abort_on_application_exception
+	# If true, abort if a framework exception is found
 	attr_accessor :abort_on_framework_exception
 
 	@event_processing	= []
@@ -53,14 +63,19 @@ module Roby
 	class << self
 	    # List of procs which are called at each event cycle
 	    attr_reader :event_processing
+
 	    # List of procs to be called for task structure checking
 	    #
-	    # These should raise exceptions for each problem in the task
-	    # structure. The exception *must* respond to #task to know
-	    # from which task the problem comes.
+	    # The blocks return a set of exceptions or nil. The exception
+	    # *must* respond to #task or #generator to know from which task the
+	    # problem comes.
 	    attr_reader :structure_checks
 	end
-	attr_reader :plan, :planners
+
+	# The plan being executed
+	attr_reader :plan
+	# A set of planners declared in this application
+	attr_reader :planners
 
 	def initialize
 	    super
@@ -70,21 +85,7 @@ module Roby
 	    @plan        = Plan.new
 	end
 
-	def send_to_event_loop(object, *funcall, &block)
-	    if @thread && Thread.current != @thread
-		@thread.send_to(object, *funcall, &block)
-	    else
-		object.send(*funcall, &block)
-	    end
-	end
-
-	# Call +event+ in the context of the event loop
-	def call(event, context)
-	    send_to_event_loop(event, :call, context)
-	    self
-	end
-
-	# Disable all event propagation
+	# Disable event propagation
 	def disable_propagation
 	    if block_given?
 		begin
@@ -97,17 +98,10 @@ module Roby
 		Propagation.disable_propagation 
 	    end
 	end
-	# Enable all event propagation
+	# Enable event propagation
 	def enable_propagation; EventGenerator.enable_propagation end
 	# Check if event propagation is enabled or not
 	def propagate?; EventGenerator.propagate? end
-
-	# Start a DRuby server on drb_uri
-	def drb(drb_uri = nil)
-	    require 'roby/control_interface'
-	    DRb.start_service(drb_uri, ControlInterface.new(self))
-	    Roby.info "Started DRb server on #{drb_uri}"
-	end
 
 	# Perform the structure checking step by calling the procs registered
 	# in Control::structure_checks. These procs are supposed to return a
@@ -129,13 +123,13 @@ module Roby
 	    exceptions
 	end
 
+	# Abort the control loop because of +exceptions+
 	def reraise(exceptions)
 	    raise Aborting.new(exceptions)
 	end
 
-	# Process the pending events. Returns a [cycle, server, processing]
-	# array which are the duration of the whole cycle, the handling of
-	# the server commands and the event processing
+	# Process the pending events. The time at each event loop step
+	# is saved into +timings+.
 	def process_events(timings = {}, do_gc = false)
 	    Thread.current[:application_exceptions] = []
 
@@ -198,7 +192,9 @@ module Roby
 	end
 
 	class << self
+	    # A list of blocks to be called at the beginning of the next event loop
 	    attribute(:process_once) { Queue.new }
+	    # Calls all pending procs in +process_once+
 	    def call_once # :nodoc:
 		while (p = process_once.pop(true) rescue nil)
 		    Propagation.gather_exceptions { p.call }
@@ -254,14 +250,6 @@ module Roby
 
 	    @cycle_length = options[:cycle]
 	
-	    # Start DRb as soon as possible so that the caller knows
-	    # that DRb is up when #run returns, event when :detach is true.
-	    #
-	    # It allows to do
-	    #	Control.run :drb => DRB_SERVER, :detach => true
-	    #	<do something with DRb>	    
-	    drb(options[:drb]) if options[:drb]
-	    
 	    if options[:detach]
 		self.thread = Thread.new { run(options.merge(:detach => false, :drb => nil)) }
 		return
@@ -385,19 +373,6 @@ module Roby
 	def self.fatal_exception(error, tasks); super if defined? super end
 	# Hook called when an exception +e+ has been handled by +task+
 	def self.handled_exception(e, task); super if defined? super end
-    end
-
-    class Client < DRbObject
-	attr_reader :uri
-	def initialize(uri)
-	    @uri = uri
-	    super(nil, uri)
-	end
-	def quit
-	    super
-	rescue DRb::DRbConnError
-	    Roby.info "remote server at #{uri} has quit"
-	end
     end
 
     # Exception raised when a mission has failed
