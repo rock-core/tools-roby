@@ -595,6 +595,20 @@ module Roby::Distributed
 	    end
 	end
 
+	def proxy_setup(object_proxy)
+	    if !object_proxy.kind_of?(Roby::Transactions::Proxy) && 
+		object_proxy.respond_to?(:execution_agent) && 
+		object_proxy.plan then
+
+		if !object_proxy.execution_agent
+		    connection_task = object_proxy.plan[self.task]
+		    Roby::Distributed.update([object_proxy, connection_task]) do
+			object_proxy.executed_by connection_task
+		    end
+		end
+	    end
+	end
+
 	# Get a proxy for a task or an event. 	
 	def proxy(marshalled, create = true)
 	    return marshalled unless proxying?(marshalled)
@@ -611,17 +625,7 @@ module Roby::Distributed
 			marshalled.update(self, object_proxy) 
 		    end
 		end
-		if !object_proxy.kind_of?(Roby::Transactions::Proxy) && 
-		    object_proxy.respond_to?(:execution_agent) && 
-		    object_proxy.plan then
-
-		    if !object_proxy.execution_agent
-			connection_task = object_proxy.plan[self.task]
-			Roby::Distributed.update([object_proxy, connection_task]) do
-			    object_proxy.executed_by connection_task
-			end
-		    end
-		end
+		proxy_setup(object_proxy)
 	    else
 		object_proxy = marshalled.proxy(self)
 	    end
