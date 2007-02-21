@@ -93,7 +93,7 @@ module Roby
 	def each_responding_plugin(method, on_available = false)
 	    plugins = self.plugins
 	    if on_available
-		plugins = available_plugins.map { |name, _, mod| [name, mod::Application] }
+		plugins = available_plugins.map { |name, _, mod| [name, mod] }
 	    end
 
 	    plugins.each do |_, mod|
