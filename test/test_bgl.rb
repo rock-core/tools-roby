@@ -433,6 +433,10 @@ class TC_BGL < Test::Unit::TestCase
 
 	sort = graph.topological_sort
 	assert_equal([v1, v2, v3, v4], sort)
+
+	sort = [v3, v4, v2]
+	graph.topological_sort(sort)
+	assert_equal([v1, v2, v3, v4], sort)
     end
 
     def test_neighborhood
