@@ -117,7 +117,9 @@ UIFILES = %w{replay.ui relations.ui relations_view.ui}
 task :uic do
     UIFILES.each do |file|
 	file = 'lib/roby/log/gui/' + file
-	system('rbuic4', '-x', '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
+	if !system('rbuic4', '-x', '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
+	    STDERR.puts "Failed to generate #{file}"
+	end
     end
 end
 
