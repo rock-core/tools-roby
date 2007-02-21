@@ -1,5 +1,5 @@
 require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app-run.rb')
-config = Roby::Application.config
+config = Roby.app
 
 require 'irb'
 IRB.setup(nil)

@@ -2,7 +2,7 @@ require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app-load.rb')
 require 'roby/distributed/connection_space'
 require 'roby/distributed/protocol'
 
-config = Roby::Application.config
+config = Roby.app
 if !config.loaded_component?('distributed')
     STDERR.puts "dRoby is not loaded"
     exit

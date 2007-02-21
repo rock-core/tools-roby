@@ -1,5 +1,4 @@
-require 'roby/app/config'
-require 'roby/app/tools'
+require 'roby/app'
 
 require 'yaml'
 require 'fileutils'
@@ -8,7 +7,7 @@ require 'tempfile'
 $LOAD_PATH.unshift APP_DIR
 
 # We expect here that both APP_DIR and ROBOT are set
-conf = Roby::Application.config
+conf = Roby.app
 file = File.join(APP_DIR, 'config', 'roby.yml')
 file = YAML.load(File.open(file))
 
