@@ -34,6 +34,9 @@ parser = OptionParser.new do |opt|
     opt.on("--play", "start playing after loading the event log") do |play_now| end
 end
 parser.parse!(ARGV)
+if !gui
+    file = ARGV.shift
+end
 
 require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app-run.rb')
 config = Roby.app
