@@ -113,9 +113,7 @@ class TC_Propagation < Test::Unit::TestCase
 	    signal.on  ev
 
 	    seed = lambda do
-		STDERR.puts "BLAH"
 		forward.call
-		STDERR.puts "BLOH"
 		signal.call
 	    end
 	    mock.should_receive(:handler_called).once.ordered
