@@ -46,5 +46,33 @@ class TC_Propagation < Test::Unit::TestCase
 	    t.start!(42)
 	end
     end
+
+    def test_signal_forward
+	forward = EventGenerator.new(true)
+	signal  = EventGenerator.new(true)
+
+	FlexMock.use do |mock|
+	    ev = EventGenerator.new do |ev|
+		mock.command_called
+	    end
+	    ev.on { mock.handler_called }
+
+	    ev.emit_on forward
+	    signal.on  ev
+
+	    seed = lambda do
+		STDERR.puts "BLAH"
+		forward.call
+		STDERR.puts "BLOH"
+		signal.call
+	    end
+	    mock.should_receive(:handler_called).once.ordered
+	    mock.should_receive(:command_called).once.ordered
+	    Propagation.propagate_events([seed])
+	    STDERR.puts Propagation.delayed_events.inspect
+	    Control.instance.process_events
+	    Control.instance.process_events
+	end
+    end
 end
 
