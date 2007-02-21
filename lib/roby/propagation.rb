@@ -28,9 +28,6 @@ module Roby::Propagation
     def self.source_events; Thread.current[:propagation_events] end
     def self.source_generators; Thread.current[:propagation_generators] end
     def self.propagation_id; Thread.current[:propagation_id] end
-    def self.pending_event?(generator)
-	Thread.current[:current_propagation_set].has_key?(generator)
-    end
 
     @@delayed_events = []
     def self.delayed_events; @@delayed_events end
@@ -59,14 +56,12 @@ module Roby::Propagation
     def self.gather_propagation(initial_set = Hash.new)
 	raise "nested call to #gather_propagation" if gathering?
 	Thread.current[:propagation] = initial_set
-	Thread.current[:current_propagation_set] ||= Hash.new
 
 	propagation_context(nil) { yield }
 
 	return Thread.current[:propagation]
     ensure
 	Thread.current[:propagation] = nil
-	Thread.current[:current_propagation_set] = nil
     end
 
     def self.to_execution_exception(error, source = nil)
@@ -187,36 +182,67 @@ module Roby::Propagation
 	end
     end
 
+    @event_ordering = Array.new
+    @event_priorities = Hash.new
+    class << self
+	# The topological ordering of events w.r.t. the Precedence relation
+	attr_reader :event_ordering
+	# The event => index hash which give the propagation priority for each
+	# event
+	attr_reader :event_priorities
+    end
 
-    def self.event_propagation_step(current_step, already_seen)
-	timeref = Time.now
-
-	Thread.current[:current_propagation_set] = current_step
-
-	signalled, min = nil, 4
-	current_step.each do |event, _|
-	    value = if event.respond_to?(:terminal?) && event.terminal?
-			2
-		    elsif event.respond_to?(:symbol)
-			if event.symbol == :start
-			    0
-			elsif event.symbol == :stop
-			    3
-			else
-			    1
-			end
-		    else
-			1
-		    end
-	    if value < min
-		signalled = event
+    # This module includes the hooks which clear the event ordering caches
+    # (Propagation.event_ordering and Proapgation.event_priorities) whenever
+    # the precedence graph changes
+    module EventPrecedenceChanged
+	def added_child_object(child, relation, info)
+	    super if defined? super
+	    if relation == Roby::EventStructure::Precedence && plan == Roby.plan
+		Roby::Propagation.event_ordering.clear
 	    end
 	end
-	forward, *info = current_step.delete(signalled)
+	def removed_child_object(child, relation)
+	    super if defined? super
+	    if relation == Roby::EventStructure::Precedence && plan == Roby.plan
+		Roby::Propagation.event_ordering.clear
+	    end
+	end
+    end
+    Roby::EventGenerator.include EventPrecedenceChanged
+
+    # Determines the event in +current_step+ which should be signalled now.
+    # Removes it from the set and returns the event and the associated
+    # propagation information
+    def self.next_event(pending)
+	if event_ordering.empty?
+	    Roby::EventStructure::Precedence.topological_sort(event_ordering)
+	    event_priorities.clear
+	    event_ordering.each_with_index do |ev, i|
+		event_priorities[ev] = i
+	    end
+	end
+
+	signalled, min = nil, event_ordering.size
+	pending.each_key do |event|
+	    if priority = event_priorities[event]
+		if priority < min
+		    signalled = event
+		    min = priority
+		end
+	    else
+		signalled = event
+		break
+	    end
+	end
+	[signalled, *pending.delete(signalled)]
+    end
+
+    def self.prepare_propagation(signalled, forward, info)
+	timeref = Time.now
 
 	sources, context = [], []
 
-	# Will be set to false if there is one immediate propagation
 	delayed = true
 	info.each_slice(3) do |src, ctxt, time|
 	    if time && (delay = make_delay(timeref, src, signalled, time))
@@ -230,11 +256,19 @@ module Roby::Propagation
 	    # can both call #emit, and two signals are set up
 	    next if src && sources.include?(src)
 
-	    sources << src if src
+	    sources << src  if src
 	    context << ctxt if ctxt
 	end
-	context = *context
-	return current_step if delayed
+	unless delayed
+	    context = *context
+	    [sources, context]
+	end
+    end
+
+    def self.event_propagation_step(current_step, already_seen)
+	signalled, forward, *info = next_event(current_step)
+	sources, context = prepare_propagation(signalled, forward, info)
+	return current_step unless sources
 
 	if !forward && signalled.controlable?
 	    sources.each { |source| source.generator.signalling(source, signalled) }

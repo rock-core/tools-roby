@@ -111,7 +111,7 @@ module Roby::Distributed
 		self.command = true
 	    end
 	end
-	def happened?(strict = true); @happened || super end
+	def happened?; @happened || super end
 	def command=(command)
 	    if command 
 		super(lambda {})

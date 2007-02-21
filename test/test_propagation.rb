@@ -21,6 +21,58 @@ class TC_Propagation < Test::Unit::TestCase
 	assert_equal({ e1 => [false, nil, 1, nil, nil, 4, nil], e2 => [true, nil, 2, nil, nil, 3, nil] }, set)
     end
 
+    def test_prepare_propagation
+	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
+
+	step = [nil, 1, nil, nil, 4, nil]
+	sources, context = Propagation.prepare_propagation(nil, false, step)
+	assert_equal([], sources)
+	assert_equal([1, 4].to_set, context.to_set)
+
+	step = [nil, nil, nil, nil, 4, nil]
+	sources, context = Propagation.prepare_propagation(nil, false, step)
+	assert_equal([], sources)
+	assert_equal(4, context)
+
+	step = [e1, nil, nil, nil, nil, nil]
+	sources, context = Propagation.prepare_propagation(nil, false, step)
+	assert_equal([e1], sources)
+	assert_equal(nil, context)
+    end
+
+    def test_precedence_graph
+	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
+	Roby.plan.discover e1
+	Roby.plan.discover e2
+	Propagation.event_ordering << :bla
+
+	e1.signal e2
+	assert(EventStructure::Precedence.linked?(e1, e2))
+	assert(Propagation.event_ordering.empty?)
+
+	Propagation.event_ordering << :bla
+	e1.remove_signal e2
+	assert(Propagation.event_ordering.empty?)
+	assert(!EventStructure::Precedence.linked?(e1, e2))
+    end
+
+
+    def test_next_step
+	# For the test to be valid, we need +pending+ to have a deterministic ordering
+	# Fix that here
+	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
+	pending = [ [e1, [true, nil, nil, nil]], [e2, [false, nil, nil, nil]] ]
+	def pending.each_key; each { |(k, v)| yield(k) } end
+	def pending.delete(ev); delete_if { |(k, v)| k == ev } end
+
+	e1.add_precedence e2
+	assert_equal(e1, Propagation.next_event(pending).first)
+
+	e1.remove_precedence e2
+	e2.add_precedence e1
+	assert_equal(e2, Propagation.next_event(pending).first)
+    end
+
     def test_delay
 	s, e = EventGenerator.new(true), EventGenerator.new(true)
 	s.on(e, :delay => 0.1)

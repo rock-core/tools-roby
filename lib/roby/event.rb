@@ -367,12 +367,8 @@ module Roby
 
 	# A [time, event] array of past event emitted by this object
 	attribute(:history) { Array.new }
-	# True if this event has been emitted once. If +strict+ is false, returns true
-	# if it is being emitted in this execution cycle.
-	def happened?(strict = true)
-	    !history.empty? || 
-		(!strict && Propagation.gathering? && Propagation.pending_event?(self))
-	end
+	# True if this event has been emitted once.
+	def happened?; !history.empty? end
 	# Last event to have been emitted by this generator
 	def last; history.last end
 

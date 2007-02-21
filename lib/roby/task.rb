@@ -503,7 +503,7 @@ module Roby
 
             if final_event && final_event.propagation_id != event.propagation_id
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} but the task has finished"
-            elsif !event(:start).happened?(false) && !final_event && event.symbol != :start
+            elsif !event(:start).happened? && !final_event && event.symbol != :start
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} but the task is not running"
             elsif running? && event.symbol == :start
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} but the task is already running"
@@ -548,7 +548,18 @@ module Roby
         def event(event_model)
 	    unless event = bound_events[event_model]
 		event_model = self.event_model(event_model)
-		event = (bound_events[event_model.symbol] ||= TaskEventGenerator.new(self, event_model))
+		event_symbol = event_model.symbol
+		unless event = bound_events[event_symbol]
+		    event = 
+			bound_events[event_symbol] = 
+			TaskEventGenerator.new(self, event_model)
+
+		    if event_symbol != :start && event_symbol != :stop
+			event(:start).add_precedence(event)
+			event.add_precedence(event(:stop))
+		    end
+		end
+
 		event.executable = self.executable?
 	    end
 	    event

@@ -494,7 +494,7 @@ module Roby
 
 	class Roby::EventGenerator
 	    def droby_dump
-		MarshalledEventGenerator.new(to_s, self, self.model, plan, controlable?, happened?(false))
+		MarshalledEventGenerator.new(to_s, self, self.model, plan, controlable?, happened?)
 	    end
 	end
 	class MarshalledEventGenerator < MarshalledPlanObject
@@ -523,7 +523,7 @@ module Roby
 	class Roby::TaskEventGenerator
 	    def droby_dump
 		# no need to marshal the plan, since it is the same than the event task
-		MarshalledTaskEventGenerator.new(to_s, self, self.model, nil, controlable?, happened?(false), task, symbol)
+		MarshalledTaskEventGenerator.new(to_s, self, self.model, nil, controlable?, happened?, task, symbol)
 	    end
 	end
 	class MarshalledTaskEventGenerator < MarshalledEventGenerator

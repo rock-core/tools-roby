@@ -45,17 +45,16 @@ module RobyTestCommon
 	end
 
 	# Save and restore Control's global arrays
-	if defined? Roby::Control
-	    save_collection Roby::Control.event_processing
-	    save_collection Roby::Control.structure_checks
-	    Roby::Control.instance.abort_on_exception = true
-	    Roby::Control.instance.abort_on_application_exception = true
-	    Roby::Control.instance.abort_on_framework_exception = true
-	end
+	save_collection Roby::Control.event_processing
+	save_collection Roby::Control.structure_checks
+	Roby::Control.instance.abort_on_exception = true
+	Roby::Control.instance.abort_on_application_exception = true
+	Roby::Control.instance.abort_on_framework_exception = true
 
-	if defined? Roby.exception_handlers
-	    save_collection Roby.exception_handlers
-	end
+	save_collection Roby::Propagation.event_ordering
+	save_collection Roby::Propagation.delayed_events
+
+	save_collection Roby.exception_handlers
     end
 
     def teardown
