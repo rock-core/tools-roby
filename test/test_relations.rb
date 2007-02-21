@@ -105,23 +105,53 @@ class TC_Relations < Test::Unit::TestCase
     end
 
     def test_subsets
-	klass = Class.new { include DirectedRelationSupport }
-	r1, r2 = nil
-	Roby::RelationSpace(klass) do
-	    r1 = relation :R1
-	    r2 = relation :R2, :subsets => [r1]
+	FlexMock.use do |mock|
+	    klass = Class.new do
+		def initialize(index); @index = index end
+		def to_s; "v#{@index.to_s}" end
+		include DirectedRelationSupport
+		define_method(:added_child_object) do |child, rel, info|
+		    super if defined? super
+		    mock.hooked_addition(child, rel)
+		end
+		define_method(:removed_child_object) do |child, rel|
+		    super if defined? super
+		    mock.hooked_removal(child, rel)
+		end
+	    end
+
+	    r1, r2 = nil
+	    Roby::RelationSpace(klass) do
+		r1 = relation :R1
+		r2 = relation :R2, :subsets => [r1]
+	    end
+	    assert_equal(r2, r1.parent)
+	    assert(! r1.subset?(r2))
+	    assert(r2.subset?(r1))
+
+	    n1, n2, n3 = (1..3).map do |i|
+		klass.new(i)
+	    end
+
+	    mock.should_receive(:hooked_addition).with(n2, r1).once
+	    mock.should_receive(:hooked_addition).with(n2, r2).once
+	    n1.add_child_object(n2, r1)
+	    assert(n1.child_object?(n2, r2))
+
+	    mock.should_receive(:hooked_addition).with(n3, r1).never
+	    mock.should_receive(:hooked_addition).with(n3, r2).once
+	    n1.add_child_object(n3, r2)
+	    assert_equal([n2], n1.enum_for(:each_child_object, r1).to_a)
+	    assert_equal([n3, n2].to_set, n1.enum_for(:each_child_object, r2).to_set)
+
+	    mock.should_receive(:hooked_removal).with(n2, r1).once
+	    mock.should_receive(:hooked_removal).with(n2, r2).once
+	    n1.remove_child_object(n2, r1)
+
+	    mock.should_receive(:hooked_removal).with(n3, r1).never
+	    mock.should_receive(:hooked_removal).with(n3, r2).once
+	    n1.remove_child_object(n3, r2)
 	end
-	assert_equal(r2, r1.parent)
-	assert(! r1.subset?(r2))
-	assert(r2.subset?(r1))
-
-	n1, n2, n3 = 3.enum_for(:times).map { klass.new }
-	n1.add_child_object(n2, r1)
-	assert(n1.child_object?(n2, r2))
-	n1.add_child_object(n3, r2)
-
-	assert_equal([n2], n1.enum_for(:each_child_object, r1).to_a)
-	assert_equal([n3, n2].to_set, n1.enum_for(:each_child_object, r2).to_set)
     end
 
 end

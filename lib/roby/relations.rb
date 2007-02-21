@@ -63,7 +63,7 @@ module Roby
 	    end
 
 	    adding_child_object(child, type, info)
-	    type.link(self, child, info)
+	    type.add_relation(self, child, info)
 	    added_child_object(child, type, info)
 	end
 	# Add a new parent object in the +type+ relation
@@ -94,7 +94,7 @@ module Roby
 	    check_is_relation(type)
 	    apply_selection(type, enum_relations) do |type|
 		removing_child_object(child, type)
-		type.unlink(self, child)
+		type.remove_relation(self, child)
 		removed_child_object(child, type)
 	    end
 	end
@@ -205,19 +205,27 @@ module Roby
 	def to_s; name end
 	def distribute?; options[:distribute] end
 
-	def link(from, to, info = nil)
-	    if linked?(from, to)
-		if from[to, self] != info
-		    raise ArgumentError, "edge already exists and info differs"
-		end
-	    else
-		parent.link(from, to, info) if parent
-		super
+	def add_relation(from, to, info = nil)
+	    if !linked?(from, to) && parent
+		from.add_child_object(to, parent, info)
 	    end
+
+	    link(from, to, info)
 	end
-	def unlink(from, to)
-	    parent.unlink(from, to) if parent
+	def link(from, to, info)
+	    if linked?(from, to)
+		if info != from[to, self]
+		    raise ArgumentError, "trying to change edge information"
+		end
+		return
+	    end
 	    super
+	end
+	def remove_relation(from, to)
+	    if parent
+		from.remove_child_object(to, parent)
+	    end
+	    unlink(from, to)
 	end
 	
 	# Returns true if +relation+ is included in this relation (i.e. it is either
@@ -238,8 +246,10 @@ module Roby
 
 	    relation.parent = self
 	    subsets << relation
+
+	    # Copy the relations of the child into this graph
 	    relation.each_edge do |source, target, info|
-		link(source, target, info)
+		source.add_child_object(target, self, info)
 	    end
 	end
 	
