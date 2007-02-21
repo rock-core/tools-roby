@@ -4,6 +4,7 @@
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/iterator/filter_iterator.hpp>
 #include <boost/graph/connected_components.hpp>
+#include <boost/graph/topological_sort.hpp>
 #include <boost/bind.hpp>
 #include <boost/graph/reverse_graph.hpp>
 #include <utilmm/undirected_graph.hh>
@@ -547,6 +548,27 @@ static VALUE graph_undirected_each_bfs(VALUE self, VALUE root, VALUE mode)
     return graph_each_bfs(real_graph, utilmm::make_undirected_graph(graph), root, mode);
 }
 
+/* call-seq:
+ *  graph.topological_sort => array
+ *
+ * Returns a topological sorting of this graph
+ */
+static VALUE graph_topological_sort(VALUE self)
+{
+    RubyGraph& graph = graph_wrapped(self);
+    typedef std::vector<RubyGraph::vertex_descriptor> Result;
+    Result result;
+
+    map<vertex_descriptor, default_color_type> colors;
+    topological_sort(graph, std::back_inserter(result), 
+	    boost::color_map(make_assoc_property_map(colors)));
+
+    VALUE rb_result = rb_ary_new();
+    for (Result::const_reverse_iterator it = result.rbegin(); it != result.rend(); ++it)
+	rb_ary_push(rb_result, graph[*it]);
+    return rb_result;
+}
+
 /**********************************************************************
  *  Extension initialization
  */
@@ -600,6 +622,7 @@ void Init_graph_algorithms()
     rb_define_method(bglGraph, "each_dfs",	RUBY_METHOD_FUNC(graph_direct_each_dfs), 2);
     rb_define_method(bglGraph, "each_bfs",	RUBY_METHOD_FUNC(graph_direct_each_bfs), 2);
     rb_define_method(bglGraph, "prune",		RUBY_METHOD_FUNC(graph_prune), 0);
+    rb_define_method(bglGraph, "topological_sort",		RUBY_METHOD_FUNC(graph_topological_sort), 0);
 
     bglReverseGraph = rb_define_class_under(bglGraph, "Reverse", rb_cObject);
     rb_define_method(bglReverseGraph, "generated_subgraphs",RUBY_METHOD_FUNC(graph_reverse_generated_subgraphs), -1);

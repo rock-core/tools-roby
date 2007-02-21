@@ -7,15 +7,15 @@ require 'enumerator'
 require 'flexmock'
 
 class TC_BGL < Test::Unit::TestCase
-    include BGL
-
     include RobyTestCommon
+    class Vertex
+	include BGL::Vertex
+    end
+    Graph = BGL::Graph
 
-    def test_graph_list
+    def test_vertex_graph_list
 	graph = Graph.new
-	klass = Class.new { include Vertex }
-
-	v = klass.new
+	v = Vertex.new
 	graph.insert v
 	assert_equal([graph], v.enum_for(:each_graph).to_a)
 
@@ -23,28 +23,37 @@ class TC_BGL < Test::Unit::TestCase
 	assert_equal([], v.enum_for(:each_graph).to_a)
     end
 
-    def test_graph_view
+    def setup_graph(vertex_count)
+	graph = Graph.new
+	vertices = (1..vertex_count).map do
+	    graph.insert(v = Vertex.new)
+	    v
+	end
+	[graph, vertices]
+    end
+
+    def test_graph_views
 	g = Graph.new
 	r = g.reverse
 	assert_kind_of(Graph::Reverse, r)
+	assert_equal(r.object_id, g.reverse.object_id)
+
 	u = g.undirected
 	assert_kind_of(Graph::Undirected, u)
+	assert_equal(u.object_id, g.undirected.object_id)
     end
-    
+
     def test_vertex_objects
 	graph = Graph.new
-	klass = Class.new { include Vertex }
 
-	v1 = klass.new
+	v1 = Vertex.new
 	graph.insert v1
 	assert(graph.include?(v1))
 	assert_equal([v1], graph.enum_for(:each_vertex).to_a)
-	assert_equal([graph], v1.enum_for(:each_graph).to_a)
 
 	graph.remove v1
 	assert(!graph.include?(v1))
 	assert_equal([], graph.enum_for(:each_vertex).to_a)
-	assert_equal([], v1.enum_for(:each_graph).to_a)
 
 	g1, g2 = Graph.new, Graph.new
 	g1.insert(v1)
@@ -56,13 +65,12 @@ class TC_BGL < Test::Unit::TestCase
 
     def test_replace
 	graph = Graph.new
-	klass = Class.new { include Vertex }
 
-	v1, v2, v3 = (1..3).map { klass.new }
+	v1, v2, v3 = (1..3).map { Vertex.new }
 	graph.link(v1, v2, 1)
 	graph.link(v2, v3, 2)
 
-	v4 = klass.new
+	v4 = Vertex.new
 	graph.replace_vertex(v2, v4)
 	assert(! graph.linked?(v1, v2))
 	assert(! graph.linked?(v2, v3))
@@ -72,9 +80,8 @@ class TC_BGL < Test::Unit::TestCase
 
     def test_edge_objects
 	g1, g2 = Graph.new, Graph.new
-	klass = Class.new { include Vertex }
 
-	v1, v2, v3 = klass.new, klass.new, klass.new
+	v1, v2, v3 = Vertex.new, Vertex.new, Vertex.new
 	g1.link v1, v2, 1
 	assert(g1.include?(v1))
 	assert(g1.include?(v2))
@@ -125,9 +132,8 @@ class TC_BGL < Test::Unit::TestCase
 
     def test_end_predicates
 	g1, g2 = Graph.new, Graph.new
-	klass = Class.new { include Vertex }
 
-	v1, v2, v3, v4 = klass.new, klass.new, klass.new, klass.new
+	v1, v2, v3, v4 = Vertex.new, Vertex.new, Vertex.new, Vertex.new
 	g1.link v1, v2, nil
 	g2.link v2, v1, nil
 	assert( !v1.root? )
@@ -154,9 +160,8 @@ class TC_BGL < Test::Unit::TestCase
 
     def test_graph_components
 	graph = Graph.new
-	klass = Class.new { include Vertex }
 
-	vertices = (1..5).map { klass.new }
+	vertices = (1..5).map { Vertex.new }
 	v5 = vertices.pop
 	v1, v2, v3, v4 = *vertices
 	vertices.each { |v| graph.insert(v) }
@@ -193,16 +198,15 @@ class TC_BGL < Test::Unit::TestCase
 	assert_components([[v4]], graph.components(v4))
 	assert_components([[v4, v3]], g2.components(v3))
 
-	v5 = klass.new
+	v5 = Vertex.new
 	# Check that we get a singleton component even if v5 is not in the graph
 	assert_components([[v5]], graph.components(v5))
     end
 
     def test_vertex_component
 	graph = Graph.new
-	klass = Class.new { include Vertex }
 
-	vertices = (1..4).map { klass.new }
+	vertices = (1..4).map { Vertex.new }
 	v1, v2, v3, v4 = *vertices
 	vertices.each { |v| graph.insert(v) }
 
@@ -220,9 +224,8 @@ class TC_BGL < Test::Unit::TestCase
 
     def test_dup
 	graph = Graph.new
-	klass = Class.new { include Vertex }
 
-	vertices = (1..4).map { klass.new }
+	vertices = (1..4).map { Vertex.new }
 	v1, v2, v3, v4 = *vertices
 	vertices.each { |v| graph.insert(v) }
 
@@ -253,9 +256,8 @@ class TC_BGL < Test::Unit::TestCase
 
     def test_each_bfs
 	graph = Graph.new
-	klass = Class.new { include Vertex }
 
-	vertices = (1..4).map { klass.new }
+	vertices = (1..4).map { Vertex.new }
 	v1, v2, v3, v4 = *vertices
 	vertices.each { |v| graph.insert(v) }
 
@@ -303,9 +305,8 @@ class TC_BGL < Test::Unit::TestCase
 
     def setup_test_graph(reverse)
 	graph = Graph.new
-	klass = Class.new { include Vertex }
 
-	vertices = (1..5).map { klass.new }
+	vertices = (1..5).map { Vertex.new }
 	v1, v2, v3, v4, v5 = *vertices
 	vertices.each { |v| graph.insert(v) }
 
@@ -385,8 +386,7 @@ class TC_BGL < Test::Unit::TestCase
 
     def test_dfs_prune
 	graph = Graph.new
-	klass = Class.new { include Vertex }
-	vertices = (1..5).map { klass.new }
+	vertices = (1..5).map { Vertex.new }
 	v1, v2, v3 = *vertices
 	vertices.each { |v| graph.insert(v) }
 
@@ -422,6 +422,17 @@ class TC_BGL < Test::Unit::TestCase
 	traces << [ [v1, v2, 1], [v2, v5, 6], [v5, v1, 5] ]
 	traces << [ [v1, v5, 5], [v5, v2, 6], [v2, v1, 1] ]
 	assert_dfs_trace(traces, graph.undirected, :each_dfs, v2, Graph::ALL, false)
+    end
+
+    def test_topological_sort
+	graph, (v1, v2, v3, v4) = setup_graph(4)
+	graph.link v1, v2, nil
+	graph.link v2, v3, nil
+	graph.link v1, v3, nil
+	graph.link v3, v4, nil
+
+	sort = graph.topological_sort
+	assert_equal([v1, v2, v3, v4], sort)
     end
 
     def test_neighborhood
