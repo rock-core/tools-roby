@@ -113,9 +113,10 @@ task :test_rcov do
     end
 end
 
-UIFILES = [ 'lib/roby/log/gui/replay.ui', 'lib/roby/log/gui/relations.ui' ]
+UIFILES = %w{replay.ui relations.ui relations_view.ui}
 task :uic do
     UIFILES.each do |file|
+	file = 'lib/roby/log/gui/' + file
 	system('rbuic4', '-x', '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
     end
 end
