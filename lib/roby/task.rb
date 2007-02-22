@@ -77,8 +77,8 @@ module Roby
 	end
         # If the event model defines a terminal event
         def self.terminal?; @terminal end
-        # If the event is terminal
-        def terminal?; self.class.terminal? end
+	# If this event is terminal
+	def terminal?; generator.terminal? end
         # The event symbol
         def self.symbol; @symbol end
         # The event symbol
