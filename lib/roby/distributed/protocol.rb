@@ -455,7 +455,9 @@ module Roby
 	allow_remote_access Rinda::TupleSpace
 	allow_remote_access Rinda::TupleEntry
 
-
+	class Roby::PlanObject
+	    def drb_object; @drb_object ||= DRbObject.new(self) end
+	end
 	# Base class for all marshalled plan objects.
 	class MarshalledPlanObject
 	    def to_s; "m(#{remote_name})" end
@@ -471,8 +473,6 @@ module Roby
 	    end
 
 	    def marshal_format
-		remote_object = self.remote_object
-		remote_object = DRbObject.new(remote_object) unless remote_object.kind_of?(DRbObject)
 		[remote_name, remote_object,
 		    Distributed.format(model),
 		    Distributed.format(plan)]
@@ -481,7 +481,7 @@ module Roby
 
 	    # Creates the local object for this marshalled object
 	    def proxy(peer)
-		proxy = Distributed.RemoteProxyModel(model).new(peer, self)
+		Distributed.RemoteProxyModel(model).new(peer, self)
 	    end
 	    # Updates the status of the local object if needed
 	    def update(peer, proxy)
@@ -500,7 +500,7 @@ module Roby
 
 	class Roby::EventGenerator
 	    def droby_dump
-		MarshalledEventGenerator.new(to_s, self, self.model, plan, controlable?, happened?)
+		MarshalledEventGenerator.new(to_s, drb_object, self.model, plan, controlable?, happened?)
 	    end
 	end
 	class MarshalledEventGenerator < MarshalledPlanObject
@@ -529,7 +529,7 @@ module Roby
 	class Roby::TaskEventGenerator
 	    def droby_dump
 		# no need to marshal the plan, since it is the same than the event task
-		MarshalledTaskEventGenerator.new(to_s, self, self.model, nil, controlable?, happened?, task, symbol)
+		MarshalledTaskEventGenerator.new(to_s, drb_object, self.model, nil, controlable?, happened?, task, symbol)
 	    end
 	end
 	class MarshalledTaskEventGenerator < MarshalledEventGenerator
@@ -562,7 +562,7 @@ module Roby
 	class Roby::Task
 	    def droby_dump
 		mission = self.plan.mission?(self) if plan
-		MarshalledTask.new(to_s, self, self.model, plan, arguments, 
+		MarshalledTask.new(to_s, drb_object, self.model, plan, arguments, 
 				   :mission => mission, :started => started?, 
 				   :finished => finished?, :success => success?)
 	    end
