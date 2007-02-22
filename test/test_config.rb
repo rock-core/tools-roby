@@ -154,6 +154,19 @@ module Test::Unit::Assertions
 	end
     end
 
+    def assert_happens(timeout = 5, event = "")
+	assert_doesnt_timeout(timeout, "#{event} did not happen") do
+	    loop do
+		begin
+		    yield
+		    return
+		rescue
+		    process_events
+		    sleep(0.1)
+		end
+	    end
+	end
+    end
     def assert_event(event, timeout = 5)
 	assert_doesnt_timeout(timeout, "event #{event.symbol} never happened") do
 	    while !event.happened?
