@@ -211,16 +211,6 @@ class TC_Task < Test::Unit::TestCase
         # Check validation of options[:command]
         assert_raise(ArgumentError) { klass.event :try_event, :command => "bla" }
 
-	#Class.new(Task) do
-	#    extend Test::Unit::Assertions
-
-	#    assert_raise(ArgumentError) { event(:start, :terminal => true) }
-	#    assert_raise(ArgumentError) { event(:stop, :terminal => false) }
-	#    event :stop
-	#    assert_nothing_raised { event(:inter, :terminal => true) }
-	#    assert_raise(ArgumentError) { event(:inter, :terminal => true) }
-	#end
-
         task = EmptyTask.new
 	start_event = task.event(:start)
 
