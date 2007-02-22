@@ -246,7 +246,7 @@ module Roby
 		if task.thread.alive?
 		    false
 		else
-		    task.poll
+		    Propagation.gather_exceptions(task) { task.poll }
 		    true
 		end
 	    end
