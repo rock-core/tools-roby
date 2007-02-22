@@ -562,7 +562,9 @@ module Roby
 	class Roby::Task
 	    def droby_dump
 		mission = self.plan.mission?(self) if plan
-		MarshalledTask.new(to_s, self, self.model, plan, arguments, :mission => mission, :started => __started, :finished => __finished, :success => __success)
+		MarshalledTask.new(to_s, self, self.model, plan, arguments, 
+				   :mission => mission, :started => started?, 
+				   :finished => finished?, :success => success?)
 	    end
 	end
 	class MarshalledTask < MarshalledPlanObject
@@ -594,11 +596,9 @@ module Roby
 		end
 
 		flags = self.flags
-		task.instance_eval do
-		    @__started = flags[:started]
-		    @__finished = flags[:finished]
-		    @__success = flags[:success]
-		end
+		task.started  = flags[:started]
+		task.finished = flags[:finished]
+		task.success  = flags[:success]
 
 		Distributed.update([task]) do
 		    task.arguments.merge(arguments)

@@ -1,6 +1,7 @@
 require 'roby/plan-object'
 require 'roby/exceptions'
 require 'roby/event'
+require 'utilrb/object/attr_predicate'
 
 module Roby
     class TaskModelTag < Module
@@ -287,14 +288,45 @@ module Roby
         #   is defined, then all terminal events are aliased to +stop+
         def initialize(arguments = nil) #:yields: task_object
 	    @arguments = TaskArguments.new(self).merge(arguments || {})
-            @bound_events = Hash.new
 	    @name = "#{model.name || self.class.name}#{arguments.to_s}:0x#{address.to_s(16)}"
+            @bound_events = Hash.new
 
             yield self if block_given?
-
             raise TaskModelViolation.new(self), "no start event defined" unless has_event?(:start)
+
+	    instantiate_model_events
 	    super() if defined? super
         end
+
+	def instantiate_model_events
+	    # Create all event generators
+	    model.each_event do |symbol, model|
+		bound_events[symbol.to_sym] = TaskEventGenerator.new(self, model)
+	    end
+
+	    # Add the model-level signals to this instance
+	    bound_events.each do |symbol, generator|
+		model.each_signal(symbol) do |signalled|
+		    generator.add_signal bound_events[signalled]
+		end
+	    end
+
+	    start_event = bound_events[:start]
+	    if !start_event.terminal? 
+		# the start event CAN be terminal: it can be a signal from
+		# :start to a terminal event
+		bound_events.each do |symbol, generator|
+		    start_event.add_precedence(generator) if symbol != :start
+		end
+	    end
+
+	    # Create the precedence relations between 'normal' events and the terminal events
+	    terminal_events.each do |terminal|
+		bound_events.each_value do |generator|
+		    generator.add_precedence(terminal) unless generator.terminal?
+		end
+	    end
+	end
 
 	def plan=(new_plan)
 	    if plan != new_plan
@@ -400,13 +432,11 @@ module Roby
 	    end
 	    false
 	end
+
         # If this task ran and is finished
-	attr_reader :__started
-	alias :started? :__started
-	attr_reader :__finished
-	alias :finished? :__finished
-	attr_reader :__success
-	alias :success? :__success
+	attr_predicate :started?, true
+	attr_predicate :finished?, true
+	attr_predicate :success?, true
 	def failed?; finished? && !success? end
 
 	# Remove all relations in which +self+ or its event are involved
@@ -446,7 +476,7 @@ module Roby
 	def update_terminal_flag
 	    events = bound_events.values
 	    terminal_events = events.find_all do |ev|
-		# remove the terminal flag, TaskEventGenerator#terminal?  will
+		# remove the terminal flag, TaskEventGenerator#terminal? will
 		# now return the model's terminal flag
 		ev.terminal = false
 		ev.terminal?
@@ -486,14 +516,14 @@ module Roby
 	# task events
 	def related_tasks(result = nil)
 	    result = related_objects(nil, result)
-	    each_event(false) do |ev|
+	    each_event do |ev|
 		ev.related_tasks(result)
 	    end
 
 	    result
 	end
 	def related_events(result = nil)
-	    each_event(false) do |ev|
+	    each_event do |ev|
 		result = ev.related_events(result)
 	    end
 
@@ -524,14 +554,14 @@ module Roby
 	# Call to update the task status because of +event+
 	def update_task_status(event)
 	    if event.symbol == :success
-		@__success = true
+		self.success = true
 	    elsif event.symbol == :start
-		@__started = true
+		self.started = true
 	    end
 
 	    if event.terminal?
 		@final_event = event
-		@__finished = true
+		self.finished = true
 	    end
 	end
         
@@ -555,22 +585,10 @@ module Roby
         def event(event_model)
 	    unless event = bound_events[event_model]
 		event_model = self.event_model(event_model)
-		event_symbol = event_model.symbol
-		unless event = bound_events[event_symbol]
-		    event = 
-			bound_events[event_symbol] = 
-			TaskEventGenerator.new(self, event_model)
-
-		    if event_symbol != :start && event_symbol != :stop
-			event(:start).add_precedence(event)
-		    end
-		    model.each_signal(event_symbol) do |signalled|
-			event.add_signal event(signalled)
-		    end
-		end
-
-		event.executable = self.executable?
+		bound_events[event_model.symbol]
 	    end
+
+	    event.executable = self.executable?
 	    event
         end
 
@@ -801,13 +819,13 @@ module Roby
         inherited_enumerable(:event, :events, :map => true) { Hash.new }
 
         # Iterates on all the events defined for this task
-        def each_event(only_bound = true, &iterator) # :yield:bound_event
-            if only_bound
-                bound_events.each_value(&iterator)
-            else
-                model.each_event { |symbol, model| yield event(model) }
-            end
+        def each_event(&iterator) # :yield:bound_event
+	    bound_events.each_value(&iterator)
         end
+
+	def terminal_events
+	    bound_events.values.find_all { |ev| ev.terminal? }
+	end
 
         # Get the list of terminal events for this task model
         def self.terminal_events

@@ -125,10 +125,15 @@ module Roby::Distributed
 	include RemoteObjectProxy
 	def initialize(peer, marshalled_object)
 	    initialize_remote_proxy(peer, marshalled_object)
-	    super(marshalled_object.arguments)
+	    super(marshalled_object.arguments) do
+		Roby::Distributed.updated_objects << self
+	    end
+
 	    @name << "@#{peer.remote_name}"
 	rescue ArgumentError
 	    raise $!, $!.message + " (#{self.class.ancestors[1..-1]})", $!.backtrace
+	ensure
+	    Roby::Distributed.updated_objects.delete(self)
 	end
     end
 end
