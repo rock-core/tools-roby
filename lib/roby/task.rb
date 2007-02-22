@@ -503,9 +503,9 @@ module Roby
 		raise EventNotExecutable.new(self), "trying to fire #{event.generator.symbol} on #{self} but #{self} is not executable"
 	    end
 
-            if final_event && final_event.propagation_id != event.propagation_id
+            if final_event && !event.terminal?
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} but the task has finished"
-            elsif !event(:start).happened? && !final_event && event.symbol != :start
+            elsif pending? && event.symbol != :start
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} but the task is not running"
             elsif running? && event.symbol == :start
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} but the task is already running"
