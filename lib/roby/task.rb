@@ -157,16 +157,16 @@ module Roby
 
         def controlable?; event_model.controlable? end
 	attr_writer :terminal
-	def terminal?; event_model.terminal? || @terminal end
+	def terminal?; @terminal || event_model.terminal? end
 	def added_child_object(child, relation, info)
 	    super if defined? super
-	    if relation == EventStructure::Signal && child.respond_to?(:task) && child.task == task
+	    if relation == EventStructure::CausalLink && child.respond_to?(:task) && child.task == task
 		task.update_terminal_flag
 	    end
 	end
 	def removed_child_object(child, relation)
 	    super if defined? super
-	    if relation == EventStructure::Signal && child.respond_to?(:task) && child.task == task
+	    if relation == EventStructure::CausalLink && child.respond_to?(:task) && child.task == task
 		task.update_terminal_flag
 	    end
 	end
@@ -418,7 +418,10 @@ module Roby
 	    super
 	end
 
-	def self.update_terminal_flag
+	# Update the terminal flag for the event models that are defined in this
+	# task model. The event is terminal if model-level signals (set up by Task::on)
+	# lead to the emission of the +stop+ event
+	def self.update_terminal_flag # :nodoc:
 	    events = enum_for(:each_event).map { |name, model| model }
 	    terminal_events = events.find_all { |ev| ev.terminal? }
 
@@ -439,11 +442,18 @@ module Roby
 		end
 	    end
 	end
-	# Updates the terminal flag for all events in the task
+
+	# Updates the terminal flag for all events in the task. An event is
+	# terminal if the +stop+ event of the task will be called because this
+	# event is.
 	def update_terminal_flag
 	    events = bound_events.values
-	    events.each { |t| t.terminal = false }
-	    terminal_events = events.find_all { |ev| event_model(ev.symbol).terminal? }
+	    terminal_events = events.find_all do |ev|
+		# remove the terminal flag, TaskEventGenerator#terminal?  will
+		# now return the model's terminal flag
+		ev.terminal = false
+		ev.terminal?
+	    end
 
 	    found = true
 	    while found
@@ -451,7 +461,7 @@ module Roby
 		events -= terminal_events
 
 		events.each do |ev|
-		    ev.each_signal do |signalled|
+		    ev.each_causal_link do |signalled|
 			if signalled.terminal?
 			    found = true
 			    ev.terminal = true
