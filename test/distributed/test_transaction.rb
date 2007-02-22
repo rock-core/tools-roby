@@ -183,7 +183,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	process_events
 
 	assert_nothing_raised { t_task.discover(TaskStructure::Hierarchy, true) }
-	
+
+	trsc.self_owned = false
 	assert_raises(NotOwner) { t_task.realized_by task }
 	assert_raises(NotOwner) { t_task.event(:start).on task.event(:start) }
 	assert_raises(NotOwner) { task.realized_by t_task }
@@ -191,7 +192,11 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert_raises(NotOwner) { trsc.discard_transaction }
 	assert_raises(NotOwner) { trsc.commit_transaction }
 
-	trsc.self_owned = true
+	# Create a new transaction since we cannot add us back in +trsc+ (only remote_peer
+	# can and we are not testing #propose here)
+	trsc = Roby::Distributed::Transaction.new(plan)
+	t_task = trsc[r_task]
+	trsc.add_owner remote_peer
 	assert_nothing_raised { t_task.realized_by task }
 	assert_nothing_raised { t_task.event(:start).on task.event(:start) }
 	assert_nothing_raised { task.realized_by t_task }
@@ -259,12 +264,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	    assert(did_commit)
 	end
 
-	assert_doesnt_timeout(1) do
-	    loop do
-		process_events
-		break if did_commit
-		sleep(0.2)
-	    end
+	assert_happens do
+	    raise unless did_commit
 	end
 
 	assert(r_task.child_object?(task, TaskStructure::Hierarchy))

@@ -54,7 +54,9 @@ module Roby
 	    # Checks that +peer_id+ can be removed from the list of owners
 	    def prepare_remove_owner(peer_id)
 		each_task(true) do |t|
-		    if discovered_relations_of?(t, nil, false) && t.owners.include?(peer_id)
+		    next unless discovered_relations_of?(t, nil, false) 
+		    t = t.__getobj__ if t.kind_of?(Roby::Transactions::Proxy)
+		    if t.owners.include?(peer_id)
 			raise OwnershipError, "#{peer_id} still owns tasks in the transaction (#{t})"
 		    end
 		end
@@ -297,7 +299,7 @@ module Roby
 		end
 		def proxy(peer)
 		    unless trsc = peer.find_transaction(remote_object, peer.local_object(plan)) 
-			raise InvalidRemoteOperation, "#{remote_object} does not exist on #{peer.connection_space.name}"
+			raise InvalidRemoteOperation, "the transaction #{remote_object} does not exist on #{peer.connection_space.name}"
 		    end
 		    trsc
 		end
