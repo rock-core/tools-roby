@@ -145,9 +145,11 @@ module Test::Unit::Assertions
 	assert_block(message) do
 	    begin
 		yield
-		watchdog.kill
 		true
 	    rescue FailedTimeout
+	    ensure
+		watchdog.kill
+		watchdog.join
 	    end
 	end
     end
