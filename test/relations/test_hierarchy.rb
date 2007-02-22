@@ -15,21 +15,37 @@ class TC_RealizedBy < Test::Unit::TestCase
     end
 
     def test_definition
-	t1 = SimpleTask.new
+	tag   = TaskModelTag.new
+	klass = Class.new(SimpleTask) do
+	    argument :id
+	    include tag
+	end
+	t1    = SimpleTask.new
+	child = klass.new(:id => 'good')
 
-	# Check validation of the :model argument
-	assert_nothing_raised { t1.realized_by SimpleTask.new, :model => SimpleTask }
-	assert_nothing_raised { t1.realized_by SimpleTask.new, :model => [Roby::Task, {}] }
+	# Check validation of the model
+	assert_nothing_raised { t1.realized_by((child = klass.new), :model => SimpleTask) }
+	assert_equal([SimpleTask, {}], t1[child, Hierarchy][:model])
+
+	assert_nothing_raised { t1.realized_by klass.new, :model => [Roby::Task, {}] }
+	assert_nothing_raised { t1.realized_by klass.new, :model => tag }
 	assert_raises(ArgumentError) { t1.realized_by SimpleTask.new, :model => [Class.new(Roby::Task), {}] }
+	assert_raises(ArgumentError) { t1.realized_by SimpleTask.new, :model => TaskModelTag.new }
+	
+	# Check validation of the arguments
+	assert_raises(ArgumentError) { t1.realized_by klass.new, :model => [SimpleTask, {:id => 'bad'}] }
+
+	child = klass.new(:id => 'good')
+	assert_raises(ArgumentError) { t1.realized_by child, :model => [klass, {:id => 'bad'}] }
+	assert_nothing_raised { t1.realized_by child, :model => [klass, {:id => 'good'}] }
+	assert_equal([klass, { :id => 'good' }], t1[child, TaskStructure::Hierarchy][:model])
 
 	# Check edge annotation
 	t2 = SimpleTask.new
 	t1.realized_by t2, :model => SimpleTask
 	assert_equal([SimpleTask, {}], t1[t2, TaskStructure::Hierarchy][:model])
-
-	t2 = SimpleTask.new
-	t1.realized_by t2, :model => [SimpleTask, { :value => 10 }]
-	assert_equal([SimpleTask, { :value => 10 }], t1[t2, TaskStructure::Hierarchy][:model])
+	t2 = klass.new(:id => 10)
+	t1.realized_by t2, :model => [klass, { :id => 10 }]
     end
 
     Hierarchy = TaskStructure::Hierarchy
@@ -78,12 +94,19 @@ class TC_RealizedBy < Test::Unit::TestCase
     end
 
     def test_fullfilled_model
-	p1, p2, child = (1..3).map { SimpleTask.new }
+	tag = TaskModelTag.new
+	klass = Class.new(SimpleTask) do
+	    include tag
+	end
+
+	p1, p2, child = (1..3).map { klass.new }
 	p1.realized_by child, :model => SimpleTask
 	p2.realized_by child, :model => Roby::Task
-	assert_equal([SimpleTask, {}], child.fullfilled_model)
+	assert_equal([[SimpleTask], {}], child.fullfilled_model)
 	p1.remove_child(child)
-	assert_equal([Roby::Task, {}], child.fullfilled_model)
+	assert_equal([[Roby::Task], {}], child.fullfilled_model)
+	p1.realized_by child, :model => tag
+	assert_equal([[Roby::Task, tag], {}], child.fullfilled_model)
     end
 
     def test_first_children

@@ -13,14 +13,23 @@ module Roby::TaskStructure
 	# model:: a [task_model, arguments] pair which defines the task model the
 	#	  parent is expecting
         def realized_by(task, options = {})
-            options = validate_options options, :model => [task.model, {}], :success => [:success], :failure => [:failed]
+            options = validate_options options, 
+		:model => [task.model, task.meaningful_arguments], 
+		:success => [:success], 
+		:failure => [:failed]
+	    options[:success] = Array[*options[:success]]
+	    options[:failure] = Array[*options[:failure]]
 
 	    # Validate failure and success event names
-	    options[:success] = Array[*options[:success]].each { |ev| task.event(ev) }
-	    options[:failure] = Array[*options[:failure]].each { |ev| task.event(ev) }
+	    options[:success].each { |ev| task.event(ev) }
+	    options[:failure].each { |ev| task.event(ev) }
 
 	    options[:model] = [options[:model], {}] unless Array === options[:model]
-	    if !task.fullfills?(*options[:model])
+	    required_model, required_args = *options[:model]
+	    unknown_args = (required_args.keys - required_model.arguments.to_a)
+	    if !unknown_args.empty?
+		raise ArgumentError, "the arguments '#{unknown_args.join(", ")}' are not meaningful to the #{required_model} model"
+	    elsif !task.fullfills?(required_model, required_args)
 		raise ArgumentError, "task #{task} does not fullfills the provided model #{options[:model]}"
 	    end
 
@@ -54,21 +63,33 @@ module Roby::TaskStructure
 	    needed
 	end
 
-	# Return the model this task is fullfilling
+	# Return [tags, argumetnts] where +tags+ is a list of task models which
+	# are required by the parent tasks of this task, and arguments the
+	# required arguments
+	#
+	# If there is a task class in the required models, it is always the
+	# first element of +tags+
 	def fullfilled_model
-	    model, arguments = Roby::Task, {}
+	    model, tags, arguments = Roby::Task, [], {}
 
 	    each_parent_task do |parent|
 		m, a = parent[self, Hierarchy][:model]
-		if m < model
+		if m.instance_of?(Roby::TaskModelTag)
+		    tags << m
+		elsif m.has_ancestor?(model)
 		    model = m
-		elsif !(model < m) && model != m
-		    raise "inconsistency in fullfilled models"
+		elsif !model.has_ancestor?(m)
+		    raise "inconsistency in fullfilled models: #{model} and #{m} are incompatible"
 		end
-		a.merge!(arguments) { |old, new| raise "inconsistency in fullfilled models" if old != new }
+		a.merge!(arguments) do |old, new| 
+		    if old != new
+			raise "inconsistency in fullfilled models: #{old} and #{new}"
+		    end
+		end
 	    end
 
-	    [model, arguments]
+	    tags.unshift(model)
+	    [tags, arguments]
 	end
 
 	# Remove all children that have successfully finished

@@ -25,9 +25,10 @@ class TC_Task < Test::Unit::TestCase
     def test_arguments
 	task = Class.new(Task) do
 	    argument :from, :to
-	end.new(:from => 'B')
+	end.new(:from => 'B', :useless => 'bla')
 	assert_equal([].to_set, Task.arguments)
 	assert_equal([:from, :to].to_set, task.model.arguments)
+	assert_equal({:from => 'B'}, task.meaningful_arguments)
 
 	assert(task.partially_instanciated?)
 	task.arguments[:to] = 'A'

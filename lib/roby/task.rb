@@ -260,6 +260,10 @@ module Roby
 
 	# The task arguments as symbol => value associative container
 	attr_reader :arguments
+	# The part of +arguments+ that is meaningful for this task model
+	def meaningful_arguments(task_model = self.model)
+	    arguments.slice(*task_model.arguments)
+	end
 	# The task name
 	attr_reader :name
 
@@ -931,19 +935,43 @@ module Roby
 	    finished? || !(running? ^ task.running?)
 	end
 
+	def self.tags
+	    ancestors.find_all { |m| m.instance_of?(TaskModelTag) }
+	end
+
 	# The fullfills? predicate checks if this task can be used
 	# to fullfill the need of the given +model+ and +arguments+
 	# The default is to check if
 	#   * the needed task model is an ancestor of this task
+	#   * the task 
 	#   * +args+ is included in the task arguments
-	def fullfills?(model, args = {})
-	    if Task === model
-		model, args = model.class, model.arguments
+	def fullfills?(models, args = {})
+	    if models.kind_of?(Task)
+		klass, tags, args = 
+		    models.class, 
+		    models.class.tags,
+		    models.meaningful_arguments
+		models = tags.push(klass)
+	    else
+		models = [*models]
 	    end
+	    self_model = self.model
+
 	    # Check the arguments that are required by the model
-	    args	= args.slice(*model.arguments)
-	    self_args	= self.arguments.slice(*args.keys)
-	    (self.model == model || self.kind_of?(model)) && self_args == args
+	    required_args = models.inject(Set.new) do |required_args, tag|
+		unless self_model.has_ancestor?(tag)
+		    return false
+		end
+		required_args.merge tag.arguments
+	    end
+	    required_args = required_args.to_a
+
+	    unknown_args = (args.keys - required_args)
+	    unless unknown_args.empty?
+		raise ArgumentError, "the arguments '#{unknown_args.join(", ")}' are unknown to the tags #{tags.join(", ")}"
+	    end
+
+	    arguments.slice(*args.keys) == args
 	end
 
 	include ExceptionHandlingObject
