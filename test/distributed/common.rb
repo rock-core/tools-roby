@@ -21,13 +21,13 @@ module DistributedTestCommon
     end
     def teardown
 	if remote_peer
-	    apply_remote_command
+	    process_events
 	    
 	    if remote_peer.connected?
 		remote_peer.disconnect
 		assert_doesnt_timeout(5, "watchdog failed") do
 		    loop do
-			apply_remote_command
+			process_events
 			break if remote_peer.task.event(:stop).happened?
 			sleep(0.2)
 		    end
@@ -58,6 +58,7 @@ module DistributedTestCommon
 	remote_process do
 	    DRb.start_service DISCOVERY_URI, TupleSpace.new
 	end
+	sleep(0.5)
 
 	remote_process do
 	    central_tuplespace = DRbObject.new_with_uri(DISCOVERY_URI)
@@ -103,7 +104,7 @@ module DistributedTestCommon
 
 	# we must call #process_events to make sure the ConnectionTask objects
 	# are inserted in both plans
-	apply_remote_command
+	process_events
     end
 
     attr_reader :central_tuplespace, :remote, :remote_peer, :remote_plan, :local, :local_peer
@@ -114,18 +115,15 @@ module DistributedTestCommon
 	setup_connection
     end
 
-    def apply_remote_command
+    def process_events
 	# flush the command queue
-	loop do
-	    did_something = remote_peer.flush
-	    remote.start_neighbour_discovery(true)
-	    did_something ||= local_peer.flush
-	    local.start_neighbour_discovery(true)
-	    Control.instance.process_events
-	    remote.process_events
-	    break unless did_something
-	end
-	yield if block_given?
+	remote_peer.flush
+	remote.process_events
+	remote.start_neighbour_discovery(true)
+
+	local_peer.flush
+	local.start_neighbour_discovery(true)
+	Control.instance.process_events
     end
 
     def remote_task(match)

@@ -53,9 +53,9 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	remote_trsc = nil
 	remote_peer.transaction_create(trsc) { |remote_trsc| remote_trsc = remote_trsc.remote_object }
-	apply_remote_command
+	process_events
 	trsc.add_owner remote_peer
-	apply_remote_command
+	process_events
 	remote.test_find_transaction(trsc)
 	assert_equal(remote_trsc, trsc.remote_siblings[remote_peer.remote_id])
 	assert(remote_trsc.remote_siblings.has_key?(local_peer.remote_id), remote_trsc.remote_siblings.keys)
@@ -79,7 +79,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc = Distributed::Transaction.new(plan)
 	remote_trsc = nil
 	remote_peer.transaction_create(trsc) { |remote_trsc| remote_trsc = remote_trsc.remote_object }
-	apply_remote_command
+	process_events
 
 	# Check that marshalling the remote view of a local transaction proxy
 	# returns the local proxy itself
@@ -109,7 +109,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc = Distributed::Transaction.new(plan)
 	remote_trsc = nil
 	remote_peer.transaction_create(trsc) { |remote_trsc| remote_trsc = remote_trsc.remote_object }
-	apply_remote_command
+	process_events
 
 	control_thread = Thread.new do
 	    loop do
@@ -180,7 +180,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	trsc.add_owner remote_peer
 	remote_peer.subscribe(r_task)
-	apply_remote_command
+	process_events
 
 	assert_nothing_raised { t_task.discover(TaskStructure::Hierarchy, true) }
 	
@@ -200,7 +200,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert_raises(OwnershipError) { trsc.self_owned = false }
 	trsc.self_owned
 	assert_nothing_raised { trsc.discard_transaction }
-	apply_remote_command
+	process_events
 	Control.instance.process_events
     end
 
@@ -224,7 +224,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	remote_peer.subscribe(parent)
 	remote_peer.subscribe(child)
-	apply_remote_command
+	process_events
 
 	# Add relations
 	trsc[parent].realized_by task
@@ -261,7 +261,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	assert_doesnt_timeout(1) do
 	    loop do
-		apply_remote_command
+		process_events
 		break if did_commit
 		sleep(0.2)
 	    end
@@ -297,9 +297,9 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	    assert_equal(trsc[remote_peer.task], trsc[r_task].execution_agent)
 	end
 	trsc.propose(remote_peer)
-	apply_remote_command
+	process_events
 	trsc.commit_transaction
-	apply_remote_command
+	process_events
 
 	assert_equal(remote_peer.task, r_task.execution_agent)
 	assert(remote.check_execution_agent)
@@ -318,7 +318,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	r_task = remote_peer.proxy(remote_task(:id => 2))
 
 	assert_raises(NotOwner) { r_task.arguments[:foo] = :bar }
-	apply_remote_command
+	process_events
 
 	trsc   = Roby::Distributed::Transaction.new(plan)
 	trsc.add_owner remote_peer
@@ -329,12 +329,12 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	t_task = trsc[r_task]
 	# fails because we cannot override an argument already set
 	assert_raises(NotOwner) { t_task.arguments[:foo] = :bar }
-	apply_remote_command
+	process_events
 
 	task = Task.new(:id => 2)
 	t_task = trsc[task]
 	assert_nothing_raised { remote.set_argument(t_task) }
-	apply_remote_command
+	process_events
 
 	assert_equal(:bar, t_task.arguments[:foo], t_task.name)
     end
@@ -360,11 +360,11 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	# Send the transaction to remote_peer and commit it
 	trsc.propose(remote_peer)
-	apply_remote_command
+	process_events
 
 	r_trsc = trsc.remote_siblings[remote_peer.remote_id]
 	assert(r_trsc)
-	apply_remote_command
+	process_events
 	remote.check_transaction(r_trsc)
 
 	check_transaction_commit(trsc, task, r_task)
@@ -390,7 +390,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.add_owner remote_peer
 	assert(trsc.self_owned?)
 	trsc.propose(remote_peer)
-	apply_remote_command
+	process_events
 
 	assert(r_trsc = trsc.remote_siblings[remote_peer.remote_id])
 	assert(remote_peer.subscribed?(r_trsc), remote_peer.subscriptions.to_a.to_s)
@@ -398,7 +398,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	task, r_task = build_transaction(trsc)
 
 	# Check that the remote transaction has been updated
-	apply_remote_command
+	process_events
 	remote.check_transaction(r_trsc)
 	check_resulting_plan(trsc)
 
@@ -426,11 +426,11 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.self_owned
 	trsc.add_owner remote_peer
 	trsc.propose(remote_peer)
-	apply_remote_command
+	process_events
 
 	r_t2 = remote_peer.proxy(remote_task(:id => 2))
 	remote_peer.subscribe(r_t2)
-	apply_remote_command
+	process_events
 
 	t = SimpleTask.new(:id => 'local')
 	t0 = SimpleTask.new(:id => 'local0')
@@ -440,7 +440,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	trsc[t].realized_by trsc[r_t2]
 	trsc[t0].realized_by trsc[r_t2]
-	apply_remote_command
+	process_events
 	trsc.commit_transaction
 
 	assert(remote.check_relation_remains)

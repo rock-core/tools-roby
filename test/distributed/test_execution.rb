@@ -31,7 +31,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	remote.fire
 	remote_peer.subscribe(r_controlable.remote_object)
 	remote_peer.subscribe(r_contingent.remote_object)
-	apply_remote_command
+	process_events
 
 	assert(p_controlable.happened?)
 	assert(p_contingent.happened?)
@@ -58,16 +58,16 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	# Start the task *before* subscribing to test that
 	# #subscribe maps the task status
 	remote.start_task
-	apply_remote_command
+	process_events
 	remote_peer.subscribe(r_task.remote_object)
-	apply_remote_command
+	process_events
 
 	assert(p_task.event(:start).happened?)
 	assert(p_task.running?)
 
 	# Stop the task to see if the fired event is propagated
 	remote.stop_task
-	assert_raises(Roby::Aborting) { apply_remote_command }
+	assert_raises(Roby::Aborting) { process_events }
 	assert(p_task.event(:stop).happened?)
 	assert(p_task.finished?)
     end
@@ -110,10 +110,10 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    mock.should_receive(:signal_command).once.ordered('signal')
 	    mock.should_receive(:signal_emitted).once.ordered('signal')
 	    mock.should_receive(:forward_emitted).once
-	    apply_remote_command
+	    process_events
 	    remote.start_task
 
-	    apply_remote_command
+	    process_events
 	    Control.instance.process_events
 	    assert(signalled_ev.happened?)
 	    assert(forwarded_ev.happened?)
@@ -145,11 +145,11 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    assert(!child.subscribed?)
 	    assert(child.running?)
 	end
-	apply_remote_command
+	process_events
 
 	assert(child)
 	remote.remove_link
-	apply_remote_command
+	process_events
 	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'child' })
     end
 end
