@@ -3,7 +3,7 @@ require 'distributed/common'
 require 'mockups/tasks'
 require 'flexmock'
 
-class TC_DistributedTransaction < Test::Unit::TestCase
+class TC_DistributedPlanNotifications < Test::Unit::TestCase
     include DistributedTestCommon
 
     def test_distribute_p
