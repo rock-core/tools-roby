@@ -569,12 +569,17 @@ static VALUE graph_topological_sort(int argc, VALUE* argv, VALUE self)
     Result result;
 
     map<vertex_descriptor, default_color_type> colors;
-    topological_sort(graph, std::back_inserter(result), 
-	    boost::color_map(make_assoc_property_map(colors)));
+    try
+    {
+	topological_sort(graph, std::back_inserter(result), 
+		boost::color_map(make_assoc_property_map(colors)));
 
-    for (Result::const_reverse_iterator it = result.rbegin(); it != result.rend(); ++it)
-	rb_ary_push(rb_result, graph[*it]);
-    return rb_result;
+	for (Result::const_reverse_iterator it = result.rbegin(); it != result.rend(); ++it)
+	    rb_ary_push(rb_result, graph[*it]);
+	return rb_result;
+    }
+    catch(boost::not_a_dag) {}
+    rb_raise(rb_eArgError, "the graph is not a DAG");
 }
 
 /**********************************************************************
