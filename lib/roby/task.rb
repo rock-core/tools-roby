@@ -132,14 +132,6 @@ module Roby
             super
         end
 
-	# Enumerates all signals that come from this generator
-	def each_signal
-	    super
-	    task.each_signal(event_model.symbol) do |event_model|
-		yield(task.event(event_model))
-	    end
-	end
-
 	def related_tasks(result = nil)
 	    tasks = super
 	    tasks.delete(task)
@@ -566,7 +558,9 @@ module Roby
 
 		    if event_symbol != :start && event_symbol != :stop
 			event(:start).add_precedence(event)
-			event.add_precedence(event(:stop))
+		    end
+		    model.each_signal(event_symbol) do |signalled|
+			event.add_signal event(signalled)
 		    end
 		end
 
