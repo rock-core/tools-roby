@@ -95,6 +95,10 @@ module RobyTestCommon
 	end
     end
 
+    def process_events
+	Control.instance.process_events
+    end
+
     attr_reader :remote_processes
     def remote_process
 	start_r, start_w= IO.pipe
