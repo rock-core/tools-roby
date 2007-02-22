@@ -135,6 +135,10 @@ module Roby
 			    plan.remove_object(local)
 			end
 			peer.delete(marshalled.remote_object)
+
+		    else
+			return unless local = peer.local_object(args[0], false)
+			plan.send(event, local)
 		    end
 		end
 		nil
