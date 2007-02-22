@@ -92,13 +92,7 @@ module Roby
 		# Marshal DRoby-dumped objects now, since the object may be
 		# modified between now and the time it is sent
 		args.map! do |obj| 
-		    if obj.kind_of?(DRbObject)
-			obj
-		    elsif obj.respond_to?(:droby_dump)
-		       	obj.droby_dump
-		    else
-			obj
-		    end
+		    Distributed.format(obj)
 		end
 		args.unshift m
 
