@@ -6,18 +6,24 @@ require 'roby/droby'
 require 'roby'
 
 class Array
-    def proxy(peer); map(&peer.method(:proxy)) end
+    def proxy(peer) # :nodoc:
+	map(&peer.method(:proxy)) 
+    end
 end
 class Hash
-    def proxy(peer)
+    def proxy(peer) # :nodoc:
 	inject({}) { |h, (k, v)| h[k] = peer.proxy(v); h }
     end
 end
 class Set
-    def proxy(peer); map(&peer.method(:proxy)).to_set end
+    def proxy(peer) # :nodoc:
+	map(&peer.method(:proxy)).to_set 
+    end
 end
 class ValueSet
-    def proxy(peer); map(&peer.method(:proxy)).to_value_set end
+    def proxy(peer) # :nodoc:
+	map(&peer.method(:proxy)).to_value_set 
+    end
 end
 
 class Module

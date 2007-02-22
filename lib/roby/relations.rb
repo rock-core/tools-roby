@@ -28,6 +28,8 @@ module Roby
 	    @enum_child_objects ||= Hash.new
 	    @enum_child_objects[type] ||= enum_for(:each_child_object, type)
 	end
+
+	# The set of relations the object is part of
 	def relations; enum_relations.to_a end
 
 	def related_objects(relation = nil, result = nil)
@@ -41,17 +43,18 @@ module Roby
 	    result
 	end
 
-	# Set of all parent objects in +type+
+	# Set of all parent objects in +relation+
 	def parent_objects(relation)
 	    enum_parent_objects(relation).to_value_set
 	end
-	# Set of all child object in +type+
+	# Set of all child object in +relation+
 	def child_objects(relation)
 	    enum_child_objects(relation).to_value_set
 	end
 
 	# Add a new child object in the +type+ relation. This calls
-	# * self.adding_child_object and child.adding_parent_object just before the relation is added
+	# * self.adding_child_object and child.adding_parent_object just before
+	#   the relation is added
 	# * self.added_child_object and child.added_child_object just after
 	def add_child_object(child, type, info = nil)
 	    check_is_relation(type)
@@ -66,6 +69,7 @@ module Roby
 	    type.add_relation(self, child, info)
 	    added_child_object(child, type, info)
 	end
+
 	# Add a new parent object in the +type+ relation
 	# * self.adding_child_object and child.adding_parent_object just before the relation is added
 	# * self.added_child_object and child.added_child_object just after
@@ -155,6 +159,8 @@ module Roby
 	    end
 	end
 
+	# Replaces +self+ by +to+ in all graphs +self+ is part of. Unlike BGL::Vertex#replace_by,
+	# this calls the various add/remove hooks defined by DirectedRelationSupport
 	def replace_object_by(to)
 	    each_relation do |rel|
 		each_child_object(rel) do |child|
@@ -167,13 +173,14 @@ module Roby
 	    remove_relations
 	end
 
-	def check_is_relation(type)
+	# Raises if +type+ does not look like a relation
+	def check_is_relation(type) # :nodoc:
 	    if type && !(RelationGraph === type)
 		raise ArgumentError, "#{type} (of class #{type.class}) is not a relation type"
 	    end
 	end
 
-	def apply_selection(object, enumerator)
+	def apply_selection(object, enumerator) # :nodoc:
 	    if block_given?
 		if object; yield(object)
 		else enumerator.each { |o| yield(o) }
@@ -186,10 +193,19 @@ module Roby
 	end
 	private :apply_selection
     end
-
+    
+    # This class manages the graph defined by an object relation in Roby.
+    # Relation graphs are managed in hierarchies (for instance, Precedence is a
+    # superset of CausalLink, and CausalLink a superset of both Forwarding and
+    # Signal). In this hierarchy, at each level, an edge cannot be present in
+    # more than one graph. Nonetheless, it is possible for a parent relation to
+    # have an edge which is present in none of its children.
     class RelationGraph < BGL::Graph
+	# The relation name
 	attr_reader   :name
+	# The relation parent if any
 	attr_accessor :parent
+	# The set of graphs
 	attr_reader   :subsets
 	attr_reader   :options
 
@@ -203,8 +219,12 @@ module Roby
 	end
 
 	def to_s; name end
+
+	# True if the relation can be seen by remote plan databases
 	def distribute?; options[:distribute] end
 
+	# Add a new relation between +from+ and +to+. The relation is
+	# added on all parent relation graphs as well. 	
 	def add_relation(from, to, info = nil)
 	    if !linked?(from, to) && parent
 		from.add_child_object(to, parent, info)
@@ -212,6 +232,10 @@ module Roby
 
 	    link(from, to, info)
 	end
+
+	# Reimplemented from BGL::Graph. Unlike this implementation, it is
+	# possible to add an already existing edge if the +info+ parameter
+	# matches.
 	def link(from, to, info)
 	    if linked?(from, to)
 		if info != from[to, self]
@@ -221,6 +245,9 @@ module Roby
 	    end
 	    super
 	end
+
+	# Remove the relation between +from+ and +to+, in this graph and in its
+	# parent graphs as well
 	def remove_relation(from, to)
 	    if parent
 		from.remove_child_object(to, parent)
@@ -234,9 +261,11 @@ module Roby
 	    self.eql?(relation) || subsets.any? { |subrel| subrel.subset?(relation) }
 	end
 
-	def linked_in_hierarchy?(source, target)
+	def linked_in_hierarchy?(source, target) # :nodoc:
 	    linked?(source, target) || (parent.linked?(source, target) if parent)
 	end
+
+	# Declare that +relation+ is a superset of this relation
 	def superset_of(relation)
 	    relation.each_edge do |source, target, info|
 		if linked_in_hierarchy?(source, target)
@@ -253,11 +282,18 @@ module Roby
 	    end
 	end
 	
-	# The support module that gets included in graph objects
+	# The Ruby module that gets included in graph objects
 	attr_accessor :support
     end
 
+    # A relation space is a module which handles a list of relations and
+    # applies them to a set of classes. In this context, a relation is both a
+    # Ruby module which gets included in the classes this space is applied on,
+    # and a RelationGraph object which holds the object graphs.
+    #
+    # See the files in roby/relations to see definitions of new relations
     class RelationSpace < Module
+	# This relation should apply on +klass+
 	def apply_on(klass)
 	    klass.include DirectedRelationSupport
 	    each_relation do |graph|
@@ -266,27 +302,32 @@ module Roby
 
 	    applied << klass 
 	end
+	# The set of relations included in this relation space
 	attribute(:relations) { Array.new }
+	# The set of klasses on which the relations have been applied
 	attribute(:applied)   { Array.new }
 
+	# Yields the relations that are included in this space
 	def each_relation(&iterator)
 	    relations.each(&iterator)
 	end
 
-	# Creates a new relation in this RelationSpace module. This defines a relation graph
-	# in the RelationSpace, and iteration methods on the vertices. If a block is given,
-	# it is class_eval'd in the context of the vertex class.
+	# Creates a new relation in this relation space. This defines a
+	# relation graph in the RelationSpace, and iteration methods on the
+	# vertices. If a block is given, it is class_eval'd in the context of
+	# the relation module, which is included in the applied classes.
 	#
 	# = Options
-	# child_name:: define a each_#{child_name} method to iterate on the vertex children. 
-	#              Uses the relation name by default (a Child relation would be defined 
-	#              a each_child method)
+	# child_name:: define a each_#{child_name} method to iterate on the
+	#	       vertex children.  Uses the relation name by default (a Child relation
+	# 	       would be define a each_child method)
 	# parent_name:: define a each_#{parent_name} method to iterate on the vertex parents.
-	#              If nil, or if none is given, no method is defined
-	# subsets:: a list of subgraphs. See RelationGraph#superset_of
+	#               If nil, or if none is given, no method is defined
+	# subsets:: a list of subgraphs. See RelationGraph#superset_of [empty set]
 	# noinfo:: if the relation embeds some additional information. If true, the child iterator method
-	#          (each_#{child_name}) will yield (child, info) instead of only child
+	#          (each_#{child_name}) will yield (child, info) instead of only child [false]
 	# graph:: the relation graph class
+	# distribute:: if true, the relation can be seen by remote peers [true]
 	def relation(relation_name, options = {}, &block)
 	    options = validate_options options, 
 			:child_name => relation_name.to_s.underscore,
@@ -348,6 +389,8 @@ module Roby
 	end
     end
 
+    # Creates a new relation space which applies on +klass+. If a block is
+    # given, it is eval'd in the context of the new relation space instance
     def self.RelationSpace(klass, &block)
 	klass.include DirectedRelationSupport
 	relation_space = RelationSpace.new do
@@ -357,7 +400,7 @@ module Roby
 	relation_space
     end
 
-    # Requires all Roby relation files (all files in relations/)
+    # Requires all Roby relation files (all files in roby/relations/)
     def self.load_all_relations
 	Dir.glob("#{File.dirname(__FILE__)}/relations/*.rb").each do |file|
 	    require "roby/relations/#{File.basename(file, '.rb')}"

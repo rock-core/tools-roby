@@ -77,15 +77,15 @@ task :setup => :test_build do
     FileUtils.ln_sf "../../ext/bgl.so", "lib/roby/bgl.so"
 end
 
-Rake::RDocTask.new("docs") do |rdoc|
+Rake::RDocTask.new("core_docs") do |rdoc|
   rdoc.options << "--inline-source"
   rdoc.rdoc_dir = 'html'
-  rdoc.title    = "Roby"
+  rdoc.title    = "Roby Core"
   rdoc.options << '-T' << 'hefss'
   rdoc.options << '--main' << 'README'
   rdoc.rdoc_files.include('README')
   rdoc.rdoc_files.include('lib/**/*.rb', 'doc/**/*.rdoc', 'ext/**/*.cc')
-  rdoc.rdoc_files.exclude('doc/**/*_attrs.rdoc')
+  rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
 end
 
 task :test do

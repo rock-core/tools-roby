@@ -393,9 +393,9 @@ module Roby
 	# exception itself and +origin+ its origin.
 	#
 	# +event+ can be one of:
-	#   [exception_handling]:: error in exception handler. +origin+ is either
-	#			   the task of the handler or the Roby module for
-	#			   global exceptions
+	# exception_handling:: error in exception handler. +origin+ is either
+	#		       the task of the handler or the Roby module for
+	#		       global exceptions
 	#
 	def application_error(event, origin, error)
 	    if Thread.current[:application_exceptions]

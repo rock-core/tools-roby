@@ -308,9 +308,11 @@ VALUE graph_undirected_components(int argc, VALUE* argv, VALUE self)
 { return graph_components(argc, argv, graph_view_of(self)); }
 
 /* call-seq:
- *   graph.generated_subgraph([v1, v2, ...])		   => components
+ *   graph.generated_subgraph([v1, v2, ...][, include_singletons])		   => components
  *
- * Like Graph#components, but do not go backwards on edges
+ * Returns an array of vertex sets. Each set is the component that can be
+ * reached from one of the given seed. If no initial vertex is given, the graph
+ * roots are taken.
  */
 static VALUE graph_generated_subgraphs(int argc, VALUE* argv, VALUE self)
 { return graph_do_generated_subgraphs(argc, argv, graph_wrapped(self), self); }
