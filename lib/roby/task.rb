@@ -258,7 +258,7 @@ module Roby
 		    enumerator = (__#{name}_enumerator__[model] ||= enum_for(:each_#{name}_aux, model))
 		    enumerator.each_uniq { |o| yield(o) }
 		end
-		def each_#{name}(model); singleton_class.each_#{name}(model) { |o| yield(o) } end
+		def each_#{name}(model); self.model.each_#{name}(model) { |o| yield(o) } end
 	    EOD
 	end
 
