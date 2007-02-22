@@ -2,8 +2,6 @@ require 'test_config'
 require 'flexmock'
 
 require 'roby'
-require 'roby/relations/ensured'
-
 class TC_Event < Test::Unit::TestCase
     include RobyTestCommon
 
@@ -367,34 +365,6 @@ class TC_Event < Test::Unit::TestCase
 	assert(c.happened?)
     end
 
-    def test_ensure
-	setup = lambda do |mock|
-	    e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
-	    e1.ensure e2
-	    e1.on { mock.e1 }
-	    e2.on { mock.e2 }
-	    [e1, e2]
-	end
-	FlexMock.use do |mock|
-	    e1, e2 = setup[mock]
-	    mock.should_receive(:e2).ordered.once
-	    mock.should_receive(:e1).ordered.once
-	    e1.call(nil)
-	end
-	FlexMock.use do |mock|
-	    e1, e2 = setup[mock]
-	    mock.should_receive(:e1).never
-	    mock.should_receive(:e2).once
-	    e2.call(nil)
-	end
-	FlexMock.use do |mock|
-	    e1, e2 = setup[mock]
-	    mock.should_receive(:e2).ordered.once
-	    mock.should_receive(:e1).ordered.once
-	    e2.call(nil)
-	    e1.call(nil)
-	end
-    end
 
     def test_until
 	e1, e2, e3, e4 = 4.enum_for(:times).map { EventGenerator.new(true) }

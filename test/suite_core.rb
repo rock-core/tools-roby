@@ -6,8 +6,7 @@ require 'test_planning'
 require 'test_transactions'
 require 'test_transactions_proxy'
 
-require 'test_executed_by'
-require 'test_realized_by'
+require 'suite_relations'
 
 require 'test_control'
 require 'test_control_interface'
