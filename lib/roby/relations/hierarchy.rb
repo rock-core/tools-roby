@@ -71,9 +71,17 @@ module Roby::TaskStructure
 	    [model, arguments]
 	end
 
+	# Remove all children that have successfully finished
 	def remove_finished_children
+	    # We call #to_a to get a copy of children, since we will remove
+	    # children in the block. Note that we can't use #delete_if here
+	    # since #children is a relation enumerator (not the relation list
+	    # itself)
 	    children.to_a.each do |child|
-		remove_child(child) if child.success?
+		success_events = self[child, Hierarchy][:success]
+		if success_events.any? { |ev| child.event(ev).happened? }
+		    remove_child(child)
+		end
 	    end
 	end
     end
