@@ -115,11 +115,6 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	# Check that events that are only in the subclass of Task
 	# are forbidden
 	assert_raises(NotImplementedError) { proxy.intermediate!(nil) }
-
-	# Check that dynamic events are forbidden
-	task.model.class_eval { event(:dynamic, :command => true) }
-	assert_nothing_raised { task.dynamic!(nil) }
-	assert_raises(NotImplementedError) { proxy.dynamic!(nil) }
     end
 
     def test_proxy_fullfills
