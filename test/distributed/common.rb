@@ -16,6 +16,8 @@ module DistributedTestCommon
 	save_collection Distributed.new_neighbours_observers
 	Distributed.allow_remote_access Distributed::Peer
 	@old_logger_level = Distributed.logger.level
+
+	GC.start
     end
     def teardown
 	if remote_peer
