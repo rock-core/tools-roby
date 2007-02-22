@@ -234,7 +234,8 @@ module Roby
     #   - a non-controlable event can become a controlable one
     #   - a non-terminal event can become a terminal one
     class Task < PlanObject
-	include TaskModelTag.new
+	RootTaskTag = TaskModelTag.new
+	include RootTaskTag
 
 	def self.model_attribute_list(name)
 	    inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = Set.new } }
