@@ -5,8 +5,12 @@ require 'facet/kernel/constant'
 module Roby
     class InvalidPlanOperation < RuntimeError; end
     class InvalidReplace < RuntimeError
+	attr_reader :from, :to, :error
 	def initialize(from, to, error)
 	    @from, @to, @error = from, to, error
+	end
+	def message
+	    "#{error} while replacing #{from} by #{to}"
 	end
     end
 
@@ -171,7 +175,7 @@ module Roby
 
 	    # Check that +to+ is valid in all hierarchy relations where +from+ is a child
 	    if !to.fullfills?(*from.fullfilled_model)
-		raise InvalidReplace.new(from, to, "to does not fullfills the needed models")
+		raise InvalidReplace.new(from, to, "to does not fullfills #{from.fullfilled_model}")
 	    end
 
 	    # Check that +to+ is in the same execution state than +from+
