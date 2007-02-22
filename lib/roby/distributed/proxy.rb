@@ -92,7 +92,7 @@ module Roby::Distributed
 	end
 
 	def droby_dump
-	    marshalled_object.dup
+	    marshalled_object.remote_object
 	end
     end
 

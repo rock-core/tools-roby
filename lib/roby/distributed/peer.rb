@@ -573,7 +573,11 @@ module Roby::Distributed
 	# is raised if the local proxy is not known to this peer.
 	def local_object(object, create = true)
 	    if object.kind_of?(DRbObject)
-		raise ArgumentError, "got a DRbObject"
+		if local_proxy = @proxies[object]
+		    proxy_setup(local_proxy)
+		    return local_proxy
+		end
+		raise ArgumentError, "got a DRbObject which has no proxy yet. Internal problem with incremental updates"
 	    elsif object.respond_to?(:proxy)
 		proxy(object, create)
 	    else object
