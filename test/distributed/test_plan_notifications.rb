@@ -187,9 +187,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	assert(local.plan.missions.find { |t| t.arguments[:id] == 'mission' })
 	remote.discard_mission
-	apply_remote_command
-	assert_equal(2, local.plan.size)
-	assert(!local.plan.missions.find { |t| t.arguments[:id] == 'mission' })
+	process_events
+	assert(local.plan.missions.empty?)
 	assert(local.plan.known_tasks.find { |t| t.arguments[:id] == 'mission' })
 
 	remote.remove_mission
