@@ -349,11 +349,6 @@ module Roby::Transactions
 	include Proxy
 	proxy_for Roby::Task
 
-	def initialize(*args, &block)
-	    super
-	    @bound_events = Hash.new
-	end
-
 	def_delegator :@__getobj__, :running?
 	def_delegator :@__getobj__, :finished?
 	def_delegator :@__getobj__, :pending?
