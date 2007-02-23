@@ -4,7 +4,7 @@ module Roby::TaskStructure
     # The execution_agent defines an agent (process or otherwise) a given
     # task is executed by. It allows to define a class of these execution agent,
     # so that the specific agents are managed externally (load-balacing, ...)
-    relation :ExecutionAgent, :parent_name => :executed_agent, :noinfo => true, :distribute => false do
+    relation :ExecutionAgent, :parent_name => :executed_task, :noinfo => true, :distribute => false do
         def self.included(klass)
             class << klass
                 attr_reader :execution_agent
@@ -23,6 +23,12 @@ module Roby::TaskStructure
 	    return if execution_agent == agent
 	    if !agent.event(:start).controlable?
 		raise TaskModelViolation.new(self), "the start event of #{self}'s execution agent #{agent} is not controlable"
+	    end
+
+	    on(:start) { agent.forward(:stop, self, :aborted) }
+	    on(:stop) do 
+		remove_execution_agent agent
+		agent.event(:stop).remove_forwarding event(:aborted)
 	    end
 	    
 	    # Check that agent defines the :ready event
@@ -43,32 +49,9 @@ module Roby::TaskStructure
 	    def calling(context)
 		super if defined? super
 		return unless symbol == :start
+		return unless agent = task.execution_agent
 
-		unless agent = task.execution_agent
-		    unless agent_model = task.class.execution_agent
-			# There is no need for an execution agent
-			return
-		    end
-
-		    # Try to find an already existing agent
-		    agents = plan.known_tasks.find_all { |t| t.local? && t.kind_of?(agent_model) && !t.finished? }
-		    if agents.empty?
-			# ... or create a new one
-			begin
-			    agents = [agent_model.new]
-			rescue Exception => e
-			    raise Roby::TaskModelViolation.new(task), "the #{self} model defines an execution agent, but #{agent_model}::new raised #{e.full_message}"
-			end
-		    end
-
-		    running_agents, pending_agents = agents.partition { |t| t.running? }
-		    agent = if !running_agents.empty? then running_agents.first
-			    else pending_agents.first
-			    end
-		    task.executed_by agent
-		end
-
-		if !agent.running?
+		if agent.pending?
 		    postpone(agent.event(:ready), "spawning execution agent #{agent} for #{self}") do
 			agent.event(:start).on do
 			    agent.event(:stop).until(agent.event(:ready)).on do |event|
@@ -77,24 +60,59 @@ module Roby::TaskStructure
 			end
 			agent.start! unless agent.event(:start).pending?
 		    end
-		end
-
-		task.event(:start).on do
-		    agent.event(:stop).
-			until(task.event(:stop)).
-			on { |stopped| task.event(:aborted).emit(stopped.context) }
-		end
-	    end
-	
-	    def fired(event)
-		super if defined? super
-		if task.local? && task.finished? && (agent = task.execution_agent)
-		    task.remove_execution_agent agent
+		elsif agent.finished?
+		    raise Roby::TaskModelViolation.new(task), "task #{task} has an execution agent but it is dead"
 		end
 	    end
 	end
 	Roby::TaskEventGenerator.include EventHooks
+
+	module SpawnExecutionAgents
+	    def discovered_tasks(tasks)
+		tasks.each do |task|
+		    if !task.execution_agent && task.model.execution_agent
+			ExecutionAgent.spawn(task)
+		    end
+		end
+	    end
+	end
+	Roby::Plan.include SpawnExecutionAgents
+    end
+
+    def ExecutionAgent.spawn(task)
+	agent_model = task.model.execution_agent
+	candidates = task.plan.find_tasks.
+	    with_model(agent_model).
+	    local.
+	    not_finished.
+	    to_a
+
+	if candidates.empty?
+	    Roby::Propagation.gather_exceptions(agent_model) do
+		agent = agent_model.new
+		agent.on(:stop) do
+		    agent.each_executed_task do |task|
+			if task.running?
+			    task.emit(:aborted) 
+			elsif task.pending?
+			    task.remove_execution_agent agent
+			    spawn(task)
+			end
+		    end
+		end
+		candidates << agent
+	    end
+	end
+
+	running, pending = candidates.partition { |t| t.running? }
+	agent = if running.empty? then pending.first
+		else running.first
+		end
+
+	task.executed_by agent
+	unless agent.running?
+	    task.event(:start).ensure agent.event(:start) 
+	end
     end
 end
-
 

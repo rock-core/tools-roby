@@ -26,7 +26,8 @@ module Roby
     # The following event hooks are defined:
     #   * #inserted
     #   * #discarded
-    #   * #discovered
+    #   * #discovered_tasks
+    #   * #discovered_events
     #   * #replaced
     #   * #added_transaction
     #   * #removed_transaction
