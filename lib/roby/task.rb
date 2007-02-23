@@ -987,7 +987,7 @@ module Roby
 
 	    unknown_args = (args.keys - required_args)
 	    unless unknown_args.empty?
-		raise ArgumentError, "the arguments '#{unknown_args.join(", ")}' are unknown to the tags #{tags.join(", ")}"
+		raise ArgumentError, "the arguments '#{unknown_args.join(", ")}' are unknown to the tags #{models.join(", ")}"
 	    end
 
 	    arguments.slice(*args.keys) == args
