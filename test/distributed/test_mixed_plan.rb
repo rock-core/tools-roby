@@ -86,23 +86,25 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	end
 
 	# Create the transaction, and do the necessary modifications
-	trsc = Distributed::Transaction.new(local.plan, :on_plan_update => :update)
+	trsc = Distributed::Transaction.new(local.plan, :conflict_solver => SolverIgnoreUpdate.new)
+
 	trsc.add_owner remote_peer
 	trsc.self_owned
 	trsc.propose(remote_peer) if propose_first
-	apply_remote_command
+	process_events
 
 	yield(trsc)
 
-	apply_remote_command
+	process_events
 	# Check the transaction is still valid, regardless of the
 	# changes we made to the plan
 	check_resulting_plan(trsc, true)
 	remote.check_resulting_plan(trsc, true)
 
 	# Commit and check the result
-	trsc.commit_transaction
-	apply_remote_command
+	did_commit = nil
+	trsc.commit_transaction { |_, did_commit| }
+	assert_happens { assert(did_commit) }
 
 	check_resulting_plan(local.plan, true)
 	remote.check_resulting_plan(remote.plan, true)
@@ -115,10 +117,10 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    t1, t2, t3 = add_tasks(local.plan, "local")
 
 	    remote_peer.subscribe(r_t2)
-	    apply_remote_command
+	    process_events
 
 	    trsc[r_t2].realized_by trsc[t2]
-	    apply_remote_command
+	    process_events
 	    check_resulting_plan(trsc, false)
 	    remote.check_resulting_plan(trsc, false) if propose_first
 
@@ -127,12 +129,12 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    t2.remove_planning_task(t3)
 	    r_t1.remote_object(remote_peer).remove_child(r_t2.remote_object(remote_peer))
 	    r_t2.remote_object(remote_peer).remove_planning_task(r_t3.remote_object(remote_peer))
-	    apply_remote_command
+	    process_events
 	    assert_cleared_relations(local.plan)
 
 	    unless propose_first
 		trsc.propose(remote_peer)
-		apply_remote_command
+		process_events
 	    end
 	    remote.assert_cleared_relations(local.plan)
 	end
@@ -144,22 +146,22 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    r_t1, r_t2, r_t3 = remote.add_tasks(remote.plan).map { |t| remote_peer.proxy(t) }
 
 	    remote_peer.subscribe(r_t2)
-	    apply_remote_command
+	    process_events
 
 	    t1, t2, t3 = add_tasks(trsc, "local")
 	    trsc[r_t2].realized_by t2
-	    apply_remote_command
+	    process_events
 	    check_resulting_plan(trsc, false)
 	    remote.check_resulting_plan(trsc, false) if propose_first
 
 	    # remove the relations in the real tasks (not the proxies)
 	    r_t1.remote_object(remote_peer).remove_child(r_t2.remote_object(remote_peer))
 	    r_t2.remote_object(remote_peer).remove_planning_task(r_t3.remote_object(remote_peer))
-	    apply_remote_command
+	    process_events
 
 	    unless propose_first
 		trsc.propose(remote_peer)
-		apply_remote_command
+		process_events
 	    end
 	    remote.assert_cleared_relations(remote.plan)
 	end
@@ -172,10 +174,10 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	common_setup(true) do |trsc|
 	    t1, t2, t3 = add_tasks(local.plan, "local")
 	    r_t1, r_t2, r_t3 = remote.add_tasks(trsc).map { |t| remote_peer.proxy(t) }
-	    apply_remote_command
+	    process_events
 
 	    r_t2.realized_by trsc[t2]
-	    apply_remote_command
+	    process_events
 
 	    check_resulting_plan(trsc, false)
 	    remote.check_resulting_plan(trsc, false)
@@ -183,7 +185,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    # remove the relations in the real tasks (not the proxies)
 	    t1.remove_child(t2)
 	    t2.remove_planning_task(t3)
-	    apply_remote_command
+	    process_events
 	    assert_cleared_relations(local.plan)
 	end
     end
