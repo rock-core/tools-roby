@@ -108,22 +108,14 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	    end
 	end
 
-	local_task = Task.new
-	remote_proxy = Marshal.load(Distributed.dump(local_task))
-	assert_same(local_task, remote_proxy.remote_object)
-	remote_proxy = Marshal.load(Distributed.dump(remote_proxy))
-	assert_same(local_task, remote_proxy.remote_object)
-
 	remote_task = remote.task
 	assert_kind_of(MarshalledTask, remote_task)
 	assert_equal({:id => 1}, remote_task.arguments)
 	assert_kind_of(Plan::DRoby, remote_task.plan)
-	assert_equal(SimpleTask, remote_task.model.ancestors[1])
+	assert_equal(SimpleTask, remote_task.model.ancestors[1], remote_task.model.ancestors)
 
-	remote_proxy = remote.proxy(local_task)
-	assert_kind_of(MarshalledTask, remote_proxy)
-	assert_equal(local_task, remote_proxy.remote_object)
-	assert_equal(local_task, remote_peer.proxy(remote_proxy))
+	remote_proxy = remote.proxy(local_task = SimpleTask.new(:id => 'local'))
+	assert_same(local_task, remote_proxy)
     end
 
     def assert_marshalled_ancestors(expected, marshalled)
