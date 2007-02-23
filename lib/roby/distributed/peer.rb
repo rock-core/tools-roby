@@ -677,6 +677,11 @@ module Roby::Distributed
 	# in the local plan
 	def unnecessary?(local_object)
 	    return false if local_object.subscribed?
+	    local_object.plan.transactions.each do |trsc|
+		if trsc.wrap(local_object, false)
+		    return false
+		end
+	    end
 	    Roby::Distributed.each_object_relation(local_object) do |rel|
 		if local_object.related_objects(rel).any? { |obj| obj.subscribed? }
 		    return false
