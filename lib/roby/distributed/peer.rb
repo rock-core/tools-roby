@@ -257,7 +257,6 @@ module Roby::Distributed
 			from.remove_child_object(to, rel)
 		    end
 
-		    # HACK: the tests on #plan should be unnecessary
 		    if peer.unnecessary?(from)
 			peer.delete(from, from.plan)
 		    elsif peer.unnecessary?(to)
