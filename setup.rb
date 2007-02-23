@@ -10,8 +10,8 @@ Dir.new( extdir = File.join(BASEDIR, 'ext') ).each do |ext|
 	system('make')
 
 	Dir.glob("*.so") do |sofile|
-	    FileUtils.rm_f File.join(BASEDIR, "lib", sofile)
-	    FileUtils.ln_s File.join(ext, sofile), File.join(BASEDIR, "lib", sofile)
+	    FileUtils.rm_f File.join(BASEDIR, "lib", "roby", sofile)
+	    FileUtils.ln_s File.join(ext, sofile), File.join(BASEDIR, "lib", "roby", sofile)
 	end
     end
 end
