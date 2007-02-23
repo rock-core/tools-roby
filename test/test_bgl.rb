@@ -1,13 +1,10 @@
-$LOAD_PATH.unshift File.join(File.expand_path(File.dirname(__FILE__)), '../lib')
-require 'test_config'
-
-require 'roby/graph'
-
+$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+require 'roby/test/common'
 require 'enumerator'
 require 'flexmock'
 
 class TC_BGL < Test::Unit::TestCase
-    include RobyTestCommon
+    include Roby::Test
     class Vertex
 	include BGL::Vertex
     end

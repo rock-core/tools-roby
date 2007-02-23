@@ -1,10 +1,9 @@
-require 'test_config'
+$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+require 'roby/test/common'
 require 'flexmock'
 
-require 'roby/support'
-
 class TC_Utils < Test::Unit::TestCase
-    include RobyTestCommon
+    include Roby::Test
 
     def test_define_under
 	mod = Module.new

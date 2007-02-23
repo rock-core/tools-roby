@@ -1,10 +1,9 @@
-require 'test_config'
+$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+require 'roby/test/common'
 require 'flexmock'
 
-require 'roby/state/state'
-
 class TC_State < Test::Unit::TestCase
-    include RobyTestCommon
+    include Roby::Test
 
     def test_openstruct_behavior
 	s = ExtendedStruct.new

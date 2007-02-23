@@ -4,14 +4,33 @@ require 'roby'
 module Roby
     module Test
 	include Roby
+	Unit = ::Test::Unit
+
 	class << self
 	    attr_accessor :check_allocation_count
 	end
 
+	# The plan used by the tests
+	def plan; Roby.plan end
+
+	# Clear the plan and return it
+	def new_plan
+	    Roby.plan.clear
+	    plan
+	end
+
+	# a [collection, collection_backup] array of the collections saved
+	# by #original_collections
 	attr_reader :original_collections
+
+	# Saves the current state of +obj+. This state will be restored by
+	# #restore_collections. +obj+ must respond to #<< to add new elements
+	# (hashes do not work whild arrays or sets do)
 	def save_collection(obj)
 	    original_collections << [obj, obj.dup]
 	end
+
+	# Restors the collections saved by #save_collection to their previous state
 	def restore_collections
 	    original_collections.each do |col, backup|
 		col.clear
@@ -29,18 +48,21 @@ module Roby
 		GC.disable
 	    end
 
-	    # Save and restore Control's global arrays
-	    if defined? Roby::Control
-		save_collection Roby::Control.event_processing
-		save_collection Roby::Control.structure_checks
-		Roby::Control.instance.abort_on_exception = true
-		Roby::Control.instance.abort_on_application_exception = true
-		Roby::Control.instance.abort_on_framework_exception = true
+	    if defined? Roby::Planning::Planner
+		Roby::Planning::Planner.last_id = 0 
 	    end
 
-	    if defined? Roby.exception_handlers
-		save_collection Roby.exception_handlers
-	    end
+	    # Save and restore Control's global arrays
+	    save_collection Roby::Control.event_processing
+	    save_collection Roby::Control.structure_checks
+	    Roby::Control.instance.abort_on_exception = true
+	    Roby::Control.instance.abort_on_application_exception = true
+	    Roby::Control.instance.abort_on_framework_exception = true
+
+	    save_collection Roby::Propagation.event_ordering
+	    save_collection Roby::Propagation.delayed_events
+
+	    save_collection Roby.exception_handlers
 	end
 
 	def teardown
@@ -50,9 +72,7 @@ module Roby
 	    end
 
 	    restore_collections
-	    if respond_to?(:plan) && plan
-		plan.clear
-	    end
+	    plan.clear
 
 	    # Clear all relation graphs in TaskStructure and EventStructure
 	    spaces = []
@@ -81,7 +101,67 @@ module Roby
 	    end
 	end
 
+	# Process pending events
+	def process_events
+	    Control.instance.process_events
+	end
+
+	# The list of children started using #remote_process
 	attr_reader :remote_processes
+
+	# Creates a set of tasks and returns them. Each task is given an unique
+	# 'id' which allows to recognize it in a failed assertion.
+	#
+	# Known options are:
+	# missions:: how many mission to create [0]
+	# discover:: how many tasks should be discovered [0]
+	# tasks:: how many tasks to create outside the plan [0]
+	# model:: the task model [Roby::Task]
+	# plan:: the plan to apply on [plan]
+	#
+	# The return value is [missions, discovered, tasks]
+	#   (t1, t2), (t3, t4, t5), (t6, t7) = prepare_plan :missions => 2,
+	#	:discover => 3, :tasks => 2
+	#
+	# An empty set is omitted
+	#   (t1, t2), (t6, t7) = prepare_plan :missions => 2, :tasks => 2
+	#
+	# If a set is a singleton, the only object of this singleton is returned
+	#   t1, (t6, t7) = prepare_plan :missions => 1, :tasks => 2
+	#    
+	def prepare_plan(options)
+	    options = validate_options options,
+		:missions => 0, :discover => 0, :tasks => 0,
+		:model => Roby::Task, :plan => plan
+
+	    missions, discovered, tasks = [], [], []
+	    (1..options[:missions]).each do |i|
+		options[:plan].insert(t = options[:model].new(:id => "mission-#{i}"))
+		missions << t
+	    end
+	    (1..options[:discover]).each do |i|
+		options[:plan].discover(t = options[:model].new(:id => "discover-#{i}"))
+		discovered << t
+	    end
+	    (1..options[:tasks]).each do |i|
+		tasks << options[:model].new(:id => "task-#{i}")
+	    end
+
+	    result = []
+	    [missions, discovered, tasks].each do |set|
+		unless set.empty?
+		    set = *set
+		    result << set
+		end
+	    end
+	    if result.size == 1 then result.first
+	    else result
+	    end
+	end
+
+	# Start a new process and saves its PID in #remote_processes. If a block is
+	# given, it is called in the new child. #remote_process returns only after
+	# this block has returned.
 	def remote_process
 	    start_r, start_w= IO.pipe
 	    quit_r, quit_w = IO.pipe
@@ -100,7 +180,8 @@ module Roby
 	ensure
 	    start_r.close
 	end
-	
+
+	# Stop all the remote processes that have been started using #remote_process
 	def stop_remote_processes
 	    remote_processes.each do |pid, quit_w|
 		quit_w.write('OK') 
@@ -118,14 +199,13 @@ module Roby
 	    assert(planner.success?)
 	    planner.planned_task
 	end
-	    
 
-	#require 'roby/log/console'
-	#Roby::Log.loggers << Roby::Log::ConsoleLogger.new(STDERR)
-	#Roby.logger.level = Logger::DEBUG
-	#Test.check_allocation_count = true
 
+	# Exception raised in the block of assert_doesnt_timeout when the timeout
+	# is reached
 	class FailedTimeout < RuntimeError; end
+
+	# Checks that the given block returns within +seconds+ seconds
 	def assert_doesnt_timeout(seconds, message = "watchdog #{seconds} failed")
 	    watched_thread = Thread.current
 	    watchdog = Thread.new do
@@ -136,19 +216,36 @@ module Roby
 	    assert_block(message) do
 		begin
 		    yield
-		    watchdog.kill
 		    true
 		rescue FailedTimeout
+		ensure
+		    watchdog.kill
+		    watchdog.join
 		end
 	    end
 	end
 
-	def assert_event(event, timeout = 5)
-	    assert_doesnt_timeout(timeout, "event #{event.symbol} never happened") do
-		while !event.happened?
-		    Roby::Control.instance.process_events({}, false)
-		    sleep(0.1)
+	# Checks that the assertions in the block pass within +timeout+ seconds. If
+	# +event+ is given, it is the message that is displayed if the assertion
+	# fails
+	def assert_happens(timeout = 5, event = "")
+	    assert_doesnt_timeout(timeout, "#{event} did not happen") do
+		loop do
+		    begin
+			yield
+			return
+		    rescue
+			process_events
+			sleep(0.1)
+		    end
 		end
+	    end
+	end
+
+	# Checks that +event+ is emitted within +timeout+ seconds
+	def assert_event(event, timeout = 5)
+	    assert_happens(timeout, "event #{event.symbol}") do
+		assert(event.happened?)
 	    end
 	end
 
@@ -160,38 +257,20 @@ module Roby
 	    end
 	end
 
-	def assert_drbobject_of(object, drb_object)
-	    assert_drbset_of([object], [drb_object])
-	end
-	def assert_drbset_of(objects, drb_objects)
-	    unwrapped_objects = []
-	    # DO NOT call #map. drb_objects is a remote object
-	    # itself, so #map would not work as expected
-	    #
-	    # THIS IS NOT a Ruby bug. It only happens because
-	    # we have here a special case where a local object
-	    # is not unwrapped. It is a case not covered by
-	    # DRb
-	    drb_objects.each do |drb_obj| 
-		assert_kind_of(DRb::DRbObject, drb_obj)
-		unwrapped_objects << DRb.to_obj(drb_obj.__drbref)
-	    end
+	# The console logger object. See #console_logger=
+	attr_reader :console_logger
 
-	    assert_equal(objects.to_set, unwrapped_objects.to_set)
-	end
-
-	def assert_droby_object_of(object, drb_object)
-	    assert_droby_set_of([object], [drb_object])
-	end
-	def assert_droby_set_of(objects, drb_objects)
-	    remote_objects = []
-	    drb_objects.each do |obj|
-		assert_kind_of(Roby::Distributed::MarshalledObject, obj)
-		remote_objects << obj.remote_object
+	# Enable display of all plan events on the console
+	def console_logger=(value)
+	    if value
+		require 'roby/log/console'
+		@console_logger = Roby::Log::ConsoleLogger.new(STDERR)
+		Roby::Log.loggers << console_logger
+	    else
+		Roby::Log.loggers.delete(@console_logger)
+		@console_logger = nil
 	    end
-	    assert_drbset_of(objects, remote_objects)
 	end
     end
 end
-
 

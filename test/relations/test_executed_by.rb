@@ -1,12 +1,10 @@
-$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
-require 'test_config'
+$LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
+require 'roby/test/common'
 require 'mockups/tasks'
 require 'flexmock'
 
-require 'roby'
-
 class TC_ExecutedBy < Test::Unit::TestCase
-    include RobyTestCommon
+    include Roby::Test
 
     attr_reader :plan
     def setup

@@ -1,20 +1,11 @@
-require 'test_config'
+$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+require 'roby/test/common'
 require 'flexmock'
 require 'mockups/tasks'
 
-require 'roby'
-
 class TC_Control < Test::Unit::TestCase 
-    include RobyTestCommon
+    include Roby::Test
 
-    def teardown
-	Control.instance.plan.clear 
-	super
-    end
-    def plan
-	Control.instance.plan
-    end
-    
     def test_application_error
 	# Shut up the logger in this test
 	Roby.logger.level = Logger::FATAL
@@ -92,7 +83,7 @@ class TC_Control < Test::Unit::TestCase
 		event :start
 		on(:start) { mock.handler_called }
 	    end.new
-	    Control.instance.plan.insert(t)
+	    plan.insert(t)
 
 	    mock.should_receive(:command_called).once
 	    mock.should_receive(:handler_called).never

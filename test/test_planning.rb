@@ -1,31 +1,13 @@
-require 'test_config'
+$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+require 'roby/test/common'
+require 'roby/planning'
+
 require 'flexmock'
 require 'mockups/tasks'
 
-require 'roby/planning'
-require 'roby/relations/planned_by'
-
 class TC_Planner < Test::Unit::TestCase
     include Roby::Planning
-    include RobyTestCommon
-
-    def setup
-	Planner.last_id = 0 
-	new_plan
-	super
-    end
-    def teardown
-	Planner.last_id = 0 
-	super
-    end
-
-    def plan
-	Control.instance.plan
-    end
-    def new_plan
-	plan.clear
-	plan
-    end
+    include Roby::Test
 
     def test_id_validation
 	assert_equal(15, Planner.validate_method_id("15"))
@@ -36,12 +18,12 @@ class TC_Planner < Test::Unit::TestCase
     def test_method_definition
 	base_model, base_1, base_15, base_foobar, base_barfoo, recursive = nil
         model = Class.new(Planner) do 
-	    base_model = method(:base)
-            base_1 = method(:base) { NullTask.new }
-            base_15 = method(:base, :id => "15") { NullTask.new }
-            base_foobar = method(:base, :id => :foobar) { NullTask.new }
-            base_barfoo = method(:base, :id => 'barfoo') { NullTask.new }
-            recursive = method(:recursive, :recursive => true) { NullTask.new }
+	    base_model  = method(:base)
+	    base_1      = method(:base) { NullTask.new }
+	    base_15     = method(:base, :id => "15") { NullTask.new }
+	    base_foobar = method(:base, :id => :foobar) { NullTask.new }
+	    base_barfoo = method(:base, :id => 'barfoo') { NullTask.new }
+	    recursive   = method(:recursive, :recursive => true) { NullTask.new }
         end
 	assert_equal(17, model.next_id)
 	
@@ -126,10 +108,12 @@ class TC_Planner < Test::Unit::TestCase
     def assert_result_plan_size(size, planner_model, method, options)
 	planner = planner_model.new(plan)
 	result = planner.send(method, options)
-	planner.plan.insert(result)
+	result.each do |task|
+	    planner.plan.insert(task)
+	end
 	assert_equal(size, planner.plan.size, planner.plan.known_tasks.to_a.inspect)
 
-	plan.clear
+	new_plan
     end
 
     def test_recursive

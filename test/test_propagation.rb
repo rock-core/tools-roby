@@ -1,11 +1,10 @@
+$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+require 'roby/test/common'
 require 'flexmock'
 require 'mockups/tasks'
-require 'test_config'
-
-require 'roby'
 
 class TC_Propagation < Test::Unit::TestCase
-    include RobyTestCommon
+    include Roby::Test
 
     def test_gather_propagation
 	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)

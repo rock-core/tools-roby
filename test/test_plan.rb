@@ -1,11 +1,12 @@
-require 'test_config'
-require 'flexmock'
-
-require 'roby/plan'
+$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+require 'roby/test/common'
+require 'roby/log'
 require 'roby/state/information'
 
+require 'flexmock'
+
+
 module TC_PlanStatic
-    attr_reader :plan
     include Roby
 
     def test_add_remove
@@ -164,22 +165,35 @@ end
 
 class TC_Plan < Test::Unit::TestCase
     include TC_PlanStatic
-    include RobyTestCommon
+    include Roby::Test
+
+    def finalized_tasks; @finalized_tasks_recorder.tasks end
+    class FinalizedTaskRecorder
+	attribute(:tasks) { Array.new }
+	def finalized_task(time, plan, task)
+	    tasks << task
+	end
+	def splat?; true end
+    end
 
     def setup
-	@plan = Plan.new
+	super
+	Roby::Log.loggers << (@finalized_tasks_recorder = FinalizedTaskRecorder.new)
+    end
+    def teardown
+	Roby::Log.loggers.delete(@finalized_tasks_recorder)
 	super
     end
 
     def assert_finalizes(plan, unneeded, finalized = nil)
 	finalized ||= unneeded
-	plan.finalized_tasks = []
+	finalized_tasks.clear
 
 	yield if block_given?
 
 	assert_equal(unneeded.to_set, plan.unneeded_tasks.to_set)
 	plan.garbage_collect
-	assert_equal(finalized.to_set, plan.finalized_tasks.to_set)
+	assert_equal(finalized.to_set, finalized_tasks.to_set)
 	assert(! finalized.any? { |t| plan.include?(t) })
     end
 
@@ -208,13 +222,6 @@ class TC_Plan < Test::Unit::TestCase
 
 	t7.realized_by t8
 
-	class << plan
-	    attribute(:finalized_tasks) { Array.new }
-	    def finalized(task)
-		finalized_tasks << task
-	    end
-	end
-
 	[t1, t2, t5].each { |t| plan.insert(t) }
 	plan.permanent(t7)
 
@@ -242,13 +249,6 @@ class TC_Plan < Test::Unit::TestCase
 	end.new
 	t2 = Task.new
 	t1.realized_by t2
-
-	class << plan
-	    attribute(:finalized_tasks) { Array.new }
-	    def finalized(task)
-		finalized_tasks << task
-	    end
-	end
 
 	plan.insert(t1)
 	t1.start!

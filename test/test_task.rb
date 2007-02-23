@@ -1,13 +1,10 @@
-require 'test_config'
-require 'flexmock'
+$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+require 'roby/test/common'
 require 'mockups/tasks'
-
-require 'roby/task'
-require 'roby/plan'
+require 'flexmock'
 
 class TC_Task < Test::Unit::TestCase 
-    include RobyTestCommon
-    attr_reader :plan
+    include Roby::Test
 
     def test_model_tag
 	my_tag = TaskModelTag.new do
@@ -399,7 +396,6 @@ class TC_Task < Test::Unit::TestCase
 	assert_raises(TaskModelViolation) { task.executable = false }
 
 	task = SimpleTask.new
-	plan = Plan.new
 	plan.insert(task)
 	assert(task.executable?)
 	task.executable = false
@@ -469,7 +465,7 @@ class TC_Task < Test::Unit::TestCase
     end
     def test_sequence_to_task
 	model = Class.new(SimpleTask)
-	t1, t2 = SimpleTask.new, SimpleTask.new
+	t1, t2 = prepare_plan :tasks => 2, :model => SimpleTask
 
 	seq = (t1 + t2)
 	assert(seq.child_object?(t1, TaskStructure::Hierarchy))
@@ -477,7 +473,6 @@ class TC_Task < Test::Unit::TestCase
 
 	task = seq.to_task(model)
 
-	@plan = Plan.new
 	plan.insert(task)
 
 	assert(!seq.child_object?(t1, TaskStructure::Hierarchy))
@@ -515,7 +510,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_task_same_state
-	t1, t2 = SimpleTask.new, SimpleTask.new
+	t1, t2 = prepare_plan :tasks => 2, :model => SimpleTask
 
 	assert(t1.compatible_state?(t2))
 	t1.start!; assert(! t1.compatible_state?(t2) && !t2.compatible_state?(t1))

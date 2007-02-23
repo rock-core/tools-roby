@@ -1,16 +1,15 @@
-require 'test_config'
+$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+require 'roby/test/common'
 require 'mockups/tasks'
 require 'yaml'
 require 'stringio'
 
-require 'roby/event'
-require 'roby/task'
-require 'roby/log/marshallable'
+require 'roby/log'
 require 'roby/log/logger'
 require 'roby/log/file'
 
 class TC_Log < Test::Unit::TestCase
-    include RobyTestCommon
+    include Roby::Test
 
     def teardown
 	Log::loggers.clear
@@ -44,7 +43,6 @@ class TC_Log < Test::Unit::TestCase
 	    assert_equal(w_event.task, w_task)
 	end
 
-	plan = Plan.new
 	w_plan = assert_marshallable_wrapper(plan)
 	trsc = Transaction.new(plan)
 	w_trsc = assert_marshallable_wrapper(trsc)

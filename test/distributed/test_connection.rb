@@ -1,15 +1,13 @@
-$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
-require 'distributed/common'
-require 'mockups/tasks'
+$LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
+require 'roby/test/distributed'
+require 'test/mockups/tasks'
 require 'flexmock'
-require 'roby/distributed/connection_space'
-require 'roby/distributed/proxy'
 
 class TC_DistributedConnection < Test::Unit::TestCase
     include Rinda
     include Roby
     include Distributed
-    include DistributedTestCommon
+    include Roby::Distributed::Test
 
     def setup
 	super
@@ -173,7 +171,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	    end
 	    mock.should_receive(:got_result).with(42).once.ordered
 	    mock.should_receive(:next_call).with(84).once.ordered
-	    apply_remote_command
+	    process_events
 	end
     end
 
@@ -209,7 +207,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 		mock.should_receive(:processed_callback).with(42).once.ordered
 		mock.should_receive(:processed_next_call).with(84).once.ordered
 	    end
-	    apply_remote_command
+	    process_events
 	end
     end
 

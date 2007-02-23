@@ -1,15 +1,10 @@
-require 'test_config'
+$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+require 'roby/test/common'
 require 'mockups/tasks'
 require 'flexmock'
-require 'roby/query'
 
 class TC_Query < Test::Unit::TestCase
-    include RobyTestCommon
-    attr_reader :plan
-    def setup
-	@plan = Plan.new
-	super
-    end
+    include Roby::Test
 
     def test_query_fullfills
 	task_model = Class.new(Task) do

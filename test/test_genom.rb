@@ -1,18 +1,26 @@
-require 'test_config'
+$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+require 'roby/test/common'
 require 'roby/adapters/genom'
 require 'genom/runner'
 
-class TC_Genom < Test::Unit::TestCase
-    include RobyTestCommon
+path=ENV['PATH'].split(':')
+pkg_config_path=(ENV['PKG_CONFIG_PATH'] || "").split(':')
 
-    attr_reader :plan
+Dir.glob("#{BASE_TEST_DIR}/prefix.*") do |p|
+    path << "#{p}/bin"
+    pkg_config_path << "#{p}/lib/pkgconfig"
+end
+ENV['PATH'] = path.join(':')
+ENV['PKG_CONFIG_PATH'] = pkg_config_path.join(':')
+
+class TC_Genom < Test::Unit::TestCase
+    include Roby::Test
 
     def env; Genom::Runner.environment end
     def setup
 	super
 
         Genom::Runner.environment || Genom::Runner.h2 
-	@plan = Plan.new
     end
     def teardown
 	Control.instance.disable_propagation do

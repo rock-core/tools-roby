@@ -1,11 +1,9 @@
-$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
-require 'common'
-require 'roby'
-require 'roby/distributed'
-require 'mockups/tasks'
+$LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
+require 'roby/test/distributed'
+require 'test/mockups/tasks'
 
 class TC_DistributedQuery < Test::Unit::TestCase
-    include DistributedTestCommon
+    include Roby::Distributed::Test
     def test_local
 	t1 = Class.new(Task) do
 	end.new

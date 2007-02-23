@@ -1,15 +1,12 @@
-require 'test_config'
+$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+require 'roby/test/common'
 require 'flexmock'
 require 'mockups/tasks'
 
 require 'roby'
 
 class TC_Exceptions < Test::Unit::TestCase 
-    include RobyTestCommon
-
-    def plan
-	Control.instance.plan
-    end
+    include Roby::Test
 
     def test_execution_exception_initialize
 	task = Task.new

@@ -1,10 +1,9 @@
-$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
-require 'roby/distributed'
-require 'distributed/common.rb'
-require 'mockups/tasks'
+$LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
+require 'roby/test/distributed'
+require 'test/mockups/tasks'
 
 class TC_DistributedTransaction < Test::Unit::TestCase
-    include DistributedTestCommon
+    include Roby::Distributed::Test
 
     def test_marshal_transactions
 	peer2peer do |remote|

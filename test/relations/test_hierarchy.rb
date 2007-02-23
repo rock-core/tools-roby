@@ -1,12 +1,9 @@
 $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
-require 'test_config'
+require 'roby/test/common'
 require 'mockups/tasks'
 
-require 'roby/relations/hierarchy'
-require 'roby/plan'
-
 class TC_RealizedBy < Test::Unit::TestCase
-    include RobyTestCommon
+    include Roby::Test
 
     attr_reader :plan
     def setup

@@ -1,7 +1,6 @@
-$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
-require 'distributed/common.rb'
-require 'roby/distributed/transaction'
-require 'mockups/tasks'
+$LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
+require 'roby/test/distributed'
+require 'test/mockups/tasks'
 
 # This testcase tests buildings plans where local tasks are interacting with remote tasks
 #
@@ -16,7 +15,7 @@ require 'mockups/tasks'
 #
 # The transaction is always built locally
 class TC_DistributedMixedPlan < Test::Unit::TestCase
-    include DistributedTestCommon
+    include Roby::Distributed::Test
 
     # Creates in +plan+ a task which is a child in a realized_by relation and a parent
     # in a planned_by relation. All tasks have an ID of "#{name}-#{number}", with

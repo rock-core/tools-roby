@@ -1,23 +1,24 @@
-require 'roby'
-require 'test_config'
+$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+require 'roby/test/common'
 require 'mockups/tasks'
 require 'flexmock'
 
-require 'test_plan'
+require 'test/test_plan'
 
 # Check that a transaction behaves like a plan
 class TC_TransactionAsPlan < Test::Unit::TestCase
     include TC_PlanStatic
-    include RobyTestCommon
+    include Roby::Test
 
+    alias :real_plan :plan
+    attr_reader :plan
     def setup
-	@real_plan = Plan.new
-	@plan = Transaction.new(@real_plan)
+	@plan = Transaction.new(real_plan)
 	super
     end
     def teardown
 	@plan.discard_transaction
-	@real_plan.clear
+	real_plan.clear
 	super
     end
 end
@@ -28,6 +29,7 @@ module TC_TransactionBehaviour
     Hierarchy = Roby::TaskStructure::Hierarchy
     PlannedBy = Roby::TaskStructure::PlannedBy
     Signal = Roby::EventStructure::Signal
+    Forwarding = Roby::EventStructure::Forwarding
 
     def transaction_commit(plan, *needed_proxies)
 	trsc = Roby::Transaction.new(plan)
@@ -64,8 +66,7 @@ module TC_TransactionBehaviour
 
     # Tests insertion and removal of tasks
     def test_commit_tasks
-	t1, t2, t3 = (1..3).map { Roby::Task.new }
-	plan.insert(t1)
+	t1, (t2, t3) = prepare_plan(:missions => 1, :tasks => 3)
 
 	transaction_commit(plan, t1) do |trsc, p1|
 	    assert(trsc.include?(t1))
@@ -131,10 +132,8 @@ module TC_TransactionBehaviour
     end
 
     def test_discover
-	t1, t2, t3, t4, t5 = (1..5).map { Roby::Task.new }
-	plan.insert [t1, t2]
+	(t1, t2, t5), (t3, t4) = prepare_plan(:missions => 3, :tasks => 2)
 	t1.realized_by t2
-	plan.insert t5
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    p2.planned_by t3
@@ -169,11 +168,9 @@ module TC_TransactionBehaviour
     end
 
     def test_commit_task_relations
-	t1, t2 = (1..2).map { Roby::Task.new }
-	plan.insert [t1, t2]
+	(t1, t2), (t3, t4) = prepare_plan(:missions => 2, :tasks => 2)
 	t1.realized_by t2
 
-	t3, t4 = (1..2).map { Roby::Task.new }
 	transaction_commit(plan) do |trsc|
 	    trsc.discover t3
 	    trsc.discover t4
@@ -214,14 +211,9 @@ module TC_TransactionBehaviour
     end
 
     def test_commit_event_relations
-	t1, t2, t3, t4 = (1..4).map do 
-	    Class.new(Roby::Task) do
-		event(:start, :command => true)
-		event(:stop, :command => true)
-	    end.new
-	end
-	plan.insert [t1, t2]
-	t1.on(:start, t2, :stop)
+	(t1, t2), (t3, t4) = prepare_plan :missions => 2, :tasks => 2,
+	    :model => SimpleTask
+	t1.on(:start, t2, :success)
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    trsc.discover t3
@@ -246,11 +238,11 @@ module TC_TransactionBehaviour
 	assert(Signal.linked?(t1.event(:stop), t4.event(:start)))
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    p1.event(:start).remove_child_object(p2.event(:stop), Signal)
-	    assert(!Signal.linked?(p1.event(:start), p2.event(:stop)))
-	    assert(Signal.linked?(t1.event(:start), t2.event(:stop)))
+	    p1.event(:start).remove_child_object(p2.event(:success), Signal)
+	    assert(!Signal.linked?(p1.event(:start), p2.event(:success)))
+	    assert(Signal.linked?(t1.event(:start), t2.event(:success)))
 	end
-	assert(!Signal.linked?(t1.event(:start), t2.event(:stop)))
+	assert(!Signal.linked?(t1.event(:start), t2.event(:success)))
     end
     
     def test_commit_event_handlers
@@ -272,41 +264,35 @@ module TC_TransactionBehaviour
     end
 
     def test_commit_replace
-	t1, t2 = Roby::Task.new, Roby::Task.new
-	t1.realized_by t2
-	t1.event(:stop).on t2.event(:start)
+	task, (parent, child, r) = prepare_plan :missions => 1, :tasks => 3
+	parent.realized_by task
+	task.planned_by child
+	parent.on(:stop, task, :start)
+	task.forward(:stop, child, :start)
 
 	r = Roby::Task.new
-	plan.insert(t1)
-	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    trsc.replace(p1, r)
-	    assert(Hierarchy.linked?(r, p2))
-	    assert(!Hierarchy.linked?(r, t2))
-	    assert(Signal.linked?(r.event(:stop), p2.event(:start)))
-	    assert(!Signal.linked?(r.event(:stop), t2.event(:start)))
+	transaction_commit(plan, task, parent, child) do |trsc, pt, pp, pc|
+	    trsc.replace(pt, r)
+	    assert([r], trsc.missions.to_a)
+	    assert(Hierarchy.linked?(pp, r))
+	    assert(!Hierarchy.linked?(parent, r))
+	    assert(PlannedBy.linked?(r, pc))
+	    assert(!PlannedBy.linked?(r, child))
+
+	    assert(Signal.linked?(pp.event(:stop), r.event(:start)))
+	    assert(!Signal.linked?(parent.event(:stop), r.event(:start)))
+	    assert(Forwarding.linked?(r.event(:stop), pc.event(:start)))
+	    assert(!Forwarding.linked?(r.event(:stop), child.event(:start)))
 	end
-	assert(Hierarchy.linked?(r, t2))
+	assert(Hierarchy.linked?(parent, r))
+	assert(PlannedBy.linked?(r, child))
+	assert(Signal.linked?(parent.event(:stop), r.event(:start)))
+	assert(Forwarding.linked?(r.event(:stop), child.event(:start)))
 	assert_equal([r], plan.missions.to_a)
-	assert(Signal.linked?(r.event(:stop), t2.event(:start)))
-
-	t1, t2 = Roby::Task.new, Roby::Task.new
-	t1.realized_by t2
-	t1.event(:stop).on t2.event(:start)
-
-	r = Roby::Task.new
-	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    trsc.replace(p2, r)
-	    assert(Hierarchy.linked?(p1, r))
-	    assert(!Hierarchy.linked?(t1, r))
-	    assert(Signal.linked?(p1.event(:stop), r.event(:start)))
-	    assert(!Signal.linked?(t1.event(:stop), r.event(:start)))
-	end
-	assert(Hierarchy.linked?(t1, r))
-	assert(Signal.linked?(t1.event(:stop), r.event(:start)))
     end
 
     def test_relation_validation
-	t1, t2 = (1..2).map { ExecutableTask.new }
+	t1, t2 = prepare_plan :tasks => 2
 	transaction_commit(plan, t1) do |trsc, p1|
 	    trsc.insert(t2)
 	    assert_equal(plan, t1.plan)
@@ -391,6 +377,36 @@ module TC_TransactionBehaviour
 	end
     end
 
+    def test_plan_relation_update_solver
+	solver = Roby::SolverIgnoreUpdate.new
+
+	t1, t2, t3 = (1..3).map { ExecutableTask.new }
+	t1.realized_by t2
+	plan.insert(t1)
+
+	assert_nothing_raised do
+	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+		trsc.conflict_solver = solver
+		trsc.on_plan_update  = :solver
+		p1.add_child(t3)
+		t1.remove_child(t2)
+		assert(!trsc.invalid?)
+	    end
+	end
+
+	t3 = ExecutableTask.new
+	t1.remove_child t2
+	assert_nothing_raised do
+	    transaction_commit(plan, t1) do |trsc, p1|
+		trsc.conflict_solver = solver
+		trsc.on_plan_update = :solver
+		p1.add_child(t3)
+		t1.add_child(t2)
+		assert(!trsc.invalid?)
+	    end
+	end
+    end
+
     def test_plan_relation_update_update
 	t1, t2, t3 = (1..3).map { ExecutableTask.new }
 	t1.realized_by t2
@@ -446,32 +462,22 @@ end
 
 class TC_Transactions < Test::Unit::TestCase
     include TC_TransactionBehaviour
-    include RobyTestCommon
-
-    attr_reader :plan
-    def setup
-	@plan = Roby::Plan.new
-	super
-    end
-    def teardown
-	plan.clear
-	super
-    end
+    include Roby::Test
 end
 
 class TC_RecursiveTransaction < Test::Unit::TestCase
     include TC_TransactionBehaviour
-    include RobyTestCommon
+    include Roby::Test
 
+    alias :real_plan :plan
     attr_reader :plan
     def setup
-	@real_plan = Roby::Plan.new
-	@plan = Roby::Transaction.new(@real_plan)
+	@plan = Roby::Transaction.new(real_plan)
 	super
     end
     def teardown
 	plan.discard_transaction
-	@real_plan.clear
+	real_plan.clear
 	super
     end
 end

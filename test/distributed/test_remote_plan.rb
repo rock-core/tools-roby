@@ -1,10 +1,10 @@
-$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
-require 'distributed/common.rb'
-require 'mockups/tasks'
+$LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
+require 'roby/test/distributed'
+require 'test/mockups/tasks'
 
 # This testcase tests local views of remote plans
 class TC_DistributedRemotePlan < Test::Unit::TestCase
-    include DistributedTestCommon
+    include Roby::Distributed::Test
 
     def test_remote_proxy_update
 	peer2peer do |remote|

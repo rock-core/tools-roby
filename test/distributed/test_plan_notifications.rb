@@ -1,10 +1,10 @@
-$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
-require 'distributed/common'
-require 'mockups/tasks'
+$LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
+require 'roby/test/distributed'
+require 'test/mockups/tasks'
 require 'flexmock'
 
 class TC_DistributedPlanNotifications < Test::Unit::TestCase
-    include DistributedTestCommon
+    include Roby::Distributed::Test
 
     def test_distribute_p
 	assert(Roby::Task.new.distribute?)

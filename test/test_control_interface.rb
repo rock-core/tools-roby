@@ -1,20 +1,11 @@
-require 'test_config'
+$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+require 'roby/test/common'
 require 'flexmock'
 require 'mockups/tasks'
 
-require 'roby/control_interface'
-
 class TC_Control < Test::Unit::TestCase 
-    include RobyTestCommon
+    include Roby::Test
 
-    def teardown
-	Control.instance.plan.clear 
-	super
-    end
-    def plan
-	Control.instance.plan
-    end
-    
     include Roby::Planning
     def test_method_missing
         control = Control.instance

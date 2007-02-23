@@ -1,11 +1,9 @@
-$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
-require 'distributed/common'
-require 'mockups/tasks'
-require 'roby/distributed/connection_space'
-require 'roby/distributed/proxy'
+$LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
+require 'roby/test/distributed'
+require 'test/mockups/tasks'
 
 class TC_DistributedRobyProtocol < Test::Unit::TestCase
-    include DistributedTestCommon
+    include Roby::Distributed::Test
 
     TEST_ARRAY_SIZE = 7
     def dumpable_array

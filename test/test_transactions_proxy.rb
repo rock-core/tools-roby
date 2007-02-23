@@ -1,14 +1,13 @@
-require 'test_config'
+$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+require 'roby/test/common'
 require 'mockups/tasks'
-require 'roby/transactions'
 
 class TC_TransactionsProxy < Test::Unit::TestCase
     include Roby::Transactions
-    include RobyTestCommon
+    include Roby::Test
 
-    attr_reader :transaction, :plan
+    attr_reader :transaction
     def setup
-	@plan = Roby::Plan.new
 	@transaction = Roby::Transaction.new(plan)
 	super
     end
