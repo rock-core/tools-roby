@@ -1,6 +1,4 @@
 require 'roby'
-Roby.load_all_relations
-
 require 'optparse'
 gui  = true
 play_now = false
@@ -11,17 +9,18 @@ parser = OptionParser.new do |opt|
     opt.on("--[no-]gui", "do (not) use a GUI") { |gui| }
     opt.on("--logdir=DIR", String, "the log directory in which we initialize the data sources") do |logdir| end
     opt.on("--relations=REL1,REL2", Array, "create a relation display with the given relations") do |relations|
-	relations = relations.map do |relname|
-	    if rel = Roby::TaskStructure.const_get(relname) rescue nil
-		rel
-	    elsif rel = Roby::EventStructure.const_get(relname) rescue nil
-		rel
-	    else
+	relations.map! do |relname|
+	    rel = (Roby::TaskStructure.relations.find { |rel| rel.name =~ /#{relname}/ }) ||
+		  (Roby::EventStructure.relations.find { |rel| rel.name =~ /#{relname}/ })
+
+	    unless rel
 		STDERR.puts "Unknown relation #{relname}. Available relations are:"
 		STDERR.puts "  Tasks: " + Roby::TaskStructure.enum_for(:each_relation).map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
 		STDERR.puts "  Events: " + Roby::EventStructure.enum_for(:each_relation).map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
 		exit(1)
 	    end
+
+	    rel
 	end
 
 	initial_displays << lambda do |gui|

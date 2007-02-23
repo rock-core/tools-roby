@@ -20,14 +20,26 @@
     <number>6</number>
    </property>
    <item>
-    <layout class="QHBoxLayout" >
+    <layout class="QGridLayout" >
      <property name="margin" >
       <number>0</number>
      </property>
      <property name="spacing" >
       <number>6</number>
      </property>
-     <item>
+     <item row="1" column="2" >
+      <widget class="QComboBox" name="layout_method" >
+       <property name="sizePolicy" >
+        <sizepolicy>
+         <hsizetype>3</hsizetype>
+         <vsizetype>0</vsizetype>
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0" >
       <widget class="QLabel" name="label" >
        <property name="sizePolicy" >
         <sizepolicy>
@@ -42,7 +54,7 @@
        </property>
       </widget>
      </item>
-     <item>
+     <item row="0" column="1" colspan="2" >
       <widget class="QComboBox" name="source" >
        <property name="sizePolicy" >
         <sizepolicy>
@@ -51,6 +63,21 @@
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0" colspan="2" >
+      <widget class="QLabel" name="label_2" >
+       <property name="sizePolicy" >
+        <sizepolicy>
+         <hsizetype>1</hsizetype>
+         <vsizetype>5</vsizetype>
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="text" >
+        <string>Layout method</string>
        </property>
       </widget>
      </item>

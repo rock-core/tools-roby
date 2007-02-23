@@ -134,6 +134,41 @@ module Ui
 	end
     end
 
+    class LayoutMethodModel < Qt::AbstractListModel
+	METHODS    = ["Auto", "dot [LR]", "dot [TB]", "circo", "neato", "twopi"]
+	attr_reader :display, :combo
+	def initialize(display, combo)
+	    super()
+	    @display, @combo = display, combo
+	end
+
+	def rowCount(parent)
+	    return 0 if parent.valid?
+	    return METHODS.size
+	end
+	def data(index, role)
+	    return Qt::Variant.new unless role == Qt::DisplayRole && index.valid?
+	    Qt::Variant.new(METHODS[index.row])
+	end
+	def layout_method(index)
+	end
+
+	def flags(index)
+	    Qt::ItemIsSelectable | Qt::ItemIsEnabled
+	end
+
+	def selected
+	    index = combo.current_index
+	    display.layout_method = if index == 0
+					nil
+				    else
+					METHODS[index]
+				    end
+	    display.update
+	end
+	slots 'selected()'
+    end
+
     class RelationsConfig
 	attr_reader :current_color
 	attr_reader :relation_color
@@ -156,6 +191,10 @@ module Ui
 	    Qt::Object.connect(source, SIGNAL("currentIndexChanged(int)"), @sources_model, SLOT("selectedSource()"))
 	    @sources_model.source_model = main.sources_model
 	    source.model = @sources_model
+
+	    @layout_model = LayoutMethodModel.new(display, layout_method)
+	    Qt::Object.connect(layout_method, SIGNAL("currentIndexChanged(int)"), @layout_model, SLOT("selected()"))
+	    layout_method.model = @layout_model
 
 	    display
 	end

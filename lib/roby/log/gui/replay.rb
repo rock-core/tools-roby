@@ -236,17 +236,17 @@ class Replay < Qt::MainWindow
     def add_display(kind = nil)
 	kind ||= ui.display_types.current_text
 
-	w  = Qt::Widget.new
-	w_ui = DISPLAYS[kind].new
-	display = w_ui.setupUi(self, w)
+	config_widget = Qt::Widget.new
+	config_ui = DISPLAYS[kind].new
+	display = config_ui.setupUi(self, config_widget)
 
 	name = "#{kind}##{allocate_display_number}"
-	idx  = ui.displays.add_item(w, name)
+	idx  = ui.displays.add_item(config_widget, name)
 	ui.displays.current_index = idx
 
-	displays[w_ui] = display
-	display.view.window_title = "#{window_title}: #{name}"
-	display.view.show
+	displays[config_ui] = display
+	display.main.window_title = "#{window_title}: #{name}"
+	display.main.show
 	display
     end
     slots 'add_display()'

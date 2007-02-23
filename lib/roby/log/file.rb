@@ -18,6 +18,7 @@ module Roby::Log
 
 	Roby::Log.each_hook do |klass, m|
 	    define_method(m) do |args| 
+		return if args.any? { |a| a.respond_to?(:plan) && !a.plan }
 		begin
 		    m_m    = Marshal.dump(m)
 		    m_args = Roby::Distributed.dump(args)

@@ -35,7 +35,7 @@ module Roby
 		id = io.layout_id(self)
 		io << "subgraph cluster_plan_#{id} {\n"
 		known_tasks.each { |t| t.to_dot(display, io) }
-		if display.display_events?
+		if display.enabled_event_relations?
 		    free_events.each { |e| e.to_dot(display, io) }
 		end
 		io << "};\n"
@@ -94,11 +94,13 @@ module Roby
 	class Distributed::MarshalledPlanObject
 	    attr_reader :dot_id
 
+	    def dot_label; display_name end
+
 	    # Adds the dot definition for this object in +io+
 	    def to_dot(display, io)
 		return unless display.displayed?(self)
 		@dot_id = io.layout_id(self)
-		io << "  #{dot_id}[label=\"#{display_name.split("\n").join('\n')}\"];\n"
+		io << "  #{dot_id}[label=\"#{dot_label.split("\n").join('\n')}\"];\n"
 	    end
 
 	    # Applys the layout in +positions+ to this particular object
@@ -116,6 +118,13 @@ module Roby
 	    def dot_id; task.dot_id end
 	end
 	class Distributed::MarshalledTask
+	    def dot_label
+		event_names = events.map { |ev| ev.dot_label }.join(" ") 
+		own = super
+		if own.size > event_names.size then own
+		else event_names
+		end
+	    end
 	end
 
 	class Distributed::MarshalledRemoteTransactionProxy
@@ -146,16 +155,14 @@ module Roby
 		# Dot output file
 		dot_output = Tempfile.new("roby_layout")
 
-		dot_input << "digraph relations {\n" 
-		#+
-		#       "  nslimit=4.0;\n" +
-		#       "  fslimit=4.0;\n"
+		dot_input << "digraph relations {\n"
+		dot_input << "  rankdir=#{display.layout_direction};\n"
 
 		plan.to_dot(display, self, 0)
 		dot_input << "\n};"
 		dot_input.flush
 		FileUtils.cp(dot_input.path, "/tmp/dot_layout.input.#{@@bkpindex += 1}")
-		system("dot #{dot_input.path} > #{dot_output.path}")
+		system("#{display.layout_method} #{dot_input.path} > #{dot_output.path}")
 		FileUtils.cp(dot_output.path, "/tmp/dot_layout.output.#{@@bkpindex}")
 
 		xmin, ymin = 1024, 1024

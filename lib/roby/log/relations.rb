@@ -1,4 +1,5 @@
 require 'Qt4'
+require 'utilrb/object/attr_predicate'
 require 'roby/distributed/protocol'
 require 'roby/log/dot'
 require 'roby/log/rebuild'
@@ -68,10 +69,16 @@ module Roby
 		graphics_item = display[self]
 
 		width, height = 0, 0
-		if display.display_events?
-		    events.each do |e|
+		if display.enabled_event_relations?
+		    events = self.events.map do |e| 
 			e  = display[e]
+			next unless e
 			br = (e.bounding_rect | e.children_bounding_rect)
+			[e, br]
+		    end
+		    events.compact!
+
+		    events.each do |e, br|
 			w, h = br.width, br.height
 			height = h if h > height
 			width += w
@@ -80,9 +87,7 @@ module Roby
 		    height += TASK_EVENT_SPACING
 
 		    x = -width  / 2 + TASK_EVENT_SPACING
-		    events.each do |e|
-			e  = display[e]
-			br = (e.bounding_rect | e.children_bounding_rect)
+		    events.each do |e, br|
 			w  = br.width
 			e.pos = Qt::PointF.new(x + w / 2, -br.height / 2 + EVENT_CIRCLE_RADIUS + TASK_EVENT_SPACING)
 			x += w + TASK_EVENT_SPACING
@@ -220,17 +225,16 @@ module Roby
 	    attr_reader :graphics
 	    attr_reader :arrows
 	    attr_reader :ui, :scene
-	    def view; ui.graphics end
+	    attr_reader :main
 
 	    def initialize
 		@scene = Qt::GraphicsScene.new
 		super()
 
-		@main_widget = Qt::Widget.new
+		@main = Qt::Widget.new
 		@ui    = Ui::RelationsView.new
-		ui.setupUi(@main_widget)
-		@main_widget.show
-		view.scene = scene
+		ui.setupUi(main)
+		ui.graphics.scene = scene
 		
 		@graphics = Hash.new
 		@arrows = Hash.new
@@ -239,7 +243,7 @@ module Roby
 		@relation_colors = Hash.new
 		@current_color = 0
 
-		view.resize 500, 500
+		main.resize 500, 500
 	    end
 
 	    def [](item); graphics[item.remote_object] end
@@ -275,6 +279,9 @@ module Roby
 			arrow.line.visible = true
 		    end
 		end
+
+		@enabled_task_relations  ||= !!(relation.name =~ /TaskStructure/)
+		@enabled_event_relations ||= !!(relation.name =~ /EventStructure/)
 	    end
 
 	    attr_reader :enabled_relations
@@ -296,6 +303,9 @@ module Roby
 			arrow.line.visible = false
 		    end
 		end
+
+		self.enabled_task_relations  = enabled_relations.find { |rel| rel.name =~ /TaskStructure/ }
+		self.enabled_event_relations = enabled_relations.find { |rel| rel.name =~ /EventStructure/ }
 	    end
 
 	    attr_reader :relation_colors
@@ -315,18 +325,43 @@ module Roby
 		end
 	    end
 
+	    def layout_method=(new_method)
+		if new_method
+		    new_method =~ /^(\w+)(?: \[(\w+)\])?$/
+		    @layout_method    = $1
+		    @layout_direction = $2
+		else
+		    @layout_method    = nil
+		    @layout_direction = nil
+		end
+	    end
+	    def layout_direction
+		return @layout_direction if @layout_direction
+		if enabled_event_relations? && !enabled_task_relations?
+		    "LR"
+		else "TB"
+		end
+	    end
+	    def layout_method
+		return @layout_method if @layout_method
+		if enabled_event_relations? && enabled_task_relations?
+		    "circo"
+		else "dot"
+		end
+	    end
+
 	    def displayed?(object)
 		if item = graphics[object.remote_object]
 		    graphics[object.remote_object].visible?
 		end
 	    end
-	    def display_events?
-		enabled_relations.find { |rel| rel.name =~ /EventStructure/ }
-	    end
+
+	    attr_predicate :enabled_task_relations?, true
+	    attr_predicate :enabled_event_relations?, true
 
 	    def update
+		return unless data_source
 		data_source.tasks.each_value  { |task| graphics[task.remote_object] ||= task.display_create(scene) }
-
 		data_source.events.each_value do |event| 
 		    unless item = graphics[event.remote_object] 
 			item = (graphics[event.remote_object] ||= event.display_create(scene))
@@ -334,7 +369,7 @@ module Roby
 		    end
 		    # display_create may have returned a nil object
 		    if item
-			item.visible = display_events?
+			item.visible = enabled_event_relations?
 		    end
 		end
 		data_source.tasks.each_value  { |task| task.display(self, graphics[task.remote_object]) }
@@ -394,7 +429,7 @@ if $0 == __FILE__
     app     = Qt::Application.new(ARGV)
     builder = PlanRebuild.new
     rel     = RelationsDisplay.new(builder)
-    rel.view.show
+    rel.main_widget.show
     Roby::Log.replay(ARGV[0]) do |method_name, method_args|
 	builder.send(method_name, *method_args) if builder.respond_to?(method_name)
 	rel.send(method_name, *method_args) if rel.respond_to?(method_name)
