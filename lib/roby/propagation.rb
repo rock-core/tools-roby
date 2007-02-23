@@ -192,9 +192,9 @@ module Roby::Propagation
 	attr_reader :event_priorities
     end
 
-    # This module includes the hooks which clear the event ordering caches
-    # (Propagation.event_ordering and Proapgation.event_priorities) whenever
-    # the precedence graph changes
+    # This module hooks in event relation modifications to clear the event
+    # ordering caches (Propagation.event_ordering and
+    # Propagation.event_priorities) whenever the precedence graph changes
     module EventPrecedenceChanged
 	def added_child_object(child, relation, info)
 	    super if defined? super
