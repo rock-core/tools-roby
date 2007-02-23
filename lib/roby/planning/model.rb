@@ -612,13 +612,18 @@ module Roby
 			raise PlanModelError.new(self), "#{method} returned #{result}, which is neither a task nor a task collection"
 		    end
 
-		    if method.returns && (!result.respond_to?(:to_task) || !result.fullfills?(method.returns, arguments))
-			if !result then result = "nil"
-			elsif result.respond_to?(:each)
-			    result = result.map { |t| "#{t}(#{t.arguments})" }.join(", ")
-			else result = "#{result}(#{result.arguments})"
+		    expected_return = method.returns
+		    if expected_return 
+			if !result.respond_to?(:to_task) || 
+			    !result.fullfills?(expected_return, arguments.slice(*expected_return.arguments))
+
+			    if !result then result = "nil"
+			    elsif result.respond_to?(:each)
+				result = result.map { |t| "#{t}(#{t.arguments})" }.join(", ")
+			    else result = "#{result}(#{result.arguments})"
+			    end
+			    raise PlanModelError.new(self), "#{method} returned #{result} which does not fullfill #{method.returns}(#{arguments})"
 			end
-			raise PlanModelError.new(self), "#{method} returned #{result} which does not fullfill #{method.returns}(#{arguments})"
 		    end
 		    Planning.debug { "found #{result}" }
 
