@@ -298,17 +298,21 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_return_type
-	task_model = Class.new(Task)
+	task_model = Class.new(Task) do
+	    argument :arg
+	end
 	planner = Class.new(Planner) do
-	    method(:test, :returns => task_model)
-	    method(:test, :id => "good") { task_model.new }
-	    method(:test, :id => "bad", :reuse => false) { NullTask.new }
-	    method(:test, :id => "array", :reuse => false) { [task_model.new] }
-	    method(:not_a_task, :reuse => false) { nil }
+	    method(:test, :returns => task_model, :reuse => false)
+	    method(:test, :id => "good") { task_model.new(:arg => 42, :unmatched => 21) }
+	    method(:test, :id => "bad_argument") { task_model.new(:arg => 21) }
+	    method(:test, :id => "bad_model") { NullTask.new(:arg => 42) }
+	    method(:test, :id => "array") { [task_model.new] }
+	    method(:not_a_task) { nil }
 	end.new(plan)
-	assert_nothing_raised { planner.test(:id => "good") }
-	assert_raises(Planning::NotFound) { planner.test(:id => "bad") }
-	assert_raises(Planning::NotFound) { planner.test(:id => "array") }
+	assert_nothing_raised { planner.test(:id => "good", :arg => 42, :unmatched => 10) }
+	assert_raises(Planning::NotFound) { planner.test(:id => "bad_argument", :arg => 42) }
+	assert_raises(Planning::NotFound) { planner.test(:id => "bad_model", :arg => 42) }
+	assert_raises(Planning::NotFound) { planner.test(:id => "array", :arg => 42) }
 	assert_raises(Planning::NotFound) { planner.not_a_task }
     end
 
