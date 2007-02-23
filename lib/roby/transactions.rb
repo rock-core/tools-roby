@@ -174,7 +174,15 @@ module Roby
 	# Creates a new transaction which applies on +plan+
 	def initialize(plan, options = {})
 	    @options = validate_options options, 
-		:on_plan_update => :invalidate
+		:on_plan_update => nil,
+		:conflict_solver => nil
+
+	    if options[:conflict_solver]
+		@conflict_solver = options[:conflict_solver]
+		options[:on_plan_update] ||= :solver
+	    end
+	    # Call #on_plan_update= to validate the value
+	    self.on_plan_update = options[:on_plan_update] || :invalidate
 
 	    super(plan.hierarchy, plan.service_relations)
 

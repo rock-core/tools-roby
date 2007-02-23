@@ -1,11 +1,26 @@
 module Roby
+    class SolverIgnoreUpdate
+	def finalized_plan_task(trsc, task)
+	    trsc.invalid = false
+	end
+	def finalized_plan_event(trsc, task)
+	    trsc.invalid = false
+	end
+
+	def adding_plan_relation(trsc, parent, child, type, info)
+	    trsc.invalid = false
+	end
+	def removing_plan_relation(trsc, parent, child, type)
+	    trsc.invalid = false
+	end
+    end
     class Transaction
 	def finalized_plan_task(task)
 	    invalidate("task #{task} has been removed from the plan")
 	    remove_object(wrap(task))
 
 	    if conflict_solver && conflict_solver.respond_to?(:finalized_plan_task)
-		conflict_solver.finalized_plan_task(task)
+		conflict_solver.finalized_plan_task(trsc, task)
 	    end
 	end
 	def finalized_plan_event(event)
@@ -13,7 +28,7 @@ module Roby
 	    remove_object(wrap(event))
 
 	    if conflict_solver && conflict_solver.respond_to?(:finalized_plan_event)
-		conflict_solver.finalized_plan_event(event)
+		conflict_solver.finalized_plan_event(trsc, event)
 	    end
 	end
 
@@ -27,7 +42,7 @@ module Roby
 		type.link(parent_proxy, child_proxy, info)	   
 	    when :solver
 		invalidate("plan added a relation #{parent} -> #{child} of type #{type} with info #{info}")
-		conflict_solver.adding_plan_relation(parent, child, type, info)
+		conflict_solver.adding_plan_relation(self, parent, child, type, info)
 	    end
 	end
 
@@ -41,7 +56,7 @@ module Roby
 		type.unlink(parent_proxy, child_proxy)
 	    when :solver
 		invalidate("plan removed the #{parent} -> #{child} relation of type #{type}")
-		conflict_solver.removing_plan_relation(parent, child, type)
+		conflict_solver.removing_plan_relation(self, parent, child, type)
 	    end
 	end
     end
