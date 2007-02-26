@@ -343,7 +343,7 @@ module TC_TransactionBehaviour
 
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		p1.add_child(t3)
+		p1.realized_by(t3)
 		assert(trsc.wrap(t1, false))
 		plan.remove_object(t1)
 		assert(trsc.invalid?)
@@ -360,7 +360,7 @@ module TC_TransactionBehaviour
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 		trsc.on_plan_update = :invalidate
-		p1.add_child(t3)
+		p1.realized_by(t3)
 		t1.remove_child(t2)
 		assert(trsc.invalid?)
 	    end
@@ -371,8 +371,8 @@ module TC_TransactionBehaviour
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1) do |trsc, p1|
 		trsc.on_plan_update = :invalidate
-		p1.add_child(t3)
-		t1.add_child(t2)
+		p1.realized_by(t3)
+		t1.realized_by(t2)
 		assert(trsc.invalid?)
 	    end
 	end
@@ -389,7 +389,7 @@ module TC_TransactionBehaviour
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 		trsc.conflict_solver = solver
 		trsc.on_plan_update  = :solver
-		p1.add_child(t3)
+		p1.realized_by(t3)
 		t1.remove_child(t2)
 		assert(!trsc.invalid?)
 	    end
@@ -401,8 +401,8 @@ module TC_TransactionBehaviour
 	    transaction_commit(plan, t1) do |trsc, p1|
 		trsc.conflict_solver = solver
 		trsc.on_plan_update = :solver
-		p1.add_child(t3)
-		t1.add_child(t2)
+		p1.realized_by(t3)
+		t1.realized_by(t2)
 		assert(!trsc.invalid?)
 	    end
 	end
@@ -415,7 +415,7 @@ module TC_TransactionBehaviour
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    trsc.on_plan_update = :update
-	    p1.add_child(t3)
+	    p1.realized_by(t3)
 	    assert(p1.child_object?(p2))
 	    t1.remove_child(t2)
 	    assert(!trsc.invalid?)
@@ -426,10 +426,10 @@ module TC_TransactionBehaviour
 	t1.remove_child t2
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    trsc.on_plan_update = :update
-	    p1.add_child(t3)
+	    p1.realized_by(t3)
 	    assert(!p1.child_object?(p2))
 
-	    t1.add_child(t2)
+	    t1.realized_by(t2)
 	    assert(p1.child_object?(p2))
 	    assert(!trsc.invalid?)
 	end
