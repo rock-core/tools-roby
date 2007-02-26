@@ -332,12 +332,13 @@ module Roby
 	# Kills and removes all unneeded tasks
 	def garbage_collect(force_on = [])
 	    force_gc.merge(force_on)
+	    force_gc.delete_if { |t| !(t.self_owned? && t.plan) }
 
 	    loop do
 		tasks = unneeded_tasks | force_gc
 		did_something = false
 		tasks.each do |t| 
-		    next unless t.self_owned? && t.plan
+		    next unless t.self_owned?
 		    unless t.root?(@hierarchy) && service_relations.all? { |r| t.root?(r) }
 			Roby.debug "GC: ignored #{t}, it is not root #{t.running?}"
 			next
