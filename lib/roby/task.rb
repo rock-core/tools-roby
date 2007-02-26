@@ -257,6 +257,7 @@ module Roby
 	end
 
 	model_attribute_list('signal')
+	model_attribute_list('forwarding')
 	model_attribute_list('handler')
 	model_attribute_list('precondition')
 
@@ -309,21 +310,23 @@ module Roby
 		model.each_signal(symbol) do |signalled|
 		    generator.add_signal bound_events[signalled]
 		end
-	    end
-
-	    start_event = bound_events[:start]
-	    if !start_event.terminal? 
-		# the start event CAN be terminal: it can be a signal from
-		# :start to a terminal event
-		bound_events.each do |symbol, generator|
-		    start_event.add_precedence(generator) if symbol != :start
+		model.each_forwarding(symbol) do |signalled|
+		    generator.add_forwarding bound_events[signalled]
 		end
 	    end
 
+	    start_event = bound_events[:start]
+	    bound_events.each do |symbol, generator|
+		start_event.add_precedence(generator) if symbol != :start
+	    end
+
+	    # WARN: the start event CAN be terminal: it can be a signal from
+	    # :start to a terminal event
+	    #
 	    # Create the precedence relations between 'normal' events and the terminal events
 	    terminal_events.each do |terminal|
 		bound_events.each_value do |generator|
-		    generator.add_precedence(terminal) unless generator.terminal?
+		    generator.add_precedence(terminal) unless generator.terminal? || terminal.symbol == :start
 		end
 	    end
 	end
@@ -445,26 +448,34 @@ module Roby
 	    super
 	end
 
-	# Update the terminal flag for the event models that are defined in this
-	# task model. The event is terminal if model-level signals (set up by Task::on)
-	# lead to the emission of the +stop+ event
+	# Update the terminal flag for the event models that are defined in
+	# this task model. The event is terminal if model-level signals (set up
+	# by Task::on) lead to the emission of the +stop+ event
 	def self.update_terminal_flag # :nodoc:
-	    events = enum_for(:each_event).map { |name, model| model }
-	    terminal_events = events.find_all { |ev| ev.terminal? }
+	    events = enum_for(:each_event).map { |name, _| name }
+	    terminal_events = [:stop]
+	    events.delete(:stop)
 
-	    found = true
-	    while found
-		found = false
-		events -= terminal_events
+	    loop do
+		old_size = terminal_events.size
+		events.delete_if do |ev|
+		    if (enum_for(:each_signal, ev) + enum_for(:each_forwarding, ev)).
+			any? { |signalled| terminal_events.include?(signalled) }
+			terminal_events << ev
+			true
+		    end
+		end
+		break if old_size == terminal_events.size
+	    end
 
-		events.each do |ev|
-		    each_signal(ev.symbol) do |signalled|
-			if event_model(signalled).terminal?
-			    found = true
-			    ev.terminal = true
-			    terminal_events << ev
-			    break
-			end
+	    terminal_events.each do |sym|
+		if ev = self.events[sym]
+		    ev.terminal = true
+		else
+		    ev = superclass.event_model(sym)
+		    unless ev.terminal?
+			event sym, :model => ev, :terminal => true, 
+			    :command => (ev.method(:call) rescue nil)
 		    end
 		end
 	    end
@@ -734,8 +745,8 @@ module Roby
             # Define the event class
 	    task_klass = self
             new_event = Class.new(options[:model]) do
+		@terminal = options[:terminal]
                 @symbol   = ev
-                @terminal = options[:terminal]
                 @command_handler = command_handler
 
 		define_method(:name) { "#{task.name}::#{ev_s.camelize}" }
@@ -746,7 +757,6 @@ module Roby
                 end
             end
 
-	    # Check that the event is now terminal while it was not before
 	    setup_terminal_handler = false
 	    old_model = find_event_model(ev)
 	    if new_event.symbol != :stop && options[:terminal] && (!old_model || !old_model.terminal?)
@@ -755,7 +765,7 @@ module Roby
 
 	    events[new_event.symbol] = new_event
 	    if setup_terminal_handler
-		on(new_event) { |event| event.task.emit(:stop, event.context) }
+		forward(new_event => :stop)
 	    end
 	    const_set(ev_s.camelize, new_event)
 
@@ -790,9 +800,7 @@ module Roby
         end
 
         def self.validate_event_definition_request(ev, options) #:nodoc:
-            if ev.to_sym == :start && options[:terminal]
-                raise ArgumentError, "the 'start' event cannot be terminal"
-            elsif options[:command] && options[:command] != true && !options[:command].respond_to?(:call)
+            if options[:command] && options[:command] != true && !options[:command].respond_to?(:call)
                 raise ArgumentError, "Allowed values for :command option: true, false, nil and an object responding to #call. Got #{options[:command]}"
             end
 
@@ -903,6 +911,15 @@ module Roby
 		end
             end
         end
+
+	# +mappings+ is a from => to hash where +from+ is forwarded to +to+.
+	def self.forward(mappings)
+            mappings.each do |from, to|
+                from = event_model(from).symbol
+		forwarding_sets[from] |= Array[*to].map { |ev| event_model(ev).symbol }.to_set
+            end
+	    update_terminal_flag
+	end
 
 	def self.precondition(event, reason, &block)
 	    event = event_model(event)

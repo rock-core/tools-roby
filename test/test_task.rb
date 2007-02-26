@@ -111,6 +111,29 @@ class TC_Task < Test::Unit::TestCase
 	end
     end
 
+    def test_model_event_handling
+	model = Class.new(SimpleTask) do
+	    on :start => :failed
+	end
+	assert_equal({ :start => [:failed].to_set }, model.signal_sets)
+	assert_equal({}, SimpleTask.signal_sets)
+
+	FlexMock.use do |mock|
+	    model.on :start do
+		mock.start_called(self)
+	    end
+	    plan.discover(task = model.new)
+	    mock.should_receive(:start_called).with(task).once
+	    task.start!
+	    assert(task.failed?)
+	end
+
+	# Make sure the model-level signal is not applied to parent models
+	plan.discover(task = SimpleTask.new)
+	task.start!
+	assert(!task.failed?)
+    end
+
     def test_forward
 	FlexMock.use do |mock|
 	    t1, t2 = prepare_plan :missions => 2, :model => SimpleTask
@@ -345,9 +368,8 @@ class TC_Task < Test::Unit::TestCase
 
 	    mock.should_receive(:finished?).once.with(true)
 	    task.success!
+	    assert(task.finished?)
 	end
-	assert(task.finished?)
-
     end
 
     def test_executable
