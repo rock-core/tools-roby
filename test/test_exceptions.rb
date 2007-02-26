@@ -104,7 +104,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	Roby.control.abort_on_exception = true
 	Roby.control.abort_on_application_exception = false
 	FlexMock.use do |mock|
-	    klass = Class.new(ExecutableTask) do
+	    klass = Class.new(SimpleTask) do
 		define_method(:mock) { mock }
 		def start(context)
 		    mock.event_called
@@ -277,7 +277,7 @@ class TC_Exceptions < Test::Unit::TestCase
     def test_task_propagation_with_exception
 	Roby.control.abort_on_exception = true
 
-	task = Class.new(ExecutableTask) do
+	task = Class.new(SimpleTask) do
 	    def start(context)
 		emit(:start)
 		raise RuntimeError, "failed"

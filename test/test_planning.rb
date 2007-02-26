@@ -359,7 +359,7 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_planning_task_one_shot
-	result_task = ExecutableTask.new
+	result_task = SimpleTask.new
 	planner = Class.new(Planning::Planner) do
 	    method(:task) do
 		raise unless arguments[:context] == 42

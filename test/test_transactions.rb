@@ -308,7 +308,7 @@ module TC_TransactionBehaviour
     end
 
     def test_plan_finalized_task
-	t1, t2, t3 = (1..3).map { ExecutableTask.new }
+	t1, t2, t3 = (1..3).map { SimpleTask.new }
 	t1.realized_by t2
 	plan.insert(t1)
 
@@ -324,7 +324,7 @@ module TC_TransactionBehaviour
     end
 
     def test_plan_relation_update_invalidate
-	t1, t2, t3 = (1..3).map { ExecutableTask.new }
+	t1, t2, t3 = (1..3).map { SimpleTask.new }
 	t1.realized_by t2
 	plan.insert(t1)
 
@@ -337,7 +337,7 @@ module TC_TransactionBehaviour
 	    end
 	end
 
-	t3 = ExecutableTask.new
+	t3 = SimpleTask.new
 	t1.remove_child t2
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1) do |trsc, p1|
@@ -352,7 +352,7 @@ module TC_TransactionBehaviour
     def test_plan_relation_update_solver
 	solver = Roby::SolverIgnoreUpdate.new
 
-	t1, t2, t3 = (1..3).map { ExecutableTask.new }
+	t1, t2, t3 = (1..3).map { SimpleTask.new }
 	t1.realized_by t2
 	plan.insert(t1)
 
@@ -366,7 +366,7 @@ module TC_TransactionBehaviour
 	    end
 	end
 
-	t3 = ExecutableTask.new
+	t3 = SimpleTask.new
 	t1.remove_child t2
 	assert_nothing_raised do
 	    transaction_commit(plan, t1) do |trsc, p1|
@@ -380,7 +380,7 @@ module TC_TransactionBehaviour
     end
 
     def test_plan_relation_update_update
-	t1, t2, t3 = (1..3).map { ExecutableTask.new }
+	t1, t2, t3 = (1..3).map { SimpleTask.new }
 	t1.realized_by t2
 	plan.insert(t1)
 
@@ -393,7 +393,7 @@ module TC_TransactionBehaviour
 	    assert(!p1.child_object?(p2))
 	end
 
-	t3 = ExecutableTask.new
+	t3 = SimpleTask.new
 	t1.remove_child t2
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    trsc.on_plan_update = :update

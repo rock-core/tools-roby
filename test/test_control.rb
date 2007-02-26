@@ -21,9 +21,9 @@ class TC_Control < Test::Unit::TestCase
     end
 
     def test_event_loop
-        start_node = EmptyTask.new
+        plan.insert(start_node = EmptyTask.new)
         next_event = [ start_node, :start ]
-        if_node    = ChoiceTask.new
+        plan.insert(if_node    = ChoiceTask.new)
         start_node.on(:stop) { next_event = [if_node, :start] }
 	if_node.on(:stop) {  }
             
@@ -60,12 +60,13 @@ class TC_Control < Test::Unit::TestCase
 	Roby.control.abort_on_exception = true
 
 	# Test that the event is not pending if the command raises
-	t = Class.new(SimpleTask) do
+	model = Class.new(SimpleTask) do
 	    def start(context)
 		raise SpecificException, "bla"
 	    end
 	    event :start
-	end.new
+	end
+	plan.insert(t = model.new)
 	begin; t.start!
 	rescue SpecificException
 	end
@@ -102,8 +103,7 @@ class TC_Control < Test::Unit::TestCase
 
 	# Check on a single task
 	Control.structure_checks.clear
-	t = SimpleTask.new
-	plan.insert(t)
+	plan.insert(t = SimpleTask.new)
 	Control.structure_checks << lambda { TaskModelViolation.new(t) }
 
 	process_events
@@ -124,8 +124,7 @@ class TC_Control < Test::Unit::TestCase
 	assert(plan.include?(t))
 
 	# Check that the whole task trees are killed
-	tasks = (1..4).map { SimpleTask.new }
-	t0, t1, t2, t3 = *tasks
+	t0, t1, t2, t3 = prepare_plan :discover => 4
 	t0.realized_by t2
 	t1.realized_by t2
 	t2.realized_by t3
@@ -146,8 +145,7 @@ class TC_Control < Test::Unit::TestCase
 	assert(!plan.include?(t3))
 
 	# Check that we can kill selectively by returning a hash
-	tasks = (1..3).map { SimpleTask.new }
-	t0, t1, t2 = tasks
+	t0, t1, t2 = prepare_plan :discover => 3
 	t0.realized_by t2
 	t1.realized_by t2
 	plan.insert(t0)

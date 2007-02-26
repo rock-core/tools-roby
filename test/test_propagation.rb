@@ -84,7 +84,7 @@ class TC_Propagation < Test::Unit::TestCase
     end
 
     def test_duplicate_signals
-	t = SimpleTask.new # SimpleTask defines a model signal between :start and :success
+	plan.insert(t = SimpleTask.new)
 	
 	FlexMock.use do |mock|
 	    t.on(:start)   { |event| t.emit(:success, event.context) }

@@ -1,28 +1,20 @@
 require 'roby/task'
 
 # We define here a set of tasks needed by unit testing
-# A class that calls stop when :start is fired
 if !defined?(EmptyTask)
-    # A	task that is executable event when outside a plan
-    class ExecutableTask < Roby::Task
-	def initialize(arguments = {})
-	    super
-	    self.executable = true
-	end
-    end
-
-    class EmptyTask < ExecutableTask
+    # A class that calls stop when :start is fired
+    class EmptyTask < Roby::Task
         event :start, :command => true
         on :start => :success
     end
 
-    class SimpleTask < ExecutableTask
+    class SimpleTask < Roby::Task
 	event :start, :command => true
 	event :success, :command => true, :terminal => true
 	terminates
     end
 
-    class ChoiceTask < ExecutableTask
+    class ChoiceTask < Roby::Task
         def start(context)
             emit :start, context
             if rand > 0.5
@@ -39,7 +31,7 @@ if !defined?(EmptyTask)
 	on :b => :success
     end
 
-    class MultiEventTask < ExecutableTask
+    class MultiEventTask < Roby::Task
         event :start, :command => true
         event :inter
         on :start => :inter, :inter => :success

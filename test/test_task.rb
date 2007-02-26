@@ -39,11 +39,12 @@ class TC_Task < Test::Unit::TestCase
 
     def test_command_block
 	FlexMock.use do |mock|
-	    task = Class.new(SimpleTask) do 
+	    model = Class.new(SimpleTask) do 
 		event :start do |context|
 		    mock.start(self, context)
 		end
-	    end.new
+	    end
+	    plan.insert(task = model.new)
 	    mock.should_receive(:start).once.with(task, 42)
 	    task.start!(42)
 	end
@@ -53,12 +54,13 @@ class TC_Task < Test::Unit::TestCase
     # name in the task model
     def test_command_method
 	FlexMock.use do |mock|
-	    task = Class.new(SimpleTask) do
+	    model = Class.new(SimpleTask) do
 		define_method(:start) do |context|
 		    mock.start(self, context)
 		end
 		event(:start)
-	    end.new
+	    end
+	    plan.insert(task = model.new)
 	    mock.should_receive(:start).once.with(task, 42)
 	    task.start!(42)
 	end
@@ -70,7 +72,7 @@ class TC_Task < Test::Unit::TestCase
 	assert_raises(ArgumentError) { t1.on(:start) }
 	
 	# Test command handlers
-	task = SimpleTask.new
+	plan.insert(task = SimpleTask.new)
 	FlexMock.use do |mock|
 	    task.on(:start)   { |event| mock.started(event.context) }
 	    task.on(:start)   { |event| task.emit(:success, event.context) }
@@ -87,7 +89,7 @@ class TC_Task < Test::Unit::TestCase
 
 	# Same test, but with signals
 	FlexMock.use do |mock|
-	    t1, t2 = SimpleTask.new, SimpleTask.new
+	    t1, t2 = prepare_plan :missions => 2, :model => SimpleTask
 	    t1.on(:start, t2)
 	    t2.on(:start) { mock.start }
 
@@ -96,7 +98,7 @@ class TC_Task < Test::Unit::TestCase
 	end
 
 	FlexMock.use do |mock|
-	    t1, t2 = SimpleTask.new, SimpleTask.new
+	    t1, t2 = prepare_plan :missions => 2, :model => SimpleTask
 	    t2.start!
 
 	    t1.on(:start, t2, :stop)
@@ -111,7 +113,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_forward
 	FlexMock.use do |mock|
-	    t1, t2 = SimpleTask.new, SimpleTask.new
+	    t1, t2 = prepare_plan :missions => 2, :model => SimpleTask
 	    t1.forward(:start, t2)
 	    t2.on(:start) { mock.start }
 
@@ -120,7 +122,7 @@ class TC_Task < Test::Unit::TestCase
 	end
 
 	FlexMock.use do |mock|
-	    t1, t2 = SimpleTask.new, SimpleTask.new
+	    t1, t2 = prepare_plan :missions => 2, :model => SimpleTask
 	    t2.start!
 
 	    t1.forward(:start, t2, :stop)
@@ -226,7 +228,7 @@ class TC_Task < Test::Unit::TestCase
 	assert(!t1.event(:stop).can_signal?(t2.event(:stop)))
 	assert_raise(EventModelViolation) { t1.on(:stop, t2, :stop) }
 
-        task = Class.new(ExecutableTask).new
+        task = Class.new(SimpleTask).new
 
 	# Check can_signal? for task events
         start_event = task.event(:start)
@@ -236,11 +238,12 @@ class TC_Task < Test::Unit::TestCase
 
     def test_context_propagation
 	FlexMock.use do |mock|
-	    task = Class.new(ExecutableTask) do
+	    model = Class.new(SimpleTask) do
 		on(:start) { |event| mock.started(event.context) }
 		event(:stop)
 		on(:stop) { |event| mock.stopped(event.context) }
-	    end.new
+	    end
+	    plan.insert(task = model.new)
 
 	    mock.should_receive(:started).with(42).once
 	    mock.should_receive(:stopped).with(21).once
@@ -299,9 +302,10 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_check_running
-	task = Class.new(SimpleTask) do
+	model = Class.new(SimpleTask) do
 	    event(:inter, :command => true)
-	end.new
+	end
+	plan.insert(task = model.new)
 
 	assert_raises(Roby::TaskModelViolation) { task.inter! }
 	assert(!task.event(:inter).pending)
@@ -364,7 +368,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_finished
-	task = SimpleTask.new
+	plan.insert(task = SimpleTask.new)
 	FlexMock.use do |mock|
 	    assert(!task.finished?)
 	    task.start!
@@ -406,7 +410,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_task_success_failure
 	FlexMock.use do |mock|
-	    t = EmptyTask.new
+	    plan.insert(t = EmptyTask.new)
 	    [:start, :success, :stop].each do |name|
 		t.on(name) { mock.send(name) }
 		mock.should_receive(name).once.ordered
@@ -416,7 +420,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def aggregator_test(a, *tasks)
-	a.executable = true
+	plan.insert(a)
 	FlexMock.use do |mock|
 	    [:start, :success, :stop].each do |name|
 		a.on(name) { mock.send(name) }
@@ -510,13 +514,13 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_task_same_state
-	t1, t2 = prepare_plan :tasks => 2, :model => SimpleTask
+	t1, t2 = prepare_plan :missions => 2, :model => SimpleTask
 
 	assert(t1.compatible_state?(t2))
 	t1.start!; assert(! t1.compatible_state?(t2) && !t2.compatible_state?(t1))
 	t1.stop!; assert(t1.compatible_state?(t2) && t2.compatible_state?(t1))
 
-	t1 = SimpleTask.new
+	plan.insert(t1 = SimpleTask.new)
 	t1.start!
 	t2.start!; assert(t1.compatible_state?(t2) && t2.compatible_state?(t1))
 	t1.stop!; assert(t1.compatible_state?(t2) && !t2.compatible_state?(t1))

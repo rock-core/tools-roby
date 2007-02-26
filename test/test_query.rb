@@ -72,7 +72,7 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_query_predicates
-	t1 = Class.new(ExecutableTask) { argument :id }.new
+	t1 = Class.new(SimpleTask) { argument :id }.new
 	t2 = Roby::Task.new
 	plan << t1 << t2
 
@@ -87,8 +87,8 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_negate
-	t1 = Class.new(ExecutableTask) { argument :id }.new(:id => 1)
-	t2 = Class.new(ExecutableTask) { argument :id }.new(:id => 2)
+	t1 = Class.new(SimpleTask) { argument :id }.new(:id => 1)
+	t2 = Class.new(SimpleTask) { argument :id }.new(:id => 2)
 	t3 = Roby::Task.new
 	plan << t1 << t2 << t3
 
@@ -96,8 +96,8 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_or
-	t1 = Class.new(ExecutableTask) { argument :id }.new(:id => 1)
-	t2 = Class.new(ExecutableTask) { argument :id }.new(:id => 2)
+	t1 = Class.new(SimpleTask) { argument :id }.new(:id => 1)
+	t2 = Class.new(SimpleTask) { argument :id }.new(:id => 2)
 	t3 = Roby::Task.new
 	plan << t1 << t2 << t3
 
@@ -105,8 +105,8 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_and
-	t1 = Class.new(ExecutableTask) { argument :id }.new(:id => 1)
-	t2 = Class.new(ExecutableTask) { argument :id }.new(:id => 2)
+	t1 = Class.new(SimpleTask) { argument :id }.new(:id => 1)
+	t2 = Class.new(SimpleTask) { argument :id }.new(:id => 2)
 	t3 = Roby::Task.new
 	plan << t1 << t2 << t3
 

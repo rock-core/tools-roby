@@ -6,37 +6,27 @@ require 'flexmock'
 class TC_ExecutedBy < Test::Unit::TestCase
     include Roby::Test
 
-    attr_reader :plan
-    def setup
-	@plan = Plan.new
-	super
+    class ExecutionAgentModel < SimpleTask
+	event :ready
+	on :start => :ready
     end
 
     def test_relationships
 	task = SimpleTask.new
-	exec_task = Class.new(ExecutableTask) do
-	    event(:start, :command => true)
-	    event(:ready)
-	    on :start => :ready
-	end.new
+	exec_task = ExecutionAgentModel.new
 
 	task.executed_by exec_task
 	assert_equal(exec_task, task.execution_agent)
     end
 
     def test_nominal
-	task = SimpleTask.new
-	exec_klass = Class.new(SimpleTask) do
-	    event(:ready)
-	    on :start => :ready
-	end
-	exec1, exec2 = exec_klass.new, exec_klass.new
-	task.executed_by exec2
-	task.executed_by exec1
+	plan.insert(task = SimpleTask.new)
+	task.executed_by(ExecutionAgentModel.new)
+	task.executed_by(exec = ExecutionAgentModel.new)
 
 	FlexMock.use do |mock|
-	    exec1.on(:start) { mock.agent_started }
-	    exec1.on(:ready) { mock.agent_ready }
+	    exec.on(:start) { mock.agent_started }
+	    exec.on(:ready) { mock.agent_ready }
 	    task.on(:start) { mock.task_started }
 
 	    mock.should_receive(:agent_started).once.ordered
@@ -46,15 +36,12 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	end
 
 	task.stop!
-	assert_nothing_raised { exec1.stop! }
+	assert_nothing_raised { exec.stop! }
     end
 
     def test_agent_fails
-	task = SimpleTask.new
-	exec = Class.new(SimpleTask) do
-	    event(:ready)
-	    on :start => :ready
-	end.new
+	plan.insert(task = SimpleTask.new)
+	exec = ExecutionAgentModel.new
 	task.executed_by exec
 	task.start!
 
@@ -67,10 +54,9 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_agent_start_failed
-	task = SimpleTask.new
-	exec = Class.new(ExecutableTask) do
-	    event(:start, :command => true)
-	    event(:ready)
+	plan.insert(task = SimpleTask.new)
+	exec = Class.new(SimpleTask) do
+	    event :ready
 	    on :start => :failed
 	end.new
 	task.executed_by exec
@@ -83,16 +69,11 @@ class TC_ExecutedBy < Test::Unit::TestCase
 
     def test_agent_model
 	task_model = Class.new(SimpleTask)
-	exec_model = Class.new(SimpleTask) do
-	    event(:ready)
-	    on :start => :ready
-	end
 
-	task_model.executed_by exec_model
-	task = task_model.new
-	plan.insert(task)
+	task_model.executed_by ExecutionAgentModel
+	plan.insert(task = task_model.new)
 	assert(task.execution_agent)
-	assert(exec_model, task.execution_agent.class)
+	assert(ExecutionAgentModel, task.execution_agent.class)
 
 	task.start!
 	assert(task.running?)
@@ -101,17 +82,13 @@ class TC_ExecutedBy < Test::Unit::TestCase
 
     def test_respawn
 	task_model = Class.new(SimpleTask)
-	exec_model = Class.new(SimpleTask) do
-	    event(:ready)
-	    on :start => :ready
-	end
 
-	task_model.executed_by exec_model
+	task_model.executed_by ExecutionAgentModel
 	first, second = prepare_plan :missions => 2, :model => task_model
 	assert(first.execution_agent)
-	assert(exec_model, first.execution_agent.class)
+	assert(ExecutionAgentModel, first.execution_agent.class)
 	assert(second.execution_agent)
-	assert(exec_model, second.execution_agent.class)
+	assert(ExecutionAgentModel, second.execution_agent.class)
 
 	first.start!
 	assert(first.running?)
@@ -126,19 +103,30 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_cannot_respawn
-	task_model = Class.new(SimpleTask)
-	exec_model = Class.new(SimpleTask) do
-	    event(:ready)
-	    on :start => :ready
-	end
-
-	task  = task_model.new
-	agent = exec_model.new
-	task.executed_by agent
+	plan.insert(task  = Class.new(SimpleTask).new)
+	task.executed_by(agent = ExecutionAgentModel.new)
 
 	agent.start!
 	agent.stop!
 	assert_raises(Roby::TaskModelViolation) { task.start! }
+    end
+
+    def test_initialization
+	agent = ExecutionAgentModel.new
+	task, (init1, init2) = prepare_plan :missions => 1, :discover => 2, :model => SimpleTask
+	task.executed_by agent
+	init1.executed_by agent
+	init2.executed_by agent
+
+	agent.realized_by(init = (init1 + init2))
+	agent.on(:start, init, :start)
+	init.forward(:success, agent, :ready)
+
+	# task.start!
+	# assert(init1.running?)
+	# init1.success!
+	# init2.success!
+	# assert(agent.event(:ready).happened?)
     end
 end
 
