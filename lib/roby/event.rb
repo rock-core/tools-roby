@@ -443,6 +443,8 @@ module Roby
 	    self.on(filter)
 	    filter
 	end
+
+	def until(limit); UntilGenerator.new(self, limit) end
     end
 
     # This generator reemits an event after having changed its context. See
@@ -535,52 +537,20 @@ module Roby
 	end
     end
 
-
-    module Temporal
-	def until(generator)
-	    Until.new(self, generator)
-	end
-
-	INVERSE = {
-	    :on => lambda do |generator, *args|
-	    block = args.pop
-	    generator.handlers.delete(block)
-	    args.each { |sig| generator.remove_signal(sig) }
-	    end
-	}
-
-	class Until
-	    attr_reader :generator
-	    def initialize(generator, limit)
-		limit.on(&self.method(:revert))
-		@generator = generator
-		@revert = []
+    class UntilGenerator < Roby::EventGenerator
+	def initialize(source = nil, limit = nil)
+	    super() do |context|
+		plan.remove_object(self) if plan 
+		clear_relations
 	    end
 
-	    def method_missing(name, *args, &block)
-		if !generator.respond_to?(name)
-		    super
-		elsif inverse = INVERSE[name]
-		    generator.send(name, *args, &block)
-
-		    args << block
-		    @revert.unshift [inverse, args]
-		else
-		    raise NoMethodError, "#{name} is defined in #{name}, but no inverse function exists for it"
-		end
+	    if source && limit
+		source.forward(self)
+		limit.signal(self)
 	    end
-
-	    def revert(context)
-		@revert.each do |invert, args|
-		    invert.call(generator, *args)
-		end
-		@revert.clear
-	    end
-	    private :revert
 	end
     end
 
-    EventStructure  = RelationSpace(EventGenerator)
-    EventGenerator.include Temporal
+    EventStructure = RelationSpace(EventGenerator)
 end
 

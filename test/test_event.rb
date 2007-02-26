@@ -368,17 +368,20 @@ class TC_Event < Test::Unit::TestCase
 
 
     def test_until
-	e1, e2, e3, e4 = 4.enum_for(:times).map { EventGenerator.new(true) }
-	e1.on(e2)
-	e2.on(e3)
-	e3.until(e2).on(e4)
+	source, sink, filter, limit = 4.enum_for(:times).map { EventGenerator.new(true) }
+	plan.discover [source, sink, filter, limit]
 
-	e1.call(nil)
-	assert( e3.happened? )
-	assert( !e4.happened? )
+	source.on(filter)
+	filter.until(limit).on(sink)
 
-	assert_raise(NoMethodError) { e3.until(e2).this_method_does_not_exist }
-	assert_raise(NoMethodError) { e3.until(e2).emit_on(e1) }
+	FlexMock.use do |mock|
+	    sink.on { mock.passed }
+	    mock.should_receive(:passed).once
+
+	    source.call(nil)
+	    limit.call(nil)
+	    source.call(nil)
+	end
     end
 
     def test_event_creation
