@@ -1,17 +1,8 @@
 require 'roby/plan'
+require 'roby/transactions'
 require 'roby/state/information'
 
 module Roby
-    class Plan
-	# Returns a Query object on this plan
-	def find_tasks
-	    Query.new(self)
-	end
-	def each_matching_task(matcher)
-	    @known_tasks.each { |t| yield(t) if matcher === t }
-	end
-    end
-
     # The query class represents a search in a plan. 
     # It can be used locally on any Plan object, but 
     # is mainly used as an argument to DRb::Server#find
@@ -134,18 +125,45 @@ module Roby
 	    true
 	end
 
-	def each(plan)
-	    plan.each_matching_task(self) { |task| yield(task) }
+	def each(plan, &block)
+	    plan.query_each(plan.query_result_set(self), &block)
 	    self
 	end
 
 	# Define singleton classes. For instance, calling Query.which_fullfills is equivalent
 	# to Query.new.which_fullfills
-	declare_class_methods :which_fullfills, :with_model, :with_arguments, :which_needs, :which_improves, :owned_by, :self_owned
+	declare_class_methods :which_fullfills, 
+	    :with_model, :with_arguments, 
+	    :which_needs, :which_improves, 
+	    :owned_by, :self_owned
 
 	def negate; NegateTaskMatcher.new(self) end
 	def &(other); AndTaskMatcher.new(self, other) end
 	def |(other); OrTaskMatcher.new(self, other) end
+    end
+
+    class Query < TaskMatcher
+	attr_reader :plan
+	def initialize(plan)
+	    @plan = plan
+	    super()
+	end
+
+	def result_set
+	    @result_set ||= plan.query_result_set(self)
+	end
+	
+	# Returns the set of tasks from the query for which no parent in
+	# +relation+ can be found in the query itself
+	def roots(relation)
+	    @result_set = plan.query_roots(result_set, relation)
+	end
+
+	def each(&block)
+	    plan.query_each(result_set, &block)
+	    self
+	end
+	include Enumerable
     end
 
     class OrTaskMatcher < TaskMatcher
@@ -182,14 +200,150 @@ module Roby
 	end
     end
 
-    class Query < TaskMatcher
-	attr_reader :plan
-	def initialize(plan)
-	    @plan = plan
-	    super()
+    class Plan
+	# Returns a Query object on this plan
+	def find_tasks
+	    Query.new(self)
 	end
-	def each; super(plan) end
-	include Enumerable
+
+	# Called by TaskMatcher#result_set and Query#result_set to get the set
+	# of tasks matching +matcher+
+	def query_result_set(matcher)
+	    @known_tasks.find_all { |t| matcher === t }
+	end
+
+	# Called by TaskMatcher#each and Query#each to return the result of
+	# this query on +self+
+	def query_each(result_set, &block)
+	    result_set.each(&block)
+	end
+
+	# Given the result set of +query+, returns the subset of tasks which
+	# have no parent in +query+
+	def query_roots(result_set, relation)
+	    children = ValueSet.new
+	    found    = ValueSet.new
+	    result_set.each do |task|
+		next if children.include?(task)
+		task_children = task.generated_subgraph(relation)
+		found -= task_children
+		children.merge(task_children)
+		found << task
+	    end
+	    found
+	end
+    end
+
+    class Transaction
+	# Returns two sets of tasks, [plan, transaction]. The union of the two
+	# is the component that would be returned by
+	# +relation.generated_subgraphs(*seeds)+ if the transaction was
+	# committed
+	def merged_generated_subgraphs(relation, plan_seeds, transaction_seeds)
+	    plan_set        = ValueSet.new
+	    transaction_set = ValueSet.new
+
+	    loop do
+		old_transaction_set = transaction_set.dup
+		transaction_set.merge(transaction_seeds)
+		relation.generated_subgraphs(transaction_seeds, false).
+		    inject(transaction_set) do |transaction_set, new_set| 
+			transaction_set.merge(new_set)
+		    end
+
+		if old_transaction_set.size != transaction_set.size
+		    (transaction_set - old_transaction_set).each do |o| 
+			if !discovered_relations_of?(o, relation, true)
+			    transaction_set.delete(o)
+			    plan_seeds << o.__getobj__
+			end
+		    end
+		end
+		transaction_seeds.clear
+
+		plan_set.merge(plan_seeds)
+		plan_seeds.each do |seed|
+		    relation.each_dfs(seed, BGL::Graph::TREE) do |_, dest, _, kind|
+			next if plan_set.include?(dest)
+			if discovered_relations_of?(dest, relation, true)
+			    unless transaction_set.include?(dest)
+				transaction_seeds << wrap(dest, false)
+			    end
+			    relation.prune # transaction branches must be developed inside the transaction
+			else
+			    plan_set << dest
+			end
+		    end
+		end
+		break if transaction_seeds.empty?
+
+		plan_seeds.clear
+	    end
+
+	    [plan_set, transaction_set]
+	end
+	
+	# Returns [plan_set, transaction_set], where the first is the set of
+	# plan tasks matching +matcher+ and the second the set of transaction
+	# tasks matching it. The two sets are disjoint.
+	def query_result_set(matcher)
+	    plan_set, transaction_set = ValueSet.new, ValueSet.new
+	    plan.query_result_set(matcher).each do |task|
+		plan_set << task unless discovered_relations_of?(task, nil, true)
+	    end
+	    super.each do |task|
+		transaction_set << task if discovered_relations_of?(task, nil, true)
+	    end
+
+	    [plan_set, transaction_set]
+	end
+
+	# Yields tasks in the result set of +query+. Unlike Query#result_set,
+	# all the tasks are included in the transaction
+	def query_each(result_set)
+	    plan_set, trsc_set = result_set
+	    plan_set.each { |task| yield(self[task]) }
+	    trsc_set.each { |task| yield(task) }
+	end
+
+	# Given the result set of +query+, returns the subset of tasks which
+	# have no parent in +query+
+	def query_roots(result_set, relation)
+	    plan_set      , transaction_set      = *result_set
+	    plan_result   , transaction_result   = ValueSet.new     , ValueSet.new
+	    plan_children , transaction_children = ValueSet.new     , ValueSet.new
+
+	    query_roots_common = lambda do
+	    end
+
+	    plan_set.each do |task|
+		next if plan_children.include?(task)
+		task_plan_children, task_trsc_children = 
+		    merged_generated_subgraphs(relation, [task], [])
+
+		plan_result -= task_plan_children
+		trsc_result -= task_trsc_children
+		plan_children.merge(task_plan_children)
+		trsc_children.merge(task_trsc_children)
+
+		plan_result << task
+	    end
+
+	    transaction_set.each do |task|
+		next if transaction_children.include?(task)
+		task_plan_children, task_trsc_children = 
+		    merged_generated_subgraphs(relation, [], [task])
+
+		plan_result -= task_plan_children
+		trsc_result -= task_trsc_children
+		plan_children.merge(task_plan_children)
+		trsc_children.merge(task_trsc_children)
+
+		transaction_result << task
+	    end
+
+	    [plan_result, transaction_result]
+	end
     end
 end
 

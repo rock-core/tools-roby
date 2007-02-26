@@ -115,6 +115,63 @@ class TC_Query < Test::Unit::TestCase
 	assert_finds_tasks([t3]) { TaskMatcher.fully_instanciated & TaskMatcher.abstract }
     end
 
+    def test_merged_generated_subgraphs
+	(d1, d2, d3, d4, d5, d6), t1 = prepare_plan :discover => 6, :tasks => 1
+
+	trsc = Transaction.new(plan)
+	d1.realized_by d2
+	d2.realized_by d3
+	d4.realized_by d5
+	d5.realized_by d6
+
+	# Add a new relation which connects two components. Beware that
+	# modifying trsc[d3] and trsc[d4] makes d2 and d5 proxies to be
+	# discovered
+	trsc[d3].realized_by t1
+	t1.realized_by trsc[d4]
+	plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
+	assert_equal([d1, d2, d5, d6].to_value_set, plan_set)
+	assert_equal([trsc[d3], trsc[d4], t1].to_value_set, trsc_set)
+	
+	# Remove the relation and check the result
+	trsc[d3].remove_child t1
+	plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
+	assert_equal([d1, d2].to_value_set, plan_set)
+	assert_equal([trsc[d3]].to_value_set, trsc_set)
+	plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [], [t1])
+	assert_equal([d5, d6].to_value_set, plan_set)
+	assert_equal([t1, trsc[d4]].to_value_set, trsc_set)
+
+	# Remove a plan relation inside the transaction, and check it is taken into account
+	trsc[d2].remove_child trsc[d3]
+	plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
+	assert_equal([d1].to_value_set, plan_set)
+	assert_equal([trsc[d2]].to_value_set, trsc_set)
+    end
+
+    def test_transactions_simple
+	model = Class.new(Roby::Task) do
+	    argument :id
+	end
+	t1, t2, t3 = (1..3).map { |i| model.new(:id => i) }
+	t1.realized_by t2
+	plan.discover(t1)
+
+	trsc = Transaction.new(plan)
+	assert(trsc.find_tasks.which_fullfills(SimpleTask).to_a.empty?)
+	assert(!trsc[t1, false])
+	assert(!trsc[t2, false])
+	assert(!trsc[t3, false])
+
+	result = trsc.find_tasks.which_fullfills(model, :id => 1).to_a
+	assert_equal([trsc[t1]], result)
+	assert(!trsc[t2, false])
+	assert(!trsc[t3, false])
+
+	trsc << t3
+	result = trsc.find_tasks.which_fullfills(model, :id => 3).to_a
+	assert_equal([t3], result)
+    end
 end
 
 

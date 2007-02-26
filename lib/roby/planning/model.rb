@@ -564,28 +564,13 @@ module Roby
 		    local.
 		    not_abstract.
 		    not_finished.
+		    roots(TaskStructure::Hierarchy).
 		    to_a
 
-		if candidates.empty?
-		    return
-		elsif candidates.size == 1
-		    return candidates.first
-		end
-
-		found    = ValueSet.new
-		children = ValueSet.new
-		candidates.each do |task|
-		    next if children.include?(task)
-		    task_children = task.generated_subgraph(TaskStructure::Hierarchy)
-		    found.delete_if { |found_task| task_children.include?(found_task) }
-		    children.merge(task_children)
-		    found << task
-		end
-
-		unless found.empty?
-		    task = found.find { true }
+		unless candidates.empty?
+		    task = candidates.first
 		    Planning.debug { "selecting task #{task} instead of planning #{name}[#{arguments}]" }
-		    return task
+		    task
 		end
 	    end
 
