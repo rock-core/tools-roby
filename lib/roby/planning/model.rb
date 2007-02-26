@@ -569,7 +569,7 @@ module Roby
 
 		unless candidates.empty?
 		    task = candidates.first
-		    Planning.debug { "selecting task #{task} instead of planning #{name}[#{arguments}]" }
+		    Planning.debug { "selecting task #{task} instead of planning #{@stack.first[0]}[#{arguments}]" }
 		    task
 		end
 	    end
