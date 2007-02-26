@@ -82,6 +82,7 @@ module Roby
 	    @quit        = 0
 	    @cycle_index = 0
 	    @planners    = []
+	    @last_stop_count = 0
 	    @plan        = Plan.new
 	end
 
@@ -207,7 +208,6 @@ module Roby
 	    # Call +block+ at each cycle
 	    def each_cycle(&block); Control.event_processing << lambda(&block) end
 
-
 	    attribute(:process_every) { Array.new }
 	    # Call +block+ every +duration+ seconds. Note that +duration+ is
 	    # round up to the cycle size (time between calls is *at least* duration)
@@ -280,6 +280,35 @@ module Roby
 	    end
 	end
 
+	attr_reader :last_stop_count
+	def clear
+	    Control.synchronize do
+		plan.keepalive.dup.each { |t| plan.auto(t) }
+		plan.force_gc.merge( plan.missions )
+	    end
+
+	    remaining = plan.known_tasks.find_all { |t| Plan.can_gc?(t) }
+
+	    if remaining.empty?
+		# Done cleaning the tasks, clear the remains
+		plan.transactions.each do |trsc|
+		    trsc.discard_transaction
+		end
+		plan.clear
+		return
+	    end
+
+	    if last_stop_count != remaining.size
+		if last_stop_count == 0
+		    Roby.info "control quitting. Waiting for #{remaining.size} tasks to finish:\n  #{remaining.join("\n  ")}"
+		else
+		    Roby.info "waiting for #{remaining.size} tasks to finish:\n  #{remaining.join("\n  ")}"
+		end
+		@last_stop_count = remaining.size
+	    end
+	    remaining
+	end
+
 	def event_loop(log, cycle, control_gc)
 	    timings = {}
 	    timings[:start] = Time.now
@@ -289,22 +318,7 @@ module Roby
 	    loop do
 		begin
 		    if quitting?
-			return if forced_exit?
-			Control.synchronize do
-			    plan.keepalive.dup.each { |t| plan.auto(t) }
-			    plan.force_gc.merge( plan.missions )
-			end
-
-			remaining = plan.known_tasks.find_all { |t| Plan.can_gc?(t) }
-			return if remaining.empty?
-			if last_stop_count != remaining.size
-			    if last_stop_count == 0
-				Roby.info "control quitting. Waiting for #{remaining.size} tasks to finish:\n  #{remaining.join("\n  ")}"
-			    else
-				Roby.info "waiting for #{remaining.size} tasks to finish:\n  #{remaining.join("\n  ")}"
-			    end
-			    last_stop_count = remaining.size
-			end
+			return if forced_exit? || !clear
 		    end
 
 		    while Time.now > timings[:start] + cycle
