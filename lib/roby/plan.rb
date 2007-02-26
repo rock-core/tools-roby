@@ -250,6 +250,12 @@ module Roby
 
 	# Hook called when a new transaction has been built on top of this plan
 	def added_transaction(trsc); super if defined? super end
+	# Removes the transaction +trsc+ from the list of known transactions
+	# built on this plan
+	def remove_transaction(trsc)
+	    transactions.delete(trsc)
+	    removed_transaction(trsc)
+	end
 	# Hook called when a new transaction has been built on top of this plan
 	def removed_transaction(trsc); super if defined? super end
 
