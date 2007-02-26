@@ -236,22 +236,6 @@ module Roby
 	    "#{super}[#{method_name}:#{method_options}] -> #{@planned_task || "nil"}"
 	end
 
-        @planning_tasks = Array.new
-        class << self
-            attr_reader :planning_tasks
-        end
-
-        Control.event_processing << lambda do 
-            planning_tasks.delete_if do |task| 
-		if task.thread.alive?
-		    false
-		else
-		    Propagation.gather_exceptions(task) { task.poll }
-		    true
-		end
-	    end
-        end
-
 	def planned_task
 	    task = super
 	    if !task
@@ -269,7 +253,7 @@ module Roby
 	attr_reader :result
 
 	# Starts planning
-        def start(context)
+        event :start do |context|
 	    @transaction = Transaction.new(plan)
 	    @planner     = planner_model.new(transaction)
 
@@ -279,13 +263,15 @@ module Roby
 			  rescue Exception => e; e
 			  end
 	    end
-	    PlanningTask.planning_tasks << self
 	    emit(:start)
         end
-        event :start
 
 	# Polls for the planning thread end
-	def poll
+	poll do
+	    if thread.alive?
+		return 
+	    end
+
 	    case result
 	    when Roby::Task
 		transaction.replace(transaction[planned_task], result)
@@ -295,18 +281,19 @@ module Roby
 		transaction.discard_transaction
 		emit(:failed, result)
 	    end
-
-	ensure
-	    # Make sure the transaction will be finalized event if the 
-	    # planning task is not removed from the plan
-	    @thread = nil
-	    @transaction = nil
-	    @planner = nil
 	end
 
 	# Stops the planning thread
-        def stop(context); thread.kill end
-        event :stop
+        event :stop do 
+	    thread.kill 
+	end
+	on(:stop) do
+	    # Make sure the transaction will be finalized event if the 
+	    # planning task is not removed from the plan
+	    @transaction = nil
+	    @planner = nil
+	    @thread = nil
+	end
 
 	class TransactionProxy < Roby::Transactions::Task
 	    proxy_for PlanningTask
