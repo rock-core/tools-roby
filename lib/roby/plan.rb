@@ -336,6 +336,15 @@ module Roby
 
 	    loop do
 		tasks = unneeded_tasks | force_gc
+		if tasks.all? { |t| t.pending? || t.finished? }
+		    tasks.each do |t| 
+			next unless t.self_owned?
+			garbage(t)
+			remove_object(t)
+		    end
+		    return
+		end
+
 		did_something = false
 		tasks.each do |t| 
 		    next unless t.self_owned?
