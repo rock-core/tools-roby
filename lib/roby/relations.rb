@@ -213,11 +213,12 @@ module Roby
 	    @name = name
 	    @options = options
 	    @subsets = Set.new
+	    @dag = true
 	    if options[:subsets]
 		options[:subsets].each(&method(:superset_of))
 	    end
 	end
-
+	def dag?; @dag end
 	def to_s; name end
 
 	# True if the relation can be seen by remote plan databases
@@ -226,6 +227,11 @@ module Roby
 	# Add a new relation between +from+ and +to+. The relation is
 	# added on all parent relation graphs as well. 	
 	def add_relation(from, to, info = nil)
+
+	    if dag? && to.generated_subgraph(self).include?(from)
+		raise ArgumentError, "cannot add a #{from} -> #{to} relation since it would create a cycle"
+	    end
+
 	    if !linked?(from, to) && parent
 		from.add_child_object(to, parent, info)
 	    end

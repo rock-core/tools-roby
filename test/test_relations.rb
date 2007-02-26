@@ -153,5 +153,14 @@ class TC_Relations < Test::Unit::TestCase
 	end
     end
 
+    def test_dag_checking
+	klass = Class.new { include DirectedRelationSupport }
+	graph = RelationGraph.new("test")
+
+	v1, v2, v3 = (1..3).map { v = klass.new; graph.insert(v); v }
+	graph.add_relation(v1, v2, nil)
+	graph.add_relation(v2, v3, nil)
+	assert_raises(ArgumentError) { graph.add_relation(v3, v1, nil) }
+    end
 end
 
