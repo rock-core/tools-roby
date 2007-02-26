@@ -266,8 +266,6 @@ module Roby::Genom
 	    super(arguments)
 
 	    if self.class.respond_to?(:roby_module)
-		# Never garbage-collect runner tasks
-		Roby::Control.instance.plan.permanent(self)
 		@output_io = roby_module.output_io
 
 		# Make sure there is a init() method defined in the Roby module if there is one in the
@@ -278,6 +276,13 @@ module Roby::Genom
 		    raise ArgumentError, "the Genom module '#{genom_module.name}' defines the init request #{init_request}. You must define a singleton 'init' method in '#{roby_module.name}' which initializes the module"
 		end
 	    end
+	end
+
+	def plan=(new_plan)
+	    return if plan == new_plan
+		
+	    super
+	    plan.permanent(self)
 	end
 
 	# Start the module
