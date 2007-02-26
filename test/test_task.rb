@@ -333,40 +333,6 @@ class TC_Task < Test::Unit::TestCase
 	assert_nothing_raised { task.start! }
     end
 
-    def test_aborted_until
-	parent, child = SimpleTask.new, SimpleTask.new
-
-	# p:start -> c:start -> c:failed --> c:stop -> p:stop
-	#				 |-> p:aborted -> p:stop
-	# we make the c:failed -> p:aborted link being until p:stop
-	#child.on(:stop, parent, :stop)
-	#child.event(:failed).until(parent.event(:stop)).on parent.event(:aborted)
-
-	parent.on(:start, child, :start)
-	child.on(:start, child, :failed)
-	parent.event(:aborted).emit_on child.event(:failed)
-
-        FlexMock.use do |mock|
-	    parent.on(:start)	{ mock.p_start }
-	    child.on(:start)	{ mock.c_start }
-	    child.on(:failed)	{ mock.c_failed }
-	    parent.on(:aborted) { mock.p_aborted }
-	    parent.on(:stop)	{ mock.p_stop }
-	    child.on(:stop)	{ mock.c_stop }
-
-	    mock.should_receive(:p_start).once.ordered
-	    mock.should_receive(:c_start).once.ordered
-	    mock.should_receive(:c_failed).once.ordered
-	    mock.should_receive(:p_aborted).once.ordered(:aborted_stop)
-	    mock.should_receive(:c_stop).once.ordered(:aborted_stop)
-	    mock.should_receive(:p_stop).once.ordered(:aborted_stop)
-
-	    parent.start!
-
-	    assert(!parent.event(:aborted).pending?)
-	end
-    end
-
     def test_finished
 	plan.insert(task = SimpleTask.new)
 	FlexMock.use do |mock|
@@ -488,29 +454,6 @@ class TC_Task < Test::Unit::TestCase
 	assert(t2.running?)
 	t2.success!
 	assert(task.success?)
-    end
-
-    def test_multi_task_signalling
-	# Check a more complex setup
-        start_node = EmptyTask.new
-        if_node = ChoiceTask.new
-        start_node.on(:stop, if_node, :start)
-        start_node.start!
-        assert(start_node.finished? && if_node.finished?)
-
-	# Check history
-	event_history = if_node.history.map { |ev| ev.generator }
-	assert_equal(4, event_history.size, "  " + event_history.join("\n"))
-	assert_equal(if_node.event(:start), event_history.first)
-	assert( if_node.event(:a) == event_history[1] || if_node.event(:b) == event_history[1] )
-	assert_equal(if_node.event(:stop), event_history.last)
-
-        multi_hop = MultiEventTask.new
-        multi_hop.start!
-        assert(multi_hop.finished?)
-	event_history = multi_hop.history.map { |ev| ev.generator }
-	expected_history = [:start, :inter, :success, :stop].map { |name| multi_hop.event(name) }
-	assert_equal(expected_history, event_history)
     end
 
     def test_task_same_state
