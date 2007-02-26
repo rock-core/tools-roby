@@ -82,7 +82,7 @@ module Roby::TaskStructure
 	module SpawnExecutionAgents
 	    def discovered_tasks(tasks)
 		tasks.each do |task|
-		    if !task.execution_agent && task.model.execution_agent
+		    if task.local? && !task.execution_agent && task.model.execution_agent
 			ExecutionAgent.spawn(task)
 		    end
 		end
