@@ -105,7 +105,7 @@ module Roby::TaskStructure
 		agent.on(:stop) do
 		    agent.each_executed_task do |task|
 			if task.running?
-			    task.emit(:aborted) 
+			    task.emit(:aborted, "execution agent #{self} failed") 
 			elsif task.pending?
 			    task.remove_execution_agent agent
 			    spawn(task)
