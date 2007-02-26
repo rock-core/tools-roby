@@ -379,8 +379,8 @@ module Roby
 		end
 
 		define_method(:poll, &block)
-		on(:start) { |event| Control.event_processing << event.task.method(:poll) }
-		on(:stop) { |event| Control.event_processing.delete(event.task.method(:poll)) }
+		on(:start) { Control.event_processing << method(:poll) }
+		on(:stop)  { Control.event_processing.delete(method(:poll)) }
 	    end
 	end
 
@@ -895,7 +895,12 @@ module Roby
 
 		signal_sets[from] |= to.to_set
 		update_terminal_flag
-		handler_sets[from] << user_handler if user_handler
+
+		if user_handler 
+		    method_name = "event_handler_#{from}_#{user_handler.object_id}"
+		    define_method(method_name, &user_handler)
+		    handler_sets[from] << lambda { |event| event.task.send(method_name, event) }
+		end
             end
         end
 
