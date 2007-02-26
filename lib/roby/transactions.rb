@@ -54,7 +54,13 @@ module Roby
 			object.plan = self
 			return do_include(object)
 		    elsif object.plan == self.plan
-			return do_wrap(object, true)
+			wrapped = do_wrap(object, true)
+			if plan.mission?(object)
+			    insert(wrapped)
+			elsif plan.permanent?(object)
+			    permanent(wrapped)
+			end
+			return wrapped
 		    else
 			raise ArgumentError, "#{object} is in #{object.plan}, this transaction #{self} applies on #{self.plan}"
 		    end
@@ -85,7 +91,7 @@ module Roby
 	    end
 	end
 
-	def may_wrap(object); wrap(object) rescue object end
+	def may_wrap(object, create = true); (wrap(object, create) || object) rescue object end
 	
 	# may_unwrap may return objects from transaction
 	def may_unwrap(object)
@@ -123,18 +129,6 @@ module Roby
 		false
 	    else
 		object.discovered?(relation, written)
-	    end
-	end
-
-	# Search in the plan and in the transaction separately
-	def each_matching_task(matcher)
-	    seen = ValueSet.new
-	    plan.each_matching_task(matcher) do |task|
-		seen << self[task]
-		yield(self[task])
-	    end
-	    super(matcher) do |task|
-		yield(task) unless seen.include?(task)
 	    end
 	end
 
@@ -198,64 +192,20 @@ module Roby
 	    plan.added_transaction(self)
 	end
 
-	def include?(t)
-	    proxy	= self[t, false]
-	    real_task	= may_unwrap(t)
-	    (super(proxy) if proxy) ||
-		((plan.include?(real_task) && !removed_objects.include?(real_task)) if real_task)
-	end
-	def mission?(t)
-	    real_task = may_unwrap(t)
-	    (missions.include?(real_task) && !discarded_tasks.include?(real_task)) || 
-		missions.include?(self[t, false])
-	end
-	def permanent?(t)
-	    real_task = may_unwrap(t)
-	    (keepalive.include?(real_task) && !auto_tasks.include?(real_task)) || 
-		keepalive.include?(self[t, false])
+	def replace(from, to)
+	    super(wrap(from, true), wrap(to, true))
 	end
 
-	def missions(own = false)
-	    if own then super()
-	    else
-		plan_missions = plan.missions.
-		    difference(discarded_tasks).
-		    difference(removed_objects)
-
-		super().union(plan_missions.map(&method(:[])))
-	    end
-	end
-
-	def known_tasks(own = false)
-	    if own then super()
-	    else
-		plan_tasks = plan.known_tasks. 
-		    difference(removed_objects)
-
-		super().union(plan_tasks.map(&method(:[])))
-	    end
-	end
-
-	def keepalive(own = false)
-	    if own then super()
-	    else
-		plan_tasks = plan.keepalive.
-		    difference(auto_tasks)
-		super().union(plan_tasks.map(&method(:[])))
-	    end
-	end
-
-	def empty?(own = false)
-	    if own then super()
-	    else super() && plan.empty?
-	    end
-	end
-	
-	# Iterates on all tasks
-	def each_task(own = false); known_tasks(own).each { |t| yield(t) } end
-
-	def insert(t); super(self[t, true]) end
+	def insert(t);    super(self[t, true]) end
 	def permanent(t); super(self[t, true]) end
+	def discover(objects = nil)
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+	    if !objects then super
+	    else super(self[objects, true])
+	    end
+	    self
+	end
+
 	def auto(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if proxy = self[t, false]
@@ -266,14 +216,6 @@ module Roby
 	    if t.plan == self.plan
 		auto_tasks.insert(t)
 	    end
-	end
-
-	def discover(objects = nil)
-	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
-	    if !objects then super
-	    else super(self[objects, true])
-	    end
-	    self
 	end
 
 	def discard(t)

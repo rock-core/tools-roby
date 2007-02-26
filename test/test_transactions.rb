@@ -69,8 +69,6 @@ module TC_TransactionBehaviour
 	t1, (t2, t3) = prepare_plan(:missions => 1, :tasks => 3)
 
 	transaction_commit(plan, t1) do |trsc, p1|
-	    assert(trsc.include?(t1))
-	    assert(trsc.mission?(t1))
 	    assert(trsc.include?(p1))
 	    assert(trsc.mission?(p1))
 	end
@@ -87,6 +85,7 @@ module TC_TransactionBehaviour
 	assert(!plan.mission?(t3))
 
 	transaction_commit(plan) do |trsc| 
+	    assert(!trsc.include?(t2))
 	    trsc.insert(t2) 
 	    assert(trsc.include?(t2))
 	    assert(trsc.mission?(t2))
@@ -96,11 +95,11 @@ module TC_TransactionBehaviour
 	assert(plan.include?(t2))
 	assert(plan.mission?(t2))
 
-	transaction_commit(plan) do |trsc|
-	    assert(trsc.include?(t2))
-	    trsc.discard(t2)
-	    assert(trsc.include?(t2))
-	    assert(!trsc.mission?(t2))
+	transaction_commit(plan, t2) do |trsc, p2|
+	    assert(trsc.mission?(p2))
+	    trsc.discard(p2)
+	    assert(trsc.include?(p2))
+	    assert(!trsc.mission?(p2))
 	    assert(plan.include?(t2))
 	    assert(plan.mission?(t2))
 	end
@@ -108,8 +107,9 @@ module TC_TransactionBehaviour
 	assert(!plan.mission?(t2))
 
 	transaction_commit(plan, t3) do |trsc, p3|
+	    assert(trsc.include?(p3))
 	    trsc.remove_task(p3) 
-	    assert(!trsc.include?(t3))
+	    assert(!trsc.include?(p3))
 	    assert(plan.include?(t3))
 	end
 	assert(!plan.include?(t3))
@@ -117,15 +117,16 @@ module TC_TransactionBehaviour
 
 	plan.permanent(t3 = Roby::Task.new)
 	transaction_commit(plan, t3) do |trsc, p3|
+	    assert(trsc.permanent?(p3))
 	    trsc.auto(t3)
-	    assert(!trsc.permanent?(t3))
+	    assert(!trsc.permanent?(p3))
 	    assert(plan.permanent?(t3))
 	end
 	assert(!plan.permanent?(t3))
 
 	transaction_commit(plan, t3) do |trsc, p3|
-	    trsc.permanent(t3)
-	    assert(trsc.permanent?(t3))
+	    trsc.permanent(p3)
+	    assert(trsc.permanent?(p3))
 	    assert(!plan.permanent?(t3))
 	end
 	assert(plan.permanent?(t3))

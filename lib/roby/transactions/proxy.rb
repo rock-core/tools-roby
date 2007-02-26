@@ -152,22 +152,6 @@ module Roby::Transactions
 		end
 	    end
 
-	    def proxy_component(*methods)
-		methods.each do |m|
-		    class_eval <<-EOD
-		    def #{m}(relation) 
-			# Discover all tasks that are supposed to be in the
-			# component on the real object, and then compute
-			# the component on the transaction graph
-			__getobj__.#{m}(relation).each do |task|
-			    transaction[task].discover(relation, false)
-			end
-			super
-		    end
-		    EOD
-		end
-	    end
-
 	    # call-seq:
 	    #	discover_before(method_name, mark, relation)
 	    #
@@ -218,10 +202,6 @@ module Roby::Transactions
 	end
 
 	extend ClassExtension
-
-	proxy_component :component
-	proxy_component :generated_subgraph
-	proxy_component :reverse_generated_subgraph
 
 	def relation_discover(other, type, unused = nil)
 	    discover(type, true)
