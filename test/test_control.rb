@@ -13,10 +13,10 @@ class TC_Control < Test::Unit::TestCase
 		    rescue; $!
 		    end
 
-	Control.instance.abort_on_application_exception = false
+	Roby.control.abort_on_application_exception = false
 	assert_nothing_raised { Roby.application_error(:exceptions, Task, exception) }
 
-	Control.instance.abort_on_application_exception = true
+	Roby.control.abort_on_application_exception = true
 	assert_raises(RuntimeError) { Roby.application_error(:exceptions, Task, exception) }
     end
 
@@ -33,10 +33,10 @@ class TC_Control < Test::Unit::TestCase
             next_event = nil
             task.event(event).call(nil)
         end
-        Control.instance.process_events
+        process_events
         assert(start_node.finished?)
 	
-        Control.instance.process_events
+        process_events
 	assert(if_node.finished?)
     end
 
@@ -44,20 +44,20 @@ class TC_Control < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    Control.once { mock.called }
 	    mock.should_receive(:called).once
-	    Control.instance.process_events
+	    process_events
 	end
 	FlexMock.use do |mock|
 	    Control.once { mock.called }
 	    mock.should_receive(:called).once
-	    Control.instance.process_events
-	    Control.instance.process_events
+	    process_events
+	    process_events
 	end
     end
 
 
     class SpecificException < RuntimeError; end
     def test_unhandled_event_exceptions
-	Control.instance.abort_on_exception = true
+	Roby.control.abort_on_exception = true
 
 	# Test that the event is not pending if the command raises
 	t = Class.new(SimpleTask) do
@@ -89,7 +89,7 @@ class TC_Control < Test::Unit::TestCase
 	    mock.should_receive(:handler_called).never
 
 	    Control.once { t.start!(nil) }
-	    assert_raises(Aborting) { Control.instance.process_events }
+	    assert_raises(Aborting) { process_events }
 	    assert(!t.event(:start).pending)
 	end
 
@@ -98,7 +98,7 @@ class TC_Control < Test::Unit::TestCase
     end
 
     def test_structure_checking
-	Control.instance.abort_on_exception = false
+	Roby.control.abort_on_exception = false
 
 	# Check on a single task
 	Control.structure_checks.clear
@@ -106,7 +106,7 @@ class TC_Control < Test::Unit::TestCase
 	plan.insert(t)
 	Control.structure_checks << lambda { TaskModelViolation.new(t) }
 
-	Control.instance.process_events
+	process_events
 	assert(! plan.include?(t))
 
 	# Make sure that a task which has been repaired will not be killed
@@ -120,7 +120,7 @@ class TC_Control < Test::Unit::TestCase
 		TaskModelViolation.new(t)
 	    end
 	}
-	Control.instance.process_events
+	process_events
 	assert(plan.include?(t))
 
 	# Check that the whole task trees are killed
@@ -137,13 +137,13 @@ class TC_Control < Test::Unit::TestCase
 	    Control.structure_checks << lambda { mock.checking ; TaskModelViolation.new(t2) }
 	    mock.should_receive(:checking).twice
 
-	    Control.instance.process_events
+	    process_events
 	end
 	assert(!plan.include?(t0))
 	assert(!plan.include?(t1))
 	assert(!plan.include?(t2))
+	    process_events
 	assert(!plan.include?(t3))
-
 
 	# Check that we can kill selectively by returning a hash
 	tasks = (1..3).map { SimpleTask.new }
@@ -154,7 +154,7 @@ class TC_Control < Test::Unit::TestCase
 	plan.insert(t1)
 	Control.structure_checks.clear
 	Control.structure_checks << lambda { { TaskModelViolation.new(t2) => t0 } }
-	Control.instance.process_events
+	process_events
 	assert(!plan.include?(t0))
 	assert(plan.include?(t1))
 	assert(plan.include?(t2))

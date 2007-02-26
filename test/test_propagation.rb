@@ -76,10 +76,10 @@ class TC_Propagation < Test::Unit::TestCase
 	s, e = EventGenerator.new(true), EventGenerator.new(true)
 	s.on(e, :delay => 0.1)
 	Control.once { s.call(nil) }
-	Control.instance.process_events
+	process_events
 	assert(!e.happened?)
 	sleep(0.2)
-	Control.instance.process_events
+	process_events
 	assert(e.happened?)
     end
 
@@ -118,9 +118,8 @@ class TC_Propagation < Test::Unit::TestCase
 	    mock.should_receive(:handler_called).once.ordered
 	    mock.should_receive(:command_called).once.ordered
 	    Propagation.propagate_events([seed])
-	    STDERR.puts Propagation.delayed_events.inspect
-	    Control.instance.process_events
-	    Control.instance.process_events
+	    process_events
+	    process_events
 	end
     end
 end

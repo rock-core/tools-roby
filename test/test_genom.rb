@@ -23,7 +23,7 @@ class TC_Genom < Test::Unit::TestCase
         Genom::Runner.environment || Genom::Runner.h2 
     end
     def teardown
-	Control.instance.disable_propagation do
+	Roby.control.disable_propagation do
 	    Genom.connect do
 		env.stop_module('mockup')
 		env.stop_module('init_test')
@@ -55,9 +55,8 @@ class TC_Genom < Test::Unit::TestCase
             runner = Genom::Mockup.runner!
 	    
 	    runner.start!
-	    poll(0.5) do
-		Control.instance.process_events
-		break if runner.running?
+	    assert_happens do
+		assert(runner.running?)
 	    end
 
 	    assert(runner.running?)
@@ -98,9 +97,8 @@ class TC_Genom < Test::Unit::TestCase
 	    runner = mod.runner!
 	    runner.start!
 
-	    poll(0.5) do
-		Control.instance.process_events
-		break if runner.running?
+	    assert_happens do
+		assert(runner.running?)
 	    end
 
 	    assert( init_period )

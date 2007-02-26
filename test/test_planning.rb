@@ -376,7 +376,7 @@ class TC_Planner < Test::Unit::TestCase
 	planning_task.start!(42)
 
 	planning_task.thread.join
-	Control.instance.process_events
+	process_events
 
 	plan_task = plan.missions.find { true }
         assert(plan_task == result_task, plan_task)
@@ -386,7 +386,7 @@ class TC_Planner < Test::Unit::TestCase
 	assert(task = main_task.children.find { |t| t.planning_task.running? })
 	planner = task.planning_task
 	planner.thread.join
-	Control.instance.process_events
+	process_events
 	assert(planner.success?)
 
 	[planner.planned_task, planner]
@@ -428,7 +428,7 @@ class TC_Planner < Test::Unit::TestCase
 	# Plan the first two patterns (lookahead == 2)
 	first_planner.start!
 	first_planner.thread.join
-	Control.instance.process_events
+	process_events
 
 	assert(first_planner.success?)
 	assert(second_planner.running?)
@@ -438,7 +438,7 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal(2, loop_planner.pending_patterns)
 
 	second_planner.thread.join
-	Control.instance.process_events
+	process_events
 	assert(second_planner.success?)
 	second_task = second_planner.planned_task
 	assert(!first_task.running? && !second_task.running?)
@@ -470,7 +470,7 @@ class TC_Planner < Test::Unit::TestCase
 	loop_planner.loop_start!
 	# Finish third planning, check that both the third task and fourth planning are started
 	third_planner.thread.join
-	Control.instance.process_events
+	process_events
 	assert(third_planner.success?)
 	third_task = third_planner.planned_task
 	assert(third_task.running?)
@@ -517,11 +517,11 @@ class TC_Planner < Test::Unit::TestCase
 	assert(!second_task.running?)
 	first_task.success!
 	assert(!first_task.running? && !second_task.running?)
-	Control.instance.process_events
+	process_events
 	assert(!second_task.running?)
-	sleep(1)
-	Control.instance.process_events
-	assert(second_task.running?)
+	assert_happens do
+	    assert(second_task.running?)
+	end
 
 	# Check that the timeout can be overriden by calling loop_start! on the PlanningLoop
 	# task
@@ -531,7 +531,7 @@ class TC_Planner < Test::Unit::TestCase
 	assert(second_task.running? && !third_task.running?)
 	second_task.success!
 	assert(!second_task.running? && !third_task.running?)
-	Control.instance.process_events
+	process_events
 	assert(!third_task.running?)
 	loop_planner.loop_start!
 	assert(third_task.running?, third_task.object_id)
