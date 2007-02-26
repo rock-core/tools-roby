@@ -113,9 +113,9 @@ class TC_Task < Test::Unit::TestCase
 
     def test_model_event_handling
 	model = Class.new(SimpleTask) do
-	    on :start => :failed
+	    forward :start => :failed
 	end
-	assert_equal({ :start => [:failed].to_set }, model.signal_sets)
+	assert_equal({ :start => [:failed, :stop].to_set }, model.forwarding_sets)
 	assert_equal({}, SimpleTask.signal_sets)
 
 	FlexMock.use do |mock|
@@ -163,7 +163,7 @@ class TC_Task < Test::Unit::TestCase
 	    event(:terminal_model, :terminal => true)
 	    event(:terminal_model_signal)
 	    event(:terminal_signal)
-	    on :terminal_model_signal => :terminal_model
+	    forward :terminal_model_signal => :terminal_model
 	end
 	assert(klass.event_model(:terminal_model).terminal?)
 	assert(klass.event_model(:terminal_model_signal).terminal?)
@@ -171,7 +171,7 @@ class TC_Task < Test::Unit::TestCase
 
 	task = klass.new
 	assert(!task.event(:terminal_signal).terminal?)
-	task.event(:terminal_signal).on task.event(:terminal_model_signal)
+	task.event(:terminal_signal).forward task.event(:terminal_model_signal)
 	assert(task.event(:terminal_signal).terminal?)
 	assert(task.event(:terminal_model_signal).terminal?)
 	assert(task.event(:terminal_model).terminal?)
@@ -238,25 +238,10 @@ class TC_Task < Test::Unit::TestCase
 
         assert_equal(start_event, task.event(:start))
         assert_equal([], start_event.handlers)
-        assert_equal([task.event(:success)], start_event.enum_for(:each_signal).to_a)
+        assert_equal([task.event(:success)], start_event.enum_for(:each_forwarding).to_a)
         start_model = task.event_model(:start)
         assert_equal(start_model, start_event.event_model)
-        assert_equal([:success], task.enum_for(:each_signal, :start).to_a)
-    end
-
-    def test_signal_validation
-	klass = Class.new(Task) 
-	t1, t2 = klass.new, klass.new
-
-	assert(!t1.event(:stop).can_signal?(t2.event(:stop)))
-	assert_raise(EventModelViolation) { t1.on(:stop, t2, :stop) }
-
-        task = Class.new(SimpleTask).new
-
-	# Check can_signal? for task events
-        start_event = task.event(:start)
-	stop_event  = task.event(:stop)
-	assert( start_event.can_signal?(stop_event) )
+        assert_equal([:success], task.enum_for(:each_forwarding, :start).to_a)
     end
 
     def test_context_propagation

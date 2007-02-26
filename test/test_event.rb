@@ -212,17 +212,11 @@ class TC_Event < Test::Unit::TestCase
     def test_can_signal
 	a, b = EventGenerator.new(true), EventGenerator.new
 	assert_raises(EventModelViolation) { a.on b }
-	assert_nothing_raised { b.emit_on a }
+	assert_nothing_raised { a.forward b }
 
-	a = EventGenerator.new(true)
-	def a.can_signal?(generator); true end
-	assert_nothing_raised { a.on b }
-	assert_nothing_raised { a.call(nil) }
-
-	a, b = EventGenerator.new(true), EventGenerator.new
-	def a.can_signal?(generator); true end
+	a, b = EventGenerator.new(true), EventGenerator.new(true)
 	a.on b
-	def a.can_signal?(generator); false end
+	def b.controlable?; false end
 	assert_raise(EventModelViolation) { a.call(nil) }
     end
 

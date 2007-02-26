@@ -270,10 +270,10 @@ module Roby::Propagation
 	sources, context = prepare_propagation(signalled, forward, info)
 	return current_step unless sources
 
-	if !forward && signalled.controlable?
-	    sources.each { |source| source.generator.signalling(source, signalled) }
-	else
+	if forward
 	    sources.each { |source| source.generator.forwarding(source, signalled) }
+	else
+	    sources.each { |source| source.generator.signalling(source, signalled) }
 	end
 
 	if already_seen.include?(signalled) && !(forward && signalled.pending?) 
@@ -285,11 +285,11 @@ module Roby::Propagation
 	    did_call = false
 	    propagation_context(sources) do |result|
 		gather_exceptions(signalled) do
-		    if !forward && signalled.controlable?
-			did_call = signalled.call_without_propagation(context) 
-		    else
-			did_call = signalled.emit_without_propagation(context)
-		    end
+		    did_call = if forward
+				   signalled.emit_without_propagation(context)
+			       else
+				   signalled.call_without_propagation(context) 
+			       end
 		end
 	    end
 

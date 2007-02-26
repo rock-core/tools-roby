@@ -53,9 +53,6 @@ module Roby
     # - signals: calls the *command* of an event when this generator emits
     # - forwardings: *emits* another event when this generator emits
     #
-    # In the first case, #can_signal? is checked to ensure that the target
-    # event can be called. In the forwarding case, not checks are done
-    #
     # === Hooks
     # The following hooks are defined:
     # * #postponed
@@ -195,7 +192,7 @@ module Roby
 	# called
 	def on(signal = nil, time = nil, &handler)
 	    if signal
-		if !can_signal?(signal)
+		if !signal.controlable?
 		    raise EventModelViolation.new(self), "trying to establish a signal between #{self} and #{signal}"
 		end
 		add_signal(signal, time)
@@ -230,9 +227,6 @@ module Roby
 	    on(signal, time) { remove_signal(signal) }
 	end
 
-	# If this event can signal +generator+
-	def can_signal?(generator); generator != self && generator.controlable?  end
-
 	def to_event; self end
 
 	# Returns the set of events directly related to this one
@@ -254,9 +248,7 @@ module Roby
 	def add_propagation(only_forward, event, signalled, context, timespec) # :nodoc:
 	    if self == signalled
 		raise EventModelViolation.new(self), "#{self} is trying to signal itself"
-	    elsif !only_forward && !can_signal?(signalled) 
-		# NOTE: the can_signal? test here is NOT redundant with the test in #on, 
-		# since here we validate calls done in event handlers too
+	    elsif !only_forward && !signalled.controlable?
 		raise EventModelViolation.new(self), "trying to signal #{signalled} from #{self}"
 	    end
 

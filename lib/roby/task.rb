@@ -121,9 +121,6 @@ module Roby
 	# The plan this event is part of
 	def plan; task.plan end
 	def plan=(plan); task.plan=plan end
-
-	# True if a signal between self and +event+ can be established
-        def can_signal?(event); super || (event.respond_to?(:task) && task == event.task) end
 	# True if this event generator is executable (can be called and/or emitted)
 	def executable?; task.executable? end
 
@@ -308,10 +305,10 @@ module Roby
 	    # Add the model-level signals to this instance
 	    bound_events.each do |symbol, generator|
 		model.each_signal(symbol) do |signalled|
-		    generator.add_signal bound_events[signalled]
+		    generator.signal bound_events[signalled]
 		end
 		model.each_forwarding(symbol) do |signalled|
-		    generator.add_forwarding bound_events[signalled]
+		    generator.forward bound_events[signalled]
 		end
 	    end
 
@@ -897,7 +894,12 @@ module Roby
             mappings = [*mappings].zip([]) unless Hash === mappings
             mappings.each do |from, to|
                 from = event_model(from).symbol
-                to = if to; Array[*to].map { |ev| event_model(ev).symbol }
+                to = if to
+			 Array[*to].map do |ev| 
+			     model = event_model(ev)
+			     raise "trying to signal #{ev} which is not controlable" unless model.controlable?
+			     model.symbol
+			 end
                      else;  []
                      end
 
@@ -1042,7 +1044,7 @@ module Roby
     class NullTask < Task
         event :start, :command => true
         event :stop
-        on :start => :stop
+        forward :start => :stop
 
         def null?; true end
     end

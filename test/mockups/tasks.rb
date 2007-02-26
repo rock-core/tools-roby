@@ -5,7 +5,7 @@ if !defined?(EmptyTask)
     # A class that calls stop when :start is fired
     class EmptyTask < Roby::Task
         event :start, :command => true
-        on :start => :success
+        forward :start => :success
     end
 
     class SimpleTask < Roby::Task
@@ -26,15 +26,15 @@ if !defined?(EmptyTask)
         event :start
 
         event :a
-	on :a => :success
+	forward :a => :success
         event :b
-	on :b => :success
+	forward :b => :success
     end
 
     class MultiEventTask < Roby::Task
         event :start, :command => true
         event :inter
-        on :start => :inter, :inter => :success
+        forward :start => :inter, :inter => :success
     end
 end
 

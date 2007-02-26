@@ -88,7 +88,7 @@ module TC_PlanStatic
 	klass = Class.new(Task) do
 	    event(:start, :command => true)
 	    event(:stop)
-	    on :start => :stop
+	    forward :start => :stop
 	end
 
 	p, c1, c2, c3 = (1..4).map { klass.new }

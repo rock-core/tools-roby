@@ -8,7 +8,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 
     class ExecutionAgentModel < SimpleTask
 	event :ready
-	on :start => :ready
+	forward :start => :ready
     end
 
     def test_relationships
