@@ -41,9 +41,15 @@ class TC_Propagation < Test::Unit::TestCase
 
     def test_precedence_graph
 	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
+	Propagation.event_ordering << :bla
 	Roby.plan.discover e1
 	Roby.plan.discover e2
-	Propagation.event_ordering << :bla
+	assert(Propagation.event_ordering.empty?)
+	
+	task = Roby::Task.new
+	Roby.plan.discover(task)
+	assert(Propagation.event_ordering.empty?)
+	assert(EventStructure::Precedence.linked?(task.event(:start), task.event(:failed)))
 
 	e1.signal e2
 	assert(EventStructure::Precedence.linked?(e1, e2))
@@ -54,7 +60,6 @@ class TC_Propagation < Test::Unit::TestCase
 	assert(Propagation.event_ordering.empty?)
 	assert(!EventStructure::Precedence.linked?(e1, e2))
     end
-
 
     def test_next_step
 	# For the test to be valid, we need +pending+ to have a deterministic ordering

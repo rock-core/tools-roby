@@ -84,6 +84,7 @@ module Roby
 	    @planners    = []
 	    @last_stop_count = 0
 	    @plan        = Plan.new
+	    plan.extend Roby::Propagation::ExecutablePlanChanged
 	end
 
 	# Disable event propagation

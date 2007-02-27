@@ -192,9 +192,23 @@ module Roby::Propagation
 	attr_reader :event_priorities
     end
 
+    # This module hooks in plan modifications to clear the event ordering cache
+    # (Propagation.event_ordering) when needed.
+    #
+    # It is included in the main plan by Control#initialize
+    module ExecutablePlanChanged
+	def discovered_events(objects)
+	    super if defined? super
+	    Roby::Propagation.event_ordering.clear
+	end
+	def discovered_tasks(objects)
+	    super if defined? super
+	    Roby::Propagation.event_ordering.clear
+	end
+    end
+    
     # This module hooks in event relation modifications to clear the event
-    # ordering caches (Propagation.event_ordering and
-    # Propagation.event_priorities) whenever the precedence graph changes
+    # ordering cache (Propagation.event_ordering) when needed.
     module EventPrecedenceChanged
 	def added_child_object(child, relation, info)
 	    super if defined? super
