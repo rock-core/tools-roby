@@ -362,10 +362,7 @@ module Roby
 		if !has_event?(:failed) || !event_model(:failed).controlable?
 		    raise ArgumentError, "failed is not controlable"
 		end
-		define_method(:stop) do |context|
-		    failed!(context)
-		end
-		event :stop
+		event(:stop) { |context| failed!(context) }
 	    end
 	    def polls
 		if !instance_method?(:poll)
