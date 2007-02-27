@@ -37,6 +37,21 @@ class Class
     end
 end
 
+class Exception
+    class DRoby
+	attr_reader :error
+	def initialize(error); @error = error end
+	def self._load(str); Marshal.load(str) end
+	def _dump(lvl = -1)
+	    Marshal.dump(error)
+	rescue TypeError
+	    Marshal.dump(DRbRemoteError.new(error))
+	end
+    end
+
+    def droby_dump; DRoby.new(self) end
+end
+
 module Roby
     class << Task
 	def droby_dump; Roby::Distributed::DRobyTaskModel.new(ancestors) end
@@ -341,8 +356,7 @@ module Roby
 	# Returns true if +object+ can be remotely represented by a DRbObject
 	# proxy
 	def self.allowed_remote_access?(object)
-	    object.kind_of?(Exception) ||
-		@allowed_remote_access.any? { |type| object.kind_of?(type) }
+	    @allowed_remote_access.any? { |type| object.kind_of?(type) }
 	end
 
 	# Dumps +object+ in the dRoby protocol
