@@ -87,24 +87,19 @@ module Roby
 	    end
 
 	    def setup_connection
-		local.start_neighbour_discovery(true)
-		n_remote = local.neighbours.find { true }
-		remote_peer = Peer.new(local, n_remote)
-		remote.start_neighbour_discovery(true)
-		local_peer = remote.peers.find { true }.last
-		local.start_neighbour_discovery(true)
+		assert(remote_neighbour = local.neighbours.find { true })
+		@remote_peer = Peer.new(local, remote_neighbour)
 
+		remote.start_neighbour_discovery(true)
+		remote.process_events
+		assert(@local_peer = remote.peers.find { true }.last)
 		assert(local_peer.connected?)
+
+		local.start_neighbour_discovery(true)
+		process_events
 		assert(remote_peer.connected?)
 
-		remote_plan = remote_peer.plan
-
-		@remote, @remote_peer, @remote_plan, @local, @local_peer =
-		    remote, remote_peer, remote_plan, local, local_peer
-
-		# we must call #process_events to make sure the ConnectionTask objects
-		# are inserted in both plans
-		process_events
+		@remote_plan = remote_peer.plan
 	    end
 
 	    attr_reader :central_tuplespace, :remote, :remote_peer, :remote_plan, :local, :local_peer
@@ -116,15 +111,18 @@ module Roby
 	    end
 
 	    def process_events
-		remote.start_neighbour_discovery(true)
-		local.start_neighbour_discovery(true)
-
-		remote_peer.flush
-		local_peer.flush
-		remote.process_events
-		Control.instance.process_events
-		remote_peer.flush
-		local_peer.flush
+		if remote
+		    remote.start_neighbour_discovery(true)
+		    local.start_neighbour_discovery(true)
+		    remote_peer.flush
+		    local_peer.flush
+		    remote.process_events
+		    Control.instance.process_events
+		    remote_peer.flush
+		    local_peer.flush
+		else
+		    super
+		end
 	    end
 
 	    def remote_task(match)

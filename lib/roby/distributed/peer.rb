@@ -39,17 +39,17 @@ module Roby::Distributed
     end
 
     class ConnectionTask < Roby::Task
-	event :ready
 	local_object
-	def ready?; event(:ready).happened? end
 
+	argument :peer
 	def peer; arguments[:peer] end
 
+	event :ready
+	def ready?; event(:ready).happened? end
 	def failed(context); end # Peer#connection_listener checks if 'failed' is pending to initiate the disconnection
 	event :failed, :terminal => true
 
-	def stop(context); failed!(context) end
-	event :stop
+	interruptible
     end
     class LiveConnectionTask < Roby::Task
 	local_object
@@ -331,17 +331,19 @@ module Roby::Distributed
 	def self.connection_listener(connection_space)
 	    seen = []
 
-	    connection_space.tuplespace.read_all( { 'kind' => :peer, 'tuplespace' => nil, 'remote' => nil, 'state' => nil } ).each do |entry|
+	    all_peers = connection_space.tuplespace.
+		read_all 'kind' => :peer, 'tuplespace' => nil, 'remote' => nil, 'state' => nil
+
+	    all_peers.each do |entry|
 		remote_ts = entry['tuplespace']
 		seen << remote_ts
 		peer = connection_space.peers[remote_ts]
 
-		if peer 
-		    if peer.task.event(:failed).pending?
-			peer.disconnect
-		    elsif peer.connecting?
+		if peer
+		    next if peer.task.event(:failed).pending?
+		    if peer.connecting?
 			# The peer finalized the handshake
-			peer.connected!
+			peer.connected
 		    elsif peer.connected?
 			# ping the remote host
 			peer.ping
@@ -349,23 +351,35 @@ module Roby::Distributed
 			peer.tuple = entry
 		    end
 		elsif neighbour = connection_space.neighbours.find { |n| n.tuplespace == remote_ts }
-		    Roby::Distributed.info { "peer #{neighbour.name} asking for connection" }
-		    # New connection attempt from a known neighbour
-		    Peer.new(connection_space, neighbour).connected!
+		    Roby::Distributed.info "peer #{neighbour.name} asking for connection"
+		    Peer.new(connection_space, neighbour).connected
+		end
+	    end
+
+	    # Handle the 'failed' event of the connection task
+	    Roby::Distributed.peers.dup.each do |remote_id, peer|
+		next unless peer.task.event(:failed).pending?
+		if peer.connecting?
+		    Roby::Distributed.info "aborting connection handshake with #{peer.remote_name}"
+		    peer.disconnected
+		elsif peer.connected?
+		    Roby::Distributed.info "disconnecting from #{peer.remote_name}"
+		    peer.disconnect
 		end
 	    end
 
 	    (connection_space.peers.keys - seen).each do |disconnected| 
 		peer = connection_space.peers[disconnected]
 		if peer.connecting?
-		    Roby::Distributed.info "waiting for peer #{connection_space.peers[disconnected].remote_name} to connect #{peer.remote_id}"
+		    Roby::Distributed.info "waiting for peer #{peer.remote_name} to connect"
 		    peer.ping
-		    next
+		elsif peer.connected?
+		    Roby::Distributed.info "peer #{peer.remote_name} disconnected"
+		    peer.disconnect
+		    peer.disconnected
+		elsif peer.disconnecting?
+		    peer.disconnected
 		end
-
-		Roby::Distributed.debug { "peer #{connection_space.peers[disconnected].remote_name} disconnected" }
-		connection_space.peers[disconnected].disconnected!
-		connection_space.peers.delete(disconnected)
 	    end
 	end
 
@@ -373,7 +387,7 @@ module Roby::Distributed
 	# +connection_space+.  If a block is given, it is called in the control
 	# thread when the connection is finalized
 	def initialize(connection_space, neighbour, &block)
-	    if neighbour.peer
+	    if Roby::Distributed.peers[neighbour.tuplespace]
 		raise ArgumentError, "there is already a peer for #{neighbour.name}"
 	    end
 	    super() if defined? super
@@ -387,7 +401,8 @@ module Roby::Distributed
 	    @max_allowed_errors = connection_space.max_allowed_errors
 	    @triggers = Hash.new
 
-	    neighbour.peer = connection_space.peers[remote_id] = self
+	    Roby::Distributed.peers[remote_id] = self
+
 	    connect(&block)
 	end
 
@@ -434,7 +449,7 @@ module Roby::Distributed
 	# complete (the peer has finalized the handshake), the 'ready' event of
 	# this task is emitted.
 	def connect
-	    raise if task
+	    raise "already connecting" if connecting?
 	    @connection_state = :connecting
 
 	    @task = ConnectionTask.new :peer => self
@@ -444,15 +459,16 @@ module Roby::Distributed
 
 	    Roby::Control.once do
 		connection_space.plan.permanent(task)
-		task.event(:start).emit(nil)
+		task.emit(:start)
 	    end
 	    ping
+	    Roby::Distributed.info "connecting to #{remote_name}"
 	end
 
 	# Called when the handshake is finished. After this call, the
 	# connection task has emitted its 'ready' event and the connection is
 	# alive
-	def connected! # :nodoc:
+	def connected # :nodoc:
 	    raise "not connecting" unless connecting?
 	    @connection_state = :connected
 
@@ -463,14 +479,15 @@ module Roby::Distributed
 		    {'kind' => :peer, 'tuplespace' => neighbour.tuplespace, 'remote' => nil, 'state' => nil}, 
 		    0)
 
-	    Roby::Control.once { task.event(:ready).emit(nil) }
+	    Roby::Control.once { task.emit(:ready) }
 	    Roby::Distributed.info { "connected to #{neighbour.name}" }
 	end
 
 	# Updates our keepalive token on the peer
 	def ping(timeout = nil)
+	    raise "neither connected nor connecting" unless connected? || connecting?
 	    @dead = false
-	    return unless link_alive?
+	    return if !link_alive? 
 
 	    old, @keepalive = @keepalive, 
 		neighbour.tuplespace.write(
@@ -488,7 +505,7 @@ module Roby::Distributed
 	    # and restarted. Whatever. Kill the connection
 	    @keepalive = nil
 	    disconnect
-	    disconnected!
+	    disconnected
 	end
 
 	# Disconnect this side of the connection. The remote host is supposed
@@ -497,7 +514,7 @@ module Roby::Distributed
 	#
 	# The 'failed' event is emitted on the ConnectionTask task
 	def disconnect
-	    return if disconnecting?
+	    raise "already disconnecting" if disconnecting?
 	    @connection_state = :disconnecting
 
 	    # Remove the keepalive tuple we wrote on the remote host
@@ -513,15 +530,23 @@ module Roby::Distributed
 	end
 
 	# Called when the peer acknowledged the fact that we disconnected
-	def disconnected! # :nodoc:
-	    disconnect if connected?
+	def disconnected # :nodoc:
+	    raise "not disconnecting (#{connection_state})" unless connecting? || disconnecting?
 	    @connection_state = nil
 
-	    Roby::Distributed.info "#{neighbour.name} disconnected"
-	    connection_space.peers.delete(remote_id)
-	    neighbour.peer = nil
+	    Roby::Distributed.peers.delete(remote_id)
 
-	    Roby::Control.once { task.event(:failed).emit(nil) }
+	    Roby::Distributed.info "#{neighbour.name} disconnected"
+	    Roby::Control.once { task.emit(:failed) }
+	end
+
+	# Call to disconnect outside of the normal protocol.
+	def disconnected!
+	    # Remove the neighbour tuple ourselves
+	    tuplespace.take_all(
+		{ 'kind' => :peer, 'tuplespace' => remote_id, 'remote' => nil, 'state' => nil },
+		0) rescue nil
+	    # ... and let neighbour discovery do the cleanup
 	end
 
 	# Returns true if we are establishing a connection with this peer
@@ -531,6 +556,8 @@ module Roby::Distributed
 	# Returns true if the we disconnected on our side but the peer did not
 	# acknowledge it yet
 	def disconnecting?; connection_state == :disconnecting end
+	# Returns true if the connection with this peer has been removed
+	def disconnected?; !connection_state end
 
 	# Mark the link as dead regardless of the last neighbour discovery. This
 	# will be reset during the next neighbour discovery
