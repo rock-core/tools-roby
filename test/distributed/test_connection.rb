@@ -117,13 +117,9 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert_equal(remote.tuplespace, local_peer.keepalive['tuplespace'])
 	assert_equal(local.tuplespace,  local_peer.neighbour.tuplespace)
 	assert_nothing_raised(local_peer.keepalive.value) { local.tuplespace.read(local_peer.keepalive.value, 0)}
-	assert(local_peer.connected?)
+	assert(local_peer.connecting?)
 	assert(local_peer.link_alive?)
-
-	remote.process_events
-	assert(local_peer.task.remote_object.ready?)
-	# p_remote is still not link_alive since +local+ does not know the
-	# connection is finalized
+	assert(!local_peer.task.remote_object.ready?)
 	assert(remote_peer.connecting?)
 	assert(!remote_peer.task.ready?)
 
@@ -133,6 +129,11 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert(remote_peer.connected?)
 	assert(remote_peer.link_alive?)
 	assert(remote_peer.task.ready?)
+	local_peer.flush
+	remote.process_events
+	assert(local_peer.connected?)
+	assert(local_peer.link_alive?)
+	assert(local_peer.task.remote_object.ready?)
 
 	assert_equal('remote', remote_peer.neighbour.name)
 	assert_equal('remote', remote_peer.remote_server.local_name)

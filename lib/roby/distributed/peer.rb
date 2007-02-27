@@ -294,6 +294,10 @@ module Roby::Distributed
 	    nil
 	end
 
+	def connected
+	    peer.connected
+	end
+
     end
     allow_remote_access PeerServer
 
@@ -344,6 +348,7 @@ module Roby::Distributed
 		    if peer.connecting?
 			# The peer finalized the handshake
 			peer.connected
+			peer.remote_server.connected
 		    elsif peer.connected?
 			# ping the remote host
 			peer.ping
@@ -352,7 +357,7 @@ module Roby::Distributed
 		    end
 		elsif neighbour = connection_space.neighbours.find { |n| n.tuplespace == remote_ts }
 		    Roby::Distributed.info "peer #{neighbour.name} asking for connection"
-		    Peer.new(connection_space, neighbour).connected
+		    Peer.new(connection_space, neighbour)
 		end
 	    end
 
@@ -546,6 +551,7 @@ module Roby::Distributed
 	    tuplespace.take_all(
 		{ 'kind' => :peer, 'tuplespace' => remote_id, 'remote' => nil, 'state' => nil },
 		0) rescue nil
+
 	    # ... and let neighbour discovery do the cleanup
 	end
 

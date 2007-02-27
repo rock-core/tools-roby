@@ -93,11 +93,15 @@ module Roby
 		remote.start_neighbour_discovery(true)
 		remote.process_events
 		assert(@local_peer = remote.peers.find { true }.last)
-		assert(local_peer.connected?)
+		assert(local_peer.connecting?)
 
 		local.start_neighbour_discovery(true)
 		process_events
 		assert(remote_peer.connected?)
+
+		remote.start_neighbour_discovery(true)
+		remote.process_events
+		assert(local_peer.connected?)
 
 		@remote_plan = remote_peer.plan
 	    end
