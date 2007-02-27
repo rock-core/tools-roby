@@ -27,28 +27,28 @@ module Roby
     end
 
     class TaskModelViolation < ModelViolation
+	# The task from which this exception has been raised
         attr_reader :task
+	# The task history when the exception has been created
+	attr_reader :history
         def initialize(obj)
 	    @task = if obj.respond_to?(:to_task) then obj
 		    elsif obj.respond_to?(:task) then obj.task
 		    else raise TypeError, "not a task" 
 		    end
+	    @history = task.history
 	end
         def to_s
-	    if task
-		history = task.history.map do |event|
-			"@%i[%s.%03i] %s" % [
-			    event.propagation_id,
-			    event.time.strftime("%Y/%m/%d %H:%M:%S"),
-			    event.time.tv_usec / 1000,
-			    event.name
-			]
-		    end
+	    history = self.history.map do |event|
+		    "@%i[%s.%03i] %s" % [
+			event.propagation_id,
+			event.time.strftime("%Y/%m/%d %H:%M:%S"),
+			event.time.tv_usec / 1000,
+			event.name
+		    ]
+		end
 
-		super + "\n#{task.name} (0x#{task.address.to_s(16)}) history\n   #{history.join("\n   ")}"
-	    else
-		super
-	    end
+	    super + "\n#{task.name} (0x#{task.address.to_s(16)}) history\n   #{history.join("\n   ")}"
         end
     end
 
