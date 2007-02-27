@@ -80,8 +80,8 @@ module Roby::Log
 
     module EventGeneratorHooks
 	HOOKS = %w{added_event_child removed_event_child 
-		   generator_calling generator_called generator_fireda
-		   generator_signalling generator_forwarding}
+		   generator_calling generator_called generator_fired
+		   generator_signalling generator_forwarding generator_emitting}
 
 	def added_child_object(to, type, info)
 	    super if defined? super
@@ -111,6 +111,11 @@ module Roby::Log
 	def signalling(event, to)
 	    super if defined? super
 	    Roby::Log.log(:generator_signalling) { [Time.now, false, self, to, event.object_id, event.time, event.context.to_s] }
+	end
+
+	def emitting(context)
+	    super if defined? super
+	    Roby::Log.log(:generator_emitting) { [Time.now, self, context.to_s] }
 	end
 
 	def forwarding(event, to)
