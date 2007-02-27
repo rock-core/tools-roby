@@ -373,6 +373,10 @@ module Roby
 			else
 			    Roby.debug "GC: ignored #{t}, it cannot be stopped"
 			end
+		    elsif t.finishing?
+			Roby.debug "GC: waiting for #{t} to finish"
+		    else
+			Roby.debug "GC: ignored #{t}"
 		    end
 		end
 
