@@ -66,12 +66,17 @@ module Roby
 	end
 
 	def teardown
-	    loop do
-		Roby.plan.garbage_collect
-		process_events
-		break unless Roby.control.clear
-		sleep(0.1)
+	    begin
+		# Roby.logger.level = Logger::DEBUG
+		loop do
+		    Roby.plan.garbage_collect
+		    process_events
+		    break unless Roby.control.clear
+		    sleep(0.1)
+		end
+	    rescue
 	    end
+
 	    plan.clear
 
 	    stop_remote_processes
