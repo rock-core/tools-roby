@@ -576,16 +576,16 @@ module Roby
 	class Roby::Task
 	    def droby_dump
 		mission = self.plan.mission?(self) if plan
-		MarshalledTask.new(to_s, drb_object, self.model, plan, arguments, 
+		MarshalledTask.new(to_s, drb_object, self.model, plan, arguments, data,
 				   :mission => mission, :started => started?, 
 				   :finished => finished?, :success => success?)
 	    end
 	end
 	class MarshalledTask < MarshalledPlanObject
-	    attr_reader :arguments, :flags
-	    def initialize(remote_name, remote_object, model, plan, arguments, flags)
+	    attr_reader :arguments, :data, :flags
+	    def initialize(remote_name, remote_object, model, plan, arguments, data, flags)
 		super(remote_name, remote_object, model, plan)
-		@arguments, @flags = arguments, flags
+		@arguments, @data, @flags = arguments, data, flags
 	    end
 
 	    def self._load(str)
@@ -593,7 +593,7 @@ module Roby
 		    MarshalledTask.new(*data)
 		end
 	    end
-	    def marshal_format; super << arguments.droby_dump << flags end
+	    def marshal_format; super << arguments.droby_dump << Distributed.format(data) << flags end
 	
 	    def update(peer, task)
 		super
@@ -616,6 +616,7 @@ module Roby
 
 		Distributed.update([task]) do
 		    task.arguments.merge(arguments)
+		    task.data = data
 		end
 	    end
 	end
