@@ -15,14 +15,11 @@ module Roby
 	class PeerServer
 	    # Called by the remote host because it has subscribed us to 
 	    # a set of tasks in a plan
-	    def subscribed_plan(marshalled_plan, missions, known_tasks)
+	    def subscribed_plan(marshalled_plan, missions, known_tasks, free_events)
 		plan = peer.local_object(marshalled_plan)
 		Distributed.update([plan]) do
-		    known_tasks.each do |t| 
-			peer.subscriptions << t.remote_object
-			obj = peer.local_object(t)
-			plan.discover(obj)
-		    end
+		    plan.discover(peer.local_object(known_tasks))
+		    plan.discover(peer.local_object(free_events))
 		end
 		nil
 	    end
@@ -56,30 +53,32 @@ module Roby
 		end
 
 		subscriptions << object
-		peer.transmit(:subscribed, [object])
+		peer.callback(:subscribed, [object])
 
 		case object
 		when PlanObject
 		    subscribe_plan_object(object)
 
 		when Plan
+		    missions, tasks, events = object.missions, object.known_tasks, object.free_events
+		    tasks.delete_if    { |t| !t.distribute? }
+		    missions.delete_if { |t| !t.distribute? }
+		    events.delete_if   { |t| !t.distribute? }
+
 		    if object.kind_of?(Transaction)
-			missions, tasks = [object.missions(true), object.known_tasks(true)]
-			tasks.delete_if    { |t| !t.distribute? }
 			tasks = tasks.to_a
 			tasks.dup.each do |t| 
 			    if Transactions::Proxy === t && t.__getobj__.self_owned?
 				tasks.unshift t.__getobj__ # put real objects first
 			    end
 			end
-		    else
-			missions, tasks = [object.missions, object.known_tasks]
-			tasks.delete_if    { |t| !t.distribute? }
 		    end
 
-		    missions.delete_if { |t| !t.distribute? }
-		    peer.transmit(:subscribed_plan, object, missions, tasks)
-		    tasks.each { |t| subscribe(t) }
+		    peer.callback(:subscribed_plan, object, missions, tasks, events)
+		    new_subscriptions = tasks | events
+		    subscriptions.merge(new_subscriptions)
+		    peer.callback(:subscribed, new_subscriptions)
+		    new_subscriptions.each { |obj| subscribe_plan_object(obj) }
 		end
 
 		nil
@@ -112,13 +111,13 @@ module Roby
 	    # The returned relation sets can be empty if the plan object does not
 	    # have any relations. Since the goal is to *copy* the graph relations...
 	    def set_relations_commands(plan_object)
-		peer.transmit(:set_relations, plan_object, relations_of(plan_object))
+		peer.callback(:set_relations, plan_object, relations_of(plan_object))
 
 		if plan_object.respond_to?(:each_event)
 		    plan_object.each_event do |ev|
 			# Send event even if +result+ is empty, so that relations
 			# are removed if needed on the other side
-			peer.transmit(:set_relations, ev, relations_of(ev))
+			peer.callback(:set_relations, ev, relations_of(ev))
 		    end
 		end
 	    end
@@ -188,15 +187,10 @@ module Roby
 	    def subscribe(object)
 		remote_object = remote_object(object)
 
-		if subscriptions.include?(remote_object)
-		    yield if block_given?
-		elsif block_given?
-		    transmit(:subscribe, remote_object) do
-			yield if block_given?
-		    end
-		else
-		    transmit(:subscribe, remote_object)
+		unless subscriptions.include?(remote_object)
+		    call(:subscribe, remote_object)
 		end
+		proxies[remote_object]
 	    end
 
 	    # True if we are subscribed to +remote_object+ on the peer
@@ -231,19 +225,15 @@ module Roby
 			raise InvalidRemoteOperation, "cannot unsubscribe to a task still linked to local tasks"
 		    end
 
-		    transmit(:unsubscribe, remote_object) do
-			subscriptions.delete(remote_object)
-			if remove_object
-			    remove_unsubscribed_relations(local_object)
-			end
-			yield if block_given?
+		    call(:unsubscribe, remote_object)
+		    subscriptions.delete(remote_object)
+		    if remove_object
+			remove_unsubscribed_relations(local_object)
 		    end
 
 		else
-		    transmit(:unsubscribe, remote_object) do
-			subscriptions.delete(remote_object)
-			yield if block_given?
-		    end
+		    call(:unsubscribe, remote_object)
+		    subscriptions.delete(remote_object)
 		end
 	    end
 	end

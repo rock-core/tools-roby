@@ -56,6 +56,7 @@ module Roby
 	    attr_reader :mutex
 	    def synchronize; @mutex.synchronize { yield } end
 	    attr_reader :send_flushed
+	    attr_reader :synchro_call
 
 	    # How many errors we accept before disconnecting
 	    attr_reader :max_allowed_errors
@@ -74,14 +75,8 @@ module Roby
 	    # * trace is the location (as returned by Kernel#caller) from which the call
 	    #   has been queued. It is mainly used for debugging purposes
 	    attr_reader :send_queue
-
-	    # call-seq:
-	    #   peer.transmit(method, arg1, arg2, ...) { |ret| ... }
-	    #
-	    # Queues a call to the remote host. If a block is given, it is called
-	    # in the communication thread, with the returned value, if the call
-	    # succeeded
-	    def transmit(m, *args, &block)
+	    
+	    def format_remote_call(m, args, block)
 		if !connected?
 		    raise DisconnectedError, "we are not currently connected to #{remote_name}"
 		end
@@ -90,24 +85,72 @@ module Roby
 		if !m.respond_to?(:to_sym)
 		    raise "invalid call #{args}"
 		end
+
 		# Marshal DRoby-dumped objects now, since the object may be
 		# modified between now and the time it is sent
-		args.map! do |obj| 
-		    Distributed.format(obj)
-		end
+		args.map! { |obj| Distributed.format(obj) }
 		args.unshift m
 
-		call_spec = [[remote_server, args], block, caller]
+		[[remote_server, args], block, caller(2)]
+	    end
+
+	    # call-seq:
+	    #   peer.callback(method, arg1, arg2, ...) { |ret| ... }
+	    #
+	    # Queues a callback to be processed by the remote host. Callbacks
+	    # are processed in return of a remote procedure call, so this
+	    # method must be called when answering a call from the remote host.
+	    # Callbacks are processed by the remote server before any call it
+	    # has already queued.	
+	    def callback(m, *args)
+		if !local.processing?
+		    raise "not processing a remote request. Use #transmit in normal context"
+		end
+		if block_given?
+		    raise "no block allowed in callbacks"
+		end
+
+		Distributed.debug do
+		    "adding callback #{neighbour.name}.#{m}" 
+		    # from\n  #{caller(5)[0, 5].join("\n  ")}" } #\n  #{caller(4).join("\n  ")})"
+		end
+		local.callbacks << format_remote_call(m, args, nil)
+	    end
+
+	    # call-seq:
+	    #   peer.transmit(method, arg1, arg2, ...) { |ret| ... }
+	    #
+	    # Queues a call to the remote host. If a block is given, it is called
+	    # in the communication thread, with the returned value, if the call
+	    # succeeded
+	    def transmit(m, *args, &block)
 		if local.processing?
-		    Roby::Distributed.debug { "adding callback #{neighbour.name}.#{args[0]}" } # from\n  #{caller(5)[0, 5].join("\n  ")}" } #\n  #{caller(4).join("\n  ")})" }
-		    if block_given?
-			raise "no block allowed when calling #transmit during processing of remote request"
+		    raise "currently processing a remote request. Use #callback instead"
+		end
+
+		Distributed.debug do
+		    "queueing #{neighbour.name}.#{m}"
+		    # from\n  #{caller(5)[0, 5].join("\n  ")}" } #\n  #{caller(4).join("\n  ")})"
+		end
+		send_queue.push(format_remote_call(m, args, block))
+		@sending = true
+	    end
+
+	    # call-seq:
+	    #	peer.call(method, arg1, arg2)	    => result
+	    def call(m, *args)
+		if local.processing?
+		    raise "currently processing a remote request. Use #callback instead"
+		elsif Thread.current == Roby.control.thread
+		    raise "in control thread"
+		end
+
+		result = nil
+		synchronize do
+		    transmit(m, *args) do |result|
+			synchro_call.broadcast
 		    end
-		    local.callbacks << call_spec
-		else
-		    Roby::Distributed.debug { "queueing #{neighbour.name}.#{args[0]}" } # from\n  #{caller(5)[0, 5].join("\n  ")}" } #\n  #{caller(4).join("\n  ")})" }
-		    send_queue.push(call_spec)
-		    @sending = true
+		    synchro_call.wait(mutex)
 		end
 	    end
 
@@ -284,7 +327,7 @@ module Roby
 	    end
 
 	    def synchro_point(&block)
-		transmit(:synchro_point, &block)
+		call(:synchro_point)
 	    end
 
 	    def self.flatten_demux_calls(calls)

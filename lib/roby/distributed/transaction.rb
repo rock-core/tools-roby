@@ -427,12 +427,10 @@ module Roby
 		    raise TypeError, "cannot create a non-distributed transaction"
 		end
 
-		transmit(:transaction_create, trsc) do |marshalled_transaction|
-		    remote_transaction = marshalled_transaction.remote_object
-		    trsc.remote_siblings[remote_id] = remote_transaction
-
-		    yield(marshalled_transaction) if block_given?
-		end
+		marshalled_transaction = call(:transaction_create, trsc)
+		remote_transaction = marshalled_transaction.remote_object
+		trsc.remote_siblings[remote_id] = remote_transaction
+		remote_transaction
 	    end
 
 	    def transaction_propose(trsc)
@@ -442,18 +440,14 @@ module Roby
 		#     can apply on local and remote tasks
 		#   - create all needed remote proxys
 		#   - setup all relations
-		transaction_create(trsc) do |marshalled_transaction|
-		    subscriptions << marshalled_transaction.remote_object
-
-		    local.subscribe(trsc)
-		    synchro_point do
-			yield if block_given?
-		    end
-		end
+		remote_transaction = transaction_create(trsc)
+		subscriptions << remote_object(remote_transaction)
+		local.subscribe(trsc)
+		nil
 	    end
 
 	    def transaction_give_token(trsc, needs_edition)
-		transmit(:transaction_give_token, trsc, needs_edition)
+		call(:transaction_give_token, trsc, needs_edition)
 	    end
 	end
     end

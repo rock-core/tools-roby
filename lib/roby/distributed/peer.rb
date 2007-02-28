@@ -161,7 +161,7 @@ module Roby::Distributed
 	    Roby::Control.once do
 		matcher.each(plan) do |task|
 		    triggered << task
-		    peer.transmit(:triggered, id, task)
+		    peer.callback(:triggered, id, task)
 		end
 	    end
 	    nil
@@ -191,12 +191,10 @@ module Roby::Distributed
 	    end
 
 	    # Replace the relation graphs by their name
-	    edges.map! do |rel, from, to, info|
-		next unless rel.distribute? && from.distribute? && to.distribute?
-		[peer.remote_server, [:update_relation, object.plan, [from, :add_child_object, to, rel, info]]]
+	    edges.delete_if do |rel, from, to, info|
+		!(rel.distribute? && from.distribute? && to.distribute?)
 	    end
-	    peer.transmit(:demux, edges)
-	    nil
+	    edges
 	end
 
 	# Relations to be sent to the remote host if +object+ is in a plan. The
@@ -314,6 +312,8 @@ module Roby::Distributed
 	attr_reader :neighbour
 	# The last 'keepalive' tuple we wrote on the neighbour's ConnectionSpace
 	attr_reader :keepalive
+	# The set of proxies for object from this remote peer
+	attr_reader :proxies
 
 	def to_s; "Peer:#{remote_name}" end
 
@@ -403,6 +403,7 @@ module Roby::Distributed
 	    @proxies	  = Hash.new
 	    @mutex	  = Mutex.new
 	    @send_flushed = ConditionVariable.new
+	    @synchro_call = ConditionVariable.new
 	    @max_allowed_errors = connection_space.max_allowed_errors
 	    @triggers = Hash.new
 
@@ -435,12 +436,12 @@ module Roby::Distributed
 	# the trigger with Peer#remove_trigger
 	def on(matcher, &block)
 	    triggers[matcher.object_id] = [matcher, block]
-	    transmit(:add_trigger, matcher.object_id, matcher)
+	    call(:add_trigger, matcher.object_id, matcher)
 	end
 
 	# Remove a trigger from its ID. +id+ is the return value of Peer#on
 	def remove_trigger(id)
-	    transmit(:remove_trigger, id)
+	    call(:remove_trigger, id)
 	    triggers.delete(id)
 	end
 
@@ -695,8 +696,38 @@ module Roby::Distributed
 
 	# Discovers all objects at a distance +dist+ from +obj+. The object
 	# can be either a remote proxy or the remote object itself
-	def discover_neighborhood(marshalled, distance)
-	    transmit(:discover_neighborhood, marshalled, distance)
+	def discover_neighborhood(object, distance)
+	    objects = ValueSet.new
+
+	    synchronize do
+		transmit(:discover_neighborhood, object, distance) do |edges|
+		    Roby::Control.synchronize do
+			edges = local_object(edges)
+			edges.each do |rel, from, to, info|
+			    objects << from.root_object << to.root_object
+			end
+			Roby::Distributed.update(objects) do
+			    edges.each do |rel, from, to, info|
+				from.add_child_object(to, rel, info)
+			    end
+			end
+
+			objects.each do |obj|
+			    obj.plan.permanent(obj) unless subscribed?(obj)
+			end
+		    end
+		    synchro_call.broadcast
+		end
+		synchro_call.wait(mutex)
+	    end
+
+	    yield(proxies[object.remote_object(self)])
+
+	    Roby::Control.synchronize do
+		objects.each do |obj|
+		    obj.plan.auto(obj) unless subscribed?(obj)
+		end
+	    end
 	end
 
 	# Returns true if +proxy+ is related to a local task
