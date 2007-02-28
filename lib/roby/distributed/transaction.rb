@@ -113,37 +113,6 @@ module Roby
 
 	    end
 
-	    # Sends the provided command to all owners. If +ignore_missing+ is
-	    # true, ignore the owners to which the transaction has not yet been
-	    # proposed. Raises InvalidRemoteOperation if +ignore_missing+.
-	    #
-	    # Yields the value returned by the remote owners to the block
-	    # inside the communication thread. +done+ is true for the last peer
-	    # to reply.
-	    def apply_to_owners(ignore_missing, *args) # :nodoc:
-		if !ignore_missing
-		    owners.each do |remote_id|
-			if remote_id.kind_of?(DRbObject) && !remote_siblings.has_key?(remote_id)
-			    raise InvalidRemoteOperation, "cannot do #{args} if the transaction is not distributed on all its owners"
-			end
-		    end
-		end
-
-		waiting_for = owners.size - 1
-		result = Distributed.state.send(*args)
-		yield(waiting_for == 0, result) if block_given?
-
-		owners.each do |remote_id| 
-		    next unless remote_siblings.include?(remote_id)
-		    next unless remote_id.kind_of?(DRbObject)
-
-		    Distributed.peer(remote_id).transmit(*args) do |result|
-			waiting_for -= 1
-			yield(waiting_for == 0, result) if block_given?
-		    end
-		end
-	    end
-
 	    # call-seq:
 	    #   commit_transaction			=> self
 	    #   commit_transaction { |done| ... }	=> self
