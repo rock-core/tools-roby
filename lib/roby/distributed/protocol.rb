@@ -7,7 +7,7 @@ require 'roby'
 
 class Array
     def proxy(peer) # :nodoc:
-	map(&peer.method(:proxy)) 
+	map { |element| peer.proxy(element) }
     end
 end
 class Hash
