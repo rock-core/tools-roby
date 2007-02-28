@@ -553,6 +553,8 @@ module Roby::Distributed
 		0) rescue nil
 
 	    # ... and let neighbour discovery do the cleanup
+	    return unless connecting? || connected?
+	    disconnect
 	end
 
 	# Returns true if we are establishing a connection with this peer

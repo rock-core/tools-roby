@@ -149,7 +149,7 @@ module Roby
 				Distributed.fatal do
 				    "#{name} disconnecting from #{neighbour.name} because of too much errors"
 				end
-				disconnect
+				disconnected!
 			    end
 			end
 
@@ -171,7 +171,7 @@ module Roby
 
 	    ensure
 		synchronize do
-		    disconnect if connected?
+		    disconnected!
 		    @sending = nil
 		    send_queue.clear
 		    send_flushed.broadcast
@@ -257,8 +257,7 @@ module Roby
 			Distributed.warn { "#{neighbour.name} has disconnected" }
 			# The remote host has disconnected, do the same on our side
 			disconnected!
-		    else
-			Roby::Distributed.debug { "\n" + error.full_message }
+			return [true, nil]
 		    end
 		    [true, calls[success..-1]]
 

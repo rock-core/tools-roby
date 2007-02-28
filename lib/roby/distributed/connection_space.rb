@@ -16,15 +16,11 @@ module Roby
 	# A neighbour is a named remote ConnectionSpace object
 	class Neighbour
 	    attr_reader :name, :tuplespace
-	    attr_accessor :peer
 	    def initialize(name, tuplespace)
 		@name, @tuplespace = name, tuplespace
 	    end
 
 	    def connect; Peer.new(ConnectionSpace.state, peer) end
-	    def connecting?; peer && peer.connecting?  end
-	    def connected?; peer && peer.connected?  end
-
 	    def ==(other)
 		other.kind_of?(Neighbour) &&
 		    (tuplespace == other.tuplespace)
@@ -293,7 +289,10 @@ module Roby
 
 		# Remove us from the central tuplespace
 		if central_discovery?
-		    @discovery_tuplespace.take [:host, tuplespace, nil, nil]
+		    begin
+			@discovery_tuplespace.take [:host, tuplespace, nil, nil]
+		    rescue DRb::DRbConnError, Rinda::RequestExpiredError
+		    end
 		end
 
 		# Make the neighbour discovery thread quit as well
