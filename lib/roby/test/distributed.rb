@@ -12,7 +12,7 @@ module Roby
 
 		save_collection Distributed.new_neighbours_observers
 		Distributed.allow_remote_access Distributed::Peer
-		@old_logger_level = Distributed.logger.level
+		@old_distributed_logger_level = Distributed.logger.level
 
 		# Start the GC so that it does not kick in a test. On slow machines, 
 		# it can trigger timeouts
@@ -20,22 +20,12 @@ module Roby
 	    end
 
 	    def teardown
-		if remote_peer
-		    process_events
+		super
 
-		    if remote_peer.connected?
-			remote_peer.disconnect
-			assert_doesnt_timeout(5, "watchdog failed") do
-			    loop do
-				process_events
-				break if remote_peer.task.event(:stop).happened?
-				sleep(0.2)
-			    end
-			end
-
-		    end
+		unless Distributed.peers.empty?
+		    STDERR.puts "  still referencing #{Distributed.peers.keys}"
+		    Distributed.peers.clear
 		end
-		@remote_peer = nil
 
 		if Distributed.state
 		    Distributed.state.quit
@@ -43,8 +33,7 @@ module Roby
 		end
 
 	    ensure
-		Distributed.logger.level = @old_logger_level
-		super
+		Distributed.logger.level = @old_distributed_logger_level
 	    end
 
 	    BASE_PORT     = 1245
