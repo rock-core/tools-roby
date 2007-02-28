@@ -33,16 +33,16 @@ module Roby
 
 	    def demux_local(calls, result)
 		calls.each do |obj, args|
-		    Roby::Distributed.debug { "processing #{obj}.#{args[0]}(#{args[1..-1].join(", ")})" }
+		    Distributed.debug { "processing #{obj}.#{args[0]}(#{args[1..-1].join(", ")})" }
 		    if args.first == :demux || args.first == :demux_local
 			demux_local(args[1], result)
 		    else
-			Roby::Control.synchronize do
+			Control.synchronize do
 			    result << obj.send(*args)
 			end
 		    end
 		    return true unless callbacks.empty?
-		    Roby::Distributed.debug { "done, returns #{result.last}" }
+		    Distributed.debug { "done, returns #{result.last}" }
 		end
 	    end
 	    private :demux_local
@@ -145,7 +145,7 @@ module Roby
 			if error
 			    error_count += 1 
 			    if error_count > self.max_allowed_errors
-				Roby::Distributed.fatal do
+				Distributed.fatal do
 				    "#{name} disconnecting from #{neighbour.name} because of too much errors"
 				end
 				disconnect
@@ -155,7 +155,7 @@ module Roby
 			if !calls || calls.empty?
 			    calls = nil
 			    unless @sending = !send_queue.empty?
-				Roby::Distributed.info "sending queue is empty"
+				Distributed.info "sending queue is empty"
 				send_flushed.broadcast
 			    end
 			    nil
@@ -164,7 +164,7 @@ module Roby
 		end
 
 	    rescue Exception
-		Roby::Distributed.fatal do
+		Distributed.fatal do
 		    "Communication thread dies with\n#{$!.full_message}\nPending calls where:\n  #{calls}"
 		end
 
@@ -218,13 +218,15 @@ module Roby
 	    # returns nil
 	    def do_send(calls) # :nodoc:
 		before_call = Time.now
-		Roby::Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
+		Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
 		results, callbacks, error = begin remote_server.demux(calls.map { |a| a.first })
 					    rescue Exception
 						[[], nil, $!]
 					    end
 		success = results.size
-		Roby::Distributed.debug { "#{neighbour.name} processed #{success} commands in #{Time.now - before_call} seconds" }
+		Distributed.debug do
+		    "#{neighbour.name} processed #{success} commands in #{Time.now - before_call} seconds"
+		end
 
 		# Calls the blocks that are waiting for the calls to be processed.
 		# If there are callbacks, they must be processed first
@@ -232,17 +234,17 @@ module Roby
 		(0...success).each { |i| call_attached_block(calls[i], results[i]) }
 		
 		if error
-		    Roby::Distributed.warn do
+		    Distributed.warn do
 			report_remote_error(calls[success], error)
 		    end
 
 		    case error
 		    when DRb::DRbConnError
-			Roby::Distributed.warn { "it looks like we cannot talk to #{neighbour.name}" }
+			Distributed.warn { "it looks like we cannot talk to #{neighbour.name}" }
 			# We have a connection error, mark the connection as not being alive
 			link_dead!
 		    when DisconnectedError
-			Roby::Distributed.warn { "#{neighbour.name} has disconnected" }
+			Distributed.warn { "#{neighbour.name} has disconnected" }
 			# The remote host has disconnected, do the same on our side
 			disconnected!
 		    else
@@ -253,13 +255,13 @@ module Roby
 		elsif !callbacks.empty?
 		    new_results, new_calls, error = local.demux(callbacks.map { |c| c.first })
 		    if !new_calls.empty?
-			Roby::Distributed.warn do
+			Distributed.warn do
 			    report_nested_callbacks(new_calls, callbacks[new_results.size - 1], calls[success])
 			end
 			Roby.application_error(:droby_nested_remote_callbacks, callbacks[new_results.size - 1], RuntimeError.exception("nested callbacks"))
 			[false, calls[(success + 1)..-1]]
 		    elsif error 
-			Roby::Distributed.warn do
+			Distributed.warn do
 			    report_callback_error(callbacks[new_results.size], calls[success], error)
 			end
 			Roby.application_error(:droby_remote_callback, callbacks[new_results.size], error)
