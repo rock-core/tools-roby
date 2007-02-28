@@ -75,6 +75,7 @@ module Roby
 		    sleep(0.1)
 		end
 	    rescue
+		STDERR.puts "  failed to properly cleanup the plan\n  #{$!.full_message}"
 	    end
 
 	    plan.clear
@@ -95,7 +96,13 @@ module Roby
 		spaces << Roby::EventStructure
 	    end
 	    spaces.each do |space|
-		space.relations.each { |rel| rel.each_vertex { |v| v.clear_vertex } }
+		space.relations.each do |rel| 
+		    vertices = rel.enum_for(:each_vertex).to_a
+		    unless vertices.empty?
+			STDERR.puts "  the following vertices are still present in #{rel}: #{vertices.to_a}"
+			vertices.each { |v| v.clear_vertex }
+		    end
+		end
 	    end
 
 	    if defined? Roby::Control
