@@ -6,10 +6,11 @@ module Roby
 	    def processing?; !!callbacks end
 
 	    # Called by the remote peer to make us process something. See
-	    # #demux_local for the format of +calls+. Returns [result, error]
+	    # #demux_local for the format of +calls+. Returns [result, callbacks, error]
 	    # where +result+ is an array containing the list of returned value
-	    # by the N successfull calls, and error is an error raised by call
-	    # N+1 (or nil).
+	    # by the N successfull calls. Error, if not nil, is an error raised
+	    # by call N+1. Callbacks is a set of commands to be sent do #demux_local
+	    # on the other side, to finalize the N+1th call.
 	    def demux(calls)
 		result = []
 		if !peer.connected?
@@ -177,6 +178,7 @@ module Roby
 		end
 	    end
 
+	    # Formats the RPC specification +call+ in a string suitable for debugging display
 	    def call_to_s(call)
 		return "" unless call
 		m, args = call.first
@@ -202,6 +204,11 @@ module Roby
 		"original call was #{call_to_s(remote_call)}"
 	    end
 
+	    # Calls the block that has been given to #transmit when +call+ is
+	    # finalized. A remote call is finalized when it has been processed
+	    # remotely *and* the callbacks returned by the remote server (if
+	    # any) have been processed as well. +result+ is the value returned
+	    # by the remote server.
 	    def call_attached_block(call, result)
 		if block = call[1]
 		    begin
@@ -212,10 +219,13 @@ module Roby
 		end
 	    end
 
-	    # Sends the method call listed in +calls+ to the remote host, calls
-	    # the registered callbacks if the call succeeded. If an error
-	    # occured, returns the list of calls to be retried. Otherwise,
-	    # returns nil
+	    # Sends the method call listed in +calls+ to the remote host, and
+	    # calls the attached blocks with the value returned by the remote
+	    # server if the call succeeds. 
+	    #
+	    # Returns [error, remaining_calls], where +error+ is true if an
+	    # error occured, and +remaining_calls+ is the list of calls to be
+	    # retried.
 	    def do_send(calls) # :nodoc:
 		before_call = Time.now
 		Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
@@ -228,8 +238,8 @@ module Roby
 		    "#{neighbour.name} processed #{success} commands in #{Time.now - before_call} seconds"
 		end
 
-		# Calls the blocks that are waiting for the calls to be processed.
-		# If there are callbacks, they must be processed first
+		# Calls the user-provided blocks. If there are callbacks, they
+		# must be processed first
 		success -= 1 if callbacks && !callbacks.empty?
 		(0...success).each { |i| call_attached_block(calls[i], results[i]) }
 		
