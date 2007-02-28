@@ -49,11 +49,16 @@ module Roby
 	    end
 	    def finalized_task(task)
 		super if defined? super
-		return unless task.distribute? && task.self_owned?
+		return unless task.distribute? 
 
-		unless Distributed.updating?([self])
+		if !task.self_owned?
+		    # Plan's GC decided to remove +task+. Clean up the
+		    # references that are kept by the peers
+		    task.owners.each do |owner|
+			Distributed.peer(owner).delete(task, false)
+		    end
+		elsif !Distributed.updating?([self])
 		    Distributed.clean_triggered(task)
-		    #Distributed.each_subscribed_peer(task) do |peer|
 		    Distributed.peers.each_value do |peer|
 			if peer.connected?
 			    peer.plan_update(:remove_object, self, task)
@@ -63,11 +68,15 @@ module Roby
 	    end
 	    def finalized_event(event)
 		super if defined? super
-		return unless event.distribute? && event.self_owned?
-		return unless event.root_object?
+		return unless event.distribute? && event.root_object?
 
-		unless Distributed.updating?([self])
-		    #Distributed.each_subscribed_peer(event) do |peer|
+		if !event.self_owned?
+		    # Plan's GC decided to remove +event+. Clean up the
+		    # references that are kept by the peers
+		    event.owners.each do |owner|
+			Distributed.peer(owner).delete(event, false)
+		    end
+		elsif !Distributed.updating?([self])
 		    Distributed.peers.each_value do |peer|
 			if peer.connected?
 			    peer.plan_update(:remove_object, self, event)

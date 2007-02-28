@@ -770,6 +770,13 @@ module Roby::Distributed
 	    nil
 	end
     end
+
+    def self.unnecessary?(local_object)
+	Roby::Distributed.peers.each_value do |peer| 
+	    return false if !peer.unnecessary?(local_object)
+	end
+	true
+    end
 end
 
 require 'roby/distributed/subscription'

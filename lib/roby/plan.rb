@@ -319,8 +319,7 @@ module Roby
 	end
 
 	def self.can_gc?(task)
-	    if !task.self_owned? then false
-	    elsif task.starting? then true # wait for the task to be started before deciding ...
+	    if task.starting? then true # wait for the task to be started before deciding ...
 	    elsif task.running? && !task.finishing?
 		task.event(:stop).controlable?
 	    else true
@@ -330,29 +329,21 @@ module Roby
 	# Kills and removes all unneeded tasks
 	def garbage_collect(force_on = [])
 	    force_gc.merge(force_on)
-	    force_gc.delete_if { |t| !(t.self_owned? && t.plan) }
 
 	    loop do
 		tasks = unneeded_tasks | force_gc
-		if tasks.all? { |t| t.pending? || t.finished? }
-		    tasks.each do |t| 
-			next unless t.self_owned?
-			garbage(t)
-			remove_object(t)
-		    end
-		    return
-		end
 
 		did_something = false
 		tasks.each do |t| 
-		    next unless t.self_owned?
 		    unless t.root?(@hierarchy) && service_relations.all? { |r| t.root?(r) }
-			Roby.debug "GC: ignored #{t}, it is not root #{t.running?}"
+			Roby.debug "GC: ignored #{t}, it is not root"
 			next
 		    end
 
-		    if !t.local?
-			raise NotImplementedError, "GC of non-local tasks is not implemented yet"
+		    if !t.self_owned? && Roby::Distributed.unnecessary?(t)
+			Roby.debug "GC: #{t} is not local, removing it"
+			garbage(t)
+			remove_object(t)
 		    elsif t.starting?
 			# wait for task to be started before killing it
 			Roby.debug "GC: #{t} is starting"
