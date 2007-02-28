@@ -147,16 +147,51 @@ module Roby
 	def initialize(plan)
 	    @plan = plan
 	    super()
+	    @plan_predicates = Array.new
+	    @neg_plan_predicates = Array.new
 	end
 
 	def result_set
 	    @result_set ||= plan.query_result_set(self)
 	end
+
+	attr_reader :plan_predicates
+	attr_reader :neg_plan_predicates
+	class << self
+	    def match_plan_predicates(*names)
+		names.each do |name|
+		    class_eval <<-EOD
+		    def #{name}
+			if neg_plan_predicates.include?(:#{name}?)
+			    raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
+		        end
+			plan_predicates << :#{name}?
+			self
+		    end
+		    def not_#{name}
+			if plan_predicates.include?(:#{name}?)
+			    raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
+		        end
+			neg_plan_predicates << :#{name}?
+			self
+		    end
+		    EOD
+		end
+	    end
+	end
+	match_plan_predicates :mission, :permanent
 	
 	# Returns the set of tasks from the query for which no parent in
 	# +relation+ can be found in the query itself
 	def roots(relation)
 	    @result_set = plan.query_roots(result_set, relation)
+	end
+
+	def ===(task)
+	    return unless super
+	    return unless plan_predicates.all? { |pred| plan.send(pred, task) }
+	    return if neg_plan_predicates.any? { |pred| plan.send(pred, task) }
+	    true
 	end
 
 	def each(&block)

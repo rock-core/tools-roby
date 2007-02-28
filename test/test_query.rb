@@ -67,6 +67,10 @@ class TC_Query < Test::Unit::TestCase
 	assert_equal([t2].to_set, result)
     end
 
+    def assert_query_finds_tasks(task_set)
+	assert_equal(task_set.to_set, yield.enum_for(:each).to_set)
+    end
+
     def assert_finds_tasks(task_set)
 	assert_equal(task_set.to_set, yield.enum_for(:each, plan).to_set)
     end
@@ -84,6 +88,15 @@ class TC_Query < Test::Unit::TestCase
 	t1.arguments[:id] = 2
 	assert_finds_tasks([t1, t2]) { TaskMatcher.fully_instanciated }
 	assert_finds_tasks([t2]) { TaskMatcher.fully_instanciated.abstract }
+    end
+
+    def test_query_plan_predicates
+	t1, t2, t3 = prepare_plan :missions => 1, :discover => 1, :tasks => 1
+	plan.permanent(t3)
+	assert_query_finds_tasks([t1]) { plan.find_tasks.mission }
+	assert_query_finds_tasks([t2, t3]) { plan.find_tasks.not_mission }
+	assert_query_finds_tasks([t3]) { plan.find_tasks.permanent }
+	assert_query_finds_tasks([t1, t2]) { plan.find_tasks.not_permanent }
     end
 
     def test_negate
