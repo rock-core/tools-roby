@@ -148,8 +148,8 @@ module Roby::Distributed
 	def plan; peer.connection_space.plan end
 
 	# Applies +matcher+ on the local plan and sends back the result
-	def query(matcher)
-	    matcher.enum_for(:each, plan).to_a
+	def query_result_set(matcher)
+	    plan.query_result_set(matcher)
 	end
 
 	# The peers asks to be notified if a plan object which matches
@@ -415,8 +415,13 @@ module Roby::Distributed
 	def find_tasks
 	    Roby::Query.new(self)
 	end
-	def each_matching_task(matcher, &block)
-	    remote_server.query(matcher).each(&block)
+	def query_result_set(matcher)
+	    remote_server.query_result_set(matcher)
+	end
+	def query_each(result_set)
+	    result_set.each do |task|
+		yield(local_object(task))
+	    end
 	end
 
 	# call-seq:
@@ -579,9 +584,6 @@ module Roby::Distributed
 
 	# Returns true if this peer owns +object+
 	def owns?(object); object.owners.include?(remote_id) end
-
-	# Get direct access to the remote plan
-	def plan; remote_server.plan.remote_object end
 
 	# Check if +object+ should be proxied
 	def proxying?(marshalled)

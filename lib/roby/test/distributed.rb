@@ -102,8 +102,6 @@ module Roby
 		remote.start_neighbour_discovery(true)
 		remote.process_events
 		assert(local_peer.connected?)
-
-		@remote_plan = remote_peer.plan
 	    end
 
 	    attr_reader :central_tuplespace, :remote, :remote_peer, :remote_plan, :local, :local_peer
@@ -130,11 +128,9 @@ module Roby
 	    end
 
 	    def remote_task(match)
-		result = remote_peer.plan.known_tasks.find do |t|
-		    t.arguments.slice(*match.keys) == match
-		end
-		assert(result, remote_peer.plan.known_tasks)
-		result
+		result = remote_peer.find_tasks.with_arguments(match).to_a
+		assert_equal(1, result.size)
+		result.first
 	    end
 
 	    def remote_server(&block)
