@@ -207,7 +207,7 @@ module Roby
 
 	# Stop all the remote processes that have been started using #remote_process
 	def stop_remote_processes
-	    remote_processes.each do |pid, quit_w|
+	    remote_processes.reverse.each do |pid, quit_w|
 		quit_w.write('OK') 
 		Process.waitpid(pid)
 	    end
