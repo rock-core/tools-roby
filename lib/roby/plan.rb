@@ -394,21 +394,23 @@ module Roby
 		raise ArgumentError, "#{object} is not in #{self}: #plan == #{object.plan}"
 	    end
 
+	    @free_events.delete(object)
+	    @missions.delete(object)
+	    @known_tasks.delete(object)
+	    @keepalive.delete(object)
+	    force_gc.delete(object)
+
 	    object.clear_relations
+	    object.plan = nil
+	    object.freeze
 
 	    case object
 	    when EventGenerator
-		@free_events.delete(object)
 		finalized_event(object)
 
 	    when Task
-		force_gc.delete(object)
-		object.executable = false
 		# NOTE: we MUST use instance variables directly here. Otherwise,
 		# transaction commits would be broken
-		@missions.delete(object)
-		@known_tasks.delete(object)
-		@keepalive.delete(object)
 		object.each_event { |ev| finalized_event(ev) }
 		finalized_task(object)
 
@@ -416,7 +418,6 @@ module Roby
 		raise ArgumentError, "unknown object type #{object}"
 	    end
 
-	    object.freeze
 	    self
 	end
 
