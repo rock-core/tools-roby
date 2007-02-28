@@ -48,7 +48,7 @@ module Roby
 		
 		editors << peer_id
 		owners  << peer_id
-		Roby.debug { "added owner to #{self}: #{owners.to_a}" }
+		Distributed.debug { "added owner to #{self}: #{owners.to_a}" }
 	    end
 
 	    # Checks that +peer_id+ can be removed from the list of owners
@@ -200,7 +200,7 @@ module Roby
 	    # because a owner refused it. +reason+ is the value returned by
 	    # this peer.
 	    def abandoned_commit(error)
-		Roby.debug { "abandoned commit of #{self} because of #{error}" }
+		Distributed.debug { "abandoned commit of #{self} because of #{error}" }
 		super if defined? super 
 	    end
 

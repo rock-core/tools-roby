@@ -21,7 +21,7 @@ module Roby
 		Thread.current[CALLBACKS_TLS] = []
 		demux_local(calls, result)
 
-		Roby.debug "served #{calls.size} calls in #{Time.now - from} seconds, #{callbacks.size} callbacks"
+		Distributed.debug "served #{calls.size} calls in #{Time.now - from} seconds, #{callbacks.size} callbacks"
 		[result, callbacks, nil]
 
 	    rescue Exception => e
