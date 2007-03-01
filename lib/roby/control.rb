@@ -319,7 +319,13 @@ module Roby
 	    loop do
 		begin
 		    if quitting?
-			return if forced_exit? || !clear
+			begin
+			    return if forced_exit? || !clear
+			rescue Exception => e
+			    Roby.warn "Control failed to clean up"
+			    Roby.warn e.full_message
+			    return
+			end
 		    end
 
 		    while Time.now > timings[:start] + cycle
@@ -327,34 +333,34 @@ module Roby
 			@cycle_index += 1
 		    end
 		    timings = Control.synchronize { process_events(timings, control_gc) }
+		    
+		    timings[:pass] = timings[:sleep] = timings[:expected_sleep] = timings[:end]
+		    cycle_duration = timings[:end] - timings[:start]
+		    if cycle - cycle_duration > SLEEP_MIN_TIME
+			cycle_end(timings)
+			Thread.pass
+			timings[:pass] = Time.now
+
+			# Take the time we passed in other threads into account
+			sleep_time = cycle - (Time.now - timings[:start])
+			if sleep_time > 0
+			    timings[:expected_sleep] = Time.now + sleep_time
+			    sleep(sleep_time) 
+			    timings[:sleep] = Time.now
+			end
+		    end
+
+		    log << Marshal.dump(timings) if log
+		    timings[:start] += cycle
+		    @cycle_index += 1
 
 		rescue Exception => e
 		    unless quitting?
 			Roby.warn "Control quitting because of unhandled exception"
 			Roby.warn e.full_message
-			quit
 		    end
+		    quit
 		end
-		    
-		timings[:pass] = timings[:sleep] = timings[:expected_sleep] = timings[:end]
-		cycle_duration = timings[:end] - timings[:start]
-		if cycle - cycle_duration > SLEEP_MIN_TIME
-		    cycle_end(timings)
-		    Thread.pass
-		    timings[:pass] = Time.now
-
-		    # Take the time we passed in other threads into account
-		    sleep_time = cycle - (Time.now - timings[:start])
-		    if sleep_time > 0
-			timings[:expected_sleep] = Time.now + sleep_time
-			sleep(sleep_time) 
-			timings[:sleep] = Time.now
-		    end
-		end
-
-		log << Marshal.dump(timings) if log
-		timings[:start] += cycle
-		@cycle_index += 1
 	    end
 	end
 
@@ -379,6 +385,9 @@ module Roby
 	rescue Interrupt
 	    Roby.info "received interruption request"
 	    quit
+	    if @quit > 2
+		thread.raise Interrupt
+	    end
 	    retry
 	end
 
