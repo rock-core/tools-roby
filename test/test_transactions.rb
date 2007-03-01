@@ -64,8 +64,27 @@ module TC_TransactionBehaviour
 	raise
     end
 
+    # Checks that model-level task relations are kept if a task is modified by a transaction
+    def test_commit_task
+	t = prepare_plan :tasks => 1
+	transaction_commit(plan, t) do |trsc, p|
+	    trsc.discover(p)
+	    assert(p.event(:start).child_object?(p.event(:stop), Roby::EventStructure::Precedence))
+	    assert(p.event(:failed).child_object?(p.event(:stop), Roby::EventStructure::Forwarding))
+	end
+	assert(t.event(:start).child_object?(t.event(:stop), Roby::EventStructure::Precedence))
+	assert(t.event(:failed).child_object?(t.event(:stop), Roby::EventStructure::Forwarding))
+
+	t = prepare_plan :discover => 1
+	transaction_commit(plan, t) do |trsc, p|
+	    trsc.insert(p)
+	end
+	assert(t.event(:start).child_object?(t.event(:stop), Roby::EventStructure::Precedence))
+	assert(t.event(:failed).child_object?(t.event(:stop), Roby::EventStructure::Forwarding))
+    end
+
     # Tests insertion and removal of tasks
-    def test_commit_tasks
+    def test_commit_plan_tasks
 	t1, (t2, t3) = prepare_plan(:missions => 1, :tasks => 2)
 
 	transaction_commit(plan, t1) do |trsc, p1|
@@ -458,4 +477,4 @@ class TC_RecursiveTransaction < Test::Unit::TestCase
 	super
     end
 end
-
+ 
