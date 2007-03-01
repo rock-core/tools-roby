@@ -220,7 +220,12 @@ module Roby
 	    end
 
 	    unless events.empty?
-		events.each { |e| e.plan = self }
+		events.each do |e| 
+		    if !e.root_object?
+			raise ArgumentError, "trying to discover a non-root event"
+		    end
+		    e.plan = self
+		end
 		@free_events.merge(events)
 		discovered_events(events)
 	    end
