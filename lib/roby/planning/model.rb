@@ -596,6 +596,9 @@ module Roby
 		    unless result && (result.respond_to?(:to_task) || result.respond_to?(:each) || !result.respond_to?(:each_task))
 			raise PlanModelError.new(self), "#{method} returned #{result}, which is neither a task nor a task collection"
 		    end
+		    
+		    # Insert resulting tasks in +plan+
+		    plan.discover(result)
 
 		    expected_return = method.returns
 		    if expected_return 
@@ -612,8 +615,6 @@ module Roby
 		    end
 		    Planning.debug { "found #{result}" }
 
-		    # Insert resulting tasks in +plan+
-		    plan.discover(result)
 		    result
 
                 ensure
