@@ -292,16 +292,15 @@ module Roby
             yield self if block_given?
             raise TaskModelViolation.new(self), "no start event defined" unless has_event?(:start)
 
-	    instantiate_model_events
-	    super() if defined? super
-        end
-
-	def instantiate_model_events
 	    # Create all event generators
 	    model.each_event do |symbol, model|
 		bound_events[symbol.to_sym] = TaskEventGenerator.new(self, model)
 	    end
 
+	    super() if defined? super
+        end
+
+	def instantiate_model_event_relations
 	    # Add the model-level signals to this instance
 	    bound_events.each do |symbol, generator|
 		model.each_signal(symbol) do |signalled|
@@ -336,8 +335,15 @@ module Roby
 		    raise TaskModelViolation.new(self), "cannot change the plan of a running task"
 		end
 	    end
+
+	    old_plan = plan
 	    super
 
+	    if !old_plan && new_plan
+		# First time we get included in a plan, instantiate all relations
+		instantiate_model_event_relations
+	    end
+	    
 	rescue TypeError
 	    raise TypeError, "#{self} is dead because it has been removed from its plan"
 	end
