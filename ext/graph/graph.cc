@@ -397,6 +397,25 @@ static VALUE vertex_each_child(int argc, VALUE* argv, VALUE self)
 
 /*
  * call-seq:
+ *	vertex.singleton_vertex? => true or false
+ *
+ * Returns true if the vertex is linked to no other vertex
+ */
+static VALUE vertex_singleton_p(VALUE self)
+{
+    graph_map::iterator it, end;
+    for (tie(it, end) = vertex_descriptors(self); it != end; ++it)
+    {
+	RubyGraph& graph    = graph_wrapped(it->first);
+	vertex_descriptor v = it->second;
+	if (in_degree(v, graph) || out_degree(v, graph))
+	    return Qfalse;
+    }
+    return Qtrue;
+}
+
+/*
+ * call-seq:
  *	vertex[child, graph]				    => info
  *
  * Get the data associated with the vertex => +child+ edge in +graph+.
@@ -499,6 +518,7 @@ extern "C" void Init_bgl()
     rb_define_method(bglVertex, "leaf?",		RUBY_METHOD_FUNC(vertex_leaf_p), -1);
     rb_define_method(bglVertex, "[]",			RUBY_METHOD_FUNC(vertex_get_info), 2);
     rb_define_method(bglVertex, "[]=",			RUBY_METHOD_FUNC(vertex_set_info), 3);
+    rb_define_method(bglVertex, "singleton_vertex?",	RUBY_METHOD_FUNC(vertex_singleton_p), 0);
 
     bglReverseGraph    = rb_define_class_under(bglGraph, "Reverse", rb_cObject);
     bglUndirectedGraph = rb_define_class_under(bglGraph, "Undirected", rb_cObject);

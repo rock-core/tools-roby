@@ -453,5 +453,31 @@ class TC_BGL < Test::Unit::TestCase
 	neigh3 = neigh2 + [[v3, v4, 3]]
 	assert_equal(neigh3.to_set, graph.neighborhood(v1, 3).to_set)
     end
+
+    def test_vertex_singleton
+	v1, v2, v3 = (1..3).map { Vertex.new }
+	g1, g2 = Graph.new, Graph.new
+
+	assert(v1.singleton_vertex?)
+	assert(v2.singleton_vertex?)
+	assert(v3.singleton_vertex?)
+	g1.link(v1, v2, nil)
+	assert(!v1.singleton_vertex?)
+	assert(!v2.singleton_vertex?)
+	assert(v3.singleton_vertex?)
+	g2.link(v1, v3, nil)
+	assert(!v3.singleton_vertex?)
+
+	g1.unlink(v1, v2)
+	assert(!v1.singleton_vertex?)
+	assert(v2.singleton_vertex?)
+	g1.link(v1, v3, nil)
+	g2.unlink(v1, v3)
+	assert(!v1.singleton_vertex?)
+	assert(!v3.singleton_vertex?)
+	g1.unlink(v1, v3)
+	assert(v1.singleton_vertex?)
+	assert(v3.singleton_vertex?)
+    end
 end
 
