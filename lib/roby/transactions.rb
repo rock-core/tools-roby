@@ -27,15 +27,8 @@ module Roby
 	end
 	def do_include(object)
 	    case object
-	    when Roby::Transactions::Task
-		@known_tasks << object
-		discovered_tasks([object])
-	    when Roby::Transactions::TaskEventGenerator
-	    when Roby::Transactions::EventGenerator
-		@free_events << object
-		discovered_events([object])
 	    when Roby::PlanObject
-		discover(object)
+		discover(object) if object.root_object?
 	    else
 		raise TypeError, "unknown object type #{object} (#{object.class})"
 	    end
@@ -196,8 +189,20 @@ module Roby
 	    super(wrap(from, true), wrap(to, true))
 	end
 
-	def insert(t);    super(self[t, true]) end
-	def permanent(t); super(self[t, true]) end
+	def insert(t)
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+	    if proxy = self[t, false]
+		discarded_tasks.delete(may_unwrap(proxy))
+	    end
+	    super(self[t, true]) 
+	end
+	def permanent(t)
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+	    if proxy = self[t, false]
+		auto_tasks.delete(may_unwrap(proxy))
+	    end
+	    super(self[t, true]) 
+	end
 	def discover(objects = nil)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if !objects then super
@@ -271,13 +276,14 @@ module Roby
 	    insert    = ValueSet.new
 	    permanent = ValueSet.new
 	    @known_tasks.dup.each do |t|
-		unless t.kind_of?(Transactions::Proxy)
+		if t.kind_of?(Transactions::Proxy)
+		    unwrapped = t.__getobj__
+		else
 		    @known_tasks.delete(t)
 		    t.plan = plan
+		    unwrapped = t
 		end
 
-		unwrapped = may_unwrap(t)
-		raise if unwrapped.kind_of?(Transactions::Proxy)
 		if @missions.include?(t)
 		    @missions.delete(t)
 		    insert << unwrapped
@@ -289,11 +295,14 @@ module Roby
 		end
 	    end
 	    @free_events.dup.each do |ev|
-		unless ev.kind_of?(Transactions::Proxy)
+		if ev.kind_of?(Transactions::Proxy)
+		    unwrapped = ev.__getobj__
+		else
 		    @free_events.delete(ev)
 		    ev.plan = plan
+		    unwrapped = ev
 		end
-		discover << may_unwrap(ev)
+		discover << unwrapped
 	    end
 
 	    # Set the plan to nil in known tasks to avoid having the checks on
@@ -302,7 +311,7 @@ module Roby
 	    proxy_objects.each_value { |proxy| proxy.clear_relations  }
 
 	    plan.discover(discover)
-	    insert.each { |t| plan.insert(t) }
+	    insert.each    { |t| plan.insert(t) }
 	    permanent.each { |t| plan.permanent(t) }
 
 	    proxies     = proxy_objects.dup
