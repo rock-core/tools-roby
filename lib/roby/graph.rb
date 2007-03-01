@@ -23,7 +23,7 @@ module BGL
 	end
 	# Returns the connected component +self+ is part of in +graph+
 	def component(graph)
-	    graph.components(self).first
+	    graph.components([self]).first
 	end
 	# Returns the vertex set which are reachable from +self+ in +graph+
 	def generated_subgraph(graph)

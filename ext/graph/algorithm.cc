@@ -232,14 +232,23 @@ static VALUE graph_do_generated_subgraphs(int argc, VALUE* argv, Graph const& g,
 }
 /*
  * call-seq:
- *   graph.components([v1, v2, ...])			    => components
+ *   graph.components(seeds = nil, include_singletons = true)	=> components
  *
- * Returns an array of vertex sets. Each set is a connected component of +graph+. If
- * a list of vertices is provided, returns only the components the vertices are part of.
- * The graph is treated as if it were not directed.
+ * Returns an array of vertex sets. Each set is a connected component of
+ * +graph+. If a list of vertices +seeds+ is provided, returns only the
+ * components the vertices are part of. The graph is treated as if it were not
+ * directed.
+ *
+ * If +include_singletons+ is false and +seeds+ is non-nil, then +components+
+ * will not include the singleton components { v } where v is in +seeds+
  */
 static VALUE graph_components(int argc, VALUE* argv, VALUE self)
 { 
+    VALUE seeds, include_singletons;
+    rb_scan_args(argc, argv, "02", &seeds, &include_singletons);
+    if (argc == 1)
+	include_singletons = Qtrue;
+
     // Compute the connected components
     RubyGraph const& g = graph_wrapped(self);
 
@@ -258,17 +267,20 @@ static VALUE graph_components(int argc, VALUE* argv, VALUE self)
     else
     {
 	enabled_components.resize(count, false);
-	for (int i = 0; i < argc; ++i)
+	seeds = rb_funcall(seeds, rb_intern("to_ary"), 0);
+	for (int i = 0; i < RARRAY(seeds)->len; ++i)
 	{
+	    VALUE rb_vertex = RARRAY(seeds)->ptr[i];
+
 	    vertex_descriptor v; bool in_graph;
-	    tie(v, in_graph) = rb_to_vertex(argv[i], self);
-	    if (! in_graph)
-		rb_ary_push(ret, rb_ary_new3(1, argv[i]));
-	    else
+	    tie(v, in_graph) = rb_to_vertex(rb_vertex, self);
+	    if (in_graph)
 	    {
 		int v_c = component_map[v];
 		enabled_components[v_c] = true;
 	    }
+	    else if (RTEST(include_singletons))
+		rb_ary_push(ret, rb_ary_new3(1, rb_vertex));
 	}
     }
 
@@ -290,6 +302,18 @@ static VALUE graph_components(int argc, VALUE* argv, VALUE self)
 	rb_ary_push(components[c], g[it->first]);
     }
 
+    if (argc > 0 && !RTEST(include_singletons))
+    {
+	// Remove the remaining singletons
+	for (int i = 0; i < count; ++i)
+	{
+	    if (! enabled_components[i])
+		continue;
+	    if (RARRAY(components[i])->len == 1)
+		rb_ary_store(ret, i, Qnil);
+	}
+    }
+
     // Remove all unused component slots (disabled components)
     rb_funcall(ret, rb_intern("compact!"), 0);
     return ret;
@@ -297,7 +321,7 @@ static VALUE graph_components(int argc, VALUE* argv, VALUE self)
 
 /*
  * call-seq:
- *   undirected_graph.components([v1, v2, ...])			    => components
+ *   undirected_graph.components(seeds = nil, include_singletons = true) => components
  *
  * Returns an array of vertex sets. Each set is a connected component of +graph+. If
  * a list of vertices is provided, returns only the components the vertices are part of.
