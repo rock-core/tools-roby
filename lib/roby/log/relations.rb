@@ -1,5 +1,5 @@
 require 'Qt4'
-require 'utilrb/object/attr_predicate'
+require 'utilrb/module/attr_predicate'
 require 'roby/distributed/protocol'
 require 'roby/log/dot'
 require 'roby/log/rebuild'

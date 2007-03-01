@@ -1,7 +1,7 @@
 require 'roby/plan-object'
 require 'roby/exceptions'
 require 'roby/event'
-require 'utilrb/object/attr_predicate'
+require 'utilrb/module/attr_predicate'
 
 module Roby
     class TaskModelTag < Module
