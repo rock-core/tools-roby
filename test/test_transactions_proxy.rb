@@ -16,6 +16,15 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	super
     end
 
+    def test_task_proxy
+	plan.insert(t = Roby::Task.new)
+	p = transaction[t]
+	assert_equal(p, p.root_object)
+	assert(p.root_object?)
+	assert_equal(p, p.event(:start).root_object)
+	assert(!p.event(:start).root_object?)
+    end
+
     def assert_is_proxy_of(object, wrapper, klass)
 	assert_equal(klass, wrapper.model)
 	assert_equal(object, wrapper.__getobj__)

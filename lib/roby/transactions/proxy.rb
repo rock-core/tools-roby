@@ -322,6 +322,7 @@ module Roby::Transactions
     class TaskEventGenerator < Roby::Transactions::EventGenerator
 	proxy_for Roby::TaskEventGenerator
 	proxy :task
+	def root_object; task end
     end
 
     # Proxy for Roby::Task
