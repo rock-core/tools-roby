@@ -20,7 +20,7 @@ module Roby
 	    remove_object(wrap(task))
 
 	    if conflict_solver && conflict_solver.respond_to?(:finalized_plan_task)
-		conflict_solver.finalized_plan_task(trsc, task)
+		conflict_solver.finalized_plan_task(self, task)
 	    end
 	end
 	def finalized_plan_event(event)
@@ -28,7 +28,7 @@ module Roby
 	    remove_object(wrap(event))
 
 	    if conflict_solver && conflict_solver.respond_to?(:finalized_plan_event)
-		conflict_solver.finalized_plan_event(trsc, event)
+		conflict_solver.finalized_plan_event(self, event)
 	    end
 	end
 
