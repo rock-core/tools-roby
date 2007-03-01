@@ -55,7 +55,9 @@ module Roby
 	def root_object?; root_object == self end
 
 	include Distributed::LocalObject
-	def read_only?; !Distributed.updating?([root_object]) && plan && !self.owners.subset?(plan.owners) end
+	def read_only?
+	    !Distributed.updating?([root_object]) && plan && !(self.owners - plan.owners).empty?
+	end
     end
 end
 

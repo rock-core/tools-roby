@@ -235,10 +235,12 @@ module Roby
 	    end
 	    # Formats an error message because +error+ has been reported by +call+
 	    def report_remote_error(call, error)
-		"#{remote_name} reports an error on #{call_to_s(call)}:\n#{error.full_message}\ncall was initiated by\n  #{call[2].join("\n  ")}"
+		"#{remote_name} reports an error on #{call_to_s(call)}:\n#{error.full_message}\n" +
+		"call was initiated by\n  #{call[2].join("\n  ")}"
 	    end
 	    def report_callback_error(callback, remote_call, error)
-		"error while calling callback #{call_to_s(callback)}:\n#{error.full_message}\noriginal call was\n  #{call_to_s(remote_call)}"
+		"error while calling callback #{call_to_s(callback)}:\n#{error.full_message}\n" +
+		"original call was\n  #{call_to_s(remote_call)}"
 	    end
 	    def report_nested_callbacks(callbacks, local_call, remote_call)
 		callbacks = callbacks.map { |c| call_to_s(c) }
@@ -310,13 +312,16 @@ module Roby
 			Distributed.warn do
 			    report_nested_callbacks(new_calls, callbacks[new_results.size - 1], calls[success])
 			end
-			Roby.application_error(:droby_nested_remote_callbacks, callbacks[new_results.size - 1], RuntimeError.exception("nested callbacks"))
+			Roby.application_error :droby_nested_remote_callbacks, 
+			    callbacks[new_results.size - 1], 
+			    RuntimeError.exception("nested callbacks")
 			[false, calls[(success + 1)..-1]]
 		    elsif error 
 			Distributed.warn do
 			    report_callback_error(callbacks[new_results.size], calls[success], error)
 			end
-			Roby.application_error(:droby_remote_callback, callbacks[new_results.size], error)
+			Roby.application_error :droby_remote_callback, 
+			    callbacks[new_results.size], error
 			[true, calls[success..-1]]
 		    else
 			call_attached_block(calls[success], results[success])

@@ -176,7 +176,9 @@ module Roby
 
 	       	transmit(:plan_update, event, plan, args)
 	    end
-	    def transaction_update(*args); transmit(:transaction_update, *args) end
+	    def transaction_update(*args)
+		transmit(:transaction_update, *args) 
+	    end
 	end
 
 	# Set of hooks to propagate relation modifications for subscribed tasks
