@@ -20,9 +20,10 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_arguments
-	task = Class.new(Task) do
+	model = Class.new(Task) do
 	    argument :from, :to
-	end.new(:from => 'B', :useless => 'bla')
+	end
+	plan.discover(task = model.new(:from => 'B', :useless => 'bla'))
 	assert_equal([].to_set, Task.arguments)
 	assert_equal([:from, :to].to_set, task.model.arguments)
 	assert_equal({:from => 'B'}, task.meaningful_arguments)
@@ -42,6 +43,7 @@ class TC_Task < Test::Unit::TestCase
 	    model = Class.new(SimpleTask) do 
 		event :start do |context|
 		    mock.start(self, context)
+		    emit :start
 		end
 	    end
 	    plan.insert(task = model.new)
@@ -57,6 +59,7 @@ class TC_Task < Test::Unit::TestCase
 	    model = Class.new(SimpleTask) do
 		define_method(:start) do |context|
 		    mock.start(self, context)
+		    emit :start
 		end
 		event(:start)
 	    end
@@ -68,7 +71,7 @@ class TC_Task < Test::Unit::TestCase
 
     # Test the behaviour of Task#on, and event propagation inside a task
     def test_instance_on
-	t1 = SimpleTask.new
+	plan.discover(t1 = SimpleTask.new)
 	assert_raises(ArgumentError) { t1.on(:start) }
 	
 	# Test command handlers
@@ -169,7 +172,7 @@ class TC_Task < Test::Unit::TestCase
 	assert(klass.event_model(:terminal_model_signal).terminal?)
 	assert(!klass.event_model(:terminal_signal).terminal?)
 
-	task = klass.new
+	plan.discover(task = klass.new)
 	assert(!task.event(:terminal_signal).terminal?)
 	task.event(:terminal_signal).forward task.event(:terminal_model_signal)
 	assert(task.event(:terminal_signal).terminal?)
@@ -193,7 +196,7 @@ class TC_Task < Test::Unit::TestCase
 	# Must raise because there is not terminal event
 	klass.event :ev_terminal, :terminal => true, :command => true
 
-	task = klass.new
+	plan.discover(task = klass.new)
 	assert_respond_to(task, :start!)
 
         # Test modifications to the class hierarchy
@@ -233,7 +236,7 @@ class TC_Task < Test::Unit::TestCase
         # Check validation of options[:command]
         assert_raise(ArgumentError) { klass.event :try_event, :command => "bla" }
 
-        task = EmptyTask.new
+        plan.discover(task = EmptyTask.new)
 	start_event = task.event(:start)
 
         assert_equal(start_event, task.event(:start))
@@ -248,8 +251,7 @@ class TC_Task < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    model = Class.new(SimpleTask) do
 		on(:start) { |event| mock.started(event.context) }
-		event(:stop)
-		on(:stop) { |event| mock.stopped(event.context) }
+		on(:stop)  { |event| mock.stopped(event.context) }
 	    end
 	    plan.insert(task = model.new)
 
@@ -302,7 +304,7 @@ class TC_Task < Test::Unit::TestCase
 	ev_models = Hash[*model.enum_for(:each_event).to_a.flatten]
 	assert_equal([:start, :success, :aborted, :updated_data, :stop, :failed, :inter].to_set, ev_models.keys.to_set)
 
-	task = model.new
+	plan.discover(task = model.new)
 	ev_models = Hash[*task.model.enum_for(:each_event).to_a.flatten]
 	assert_equal([:start, :success, :aborted, :updated_data, :stop, :failed, :inter].to_set, ev_models.keys.to_set)
 	assert( ev_models[:start].symbol )
@@ -325,7 +327,7 @@ class TC_Task < Test::Unit::TestCase
 	assert_raises(Roby::TaskModelViolation) { task.inter! }
 	assert(!task.event(:inter).pending)
 
-	task = Class.new(Task) do
+	model = Class.new(SimpleTask) do
 	    def start(context)
 		inter(nil)
 		emit :start
@@ -336,8 +338,8 @@ class TC_Task < Test::Unit::TestCase
 		emit :inter
 	    end
 	    event :inter
-	end.new
-	task.executable = true
+	end
+	plan.discover(task = model.new)
 	assert_nothing_raised { task.start! }
     end
 
@@ -358,15 +360,17 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_executable
-	task = Class.new(SimpleTask) do 
+	model = Class.new(SimpleTask) do 
 	    event(:inter, :command => true)
-	end.new
-	task.executable = false
+	end
+	task = model.new
 
+	assert(!task.executable?)
 	assert_raises(TaskNotExecutable) { task.start!(nil) }
 	assert_raises(EventNotExecutable) { task.event(:start).call(nil) }
 
-	task.executable = true
+	plan.discover(task)
+	assert(task.executable?)
 	assert_nothing_raised { task.event(:start).call(nil) }
 
 	# The task is running, cannot change the executable flag
@@ -406,8 +410,10 @@ class TC_Task < Test::Unit::TestCase
 
     def test_task_parallel_aggregator
         t1, t2 = EmptyTask.new, EmptyTask.new
+	plan.discover([t1, t2])
 	aggregator_test((t1 | t2), t1, t2)
         t1, t2 = EmptyTask.new, EmptyTask.new
+	plan.discover([t1, t2])
 	aggregator_test( (t1 | t2).to_task, t1, t2 )
     end
 
@@ -486,27 +492,29 @@ class TC_Task < Test::Unit::TestCase
 	end
 
 	t1, t2 = task_model.new, task_model.new
+	plan.discover([t1, t2])
 	assert(t1.fullfills?(t1.model))
 	assert(t1.fullfills?(t2))
 	assert(t1.fullfills?(abstract_task_model))
 	
-	t2 = task_model.new(:index => 2)
+	plan.discover(t2 = task_model.new(:index => 2))
 	assert(!t1.fullfills?(t2))
 
-	t3 = task_model.new(:universe => 42)
+	plan.discover(t3 = task_model.new(:universe => 42))
 	assert(t3.fullfills?(t1))
 	assert(!t1.fullfills?(t3))
 
-	t3 = Class.new(Task).new
+	plan.discover(t3 = Class.new(Task).new)
 	assert(!t1.fullfills?(t3))
 
-	t3 = Class.new(task_model).new
+	plan.discover(t3 = Class.new(task_model).new)
 	assert(!t1.fullfills?(t3))
 	assert(t3.fullfills?(t1))
     end
 
     def test_related_tasks
-	t1, t2, t3 = (1..3).map { SimpleTask.new }
+	t1, t2, t3 = (1..3).map { SimpleTask.new }.
+	    each { |t| plan.discover(t) }
 	t1.realized_by t2
 	t1.event(:start).on t3.event(:start)
 	assert_equal([t3].to_value_set, t1.event(:start).related_tasks)
@@ -515,7 +523,8 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_related_events
-	t1, t2, t3 = (1..3).map { SimpleTask.new }
+	t1, t2, t3 = (1..3).map { SimpleTask.new }.
+	    each { |t| plan.discover(t) }
 	t1.realized_by t2
 	t1.event(:start).on t3.event(:start)
 	assert_equal([t3.event(:start)].to_value_set, t1.related_events)

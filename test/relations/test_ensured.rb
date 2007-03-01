@@ -8,6 +8,7 @@ class TC_EnsuredEvent < Test::Unit::TestCase
     def test_ensure
 	setup = lambda do |mock|
 	    e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
+	    plan.discover [e1, e2]
 	    e1.ensure e2
 	    e1.on { mock.e1 }
 	    e2.on { mock.e2 }

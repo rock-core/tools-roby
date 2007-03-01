@@ -170,7 +170,7 @@ class TC_Plan < Test::Unit::TestCase
 
     def clear_finalized; @finalized_tasks_recorder.clear end
     def finalized_tasks; @finalized_tasks_recorder.tasks end
-    def finalized_events; @finalized_events_recorder.events end
+    def finalized_events; @finalized_tasks_recorder.events end
     class FinalizedTaskRecorder
 	attribute(:tasks) { Array.new }
 	attribute(:events) { Array.new }
@@ -178,7 +178,7 @@ class TC_Plan < Test::Unit::TestCase
 	    tasks << task
 	end
 	def finalized_event(time, plan, event)
-	    events << event
+	    events << event if event.root_object?
 	end
 	def clear
 	    tasks.clear

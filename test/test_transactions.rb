@@ -66,7 +66,7 @@ module TC_TransactionBehaviour
 
     # Tests insertion and removal of tasks
     def test_commit_tasks
-	t1, (t2, t3) = prepare_plan(:missions => 1, :tasks => 3)
+	t1, (t2, t3) = prepare_plan(:missions => 1, :tasks => 2)
 
 	transaction_commit(plan, t1) do |trsc, p1|
 	    assert(trsc.include?(p1))
@@ -271,7 +271,6 @@ module TC_TransactionBehaviour
 	parent.on(:stop, task, :start)
 	task.forward(:stop, child, :start)
 
-	r = Roby::Task.new
 	transaction_commit(plan, task, parent, child) do |trsc, pt, pp, pc|
 	    trsc.replace(pt, r)
 	    assert([r], trsc.missions.to_a)

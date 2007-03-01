@@ -98,32 +98,34 @@ class TC_Control < Test::Unit::TestCase
 	assert(! plan.include?(t))
     end
 
+    def apply_structure_checking(&block)
+	Control.structure_checks.clear
+	Control.structure_checks << lambda(&block)
+	process_events
+    ensure
+	Control.structure_checks.clear
+    end
+
     def test_structure_checking
 	Roby.control.abort_on_exception = false
 
 	# Check on a single task
-	Control.structure_checks.clear
 	plan.insert(t = SimpleTask.new)
-	Control.structure_checks << lambda { TaskModelViolation.new(t) }
-
-	process_events
+	apply_structure_checking { TaskModelViolation.new(t) }
 	assert(! plan.include?(t))
 
 	# Make sure that a task which has been repaired will not be killed
-	Control.structure_checks.clear
-	t = SimpleTask.new
-	plan.insert(t)
+	plan.insert(t = SimpleTask.new)
 	did_once = false
-	Control.structure_checks << lambda { 
+	apply_structure_checking do
 	    unless did_once
 		did_once = true
 		TaskModelViolation.new(t)
 	    end
-	}
-	process_events
+	end
 	assert(plan.include?(t))
 
-	# Check that the whole task trees are killed
+	# Check that whole task trees are killed
 	t0, t1, t2, t3 = prepare_plan :discover => 4
 	t0.realized_by t2
 	t1.realized_by t2
@@ -132,16 +134,16 @@ class TC_Control < Test::Unit::TestCase
 	plan.insert(t0)
 	plan.insert(t1)
 	FlexMock.use do |mock|
-	    Control.structure_checks.clear
-	    Control.structure_checks << lambda { mock.checking ; TaskModelViolation.new(t2) }
 	    mock.should_receive(:checking).twice
-
-	    process_events
+	    apply_structure_checking do
+		mock.checking
+		TaskModelViolation.new(t2)
+	    end
 	end
 	assert(!plan.include?(t0))
 	assert(!plan.include?(t1))
 	assert(!plan.include?(t2))
-	    process_events
+	process_events
 	assert(!plan.include?(t3))
 
 	# Check that we can kill selectively by returning a hash
@@ -150,9 +152,7 @@ class TC_Control < Test::Unit::TestCase
 	t1.realized_by t2
 	plan.insert(t0)
 	plan.insert(t1)
-	Control.structure_checks.clear
-	Control.structure_checks << lambda { { TaskModelViolation.new(t2) => t0 } }
-	process_events
+	apply_structure_checking { { TaskModelViolation.new(t2) => t0 } }
 	assert(!plan.include?(t0))
 	assert(plan.include?(t1))
 	assert(plan.include?(t2))

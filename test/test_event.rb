@@ -1,6 +1,7 @@
 $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'roby/test/common'
 require 'flexmock'
+require 'test/mockups/tasks'
 
 require 'roby'
 class TC_Event < Test::Unit::TestCase
@@ -37,7 +38,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_executable
-	event = EventGenerator.new(true)
+	plan.discover(event = EventGenerator.new(true))
 	event.executable = false
 	assert_raises(EventNotExecutable) { event.call(nil) }
 	assert_raises(EventNotExecutable) { event.emit(nil) }
@@ -46,7 +47,7 @@ class TC_Event < Test::Unit::TestCase
 	assert_nothing_raised { event.call(nil) }
 	assert_nothing_raised { event.emit(nil) }
 
-	other = EventGenerator.new(true)
+	plan.discover(other = EventGenerator.new(true))
 	other.executable = false
 	event.on other
 	assert_raises(EventNotExecutable) { event.call(nil) }
@@ -91,7 +92,8 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_propagation_id
-	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
+	e1, e2, e3 = (1..3).map { EventGenerator.new(true) }.
+	    each { |e| plan.discover(e) }
 	e1.on e2
 	e1.emit(nil)
 	assert_equal(e1.last.propagation_id, e2.last.propagation_id)
@@ -99,7 +101,6 @@ class TC_Event < Test::Unit::TestCase
 	e2.emit(nil)
 	assert(e1.last.propagation_id < e2.last.propagation_id)
 
-	e3 = EventGenerator.new(true)
 	e3.emit(nil)
 	assert(e1.last.propagation_id < e3.last.propagation_id)
 	assert(e2.last.propagation_id < e3.last.propagation_id)
@@ -108,6 +109,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_signal_relation
 	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
+	plan.discover([e1, e2])
 
 	e1.on e2
 	assert( e1.child_object?( e2, EventStructure::Signal ))
@@ -119,6 +121,7 @@ class TC_Event < Test::Unit::TestCase
  
     def test_handlers
 	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
+	plan.discover([e1, e2])
 	e1.on { e2.call(nil) }
 
 	FlexMock.use do |mock|
@@ -133,7 +136,8 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_simple_signal_handler_ordering
-	e1, e2, e3 = 4.enum_for(:times).map { EventGenerator.new(true) }
+	e1, e2, e3 = (1..3).map { EventGenerator.new(true) }.
+	    each { |e| plan.discover(e) }
 	e1.on(e2)
 	e1.on { e2.remove_signal(e3) }
 	e2.on(e3)
@@ -166,29 +170,31 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_postpone
-	# Simple postpone behavior
-	FlexMock.use do |mock|
-	    wait_for = EventGenerator.new(true)
-	    event = EventGenerator.new(true)
-	    event.singleton_class.class_eval do
-		define_method(:calling) do |context|
-		    super if defined? super
+	wait_for = EventGenerator.new(true)
+	event = EventGenerator.new(true)
+	plan.discover([wait_for, event])
+	event.singleton_class.class_eval do
+	    define_method(:calling) do |context|
+		super if defined? super
+		unless wait_for.happened?
 		    postpone(wait_for, "bla") {}
 		end
 	    end
-
-	    event.on { mock.event }
-	    mock.should_receive(:event).never
-	    event.call(nil)
-	    assert(! event.happened? )
-	    assert(! event.pending? )
 	end
 
-	# Test propagation when the block given to postpone 
-	# signals some events
+	event.call(nil)
+	assert(! event.happened?)
+	assert(! event.pending?)
+	assert(wait_for.child_object?(event, EventStructure::Signal))
+	wait_for.call(nil)
+	assert(event.happened?)
+
+	# Test propagation when the block given to postpone signals the event
+	# we are waiting for
         FlexMock.use do |mock|
 	    wait_for = EventGenerator.new(true)
 	    event = EventGenerator.new(true)
+	    plan.discover([wait_for, event])
 	    event.singleton_class.class_eval do
 		define_method(:calling) do |context|
 		    super if defined? super
@@ -211,17 +217,20 @@ class TC_Event < Test::Unit::TestCase
 
     def test_can_signal
 	a, b = EventGenerator.new(true), EventGenerator.new
+	plan.discover([a, b])
 	assert_raises(EventModelViolation) { a.on b }
 	assert_nothing_raised { a.forward b }
 
 	a, b = EventGenerator.new(true), EventGenerator.new(true)
+	plan.discover([a, b])
 	a.on b
 	def b.controlable?; false end
 	assert_raise(EventModelViolation) { a.call(nil) }
     end
 
     def test_emit_on
-	e1, e2 = [nil,nil].map { EventGenerator.new(true) }
+	e1, e2 = (1..2).map { EventGenerator.new(true) }.
+	    each { |e| plan.discover(e) }
 	e1.emit_on e2
         FlexMock.use do |mock|
 	    e1.on { mock.e1 }
@@ -234,6 +243,7 @@ class TC_Event < Test::Unit::TestCase
 
     def setup_event_aggregator(aggregator)
 	events = 10.enum_for(:times).map { EventGenerator.new(true) }
+	plan.discover(events)
 	events.each { |ev| aggregator << ev }
 	events.each do |ev| 
 	    ev.call(nil)
@@ -251,7 +261,8 @@ class TC_Event < Test::Unit::TestCase
 	assert(and_event.happened?)
 	
 	# Check the behavior of the & operator
-	e1, e2, e3, e4 = (1..4).map { EventGenerator.new(true) }
+	e1, e2, e3, e4 = (1..4).map { EventGenerator.new(true) }.
+	    each { |e| plan.discover(e) }
 	and_event = e1 & e2
 	and_and = and_event & e3
 	assert_equal([e1, e2].to_set, and_event.waiting.to_set)
@@ -259,7 +270,8 @@ class TC_Event < Test::Unit::TestCase
 	assert_equal([e1, e2].to_set, and_event.waiting.to_set)
 
 	# Check dynamic behaviour
-	a, b, c, d = (1..4).map { EventGenerator.new(true) }
+	a, b, c, d = (1..4).map { EventGenerator.new(true) }.
+	    each { |e| plan.discover(e) }
         and1 = a & b
 	and2 = and1 & c
         and2.on d
@@ -287,16 +299,16 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_forwarder
-	e1 = EventGenerator.new(true)
-	forwarder = ForwarderGenerator.new(e1)
+	plan.discover(e1 = EventGenerator.new(true))
+	plan.discover(forwarder = ForwarderGenerator.new(e1))
 	assert(forwarder.controlable?)
 
 	e2 = EventGenerator.new(false)
 	forwarder << e2
 	assert(!forwarder.controlable?)
-
 	forwarder.delete(e2)
-	e2 = EventGenerator.new(true)
+
+	plan.discover(e2 = EventGenerator.new(true))
 	forwarder << e2
 	assert(forwarder.controlable?)
 
@@ -307,6 +319,7 @@ class TC_Event < Test::Unit::TestCase
 
     def setup_aggregation(mock)
 	e1, e2, m1, m2, m3 = 5.enum_for(:times).map { EventGenerator.new(true) }
+	plan.discover([e1, e2, m1, m2, m3])
 	e1.on e2
 	m1.on m2
 	m2.on m3
@@ -350,7 +363,8 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_or
-	a, b, c = 3.enum_for(:times).map { EventGenerator.new(true) }
+	a, b, c = (1..3).map { EventGenerator.new(true) }.
+	    each { |e| plan.discover(e) }
 
         or_event = (a | b)
         or_event.on c
@@ -395,7 +409,8 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_context_propagation
-	e1, e2 = (1..2).map { EventGenerator.new(true) }
+	e1, e2 = (1..2).map { EventGenerator.new(true) }.
+	    each { |e| plan.discover(e) }
 	e1.on e2
 	
 	FlexMock.use do |mock|
@@ -428,7 +443,8 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_related_events
-	e1, e2 = (1..2).map { EventGenerator.new(true) }
+	e1, e2 = (1..2).map { EventGenerator.new(true) }.
+	    each { |ev| plan.discover(ev) }
 
 	assert_equal([].to_value_set, e1.related_events)
 	e1.on e2
@@ -437,8 +453,9 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_related_tasks
-	e1, e2 = (1..2).map { EventGenerator.new(true) }
-	t1 = Task.new
+	e1, e2 = (1..2).map { EventGenerator.new(true) }.
+	    each { |ev| plan.discover(ev) }
+	t1 = SimpleTask.new
 
 	assert_equal([].to_value_set, e1.related_tasks)
 	e1.on t1.event(:start)
@@ -482,6 +499,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_signal_once
 	ev1, ev2 = EventGenerator.new(true), EventGenerator.new(true)
+	plan.discover([ev1, ev2])
 	ev1.signal_once ev2
 	FlexMock.use do |mock|
 	    ev2.on { mock.called }
@@ -492,11 +510,8 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_filter
-	ev1 = EventGenerator.new(true)
-
-	ev_block = EventGenerator.new(true)
-	ev_value = EventGenerator.new(true)
-	ev_nil   = EventGenerator.new(true)
+	ev1, ev_block, ev_value, ev_nil = (1..4).map { EventGenerator.new(true) }.
+	    each { |e| plan.discover(e) }
 
 	FlexMock.use do |mock|
 	    ev1.filter { |v| v*2 }.on ev_block

@@ -12,7 +12,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_relationships
-	task = SimpleTask.new
+	plan.discover(task = SimpleTask.new)
 	exec_task = ExecutionAgentModel.new
 
 	task.executed_by exec_task
@@ -112,7 +112,9 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_initialization
-	agent = ExecutionAgentModel.new
+	agent = Class.new(SimpleTask) do
+	    event :ready, :command => true
+	end.new
 	task, (init1, init2) = prepare_plan :missions => 1, :discover => 2, :model => SimpleTask
 	task.executed_by agent
 	init1.executed_by agent
@@ -122,11 +124,14 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	agent.on(:start, init, :start)
 	init.forward(:success, agent, :ready)
 
-	# task.start!
-	# assert(init1.running?)
-	# init1.success!
-	# init2.success!
-	# assert(agent.event(:ready).happened?)
+	task.start!
+	assert(!task.running?)
+	assert(!agent.event(:ready).happened?)
+	assert(init1.running?)
+	assert(!init2.running?)
+	init1.success!
+	init2.success!
+	assert(agent.event(:ready).happened?)
     end
 end
 

@@ -9,7 +9,7 @@ class TC_Exceptions < Test::Unit::TestCase
     include Roby::Test
 
     def test_execution_exception_initialize
-	task = Task.new
+	plan.discover(task = Task.new)
 	error = ExecutionException.new(TaskModelViolation.new(task))
 	assert_equal(task, error.task)
 	assert_equal([task], error.trace)
@@ -23,14 +23,14 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_execution_exception_fork
-	task = Task.new
+	task, t1, t2, t3 = prepare_plan :discover => 5
 	e = ExecutionException.new(TaskModelViolation.new(task))
 	s = e.fork
 
 	assert_equal([e, s], e.siblings)
 	assert_equal([e, s], s.siblings)
-	e.trace << (t1 = Task.new)
-	s.trace << (t2 = Task.new)
+	e.trace << t1
+	s.trace << t2
 	assert_equal([task, t1], e.trace)
 	assert_equal([task, t2], s.trace)
 
@@ -43,14 +43,15 @@ class TC_Exceptions < Test::Unit::TestCase
 	assert_equal(task, e.origin)
 
 	s = e.fork
-	s.trace << (t3 = Task.new)
+	s.trace << t3
 	e.merge(s)
 	assert_equal([t1, t2, t3], e.task)
 	assert_equal(task, e.origin)
 
 	e = ExecutionException.new(TaskModelViolation.new(task))
 	s = e.fork
-	s.trace << (t1 = Task.new) << (t2 = Task.new)
+	t1, t2 = prepare_plan :discover => 2
+	s.trace << t1 << t2
 	e.merge(s)
 	assert_equal([task, t2], e.task)
 	assert_equal(task, e.origin)
@@ -84,7 +85,7 @@ class TC_Exceptions < Test::Unit::TestCase
 		end
 	    end
 
-	    task  = klass.new
+	    plan.discover(task  = klass.new)
 	    error = ExecutionException.new(TaskModelViolation.new(task))
 	    mock.should_receive(:handler2).with(error, task, task).once.ordered
 	    mock.should_receive(:handler1).with(error, task, task).once.ordered
@@ -143,6 +144,7 @@ class TC_Exceptions < Test::Unit::TestCase
 		    mock.handler(exception, exception.task, self)
 		end
 	    end.new
+	    plan.discover(t0)
 	    t0.realized_by t1
 	    t1.realized_by t2
 
@@ -172,7 +174,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	# 0 being able to handle the exception and 1, 3 not
 
 	FlexMock.use do |mock|
-	    t1, t2, t3 = Task.new, Task.new, Task.new
+	    t1, t2, t3 = prepare_plan :discover => 3
 	    t0 = Class.new(Task) do 
 		attr_accessor :handled_exception
 		on_exception(TaskModelViolation) do |exception|
@@ -180,6 +182,7 @@ class TC_Exceptions < Test::Unit::TestCase
 		    mock.handler(exception, exception.task, self)
 		end
 	    end.new
+	    plan.discover(t0)
 	    t0.realized_by t1
 	    t1.realized_by t2
 	    t3.realized_by t2
@@ -213,7 +216,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	# 0 being able to handle the exception and 1, 3 not
 
 	FlexMock.use do |mock|
-	    t1, t2, t3 = Task.new, Task.new, Task.new
+	    t1, t2, t3 = prepare_plan :discover => 3
 
 	    found_exception = nil
 	    t0 = Class.new(Task) do 
@@ -222,6 +225,7 @@ class TC_Exceptions < Test::Unit::TestCase
 		    mock.handler(exception, exception.task.to_set, self)
 		end
 	    end.new
+	    plan.discover(t0)
 	    t0.realized_by t1 ; t1.realized_by t2
 	    t0.realized_by t3 ; t3.realized_by t2
 	    
@@ -240,6 +244,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    raise RuntimeError
 	    ev.emit(context)
 	end
+	plan.discover(ev)
 	assert_raises(RuntimeError) { ev.call(nil) }
 	assert(!ev.happened?)
 
@@ -248,6 +253,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    ev.emit(context)
 	    raise RuntimeError
 	end
+	plan.discover(ev)
 	assert_raises(RuntimeError) { ev.call(nil) }
 	assert(ev.happened?)
 
@@ -256,6 +262,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    ev.emit(context)
 	    raise RuntimeError
 	end
+	plan.discover(ev)
 	ev2 = EventGenerator.new(true)
 	ev.on ev2
 
@@ -266,6 +273,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	# Check event handlers
 	FlexMock.use do |mock|
 	    ev = EventGenerator.new(true)
+	    plan.discover(ev)
 	    ev.on { mock.handler ; raise RuntimeError }
 	    ev.on { mock.handler ; raise RuntimeError }
 	    mock.should_receive(:handler).twice
@@ -322,6 +330,7 @@ class TC_Exceptions < Test::Unit::TestCase
 		    mock.caught(exception.task)
 		end
 	    end.new(:id => 'root')
+	    plan.discover(root)
 	    root.realized_by(t11)
 	    root.realized_by(t12)
 	    root.realized_by(t13)

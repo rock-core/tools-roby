@@ -8,6 +8,7 @@ class TC_Propagation < Test::Unit::TestCase
 
     def test_gather_propagation
 	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
+	plan.discover [e1, e2]
 
 	set = Propagation.gather_propagation do
 	    e1.call(1)
@@ -65,6 +66,7 @@ class TC_Propagation < Test::Unit::TestCase
 	# For the test to be valid, we need +pending+ to have a deterministic ordering
 	# Fix that here
 	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
+	plan.discover [e1, e2]
 	pending = [ [e1, [true, nil, nil, nil]], [e2, [false, nil, nil, nil]] ]
 	def pending.each_key; each { |(k, v)| yield(k) } end
 	def pending.delete(ev); delete_if { |(k, v)| k == ev } end
@@ -78,9 +80,10 @@ class TC_Propagation < Test::Unit::TestCase
     end
 
     def test_delay
-	s, e = EventGenerator.new(true), EventGenerator.new(true)
-	s.on(e, :delay => 0.1)
-	Control.once { s.call(nil) }
+	plan.insert(t = SimpleTask.new)
+	e = EventGenerator.new(true)
+	t.event(:start).on e, :delay => 0.1
+	Control.once { t.start! }
 	process_events
 	assert(!e.happened?)
 	sleep(0.2)
@@ -106,6 +109,7 @@ class TC_Propagation < Test::Unit::TestCase
     def test_signal_forward
 	forward = EventGenerator.new(true)
 	signal  = EventGenerator.new(true)
+	plan.discover [forward, signal]
 
 	FlexMock.use do |mock|
 	    ev = EventGenerator.new do |ev|
