@@ -2,6 +2,7 @@ $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/log'
 require 'roby/state/information'
+require 'test/mockups/tasks'
 
 require 'flexmock'
 
@@ -167,11 +168,21 @@ class TC_Plan < Test::Unit::TestCase
     include TC_PlanStatic
     include Roby::Test
 
+    def clear_finalized; @finalized_tasks_recorder.clear end
     def finalized_tasks; @finalized_tasks_recorder.tasks end
+    def finalized_events; @finalized_events_recorder.events end
     class FinalizedTaskRecorder
 	attribute(:tasks) { Array.new }
+	attribute(:events) { Array.new }
 	def finalized_task(time, plan, task)
 	    tasks << task
+	end
+	def finalized_event(time, plan, event)
+	    events << event
+	end
+	def clear
+	    tasks.clear
+	    events.clear
 	end
 	def splat?; true end
     end
@@ -187,17 +198,17 @@ class TC_Plan < Test::Unit::TestCase
 
     def assert_finalizes(plan, unneeded, finalized = nil)
 	finalized ||= unneeded
-	finalized_tasks.clear
+	clear_finalized
 
 	yield if block_given?
 
 	assert_equal(unneeded.to_set, plan.unneeded_tasks.to_set)
 	plan.garbage_collect
-	assert_equal(finalized.to_set, finalized_tasks.to_set)
+	assert_equal(finalized.to_set, (finalized_tasks.to_set | finalized_events.to_set))
 	assert(! finalized.any? { |t| plan.include?(t) })
     end
 
-    def test_garbage_collect
+    def test_garbage_collect_tasks
 	klass = Class.new(Task) do
 	    attr_accessor :delays
 
@@ -242,7 +253,7 @@ class TC_Plan < Test::Unit::TestCase
 	end
     end
     
-    def test_force_garbage_collect
+    def test_force_garbage_collect_tasks
 	t1 = Class.new(Task) do
 	    def stop(context); end
 	    event :stop
@@ -261,6 +272,26 @@ class TC_Plan < Test::Unit::TestCase
 	    # This stops the mission, which will be automatically discarded
 	    t1.event(:stop).emit(nil)
 	end
+    end
+
+    def test_garbage_collect_events
+	t  = SimpleTask.new
+	e1 = EventGenerator.new(true)
+
+	plan.insert(t)
+	plan.discover(e1)
+	assert_equal([e1], plan.unneeded_events.to_a)
+	t.event(:start).on e1
+	assert_equal([], plan.unneeded_events.to_a)
+
+	e2 = EventGenerator.new(true)
+	plan.discover(e2)
+	assert_equal([e2], plan.unneeded_events.to_a)
+	e1.forward e2
+	assert_equal([], plan.unneeded_events.to_a)
+
+	plan.remove_object(t)
+	assert_equal([e1, e2].to_value_set, plan.unneeded_events)
     end
 end
 

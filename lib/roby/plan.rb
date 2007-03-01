@@ -225,7 +225,7 @@ module Roby
 		discovered_events(events)
 	    end
 	    unless tasks.empty?
-		new_tasks = useful_component(tasks).difference(@known_tasks)
+		new_tasks = useful_task_component(tasks).difference(@known_tasks)
 		unless new_tasks.empty?
 		    new_tasks.each { |t| t.plan = self }
 		    @known_tasks.merge new_tasks
@@ -260,7 +260,7 @@ module Roby
 	def removed_transaction(trsc); super if defined? super end
 
 	# Returns the set of tasks that are useful for +tasks+
-	def useful_component(tasks)
+	def useful_task_component(tasks)
 	    # Get all tasks related to +task+
 	    useful_tasks = tasks.dup.to_value_set
 	    ([@hierarchy] + @service_relations).each do |rel| 
@@ -273,10 +273,10 @@ module Roby
 	    if useful_tasks == tasks
 		useful_tasks
 	    else
-		useful_component(useful_tasks)
+		useful_task_component(useful_tasks)
 	    end
 	end
-	private :useful_component
+	private :useful_task_component
 
 	# Returns the set of useful tasks in this plan
 	def useful_tasks
@@ -288,7 +288,7 @@ module Roby
 
 	    all = @missions | @keepalive
 	    return ValueSet.new if all.empty?
-	    useful_component(all)
+	    useful_task_component(all)
 	end
 
 	# Returns the set of unused tasks
@@ -296,6 +296,41 @@ module Roby
 	    (known_tasks - useful_tasks).delete_if do |t|
 		(!t.self_owned? && !Roby::Distributed.unnecessary?(t)) ||
 		    transactions.any? { |trsc| trsc.wrap(t, false) }
+	    end
+	end
+
+	def useful_event_component(events)
+	    useful_events = events.dup
+	    free_events.each do |ev|
+		next if useful_events.include?(ev)
+		EventStructure.each_relation do |relation|
+		    relation.components([ev], false).each do |event_set|
+			if event_set.any? { |obj| useful_events.include?(obj) || obj.kind_of?(Roby::TaskEventGenerator) }
+			    useful_events << ev
+			end
+		    end
+		end
+	    end
+
+	    if useful_events != events
+		useful_event_component(useful_events)
+	    else
+		useful_events
+	    end
+	end
+
+	# Computes the set of events that are useful in the plan Events are
+	# 'useful' when they are chained to a task.
+	def useful_events
+	    return ValueSet.new if free_events.empty?
+	    useful_event_component(ValueSet.new)
+	end
+
+	# The set of events that can be removed from the plan
+	def unneeded_events
+	    (free_events - useful_events).delete_if do |ev|
+		(!ev.self_owned? && !Roby::Distributed.unnecessary?(ev)) ||
+		    transactions.any? { |trsc| trsc.wrap(ev, false) }
 	    end
 	end
 
@@ -376,6 +411,10 @@ module Roby
 		end
 
 		break unless did_something
+	    end
+
+	    unneeded_events.each do |event|
+		remove_object(event)
 	    end
 	end
 
