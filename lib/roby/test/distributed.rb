@@ -59,6 +59,7 @@ module Roby
 			end
 		    def cs.process_events; Roby.control.process_events end
 		    def cs.local_peer; @local_peer ||= Distributed.peer("local") end
+		    def cs.send_local_peer(*args); local_peer.send(*args) end
 
 		    Distributed.state = cs
 		    yield(Distributed.state) if block_given?
@@ -81,8 +82,7 @@ module Roby
 
 		remote.start_neighbour_discovery(true)
 		remote.process_events
-		assert(@local_peer = remote.peers.find { true }.last)
-		assert(local_peer.connecting?)
+		assert(remote.send_local_peer(:connecting?))
 
 		local.start_neighbour_discovery(true)
 		process_events
@@ -90,10 +90,10 @@ module Roby
 
 		remote.start_neighbour_discovery(true)
 		remote.process_events
-		assert(local_peer.connected?)
+		assert(remote.send_local_peer(:connected?))
 	    end
 
-	    attr_reader :central_tuplespace, :remote, :remote_peer, :remote_plan, :local, :local_peer
+	    attr_reader :central_tuplespace, :remote, :remote_peer, :remote_plan, :local
 
 	    # Establishes a peer to peer connection between two ConnectionSpace objects
 	    def peer2peer(detached_control = false)
@@ -120,11 +120,11 @@ module Roby
 		    remote.start_neighbour_discovery(true)
 		    local.start_neighbour_discovery(true)
 		    remote_peer.flush
-		    local_peer.flush
+		    remote.send_local_peer(:flush)
 		    remote.process_events
 		    Control.instance.process_events
 		    remote_peer.flush
-		    local_peer.flush
+		    remote.send_local_peer(:flush)
 		else
 		    super
 		end
