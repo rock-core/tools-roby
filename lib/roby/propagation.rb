@@ -125,6 +125,10 @@ module Roby::Propagation
     # adds either forwarding or signalling the set of Event objects +from+ to
     # the +signalled+ event generator, with the context +context+
     def self.add_event_propagation(only_forward, from, signalled, context, timespec)
+	if signalled.plan != Roby.plan
+	    raise "#{signalled} not in main plan"
+	end
+
 	step = (Thread.current[:propagation][signalled] ||= [only_forward])
 
 	if step.first != only_forward
