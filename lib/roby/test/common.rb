@@ -1,5 +1,6 @@
 require 'test/unit'
 require 'roby'
+require 'utilrb/module/attr_predicate'
 
 module Roby
     module Test
@@ -65,20 +66,40 @@ module Roby
 	    save_collection Roby.exception_handlers
 	end
 
-	def teardown
-	    begin
-		# Roby.logger.level = Logger::DEBUG
-		loop do
-		    Roby.plan.garbage_collect
-		    process_events
-		    break unless Roby.control.clear
-		    sleep(0.1)
+	def teardown_plan
+	    old_gc_roby_logger_level = Roby.logger.level
+	    if debug_gc?
+		Roby.logger.level = Logger::DEBUG
+	    end
+
+	    if Roby.control.thread
+		# Control thread is running, quit it
+		Roby.control.quit
+		Roby.control.join
+	    else
+		begin
+		    assert_doesnt_timeout(10) do
+			loop do
+			    Roby.plan.garbage_collect
+			    process_events
+			    break unless Roby.control.clear
+			    sleep(0.1)
+			end
+		    end
+		rescue Test::Unit::AssertionFailedError
+		    STDERR.puts "  timeout on plan cleanup. Remaining tasks are #{Roby.plan.known_tasks}"
+		rescue
+		    STDERR.puts "  failed to properly cleanup the plan\n  #{$!.full_message}"
 		end
-	    rescue
-		STDERR.puts "  failed to properly cleanup the plan\n  #{$!.full_message}"
 	    end
 
 	    plan.clear
+	ensure
+	    Roby.logger.level = old_gc_roby_logger_level
+	end
+
+	def teardown
+	    teardown_plan
 
 	    stop_remote_processes
 	    if defined? DRb
@@ -218,7 +239,6 @@ module Roby
 	    assert(planner = task.planning_task)
 	    planner.start! if planner.pending?
 	    planner.thread.join
-	    STDERR.puts planner.planned_task
 	    Control.instance.process_events
 	    assert(planner.success?)
 	    planner.planned_task
@@ -283,6 +303,8 @@ module Roby
 
 	# The console logger object. See #console_logger=
 	attr_reader :console_logger
+
+	attr_predicate :debug_gc?, true
 
 	# Enable display of all plan events on the console
 	def console_logger=(value)
