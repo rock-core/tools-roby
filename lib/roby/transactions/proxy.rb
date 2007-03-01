@@ -46,8 +46,7 @@ module Roby::Transactions
 	def initialize(object, transaction)
 	    @discovered  = Hash.new
 	    @transaction = transaction
-	    @__getobj__ = object
-	    self.plan = transaction
+	    @__getobj__  = object
 	end
 	attr_reader :transaction
 	attr_reader :__getobj__
