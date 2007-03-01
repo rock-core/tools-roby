@@ -618,18 +618,23 @@ module Roby
 	# is equivalent to 
 	#   on(event, task, event)
         #
-        def on(event_model, to_task = nil, *to_events, &user_handler)
-            unless to_task || user_handler
+        def on(event_model, to = nil, *to_task_events, &user_handler)
+            unless to || user_handler
                 raise ArgumentError, "you must provide either a task or an event handler"
             end
 
             generator = event(event_model)
-	    if to_task
-		if to_events.empty?
-		    to_events << generator.symbol
-		end
-		to_events.map! { |ev_model| to_task.event(ev_model) }
-	    end
+	    to_events = case to
+			when Task
+			    if to_task_events.empty?
+				[to.event(generator.symbol)]
+			    else
+				to_task_events.map { |ev_model| to.event(ev_model) }
+			    end
+			when EventGenerator: [to]
+			else []
+			end
+
             generator.on(*to_events, &user_handler)
             self
         end
@@ -640,15 +645,21 @@ module Roby
 	#   t1.forward(:start, t2, :start)
 	#   t1.forward(:start, t2)
 	#
-	def forward(event_model, to_task, *to_events)
+	def forward(event_model, to, *to_task_events)
             generator = event(event_model)
-	    if to_events.empty?
-		to_events << generator.symbol
-	    end
+	    to_events = case to
+			when Task
+			    if to_task_events.empty?
+				[to.event(generator.symbol)]
+			    else
+				to_task_events.map { |ev| to.event(ev) }
+			    end
+			when EventGenerator
+			    [to]
+			end
 
-            to_events.each do |ev_model| 
-		ev = to_task.event(ev_model)
-		ev.emit_on generator
+	    to_events.each do |ev|
+		generator.forward ev
 	    end
 	end
 

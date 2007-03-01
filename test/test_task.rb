@@ -112,6 +112,12 @@ class TC_Task < Test::Unit::TestCase
 	    mock.should_receive(:stop).once
 	    t1.start!
 	end
+
+	t = prepare_plan :missions => 1, :model => SimpleTask
+	e = EventGenerator.new(true)
+	t.on(:start, e)
+	t.start!
+	assert(e.happened?)
     end
 
     def test_model_event_handling
@@ -157,6 +163,21 @@ class TC_Task < Test::Unit::TestCase
 
 	    mock.should_receive(:start).never
 	    mock.should_receive(:stop).once
+	    t1.start!
+	end
+
+
+	FlexMock.use do |mock|
+	    t1 = prepare_plan :missions => 1, :model => SimpleTask
+	    ev = EventGenerator.new do 
+		mock.called
+		ev.emit
+	    end
+	    ev.on { mock.emitted }
+	    t1.forward(:start, ev)
+
+	    mock.should_receive(:called).never
+	    mock.should_receive(:emitted).once
 	    t1.start!
 	end
     end
