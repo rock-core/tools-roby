@@ -81,7 +81,8 @@ module Roby::Log
     module EventGeneratorHooks
 	HOOKS = %w{added_event_child removed_event_child 
 		   generator_calling generator_called generator_fired
-		   generator_signalling generator_forwarding generator_emitting}
+		   generator_signalling generator_forwarding generator_emitting
+		   generator_postponed}
 
 	def added_child_object(to, type, info)
 	    super if defined? super
@@ -123,10 +124,10 @@ module Roby::Log
 	    Roby::Log.log(:generator_forwarding) { [Time.now, true, self, to, event.object_id, event.time, event.context.to_s] }
 	end
 
-	#def postponed(context, generator, reason)
-	#    super if defined? super 
-	#    Roby::Log.log(:generator_postponed) { [Time.now, self, context.to_s, reason.to_s, generator] }
-	#end	
+	def postponed(context, generator, reason)
+	    super if defined? super 
+	    Roby::Log.log(:generator_postponed) { [Time.now, self, context.to_s, generator, reason.to_s] }
+	end	
     end
     Roby::EventGenerator.include EventGeneratorHooks
 
