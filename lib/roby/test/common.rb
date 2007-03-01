@@ -273,17 +273,22 @@ module Roby
 	# +event+ is given, it is the message that is displayed if the assertion
 	# fails
 	def assert_happens(timeout = 5, event = "")
+	    error = nil
 	    assert_doesnt_timeout(timeout, "#{event} did not happen") do
 		loop do
 		    begin
 			yield
 			return
-		    rescue
+		    rescue Exception => e
+			error = e
 			process_events
 			sleep(0.1)
 		    end
 		end
 	    end
+
+	rescue Test::Unit::AssertionFailedError
+	    raise error, "failed to achieve #{event}: #{error.message}", error.backtrace
 	end
 
 	# Checks that +event+ is emitted within +timeout+ seconds
