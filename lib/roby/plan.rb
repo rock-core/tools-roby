@@ -292,7 +292,13 @@ module Roby
 	end
 
 	# Returns the set of unused tasks
-	def unneeded_tasks; known_tasks - useful_tasks end
+	def unneeded_tasks
+	    (known_tasks - useful_tasks).delete_if do |t|
+		(!t.self_owned? && !Roby::Distributed.unnecessary?(t)) ||
+		    transactions.any? { |trsc| trsc.wrap(t, false) }
+	    end
+	end
+
 	# Checks if +task+ is included in this plan
 	def include?(task); @known_tasks.include?(task) end
 	# Checks if +task+ is a mission of this plan
@@ -340,7 +346,7 @@ module Roby
 			next
 		    end
 
-		    if !t.self_owned? && Roby::Distributed.unnecessary?(t)
+		    if !t.self_owned?
 			Roby.debug "GC: #{t} is not local, removing it"
 			garbage(t)
 			remove_object(t)
