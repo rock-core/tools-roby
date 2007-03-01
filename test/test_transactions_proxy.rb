@@ -43,20 +43,11 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	    def clear_vertex; end
 	end
 
-	obj   = real_klass.new
-	obj.plan = plan
+	plan.discover(obj = real_klass.new)
 	proxy = transaction[obj]
 	assert_is_proxy_of(obj, proxy, proxy_klass)
 	assert_same(proxy, transaction[obj])
-
-	# proxy.discard
-	# # should allocate a new proxy object
-	# new_proxy = transaction[obj]
-	# assert_not_same(proxy, new_proxy)
-
-	# # test == 
-	# assert_not_equal(proxy, new_proxy)
-	# assert_equal(proxy, obj)
+	assert_same(proxy, transaction.wrap(obj, false))
 
 	# check that may_wrap returns the object when wrapping cannot be done
 	assert_raises(TypeError) { transaction[10] }
