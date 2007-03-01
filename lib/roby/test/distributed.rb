@@ -96,13 +96,27 @@ module Roby
 	    attr_reader :central_tuplespace, :remote, :remote_peer, :remote_plan, :local, :local_peer
 
 	    # Establishes a peer to peer connection between two ConnectionSpace objects
-	    def peer2peer(&block)
-		start_peers(&block)
+	    def peer2peer(detached_control = false)
+		start_peers do |remote|
+		    def remote.start_control_thread
+			Control.event_processing << Distributed.state.method(:start_neighbour_discovery)
+			Roby.control.run :detach => true
+		    end
+		    yield(remote) if block_given?
+		end
+
 		setup_connection
+		if detached_control
+		    Control.event_processing << Distributed.state.method(:start_neighbour_discovery)
+		    Roby.control.run :detach => true
+		    remote.start_control_thread
+		end
 	    end
 
 	    def process_events
-		if remote
+		if Roby.control.thread
+		    # Control thread is running, nothing to do here
+		elsif remote
 		    remote.start_neighbour_discovery(true)
 		    local.start_neighbour_discovery(true)
 		    remote_peer.flush
