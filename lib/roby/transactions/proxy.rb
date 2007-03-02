@@ -359,10 +359,6 @@ module Roby::Transactions
 	def instantiate_model_event_relations
 	end
 
-	def self.forbidden_command
-	    raise NotImplementedError, "calling event commands is forbidden in a transaction"
-	end
-
 	def discard_transaction
 	    clear_relations
 	end
