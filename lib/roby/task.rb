@@ -109,20 +109,7 @@ module Roby
             @task, @event_model = task, model
         end
 
-	alias :root_object :task 
-
-	def read_only?; super && task.read_only? end
-	def owners; task.owners end
-	def local?; task.local? end
-	def distribute?; task.distribute? end
-	def has_sibling?(peer); task.has_sibling?(peer) end
-	def subscribed?; task.subscribed? end
-	
-	# The plan this event is part of
-	def plan; task.plan end
-	def plan=(plan); task.plan=plan end
-	# True if this event generator is executable (can be called and/or emitted)
-	def executable?; task.executable? end
+	child_plan_object :task
 
 	# Fire the event
         def fire(event)

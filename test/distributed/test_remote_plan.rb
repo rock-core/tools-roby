@@ -22,9 +22,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	r_other_task  = remote_task(:id => 'other_task')
 
 	task = SimpleTask.new
-	assert(r_simple_task.read_only?)
+	assert(!r_simple_task.read_write?)
 	Distributed.update([r_simple_task]) do
-	    assert( !r_simple_task.read_only?)
+	    assert(r_simple_task.read_write?)
 	    assert_nothing_raised do
 		r_simple_task.realized_by task
 		r_simple_task.remove_child task
@@ -32,7 +32,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 		task.remove_child r_simple_task
 	    end
 	end
-	assert(r_simple_task.read_only?)
+	assert(!r_simple_task.read_write?)
 
 	assert_raises(NotOwner) { r_simple_task.realized_by task }
 	assert_raises(NotOwner) { task.realized_by r_simple_task }
@@ -63,6 +63,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	r_simple_task = remote_task(:id => 'simple_task')
 	r_task        = remote_task(:id => 'task')
+
+	assert(r_simple_task.root_object?)
+	assert(!r_simple_task.event(:start).root_object?)
 
 	proxy = nil
 	assert_nothing_raised { proxy = proxy_model.new(remote_peer, r_simple_task.marshalled_object) }

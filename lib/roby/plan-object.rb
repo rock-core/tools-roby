@@ -70,9 +70,29 @@ module Roby
 	def root_object; self end
 	def root_object?; root_object == self end
 
+	def self.child_plan_object(attribute)
+	    class_eval <<-EOD
+	    alias root_object #{attribute}
+	    def root_object?; false end
+	    def read_write?; #{attribute}.read_write? end
+	    def owners; #{attribute}.owners end
+	    def local?; #{attribute}.local? end
+	    def distribute?; #{attribute}.distribute? end
+	    def subscribed?; #{attribute}.subscribed? end
+	    def plan; #{attribute}.plan end
+	    private :plan=
+	    def executable?; #{attribute}.executable? end
+	    EOD
+	end
+
 	include Distributed::LocalObject
-	def read_only?
-	    !Distributed.updating?([root_object]) && plan && !(self.owners - plan.owners).empty?
+
+	# True if this object can be modified in the current context
+	def read_write?
+	    Distributed.updating?([root_object]) ||
+		Distributed.owns?(self) ||
+		!plan ||
+		(Distributed.owns?(plan) && (owners - plan.owners).empty?)
 	end
     end
 end

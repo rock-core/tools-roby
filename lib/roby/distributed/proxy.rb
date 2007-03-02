@@ -23,7 +23,7 @@ module Roby::Distributed
 	def removing_child_object(child, type)
 	    super if defined? super
 
-	    if read_only? && child.read_only?
+	    unless read_write? || child.read_write?
 		raise NotOwner, "cannot remove a relation between two tasks we don't own"
 	    end
 	end
@@ -35,7 +35,7 @@ module Roby::Distributed
 	def adding_child_object(child, type, info)
 	    super if defined? super
 
-	    if read_only? || child.read_only?
+	    unless read_write? && child.read_write?
 		raise NotOwner, "cannot add a relation between tasks we don't own.  #{self} by #{owners.to_a} and #{child} is owned by #{child.owners.to_a}"
 	    end
 	end
@@ -47,7 +47,7 @@ module Roby::Distributed
 	def adding_child_object(child, type, info)
 	    super if defined? super
 	    
-	    if child.read_only?
+	    unless child.read_write?
 		raise NotOwner, "cannot add an event relation on a child we don't own. #{child} is owned by #{child.owners.to_a} (#{plan.owners.to_a})"
 	    end
 	end
@@ -57,8 +57,8 @@ module Roby::Distributed
 
     module TaskArgumentsOwnershipChecking
 	def updating
-	    if task.read_only?
-		raise NotOwner, "cannot change the argument set of a task which is not owned"
+	    if !task.read_write?
+		raise NotOwner, "cannot change the argument set of a task which is not owned #{task} is owned by #{task.owners} and #{task.plan} by #{task.plan.owners}"
 	    end
 	    super if defined? super
 	end
