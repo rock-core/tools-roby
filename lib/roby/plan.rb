@@ -222,7 +222,7 @@ module Roby
 	    unless events.empty?
 		events.each do |e| 
 		    if !e.root_object?
-			raise ArgumentError, "trying to discover a non-root event"
+			raise ArgumentError, "trying to discover #{e} which is a non-root event"
 		    end
 		    e.plan = self
 		end
@@ -425,7 +425,7 @@ module Roby
 
 	def remove_object(object)
 	    if !object.root_object?
-		raise ArgumentError, "cannot remove a non-root object"
+		raise ArgumentError, "cannot remove #{object} which is a non-root object"
 	    elsif object.plan != self
 		if known_tasks.include?(object) || free_events.include?(object)
 		    raise ArgumentError, "#{object} is included in #{self} but #plan == #{object.plan}"
