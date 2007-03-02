@@ -417,11 +417,15 @@ module Roby::Distributed
 	    Roby::Query.new(self)
 	end
 	def query_result_set(matcher)
-	    remote_server.query_result_set(matcher)
+	    Roby::Control.synchronize do
+		remote_server.query_result_set(matcher)
+	    end
 	end
 	def query_each(result_set)
-	    result_set.each do |task|
-		yield(local_object(task))
+	    Roby::Control.synchronize do
+		result_set.each do |task|
+		    yield(local_object(task))
+		end
 	    end
 	end
 
