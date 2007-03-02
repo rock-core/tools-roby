@@ -291,6 +291,9 @@ module Roby
 	    remaining = plan.known_tasks.find_all { |t| Plan.can_gc?(t) }
 
 	    if remaining.empty?
+		# Have to call #garbage_collect one more to make
+		# sure that unneeded events are removed as well
+		plan.garbage_collect
 		# Done cleaning the tasks, clear the remains
 		plan.transactions.each do |trsc|
 		    trsc.discard_transaction if trsc.self_owned?
