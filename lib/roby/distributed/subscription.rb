@@ -18,8 +18,10 @@ module Roby
 	    def subscribed_plan(marshalled_plan, missions, known_tasks, free_events)
 		plan = peer.local_object(marshalled_plan)
 		Distributed.update([plan]) do
-		    plan.discover(peer.local_object(known_tasks))
-		    plan.discover(peer.local_object(free_events))
+		    subscriptions.merge(known_tasks = peer.local_object(known_tasks))
+		    subscriptions.merge(free_events = peer.local_object(free_events))
+		    plan.discover(known_tasks)
+		    plan.discover(free_events)
 		end
 		nil
 	    end
@@ -74,11 +76,12 @@ module Roby
 			end
 		    end
 
-		    peer.callback(:subscribed_plan, object, missions, tasks, events)
-		    new_subscriptions = tasks | events
-		    subscriptions.merge(new_subscriptions)
-		    peer.callback(:subscribed, new_subscriptions)
-		    new_subscriptions.each { |obj| subscribe_plan_object(obj) }
+		    peer.transmit(:subscribed_plan, object, missions, tasks, events)
+		    subscriptions.merge(tasks.to_value_set)
+		    subscriptions.merge(events)
+
+		    tasks.each  { |obj| subscribe_plan_object(obj) }
+		    events.each { |obj| subscribe_plan_object(obj) }
 		end
 
 		nil
@@ -86,7 +89,11 @@ module Roby
 
 	    # Called by the remote peer to announce that is has subscribed us to +objects+
 	    def subscribed(objects)
-		peer.subscriptions.merge(objects.map { |obj| obj.remote_object })
+		objects = objects.map do |obj| 
+		    raise "not a root object" if obj.respond_to?(:root_object?) && !obj.root_object?
+		    obj.remote_object
+		end
+		peer.subscriptions.merge(objects)
 		nil
 	    end
 
