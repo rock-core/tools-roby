@@ -28,8 +28,6 @@ module Roby
 	    def eql?(other); other == self end
 	end
 
-
-
 	def self.remote_id
 	    if state then state.tuplespace 
 	    else nil
@@ -263,6 +261,7 @@ module Roby
 		    end
 		end
 
+	    rescue Interrupt
 	    rescue Exception => e
 		Distributed.fatal "neighbour discovery died with\n#{e.full_message}"
 	    ensure
@@ -296,11 +295,14 @@ module Roby
 		end
 
 		# Make the neighbour discovery thread quit as well
-		synchronize do
-		    @quit_neighbour_thread = true
-		end
-		start_neighbour_discovery(false)
+		@discovery_thread.raise Interrupt
 		@discovery_thread.join
+
+	    ensure
+		Roby::Control.finalizers.delete(method(:quit))
+		if Distributed.state == self
+		    Distributed.state = nil
+		end
 	    end
 
 	    # Disable the keeper thread, we will do cleanup ourselves
