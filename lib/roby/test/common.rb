@@ -94,9 +94,9 @@ module Roby
 			    end
 			end
 		    rescue Test::Unit::AssertionFailedError
-			STDERR.puts "  timeout on plan cleanup. Remaining tasks are #{Roby.plan.known_tasks}"
+			Roby.warn "  timeout on plan cleanup. Remaining tasks are #{Roby.plan.known_tasks}"
 		    rescue
-			STDERR.puts "  failed to properly cleanup the plan\n  #{$!.full_message}"
+			Roby.warn "  failed to properly cleanup the plan\n  #{$!.full_message}"
 		    end
 		end
 	    end
@@ -130,7 +130,7 @@ module Roby
 		space.relations.each do |rel| 
 		    vertices = rel.enum_for(:each_vertex).to_a
 		    unless vertices.empty?
-			STDERR.puts "  the following vertices are still present in #{rel}: #{vertices.to_a}"
+			Roby.warn "  the following vertices are still present in #{rel}: #{vertices.to_a}"
 			vertices.each { |v| v.clear_vertex }
 		    end
 		end
@@ -147,7 +147,7 @@ module Roby
 		count = ObjectStats.count
 		GC.start
 		remains = ObjectStats.count
-		STDERR.puts "#{count} -> #{remains} (#{count - remains})"
+		Roby.warn "#{count} -> #{remains} (#{count - remains})"
 	    end
 	    timings[:end] = Time.now
 
@@ -155,7 +155,7 @@ module Roby
 		begin
 		    display_timings!
 		rescue
-		    STDERR.puts $!.full_message
+		    Roby.warn $!.full_message
 		end
 	    end
 	end

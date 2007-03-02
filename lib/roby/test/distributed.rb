@@ -26,7 +26,7 @@ module Roby
 		super
 
 		unless Distributed.peers.empty?
-		    STDERR.puts "  still referencing #{Distributed.peers.keys}"
+		    Roby.warn "  still referencing #{Distributed.peers.keys}"
 		    Distributed.peers.clear
 		end
 
