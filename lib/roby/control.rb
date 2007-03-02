@@ -406,7 +406,7 @@ module Roby
     class MissionFailedError < TaskModelViolation
 	alias :mission :task
 	def message
-	    "mission #{mission} failed with failed(#{mission.event(:failed).last.context})\n#{super}"
+	    "mission #{mission} failed with failed(#{mission.failed_event.last.context})\n#{super}"
 	end
     end
     # Get all missions that have failed
