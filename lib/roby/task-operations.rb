@@ -88,7 +88,7 @@ module Roby::TaskAggregator
 		old.on(:success, task, :start)
 		old.event(:success).remove_forwarding event(:success)
 	    end
-	    event(:success).emit_on task.event(:success)
+	    task.forward(:success, self)
 	end
 	private :connect_stop, :connect_start
 
@@ -131,7 +131,7 @@ module Roby::TaskAggregator
 	    super
 
 	    @success = Roby::AndGenerator.new
-	    event(:success).emit_on @success
+	    @success.forward event(:success)
         end
 
 	def to_task(task = nil)

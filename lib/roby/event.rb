@@ -186,16 +186,13 @@ module Roby
 	end
 	private :call
 
-	# Establishes signalling and/or event handlers from this event model.
-	# If +time+ is non-nil, it is a delay (in seconds) which must pass
-	# between the time this event is emitted and the time +signal+ is
-	# called
+	# Establishes signalling and/or event handlers from this event
+	# generator.  If +time+ is non-nil, it is a delay (in seconds) which
+	# must pass between the time this event is emitted and the time
+	# +signal+ is called
 	def on(signal = nil, time = nil, &handler)
 	    if signal
-		if !signal.controlable?
-		    raise EventModelViolation.new(self), "trying to establish a signal between #{self} and #{signal}"
-		end
-		add_signal(signal, time)
+		self.signal(signal, time)
 	    end
 
 	    if handler
@@ -206,16 +203,33 @@ module Roby
 	    self
 	end
 
-	# Adds a signal from this event to +generator+
-	def signal(generator); on(generator) end
-	# Forward this event to +generator+
-	def forward(generator); generator.emit_on self end
+	# Adds a signal from this event to +generator+. +generator+ must be
+	# controlable.  If +timespec+ is given, it is a delay, in seconds,
+	# between the instant this event is fired and the instant +generator+
+	# must be called.
+	def signal(generator, timespec = nil)
+	    if !generator.controlable?
+		raise EventModelViolation.new(self), "trying to establish a signal between #{self} and #{generator}"
+	    end
+	    add_signal generator, timespec
+	    self
+	end
+
+	# Emit +generator+ when +self+ is fired, without calling the command of
+	# +generator+, if any. If +timespec+ is given it is a delay in seconds
+	# between the instant this event is fired and the instant +generator+
+	# is fired
+	def forward(generator, timespec = nil)
+	    add_forwarding generator, timespec
+	    self
+	end
+
 	# Returns an event which is emitted +seconds+ seconds after this one
 	def delay(seconds)
 	    if seconds == 0 then self
 	    else
 		ev = EventGenerator.new(true)
-		on(ev, :delay => seconds)
+		signal(ev, :delay => seconds)
 		ev
 	    end
 	end
@@ -346,15 +360,12 @@ module Roby
 	    end
 	end
 
-	# call-seq:
-	#   emit_on(event)	    => self
-	#   
-	# Call #emit (bypassing any command) when +event+ is fired.
-	# This method is equivalent to
-	#
-	#   self.add_forwarding(self)
+	# Deprecated. Instead of using
+	#   dest.emit_on(source)
+	# now use
+	#   source.forward(dest)
 	def emit_on(generator, timespec = nil)
-	    generator.add_forwarding(self, timespec)
+	    generator.forward(self, timespec)
 	    self
 	end
 
