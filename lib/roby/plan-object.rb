@@ -6,7 +6,20 @@ module Roby
 	include DirectedRelationSupport
 
 	# The plan this object belongs to
-	attr_accessor :plan
+	attr_reader :plan
+	# The place where this object has been removed from its plan
+	attr_accessor :removed_at
+
+	# Sets the new plan. Since it is forbidden to re-use a plan object that
+	# has been removed from a plan, it raises ArgumentError if it is the
+	# case
+	def plan=(new_plan)
+	    if removed_at
+		raise ArgumentError, "#{self} has been removed from plan, cannot add it back\n" +
+		    "Removed at\n  #{removed_at.join("\n  ")}"
+	    end
+	    @plan = new_plan
+	end
 
 	# A three-state flag with the following values:
 	# nil:: the object is executable if its plan is
@@ -19,17 +32,11 @@ module Roby
 	    @executable || (@executable.nil? && plan && plan.executable?)
 	end
 
-	def freeze
-	    self.plan = nil
-	    super
-	end
-	
 	# Checks that we do not link two objects from two different plans
 	# and updates the +plan+ attribute accordingly
 	def synchronize_plan(other)
-	    return if plan == other.plan
-
-	    if other.plan && plan
+	    if plan == other.plan
+	    elsif other.plan && plan
 		raise InvalidPlanOperation, "cannot add a relation between two objects from different plans. #{self} is from #{plan} and #{other} is from #{other.plan}"
 	    elsif plan
 		plan = self.plan

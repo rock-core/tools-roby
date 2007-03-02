@@ -429,6 +429,8 @@ module Roby
 	    elsif object.plan != self
 		if known_tasks.include?(object) || free_events.include?(object)
 		    raise ArgumentError, "#{object} is included in #{self} but #plan == #{object.plan}"
+		elsif !object.plan
+		    raise ArgumentError, "#{object} has been removed at\n  #{object.removed_at.join("\n  ")}"
 		end
 		raise ArgumentError, "#{object} is not in #{self}: #plan == #{object.plan}"
 	    end
@@ -441,7 +443,7 @@ module Roby
 
 	    object.clear_relations
 	    object.plan = nil
-	    object.freeze
+	    object.removed_at = caller
 
 	    case object
 	    when EventGenerator

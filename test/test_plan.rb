@@ -329,5 +329,15 @@ class TC_Plan < Test::Unit::TestCase
 	plan.remove_object(t)
 	assert_equal([e1, e2].to_value_set, plan.unneeded_events)
     end
+
+    # Checks that a garbage collected object (event or task) cannot be added back into the plan
+    def test_garbage_collection_final
+	t = SimpleTask.new
+	e = EventGenerator.new(true)
+	plan.discover [t, e]
+	plan.garbage_collect
+	assert_raises(ArgumentError) { plan.discover(t) }
+	assert_raises(ArgumentError) { plan.discover(e) }
+    end
 end
 
