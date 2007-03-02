@@ -125,7 +125,10 @@ module Roby
 	    # succeeded
 	    def transmit(m, *args, &block)
 		if local.processing?
-		    raise "currently processing a remote request. Use #callback instead"
+		    if block_given?
+			raise "in communication thread, cannot have a callback block"
+		    end
+		    return callback(m, *args)
 		end
 
 		Distributed.debug do

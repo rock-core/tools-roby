@@ -53,7 +53,7 @@ module Roby
 		end
 
 		subscriptions << object
-		peer.callback(:subscribed, [object])
+		peer.transmit(:subscribed, [object])
 
 		case object
 		when PlanObject
@@ -111,13 +111,13 @@ module Roby
 	    # The returned relation sets can be empty if the plan object does not
 	    # have any relations. Since the goal is to *copy* the graph relations...
 	    def set_relations_commands(plan_object)
-		peer.callback(:set_relations, plan_object, relations_of(plan_object))
+		peer.transmit(:set_relations, plan_object, relations_of(plan_object))
 
 		if plan_object.respond_to?(:each_event)
 		    plan_object.each_event do |ev|
 			# Send event even if +result+ is empty, so that relations
 			# are removed if needed on the other side
-			peer.callback(:set_relations, ev, relations_of(ev))
+			peer.transmit(:set_relations, ev, relations_of(ev))
 		    end
 		end
 	    end
