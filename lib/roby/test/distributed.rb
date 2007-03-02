@@ -14,9 +14,12 @@ module Roby
 		Distributed.allow_remote_access Distributed::Peer
 		@old_distributed_logger_level = Distributed.logger.level
 
+		timings[:setup] = Time.now
+
 		# Start the GC so that it does not kick in a test. On slow machines, 
 		# it can trigger timeouts
 		GC.start
+		timings[:gc] = Time.now
 	    end
 
 	    def teardown
@@ -32,6 +35,7 @@ module Roby
 		    Distributed.state = nil
 		end
 
+		timings[:end] = Time.now
 	    ensure
 		Distributed.logger.level = @old_distributed_logger_level
 	    end
@@ -97,6 +101,7 @@ module Roby
 
 	    # Establishes a peer to peer connection between two ConnectionSpace objects
 	    def peer2peer(detached_control = false)
+		timings[:starting_peers] = Time.now
 		start_peers do |remote|
 		    def remote.start_control_thread
 			Control.event_processing << Distributed.state.method(:start_neighbour_discovery)
@@ -111,6 +116,7 @@ module Roby
 		    Roby.control.run :detach => true
 		    remote.start_control_thread
 		end
+		timings[:started_peers] = Time.now
 	    end
 
 	    def process_events

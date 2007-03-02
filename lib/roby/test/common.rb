@@ -7,6 +7,7 @@ module Roby
 	include Roby
 	Unit = ::Test::Unit
 
+	attr_reader :timings
 	class << self
 	    attr_accessor :check_allocation_count
 	end
@@ -40,6 +41,8 @@ module Roby
 	end
 
 	def setup
+	    @timings = { :start => Time.now }
+
 	    @original_collections = []
 	    Thread.abort_on_exception = true
 	    @remote_processes = []
@@ -64,6 +67,7 @@ module Roby
 	    save_collection Roby::Propagation.delayed_events
 
 	    save_collection Roby.exception_handlers
+	    timings[:setup] = Time.now
 	end
 
 	def teardown_plan
@@ -99,7 +103,9 @@ module Roby
 	end
 
 	def teardown
+	    timings[:quit] = Time.now
 	    teardown_plan
+	    timings[:teardown_plan] = Time.now
 
 	    stop_remote_processes
 	    if defined? DRb
@@ -138,6 +144,15 @@ module Roby
 		GC.start
 		remains = ObjectStats.count
 		STDERR.puts "#{count} -> #{remains} (#{count - remains})"
+	    end
+	    timings[:end] = Time.now
+
+	    if display_timings?
+		begin
+		    display_timings!
+		rescue
+		    STDERR.puts $!.full_message
+		end
 	    end
 	end
 
@@ -310,6 +325,29 @@ module Roby
 	attr_reader :console_logger
 
 	attr_predicate :debug_gc?, true
+	attr_predicate :display_timings?, true
+	def display_timings!
+	    timings = self.timings.sort_by { |_, t| t }
+	    ref = timings[0].last
+
+	    format, header, times = "", [], []
+	    format << "%#{method_name.size}s"
+	    header << method_name
+	    times  << ""
+	    timings.each do |name, time| 
+		name = name.to_s
+		time = "%.2f" % [time - ref]
+
+		col_size = [name.size, time.size].max
+		format << " % #{col_size}s"
+		header << name
+		times << time
+	    end
+
+	    puts
+	    puts format % header
+	    puts format % times
+	end
 
 	# Enable display of all plan events on the console
 	def console_logger=(value)
