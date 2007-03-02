@@ -159,11 +159,11 @@ module Roby
 	    fatal_errors = fatal_structure_errors.to_a + events_errors
 	    timings[:fatal_structure_errors] = Time.now
 	    # Get the list of tasks we should kill because of fatal_errors
-	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (e, tasks)|
-		tasks ||= [*e.task]
+	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
+		tasks ||= [*error.task]
 		[*tasks].each do |parent|
 		    new_tasks = parent.reverse_generated_subgraph(TaskStructure::Hierarchy)
-		    Control.fatal_exception(e, new_tasks)
+		    Control.fatal_exception(error, new_tasks)
 		    kill_tasks.merge(new_tasks)
 		end
 		kill_tasks
