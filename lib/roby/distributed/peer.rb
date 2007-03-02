@@ -760,19 +760,6 @@ module Roby::Distributed
 	    end
 	    true
 	end
-
-	# Finds the local transaction for +trsc+
-	def find_transaction(trsc, base_plan = nil)
-	    (base_plan || connection_space.plan).transactions.each do |t|
-		if t.respond_to?(:remote_siblings) && t.remote_siblings[remote_id] == trsc
-		    return t
-		elsif found = find_transaction(trsc, t)
-		    return found
-		end
-	    end
-
-	    nil
-	end
     end
 
     def self.unnecessary?(local_object)
