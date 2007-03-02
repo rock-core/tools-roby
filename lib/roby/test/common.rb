@@ -81,19 +81,23 @@ module Roby
 		Roby.control.quit
 		Roby.control.join
 	    else
-		begin
-		    assert_doesnt_timeout(10) do
-			loop do
-			    Roby.plan.garbage_collect
-			    process_events
-			    break unless Roby.control.clear
-			    sleep(0.1)
+		catch(:done_cleanup) do
+		    begin
+			assert_doesnt_timeout(10) do
+			    loop do
+				Roby::Control.synchronize do
+				    Roby.plan.garbage_collect
+				    throw :done_cleanup unless Roby.control.clear
+				end
+				process_events
+				sleep(0.1)
+			    end
 			end
+		    rescue Test::Unit::AssertionFailedError
+			STDERR.puts "  timeout on plan cleanup. Remaining tasks are #{Roby.plan.known_tasks}"
+		    rescue
+			STDERR.puts "  failed to properly cleanup the plan\n  #{$!.full_message}"
 		    end
-		rescue Test::Unit::AssertionFailedError
-		    STDERR.puts "  timeout on plan cleanup. Remaining tasks are #{Roby.plan.known_tasks}"
-		rescue
-		    STDERR.puts "  failed to properly cleanup the plan\n  #{$!.full_message}"
 		end
 	    end
 
@@ -158,7 +162,9 @@ module Roby
 
 	# Process pending events
 	def process_events
-	    Control.instance.process_events
+	    Roby::Control.synchronize do
+		Control.instance.process_events
+	    end
 	end
 
 	# The list of children started using #remote_process

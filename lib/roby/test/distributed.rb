@@ -122,13 +122,15 @@ module Roby
 	    def process_events
 		if Roby.control.thread
 		    # Control thread is running, nothing to do here
-		elsif remote
+		elsif !remote_peer.disconnected?
 		    remote.start_neighbour_discovery(true)
 		    local.start_neighbour_discovery(true)
 		    remote_peer.flush
 		    remote.send_local_peer(:flush)
-		    remote.process_events
-		    Control.instance.process_events
+		    Roby::Control.synchronize do
+			remote.process_events
+			Control.instance.process_events
+		    end
 		    remote_peer.flush
 		    remote.send_local_peer(:flush)
 		else
