@@ -221,9 +221,8 @@ module Roby
 	end
 
 	# Signal the +signal+ event the first time this event is emitted.  If
-	# +time+ is non-nil, delay the signalling. +handler+ is an optional
-	# event handler to be called once as well.
-	def signal_once(signal = nil, time = nil, &handler)
+	# +time+ is non-nil, delay the signalling this many seconds. 
+	def signal_once(signal, time = nil)
 	    on(signal, time) { remove_signal(signal) }
 	end
 
