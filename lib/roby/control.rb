@@ -285,7 +285,7 @@ module Roby
 	def clear
 	    Control.synchronize do
 		plan.keepalive.dup.each { |t| plan.auto(t) }
-		plan.force_gc.merge( plan.missions )
+		plan.force_gc.merge( plan.known_tasks )
 	    end
 
 	    remaining = plan.known_tasks.find_all { |t| Plan.can_gc?(t) }
