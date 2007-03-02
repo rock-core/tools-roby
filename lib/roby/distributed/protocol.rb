@@ -45,7 +45,7 @@ class Exception
 	def _dump(lvl = -1)
 	    Marshal.dump(error)
 	rescue TypeError
-	    Marshal.dump(DRbRemoteError.new(error))
+	    Marshal.dump(DRb::DRbRemoteError.new(error))
 	end
     end
 
