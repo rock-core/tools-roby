@@ -55,19 +55,20 @@ module Roby
 	def add_child_object(child, type, info = nil)
 	    changed = root_object.synchronize_plan(child.root_object)
 	    super
+
+	rescue Exception
+	    if changed
+		changed.instance_eval { @plan = nil }
+	    end
+	    raise
+
+	else
 	    if changed
 		p = plan
 		changed.instance_eval { @plan = nil }
 		changed.plan = p
 		p.discover(changed)
 	    end
-
-	rescue Exception
-	    if changed
-		changed.instance_eval { @plan = nil }
-	    end
-
-	    raise
 	end
 
 	def root_object; self end
