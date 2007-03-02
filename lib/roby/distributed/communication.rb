@@ -152,6 +152,8 @@ module Roby
 		    end
 		    synchro_call.wait(mutex)
 		end
+
+		result
 	    end
 
 	    # Flushes all commands that are currently queued for this peer.
