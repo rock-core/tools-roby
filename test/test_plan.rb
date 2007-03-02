@@ -162,6 +162,42 @@ module TC_PlanStatic
 	assert_equal(plan, and_generator.plan)
 	assert(plan.free_events.include?(and_generator))
     end
+
+    def test_plan_synchronization
+	t1, t2 = prepare_plan :tasks => 2
+	plan.insert(t1)
+	assert_equal(plan, t1.plan)
+	assert_equal(nil, t2.plan)
+	t1.realized_by t2
+	assert_equal(plan, t1.plan)
+	assert_equal(plan, t2.plan)
+	assert(plan.include?(t2))
+
+	e = EventGenerator.new(true)
+	assert_equal(nil, e.plan)
+	t1.on(:start, e)
+	assert_equal(plan, e.plan)
+	assert(plan.free_events.include?(e))
+
+	# Now, make sure a PlanObject don't get included in the plan if add_child_object
+	# raises
+	adding_child_failure = Module.new do
+	    def adding_child_object(child, relation, info)
+		raise RuntimeError
+	    end
+	end
+	model = Class.new(Task) do
+	    include adding_child_failure
+	end
+	t1, t2 = model.new, model.new
+	plan.insert(t1)
+	assert_equal(plan, t1.plan)
+	assert_equal(nil, t2.plan)
+	assert_raises(RuntimeError) { t1.realized_by t2 }
+	assert_equal(plan, t1.plan)
+	assert_equal(nil, t2.plan)
+	assert(!plan.include?(t2))
+    end
 end
 
 class TC_Plan < Test::Unit::TestCase
