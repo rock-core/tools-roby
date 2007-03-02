@@ -74,6 +74,9 @@ module Roby::Distributed
 	    end
 	end
     end
+    module TaskEventGeneratorProxy
+	include EventGeneratorProxy
+    end
 
     module TaskProxy
 	include RemoteObjectProxy

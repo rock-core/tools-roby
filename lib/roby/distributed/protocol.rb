@@ -565,8 +565,8 @@ module Roby
 		task = peer.local_object(self.task)
 		return unless task.has_event?(symbol)
 		ev   = task.event(symbol)
-		if task.kind_of?(RemoteObjectProxy) && !ev.kind_of?(EventGeneratorProxy)
-		    ev.extend EventGeneratorProxy
+		if task.kind_of?(RemoteObjectProxy) && !ev.kind_of?(TaskEventGeneratorProxy)
+		    ev.extend TaskEventGeneratorProxy
 		    ev.initialize_remote_proxy(peer, self)
 		end
 		ev
