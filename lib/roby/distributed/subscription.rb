@@ -43,10 +43,6 @@ module Roby
 
 	    # Subscribe the remote peer to changes on +object+. +object+ must be
 	    # an object owned locally.
-	    #
-	    # Returns a [subscribed, init] pair, where +subscribed+ is the set of
-	    # objects actually added to the list of subscriptions, and +init+ an
-	    # array which is to be fed to PeerServer#demux_local by the caller.
 	    def subscribe(object)
 		return unless object = peer.local_object(object)
 		return if subscribed?(object)
