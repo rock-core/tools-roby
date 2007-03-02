@@ -178,6 +178,10 @@ module Roby
 
 	def []=(key, value)
 	    if writable?(key)
+		if !task.read_write?
+		    raise NotOwner, "cannot change the argument set of a task which is not owned #{task} is owned by #{task.owners} and #{task.plan} by #{task.plan.owners}"
+		end
+
 		updating
 		super
 		updated
@@ -1039,6 +1043,15 @@ module Roby
 	    id = (@@exception_handler_id += 1)
 	    define_method("exception_handler_#{id}", &handler)
 	    exception_handlers.unshift [matchers, instance_method("exception_handler_#{id}")]
+	end
+	
+	# We can't add relations on objects we don't own
+	def adding_child_object(child, type, info)
+	    super if defined? super
+
+	    unless read_write? && child.read_write?
+		raise NotOwner, "cannot add a relation between tasks we don't own.  #{self} by #{owners.to_a} and #{child} is owned by #{child.owners.to_a}"
+	    end
 	end
     end
 

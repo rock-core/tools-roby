@@ -452,6 +452,15 @@ module Roby
 	end
 
 	def until(limit); UntilGenerator.new(self, limit) end
+	
+	# We can add a relation if we own the child
+	def adding_child_object(child, type, info)
+	    super if defined? super
+	    
+	    unless child.read_write?
+		raise NotOwner, "cannot add an event relation on a child we don't own. #{child} is owned by #{child.owners.to_a} (#{plan.owners.to_a})"
+	    end
+	end
     end
 
     # This generator reemits an event after having changed its context. See

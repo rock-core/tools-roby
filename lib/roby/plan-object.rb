@@ -2,6 +2,9 @@ require 'roby/relations'
 require 'roby/distributed/objects'
 
 module Roby
+    class OwnershipError         < RuntimeError; end
+    class NotOwner               < OwnershipError; end
+
     class PlanObject
 	include DirectedRelationSupport
 
@@ -93,6 +96,15 @@ module Roby
 		Distributed.owns?(self) ||
 		!plan ||
 		(Distributed.owns?(plan) && (owners - plan.owners).empty?)
+	end
+	
+	# We can remove relation if one of the objects is owned by us
+	def removing_child_object(child, type)
+	    super if defined? super
+
+	    unless read_write? || child.read_write?
+		raise NotOwner, "cannot remove a relation between two objects we don't own"
+	    end
 	end
     end
 end

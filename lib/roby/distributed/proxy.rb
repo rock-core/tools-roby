@@ -18,52 +18,6 @@ module Roby::Distributed
 	end
     end
 
-    module OwnershipChecking
-	# We can remove relation if one of the objects is owned by us
-	def removing_child_object(child, type)
-	    super if defined? super
-
-	    unless read_write? || child.read_write?
-		raise NotOwner, "cannot remove a relation between two tasks we don't own"
-	    end
-	end
-    end
-
-    module TaskOwnershipChecking
-	include OwnershipChecking
-	# We can't add relations on objects we don't own
-	def adding_child_object(child, type, info)
-	    super if defined? super
-
-	    unless read_write? && child.read_write?
-		raise NotOwner, "cannot add a relation between tasks we don't own.  #{self} by #{owners.to_a} and #{child} is owned by #{child.owners.to_a}"
-	    end
-	end
-    end
-
-    module EventOwnershipChecking
-	include OwnershipChecking
-	# We can add a relation if we own the child
-	def adding_child_object(child, type, info)
-	    super if defined? super
-	    
-	    unless child.read_write?
-		raise NotOwner, "cannot add an event relation on a child we don't own. #{child} is owned by #{child.owners.to_a} (#{plan.owners.to_a})"
-	    end
-	end
-    end
-    Roby::Task.include TaskOwnershipChecking
-    Roby::EventGenerator.include EventOwnershipChecking
-
-    module TaskArgumentsOwnershipChecking
-	def updating
-	    if !task.read_write?
-		raise NotOwner, "cannot change the argument set of a task which is not owned #{task} is owned by #{task.owners} and #{task.plan} by #{task.plan.owners}"
-	    end
-	    super if defined? super
-	end
-    end
-    Roby::TaskArguments.include TaskArgumentsOwnershipChecking
 
     module RemoteObjectProxy
 	include RemoteObject
