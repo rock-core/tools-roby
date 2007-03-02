@@ -51,7 +51,6 @@ module Roby
 		remote_process do
 		    DRb.start_service DISCOVERY_URI, Rinda::TupleSpace.new
 		end
-		sleep(0.5)
 
 		remote_process do
 		    central_tuplespace = DRbObject.new_with_uri(DISCOVERY_URI)
