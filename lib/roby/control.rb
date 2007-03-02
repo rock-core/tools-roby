@@ -293,7 +293,7 @@ module Roby
 	    if remaining.empty?
 		# Done cleaning the tasks, clear the remains
 		plan.transactions.each do |trsc|
-		    trsc.discard_transaction
+		    trsc.discard_transaction if trsc.self_owned?
 		end
 		plan.clear
 		return
