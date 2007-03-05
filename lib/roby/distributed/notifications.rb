@@ -1,6 +1,6 @@
 module Roby
     module Distributed
-	# Set of hooks to send Plan updates to remote hosts
+	# Set of hooks which send Plan updates to remote hosts
 	module PlanModificationHooks
 	    def inserted(task)
 		super if defined? super
@@ -13,19 +13,27 @@ module Roby
 		    Distributed.trigger(task)
 		end
 	    end
-	    def discovered_tasks(tasks)
-		super if defined? super
-		unless Distributed.updating?([self]) || Distributed.updating?(tasks)
-		    tasks = tasks.find_all { |t| t.distribute? && t.self_owned? }
-		    return if tasks.empty?
 
-		    Distributed.each_subscribed_peer(self) do |peer|
-			peer.plan_update(:discover, self, tasks)
+	    # Common implementation for the #discovered_events and #discovered_tasks hooks
+	    def self.discovered_objects(plan, objects)
+		unless Distributed.updating?([plan]) || Distributed.updating?(objects)
+		    objects = objects.find_all { |t| t.distribute? && t.self_owned? && t.root_object? }
+		    return if objects.empty?
+
+		    Distributed.each_subscribed_peer(plan) do |peer|
+			peer.plan_update(:discover, plan, objects)
 		    end
-		    Distributed.trigger(*tasks)
+		    Distributed.trigger(*objects)
 		end
 	    end
-	    alias :discovered_events :discovered_tasks
+	    def discovered_tasks(tasks)
+		super if defined? super
+		PlanModificationHooks.discovered_objects(self, tasks)
+	    end
+	    def discovered_events(events)
+		super if defined? super
+		PlanModificationHooks.discovered_objects(self, events) 
+	    end
 
 	    def discarded(task)
 		super if defined? super
@@ -47,58 +55,31 @@ module Roby
 		    end
 		end
 	    end
-	    def finalized_task(task)
-		super if defined? super
-		return unless task.distribute? 
 
-		if !task.self_owned?
-		    # Plan's GC decided to remove +task+. Clean up the
-		    # references that are kept by the peers
-		    task.owners.each do |owner|
-			Distributed.peer(owner).delete(task, false)
-		    end
-		elsif !Distributed.updating?([self])
-		    Distributed.clean_triggered(task)
+	    # Common implementation for the #finalized_task and #finalized_event hooks
+	    def self.finalized_object(plan, object)
+		return unless object.distribute? && object.root_object?
+
+		if !Distributed.updating?([plan]) && object.self_owned?
+		    Distributed.clean_triggered(object)
 		    Distributed.peers.each_value do |peer|
 			if peer.connected?
-			    peer.plan_update(:remove_object, self, task)
+			    peer.plan_update(:remove_object, plan, object)
 			end
 		    end
 		end
+
+		object.remote_siblings.each_key do |peer|
+		    peer.delete(object, false) unless peer == Roby::Distributed
+		end
+	    end
+	    def finalized_task(task)
+		super if defined? super
+		PlanModificationHooks.finalized_object(self, task) 
 	    end
 	    def finalized_event(event)
 		super if defined? super
-		return unless event.distribute? && event.root_object?
-
-		if !event.self_owned?
-		    # Plan's GC decided to remove +event+. Clean up the
-		    # references that are kept by the peers
-		    event.owners.each do |owner|
-			Distributed.peer(owner).delete(event, false)
-		    end
-		elsif !Distributed.updating?([self])
-		    Distributed.peers.each_value do |peer|
-			if peer.connected?
-			    peer.plan_update(:remove_object, self, event)
-			end
-		    end
-		end
-	    end
-	    def added_transaction(trsc)
-		super if defined? super
-		unless Distributed.updating?([self])
-		    Distributed.each_subscribed_peer(self) do |peer|
-			peer.transaction_update(:added_transaction, self, trsc)
-		    end
-		end
-	    end
-	    def removed_transaction(trsc)
-		super if defined? super
-		unless Distributed.updating?([self])
-		    Distributed.each_subscribed_peer(trsc) do |peer|
-			peer.transaction_update(:removed_transaction, self, trsc)
-		    end
-		end
+		PlanModificationHooks.finalized_object(self, event) 
 	    end
 	end
 	Plan.include PlanModificationHooks
@@ -152,16 +133,12 @@ module Roby
 		end
 		nil
 	    end
-
-	    def transaction_update(marshalled_plan, event, marshalled_trsc)
-		plan = peer.local_object(marshalled_plan)
-		if event == :removed_transaction
-		    trsc = peer.local_object(marshalled_trsc)
-		end
-		nil
-	    end
 	end
+
 	class Peer
+	    # Notify this peer that +event+ has been called on +plan+ with the
+	    # given arguments. +event+ is typically one of #discover,
+	    # #remove_object, ...
 	    def plan_update(event, plan, *args)
 		case event
 		when :discover
@@ -181,7 +158,8 @@ module Roby
 	    end
 	end
 
-	# Set of hooks to propagate relation modifications for subscribed tasks
+	# This module defines the hooks needed to notify our peers of relation
+	# modifications
 	module RelationModificationHooks
 	    def added_child_object(child, type, info)
 		super if defined? super
@@ -207,6 +185,8 @@ module Roby
 	end
 	PlanObject.include RelationModificationHooks
 
+	# This module includes the hooks needed to notify our peers of event
+	# propagation (fired, forwarding and signalling)
 	module EventNotifications
 	    def fired(event)
 		super if defined? super
@@ -236,6 +216,10 @@ module Roby
 	Roby::EventGenerator.include EventNotifications
 
 	module PlanCacheCleanup
+	    # Removes events generated by +generator+ from the Event object
+	    # cache, PeerServer#pending_events. This cache is used by
+	    # PeerServer#event_for on behalf of PeerServer#event_fired and
+	    # PeerServer#event_add_propagation
 	    def finalized_event(generator)
 		super if defined? super
 		Distributed.peers.each_value do |peer|
@@ -247,6 +231,9 @@ module Roby
 
 	class PeerServer
 	    attribute(:pending_events) { Hash.new }
+
+	    # Creates an Event object for +generator+, with the given argument
+	    # as parameters, or returns an already existing one
 	    def event_for(generator, event_id, time, context)
 		# This must be done at reception time, or we will invert
 		# operations (for instance, we could do a remove_object on a
@@ -266,20 +253,19 @@ module Roby
 		event
 	    end
 
+	    # Called by the peer to notify us about an event which has been fired
 	    def event_fired(marshalled_from, event_id, time, context)
 		return unless from_generator = peer.local_object(marshalled_from)
-		return unless from_generator.plan
-		context        = peer.local_object(context)
+		context = peer.local_object(context)
 		Distributed.pending_fired << [from_generator, event_for(from_generator, event_id, time, context)]
 		nil
 	    end
 
+	    # Called by the peer to notify us about an event signalling
 	    def event_add_propagation(only_forward, marshalled_from, marshalled_to, event_id, time, context)
 		return unless from_generator = peer.local_object(marshalled_from)
-		return unless from_generator.plan
-		return unless to             = peer.local_object(marshalled_to)
-		return unless to.plan
-		context        = peer.local_object(context)
+		return unless to = peer.local_object(marshalled_to)
+		context = peer.local_object(context)
 		Distributed.pending_signals << [only_forward, from_generator, to, event_for(from_generator, event_id, time, context)]
 		nil
 	    end
@@ -293,7 +279,11 @@ module Roby
 		generator.fired(event)
 	    end
 
-	    attr_reader :pending_fired, :pending_signals
+	    # Set of fired events we have been notified about by remote peers
+	    attr_reader :pending_fired
+	    # Set of signals we have been notified about by remote peers
+	    attr_reader :pending_signals
+	    # Fire the signals we have been notified about by remote peers
 	    def distributed_signals
 		seen = ValueSet.new
 		pending_fired.get(true).each do |generator, event|
