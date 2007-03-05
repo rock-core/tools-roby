@@ -316,6 +316,7 @@ class TC_Plan < Test::Unit::TestCase
 
 	plan.insert(t)
 	plan.discover(e1)
+	assert(!Distributed.needed?(e1))
 	assert_equal([e1], plan.unneeded_events.to_a)
 	t.event(:start).on e1
 	assert_equal([], plan.unneeded_events.to_a)

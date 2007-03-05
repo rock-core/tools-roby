@@ -299,8 +299,7 @@ module Roby
 	# Returns the set of unused tasks
 	def unneeded_tasks
 	    (known_tasks - useful_tasks).delete_if do |t|
-		(!t.self_owned? && !Roby::Distributed.unnecessary?(t)) ||
-		    transactions.any? { |trsc| trsc.wrap(t, false) }
+		Roby::Distributed.needed?(t) || transactions.any? { |trsc| trsc.wrap(t, false) }
 	    end
 	end
 
@@ -334,8 +333,7 @@ module Roby
 	# The set of events that can be removed from the plan
 	def unneeded_events
 	    (free_events - useful_events).delete_if do |ev|
-		(!ev.self_owned? && !Roby::Distributed.unnecessary?(ev)) ||
-		    transactions.any? { |trsc| trsc.wrap(ev, false) }
+		Roby::Distributed.needed?(ev) || transactions.any? { |trsc| trsc.wrap(ev, false) }
 	    end
 	end
 
