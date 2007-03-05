@@ -12,8 +12,13 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		attr_reader :controlable
 		attr_reader :contingent
 		def create
+		    # Put the task to avoir having GC clearing the events
+		    plan.insert(t = SimpleTask.new)
 		    plan.discover(@controlable = Roby::EventGenerator.new(true))
 		    plan.discover(@contingent = Roby::EventGenerator.new(false))
+		    t.on(:start, controlable)
+		    t.forward(:start, contingent)
+		    nil
 		end
 		def fire
 		    controlable.call(nil) 
@@ -24,15 +29,13 @@ class TC_DistributedExecution < Test::Unit::TestCase
 
 	remote.create
 	r_controlable = remote.controlable
-	r_contingent = remote.contingent
-	p_controlable = remote_peer.proxy(r_controlable)
-	p_contingent = remote_peer.proxy(r_contingent)
+	r_contingent  = remote.contingent
+	p_controlable = remote_peer.local_object(r_controlable)
+	p_contingent  = remote_peer.local_object(r_contingent)
 
 	remote.fire
-	remote_peer.subscribe(r_controlable.remote_object)
-	remote_peer.subscribe(r_contingent.remote_object)
-	process_events
-
+	r_controlable = remote_peer.subscribe(r_controlable)
+	r_contingent = remote_peer.subscribe(r_contingent)
 	assert(p_controlable.happened?)
 	assert(p_contingent.happened?)
     end
@@ -42,6 +45,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    class << remote
 		attr_reader :task
 		def create_task
+		    Roby.control.abort_on_exception = false
 		    plan.clear
 		    plan.insert(@task = SimpleTask.new(:id => 1))
 		end
@@ -51,25 +55,25 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	end
 
 	remote.create_task
-	r_task = remote_task(:id => 1)
-	p_task = remote_peer.proxy(r_task)
+	p_task = remote_task(:id => 1)
 	assert(!p_task.event(:start).happened?)
 
-	# Start the task *before* subscribing to test that
-	# #subscribe maps the task status
+	# Start the task *before* subscribing to test that #subscribe maps the
+	# task status
 	remote.start_task
 	process_events
-	remote_peer.subscribe(r_task.remote_object)
-	process_events
-
+	p_task = remote_peer.subscribe(p_task)
 	assert(p_task.event(:start).happened?)
 	assert(p_task.running?)
 
 	# Stop the task to see if the fired event is propagated
 	remote.stop_task
-	assert_raises(Roby::Aborting) { process_events }
+	remote.send_local_peer(:flush)
+	assert_raises(Roby::Aborting) { Control.instance.process_events }
 	assert(p_task.event(:stop).happened?)
 	assert(p_task.finished?)
+
+	Roby.control.abort_on_exception = false
     end
 
     def test_signalling
@@ -89,8 +93,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		end
 	    end
 	end
-	r_task = remote_task(:id => 1)
-	p_task = remote_peer.proxy(r_task)
+	p_task = remote_task(:id => 1)
 
 	FlexMock.use do |mock|
 	    signalled_ev = EventGenerator.new do |context|
@@ -114,7 +117,6 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    remote.start_task
 
 	    process_events
-	    Control.instance.process_events
 	    assert(signalled_ev.happened?)
 	    assert(forwarded_ev.happened?)
 	end
@@ -138,16 +140,12 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    end
 	end
 
-	parent   = remote_peer.proxy(remote_task(:id => 'parent'))
+	parent   = remote_task(:id => 'parent')
 	child    = nil
-	remote_peer.subscribe(parent) do 
-	    assert(child = local.plan.known_tasks.find { |t| t.arguments[:id] == 'child' })
-	    assert(!child.subscribed?)
-	    assert(child.running?)
-	end
-	process_events
-
-	assert(child)
+	parent = remote_peer.subscribe(parent) 
+	assert(child = local.plan.known_tasks.find { |t| t.arguments[:id] == 'child' })
+	assert(!child.subscribed?)
+	assert(child.running?)
 	remote.remove_link
 	process_events
 	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'child' })

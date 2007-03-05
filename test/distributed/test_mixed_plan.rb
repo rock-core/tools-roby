@@ -27,8 +27,8 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	t1.realized_by t2
 	t2.planned_by t3
 	plan.insert(t1)
-	plan.permanent(t2)
-	plan.permanent(t3)
+	plan.discover(t2)
+	plan.discover(t3)
 
 	[t1, t2, t3]
     end
@@ -44,8 +44,8 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
     # relation does not exist anymore in the transaction after they have been
     # removed from the plan.
     def check_resulting_plan(plan, removed_planner)
-	remote_center_node = plan.known_tasks.find { |t| t.arguments[:id] == "remote-2" }
-	local_center_node  = plan.known_tasks.find { |t| t.arguments[:id] == "local-2" }
+	assert(remote_center_node = plan.known_tasks.find { |t| t.arguments[:id] == "remote-2" }, plan.known_tasks)
+	assert(local_center_node  = plan.known_tasks.find { |t| t.arguments[:id] == "local-2" }, plan.known_tasks)
 
 	assert_equal(["remote-1"], remote_center_node.parents.map { |obj| obj.arguments[:id] })
 	assert_equal(["local-1", "remote-2"].to_set, local_center_node.parents.map { |obj| obj.arguments[:id] }.to_set)
@@ -69,100 +69,132 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 
     # Common setup of the remote peer
     def common_setup(propose_first)
-	peer2peer do |remote|
+	peer2peer(true) do |remote|
 	    testcase = self
 	    remote.singleton_class.class_eval do
 		define_method(:add_tasks) do |plan|
-		    testcase.add_tasks(local_peer.proxy(plan), "remote") 
+		    begin
+			plan = local_peer.proxy(plan)
+			if plan.respond_to?(:edit)
+			    plan.edit
+			end
+			Roby::Control.synchronize do
+			    testcase.add_tasks(plan, "remote") 
+			end
+
+		    ensure
+			if plan.respond_to?(:edit)
+			    plan.release(false)
+			end
+		    end
 		end
 		define_method(:check_resulting_plan) do |plan, removed_planner|
-		    testcase.check_resulting_plan(local_peer.proxy(plan), removed_planner) 
+		    Roby::Control.synchronize do
+			testcase.check_resulting_plan(local_peer.proxy(plan), removed_planner) 
+		    end
 		end
 		define_method(:assert_cleared_relations) do |plan|
-		    testcase.assert_cleared_relations(local_peer.proxy(plan))
+		    Roby::Control.synchronize do
+			testcase.assert_cleared_relations(local_peer.proxy(plan))
+		    end
+		end
+		def remove_relations(t1, t2, t3)
+		    Roby::Control.synchronize do
+			t1 = local_peer.local_object(t1)
+			t2 = local_peer.local_object(t2)
+			t3 = local_peer.local_object(t3)
+			t1.remove_child(t2)
+			t2.remove_planning_task(t3)
+		    end
 		end
 	    end
 	end
 
 	# Create the transaction, and do the necessary modifications
-	trsc = Distributed::Transaction.new(local.plan, :conflict_solver => SolverIgnoreUpdate.new)
+	trsc = Distributed::Transaction.new(plan, :conflict_solver => SolverIgnoreUpdate.new)
 
 	trsc.add_owner remote_peer
 	trsc.self_owned
 	trsc.propose(remote_peer) if propose_first
-	process_events
 
 	yield(trsc)
 
-	process_events
-	# Check the transaction is still valid, regardless of the
-	# changes we made to the plan
-	check_resulting_plan(trsc, true)
-	remote.check_resulting_plan(trsc, true)
+	assert_happens do
+	    # Check the transaction is still valid, regardless of the
+	    # changes we made to the plan
+	    check_resulting_plan(trsc, true)
+	    remote.check_resulting_plan(trsc, true)
+	end
 
 	# Commit and check the result
-	did_commit = nil
-	trsc.commit_transaction { |_, did_commit| }
-	assert_happens { assert(did_commit) }
+	trsc.commit_transaction
 
-	check_resulting_plan(local.plan, true)
-	remote.check_resulting_plan(remote.plan, true)
+	check_resulting_plan(plan, true)
+	remote.check_resulting_plan(plan, true)
     end
 
     def test_rproxy_realizes_lproxy(propose_first = false)
+	# Roby.logger.level = Logger::DEBUG
 	common_setup(propose_first) do |trsc|
 	    # First, add relations between two nodes that are already existing
-	    r_t1, r_t2, r_t3 = remote.add_tasks(remote.plan).map { |t| remote_peer.local_object(t) }
-	    t1, t2, t3 = add_tasks(local.plan, "local")
+	    r_t1, r_t2, r_t3 = remote.add_tasks(plan).map do |t| 
+		Control.synchronize { remote_peer.local_object(t) }
+	    end
+	    t1, t2, t3 = nil
+	    Control.synchronize { t1, t2, t3 = add_tasks(plan, "local") }
 
-	    remote_peer.subscribe(r_t2)
-	    process_events
-
+	    r_t2 = remote_peer.subscribe(r_t2)
 	    trsc[r_t2].realized_by trsc[t2]
-	    process_events
 	    check_resulting_plan(trsc, false)
+	    remote_peer.flush
 	    remote.check_resulting_plan(trsc, false) if propose_first
 
 	    # Remove the relations in the real tasks (not the proxies)
-	    t1.remove_child(t2)
-	    t2.remove_planning_task(t3)
-	    r_t1.remote_object(remote_peer).remove_child(r_t2.remote_object(remote_peer))
-	    r_t2.remote_object(remote_peer).remove_planning_task(r_t3.remote_object(remote_peer))
-	    process_events
-	    assert_cleared_relations(local.plan)
+	    Control.synchronize do
+		t1.remove_child(t2)
+		t2.remove_planning_task(t3)
+	    end
+	    remote.remove_relations(r_t1, r_t2, r_t3)
+
+	    assert_happens do
+		assert_cleared_relations(plan)
+	    end
 
 	    unless propose_first
 		trsc.propose(remote_peer)
-		process_events
 	    end
-	    remote.assert_cleared_relations(local.plan)
+	    assert_happens do
+		remote.assert_cleared_relations(plan)
+	    end
 	end
     end
     def test_rproxy_realizes_lproxy_dynamic; test_rproxy_realizes_lproxy(true) end
 
     def test_rproxy_realizes_ltask(propose_first = false)
 	common_setup(propose_first) do |trsc|
-	    r_t1, r_t2, r_t3 = remote.add_tasks(remote.plan).map { |t| remote_peer.proxy(t) }
+	    r_t1, r_t2, r_t3 = remote.add_tasks(plan).map do |t| 
+		Control.synchronize { remote_peer.local_object(t) }
+	    end
+	    t1, t2, t3 = nil
+	    Control.synchronize { t1, t2, t3 = add_tasks(trsc, "local") }
+	    r_t2 = remote_peer.subscribe(r_t2)
 
-	    remote_peer.subscribe(r_t2)
-	    process_events
-
-	    t1, t2, t3 = add_tasks(trsc, "local")
 	    trsc[r_t2].realized_by t2
-	    process_events
-	    check_resulting_plan(trsc, false)
-	    remote.check_resulting_plan(trsc, false) if propose_first
+	    assert_happens do
+		check_resulting_plan(trsc, false)
+		remote.check_resulting_plan(trsc, false) if propose_first
+	    end
 
 	    # remove the relations in the real tasks (not the proxies)
 	    r_t1.remote_object(remote_peer).remove_child(r_t2.remote_object(remote_peer))
 	    r_t2.remote_object(remote_peer).remove_planning_task(r_t3.remote_object(remote_peer))
-	    process_events
 
 	    unless propose_first
 		trsc.propose(remote_peer)
-		process_events
 	    end
-	    remote.assert_cleared_relations(remote.plan)
+	    assert_happens do
+		remote.assert_cleared_relations(plan)
+	    end
 	end
     end
     def test_rproxy_realizes_ltask_dynamic; test_rproxy_realizes_ltask(true) end
@@ -171,21 +203,25 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
     # present on both sides if we want to have remote tasks in it
     def test_rtask_realizes_lproxy
 	common_setup(true) do |trsc|
-	    t1, t2, t3 = add_tasks(local.plan, "local")
+	    trsc.release(false)
 	    r_t1, r_t2, r_t3 = remote.add_tasks(trsc).map { |t| remote_peer.proxy(t) }
-	    process_events
 
+	    trsc.edit
+	    t1, t2, t3 = nil
+	    Control.synchronize do
+		t1, t2, t3 = add_tasks(plan, "local")
+	    end
 	    r_t2.realized_by trsc[t2]
-	    process_events
 
 	    check_resulting_plan(trsc, false)
+	    remote_peer.flush
 	    remote.check_resulting_plan(trsc, false)
 
 	    # remove the relations in the real tasks (not the proxies)
 	    t1.remove_child(t2)
 	    t2.remove_planning_task(t3)
-	    process_events
-	    assert_cleared_relations(local.plan)
+	    remote_peer.flush
+	    remote.assert_cleared_relations(plan)
 	end
     end
 end

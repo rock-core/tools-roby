@@ -87,7 +87,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	local.start_neighbour_discovery(true)
 	Control.instance.process_events
 	remote_neighbour = Distributed.neighbours.find { true }
-	remote_peer = Peer.new(local, remote_neighbour)
+	@remote_peer = Peer.new(local, remote_neighbour)
 	assert(remote_peer.connecting?)
 	assert_raises(ArgumentError) { Peer.new(local, remote_neighbour) }
 
@@ -109,17 +109,15 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	Control.instance.process_events
 	assert(remote_peer.task.running?)
 
-	# After +remote+ has finished neighbour discovery, all handshakes must
-	# be finished, so we should have a Peer object for +local+
 	remote.start_neighbour_discovery(true)
-	local_peer = remote.peers.find { true }.last
-	assert_equal(local.tuplespace, local_peer.neighbour.tuplespace)
-	assert_equal(remote.tuplespace, local_peer.keepalive['tuplespace'])
-	assert_equal(local.tuplespace,  local_peer.neighbour.tuplespace)
-	assert_nothing_raised(local_peer.keepalive.value) { local.tuplespace.read(local_peer.keepalive.value, 0)}
-	assert(local_peer.connecting?)
-	assert(local_peer.link_alive?)
-	assert(!local_peer.task.remote_object.ready?)
+	local_neighbour = remote.send_local_peer(:neighbour)
+	local_keepalive = remote.send_local_peer(:keepalive)
+	assert_equal(local.tuplespace,  local_neighbour.tuplespace)
+	assert_equal(remote.tuplespace, local_keepalive['tuplespace'])
+	assert_equal(local.tuplespace,  local_neighbour.tuplespace)
+	assert(remote.send_local_peer(:connecting?))
+	assert(remote.send_local_peer(:link_alive?))
+	assert(!remote.send_local_peer(:task).remote_object.ready?)
 	assert(remote_peer.connecting?)
 	assert(!remote_peer.task.ready?)
 
@@ -129,11 +127,11 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert(remote_peer.connected?)
 	assert(remote_peer.link_alive?)
 	assert(remote_peer.task.ready?)
-	local_peer.flush
+	remote.send_local_peer(:flush)
 	remote.process_events
-	assert(local_peer.connected?)
-	assert(local_peer.link_alive?)
-	assert(local_peer.task.remote_object.ready?)
+	assert(remote.send_local_peer(:connected?))
+	assert(remote.send_local_peer(:link_alive?))
+	assert(remote.send_local_peer(:task).remote_object.ready?)
 
 	assert_equal('remote', remote_peer.neighbour.name)
 	assert_equal('remote', remote_peer.remote_server.local_name)
@@ -225,9 +223,10 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert(remote_peer.disconnecting?)
 
 	remote.start_neighbour_discovery(true)
-	assert(local_peer.disconnected?)
+	assert(remote.send_local_peer(:disconnected?))
 	local.start_neighbour_discovery(true)
 	assert(remote_peer.disconnected?)
+	remote.reset_local_peer
 
 	# Make sure that we can reconnect
 	test_connect(false)
@@ -236,7 +235,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
     # Tests that the remote peer disconnects if #demux raises DisconnectedError
     def test_automatic_disconnect
 	# Temporarily raise the logging level since we will generate a communication error
-	Roby.logger.level = Logger::FATAL
+	Roby.logger.level = Logger::DEBUG
 	peer2peer do |remote|
 	    class << remote
 		include Test::Unit::Assertions
@@ -244,7 +243,6 @@ class TC_DistributedConnection < Test::Unit::TestCase
 		    peer = peers.find { true }[1]
 		    peer.transmit(:whatever)
 		    peer.flush rescue nil
-		    # assert_raises(RuntimeError) { peer.flush }
 		end
 	    end
 	end
@@ -252,10 +250,11 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	remote_peer.disconnect
 	remote.assert_demux_raises
 	remote.start_neighbour_discovery(true)
-	assert(local_peer.disconnected?)
+	assert(remote.send_local_peer(:disconnected?))
 
 	local.start_neighbour_discovery(true)
 	assert(remote_peer.disconnected?)
+	remote.reset_local_peer
 
 	# Make sure that we can reconnect
 	test_connect(false)

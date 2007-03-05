@@ -122,7 +122,6 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_equal(expected, marshalled.model.ancestors.find_all { |klass| klass.instance_of?(Class) }[0, expected.size])
     end
     def test_marshal_task_event
-	DRb.start_service
 	remote = remote_server do
 	    attr_reader :task
 	    def task_event
@@ -175,6 +174,14 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	tagged_task_model = remote.anonymously_tagged_task_model
 	assert(tagged_task_model.has_ancestor?(CommonTaskModelTag))
 	assert(tagged_task_model.has_ancestor?(anonymous_tag))
+    end
+
+    def test_local_object
+	model = Class.new(Roby::Task) do
+	    local_object
+	end
+	task = model.new
+	assert(!task.distribute?)
     end
 end
 

@@ -24,7 +24,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	    def remote.new_task(kind, args)
 		new_task = kind.new(args)
 		yield(new_task) if block_given?
-		plan.discover(new_task)
+		plan.insert(new_task)
 		new_task
 	    end
 	    def remote.insert_task(task)
@@ -39,12 +39,12 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    remote.new_task(SimpleTask, :id => 3)
 	    remote.new_task(Roby::Task, :id => 2)
-	    remote.new_task(SimpleTask, :id => 2) do |inserted|
-		mock.should_receive(:notified).with(remote_peer.proxy(inserted)).once.ordered
-		nil
-	    end
 	    remote_peer.on(notification) do |task|
 		mock.notified(task)
+		nil
+	    end
+	    remote.new_task(SimpleTask, :id => 2) do |inserted|
+		mock.should_receive(:notified).with(remote_peer.proxy(inserted)).once.ordered
 		nil
 	    end
 	    process_events
@@ -57,7 +57,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	    end
 	    process_events
 
-	    remote.insert_task(r2.remote_object)
+	    remote.insert_task(r2.remote_object(remote_peer))
 	    process_events
 	end
     end
@@ -78,8 +78,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 
 	# Subscribe to the remote plan
 	remote_plan = remote_peer.remote_server.plan
-	remote_peer.subscribe(remote_plan.remote_object)
-	process_events
+	remote_peer.subscribe(remote_plan)
 
 	# Check that the remote plan has been mapped locally
 	tasks = local.plan.known_tasks
@@ -111,6 +110,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 		end
 		def create_free_event
 		    @free_event = Roby::EventGenerator.new(true)
+		    @next_mission.on(:start, @free_event)
 		    plan.discover(free_event)
 		end
 		def remove_free_event
@@ -127,9 +127,8 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 
 	# Subscribe to the remote plan
 	remote_plan = remote_peer.remote_server.plan
-	remote_peer.subscribe(remote_plan.remote_object)
-	process_events
-	assert(remote_peer.subscribed?(remote_plan.remote_object), remote_peer.subscriptions)
+	remote_peer.subscribe(remote_plan)
+	assert(remote_peer.subscribed?(remote_plan), remote_peer)
 
 	remote.create_mission
 	process_events
@@ -137,7 +136,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	# NOTE: the count is always remote_tasks + 1 since we have the ConnectionTask for our connection
 	assert_equal(2, local.plan.size, local.plan.known_tasks.to_a)
 	assert(p_mission = local.plan.known_tasks.find { |t| t == remote_peer.proxy(r_mission) })
-	assert(remote_peer.subscribed?(r_mission.remote_object), remote_peer.subscriptions)
+	assert(remote_peer.subscribed?(r_mission.remote_object(remote_peer)), remote_peer.subscriptions)
 
 	remote.create_subtask
 	process_events
@@ -145,7 +144,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	assert_equal(3, local.plan.size)
 	assert(p_subtask = local.plan.known_tasks.find { |t| t == remote_peer.proxy(r_subtask) })
 	assert(p_mission.child_object?(p_subtask, TaskStructure::Hierarchy))
-	assert(remote_peer.subscribed?(r_subtask.remote_object), remote_peer.subscriptions)
+	assert(remote_peer.subscribed?(r_subtask.remote_object(remote_peer)), remote_peer.subscriptions)
 
 	remote.create_next_mission
 	process_events
@@ -153,7 +152,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	assert_equal(4, local.plan.size)
 	assert(p_next_mission = local.plan.known_tasks.find { |t| t == remote_peer.proxy(r_next_mission) })
 	assert(p_mission.event(:start).child_object?(p_next_mission.event(:start), EventStructure::Signal))
-	assert(remote_peer.subscribed?(r_next_mission.remote_object), remote_peer.subscriptions)
+	assert(remote_peer.subscribed?(r_next_mission.remote_object(remote_peer)), remote_peer.subscriptions)
 
 	remote.create_free_event
 	process_events
@@ -170,7 +169,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 
 	remote.remove_next_mission
 	process_events
-	assert(!remote_peer.subscribed?(r_next_mission.remote_object), remote_peer.subscriptions)
+	assert(!remote_peer.subscribed?(r_next_mission.remote_object(remote_peer)), remote_peer.subscriptions)
 	assert_equal(3, local.plan.size)
 	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'next_mission' })
 
@@ -181,7 +180,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 
 	remote.remove_subtask
 	process_events
-	assert(!remote_peer.subscribed?(r_subtask.remote_object), remote_peer.subscriptions)
+	assert(!remote_peer.subscribed?(r_subtask.remote_object(remote_peer)), remote_peer.subscriptions)
 	assert_equal(2, local.plan.size)
 	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'subtask' })
 
@@ -205,6 +204,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	    remote.plan.insert(mission)
 
 	    remote.class.class_eval do
+		def insert_new; plan.insert(SimpleTask.new(:id => 'new')) end
 		define_method(:remove_subtask) do 
 		    plan.remove_object(subtask)
 		end
@@ -212,10 +212,13 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	end
 
 	remote_peer.subscribe(remote_peer.remote_server.plan)
-	process_events
 	remote_peer.unsubscribe(remote_peer.remote_server.plan)
+	assert_equal(3, local.plan.size)
+
+	remote.insert_new
 	process_events
 	assert_equal(3, local.plan.size)
+
 	remote.remove_subtask
 	process_events
 	assert_equal(2, local.plan.size)

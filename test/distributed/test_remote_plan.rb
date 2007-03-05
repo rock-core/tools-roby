@@ -98,12 +98,11 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    end
 	end
 
-	u = remote_peer.proxy(remote_task(:id => 0))
-	t1 = remote_peer.proxy(remote_task(:id => 1))
-	t2 = remote_peer.proxy(remote_task(:id => 2))
+	u = remote_task(:id => 0)
+	t1 = remote_task(:id => 1)
+	t2 = remote_task(:id => 2)
 
-	remote_peer.subscribe(u)
-	assert_nothing_raised { process_events }
+	u = remote_peer.subscribe(u)
 	assert(remote_peer.connected?)
 
 	remote.remove_relations
@@ -113,9 +112,10 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
     def test_event_proxy
 	peer2peer do |remote|
-	    remote.plan.discover(ev = EventGenerator.new(true))
-	    remote.plan.discover(ev = EventGenerator.new(false))
-	    remote.plan.discover(ev = EventGenerator.new { } )
+	    remote.plan.insert(t = Task.new)
+	    t.on(:start, (ev = EventGenerator.new(true)))
+	    t.event(:start).forward(ev = EventGenerator.new(false))
+	    t.on(:start, (ev = EventGenerator.new { }))
 	    remote.class.class_eval do
 		include Test::Unit::Assertions
 		define_method(:event_has_happened?) { ev.happened? }
@@ -256,7 +256,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_equal([], proxies)
     end
 
-    def test_remove_unnecessary
+    def test_remove_not_needed
 	peer2peer do |remote|
 	    left, right, middle =
 		SimpleTask.new(:id => 'left'), 
