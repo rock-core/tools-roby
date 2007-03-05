@@ -938,6 +938,10 @@ module Roby
 	    pp.text to_s
 	    pp.group(2, ' {', '}') do
 		pp.breakable
+		pp.text "owners: "
+		pp.seplist(owners) { |r| pp.text r.to_s }
+
+		pp.breakable
 		pp.text "relations: "
 		pp.seplist(relations) { |r| pp.text r.name }
 
