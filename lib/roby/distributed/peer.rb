@@ -26,6 +26,20 @@ module Roby
 end
 
 module Roby::Distributed
+    class ConnectionSpace
+	def add_owner(object, peer)
+	    object.add_owner(peer, false)
+	end
+	def remove_owner(object, peer)
+	    object.remove_owner(peer, false)
+	end
+	def prepare_remove_owner(object, peer)
+	    object.prepare_remove_owner(peer)
+	rescue Exception => e
+	    e
+	end
+    end
+
     class ConnectionTask < Roby::Task
 	local_object
 
@@ -146,6 +160,21 @@ module Roby::Distributed
 	def triggered(id, task)
 	    peer.triggered(id, task) 
 	    nil
+	end
+
+	def add_owner(object, new_owner)
+	    peer.local_object(object).add_owner(new_owner, false)
+	    nil
+	end
+	def remove_owner(object, new_owner)
+	    peer.local_object(object).remove_owner(new_owner, false)
+	    nil
+	end
+	def prepare_remove_owner(object, new_owner)
+	    peer.local_object(object).prepare_remove_owner(new_owner)
+	    nil
+	rescue
+	    $!
 	end
 
 	# Send the neighborhood of +distance+ hops around +object+ to the peer

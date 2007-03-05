@@ -87,6 +87,10 @@ module Roby
 
 	# Module included in objects distributed across multiple pDBs
 	module DistributedObject
+	    attribute(:mutex) { Mutex.new }
+	    attribute(:synchro_call) { ConditionVariable.new }
+	    attribute(:remote_siblings) { Hash.new }
+
 	    def self_owned?
 		owners.include?(Distributed)
 	    end
@@ -119,42 +123,95 @@ module Roby
 		else remove_owner(Distributed)
 		end
 	    end
-	    
-	    def ==(other)
-		super || (other.kind_of?(DistributedObject) && 
-		    remote_siblings.any? { |peer_id, obj| other.remote_siblings[peer_id] == obj })
+
+	    def call_siblings(*args)
+		Distributed.call_peers(mutex, synchro_call, remote_siblings.keys << Distributed, *args)
 	    end
-	    
-	    # Sends the provided command to all owners. If +ignore_missing+ is
-	    # true, ignore the owners to which the transaction has not yet been
-	    # proposed. Raises InvalidRemoteOperation if +ignore_missing+.
-	    #
-	    # Yields the value returned by the remote owners to the block
-	    # inside the communication thread. +done+ is true for the last peer
-	    # to reply.
-	    def apply_to_owners(ignore_missing, *args) # :nodoc:
-		if !ignore_missing
-		    owners.each do |remote_id|
-			if remote_id.kind_of?(DRbObject) && !remote_siblings.has_key?(remote_id)
-			    raise InvalidRemoteOperation, "cannot do #{args} if the transaction is not distributed on all its owners"
+	    def call_owners(*args) # :nodoc:
+		raise NotOwner, "not owner" if !self_owned?
+		    
+		if owners.any? { |peer| !has_sibling?(peer) }
+		    raise InvalidRemoteOperation, "cannot do #{args} if the object is not distributed on all its owners"
+		end
+
+		Distributed.call_peers(mutex, synchro_call, owners, *args)
+	    end
+	end
+
+	# Calls +args+ on all peers and returns a { peer => return_value } hash
+	# of all the values returned by each peer
+	def self.call_peers(mutex, synchro, calling, *args)
+	    call_local = calling.include?(Distributed)
+
+	    result = Hash.new
+	    mutex.synchronize do
+		waiting_for = calling.size
+		waiting_for -= 1 if call_local
+
+		calling.each do |peer| 
+		    next if peer == Distributed
+		    peer.transmit(*args) do |peer_result|
+			mutex.synchronize do
+			    result[peer] = peer_result
+			    waiting_for -= 1
+			    if waiting_for == 0
+				synchro.broadcast
+			    end
 			end
 		    end
 		end
 
-		waiting_for = owners.size - 1
-		result = Distributed.state.send(*args)
-		yield(waiting_for == 0, result) if block_given?
-
-		owners.each do |remote_id| 
-		    next unless remote_siblings.include?(remote_id)
-		    next unless remote_id.kind_of?(DRbObject)
-
-		    Distributed.peer(remote_id).call(*args)
-		    waiting_for -= 1
-		    yield(waiting_for == 0, result) if block_given?
-		end
+		synchro.wait(mutex) unless waiting_for == 0
 	    end
 
+	    if call_local
+		result[Distributed] = Distributed.call(*args)
+	    end
+	    result
+	end
+
+
+	class PeerServer
+	    # Creates a sibling for +marshalled_object+, which already exists
+	    # on our peer
+	    def create_sibling(marshalled_object)
+		object_remote_id = peer.remote_object(marshalled_object)
+		if sibling = peer.proxies[object_remote_id]
+		    raise ArgumentError, "#{marshalled_object} has already a sibling (#{sibling})"
+		end
+
+		sibling = marshalled_object.sibling(peer)
+		sibling.remote_siblings[peer] = object_remote_id
+		peer.proxies[object_remote_id] = sibling
+
+		subscriptions << sibling
+		peer.subscriptions << object_remote_id
+
+		marshalled_object.created_sibling(peer, sibling)
+		sibling
+	    end
+	end
+
+	class Peer
+	    # Creates a sibling for +object+ on the peer, and returns the corresponding
+	    # DRbObject
+	    def create_sibling(object)
+		unless object.kind_of?(DistributedObject)
+		    raise TypeError, "cannot create a sibling for a non-distributed object"
+		end
+
+		marshalled_sibling = call(:create_sibling, object)
+		sibling_id = marshalled_sibling.remote_object
+		object.remote_siblings[self] = sibling_id
+		proxies[sibling_id] = object
+
+		subscriptions << marshalled_sibling.remote_object
+		Roby::Control.synchronize do
+		    local.subscribe(object)
+		end
+
+		call(:synchro_point)
+	    end
 	end
     end
 end

@@ -15,74 +15,79 @@ module Roby
 	class NotReady < RuntimeError; end
 	class Transaction < Roby::Transaction
 	    attr_reader :owners
-	    attr_reader :editors
 	    attr_reader :token_lock, :token_lock_signal
 	    include DistributedObject
 
 	    def initialize(plan, options = {})
 		super
-		@owners  = [Distributed.remote_id].to_set
-		@editors = [Distributed.remote_id]
+		@owners  = [Distributed]
 		@editor  = true
 
 		@token_lock = Mutex.new
 		@token_lock_signal = ConditionVariable.new
 	    end
 
-	    # Add the Peer +peer+ to the list of owners
-	    def add_owner(peer, distributed = true)
-		peer_id = if peer.respond_to?(:remote_id) then peer.remote_id
-			  else peer
-			  end
-
-		if !self_owned? && distributed
-		    raise NotOwner, "not transaction owner"
+	    def do_wrap(base_object, create)
+		# It is allowed to add objects in a transaction only if
+		#   * the object is not distribuable. It means that we are
+		#     annotating *locally* remote tasks (like it is done for
+		#     ConnectionTask for instance).
+		#   * the object is owned by the transaction owners
+		if create && (base_object.distribute? && !(base_object.owners - owners).empty?)
+		    raise NotOwner, "plan owners #{owners} do not own #{base_object}: #{base_object.owners}"
 		end
-		return if @owners.include?(peer_id)
 
-		if distributed
-		    remote_siblings.each_value do |remote|
-			remote.add_owner(peer_id, false)
-		    end
+		if object = super
+		    object.extend DistributedObject
 		end
-		
-		editors << peer_id
-		owners  << peer_id
-		Distributed.debug { "added owner to #{self}: #{owners.to_a}" }
+
+		object
 	    end
 
-	    # Checks that +peer_id+ can be removed from the list of owners
-	    def prepare_remove_owner(peer_id)
-		each_task(true) do |t|
-		    next unless discovered_relations_of?(t, nil, false) 
-		    t = t.__getobj__ if t.kind_of?(Roby::Transactions::Proxy)
-		    if t.owners.include?(peer_id)
-			raise OwnershipError, "#{peer_id} still owns tasks in the transaction (#{t})"
+
+	    # Add the Peer +peer+ to the list of owners
+	    def add_owner(peer, distributed = true)
+		return if owners.include?(peer)
+		if distributed 
+		    if !self_owned?
+			raise NotOwner, "not object owner"
+		    end
+
+		    call_siblings(:add_owner, self, peer)
+		else
+		    owners << peer
+		    Distributed.debug { "added owner to #{self}: #{owners.to_a}" }
+		end
+	    end
+
+	    # Checks that +peer+ can be removed from the list of owners
+	    def prepare_remove_owner(peer)
+		known_tasks.each do |t|
+		    t = t.__getobj__ if t.respond_to?(:__getobj__)
+		    if peer.owns?(t)
+			raise OwnershipError, "#{peer} still owns tasks in the transaction (#{t})"
 		    end
 		end
+		nil
 	    end
 
 	    # Removes +peer+ from the list of owners. Raises OwnershipError if
 	    # there are modified tasks in this transaction which are owned by
 	    # +peer+
-	    def remove_owner(peer, do_check = true)
-		peer_id = if peer.respond_to?(:remote_id) then peer.remote_id
-			  else peer
-			  end
+	    def remove_owner(peer, distributed = true)
+		return unless owners.include?(peer)
 
-		return unless @owners.include?(peer_id)
-
-		if do_check
-		    prepare_remove_owner(peer_id)
-		    remote_siblings.each_value do |remote|
-			remote.prepare_remove_owner(peer_id)
+		if distributed
+		    results = call_siblings(:prepare_remove_owner, self, peer)
+		    if error = results.values.find { |error| error }
+			raise error
 		    end
+		    call_siblings(:remove_owner, self, peer)
+		else
+		    owners.delete(peer)
+		    Distributed.debug { "removed owner to #{self}: #{owners.to_a}" }
 		end
-
-		@owners.delete(peer_id)
-		remote_siblings.each_value do |remote|
-		    remote.remove_owner(peer_id, false)
-		end
+		nil
 	    end
 
 	    # Sends the transaction to +peer+. This must be done only once.
@@ -97,7 +102,10 @@ module Roby
 		if objects
 		    events, tasks = partition_event_task(objects)
 		    (events + tasks).each do |object|
-			if !object.kind_of?(Transactions::Proxy) && !object.owners.subset?(owners)
+			unless Distributed.updating?([object]) || 
+			    Distributed.owns?(object) || 
+			    (object.owners - owners).empty?
+
 			    raise NotOwner, "#{object} is not owned by #{owners.to_a} (#{object.owners.to_a})"
 			end
 		    end
@@ -112,7 +120,7 @@ module Roby
 		super if defined? super
 
 	    end
-
+	    
 	    # call-seq:
 	    #   commit_transaction			=> self
 	    #   commit_transaction { |done| ... }	=> self
@@ -138,24 +146,17 @@ module Roby
 		end
 
 		if synchro
-		    error = nil
-		    apply_to_owners(false, :transaction_prepare_commit, self) do |done, result|
-			error ||= result
-			if done
-			    if error
-				apply_to_owners(true, :transaction_abandon_commit, self, error)
-				Control.once { yield(self, false) } if block_given?
-			    else
-				Control.once do
-				    apply_to_owners(false, :transaction_commit, self) do |done, _|
-					Control.once { yield(self, true) } if block_given? && done
-				    end
-				end
-			    end
-			end
+		    result = call_owners(:transaction_prepare_commit, self)
+		    error = result.find_all { |_, returned| returned }
+		    if !error.empty?
+			call_owners(:transaction_abandon_commit, self, error)
+			return false
+		    else
+			call_owners(:transaction_commit, self)
+			return true
 		    end
 		else
-		    proxy_objects = (known_tasks(true) | discovered_objects)
+		    proxy_objects = (known_tasks | discovered_objects)
 		    plan_objects = proxy_objects.map { |o| may_unwrap(o) }
 		    Distributed.update(proxy_objects | plan_objects) do
 		       	super()
@@ -185,7 +186,7 @@ module Roby
 		end
 
 		if synchro
-		    apply_to_owners(true, :transaction_discard, self)
+		    call_siblings(:transaction_discard, self)
 		else super()
 		end
 		self
@@ -196,15 +197,15 @@ module Roby
 	    attr_reader :edition_reloop
 
 	    def first_editor?
-		editors.first == Distributed.remote_id
+		owners.first == Distributed
 	    end
 	    def next_editor
-		if editors.last == Distributed.remote_id
-		    return editors.first
+		if owners.last == Distributed
+		    return owners.first
 		end
 
-		editors.each_cons(2) do |first, second|
-		    if first == Distributed.remote_id 
+		owners.each_cons(2) do |first, second|
+		    if first == Distributed
 			return second
 		    end
 		end
@@ -241,9 +242,9 @@ module Roby
 				     edition_reloop || give_back
 				 end
 
-			return if editors.size == 1
+			return if owners.size == 1
 			@editor = false
-			Distributed.peer(next_editor).transaction_give_token(self, reloop)
+			next_editor.transaction_give_token(self, reloop)
 			true
 		    end
 		end
@@ -261,30 +262,48 @@ module Roby
 	    # returns their sibling in the remote pDB (or raises if there is none)
 	    class DRoby < Roby::Plan::DRoby # :nodoc:
 		def _dump(lvl)
-		    Distributed.dump([DRbObject.new(remote_object), plan, owners, editors, options]) 
+		    Distributed.dump([DRbObject.new(remote_object), plan, owners, options]) 
 		end
 		def self._load(str)
 		    new(*Marshal.load(str))
 		end
 		def proxy(peer)
-		    unless trsc = peer.find_transaction(remote_object, peer.local_object(plan)) 
-			raise InvalidRemoteOperation, "the transaction #{remote_object} does not exist on #{peer.connection_space.name}"
+		    raise InvalidRemoteOperation, "the transaction #{remote_object} does not exist on #{peer.connection_space.name}"
+		end
+
+		def sibling(peer)
+		    plan = peer.local_object(self.plan)
+		    trsc = Roby::Distributed::Transaction.new(plan, options)
+		    owners = self.owners
+		    trsc.instance_eval do
+			@owners  = owners
+			@editor  = false
 		    end
 		    trsc
+		end
+
+		def created_sibling(peer, trsc)
+		    Thread.new do
+			begin
+			    Distributed.transaction_handler[trsc] if Distributed.transaction_handler
+			rescue 
+			    STDERR.puts "Transaction handler for #{trsc} failed with #{$!.full_message}"
+			end
+		    end
 		end
 
 		def to_s
 		    #"mdTransaction(#{remote_object.__drbref}/#{plan.remote_object.__drbref})" 
 		end
 
-		attr_reader :plan, :owners, :editors, :options
-		def initialize(remote_object, plan, owners, editors, options)
+		attr_reader :plan, :owners, :options
+		def initialize(remote_object, plan, owners, options)
 		    super(remote_object)
-		    @plan, @owners, @editors, @options = plan, owners, editors, options
+		    @plan, @owners, @options = plan, owners, options
 		end
 	    end
 	    def droby_dump # :nodoc:
-		DRoby.new(self, self.plan, self.owners, self.editors, self.options)
+		DRoby.new(self, self.plan, self.owners, self.options)
 	    end
 	end
 
@@ -307,8 +326,9 @@ module Roby
 
 		if !local_real.self_owned?
 		    local_object.extend RemoteTransactionProxy
-		    local_object.remote_siblings[peer.remote_id] = remote_object
+		    local_object.transaction = local_transaction
 		end
+		local_object.remote_siblings[peer] = remote_object
 		local_object
 	    end
 
@@ -330,23 +350,22 @@ module Roby
 	# transaction proxies
 	module RemoteTransactionProxy
 	    include DistributedObject
+	    attr_accessor :transaction
+
 	    def local?; __getobj__.local? end
-	    def owners; plan.owners | __getobj__.owners end
-	    def has_sibling?(peer); plan.has_sibling?(peer) end
+	    def owners; transaction.owners | __getobj__.owners end
 
 	    def discover(relation, mark)
 		return unless proxying?
-		unless !mark || Distributed.updating?([self]) || __getobj__.owners.subset?(plan.owners)
-		    raise NotOwner, "transaction owners #{plan.owners.inspect} do not own #{self.to_s}: #{owners.inspect}"
+		unless !mark || Distributed.updating?([self]) || (__getobj__.owners - plan.owners).empty?
+		    raise NotOwner, "transaction owners #{plan.owners} do not own #{self}: #{owners}"
 		end
 
 		if mark
 		    owners.each do |owner|
-			peer = Distributed.peer(owner)
-			raise "unknown owner #{owner}" unless peer
 			# peer may be nil if the transaction is owned locally
-			if !peer.subscribed?(__getobj__.root_object.remote_object(owner))
-			    raise "must subscribe to #{__getobj__} on #{peer} before changing its transactions proxies"
+			if !Distributed.updating?([self]) && !owner.subscribed?(__getobj__.root_object)
+			    raise "must subscribe to #{__getobj__} on #{owner} before changing its transactions proxies"
 			end
 		    end
 		end
@@ -355,42 +374,20 @@ module Roby
 	    end
 	end
 
-	class TaskTransactionProxy < Roby::Transactions::Task
-	    include RemoteTransactionProxy
-	    proxy_for Roby::Distributed::TaskProxy
-	end
 	class EventGeneratorTransactionProxy < Roby::Transactions::EventGenerator
 	    include RemoteTransactionProxy
 	    proxy_for Roby::Distributed::EventGeneratorProxy
 	end
+	class TaskTransactionProxy < Roby::Transactions::Task
+	    include RemoteTransactionProxy
+	    proxy_for Roby::Distributed::TaskProxy
+	end
+	class TaskEventGeneratorTransactionProxy < Roby::Transactions::TaskEventGenerator
+	    include RemoteTransactionProxy
+	    proxy_for Roby::Distributed::TaskEventGeneratorProxy
+	end
 
 	class PeerServer
-	    def transaction_create(remote_trsc)
-		if dtrsc = (peer.local_object(remote_trsc) rescue nil)
-		    raise ArgumentError, "#{remote_trsc} is already created"
-		end
-
-		plan = peer.local_object(remote_trsc.plan)
-		trsc = Roby::Distributed::Transaction.new(plan, remote_trsc.options)
-		trsc.instance_eval do
-		    @owners  = remote_trsc.owners.to_set
-		    @editors = remote_trsc.editors
-		    @editor  = false
-		end
-		trsc.remote_siblings[peer.remote_id] = remote_trsc.remote_object
-
-		subscriptions << remote_trsc.remote_object
-		
-		Thread.new do
-		    begin
-			Distributed.transaction_handler[trsc] if Distributed.transaction_handler
-		    rescue 
-			STDERR.puts "Transaction handler for #{trsc} failed with #{$!.full_message}"
-		    end
-		end
-		trsc
-	    end
-
 	    def transaction_prepare_commit(trsc)
 		trsc = peer.local_object(trsc)
 		Roby::Control.once { peer.connection_space.transaction_prepare_commit(trsc) }
@@ -420,29 +417,8 @@ module Roby
 	end
 
 	class Peer
-	    # Create a sibling for +trsc+ on this peer. If a block is given, yields
-	    # the remote transaction object from within the communication thread
-	    def transaction_create(trsc)
-		unless trsc.kind_of?(Roby::Distributed::Transaction)
-		    raise TypeError, "cannot create a non-distributed transaction"
-		end
-
-		marshalled_transaction = call(:transaction_create, trsc)
-		remote_transaction = marshalled_transaction.remote_object
-		trsc.remote_siblings[remote_id] = remote_transaction
-		remote_transaction
-	    end
-
 	    def transaction_propose(trsc)
-		# What do we need to do on the remote side ?
-		#   - create a new transaction with the right owners
-		#   - create all needed transaction proxys. Transaction proxys
-		#     can apply on local and remote tasks
-		#   - create all needed remote proxys
-		#   - setup all relations
-		remote_transaction = transaction_create(trsc)
-		subscriptions << remote_object(remote_transaction)
-		local.subscribe(trsc)
+		create_sibling(trsc)
 		nil
 	    end
 
