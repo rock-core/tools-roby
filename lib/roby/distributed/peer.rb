@@ -129,7 +129,7 @@ module Roby::Distributed
 	    Roby::Control.once do
 		matcher.each(plan) do |task|
 		    triggered << task
-		    peer.callback(:triggered, id, task)
+		    peer.transmit(:triggered, id, task)
 		end
 	    end
 	    nil
