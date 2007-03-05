@@ -347,18 +347,6 @@ module Roby
 	    end
 	end
 
-	@allowed_remote_access = Array.new
-	# Allow objects of class +type+ to be accessed remotely using
-	# DRbObjects
-	def self.allow_remote_access(type)
-	    @allowed_remote_access << type
-	end
-	# Returns true if +object+ can be remotely represented by a DRbObject
-	# proxy
-	def self.allowed_remote_access?(object)
-	    @allowed_remote_access.any? { |type| object.kind_of?(type) }
-	end
-
 	# Dumps +object+ in the dRoby protocol
 	def self.dump(object, error = false)
 	    if error

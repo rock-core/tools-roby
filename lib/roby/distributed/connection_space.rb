@@ -8,9 +8,6 @@ require 'roby/distributed/peer'
 
 module Roby
     module Distributed
-	extend Logger::Hierarchy
-	extend Logger::Forward
-
 	DISCOVERY_RING_PORT = 48932
 
 	# A neighbour is a named remote ConnectionSpace object
@@ -33,7 +30,6 @@ module Roby
 	    else nil
 	    end
 	end
-	def self.owns?(object); state.owns?(object) end
 	def self.peer(id)
 	    if id.kind_of?(DRbObject)
 		peers[id]
@@ -316,17 +312,6 @@ module Roby
 	end
 
 	class << self
-	    attr_reader :state
-	    def state=(new_state)
-		if log = logger
-		    if new_state
-			logger.progname = "Roby (#{new_state.name})"
-		    else
-			logger.progname = "Roby"
-		    end
-		end
-		@state = new_state
-	    end
 	    attr_reader :server
 
 	    # Publish Distributed.state on the network
@@ -354,13 +339,6 @@ module Roby
 	    def new_neighbours
 		if state then state.new_neighbours
 		else []
-		end
-	    end
-
-	    # The list of known peers. See ConnectionSpace#peers
-	    def peers; 
-		if state then state.peers 
-		else {}
 		end
 	    end
 	end

@@ -26,18 +26,6 @@ module Roby
 end
 
 module Roby::Distributed
-    def self.each_object_relation(object)
-	if object.respond_to?(:each_discovered_relation)
-	    object.each_discovered_relation do |rel|
-		yield(rel) if rel.distribute?
-	    end
-	else
-	    object.each_relation do |rel|
-		yield(rel) if rel.distribute?
-	    end
-	end
-    end
-
     class ConnectionTask < Roby::Task
 	local_object
 
@@ -62,7 +50,6 @@ module Roby::Distributed
     # The peer is disconnected
     class DisconnectedError < ConnectionError; end
 
-    @updated_objects = ValueSet.new
     class << self
 	def trigger(*objects)
 	    return unless Roby::Distributed.state 
@@ -84,25 +71,6 @@ module Roby::Distributed
 	    end
 	end
 
-	# The list of objects that are being updated because of remote update
-	attr_reader :updated_objects
-
-	# If we are updating all objects in +objects+
-	def updating?(objects)
-	    updated_objects.include_all?(objects) 
-	end
-
-	# Call the block with the objects in +objects+ added to the
-	# updated_objects set
-	def update(objects)
-	    old_updated = updated_objects
-	    @updated_objects |= objects
-
-	    yield
-
-	ensure
-	    @updated_objects = old_updated
-	end
     end
 
     class PeerServer
@@ -743,30 +711,6 @@ module Roby::Distributed
 	    end
 	    false
 	end
-
-	# Returns true if +object+ is a remote task which is not needed anymore
-	# in the local plan
-	def unnecessary?(local_object)
-	    return false if local_object.subscribed?
-	    local_object.plan.transactions.each do |trsc|
-		if trsc.wrap(local_object, false)
-		    return false
-		end
-	    end
-	    Roby::Distributed.each_object_relation(local_object) do |rel|
-		if local_object.related_objects(rel).any? { |obj| obj.subscribed? }
-		    return false
-		end
-	    end
-	    true
-	end
-    end
-
-    def self.unnecessary?(local_object)
-	Roby::Distributed.peers.each_value do |peer| 
-	    return false if !peer.unnecessary?(local_object)
-	end
-	true
     end
 end
 

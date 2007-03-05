@@ -1,5 +1,5 @@
 require 'roby/relations'
-require 'roby/distributed/objects'
+require 'roby/distributed/base'
 
 module Roby
     class OwnershipError         < RuntimeError; end
@@ -109,5 +109,4 @@ module Roby
 	end
     end
 end
-
 
