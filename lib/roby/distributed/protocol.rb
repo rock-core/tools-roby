@@ -152,7 +152,7 @@ module Roby
     end
 
     class TaskMatcher
-	class Marshalled
+	class DRoby
 	    attr_reader :args
 	    def initialize(*args); @args = args end
 	    def _dump(lvl); Marshal.dump(args.droby_dump) end
@@ -170,12 +170,12 @@ module Roby
 		matcher
 	    end
 	end
-	def droby_dump(klass = Marshalled)
+	def droby_dump(klass = DRoby)
 	    klass.new(model, arguments, improved_information, needed_information, predicates, neg_predicates, owners)
 	end
     end
     class OrTaskMatcher
-	class Marshalled < TaskMatcher::Marshalled
+	class DRoby < TaskMatcher::DRoby
 	    def self._load(str)
 		args = Marshal.load(str)
 		ops  = args.pop
@@ -183,13 +183,13 @@ module Roby
 	    end
 	end
 	def droby_dump
-	    m = super(OrTaskMatcher::Marshalled)
+	    m = super(OrTaskMatcher::DRoby)
 	    m.args << @ops
 	    m
 	end
     end
     class AndTaskMatcher
-	class Marshalled < TaskMatcher::Marshalled
+	class DRoby < TaskMatcher::DRoby
 	    def self._load(str)
 		args = Marshal.load(str)
 		ops  = args.pop
@@ -197,13 +197,13 @@ module Roby
 	    end
 	end
 	def droby_dump
-	    m = super(AndTaskMatcher::Marshalled)
+	    m = super(AndTaskMatcher::DRoby)
 	    m.args << @ops
 	    m
 	end
     end
     class NegateTaskMatcher
-	class Marshalled < TaskMatcher::Marshalled
+	class DRoby < TaskMatcher::DRoby
 	    def self._load(str)
 		args = Marshal.load(str)
 		op  = args.pop
@@ -211,7 +211,7 @@ module Roby
 	    end
 	end
 	def droby_dump
-	    m = super(NegateTaskMatcher::Marshalled)
+	    m = super(NegateTaskMatcher::DRoby)
 	    m.args << @op
 	    m
 	end
