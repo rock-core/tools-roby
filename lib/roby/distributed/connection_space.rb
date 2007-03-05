@@ -127,7 +127,7 @@ module Roby
 		@name                 = options[:name]
 		@neighbours           = Array.new
 		@peers                = Hash.new
-		@plan                 = options[:plan] || Roby::Control.instance.plan
+		@plan                 = options[:plan] || Roby.plan
 		@max_allowed_errors   = options[:max_allowed_errors]
 		@discovery_period     = options[:period]
 		@ring_discovery       = options[:ring_discovery]
