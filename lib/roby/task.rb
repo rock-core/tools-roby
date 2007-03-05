@@ -63,6 +63,7 @@ module Roby
         
         def initialize(task, generator, propagation_id, context, time = Time.now)
             @task = task
+	    @terminal_flag = generator.terminal_flag
             super(generator, propagation_id, context, time)
         end
 
@@ -79,7 +80,11 @@ module Roby
         # If the event model defines a terminal event
         def self.terminal?; @terminal end
 	# If this event is terminal
-	def terminal?; generator.terminal? end
+	def success?; @terminal_flag == :success end
+	# If this event is terminal
+	def failure?; @terminal_flag == :failure end
+	# If this event is terminal
+	def terminal?; @terminal_flag end
         # The event symbol
         def self.symbol; @symbol end
         # The event symbol
@@ -133,8 +138,10 @@ module Roby
 	end
 
         def controlable?; event_model.controlable? end
-	attr_writer :terminal
-	def terminal?; @terminal || event_model.terminal? end
+	attr_accessor :terminal_flag
+	def terminal?; @terminal_flag end
+	def success?; @terminal_flag == :success end
+	def failure?; @terminal_flag == :failure end
 	def added_child_object(child, relation, info)
 	    super if defined? super
 	    if relation == EventStructure::CausalLink && child.respond_to?(:task) && child.task == task
@@ -419,7 +426,6 @@ module Roby
         def running?; started? && !finished? end
 	# A terminal event that has already happened. nil if the task
 	# is not finished
-	attr_reader :final_event
 	def finishing?
 	    if running?
 		each_event { |ev| return true if ev.terminal? && ev.pending? }
@@ -431,7 +437,7 @@ module Roby
 	attr_predicate :started?, true
 	attr_predicate :finished?, true
 	attr_predicate :success?, true
-	def failed?; finished? && !success? end
+	def failed?; finished? && @success == false end
 
 	# Remove all relations in which +self+ or its event are involved
 	def clear_relations
@@ -476,29 +482,29 @@ module Roby
 	# terminal if the +stop+ event of the task will be called because this
 	# event is.
 	def update_terminal_flag
-	    events = bound_events.values
-	    terminal_events = events.find_all do |ev|
-		# remove the terminal flag, TaskEventGenerator#terminal? will
-		# now return the model's terminal flag
-		ev.terminal = false
-		ev.terminal?
+	    bound_events.each_value { |ev| ev.terminal_flag = nil }
+	    bound_events[:success].terminal_flag = :success
+	    bound_events[:failed].terminal_flag = :failure
+	    bound_events[:stop].terminal_flag = true
+	    success_events = bound_events[:success].
+		generated_subgraph(EventStructure::CausalLink.reverse)
+	    failure_events = bound_events[:failed].
+		generated_subgraph(EventStructure::CausalLink.reverse)
+	    terminal_events = bound_events[:stop].
+		generated_subgraph(EventStructure::CausalLink.reverse)
+
+	    intersection = (success_events & failure_events)
+	    unless intersection.empty?
+		raise "#{intersection} are both failure and success events"
 	    end
-
-	    found = true
-	    while found
-		found = false
-		events -= terminal_events
-
-		events.each do |ev|
-		    ev.each_causal_link do |signalled|
-			if signalled.terminal?
-			    found = true
-			    ev.terminal = true
-			    terminal_events << ev
-			    break
-			end
-		    end
-		end
+	    success_events.each do |ev| 
+		ev.terminal_flag = :success if ev.respond_to?(:task) && ev.task == self
+	    end
+	    failure_events.each do |ev| 
+		ev.terminal_flag = :failure if ev.respond_to?(:task) && ev.task == self
+	    end
+	    (terminal_events - (success_events | failure_events)).each do |ev|
+		ev.terminal_flag = true if ev.respond_to?(:task) && ev.task == self
 	    end
 	end
 
@@ -540,7 +546,7 @@ module Roby
 		raise EventNotExecutable.new(self), "trying to fire #{event.generator.symbol} on #{self} but #{self} is not executable"
 	    end
 
-            if final_event && !event.terminal?
+            if finished? && !event.terminal?
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} but the task has finished"
             elsif pending? && event.symbol != :start
                 raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} but the task is not running"
@@ -553,17 +559,26 @@ module Roby
 	    super if defined? super
         end
 
+	# The event which has finished the task
+	attr_reader :terminal_event
+	
 	# Call to update the task status because of +event+
 	def update_task_status(event)
-	    if event.symbol == :success
+	    if event.success?
 		self.success = true
-	    elsif event.symbol == :start
-		self.started = true
-	    end
-
-	    if event.terminal?
-		@final_event = event
 		self.finished = true
+		@terminal_event ||= event
+	    elsif event.failure?
+		self.success = false
+		self.finished = true
+		@terminal_event ||= event
+	    elsif event.terminal?
+		self.finished = true
+		@terminal_event ||= event
+	    end
+	    
+	    if event.symbol == :start
+		self.started = true
 	    end
 	end
         

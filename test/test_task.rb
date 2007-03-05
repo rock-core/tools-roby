@@ -186,19 +186,54 @@ class TC_Task < Test::Unit::TestCase
 	klass = Class.new(Task) do
 	    event(:terminal_model, :terminal => true)
 	    event(:terminal_model_signal)
-	    event(:terminal_signal)
 	    forward :terminal_model_signal => :terminal_model
+
+	    event(:success_model, :terminal => true)
+	    event(:success_model_signal)
+	    forward :success_model_signal => :success
+	    forward :success_model_signal => :success_model
+
+	    event(:failure_model, :terminal => true)
+	    event(:failure_model_signal)
+	    forward :failure_model_signal => :failed
+	    forward :failure_model_signal => :failure_model
+
+	    event(:ev)
 	end
+	assert(klass.event_model(:stop).terminal?)
+	assert(klass.event_model(:success).terminal?)
+	assert(klass.event_model(:failed).terminal?)
 	assert(klass.event_model(:terminal_model).terminal?)
 	assert(klass.event_model(:terminal_model_signal).terminal?)
-	assert(!klass.event_model(:terminal_signal).terminal?)
 
 	plan.discover(task = klass.new)
-	assert(!task.event(:terminal_signal).terminal?)
-	task.event(:terminal_signal).forward task.event(:terminal_model_signal)
-	assert(task.event(:terminal_signal).terminal?)
-	assert(task.event(:terminal_model_signal).terminal?)
-	assert(task.event(:terminal_model).terminal?)
+	assert(task.event(:stop).terminal?)
+	assert(!task.event(:stop).success?)
+	assert(!task.event(:stop).failure?)
+	assert(task.event(:success).terminal?)
+	assert(task.event(:success).success?)
+	assert(!task.event(:success).failure?)
+	assert(task.event(:failed).terminal?)
+	assert(!task.event(:failed).success?)
+	assert(task.event(:failed).failure?)
+
+	ev = task.event(:ev)
+	assert(!ev.terminal?)
+	assert(!ev.success?)
+	assert(!ev.failure?)
+	ev.forward task.event(:terminal_model_signal)
+	assert(ev.terminal?)
+	assert(!ev.success?)
+	assert(!ev.failure?)
+	ev.forward task.event(:success_model_signal)
+	assert(ev.terminal?)
+	assert(ev.success?)
+	assert(!ev.failure?)
+	ev.remove_forwarding task.event(:success_model_signal)
+	ev.forward task.event(:failure_model_signal)
+	assert(ev.terminal?)
+	assert(!ev.success?)
+	assert(ev.failure?)
     end
 
     # Tests Task::event
@@ -238,7 +273,7 @@ class TC_Task < Test::Unit::TestCase
 
         # Check properties on EvControlable
         assert( klass::EvControlable.respond_to?(:call) )
-        event = klass::EvControlable.new(task, 0, 0, nil)
+        event = klass::EvControlable.new(task, task.event(:ev_controlable), 0, nil)
         # Check for the definition of :call
         assert_equal(:ev_controlable, klass::EvControlable.call(task, :ev_controlable))
         # Check for default argument in :call
@@ -280,6 +315,7 @@ class TC_Task < Test::Unit::TestCase
 	    mock.should_receive(:stopped).with(21).once
 	    task.start!(42)
 	    task.emit(:stop, 21)
+	    assert(task.finished?)
 	end
     end
 
@@ -365,19 +401,36 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_finished
-	plan.insert(task = SimpleTask.new)
-	FlexMock.use do |mock|
-	    assert(!task.finished?)
-	    task.start!
-	    assert(!task.finished?)
-	    task.on(:stop) do
-	       	mock.finished?(task.finished?) 
-	    end
-
-	    mock.should_receive(:finished?).once.with(true)
-	    task.success!
-	    assert(task.finished?)
+	model = Class.new(Roby::Task) do
+	    event :start, :command => true
+	    event :failed, :command => true, :terminal => true
+	    event :success, :command => true, :terminal => true
+	    event :stop, :command => true
 	end
+
+	plan.insert(task = model.new)
+	task.start!
+	task.emit(:stop)
+	assert(!task.success?)
+	assert(!task.failed?)
+	assert(task.finished?)
+	assert_equal(task.event(:stop).last, task.terminal_event)
+
+	plan.insert(task = model.new)
+	task.start!
+	task.emit(:success)
+	assert(task.success?)
+	assert(!task.failed?)
+	assert(task.finished?)
+	assert_equal(task.event(:success).last, task.terminal_event)
+
+	plan.insert(task = model.new)
+	task.start!
+	task.emit(:failed)
+	assert(!task.success?)
+	assert(task.failed?)
+	assert(task.finished?)
+	assert_equal(task.event(:failed).last, task.terminal_event)
     end
 
     def test_executable
