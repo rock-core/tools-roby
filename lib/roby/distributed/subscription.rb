@@ -6,8 +6,10 @@ module Roby
 		return if objects.any? { |o| !o.distribute? }
 		peers.each do |name, peer|
 		    next unless peer.connected?
-		    next if objects.any? { |o| !o.has_sibling?(peer) }
-		    yield(peer) if objects.any? { |o| peer.local.subscribed?(o) || peer.owns?(o) }
+		    if objects.any? { |o| peer.local.subscribed?(o) } || 
+			objects.any? { |o| o.has_sibling?(peer) && peer.owns?(o) }
+			yield(peer) 
+		    end
 		end
 	    end
 	end
