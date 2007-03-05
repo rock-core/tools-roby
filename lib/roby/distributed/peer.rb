@@ -222,12 +222,6 @@ module Roby::Distributed
 		    Roby::Distributed.update([from.root_object, to.root_object]) do
 			from.remove_child_object(to, rel)
 		    end
-
-		    if peer.unnecessary?(from)
-			peer.delete(from, from.plan)
-		    elsif peer.unnecessary?(to)
-			peer.delete(to, to.plan)
-		    end
 		end
 	    end
 	    nil
@@ -524,6 +518,11 @@ module Roby::Distributed
 		keepalive.cancel rescue Rinda::RequestExpiredError
 	    end
 
+	    proxies.dup.each_key do |obj|
+		delete(obj)
+	    end
+	    proxies.clear
+
 	    @send_queue.push(nil)
 	    unless Thread.current == @send_thread
 		@send_thread.join
@@ -667,21 +666,23 @@ module Roby::Distributed
 
 	# +remote_object+ is not a valid remote object anymore
 	def delete(object, remove_object = false)
-	    return if !object.root_object?
-
-	    if remove_object
-		remote_object, local_object = objects(object, false)
-		return unless local_object
-		connection_space.plan.remove_object(local_object)
-	    else
-		remote_object = remote_object(object)
-	    end
-
+	    remote_object = self.remote_object(object)
 	    subscriptions.delete(remote_object)
+	    if local_object = proxies.delete(remote_object)
+		local_object.remote_siblings.delete(self)
 
-	    proxy = @proxies.delete(remote_object)
-	    if proxy && proxy.root_object? && proxy.respond_to?(:plan) && proxy.plan
-		raise "deleting an object still attached to the plan"
+		case local_object
+		when Roby::PlanObject
+		    return if !local_object.root_object?
+		    if 
+			if remove_object
+			    connection_space.plan.remove_object(local_object)
+			end
+			if local_object.root_object? && local_object.plan
+			    raise "deleting an object still attached to the plan"
+			end
+		    end
+		end
 	    end
 	end
 

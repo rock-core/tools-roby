@@ -208,11 +208,7 @@ module Roby
 		    local_object.related_tasks.each do |task|
 			if !task.subscribed?
 			    local_object.remove_relations(task)
-			    delete(task, true) if unnecessary?(task)
 			end
-		    end
-		    if unnecessary?(local_object)
-			delete(local_object, true)
 		    end
 		end
 	    end
