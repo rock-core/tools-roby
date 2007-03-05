@@ -42,6 +42,19 @@ module Roby
 		nil
 	    end
 	end
+	def self.transmit(*args)
+	    if Thread.current == Roby.control.thread
+		raise "in control thread"
+	    end
+
+	    Roby::Control.once do
+		result = Distributed.state.send(*args)
+		yield(result) if block_given?
+	    end
+	end
+	def self.call(*args)
+	    Distributed.state.send(*args)
+	end
 
 	def self.subscribed?(object)
 	    object.subscribed?
@@ -176,7 +189,7 @@ module Roby
 		end
 	    end
 
-	    def owns?(object); object.owners.include?(tuplespace) end
+	    def owns?(object); object.owners.include?(Roby::Distributed) end
 
 	    # An array of procs called at the end of the neighbour discovery,
 	    # after #neighbours have been updated
@@ -270,6 +283,10 @@ module Roby
 		discovering? do
 		    finished_discovery.wait(mutex)
 		end
+	    end
+
+	    def droby_dump
+		@marshalled ||= Peer::DRoby.new(DRbObject.new(tuplespace))
 	    end
 
 	    def quit

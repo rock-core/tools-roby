@@ -1,9 +1,6 @@
 module Roby
     module Distributed
 	class InvalidRemoteOperation < RuntimeError; end
-	class OwnershipError         < InvalidRemoteOperation; end
-	class NotOwner               < OwnershipError; end
-
 	class RemotePeerMismatch     < RuntimeError; end
 
 	class InvalidRemoteTaskOperation < InvalidRemoteOperation
@@ -13,11 +10,19 @@ module Roby
 
 	# Module included in objects that are located on this pDB
 	module LocalObject
-	    def owners; [Roby::Distributed.remote_id].to_set end
+	    def owners; [Distributed] end
+
 	    def local?; true end
 	    def self_owned?; true end
-	    def has_sibling?(peer); true end
+	    def has_sibling?(peer); peer == Distributed end
 	    def subscribed?; true end
+	    def needed?
+		Distributed.peers.each_value do |peer|
+		    return true if peer.local.subscriptions.include?(self)
+		end
+		false
+	    end
+	    def remote_siblings; {} end
 	    
 	    module ClassExtension
 		# Does the object of this class should be sent to remote hosts ?
@@ -26,8 +31,8 @@ module Roby
 		def local_object; @distribute = false end
 	    end
 	    
-	    def remote_object(peer_id)
-		if peer_id == Roby::Distributed then self
+	    def remote_object(peer)
+		if peer == Roby::Distributed then self
 		else
 		    raise RemotePeerMismatch, "#{self} is local"
 		end
@@ -49,42 +54,51 @@ module Roby
 	    def peer_id; remote_peer.remote_id end
 
 	    def local?; false end
+	    # The peer => remote_object hash of known siblings for this peer
+	    def remote_siblings; { remote_peer => @remote_object } end
 
-	    def remote_object(peer_id)
-		if peer_id == peer_id then @remote_object
-		elsif peer_id == Roby::Distributed then self
+	    # The DRbObject for the sibling of +self+ on +peer+
+	    def remote_object(peer)
+		if peer == remote_peer then @remote_object
+		elsif peer == Roby::Distributed then self
 		else 
 		    raise RemotePeerMismatch, "#{self} has no known sibling on #{peer_id} (#{@peer_id})"
 		end
 	    end
 
-	    def distribute?; true end
-	    def self_owned?; false end
-	    def has_sibling?(peer); true end
-	    def subscribed?; remote_peer.subscribed?(@remote_object) end
+	    # The list of owners for this object
+	    def owners; [remote_peer] end
 
-	    def ==(obj)
-		obj.kind_of?(RemoteObject) && 
-		    peer_id == obj.peer_id &&
-		    @remote_object == obj.remote_object(peer_id)
-	    end
+	    # If this object is seen by other pDBs
+	    def distribute?; true end
+	    # If this object is owned by us
+	    def self_owned?; false end
+	    # If we know about some sibling on +peer+. It is always true for this
+	    # pDB (object.has_sibling?(Distributed) always returns true)
+	    def has_sibling?(peer); peer == remote_peer || peer == Distributed end
+
+	    # True if the local pDB gets informed about the updates of this
+	    # object
+	    def subscribed?; remote_peer.subscribed?(@remote_object) end
+	    # True if the local pDB needs to keep this object because of its
+	    # connection with other peers
+	    def needed?;     subscribed? end
 	end
 
 	# Module included in objects distributed across multiple pDBs
 	module DistributedObject
 	    def self_owned?
-		owners.include?(Distributed.remote_id)
+		owners.include?(Distributed)
 	    end
 	    def distribute?; true end
-	    def subscribed?; self_owned? end
+	    def needed?; subscribed? end
+	    def subscribed?; self_owned? || owners.any? { |peer| peer.subscribed?(self) } end
 	    def local?; self_owned? end
 
 	    def has_sibling?(peer)
-		!owners.include?(peer.remote_id) ||
-		    remote_siblings.has_key?(peer.remote_id)
+		remote_siblings.has_key?(peer) || peer == Roby::Distributed
 	    end
 
-	    attribute(:remote_siblings) { Hash.new }
 	    def remote_object(peer_id)
 		if sibling = remote_siblings[peer_id] then sibling
 		elsif peer_id == Roby::Distributed then self
@@ -93,13 +107,13 @@ module Roby
 		end
 	    end
 	    
-	    # Makes this transaction owned by the local DB. This is equivalent
-	    # to trsc.self_owned = true
+	    # Makes this object owned by the local DB. This is equivalent to
+	    # object.self_owned = true
 	    def self_owned; self.self_owned = true end
 
 	    # Adds or removes the local DB from the list of owners. This is
-	    # equivalent to calling add_peer(Distributed.state) and
-	    # remove_peer(Distributed.state)
+	    # equivalent to calling add_peer(Distributed) and
+	    # remove_peer(Distributed)
 	    def self_owned=(flag)
 		if flag then add_owner(Distributed)
 		else remove_owner(Distributed)

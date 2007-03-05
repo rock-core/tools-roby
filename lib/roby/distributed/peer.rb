@@ -574,7 +574,7 @@ module Roby::Distributed
 	end
 
 	# Returns true if this peer owns +object+
-	def owns?(object); object.owners.include?(remote_id) end
+	def owns?(object); object.owners.include?(self) end
 
 	# Check if +object+ should be proxied
 	def proxying?(marshalled)
@@ -590,7 +590,7 @@ module Roby::Distributed
 		object
 	    elsif object.respond_to?(:proxy)
 		object.remote_object
-	    else object.remote_object(remote_id)
+	    else object.remote_object(self)
 	    end
 	end
 	

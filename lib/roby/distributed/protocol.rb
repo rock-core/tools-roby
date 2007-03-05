@@ -248,6 +248,29 @@ end
 
 module Roby
     module Distributed
+	class Peer
+	    class DRoby
+		attr_reader :peer_id
+		def initialize(peer_id); @peer_id = peer_id end
+		def _dump(lvl = -1)
+		    @marshalled ||= Marshal.dump(peer_id)
+		end
+		def self._load(str)
+		    peer_id = Marshal.load(str)
+		    Distributed.peer(peer_id) rescue nil
+		end
+	    end
+
+	    def droby_dump
+		@marshalled ||= DRoby.new(remote_id)
+	    end
+	end
+	def self.droby_dump
+	    if Distributed.state 
+		Distributed.state.droby_dump
+	    end
+	end
+
 	# Dumps a constant by using its name
 	class DRobyConstant
 	    @@valid_constants = Hash.new

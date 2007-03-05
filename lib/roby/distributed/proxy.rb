@@ -21,7 +21,7 @@ module Roby::Distributed
 
     module RemoteObjectProxy
 	include RemoteObject
-	# The object owners. This is always [remote_peer.remote_id].to_set
+	# The object owners. This is always [remote_peer]
 	attr_reader :owners
 	# The marshalled object
 	attr_reader :marshalled_object
@@ -34,7 +34,7 @@ module Roby::Distributed
 	    @remote_peer = peer
 
 	    @marshalled_object = marshalled_object
-	    @owners = [peer.remote_id].to_set
+	    @owners = [peer]
 	end
 
 	def model
