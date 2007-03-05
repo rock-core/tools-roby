@@ -166,7 +166,7 @@ module Roby
 		matcher = matcher.with_model(model).with_arguments(args || {}).
 		    which_improves(*improves).which_needs(*needs)
 		matcher.predicates.merge(predicates)
-		matcher.owners.merge(owners)
+		matcher.owners.concat(owners)
 		matcher
 	    end
 	end

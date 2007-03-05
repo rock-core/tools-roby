@@ -15,8 +15,8 @@ module Roby
 
 	def initialize
 	    @predicates           = ValueSet.new
-	    @neg_predicates           = ValueSet.new
-	    @owners               = Set.new
+	    @neg_predicates       = ValueSet.new
+	    @owners               = Array.new
 	    @improved_information = ValueSet.new
 	    @needed_information   = ValueSet.new
 	end
@@ -66,11 +66,11 @@ module Roby
 	end
 
 	def owned_by(*ids)
-	    owners.merge(ids.to_set)
+	    @owners |= ids
 	    self
 	end
 	def self_owned
-	    owned_by(Roby::Distributed.remote_id)
+	    owned_by(Roby::Distributed)
 	    self
 	end
 
@@ -121,7 +121,7 @@ module Roby
 	    return unless needed_information.all?   { |info| task.needs?(info) }
 	    return unless predicates.all? { |pred| task.send(pred) }
 	    return if neg_predicates.any? { |pred| task.send(pred) }
-	    return if !owners.empty? && !task.owners.subset?(owners)
+	    return if !owners.empty? && !(task.owners - owners).empty?
 	    true
 	end
 
