@@ -174,6 +174,34 @@ module Roby
 	    klass.new(model, arguments, improved_information, needed_information, predicates, neg_predicates, owners)
 	end
     end
+    class Query
+	class DRoby
+	    attr_reader :plan_predicates, :neg_plan_predicates, :matcher
+	    def initialize(plan_predicates, neg_plan_predicates, matcher)
+		@plan_predicates, @neg_plan_predicates, @matcher = 
+		    plan_predicates, neg_plan_predicates, matcher
+	    end
+
+	    def _dump(lvl)
+		Marshal.dump([plan_predicates, neg_plan_predicates, matcher.droby_dump])
+	    end
+
+	    def self._load(str)
+		DRoby.new(*Marshal.load(str))
+	    end
+	    def proxy(peer)
+		query = TaskMatcher::DRoby.setup_matcher(peer.connection_space.plan.find_tasks, matcher)
+		query.plan_predicates.concat(plan_predicates)
+		query.neg_plan_predicates.concat(neg_plan_predicates)
+		query
+	    end
+	end
+	
+	def droby_dump
+	    DRoby.new(plan_predicates, neg_plan_predicates, super.args)
+	end
+    end
+
     class OrTaskMatcher
 	class DRoby < TaskMatcher::DRoby
 	    def self._load(str)

@@ -116,8 +116,8 @@ module Roby::Distributed
 	def plan; peer.connection_space.plan end
 
 	# Applies +matcher+ on the local plan and sends back the result
-	def query_result_set(matcher)
-	    plan.query_result_set(matcher)
+	def query_result_set(query)
+	    plan.query_result_set(peer.local_object(query))
 	end
 
 	# The peers asks to be notified if a plan object which matches
@@ -384,15 +384,34 @@ module Roby::Distributed
 	def find_tasks
 	    Roby::Query.new(self)
 	end
-	def query_result_set(matcher)
-	    Roby::Control.synchronize do
-		remote_server.query_result_set(matcher)
-	    end
+
+	# Returns a set of remote tasks for +query+ applied on the remote plan
+	def query_result_set(query)
+	    remote_server.query_result_set(query)
 	end
+	
+	# Yields the tasks saved in +result_set+ by #query_result_set.  During
+	# the enumeration, the tasks are marked as permanent to avoid plan GC.
+	# The block can subscribe to the one that are interesting. After the
+	# block has returned, all non-subscribed tasks will be subject to plan
+	# GC.
 	def query_each(result_set)
+	    result_set = Roby::Control.synchronize do
+		result_set.map do |task|
+		    task = local_object(task)
+		    task.plan.permanent(task) unless task.subscribed?
+		    task
+		end
+	    end
+
+	    result_set.each do |task|
+		yield(task)
+	    end
+
+	ensure
 	    Roby::Control.synchronize do
 		result_set.each do |task|
-		    yield(local_object(task))
+		    task.plan.auto(task) unless task.subscribed?
 		end
 	    end
 	end
