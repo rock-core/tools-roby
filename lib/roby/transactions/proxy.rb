@@ -186,23 +186,23 @@ module Roby::Transactions
 
 	extend ClassExtension
 
-	def relation_discover(other, type, unused = nil)
+	def relation_discover(other, type, unused = nil) # :nodoc:
 	    discover(type, true)
 	    other.discover(type, true) if other.kind_of?(Proxy)
 	end
-	def adding_child_object(other, type, info)
+	def adding_child_object(other, type, info) # :nodoc:
 	    super if defined? super
 	    relation_discover(other, type)
 	end
-	def adding_parent_object(other, type, info)
+	def adding_parent_object(other, type, info) # :nodoc:
 	    super if defined? super
 	    relation_discover(other, type)
 	end
-	def removing_child_object(other, type)
+	def removing_child_object(other, type) # :nodoc:
 	    super if defined? super
 	    relation_discover(other, type)
 	end
-	def removing_parent_object(other, type)
+	def removing_parent_object(other, type) # :nodoc:
 	    super if defined? super
 	    relation_discover(other, type)
 	end
@@ -216,6 +216,9 @@ module Roby::Transactions
 	discover_before :each_parent_object, false, 0
 	discover_before :clear_relations, true, nil
 
+	# Enumerates the relations that have either been modified in the
+	# transaction (if +written+ is true), or read on the transaction proxy
+	# (if +written+ is false)
 	def each_discovered_relation(written = true)
 	    if written
 		@discovered_relations.each { |rel, w| yield(rel) if w }
@@ -277,8 +280,7 @@ module Roby::Transactions
 
 	end
 
-	# Called when we need to discard the modifications. Proxy#commit
-	# simply removes all relations
+	# Discards the transaction by clearing this proxy
 	def discard_transaction
 	    clear_vertex
 	end
