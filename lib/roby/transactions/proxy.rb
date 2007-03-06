@@ -43,8 +43,10 @@ module Roby::Transactions
 	    @@forwarders[klass].new(object)
 	end
 
+	attr_reader :discovered_relations
+
 	def initialize(object, transaction)
-	    @discovered  = Hash.new
+	    @discovered_relations  = Hash.new
 	    @transaction = transaction
 	    @__getobj__  = object
 	end
@@ -77,16 +79,16 @@ module Roby::Transactions
 	def proxying?; plan && plan.proxying? end
 
 	def discovered?(relation, written)
-	    return false if @discovered.empty?
+	    return false if @discovered_relations.empty?
 
 	    if relation
 		if written
-		    @discovered[relation]
+		    @discovered_relations[relation]
 		else
-		    @discovered.has_key?(relation)
+		    @discovered_relations.has_key?(relation)
 		end
 	    elsif written
-		@discovered.values.any? { |v| v }
+		@discovered_relations.values.any? { |v| v }
 	    else
 		true
 	    end
@@ -109,7 +111,7 @@ module Roby::Transactions
 	    return if discovered?(relation, true)
 
 	    transaction.discovered_object(self, relation)
-	    @discovered[relation] = mark
+	    @discovered_relations[relation] = mark
 	    relation.subsets.each { |rel| do_discover(rel, mark) }
 
 	    Roby::Control.synchronize do
@@ -234,9 +236,9 @@ module Roby::Transactions
 
 	def each_discovered_relation(written = true)
 	    if written
-		@discovered.each { |rel, w| yield(rel) if w }
+		@discovered_relations.each { |rel, w| yield(rel) if w }
 	    else
-		@discovered.each { |rel, w| yield(rel) if !w.nil? }
+		@discovered_relations.each { |rel, w| yield(rel) if !w.nil? }
 	    end
 	end
 
