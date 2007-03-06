@@ -224,49 +224,57 @@ module Roby::Transactions
 	    end
 	end
 
-	def commit_relations(enum, is_parent)
+	# Uses the +enum+ method on this proxy and on the proxied object to get
+	# a set of objects related to this one in both the plan and the
+	# transaction.
+	# 
+	# The block is then given a plan_object => transaction_object hash, the
+	# relation which is being considered, the set of new relations (the
+	# relations that are in the transaction but not in the plan) and the
+	# set of deleted relation (relations that are in the plan but not in
+	# the transaction)
+	def partition_new_old_relations(enum) # :yield:
+	    trsc_objects = Hash.new
 	    each_discovered_relation(true) do |rel|
-		data = Hash.new
-		trsc_others = enum_for(enum, rel).
-		    map do |obj|
-			if is_parent then info = self[obj, rel]
-			else info = obj[self, rel]
-			end
-			unwrapped = plan.may_unwrap(obj)
-			data[unwrapped] = info
-			unwrapped
+		trsc_others = send(enum, rel).
+		    map do |obj| 
+			plan_object = plan.may_unwrap(obj)
+			trsc_objects[plan_object] = obj
+			plan_object
 		    end.to_value_set
 
-		plan_others = __getobj__.enum_for(enum, rel).
+		plan_others = __getobj__.send(enum, rel).
 		    to_value_set
 
 		new = (trsc_others - plan_others)
 		del = (plan_others - trsc_others)
 
-		if is_parent
-		    new.each do |other|
-			__getobj__.add_child_object(other, rel, data[other])
-		    end
-		    del.each do |other|
-			__getobj__.remove_child_object(other, rel)
-		    end
-		else
-		    new.each do |other|
-			other.add_child_object(__getobj__, rel, data[other])
-		    end
-		    del.each do |other|
-			other.remove_child_object(__getobj__, rel)
-		    end
-		end
+		yield(trsc_objects, rel, new, del)
 	    end
 	end
 
-	# Called when we need to commit modifications to the plan
-	# Proxy#commit_transaction commits relation modification. Override in specific proxies if
-	# more is needed
+	# Commits the modifications of this proxy. It copies the relations of
+	# the proxy on the proxied object
 	def commit_transaction
-	    commit_relations(:each_child_object, true)
-	    commit_relations(:each_parent_object, false)
+	    real_object = __getobj__
+	    partition_new_old_relations(:parent_objects) do |trsc_objects, rel, new, del|
+		new.each do |other|
+		    other.add_child_object(real_object, rel, trsc_objects[other][self, rel])
+		end
+		del.each do |other|
+		    other.remove_child_object(real_object, rel)
+		end
+	    end
+
+	    partition_new_old_relations(:child_objects) do |trsc_objects, rel, new, del|
+		new.each do |other|
+		    real_object.add_child_object(other, rel, self[trsc_objects[other], rel])
+		end
+		del.each do |other|
+		    real_object.remove_child_object(other, rel)
+		end
+	    end
+
 	end
 
 	# Called when we need to discard the modifications. Proxy#commit
