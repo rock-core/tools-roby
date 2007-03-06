@@ -655,6 +655,10 @@ module Roby::Distributed
 	# known to this peer.
 	def objects(object, create_local = true)
 	    if object.kind_of?(DRbObject)
+		if local_proxy = @proxies[object]
+		    proxy_setup(local_proxy)
+		    return [object, local_proxy]
+		end
 		raise ArgumentError, "got a DRbObject"
 	    elsif object.respond_to?(:proxy)
 		[object.remote_object, proxy(object, create_local)]
