@@ -96,11 +96,14 @@ module Roby
 
 	    # The peer asks to be unsubscribed from +object+
 	    def unsubscribe(object)
-		object = peer.local_object(object)
-		if !subscriptions.include?(object)
+		local_object = peer.local_object(object, false)
+		if !local_object
+		    return
+		elsif !subscriptions.include?(local_object)
 		    raise ArgumentError, "#{peer.remote_name} is not subscribed to #{object}"
 		end
-		subscriptions.delete(object)
+
+		subscriptions.delete(local_object)
 		nil
 	    end
 
@@ -207,39 +210,19 @@ module Roby
 		subscriptions.include?(remote_object(object))
 	    end
 
-	    # Clears all relations that should be removed because we unsubscribed
-	    # from +proxy+
-	    def remove_unsubscribed_relations(local_object) # :nodoc:
-		Distributed.update([local_object]) do
-		    local_object.related_tasks.each do |task|
-			if !task.subscribed?
-			    local_object.remove_relations(task)
-			end
-		    end
-		end
-	    end
-
-	    # Unsubscribe ourselves from +marshalled+. If +remove_object+ is true,
-	    # the local proxy for this object is removed from the plan as well
-	    def unsubscribe(object, remove_object = true)
+	    # Unsubscribe ourselves from +object+. 	
+	    def unsubscribe(object)
 		remote_object, local_object = objects(object)
-
 		case local_object
 		when PlanObject
 		    if linked_to_local?(local_object)
 			raise InvalidRemoteOperation, "cannot unsubscribe to a task still linked to local tasks"
 		    end
-
-		    call(:unsubscribe, remote_object)
-		    subscriptions.delete(remote_object)
-		    if remove_object
-			remove_unsubscribed_relations(local_object)
-		    end
-
-		else
-		    call(:unsubscribe, remote_object)
-		    subscriptions.delete(remote_object)
 		end
+
+		call(:unsubscribe, remote_object)
+		synchro_point
+		subscriptions.delete(remote_object)
 	    end
 	end
     end
