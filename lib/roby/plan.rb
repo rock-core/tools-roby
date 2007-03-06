@@ -80,36 +80,17 @@ module Roby
 	#   plan.partition_event_task(objects) => events, tasks
 	#
 	def partition_event_task(objects)
-	    #if objects.respond_to?(:each_task) then return *[[], objects.enum_for(:each_task).to_a]
 	    if objects.respond_to?(:to_task) then return *[[], [objects.to_task]]
-	    elsif objects.respond_to?(:each_event) then return *[objects.enum_for(:each_event).to_a, []]
 	    elsif objects.respond_to?(:to_event) then return *[[objects.to_event], []]
 	    elsif !objects.respond_to?(:each)
 		raise TypeError, "expecting a task, event, or a collection of tasks and events, got #{objects}"
 	    end
 
-	    return *objects.partition { |o| o.respond_to?(:to_event) }
-	end
-
-	# Checks that +objects+ is equivalent to an EventGenerator collection
-	# and yields its elements
-	def event_collection(objects)
-	    if objects.respond_to?(:each) then objects.each { |e| yield(e.to_event) }
-	    elsif objects.respond_to?(:each_event) then objects.each_event { |e| yield(e.to_event) }
-	    elsif objects.respond_to?(:to_event) then yield(objects.to_event)
-	    else
-		raise TypeError, "expecting a event or a event collection, got #{objects}"
-	    end
-	end
-
-	# Checks that +objects+ is equivalent to a Task collection and yields
-	# its elements
-	def task_collection(objects)
-	    if objects.respond_to?(:each) then objects.each { |t| yield(t.to_task) }
-	    #elsif objects.respond_to?(:each_task) then objects.each_task { |t| yield(t.to_task) }
-	    elsif objects.respond_to?(:to_task) then yield(objects.to_task)
-	    else
-		raise TypeError, "expecting a task or a task collection, got #{objects}"
+	    objects.partition do |o| 
+		if o.respond_to?(:to_event) then true
+		elsif o.respond_to?(:to_task) then false
+		else raise ArgumentError, "found #{o || 'nil'} which is neither a task nor an event"
+		end
 	    end
 	end
 
