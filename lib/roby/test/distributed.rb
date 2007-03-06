@@ -62,6 +62,7 @@ module Roby
 			end
 		    def cs.process_events; Roby.control.process_events end
 		    def cs.local_peer; @local_peer ||= Distributed.peer("local") end
+		    def cs.reset_local_peer; @local_peer = nil end
 		    def cs.send_local_peer(*args); local_peer.send(*args) end
 
 		    Distributed.state = cs
