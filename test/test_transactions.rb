@@ -348,7 +348,7 @@ module TC_TransactionBehaviour
 
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		trsc.on_plan_update = :invalidate
+		trsc.conflict_solver = :invalidate
 		p1.realized_by(t3)
 		t1.remove_child(t2)
 		assert(trsc.invalid?)
@@ -359,7 +359,7 @@ module TC_TransactionBehaviour
 	t1.remove_child t2
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1) do |trsc, p1|
-		trsc.on_plan_update = :invalidate
+		trsc.conflict_solver = :invalidate
 		p1.realized_by(t3)
 		t1.realized_by(t2)
 		assert(trsc.invalid?)
@@ -377,7 +377,6 @@ module TC_TransactionBehaviour
 	assert_nothing_raised do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 		trsc.conflict_solver = solver
-		trsc.on_plan_update  = :solver
 		p1.realized_by(t3)
 		t1.remove_child(t2)
 		assert(!trsc.invalid?)
@@ -389,7 +388,6 @@ module TC_TransactionBehaviour
 	assert_nothing_raised do
 	    transaction_commit(plan, t1) do |trsc, p1|
 		trsc.conflict_solver = solver
-		trsc.on_plan_update = :solver
 		p1.realized_by(t3)
 		t1.realized_by(t2)
 		assert(!trsc.invalid?)
@@ -403,7 +401,7 @@ module TC_TransactionBehaviour
 	plan.insert(t1)
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    trsc.on_plan_update = :update
+	    trsc.conflict_solver = :update
 	    p1.realized_by(t3)
 	    assert(p1.child_object?(p2))
 	    t1.remove_child(t2)
@@ -414,7 +412,7 @@ module TC_TransactionBehaviour
 	t3 = SimpleTask.new
 	t1.remove_child t2
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    trsc.on_plan_update = :update
+	    trsc.conflict_solver = :update
 	    p1.realized_by(t3)
 	    assert(!p1.child_object?(p2))
 

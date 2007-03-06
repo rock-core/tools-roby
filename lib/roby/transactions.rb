@@ -136,41 +136,28 @@ module Roby
 	# The proxy objects built for this transaction
 	attr_reader :proxy_objects
 
-	attr_accessor :conflict_solver
-
+	attr_reader :conflict_solver
 	attr_reader :options
 
-	PLAN_UPDATE_MODES = [:invalidate, :update, :solver]
-
-	# What to do if we the plan objects which are modifying are changed
-	# inside the plan. Can be either :invalidate, :update or :solver. In
-	# the latter case, the object returned by #conflict_solver is called
-	# with either #add_plan_relation or #remove_plan_relation
-	def on_plan_update; options[:on_plan_update] end
-
-	def on_plan_update=(value)
-	    if !PLAN_UPDATE_MODES.include?(value)
-		raise ArgumentError, "invalid plan update mode #{value}. Known modes are #{PLAN_UPDATE_MODES.join(", ")}"
-	    end
-	    if value == :solver && !conflict_solver
-		raise ArgumentError, "no conflict solver defined"
-	    end
-	    options[:on_plan_update] = value
+	def conflict_solver=(value)
+	    @conflict_solver = case value
+			       when :update
+				   SolverUpdateRelations
+			       when :invalidate
+				   SolverInvalidateTransaction
+			       when :ignore
+				   SolverIgnoreUpdate.new
+			       else value
+			       end
 	end
 
 	# Creates a new transaction which applies on +plan+
 	def initialize(plan, options = {})
-	    @options = validate_options options, 
-		:on_plan_update => nil,
-		:conflict_solver => nil
+	    options = validate_options options, 
+		:conflict_solver => :invalidate
 
-	    if options[:conflict_solver]
-		@conflict_solver = options[:conflict_solver]
-		options[:on_plan_update] ||= :solver
-	    end
-	    # Call #on_plan_update= to validate the value
-	    self.on_plan_update = options[:on_plan_update] || :invalidate
-
+	    @options = options
+	    self.conflict_solver = options[:conflict_solver]
 	    super(plan.hierarchy, plan.service_relations)
 
 	    @plan = plan
