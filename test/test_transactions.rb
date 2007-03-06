@@ -37,7 +37,7 @@ module TC_TransactionBehaviour
 	    plan.discover(o) unless o.plan
 
 	    p = trsc[o]
-	    assert_not_same(p, o)
+	    assert_not_equal(p, o)
 	    p
 	end
 	yield(trsc, *proxies)
@@ -127,8 +127,9 @@ module TC_TransactionBehaviour
 
 	transaction_commit(plan, t3) do |trsc, p3|
 	    assert(trsc.include?(p3))
-	    trsc.remove_task(p3) 
+	    trsc.remove_object(p3) 
 	    assert(!trsc.include?(p3))
+	    assert(!trsc.include?(t3))
 	    assert(plan.include?(t3))
 	end
 	assert(!plan.include?(t3))
@@ -347,10 +348,10 @@ module TC_TransactionBehaviour
      end
 
     def test_plan_finalized_task
-	t1, t2, t3 = (1..3).map { SimpleTask.new }
+	t1, t2, t3 = prepare_plan :missions => 1, :discover => 1
 	t1.realized_by t2
-	plan.insert(t1)
 
+	t3 = SimpleTask.new
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 		p1.realized_by(t3)
