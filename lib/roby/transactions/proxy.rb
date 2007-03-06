@@ -53,14 +53,7 @@ module Roby::Transactions
 	attr_reader :transaction
 	attr_reader :__getobj__
 
-	# Fix DelegateClass#== so that comparing the same proxy works
-	def ==(other)
-	    if other.kind_of?(Proxy)
-		self.eql?(other)
-	    else
-		__getobj__ == other
-	    end
-	end
+	alias :== :eql?
 
 	def enable_proxying; plan.enable_proxying end
 	def disable_proxying
