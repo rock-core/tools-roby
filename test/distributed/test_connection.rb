@@ -24,11 +24,11 @@ class TC_DistributedConnection < Test::Unit::TestCase
     end
 
     def test_peer_flatten_demux_calls
-	test_call = [nil, [:test, 1, 2]]
+	test_call = [:test, 1, 2]
 	assert_equal([[test_call, :block, :trace]], Peer.flatten_demux_call([test_call], :block, :trace))
 
-	demux_call = [nil, [:demux, [test_call]]]
-	calls = [test_call, demux_call, [nil, [:demux, [demux_call.dup]]]]
+	demux_call = [:demux, [test_call]]
+	calls  = [test_call, demux_call, [:demux, [demux_call.dup]]]
 	result = [[test_call, :block, :trace]] * 3
 	assert_equal(result, Peer.flatten_demux_call(calls, :block, :trace))
 

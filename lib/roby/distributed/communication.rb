@@ -33,13 +33,13 @@ module Roby
 	    end
 
 	    def demux_local(calls, result)
-		calls.each do |obj, args|
-		    Distributed.debug { "processing #{obj}.#{args[0]}(#{args[1..-1].join(", ")})" }
+		calls.each do |args|
+		    Distributed.debug { "processing #{args[0]}(#{args[1..-1].join(", ")})" }
 		    if args.first == :demux || args.first == :demux_local
 			demux_local(args[1], result)
 		    else
 			Control.synchronize do
-			    result << obj.send(*args)
+			    result << send(*args)
 			end
 		    end
 		    return true unless callbacks.empty?
@@ -106,7 +106,7 @@ module Roby
 		args.map! { |obj| Distributed.format(obj) }
 		args.unshift m
 
-		[[remote_server, args], block, caller(2)]
+		[args, block, caller(2)]
 	    end
 
 	    # call-seq:
@@ -132,6 +132,15 @@ module Roby
 		local.callbacks << format_remote_call(m, args, nil)
 	    end
 
+	    def queue_call(m, *args, &block)
+		Distributed.debug do
+		    "queueing #{neighbour.name}.#{m}"
+		    # from\n  #{caller(5)[0, 5].join("\n  ")}" } #\n  #{caller(4).join("\n  ")})"
+		end
+		send_queue.push(format_remote_call(m, args, block))
+		@sending = true
+	    end
+
 	    # call-seq:
 	    #   peer.transmit(method, arg1, arg2, ...) { |ret| ... }
 	    #
@@ -143,15 +152,10 @@ module Roby
 		    if block_given?
 			raise "in communication thread, cannot have a callback block"
 		    end
-		    return callback(m, *args)
+		    callback(m, *args)
+		else
+		    queue_call(m, *args, &block)
 		end
-
-		Distributed.debug do
-		    "queueing #{neighbour.name}.#{m}"
-		    # from\n  #{caller(5)[0, 5].join("\n  ")}" } #\n  #{caller(4).join("\n  ")})"
-		end
-		send_queue.push(format_remote_call(m, args, block))
-		@sending = true
 	    end
 
 	    # call-seq:
@@ -244,14 +248,13 @@ module Roby
 	    # Formats the RPC specification +call+ in a string suitable for debugging display
 	    def call_to_s(call)
 		return "" unless call
-		m, args = call.first
 
-		args = ([m] + args).map do |arg|
+		args = call.first.map do |arg|
 		    if arg.kind_of?(DRbObject) then arg.inspect
 		    else arg.to_s
 		    end
 		end
-		"#{args[0]}.#{args[1]}(#{args[2..-1].join(", ")})"
+		"#{args[0]}(#{args[1..-1].join(", ")})"
 	    end
 	    # Formats an error message because +error+ has been reported by +call+
 	    def report_remote_error(call, error)
@@ -360,13 +363,13 @@ module Roby
 
 	    def self.flatten_demux_calls(calls)
 		flattened = []
-		calls.delete_if do |(object, call), block, trace|
+		calls.delete_if do |call, block, trace|
 		    if call.first == :demux
 			args = call.last
-			if !args.all? { |_, c| c.first.respond_to?(:to_sym) }
+			if !args.all? { |c| c.first.respond_to?(:to_sym) }
 			    raise "invalid call specification #{call} queued by\n  #{trace.join("\n  ")}"
 			end
-			flattened.concat(flatten_demux_call(call.last, block, trace))
+			flattened.concat(flatten_demux_call(args, block, trace))
 		    end
 		end
 		calls.concat(flattened)
@@ -375,12 +378,12 @@ module Roby
 	    # Flatten nested calls to demux in +calls+
 	    def self.flatten_demux_call(args, block, trace) # :nodoc:
 		flattened = []
-		args = args.map do |object, call|
+		args = args.map do |call|
 		    if call.first == :demux
 			flattened.concat(flatten_demux_call(call.last, block, trace))
 			nil
 		    else
-			[[object, call], block, trace]
+			[call, block, trace]
 		    end
 		end
 		args.compact!
