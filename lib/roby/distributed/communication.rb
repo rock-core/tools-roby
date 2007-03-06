@@ -26,7 +26,7 @@ module Roby
 		[result, callbacks, nil]
 
 	    rescue Exception => e
-		[result, [], e]
+		[result, nil, e]
 
 	    ensure
 		Thread.current[CALLBACKS_TLS] = nil
@@ -328,7 +328,7 @@ module Roby
 
 		elsif !callbacks.empty?
 		    new_results, new_calls, error = local.demux(callbacks.map { |c| c.first })
-		    if !new_calls.empty?
+		    if new_calls && !new_calls.empty?
 			Distributed.warn do
 			    report_nested_callbacks(new_calls, callbacks[new_results.size - 1], calls[success])
 			end
