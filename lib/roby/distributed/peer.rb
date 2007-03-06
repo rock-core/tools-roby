@@ -772,6 +772,30 @@ module Roby::Distributed
 	    end
 	    false
 	end
+
+	def need_updates?(local_object)
+	    return true if local.subscribed?(local_object)
+	    return true if local_object.has_sibling?(self) && owns?(local_object)
+
+	    if local_object.kind_of?(Roby::PlanObject)
+		Roby::Distributed.each_object_relation(local_object) do |rel|
+		    local_object.related_objects(rel).each do |related_object| 
+			if local.subscribed?(related_object) || 
+			    related_object.has_sibling?(self) && owns?(related_object)
+			    return true
+			end
+		    end
+		end
+
+		if local_object.respond_to?(:each_plan_child)
+		    local_object.each_plan_child do |plan_child|
+			return true if need_updates?(plan_child)
+		    end
+		end
+	    end
+
+	    false
+	end
     end
 end
 
