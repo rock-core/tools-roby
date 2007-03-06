@@ -5,6 +5,13 @@ require 'roby/droby'
 
 require 'roby'
 
+class DRbObject
+    alias __drbobject_dump__ _dump
+    def _dump(lvl)
+	@marshalled ||= __drbobject_dump__(lvl)
+    end
+end
+
 class Array
     def proxy(peer) # :nodoc:
 	map { |element| peer.proxy(element) }
@@ -128,7 +135,7 @@ module Roby
 
     class RelationGraph
 	def droby_dump
-	    Distributed::DRobyConstant.new(self)
+	    @marshalled ||= Distributed::DRobyConstant.new(self)
 	end
     end
 
