@@ -406,7 +406,12 @@ module Roby::Distributed
 	    connect(&block)
 	end
 
-	attr_reader :name, :task
+	# The peer name
+	attr_reader :name
+	# The ConnectionTask object for this peer
+	attr_reader :task
+
+	# Creates a query object on the remote plan
 	def find_tasks
 	    Roby::Query.new(self)
 	end
@@ -643,7 +648,7 @@ module Roby::Distributed
 	    end
 	end
 	
-	# Returns the remote_objec, local_object pair for +object+. +object+
+	# Returns the remote_object, local_object pair for +object+. +object+
 	# can be either a marshalled object or a local proxy. Raises
 	# ArgumentError if it is none of the two. In the latter case, a
 	# RemotePeerMismatch exception is raised if the local proxy is not
