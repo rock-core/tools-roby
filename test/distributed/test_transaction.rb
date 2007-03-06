@@ -190,6 +190,9 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.discover(task)
 	trsc.self_owned
 
+	parent = remote_peer.subscribe(parent)
+	child  = remote_peer.subscribe(child)
+
 	# Check some properties
 	assert((trsc[parent].owners - trsc.owners).empty?)
 	assert(trsc[parent].read_write?)
@@ -198,9 +201,6 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert(trsc[parent].event(:stop).read_write?)
 	assert(task.event(:start).read_write?)
 	assert(task.event(:stop).read_write?)
-
-	parent = remote_peer.subscribe(parent)
-	child  = remote_peer.subscribe(child)
 
 	# Add relations
 	trsc[parent].realized_by task
