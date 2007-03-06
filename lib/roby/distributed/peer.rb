@@ -398,6 +398,9 @@ module Roby::Distributed
 	    @max_allowed_errors = connection_space.max_allowed_errors
 	    @triggers = Hash.new
 
+	    @synchro_point_mutex = Mutex.new
+	    @synchro_point_done = ConditionVariable.new
+
 	    Roby::Distributed.peers[remote_id] = self
 
 	    connect(&block)

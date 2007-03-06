@@ -48,7 +48,17 @@ module Roby
 	    end
 	    private :demux_local
 
-	    def synchro_point; end
+	    def synchro_point
+		peer.queue_call(:done_synchro_point)
+		nil
+	    end
+
+	    def done_synchro_point
+		peer.synchro_point_mutex.synchronize do
+		    peer.synchro_point_done.broadcast
+		end
+		nil
+	    end
 	end
 
 
@@ -57,6 +67,11 @@ module Roby
 	    def synchronize; @mutex.synchronize { yield } end
 	    attr_reader :send_flushed
 	    attr_reader :synchro_call
+
+	    # Mutex use by #synchro_point
+	    attr_reader :synchro_point_mutex
+	    # Condition variable use by #synchro_point
+	    attr_reader :synchro_point_done
 
 	    # How many errors we accept before disconnecting
 	    attr_reader :max_allowed_errors
@@ -337,7 +352,10 @@ module Roby
 	    end
 
 	    def synchro_point(&block)
-		call(:synchro_point)
+		synchro_point_mutex.synchronize do
+		    queue_call(:synchro_point)
+		    synchro_point_done.wait(synchro_point_mutex)
+		end
 	    end
 
 	    def self.flatten_demux_calls(calls)
