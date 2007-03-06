@@ -126,34 +126,39 @@ module Roby
 		end
 	    end
 
-	    # Receive the list of relations of +object+. The relations are given in
-	    # an array like [[graph, from, to, info], [...], ...]
+	    # Receive the list of relations of +object+. Relations must be formatted
+	    # like #relations_of does
 	    def set_relations(object, relations)
 		return unless object = peer.local_object(object)
-		Distributed.update([object]) do
-		    parents  = Hash.new { |h, k| h[k] = Array.new }
-		    children = Hash.new { |h, k| h[k] = Array.new }
+		relations = peer.local_object(relations)
+
+		Distributed.update([object.root_object]) do
+		    all_parents  = Hash.new { |h, k| h[k] = ValueSet.new }
+		    all_children = Hash.new { |h, k| h[k] = ValueSet.new }
 		    
 		    # Add or update existing relations
-		    relations.each do |graph, graph_relations|
-			graph_relations.each do |args|
-			    apply(args) do |from, to, info|
-				if !from || !to
-				    next
-				elsif to == object
-				    parents[graph]  << from
-				elsif from == object
-				    children[graph] << to
-				else
-				    raise ArgumentError, "trying to set a relation #{from.inspect} -> #{to.inspect} in which self(#{object.inspect}) in neither parent nor child"
-				end
+		    relations.each_slice(3) do |graph, parents, children|
+			parents.each_slice(2) do |parent, info|
+			    next unless parent
+			    all_parents[graph] << parent
 
-				if graph.linked?(from, to)
-				    from[to, graph] = info
-				else
-				    Distributed.update([from.root_object, to.root_object]) do
-					from.add_child_object(to, graph, info)
-				    end
+			    if graph.linked?(parent, object)
+				parent[object, graph] = info
+			    else
+				Distributed.update([parent.root_object]) do
+				    parent.add_child_object(object, graph, info)
+				end
+			    end
+			end
+			children.each_slice(2) do |child, info|
+			    next unless child
+			    all_children[graph] << child
+
+			    if graph.linked?(object, child)
+				object[child, graph] = info
+			    else
+				Distributed.update([child.root_object]) do
+				    object.add_child_object(child, graph, info)
 				end
 			    end
 			end
@@ -161,12 +166,12 @@ module Roby
 
 		    Distributed.each_object_relation(object) do |rel|
 			# Remove relations that do not exist anymore
-			(object.parent_objects(rel) - parents[rel]).each do |p|
+			(object.parent_objects(rel) - all_parents[rel]).each do |p|
 			    Distributed.update([p.root_object, object.root_object]) do
 				p.remove_child_object(object, rel)
 			    end
 			end
-			(object.child_objects(rel) - children[rel]).each do |c|
+			(object.child_objects(rel) - all_children[rel]).each do |c|
 			    Distributed.update([c.root_object, object.root_object]) do
 				object.remove_child_object(c, rel)
 			    end

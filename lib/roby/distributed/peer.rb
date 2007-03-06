@@ -195,25 +195,27 @@ module Roby::Distributed
 	end
 
 	# Relations to be sent to the remote host if +object+ is in a plan. The
-	# returned array if formatted as [ [graph, graph_edges], [graph, ..] ]
-	# where graph_edges is [[parent, child, data], ...]
+	# returned array if formatted as 
+	#   [ [graph, child_pos, p1, i1, p2, i2, ..., c1, i1, c2, i2], [graph, ..] ]
+	# where (pi, ii) is the set of parents and (ci, ii) the set of children. child_pos
+	# is the index of c1 in the array
 	def relations_of(object)
 	    result = []
 	    # For transaction proxies, never send non-discovered relations to
 	    # remote hosts
 	    Roby::Distributed.each_object_relation(object) do |graph|
 		next unless graph.distribute?
-
-		graph_edges = []
-		object.each_child_object(graph) do |child|
-		    next unless child.distribute?
-		    graph_edges << [object, child, object[child, graph]]
-		end
+		parents = []
 		object.each_parent_object(graph) do |parent|
 		    next unless parent.distribute?
-		    graph_edges << [parent, object, parent[object, graph]]
+		    parents << parent << parent[object, graph]
 		end
-		result << [graph, graph_edges]
+		children = []
+		object.each_child_object(graph) do |child|
+		    next unless child.distribute?
+		    children << child << object[child, graph]
+		end
+		result << graph << parents << children
 	    end
 
 	    result
