@@ -111,6 +111,7 @@ module Roby
 
 	    discover(task)
 	    @missions << task
+	    task.mission = true if task.local?
 	    inserted(task)
 	    self
 	end
@@ -133,6 +134,7 @@ module Roby
 	def discard(task)
 	    discover(task)
 	    @missions.delete(task)
+	    task.mission = false if task.local?
 
 	    discarded(task)
 	    self

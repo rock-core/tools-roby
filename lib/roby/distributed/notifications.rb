@@ -7,7 +7,7 @@ module Roby
 		return unless task.distribute? && task.self_owned?
 
 		unless Distributed.updating?([self]) || Distributed.updating?([task])
-		    Distributed.each_subscribed_peer(self) do |peer|
+		    Distributed.each_subscribed_peer(self, task) do |peer|
 			peer.plan_update(:insert, self, task)
 		    end
 		    Distributed.trigger(task)
@@ -40,7 +40,7 @@ module Roby
 		return unless task.distribute? && task.self_owned?
 
 		unless Distributed.updating?([self]) || Distributed.updating?([task])
-		    Distributed.each_subscribed_peer(self) do |peer|
+		    Distributed.each_subscribed_peer(self, task) do |peer|
 			peer.plan_update(:discard, self, task)
 		    end
 		end
@@ -94,6 +94,14 @@ module Roby
 		result = []
 		Distributed.update([plan]) do
 		    case event.to_sym
+		    when :insert
+			return unless local_object = peer.local_object(args[0])
+			local_object.mission = true
+
+		    when :discard
+			return unless local_object = peer.local_object(args[0])
+			local_object.mission = false
+
 		    when :discover
 			result = ValueSet.new
 			args[0].each do |marshalled|

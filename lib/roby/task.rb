@@ -264,6 +264,10 @@ module Roby
 	end
 	# The task name
 	attr_reader :name
+	
+	# This predicate is true if this task is a mission for its owners. If
+	# you want to know if it a mission for the local pDB, use Plan#mission?
+	attr_predicate :mission?, true
 
 	def inspect
 	    state = if pending? then 'pending'
