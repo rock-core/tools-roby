@@ -314,7 +314,16 @@ module Roby
 	def committed_transaction; super if defined? super end
 
 	def enable_proxying; @disable_proxying = false end
-	def disable_proxying; @disable_proxying = true end
+	def disable_proxying
+	    @disable_proxying = true
+	    if block_given?
+		begin
+		    yield
+		ensure
+		    @disable_proxying = false
+		end
+	    end
+	end
 	def proxying?; !@freezed && !@disable_proxying end
 
 	# Discard all the modifications that have been registered 
