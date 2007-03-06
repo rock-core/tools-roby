@@ -63,6 +63,26 @@ module TC_PlanStatic
 	assert(!plan.permanent?(t1))
     end
 
+    def test_plan_remove_object
+	t1, t2 = prepare_plan :tasks => 2
+	plan.discover(e = EventGenerator.new(true))
+
+	t1.realized_by(t2)
+	t1.on(:start, e)
+
+	plan.remove_object(e)
+	assert(!plan.free_events.include?(e))
+	assert(t1.event(:start).child_objects(EventStructure::Signal).empty?)
+	assert(!e.plan)
+	assert_raises(ArgumentError) { e.plan = plan }
+
+	plan.remove_object(t2)
+	assert(!plan.include?(e))
+	assert(!t1.realized_by?(t2))
+	assert(!t2.plan)
+	assert_raises(ArgumentError) { t2.plan = plan }
+    end
+
     def test_base
 	task_model = Class.new(Task) do 
 	    event :stop, :command => true
