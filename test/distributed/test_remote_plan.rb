@@ -182,6 +182,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    mission.realized_by subtask
 	    mission.on(:stop, next_mission, :start)
 
+	    remote.plan.permanent(subtask)
 	    remote.plan.insert(root)
 	    remote.plan.insert(mission)
 	    remote.plan.insert(next_mission)
@@ -203,7 +204,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	# Check that #subscribe updates the relations between subscribed objects
 	r_root = remote_peer.subscribe(r_root)
-	assert(local.plan.mission?(r_root))
+	assert(r_root.mission?)
 	assert_equal([r_mission], r_root.children.to_a)
 	assert_equal([], r_mission.children.to_a)
 	assert_equal([], r_mission.event(:stop).child_objects(EventStructure::Signal).to_a)
@@ -216,25 +217,24 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_equal(r_next_mission.event(:start), proxies.first)
 
 	## Check that #unsubscribe(..., false) disables dynamic updates
-	remote_peer.unsubscribe(r_mission, false)
-	assert_equal(1, r_mission.children.size)
+	remote_peer.unsubscribe(r_mission)
+	assert(!remote_peer.subscribed?(r_mission))
 	remote.remove_mission_subtask
-	assert_happens do
-	    proxies = r_mission.children.to_a
-	    assert_equal(r_subtask, proxies.first)
-	    proxies = r_mission.event(:stop).child_objects(EventStructure::Signal).to_a
-	    assert_equal(r_next_mission.event(:start), proxies.first)
-	end
 
 	## Check that #subscribe removes old relations as well
 	r_mission = remote_peer.subscribe(r_mission)
 	proxies = r_mission.children.to_a
-	assert(proxies.empty?)
+	assert(proxies.empty?, proxies)
 	proxies = r_mission.event(:stop).child_objects(EventStructure::Signal).to_a
-	assert_equal(r_next_mission.event(:start), proxies.first)
+	assert(Distributed.needed?(r_mission))
+	assert(Distributed.needed?(r_mission.event(:stop)))
+	assert_equal(1, proxies.size, proxies)
+	r_next_mission_start = proxies.first
+	assert(Distributed.needed?(r_next_mission_start))
+	assert(Distributed.needed?(r_next_mission_start.task))
 
 	## Re-add the child relation and test #unsubscribe
-	remote_peer.unsubscribe(r_mission, false)
+	remote_peer.unsubscribe(r_mission)
 	remote.add_mission_subtask
 	r_mission = remote_peer.subscribe(r_mission)
 	r_subtask = remote_peer.subscribe(r_subtask)
@@ -242,14 +242,15 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert(remote_peer.subscribed?(r_mission))
 	assert(remote_peer.subscribed?(r_subtask))
 
-	remote_peer.unsubscribe(r_subtask, true)
+	remote_peer.unsubscribe(r_subtask)
 	assert(! remote_peer.subscribed?(r_subtask))
 	proxies = r_mission.children.to_a
 	assert(! proxies.empty?)
 	proxies = r_mission.event(:stop).child_objects(EventStructure::Signal).to_a
 	assert_equal(r_next_mission.event(:start), proxies.first)
 
-	remote_peer.unsubscribe(r_mission, true)
+	remote_peer.unsubscribe(r_mission)
+	process_events
 	proxies = r_mission.children.to_a
 	assert(proxies.empty?)
 	proxies = r_mission.event(:stop).child_objects(EventStructure::Signal).to_a
@@ -283,15 +284,15 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert(middle = local.plan.known_tasks.find { |t| t.arguments[:id] == 'middle' })
 	assert(!middle.subscribed?)
 	remote_peer.unsubscribe(right)
+	process_events
 	assert(!right.plan)
 
 	assert(middle = local.plan.known_tasks.find { |t| t.arguments[:id] == 'middle' })
 	assert_equal(1, middle.parent_objects(TaskStructure::Hierarchy).size)
 
 	remote.remove_last_link
-	assert_happens do
-	    assert(!middle.plan)
-	end
+	process_events
+	assert(!middle.plan)
     end
 
     def test_data_update
@@ -316,40 +317,26 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
     def test_plan_notifications
 	peer2peer do |remote|
-	    root, mission, subtask, next_mission =
-		SimpleTask.new(:id => 'root'), 
-		SimpleTask.new(:id => 'mission'), 
-		SimpleTask.new(:id => 'subtask')
-
-	    root.realized_by mission
-	    mission.realized_by subtask
-
-	    remote.plan.insert(root)
-	    remote.plan.insert(mission)
+	    plan.insert(mission = SimpleTask.new(:id => 'mission'))
 
 	    remote.class.class_eval do
-		define_method(:remove_subtask) { remote.plan.remove_object(subtask) }
 		define_method(:discard_mission) { remote.plan.discard(mission) }
-		define_method(:remove_mission) { remote.plan.remove_object(mission) }
+		define_method(:insert_mission)  { remote.plan.insert(mission) }
 	    end
 	end
-	r_root		= remote_peer.subscribe(remote_task(:id => 'root'))
-	r_mission	= remote_peer.subscribe(remote_task(:id => 'mission'))
-	r_subtask	= remote_peer.subscribe(remote_task(:id => 'subtask'))
-	assert_equal(4, local.plan.size)
-
-	remote.remove_subtask
-	assert_happens do
-	    assert(!remote_peer.subscribed?(r_subtask), remote_peer.subscriptions.inspect)
-	    assert_equal(3, local.plan.size)
-	    assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'subtask' })
-	end
+	r_mission = remote_peer.subscribe(remote_task(:id => 'mission'))
+	assert(r_mission.mission?)
+	assert(!plan.mission?(r_mission))
 
 	remote.discard_mission
-	assert_happens do
-	    assert_equal(3, local.plan.size)
-	    assert(local.plan.mission?(r_mission))
-	end
+	process_events
+	assert(!r_mission.mission?)
+	assert(!plan.mission?(r_mission))
+
+	remote.insert_mission
+	process_events
+	assert(r_mission.mission?)
+	assert(!plan.mission?(r_mission))
     end
 
     def test_relation_updates
@@ -386,24 +373,20 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	# Check dynamic updates
 	remote.add_mission_subtask
-	assert_happens do
-	    assert_equal([r_subtask], r_mission.children.to_a)
-	end
+	process_events
+	assert_equal([r_subtask], r_mission.children.to_a)
 
 	remote.remove_mission_subtask
-	assert_happens do
-	    assert(r_mission.children.empty?)
-	end
+	process_events
+	assert(r_mission.children.empty?)
 
 	remote.add_mission_stop_next_start
-	assert_happens do
-	    assert_equal([r_next_mission.event(:start)], r_mission.event(:stop).child_objects(EventStructure::Signal).to_a)
-	end
+	process_events
+	assert_equal([r_next_mission.event(:start)], r_mission.event(:stop).child_objects(EventStructure::Signal).to_a)
 
 	remote.remove_mission_stop_next_start
-	assert_happens do
-	    assert(r_mission.event(:stop).child_objects(EventStructure::Signal).empty?)
-	end
+	process_events
+	assert(r_mission.event(:stop).child_objects(EventStructure::Signal).empty?)
     end
 
     def test_unknown_event
