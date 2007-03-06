@@ -71,20 +71,107 @@ module Roby
 	end
 	alias :[] :wrap
 
+	# Remove +proxy+ from this transaction. While #remove_object is
+	# removing the underlying object from the underlying plan, this method
+	# only removes it from the transaction, forgetting all modifications
+	# that have been done on +proxy+ in the transaction
+	def discard_modifications(object)
+	    if object.respond_to?(:each_plan_child)
+		object.each_plan_child(&method(:discard_modifications))
+	    end
+
+	    # The set of relations to copy back from the plan into the transaction
+	    rediscover = []
+
+	    # +object+ might have been removed from the plan, thus allow
+	    # object.plan to be nil
+	    if object.plan && object.plan != self.plan
+		raise ArgumentError, "#{object} is in #{object.plan}, not #{self}"
+	    elsif object.plan
+		disable_proxying do
+
+		    # Check if we have discovered objects in our neighborhood. If it is
+		    # the case, do not remove the proxy but rediscover its relations
+		    object.each_relation do |relation|
+			if object.related_objects(relation).any? { |obj| discovered_relations_of?(obj, relation, true) }
+			    rediscover << relation
+			end
+		    end
+		end
+	    end
+
+	    discarded_tasks.delete(object)
+	    auto_tasks.delete(object)
+	    removed_objects.delete(object)
+	    if proxy = proxy_objects[object]
+		discovered_objects.delete(proxy)
+	    end
+
+	    if rediscover.empty?
+		if proxy
+		    proxy_objects.delete(object)
+		    if proxy.root_object?
+			disable_proxying { remove_plan_object(proxy) }
+		    else
+			# Need to remove relations ourselves, as
+			# #disable_proxying completely disables #each_event on
+			# transaction proxies
+			disable_proxying { proxy.clear_relations }
+		    end
+		end
+	    else
+		proxy ||= wrap(object)
+		disable_proxying do
+		    rediscover.each { |relation| restore_relation(proxy, relation) }
+		end
+	    end
+	end
+
+	def restore_relation(proxy, relation)
+	    object = proxy.__getobj__
+
+	    Control.synchronize do
+		child_objects = object.child_objects(relation).map { |obj| wrap(obj, false) }
+		child_objects.compact!
+		(proxy.child_objects(relation) - child_objects).each do |child|
+		    relation.unlink(proxy, child)
+		end
+
+		parent_objects = object.parent_objects(relation).map { |obj| wrap(obj, false) }
+		parent_objects.compact!
+		(proxy.parent_objects(relation) - parent_objects).each do |parent|
+		    relation.unlink(parent, proxy)
+		end
+	    end
+
+	    discovered_objects.delete(proxy)
+	    proxy.discovered_relations.delete(relation)
+	    proxy.do_discover(relation, false)
+	end
+
+	alias :remove_plan_object :remove_object
 	def remove_object(object)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 
 	    object = may_unwrap(object)
+	    proxy = proxy_objects.delete(object) || object
+
+	    # removing the proxy may trigger some discovery (event relations
+	    # for instance, if proxy is a task). Do it first, or #discover
+	    # will be called and the modifications of internal structures
+	    # nulled (like #removed_objects) ...
+	    remove_plan_object(proxy)
+
+	    discovered_objects.delete(proxy)
 	    if object.plan == self.plan
+		# +object+ is new in the transaction
 		removed_objects.insert(object)
-	    end
-	    if proxy = self[object, false]
-		proxy_objects.delete(proxy.__getobj__) if proxy.respond_to?(:__getobj__)
-		super(proxy)
 	    end
 	end
 
-	def may_wrap(object, create = true); (wrap(object, create) || object) rescue object end
+	def may_wrap(object, create = true)
+	    (wrap(object, create) || object) rescue object 
+	end
 	
 	# may_unwrap may return objects from transaction
 	def may_unwrap(object)

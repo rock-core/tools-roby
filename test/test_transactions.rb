@@ -325,6 +325,27 @@ module TC_TransactionBehaviour
 	end
     end
 
+    def test_discard_modifications
+	t1, t2, t3 = prepare_plan :missions => 1, :discover => 1, :tasks => 1
+	t1.realized_by t2
+	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+	    p1.realized_by(t3)
+	    trsc.remove_object(p1)
+	    trsc.discard_modifications(t1)
+	end
+	assert(plan.include?(t1))
+	assert_equal([t2], t1.children.to_a)
+ 
+ 	t3 = SimpleTask.new
+ 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+ 	    p1.realized_by t3
+ 	    p1.remove_child p2
+ 	    trsc.discard_modifications(t1)
+ 	end
+ 	assert(plan.include?(t1))
+ 	assert_equal([t2], t1.children.to_a)
+     end
+
     def test_plan_finalized_task
 	t1, t2, t3 = (1..3).map { SimpleTask.new }
 	t1.realized_by t2
