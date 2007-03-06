@@ -300,12 +300,16 @@ module Roby::Transactions
 	def has_sibling?(peer)
 	    plan.has_sibling?(peer)
 	end
+
+	def executable?; false end
     end
 
     class TaskEventGenerator < Roby::Transactions::EventGenerator
 	proxy_for Roby::TaskEventGenerator
 	proxy :task
 	def root_object; task end
+
+	def executable?; false end
     end
 
     # Proxy for Roby::Task
@@ -325,19 +329,14 @@ module Roby::Transactions
 	proxy :fullfills?
 	proxy :same_state?
 
-	forbid_call :emit
-	forbid_call :start!
-	forbid_call :failed!
-	forbid_call :stop!
-	forbid_call :success!
-	def to_s; "tProxy(#{__getobj__.to_s})" end
+	def executable?; false end
+
 	def history; "" end
 	def plan=(new_plan)
 	    if new_plan && new_plan.plan != __getobj__.plan
 		raise "invalid plan #{new_plan}"
 	    end
 	    @plan = new_plan
-	    each_event { |ev| ev.executable = executable? }
 	end
 
 	def instantiate_model_event_relations
