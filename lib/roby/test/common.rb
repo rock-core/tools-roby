@@ -158,6 +158,9 @@ module Roby
 		    Roby.warn $!.full_message
 		end
 	    end
+
+	ensure
+	    self.console_logger = false
 	end
 
 	# Process pending events
@@ -361,7 +364,7 @@ module Roby
 		require 'roby/log/console'
 		@console_logger = Roby::Log::ConsoleLogger.new(STDERR)
 		Roby::Log.loggers << console_logger
-	    else
+	    elsif defined? Roby::Log
 		Roby::Log.loggers.delete(@console_logger)
 		@console_logger = nil
 	    end
