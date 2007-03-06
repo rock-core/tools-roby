@@ -1,10 +1,9 @@
-== TODO
+= TODO
 
-* dRoby marshalling is too costly. We have to do it in two steps: *full* marshalling 
-  is what we do now, by transfering all needed information about the object to the remote peer. It
-  allows to create the object proxy on the other side. When the remote peer has initialized the
-  proxy, and if we are sure that all the object updates are sent to the remote peer (in dRoby, it is
-  if the object is subscribed by the remote peer), then only send a remote ID (a DRbObject)
+== Core
+* dynamic parameters. State prediction in both plan and transaction context: allow
+  to predict the effect of changing the value of dynamic parameters in transaction
+  context.
 
 * a better synchronous event propagation scheme. Two parts:
     1/ create a Precedence graph in which an edge a -> b exists if b depends on
@@ -20,10 +19,6 @@
        we don't know the result yet (happened? = false), register a continuation
        and its dependency on the event. Include this continuation in the event set
        and sort it accordingly. 
-
-* dynamic events. State prediction in both plan and transaction context: allow
-  to predict the effect of changing the value of dynamic events in transaction
-  context.
 
 * in #replace, use Hierarchy#fullfilled_events to check that
   all needed events are provided. If some are missing, use define_event to try to add a new one
@@ -52,15 +47,32 @@
       Moreover, if it is synchronizing on the start event, it should appear "as if"
       the event has been emitted
 
-* Use a fully asynchronous model for peer-to-peer connection, only feeding the control thread once
-  in each execution cycle. This could allow to reduce peer-to-peer handshake length (which is currently
-  of 3 cycles). Note however that connection should be subject to decision control, so the connection
-  filtering should be done in the control thread ... Needs more thought.
-
 * Check the capability we have to put every application block in transaction context. This would allow
   for instance to discard **all** plan modification done by an exception handler (or plan command, event
   handler, you get my drift) if an exception is raised. I think it would be a worthy feature
   [This can't be done because of the transaction creation cost]
+
+* Kill local tasks that are in force_gc even if they have parents, if their parents are remote
+  tasks
+
+* rename Roby::TaskModelTag::argument into 'arguments' (beware of name clash with the
+  accessor)
+
+* Fix transaction proxying. Better use the same kind of model than in dRoby: create slightly
+  modified tasks of the same model than the proxied event, do not proxy task events
+* Find a way to remove the "return unless proxying?" in top of proxy_code. It sucks
+
+== Distributed
+* marshalling is too costly. We have to do it in two steps: *full* marshalling 
+  is what we do now, by transfering all needed information about the object to the remote peer. It
+  allows to create the object proxy on the other side. When the remote peer has initialized the
+  proxy, and if we are sure that all the object updates are sent to the remote peer (in dRoby, it is
+  if the object is subscribed by the remote peer), then only send a remote ID (a DRbObject)
+
+* Use a fully asynchronous model for peer-to-peer connection, only feeding the control thread once
+  in each execution cycle. This could allow to reduce peer-to-peer handshake length (which is currently
+  of 3 cycles). Note however that connection should be subject to decision control, so the connection
+  filtering should be done in the control thread ... Needs more thought.
 
 * Better handling of unknown models
   - what I'd like to achieve is handling the following situation:
@@ -70,13 +82,18 @@
     If 1 sees tasks of 2 *through* the plan of 3, and if these tasks are of the SpecificModel model,
     then they should be instances of the SpecificModel class 
 
-* Kill local tasks that are in force_gc even if they have parents, if their parents are remote
-  tasks
+* There is a race condition when removing objects: if a peer A is building a transaction involving
+  tasks from a peer B, and if the peer B removes the tasks, then there is a race condition between
+  the time B sends the transaction and the time it processes the remove_object update from A. The
+  net effect is that when the transaction sibling is created, some tasks it includes do not exist
+  anymore. It is more general, since the same problem exists when wrapping tasks in a transaction
+  for instance.
 
-* rename Roby::TaskModelTag::argument into 'arguments' (beware of name clash with the
-  accessor)
+  I don't think we should really fix the race condition per se. We should in general check if the
+  object has not been removed when A processes updates from B and have some ways to feedback B from
+  A.
 
-== DONE
+= DONE
 
 * fix namings in Distributed. It is quite a mess now ...
   - Peer#proxy => Peer.local_object (same for marshalled objects)
