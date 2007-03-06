@@ -73,6 +73,7 @@ module Roby
 
 	def root_object; self end
 	def root_object?; root_object == self end
+	def each_plan_child; self end
 
 	def self.child_plan_object(attribute)
 	    class_eval <<-EOD

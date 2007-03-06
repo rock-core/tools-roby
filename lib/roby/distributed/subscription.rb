@@ -117,11 +117,11 @@ module Roby
 	    def set_relations_commands(plan_object)
 		peer.transmit(:set_relations, plan_object, relations_of(plan_object))
 
-		if plan_object.respond_to?(:each_event)
-		    plan_object.each_event do |ev|
+		if plan_object.respond_to?(:each_plan_child)
+		    plan_object.each_plan_child do |plan_child|
 			# Send event even if +result+ is empty, so that relations
 			# are removed if needed on the other side
-			peer.transmit(:set_relations, ev, relations_of(ev))
+			peer.transmit(:set_relations, plan_child, relations_of(plan_child))
 		    end
 		end
 	    end

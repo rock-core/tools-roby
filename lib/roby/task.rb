@@ -851,6 +851,7 @@ module Roby
         def each_event(&iterator) # :yield:bound_event
 	    bound_events.each_value(&iterator)
         end
+	alias :each_plan_child :each_event
 
 	def terminal_events
 	    bound_events.values.find_all { |ev| ev.terminal? }

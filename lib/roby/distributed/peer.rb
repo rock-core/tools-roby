@@ -181,9 +181,9 @@ module Roby::Distributed
 	def discover_neighborhood(object, distance)
 	    object = peer.local_object(object)
 	    edges = object.neighborhood(distance)
-	    if object.kind_of?(Roby::Task)
-		object.each_event do |obj_ev|
-		    edges += obj_ev.neighborhood(distance)
+	    if object.respond_to?(:each_plan_child)
+		object.each_plan_child do |plan_child|
+		    edges += plan_child.neighborhood(distance)
 		end
 	    end
 

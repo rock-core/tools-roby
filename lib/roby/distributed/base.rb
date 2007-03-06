@@ -28,6 +28,12 @@ module Roby
 		    return true if local_object.related_objects(rel).any? { |obj| obj.needed? }
 		end
 
+		if local_object.respond_to?(:each_plan_child)
+		    local_object.each_plan_child do |child|
+			return true if needed?(child)
+		    end
+		end
+
 		false
 	    end
 
