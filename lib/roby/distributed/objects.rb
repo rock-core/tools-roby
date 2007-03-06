@@ -18,7 +18,7 @@ module Roby
 	    def subscribed?; true end
 	    def needed?
 		Distributed.peers.each_value do |peer|
-		    return true if peer.local.subscriptions.include?(self)
+		    return true if peer.local.subscribed?(root_object)
 		end
 		false
 	    end
@@ -73,16 +73,16 @@ module Roby
 	    def distribute?; true end
 	    # If this object is owned by us
 	    def self_owned?; false end
-	    # If we know about some sibling on +peer+. It is always true for this
-	    # pDB (object.has_sibling?(Distributed) always returns true)
+	    # If we know about some sibling on +peer+. It is always true for
+	    # this pDB (object.has_sibling?(Distributed) always returns true)
 	    def has_sibling?(peer); peer == remote_peer || peer == Distributed end
 
 	    # True if the local pDB gets informed about the updates of this
 	    # object
-	    def subscribed?; remote_peer.subscribed?(@remote_object) end
+	    def subscribed?; remote_peer.subscribed?(root_object.remote_object(remote_peer)) end
 	    # True if the local pDB needs to keep this object because of its
 	    # connection with other peers
-	    def needed?;     subscribed? end
+	    def needed?; root_object.subscribed? end
 	end
 
 	# Module included in objects distributed across multiple pDBs
@@ -91,13 +91,10 @@ module Roby
 	    attribute(:synchro_call) { ConditionVariable.new }
 	    attribute(:remote_siblings) { Hash.new }
 
-	    def self_owned?
-		owners.include?(Distributed)
-	    end
 	    def distribute?; true end
 	    def needed?; subscribed? end
-	    def subscribed?; self_owned? || owners.any? { |peer| peer.subscribed?(self) } end
-	    def local?; self_owned? end
+	    def subscribed?; self_owned? || owners.any? { |peer| peer.subscribed?(root_object) } end
+	    def local?; owners.size == 1 && owners.first == Distributed end
 
 	    def has_sibling?(peer)
 		remote_siblings.has_key?(peer) || peer == Roby::Distributed
@@ -111,6 +108,8 @@ module Roby
 		end
 	    end
 	    
+	    def self_owned?; owners.include?(Distributed) end
+
 	    # Makes this object owned by the local DB. This is equivalent to
 	    # object.self_owned = true
 	    def self_owned; self.self_owned = true end
