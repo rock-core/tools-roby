@@ -16,17 +16,42 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	super
     end
 
+    def test_wrapping_free_objects
+	task = SimpleTask.new
+	assert_same(task, transaction[task])
+	assert_equal(transaction, task.plan)
+	ev   = EventGenerator.new
+	assert_same(ev, transaction[ev])
+	assert_equal(transaction, ev.plan)
+    end
+
     def test_task_proxy
 	plan.insert(t = Roby::Task.new)
 	p = transaction[t]
 	assert_equal(p, p.root_object)
 	assert(p.root_object?)
-	assert_equal(p, p.event(:start).root_object)
-	assert(!p.event(:start).root_object?)
+
+	wrapped_start = transaction[t.event(:start)]
+	assert_kind_of(Roby::Transactions::TaskEventGenerator, wrapped_start)
+	assert_equal(p, wrapped_start.root_object)
+	assert(!wrapped_start.root_object?)
+	assert_equal(wrapped_start, p.event(:start))
+
+	wrapped_stop = p.event(:stop)
+	assert_equal(transaction[t.event(:stop)], wrapped_stop)
+    end
+    
+    def test_event_proxy
+	plan.discover(ev = EventGenerator.new)
+	wrapped = transaction[ev]
+	assert_kind_of(Roby::Transactions::EventGenerator, wrapped)
+	assert_equal(plan, ev.plan)
+	assert_equal(transaction, wrapped.plan)
+	assert(wrapped.root_object?)
     end
 
     def assert_is_proxy_of(object, wrapper, klass)
-	assert_equal(klass, wrapper.model)
+	assert(wrapper.model.has_ancestor?(klass))
 	assert_equal(object, wrapper.__getobj__)
     end
 
