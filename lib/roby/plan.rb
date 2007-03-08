@@ -420,13 +420,17 @@ module Roby
 		raise ArgumentError, "#{object} is not in #{self}: #plan == #{object.plan}"
 	    end
 
+	    # Remove relations first. This is needed by transaction since
+	    # removing relations may need wrapping some new objects, and in
+	    # that case these new objects will be discovered as well
+	    object.clear_relations
+
 	    @free_events.delete(object)
 	    @missions.delete(object)
 	    @known_tasks.delete(object)
 	    @keepalive.delete(object)
 	    force_gc.delete(object)
 
-	    object.clear_relations
 	    object.plan = nil
 	    object.removed_at = caller
 

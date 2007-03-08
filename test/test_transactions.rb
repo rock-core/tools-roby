@@ -129,6 +129,7 @@ module TC_TransactionBehaviour
 	    assert(trsc.include?(p3))
 	    trsc.remove_object(p3) 
 	    assert(!trsc.include?(p3))
+	    assert(!trsc.wrap(t3, false))
 	    assert(!trsc.include?(t3))
 	    assert(plan.include?(t3))
 	end

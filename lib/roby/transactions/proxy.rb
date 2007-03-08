@@ -308,10 +308,15 @@ module Roby::Transactions
 
     class TaskEventGenerator < Roby::Transactions::EventGenerator
 	proxy_for Roby::TaskEventGenerator
-	def task; plan.wrap(__getobj__.task, false) end
+	attr_reader :task
 	def root_object; task end
 
 	def executable?; false end
+
+	def initialize(object, transaction)
+	    super(object, transaction)
+	    @task = transaction.wrap(object.task)
+	end
     end
 
     # Proxy for Roby::Task

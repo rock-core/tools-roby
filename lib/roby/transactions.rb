@@ -154,13 +154,14 @@ module Roby
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 
 	    object = may_unwrap(object)
-	    proxy = proxy_objects.delete(object) || object
+	    proxy = proxy_objects[object] || object
 
 	    # removing the proxy may trigger some discovery (event relations
 	    # for instance, if proxy is a task). Do it first, or #discover
 	    # will be called and the modifications of internal structures
 	    # nulled (like #removed_objects) ...
 	    remove_plan_object(proxy)
+	    proxy_objects.delete(object)
 
 	    discovered_objects.delete(proxy)
 	    if object.plan == self.plan
