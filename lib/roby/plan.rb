@@ -168,11 +168,7 @@ module Roby
 	    end
 
 	    # Copy all graph relations on +from+ events that are in +to+
-	    from.each_event do |ev|
-		next unless to.has_event?(ev.symbol)
-		ev.replace_object_by(to.event(ev.symbol))
-	    end
-	    from.replace_object_by(to)
+	    from.replace_by(to)
 
 	    replaced(from, to)
 	    if mission?(from)

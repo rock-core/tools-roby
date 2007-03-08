@@ -159,20 +159,6 @@ module Roby
 	    end
 	end
 
-	# Replaces +self+ by +to+ in all graphs +self+ is part of. Unlike BGL::Vertex#replace_by,
-	# this calls the various add/remove hooks defined by DirectedRelationSupport
-	def replace_object_by(to)
-	    each_relation do |rel|
-		each_child_object(rel) do |child|
-		    to.add_child_object(child, rel, self[child, rel])
-		end
-		each_parent_object(rel) do |parent|
-		    to.add_parent_object(parent, rel, parent[self, rel])
-		end
-	    end
-	    remove_relations
-	end
-
 	# Raises if +type+ does not look like a relation
 	def check_is_relation(type) # :nodoc:
 	    if type && !(RelationGraph === type)

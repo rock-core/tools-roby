@@ -90,7 +90,29 @@ module Roby
 	    EOD
 	end
 
-	include Distributed::LocalObject
+	# Replaces +self+ by +object+ in all graphs +self+ is part of. Unlike
+	# BGL::Vertex#replace_by, this calls the various add/remove hooks
+	# defined in DirectedRelationSupport
+	def replace_by(object)
+	    all_relations = []
+	    each_relation do |rel|
+		all_relations << rel << 
+		    parent_objects(rel).inject([]) { |result, parent| result << parent << parent[self, rel] } << 
+		    child_objects(rel).inject([])  { |result, child| result << child << self[child, rel] }
+	    end
+	    remove_relations
+
+	    all_relations.each_slice(3) do |rel, parents, children|
+		parents.each_slice(2) do |parent, info|
+		    next if parent.root_object == root_object
+		    parent.add_child_object(object, rel, info)
+		end
+		children.each_slice(2) do |child, info|
+		    next if child.root_object == root_object
+		    object.add_child_object(child, rel, info)
+		end
+	    end
+	end
 
 	# True if this object can be modified in the current context
 	def read_write?

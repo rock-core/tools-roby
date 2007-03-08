@@ -1072,6 +1072,16 @@ module Roby
 		raise NotOwner, "cannot add a relation between tasks we don't own.  #{self} by #{owners.to_a} and #{child} is owned by #{child.owners.to_a}"
 	    end
 	end
+
+	def replace_by(object)
+	    each_event do |event|
+		event_name = event.symbol
+		if object.has_event?(event_name)
+		    event.replace_by object.event(event_name)
+		end
+	    end
+	    super
+	end
     end
 
     class NullTask < Task

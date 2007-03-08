@@ -368,18 +368,17 @@ class TC_Planner < Test::Unit::TestCase
 	end
 
 	planning_task = PlanningTask.new(:planner_model => planner, :method_name => :task)
-	planned_task = Task.new
+	plan.insert(planned_task = Task.new)
 	planned_task.planned_by planning_task
-	plan.insert(planned_task)
 
 	planning_task.on(:success, planned_task, :start)
 	planning_task.start!(42)
-
 	planning_task.thread.join
 	process_events
 
 	plan_task = plan.missions.find { true }
-        assert(plan_task == result_task, plan_task)
+        assert_equal(result_task, plan_task)
+	assert_equal(result_task, planning_task.planned_task)
     end
 
     def planning_loop_next(main_task)
