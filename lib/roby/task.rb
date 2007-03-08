@@ -414,11 +414,7 @@ module Roby
 	def partially_instanciated?; !fully_instanciated? end
 
 	# Returns the task model
-        def model
-	    if has_singleton?; singleton_class 
-	    else self.class
-	    end
-	end
+	def model; self.class end
 
         # If a model of +event+ is defined in the task model
         def has_event?(event); model.has_event?(event) end
