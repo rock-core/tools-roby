@@ -64,6 +64,7 @@ module Roby
 		    def cs.local_peer; @local_peer ||= Distributed.peer("local") end
 		    def cs.reset_local_peer; @local_peer = nil end
 		    def cs.send_local_peer(*args); local_peer.send(*args) end
+		    def cs.wait_one_cycle; Roby.control.wait_one_cycle end
 
 		    Distributed.state = cs
 		    yield(Distributed.state) if block_given?
@@ -121,7 +122,9 @@ module Roby
 
 	    def process_events
 		if Roby.control.thread
-		    # Control thread is running, nothing to do here
+		    remote_peer.synchro_point
+		    remote.wait_one_cycle
+		    Roby.control.wait_one_cycle
 		elsif remote_peer && !remote_peer.disconnected?
 		    remote.start_neighbour_discovery(true)
 		    local.start_neighbour_discovery(true)

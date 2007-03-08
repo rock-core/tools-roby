@@ -193,6 +193,16 @@ module Roby
 	    Thread.current[:application_exceptions] = nil
 	end
 
+	def wait_one_cycle
+	    wait = ConditionVariable.new
+	    Roby::Control.synchronize do
+		Roby::Control.once { wait.broadcast }
+		wait.wait(Roby::Control.mutex)
+		Roby::Control.once { wait.broadcast }
+		wait.wait(Roby::Control.mutex)
+	    end
+	end
+
 	class << self
 	    # A list of blocks to be called at the beginning of the next event loop
 	    attribute(:process_once) { Queue.new }
