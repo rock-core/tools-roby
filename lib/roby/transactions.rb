@@ -60,7 +60,7 @@ module Roby
 	    elsif object.respond_to?(:each_task)
 		object.enum_for(:each_task) { |o| wrap(o, create) }
 	    else
-		raise TypeError, "don't know how to wrap #{object}"
+		raise TypeError, "don't know how to wrap #{object || 'nil'}"
 	    end
 	end
 	alias :[] :wrap

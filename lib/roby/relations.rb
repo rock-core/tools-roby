@@ -60,7 +60,7 @@ module Roby
 	    check_is_relation(type)
 	    if type.linked?(self, child)
 		if self[child, type] != info
-		    raise ArgumentError, "trying to override edge data"
+		    raise ArgumentError, "trying to override edge data. Was #{self[child, type]}, new info is #{info}"
 		end
 		return
 	    end
