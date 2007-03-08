@@ -39,7 +39,6 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	    include Proxy
 
 	    proxy_for real_klass
-	    forbid_call :forbidden
 	    def clear_vertex; end
 	end
 
@@ -52,9 +51,6 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	# check that may_wrap returns the object when wrapping cannot be done
 	assert_raises(TypeError) { transaction[10] }
 	assert_equal(10, transaction.may_wrap(10))
-
-	# test forbid_call
-	assert_raises(NotImplementedError) { proxy.forbidden }
     end
 
     def test_proxy_derived
@@ -98,7 +94,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	end
     end
 
-    def test_proxy_disables_command
+    def test_proxy_not_executable
 	task  = Class.new(SimpleTask) do
 	    event :intermediate, :command => true
 	end.new
@@ -107,13 +103,15 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 
 	assert_nothing_raised { task.event(:start).emit(nil) }
 	assert_nothing_raised { task.intermediate!(nil) }
-	assert_raises(NotImplementedError) { proxy.event(:start).emit(nil) }
-	assert_raises(NotImplementedError) { proxy.emit(:start) }
-	assert_raises(NotImplementedError) { proxy.start!(nil) }
+	assert(!proxy.executable?)
+	assert(!proxy.event(:start).executable?)
+	assert_raises(EventNotExecutable) { proxy.event(:start).emit(nil) }
+	assert_raises(EventNotExecutable) { proxy.emit(:start) }
+	assert_raises(EventNotExecutable) { proxy.start!(nil) }
 
 	# Check that events that are only in the subclass of Task
 	# are forbidden
-	assert_raises(NotImplementedError) { proxy.intermediate!(nil) }
+	assert_raises(EventNotExecutable) { proxy.intermediate!(nil) }
     end
 
     def test_proxy_fullfills

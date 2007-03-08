@@ -171,17 +171,6 @@ module Roby::Transactions
 		    raise ArgumentError, "invalid value #{relation}"
 		end
 	    end
-
-	    # +methods+ should not be called on the proxy
-	    def forbid_call(*methods)
-		methods.each do |m|
-		    class_eval <<-EOD
-			def #{m}(*args, &block)
-			    raise NotImplementedError, "calls to #{m} are forbidden in transactions" 
-			end
-		    EOD
-		end
-	    end
 	end
 
 	extend ClassExtension
@@ -292,13 +281,16 @@ module Roby::Transactions
 	proxy_for Roby::EventGenerator
 	
 	def_delegator :@__getobj__, :symbol
-	def_delegator :@__getobj__, :controlable?
 	def_delegator :@__getobj__, :model
 	proxy :can_signal?
 	discover_before :on, true, Roby::EventStructure::CausalLink
 
-	forbid_call :call
-	forbid_call :emit
+	def initialize(object, transaction)
+	    super(object, transaction)
+	    if object.controlable?
+		self.command = method(:emit)
+	    end
+	end
 
 	def commit_transaction
 	    super
@@ -358,9 +350,8 @@ module Roby::Transactions
 	end
 
 	def method_missing(m, *args, &block)
-	    if m.to_s =~ /^(\w+)!$/ && __getobj__.has_event?($1) && 
-	        __getobj__.model.event_model($1).controlable?
-	        raise NotImplementedError, "it is forbidden to call an event command when in a transaction"
+	    if m.to_s =~ /^(\w+)!$/ && has_event?($1.to_sym)
+		event($1.to_sym).call(*args)
 	    else
 	        super
 	    end
