@@ -1,6 +1,8 @@
 module Roby
     module Distributed
 	class PeerServer
+	    attribute(:synchro_execute) { ConditionVariable.new }
+
 	    CALLBACKS_TLS = :peer_server_callbacks
 	    def callbacks; Thread.current[CALLBACKS_TLS] end
 	    def processing?; !!callbacks end
@@ -58,6 +60,26 @@ module Roby
 		    peer.synchro_point_done.broadcast
 		end
 		nil
+	    end
+
+	    # call-seq:
+	    #	execute { ... }
+	    #
+	    # Executes the given block in the control thread and return when the block
+	    # has finished its execution. This method can be called only when serving
+	    # a remote call.
+	    def execute
+		if !processing?
+		    return yield
+		end
+
+		result = nil
+		Roby::Control.once do
+		    result = yield
+		    synchro_execute.broadcast
+		end
+		synchro_execute.wait(Control.mutex)
+		result
 	    end
 	end
 
