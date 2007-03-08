@@ -340,6 +340,10 @@ module Roby
 			    RuntimeError.exception("nested callbacks")
 			[false, calls[(success + 1)..-1]]
 		    elsif error 
+			if error.kind_of?(DisconnectedError)
+			    return [true, nil]
+			end
+
 			Distributed.warn do
 			    report_callback_error(callbacks[new_results.size], calls[success], error)
 			end
