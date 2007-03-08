@@ -267,6 +267,7 @@ module Roby
 	    rescue Exception => e
 		Distributed.fatal "neighbour discovery died with\n#{e.full_message}"
 	    ensure
+		Distributed.info "quit neighbour thread"
 		neighbours.clear
 		new_neighbours.clear
 	    end

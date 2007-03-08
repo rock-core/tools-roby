@@ -261,6 +261,7 @@ module Roby
 		end
 
 	    ensure
+		Distributed.info "communication thread quit for #{self}"
 		synchronize do
 		    disconnected!
 		    @sending = nil
