@@ -440,7 +440,7 @@ class TC_Task < Test::Unit::TestCase
 	task = model.new
 
 	assert(!task.executable?)
-	assert_raises(TaskNotExecutable) { task.start!(nil) }
+	assert_raises(EventNotExecutable) { task.start!(nil) }
 	assert_raises(EventNotExecutable) { task.event(:start).call(nil) }
 
 	plan.discover(task)

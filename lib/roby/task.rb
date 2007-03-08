@@ -807,15 +807,10 @@ module Roby
 
 		# define an instance method which calls the event command
 		define_method("#{ev_s}!") do |*context| 
-		    if !executable?
-			raise TaskNotExecutable.new(self), "cannot call event command #{ev_s} on #{self} because the task is not executable"
-		    end
-
 		    context = *context # emulate default value for blocks
 		    event(ev).call(context) 
 		end
             end
-
 
 	    new_event
         end
