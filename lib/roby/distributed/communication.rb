@@ -172,7 +172,9 @@ module Roby
 	    def transmit(m, *args, &block)
 		if local.processing?
 		    if block_given?
-			raise "in communication thread, cannot have a callback block"
+			# We are queueing this call as a callback. Act as if
+			# it was already processed and call the block
+			yield
 		    end
 		    callback(m, *args)
 		else
