@@ -383,6 +383,10 @@ module Roby
 	    end
 
 	    def synchro_point(&block)
+		if local.processing?
+		    raise "cannot start a synchro point in the communication thread"
+		end
+
 		synchro_point_mutex.synchronize do
 		    queue_call(:synchro_point)
 		    synchro_point_done.wait(synchro_point_mutex)
