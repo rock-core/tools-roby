@@ -69,6 +69,8 @@ module Roby
 	    @free_events = ValueSet.new
 	    @force_gc    = ValueSet.new
 	    @transactions = ValueSet.new
+
+	    super() if defined? super
 	end
 
 	def inspect
@@ -277,7 +279,8 @@ module Roby
 	# Returns the set of unused tasks
 	def unneeded_tasks
 	    (known_tasks - useful_tasks).delete_if do |t|
-		Roby::Distributed.remotely_useful?(t) || transactions.any? { |trsc| trsc.wrap(t, false) }
+		Roby::Distributed.keep?(t) ||
+		    transactions.any? { |trsc| trsc.wrap(t, false) }
 	    end
 	end
 
@@ -311,7 +314,8 @@ module Roby
 	# The set of events that can be removed from the plan
 	def unneeded_events
 	    (free_events - useful_events).delete_if do |ev|
-		Roby::Distributed.remotely_useful?(ev) || transactions.any? { |trsc| trsc.wrap(ev, false) }
+		Roby::Distributed.keep?(ev) || 
+		    transactions.any? { |trsc| trsc.wrap(ev, false) }
 	    end
 	end
 

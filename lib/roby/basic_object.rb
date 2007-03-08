@@ -1,7 +1,9 @@
 module Roby
+    class RemotePeerMismatch     < RuntimeError; end
+
     class BasicObject
 	# The set of Peer objects which own this object
-	def owners; [Distributed] end
+	attribute(:owners) { [Distributed] }
 	# True if we own this object
 	def self_owned?; owners.include?(Distributed) end
 
@@ -22,25 +24,63 @@ module Roby
 	# +remote_siblings+ includes it
 	attribute(:remote_siblings) { Hash.new }
 
-	# Returns the object representation of 
-	def sibling(peer_id)
-	    if sibling = remote_siblings[peer_id] then sibling
-	    elsif peer_id == Roby::Distributed then self
+	# True if we know about a sibling on +peer+
+	def has_sibling_on?(peer)
+	    peer == Roby::Distributed || remote_siblings.include?(peer)
+	end
+
+	# Returns the object representation of +self+ on +peer+. The returned
+	# value is either a remote sibling (the DRbObject of the representation 
+	# of +self+ on +peer+), or self if peer is Roby::Distributed
+	def sibling_on(peer)
+	    if sibling = remote_siblings[peer] then sibling
+	    elsif peer == Roby::Distributed then self
 	    else 
-		raise RemotePeerMismatch, "#{self} has no known sibling on #{peer_id}"
+		raise RemotePeerMismatch, "#{self} has no known sibling on #{peer}"
 	    end
 	end
 
-	# True if this object is updated by the peers owning it
-	def subscribed?; self_owned? || owners.any? { |peer| remote_siblings[peer] } end
-	# True if +peer+ will send us updated about this object
-	def subscribed_on?(peer); remote_siblings[peer] && peer.owns?(self) end
-	# If this object is used by our peers
+	# The DRbObject for this object
+	def drb_object; @drb_object ||= DRbObject.new(self) end
+
+	# Sets +remote_object+ as the remote siblings for +self+ on +peer+, and
+	# notifies peer that +self+ is the remote siblings for +remote_object+
+	def sibling_of(remote_object, peer)
+	    if !distribute?
+		raise "#{self} is local only"
+	    end
+
+	    remote_siblings[peer] = remote_object
+	    peer.transmit(:added_sibling, remote_object, drb_object)
+	end
+
+	# Called to tell us that we should not be involved with +peer+ anymore
+	def forget_peer(peer)
+	    remote_object = remote_siblings.delete(peer)
+	    if peer.connected?
+		peer.transmit(:removed_sibling, remote_object, drb_object) do
+		    yield if block_given?
+		    peer.proxies.delete(remote_object)
+		end
+	    end
+	end
+
+	# True if we explicitely want this object to be updated by our peers
+	def subscribed?; owners.any? { |peer| peer.subscribed?(self) if peer != Distributed } end
+	# True if this object is maintained up-to-date
+	def updated?; self_owned? || owners.any?(&remote_siblings.method(:[])) end
+	# True if +peer+ will send us updates about this object
+	def updated_by?(peer); self_owned? || (remote_siblings[peer] && peer.owns?(self)) end
+	# True if we shall send updates for this object on +peer+
+	def update_on?(peer); (self_owned? || peer.owns?(self)) && remote_siblings[peer] end
+	# The set of peers that will get updates of this object
+	def updated_peers; remote_siblings.keys end
+	# If this object is useful for our peers
 	def remotely_useful?; self_owned? && !remote_siblings.empty?  end
 	
 	# True if this object can be modified in the current context
 	def read_write?
-	    Distributed.updating?([root_object]) || self_owned? 
+	    Distributed.updating?([self]) || self_owned? 
 	end
     end
 end

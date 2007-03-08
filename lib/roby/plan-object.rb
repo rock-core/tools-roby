@@ -36,6 +36,13 @@ module Roby
 	    @executable || (@executable.nil? && plan && plan.executable?)
 	end
 
+	# We are also subscribed to a PlanObject if the we are subscribed to
+	# the plan itself
+	def subscribed?; (plan && plan.subscribed?) || super end
+	def update_on?(peer); (plan && plan.update_on?(peer)) || super end
+	def updated_by?(peer); (plan && plan.updated_by?(peer)) || super end
+	def remotely_useful?; (plan && plan.remotely_useful?) || super end
+
 	# Checks that we do not link two objects from two different plans
 	# and updates the +plan+ attribute accordingly
 	def synchronize_plan(other)
@@ -52,6 +59,17 @@ module Roby
 	    end
 	end
 	protected :synchronize_plan
+
+	def forget_peer(peer)
+	    if !root_object?
+		raise "#{self} is not root"
+	    end
+
+	    each_plan_child do |child|
+		child.forget_peer(peer)
+	    end
+	    super
+	end
 
 	def add_child_object(child, type, info = nil)
 	    changed = root_object.synchronize_plan(child.root_object)
@@ -78,15 +96,28 @@ module Roby
 
 	def self.child_plan_object(attribute)
 	    class_eval <<-EOD
-	    alias root_object #{attribute}
+	    def root_object; #{attribute} end
 	    def root_object?; false end
-	    def read_write?; #{attribute}.read_write? end
 	    def owners; #{attribute}.owners end
 	    def distribute?; #{attribute}.distribute? end
-	    def subscribed?; #{attribute}.subscribed? end
 	    def plan; #{attribute}.plan end
-	    private :plan=
 	    def executable?; #{attribute}.executable? end
+
+	    def subscribed?; #{attribute}.subscribed? end
+	    def updated?; #{attribute}.updated? end
+	    def updated_by?(peer); #{attribute}.updated_by?(peer) end
+	    def update_on?(peer); #{attribute}.update_on?(peer) end
+	    def updated_peers; #{attribute}.updated_peers end
+	    def remotely_useful?; #{attribute}.remotely_useful? end
+
+	    def forget_peer(peer)
+		remote_object = remote_siblings.delete(peer)
+		peer.proxies.delete(remote_object)
+	    end
+	
+	    private :plan=
+	    private :sibling_of
+	    private :sibling_on
 	    EOD
 	end
 
@@ -115,7 +146,9 @@ module Roby
 	end
 
 	def read_write?
-	    super || !plan || (plan.self_owned? && (owners - plan.owners).empty?)
+	    super || 
+		Distributed.updating?([root_object]) || 
+		(!plan || (plan.self_owned? && (owners - plan.owners).empty?))
 	end
 
 	# We can remove relation if one of the objects is owned by us

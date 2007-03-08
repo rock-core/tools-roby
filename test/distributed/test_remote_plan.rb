@@ -72,42 +72,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_raises(TypeError) { proxy_model.new(remote_peer, r_task) }
 
 	assert(proxy = remote_peer.proxy(r_task))
-	assert_equal(proxy.remote_object(remote_peer), r_task.remote_object(remote_peer))
+	assert_equal(proxy.sibling_on(remote_peer), r_task.sibling_on(remote_peer))
 	assert_equal(local.plan, proxy.plan)
 	assert(remote_peer.owns?(proxy))
-    end
-
-    # Check that remote events that are unknown locally are properly ignored
-    def test_ignored_events
-	peer2peer do |remote|
-	    model = Class.new(SimpleTask) do
-		event :unknown, :command => true
-	    end
-	    remote.plan.insert(t1 = SimpleTask.new(:id => 1))
-	    remote.plan.insert(t2 = SimpleTask.new(:id => 2))
-	    remote.plan.insert(u = model.new(:id => 0))
-
-	    t1.event(:start).on u.event(:unknown)
-	    t2.event(:start).emit_on u.event(:unknown)
-
-	    remote.singleton_class.class_eval do
-		define_method(:remove_relations) do
-		    t1.event(:start).remove_signal u.event(:unknown)
-		    u.event(:unknown).remove_forwarding t2.event(:start)
-		end
-	    end
-	end
-
-	u = remote_task(:id => 0)
-	t1 = remote_task(:id => 1)
-	t2 = remote_task(:id => 2)
-
-	u = remote_peer.subscribe(u)
-	assert(remote_peer.connected?)
-
-	remote.remove_relations
-	assert_nothing_raised { process_events }
-	assert(remote_peer.connected?)
     end
 
     def test_event_proxy
@@ -160,6 +127,8 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	# Discover remote relations
 	remote_peer.discover_neighborhood(r_mission, 1) do |r_mission|
+	    process_events
+
 	    proxies = r_mission.children.to_a
 	    assert_equal(1, proxies.size)
 	    assert_equal(r_subtask, proxies.first)
@@ -171,8 +140,8 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_equal([remote_peer.task], plan.keepalive.to_a)
     end
 
-    def test_subscribe
-	peer2peer do |remote|
+    def test_subscription
+	peer2peer(true) do |remote|
 	    root, mission, subtask, next_mission =
 		SimpleTask.new(:id => 'root'), 
 		SimpleTask.new(:id => 'mission'), 
@@ -188,6 +157,20 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    remote.plan.insert(next_mission)
 
 	    remote.singleton_class.class_eval do
+		include Test::Unit::Assertions
+		def check_local_updated(m_task)
+		    task    = local_peer.local_object(m_task)
+		    sibling = nil
+		    assert_nothing_raised { sibling = task.sibling_on(local_peer) }
+		    assert(!task.subscribed?)
+		    assert(task.updated?)
+		    assert(task.update_on?(local_peer))
+		    assert(task.updated_by?(local_peer))
+		    assert_equal([local_peer], Distributed.enum_for(:each_updated_peer, task).to_a)
+		    assert_equal([local_peer], task.updated_peers)
+		    assert(task.remotely_useful?)
+		end
+
 		define_method(:remove_mission_subtask) do
 		    mission.remove_child subtask
 		end
@@ -197,68 +180,105 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    end
 	end
 
+	## Check that #subscribe updates the relations between subscribed objects
 	r_root = remote_task(:id => 'root')
-	r_mission = remote_task(:id => 'mission')
-	r_subtask = remote_task(:id => 'subtask')
-	r_next_mission = remote_task(:id => 'next_mission')
-
-	# Check that #subscribe updates the relations between subscribed objects
 	r_root = remote_peer.subscribe(r_root)
+	assert(r_root.subscribed?, remote_peer.subscriptions)
+	assert(r_root.updated_by?(remote_peer))
+	assert(r_root.update_on?(remote_peer))
+	assert_equal([remote_peer], r_root.updated_peers)
+	assert(!r_root.remotely_useful?)
+	assert_equal([remote_peer], Distributed.enum_for(:each_updated_peer, r_root).to_a)
+	remote.check_local_updated(r_root)
+
 	assert(r_root.mission?)
+	r_mission = remote_task(:id => 'mission')
 	assert_equal([r_mission], r_root.children.to_a)
 	assert_equal([], r_mission.children.to_a)
 	assert_equal([], r_mission.event(:stop).child_objects(EventStructure::Signal).to_a)
 
+	Roby::Control.synchronize do
+	    r_next_mission = remote_task(:id => 'next_mission')
+	    r_subtask = remote_task(:id => 'subtask')
+	    assert(Distributed.keep?(r_mission))
+	    assert(!Distributed.keep?(r_next_mission))
+	    assert(!Distributed.keep?(r_subtask))
+	end
+	Roby.control.wait_one_cycle
+
 	# Check that subscribing again is handled nicely
-	r_root = remote_peer.subscribe(r_root)
-	r_mission = remote_peer.subscribe(r_mission)
-	assert_equal([r_subtask].to_value_set, r_mission.children)
+	assert_same(r_root, remote_peer.subscribe(r_root))
+	assert_same(r_mission, remote_peer.subscribe(r_mission))
+	r_subtask = remote_task(:id => 'subtask')
+	r_next_mission = remote_task(:id => 'next_mission')
+	assert(Distributed.keep?(r_subtask))
+	assert(Distributed.keep?(r_next_mission))
+
+	assert_equal([r_subtask], r_mission.children.to_a)
 	proxies = r_mission.event(:stop).child_objects(EventStructure::Signal).to_a
 	assert_equal(r_next_mission.event(:start), proxies.first)
 
-	## Check that #unsubscribe(..., false) disables dynamic updates
-	remote_peer.unsubscribe(r_mission)
-	assert(!remote_peer.subscribed?(r_mission))
-	remote.remove_mission_subtask
+	## Check plan GC after we have unsubscribed from mission
+	Roby::Control.synchronize do
+	    remote_peer.unsubscribe(r_mission)
+	    assert(Distributed.keep?(r_mission))
+	    assert(!remote_peer.subscribed?(r_mission))
+	    assert(!Distributed.keep?(r_next_mission))
+	    assert(!Distributed.keep?(r_subtask))
+	end
+	Roby.control.wait_one_cycle
 
-	## Check that #subscribe removes old relations as well
-	r_mission = remote_peer.subscribe(r_mission)
+	# Check that subtask and next_mission are removed from the plan
+	assert(!r_subtask.plan)
+	assert_raises(RemotePeerMismatch) { r_subtask.sibling_on(remote_peer) }
+	subtask_proxy = remote_peer.proxies.find do |_, obj| 
+	    obj == r_subtask || 
+		(obj.root_object == r_subtask if obj.respond_to?(:root_object))
+	end
+	assert(!subtask_proxy)
+	assert(!r_next_mission.plan)
+	assert_raises(RemotePeerMismatch) { r_next_mission.sibling_on(remote_peer) }
+	next_mission_proxy = remote_peer.proxies.find do |_, obj| 
+	    obj == r_next_mission || 
+		(obj.root_object == r_next_mission if obj.respond_to?(:root_object))
+	end
+	assert(!next_mission_proxy)
+	# Check that mission is still included, and is still linked to root
+	assert(r_mission.plan)
+	assert(r_root.child_object?(r_mission, TaskStructure::Hierarchy))
+
+	## Check that #subscribe takes the plan modification into account
+	remote.remove_mission_subtask
+	assert_same(r_mission, remote_peer.subscribe(r_mission))
 	proxies = r_mission.children.to_a
 	assert(proxies.empty?, proxies)
 	proxies = r_mission.event(:stop).child_objects(EventStructure::Signal).to_a
-	assert(Distributed.needed?(r_mission))
-	assert(Distributed.needed?(r_mission.event(:stop)))
+	assert(Distributed.keep?(r_mission))
+	assert(Distributed.keep?(r_mission.event(:stop)))
 	assert_equal(1, proxies.size, proxies)
 	r_next_mission_start = proxies.first
-	assert(Distributed.needed?(r_next_mission_start))
-	assert(Distributed.needed?(r_next_mission_start.task))
+	assert(Distributed.keep?(r_next_mission_start))
+	assert(Distributed.keep?(r_next_mission_start.task))
 
 	## Re-add the child relation and test #unsubscribe
 	remote_peer.unsubscribe(r_mission)
 	remote.add_mission_subtask
-	r_mission = remote_peer.subscribe(r_mission)
-	r_subtask = remote_peer.subscribe(r_subtask)
-	assert(!local.plan.mission?(r_subtask))
-	assert(remote_peer.subscribed?(r_mission))
-	assert(remote_peer.subscribed?(r_subtask))
+	process_events
+	assert(r_mission.children.empty?)
 
-	remote_peer.unsubscribe(r_subtask)
-	assert(! remote_peer.subscribed?(r_subtask))
+	r_mission = remote_peer.subscribe(r_mission)
+	r_subtask = remote_task(:id => 'subtask')
+	r_next_mission = remote_task(:id => 'next_mission')
+	process_events
 	proxies = r_mission.children.to_a
 	assert(! proxies.empty?)
 	proxies = r_mission.event(:stop).child_objects(EventStructure::Signal).to_a
 	assert_equal(r_next_mission.event(:start), proxies.first)
-
-	remote_peer.unsubscribe(r_mission)
-	process_events
-	proxies = r_mission.children.to_a
-	assert(proxies.empty?)
-	proxies = r_mission.event(:stop).child_objects(EventStructure::Signal).to_a
-	assert_equal([], proxies)
     end
 
     def test_remove_not_needed
-	peer2peer do |remote|
+	# Roby.logger.level = Logger::DEBUG
+	peer2peer(true) do |remote|
 	    left, right, middle =
 		SimpleTask.new(:id => 'left'), 
 		SimpleTask.new(:id => 'right'), 
@@ -270,24 +290,28 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    right.realized_by middle
 
 	    remote.singleton_class.class_eval do
+		include Test::Unit::Assertions
 		define_method(:remove_last_link) do
+		    assert(left.update_on?(local_peer))
+		    assert(middle.update_on?(local_peer))
 		    left.remove_child(middle)
 		end
 	    end
 	end
 
-	left   = remote_peer.local_object(remote_task(:id => 'left'))
-	right  = remote_peer.local_object(remote_task(:id => 'right'))
-	left  = remote_peer.subscribe(left)
-	right = remote_peer.subscribe(right)
+	left   = remote_peer.subscribe(remote_task(:id => 'left'))
+	right  = remote_peer.subscribe(remote_task(:id => 'right'))
+	middle = remote_task(:id => 'middle')
 
-	assert(middle = local.plan.known_tasks.find { |t| t.arguments[:id] == 'middle' })
 	assert(!middle.subscribed?)
+	assert(Distributed.keep?(middle))
+
 	remote_peer.unsubscribe(right)
+	assert(Distributed.keep?(middle))
 	process_events
 	assert(!right.plan)
 
-	assert(middle = local.plan.known_tasks.find { |t| t.arguments[:id] == 'middle' })
+	assert(middle.plan)
 	assert_equal(1, middle.parent_objects(TaskStructure::Hierarchy).size)
 
 	remote.remove_last_link
@@ -296,7 +320,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_data_update
-	peer2peer do |remote|
+	peer2peer(true) do |remote|
 	    task = SimpleTask.new(:id => 'task')
 	    task.data = [4, 2]
 	    remote.plan.insert(task)
@@ -310,13 +334,12 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_equal([4, 2], task.data)
 
 	remote.change_data
-	assert_happens(5, "data update") do
-	    assert_equal(42, task.data)
-	end
+	process_events
+	assert_equal(42, task.data)
     end
 
     def test_plan_notifications
-	peer2peer do |remote|
+	peer2peer(true) do |remote|
 	    plan.insert(mission = SimpleTask.new(:id => 'mission'))
 
 	    remote.class.class_eval do
@@ -340,16 +363,15 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_relation_updates
-	peer2peer do |remote|
+	peer2peer(true) do |remote|
 	    mission, subtask, next_mission =
 		SimpleTask.new(:id => 'mission'), 
 		SimpleTask.new(:id => 'subtask'),
 		SimpleTask.new(:id => 'next_mission')
-	    mission.realized_by subtask
-	    mission.on(:stop, next_mission, :start)
 
 	    remote.plan.insert(mission)
 	    remote.plan.insert(next_mission)
+	    remote.plan.permanent(subtask)
 
 	    remote.singleton_class.class_eval do
 		define_method(:add_mission_subtask) do
@@ -389,23 +411,37 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert(r_mission.event(:stop).child_objects(EventStructure::Signal).empty?)
     end
 
-    def test_unknown_event
-	peer2peer do |remote|
+    # Check that remote events that are unknown locally are properly ignored
+    def test_ignored_events
+	peer2peer(true) do |remote|
 	    model = Class.new(SimpleTask) do
-		event :unknown_event
+		event :unknown, :command => true
 	    end
+	    remote.plan.insert(t1 = SimpleTask.new(:id => 1))
+	    remote.plan.insert(t2 = SimpleTask.new(:id => 2))
+	    remote.plan.insert(u = model.new(:id => 0))
 
-	    remote.plan.insert(root = model.new(:id => 1))
-	    root.realized_by(child = SimpleTask.new(:id => 2))
-	    root.on(:unknown_event, child, :start)
+	    t1.event(:start).on u.event(:unknown)
+	    t2.event(:start).emit_on u.event(:unknown)
+
+	    remote.singleton_class.class_eval do
+		define_method(:remove_relations) do
+		    t1.event(:start).remove_signal u.event(:unknown)
+		    u.event(:unknown).remove_forwarding t2.event(:start)
+		end
+	    end
 	end
 
-	r_unknown = remote_task(:id => 1)
-	assert_kind_of(SimpleTask, r_unknown)
+	u = remote_task(:id => 0)
+	t1 = remote_task(:id => 1)
+	t2 = remote_task(:id => 2)
 
-	r_unknown = remote_peer.subscribe(r_unknown)
-	r_child = r_unknown.children.find { true }
-	assert(r_child.parent_objects(EventStructure::Signal).empty?)
+	u = remote_peer.subscribe(u)
+	assert(remote_peer.connected?)
+
+	remote.remove_relations
+	assert_nothing_raised { process_events }
+	assert(remote_peer.connected?)
     end
 end
 

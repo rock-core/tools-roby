@@ -1,5 +1,5 @@
 require 'roby'
-require 'roby/distributed/objects'
+require 'roby/distributed/distributed_object'
 require 'roby/distributed/proxy'
 
 module Roby
@@ -37,26 +37,28 @@ module Roby
 		    raise NotOwner, "plan owners #{owners} do not own #{base_object}: #{base_object.owners}"
 		end
 
+		temporarily_subscribed = !base_object.updated?
+		if temporarily_subscribed
+		    peer = base_object.owners.first
+		    base_object = peer.subscribe(base_object)
+		end
+
 		if object = super
 		    object.extend DistributedObject
+		    if !Distributed.updating?([self]) && object.root_object?
+			updated_peers.each do |peer|
+			    next if base_object.update_on?(peer) || !base_object.distribute?
+			    peer.local.subscribe(base_object)
+			    peer.synchro_point
+			end
+		    end
 		end
 
 		object
-	    end
 
-
-	    # Add the Peer +peer+ to the list of owners
-	    def add_owner(peer, distributed = true)
-		return if owners.include?(peer)
-		if distributed 
-		    if !self_owned?
-			raise NotOwner, "not object owner"
-		    end
-
-		    call_siblings(:add_owner, self, peer)
-		else
-		    owners << peer
-		    Distributed.debug { "added owner to #{self}: #{owners.to_a}" }
+	    ensure
+		if temporarily_subscribed
+		    peer.unsubscribe(base_object)
 		end
 	    end
 
@@ -64,28 +66,9 @@ module Roby
 	    def prepare_remove_owner(peer)
 		known_tasks.each do |t|
 		    t = t.__getobj__ if t.respond_to?(:__getobj__)
-		    if peer.owns?(t)
+		    if peer.owns?(t) && t.distribute?
 			raise OwnershipError, "#{peer} still owns tasks in the transaction (#{t})"
 		    end
-		end
-		nil
-	    end
-
-	    # Removes +peer+ from the list of owners. Raises OwnershipError if
-	    # there are modified tasks in this transaction which are owned by
-	    # +peer+
-	    def remove_owner(peer, distributed = true)
-		return unless owners.include?(peer)
-
-		if distributed
-		    results = call_siblings(:prepare_remove_owner, self, peer)
-		    if error = results.values.find { |error| error }
-			raise error
-		    end
-		    call_siblings(:remove_owner, self, peer)
-		else
-		    owners.delete(peer)
-		    Distributed.debug { "removed owner to #{self}: #{owners.to_a}" }
 		end
 		nil
 	    end
@@ -328,7 +311,8 @@ module Roby
 		    local_object.extend RemoteTransactionProxy
 		    local_object.transaction = local_transaction
 		end
-		local_object.remote_siblings[peer] = remote_object
+
+		local_object.sibling_of(remote_object, peer) if local_object.root_object?
 		local_object
 	    end
 
@@ -352,8 +336,7 @@ module Roby
 	    include DistributedObject
 	    attr_accessor :transaction
 
-	    def local?; __getobj__.local? end
-	    def owners; transaction.owners | __getobj__.owners end
+	    def owners; __getobj__.owners end
 
 	    def discover(relation, mark)
 		return unless proxying?
@@ -363,8 +346,7 @@ module Roby
 
 		if mark
 		    owners.each do |owner|
-			# peer may be nil if the transaction is owned locally
-			if !Distributed.updating?([self]) && !owner.subscribed?(__getobj__.root_object)
+			if !Distributed.updating?([self]) && !__getobj__.root_object.updated?
 			    raise "must subscribe to #{__getobj__} on #{owner} before changing its transactions proxies"
 			end
 		    end

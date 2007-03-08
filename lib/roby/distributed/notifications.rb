@@ -7,7 +7,7 @@ module Roby
 		return unless task.distribute? && task.self_owned?
 
 		unless Distributed.updating?([self]) || Distributed.updating?([task])
-		    Distributed.each_subscribed_peer(self, task) do |peer|
+		    Distributed.each_updated_peer(self, task) do |peer|
 			peer.plan_update(:insert, self, task)
 		    end
 		    Distributed.trigger(task)
@@ -20,7 +20,7 @@ module Roby
 		    objects = objects.find_all { |t| t.distribute? && t.self_owned? && t.root_object? }
 		    return if objects.empty?
 
-		    Distributed.each_subscribed_peer(plan) do |peer|
+		    Distributed.each_updated_peer(plan) do |peer|
 			peer.plan_update(:discover, plan, objects)
 		    end
 		    Distributed.trigger(*objects)
@@ -40,7 +40,7 @@ module Roby
 		return unless task.distribute? && task.self_owned?
 
 		unless Distributed.updating?([self]) || Distributed.updating?([task])
-		    Distributed.each_subscribed_peer(self, task) do |peer|
+		    Distributed.each_updated_peer(self, task) do |peer|
 			peer.plan_update(:discard, self, task)
 		    end
 		end
@@ -49,7 +49,7 @@ module Roby
 		super if defined? super
 		if (from.distribute? && to.distribute?) && (to.self_owned? || from.self_owned?)
 		    unless Distributed.updating?([self]) || Distributed.updating?([from, to])
-			Distributed.each_subscribed_peer(from) do |peer|
+			Distributed.each_updated_peer(from) do |peer|
 			    peer.plan_update(:replace, self, from, to)
 			end
 		    end
@@ -126,17 +126,40 @@ module Roby
 			end
 
 		    when :remove_object
-			marshalled = args[0]
-			local = peer.local_object(marshalled, false)
+			local = peer.local_object(args[0], false)
 			return unless local
 			if local.plan
 			    plan.remove_object(local)
 			end
-			peer.delete(marshalled.remote_object)
 
 		    else
 			return unless local = peer.local_object(args[0], false)
 			plan.send(event, local)
+		    end
+		end
+		nil
+	    end
+
+	    # Receive an update on the relation graphs
+	    def update_relation(plan, args)
+		if plan
+		    Roby::Distributed.update([peer.local_object(plan)]) { update_relation(nil, args) }
+		else
+		    m_from, op, m_to, m_rel, m_info = *args
+		    from, to = peer.local_object(m_from), 
+			peer.local_object(m_to)
+		    return if !from || !to
+
+		    rel = peer.local_object(m_rel)
+		    if op == :add_child_object
+			Roby::Distributed.update([from.root_object, to.root_object]) do
+			    from.add_child_object(to, rel, peer.local_object(m_info))
+			end
+
+		    elsif op == :remove_child_object
+			Roby::Distributed.update([from.root_object, to.root_object]) do
+			    from.remove_child_object(to, rel)
+			end
 		    end
 		end
 		nil
@@ -148,21 +171,7 @@ module Roby
 	    # given arguments. +event+ is typically one of #discover,
 	    # #remove_object, ...
 	    def plan_update(event, plan, *args)
-		case event
-		when :discover
-		    args[0].find_all { |obj| obj.self_owned? }.
-			each do |obj| 
-			    local.subscribe(obj)
-			end
-
-		when :remove_object
-		    local.subscriptions.delete(args[0]) if args[0].self_owned?
-		end
-
 	       	transmit(:plan_update, event, plan, args)
-	    end
-	    def transaction_update(*args)
-		transmit(:transaction_update, *args) 
 	    end
 	end
 
@@ -174,7 +183,7 @@ module Roby
 
 		return unless type.distribute? && Distributed.state
 		return if Distributed.updating?([self.root_object, child.root_object])
-		Distributed.each_subscribed_peer(self.root_object, child.root_object) do |peer|
+		Distributed.each_updated_peer(self.root_object, child.root_object) do |peer|
 		    peer.transmit(:update_relation, plan, [self, :add_child_object, child, type, info])
 		end
 		Distributed.trigger(self, child)
@@ -185,7 +194,7 @@ module Roby
 
 		return unless type.distribute? && Distributed.state
 		return if Distributed.updating?([self.root_object, child.root_object])
-		Distributed.each_subscribed_peer(self.root_object, child.root_object) do |peer|
+		Distributed.each_updated_peer(self.root_object, child.root_object) do |peer|
 		    peer.transmit(:update_relation, plan, [self, :remove_child_object, child, type])
 		end
 		Distributed.trigger(self, child)
@@ -199,7 +208,7 @@ module Roby
 	    def fired(event)
 		super if defined? super
 		if self_owned? && !Distributed.updating?([root_object])
-		    Distributed.each_subscribed_peer(root_object) do |peer|
+		    Distributed.each_updated_peer(root_object) do |peer|
 			peer.transmit(:event_fired, self, event.object_id, event.time, nil)
 		    end
 		end
@@ -207,7 +216,7 @@ module Roby
 	    def forwarding(event, to)
 		super if defined? super
 		if self_owned? && !Distributed.updating?([root_object])
-		    Distributed.each_subscribed_peer(root_object, to.root_object) do |peer|
+		    Distributed.each_updated_peer(root_object, to.root_object) do |peer|
 			peer.transmit(:event_add_propagation, true, self, to, event.object_id, event.time, nil)
 		    end
 		end
@@ -215,7 +224,7 @@ module Roby
 	    def signalling(event, to)
 		super if defined? super
 		if self_owned? && !Distributed.updating?([root_object])
-		    Distributed.each_subscribed_peer(root_object, to.root_object) do |peer|
+		    Distributed.each_updated_peer(root_object, to.root_object) do |peer|
 			peer.transmit(:event_add_propagation, false, self, to, event.object_id, event.time, nil)
 		    end
 		end
@@ -327,7 +336,7 @@ module Roby
 		super if defined? super
 
 		unless Distributed.updating?([self])
-		    Distributed.each_subscribed_peer(self) do |peer|
+		    Distributed.each_updated_peer(self) do |peer|
 			peer.transmit(:updated_data, self, data)
 		    end
 		end
@@ -340,7 +349,7 @@ module Roby
 		super if defined? super
 
 		unless Distributed.updating?([task])
-		    Distributed.each_subscribed_peer(task) do |peer|
+		    Distributed.each_updated_peer(task) do |peer|
 			peer.transmit(:updated_arguments, task, task.arguments)
 		    end
 		end

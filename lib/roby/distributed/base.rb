@@ -1,7 +1,6 @@
 module Roby
     module Distributed
 	class InvalidRemoteOperation < RuntimeError; end
-	class RemotePeerMismatch     < RuntimeError; end
 
 	class InvalidRemoteTaskOperation < InvalidRemoteOperation
 	    attr_reader :task
@@ -28,15 +27,19 @@ module Roby
 
 	    def owns?(object); !state || state.owns?(object) end
 
-	    def remotely_useful?(local_object)
-		return true if local_object.remotely_useful?
+	    def keep?(local_object)
+		return true if local_object.remotely_useful? ||
+		    local_object.subscribed?
+
 		Roby::Distributed.each_object_relation(local_object) do |rel|
-		    return true if local_object.related_objects(rel).any? { |obj| obj.remotely_useful? }
+		    if local_object.related_objects(rel).any? { |obj| obj.remotely_useful? || obj.subscribed? }
+			return true
+		    end
 		end
 
 		if local_object.respond_to?(:each_plan_child)
 		    local_object.each_plan_child do |child|
-			return true if remotely_useful?(child)
+			return true if keep?(child)
 		    end
 		end
 

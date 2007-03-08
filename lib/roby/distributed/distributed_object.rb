@@ -6,8 +6,6 @@ module Roby
 	    attribute(:synchro_call) { ConditionVariable.new }
 	    attribute(:remote_siblings) { Hash.new }
 
-	    def distribute?; true end
-
 	    # Makes this object owned by the local DB. This is equivalent to
 	    # object.self_owned = true
 	    def self_owned; self.self_owned = true end
@@ -63,7 +61,7 @@ module Roby
 	    def call_owners(*args) # :nodoc:
 		raise NotOwner, "not owner" if !self_owned?
 		    
-		if owners.any? { |peer| !has_sibling?(peer) }
+		if owners.any? { |peer| !has_sibling_on?(peer) }
 		    raise InvalidRemoteOperation, "cannot do #{args} if the object is not distributed on all its owners"
 		end
 
@@ -116,12 +114,25 @@ module Roby
 		sibling = marshalled_object.sibling(peer)
 		sibling.remote_siblings[peer] = object_remote_id
 		peer.proxies[object_remote_id] = sibling
-
-		subscriptions << sibling
 		peer.subscriptions << object_remote_id
 
 		marshalled_object.created_sibling(peer, sibling)
 		sibling
+	    end
+
+	    def add_owner(object, new_owner)
+		peer.local_object(object).add_owner(new_owner, false)
+		nil
+	    end
+	    def remove_owner(object, new_owner)
+		peer.local_object(object).remove_owner(new_owner, false)
+		nil
+	    end
+	    def prepare_remove_owner(object, new_owner)
+		peer.local_object(object).prepare_remove_owner(new_owner)
+		nil
+	    rescue
+		$!
 	    end
 	end
 

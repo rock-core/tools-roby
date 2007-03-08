@@ -35,7 +35,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_equal(SimpleTask, array[3].model)
 
 	assert_kind_of(MarshalledTaskEventGenerator, array[4])
-	assert_equal(array[1], array[4].task)
+	assert_equal(array[1].remote_object, array[4].task.remote_object)
 	assert_equal(:start, array[4].symbol)
 
 	assert_kind_of(Roby::RelationGraph, array[5])
@@ -98,8 +98,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     def test_marshal_task
 	peer2peer do |remote|
 	    def remote.task
-	        task = Class.new(SimpleTask).new(:id => 1)
-	        task.plan = Plan.new
+	        plan.insert(task = Class.new(SimpleTask).new(:id => 1))
 	        task
 	    end
 	    def remote.proxy(object)
@@ -113,6 +112,11 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_equal({:id => 1}, remote_task.arguments)
 	assert_kind_of(Plan::DRoby, remote_task.plan)
 	assert_equal(SimpleTask, remote_task.model.ancestors[1], remote_task.model.ancestors)
+
+	local_proxy = remote_peer.local_object(remote_task)
+	assert_kind_of(Roby::Task, local_proxy)
+	assert_equal([remote_peer], local_proxy.owners)
+	assert(!local_proxy.read_write?)
 
 	remote_proxy = remote.proxy(local_task = SimpleTask.new(:id => 'local'))
 	assert_same(local_task, remote_proxy)
@@ -135,7 +139,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
 	remote_event = remote.task_event
 	assert_kind_of(MarshalledTaskEventGenerator, remote_event)
-	assert_equal(remote.task, remote_event.task)
+	assert_equal(remote.task.remote_object, remote_event.task.remote_object)
 	assert_marshalled_ancestors([TaskEventGenerator, EventGenerator], remote_event)
     end
 
@@ -178,7 +182,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
     def test_local_object
 	model = Class.new(Roby::Task) do
-	    local_object
+	    local_only
 	end
 	task = model.new
 	assert(!task.distribute?)
