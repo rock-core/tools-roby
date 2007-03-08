@@ -959,12 +959,6 @@ module Roby
 		pp.breakable
 		pp.text "arguments: "
 		pp.pp arguments
-
-		pp.breakable
-		pp.text "bound events: "
-		if bound_events
-		    pp.seplist(bound_events) { |e| pp.text e[1].symbol.to_s }
-		end
 	    end
 	end
 	    
