@@ -322,6 +322,7 @@ module Roby
 	    loop do
 		begin
 		    if quitting?
+			thread.priority = 0
 			begin
 			    return if forced_exit? || !clear
 			rescue Exception => e
