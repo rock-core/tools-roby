@@ -21,16 +21,9 @@ module Roby
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 
 	    object = proxy_objects[object] = Proxy.proxy_class(object).new(object, self)
-	    object.plan = self
-	    do_include(object) if do_include
-	    object
-	end
-	def do_include(object)
-	    case object
-	    when Roby::PlanObject
-		discover(object) if object.root_object?
-	    else
-		raise TypeError, "unknown object type #{object} (#{object.class})"
+	    if do_include && object.root_object?
+		object.plan = self
+		discover(object)
 	    end
 	    object
 	end
@@ -45,7 +38,8 @@ module Roby
 		if create
 		    if !object.plan
 			object.plan = self
-			return do_include(object)
+			discover(object)
+			return object
 		    elsif object.plan == self.plan
 			wrapped = do_wrap(object, true)
 			if plan.mission?(object)
