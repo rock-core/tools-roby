@@ -1,6 +1,7 @@
 require 'roby/event'
 require 'roby/task'
 require 'roby/relations'
+require 'roby/basic_object'
 
 module Roby
     class InvalidPlanOperation < RuntimeError; end
@@ -35,9 +36,7 @@ module Roby
     #   * #finalized_task
     #   * #finalized_event
     #
-    class Plan
-	include Distributed::LocalObject
-
+    class Plan < BasicObject
 	# The list of tasks that are included in this plan
 	attr_reader :known_tasks
 	# The list of missions in this plan
@@ -111,7 +110,7 @@ module Roby
 
 	    discover(task)
 	    @missions << task
-	    task.mission = true if task.local?
+	    task.mission = true if task.self_owned?
 	    inserted(task)
 	    self
 	end
@@ -134,7 +133,7 @@ module Roby
 	def discard(task)
 	    discover(task)
 	    @missions.delete(task)
-	    task.mission = false if task.local?
+	    task.mission = false if task.self_owned?
 
 	    discarded(task)
 	    self
@@ -278,7 +277,7 @@ module Roby
 	# Returns the set of unused tasks
 	def unneeded_tasks
 	    (known_tasks - useful_tasks).delete_if do |t|
-		Roby::Distributed.needed?(t) || transactions.any? { |trsc| trsc.wrap(t, false) }
+		Roby::Distributed.remotely_useful?(t) || transactions.any? { |trsc| trsc.wrap(t, false) }
 	    end
 	end
 
@@ -312,7 +311,7 @@ module Roby
 	# The set of events that can be removed from the plan
 	def unneeded_events
 	    (free_events - useful_events).delete_if do |ev|
-		Roby::Distributed.needed?(ev) || transactions.any? { |trsc| trsc.wrap(ev, false) }
+		Roby::Distributed.remotely_useful?(ev) || transactions.any? { |trsc| trsc.wrap(ev, false) }
 	    end
 	end
 

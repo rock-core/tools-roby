@@ -24,18 +24,11 @@ module Roby::TaskStructure
 	    if !agent.event(:start).controlable?
 		raise TaskModelViolation.new(self), "the start event of #{self}'s execution agent #{agent} is not controlable"
 	    end
-
-	    on(:start) { agent.forward(:stop, self, :aborted) }
-	    on(:stop) do 
-		remove_execution_agent agent
-		agent.event(:stop).remove_forwarding event(:aborted)
-	    end
-	    
 	    # Check that agent defines the :ready event
 	    if !agent.has_event?(:ready)
 		raise ArgumentError, "execution agent tasks should define the :ready event"
 	    end
-
+	    
 	    old_agent = execution_agent
 	    if old_agent && old_agent != agent
 		Roby.debug "an agent is already defined for this task"
@@ -63,17 +56,19 @@ module Roby::TaskStructure
 		return unless symbol == :start
 		return unless agent = task.execution_agent
 
-		if agent.pending?
-		    postpone(agent.event(:ready), "spawning execution agent #{agent} for #{self}") do
-			agent.event(:start).on do
-			    agent.event(:stop).until(agent.event(:ready)).on do |event|
-				self.emit_failed "execution agent #{agent} failed to initialize\n  #{event.context}"
-			    end
-			end
-			agent.start! unless agent.event(:start).pending?
-		    end
-		elsif agent.finished?
+		if agent.finished?
 		    raise Roby::TaskModelViolation.new(task), "task #{task} has an execution agent but it is dead"
+		elsif !agent.event(:ready).happened? && !agent.depends_on?(task)
+		    postpone(agent.event(:ready), "spawning execution agent #{agent} for #{self}") do
+			unless agent.running? || agent.starting?
+			    agent.event(:start).on do
+				agent.event(:stop).until(agent.event(:ready)).on do |event|
+				    self.emit_failed "execution agent #{agent} failed to initialize\n  #{event.context}"
+				end
+			    end
+			    agent.start!
+			end
+		    end
 		end
 	    end
 	end
@@ -82,7 +77,7 @@ module Roby::TaskStructure
 	module SpawnExecutionAgents
 	    def discovered_tasks(tasks)
 		tasks.each do |task|
-		    if task.local? && !task.execution_agent && task.model.execution_agent
+		    if task.self_owned? && !task.execution_agent && task.model.execution_agent
 			ExecutionAgent.spawn(task)
 		    end
 		end
@@ -95,7 +90,7 @@ module Roby::TaskStructure
 	agent_model = task.model.execution_agent
 	candidates = task.plan.find_tasks.
 	    with_model(agent_model).
-	    local.
+	    self_owned.
 	    not_finished.
 	    to_a
 

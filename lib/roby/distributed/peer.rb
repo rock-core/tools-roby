@@ -41,7 +41,7 @@ module Roby::Distributed
     end
 
     class ConnectionTask < Roby::Task
-	local_object
+	local_only
 
 	argument :peer
 	def peer; arguments[:peer] end
@@ -54,7 +54,7 @@ module Roby::Distributed
 	interruptible
     end
     class LiveConnectionTask < Roby::Task
-	local_object
+	local_only
     end
 
     # Base class for all communication errors
@@ -748,7 +748,7 @@ module Roby::Distributed
 			end
 
 			objects.each do |obj|
-			    obj.plan.permanent(obj) unless subscribed?(obj)
+			    obj.plan.permanent(obj) unless obj.subscribed?
 			end
 		    end
 		    synchro_call.broadcast
@@ -760,7 +760,7 @@ module Roby::Distributed
 
 	    Roby::Control.synchronize do
 		objects.each do |obj|
-		    obj.plan.auto(obj) unless subscribed?(obj)
+		    obj.plan.auto(obj) unless obj.subscribed?
 		end
 	    end
 	end
@@ -772,30 +772,6 @@ module Roby::Distributed
 		    return true
 		end
 	    end
-	    false
-	end
-
-	def need_updates?(local_object)
-	    return true if local.subscribed?(local_object)
-	    return true if local_object.has_sibling?(self) && owns?(local_object)
-
-	    if local_object.kind_of?(Roby::PlanObject)
-		Roby::Distributed.each_object_relation(local_object) do |rel|
-		    local_object.related_objects(rel).each do |related_object| 
-			if local.subscribed?(related_object) || 
-			    related_object.has_sibling?(self) && owns?(related_object)
-			    return true
-			end
-		    end
-		end
-
-		if local_object.respond_to?(:each_plan_child)
-		    local_object.each_plan_child do |plan_child|
-			return true if need_updates?(plan_child)
-		    end
-		end
-	    end
-
 	    false
 	end
     end

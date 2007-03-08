@@ -561,7 +561,7 @@ module Roby
 	    def find_reusable_task(return_type)
 		candidates = plan.find_tasks.
 		    which_fullfills(return_type, arguments).
-		    local.
+		    self_owned.
 		    not_abstract.
 		    not_finished.
 		    roots(TaskStructure::Hierarchy).

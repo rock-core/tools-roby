@@ -1,6 +1,5 @@
 require 'roby'
 require 'roby/distributed/drb'
-require 'roby/distributed/objects'
 require 'roby/distributed/protocol'
 
 require 'roby/distributed/proxy'

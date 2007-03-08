@@ -4,26 +4,15 @@ require 'test/mockups/tasks'
 
 class TC_DistributedQuery < Test::Unit::TestCase
     include Roby::Distributed::Test
-    def test_local
-	t1 = Class.new(Task) do
-	end.new
 
-	t2 = Class.new(Task) do
-	    def local?; false end
-	end.new
-
-	plan << t1 << t2
-	assert_equal([t1].to_set, TaskMatcher.local.enum_for(:each, plan).to_set)
-    end
     def test_ownership
-	t1 = Class.new(Task) do
-	end.new
-
-	t2 = Class.new(Task) do
-	    def owners; [Roby] end # completely fake remote ID !
-	end.new
-
+	t1 = Class.new(Task).new
+	t2 = Class.new(Task).new
 	plan << t1 << t2
+
+	t2.owners.clear
+	t2.owners << Roby # Completely fake remote ID !!!!
+
 	assert_equal([t1].to_set, TaskMatcher.owned_by(Distributed).enum_for(:each, plan).to_set)
 	assert_equal([t1].to_set, TaskMatcher.self_owned.enum_for(:each, plan).to_set)
 	assert_equal([t2].to_set, TaskMatcher.owned_by(Roby).enum_for(:each, plan).to_set)

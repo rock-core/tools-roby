@@ -1,11 +1,12 @@
 require 'roby/relations'
 require 'roby/distributed/base'
+require 'roby/basic_object'
 
 module Roby
     class OwnershipError         < RuntimeError; end
     class NotOwner               < OwnershipError; end
 
-    class PlanObject
+    class PlanObject < BasicObject
 	include DirectedRelationSupport
 
 	# The plan this object belongs to
@@ -81,7 +82,6 @@ module Roby
 	    def root_object?; false end
 	    def read_write?; #{attribute}.read_write? end
 	    def owners; #{attribute}.owners end
-	    def local?; #{attribute}.local? end
 	    def distribute?; #{attribute}.distribute? end
 	    def subscribed?; #{attribute}.subscribed? end
 	    def plan; #{attribute}.plan end
@@ -114,14 +114,10 @@ module Roby
 	    end
 	end
 
-	# True if this object can be modified in the current context
 	def read_write?
-	    Distributed.updating?([root_object]) ||
-		Distributed.owns?(self) ||
-		!plan ||
-		(Distributed.owns?(plan) && (owners - plan.owners).empty?)
+	    super || !plan || (plan.self_owned? && (owners - plan.owners).empty?)
 	end
-	
+
 	# We can remove relation if one of the objects is owned by us
 	def removing_child_object(child, type)
 	    super if defined? super

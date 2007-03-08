@@ -1,7 +1,13 @@
-require 'roby/distributed/objects'
-
 module Roby
     module Distributed
+	class InvalidRemoteOperation < RuntimeError; end
+	class RemotePeerMismatch     < RuntimeError; end
+
+	class InvalidRemoteTaskOperation < InvalidRemoteOperation
+	    attr_reader :task
+	    def initialize(task); @task = task end
+	end
+
 	extend Logger::Hierarchy
 	extend Logger::Forward
 
@@ -22,15 +28,15 @@ module Roby
 
 	    def owns?(object); !state || state.owns?(object) end
 
-	    def needed?(local_object)
-		return true if local_object.needed?
+	    def remotely_useful?(local_object)
+		return true if local_object.remotely_useful?
 		Roby::Distributed.each_object_relation(local_object) do |rel|
-		    return true if local_object.related_objects(rel).any? { |obj| obj.needed? }
+		    return true if local_object.related_objects(rel).any? { |obj| obj.remotely_useful? }
 		end
 
 		if local_object.respond_to?(:each_plan_child)
 		    local_object.each_plan_child do |child|
-			return true if needed?(child)
+			return true if remotely_useful?(child)
 		    end
 		end
 

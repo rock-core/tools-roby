@@ -1,8 +1,16 @@
 require 'roby'
-require 'roby/distributed/objects'
-
 module Roby::Distributed
     @@proxy_model = Hash.new
+    
+    # Module included in objects that are located on one single remote pDB
+    module RemoteObject
+	attr_reader :remote_peer
+	def peer_id; remote_peer.remote_id end
+
+	def remote_siblings; { remote_peer => @remote_object } end
+	def owners; [remote_peer] end
+	def distribute?; true end
+    end
 
     # Builds a remote proxy model for +object_model+. +object_model+ is
     # either a string or a class. In the first case, it is interpreted

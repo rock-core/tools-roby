@@ -106,7 +106,7 @@ module Roby
 		declare_class_methods(*names.map { |n| "not_#{n}" })
 	    end
 	end
-	match_predicates :local, :executable, :abstract, :partially_instanciated, :fully_instanciated,
+	match_predicates :executable, :abstract, :partially_instanciated, :fully_instanciated,
 	    :pending, :running, :finished, :success, :failure
 
 	def ===(task)
