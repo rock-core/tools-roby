@@ -40,10 +40,23 @@ module Roby
 		Distributed.logger.level = @old_distributed_logger_level
 	    end
 
+	    module RemotePeerSupport
+		attr_accessor :testcase
+
+		def process_events; Roby.control.process_events end
+		def local_peer; @local_peer ||= Distributed.peer("local") end
+		def reset_local_peer; @local_peer = nil end
+		def send_local_peer(*args); local_peer.send(*args) end
+		def wait_one_cycle; Roby.control.wait_one_cycle end
+		def console_logger=(value); testcase.console_logger = value end
+		def log_level=(value); Roby.logger.level = value end
+	    end
+
 	    BASE_PORT     = 1245
 	    DISCOVERY_URI = "roby://localhost:#{BASE_PORT}"
 	    REMOTE_URI    = "roby://localhost:#{BASE_PORT + 1}"
 	    LOCAL_URI     = "roby://localhost:#{BASE_PORT + 2}"
+
 	    # Start a central discovery service, a remote connectionspace and a local
 	    # connection space. It yields the remote connection space *in the forked
 	    # child* if a block is given.
@@ -60,11 +73,8 @@ module Roby
 			    getter = Class.new { def get; DRbObject.new(Distributed.state) end }.new
 			    DRb.start_service REMOTE_URI, getter
 			end
-		    def cs.process_events; Roby.control.process_events end
-		    def cs.local_peer; @local_peer ||= Distributed.peer("local") end
-		    def cs.reset_local_peer; @local_peer = nil end
-		    def cs.send_local_peer(*args); local_peer.send(*args) end
-		    def cs.wait_one_cycle; Roby.control.wait_one_cycle end
+		    cs.extend RemotePeerSupport
+		    cs.testcase = self
 
 		    Distributed.state = cs
 		    yield(Distributed.state) if block_given?
