@@ -71,7 +71,8 @@ module Roby
 		    Roby::Distributed.updated_objects << self
 		end
 
-		@name << "@#{peer.remote_name}"
+		remote_id = "0x#{Object.address_from_id(marshalled_object.remote_object.__drbref).to_s(16)}"
+		@name.gsub!(/(:0x[0-9a-f]+)$/) { |local_id| ":#{remote_id}@#{peer.remote_name}#{local_id}" }
 	    rescue ArgumentError
 		raise $!, $!.message + " (#{self.class.ancestors[1..-1]})", $!.backtrace
 	    ensure
