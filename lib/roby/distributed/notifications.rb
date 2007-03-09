@@ -8,9 +8,20 @@ module Roby
 
 		unless Distributed.updating?([self]) || Distributed.updating?([task])
 		    Distributed.each_updated_peer(self, task) do |peer|
-			peer.plan_update(:insert, self, task)
+			peer.transmit(:plan_set_mission, self, task, true)
 		    end
 		    Distributed.trigger(task)
+		end
+	    end
+
+	    def discarded(task)
+		super if defined? super
+		return unless task.distribute? && task.self_owned?
+
+		unless Distributed.updating?([self]) || Distributed.updating?([task])
+		    Distributed.each_updated_peer(self, task) do |peer|
+			peer.transmit(:plan_set_mission, self, task, false)
+		    end
 		end
 	    end
 
@@ -21,7 +32,7 @@ module Roby
 		    return if objects.empty?
 
 		    Distributed.each_updated_peer(plan) do |peer|
-			peer.plan_update(:discover, plan, objects)
+			peer.transmit(:plan_discover, plan, objects)
 		    end
 		    Distributed.trigger(*objects)
 		end
@@ -35,22 +46,12 @@ module Roby
 		PlanModificationHooks.discovered_objects(self, events) 
 	    end
 
-	    def discarded(task)
-		super if defined? super
-		return unless task.distribute? && task.self_owned?
-
-		unless Distributed.updating?([self]) || Distributed.updating?([task])
-		    Distributed.each_updated_peer(self, task) do |peer|
-			peer.plan_update(:discard, self, task)
-		    end
-		end
-	    end
 	    def replaced(from, to)
 		super if defined? super
 		if (from.distribute? && to.distribute?) && (to.self_owned? || from.self_owned?)
 		    unless Distributed.updating?([self]) || Distributed.updating?([from, to])
 			Distributed.each_updated_peer(from) do |peer|
-			    peer.plan_update(:replace, self, from, to)
+			    peer.transmit(:plan_replace, self, from, to)
 			end
 		    end
 		end
@@ -63,14 +64,14 @@ module Roby
 		if !Distributed.updating?([plan]) && object.self_owned?
 		    Distributed.clean_triggered(object)
 		    Distributed.peers.each_value do |peer|
-			if peer.connected?
-			    peer.plan_update(:remove_object, plan, object)
+			if peer.connected? && plan.has_sibling_on?(peer)
+			    peer.transmit(:plan_remove_object, plan, object)
 			end
 		    end
 		end
 
-		object.remote_siblings.each_key do |peer|
-		    peer.delete(object, false) unless peer == Roby::Distributed
+		object.remote_siblings.keys.each do |peer|
+		    object.forget_peer(peer) unless peer == Roby::Distributed
 		end
 	    end
 	    def finalized_task(task)
@@ -85,59 +86,46 @@ module Roby
 	Plan.include PlanModificationHooks
 
 	class PeerServer
-	    # Notification of a plan modification. +event+ is the name of the
-	    # plan method which needs to be called, +marshalled_plan+ the plan
-	    # itself and +args+ the args to +event+
-	    def plan_update(event, marshalled_plan, args)
-		plan = peer.local_object(marshalled_plan)
+	    def plan_set_mission(plan, task, flag)
+		plan = peer.local_object(plan)
 
-		result = []
-		Distributed.update([plan]) do
-		    case event.to_sym
-		    when :insert
-			return unless local_object = peer.local_object(args[0])
-			local_object.mission = true
+		return unless task = peer.local_object(task)
+		task.mission = flag
+	    end
 
-		    when :discard
-			return unless local_object = peer.local_object(args[0])
-			local_object.mission = false
+	    def plan_discover(plan, m_tasks)
+		plan = peer.local_object(plan)
 
-		    when :discover
-			result = ValueSet.new
-			args[0].each do |marshalled|
-			    next unless local = peer.local_object(marshalled)
-			    result << local
-			    peer.subscriptions << marshalled.remote_object
-			end
-			Distributed.update(result) do
-			    plan.discover(result)
-			end
+		tasks = ValueSet.new
+		m_tasks.each do |marshalled|
+		    next unless local = peer.local_object(marshalled)
+		    tasks << local
+		end
+		Distributed.update(tasks) { plan.discover(tasks) }
+	    end
+	    def plan_replace(plan, m_from, m_to)
+		plan = peer.local_object(plan)
 
-		    when :replace 
-			# +from+ will be unsubscribed when it is finalized
-			marshalled_from, marshalled_to = *args
-			from, to = peer.local_object(marshalled_from), peer.local_object(marshalled_to)
-			return unless from && to
-			if peer.owns?(marshalled_to.remote_object) && !peer.subscribed?(marshalled_to.remote_object)
-			    peer.subscriptions << marshalled_to.remote_object
-			end
-			Distributed.update([from, to]) do
-			    plan.replace(from, to)
-			end
+		# +from+ will be unsubscribed when it is finalized
+		from, to = peer.local_object(m_from), peer.local_object(m_to)
+		return unless from && to
 
-		    when :remove_object
-			local = peer.local_object(args[0], false)
-			return unless local
-			if local.plan
-			    plan.remove_object(local)
-			end
+		Distributed.update([from, to]) { plan.replace(from, to) }
 
-		    else
-			return unless local = peer.local_object(args[0], false)
-			plan.send(event, local)
+		# Subscribe to the new task if the old task was subscribed
+		if peer.subscribed?(m_from.remote_object) && !peer.subscribed?(m_to.remote_object)
+		    execute do
+			peer.subscribe(m_to.remote_object)
 		    end
 		end
-		nil
+	    end
+
+	    def plan_remove_object(plan, object)
+		plan = peer.local_object(plan)
+
+		if local = peer.local_object(object, false)
+		    plan.remove_object(local)
+		end
 	    end
 
 	    # Receive an update on the relation graphs
@@ -163,15 +151,6 @@ module Roby
 		    end
 		end
 		nil
-	    end
-	end
-
-	class Peer
-	    # Notify this peer that +event+ has been called on +plan+ with the
-	    # given arguments. +event+ is typically one of #discover,
-	    # #remove_object, ...
-	    def plan_update(event, plan, *args)
-	       	transmit(:plan_update, event, plan, args)
 	    end
 	end
 
