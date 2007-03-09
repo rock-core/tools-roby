@@ -68,13 +68,18 @@ end
 mockup_module "mockup"
 mockup_module "init"
 
-task :setup => :test_build do
-    # Build the extension
-    Dir.chdir('ext') do
-	system("ruby", "extconf.rb")
-	system("make")
+def build_extension(name, soname = name)
+    Dir.chdir("ext/#{name}") do
+	if !system("ruby extconf.rb") || !system("make")
+	    raise "cannot set up #{name} extension"
+	end
     end
-    FileUtils.ln_sf "../../ext/bgl.so", "lib/roby/bgl.so"
+    FileUtils.ln_sf "../../ext/#{name}/#{soname}.so", "lib/roby/#{soname}.so"
+end
+
+task :setup => :test_build do
+    build_extension 'droby'
+    build_extension 'graph', 'bgl'
 end
 
 Rake::RDocTask.new("core_docs") do |rdoc|
@@ -90,27 +95,6 @@ end
 
 task :test do
     system("testrb test/test_*")
-end
-
-task :test_rcov do
-    Dir.chdir('test') do 
-	FileUtils.rm_rf '../rcov'
-	FileUtils.mkdir_p '../rcov'
-	File.open("../rcov/index.html", "w") do |index|
-	    index.puts <<-EOF
-		<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-		<body>
-	    EOF
-
-	    Dir.glob('test_*.rb').each do |path|
-		puts "\n" * 4 + "=" * 5 + " #{path} " + "=" * 5 + "\n"
-		basename = File.basename(path, '.rb')
-		system("rcov  -x 'active_support,rcov,^test_.*,gems' --replace-progname -o ../rcov/#{basename} #{path}")
-		index.puts "<div class=\"test\"><a href=\"#{basename}/index.html\">#{basename}</a></div>"
-	    end
-	    index.puts "</body>"
-	end
-    end
 end
 
 UIFILES = %w{replay.ui relations.ui relations_view.ui}
