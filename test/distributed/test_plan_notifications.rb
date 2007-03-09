@@ -63,22 +63,17 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
     end
 
     def test_subscribe_plan
-	peer2peer do |remote|
-	    mission = Task.new :id => 'mission'
+	Roby.logger.level = Logger::DEBUG
+	peer2peer(true) do |remote|
+	    plan.insert(mission = Task.new(:id => 'mission'))
 	    subtask = Task.new :id => 'subtask'
-	    next_mission = Task.new :id => 'next_mission'
+	    plan.insert(next_mission = Task.new(:id => 'next_mission'))
 	    mission.realized_by subtask
 	    mission.on(:start, next_mission, :start)
-	    remote.plan.insert(mission)
-	    remote.plan.insert(next_mission)
 	end
-	r_mission = remote_task(:id => 'mission')
-	r_subtask = remote_task(:id => 'subtask')
-	r_next_mission = remote_task(:id => 'next_mission')
 
 	# Subscribe to the remote plan
-	remote_plan = remote_peer.remote_server.plan
-	remote_peer.subscribe(remote_plan)
+	remote_peer.subscribe_plan
 
 	# Check that the remote plan has been mapped locally
 	tasks = local.plan.known_tasks
@@ -126,9 +121,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	end
 
 	# Subscribe to the remote plan
-	remote_plan = remote_peer.remote_server.plan
-	remote_peer.subscribe(remote_plan)
-	assert(remote_peer.subscribed?(remote_plan), remote_peer)
+	remote_peer.subscribe_plan
 
 	remote.create_mission
 	process_events

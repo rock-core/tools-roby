@@ -80,16 +80,28 @@ module Roby
 	    # Called by the remote peer to announce that it has created the
 	    # given siblings. +siblings+ is a remote_drbobject => local_object
 	    # hash
+	    #
+	    # It is also used by BasicObject#sibling_of to register a new
+	    # sibling
 	    def added_sibling(local_object, remote_object)
-		local_object.remote_siblings[peer] = remote_object
+		local_object.add_sibling_for(peer, remote_object)
 		nil
 	    end
 
 	    # Called by the remote peer to announce that it has removed the
 	    # given siblings. +objects+ is the list of local objects.
+	    #
+	    # It is also used by BasicObject#forget_peer to remove references
+	    # to an old sibling
 	    def removed_sibling(local_object, remote_object)
-		local_object.remote_siblings.delete(remote_object)
-		nil
+		sibling = local_object.remove_sibling_for(peer)
+
+		# It is fine to remove a sibling twice: you nay for instance
+		# decide in both sides that the sibling should be removed (for
+		# instance during the disconnection process)
+		if sibling && sibling != remote_object
+		    raise "removed sibling #{sibling} for #{local_object} on peer #{peer} does not match the provided remote object (#{remote_object})"
+		end
 	    end
 
 	    # Called by the remote peer to announce that is has subscribed us to +objects+
@@ -231,6 +243,20 @@ module Roby
 		    synchro_point
 		end
 		local_object = local_object(remote_object)
+	    end
+
+	    # The DRbObject for the remote plan if we are subscribed to it
+	    attr_reader :remote_plan
+
+	    # Subscribe to the remote plan
+	    def subscribe_plan
+		@remote_plan = subscribe(connection_space.plan)
+	    end
+
+	    # Unsubscribe from the remote plan
+	    def unsubscribe_plan
+		unsubscribe(remote_plan)
+		@remote_plan = nil
 	    end
 
 	    # True if we are explicitely subscribed to +object+. Automatically

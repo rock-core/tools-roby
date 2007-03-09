@@ -111,13 +111,17 @@ module Roby
 	    def remotely_useful?; #{attribute}.remotely_useful? end
 
 	    def forget_peer(peer)
-		remote_object = remote_siblings.delete(peer)
-		peer.proxies.delete(remote_object)
+		remove_sibling_for(peer)
+	    end
+	    def sibling_of(remote_object, peer)
+		if !distribute?
+		    raise "#{self} is local only"
+		end
+
+		add_sibling_for(peer, remote_object)
 	    end
 	
 	    private :plan=
-	    private :sibling_of
-	    private :sibling_on
 	    EOD
 	end
 

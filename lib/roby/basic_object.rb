@@ -50,18 +50,40 @@ module Roby
 		raise "#{self} is local only"
 	    end
 
-	    remote_siblings[peer] = remote_object
+	    add_sibling_for(peer, remote_object)
 	    peer.transmit(:added_sibling, remote_object, drb_object)
 	end
 
 	# Called to tell us that we should not be involved with +peer+ anymore
 	def forget_peer(peer)
-	    remote_object = remote_siblings.delete(peer)
-	    if peer.connected?
-		peer.transmit(:removed_sibling, remote_object, drb_object) do
-		    yield if block_given?
-		    peer.proxies.delete(remote_object)
+	    if remote_object = remove_sibling_for(peer)
+		if peer.connected?
+		    peer.transmit(:removed_sibling, remote_object, drb_object) do
+			yield if block_given?
+		    end
 		end
+	    end
+	end
+
+	# Registers +remote_object+ as the sibling of +self+ on +peer+. Unlike
+	# #sibling_of, do not notify the peer about it.
+	def add_sibling_for(peer, remote_object)
+	    if old_sibling = remote_siblings[peer]
+		raise "#{self} has already a sibling for #{peer} (#{old_sibling})"
+	    end
+
+	    Roby.debug "added sibling #{remote_object} for #{self} on #{peer}"
+	    remote_siblings[peer] = remote_object
+	    peer.proxies[remote_object] = self
+	end
+
+	# Remove references about the sibling registered for +peer+ and returns it
+	def remove_sibling_for(peer)
+	    if remote_object = remote_siblings.delete(peer)
+		peer.proxies.delete(remote_object)
+		peer.subscriptions.delete(remote_object)
+		Roby.debug "removed sibling #{remote_object} for #{self} on #{peer}"
+		remote_object
 	    end
 	end
 

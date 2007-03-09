@@ -4,7 +4,6 @@ module Roby
 	module DistributedObject
 	    attribute(:mutex) { Mutex.new }
 	    attribute(:synchro_call) { ConditionVariable.new }
-	    attribute(:remote_siblings) { Hash.new }
 
 	    # Makes this object owned by the local DB. This is equivalent to
 	    # object.self_owned = true
@@ -55,7 +54,7 @@ module Roby
 
 
 	    def call_siblings(*args)
-		Distributed.call_peers(mutex, synchro_call, remote_siblings.keys << Distributed, *args)
+		Distributed.call_peers(mutex, synchro_call, updated_peers.dup << Distributed, *args)
 	    end
 
 	    def call_owners(*args) # :nodoc:
@@ -112,12 +111,10 @@ module Roby
 		end
 
 		sibling = marshalled_object.sibling(peer)
-		sibling.remote_siblings[peer] = object_remote_id
-		peer.proxies[object_remote_id] = sibling
+		sibling.sibling_of(object_remote_id, peer)
 		peer.subscriptions << object_remote_id
-
 		marshalled_object.created_sibling(peer, sibling)
-		sibling
+		nil
 	    end
 
 	    def add_owner(object, new_owner)
@@ -144,17 +141,13 @@ module Roby
 		    raise TypeError, "cannot create a sibling for a non-distributed object"
 		end
 
-		marshalled_sibling = call(:create_sibling, object)
-		sibling_id = marshalled_sibling.remote_object
-		object.remote_siblings[self] = sibling_id
-		proxies[sibling_id] = object
-
-		subscriptions << marshalled_sibling.remote_object
+		call(:create_sibling, object)
+		subscriptions << object.sibling_on(self)
 		Roby::Control.synchronize do
 		    local.subscribe(object)
 		end
 
-		call(:synchro_point)
+		synchro_point
 	    end
 	end
     end

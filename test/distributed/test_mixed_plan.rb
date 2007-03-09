@@ -46,8 +46,6 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
     def check_resulting_plan(plan, removed_planner)
 	assert(remote_center_node = plan.known_tasks.find { |t| t.arguments[:id] == "remote-2" }, plan.known_tasks)
 	assert(local_center_node  = plan.known_tasks.find { |t| t.arguments[:id] == "local-2" }, plan.known_tasks)
-	assert(remote_center_node.subscribed?)
-	assert(local_center_node.subscribed?)
 
 	assert_equal(["remote-1"], remote_center_node.parents.map { |obj| obj.arguments[:id] })
 	assert_equal(["local-1", "remote-2"].to_set, local_center_node.parents.map { |obj| obj.arguments[:id] }.to_set)
@@ -109,6 +107,9 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 			t2.remove_planning_task(t3)
 		    end
 		end
+		def subscribe(remote_task)
+		    local_peer.subscribe(remote_task)
+		end
 	    end
 	end
 
@@ -146,7 +147,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    r_t2 = remote_peer.subscribe(r_t2)
 	    trsc[r_t2].realized_by trsc[t2]
 	    check_resulting_plan(trsc, false)
-	    remote_peer.flush
+	    process_events
 	    remote.check_resulting_plan(trsc, false) if propose_first
 
 	    # Remove the relations in the real tasks (not the proxies)
@@ -155,6 +156,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 		t2.remove_planning_task(t3)
 	    end
 	    remote.remove_relations(r_t1, r_t2, r_t3)
+	    remote.subscribe(t2)
 
 	    process_events
 	    assert_cleared_relations(plan)
@@ -170,7 +172,6 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
     def test_rproxy_realizes_lproxy_dynamic; test_rproxy_realizes_lproxy(true) end
 
     def test_rproxy_realizes_ltask(propose_first = false)
-	Roby.logger.level = Logger::DEBUG
 	common_setup(propose_first) do |trsc|
 	    r_t1, r_t2, r_t3 = remote.add_tasks(plan).map do |t| 
 		Control.synchronize { remote_peer.local_object(t) }
@@ -182,14 +183,17 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    trsc[r_t2].realized_by t2
 	    check_resulting_plan(trsc, false)
 	    process_events
-	    remote.check_resulting_plan(trsc, false) if propose_first
+	    if propose_first
+		remote.subscribe(t2)
+		remote.check_resulting_plan(trsc, false)
+	    end
 
 	    # remove the relations in the real tasks (not the proxies)
-	    r_t1.remote_object(remote_peer).remove_child(r_t2.remote_object(remote_peer))
-	    r_t2.remote_object(remote_peer).remove_planning_task(r_t3.remote_object(remote_peer))
+	    remote.remove_relations(r_t1, r_t2, r_t3)
 
 	    unless propose_first
 		trsc.propose(remote_peer)
+		remote.subscribe(t2)
 	    end
 	    process_events
 	    remote.assert_cleared_relations(plan)
@@ -203,6 +207,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	common_setup(true) do |trsc|
 	    trsc.release(false)
 	    r_t1, r_t2, r_t3 = remote.add_tasks(trsc).map { |t| remote_peer.proxy(t) }
+	    remote_peer.subscribe(r_t2)
 
 	    trsc.edit
 	    t1, t2, t3 = nil
@@ -210,15 +215,16 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 		t1, t2, t3 = add_tasks(plan, "local")
 	    end
 	    r_t2.realized_by trsc[t2]
+	    remote_peer.subscribe(t2)
 
 	    check_resulting_plan(trsc, false)
-	    remote_peer.flush
+	    process_events
 	    remote.check_resulting_plan(trsc, false)
 
 	    # remove the relations in the real tasks (not the proxies)
 	    t1.remove_child(t2)
 	    t2.remove_planning_task(t3)
-	    remote_peer.flush
+	    process_events
 	    remote.assert_cleared_relations(plan)
 	end
     end

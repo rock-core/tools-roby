@@ -140,6 +140,22 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_equal([remote_peer.task], plan.keepalive.to_a)
     end
 
+    def test_siblings
+	peer2peer do |remote|
+	    plan.insert(Roby::Task.new(:id => 'remote'))
+	end
+
+	plan.insert(remote_task = remote_task(:id => 'remote'))
+	assert(remote_task.has_sibling_on?(remote_peer))
+	remote_object, _ = remote_peer.proxies.find { |_, task| task == remote_task }
+	assert(remote_object)
+	assert_equal(remote_object, remote_task.sibling_on(remote_peer))
+
+	assert_equal(remote_task, remote_task(:id => 'remote'))
+	process_events
+	assert_equal(remote_task, remote_task(:id => 'remote'))
+    end
+
     def test_subscription
 	peer2peer(true) do |remote|
 	    root, mission, subtask, next_mission =
@@ -277,7 +293,6 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_remove_not_needed
-	# Roby.logger.level = Logger::DEBUG
 	peer2peer(true) do |remote|
 	    left, right, middle =
 		SimpleTask.new(:id => 'left'), 
@@ -306,8 +321,13 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert(!middle.subscribed?)
 	assert(Distributed.keep?(middle))
 
-	remote_peer.unsubscribe(right)
-	assert(Distributed.keep?(middle))
+	Roby::Control.synchronize do
+	    remote_peer.unsubscribe(right)
+	    assert(!right.remotely_useful?)
+	    assert(!right.subscribed?)
+	    assert(!Distributed.keep?(right))
+	    assert(Distributed.keep?(middle))
+	end
 	process_events
 	assert(!right.plan)
 

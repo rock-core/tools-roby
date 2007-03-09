@@ -299,7 +299,6 @@ module Roby
 	    end
 	    def proxy(peer)
 		return unless local_real = peer.local_object(real_object)
-		return unless local_real.plan
 
 		local_object = nil
 		local_transaction = peer.local_object(transaction)
@@ -372,23 +371,25 @@ module Roby
 	class PeerServer
 	    def transaction_prepare_commit(trsc)
 		trsc = peer.local_object(trsc)
-		Roby::Control.once { peer.connection_space.transaction_prepare_commit(trsc) }
+		execute { peer.connection_space.transaction_prepare_commit(trsc) }
 		trsc.freezed!
 		nil
 	    end
 	    def transaction_commit(trsc)
 		trsc = peer.local_object(trsc)
-		Roby::Control.once { peer.connection_space.transaction_commit(trsc) }
+		execute { peer.connection_space.transaction_commit(trsc) }
 		nil
 	    end
 	    def transaction_abandon_commit(trsc, error)
 		trsc = peer.local_object(trsc)
-		Roby::Control.once { peer.connection_space.transaction_abandon_commit(trsc, error) }
+		execute { peer.connection_space.transaction_abandon_commit(trsc, error) }
 		nil
 	    end
 	    def transaction_discard(trsc)
 		trsc = peer.local_object(trsc)
-		Roby::Control.once { peer.connection_space.transaction_discard(trsc) }
+		execute do
+		    peer.connection_space.transaction_discard(trsc)
+		end
 		nil
 	    end
 	    def transaction_give_token(trsc, needs_edition)

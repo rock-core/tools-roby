@@ -31,7 +31,6 @@ module Roby
 		@marshalled_object = marshalled_object
 		owners.clear
 		owners << peer
-		remote_siblings[peer] = marshalled_object.remote_object
 	    end
 
 	    def model; self.class.superclass end

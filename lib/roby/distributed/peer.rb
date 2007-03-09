@@ -456,8 +456,10 @@ module Roby::Distributed
 		keepalive.cancel rescue Rinda::RequestExpiredError
 	    end
 
-	    proxies.dup.each_key do |obj|
-		delete(obj)
+	    # Unsubscribe to the remote plan if we are subscribed to it
+	    unsubscribe_plan if remote_plan
+	    proxies.dup.each_value do |obj|
+		obj.forget_peer(self)
 	    end
 	    proxies.clear
 	end
@@ -468,7 +470,6 @@ module Roby::Distributed
 	    @connection_state = nil
 
 	    Roby::Distributed.peers.delete(remote_id)
-
 	    Roby::Distributed.info "#{neighbour.name} disconnected"
 	    Roby::Control.once { task.emit(:failed) }
 	end
@@ -532,7 +533,7 @@ module Roby::Distributed
 	# is raised if the local proxy is not known to this peer.
 	def local_object(object, create = true)
 	    if object.kind_of?(DRbObject)
-		if local_proxy = @proxies[object]
+		if local_proxy = proxies[object]
 		    proxy_setup(local_proxy)
 		    return local_proxy
 		end
@@ -550,7 +551,7 @@ module Roby::Distributed
 	# known to this peer.
 	def objects(object, create_local = true)
 	    if object.kind_of?(DRbObject)
-		if local_proxy = @proxies[object]
+		if local_proxy = proxies[object]
 		    proxy_setup(local_proxy)
 		    return [object, local_proxy]
 		end
@@ -562,15 +563,15 @@ module Roby::Distributed
 	    end
 	end
 
-	def proxy_setup(object_proxy)
-	    if !object_proxy.kind_of?(Roby::Transactions::Proxy) && 
-		object_proxy.respond_to?(:execution_agent) && 
-		object_proxy.plan then
+	def proxy_setup(local_object)
+	    if !local_object.kind_of?(Roby::Transactions::Proxy) && 
+		local_object.respond_to?(:execution_agent) && 
+		local_object.plan then
 
-		if !object_proxy.execution_agent
-		    connection_task = object_proxy.plan[self.task]
-		    Roby::Distributed.update([object_proxy, connection_task]) do
-			object_proxy.executed_by connection_task
+		if !local_object.execution_agent
+		    connection_task = local_object.plan[self.task]
+		    Roby::Distributed.update([local_object, connection_task]) do
+			local_object.executed_by connection_task
 		    end
 		end
 	    end
@@ -580,46 +581,23 @@ module Roby::Distributed
 	def proxy(marshalled, create = true)
 	    return marshalled unless proxying?(marshalled)
 	    if marshalled.respond_to?(:remote_object)
-		object = marshalled.remote_object
-		return object unless object.kind_of?(DRbObject)
-		unless object_proxy = @proxies[object]
+		remote_object = marshalled.remote_object
+		return remote_object unless remote_object.kind_of?(DRbObject)
+		unless local_object = proxies[remote_object]
 		    return if !create
-		    return unless object_proxy = marshalled.proxy(self)
-		    @proxies[object] = object_proxy
+		    return unless local_object = marshalled.proxy(self)
 		end
 		if marshalled.respond_to?(:update)
-		    Roby::Distributed.update([object_proxy]) do
-			marshalled.update(self, object_proxy) 
+		    Roby::Distributed.update([local_object]) do
+			marshalled.update(self, local_object) 
 		    end
 		end
-		proxy_setup(object_proxy)
+		proxy_setup(local_object)
 	    else
-		object_proxy = marshalled.proxy(self)
+		local_object = marshalled.proxy(self)
 	    end
 
-	    object_proxy
-	end
-
-	# +remote_object+ is not a valid remote object anymore
-	def delete(object, remove_object = false)
-	    remote_object = self.remote_object(object)
-	    subscriptions.delete(remote_object)
-	    if local_object = proxies.delete(remote_object)
-		local_object.forget_peer(self)
-
-		case local_object
-		when Roby::PlanObject
-		    return if !local_object.root_object?
-		    if 
-			if remove_object
-			    connection_space.plan.remove_object(local_object)
-			end
-			if local_object.root_object? && local_object.plan
-			    raise "deleting an object still attached to the plan"
-			end
-		    end
-		end
-	    end
+	    local_object
 	end
 
 	# Discovers all objects at a distance +dist+ from +obj+. The object

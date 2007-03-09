@@ -197,59 +197,6 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert_nothing_raised { trsc.discard_transaction }
     end
 
-    def build_transaction(trsc)
-	parent = remote_task(:id => 1)
-	child  = remote_task(:id => 3)
-
-	# Now, add a task of our own and link the remote and the local
-	task = SimpleTask.new :id => 2
-	trsc.discover(task)
-	trsc.self_owned
-
-	parent = remote_peer.subscribe(parent)
-	child  = remote_peer.subscribe(child)
-
-	# Check some properties
-	assert((trsc[parent].owners - trsc.owners).empty?)
-	assert(trsc[parent].read_write?)
-	assert(task.read_write?)
-	assert(trsc[parent].event(:start).read_write?)
-	assert(trsc[parent].event(:stop).read_write?)
-	assert(task.event(:start).read_write?)
-	assert(task.event(:stop).read_write?)
-
-	# Add relations
-	trsc[parent].realized_by task
-	task.realized_by trsc[child]
-	trsc[parent].event(:start).on task.event(:start)
-	task.event(:stop).on trsc[child].event(:stop)
-
-	[task, parent]
-    end
-
-    # Checks that +plan+ looks like the result of #build_transaction
-    def check_resulting_plan(plan)
-	#assert_equal(4, plan.known_tasks.size)
-	r_task = plan.known_tasks.find { |t| t.arguments[:id] == 1 }
-	task   = plan.known_tasks.find { |t| t.arguments[:id] == 2 }
-	c_task = plan.known_tasks.find { |t| t.arguments[:id] == 3 }
-
-	assert_equal(2, r_task.children.size, r_task.children)
-	assert(r_task.child_object?(task, Roby::TaskStructure::Hierarchy))
-	assert_equal([task.event(:start)], r_task.event(:start).child_objects(Roby::EventStructure::Signal).to_a)
-	assert_equal([c_task], task.children.to_a)
-	assert_equal([c_task.event(:stop)], task.event(:stop).child_objects(Roby::EventStructure::Signal).to_a)
-	assert(r_task.child_object?(c_task, Roby::TaskStructure::Hierarchy))
-    end
-
-    # Commit the transaction and checks the result
-    def check_transaction_commit(trsc)
-	# Commit the transaction
-	assert(trsc.commit_transaction)
-	remote.check_plan
-	check_resulting_plan(local.plan)
-    end
-
     def test_executed_by
 	peer2peer(true) do |remote|
 	    task = Task.new(:id => 1) 
@@ -316,11 +263,63 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert_equal(:bar, t_task.arguments[:foo], t_task.name)
     end
 
+    def build_transaction(trsc)
+	parent = remote_task(:id => 'remote-1')
+	child  = remote_task(:id => 'remote-2')
+
+	# Now, add a task of our own and link the remote and the local
+	task = SimpleTask.new :id => 'local'
+	trsc.discover(task)
+
+	parent = remote_peer.subscribe(parent)
+	child  = remote_peer.subscribe(child)
+
+	# Check some properties
+	assert((trsc[parent].owners - trsc.owners).empty?)
+	assert(trsc[parent].read_write?)
+	assert(task.read_write?)
+	assert(trsc[parent].event(:start).read_write?)
+	assert(trsc[parent].event(:stop).read_write?)
+	assert(task.event(:start).read_write?)
+	assert(task.event(:stop).read_write?)
+
+	# Add relations
+	trsc[parent].realized_by task
+	task.realized_by trsc[child]
+	trsc[parent].event(:start).on task.event(:start)
+	task.event(:stop).on trsc[child].event(:stop)
+
+	[task, parent]
+    end
+
+    # Checks that +plan+ looks like the result of #build_transaction
+    def check_resulting_plan(plan)
+	#assert_equal(4, plan.known_tasks.size)
+	r_task = plan.known_tasks.find { |t| t.arguments[:id] == 'remote-1' }
+	task   = plan.known_tasks.find { |t| t.arguments[:id] == 'local' }
+	c_task = plan.known_tasks.find { |t| t.arguments[:id] == 'remote-2' }
+
+	assert_equal(2, r_task.children.size, r_task.children)
+	assert(r_task.child_object?(task, Roby::TaskStructure::Hierarchy))
+	assert_equal([task.event(:start)], r_task.event(:start).child_objects(Roby::EventStructure::Signal).to_a)
+	assert_equal([c_task], task.children.to_a)
+	assert_equal([c_task.event(:stop)], task.event(:stop).child_objects(Roby::EventStructure::Signal).to_a)
+	assert(r_task.child_object?(c_task, Roby::TaskStructure::Hierarchy))
+    end
+
+    # Commit the transaction and checks the result
+    def check_transaction_commit(trsc)
+	# Commit the transaction
+	assert(trsc.commit_transaction)
+	remote.check_plan
+	check_resulting_plan(local.plan)
+    end
+
     def test_propose_commit
 	peer2peer(true) do |remote|
 	    testcase = self
-	    remote.plan.insert(root = SimpleTask.new(:id => 1))
-	    root.realized_by(child = SimpleTask.new(:id => 3))
+	    remote.plan.insert(root = SimpleTask.new(:id => 'remote-1'))
+	    root.realized_by(child = SimpleTask.new(:id => 'remote-2'))
 
 	    remote.class.class_eval do
 		include Test::Unit::Assertions
@@ -351,8 +350,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     def test_synchronization
 	peer2peer(true) do |remote|
 	    testcase = self
-	    remote.plan.insert(root = SimpleTask.new(:id => 1))
-	    root.realized_by SimpleTask.new(:id => 3)
+	    remote.plan.insert(root = SimpleTask.new(:id => 'remote-1'))
+	    root.realized_by SimpleTask.new(:id => 'remote-2')
 
 	    remote.class.class_eval do
 		define_method(:check_transaction) do |trsc|
