@@ -24,7 +24,7 @@ module Roby
 		Thread.current[CALLBACKS_TLS] = []
 		demux_local(calls, result)
 
-		Distributed.debug "served #{calls.size} calls in #{Time.now - from} seconds, #{callbacks.size} callbacks"
+		Distributed.debug "served #{result.size} calls in #{Time.now - from} seconds, #{callbacks.size} callbacks"
 		[result, callbacks, nil]
 
 	    rescue Exception => e
@@ -328,7 +328,7 @@ module Roby
 					    end
 		success = results.size
 		Distributed.debug do
-		    "#{neighbour.name} processed #{success} commands in #{Time.now - before_call} seconds"
+		    "#{neighbour.name} processed #{success} commands in #{Time.now - before_call} seconds, #{callbacks ? callbacks.size : 0} callbacks"
 		end
 
 		# Calls the user-provided blocks. If there are callbacks, they
