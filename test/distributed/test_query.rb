@@ -47,7 +47,7 @@ class TC_DistributedQuery < Test::Unit::TestCase
 
 	# Test queries
 	result = remote_peer.find_tasks.to_a
-	assert_equal(3, result.size)
+	assert_equal(2, result.size)
 
 	result = remote_peer.find_tasks.
 	    with_arguments(:id => 1).to_a
@@ -66,11 +66,11 @@ class TC_DistributedQuery < Test::Unit::TestCase
 	assert_equal(0, result.size)
 
 	result = TaskMatcher.with_arguments(:id => 1).negate.enum_for(:each, remote_peer).to_a
-	assert_equal(2, result.size, result)
+	assert_equal(1, result.size, result)
 
 	result = remote_peer.find_tasks.
 	    with_model(Roby::Task).to_a
-	assert_equal(3, result.size)
+	assert_equal(2, result.size)
 
 	result = remote_peer.find_tasks.
 	    with_model(SimpleTask).to_a
