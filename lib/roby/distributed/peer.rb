@@ -287,8 +287,7 @@ module Roby::Distributed
 	    @proxies	  = Hash.new
 	    @mutex	  = Mutex.new
 	    @send_flushed = ConditionVariable.new
-	    @synchro_call = ConditionVariable.new
-	    @max_allowed_errors = connection_space.max_allowed_errors
+	    @condition_variables = [ConditionVariable.new]
 	    @triggers = Hash.new
 
 	    @synchro_point_mutex = Mutex.new
@@ -402,7 +401,7 @@ module Roby::Distributed
 	    raise "not connecting" unless connecting?
 	    @connection_state = :connected
 
-	    @send_queue = Queue.new
+	    @send_queue = CommunicationQueue.new
 	    @send_thread = Thread.new(&method(:communication_loop))
 
 	    Roby::Control.once { task.emit(:ready) }
@@ -605,6 +604,7 @@ module Roby::Distributed
 	def discover_neighborhood(object, distance)
 	    objects = ValueSet.new
 	    synchronize do
+		synchro_call = get_condvar
 		transmit(:discover_neighborhood, object, distance) do |edges|
 		    Roby::Control.synchronize do
 			edges = local_object(edges)
@@ -624,6 +624,7 @@ module Roby::Distributed
 		    synchro_call.broadcast
 		end
 		synchro_call.wait(mutex)
+		return_condvar synchro_call
 	    end
 
 	    yield(local_object(remote_object(object)))

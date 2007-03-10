@@ -1,63 +1,112 @@
 module Roby
     module Distributed
+	class RecursiveCallbacksError < RuntimeError; end
+	class CallbackProcessingError < RuntimeError; end
+
+	class CommunicationQueue
+	    attr_reader :contents
+	    attr_reader :wait_contents
+	    attr_reader :mutex
+	    def synchronize(&block); mutex.synchronize(&block) end
+	    def initialize
+		@contents = []
+		@mutex    = Mutex.new
+		@wait_contents = ConditionVariable.new
+	    end
+	    def clear; synchronize { contents.clear }; self end
+	    def push(obj)
+		synchronize do
+		    contents.push obj
+		    wait_contents.signal
+		end
+	    end
+	    def concat(obj)
+		synchronize do
+		    contents.concat(obj)
+		    wait_contents.signal
+		end
+		self 
+	    end
+	    def empty?; synchronize { contents.empty? } end
+	    def get(nonblock = false)
+		synchronize do
+		    if contents.empty? && !nonblock
+			wait_contents.wait(mutex)
+		    end
+		    @contents, result = [], @contents
+		    return result
+		end
+	    end
+	end
+
 	class PeerServer
+	    PROCESSING_CALLBACKS_TLS = 'PEER_SERVER_PROCESSING_CALLBACKS'
+
 	    attribute(:synchro_execute) { ConditionVariable.new }
 
-	    CALLBACKS_TLS = :peer_server_callbacks
-	    def callbacks; Thread.current[CALLBACKS_TLS] end
-	    def processing?; !!callbacks end
+	    # True if the calls being served has queued callbacks
+	    attr_predicate :has_callbacks?, true
+	    # True the current thread is processing a remote request
+	    def processing?; !processing_callback?.nil? end
+	    # True if the current thread is processing a remote request, and if it is a callback
+	    def processing_callback?; Thread.current[PROCESSING_CALLBACKS_TLS] end
 
-	    # Called by the remote peer to make us process something. See
-	    # #demux_local for the format of +calls+. Returns [result, callbacks, error]
-	    # where +result+ is an array containing the list of returned value
-	    # by the N successfull calls. Error, if not nil, is an error raised
-	    # by call N+1. Callbacks is a set of commands to be sent do #demux_local
-	    # on the other side, to finalize the N+1th call.
+	    # Called by the remote peer to make us process something. +calls+ elements
+	    # are [is_callback, method, args]. Returns [result, error]
 	    def demux(calls)
 		result = []
+		from = Time.now
 		if !peer.connected?
 		    raise DisconnectedError, "#{remote_name} is disconnected"
 		end
 
-		from = Time.now
 
-		Thread.current[CALLBACKS_TLS] = []
-		demux_local(calls, result)
-
-		Distributed.debug "served #{result.size} calls in #{Time.now - from} seconds, #{callbacks.size} callbacks"
-		[result, callbacks, nil]
-
-	    rescue Exception => e
-		[result, nil, e]
-
-	    ensure
-		Thread.current[CALLBACKS_TLS] = nil
-	    end
-
-	    def demux_local(calls, result)
-		calls.each do |args|
-		    Distributed.debug { "processing #{args[0]}(#{args[1..-1].join(", ")})" }
-		    if args.first == :demux || args.first == :demux_local
-			demux_local(args[1], result)
-		    else
-			Control.synchronize do
-			    result << send(*args)
-			end
+		calls.each do |is_callback, method, args|
+		    Distributed.debug { "processing #{is_callback ? 'callback' : 'method'} #{method}(#{args.join(", ")})" }
+		    Control.synchronize do
+			@has_callbacks = false
+			Thread.current[PROCESSING_CALLBACKS_TLS] = !!is_callback
+			result << send(method, *args)
 		    end
-		    return true unless callbacks.empty?
+
+		    if has_callbacks?
+			peer.transmit(:processed_callbacks)
+			return [result, true, nil]
+		    end
 		    Distributed.debug { "done, returns #{result.last}" }
 		end
+
+		[result, false, nil]
+
+	    rescue Exception => e
+		if processing_callback?
+		    processed_callbacks(e)
+		    e = CallbackProcessingError.new
+		end
+		[result, false, e]
+
+	    ensure
+		Distributed.debug "served #{result.size} calls in #{Time.now - from} seconds"
+
+		@has_callbacks = false
+		Thread.current[PROCESSING_CALLBACKS_TLS] = nil
 	    end
-	    private :demux_local
 
 	    def synchro_point
-		peer.queue_call(:done_synchro_point)
+		peer.transmit(:done_synchro_point)
 		nil
 	    end
 
-	    def done_synchro_point
-		peer.synchro_point_mutex.synchronize do
-		    peer.synchro_point_done.broadcast
+	    def done_synchro_point; end
+	    def processed_callbacks(error = nil)
+		result, call_spec = peer.pending_callbacks.pop
+		if error
+		    if thread = call_spec.last
+			thread.raise error
+		    end
+
+		else
+		    peer.call_attached_block(call_spec, result)
 		end
 		nil
 	    end
@@ -84,19 +133,38 @@ module Roby
 	end
 
 
+	# == Communication
+	# Communication is done in two threads. The sending thread gets the
+	# calls from Peer#send_queue, formats them and sends them to the
+	# PeerServer#demux for processing. The reception thread is managed by
+	# dRb and its entry point is always #demux.
+	#
+	# Very often we need to have processing on both sides to finish an
+	# operation. For instance, the creation of two siblings need to
+	# register the siblings on both sides. To manage that, it is possible
+	# for PeerServer methods which are serving a remote request to queue
+	# callbacks.  These callbacks will be processed by Peer#send_thread
+	# before the rest of the queue might be processed
 	class Peer
 	    attr_reader :mutex
 	    def synchronize; @mutex.synchronize { yield } end
 	    attr_reader :send_flushed
-	    attr_reader :synchro_call
+	    attr_reader :send_thread
+	    attribute(:pending_callbacks) { Queue.new }
 
-	    # Mutex use by #synchro_point
-	    attr_reader :synchro_point_mutex
-	    # Condition variable use by #synchro_point
-	    attr_reader :synchro_point_done
+	    # A list of ConditionVariable object that can be used by #call and #synchro_point
+	    attr_reader :condition_variables
 
-	    # How many errors we accept before disconnecting
-	    attr_reader :max_allowed_errors
+	    def get_condvar
+		if condition_variables.empty?
+		    ConditionVariable.new
+		else
+		    condition_variables.shift
+		end
+	    end
+	    def return_condvar(condvar)
+		condition_variables.unshift(condvar)
+	    end
 
 	    # True if we are currently something. Note that sending? is true when 
 	    # #do_send is sending something to the remote host, so it is possible to
@@ -113,53 +181,22 @@ module Roby
 	    #   has been queued. It is mainly used for debugging purposes
 	    attr_reader :send_queue
 	    
-	    def format_remote_call(m, args, block)
+	    def queue_call(is_callback, m, args = [], block = nil, thread = nil)
 		if !connected?
 		    raise DisconnectedError, "we are not currently connected to #{remote_name}"
 		end
 
 		# do some sanity checks
 		if !m.respond_to?(:to_sym)
-		    raise "invalid call #{args}"
+		    raise ArgumentError, "method argument should be a symbol, was #{m.class}"
+		elsif m.to_sym == :demux
+		    raise ArgumentError, "you cannot queue a demux call"
 		end
 
 		# Marshal DRoby-dumped objects now, since the object may be
 		# modified between now and the time it is sent
 		args.map! { |obj| Distributed.format(obj) }
-		args.unshift m
-
-		[args, block, caller(2)]
-	    end
-
-	    # call-seq:
-	    #   peer.callback(method, arg1, arg2, ...) { |ret| ... }
-	    #
-	    # Queues a callback to be processed by the remote host. Callbacks
-	    # are processed in return of a remote procedure call, so this
-	    # method must be called when answering a call from the remote host.
-	    # Callbacks are processed by the remote server before any call it
-	    # has already queued.	
-	    def callback(m, *args)
-		if !local.processing?
-		    raise "not processing a remote request. Use #transmit in normal context"
-		end
-		if block_given?
-		    raise "no block allowed in callbacks"
-		end
-
-		Distributed.debug do
-		    "adding callback #{neighbour.name}.#{m}" 
-		    # from\n  #{caller(5)[0, 5].join("\n  ")}" } #\n  #{caller(4).join("\n  ")})"
-		end
-		local.callbacks << format_remote_call(m, args, nil)
-	    end
-
-	    def queue_call(m, *args, &block)
-		Distributed.debug do
-		    "queueing #{neighbour.name}.#{m}"
-		    # from\n  #{caller(5)[0, 5].join("\n  ")}" } #\n  #{caller(4).join("\n  ")})"
-		end
-		send_queue.push(format_remote_call(m, args, block))
+		send_queue.push [is_callback, m, args, block, caller(2), thread]
 		@sending = true
 	    end
 
@@ -171,19 +208,28 @@ module Roby
 	    # succeeded
 	    def transmit(m, *args, &block)
 		if local.processing?
-		    if block_given?
-			# We are queueing this call as a callback. Act as if
-			# it was already processed and call the block
-			yield
+		    if local.processing_callback?
+			raise RecursiveCallbacksError, "cannot queue a callback while serving one"
 		    end
-		    callback(m, *args)
-		else
-		    queue_call(m, *args, &block)
+		    local.has_callbacks = true
 		end
+		
+		Distributed.debug do
+		    op = local.processing? ? "adding callback" : "queueing"
+		    "#{op} #{neighbour.name}.#{m}"
+		end
+		
+		queue_call local.processing?, m, args, block
 	    end
 
 	    # call-seq:
 	    #	peer.call(method, arg1, arg2)	    => result
+	    #
+	    # Calls a method synchronously and returns the value returned by
+	    # the remote server. If we disconnect before this call is
+	    # processed, raises DisconnectedError. If the remote server returns
+	    # an exception, this exception is raised in the thread calling
+	    # #call as well.
 	    def call(m, *args)
 		if local.processing?
 		    raise "currently processing a remote request. Use #callback instead"
@@ -193,10 +239,14 @@ module Roby
 
 		result = nil
 		synchronize do
-		    transmit(m, *args) do |result|
-			synchro_call.broadcast
+		    synchro_call = get_condvar
+		    Distributed.debug do
+			"calling #{neighbour.name}.#{m}"
 		    end
+
+		    queue_call false, m, args, Proc.new { |result| synchro_call.broadcast }, Thread.current
 		    synchro_call.wait(mutex)
+		    return_condvar synchro_call
 		end
 
 		result
@@ -209,8 +259,12 @@ module Roby
 		    return false unless sending?
 		    send_flushed.wait(mutex)
 
-		    if !@send_thread
-			raise "communication thread died"
+		    if !connected?
+			if @failing_error
+			    raise @failing_error
+			else
+			    raise DisconnectedError, "disconnected from our peer"
+			end
 		    end
 		end
 		true
@@ -218,7 +272,6 @@ module Roby
 	    
 	    # Main loop of the thread which communicates with the remote peer
 	    def communication_loop
-		error_count = 0
 		while calls ||= send_queue.get
 		    return unless connected?
 		    # Wait for the link to be alive before sending anything
@@ -231,17 +284,24 @@ module Roby
 		    synchronize do
 			return unless connected?
 			calls.concat(send_queue.get(true))
-			calls = Peer.flatten_demux_calls(calls)
 
 			error, calls = do_send(calls)
 			if error
-			    error_count += 1 
-			    if error_count > self.max_allowed_errors
-				Distributed.fatal do
-				    "#{name} disconnecting from #{neighbour.name} because of too much errors"
-				end
-				disconnected!
+			    @failing_error = error
+			    Distributed.fatal do
+				"#{name} disconnecting from #{neighbour.name} because of too much errors"
 			    end
+
+			    # Check that there is no thread waiting for the call to
+			    # finish. If it is the case, raise the exception in
+			    # that thread as well
+			    if calls && thread = calls.first.last
+				thread.raise error
+				calls.shift
+			    end
+
+			    disconnected!
+			    return
 			end
 
 			if !calls || calls.empty?
@@ -250,7 +310,6 @@ module Roby
 				Distributed.info "sending queue is empty"
 				send_flushed.broadcast
 			    end
-			    nil
 			end
 		    end
 		end
@@ -265,7 +324,15 @@ module Roby
 		synchronize do
 		    disconnected!
 		    @sending = nil
-		    send_queue.clear
+		    calls ||= []
+		    calls.concat send_queue.get(true)
+		    calls.concat pending_callbacks.get(true).map { |_, call_spec| call_spec }
+		    calls.each do |call_spec|
+			next unless call_spec
+			if thread = call_spec.last
+			    thread.raise DisconnectedError
+			end
+		    end
 		    send_flushed.broadcast
 		end
 	    end
@@ -274,27 +341,21 @@ module Roby
 	    def call_to_s(call)
 		return "" unless call
 
-		args = call.first.map do |arg|
+		args = call[2].map do |arg|
 		    if arg.kind_of?(DRbObject) then arg.inspect
 		    else arg.to_s
 		    end
 		end
-		"#{args[0]}(#{args[1..-1].join(", ")})"
+		"#{call[1]}(#{args.join(", ")})"
 	    end
 	    # Formats an error message because +error+ has been reported by +call+
 	    def report_remote_error(call, error)
-		"#{remote_name} reports an error on #{call_to_s(call)}:\n#{error.full_message}\n" +
-		"call was initiated by\n  #{call[2].join("\n  ")}"
-	    end
-	    def report_callback_error(callback, remote_call, error)
-		"error while calling callback #{call_to_s(callback)}:\n#{error.full_message}\n" +
-		"original call was\n  #{call_to_s(remote_call)}"
-	    end
-	    def report_nested_callbacks(callbacks, local_call, remote_call)
-		callbacks = callbacks.map { |c| call_to_s(c) }
-		"nested callbacks: #{callbacks.join("\n  ")}\n" +
-		"have been queued by #{call_to_s(local_call)}\n" +
-		"original call was #{call_to_s(remote_call)}"
+		if call
+		    "#{remote_name} reports an error on #{call_to_s(call)}:\n#{error.full_message}\n" +
+		    "call was initiated by\n  #{call[4].join("\n  ")}"
+		else
+		    "#{remote_name} reports an error on:\n#{error.full_message}"
+		end
 	    end
 
 	    # Calls the block that has been given to #transmit when +call+ is
@@ -303,7 +364,7 @@ module Roby
 	    # any) have been processed as well. +result+ is the value returned
 	    # by the remote server.
 	    def call_attached_block(call, result)
-		if block = call[1]
+		if block = call[3]
 		    begin
 			block.call(result)
 		    rescue Exception => e
@@ -322,23 +383,27 @@ module Roby
 	    def do_send(calls) # :nodoc:
 		before_call = Time.now
 		Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
-		results, callbacks, error = begin remote_server.demux(calls.map { |a| a.first })
-					    rescue Exception
-						[[], nil, $!]
-					    end
-		success = results.size
-		Distributed.debug do
-		    "#{neighbour.name} processed #{success} commands in #{Time.now - before_call} seconds, #{callbacks ? callbacks.size : 0} callbacks"
+		results, has_callbacks, error = begin remote_server.demux(calls.map { |a| a[0, 3] })
+				 rescue Exception
+				     [[], false, $!]
+				 end
+
+		remaining_calls = calls[results.size..-1]
+		if has_callbacks
+		    result    = results.pop
+		    call_spec = calls[results.size]
+		    pending_callbacks << [result, call_spec]
 		end
 
-		# Calls the user-provided blocks. If there are callbacks, they
-		# must be processed first
-		success -= 1 if callbacks && !callbacks.empty?
+		success = results.size
+		Distributed.debug do
+		    "#{neighbour.name} processed #{success} commands in #{Time.now - before_call} seconds"
+		end
 		(0...success).each { |i| call_attached_block(calls[i], results[i]) }
-		
+
 		if error
 		    Distributed.warn do
-			report_remote_error(calls[success], error)
+			report_remote_error(remaining_calls.first, error)
 		    end
 
 		    case error
@@ -350,78 +415,12 @@ module Roby
 			Distributed.warn { "#{neighbour.name} has disconnected" }
 			# The remote host has disconnected, do the same on our side
 			disconnected!
-			return [true, nil]
-		    end
-		    [true, calls[success..-1]]
-
-		elsif !callbacks.empty?
-		    new_results, new_calls, error = local.demux(callbacks.map { |c| c.first })
-		    if new_calls && !new_calls.empty?
-			Distributed.warn do
-			    report_nested_callbacks(new_calls, callbacks[new_results.size - 1], calls[success])
-			end
-			Roby.application_error :droby_nested_remote_callbacks, 
-			    callbacks[new_results.size - 1], 
-			    RuntimeError.exception("nested callbacks")
-			[false, calls[(success + 1)..-1]]
-		    elsif error 
-			if error.kind_of?(DisconnectedError)
-			    return [true, nil]
-			end
-
-			Distributed.warn do
-			    report_callback_error(callbacks[new_results.size], calls[success], error)
-			end
-			Roby.application_error :droby_remote_callback, 
-			    callbacks[new_results.size], error
-			[true, calls[success..-1]]
-		    else
-			call_attached_block(calls[success], results[success])
-			[false, calls[(success + 1)..-1]]
-		    end
-
-		end
-	    end
-
-	    def synchro_point(&block)
-		if local.processing?
-		    raise "cannot start a synchro point in the communication thread"
-		end
-
-		synchro_point_mutex.synchronize do
-		    queue_call(:synchro_point)
-		    synchro_point_done.wait(synchro_point_mutex)
-		end
-	    end
-
-	    def self.flatten_demux_calls(calls)
-		flattened = []
-		calls.delete_if do |call, block, trace|
-		    if call.first == :demux
-			args = call.last
-			if !args.all? { |c| c.first.respond_to?(:to_sym) }
-			    raise "invalid call specification #{call} queued by\n  #{trace.join("\n  ")}"
-			end
-			flattened.concat(flatten_demux_call(args, block, trace))
 		    end
 		end
-		calls.concat(flattened)
+		[error, remaining_calls]
 	    end
 
-	    # Flatten nested calls to demux in +calls+
-	    def self.flatten_demux_call(args, block, trace) # :nodoc:
-		flattened = []
-		args = args.map do |call|
-		    if call.first == :demux
-			flattened.concat(flatten_demux_call(call.last, block, trace))
-			nil
-		    else
-			[call, block, trace]
-		    end
-		end
-		args.compact!
-		args.concat(flattened)
-	    end
+	    def synchro_point; call(:synchro_point) end
 	end
     end
 end

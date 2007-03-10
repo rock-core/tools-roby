@@ -23,20 +23,6 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert(Distributed.neighbours.find(&check))
     end
 
-    def test_peer_flatten_demux_calls
-	test_call = [:test, 1, 2]
-	assert_equal([[test_call, :block, :trace]], Peer.flatten_demux_call([test_call], :block, :trace))
-
-	demux_call = [:demux, [test_call]]
-	calls  = [test_call, demux_call, [:demux, [demux_call.dup]]]
-	result = [[test_call, :block, :trace]] * 3
-	assert_equal(result, Peer.flatten_demux_call(calls, :block, :trace))
-
-	# Rebuild calls as it will be in the send queue
-	calls.map! { |c| [c, :block, :trace] } 
-	assert_equal(result, Peer.flatten_demux_calls(calls))
-    end
-
     # Test neighbour discovery using a remote central tuplespace as neighbour list
     def test_centralized_drb_discovery
 	central_tuplespace = TupleSpace.new
@@ -143,72 +129,6 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	end
     end
 
-    def test_retry
-	Roby.logger.level = Logger::FATAL
-	peer2peer do |remote|
-	    PeerServer.class_eval do
-		def error_once
-		    unless @pass
-			@pass = true
-			raise
-		    end
-		    42
-		end
-		def next_call
-		    84
-		end
-	    end
-	end
-
-	FlexMock.use do |mock|
-	    remote_peer.transmit(:error_once) do |result|
-		mock.got_result(result)
-	    end
-	    remote_peer.transmit(:next_call) do |result|
-		mock.next_call(result)
-	    end
-	    mock.should_receive(:got_result).with(42).once.ordered
-	    mock.should_receive(:next_call).with(84).once.ordered
-	    process_events
-	end
-    end
-
-    def test_callbacks
-	peer2peer do |remote|
-	    PeerServer.class_eval do
-		def call_back
-		    peer.callback(:called_back, 1)
-		    peer.callback(:called_back, 2)
-		    42
-		end
-		def next_call; 84 end
-	    end
-	end
-
-	FlexMock.use do |mock|
-	    remote_peer.synchronize do
-		remote_peer.local.singleton_class.class_eval do
-		    define_method(:called_back) do |arg|
-			mock.called_back(arg)
-		    end
-		end
-
-		remote_peer.transmit(:call_back) do |result|
-		    mock.processed_callback(42)
-		end
-		remote_peer.transmit(:next_call) do |result|
-		    mock.processed_next_call(84)
-		end
-
-		mock.should_receive(:called_back).with(1).once.ordered
-		mock.should_receive(:called_back).with(2).once.ordered
-		mock.should_receive(:processed_callback).with(42).once.ordered
-		mock.should_receive(:processed_next_call).with(84).once.ordered
-	    end
-	    process_events
-	end
-    end
-
     # Test the normal disconnection process
     def test_disconnect
 	peer2peer
@@ -234,8 +154,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 
     # Tests that the remote peer disconnects if #demux raises DisconnectedError
     def test_automatic_disconnect
-	# Temporarily raise the logging level since we will generate a communication error
-	Roby.logger.level = Logger::DEBUG
+	Roby.logger.level = Logger::FATAL
 	peer2peer do |remote|
 	    class << remote
 		include Test::Unit::Assertions
