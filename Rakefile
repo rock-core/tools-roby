@@ -1,4 +1,5 @@
 require 'rake/rdoctask'
+require 'enumerator'
 
 def add_to_path(pathvar, value)
     pathvalue = ENV[pathvar]
@@ -76,10 +77,21 @@ def build_extension(name, soname = name)
     end
     FileUtils.ln_sf "../../ext/#{name}/#{soname}.so", "lib/roby/#{soname}.so"
 end
+def clean_extension(name, soname = name)
+    puts "Cleaning ext/#{name}"
+    Dir.chdir("ext/#{name}") do
+	FileUtils.rm_f ["#{soname}.so", 'Makefile', 'mkmf.log']
+	FileUtils.rm_f Dir.enum_for(:glob, '*.o').to_a
+    end
+end
 
 task :setup => :test_build do
     build_extension 'droby'
     build_extension 'graph', 'bgl'
+end
+task :clean => :test_clean do
+    clean_extension 'droby'
+    clean_extension 'graph', 'bgl'
 end
 
 Rake::RDocTask.new("core_docs") do |rdoc|
