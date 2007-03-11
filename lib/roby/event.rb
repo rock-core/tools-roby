@@ -115,7 +115,7 @@ module Roby
 	    super() if defined? super
 
 	    if controlable || control
-		self.command = (control || method(:emit))
+		self.command = (control || lambda { |context| emit(context) })
 	    end
 	end
 
@@ -504,7 +504,10 @@ module Roby
 
     class AndGenerator < EventGenerator
 	def initialize
-	    super(&method(:emit_if_achieved))
+	    super do |context|
+		emit_if_achieved(context)
+	    end
+
 	    self.propagation_mode = :always_call
 	    @events = Hash.new
 	end
@@ -539,7 +542,9 @@ module Roby
 
     class OrGenerator < EventGenerator
 	def initialize
-	    super(&method(:emit_if_first))
+	    super do |context|
+		emit_if_first(context)
+	    end
 	end
 
 	def emit_if_first(context)
