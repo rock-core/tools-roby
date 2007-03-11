@@ -143,7 +143,7 @@ module Roby
 	# Loads the plugins whose name are listed in +names+
 	def using(*names)
 	    names.each do |name|
-		unless plugin = available_plugins.find { |plugname, file, mod| plugname == name }
+		unless plugin = available_plugins.find { |plugname, file, mod| plugname == name.to_s }
 		    raise ArgumentError, "#{name} is not a known plugin (#{available_plugins.map { |n, _, _| n }.join(", ")})"
 		end
 		_, file, mod = *plugin

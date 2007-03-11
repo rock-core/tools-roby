@@ -117,7 +117,7 @@ module Roby::Genom
 	    @abort_activity = activity.abort
 	end
 	event :interrupted
-	on :interrupted => :failed
+	forward :interrupted => :failed
 
 	# Stops the request. It emits :interrupted
 	def stop(context)
@@ -280,9 +280,8 @@ module Roby::Genom
 
 	def plan=(new_plan)
 	    return if plan == new_plan
-		
 	    super
-	    plan.permanent(self)
+	    plan.permanent(self) if plan
 	end
 
 	# Start the module
@@ -319,7 +318,7 @@ module Roby::Genom
 
 			# we sometime get the event more than once ...
 			if !@roby_runner_task.event(:failed).happened?
-			    @roby_runner_task.emit(:failed, "process died") if Roby::Propagation.propagate?
+			    Roby::Control.once { @roby_runner_task.emit(:failed, "process died") }
 			end
 		    end
 		end

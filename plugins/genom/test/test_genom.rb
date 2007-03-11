@@ -1,8 +1,11 @@
-$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'roby/test/common'
-require 'roby/adapters/genom'
+require 'roby/app'
 require 'genom/runner'
 
+Roby.app.plugin_dir File.expand_path('../..', File.dirname(__FILE__))
+Roby.app.using 'genom'
+
+BASE_TEST_DIR = File.expand_path(File.dirname(__FILE__))
 path=ENV['PATH'].split(':')
 pkg_config_path=(ENV['PKG_CONFIG_PATH'] || "").split(':')
 
@@ -15,12 +18,13 @@ ENV['PKG_CONFIG_PATH'] = pkg_config_path.join(':')
 
 class TC_Genom < Test::Unit::TestCase
     include Roby::Test
+    Runner = ::Genom::Runner
 
-    def env; Genom::Runner.environment end
+    def env; Runner.environment end
     def setup
 	super
 
-        Genom::Runner.environment || Genom::Runner.h2 
+        Runner.environment || Runner.h2 
     end
     def teardown
 	Roby.control.disable_propagation do
@@ -52,7 +56,7 @@ class TC_Genom < Test::Unit::TestCase
     def test_runner_task
         Genom.connect do
             Genom::GenomModule('mockup')
-            runner = Genom::Mockup.runner!
+            plan.discover(runner = Genom::Mockup.runner!)
 	    
 	    runner.start!
 	    assert_happens do
@@ -65,7 +69,7 @@ class TC_Genom < Test::Unit::TestCase
 	    runner.stop!
 	    assert_event( runner.event(:stop) )
 
-	    runner = Genom::Mockup.runner!
+	    plan.discover(runner = Genom::Mockup.runner!)
 	    runner.start!
 	    assert_event( runner.event(:start) )
 	    Process.kill 'INT', Genom::Mockup.genom_module.pid
@@ -94,7 +98,7 @@ class TC_Genom < Test::Unit::TestCase
 	did_start = false
 	mod::Init.on(:start) { did_start = true }
 	Genom.connect do
-	    runner = mod.runner!
+	    plan.discover(runner = mod.runner!)
 	    runner.start!
 
 	    assert_happens do
@@ -118,15 +122,11 @@ class TC_Genom < Test::Unit::TestCase
         ::Genom.connect do
             Genom::GenomModule('mockup')
 
-            runner = Genom::Mockup.runner!
-	    plan.insert(runner)
-
+            plan.discover(runner = Genom::Mockup.runner!)
 	    runner.start!
 	    assert_event( runner.event(:ready) )
 
-	    task = Genom::Mockup.start!
-	    plan.insert(task)
-
+	    plan.permanent(task = Genom::Mockup.start!)
 	    assert_equal(Genom::Mockup::Runner, task.class.execution_agent)
 	    
 	    task.start!
@@ -157,15 +157,11 @@ class TC_Genom < Test::Unit::TestCase
 	GC.start
 
 	::Genom.connect do
-	    runner = Genom::Mockup.runner!
-	    plan.insert(runner)
-
+	    plan.discover(runner = Genom::Mockup.runner!)
 	    runner.start!
 	    assert_event( runner.event(:ready) )
 
-	    task = Genom::Mockup.start!
-	    plan.insert(task)
-
+	    plan.permanent(task = Genom::Mockup.start!)
 	    assert_raises(Roby::EventPreconditionFailed) { task.start!(nil) }
 	end
     end
