@@ -7,7 +7,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
     include Roby::Distributed::Test
 
     def test_event_status
-	peer2peer do |remote|
+	peer2peer(true) do |remote|
 	    class << remote
 		attr_reader :controlable
 		attr_reader :contingent
@@ -41,16 +41,20 @@ class TC_DistributedExecution < Test::Unit::TestCase
     end
 
     def test_task_status
-	peer2peer do |remote|
+	Roby.control.abort_on_exception = false
+	peer2peer(true) do |remote|
 	    class << remote
+		include Test::Unit::Assertions
 		attr_reader :task
 		def create_task
-		    Roby.control.abort_on_exception = false
 		    plan.clear
 		    plan.insert(@task = SimpleTask.new(:id => 1))
 		end
 		def start_task; task.start! end
-		def stop_task; task.stop! end
+		def stop_task
+		    assert(task.executable?)
+		    task.stop! 
+		end
 	    end
 	end
 
@@ -68,16 +72,15 @@ class TC_DistributedExecution < Test::Unit::TestCase
 
 	# Stop the task to see if the fired event is propagated
 	remote.stop_task
-	remote.send_local_peer(:flush)
-	assert_raises(Roby::Aborting) { Control.instance.process_events }
+	process_events
+	assert(p_task.finished?)
+	assert(p_task.failed?)
 	assert(p_task.event(:stop).happened?)
 	assert(p_task.finished?)
-
-	Roby.control.abort_on_exception = false
     end
 
     def test_signalling
-	peer2peer do |remote|
+	peer2peer(true) do |remote|
 	    remote.plan.insert(task = SimpleTask.new(:id => 1))
 	    remote.class.class_eval do
 		include Test::Unit::Assertions
@@ -93,7 +96,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		end
 	    end
 	end
-	p_task = remote_task(:id => 1)
+	p_task = remote_peer.subscribe(remote_task(:id => 1))
 
 	FlexMock.use do |mock|
 	    signalled_ev = EventGenerator.new do |context|
@@ -108,7 +111,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    assert(!forwarded_ev.controlable?)
 
 	    p_task.event(:start).on signalled_ev
-	    forwarded_ev.emit_on p_task.event(:start)
+	    p_task.event(:start).forward forwarded_ev
 
 	    mock.should_receive(:signal_command).once.ordered('signal')
 	    mock.should_receive(:signal_emitted).once.ordered('signal')
@@ -125,7 +128,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
     # Test that we can 'forget' running tasks that was known to us because they
     # were related to subscribed tasks
     def test_forgetting
-	peer2peer do |remote|
+	peer2peer(true) do |remote|
 	    parent, child =
 		SimpleTask.new(:id => 'parent'), 
 		SimpleTask.new(:id => 'child')
