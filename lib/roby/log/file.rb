@@ -16,17 +16,20 @@ module Roby::Log
 	end
 	def splat?; false end
 
-	Roby::Log.each_hook do |klass, m|
-	    define_method(m) do |args| 
-		return if args.any? { |a| a.respond_to?(:plan) && !a.plan }
-		begin
-		    m_m    = Marshal.dump(m)
-		    m_args = Roby::Distributed.dump(args)
-		    io << m_m << m_args
-		rescue 
-		    STDERR.puts "failed to dump #{m}#{args}: #{$!.full_message}"
-		end
+	def dump_method(m, args)
+	    if m.to_s !~ /finalized/
+		return if args.any? { |obj| obj.respond_to?(:plan) && !obj.plan }
 	    end
+
+	    m_m    = Marshal.dump(m)
+	    m_args = Roby::Distributed.dump(args)
+	    io << m_m << m_args
+	rescue 
+	    STDERR.puts "failed to dump #{m}#{args}: #{$!.full_message}"
+	end
+
+	Roby::Log.each_hook do |klass, m|
+	    define_method(m) { |args| dump_method(m, args) }
 	end
 
 	def self.replay(io)
