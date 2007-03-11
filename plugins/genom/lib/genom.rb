@@ -540,7 +540,6 @@ module Roby::Genom
 		if ignores?(modname)
 		    raise ArgumentError, "#{modname} is both used and ignored", caller(3)
 		end
-		Roby::Genom.genom_rb::GenomModule.killmodule(modname)
 		genmod = used_modules[modname] = Roby::Genom::GenomModule(modname, :output => output_io)
 
 		# Import the module into global namespace directly

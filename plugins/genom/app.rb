@@ -1,3 +1,5 @@
+require 'genom/lib/genom-tools'
+
 module Roby::Genom
     module Application
 	attribute(:pocosim) do
@@ -37,8 +39,6 @@ module Roby::Genom
 		    end
 		end
 	    end
-
-	    require 'plugins/genom/lib/genom-tools'
 	end
 
 	DEFAULT_MULTI_PORT = 2000
@@ -85,7 +85,12 @@ multi
 
 	def self.run(config, &block)
 	    if config.simulation?
-		run_simulation(config, &block)
+		run_simulation(config) do |env|
+		    Roby::State.genom.used_modules.each_value do |modname|
+			Roby::Genom.genom_rb::GenomModule.killmodule(modname)
+		    end
+		    yield(env)
+		end
 	    else
 		raise NotImplementedError
 	    end
