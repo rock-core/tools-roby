@@ -267,7 +267,6 @@ module Roby
 		droby_config = { :ring_discovery => !!discovery['ring'],
 		    :name => robot_name, 
 		    :plan => Roby::Control.instance.plan, 
-		    :max_allowed_errors => droby['max_errors'], 
 		    :period => droby['period'] }
 
 		if discovery['tuplespace']
