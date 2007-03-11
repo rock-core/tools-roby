@@ -6,18 +6,6 @@ require 'flexmock'
 class TC_DistributedPlanNotifications < Test::Unit::TestCase
     include Roby::Distributed::Test
 
-    def test_distribute_p
-	assert(Roby::Task.new.distribute?)
-	klass = Class.new(Roby::Task) do
-	    local_object
-	end
-	assert(!klass.new.distribute?)
-	assert(!ConnectionTask.new.distribute?)
-
-	assert(Roby::TaskStructure::Hierarchy.distribute?)
-	assert(Roby::EventStructure::Signal.distribute?)
-    end
-
     def test_triggers
 	Roby::Distributed.allow_remote_access Proc
 	peer2peer do |remote|
