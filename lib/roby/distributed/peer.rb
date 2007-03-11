@@ -468,6 +468,11 @@ module Roby::Distributed
 	    raise "not disconnecting (#{connection_state})" unless connecting? || disconnecting?
 	    @connection_state = nil
 
+	    # Force some cleanup
+	    proxies.each_value do |obj|
+		obj.remote_siblings.delete(self)
+	    end
+
 	    Roby::Distributed.peers.delete(remote_id)
 	    Roby::Distributed.info "#{neighbour.name} disconnected"
 	    Roby::Control.once { task.emit(:failed) }

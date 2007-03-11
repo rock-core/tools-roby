@@ -266,6 +266,14 @@ module Roby
 		Distributed.info "quit neighbour thread"
 		neighbours.clear
 		new_neighbours.clear
+
+		# Force disconnection in case something got wrong in the normal
+		# disconnection process
+		Distributed.peers.each_value do |peer|
+		    peer.disconnected! rescue nil
+		    peer.disconnect rescue nil
+		    peer.disconnected rescue nil
+		end
 	    end
 
 	    # Starts one neighbour discovery loop
