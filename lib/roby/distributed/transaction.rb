@@ -233,14 +233,6 @@ module Roby
 		end
 	    end
 
-	    # What do we need to do on the remote side ?
-	    #   - create a new transaction with the right owners, either on our own plan,
-	    #     or even on another shared transaction.
-	    #   - create all needed transaction proxys. Transaction proxys
-	    #     can apply on local and remote tasks
-	    #   - create all needed remote proxys
-	    #   - setup all relations
-	    
 	    # Distributed transactions are marshalled as DRbObjects and #proxy
 	    # returns their sibling in the remote pDB (or raises if there is none)
 	    class DRoby < Roby::Plan::DRoby # :nodoc:

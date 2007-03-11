@@ -288,9 +288,7 @@ module Roby
 			error, calls = do_send(calls)
 			if error
 			    @failing_error = error
-			    Distributed.fatal do
-				"#{name} disconnecting from #{neighbour.name} because of too much errors"
-			    end
+			    Distributed.fatal "#{name} disconnecting from #{neighbour.name} because of error"
 
 			    # Check that there is no thread waiting for the call to
 			    # finish. If it is the case, raise the exception in
