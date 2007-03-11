@@ -41,7 +41,7 @@ module Roby
 	end
 
 	# The DRbObject for this object
-	def drb_object; @drb_object ||= DRbObject.new(self) end
+	def drb_object; @__droby_drb_object__ ||= DRbObject.new(self) end
 
 	# Sets +remote_object+ as the remote siblings for +self+ on +peer+, and
 	# notifies peer that +self+ is the remote siblings for +remote_object+

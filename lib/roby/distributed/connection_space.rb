@@ -291,7 +291,7 @@ module Roby
 	    end
 
 	    def droby_dump
-		@marshalled ||= Peer::DRoby.new(DRbObject.new(tuplespace))
+		@__droby_marshalled__ ||= Peer::DRoby.new(DRbObject.new(tuplespace))
 	    end
 
 	    def quit

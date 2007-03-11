@@ -8,7 +8,7 @@ require 'roby'
 class DRbObject
     alias __drbobject_dump__ _dump
     def _dump(lvl)
-	@marshalled ||= __drbobject_dump__(lvl)
+	@__droby_marshalled__ ||= __drbobject_dump__(lvl)
     end
 end
 
@@ -128,15 +128,11 @@ module Roby
 	    end
 	end
 
-	def droby_dump
-	    DRoby.new(self)
-	end
+	def droby_dump; DRoby.new(self) end
     end
 
     class RelationGraph
-	def droby_dump
-	    @marshalled ||= Distributed::DRobyConstant.new(self)
-	end
+	def droby_dump; @__droby_marshalled__ ||= Distributed::DRobyConstant.new(self) end
     end
 
     class Plan
@@ -149,7 +145,7 @@ module Roby
 
 	    def to_s; "mPlan(#{remote_object})" end
 	end
-	def droby_dump; @droby_marshalled ||= DRoby.new(drb_object) end
+	def droby_dump; @__droby_marshalled__ ||= DRoby.new(drb_object) end
     end
 
     class TaskMatcher
@@ -254,7 +250,7 @@ module Roby
 		attr_reader :peer_id
 		def initialize(peer_id); @peer_id = peer_id end
 		def _dump(lvl = -1)
-		    @marshalled ||= Marshal.dump(peer_id)
+		    @__droby_marshalled__ ||= Marshal.dump(peer_id)
 		end
 		def self._load(str)
 		    peer_id = Marshal.load(str)
@@ -263,9 +259,10 @@ module Roby
 	    end
 
 	    def droby_dump
-		@marshalled ||= DRoby.new(remote_id)
+		@__droby_marshalled__ ||= DRoby.new(remote_id)
 	    end
 	end
+
 	def self.droby_dump
 	    if Distributed.state 
 		Distributed.state.droby_dump

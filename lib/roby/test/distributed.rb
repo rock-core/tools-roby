@@ -30,6 +30,15 @@ module Roby
 		    Distributed.peers.clear
 		end
 
+		# This one is a nasty one ...
+		# The main plan is the only thing which remains. If we do not reset
+		# the cached drb_object, it will be kept in the next test and the forked
+		# child will therefore use it ... And it will fail
+		plan.instance_eval do
+		    @__droby_drb_object__ = nil
+		    @__droby_marshalled__ = nil
+		end
+
 		if Distributed.state
 		    Distributed.state.quit
 		    Distributed.state = nil
