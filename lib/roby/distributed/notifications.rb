@@ -61,8 +61,11 @@ module Roby
 	    def self.finalized_object(plan, object)
 		return unless object.distribute? && object.root_object?
 
-		if !Distributed.updating?([plan]) && object.self_owned?
+		if object.self_owned?
 		    Distributed.clean_triggered(object)
+		end
+
+		if !Distributed.updating?([plan])
 		    Distributed.peers.each_value do |peer|
 			if peer.connected? && plan.has_sibling_on?(peer)
 			    peer.transmit(:plan_remove_object, plan, object)
