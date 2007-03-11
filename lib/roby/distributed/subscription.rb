@@ -250,12 +250,16 @@ module Roby
 
 	    # Subscribe to the remote plan
 	    def subscribe_plan
-		@remote_plan = subscribe(connection_space.plan)
+		@remote_plan = call(:subscribe, connection_space.plan)
+		call(:added_sibling, @remote_plan, connection_space.plan.drb_object)
+		synchro_point
 	    end
 
 	    # Unsubscribe from the remote plan
 	    def unsubscribe_plan
-		unsubscribe(remote_plan)
+		if connected?
+		    call(:removed_sibling, @remote_plan, connection_space.plan.drb_object)
+		end
 		@remote_plan = nil
 	    end
 

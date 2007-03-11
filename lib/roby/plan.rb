@@ -60,6 +60,22 @@ module Roby
 	# The set of transactions which are built on top of this plan
 	attr_reader :transactions
 
+	# If this object is the main plan, checks if we are subscribed to 
+	# the whole remote plan
+	def sibling_on?(peer)
+	    if Roby.plan == self then peer.remote_plan
+	    else super
+	    end
+	end
+
+	def subscribed?
+	    if Roby.plan == self
+		Distributed.peers.each_value { |peer| return true if peer.remote_plan }
+		false
+	    else super
+	    end
+	end
+
 	def initialize(hierarchy = Roby::TaskStructure::Hierarchy, service_relations = [Roby::TaskStructure::PlannedBy, Roby::TaskStructure::ExecutionAgent])
 	    @hierarchy = hierarchy
 	    @service_relations = service_relations

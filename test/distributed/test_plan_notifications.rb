@@ -49,7 +49,6 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
     end
 
     def test_subscribe_plan
-	Roby.logger.level = Logger::DEBUG
 	peer2peer(true) do |remote|
 	    plan.insert(mission = Task.new(:id => 'mission'))
 	    subtask = Task.new :id => 'subtask'
@@ -62,7 +61,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	remote_peer.subscribe_plan
 
 	# Check that the remote plan has been mapped locally
-	tasks = local.plan.known_tasks
+	tasks = plan.known_tasks
 	assert_equal(4, tasks.size)
 	assert(p_mission = tasks.find { |t| t.arguments[:id] == 'mission' })
 	assert(p_subtask = tasks.find { |t| t.arguments[:id] == 'subtask' })
@@ -73,7 +72,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
     end
 
     def test_plan_updates
-	peer2peer do |remote|
+	peer2peer(true) do |remote|
 	    class << remote
 		attr_reader :mission, :subtask, :next_mission, :free_event
 		def create_mission
@@ -91,6 +90,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 		end
 		def create_free_event
 		    @free_event = Roby::EventGenerator.new(true)
+		    # Link the event to a task to protect it from GC
 		    @next_mission.on(:start, @free_event)
 		    plan.discover(free_event)
 		end
@@ -111,95 +111,93 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 
 	remote.create_mission
 	process_events
-	r_mission = remote_task(:id => 'mission')
+	p_mission = remote_task(:id => 'mission')
 	# NOTE: the count is always remote_tasks + 1 since we have the ConnectionTask for our connection
-	assert_equal(2, local.plan.size, local.plan.known_tasks.to_a)
-	assert(p_mission = local.plan.known_tasks.find { |t| t == remote_peer.proxy(r_mission) })
-	assert(remote_peer.subscribed?(r_mission.remote_object(remote_peer)), remote_peer.subscriptions)
+	assert_equal(2, plan.size, plan.known_tasks.to_a)
+	assert(p_mission.mission?)
+	process_events
+	assert(p_mission.plan)
 
 	remote.create_subtask
 	process_events
-	r_subtask = remote_task(:id => 'subtask')
-	assert_equal(3, local.plan.size)
-	assert(p_subtask = local.plan.known_tasks.find { |t| t == remote_peer.proxy(r_subtask) })
+	p_subtask = remote_task(:id => 'subtask')
+	assert_equal(3, plan.size)
 	assert(p_mission.child_object?(p_subtask, TaskStructure::Hierarchy))
-	assert(remote_peer.subscribed?(r_subtask.remote_object(remote_peer)), remote_peer.subscriptions)
 
 	remote.create_next_mission
 	process_events
-	r_next_mission = remote_task(:id => 'next_mission')
-	assert_equal(4, local.plan.size)
-	assert(p_next_mission = local.plan.known_tasks.find { |t| t == remote_peer.proxy(r_next_mission) })
+	p_next_mission = remote_task(:id => 'next_mission')
+	assert_equal(4, plan.size)
 	assert(p_mission.event(:start).child_object?(p_next_mission.event(:start), EventStructure::Signal))
-	assert(remote_peer.subscribed?(r_next_mission.remote_object(remote_peer)), remote_peer.subscriptions)
 
 	remote.create_free_event
 	process_events
-	assert_equal(1, local.plan.free_events.size)
+	assert_equal(1, plan.free_events.size)
+	process_events
+	assert_equal(1, plan.free_events.size)
 
 	remote.remove_free_event
 	process_events
-	assert_equal(0, local.plan.free_events.size)
+	assert_equal(0, plan.free_events.size)
 
 	remote.unlink_next_mission
 	process_events
-	assert_equal(4, local.plan.size)
+	assert_equal(4, plan.size)
 	assert(!p_mission.event(:start).child_object?(p_next_mission.event(:start), EventStructure::Signal))
 
 	remote.remove_next_mission
 	process_events
-	assert(!remote_peer.subscribed?(r_next_mission.remote_object(remote_peer)), remote_peer.subscriptions)
-	assert_equal(3, local.plan.size)
-	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'next_mission' })
+	assert_equal(3, plan.size)
+	assert(!p_next_mission.plan)
 
 	remote.unlink_subtask
 	process_events
-	assert_equal(3, local.plan.size)
+	assert_equal(3, plan.size)
 	assert(!p_mission.child_object?(p_subtask, TaskStructure::Hierarchy))
 
 	remote.remove_subtask
 	process_events
-	assert(!remote_peer.subscribed?(r_subtask.remote_object(remote_peer)), remote_peer.subscriptions)
-	assert_equal(2, local.plan.size)
-	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'subtask' })
+	assert_equal(2, plan.size)
+	assert(!p_subtask.plan)
 
-	assert(local.plan.missions.find { |t| t.arguments[:id] == 'mission' })
 	remote.discard_mission
 	process_events
-	assert(local.plan.missions.empty?)
-	assert(local.plan.known_tasks.find { |t| t.arguments[:id] == 'mission' })
+	assert(!p_mission.mission?)
+	assert(p_mission.plan)
 
 	remote.remove_mission
 	process_events
-	assert_equal(1, local.plan.size)
-	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'mission' })
+	assert_equal(1, plan.size)
+	assert(!p_mission.plan)
     end
 
     def test_unsubscribe_plan
-	peer2peer do |remote|
-	    mission = Task.new :id => 'mission'
-	    subtask = Task.new :id => 'subtask'
-	    mission.realized_by subtask
-	    remote.plan.insert(mission)
+	peer2peer(true) do |remote|
+	    remote.plan.insert(Task.new(:id => 'remote-1'))
+	    remote.plan.insert(Task.new(:id => 'remote-2'))
 
-	    remote.class.class_eval do
-		def insert_new; plan.insert(SimpleTask.new(:id => 'new')) end
-		define_method(:remove_subtask) do 
-		    plan.remove_object(subtask)
-		end
+	    def remote.new_task
+		plan.insert(Task.new(:id => 'remote-3'))
 	    end
 	end
 
-	remote_peer.subscribe(remote_peer.remote_server.plan)
-	remote_peer.unsubscribe(remote_peer.remote_server.plan)
-	assert_equal(3, local.plan.size)
+	remote_peer.subscribe_plan
+	assert_equal(3, plan.size)
 
-	remote.insert_new
-	process_events
-	assert_equal(3, local.plan.size)
+	# Subscribe to the remote-1 task and unsubscribe to the plan
+	r1 = *plan.find_tasks.with_arguments(:id => 'remote-1').to_a
+	remote_peer.subscribe(r1)
 
-	remote.remove_subtask
+	remote_peer.unsubscribe_plan
 	process_events
-	assert_equal(2, local.plan.size)
+
+	# The subscribed task should remain
+	assert_equal(2, plan.size)
+
+	# Add a new task in the remote plan, check we do not get the updates
+	# anymore
+	remote.new_task
+	process_events
+	assert_equal(2, plan.size)
     end
 end
