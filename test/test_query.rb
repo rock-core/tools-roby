@@ -162,6 +162,20 @@ class TC_Query < Test::Unit::TestCase
 	assert_equal([trsc[d2]].to_value_set, trsc_set)
     end
 
+    def test_roots
+	(t1, t2, t3), (tr1, tr2, tr3) = prepare_plan :discover => 3, :tasks => 3
+	trsc = Transaction.new(plan)
+	[tr1, tr2, tr3].each { |t| trsc.discover(t) }
+
+	assert_equal([t1, t2, t3].to_value_set, plan.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
+	t1.realized_by t2
+	assert_equal([t1, t3].to_value_set, plan.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
+
+	tr1.realized_by tr2
+	trsc[t3].realized_by tr3
+	assert_equal([trsc[t1], trsc[t3], tr1].to_value_set, trsc.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
+    end
+
     def test_transactions_simple
 	model = Class.new(Roby::Task) do
 	    argument :id

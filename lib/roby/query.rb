@@ -185,6 +185,7 @@ module Roby
 	# +relation+ can be found in the query itself
 	def roots(relation)
 	    @result_set = plan.query_roots(result_set, relation)
+	    self
 	end
 
 	def ===(task)
@@ -344,12 +345,9 @@ module Roby
 	# Given the result set of +query+, returns the subset of tasks which
 	# have no parent in +query+
 	def query_roots(result_set, relation)
-	    plan_set      , transaction_set      = *result_set
-	    plan_result   , transaction_result   = ValueSet.new     , ValueSet.new
-	    plan_children , transaction_children = ValueSet.new     , ValueSet.new
-
-	    query_roots_common = lambda do
-	    end
+	    plan_set      , trsc_set      = *result_set
+	    plan_result   , trsc_result   = ValueSet.new     , ValueSet.new
+	    plan_children , trsc_children = ValueSet.new     , ValueSet.new
 
 	    plan_set.each do |task|
 		next if plan_children.include?(task)
@@ -364,8 +362,8 @@ module Roby
 		plan_result << task
 	    end
 
-	    transaction_set.each do |task|
-		next if transaction_children.include?(task)
+	    trsc_set.each do |task|
+		next if trsc_children.include?(task)
 		task_plan_children, task_trsc_children = 
 		    merged_generated_subgraphs(relation, [], [task])
 
@@ -374,10 +372,10 @@ module Roby
 		plan_children.merge(task_plan_children)
 		trsc_children.merge(task_trsc_children)
 
-		transaction_result << task
+		trsc_result << task
 	    end
 
-	    [plan_result, transaction_result]
+	    [plan_result, trsc_result]
 	end
     end
 end
