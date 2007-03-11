@@ -386,8 +386,8 @@ module Roby
 	# Guesses the type of +filename+ if it is a source suitable for
 	# data display in this application
 	def data_source(filenames)
-	    if filenames.size == 1 && filenames.first =~ /-events\.log(\.gz)$/
-		Roby::Log::DataSource.new filenames.first
+	    if filenames.size == 1 && filenames.first =~ /-events\.log(\.gz)?$/
+		return Roby::Log::PlanRebuild.new(filenames.first)
 	    else
 		each_responding_plugin(:data_source, true) do |config|
 		    if source = config.data_source(filenames)

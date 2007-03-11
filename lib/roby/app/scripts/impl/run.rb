@@ -1,10 +1,15 @@
 require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app-run.rb')
-config = Roby.app
-config.run do
+app = Roby.app
+
+robot_name = ARGV.shift
+app.robot robot_name, (ARGV.shift || robot_name)
+require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app-load.rb')
+app.setup
+app.run do
     # Load the controller
     include Roby
     begin
-	load File.join(APP_DIR, "controllers", "#{config.robot_name}.rb")
+	load File.join(APP_DIR, "controllers", "#{app.robot_name}.rb")
     rescue Interrupt
     end
 end

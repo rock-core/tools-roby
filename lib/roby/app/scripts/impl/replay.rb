@@ -33,12 +33,10 @@ parser = OptionParser.new do |opt|
     opt.on("--play", "start playing after loading the event log") do |play_now| end
 end
 parser.parse!(ARGV)
-if !gui
-    file = ARGV.shift
-end
 
 require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app-run.rb')
-config = Roby.app
+require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app-load.rb')
+Roby.app.setup
 
 module Roby::Log
 end
@@ -47,7 +45,7 @@ require 'roby/log/file'
 unless gui
     require 'roby/log/console'
     Roby::Log.loggers << Roby::Log::ConsoleLogger.new(STDOUT)
-    Roby::Log.replay(file) do |method, args|
+    Roby::Log.replay(ARGV.shift) do |method, args|
 	Roby::Log.log(method, args)
     end
     exit
@@ -60,9 +58,19 @@ initial_displays.each do |prc|
     prc.call(main)
 end
 
-sources = Roby.app.data_sources(logdir)
-sources.each do |source|
-    main.add_source(source)
+if ARGV.empty?
+    sources = Roby.app.data_sources(logdir)
+    sources.each do |source|
+	main.add_source(source)
+    end
+else
+    ARGV.each do |file|
+	if source = Roby.app.data_source([file])
+	    main.add_source(source)
+	else
+	    STDERR.puts "WARN: unknown file type #{file}"
+	end
+    end
 end
 
 main.show

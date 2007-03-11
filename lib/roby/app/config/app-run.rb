@@ -11,8 +11,4 @@ parser = OptionParser.new do |opt|
     end
 end
 parser.parse!(ARGV)
-app.robot ARGV[0], (ARGV[1] || ARGV[0])
-
-require File.join(File.dirname(__FILE__), 'app-load.rb')
-app.setup
 

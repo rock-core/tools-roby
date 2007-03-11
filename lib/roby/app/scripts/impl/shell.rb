@@ -1,5 +1,10 @@
 require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app-run.rb')
-config = Roby.app
+app = Roby.app
+
+robot_name = ARGV.shift
+app.robot robot_name, (ARGV.shift || robot_name)
+require File.join(File.dirname(__FILE__), '..', '..', 'config', 'app-load.rb')
+app.setup
 
 require 'irb'
 IRB.setup(nil)

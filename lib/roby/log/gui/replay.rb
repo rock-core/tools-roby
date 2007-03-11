@@ -42,7 +42,7 @@ class DataSourceListModel < Qt::AbstractListModel
     end
 
     def edit(source)
-	dir = if source.files.empty? then ""
+	dir = if !source || source.files.empty? then ""
 	      else File.dirname(source.files.first) end
 
 	newfiles = Qt::FileDialog.get_open_file_names nil, "New data source", dir
@@ -59,7 +59,7 @@ class DataSourceListModel < Qt::AbstractListModel
 
     def insertRow(row, parent)
         emit beginInsertRows(parent, row, row)
-	if source = edit(Roby::Log::DataSource.new)
+	if source = edit(nil)
 	    @sources.insert row, source
 	    return true
 	end
