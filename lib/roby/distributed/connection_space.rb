@@ -218,6 +218,7 @@ module Roby
 				end
 			    end
 			end
+			discovered.clear
 		    end
 
 		    connection_listeners.each { |listen| listen.call(self) }
