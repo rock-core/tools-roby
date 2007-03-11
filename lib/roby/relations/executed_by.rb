@@ -42,8 +42,10 @@ module Roby::TaskStructure
 		    execution_agent.forward(:stop, self, :aborted)
 		end
 		on(:stop) do 
-		    execution_agent.event(:stop).remove_forwarding event(:aborted)
-		    remove_execution_agent execution_agent
+		    if execution_agent
+			execution_agent.event(:stop).remove_forwarding event(:aborted)
+			remove_execution_agent execution_agent
+		    end
 		end
 	    end
 
@@ -76,6 +78,13 @@ module Roby::TaskStructure
 
 	module SpawnExecutionAgents
 	    def discovered_tasks(tasks)
+		# For now, settle on adding the execution agents only in the
+		# main plan. Otherwise, it is possible that two transactions
+		# will try to add two different agents
+		#
+		# Note that it would be solved by plan merging ...
+		return unless executable?
+
 		tasks.each do |task|
 		    if task.self_owned? && !task.execution_agent && task.model.execution_agent
 			ExecutionAgent.spawn(task)

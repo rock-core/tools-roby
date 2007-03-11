@@ -82,18 +82,21 @@ class TC_ExecutedBy < Test::Unit::TestCase
 
     def test_respawn
 	task_model = Class.new(SimpleTask)
-
 	task_model.executed_by ExecutionAgentModel
 	first, second = prepare_plan :missions => 2, :model => task_model
 	assert(first.execution_agent)
 	assert(ExecutionAgentModel, first.execution_agent.class)
 	assert(second.execution_agent)
 	assert(ExecutionAgentModel, second.execution_agent.class)
+	assert_same(first.execution_agent, second.execution_agent)
 
 	first.start!
 	assert(first.running?)
 	first_agent = first.execution_agent
 	assert(first_agent.running?)
+
+	plan.discover(third = task_model.new)
+	assert_equal(first.execution_agent, third.execution_agent)
 
 	first.execution_agent.stop!
 	assert(first.event(:aborted).happened?)
