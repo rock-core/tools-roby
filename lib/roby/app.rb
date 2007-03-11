@@ -67,7 +67,7 @@ module Roby
 	def plugin_dir(dir)
 	    dir = File.expand_path(dir)
 	    @plugin_dirs << dir
-	    $LOAD_PATH.unshift File.expand_path('..', dir)
+	    $LOAD_PATH.unshift File.expand_path(dir)
 
 	    Dir.new(dir).each do |subdir|
 		subdir = File.join(dir, subdir)
