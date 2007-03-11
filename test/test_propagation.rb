@@ -7,18 +7,18 @@ class TC_Propagation < Test::Unit::TestCase
     include Roby::Test
 
     def test_gather_propagation
-	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
-	plan.discover [e1, e2]
+	e1, e2, e3 = EventGenerator.new(true), EventGenerator.new(true), EventGenerator.new(true)
+	plan.discover [e1, e2, e3]
 
 	set = Propagation.gather_propagation do
 	    e1.call(1)
 	    e1.call(4)
 	    e2.emit(2)
 	    e2.emit(3)
-	    assert_raises(Propagation::PropagationException) { e1.emit(nil) }
-	    assert_raises(Propagation::PropagationException) { e2.call(nil) }
+	    e3.call(5)
+	    e3.emit(6)
 	end
-	assert_equal({ e1 => [false, nil, 1, nil, nil, 4, nil], e2 => [true, nil, 2, nil, nil, 3, nil] }, set)
+	assert_equal({ e1 => [nil, [nil, 1, nil, nil, 4, nil]], e2 => [[nil, 2, nil, nil, 3, nil], nil], e3 => [[nil, 6, nil], [nil, 5, nil]] }, set)
     end
 
     def test_prepare_propagation
@@ -26,18 +26,18 @@ class TC_Propagation < Test::Unit::TestCase
 
 	step = [nil, 1, nil, nil, 4, nil]
 	sources, context = Propagation.prepare_propagation(nil, false, step)
-	assert_equal([], sources)
-	assert_equal([1, 4].to_set, context.to_set)
+	assert_equal([nil, nil], sources)
+	assert_equal([1, 4], context)
 
 	step = [nil, nil, nil, nil, 4, nil]
 	sources, context = Propagation.prepare_propagation(nil, false, step)
-	assert_equal([], sources)
-	assert_equal(4, context)
+	assert_equal([nil, nil], sources)
+	assert_equal([nil, 4], context)
 
 	step = [e1, nil, nil, nil, nil, nil]
 	sources, context = Propagation.prepare_propagation(nil, false, step)
-	assert_equal([e1], sources)
-	assert_equal(nil, context)
+	assert_equal([e1, nil], sources)
+	assert_equal([nil, nil], context)
     end
 
     def test_precedence_graph
@@ -112,23 +112,23 @@ class TC_Propagation < Test::Unit::TestCase
 	plan.discover [forward, signal]
 
 	FlexMock.use do |mock|
-	    ev = EventGenerator.new do |ev|
-		mock.command_called
+	    sink = EventGenerator.new do |context|
+		mock.command_called(context)
+		sink.emit(42)
 	    end
-	    ev.on { mock.handler_called }
+	    sink.on { |event| mock.handler_called(event.context) }
 
-	    ev.emit_on forward
-	    signal.on  ev
+	    forward.forward sink
+	    signal.signal   sink
 
 	    seed = lambda do
-		forward.call
-		signal.call
+		forward.call(24)
+		signal.call(42)
 	    end
-	    mock.should_receive(:handler_called).once.ordered
-	    mock.should_receive(:command_called).once.ordered
+	    mock.should_receive(:command_called).with(42).once.ordered
+	    mock.should_receive(:handler_called).with(42).once.ordered
+	    mock.should_receive(:handler_called).with(24).once.ordered
 	    Propagation.propagate_events([seed])
-	    process_events
-	    process_events
 	end
     end
 end

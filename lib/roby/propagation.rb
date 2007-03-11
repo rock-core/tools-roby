@@ -124,17 +124,18 @@ module Roby::Propagation
     # Adds a propagation to the next propagation step. More specifically, it
     # adds either forwarding or signalling the set of Event objects +from+ to
     # the +signalled+ event generator, with the context +context+
-    def self.add_event_propagation(only_forward, from, signalled, context, timespec)
+    def self.add_event_propagation(forward, from, signalled, context, timespec)
 	if signalled.plan != Roby.plan
 	    raise "#{signalled} not in main plan"
 	end
 
-	step = (Thread.current[:propagation][signalled] ||= [only_forward])
-
-	if step.first != only_forward
-	    raise PropagationException.new(from), "both signalling and forwarding to #{signalled}"
-	end
+	step = (Thread.current[:propagation][signalled] ||= [nil, nil])
 	from = [nil] unless from && !from.empty?
+
+	step = if forward then (step[0] ||= [])
+	       else (step[1] ||= [])
+	       end
+
 	from.each do |ev|
 	    step << ev << context << timespec
 	end
@@ -274,47 +275,60 @@ module Roby::Propagation
 	    # can both call #emit, and two signals are set up
 	    next if src && sources.include?(src)
 
-	    sources << src  if src
-	    context << ctxt if ctxt
+	    sources << src
+	    context << ctxt
 	end
+
 	unless delayed
-	    context = *context
 	    [sources, context]
 	end
     end
 
     def self.event_propagation_step(current_step, already_seen)
-	signalled, forward, *info = next_event(current_step)
-	sources, context = prepare_propagation(signalled, forward, info)
-	return current_step unless sources
+	signalled, forward_info, call_info = next_event(current_step)
 
-	if forward
-	    sources.each { |source| source.generator.forwarding(source, signalled) }
-	else
-	    sources.each { |source| source.generator.signalling(source, signalled) }
-	end
+	next_step = nil
+	if call_info
+	    sources, context = prepare_propagation(signalled, false, call_info)
+	    if sources
+		sources.each { |source| source.generator.signalling(source, signalled) if source }
 
-	if already_seen.include?(signalled) && !(forward && signalled.pending?) 
-	    # Do not fire the same event twice in the same propagation cycle
-	    return current_step unless signalled.propagation_mode == :always_call
-	end
-
-	next_step = gather_propagation(current_step) do
-	    did_call = false
-	    propagation_context(sources) do |result|
-		gather_exceptions(signalled) do
-		    did_call = if forward
-				   signalled.emit_without_propagation(context)
-			       else
-				   signalled.call_without_propagation(context) 
-			       end
+		next_step = gather_propagation(current_step) do
+		    propagation_context(sources) do |result|
+			gather_exceptions(signalled) do
+			    context = *context
+			    signalled.call_without_propagation(context) 
+			end
+		    end
 		end
 	    end
 
-	    already_seen << signalled if did_call
+	    if forward_info
+		next_step ||= Hash.new
+		next_step[signalled] ||= []
+		next_step[signalled][0] ||= []
+		next_step[signalled][0].concat forward_info
+	    end
+
+	elsif forward_info
+	    sources, context = prepare_propagation(signalled, true, forward_info)
+	    if sources
+		sources.each { |source| source.generator.forwarding(source, signalled) if source }
+
+		next_step = gather_propagation(current_step) do
+		    sources.each_with_index do |src, i|
+			propagation_context([src]) do |result|
+			    gather_exceptions(signalled) do
+				signalled.emit_without_propagation(context[i])
+			    end
+			end
+		    end
+		end
+	    end
 	end
 
-	current_step.merge!(next_step)
+	current_step.merge!(next_step) if next_step
+	current_step
     end
 
     # Performs exception propagation for the given ExecutionException objects
