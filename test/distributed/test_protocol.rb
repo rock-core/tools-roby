@@ -180,6 +180,23 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert(tagged_task_model.has_ancestor?(anonymous_tag))
     end
 
+    def test_allow_remote_access
+	DRb.start_service Distributed::Test::DISCOVERY_URI
+	klass = Class.new do
+	    include DRbUndumped
+	end
+	derived = Class.new(klass)
+
+	obj = derived.new
+	assert_equal(obj, Distributed.format(obj))
+
+	Distributed.allow_remote_access klass
+	assert_equal(DRbObject.new(obj), Distributed.format(obj))
+	
+	obj = klass.new
+	assert_equal(DRbObject.new(obj), Distributed.format(obj))
+    end
+
     def test_local_object
 	model = Class.new(Roby::Task) do
 	    local_only

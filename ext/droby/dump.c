@@ -39,11 +39,16 @@ static VALUE droby_format(int argc, VALUE* argv, VALUE self)
 	return rb_funcall(object, id_droby_dump, 0);
     }
 
-    if (RTEST(rb_funcall(self, rb_intern("allowed_remote_access?"), 1, object)))
+    VALUE remote_access = rb_iv_get(self, "@allowed_remote_access");
+    int i;
+    for (i = 0; i < RARRAY(remote_access)->len; ++i)
     {
-	if (RTEST(rb_respond_to(object, id_drb_object)))
-	    return rb_funcall(object, id_drb_object, 0);
-	return rb_class_new_instance(1, &object, cDRbObject);
+	if (rb_obj_is_kind_of(object, RARRAY(remote_access)->ptr[i]))
+	{
+	    if (RTEST(rb_respond_to(object, id_drb_object)))
+		return rb_funcall(object, id_drb_object, 0);
+	    return rb_class_new_instance(1, &object, cDRbObject);
+	}
     }
 
     return object;
