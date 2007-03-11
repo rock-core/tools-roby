@@ -25,27 +25,25 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	    with_arguments(:id => 2)
 
 	FlexMock.use do |mock|
-	    remote.new_task(SimpleTask, :id => 3)
-	    remote.new_task(Roby::Task, :id => 2)
 	    remote_peer.on(notification) do |task|
-		mock.notified(task)
+		mock.notified(task.sibling_on(remote_peer))
 		nil
 	    end
+
+	    remote.new_task(SimpleTask, :id => 3)
+	    remote.new_task(Roby::Task, :id => 2)
 	    remote.new_task(SimpleTask, :id => 2) do |inserted|
-		mock.should_receive(:notified).with(remote_peer.proxy(inserted)).once.ordered
+		mock.should_receive(:notified).with(inserted.remote_object).once.ordered
 		nil
 	    end
 	    process_events
 
 	    remote.new_task(SimpleTask, :id => 3)
 	    remote.new_task(Roby::Task, :id => 2)
-	    r2 = remote.new_task(SimpleTask, :id => 2) do |inserted|
-		mock.should_receive(:notified).with(remote_peer.proxy(inserted)).once.ordered
+	    remote.new_task(SimpleTask, :id => 2) do |inserted|
+		mock.should_receive(:notified).with(inserted.remote_object).once.ordered
 		nil
 	    end
-	    process_events
-
-	    remote.insert_task(r2.remote_object(remote_peer))
 	    process_events
 	end
     end

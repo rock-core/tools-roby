@@ -67,20 +67,23 @@ module Roby::Distributed
     class << self
 	def trigger(*objects)
 	    return unless Roby::Distributed.state 
+	    objects.delete_if do |o| 
+		o.plan != Roby::Distributed.state.plan ||
+		    !o.distribute? ||
+		    !o.self_owned?
+	    end
 
 	    # If +object+ is a trigger, send the :triggered event but do *not*
 	    # act as if +object+ was subscribed
-	    objects.delete_if { |o| o.plan != Roby::Distributed.state.plan }
-	    peers.each do |name, peer|
+	    peers.each_value do |peer|
 		peer.local.trigger(*objects)
 	    end
 	end
 	# Remove +objects+ from the sets of already-triggered objects
-	def clean_triggered(*objects)
-	    objects = objects.to_value_set
-	    peers.each do |name, peer|
-		peer.local.triggers.each do |id, (matcher, triggered)|
-		    peer.local.triggers[id] = [matcher, triggered.difference(triggered)]
+	def clean_triggered(object)
+	    peers.each_value do |peer|
+		peer.local.triggers.each_value do |_, triggered|
+		    triggered.delete object
 		end
 	    end
 	end
@@ -106,8 +109,6 @@ module Roby::Distributed
 	def trigger(*objects)
 	    triggers.each do |id, (matcher, triggered)|
 		objects.each do |object|
-		    next if object.respond_to?(:__getobj__)
-		    next unless object.self_owned?
 		    if !triggered.include?(object) && matcher === object
 			triggered << object
 			peer.transmit(:triggered, id, object)
@@ -138,8 +139,10 @@ module Roby::Distributed
 
 	    Roby::Control.once do
 		matcher.each(plan) do |task|
-		    triggered << task
-		    peer.transmit(:triggered, id, task)
+		    if !triggered.include?(task)
+			triggered << task
+			peer.transmit(:triggered, id, task)
+		    end
 		end
 	    end
 	    nil
