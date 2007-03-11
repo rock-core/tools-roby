@@ -18,7 +18,10 @@ module Roby::Log
     Roby::Task.include TaskHooks
 
     module PlanHooks
-	HOOKS = %w{inserted_tasks discarded_tasks replaced_tasks discovered_tasks discovered_events garbage_task finalized_task finalized_event added_transaction removed_transaction}
+	HOOKS = %w{inserted_tasks discarded_tasks replaced_tasks 
+		   discovered_tasks discovered_events 
+		   garbage_task finalized_task finalized_event 
+		   added_transaction removed_transaction}
 
 	def inserted(tasks)
 	    super if defined? super
