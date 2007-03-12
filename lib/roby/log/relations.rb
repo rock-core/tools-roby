@@ -51,9 +51,11 @@ module Roby
 	    end
 	    def display(display, graphics_item)
 		text      = graphics_item.text
-		old_width = text.text_width
-		text.plain_text = display_name
-		text.move_by((text.text_width - old_width) / 2, 0)
+		if display_name != text.to_plain_text
+		    old_width = text.text_width
+		    text.plain_text = display_name
+		    text.move_by((text.text_width - old_width) / 2, 0)
+		end
 
 		super
 	    end
@@ -61,7 +63,7 @@ module Roby
 
 	class Distributed::MarshalledTaskEventGenerator
 	    def display_parent; task end
-	    def display_name; symbol.to_s end
+	    def display_name; @display_name ||= symbol.to_s end
 	end
 
 	class Distributed::MarshalledTask
@@ -97,10 +99,13 @@ module Roby
 		    height = DEFAULT_TASK_HEIGHT
 		end
 
-		coords = Qt::RectF.new -(width / 2), -(height / 2), width, height
-		graphics_item.rect = coords
-		text = graphics_item.text
-		text.pos = Qt::PointF.new(- text.bounding_rect.width / 2, height / 2 + TASK_EVENT_SPACING)
+		if @width != width || @height != height
+		    @width, @height = width, height
+		    coords = Qt::RectF.new -(width / 2), -(height / 2), width, height
+		    graphics_item.rect = coords
+		    text = graphics_item.text
+		    text.pos = Qt::PointF.new(- text.bounding_rect.width / 2, height / 2 + TASK_EVENT_SPACING)
+		end
 	    end
 
 	    def to_s
@@ -114,15 +119,19 @@ module Roby
 	    end
 
 	    def display_name
-		model_name = if model.respond_to?(:remote_name)
-				 model.remote_name
-			     else model.name
-			     end
+		unless @display_name
+		    model_name = if model.respond_to?(:remote_name)
+				     model.remote_name
+				 else model.name
+				 end
 
-		"#{model_name}\n0x#{Object.address_from_id(remote_object.__drbref).to_s(16)}"
-		#unless arguments.empty?
-		#    name += "\n " + arguments.map { |k, v| "#{k}: #{v}" }.join("\n ")
-		#end
+		    @display_name = "#{model_name}\n0x#{Object.address_from_id(remote_object.__drbref).to_s(16)}"
+		    #unless arguments.empty?
+		    #    @display_name += "\n " + arguments.map { |k, v| "#{k}: #{v}" }.join("\n ")
+		    #end
+		end
+
+		@display_name
 	    end
 
 	    def display_create(scene)
@@ -138,12 +147,17 @@ module Roby
 	    def display(display, graphics_item)
 		if flags[:finished]
 		    if flags[:success]
-			graphics_item.brush = Qt::Brush.new(TASK_COLORS[:success])
-		    else
+			if @displayed_state != :success
+			    graphics_item.brush = Qt::Brush.new(TASK_COLORS[:success])
+			    @displayed_state = :success
+			end
+		    elsif @displayed_state != :failed
+			@displayed_state = :failed
 			graphics_item.brush = Qt::Brush.new(TASK_COLORS[:failed])
 		    end
-		elsif flags[:started]
+		elsif flags[:started] && @displayed_state != :started
 		    graphics_item.brush = Qt::Brush.new(TASK_COLORS[:started])
+		    @displayed_state = :started
 		end
 		super
 		layout_events(display)
@@ -178,70 +192,86 @@ module Roby
 	    end
 	end
 
-	def self.correct_line(line, rect)
-	    int = Qt::PointF.new
-	    l = Qt::LineF.new(rect.top_left, rect.top_right)
-	    if l.intersect(line, int) == Qt::LineF::BoundedIntersection
-		return yield(int)
-	    end
-	    l = Qt::LineF.new(rect.top_right, rect.bottom_right)
-	    if l.intersect(line, int) == Qt::LineF::BoundedIntersection
-		return yield(int)
-	    end
-	    l = Qt::LineF.new(rect.bottom_right, rect.bottom_left)
-	    if l.intersect(line, int) == Qt::LineF::BoundedIntersection
-		return yield(int)
-	    end
-	    l = Qt::LineF.new(rect.bottom_left, rect.top_left)
-	    if l.intersect(line, int) == Qt::LineF::BoundedIntersection
-		return yield(int)
-	    end
+	def self.intersect_rect(w, h, from, to)
+	    to_x, to_y = to.x, to.y
+	    from_x, from_y = from.x, from.y
+
+	    # We only use half dimensions since 'to' is supposed to be be the
+	    # center of the rectangle we are intersecting
+	    w /= 2
+	    h /= 2
+
+	    dx    = (to_x - from_x)
+	    dy    = (to_y - from_y)
+	    delta_x = dx / dy * h
+	    result = if delta_x.abs < w
+			 if dy > 0
+			     [to_x - delta_x, to_y - h]
+			 else
+			     [to_x + delta_x, to_y + h]
+			 end
+		     else
+			 delta_y = dy / dx * w
+			 if dx > 0
+			     [to_x - w, to_y - delta_y]
+			 else
+			     [to_x + w, to_y + delta_y]
+			 end
+		     end
+	end
+	
+	def self.correct_line(from, to, rect)
+	    intersect_rect(rect.width, rect.height, from, to)
 	end
 
 	def self.arrow_set(arrow, start_object, end_object)
-	    start_br = start_object.scene_bounding_rect
-	    end_br   = end_object.scene_bounding_rect
-
+	    start_br    = start_object.scene_bounding_rect
+	    end_br      = end_object.scene_bounding_rect
 	    start_point = start_br.center
 	    end_point   = end_br.center
 
-	    newline = Qt::LineF.new(start_point, end_point)
-	    correct_line(newline, start_br) { |int| start_point = int }
-	    correct_line(newline, end_br) { |int| end_point = int }
+	    from = intersect_rect(start_br.width, start_br.height, end_point, start_point)
+	    to   = intersect_rect(end_br.width, end_br.height, start_point, end_point)
 
-	    newline = Qt::LineF.new(start_point, end_point)
-	    alpha = newline.angle( Qt::LineF.new(0, 0, 1, 0) )
-	    alpha *= -1 if newline.dy < 0
+	    dy = to[1] - from[1]
+	    dx = to[0] - from[0]
+	    alpha  = Math.atan2(dy, dx)
+	    length = Math.sqrt(dx ** 2 + dy ** 2)
 
+	    #arrow.line.set_line from[0], from[1], to[0], to[1]
 	    arrow.resetMatrix
-	    arrow.line.set_line(-newline.length, 0, 0, 0)
-	    arrow.translate end_point.x, end_point.y
-	    arrow.rotate alpha
+	    arrow.line.set_line(-length, 0, 0, 0)
+	    arrow.translate to[0], to[1]
+	    arrow.rotate(alpha * 180 / Math::PI)
+	
+	    br = arrow.line.scene_bounding_rect
 	end
 
 	class RelationsDisplay < Qt::Object
 	    def splat?; true end
 	    attr_accessor :data_source
 	    attr_reader :graphics
+	    attr_reader :visible_objects
 	    attr_reader :arrows
 	    attr_reader :ui, :scene
 	    attr_reader :main
 
 	    def initialize
-		@scene = Qt::GraphicsScene.new
+		@scene  = Qt::GraphicsScene.new
 		super()
 
-		@main = Qt::Widget.new
-		@ui    = Ui::RelationsView.new
+		@main   = Qt::Widget.new
+		@ui     = Ui::RelationsView.new
 		ui.setupUi(main)
 		ui.graphics.scene = scene
 		
-		@graphics = Hash.new
-		@arrows = Hash.new
+		@graphics          = Hash.new
+		@visible_objects   = ValueSet.new
+		@arrows            = Hash.new
 		@enabled_relations = Set.new
-		@layout_relations = Set.new
-		@relation_colors = Hash.new
-		@current_color = 0
+		@layout_relations  = Set.new
+		@relation_colors   = Hash.new
+		@current_color     = 0
 
 		main.resize 500, 500
 	    end
@@ -350,30 +380,51 @@ module Roby
 		end
 	    end
 
-	    def displayed?(object)
-		if item = graphics[object.remote_object]
-		    graphics[object.remote_object].visible?
+	    def displayed?(object); visible_objects.include?(object) end
+	    def set_visibility(object, item, flag)
+		return if visible_objects.include?(object) == flag
+
+		item.visible = flag
+		if flag
+		    visible_objects << object
+		else
+		    visible_objects.delete(object)
 		end
 	    end
+
 
 	    attr_predicate :enabled_task_relations?, true
 	    attr_predicate :enabled_event_relations?, true
 
 	    def update
 		return unless data_source
-		data_source.tasks.each_value  { |task| graphics[task.remote_object] ||= task.display_create(scene) }
+		data_source.tasks.each_value do |task| 
+		    unless item = graphics[task.remote_object]
+			item = task.display_create(scene)
+			visible_objects << task
+			graphics[task.remote_object] = item
+		    end
+		end
 		data_source.events.each_value do |event| 
 		    unless item = graphics[event.remote_object] 
 			item = (graphics[event.remote_object] ||= event.display_create(scene))
 			item.parent_item = self[event.display_parent] if event.display_parent
+			visible_objects << event
 		    end
 		    # display_create may have returned a nil object
 		    if item
-			item.visible = enabled_event_relations?
+			set_visibility(event, item, enabled_event_relations?)
 		    end
 		end
-		data_source.tasks.each_value  { |task| task.display(self, graphics[task.remote_object]) }
-		data_source.events.each_value { |event| event.display(self, graphics[event.remote_object]) }
+
+		data_source.tasks.each_value do |task|
+		    next unless displayed?(task)
+		    task.display(self, graphics[task.remote_object])
+		end
+		data_source.events.each_value do |event| 
+		    next unless displayed?(event)
+		    event.display(self, graphics[event.remote_object])
+		end
 
 		data_source.plans.find_all { |_, p| p.root_plan }.
 		    each { |_, p| Layout.new.layout(self, p, 1) }

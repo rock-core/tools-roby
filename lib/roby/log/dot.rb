@@ -51,11 +51,9 @@ module Roby
 	    def each_displayed_relation(display, space, objects)
 		space.relations.each do |rel|
 		    next unless display.relation_enabled?(rel)
-		    objects.each do |from|
-			next unless display.displayed?(from)
 
-			from.each_child_object(rel) do |to|
-			    next unless display.displayed?(to)
+		    (objects.to_value_set & display.visible_objects).each do |from|
+			(from.child_objects(rel).to_value_set & display.visible_objects).each do |to|
 			    yield(rel, from, to)
 			end
 		    end

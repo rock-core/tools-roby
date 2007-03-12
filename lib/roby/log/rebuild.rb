@@ -219,8 +219,8 @@ module Roby
 	    end
 	    def removed_transaction(time, plan, trsc)
 		plan = local_plan(plan)
-		plans.delete(trsc)
 		trsc = local_plan(trsc)
+		plans.delete(trsc.remote_object)
 
 		plan.transactions.delete(trsc)
 		# Removed tasks and proxies that have been moved from the
@@ -231,6 +231,7 @@ module Roby
 		plan.free_events.each do |obj|
 		    trsc.free_events.delete(obj)
 		end
+		trsc.clear
 	    end
 
 	    def added_task_child(time, parent, rel, child, info)
