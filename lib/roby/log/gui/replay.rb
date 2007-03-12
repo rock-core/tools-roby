@@ -126,7 +126,39 @@ class Replay < Qt::MainWindow
 	connect(ui.seek_start, SIGNAL("clicked()"), self, SLOT("seek_start()"))
 	connect(ui.play, SIGNAL("toggled(bool)"), self, SLOT("play()"))
 	connect(ui.play_step, SIGNAL("clicked()"), self, SLOT("play_step()"))
+	connect(ui.faster, SIGNAL('clicked()')) do
+	    factor = play_speed < 1 ? 10 : 1
+	    self.play_speed = Float(Integer(factor * play_speed) + 1.0) / factor
+	    if play_speed > 0.1
+		ui.slower.enabled = true
+	    end
+	end
+	connect(ui.slower, SIGNAL('clicked()')) do
+	    factor = play_speed <= 1 ? 10 : 1
+	    self.play_speed = Float(Integer(factor * play_speed) - 1.0) / factor
+	    if play_speed == 0.1
+		ui.slower.enabled = false
+	    end
+	end
+	connect(ui.speed, SIGNAL('editingFinished()')) do
+	    begin
+		new_speed = Float(ui.speed.text)
+		if new_speed <= 0
+		    raise ArgumentError, "negative values are not allowed for speed"
+		end
+	    rescue ArgumentError
+		Qt::MessageBox.warning self, "Invalid speed", "Invalid value for speed \"#{ui.speed.text}\": #{$!.message}"
+		# Reinitialize the line edit to the old value
+		self.play_speed = play_speed
+	    end
+	end
+
 	seek_start
+    end
+
+    def play_speed=(value)
+	ui.speed.text = value.to_s
+	@play_speed = value
     end
 
     def displayed_sources
