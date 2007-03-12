@@ -22,7 +22,7 @@ module Roby
 	    attr_accessor :layout_level
 	    def all_events(display)
 		known_tasks.inject(free_events.dup) do |events, task|
-		    if display.displayed?(task)
+		    if display.displayed?(task.remote_object)
 			events.merge(task.events)
 		    else
 			events
@@ -34,10 +34,8 @@ module Roby
 		@layout_level = level
 		id = io.layout_id(self)
 		io << "subgraph cluster_plan_#{id} {\n"
-		known_tasks.each { |t| t.to_dot(display, io) }
-		if display.enabled_event_relations?
-		    free_events.each { |e| e.to_dot(display, io) }
-		end
+		known_tasks.each { |t| t.to_dot(display, io) if display.displayed?(t.remote_object) }
+		free_events.each { |e| e.to_dot(display, io) if display.displayed?(e.remote_object) }
 		io << "};\n"
 
 		transactions.each do |trsc|
@@ -52,8 +50,11 @@ module Roby
 		space.relations.each do |rel|
 		    next unless display.relation_enabled?(rel)
 
-		    (objects.to_value_set & display.visible_objects).each do |from|
-			(from.child_objects(rel).to_value_set & display.visible_objects).each do |to|
+		    objects.each do |from|
+			next unless display.displayed?(from.remote_object)
+
+			from.each_child_object(rel) do |to|
+			    next unless display.displayed?(to.remote_object)
 			    yield(rel, from, to)
 			end
 		    end
@@ -96,14 +97,14 @@ module Roby
 
 	    # Adds the dot definition for this object in +io+
 	    def to_dot(display, io)
-		return unless display.displayed?(self)
+		return unless display.displayed?(remote_object)
 		@dot_id = io.layout_id(self)
 		io << "  #{dot_id}[label=\"#{dot_label.split("\n").join('\n')}\"];\n"
 	    end
 
 	    # Applys the layout in +positions+ to this particular object
 	    def apply_layout(positions, display)
-		return unless display.displayed?(self)
+		return unless display.displayed?(remote_object)
 		if p = positions[dot_id]
 		    display[self].pos = p
 		else

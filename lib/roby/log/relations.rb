@@ -27,6 +27,11 @@ module Roby
 	EVENT_COLOR    = 'black' # default color for events
 	EVENT_FONTSIZE = 8
 
+	PLAN_LAYER             = 0
+	TASK_RELATIONS_LAYER   = 50
+	EVENT_RELATIONS_LAYER  = 51
+	EVENT_SIGNALLING_LAYER = 52
+
 	class Distributed::MarshalledPlanObject
 	    def display_parent; end
 	    def display_create(scene); end
@@ -42,6 +47,7 @@ module Roby
 		text   = scene.add_text(display_name)
 		circle.brush = Qt::Brush.new(Qt::Color.new(EVENT_COLOR))
 		circle.singleton_class.class_eval { attr_accessor :text }
+		circle.z_value = PLAN_LAYER + 2
 
 		text.parent_item = circle
 		text_width   = text.bounding_rect.width
@@ -49,15 +55,20 @@ module Roby
 		circle.text = text
 		circle
 	    end
-	    def display(display, graphics_item)
-		text      = graphics_item.text
-		if display_name != text.to_plain_text
-		    old_width = text.text_width
-		    text.plain_text = display_name
-		    text.move_by((text.text_width - old_width) / 2, 0)
+
+	    def display_name
+		unless @display_name
+		    model_name = if model.respond_to?(:remote_name)
+				     model.remote_name
+				 else
+				     model.name
+				 end
+		    model_name = model_name.gsub /Generator$/, ''
+		    model_name = model_name.gsub /^Roby::/, ''
+		    @display_name = "#{model_name}\n0x#{Object.address_from_id(remote_object.__drbref).to_s(16)}"
 		end
 
-		super
+		@display_name
 	    end
 	end
 
@@ -71,33 +82,31 @@ module Roby
 		graphics_item = display[self]
 
 		width, height = 0, 0
-		if display.enabled_event_relations?
-		    events = self.events.map do |e| 
-			e  = display[e]
-			next unless e
-			br = (e.bounding_rect | e.children_bounding_rect)
-			[e, br]
-		    end
-		    events.compact!
-
-		    events.each do |e, br|
-			w, h = br.width, br.height
-			height = h if h > height
-			width += w
-		    end
-		    width  += TASK_EVENT_SPACING * (events.size + 1)
-		    height += TASK_EVENT_SPACING
-
-		    x = -width  / 2 + TASK_EVENT_SPACING
-		    events.each do |e, br|
-			w  = br.width
-			e.pos = Qt::PointF.new(x + w / 2, -br.height / 2 + EVENT_CIRCLE_RADIUS + TASK_EVENT_SPACING)
-			x += w + TASK_EVENT_SPACING
-		    end
-		else
-		    width = DEFAULT_TASK_WIDTH
-		    height = DEFAULT_TASK_HEIGHT
+		events = self.events.map do |e| 
+		    next unless display.enabled_event_relations? || display.displayed?(e.remote_object)
+		    next unless e = display[e]
+		    br = (e.bounding_rect | e.children_bounding_rect)
+		    [e, br]
 		end
+		events.compact!
+
+		events.each do |e, br|
+		    w, h = br.width, br.height
+		    height = h if h > height
+		    width += w
+		end
+		width  += TASK_EVENT_SPACING * (events.size + 1)
+		height += TASK_EVENT_SPACING
+
+		x = -width  / 2 + TASK_EVENT_SPACING
+		events.each do |e, br|
+		    w  = br.width
+		    e.pos = Qt::PointF.new(x + w / 2, -br.height / 2 + EVENT_CIRCLE_RADIUS + TASK_EVENT_SPACING)
+		    x += w + TASK_EVENT_SPACING
+		end
+
+		width = DEFAULT_TASK_WIDTH unless width > DEFAULT_TASK_WIDTH
+		height = DEFAULT_TASK_HEIGHT unless height > DEFAULT_TASK_HEIGHT
 
 		if @width != width || @height != height
 		    @width, @height = width, height
@@ -126,9 +135,6 @@ module Roby
 				 end
 
 		    @display_name = "#{model_name}\n0x#{Object.address_from_id(remote_object.__drbref).to_s(16)}"
-		    #unless arguments.empty?
-		    #    @display_name += "\n " + arguments.map { |k, v| "#{k}: #{v}" }.join("\n ")
-		    #end
 		end
 
 		@display_name
@@ -142,23 +148,19 @@ module Roby
 		text.parent_item = rect
 		rect.singleton_class.class_eval { attr_accessor :text }
 		rect.text = text
+		rect.z_value = PLAN_LAYER + 1
 		rect
 	    end
+
 	    def display(display, graphics_item)
-		if flags[:finished]
-		    if flags[:success]
-			if @displayed_state != :success
-			    graphics_item.brush = Qt::Brush.new(TASK_COLORS[:success])
-			    @displayed_state = :success
-			end
-		    elsif @displayed_state != :failed
-			@displayed_state = :failed
-			graphics_item.brush = Qt::Brush.new(TASK_COLORS[:failed])
-		    end
-		elsif flags[:started] && @displayed_state != :started
-		    graphics_item.brush = Qt::Brush.new(TASK_COLORS[:started])
-		    @displayed_state = :started
+		new_state = [:success, :finished, :started].
+		    find { |flag| flags[flag] } 
+
+		if @displayed_state != new_state
+		    graphics_item.brush = Qt::Brush.new(TASK_COLORS[new_state])
+		    @displayed_state = new_state
 		end
+
 		super
 		layout_events(display)
 	    end
@@ -204,20 +206,22 @@ module Roby
 	    dx    = (to_x - from_x)
 	    dy    = (to_y - from_y)
 	    delta_x = dx / dy * h
-	    result = if delta_x.abs < w
-			 if dy > 0
-			     [to_x - delta_x, to_y - h]
-			 else
-			     [to_x + delta_x, to_y + h]
-			 end
-		     else
-			 delta_y = dy / dx * w
-			 if dx > 0
-			     [to_x - w, to_y - delta_y]
-			 else
-			     [to_x + w, to_y + delta_y]
-			 end
-		     end
+	    if dy != 0 && delta_x.abs < w
+		if dy > 0
+		    [to_x - delta_x, to_y - h]
+		else
+		    [to_x + delta_x, to_y + h]
+		end
+	    elsif dx != 0
+		delta_y = dy / dx * w
+		if dx > 0
+		    [to_x - w, to_y - delta_y]
+		else
+		    [to_x + w, to_y + delta_y]
+		end
+	    else
+		[0, 0]
+	    end
 	end
 	
 	def self.correct_line(from, to, rect)
@@ -249,12 +253,34 @@ module Roby
 
 	class RelationsDisplay < Qt::Object
 	    def splat?; true end
+	    # The data source for this relation display
 	    attr_accessor :data_source
-	    attr_reader :graphics
-	    attr_reader :visible_objects
-	    attr_reader :arrows
+
 	    attr_reader :ui, :scene
 	    attr_reader :main
+
+	    # A [DRbObject, DRbObject] => GraphicsItem mapping of arrows
+	    attr_reader :arrows
+
+	    # A DRbObject => GraphicsItem mapping
+	    attr_reader :graphics
+
+	    # The set of objects that are to be shown permanently
+	    attr_reader :visible_objects
+
+	    # A set of events that are shown during only two calls of #update
+	    attr_reader :flashing_objects
+
+	    # The set of signals since the last call to #update
+	    # Each element is [flag, from, to, event_id]
+	    attr_reader :signalled_events
+
+	    # The set of event generators whose command has been called
+	    # since the last call to #update. Each element is [generator, event_id]
+	    attr_reader :called_events
+
+	    # A pool of arrows items used to display the event signalling
+	    attr_reader :signal_arrows
 
 	    def initialize
 		@scene  = Qt::GraphicsScene.new
@@ -266,12 +292,17 @@ module Roby
 		ui.graphics.scene = scene
 		
 		@graphics          = Hash.new
-		@visible_objects   = ValueSet.new
+		@visible_objects   = Set.new
+		@flashing_objects  = Set.new
 		@arrows            = Hash.new
 		@enabled_relations = Set.new
 		@layout_relations  = Set.new
 		@relation_colors   = Hash.new
 		@current_color     = 0
+
+		@signalled_events  = []
+		@called_events     = []
+		@signal_arrows     = []
 
 		main.resize 500, 500
 	    end
@@ -281,7 +312,7 @@ module Roby
 		id = [from.remote_object, to.remote_object, rel]
 		unless item = arrows[id]
 		    item = (arrows[id] ||= scene.add_arrow(ARROW_SIZE))
-		    item.z_value = 1
+		    item.z_value = EVENT_RELATIONS_LAYER
 		    color = Qt::Color.new(relation_color(rel))
 		    item.pen = item.line.pen = Qt::Pen.new(color)
 		    item.brush = Qt::Brush.new(color)
@@ -380,54 +411,128 @@ module Roby
 		end
 	    end
 
-	    def displayed?(object); visible_objects.include?(object) end
-	    def set_visibility(object, item, flag)
-		return if visible_objects.include?(object) == flag
+	    def displayed?(remote_object)
+	       	visible_objects.include?(remote_object) || 
+		    flashing_objects.include?(remote_object) 
+	    end
+	    def set_visibility(remote_object, flag)
+		return if visible_objects.include?(remote_object) == flag
 
-		item.visible = flag
+		if item = graphics[remote_object]
+		    item.visible = flag
+		    item.children.each do |child|
+			child.visible = false
+		    end
+		end
 		if flag
-		    visible_objects << object
+		    visible_objects << remote_object
 		else
-		    visible_objects.delete(object)
+		    visible_objects.delete(remote_object)
 		end
 	    end
-
 
 	    attr_predicate :enabled_task_relations?, true
 	    attr_predicate :enabled_event_relations?, true
 
-	    def update
-		return unless data_source
-		data_source.tasks.each_value do |task| 
-		    unless item = graphics[task.remote_object]
-			item = task.display_create(scene)
-			visible_objects << task
-			graphics[task.remote_object] = item
+	    # def generator_calling(time, generator, context); end
+	    # def generator_called(time, generator, context); end
+	    # def generator_emitting(time, generator, context); end
+	    def generator_fired(time, generator, event_id, event_time, event_context)
+		called_events << [generator, event_id]
+	    end
+	    def generator_signalling(time, flag, from, to, event_id, event_time, event_context)
+		signalled_events << [flag, from, to, event_id]
+	    end
+	    def generator_forwarding(time, flag, from, to, event_id, event_time, event_context)
+		signalled_events << [flag, from, to, event_id]
+	    end
+
+	    def create_or_get_item(object)
+		remote_object = object.remote_object
+		unless item = graphics[remote_object]
+		    item = graphics[remote_object] = object.display_create(scene)
+		    yield(item) if block_given?
+
+		    if item && !displayed?(remote_object) 
+			item.visible = false
 		    end
 		end
+		item
+	    end
+
+	    def add_flashing_object(remote_object)
+		flashing_objects << remote_object
+		if item = graphics[remote_object]
+		    item.visible = true
+		end
+	    end
+	    def clear_flashing_objects
+		(flashing_objects - visible_objects).each do |remote_object|
+		    graphics[remote_object].visible = false
+		end
+		flashing_objects.clear
+	    end
+
+	    def update
+		return unless data_source
+		clear_flashing_objects
+
+		# Save the list of events involved in signals in #temp_visible_objects. This is needed
+		# to make #displayed? return true for these
+		signalled_events.each do |_, from, to, _|
+		    add_flashing_object from.remote_object
+		    add_flashing_object to.remote_object
+		end
+
+		# Create graphics items for tasks and events if necessary, and
+		# update their visibility according to the visible_objects set
+		data_source.tasks.each_value { |task| create_or_get_item(task) }
 		data_source.events.each_value do |event| 
-		    unless item = graphics[event.remote_object] 
-			item = (graphics[event.remote_object] ||= event.display_create(scene))
+		    create_or_get_item(event) do |item|
 			item.parent_item = self[event.display_parent] if event.display_parent
-			visible_objects << event
-		    end
-		    # display_create may have returned a nil object
-		    if item
-			set_visibility(event, item, enabled_event_relations?)
 		    end
 		end
 
+		# Update the displayed objects
 		data_source.tasks.each_value do |task|
-		    next unless displayed?(task)
+		    next unless displayed?(task.remote_object)
 		    task.display(self, graphics[task.remote_object])
 		end
 		data_source.events.each_value do |event| 
-		    next unless displayed?(event)
+		    next unless displayed?(event.remote_object)
 		    event.display(self, graphics[event.remote_object])
 		end
 
-		data_source.plans.find_all { |_, p| p.root_plan }.
-		    each { |_, p| Layout.new.layout(self, p, 1) }
+		# Layout the graph
+		layouts = data_source.plans.find_all { |_, p| p.root_plan }.
+		    map do |_, p| 
+			dot = Layout.new
+			dot.layout(self, p)
+			dot
+		    end
+		layouts.each { |dot| dot.apply }
+		
+		# Display the signals
+		signal_arrow_idx = -1
+		signalled_events.each_with_index do |(forward, from, to, event_id), signal_arrow_idx|
+		    unless arrow = signal_arrows[signal_arrow_idx]
+			arrow = signal_arrows[signal_arrow_idx] = scene.add_arrow(ARROW_SIZE)
+			arrow.z_value = EVENT_SIGNALLING_LAYER
+		    end
+		    arrow.visible = true
+		    arrow.line.visible = true
+		    Log.arrow_set(arrow, self[from], self[to])
+		end
+		# ... and hide the remaining arrows that are not used anymore
+		if signal_arrow_idx + 1 < signal_arrows.size
+		    signal_arrows[(signal_arrow_idx + 1)..-1].each do |arrow| 
+			arrow.visible = false 
+			arrow.line.visible = false
+		    end
+		end
+
+		called_events.clear
+		signalled_events.clear
 	    end
 
 	    def remove_graphics(item, scene = nil)
@@ -443,6 +548,13 @@ module Roby
 	    end
 	    def removed_event_child(time, parent, rel, child)
 		remove_graphics(arrows.delete([parent.remote_object, child.remote_object, rel]))
+	    end
+	    def discovered_events(time, plan, events)
+		return unless enabled_event_relations?
+		events.each { |obj| set_visibility(obj.remote_object, true) }
+	    end
+	    def discovered_tasks(time, plan, tasks)
+		tasks.each  { |obj| set_visibility(obj.remote_object, true) }
 	    end
 	    def clear_arrows(object)
 		arrows.delete_if do |(from, to, _), arrow|
@@ -468,6 +580,9 @@ module Roby
 		graphics.each_value(&method(:remove_graphics))
 		arrows.clear
 		graphics.clear
+
+		flashing_objects.clear
+		signalled_events.clear
 	    end
 	end
     end

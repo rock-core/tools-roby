@@ -51,7 +51,7 @@ class DataSourceListModel < Qt::AbstractListModel
 	    if newsource = Roby.app.data_source(newfiles)
 		return newsource
 	    else
-		Qt::MessageBox.warning nil, "Add data source", "Cannot determine data source type for #{newfiles.join(", ")}"
+		Qt::MessageBox.warning self, "Add data source", "Cannot determine data source type for #{newfiles.join(", ")}"
 		return
 	    end
 	end
@@ -206,16 +206,34 @@ class Replay < Qt::MainWindow
     slots 'stop()'
 
     def play_step
+	start = Time.now
        	play_until(next_step_time) 
     end
     slots 'play_step()'
 
     def play_step_timer
-	STDERR.puts time
+	start = Time.now
+	STDERR.puts time.to_hms
        	play_until(time + BASE_STEP * play_speed) 
+	STDERR.puts "play: #{Time.now - start}"
     end
     slots 'play_step_timer()'
     
+    def goto
+	begin
+	    time = ""
+	    time = Qt::InputDialog.get_text self, 'Going to ...', 'Time', time
+	    return if time.empty?
+	    time = Time.from_hms(time)
+
+	rescue ArgumentError
+	    Qt::MessageBox.warning self, "Invalid time", "Invalid time \"#{ui.speed.text}\": #{$!.message}"
+	    retry
+	end
+
+	play_until(time)
+    end
+
     def play_until(max_time)
 	start_time = @time
 	displayed_sources.inject(timeline = []) do |timeline, s| 
@@ -241,10 +259,14 @@ class Replay < Qt::MainWindow
 	    else
 		timeline.shift
 	    end
+	    #Qt::Application.instance.process_events
 	end
 
 	displayed_sources.each do |source|
-	    source.displays.each { |d| d.update }
+	    source.displays.each do |d| 
+		d.update
+		#Qt::Application.instance.process_events
+	    end
 	end
 
 	if timeline.empty? then stop
