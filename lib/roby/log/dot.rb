@@ -147,7 +147,7 @@ module Roby
 	    attr_reader :dot_input
 
 	    def <<(string); dot_input << string end
-	    def layout(display, plan, scale)
+	    def layout(display, plan)
 		# Dot input file
 		@dot_input  = Tempfile.new("roby_dot")
 		# Dot output file
@@ -197,11 +197,19 @@ module Roby
 		    pos.x -= xmin
 		    pos.y = graph_bb[1] - pos.y + ymin
 		end
-		plan.apply_layout(object_pos, display)
+
+		@display = display
+		@plan    = plan
+		@object_pos = object_pos
 
 	    ensure
 		dot_input.close!  if dot_input
 		dot_output.close! if dot_output
+	    end
+
+	    attr_reader :object_pos, :display, :plan
+	    def apply
+		plan.apply_layout(object_pos, display)
 	    end
 	end
     end
