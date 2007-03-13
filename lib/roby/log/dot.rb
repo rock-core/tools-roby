@@ -208,7 +208,7 @@ module Roby
 
 		object_pos.each do |id, pos|
 		    pos.x -= xmin
-		    pos.y = graph_bb[1] - pos.y + ymin
+		    pos.y = graph_bb[1] - pos.y
 		end
 
 		@display = display
