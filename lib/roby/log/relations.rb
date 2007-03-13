@@ -275,9 +275,14 @@ module Roby
 	    # Each element is [flag, from, to, event_id]
 	    attr_reader :signalled_events
 
-	    # The set of event generators whose command has been called
-	    # since the last call to #update. Each element is [generator, event_id]
-	    attr_reader :called_events
+	    # The set of event generators which have been called but not yet
+	    # fired. This is actually the list of their remote_object
+	    attr_reader :pending_events
+
+	    # The set of postponed events that have occured since the last call
+	    # to #update. Each element is [postponed_generator,
+	    # until_generator]
+	    attr_reader :postponed_events
 
 	    # A pool of arrows items used to display the event signalling
 	    attr_reader :signal_arrows
@@ -293,7 +298,7 @@ module Roby
 		
 		@graphics          = Hash.new
 		@visible_objects   = Set.new
-		@flashing_objects  = Set.new
+		@flashing_objects  = Hash.new
 		@arrows            = Hash.new
 		@enabled_relations = Set.new
 		@layout_relations  = Set.new
@@ -301,7 +306,8 @@ module Roby
 		@current_color     = 0
 
 		@signalled_events  = []
-		@called_events     = []
+		@pending_events    = Set.new
+		@postponed_events  = []
 		@signal_arrows     = []
 
 		main.resize 500, 500
@@ -413,7 +419,7 @@ module Roby
 
 	    def displayed?(remote_object)
 	       	visible_objects.include?(remote_object) || 
-		    flashing_objects.include?(remote_object) 
+		    flashing_objects.has_key?(remote_object) 
 	    end
 	    def set_visibility(remote_object, flag)
 		return if visible_objects.include?(remote_object) == flag
@@ -434,17 +440,20 @@ module Roby
 	    attr_predicate :enabled_task_relations?, true
 	    attr_predicate :enabled_event_relations?, true
 
-	    # def generator_calling(time, generator, context); end
-	    # def generator_called(time, generator, context); end
-	    # def generator_emitting(time, generator, context); end
+	    def generator_called(time, generator, context)
+		pending_events << generator.remote_object
+	    end
 	    def generator_fired(time, generator, event_id, event_time, event_context)
-		called_events << [generator, event_id]
+		pending_events.delete(generator.remote_object)
+	    end
+	    def generator_postponed(time, generator, context, until_generator, reason)
+		postponed_events << [data_source.local_event(generator), data_source.local_event(until_generator)]
 	    end
 	    def generator_signalling(time, flag, from, to, event_id, event_time, event_context)
-		signalled_events << [flag, from, to, event_id]
+		signalled_events << [flag, data_source.local_event(from), data_source.local_event(to), event_id]
 	    end
 	    def generator_forwarding(time, flag, from, to, event_id, event_time, event_context)
-		signalled_events << [flag, from, to, event_id]
+		signalled_events << [flag, data_source.local_event(from), data_source.local_event(to), event_id]
 	    end
 
 	    def create_or_get_item(object)
@@ -460,28 +469,46 @@ module Roby
 		item
 	    end
 
-	    def add_flashing_object(remote_object)
-		flashing_objects << remote_object
+	    def add_flashing_object(remote_object, &block)
+		if block
+		    flashing_objects[remote_object] ||= []
+		    flashing_objects[remote_object] << block
+		else
+		    flashing_objects[remote_object] = nil
+		end
+
 		if item = graphics[remote_object]
 		    item.visible = true
 		end
 	    end
 	    def clear_flashing_objects
-		(flashing_objects - visible_objects).each do |remote_object|
-		    graphics[remote_object].visible = false
+		(flashing_objects.keys.to_set - visible_objects).each do |remote_object|
+		    if blocks = flashing_objects[remote_object]
+			blocks.delete_if { |block| !block.call }
+			next unless blocks.empty?
+		    end
+
+		    # Beware: the item may have been removed if the object has been
+		    # finalized between the two calls to #update
+		    if item = graphics[remote_object]
+			item.visible = false
+		    end
+		    flashing_objects.delete(remote_object)
 		end
-		flashing_objects.clear
 	    end
 
 	    def update
 		return unless data_source
 		clear_flashing_objects
 
-		# Save the list of events involved in signals in #temp_visible_objects. This is needed
-		# to make #displayed? return true for these
 		signalled_events.each do |_, from, to, _|
 		    add_flashing_object from.remote_object
 		    add_flashing_object to.remote_object
+		end
+
+		pending_events.each do |remote_object|
+		    next if flashing_objects.has_key?(remote_object)
+		    add_flashing_object(remote_object) { pending_events.include?(remote_object) }
 		end
 
 		# Create graphics items for tasks and events if necessary, and
@@ -519,6 +546,15 @@ module Roby
 			arrow = signal_arrows[signal_arrow_idx] = scene.add_arrow(ARROW_SIZE)
 			arrow.z_value = EVENT_SIGNALLING_LAYER
 		    end
+
+		    # It is possible that the objects have been removed in the same display cycle than
+		    # they have been signalled. Do not display them if it is the case
+		    unless self[from] && self[to]
+			arrow.visible = false
+			arrow.line.visible = false
+			next
+		    end
+
 		    arrow.visible = true
 		    arrow.line.visible = true
 		    Log.arrow_set(arrow, self[from], self[to])
@@ -531,8 +567,8 @@ module Roby
 		    end
 		end
 
-		called_events.clear
 		signalled_events.clear
+		postponed_events.clear
 	    end
 
 	    def remove_graphics(item, scene = nil)
@@ -581,8 +617,15 @@ module Roby
 		arrows.clear
 		graphics.clear
 
+		signal_arrows.each do |arrow|
+		    arrow.visible = false
+		    arrow.line.visible = false
+		end
+
 		flashing_objects.clear
 		signalled_events.clear
+		pending_events.clear
+		postponed_events.clear
 	    end
 	end
     end
