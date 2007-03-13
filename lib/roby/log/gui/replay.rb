@@ -106,6 +106,9 @@ class Replay < Qt::MainWindow
     attr_reader :sources_model
 
     attr_reader :ui
+
+    KEY_GOTO = Qt::KeySequence.new('g')
+
     def initialize
 	super()
 	@play_speed = 1.0
@@ -153,6 +156,9 @@ class Replay < Qt::MainWindow
 	    end
 	end
 	connect(ui.goto, SIGNAL('clicked()'), self, SLOT('goto()'))
+
+	@shortcuts = []
+	@shortcuts << Qt::Shortcut.new(KEY_GOTO, self, SLOT('goto()'))
     end
 
     def play_speed=(value)
@@ -210,18 +216,30 @@ class Replay < Qt::MainWindow
     end
 
     def goto
-	time = begin
-		   time = Qt::InputDialog.get_text self, 'Going to ...', 'Time', Qt::LineEdit::Normal, (time || "")
-		   return if time.empty?
-		   Time.from_hms(time)
+	user_time = begin
+			user_time = Qt::InputDialog.get_text nil, 'Going to ...', 
+					"<html><b>Go to time</b><ul><li>use \'+\' for a relative jump forward</li><li>'-' for a relative jump backwards</li></ul></html>", 
+					Qt::LineEdit::Normal, (user_time || @last_goto || "")
+			return if !user_time || user_time.empty?
+			@last_goto = user_time
+			if user_time =~ /^\s*([\+\-])(.*)/
+			    op = $1
+			    user_time = $2
+			end
+			user_time = Time.from_hms(user_time) - Time.at(0)
 
-	       rescue ArgumentError
-		   Qt::MessageBox.warning self, "Invalid time", "Invalid time: #{$!.message}"
-		   retry
-	       end
+		    rescue ArgumentError
+			Qt::MessageBox.warning self, "Invalid user_time", "Invalid user_time: #{$!.message}"
+			retry
+		    end
 
 	seek_start unless first_sample
-	seek(first_sample + (time - Time.at(0)))
+	user_time = if op
+			self.time.send(op, user_time)
+		    else
+			first_sample + user_time
+		    end
+	seek(user_time)
     end
     slots 'goto()'
 
@@ -338,6 +356,7 @@ class Replay < Qt::MainWindow
 	config_ui = DISPLAYS[kind].new
 	display = config_ui.setupUi(self, config_widget)
 
+
 	name = "#{kind}##{allocate_display_number}"
 	idx  = ui.displays.add_item(config_widget, name)
 	ui.displays.current_index = idx
@@ -345,6 +364,9 @@ class Replay < Qt::MainWindow
 	displays[config_ui] = display
 	display.main.window_title = "#{window_title}: #{name}"
 	display.main.show
+	shortcut = Qt::Shortcut.new(KEY_GOTO, display.main)
+	connect(shortcut, SIGNAL('activated()'), self, SLOT('goto()'))
+	@shortcuts << shortcut
 	display
     end
     slots 'add_display()'
