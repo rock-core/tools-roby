@@ -63,10 +63,9 @@ module Roby
 
 	    def relations_to_dot(display, io, space, objects)
 		each_displayed_relation(display, space, objects) do |rel, from, to|
-		    from_id = from.dot_id
-		    to_id   = to.dot_id
+		    from_id, to_id = from.dot_id, to.dot_id
 		    if from_id && to_id
-			io << "  #{from_id} -> #{to_id};"
+			io << "  #{from_id} -> #{to_id}\n"
 		    else
 			STDERR.puts "WARN ignoring #{from}(#{from.object_id} #{from.remote_object}) -> #{to}(#{to.object_id} #{to.remote_object}) in #{rel} in #{caller(1).join("\n  ")}"
 		    end
