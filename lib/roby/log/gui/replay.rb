@@ -166,6 +166,7 @@ class Replay < Qt::MainWindow
 	@play_speed = value
 
 	if play_timer
+	    play_timer.stop
 	    play_timer.start(Integer(time_slice * 1000))
 	end
     end
