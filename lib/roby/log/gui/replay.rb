@@ -172,7 +172,7 @@ class Replay < Qt::MainWindow
     end
     def time_slice
 	if play_speed < 1
-	    BASE_TIME_SLICE / speed
+	    BASE_TIME_SLICE / play_speed
 	else
 	    BASE_TIME_SLICE
 	end
