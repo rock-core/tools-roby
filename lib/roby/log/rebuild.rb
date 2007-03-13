@@ -121,7 +121,7 @@ module Roby
 	    end
 	    
 	    def prepare_seek(time)
-		if !time || time < current_time
+		if !time || !current_time || time < current_time
 		    clear
 		    io.rewind
 		    read_step
