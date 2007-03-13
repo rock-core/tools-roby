@@ -161,6 +161,15 @@ module Roby
 		dot_input << "  rankdir=#{display.layout_direction};\n"
 
 		plan.to_dot(display, self, 0)
+
+		# Take the signalling into account for the layout
+		display.signalled_events.each do |_, from, to, _|
+		    from_id, to_id = from.dot_id, to.dot_id
+		    if from_id && to_id
+			dot_input << "  #{from.dot_id} -> #{to.dot_id}\n"
+		    end
+		end
+
 		dot_input << "\n};"
 		dot_input.flush
 		FileUtils.cp(dot_input.path, "/tmp/dot_layout.input.#{@@bkpindex += 1}")
