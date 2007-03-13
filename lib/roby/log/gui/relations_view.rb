@@ -2,14 +2,23 @@ require 'roby/log/gui/relations_view_ui'
 
 class Ui::RelationsView
     attr_reader :scene
+
+    ZOOM_STEP = 0.25
     def setupUi(widget)
 	super
 
 	zoom.connect(SIGNAL(:clicked)) do 
-	    graphics.scale 2.0, 2.0
+	    scale = graphics.matrix.m11
+	    if scale + ZOOM_STEP > 1
+		scale = 1 - ZOOM_STEP
+	    end
+	    graphics.resetMatrix
+	    graphics.scale scale + ZOOM_STEP, scale + ZOOM_STEP
 	end
 	unzoom.connect(SIGNAL(:clicked)) do
-	    graphics.scale 0.5, 0.5
+	    scale = graphics.matrix.m11
+	    graphics.resetMatrix
+	    graphics.scale scale - ZOOM_STEP, scale - ZOOM_STEP
 	end
 	fit.connect(SIGNAL(:clicked)) do
 	    graphics.fitInView(graphics.scene.items_bounding_rect, Qt::KeepAspectRatio)
