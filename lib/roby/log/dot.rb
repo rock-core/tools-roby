@@ -93,13 +93,13 @@ module Roby
 	class Distributed::MarshalledPlanObject
 	    attr_reader :dot_id
 
-	    def dot_label; display_name end
+	    def dot_label(display); display_name end
 
 	    # Adds the dot definition for this object in +io+
 	    def to_dot(display, io)
 		return unless display.displayed?(remote_object)
 		@dot_id = io.layout_id(self)
-		io << "  #{dot_id}[label=\"#{dot_label.split("\n").join('\n')}\"];\n"
+		io << "  #{dot_id}[label=\"#{dot_label(display).split("\n").join('\n')}\"];\n"
 	    end
 
 	    # Applys the layout in +positions+ to this particular object
@@ -117,8 +117,11 @@ module Roby
 	    def dot_id; task.dot_id end
 	end
 	class Distributed::MarshalledTask
-	    def dot_label
-		event_names = events.map { |ev| ev.dot_label }.join(" ") 
+	    def dot_label(display)
+		event_names = events.find_all { |ev| display.displayed?(ev) }.
+		    map { |ev| ev.dot_label(display) }.
+		    join(" ")
+
 		own = super
 		if own.size > event_names.size then own
 		else event_names
