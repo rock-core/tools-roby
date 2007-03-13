@@ -253,6 +253,7 @@ module Roby
 
 	model_attribute_list('signal')
 	model_attribute_list('forwarding')
+	model_attribute_list('causal_link')
 	model_attribute_list('handler')
 	model_attribute_list('precondition')
 
@@ -310,6 +311,9 @@ module Roby
 		end
 		model.each_forwarding(symbol) do |signalled|
 		    generator.forward bound_events[signalled]
+		end
+		model.each_causal_link(symbol) do |linked|
+		    generator.add_causal_link bound_events[linked]
 		end
 	    end
 
@@ -929,6 +933,18 @@ module Roby
 		end
             end
         end
+
+	# call-seq:
+	#   causal_link(:from => :to)
+	#
+	# Declares a causal link between two events in the task
+	def self.causal_link(mappings)
+            mappings.each do |from, to|
+                from = event_model(from).symbol
+		causal_link_sets[from] |= Array[*to].map { |ev| event_model(ev).symbol }.to_set
+            end
+	    update_terminal_flag
+	end
 
 	# +mappings+ is a from => to hash where +from+ is forwarded to +to+.
 	def self.forward(mappings)

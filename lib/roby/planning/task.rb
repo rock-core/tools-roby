@@ -195,6 +195,8 @@ module Roby
 		planning_tasks.pop
 	    end
 	end
+
+	causal_link :loop_start => :loop_end
     end
 
 
