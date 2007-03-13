@@ -152,47 +152,97 @@ class Replay < Qt::MainWindow
 		self.play_speed = play_speed
 	    end
 	end
-
-	seek_start
+	connect(ui.goto, SIGNAL('clicked()'), self, SLOT('goto()'))
     end
 
     def play_speed=(value)
 	ui.speed.text = value.to_s
 	@play_speed = value
+
+	if play_timer
+	    play_timer.start(Integer(time_slice * 1000))
+	end
+    end
+    def time_slice
+	if play_speed < 1
+	    BASE_TIME_SLICE / speed
+	else
+	    BASE_TIME_SLICE
+	end
     end
 
     def displayed_sources
 	sources.find_all { |s| !s.displays.empty? }
     end
 
+    # Time of the first known sample
     attr_reader :first_sample
-    def seek_start
-	@time = nil
-	displayed_sources.each { |s| s.prepare_seek(nil) }
-	@first_sample = time
-	ui.time_lcd.display 0
-    end
+    # Time of the last known sample
+    attr_reader :last_sample
+
+    def seek_start; seek(nil) end
     slots 'seek_start()'
 
-    def allocate_display_number; @display_number += 1 end
-    def time
-	@time ||= next_step_time
-	@first_sample ||= @time
-	@time
+    def seek(time)
+	displayed_sources.each { |s| s.prepare_seek(time) }
+	if !time || time == Time.at(0)
+	    min, max = displayed_sources.inject([nil, nil]) do |(min, max), source|
+		source_min, source_max = source.range
+		if !min || source_min < min
+		    min = source_min
+		end
+		if !max || source_max > max
+		    max = source_max
+		end
+		[min, max]
+	    end
+		    
+	    @first_sample = @time = min
+	    @last_sample  = max
+	    ui.progress.minimum = first_sample.to_i
+	    ui.progress.maximum = last_sample.to_i
+	else
+	    play_until time
+	end
+
+	ui.time_lcd.display(self.time - first_sample)
+	ui.progress.value = self.time.to_i
     end
+
+    def goto
+	time = begin
+		   time = Qt::InputDialog.get_text self, 'Going to ...', 'Time', Qt::LineEdit::Normal, (time || "")
+		   return if time.empty?
+		   Time.from_hms(time)
+
+	       rescue ArgumentError
+		   Qt::MessageBox.warning self, "Invalid time", "Invalid time: #{$!.message}"
+		   retry
+	       end
+
+	seek_start unless first_sample
+	seek(first_sample + (time - Time.at(0)))
+    end
+    slots 'goto()'
+
+    def allocate_display_number; @display_number += 1 end
+    attr_reader :time
+
     def next_step_time
 	displayed_sources.
 	    map { |s| s.next_step_time }.
 	    compact.min 
     end
 
-    BASE_STEP = 0.5
+    BASE_TIME_SLICE = 0.5
     attr_reader :play_timer, :play_speed
     def play
 	if ui.play.checked?
+	    seek_start unless first_sample
+
 	    @play_timer = Qt::Timer.new(self)
 	    connect(play_timer, SIGNAL("timeout()"), self, SLOT("play_step_timer()"))
-	    play_timer.start(Integer(BASE_STEP * 1000))
+	    play_timer.start(Integer(time_slice * 1000))
 	else
 	    play_timer.stop
 	end
@@ -202,40 +252,26 @@ class Replay < Qt::MainWindow
     def stop
 	ui.play.checked = false
 	play_timer.stop if play_timer
+	@play_timer = nil
     end
     slots 'stop()'
 
     def play_step
-	start = Time.now
+	seek_start unless first_sample
        	play_until(next_step_time) 
     end
     slots 'play_step()'
 
     def play_step_timer
 	start = Time.now
+	play_until(time + time_slice * play_speed)
+
 	STDERR.puts time.to_hms
-       	play_until(time + BASE_STEP * play_speed) 
 	STDERR.puts "play: #{Time.now - start}"
     end
     slots 'play_step_timer()'
     
-    def goto
-	begin
-	    time = ""
-	    time = Qt::InputDialog.get_text self, 'Going to ...', 'Time', time
-	    return if time.empty?
-	    time = Time.from_hms(time)
-
-	rescue ArgumentError
-	    Qt::MessageBox.warning self, "Invalid time", "Invalid time \"#{ui.speed.text}\": #{$!.message}"
-	    retry
-	end
-
-	play_until(time)
-    end
-
     def play_until(max_time)
-	start_time = @time
 	displayed_sources.inject(timeline = []) do |timeline, s| 
 	    if s.next_step_time
 		timeline << [s.next_step_time, s]
@@ -248,24 +284,25 @@ class Replay < Qt::MainWindow
 	    return
 	end
 
+	updated_sources = Set.new
+
 	timeline.sort_by { |t, _| t }
 	while !timeline.empty? && timeline[0][0] <= max_time
 	    timeline.sort_by { |t, _| t }
 	    @time, source = timeline.first
 
 	    source.advance
+	    updated_sources << source
 	    if next_time = source.next_step_time
 		timeline[0] = [next_time, source]
 	    else
 		timeline.shift
 	    end
-	    #Qt::Application.instance.process_events
 	end
 
-	displayed_sources.each do |source|
+	updated_sources.each do |source|
 	    source.displays.each do |d| 
 		d.update
-		#Qt::Application.instance.process_events
 	    end
 	end
 
@@ -273,6 +310,13 @@ class Replay < Qt::MainWindow
 	else @time = max_time
 	end
 
+	if time > last_sample
+	    last_sample = time
+	    if ui.progress.maximum < time.to_i
+		ui.progress.maximum = (first_sample + (last_sample - first_sample) * 4 / 3).to_i
+	    end
+	end
+	ui.progress.value = time.to_i
 	ui.time_lcd.display(time - first_sample)
     end
 

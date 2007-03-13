@@ -95,6 +95,7 @@ module Roby
 	    attr_reader :io
 	    attr_reader :next_step
 	    attr_reader :displays
+	    attr_reader :range
 
 	    def initialize(filename)
 		@io     = Roby::Log.open(filename)
@@ -103,6 +104,7 @@ module Roby
 		@tasks  = Hash.new
 		@events = Hash.new
 		@next_step = Array.new
+		@range = [nil, nil]
 
 		prepare_seek(nil)
 		while next_step.size == 1
@@ -123,6 +125,9 @@ module Roby
 		    clear
 		    io.rewind
 		    read_step
+
+		    range[0] = current_time
+		    range[1] ||= current_time
 		end
 	    end
 	    
@@ -136,6 +141,8 @@ module Roby
 			break
 		    end
 		end
+
+		range[1] = next_step_time if range[1] && range[1] < next_step_time
 	    rescue EOFError
 	    end
 	    
@@ -143,7 +150,6 @@ module Roby
 	    def next_step_time
 		next_step.last[1][0] unless next_step.empty? 
 	    end
-	    def last_time; nil end
 	    def advance
 		next_step.each do |name, args|
 		    send(name, *args) if respond_to?(name)
