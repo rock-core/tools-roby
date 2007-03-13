@@ -461,6 +461,19 @@ module Roby
 		raise NotOwner, "cannot add an event relation on a child we don't own. #{child} is owned by #{child.owners.to_a} (#{plan.owners.to_a})"
 	    end
 	end
+
+	def pretty_print(pp)
+	    pp.text to_s
+	    pp.group(2, ' {', '}') do
+		pp.breakable
+		pp.text "owners: "
+		pp.seplist(owners) { |r| pp.text r.to_s }
+
+		pp.breakable
+		pp.text "relations: "
+		pp.seplist(relations) { |r| pp.text r.name }
+	    end
+	end
     end
 
     # This generator reemits an event after having changed its context. See
