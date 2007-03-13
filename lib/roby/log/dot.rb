@@ -172,9 +172,7 @@ module Roby
 
 		dot_input << "\n};"
 		dot_input.flush
-		FileUtils.cp(dot_input.path, "/tmp/dot_layout.input.#{@@bkpindex += 1}")
 		system("#{display.layout_method} #{dot_input.path} > #{dot_output.path}")
-		FileUtils.cp(dot_output.path, "/tmp/dot_layout.output.#{@@bkpindex}")
 
 		xmin, ymin = 1024, 1024
 		# Load only task bounding boxes from dot, update arrows later
