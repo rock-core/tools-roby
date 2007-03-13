@@ -32,6 +32,8 @@ module Roby
 	EVENT_RELATIONS_LAYER  = 51
 	EVENT_SIGNALLING_LAYER = 52
 
+	FIND_MARGIN = 10
+
 	class Distributed::MarshalledPlanObject
 	    def display_parent; end
 	    def display_create(scene); end
@@ -171,7 +173,7 @@ module Roby
 	    def events; [] end
 
 	    def display_parent; end
-	    def display_name; name end
+	    def display_name; "tProxy(#{real_object.display_name})" end
 	    def display_create(scene); end
 	    def display(display, graphics_item); end
 	end
@@ -310,6 +312,10 @@ module Roby
 		@postponed_events  = []
 		@signal_arrows     = []
 
+		@shortcuts = []
+		shortcut = Qt::Shortcut.new(Qt::KeySequence.new('f'), main)
+		connect(shortcut, SIGNAL('activated()'), self, SLOT('find()'))
+		@shortcuts << shortcut
 		main.resize 500, 500
 	    end
 
@@ -325,6 +331,38 @@ module Roby
 		end
 		Log.arrow_set item, self[from], self[to]
 	    end
+
+	    # Centers the view on the set of object found which matches
+	    # +regex+.  If +regex+ is nil, ask one to the user
+	    def find(regex = nil)
+		unless regex
+		    regex = Qt::InputDialog.get_text main, 'Find objects in relation view', 'Object name'
+		    return unless regex && !regex.empty?
+		end
+		regex = /#{regex.to_str}/i if regex.respond_to?(:to_str)
+
+		# Get the tasks and events matching the string
+		objects = data_source.tasks.
+		    find_all { |_, object| displayed?(object.remote_object) && regex === object.display_name }
+		objects.concat data_source.events.
+		    find_all { |_, object| displayed?(object.remote_object) && regex === object.display_name }
+		objects.map! { |_, object| object }
+
+		return if objects.empty?
+
+		# Find the graphics items
+		bb = objects.inject(Qt::RectF.new) do |bb, object| 
+		    if item = self[object]
+			item.selected = true
+			bb | item.scene_bounding_rect | item.map_to_scene(item.children_bounding_rect).bounding_rect
+		    else
+			bb
+		    end
+		end
+		bb.adjust -FIND_MARGIN, -FIND_MARGIN, FIND_MARGIN, FIND_MARGIN
+		ui.graphics.fit_in_view bb, Qt::KeepAspectRatio
+	    end
+	    slots 'find()'
 
 	    COLORS = %w{'black' #800000 #008000 #000080 #C05800 #6633FF #CDBE70 #CD8162 #A2B5CD}
 	    attr_reader :current_color
@@ -460,10 +498,13 @@ module Roby
 		remote_object = object.remote_object
 		unless item = graphics[remote_object]
 		    item = graphics[remote_object] = object.display_create(scene)
-		    yield(item) if block_given?
+		    if item
+			item.flags = item.flags + Qt::ItemIsSelectable
+			yield(item) if block_given?
 
-		    if item && !displayed?(remote_object) 
-			item.visible = false
+			if !displayed?(remote_object) 
+			    item.visible = false
+			end
 		    end
 		end
 		item
