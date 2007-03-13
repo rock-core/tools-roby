@@ -344,13 +344,7 @@ module Roby
 	    end
 
 	    if Propagation.gathering?
-		if Propagation.source_generators.include?(self)
-		    # WTF ? an event calling itself ? I remember that there is a good 
-		    # reason for that, but can't recall which. That sucks.
-		    emit_without_propagation(context)
-		else
-		    Propagation.add_event_propagation(true, Propagation.source_events, self, context, nil)
-		end
+		Propagation.add_event_propagation(true, Propagation.source_events, self, context, nil)
 	    else
 		errors = Propagation.propagate_events do |initial_set|
 		    initial_set << self

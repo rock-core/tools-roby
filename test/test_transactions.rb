@@ -267,24 +267,6 @@ module TC_TransactionBehaviour
 	assert(!Signal.linked?(t1.event(:start), t2.event(:success)))
     end
     
-    def test_commit_event_handlers
-	e = Roby::EventGenerator.new(true)
-	def e.called_by_handler(mock)
-	    mock.called_by_handler
-	end
-
-	FlexMock.use do |mock|
-	    transaction_commit(plan, e) do |trsc, pe|
-		pe.on { mock.handler_called }
-		pe.on { pe.called_by_handler(mock) }
-	    end
-
-	    mock.should_receive(:handler_called).once
-	    mock.should_receive(:called_by_handler).once
-	    e.call(nil)
-	end
-    end
-
     def test_commit_replace
 	task, (parent, child, r) = prepare_plan :missions => 1, :tasks => 3
 	parent.realized_by task
@@ -478,6 +460,24 @@ class TC_Transactions < Test::Unit::TestCase
 	t1.start!
 	assert(t3.running?)
 	assert_nothing_raised { t2.start! }
+    end
+
+    def test_commit_event_handlers
+	plan.discover(e = Roby::EventGenerator.new(true))
+	def e.called_by_handler(mock)
+	    mock.called_by_handler
+	end
+
+	FlexMock.use do |mock|
+	    transaction_commit(plan, e) do |trsc, pe|
+		pe.on { mock.handler_called }
+		pe.on { pe.called_by_handler(mock) }
+	    end
+
+	    mock.should_receive(:handler_called).once
+	    mock.should_receive(:called_by_handler).once
+	    e.call(nil)
+	end
     end
 
 end

@@ -18,7 +18,7 @@ class TC_Event < Test::Unit::TestCase
 
 	# Check command & emission behavior for controlable events
 	FlexMock.use do |mock|
-	    event = EventGenerator.new { |context| mock.call_handler(context); event.emit(context) }
+	    plan.discover(event = EventGenerator.new { |context| mock.call_handler(context); event.emit(context) })
 	    event.on { |event| mock.event_handler(event.context) }
 
 	    assert(event.respond_to?(:call))
@@ -149,7 +149,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_event_hooks
         FlexMock.use do |mock|
-	    hooks = [:calling, :fired, :called]
+	    hooks = [:calling, :called, :fired]
             mod = Module.new do
 		hooks.each do |name|
 		    define_method(name) do |context|
@@ -161,6 +161,7 @@ class TC_Event < Test::Unit::TestCase
             generator = Class.new(EventGenerator) do
 		include mod
 	    end.new(true)
+	    plan.discover(generator)
             
 	    hooks.each do |name|
 		mock.should_receive(name).once.with(generator).ordered
@@ -397,6 +398,8 @@ class TC_Event < Test::Unit::TestCase
 	generator = Class.new(EventGenerator) do
 	    def new(context); [Propagation.propagation_id, context] end
 	end.new(true)
+	plan.discover(generator)
+
 	assert_raises(TypeError) { generator.call(nil) }
 
 	generator = Class.new(EventGenerator) do
@@ -405,6 +408,7 @@ class TC_Event < Test::Unit::TestCase
 		event_klass.new(Propagation.propagation_id, context, self)
 	    end
 	end.new(true)
+	plan.discover(generator)
 	assert_nothing_raised { generator.call(nil) }
     end
 
@@ -424,7 +428,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_preconditions
-	e1 = EventGenerator.new(true)
+	plan.discover(e1 = EventGenerator.new(true))
 	e1.precondition("context must be non-nil") do |generator, context|
 	    context
 	end
@@ -468,6 +472,7 @@ class TC_Event < Test::Unit::TestCase
 		ev.emit(context)
 		mock.called(context)
 	    end
+	    plan.discover(ev)
 
 	    mock.should_receive(:called).with(42).once
 	    ev.call(42)
