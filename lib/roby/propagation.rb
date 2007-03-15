@@ -74,7 +74,7 @@ module Roby::Propagation
     # exception source
     #
     # Returns +true+ if an exception has been raised
-    def self.gather_exceptions(source = nil)
+    def self.gather_exceptions(source = nil, modname = 'unknown')
 	begin
 	    yield
 	    false
@@ -85,7 +85,7 @@ module Roby::Propagation
 	    elsif Thread.current[:application_exceptions]
 		Thread.current[:application_exceptions] << [source, e]
 	    else
-		Roby.application_error('unknown', source, e)
+		Roby.application_error(modname, source, e)
 	    end
 	    true
 	end
@@ -159,9 +159,9 @@ module Roby::Propagation
 
 	initial_set = []
 	next_step = gather_propagation do
-	    gather_exceptions { yield(initial_set) } if block_given?
+	    gather_exceptions(nil, 'initial set setup') { yield(initial_set) } if block_given?
 	    seeds.each do |s|
-		gather_exceptions { s.call }
+		gather_exceptions(s, 'seed') { s.call }
 	    end
 	end
 
@@ -435,7 +435,7 @@ module Roby
 	    elsif Control.instance.abort_on_application_exception || error.kind_of?(SignalException)
 		raise error
 	    else
-		Roby.error "Application error during #{event} in #{origin}:#{error.full_message}"
+		Roby.error "Application error during #{event} in #{origin}:in #{error.full_message}"
 	    end
 
 	    nil

@@ -113,7 +113,7 @@ module Roby
 	    exceptions = {}
 	    Control.structure_checks.each do |prc|
 		new_exceptions = nil
-		Propagation.gather_exceptions { new_exceptions = prc.call(plan) }
+		Propagation.gather_exceptions(prc, 'structure check') { new_exceptions = prc.call(plan) }
 		next unless new_exceptions
 
 		[*new_exceptions].each do |e, tasks|
@@ -209,7 +209,7 @@ module Roby
 	    # Calls all pending procs in +process_once+
 	    def call_once # :nodoc:
 		while (p = process_once.pop(true) rescue nil)
-		    Propagation.gather_exceptions { p.call }
+		    Propagation.gather_exceptions(p, 'call once processing') { p.call }
 		end
 	    end
 	    Control.event_processing << Control.method(:call_once)
@@ -232,7 +232,7 @@ module Roby
 		now = Time.now
 		process_every.map! do |block, last_call, duration|
 		    if !last_call || (now - last_call) > duration
-			Propagation.gather_exceptions { block.call }
+			Propagation.gather_exceptions(block, "call every(#{duration})") { block.call }
 			last_call = now
 		    end
 		    [block, last_call, duration]
