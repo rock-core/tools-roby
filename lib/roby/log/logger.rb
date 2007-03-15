@@ -60,16 +60,35 @@ module Roby::Log
 	attribute(:flushed_logger_mutex) { Mutex.new }
 	attribute(:flushed_logger) { ConditionVariable.new }
 
+	attribute(:known_objects) { ValueSet.new }
+
+	def incremental_dump?(object); known_objects.include?(object) end
+
 	# call-seq:
 	#   Log.log(message) { args }
 	#
 	# Logs +message+ with argument +args+. The block is called only once if
 	# there is at least one logger which listens for +message+.
 	def log(m, args = nil)
+	    if m == :discovered_tasks || m == :discovered_events
+		Roby::Control.synchronize do
+		    args ||= yield
+		    known_objects.merge(args[2].to_value_set)
+		    args = Roby::Distributed.format(args)
+		end
+	    elsif m == :finalized_task || m == :finalized_event
+		Roby::Control.synchronize do
+		    args ||= yield
+		    object = args[2]
+		    args = Roby::Distributed.format(args, self)
+		    known_objects.delete(object)
+		end
+	    end
+
 	    if has_logger?(m)
 		if !args && block_given?
 		    Roby::Control.synchronize do 
-			args = Roby::Distributed.format(yield)
+			args = Roby::Distributed.format(yield, self)
 		    end
 		end
 

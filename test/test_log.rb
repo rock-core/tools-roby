@@ -1,5 +1,7 @@
 $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'roby/test/common'
+require 'roby/test/distributed'
+require 'test/mockups/tasks'
 
 require 'roby'
 require 'roby/log'
@@ -59,6 +61,46 @@ class TC_Log < Test::Unit::TestCase
 	    Log.add_logger mock
 
 	    Log.log(:nonsplat_event) { [1, 2] }
+	    Log.flush
+	end
+    end
+
+    def on_marshalled_task(task)
+	FlexMock.on { |obj| obj.remote_object == task.drb_object }
+    end
+    def test_known_objects_management
+	DRb.start_service Distributed::Test::DISCOVERY_URI
+	t1, t2 = SimpleTask.new, SimpleTask.new
+	FlexMock.use do |mock|
+	    mock.should_receive(:splat?).and_return(true)
+	    mock.should_receive(:added_task_child).
+		with(FlexMock.any, on_marshalled_task(t1), TaskStructure::Hierarchy.droby_dump(nil), 
+		     on_marshalled_task(t2), FlexMock.any).once
+
+	    match_discovered_set = FlexMock.on do |task_set| 
+		task_set.map { |obj| obj.remote_object }.to_set == [t1.drb_object, t2.drb_object].to_set
+	    end
+
+	    mock.should_receive(:discovered_tasks).
+		with(FlexMock.any, FlexMock.any, match_discovered_set).
+		once
+	    mock.should_receive(:removed_task_child).
+		with(FlexMock.any, t1.drb_object, TaskStructure::Hierarchy.droby_dump(nil), t2.drb_object).
+		once
+	    mock.should_receive(:finalized_task).
+		with(FlexMock.any, FlexMock.any, t1.drb_object).
+		once
+
+	    Log.add_logger mock
+	    t1.realized_by t2
+	    assert(Log.known_objects.empty?)
+	    plan.discover(t1)
+	    assert_equal([t1, t2].to_value_set, Log.known_objects)
+	    t1.remove_child t2
+	    assert_equal([t1, t2].to_value_set, Log.known_objects)
+	    plan.remove_object(t1)
+	    assert_equal([t2].to_value_set, Log.known_objects)
+
 	    Log.flush
 	end
     end

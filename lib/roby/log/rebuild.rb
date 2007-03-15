@@ -163,22 +163,27 @@ module Roby
 		@plans[plan.remote_object] ||= Plan.new(plan.remote_object)
 	    end
 
-	    def local_object(set, marshalled)
-		marshalled = Log.update_marshalled(set, marshalled)
-		plan = if marshalled.respond_to?(:transaction)
-			   local_plan(marshalled.transaction)
+	    def local_object(set, object)
+		object = if !object.kind_of?(DRbObject)
+			     Log.update_marshalled(set, object)
+			 else
+			     set[object]
+			 end
+
+		plan = if object.respond_to?(:transaction)
+			   local_plan(object.transaction)
 		       else
-			   local_plan(marshalled.plan)
+			   local_plan(object.plan)
 		       end
 		if plan
 		    yield(plan) if block_given?
 		end
-		marshalled
+		object
 	    end
 
 	    def local_task(task); local_object(tasks, task) end
 	    def local_event(event)
-		if event.respond_to?(:task)
+		if !event.kind_of?(DRbObject) && event.respond_to?(:task)
 		    task = local_task(event.task)
 		    event.task = task
 		    event.plan = task.plan
@@ -189,11 +194,17 @@ module Roby
 		    local_object(events, event) 
 		end
 	    end
+	    def remote_object(object)
+		if object.kind_of?(DRbObject) then object
+		else object.remote_object
+		end
+	    end
+
 	    def inserted_tasks(time, plan, task)
-		local_plan(plan).missions << task.remote_object
+		local_plan(plan).missions << task
 	    end
 	    def discarded_tasks(time, plan, task)
-		local_plan(plan).missions.delete(task.remote_object)
+		local_plan(plan).missions.delete(task)
 	    end
 	    def replaced_tasks(time, plan, from, to)
 	    end
@@ -203,7 +214,7 @@ module Roby
 	    end
 	    def discovered_tasks(time, plan, tasks)
 		plan = local_plan(plan)
-		tasks.each { |t| plan.known_tasks << local_task(t) }
+		tasks.each { |t| plan.known_tasks   << local_task(t) }
 	    end
 	    def garbage_task(time, plan, task)
 	    end

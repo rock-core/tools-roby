@@ -479,10 +479,10 @@ module Roby
 	    attr_predicate :enabled_event_relations?, true
 
 	    def generator_called(time, generator, context)
-		pending_events << generator.remote_object
+		pending_events << local_event(generator)
 	    end
 	    def generator_fired(time, generator, event_id, event_time, event_context)
-		pending_events.delete(generator.remote_object)
+		pending_events.delete(local_event(generator))
 	    end
 	    def generator_postponed(time, generator, context, until_generator, reason)
 		postponed_events << [data_source.local_event(generator), data_source.local_event(until_generator)]
@@ -620,18 +620,22 @@ module Roby
 		end
 		scene.remove_item(item) if scene
 	    end
+
+	    def local_event(obj); data_source.local_event(obj) end
+	    def remote_object(obj); data_source.remote_object(obj) end
+
 	    def removed_task_child(time, parent, rel, child)
-		remove_graphics(arrows.delete([parent.remote_object, child.remote_object, rel]))
+		remove_graphics(arrows.delete([remote_object(parent), remote_object(child), rel]))
 	    end
 	    def removed_event_child(time, parent, rel, child)
-		remove_graphics(arrows.delete([parent.remote_object, child.remote_object, rel]))
+		remove_graphics(arrows.delete([remote_object(parent), remote_object(child), rel]))
 	    end
 	    def discovered_events(time, plan, events)
 		return unless enabled_event_relations?
-		events.each { |obj| set_visibility(obj.remote_object, true) }
+		events.each { |obj| set_visibility(remote_object(obj), true) }
 	    end
 	    def discovered_tasks(time, plan, tasks)
-		tasks.each  { |obj| set_visibility(obj.remote_object, true) }
+		tasks.each  { |obj| set_visibility(remote_object(obj), true) }
 	    end
 	    def clear_arrows(object)
 		arrows.delete_if do |(from, to, _), arrow|
@@ -642,12 +646,10 @@ module Roby
 		end
 	    end
 	    def finalized_event(time, plan, event)
-		event = event.remote_object
 		remove_graphics(graphics.delete(event))
 		clear_arrows(event)
 	    end
 	    def finalized_task(time, plan, task)
-		task = task.remote_object
 		remove_graphics(graphics.delete(task))
 		clear_arrows(task)
 	    end
