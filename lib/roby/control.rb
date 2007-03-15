@@ -35,7 +35,7 @@ module Roby
 		if Thread.current[:control_mutex_locked]
 		    yield
 		else
-		    @mutex.synchronize do
+		    mutex.synchronize do
 			begin
 			    Thread.current[:control_mutex_locked] = true
 			    yield
