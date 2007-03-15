@@ -72,7 +72,7 @@ module Roby
 		raise "#{self} has already a sibling for #{peer} (#{old_sibling})"
 	    end
 
-	    Roby.debug "added sibling #{remote_object} for #{self} on #{peer}"
+	    Roby.debug "added sibling #{remote_object.inspect} for #{self} on #{peer}"
 	    remote_siblings[peer] = remote_object
 	    peer.proxies[remote_object] = self
 	end
@@ -82,7 +82,7 @@ module Roby
 	    if remote_object = remote_siblings.delete(peer)
 		peer.proxies.delete(remote_object)
 		peer.subscriptions.delete(remote_object)
-		Roby.debug "removed sibling #{remote_object} for #{self} on #{peer}"
+		Roby.debug "removed sibling #{remote_object.inspect} for #{self} on #{peer}"
 		remote_object
 	    end
 	end
