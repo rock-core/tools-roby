@@ -377,9 +377,11 @@ module Roby
 	    # neighbours in the control thread
 	    def notify_new_neighbours
 		return unless Distributed.state
-		new_neighbours.get(true).each do |cs, n|
+		loop do
+		    neighbour = new_neighbours.pop(true) rescue nil
+		    break unless neighbour
 		    new_neighbours_observers.each do |obs|
-			obs[cs, n]
+			obs[cs, neighbour]
 		    end
 		end
 	    end
