@@ -416,7 +416,7 @@ module Roby
 	    Roby.info "received interruption request"
 	    quit
 	    if @quit > 2
-		thread.raise Interrupt
+		thread.raise Interrupt, "interrupting control thread at user request"
 	    end
 	    retry
 	end

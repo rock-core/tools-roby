@@ -54,7 +54,7 @@ module Roby::Distributed
 	end
 
 	def close
-	    @service.raise Interrupt
+	    @service.raise Interrupt, "interrupting RingServer"
 	    @soc.close
 	end
     end

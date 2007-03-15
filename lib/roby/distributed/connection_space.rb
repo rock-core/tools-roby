@@ -307,7 +307,7 @@ module Roby
 		end
 
 		# Make the neighbour discovery thread quit as well
-		@discovery_thread.raise Interrupt
+		@discovery_thread.raise Interrupt, "forcing discovery thread quit"
 		@discovery_thread.join
 
 	    ensure
