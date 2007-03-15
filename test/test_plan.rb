@@ -240,7 +240,7 @@ class TC_Plan < Test::Unit::TestCase
 	    tasks << task
 	end
 	def finalized_event(time, plan, event)
-	    events << event if event.root_object?
+	    events << event unless event.respond_to?(:task)
 	end
 	def clear
 	    tasks.clear
@@ -251,15 +251,18 @@ class TC_Plan < Test::Unit::TestCase
 
     def setup
 	super
-	Roby::Log.loggers << (@finalized_tasks_recorder = FinalizedTaskRecorder.new)
+
+	DRb.start_service
+	Roby::Log.add_logger(@finalized_tasks_recorder = FinalizedTaskRecorder.new)
     end
     def teardown
-	Roby::Log.loggers.delete(@finalized_tasks_recorder)
+	Roby::Log.remove_logger @finalized_tasks_recorder
 	super
     end
 
     def assert_finalizes(plan, unneeded, finalized = nil)
 	finalized ||= unneeded
+	finalized = finalized.map { |obj| obj.drb_object }
 	clear_finalized
 
 	yield if block_given?
