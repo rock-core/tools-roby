@@ -327,8 +327,9 @@ module Roby
 	    #
 	    # Create the precedence relations between 'normal' events and the terminal events
 	    terminal_events.each do |terminal|
+		next if terminal.symbol == :start
 		bound_events.each_value do |generator|
-		    generator.add_precedence(terminal) unless generator.terminal? || terminal.symbol == :start
+		    generator.add_precedence(terminal) unless generator.terminal?
 		end
 	    end
 	end
