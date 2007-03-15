@@ -75,7 +75,6 @@ class TC_DistributedCommunication < Test::Unit::TestCase
     def setup
 	super
 
-	Roby.logger.level = Logger::FATAL
 	remote_process do
 	    peer = FakePeer.new 'local'
 	    DRb.start_service REMOTE_URI, peer.local
@@ -139,6 +138,7 @@ class TC_DistributedCommunication < Test::Unit::TestCase
     end
 
     def test_transmit_error
+	Roby.logger.level = Logger::FATAL
 	FlexMock.use do |mock|
 	    remote_peer.link_alive = false
 	    remote_peer.transmit(:reply_error, 2) do |result|
@@ -186,6 +186,7 @@ class TC_DistributedCommunication < Test::Unit::TestCase
     end
 
     def test_flush_raises
+	Roby.logger.level = Logger::FATAL
 	remote_peer.link_alive = false
 	remote_peer.transmit(:reply_error, 2)
 	t = Thread.current
@@ -200,12 +201,14 @@ class TC_DistributedCommunication < Test::Unit::TestCase
     end
 
     def test_call_raises
+	Roby.logger.level = Logger::FATAL
 	assert_raises(RuntimeError) do
 	    remote_peer.call(:reply_error, 2)
 	end
     end
 
     def test_call_disconnects
+	Roby.logger.level = Logger::FATAL
 	remote_peer.link_alive = false
 
 	remote_peer.transmit(:reply_error, 2)
