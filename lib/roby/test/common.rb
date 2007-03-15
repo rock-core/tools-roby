@@ -36,11 +36,16 @@ module Roby
 	def restore_collections
 	    original_collections.each do |col, backup|
 		col.clear
-		backup.each(&col.method(:<<))
+		if col.kind_of?(Hash)
+		    col.merge! backup
+		else
+		    backup.each(&col.method(:<<))
+		end
 	    end
 	end
 
 	def setup
+	    @original_roby_logger_level = Roby.logger.level
 	    @timings = { :start => Time.now }
 
 	    @original_collections = []
@@ -59,9 +64,12 @@ module Roby
 	    # Save and restore Control's global arrays
 	    save_collection Roby::Control.event_processing
 	    save_collection Roby::Control.structure_checks
-	    Roby::Control.instance.abort_on_exception = true
-	    Roby::Control.instance.abort_on_application_exception = true
-	    Roby::Control.instance.abort_on_framework_exception = true
+	    save_collection Roby::Control.at_cycle_end_handlers
+	    save_collection Roby::EventGenerator.event_gathering
+	    Roby.control.instance_variable_set("@quit", 0)
+	    Roby.control.abort_on_exception = true
+	    Roby.control.abort_on_application_exception = true
+	    Roby.control.abort_on_framework_exception = true
 
 	    save_collection Roby::Propagation.event_ordering
 	    save_collection Roby::Propagation.delayed_events
@@ -136,6 +144,7 @@ module Roby
 		end
 	    end
 
+	    Roby::TaskStructure::Hierarchy.interesting_events.clear
 	    if defined? Roby::Control
 		Roby::Control.instance.abort_on_exception = false
 		Roby::Control.instance.abort_on_application_exception = false
@@ -160,6 +169,7 @@ module Roby
 	    end
 
 	ensure
+	    Roby.logger.level = @original_roby_logger_level
 	    self.console_logger = false
 	end
 

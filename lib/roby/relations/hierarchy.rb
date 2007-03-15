@@ -6,6 +6,9 @@ module Roby::TaskStructure
     relation :Hierarchy, :child_name => :child, :parent_name => :parent_task do
 	def realizes?(obj);	parent_object?(obj, Hierarchy) end
 	def realized_by?(obj);  child_object?(obj, Hierarchy) end
+	def depends_on?(obj)
+	    generated_subgraph(Hierarchy).include?(obj)
+	end
 
 	# Adds +task+ as a child of +self+. The following options are allowed:
 	# success:: the list of success events
@@ -36,6 +39,18 @@ module Roby::TaskStructure
 	    add_child(task, options)
             self
         end
+
+	def added_child_object(child, relation, info)
+	    super if defined? super
+	    if relation == Hierarchy
+		events = info[:success].map { |ev| child.event(ev) }
+		events.concat info[:failure].map { |ev| child.event(ev) }
+		if !events.all? { |ev| ev.respond_to?(:task) }
+		    raise
+		end
+		Roby::EventGenerator.gather_events(Hierarchy.interesting_events, *events)
+	    end
+	end
 
 	def parents; parent_objects(Hierarchy) end
 	def children; child_objects(Hierarchy) end
@@ -107,25 +122,51 @@ module Roby::TaskStructure
 	end
     end
 
-    # Checks the structure of +plan+. It returns an array of ChildFailedError
-    # for all failed hierarchy relations
-    def Hierarchy.check_structure(plan)
-	result = []
+    class << Hierarchy
+	# Checks the structure of +plan+. It returns an array of ChildFailedError
+	# for all failed hierarchy relations
+	def check_structure(plan)
+	    result = []
 
-	plan.known_tasks.each do |parent|
-	    next if parent.finished? || parent.finishing?
-	    parent.each_child do |child, options|
-		success = options[:success]
-		failure = options[:failure]
+	    # Get the set of tasks for which a possible failure has been
+	    # registered The tasks that are failing the hierarchy requirements
+	    # are registered in Hierarchy.failing_tasks. The interesting_events
+	    # set is cleared at cycle end (see below)
+	    tasks = Hierarchy.interesting_events.
+		inject(ValueSet.new) { |set, event| set << event.generator.task }.
+		to_value_set
 
-		next if success.any? { |e| child.event(e).happened? }
-		if failing_event = failure.find { |e| child.event(e).happened? }
-		    result << Roby::ChildFailedError.new(parent, child, child.event(failing_event).last)
+	    tasks.merge failing_tasks
+	    failing_tasks.clear
+	    tasks.each do |child|
+		# Check if the task has been removed from the plan
+		next unless child.plan
+
+		has_error = false
+		child.each_parent_task do |parent|
+		    next if parent.finished? || parent.finishing?
+
+		    options = parent[child, Hierarchy]
+		    success = options[:success]
+		    failure = options[:failure]
+
+		    next if success.any? { |e| child.event(e).happened? }
+		    if failing_event = failure.find { |e| child.event(e).happened? }
+			result << Roby::ChildFailedError.new(parent, child, child.event(failing_event).last)
+			failing_tasks << child
+		    end
 		end
 	    end
+
+	    Hierarchy.interesting_events.clear
+	    result
 	end
 
-	result
+	# The set of events that have been fired in this cycle and are involved in a Hierarchy relation
+	attribute(:interesting_events) { Array.new }
+
+	# The set of tasks that are currently failing 
+	attribute(:failing_tasks) { ValueSet.new }
     end
 end
 

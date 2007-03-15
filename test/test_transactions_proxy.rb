@@ -155,7 +155,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 
 	t1, t2, t3, _ = tasks
 	p1, p2, p3, _ = proxies
-	p1.add_child_object(p2, Hierarchy)
+	p1.realized_by p2
 
 	assert_equal([], t1.enum_for(:each_child_object, Hierarchy).to_a)
 	t2.realized_by t3

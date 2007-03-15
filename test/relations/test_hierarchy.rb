@@ -16,6 +16,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	# Check validation of the model
 	child = nil
 	assert_nothing_raised { t1.realized_by((child = klass.new), :model => SimpleTask) }
+	assert_equal([[Hierarchy.interesting_events, [child.event(:success), child.event(:failed)].to_value_set]], EventGenerator.event_gathering)
 	assert_equal([SimpleTask, {}], t1[child, Hierarchy][:model])
 
 	assert_nothing_raised { t1.realized_by klass.new, :model => [Roby::Task, {}] }
@@ -46,7 +47,6 @@ class TC_RealizedBy < Test::Unit::TestCase
 
     def assert_children_failed(children, plan)
 	result = Hierarchy.check_structure(plan)
-	assert_equal(children.size, result.size)
 	assert_equal(children.to_set, result.map { |e| e.task }.to_set)
     end
 
@@ -65,6 +65,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	child.start!; p1.start!
 	assert_equal([], Hierarchy.check_structure(plan))
 	child.stop!
+	assert_equal([child.event(:failed).last], Hierarchy.interesting_events)
 	assert_children_failed([child], plan)
 
 	plan.clear
