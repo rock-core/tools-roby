@@ -1,0 +1,10 @@
+== 0.3
+The 'clean up this mess' release
+  * major clean. Among them: transaction semantics, of ownership handling
+    and of garbage collection
+  * be compatible with 1.8.6's thread library: Queue#get is no more
+  * major improvement in relation display. It is actually useful now ;-)
+  * More robust distributed Roby: most of the calls that are supposed to
+    be done outside of the control thread are now synchronous. This avoids
+    a lot of issues. Major cleanup of the subscription/update mechanism
+    which is a lot more streamlined now.
