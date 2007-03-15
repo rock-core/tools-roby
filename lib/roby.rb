@@ -1,3 +1,12 @@
+module Roby
+    class BasicObject; end
+    class PlanObject < BasicObject; end
+    class Plan < BasicObject; end
+    class Control; end
+    class EventGenerator < PlanObject; end
+    class Task < PlanObject; end
+end
+
 require 'roby/support'
 require 'roby/task'
 require 'roby/event'
