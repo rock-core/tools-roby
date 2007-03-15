@@ -305,15 +305,18 @@ module Roby
 	    free_events.each do |ev|
 		next if useful_events.include?(ev)
 		EventStructure.each_relation do |relation|
-		    relation.components([ev], false).each do |event_set|
-			if event_set.any? { |obj| useful_events.include?(obj) || obj.kind_of?(Roby::TaskEventGenerator) }
-			    useful_events << ev
-			end
+		    useful = relation.components([ev], false).any? do |event_set|
+			useful_events.intersects?(event_set) || event_set.any? { |obj| obj.kind_of?(Roby::TaskEventGenerator) }
+		    end
+
+		    if useful
+			useful_events << ev
+			break
 		    end
 		end
 	    end
 
-	    if useful_events != events
+	    if useful_events != free_events && useful_events != events
 		useful_event_component(useful_events)
 	    else
 		useful_events
