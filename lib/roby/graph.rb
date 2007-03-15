@@ -23,15 +23,15 @@ module BGL
 	end
 	# Returns the connected component +self+ is part of in +graph+
 	def component(graph)
-	    graph.components([self]).first
+	    graph.components([self], false).first || [self].to_value_set
 	end
 	# Returns the vertex set which are reachable from +self+ in +graph+
 	def generated_subgraph(graph)
-	    graph.generated_subgraphs(self).first
+	    graph.generated_subgraphs(self, false).first || [self].to_value_set
 	end
 	# Returns the vertex set which can reach +self+ in +graph+
 	def reverse_generated_subgraph(graph)
-	    graph.reverse.generated_subgraphs(self).first
+	    graph.reverse.generated_subgraphs(self, false).first || [self].to_value_set
 	end
 
 	# Replace this vertex by +to+ in all graphs. See Graph#replace_vertex.
