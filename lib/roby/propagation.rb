@@ -432,7 +432,7 @@ module Roby
 	def application_error(event, origin, error)
 	    if Thread.current[:application_exceptions]
 		Thread.current[:application_exceptions] << [[event, origin], error]
-	    elsif Control.instance.abort_on_application_exception || error.kind_of?(SignalException)
+	    elsif Roby.control.abort_on_application_exception || error.kind_of?(SignalException)
 		raise error
 	    else
 		Roby.error "Application error during #{event} in #{origin}:in #{error.full_message}"

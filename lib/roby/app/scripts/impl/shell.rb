@@ -9,7 +9,7 @@ app.setup
 require 'irb'
 IRB.setup(nil)
 
-control = Roby::ControlInterface.new(Roby::Control.instance)
+control = Roby::ControlInterface.new(Roby.control)
 begin
     ws  = IRB::WorkSpace.new(binding)
     irb = IRB::Irb.new(ws)
@@ -23,9 +23,9 @@ begin
 	irb.eval_input
     end
 rescue Interrupt
-    Roby::Control.instance.quit
-    Roby::Control.instance.join
+    Roby.control.quit
+    Roby.control.join
 ensure 
-    Roby::Control.instance.join
+    Roby.control.join
 end
 

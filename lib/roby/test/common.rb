@@ -176,7 +176,7 @@ module Roby
 	# Process pending events
 	def process_events
 	    Roby::Control.synchronize do
-		Control.instance.process_events
+		Roby.control.process_events
 	    end
 	end
 
@@ -273,7 +273,7 @@ module Roby
 	    assert(planner = task.planning_task)
 	    planner.start! if planner.pending?
 	    planner.thread.join
-	    Control.instance.process_events
+	    Roby.control.process_events
 	    assert(planner.success?)
 	    planner.planned_task
 	end

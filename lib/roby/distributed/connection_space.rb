@@ -107,7 +107,7 @@ module Roby
 	    attr_reader :start_discovery
 	    # A condition variable which is signalled when discovery finishes
 	    attr_reader :finished_discovery
-	    # The plan we are publishing, usually Control.instance.plan
+	    # The plan we are publishing, usually Roby.plan
 	    attr_reader :plan
 
 	    # The agent name on the network
@@ -122,7 +122,7 @@ module Roby
 		    :ring_discovery => true,		    # wether we should do discovery based on Rinda::RingFinger
 		    :ring_broadcast => '',			    # the broadcast address for discovery
 		    :discovery_tuplespace => nil,		    # a central tuplespace which lists hosts (including ourselves)
-		    :plan => nil 				    # the plan we publish, uses Control.instance.plan if nil
+		    :plan => nil 				    # the plan we publish, uses Roby.plan if nil
 
 		if options[:ring_discovery] && !options[:period]
 		    raise ArgumentError, "you must provide a discovery period when using ring discovery"

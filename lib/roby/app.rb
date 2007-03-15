@@ -251,7 +251,7 @@ module Roby
 	    end
 
 	    # MainPlanner is always included in the planner list
-	    Roby::Control.instance.planners << MainPlanner
+	    Roby.control.planners << MainPlanner
 	   
 	    # Set up dRoby
 	    host = droby['host']
@@ -266,7 +266,7 @@ module Roby
 		DRb.start_service "roby://#{host}"
 		droby_config = { :ring_discovery => !!discovery['ring'],
 		    :name => robot_name, 
-		    :plan => Roby::Control.instance.plan, 
+		    :plan => Roby.plan, 
 		    :period => droby['period'] }
 
 		if discovery['tuplespace']
@@ -292,7 +292,7 @@ module Roby
 	    end
 
 	    control_config = self.control
-	    control = Roby::Control.instance
+	    control = Roby.control
 	    options = { :detach => true, :control_gc => false }
 	    if log['timings']
 		logfile = File.join(APP_DIR, 'log', "#{robot_name}-timings.log")
@@ -319,7 +319,7 @@ module Roby
 	    run_plugins(plugins, &block)
 	end
 	def run_plugins(mods, &block)
-	    control = Roby::Control.instance
+	    control = Roby.control
 	    if mods.empty?
 		begin
 		    yield

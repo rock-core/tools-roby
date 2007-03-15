@@ -149,7 +149,7 @@ module Roby
 		    remote.send_local_peer(:flush)
 		    Roby::Control.synchronize do
 			remote.process_events
-			Control.instance.process_events
+			Roby.control.process_events
 		    end
 		    remote_peer.flush
 		    remote.send_local_peer(:flush)
