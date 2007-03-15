@@ -146,9 +146,13 @@ module Roby
 
 	    Roby::TaskStructure::Hierarchy.interesting_events.clear
 	    if defined? Roby::Control
-		Roby::Control.instance.abort_on_exception = false
-		Roby::Control.instance.abort_on_application_exception = false
-		Roby::Control.instance.abort_on_framework_exception = false
+		Roby.control.abort_on_exception = false
+		Roby.control.abort_on_application_exception = false
+		Roby.control.abort_on_framework_exception = false
+	    end
+
+	    if defined? Roby::Log
+		Roby::Log.known_objects.clear
 	    end
 
 	    if Test.check_allocation_count
