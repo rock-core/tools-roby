@@ -30,7 +30,7 @@ module Roby::Log
 
 	# Remove a logger from the list of loggers
 	def remove_logger(logger)
-	    flush
+	    flush if logging?
 	    if @loggers.size == 1
 		stop_logging
 	    end
