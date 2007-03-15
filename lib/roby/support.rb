@@ -46,6 +46,7 @@ class ThreadServer
 	@empty_queue = new_cond
 
 	@thread = Thread.new do
+	    Thread.current.priority = 0
 	    Thread.current.abort_on_exception = true
 	    begin
 		synchronize do

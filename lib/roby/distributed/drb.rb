@@ -41,6 +41,7 @@ module Roby::Distributed
 
 	def service
 	    Thread.new do
+		Thread.current.priority = 0
 		begin
 		    loop do
 			msg = @soc.recv(1024)

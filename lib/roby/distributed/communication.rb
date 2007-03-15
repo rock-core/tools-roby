@@ -272,6 +272,7 @@ module Roby
 	    
 	    # Main loop of the thread which communicates with the remote peer
 	    def communication_loop
+		Thread.current.priority = 1
 		while calls ||= send_queue.get
 		    return unless connected?
 		    # Wait for the link to be alive before sending anything

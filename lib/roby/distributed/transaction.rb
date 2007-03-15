@@ -259,6 +259,7 @@ module Roby
 
 		def created_sibling(peer, trsc)
 		    Thread.new do
+			Thread.current.priority = 0
 			begin
 			    Distributed.transaction_handler[trsc] if Distributed.transaction_handler
 			rescue 

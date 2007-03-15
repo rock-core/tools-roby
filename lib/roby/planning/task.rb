@@ -260,6 +260,7 @@ module Roby
 	    @planner     = planner_model.new(transaction)
 
 	    @thread = Thread.new do
+		Thread.current.priority = 0
 		@result = begin
 			      @planner.send(@method_name, @method_options.merge(:context => context))
 			  rescue Exception => e; e
