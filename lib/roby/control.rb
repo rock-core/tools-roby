@@ -215,9 +215,9 @@ module Roby
 	    Control.event_processing << Control.method(:call_once)
 
 	    # Call block once before event processing
-	    def once(&block); process_once.push lambda(&block) end
+	    def once(&block); process_once.push block end
 	    # Call +block+ at each cycle
-	    def each_cycle(&block); Control.event_processing << lambda(&block) end
+	    def each_cycle(&block); Control.event_processing << block end
 
 	    attribute(:process_every) { Array.new }
 	    # Call +block+ every +duration+ seconds. Note that +duration+ is
