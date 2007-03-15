@@ -424,6 +424,13 @@ module Roby
 	# which has been created by this model
 	def fired(event)
 	    history << event
+	    collection, _ = EventGenerator.event_gathering.find do |c, events| 
+		events.any? { |ev| ev == event.generator }
+	    end
+	    if collection
+		collection << event
+	    end
+
 	    super if defined? super
 	end
 
@@ -456,6 +463,36 @@ module Roby
 	    end
 	end
 
+	@@event_gathering = Array.new
+	# If a generator in +generators+ fires an event, add this event object
+	# in +collection+
+	def self.gather_events(collection, *events)
+	    gathered_events = events_gathered_into(collection)
+	    if gathered_events
+		gathered_events.merge events.to_value_set
+	    else
+		event_gathering << [collection, events.to_value_set]
+	    end
+	end
+	# Do not gather events in +collection+ anymore
+	def self.remove_event_gathering(collection)
+	    @@event_gathering.delete_if { |c, _| c.object_id == collection.object_id }
+	end
+	def self.event_gathering; @@event_gathering end
+	def self.events_gathered_into(collection)
+	    _, events = event_gathering.find { |c, _| c.object_id == collection.object_id }
+	    events
+	end
+
+	module FinalizedEventHook
+	    def finalized_event(event)
+		EventGenerator.event_gathering.each do |collection, events|
+		    events.delete(event)
+		end
+	    end
+	end
+	Roby::Plan.include FinalizedEventHook
+
 	def pretty_print(pp)
 	    pp.text to_s
 	    pp.group(2, ' {', '}') do
@@ -469,6 +506,7 @@ module Roby
 	    end
 	end
     end
+
 
     # This generator reemits an event after having changed its context. See
     # EventGenerator#filter

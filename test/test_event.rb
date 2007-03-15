@@ -534,5 +534,34 @@ class TC_Event < Test::Unit::TestCase
 	    ev1.call(21)
 	end
     end
+
+    def test_gather_events
+	e1, e2 = (1..2).map { EventGenerator.new(true) }.
+	    each { |e| plan.discover(e) }
+
+	collection = []
+
+	EventGenerator.gather_events(collection, e2)
+	e1.call
+	assert_equal([], collection.map { |ev| ev.generator })
+	e2.emit(nil)
+	assert_equal([e2], collection.map { |ev| ev.generator })
+
+	collection.clear
+	EventGenerator.gather_events(collection, e1)
+	e1.call
+	assert_equal([e1], collection.map { |ev| ev.generator })
+	e2.emit(nil)
+	assert_equal([e1, e2], collection.map { |ev| ev.generator })
+
+	# Check that the triggering events are cleared when the events are
+	# removed from the plan
+	collection.clear
+	plan.remove_object(e1)
+	assert_equal([e2].to_value_set, EventGenerator.events_gathered_into(collection))
+
+	EventGenerator.remove_event_gathering(collection)
+	assert(!EventGenerator.events_gathered_into(collection))
+    end
 end
 
