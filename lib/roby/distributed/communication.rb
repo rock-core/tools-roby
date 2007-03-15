@@ -13,23 +13,23 @@ module Roby
 		@mutex    = Mutex.new
 		@wait_contents = ConditionVariable.new
 	    end
-	    def clear; synchronize { contents.clear }; self end
+	    def clear; mutex.synchronize { contents.clear }; self end
 	    def push(obj)
-		synchronize do
+		mutex.synchronize do
 		    contents.push obj
 		    wait_contents.signal
 		end
 	    end
 	    def concat(obj)
-		synchronize do
+		mutex.synchronize do
 		    contents.concat(obj)
 		    wait_contents.signal
 		end
 		self 
 	    end
-	    def empty?; synchronize { contents.empty? } end
+	    def empty?; mutex.synchronize { contents.empty? } end
 	    def get(nonblock = false)
-		synchronize do
+		mutex.synchronize do
 		    if contents.empty? && !nonblock
 			wait_contents.wait(mutex)
 		    end
