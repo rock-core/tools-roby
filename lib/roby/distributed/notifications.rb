@@ -270,8 +270,8 @@ module Roby
 	    end
 	end
 
-	@pending_fired   = Queue.new
-	@pending_signals = Queue.new
+	@pending_fired   = Array.new
+	@pending_signals = Array.new
 	class << self
 	    def distributed_fire_event(generator, event)
 		event.send(:propagation_id=, Propagation.propagation_id)
@@ -285,12 +285,14 @@ module Roby
 	    # Fire the signals we have been notified about by remote peers
 	    def distributed_signals
 		seen = ValueSet.new
-		pending_fired.get(true).each do |generator, event|
+		while !pending_fired.empty?
+		    generator, event = pending_fired.pop
 		    seen << event
 		    distributed_fire_event(generator, event)
 		end
 
-		pending_signals.get(true).each do |only_forward, from_generator, to_generator, event|
+		while !pending_signals.empty?
+		    only_forward, from_generator, to_generator, event = pending_signals.pop
 		    unless seen.include?(event)
 			distributed_fire_event(from_generator, event)
 		    end

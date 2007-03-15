@@ -3,7 +3,6 @@ require 'roby/event'
 require 'delegate'
 require 'forwardable'
 require 'utilrb/module/ancestor_p'
-require 'utilrb/queue/get'
 
 # The Transactions module define all tools needed to implement
 # the Transaction class

@@ -1,5 +1,4 @@
 require 'set'
-require 'utilrb/queue'
 require 'utilrb/array/to_s'
 
 require 'roby'

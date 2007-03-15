@@ -325,7 +325,9 @@ module Roby
 		    @sending = nil
 		    calls ||= []
 		    calls.concat send_queue.get(true)
-		    calls.concat pending_callbacks.get(true).map { |_, call_spec| call_spec }
+		    while !pending_callbacks.empty?
+			calls << pending_callbacks.pop.last
+		    end
 		    calls.each do |call_spec|
 			next unless call_spec
 			if thread = call_spec.last
