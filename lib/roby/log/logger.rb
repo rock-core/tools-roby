@@ -74,13 +74,13 @@ module Roby::Log
 		Roby::Control.synchronize do
 		    args ||= yield
 		    known_objects.merge(args[2].to_value_set)
-		    args = Roby::Distributed.format(args)
+		    args = Roby::Distributed.format(args) if has_logger?(m)
 		end
 	    elsif m == :finalized_task || m == :finalized_event
 		Roby::Control.synchronize do
 		    args ||= yield
 		    object = args[2]
-		    args = Roby::Distributed.format(args, self)
+		    args = Roby::Distributed.format(args, self) if has_logger?(m)
 		    known_objects.delete(object)
 		end
 	    end
