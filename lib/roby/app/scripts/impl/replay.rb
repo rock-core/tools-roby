@@ -94,5 +94,10 @@ end
 if play_now
     main.ui.play.checked = true
 end
-app.exec
+
+begin
+    app.exec
+rescue
+    STDERR.puts $!.full_message
+end
 
