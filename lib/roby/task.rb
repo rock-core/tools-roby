@@ -350,9 +350,6 @@ module Roby
 		# First time we get included in a plan, instantiate all relations
 		instantiate_model_event_relations
 	    end
-	    
-	rescue TypeError
-	    raise TypeError, "#{self} is dead because it has been removed from its plan"
 	end
 
 	class << self
