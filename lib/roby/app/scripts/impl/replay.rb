@@ -1,13 +1,24 @@
 require 'roby'
 require 'optparse'
+require 'utilrb/time/to_hms'
 gui  = true
 play_now = false
 initial_displays = []
 logdir = nil
+goto = nil
+speed = 1
 
 parser = OptionParser.new do |opt|
+    opt.separator "Common options"
     opt.on("--[no-]gui", "do (not) use a GUI") { |gui| }
     opt.on("--logdir=DIR", String, "the log directory in which we initialize the data sources") do |logdir| end
+    opt.on("--play", "start playing after loading the event log") do |play_now| end
+
+    opt.separator "GUI-related options"
+    opt.on("--speed=SPEED", Integer, "play speed") do |speed| end
+    opt.on("--goto=TIME", String, "go to TIME before playing normally. Time is given relatively to the simulation start") do |goto| 
+	goto = Time.from_hms(goto)
+    end
     opt.on("--relations=REL1,REL2", Array, "create a relation display with the given relations") do |relations|
 	relations.map! do |relname|
 	    rel = (Roby::TaskStructure.relations.find { |rel| rel.name =~ /#{relname}/ }) ||
@@ -30,7 +41,6 @@ parser = OptionParser.new do |opt|
 	    end
 	end
     end
-    opt.on("--play", "start playing after loading the event log") do |play_now| end
 end
 parser.parse!(ARGV)
 
@@ -76,6 +86,11 @@ else
 end
 
 main.show
+main.play_speed = speed
+if goto
+    main.seek(nil)
+    main.seek(main.first_sample + (goto - Time.at(0)))
+end
 if play_now
     main.ui.play.checked = true
 end

@@ -191,6 +191,12 @@ class Replay < Qt::MainWindow
     slots 'seek_start()'
 
     def seek(time)
+	if time && !first_sample
+	    seek_start 
+	elsif time && first_sample && time < first_sample
+	    time = nil
+	end
+
 	displayed_sources.each { |s| s.prepare_seek(time) }
 	if !time || time == Time.at(0)
 	    min, max = displayed_sources.inject([nil, nil]) do |(min, max), source|
