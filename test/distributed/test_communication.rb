@@ -76,6 +76,7 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 	super
 
 	remote_process do
+	    Roby.logger.level = Logger::FATAL
 	    peer = FakePeer.new 'local'
 	    DRb.start_service REMOTE_URI, peer.local
 	    peer.local.extend FakePeerServerMethods
@@ -242,6 +243,7 @@ class TC_DistributedCommunication < Test::Unit::TestCase
     end
 
     def test_recursive_callbacks
+	Roby.logger.level = Logger::FATAL
 	assert_raises(RecursiveCallbacksError) { remote_peer.call(:recursive_callbacks) }
     end
 
