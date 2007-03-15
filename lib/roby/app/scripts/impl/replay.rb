@@ -55,7 +55,7 @@ require 'roby/log/file'
 unless gui
     require 'roby/log/console'
     logger = Roby::Log::ConsoleLogger.new(STDOUT)
-    Roby::Log.add_logger << logger
+    Roby::Log.add_logger logger
     Roby::Log.replay(ARGV.shift) do |method, args|
 	Roby::Log.log(method, args)
     end

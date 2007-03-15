@@ -302,11 +302,11 @@ module Roby
 		if log['events'] == 'sqlite'
 		    require 'roby/log/sqlite'
 		    logfile = File.join(APP_DIR, 'log', "#{robot_name}-events.db")
-		    Roby::Log.add_logger << Roby::Log::SQLiteLogger.new(logfile)
+		    Roby::Log.add_logger Roby::Log::SQLiteLogger.new(logfile)
 		else
 		    require 'roby/log/file'
 		    logfile = File.join(APP_DIR, 'log', "#{robot_name}-events.log")
-		    Roby::Log.add_logger << Roby::Log::FileLogger.new(logfile)
+		    Roby::Log.add_logger Roby::Log::FileLogger.new(logfile)
 		end
 	    end
 	    control.abort_on_exception = 

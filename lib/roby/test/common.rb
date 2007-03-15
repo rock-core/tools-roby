@@ -373,7 +373,7 @@ module Roby
 	    if value
 		require 'roby/log/console'
 		@console_logger = Roby::Log::ConsoleLogger.new(STDERR)
-		Roby::Log.add_logger << console_logger
+		Roby::Log.add_logger console_logger
 	    elsif defined? Roby::Log
 		Roby::Log.remove_logger console_logger
 		@console_logger = nil
