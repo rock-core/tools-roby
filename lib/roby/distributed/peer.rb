@@ -197,6 +197,8 @@ module Roby::Distributed
 	attr_reader :keepalive
 	# The set of proxies for object from this remote peer
 	attr_reader :proxies
+	# The set of proxies we are currently removing. See BasicObject#forget_peer
+	attr_reader :removing_proxies
 
 	def to_s; "Peer:#{remote_name}" end
 
@@ -287,6 +289,7 @@ module Roby::Distributed
 	    @neighbour	  = neighbour
 	    @local        = PeerServer.new(self)
 	    @proxies	  = Hash.new
+	    @removing_proxies = Hash.new { |h, k| h[k] = Array.new }
 	    @mutex	  = Mutex.new
 	    @send_flushed = ConditionVariable.new
 	    @condition_variables = [ConditionVariable.new]
@@ -463,6 +466,7 @@ module Roby::Distributed
 		obj.forget_peer(self)
 	    end
 	    proxies.clear
+	    removing_proxies.clear
 	end
 
 	# Called when the peer acknowledged the fact that we disconnected
@@ -474,6 +478,8 @@ module Roby::Distributed
 	    proxies.each_value do |obj|
 		obj.remote_siblings.delete(self)
 	    end
+	    proxies.clear
+	    removing_proxies.clear
 
 	    Roby::Distributed.peers.delete(remote_id)
 	    Roby::Distributed.info "#{neighbour.name} disconnected"

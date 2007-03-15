@@ -112,6 +112,7 @@ module Roby
 		end
 		# Create the proxies
 		peer.local_object(objects)
+		nil
 	    end
 
 	    # Sends to the peer the set of relations needed to copy the state of +plan_object+
