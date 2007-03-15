@@ -237,7 +237,7 @@ module Roby
 	    # returns their sibling in the remote pDB (or raises if there is none)
 	    class DRoby < Roby::Plan::DRoby # :nodoc:
 		def _dump(lvl)
-		    Distributed.dump([DRbObject.new(remote_object), plan, owners, options]) 
+		    Marshal.dump([remote_object, plan, owners, options]) 
 		end
 		def self._load(str)
 		    new(*Marshal.load(str))
@@ -278,8 +278,8 @@ module Roby
 		    @plan, @owners, @options = plan, owners, options
 		end
 	    end
-	    def droby_dump # :nodoc:
-		DRoby.new(self, self.plan, self.owners, self.options)
+	    def droby_dump(dest) # :nodoc:
+		DRoby.new(drb_object, self.plan.droby_dump(dest), self.owners.droby_dump(dest), self.options)
 	    end
 	end
 
@@ -288,7 +288,7 @@ module Roby
 		MarshalledRemoteTransactionProxy.new(*Marshal.load(str))
 	    end
 	    def _dump(lvl)
-		Distributed.dump([DRbObject.new(remote_object), real_object, transaction])
+		Marshal.dump([remote_object, real_object, transaction])
 	    end
 	    def proxy(peer)
 		return unless local_real = peer.local_object(real_object)
@@ -317,8 +317,8 @@ module Roby
 	    end
 	end
 	module Roby::Transaction::Proxy
-	    def droby_dump # :nodoc:
-		MarshalledRemoteTransactionProxy.new(self, @__getobj__, transaction)
+	    def droby_dump(dest) # :nodoc:
+		MarshalledRemoteTransactionProxy.new(drb_object, @__getobj__.droby_dump(dest), transaction.droby_dump(dest))
 	    end
 	end
 

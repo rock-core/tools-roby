@@ -12,6 +12,9 @@ class DRbObject
     end
 end
 
+class NilClass
+    def droby_dump(dest); nil end
+end
 class Array
     def proxy(peer) # :nodoc:
 	map { |element| peer.proxy(element) }
@@ -34,12 +37,12 @@ class ValueSet
 end
 
 class Module
-    def droby_dump
+    def droby_dump(dest)
 	raise "can't dump modules"
     end
 end
 class Class
-    def droby_dump
+    def droby_dump(dest)
 	raise "can't dump class #{self}"
     end
 end
@@ -56,18 +59,18 @@ class Exception
 	end
     end
 
-    def droby_dump; DRoby.new(self) end
+    def droby_dump(dest); DRoby.new(self) end
 end
 
 module Roby
     class << Task
-	def droby_dump; Roby::Distributed::DRobyTaskModel.new(ancestors) end
+	def droby_dump(dest); Roby::Distributed::DRobyTaskModel.new(ancestors) end
     end
     class << EventGenerator
-	def droby_dump; Roby::Distributed::DRobyModel.new(ancestors) end
+	def droby_dump(dest); Roby::Distributed::DRobyModel.new(ancestors) end
     end
     class << Planning::Planner
-	def droby_dump; Roby::Distributed::DRobyModel.new(ancestors) end
+	def droby_dump(dest); Roby::Distributed::DRobyModel.new(ancestors) end
     end
     class TaskModelTag
 	class DRoby
@@ -128,11 +131,11 @@ module Roby
 	    end
 	end
 
-	def droby_dump; DRoby.new(self) end
+	def droby_dump(dest); @__droby_marshalled__ ||= DRoby.new(self) end
     end
 
     class RelationGraph
-	def droby_dump; @__droby_marshalled__ ||= Distributed::DRobyConstant.new(self) end
+	def droby_dump(dest); @__droby_marshalled__ ||= Distributed::DRobyConstant.new(self) end
     end
 
     class Plan
@@ -145,14 +148,14 @@ module Roby
 
 	    def to_s; "mPlan(#{remote_object})" end
 	end
-	def droby_dump; @__droby_marshalled__ ||= DRoby.new(drb_object) end
+	def droby_dump(dest); @__droby_marshalled__ ||= DRoby.new(drb_object) end
     end
 
     class TaskMatcher
 	class DRoby
 	    attr_reader :args
-	    def initialize(*args); @args = args end
-	    def _dump(lvl); Marshal.dump(args.droby_dump) end
+	    def initialize(args); @args = args end
+	    def _dump(lvl); Marshal.dump(args) end
 
 	    def self._load(str)
 		setup_matcher(TaskMatcher.new, Marshal.load(str))
@@ -167,8 +170,9 @@ module Roby
 		matcher
 	    end
 	end
-	def droby_dump(klass = DRoby)
-	    klass.new(model, arguments, improved_information, needed_information, predicates, neg_predicates, owners)
+	def droby_dump(dest, klass = DRoby)
+	    args = [model, arguments, improved_information, needed_information, predicates, neg_predicates, owners]
+	    klass.new args.droby_dump(dest)
 	end
     end
     class Query
@@ -180,7 +184,7 @@ module Roby
 	    end
 
 	    def _dump(lvl)
-		Marshal.dump([plan_predicates, neg_plan_predicates, matcher.droby_dump])
+		Marshal.dump([plan_predicates, neg_plan_predicates, matcher])
 	    end
 
 	    def self._load(str)
@@ -194,8 +198,9 @@ module Roby
 	    end
 	end
 	
-	def droby_dump
-	    DRoby.new(plan_predicates, neg_plan_predicates, super.args)
+	def droby_dump(dest)
+	    marshalled_matcher = super
+	    DRoby.new(plan_predicates, neg_plan_predicates, marshalled_matcher.args)
 	end
     end
 
@@ -207,8 +212,8 @@ module Roby
 		setup_matcher(OrTaskMatcher.new(*ops), args)
 	    end
 	end
-	def droby_dump
-	    m = super(OrTaskMatcher::DRoby)
+	def droby_dump(dest)
+	    m = super(dest, OrTaskMatcher::DRoby)
 	    m.args << @ops
 	    m
 	end
@@ -221,8 +226,8 @@ module Roby
 		setup_matcher(AndTaskMatcher.new(*ops), args)
 	    end
 	end
-	def droby_dump
-	    m = super(AndTaskMatcher::DRoby)
+	def droby_dump(dest)
+	    m = super(dest, AndTaskMatcher::DRoby)
 	    m.args << @ops
 	    m
 	end
@@ -235,8 +240,8 @@ module Roby
 		setup_matcher(NegateTaskMatcher.new(op), args)
 	    end
 	end
-	def droby_dump
-	    m = super(NegateTaskMatcher::DRoby)
+	def droby_dump(dest)
+	    m = super(dest, NegateTaskMatcher::DRoby)
 	    m.args << @op
 	    m
 	end
@@ -258,14 +263,14 @@ module Roby
 		end
 	    end
 
-	    def droby_dump
+	    def droby_dump(dest)
 		@__droby_marshalled__ ||= DRoby.new(remote_id)
 	    end
 	end
 
-	def self.droby_dump
+	def self.droby_dump(dest)
 	    if Distributed.state 
-		Distributed.state.droby_dump
+		Distributed.state.droby_dump(dest)
 	    end
 	end
 
@@ -365,7 +370,7 @@ module Roby
 		    marshalled_class = super
 		    tags = ancestors.map do |mod|
 			if mod.instance_of?(Roby::TaskModelTag)
-			    mod.droby_dump
+			    mod.droby_dump(nil)
 			end
 		    end
 		    tags.compact!

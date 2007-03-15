@@ -195,7 +195,7 @@ module Roby
 
 		# Marshal DRoby-dumped objects now, since the object may be
 		# modified between now and the time it is sent
-		args.map! { |obj| Distributed.format(obj) }
+		args = Distributed.format(args, self)
 		send_queue.push [is_callback, m, args, block, caller(2), thread]
 		@sending = true
 	    end

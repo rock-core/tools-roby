@@ -291,7 +291,7 @@ module Roby
 		end
 	    end
 
-	    def droby_dump
+	    def droby_dump(dest)
 		@__droby_marshalled__ ||= Peer::DRoby.new(DRbObject.new(tuplespace))
 	    end
 

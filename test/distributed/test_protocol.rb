@@ -1,10 +1,11 @@
 $LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'test/mockups/tasks'
+require 'flexmock'
 
 class TC_DistributedRobyProtocol < Test::Unit::TestCase
     include Roby::Distributed::Test
-
+    
     TEST_ARRAY_SIZE = 7
     def dumpable_array
 	task = Roby::Task.new(:id => 1)
@@ -195,6 +196,23 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	
 	obj = klass.new
 	assert_equal(DRbObject.new(obj), Distributed.format(obj))
+    end
+
+    def test_incremental_dump
+	DRb.start_service Distributed::Test::DISCOVERY_URI
+	FlexMock.use do |obj|
+	    obj.should_receive(:droby_dump).and_return([]).once
+	    FlexMock.use do |destination|
+		destination.should_receive(:incremental_dump?).and_return(false).once
+		assert_equal([], Distributed.format(obj, destination))
+	    end
+
+	    obj.should_receive(:drb_object).and_return(DRbObject.new(obj)).once
+	    FlexMock.use do |destination|
+		destination.should_receive(:incremental_dump?).and_return(true).once
+		assert_equal(DRbObject.new(obj), Distributed.format(obj, destination))
+	    end
+	end
     end
 
     def test_local_object

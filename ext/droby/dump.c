@@ -26,17 +26,17 @@ static ID id_append;
  */
 static VALUE droby_format(int argc, VALUE* argv, VALUE self)
 {
-    VALUE object, partial;
-    rb_scan_args(argc, argv, "11", &object, &partial);
+    VALUE object, destination;
+    rb_scan_args(argc, argv, "11", &object, &destination);
 
     if (RTEST(rb_obj_is_kind_of(object, cDRbObject)))
 	return object;
 
     if (RTEST(rb_respond_to(object, id_droby_dump)))
     {
-	if (!NIL_P(partial) && RTEST(rb_funcall(partial, rb_intern("include?"), 1, object)))
+	if (!NIL_P(destination) && RTEST(rb_funcall(destination, rb_intern("incremental_dump?"), 1, object)))
 	    return rb_funcall(object, id_drb_object, 0);
-	return rb_funcall(object, id_droby_dump, 0);
+	return rb_funcall(object, id_droby_dump, 1, destination);
     }
 
     VALUE remote_access = rb_iv_get(self, "@allowed_remote_access");
@@ -54,26 +54,36 @@ static VALUE droby_format(int argc, VALUE* argv, VALUE self)
     return object;
 }
 
-static VALUE array_dump_element(VALUE element, VALUE result)
-{   rb_ary_push(result, droby_format(1, &element, mRobyDistributed));
-    return Qnil; }
+typedef struct DROBY_DUMP_ITERATION_ARG
+{
+    VALUE result;
+    VALUE dest;
+} DROBY_DUMP_ITERATION_ARG;
+
+static VALUE array_dump_element(VALUE element, DROBY_DUMP_ITERATION_ARG* arg)
+{   
+    VALUE args[2] = { element, arg->dest };
+    rb_ary_push(arg->result, droby_format(2, args, mRobyDistributed));
+    return Qnil; 
+}
 
 /* call-seq:
- *   droby_dump => dumped_array
+ *   droby_dump(dest) => dumped_array
  *
  * Creates a copy of this Array with all its values formatted for marshalling
  * using Distributed.format.
  */
-static VALUE array_droby_dump(VALUE self)
+static VALUE array_droby_dump(VALUE self, VALUE dest)
 {
-    VALUE  result = rb_ary_new();
-    rb_iterate(rb_each, self, array_dump_element, result);
-    return result;
+    DROBY_DUMP_ITERATION_ARG arg = { rb_ary_new(), dest };
+    rb_iterate(rb_each, self, array_dump_element, (VALUE)&arg);
+    return arg.result;
 }
 
-static int hash_dump_element(VALUE key, VALUE value, VALUE result)
+static int hash_dump_element(VALUE key, VALUE value, DROBY_DUMP_ITERATION_ARG* arg)
 {
-    rb_hash_aset(result, key, droby_format(1, &value, mRobyDistributed));
+    VALUE args[2] = { value, arg->dest };
+    rb_hash_aset(arg->result, key, droby_format(2, args, mRobyDistributed));
     return ST_CONTINUE;
 }
 
@@ -83,16 +93,17 @@ static int hash_dump_element(VALUE key, VALUE value, VALUE result)
  * Creates a copy of this Hash with all its values formatted for marshalling
  * using Distributed.format. The keys are not modified.
  */
-static VALUE hash_droby_dump(VALUE self)
+static VALUE hash_droby_dump(VALUE self, VALUE dest)
 {
-    VALUE  result = rb_hash_new();
-    rb_hash_foreach(self, hash_dump_element, result);
-    return result;
+    DROBY_DUMP_ITERATION_ARG arg = { rb_hash_new(), dest };
+    rb_hash_foreach(self, hash_dump_element, (VALUE)&arg);
+    return arg.result;
 }
 
-static VALUE appendable_dump_element(VALUE value, VALUE result)
+static VALUE appendable_dump_element(VALUE value, DROBY_DUMP_ITERATION_ARG* arg)
 {
-    rb_funcall(result, id_append, 1, droby_format(1, &value, mRobyDistributed));
+    VALUE args[2] = { value, arg->dest };
+    rb_funcall(arg->result, id_append, 1, droby_format(2, args, mRobyDistributed));
     return Qnil;
 }
 
@@ -102,11 +113,11 @@ static VALUE appendable_dump_element(VALUE value, VALUE result)
  * Creates a copy of this Set with all its values formatted for marshalling
  * using Distributed.format
  */
-static VALUE set_droby_dump(VALUE self)
+static VALUE set_droby_dump(VALUE self, VALUE dest)
 {
-    VALUE result = rb_class_new_instance(0, 0, cSet);
-    rb_iterate(rb_each, self, appendable_dump_element, result);
-    return result;
+    DROBY_DUMP_ITERATION_ARG arg = { rb_class_new_instance(0, 0, cSet), dest };
+    rb_iterate(rb_each, self, appendable_dump_element, (VALUE)&arg);
+    return arg.result;
 }
 
 /* call-seq:
@@ -115,11 +126,11 @@ static VALUE set_droby_dump(VALUE self)
  * Creates a copy of this ValueSet with all its values formatted for
  * marshalling using Distributed.format
  */
-static VALUE value_set_droby_dump(VALUE self)
+static VALUE value_set_droby_dump(VALUE self, VALUE dest)
 {
-    VALUE result = rb_class_new_instance(0, 0, cValueSet);
-    rb_iterate(rb_each, self, appendable_dump_element, result);
-    return result;
+    DROBY_DUMP_ITERATION_ARG arg = { rb_class_new_instance(0, 0, cValueSet), dest };
+    rb_iterate(rb_each, self, appendable_dump_element, (VALUE)&arg);
+    return arg.result;
 }
 
 void Init_droby()
@@ -136,9 +147,9 @@ void Init_droby()
 
     rb_define_singleton_method(mRobyDistributed, "format", droby_format, -1);
 
-    rb_define_method(rb_cArray , "droby_dump" , array_droby_dump     , 0);
-    rb_define_method(rb_cHash  , "droby_dump" , hash_droby_dump      , 0);
-    rb_define_method(cSet      , "droby_dump" , set_droby_dump       , 0);
-    rb_define_method(cValueSet , "droby_dump" , value_set_droby_dump , 0);
+    rb_define_method(rb_cArray , "droby_dump" , array_droby_dump     , 1);
+    rb_define_method(rb_cHash  , "droby_dump" , hash_droby_dump      , 1);
+    rb_define_method(cSet      , "droby_dump" , set_droby_dump       , 1);
+    rb_define_method(cValueSet , "droby_dump" , value_set_droby_dump , 1);
 }
 

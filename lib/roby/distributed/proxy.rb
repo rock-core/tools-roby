@@ -37,7 +37,7 @@ module Roby
 	    module ClassExtension
 		def name; "dProxy(#{super})" end
 	    end
-	    def droby_dump; marshalled_object.remote_object end
+	    def droby_dump(dest); marshalled_object.remote_object end
 	end
 
 	module EventGeneratorProxy
@@ -95,9 +95,7 @@ module Roby
 	    end
 
 	    def marshal_format
-		[remote_name, remote_object,
-		    Distributed.format(model),
-		    Distributed.format(plan)]
+		[remote_name, remote_object, model, plan]
 	    end
 	    def _dump(lvl)
 		Marshal.dump(marshal_format) 
@@ -122,8 +120,10 @@ module Roby
 	end
 
 	class Roby::EventGenerator
-	    def droby_dump
-		MarshalledEventGenerator.new(to_s, drb_object, self.model, plan, controlable?, happened?)
+	    def droby_dump(dest)
+		MarshalledEventGenerator.new(to_s, drb_object, 
+		    self.model.droby_dump(dest), 
+		    plan.droby_dump(dest), controlable?, happened?)
 	    end
 	end
 	class MarshalledEventGenerator < MarshalledPlanObject
@@ -150,9 +150,10 @@ module Roby
 	end
 
 	class Roby::TaskEventGenerator
-	    def droby_dump
+	    def droby_dump(dest)
 		# no need to marshal the plan, since it is the same than the event task
-		MarshalledTaskEventGenerator.new(to_s, drb_object, self.model, nil, controlable?, happened?, task, symbol)
+		MarshalledTaskEventGenerator.new(to_s, drb_object, self.model.droby_dump(dest), 
+		    nil, controlable?, happened?, task.droby_dump(dest), symbol)
 	    end
 	end
 	class MarshalledTaskEventGenerator < MarshalledEventGenerator
@@ -168,7 +169,7 @@ module Roby
 		    new(*data)
 		end
 	    end
-	    def marshal_format; super << Distributed.format(task) << symbol end
+	    def marshal_format; super << task << symbol end
 
 	    def proxy(peer)
 		task = peer.local_object(self.task)
@@ -186,10 +187,11 @@ module Roby
 	end
 
 	class Roby::Task
-	    def droby_dump
-		MarshalledTask.new(to_s, drb_object, self.model, plan, arguments, data,
-				   :mission => mission?, :started => started?, 
-				   :finished => finished?, :success => success?)
+	    def droby_dump(dest)
+		MarshalledTask.new(to_s, drb_object, self.model.droby_dump(dest), 
+		    plan.droby_dump(dest), arguments.droby_dump(dest), Distributed.format(data, dest),
+		    :mission => mission?, :started => started?, 
+		    :finished => finished?, :success => success?)
 	    end
 	end
 	class MarshalledTask < MarshalledPlanObject
@@ -204,7 +206,7 @@ module Roby
 		    MarshalledTask.new(*data)
 		end
 	    end
-	    def marshal_format; super << arguments.droby_dump << Distributed.format(data) << flags end
+	    def marshal_format; super << arguments << data << flags end
 
 	    def update(peer, task)
 		super
