@@ -44,10 +44,12 @@ end
 require 'roby/log/file'
 unless gui
     require 'roby/log/console'
-    Roby::Log.loggers << Roby::Log::ConsoleLogger.new(STDOUT)
+    logger = Roby::Log::ConsoleLogger.new(STDOUT)
+    Roby::Log.add_logger << logger
     Roby::Log.replay(ARGV.shift) do |method, args|
 	Roby::Log.log(method, args)
     end
+    Roby::Log.flush
     exit
 end
 

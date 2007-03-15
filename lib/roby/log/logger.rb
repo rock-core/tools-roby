@@ -2,9 +2,46 @@ require 'roby/log/hooks'
 
 module Roby::Log
     @loggers = Array.new
+    @@logging_thread = nil
     class << self
-	# All logger objects in the system
-	attr_reader :loggers
+	# Start the logging framework
+	def logging?; @@logging_thread end
+
+	# Start the logging framework
+	def start_logging # :nodoc:
+	    return if logging?
+	    logged_events.clear
+	    @@logging_thread = Thread.new(&method(:logger_loop))
+	end
+
+	# Stop the logging framework
+	def stop_logging # :nodoc:
+	    return unless logging?
+	    logged_events.push nil
+	    @@logging_thread.join
+	    @@logging_thread = nil
+	end
+
+	# Add a logger object in the system
+	def add_logger(logger)
+	    start_logging
+	    @loggers << logger
+	end
+
+	# Remove a logger from the list of loggers
+	def remove_logger(logger)
+	    flush
+	    if @loggers.size == 1
+		stop_logging
+	    end
+	    @loggers.delete logger
+	end
+
+	# Remove all loggers
+	def clear_loggers
+	    stop_logging
+	    @loggers.clear
+	end
 
 	# Iterates on all the logger objects. If +m+ is given, yields only the loggers
 	# which respond to this method.
@@ -15,7 +52,13 @@ module Roby::Log
 	end
 
 	# Returns true if there is at least one loggr for the +m+ message
-	def has_logger?(m); loggers.any? { |log| log.respond_to?(m) } end
+	def has_logger?(m); @loggers.any? { |log| log.respond_to?(m) } end
+
+	LOGGED_EVENTS_QUEUE_SIZE = 100
+	attribute(:logged_events) { SizedQueue.new(LOGGED_EVENTS_QUEUE_SIZE) }
+
+	attribute(:flushed_logger_mutex) { Mutex.new }
+	attribute(:flushed_logger) { ConditionVariable.new }
 
 	# call-seq:
 	#   Log.log(message) { args }
@@ -23,23 +66,60 @@ module Roby::Log
 	# Logs +message+ with argument +args+. The block is called only once if
 	# there is at least one logger which listens for +message+.
 	def log(m, args = nil)
-	    Roby::Control.synchronize do
-		each_logger(m) do |log|
-		    if !args && block_given?
-			args = yield
-		    end
-		    if log.splat?
-			log.send(m, *args)
-		    else
-			log.send(m, args)
+	    if has_logger?(m)
+		if !args && block_given?
+		    Roby::Control.synchronize do 
+			args = Roby::Distributed.format(yield)
 		    end
 		end
+
+		logged_events << [m, args]
 	    end
 	end
 
+	# The main logging loop. We use a separate loop to avoid having logging
+	# have too much influence on the control thread. The Log.logged_events
+	# attribute is a sized queue (of size LOGGED_EVENTS_QUEUE_SIZE) in
+	# which all the events needing logging are saved
+	def logger_loop
+	    Thread.current.priority = 1
+	    loop do
+		m, args = logged_events.pop
+		break unless m
+
+		each_logger(m) do |logger|
+		    if logger.splat?
+			logger.send(m, *args)
+		    else
+			logger.send(m, args)
+		    end
+		end
+
+		if m == :flush
+		    flushed_logger_mutex.synchronize do
+			flushed_logger.signal
+		    end
+		end
+	    end
+
+	ensure
+	    # Wake up any waiting thread
+	    flushed_logger_mutex.synchronize do
+		flushed_logger.signal
+	    end
+	end
+
+	# Waits for all the events queued in +logged_events+ to be processed by
+	# the logging thread. Also sends the +flush+ message to all loggers
+	# that respond to it
 	def flush
-	    each_logger(:flush) do |log|
-		log.flush
+	    flushed_logger_mutex.synchronize do
+		if !logging?
+		    raise "not logging"
+		end
+
+		logged_events.push [:flush, []]
+		flushed_logger.wait(flushed_logger_mutex)
 	    end
 	end
 

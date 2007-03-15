@@ -18,7 +18,7 @@ module Roby::Log
 
 	def dump_method(m, args)
 	    m_m    = Marshal.dump(m)
-	    m_args = Roby::Distributed.dump(args)
+	    m_args = Marshal.dump(args)
 
 	    io << m_m << m_args
 	rescue 
