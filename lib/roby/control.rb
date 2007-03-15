@@ -219,7 +219,17 @@ module Roby
 	    # Call +block+ at each cycle
 	    def each_cycle(&block); Control.event_processing << block end
 
+	    # A set of blocks that are called at each cycle end
+	    attribute(:at_cycle_end_handlers) { Array.new }
+
+	    # Call +block+ at the end of the execution cycle	
+	    def at_cycle_end(&block)
+		Control.at_cycle_end_handlers << block
+	    end
+
+	    # A set of blocks which are called every cycle
 	    attribute(:process_every) { Array.new }
+
 	    # Call +block+ every +duration+ seconds. Note that +duration+ is
 	    # round up to the cycle size (time between calls is *at least* duration)
 	    def every(duration, &block)
@@ -389,7 +399,13 @@ module Roby
 	def quit; @quit += 1 end
 
 	# Called at each cycle end
-	def cycle_end(timings); super if defined? super end
+	def cycle_end(timings)
+	    super if defined? super 
+
+	    Control.at_cycle_end_handlers.each do |handler|
+		Propagation.gather_exceptions(handler, "at cycle end") { handler.call }
+	    end
+	end
 
 	# If the event thread has been started in its own thread, 
 	# wait for it to terminate

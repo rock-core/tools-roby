@@ -158,6 +158,29 @@ class TC_Control < Test::Unit::TestCase
 	assert(plan.include?(t2))
     end
 
+    def test_at_cycle_end
+	# Shut up the logger in this test
+	Roby.logger.level = Logger::FATAL
+        Roby.control.abort_on_application_exception = false
+
+        FlexMock.use do |mock|
+            mock.should_receive(:before_error).once
+            mock.should_receive(:after_error).never
+            mock.should_receive(:called).once
+            Control.at_cycle_end do
+               	mock.before_error
+        	raise
+        	mock.after_error
+            end
+            Control.at_cycle_end do
+               	mock.called
+		unless Roby.control.quitting?
+		    Roby.control.quit
+		end
+            end
+            Roby.control.run
+        end
+    end
 end
 
 
