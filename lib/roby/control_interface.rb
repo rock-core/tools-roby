@@ -51,6 +51,8 @@ module Roby
 		control.plan.insert(task)
 		yield(planner, task) if block_given?
 	    end
+
+	    nil
 	end
     end
 end
