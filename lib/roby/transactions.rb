@@ -125,16 +125,20 @@ module Roby
 	    object = proxy.__getobj__
 
 	    Control.synchronize do
-		child_objects = object.child_objects(relation).map { |obj| wrap(obj, false) }
-		child_objects.compact!
-		(proxy.child_objects(relation) - child_objects).each do |child|
-		    relation.unlink(proxy, child)
+		proxy_children = proxy.child_objects(relation)
+		object.child_objects(relation).each do |object_child| 
+		    next unless proxy_child = wrap(object_child, false)
+		    if proxy_children.include?(proxy_child)
+			relation.unlink(proxy, proxy_child)
+		    end
 		end
 
-		parent_objects = object.parent_objects(relation).map { |obj| wrap(obj, false) }
-		parent_objects.compact!
-		(proxy.parent_objects(relation) - parent_objects).each do |parent|
-		    relation.unlink(parent, proxy)
+		proxy_parents = proxy.parent_objects(relation)
+		object.parent_objects(relation).each do |object_parent| 
+		    next unless proxy_parent = wrap(object_parent, false)
+		    if proxy_parents.include?(proxy_parent)
+			relation.unlink(parent, proxy_parent)
+		    end
 		end
 	    end
 

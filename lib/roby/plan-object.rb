@@ -132,9 +132,15 @@ module Roby
 	def replace_by(object)
 	    all_relations = []
 	    each_relation do |rel|
-		all_relations << rel << 
-		    parent_objects(rel).inject([]) { |result, parent| result << parent << parent[self, rel] } << 
-		    child_objects(rel).inject([])  { |result, child| result << child << self[child, rel] }
+		parents = []
+		each_parent_object(rel) do |parent|
+		    parents << parent << parent[self, rel]
+		end
+		children = []
+		each_child_object(rel) do |child|
+		    children << child << self[child, rel]
+		end
+		all_relations << rel << parents << children
 	    end
 	    remove_relations
 

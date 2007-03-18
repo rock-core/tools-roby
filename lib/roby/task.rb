@@ -7,7 +7,10 @@ module Roby
     class TaskModelTag < Module
 	module ClassExtension
 	    # Returns the list of static arguments required by this task model
-	    def arguments; enum_for(:each_argument_set).to_set end
+	    def arguments
+	       	@argument_enumerator ||= enum_for(:each_argument_set)
+		@argument_enumerator.to_set 
+	    end
 	    # Declares a set of arguments required by this task model
 	    def argument(*args); args.each(&argument_set.method(:<<)) end
 	end
@@ -237,6 +240,7 @@ module Roby
 	    inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = Set.new } }
 	    class_eval <<-EOD
 		class << self
+		    attribute("__#{name}_aux_enumerator__") { Hash.new }
 		    attribute("__#{name}_enumerator__") { Hash.new }
 		end
 
@@ -244,8 +248,11 @@ module Roby
 		    each_#{name}_set(model, false) { |models| models.each { |m| yield(m) } }
 		end
 		def self.each_#{name}(model)
-		    enumerator = (__#{name}_enumerator__[model] ||= enum_for(:each_#{name}_aux, model))
+		    enumerator = (__#{name}_aux_enumerator__[model] ||= enum_for(:each_#{name}_aux, model))
 		    enumerator.each_uniq { |o| yield(o) }
+		end
+		def self.#{name}s(model)
+		    __#{name}_enumerator__[model] ||= enum_for(:each_#{name}, model)
 		end
 		def each_#{name}(model); self.model.each_#{name}(model) { |o| yield(o) } end
 	    EOD
@@ -321,6 +328,9 @@ module Roby
 	    bound_events.each do |symbol, generator|
 		start_event.add_precedence(generator) if symbol != :start
 	    end
+
+	    @instantiated_model_events = true
+	    update_terminal_flag
 
 	    # WARN: the start event CAN be terminal: it can be a signal from
 	    # :start to a terminal event
@@ -451,15 +461,15 @@ module Roby
 	# this task model. The event is terminal if model-level signals (set up
 	# by Task::on) lead to the emission of the +stop+ event
 	def self.update_terminal_flag # :nodoc:
-	    events = enum_for(:each_event).map { |name, _| name }
+	    events = enum_events.map { |name, _| name }
 	    terminal_events = [:stop]
 	    events.delete(:stop)
 
 	    loop do
 		old_size = terminal_events.size
 		events.delete_if do |ev|
-		    if (enum_for(:each_signal, ev) + enum_for(:each_forwarding, ev)).
-			any? { |signalled| terminal_events.include?(signalled) }
+		    if signals(ev).any? { |sig_ev| terminal_events.include?(sig_ev) } ||
+			forwardings(ev).any? { |sig_ev| terminal_events.include?(sig_ev) }
 			terminal_events << ev
 			true
 		    end
@@ -484,6 +494,8 @@ module Roby
 	# terminal if the +stop+ event of the task will be called because this
 	# event is.
 	def update_terminal_flag
+	    return unless @instantiated_model_events
+
 	    bound_events.each_value { |ev| ev.terminal_flag = nil }
 	    bound_events[:success].terminal_flag = :success
 	    bound_events[:failed].terminal_flag = :failure
@@ -837,6 +849,9 @@ module Roby
 
         # Events defined by the task model
         inherited_enumerable(:event, :events, :map => true) { Hash.new }
+	def self.enum_events
+	    @__enum_events__ ||= enum_for(:each_event)
+	end
 
         # Iterates on all the events defined for this task
         def each_event(&iterator) # :yield:bound_event
@@ -850,8 +865,7 @@ module Roby
 
         # Get the list of terminal events for this task model
         def self.terminal_events
-	    enum_for(:each_event).
-		find_all { |_, e| e.terminal? }.
+	    enum_events.find_all { |_, e| e.terminal? }.
 		map { |_, e| e }
 	end
 
@@ -874,7 +888,7 @@ module Roby
 	    if model_def.respond_to?(:to_sym)
 		ev_model = find_event_model(model_def.to_sym)
 		unless ev_model
-		    all_events = enum_for(:each_event).map { |name, _| name }
+		    all_events = enum_events.map { |name, _| name }
 		    raise ArgumentError, "#{model_def} is not an event of #{name}: #{all_events}" unless ev_model
 		end
 	    elsif model_def.respond_to?(:has_ancestor?) && model_def.has_ancestor?(TaskEvent)

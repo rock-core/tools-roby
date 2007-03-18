@@ -53,6 +53,8 @@ module Roby
 	# this task is tagged as useful
 	attr_reader :service_relations
 
+	attr_reader :all_relations
+
 	# A set of tasks which are useful (and as such would not been garbage
 	# collected), but we want to GC anyway
 	attr_reader :force_gc
@@ -85,6 +87,7 @@ module Roby
 	    @free_events = ValueSet.new
 	    @force_gc    = ValueSet.new
 	    @transactions = ValueSet.new
+	    @all_relations = [@hierarchy] + @service_relations
 
 	    super() if defined? super
 	end
@@ -228,7 +231,7 @@ module Roby
 		discovered_events(events)
 	    end
 	    unless tasks.empty?
-		new_tasks = useful_task_component(tasks).difference(@known_tasks)
+		new_tasks = useful_task_component(tasks, tasks.to_a).difference(@known_tasks)
 		unless new_tasks.empty?
 		    new_tasks.each { |t| t.plan = self }
 		    @known_tasks.merge new_tasks
@@ -263,20 +266,18 @@ module Roby
 	def removed_transaction(trsc); super if defined? super end
 
 	# Returns the set of tasks that are useful for +tasks+
-	def useful_task_component(tasks)
-	    # Get all tasks related to +task+
-	    useful_tasks = tasks.dup.to_value_set
-	    ([@hierarchy] + @service_relations).each do |rel| 
-		rel.generated_subgraphs(tasks.to_a, false).each do |subgraph|
+	def useful_task_component(useful_tasks, seeds)
+	    old_useful_tasks = useful_tasks.dup
+	    all_relations.each do |rel| 
+		rel.generated_subgraphs(seeds, false).each do |subgraph|
 		    useful_tasks.merge(subgraph)
 		end
 	    end
-	    return ValueSet.new unless useful_tasks
 
-	    if useful_tasks == tasks
+	    if useful_tasks.size == old_useful_tasks.size
 		useful_tasks
 	    else
-		useful_task_component(useful_tasks)
+		useful_task_component(useful_tasks, (useful_tasks - old_useful_tasks).to_a)
 	    end
 	end
 	private :useful_task_component
@@ -291,7 +292,7 @@ module Roby
 
 	    all = @missions | @keepalive
 	    return ValueSet.new if all.empty?
-	    useful_task_component(all)
+	    useful_task_component(all, all.to_a)
 	end
 
 	# Returns the set of unused tasks
@@ -307,10 +308,11 @@ module Roby
 	    free_events.each do |ev|
 		next if useful_events.include?(ev)
 		EventStructure.each_relation do |relation|
-		    useful = relation.components([ev], false).any? do |event_set|
-			useful_events.intersects?(event_set) || event_set.any? { |obj| obj.kind_of?(Roby::TaskEventGenerator) }
+		    next unless event_set = relation.components([ev], false).first
+		    useful = event_set.any? do |obj| 
+			obj.kind_of?(Roby::TaskEventGenerator) ||
+			    useful_events.include?(obj)
 		    end
-
 		    if useful
 			useful_events << ev
 			break
@@ -318,7 +320,7 @@ module Roby
 		end
 	    end
 
-	    if useful_events != free_events && useful_events != events
+	    if useful_events.size != free_events.size && useful_events.size != events.size
 		useful_event_component(useful_events)
 	    else
 		useful_events
