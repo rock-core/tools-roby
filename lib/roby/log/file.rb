@@ -17,10 +17,8 @@ module Roby::Log
 	def splat?; false end
 
 	def dump_method(m, args)
-	    m_m    = Marshal.dump(m)
-	    m_args = Marshal.dump(args)
-
-	    io << m_m << m_args
+	    Marshal.dump(m, io)
+	    Marshal.dump(args, io)
 	rescue 
 	    STDERR.puts "failed to dump #{m}#{args}: #{$!.full_message}"
 	end
