@@ -267,7 +267,7 @@ module Roby
 		droby_config = { :ring_discovery => !!discovery['ring'],
 		    :name => robot_name, 
 		    :plan => Roby.plan, 
-		    :period => droby['period'] }
+		    :period => discovery['period'] || 0.5 }
 
 		if discovery['tuplespace']
 		    droby_config[:discovery_tuplespace] = DRbObject.new_with_uri("roby://#{discovery['tuplespace']}")
@@ -277,7 +277,7 @@ module Roby
 		if discovery['ring']
 		    Roby::Distributed.publish discovery['ring']
 		end
-		Roby::Control.every(discovery['period']) do
+		Roby::Control.every(discovery['period'] || 0.5) do
 		    Roby::Distributed.state.start_neighbour_discovery
 		end
 	    end
