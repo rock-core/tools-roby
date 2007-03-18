@@ -322,6 +322,8 @@ module Roby
 	#          (each_#{child_name}) will yield (child, info) instead of only child [false]
 	# graph:: the relation graph class
 	# distribute:: if true, the relation can be seen by remote peers [true]
+	# single_child:: if the relations accepts only one child per vertex [false]. If this option
+	#                is set, defines a #{child_name} method which returns the only child or nil
 	def relation(relation_name, options = {}, &block)
 	    options = validate_options options, 
 			:child_name => relation_name.to_s.underscore,
@@ -329,7 +331,8 @@ module Roby
 			:subsets => Set.new,
 			:noinfo => false,
 			:graph => RelationGraph,
-			:distribute => true
+			:distribute => true,
+			:single_child => false
 
 	    options[:const_name] = relation_name
 	    graph = options[:graph].new "#{self.name}::#{relation_name}", options
@@ -373,6 +376,17 @@ module Roby
 		self
 	    end
 	    EOD
+
+	    if options[:single_child]
+		mod.class_eval <<-EOD
+		def #{options[:child_name]}
+		    each_child_object(@@__r_#{relation_name}__) do |child_task|
+			return child_task
+		    end
+		    nil
+		end
+		EOD
+	    end
 
 	    graph.support = mod
 	    const_set(relation_name, graph)

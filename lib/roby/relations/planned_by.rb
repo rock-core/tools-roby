@@ -1,10 +1,8 @@
 require 'roby/task'
 
 module Roby::TaskStructure
-    relation :PlannedBy, :child_name => :planning_task, :parent_name => :planned_task, :noinfo => true do
-	def planned_task; parent_objects(PlannedBy).find { true } end
+    relation :PlannedBy, :child_name => :planning_task, :parent_name => :planned_task, :noinfo => true, :single_child => true do
 	def planned_tasks; parent_objects(PlannedBy) end
-	def planning_task; child_objects(PlannedBy).find { true } end
         def planned_by(task)
             raise TaskModelViolation.new(self), "this task already has a planner" if planning_task
 	    add_planning_task(task)
@@ -32,7 +30,7 @@ module Roby
 	def initialize(planned_task, planning_task)
 	    super(planned_task)
 	    @planning_task = planning_task
-	    @error = planning_task.event(:failed).last
+	    @error = planning_task.terminal_event
 	end
 	def message
 	    "failed to plan #{planned_task}.planned_by(#{planning_task}): failed with #{error.symbol}(#{error.context})\n#{super}"

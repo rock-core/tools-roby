@@ -81,6 +81,8 @@ module Roby
 	    @planning_tasks = []
 	end
 
+	def planned_task; planned_tasks.find { true } end
+
 	# The task on which the children are added
 	def main_task; planned_task || self end
 
@@ -239,7 +241,7 @@ module Roby
 	end
 
 	def planned_task
-	    task = super
+	    task = planned_tasks.find { true }
 	    if !task
 		task = planned_model.new
 		task.planned_by self

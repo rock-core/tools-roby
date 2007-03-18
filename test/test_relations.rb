@@ -162,5 +162,19 @@ class TC_Relations < Test::Unit::TestCase
 	graph.add_relation(v2, v3, nil)
 	assert_raises(ArgumentError) { graph.add_relation(v3, v1, nil) }
     end
+
+    def test_single_child
+	klass = Class.new { include DirectedRelationSupport }
+
+	r1 = nil
+	Roby::RelationSpace(klass) { r1 = relation :R1, :single_child => true }
+	parent = klass.new 
+	child  = klass.new
+	assert_equal(nil, parent.r1)
+	parent.add_r1(child)
+	assert_equal(child, parent.r1)
+	parent.remove_r1(child)
+	assert_equal(nil, parent.r1)
+    end
 end
 
