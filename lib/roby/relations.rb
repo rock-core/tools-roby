@@ -213,13 +213,15 @@ module Roby
 	# Add a new relation between +from+ and +to+. The relation is
 	# added on all parent relation graphs as well. 	
 	def add_relation(from, to, info = nil)
-
-	    if dag? && to.generated_subgraph(self).include?(from)
-		raise ArgumentError, "cannot add a #{from} -> #{to} relation since it would create a cycle"
-	    end
-
-	    if !linked?(from, to) && parent
-		from.add_child_object(to, parent, info)
+	    if !linked?(from, to) 
+		if parent
+		    from.add_child_object(to, parent, info)
+		elsif dag? && to.generated_subgraph(self).include?(from)
+		    # No need to test that we won't create a cycle in child
+		    # relations, since the parent relation graphs are the union
+		    # of all their children
+		    raise ArgumentError, "cannot add a #{from} -> #{to} relation since it would create a cycle"
+		end
 	    end
 
 	    link(from, to, info)
