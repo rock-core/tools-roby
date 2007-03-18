@@ -96,7 +96,7 @@ module Roby
 	# is given, remove only a +type+ relation
 	def remove_child_object(child, type = nil)
 	    check_is_relation(type)
-	    apply_selection(type, enum_relations) do |type|
+	    apply_selection(type, (type || enum_relations)) do |type|
 		removing_child_object(child, type)
 		type.remove_relation(self, child)
 		removed_child_object(child, type)
@@ -105,7 +105,7 @@ module Roby
 	# Remove relations where self is a parent. If +type+
 	# is not nil, remove only the +type+ relations
 	def remove_children(type = nil)
-	    apply_selection(type, enum_relations) do |type|
+	    apply_selection(type, (type || enum_relations)) do |type|
 		self.each_child_object(type) do |child|
 		    remove_child_object(child, type)
 		end
@@ -121,7 +121,7 @@ module Roby
 	# remove only the parents in the +type+ relation
 	def remove_parents(type = nil)
 	    check_is_relation(type)
-	    apply_selection(type, enum_relations) do |type|
+	    apply_selection(type, (type || enum_relations)) do |type|
 		type.each_parent_object(self) do |parent|
 		    remove_parent_object(type, parent)
 		end
@@ -152,7 +152,7 @@ module Roby
 		remove_parent_object(to, type)
 		remove_child_object(to, type)
 	    else
-		apply_selection(type, enum_relations) do |type|
+		apply_selection(type, (type || enum_relations)) do |type|
 		    each_parent_object(type) { |parent| remove_parent_object(parent, type) }
 		    each_child_object(type) { |child| remove_child_object(child, type) }
 		end
