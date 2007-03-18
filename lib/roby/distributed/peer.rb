@@ -233,14 +233,14 @@ module Roby::Distributed
 		    next if peer.task.event(:failed).pending?
 		    if peer.connecting?
 			# The peer finalized the handshake
-			peer.connected
 			peer.tuple = entry
+			peer.connected
 			peer.remote_server.connected
 		    elsif peer.connected?
-			# ping the remote host
-			peer.ping
 			# update the host state
 			peer.tuple = entry
+			# ping the remote host
+			peer.ping
 		    end
 		elsif neighbour = connection_space.neighbours.find { |n| n.tuplespace == remote_ts }
 		    Roby::Distributed.info "peer #{neighbour.name} asking for connection"
