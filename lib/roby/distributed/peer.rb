@@ -358,12 +358,12 @@ module Roby::Distributed
 	# the trigger with Peer#remove_trigger
 	def on(matcher, &block)
 	    triggers[matcher.object_id] = [matcher, block]
-	    call(:add_trigger, matcher.object_id, matcher)
+	    transmit(:add_trigger, matcher.object_id, matcher)
 	end
 
 	# Remove a trigger from its ID. +id+ is the return value of Peer#on
 	def remove_trigger(id)
-	    call(:remove_trigger, id)
+	    transmit(:remove_trigger, id)
 	    triggers.delete(id)
 	end
 
