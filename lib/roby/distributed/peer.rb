@@ -201,6 +201,7 @@ module Roby::Distributed
 	attr_reader :removing_proxies
 
 	def to_s; "Peer:#{remote_name}" end
+	def incremental_dump?(object); false end
 
 	# The object which identifies this peer on the network
 	def remote_id; neighbour.tuplespace end
