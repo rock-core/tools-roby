@@ -200,6 +200,8 @@ module Roby
 
 	    # Loop which does neighbour_discovery
 	    def neighbour_discovery
+		Thread.current.priority = 2
+
 		discovered = []
 
 		# Initialize so that @discovery_start == discovery_start

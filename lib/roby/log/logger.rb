@@ -101,7 +101,7 @@ module Roby::Log
 	# attribute is a sized queue (of size LOGGED_EVENTS_QUEUE_SIZE) in
 	# which all the events needing logging are saved
 	def logger_loop
-	    Thread.current.priority = 1
+	    Thread.current.priority = 2
 	    loop do
 		m, args = logged_events.pop
 		break unless m
