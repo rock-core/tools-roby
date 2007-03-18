@@ -128,16 +128,15 @@ module Roby::TaskStructure
 	def check_structure(plan)
 	    result = []
 
+	    events = Hierarchy.interesting_events
+	    return result if events.empty? && failing_tasks.empty?
+
 	    # Get the set of tasks for which a possible failure has been
 	    # registered The tasks that are failing the hierarchy requirements
 	    # are registered in Hierarchy.failing_tasks. The interesting_events
 	    # set is cleared at cycle end (see below)
-	    tasks = Hierarchy.interesting_events.
-		inject(ValueSet.new) { |set, event| set << event.generator.task }.
-		to_value_set
-
-	    tasks.merge failing_tasks
-	    failing_tasks.clear
+	    tasks = events.inject(failing_tasks) { |set, event| set << event.generator.task }
+	    @failing_tasks = ValueSet.new
 	    tasks.each do |child|
 		# Check if the task has been removed from the plan
 		next unless child.plan
@@ -158,7 +157,7 @@ module Roby::TaskStructure
 		end
 	    end
 
-	    Hierarchy.interesting_events.clear
+	    events.clear
 	    result
 	end
 
