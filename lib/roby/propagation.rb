@@ -433,7 +433,7 @@ module Roby
 	    if Thread.current[:application_exceptions]
 		Thread.current[:application_exceptions] << [[event, origin], error]
 	    elsif Roby.control.abort_on_application_exception || error.kind_of?(SignalException)
-		raise error
+		raise error, "during #{event} in #{origin}: #{error.message}", error.backtrace
 	    else
 		Roby.error "Application error during #{event} in #{origin}:in #{error.full_message}"
 	    end
