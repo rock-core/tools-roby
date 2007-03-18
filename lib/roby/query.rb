@@ -55,13 +55,13 @@ module Roby
 
 	# find tasks which improves information contained in +info+
 	def which_improves(*info)
-	    improved_information.merge(info)
+	    improved_information.merge(info.to_value_set)
 	    self
 	end
 
 	# find tasks which need information contained in +info+
 	def which_needs(*info)
-	    needed_information.merge(info)
+	    needed_information.merge(info.to_value_set)
 	    self
 	end
 
@@ -278,11 +278,13 @@ module Roby
 	def merged_generated_subgraphs(relation, plan_seeds, transaction_seeds)
 	    plan_set        = ValueSet.new
 	    transaction_set = ValueSet.new
+	    plan_seeds	      = plan_seeds.to_value_set
+	    transaction_seeds = transaction_seeds.to_value_set
 
 	    loop do
 		old_transaction_set = transaction_set.dup
 		transaction_set.merge(transaction_seeds)
-		relation.generated_subgraphs(transaction_seeds, false).
+		relation.generated_subgraphs(transaction_seeds.to_a, false).
 		    inject(transaction_set) do |transaction_set, new_set| 
 			transaction_set.merge(new_set)
 		    end

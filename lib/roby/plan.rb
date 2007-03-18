@@ -210,9 +210,11 @@ module Roby
 	# +objects+, or if +objects+ is nil the child tree of the plan missions
 	def discover(objects = nil)
 	    if !objects
-		events, tasks = [], @missions
+		events, tasks = ValueSet.new, @missions
 	    else
 		events, tasks = partition_event_task(objects)
+		events = events.to_value_set
+		tasks  = tasks.to_value_set
 	    end
 
 	    unless events.empty?
@@ -372,8 +374,10 @@ module Roby
 	end
 
 	# Kills and removes all unneeded tasks
-	def garbage_collect(force_on = [])
-	    force_gc.merge(force_on)
+	def garbage_collect(force_on = nil)
+	    if force_on && !force_on.empty?
+		force_gc.merge(force_on.to_value_set)
+	    end
 
 	    loop do
 		tasks = unneeded_tasks | force_gc

@@ -381,7 +381,7 @@ module Roby::Propagation
 	    new_exceptions = ValueSet.new
 	    by_task.each do |task, task_exceptions|
 		if parent_trees.find { |t, tree| t != task && tree.include?(task) }
-		    new_exceptions |= task_exceptions.map { |e| [e, [task]] }
+		    task_exceptions.each { |e| new_exceptions << [e, [task]] }
 		    next
 		end
 
