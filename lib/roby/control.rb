@@ -131,33 +131,33 @@ module Roby
 	end
 
 	# Process the pending events. The time at each event loop step
-	# is saved into +timings+.
-	def process_events(timings = {}, do_gc = false)
+	# is saved into +stats+.
+	def process_events(stats = {})
 	    Thread.current[:application_exceptions] = []
 
-	    timings[:real_start] = Time.now
+	    stats[:real_start] = Time.now
 
 	    # Gather new events and propagate them
 	    events_errors = Propagation.propagate_events(Control.event_processing)
-	    timings[:events] = Time.now
+	    stats[:events] = Time.now
 
 	    # HACK: events_exceptions is sometime nil here. It shouldn't
 	    events_errors ||= []
 
 	    # Propagate exceptions that came from event propagation
 	    events_errors = Propagation.propagate_exceptions(events_errors)
-	    timings[:events_exceptions] = Time.now
+	    stats[:events_exceptions] = Time.now
 
 	    # Generate exceptions from task structure
 	    structure_errors = structure_checking
-	    timings[:structure_check] = Time.now
+	    stats[:structure_check] = Time.now
 	    structure_errors = Propagation.propagate_exceptions(structure_errors)
-	    timings[:structure_check_exceptions] = Time.now
+	    stats[:structure_check_exceptions] = Time.now
 
 	    # Get the remaining problems in the plan structure, and act on it
 	    fatal_structure_errors = structure_checking
 	    fatal_errors = fatal_structure_errors.to_a + events_errors
-	    timings[:fatal_structure_errors] = Time.now
+	    stats[:fatal_structure_errors] = Time.now
 	    # Get the list of tasks we should kill because of fatal_errors
 	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
 		tasks ||= [*error.task]
@@ -170,24 +170,20 @@ module Roby
 	    end
 
 	    plan.garbage_collect(kill_tasks)
-	    timings[:end] = timings[:garbage_collect] = Time.now
-
-	    if do_gc
-		GC.force
-		timings[:end] = timings[:ruby_gc] = Time.now
-	    end
+	    stats[:garbage_collect] = Time.now
 
 	    application_errors = Thread.current[:application_exceptions]
 	    Thread.current[:application_exceptions] = nil
 	    application_errors.each do |(event, origin), error|
 		Roby.application_error(event, origin, error)
 	    end
+	    stats[:end] = stats[:application_errors] = Time.now
 
 	    if abort_on_exception && !quitting? && !fatal_errors.empty?
 		reraise(fatal_errors.map { |e, _| e })
 	    end
-	    
-	    timings
+
+	    stats
 
 	ensure
 	    Thread.current[:application_exceptions] = nil
@@ -241,9 +237,11 @@ module Roby
 	    def call_every # :nodoc:
 		now = Time.now
 		process_every.map! do |block, last_call, duration|
-		    if !last_call || (now - last_call) > duration
-			Propagation.gather_exceptions(block, "call every(#{duration})") { block.call }
-			last_call = now
+		    Propagation.gather_exceptions(block, "call every(#{duration})") do
+			if !last_call || (now - last_call) > duration
+			    block.call
+			    last_call = now
+			end
 		    end
 		    [block, last_call, duration]
 		end
@@ -333,9 +331,64 @@ module Roby
 	    remaining
 	end
 
+	# Object count on which we base ourselves to start the GC
+	attr_reader :gc_last_cycle
+	attr_reader :gc_last_count
+
+	# If ObjectSpace.live_objects is available, we start the GC only if
+	# there is more than this constant objects allocated more than
+	# gc_base_count
+	GC_OBJECT_THRESHOLD = 10000
+
+	# If ObjectSpace.live_objects is not available, we start the GC only if
+	# there is at least more than this count of cycles spent before the
+	# last time we ran it. 	
+	GC_CYCLE_THRESHOLD = 20
+
+	# Statistics about the GC. It is used to compute a GC_run / object
+	# count ratio and determine if we are likely to have enough time to run
+	# the garbage collector
+	attr_reader :gc_stats
+
+	# If no statistics are available, consider that the GC needs at least
+	# this much time to run
+	GC_DEFAULT_TIME = 0.050
+
+	# Always start the GC if the predicted time is more that this much time
+	GC_MAX_TIME = 0.090
+
+	def predicted_gc_runtime
+	    if gc_stats && gc_stats[0] != 0
+		ObjectSpace.live_objects * gc_stats[0] / gc_stats[1]
+	    else
+		GC_DEFAULT_TIME
+	    end
+	end
+
+	def start_ruby_gc
+	    if ObjectSpace.respond_to?(:live_objects)
+		if !gc_last_count
+		    @gc_last_count = ObjectSpace.live_objects
+		    @gc_stats = [0, 0]
+		elsif (ObjectSpace.live_objects - gc_last_count) > GC_OBJECT_THRESHOLD
+		    before_count = ObjectSpace.live_objects
+		    gc_stats[1] += ObjectSpace.live_objects
+		    before = Time.now
+		    GC.force
+		    gc_stats[0] += Time.now - before
+		    @gc_last_count = ObjectSpace.live_objects
+		end
+	    elsif !gc_last_cycle
+		@gc_last_cycle = cycle_index
+	    elsif (cycle_index - gc_last_cycle) > GC_CYCLE_THRESHOLD
+		GC.force
+		@gc_last_cycle = cycle_index
+	    end
+	end
+
 	def event_loop(log, cycle, control_gc)
-	    timings = {}
-	    timings[:start] = Time.now
+	    stats = {}
+	    stats[:start] = Time.now
 
 	    last_stop_count = 0
 
@@ -352,30 +405,57 @@ module Roby
 			end
 		    end
 
-		    while Time.now > timings[:start] + cycle
-			timings[:start] += cycle
+		    while Time.now > stats[:start] + cycle
+			stats[:start] += cycle
 			@cycle_index += 1
 		    end
-		    timings = Control.synchronize { process_events(timings, control_gc) }
+		    stats[:cycle_index] = @cycle_index
+		    stats = Control.synchronize { process_events(stats) }
 		    
-		    timings[:pass] = timings[:sleep] = timings[:expected_sleep] = timings[:end]
-		    cycle_duration = timings[:end] - timings[:start]
-		    if cycle - cycle_duration > SLEEP_MIN_TIME
-			cycle_end(timings)
-			Thread.pass
-			timings[:pass] = Time.now
+		    stats[:expected_ruby_gc] = stats[:ruby_gc] = 
+			stats[:sleep] = stats[:expected_sleep] = stats[:end]
 
-			# Take the time we passed in other threads into account
-			sleep_time = cycle - (Time.now - timings[:start])
+		    cycle_duration = stats[:end] - stats[:start]
+		    if ObjectSpace.respond_to?(:live_objects)
+			live_objects = ObjectSpace.live_objects
+			if stats[:live_objects]
+			    stats[:object_allocation] = live_objects - stats[:live_objects]
+			else
+			    stats[:object_allocation] = 0
+			end
+			stats[:live_objects]      = live_objects
+		    end
+
+		    if cycle - cycle_duration > SLEEP_MIN_TIME
+			# Take the time we passed for GC into account
+			sleep_time = cycle - cycle_duration
+
+			if control_gc 
+			    gc_runtime = predicted_gc_runtime
+			    if sleep_time > gc_runtime || gc_runtime > GC_MAX_TIME
+				stats[:expected_ruby_gc] = Time.now + gc_runtime
+				start_ruby_gc
+			    end
+			end
+			stats[:expected_ruby_gc] ||= Time.now
+			stats[:ruby_gc] = Time.now
+
+			sleep_time = cycle - (Time.now - stats[:start])
 			if sleep_time > 0
-			    timings[:expected_sleep] = Time.now + sleep_time
+			    stats[:expected_sleep] = Time.now + sleep_time
 			    sleep(sleep_time) 
-			    timings[:sleep] = Time.now
+			    stats[:sleep] = Time.now
+
 			end
 		    end
 
-		    log << Marshal.dump(timings) if log
-		    timings[:start] += cycle
+		    if defined? Roby::Log
+			stats[:log_queue_size] = Roby::Log.logged_events.size
+		    end
+		    cycle_end(stats)
+
+		    log << Marshal.dump(stats) if log
+		    stats[:start] += cycle
 		    @cycle_index += 1
 
 		rescue Exception => e
@@ -399,7 +479,7 @@ module Roby
 	def quit; @quit += 1 end
 
 	# Called at each cycle end
-	def cycle_end(timings)
+	def cycle_end(stats)
 	    super if defined? super 
 
 	    Control.at_cycle_end_handlers.each do |handler|

@@ -12,8 +12,12 @@ class TimingLog
     REF_TIMING = :start
     ALL_TIMINGS = [ :real_start, :server, :events, 
 	:events_exceptions, :structure_check, :structure_check_exceptions, 
-	:fatal_structure_errors, 
-	:garbage_collect, :ruby_gc, :end, :pass, :expected_sleep, :sleep ]
+	:fatal_structure_errors, :garbage_collect, :application_errors, :end, 
+	:expected_ruby_gc, :ruby_gc, :expected_sleep, :sleep ]
+
+    NUMERIC_FIELDS = [:cycle_index, :live_objects, :object_allocation]
+
+    ALL_FIELDS = ALL_TIMINGS | NUMERIC_FIELDS
 
     attr_reader :cycle_size
     attr_reader :io
@@ -29,31 +33,31 @@ class TimingLog
     def each_cycle(cumulative = false)
 	loop do
 	    result  = []
-	    timings = Marshal.load(io)
+	    data = timings = Marshal.load(io)
 	    ref     = timings.delete(REF_TIMING)
-	    result << [REF_TIMING, ref]
+	    result << ref
 
-	    unknown_timings = (timings.keys.to_set - ALL_TIMINGS.to_set)
+	    unknown_timings = (timings.keys.to_set - ALL_FIELDS.to_set)
 	    raise "invalid list of timings: unknown #{unknown_timings.to_a.join(", ")}" unless unknown_timings.empty?
 	    timings = ALL_TIMINGS.map do |name|
-		[name, timings[name]]
+		timings[name]
 	    end
 
 	    if cumulative
-		timings.inject(ref) do |last, (name, time)| 
+		timings.inject(ref) do |last, time| 
 		    time ||= last
-		    result << [name, (time - ref)]
+		    result << time - ref
 		    time
 		end
 	    else
-		timings.inject(ref) do |last, (name, time)| 
+		timings.inject(ref) do |last, time| 
 		    time ||= last
-		    result << [name, (time - last)]
+		    result << time - last
 		    time
 		end
 	    end
 
-	    yield(result)
+	    yield(data.values_at(*NUMERIC_FIELDS), result)
 	end
     rescue EOFError
     rescue ArgumentError => e
@@ -73,20 +77,19 @@ def stats(file)
     stdev_cycle = 0
 
     # Compute mean value
-    file.each_cycle(false) do |results|
+    file.each_cycle(false) do |numeric, timings|
 	if !mean
-	    mean  = Array.new(results.size, 0.0)
-	    stdev = Array.new(results.size, 0.0)
+	    mean  = Array.new(numeric.size + timings.size, 0.0)
 	end
 
 	# Compute mean value
-	start = results.shift[1] + results.first[1]
+	start = timings.shift + timings.first
 	if last_start
 	    mean_cycle += start - last_start
 	end
 	last_start = start 
 
-	results.each_with_index { |(_, v), i| mean[i] += v }
+	(numeric + timings).each_with_index { |v, i| mean[i] += v }
 	count += 1
     end
     mean.map! { |v| v / count }
@@ -94,33 +97,42 @@ def stats(file)
 
     last_start = nil
     file.rewind
-    file.each_cycle(false) do |results|
-	start = results.shift[1] + results.first[1]
+    stdev = Array.new(mean.size, 0.0)
+    file.each_cycle(false) do |numeric, timings|
+	start = timings.shift + timings.first
 	if last_start
 	    stdev_cycle += (start - last_start - mean_cycle)**2
 	end
 	last_start = start
 
-	results.each_with_index { |(_, v), i| stdev[i] += (v - mean[i]) ** 2 }
+	(numeric + timings).each_with_index { |v, i| stdev[i] += (v - mean[i]) ** 2 }
     end
     stdev.map! { |v| Math.sqrt(v / count) }
 
     format = "%30s % 4.2f % 4.2f"
     puts format % ["cycle", mean_cycle * 1000, Math.sqrt(stdev_cycle / count) * 1000]
-    TimingLog::ALL_TIMINGS.each_with_index do |name, i|
+    TimingLog::NUMERIC_FIELDS.each_with_index do |name, i|
+	puts format % [name, mean[i], stdev[i]] unless name == :cycle_index
+    end
+
+    (TimingLog::ALL_TIMINGS).each_with_index do |name, i|
+	i += TimingLog::NUMERIC_FIELDS.size
 	puts format % [name, mean[i] * 1000, stdev[i] * 1000]
     end
 end
 
 def display(timings, cumulative)
-    header = ([TimingLog::REF_TIMING] + TimingLog::ALL_TIMINGS).enum_for(:each_with_index).
+
+    header = ([TimingLog::REF_TIMING] + TimingLog::ALL_TIMINGS + TimingLog::NUMERIC_FIELDS).enum_for(:each_with_index).
        map { |n, i| "#{i + 1}_#{n}" }.
        join("\t")
 
     puts header
-    timings.each_cycle(cumulative) do |results|
-	print timeval_to_s(results.shift.last) + " "
-	puts results.map { |_, t| t }.join(", ")
+    timings.each_cycle(cumulative) do |numeric, results|
+	print "#{timeval_to_s(results.shift)} "
+	print results.join(", ")
+	print " "
+	puts numeric.join(" ")
     end
 end
 
