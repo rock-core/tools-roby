@@ -3,11 +3,6 @@ require 'roby/distributed/connection_space'
 require 'roby/distributed/protocol'
 
 config = Roby.app
-if !config.loaded_component?('distributed')
-    STDERR.puts "dRoby is not loaded"
-    exit
-end
-
 begin
     config.start_distributed
     sleep
