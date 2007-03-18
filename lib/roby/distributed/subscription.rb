@@ -70,7 +70,7 @@ module Roby
 	    # the peer.
 	    def subscribed_plan(marshalled_plan, m_tasks, m_events)
 		plan = peer.local_object(marshalled_plan)
-		Distributed.update([plan]) do
+		Distributed.update(plan) do
 		    plan.discover(peer.local_object(m_tasks))
 		    plan.discover(peer.local_object(m_events))
 		end
@@ -164,7 +164,7 @@ module Roby
 		return unless object = peer.local_object(object)
 		relations = peer.local_object(relations)
 
-		Distributed.update([object.root_object]) do
+		Distributed.update(object.root_object) do
 		    all_parents  = Hash.new { |h, k| h[k] = ValueSet.new }
 		    all_children = Hash.new { |h, k| h[k] = ValueSet.new }
 		    
@@ -177,7 +177,7 @@ module Roby
 			    if graph.linked?(parent, object)
 				parent[object, graph] = info
 			    else
-				Distributed.update([parent.root_object]) do
+				Distributed.update(parent.root_object) do
 				    parent.add_child_object(object, graph, info)
 				end
 			    end
@@ -189,7 +189,7 @@ module Roby
 			    if graph.linked?(object, child)
 				object[child, graph] = info
 			    else
-				Distributed.update([child.root_object]) do
+				Distributed.update(child.root_object) do
 				    object.add_child_object(child, graph, info)
 				end
 			    end
@@ -199,12 +199,12 @@ module Roby
 		    Distributed.each_object_relation(object) do |rel|
 			# Remove relations that do not exist anymore
 			(object.parent_objects(rel) - all_parents[rel]).each do |p|
-			    Distributed.update([p.root_object, object.root_object]) do
+			    Distributed.update_all([p.root_object, object.root_object]) do
 				p.remove_child_object(object, rel)
 			    end
 			end
 			(object.child_objects(rel) - all_children[rel]).each do |c|
-			    Distributed.update([c.root_object, object.root_object]) do
+			    Distributed.update_all([c.root_object, object.root_object]) do
 				object.remove_child_object(c, rel)
 			    end
 			end

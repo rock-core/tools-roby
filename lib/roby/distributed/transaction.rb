@@ -45,7 +45,7 @@ module Roby
 
 		if object = super
 		    object.extend DistributedObject
-		    if !Distributed.updating?([self]) && object.root_object?
+		    if !Distributed.updating?(self) && object.root_object?
 			updated_peers.each do |peer|
 			    next if base_object.update_on?(peer) || !base_object.distribute?
 			    peer.local.subscribe(base_object)
@@ -85,7 +85,7 @@ module Roby
 		if objects
 		    events, tasks = partition_event_task(objects)
 		    (events + tasks).each do |object|
-			unless Distributed.updating?([object]) || 
+			unless Distributed.updating?(object) || 
 			    Distributed.owns?(object) || 
 			    (object.owners - owners).empty?
 
@@ -139,9 +139,9 @@ module Roby
 			return true
 		    end
 		else
-		    proxy_objects = (known_tasks | discovered_objects)
-		    plan_objects = proxy_objects.map { |o| may_unwrap(o) }
-		    Distributed.update(proxy_objects | plan_objects) do
+		    all_objects = (known_tasks | discovered_objects)
+		    proxy_objects.each { |o| all_objects << may_unwrap(o) }
+		    Distributed.update_all(all_objects) do
 		       	super()
 		    end
 		end
@@ -295,7 +295,7 @@ module Roby
 
 		local_object = nil
 		local_transaction = peer.local_object(transaction)
-		Distributed.update([local_transaction]) do
+		Distributed.update(local_transaction) do
 		    local_object = local_transaction[local_real]
 		end
 
@@ -332,13 +332,13 @@ module Roby
 
 	    def discover(relation, mark)
 		return unless proxying?
-		unless !mark || Distributed.updating?([self]) || (__getobj__.owners - plan.owners).empty?
+		unless !mark || Distributed.updating?(self) || (__getobj__.owners - plan.owners).empty?
 		    raise NotOwner, "transaction owners #{plan.owners} do not own #{self}: #{owners}"
 		end
 
 		if mark
 		    owners.each do |owner|
-			if !Distributed.updating?([self]) && !__getobj__.root_object.updated?
+			if !Distributed.updating?(self) && !__getobj__.root_object.updated?
 			    raise "must subscribe to #{__getobj__} on #{owner} before changing its transactions proxies"
 			end
 		    end

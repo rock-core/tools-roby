@@ -158,7 +158,7 @@ module Roby
 
 	def read_write?
 	    super || 
-		Distributed.updating?([root_object]) || 
+		Distributed.updating?(root_object) || 
 		(!plan || (plan.self_owned? && (owners - plan.owners).empty?))
 	end
 

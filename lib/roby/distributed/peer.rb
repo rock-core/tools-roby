@@ -583,7 +583,7 @@ module Roby::Distributed
 
 		if !local_object.execution_agent
 		    connection_task = local_object.plan[self.task]
-		    Roby::Distributed.update([local_object, connection_task]) do
+		    Roby::Distributed.update_all([local_object, connection_task]) do
 			local_object.executed_by connection_task
 		    end
 		end
@@ -601,7 +601,7 @@ module Roby::Distributed
 		    return unless local_object = marshalled.proxy(self)
 		end
 		if marshalled.respond_to?(:update)
-		    Roby::Distributed.update([local_object]) do
+		    Roby::Distributed.update(local_object) do
 			marshalled.update(self, local_object) 
 		    end
 		end
@@ -625,7 +625,7 @@ module Roby::Distributed
 			edges.each do |rel, from, to, info|
 			    objects << from.root_object << to.root_object
 			end
-			Roby::Distributed.update(objects) do
+			Roby::Distributed.update_all(objects) do
 			    edges.each do |rel, from, to, info|
 				from.add_child_object(to, rel, info)
 			    end

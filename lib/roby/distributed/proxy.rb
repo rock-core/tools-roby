@@ -112,7 +112,7 @@ module Roby
 	    def update(peer, proxy)
 		if self.plan
 		    plan = peer.local_object(self.plan)
-		    Distributed.update([plan, proxy]) do
+		    Distributed.update_all([plan, proxy]) do
 			plan.discover(proxy)
 		    end
 		end
@@ -217,7 +217,7 @@ module Roby
 		task.success  = flags[:success]
 		task.mission  = flags[:mission]
 
-		Distributed.update([task]) do
+		Distributed.update(task) do
 		    task.arguments.merge(arguments)
 		    task.data = data
 		end

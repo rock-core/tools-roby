@@ -32,8 +32,11 @@ module Roby
 		    local_object.subscribed?
 
 		Roby::Distributed.each_object_relation(local_object) do |rel|
-		    if local_object.related_objects(rel).any? { |obj| obj.remotely_useful? || obj.subscribed? }
-			return true
+		    local_object.each_parent_object(rel) do |obj|
+			return true if obj.remotely_useful? || obj.subscribed?
+		    end
+		    local_object.each_child_object(rel) do |obj|
+			return true if obj.remotely_useful? || obj.subscribed?
 		    end
 		end
 
@@ -49,21 +52,33 @@ module Roby
 	    # The list of objects that are being updated because of remote update
 	    attr_reader :updated_objects
 
-	    # If we are updating all objects in +objects+
-	    def updating?(objects)
-		updated_objects.include_all?(objects) 
+	    # True if we are updating +object+
+	    def updating?(object)
+		updated_objects.include?(object) 
+	    end
+	
+	    # True if we are updating all objects in +objects+
+	    def updating_all?(objects)
+		updated_objects.include_all?(objects.to_value_set)
 	    end
 
 	    # Call the block with the objects in +objects+ added to the
 	    # updated_objects set
-	    def update(objects)
-		old_updated = updated_objects
-		@updated_objects |= objects
-
+	    def update_all(objects)
+		old_updated_objects = @updated_objects
+		@updated_objects |= objects.to_value_set
 		yield
-
 	    ensure
-		@updated_objects = old_updated
+		@updated_objects = old_updated_objects
+	    end
+
+	    # Call the block with the objects in +objects+ added to the
+	    # updated_objects set
+	    def update(object)
+		@updated_objects << object
+		yield
+	    ensure
+		@updated_objects.delete(object)
 	    end
 
 	    # Allow objects of class +type+ to be accessed remotely using

@@ -6,7 +6,7 @@ module Roby
 		super if defined? super
 		return unless task.distribute? && task.self_owned?
 
-		unless Distributed.updating?([self]) || Distributed.updating?([task])
+		unless Distributed.updating?(self) || Distributed.updating?(task)
 		    Distributed.each_updated_peer(self, task) do |peer|
 			peer.transmit(:plan_set_mission, self, task, true)
 		    end
@@ -18,7 +18,7 @@ module Roby
 		super if defined? super
 		return unless task.distribute? && task.self_owned?
 
-		unless Distributed.updating?([self]) || Distributed.updating?([task])
+		unless Distributed.updating?(self) || Distributed.updating?(task)
 		    Distributed.each_updated_peer(self, task) do |peer|
 			peer.transmit(:plan_set_mission, self, task, false)
 		    end
@@ -27,7 +27,7 @@ module Roby
 
 	    # Common implementation for the #discovered_events and #discovered_tasks hooks
 	    def self.discovered_objects(plan, objects)
-		unless Distributed.updating?([plan]) || Distributed.updating?(objects)
+		unless Distributed.updating?(plan) || Distributed.updating_all?(objects)
 		    objects = objects.find_all { |t| t.distribute? && t.self_owned? && t.root_object? }
 		    return if objects.empty?
 
@@ -49,7 +49,7 @@ module Roby
 	    def replaced(from, to)
 		super if defined? super
 		if (from.distribute? && to.distribute?) && (to.self_owned? || from.self_owned?)
-		    unless Distributed.updating?([self]) || Distributed.updating?([from, to])
+		    unless Distributed.updating?(self) || Distributed.updating_all?([from, to])
 			Distributed.each_updated_peer(from) do |peer|
 			    peer.transmit(:plan_replace, self, from, to)
 			end
@@ -65,7 +65,7 @@ module Roby
 		    Distributed.clean_triggered(object)
 		end
 
-		if !Distributed.updating?([plan])
+		if !Distributed.updating?(plan)
 		    Distributed.peers.each_value do |peer|
 			if peer.connected? && plan.has_sibling_on?(peer)
 			    peer.transmit(:plan_remove_object, plan, object)
@@ -104,7 +104,7 @@ module Roby
 		    next unless local = peer.local_object(marshalled)
 		    tasks << local
 		end
-		Distributed.update(tasks) { plan.discover(tasks) }
+		Distributed.update_all(tasks) { plan.discover(tasks) }
 	    end
 	    def plan_replace(plan, m_from, m_to)
 		plan = peer.local_object(plan)
@@ -113,7 +113,7 @@ module Roby
 		from, to = peer.local_object(m_from), peer.local_object(m_to)
 		return unless from && to
 
-		Distributed.update([from, to]) { plan.replace(from, to) }
+		Distributed.update_all([from, to]) { plan.replace(from, to) }
 
 		# Subscribe to the new task if the old task was subscribed
 		if peer.subscribed?(m_from.remote_object) && !peer.subscribed?(m_to.remote_object)
@@ -134,7 +134,7 @@ module Roby
 	    # Receive an update on the relation graphs
 	    def update_relation(plan, args)
 		if plan
-		    Roby::Distributed.update([peer.local_object(plan)]) { update_relation(nil, args) }
+		    Roby::Distributed.update(peer.local_object(plan)) { update_relation(nil, args) }
 		else
 		    m_from, op, m_to, m_rel, m_info = *args
 		    from, to = peer.local_object(m_from), 
@@ -143,12 +143,12 @@ module Roby
 
 		    rel = peer.local_object(m_rel)
 		    if op == :add_child_object
-			Roby::Distributed.update([from.root_object, to.root_object]) do
+			Roby::Distributed.update_all([from.root_object, to.root_object]) do
 			    from.add_child_object(to, rel, peer.local_object(m_info))
 			end
 
 		    elsif op == :remove_child_object
-			Roby::Distributed.update([from.root_object, to.root_object]) do
+			Roby::Distributed.update_all([from.root_object, to.root_object]) do
 			    from.remove_child_object(to, rel)
 			end
 		    end
@@ -164,7 +164,7 @@ module Roby
 		super if defined? super
 
 		return unless type.distribute? && Distributed.state
-		return if Distributed.updating?([self.root_object, child.root_object])
+		return if Distributed.updating_all?([self.root_object, child.root_object])
 		Distributed.each_updated_peer(self.root_object, child.root_object) do |peer|
 		    peer.transmit(:update_relation, plan, [self, :add_child_object, child, type, info])
 		end
@@ -175,7 +175,7 @@ module Roby
 		super if defined? super
 
 		return unless type.distribute? && Distributed.state
-		return if Distributed.updating?([self.root_object, child.root_object])
+		return if Distributed.updating_all?([self.root_object, child.root_object])
 		Distributed.each_updated_peer(self.root_object, child.root_object) do |peer|
 		    peer.transmit(:update_relation, plan, [self, :remove_child_object, child, type])
 		end
@@ -189,7 +189,7 @@ module Roby
 	module EventNotifications
 	    def fired(event)
 		super if defined? super
-		if self_owned? && !Distributed.updating?([root_object])
+		if self_owned? && !Distributed.updating?(root_object)
 		    Distributed.each_updated_peer(root_object) do |peer|
 			peer.transmit(:event_fired, self, event.object_id, event.time, nil)
 		    end
@@ -197,7 +197,7 @@ module Roby
 	    end
 	    def forwarding(event, to)
 		super if defined? super
-		if self_owned? && !Distributed.updating?([root_object])
+		if self_owned? && !Distributed.updating?(root_object)
 		    Distributed.each_updated_peer(root_object, to.root_object) do |peer|
 			peer.transmit(:event_add_propagation, true, self, to, event.object_id, event.time, nil)
 		    end
@@ -205,7 +205,7 @@ module Roby
 	    end
 	    def signalling(event, to)
 		super if defined? super
-		if self_owned? && !Distributed.updating?([root_object])
+		if self_owned? && !Distributed.updating?(root_object)
 		    Distributed.each_updated_peer(root_object, to.root_object) do |peer|
 			peer.transmit(:event_add_propagation, false, self, to, event.object_id, event.time, nil)
 		    end
@@ -304,7 +304,7 @@ module Roby
 			# Call #signalling or #forwarding to make
 			# +from_generator+ look like as if the event was really
 			# fired locally ...
-			Distributed.update([from_generator.root_object, to_generator.root_object]) do
+			Distributed.update_all([from_generator.root_object, to_generator.root_object]) do
 			    if only_forward then from_generator.forwarding(event, to_generator)
 			    else from_generator.signalling(event, to_generator)
 			    end
@@ -319,7 +319,7 @@ module Roby
 	    def updated_data
 		super if defined? super
 
-		unless Distributed.updating?([self])
+		unless Distributed.updating?(self)
 		    Distributed.each_updated_peer(self) do |peer|
 			peer.transmit(:updated_data, self, data)
 		    end
@@ -332,7 +332,7 @@ module Roby
 	    def updated
 		super if defined? super
 
-		unless Distributed.updating?([task])
+		unless Distributed.updating?(task)
 		    Distributed.each_updated_peer(task) do |peer|
 			peer.transmit(:updated_arguments, task, task.arguments)
 		    end
@@ -344,14 +344,14 @@ module Roby
 	class PeerServer
 	    def updated_data(task, data)
 		proxy = peer.local_object(task)
-		Distributed.update([proxy]) do
+		Distributed.update(proxy) do
 		    proxy.data = data
 		end
 	    end
 
 	    def updated_arguments(task, arguments)
 		proxy = peer.local_object(task)
-		Distributed.update([proxy]) do
+		Distributed.update(proxy) do
 		    proxy.arguments.merge!(arguments || {})
 		end
 		nil

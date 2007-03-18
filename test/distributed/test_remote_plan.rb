@@ -23,7 +23,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	task = SimpleTask.new
 	assert(!r_simple_task.read_write?)
-	Distributed.update([r_simple_task]) do
+	Distributed.update(r_simple_task) do
 	    assert(r_simple_task.read_write?)
 	    assert_nothing_raised do
 		r_simple_task.realized_by task
@@ -36,16 +36,16 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	assert_raises(NotOwner) { r_simple_task.realized_by task }
 	assert_raises(NotOwner) { task.realized_by r_simple_task }
-	Distributed.update([r_simple_task]) { r_simple_task.realized_by task }
+	Distributed.update(r_simple_task) { r_simple_task.realized_by task }
 	assert_nothing_raised { r_simple_task.remove_child task }
-	Distributed.update([r_simple_task]) { task.realized_by r_simple_task }
+	Distributed.update(r_simple_task) { task.realized_by r_simple_task }
 	assert_nothing_raised { task.remove_child r_simple_task }
 
 	assert_raises(NotOwner) { r_simple_task.realized_by r_other_task }
 	assert_raises(NotOwner) { r_other_task.realized_by r_simple_task }
-	Distributed.update([r_simple_task, r_other_task]) { r_simple_task.realized_by r_other_task }
+	Distributed.update_all([r_simple_task, r_other_task]) { r_simple_task.realized_by r_other_task }
 	assert_raises(NotOwner) { r_simple_task.remove_child r_other_task }
-	Distributed.update([r_simple_task, r_other_task]) do
+	Distributed.update_all([r_simple_task, r_other_task]) do
 	    r_simple_task.remove_child r_other_task
 	    r_other_task.realized_by r_simple_task
 	end
