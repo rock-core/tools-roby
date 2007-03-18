@@ -122,6 +122,7 @@ module Roby
 	    end
 	
 	    private :plan=
+	    private :executable=
 	    EOD
 	end
 

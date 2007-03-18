@@ -606,8 +606,6 @@ module Roby
 		event_model = self.event_model(event_model)
 		bound_events[event_model.symbol]
 	    end
-
-	    event.executable = self.executable?
 	    event
         end
 
