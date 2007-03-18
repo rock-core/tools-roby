@@ -304,8 +304,9 @@ module Roby
 		    relation.each_dfs(seed, BGL::Graph::TREE) do |_, dest, _, kind|
 			next if plan_set.include?(dest)
 			if discovered_relations_of?(dest, relation, true)
-			    unless transaction_set.include?(dest)
-				transaction_seeds << wrap(dest, false)
+			    proxy = wrap(dest, false)
+			    unless transaction_set.include?(proxy)
+				transaction_seeds << proxy
 			    end
 			    relation.prune # transaction branches must be developed inside the transaction
 			else
