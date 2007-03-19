@@ -117,16 +117,16 @@ module Roby
 		nil
 	    end
 
-	    def add_owner(object, new_owner)
-		peer.local_object(object).add_owner(new_owner, false)
+	    def add_owner(object, owner)
+		peer.local_object(object).add_owner(peer.local_object(owner), false)
 		nil
 	    end
-	    def remove_owner(object, new_owner)
-		peer.local_object(object).remove_owner(new_owner, false)
+	    def remove_owner(object, owner)
+		peer.local_object(object).remove_owner(peer.local_object(owner), false)
 		nil
 	    end
-	    def prepare_remove_owner(object, new_owner)
-		peer.local_object(object).prepare_remove_owner(new_owner)
+	    def prepare_remove_owner(object, owner)
+		peer.local_object(object).prepare_remove_owner(peer.local_object(owner))
 		nil
 	    rescue
 		$!

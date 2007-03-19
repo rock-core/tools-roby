@@ -6,6 +6,11 @@ require 'utilrb/kernel/options'
 require 'roby/distributed/drb'
 require 'roby/distributed/peer'
 
+class Rinda::TupleSpace
+    def _dump(lvl); @__droby_marshalled__ ||= Marshal.dump(DRbObject.new(self)) end
+    def self._load(str); Marshal.load(str) end
+end
+
 module Roby
     module Distributed
 	DISCOVERY_RING_PORT = 48932

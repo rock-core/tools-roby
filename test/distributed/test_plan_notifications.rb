@@ -10,7 +10,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	Roby::Distributed.allow_remote_access Proc
 	peer2peer do |remote|
 	    def remote.new_task(kind, args)
-		new_task = kind.new(args)
+		new_task = kind.proxy(local_peer).new(args)
 		yield(new_task) if block_given?
 		plan.insert(new_task)
 		new_task

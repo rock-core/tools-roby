@@ -24,8 +24,11 @@ module Roby
 	    def distribute?; true end
 
 	    def initialize_remote_proxy(peer, marshalled_object)
-		unless marshalled_object.model.ancestors.find { |klass| klass == self.class.superclass }
-		    raise TypeError, "invalid remote task type. Was expecting #{self.class.superclass.name}, got #{marshalled_object.model.ancestors}"
+		if marshalled_object.model
+		    remote_model = peer.proxy(marshalled_object.model)
+		    unless remote_model.ancestors.find { |klass| klass == self.class.superclass }
+			raise TypeError, "invalid remote task type. Was expecting #{self.class.superclass.name}, got #{remote_model.ancestors}"
+		    end
 		end
 
 		@marshalled_object = marshalled_object
@@ -66,7 +69,8 @@ module Roby
 	    include RemoteObjectProxy
 	    def initialize(peer, marshalled_object)
 		initialize_remote_proxy(peer, marshalled_object)
-		super(marshalled_object.arguments) do
+		arguments = peer.proxy(marshalled_object.arguments)
+		super(arguments) do
 		    Roby::Distributed.updated_objects << self
 		end
 
@@ -82,38 +86,33 @@ module Roby
 	# Base class for all marshalled plan objects.
 	class MarshalledPlanObject
 	    def to_s; "m(#{remote_name})" end
-	    attr_reader :remote_name, :remote_object, :model, :plan
-	    def initialize(remote_name, remote_object, model, plan)
-		@remote_name, @remote_object, @model, @plan = 
-		    remote_name, remote_object, model, plan
-	    end
-
-	    def self.droby_load(str)
-		data = Marshal.load(str)
-		object  = data[1]		    # the remote object
-		yield(data)
-	    end
-
-	    def marshal_format
-		[remote_name, remote_object, model, plan]
-	    end
-	    def _dump(lvl)
-		Marshal.dump(marshal_format) 
+	    attr_reader :remote_name, :remote_object, :model, :plan, :owners
+	    def initialize(remote_name, remote_object, model, plan, owners)
+		@remote_name, @remote_object, @model, @plan, @owners =
+		    remote_name, remote_object, model, plan, owners
 	    end
 
 	    # Creates the local object for this marshalled object
 	    def proxy(peer)
-		local_object = Distributed.RemoteProxyModel(model).new(peer, self)
+		local_object = Distributed.RemoteProxyModel(peer.proxy(model)).new(peer, self)
 		local_object.sibling_of(remote_object, peer)
 		local_object
 	    end
 
 	    # Updates the status of the local object if needed
 	    def update(peer, proxy)
-		if self.plan
-		    plan = peer.local_object(self.plan)
-		    Distributed.update_all([plan, proxy]) do
-			plan.discover(proxy)
+		if proxy.root_object?
+		    if self.plan
+			plan = peer.local_object(self.plan)
+			return if proxy.plan == plan
+			Distributed.update_all([plan, proxy]) do
+			    plan.discover(proxy)
+			end
+		    end
+
+		    proxy.owners.clear
+		    owners.each do |m_owner|
+			proxy.owners << peer.local_object(m_owner)
 		    end
 		end
 	    end
@@ -122,29 +121,21 @@ module Roby
 	class Roby::EventGenerator
 	    def droby_dump(dest)
 		MarshalledEventGenerator.new(to_s, drb_object, 
-		    self.model.droby_dump(dest), 
-		    plan.droby_dump(dest), controlable?, happened?)
+		    self.model.droby_dump(dest), plan.droby_dump(dest), 
+		    owners.droby_dump(dest), controlable?, happened?)
 	    end
 	end
 	class MarshalledEventGenerator < MarshalledPlanObject
-	    def self._load(str)
-		droby_load(str) do |data|
-		    if block_given? then yield(data)
-		    else new(*data)
-		    end
-		end
-	    end
-	    def marshal_format; super << controlable << happened end
-
 	    def update(peer, proxy)
+		super
 		if happened && !proxy.happened?
 		    proxy.instance_eval { @happened = true }
 		end
 	    end
 
 	    attr_reader :controlable, :happened
-	    def initialize(remote_name, remote_object, model, plan, controlable, happened)
-		super(remote_name, remote_object, model, plan)
+	    def initialize(remote_name, remote_object, model, plan, owners, controlable, happened)
+		super(remote_name, remote_object, model, plan, owners)
 		@controlable, @happened = controlable, happened
 	    end
 	end
@@ -152,24 +143,16 @@ module Roby
 	class Roby::TaskEventGenerator
 	    def droby_dump(dest)
 		# no need to marshal the plan, since it is the same than the event task
-		MarshalledTaskEventGenerator.new(to_s, drb_object, self.model.droby_dump(dest), 
-		    nil, controlable?, happened?, task.droby_dump(dest), symbol)
+		MarshalledTaskEventGenerator.new(to_s, drb_object, controlable?, happened?, task.droby_dump(dest), symbol)
 	    end
 	end
 	class MarshalledTaskEventGenerator < MarshalledEventGenerator
 	    attr_reader :task, :symbol
-	    def initialize(name, remote_object, model, plan, controlable, happened, task, symbol)
-		super(name, remote_object, model, plan, controlable, happened)
+	    def initialize(name, remote_object, controlable, happened, task, symbol)
+		super(name, remote_object, nil, nil, nil, controlable, happened)
 		@task   = task
 		@symbol = symbol
 	    end
-
-	    def self._load(str)
-		super do |data|
-		    new(*data)
-		end
-	    end
-	    def marshal_format; super << task << symbol end
 
 	    def proxy(peer)
 		task = peer.local_object(self.task)
@@ -189,24 +172,18 @@ module Roby
 	class Roby::Task
 	    def droby_dump(dest)
 		MarshalledTask.new(to_s, drb_object, self.model.droby_dump(dest), 
-		    plan.droby_dump(dest), arguments.droby_dump(dest), Distributed.format(data, dest),
+		    plan.droby_dump(dest), owners.droby_dump(dest), 
+		    arguments.droby_dump(dest), Distributed.format(data, dest),
 		    :mission => mission?, :started => started?, 
 		    :finished => finished?, :success => success?)
 	    end
 	end
 	class MarshalledTask < MarshalledPlanObject
 	    attr_reader :arguments, :data, :flags
-	    def initialize(remote_name, remote_object, model, plan, arguments, data, flags)
-		super(remote_name, remote_object, model, plan)
+	    def initialize(remote_name, remote_object, model, plan, owners, arguments, data, flags)
+		super(remote_name, remote_object, model, plan, owners)
 		@arguments, @data, @flags = arguments, data, flags
 	    end
-
-	    def self._load(str)
-		droby_load(str) do |data|
-		    MarshalledTask.new(*data)
-		end
-	    end
-	    def marshal_format; super << arguments << data << flags end
 
 	    def update(peer, task)
 		super
@@ -218,7 +195,7 @@ module Roby
 		task.mission  = flags[:mission]
 
 		Distributed.update(task) do
-		    task.arguments.merge(arguments)
+		    task.arguments.merge(peer.proxy(arguments))
 		    task.data = data
 		end
 	    end

@@ -236,20 +236,14 @@ module Roby
 	    # Distributed transactions are marshalled as DRbObjects and #proxy
 	    # returns their sibling in the remote pDB (or raises if there is none)
 	    class DRoby < Roby::Plan::DRoby # :nodoc:
-		def _dump(lvl)
-		    Marshal.dump([remote_object, plan, owners, options]) 
-		end
-		def self._load(str)
-		    new(*Marshal.load(str))
-		end
 		def proxy(peer)
 		    raise InvalidRemoteOperation, "the transaction #{remote_object} does not exist on #{peer.connection_space.name}"
 		end
 
 		def sibling(peer)
 		    plan = peer.local_object(self.plan)
-		    trsc = Roby::Distributed::Transaction.new(plan, options)
-		    owners = self.owners
+		    trsc = Roby::Distributed::Transaction.new(plan, peer.local_object(options))
+		    owners = peer.local_object(self.owners)
 		    trsc.instance_eval do
 			@owners  = owners
 			@editor  = false
@@ -279,17 +273,13 @@ module Roby
 		end
 	    end
 	    def droby_dump(dest) # :nodoc:
-		DRoby.new(drb_object, self.plan.droby_dump(dest), self.owners.droby_dump(dest), self.options)
+		DRoby.new(drb_object, self.plan.droby_dump(dest), 
+			  self.owners.droby_dump(dest), 
+			  self.options.droby_dump(dest))
 	    end
 	end
 
 	class MarshalledRemoteTransactionProxy # :nodoc:
-	    def self._load(str)
-		MarshalledRemoteTransactionProxy.new(*Marshal.load(str))
-	    end
-	    def _dump(lvl)
-		Marshal.dump([remote_object, real_object, transaction])
-	    end
 	    def proxy(peer)
 		return unless local_real = peer.local_object(real_object)
 

@@ -128,7 +128,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	proxy = nil
 	assert_nothing_raised { proxy = proxy_model.new(remote_peer, r_simple_task.marshalled_object) }
-	assert_raises(TypeError) { proxy_model.new(remote_peer, r_task) }
+	assert_raises(TypeError) { proxy_model.new(remote_peer, r_task.marshalled_object) }
 
 	assert(proxy = remote_peer.proxy(r_task))
 	assert_equal(proxy.sibling_on(remote_peer), r_task.sibling_on(remote_peer))

@@ -25,15 +25,15 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
 	assert_kind_of(MarshalledTask, array[1])
 	assert_equal({:id => 1}, array[1].arguments)
-	assert_equal(Roby::Task, array[1].model)
+	assert_equal(Roby::Task, array[1].model.proxy(remote_peer))
 
 	assert_kind_of(MarshalledEventGenerator, array[2])
 	assert(array[2].controlable)
-	assert_equal(Roby::EventGenerator, array[2].model)
+	assert_equal(Roby::EventGenerator, array[2].model.proxy(remote_peer))
 
 	assert_kind_of(MarshalledTask, array[3])
 	assert_equal({:id => 2}, array[3].arguments)
-	assert_equal(SimpleTask, array[3].model)
+	assert_equal(SimpleTask, array[3].model.proxy(remote_peer))
 
 	assert_kind_of(MarshalledTaskEventGenerator, array[4])
 	assert_equal(array[1].remote_object, array[4].task.remote_object)
@@ -43,16 +43,18 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_equal(Roby::TaskStructure::Hierarchy.object_id, array[5].object_id)
 
 	assert_kind_of(MarshalledTask, array[6])
-	assert_not_equal(Task, array[6].model)
+	assert_not_equal(Task, array[6].model.proxy(remote_peer))
     end
 
     def test_enumerables
 	test_case = self
-	remote = remote_server do
-	    define_method(:array)     { test_case.dumpable_array }
-	    define_method(:value_set) { test_case.dumpable_array.to_value_set }
-	    define_method(:_hash)     { test_case.dumpable_hash }
-	    define_method(:array_of_array) { [test_case.dumpable_array] }
+	peer2peer do |remote|
+	    remote.singleton_class.class_eval do
+		define_method(:array)     { test_case.dumpable_array }
+		define_method(:value_set) { test_case.dumpable_array.to_value_set }
+		define_method(:_hash)     { test_case.dumpable_hash }
+		define_method(:array_of_array) { [test_case.dumpable_array] }
+	    end
 	end
 
 	array = remote.array
@@ -85,12 +87,12 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 		@anonymous ||= Class.new(model)
 	    end
 	    def remote.check_anonymous_model(remote)
-		@anonymous == remote
+		@anonymous == remote.proxy(local_peer)
 	    end
 	end
 
-	assert_equal(SimpleTask, remote.model)
-	anonymous = remote.anonymous_model
+	assert_equal(SimpleTask, remote.model.proxy(remote_peer))
+	anonymous = remote.anonymous_model.proxy(remote_peer)
 	assert_not_equal(anonymous, SimpleTask)
 	assert(anonymous < SimpleTask)
 	assert(remote.check_anonymous_model(anonymous))
@@ -99,12 +101,15 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     def test_marshal_task
 	peer2peer do |remote|
 	    def remote.task
-	        plan.insert(task = Class.new(SimpleTask).new(:id => 1))
-	        task
+	        plan.insert(@task = Class.new(SimpleTask).new(:id => 1))
+	        @task
 	    end
 	    def remote.proxy(object)
 	        peer = peers.to_a[0][1]
 	        peer.proxy(object)
+	    end
+	    def remote.check_back_forth(object)
+		local_peer.local_object(object) == @task
 	    end
 	end
 
@@ -112,20 +117,35 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_kind_of(MarshalledTask, remote_task)
 	assert_equal({:id => 1}, remote_task.arguments)
 	assert_kind_of(Plan::DRoby, remote_task.plan)
-	assert_equal(SimpleTask, remote_task.model.ancestors[1], remote_task.model.ancestors)
+	assert_equal("SimpleTask", remote_task.model.ancestors[1].first)
 
 	local_proxy = remote_peer.local_object(remote_task)
 	assert_kind_of(Roby::Task, local_proxy)
 	assert_equal([remote_peer], local_proxy.owners)
 	assert(!local_proxy.read_write?)
 
+	# Send the proxy back to the remote host
+	assert(remote.check_back_forth(local_proxy))
+
 	remote_proxy = remote.proxy(local_task = SimpleTask.new(:id => 'local'))
 	assert_same(local_task, remote_proxy)
     end
 
-    def assert_marshalled_ancestors(expected, marshalled)
-	assert_equal(expected, marshalled.model.ancestors.find_all { |klass| klass.instance_of?(Class) }[0, expected.size])
+    def test_marshal_task_arguments
+	peer2peer do |remote|
+	    def remote.task
+		plan.insert(@task = model.new(:id => 1, :model => model))
+		@task
+	    end
+	    def remote.model
+		@model ||= Class.new(SimpleTask)
+	    end
+	end
+	m = remote.model.proxy(remote_peer)
+	t = remote_peer.local_object(remote.task)
+	assert_equal({ :id => 1, :model => m }, t.arguments)
     end
+
     def test_marshal_task_event
 	remote = remote_server do
 	    attr_reader :task
@@ -141,7 +161,6 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	remote_event = remote.task_event
 	assert_kind_of(MarshalledTaskEventGenerator, remote_event)
 	assert_equal(remote.task.remote_object, remote_event.task.remote_object)
-	assert_marshalled_ancestors([TaskEventGenerator, EventGenerator], remote_event)
     end
 
     CommonTaskModelTag = TaskModelTag.new
@@ -167,16 +186,16 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	end
 
 	Marshal.dump(CommonTaskModelTag)
-	assert_equal(CommonTaskModelTag, remote.tag)
-	tagged_task_model = remote.tagged_task_model
+	assert_equal(CommonTaskModelTag, remote.tag.proxy(remote_peer))
+	tagged_task_model = remote.tagged_task_model.proxy(remote_peer)
 	assert(tagged_task_model.has_ancestor?(CommonTaskModelTag), tagged_task_model.ancestors)
 
-	anonymous_tag = remote.anonymous_tag
+	anonymous_tag = remote.anonymous_tag.proxy(remote_peer)
 	assert_not_equal(CommonTaskModelTag, anonymous_tag)
 	assert(anonymous_tag.has_ancestor?(CommonTaskModelTag), anonymous_tag.ancestors)
-	assert_equal(anonymous_tag, remote.anonymous_tag)
+	assert_equal(anonymous_tag, remote.anonymous_tag.proxy(remote_peer))
 
-	tagged_task_model = remote.anonymously_tagged_task_model
+	tagged_task_model = remote.anonymously_tagged_task_model.proxy(remote_peer)
 	assert(tagged_task_model.has_ancestor?(CommonTaskModelTag))
 	assert(tagged_task_model.has_ancestor?(anonymous_tag))
     end

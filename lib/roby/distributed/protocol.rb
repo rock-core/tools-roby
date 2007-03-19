@@ -63,45 +63,22 @@ class Exception
 end
 
 module Roby
-    class << Task
-	def droby_dump(dest); Roby::Distributed::DRobyTaskModel.new(ancestors) end
-    end
-    class << EventGenerator
-	def droby_dump(dest); Roby::Distributed::DRobyModel.new(ancestors) end
-    end
-    class << Planning::Planner
-	def droby_dump(dest); Roby::Distributed::DRobyModel.new(ancestors) end
-    end
     class TaskModelTag
+	@@local_to_remote = Hash.new
+	@@remote_to_local = Hash.new
+	def self.local_to_remote; @@local_to_remote end
+	def self.remote_to_local; @@remote_to_local end
+
 	class DRoby
-	    @@local_to_remote = Hash.new
-	    @@remote_to_local = Hash.new
-	    @@marshalled_tags = Hash.new
+	    attr_reader :tagdef
+	    def initialize(tagdef); @tagdef = tagdef end
+	    def _dump(lvl); @__droby_marshalled__ ||= Marshal.dump(tagdef) end
+	    def self._load(str); DRoby.new(Marshal.load(str)) end
 
-	    attr_reader :name, :tag
-	    def initialize(tag); @tag = tag end
-	    def _dump(lvl)
-		unless marshalled = @@marshalled_tags[tag]
-		    tagdef = tag.ancestors.map do |mod|
-			if mod.instance_of?(Roby::TaskModelTag)
-			    unless id = @@local_to_remote[mod]
-				id = [mod.name, DRbObject.new(mod)]
-			    end
-			    id
-			end
-		    end
-		    tagdef.compact!
-		    marshalled = Marshal.dump(tagdef)
-		    @@marshalled_tags[tag] = marshalled
-		end
-		marshalled
-	    end
-
-	    def self._load(str)
-		tagdef    = Marshal.load(str).reverse
+	    def proxy(peer)
 		including = []
 		tagdef.each do |name, remote_tag|
-		    tag = local_tag(name, remote_tag) do |tag|
+		    tag = DRoby.local_tag(name, remote_tag) do |tag|
 			including.each { |mod| tag.include mod }
 		    end
 		    including << tag
@@ -112,7 +89,7 @@ module Roby
 	    def self.local_tag(name, remote_tag)
 		if !remote_tag.kind_of?(DRbObject)
 		    remote_tag
-		elsif local_model = @@remote_to_local[remote_tag]
+		elsif local_model = TaskModelTag.remote_to_local[remote_tag]
 		    local_model
 		else
 		    if name && !name.empty?
@@ -122,8 +99,8 @@ module Roby
 			local_model = Roby::TaskModelTag.new do
 			    define_method(:name) { name }
 			end
-			@@remote_to_local[remote_tag] = local_model
-			@@local_to_remote[local_model] = [name, remote_tag]
+			TaskModelTag.remote_to_local[remote_tag] = local_model
+			TaskModelTag.local_to_remote[local_model] = [name, remote_tag]
 			yield(local_model) if block_given?
 		    end
 		    local_model
@@ -131,7 +108,21 @@ module Roby
 	    end
 	end
 
-	def droby_dump(dest); @__droby_marshalled__ ||= DRoby.new(self) end
+	def droby_dump(dest)
+	    unless @__droby_marshalled__
+		tagdef = ancestors.map do |mod|
+		    if mod.instance_of?(Roby::TaskModelTag)
+			unless id = TaskModelTag.local_to_remote[mod]
+			    id = [mod.name, DRbObject.new(mod)]
+			end
+			id
+		    end
+		end
+		tagdef.compact!
+		@__droby_marshalled__ = DRoby.new(tagdef.reverse)
+	    end
+	    @__droby_marshalled__
+	end
     end
 
     class RelationGraph
@@ -162,6 +153,9 @@ module Roby
 	    end
 	    def self.setup_matcher(matcher, args)
 		model, args, improves, needs, predicates, neg_predicates, owners = *args
+		model  = model.proxy(nil) if model
+		owners = owners.proxy(nil) if owners
+		args   = args
 
 		matcher = matcher.with_model(model).with_arguments(args || {}).
 		    which_improves(*improves).which_needs(*needs)
@@ -254,12 +248,13 @@ module Roby
 	    class DRoby
 		attr_reader :peer_id
 		def initialize(peer_id); @peer_id = peer_id end
-		def _dump(lvl = -1)
-		    @__droby_marshalled__ ||= Marshal.dump(peer_id)
-		end
-		def self._load(str)
-		    peer_id = Marshal.load(str)
-		    Distributed.peer(peer_id) rescue nil
+
+		def proxy(peer)
+		    if peer = Distributed.peer(peer_id)
+			peer
+		    else
+			raise "unknown peer ID #{peer_id}"
+		    end
 		end
 	    end
 
@@ -306,32 +301,33 @@ module Roby
 	    # models to the remote ID of these remote models
 	    @@local_to_remote = Hash.new
 
-	    attr_reader :ancestors
-	    @@marshalled_models = Hash.new
-	    def initialize(ancestors)
-		@ancestors  = ancestors 
-	    end
-	    def _dump(lvl)
-		base_model = ancestors.first
-		unless marshalled = @@marshalled_models[base_model]
-		    marshalled = ancestors.map do |klass| 
-			if klass.instance_of?(Class) && !klass.is_singleton? 
-			    if result = @@local_to_remote[klass]
-				result
-			    else
-				[klass.name, DRbObject.new(klass)]
+	    def self.remote_to_local; @@remote_to_local end
+	    def self.local_to_remote; @@local_to_remote end
+
+	    module Dump
+		def droby_dump(dest)
+		    unless @__droby_marshalled__
+			formatted = ancestors.map do |klass| 
+			    if klass.instance_of?(Class) && !klass.is_singleton? 
+				if result = DRobyModel.local_to_remote[klass]
+				    result
+				else
+				    [klass.name, DRbObject.new(klass)]
+				end
 			    end
 			end
+			formatted.compact!
+			@__droby_marshalled__ = DRobyModel.new(formatted)
 		    end
-		    marshalled.compact!
-		    @@marshalled_models[base_model] = marshalled = Marshal.dump(marshalled)
+		    @__droby_marshalled__
 		end
-		marshalled
 	    end
-	    def self._load(str)
-		ancestors = Marshal.load(str)
-		DRobyModel.local_model(ancestors)
-	    end
+
+	    attr_reader :ancestors
+	    def initialize(ancestors); @ancestors  = ancestors end
+	    def _dump(lvl); @__droby_marshalled__ ||= Marshal.dump(@ancestors) end
+	    def self._load(str); DRobyModel.new(Marshal.load(str)) end
+	    def proxy(peer); DRobyModel.local_model(ancestors.dup) end
 	    
 	    def self.local_model(ancestors)
 		name, id = ancestors.shift
@@ -359,36 +355,49 @@ module Roby
 		end
 	    end
 	end
+	Roby::EventGenerator.extend Distributed::DRobyModel::Dump
+	Roby::Planning::Planner.extend Distributed::DRobyModel::Dump
 
 	# Dumping intermediate for Task classes. This dumps both the ancestor list via
 	# DRobyModel and the list of task tags.
 	class DRobyTaskModel < DRobyModel
-	    @@marshalled_task_models = Hash.new
-	    def _dump(lvl)
-		base_model = ancestors.first
-		unless marshalled = @@marshalled_task_models[base_model]
-		    marshalled_class = super
-		    tags = ancestors.map do |mod|
-			if mod.instance_of?(Roby::TaskModelTag)
-			    mod.droby_dump(nil)
-			end
-		    end
-		    tags.compact!
-		    marshalled = Marshal.dump([tags, marshalled_class])
-		    @@marshalled_task_models[base_model] = marshalled
-		end
-		marshalled
+	    attr_reader :tags
+	    def initialize(tags, ancestors)
+		super(ancestors)
+		@tags = tags
 	    end
-	    def self._load(str)
-		tags, model = Marshal.load(str)
-		model = super(model)
+
+	    module Dump
+		include DRobyModel::Dump
+		def droby_dump(dest)
+		    unless @__droby_marshalled__
+			formatted_class = super
+			tags = ancestors.map do |mod|
+			    if mod.instance_of?(Roby::TaskModelTag)
+				mod.droby_dump(dest)
+			    end
+			end
+			tags.compact!
+			@__droby_marshalled__ = DRobyTaskModel.new(tags.reverse, formatted_class.ancestors)
+		    end
+		    @__droby_marshalled__
+		end
+	    end
+
+	    def _dump(lvl); @__droby_marshalled__ ||= Marshal.dump([tags, ancestors]) end
+	    def self._load(str); DRobyTaskModel.new(*Marshal.load(str)) end
+
+	    def proxy(peer)
+		model = super
 		tags.each do |tag|
+		    tag = tag.proxy(nil)
 		    model.include tag unless model < tag
 		end
 
 		model
 	    end
 	end
+	Roby::Task.extend Distributed::DRobyTaskModel::Dump
 
 	# Returns true if it is marshallable in DRoby
 	def self.marshallable?(object)
