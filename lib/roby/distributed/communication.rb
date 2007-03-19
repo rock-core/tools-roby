@@ -81,7 +81,7 @@ module Roby
 	    rescue Exception => e
 		if processing_callback?
 		    processed_callbacks(e)
-		    e = CallbackProcessingError.new
+		    CallbackProcessingError.exception(e)
 		end
 		[result, false, e]
 
@@ -103,6 +103,8 @@ module Roby
 		if error
 		    if thread = call_spec.last
 			thread.raise error
+		    else
+			Roby.fatal "error while processing callbacks:in #{error.full_message}"
 		    end
 
 		else
