@@ -405,10 +405,6 @@ module Roby
 		(0...success).each { |i| call_attached_block(calls[i], results[i]) }
 
 		if error
-		    Distributed.warn do
-			report_remote_error(remaining_calls.first, error)
-		    end
-
 		    case error
 		    when DRb::DRbConnError
 			Distributed.warn { "it looks like we cannot talk to #{neighbour.name}" }
@@ -418,6 +414,10 @@ module Roby
 			Distributed.warn { "#{neighbour.name} has disconnected" }
 			# The remote host has disconnected, do the same on our side
 			disconnected!
+		    else
+			Distributed.warn do
+			    report_remote_error(remaining_calls.first, error)
+			end
 		    end
 		end
 		[error, remaining_calls]
