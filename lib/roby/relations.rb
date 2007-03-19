@@ -224,6 +224,8 @@ module Roby
 		end
 	    end
 
+	    # If the link already exists, call #link anyway. It will check that
+	    # the edge info remains the same
 	    link(from, to, info)
 	end
 
