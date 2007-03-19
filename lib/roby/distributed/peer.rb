@@ -328,7 +328,7 @@ module Roby::Distributed
 	    local_tasks = Roby::Control.synchronize do
 		result_set.map do |task|
 		    task = local_object(task)
-		    task.plan.permanent(task) unless task.subscribed?
+		    Roby::Distributed.keep[task] += 1
 		    task
 		end
 	    end
@@ -341,7 +341,9 @@ module Roby::Distributed
 	    Roby::Control.synchronize do
 		if local_tasks
 		    local_tasks.each do |task|
-			task.plan.auto(task) unless task.subscribed?
+			if (Roby::Distributed.keep[task] -= 1) == 0
+			    Roby::Distributed.keep.delete(task)
+			end
 		    end
 		end
 	    end
@@ -370,8 +372,17 @@ module Roby::Distributed
 	# Calls the block given to Peer#on when +task+ has matched the trigger
 	def triggered(id, task) # :nodoc:
 	    return unless task = local_object(task)
-	    if trigger = triggers[id]
-		trigger.last.call(task)
+	    Roby::Distributed.keep[task] += 1
+	    Roby::Control.once do
+		begin
+		    if trigger = triggers[id]
+			trigger.last.call(task)
+		    end
+		ensure
+		    if (Roby::Distributed.keep[task] -= 1) == 0
+			Roby::Distributed.keep.delete(task)
+		    end
+		end
 	    end
 	end
 

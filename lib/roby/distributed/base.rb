@@ -27,9 +27,14 @@ module Roby
 
 	    def owns?(object); !state || state.owns?(object) end
 
+	    # The set of objects we should temporarily keep because they are used
+	    # in a callback mechanism (like a remote query or a trigger)
+	    attribute(:keep) { Hash.new(0) }
+
 	    def keep?(local_object)
 		return true if local_object.remotely_useful? ||
-		    local_object.subscribed?
+		    local_object.subscribed? ||
+		    Distributed.keep[local_object] > 0
 
 		Roby::Distributed.each_object_relation(local_object) do |rel|
 		    local_object.each_parent_object(rel) do |obj|
