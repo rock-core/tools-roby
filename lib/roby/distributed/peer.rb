@@ -71,6 +71,7 @@ module Roby::Distributed
 		    !o.distribute? ||
 		    !o.self_owned?
 	    end
+	    return if objects.empty?
 
 	    # If +object+ is a trigger, send the :triggered event but do *not*
 	    # act as if +object+ was subscribed
