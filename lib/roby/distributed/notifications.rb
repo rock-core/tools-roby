@@ -27,8 +27,8 @@ module Roby
 
 	    # Common implementation for the #discovered_events and #discovered_tasks hooks
 	    def self.discovered_objects(plan, objects)
-		unless Distributed.updating?(plan) || Distributed.updating_all?(objects)
-		    objects = objects.find_all { |t| t.distribute? && t.self_owned? && t.root_object? }
+		unless Distributed.updating?(plan)
+		    objects = objects.find_all { |t| t.distribute? && t.self_owned? && t.root_object? && !Distributed.updating?(t) }
 		    return if objects.empty?
 
 		    Distributed.each_updated_peer(plan) do |peer|
