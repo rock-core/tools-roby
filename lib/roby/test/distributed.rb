@@ -141,18 +141,17 @@ module Roby
 		if Roby.control.thread
 		    remote_peer.synchro_point
 		    remote.wait_one_cycle
+		    remote_peer.synchro_point
 		    Roby.control.wait_one_cycle
 		elsif remote_peer && !remote_peer.disconnected?
 		    remote.start_neighbour_discovery(true)
 		    local.start_neighbour_discovery(true)
-		    remote_peer.flush
-		    remote.send_local_peer(:flush)
+		    remote_peer.synchro_point if remote_peer.connected?
 		    Roby::Control.synchronize do
 			remote.process_events
 			Roby.control.process_events
 		    end
-		    remote_peer.flush
-		    remote.send_local_peer(:flush)
+		    remote_peer.synchro_point if remote_peer.connected?
 		else
 		    super
 		end

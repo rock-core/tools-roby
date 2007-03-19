@@ -259,7 +259,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	t_task = trsc[task]
 	assert_nothing_raised { remote.set_argument(t_task) }
 
-	remote_peer.flush
+	process_events
 	assert_equal(:bar, t_task.arguments[:foo], t_task.name)
     end
 
@@ -370,7 +370,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	task, r_task = build_transaction(trsc)
 
 	check_resulting_plan(trsc)
-	remote_peer.flush
+	process_events
 	remote.check_transaction(trsc)
 
 	# Commit the transaction
