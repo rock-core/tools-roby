@@ -308,7 +308,7 @@ module Roby
 			if !calls || calls.empty?
 			    calls = nil
 			    unless @sending = !send_queue.empty?
-				Distributed.info "sending queue is empty"
+				Distributed.debug "sending queue is empty"
 				send_flushed.broadcast
 			    end
 			end
