@@ -57,6 +57,10 @@ module Roby
 			end
 
 			peer.transmit(:subscribed_plan, local_object, tasks, events)
+			if local_object.kind_of?(Transaction)
+			    tasks.delete_if { |t| local_object.discovered_relations_of?(t, true) }
+			    events.delete_if { |e| local_object.discovered_relations_of?(e, true) }
+			end
 			tasks.each  { |obj| subscribe_plan_object(obj) }
 			events.each { |obj| subscribe_plan_object(obj) }
 		    end
