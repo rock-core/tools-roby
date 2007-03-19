@@ -36,8 +36,8 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	remote.fire
 	r_controlable = remote_peer.subscribe(r_controlable)
 	r_contingent = remote_peer.subscribe(r_contingent)
-	assert(p_controlable.happened?)
-	assert(p_contingent.happened?)
+	assert(r_controlable.happened?)
+	assert(r_contingent.happened?)
     end
 
     def test_task_status
