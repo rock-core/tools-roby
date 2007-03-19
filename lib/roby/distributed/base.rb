@@ -80,10 +80,13 @@ module Roby
 	    # Call the block with the objects in +objects+ added to the
 	    # updated_objects set
 	    def update(object)
-		@updated_objects << object
+		included = unless updated_objects.include?(object)
+			       @updated_objects << object
+			   end
+
 		yield
 	    ensure
-		@updated_objects.delete(object)
+		@updated_objects.delete(object) if included
 	    end
 
 	    # Allow objects of class +type+ to be accessed remotely using

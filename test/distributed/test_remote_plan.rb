@@ -6,6 +6,65 @@ require 'test/mockups/tasks'
 class TC_DistributedRemotePlan < Test::Unit::TestCase
     include Roby::Distributed::Test
 
+    def test_distributed_update
+	objects = (1..10).map { |i| SimpleTask.new(:id => i) }
+	obj = Object.new
+
+	Distributed.update(obj) do
+	    assert(Distributed.updating?(obj))
+	end
+	assert(!Distributed.updating?(obj))
+
+	Distributed.update_all(objects) do
+	    objects.each { |o| assert(Distributed.updating?(o)) }
+	    assert(Distributed.updating_all?(objects))
+	    assert(!Distributed.updating?(obj))
+	    assert(!Distributed.updating_all?(objects.dup << obj))
+	end
+	objects.each { |o| assert(!Distributed.updating?(o)) }
+	assert(!Distributed.updating_all?(objects))
+
+	# Recursive behaviour
+	Distributed.update(obj) do
+	    Distributed.update(obj) do
+		assert(Distributed.updating?(obj))
+	    end
+	    assert(Distributed.updating?(obj))
+
+	    Distributed.update_all(objects) do
+		objects.each { |o| assert(Distributed.updating?(o)) }
+		assert(Distributed.updating_all?(objects))
+		assert(Distributed.updating?(obj))
+		assert(Distributed.updating_all?(objects.dup << obj))
+	    end
+	    objects.each { |o| assert(!Distributed.updating?(o), o) }
+	    assert(!Distributed.updating_all?(objects))
+	    assert(!Distributed.updating_all?(objects.dup << obj))
+	    assert(Distributed.updating?(obj))
+	end
+	assert(!Distributed.updating?(obj))
+
+	# Recursive behaviour
+	Distributed.update_all(objects) do
+	    Distributed.update(obj) do
+		assert(Distributed.updating?(obj))
+		assert(Distributed.updating_all?(objects.dup << obj))
+	    end
+	    assert(!Distributed.updating?(obj))
+	    assert(Distributed.updating_all?(objects))
+
+	    Distributed.update_all(objects[1..4]) do
+		assert(Distributed.updating_all?(objects))
+		assert(!Distributed.updating?(obj))
+	    end
+	    assert(Distributed.updating_all?(objects))
+	    assert(!Distributed.updating_all?(objects.dup << obj))
+	    assert(!Distributed.updating?(obj))
+	end
+	assert(!Distributed.updating?(obj))
+	assert(!Distributed.updating_all?(objects))
+    end
+
     def test_remote_proxy_update
 	peer2peer do |remote|
 	    remote.plan.insert(SimpleTask.new(:id => 'simple_task'))
