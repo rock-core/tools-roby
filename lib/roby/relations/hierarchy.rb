@@ -143,6 +143,7 @@ module Roby::TaskStructure
 
 		has_error = false
 		child.each_parent_task do |parent|
+		    next unless parent.self_owned?
 		    next if parent.finished? || parent.finishing?
 
 		    options = parent[child, Hierarchy]
