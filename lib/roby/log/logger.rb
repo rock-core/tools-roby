@@ -54,7 +54,7 @@ module Roby::Log
 	# Returns true if there is at least one loggr for the +m+ message
 	def has_logger?(m); @loggers.any? { |log| log.respond_to?(m) } end
 
-	LOGGED_EVENTS_QUEUE_SIZE = 100
+	LOGGED_EVENTS_QUEUE_SIZE = 2000
 	attribute(:logged_events) { SizedQueue.new(LOGGED_EVENTS_QUEUE_SIZE) }
 
 	attribute(:flushed_logger_mutex) { Mutex.new }
