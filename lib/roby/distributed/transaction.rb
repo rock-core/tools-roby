@@ -140,7 +140,7 @@ module Roby
 		    end
 		else
 		    all_objects = (known_tasks | discovered_objects)
-		    proxy_objects.each { |o| all_objects << may_unwrap(o) }
+		    proxy_objects.each_key { |o| all_objects << o }
 		    Distributed.update_all(all_objects) do
 		       	super()
 		    end
