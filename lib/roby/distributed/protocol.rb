@@ -5,13 +5,6 @@ require 'roby/droby'
 
 require 'roby'
 
-class DRbObject
-    alias __drbobject_dump__ _dump
-    def _dump(lvl)
-	@__droby_marshalled__ ||= __drbobject_dump__(lvl)
-    end
-end
-
 class NilClass
     def droby_dump(dest); nil end
 end
@@ -22,7 +15,7 @@ class Array
 end
 class Hash
     def proxy(peer) # :nodoc:
-	inject({}) { |h, (k, v)| h[k] = peer.proxy(v); h }
+	inject({}) { |h, (k, v)| h[peer.proxy(k)] = peer.proxy(v); h }
     end
 end
 class Set
@@ -87,7 +80,7 @@ module Roby
 	    end
 
 	    def self.local_tag(name, remote_tag)
-		if !remote_tag.kind_of?(DRbObject)
+		if !remote_tag.kind_of?(Distributed::RemoteID)
 		    remote_tag
 		elsif local_model = TaskModelTag.remote_to_local[remote_tag]
 		    local_model
@@ -106,6 +99,11 @@ module Roby
 		    local_model
 		end
 	    end
+
+	    def ==(other)
+		other.kind_of?(DRoby) && 
+		    tagdef.zip(other.tagdef).all? { |a, b| a == b }
+	    end
 	end
 
 	def droby_dump(dest)
@@ -113,7 +111,7 @@ module Roby
 		tagdef = ancestors.map do |mod|
 		    if mod.instance_of?(Roby::TaskModelTag)
 			unless id = TaskModelTag.local_to_remote[mod]
-			    id = [mod.name, DRbObject.new(mod)]
+			    id = [mod.name, mod.remote_id]
 			end
 			id
 		    end
@@ -123,23 +121,6 @@ module Roby
 	    end
 	    @__droby_marshalled__
 	end
-    end
-
-    class RelationGraph
-	def droby_dump(dest); @__droby_marshalled__ ||= Distributed::DRobyConstant.new(self) end
-    end
-
-    class Plan
-	class DRoby
-	    attr_reader :remote_object
-	    def initialize(remote_object); @remote_object = remote_object end
-	    def proxy(peer)
-		peer.connection_space.plan 
-	    end
-
-	    def to_s; "mPlan(#{remote_object})" end
-	end
-	def droby_dump(dest); @__droby_marshalled__ ||= DRoby.new(drb_object) end
     end
 
     class TaskMatcher
@@ -248,12 +229,15 @@ module Roby
 	    class DRoby
 		attr_reader :peer_id
 		def initialize(peer_id); @peer_id = peer_id end
+		def hash; peer_id.hash end
+		def eql?(obj); obj.respond_to?(:peer_id) && peer_id.eql?(obj.peer_id) end
 
+		def to_s; "mPeer(#{peer_id.to_s})" end 
 		def proxy(peer)
 		    if peer = Distributed.peer(peer_id)
 			peer
 		    else
-			raise "unknown peer ID #{peer_id}"
+			raise "unknown peer ID #{peer_id}, known peers are #{Distributed.peers}"
 		    end
 		end
 	    end
@@ -263,30 +247,30 @@ module Roby
 	    end
 	end
 
-	def self.droby_dump(dest)
-	    if Distributed.state 
-		Distributed.state.droby_dump(dest)
-	    end
-	end
-
 	# Dumps a constant by using its name
 	class DRobyConstant
 	    @@valid_constants = Hash.new
+	    def self.valid_constants; @@valid_constants end
 
-	    def initialize(obj)
-		@obj = obj
-		unless @@valid_constants[obj]
-		    if const_obj = (constant(obj.name) rescue nil)
-			@@valid_constants[obj] = Marshal.dump(@obj.name)
-		    else
-			raise ArgumentError, "invalid constant name #{obj.name}"
+	    module Dump
+		def droby_dump(dest)
+		    unless DRobyConstant.valid_constants[self]
+			if const_obj = (constant(name) rescue nil)
+			    DRobyConstant.valid_constants[self] = DRobyConstant.new(name)
+			else
+			    raise ArgumentError, "invalid constant name #{obj.name}"
+			end
 		    end
+		    DRobyConstant.valid_constants[self]
 		end
 	    end
-	    def _dump(lvl = -1); @@valid_constants[@obj] end
-	    def self._load(str)
-		constant(Marshal.load(str))
-	    end
+
+	    attr_reader :name
+	    def initialize(name); @name = name end
+	    def proxy(peer); constant(name) end
+	end
+	class Roby::RelationGraph
+	    include Roby::Distributed::DRobyConstant::Dump
 	end
 
 	# Dumps a model (an event, task or planner class). When unmarshalling,
@@ -312,7 +296,7 @@ module Roby
 				if result = DRobyModel.local_to_remote[klass]
 				    result
 				else
-				    [klass.name, DRbObject.new(klass)]
+				    [klass.name, klass.remote_id]
 				end
 			    end
 			end
@@ -327,11 +311,18 @@ module Roby
 	    def initialize(ancestors); @ancestors  = ancestors end
 	    def _dump(lvl); @__droby_marshalled__ ||= Marshal.dump(@ancestors) end
 	    def self._load(str); DRobyModel.new(Marshal.load(str)) end
-	    def proxy(peer); DRobyModel.local_model(ancestors.dup) end
+	    def proxy(peer)
+	       	DRobyModel.local_model(ancestors.map { |name, id| [name, id.local_object] }) 
+	    end
+
+	    def ==(other)
+		other.kind_of?(DRobyModel) &&
+		    ancestors == other.ancestors
+	    end
 	    
 	    def self.local_model(ancestors)
 		name, id = ancestors.shift
-		if !id.kind_of?(DRbObject)
+		if !id.kind_of?(Distributed::RemoteID)
 		    # this is a local task model
 		    id
 		elsif !name.empty? && model = (constant(name) rescue nil)
@@ -382,6 +373,11 @@ module Roby
 		    end
 		    @__droby_marshalled__
 		end
+	    end
+
+	    def ==(other)
+		super &&
+		    tags == other.tags
 	    end
 
 	    def _dump(lvl); @__droby_marshalled__ ||= Marshal.dump([tags, ancestors]) end

@@ -111,7 +111,6 @@ module Roby
 		end
 
 		sibling = marshalled_object.sibling(peer)
-		sibling.sibling_of(object_remote_id, peer)
 		peer.subscriptions << object_remote_id
 		marshalled_object.created_sibling(peer, sibling)
 		nil

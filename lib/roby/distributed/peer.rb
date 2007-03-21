@@ -8,18 +8,6 @@ require 'roby/distributed/notifications'
 require 'roby/distributed/proxy'
 require 'roby/distributed/communication'
 
-class DRbObject
-    def to_s
-	if __drbref
-	    "#<DRbObject ref=0x#{Object.address_from_id(__drbref).to_s(16)} uri=#{__drburi}>"
-	else
-	    "#<DRbObject ref=nil uri=#{__drburi}>"
-	end
-    end
-    def inspect; to_s end
-    def pretty_print(pp); pp.text to_s end
-end
-
 module Roby
     class Control; include DRbUndumped end
 end
@@ -205,7 +193,7 @@ module Roby::Distributed
 	def incremental_dump?(object); false end
 
 	# The object which identifies this peer on the network
-	def remote_id; neighbour.tuplespace end
+	def remote_id; neighbour.tuplespace.remote_id end
 
 	# The name of the remote peer
 	def remote_name; neighbour.name end
@@ -227,8 +215,8 @@ module Roby::Distributed
 
 	    all_peers.each do |entry|
 		remote_ts = entry['tuplespace']
-		seen << remote_ts
-		peer = connection_space.peers[remote_ts]
+		seen << remote_ts.remote_id
+		peer = connection_space.peers[remote_ts.remote_id]
 
 		if peer
 		    peer.synchronize do
@@ -283,8 +271,8 @@ module Roby::Distributed
 	# Creates a Peer object for +neighbour+, which is managed by
 	# +connection_space+.  If a block is given, it is called in the control
 	# thread when the connection is finalized
-	def initialize(connection_space, neighbour, &block)
-	    if Roby::Distributed.peers[neighbour.tuplespace]
+	def initialize(connection_space, neighbour, tuple = nil, &block)
+	    if Roby::Distributed.peers[neighbour.tuplespace.remote_id]
 		raise ArgumentError, "there is already a peer for #{neighbour.name}"
 	    end
 	    super() if defined? super
@@ -297,7 +285,8 @@ module Roby::Distributed
 	    @mutex	  = Mutex.new
 	    @send_flushed = ConditionVariable.new
 	    @condition_variables = [ConditionVariable.new]
-	    @triggers = Hash.new
+	    @triggers     = Hash.new
+	    @tuple        = tuple
 
 	    @synchro_point_mutex = Mutex.new
 	    @synchro_point_done = ConditionVariable.new
@@ -517,8 +506,8 @@ module Roby::Distributed
 	# Call to disconnect outside of the normal protocol.
 	def disconnected!
 	    # Remove the neighbour tuple ourselves
-	    tuplespace.take_all(
-		{ 'kind' => :peer, 'tuplespace' => remote_id, 'remote' => nil, 'state' => nil },
+	    connection_space.tuplespace.take_all(
+		{ 'kind' => :peer, 'tuplespace' => neighbour.tuplespace, 'remote' => nil, 'state' => nil },
 		0) rescue nil
 
 	    # ... and let neighbour discovery do the cleanup
@@ -559,10 +548,8 @@ module Roby::Distributed
 	# a RemotePeerMismatch exception is raised if the local proxy is not
 	# known to this peer.
 	def remote_object(object)
-	    if object.kind_of?(DRbObject)
+	    if object.kind_of?(RemoteID)
 		object
-	    elsif object.respond_to?(:proxy)
-		object.remote_object
 	    else object.sibling_on(self)
 	    end
 	end
@@ -572,12 +559,17 @@ module Roby::Distributed
 	# none of the two. In the latter case, a RemotePeerMismatch exception
 	# is raised if the local proxy is not known to this peer.
 	def local_object(object, create = true)
-	    if object.kind_of?(DRbObject)
-		if local_proxy = proxies[object]
-		    proxy_setup(local_proxy)
-		    return local_proxy
+	    if object.kind_of?(RemoteID)
+		object = object.local_object
+		if object.kind_of?(RemoteID)
+		    if local_proxy = proxies[object]
+			proxy_setup(local_proxy)
+			return local_proxy
+		    end
+		    raise ArgumentError, "got a RemoteID which has no proxy"
+		else
+		    object
 		end
-		raise ArgumentError, "got a DRbObject which has no proxy"
 	    elsif object.respond_to?(:proxy)
 		proxy(object, create)
 	    else object
@@ -590,12 +582,12 @@ module Roby::Distributed
 	# RemotePeerMismatch exception is raised if the local proxy is not
 	# known to this peer.
 	def objects(object, create_local = true)
-	    if object.kind_of?(DRbObject)
+	    if object.kind_of?(RemoteID)
 		if local_proxy = proxies[object]
 		    proxy_setup(local_proxy)
 		    return [object, local_proxy]
 		end
-		raise ArgumentError, "got a DRbObject"
+		raise ArgumentError, "got a RemoteID which has no proxy"
 	    elsif object.respond_to?(:proxy)
 		[object.remote_object, proxy(object, create_local)]
 	    else
@@ -620,19 +612,22 @@ module Roby::Distributed
 	# Get a proxy for a task or an event. 	
 	def proxy(marshalled, create = true)
 	    return marshalled unless proxying?(marshalled)
-	    if marshalled.respond_to?(:remote_object)
-		remote_object = marshalled.remote_object
-		return remote_object unless remote_object.kind_of?(DRbObject)
-		unless local_object = proxies[remote_object]
-		    return if !create
-		    return unless local_object = marshalled.proxy(self)
-		end
-		if marshalled.respond_to?(:update)
-		    Roby::Distributed.update(local_object) do
-			marshalled.update(self, local_object) 
+	    if marshalled.respond_to?(:remote_siblings)
+		remote_siblings = local_object(marshalled.remote_siblings)
+		if remote_object = remote_siblings[self]
+		    unless local_object = proxies[remote_object]
+			return if !create
+			return unless local_object = marshalled.proxy(self)
 		    end
+		    if marshalled.respond_to?(:update)
+			Roby::Distributed.update(local_object) do
+			    marshalled.update(self, local_object) 
+			end
+		    end
+		    proxy_setup(local_object)
+		else
+		    raise "cannot create a proxy for #{marshalled}"
 		end
-		proxy_setup(local_object)
 	    else
 		local_object = marshalled.proxy(self)
 	    end

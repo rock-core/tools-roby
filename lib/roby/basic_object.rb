@@ -22,7 +22,7 @@ module Roby
 	# The peer => remote_object hash of known siblings for this peer: if
 	# there is a representation of this object on a peer, then
 	# +remote_siblings+ includes it
-	attribute(:remote_siblings) { Hash.new }
+	attribute(:remote_siblings) { Hash[Distributed, remote_id] }
 
 	# True if we know about a sibling on +peer+
 	def has_sibling_on?(peer)
@@ -40,9 +40,6 @@ module Roby
 	    end
 	end
 
-	# The DRbObject for this object
-	def drb_object; @__droby_drb_object__ ||= DRbObject.new(self) end
-
 	# Sets +remote_object+ as the remote siblings for +self+ on +peer+, and
 	# notifies peer that +self+ is the remote siblings for +remote_object+
 	def sibling_of(remote_object, peer)
@@ -51,7 +48,7 @@ module Roby
 	    end
 
 	    add_sibling_for(peer, remote_object)
-	    peer.transmit(:added_sibling, remote_object, drb_object)
+	    peer.transmit(:added_sibling, remote_object, remote_id)
 	end
 
 	# Called to tell us that we should not be involved with +peer+ anymore
@@ -60,7 +57,7 @@ module Roby
 		peer.removing_proxies[remote_object] << self
 
 		if peer.connected?
-		    peer.transmit(:removed_sibling, remote_object, drb_object) do
+		    peer.transmit(:removed_sibling, remote_object, remote_id) do
 			removing = peer.removing_proxies[remote_object]
 			removing.delete(remote_object)
 			if removing.empty?
@@ -106,9 +103,14 @@ module Roby
 	# True if we shall send updates for this object on +peer+
 	def update_on?(peer); (self_owned? || peer.owns?(self)) && remote_siblings[peer] end
 	# The set of peers that will get updates of this object
-	def updated_peers; remote_siblings.keys end
+	def updated_peers
+	    peers = remote_siblings.keys
+	    peers.delete(Distributed) 
+	    peers
+	end
+
 	# If this object is useful for our peers
-	def remotely_useful?; self_owned? && !remote_siblings.empty?  end
+	def remotely_useful?; self_owned? && remote_siblings.size > 1  end
 	
 	# True if this object can be modified in the current context
 	def read_write?

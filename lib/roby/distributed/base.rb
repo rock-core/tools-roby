@@ -1,3 +1,19 @@
+require 'drb'
+
+class Object
+    # The Roby::Distributed::RemoteID for this object
+    def remote_id
+	@__droby_remote_id__ ||= Roby::Distributed::RemoteID.from_object(self)
+    end
+end
+
+class DRbObject
+    # Converts this DRbObject into Roby::Distributed::RemoteID
+    def remote_id
+	@__droby_remote_id__ ||= Roby::Distributed::RemoteID.new(__drburi, __drbref)
+    end
+end
+
 module Roby
     module Distributed
 	class InvalidRemoteOperation < RuntimeError; end
@@ -9,6 +25,59 @@ module Roby
 
 	extend Logger::Hierarchy
 	extend Logger::Forward
+
+	# RemoteID objects are used in dRoby to reference objects on other
+	# peers. It uses the same mechanisms that DRbObject but is not
+	# converted back into a local object automatically, and does not allow
+	# to call remote methods on a remote object.
+	class RemoteID
+	    # The URI of the DRb server
+	    attr_reader :uri
+	    # The reference ID of the object on the DRb server
+	    attr_reader :ref
+
+	    # Creates a new RemoteID with the given URI and ID
+	    def initialize(uri, ref)
+		@uri, @ref = uri, ref
+		@hash = [uri, ref].hash
+	    end
+
+	    def _dump(lvl) # :nodoc:
+	       	@__droby_marshalled__ ||= Marshal.dump([uri, ref]) 
+	    end
+	    def self._load(str) # :nodoc:
+	       	new(*Marshal.load(str)) 
+	    end
+
+	    def ==(other) # :nodoc:
+		other.kind_of?(RemoteID) && other.ref == ref && other.uri == uri
+	    end
+	    alias :eql? :==
+	    attr_reader :hash
+
+	    # True if this object references a local object
+	    def local?; DRb.here?(uri) end
+	    # If this ID references a local object, returns it. Otherwise, returns self.
+	    def local_object
+		if DRb.here?(uri)
+		    DRb.to_obj(ref)
+		else
+		    self
+		end
+	    end
+
+	    def to_s; "#{uri}/0x#{ref.to_s(16)}" end
+	    def inspect; to_s end
+	    def pretty_print(pp); pp.text to_s end
+
+	    private :remote_id
+
+	    # Returns the RemoteID object for +obj+. This is actually
+	    # equivalent to obj.remote_id
+	    def self.from_object(obj)
+		Roby::Distributed::RemoteID.new(DRb.current_server.uri, DRb.to_id(obj))
+	    end
+	end
 
 	@updated_objects = ValueSet.new
 	@allowed_remote_access = Array.new

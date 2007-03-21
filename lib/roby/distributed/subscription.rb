@@ -66,7 +66,7 @@ module Roby
 		    end
 		end
 
-		local_object.drb_object
+		local_object.remote_id
 	    end
 	    
 	    # Called by the remote host because it has subscribed us to a plan.
@@ -87,8 +87,8 @@ module Roby
 	    #
 	    # It is also used by BasicObject#sibling_of to register a new
 	    # sibling
-	    def added_sibling(local_object, remote_object)
-		local_object.add_sibling_for(peer, remote_object)
+	    def added_sibling(local_id, remote_id)
+		local_id.local_object.add_sibling_for(peer, remote_id)
 		nil
 	    end
 
@@ -97,14 +97,14 @@ module Roby
 	    #
 	    # It is also used by BasicObject#forget_peer to remove references
 	    # to an old sibling
-	    def removed_sibling(local_object, remote_object)
-		sibling = local_object.remove_sibling_for(peer)
+	    def removed_sibling(local_id, remote_id)
+		sibling = local_id.local_object.remove_sibling_for(peer)
 
 		# It is fine to remove a sibling twice: you nay for instance
 		# decide in both sides that the sibling should be removed (for
 		# instance during the disconnection process)
-		if sibling && sibling != remote_object
-		    raise "removed sibling #{sibling} for #{local_object} on peer #{peer} does not match the provided remote object (#{remote_object})"
+		if sibling && sibling != remote_id
+		    raise "removed sibling #{sibling} for #{local_id} on peer #{peer} does not match the provided remote id (#{remote_id})"
 		end
 	    end
 
@@ -222,14 +222,14 @@ module Roby
 
 	class Peer
 	    # The set of remote objects we *want* notifications on, as
-	    # DRbObjects. This does not include automatically susbcribed
+	    # RemoteID objects. This does not include automatically susbcribed
 	    # objects, but only those explicitely subscribed to by calling
 	    # Peer#subscribe
 	    #
 	    # See also #subscribe, #subscribed? and #unsubscribe
 	    #
 	    #--
-	    # DO NOT USE a ValueSet here. DRbObjects must be compared using #==
+	    # DO NOT USE a ValueSet here. RemoteIDs must be compared using #==
 	    #++
 	    attribute(:subscriptions) { Set.new }
 
@@ -244,26 +244,27 @@ module Roby
 		end
 
 		unless remote_object
-		    remote_object = call(:subscribe, object)
+		    remote_sibling = object.sibling_on(self)
+		    remote_object = call(:subscribe, remote_sibling)
 		    synchro_point
 		end
 		local_object = local_object(remote_object)
 	    end
 
-	    # The DRbObject for the remote plan if we are subscribed to it
+	    # The RemoteID for the remote plan if we are subscribed to it
 	    attr_reader :remote_plan
 
 	    # Subscribe to the remote plan
 	    def subscribe_plan
 		@remote_plan = call(:subscribe, connection_space.plan)
-		call(:added_sibling, @remote_plan, connection_space.plan.drb_object)
+		call(:added_sibling, @remote_plan, connection_space.plan.remote_id)
 		synchro_point
 	    end
 
 	    # Unsubscribe from the remote plan
 	    def unsubscribe_plan
 		if connected?
-		    call(:removed_sibling, @remote_plan, connection_space.plan.drb_object)
+		    call(:removed_sibling, @remote_plan, connection_space.plan.remote_id)
 		end
 		@remote_plan = nil
 	    end

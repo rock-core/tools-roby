@@ -30,23 +30,35 @@ module Roby
 	    def eql?(other); other == self end
 	end
 
-	def self.remote_id
-	    if state then state.tuplespace 
-	    else nil
-	    end
-	end
 	def self.peer(id)
-	    if id.kind_of?(DRbObject)
-		peers[id]
+	    if id.kind_of?(Distributed::RemoteID)
+		if id == remote_id
+		    Distributed
+		else
+		    peers[id]
+		end
 	    elsif id.respond_to?(:to_str)
 		peers.each_value { |p| return p if p.remote_name == id.to_str }
 		nil
-	    elsif id == Roby::Distributed.remote_id
-		Roby::Distributed
+	    elsif id == Distributed.state.tuplespace
+		Distributed
 	    else
 		nil
 	    end
 	end
+
+	def self.remote_id
+	    if state then state.remote_id
+	    else nil
+	    end
+	end
+
+	def self.droby_dump(dest)
+	    if state 
+		state.droby_dump(dest)
+	    end
+	end
+
 	def self.transmit(*args)
 	    if Thread.current == Roby.control.thread
 		raise "in control thread"
@@ -298,9 +310,10 @@ module Roby
 		end
 	    end
 
-	    def droby_dump(dest)
-		@__droby_marshalled__ ||= Peer::DRoby.new(DRbObject.new(tuplespace))
-	    end
+	    # The ConnectionSpace object is referenced by its tuplespace
+	    def remote_id; tuplespace.remote_id end
+	    # Define #droby_dump for Peer-like behaviour
+	    def droby_dump(dest); @__droby_marshalled__ ||= Peer::DRoby.new(remote_id) end
 
 	    def quit
 		Distributed.debug "ConnectionSpace #{self} quitting"

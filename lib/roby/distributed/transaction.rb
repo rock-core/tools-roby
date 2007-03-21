@@ -233,19 +233,22 @@ module Roby
 		end
 	    end
 
-	    # Distributed transactions are marshalled as DRbObjects and #proxy
-	    # returns their sibling in the remote pDB (or raises if there is none)
-	    class DRoby < Roby::Plan::DRoby # :nodoc:
+	    class DRoby < Roby::BasicObject::DRoby # :nodoc:
+		attr_reader :plan, :options
+		def initialize(remote_siblings, owners, plan, options)
+		    super(remote_siblings, owners)
+		    @plan, @options = plan, options
+		end
+
 		def proxy(peer)
-		    raise InvalidRemoteOperation, "the transaction #{remote_object} does not exist on #{peer.connection_space.name}"
+		    raise InvalidRemoteOperation, "the transaction #{self} does not exist on #{peer.connection_space.name}"
 		end
 
 		def sibling(peer)
 		    plan = peer.local_object(self.plan)
 		    trsc = Roby::Distributed::Transaction.new(plan, peer.local_object(options))
-		    owners = peer.local_object(self.owners)
+		    update(peer, trsc)
 		    trsc.instance_eval do
-			@owners  = owners
 			@editor  = false
 		    end
 		    trsc
@@ -263,63 +266,22 @@ module Roby
 		end
 
 		def to_s
-		    #"mdTransaction(#{remote_object.__drbref}/#{plan.remote_object.__drbref})" 
-		end
-
-		attr_reader :plan, :owners, :options
-		def initialize(remote_object, plan, owners, options)
-		    super(remote_object)
-		    @plan, @owners, @options = plan, owners, options
+		    "#<dRoby:Trsc#{remote_siblings} owners=#{owners} plan=#{plan}>"
 		end
 	    end
 	    def droby_dump(dest) # :nodoc:
-		DRoby.new(drb_object, self.plan.droby_dump(dest), 
-			  self.owners.droby_dump(dest), 
-			  self.options.droby_dump(dest))
+		if remote_siblings.include?(dest)
+		    remote_id
+		else
+		    DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest), 
+			      plan.droby_dump(dest), 
+			      options.droby_dump(dest))
+		end
 	    end
 	end
 
-	class MarshalledRemoteTransactionProxy # :nodoc:
-	    def proxy(peer)
-		return unless local_real = peer.local_object(real_object)
-
-		local_object = nil
-		local_transaction = peer.local_object(transaction)
-		Distributed.update(local_transaction) do
-		    local_object = local_transaction[local_real]
-		end
-
-		if !local_real.self_owned?
-		    local_object.extend RemoteTransactionProxy
-		    local_object.transaction = local_transaction
-		end
-
-		local_object.sibling_of(remote_object, peer) if local_object.root_object?
-		local_object
-	    end
-
-	    def to_s; "m(rtProxy(#{real_object}))" end
-
-	    attr_reader :remote_object, :real_object, :transaction
-	    def initialize(remote_object, real_object, transaction)
-		@remote_object, @real_object, @transaction = 
-		    remote_object, real_object, transaction 
-	    end
-	end
 	module Roby::Transaction::Proxy
-	    def droby_dump(dest) # :nodoc:
-		MarshalledRemoteTransactionProxy.new(drb_object, @__getobj__.droby_dump(dest), transaction.droby_dump(dest))
-	    end
-	end
-
-	# This module gets included in the local representation of remote
-	# transaction proxies
-	module RemoteTransactionProxy
-	    include DistributedObject
-	    attr_accessor :transaction
-
-	    def owners; __getobj__.owners end
-
+	    alias __discover__ discover
 	    def discover(relation, mark)
 		return unless proxying?
 		unless !mark || Distributed.updating?(self) || (__getobj__.owners - plan.owners).empty?
@@ -334,21 +296,33 @@ module Roby
 		    end
 		end
 
-		super
+		__discover__(relation, mark)
 	    end
-	end
 
-	class EventGeneratorTransactionProxy < Roby::Transactions::EventGenerator
-	    include RemoteTransactionProxy
-	    proxy_for Roby::Distributed::EventGeneratorProxy
-	end
-	class TaskTransactionProxy < Roby::Transactions::Task
-	    include RemoteTransactionProxy
-	    proxy_for Roby::Distributed::TaskProxy
-	end
-	class TaskEventGeneratorTransactionProxy < Roby::Transactions::TaskEventGenerator
-	    include RemoteTransactionProxy
-	    proxy_for Roby::Distributed::TaskEventGeneratorProxy
+	    def droby_dump(dest) # :nodoc:
+		DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest),
+			 @__getobj__.droby_dump(dest), transaction.droby_dump(dest))
+	    end
+	    class DRoby < Roby::BasicObject::DRoby
+		attr_reader :real_object, :transaction
+		def initialize(remote_siblings, owners, real_object, transaction)
+		    super(remote_siblings, owners)
+		    @real_object, @transaction = real_object, transaction 
+		end
+
+		def proxy(peer)
+		    return unless local_real = peer.local_object(real_object)
+
+		    local_object = nil
+		    local_transaction = peer.local_object(transaction)
+		    Distributed.update(local_transaction) do
+			local_object = local_transaction[local_real]
+		    end
+		    local_object
+		end
+
+		def to_s; "#<dRoby:mTrscProxy#{remote_siblings} transaction=#{transaction} real_object=#{real_object}>" end
+	    end
 	end
 
 	class PeerServer

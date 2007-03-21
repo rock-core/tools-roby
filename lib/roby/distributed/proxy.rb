@@ -1,205 +1,194 @@
 require 'roby'
 require 'roby/distributed/protocol'
 module Roby
-    module Distributed
-	@@proxy_model = Hash.new
+    class BasicObject::DRoby
+	attr_reader :remote_siblings, :owners
+	def initialize(remote_siblings, owners)
+	    @remote_siblings, @owners = remote_siblings, owners
+	end
 
-	# Builds a remote proxy model for +object_model+. +object_model+ is
-	# either a string or a class. In the first case, it is interpreted
-	# as a constant name.
-	def self.RemoteProxyModel(object_model)
-	    @@proxy_model[object_model] ||= 
-		if object_model.has_ancestor?(Roby::Task)
-		    Class.new(object_model) { include TaskProxy }
-		elsif object_model.has_ancestor?(Roby::EventGenerator)
-		    Class.new(object_model) { include EventGeneratorProxy }
+	def to_s; "#<dRoby:BasicObject#{remote_siblings.to_s} owners=#{owners.to_s}>" end
+	def sibling_on(peer)
+	    remote_siblings.each do |m_peer, remote_id|
+		if m_peer.peer_id == peer.remote_id
+		    return remote_id
+		end
+	    end
+	    raise RemotePeerMismatch, "#{self} has no known sibling on #{peer}"
+	end
+
+	def update(peer, proxy)
+	    proxy.owners.clear
+	    owners.each do |m_owner|
+		proxy.owners << peer.local_object(m_owner)
+	    end
+
+	    peer.local_object(remote_siblings).each do |peer_sibling, remote_id|
+		next if peer_sibling == Roby::Distributed
+		if current = proxy.remote_siblings[peer_sibling]
+		    if current != remote_id
+			raise "inconsistency"
+		    end
 		else
-		    raise TypeError, "no proxy for #{object_model}"
+		    proxy.sibling_of(remote_id, peer_sibling)
 		end
+	    end
+		
+	    proxy.remote_siblings.merge! peer.local_object(remote_siblings)
+
+	end
+    end
+
+    # Base class for all marshalled plan objects.
+    class PlanObject::DRoby < BasicObject::DRoby
+	attr_reader :model, :plan
+	def initialize(remote_siblings, owners, model, plan)
+	    super(remote_siblings, owners)
+	    @model, @plan = model, plan
 	end
 
-	module RemoteObjectProxy
-	    # The marshalled object
-	    attr_reader :marshalled_object
-	    def distribute?; true end
+	def to_s; "#<dRoby:#{model.ancestors.first.first}#{remote_siblings.to_s} plan=#{plan} owners=#{owners.to_s}>" end
 
-	    def initialize_remote_proxy(peer, marshalled_object)
-		if marshalled_object.model
-		    remote_model = peer.proxy(marshalled_object.model)
-		    unless remote_model.ancestors.find { |klass| klass == self.class.superclass }
-			raise TypeError, "invalid remote task type. Was expecting #{self.class.superclass.name}, got #{remote_model.ancestors}"
+	# Updates the status of the local object if needed
+	def update(peer, proxy)
+	    super(peer, proxy)
+
+	    if proxy.root_object?
+		if self.plan
+		    plan = peer.local_object(self.plan)
+		    return if proxy.plan == plan
+		    Distributed.update_all([plan, proxy]) do
+			plan.discover(proxy)
 		    end
 		end
-
-		@marshalled_object = marshalled_object
-		owners.clear
-		owners << peer
-	    end
-
-	    def model; self.class.superclass end
-	    module ClassExtension
-		def name; "dProxy(#{super})" end
-	    end
-	    def droby_dump(dest); marshalled_object.remote_object end
-	end
-
-	module EventGeneratorProxy
-	    include RemoteObjectProxy
-
-	    def initialize(peer, marshalled_object)
-		initialize_remote_proxy(peer, marshalled_object)
-		super()
-	    end
-	    def initialize_remote_proxy(peer, marshalled_object)
-		super
-		@happened	 = marshalled_object.happened
-
-		if marshalled_object.controlable
-		    self.command = lambda {}
-		end
-	    end
-	    def happened?; @happened || super end
-	end
-
-	module TaskEventGeneratorProxy
-	    include EventGeneratorProxy
-	end
-
-	module TaskProxy
-	    include RemoteObjectProxy
-	    def initialize(peer, marshalled_object)
-		initialize_remote_proxy(peer, marshalled_object)
-		arguments = peer.proxy(marshalled_object.arguments)
-		super(arguments) do
-		    Roby::Distributed.updated_objects << self
-		end
-
-		remote_id = "0x#{Object.address_from_id(marshalled_object.remote_object.__drbref).to_s(16)}"
-		@name.gsub!(/(:0x[0-9a-f]+)$/) { |local_id| ":#{remote_id}@#{peer.remote_name}#{local_id}" }
-	    rescue ArgumentError
-		raise $!, $!.message + " (#{self.class.ancestors[1..-1]})", $!.backtrace
-	    ensure
-		Roby::Distributed.updated_objects.delete(self)
 	    end
 	end
+    end
 
-	# Base class for all marshalled plan objects.
-	class MarshalledPlanObject
-	    def to_s; "m(#{remote_name})" end
-	    attr_reader :remote_name, :remote_object, :model, :plan, :owners
-	    def initialize(remote_name, remote_object, model, plan, owners)
-		@remote_name, @remote_object, @model, @plan, @owners =
-		    remote_name, remote_object, model, plan, owners
+    class EventGenerator
+	def _dump(lvl); Marshal.dump(remote_id) end
+	def self._load(str); Marshal.load(str) end
+	def droby_dump(dest)
+	    DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest),
+		      model.droby_dump(dest),  plan.droby_dump(dest), 
+		      controlable?, happened?)
+	end
+
+	class DRoby < PlanObject::DRoby
+	    attr_reader :controlable, :happened
+	    def initialize(remote_siblings, owners, model, plan, controlable, happened)
+		super(remote_siblings, owners, model, plan)
+		@controlable, @happened = controlable, happened
 	    end
 
-	    # Creates the local object for this marshalled object
 	    def proxy(peer)
-		local_object = Distributed.RemoteProxyModel(peer.proxy(model)).new(peer, self)
-		local_object.sibling_of(remote_object, peer)
-		local_object
+		peer.local_object(model).new(controlable)
 	    end
 
-	    # Updates the status of the local object if needed
-	    def update(peer, proxy)
-		if proxy.root_object?
-		    if self.plan
-			plan = peer.local_object(self.plan)
-			return if proxy.plan == plan
-			Distributed.update_all([plan, proxy]) do
-			    plan.discover(proxy)
-			end
-		    end
-
-		    proxy.owners.clear
-		    owners.each do |m_owner|
-			proxy.owners << peer.local_object(m_owner)
-		    end
-		end
-	    end
-	end
-
-	class Roby::EventGenerator
-	    def droby_dump(dest)
-		MarshalledEventGenerator.new(to_s, drb_object, 
-		    self.model.droby_dump(dest), plan.droby_dump(dest), 
-		    owners.droby_dump(dest), controlable?, happened?)
-	    end
-	end
-	class MarshalledEventGenerator < MarshalledPlanObject
 	    def update(peer, proxy)
 		super
 		if happened && !proxy.happened?
 		    proxy.instance_eval { @happened = true }
 		end
 	    end
+	end
+    end
 
-	    attr_reader :controlable, :happened
-	    def initialize(remote_name, remote_object, model, plan, owners, controlable, happened)
-		super(remote_name, remote_object, model, plan, owners)
-		@controlable, @happened = controlable, happened
-	    end
+    class TaskEventGenerator
+	def _dump(lvl); Marshal.dump(remote_id) end
+	def self._load(str); Marshal.load(str) end
+	def droby_dump(dest)
+	    DRoby.new(happened?, task.droby_dump(dest), symbol)
 	end
 
-	class Roby::TaskEventGenerator
-	    def droby_dump(dest)
-		# no need to marshal the plan, since it is the same than the event task
-		MarshalledTaskEventGenerator.new(to_s, drb_object, controlable?, happened?, task.droby_dump(dest), symbol)
-	    end
-	end
-	class MarshalledTaskEventGenerator < MarshalledEventGenerator
-	    attr_reader :task, :symbol
-	    def initialize(name, remote_object, controlable, happened, task, symbol)
-		super(name, remote_object, nil, nil, nil, controlable, happened)
+	class DRoby
+	    attr_reader :happened, :task, :symbol
+	    def initialize(happened, task, symbol)
+		@happened = happened
 		@task   = task
 		@symbol = symbol
 	    end
 
+	    def to_s
+		"#<dRoby:#{task.model.ancestors.first.first}/#{symbol}#{task.remote_siblings} task_arguments=#{task.arguments} plan=#{task.plan} owners=#{task.owners}>"
+	    end
+
+
 	    def proxy(peer)
 		task = peer.local_object(self.task)
 		return unless task.has_event?(symbol)
-		ev   = task.event(symbol)
+		event = task.event(symbol)
+		
+		if happened && !event.happened?
+		    event.instance_eval { @happened = true }
+		end
+		event
+	    end
+	end
+    end
 
-		if task.kind_of?(RemoteObjectProxy) && !ev.kind_of?(TaskEventGeneratorProxy)
-		    ev.extend TaskEventGeneratorProxy
-		    ev.initialize_remote_proxy(peer, self)
+    class Task
+	def _dump(lvl); Marshal.dump(remote_id) end
+	def self._load(str); Marshal.load(str) end
+	def droby_dump(dest)
+	    DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest),
+		      model.droby_dump(dest),  plan.droby_dump(dest), 
+		      Distributed.format(arguments, dest), Distributed.format(data, dest),
+		      :mission => mission?, :started => started?, 
+		      :finished => finished?, :success => success?)
+	end
+
+	class DRoby < PlanObject::DRoby
+	    attr_reader :arguments, :data, :flags
+	    def initialize(remote_siblings, owners, model, plan, arguments, data, flags)
+		super(remote_siblings, owners, model, plan)
+		@arguments, @data, @flags = arguments, data, flags
+	    end
+
+	    def to_s
+		"#<dRoby:#{model.ancestors.first.first}#{remote_siblings.to_s} plan=#{plan} owners=#{owners.to_s} arguments=#{arguments}>"
+	    end
+
+	    def proxy(peer)
+		arguments = peer.local_object(self.arguments)
+		peer.local_object(model).new(arguments) do
+		    Roby::Distributed.updated_objects << self
 		end
 
-		ev.remote_siblings[peer] = remote_object
-		ev
-	    end
-	end
-
-	class Roby::Task
-	    def droby_dump(dest)
-		MarshalledTask.new(to_s, drb_object, self.model.droby_dump(dest), 
-		    plan.droby_dump(dest), owners.droby_dump(dest), 
-		    arguments.droby_dump(dest), Distributed.format(data, dest),
-		    :mission => mission?, :started => started?, 
-		    :finished => finished?, :success => success?)
-	    end
-	end
-	class MarshalledTask < MarshalledPlanObject
-	    attr_reader :arguments, :data, :flags
-	    def initialize(remote_name, remote_object, model, plan, owners, arguments, data, flags)
-		super(remote_name, remote_object, model, plan, owners)
-		@arguments, @data, @flags = arguments, data, flags
+	    ensure
+		Roby::Distributed.updated_objects.delete(self)
 	    end
 
 	    def update(peer, task)
 		super
-		return unless task.plan
 
 		task.started  = flags[:started]
 		task.finished = flags[:finished]
 		task.success  = flags[:success]
 		task.mission  = flags[:mission]
-
-		Distributed.update(task) do
-		    task.arguments.merge(peer.proxy(arguments))
-		    task.data = data
-		end
+		task.arguments.merge!(peer.proxy(arguments))
+		task.instance_variable_set("@data", peer.proxy(data))
 	    end
 	end
+    end
+
+    class Plan
+	class DRoby
+	    def proxy(peer); peer.connection_space.plan end
+	    def to_s; "#<dRoby:Plan>" end
+	end
+	def droby_dump(dest); @__droby_marshalled__ ||= DRoby.new end
+    end
+
+
+    module Distributed
+	# Builds a remote proxy model for +object_model+. +object_model+ is
+	# either a string or a class. In the first case, it is interpreted
+	# as a constant name.
+	def self.RemoteProxyModel(object_model)
+	    object_model
+	end
+
     end
 end
 
