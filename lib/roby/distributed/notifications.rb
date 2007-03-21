@@ -1,5 +1,64 @@
 module Roby
     module Distributed
+	# Returns the set of edges for which both sides are in +objects+. The
+	# set if formatted as [object, relations, ...] where +relations+ is the
+	# output of relations_of
+	def self.subgraph_of(objects)
+	    return [] if objects.size < 2
+
+	    relations = []
+
+	    objects = objects.dup
+	    objects.delete_if do |obj|
+		obj_relations = relations_of(obj) do |related_object| 
+		    objects.include?(related_object) 
+		end
+		relations << obj << obj_relations
+		true
+	    end
+
+	    relations
+	end
+
+	# call-seq:
+	#   relations_of(object) => relations
+	#   relations_of(object) { |object| ... } => relations
+	#
+	# Relations to be sent to the remote host if +object+ is in a plan. The
+	# returned array if formatted as 
+	#   [ [graph, parents, children], [graph, ..] ]
+	# where +parents+ is the set of parents of +objects+ in +graph+ and
+	# +children+ the set of children
+	#
+	# +parents+ and +children+ are formatted as
+	# [object, info, object, info, ...]
+	#
+	# If a block is given, a new parent or child is added only if the block
+	# returns true
+	def self.relations_of(object)
+	    result = []
+	    # For transaction proxies, never send non-discovered relations to
+	    # remote hosts
+	    Roby::Distributed.each_object_relation(object) do |graph|
+		next unless graph.distribute?
+		parents = []
+		object.each_parent_object(graph) do |parent|
+		    next unless parent.distribute?
+		    next unless yield(parent) if block_given?
+		    parents << parent << parent[object, graph]
+		end
+		children = []
+		object.each_child_object(graph) do |child|
+		    next unless child.distribute?
+		    next unless yield(child) if block_given?
+		    children << child << object[child, graph]
+		end
+		result << graph << parents << children
+	    end
+
+	    result
+	end
+
 	# Set of hooks which send Plan updates to remote hosts
 	module PlanModificationHooks
 	    def inserted(task)
@@ -28,11 +87,15 @@ module Roby
 	    # Common implementation for the #discovered_events and #discovered_tasks hooks
 	    def self.discovered_objects(plan, objects)
 		unless Distributed.updating?(plan)
-		    objects = objects.find_all { |t| t.distribute? && t.self_owned? && t.root_object? && !Distributed.updating?(t) }
-		    return if objects.empty?
-
+		    relations = nil
 		    Distributed.each_updated_peer(plan) do |peer|
-			peer.transmit(:plan_discover, plan, objects)
+			unless relations
+			    # Compute +objects+ and +relations+ only in the event that there is a peer to update
+			    objects   = objects.find_all { |t| t.distribute? && t.self_owned? && t.root_object? && !Distributed.updating?(t) }
+			    return if objects.empty?
+			    relations = Distributed.subgraph_of(objects)
+			end
+			peer.transmit(:plan_discover, plan, objects, relations)
 		    end
 		    Distributed.trigger(*objects)
 		end
@@ -96,15 +159,21 @@ module Roby
 		task.mission = flag
 	    end
 
-	    def plan_discover(plan, m_tasks)
-		plan = peer.local_object(plan)
+	    def plan_discover(plan, m_tasks, m_relations)
+		Distributed.update(plan = peer.local_object(plan)) do
+		    tasks = ValueSet.new
+		    m_tasks.each do |t|
+			next unless t = peer.local_object(t)
+			tasks << t
+		    end
 
-		tasks = ValueSet.new
-		m_tasks.each do |marshalled|
-		    next unless local = peer.local_object(marshalled)
-		    tasks << local
+		    Distributed.update_all(tasks) do 
+			plan.discover(tasks)
+			m_relations.each_slice(2) do |obj, rel|
+			    set_relations(obj, rel)
+			end
+		    end
 		end
-		Distributed.update_all(tasks) { plan.discover(tasks) }
 	    end
 	    def plan_replace(plan, m_from, m_to)
 		plan = peer.local_object(plan)

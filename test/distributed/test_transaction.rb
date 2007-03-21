@@ -96,7 +96,38 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	assert(marshalled_remote = remote.marshalled_transaction_proxy(trsc, task))
 	assert_equal(proxy, remote_peer.local_object(marshalled_remote))
-	assert_equal(marshalled_remote.remote_object, proxy.remote_siblings[remote_peer])
+    end
+
+    # Checks that if we discover a set of tasks, then their relations are updated as well
+    def test_discover
+	peer2peer(true) do |remote|
+	    def remote.add_tasks(trsc)
+		trsc = local_peer.local_object(trsc)
+		trsc.edit
+		t1 = SimpleTask.new :id => 'root'
+		t1.realized_by(t2 = SimpleTask.new(:id => 'child'))
+		t1.on(:start, t2, :start)
+		t2.realized_by(t3 = SimpleTask.new(:id => 'grandchild'))
+		t3.on(:failed, t2, :failed)
+
+		trsc.insert(t1)
+		trsc.release(false)
+	    end
+	end
+
+	trsc = Distributed::Transaction.new(plan)
+	trsc.add_owner remote_peer
+	trsc.propose(remote_peer)
+
+	trsc.release(false)
+	remote.add_tasks(trsc)
+	trsc.edit
+	assert(t1 = trsc.find_tasks.with_arguments(:id => 'root').to_a.first)
+	assert(t2 = trsc.find_tasks.with_arguments(:id => 'child').to_a.first)
+	assert(t3 = trsc.find_tasks.with_arguments(:id => 'grandchild').to_a.first)
+
+	assert(t1.child_object?(t2, TaskStructure::Hierarchy))
+	assert(t2.child_object?(t3, TaskStructure::Hierarchy))
     end
 
     def test_edition

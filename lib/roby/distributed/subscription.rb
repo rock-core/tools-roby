@@ -122,40 +122,13 @@ module Roby
 	    # Sends to the peer the set of relations needed to copy the state of +plan_object+
 	    # on the remote peer.
 	    def set_relations_commands(plan_object)
-		peer.transmit(:set_relations, plan_object, relations_of(plan_object))
+		peer.transmit(:set_relations, plan_object, Distributed.relations_of(plan_object))
 
 		if plan_object.respond_to?(:each_plan_child)
 		    plan_object.each_plan_child do |plan_child|
-			peer.transmit(:set_relations, plan_child, relations_of(plan_child))
+			peer.transmit(:set_relations, plan_child, Distributed.relations_of(plan_child))
 		    end
 		end
-	    end
-
-	    # Relations to be sent to the remote host if +object+ is in a plan. The
-	    # returned array if formatted as 
-	    #   [ [graph, child_pos, p1, i1, p2, i2, ..., c1, i1, c2, i2], [graph, ..] ]
-	    # where (pi, ii) is the set of parents and (ci, ii) the set of children. child_pos
-	    # is the index of c1 in the array
-	    def relations_of(object)
-		result = []
-		# For transaction proxies, never send non-discovered relations to
-		# remote hosts
-		Roby::Distributed.each_object_relation(object) do |graph|
-		    next unless graph.distribute?
-		    parents = []
-		    object.each_parent_object(graph) do |parent|
-			next unless parent.distribute?
-			parents << parent << parent[object, graph]
-		    end
-		    children = []
-		    object.each_child_object(graph) do |child|
-			next unless child.distribute?
-			children << child << object[child, graph]
-		    end
-		    result << graph << parents << children
-		end
-
-		result
 	    end
 
 	    # Sets the relation of +objects+ according to the description in +relations+.
