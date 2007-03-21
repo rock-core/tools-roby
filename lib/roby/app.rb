@@ -172,6 +172,10 @@ module Roby
 	    @robot_name = name
 	    @robot_type = type
 	end
+
+	def logdir
+	    File.join(APP_DIR, 'log')
+	end
 	
 	def setup
 	    # Set up log levels
@@ -189,7 +193,6 @@ module Roby
 	    end
 
 	    # Set up some directories
-	    logdir = File.join(APP_DIR, 'log')
 	    if !File.exists?(logdir)
 		Dir.mkdir(logdir)
 	    end
@@ -401,7 +404,7 @@ module Roby
 	# Returns the list of data sources suitable for data display known
 	# to the application
 	def data_sources(logdir = nil)
-	    logdir ||= File.join(APP_DIR, 'log')
+	    logdir ||= self.logdir
 	    sources = []
 	    Dir.glob(File.join(logdir, '*-events.log*')).each do |file|
 		next unless file =~ /-events\.log(\.gz)?$/
