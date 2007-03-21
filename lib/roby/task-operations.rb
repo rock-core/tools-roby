@@ -38,9 +38,6 @@ module Roby::TaskAggregator
 	    yield(self)
 	    tasks.each(&iterator) 
 	end
-	def executable?
-	    tasks.all? { |t| t.finished? || t.executable? }
-	end
 
 	def delete
 	    @name  = self.name
