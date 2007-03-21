@@ -970,7 +970,18 @@ module Roby
 	    precondition_sets[event.symbol] << [reason, block]
 	end
 
-        def to_s; name end
+        def to_s
+	    s = name.dup
+	    id = owners.map do |owner|
+		next if owner == Roby::Distributed
+		sibling = remote_siblings[owner]
+		"#{sibling ? sibling.ref.to_s(16) : 'nil'}@#{owner.remote_name}"
+	    end
+	    unless id.empty?
+		s << "[" << id.join(",") << "]"
+	    end
+	    s
+	end
 	def pretty_print(pp)
 	    pp.text to_s
 	    pp.group(2, ' {', '}') do
