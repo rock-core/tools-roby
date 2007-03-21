@@ -283,7 +283,7 @@ module Roby
 	private :useful_task_component
 
 	# Returns the set of useful tasks in this plan
-	def useful_tasks
+	def locally_useful_tasks
 	    # Remove all missions that are finished
 	    @missions.find_all { |t| t.finished? }.
 		each { |t| discard(t) }
@@ -297,10 +297,30 @@ module Roby
 
 	# Returns the set of unused tasks
 	def unneeded_tasks
-	    (known_tasks - useful_tasks).delete_if do |t|
-		Roby::Distributed.keep?(t) ||
-		    transactions.any? { |trsc| trsc.wrap(t, false) }
+	    # Get the set of tasks that are serving one of our own missions or
+	    # permanent tasks
+	    useful = self.locally_useful_tasks
+	    
+	    # Get in the remaining set the tasks that are useful because they
+	    # are used in a transaction and compute the set of tasks that are
+	    # needed by them
+	    transaction_useful = (known_tasks - useful).find_all do |t| 
+		transactions.any? { |trsc| trsc.wrap(t, false) }
 	    end
+	    useful.merge transaction_useful.to_value_set
+	    useful = useful_task_component(useful, transaction_useful)
+
+	    # Finally, get in the remaining set the tasks that are useful
+	    # because of our peers. We then remove from the set all local tasks
+	    # that are serving these
+	    remotely_useful = (known_tasks - useful).find_all { |t| Roby::Distributed.keep?(t) }
+	    useful.merge remotely_useful.to_value_set
+	    
+	    useful_task_component(useful.dup, remotely_useful).each do |t|
+		useful << t if t.self_owned?
+	    end
+
+	    (known_tasks - useful)
 	end
 
 	def useful_event_component(events)

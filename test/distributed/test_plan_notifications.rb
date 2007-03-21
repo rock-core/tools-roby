@@ -26,6 +26,8 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 
 	FlexMock.use do |mock|
 	    remote_peer.on(notification) do |task|
+		assert(Distributed.keep?(task))
+		assert(task.plan)
 		mock.notified(task.sibling_on(remote_peer))
 		nil
 	    end

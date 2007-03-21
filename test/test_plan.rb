@@ -103,11 +103,11 @@ module TC_PlanStatic
 	assert( plan.mission?(t1) )
 	assert( !plan.mission?(t2) )
 
-	assert_equal([t1, t2, t4].to_value_set, plan.useful_tasks)
+	assert_equal([t1, t2, t4].to_value_set, plan.locally_useful_tasks)
 	plan.insert(t3)
-	assert_equal([t1, t2, t3, t4].to_value_set, plan.useful_tasks)
+	assert_equal([t1, t2, t3, t4].to_value_set, plan.locally_useful_tasks)
 	plan.discard(t1)
-	assert_equal([t3].to_value_set, plan.useful_tasks)
+	assert_equal([t3].to_value_set, plan.locally_useful_tasks)
 	assert_equal([t1, t2, t4].to_value_set, plan.unneeded_tasks)
     end
 

@@ -228,6 +228,67 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    remote.assert_cleared_relations(plan)
 	end
     end
+
+    def test_garbage_collect
+	peer2peer(true) do |remote|
+	    remote.plan.insert(SimpleTask.new(:id => 'remote-1'))
+	    def remote.insert_children(trsc, root_task)
+		trsc = local_peer.local_object(trsc)
+		root_task = local_peer.local_object(root_task)
+		trsc.edit
+
+		root_task.realized_by(r2 = SimpleTask.new(:id => 'remote-2'))
+		r2.realized_by(r3 = SimpleTask.new(:id => 'remote-3'))
+		trsc.release(false)
+	    end
+	end
+
+	r1 = subscribe_task(:id => 'remote-1')
+	assert(Distributed.keep?(r1))
+
+	t1 = SimpleTask.new
+
+	# Add a local child to r1
+	trsc = Distributed::Transaction.new(plan)
+	trsc.add_owner(remote_peer)
+	trsc[r1].realized_by t1
+	Roby::Control.synchronize do
+	    remote_peer.unsubscribe(r1)
+	    assert(!plan.unneeded_tasks.include?(r1))
+	end
+	remote_peer.subscribe(r1)
+
+	trsc.propose(remote_peer)
+	trsc.commit_transaction
+	assert(Distributed.keep?(t1))
+
+	t2, t3 = nil
+	Roby::Control.synchronize do
+	    # t2 is kept because it is the neighbour of a task known to our
+	    # remote host
+	    t1.realized_by(t2 = SimpleTask.new)
+	    assert(!plan.unneeded_tasks.include?(t2))
+	    # t3 is kept because it is the grandchild of r1
+	    t2.realized_by(t3 = SimpleTask.new)
+	    assert(!plan.unneeded_tasks.include?(t3))
+	end
+
+	# Now, add two remote children to t3
+	trsc = Distributed::Transaction.new(plan)
+	trsc.add_owner(remote_peer)
+	trsc.propose(remote_peer)
+	trsc.release
+	remote.insert_children(trsc, trsc[t3])
+	trsc.edit
+	trsc.commit_transaction
+
+	process_events
+	assert(r2 = remote_task(:id => 'remote-2'))
+	assert(Distributed.keep?(r2))
+	assert(t3.child_object?(r2, TaskStructure::Hierarchy))
+	assert(r3 = remote_task(:id => 'remote-3'))
+	assert(!Distributed.keep?(r3))
+    end
 end
 
 
