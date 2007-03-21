@@ -293,11 +293,13 @@ module Roby::Propagation
 	    if sources
 		sources.each { |source| source.generator.signalling(source, signalled) if source }
 
-		next_step = gather_propagation(current_step) do
-		    propagation_context(sources) do |result|
-			gather_exceptions(signalled) do
-			    context = *context
-			    signalled.call_without_propagation(context) 
+		if signalled.self_owned?
+		    next_step = gather_propagation(current_step) do
+			propagation_context(sources) do |result|
+			    gather_exceptions(signalled) do
+				context = *context
+				signalled.call_without_propagation(context) 
+			    end
 			end
 		    end
 		end
@@ -315,11 +317,13 @@ module Roby::Propagation
 	    if sources
 		sources.each { |source| source.generator.forwarding(source, signalled) if source }
 
-		next_step = gather_propagation(current_step) do
-		    sources.each_with_index do |src, i|
-			propagation_context([src]) do |result|
-			    gather_exceptions(signalled) do
-				signalled.emit_without_propagation(context[i])
+		if signalled.self_owned?
+		    next_step = gather_propagation(current_step) do
+			sources.each_with_index do |src, i|
+			    propagation_context([src]) do |result|
+				gather_exceptions(signalled) do
+				    signalled.emit_without_propagation(context[i])
+				end
 			    end
 			end
 		    end

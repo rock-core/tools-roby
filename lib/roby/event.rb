@@ -169,7 +169,9 @@ module Roby
 	# non-controlable and respond to the :call message. Controlability must
 	# be checked using #controlable?
 	def call(context = nil)
-	    if !controlable?
+	    if !self_owned?
+		raise OwnershipError, "not owner"
+	    elsif !controlable?
 		raise EventModelViolation.new(self), "#call called on a non-controlable event"
 	    elsif !executable?
 		raise EventNotExecutable.new(self), "#call called on #{self} which is non-executable event"
@@ -338,9 +340,11 @@ module Roby
 	end
 
 	# Emit the event with +context+ as the new event context
-	def emit(context)
+	def emit(context = nil)
 	    if !executable?
 		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"
+	    elsif !self_owned?
+		raise OwnershipError, "cannot emit an event we don't own. #{self} is owned by #{owners}"
 	    end
 
 	    if Propagation.gathering?
@@ -366,7 +370,7 @@ module Roby
 	# A [time, event] array of past event emitted by this object
 	attribute(:history) { Array.new }
 	# True if this event has been emitted once.
-	def happened?; !history.empty? end
+	def happened?; @happened || !history.empty? end
 	# Last event to have been emitted by this generator
 	def last; history.last end
 
