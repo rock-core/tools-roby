@@ -193,10 +193,13 @@ module Roby
 	    end
 
 	    def plan_remove_object(plan, object)
-		plan = peer.local_object(plan)
-
 		if local = peer.local_object(object, false)
-		    plan.remove_object(local)
+		    return unless object.plan
+		    Distributed.update(object.plan) do
+			Distributed.update(local) do
+			    plan.remove_object(local)
+			end
+		    end
 		end
 	    end
 
