@@ -225,6 +225,8 @@ end
 
 module Roby
     module Distributed
+	DEBUG_MARSHALLING = true
+
 	class Peer
 	    class DRoby
 		attr_reader :peer_id

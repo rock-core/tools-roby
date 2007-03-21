@@ -182,6 +182,19 @@ module Roby
 	    # * trace is the location (as returned by Kernel#caller) from which the call
 	    #   has been queued. It is mainly used for debugging purposes
 	    attr_reader :send_queue
+
+	    def check_marshallable(object)
+		if object.respond_to?(:each)
+		    object.each do |obj|
+			begin
+			    check_marshallable(obj)
+			rescue Exception
+			    Roby.fatal "cannot dump #{obj}"
+			end
+		    end
+		end
+		Marshal.dump(object)
+	    end
 	    
 	    def queue_call(is_callback, m, args = [], block = nil, thread = nil)
 		if !connected?
@@ -198,6 +211,11 @@ module Roby
 		# Marshal DRoby-dumped objects now, since the object may be
 		# modified between now and the time it is sent
 		args = Distributed.format(args, self)
+
+		if Roby::Distributed::DEBUG_MARSHALLING
+		    check_marshallable(args)
+		end
+		
 		send_queue.push [is_callback, m, args, block, caller(2), thread]
 		@sending = true
 	    end
