@@ -79,9 +79,9 @@ module Roby
 		raise "#{self} has already a sibling for #{peer} (#{old_sibling})"
 	    end
 
-	    Roby.debug "added sibling #{remote_object.inspect} for #{self} on #{peer}"
 	    remote_siblings[peer] = remote_object
 	    peer.proxies[remote_object] = self
+	    Roby.debug "added sibling #{remote_object.inspect} for #{self} on #{peer}"
 	end
 
 	# Remove references about the sibling registered for +peer+ and returns it
