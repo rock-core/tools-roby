@@ -48,6 +48,28 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	end
     end
 
+    def test_trigger_subscribe
+	peer2peer(true) do |remote|
+	    def remote.new_task
+		plan.insert(SimpleTask.new(:id => 1))
+		nil
+	    end
+	end
+
+	notification = TaskMatcher.new.
+	    with_model(SimpleTask).
+	    with_arguments(:id => 1)
+
+	task = nil
+	remote_peer.on(notification) do |task|
+	    remote_peer.subscribe(task)
+	end
+	remote.new_task
+	process_events
+
+	assert_equal([task], plan.find_tasks.with_arguments(:id => 1).to_a)
+    end
+
     def test_subscribe_plan
 	peer2peer(true) do |remote|
 	    plan.insert(mission = Task.new(:id => 'mission'))

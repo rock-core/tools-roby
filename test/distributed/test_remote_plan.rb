@@ -378,6 +378,8 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	middle = remote_task(:id => 'middle')
 
 	assert(!middle.subscribed?)
+	assert(Distributed.keep_object?(left))
+	assert(Distributed.keep_object?(right))
 	assert(Distributed.keep?(middle))
 
 	Roby::Control.synchronize do

@@ -1,5 +1,27 @@
 require 'drb'
 
+class RefCounting
+    def initialize
+	@values = Hash.new(0)
+	@mutex  = Mutex.new
+    end
+    def ref?(obj); @mutex.synchronize { @values[obj] > 0 } end
+    def deref(obj)
+	@mutex.synchronize do
+	    if (@values[obj] -= 1) == 0
+		@values.delete(obj)
+		return true
+	    end
+	end
+	false
+    end
+    def ref(obj)
+	@mutex.synchronize do
+	    @values[obj] += 1
+	end
+    end
+end
+
 class Object
     # The Roby::Distributed::RemoteID for this object
     def remote_id
@@ -98,19 +120,23 @@ module Roby
 
 	    # The set of objects we should temporarily keep because they are used
 	    # in a callback mechanism (like a remote query or a trigger)
-	    attribute(:keep) { Hash.new(0) }
+	    attribute(:keep) { RefCounting.new }
+
+	    def keep_object?(local_object)
+		local_object.remotely_useful? || 
+		    local_object.subscribed? || 
+		    Distributed.keep.ref?(local_object)
+	    end
 
 	    def keep?(local_object)
-		return true if local_object.remotely_useful? ||
-		    local_object.subscribed? ||
-		    Distributed.keep[local_object] > 0
+		return true if keep_object?(local_object)
 
 		Roby::Distributed.each_object_relation(local_object) do |rel|
 		    local_object.each_parent_object(rel) do |obj|
-			return true if obj.remotely_useful? || obj.subscribed?
+			return true if keep_object?(obj)
 		    end
 		    local_object.each_child_object(rel) do |obj|
-			return true if obj.remotely_useful? || obj.subscribed?
+			return true if keep_object?(obj)
 		    end
 		end
 

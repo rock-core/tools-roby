@@ -332,7 +332,7 @@ module Roby::Distributed
 	    local_tasks = Roby::Control.synchronize do
 		result_set.map do |task|
 		    task = local_object(task)
-		    Roby::Distributed.keep[task] += 1
+		    Roby::Distributed.keep.ref(task)
 		    task
 		end
 	    end
@@ -345,9 +345,7 @@ module Roby::Distributed
 	    Roby::Control.synchronize do
 		if local_tasks
 		    local_tasks.each do |task|
-			if (Roby::Distributed.keep[task] -= 1) == 0
-			    Roby::Distributed.keep.delete(task)
-			end
+			Roby::Distributed.keep.deref(task)
 		    end
 		end
 	    end
@@ -376,16 +374,14 @@ module Roby::Distributed
 	# Calls the block given to Peer#on when +task+ has matched the trigger
 	def triggered(id, task) # :nodoc:
 	    return unless task = local_object(task)
-	    Roby::Distributed.keep[task] += 1
-	    Roby::Control.once do
+	    Roby::Distributed.keep.ref(task)
+	    Thread.new do
 		begin
 		    if trigger = triggers[id]
 			trigger.last.call(task)
 		    end
 		ensure
-		    if (Roby::Distributed.keep[task] -= 1) == 0
-			Roby::Distributed.keep.delete(task)
-		    end
+		    Roby::Distributed.keep.deref(task)
 		end
 	    end
 	end
@@ -653,9 +649,7 @@ module Roby::Distributed
 			    end
 			end
 
-			objects.each do |obj|
-			    obj.plan.permanent(obj) unless obj.subscribed?
-			end
+			objects.each { |obj| Roby::Distributed.keep.ref(obj) }
 		    end
 		    synchro_call.broadcast
 		end
@@ -666,9 +660,7 @@ module Roby::Distributed
 	    yield(local_object(remote_object(object)))
 
 	    Roby::Control.synchronize do
-		objects.each do |obj|
-		    obj.plan.auto(obj) unless obj.subscribed?
-		end
+		objects.each { |obj| Roby::Distributed.keep.deref(obj) }
 	    end
 	end
     end
