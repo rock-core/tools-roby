@@ -231,21 +231,23 @@ module Roby::Distributed
 		peer = connection_space.peers[remote_ts]
 
 		if peer
-		    next if peer.task.event(:failed).pending?
-		    if peer.connecting?
-			# The peer finalized the handshake
-			peer.tuple = entry
-			peer.remote_server.connected
-			peer.connected
-		    elsif peer.connected?
-			# ping the remote host
-			peer.ping
-			# update the host state
-			peer.tuple = entry
+		    peer.synchronize do
+			next if peer.task.event(:failed).pending?
+			if peer.connecting?
+			    # The peer finalized the handshake
+			    peer.tuple = entry
+			    peer.remote_server.connected
+			    peer.connected
+			elsif peer.connected?
+			    # ping the remote host
+			    peer.ping
+			    # update the host state
+			    peer.tuple = entry
+			end
 		    end
 		elsif neighbour = connection_space.neighbours.find { |n| n.tuplespace == remote_ts }
 		    Roby::Distributed.info "peer #{neighbour.name} asking for connection"
-		    Peer.new(connection_space, neighbour)
+		    Peer.connection_request(connection_space, neighbour, entry)
 		end
 	    end
 
@@ -303,6 +305,18 @@ module Roby::Distributed
 	    Roby::Distributed.peers[remote_id] = self
 
 	    connect(&block)
+	end
+
+	class << self
+	    private :new
+	end
+
+	def self.initiate_connection(connection_space, neighbour, &block)
+	    new(connection_space, neighbour, &block)
+	end
+
+	def self.connection_request(connection_space, neighbour, tuple)
+	    new(connection_space, neighbour, tuple)
 	end
 
 	# The peer name
@@ -447,8 +461,9 @@ module Roby::Distributed
 	    # Looks like the remote side is not what we thought it was. It may be for instance that it died
 	    # and restarted. Whatever. Kill the connection
 	    @keepalive = nil
-	    disconnect
-	    disconnected
+	    synchronize do
+		disconnected!
+	    end
 	end
 
 	# Disconnect this side of the connection. The remote host is supposed
