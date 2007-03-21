@@ -592,15 +592,16 @@ module Roby::Distributed
 	end
 
 	def proxy_setup(local_object)
-	    if !local_object.kind_of?(Roby::Transactions::Proxy) && 
-		local_object.respond_to?(:execution_agent) && 
-		local_object.plan then
+	    if local_object.respond_to?(:execution_agent) && 
+		local_object.owners.size == 1 && 
+		owns?(local_object) &&
+		!local_object.execution_agent
 
-		if !local_object.execution_agent
-		    connection_task = local_object.plan[self.task]
-		    Roby::Distributed.update_all([local_object, connection_task]) do
-			local_object.executed_by connection_task
-		    end
+		remote_owner = local_object.owners.first
+		connection_task = local_object.plan[self.task]
+
+		Roby::Distributed.update_all([local_object, connection_task]) do
+		    local_object.executed_by connection_task
 		end
 	    end
 	end
