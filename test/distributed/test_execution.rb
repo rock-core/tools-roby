@@ -61,14 +61,16 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	remote.create_task
 	p_task = remote_task(:id => 1)
 	assert(!p_task.event(:start).happened?)
+	process_events
+	assert(!p_task.plan)
 
 	# Start the task *before* subscribing to test that #subscribe maps the
 	# task status
 	remote.start_task
 	process_events
-	p_task = remote_peer.subscribe(p_task)
-	assert(p_task.event(:start).happened?)
+	p_task = subscribe_task(:id => 1)
 	assert(p_task.running?)
+	assert(p_task.event(:start).happened?)
 
 	# Stop the task to see if the fired event is propagated
 	remote.stop_task
@@ -96,7 +98,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		end
 	    end
 	end
-	p_task = remote_peer.subscribe(remote_task(:id => 1))
+	p_task = subscribe_task(:id => 1)
 
 	FlexMock.use do |mock|
 	    signalled_ev = EventGenerator.new do |context|

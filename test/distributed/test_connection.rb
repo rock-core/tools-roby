@@ -73,9 +73,9 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	local.start_neighbour_discovery(true)
 	Control.instance.process_events
 	remote_neighbour = Distributed.neighbours.find { true }
-	@remote_peer = Peer.new(local, remote_neighbour)
+	@remote_peer = Peer.initiate_connection(local, remote_neighbour)
 	assert(remote_peer.connecting?)
-	assert_raises(ArgumentError) { Peer.new(local, remote_neighbour) }
+	assert_raises(ArgumentError) { Peer.initiate_connection(local, remote_neighbour) }
 
 	# Check we have initialized the connection tuples
 	assert_equal(local.tuplespace,  remote_peer.keepalive['tuplespace'])
@@ -103,7 +103,6 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert_equal(local.tuplespace,  local_neighbour.tuplespace)
 	assert(remote.send_local_peer(:connecting?))
 	assert(remote.send_local_peer(:link_alive?))
-	assert(!remote.send_local_peer(:task).remote_object.ready?)
 	assert(remote_peer.connecting?)
 	assert(!remote_peer.task.ready?)
 
@@ -117,7 +116,6 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	remote.process_events
 	assert(remote.send_local_peer(:connected?))
 	assert(remote.send_local_peer(:link_alive?))
-	assert(remote.send_local_peer(:task).remote_object.ready?)
 
 	assert_equal('remote', remote_peer.neighbour.name)
 	assert_equal('remote', remote_peer.remote_server.local_name)

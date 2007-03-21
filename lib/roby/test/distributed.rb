@@ -35,7 +35,7 @@ module Roby
 		# the cached drb_object, it will be kept in the next test and the forked
 		# child will therefore use it ... And it will fail
 		plan.instance_eval do
-		    @__droby_drb_object__ = nil
+		    @__droby_remote_id__ = nil
 		    @__droby_marshalled__ = nil
 		end
 
@@ -61,15 +61,11 @@ module Roby
 		def log_level=(value); Roby.logger.level = value end
 	    end
 
-	    BASE_PORT     = 1245
-	    DISCOVERY_URI = "roby://localhost:#{BASE_PORT}"
-	    REMOTE_URI    = "roby://localhost:#{BASE_PORT + 1}"
-	    LOCAL_URI     = "roby://localhost:#{BASE_PORT + 2}"
-
 	    # Start a central discovery service, a remote connectionspace and a local
 	    # connection space. It yields the remote connection space *in the forked
 	    # child* if a block is given.
 	    def start_peers
+		DRb.stop_service
 		remote_process do
 		    DRb.start_service DISCOVERY_URI, Rinda::TupleSpace.new
 		end
@@ -100,7 +96,7 @@ module Roby
 
 	    def setup_connection
 		assert(remote_neighbour = local.neighbours.find { true })
-		@remote_peer = Peer.new(local, remote_neighbour)
+		@remote_peer = Peer.initiate_connection(local, remote_neighbour)
 
 		remote.start_neighbour_discovery(true)
 		remote.process_events
@@ -158,9 +154,20 @@ module Roby
 	    end
 
 	    def remote_task(match)
-		result = remote_peer.find_tasks.with_arguments(match).to_a
-		assert_equal(1, result.size)
-		result.first
+		found = nil
+		remote_peer.find_tasks.with_arguments(match).each do |task|
+		    assert(!found)
+		    found = if block_given? then yield(task)
+			    else task
+			    end
+		end
+		found
+	    end
+	    def subscribe_task(match)
+		remote_task(match) do |task|
+		    remote_peer.subscribe(task)
+		    task
+		end
 	    end
 
 	    def remote_server(&block)

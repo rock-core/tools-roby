@@ -251,8 +251,6 @@ class TC_Plan < Test::Unit::TestCase
 
     def setup
 	super
-
-	DRb.start_service
 	Roby::Log.add_logger(@finalized_tasks_recorder = FinalizedTaskRecorder.new)
     end
     def teardown
@@ -262,7 +260,7 @@ class TC_Plan < Test::Unit::TestCase
 
     def assert_finalizes(plan, unneeded, finalized = nil)
 	finalized ||= unneeded
-	finalized = finalized.map { |obj| obj.drb_object }
+	finalized = finalized.map { |obj| obj.remote_id }
 	clear_finalized
 
 	yield if block_given?

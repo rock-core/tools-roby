@@ -98,11 +98,11 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 			testcase.assert_cleared_relations(local_peer.proxy(plan))
 		    end
 		end
-		def remove_relations(t1, t2, t3)
+		def remove_relations(t2)
 		    Roby::Control.synchronize do
-			t1 = local_peer.local_object(t1)
 			t2 = local_peer.local_object(t2)
-			t3 = local_peer.local_object(t3)
+			raise unless t1 = t2.parents.find { true }
+			raise unless t3 = t2.planning_task
 			t1.remove_child(t2)
 			t2.remove_planning_task(t3)
 		    end
@@ -125,7 +125,6 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	# Check the transaction is still valid, regardless of the
 	# changes we made to the plan
 	check_resulting_plan(trsc, true)
-	process_events
 	remote.check_resulting_plan(trsc, true)
 
 	# Commit and check the result
@@ -138,15 +137,13 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
     def test_rproxy_realizes_lproxy(propose_first = false)
 	common_setup(propose_first) do |trsc|
 	    # First, add relations between two nodes that are already existing
-	    r_t1, r_t2, r_t3 = remote.add_tasks(plan).map do |t| 
-		Control.synchronize { remote_peer.local_object(t) }
-	    end
-	    t1, t2, t3 = nil
-	    Control.synchronize { t1, t2, t3 = add_tasks(plan, "local") }
+	    remote.add_tasks(plan)
+	    r_t2 = subscribe_task(:id => 'remote-2')
+	    t1, t2, t3 = Control.synchronize { add_tasks(plan, "local") }
 
-	    r_t2 = remote_peer.subscribe(r_t2)
 	    trsc[r_t2].realized_by trsc[t2]
 	    check_resulting_plan(trsc, false)
+	    process_events
 	    process_events
 	    remote.check_resulting_plan(trsc, false) if propose_first
 
@@ -155,7 +152,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 		t1.remove_child(t2)
 		t2.remove_planning_task(t3)
 	    end
-	    remote.remove_relations(r_t1, r_t2, r_t3)
+	    remote.remove_relations(r_t2)
 	    remote.subscribe(t2)
 
 	    process_events
@@ -173,12 +170,9 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 
     def test_rproxy_realizes_ltask(propose_first = false)
 	common_setup(propose_first) do |trsc|
-	    r_t1, r_t2, r_t3 = remote.add_tasks(plan).map do |t| 
-		Control.synchronize { remote_peer.local_object(t) }
-	    end
-	    t1, t2, t3 = nil
-	    Control.synchronize { t1, t2, t3 = add_tasks(trsc, "local") }
-	    r_t2 = remote_peer.subscribe(r_t2)
+	    remote.add_tasks(plan)
+	    r_t2 = subscribe_task(:id => 'remote-2')
+	    t1, t2, t3 = Control.synchronize { add_tasks(trsc, "local") }
 
 	    trsc[r_t2].realized_by t2
 	    check_resulting_plan(trsc, false)
@@ -189,7 +183,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    end
 
 	    # remove the relations in the real tasks (not the proxies)
-	    remote.remove_relations(r_t1, r_t2, r_t3)
+	    remote.remove_relations(r_t2)
 
 	    unless propose_first
 		trsc.propose(remote_peer)
@@ -207,13 +201,10 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	common_setup(true) do |trsc|
 	    trsc.release(false)
 	    r_t1, r_t2, r_t3 = remote.add_tasks(trsc).map { |t| remote_peer.proxy(t) }
-	    remote_peer.subscribe(r_t2)
 
 	    trsc.edit
-	    t1, t2, t3 = nil
-	    Control.synchronize do
-		t1, t2, t3 = add_tasks(plan, "local")
-	    end
+	    assert(r_t2.subscribed?)
+	    t1, t2, t3 = Control.synchronize { add_tasks(plan, "local") }
 	    r_t2.realized_by trsc[t2]
 	    remote_peer.subscribe(t2)
 

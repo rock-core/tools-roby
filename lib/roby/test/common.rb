@@ -7,6 +7,12 @@ module Roby
 	include Roby
 	Unit = ::Test::Unit
 
+	BASE_PORT     = 1245
+	DISCOVERY_URI = "roby://localhost:#{BASE_PORT}"
+	REMOTE_URI    = "roby://localhost:#{BASE_PORT + 1}"
+	LOCAL_URI     = "roby://localhost:#{BASE_PORT + 2}"
+
+
 	attr_reader :timings
 	class << self
 	    attr_accessor :check_allocation_count
@@ -76,6 +82,8 @@ module Roby
 
 	    save_collection Roby.exception_handlers
 	    timings[:setup] = Time.now
+
+	    DRb.start_service LOCAL_URI
 	end
 
 	def teardown_plan
@@ -120,9 +128,7 @@ module Roby
 	    timings[:teardown_plan] = Time.now
 
 	    stop_remote_processes
-	    if defined? DRb
-		DRb.stop_service if DRb.thread
-	    end
+	    DRb.stop_service if DRb.thread
 
 	    restore_collections
 
@@ -381,6 +387,13 @@ module Roby
 	    elsif defined? Roby::Log
 		Roby::Log.remove_logger console_logger
 		@console_logger = nil
+	    end
+	end
+
+	def wait_thread_stopped(thread)
+	    while !thread.stop?
+		sleep(0.1)
+		raise "#{thread} died" unless thread.alive?
 	    end
 	end
     end

@@ -26,7 +26,6 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	dtrsc = remote.d_transaction
 	assert_kind_of(Distributed::Transaction::DRoby, dtrsc)
-	assert_equal(remote.plan.remote_object, dtrsc.plan.remote_object)
 	assert_raises(InvalidRemoteOperation) { remote_peer.local_object(dtrsc) }
     end
 
@@ -34,9 +33,9 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	peer2peer(true) do |remote|
 	    class << remote
 		include Test::Unit::Assertions
-		def check_transaction(marshalled_trsc)
+		def check_transaction(marshalled_trsc, trsc_drbobject)
 		    assert(trsc = local_peer.local_object(marshalled_trsc))
-		    assert_equal(marshalled_trsc.remote_object, trsc.remote_siblings[local_peer])
+		    assert_equal(trsc_drbobject, trsc.remote_siblings[local_peer])
 		    assert_equal([local_peer, Roby::Distributed], trsc.owners)
 		    assert(!trsc.first_editor?)
 		    assert(!trsc.editor?)
@@ -57,7 +56,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	remote_peer.create_sibling(trsc)
 	trsc.add_owner remote_peer
 	assert_equal([Distributed, remote_peer], trsc.owners)
-	remote.check_transaction(trsc)
+	remote.check_transaction(trsc, trsc.remote_id)
 	assert(trsc.subscribed?)
 	assert(trsc.update_on?(remote_peer))
 	assert(trsc.updated_by?(remote_peer))
@@ -151,9 +150,6 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 		nil
 	    end
 	end
-	r_task = remote_task(:id => 1)
-	assert(!Distributed.owns?(r_task))
-	assert(remote_peer.owns?(r_task))
 
 	# Create a transaction for the plan
 	trsc = Roby::Distributed::Transaction.new(plan)
@@ -166,12 +162,13 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.remove_owner remote_peer
 	assert(!remote_peer.owns?(trsc))
 
-	r_task = remote_peer.subscribe(r_task)
+	r_task = subscribe_task(:id => 1)
+	assert(!Distributed.owns?(r_task))
+	assert(remote_peer.owns?(r_task))
 	assert_raises(NotOwner) { t_task = trsc[r_task] }
 	# Check we still can remove the peer from the transaction owners
 	trsc.add_owner(remote_peer)
-	r_task = remote_peer.subscribe(r_task)
-	t_task = trsc[r_task] 
+	t_task = trsc[r_task]
 
 	assert_raises(OwnershipError) { trsc.remove_owner(remote_peer) }
 	trsc.self_owned = false
@@ -224,7 +221,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc = Roby::Distributed::Transaction.new(plan) 
 	trsc.add_owner remote_peer
 	trsc.self_owned
-	r_task = remote_peer.subscribe(r_task)
+	r_task = subscribe_task(:id => 1)
 	assert(!trsc[remote_peer.task].distribute?)
 	assert_equal(trsc[remote_peer.task], trsc[r_task].execution_agent)
 	trsc.propose(remote_peer)
@@ -264,15 +261,13 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     end
 
     def build_transaction(trsc)
-	parent = remote_task(:id => 'remote-1')
-	child  = remote_task(:id => 'remote-2')
 
 	# Now, add a task of our own and link the remote and the local
 	task = SimpleTask.new :id => 'local'
 	trsc.discover(task)
 
-	parent = remote_peer.subscribe(parent)
-	child  = remote_peer.subscribe(child)
+	parent = subscribe_task(:id => 'remote-1')
+	child  = subscribe_task(:id => 'remote-2')
 
 	# Check some properties
 	assert((trsc[parent].owners - trsc.owners).empty?)

@@ -23,6 +23,10 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 	def connect; end
 	attr_predicate :link_alive?, true
 
+	class << self
+	    public :new
+	end
+
 	attr_reader :remote_server
 	def setup(remote)
 	    @remote_server = remote

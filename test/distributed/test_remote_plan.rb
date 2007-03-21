@@ -73,9 +73,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	end
 
 	proxy_model = Distributed.RemoteProxyModel(SimpleTask)
-	assert(proxy_model.ancestors.include?(TaskProxy))
 
-	# Get the MarshalledTask objects for remote tasks
 	r_simple_task = remote_task(:id => 'simple_task')
 	r_task        = remote_task(:id => 'task')
 	r_other_task  = remote_task(:id => 'other_task')
@@ -109,56 +107,6 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    r_other_task.realized_by r_simple_task
 	end
 	assert_raises(NotOwner) { r_other_task.remove_child r_simple_task }
-    end
-
-    def test_task_proxy
-	peer2peer do |remote|
-	    remote.plan.insert(SimpleTask.new(:id => 'simple_task'))
-	    remote.plan.permanent(Task.new(:id => 'task'))
-	end
-
-	proxy_model = Distributed.RemoteProxyModel(SimpleTask)
-	assert(proxy_model.ancestors.include?(TaskProxy))
-
-	r_simple_task = remote_task(:id => 'simple_task')
-	r_task        = remote_task(:id => 'task')
-
-	assert(r_simple_task.root_object?)
-	assert(!r_simple_task.event(:start).root_object?)
-
-	proxy = nil
-	assert_nothing_raised { proxy = proxy_model.new(remote_peer, r_simple_task.marshalled_object) }
-	assert_raises(TypeError) { proxy_model.new(remote_peer, r_task.marshalled_object) }
-
-	assert(proxy = remote_peer.proxy(r_task))
-	assert_equal(proxy.sibling_on(remote_peer), r_task.sibling_on(remote_peer))
-	assert_equal(local.plan, proxy.plan)
-	assert(remote_peer.owns?(proxy))
-    end
-
-    def test_event_proxy
-	peer2peer do |remote|
-	    remote.plan.insert(t = Task.new)
-	    t.on(:start, (ev = EventGenerator.new(true)))
-	    t.event(:start).forward(ev = EventGenerator.new(false))
-	    t.on(:start, (ev = EventGenerator.new { }))
-	    remote.class.class_eval do
-		include Test::Unit::Assertions
-		define_method(:event_has_happened?) { ev.happened? }
-		define_method(:event_proxy) { remote.plan.free_events }
-		define_method(:assert_event_count) { assert_equal(3, remote.plan.free_events.size) }
-	    end
-	end
-	
-	remote.assert_event_count
-	marshalled = remote.event_proxy
-	marshalled.each { |ev| assert_kind_of(Distributed::MarshalledEventGenerator, ev) }
-
-	all_events = marshalled.map { |ev| remote_peer.proxy(ev) }
-	all_events.each { |ev| assert_kind_of(Distributed::EventGeneratorProxy, ev) }
-	
-	assert_equal(1, all_events.find_all { |ev| !ev.controlable? }.size)
-	assert_equal(2, all_events.find_all { |ev| ev.controlable? }.size)
     end
 
     # Test that the remote plan structure is properly mapped to the local
@@ -199,20 +147,19 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_equal([remote_peer.task], plan.keepalive.to_a)
     end
 
-    def test_siblings
-	peer2peer do |remote|
-	    plan.insert(Roby::Task.new(:id => 'remote'))
+    def test_subscribing_old_objects
+	peer2peer(true) do |remote|
+	    plan.insert(@task = SimpleTask.new(:id => 1))
 	end
 
-	plan.insert(remote_task = remote_task(:id => 'remote'))
-	assert(remote_task.has_sibling_on?(remote_peer))
-	remote_object, _ = remote_peer.proxies.find { |_, task| task == remote_task }
-	assert(remote_object)
-	assert_equal(remote_object, remote_task.sibling_on(remote_peer))
-
-	assert_equal(remote_task, remote_task(:id => 'remote'))
+	r_task, r_task_id = nil
+	Roby::Control.synchronize do
+	    r_task = remote_task(:id => 1)
+	    assert(r_task_id = r_task.remote_siblings[remote_peer])
+	end
 	process_events
-	assert_equal(remote_task, remote_task(:id => 'remote'))
+	assert(!r_task.plan)
+	assert_nothing_raised { remote_peer.subscribe(r_task) }
     end
 
     def test_subscription
@@ -255,9 +202,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    end
 	end
 
-	## Check that #subscribe updates the relations between subscribed objects
-	r_root = remote_task(:id => 'root')
-	r_root = remote_peer.subscribe(r_root)
+	r_root = subscribe_task(:id => 'root')
 	assert(r_root.subscribed?, remote_peer.subscriptions)
 	assert(r_root.updated_by?(remote_peer))
 	assert(r_root.update_on?(remote_peer))
@@ -337,8 +282,10 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	## Re-add the child relation and test #unsubscribe
 	remote_peer.unsubscribe(r_mission)
+	process_events
 	remote.add_mission_subtask
 	process_events
+	assert(r_mission.plan)
 	assert(r_mission.children.empty?)
 
 	r_mission = remote_peer.subscribe(r_mission)
@@ -373,10 +320,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    end
 	end
 
-	left   = remote_peer.subscribe(remote_task(:id => 'left'))
-	right  = remote_peer.subscribe(remote_task(:id => 'right'))
+	left   = subscribe_task(:id => 'left')
+	right  = subscribe_task(:id => 'right')
 	middle = remote_task(:id => 'middle')
-
 	assert(!middle.subscribed?)
 	assert(Distributed.keep_object?(left))
 	assert(Distributed.keep_object?(right))
@@ -410,8 +356,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 		define_method(:change_data) { task.data = 42 }
 	    end
 	end
-	task = remote_peer.local_object(remote_task(:id => 'task'))
-	task = remote_peer.subscribe(task)
+	task = subscribe_task(:id => 'task')
 	assert_equal([4, 2], task.data)
 
 	remote.change_data
@@ -428,7 +373,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 		define_method(:insert_mission)  { remote.plan.insert(mission) }
 	    end
 	end
-	r_mission = remote_peer.subscribe(remote_task(:id => 'mission'))
+	r_mission = subscribe_task(:id => 'mission')
 	assert(r_mission.mission?)
 	assert(!plan.mission?(r_mission))
 
@@ -470,11 +415,10 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    end
 	end
 
-	r_mission	= remote_peer.subscribe(remote_task(:id => 'mission'))
-	r_subtask 	= remote_peer.subscribe(remote_task(:id => 'subtask'))
-	r_next_mission  = remote_peer.subscribe(remote_task(:id => 'next_mission'))
+	r_mission	= subscribe_task(:id => 'mission')
+	r_subtask 	= subscribe_task(:id => 'subtask')
+	r_next_mission  = subscribe_task(:id => 'next_mission')
 
-	# Check dynamic updates
 	remote.add_mission_subtask
 	process_events
 	assert_equal([r_subtask], r_mission.children.to_a)
@@ -513,11 +457,10 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    end
 	end
 
-	u = remote_task(:id => 0)
+	u = subscribe_task(:id => 0)
 	t1 = remote_task(:id => 1)
 	t2 = remote_task(:id => 2)
 
-	u = remote_peer.subscribe(u)
 	assert(remote_peer.connected?)
 
 	remote.remove_relations
