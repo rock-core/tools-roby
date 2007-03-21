@@ -176,18 +176,18 @@ module Roby
 		end
 	    end
 	    def plan_replace(plan, m_from, m_to)
-		plan = peer.local_object(plan)
+		Distributed.update(plan = peer.local_object(plan)) do
+		    from, to = peer.local_object(m_from), peer.local_object(m_to)
+		    return unless from && to
 
-		# +from+ will be unsubscribed when it is finalized
-		from, to = peer.local_object(m_from), peer.local_object(m_to)
-		return unless from && to
+		    Distributed.update_all([from, to]) { plan.replace(from, to) }
 
-		Distributed.update_all([from, to]) { plan.replace(from, to) }
-
-		# Subscribe to the new task if the old task was subscribed
-		if peer.subscribed?(m_from.remote_object) && !peer.subscribed?(m_to.remote_object)
-		    execute do
-			peer.subscribe(m_to.remote_object)
+		    # Subscribe to the new task if the old task was subscribed
+		    # +from+ will be unsubscribed when it is finalized
+		    if peer.subscribed?(from) && !peer.subscribed?(to)
+			execute do
+			    peer.subscribe(to)
+			end
 		    end
 		end
 	    end
