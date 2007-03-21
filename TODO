@@ -1,5 +1,11 @@
 = TODO
 
+== Renames
+* remote_id => network_id
+* incremental_dump? => dump_reference?
+* fix Roby::Control and Roby.control. Everything should be accessible from the same
+  object
+
 == Core
 * dynamic parameters. State prediction in both plan and transaction context: allow
   to predict the effect of changing the value of dynamic parameters in transaction
