@@ -145,7 +145,7 @@ module Roby
 		    raise ArgumentError, "you must provide a discovery period when using ring discovery"
 		end
 
-		@tuplespace = Rinda::TupleSpace.new
+		@tuplespace	      = Rinda::TupleSpace.new
 
 		@name                 = options[:name]
 		@neighbours           = Array.new
@@ -165,6 +165,7 @@ module Roby
 		@connection_listeners << Peer.method(:connection_listener)
 
 		yield(self) if block_given?
+
 
 		if central_discovery?
 		    if (@discovery_tuplespace.write([:host, tuplespace, tuplespace.object_id, name]) rescue nil)

@@ -1,5 +1,6 @@
 module Roby
     module Distributed
+
 	class RecursiveCallbacksError < RuntimeError; end
 	class CallbackProcessingError < RuntimeError; end
 
@@ -60,9 +61,12 @@ module Roby
 		    raise DisconnectedError, "#{remote_name} is disconnected"
 		end
 
-
 		calls.each do |is_callback, method, args|
-		    Distributed.debug { "processing #{is_callback ? 'callback' : 'method'} #{method}(#{args.join(", ")})" }
+		    Distributed.debug do 
+			args_s = args.map { |obj| obj ? obj.to_s : 'nil' }
+			"processing #{is_callback ? 'callback' : 'method'} #{method}(#{args_s.join(", ")})"
+		    end
+
 		    Control.synchronize do
 			@has_callbacks = false
 			Thread.current[PROCESSING_CALLBACKS_TLS] = !!is_callback
@@ -73,7 +77,7 @@ module Roby
 			peer.transmit(:processed_callbacks)
 			return [result, true, nil]
 		    end
-		    Distributed.debug { "done, returns #{result.last}" }
+		    Distributed.debug { "done, returns #{result.last || 'nil'}" }
 		end
 
 		[result, false, nil]
@@ -238,7 +242,7 @@ module Roby
 		    op = local.processing? ? "adding callback" : "queueing"
 		    "#{op} #{neighbour.name}.#{m}"
 		end
-		
+
 		queue_call local.processing?, m, args, block
 	    end
 
@@ -422,20 +426,17 @@ module Roby
 		end
 		(0...success).each { |i| call_attached_block(calls[i], results[i]) }
 
-		if error
-		    case error
-		    when DRb::DRbConnError
-			Distributed.warn { "it looks like we cannot talk to #{neighbour.name}" }
-			# We have a connection error, mark the connection as not being alive
-			link_dead!
-		    when DisconnectedError
-			Distributed.warn { "#{neighbour.name} has disconnected" }
-			# The remote host has disconnected, do the same on our side
-			disconnected!
-		    else
-			Distributed.warn do
-			    report_remote_error(remaining_calls.first, error)
-			end
+		case error
+		when DRb::DRbConnError
+		    Distributed.warn { "it looks like we cannot talk to #{neighbour.name} (#{error.message})" }
+		    # We have a connection error, mark the connection as not being alive
+		    link_dead!
+		    error = nil
+		when DisconnectedError
+		    Distributed.warn { "#{neighbour.name} has disconnected" }
+		when Exception
+		    Distributed.warn do
+			report_remote_error(remaining_calls.first, error)
 		    end
 		end
 		[error, remaining_calls]

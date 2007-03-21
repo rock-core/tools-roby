@@ -184,8 +184,7 @@ module Roby
 		@updated_objects.delete(object) if included
 	    end
 
-	    # Allow objects of class +type+ to be accessed remotely using
-	    # DRbObjects
+	    # Allow objects of class +type+ to be accessed remotely using DRbObjects
 	    def allow_remote_access(type)
 		@allowed_remote_access << type
 	    end
@@ -216,4 +215,3 @@ module Roby
 	end
     end
 end
-
