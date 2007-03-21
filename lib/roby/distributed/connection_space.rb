@@ -282,6 +282,8 @@ module Roby
 	    rescue Interrupt
 	    rescue Exception => e
 		Distributed.fatal "neighbour discovery died with\n#{e.full_message}"
+		Distributed.fatal "Peers are: #{Distributed.peers.map { |id, peer| "#{id.inspect} => #{peer}" }.join(", ")}"
+
 	    ensure
 		Distributed.info "quit neighbour thread"
 		neighbours.clear
