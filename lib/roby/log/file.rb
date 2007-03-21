@@ -20,7 +20,13 @@ module Roby::Log
 	    Marshal.dump(m, io)
 	    Marshal.dump(args, io)
 	rescue 
-	    STDERR.puts "failed to dump #{m}#{args}: #{$!.full_message}"
+	    puts "failed to dump #{m}#{args}: #{$!.full_message}"
+	    args.each do |obj|
+		unless (Marshal.dump(obj) rescue nil)
+		    puts "there is a problem with"
+		    pp obj
+		end
+	    end
 	end
 
 	Roby::Log.each_hook do |klass, m|
