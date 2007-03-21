@@ -322,6 +322,9 @@ module Roby
 	def invalidate(reason = nil)
 	    self.invalid = true
 	    invalidation_reasons << [reason, caller(1)] if reason
+	    Roby.debug do
+		"invalidating #{self}: #{reason}"
+	    end
 	end
 	def check_valid_transaction
 	    return if valid_transaction?
