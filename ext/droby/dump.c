@@ -8,7 +8,7 @@ static VALUE cDRbObject;
 static VALUE cSet;
 static VALUE cValueSet;
 static ID id_droby_dump;
-static ID id_drb_object;
+static ID id_remote_id;
 static ID id_append;
 
 /* call-seq:
@@ -35,7 +35,7 @@ static VALUE droby_format(int argc, VALUE* argv, VALUE self)
     if (RTEST(rb_respond_to(object, id_droby_dump)))
     {
 	if (!NIL_P(destination) && RTEST(rb_funcall(destination, rb_intern("incremental_dump?"), 1, object)))
-	    return rb_funcall(object, id_drb_object, 0);
+	    return rb_funcall(object, id_remote_id, 0);
 	return rb_funcall(object, id_droby_dump, 1, destination);
     }
 
@@ -44,11 +44,7 @@ static VALUE droby_format(int argc, VALUE* argv, VALUE self)
     for (i = 0; i < RARRAY(remote_access)->len; ++i)
     {
 	if (rb_obj_is_kind_of(object, RARRAY(remote_access)->ptr[i]))
-	{
-	    if (RTEST(rb_respond_to(object, id_drb_object)))
-		return rb_funcall(object, id_drb_object, 0);
 	    return rb_class_new_instance(1, &object, cDRbObject);
-	}
     }
 
     return object;
@@ -82,8 +78,11 @@ static VALUE array_droby_dump(VALUE self, VALUE dest)
 
 static int hash_dump_element(VALUE key, VALUE value, DROBY_DUMP_ITERATION_ARG* arg)
 {
-    VALUE args[2] = { value, arg->dest };
-    rb_hash_aset(arg->result, key, droby_format(2, args, mRobyDistributed));
+    VALUE args_key[2] = { key, arg->dest };
+    key = droby_format(2, args_key, mRobyDistributed);
+    VALUE args_value[2] = { value, arg->dest };
+    value = droby_format(2, args_value, mRobyDistributed);
+    rb_hash_aset(arg->result, key, value);
     return ST_CONTINUE;
 }
 
@@ -136,7 +135,7 @@ static VALUE value_set_droby_dump(VALUE self, VALUE dest)
 void Init_droby()
 {
     id_droby_dump = rb_intern("droby_dump");
-    id_drb_object = rb_intern("drb_object");
+    id_remote_id = rb_intern("remote_id");
     id_append = rb_intern("<<");
     
     mRoby            = rb_define_module("Roby");
