@@ -132,23 +132,27 @@ module Roby
 	    end
 
 	    # Receive an update on the relation graphs
-	    def update_relation(plan, args)
+	    def update_relation(plan, m_from, op, m_to, m_rel, m_info = nil)
 		if plan
-		    Roby::Distributed.update(peer.local_object(plan)) { update_relation(nil, args) }
+		    Roby::Distributed.update(peer.local_object(plan)) { update_relation(nil, m_from, op, m_to, m_rel, m_info) }
 		else
-		    m_from, op, m_to, m_rel, m_info = *args
-		    from, to = peer.local_object(m_from), 
-			peer.local_object(m_to)
-		    return if !from || !to
+		    from, to = 
+			peer.local_object(m_from, false), 
+			peer.local_object(m_to, false)
+
+		    if !from
+			return unless to && (to.self_owned? || to.subscribed?)
+			from = peer.local_object(m_from)
+		    elsif !to
+			return unless from && (from.self_owned? || from.subscribed?)
+			to = peer.local_object(m_to)
+		    end
 
 		    rel = peer.local_object(m_rel)
-		    if op == :add_child_object
-			Roby::Distributed.update_all([from.root_object, to.root_object]) do
+		    Roby::Distributed.update_all([from.root_object, to.root_object]) do
+			if op == :add_child_object
 			    from.add_child_object(to, rel, peer.local_object(m_info))
-			end
-
-		    elsif op == :remove_child_object
-			Roby::Distributed.update_all([from.root_object, to.root_object]) do
+			elsif op == :remove_child_object
 			    from.remove_child_object(to, rel)
 			end
 		    end
@@ -166,7 +170,7 @@ module Roby
 		return unless type.distribute? && Distributed.state
 		return if Distributed.updating_all?([self.root_object, child.root_object])
 		Distributed.each_updated_peer(self.root_object, child.root_object) do |peer|
-		    peer.transmit(:update_relation, plan, [self, :add_child_object, child, type, info])
+		    peer.transmit(:update_relation, plan, self, :add_child_object, child, type, info)
 		end
 		Distributed.trigger(self, child)
 	    end
@@ -177,7 +181,7 @@ module Roby
 		return unless type.distribute? && Distributed.state
 		return if Distributed.updating_all?([self.root_object, child.root_object])
 		Distributed.each_updated_peer(self.root_object, child.root_object) do |peer|
-		    peer.transmit(:update_relation, plan, [self, :remove_child_object, child, type])
+		    peer.transmit(:update_relation, plan, self, :remove_child_object, child, type)
 		end
 		Distributed.trigger(self, child)
 	    end
