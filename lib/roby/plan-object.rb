@@ -38,7 +38,16 @@ module Roby
 
 	# We are also subscribed to a PlanObject if the we are subscribed to
 	# the plan itself
-	def subscribed?; (plan && plan.subscribed?) || super end
+	def subscribed?
+	    if (plan && plan.subscribed?)
+	       return true
+	    elsif root_object?
+		super
+	    else
+		root_object.subscribed?
+	    end
+	end
+
 	def update_on?(peer); (plan && plan.update_on?(peer)) || super end
 	def updated_by?(peer); (plan && plan.updated_by?(peer)) || super end
 	def remotely_useful?; (plan && plan.remotely_useful?) || super end
