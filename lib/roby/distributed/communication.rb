@@ -319,7 +319,7 @@ module Roby
 			    # Check that there is no thread waiting for the call to
 			    # finish. If it is the case, raise the exception in
 			    # that thread as well
-			    if calls && thread = calls.first.last
+			    if calls && calls.first && thread = calls.first.last
 				thread.raise error
 				calls.shift
 			    end

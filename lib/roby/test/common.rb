@@ -112,6 +112,7 @@ module Roby
 			end
 		    rescue Test::Unit::AssertionFailedError
 			Roby.warn "  timeout on plan cleanup. Remaining tasks are #{Roby.plan.known_tasks}"
+			STDERR.puts $!.full_message
 		    rescue
 			Roby.warn "  failed to properly cleanup the plan\n  #{$!.full_message}"
 		    end
@@ -317,7 +318,7 @@ module Roby
 	# Checks that the assertions in the block pass within +timeout+ seconds. If
 	# +event+ is given, it is the message that is displayed if the assertion
 	# fails
-	def assert_happens(timeout = 5, event = "")
+	def assert_happens(timeout = 10, event = "")
 	    error = nil
 	    assert_doesnt_timeout(timeout, "#{event} did not happen") do
 		loop do

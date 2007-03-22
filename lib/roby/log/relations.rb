@@ -131,11 +131,7 @@ module Roby
 
 	    def display_name
 		unless @display_name
-		    model_name = if model.respond_to?(:remote_name)
-				     model.remote_name
-				 else model.name
-				 end
-
+		    model_name = model.ancestors.first.first
 		    @display_name = "#{model_name}\n0x#{Object.address_from_id(remote_object.__drbref).to_s(16)}"
 		end
 

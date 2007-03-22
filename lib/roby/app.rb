@@ -6,17 +6,30 @@ module Roby
     # Returns the only one Application object
     def self.app; Application.instance end
 
-    # This class handles all application loading and configuration. It it set
-    # up by two means: first, a YAML configuration file is loaded in config/roby.yml.
-    # Second, it can be directly accessed, using Roby.app, in the config/init.rb and
-    # config/ROBOT.rb files.
+    # = Roby Applications
+    #
+    # == Directory Layout
+    # config/
+    # tasks/
+    # planners/
+    # data/
+    #
+    # == Scripts
+    #
+    # == Configuration
+    # * YAML configuration files (config/roby.yml and config/app.yml)
+    # * init.rb
+    # * robot-specific configuration files, robot kind and single robots
+    # * load order (roby, plugins, init.rb, Roby and plugin configuration,
+    #   robot-specific configuration files, controller)
+    #
     class Application
 	include Singleton
 
 	ROBY_LIB_DIR  = File.expand_path( File.join(File.dirname(__FILE__)) )
 	ROBY_ROOT_DIR = File.expand_path( File.join(ROBY_LIB_DIR, '..', '..') )
 
-	# The plain option hash
+	# The plain option hash saved in config/app.yml
 	attr_reader :options
 
 	# Logging options.
@@ -86,14 +99,19 @@ module Roby
 
 	# Returns true if +name+ is a loaded plugin
 	def loaded_plugin?(name)
-	    plugins.any? { |plugname, _, _| plugname == name }
+	    plugins.any? { |plugname, _| plugname == name }
+	end
+
+	# True if +name+ is a plugin known to us
+	def defined_plugin?(name)
+	    available_plugins.any? { |plugname, _, _, _| plugname == name }
 	end
 
 	# Yields each extension modules that respond to +method+
 	def each_responding_plugin(method, on_available = false)
 	    plugins = self.plugins
 	    if on_available
-		plugins = available_plugins.map { |name, _, mod| [name, mod] }
+		plugins = available_plugins.map { |name, _, _, mod| [name, mod] }
 	    end
 
 	    plugins.each do |_, mod|
@@ -143,8 +161,8 @@ module Roby
 	# Loads the plugins whose name are listed in +names+
 	def using(*names)
 	    names.each do |name|
-		unless plugin = available_plugins.find { |plugname, file, mod| plugname == name.to_s }
-		    raise ArgumentError, "#{name} is not a known plugin (#{available_plugins.map { |n, _, _| n }.join(", ")})"
+		unless plugin = available_plugins.find { |plugname, dir, file, mod| plugname == name.to_s }
+		    raise ArgumentError, "#{name} is not a known plugin (#{available_plugins.map { |n, _, _, _| n }.join(", ")})"
 		end
 		_, file, mod = *plugin
 
@@ -428,13 +446,21 @@ module Roby
 
 	def self.register_plugin(name, file, mod)
 	    caller(1)[0] =~ /^([^:]+):\d/
-	    file = File.join(File.expand_path(File.dirname($1)), file)
+	    dir  = File.expand_path(File.dirname($1))
+	    file = File.join(dir, file)
 
-	    Roby.app.available_plugins << [name, file, mod]
+	    Roby.app.available_plugins << [name, dir, file, mod]
 	end
     end
 
     # Load the plugins 'main' files
     Roby.app.plugin_dir File.join(Application::ROBY_ROOT_DIR, 'plugins')
+    if plugin_path = ENV['ROBY_PLUGIN_PATH']
+	plugin_path.split(':').each do |dir|
+	    if File.directory?(dir)
+		Roby.app.plugin_dir File.expand_path(dir)
+	    end
+	end
+    end
 end
 

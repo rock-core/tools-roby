@@ -66,7 +66,7 @@ module Roby
 			if local_object.kind_of?(Transaction)
 			    tasks = tasks.to_a
 			    tasks.dup.each do |t| 
-				if Transactions::Proxy === t && t.__getobj__.self_owned?
+				if Transactions::Proxy === t
 				    tasks.unshift t.__getobj__
 				end
 			    end

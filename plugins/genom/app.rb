@@ -165,7 +165,7 @@ host
 	# known to this component
 	def self.data_source(filenames)
 	    if filenames.all? { |f| f =~ /\.\d+\.log/ }
-		Roby::Log::DataSource.new(filenames, 'pocosim', nil)
+		Roby::Log::DataSource.new(filenames, 'pocosim')
 	    end
 	end
 
@@ -176,7 +176,7 @@ host
 	    pocosim_logs.delete(nil) # remove unmatched files
 	    pocosim_logs.map do |_, fileset|
 		fileset = fileset.sort_by { |name| name =~ /\.(\d+)\.log$/ ; Integer($1) }
-		Roby::Log::DataSource.new(fileset, 'pocosim', nil)
+		Roby::Log::DataSource.new(fileset, 'pocosim')
 	    end
 	end
     end

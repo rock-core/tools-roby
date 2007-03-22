@@ -177,7 +177,11 @@ module Roby::Distributed
 	# The local PeerServer object for this peer
 	attr_reader :local
 	# The tuple describing our peer
-	attr_accessor :tuple
+	attr_reader :tuple
+	def tuple=(value);
+	    raise unless value
+	    @tuple = value
+	end
 	# The server object we use to access the remote plan database
 	def remote_server; tuple['remote'] end
 	# The neighbour object describing our peer

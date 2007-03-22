@@ -1,20 +1,17 @@
 #! /usr/bin/env ruby
 
 APP_DIR  = Dir.pwd
-ROBY_DIR = File.join(File.expand_path('..', File.dirname(__FILE__)), 'lib', 'roby', 'app')
 
 require 'optparse'
+require 'ostruct'
 require 'fileutils'
 require 'yaml'
+require 'find'
 
-# Load the template configuration
-template = YAML.load(File.open(File.join(ROBY_DIR, 'template.yml')))
-MODULES = template.keys
-MODULES.delete('roby')
+require 'roby/app'
 
 MODES = %w{init robot}
-modname = 'roby'
-mode    = nil
+config = OpenStruct.new
 parser = OptionParser.new do |opt|
     opt.banner = "Usage: roby mode [options]"
     opt.on_tail('-h', '--help', 'this help message') do
@@ -23,27 +20,54 @@ parser = OptionParser.new do |opt|
     end
 end
 
-def mode_init(opt)
+def global_help(opt)
+    opt.separator ""
+    opt.separator "  Available modes:"
+    opt.separator "    init   creates new roby application, or adds the files needed by "
+    opt.separator "    robot  creates a new robot type in this application"
+    opt.separator ""
+    opt.separator "  roby <mode> --help displays mode-specific help"
+    opt.separator ""
+    opt.separator "  Global options"
+end
+
+def mode_init(opt, config)
+    config.enabled_plugins = []
+
     opt.banner = "Usage: roby [global options] init [options]"
-    opt.separator "Creates an application template in the current directory"
-    opt.on('-m', '--module NAME', String, 
-	"Known modules are: #{MODULES.join(", ")}") do |modname| end
+    opt.separator ""
+    opt.separator "  Creates an application template in the current directory, or"
+    opt.separator "  installs the files needed by a specific plugin in an already"
+    opt.separator "  existing application"
+    opt.separator ""
+    opt.separator "  Available options"
+    known_plugins = Roby.app.available_plugins.map { |name, _, _| name }
+    opt.on('-p', '--plugin NAME,NAME', Array, "install the files needed by the given plugins. Known plugins are: #{known_plugins.join(", ")}") do |new_plugins|
+	new_plugins.each do |name|
+	    if !known_plugins.include?(name)
+		STDERR.puts "unknown plugin #{name}. Known plugins are #{known_plugins}"
+	    end
+	    config.enabled_plugins << name
+	end
+    end
 
     opt.separator ""
-    opt.separator "Global options"
+    opt.separator "  Global options"
 end
-def mode_robot(opt)
+def mode_robot(opt, config)
     opt.banner = "Usage: roby [global options] robot NAME"
-    opt.separator "Creates the template files for a new robot type"
+    opt.separator ""
+    opt.separator "  Creates the template for a new robot type"
+    opt.separator ""
+    opt.separator "  Global options"
 end
 
-mode      = nil
 remaining = []
 parser.order(ARGV) do |arg|
-    if !mode
+    if !config.mode
 	begin
-	    send("mode_#{arg}", parser)
-	    mode = arg
+	    send("mode_#{arg}", parser, config)
+	    config.mode = arg
 	rescue NoMethodError
 	    STDERR.puts "Invalid mode of operation '#{arg}'. Valid modes are: #{MODES.join(", ")}"
 	    STDERR.puts parser
@@ -54,62 +78,128 @@ parser.order(ARGV) do |arg|
     end
 end
 
-if !mode
+module Roby
+    class Installer
+	# The directory in which we are installing
+	attr_reader :app_dir
+
+	# The configuration hash saved in config/roby.yml
+	attr_reader :config
+
+	def config_path; File.join(app_dir, 'config', 'roby.yml') end
+	def installed_plugins; config['plugins'] || [] end
+
+	def check_plugins(plugins)
+	    if name = plugins.find { |name| !Roby.app.defined_plugin?(name) }
+		known_plugins = Roby.app.available_plugins.map { |name, _| name }
+		raise ArgumentError, "unknown plugin #{name}. Available plugins are #{known_plugins.join(", ")}"
+	    end
+	end
+
+	def initialize(app_dir)
+	    @app_dir = File.expand_path(app_dir)
+
+	    # Read the application configuration from config/roby.yml if the file exists,
+	    @config = if File.file?(config_path)
+			  YAML.load_file(config_path)
+		      else
+			  Hash['plugins', []]
+		      end
+	    check_plugins(config['plugins'])
+	end
+
+	def save_config
+	    File.open(config_path, 'w') do |io|
+		io << YAML.dump(config)
+	    end
+	end
+
+	# Install the template files for a core Roby application and the provided
+	# plugins
+	def install(plugins)
+	    check_plugins(plugins)
+	    install_dir(plugins) do |file|
+		next if file =~ /ROBOT/
+		file
+	    end
+
+	    config['plugins'] |= plugins
+	    save_config
+	end
+
+	# Installs the template files for a new robot named +name+
+	def robot(name)
+	    install_dir(installed_plugins) do |file|
+		next if file !~ /ROBOT/
+		file.gsub /ROBOT/, name
+	    end
+	end
+
+	# Copies the template files into the application directory, without erasing
+	# already existing files. +plugins+ is the list of plugins we should copy
+	# files from
+	def install_dir(plugins = [], &filter)
+	    Installer.copy_tree(File.join(Roby::Application::ROBY_ROOT_DIR, 'app'), app_dir, &filter)
+	    plugins.each do |enabled_name|
+		plugin_desc = Roby.app.available_plugins.find { |name, dir, _, _| enabled_name == name }
+
+		plugin_app_dir = File.join(plugin_desc[1], 'app')
+		next unless File.directory?(plugin_app_dir)
+		Installer.copy_tree(plugin_app_dir, app_dir, &filter)
+	    end
+	end
+
+	# Copy all files that are in +basedir+ into +destdir+. If a block is given,
+	# it is called with each file relative path. The block must then return the
+	# destination name, or nil if the file is to be skipped.
+	def self.copy_tree(basedir, destdir)
+	    basedir = File.expand_path(basedir)
+	    destdir = File.expand_path(destdir)
+
+	    Find.find(basedir) do |file|
+		relative = file.gsub Regexp.quote(basedir), ''
+		relative = yield(relative) if block_given?
+		# The block can return nil if the file shouldn't be installed
+		next unless relative
+
+		destfile = File.join(destdir, relative)
+		if File.directory?(file)
+		    if !File.exists?(destfile)
+			Dir.mkdir destfile
+		    elsif !File.directory?(destfile)
+			STDERR.puts "#{destfile} exists but it is not a directory"
+			exit(1)
+		    end
+		else
+		    if !File.exists?(destfile)
+			FileUtils.cp file, destfile
+		    elsif !File.file?(destfile)
+			STDERR.puts "#{destfile} exists but it is not a file"
+			exit(1)
+		    end
+		end
+	    end
+	end
+    end
+end
+
+if !config.mode
+    global_help(parser)
     STDERR.puts parser
     exit
 end
 
-def setup_files(list)
-    list.each do |file|
-	next unless file =~ /\/$/
-	file = yield(file) if block_given?
+installer = Roby::Installer.new(APP_DIR)
+if config.mode == 'init'
+    installer.install(config.enabled_plugins)
 
-	FileUtils.mkdir_p file
-    end
-
-    list.each do |file|
-	next if file =~ /\/$/
-	dst = if block_given? then yield(file) 
-	      else file
-	      end
-
-	src = File.join(ROBY_DIR, file)
-	dst = File.join(APP_DIR, dst)
-	unless File.file?(dst)
-	    FileUtils.cp src, dst, :preserve => true
-	end
-    end
-end
-def init_module(config)
-    setup_files(config['files'])
-end
-
-def add_robot(robotname, config)
-    setup_files(config['robot']) do |path|
-	path.gsub /ROBOT/, robotname
-    end
-end
-
-if mode == 'init'
-    unless config = template[modname]
-	STDERR.puts "Unknown module"
-	STDERR.puts parser
-	exit(1)
-    end
-    (config['requires'] || []).each do |required|
-	init_module template[required]
-    end
-    init_module config
-
-elsif mode == 'robot'
+elsif config.mode == 'robot'
     unless robotname = remaining.shift
 	STDERR.puts "No robot name given on command line"
 	STDERR.puts parser
 	exit(1)
     end
-    add_robot robotname, template['roby']
-    if File.directory?(File.join(APP_DIR, 'tasks', 'genom'))
-	add_robot robotname, template['genom']
-    end
+
+    installer.robot(robotname)
 end
 
