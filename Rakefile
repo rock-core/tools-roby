@@ -17,7 +17,7 @@ def clean_extension(name, soname = name)
     end
 end
 
-task :setup do
+task :setup => :uic do
     build_extension 'droby'
     build_extension 'graph', 'bgl'
 end
