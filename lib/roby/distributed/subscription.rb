@@ -41,8 +41,12 @@ module Roby
 
 	    # Subscribe the remote peer to changes on +object+. +object+ must be
 	    # an object owned locally.
-	    def subscribe(local_object)
-		return unless local_object = peer.local_object(local_object)
+	    def subscribe(m_object)
+		if !(local_object = peer.local_object(m_object, false))
+		    raise NotOwner, "no object for #{m_object}"
+		elsif !local_object.self_owned?
+		    raise NotOwner, "not owner of #{local_object}"
+		end
 
 		# We put the subscription process outside the communication
 		# thread so that the remote peer can send back the siblings it
