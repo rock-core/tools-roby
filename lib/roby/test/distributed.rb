@@ -171,12 +171,14 @@ module Roby
 	    end
 
 	    def remote_server(&block)
+		DRb.stop_service
 		remote_process do
 		    server = Class.new do
 			class_eval(&block)
 		    end.new
 		    DRb.start_service REMOTE_URI, server
 		end
+
 		DRb.start_service LOCAL_URI
 		DRbObject.new_with_uri(REMOTE_URI)
 	    end

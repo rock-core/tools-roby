@@ -83,6 +83,7 @@ module Roby
 	    save_collection Roby.exception_handlers
 	    timings[:setup] = Time.now
 
+	    DRb.stop_service
 	    DRb.start_service LOCAL_URI
 	end
 
