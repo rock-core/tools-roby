@@ -343,6 +343,11 @@ class Replay < Qt::MainWindow
 	end
 	ui.progress.value = time.to_i
 	ui.time_lcd.display(time - first_sample)
+
+    rescue Exception => e
+	message = "<html>#{e.message}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"
+	Qt::MessageBox.critical self, "Replay failure", message
+	stop
     end
 
     def add_source(source = nil)
