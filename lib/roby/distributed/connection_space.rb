@@ -49,13 +49,13 @@ module Roby
 
 	def self.remote_id
 	    if state then state.remote_id
-	    else nil
+	    else @__single_remote_id__ ||= RemoteID.new('local', '0')
 	    end
 	end
 
 	def self.droby_dump(dest)
-	    if state 
-		state.droby_dump(dest)
+	    if state then state.droby_dump(dest)
+	    else @__single_marshalled_peer__ ||= Peer::DRoby.new('single', remote_id)
 	    end
 	end
 
