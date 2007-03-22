@@ -27,6 +27,18 @@ module Roby
 		set_relations_commands(object)
 	    end
 
+	    # The peer wants to subscribe to our main plan
+	    def subscribe_plan(sibling)
+		added_sibling(Roby.plan.remote_id, sibling)
+		peer.transmit(:subscribed_plan, Roby.plan.remote_id)
+		subscribe(Roby.plan)
+	    end
+
+	    # Called by our peer because it has subscribed us to its main plan
+	    def subscribed_plan(remote_plan_id)
+		peer.remote_plan = remote_plan_id
+	    end
+
 	    # Subscribe the remote peer to changes on +object+. +object+ must be
 	    # an object owned locally.
 	    def subscribe(local_object)
@@ -56,7 +68,7 @@ module Roby
 			    end
 			end
 
-			peer.transmit(:subscribed_plan, local_object, tasks, events)
+			peer.transmit(:discover_plan, local_object, tasks, events)
 			if local_object.kind_of?(Transaction)
 			    tasks.delete_if { |t| local_object.discovered_relations_of?(t, true) }
 			    events.delete_if { |e| local_object.discovered_relations_of?(e, true) }
@@ -69,10 +81,9 @@ module Roby
 		local_object.remote_id
 	    end
 	    
-	    # Called by the remote host because it has subscribed us to a plan.
-	    # This method creates the necessary siblings and sends them back to
-	    # the peer.
-	    def subscribed_plan(marshalled_plan, m_tasks, m_events)
+	    # Called by the remote host because it has subscribed us to a plan
+	    # (a set of tasks and events).
+	    def discover_plan(marshalled_plan, m_tasks, m_events)
 		plan = peer.local_object(marshalled_plan)
 		Distributed.update(plan) do
 		    plan.discover(peer.local_object(m_tasks))
@@ -224,23 +235,24 @@ module Roby
 		local_object = local_object(remote_object)
 	    end
 
-	    # The RemoteID for the remote plan if we are subscribed to it
-	    attr_reader :remote_plan
+	    # The RemoteID for the peer main plan
+	    attr_accessor :remote_plan
 
 	    # Subscribe to the remote plan
 	    def subscribe_plan
-		@remote_plan = call(:subscribe, connection_space.plan)
-		call(:added_sibling, @remote_plan, connection_space.plan.remote_id)
+		call(:subscribe_plan, connection_space.plan.remote_id)
 		synchro_point
 	    end
 
 	    # Unsubscribe from the remote plan
 	    def unsubscribe_plan
+		subscriptions.delete(remote_plan)
 		if connected?
 		    call(:removed_sibling, @remote_plan, connection_space.plan.remote_id)
 		end
-		@remote_plan = nil
 	    end
+	    
+	    def subscribed_plan?; remote_plan && subscriptions.include?(remote_plan) end
 
 	    # True if we are explicitely subscribed to +object+. Automatically
 	    # subscribed objects will not be included here, but

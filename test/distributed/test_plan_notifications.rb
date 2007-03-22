@@ -83,8 +83,10 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 
 	# Subscribe to the remote plan
 	remote_peer.subscribe_plan
+	assert(remote_peer.subscribed_plan?)
 
 	# Check that the remote plan has been mapped locally
+	process_events
 	tasks = plan.known_tasks
 	assert_equal(4, tasks.size)
 	assert(p_mission = tasks.find { |t| t.arguments[:id] == 'mission' })
@@ -213,10 +215,11 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	remote_peer.subscribe(r1)
 
 	remote_peer.unsubscribe_plan
-	process_events
+	assert(!remote_peer.subscribed_plan?)
 
-	# The subscribed task should remain
-	assert_equal(2, plan.size)
+	# Start plan GC, the subscribed task should remain
+	process_events
+	assert_equal(2, plan.size, plan.known_tasks)
 
 	# Add a new task in the remote plan, check we do not get the updates
 	# anymore
