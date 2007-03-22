@@ -31,16 +31,20 @@ module Roby
 
     class SolverIgnoreUpdate
 	def finalized_plan_task(trsc, task)
+	    Roby.debug "#{trsc} is valid again"
 	    trsc.invalid = false
 	end
 	def finalized_plan_event(trsc, task)
+	    Roby.debug "#{trsc} is valid again"
 	    trsc.invalid = false
 	end
 
 	def adding_plan_relation(trsc, parent, child, type, info)
+	    Roby.debug "#{trsc} is valid again"
 	    trsc.invalid = false
 	end
 	def removing_plan_relation(trsc, parent, child, type)
+	    Roby.debug "#{trsc} is valid again"
 	    trsc.invalid = false
 	end
     end
