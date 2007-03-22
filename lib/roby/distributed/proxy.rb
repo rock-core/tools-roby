@@ -180,10 +180,19 @@ module Roby
 
     class Plan
 	class DRoby
+	    attr_accessor :peer, :id
+	    def initialize(peer, id); @peer, @id = peer, id end
 	    def proxy(peer); peer.connection_space.plan end
-	    def to_s; "#<dRoby:Plan>" end
+	    def to_s; "#<dRoby:Plan #{id.to_s(peer)}>" end
+	    def sibling_on(peer)
+		if peer.remote_id == self.peer.peer_id then id
+		else raise ArgumentError, "no known sibling for #{self} on #{peer}"
+		end
+	    end
 	end
-	def droby_dump(dest); @__droby_marshalled__ ||= DRoby.new end
+	def droby_dump(dest)
+	    @__droby_marshalled__ ||= DRoby.new(Roby::Distributed.droby_dump(dest), Roby.plan.remote_id)
+	end
     end
 
 
