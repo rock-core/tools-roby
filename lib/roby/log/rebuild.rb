@@ -152,8 +152,21 @@ module Roby
 	    end
 	    def advance
 		next_step.each do |name, args|
-		    send(name, *args) if respond_to?(name)
-		    displays.each { |d| d.send(name, *args) if d.respond_to?(name) }
+		    begin
+			send(name, *args) if respond_to?(name)
+			displays.each { |d| d.send(name, *args) if d.respond_to?(name) }
+		    rescue Exception => e
+			display_args = args.map do |obj|
+			    case obj
+			    when NilClass: 'nil'
+			    when Time: obj.to_hms
+			    when DRbObject: obj.inspect
+			    else obj.to_s
+			    end
+			end
+
+			raise e, "#{e.message} while serving #{name}(#{display_args.join(", ")})", e.backtrace
+		    end
 		end
 		read_step
 	    end
