@@ -39,10 +39,10 @@ module Roby
 	# We are also subscribed to a PlanObject if the we are subscribed to
 	# the plan itself
 	def subscribed?
-	    if (plan && plan.subscribed?)
-	       return true
-	    elsif root_object?
-		super
+	    if root_object?
+		(plan && plan.subscribed?) ||
+		    (!self_owned? && owners.any? { |peer| peer.subscribed_plan? }) ||
+		    super
 	    else
 		root_object.subscribed?
 	    end

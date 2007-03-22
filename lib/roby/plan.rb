@@ -70,14 +70,6 @@ module Roby
 	    end
 	end
 
-	def subscribed?
-	    if Roby.plan == self
-		Distributed.peers.each_value { |peer| return true if peer.remote_plan }
-		false
-	    else super
-	    end
-	end
-
 	def initialize(hierarchy = Roby::TaskStructure::Hierarchy, service_relations = [Roby::TaskStructure::PlannedBy, Roby::TaskStructure::ExecutionAgent])
 	    @hierarchy = hierarchy
 	    @service_relations = service_relations
