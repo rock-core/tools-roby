@@ -315,7 +315,7 @@ module Roby
 	    # that are serving these
 	    remotely_useful = (known_tasks - useful).find_all { |t| Roby::Distributed.keep?(t) }
 	    useful.merge remotely_useful.to_value_set
-	    
+
 	    useful_task_component(useful.dup, remotely_useful).each do |t|
 		useful << t if t.self_owned?
 	    end
