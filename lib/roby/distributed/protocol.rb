@@ -229,12 +229,12 @@ module Roby
 
 	class Peer
 	    class DRoby
-		attr_reader :peer_id
-		def initialize(peer_id); @peer_id = peer_id end
+		attr_reader :name, :peer_id
+		def initialize(name, peer_id); @name, @peer_id = name, peer_id end
 		def hash; peer_id.hash end
 		def eql?(obj); obj.respond_to?(:peer_id) && peer_id.eql?(obj.peer_id) end
 
-		def to_s; "mPeer(#{peer_id.to_s})" end 
+		def to_s; "#<dRoby:Peer #{name} #{peer_id}>" end 
 		def proxy(peer)
 		    if peer = Distributed.peer(peer_id)
 			peer
@@ -245,7 +245,7 @@ module Roby
 	    end
 
 	    def droby_dump(dest)
-		@__droby_marshalled__ ||= DRoby.new(remote_id)
+		@__droby_marshalled__ ||= DRoby.new(remote_name, remote_id)
 	    end
 	end
 
@@ -253,6 +253,7 @@ module Roby
 	class DRobyConstant
 	    @@valid_constants = Hash.new
 	    def self.valid_constants; @@valid_constants end
+	    def to_s; "#<dRoby:Constant #{name}>" end
 
 	    module Dump
 		def droby_dump(dest)
@@ -289,6 +290,7 @@ module Roby
 
 	    def self.remote_to_local; @@remote_to_local end
 	    def self.local_to_remote; @@local_to_remote end
+	    def to_s; "#<dRoby:Model #{ancestors.first.first}" end
 
 	    module Dump
 		def droby_dump(dest)

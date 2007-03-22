@@ -316,7 +316,7 @@ module Roby
 	    # The ConnectionSpace object is referenced by its tuplespace
 	    def remote_id; tuplespace.remote_id end
 	    # Define #droby_dump for Peer-like behaviour
-	    def droby_dump(dest); @__droby_marshalled__ ||= Peer::DRoby.new(remote_id) end
+	    def droby_dump(dest); @__droby_marshalled__ ||= Peer::DRoby.new(name, remote_id) end
 
 	    def quit
 		Distributed.debug "ConnectionSpace #{self} quitting"

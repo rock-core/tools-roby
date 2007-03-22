@@ -7,7 +7,13 @@ module Roby
 	    @remote_siblings, @owners = remote_siblings, owners
 	end
 
-	def to_s; "#<dRoby:BasicObject#{remote_siblings.to_s} owners=#{owners.to_s}>" end
+	def remote_siblings_to_s
+	    "{ " << remote_siblings.map { |peer, id| id.to_s(peer) }.join(", ") << " }"
+	end
+	def owners_to_s
+	    "[ " << owners.map { |peer| peer.name }.join(", ") << " ]"
+	end
+	def to_s; "#<dRoby:BasicObject#{remote_siblings_to_s} owners=#{owners_to_s}>" end
 	def sibling_on(peer)
 	    remote_siblings.each do |m_peer, remote_id|
 		if m_peer.peer_id == peer.remote_id
@@ -47,7 +53,7 @@ module Roby
 	    @model, @plan = model, plan
 	end
 
-	def to_s; "#<dRoby:#{model.ancestors.first.first}#{remote_siblings.to_s} plan=#{plan} owners=#{owners.to_s}>" end
+	def to_s; "#<dRoby:#{model.ancestors.first.first}#{remote_siblings_to_s} plan=#{plan} owners=#{owners_to_s}>" end
 
 	# Updates the status of the local object if needed
 	def update(peer, proxy)
@@ -110,7 +116,7 @@ module Roby
 	    end
 
 	    def to_s
-		"#<dRoby:#{task.model.ancestors.first.first}/#{symbol}#{task.remote_siblings} task_arguments=#{task.arguments} plan=#{task.plan} owners=#{task.owners}>"
+		"#<dRoby:#{task.model.ancestors.first.first}/#{symbol}#{task.remote_siblings_to_s} task_arguments=#{task.arguments} plan=#{task.plan} owners=#{task.owners_to_s}>"
 	    end
 
 
@@ -146,7 +152,7 @@ module Roby
 	    end
 
 	    def to_s
-		"#<dRoby:#{model.ancestors.first.first}#{remote_siblings.to_s} plan=#{plan} owners=#{owners.to_s} arguments=#{arguments}>"
+		"#<dRoby:#{model.ancestors.first.first}#{remote_siblings_to_s} plan=#{plan} owners=#{owners_to_s} arguments=#{arguments}>"
 	    end
 
 	    def proxy(peer)

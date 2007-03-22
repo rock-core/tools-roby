@@ -88,7 +88,13 @@ module Roby
 		end
 	    end
 
-	    def to_s; "#{uri}/0x#{ref.to_s(16)}" end
+	    def to_s(peer = nil)
+		if peer
+		    "0x#{ref.to_s(16)}@#{peer.name}"
+		else
+		    "0x#{ref.to_s(16)}@#{uri}"
+		end
+	    end
 	    def inspect; to_s end
 	    def pretty_print(pp); pp.text to_s end
 

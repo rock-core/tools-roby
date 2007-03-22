@@ -274,7 +274,7 @@ module Roby
 		end
 
 		def to_s
-		    "#<dRoby:Trsc#{remote_siblings} owners=#{owners} plan=#{plan}>"
+		    "#<dRoby:Trsc#{remote_siblings_to_s} owners=#{owners_to_s} plan=#{plan}>"
 		end
 	    end
 	    def droby_dump(dest) # :nodoc:
