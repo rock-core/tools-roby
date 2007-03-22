@@ -175,7 +175,7 @@ module Roby
 	    # True if we are currently something. Note that sending? is true when 
 	    # #do_send is sending something to the remote host, so it is possible to
 	    # have #sending? return true while send_queue is empty.
-	    def sending?; @sending end
+	    def sending?; @sending && connected? end
 
 	    # The queue which holds all calls to the remote peer. An element of the queue
 	    # is [[object, [method, args]], callback, trace], where
