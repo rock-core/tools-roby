@@ -937,7 +937,7 @@ module Roby
 		update_terminal_flag
 
 		if user_handler 
-		    method_name = "event_handler_#{from}_#{user_handler.object_id}"
+		    method_name = "event_handler_#{from}_#{Object.address_from_id(user_handler.object_id).to_s(16)}"
 		    define_method(method_name, &user_handler)
 		    handler_sets[from] << lambda { |event| event.task.send(method_name, event) }
 		end
