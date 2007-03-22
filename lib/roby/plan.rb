@@ -140,6 +140,14 @@ module Roby
 	# Make GC finalize +task+ if it is not useful anymore
 	def auto(task); @keepalive.delete(task) end
 
+	def edit
+	    if block_given?
+		Roby::Control.synchronize do
+		    yield
+		end
+	    end
+	end
+
 	def permanent?(task); @keepalive.include?(task) end
 
 	# Removes the task in +tasks+ from the list of missions

@@ -203,12 +203,20 @@ module Roby
 	    end
 
 	    # Waits for the edition token
-	    def edit
+	    def edit(reloop = false)
 		token_lock.synchronize do
 		    if editor # current editor
-			return
+			break
 		    else
 			token_lock_signal.wait(token_lock)
+		    end
+		end
+
+		if block_given?
+		    begin
+			yield
+		    ensure
+			release(reloop)
 		    end
 		end
 	    end
