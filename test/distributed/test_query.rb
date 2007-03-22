@@ -1,21 +1,26 @@
 $LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'test/mockups/tasks'
+require 'flexmock'
 
 class TC_DistributedQuery < Test::Unit::TestCase
     include Roby::Distributed::Test
 
     def test_ownership
-	t1 = Class.new(Task).new
-	t2 = Class.new(Task).new
-	plan << t1 << t2
+	FlexMock.use do |fake_peer|
+	    fake_peer.should_receive(:remote_name).and_return('fake_peer')
 
-	t2.owners.clear
-	t2.owners << Roby # Completely fake remote ID !!!!
+	    t1 = Class.new(Task).new
+	    t2 = Class.new(Task).new
+	    plan << t1 << t2
 
-	assert_equal([t1].to_set, TaskMatcher.owned_by(Distributed).enum_for(:each, plan).to_set)
-	assert_equal([t1].to_set, TaskMatcher.self_owned.enum_for(:each, plan).to_set)
-	assert_equal([t2].to_set, TaskMatcher.owned_by(Roby).enum_for(:each, plan).to_set)
+	    t2.owners.clear
+	    t2.owners << fake_peer
+
+	    assert_equal([t1].to_set, TaskMatcher.owned_by(Distributed).enum_for(:each, plan).to_set)
+	    assert_equal([t1].to_set, TaskMatcher.self_owned.enum_for(:each, plan).to_set)
+	    assert_equal([t2].to_set, TaskMatcher.owned_by(fake_peer).enum_for(:each, plan).to_set)
+	end
     end
 
     def test_marshal_query
