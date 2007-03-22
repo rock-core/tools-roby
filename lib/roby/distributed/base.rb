@@ -90,9 +90,9 @@ module Roby
 
 	    def to_s(peer = nil)
 		if peer
-		    "0x#{ref.to_s(16)}@#{peer.name}"
+		    "0x#{Object.address_from_id(ref).to_s(16)}@#{peer.name}"
 		else
-		    "0x#{ref.to_s(16)}@#{uri}"
+		    "0x#{Object.address_from_id(ref).to_s(16)}@#{uri}"
 		end
 	    end
 	    def inspect; to_s end
