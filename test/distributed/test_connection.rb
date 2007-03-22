@@ -25,6 +25,8 @@ class TC_DistributedConnection < Test::Unit::TestCase
 
     # Test neighbour discovery using a remote central tuplespace as neighbour list
     def test_centralized_drb_discovery
+	DRb.stop_service
+
 	central_tuplespace = TupleSpace.new
 	DRb.start_service 'druby://localhost:1245', central_tuplespace
 
@@ -44,6 +46,8 @@ class TC_DistributedConnection < Test::Unit::TestCase
     BROADCAST = (1..10).map { |i| "127.0.0.#{i}" }
     # Test neighbour discovery using UDP for discovery
     def test_ringserver_discovery
+	DRb.stop_service
+
 	remote_pid = remote_process do
 	    DRb.start_service
 	    Distributed.state = ConnectionSpace.new :period => 0.5, :ring_discovery => true, :ring_broadcast => BROADCAST

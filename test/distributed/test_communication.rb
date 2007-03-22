@@ -79,19 +79,28 @@ class TC_DistributedCommunication < Test::Unit::TestCase
     def setup
 	super
 
+	DRb.stop_service
+	Roby::Distributed.allow_remote_access FlexMock
+
 	remote_process do
+	    getter = Class.new do
+		attr_accessor :peer_server
+	    end
 	    Roby.logger.level = Logger::FATAL
+	    front = getter.new
+	    DRb.start_service REMOTE_URI, front
+
 	    peer = FakePeer.new 'local'
-	    DRb.start_service REMOTE_URI, peer.local
 	    peer.local.extend FakePeerServerMethods
+	    front.peer_server = DRbObject.new(peer.local)
 	end
 
+	DRb.start_service LOCAL_URI
 	@remote_peer = FakePeer.new 'remote'
-	DRb.start_service LOCAL_URI, remote_peer.local
 	@remote_server = remote_peer.local
 	remote_server.extend FakePeerServerMethods
 
-	@local_server  = DRbObject.new_with_uri(REMOTE_URI)
+	@local_server  = DRbObject.new_with_uri(REMOTE_URI).peer_server
 	@local_peer    = local_server.peer_drb_object
 
 	remote_peer.setup(local_server)

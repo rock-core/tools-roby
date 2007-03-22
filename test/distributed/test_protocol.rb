@@ -307,7 +307,6 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
 
     def test_allow_remote_access
-	DRb.start_service Distributed::Test::DISCOVERY_URI
 	klass = Class.new do
 	    include DRbUndumped
 	end
@@ -324,7 +323,6 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     end
 
     def test_incremental_dump
-	DRb.start_service Distributed::Test::DISCOVERY_URI
 	FlexMock.use do |obj|
 	    obj.should_receive(:droby_dump).and_return([]).once
 	    FlexMock.use do |destination|
