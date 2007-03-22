@@ -11,7 +11,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	peer2peer do |remote|
 	    def remote.new_task(kind, args)
 		new_task = kind.proxy(local_peer).new(args)
-		yield(new_task) if block_given?
+		yield(new_task.remote_id) if block_given?
 		plan.insert(new_task)
 		new_task
 	    end
@@ -34,16 +34,16 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 
 	    remote.new_task(SimpleTask, :id => 3)
 	    remote.new_task(Roby::Task, :id => 2)
-	    remote.new_task(SimpleTask, :id => 2) do |inserted|
-		mock.should_receive(:notified).with(inserted.remote_object).once.ordered
+	    remote.new_task(SimpleTask, :id => 2) do |inserted_id|
+		mock.should_receive(:notified).with(inserted_id).once.ordered
 		nil
 	    end
 	    process_events
 
 	    remote.new_task(SimpleTask, :id => 3)
 	    remote.new_task(Roby::Task, :id => 2)
-	    remote.new_task(SimpleTask, :id => 2) do |inserted|
-		mock.should_receive(:notified).with(inserted.remote_object).once.ordered
+	    remote.new_task(SimpleTask, :id => 2) do |inserted_id|
+		mock.should_receive(:notified).with(inserted_id).once.ordered
 		nil
 	    end
 	    process_events
