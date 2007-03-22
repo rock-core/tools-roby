@@ -194,8 +194,9 @@ module Roby
 
 	    def plan_remove_object(plan, object)
 		if local = peer.local_object(object, false)
-		    return unless object.plan
-		    Distributed.update(object.plan) do
+		    # Beware, transaction proxies have no 'plan' attribute
+		    return unless plan = peer.local_object(plan)
+		    Distributed.update(plan) do
 			Distributed.update(local) do
 			    plan.remove_object(local)
 			end
