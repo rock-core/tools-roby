@@ -346,20 +346,25 @@ module Roby
 	    ensure
 		Distributed.info "communication thread quit for #{self}"
 		synchronize do
-		    disconnected!
-		    @sending = nil
-		    calls ||= []
-		    calls.concat send_queue.get(true)
-		    while !pending_callbacks.empty?
-			calls << pending_callbacks.pop.last
-		    end
-		    calls.each do |call_spec|
-			next unless call_spec
-			if thread = call_spec.last
-			    thread.raise DisconnectedError
+		    begin
+			disconnected!
+			calls ||= []
+			calls.concat send_queue.get(true)
+			while !pending_callbacks.empty?
+			    calls << pending_callbacks.pop.last
 			end
+			calls.each do |call_spec|
+			    next unless call_spec
+			    if thread = call_spec.last
+				thread.raise DisconnectedError
+			    end
+			end
+		    rescue
+			Roby.fatal "communication loop cleanup failed with #{$!.full_message}"
+		    ensure
+			@sending = nil
+			send_flushed.broadcast
 		    end
-		    send_flushed.broadcast
 		end
 	    end
 
