@@ -193,7 +193,8 @@ module Roby
 			begin
 			    check_marshallable(obj)
 			rescue Exception
-			    Roby.fatal "cannot dump #{obj}"
+			    Roby.warn "cannot dump #{obj}"
+			    raise
 			end
 		    end
 		end
@@ -313,7 +314,7 @@ module Roby
 			error, calls = do_send(calls)
 			if error
 			    @failing_error = error
-			    Distributed.fatal "#{name} disconnecting from #{neighbour.name} because of error"
+			    Distributed.warn "#{name} disconnecting from #{neighbour.name} because of error"
 
 			    # Check that there is no thread waiting for the call to
 			    # finish. If it is the case, raise the exception in
