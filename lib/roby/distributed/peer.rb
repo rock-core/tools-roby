@@ -595,7 +595,8 @@ module Roby::Distributed
 	    if local_object.respond_to?(:execution_agent) && 
 		local_object.owners.size == 1 && 
 		owns?(local_object) &&
-		!local_object.execution_agent
+		!local_object.execution_agent &&
+		local_object.plan
 
 		remote_owner = local_object.owners.first
 		connection_task = local_object.plan[self.task]
