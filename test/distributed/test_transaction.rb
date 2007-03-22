@@ -267,7 +267,9 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	    remote.plan.insert(Task.new(:id => 2))
 	    def remote.set_argument(task)
 		task = local_peer.local_object(task)
+		task.plan.edit
 		task.arguments[:foo] = :bar
+		task.plan.release(false)
 		nil
 	    end
 	end
@@ -285,9 +287,10 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	task = Task.new(:id => 2)
 	t_task = trsc[task]
+	trsc.release(false)
 	assert_nothing_raised { remote.set_argument(t_task) }
 
-	process_events
+	trsc.edit
 	assert_equal(:bar, t_task.arguments[:foo], t_task.name)
     end
 
