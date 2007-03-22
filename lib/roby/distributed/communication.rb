@@ -188,7 +188,7 @@ module Roby
 	    attr_reader :send_queue
 
 	    def check_marshallable(object)
-		if object.respond_to?(:each)
+		if !object.kind_of?(DRbObject) && object.respond_to?(:each)
 		    object.each do |obj|
 			begin
 			    check_marshallable(obj)
