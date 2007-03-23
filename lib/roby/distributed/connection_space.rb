@@ -49,7 +49,7 @@ module Roby
 
 	def self.remote_id
 	    if state then state.remote_id
-	    else @__single_remote_id__ ||= RemoteID.new('local', '0')
+	    else @__single_remote_id__ ||= RemoteID.new('local', 0)
 	    end
 	end
 

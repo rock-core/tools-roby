@@ -60,7 +60,7 @@ module Roby
 
 	    # Creates a new RemoteID with the given URI and ID
 	    def initialize(uri, ref)
-		@uri, @ref = uri, ref
+		@uri, @ref = uri, ref.to_int
 		@hash = [uri, ref].hash
 	    end
 
