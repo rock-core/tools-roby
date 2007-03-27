@@ -299,25 +299,6 @@ class TC_Event < Test::Unit::TestCase
 	assert(d.happened?)
     end
 
-    def test_forwarder
-	plan.discover(e1 = EventGenerator.new(true))
-	plan.discover(forwarder = ForwarderGenerator.new(e1))
-	assert(forwarder.controlable?)
-
-	e2 = EventGenerator.new(false)
-	forwarder << e2
-	assert(!forwarder.controlable?)
-	forwarder.delete(e2)
-
-	plan.discover(e2 = EventGenerator.new(true))
-	forwarder << e2
-	assert(forwarder.controlable?)
-
-	assert([e1,e2].all? { |ev| ev.parent_object?(forwarder, EventStructure::Signal) })
-	forwarder.call(nil)
-	assert([e1,e2].all? { |ev| ev.happened? })
-    end
-
     def setup_aggregation(mock)
 	e1, e2, m1, m2, m3 = 5.enum_for(:times).map { EventGenerator.new(true) }
 	plan.discover([e1, e2, m1, m2, m3])

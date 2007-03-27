@@ -562,29 +562,8 @@ module Roby
 	end
     end
 
-    class ForwarderGenerator < EventGenerator
-	attr_reader :aliases
-	def initialize(*aliases)
-	    super(true)
-
-	    @aliases = Set.new
-	    aliases.each { |ev| self << ev }
-	end
-	def controlable?; aliases.all? { |ev| ev.controlable? } end
-
-	def <<(generator)
-	    return if aliases.include?(generator)
-	    aliases << generator
-	    add_signal generator
-	end
-	def delete(generator)
-	    if aliases.delete(generator)
-		remove_signal(generator)
-		generator
-	    end
-	end
-    end
-
+    # Event generator which fires when all its source events have fired
+    # See EventGenerator#& for a more complete description
     class AndGenerator < EventGenerator
 	def initialize
 	    super do |context|
