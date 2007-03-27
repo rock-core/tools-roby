@@ -1,14 +1,20 @@
 require 'roby/task'
 
 module Roby::TaskStructure
-    relation :PlannedBy, :child_name => :planning_task, :parent_name => :planned_task, :noinfo => true, :single_child => true do
+    relation :PlannedBy, :child_name => :planning_task, 
+	:parent_name => :planned_task, :noinfo => true, :single_child => true do
+
+	# The set of tasks which are planned by this one
 	def planned_tasks; parent_objects(PlannedBy) end
+	# Set +task+ as the planning task of +self+
         def planned_by(task)
             raise TaskModelViolation.new(self), "this task already has a planner" if planning_task
 	    add_planning_task(task)
         end
     end
 
+    # Returns a set of PlanningFailedError exceptions for all abstract tasks
+    # for which planning has failed
     def PlannedBy.check_planning(plan)
 	result = []
 	plan.known_tasks.each do |planned_task|
@@ -24,15 +30,24 @@ module Roby::TaskStructure
 end
 
 module Roby
+    # This exception is raised when a task is abstract, and its planner failed:
+    # the system will therefore not have a suitable executable development for
+    # this task, and this is a failure
     class PlanningFailedError < TaskModelViolation
+	# The task which was planned
 	alias :planned_task :task
-	attr_reader :planning_task, :error
+	# The planning task
+	attr_reader :planning_task
+	# The planning error
+	attr_reader :error
+
 	def initialize(planned_task, planning_task)
 	    super(planned_task)
 	    @planning_task = planning_task
 	    @error = planning_task.terminal_event
 	end
-	def message
+
+	def message # :nodoc:
 	    "failed to plan #{planned_task}.planned_by(#{planning_task}): failed with #{error.symbol}(#{error.context})\n#{super}"
 	end
     end

@@ -1,6 +1,37 @@
 require 'genom/lib/genom-tools'
 
 module Roby::Genom
+    # Genom plugin for Roby
+    #
+    # General principles: modules are loaded and a task model is created for each 
+    # of the module requests. For instance, given the 'foo' module defined by 
+    #
+    #   module foo {
+    #     ...
+    #   };
+    #
+    #   request Go {
+    #   ...
+    #   };
+    #
+    #   request Init {
+    #   ...
+    #   };
+    #
+    # Roby/Genom will create a Roby::Genom::Foo module with the Roby::Genom::Foo::Go and
+    # Roby::Genom::Foo::Init task models.
+    #
+    # == Runner tasks
+    # The request tasks all have for {execution agent}[Roby::TaskStructure::ExecutionAgent]
+    # 
+    #
+    # == Configuration files
+    # ROBOT-genom.rb
+    #
+    # == Simulation support
+    # pocosim/ simulation
+    #
+    # == Test support
     module Application
 	attribute(:pocosim) do
 	    Hash[ 'display' => nil, 'gdhe' => nil, 'gazebo' => nil ]

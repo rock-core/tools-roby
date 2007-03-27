@@ -3,18 +3,31 @@ require 'roby/control'
 require 'set'
 
 module Roby::TaskStructure
+    # Document-module: Hierarchy
     relation :Hierarchy, :child_name => :child, :parent_name => :parent_task do
+	# True if +obj+ is a parent of this object in the hierarchy relation
+	# (+obj+ is realized by +self+)
 	def realizes?(obj);	parent_object?(obj, Hierarchy) end
+	# True if +obj+ is a child of this object in the hierarchy relation
 	def realized_by?(obj);  child_object?(obj, Hierarchy) end
+	# True if +obj+ can be reached through the Hierarchy relation by
+	# starting from this object
 	def depends_on?(obj)
 	    generated_subgraph(Hierarchy).include?(obj)
 	end
+	# The set of parent objects in the Hierarchy relation
+	def parents; parent_objects(Hierarchy) end
+	# The set of child objects in the Hierarchy relation
+	def children; child_objects(Hierarchy) end
 
-	# Adds +task+ as a child of +self+. The following options are allowed:
-	# success:: the list of success events
-	# failure:: the list of failing event
-	# model:: a [task_model, arguments] pair which defines the task model the
-	#	  parent is expecting
+
+	# Adds +task+ as a child of +self+ in the Hierarchy relation. The
+	# following options are allowed:
+	#
+	# success:: the list of success events. The default is [:success]
+	# failure:: the list of failing events. The default is [:failed]
+	# model:: a <tt>[task_model, arguments]</tt> pair which defines the task model the parent is expecting. 
+	#   The default value is to get these parameters from +task+
         def realized_by(task, options = {})
             options = validate_options options, 
 		:model => [task.model, task.meaningful_arguments], 
@@ -40,7 +53,8 @@ module Roby::TaskStructure
             self
         end
 
-	def added_child_object(child, relation, info)
+	# Set up the event gathering needed by Hierarchy.check_structure
+	def added_child_object(child, relation, info) # :nodoc:
 	    super if defined? super
 	    if relation == Hierarchy
 		events = info[:success].map { |ev| child.event(ev) }
@@ -52,11 +66,8 @@ module Roby::TaskStructure
 	    end
 	end
 
-	def parents; parent_objects(Hierarchy) end
-	def children; child_objects(Hierarchy) end
-
-        # Return an array of the task for which the :start event is not
-        # signalled by a child event
+	# Return the set of this task children for which the :start event has
+	# no parent in CausalLinks
         def first_children
 	    result = ValueSet.new
 
@@ -78,7 +89,7 @@ module Roby::TaskStructure
 	    needed
 	end
 
-	# Return [tags, argumetnts] where +tags+ is a list of task models which
+	# Return [tags, arguments] where +tags+ is a list of task models which
 	# are required by the parent tasks of this task, and arguments the
 	# required arguments
 	#
@@ -122,46 +133,47 @@ module Roby::TaskStructure
 	end
     end
 
-    class << Hierarchy
-	# Checks the structure of +plan+. It returns an array of ChildFailedError
-	# for all failed hierarchy relations
-	def check_structure(plan)
-	    result = []
+    # Checks the structure of +plan+ w.r.t. the constraints of the hierarchy
+    # relations. It returns an array of ChildFailedError for all failed
+    # hierarchy relations
+    def Hierarchy.check_structure(plan)
+	result = []
 
-	    events = Hierarchy.interesting_events
-	    return result if events.empty? && failing_tasks.empty?
+	events = Hierarchy.interesting_events
+	return result if events.empty? && failing_tasks.empty?
 
-	    # Get the set of tasks for which a possible failure has been
-	    # registered The tasks that are failing the hierarchy requirements
-	    # are registered in Hierarchy.failing_tasks. The interesting_events
-	    # set is cleared at cycle end (see below)
-	    tasks = events.inject(failing_tasks) { |set, event| set << event.generator.task }
-	    @failing_tasks = ValueSet.new
-	    tasks.each do |child|
-		# Check if the task has been removed from the plan
-		next unless child.plan
+	# Get the set of tasks for which a possible failure has been
+	# registered The tasks that are failing the hierarchy requirements
+	# are registered in Hierarchy.failing_tasks. The interesting_events
+	# set is cleared at cycle end (see below)
+	tasks = events.inject(failing_tasks) { |set, event| set << event.generator.task }
+	@failing_tasks = ValueSet.new
+	tasks.each do |child|
+	    # Check if the task has been removed from the plan
+	    next unless child.plan
 
-		has_error = false
-		child.each_parent_task do |parent|
-		    next unless parent.self_owned?
-		    next if parent.finished? || parent.finishing?
+	    has_error = false
+	    child.each_parent_task do |parent|
+		next unless parent.self_owned?
+		next if parent.finished? || parent.finishing?
 
-		    options = parent[child, Hierarchy]
-		    success = options[:success]
-		    failure = options[:failure]
+		options = parent[child, Hierarchy]
+		success = options[:success]
+		failure = options[:failure]
 
-		    next if success.any? { |e| child.event(e).happened? }
-		    if failing_event = failure.find { |e| child.event(e).happened? }
-			result << Roby::ChildFailedError.new(parent, child, child.event(failing_event).last)
-			failing_tasks << child
-		    end
+		next if success.any? { |e| child.event(e).happened? }
+		if failing_event = failure.find { |e| child.event(e).happened? }
+		    result << Roby::ChildFailedError.new(parent, child, child.event(failing_event).last)
+		    failing_tasks << child
 		end
 	    end
-
-	    events.clear
-	    result
 	end
 
+	events.clear
+	result
+    end
+
+    class << Hierarchy
 	# The set of events that have been fired in this cycle and are involved in a Hierarchy relation
 	attribute(:interesting_events) { Array.new }
 
@@ -171,16 +183,22 @@ module Roby::TaskStructure
 end
 
 module Roby
+    # This exception is raised when a {hierarchy relation}[classes/Roby/TaskStructure/Hierarchy.html] fails
     class ChildFailedError < TaskModelViolation
 	alias :child :task
-	attr_reader :parent, :relation, :with
+	attr_reader :parent
+	# The relation parameters (i.e. the hash given to #realized_by)
+	attr_reader :relation
+	# The event because of which this exception is raised
+	attr_reader :with
 	def initialize(parent, child, with)
 	    super(child)
 	    @parent = parent
 	    @relation = parent[child, TaskStructure::Hierarchy]
 	    @with = with
 	end
-	def message
+
+	def message # :nodoc:
 	    "#{parent}.realized_by(#{child}, #{relation}) failed with #{with.symbol}(#{with.context})\n#{super}"
 	end
     end

@@ -27,7 +27,7 @@ task :clean do
 end
 
 Rake::RDocTask.new("core_docs") do |rdoc|
-  rdoc.options << "--inline-source"
+  rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
   rdoc.rdoc_dir = 'html'
   rdoc.title    = "Roby Core"
   rdoc.options << '-T' << 'hefss'

@@ -611,7 +611,7 @@ static VALUE graph_topological_sort(int argc, VALUE* argv, VALUE self)
  */
 
 /*
- * Document-module: BGL
+ * Document-class: BGL
  *
  * The BGL module defines a Graph class and a Vertex module. The Graph class can
  * be used to manipulate graphs where vertices are referenced by a graph descriptor
@@ -635,7 +635,7 @@ static VALUE graph_topological_sort(int argc, VALUE* argv, VALUE self)
  */
 
 /*
- * Document-module: BGL::Vertex
+ * Document-class: BGL::Vertex
  *
  * A module to be mixed in objects used as vertices in Graph. It
  * allows to use the same object in more than one graph.
@@ -643,7 +643,6 @@ static VALUE graph_topological_sort(int argc, VALUE* argv, VALUE self)
 
 void Init_graph_algorithms()
 {
-    utilrbValueSet = rb_define_class("ValueSet", rb_cObject);
     id_new = rb_intern("new");
 
     bglModule = rb_define_module("BGL");
@@ -672,5 +671,7 @@ void Init_graph_algorithms()
     rb_define_method(bglUndirectedGraph, "each_dfs",	RUBY_METHOD_FUNC(graph_undirected_each_dfs), 2);
     rb_define_method(bglUndirectedGraph, "each_bfs",	RUBY_METHOD_FUNC(graph_undirected_each_bfs), 2);
     rb_define_method(bglUndirectedGraph, "prune",	RUBY_METHOD_FUNC(graph_prune), 0);
+
+    utilrbValueSet = rb_define_class("ValueSet", rb_cObject);
 }
 

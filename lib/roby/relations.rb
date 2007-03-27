@@ -2,36 +2,41 @@ require 'roby/support'
 require 'roby/graph'
 
 module Roby
-    class NoRelationError < RuntimeError; end
-
-    # Base support for relations. It is mixed-in objects that are
-    # part of relation networks (like Task and EventGenerator)
-    # It is used by the DirectedRelation module, which is used
-    # to define the relation modules (like TaskSupport::Hierarchy)
+    # Base support for relations. It is mixed-in objects that are part of
+    # relation networks (like Task and EventGenerator)
     module DirectedRelationSupport
 	include BGL::Vertex
 
-	alias :child_object?	:child_vertex?	
-	alias :parent_object?	:parent_vertex?	
-	alias :related_object?	:related_vertex?
-	alias :each_child_object 	:each_child_vertex
-	alias :each_parent_object 	:each_parent_vertex
-	alias :each_relation	:each_graph
-	alias :clear_relations  :clear_vertex
+	alias :child_object?	    :child_vertex?	
+	alias :parent_object?	    :parent_vertex?	
+	alias :related_object?	    :related_vertex?
+	alias :each_child_object    :each_child_vertex
+	alias :each_parent_object   :each_parent_vertex
+	alias :each_relation	    :each_graph
+	alias :clear_relations	    :clear_vertex
 
-	def enum_relations; @enum_relations ||= enum_for(:each_graph) end
-	def enum_parent_objects(type)
+	# Cache an enumerator object for the relations this object is part of
+	def enum_relations # :nodoc:
+	    @enum_relations ||= enum_for(:each_graph) 
+	end
+	# Cache an Enumerator object for parents in the +type+ relation
+	def enum_parent_objects(type) # :nodoc:
 	    @enum_parent_objects ||= Hash.new
 	    @enum_parent_objects[type] ||= enum_for(:each_parent_object, type)
 	end
-	def enum_child_objects(type)
+	# Cache an Enumerator object for children in the +type+ relation
+	def enum_child_objects(type) # :nodoc:
 	    @enum_child_objects ||= Hash.new
 	    @enum_child_objects[type] ||= enum_for(:each_child_object, type)
 	end
 
-	# The set of relations the object is part of
+	# The array of relations this object is part of
 	def relations; enum_relations.to_a end
 
+	# Computes and returns the set of objects related with this one (parent
+	# or child). If +relation+ is given, enumerate only for this relation,
+	# otherwise enumerate for all relations.  If +result+ is given, it is a
+	# ValueSet in which the related objects are added
 	def related_objects(relation = nil, result = nil)
 	    result ||= ValueSet.new
 	    if relation
@@ -52,109 +57,114 @@ module Roby
 	    enum_child_objects(relation).to_value_set
 	end
 
-	# Add a new child object in the +type+ relation. This calls
-	# * self.adding_child_object and child.adding_parent_object just before
-	#   the relation is added
-	# * self.added_child_object and child.added_child_object just after
-	def add_child_object(child, type, info = nil)
-	    check_is_relation(type)
-	    if type.linked?(self, child)
-		if self[child, type] != info
-		    raise ArgumentError, "trying to override edge data. Was #{self[child, type]}, new info is #{info}"
+	# Add a new child object in the +relation+ relation. This calls
+	# * #adding_child_object on +self+ and #adding_parent_object on +child+
+	#   just before the relation is added
+	# * #added_child_object on +self+ and #added_parent_object on +child+
+	#   just after
+	def add_child_object(child, relation, info = nil)
+	    check_is_relation(relation)
+	    if relation.linked?(self, child)
+		if self[child, relation] != info
+		    raise ArgumentError, "trying to override edge data. Was #{self[child, relation]}, new info is #{info}"
 		end
 		return
 	    end
 
-	    adding_child_object(child, type, info)
-	    type.add_relation(self, child, info)
-	    added_child_object(child, type, info)
+	    adding_child_object(child, relation, info)
+	    relation.add_relation(self, child, info)
+	    added_child_object(child, relation, info)
 	end
 
-	# Add a new parent object in the +type+ relation
-	# * self.adding_child_object and child.adding_parent_object just before the relation is added
-	# * self.added_child_object and child.added_child_object just after
-	def add_parent_object(parent, type, info = nil)
-	    parent.add_child_object(self, type, info)
+	# Add a new parent object in the +relation+ relation
+	# * #adding_child_object on +parent+ and #adding_parent_object on
+	#   +self+ just before the relation is added
+	# * #added_child_object on +parent+ and #added_child_object on +self+
+	#   just after
+	def add_parent_object(parent, relation, info = nil)
+	    parent.add_child_object(self, relation, info)
 	end
 
-	# Hook called before a new child is added
-	def adding_child_object(child, type, info)
-	    child.adding_parent_object(self, type, info)
+	# Hook called before a new child is added in the +relation+ relation
+	def adding_child_object(child, relation, info)
+	    child.adding_parent_object(self, relation, info)
 	    super if defined? super 
 	end
-	# Hook called after a new child has been added
-	def added_child_object(child, type, info)
-	    child.added_parent_object(self, type, info)
+	# Hook called after a new child has been added in the +relation+ relation
+	def added_child_object(child, relation, info)
+	    child.added_parent_object(self, relation, info)
 	    super if defined? super 
 	end
-	# Hook called after a new parent has been added
-	def added_parent_object(parent, type, info); super if defined? super end
-	# Hook called after a new parent is being added
-	def adding_parent_object(parent, type, info); super if defined? super end
 
-	# Remove the relation between +self+ and +child+. If +type+
-	# is given, remove only a +type+ relation
-	def remove_child_object(child, type = nil)
-	    check_is_relation(type)
-	    apply_selection(type, (type || enum_relations)) do |type|
-		removing_child_object(child, type)
-		type.remove_relation(self, child)
-		removed_child_object(child, type)
+	# Hook called after a new parent has been added in the +relation+ relation
+	def added_parent_object(parent, relation, info); super if defined? super end
+	# Hook called after a new parent is being added in the +relation+ relation
+	def adding_parent_object(parent, relation, info); super if defined? super end
+
+	# Remove the relation between +self+ and +child+. If +relation+ is
+	# given, remove only a relations in this relation kind.
+	def remove_child_object(child, relation = nil)
+	    check_is_relation(relation)
+	    apply_selection(relation, (relation || enum_relations)) do |relation|
+		removing_child_object(child, relation)
+		relation.remove_relation(self, child)
+		removed_child_object(child, relation)
 	    end
 	end
-	# Remove relations where self is a parent. If +type+
-	# is not nil, remove only the +type+ relations
-	def remove_children(type = nil)
-	    apply_selection(type, (type || enum_relations)) do |type|
-		self.each_child_object(type) do |child|
-		    remove_child_object(child, type)
+
+	# Remove relations where self is a parent. If +relation+ is given,
+	# remove only the relations in this relation graph.
+	def remove_children(relation = nil)
+	    apply_selection(relation, (relation || enum_relations)) do |relation|
+		self.each_child_object(relation) do |child|
+		    remove_child_object(child, relation)
 		end
 	    end
 	end
 
-	# Remove relations where +self+ is a child. If +type+
-	# is not nil, remove only the +type+ relations
-	def remove_parent_object(parent, type = nil)
-	    parent.remove_child_object(self, type)
+	# Remove relations where +self+ is a child. If +relation+ is given,
+	# remove only the relations in this relation graph
+	def remove_parent_object(parent, relation = nil)
+	    parent.remove_child_object(self, relation)
 	end
-	# Remove all parents of +self+. If +type+ is not nil,
-	# remove only the parents in the +type+ relation
-	def remove_parents(type = nil)
-	    check_is_relation(type)
-	    apply_selection(type, (type || enum_relations)) do |type|
-		type.each_parent_object(self) do |parent|
-		    remove_parent_object(type, parent)
+	# Remove all parents of +self+. If +relation+ is given, remove only the
+	# parents in this relation graph
+	def remove_parents(relation = nil)
+	    check_is_relation(relation)
+	    apply_selection(relation, (relation || enum_relations)) do |relation|
+		relation.each_parent_object(self) do |parent|
+		    remove_parent_object(relation, parent)
 		end
 	    end
 	end
 
 	# Hook called after a parent has been removed
-	def removing_parent_object(parent, type); super if defined? super end
+	def removing_parent_object(parent, relation); super if defined? super end
 	# Hook called after a child has been removed
-	def removing_child_object(child, type)
-	    child.removing_parent_object(self, type)
+	def removing_child_object(child, relation)
+	    child.removing_parent_object(self, relation)
 	    super if defined? super 
 	end
 
 	# Hook called after a parent has been removed
-	def removed_parent_object(parent, type); super if defined? super end
+	def removed_parent_object(parent, relation); super if defined? super end
 	# Hook called after a child has been removed
-	def removed_child_object(child, type)
-	    child.removed_parent_object(self, type)
+	def removed_child_object(child, relation)
+	    child.removed_parent_object(self, relation)
 	    super if defined? super 
 	end
 
-	# Remove all relations that point to or come from +to+
-	# If +to+ is nil, it removes all relations related to +self+
-	def remove_relations(to = nil, type = nil)
-	    check_is_relation(type)
+	# Remove all relations that point to or come from +to+ If +to+ is nil,
+	# it removes all relations of +self+
+	def remove_relations(to = nil, relation = nil)
+	    check_is_relation(relation)
 	    if to
-		remove_parent_object(to, type)
-		remove_child_object(to, type)
+		remove_parent_object(to, relation)
+		remove_child_object(to, relation)
 	    else
-		apply_selection(type, (type || enum_relations)) do |type|
-		    each_parent_object(type) { |parent| remove_parent_object(parent, type) }
-		    each_child_object(type) { |child| remove_child_object(child, type) }
+		apply_selection(relation, (relation || enum_relations)) do |relation|
+		    each_parent_object(relation) { |parent| remove_parent_object(parent, relation) }
+		    each_child_object(relation) { |child| remove_child_object(child, relation) }
 		end
 	    end
 	end
@@ -166,6 +176,9 @@ module Roby
 	    end
 	end
 
+	# If +object+ is given, yields object or returns +object+ (if a block
+	# is given or not).  If +object+ is nil, either yields the elements of
+	# +enumerator+ or returns enumerator.
 	def apply_selection(object, enumerator) # :nodoc:
 	    if block_given?
 		if object; yield(object)
@@ -193,8 +206,16 @@ module Roby
 	attr_accessor :parent
 	# The set of graphs
 	attr_reader   :subsets
+	# The graph options as given to RelationSpace#relation
 	attr_reader   :options
 
+	# Creates a new relation graph named +name+ with options +options+. The following options are
+	# recognized:
+	# +dag+:: if the graph is a DAG. If true, add_relation will check that
+	#   no cycle is created
+	# +subsets+:: a set of RelationGraph objects that are children of this
+	#   one
+	# +distributed+:: if this relation graph should be seen by remote hosts
 	def initialize(name, options = {})
 	    @name = name
 	    @options = options
@@ -204,6 +225,8 @@ module Roby
 		options[:subsets].each(&method(:superset_of))
 	    end
 	end
+
+	# True if this relation graph is a DAG
 	def dag?; @dag end
 	def to_s; name end
 
@@ -212,6 +235,9 @@ module Roby
 
 	# Add a new relation between +from+ and +to+. The relation is
 	# added on all parent relation graphs as well. 	
+	#
+	# If #dag? is true, it checks that the new relation does not create a
+	# cycle
 	def add_relation(from, to, info = nil)
 	    if !linked?(from, to) 
 		if parent
@@ -251,12 +277,14 @@ module Roby
 	    unlink(from, to)
 	end
 	
-	# Returns true if +relation+ is included in this relation (i.e. it is either
-	# the same relation or one of its subsets)
+	# Returns true if +relation+ is included in this relation (i.e. it is
+	# either the same relation or one of its children)
 	def subset?(relation)
 	    self.eql?(relation) || subsets.any? { |subrel| subrel.subset?(relation) }
 	end
 
+	# Returns +true+ if there is an edge +source+ -> +target+ in this graph
+	# or in one of its parents
 	def linked_in_hierarchy?(source, target) # :nodoc:
 	    linked?(source, target) || (parent.linked?(source, target) if parent)
 	end
@@ -314,18 +342,24 @@ module Roby
 	# the relation module, which is included in the applied classes.
 	#
 	# = Options
-	# child_name:: define a each_#{child_name} method to iterate on the
-	#	       vertex children.  Uses the relation name by default (a Child relation
-	# 	       would be define a each_child method)
-	# parent_name:: define a each_#{parent_name} method to iterate on the vertex parents.
-	#               If nil, or if none is given, no method is defined
-	# subsets:: a list of subgraphs. See RelationGraph#superset_of [empty set]
-	# noinfo:: if the relation embeds some additional information. If true, the child iterator method
-	#          (each_#{child_name}) will yield (child, info) instead of only child [false]
+	# child_name:: 
+	#   define a <tt>each_#{child_name}</tt> method to iterate
+	#   on the vertex children. Uses the relation name by default (a Child
+	#   relation would define a <tt>each_child</tt> method)
+	# parent_name:: 
+	#   define a <tt>each_#{parent_name}</tt> method to iterate
+	#   on the vertex parents.  If none is given, no method is defined
+	# subsets:: a list of subgraphs. See RelationGraph#superset_of
+	# noinfo:: 
+	#   if the relation embeds some additional information. If true,
+	#   the child iterator method (<tt>each_#{child_name}</tt>) will yield (child,
+	#   info) instead of only child [false]
 	# graph:: the relation graph class
 	# distribute:: if true, the relation can be seen by remote peers [true]
-	# single_child:: if the relations accepts only one child per vertex [false]. If this option
-	#                is set, defines a #{child_name} method which returns the only child or nil
+	# single_child:: 
+	#   if the relations accepts only one child per vertex
+	#   [false]. If this option is set, defines a <tt>#{child_name}</tt>
+	#   method which returns the only child or nil
 	def relation(relation_name, options = {}, &block)
 	    options = validate_options options, 
 			:child_name => relation_name.to_s.underscore,

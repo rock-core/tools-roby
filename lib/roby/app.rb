@@ -23,6 +23,8 @@ module Roby
     # * load order (roby, plugins, init.rb, Roby and plugin configuration,
     #   robot-specific configuration files, controller)
     #
+    # == Test support
+    #
     class Application
 	include Singleton
 

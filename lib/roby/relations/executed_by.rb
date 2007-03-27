@@ -1,24 +1,44 @@
 require 'roby/task'
 
 module Roby::TaskStructure
+    # This module defines model-level definition of execution agent, for
+    # instance to Roby::Task
+    module ModelLevelExecutionAgent
+	# The model of execution agent for this class
+	attr_reader :execution_agent
+
+	# Defines a model of execution agent. Doing
+	#
+	#   TaskModel.executed_by ExecutionAgentModel
+	#
+	# is equivalent to
+	#
+	#   task = TaskModel.new
+	#   exec = <find a suitable ExecutionAgentModel instance in the plan or
+	#	   create a new one>
+	#   task.executed_by exec
+	#   
+	# for all instances of TaskModel. The actual job is done in the
+	# ExecutionAgentSpawn module
+	def executed_by(agent)
+	    @execution_agent = agent
+	end
+    end
+
     # The execution_agent defines an agent (process or otherwise) a given
     # task is executed by. It allows to define a class of these execution agent,
     # so that the specific agents are managed externally (load-balacing, ...)
     relation :ExecutionAgent, :parent_name => :executed_task, :child_name => :execution_agent, 
 	:noinfo => true, :distribute => false, :single_child => true do
-        def self.included(klass)
-            class << klass
-                attr_reader :execution_agent
-                # Defines a model of execution agent
-                # model.new_task(task) shall return the task instance which
-                # will execute this task 
-                def executed_by(agent)
-                    @execution_agent = agent
-                end
-            end
+	
+	# When ExecutionAgent support is included in a model (for instance Roby::Task), add
+	# the model-level classes  
+        def self.included(klass) # :nodoc:
+	    klass.extend Roby::TaskStructure::ModelLevelExecutionAgent
             super
         end
 
+	# Defines a new execution agent for this task.
         def executed_by(agent)
 	    return if execution_agent == agent
 	    if !agent.event(:start).controlable?
@@ -51,84 +71,91 @@ module Roby::TaskStructure
 
 	    add_execution_agent(agent)
         end
+    end
 
-	module EventHooks
-	    def calling(context)
-		super if defined? super
-		return unless symbol == :start
-		return unless agent = task.execution_agent
+    # This module is hooked in Roby::TaskEventGenerator to check that a task
+    # which is being started has a suitable execution agent, and to start it if
+    # it's not the case
+    module ExecutionAgentStart
+	def calling(context)
+	    super if defined? super
+	    return unless symbol == :start
+	    return unless agent = task.execution_agent
 
-		if agent.finished?
-		    raise Roby::TaskModelViolation.new(task), "task #{task} has an execution agent but it is dead"
-		elsif !agent.event(:ready).happened? && !agent.depends_on?(task)
-		    postpone(agent.event(:ready), "spawning execution agent #{agent} for #{self}") do
-			unless agent.running? || agent.starting?
-			    agent.event(:start).on do
-				agent.event(:stop).until(agent.event(:ready)).on do |event|
-				    self.emit_failed "execution agent #{agent} failed to initialize\n  #{event.context}"
-				end
+	    if agent.finished?
+		raise Roby::TaskModelViolation.new(task), "task #{task} has an execution agent but it is dead"
+	    elsif !agent.event(:ready).happened? && !agent.depends_on?(task)
+		postpone(agent.event(:ready), "spawning execution agent #{agent} for #{self}") do
+		    unless agent.running? || agent.starting?
+			agent.event(:start).on do
+			    agent.event(:stop).until(agent.event(:ready)).on do |event|
+				self.emit_failed "execution agent #{agent} failed to initialize\n  #{event.context}"
 			    end
-			    agent.start!
 			end
+			agent.start!
 		    end
 		end
 	    end
-	end
-	Roby::TaskEventGenerator.include EventHooks
-
-	module SpawnExecutionAgents
-	    def discovered_tasks(tasks)
-		# For now, settle on adding the execution agents only in the
-		# main plan. Otherwise, it is possible that two transactions
-		# will try to add two different agents
-		#
-		# Note that it would be solved by plan merging ...
-		return unless executable?
-
-		tasks.each do |task|
-		    if task.self_owned? && !task.execution_agent && task.model.execution_agent
-			ExecutionAgent.spawn(task)
-		    end
-		end
-	    end
-	end
-	Roby::Plan.include SpawnExecutionAgents
-    end
-
-    def ExecutionAgent.spawn(task)
-	agent_model = task.model.execution_agent
-	candidates = task.plan.find_tasks.
-	    with_model(agent_model).
-	    self_owned.
-	    not_finished.
-	    to_a
-
-	if candidates.empty?
-	    Roby::Propagation.gather_exceptions(agent_model) do
-		agent = agent_model.new
-		agent.on(:stop) do
-		    agent.each_executed_task do |task|
-			if task.running?
-			    task.emit(:aborted, "execution agent #{self} failed") 
-			elsif task.pending?
-			    task.remove_execution_agent agent
-			    spawn(task)
-			end
-		    end
-		end
-		candidates << agent
-	    end
-	end
-
-	running, pending = candidates.partition { |t| t.running? }
-	agent = if running.empty? then pending.first
-		else running.first
-		end
-
-	task.executed_by agent
-	unless agent.running?
-	    task.event(:start).ensure agent.event(:start) 
 	end
     end
+    Roby::TaskEventGenerator.include ExecutionAgentStart
+
+    # This module is included in Roby::Plan to automatically add execution agents
+    # to tasks that require it and are discovered in the executable plan.
+    module ExecutionAgentSpawn
+	# Hook into plan discovery to add execution agents to new tasks. 
+	# See ExecutionAgentSpawn.spawn
+	def discovered_tasks(tasks)
+	    # For now, settle on adding the execution agents only in the
+	    # main plan. Otherwise, it is possible that two transactions
+	    # will try to add two different agents
+	    #
+	    # Note that it would be solved by plan merging ...
+	    return unless executable?
+
+	    tasks.each do |task|
+		if task.self_owned? && !task.execution_agent && task.model.execution_agent
+		    ExecutionAgentSpawn.spawn(task)
+		end
+	    end
+	end
+
+	# Add a suitable execution agent to +task+ if its model has a execution
+	# agent model (see ModelLevelExecutionAgent), either by reusing one
+	# that is already in the plan, or by creating a new one.
+	def self.spawn(task)
+	    agent_model = task.model.execution_agent
+	    candidates = task.plan.find_tasks.
+		with_model(agent_model).
+		self_owned.
+		not_finished.
+		to_a
+
+	    if candidates.empty?
+		Roby::Propagation.gather_exceptions(agent_model) do
+		    agent = agent_model.new
+		    agent.on(:stop) do
+			agent.each_executed_task do |task|
+			    if task.running?
+				task.emit(:aborted, "execution agent #{self} failed") 
+			    elsif task.pending?
+				task.remove_execution_agent agent
+				spawn(task)
+			    end
+			end
+		    end
+		    candidates << agent
+		end
+	    end
+
+	    running, pending = candidates.partition { |t| t.running? }
+	    agent = if running.empty? then pending.first
+		    else running.first
+		    end
+
+	    task.executed_by agent
+	end
+    end
+    Roby::Plan.include ExecutionAgentSpawn
 end
 
