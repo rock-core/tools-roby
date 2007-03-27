@@ -61,7 +61,7 @@ module Roby
 
 	    def self.robot(name, kind = name)
 		Roby.app.robot name, kind
-		require 'roby/app/config/app-load'
+		require 'roby/app/load'
 	    end
 
 	    def run(result)
