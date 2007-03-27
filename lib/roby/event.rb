@@ -228,8 +228,8 @@ module Roby
 	def delay(seconds)
 	    if seconds == 0 then self
 	    else
-		ev = EventGenerator.new(true)
-		signal(ev, :delay => seconds)
+		ev = EventGenerator.new
+		forward(ev, :delay => seconds)
 		ev
 	    end
 	end
