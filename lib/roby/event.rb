@@ -63,11 +63,6 @@ module Roby
     # * #forwarding
     #
     class EventGenerator < PlanObject
-	# How to handle this event during propagation
-	# * nil (the default): call only once in a propagation cycle
-	# * :always_call: always call, event if it has already been called in this cycle
-	attr_accessor :propagation_mode
-
 	attr_writer :executable
 
 	# True if this event is executable. A non-executable event cannot be
@@ -596,7 +591,10 @@ module Roby
 		emit_if_achieved(context)
 	    end
 
-	    self.propagation_mode = :always_call
+	    # This hash is a event_generator => event mapping of the last
+	    # events of each event generator. We compare the event stored in
+	    # this hash with the last events of each source to know if the
+	    # source fired since it has been added to this AndGenerator
 	    @events = Hash.new
 	end
 
