@@ -166,7 +166,7 @@ module Roby
 		unless plugin = available_plugins.find { |plugname, dir, file, mod| plugname == name.to_s }
 		    raise ArgumentError, "#{name} is not a known plugin (#{available_plugins.map { |n, _, _, _| n }.join(", ")})"
 		end
-		_, file, mod = *plugin
+		_, _, file, mod = *plugin
 
 		begin
 		    require file
