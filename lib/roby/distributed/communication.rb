@@ -244,7 +244,7 @@ module Roby
 	    def transmit(m, *args, &block)
 		if local.processing?
 		    if local.processing_callback?
-			raise RecursiveCallbacksError, "cannot queue a callback while serving one"
+			raise RecursiveCallbacksError, "cannot queue callback #{m}(#{args.join(", ")}) while serving one"
 		    end
 		    local.has_callbacks = true
 		end
