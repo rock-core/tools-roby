@@ -254,8 +254,10 @@ module Roby
 	    @discarded_tasks    = ValueSet.new
 	    @auto_tasks	        = ValueSet.new
 
-	    plan.transactions << self
-	    plan.added_transaction(self)
+	    Roby::Control.synchronize do
+		plan.transactions << self
+		plan.added_transaction(self)
+	    end
 	end
 
 	def replace(from, to)
