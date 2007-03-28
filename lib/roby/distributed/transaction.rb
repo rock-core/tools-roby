@@ -367,6 +367,7 @@ module Roby
 
 	class Peer
 	    def transaction_propose(trsc)
+		synchro_point
 		create_sibling(trsc)
 		nil
 	    end
