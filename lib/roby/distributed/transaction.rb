@@ -19,12 +19,13 @@ module Roby
 	    include DistributedObject
 
 	    def initialize(plan, options = {})
-		super
 		@owners  = [Distributed]
 		@editor  = true
 
 		@token_lock = Mutex.new
 		@token_lock_signal = ConditionVariable.new
+
+		super
 	    end
 
 	    def do_wrap(base_object, create)
