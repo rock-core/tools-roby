@@ -187,15 +187,25 @@ module Roby
 	    #   has been queued. It is mainly used for debugging purposes
 	    attr_reader :send_queue
 
-	    def check_marshallable(object)
-		if !object.kind_of?(DRbObject) && object.respond_to?(:each)
-		    object.each do |obj|
-			begin
-			    check_marshallable(obj)
-			rescue Exception
-			    Roby.warn "cannot dump #{obj}"
-			    raise
+	    def check_marshallable(object, stack = ValueSet.new)
+		if !object.kind_of?(DRbObject) && object.respond_to?(:each) && !object.kind_of?(String)
+		    if stack.include?(object)
+			Roby.warn "recursive marshalling of #{obj}"
+			raise "recursive marshalling"
+		    end
+
+		    stack << object
+		    begin
+			object.each do |obj|
+			    begin
+				check_marshallable(obj, stack)
+			    rescue Exception
+				Roby.warn "cannot dump #{obj}(#{obj.class}): #{$!.message}"
+				raise
+			    end
 			end
+		    ensure
+			stack.delete(object)
 		    end
 		end
 		Marshal.dump(object)
