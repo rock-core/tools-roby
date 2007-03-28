@@ -162,27 +162,30 @@ module Roby
 		    
 		    # Add or update existing relations
 		    relations.each_slice(3) do |graph, parents, children|
-			parents.each_slice(2) do |parent, info|
-			    next unless parent
-			    all_parents[graph] << parent
+			all_objects = parents.map { |p, _| p } + children.map { |c, _| c }
+			Distributed.update_all(all_objects) do
+			    parents.each_slice(2) do |parent, info|
+				next unless parent
+				all_parents[graph] << parent
 
-			    if graph.linked?(parent, object)
-				parent[object, graph] = info
-			    else
-				Distributed.update(parent.root_object) do
-				    parent.add_child_object(object, graph, info)
+				if graph.linked?(parent, object)
+				    parent[object, graph] = info
+				else
+				    Distributed.update(parent.root_object) do
+					parent.add_child_object(object, graph, info)
+				    end
 				end
 			    end
-			end
-			children.each_slice(2) do |child, info|
-			    next unless child
-			    all_children[graph] << child
+			    children.each_slice(2) do |child, info|
+				next unless child
+				all_children[graph] << child
 
-			    if graph.linked?(object, child)
-				object[child, graph] = info
-			    else
-				Distributed.update(child.root_object) do
-				    object.add_child_object(child, graph, info)
+				if graph.linked?(object, child)
+				    object[child, graph] = info
+				else
+				    Distributed.update(child.root_object) do
+					object.add_child_object(child, graph, info)
+				    end
 				end
 			    end
 			end
