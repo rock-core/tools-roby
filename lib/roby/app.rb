@@ -363,6 +363,10 @@ module Roby
 
 	DISCOVERY_TEMPLATE = [:host, nil, nil, nil]
 	def start_distributed
+	    if !File.exists?(logdir)
+		Dir.mkdir(logdir)
+	    end
+
 	    unless single? || !discovery['tuplespace']
 		ts = Rinda::TupleSpace.new
 		DRb.start_service "roby://#{discovery['tuplespace']}", ts
