@@ -103,7 +103,7 @@ module Roby
 	    # Returns the RemoteID object for +obj+. This is actually
 	    # equivalent to obj.remote_id
 	    def self.from_object(obj)
-		Roby::Distributed::RemoteID.new(DRb.current_server.uri, DRb.to_id(obj))
+		Roby::Distributed::RemoteID.new(DRb.current_server.uri, DRb.to_id(obj) || 0)
 	    end
 	end
 
