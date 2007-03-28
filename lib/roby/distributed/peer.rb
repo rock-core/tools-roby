@@ -384,6 +384,8 @@ module Roby::Distributed
 		    if trigger = triggers[id]
 			trigger.last.call(task)
 		    end
+		rescue Exception
+		    Roby.warn "trigger handler #{trigger.last} failed with #{$!.full_message}"
 		ensure
 		    Roby::Distributed.keep.deref(task)
 		end
