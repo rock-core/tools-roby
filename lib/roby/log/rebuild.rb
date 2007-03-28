@@ -4,6 +4,8 @@ require 'roby/log/data_source'
 module Roby
     class PlanObject::DRoby
 	include DirectedRelationSupport
+	attr_writer :plan
+
 	def update_from(new)
 	    super if defined? super
        	end
@@ -40,7 +42,7 @@ module Roby
        	end
     end
 
-    class Plan::DRoby
+    module LoggedPlan
 	attribute(:missions) { ValueSet.new }
 	attribute(:known_tasks) { ValueSet.new }
 	attribute(:free_events) { ValueSet.new }
@@ -72,6 +74,14 @@ module Roby
 	end
     end
 
+    class Plan::DRoby
+	include LoggedPlan
+    end
+
+    class Distributed::Transaction::DRoby
+	include LoggedPlan
+	attr_writer :plan
+    end
 
     module Log
 	class << self
@@ -208,7 +218,9 @@ module Roby
 	    def advance
 		next_step.each do |name, args|
 		    begin
-			send(name, *args) if respond_to?(name)
+			if respond_to?(name)
+			    send(name, *args)
+			end
 			displays.each { |d| d.send(name, *args) if d.respond_to?(name) }
 		    rescue Exception => e
 			display_args = args.map do |obj|

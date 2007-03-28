@@ -4,7 +4,7 @@ require 'tempfile'
 require 'fileutils'
 
 module Roby
-    class Plan::DRoby
+    module LoggedPlan
 	attr_accessor :layout_level
 	def all_events(display)
 	    known_tasks.inject(free_events.dup) do |events, task|
@@ -38,9 +38,17 @@ module Roby
 
 		objects.each do |from|
 		    next unless display.displayed?(from)
+		    unless display[from]
+			STDERR.puts "WARN no display item for #{from} in #{from} <#{rel}>"
+			next
+		    end
 
 		    from.each_child_object(rel) do |to|
 			next unless display.displayed?(to)
+			unless display[to]
+			    STDERR.puts "WARN no display item for #{from} in #{from} <#{rel}> #{to}"
+			    next
+			end
 
 			yield(rel, from, to)
 		    end

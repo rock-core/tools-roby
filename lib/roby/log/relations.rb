@@ -37,11 +37,7 @@ module Roby
 
 	def display_name
 	    unless @display_name
-		model_name = if model.respond_to?(:remote_name)
-				 model.remote_name
-			     else
-				 model.name
-			     end
+		model_name = model.ancestors.first.first
 		model_name = model_name.gsub /Generator$/, ''
 		model_name = model_name.gsub /^Roby::/, ''
 		@display_name = "#{model_name}"
