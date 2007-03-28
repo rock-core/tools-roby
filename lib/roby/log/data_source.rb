@@ -13,6 +13,11 @@ module Roby::Log
 	    displays.each { |d| d.clear }
 	end
 
+	def update_display
+	    displays.each do |d| 
+		d.update
+	    end
+	end
 
 	def add_display(display)
 	    if old = display.data_source
@@ -22,6 +27,7 @@ module Roby::Log
 	    display.data_source = self
 	    # initialize_display(display)
 	end
+
 	def remove_display(display)
 	    display.clear
 	    display.data_source = nil

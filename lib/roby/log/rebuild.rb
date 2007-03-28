@@ -2,87 +2,134 @@ require 'roby/distributed/protocol'
 require 'roby/log/data_source'
 
 module Roby
+    class PlanObject::DRoby
+	include DirectedRelationSupport
+	def update_from(new)
+	    super if defined? super
+       	end
+    end
+    class TaskEventGenerator::DRoby
+	include DirectedRelationSupport
+	attr_writer :plan
+	attr_writer :task
+
+	def update_from(new)
+	    super if defined? super
+       	end
+    end
+    class Task::DRoby
+	attr_writer :plan
+	attribute(:events) { Hash.new }
+
+	def update_from(new)
+	    super if defined? super
+	    self.flags.merge! new.flags
+	    self.plan  = new.plan
+	end
+    end
+
+    class Transaction::Proxy::DRoby
+	include DirectedRelationSupport
+	attr_writer :transaction
+	attr_accessor :plan
+
+	def events; Hash.new end
+
+	def update_from(new)
+	    super if defined? super
+       	end
+    end
+
+    class Plan::DRoby
+	attribute(:missions) { ValueSet.new }
+	attribute(:known_tasks) { ValueSet.new }
+	attribute(:free_events) { ValueSet.new }
+	attribute(:transactions) { ValueSet.new }
+	attr_accessor :parent_plan
+
+	def root_plan?; !parent_plan end
+	def update_from(new); end
+	def clear
+	    transactions.dup.each do |trsc|
+		trsc.clear
+		removed_transaction(trsc)
+	    end
+	    known_tasks.dup.each { |t| finalized_task(t) }
+	    free_events.dup.each { |e| finalized_event(e) }
+	end
+
+	def finalized_task(task)
+	    missions.delete(task)
+	    known_tasks.delete(task)
+	    task.clear_vertex
+	end
+	def finalized_event(event)
+	    free_events.delete(event)
+	    event.clear_vertex
+	end
+	def removed_transaction(trsc)
+	    transactions.delete(trsc)
+	end
+    end
+
+
     module Log
-	def self.update_marshalled(object_set, marshalled)
-	    if old = object_set[marshalled.remote_object]
-		marshalled.copy_from(old)
-		Kernel.swap!(old, marshalled)
-		old.instance_variable_set("@__bgl_graphs__", marshalled.instance_variable_get("@__bgl_graphs__"))
-		old
-	    else
-		object_set[marshalled.remote_object] = marshalled
-	    end
+	class << self
+	    # Register all siblings to do some cleanup when the object is finally removed
+	    attribute(:all_siblings) { Hash.new }
 	end
 
-	class Distributed::MarshalledPlanObject
-	    include DirectedRelationSupport
-	    def copy_from(old); end
-	end
-	class Distributed::MarshalledEventGenerator
-	    def copy_from(old); end
-	end
-	class Distributed::MarshalledTaskEventGenerator
-	    attr_writer :plan
-	    attr_writer :task
-	end
-	class Distributed::MarshalledTask
-	    def events
-		@events ||= ValueSet.new
+	def self.local_object(object_set, marshalled)
+	    old = marshalled.remote_siblings.find do |peer, id| 
+		raise "problem with remote_siblings: #{marshalled.remote_siblings}" unless peer && id
+		all_siblings.has_key?(id)
 	    end
 
-	    def copy_from(old)
-		super
-		@events = old.events
+	    object = if old
+			 peer, id = *old
+			 update_object(all_siblings[id], marshalled)
+		     else
+			 marshalled
+		     end
+
+
+	    marshalled.remote_siblings.each do |_, id|
+		all_siblings[id] = object
+		object_set[object] << id
 	    end
 
-	    def to_s
-		"#{model.name}:0x#{Object.address_from_id(remote_object.__drbref).to_s(16)}"
-	    end
-
+	    raise unless object
+	    object
 	end
 
-	class Distributed::MarshalledRemoteTransactionProxy
-	    include DirectedRelationSupport
-	    def events; [] end
-	    def copy_from(old); end
+	def self.update_object(old, new)
+	    old.update_from(new)
+	    old # roles have been swapped between old and new
 	end
 
-	class Plan
-	    attr_reader   :remote_object
-	    attr_reader   :missions, :known_tasks, :free_events
-	    attr_reader   :transactions
-	    attr_accessor :root_plan
-	    def initialize(remote_object)
-		@root_plan    = true
-		@remote_object = remote_object
-		@missions     = ValueSet.new
-		@known_tasks  = ValueSet.new
-		@free_events  = ValueSet.new
-		@transactions = ValueSet.new
-	    end
+	def self.remove_object(object_set, object)
+	    id = if object.kind_of?(Distributed::RemoteID)
+		     object
+		 elsif object.respond_to?(:remote_siblings)
+		     object_id = object.remote_siblings.enum_for.
+			 find { |peer, id| all_siblings[id] }
 
-	    def clear
-		transactions.dup.each do |trsc|
-		    trsc.clear
-		    removed_transaction(trsc)
+		     unless object_id
+			 raise "unknown object #{object_id || 'nil'}"
+		     end
+		     object_id.last
+		 end
+
+	    if id
+		object = all_siblings.delete(id)
+		object_set.delete(object).each do |id|
+		    all_siblings.delete(id)
 		end
-		known_tasks.dup.each { |t| finalized_task(t) }
-		free_events.dup.each { |e| finalized_event(e) }
-	    end
-
-	    def finalized_task(task)
-		missions.delete(task)
-		known_tasks.delete(task)
-		task.clear_vertex
-	    end
-	    def finalized_event(event)
-		free_events.delete(event)
-		event.clear_vertex
-	    end
-	    def removed_transaction(trsc)
-		transactions.delete(trsc)
+	    else
+		object_set.delete(object)
 	    end
 	end
+
 
 	# This class is a logger-compatible interface which rebuilds the task and event
 	# graphs from the marshalled events that are saved using for instance FileLogger
@@ -92,6 +139,9 @@ module Roby
 	    attr_reader :tasks
 	    attr_reader :events
 
+	    attr_reader :finalized_tasks
+	    attr_reader :finalized_events
+
 	    attr_reader :io
 	    attr_reader :next_step
 	    attr_reader :displays
@@ -100,9 +150,11 @@ module Roby
 	    def initialize(filename)
 		@io     = Roby::Log.open(filename)
 		super([filename], 'roby-events')
-		@plans  = Hash.new
-		@tasks  = Hash.new
-		@events = Hash.new
+		@plans  = Hash.new { |h, k| h[k] = Set.new }
+		@tasks  = Hash.new { |h, k| h[k] = Set.new }
+		@events = Hash.new { |h, k| h[k] = Set.new }
+		@finalized_tasks  = Hash.new
+		@finalized_events = Hash.new
 		@next_step = Array.new
 		@range = [nil, nil]
 
@@ -112,12 +164,15 @@ module Roby
 		end
 	    end
 	    def clear
+		Log.all_siblings.clear
 		super
 
 		plans.each { |p| p.clear }
 		plans.clear
 		tasks.clear
 		events.clear
+		finalized_tasks.clear
+		finalized_events.clear
 	    end
 	    
 	    def prepare_seek(time)
@@ -161,96 +216,133 @@ module Roby
 			    when NilClass: 'nil'
 			    when Time: obj.to_hms
 			    when DRbObject: obj.inspect
-			    else obj.to_s
+			    else (obj.to_s rescue "failed_to_s")
 			    end
 			end
 
 			raise e, "#{e.message} while serving #{name}(#{display_args.join(", ")})", e.backtrace
 		    end
 		end
+
 		read_step
 	    end
 
-	    def local_plan(plan)
-		return unless plan
-		@plans[plan.remote_object] ||= Plan.new(plan.remote_object)
-	    end
-
 	    def local_object(set, object)
-		object = if !object.kind_of?(DRbObject)
-			     Log.update_marshalled(set, object)
+		return nil unless object
+
+		object = if !object.kind_of?(Distributed::RemoteID)
+			     Log.local_object(set, object)
 			 else
-			     set[object]
+			     Log.all_siblings[object]
 			 end
 
 		plan = if object.respond_to?(:transaction)
-			   local_plan(object.transaction)
-		       else
-			   local_plan(object.plan)
+			   object.transaction = local_plan(object.transaction)
+			   object.plan = object.transaction
+		       elsif object.respond_to?(:plan)
+			   object.plan = local_plan(object.plan)
 		       end
+
 		if plan
 		    yield(plan) if block_given?
 		end
 		object
 	    end
 
+	    def update_display
+		super
+		
+		# Remove the finalized objects
+		finalized_tasks.each do |task, plan|
+		    plan.finalized_task(task)
+		    Log.remove_object(tasks, task)
+
+		    task.events.each_value do |ev|
+			finalized_events[ev] = plan
+		    end
+		end
+		finalized_tasks.clear
+
+		finalized_events.each do |event, plan|
+		    plan.finalized_event(event)
+		    Log.remove_object(events, event)
+		end
+		finalized_events.clear
+	    end
+
+	    def local_plan(plan); local_object(plans, plan) end
 	    def local_task(task); local_object(tasks, task) end
 	    def local_event(event)
-		if !event.kind_of?(DRbObject) && event.respond_to?(:task)
+		if event.respond_to?(:task)
 		    task = local_task(event.task)
 		    event.task = task
 		    event.plan = task.plan
-		    event = local_object(events, event)
-		    task.events << event
+		    event = if old = task.events[event.symbol]
+				Log.update_object(old, event)
+			    else
+				task.events[event.symbol] = event
+			    end
+
+		    events[event] = nil
 		    event
 		else
 		    local_object(events, event) 
 		end
 	    end
-	    def remote_object(object)
-		if object.kind_of?(DRbObject) then object
-		else object.remote_object
-		end
-	    end
 
 	    def inserted_tasks(time, plan, task)
-		local_plan(plan).missions << task
+		plan = local_plan(plan)
+		plan.missions << task
 	    end
 	    def discarded_tasks(time, plan, task)
-		local_plan(plan).missions.delete(task)
+		plan = local_plan(plan)
+		plan.missions.delete(task)
 	    end
 	    def replaced_tasks(time, plan, from, to)
 	    end
 	    def discovered_events(time, plan, events)
 		plan = local_plan(plan)
-		events.each { |ev| plan.free_events << local_event(ev) }
+		events.each do |ev| 
+		    ev = local_event(ev)
+		    plan.free_events << ev
+		    finalized_events.delete(ev)
+		end
 	    end
 	    def discovered_tasks(time, plan, tasks)
 		plan = local_plan(plan)
-		tasks.each { |t| plan.known_tasks   << local_task(t) }
+		tasks.each do |t| 
+		    t = local_task(t)
+		    plan.known_tasks << t
+		    finalized_tasks.delete(t)
+		end
 	    end
 	    def garbage_task(time, plan, task)
 	    end
 	    def finalized_event(time, plan, event)
 		event = local_event(event)
-		local_plan(plan).finalized_event(event)
-		events.delete(event.remote_object)
+		plan  = local_plan(plan)
+		unless event.respond_to?(:task) || plan.parent_plan && plan.parent_plan.free_events.include?(event)
+		    finalized_events[event] = plan
+		end
 	    end
 	    def finalized_task(time, plan, task)
 		task = local_task(task)
-		local_plan(plan).finalized_task(task)
-		tasks.delete(task.remote_object)
+		plan = local_plan(plan)
+
+		unless plan.parent_plan && plan.parent_plan.known_tasks.include?(task)
+		    finalized_tasks[task] = plan
+		end
 	    end
 	    def added_transaction(time, plan, trsc)
 		plan = local_plan(plan)
 		trsc = local_plan(trsc)
 		plan.transactions << trsc
-		trsc.root_plan = false
+		trsc.parent_plan  = plan
 	    end
 	    def removed_transaction(time, plan, trsc)
 		plan = local_plan(plan)
 		trsc = local_plan(trsc)
-		plans.delete(trsc.remote_object)
+		Log.remove_object(plans, trsc)
 
 		plan.transactions.delete(trsc)
 		# Removed tasks and proxies that have been moved from the
@@ -267,21 +359,25 @@ module Roby
 	    def added_task_child(time, parent, rel, child, info)
 		parent = local_task(parent)
 		child  = local_task(child)
+		rel    = rel.proxy(nil)
 		parent.add_child_object(child, rel, [info, nil])
 	    end
 	    def removed_task_child(time, parent, rel, child)
 		parent = local_task(parent)
 		child  = local_task(child)
+		rel    = rel.proxy(nil)
 		parent.remove_child_object(child, rel)
 	    end
 	    def added_event_child(time, parent, rel, child, info)
 		parent = local_event(parent)
 		child  = local_event(child)
+		rel    = rel.proxy(nil)
 		parent.add_child_object(child, rel, [info, nil])
 	    end
 	    def removed_event_child(time, parent, rel, child)
 		parent = local_event(parent)
 		child  = local_event(child)
+		rel    = rel.proxy(nil)
 		parent.remove_child_object(child, rel)
 	    end
 

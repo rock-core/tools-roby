@@ -211,6 +211,9 @@ host
 	    end
 	end
     end
+
+    class Roby::TestCase
+    end
 end
 
 Roby::Application.register_plugin 'genom', 'lib/genom', Roby::Genom::Application

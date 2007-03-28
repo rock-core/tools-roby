@@ -326,9 +326,7 @@ class Replay < Qt::MainWindow
 	end
 
 	updated_sources.each do |source|
-	    source.displays.each do |d| 
-		d.update
-	    end
+	    source.update_display
 	end
 
 	if timeline.empty? then stop
@@ -345,7 +343,7 @@ class Replay < Qt::MainWindow
 	ui.time_lcd.display(time - first_sample)
 
     rescue Exception => e
-	message = "<html>#{e.message}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"
+	message = "<html>#{Qt.escape(e.message)}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"
 	Qt::MessageBox.critical self, "Replay failure", message
 	stop
     end
