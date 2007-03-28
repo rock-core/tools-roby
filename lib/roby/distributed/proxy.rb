@@ -88,7 +88,11 @@ module Roby
 	    end
 
 	    def proxy(peer)
-		peer.local_object(model).new(controlable)
+		local_object = peer.local_object(model).new
+		if controlable
+		    local_object.command = lambda { } 
+		end
+		local_object
 	    end
 
 	    def update(peer, proxy)
