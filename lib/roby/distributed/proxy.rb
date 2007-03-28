@@ -192,7 +192,7 @@ module Roby
 	    end
 	end
 	def droby_dump(dest)
-	    @__droby_marshalled__ ||= DRoby.new(Roby::Distributed.droby_dump(dest), Roby.plan.remote_id)
+	    @__droby_marshalled__ ||= DRoby.new(Roby::Distributed.droby_dump(dest), remote_id)
 	end
     end
 
