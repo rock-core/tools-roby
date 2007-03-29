@@ -359,13 +359,12 @@ module Roby
 		plan.transactions.delete(trsc)
 		# Removed tasks and proxies that have been moved from the
 		# transaction to the plan before clearing the transaction
-		plan.known_tasks.each do |obj|
-		    trsc.known_tasks.delete(obj)
+		trsc.known_tasks.each do |obj|
+		    finalized_task(time, trsc, obj)
 		end
-		plan.free_events.each do |obj|
-		    trsc.free_events.delete(obj)
+		trsc.free_events.each do |obj|
+		    finalized_event(time, trsc, event)
 		end
-		trsc.clear
 	    end
 
 	    def added_task_child(time, parent, rel, child, info)

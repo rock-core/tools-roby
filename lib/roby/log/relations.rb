@@ -56,7 +56,7 @@ module Roby
 	end
     end
 
-    class Task::DRoby
+    module LoggedTask
 	def layout_events(display)
 	    graphics_item = display[self]
 
@@ -96,20 +96,6 @@ module Roby
 	    end
 	end
 
-	# def to_s
-	#     model_name = model.ancestors[0][0]
-	#     name = "#{model_name}"
-	# end
-
-	def display_name
-	    unless @display_name
-		model_name = model.ancestors[0][0]
-		@display_name = "#{model_name}\n#{remote_siblings_to_s}\n#{owners_to_s}"
-	    end
-
-	    @display_name
-	end
-
 	def display_create(scene)
 	    rect = scene.add_rect Qt::RectF.new(0, 0, 0, 0)
 	    text = scene.add_text display_name
@@ -121,6 +107,18 @@ module Roby
 	    rect.text = text
 	    rect.z_value = Log::PLAN_LAYER + 1
 	    rect
+	end
+    end
+
+    class Task::DRoby
+	include LoggedTask
+	def display_name
+	    unless @display_name
+		model_name = model.ancestors[0][0]
+		@display_name = "#{model_name}\n#{remote_siblings_to_s}\n#{owners_to_s}"
+	    end
+
+	    @display_name
 	end
 
 	def display(display, graphics_item)
@@ -138,11 +136,26 @@ module Roby
 	    layout_events(display)
 	end
     end
+
     class Transaction::Proxy::DRoby
+	include LoggedTask
+
+	attr_writer :real_object
+	def flags; real_object.flags end
+
 	def display_parent; end
 	def display_name; "tProxy(#{real_object.display_name})" end
-	def display_create(scene); end
-	def display(display, graphics_item); end
+	def display_create(scene)
+	    item = super
+
+	    brush = item.brush
+	    brush.style = Qt::BDiagPattern
+	    item.brush = brush
+	    item
+	end
+	def display(display, graphics_item)
+	    layout_events(display)
+	end
     end
 
     module Log

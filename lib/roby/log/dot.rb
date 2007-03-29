@@ -84,7 +84,7 @@ module Roby
 	end
     end
 
-    class PlanObject::DRoby
+    module LoggedPlanObject
 	attr_reader :dot_id
 
 	def dot_label(display); display_name end
@@ -108,11 +108,17 @@ module Roby
 	end
     end
 
+    class PlanObject::DRoby
+	include LoggedPlanObject
+    end
+
     class TaskEventGenerator::DRoby
 	def dot_label(display); symbol.to_s end
 	def dot_id; task.dot_id end
     end
-    class Task::DRoby
+
+    module LoggedTask
+	include LoggedPlanObject
 	def dot_label(display)
 	    event_names = events.values.find_all { |ev| display.displayed?(ev) }.
 		map { |ev| ev.dot_label(display) }.
@@ -123,12 +129,6 @@ module Roby
 	    else event_names
 	    end
 	end
-    end
-
-    class Transaction::Proxy::DRoby
-	def dot_id; end
-	def to_dot(display, io); end
-	def apply_layout(positions, display); end
     end
 
     module Log
