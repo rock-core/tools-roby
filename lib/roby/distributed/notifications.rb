@@ -89,9 +89,10 @@ module Roby
 		unless Distributed.updating?(plan)
 		    relations = nil
 		    Distributed.each_updated_peer(plan) do |peer|
+			# Compute +objects+ and +relations+ only if there is a
+			# peer to update
 			unless relations
-			    # Compute +objects+ and +relations+ only in the event that there is a peer to update
-			    objects   = objects.find_all { |t| t.distribute? && t.self_owned? && t.root_object? && !Distributed.updating?(t) }
+			    objects = objects.find_all { |t| t.distribute? && t.self_owned? && t.root_object? && !Distributed.updating?(t) }
 			    return if objects.empty?
 			    relations = Distributed.subgraph_of(objects)
 			end
