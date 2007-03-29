@@ -265,11 +265,14 @@ module Roby
 	    # processed, raises DisconnectedError. If the remote server returns
 	    # an exception, this exception is raised in the thread calling
 	    # #call as well.
+	    #
+	    # Note that it is forbidden to use this method in control or
+	    # communication threads, as it would make the application deadlock
 	    def call(m, *args)
 		if local.processing?
-		    raise "currently processing a remote request. Use #callback instead"
+		    raise "cannot use Peer#call while processing a remote request"
 		elsif Thread.current == Roby.control.thread
-		    raise "in control thread"
+		    raise "cannot use Peer#call in control thread"
 		end
 
 		result = nil
