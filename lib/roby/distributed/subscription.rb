@@ -77,8 +77,8 @@ module Roby
 	    def discover_plan(marshalled_plan, m_tasks, m_events)
 		plan = peer.local_object(marshalled_plan)
 		Distributed.update(plan) do
-		    plan.discover(peer.local_object(m_tasks))
-		    plan.discover(peer.local_object(m_events))
+		    peer.local_object(m_tasks)
+		    peer.local_object(m_events)
 		end
 		nil
 	    end
