@@ -242,6 +242,10 @@ module Roby
 		super if defined? super
 
 		return unless type.distribute? && Distributed.state
+		# If our peer is pushing a distributed transaction, new
+		# children can be created Avoid sending unneeded updates by
+		# testing on plan update
+		return if Distributed.updating?(plan)
 		return if Distributed.updating_all?([self.root_object, child.root_object])
 		Distributed.each_updated_peer(self.root_object, child.root_object) do |peer|
 		    peer.transmit(:update_relation, plan, self, :add_child_object, child, type, info)
@@ -253,6 +257,10 @@ module Roby
 		super if defined? super
 
 		return unless type.distribute? && Distributed.state
+		# If our peer is pushing a distributed transaction, children
+		# can be removed Avoid sending unneeded updates by testing on
+		# plan update
+		return if Distributed.updating?(plan)
 		return if Distributed.updating_all?([self.root_object, child.root_object])
 		Distributed.each_updated_peer(self.root_object, child.root_object) do |peer|
 		    peer.transmit(:update_relation, plan, self, :remove_child_object, child, type)

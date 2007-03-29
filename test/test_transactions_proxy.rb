@@ -149,12 +149,11 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     # Tests that the graph of proxys is separated from
     # the Task and EventGenerator graphs
     def test_proxy_graph_separation
-	tasks = (1..4).map { Roby::Task.new }
-	tasks.each { |t| plan.discover(t) }
+	tasks = prepare_plan :discover => 3
 	proxies = tasks.map { |t| transaction[t] }
 
-	t1, t2, t3, _ = tasks
-	p1, p2, p3, _ = proxies
+	t1, t2, t3 = tasks
+	p1, p2, p3 = proxies
 	p1.realized_by p2
 
 	assert_equal([], t1.enum_for(:each_child_object, Hierarchy).to_a)
@@ -174,70 +173,26 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     end
 
     Hierarchy = Roby::TaskStructure::Hierarchy
-    def task_pair
-	t1 = Roby::Task.new
-	t2 = Roby::Task.new
-	plan.discover(t1)
-	plan.discover(t2)
-	yield(t1, t2, transaction[t1], transaction[t2])
+
+    def test_task_relation_copy
+	t1, t2 = prepare_plan :discover => 2
+	t1.realized_by t2
+
+	p1 = transaction[t1]
+	assert(p1.children.empty?, p1.children)
+	p2 = transaction[t2]
+	assert([p2].to_value_set, p1.children)
     end
 
-    def test_discover_tasks
-	task_pair do |t, t2, p, p2|
-	    t.realized_by t2
+    def test_task_events
+	t1, t2 = prepare_plan :discover => 2
+	t1.on(:success, t2, :start)
 
-	    assert(! p.discovered?(Hierarchy, true))
-	    assert(! p2.discovered?(Hierarchy, true))
-	    assert(! Hierarchy.linked?(p, p2))
+	p1 = transaction[t1]
+	assert(p1.event(:success).child_objects(EventStructure::Signal).empty?)
 
-	    p.discover(Hierarchy, true)
-
-	    assert(p.child_object?(p2, Hierarchy))
-	    assert(p.discovered?(Hierarchy, true))
-	    assert(!p2.discovered?(Hierarchy, false))
-	end
-    end
-
-    def test_discover_metafunction
-	task_pair do |t, t2, p, p2|
-	    p.parent_object?(p2, Hierarchy)
-	    assert(p.discovered?(Hierarchy, false))
-	    assert(!p2.discovered?(Hierarchy, false))
-	    assert(!p.discovered?(Hierarchy, true))
-	    assert(!p2.discovered?(Hierarchy, true))
-	    t.realized_by t2
-
-	    assert(p.child_object?(p2, Hierarchy))
-	end
-    end
-
-
-    def event_pair(discover_ev2 = false)
-	ev  = Roby::EventGenerator.new(true)
-	ev2 = Roby::EventGenerator.new(true)
-	plan.discover(ev)
-	plan.discover(ev2) if discover_ev2
-	yield(ev, ev2, transaction[ev], transaction[ev2])
-    end
-
-    Signal = Roby::EventStructure::Signal
-    def test_discover_events
-	event_pair do |ev, ev2, proxy, proxy2|
-	    proxy.child_objects(Signal)
-	    assert(!proxy.discovered?(Signal, true))
-	    assert(proxy.discovered?(Signal, false))
-	    proxy.on ev2
-	    assert(proxy.discovered?(Signal, true))
-	end
-	event_pair do |ev, ev2, proxy, proxy2|
-	    ev2.on proxy
-	    assert(proxy.discovered?(Signal, true))
-	end
-	event_pair(true) do |ev, ev2, proxy, proxy2|
-	    proxy2.on proxy
-	    assert(proxy.discovered?(Signal, true))
-	    assert(proxy2.discovered?(Signal, true))
-	end
+	p2 = transaction[t2]
+	assert([p2.event(:start)].to_value_set, p1.event(:success).child_objects(EventStructure::Signal))
     end
 end
 

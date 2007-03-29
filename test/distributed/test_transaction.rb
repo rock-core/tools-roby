@@ -86,6 +86,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	# returns the local proxy itself
 	plan.insert(task = Task.new)
 	assert(!plan.update_on?(remote_peer))
+	assert(trsc.update_on?(remote_peer))
 	assert(!task.update_on?(remote_peer))
 
 	proxy = trsc[task]

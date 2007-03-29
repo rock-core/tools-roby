@@ -33,6 +33,27 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	[t1, t2, t3]
     end
 
+    def check_local_center_structure(node, removed_planner)
+	if node.respond_to?(:__getobj__)
+	    assert_equal(["remote-2"], node.parents.map { |obj| obj.arguments[:id] })
+	else
+	    assert_equal(["local-1", "remote-2"].to_set, node.parents.map { |obj| obj.arguments[:id] }.to_set)
+	    unless removed_planner
+		assert_equal(["local-3"], node.enum_for(:each_planning_task).map { |obj| obj.arguments[:id] })
+	    end
+	end
+    end
+
+    def check_remote_center_structure(node, removed_planner)
+	assert_equal(["local-2"], node.children.map { |obj| obj.arguments[:id] })
+	unless node.respond_to?(:__getobj__)
+	    assert_equal(["remote-1"], node.parents.map { |obj| obj.arguments[:id] })
+	    unless removed_planner
+		assert_equal(["remote-3"], node.enum_for(:each_planning_task).map { |obj| obj.arguments[:id] })
+	    end
+	end
+    end
+
     # Checks that +plan+ has all 6 tasks with remote-2 and local-2 linked as
     # expected +plan+ may be either the transaction or the plan
     #
@@ -45,24 +66,17 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
     # removed from the plan.
     def check_resulting_plan(plan, removed_planner)
 	assert(remote_center_node = plan.known_tasks.find { |t| t.arguments[:id] == "remote-2" }, plan.known_tasks)
+	check_remote_center_structure(remote_center_node, removed_planner)
 	assert(local_center_node  = plan.known_tasks.find { |t| t.arguments[:id] == "local-2" }, plan.known_tasks)
-
-	assert_equal(["remote-1"], remote_center_node.parents.map { |obj| obj.arguments[:id] })
-	assert_equal(["local-1", "remote-2"].to_set, local_center_node.parents.map { |obj| obj.arguments[:id] }.to_set)
-
-	unless removed_planner
-	    assert_equal(["remote-3"], remote_center_node.enum_for(:each_planning_task).map { |obj| obj.arguments[:id] })
-	    assert_equal(["local-3"], local_center_node.enum_for(:each_planning_task).map { |obj| obj.arguments[:id] })
-	end
+	check_local_center_structure(local_center_node, removed_planner)
     end
+
     def assert_cleared_relations(plan)
 	if remote_center_node = plan.known_tasks.find { |t| t.arguments[:id] == "remote-2" }
-	    assert_equal([], remote_center_node.parents.to_a)
 	    assert_equal([], remote_center_node.enum_for(:each_planning_task).to_a)
 	end
 
 	if local_center_node = plan.known_tasks.find { |t| t.arguments[:id] == "local-2" }
-	    assert_equal([], local_center_node.parents.to_a)
 	    assert_equal([], local_center_node.enum_for(:each_planning_task).to_a)
 	end
     end
@@ -93,9 +107,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 		def remove_relations(t2)
 		    plan.edit do
 			t2 = local_peer.local_object(t2)
-			raise unless t1 = t2.parents.find { true }
 			raise unless t3 = t2.planning_task
-			t1.remove_child(t2)
 			t2.remove_planning_task(t3)
 		    end
 		end
@@ -145,7 +157,6 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 
 	    # Remove the relations in the real tasks (not the proxies)
 	    Control.synchronize do
-		t1.remove_child(t2)
 		t2.remove_planning_task(t3)
 	    end
 	    remote.remove_relations(r_t2)
@@ -205,6 +216,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    t1, t2, t3 = Control.synchronize { add_tasks(plan, "local") }
 	    r_t2.realized_by trsc[t2]
 	    remote_peer.subscribe(r_t2)
+	    remote_peer.push_subscription(t2)
 
 	    check_resulting_plan(trsc, false)
 	    trsc.release(false)
@@ -212,7 +224,6 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    trsc.edit
 
 	    # remove the relations in the real tasks (not the proxies)
-	    t1.remove_child(t2)
 	    t2.remove_planning_task(t3)
 	    process_events
 	    remote.assert_cleared_relations(plan)

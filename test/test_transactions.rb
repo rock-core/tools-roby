@@ -153,42 +153,6 @@ module TC_TransactionBehaviour
 	assert(plan.permanent?(t3))
     end
 
-    def test_discover
-	(t1, t2, t5), (t3, t4) = prepare_plan(:missions => 3, :tasks => 2)
-	t1.realized_by t2
-
-	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    p2.planned_by t3
-	    t4.realized_by p1
-
-	    [true, false].each do |flag|
-		[p1, t1].each do |test|
-		    assert(trsc.discovered_relations_of?(test, nil, flag))
-		    assert(trsc.discovered_relations_of?(test, Hierarchy, flag))
-		    assert(!trsc.discovered_relations_of?(test, PlannedBy, flag))
-		end
-
-		[p2, t2].each do |test|
-		    assert(trsc.discovered_relations_of?(p2, nil, flag))
-		    assert(!trsc.discovered_relations_of?(p2, Hierarchy, flag))
-		    assert(trsc.discovered_relations_of?(p2, PlannedBy, flag))
-		end
-
-		assert(trsc.discovered_relations_of?(t3, nil, flag))
-		assert(trsc.discovered_relations_of?(t3, Hierarchy, flag))
-		assert(trsc.discovered_relations_of?(t3, PlannedBy, flag))
-		assert(trsc.discovered_relations_of?(t4, nil, flag))
-		assert(trsc.discovered_relations_of?(t4, Hierarchy, flag))
-		assert(trsc.discovered_relations_of?(t4, PlannedBy, flag))
-	    end
-
-	    p5 = trsc[t5]
-	    p5.children
-	    assert(!trsc.discovered_relations_of?(p5, nil, true))
-	    assert(trsc.discovered_relations_of?(p5, nil, false))
-	end
-    end
-
     def test_commit_task_relations
 	(t1, t2), (t3, t4) = prepare_plan(:missions => 2, :tasks => 2)
 	t1.realized_by t2
@@ -347,25 +311,22 @@ module TC_TransactionBehaviour
     end
 
     def test_plan_relation_update_invalidate
-	t1, t2, t3 = (1..3).map { SimpleTask.new }
+	t1, t2 = (1..3).map { SimpleTask.new }
 	t1.realized_by t2
 	plan.insert(t1)
 
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 		trsc.conflict_solver = :invalidate
-		p1.realized_by(t3)
 		t1.remove_child(t2)
 		assert(trsc.invalid?)
 	    end
 	end
 
-	t3 = SimpleTask.new
 	t1.remove_child t2
 	assert_raises(Roby::InvalidTransaction) do
-	    transaction_commit(plan, t1) do |trsc, p1|
+	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 		trsc.conflict_solver = :invalidate
-		p1.realized_by(t3)
 		t1.realized_by(t2)
 		assert(trsc.invalid?)
 	    end

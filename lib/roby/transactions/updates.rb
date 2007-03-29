@@ -102,7 +102,7 @@ module Roby
 
 		plan.transactions.each do |trsc|
 		    next unless trsc.proxying?
-		    if trsc.discovered_relations_of?(self, type, true) || trsc.discovered_relations_of?(child, type, true)
+		    if trsc[self, false] && trsc[child, false]
 			trsc.adding_plan_relation(self, child, type, info) 
 		    end
 		end
@@ -113,7 +113,7 @@ module Roby
 
 		plan.transactions.each do |trsc|
 		    next unless trsc.proxying?
-		    if trsc.discovered_relations_of?(self, type, true) || trsc.discovered_relations_of?(child, type, true)
+		    if trsc[self, false] && trsc[child, false]
 			trsc.removing_plan_relation(self, child, type) 
 		    end
 		end

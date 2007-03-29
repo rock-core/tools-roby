@@ -143,8 +143,8 @@ class TC_Query < Test::Unit::TestCase
 	trsc[d3].realized_by t1
 	t1.realized_by trsc[d4]
 	plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
-	assert_equal([d1, d2, d5, d6].to_value_set, plan_set)
 	assert_equal([trsc[d3], trsc[d4], t1].to_value_set, trsc_set)
+	assert_equal([d1, d2, d5, d6].to_value_set, plan_set)
 	
 	# Remove the relation and check the result
 	trsc[d3].remove_child t1

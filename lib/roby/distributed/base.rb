@@ -201,14 +201,8 @@ module Roby
 	    end
 
 	    def each_object_relation(object)
-		if object.respond_to?(:each_discovered_relation)
-		    object.each_discovered_relation do |rel|
-			yield(rel) if rel.distribute?
-		    end
-		else
-		    object.each_relation do |rel|
-			yield(rel) if rel.distribute?
-		    end
+		object.each_relation do |rel|
+		    yield(rel) if rel.distribute?
 		end
 	    end
 

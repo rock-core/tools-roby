@@ -20,12 +20,35 @@ module Roby
 	def do_wrap(object, do_include = false) # :nodoc:
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 
-	    object = proxy_objects[object] = Proxy.proxy_class(object).new(object, self)
+	    proxy = proxy_objects[object] = Proxy.proxy_class(object).new(object, self)
 	    if do_include && object.root_object?
-		object.plan = self
-		discover(object)
+		proxy.plan = self
+		discover(proxy)
 	    end
-	    object
+
+	    copy_object_relations(object, proxy)
+	    proxy
+	end
+
+	# This method copies on +proxy+ all relations of +object+ for which
+	# both ends of the relation are already in the transaction.
+	def copy_object_relations(object, proxy)
+	    Roby::Control.synchronize do
+		# Create edges between the neighbours that are really in the transaction
+		object.each_relation do |rel|
+		    object.each_parent_object(rel) do |parent|
+			if parent_proxy = self[parent, false]
+			    parent_proxy.add_child_object(proxy, rel, parent[object, rel])
+			end
+		    end
+
+		    object.each_child_object(rel) do |child|
+			if child_proxy = self[child, false]
+			    proxy.add_child_object(child_proxy, rel, object[child, rel])
+			end
+		    end
+		end
+	    end
 	end
 
 	# Get the transaction proxy for +object+
@@ -65,60 +88,27 @@ module Roby
 	end
 	alias :[] :wrap
 
-	# Remove +proxy+ from this transaction. While #remove_object is
-	# removing the underlying object from the underlying plan, this method
-	# only removes it from the transaction, forgetting all modifications
-	# that have been done on +proxy+ in the transaction
+	# Remove +proxy+ from this transaction. While #remove_object is also
+	# removing the object from the plan itself, this method only removes it
+	# from the transaction, forgetting all modifications that have been
+	# done on +object+ in the transaction
 	def discard_modifications(object)
+	    object = may_unwrap(object)
 	    if object.respond_to?(:each_plan_child)
-		object.each_plan_child(&method(:discard_modifications))
-	    end
-
-	    # The set of relations to copy back from the plan into the transaction
-	    rediscover = []
-
-	    # +object+ might have been removed from the plan, thus allow
-	    # object.plan to be nil
-	    if object.plan && object.plan != self.plan
-		raise ArgumentError, "#{object} is in #{object.plan}, not #{self}"
-	    elsif object.plan
-		disable_proxying do
-
-		    # Check if we have discovered objects in our neighborhood. If it is
-		    # the case, do not remove the proxy but rediscover its relations
-		    object.each_relation do |relation|
-			if object.related_objects(relation).any? { |obj| discovered_relations_of?(obj, relation, true) }
-			    rediscover << relation
-			end
-		    end
+		object.each_plan_child do |child|
+		    discard_modifications(child)
 		end
 	    end
-
+	    removed_objects.delete(object)
 	    discarded_tasks.delete(object)
 	    auto_tasks.delete(object)
-	    removed_objects.delete(object)
-	    if proxy = proxy_objects[object]
-		discovered_objects.delete(proxy)
-	    end
 
-	    if rediscover.empty?
-		if proxy
-		    proxy_objects.delete(object)
-		    if proxy.root_object?
-			disable_proxying { remove_plan_object(proxy) }
-		    else
-			# Need to remove relations ourselves, as
-			# #disable_proxying completely disables #each_event on
-			# transaction proxies
-			disable_proxying { proxy.clear_relations }
-		    end
-		end
-	    else
-		proxy ||= wrap(object)
-		disable_proxying do
-		    rediscover.each { |relation| restore_relation(proxy, relation) }
-		end
-	    end
+	    return unless proxy = proxy_objects.delete(object)
+	    proxy.clear_vertex
+
+	    missions.delete(proxy)
+	    known_tasks.delete(proxy)
+	    free_events.delete(proxy)
 	end
 
 	def restore_relation(proxy, relation)
@@ -161,7 +151,6 @@ module Roby
 	    remove_plan_object(proxy)
 	    proxy_objects.delete(object)
 
-	    discovered_objects.delete(proxy)
 	    if object.plan == self.plan
 		# +object+ is new in the transaction
 		removed_objects.insert(object)
@@ -183,31 +172,6 @@ module Roby
 		    object
 		end
 	    else object
-	    end
-	end
-
-	# The list of objects that have been discovered in this transaction
-	# 'discovered' objects are the objects in which relation modifications
-	# will be checked on commit
-	attr_reader :discovered_objects
-
-	# Called when +relation+ has been discovered on +object+
-	def discovered_object(object, relation)
-	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
-	    discovered_objects << object
-	    super if defined? super
-	end
-	def discovered_relations_of?(object, relation = nil, written = false)
-	    if object.plan != self
-		if proxy = wrap(object, false)
-		    discovered_relations_of?(proxy, relation, written)
-		end
-	    elsif !object.kind_of?(Roby::Transactions::Proxy)
-		true
-	    elsif !discovered_objects.include?(object)
-		false
-	    else
-		object.discovered?(relation, written)
 	    end
 	end
 
@@ -249,7 +213,6 @@ module Roby
 	    @plan = plan
 
 	    @proxy_objects      = Hash.new
-	    @discovered_objects = ValueSet.new
 	    @removed_objects    = ValueSet.new
 	    @discarded_tasks    = ValueSet.new
 	    @auto_tasks	        = ValueSet.new
@@ -260,8 +223,24 @@ module Roby
 	    end
 	end
 
+	def discover_neighborhood(object)
+	    self[object]
+	    object.each_relation do |rel|
+		object.each_parent_object(rel) { |obj| self[obj] }
+		object.each_child_object(rel)  { |obj| self[obj] }
+	    end
+	end
+
 	def replace(from, to)
-	    super(wrap(from, true), wrap(to, true))
+	    # Make sure +from+, its events and all the related tasks and events
+	    # are in the transaction
+	    from = may_unwrap(from)
+	    discover_neighborhood(from)
+	    from.each_event do |ev|
+		discover_neighborhood(ev)
+	    end
+
+	    super(self[from], self[to])
 	end
 
 	def insert(t)
@@ -385,9 +364,7 @@ module Roby
 
 	    # Set the plan to nil in known tasks to avoid having the checks on
 	    # #plan to raise an exception
-	    discovered_objects.each do |proxy| 
-		proxy.commit_transaction
-	    end
+	    proxy_objects.each_value { |proxy| proxy.commit_transaction }
 	    proxy_objects.each_value { |proxy| proxy.clear_relations  }
 
 	    plan.discover(discover)
@@ -440,7 +417,6 @@ module Roby
 	end
 
 	def clear
-	    discovered_objects.clear
 	    removed_objects.clear
 	    discarded_tasks.clear
 	    proxy_objects.each_value { |proxy| proxy.clear_relations }

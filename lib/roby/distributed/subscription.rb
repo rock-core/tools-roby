@@ -63,20 +63,7 @@ module Roby
 			tasks.delete_if    { |t| !t.distribute? }
 			events.delete_if   { |t| !t.distribute? }
 
-			if local_object.kind_of?(Transaction)
-			    tasks = tasks.to_a
-			    tasks.dup.each do |t| 
-				if Transactions::Proxy === t
-				    tasks.unshift t.__getobj__
-				end
-			    end
-			end
-
 			peer.transmit(:discover_plan, local_object, tasks, events)
-			if local_object.kind_of?(Transaction)
-			    tasks.delete_if { |t| local_object.discovered_relations_of?(t, true) }
-			    events.delete_if { |e| local_object.discovered_relations_of?(e, true) }
-			end
 			tasks.each  { |obj| subscribe_plan_object(obj) }
 			events.each { |obj| subscribe_plan_object(obj) }
 		    end

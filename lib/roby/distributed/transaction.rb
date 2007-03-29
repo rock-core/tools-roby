@@ -46,12 +46,14 @@ module Roby
 
 		if object = super
 		    object.extend DistributedObject
-		    if !Distributed.updating?(self) && object.root_object?
-			updated_peers.each do |peer|
-			    next if base_object.update_on?(peer) || !base_object.distribute?
-			    peer.local.subscribe(base_object)
-			    peer.synchro_point
-			end
+		    if !Distributed.updating?(self) && object.root_object? && base_object.distribute?
+			# The new proxy has been sent to remote hosts since it
+			# has been discovered in the transaction. Nonetheless,
+			# we don't want to return from #wrap until we know its
+			# sibling. Add a synchro point to wait for that
+		        updated_peers.each do |peer|
+		            peer.synchro_point
+		        end
 		    end
 		end
 
@@ -60,6 +62,16 @@ module Roby
 	    ensure
 		if temporarily_subscribed
 		    peer.unsubscribe(base_object)
+		end
+	    end
+
+	    def copy_object_relations(object, proxy)
+		# If the transaction is being updated, it means that we are
+		# discovering the new transaction. In that case, no need to
+		# discover the plan relations since our peer will send us all
+		# transaction relations
+		unless Distributed.updating?(self)
+		    super
 		end
 	    end
 
@@ -100,11 +112,6 @@ module Roby
 		end
 	    end
 
-	    def discovered_object(object, relation)
-		super if defined? super
-
-	    end
-	    
 	    # call-seq:
 	    #   commit_transaction			=> self
 	    #   commit_transaction { |done| ... }	=> self
@@ -140,7 +147,7 @@ module Roby
 			return true
 		    end
 		else
-		    all_objects = (known_tasks | discovered_objects)
+		    all_objects = known_tasks.dup
 		    proxy_objects.each_key { |o| all_objects << o }
 		    Distributed.update_all(all_objects) do
 		       	super()
@@ -290,24 +297,6 @@ module Roby
 	end
 
 	module Roby::Transaction::Proxy
-	    alias __discover__ discover
-	    def discover(relation, mark)
-		return unless proxying?
-		unless !mark || Distributed.updating?(self) || (__getobj__.owners - plan.owners).empty?
-		    raise NotOwner, "transaction owners #{plan.owners} do not own #{self}: #{owners}"
-		end
-
-		if mark
-		    owners.each do |owner|
-			if !Distributed.updating?(self) && !__getobj__.root_object.updated?
-			    raise "must subscribe to #{__getobj__} on #{owner} before changing its transactions proxies"
-			end
-		    end
-		end
-
-		__discover__(relation, mark)
-	    end
-
 	    def droby_dump(dest) # :nodoc:
 		DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest),
 			 @__getobj__.droby_dump(dest), transaction.droby_dump(dest))

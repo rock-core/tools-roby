@@ -291,9 +291,10 @@ module Roby
 
 		if old_transaction_set.size != transaction_set.size
 		    (transaction_set - old_transaction_set).each do |o| 
-			if !discovered_relations_of?(o, relation, true)
-			    transaction_set.delete(o)
-			    plan_seeds << o.__getobj__
+			if o.respond_to?(:__getobj__)
+			    o.__getobj__.each_child_object(relation) do |child|
+				plan_seeds << child unless self[child, false]
+			    end
 			end
 		    end
 		end
@@ -303,7 +304,7 @@ module Roby
 		plan_seeds.each do |seed|
 		    relation.each_dfs(seed, BGL::Graph::TREE) do |_, dest, _, kind|
 			next if plan_set.include?(dest)
-			if discovered_relations_of?(dest, relation, true)
+			if self[dest, false]
 			    proxy = wrap(dest, false)
 			    unless transaction_set.include?(proxy)
 				transaction_seeds << proxy
@@ -328,10 +329,10 @@ module Roby
 	def query_result_set(matcher)
 	    plan_set, transaction_set = ValueSet.new, ValueSet.new
 	    plan.query_result_set(matcher).each do |task|
-		plan_set << task unless discovered_relations_of?(task, nil, true)
+		plan_set << task unless self[task, false]
 	    end
 	    super.each do |task|
-		transaction_set << task if discovered_relations_of?(task, nil, true)
+		transaction_set << task if self[task, false]
 	    end
 
 	    [plan_set, transaction_set]
