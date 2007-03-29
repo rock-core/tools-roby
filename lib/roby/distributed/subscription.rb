@@ -229,6 +229,12 @@ module Roby
 		local_object = local_object(remote_object)
 	    end
 
+	    # Make our peer subscribe to +object+
+	    def push_subscription(object)
+		local.subscribe(object)
+		synchro_point
+	    end
+
 	    # The RemoteID for the peer main plan
 	    attr_accessor :remote_plan
 
