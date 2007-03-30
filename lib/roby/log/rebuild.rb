@@ -217,22 +217,28 @@ module Roby
 	    end
 	    def advance
 		next_step.each do |name, args|
-		    begin
-			if respond_to?(name)
-			    send(name, *args)
-			end
-			displays.each { |d| d.send(name, *args) if d.respond_to?(name) }
-		    rescue Exception => e
-			display_args = args.map do |obj|
-			    case obj
-			    when NilClass: 'nil'
-			    when Time: obj.to_hms
-			    when DRbObject: obj.inspect
-			    else (obj.to_s rescue "failed_to_s")
+		    reason = catch :ignored do
+			begin
+			    if respond_to?(name)
+				send(name, *args)
 			    end
-			end
+			    displays.each { |d| d.send(name, *args) if d.respond_to?(name) }
+			rescue Exception => e
+			    display_args = args.map do |obj|
+				case obj
+				when NilClass: 'nil'
+				when Time: obj.to_hms
+				when DRbObject: obj.inspect
+				else (obj.to_s rescue "failed_to_s")
+				end
+			    end
 
-			raise e, "#{e.message} while serving #{name}(#{display_args.join(", ")})", e.backtrace
+			    raise e, "#{e.message} while serving #{name}(#{display_args.join(", ")})", e.backtrace
+			end
+			nil
+		    end
+		    if reason
+			Roby.warn "Ignored #{name}(#{args.join(", ")}): #{reason}"
 		    end
 		end
 
@@ -339,6 +345,8 @@ module Roby
 	    end
 	    def finalized_task(time, plan, task)
 		task = local_task(task)
+		throw :ignored, "unknown task" unless task
+
 		plan = local_plan(plan)
 
 		unless plan.parent_plan && plan.parent_plan.known_tasks.include?(task)
@@ -370,6 +378,10 @@ module Roby
 	    def added_task_child(time, parent, rel, child, info)
 		parent = local_task(parent)
 		child  = local_task(child)
+		if !parent   then throw :ignored, "unknown parent"
+		elsif !child then throw :ignored, "unknown child"
+		end
+
 		rel    = rel.proxy(nil)
 		parent.add_child_object(child, rel, [info, nil])
 	    end
