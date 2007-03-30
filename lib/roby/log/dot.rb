@@ -39,14 +39,14 @@ module Roby
 		objects.each do |from|
 		    next unless display.displayed?(from)
 		    unless display[from]
-			STDERR.puts "WARN no display item for #{from} in #{from} <#{rel}>"
+			Roby::Log.warn "no display item for #{from} in #each_displayed_relation"
 			next
 		    end
 
 		    from.each_child_object(rel) do |to|
 			next unless display.displayed?(to)
 			unless display[to]
-			    STDERR.puts "WARN no display item for #{from} in #{from} <#{rel}> #{to}"
+			    Roby::Log.warn "no display item for child in #{from} <#{rel}> #{to} in #each_displayed_relation"
 			    next
 			end
 
@@ -62,7 +62,7 @@ module Roby
 		if from_id && to_id
 		    io << "  #{from_id} -> #{to_id}\n"
 		else
-		    STDERR.puts "WARN ignoring #{from}(#{from.object_id} #{from}) -> #{to}(#{to.object_id} #{to}) in #{rel} in #{caller(1).join("\n  ")}"
+		    Roby::Log.warn "ignoring #{from}(#{from.object_id} #{from_id}) -> #{to}(#{to.object_id} #{to_id}) in #{rel} in #{caller(1).join("\n  ")}"
 		end
 	    end
 	end

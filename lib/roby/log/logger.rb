@@ -3,6 +3,10 @@ require 'roby/log/hooks'
 module Roby::Log
     @loggers = Array.new
     @@logging_thread = nil
+
+    extend Logger::Hierarchy
+    extend Logger::Forward
+
     class << self
 	# Start the logging framework
 	def logging?; @@logging_thread end

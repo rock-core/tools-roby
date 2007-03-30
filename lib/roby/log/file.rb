@@ -44,7 +44,7 @@ module Roby::Log
 	rescue EOFError
 	rescue
 	    if method_name
-		STDERR.puts "handling of #{method_name} failed with: #{$!.full_message}"
+		Roby::Log.warn "handling of #{method_name} failed with: #{$!.full_message}"
 	    else
 		raise
 	    end
