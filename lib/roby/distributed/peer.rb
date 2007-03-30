@@ -425,7 +425,7 @@ module Roby::Distributed
 	# connection task has emitted its 'ready' event and the connection is
 	# alive
 	def connected # :nodoc:
-	    raise "not connecting" unless connecting?
+	    raise "state is #{@connection_state}, not connecting" unless connecting?
 	    @connection_state = :connected
 
 	    @send_queue = CommunicationQueue.new
@@ -503,7 +503,7 @@ module Roby::Distributed
 
 	# Called when the peer acknowledged the fact that we disconnected
 	def disconnected # :nodoc:
-	    raise "not disconnecting (#{connection_state})" unless connecting? || disconnecting?
+	    raise "state is #{@connection_state}, not disconnecting" unless connecting? || disconnecting?
 	    @connection_state = nil
 
 	    # Force some cleanup
