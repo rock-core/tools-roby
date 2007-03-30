@@ -371,7 +371,7 @@ module Roby
 		    finalized_task(time, trsc, obj)
 		end
 		trsc.free_events.each do |obj|
-		    finalized_event(time, trsc, event)
+		    finalized_event(time, trsc, obj)
 		end
 	    end
 
