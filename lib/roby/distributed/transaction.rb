@@ -149,8 +149,10 @@ module Roby
 		else
 		    all_objects = known_tasks.dup
 		    proxy_objects.each_key { |o| all_objects << o }
-		    Distributed.update_all(all_objects) do
-		       	super()
+		    Distributed.update(self) do
+			Distributed.update_all(all_objects) do
+			    super()
+			end
 		    end
 		end
 
