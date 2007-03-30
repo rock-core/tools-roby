@@ -35,13 +35,14 @@ module Roby
 	attr_reader :options
 
 	# Logging options.
-	# timings:: save a log/ROBOT-timings.log file with the timings of each step in the event loop
+	# timings:: saves a ROBOT-timings.log file with the timings of each step in the event loop
 	#           This log can be read using roby-cntrllog
 	# events:: save a log of all events in the system. This log can be read using scripts/replay
 	# levels:: a component => level hash of the minimum level of the messages that 
 	#	   should be displayed on the console. The levels are DEBUG, INFO, WARN and FATAL.
 	#	     Roby: FATAL
 	#	     Roby::Distributed: INFO
+	# dir:: the log directory. Uses APP_DIR/log if not set
 	attr_reader :log
 	
 	# A [name, file, module] array of available plugins
@@ -194,7 +195,7 @@ module Roby
 	end
 
 	def logdir
-	    File.join(APP_DIR, 'log')
+	    log['dir'] || File.join(APP_DIR, 'log')
 	end
 	
 	def setup
@@ -318,17 +319,17 @@ module Roby
 	    control = Roby.control
 	    options = { :detach => true, :control_gc => control_config['control_gc'] }
 	    if log['timings']
-		logfile = File.join(APP_DIR, 'log', "#{robot_name}-timings.log")
+		logfile = File.join(logdir, "#{robot_name}-timings.log")
 		options[:log] = File.open(logfile, 'w')
 	    end
 	    if log['events']
 		if log['events'] == 'sqlite'
 		    require 'roby/log/sqlite'
-		    logfile = File.join(APP_DIR, 'log', "#{robot_name}-events.db")
+		    logfile = File.join(logdir, "#{robot_name}-events.db")
 		    Roby::Log.add_logger Roby::Log::SQLiteLogger.new(logfile)
 		else
 		    require 'roby/log/file'
-		    logfile = File.join(APP_DIR, 'log', "#{robot_name}-events.log")
+		    logfile = File.join(logdir, "#{robot_name}-events.log")
 		    Roby::Log.add_logger Roby::Log::FileLogger.new(logfile)
 		end
 	    end
