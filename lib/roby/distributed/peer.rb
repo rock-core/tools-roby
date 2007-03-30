@@ -245,29 +245,33 @@ module Roby::Distributed
 
 	    # Handle the 'failed' event of the connection task
 	    Roby::Distributed.peers.dup.each do |remote_id, peer|
-		next unless peer.task.event(:failed).pending?
-		if peer.connecting?
-		    Roby::Distributed.info "aborting connection handshake with #{peer.remote_name}"
-		    peer.disconnected
-		elsif peer.connected?
-		    Roby::Distributed.info "disconnecting from #{peer.remote_name}"
-		    peer.disconnect
-		else 
-		    Roby::Distributed.info "#{peer} is already disconnecting"
+		peer.synchronize do
+		    next unless peer.task.event(:failed).pending?
+		    if peer.connecting?
+			Roby::Distributed.info "aborting connection handshake with #{peer.remote_name}"
+			peer.disconnected
+		    elsif peer.connected?
+			Roby::Distributed.info "disconnecting from #{peer.remote_name}"
+			peer.do_disconnect
+		    else 
+			Roby::Distributed.info "#{peer} is already disconnecting"
+		    end
 		end
 	    end
 
 	    (connection_space.peers.keys - seen).each do |disconnected| 
 		peer = connection_space.peers[disconnected]
-		if peer.connecting?
-		    Roby::Distributed.info "waiting for peer #{peer.remote_name} to connect"
-		    peer.ping
-		elsif peer.connected?
-		    Roby::Distributed.info "peer #{peer.remote_name} disconnected"
-		    peer.disconnect
-		    peer.disconnected
-		elsif peer.disconnecting?
-		    peer.disconnected
+		peer.synchronize do
+		    if peer.connecting?
+			Roby::Distributed.info "waiting for peer #{peer.remote_name} to connect"
+			peer.ping
+		    elsif peer.connected?
+			Roby::Distributed.info "peer #{peer.remote_name} disconnected"
+			peer.do_disconnect
+			peer.disconnected
+		    elsif peer.disconnecting?
+			peer.disconnected
+		    end
 		end
 	    end
 	end
@@ -452,9 +456,7 @@ module Roby::Distributed
 	    # Looks like the remote side is not what we thought it was. It may be for instance that it died
 	    # and restarted. Whatever. Kill the connection
 	    @keepalive = nil
-	    synchronize do
-		disconnected!
-	    end
+	    disconnected!
 	end
 
 	# Disconnect this side of the connection. The remote host is supposed
@@ -463,14 +465,25 @@ module Roby::Distributed
 	#
 	# The 'failed' event is emitted on the ConnectionTask task
 	def disconnect
+	    synchronize do
+		do_disconnect
+	    end
+	end
+
+	def do_disconnect # :nodoc:
 	    raise "already disconnecting" if disconnecting?
 	    Roby::Distributed.info "disconnecting from #{self}"
 	    @connection_state = :disconnecting
 
 	    @send_queue.clear
 	    @send_queue.push(nil)
-	    unless Thread.current == @send_thread
-		@send_thread.join
+	    if @send_thread != Thread.current
+		begin
+		    mutex.unlock
+		    @send_thread.join
+		ensure
+		    mutex.lock
+		end
 	    end
 	    @send_thread = nil
 
@@ -514,7 +527,7 @@ module Roby::Distributed
 
 	    # ... and let neighbour discovery do the cleanup
 	    return unless connecting? || connected?
-	    disconnect
+	    do_disconnect
 	end
 
 	# Returns true if we are establishing a connection with this peer

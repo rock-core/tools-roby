@@ -356,29 +356,28 @@ module Roby
 		    "Communication thread dies with\n#{$!.full_message}\nPending calls where:\n  #{calls}"
 		end
 
-	    ensure
-		Distributed.info "communication thread quit for #{self}"
 		synchronize do
-		    begin
-			disconnected!
-			calls ||= []
-			calls.concat send_queue.get(true)
-			while !pending_callbacks.empty?
-			    calls << pending_callbacks.pop.last
-			end
-			calls.each do |call_spec|
-			    next unless call_spec
-			    if thread = call_spec.last
-				thread.raise DisconnectedError
-			    end
-			end
-		    rescue
-			Roby.fatal "communication loop cleanup failed with #{$!.full_message}"
-		    ensure
-			@sending = nil
-			send_flushed.broadcast
+		    disconnected!
+		end
+
+	    ensure
+		Distributed.info "communication thread quitting for #{self}"
+		calls ||= []
+		calls.concat send_queue.get(true)
+		while !pending_callbacks.empty?
+		    calls << pending_callbacks.pop.last
+		end
+		calls.each do |call_spec|
+		    next unless call_spec
+		    if thread = call_spec.last
+			thread.raise DisconnectedError
 		    end
 		end
+
+		Distributed.info "communication thread quit for #{self}"
+
+		@sending = nil
+		send_flushed.broadcast
 	    end
 
 	    # Formats the RPC specification +call+ in a string suitable for debugging display

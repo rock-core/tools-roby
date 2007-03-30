@@ -293,9 +293,11 @@ module Roby
 		# Force disconnection in case something got wrong in the normal
 		# disconnection process
 		Distributed.peers.each_value do |peer|
-		    peer.disconnected! rescue nil
-		    peer.disconnect rescue nil
-		    peer.disconnected rescue nil
+		    peer.synchronize do
+			peer.disconnected! rescue nil
+			peer.do_disconnect rescue nil
+			peer.disconnected rescue nil
+		    end
 		end
 	    end
 
