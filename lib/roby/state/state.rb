@@ -1,7 +1,6 @@
 module Roby
-    # ExtendedStruct objects are OpenStructs where
-    # attributes have a default class. They are used to 
-    # build hierarchical data structure on-the-fly
+    # ExtendedStruct objects are OpenStructs where attributes have a default
+    # class. They are used to build hierarchical data structure on-the-fly
     #
     # For instance
     #	root = ExtendedStruct.new
@@ -44,12 +43,12 @@ module Roby
             @attach_as = [attach_to, attach_name] if attach_to
 	    @children_class = children_class
 
-            @stable = false
-            @members = Hash.new
-	    @pending = Hash.new
-	    @filters = Hash.new
-	    @aliases = Hash.new
-	    @observers = Hash.new { |h, k| h[k] = [] }
+            @stable          = false
+            @members         = Hash.new
+            @pending         = Hash.new
+            @filters         = Hash.new
+            @aliases         = Hash.new
+            @observers       = Hash.new { |h, k| h[k] = [] }
         end
 
 	def self._load(io)
@@ -239,11 +238,25 @@ module Roby
     end
 
     class StateSpace < ExtendedStruct
-	def initialize(children_class = StateSpace, attach_to = nil, attach_name = nil)
+	def initialize
+            @exported_fields = Set.new
 	    super
+	end
+
+	def _dump(lvl = -1)
+	    marshalled_members = @exported_fields.map do |name|
+		value = @members[name]
+		[name, Marshal.dump(value)] rescue nil
+	    end
+	    marshalled_members.compact!
+	    Marshal.dump([marshalled_members, @aliases])
+	end
+
+	def export(*names)
+	    @exported_fields.merge names.map { |n| n.to_s }.to_set
 	end
     end
 
-    State = ExtendedStruct.new
+    State = StateSpace.new
 end
 

@@ -50,6 +50,29 @@ class TC_State < Test::Unit::TestCase
 	assert_equal(klass, root.child.class)
     end
 
+    def test_export
+	s = StateSpace.new
+	s.pos.x   = 42
+	s.speed.x = 0
+
+	obj = Marshal.load(Marshal.dump(s))
+	assert(!obj.respond_to?(:pos))
+	assert(!obj.respond_to?(:speed))
+
+	s.export :pos
+	obj = Marshal.load(Marshal.dump(s))
+	assert(obj.respond_to?(:pos))
+	assert(!obj.respond_to?(:speed))
+	assert_equal(42, obj.pos.x)
+
+	s.export :speed
+	obj = Marshal.load(Marshal.dump(s))
+	assert(obj.respond_to?(:pos))
+	assert(obj.respond_to?(:speed))
+	assert_equal(42, obj.pos.x)
+	assert_equal(0, obj.speed.x)
+    end
+
     def test_stable
 	s = ExtendedStruct.new
 	s.other.attach
