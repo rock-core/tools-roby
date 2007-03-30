@@ -206,40 +206,55 @@ module Roby
 	def executable?; true end
 	
 	# call-seq:
-	#   plan.discover(t1, t2, ...)	    => plan
-	#   plan.discover		    => plan
+	#   plan.discover([t1, t2, ...]) => plan
 	#
 	# Updates Plan#known_tasks with either the child tree of the tasks in
-	# +objects+, or if +objects+ is nil the child tree of the plan missions
+	# +objects+
 	def discover(objects = nil)
-	    if !objects
-		events, tasks = ValueSet.new, @missions
-	    else
-		events, tasks = partition_event_task(objects)
-		events = events.to_value_set
-		tasks  = tasks.to_value_set
+	    events, tasks = partition_event_task(objects)
+
+	    events = events.to_value_set
+	    unless events.empty?
+		discover_event_set(events)
 	    end
 
-	    unless events.empty?
-		events.each do |e| 
-		    if !e.root_object?
-			raise ArgumentError, "trying to discover #{e} which is a non-root event"
-		    end
-		    e.plan = self
-		end
-		@free_events.merge(events)
-		discovered_events(events)
-	    end
+	    tasks  = tasks.to_value_set
 	    unless tasks.empty?
-		new_tasks = useful_task_component(tasks, tasks.to_a).difference(@known_tasks)
+		new_tasks = useful_task_component(tasks, tasks.to_a)
 		unless new_tasks.empty?
-		    new_tasks.each { |t| t.plan = self }
-		    @known_tasks.merge new_tasks
-		    discovered_tasks(new_tasks)
+		    discover_task_set(new_tasks)
 		end
 	    end
 
 	    self
+	end
+
+	# Add +events+ to the set of known events and call discovered_events
+	# for the new events
+	#
+	# This is for internal use, use #discover instead
+	def discover_event_set(events)
+	    events.each do |e| 
+		if !e.root_object?
+		    raise ArgumentError, "trying to discover #{e} which is a non-root event"
+		end
+		e.plan = self
+	    end
+
+	    events = events.difference(free_events)
+	    free_events.merge(events)
+	    discovered_events(events)
+	end
+
+	# Add +tasks+ to the set of known tasks and call discovered_tasks for
+	# the new tasks
+	#
+	# This is for internal use, use #discover instead
+	def discover_task_set(tasks)
+	    tasks = tasks.difference(known_tasks)
+	    tasks.each { |t| t.plan = self }
+	    known_tasks.merge tasks
+	    discovered_tasks(tasks)
 	end
 
 	# DEPRECATED. Use #discovered_tasks instead

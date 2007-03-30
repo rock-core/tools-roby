@@ -329,45 +329,50 @@ module Roby
 	    discarded_tasks.each { |t| plan.discard(t) }
 	    removed_objects.each { |obj| plan.remove_object(obj) }
 
-	    discover  = ValueSet.new
+	    discover_tasks  = ValueSet.new
+	    discover_events  = ValueSet.new
 	    insert    = ValueSet.new
 	    permanent = ValueSet.new
-	    @known_tasks.dup.each do |t|
-		if t.kind_of?(Transactions::Proxy)
-		    unwrapped = t.__getobj__
-		else
-		    @known_tasks.delete(t)
-		    t.plan = plan
-		    unwrapped = t
+	    known_tasks.dup.each do |t|
+		unwrapped = if t.kind_of?(Transactions::Proxy)
+				finalized_task(t)
+				t.__getobj__
+			    else
+				known_tasks.delete(t)
+				t
+			    end
+
+		if missions.include?(t)
+		    missions.delete(t)
+		    insert << unwrapped
+		elsif keepalive.include?(t)
+		    keepalive.delete(t)
+		    permanent << unwrapped
 		end
 
-		if @missions.include?(t)
-		    @missions.delete(t)
-		    insert << unwrapped
-		elsif @keepalive.include?(t)
-		    @keepalive.delete(t)
-		    permanent << unwrapped
-		else
-		    discover << unwrapped
-		end
+		discover_tasks << unwrapped
 	    end
-	    @free_events.dup.each do |ev|
-		if ev.kind_of?(Transactions::Proxy)
-		    unwrapped = ev.__getobj__
-		else
-		    @free_events.delete(ev)
-		    ev.plan = plan
-		    unwrapped = ev
-		end
-		discover << unwrapped
+
+	    free_events.dup.each do |ev|
+		unwrapped = if ev.kind_of?(Transactions::Proxy)
+				finalized_event(ev)
+				ev.__getobj__
+			    else
+				free_events.delete(ev)
+				ev
+			    end
+
+		discover_events << unwrapped
 	    end
+
+	    plan.discover_task_set(discover_tasks)
+	    plan.discover_event_set(discover_events)
 
 	    # Set the plan to nil in known tasks to avoid having the checks on
 	    # #plan to raise an exception
 	    proxy_objects.each_value { |proxy| proxy.commit_transaction }
 	    proxy_objects.each_value { |proxy| proxy.clear_relations  }
 
-	    plan.discover(discover)
 	    insert.each    { |t| plan.insert(t) }
 	    permanent.each { |t| plan.permanent(t) }
 
