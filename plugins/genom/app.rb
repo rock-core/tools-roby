@@ -31,6 +31,10 @@ module Roby::Genom
     # == Simulation support
     # pocosim/ simulation
     #
+    # NOTE: if two simulations are run on the same host, do NOT use the multi-robot server.
+    # Otherwise, position changes done by one of the controllers will be overridden by the
+    # multi-robot server
+    #
     # == Test support
     module Application
 	attribute(:pocosim) do
