@@ -230,6 +230,9 @@ module Roby
 	def dag?; @dag end
 	def to_s; name end
 
+	# True if this relation does not have a parent
+	def root_relation?; !parent end
+
 	# True if the relation can be seen by remote plan databases
 	def distribute?; options[:distribute] end
 

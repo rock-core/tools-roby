@@ -127,6 +127,8 @@ class TC_Relations < Test::Unit::TestCase
 	    assert_equal(r2, r1.parent)
 	    assert(! r1.subset?(r2))
 	    assert(r2.subset?(r1))
+	    assert(!r1.root_relation?)
+	    assert(r2.root_relation?)
 
 	    n1, n2, n3 = (1..3).map do |i|
 		klass.new(i)

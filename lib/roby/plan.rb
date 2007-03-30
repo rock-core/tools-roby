@@ -283,7 +283,8 @@ module Roby
 	# Returns the set of tasks that are useful for +tasks+
 	def useful_task_component(useful_tasks, seeds)
 	    old_useful_tasks = useful_tasks.dup
-	    all_relations.each do |rel| 
+	    TaskStructure.each_relation do |rel| 
+		next unless rel.root_relation?
 		rel.generated_subgraphs(seeds, false).each do |subgraph|
 		    useful_tasks.merge(subgraph)
 		end
@@ -343,6 +344,7 @@ module Roby
 	    free_events.each do |ev|
 		next if useful_events.include?(ev)
 		EventStructure.each_relation do |relation|
+		    next unless relation.root_relation?
 		    next unless event_set = relation.components([ev], false).first
 		    useful = event_set.any? do |obj| 
 			obj.kind_of?(Roby::TaskEventGenerator) ||
