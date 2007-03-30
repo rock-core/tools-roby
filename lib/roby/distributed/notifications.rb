@@ -433,9 +433,8 @@ module Roby
 	class PeerServer
 	    def updated_data(task, data)
 		proxy = peer.local_object(task)
-		Distributed.update(proxy) do
-		    proxy.data = data
-		end
+		proxy.instance_variable_set("@data", peer.proxy(data))
+		nil
 	    end
 
 	    def updated_arguments(task, arguments)
