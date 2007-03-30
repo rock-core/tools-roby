@@ -158,6 +158,7 @@ module Roby
 
 		return unless task = peer.local_object(task)
 		task.mission = flag
+		nil
 	    end
 
 	    def plan_discover(plan, m_tasks, m_relations)
@@ -175,6 +176,7 @@ module Roby
 			end
 		    end
 		end
+		nil
 	    end
 	    def plan_replace(plan, m_from, m_to)
 		Distributed.update(plan = peer.local_object(plan)) do
@@ -191,6 +193,7 @@ module Roby
 			end
 		    end
 		end
+		nil
 	    end
 
 	    def plan_remove_object(plan, object)
