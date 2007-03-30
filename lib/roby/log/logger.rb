@@ -77,8 +77,10 @@ module Roby::Log
 	    if m == :discovered_tasks || m == :discovered_events
 		Roby::Control.synchronize do
 		    args ||= yield
-		    known_objects.merge(args[2].to_value_set)
+		    objects = args[2].to_value_set
+		    # Format first since we want a full dump here
 		    args = Roby::Distributed.format(args) if has_logger?(m)
+		    known_objects.merge(objects)
 		end
 	    elsif m == :finalized_task || m == :finalized_event
 		Roby::Control.synchronize do
