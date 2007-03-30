@@ -83,12 +83,22 @@ module TC_PlanStatic
 	assert_raises(ArgumentError) { t2.plan = plan }
     end
 
-    def test_base
-	task_model = Class.new(Task) do 
-	    event :stop, :command => true
-	end
+    def test_discover
+	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => SimpleTask
+	t1.realized_by t2
+	t2.on(:start, t3, :stop)
+	t2.planned_by t4
 
-	t1, t2, t3, t4 = 4.enum_for(:times).map { task_model.new }
+	result = plan.discover(t1)
+	assert_equal(plan, result)
+	assert( plan.include?(t1) )
+	assert( plan.include?(t2) )
+	assert( !plan.include?(t3) ) # t3 not related because of task structure
+	assert( plan.include?(t4) )
+    end
+
+    def test_insert
+	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => SimpleTask
 	t1.realized_by t2
 	t2.on(:start, t3, :stop)
 	t2.planned_by t4
@@ -97,11 +107,20 @@ module TC_PlanStatic
 	assert_equal(plan, result)
 	assert( plan.include?(t1) )
 	assert( plan.include?(t2) )
-	assert( !plan.include?(t3) ) # t3 not related because of hierarchy
+	assert( !plan.include?(t3) ) # t3 not related because of task structure
 	assert( plan.include?(t4) )
 
 	assert( plan.mission?(t1) )
 	assert( !plan.mission?(t2) )
+    end
+
+    def test_useful_task_components
+	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => SimpleTask
+	t1.realized_by t2
+	t2.on(:start, t3, :stop)
+	t2.planned_by t4
+
+	plan.insert(t1)
 
 	assert_equal([t1, t2, t4].to_value_set, plan.locally_useful_tasks)
 	plan.insert(t3)
