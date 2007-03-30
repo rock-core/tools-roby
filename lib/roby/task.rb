@@ -617,7 +617,7 @@ module Roby
 	    unless event = bound_events[event_model]
 		event_model = self.event_model(event_model)
 		unless event = bound_events[event_model.symbol]
-		    raise "cannot find #{event_model.symbol} in the set of bound events"
+		    raise "cannot find #{event_model.symbol.inspect} in the set of bound events"
 		end
 	    end
 	    event
