@@ -177,5 +177,36 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	process_events
 	assert(!local.plan.known_tasks.find { |t| t.arguments[:id] == 'child' })
     end
+
+    # Tests that running remote tasks are aborted and pending tasks GCed if the
+    # connection is killed
+    def test_disconnect_kills_tasks
+	peer2peer(true) do |remote|
+	    remote.plan.insert(task = SimpleTask.new(:id => 'remote-1'))
+	    def remote.start(task)
+		task = local_peer.local_object(task)
+		Roby::Control.once { task.start! }
+		nil
+	    end
+	end
+
+	task = subscribe_task(:id => 'remote-1')
+	remote.start(task)
+	process_events
+	assert(task.running?)
+	assert(task.child_object?(remote_peer.task, TaskStructure::ExecutionAgent))
+	assert(task.subscribed?)
+
+	Roby::Control.synchronize do
+	    remote_peer.synchronize do
+		remote_peer.disconnected!
+	    end
+	end
+	assert(task.subscribed?)
+	process_events
+	assert(remote_peer.task.finished?)
+	assert(remote_peer.task.event(:stop).happened?)
+	assert(task.finished?)
+    end
 end
 

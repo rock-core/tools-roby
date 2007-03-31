@@ -155,7 +155,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
     end
 
     # Tests that the remote peer disconnects if #demux raises DisconnectedError
-    def test_automatic_disconnect
+    def test_disconnect_on_error
 	Roby.logger.level = Logger::FATAL
 	peer2peer do |remote|
 	    class << remote

@@ -317,7 +317,7 @@ module Roby::Propagation
 	    if sources
 		sources.each { |source| source.generator.forwarding(source, signalled) if source }
 
-		if signalled.self_owned?
+		if signalled.self_owned? || !signalled.owners.any? { |peer| peer != Roby::Distributed && peer.connected? }
 		    next_step = gather_propagation(current_step) do
 			sources.each_with_index do |src, i|
 			    propagation_context([src]) do |result|

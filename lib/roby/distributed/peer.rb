@@ -492,11 +492,6 @@ module Roby::Distributed
 
 	    # Unsubscribe to the remote plan if we are subscribed to it
 	    unsubscribe_plan if remote_plan
-	    proxies.dup.each_value do |obj|
-		obj.forget_peer(self)
-	    end
-	    proxies.clear
-	    removing_proxies.clear
 	end
 
 	# Called when the peer acknowledged the fact that we disconnected
@@ -504,16 +499,18 @@ module Roby::Distributed
 	    raise "state is #{@connection_state}, not disconnecting" unless connecting? || disconnecting?
 	    @connection_state = nil
 
-	    # Force some cleanup
-	    proxies.each_value do |obj|
-		obj.remote_siblings.delete(self)
+	    Roby::Control.once do
+		task.emit(:failed)
+
+		proxies.each_value do |obj|
+		    obj.remote_siblings.delete(self)
+		end
+		proxies.clear
 	    end
-	    proxies.clear
 	    removing_proxies.clear
 
 	    Roby::Distributed.peers.delete(remote_id)
 	    Roby::Distributed.info "#{neighbour.name} disconnected"
-	    Roby::Control.once { task.emit(:failed) }
 	end
 
 	# Call to disconnect outside of the normal protocol.
