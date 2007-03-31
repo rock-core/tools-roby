@@ -135,9 +135,13 @@ module Roby
 
 	    def process_events
 		if Roby.control.thread
-		    remote_peer.synchro_point
+		    if remote_peer.connected?
+			remote_peer.synchro_point
+		    end
 		    remote.wait_one_cycle
-		    remote_peer.synchro_point
+		    if remote_peer.connected?
+			remote_peer.synchro_point
+		    end
 		    Roby.control.wait_one_cycle
 		elsif remote_peer && !remote_peer.disconnected?
 		    remote.start_neighbour_discovery(true)
