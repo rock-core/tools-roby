@@ -58,13 +58,24 @@ module Roby::TaskStructure
 	    unless old_agent
 		# If the task did have an agent already, these event handlers
 		# are already set up
-		on(:start) do
-		    execution_agent.forward(:stop, self, :aborted)
+		if running?
+		    Roby::Distributed.update(self) do
+			agent.forward(:stop, self, :aborted)
+		    end
+		else
+		    on(:start) do
+			Roby::Distributed.update(self) do
+			    execution_agent.forward(:stop, self, :aborted)
+			end
+		    end
 		end
+
 		on(:stop) do 
 		    if execution_agent
-			execution_agent.event(:stop).remove_forwarding event(:aborted)
-			remove_execution_agent execution_agent
+			Roby::Distributed.update(self) do
+			    execution_agent.event(:stop).remove_forwarding event(:aborted)
+			    remove_execution_agent execution_agent
+			end
 		    end
 		end
 	    end
