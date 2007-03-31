@@ -36,6 +36,7 @@ module Roby
 
 	    # Called by our peer because it has subscribed us to its main plan
 	    def subscribed_plan(remote_plan_id)
+		peer.proxies[remote_plan_id] = Roby.plan
 		peer.remote_plan = remote_plan_id
 	    end
 
@@ -100,7 +101,7 @@ module Roby
 	    # It is also used by BasicObject#forget_peer to remove references
 	    # to an old sibling
 	    def removed_sibling(local_id, remote_id)
-		sibling = local_id.local_object.remove_sibling_for(peer)
+		sibling = local_id.local_object.remove_sibling_for(peer, remote_id)
 
 		# It is fine to remove a sibling twice: you nay for instance
 		# decide in both sides that the sibling should be removed (for
@@ -246,6 +247,7 @@ module Roby
 
 	    # Unsubscribe from the remote plan
 	    def unsubscribe_plan
+		proxies.delete(remote_plan)
 		subscriptions.delete(remote_plan)
 		if connected?
 		    call(:removed_sibling, @remote_plan, connection_space.plan.remote_id)

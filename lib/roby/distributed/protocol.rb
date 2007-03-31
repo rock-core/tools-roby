@@ -244,7 +244,7 @@ module Roby
 		end
 	    end
 
-	    def droby_dump(dest)
+	    def droby_dump(dest = nil)
 		@__droby_marshalled__ ||= DRoby.new(remote_name, remote_id)
 	    end
 	end

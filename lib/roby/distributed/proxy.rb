@@ -29,7 +29,9 @@ module Roby
 		proxy.owners << peer.local_object(m_owner)
 	    end
 
-	    peer.local_object(remote_siblings).each do |peer_sibling, remote_id|
+	    remote_siblings.each do |m_peer_sibling, remote_id|
+		peer_sibling = peer.local_object(m_peer_sibling)
+
 		next if peer_sibling == Roby::Distributed
 		if current = proxy.remote_siblings[peer_sibling]
 		    if current != remote_id
@@ -39,9 +41,6 @@ module Roby
 		    proxy.sibling_of(remote_id, peer_sibling)
 		end
 	    end
-		
-	    proxy.remote_siblings.merge! peer.local_object(remote_siblings)
-
 	end
     end
 

@@ -194,7 +194,9 @@ module Roby::Distributed
 	attr_reader :removing_proxies
 
 	def to_s; "Peer:#{remote_name}" end
-	def incremental_dump?(object); false end
+	def incremental_dump?(object)
+	    object.respond_to?(:remote_siblings) && object.remote_siblings[self] 
+	end
 
 	# The object which identifies this peer on the network
 	def remote_id; neighbour.tuplespace.remote_id end
@@ -289,7 +291,7 @@ module Roby::Distributed
 	    @neighbour	  = neighbour
 	    @local        = PeerServer.new(self)
 	    @proxies	  = Hash.new
-	    @removing_proxies = Hash.new { |h, k| h[k] = Array.new }
+	    @removing_proxies = Hash.new
 	    @mutex	  = Mutex.new
 	    @send_flushed = ConditionVariable.new
 	    @condition_variables = [ConditionVariable.new]
@@ -553,11 +555,6 @@ module Roby::Distributed
 	# Returns true if this peer owns +object+
 	def owns?(object); object.owners.include?(self) end
 
-	# Check if +object+ should be proxied
-	def proxying?(marshalled)
-	    marshalled.respond_to?(:proxy)
-	end
-
 	# Returns the remote object for +object+. +object+ can be either a
 	# DRbObject, a marshalled object or a local proxy. In the latter case,
 	# a RemotePeerMismatch exception is raised if the local proxy is not
@@ -566,28 +563,6 @@ module Roby::Distributed
 	    if object.kind_of?(RemoteID)
 		object
 	    else object.sibling_on(self)
-	    end
-	end
-	
-	# Returns the local object for +object+. +object+ can be either a
-	# marshalled object or a local proxy. Raises ArgumentError if it is
-	# none of the two. In the latter case, a RemotePeerMismatch exception
-	# is raised if the local proxy is not known to this peer.
-	def local_object(object, create = true)
-	    if object.kind_of?(RemoteID)
-		object = object.local_object
-		if object.kind_of?(RemoteID)
-		    if local_proxy = proxies[object]
-			proxy_setup(local_proxy)
-			return local_proxy
-		    end
-		    raise ArgumentError, "got a RemoteID which has no proxy"
-		else
-		    object
-		end
-	    elsif object.respond_to?(:proxy)
-		proxy(object, create)
-	    else object
 	    end
 	end
 	
@@ -624,14 +599,19 @@ module Roby::Distributed
 		    local_object.executed_by connection_task
 		end
 	    end
+
+	    local_object
 	end
 
-	# Get a proxy for a task or an event. 	
-	def proxy(marshalled, create = true)
-	    return marshalled unless proxying?(marshalled)
+	# Returns the local object for +object+. +object+ can be either a
+	# marshalled object or a local proxy. Raises ArgumentError if it is
+	# none of the two. In the latter case, a RemotePeerMismatch exception
+	# is raised if the local proxy is not known to this peer.
+	def local_object(marshalled, create = true)
+	    return marshalled unless marshalled.respond_to?(:proxy)
+
 	    if marshalled.respond_to?(:remote_siblings)
-		remote_siblings = local_object(marshalled.remote_siblings)
-		if remote_object = remote_siblings[self]
+		if remote_object = marshalled.remote_siblings[droby_dump]
 		    unless local_object = proxies[remote_object]
 			return if !create
 			return unless local_object = marshalled.proxy(self)
@@ -651,6 +631,7 @@ module Roby::Distributed
 
 	    local_object
 	end
+	alias proxy local_object
 
 	# Discovers all objects at a distance +dist+ from +obj+. The object
 	# can be either a remote proxy or the remote object itself

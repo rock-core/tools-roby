@@ -98,6 +98,20 @@ module Roby
 	    def inspect; to_s end
 	    def pretty_print(pp); pp.text to_s end
 
+	    def proxy(peer)
+		object = local_object
+		if object.kind_of?(RemoteID)
+		    if local_proxy = peer.proxies[object]
+			return peer.proxy_setup(local_proxy)
+		    elsif marshalled_object = peer.removing_proxies.delete(object)
+			return peer.local_object(marshalled_object)
+		    end
+		    raise ArgumentError, "got a RemoteID which has no proxy"
+		else
+		    object
+		end
+	    end
+
 	    private :remote_id
 
 	    # Returns the RemoteID object for +obj+. This is actually
