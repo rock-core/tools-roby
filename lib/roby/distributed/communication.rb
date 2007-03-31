@@ -393,12 +393,12 @@ module Roby
 	    end
 	    # Formats an error message because +error+ has been reported by +call+
 	    def report_remote_error(call, error)
-		error_message = error.full_message { |msg| msg !~ /drb\/[\w+]\.rb$/ }
+		error_message = error.full_message { |msg| msg !~ /drb\/[\w+]\.rb/ }
 		if call
-		    "#{remote_name} reports an error on #{call_to_s(call)}:\n#{error.full_message}\n" +
+		    "#{remote_name} reports an error on #{call_to_s(call)}:\n#{error_message}\n" +
 		    "call was initiated by\n  #{call[4].join("\n  ")}"
 		else
-		    "#{remote_name} reports an error on:\n#{error.full_message}"
+		    "#{remote_name} reports an error on:\n#{error_message}"
 		end
 	    end
 
