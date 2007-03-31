@@ -13,7 +13,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		attr_reader :contingent
 		def create
 		    # Put the task to avoir having GC clearing the events
-		    plan.insert(t = SimpleTask.new)
+		    plan.insert(t = SimpleTask.new(:id => 'task'))
 		    plan.discover(@controlable = Roby::EventGenerator.new(true))
 		    plan.discover(@contingent = Roby::EventGenerator.new(false))
 		    t.on(:start, controlable)
@@ -28,16 +28,14 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	end
 
 	remote.create
-	r_controlable = remote.controlable
-	r_contingent  = remote.contingent
-	p_controlable = remote_peer.local_object(r_controlable)
-	p_contingent  = remote_peer.local_object(r_contingent)
+	task = subscribe_task(:id => 'task')
+	controlable = *task.event(:start).child_objects(EventStructure::Signal).to_a
+	contingent  = *task.event(:start).child_objects(EventStructure::Forwarding).to_a
 
 	remote.fire
-	r_controlable = remote_peer.subscribe(r_controlable)
-	r_contingent = remote_peer.subscribe(r_contingent)
-	assert(r_controlable.happened?)
-	assert(r_contingent.happened?)
+	process_events
+	assert(controlable.happened?)
+	assert(contingent.happened?)
     end
 
     def test_task_status
@@ -145,9 +143,8 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    end
 	end
 
-	parent   = remote_task(:id => 'parent')
+	parent   = subscribe_task(:id => 'parent')
 	child    = nil
-	parent = remote_peer.subscribe(parent) 
 	assert(child = local.plan.known_tasks.find { |t| t.arguments[:id] == 'child' })
 	assert(!child.subscribed?)
 	assert(child.running?)
