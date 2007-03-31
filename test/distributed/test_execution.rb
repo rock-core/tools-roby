@@ -21,8 +21,11 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		    nil
 		end
 		def fire
-		    controlable.call(nil) 
-		    contingent.emit(nil)
+		    Roby::Control.once do
+			controlable.call(nil) 
+			contingent.emit(nil)
+		    end
+		    nil
 		end
 	    end
 	end
@@ -48,10 +51,11 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		    plan.clear
 		    plan.insert(@task = SimpleTask.new(:id => 1))
 		end
-		def start_task; task.start! end
+		def start_task; Roby::Control.once { task.start! }; nil end
 		def stop_task
 		    assert(task.executable?)
-		    task.stop! 
+		    Roby::Control.once { task.stop!  }
+		    nil
 		end
 	    end
 	end
@@ -91,8 +95,8 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		    assert(fev = events.find { |ev| !ev.controlable? })
 		    assert(task.event(:start).child_object?(sev, Roby::EventStructure::Signal))
 		    assert(task.event(:start).child_object?(fev, Roby::EventStructure::Forwarding))
-		    task.start! 
-		    assert(task.running?)
+		    Control.once { task.start! }
+		    nil
 		end
 	    end
 	end
@@ -117,8 +121,8 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    mock.should_receive(:signal_emitted).once.ordered('signal')
 	    mock.should_receive(:forward_emitted).once
 	    process_events
-	    remote.start_task
 
+	    remote.start_task
 	    process_events
 	    assert(signalled_ev.happened?)
 	    assert(forwarded_ev.happened?)
