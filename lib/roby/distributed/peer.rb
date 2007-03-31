@@ -40,9 +40,6 @@ module Roby::Distributed
 
 	interruptible
     end
-    class LiveConnectionTask < Roby::Task
-	local_only
-    end
 
     # Base class for all communication errors
     class ConnectionError   < RuntimeError; end
