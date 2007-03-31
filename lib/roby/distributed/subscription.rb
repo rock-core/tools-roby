@@ -57,6 +57,9 @@ module Roby
 
 		    case local_object
 		    when PlanObject
+			if !local_object.root_object?
+			    raise ArgumentError, "cannot subscribe to non-root objects"
+			end
 			subscribe_plan_object(local_object)
 
 		    when Plan
