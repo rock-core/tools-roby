@@ -365,6 +365,7 @@ module Roby
 	    def distributed_fire_event(generator, event)
 		event.send(:propagation_id=, Propagation.propagation_id)
 		generator.fired(event)
+		generator.call_handlers(event)
 	    end
 
 	    # Set of fired events we have been notified about by remote peers

@@ -129,6 +129,27 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	end
     end
 
+    def test_event_handlers
+	peer2peer(true) do |remote|
+	    remote.plan.insert(task = SimpleTask.new(:id => 1))
+	    def remote.start(task)
+		task = local_peer.local_object(task)
+		Roby::Control.once { task.start! }
+		nil
+	    end
+	end
+	FlexMock.use do |mock|
+	    mock.should_receive(:started).once
+
+	    task = subscribe_task(:id => 1)
+	    task.on(:start) { mock.started }
+	    remote.start(task)
+	    process_events
+
+	    assert(task.running?)
+	end
+    end
+
     # Test that we can 'forget' running tasks that was known to us because they
     # were related to subscribed tasks
     def test_forgetting

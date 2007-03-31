@@ -287,15 +287,21 @@ module Roby
 
 		fired(event)
 
-		# Since we are in a gathering context, call
-		# to other objects are not done, but gathered in the 
-		# :propagation TLS
-		each_handler do |h| 
-		    Propagation.gather_exceptions(self) { h.call(event) }
-		end
+		call_handlers(event)
 	    end
 	end
+
 	private :fire
+	
+	# Call the event handlers defined for this event generator
+	def call_handlers(event)
+	    # Since we are in a gathering context, call
+	    # to other objects are not done, but gathered in the 
+	    # :propagation TLS
+	    each_handler do |h| 
+		Propagation.gather_exceptions(self) { h.call(event) }
+	    end
+	end
 
 	# Raises an exception object when an event whose command has been
 	# called won't be emitted (ever)
