@@ -35,8 +35,7 @@ module Roby::Distributed
 
 	event :ready
 	def ready?; event(:ready).happened? end
-	def failed(context); end # Peer#connection_listener checks if 'failed' is pending to initiate the disconnection
-	event :failed, :terminal => true
+	event :failed, :terminal => true do |context| end # Peer#connection_listener checks if 'failed' is pending to initiate the disconnection
 
 	interruptible
     end
