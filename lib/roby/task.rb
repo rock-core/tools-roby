@@ -1012,7 +1012,7 @@ module Roby
 	event :failed,  :terminal => true
 
 	event :aborted, :terminal => true
-	on(:aborted) { |event| event.task.emit(:failed, event.context) }
+	forward :aborted => :failed
 
 	attr_reader :data
 	def data=(value)
