@@ -184,12 +184,21 @@ module Roby
 
 		    Distributed.each_object_relation(object) do |rel|
 			# Remove relations that do not exist anymore
+			#
+			# If the other end of this relation cannot be seen by
+			# our remote peer, keep it: it means that the relation
+			# is a local-only annotation this pDB has added to the
+			# task
 			(object.parent_objects(rel) - all_parents[rel]).each do |p|
+			    # See comment above
+			    next unless p.distribute?
 			    Distributed.update_all([p.root_object, object.root_object]) do
 				p.remove_child_object(object, rel)
 			    end
 			end
 			(object.child_objects(rel) - all_children[rel]).each do |c|
+			    # See comment above
+			    next unless c.distribute?
 			    Distributed.update_all([c.root_object, object.root_object]) do
 				object.remove_child_object(c, rel)
 			    end
