@@ -57,7 +57,7 @@ module Roby
 	    def demux(calls)
 		result = []
 		from = Time.now
-		if !peer.connected?
+		unless peer.connected? || peer.disconnecting?
 		    raise DisconnectedError, "#{remote_name} is disconnected"
 		end
 
