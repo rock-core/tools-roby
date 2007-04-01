@@ -104,6 +104,7 @@ module Roby
 		    if local_proxy = peer.proxies[object]
 			return peer.proxy_setup(local_proxy)
 		    elsif marshalled_object = peer.removing_proxies.delete(object)
+			marshalled_object.remote_siblings[peer.droby_dump] = self
 			return peer.local_object(marshalled_object)
 		    end
 		    raise ArgumentError, "got a RemoteID which has no proxy"
