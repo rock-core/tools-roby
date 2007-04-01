@@ -285,9 +285,11 @@ module Roby
 	def finish_planning(task)
 	    assert(planner = task.planning_task)
 	    planner.start! if planner.pending?
-	    planner.thread.join
-	    Roby.control.process_events
-	    assert(planner.success?)
+	    unless planner.success?
+		planner.thread.join
+		Roby.control.process_events
+		assert(planner.success?)
+	    end
 	    planner.planned_task
 	end
 
