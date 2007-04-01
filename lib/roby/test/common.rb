@@ -342,8 +342,9 @@ module Roby
 
 	# Checks that +event+ is emitted within +timeout+ seconds
 	def assert_event(event, timeout = 5)
+	    last_event = event.last
 	    assert_happens(timeout, "event #{event.symbol}") do
-		assert(event.happened?)
+		assert(event.last != last_event)
 	    end
 	end
 
