@@ -163,7 +163,11 @@ module Roby::Distributed
 	end
 
 	# Called by the remote peer to finalize the three-way handshake
-	def connected; peer.connected end
+	def connected(state); 
+	    peer.state = state
+	    peer.connected 
+	    peer.transmit(:state_update, Roby::State)
+	end
     end
     allow_remote_access PeerServer
 
@@ -206,14 +210,14 @@ module Roby::Distributed
 	attr_reader :triggers
 
 	# The remote state
-	def state; tuple['state'] end
+	attr_accessor :state
 
 	# Listens for new connections on Distributed.state
 	def self.connection_listener(connection_space)
 	    seen = []
 
 	    all_peers = connection_space.tuplespace.
-		read_all 'kind' => :peer, 'tuplespace' => nil, 'remote' => nil, 'state' => nil
+		read_all 'kind' => :peer, 'tuplespace' => nil, 'remote' => nil
 
 	    all_peers.each do |entry|
 		remote_ts = entry['tuplespace']
@@ -226,8 +230,10 @@ module Roby::Distributed
 			if peer.connecting?
 			    # The peer finalized the handshake
 			    peer.tuple = entry
-			    peer.remote_server.connected
-			    peer.connected
+			    Roby::Control.synchronize do
+				peer.connected
+				peer.remote_server.connected(Roby::State)
+			    end
 			elsif peer.connected?
 			    # ping the remote host
 			    peer.ping
@@ -441,7 +447,7 @@ module Roby::Distributed
 
 	    old, @keepalive = @keepalive, 
 		neighbour.tuplespace.write(
-		    { 'kind' => :peer, 'tuplespace' => connection_space.tuplespace, 'remote' => @local, 'state' => Roby::State }, 
+		    { 'kind' => :peer, 'tuplespace' => connection_space.tuplespace, 'remote' => @local }, 
 		    timeout)
 
 	    old.cancel if old
@@ -478,17 +484,19 @@ module Roby::Distributed
 	    Roby::Distributed.info "disconnecting from #{self}"
 	    @connection_state = :disconnecting
 
-	    @send_queue.clear
-	    @send_queue.push(nil)
-	    if @send_thread != Thread.current
-		begin
-		    mutex.unlock
-		    @send_thread.join
-		ensure
-		    mutex.lock
+	    if @send_queue
+		@send_queue.clear
+		@send_queue.push(nil)
+		if @send_thread != Thread.current
+		    begin
+			mutex.unlock
+			@send_thread.join
+		    ensure
+			mutex.lock
+		    end
 		end
+		@send_thread = nil
 	    end
-	    @send_thread = nil
 
 	    # Remove the keepalive tuple we wrote on the remote host
 	    if keepalive
@@ -522,7 +530,7 @@ module Roby::Distributed
 	def disconnected!
 	    # Remove the neighbour tuple ourselves
 	    connection_space.tuplespace.take_all(
-		{ 'kind' => :peer, 'tuplespace' => neighbour.tuplespace, 'remote' => nil, 'state' => nil },
+		{ 'kind' => :peer, 'tuplespace' => neighbour.tuplespace, 'remote' => nil },
 		0) rescue nil
 
 	    # ... and let neighbour discovery do the cleanup

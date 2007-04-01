@@ -86,8 +86,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert_equal(remote.tuplespace, remote_peer.neighbour.tuplespace)
 	info = { 'kind' => remote_peer.keepalive['kind'],
 	    'tuplespace' => remote_peer.keepalive['tuplespace'], 
-	    'remote' => remote_peer.keepalive['remote'],
-	    'state' => nil }
+	    'remote' => remote_peer.keepalive['remote'] }
 	assert_nothing_raised { remote.tuplespace.read(info, 0) }
 
 	# The connection is not link_alive yet since +remote+ does not have

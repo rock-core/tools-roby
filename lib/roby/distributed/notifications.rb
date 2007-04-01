@@ -447,5 +447,17 @@ module Roby
 		nil
 	    end
 	end
+
+	class PeerServer
+	    def state_update(new_state)
+		peer.state = new_state
+		nil
+	    end
+	end
+	Roby::Control.each_cycle do
+	    peers.each_value do |peer|
+		peer.transmit(:state_update, Roby::State) if peer.connected?
+	    end
+	end
     end
 end
