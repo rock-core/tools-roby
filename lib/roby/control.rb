@@ -16,6 +16,8 @@ module Roby
 		    map { |e| e.exception.full_message }.
 		    join("\n  ")
 	end
+	def full_message; message end
+	def backtrace; [] end
     end
 
     # Returns the only one Control object
@@ -127,7 +129,11 @@ module Roby
 
 	# Abort the control loop because of +exceptions+
 	def reraise(exceptions)
-	    raise Aborting.new(exceptions)
+	    if exceptions.size == 1
+		raise exceptions[0]
+	    else
+		raise Aborting.new(exceptions)
+	    end
 	end
 
 	# Process the pending events. The time at each event loop step
