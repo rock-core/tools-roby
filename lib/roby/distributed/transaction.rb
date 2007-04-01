@@ -288,7 +288,7 @@ module Roby
 		end
 	    end
 	    def droby_dump(dest) # :nodoc:
-		if remote_siblings.include?(dest)
+		if remote_siblings.has_key?(dest)
 		    remote_id
 		else
 		    DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest), 
