@@ -105,6 +105,27 @@ class TC_Propagation < Test::Unit::TestCase
 	    t.start!(42)
 	end
     end
+    def test_diamond_structure
+	a = Class.new(SimpleTask) do
+	    event :child_success
+	    event :child_stop
+	    forward :child_success => :child_stop
+	end.new(:id => 'a')
+
+	plan.insert(a)
+	a.realized_by(b = SimpleTask.new(:id => 'b'))
+
+	b.forward(:success, a, :child_success)
+	b.forward(:stop, a, :child_stop)
+
+	FlexMock.use do |mock|
+	    a.on(:child_stop) { mock.stopped }
+	    mock.should_receive(:stopped).twice.ordered
+	    a.start!
+	    b.start!
+	    b.success!
+	end
+    end
 
     def test_signal_forward
 	forward = EventGenerator.new(true)

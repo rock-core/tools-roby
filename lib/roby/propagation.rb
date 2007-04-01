@@ -3,8 +3,29 @@ require 'roby/exceptions'
 require 'utilrb/exception/full_message'
 require 'utilrb/unbound_method'
 
-# This module contains all code necessary for the propagation steps during execution. This includes
-# event propagation and exception propagation
+# This module contains all code necessary for the propagation steps during
+# execution. This includes event and exception propagation
+#
+# == Event propagation
+# Event propagation is based on three event relations:
+#
+# * Signal describes the commands that must be called when an event occurs. The
+#   signalled event command is called when the signalling events are emitted. If
+#   more than one event are signalling the same event in the same execution
+#   cycle, the command will be called only once
+# * Forwarding describes the events that must be emitted whenever a source
+#   event is. It is to be used as a way to define event aliases (for instance
+#   'stop' is an alias for 'success'), because a task is stopped when it has
+#   finished with success. Unlike with signals, if more than one event is
+#   forwarded to the same event in the same cycle, the target event will be
+#   emitted as many times as the incoming events.
+# * Precedence is a graph which constrains the order in which propagation is
+#   done. If there is a a => b edge in Precedence, and if both events are either
+#   called and/or forwarded in the same cycle, then 'a' will be propagated before
+#   'b'. All edges in Signal and Forwarding are present in Precedence
+#
+# == Exception propagation
+#
 module Roby::Propagation
     extend Logger::Hierarchy
     extend Logger::Forward
@@ -284,6 +305,18 @@ module Roby::Propagation
 	end
     end
 
+    # Propagate one step
+    #
+    # +current_step+ describes all pending emissions and calls. +already_seen+
+    # is obsolete and is not used anymore.
+    # 
+    # This method calls Propagation.next_event to get the description of the
+    # next event to call. If there are signals going to this event, they are
+    # processed and the forwardings will be treated in the next step.
+    #
+    # The method returns the next set of pending emissions and calls, adding
+    # the forwardings and signals that the propagation of the considered event
+    # have added.
     def self.event_propagation_step(current_step, already_seen)
 	signalled, forward_info, call_info = next_event(current_step)
 
