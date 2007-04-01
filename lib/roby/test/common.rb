@@ -1,4 +1,5 @@
 require 'test/unit'
+require 'utilrb/time/to_hms'
 require 'roby'
 require 'utilrb/module/attr_predicate'
 
@@ -397,6 +398,22 @@ module Roby
 		sleep(0.1)
 		raise "#{thread} died" unless thread.alive?
 	    end
+	end
+
+	def display_event_structure(object, relation, indent = "  ")
+	    result   = object.to_s
+	    object.history.each do |event|
+		result << "#{indent}#{event.time.to_hms} #{event}"
+	    end
+	    children = object.child_objects(relation)
+	    unless children.empty?
+		result << " ->\n" << indent
+		children.each do |child|
+		    result << display_event_structure(child, relation, indent + "  ")
+		end
+	    end
+
+	    result
 	end
     end
 end
