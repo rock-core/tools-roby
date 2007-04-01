@@ -78,7 +78,8 @@ module Roby::Log
 		Roby::Control.synchronize do
 		    args ||= yield
 		    objects = args[2].to_value_set
-		    # Format first since we want a full dump here
+		    # Do not give a 'peer' argument at Distributed.format, to
+		    # make sure we do a full dump
 		    args = Roby::Distributed.format(args) if has_logger?(m)
 		    known_objects.merge(objects)
 		end
