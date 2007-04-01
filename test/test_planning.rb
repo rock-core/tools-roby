@@ -605,12 +605,13 @@ class TC_Planner < Test::Unit::TestCase
 	second_task, second_planner = planning_loop_next(main_task)
 
 	loop_planner.loop_start!
+	assert(first_task.running?)
+
 	# Get the third planner *NOW*... We will call process_events and it will be
 	# harder to get it later
 	third_task, third_planner = planning_loop_next(main_task)
 
 	# Wait for the first pattern to be started, and then call reinit
-	assert_event(loop_planner.event(:loop_start))
 	loop_planner.reinit
 	old_first, old_second  = first_task, second_task
 	assert_equal(first_planner, loop_planner.patterns.last.first)
