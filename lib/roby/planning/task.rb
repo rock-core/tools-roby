@@ -166,7 +166,7 @@ module Roby
 	    end
 	end
 
-	# Generates the first +lookahead+ pattens and start planning the first.
+	# Generates the first +lookahead+ patterns and start planning the first.
 	# The first tasks are started when +loop_start+ is called, not before.
 	event :start do |context|
 	    if lookahead > 0
@@ -199,12 +199,14 @@ module Roby
 	    end
 	end
 	on :loop_start do |event| 
+	    return unless self_owned?
 	    append_pattern unless event.task.lookahead == 0
 	    main_task.remove_finished_children
 	end
 
 	event :loop_end
 	on :loop_end do |event|
+	    return unless self_owned?
 	    patterns.pop
 	end
 
