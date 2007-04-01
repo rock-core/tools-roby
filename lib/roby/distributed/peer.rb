@@ -447,8 +447,13 @@ module Roby::Distributed
 	    old.cancel if old
 
 	rescue DRb::DRbConnError => e
-	    Roby::Distributed.info "failed to ping #{remote_name}: #{e.message}"
-	    link_dead!
+	    if e.message =~ /ECONNREFUSED/
+		Roby::Distributed.info "#{remote_name} is no more ..."
+		disconnected!
+	    else
+		Roby::Distributed.info "failed to ping #{remote_name}: #{e.message}"
+		link_dead!
+	    end
 
 	rescue RangeError
 	    # Looks like the remote side is not what we thought it was. It may be for instance that it died
