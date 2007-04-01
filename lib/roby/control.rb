@@ -302,6 +302,7 @@ module Roby
 	attr_reader :last_stop_count
 	def clear
 	    Control.synchronize do
+		plan.missions.dup.each { |t| plan.discard(t) }
 		plan.keepalive.dup.each { |t| plan.auto(t) }
 		plan.force_gc.merge( plan.known_tasks )
 	    end
