@@ -22,9 +22,8 @@ module Roby
 	# How many loops we must have unrolled at all times
 	attr_reader :lookahead
 
-	# How many loops are currently unrolled
-	def pending_patterns; patterns.size end
-
+	# An array of [planning_task, user_command]. The *last* element is the
+	# *first* arrived
 	attr_reader :patterns
 
 	# For periodic updates. If false, the next loop is started when the
@@ -95,13 +94,14 @@ module Roby
 
 	# Appends a new unplanned pattern after all the patterns already developped
 	#
-	# +context+ is forwarded to the planend task
+	# +context+ is forwarded to the planned task
 	def append_pattern(context = nil)
 	    # Create the new pattern
 	    planning = PlanningTask.new(arguments.slice(:planner_model, :planned_model, :method_name, :method_options))
 	    planned  = planning.planned_task
 	    planned.forward(:start, self, :loop_start)
-	    planned.forward(:success, self, :loop_end)
+	    planned.forward(:success,  self, :loop_success)
+	    planned.forward(:stop,  self, :loop_end)
 	    main_task.realized_by planned
 	    
 	    # Schedule it. We start the new pattern when these three conditions are met:
@@ -115,7 +115,7 @@ module Roby
 	    if last_planning = last_planning_task
 		last_planned = last_planning.planned_task
 
-		unless last_planned.success?
+		unless last_planned.finished?
 		    precondition &= last_planned.event(:stop)
 		end
 
@@ -141,6 +141,9 @@ module Roby
 	# Remove all pending patterns, unroll as much patterns as lookahead
 	# requires.  Kills the currently running pattern (if there is one)
 	def reinit
+	    return unless running?
+
+	    count = patterns.size
 	    while !patterns.empty?
 		planning_task, command = patterns.first
 		task = planning_task.planned_task
@@ -154,24 +157,22 @@ module Roby
 	    end
 
 	    has_running_task = !patterns.empty?
-	    if lookahead > 0
-		first_planning = nil
-		while pending_patterns < lookahead
-		    new_planning = append_pattern
-		    first_planning ||= new_planning
-		end
-		unless has_running_task
-		    first_planning.start!
-		end
+	    first_planning_task = nil
+	    while patterns.size < count
+		new_planning = append_pattern
+		first_planning ||= new_planning
+	    end
+	    if !has_running_task && count > 0
+		first_planning.start!
 	    end
 	end
 
-	# Generates the first +lookahead+ patterns and start planning the first.
-	# The first tasks are started when +loop_start+ is called, not before.
+	# Generates the first +lookahead+ patterns and start planning. The
+	# tasks are started when +loop_start+ is called.
 	event :start do |context|
 	    if lookahead > 0
 		first_planning = nil
-		while pending_patterns < lookahead
+		while patterns.size < lookahead
 		    new_planning = append_pattern
 		    first_planning ||= new_planning
 		end
@@ -191,7 +192,7 @@ module Roby
 	    end
 
 	    # Find the first non-running pattern and start it
-	    patterns.reverse.each do |_, ev|
+	    patterns.reverse.each do |task, ev|
 		unless ev.happened?
 		    ev.call(context)
 		    break
@@ -204,13 +205,17 @@ module Roby
 	    main_task.remove_finished_children
 	end
 
+	event :loop_success
+
 	event :loop_end
 	on :loop_end do |event|
 	    return unless self_owned?
 	    patterns.pop
 	end
 
+	# For ordering during event propagation
 	causal_link :loop_start => :loop_end
+	causal_link :loop_success => :loop_end
     end
 
 
