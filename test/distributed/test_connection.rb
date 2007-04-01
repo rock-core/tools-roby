@@ -117,6 +117,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert(remote_peer.task.ready?)
 	remote.send_local_peer(:flush)
 	remote.process_events
+	remote.process_events
 	assert(remote.send_local_peer(:connected?))
 	assert(remote.send_local_peer(:link_alive?))
 

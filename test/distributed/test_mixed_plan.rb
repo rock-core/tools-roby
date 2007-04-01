@@ -185,7 +185,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    check_resulting_plan(trsc, false)
 	    process_events
 	    if propose_first
-		remote.subscribe(t2)
+		remote_peer.push_subscription(t2)
 		trsc.release(false)
 		remote.check_resulting_plan(trsc, false)
 		trsc.edit
@@ -196,7 +196,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 
 	    unless propose_first
 		trsc.propose(remote_peer)
-		remote.subscribe(t2)
+		remote_peer.push_subscription(t2)
 	    end
 	    process_events
 	    remote.assert_cleared_relations(plan)
