@@ -147,7 +147,7 @@ module Roby
 	    events_errors = Propagation.propagate_events(Control.event_processing)
 	    stats[:events] = Time.now
 
-	    # HACK: events_exceptions is sometime nil here. It shouldn't
+	    # HACK: events_errors is sometime nil here. It shouldn't
 	    events_errors ||= []
 
 	    # Propagate exceptions that came from event propagation
