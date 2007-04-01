@@ -1,6 +1,7 @@
 require 'roby'
 require 'roby/distributed'
 require 'roby/planning'
+require 'roby/log'
 
 module Roby
     # Returns the only one Application object
@@ -199,10 +200,40 @@ module Roby
 	end
 	
 	def setup
+	    # Create the robot namespace
+	    robot_mod = Module.new do
+		class << self
+		    attr_accessor :logger
+		end
+		extend Logger::Forward
+	    end
+	    Object.const_set('Robot', robot_mod)
+	    robot_mod.logger = Logger.new(STDOUT)
+	    robot_mod.logger.level = Logger::INFO
+
 	    # Set up log levels
 	    log['levels'].each do |name, value|
-		if (mod = constant(name) rescue nil)
-		    mod.logger.level = Logger.const_get(value)
+		name = name.camelize
+		if value =~ /^(\w+):(.+)$/
+		    level = Logger.const_get($1)
+		    file  = $2.gsub('ROBOT', robot_name)
+		else
+		    level = Logger.const_get(value)
+		end
+
+		new_logger = if file then Logger.new(File.open(file, 'w'))
+			     else Logger.new(STDOUT)
+			     end
+		new_logger.level     = level
+		new_logger.formatter = Roby.logger.formatter
+
+		if (mod = name.constantize rescue nil)
+		    if mod.logger.progname && !mod.logger.progname.empty?
+			new_logger.progname  = mod.logger.progname + " (#{robot_name})"
+		    else
+			new_logger.progname  = robot_name
+		    end
+		    mod.logger = new_logger
 		end
 	    end
 
