@@ -429,32 +429,34 @@ module Roby
 		    break
 		end
 
+		# Mark all root tasks as garbage
+		tasks.delete_if do |t| 
+		    if t.root?(TaskStructure::Hierarchy)
+			garbage(t)
+			false
+		    else
+			Roby.debug "GC: ignoring #{t}, it is not root"
+			true
+		    end
+		end
+
 		did_something = false
 		tasks.each do |t| 
-		    unless t.root?(@hierarchy) && service_relations.all? { |r| t.root?(r) }
-			Roby.debug "GC: ignored #{t}, it is not root"
-			next
-		    end
-
 		    if !t.self_owned?
 			Roby.debug "GC: #{t} is not local, removing it"
-			garbage(t)
 			remove_object(t)
+			did_something = true
 		    elsif t.starting?
 			# wait for task to be started before killing it
 			Roby.debug "GC: #{t} is starting"
 		    elsif t.pending? || t.finished?
-			garbage(t)
-			remove_object(t)
 			Roby.debug "GC: #{t} is not running, removed"
+			remove_object(t)
 			did_something = true
 		    elsif !t.finishing?
 			if t.event(:stop).controlable?
 			    Roby.debug "GC: stopped #{t}"
-			    garbage(t)
-			    t.stop!(nil)
-			    remove_object(t) unless t.running?
-			    did_something = true
+			    Roby::Control.once { t.stop!(nil) }
 			else
 			    Roby.debug "GC: ignored #{t}, it cannot be stopped"
 			end
@@ -523,7 +525,21 @@ module Roby
 
 	# Hook called when +task+ is marked as garbage. It will be garbage
 	# collected as soon as possible
-	def garbage(task); super if defined? super end
+	def garbage(task)
+	    # Remove all signals that go *to* the task
+	    #
+	    # While we want events which come from the task to be properly
+	    # forwarded, the signals that go to the task are to be ignored
+	    if task.self_owned?
+		task.each_event do |ev|
+		    ev.parent_objects(EventStructure::Signal).each do |signalling_event|
+			signalling_event.remove_signal ev
+		    end
+		end
+	    end
+
+	    super if defined? super 
+	end
 
 	# backward compatibility
 	def finalized(task) # :nodoc:

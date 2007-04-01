@@ -9,6 +9,8 @@ class TC_DistributedQuery < Test::Unit::TestCase
     def test_ownership
 	FlexMock.use do |fake_peer|
 	    fake_peer.should_receive(:remote_name).and_return('fake_peer')
+	    fake_peer.should_receive(:subscribed_plan?).and_return(false)
+	    fake_peer.should_receive(:subscribed?).and_return(false)
 
 	    t1 = Class.new(Task).new
 	    t2 = Class.new(Task).new

@@ -95,6 +95,9 @@ module TC_PlanStatic
 	assert( plan.include?(t2) )
 	assert( !plan.include?(t3) ) # t3 not related because of task structure
 	assert( plan.include?(t4) )
+
+	# Discover t3 to help plan cleanup
+	plan.discover(t3)
     end
 
     def test_insert
@@ -112,6 +115,9 @@ module TC_PlanStatic
 
 	assert( plan.mission?(t1) )
 	assert( !plan.mission?(t2) )
+
+	# Discover t3 to help plan cleanup
+	plan.discover(t3)
     end
 
     def test_useful_task_components
@@ -286,6 +292,7 @@ class TC_Plan < Test::Unit::TestCase
 
 	assert_equal(unneeded.to_set, plan.unneeded_tasks.to_set)
 	plan.garbage_collect
+	process_events
 	assert_equal(finalized.to_set, (finalized_tasks.to_set | finalized_events.to_set))
 	assert(! finalized.any? { |t| plan.include?(t) })
     end
@@ -324,13 +331,13 @@ class TC_Plan < Test::Unit::TestCase
 	    t2.start!(nil)
 	    plan.discard(t2)
 	end
-	assert_finalizes(plan, [t5, t4, p1, t6], []) do
+	assert_finalizes(plan, [t5, t4, p1, t6], [p1, t6]) do
 	    t5.delays = true
 	    t5.start!(nil)
 	    plan.discard(t5)
 	end
 	assert(t5.event(:stop).pending?)
-	assert_finalizes(plan, [t5, t4, p1, t6]) do
+	assert_finalizes(plan, [t5, t4]) do
 	    t5.event(:stop).emit(nil)
 	end
     end
@@ -354,6 +361,18 @@ class TC_Plan < Test::Unit::TestCase
 	    # This stops the mission, which will be automatically discarded
 	    t1.event(:stop).emit(nil)
 	end
+    end
+
+    def test_gc_ignores_incoming_events
+	a, b = prepare_plan :discover => 2, :model => SimpleTask
+	a.on(:stop, b, :start)
+	a.start!
+
+	process_events
+	process_events
+	assert(!a.plan)
+	assert(!b.plan)
+	assert(!b.event(:start).happened?)
     end
 
     def test_garbage_collect_events
