@@ -629,7 +629,7 @@ module Roby::Distributed
 		    end
 		    proxy_setup(local_object)
 		else
-		    raise "cannot create a proxy for #{marshalled}"
+		    raise "no remote siblings for #{remote_name} in #{marshalled} (#{marshalled.remote_siblings})"
 		end
 	    else
 		local_object = marshalled.proxy(self)
