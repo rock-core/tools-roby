@@ -16,10 +16,12 @@ module Roby
 	    end
 	end
 
+	attr_reader :dot_id
 	def to_dot(display, io, level)
 	    @layout_level = level
 	    id = io.layout_id(self)
-	    io << "subgraph cluster_plan_#{id} {\n"
+	    @dot_id = "plan_#{id}"
+	    io << "subgraph cluster_#{dot_id} {\n"
 	    known_tasks.each { |t| t.to_dot(display, io) if display.displayed?(t) }
 	    free_events.each { |e| e.to_dot(display, io) if display.displayed?(e) }
 	    io << "};\n"
@@ -72,12 +74,37 @@ module Roby
 		display.arrow(from, to, rel, from[to, rel])
 	    end
 	end
+
+	# The distance from the root plan
+	attr_reader :depth
+
+	# Computes the plan depths and max_depth for this plan and all its
+	# children. +depth+ is this plan depth
+	#
+	# Returns max_depth
+	def compute_depth(depth)
+	    @depth = depth
+	    child_depth = transactions.
+		map { |trsc| trsc.compute_depth(depth + 1) }.
+		max
+	    child_depth || depth
+	end
 	
-	def apply_layout(positions, display)
+	def apply_layout(bounding_rects, positions, display, max_depth = nil)
+	    max_depth ||= compute_depth(0)
+
+	    if rect = bounding_rects[dot_id]
+		item = display[self]
+		item.z_value = Log::PLAN_LAYER + depth - max_depth
+		item.set_rect *rect
+	    else
+		Roby::Log.warn "no bounding rectangle for #{self} (#{dot_id})"
+	    end
+
 	    known_tasks.each { |t| t.apply_layout(positions, display) }
 	    free_events.each { |e| e.apply_layout(positions, display) }
 	    transactions.each do |trsc|
-		trsc.apply_layout(positions, display)
+		trsc.apply_layout(bounding_rects, positions, display, max_depth)
 	    end
 	    layout_relations(positions, display, TaskStructure, known_tasks)
 	    layout_relations(positions, display, EventStructure, all_events(display))
@@ -173,10 +200,10 @@ module Roby
 		system("#{display.layout_method} #{dot_input.path} > #{dot_output.path}")
 		FileUtils.cp dot_output.path, "/tmp/dot-output-#{@@index}.dot"
 
-		xmin, ymin = 1024, 1024
 		# Load only task bounding boxes from dot, update arrows later
-		graph_bb   = nil
-		object_pos = Hash.new
+		current_graph_id = nil
+		bounding_rects = Hash.new
+		object_pos     = Hash.new
 		lines = File.open(dot_output.path) { |io| io.readlines  }
 		full_line = ""
 		lines.each do |line|
@@ -189,38 +216,39 @@ module Roby
 
 		    case full_line
 		    when /((?:\w+_)+\d+) \[.*pos="(\d+),(\d+)"/
-			id = $1
-			x, y = Integer($2), Integer($3)
-			xmin = x if x < xmin
-			ymin = y if y < ymin
-			object_pos[$1] = Qt::PointF.new(x, y)
-		    when /bb="(\d+),(\d+),(\d+),(\d+)"/
+			object_pos[$1] = Qt::PointF.new(Integer($2), Integer($3))
+		    when /subgraph cluster_(plan_\d+)/
+			current_graph_id = $1
+		    when /graph \[bb="(\d+),(\d+),(\d+),(\d+)"\]/
 			bb = [$1, $2, $3, $4].map(&method(:Integer))
-			if !graph_bb
-			    graph_bb = bb
-			end
+			bounding_rects[current_graph_id] = [bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1]]
 		    end
 		    full_line = ""
 		end
-		return unless graph_bb
 
+		graph_bb = bounding_rects.delete(nil)
+		bounding_rects.each_value do |coords|
+		    coords[0] -= graph_bb[0]
+		    coords[1] = graph_bb[1] - coords[1] - coords[3]
+		end
 		object_pos.each do |id, pos|
-		    pos.x -= xmin
+		    pos.x -= graph_bb[0]
 		    pos.y = graph_bb[1] - pos.y
 		end
 
-		@display = display
-		@plan    = plan
-		@object_pos = object_pos
+		@display         = display
+		@plan            = plan
+		@object_pos      = object_pos
+		@bounding_rects  = bounding_rects
 
 	    ensure
 		dot_input.close!  if dot_input
 		dot_output.close! if dot_output
 	    end
 
-	    attr_reader :object_pos, :display, :plan
+	    attr_reader :bounding_rects, :object_pos, :display, :plan
 	    def apply
-		plan.apply_layout(object_pos, display)
+		plan.apply_layout(bounding_rects, object_pos, display)
 	    end
 	end
     end

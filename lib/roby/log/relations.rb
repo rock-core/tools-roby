@@ -158,6 +158,27 @@ module Roby
 	end
     end
 
+    module LoggedPlan
+	PLAN_STROKE_WIDTH = 5
+	# The plan depth, i.e. its distance from the root plan
+	attr_reader :depth
+	# The max depth of the plan tree in this branch
+	attr_reader :max_depth
+
+	def display_create(scene)
+	    pen            = Qt::Pen.new
+	    pen.width      = PLAN_STROKE_WIDTH
+	    pen.style      = Qt::SolidLine
+	    pen.cap_style  = Qt::SquareCap
+	    pen.join_style = Qt::RoundJoin
+	    scene.add_rect Qt::RectF.new(0, 0, 0, 0), pen
+	end
+	def display_parent; parent_plan end
+	def display(display, item)
+	    STDERR.puts "DISPLAYING PLAN"
+	end
+    end
+
     module Log
 	EVENT_CIRCLE_RADIUS = 3
 	TASK_EVENT_SPACING  = 5
@@ -188,9 +209,9 @@ module Roby
 	EVENT_FONTSIZE = 8
 
 	PLAN_LAYER             = 0
-	TASK_RELATIONS_LAYER   = 50
-	EVENT_RELATIONS_LAYER  = 51
-	EVENT_SIGNALLING_LAYER = 52
+	TASK_RELATIONS_LAYER   = PLAN_LAYER + 50
+	EVENT_RELATIONS_LAYER  = PLAN_LAYER + 51
+	EVENT_SIGNALLING_LAYER = PLAN_LAYER + 52
 
 	FIND_MARGIN = 10
 
@@ -576,23 +597,23 @@ module Roby
 		    clear_arrows(obj)
 		end
 
+		visible_objects.merge(data_source.plans.keys.to_value_set)
+
 		# Create graphics items for tasks and events if necessary, and
 		# update their visibility according to the visible_objects set
-		all_tasks.each { |task| create_or_get_item(task) }
-		all_events.each do |event| 
-		    create_or_get_item(event) do |item|
-			item.parent_item = self[event.display_parent] if event.display_parent
+		[all_tasks, all_events, data_source.plans.keys].each do |object_set|
+		    object_set.each do |object|
+			create_or_get_item(object) do |item|
+			    item.parent_item = self[object.display_parent] if object.display_parent
+			end
 		    end
 		end
 
-		# Update the displayed objects
-		all_tasks.each do |task|
-		    next unless displayed?(task)
-		    task.display(self, graphics[task])
-		end
-		all_events.each do |event| 
-		    next unless displayed?(event)
-		    event.display(self, graphics[event])
+		[all_tasks, all_events, data_source.plans.keys].each do |object_set|
+		    object_set.each do |object|
+			next unless displayed?(object)
+			object.display(self, graphics[object])
+		    end
 		end
 
 		# Layout the graph

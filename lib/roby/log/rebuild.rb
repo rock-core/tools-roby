@@ -348,10 +348,7 @@ module Roby
 		throw :ignored, "unknown task" unless task
 
 		plan = local_plan(plan)
-
-		unless plan.parent_plan && plan.parent_plan.known_tasks.include?(task)
-		    finalized_tasks[task] = plan
-		end
+		finalized_tasks[task] = plan
 	    end
 	    def added_transaction(time, plan, trsc)
 		plan = local_plan(plan)
@@ -363,14 +360,14 @@ module Roby
 		plan = local_plan(plan)
 		trsc = local_plan(trsc)
 		Log.remove_object(plans, trsc)
-
 		plan.transactions.delete(trsc)
-		# Removed tasks and proxies that have been moved from the
+
+		# Remove tasks and proxies that have been moved from the
 		# transaction to the plan before clearing the transaction
-		trsc.known_tasks.each do |obj|
+		(trsc.known_tasks - plan.known_tasks).each do |obj|
 		    finalized_task(time, trsc, obj)
 		end
-		trsc.free_events.each do |obj|
+		(trsc.free_events - plan.free_events).each do |obj|
 		    finalized_event(time, trsc, obj)
 		end
 	    end
