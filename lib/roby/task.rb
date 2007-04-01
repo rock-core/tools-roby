@@ -207,7 +207,7 @@ module Roby
 		if old == new then old
 		elsif writable?(key) then new
 		else
-		    raise ArgumentError, "cannot override task arguments"
+		    raise ArgumentError, "cannot override task argument #{key}: trying to replace #{old} by #{new}"
 		end
 	    end
 	end
