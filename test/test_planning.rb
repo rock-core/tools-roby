@@ -585,6 +585,81 @@ class TC_Planner < Test::Unit::TestCase
 	assert(!third_task.running?)
     end
 
+    def test_planning_loop_reinit_periodic
+	task_model = Class.new(SimpleTask)
+	planner_model = Class.new(Planning::Planner) do 
+	    @@id = 0
+	    method(:task) do 
+		task_model.new(:id => (@@id += 1))
+	    end
+	end
+
+	plan.insert(main_task = Roby::Task.new)
+	loop_planner = PlanningLoop.new :period => 0, :lookahead => 2, 
+	    :planner_model => planner_model, :planned_model => Roby::Task, 
+	    :method_name => :task, :method_options => {}	
+	main_task.planned_by loop_planner
+
+	loop_planner.start!
+	first_task, first_planner   = planning_loop_next(main_task)
+	second_task, second_planner = planning_loop_next(main_task)
+
+	loop_planner.loop_start!
+	# Get the third planner *NOW*... We will call process_events and it will be
+	# harder to get it later
+	third_task, third_planner = planning_loop_next(main_task)
+
+	# Wait for the first pattern to be started, and then call reinit
+	assert_event(loop_planner.event(:loop_start))
+	loop_planner.reinit
+	old_first, old_second  = first_task, second_task
+	assert_equal(first_planner, loop_planner.patterns.last.first)
+	assert(old_first.parents.empty?)
+	first_task, first_planner   = planning_loop_next(main_task)
+
+	assert_event(old_first.event(:stop))
+	assert(!old_first.plan)
+	assert(!old_second.plan)
+
+	assert_not_equal(first_task, old_first)
+	process_events
+	assert(first_task.running?)
+    end
+
+    def test_planning_loop_reinit_zero_lookahead
+	task_model = Class.new(SimpleTask)
+	planner_model = Class.new(Planning::Planner) do 
+	    @@id = 0
+	    method(:task) do 
+		task_model.new(:id => (@@id += 1))
+	    end
+	end
+
+	plan.insert(main_task = Roby::Task.new)
+	loop_planner = PlanningLoop.new :period => nil, :lookahead => 0, 
+	    :planner_model => planner_model, :planned_model => Roby::Task, 
+	    :method_name => :task, :method_options => {}	
+	main_task.planned_by loop_planner
+
+	loop_planner.start!
+	loop_planner.loop_start!
+	first_task, first_planner   = planning_loop_next(main_task)
+	assert(first_task.running?)
+
+	loop_planner.reinit
+	loop_planner.loop_start!
+	old_first = first_task
+	first_task, first_planner   = planning_loop_next(main_task)
+	assert_equal(2, first_task.arguments[:id])
+
+	assert(old_first.running?)
+	assert(first_task.pending?)
+
+	process_events
+	assert(old_first.finished?)
+	assert(first_task.running?)
+    end
+
     def test_make_loop
 	planner_model = Class.new(Planning::Planner) do
 	    include Test::Unit::Assertions

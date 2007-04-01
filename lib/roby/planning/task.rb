@@ -19,16 +19,13 @@ module Roby
 
 	# The period. Zero means continuously and false 'on demand'
 	attr_reader :period
-	# How many loops do we have unroll
+	# How many loops we must have unrolled at all times
 	attr_reader :lookahead
 
 	# How many loops are currently unrolled
-	def pending_patterns; start_commands.size end
+	def pending_patterns; patterns.size end
 
-	# An queue of event generators. Each generator starts the next pending
-	# loop
-	attr_accessor :start_commands
-	private :start_commands
+	attr_reader :patterns
 
 	# For periodic updates. If false, the next loop is started when the
 	# 'loop_start' command is called
@@ -47,7 +44,10 @@ module Roby
 	# The planner method options
 	argument :method_options
 
-	def self.filter_options(options)
+	# Filters the options in +options+, splitting between the options that
+	# are specific to the planning task and those that are to be forwarded
+	# to the planner itself
+	def self.filter_options(options) # :nodoc:
 	    task_arguments, planning_options = Kernel.filter_options options, 
 		:period => nil,
 		:lookahead => 1,
@@ -67,7 +67,6 @@ module Roby
 	    [task_arguments, planning_options]
 	end
 
-	attr_reader :planning_tasks
 	def initialize(options)
 	    task_arguments, planning_options = PlanningLoop.filter_options(options)
 	    task_arguments[:method_options].merge!(planning_options)
@@ -77,16 +76,26 @@ module Roby
 	    @period, @lookahead, @planner_model, @method_name, @method_options, @planned_model = 
 		arguments.values_at(:period, :lookahead, :planner_model, :method_name, :method_options, :planned_model)
 	    
-	    @start_commands = []
-	    @planning_tasks = []
+	    @patterns = []
 	end
-
-	def planned_task; planned_tasks.find { true } end
 
 	# The task on which the children are added
 	def main_task; planned_task || self end
+	
+	def planned_task # :nodoc:
+	    planned_tasks.find { true } 
+	end
+
+	# The last PlanningTask object
+	def last_planning_task
+	    if pattern = patterns.first
+		pattern.first
+	    end
+	end
 
 	# Appends a new unplanned pattern after all the patterns already developped
+	#
+	# +context+ is forwarded to the planend task
 	def append_pattern(context = nil)
 	    # Create the new pattern
 	    planning = PlanningTask.new(arguments.slice(:planner_model, :planned_model, :method_name, :method_options))
@@ -99,19 +108,20 @@ module Roby
 	    #	* it has been planned (planning has finished)
 	    #	* the previous one (if any) has finished
 	    #	* the period (if any) has expired or loop_start has been called
-	    start_next = planning.event(:success)
+	    precondition = planning.event(:success)
 	    # this event is used to start the next pattern
-	    start_next_loop = EventGenerator.new(true)
+	    user_command = EventGenerator.new(true)
 
 	    if last_planning = last_planning_task
 		last_planned = last_planning.planned_task
+
 		unless last_planned.success?
-		    start_next &= last_planned.event(:success)
+		    precondition &= last_planned.event(:stop)
 		end
+
+		command = precondition & user_command
 		if period
-		    start_next = start_next.delay(period) | (start_next & start_next_loop)
-		else
-		    start_next &= start_next_loop
+		    command |= precondition.delay(period)
 		end
 
 		if last_planning.success?
@@ -120,21 +130,47 @@ module Roby
 		    last_planning.event(:success).filter(context).on(planning.event(:start))
 		end
 	    else
-		start_next &= start_next_loop
+		command = precondition & user_command
 	    end
 
-	    start_commands.unshift(start_next_loop)
-	    planning_tasks.unshift planning
-
-	    start_next.on(planned.event(:start))
+	    patterns.unshift([planning, user_command])
+	    command.on(planned.event(:start))
 	    planning
+	end
+
+	# Remove all pending patterns, unroll as much patterns as lookahead
+	# requires.  Kills the currently running pattern (if there is one)
+	def reinit
+	    while !patterns.empty?
+		planning_task, command = patterns.first
+		task = planning_task.planned_task
+		main_task.remove_child task
+
+		if task.running?
+		    break
+		else
+		    patterns.shift
+		end
+	    end
+
+	    has_running_task = !patterns.empty?
+	    if lookahead > 0
+		first_planning = nil
+		while pending_patterns < lookahead
+		    new_planning = append_pattern
+		    first_planning ||= new_planning
+		end
+		unless has_running_task
+		    first_planning.start!
+		end
+	    end
 	end
 
 	# Generates the first +lookahead+ pattens and start planning the first.
 	# The first tasks are started when +loop_start+ is called, not before.
-	def start(context)
-	    first_planning = nil
+	event :start do |context|
 	    if lookahead > 0
+		first_planning = nil
 		while pending_patterns < lookahead
 		    new_planning = append_pattern
 		    first_planning ||= new_planning
@@ -144,58 +180,32 @@ module Roby
 
 	    emit :start, context
 	end
-	event :start
 
-	# Enumerates the PlanningTask we have currently added to the plan
-	def each_pattern_planning
-	    main_task.children.each do |child|
-		planning = child.planning_task
-		if planning && 
-		    planning.planner_model == planner_model &&
-		    planning.method_name == method_name &&
-		    planning.method_options == method_options
-		    yield(planning)
-		end
-	    end
-	end
-
-	# The last planned task
-	def last_planned_task
-	    if last_planning_task
-		last_planning_task.planned_task 
-	    end
-	end
-	# The last PlanningTask object
-	def last_planning_task
-	    planning_tasks.first
-	end
-	
-	def loop_start(context)
+	event :loop_start do |context|
 	    if lookahead == 0
 		start_planning = !last_planning_task
 		planning = append_pattern(context)
 		if start_planning
 		    planning.start!(context)
 		end
-		start_commands.first.call(context)
-	    else
-		start_commands.last.call(context)
+	    end
+
+	    # Find the first non-running pattern and start it
+	    patterns.reverse.each do |_, ev|
+		unless ev.happened?
+		    ev.call(context)
+		    break
+		end
 	    end
 	end
-	event :loop_start
-	on(:loop_start) do |event| 
-	    event.task.instance_eval do
-		start_commands.pop
-		append_pattern unless event.task.lookahead == 0
-		main_task.remove_finished_children
-	    end
+	on :loop_start do |event| 
+	    append_pattern unless event.task.lookahead == 0
+	    main_task.remove_finished_children
 	end
 
 	event :loop_end
-	on(:loop_end) do |event|
-	    event.task.instance_eval do
-		planning_tasks.pop
-	    end
+	on :loop_end do |event|
+	    patterns.pop
 	end
 
 	causal_link :loop_start => :loop_end
