@@ -431,7 +431,11 @@ module Roby
 
 		# Mark all root tasks as garbage
 		tasks.delete_if do |t| 
-		    if t.root?(TaskStructure::Hierarchy)
+		    is_root = TaskStructure.each_relation do |rel| 
+			break unless t.root?(rel)
+		    end
+
+		    if is_root
 			garbage(t)
 			false
 		    else
