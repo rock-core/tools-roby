@@ -98,16 +98,9 @@ module Roby
 		assert(remote_neighbour = local.neighbours.find { true })
 		@remote_peer = Peer.initiate_connection(local, remote_neighbour)
 
-		remote.start_neighbour_discovery(true)
-		remote.process_events
-		assert(remote.send_local_peer(:connecting?))
-
-		local.start_neighbour_discovery(true)
 		process_events
 		assert(remote_peer.connected?)
-
-		remote.start_neighbour_discovery(true)
-		remote.process_events
+		process_events
 		assert(remote.send_local_peer(:connected?))
 	    end
 
@@ -135,23 +128,13 @@ module Roby
 
 	    def process_events
 		if Roby.control.thread
-		    if remote_peer.connected?
-			remote_peer.synchro_point
-		    end
 		    remote.wait_one_cycle
-		    if remote_peer.connected?
-			remote_peer.synchro_point
-		    end
 		    Roby.control.wait_one_cycle
 		elsif remote_peer && !remote_peer.disconnected?
-		    remote.start_neighbour_discovery(true)
-		    local.start_neighbour_discovery(true)
-		    remote_peer.synchro_point if remote_peer.connected?
 		    Roby::Control.synchronize do
 			remote.process_events
 			Roby.control.process_events
 		    end
-		    remote_peer.synchro_point if remote_peer.connected?
 		else
 		    super
 		end

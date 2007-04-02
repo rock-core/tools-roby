@@ -21,6 +21,16 @@ module Roby
 		    wait_contents.signal
 		end
 	    end
+	    def pop
+		mutex.synchronize do
+		    element = contents.shift
+		    if contents.empty?
+			# Hack to fix the shift/push bug on arrays
+			@contents = []
+		    end
+		    element
+		end
+	    end
 	    def concat(obj)
 		mutex.synchronize do
 		    contents.concat(obj)
@@ -29,6 +39,7 @@ module Roby
 		self 
 	    end
 	    def empty?; mutex.synchronize { contents.empty? } end
+	    def size; mutex.synchronize { contents.size } end
 	    def get(nonblock = false)
 		mutex.synchronize do
 		    if contents.empty? && !nonblock
@@ -45,8 +56,6 @@ module Roby
 
 	    attribute(:synchro_execute) { ConditionVariable.new }
 
-	    # True if the calls being served has queued callbacks
-	    attr_predicate :has_callbacks?, true
 	    # True the current thread is processing a remote request
 	    def processing?; !processing_callback?.nil? end
 	    # True if the current thread is processing a remote request, and if it is a callback
@@ -55,44 +64,43 @@ module Roby
 	    # Called by the remote peer to make us process something. +calls+ elements
 	    # are [is_callback, method, args]. Returns [result, error]
 	    def demux(calls)
-		result = []
 		from = Time.now
-		unless peer.connected? || peer.disconnecting?
-		    raise DisconnectedError, "#{remote_name} is disconnected"
+		calls_size = calls.size
+
+		if peer.disconnected?
+		    raise DisconnectedError, "not connected to #{remote_name}"
 		end
 
-		calls.each do |is_callback, method, args|
+		while call_spec = calls.shift
+		    return unless call_spec
+		    is_callback, method, args = *call_spec
 		    Distributed.debug do 
 			args_s = args.map { |obj| obj ? obj.to_s : 'nil' }
 			"processing #{is_callback ? 'callback' : 'method'} #{method}(#{args_s.join(", ")})"
 		    end
 
-		    Control.synchronize do
-			@has_callbacks = false
+		    result = Control.synchronize do
 			Thread.current[PROCESSING_CALLBACKS_TLS] = !!is_callback
-			result << send(method, *args)
+			send(method, *args)
 		    end
 
-		    if has_callbacks?
-			peer.transmit(:processed_callbacks)
-			return [result, true, nil]
+		    if method != :completed && method != :disconnected
+			Distributed.debug { "done, returns #{result || 'nil'}" }
+			peer.queue_call false, :completed, [result, false]
 		    end
-		    Distributed.debug { "done, returns #{result.last || 'nil'}" }
 		end
 
-		[result, false, nil]
+		Distributed.debug "successfully served #{calls_size} calls in #{Time.now - from} seconds"
+		nil
 
 	    rescue Exception => e
 		if processing_callback?
-		    processed_callbacks(e)
-		    CallbackProcessingError.exception(e)
+		    completed(e, true)
+		    e = CallbackProcessingError.exception(e)
 		end
-		[result, false, e]
+		[calls_size - calls.size - 1, e]
 
 	    ensure
-		Distributed.debug "served #{result.size} calls in #{Time.now - from} seconds"
-
-		@has_callbacks = false
 		Thread.current[PROCESSING_CALLBACKS_TLS] = nil
 	    end
 
@@ -102,17 +110,24 @@ module Roby
 	    end
 
 	    def done_synchro_point; end
-	    def processed_callbacks(error = nil)
-		result, call_spec = peer.pending_callbacks.pop
+	    def completed(result, error)
+		call_spec = peer.completion_queue.pop
 		if error
-		    if thread = call_spec.last
-			thread.raise error
+		    if call_spec && thread = call_spec.last
+			thread.raise result
 		    else
-			Roby.fatal "error while processing callbacks:in #{error.full_message}"
+			Roby.fatal "error while processing callbacks:in #{result.full_message}"
 		    end
 
 		else
 		    peer.call_attached_block(call_spec, result)
+		end
+
+		if !peer.sending?
+		    peer.synchronize do
+			Distributed.debug "sending queue is empty"
+			peer.send_flushed.broadcast
+		    end
 		end
 		nil
 	    end
@@ -152,15 +167,46 @@ module Roby
 	# callbacks.  These callbacks will be processed by Peer#send_thread
 	# before the rest of the queue might be processed
 	class Peer
+	    # The main synchronization mutex to access the peer.
+	    # See also Peer#synchronize
 	    attr_reader :mutex
 	    def synchronize; @mutex.synchronize { yield } end
-	    attr_reader :send_flushed
-	    attr_reader :send_thread
-	    attribute(:pending_callbacks) { Queue.new }
 
-	    # A list of ConditionVariable object that can be used by #call and #synchro_point
+	    # The transmission thread
+	    attr_reader :send_thread
+
+	    # The queue which holds all calls to the remote peer. An element of
+	    # the queue is 
+	    #
+	    #   [is_callback, method, args, on_completion, trace, thread]
+	    #
+	    # where
+	    # * is_callback is a boolean flag indicating if this call has been
+	    #   queued while the PeerServer object was processing a remote request
+	    # * <tt>method(args)</tt> is the method call itself
+	    # * +on_completion+ is a proc object which will be called when the
+	    #   method has successfully been processed by the remote object, with
+	    #   the returned value as argument$
+	    # * trace is the location (as returned by Kernel#caller) from which
+	    #   the call has been queued. It is mainly used for debugging
+	    #   purposes
+	    # * if +thread+ is not nil, it is the thread which is waiting for
+	    #   the call to complete. If the call is aborted, the error will be
+	    #   raised in the waiting thread
+	    attr_reader :send_queue
+	    # A condition variable announcing that all messages in send_queue
+	    # has been sent
+	    attr_reader :send_flushed 
+	    # The queue of calls that have been sent to our peer, but for which
+	    # a +completed+ message has not been received
+	    attr_reader :completion_queue
+	    
+	    # A list of ConditionVariable object that can be used by #call This
+	    # is accessed by #get_condvar and #return_condvar
 	    attr_reader :condition_variables
 
+	    # Get a condition variable object from the #condition_variables
+	    # pool
 	    def get_condvar
 		if condition_variables.empty?
 		    ConditionVariable.new
@@ -168,24 +214,19 @@ module Roby
 		    condition_variables.shift
 		end
 	    end
+	    # Return a condition variable object into the #condition_variables
+	    # poll
 	    def return_condvar(condvar)
 		condition_variables.unshift(condvar)
 	    end
 
-	    # True if we are currently something. Note that sending? is true when 
-	    # #do_send is sending something to the remote host, so it is possible to
-	    # have #sending? return true while send_queue is empty.
-	    def sending?; @sending && connected? end
-
-	    # The queue which holds all calls to the remote peer. An element of the queue
-	    # is [[object, [method, args]], callback, trace], where
-	    # * +object+ is the remote object on which method(args) is to be called
-	    # * +callback+ is a proc object which will be called when the method has
-	    #   successfully been called on the remote object, with the returned value
-	    #   as argument$
-	    # * trace is the location (as returned by Kernel#caller) from which the call
-	    #   has been queued. It is mainly used for debugging purposes
-	    attr_reader :send_queue
+	    # True if we are currently something. Note that sending? is true
+	    # when #do_send is sending something to the remote host, so it is
+	    # possible to have #sending? return true while send_queue and/or
+	    # completion_queue are empty.
+	    def sending?
+	       	(@sending || !send_queue.empty? || !completion_queue.empty?) && !disconnected?
+	    end
 
 	    def check_marshallable(object, stack = ValueSet.new)
 		if !object.kind_of?(DRbObject) && object.respond_to?(:each) && !object.kind_of?(String)
@@ -212,27 +253,36 @@ module Roby
 	    end
 	    
 	    def queue_call(is_callback, m, args = [], block = nil, thread = nil)
-		if !connected?
-		    raise DisconnectedError, "we are not currently connected to #{remote_name}"
-		end
-
-		# do some sanity checks
+		# Do some sanity checks
 		if !m.respond_to?(:to_sym)
 		    raise ArgumentError, "method argument should be a symbol, was #{m.class}"
 		elsif m.to_sym == :demux
 		    raise ArgumentError, "you cannot queue a demux call"
 		end
 
+		# Check the connection state
+		if connecting?
+		    if m != :connect && m != :connected
+			raise DisconnectedError, "cannot queue #{m}(#{args.join(", ")}) while we are connecting"
+		    end
+		elsif disconnecting?
+		    if m != :disconnected && m != :completed
+			raise DisconnectedError, "cannot queue #{m}(#{args.join(", ")}) while we are disconnecting"
+		    end
+		elsif disconnected?
+		    raise DisconnectedError, "cannot queue #{m}(#{args.join(", ")}), we are not currently connected to #{remote_name}"
+		end
+
 		# Marshal DRoby-dumped objects now, since the object may be
 		# modified between now and the time it is sent
 		args = Distributed.format(args, self)
 
-		if Roby::Distributed::DEBUG_MARSHALLING
-		    check_marshallable(args)
-		end
+		# if Roby::Distributed::DEBUG_MARSHALLING
+		#     check_marshallable(args)
+		# end
 		
-		send_queue.push [is_callback, m, args, block, caller(2), thread]
 		@sending = true
+		send_queue.push [is_callback, m, args, block, caller(2), thread]
 	    end
 
 	    # call-seq:
@@ -246,7 +296,6 @@ module Roby
 		    if local.processing_callback?
 			raise RecursiveCallbacksError, "cannot queue callback #{m}(#{args.join(", ")}) while serving one"
 		    end
-		    local.has_callbacks = true
 		end
 		
 		Distributed.debug do
@@ -295,9 +344,11 @@ module Roby
 	    def flush
 		synchronize do
 		    return false unless sending?
+
+		    Distributed.debug "flushing ..."
 		    send_flushed.wait(mutex)
 
-		    if !connected?
+		    if disconnected?
 			if @failing_error
 			    raise @failing_error
 			else
@@ -311,20 +362,21 @@ module Roby
 	    # Main loop of the thread which communicates with the remote peer
 	    def communication_loop
 		Thread.current.priority = 2
-		while calls ||= send_queue.get
-		    return unless connected?
+		loop do
+		    calls = send_queue.get
+		    return if disconnected?
 		    # Wait for the link to be alive before sending anything
 		    while !link_alive?
-			return unless connected?
-			connection_space.wait_discovery
+			return if disconnected?
+			connection_space.wait_next_discovery
 		    end
 
 		    # Mux all pending calls into one array and send them
-		    synchronize do
-			return unless connected?
-			calls.concat(send_queue.get(true))
+		    return if disconnected?
+		    calls.concat(send_queue.get(true))
 
-			error, calls = do_send(calls)
+		    error_call, error = do_send(calls)
+		    synchronize do
 			if error
 			    @failing_error = error
 			    Distributed.warn "#{name} disconnecting from #{neighbour.name} because of error"
@@ -332,28 +384,26 @@ module Roby
 			    # Check that there is no thread waiting for the call to
 			    # finish. If it is the case, raise the exception in
 			    # that thread as well
-			    if calls && calls.first && thread = calls.first.last
+			    if error_call && thread = error_call.last
 				thread.raise error
-				calls.shift
 			    end
 
 			    disconnected!
 			    return
 			end
 
-			if !calls || calls.empty?
-			    calls = nil
-			    unless @sending = !send_queue.empty?
-				Distributed.debug "sending queue is empty"
-				send_flushed.broadcast
-			    end
+			@sending = !send_queue.empty?
+			if !sending?
+			    Distributed.debug "sending queue is empty"
+			    send_flushed.broadcast
 			end
 		    end
 		end
 
+	    rescue Interrupt
 	    rescue Exception
 		Distributed.fatal do
-		    "Communication thread dies with\n#{$!.full_message}\nPending calls where:\n  #{calls}"
+		    "Communication thread dies with\n#{$!.full_message}" #Pending calls where:\n  #{calls}"
 		end
 
 		synchronize do
@@ -362,11 +412,8 @@ module Roby
 
 	    ensure
 		Distributed.info "communication thread quitting for #{self}"
-		calls ||= []
+		calls = completion_queue.get(true)
 		calls.concat send_queue.get(true)
-		while !pending_callbacks.empty?
-		    calls << pending_callbacks.pop.last
-		end
 		calls.each do |call_spec|
 		    next unless call_spec
 		    if thread = call_spec.last
@@ -403,13 +450,14 @@ module Roby
 	    end
 
 	    # Calls the block that has been given to #transmit when +call+ is
-	    # finalized. A remote call is finalized when it has been processed
+	    # completed. A remote call is completed when it has been processed
 	    # remotely *and* the callbacks returned by the remote server (if
 	    # any) have been processed as well. +result+ is the value returned
 	    # by the remote server.
 	    def call_attached_block(call, result)
 		if block = call[3]
 		    begin
+			Roby.debug "calling completion block #{block} for #{call_to_s(call)}"
 			block.call(result)
 		    rescue Exception => e
 			Roby.application_error(:droby_callbacks, block, e)
@@ -421,44 +469,43 @@ module Roby
 	    # calls the attached blocks with the value returned by the remote
 	    # server if the call succeeds. 
 	    #
-	    # Returns [error, remaining_calls], where +error+ is true if an
-	    # error occured, and +remaining_calls+ is the list of calls to be
-	    # retried.
+	    # Returns an error if an error occured, or nil
 	    def do_send(calls) # :nodoc:
 		before_call = Time.now
 		Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
-		results, has_callbacks, error = begin remote_server.demux(calls.map { |a| a[0, 3] })
-				 rescue Exception
-				     [[], false, $!]
-				 end
-
-		remaining_calls = calls[results.size..-1]
-		if has_callbacks
-		    result    = results.pop
-		    call_spec = calls[results.size]
-		    pending_callbacks << [result, call_spec]
-		end
-
-		success = results.size
-		Distributed.debug do
-		    "#{neighbour.name} processed #{success} commands in #{Time.now - before_call} seconds"
-		end
-		(0...success).each { |i| call_attached_block(calls[i], results[i]) }
+		completion_queue.concat calls.find_all { |c| c[1] != :completed && c[1] != :disconnected }
+		error_call, error = begin remote_server.demux(calls.map { |a| a[0, 3] })
+				    rescue Exception => error
+					[0, error]
+				    end
 
 		case error
 		when DRb::DRbConnError
-		    Distributed.warn { "it looks like we cannot talk to #{neighbour.name} (#{error.message})" }
-		    # We have a connection error, mark the connection as not being alive
-		    link_dead!
-		    error = nil
+		    if error.message =~ /ECONNREFUSED/
+			Distributed.warn "#{remote_name} is no more ..."
+		    else
+			Distributed.warn "it looks like we cannot talk to #{neighbour.name} (#{error.message})"
+			# We have a connection error, mark the connection as not being alive
+			link_dead!
+			error = nil
+		    end
 		when DisconnectedError
-		    Distributed.warn { "#{neighbour.name} has disconnected" }
+		    Distributed.debug do
+			report_remote_error(calls[error_call], error)
+		    end
+		    Distributed.warn "#{neighbour.name} has disconnected"
 		when Exception
 		    Distributed.warn do
-			report_remote_error(remaining_calls.first, error)
+			report_remote_error(calls[error_call], error)
+		    end 
+		else
+		    Distributed.debug do
+			"#{neighbour.name} processed #{calls.size} commands in #{Time.now - before_call} seconds"
 		    end
 		end
-		[error, remaining_calls]
+		if error
+		    [calls[error_call], error]
+		end
 	    end
 
 	    def synchro_point; call(:synchro_point) end

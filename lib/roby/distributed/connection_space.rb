@@ -6,27 +6,23 @@ require 'utilrb/kernel/options'
 require 'roby/distributed/drb'
 require 'roby/distributed/peer'
 
-class Rinda::TupleSpace
-    def _dump(lvl); @__droby_marshalled__ ||= Marshal.dump(DRbObject.new(self)) end
-    def self._load(str); Marshal.load(str) end
-end
-
 module Roby
     module Distributed
 	DISCOVERY_RING_PORT = 48932
 
 	# A neighbour is a named remote ConnectionSpace object
 	class Neighbour
-	    attr_reader :name, :tuplespace
-	    def initialize(name, tuplespace)
-		@name, @tuplespace = name, tuplespace
+	    attr_reader :name, :remote_id
+	    def initialize(name, remote_id)
+		@name, @remote_id = name, remote_id
 	    end
 
 	    def connect; Peer.new(ConnectionSpace.state, peer) end
 	    def ==(other)
 		other.kind_of?(Neighbour) &&
-		    (tuplespace == other.tuplespace)
+		    (remote_id == other.remote_id)
 	    end
+	    def to_s; "#<Neighbour:#{name} #{remote_id}>" end
 	    def eql?(other); other == self end
 	end
 
@@ -40,8 +36,6 @@ module Roby
 	    elsif id.respond_to?(:to_str)
 		peers.each_value { |p| return p if p.remote_name == id.to_str }
 		nil
-	    elsif id == Distributed.state.tuplespace
-		Distributed
 	    else
 		nil
 	    end
@@ -91,9 +85,6 @@ module Roby
 	#
 	class ConnectionSpace
 	    include DRbUndumped
-
-	    # Our tuplespace
-	    attr_reader :tuplespace
 
 	    # List of discovered neighbours
 	    def neighbours; synchronize { @neighbours.dup } end
@@ -145,8 +136,6 @@ module Roby
 		    raise ArgumentError, "you must provide a discovery period when using ring discovery"
 		end
 
-		@tuplespace	      = Rinda::TupleSpace.new
-
 		@name                 = options[:name]
 		@neighbours           = Array.new
 		@peers                = Hash.new
@@ -162,21 +151,20 @@ module Roby
 		@new_neighbours	      = Queue.new
 
 		@connection_listeners = Array.new
-		@connection_listeners << Peer.method(:connection_listener)
 
 		yield(self) if block_given?
 
 
 		if central_discovery?
-		    if (@discovery_tuplespace.write([:host, tuplespace, tuplespace.object_id, name]) rescue nil)
-			if @discovery_tuplespace.kind_of?(DRbObject)
-			    Distributed.info "published ourselves on #{@discovery_tuplespace.__drburi}"
+		    if (discovery_tuplespace.write([:host, name, remote_id]) rescue nil)
+			if discovery_tuplespace.kind_of?(DRbObject)
+			    Distributed.info "published #{name}(#{remote_id}) on #{discovery_tuplespace.__drburi}"
 			else
-			    Distributed.info "published ourselves on local tuplespace"
+			    Distributed.info "published #{name}(#{remote_id}) on local tuplespace"
 			end
 		    else
-			Distributed.warn "cannot connect to #{@discovery_tuplespace.__drburi}, disabling centralized discovery"
-			@discovery_tuplespace = nil
+			Distributed.warn "cannot connect to #{discovery_tuplespace.__drburi}, disabling centralized discovery"
+			discovery_tuplespace = nil
 		    end
 		end
 
@@ -214,6 +202,19 @@ module Roby
 		    Distributed.server.port
 		else DISCOVERY_RING_PORT
 		end
+	    end
+	    
+	    # Called by our peer to initiate a connection
+	    def connect(name, remote_id, remote_server)
+		# Find the neighour based on remote_id. If it does not exist, accept
+		# the connection anyway
+		unless neighbour = Distributed.neighbours.find { |n| n.remote_id == remote_id }
+		    synchronize do
+			neighbour = Neighbour.new(name, remote_id)
+			@neighbours << neighbour
+		    end
+		end
+		Peer.connection_request(self, neighbour, remote_server)
 	    end
 
 	    # Loop which does neighbour_discovery
@@ -259,10 +260,10 @@ module Roby
 
 		    from = Time.now
 		    if central_discovery?
-			discovery_tuplespace.read_all([:host, nil, nil, nil]).
+			discovery_tuplespace.read_all([:host, nil, nil]).
 			    each do |n| 
-				next if n[1] == tuplespace
-				n = Neighbour.new(n[3], n[1]) 
+				next if n[2] == remote_id
+				n = Neighbour.new(n[1], n[2]) 
 				discovered << n
 			    end
 		    end
@@ -272,10 +273,10 @@ module Roby
 		    end
 
 		    if ring_discovery?
-			finger.lookup_ring(remaining) do |ts|
-			    next if ts == self
+			finger.lookup_ring(remaining) do |cs|
+			    next if cs == self
 
-			    discovered << Neighbour.new(ts.name, ts)
+			    discovered << Neighbour.new(cs.name, cs.remote_id)
 			end
 		    end
 		end
@@ -299,24 +300,40 @@ module Roby
 			peer.disconnected rescue nil
 		    end
 		end
+
+		synchronize do
+		    @discovery_thread = nil
+		    finished_discovery.broadcast
+		end
 	    end
 
 	    # Starts one neighbour discovery loop
 	    def start_neighbour_discovery(block = false)
 		synchronize do
+		    unless discovery_thread && discovery_thread.alive?
+			raise "no discovery thread"
+		    end
+
 		    @discovery_start = Time.now
 		    start_discovery.signal
 		end
 		wait_discovery if block
 	    end
+
 	    def wait_discovery
 		discovering? do
 		    finished_discovery.wait(mutex)
 		end
 	    end
+	    def wait_next_discovery
+		synchronize do
+		    unless discovery_thread && discovery_thread.alive?
+			raise "no discovery thread"
+		    end
+		    finished_discovery.wait(mutex)
+		end
+	    end
 
-	    # The ConnectionSpace object is referenced by its tuplespace
-	    def remote_id; tuplespace.remote_id end
 	    # Define #droby_dump for Peer-like behaviour
 	    def droby_dump(dest); @__droby_marshalled__ ||= Peer::DRoby.new(name, remote_id) end
 
@@ -326,14 +343,21 @@ module Roby
 		# Remove us from the central tuplespace
 		if central_discovery?
 		    begin
-			@discovery_tuplespace.take [:host, tuplespace, nil, nil]
+			discovery_tuplespace.take [:host, nil, remote_id], 0
 		    rescue DRb::DRbConnError, Rinda::RequestExpiredError
 		    end
 		end
 
 		# Make the neighbour discovery thread quit as well
-		@discovery_thread.raise Interrupt, "forcing discovery thread quit"
-		@discovery_thread.join
+		thread = synchronize do
+		    if thread = @discovery_thread
+			thread.raise Interrupt, "forcing discovery thread quit"
+		    end
+		    thread
+		end
+		if thread 
+		    thread.join
+		end
 
 	    ensure
 		Roby::Control.finalizers.delete(method(:quit))

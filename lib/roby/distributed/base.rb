@@ -120,6 +120,11 @@ module Roby
 	    def self.from_object(obj)
 		Roby::Distributed::RemoteID.new(DRb.current_server.uri, DRb.to_id(obj) || 0)
 	    end
+
+	    # Creates a DRbObject corresponding to the object referenced by this RemoteID
+	    def to_drb_object
+		DRbObject.new_with(uri, (ref == 0 ? nil : ref))
+	    end
 	end
 
 	@updated_objects = ValueSet.new

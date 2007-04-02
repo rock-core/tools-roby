@@ -456,7 +456,9 @@ module Roby
 	end
 	Roby::Control.each_cycle do
 	    peers.each_value do |peer|
-		peer.transmit(:state_update, Roby::State) if peer.connected?
+		if peer.connected?
+		    peer.transmit(:state_update, Roby::State) 
+		end
 	    end
 	end
     end

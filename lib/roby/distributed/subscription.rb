@@ -5,6 +5,7 @@ module Roby
 	    def each_updated_peer(*objects)
 		return if objects.any? { |o| !o.distribute? }
 		Distributed.peers.each_value do |peer|
+		    next unless peer.connected?
 		    return unless objects.any? { |obj| obj.update_on?(peer) }
 		    yield(peer)
 		end
