@@ -397,6 +397,11 @@ module Roby
 		end
 		bb.adjust -FIND_MARGIN, -FIND_MARGIN, FIND_MARGIN, FIND_MARGIN
 		ui.graphics.fit_in_view bb, Qt::KeepAspectRatio
+		scale = ui.graphics.matrix.m11
+		if scale > 1
+		    ui.graphics.resetMatrix
+		    ui.graphics.scale 1, 1
+		end
 	    end
 	    slots 'find()'
 
