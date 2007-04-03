@@ -397,7 +397,7 @@ module Roby
 
 	def stop; call_plugins(:stop, self) end
 
-	DISCOVERY_TEMPLATE = [:host, nil, nil, nil]
+	DISCOVERY_TEMPLATE = [:host, nil, nil]
 	def start_distributed
 	    if !File.exists?(logdir)
 		Dir.mkdir(logdir)
@@ -411,10 +411,10 @@ module Roby
 		take_db = ts.notify('take', DISCOVERY_TEMPLATE)
 
 		Thread.start do
-		    new_db.each { |_, t| STDERR.puts "new host #{t[3]}" }
+		    new_db.each { |_, t| STDERR.puts "new host #{t[1]}" }
 		end
 		Thread.start do
-		    take_db.each { |_, t| STDERR.puts "host #{t[3]} has disconnected" }
+		    take_db.each { |_, t| STDERR.puts "host #{t[1]} has disconnected" }
 		end
 		STDERR.puts "Started service discovery on #{discovery['tuplespace']}"
 	    end
