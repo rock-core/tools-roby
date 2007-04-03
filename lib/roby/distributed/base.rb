@@ -159,6 +159,8 @@ module Roby
 		return true if keep_object?(local_object)
 
 		Roby::Distributed.each_object_relation(local_object) do |rel|
+		    next unless rel.root_relation?
+
 		    local_object.each_parent_object(rel) do |obj|
 			return true if keep_object?(obj)
 		    end
