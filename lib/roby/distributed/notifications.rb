@@ -322,14 +322,15 @@ module Roby
 
 	    # Creates an Event object for +generator+, with the given argument
 	    # as parameters, or returns an already existing one
-	    def event_for(generator, event_id, time, context)
+	    def event_for(generator, event_id, time, context, fired)
 		# This must be done at reception time, or we will invert
 		# operations (for instance, we could do a remove_object on a
 		# task which is not finished yet)
 
-		id, event = pending_events[generator]
+		id, already_fired, event = pending_events[generator]
 		if id && id == event_id
-		    return event
+		    pending_events[generator][1] ||= fired
+		    return [already_fired || fired, event]
 		end
 		
 		event = generator.new(context)
@@ -337,15 +338,17 @@ module Roby
 		if generator.respond_to?(:task)
 		    generator.task.update_task_status(event)
 		end
-		pending_events[generator] = [event_id, event]
-		event
+		pending_events[generator] = [event_id, fired, event]
+		[fired, event]
 	    end
 
 	    # Called by the peer to notify us about an event which has been fired
 	    def event_fired(marshalled_from, event_id, time, context)
 		return unless from_generator = peer.local_object(marshalled_from)
 		context = peer.local_object(context)
-		Distributed.pending_fired << [from_generator, event_for(from_generator, event_id, time, context)]
+
+		_, event = event_for(from_generator, event_id, time, context, true)
+		Distributed.pending_fired << [from_generator, event]
 		nil
 	    end
 
@@ -354,7 +357,9 @@ module Roby
 		return unless from_generator = peer.local_object(marshalled_from)
 		return unless to = peer.local_object(marshalled_to)
 		context = peer.local_object(context)
-		Distributed.pending_signals << [only_forward, from_generator, to, event_for(from_generator, event_id, time, context)]
+
+		fired, event = event_for(from_generator, event_id, time, context, false)
+		Distributed.pending_signals << [only_forward, from_generator, to, fired, event]
 		nil
 	    end
 	end
@@ -374,16 +379,14 @@ module Roby
 	    attr_reader :pending_signals
 	    # Fire the signals we have been notified about by remote peers
 	    def distributed_signals
-		seen = ValueSet.new
 		while !pending_fired.empty?
 		    generator, event = pending_fired.pop
-		    seen << event
 		    distributed_fire_event(generator, event)
 		end
 
 		while !pending_signals.empty?
-		    only_forward, from_generator, to_generator, event = pending_signals.pop
-		    unless seen.include?(event)
+		    only_forward, from_generator, to_generator, fired, event = pending_signals.pop
+		    unless fired # no +fired+ event for this event. Do fire it ourselves
 			distributed_fire_event(from_generator, event)
 		    end
 
