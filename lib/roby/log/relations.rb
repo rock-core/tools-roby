@@ -40,7 +40,7 @@ module Roby
 		model_name = model.ancestors.first.first
 		model_name = model_name.gsub /Generator$/, ''
 		model_name = model_name.gsub /^Roby::/, ''
-		@display_name = "#{model_name}"
+		@display_name = "#{model_name}\n#{remote_siblings_to_s}\n#{owners_to_s}"
 	    end
 
 	    @display_name
