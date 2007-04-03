@@ -220,7 +220,13 @@ module Roby
 	    @name = name
 	    @options = options
 	    @subsets = Set.new
-	    @dag = true
+
+	    if options.has_key?(:dag)
+		@dag = options[:dag]
+	    else
+		@dag = true
+	    end
+
 	    if options[:subsets]
 		options[:subsets].each(&method(:superset_of))
 	    end
