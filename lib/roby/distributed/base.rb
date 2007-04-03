@@ -164,10 +164,14 @@ module Roby
 		    next unless rel.root_relation?
 
 		    local_object.each_parent_object(rel) do |obj|
+			next unless obj.distribute?
 			return true if keep_object?(obj)
+			return true if local_object.self_owned? && !obj.self_owned?
 		    end
 		    local_object.each_child_object(rel) do |obj|
+			next unless obj.distribute?
 			return true if keep_object?(obj)
+			return true if local_object.self_owned? && !obj.self_owned?
 		    end
 		end
 
