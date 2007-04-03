@@ -410,7 +410,7 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal(SimpleTask, first_task.class)
 	first_planner = first_task.planning_task
 	assert_equal(planning_task_options, first_task.planning_task.arguments)
-	assert_equal(1, loop_planner.pending_patterns)
+	assert_equal(1, loop_planner.patterns.size)
 
 	loop_planner.append_pattern
 	assert_equal(2, main_task.children.size)
@@ -418,7 +418,7 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal(SimpleTask, first_task.class)
 	second_planner = second_task.planning_task
 	assert_equal(planning_task_options, first_task.planning_task.arguments)
-	assert_equal(2, loop_planner.pending_patterns)
+	assert_equal(2, loop_planner.patterns.size)
 
 	assert_not_same(first_planner, second_planner)
 
@@ -434,14 +434,14 @@ class TC_Planner < Test::Unit::TestCase
 
 	first_task = first_planner.planned_task
 	assert(!first_task.running? && !second_task.running?)
-	assert_equal(2, loop_planner.pending_patterns)
+	assert_equal(2, loop_planner.patterns.size)
 
 	second_planner.thread.join
 	process_events
 	assert(second_planner.success?)
 	second_task = second_planner.planned_task
 	assert(!first_task.running? && !second_task.running?)
-	assert_equal(2, loop_planner.pending_patterns)
+	assert_equal(2, loop_planner.patterns.size)
 
 	# Start the first pattern, check we have one more planner and that it
 	# is running to keep the lookahead
