@@ -132,7 +132,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    mock.should_receive(:task_handler_called).once.ordered
 	    mock.should_receive(:global_handler_called).once.ordered
 	    Control.once { t2.start! }
-	    assert_raises(Aborting) { process_events }
+	    assert_raises(Roby::TaskModelViolation) { process_events }
 	end
     end
 
@@ -312,7 +312,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    Roby::Control.once { mock.other_once_handler }
 	    Roby::Control.event_processing << lambda { mock.other_event_processing }
 
-	    assert_raises(Roby::Aborting) { process_events }
+	    assert_raises(RuntimeError) { process_events }
 	end
 	assert(task.event(:start).happened?)
     end

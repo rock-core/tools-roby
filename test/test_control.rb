@@ -90,7 +90,7 @@ class TC_Control < Test::Unit::TestCase
 	    mock.should_receive(:handler_called).never
 
 	    Control.once { t.start!(nil) }
-	    assert_raises(Aborting) { process_events }
+	    assert_raises(SpecificException) { process_events }
 	    assert(!t.event(:start).pending)
 	end
 
