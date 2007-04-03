@@ -99,11 +99,13 @@ module Roby
 	    def inspect; to_s end
 	    def pretty_print(pp); pp.text to_s end
 
-	    def proxy(peer)
+	    def to_local(peer, create)
 		object = local_object
 		if object.kind_of?(RemoteID)
 		    if local_proxy = peer.proxies[object]
 			return peer.proxy_setup(local_proxy)
+		    elsif !create
+			return
 		    elsif marshalled_object = peer.removing_proxies.delete(object)
 			marshalled_object.remote_siblings[peer.droby_dump] = self
 			return peer.local_object(marshalled_object)

@@ -553,9 +553,11 @@ module Roby::Distributed
 	# none of the two. In the latter case, a RemotePeerMismatch exception
 	# is raised if the local proxy is not known to this peer.
 	def local_object(marshalled, create = true)
-	    return marshalled unless marshalled.respond_to?(:proxy)
-
-	    if marshalled.respond_to?(:remote_siblings)
+	    if marshalled.kind_of?(RemoteID)
+		return marshalled.to_local(self, create)
+	    elsif !marshalled.respond_to?(:proxy)
+		return marshalled
+	    elsif marshalled.respond_to?(:remote_siblings)
 		if remote_object = marshalled.remote_siblings[droby_dump]
 		    unless local_object = proxies[remote_object]
 			return if !create
