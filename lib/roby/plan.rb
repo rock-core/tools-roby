@@ -343,9 +343,10 @@ module Roby
 	    useful_events = events.dup
 	    free_events.each do |ev|
 		next if useful_events.include?(ev)
-		EventStructure.each_relation do |relation|
-		    next unless relation.root_relation?
-		    next unless event_set = relation.components([ev], false).first
+		EventStructure.each_relation do |rel|
+		    next unless rel.root_relation?
+
+		    next unless event_set = rel.components([ev], false).first
 		    useful = event_set.any? do |obj| 
 			obj.kind_of?(Roby::TaskEventGenerator) ||
 			    useful_events.include?(obj)
