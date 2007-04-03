@@ -356,9 +356,9 @@ module Roby
 		# modified between now and the time it is sent
 		formatted_args = Distributed.format(args, self)
 
-		# if Roby::Distributed::DEBUG_MARSHALLING
-		#     check_marshallable(args)
-		# end
+		if Roby::Distributed::DEBUG_MARSHALLING
+		    check_marshallable(args)
+		end
 		
 		@sending = true
 		call_spec = CallSpec.new(is_callback, 

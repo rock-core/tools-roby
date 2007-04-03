@@ -225,7 +225,7 @@ end
 
 module Roby
     module Distributed
-	DEBUG_MARSHALLING = true
+	DEBUG_MARSHALLING = false
 
 	class Peer
 	    class DRoby
