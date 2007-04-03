@@ -73,12 +73,14 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	    end
 	end
 
+	assert(local.discovery_thread)
+
 	# Initiate the connection from +local+
 	local.start_neighbour_discovery(true)
 	remote_neighbour = Distributed.neighbours.find { true }
 	@remote_peer     = Peer.initiate_connection(local, remote_neighbour)
-	assert(remote_peer.connecting?)
-	assert(remote.send_local_peer(:connecting?))
+	assert(remote_peer.connecting? || remote_peer.connected?)
+	assert(remote.send_local_peer(:connecting?) || remote.send_local_peer(:connected?))
 	assert(remote_peer.link_alive?)
 	assert(remote.send_local_peer(:link_alive?))
 
@@ -87,6 +89,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 
 	assert_raises(ArgumentError) { Peer.initiate_connection(local, remote_neighbour) }
 
+	assert(remote_peer.link_alive?)
 	remote_peer.flush
 	remote.send_local_peer(:flush)
 	assert(remote_peer.connected?)
