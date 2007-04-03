@@ -105,13 +105,18 @@ module Roby
 	    # It is also used by BasicObject#forget_peer to remove references
 	    # to an old sibling
 	    def removed_sibling(local_id, remote_id)
-		sibling = local_id.local_object.remove_sibling_for(peer, remote_id)
+		local_object = local_id.local_object
+		sibling = local_object.remove_sibling_for(peer, remote_id)
 
 		# It is fine to remove a sibling twice: you nay for instance
 		# decide in both sides that the sibling should be removed (for
 		# instance during the disconnection process)
 		if sibling && sibling != remote_id
 		    raise "removed sibling #{sibling} for #{local_id} on peer #{peer} does not match the provided remote id (#{remote_id})"
+		end
+
+		unless local_object.remotely_useful?
+		    Distributed.removed_objects.delete(local_object)
 		end
 	    end
 

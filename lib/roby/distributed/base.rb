@@ -237,6 +237,10 @@ module Roby
 		else {}
 		end
 	    end
+
+	    # The set of objects that have been removed locally, but for which
+	    # there are still references on our peers
+	    attribute(:removed_objects) { ValueSet.new }
 	end
     end
 end

@@ -127,18 +127,22 @@ module Roby
 
 		if object.self_owned?
 		    Distributed.clean_triggered(object)
-		end
 
-		if !Distributed.updating?(plan)
-		    Distributed.peers.each_value do |peer|
-			if peer.connected? && plan.has_sibling_on?(peer)
-			    peer.transmit(:plan_remove_object, plan, object)
+		    if !Distributed.updating?(plan)
+			Distributed.peers.each_value do |peer|
+			    if peer.connected?
+				peer.transmit(:plan_remove_object, plan, object)
+			    end
 			end
 		    end
-		end
 
-		object.remote_siblings.keys.each do |peer|
-		    object.forget_peer(peer) unless peer == Roby::Distributed
+		    if object.remotely_useful?
+			Distributed.removed_objects << object
+		    end
+		else
+		    object.remote_siblings.keys.each do |peer|
+			object.forget_peer(peer) unless peer == Roby::Distributed
+		    end
 		end
 	    end
 	    def finalized_task(task)
@@ -205,6 +209,7 @@ module Roby
 			    plan.remove_object(local)
 			end
 		    end
+		    local.forget_peer(peer)
 		end
 	    end
 
