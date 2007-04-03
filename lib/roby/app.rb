@@ -215,8 +215,9 @@ module Roby
 	    log['levels'].each do |name, value|
 		name = name.camelize
 		if value =~ /^(\w+):(.+)$/
-		    level = Logger.const_get($1)
-		    file  = $2.gsub('ROBOT', robot_name)
+		    level, file = $1, $2
+		    level = Logger.const_get(level)
+		    file = file.gsub('ROBOT', robot_name) if robot_name
 		else
 		    level = Logger.const_get(value)
 		end
