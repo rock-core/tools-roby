@@ -64,8 +64,13 @@ module Roby::TaskStructure
 		    end
 		else
 		    on(:start) do
-			Roby::Distributed.update(self) do
-			    execution_agent.forward(:stop, self, :aborted)
+			# The event handler will be called even if the
+			# execution agent has been removed. Check that there is
+			# actually an execution agent 
+			if execution_agent
+			    Roby::Distributed.update(self) do
+				execution_agent.forward(:stop, self, :aborted)
+			    end
 			end
 		    end
 		end
