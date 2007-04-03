@@ -216,11 +216,13 @@ module Roby
 
 		    case full_line
 		    when /((?:\w+_)+\d+) \[.*pos="(\d+),(\d+)"/
-			object_pos[$1] = Qt::PointF.new(Integer($2), Integer($3))
+			object_pos[$1] = Qt::PointF.new(Integer($2) * display.layout_scale, Integer($3) * display.layout_scale)
 		    when /subgraph cluster_(plan_\d+)/
 			current_graph_id = $1
 		    when /graph \[bb="(\d+),(\d+),(\d+),(\d+)"\]/
-			bb = [$1, $2, $3, $4].map(&method(:Integer))
+			bb = [$1, $2, $3, $4].map do |c|
+			    c = Integer(c) * display.layout_scale
+			end
 			bounding_rects[current_graph_id] = [bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1]]
 		    end
 		    full_line = ""

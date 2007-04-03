@@ -488,6 +488,13 @@ module Roby
 		else "dot"
 		end
 	    end
+	    def layout_scale
+		if layout_method == 'neato'
+		    4
+		else
+		    1
+		end
+	    end
 
 	    def displayed?(object)
 	       	visible_objects.include?(object) || 
