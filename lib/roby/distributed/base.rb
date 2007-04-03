@@ -30,6 +30,7 @@ class Object
 end
 
 class DRbObject
+    def to_s; inspect end
     # Converts this DRbObject into Roby::Distributed::RemoteID
     def remote_id
 	@__droby_remote_id__ ||= Roby::Distributed::RemoteID.new(__drburi, __drbref)
