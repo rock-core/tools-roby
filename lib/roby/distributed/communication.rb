@@ -5,49 +5,97 @@ module Roby
 	class CallbackProcessingError < RuntimeError; end
 
 	class CommunicationQueue
+	    # The elements inside the queue, as an Array
 	    attr_reader :contents
-	    attr_reader :wait_contents
+	    # The synchronization mutex for this queue
 	    attr_reader :mutex
+	    # A ConditionVariable which is signalled when the queue is empty
+	    attr_reader :wait_clear
+	    # A ConditionVariable which is signalled when there is contents in the queue
+	    attr_reader :wait_contents
+	    # If not nil, specifies a maximum size for the queue: if there is
+	    # more than #max_size elements waiting in the queue, #push and
+	    # #concat will block, waiting for the queue to be empty
+	    attr_reader :max_size
+
 	    def synchronize(&block); mutex.synchronize(&block) end
-	    def initialize
+
+	    def initialize(max_size = nil)
 		@contents = []
 		@mutex    = Mutex.new
 		@wait_contents = ConditionVariable.new
+		@wait_clear = ConditionVariable.new
+		@max_size = max_size
 	    end
-	    def clear; mutex.synchronize { contents.clear }; self end
-	    def push(obj)
-		mutex.synchronize do
-		    contents.push obj
-		    wait_contents.signal
+
+	    # This method will wait for #wait_clear if there is a limit on the
+	    # queue size, and if there is not enough room left
+	    #
+	    # It must be called with #mutex locked
+	    def check_room
+		if max_size && contents.size >= max_size
+		    wait_clear.wait(mutex)
 		end
 	    end
+
+	    # Add a new element at the end of the queue
+	    def push(obj)
+		mutex.synchronize do
+		    check_room
+		    contents.push obj
+		    wait_contents.broadcast
+		end
+	    end
+
+	    # Add a set of elements at the end of the queue
+	    def concat(obj)
+		mutex.synchronize do
+		    check_room
+		    contents.concat(obj)
+		    wait_contents.broadcast
+		end
+		self 
+	    end
+
+	    # Removes the first element from the queue
 	    def pop
 		mutex.synchronize do
 		    element = contents.shift
 		    if contents.empty?
 			# Hack to fix the shift/push bug on arrays
 			@contents = []
+			wait_clear.broadcast
 		    end
 		    element
 		end
 	    end
-	    def concat(obj)
-		mutex.synchronize do
-		    contents.concat(obj)
-		    wait_contents.signal
-		end
-		self 
-	    end
+
+	    # True if the queue is empty
 	    def empty?; mutex.synchronize { contents.empty? } end
+	    # How many elements are there in the queue now ?
 	    def size; mutex.synchronize { contents.size } end
+
+	    # Get all elements at once. If +nonblock+ is true and if there is
+	    # no elements in the queue, returns an empty array. If +nonblock+
+	    # is false, waits for new elements
 	    def get(nonblock = false)
 		mutex.synchronize do
 		    if contents.empty? && !nonblock
 			wait_contents.wait(mutex)
 		    end
 		    @contents, result = [], @contents
+		    wait_clear.broadcast
 		    return result
 		end
+	    end
+
+	    # Removes all elements from the queue
+	    def clear
+	       	mutex.synchronize do 
+		    contents.clear 
+		    wait_clear.broadcast
+		end 
+		self 
 	    end
 	end
 

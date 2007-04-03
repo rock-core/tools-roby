@@ -130,6 +130,27 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 	assert_equal([], queue.get(true))
     end
 
+    def test_communication_queue_max_size
+	queue = Roby::Distributed::CommunicationQueue.new(2)
+	assert(queue.empty?)
+
+	queue.push 42
+	assert(!queue.empty?)
+	assert_equal([42], queue.get)
+	assert(queue.empty?)
+
+	queue.push 42
+	queue.push 24
+	t = Thread.new do
+	    queue.push 10
+	end
+	while !t.stop?; sleep(0.1) end
+	assert(t.alive?)
+	assert_equal([42, 24], queue.get)
+	assert(t.join)
+	assert_equal([10], queue.get)
+    end
+
     def test_transmit
 	FlexMock.use do |mock|
 	    # Check that nothing is sent while the link is not alive
