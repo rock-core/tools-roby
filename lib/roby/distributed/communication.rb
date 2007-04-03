@@ -1,9 +1,52 @@
 module Roby
     module Distributed
-
 	class RecursiveCallbacksError < RuntimeError; end
 	class CallbackProcessingError < RuntimeError; end
 
+	CallSpec = Struct.new :is_callback, 
+	    :method, :formatted_args, :original_args,
+	    :on_completion, :trace, :waiting_thread
+
+	# The specification of a call in Peer#send_queue and Peer#completion_queue. Note
+	# that only the #is_callback, #method and #formatted_args are sent to the remote
+	# PeerServer#demux method
+	#
+	# * is_callback is a boolean flag indicating if this call has been
+	#   queued while the PeerServer object was processing a remote request
+	# * <tt>method</tt> is the method name to call on the remote PeerServer object
+	# * <tt>formatted_args</tt> is the arguments formatted by
+	#   Distributed.format.  Arguments are formatted right away, since we
+	#   want the marshalled arguments to reflect objects state at the
+	#   time of the call, not at the time they are sent
+	# * +original_args+ is the arguments not yet formatted. They are
+	#   kept here to protect involved object from Ruby's GC until the
+	#   call is completed.
+	# * +on_completion+ is a proc object which will be called when the
+	#   method has successfully been processed by the remote object, with
+	#   the returned value as argument$
+	# * trace is the location (as returned by Kernel#caller) from which
+	#   the call has been queued. It is mainly used for debugging
+	#   purposes
+	# * if +thread+ is not nil, it is the thread which is waiting for
+	#   the call to complete. If the call is aborted, the error will be
+	#   raised in the waiting thread
+	class CallSpec
+	    alias :callback? :is_callback
+
+	    # Converts this object to what PeerServer#demux expects
+	    def to_demux_argument; [is_callback, method, formatted_args] end
+
+	    def to_s
+		args = formatted_args.map do |arg|
+		    if arg.kind_of?(DRbObject) then arg.inspect
+		    else arg.to_s
+		    end
+		end
+		"#{method}(#{args.join(", ")})"
+	    end
+	end
+
+	# A multi-threaded FIFO
 	class CommunicationQueue
 	    # The elements inside the queue, as an Array
 	    attr_reader :contents
@@ -161,20 +204,22 @@ module Roby
 	    def completed(result, error)
 		call_spec = peer.completion_queue.pop
 		if error
-		    if call_spec && thread = call_spec.last
+		    if call_spec && thread = call_spec.waiting_thread
 			thread.raise result
 		    else
 			Roby.fatal "error while processing callbacks:in #{result.full_message}"
 		    end
 
-		else
+		elsif call_spec
 		    peer.call_attached_block(call_spec, result)
 		end
 
 		if !peer.sending?
 		    peer.synchronize do
-			Distributed.debug "sending queue is empty"
-			peer.send_flushed.broadcast
+			if !peer.sending?
+			    Distributed.debug "sending queue is empty"
+			    peer.send_flushed.broadcast
+			end
 		    end
 		end
 		nil
@@ -223,30 +268,15 @@ module Roby
 	    # The transmission thread
 	    attr_reader :send_thread
 
-	    # The queue which holds all calls to the remote peer. An element of
-	    # the queue is 
-	    #
-	    #   [is_callback, method, args, on_completion, trace, thread]
-	    #
-	    # where
-	    # * is_callback is a boolean flag indicating if this call has been
-	    #   queued while the PeerServer object was processing a remote request
-	    # * <tt>method(args)</tt> is the method call itself
-	    # * +on_completion+ is a proc object which will be called when the
-	    #   method has successfully been processed by the remote object, with
-	    #   the returned value as argument$
-	    # * trace is the location (as returned by Kernel#caller) from which
-	    #   the call has been queued. It is mainly used for debugging
-	    #   purposes
-	    # * if +thread+ is not nil, it is the thread which is waiting for
-	    #   the call to complete. If the call is aborted, the error will be
-	    #   raised in the waiting thread
+	    # The queue which holds all calls to the remote peer. Calls are 
+	    # saved as CallSpec objects
 	    attr_reader :send_queue
 	    # A condition variable announcing that all messages in send_queue
 	    # has been sent
 	    attr_reader :send_flushed 
 	    # The queue of calls that have been sent to our peer, but for which
-	    # a +completed+ message has not been received
+	    # a +completed+ message has not been received. This is a queue
+	    # of CallSpec objects
 	    attr_reader :completion_queue
 	    
 	    # A list of ConditionVariable object that can be used by #call This
@@ -300,7 +330,8 @@ module Roby
 		Marshal.dump(object)
 	    end
 	    
-	    def queue_call(is_callback, m, args = [], block = nil, thread = nil)
+	    # Add a CallSpec object in #send_queue
+	    def queue_call(is_callback, m, args = [], on_completion = nil, waiting_thread = nil)
 		# Do some sanity checks
 		if !m.respond_to?(:to_sym)
 		    raise ArgumentError, "method argument should be a symbol, was #{m.class}"
@@ -323,14 +354,31 @@ module Roby
 
 		# Marshal DRoby-dumped objects now, since the object may be
 		# modified between now and the time it is sent
-		args = Distributed.format(args, self)
+		formatted_args = Distributed.format(args, self)
 
 		# if Roby::Distributed::DEBUG_MARSHALLING
 		#     check_marshallable(args)
 		# end
 		
 		@sending = true
-		send_queue.push [is_callback, m, args, block, caller(2), thread]
+		call_spec = CallSpec.new(is_callback, 
+			    m, formatted_args, args, 
+			    on_completion, caller(2), waiting_thread)
+
+		if m == :state_update
+		    Roby.debug "merged the state_update call with the previous one"
+		    send_queue.synchronize do
+			if !send_queue.contents.empty? && send_queue.contents[-1].method == :state_update
+			    send_queue.contents[-1].formatted_args = formatted_args
+			else
+			    send_queue.contents.push call_spec
+			    send_queue.wait_contents.broadcast
+			end
+		    end
+		else
+		    send_queue.push call_spec
+		end
+
 	    end
 
 	    # call-seq:
@@ -432,7 +480,7 @@ module Roby
 			    # Check that there is no thread waiting for the call to
 			    # finish. If it is the case, raise the exception in
 			    # that thread as well
-			    if error_call && thread = error_call.last
+			    if error_call && thread = error_call.waiting_thread
 				thread.raise error
 			    end
 
@@ -464,34 +512,25 @@ module Roby
 		calls.concat send_queue.get(true)
 		calls.each do |call_spec|
 		    next unless call_spec
-		    if thread = call_spec.last
+		    if thread = call_spec.waiting_thread
 			thread.raise DisconnectedError
 		    end
 		end
 
 		Distributed.info "communication thread quit for #{self}"
 
-		@sending = nil
-		send_flushed.broadcast
-	    end
-
-	    # Formats the RPC specification +call+ in a string suitable for debugging display
-	    def call_to_s(call)
-		return "" unless call
-
-		args = call[2].map do |arg|
-		    if arg.kind_of?(DRbObject) then arg.inspect
-		    else arg.to_s
-		    end
+		synchronize do
+		    @sending = nil
+		    send_flushed.broadcast
 		end
-		"#{call[1]}(#{args.join(", ")})"
 	    end
+
 	    # Formats an error message because +error+ has been reported by +call+
 	    def report_remote_error(call, error)
 		error_message = error.full_message { |msg| msg !~ /drb\/[\w+]\.rb/ }
 		if call
-		    "#{remote_name} reports an error on #{call_to_s(call)}:\n#{error_message}\n" +
-		    "call was initiated by\n  #{call[4].join("\n  ")}"
+		    "#{remote_name} reports an error on #{call}:\n#{error_message}\n" +
+		    "call was initiated by\n  #{call.trace.join("\n  ")}"
 		else
 		    "#{remote_name} reports an error on:\n#{error_message}"
 		end
@@ -503,9 +542,9 @@ module Roby
 	    # any) have been processed as well. +result+ is the value returned
 	    # by the remote server.
 	    def call_attached_block(call, result)
-		if block = call[3]
+		if block = call.on_completion
 		    begin
-			Roby.debug "calling completion block #{block} for #{call_to_s(call)}"
+			Roby.debug "calling completion block #{block} for #{call}"
 			block.call(result)
 		    rescue Exception => e
 			Roby.application_error(:droby_callbacks, block, e)
@@ -521,8 +560,8 @@ module Roby
 	    def do_send(calls) # :nodoc:
 		before_call = Time.now
 		Distributed.debug { "sending #{calls.size} commands to #{neighbour.name}" }
-		completion_queue.concat calls.find_all { |c| c[1] != :completed && c[1] != :disconnected }
-		error_call, error = begin remote_server.demux(calls.map { |a| a[0, 3] })
+		completion_queue.concat calls.find_all { |c| c.method != :completed && c.method != :disconnected }
+		error_call, error = begin remote_server.demux(calls.map { |a| a.to_demux_argument })
 				    rescue Exception => error
 					[0, error]
 				    end
