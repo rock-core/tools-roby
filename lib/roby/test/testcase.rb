@@ -104,7 +104,7 @@ module Roby
 		destname << "-#{suffix}" unless suffix.empty?
 		destname << File.extname(file)
 
-		FileUtils.cp "#{Roby.app.logdir}/#{file}", destname
+		FileUtils.cp "#{Roby.app.log_dir}/#{file}", destname
 	    end
 	end
     end

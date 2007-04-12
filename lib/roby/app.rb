@@ -195,8 +195,11 @@ module Roby
 	    @robot_type = type
 	end
 
-	def logdir
-	    log['dir'] || File.join(APP_DIR, 'log')
+	def log_dir
+	    File.expand_path(log['dir'] || 'log', APP_DIR)
+	end
+	def results_dir
+	    File.expand_path(log['results'] || 'results', APP_DIR)
 	end
 	
 	def setup
@@ -246,8 +249,8 @@ module Roby
 	    end
 
 	    # Set up some directories
-	    if !File.exists?(logdir)
-		Dir.mkdir(logdir)
+	    if !File.exists?(log_dir)
+		Dir.mkdir(log_dir)
 	    end
 	    Roby::State.datadirs = []
 	    datadir = File.join(APP_DIR, "data")
@@ -354,17 +357,17 @@ module Roby
 		:cycle => control_config['cycle'] || 0.1 }
 
 	    if log['timings']
-		logfile = File.join(logdir, "#{robot_name}-timings.log")
+		logfile = File.join(log_dir, "#{robot_name}-timings.log")
 		options[:log] = File.open(logfile, 'w')
 	    end
 	    if log['events']
 		if log['events'] == 'sqlite'
 		    require 'roby/log/sqlite'
-		    logfile = File.join(logdir, "#{robot_name}-events.db")
+		    logfile = File.join(log_dir, "#{robot_name}-events.db")
 		    Roby::Log.add_logger Roby::Log::SQLiteLogger.new(logfile)
 		else
 		    require 'roby/log/file'
-		    logfile = File.join(logdir, "#{robot_name}-events.log")
+		    logfile = File.join(log_dir, "#{robot_name}-events.log")
 		    Roby::Log.add_logger Roby::Log::FileLogger.new(logfile)
 		end
 	    end
@@ -399,8 +402,8 @@ module Roby
 
 	DISCOVERY_TEMPLATE = [:host, nil, nil]
 	def start_distributed
-	    if !File.exists?(logdir)
-		Dir.mkdir(logdir)
+	    if !File.exists?(log_dir)
+		Dir.mkdir(log_dir)
 	    end
 
 	    unless single? || !discovery['tuplespace']
@@ -463,15 +466,15 @@ module Roby
 
 	# Returns the list of data sources suitable for data display known
 	# to the application
-	def data_sources(logdir = nil)
-	    logdir ||= self.logdir
+	def data_sources(log_dir = nil)
+	    log_dir ||= self.log_dir
 	    sources = []
-	    Dir.glob(File.join(logdir, '*-events.log*')).each do |file|
+	    Dir.glob(File.join(log_dir, '*-events.log*')).each do |file|
 		next unless file =~ /-events\.log(\.gz)?$/
 		sources << Roby::Log::PlanRebuild.new(file)
 	    end
 	    each_responding_plugin(:data_sources, true) do |config|
-		if s = config.data_sources(logdir)
+		if s = config.data_sources(log_dir)
 		    sources += s
 		end
 	    end

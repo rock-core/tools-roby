@@ -64,7 +64,7 @@ module Roby::Genom
 			g.autoload_path << genom_tasks
 		    end
 
-		    g.output_io = File.join(config.logdir, "#{config.robot_name}-%m.log")
+		    g.output_io = File.join(config.log_dir, "#{config.robot_name}-%m.log")
 		    config.require_robotfile(File.join(APP_DIR, 'config', "ROBOT-genom.rb"))
 
 		    ::MainPlanner.class_eval do
@@ -97,7 +97,7 @@ multi
   port: #{port}
 }
 	    EOD
-	    conffile = File.join(config.logdir, 'distributed.pocosim')
+	    conffile = File.join(config.log_dir, 'distributed.pocosim')
 	    File.open(conffile, 'w') do |io|
 		io.write multi_conf
 	    end
@@ -148,12 +148,12 @@ multi
 		bridge_config = "bridge: gazebo\n"
 	    end
 	    
-	    filename = File.join(config.logdir, "#{config.robot_name}.pocosim")
+	    filename = File.join(config.log_dir, "#{config.robot_name}.pocosim")
 	    File.open(filename, 'w') do |io|
 		io.puts bridge_config
 		io.puts <<-EOF
 name: #{config.robot_name}
-log: #{config.logdir}/#{config.robot_name}
+log: #{config.log_dir}/#{config.robot_name}
 models: #{APP_DIR}/config/pocosim/#{config.robot_type}
 
 gazebo
