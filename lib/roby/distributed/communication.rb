@@ -144,13 +144,14 @@ module Roby
 
 	class PeerServer
 	    PROCESSING_CALLBACKS_TLS = 'PEER_SERVER_PROCESSING_CALLBACKS'
-
-	    attribute(:synchro_execute) { ConditionVariable.new }
+	    QUEUED_COMPLETION_TLS    = 'PEER_SERVER_QUEUED_COMPLETION'
 
 	    # True the current thread is processing a remote request
 	    def processing?; !processing_callback?.nil? end
 	    # True if the current thread is processing a remote request, and if it is a callback
 	    def processing_callback?; Thread.current[PROCESSING_CALLBACKS_TLS] end
+	    # True if we have already queued a +completed+ message for the message being processed
+	    def queued_completion?; Thread.current[QUEUED_COMPLETION_TLS] end
 
 	    # Called by the remote peer to make us process something. +calls+ elements
 	    # are [is_callback, method, args]. Returns [result, error]
@@ -164,6 +165,7 @@ module Roby
 
 		while call_spec = calls.shift
 		    return unless call_spec
+
 		    is_callback, method, args = *call_spec
 		    Distributed.debug do 
 			args_s = args.map { |obj| obj ? obj.to_s : 'nil' }
@@ -171,13 +173,18 @@ module Roby
 		    end
 
 		    result = Control.synchronize do
+			Thread.current[QUEUED_COMPLETION_TLS] = false
 			Thread.current[PROCESSING_CALLBACKS_TLS] = !!is_callback
 			send(method, *args)
 		    end
 
 		    if method != :completed && method != :disconnected
-			Distributed.debug { "done, returns #{result || 'nil'}" }
-			peer.queue_call false, :completed, [result, false]
+			if queued_completion?
+			    Distributed.debug "done, already queued the completion message"
+			else
+			    Distributed.debug { "done, returns #{result || 'nil'}" }
+			    peer.queue_call false, :completed, [result, false]
+			end
 		    end
 		end
 
@@ -199,8 +206,8 @@ module Roby
 		peer.transmit(:done_synchro_point)
 		nil
 	    end
-
 	    def done_synchro_point; end
+
 	    def completed(result, error)
 		call_spec = peer.completion_queue.pop
 		if error
@@ -225,6 +232,24 @@ module Roby
 		nil
 	    end
 
+	    # Queue a completion message for our peer. This is usually done
+	    # automatically in #demux, but it is useful to do it manually in
+	    # certain conditions, for instance in PeerServer#execute
+	    #
+	    # In #execute, the control thread -> RX thread context switch is
+	    # not immediate. Therefore, it is possible that events are queued
+	    # by the control thread while the #completed message is not.
+	    # #completed! both queues the message *and* makes sure that #demux
+	    # won't.
+	    def completed!(result, error)
+		if queued_completion?
+		    raise "already queued the completed message"
+		else
+		    Thread.current[QUEUED_COMPLETION_TLS] = true
+		    queue_call false, :completed, [result, false]
+		end
+	    end
+
 	    # call-seq:
 	    #	execute { ... }
 	    #
@@ -236,16 +261,15 @@ module Roby
 		    return yield
 		end
 
-		result = nil
-		Roby::Control.once do
-		    result = yield
-		    synchro_execute.broadcast
+		Roby.execute do
+		    begin
+			completed!(yield, false)
+		    rescue Exception => error
+			completed!(error, true)
+		    end
 		end
-		synchro_execute.wait(Control.mutex)
-		result
 	    end
 	end
-
 
 	# == Communication
 	# Communication is done in two threads. The sending thread gets the
