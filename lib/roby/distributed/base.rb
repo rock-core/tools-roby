@@ -20,6 +20,16 @@ class RefCounting
 	    @values[obj] += 1
 	end
     end
+    def referenced_objects
+	@mutex.synchronize do
+	    @values.keys
+	end
+    end
+    def delete(object)
+	@mutex.synchronize do
+	    @values.delete(object)
+	end
+    end
 end
 
 class Object
@@ -152,36 +162,67 @@ module Roby
 	    attribute(:keep) { RefCounting.new }
 
 	    def keep_object?(local_object)
-		local_object.remotely_useful? || 
-		    local_object.subscribed? || 
-		    Distributed.keep.ref?(local_object)
+	        !local_object.self_owned? && 
+	            (local_object.subscribed? || 
+	            Distributed.keep.ref?(local_object))
 	    end
 
-	    def keep?(local_object)
-		return true if keep_object?(local_object)
+	    # The tasks we always keep are the tasks referenced in
+	    # Distributed#keep and the subscribed task.
+	    def kept_objects
+	        seeds = Distributed.keep.referenced_objects.to_value_set
+	        Distributed.peers.each_value do |peer|
+	            peer.subscriptions.each do |remote_id|
+	        	seeds << peer.local_object(remote_id)
+	            end
+	        end
 
-		Roby::Distributed.each_object_relation(local_object) do |rel|
-		    next unless rel.root_relation?
+		seeds
+	    end
 
-		    local_object.each_parent_object(rel) do |obj|
-			next unless obj.distribute?
-			return true if keep_object?(obj)
-			return true if local_object.self_owned? && !obj.self_owned?
+	    def remotely_useful_objects(useful_tasks, candidates, result = nil, seeds = nil)
+		return ValueSet.new if candidates.empty?
+
+		child_set = ValueSet.new
+		seeds  ||= kept_objects
+	        result ||= (candidates & seeds)
+	        candidates.each do |obj|
+	            next if obj.self_owned? || 
+	        	result.include?(obj.root_object) || 
+	        	useful_tasks.include?(obj.root_object)
+
+		    not_found = obj.each_relation do |rel|
+	        	next unless rel.distribute? && rel.root_relation?
+
+	        	not_found = obj.each_parent_object(rel) do |parent|
+	        	    next unless parent.distribute?
+
+	        	    parent = parent.root_object
+	        	    if seeds.include?(parent) || parent.self_owned?
+	        		result << obj.root_object
+	        		break
+	        	    end
+	        	end
+	        	break unless not_found
+
+	        	not_found = obj.each_child_object(rel) do |child|
+	        	    next unless child.distribute?
+
+	        	    child = child.root_object
+	        	    if seeds.include?(child) || child.self_owned?
+	        		result << obj.root_object
+	        		break
+	        	    end
+	        	end
+	        	break unless not_found
+	            end
+
+		    if not_found && obj.respond_to?(:each_plan_child)
+			obj.each_plan_child { |plan_child| child_set << plan_child }
 		    end
-		    local_object.each_child_object(rel) do |obj|
-			next unless obj.distribute?
-			return true if keep_object?(obj)
-			return true if local_object.self_owned? && !obj.self_owned?
-		    end
-		end
+	        end
 
-		if local_object.respond_to?(:each_plan_child)
-		    local_object.each_plan_child do |child|
-			return true if keep?(child)
-		    end
-		end
-
-		false
+		result.merge remotely_useful_objects(useful_tasks, child_set, result, seeds)
 	    end
 
 	    # The list of objects that are being updated because of remote update

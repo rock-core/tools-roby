@@ -245,11 +245,12 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	end
 
 	r1 = subscribe_task(:id => 'remote-1')
-	assert(Distributed.keep?(r1))
+	assert(!plan.unneeded_tasks.include?(r1))
 
 	t1 = SimpleTask.new
 
-	# Add a local child to r1
+	# Add a local child to r1. This local child, and r1, must be kept event
+	# we are not subscribed to r1 anymore
 	trsc = Distributed::Transaction.new(plan)
 	trsc.add_owner(remote_peer)
 	trsc[r1].realized_by t1
@@ -257,24 +258,25 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    remote_peer.unsubscribe(r1)
 	    assert(!plan.unneeded_tasks.include?(r1))
 	end
-	remote_peer.subscribe(r1)
 
 	trsc.propose(remote_peer)
 	trsc.commit_transaction
-	assert(Distributed.keep?(t1))
+	assert(!plan.unneeded_tasks.include?(r1))
+	assert(!plan.unneeded_tasks.include?(t1), plan.unneeded_tasks)
 
+	# Ok, we now create a r1 => t1 => t2 => t3 chain
+	#   * t2 and t3 are kept because they are useful for r1
 	t2, t3 = nil
 	Roby::Control.synchronize do
-	    # t2 is kept because it is the neighbour of a task known to our
-	    # remote host
 	    t1.realized_by(t2 = SimpleTask.new)
 	    assert(!plan.unneeded_tasks.include?(t2))
-	    # t3 is kept because it is the grandchild of r1
 	    t2.realized_by(t3 = SimpleTask.new)
 	    assert(!plan.unneeded_tasks.include?(t3))
 	end
 
-	# Now, add two remote children to t3
+	# Now, create a t3 => r2 => r3 chain
+	# * r2 should be kept since it is related to a task which is kept
+	# * r3 should not be kept
 	trsc = Distributed::Transaction.new(plan)
 	trsc.add_owner(remote_peer)
 	trsc.propose(remote_peer)
@@ -282,14 +284,17 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	remote.insert_children(trsc, trsc[t3])
 	trsc.edit
 	trsc.commit_transaction
-
 	process_events
-	assert(r2 = remote_task(:id => 'remote-2'))
-	assert(Distributed.keep?(r2))
-	assert(t3.child_object?(r2, TaskStructure::Hierarchy))
-	assert(r3 = remote_task(:id => 'remote-3'))
-	assert(!Distributed.keep?(r3))
+
+	Roby::Control.synchronize do
+	    assert(r2 = remote_task(:id => 'remote-2'))
+	    assert(!plan.unneeded_tasks.include?(r2))
+	    assert(t3.child_object?(r2, TaskStructure::Hierarchy))
+	    assert(r3 = remote_task(:id => 'remote-3'))
+	    assert(plan.unneeded_tasks.include?(r3))
+	end
     end
+
 end
 
 

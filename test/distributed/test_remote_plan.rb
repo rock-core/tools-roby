@@ -220,9 +220,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	Roby::Control.synchronize do
 	    r_next_mission = remote_task(:id => 'next_mission')
 	    r_subtask = remote_task(:id => 'subtask')
-	    assert(Distributed.keep?(r_mission))
-	    assert(!Distributed.keep?(r_next_mission))
-	    assert(!Distributed.keep?(r_subtask))
+	    assert(!plan.unneeded_tasks.include?(r_mission))
+	    assert(plan.unneeded_tasks.include?(r_next_mission))
+	    assert(plan.unneeded_tasks.include?(r_subtask))
 	end
 	Roby.control.wait_one_cycle
 
@@ -231,8 +231,8 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_same(r_mission, remote_peer.subscribe(r_mission))
 	r_subtask = remote_task(:id => 'subtask')
 	r_next_mission = remote_task(:id => 'next_mission')
-	assert(Distributed.keep?(r_subtask))
-	assert(Distributed.keep?(r_next_mission))
+	assert(!plan.unneeded_tasks.include?(r_subtask))
+	assert(!plan.unneeded_tasks.include?(r_next_mission))
 
 	assert_equal([r_subtask], r_mission.children.to_a)
 	proxies = r_mission.event(:stop).child_objects(EventStructure::Signal).to_a
@@ -241,10 +241,10 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	## Check plan GC after we have unsubscribed from mission
 	Roby::Control.synchronize do
 	    remote_peer.unsubscribe(r_mission)
-	    assert(Distributed.keep?(r_mission))
+	    assert(!plan.unneeded_tasks.include?(r_mission))
 	    assert(!remote_peer.subscribed?(r_mission))
-	    assert(!Distributed.keep?(r_next_mission))
-	    assert(!Distributed.keep?(r_subtask))
+	    assert(plan.unneeded_tasks.include?(r_next_mission), Distributed.remotely_useful_objects(ValueSet.new, plan.known_tasks))
+	    assert(plan.unneeded_tasks.include?(r_subtask))
 	end
 	Roby.control.wait_one_cycle
 
@@ -273,12 +273,12 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	proxies = r_mission.children.to_a
 	assert(proxies.empty?, proxies)
 	proxies = r_mission.event(:stop).child_objects(EventStructure::Signal).to_a
-	assert(Distributed.keep?(r_mission))
-	assert(Distributed.keep?(r_mission.event(:stop)))
+	assert(!plan.unneeded_tasks.include?(r_mission))
+	assert(!plan.unneeded_tasks.include?(r_mission.event(:stop)))
 	assert_equal(1, proxies.size, proxies)
 	r_next_mission_start = proxies.first
-	assert(Distributed.keep?(r_next_mission_start))
-	assert(Distributed.keep?(r_next_mission_start.task))
+	assert(!plan.unneeded_tasks.include?(r_next_mission_start))
+	assert(!plan.unneeded_tasks.include?(r_next_mission_start.task))
 
 	## Re-add the child relation and test #unsubscribe
 	remote_peer.unsubscribe(r_mission)
@@ -324,16 +324,16 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	right  = subscribe_task(:id => 'right')
 	middle = remote_task(:id => 'middle')
 	assert(!middle.subscribed?)
-	assert(Distributed.keep_object?(left))
-	assert(Distributed.keep_object?(right))
-	assert(Distributed.keep?(middle))
+	assert(!plan.unneeded_tasks.include?(left))
+	assert(!plan.unneeded_tasks.include?(right))
+	assert(!plan.unneeded_tasks.include?(middle))
 
 	Roby::Control.synchronize do
 	    remote_peer.unsubscribe(right)
 	    assert(!right.remotely_useful?)
 	    assert(!right.subscribed?)
-	    assert(!Distributed.keep?(right))
-	    assert(Distributed.keep?(middle))
+	    assert(plan.unneeded_tasks.include?(right))
+	    assert(!plan.unneeded_tasks.include?(middle))
 	end
 	process_events
 	assert(!right.plan)
@@ -364,13 +364,23 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_equal(42, task.data)
     end
 
-    def test_plan_notifications
+    def test_mission_notifications
 	peer2peer(true) do |remote|
 	    plan.insert(mission = SimpleTask.new(:id => 'mission'))
 
 	    remote.class.class_eval do
-		define_method(:discard_mission) { remote.plan.discard(mission) }
-		define_method(:insert_mission)  { remote.plan.insert(mission) }
+		define_method(:discard_mission) do
+		    Roby::Control.synchronize do
+			remote.plan.discard(mission)
+			remote.plan.permanent(mission)
+		    end
+		end
+		define_method(:insert_mission) do
+		    Roby::Control.synchronize do
+			remote.plan.auto(mission)
+			remote.plan.insert(mission)
+		    end
+		end
 	    end
 	end
 	r_mission = subscribe_task(:id => 'mission')

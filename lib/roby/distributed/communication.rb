@@ -46,7 +46,8 @@ module Roby
 	    end
 	end
 
-	# A multi-threaded FIFO
+	# A multi-thread ready FIFO with more manipulation capabilities than
+	# Ruby's Queue
 	class CommunicationQueue
 	    # The elements inside the queue, as an Array
 	    attr_reader :contents

@@ -329,11 +329,13 @@ module Roby
 	    # Finally, get in the remaining set the tasks that are useful
 	    # because of our peers. We then remove from the set all local tasks
 	    # that are serving these
-	    remotely_useful = (known_tasks - useful).find_all { |t| Roby::Distributed.keep?(t) }
+	    remotely_useful = Distributed.remotely_useful_objects(useful, known_tasks - useful)
 	    useful.merge remotely_useful.to_value_set
 
-	    useful_task_component(useful.dup, remotely_useful).each do |t|
-		useful << t if t.self_owned?
+	    useful_task_component(useful.dup, remotely_useful.to_a).each do |t|
+		if t.self_owned?
+		    useful << t
+		end
 	    end
 
 	    (known_tasks - useful)
@@ -374,9 +376,9 @@ module Roby
 
 	# The set of events that can be removed from the plan
 	def unneeded_events
+	    useful_events.merge Roby::Distributed.remotely_useful_objects(useful_events, free_events - useful_events)
 	    (free_events - useful_events).delete_if do |ev|
-		Roby::Distributed.keep?(ev) || 
-		    transactions.any? { |trsc| trsc.wrap(ev, false) }
+		transactions.any? { |trsc| trsc.wrap(ev, false) }
 	    end
 	end
 
@@ -486,8 +488,12 @@ module Roby
 	    elsif object.plan != self
 		if known_tasks.include?(object) || free_events.include?(object)
 		    raise ArgumentError, "#{object} is included in #{self} but #plan == #{object.plan}"
-		elsif !object.plan
-		    raise ArgumentError, "#{object} has been removed at\n  #{object.removed_at.join("\n  ")}"
+		elsif !object.plan 
+		    if object.removed_at
+			raise ArgumentError, "#{object} has been removed at\n  #{object.removed_at.join("\n  ")}"
+		    else
+			raise ArgumentError, "#{object} has not been included in this plan"
+		    end
 		end
 		raise ArgumentError, "#{object} is not in #{self}: #plan == #{object.plan}"
 	    end
