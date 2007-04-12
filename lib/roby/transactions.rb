@@ -324,6 +324,10 @@ module Roby
 	def commit_transaction
 	    check_valid_transaction
 
+	    if !Roby.inside_control?
+		raise ThreadError, "trying to commit a transaction outside the control thread"
+	    end
+
 	    freezed!
 	    auto_tasks.each      { |t| plan.auto(t) }
 	    discarded_tasks.each { |t| plan.discard(t) }
