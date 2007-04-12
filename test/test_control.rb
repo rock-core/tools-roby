@@ -181,6 +181,45 @@ class TC_Control < Test::Unit::TestCase
             Roby.control.run
         end
     end
-end
 
+    def test_inside_outside_control
+	t = Thread.new do
+	    assert(!Roby.inside_control?)
+	end
+	t.value
+
+	assert(Roby.inside_control?)
+
+	Roby.control.run :detach => true
+	Roby.execute do
+	    assert(Roby.inside_control?)
+	end
+	assert(!Roby.inside_control?)
+    end
+
+    def test_execute
+	FlexMock.use do |mock|
+	    mock.should_receive(:in_thread).once.ordered
+	    mock.should_receive(:main_thread).once.ordered
+	    mock.should_receive(:in_control).once.ordered.with(Thread.current).and_return(42)
+
+	    returned_value = nil
+	    t = Thread.new do
+		mock.in_thread
+		returned_value = Roby.execute do
+		    mock.in_control(Thread.current)
+		end
+	    end
+
+	    # Wait for the thread to block
+	    while !t.stop?; sleep(0.1) end
+	    mock.main_thread
+	    assert(t.alive?)
+
+	    process_events
+	    t.join
+	    assert_equal(42, returned_value)
+	end
+    end
+end
 

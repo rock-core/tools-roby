@@ -54,7 +54,7 @@ module Roby
 	end
 
 	def self.transmit(*args)
-	    if Thread.current == Roby.control.thread
+	    if inside_control?
 		raise "in control thread"
 	    end
 
@@ -63,8 +63,11 @@ module Roby
 		yield(result) if block_given?
 	    end
 	end
+
 	def self.call(*args)
-	    Distributed.state.send(*args)
+	    Roby.execute do
+		Distributed.state.send(*args)
+	    end
 	end
 
 	def self.subscribed?(object)

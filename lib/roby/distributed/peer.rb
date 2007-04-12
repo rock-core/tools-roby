@@ -584,10 +584,9 @@ module Roby::Distributed
 	# can be either a remote proxy or the remote object itself
 	def discover_neighborhood(object, distance)
 	    objects = ValueSet.new
-	    synchronize do
-		synchro_call = get_condvar
-		transmit(:discover_neighborhood, object, distance) do |edges|
-		    Roby::Control.synchronize do
+	    Roby.condition_variable(true) do |synchro, mutex|
+		mutex.synchronize do
+		    transmit(:discover_neighborhood, object, distance) do |edges|
 			edges = local_object(edges)
 			edges.each do |rel, from, to, info|
 			    objects << from.root_object << to.root_object
@@ -599,11 +598,11 @@ module Roby::Distributed
 			end
 
 			objects.each { |obj| Roby::Distributed.keep.ref(obj) }
+			
+			synchro.broadcast
 		    end
-		    synchro_call.broadcast
+		    synchro.wait(mutex)
 		end
-		synchro_call.wait(mutex)
-		return_condvar synchro_call
 	    end
 
 	    yield(local_object(remote_object(object)))

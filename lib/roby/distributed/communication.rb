@@ -278,25 +278,6 @@ module Roby
 	    # a +completed+ message has not been received. This is a queue
 	    # of CallSpec objects
 	    attr_reader :completion_queue
-	    
-	    # A list of ConditionVariable object that can be used by #call This
-	    # is accessed by #get_condvar and #return_condvar
-	    attr_reader :condition_variables
-
-	    # Get a condition variable object from the #condition_variables
-	    # pool
-	    def get_condvar
-		if condition_variables.empty?
-		    ConditionVariable.new
-		else
-		    condition_variables.shift
-		end
-	    end
-	    # Return a condition variable object into the #condition_variables
-	    # poll
-	    def return_condvar(condvar)
-		condition_variables.unshift(condvar)
-	    end
 
 	    # True if we are currently something. Note that sending? is true
 	    # when #do_send is sending something to the remote host, so it is
@@ -416,20 +397,27 @@ module Roby
 	    def call(m, *args)
 		if local.processing?
 		    raise "cannot use Peer#call while processing a remote request"
-		elsif Thread.current == Roby.control.thread
+		elsif Roby.inside_control?
 		    raise "cannot use Peer#call in control thread"
 		end
 
 		result = nil
-		synchronize do
-		    synchro_call = get_condvar
-		    Distributed.debug do
-			"calling #{neighbour.name}.#{m}"
-		    end
+		Roby.condition_variable(true) do |cv, mt|
+		    mt.synchronize do
+			Distributed.debug do
+			    "calling #{neighbour.name}.#{m}"
+			end
 
-		    queue_call false, m, args, Proc.new { |result| synchro_call.broadcast }, Thread.current
-		    synchro_call.wait(mutex)
-		    return_condvar synchro_call
+			callback = Proc.new do |return_value|
+			    mt.synchronize do
+				result = return_value
+				cv.broadcast
+			    end
+			end
+
+			queue_call false, m, args, callback, Thread.current
+			cv.wait(mt)
+		    end
 		end
 
 		result

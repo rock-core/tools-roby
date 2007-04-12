@@ -173,7 +173,7 @@ module Roby
 		raise EventModelViolation.new(self), "#call called on a non-controlable event"
 	    elsif !executable?
 		raise EventNotExecutable.new(self), "#call called on #{self} which is non-executable event"
-	    elsif Roby.control.thread && Roby.control.thread != Thread.current
+	    elsif !Roby.inside_control?
 		raise EventNotExecutable.new(self), "#call called while not in control thread"
 	    end
 
@@ -355,7 +355,7 @@ module Roby
 		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"
 	    elsif !self_owned?
 		raise OwnershipError, "cannot emit an event we don't own. #{self} is owned by #{owners}"
-	    elsif Roby.control.thread && Roby.control.thread != Thread.current
+	    elsif !Roby.inside_control?
 		raise EventNotExecutable.new(self), "#emit called while not in control thread"
 	    end
 

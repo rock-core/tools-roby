@@ -20,10 +20,113 @@ module Roby
 	def backtrace; [] end
     end
 
-    # Returns the only one Control object
-    def self.control; Control.instance end
-    # Returns the executed plan
-    def self.plan; Control.instance.plan end
+    class Pool < Queue
+	def initialize(klass)
+	    @klass = klass
+	end
+
+	def pop
+	    unless value = pop(true) rescue nil
+		return @klass.new
+	    end
+	    value
+	end
+    end
+
+    @mutexes = Pool.new(Mutex)
+    @condition_variables = Pool.new(ConditionVariable)
+    class << self
+	# Returns the only one Control object
+	def control; Control.instance end
+	# Returns the executed plan. This is equivalent to
+	#   Roby.control.plan
+	def plan; Control.instance.plan end
+
+	# Returns the control thread or, if control is not in a separate
+	# thread, Thread.main
+	def control_thread
+	    Control.instance.thread || Thread.main
+	end
+
+	# True if the current thread is the control thread
+	def inside_control?
+	    control_thread == Thread.current
+	end
+
+	# A pool of mutexes (as a Queue)
+	attr_reader :mutexes
+	# A pool of condition variables (as a Queue)
+	attr_reader :condition_variables
+
+	# call-seq:
+	#   condition_variable => cv
+	#   condition_variable(true) => cv, mutex
+	#   condition_variable { |cv| ... } => value returned by the block
+	#   condition_variable(true) { |cv, mutex| ... } => value returned by the block
+	#
+	# Get a condition variable object from the Roby.condition_variables
+	# pool and, if mutex is not true, a Mutex object
+	#
+	# If a block is given, the two objects are yield and returned into the
+	# pool after the block has returned. In that case, the method returns
+	# the value returned by the block
+	def condition_variable(mutex = false)
+	    cv = condition_variables.pop
+
+	    if block_given?
+		begin
+		    if mutex
+			mt = mutexes.pop
+			yield(cv, mt)
+		    else
+			yield(cv)
+		    end
+
+		ensure
+		    return_condition_variable(cv, mt)
+		end
+	    else
+		if mutex
+		    return cv, mutexes.pop
+		else
+		    return cv
+		end
+	    end
+	end
+
+	# Execute the given block inside the control thread, and returns when
+	# it has finished. The return value is the value returned by the block
+	def execute
+	    if Roby.inside_control?
+		return yield
+	    end
+
+	    cv = condition_variable
+
+	    return_value = nil
+	    Roby::Control.synchronize do
+		Roby::Control.once do
+		    return_value = yield
+		    cv.broadcast
+		end
+		cv.wait(Roby::Control.mutex)
+	    end
+	    return_value
+
+	ensure
+	    return_condition_variable(cv)
+	end
+
+	# Returns a ConditionVariable and optionally a Mutex into the
+	# Roby.condition_variables and Roby.mutexes pools
+	def return_condition_variable(cv, mutex = nil)
+	    condition_variables.push cv
+	    if mutex
+		mutexes.push mutex
+	    end
+	    nil
+	end
+    end
 
     # This singleton class is the central object: it handles the event loop,
     # event propagation and exception propagation.
@@ -195,6 +298,7 @@ module Roby
 	    Thread.current[:application_exceptions] = nil
 	end
 
+	# Blocks until at least once execution cycle has been done
 	def wait_one_cycle
 	    wait = ConditionVariable.new
 	    Roby::Control.synchronize do
