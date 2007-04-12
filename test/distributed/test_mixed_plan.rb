@@ -295,6 +295,37 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	end
     end
 
+    # This tests that the race condition between transaction commit and plan GC
+    # is handled properly: if a task inside a transaction will be GCed just
+    # after the commit, there is a race condition possibility if the other
+    # peers do not have committed the transaction yet
+    def test_commit_race_condition
+	Roby.logger.level = Logger::DEBUG
+	peer2peer(true) do |remote|
+	    def remote.add_task(trsc)
+		trsc = local_peer.local_object(trsc)
+		trsc.edit
+		trsc.discover(SimpleTask.new(:id => 'remote'))
+		trsc.release(false)
+	    end
+	end
+	
+	# Create an empty transaction and send it to our peer
+	# The peer will then discover a task, which 
+	# will be GCed as soon as the transaction is committed
+	trsc = Distributed::Transaction.new(plan)
+	trsc.add_owner(remote_peer)
+	trsc.propose(remote_peer)
+	trsc.release
+	remote.add_task(trsc)
+	trsc.edit
+	
+	assert_nothing_raised do
+	    trsc.commit_transaction
+	    process_events
+	end
+	assert(remote_peer.connected?)
+    end
 end
 
 
