@@ -208,5 +208,64 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	assert(remote_peer.task.event(:stop).happened?)
 	assert(task.finished?)
     end
+
+    # Checks that we get the update fine if +fired+ and +signalled+ are
+    # received in the same cycle
+    def test_joint_fired_signalled
+	peer2peer(true) do |remote|
+	    remote.plan.insert(task = SimpleTask.new(:id => 'remote-1'))
+	    Roby::Control.once { task.start! }
+	end
+	    
+	event_time = Time.now
+	remote = subscribe_task(:id => 'remote-1')
+	plan.insert(local = SimpleTask.new(:id => 'local'))
+	process_events
+
+	Roby::Control.synchronize do
+	    remote_peer.local.event_fired(remote.event(:success), 0, Time.now, 42)
+	    remote_peer.local.event_add_propagation(true, remote.event(:success), local.event(:start), 0, event_time, 42)
+	end
+	process_events
+
+	assert(remote.finished?)
+	assert(remote.success?)
+	assert(local.started?)
+	assert_equal(1, remote.history.size, remote.history)
+    end
+    
+    # Checks that we get the update fine if +fired+ and +signalled+ are
+    # received in the same cycle
+    def test_separated_fired_signalled
+	peer2peer(true) do |remote|
+	    remote.plan.insert(task = SimpleTask.new(:id => 'remote-1'))
+	    Roby::Control.once { task.start! }
+	end
+	    
+	event_time = Time.now
+	remote = subscribe_task(:id => 'remote-1')
+	plan.insert(local = SimpleTask.new(:id => 'local'))
+	process_events
+
+
+	Roby::Control.synchronize do
+	    remote_peer.local.event_fired(remote.event(:success), 0, event_time, 42)
+	end
+	process_events
+	assert(remote.finished?)
+	assert(remote.success?)
+	assert_equal(1, remote.history.size, remote.history.to_s)
+
+	FlexMock.use do |mock|
+	    local.on(:start) { |event| mock.started(event.context) }
+	    mock.should_receive(:started).once.with(42)
+
+	    Roby::Control.synchronize do
+		remote_peer.local.event_add_propagation(true, remote.event(:success), local.event(:start), 0, event_time, 42)
+	    end
+	    process_events
+	    assert_equal(1, remote.history.size, remote.history.to_s)
+	end
+    end
 end
 
