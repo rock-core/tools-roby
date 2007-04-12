@@ -125,6 +125,8 @@ module Roby
 	    def self.finalized_object(plan, object)
 		return unless object.distribute? && object.root_object?
 
+		Distributed.keep.delete(object)
+
 		if object.self_owned?
 		    Distributed.clean_triggered(object)
 
