@@ -436,11 +436,15 @@ module Roby
 		    return
 		end
 
+		remaining = remaining.find_all do |task|
+		    !task.finished?
+		end
+
 		if last_stop_count != remaining.size
 		    if last_stop_count == 0
-			Roby.info "control quitting. Waiting for #{remaining.size} tasks to finish:\n  #{remaining.join("\n  ")}"
+			Roby.info "control quitting. Waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan):\n  #{remaining.join("\n  ")}"
 		    else
-			Roby.info "waiting for #{remaining.size} tasks to finish:\n  #{remaining.join("\n  ")}"
+			Roby.info "waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan):\n  #{remaining.join("\n  ")}"
 		    end
 		    @last_stop_count = remaining.size
 		end
