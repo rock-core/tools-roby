@@ -78,17 +78,7 @@ module Roby::Genom
 	# ArgumentError is raised if the argument count is wrong
 	def initialize(arguments)
 	    @request_name = arguments[:request_name]
-
 	    super(arguments)
-
-	    # Check that +arguments+ are valid for genom_request
-	    # No roby_module if we are building a remote proxy
-	    if self.class.respond_to?(:roby_module)
-		@request = roby_module.genom_module.request_info[request_name]
-		request.filter_input(genom_arguments)
-
-		on(:stop) { @abort_activity = @activity = nil }
-	    end
 	end
 
 	def genom_arguments
@@ -217,6 +207,11 @@ module Roby::Genom
 		    arguments = Roby::Genom.arguments_genom_to_roby(arguments)
 		    arguments[:request_name] = self.class.request_name
 		    super(arguments)
+
+		    @request = genom_module.request_info[request_name]
+		    request.filter_input(genom_arguments)
+
+		    on(:stop) { @abort_activity = @activity = nil }
 		end
 		
 		# requests need the module process
