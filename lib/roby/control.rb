@@ -117,6 +117,12 @@ module Roby
 	    return_condition_variable(cv)
 	end
 
+	# Execute the given block in the control thread, but don't wait for its
+	# completion like Roby.execute does
+	def once
+	    Roby::Control.once { yield }
+	end
+
 	# Returns a ConditionVariable and optionally a Mutex into the
 	# Roby.condition_variables and Roby.mutexes pools
 	def return_condition_variable(cv, mutex = nil)
