@@ -343,6 +343,7 @@ module Roby
 	# Checks that +event+ is emitted within +timeout+ seconds
 	def assert_event(event, timeout = 5)
 	    last_event = event.last
+	    yield if block_given?
 	    assert_happens(timeout, "event #{event.symbol}") do
 		assert(event.last != last_event)
 	    end
