@@ -316,9 +316,12 @@ module Roby::Genom
 		    def dead!
 			__roby__dead!
 
-			# we sometime get the event more than once ...
-			if !@roby_runner_task.event(:failed).happened?
-			    Roby::Control.once { @roby_runner_task.emit(:failed, "process died") }
+			task = self.roby_runner_task
+			Roby::Control.once do
+			    # we sometime get the event more than once ...
+			    if !task.finished?
+				task.emit(:failed, "process died")
+			    end
 			end
 		    end
 		end
