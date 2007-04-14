@@ -421,31 +421,31 @@ module Roby
 		plan.missions.dup.each { |t| plan.discard(t) }
 		plan.keepalive.dup.each { |t| plan.auto(t) }
 		plan.force_gc.merge( plan.known_tasks )
-	    end
 
-	    remaining = plan.known_tasks.find_all { |t| Plan.can_gc?(t) }
+		remaining = plan.known_tasks.find_all { |t| Plan.can_gc?(t) }
 
-	    if remaining.empty?
-		# Have to call #garbage_collect one more to make
-		# sure that unneeded events are removed as well
-		plan.garbage_collect
-		# Done cleaning the tasks, clear the remains
-		plan.transactions.each do |trsc|
-		    trsc.discard_transaction if trsc.self_owned?
+		if remaining.empty?
+		    # Have to call #garbage_collect one more to make
+		    # sure that unneeded events are removed as well
+		    plan.garbage_collect
+		    # Done cleaning the tasks, clear the remains
+		    plan.transactions.each do |trsc|
+			trsc.discard_transaction if trsc.self_owned?
+		    end
+		    plan.clear
+		    return
 		end
-		plan.clear
-		return
-	    end
 
-	    if last_stop_count != remaining.size
-		if last_stop_count == 0
-		    Roby.info "control quitting. Waiting for #{remaining.size} tasks to finish:\n  #{remaining.join("\n  ")}"
-		else
-		    Roby.info "waiting for #{remaining.size} tasks to finish:\n  #{remaining.join("\n  ")}"
+		if last_stop_count != remaining.size
+		    if last_stop_count == 0
+			Roby.info "control quitting. Waiting for #{remaining.size} tasks to finish:\n  #{remaining.join("\n  ")}"
+		    else
+			Roby.info "waiting for #{remaining.size} tasks to finish:\n  #{remaining.join("\n  ")}"
+		    end
+		    @last_stop_count = remaining.size
 		end
-		@last_stop_count = remaining.size
+		remaining
 	    end
-	    remaining
 	end
 
 	# Object count on which we base ourselves to start the GC
