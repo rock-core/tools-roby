@@ -199,25 +199,29 @@ class TC_Control < Test::Unit::TestCase
 
     def test_execute
 	FlexMock.use do |mock|
-	    mock.should_receive(:in_thread).once.ordered
-	    mock.should_receive(:main_thread).once.ordered
-	    mock.should_receive(:in_control).once.ordered.with(Thread.current).and_return(42)
+	    mock.should_receive(:thread_before).once.ordered
+	    mock.should_receive(:main_before).once.ordered
+	    mock.should_receive(:execute).once.ordered.with(Thread.current).and_return(42)
+	    mock.should_receive(:main_after).once.ordered(:finish)
+	    mock.should_receive(:thread_after).once.ordered(:finish)
 
 	    returned_value = nil
 	    t = Thread.new do
-		mock.in_thread
+		mock.thread_before
 		returned_value = Roby.execute do
-		    mock.in_control(Thread.current)
+		    mock.execute(Thread.current)
 		end
+		mock.thread_after
 	    end
 
 	    # Wait for the thread to block
 	    while !t.stop?; sleep(0.1) end
-	    mock.main_thread
+	    mock.main_before
 	    assert(t.alive?)
-
 	    process_events
+	    mock.main_after
 	    t.join
+
 	    assert_equal(42, returned_value)
 	end
     end
