@@ -38,6 +38,7 @@ module Roby::TaskAggregator
 	    yield(self)
 	    tasks.each(&iterator) 
 	end
+	def empty?; tasks.empty? end
 
 	def delete
 	    @name  = self.name

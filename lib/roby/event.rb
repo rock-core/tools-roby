@@ -594,6 +594,8 @@ module Roby
 	    end
 	    emit(nil)
 	end
+
+	def empty?; events.empty? end
 	
 	# Adds a new source to +events+ when a source event is added
 	def added_parent_object(parent, type, info) # :nodoc:
