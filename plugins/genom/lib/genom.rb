@@ -413,7 +413,7 @@ module Roby::Genom
 
 		    attr_reader :control
 		    def initialize(args)
-			@control = self.class.control_model.new([args])
+			@control = self.class.control_model.new(args)
 			super(control.arguments)
 			realized_by control
 		    end
