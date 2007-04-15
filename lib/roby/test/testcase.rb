@@ -283,6 +283,16 @@ module Roby
 		require 'roby/app/load'
 	    end
 
+	    def setup
+		super
+		Roby::Test.waiting_threads << Thread.current
+	    end
+
+	    def teardown
+		Roby::Test.waiting_threads.delete(Thread.current)
+		super
+	    end
+
 	    def run(result)
 		Roby::Test.waiting_threads.clear
 
