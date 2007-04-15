@@ -9,6 +9,9 @@ require 'fileutils'
 
 module Roby
     module Test
+	extend Logger::Hierarchy
+	extend Logger::Forward
+
 	@event_assertions = []
 	@waiting_threads  = []
 
