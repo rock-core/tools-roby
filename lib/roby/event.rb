@@ -391,7 +391,6 @@ module Roby
 	    task.on(:failed) do
 		emit_failed(task.terminal_event)
 	    end
-	    task.start!
 	end
 
 	# A [time, event] array of past event emitted by this object
