@@ -1,4 +1,4 @@
-#! /usr/bin/ruby
+#! /usr/bin/env ruby
 require 'roby'
 require 'roby/log/logger'
 require 'roby/log/file'
