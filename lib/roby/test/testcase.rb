@@ -87,24 +87,35 @@ module Roby
 		
 		sample_type = Struct.new(*fields)
 
-		handler = lambda do
-		    result = yield
-		    if result
-			if compute_time
-			    result << Roby.control.cycle_start
-			end
-			new_sample = sample_type.new(*result)
+		start = Time.now
+		Roby.condition_variable(true) do |cv, mt|
+		    first_sample = nil
+		    mt.synchronize do
+			id = Roby::Control.every(period) do
+			    result = yield
+			    if result
+				if compute_time
+				    result << Roby.control.cycle_start
+				end
+				new_sample = sample_type.new(*result)
 
-			unless samples.empty?
-			    new_sample.dt = new_sample.t- samples.last.t
+				unless samples.empty?
+				    new_sample.dt = new_sample.t- samples.last.t
+				end
+				samples << new_sample
+
+				if samples.last.t - samples.first.t > duration
+				    mt.synchronize do
+					cv.broadcast
+				    end
+				end
+			    end
 			end
-			samples << new_sample
+
+			cv.wait(mt)
+			Roby::Control.remove_periodic_handler(id)
 		    end
 		end
-
-		id = Roby::Control.every(period, &handler)
-		sleep(duration)
-		Roby::Control.remove_periodic_handler(id)
 
 		samples
 	    end
