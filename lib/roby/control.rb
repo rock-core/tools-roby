@@ -345,16 +345,30 @@ module Roby
 	    # Call +block+ every +duration+ seconds. Note that +duration+ is
 	    # round up to the cycle size (time between calls is *at least* duration)
 	    def every(duration, &block)
+		if duration < Roby.control.cycle_length
+		    raise ArgumentError, "duration cannot be under the cycle length (#{Roby.control.cycle_length})"
+		end
+
 		Control.once do
-		    process_every << [lambda(&block), nil, duration]
+		    process_every << [block, nil, duration]
+		end
+		block.object_id
+	    end
+
+	    def remove_periodic_handler(id)
+		Roby.execute do
+		    process_every.delete_if { |spec| spec[0].object_id == id }
 		end
 	    end
 
 	    def call_every # :nodoc:
-		now = Time.now
+		now        = Roby.control.cycle_start
+		length     = Roby.control.cycle_length
 		process_every.map! do |block, last_call, duration|
 		    Propagation.gather_exceptions(block, "call every(#{duration})") do
-			if !last_call || (now - last_call) > duration
+			# Check if the nearest timepoint is the beginning of
+			# this cycle or of the next cycle
+			if !last_call || (duration - (now - last_call)) < length / 2
 			    block.call
 			    last_call = now
 			end
@@ -371,6 +385,9 @@ module Roby
 
 	# The cycle length in seconds
 	attr_reader :cycle_length
+
+	# The starting point of this cycle
+	attr_reader :cycle_start
 
 	# Main event loop. Valid options are
 	# cycle::   the cycle duration in seconds (default: 0.1)
@@ -530,6 +547,7 @@ module Roby
 			stats[:start] += cycle
 			@cycle_index += 1
 		    end
+		    @cycle_start = stats[:start]
 		    stats[:cycle_index] = @cycle_index
 		    stats = Control.synchronize { process_events(stats) }
 		    

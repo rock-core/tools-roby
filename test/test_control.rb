@@ -40,6 +40,29 @@ class TC_Control < Test::Unit::TestCase
 	assert(if_node.finished?)
     end
 
+    def test_every
+	# Check that every(cycle_length) works fine
+	Roby.control.run :cycle => 0.1, :detach => true
+
+	assert_raises(ArgumentError) { Control.every(0.09) {} }
+
+	samples = []
+	id = Control.every(0.1) do
+	    samples << Roby.control.cycle_start
+	end
+	sleep(1)
+	Control.remove_periodic_handler(id)
+	size = samples.size
+	assert(size > 2, samples.map { |t| t.to_hms })
+
+	samples.each_cons(2) do |a, b|
+	    assert_in_delta(0.1, b - a, 0.001)
+	end
+
+	# Check that no samples have been added after the 'remove_periodic_handler'
+	assert_equal(size, samples.size)
+    end
+
     def test_once
 	FlexMock.use do |mock|
 	    Control.once { mock.called }
