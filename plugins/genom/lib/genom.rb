@@ -363,6 +363,8 @@ module Roby::Genom
 	event :stop
     end
 
+    Poster = ::Genom::Poster
+
     # Base functionalities for Genom modules. It extends
     # the modules defined by GenomModule()
     module ModuleBase
