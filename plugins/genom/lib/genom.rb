@@ -191,9 +191,13 @@ module Roby::Genom
     # Define a Task model for the given request
     # The new model is a subclass of Roby::Genom::Request
     def self.define_request(rb_mod, rq_name) # :nodoc:
-	gen_mod     = rb_mod.genom_module
+	gen_mod = rb_mod.genom_module
+	rq_info = gen_mod.request_info[rq_name]
 	klassname   = rq_name.camelize
-	method_name = gen_mod.request_info[rq_name].method_name
+	if rq_info.control?
+	    klassname << "Control"
+	end
+	method_name = rq_info.method_name
 
 	Roby.debug { "Defining task model #{klassname} for request #{rq_name}" }
 	define_task(rb_mod, klassname) do
@@ -387,27 +391,51 @@ module Roby::Genom
 	    genom_module.poster(name)
 	end
 
-	# Builds a Task object based on a control task object, where
+	# Converts a control request 'name' into a task model for which
 	# * the start event starts the control task start event
 	# * the start event is emitted when the control task finishes successfully
-	# * the stop event has no effect whatsoever
-	def control_to_exec(name, *args)
-	    control = send(name, *args)
-	    klass = Class.new(Roby::Task) do
-		@name = "#{name.to_s.gsub('!', '')}Control"
-		def self.name; @name end
-		def start(context)
-		    event(:start).emit_on control.event(:success)
-		    control.start!(context)
+	# * the task is interruptible and the failed event command is the 
+	#   block given (if any)
+	#
+	# Returns the new model
+	def control_to_exec(name, &failed_command)
+	    name = name.to_s
+	    control_model = const_get("#{name}Control")
+
+	    Roby::Genom.define_task(self, name) do
+		Class.new(Roby::Task) do
+		    @control_model = control_model
+		    class << self
+			attr_reader :control_model
+		    end
+
+		    attr_reader :control
+		    def initialize(args)
+			@control = self.class.control_model.new([args])
+			super(control.arguments)
+			realized_by control
+		    end
+
+		    event :start do |context|
+			control.event(:success).forward event(:start)
+			control.start!(context)
+			control.on(:stop) do
+			    unless control.success?
+				event(:start).emit_failed
+			    end
+			end
+		    end
+
+		    if failed_command
+			event(:failed, :terminal => true, &failed_command)
+		    else
+			event(:failed, :terminal => true, :command => true)
+		    end
+		    interruptible
+
+		    executed_by control_model.execution_agent
 		end
-		event :start
-
-		event :stop, :command => true
-
-		executed_by control.class.execution_agent
 	    end
-
-	    klass.new
 	end
     end
     
