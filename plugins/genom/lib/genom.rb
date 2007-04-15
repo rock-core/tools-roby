@@ -419,13 +419,8 @@ module Roby::Genom
 		    end
 
 		    event :start do |context|
-			control.event(:success).forward event(:start)
+			event(:start).realize_with(control)
 			control.start!(context)
-			control.on(:stop) do
-			    unless control.success?
-				event(:start).emit_failed
-			    end
-			end
 		    end
 
 		    if failed_command
