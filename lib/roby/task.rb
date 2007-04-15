@@ -166,6 +166,11 @@ module Roby
 	def inspect
 	    "#{task.inspect}/#{symbol}: #{history.to_s}"
 	end
+
+	def realize_with(task)
+	    super
+	    self.task.realized_by task
+	end
     end
 
     class TaskArguments < Hash

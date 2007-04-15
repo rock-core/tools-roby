@@ -379,6 +379,21 @@ module Roby
 	    self
 	end
 
+	# Sets up +task+ and +self+ so that +task+ is used
+	# to execute the command of +self+. It is to be used in
+	# a command handler:
+	#   event :start do |context|
+	#	init = <create an initialization task>
+	#	event(:start).realize_with(task)
+	#   end
+	def realize_with(task)
+	    task.forward(:success, self)
+	    task.on(:failed) do
+		emit_failed(task.terminal_event)
+	    end
+	    task.start!
+	end
+
 	# A [time, event] array of past event emitted by this object
 	attribute(:history) { Array.new }
 	# True if this event has been emitted once.
