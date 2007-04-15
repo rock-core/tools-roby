@@ -120,7 +120,7 @@ module Roby
 		samples
 	    end
 
-	    Stat = Struct.new :total, :count, :mean, :stddev
+	    Stat = Struct.new :total, :count, :mean, :stddev, :max
 
 	    # Computes mean and standard deviation about the samples in
 	    # +samples+ +spec+ describes what to compute:
@@ -153,7 +153,7 @@ module Roby
 		    map { |n| n.to_sym }
 		result = Struct.new(*fields).new
 		fields.each do |name|
-		    result[name] = Stat.new(0, 0, 0, 0)
+		    result[name] = Stat.new(0, 0, 0, 0, nil)
 		end
 
 		# Compute the deltas if the mode is not absolute
@@ -194,6 +194,10 @@ module Roby
 		samples.each do |sample|
 		    fields.each do |name|
 			next unless value = sample[name]
+			if !result[name].max || value > result[name].max
+			    result[name].max = value
+			end
+
 			result[name].total += value
 			result[name].count += 1
 		    end
