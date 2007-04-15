@@ -74,5 +74,49 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	    assert_succeeds(task)
 	end
     end
+
+    def test_sampling
+	Roby.control.run :cycle => 0.1, :detach => true
+
+	i = 0
+	samples = Roby::Test.sampling(1, 0.1, :time_test, :index, :dummy) do
+	    i += 1
+	    [Roby.control.cycle_start, rand / 10 - 0.05 + i, rand / 10 + 0.95]
+	end
+	cur_size = samples.size
+
+	# Check the result
+	samples.each { |a| assert_equal(a.time_test, a.t) }
+	samples.each_with_index do |a, i|
+	    next if i == 0
+	    assert(a.dt)
+	    assert_in_delta(0.1, a.dt, 0.01)
+	end
+	samples.each_with_index do |a, b| 
+	    assert_in_delta(b + 1, a.index, 0.05)
+	end
+
+	# Check that the handler has been removed
+	assert_equal(cur_size, samples.size)
+
+	samples
+    end
+
+    def test_stats
+	samples = test_sampling
+	stats = Roby::Test.stats(samples, :dummy => :absolute)
+	assert_in_delta(1, stats.index.mean, 0.05)
+	assert_in_delta(0.025, stats.index.stddev, 0.026)
+	assert_in_delta(1, stats.dummy.mean, 0.05)
+	assert_in_delta(0.025, stats.dummy.stddev, 0.026)
+	assert_in_delta(0.1, stats.dt.mean, 0.001, stats.dt)
+	assert_in_delta(0, stats.dt.stddev, 0.001)
+
+	stats = Roby::Test.stats(samples, :index => :rate, :dummy => :absolute_rate)
+	assert_in_delta(10, stats.index.mean,  1)
+	assert_in_delta(0.25, stats.index.stddev, 0.25)
+	assert_in_delta(10, stats.dummy.mean,  1)
+	assert_in_delta(0.25, stats.dummy.stddev, 0.25)
+    end
 end
 
