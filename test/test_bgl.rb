@@ -169,7 +169,10 @@ class TC_BGL < Test::Unit::TestCase
 	assert_components([[v1, v2]], graph.components([v1]))
 	assert_components([[v5]], graph.components([v5]))
 	assert_components([], graph.components([v5], false))
+	assert_components([[v2, v1]], graph.generated_subgraphs(v1))
+	assert_components([[v2, v1]], graph.generated_subgraphs(v1, false))
 	assert_components([[v2]], graph.generated_subgraphs(v2))
+	assert_components([], graph.generated_subgraphs(v2, false))
 	assert_components([[v2], [v5]], graph.generated_subgraphs([v2, v5]))
 
 	assert_components([], graph.generated_subgraphs(v2, false))
