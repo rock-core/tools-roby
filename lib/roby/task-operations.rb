@@ -116,12 +116,12 @@ module Roby::TaskAggregator
 	    @name || @tasks.map { |t| t.name }.join("|")
 	end
 
-	attr_reader :success
+	attr_reader :children_success
         def initialize(arguments = {})
 	    super
 
-	    @success = Roby::AndGenerator.new
-	    @success.forward event(:success)
+	    @children_success = Roby::AndGenerator.new
+	    @children_success.forward event(:success)
         end
 
 	def to_task(task = nil)
@@ -132,7 +132,7 @@ module Roby::TaskAggregator
 		task.realized_by t
 		task.on(:start, t, :start)
 	    end
-	    task.event(:success).emit_on success
+	    task.event(:success).emit_on children_success
 
 	    delete
 
@@ -145,7 +145,7 @@ module Roby::TaskAggregator
 
 	    on(:start, task, :start)
 	    realized_by task
-	    success << task.event(:success)
+	    children_success << task.event(:success)
 
             self
         end

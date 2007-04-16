@@ -345,5 +345,21 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	task = model.new
 	assert(!task.distribute?)
     end
+
+    def test_dump_sequence
+	t1, t2 = prepare_plan :discover => 2
+	p = t1+t2
+
+	formatted = Distributed.format(p)
+	assert_nothing_raised(formatted.to_s) { Marshal.dump(formatted) }
+    end
+
+    def test_dump_parallel
+	t1, t2 = prepare_plan :discover => 2
+	p = t1|t2
+
+	formatted = Distributed.format(p)
+	assert_nothing_raised(formatted.to_s) { Marshal.dump(formatted) }
+    end
 end
 
