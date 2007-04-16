@@ -121,8 +121,8 @@ module Roby
         def insert(task)
 	    return if @missions.include?(task)
 
-	    discover(task)
 	    @missions << task
+	    discover(task)
 	    task.mission = true if task.self_owned?
 	    inserted(task)
 	    self
@@ -133,8 +133,8 @@ module Roby
 
 	# Forbid the GC to take out +task+
 	def permanent(task)
-	    discover(task)
 	    @keepalive << task
+	    discover(task)
 	end
 	
 	# Make GC finalize +task+ if it is not useful anymore
@@ -152,8 +152,8 @@ module Roby
 
 	# Removes the task in +tasks+ from the list of missions
 	def discard(task)
-	    discover(task)
 	    @missions.delete(task)
+	    discover(task)
 	    task.mission = false if task.self_owned?
 
 	    discarded(task)
