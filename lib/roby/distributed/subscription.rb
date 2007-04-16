@@ -234,6 +234,10 @@ module Roby
 	    #
 	    # See also #subscriptions, #subscribed? and #unsubscribe
 	    def subscribe(object)
+		while object.respond_to?(:__getobj__)
+		    object = object.__getobj__
+		end
+
 		if remote_object = (remote_object(object) rescue nil)
 		    if !subscriptions.include?(remote_object)
 			remote_object = nil
