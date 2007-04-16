@@ -248,5 +248,26 @@ class TC_Control < Test::Unit::TestCase
 	    assert_equal(42, returned_value)
 	end
     end
+
+    def test_execute_error
+	returned_value = nil
+	t = Thread.new do
+	    returned_value = begin
+				 Roby.execute do
+				     raise ArgumentError
+				 end
+			     rescue ArgumentError => e
+				 e
+			     end
+	end
+
+	# Wait for the thread to block
+	while !t.stop?; sleep(0.1) end
+	process_events
+	t.join
+
+	assert_kind_of(ArgumentError, returned_value)
+	assert(!Roby.control.quitting?)
+    end
 end
 

@@ -105,8 +105,14 @@ module Roby
 
 	    return_value = nil
 	    Roby::Control.synchronize do
+		caller_thread = Thread.current
+
 		Roby::Control.once do
-		    return_value = yield
+		    begin
+			return_value = yield
+		    rescue Exception => e
+			caller_thread.raise e
+		    end
 		    cv.broadcast
 		end
 		cv.wait(Roby::Control.mutex)
