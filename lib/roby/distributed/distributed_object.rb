@@ -53,8 +53,8 @@ module Roby
 	    end
 
 
-	    def call_siblings(*args)
-		Distributed.call_peers(mutex, synchro_call, updated_peers.dup << Distributed, *args)
+	    def call_siblings(m, *args)
+		Distributed.call_peers(updated_peers.dup << Distributed, m, *args)
 	    end
 
 	    def call_owners(*args) # :nodoc:
@@ -64,23 +64,35 @@ module Roby
 		    raise InvalidRemoteOperation, "cannot do #{args} if the object is not distributed on all its owners"
 		end
 
-		Distributed.call_peers(mutex, synchro_call, owners, *args)
+		Distributed.call_peers(owners, *args)
 	    end
 	end
 
 	# Calls +args+ on all peers and returns a { peer => return_value } hash
 	# of all the values returned by each peer
-	def self.call_peers(mutex, synchro, calling, *args)
-	    call_local = calling.include?(Distributed)
+	def self.call_peers(calling, m, *args)
 
-	    result = Hash.new
+	    # This is a tricky procedure. Let's describe what is done here:
+	    # * we send the required message to the peers listed in +calling+,
+	    #   and wait for all of them to have finished
+	    # * since there is a coordination requirement, once a peer have
+	    #   processed its call we stop processing any of the messages it 
+	    #   sends. We therefore block the RX thread of this peer using 
+	    #   the block_communication condition variable
+
+	    result              = Hash.new
+	    call_local          = calling.include?(Distributed)
+	    synchro, mutex      = Roby.condition_variable(true)
+	    block_communication = Roby.condition_variable
+
 	    mutex.synchronize do
 		waiting_for = calling.size
 		waiting_for -= 1 if call_local
 
 		calling.each do |peer| 
 		    next if peer == Distributed
-		    peer.transmit(*args) do |peer_result|
+
+		    callback = Proc.new do |peer_result|
 			mutex.synchronize do
 			    result[peer] = peer_result
 			    waiting_for -= 1
@@ -88,18 +100,24 @@ module Roby
 				synchro.broadcast
 			    end
 			end
+			block_communication.wait(Roby::Control.mutex)
 		    end
+		    peer.queue_call false, m, args, callback, Thread.current
 		end
 
 		synchro.wait(mutex) unless waiting_for == 0
 	    end
 
 	    if call_local
-		result[Distributed] = Distributed.call(*args)
+		result[Distributed] = Distributed.call(m, *args)
 	    end
 	    result
-	end
 
+	ensure
+	    block_communication.broadcast
+	    Roby.return_condition_variable(synchro, mutex)
+	    Roby.return_condition_variable(block_communication)
+	end
 
 	class PeerServer
 	    # Creates a sibling for +marshalled_object+, which already exists
