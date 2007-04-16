@@ -4,9 +4,7 @@ module Roby::TaskAggregator
     module Operations
         def +(task)
             # !!!! + is NOT commutative
-            if task.respond_to?(:to_sequence)
-                task.to_sequence.unshift self
-            elsif task.null?
+            if task.null?
                 self
             elsif self.null?
                 task
@@ -15,9 +13,7 @@ module Roby::TaskAggregator
             end
         end
         def |(task)
-            if task.respond_to?(:to_parallel)
-                task.to_parallel | self
-            elsif self.null?
+            if self.null?
                 task
             elsif task.null?
                 self
@@ -111,10 +107,6 @@ module Roby::TaskAggregator
         end
 
         def to_sequence; self end
-        def +(task)
-            self << task unless task.null?
-            self
-        end
     end
 
     class Parallel < TaskAggregator
@@ -159,10 +151,6 @@ module Roby::TaskAggregator
         end
 
         def to_parallel; self end
-        def |(task)
-            self << task unless task.null?
-            self
-        end
     end
 end
 
