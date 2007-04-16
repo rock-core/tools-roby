@@ -152,7 +152,7 @@ module Roby
 	    # True if the current thread is processing a remote request, and if it is a callback
 	    def processing_callback?; Thread.current[PROCESSING_CALLBACKS_TLS] end
 	    # True if we have already queued a +completed+ message for the message being processed
-	    def queued_completion?; Thread.current[QUEUED_COMPLETION_TLS] end
+	    def queued_completion?;   Thread.current[QUEUED_COMPLETION_TLS] end
 
 	    # Called by the remote peer to make us process something. +calls+ elements
 	    # are [is_callback, method, args]. Returns [result, error]
@@ -174,16 +174,16 @@ module Roby
 		    end
 
 		    result = Control.synchronize do
-			Thread.current[QUEUED_COMPLETION_TLS] = false
+			Thread.current[QUEUED_COMPLETION_TLS] = nil
 			Thread.current[PROCESSING_CALLBACKS_TLS] = !!is_callback
 			send(method, *args)
 		    end
 
 		    if method != :completed && method != :disconnected
 			if queued_completion?
-			    Distributed.debug "done, already queued the completion message"
+			    Distributed.debug "done and already queued the completion message"
 			else
-			    Distributed.debug { "done, returns #{result || 'nil'}" }
+			    Distributed.debug { "done, returns #{result || 'nil'} in demux" }
 			    peer.queue_call false, :completed, [result, false]
 			end
 		    end
@@ -200,6 +200,7 @@ module Roby
 		[calls_size - calls.size - 1, e]
 
 	    ensure
+		Thread.current[QUEUED_COMPLETION_TLS] = nil
 		Thread.current[PROCESSING_CALLBACKS_TLS] = nil
 	    end
 
@@ -242,12 +243,17 @@ module Roby
 	    # by the control thread while the #completed message is not.
 	    # #completed! both queues the message *and* makes sure that #demux
 	    # won't.
-	    def completed!(result, error)
+	    #
+	    # Since #completed! is destined to be called by other threads than
+	    # the communication thread, +comthread+ must be set to the
+	    # communication thread object.
+	    def completed!(result, error, comthread = Thread.current)
 		if queued_completion?
 		    raise "already queued the completed message"
 		else
-		    Thread.current[QUEUED_COMPLETION_TLS] = true
-		    queue_call false, :completed, [result, false]
+		    Distributed.debug { "done, returns #{result || 'nil'} in completed!" }
+		    comthread[QUEUED_COMPLETION_TLS] = true
+		    peer.queue_call false, :completed, [result, false]
 		end
 	    end
 
@@ -262,12 +268,14 @@ module Roby
 		    return yield
 		end
 
+		comthread = Thread.current
 		Roby.execute do
+		    error = nil
 		    begin
-			completed!(yield, false)
+			result = yield
 		    rescue Exception => error
-			completed!(error, true)
 		    end
+		    completed!(error || result, !!error, comthread)
 		end
 	    end
 	end
