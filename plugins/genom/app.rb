@@ -127,7 +127,9 @@ multi
 		    yield(env)
 		end
 	    else
-		raise NotImplementedError
+		Genom::Runner.h2(:env => config.robot.name) do |env|
+		    yield(env)
+		end
 	    end
 	end
 
