@@ -598,8 +598,8 @@ static VALUE graph_topological_sort(int argc, VALUE* argv, VALUE self)
 	topological_sort(graph, std::back_inserter(result), 
 		boost::color_map(make_assoc_property_map(colors)));
 
-	for (Result::const_reverse_iterator it = result.rbegin(); it != result.rend(); ++it)
-	    rb_ary_push(rb_result, graph[*it]);
+	for (int i = result.size() - 1; i >= 0; --i)
+	    rb_ary_push(rb_result, graph[result[i]]);
 	return rb_result;
     }
     catch(boost::not_a_dag) {}
