@@ -282,9 +282,26 @@ module Roby
 		    plan.permanent(task)
 		end
 
-		assert_any_event(task.event(:success), task.event(:stop)) do
-		    task.start!
+	    # This assertion fails if the relative error between +found+ and
+	    # +expected+is more than +error+
+	    def assert_relative_error(expected, found, error)
+		if expected == 0
+		    assert_in_delta(0, found, error, "comparing #{found} to #{expected}")
+		else
+		    assert_in_delta(0, (found - expected) / expected, error, "comparing #{found} to #{expected}")
 		end
+	    end
+
+	    # This assertion fails if +found+ and +expected+ are more than +dl+
+	    # meters apart in the x, y and z coordinates, or +dt+ radians apart
+	    # in angles
+	    def assert_same_position(expected, found, dl = 0.01, dt = 0.01)
+		assert_relative_error(expected.x, found.x, 0.01)
+		assert_relative_error(expected.y, found.y, 0.01)
+		assert_relative_error(expected.z, found.z, 0.01)
+		assert_relative_error(expected.yaw, found.yaw, 0.01)
+		assert_relative_error(expected.pitch, found.pitch, 0.01)
+		assert_relative_error(expected.roll, found.roll, 0.01)
 	    end
 	end
 
