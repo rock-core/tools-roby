@@ -205,6 +205,11 @@ module Roby
 		    updated(name, value)
                 end
 
+	    elsif name =~ /(.+)\?$/
+		# Test
+		attribute_name = $1
+		respond_to?(attribute_name) && send(attribute_name)
+
             elsif args.empty? # getter
 		attach
 

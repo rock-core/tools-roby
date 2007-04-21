@@ -151,6 +151,15 @@ class TC_State < Test::Unit::TestCase
 	end
     end
 
+    def test_predicate
+	s = ExtendedStruct.new
+	s.a = false
+	s.b = 1
+	assert(!s.foobar?)
+	assert(!s.a?)
+	assert(s.b?)
+    end
+
     def test_marshalling
 	s = ExtendedStruct.new
 	s.value = 42
