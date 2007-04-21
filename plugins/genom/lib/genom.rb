@@ -326,6 +326,7 @@ module Roby::Genom
 		end
 	    end
 	    genom_module.roby_runner_task = self
+	    roby_module.config.stable!(true)
 
 	    # Get the init request if it is needed
 	    init = if roby_module.respond_to?(:init)
