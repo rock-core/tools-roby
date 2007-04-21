@@ -80,26 +80,36 @@ class TC_State < Test::Unit::TestCase
         s.stable!
 	assert(s.stable?)
 	assert(!s.other.stable?)
+        assert_raises(NoMethodError) { s.test }
         assert_raises(NoMethodError) { s.test = 10 }
 	assert(! s.respond_to?(:test=))
+	assert_nothing_raised { s.other.test }
 	assert_nothing_raised { s.other.test = 10 }
 
         s.stable!(true)
        	assert(s.stable?)
-	assert(s.other.stable?)
+	assert_raises(NoMethodError) { s.test }
 	assert_raises(NoMethodError) { s.test = 10 }
+	assert(s.other.stable?)
+	assert_raises(NoMethodError) { s.other.another_test }
+	assert_nothing_raised { s.other.test }
         assert_raises(NoMethodError) { s.other.test = 10 }
 	
         s.stable!(false, false)
        	assert(!s.stable?)
-	assert(s.other.stable?)
+        assert_nothing_raised { s.test }
         assert_nothing_raised { s.test = 10 }
+	assert(s.other.stable?)
+	assert_raises(NoMethodError) { s.other.another_test }
+	assert_nothing_raised { s.other.test }
         assert_raises(NoMethodError) { s.other.test = 10 }
 	
         s.stable!(true, false)
        	assert(!s.stable?)
 	assert(!s.other.stable?)
+        assert_nothing_raised { s.test }
         assert_nothing_raised { s.test = 10 }
+	assert_nothing_raised { s.other.test }
         assert_nothing_raised { s.other.test = 10 }
     end
 
