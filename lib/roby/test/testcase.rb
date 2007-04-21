@@ -278,9 +278,11 @@ module Roby
 
 	    # Starts +task+ and checks it succeeds
 	    def assert_succeeds(task)
-		Roby::Control.synchronize do
+		assert_any_event(task.event(:success)) do
 		    plan.permanent(task)
+		    task.start!
 		end
+	    end
 
 	    # This assertion fails if the relative error between +found+ and
 	    # +expected+is more than +error+
