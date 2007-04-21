@@ -1,7 +1,7 @@
 require 'roby/task'
 
-module Roby::TaskAggregator
-    module Operations
+module Roby
+    module TaskOperations
         def +(task)
             # !!!! + is NOT commutative
             if task.null?
@@ -22,6 +22,10 @@ module Roby::TaskAggregator
             end
         end
             
+    end
+
+    class Task
+        include TaskOperations
     end
 
     class TaskAggregator < Roby::Task
@@ -49,8 +53,6 @@ module Roby::TaskAggregator
     end
 
     class Sequence < TaskAggregator
-        include Operations
-
 	def name
 	    @name || @tasks.map { |t| t.name }.join("+")
 	end
@@ -110,8 +112,6 @@ module Roby::TaskAggregator
     end
 
     class Parallel < TaskAggregator
-        include Operations
-
 	def name
 	    @name || @tasks.map { |t| t.name }.join("|")
 	end
@@ -152,12 +152,5 @@ module Roby::TaskAggregator
 
         def to_parallel; self end
     end
-end
-
-module Roby
-    class Task
-        include TaskAggregator::Operations
-    end
-
 end
 
