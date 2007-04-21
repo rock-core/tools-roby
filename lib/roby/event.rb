@@ -389,7 +389,7 @@ module Roby
 	def realize_with(task)
 	    task.forward(:success, self)
 	    task.on(:failed) do
-		emit_failed(task.terminal_event)
+		emit_failed(TaskModelViolation.new(self), task.terminal_event)
 	    end
 	end
 
