@@ -126,7 +126,7 @@ module Roby
                 def returns;    options[:returns] end
 		# If the method allows reusing tasks already in the plan
 		# reuse? is always false if there is no return type defined
-		def reuse?;	options[:reuse] if returns end
+		def reuse?; (!options.has_key?(:reuse) || options[:reuse]) if returns end
 		# Call the method definition
                 def call;       body.call end
 
@@ -143,7 +143,7 @@ module Roby
 		# or a task aggregation
                 def returns;    options[:returns] end
 		# If the model allows reusing tasks already in the plan
-		def reuse?;	options[:reuse] end
+		def reuse?; !options.has_key?(:reuse) || options[:reuse] end
 
 		# The model name
                 attr_reader :name
@@ -535,7 +535,7 @@ module Roby
 		
 		# Check if we can reuse a task already in the plan
 		all_returns = methods.map { |m| m.returns if m.reuse? }
-		if (model = singleton_class.method_model(name)) && (options[:reuse] || !options[:id])
+		if (model = singleton_class.method_model(name)) && !options[:id]
 		    all_returns << model.returns if model.reuse?
 		end
 		all_returns.compact!
