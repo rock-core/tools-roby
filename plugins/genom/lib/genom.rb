@@ -343,12 +343,11 @@ module Roby::Genom
 		emit :ready
 	    else
 		if init.respond_to? :to_task
-		    init = init.to_task
-		    realized_by init
+		    event(:ready).achieve_with init
 		    init.start!
-		    init = init.event(:success)
+		else
+		    init.forward event(:ready)
 		end
-		event(:ready).emit_on init
 	    end
 	end
 	# Event emitted when the module has been initialized
@@ -377,9 +376,6 @@ module Roby::Genom
        	attr_reader :name
 	# See RunnerTask#output_io
 	attr_reader :output_io
-
-	# Needed by executed_by
-	def new_task; runner!(nil) end
 
 	# The configuration structure got from the State object
 	def config
