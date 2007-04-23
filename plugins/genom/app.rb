@@ -172,6 +172,10 @@ host
 }
 		EOF
 
+		template = File.join(APP_DIR, 'config', 'pocosim', "#{config.robot_name}.conf")
+		if File.file?(template)
+		    io.puts File.read(template)
+		end
 		template = File.join(APP_DIR, 'config', 'pocosim', "#{config.robot_type}.conf")
 		if File.file?(template)
 		    io.puts File.read(template)
