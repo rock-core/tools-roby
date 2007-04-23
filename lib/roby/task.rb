@@ -170,6 +170,9 @@ module Roby
 	def achieve_with(task)
 	    super
 	    self.task.realized_by task
+	    task.on(:stop) do
+		self.task.remove_child task
+	    end
 	end
     end
 
