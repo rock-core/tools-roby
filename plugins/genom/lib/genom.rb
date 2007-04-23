@@ -10,6 +10,9 @@ require 'genom/environment'
 module Roby::Genom
     def self.component_name; 'genom' end
 
+    # Import a few constants from Genom.rb
+    Poster = ::Genom::Poster
+
     @genom_rb = ::Genom
     if @genom_rb == Roby::Genom
 	raise "you must not load Genom.rb by yourself"
@@ -20,6 +23,7 @@ module Roby::Genom
 	attr_reader :genom_rb
 	def_delegators(:@genom_rb, :connect)
 	def_delegators(:@genom_rb, :disconnect)
+	def_delegators(:@genom_rb, :types)
     end
 
     extend Logger::Hierarchy
@@ -363,8 +367,6 @@ module Roby::Genom
 	def stop(context); failed!(context) end
 	event :stop
     end
-
-    Poster = ::Genom::Poster
 
     # Base functionalities for Genom modules. It extends
     # the modules defined by GenomModule()
