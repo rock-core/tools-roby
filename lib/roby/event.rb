@@ -386,12 +386,14 @@ module Roby
 	#	init = <create an initialization task>
 	#	event(:start).realize_with(task)
 	#   end
-	def realize_with(task)
+	def achieve_with(task)
 	    task.forward(:success, self)
 	    task.on(:failed) do
 		emit_failed(TaskModelViolation.new(self), task.terminal_event)
 	    end
 	end
+	# For backwards compatibility. Use #achieve_with.
+	def realize_with(task); achieve_with(task) end
 
 	# A [time, event] array of past event emitted by this object
 	attribute(:history) { Array.new }

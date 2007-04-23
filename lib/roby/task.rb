@@ -167,7 +167,7 @@ module Roby
 	    "#{task.inspect}/#{symbol}: #{history.to_s}"
 	end
 
-	def realize_with(task)
+	def achieve_with(task)
 	    super
 	    self.task.realized_by task
 	end
