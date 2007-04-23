@@ -40,9 +40,12 @@ module Roby::Genom
 	attribute(:pocosim) do
 	    Hash[ 'display' => nil, 'gdhe' => nil, 'gazebo' => nil ]
 	end
+	attribute(:genom) do
+	    Hash[ 'mem_size' => nil ]
+	end
 
 	def self.load(config, options)
-	    config.load_option_hashes(options, %w{pocosim})
+	    config.load_option_hashes(options, %w{pocosim genom})
 	end
 
 	def self.setup(config)
@@ -189,7 +192,8 @@ host
 	    # Build the simulation configuration file based on configuration in config/#{ROBOT}.conf
 	    conffile = generate_simulation_config(config) 
 	    # Start simulation
-	    reuse_gazebo(Genom::Runner.method(:simulation), conffile, :env => config.robot_name, :hostname => config.robot_name) do |env|
+	    reuse_gazebo(Genom::Runner.method(:simulation), conffile, :mem_size => config.genom['mem_size'], 
+			 :env => config.robot_name, :hostname => config.robot_name) do |env|
 		::Genom.connect do
 		    STDERR.puts "Connected to the Genom environment"
 		    begin
