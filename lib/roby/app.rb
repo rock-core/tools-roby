@@ -95,7 +95,7 @@ module Roby
 		begin
 		    require appfile
 		rescue
-		    Roby.warn "cannot load plugin in #{subdir}: #{$!.message}"
+		    Roby.warn "cannot load plugin in #{subdir}: #{$!.full_message}\n"
 		end
 		Roby.info "loaded plugin in #{subdir}"
 	    end
