@@ -301,9 +301,9 @@ module Roby
 		assert_relative_error(expected.x, found.x, dl, msg)
 		assert_relative_error(expected.y, found.y, dl, msg)
 		assert_relative_error(expected.z, found.z, dl, msg)
-		assert_relative_error(expected.yaw, found.yaw   , dt, msg)
-		assert_relative_error(expected.pitch, found.pitch , dt, msg)
-		assert_relative_error(expected.roll, found.roll  , dt, msg)
+		assert_relative_error(expected.yaw, found.yaw, dt, msg)
+		assert_relative_error(expected.pitch, found.pitch, dt, msg)
+		assert_relative_error(expected.roll, found.roll, dt, msg)
 	    end
 	end
 
