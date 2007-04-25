@@ -534,15 +534,17 @@ module Roby
 		end
 		
 		# Check if we can reuse a task already in the plan
-		all_returns = methods.map { |m| m.returns if m.reuse? }
-		if (model = singleton_class.method_model(name)) && !options[:id]
-		    all_returns << model.returns if model.reuse?
-		end
-		all_returns.compact!
-				  
-		all_returns.each do |return_type|
-		    if task = find_reusable_task(return_type)
-			return task
+		unless options.has_key?(:reuse) && !options[:reuse]
+		    all_returns = methods.map { |m| m.returns if m.reuse? }
+		    if (model = singleton_class.method_model(name)) && !options[:id]
+			all_returns << model.returns if model.reuse?
+		    end
+		    all_returns.compact!
+				      
+		    all_returns.each do |return_type|
+			if task = find_reusable_task(return_type)
+			    return task
+			end
 		    end
 		end
 
@@ -647,6 +649,7 @@ module Roby
 		    m = m.last
 		else
 		    planning_options[:id] = Planner.next_id
+		    planning_options[:reuse] = false
 		    m = self.class.method('loops', planning_options, &block)
 
 		    defs << [block, m]
