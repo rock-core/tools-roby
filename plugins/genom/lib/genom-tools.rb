@@ -2,7 +2,7 @@
 # Otherwise, it creates the file, yields true and deletes the file after the block
 # has returned
 def lockfile(name)
-    filename = File.join(APP_DIR, "log", "#{name}.lock")
+    filename = File.join(Roby.app.log_dir, "#{name}.lock")
     if File.file?(filename)
 	yield(true)
     else
