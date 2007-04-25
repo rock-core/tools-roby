@@ -257,6 +257,7 @@ module Roby
 	    Marshal.dump([marshalled_members, @aliases])
 	end
 
+	def simulation?; Roby.app.simulation? end
 	def export(*names)
 	    @exported_fields.merge names.map { |n| n.to_s }.to_set
 	end
