@@ -213,6 +213,8 @@ module Roby
 	    if !generator.controlable?
 		raise EventModelViolation.new(self), "trying to establish a signal between #{self} and #{generator}"
 	    end
+	    timespec = Propagation.validate_timespec(timespec)
+
 	    add_signal generator, timespec
 	    self
 	end
@@ -222,6 +224,7 @@ module Roby
 	# between the instant this event is fired and the instant +generator+
 	# is fired
 	def forward(generator, timespec = nil)
+	    timespec = Propagation.validate_timespec(timespec)
 	    add_forwarding generator, timespec
 	    self
 	end

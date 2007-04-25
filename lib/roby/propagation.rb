@@ -200,6 +200,11 @@ module Roby::Propagation
 	Thread.current[:propagation_exceptions] = nil
     end
 
+    def self.validate_timespec(timespec)
+	if timespec
+	    timespec = validate_options timespec, [:delay, :at]
+	end
+    end
     def self.make_delay(timeref, source, signalled, timespec)
 	if delay = timespec[:delay] then timeref + delay
 	elsif at = timespec[:at] then at
