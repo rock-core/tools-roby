@@ -9,9 +9,11 @@ app.setup
 require 'irb'
 IRB.setup(nil)
 
-control = Roby::ControlInterface.new(Roby.control)
+control = Roby::Interface.new(Roby.control)
 begin
-    ws  = IRB::WorkSpace.new(binding)
+    # Make control the top-level object
+    bind = control.instance_eval { binding }
+    ws  = IRB::WorkSpace.new(bind)
     irb = IRB::Irb.new(ws)
     IRB.conf[:MAIN_CONTEXT] = irb.context
 
@@ -19,9 +21,15 @@ begin
 	irb.signal_handle
     end
 
-    catch(:IRB_EXIT) do
-	irb.eval_input
+    app.run do
+	Roby.execute do
+	    load File.join(APP_DIR, "controllers", "#{app.robot_name}.rb")
+	end
+	catch(:IRB_EXIT) do
+	    irb.eval_input
+	end
     end
+
 rescue Interrupt
     Roby.control.quit
     Roby.control.join

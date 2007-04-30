@@ -3,13 +3,13 @@ require 'roby/test/common'
 require 'flexmock'
 require 'mockups/tasks'
 
-class TC_Control < Test::Unit::TestCase 
+class TC_Interface < Test::Unit::TestCase 
     include Roby::Test
 
     include Roby::Planning
     def test_method_missing
-        control = Control.instance
-        iface   = ControlInterface.new(control)
+        control = Roby.control
+        iface   = Interface.new(control)
 
         task_model = Class.new(Task)
 
