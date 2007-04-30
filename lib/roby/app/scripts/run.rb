@@ -8,9 +8,11 @@ app.setup
 app.run do
     # Load the controller
     include Roby
-    begin
-	load File.join(APP_DIR, "controllers", "#{app.robot_name}.rb")
-    rescue Interrupt
+    Roby.execute do
+	begin
+	    load File.join(APP_DIR, "controllers", "#{app.robot_name}.rb")
+	rescue Interrupt
+	end
     end
 end
 
