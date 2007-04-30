@@ -316,6 +316,20 @@ class TC_Planner < Test::Unit::TestCase
 	assert_raises(Planning::NotFound) { planner.not_a_task }
     end
 
+    def test_planning_methods_names
+	model = Class.new(Planner) do
+	    def not_a_planning_method
+	    end
+	    method(:test) { }
+	    method(:localization) { }
+	    method(:model_only)
+	end
+	assert_equal(['test', 'localization', 'model_only'].to_set, 
+		     model.planning_methods_names.to_set)
+	assert_equal(['test', 'localization'].to_set, 
+		     model.planning_methods_names(false).to_set)
+    end
+
     def test_method_filter
 	base = Class.new(Planner) do
 	    method(:test, :id => 1) { arguments[:mock].m(1) }

@@ -224,11 +224,20 @@ host
 		Roby::Log::DataSource.new(fileset, 'pocosim')
 	    end
 	end
-    end
 
-    class Roby::TestCase
+	# Reload the Genom framework. Reload the Genom files only if the .gen
+	# file has changes. The runner task does not have to be reloaded
+	#
+	# Note that the plugin code itself is 
+	def self.reload(config)
+	end
     end
 end
 
-Roby::Application.register_plugin 'genom', 'lib/genom', Roby::Genom::Application
+Roby::Application.register_plugin('genom', Roby::Genom::Application) do
+    require 'lib/genom'
+    Roby::Application.filter_reloaded_models do |model|
+	!(model < Roby::Genom::RequestTask)
+    end
+end
 

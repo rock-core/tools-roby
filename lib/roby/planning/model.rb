@@ -425,6 +425,47 @@ module Roby
 		send("#{name}_methods")[method_id] = MethodDefinition.new(name, options, &lambda(&body) )
             end
 
+	    # Returns an array of the names of all planning methods
+	    def self.planning_methods_names(including_models = true)
+		names = Set.new
+		methods.each do |method_name|
+		    if method_name =~ /each_(\w+)_method/
+			names << $1
+		    elsif including_models && method_name =~ /(\w+)_model/
+			names << $1 if instance_variable_get("@#{method_name}")
+		    end
+		end
+
+		names
+	    end
+
+	    def self.clear_model
+		planning_methods_names.each do |name|
+		    remove_planning_method(name)
+		end
+		loop_definitions.clear
+	    end
+
+	    # Undefines all the definitions for the planning method +name+ on
+	    # this model. Definitions available on the parent are not removed
+	    def self.remove_planning_method(name)
+		remove_method(name)
+		remove_inherited_enumerable("#{name}_method", "#{name}_methods")
+		if method_defined?("#{name}_filter")
+		    remove_inherited_enumerable("#{name}_filter", "#{name}_filters")
+		end
+	    end
+
+	    def self.remove_inherited_enumerable(enum, attr = enum)
+		if instance_variable_defined?("@#{attr}")
+		    remove_instance_variable("@#{attr}")
+		end
+		singleton_class.class_eval do
+		    remove_method("each_#{enum}")
+		    remove_method(attr)
+		end
+	    end
+
 	    # Add a selection filter on the +name+ method. When developing the +name+
 	    # method, the filter is called with each MethodDefinition object, and should return
 	    # +false+ if the method is to be discarded, and +true+ otherwise
@@ -635,7 +676,10 @@ module Roby
 
             private :call_planning_methods
 
-	    attribute(:loop_definitions) { Hash.new { |h, k| h[k] = Hash.new } }
+	    @@loop_definitions = Hash.new { |h, k| h[k] = [] }
+	    class << self
+		def loop_definitions; @@loop_definitions end
+	    end
 	    # Builds a loop in a plan (i.e. a method which is generated in
 	    # loop)
 	    def make_loop(options = {}, &block)
@@ -644,7 +688,7 @@ module Roby
 		options.merge! :planner_model => self.class, :method_name => 'loops'
 		_, planning_options = PlanningLoop.filter_options(options)
 
-		defs = (loop_definitions[block.file][block.line] ||= [])
+		defs = Planner.loop_definitions[[block.file, block.line]]
 		if m = defs.find { |p, _| p.same_body?(block) }
 		    m = m.last
 		else
@@ -707,6 +751,10 @@ module Roby
 	    def planning_methods; @methods ||= Array.new end
 	    def method(name, options = Hash.new, &body)
 		planning_methods << [name, options, body]
+	    end
+
+	    def self.clear_model
+		planning_methods.clear
 	    end
 
 	    # Cannot use included here because included() is called *after* the module

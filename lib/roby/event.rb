@@ -678,6 +678,8 @@ module Roby
 	end
     end
 
-    EventStructure = RelationSpace(EventGenerator)
+    unless defined? EventStructure
+	EventStructure = RelationSpace(EventGenerator)
+    end
 end
 

@@ -34,6 +34,10 @@ module Roby
 	    end
 	    class_eval(&block) if block_given?
 	end
+
+	def clear_model
+	    @argument_set.clear if @argument_set
+	end
     end
 
     class TaskModelViolation < ModelViolation
@@ -248,8 +252,24 @@ module Roby
     #   - a non-controlable event can become a controlable one
     #   - a non-terminal event can become a terminal one
     class Task < PlanObject
-	RootTaskTag = TaskModelTag.new
+	unless defined? RootTaskTag
+	    RootTaskTag = TaskModelTag.new
+	end
 	include RootTaskTag
+
+	def self.clear_model
+	    class_eval do
+		# Remove event models
+		events.each_key do |ev_symbol|
+		    remove_const ev_symbol.to_s.camelize
+		end
+
+		[@events, @signal_sets, @forwarding_sets, @causal_link_sets,
+		    @argument_set, @handler_sets, @precondition_sets].each do |set|
+		    set.clear if set
+		end
+	    end
+	end
 
 	def self.model_attribute_list(name)
 	    inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = Set.new } }
@@ -1145,7 +1165,9 @@ module Roby
         def null?; true end
     end
 
-    TaskStructure   = RelationSpace(Task)
+    unless defined? TaskStructure
+	TaskStructure   = RelationSpace(Task)
+    end
 end
 
 require 'roby/task-operations'

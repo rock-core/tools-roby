@@ -29,9 +29,6 @@ module Roby
     class Application
 	include Singleton
 
-	ROBY_LIB_DIR  = File.expand_path( File.join(File.dirname(__FILE__)) )
-	ROBY_ROOT_DIR = File.expand_path( File.join(ROBY_LIB_DIR, '..', '..') )
-
 	# The plain option hash saved in config/app.yml
 	attr_reader :options
 
@@ -46,7 +43,11 @@ module Roby
 	# dir:: the log directory. Uses APP_DIR/log if not set
 	attr_reader :log
 	
-	# A [name, file, module] array of available plugins
+	# A [name, dir, file, module] array of available plugins, where 'name'
+	# is the plugin name, 'dir' the directory in which it is installed,
+	# 'file' the file which should be required to load the plugin and
+	# 'module' the Application-compatible module for configuration of the
+	# plug-in
 	attr_reader :available_plugins
 	# An [name, module] array of the loaded plugins
 	attr_reader :plugins
@@ -106,16 +107,22 @@ module Roby
 	    plugins.any? { |plugname, _| plugname == name }
 	end
 
+	# Returns the [name, dir, file, module] array definition of the plugin
+	# +name+, or nil if +name+ is not a known plugin
+	def plugin_definition(name)
+	    available_plugins.find { |plugname, *_| plugname == name }
+	end
+
 	# True if +name+ is a plugin known to us
 	def defined_plugin?(name)
-	    available_plugins.any? { |plugname, _, _, _| plugname == name }
+	    available_plugins.any? { |plugname, *_| plugname == name }
 	end
 
 	# Yields each extension modules that respond to +method+
 	def each_responding_plugin(method, on_available = false)
 	    plugins = self.plugins
 	    if on_available
-		plugins = available_plugins.map { |name, _, _, mod| [name, mod] }
+		plugins = available_plugins.map { |name, _, mod, _| [name, mod] }
 	    end
 
 	    plugins.each do |_, mod|
@@ -165,14 +172,14 @@ module Roby
 	# Loads the plugins whose name are listed in +names+
 	def using(*names)
 	    names.each do |name|
-		unless plugin = available_plugins.find { |plugname, dir, file, mod| plugname == name.to_s }
-		    raise ArgumentError, "#{name} is not a known plugin (#{available_plugins.map { |n, _, _, _| n }.join(", ")})"
+		unless plugin = plugin_definition(name)
+		    raise ArgumentError, "#{name} is not a known plugin (#{available_plugins.map { |n, *_| n }.join(", ")})"
 		end
-		_, _, file, mod = *plugin
+		name, dir, mod, init = *plugin
 
 		begin
-		    require file
-		rescue LoadError => e
+		    init.call
+		rescue Exception => e
 		    Roby.fatal "cannot load plugin #{name}: #{e.full_message}"
 		    exit(1)
 		end
@@ -494,17 +501,79 @@ module Roby
 	    raise Errno::ENOENT, "no such file #{path}"
 	end
 
-	def self.register_plugin(name, file, mod)
+	def self.register_plugin(name, mod, &init)
 	    caller(1)[0] =~ /^([^:]+):\d/
 	    dir  = File.expand_path(File.dirname($1))
-	    file = File.join(dir, file)
+	    Roby.app.available_plugins << [name, mod, init]
+	end
 
-	    Roby.app.available_plugins << [name, dir, file, mod]
+	@@reload_model_filter = []
+	# Add a filter to model reloading. A task or planner model is
+	# reinitialized only if all filter blocks return true for it
+	def self.filter_reloaded_models(&block)
+	    @@reload_model_filter << block
+	end
+
+	def model?(model)
+	    (model <= Roby::Task) || (model.kind_of?(Roby::TaskModelTag)) || 
+		(model <= Planning::Planner) || (model <= Planning::Library)
+	end
+
+	def reload_model?(model)
+	    @@reload_model_filter.all? { |filter| filter[model] }
+	end
+
+	def app_file?(path)
+	    (path =~ %r{(^|/)#{APP_DIR}(/|$)}) ||
+		((path[0] != ?/) && File.file?(File.join(APP_DIR, path)))
+	end
+	def framework_file?(path)
+	    if path =~ /roby\/.*\.rb$/
+		true
+	    else
+		Roby.app.plugins.any? do |name, _|
+		    _, dir, _, _ = Roby.app.plugin_definition(name)
+		    path =~ %r{(^|/)#{dir}(/|$)}
+		end
+	    end
+	end
+
+	def reload
+	    # Always reload this file first. This ensure that one can use #reload
+	    # to fix the reload code itself
+	    load __FILE__
+
+	    # Clear all event definitions in task models that are filtered out by
+	    # Application.filter_reloaded_models
+	    ObjectSpace.each_object(Class) do |model|
+		next unless model?(model)
+		next unless reload_model?(model)
+
+		model.clear_model
+	    end
+
+	    # Remove what we want to reload from LOADED_FEATURES and use
+	    # require. Do not use 'load' as the reload order should be the
+	    # require order.
+	    needs_reload = []
+	    $LOADED_FEATURES.delete_if do |feature|
+		if framework_file?(feature) || app_file?(feature)
+		    needs_reload << feature
+		end
+	    end
+
+	    needs_reload.each do |feature|
+		begin
+		    require feature.gsub(/\.rb$/, '')
+		rescue Exception => e
+		    STDERR.puts e.full_message
+		end
+	    end
 	end
     end
 
     # Load the plugins 'main' files
-    Roby.app.plugin_dir File.join(Application::ROBY_ROOT_DIR, 'plugins')
+    Roby.app.plugin_dir File.join(ROBY_ROOT_DIR, 'plugins')
     if plugin_path = ENV['ROBY_PLUGIN_PATH']
 	plugin_path.split(':').each do |dir|
 	    if File.directory?(dir)
