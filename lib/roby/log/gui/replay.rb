@@ -1,46 +1,13 @@
 require 'Qt4'
-require 'roby/log/data_source'
-require 'roby/log/gui/replay_ui'
-require 'roby/log/gui/relations'
+require 'roby/app'
 
-class DataSourceListModel < Qt::AbstractListModel
-    attr_reader :sources
-    def initialize(sources)
-	@sources = sources
-	super()
-    end
+require 'roby/log/gui/replay_controls_ui'
+require 'roby/log/gui/data_displays'
 
-    def rowCount(parent)
-	if parent.valid? then 0
-	else sources.size
-	end
-    end
-    def flags(index)
-	Qt::ItemIsSelectable | Qt::ItemIsEnabled
-    end
-
-    def data(index, role)
-        return Qt::Variant.new unless role == Qt::DisplayRole && index.valid? && index.row < sources.size
-        s = sources[index.row]
-        return Qt::Variant.new(s.files.map { |f| File.basename(f) }.join(", ") + " [#{s.type}]")
-    end
-
-    def add_new(source = nil)
-	if source
-	    emit beginInsertRows(Qt::ModelIndex.new, sources.size, sources.size)
-	    sources << source
-	    emit endInsertRows()
-	else
-	    insertRow(sources.size, Qt::ModelIndex.new)
-	end
-    end
-
-    def edit_at(index)
-        return unless index.valid? && index.row < sources.size
-	edit(sources[index.row])
-	emit dataChanged(index, index)
-    end
-
+# This class is a data source list model for offline replay:
+# it holds a list of log file which can then be used for
+# display by log/replay
+class OfflineSourceListModel < DataSourceListModel
     def edit(source)
 	dir = if !source || source.files.empty? then ""
 	      else File.dirname(source.files.first) end
@@ -56,56 +23,18 @@ class DataSourceListModel < Qt::AbstractListModel
 	    end
 	end
     end
-
-    def insertRow(row, parent)
-        emit beginInsertRows(parent, row, row)
-	if source = edit(nil)
-	    @sources.insert row, source
-	    return true
-	end
-    ensure
-	emit endInsertRows()
-    end
-    def removeRow(row, parent)
-        emit beginRemoveRows(parent, row, row)
-        @sources.delete_at row
-        emit endRemoveRows()
-        true
-    end
-end
-
-class FilteredDataSourceListModel < Qt::SortFilterProxyModel
-    attr_reader :type, :sources
-    attr_reader :source_combo
-    attr_reader :display
-    def initialize(source_combo, display, type, sources)
-	super()
-	@display = display
-	@type    = type
-	@sources = sources
-	@source_combo = source_combo
-    end
-    def filterAcceptsRow(source_row, source_parent)
-	sources[source_row].type == type
-    end
-    def selectedSource()
-	index = source_combo.current_index
-	index = self.index(index, 0, Qt::ModelIndex.new)
-	
-	sources[mapToSource(index).row].add_display(display)
-    end
-    slots 'selectedSource()'
 end
 
 class Replay < Qt::MainWindow
-    DISPLAYS = {
-	'Relations' => Ui::RelationsConfig
-    }
     attr_reader :displays
     attr_reader :sources
     attr_reader :sources_model
 
-    attr_reader :ui
+    # The widget which controls the data source => display mapping, and display
+    # control
+    attr_reader :ui_displays
+    # The widget which hold the replay controls (play, pause, ...)
+    attr_reader :ui_controls
 
     KEY_GOTO = Qt::KeySequence.new('g')
 
@@ -113,56 +42,68 @@ class Replay < Qt::MainWindow
 	super()
 	@play_speed = 1.0
 
-	@ui = Ui_Replay.new
-	ui.setupUi(self)
+	# Create the vertical layout for this window
+	central_widget = Qt::Widget.new(self)
+	layout = Qt::VBoxLayout.new(central_widget)
+	layout.spacing = 6
+	layout.margin  = 0
 
-	@displays = Hash.new
-	@display_number = 0
-	connect(ui.display_add, SIGNAL("clicked()"), self, SLOT("add_display()"))
-
+	# add support for the data sources and display setup
 	@sources = Array.new
-	@sources_model = DataSourceListModel.new(sources)
-	ui.sources.model = @sources_model
-	connect(ui.add_source, SIGNAL("clicked()"), self, SLOT("add_source()"))
-	connect(ui.remove_source, SIGNAL("clicked()"), self, SLOT("remove_source()"))
+	@sources_model = OfflineSourceListModel.new(sources)
+	displays_holder = Qt::Widget.new(central_widget)
+	layout.add_widget displays_holder
+	@ui_displays = Ui_DataDisplays.new
+	ui_displays.setupUi(displays_holder)
+	ui_displays.sources.model = sources_model
+	connect(ui_displays.add_source, SIGNAL("clicked()"), self, SLOT("add_source()"))
+	connect(ui_displays.remove_source, SIGNAL("clicked()"), self, SLOT("remove_source()"))
+	connect(ui_displays.display_add, SIGNAL("clicked()"), self, SLOT("add_display()"))
 
-	connect(ui.seek_start, SIGNAL("clicked()"), self, SLOT("seek_start()"))
-	connect(ui.play, SIGNAL("toggled(bool)"), self, SLOT("play()"))
-	connect(ui.play_step, SIGNAL("clicked()"), self, SLOT("play_step()"))
-	connect(ui.faster, SIGNAL('clicked()')) do
+	controls_holder = Qt::Widget.new(central_widget)
+	layout.add_widget controls_holder
+	@ui_controls = Ui_ReplayControls.new
+	ui_controls.setupUi(controls_holder)
+	connect(ui_controls.seek_start, SIGNAL("clicked()"), self, SLOT("seek_start()"))
+	connect(ui_controls.play, SIGNAL("toggled(bool)"), self, SLOT("play()"))
+	connect(ui_controls.play_step, SIGNAL("clicked()"), self, SLOT("play_step()"))
+	connect(ui_controls.faster, SIGNAL('clicked()')) do
 	    factor = play_speed < 1 ? 10 : 1
 	    self.play_speed = Float(Integer(factor * play_speed) + 1.0) / factor
 	    if play_speed > 0.1
-		ui.slower.enabled = true
+		ui_controls.slower.enabled = true
 	    end
 	end
-	connect(ui.slower, SIGNAL('clicked()')) do
+	connect(ui_controls.slower, SIGNAL('clicked()')) do
 	    factor = play_speed <= 1 ? 10 : 1
 	    self.play_speed = Float(Integer(factor * play_speed) - 1.0) / factor
 	    if play_speed == 0.1
-		ui.slower.enabled = false
+		ui_controls.slower.enabled = false
 	    end
 	end
-	connect(ui.speed, SIGNAL('editingFinished()')) do
+	connect(ui_controls.speed, SIGNAL('editingFinished()')) do
 	    begin
-		new_speed = Float(ui.speed.text)
+		new_speed = Float(ui_controls.speed.text)
 		if new_speed <= 0
 		    raise ArgumentError, "negative values are not allowed for speed"
 		end
 	    rescue ArgumentError
-		Qt::MessageBox.warning self, "Invalid speed", "Invalid value for speed \"#{ui.speed.text}\": #{$!.message}"
+		Qt::MessageBox.warning self, "Invalid speed", "Invalid value for speed \"#{ui_controls.speed.text}\": #{$!.message}"
 		# Reinitialize the line edit to the old value
 		self.play_speed = play_speed
 	    end
 	end
-	connect(ui.goto, SIGNAL('clicked()'), self, SLOT('goto()'))
+	connect(ui_controls.goto, SIGNAL('clicked()'), self, SLOT('goto()'))
+
+
+	self.central_widget = central_widget
 
 	@shortcuts = []
 	@shortcuts << Qt::Shortcut.new(KEY_GOTO, self, SLOT('goto()'))
     end
 
     def play_speed=(value)
-	ui.speed.text = value.to_s
+	ui_controls.speed.text = value.to_s
 	@play_speed = value
 
 	if play_timer
@@ -212,14 +153,14 @@ class Replay < Qt::MainWindow
 		    
 	    @first_sample = @time = min
 	    @last_sample  = max
-	    ui.progress.minimum = first_sample.to_i
-	    ui.progress.maximum = last_sample.to_i
+	    ui_controls.progress.minimum = first_sample.to_i
+	    ui_controls.progress.maximum = last_sample.to_i
 	else
 	    play_until time
 	end
 
-	ui.time_lcd.display(self.time - first_sample)
-	ui.progress.value = self.time.to_i
+	ui_controls.time_lcd.display(self.time - first_sample)
+	ui_controls.progress.value = self.time.to_i
     end
 
     def goto
@@ -250,7 +191,6 @@ class Replay < Qt::MainWindow
     end
     slots 'goto()'
 
-    def allocate_display_number; @display_number += 1 end
     attr_reader :time
 
     def next_step_time
@@ -262,7 +202,7 @@ class Replay < Qt::MainWindow
     BASE_TIME_SLICE = 0.5
     attr_reader :play_timer, :play_speed
     def play
-	if ui.play.checked?
+	if ui_controls.play.checked?
 	    seek_start unless first_sample
 
 	    @play_timer = Qt::Timer.new(self)
@@ -275,7 +215,7 @@ class Replay < Qt::MainWindow
     slots 'play()'
 
     def stop
-	ui.play.checked = false
+	ui_controls.play.checked = false
 	play_timer.stop if play_timer
 	@play_timer = nil
     end
@@ -335,12 +275,12 @@ class Replay < Qt::MainWindow
 
 	if time > last_sample
 	    last_sample = time
-	    if ui.progress.maximum < time.to_i
-		ui.progress.maximum = (first_sample + (last_sample - first_sample) * 4 / 3).to_i
+	    if ui_controls.progress.maximum < time.to_i
+		ui_controls.progress.maximum = (first_sample + (last_sample - first_sample) * 4 / 3).to_i
 	    end
 	end
-	ui.progress.value = time.to_i
-	ui.time_lcd.display(time - first_sample)
+	ui_controls.progress.value = time.to_i
+	ui_controls.time_lcd.display(time - first_sample)
 
     rescue Exception => e
 	message = "<html>#{Qt.escape(e.message)}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"
@@ -354,26 +294,13 @@ class Replay < Qt::MainWindow
     slots 'add_source()'
 
     def remove_source
-	index = ui.sources.current_index.row
+	index = ui_displays.sources.current_index.row
 	sources_model.removeRow(index, Qt::ModelIndex.new)
     end
     slots 'remove_source()'
 
     def add_display(kind = nil)
-	kind ||= ui.display_types.current_text
-
-	config_widget = Qt::Widget.new
-	config_ui = DISPLAYS[kind].new
-	display = config_ui.setupUi(self, config_widget)
-
-
-	name = "#{kind}##{allocate_display_number}"
-	idx  = ui.displays.add_item(config_widget, name)
-	ui.displays.current_index = idx
-
-	displays[config_ui] = display
-	display.main.window_title = "#{window_title}: #{name}"
-	display.main.show
+	display  = ui_displays.add_display(sources_model, kind)
 	shortcut = Qt::Shortcut.new(KEY_GOTO, display.main)
 	connect(shortcut, SIGNAL('activated()'), self, SLOT('goto()'))
 	@shortcuts << shortcut

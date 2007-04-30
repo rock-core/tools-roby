@@ -9,7 +9,9 @@ module Roby::Log
 
     class << self
 	# Start the logging framework
-	def logging?; @@logging_thread end
+	def logging?
+	    @@logging_thread
+	end
 
 	# Start the logging framework
 	def start_logging # :nodoc:
@@ -23,7 +25,6 @@ module Roby::Log
 	    return unless logging?
 	    logged_events.push nil
 	    @@logging_thread.join
-	    @@logging_thread = nil
 	end
 
 	# Add a logger object in the system
@@ -121,7 +122,7 @@ module Roby::Log
 		    end
 		end
 
-		if m == :flush
+		if m == :flush && logged_events.empty?
 		    flushed_logger_mutex.synchronize do
 			flushed_logger.signal
 		    end
@@ -131,7 +132,8 @@ module Roby::Log
 	ensure
 	    # Wake up any waiting thread
 	    flushed_logger_mutex.synchronize do
-		flushed_logger.signal
+		@@logging_thread = nil
+		flushed_logger.broadcast
 	    end
 	end
 
