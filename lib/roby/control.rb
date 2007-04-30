@@ -360,7 +360,8 @@ module Roby
 		end
 
 		Control.once do
-		    process_every << [block, nil, duration]
+		    block.call
+		    process_every << [block, Roby.control.cycle_start, duration]
 		end
 		block.object_id
 	    end
