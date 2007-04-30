@@ -213,6 +213,8 @@ module Roby
 	    Object.const_set('Robot', robot_mod)
 	    robot_mod.logger = Logger.new(STDOUT)
 	    robot_mod.logger.level = Logger::INFO
+	    robot_mod.logger.formatter = Roby.logger.formatter
+	    robot_mod.logger.progname = robot_name
 
 	    # Set up log levels
 	    log['levels'].each do |name, value|
