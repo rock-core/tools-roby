@@ -42,6 +42,13 @@ module Roby
 	#   Roby.control.plan
 	def plan; Control.instance.plan end
 
+	def every(duration, &block)
+	    Control.every(duration, &block)
+	end
+	def each_cycle(&block)
+	    Control.each_cycle(&block)
+	end
+
 	# Returns the control thread or, if control is not in a separate
 	# thread, Thread.main
 	def control_thread
