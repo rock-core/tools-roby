@@ -26,7 +26,7 @@ end
 def global_help(opt)
     opt.separator ""
     opt.separator "  Available modes:"
-    opt.separator "    init   creates new roby application, or adds the files needed by "
+    opt.separator "    init   creates new roby application, or adds the files needed by plugins"
     opt.separator "    robot  creates a new robot type in this application"
     opt.separator ""
     opt.separator "  roby <mode> --help displays mode-specific help"
