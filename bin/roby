@@ -160,7 +160,7 @@ module Roby
 	    destdir = File.expand_path(destdir)
 
 	    Find.find(basedir) do |file|
-		relative = file.gsub Regexp.quote(basedir), ''
+		relative = file.gsub /#{Regexp.quote("#{basedir}")}\/?/, ''
 		relative = yield(relative) if block_given?
 		# The block can return nil if the file shouldn't be installed
 		next unless relative
@@ -168,6 +168,7 @@ module Roby
 		destfile = File.join(destdir, relative)
 		if File.directory?(file)
 		    if !File.exists?(destfile)
+			puts "creating #{relative}/"
 			Dir.mkdir destfile
 		    elsif !File.directory?(destfile)
 			STDERR.puts "#{destfile} exists but it is not a directory"
@@ -176,6 +177,7 @@ module Roby
 		else
 		    if !File.exists?(destfile)
 			FileUtils.cp file, destfile
+			puts "creating #{relative}"
 		    elsif !File.file?(destfile)
 			STDERR.puts "#{destfile} exists but it is not a file"
 			exit(1)
