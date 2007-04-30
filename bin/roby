@@ -15,6 +15,9 @@ config = OpenStruct.new
 parser = OptionParser.new do |opt|
     opt.banner = "Usage: roby mode [options]"
     opt.on_tail('-h', '--help', 'this help message') do
+	if !config.mode
+	    global_help(opt)
+	end
 	STDERR.puts opt
 	exit
     end
