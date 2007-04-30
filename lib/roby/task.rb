@@ -832,8 +832,17 @@ module Roby
 
 		# define an instance method which calls the event command
 		define_method("#{ev_s}!") do |*context| 
-		    context = *context # emulate default value for blocks
-		    event(ev).call(context) 
+		    begin
+			context = *context # emulate default value for blocks
+			generator = event(ev)
+			generator.call(context) 
+		    rescue EventNotExecutable
+			if partially_instanciated?
+			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} which is partially instanciated"
+			else
+			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} which is not executable"
+			end
+		    end
 		end
             end
 
