@@ -389,6 +389,9 @@ module Roby
 		rescue Interrupt
 		    control.quit
 		    control.join
+		    unless e.kind_of?(Interrupt)
+			raise e, e.message, Roby.filter_backtrace(e.backtrace)
+		    end
 		end
 	    else
 		mod = mods.shift

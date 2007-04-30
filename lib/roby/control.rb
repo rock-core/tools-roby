@@ -245,7 +245,11 @@ module Roby
 	# Abort the control loop because of +exceptions+
 	def reraise(exceptions)
 	    if exceptions.size == 1
-		raise exceptions[0]
+		e = exceptions.first
+		if e.kind_of?(ExecutionException)
+		    e = e.exception
+		end
+		raise e, e.message, Roby.filter_backtrace(e.backtrace)
 	    else
 		raise Aborting.new(exceptions)
 	    end

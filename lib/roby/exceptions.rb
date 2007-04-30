@@ -131,5 +131,12 @@ module Roby
 	end
     end
 
+    def self.filter_backtrace(backtrace)
+	backtrace = backtrace.dup
+	backtrace.delete_if do |caller|
+	    caller =~ /^(#{Regexp.quote(ROBY_LIB_DIR)}|scripts\/)/
+	end
+	backtrace
+    end
 end
 
