@@ -1,24 +1,25 @@
 require 'Qt4'
 require 'roby/app'
+require 'optparse'
 
 require 'roby/log/gui/replay_controls_ui'
 require 'roby/log/gui/data_displays'
 
-# This class is a data source list model for offline replay:
+# This class is a data stream list model for offline replay:
 # it holds a list of log file which can then be used for
 # display by log/replay
-class OfflineSourceListModel < DataSourceListModel
-    def edit(source)
-	dir = if !source || source.files.empty? then ""
-	      else File.dirname(source.files.first) end
+class OfflineStreamListModel < DataStreamListModel
+    def edit(stream)
+	dir = if !stream || stream.files.empty? then ""
+	      else File.dirname(stream.files.first) end
 
-	newfiles = Qt::FileDialog.get_open_file_names nil, "New data source", dir
+	newfiles = Qt::FileDialog.get_open_file_names nil, "New data stream", dir
 	return if newfiles.empty?
 	if !newfiles.empty?
-	    if newsource = Roby.app.data_source(newfiles)
-		return newsource
+	    if newstream = Roby.app.data_stream(newfiles)
+		return newstream
 	    else
-		Qt::MessageBox.warning self, "Add data source", "Cannot determine data source type for #{newfiles.join(", ")}"
+		Qt::MessageBox.warning self, "Add data stream", "Cannot determine data stream type for #{newfiles.join(", ")}"
 		return
 	    end
 	end
@@ -27,20 +28,33 @@ end
 
 class Replay < Qt::MainWindow
     attr_reader :displays
-    attr_reader :sources
-    attr_reader :sources_model
+    attr_reader :streams
+    attr_reader :streams_model
 
-    # The widget which controls the data source => display mapping, and display
+    # The widget which controls the data stream => display mapping, and display
     # control
     attr_reader :ui_displays
     # The widget which hold the replay controls (play, pause, ...)
     attr_reader :ui_controls
 
     KEY_GOTO = Qt::KeySequence.new('g')
+    
+    # True if we should start playing right away
+    attr_accessor :play_now
+    # The log directory, or Roby.app.log_dir
+    attr_accessor :log_dir
+    # Set to a time at which we should go to
+    attr_accessor :initial_time
+    # A set of procs which are to be called to set up the display
+    attr_accessor :initial_setup
 
     def initialize
 	super()
-	@play_speed = 1.0
+	@play_speed    = 1.0
+	@play_now      = nil
+	@logdir        = nil
+	@goto          = nil
+	@initial_setup = []
 
 	# Create the vertical layout for this window
 	central_widget = Qt::Widget.new(self)
@@ -48,16 +62,16 @@ class Replay < Qt::MainWindow
 	layout.spacing = 6
 	layout.margin  = 0
 
-	# add support for the data sources and display setup
-	@sources = Array.new
-	@sources_model = OfflineSourceListModel.new(sources)
+	# add support for the data streams and display setup
+	@streams = Array.new
+	@streams_model = OfflineStreamListModel.new(streams)
 	displays_holder = Qt::Widget.new(central_widget)
 	layout.add_widget displays_holder
 	@ui_displays = Ui_DataDisplays.new
 	ui_displays.setupUi(displays_holder)
-	ui_displays.sources.model = sources_model
-	connect(ui_displays.add_source, SIGNAL("clicked()"), self, SLOT("add_source()"))
-	connect(ui_displays.remove_source, SIGNAL("clicked()"), self, SLOT("remove_source()"))
+	ui_displays.streams.model = streams_model
+	connect(ui_displays.add_stream, SIGNAL("clicked()"), self, SLOT("add_stream()"))
+	connect(ui_displays.remove_stream, SIGNAL("clicked()"), self, SLOT("remove_stream()"))
 	connect(ui_displays.display_add, SIGNAL("clicked()"), self, SLOT("add_display()"))
 
 	controls_holder = Qt::Widget.new(central_widget)
@@ -119,8 +133,8 @@ class Replay < Qt::MainWindow
 	end
     end
 
-    def displayed_sources
-	sources.find_all { |s| !s.displays.empty? }
+    def displayed_streams
+	streams.find_all { |s| !s.displays.empty? }
     end
 
     # Time of the first known sample
@@ -138,15 +152,15 @@ class Replay < Qt::MainWindow
 	    time = nil
 	end
 
-	displayed_sources.each { |s| s.prepare_seek(time) }
+	displayed_streams.each { |s| s.prepare_seek(time) }
 	if !time || time == Time.at(0)
-	    min, max = displayed_sources.inject([nil, nil]) do |(min, max), source|
-		source_min, source_max = source.range
-		if !min || source_min < min
-		    min = source_min
+	    min, max = displayed_streams.inject([nil, nil]) do |(min, max), stream|
+		stream_min, stream_max = stream.range
+		if !min || stream_min < min
+		    min = stream_min
 		end
-		if !max || source_max > max
-		    max = source_max
+		if !max || stream_max > max
+		    max = stream_max
 		end
 		[min, max]
 	    end
@@ -194,7 +208,7 @@ class Replay < Qt::MainWindow
     attr_reader :time
 
     def next_step_time
-	displayed_sources.
+	displayed_streams.
 	    map { |s| s.next_step_time }.
 	    compact.min 
     end
@@ -237,7 +251,7 @@ class Replay < Qt::MainWindow
     slots 'play_step_timer()'
     
     def play_until(max_time)
-	displayed_sources.inject(timeline = []) do |timeline, s| 
+	displayed_streams.inject(timeline = []) do |timeline, s| 
 	    if s.next_step_time
 		timeline << [s.next_step_time, s]
 	    end
@@ -249,24 +263,24 @@ class Replay < Qt::MainWindow
 	    return
 	end
 
-	updated_sources = Set.new
+	updated_streams = Set.new
 
 	timeline.sort_by { |t, _| t }
 	while !timeline.empty? && timeline[0][0] <= max_time
 	    timeline.sort_by { |t, _| t }
-	    @time, source = timeline.first
+	    @time, stream = timeline.first
 
-	    source.advance
-	    updated_sources << source
-	    if next_time = source.next_step_time
-		timeline[0] = [next_time, source]
+	    stream.advance
+	    updated_streams << stream
+	    if next_time = stream.next_step_time
+		timeline[0] = [next_time, stream]
 	    else
 		timeline.shift
 	    end
 	end
 
-	updated_sources.each do |source|
-	    source.update_display
+	updated_streams.each do |stream|
+	    stream.update_display
 	end
 
 	if timeline.empty? then stop
@@ -288,25 +302,91 @@ class Replay < Qt::MainWindow
 	stop
     end
 
-    def add_source(source = nil)
-	sources_model.add_new(source)
+    def add_stream(stream = nil)
+	streams_model.add_new(stream)
     end
-    slots 'add_source()'
+    slots 'add_stream()'
 
-    def remove_source
-	index = ui_displays.sources.current_index.row
-	sources_model.removeRow(index, Qt::ModelIndex.new)
+    def remove_stream
+	index = ui_displays.streams.current_index.row
+	streams.removeRow(index, Qt::ModelIndex.new)
     end
-    slots 'remove_source()'
+    slots 'remove_stream()'
 
     def add_display(kind = nil)
-	display  = ui_displays.add_display(sources_model, kind)
+	display  = ui_displays.add_display(streams_model, kind)
 	shortcut = Qt::Shortcut.new(KEY_GOTO, display.main)
 	connect(shortcut, SIGNAL('activated()'), self, SLOT('goto()'))
 	@shortcuts << shortcut
 	display
     end
     slots 'add_display()'
+
+    def self.setup(argv)
+	replay = self.new
+
+	parser = OptionParser.new do |opt|
+	    opt.separator "Common options"
+	    opt.on("--logdir=DIR", String, "the log directory in which we initialize the data streams") do |dir|
+		replay.log_dir = dir
+	    end
+	    opt.on("--play", "start playing after loading the event log") do 
+		replay.play_now = true
+	    end
+
+	    opt.separator "GUI-related options"
+	    opt.on("--speed=SPEED", Integer, "play speed") do |speed|
+		replay.play_speed = speed
+	    end
+	    opt.on("--goto=TIME", String, "go to TIME before playing normally. Time is given relatively to the simulation start") do |goto| 
+		replay.initial_time = Time.from_hms(goto)
+	    end
+	    opt.on("--relations=REL1,REL2", Array, "create a relation display with the given relations") do |relations|
+		relations.map! do |relname|
+		    rel = (Roby::TaskStructure.relations.find { |rel| rel.name =~ /#{relname}/ }) ||
+			(Roby::EventStructure.relations.find { |rel| rel.name =~ /#{relname}/ })
+
+			unless rel
+			    STDERR.puts "Unknown relation #{relname}. Available relations are:"
+			    STDERR.puts "  Tasks: " + Roby::TaskStructure.enum_for(:each_relation).map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
+			    STDERR.puts "  Events: " + Roby::EventStructure.enum_for(:each_relation).map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
+			    exit(1)
+			end
+
+		    rel
+		end
+
+		replay.initial_setup << lambda do |gui|
+		    relation_display = gui.add_display('Relations')
+		    relations.each do |rel|
+			relation_display.enable_relation(rel)
+		    end
+		end
+	    end
+	end
+	args = argv.dup
+	parser.parse!(args)
+
+	yield(replay, parser, args) if block_given?
+
+	replay
+    end
+
+    def setup
+	initial_setup.each do |prc|
+	    prc.call(self)
+	end
+
+	show
+	if initial_time
+	    seek(nil)
+	    seek(first_sample + (initial_time - Time.at(0)))
+	end
+
+	if play_now
+	    ui_controls.play.checked = true
+	end
+    end
 end
 
 if $0 == __FILE__

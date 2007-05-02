@@ -50,12 +50,12 @@
         </sizepolicy>
        </property>
        <property name="text" >
-        <string>Data source</string>
+        <string>Data stream</string>
        </property>
       </widget>
      </item>
      <item row="0" column="1" colspan="2" >
-      <widget class="QComboBox" name="source" >
+      <widget class="QComboBox" name="stream" >
        <property name="sizePolicy" >
         <sizepolicy>
          <hsizetype>3</hsizetype>

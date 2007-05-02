@@ -1,6 +1,6 @@
 
 module Roby::Log
-    class DataSource
+    class DataStream
 	attr_reader :files
 	attr_reader :type
 	attr_reader :displays
@@ -20,17 +20,17 @@ module Roby::Log
 	end
 
 	def add_display(display)
-	    if old = display.data_source
-		display.data_source.remove_display(display)
+	    if old = display.data_stream
+		display.data_stream.remove_display(display)
 	    end
 	    displays << display
-	    display.data_source = self
+	    display.data_stream = self
 	    # initialize_display(display)
 	end
 
 	def remove_display(display)
 	    display.clear
-	    display.data_source = nil
+	    display.data_stream = nil
 	    displays.delete(display)
 	end
     end

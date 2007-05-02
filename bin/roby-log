@@ -1,0 +1,27 @@
+#! /usr/bin/env ruby
+require 'roby'
+require 'roby/log/gui/replay'
+app  = Qt::Application.new(ARGV)
+main = Replay.setup(ARGV) do |main, parser, remaining|
+    if remaining.empty?
+	STDERR.puts parser
+	exit(0)
+    else
+	remaining.each do |file|
+	    if stream = Roby.app.data_source([file])
+		main.add_stream(stream)
+	    else
+		STDERR.puts "WARN: unknown file type for #{file}"
+	    end
+	end
+    end
+end
+
+main.setup
+begin
+    app.exec
+rescue
+    STDERR.puts $!.full_message
+end
+
+

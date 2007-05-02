@@ -26,7 +26,7 @@ class RemoteSourceListModel < DataSourceListModel
 	newfiles = Qt::FileDialog.get_open_file_names nil, "New data source", dir
 	return if newfiles.empty?
 	if !newfiles.empty?
-	    if newsource = Roby.app.data_source(newfiles)
+	    if newsource = Roby.app.data_stream(newfiles)
 		return newsource
 	    else
 		Qt::MessageBox.warning self, "Add data source", "Cannot determine data source type for #{newfiles.join(", ")}"

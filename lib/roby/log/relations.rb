@@ -292,8 +292,8 @@ module Roby
 
 	class RelationsDisplay < Qt::Object
 	    def splat?; true end
-	    # The data source for this relation display
-	    attr_accessor :data_source
+	    # The data stream for this relation display
+	    attr_accessor :data_stream
 
 	    attr_reader :ui, :scene
 	    attr_reader :main
@@ -379,9 +379,9 @@ module Roby
 		regex = /#{regex.to_str}/i if regex.respond_to?(:to_str)
 
 		# Get the tasks and events matching the string
-		objects = data_source.tasks.keys.
+		objects = data_stream.tasks.keys.
 		    find_all { |object| displayed?(object) && regex === object.display_name }
-		objects.concat data_source.events.keys.
+		objects.concat data_stream.events.keys.
 		    find_all { |object| displayed?(object) && regex === object.display_name }
 
 		return if objects.empty?
@@ -587,7 +587,7 @@ module Roby
 	    end
 
 	    def update
-		return unless data_source
+		return unless data_stream
 		clear_flashing_objects
 
 		signalled_events.each do |_, from, to, _|
@@ -599,9 +599,9 @@ module Roby
 		    add_flashing_object(object) { pending_events.include?(object) }
 		end
 
-		# The sets of tasks and events know to the data source
-		all_tasks  = data_source.tasks.keys
-		all_events = data_source.events.keys
+		# The sets of tasks and events know to the data stream
+		all_tasks  = data_stream.tasks.keys
+		all_events = data_stream.events.keys
 
 		# Remove the items for objects that don't exist anymore
 		(graphics.keys - all_tasks - all_events).each do |obj|
@@ -609,11 +609,11 @@ module Roby
 		    clear_arrows(obj)
 		end
 
-		visible_objects.merge(data_source.plans.keys.to_value_set)
+		visible_objects.merge(data_stream.plans.keys.to_value_set)
 
 		# Create graphics items for tasks and events if necessary, and
 		# update their visibility according to the visible_objects set
-		[all_tasks, all_events, data_source.plans.keys].each do |object_set|
+		[all_tasks, all_events, data_stream.plans.keys].each do |object_set|
 		    object_set.each do |object|
 			create_or_get_item(object) do |item|
 			    item.parent_item = self[object.display_parent] if object.display_parent
@@ -621,7 +621,7 @@ module Roby
 		    end
 		end
 
-		[all_tasks, all_events, data_source.plans.keys].each do |object_set|
+		[all_tasks, all_events, data_stream.plans.keys].each do |object_set|
 		    object_set.each do |object|
 			next unless displayed?(object)
 			object.display(self, graphics[object])
@@ -629,7 +629,7 @@ module Roby
 		end
 
 		# Layout the graph
-		layouts = data_source.plans.keys.find_all { |p| p.root_plan? }.
+		layouts = data_stream.plans.keys.find_all { |p| p.root_plan? }.
 		    map do |p| 
 			dot = Layout.new
 			dot.layout(self, p)
@@ -676,10 +676,10 @@ module Roby
 		scene.remove_item(item) if scene
 	    end
 
-	    def local_task(obj); data_source.local_task(obj) end
-	    def local_event(obj); data_source.local_event(obj) end
-	    def local_plan(obj); data_source.local_plan(obj) end
-	    def local_object(obj); data_source.local_object(obj) end
+	    def local_task(obj); data_stream.local_task(obj) end
+	    def local_event(obj); data_stream.local_event(obj) end
+	    def local_plan(obj); data_stream.local_plan(obj) end
+	    def local_object(obj); data_stream.local_object(obj) end
 
 	    def removed_task_child(time, parent, rel, child)
 		remove_graphics(arrows.delete([local_task(parent), local_task(child), rel]))

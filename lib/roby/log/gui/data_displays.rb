@@ -1,20 +1,20 @@
 require 'Qt4'
 require 'roby/app'
-require 'roby/log/data_source'
+require 'roby/log/data_stream'
 require 'roby/log/gui/data_displays_ui'
 require 'roby/log/gui/relations'
 require 'roby/log/relations'
 
-class DataSourceListModel < Qt::AbstractListModel
-    attr_reader :sources
-    def initialize(sources)
-	@sources = sources
+class DataStreamListModel < Qt::AbstractListModel
+    attr_reader :streams
+    def initialize(streams)
+	@streams = streams
 	super()
     end
 
     def rowCount(parent)
 	if parent.valid? then 0
-	else sources.size
+	else streams.size
 	end
     end
 
@@ -24,21 +24,21 @@ class DataSourceListModel < Qt::AbstractListModel
 
 
     def data(index, role)
-        return Qt::Variant.new unless role == Qt::DisplayRole && index.valid? && index.row < sources.size
-        s = sources[index.row]
+        return Qt::Variant.new unless role == Qt::DisplayRole && index.valid? && index.row < streams.size
+        s = streams[index.row]
         return Qt::Variant.new(s.files.map { |f| File.basename(f) }.join(", ") + " [#{s.type}]")
     end
 
     def edit_at(index)
-        return unless index.valid? && index.row < sources.size
-	edit(sources[index.row])
+        return unless index.valid? && index.row < streams.size
+	edit(streams[index.row])
 	emit dataChanged(index, index)
     end
 
     def insertRow(row, parent)
         emit beginInsertRows(parent, row, row)
-	if source = edit(nil)
-	    @sources.insert row, source
+	if stream = edit(nil)
+	    @streams.insert row, stream
 	    return true
 	end
     ensure
@@ -47,48 +47,48 @@ class DataSourceListModel < Qt::AbstractListModel
 
     def removeRow(row, parent)
         emit beginRemoveRows(parent, row, row)
-        @sources.delete_at row
+        @streams.delete_at row
         emit endRemoveRows()
         true
     end
 
-    def add_new(source = nil)
-	if source
-	    emit beginInsertRows(Qt::ModelIndex.new, sources.size, sources.size)
-	    sources << source
+    def add_new(stream = nil)
+	if stream
+	    emit beginInsertRows(Qt::ModelIndex.new, streams.size, streams.size)
+	    streams << stream
 	    emit endInsertRows()
 	else
-	    insertRow(sources.size, Qt::ModelIndex.new)
+	    insertRow(streams.size, Qt::ModelIndex.new)
 	end
     end
 end
 
 
-class FilteredDataSourceListModel < Qt::SortFilterProxyModel
-    attr_reader :type, :sources
-    attr_reader :source_combo
+class FilteredDataStreamListModel < Qt::SortFilterProxyModel
+    attr_reader :type, :streams
+    attr_reader :stream_combo
     attr_reader :display
-    def initialize(source_combo, display, type, sources)
+    def initialize(stream_combo, display, type, streams)
 	super()
 	@display = display
 	@type    = type
-	@sources = sources
-	@source_combo = source_combo
+	@streams = streams
+	@stream_combo = stream_combo
     end
-    def filterAcceptsRow(source_row, source_parent)
-	if s = sources[source_row]
+    def filterAcceptsRow(stream_row, stream_parent)
+	if s = streams[stream_row]
 	    s.type == type
 	else
 	    false
 	end
     end
-    def selectedSource()
-	index = source_combo.current_index
+    def selectedStream()
+	index = stream_combo.current_index
 	index = self.index(index, 0, Qt::ModelIndex.new)
 	
-	sources[mapToSource(index).row].add_display(display)
+	streams[mapToSource(index).row].add_display(display)
     end
-    slots 'selectedSource()'
+    slots 'selectedStream()'
 end
 
 class Ui_DataDisplays
@@ -105,12 +105,12 @@ class Ui_DataDisplays
     end
 
     def allocate_display_number; @display_number += 1 end
-    def add_display(sources, kind = nil)
+    def add_display(streams, kind = nil)
 	kind ||= display_types.current_text
 
 	config_widget = Qt::Widget.new
 	config_ui     = DISPLAYS[kind].new
-	display	      = config_ui.setupUi(sources, config_widget)
+	display	      = config_ui.setupUi(streams, config_widget)
 
 	name = "#{kind}##{allocate_display_number}"
 	idx  = display_configs.add_item(config_widget, name)

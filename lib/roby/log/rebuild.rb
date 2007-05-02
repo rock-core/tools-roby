@@ -1,5 +1,5 @@
 require 'roby/distributed/protocol'
-require 'roby/log/data_source'
+require 'roby/log/data_stream'
 
 module Roby
     class PlanObject::DRoby
@@ -143,7 +143,7 @@ module Roby
 
 	# This class is a logger-compatible interface which rebuilds the task and event
 	# graphs from the marshalled events that are saved using for instance FileLogger
-	class PlanRebuild < DataSource
+	class PlanRebuild < DataStream
 	    def splat?; true end
 	    attr_reader :plans
 	    attr_reader :tasks

@@ -175,7 +175,7 @@ module Ui
 	attr_reader :relation_item
 	attr_reader :model
 	attr_reader :delegate
-	def setupUi(sources_model, widget)
+	def setupUi(streams_model, widget)
 	    super(widget)
 
 	    display   = Roby::Log::RelationsDisplay.new
@@ -187,10 +187,10 @@ module Ui
 	    relations.set_expanded model.task_root_index, true
 	    relations.set_expanded model.event_root_index, true
 
-	    @sources_model = FilteredDataSourceListModel.new(source, display, 'roby-events', sources_model.sources)
-	    Qt::Object.connect(source, SIGNAL("currentIndexChanged(int)"), @sources_model, SLOT("selectedSource()"))
-	    @sources_model.source_model = sources_model
-	    source.model		= @sources_model
+	    @streams_model = FilteredDataStreamListModel.new(stream, display, 'roby-events', streams_model.streams)
+	    Qt::Object.connect(stream, SIGNAL("currentIndexChanged(int)"), @streams_model, SLOT("selectedStream()"))
+	    @streams_model.source_model = streams_model
+	    stream.model		= @streams_model
 
 	    @layout_model = LayoutMethodModel.new(display, layout_method)
 	    Qt::Object.connect(layout_method, SIGNAL("currentIndexChanged(int)"), @layout_model, SLOT("selected()"))
