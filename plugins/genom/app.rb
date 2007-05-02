@@ -214,20 +214,22 @@ host
 
 	# Returns the name of the data source type for +filename+ if it is
 	# known to this component
-	def self.data_source(filenames)
+	def self.data_streams_of(filenames)
 	    if filenames.all? { |f| f =~ /\.\d+\.log/ }
-		Roby::Log::DataSource.new(filenames, 'pocosim')
+		fileset = filenames.sort_by { |name| name =~ /\.(\d+)\.log$/ ; Integer($1) }
+		Roby::Log::DataStream.new(filenames.join(", "), 'pocosim')
 	    end
 	end
 
-	# Returns the list of data sources known to this component
-	def self.data_sources(logdir)
+	# Returns the list of data streams the Genom plugin know something about
+	# in +logdir+
+	def self.data_streams(logdir)
 	    pocosim_logs = Dir.enum_for(:glob, File.join(logdir, '*.log')).
 		inject({}) { |h, name| name =~ /\.\d+\.log/ ; (h[$`] ||= []) << name ; h }
 	    pocosim_logs.delete(nil) # remove unmatched files
 	    pocosim_logs.map do |_, fileset|
 		fileset = fileset.sort_by { |name| name =~ /\.(\d+)\.log$/ ; Integer($1) }
-		Roby::Log::DataSource.new(fileset, 'pocosim')
+		Roby::Log::DataStream.new(fileset.join(", "), 'pocosim')
 	    end
 	end
 

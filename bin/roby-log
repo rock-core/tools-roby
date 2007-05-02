@@ -15,7 +15,7 @@ main = Replay.setup(ARGV) do |main, parser, remaining|
 	end
     else
 	remaining.each do |file|
-	    if streams = Roby.app.data_streams([file])
+	    if streams = Roby.app.data_streams_of([file])
 		streams.each { |s| main.add_stream(s) }
 	    else
 		STDERR.puts "WARN: unknown file type for #{file}"

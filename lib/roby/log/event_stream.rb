@@ -139,40 +139,83 @@ module Roby
 		object_set.delete(object)
 	    end
 	end
+	
 
-
-	# This class is a logger-compatible interface which rebuilds the task and event
-	# graphs from the marshalled events that are saved using for instance FileLogger
-	class PlanRebuild < DataStream
+	# This class is a logger-compatible interface which read event and index logs,
+	# and may rebuild the task and event graphs from the marshalled events
+	# that are saved using for instance FileLogger
+	class EventStream < DataStream
 	    def splat?; true end
+
 	    attr_reader :plans
 	    attr_reader :tasks
 	    attr_reader :events
-
 	    attr_reader :finalized_tasks
 	    attr_reader :finalized_events
 
-	    attr_reader :io
-	    attr_reader :next_step
-	    attr_reader :displays
+	    # The IO object of the event log
+	    attr_reader :event_log
+	    # The IO object of the index log
+	    attr_reader :index_log
+	    # The data from +index_log+ loaded so far
+	    attr_reader :index_data
+
+	    # The index of the currently displayed cycle in +index_data+
+	    attr_reader :current_cycle
+	    # A [min, max] array of the minimum and maximum times for this
+	    # stream
 	    attr_reader :range
 
-	    def initialize(filename)
-		@io     = Roby::Log.open(filename)
-		super([filename], 'roby-events')
+	    def initialize(basename)
+		@event_log = Roby::Log.open("#{basename}-events.log")
+		begin
+		    @index_log  = File.open("#{basename}-index.log")
+		rescue Errno::ENOENT
+		    Roby.warn "rebuilding index file in #{basename}-index.log"
+		    @index_log = File.open("#{basename}-index.log", "w+")
+		    FileLogger.rebuild_index(@event_log, @index_log)
+		end
+
+		super(basename, 'roby-events')
 		@plans  = Hash.new { |h, k| h[k] = Set.new }
 		@tasks  = Hash.new { |h, k| h[k] = Set.new }
 		@events = Hash.new { |h, k| h[k] = Set.new }
 		@finalized_tasks  = Hash.new
 		@finalized_events = Hash.new
-		@next_step = Array.new
-		@range = [nil, nil]
 
+		@current_cycle  = 0
+		@index_data	= Array.new
 		prepare_seek(nil)
-		while next_step.size == 1
-		    read_step
+
+		# Skip the empty cycles at the beginning of the log file
+		while has_sample?
+		    break unless read_step.size == 1
 		end
 	    end
+
+	    def update_index
+		# Read as much index data as possible
+		begin
+		    pos = nil
+		    loop do
+			pos = index_log.tell
+			index_data << Marshal.load(index_log)
+		    end
+		rescue EOFError
+		    index_log.seek(pos, IO::SEEK_SET)
+		end
+
+		return if index_data.empty?
+
+		# Update range
+		@range = [index_data.first[:start], index_data.last[:end]]
+	    end
+
+	    def has_sample?
+		update_index
+		!index_data.empty? && (index_data.last[:pos] > event_log.tell)
+	    end
+
 	    def clear
 		Log.all_siblings.clear
 		super
@@ -188,35 +231,49 @@ module Roby
 	    def prepare_seek(time)
 		if !time || !current_time || time < current_time
 		    clear
-		    io.rewind
-		    read_step
+		    event_log.rewind
 
-		    range[0] = current_time
-		    range[1] ||= current_time
+		    # Re-read the index information
+		    index_data.clear
+		    index_log.rewind
+		    update_index
 		end
 	    end
 	    
-	    # Replays one cycle
 	    def read_step
-		next_step.clear
-		return if io.eof?
-		FileLogger.replay(io) do |method_name, method_args|
-		    next_step << [method_name, method_args]
+		return if event_log.eof?
+
+		data = Array.new
+		FileLogger.replay(event_log) do |method_name, method_args|
+		    data << [method_name, method_args]
 		    if method_name == :cycle_end
 			break
 		    end
 		end
 
-		range[1] = next_step_time if range[1] && range[1] < next_step_time
+		data
+
 	    rescue EOFError
 	    end
 	    
-	    def current_time;  next_step.first[1][0] unless next_step.empty? end
-	    def next_step_time
-		next_step.last[1][0] unless next_step.empty? 
+	    def current_time
+		return if index_data.empty?
+		if index_data.size == current_cycle + 1
+		    index_data[current_cycle][:end]
+		else
+		    index_data[current_cycle][:start]
+		end
 	    end
+
+	    def next_step_time
+		return if index_data.empty?
+		if index_data.size > current_cycle + 1
+		    index_data[current_cycle + 1][:start]
+		end
+	    end
+
 	    def advance
-		next_step.each do |name, args|
+		read_step.each do |name, args|
 		    reason = catch :ignored do
 			begin
 			    if respond_to?(name)
@@ -241,8 +298,8 @@ module Roby
 			Roby.warn "Ignored #{name}(#{args.join(", ")}): #{reason}"
 		    end
 		end
-
-		read_step
+	    ensure
+		@current_cycle += 1
 	    end
 
 	    def local_object(set, object)

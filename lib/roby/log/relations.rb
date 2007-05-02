@@ -2,7 +2,7 @@ require 'Qt4'
 require 'utilrb/module/attr_predicate'
 require 'roby/distributed/protocol'
 require 'roby/log/dot'
-require 'roby/log/rebuild'
+require 'roby/log/event_stream'
 require 'roby/log/gui/relations_view'
 
 module Roby

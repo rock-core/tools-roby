@@ -26,7 +26,7 @@ class DataStreamListModel < Qt::AbstractListModel
     def data(index, role)
         return Qt::Variant.new unless role == Qt::DisplayRole && index.valid? && index.row < streams.size
         s = streams[index.row]
-        return Qt::Variant.new(s.files.map { |f| File.basename(f) }.join(", ") + " [#{s.type}]")
+        return Qt::Variant.new(s.name + " [#{s.type}]")
     end
 
     def edit_at(index)
