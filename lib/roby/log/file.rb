@@ -2,23 +2,42 @@ require 'roby/log/logger'
 require 'roby/distributed'
 
 module Roby::Log
-    # A logger object which marshals events in a IO object. The log files can
-    # be replayed (for off-line display) by calling FileLogger.replay(io)
+    # A logger object which marshals all available events in two files. The
+    # event log is the full log, the index log contains only the timings given
+    # to Control#cycle_end, along with the corresponding position in the event
+    # log file.
+    #
+    # You can use FileLogger.replay(io) to send the events back into the
+    # logging system (using Log.log), for instance to feed an offline display
     class FileLogger
 	@dumped = Hash.new
 	class << self
 	    attr_reader :dumped
 	end
 
-	attr_reader :io
-	def initialize(file)
-	    @io = File.open(file, 'w')
+	# The IO object for the event log
+	attr_reader :event_log
+	# The IO object for the index log
+	attr_reader :index_log
+
+	def initialize(basename)
+	    @next_pos  = 0
+	    @event_log = File.open("#{basename}-events.log", 'w')
+	    @index_log = File.open("#{basename}-index.log", 'w')
 	end
 	def splat?; false end
 
 	def dump_method(m, args)
-	    Marshal.dump(m, io)
-	    Marshal.dump(args, io)
+	    Marshal.dump(m, event_log)
+	    Marshal.dump(args, event_log)
+
+	    if m == :cycle_end
+		args[1][:pos] = @next_pos
+		Marshal.dump(m, index_log)
+		Marshal.dump(args, index_log)
+	    end
+	    @next_pos = event_log.tell
+
 	rescue 
 	    puts "failed to dump #{m}#{args}: #{$!.full_message}"
 	    args.each do |obj|

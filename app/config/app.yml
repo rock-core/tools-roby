@@ -29,9 +29,7 @@ pocosim:
 
 # Logging configuration
 log:
-  # Log control timings (default: false)
-  # timings: true
-  # Log plan events (default: false)
+  # Log system events (default: false)
   # events: true
 
   # Logging levels. It is a hash of Component: level (where level

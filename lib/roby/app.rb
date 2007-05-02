@@ -365,20 +365,10 @@ module Roby
 		:control_gc => control_config['control_gc'], 
 		:cycle => control_config['cycle'] || 0.1 }
 
-	    if log['timings']
-		logfile = File.join(log_dir, "#{robot_name}-timings.log")
-		options[:log] = File.open(logfile, 'w')
-	    end
 	    if log['events']
-		if log['events'] == 'sqlite'
-		    require 'roby/log/sqlite'
-		    logfile = File.join(log_dir, "#{robot_name}-events.db")
-		    Roby::Log.add_logger Roby::Log::SQLiteLogger.new(logfile)
-		else
-		    require 'roby/log/file'
-		    logfile = File.join(log_dir, "#{robot_name}-events.log")
-		    Roby::Log.add_logger Roby::Log::FileLogger.new(logfile)
-		end
+		require 'roby/log/file'
+		logfile = File.join(log_dir, robot_name)
+		Roby::Log.add_logger Roby::Log::FileLogger.new(logfile)
 	    end
 	    control.abort_on_exception = 
 		control_config['abort_on_exception']
@@ -395,7 +385,7 @@ module Roby
 		begin
 		    yield
 		    control.join
-		rescue Interrupt
+		rescue Exception => e
 		    control.quit
 		    control.join
 		    unless e.kind_of?(Interrupt)

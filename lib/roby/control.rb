@@ -416,7 +416,7 @@ module Roby
 	def run(options = {})
 	    options = validate_options options, 
 		:drb => nil, :cycle => 0.1, :detach => false, 
-		:control_gc => false, :log => false
+		:control_gc => false
 
 	    @cycle_length = options[:cycle]
 	
@@ -435,11 +435,8 @@ module Roby
 		already_disabled_gc = GC.disable
 		GC.force
 	    end
-	    if log = options[:log]
-		log << Marshal.dump(cycle_length)
-	    end
 
-	    event_loop(log, cycle_length, control_gc)
+	    event_loop(cycle_length, control_gc)
 
 	ensure
 	    if Thread.current == self.thread
@@ -542,7 +539,7 @@ module Roby
 	    end
 	end
 
-	def event_loop(log, cycle, control_gc)
+	def event_loop(cycle, control_gc)
 	    stats = {}
 	    stats[:start] = Time.now
 
@@ -611,7 +608,6 @@ module Roby
 		    end
 		    cycle_end(stats)
 
-		    log << Marshal.dump(stats) if log
 		    stats[:start] += cycle
 		    @cycle_index += 1
 
