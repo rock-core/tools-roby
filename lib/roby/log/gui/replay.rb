@@ -326,7 +326,6 @@ class Replay < Qt::MainWindow
 	replay = self.new
 
 	parser = OptionParser.new do |opt|
-	    opt.separator "Common options"
 	    opt.on("--logdir=DIR", String, "the log directory in which we initialize the data streams") do |dir|
 		replay.log_dir = dir
 	    end
@@ -334,7 +333,6 @@ class Replay < Qt::MainWindow
 		replay.play_now = true
 	    end
 
-	    opt.separator "GUI-related options"
 	    opt.on("--speed=SPEED", Integer, "play speed") do |speed|
 		replay.play_speed = speed
 	    end
