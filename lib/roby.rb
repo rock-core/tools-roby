@@ -25,7 +25,7 @@ require 'roby/relations/executed_by'
 require 'roby/relations/ensured'
 
 require 'roby/state'
-require 'roby/control_interface'
+require 'roby/interface'
 require 'roby/query'
 
 require 'roby/distributed/protocol'
