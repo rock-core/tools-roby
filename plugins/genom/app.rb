@@ -134,8 +134,10 @@ multi
 		    yield(env)
 		end
 	    else
-		Genom::Runner.h2(:env => config.robot.name) do |env|
-		    yield(env)
+		Genom::Runner.h2(:env => config.robot_name) do |env|
+		    Genom.connect do
+			yield(env)
+		    end
 		end
 	    end
 	end
