@@ -177,11 +177,16 @@ module Roby
 		end
 		name, dir, mod, init = *plugin
 
-		begin
-		    init.call
-		rescue Exception => e
-		    Roby.fatal "cannot load plugin #{name}: #{e.full_message}"
-		    exit(1)
+		if init
+		    begin
+			$LOAD_PATH.unshift dir
+			init.call
+		    rescue Exception => e
+			Roby.fatal "cannot load plugin #{name}: #{e.full_message}"
+			exit(1)
+		    ensure
+			$LOAD_PATH.shift
+		    end
 		end
 
 		plugins << [name, mod]
@@ -494,7 +499,7 @@ module Roby
 	def self.register_plugin(name, mod, &init)
 	    caller(1)[0] =~ /^([^:]+):\d/
 	    dir  = File.expand_path(File.dirname($1))
-	    Roby.app.available_plugins << [name, mod, init]
+	    Roby.app.available_plugins << [name, dir, mod, init]
 	end
 
 	@@reload_model_filter = []
