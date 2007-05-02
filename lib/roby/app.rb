@@ -488,7 +488,7 @@ module Roby
 		path = File.join(dir, name)
 		return path if File.exists?(path)
 	    end
-	    raise Errno::ENOENT, "no such file #{path}"
+	    raise Errno::ENOENT, "no file #{name} found in #{Roby::State.datadirs.join(":")}"
 	end
 
 	def self.register_plugin(name, mod, &init)
