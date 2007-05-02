@@ -21,7 +21,7 @@ module Roby::Log
 	attr_reader :index_log
 
 	def initialize(basename)
-	    @next_pos  = 0
+	    @current_pos  = 0
 	    @event_log = File.open("#{basename}-events.log", 'w')
 	    @index_log = File.open("#{basename}-index.log", 'w')
 	end
@@ -32,11 +32,11 @@ module Roby::Log
 	    Marshal.dump(args, event_log)
 
 	    if m == :cycle_end
-		args[1][:pos] = @next_pos
-		Marshal.dump(m, index_log)
-		Marshal.dump(args, index_log)
+		info = args[1].dup
+		info[:pos] = @current_pos
+		Marshal.dump(info, index_log)
 	    end
-	    @next_pos = event_log.tell
+	    @current_pos = event_log.tell
 
 	rescue 
 	    puts "failed to dump #{m}#{args}: #{$!.full_message}"
@@ -51,6 +51,29 @@ module Roby::Log
 	Roby::Log.each_hook do |klass, m|
 	    define_method(m) { |args| dump_method(m, args) }
 	end
+	
+	# Creates an index file for +event_log+ in +index_log+
+	def self.rebuild_index(event_log, index_log)
+	    event_log.rewind
+	    current_pos = 0
+
+	    loop do
+		m    = Marshal.load(event_log)
+		args = Marshal.load(event_log)
+		if m == :cycle_end
+		    info = args[1]
+		    info[:pos] = current_pos
+		    Marshal.dump(info, index_log)
+		    current_pos = event_log.tell
+		end
+	    end
+
+	rescue EOFError
+	ensure
+	    event_log.rewind
+	    index_log.rewind
+	end
+
 
 	def self.replay(io)
 	    method_name = nil
