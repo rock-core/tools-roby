@@ -412,6 +412,12 @@ module Roby
 	def stop; call_plugins(:stop, self) end
 
 	DISCOVERY_TEMPLATE = [:host, nil, nil]
+
+	# Starts services needed for distributed operations. These services are
+	# supposed to be started only once for a whole system
+	#
+	# If you have external servers to start for every robot, plug it into
+	# #start_server
 	def start_distributed
 	    if !File.exists?(log_dir)
 		Dir.mkdir(log_dir)
@@ -421,7 +427,7 @@ module Roby
 		ts = Rinda::TupleSpace.new
 		DRb.start_service "roby://#{discovery['tuplespace']}", ts
 
-		new_db = ts.notify('write', DISCOVERY_TEMPLATE)
+		new_db  = ts.notify('write', DISCOVERY_TEMPLATE)
 		take_db = ts.notify('take', DISCOVERY_TEMPLATE)
 
 		Thread.start do
@@ -430,12 +436,13 @@ module Roby
 		Thread.start do
 		    take_db.each { |_, t| STDERR.puts "host #{t[1]} has disconnected" }
 		end
-		STDERR.puts "Started service discovery on #{discovery['tuplespace']}"
+		Roby.warn "Started service discovery on #{discovery['tuplespace']}"
 	    end
 
 	    call_plugins(:start_distributed, self)
 	end
 
+	# Stop services needed for distributed operations. See #start_distributed
 	def stop_distributed
 	    DRb.stop_service
 
