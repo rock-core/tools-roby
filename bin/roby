@@ -142,7 +142,7 @@ module Roby
 	# already existing files. +plugins+ is the list of plugins we should copy
 	# files from
 	def install_dir(plugins = [], &filter)
-	    Installer.copy_tree(File.join(Roby::Application::ROBY_ROOT_DIR, 'app'), app_dir, &filter)
+	    Installer.copy_tree(File.join(Roby::ROBY_ROOT_DIR, 'app'), app_dir, &filter)
 	    plugins.each do |enabled_name|
 		plugin_desc = Roby.app.available_plugins.find { |name, dir, _, _| enabled_name == name }
 
