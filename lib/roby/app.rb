@@ -246,10 +246,14 @@ module Roby
 		new_logger.formatter = Roby.logger.formatter
 
 		if (mod = name.constantize rescue nil)
-		    if mod.logger.progname && !mod.logger.progname.empty?
-			new_logger.progname  = mod.logger.progname + " (#{robot_name})"
+		    if robot_name
+			if mod.logger.progname && !mod.logger.progname.empty?
+			    new_logger.progname  = mod.logger.progname + " (#{robot_name})"
+			else
+			    new_logger.progname  = robot_name
+			end
 		    else
-			new_logger.progname  = robot_name
+			new_logger.progname  = mod.logger.progname
 		    end
 		    mod.logger = new_logger
 		end
