@@ -34,6 +34,7 @@ module Roby::Log
 	    if m == :cycle_end
 		info = args[1].dup
 		info[:pos] = @current_pos
+		event_log.flush
 		Marshal.dump(info, index_log)
 	    end
 	    @current_pos = event_log.tell
