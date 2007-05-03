@@ -99,6 +99,21 @@
   object has not been removed when A processes updates from B and have some ways to feedback B from
   A.
 
+* in display, remove transaction proxies right away: the transaction itself is removed and we're
+  only interested in the resulting plan
+  [DONE:20070503185040-bd67f-42a27bff79ff75e45d0a71056db88d767a4e84b8.gz]
+
+* log snapshot: build a set of logging messages which represent the current state of the plan.
+  Useful for display (it would allow to seek a lot faster) and for runtime display of the plan
+  state (send the snapshot on connection)
+
+* TCP server for display at runtime
+  [DONE:20070503185040-bd67f-42a27bff79ff75e45d0a71056db88d767a4e84b8.gz]
+
+* cleanup roby-shell: define some toplevel commands and use the <method_name>! notation to start new
+  missions
+  [DONE:20070430153545-bd67f-1783cb61fef4a55f2cf06963b17acdbf1ce892e5.gz]
+
 = DONE
 
 * fix namings in Distributed. It is quite a mess now ...
