@@ -2,6 +2,7 @@ require 'roby'
 require 'roby/distributed'
 require 'roby/planning'
 require 'roby/log'
+require 'roby/log/event_stream'
 
 module Roby
     # Returns the only one Application object
@@ -450,6 +451,62 @@ module Roby
 	rescue Interrupt
 	end
 
+	attr_reader :log_server
+	attr_reader :log_sources
+
+	# Start services that should exist for every robot in the system. Services that
+	# are needed only once for all robots should be started in #start_distributed
+	def start_server
+	    # Start a log server if needed, and poll the log directory for new
+	    # data sources
+	    #
+	    if log_server = options['log']['server']
+		require 'roby/log/server'
+		port = if log_server.kind_of?(Hash) && log_server['port']
+			   Integer(log_server['port'])
+		       end
+
+		@log_server  = Log::Server.new(port || Log::Server::RING_PORT)
+		@log_streams = []
+		@log_streams_poll = Thread.new do
+		    begin
+			loop do
+			    known_streams = @log_server.streams
+			    streams	  = data_streams
+
+			    (streams - known_streams).each do |s|
+				Roby::Log::Server.info "new stream found #{s.name} [#{s.type}]"
+				@log_server.added_stream(s)
+			    end
+			    (known_streams - streams).each do |s|
+				Roby::Log::Server.info "end of stream #{s.name} [#{s.type}]"
+				@log_server.removed_stream(s)
+			    end
+			    sleep(5)
+			end
+		    rescue Interrupt
+		    rescue
+			Roby::Log::Server.fatal $!.full_message
+		    end
+		end
+	    end
+
+	    call_plugins(:start_server, self)
+	end
+
+	# Stop server. See #start_server
+	def stop_server
+	    if @log_server
+		@log_streams_poll.raise Interrupt, "quitting"
+		@log_streams_poll.join
+
+		@log_server.quit
+		@log_streams.clear
+	    end
+
+	    call_plugins(:stop_server, self)
+	end
+
 	def require_robotfile(pattern)
 	    robot_config = pattern.gsub /ROBOT/, robot_name
 	    if File.file?(robot_config)
@@ -469,34 +526,34 @@ module Roby
 
 	# Guesses the type of +filename+ if it is a source suitable for
 	# data display in this application
-	def data_source(filenames)
+	def data_streams_of(filenames)
 	    if filenames.size == 1 && filenames.first =~ /-events\.log(\.gz)?$/
-		return Roby::Log::PlanRebuild.new(filenames.first)
+		return [Roby::Log::EventStream.new($`)]
 	    else
-		each_responding_plugin(:data_source, true) do |config|
-		    if source = config.data_source(filenames)
-			return source
+		each_responding_plugin(:data_streams_of, true) do |config|
+		    if streams = config.data_streams_of(filenames)
+			return streams
 		    end
 		end
 	    end
 	    nil
 	end
 
-	# Returns the list of data sources suitable for data display known
+	# Returns the list of data streams suitable for data display known
 	# to the application
-	def data_sources(log_dir = nil)
+	def data_streams(log_dir = nil)
 	    log_dir ||= self.log_dir
-	    sources = []
+	    streams = []
 	    Dir.glob(File.join(log_dir, '*-events.log*')).each do |file|
 		next unless file =~ /-events\.log(\.gz)?$/
-		sources << Roby::Log::PlanRebuild.new(file)
+		streams << Roby::Log::EventStream.new($`)
 	    end
-	    each_responding_plugin(:data_sources, true) do |config|
-		if s = config.data_sources(log_dir)
-		    sources += s
+	    each_responding_plugin(:data_streams, true) do |config|
+		if s = config.data_streams(log_dir)
+		    streams += s
 		end
 	    end
-	    sources
+	    streams
 	end
 
 	def self.find_data(name)

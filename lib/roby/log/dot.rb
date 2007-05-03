@@ -22,8 +22,11 @@ module Roby
 	    id = io.layout_id(self)
 	    @dot_id = "plan_#{id}"
 	    io << "subgraph cluster_#{dot_id} {\n"
-	    known_tasks.each { |t| t.to_dot(display, io) if display.displayed?(t) }
-	    free_events.each { |e| e.to_dot(display, io) if display.displayed?(e) }
+	    (known_tasks | finalized_tasks | free_events | finalized_events).
+		each do |obj|
+		    obj.to_dot(display, io) if display.displayed?(obj)
+		end
+
 	    io << "};\n"
 
 	    transactions.each do |trsc|
@@ -101,8 +104,12 @@ module Roby
 		Roby::Log.warn "no bounding rectangle for #{self} (#{dot_id})"
 	    end
 
-	    known_tasks.each { |t| t.apply_layout(positions, display) }
-	    free_events.each { |e| e.apply_layout(positions, display) }
+
+	    (known_tasks | finalized_tasks | free_events | finalized_events).
+		each do |obj|
+		    obj.apply_layout(positions, display)
+		end
+
 	    transactions.each do |trsc|
 		trsc.apply_layout(bounding_rects, positions, display, max_depth)
 	    end
@@ -196,8 +203,20 @@ module Roby
 
 		dot_input << "\n};"
 		dot_input.flush
+
+		# Make sure the GUI keeps being updated while dot is processing
 		FileUtils.cp dot_input.path, "/tmp/dot-input-#{@@index}.dot"
 		system("#{display.layout_method} #{dot_input.path} > #{dot_output.path}")
+		#pid = fork do
+		#    exec("#{display.layout_method} #{dot_input.path} > #{dot_output.path}")
+		#end
+		#while !Process.waitpid(pid, Process::WNOHANG)
+		#    if Qt::Application.has_pending_events
+		#	Qt::Application.process_events
+		#    else
+		#	sleep(0.05)
+		#    end
+		#end
 		FileUtils.cp dot_output.path, "/tmp/dot-output-#{@@index}.dot"
 
 		# Load only task bounding boxes from dot, update arrows later

@@ -24,6 +24,7 @@ module Roby::Log
 	    @current_pos  = 0
 	    @event_log = File.open("#{basename}-events.log", 'w')
 	    @index_log = File.open("#{basename}-index.log", 'w')
+	    @index_log.sync = true
 	end
 	def splat?; false end
 

@@ -22,7 +22,6 @@ class DataStreamListModel < Qt::AbstractListModel
 	Qt::ItemIsSelectable | Qt::ItemIsEnabled
     end
 
-
     def data(index, role)
         return Qt::Variant.new unless role == Qt::DisplayRole && index.valid? && index.row < streams.size
         s = streams[index.row]
@@ -85,8 +84,7 @@ class FilteredDataStreamListModel < Qt::SortFilterProxyModel
     def selectedStream()
 	index = stream_combo.current_index
 	index = self.index(index, 0, Qt::ModelIndex.new)
-	
-	streams[mapToSource(index).row].add_display(display)
+	display.stream = streams[mapToSource(index).row]
     end
     slots 'selectedStream()'
 end

@@ -1,7 +1,42 @@
 #! /usr/bin/env ruby
 require 'roby'
+require 'optparse'
+
+SERVER_LIST_TIMEOUT = 5
+SERVER_LIST_POLL = 0.1
+if ARGV.include?("--list-servers")
+    DRb.start_service "druby://localhost:0"
+
+    require 'roby/log/server'
+    STDOUT.sync = true
+    puts "Finding available servers ... (#{SERVER_LIST_TIMEOUT} seconds)"
+
+    Roby::Log::Server.enable_discovery 'localhost'
+
+    begin
+	end_time = Time.now + SERVER_LIST_TIMEOUT
+	known_servers = []
+	while end_time > Time.now
+	    sleep(SERVER_LIST_POLL)
+	    Roby::Log::Server.available_servers.each do |server|
+		next if known_servers.include?(server)
+		known_servers << server
+
+		remote = Roby::Log::Client.new(server)
+		puts "#{server.__drburi}:"
+		remote.streams.each do |s|
+		    puts "  #{s.name} [#{s.type}]"
+		end
+	    end
+	end
+    rescue Interrupt
+    end
+    exit(0)
+end
+
 require 'roby/log/gui/replay'
 app  = Qt::Application.new(ARGV)
+
 main = Replay.setup(ARGV) do |main, parser, remaining|
     if remaining.empty?
 	if main.log_dir

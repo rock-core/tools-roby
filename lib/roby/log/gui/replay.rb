@@ -27,7 +27,6 @@ class OfflineStreamListModel < DataStreamListModel
 end
 
 class Replay < Qt::MainWindow
-    attr_reader :displays
     attr_reader :streams
     attr_reader :streams_model
 
@@ -58,6 +57,7 @@ class Replay < Qt::MainWindow
 
 	# Create the vertical layout for this window
 	central_widget = Qt::Widget.new(self)
+	self.central_widget = central_widget
 	layout = Qt::VBoxLayout.new(central_widget)
 	layout.spacing = 6
 	layout.margin  = 0
@@ -110,8 +110,6 @@ class Replay < Qt::MainWindow
 	connect(ui_controls.goto, SIGNAL('clicked()'), self, SLOT('goto()'))
 
 
-	self.central_widget = central_widget
-
 	@shortcuts = []
 	@shortcuts << Qt::Shortcut.new(KEY_GOTO, self, SLOT('goto()'))
     end
@@ -134,7 +132,9 @@ class Replay < Qt::MainWindow
     end
 
     def displayed_streams
-	streams.find_all { |s| !s.displays.empty? }
+	streams.find_all do |s| 
+	    s.displayed?
+	end
     end
 
     # Time of the first known sample
@@ -207,9 +207,9 @@ class Replay < Qt::MainWindow
 
     attr_reader :time
 
-    def next_step_time
+    def next_time
 	displayed_streams.
-	    map { |s| s.next_step_time }.
+	    map { |s| s.next_time }.
 	    compact.min 
     end
 
@@ -237,7 +237,7 @@ class Replay < Qt::MainWindow
 
     def play_step
 	seek_start unless first_sample
-       	play_until(next_step_time) 
+       	play_until(next_time) 
     end
     slots 'play_step()'
 
@@ -252,8 +252,8 @@ class Replay < Qt::MainWindow
     
     def play_until(max_time)
 	displayed_streams.inject(timeline = []) do |timeline, s| 
-	    if s.next_step_time
-		timeline << [s.next_step_time, s]
+	    if s.next_time
+		timeline << [s.next_time, s]
 	    end
 	    timeline
 	end
@@ -272,7 +272,7 @@ class Replay < Qt::MainWindow
 
 	    stream.advance
 	    updated_streams << stream
-	    if next_time = stream.next_step_time
+	    if next_time = stream.next_time
 		timeline[0] = [next_time, stream]
 	    else
 		timeline.shift
@@ -280,7 +280,7 @@ class Replay < Qt::MainWindow
 	end
 
 	updated_streams.each do |stream|
-	    stream.update_display
+	    stream.display
 	end
 
 	if timeline.empty? then stop

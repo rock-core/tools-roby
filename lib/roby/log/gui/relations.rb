@@ -26,7 +26,7 @@ module Ui
 	    @relations = []
 
 	    relations[EVENT_ROOT_INDEX] = Roby::EventStructure.enum_for(:each_relation).to_a
-	    relations[TASK_ROOT_INDEX] = Roby::TaskStructure.enum_for(:each_relation).to_a
+	    relations[TASK_ROOT_INDEX]  = Roby::TaskStructure.enum_for(:each_relation).to_a
 	end
 
 	def index(row, column, parent)
@@ -159,12 +159,9 @@ module Ui
 
 	def selected
 	    index = combo.current_index
-	    display.layout_method = if index == 0
-					nil
-				    else
-					METHODS[index]
+	    display.layout_method = if index == 0 then nil
+				    else METHODS[index]
 				    end
-	    display.update
 	end
 	slots 'selected()'
     end

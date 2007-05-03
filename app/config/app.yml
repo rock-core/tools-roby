@@ -31,6 +31,16 @@ pocosim:
 log:
   # Log system events (default: false)
   # events: true
+  
+  # Disables the log server (default: enabled)
+  # server: false
+  #
+  # ... or configure it
+  # server:
+  #     # The port to listen on (for service discovery)
+  #     port: 48933
+  #     # The discovery period
+  #     period: 10
 
   # Logging levels. It is a hash of Component: level (where level
   # is one of DEBUG, INFO, WARN and FATAL).
