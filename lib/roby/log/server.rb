@@ -321,6 +321,9 @@ module Roby
 	    def added_decoder(dec)
 		synchronize do
 		    Server.info "#{self} initializing #{dec}"
+		    if data_file.stat.size == 0
+			return
+		    end
 
 		    data_file.rewind
 		    chunk_length = data_file.read(4).unpack("N").first
