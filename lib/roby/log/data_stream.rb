@@ -32,6 +32,14 @@ module Roby::Log
 	def to_s; "#{name} [#{type}]" end
 
 	def has_sample?; false end
+	attr_predicate :reinit, true
+	def reinit?;  end
+	def reinit!
+	    @range  = [nil, nil]
+	    @reinit = false
+
+	    clear
+	end
 	def read_all; end
 
 	# The [min, max] range of available samples. Initially

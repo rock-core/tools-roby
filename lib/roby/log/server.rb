@@ -140,16 +140,21 @@ module Roby
 	    def polling
 		loop do
 		    s, data = nil
+		    done_sth = false
 		    synchronize do
-			if s = @streams.find { |s| s.has_sample? }
-			    Roby::Log::Server.info "new sample for #{s} at #{s.current_time.to_hms}"
-			    data = s.read
+			@streams.each do |s|
+			    done_sth ||= if s.reinit?
+					     Roby::Log::Server.info "reinitializing #{s}"
+					     s.reinit!
+					     reinit(s.id)
+					 elsif s.has_sample?
+					     Roby::Log::Server.info "new sample for #{s} at #{s.current_time.to_hms}"
+					     push(s.id, s.current_time, s.read)
+					 end
 			end
 		    end
 			
-		    if data
-			push(s.id, s.current_time, data)
-		    else
+		    unless done_sth
 			sleep(polling_timeout)
 		    end
 		end
@@ -247,17 +252,30 @@ module Roby
 		end
 	    end
 
+	    # Reinitializes the stream +id+. It is used when a stream has
+	    # been truncated (for instance when a log file has been restarted)
+	    #
+	    # This must be called in a synchronize { } block
+	    def reinit(id)
+		subscriptions[id].each do |remote|
+		    queue, _ = connections[remote]
+		    queue.push [:reinit, id]
+		end
+	    end
+	    private :reinit
+
 	    # Pushes a new sample on stream +id+
+	    #
+	    # This must be called in a synchronize { } block
 	    def push(id, time, sample)
-		synchronize do
-		    if subscriptions.has_key?(id)
-			subscriptions[id].each do |remote|
-			    queue, _ = connections[remote]
-			    queue.push [:push, id, time, sample]
-			end
+		if subscriptions.has_key?(id)
+		    subscriptions[id].each do |remote|
+			queue, _ = connections[remote]
+			queue.push [:push, id, time, sample]
 		    end
 		end
 	    end
+	    private :push
 
 	    def quit
 		if @polling
@@ -319,6 +337,14 @@ module Roby
 		end
 	    end
 
+	    def reinit!
+		data_file.truncate(0)
+		@pending_samples.clear
+		@current_time = nil
+
+		super
+	    end
+
 	    # Called when new data is available
 	    def push(time, data)
 		Server.info "#{self} got #{data.size} bytes of data at #{time.to_hms}"
@@ -355,6 +381,10 @@ module Roby
 	    end
 
 	    def read
+		if reinit?
+		    reinit!
+		end
+
 		@current_time, sample = @pending_samples.pop
 		sample
 	    end
@@ -412,6 +442,10 @@ module Roby
 	    def init(id, data)
 		Server.info "initializing #{self}"
 		@streams[id].init(data)
+	    end
+
+	    def reinit(id)
+		@streams[id].reinit = true
 	    end
 
 	    def push(id, time, data)

@@ -61,6 +61,7 @@ module Roby
 	    end
 	    known_tasks.dup.each { |t| finalized_task(t) }
 	    free_events.dup.each { |e| finalized_event(e) }
+	    clear_finalized
 	end
 
 	def finalized_task(task)
@@ -167,7 +168,7 @@ module Roby
 		Log.all_siblings.clear
 		super
 
-		plans.each { |p| p.clear }
+		plans.dup.each { |p| p.clear if p.root_plan? }
 		plans.clear
 		tasks.clear
 		events.clear

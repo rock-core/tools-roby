@@ -105,7 +105,6 @@ class DisplayConfigHandler < Qt::Widget
     def close
 	idx = display_configs.index_of(self)
 	if display.decoder
-	    STDERR.puts "#{display.decoder}"
 	    display.decoder.displays.delete(display)
 	end
 	display.main.close
