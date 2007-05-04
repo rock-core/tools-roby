@@ -152,9 +152,11 @@ module Roby
 					     Roby::Log::Server.info "reinitializing #{s}"
 					     s.reinit!
 					     reinit(s.id)
+					     true
 					 elsif s.has_sample?
 					     Roby::Log::Server.info "new sample for #{s} at #{s.current_time.to_hms}"
 					     push(s.id, s.current_time, s.read)
+					     true
 					 end
 			end
 		    end
