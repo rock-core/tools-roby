@@ -19,26 +19,30 @@ module Roby::Log
 	attr_reader :event_log
 	# The IO object for the index log
 	attr_reader :index_log
+	# The set of events for the current cycle. This is dumped only
+	# when the +cycle_end+ event is received
+	attr_reader :current_cycle
 
 	def initialize(basename)
-	    @current_pos  = 0
+	    @current_pos   = 0
+	    @current_cycle = Array.new
 	    @event_log = File.open("#{basename}-events.log", 'w')
+	    event_log.sync = true
 	    @index_log = File.open("#{basename}-index.log", 'w')
-	    @index_log.sync = true
+	    index_log.sync = true
 	end
 	def splat?; false end
 
 	def dump_method(m, args)
-	    Marshal.dump(m, event_log)
-	    Marshal.dump(args, event_log)
-
 	    if m == :cycle_end
 		info = args[1].dup
-		info[:pos] = @current_pos
-		event_log.flush
+		info[:pos] = event_log.tell
+		Marshal.dump(current_cycle, event_log)
 		Marshal.dump(info, index_log)
+		current_cycle.clear
+	    else
+		current_cycle << m << args
 	    end
-	    @current_pos = event_log.tell
 
 	rescue 
 	    puts "failed to dump #{m}#{args}: #{$!.full_message}"
