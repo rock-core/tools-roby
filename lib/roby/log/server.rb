@@ -313,6 +313,7 @@ module Roby
 	    end
 	    def synchronize; @mutex.synchronize { yield } end
 
+	    # The data file in which we save the data received so far
 	    attr_reader :data_file
 	    # The DataStream class of the remote stream. This is used for
 	    # decoding
