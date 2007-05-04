@@ -133,6 +133,22 @@ module Roby
 		@current_cycle += 1
 	    end
 
+	    # Unmarshalls a set of data returned by #read_all and yield
+	    # each sample that should be fed to the decoders
+	    def self.init(data)
+		io = StringIO.new(data)
+		while !io.eof?
+		    yield(Marshal.load(io))
+		end
+	    end
+
+	    # Unmarshalls one cycle of data returned by #read and feeds
+	    # it to the decoders
+	    def self.decode(data)
+		io = StringIO.new(data)
+		Marshal.load(io)
+	    end
+
 	    # Read all data read so far in a format suitable to feed to
 	    # #init_stream on the decoding side
 	    def read_all

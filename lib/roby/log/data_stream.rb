@@ -60,7 +60,8 @@ module Roby::Log
 	    end
 	end
 
-	# Reuse or creates a decoder of the given class for this data stream
+	# Reuse or creates a decoder of the given class for this data
+	# stream
 	def decoder(klass)
 	    if dec = decoders.find { |d| d.kind_of?(klass) }
 		dec
@@ -75,12 +76,19 @@ module Roby::Log
 	    super if defined? super
 	end
 
-	# Read the next sample and feed it to the decoders
+	# Do a read - decode - feed cycle
 	def advance
-	    data = read
+	    data = decode(read)
 	    decoders.each do |dec|
-		dec.decode(data)
+		dec.process(data)
 	    end
+	end
+
+	def init(data)
+	    self.class.init(data)
+	end
+	def decode(data)
+	    self.class.decode(data)
 	end
 
 	# Update the displays

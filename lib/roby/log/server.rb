@@ -123,7 +123,7 @@ module Roby
 		    Server.info "#{remote.__drburi} connected"
 		end
 		streams.map do |s|
-		    [s.id, s.name, s.type]
+		    [s.class.name, s.id, s.name, s.type]
 		end
 	    end
 
@@ -199,7 +199,7 @@ module Roby
 		synchronize do
 		    @streams << stream
 		    connections.each_value do |queue, _|
-			queue.push [:added_stream, stream.id, stream.name, stream.type]
+			queue.push [:added_stream, stream.class.name, stream.id, stream.name, stream.type]
 		    end
 		end
 	    end
@@ -298,9 +298,10 @@ module Roby
 	# This class manages a data stream which is present remotely. Data is sent
 	# as-is over the network from a Server object to a Client object.
 	class RemoteStream < DataStream
-	    def initialize(id, name, type)
+	    def initialize(stream_model, id, name, type)
 		super(name, type)
 		@id = id
+		@stream_model = stream_model
 
 		@data_file = Tempfile.new("remote_stream_#{name}_#{type}".gsub("/", "_"))
 		@data_file.sync = true
@@ -311,17 +312,9 @@ module Roby
 	    def synchronize; @mutex.synchronize { yield } end
 
 	    attr_reader :data_file
-
-	    def init(data)
-		synchronize do
-		    Server.info "#{self} initializing with #{data.size} bytes of data"
-		    decoders.each do |dec|
-			dec.init(data)
-		    end
-		    data_file << [data.size].pack("N") << data
-		    display
-		end
-	    end
+	    # The DataStream class of the remote stream. This is used for
+	    # decoding
+	    attr_reader :stream_model
 
 	    def added_decoder(dec)
 		synchronize do
@@ -330,12 +323,14 @@ module Roby
 		    data_file.rewind
 		    chunk_length = data_file.read(4).unpack("N").first
 		    chunk = data_file.read(chunk_length)
-		    dec.init(chunk)
+		    init(chunk) do |sample|
+			dec.process(sample)
+		    end
 
 		    while !data_file.eof?
 			chunk_length = data_file.read(4).unpack("N").first
 			chunk = data_file.read(chunk_length)
-			dec.decode(chunk)
+			dec.process(decode(sample))
 		    end
 
 		    display
@@ -393,6 +388,15 @@ module Roby
 		@current_time, sample = @pending_samples.pop
 		sample
 	    end
+
+	    def init(data, &block)
+		Server.info "#{self} initializing with #{data.size} bytes of data"
+		data_file << [data.size].pack("N") << data
+		stream_model.init(data, &block)
+	    end
+	    def decode(data)
+		stream_model.decode(data)
+	    end
 	end
 
 	class Client
@@ -409,8 +413,8 @@ module Roby
 		@streams.values
 	    end
 
-	    def added_stream(id, name, type)
-		@streams[id] = RemoteStream.new(id, name, type)
+	    def added_stream(klass_name, id, name, type)
+		@streams[id] = RemoteStream.new(constant(klass_name), id, name, type)
 		super if defined? super
 	    end
 	    def removed_stream(id)
@@ -445,8 +449,15 @@ module Roby
 	    end
 
 	    def init(id, data)
-		Server.info "initializing #{self}"
-		@streams[id].init(data)
+		s = @streams[id]
+		Server.info "initializing #{s}"
+		s.synchronize do
+		    s.init(data) do |sample|
+			s.decoders.each do |dec|
+			    dec.process(sample)
+			end
+		    end
+		end
 	    end
 
 	    def reinit(id)
@@ -465,8 +476,8 @@ module Roby
 
 		@streams = Hash.new
 		server.connect(DRbObject.new(self)).
-		    each do |id, name, type|
-			added_stream(id, name, type)
+		    each do |klass, id, name, type|
+			added_stream(klass, id, name, type)
 		    end
 
 		ObjectSpace.define_finalizer(self, Client.remote_streams_finalizer(server, DRbObject.new(self)))

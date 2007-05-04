@@ -178,13 +178,8 @@ module Roby
 		clear
 	    end
 	    
-	    def decode(data)
-		events = Array.new
-		io = StringIO.new(data)
-		loop do
-		    m    = Marshal.load(io)
-		    args = Marshal.load(io)
-
+	    def process(data)
+		data.each_slice(2) do |m, args|
 		    reason = catch :ignored do
 			begin
 			    if respond_to?(m)
@@ -209,12 +204,6 @@ module Roby
 			Roby.warn "Ignored #{m}(#{args.join(", ")}): #{reason}"
 		    end
 		end
-
-	    rescue EOFError
-	    end
-
-	    def init(data)
-		decode(data)
 	    end
 
 	    def local_object(set, object)
