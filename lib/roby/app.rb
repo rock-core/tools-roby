@@ -420,6 +420,8 @@ module Roby
 	# If you have external servers to start for every robot, plug it into
 	# #start_server
 	def start_distributed
+	    Thread.abort_on_exception = true
+
 	    if !File.exists?(log_dir)
 		Dir.mkdir(log_dir)
 	    end
@@ -457,6 +459,8 @@ module Roby
 	# Start services that should exist for every robot in the system. Services that
 	# are needed only once for all robots should be started in #start_distributed
 	def start_server
+	    Thread.abort_on_exception = true
+
 	    # Start a log server if needed, and poll the log directory for new
 	    # data sources
 	    #
