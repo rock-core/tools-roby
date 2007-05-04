@@ -89,6 +89,31 @@ class FilteredDataStreamListModel < Qt::SortFilterProxyModel
     slots 'selectedStream()'
 end
 
+class DisplayConfigHandler < Qt::Widget
+    attr_reader :display_configs
+    attr_reader :config_ui
+    attr_reader :display
+
+    def setup(data_displays, config_ui)
+	@display_configs = data_displays.display_configs
+	@display = data_displays.displays[config_ui]
+	@config_ui = config_ui
+
+	connect(config_ui.close, SIGNAL('clicked()'), self, SLOT('close()'))
+    end
+
+    def close
+	idx = display_configs.index_of(self)
+	if display.decoder
+	    STDERR.puts "#{display.decoder}"
+	    display.decoder.displays.delete(display)
+	end
+	display.main.close
+	display_configs.remove_item idx
+    end
+    slots 'close()'
+end
+
 class Ui_DataDisplays
     DISPLAYS = {
 	'Relations' => Ui::RelationsConfig
@@ -106,7 +131,7 @@ class Ui_DataDisplays
     def add_display(streams, kind = nil)
 	kind ||= display_types.current_text
 
-	config_widget = Qt::Widget.new
+	config_widget = DisplayConfigHandler.new
 	config_ui     = DISPLAYS[kind].new
 	display	      = config_ui.setupUi(streams, config_widget)
 
@@ -117,6 +142,16 @@ class Ui_DataDisplays
 	displays[config_ui] = display
 	display.main.window_title = name
 	display.main.show
+	display.config_ui = config_ui
+
+	main_window = display.main
+	main_window.singleton_class.class_eval do
+	    define_method(:closeEvent) do |event|
+		config_ui.close.clicked
+	    end
+	end
+	config_widget.setup(self, config_ui)
+
 	display
     end
 end

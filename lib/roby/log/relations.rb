@@ -298,10 +298,11 @@ module Roby
 	    def splat?; true end
 
 	    # The PlanRebuilder object for this display
-	    attr_accessor :builder
+	    attr_accessor :decoder
 
 	    attr_reader :ui, :scene
 	    attr_reader :main
+	    attr_accessor :config_ui
 
 	    # A [DRbObject, DRbObject] => GraphicsItem mapping of arrows
 	    attr_reader :arrows
@@ -362,16 +363,16 @@ module Roby
 	    end
 
 	    def stream=(data_stream)
-		if builder
+		if decoder
 		    clear
 		end
 
 		# Get a PlanRebuilder object tied to data_stream
-		@builder = data_stream.decoder(PlanRebuilder)
-		builder.displays << self
+		@decoder = data_stream.decoder(PlanRebuilder)
+		decoder.displays << self
 
 		# Initialize the display ...
-		builder.plans.each_key do |plan|
+		decoder.plans.each_key do |plan|
 		    discovered_tasks(Time.now, plan, plan.known_tasks)
 		    discovered_events(Time.now, plan, plan.free_events)
 		end
@@ -401,9 +402,9 @@ module Roby
 		regex = /#{regex.to_str}/i if regex.respond_to?(:to_str)
 
 		# Get the tasks and events matching the string
-		objects = builder.tasks.keys.
+		objects = decoder.tasks.keys.
 		    find_all { |object| displayed?(object) && regex === object.display_name }
-		objects.concat builder.events.keys.
+		objects.concat decoder.events.keys.
 		    find_all { |object| displayed?(object) && regex === object.display_name }
 
 		return if objects.empty?
@@ -612,7 +613,7 @@ module Roby
 	    end
 
 	    def update
-		return unless builder
+		return unless decoder
 		clear_flashing_objects
 
 		signalled_events.each do |_, from, to, _|
@@ -625,10 +626,10 @@ module Roby
 		end
 
 		# The sets of tasks and events know to the data stream
-		all_tasks  = builder.plans.inject(builder.tasks.keys.to_value_set) do |all_tasks, (plan, _)|
+		all_tasks  = decoder.plans.inject(decoder.tasks.keys.to_value_set) do |all_tasks, (plan, _)|
 		    all_tasks.merge plan.finalized_tasks
 		end
-		all_events = builder.plans.inject(builder.events.keys.to_value_set) do |all_events, (plan, _)|
+		all_events = decoder.plans.inject(decoder.events.keys.to_value_set) do |all_events, (plan, _)|
 		    all_events.merge plan.finalized_events
 		end
 
@@ -638,11 +639,11 @@ module Roby
 		    clear_arrows(obj)
 		end
 
-		visible_objects.merge(builder.plans.keys.to_value_set)
+		visible_objects.merge(decoder.plans.keys.to_value_set)
 
 		# Create graphics items for tasks and events if necessary, and
 		# update their visibility according to the visible_objects set
-		[all_tasks, all_events, builder.plans.keys].each do |object_set|
+		[all_tasks, all_events, decoder.plans.keys].each do |object_set|
 		    object_set.each do |object|
 			create_or_get_item(object) do |item|
 			    item.parent_item = self[object.display_parent] if object.display_parent
@@ -650,7 +651,7 @@ module Roby
 		    end
 		end
 
-		[all_tasks, all_events, builder.plans.keys].each do |object_set|
+		[all_tasks, all_events, decoder.plans.keys].each do |object_set|
 		    object_set.each do |object|
 			next unless displayed?(object)
 			object.display(self, graphics[object])
@@ -658,7 +659,7 @@ module Roby
 		end
 
 		# Layout the graph
-		layouts = builder.plans.keys.find_all { |p| p.root_plan? }.
+		layouts = decoder.plans.keys.find_all { |p| p.root_plan? }.
 		    map do |p| 
 			dot = Layout.new
 			dot.layout(self, p)
@@ -705,10 +706,10 @@ module Roby
 		scene.remove_item(item) if scene
 	    end
 
-	    def local_task(obj); builder.local_task(obj) end
-	    def local_event(obj); builder.local_event(obj) end
-	    def local_plan(obj); builder.local_plan(obj) end
-	    def local_object(obj); builder.local_object(obj) end
+	    def local_task(obj); decoder.local_task(obj) end
+	    def local_event(obj); decoder.local_event(obj) end
+	    def local_plan(obj); decoder.local_plan(obj) end
+	    def local_object(obj); decoder.local_object(obj) end
 
 	    def removed_task_child(time, parent, rel, child)
 		remove_graphics(arrows.delete([local_task(parent), local_task(child), rel]))
@@ -746,8 +747,8 @@ module Roby
 	    end
 
 	    def clear
-		arrows.each_value(&method(:remove_graphics))
-		graphics.each_value(&method(:remove_graphics))
+		arrows.dup.each_value(&method(:remove_graphics))
+		graphics.dup.each_value(&method(:remove_graphics))
 		arrows.clear
 		graphics.clear
 
