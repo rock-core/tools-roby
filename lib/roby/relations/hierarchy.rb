@@ -201,6 +201,8 @@ module Roby
 	def message # :nodoc:
 	    "#{parent}.realized_by(#{child}, #{relation}) failed with #{with.symbol}(#{with.context})\n#{super}"
 	end
+
+	def backtrace; [] end
     end
     Control.structure_checks << TaskStructure::Hierarchy.method(:check_structure)
 end
