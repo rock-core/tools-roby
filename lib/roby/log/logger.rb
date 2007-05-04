@@ -24,7 +24,11 @@ module Roby::Log
 	def stop_logging # :nodoc:
 	    return unless logging?
 	    logged_events.push nil
-	    @@logging_thread.join
+	    flushed_logger_mutex.synchronize do
+		while @@logging_thread
+		    flushed_logger.wait(flushed_logger_mutex)
+		end
+	    end
 	end
 
 	# Add a logger object in the system
