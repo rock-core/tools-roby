@@ -128,9 +128,14 @@ module Roby
 	    end
 
 	    def disconnect(remote)
-		queue, thread = synchronize { connections[remote] }
-		thread.raise Interrupt, "quitting"
-		thread.join
+		thread = synchronize do
+		    queue, thread = connections[remote]
+		    if thread
+			thread.raise Interrupt, "quitting"
+			thread
+		    end
+		end
+		thread.join if thread
 
 		Server.info "#{remote.__drburi} disconnected"
 	    end
