@@ -16,20 +16,29 @@ class RemoteStreamListModel < DataStreamListModel
     def update
 	Roby::Log::Server.available_servers.each do |server|
 	    unless known_servers.find { |str| str.server == server }
-		known_servers << Roby::Log::Client.new(server)
+		begin
+		    known_servers << Roby::Log::Client.new(server)
+		rescue DRb::DRbConnError
+		end
 	    end
 	end
 
 	known_servers.delete_if { |s| !s.connected? }
 
 	found_streams = []
-	known_servers.each do |server|
-	    server.streams.each do |stream|
-		found_streams << stream
-		unless streams.include?(stream)
-		    server.subscribe(stream)
-		    add_new(stream)
+	known_servers.delete_if do |server|
+	    begin
+		server.streams.each do |stream|
+		    found_streams << stream
+		    unless streams.include?(stream)
+			server.subscribe(stream)
+			add_new(stream)
+		    end
 		end
+		false
+	    rescue DRb::DRbConnError
+		s.disconnect
+		true
 	    end
 	end
 

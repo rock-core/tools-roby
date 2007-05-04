@@ -437,9 +437,9 @@ module Roby
 		Proc.new do
 		    begin
 			server.disconnect(drb_object)
+		    rescue DRb::DRbConnError
 		    rescue Exception => e
 			STDERR.puts e.full_message
-
 		    end
 		end
 	    end
@@ -447,6 +447,7 @@ module Roby
 	    def disconnect
 		@streams = nil
 		server.disconnect(DRbObject.new(self))
+	    rescue DRb::DRbConnError
 	    end
 
 	    def quit
