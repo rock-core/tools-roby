@@ -387,11 +387,11 @@ module Roby
 
 	# Enable display of all plan events on the console
 	def console_logger=(value)
-	    if value
+	    if value && !@console_logger
 		require 'roby/log/console'
 		@console_logger = Roby::Log::ConsoleLogger.new(STDERR)
 		Roby::Log.add_logger console_logger
-	    elsif defined? Roby::Log
+	    elsif @console_logger
 		Roby::Log.remove_logger console_logger
 		@console_logger = nil
 	    end
