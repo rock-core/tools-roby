@@ -107,7 +107,7 @@ module Roby
 	def _dump(lvl); Marshal.dump(remote_id) end
 	def self._load(str); Marshal.load(str) end
 	def droby_dump(dest)
-	    DRoby.new(happened?, task.droby_dump(dest), symbol)
+	    DRoby.new(happened?, Distributed.format(task, dest), symbol)
 	end
 
 	class DRoby
@@ -119,7 +119,11 @@ module Roby
 	    end
 
 	    def to_s
-		"#<dRoby:#{task.model.ancestors.first.first}/#{symbol}#{task.remote_siblings_to_s} task_arguments=#{task.arguments} plan=#{task.plan} owners=#{task.owners_to_s}>"
+		if task.respond_to?(:model)
+		    "#<dRoby:#{task.model.ancestors.first.first}/#{symbol}#{task.remote_siblings_to_s} task_arguments=#{task.arguments} plan=#{task.plan} owners=#{task.owners_to_s}>"
+		else
+		    "#<dRoby:#{task}/#{symbol}>"
+		end
 	    end
 
 
