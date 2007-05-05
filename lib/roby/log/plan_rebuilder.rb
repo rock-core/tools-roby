@@ -168,7 +168,7 @@ module Roby
 		Log.all_siblings.clear
 		super
 
-		plans.dup.each { |p| p.clear if p.root_plan? }
+		plans.dup.each { |p, _| p.clear if p.root_plan? }
 		plans.clear
 		tasks.clear
 		events.clear
