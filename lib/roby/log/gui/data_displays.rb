@@ -3,6 +3,7 @@ require 'roby/app'
 require 'roby/log/data_stream'
 require 'roby/log/gui/data_displays_ui'
 require 'roby/log/gui/relations'
+require 'roby/log/gui/notifications'
 require 'roby/log/relations'
 
 class DataStreamListModel < Qt::AbstractListModel
@@ -115,7 +116,8 @@ end
 
 class Ui_DataDisplays
     DISPLAYS = {
-	'Relations' => Ui::RelationsConfig
+	'Relations' => Ui::RelationsConfig,
+	'Notifications' => Ui::NotificationsConfig
     }
     attr_reader :displays
 

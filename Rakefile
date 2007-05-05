@@ -37,7 +37,7 @@ Rake::RDocTask.new("core_docs") do |rdoc|
   rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
 end
 
-UIFILES = %w{relations.ui relations_view.ui data_displays.ui replay_controls.ui}
+UIFILES = %w{relations.ui relations_view.ui data_displays.ui replay_controls.ui notifications.ui}
 task :uic do
     UIFILES.each do |file|
 	file = 'lib/roby/log/gui/' + file

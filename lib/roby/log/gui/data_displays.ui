@@ -109,6 +109,11 @@
             <string>Relations</string>
            </property>
           </item>
+          <item>
+           <property name="text" >
+            <string>Notifications</string>
+           </property>
+          </item>
          </widget>
         </item>
         <item>
