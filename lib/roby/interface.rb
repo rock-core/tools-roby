@@ -4,6 +4,48 @@ require 'roby/planning'
 require 'facet/basicobject'
 
 module Roby
+    class RemoteInterface
+	def initialize(interface)
+	    @interface = interface
+	end
+
+	# This class wraps the RemoteID of a task. When a method is called on
+	# it, the corresponding method is called on the other side, in control
+	# context.
+	#
+	# This is used to interface a remote Task object with the user
+	class TaskProxy < ::BasicObject
+	    def initialize(remote_id, interface)
+		@remote_id = remote_id
+		@interface = interface
+	    end
+
+	    def method_missing(m, *args)
+		@interface.call(@remote_id, m, *args)
+	    end
+	end
+
+	def find_tasks
+	    Query.new(self)
+	end
+
+	def query_result_set(query)
+	    @interface.remote_query_result_set(query)
+	end
+	def query_each(result_set)
+	    result_set.each do |t|
+		yield(TaskProxy.new(t, @interface))
+	    end
+	end
+
+	def method_missing(m, *args)
+	    @interface.send(m, *args)
+
+	rescue Exception => e
+	    raise e, e.message, Roby.filter_backtrace(e.backtrace)
+	end
+    end
+
     # This class is used to interface with the Roby event loop and plan. It is the
     # main front object when accessing a Roby core remotely
     class Interface
@@ -18,6 +60,26 @@ module Roby
 	def quit
 	    control.quit 
 	    control.join
+	end
+	def plan; Roby.plan end
+
+	def call(task, m, *args)
+	    Roby.execute do
+		task.local_object.send(m, *args)
+	    end
+	end
+
+	def test_find_tasks
+	    plan.find_tasks.to_a
+	end
+
+	def find_tasks
+	    plan.find_tasks
+	end
+
+	def remote_query_result_set(m_query)
+	    plan.query_result_set(m_query.to_query(plan)).
+		map { |t| t.remote_id }
 	end
 
 	# Reload the Roby framework code. For now, it does not

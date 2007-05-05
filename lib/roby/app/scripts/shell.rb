@@ -1,4 +1,20 @@
-require File.join(File.dirname(__FILE__), '..', 'run')
+require 'roby'
+require 'roby/app'
+require 'roby/distributed'
+require 'optparse'
+
+remote_url = nil
+if ARGV.include?("--remote")
+    opt = OptionParser.new do |opt|
+	opt.on('--remote URL', String, "connect to a remote Roby engine") do |url|
+	    remote_url = url
+	end
+    end
+    opt.parse! ARGV
+else
+    require File.join(File.dirname(__FILE__), '..', 'run')
+end
+
 app = Roby.app
 
 robot_name = ARGV.shift
@@ -9,7 +25,12 @@ app.setup
 require 'irb'
 IRB.setup(nil)
 
-control = Roby::Interface.new(Roby.control)
+control = if remote_url
+	      Roby::RemoteInterface.new(DRbObject.new_with_uri("roby://#{remote_url}"))
+	  else
+	      Roby::Interface.new(Roby.control)
+	  end
+
 begin
     # Make control the top-level object
     bind = control.instance_eval { binding }
@@ -21,12 +42,18 @@ begin
 	irb.signal_handle
     end
 
-    app.run do
-	Roby.execute do
-	    load File.join(APP_DIR, "controllers", "#{app.robot_name}.rb")
-	end
+    if remote_url
 	catch(:IRB_EXIT) do
 	    irb.eval_input
+	end
+    else
+	app.run do
+	    Roby.execute do
+		load File.join(APP_DIR, "controllers", "#{app.robot_name}.rb")
+	    end
+	    catch(:IRB_EXIT) do
+		irb.eval_input
+	    end
 	end
     end
 

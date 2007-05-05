@@ -331,17 +331,17 @@ module Roby
 	    # MainPlanner is always included in the planner list
 	    Roby.control.planners << MainPlanner
 	   
-	    # Set up dRoby
+	    # Set up dRoby, setting an Interface object as front server, for shell access
 	    host = droby['host']
 	    if single? || !robot_name
 		host =~ /:(\d+)$/
-		DRb.start_service "roby://:#{$1 || '0'}"
+		DRb.start_service "roby://:#{$1 || '0'}", Interface.new(Roby.control)
 	    else
 		if host =~ /^:\d+$/
 		    host = "#{Socket.gethostname}#{host}"
 		end
 
-		DRb.start_service "roby://#{host}"
+		DRb.start_service "roby://#{host}", Interface.new(Roby.control)
 		droby_config = { :ring_discovery => !!discovery['ring'],
 		    :name => robot_name, 
 		    :plan => Roby.plan, 

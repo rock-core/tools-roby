@@ -165,11 +165,16 @@ module Roby
 	    def self._load(str)
 		DRoby.new(*Marshal.load(str))
 	    end
-	    def proxy(peer)
-		query = TaskMatcher::DRoby.setup_matcher(peer.connection_space.plan.find_tasks, matcher)
+
+	    def to_query(plan)
+		query = TaskMatcher::DRoby.setup_matcher(plan.find_tasks, matcher)
 		query.plan_predicates.concat(plan_predicates)
 		query.neg_plan_predicates.concat(neg_plan_predicates)
 		query
+	    end
+
+	    def proxy(peer)
+		to_query(peer.connection_space.plan)
 	    end
 	end
 	
