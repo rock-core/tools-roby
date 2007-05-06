@@ -220,9 +220,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	Roby::Control.synchronize do
 	    r_next_mission = remote_task(:id => 'next_mission')
 	    r_subtask = remote_task(:id => 'subtask')
-	    assert(!plan.unneeded_tasks.include?(r_mission))
-	    assert(plan.unneeded_tasks.include?(r_next_mission))
-	    assert(plan.unneeded_tasks.include?(r_subtask))
+	    assert(plan.useful_task?(r_mission))
+	    assert(!plan.useful_task?(r_next_mission))
+	    assert(!plan.useful_task?(r_subtask))
 	end
 	Roby.control.wait_one_cycle
 

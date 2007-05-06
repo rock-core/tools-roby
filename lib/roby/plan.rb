@@ -341,6 +341,13 @@ module Roby
 	    (known_tasks - useful)
 	end
 
+	# Computes the set of useful tasks and checks that +task+ is in it.
+	# This is quite slow. It is here for debugging purposes. Do not use it
+	# in production code
+	def useful_task?(task)
+	    !unneeded_tasks.include?(task)
+	end
+
 	def useful_event_component(events)
 	    useful_events = events.dup
 	    free_events.each do |ev|
