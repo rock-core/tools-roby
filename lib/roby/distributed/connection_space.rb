@@ -54,7 +54,7 @@ module Roby
 	end
 
 	def self.transmit(*args)
-	    if inside_control?
+	    if !outside_control?
 		raise "in control thread"
 	    end
 

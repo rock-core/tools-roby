@@ -56,8 +56,34 @@ module Roby
 	end
 
 	# True if the current thread is the control thread
+	#
+	# See #outside_control? for a discussion of the use of #inside_control?
+	# and #outside_control? when testing the threading context
 	def inside_control?
-	    control_thread == Thread.current
+	    t = Control.instance.thread
+	    !t || t == Thread.current
+	end
+
+	# True if the current thread is not control thread, or if
+	# there is not control thread. When you check the current
+	# thread context, always use a negated form. Do not do
+	#
+	#   if Roby.inside_control?
+	#     ERROR
+	#   end
+	#
+	# Do instead
+	#
+	#   if !Roby.outside_control?
+	#     ERROR
+	#   end
+	#
+	# Since the first form will fail if there is no control thread, while
+	# the second form will work. Use the first form only if you require
+	# that there actually IS a control thread.
+	def outside_control?
+	    t = Control.instance.thread
+	    !t || t != Thread.current
 	end
 
 	# A pool of mutexes (as a Queue)
@@ -104,7 +130,7 @@ module Roby
 	# Execute the given block inside the control thread, and returns when
 	# it has finished. The return value is the value returned by the block
 	def execute
-	    if Roby.inside_control?
+	    if !Roby.outside_control?
 		return yield
 	    end
 
