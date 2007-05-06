@@ -47,7 +47,7 @@ module Roby
 	    end
 	end
 
-	def self.droby_dump(dest)
+	def self.droby_dump(dest = nil)
 	    if state then state.droby_dump(dest)
 	    else @__single_marshalled_peer__ ||= Peer::DRoby.new('single', remote_id)
 	    end
@@ -338,7 +338,7 @@ module Roby
 	    end
 
 	    # Define #droby_dump for Peer-like behaviour
-	    def droby_dump(dest); @__droby_marshalled__ ||= Peer::DRoby.new(name, remote_id) end
+	    def droby_dump(dest = nil); @__droby_marshalled__ ||= Peer::DRoby.new(name, remote_id) end
 
 	    def quit
 		Distributed.debug "ConnectionSpace #{self} quitting"

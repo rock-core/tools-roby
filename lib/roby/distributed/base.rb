@@ -117,6 +117,7 @@ module Roby
 		    elsif !create
 			return
 		    elsif marshalled_object = peer.removing_proxies.delete(object)
+			Distributed.debug "reusing marshalled #{marshalled_object} for #{self} from #{peer}"
 			marshalled_object.remote_siblings[peer.droby_dump] = self
 			return peer.local_object(marshalled_object)
 		    end

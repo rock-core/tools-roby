@@ -48,7 +48,9 @@ module Roby
 	    end
 
 	    add_sibling_for(peer, remote_object)
-	    peer.transmit(:added_sibling, remote_object, remote_id)
+	    unless self_owned?
+		peer.transmit(:added_sibling, remote_object, remote_id)
+	    end
 	end
 
 	# Called to tell us that we should not be involved with +peer+ anymore
@@ -71,12 +73,18 @@ module Roby
 	# #sibling_of, do not notify the peer about it.
 	def add_sibling_for(peer, remote_object)
 	    if old_sibling = remote_siblings[peer]
-		raise "#{self} has already a sibling for #{peer} (#{old_sibling})"
+		if old_sibling != remote_object
+		    raise "#{self} has already a sibling for #{peer} (#{old_sibling}) #{remote_siblings}"
+		else
+		    # This is OK. The same sibling information can come from
+		    # different sources.  We only check for inconsistencies
+		    return
+		end
 	    end
 
 	    remote_siblings[peer] = remote_object
 	    peer.proxies[remote_object] = self
-	    Roby.debug "added sibling #{remote_object.inspect} for #{self} on #{peer}"
+	    Roby.debug "added sibling #{remote_object.inspect} for #{self} on #{peer} (#{remote_siblings})"
 	end
 
 	# Remove references about the sibling registered for +peer+ and returns it

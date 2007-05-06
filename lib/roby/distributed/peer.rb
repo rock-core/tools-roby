@@ -558,20 +558,23 @@ module Roby::Distributed
 	    elsif !marshalled.respond_to?(:proxy)
 		return marshalled
 	    elsif marshalled.respond_to?(:remote_siblings)
-		if remote_object = marshalled.remote_siblings[droby_dump]
+		if local_id = marshalled.remote_siblings[Roby::Distributed.droby_dump]
+		    local_object = local_id.to_local(self, create)
+		elsif remote_object = marshalled.remote_siblings[droby_dump]
 		    unless local_object = proxies[remote_object]
 			return if !create
 			return unless local_object = marshalled.proxy(self)
 		    end
-		    if marshalled.respond_to?(:update)
-			Roby::Distributed.update(local_object) do
-			    marshalled.update(self, local_object) 
-			end
-		    end
-		    proxy_setup(local_object)
 		else
 		    raise "no remote siblings for #{remote_name} in #{marshalled} (#{marshalled.remote_siblings})"
 		end
+
+		if marshalled.respond_to?(:update)
+		    Roby::Distributed.update(local_object) do
+			marshalled.update(self, local_object) 
+		    end
+		end
+		proxy_setup(local_object)
 	    else
 		local_object = marshalled.proxy(self)
 	    end
