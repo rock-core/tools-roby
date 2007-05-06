@@ -1,4 +1,5 @@
 require 'drb'
+require 'set'
 require 'rinda/tuplespace'
 require 'utilrb/value_set'
 require 'roby/droby'
