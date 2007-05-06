@@ -12,19 +12,19 @@
   context.
 
 * a better synchronous event propagation scheme. Two parts:
-    1/ create a Precedence graph in which an edge a -> b exists if b depends on
-       a (signalled, forwarded, or constrainted to be "after"), then use this
-       graph during event propagation. The propagation mechanism will then sort
-       the current set of events according to this graph (kind of topological
-       sort) and propagate only the first one, then loop until there is no more
-       events to be called. Note that would properly fix all kinds of issues
-       regarding 'stop' not being called last, or non-terminal events called
-       *after* 'stop' while they are being called in the same cycle.
+  1. create a Precedence graph in which an edge a -> b exists if b depends on
+     a (signalled, forwarded, or constrainted to be "after"), then use this
+     graph during event propagation. The propagation mechanism will then sort
+     the current set of events according to this graph (kind of topological
+     sort) and propagate only the first one, then loop until there is no more
+     events to be called. Note that would properly fix all kinds of issues
+     regarding 'stop' not being called last, or non-terminal events called
+     *after* 'stop' while they are being called in the same cycle.
        [DONE: 20070221174851-bd67f-1e4a002da468443ff489b768c4cf5f042ce3542d.gz]
-    2/ when predicates like happened? are called in a propagation context, and
-       we don't know the result yet (happened? = false), register a continuation
-       and its dependency on the event. Include this continuation in the event set
-       and sort it accordingly. 
+  2. when predicates like happened? are called in a propagation context, and
+     we don't know the result yet (happened? = false), register a continuation
+     and its dependency on the event. Include this continuation in the event set
+     and sort it accordingly. 
 
 * in #replace, use Hierarchy#fullfilled_events to check that
   all needed events are provided. If some are missing, use define_event to try to add a new one
@@ -48,10 +48,10 @@
   a transition.
 
 * we NEED plan merging:
-    - is we reuse a task which is already running, it should be transparent for
-      the new process: this new task tree will call start!, but the task is running.
-      Moreover, if it is synchronizing on the start event, it should appear "as if"
-      the event has been emitted
+  - if we reuse a task which is already running, it should be transparent for
+    the new process: this new task tree will call start!, but the task is running.
+    Moreover, if it is synchronizing on the start event, it should appear "as if"
+    the event has been emitted
 
 * Check the capability we have to put every application block in transaction context. This would allow
   for instance to discard **all** plan modification done by an exception handler (or plan command, event
@@ -66,27 +66,52 @@
 
 * Fix transaction proxying. Better use the same kind of model than in dRoby: create slightly
   modified tasks of the same model than the proxied event, do not proxy task events
+
 * Find a way to remove the "return unless proxying?" in top of proxy_code. It sucks
 
 == Distributed
+* extension of communication to really have a multi-robot system. It is for now too much
+  peer-to-peer
+  - a pDB should always send the messages about objects it owns. For now, we check two things: that
+    the involved objects are owned and that the message comes from the inside (we never forward a
+    message coming from outside). There is a synchronization problem here:
+
+	A sends a message M about a joint ab object to B
+	B does not send the message to C
+	but B can send other messages to C, including the /consequences/ of the M message
+
+	Result: C knows about the consequences of M, but not about M itself.
+
+    The solution is to mark all messages with an UID, and forward new messages when we decode them
+    (in PeerServer#demux)
+  - make sure unknown models are properly handled in 3-peers scenario. In particular, the following
+    situation should work
+
+	peer 1 and 2 know about a SpecificModel task model
+	peer 3 does not
+
+    If 1 sees tasks of 2 *through* the plan of 3, and if these tasks are of the SpecificModel model,
+    then they should be instances of the SpecificModel class 
+
 * marshalling is too costly. We have to do it in two steps: *full* marshalling 
   is what we do now, by transfering all needed information about the object to the remote peer. It
   allows to create the object proxy on the other side. When the remote peer has initialized the
   proxy, and if we are sure that all the object updates are sent to the remote peer (in dRoby, it is
   if the object is subscribed by the remote peer), then only send a remote ID (a DRbObject)
 
+    DONE
+
+* Send messages by cycles. This would have two interesting consequences:
+  - propagation-related messages would be always sent by blocks. No more 'fired' in one place with
+    'signalled' in another. Simplification ...
+  - it would reduce marshalling time & size (see http://www.jhaampe.org/software/marshal-perf-ruby)
+
 * Use a fully asynchronous model for peer-to-peer connection, only feeding the control thread once
   in each execution cycle. This could allow to reduce peer-to-peer handshake length (which is currently
   of 3 cycles). Note however that connection should be subject to decision control, so the connection
   filtering should be done in the control thread ... Needs more thought.
 
-* Better handling of unknown models
-  - what I'd like to achieve is handling the following situation:
-    peer 1 and 2 know about a SpecificModel task model
-    peer 3 does not
-
-    If 1 sees tasks of 2 *through* the plan of 3, and if these tasks are of the SpecificModel model,
-    then they should be instances of the SpecificModel class 
+    OUTDATED
 
 * There is a race condition when removing objects: if a peer A is building a transaction involving
   tasks from a peer B, and if the peer B removes the tasks, then there is a race condition between
@@ -99,20 +124,21 @@
   object has not been removed when A processes updates from B and have some ways to feedback B from
   A.
 
+== Display
 * in display, remove transaction proxies right away: the transaction itself is removed and we're
   only interested in the resulting plan
-  [DONE:20070503185040-bd67f-42a27bff79ff75e45d0a71056db88d767a4e84b8.gz]
+    DONE:20070503185040-bd67f-42a27bff79ff75e45d0a71056db88d767a4e84b8.gz
 
 * log snapshot: build a set of logging messages which represent the current state of the plan.
   Useful for display (it would allow to seek a lot faster) and for runtime display of the plan
   state (send the snapshot on connection)
 
 * TCP server for display at runtime
-  [DONE:20070503185040-bd67f-42a27bff79ff75e45d0a71056db88d767a4e84b8.gz]
+    DONE:20070503185040-bd67f-42a27bff79ff75e45d0a71056db88d767a4e84b8.gz
 
 * cleanup roby-shell: define some toplevel commands and use the <method_name>! notation to start new
   missions
-  [DONE:20070430153545-bd67f-1783cb61fef4a55f2cf06963b17acdbf1ce892e5.gz]
+    DONE:20070430153545-bd67f-1783cb61fef4a55f2cf06963b17acdbf1ce892e5.gz
 
 = DONE
 
@@ -121,7 +147,8 @@
     Fix the Peer#subscriptions / PeerServer#subscriptions balance. Choose different names which are more
     descriptive
   - fix name of parameters. Use a marshalled_ prefix for marshalled objects
-  [DONE: 20070208200957-bd67f-92437104352c3e5d3cda8d357066131144c0aabd.gz]
+
+    DONE: 20070208200957-bd67f-92437104352c3e5d3cda8d357066131144c0aabd.gz
 
 * Better handling of emit() in exception context. emit() SHALL be sent whatever exception happens. For
   instance, if an already running task calls emit() we MUST propagate that event (the timepoint has
@@ -158,14 +185,16 @@
       tasks are able to handle the provided exceptions
 
 * Implement our own marshalling mechanism for dRoby. The rules of this mechanism is to:
-    - marshall everything that is marshallable
-    - marshall all "global" model classes and all relations using their name and unmarshall them
-      using constant(). Alternatively, for task models, send all the model ancestry so that we can
-      select a more generic model if the specific model is not available
+  - marshall everything that is marshallable
+  - marshall all "global" model classes and all relations using their name and unmarshall them
+    using constant(). Alternatively, for task models, send all the model ancestry so that we can
+    select a more generic model if the specific model is not available
 
 * add per-model arguments attribute for tasks, which gives the list
   of expected arguments. These lists will then be used in fullfills?  checks.  realized_by will use
   them too: if we give only a model and no arguments, initialize the argument list by taking only
   the needed arguments from the provided task.
+
+    DONE
 
  vim: tw=100

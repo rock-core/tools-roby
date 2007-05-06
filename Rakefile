@@ -32,7 +32,7 @@ Rake::RDocTask.new("core_docs") do |rdoc|
   rdoc.title    = "Roby Core"
   rdoc.options << '-T' << 'hefss'
   rdoc.options << '--main' << 'README'
-  rdoc.rdoc_files.include('README')
+  rdoc.rdoc_files.include('README', 'TODO')
   rdoc.rdoc_files.include('lib/**/*.rb', 'doc/**/*.rdoc', 'ext/**/*.cc')
   rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
 end
