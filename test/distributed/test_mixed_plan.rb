@@ -145,9 +145,13 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    # First, add relations between two nodes that are already existing
 	    remote.add_tasks(plan)
 	    r_t2 = subscribe_task(:id => 'remote-2')
+	    assert(1, r_t2.parents.size)
+	    r_t1 = r_t2.parents.find { true }
 	    t1, t2, t3 = Control.synchronize { add_tasks(plan, "local") }
 
+	    assert(plan.useful_task?(r_t1))
 	    trsc[r_t2].realized_by trsc[t2]
+	    assert(plan.useful_task?(r_t1))
 	    check_resulting_plan(trsc, false)
 	    if propose_first
 		trsc.release(false)
@@ -163,6 +167,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    remote.subscribe(t2)
 
 	    process_events
+	    assert(plan.useful_task?(r_t1))
 	    assert_cleared_relations(plan)
 
 	    unless propose_first
