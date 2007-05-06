@@ -196,6 +196,7 @@ module Roby
 		    if peer.subscribed?(from) && !peer.subscribed?(to)
 			execute do
 			    peer.subscribe(to)
+			    nil
 			end
 		    end
 		end

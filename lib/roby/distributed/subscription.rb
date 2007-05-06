@@ -72,9 +72,8 @@ module Roby
 			tasks.each  { |obj| subscribe_plan_object(obj) }
 			events.each { |obj| subscribe_plan_object(obj) }
 		    end
+		    local_object.remote_id
 		end
-
-		local_object.remote_id
 	    end
 	    
 	    # Called by the remote host because it has subscribed us to a plan
