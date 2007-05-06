@@ -177,7 +177,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert(!local_proxy.read_write?)
 	assert( local_proxy.root_object?)
 	assert(!local_proxy.event(:start).root_object?)
-	process_events
+	remote_peer.flush
 	assert(remote.check_sibling(local_proxy.remote_id))
 	assert(local_proxy.executable?)
 	assert_raises(OwnershipError) { local_proxy.start! }
