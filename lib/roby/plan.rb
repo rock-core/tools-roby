@@ -345,7 +345,7 @@ module Roby
 	# This is quite slow. It is here for debugging purposes. Do not use it
 	# in production code
 	def useful_task?(task)
-	    !unneeded_tasks.include?(task)
+	    known_tasks.include?(task) && !unneeded_tasks.include?(task)
 	end
 
 	def useful_event_component(events)
