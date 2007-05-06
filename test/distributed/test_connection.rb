@@ -110,7 +110,6 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	peer2peer do |remote|
 	    def remote.peers_empty?; Distributed.peers.empty? end
 	end
-	Roby.logger.level = Logger::INFO
 
 	Control.instance.process_events
 	assert(remote_peer.task.ready?)

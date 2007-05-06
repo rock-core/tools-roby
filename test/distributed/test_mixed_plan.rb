@@ -300,7 +300,6 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
     # after the commit, there is a race condition possibility if the other
     # peers do not have committed the transaction yet
     def test_commit_race_condition
-	Roby.logger.level = Logger::DEBUG
 	peer2peer(true) do |remote|
 	    def remote.add_task(trsc)
 		trsc = local_peer.local_object(trsc)
