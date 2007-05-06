@@ -160,23 +160,22 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
 	remote_task, remote_task_id = remote.task
 	assert_kind_of(Task::DRoby, remote_task)
-	assert_equal({:id => 1}, remote_task.arguments)
+	assert_equal({:id => 1},    remote_task.arguments)
 	assert_kind_of(Plan::DRoby, remote_task.plan)
-	assert_equal("SimpleTask", remote_task.model.ancestors[1].first)
+	assert_equal("SimpleTask",  remote_task.model.ancestors[1].first)
 	assert_equal([42, remote_task.model], remote_task.data)
 	assert_nothing_raised { Marshal.dump(remote_task) }
 	assert_equal(remote_task_id, remote_task.remote_siblings[remote_peer.droby_dump(nil)], remote_task.remote_siblings)
 
 	plan.permanent(local_proxy = remote_peer.local_object(remote_task))
-	assert_kind_of(Roby::Task, local_proxy)
-	assert_kind_of(SimpleTask, local_proxy)
+	assert_kind_of(SimpleTask,  local_proxy)
 	assert_not_same(SimpleTask, local_proxy.class)
 	assert_equal([42, local_proxy.class], local_proxy.data)
 
-	assert_equal([remote_peer], local_proxy.owners)
+	assert_equal([remote_peer],  local_proxy.owners)
 	assert_equal(remote_task_id, local_proxy.remote_siblings[remote_peer])
 	assert(!local_proxy.read_write?)
-	assert(local_proxy.root_object?)
+	assert( local_proxy.root_object?)
 	assert(!local_proxy.event(:start).root_object?)
 	process_events
 	assert(remote.check_sibling(local_proxy.remote_id))
@@ -184,7 +183,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_raises(OwnershipError) { local_proxy.start! }
 
 	remote_proxy = remote.proxy(local_task = SimpleTask.new(:id => 'local'))
-	assert_same(local_task, remote_peer.local_object(remote_proxy))
+	assert_same(local_task, remote_peer.local_object(remote_proxy), "#{local_task} #{remote_proxy}")
     end
 
     def test_marshal_task_arguments
