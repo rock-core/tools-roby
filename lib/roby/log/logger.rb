@@ -129,7 +129,7 @@ module Roby::Log
 
 		if m == :flush && logged_events.empty?
 		    flushed_logger_mutex.synchronize do
-			flushed_logger.signal
+			flushed_logger.broadcast
 		    end
 		end
 	    end
