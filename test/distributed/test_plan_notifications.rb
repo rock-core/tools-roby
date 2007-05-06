@@ -106,7 +106,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 		    plan.insert(mission)
 		end
 		def create_subtask
-		    @subtask = Roby::Task.new :id => 'subtask'
+		    plan.permanent(@subtask = Roby::Task.new(:id => 'subtask'))
 		    mission.realized_by subtask
 		end
 		def create_next_mission
@@ -127,7 +127,10 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 		def remove_next_mission; plan.remove_object(next_mission) end
 		def unlink_subtask; mission.remove_child(subtask) end
 		def remove_subtask; plan.remove_object(subtask) end
-		def discard_mission; plan.discard(mission) end
+		def discard_mission 
+		    plan.permanent(mission)
+		    plan.discard(mission) 
+		end
 		def remove_mission; plan.remove_object(mission) end
 	    end
 	end
@@ -177,8 +180,9 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	assert(!p_next_mission.plan)
 
 	remote.unlink_subtask
+	assert(p_subtask.subscribed?)
 	process_events
-	assert_equal(3, plan.size)
+	assert_equal(3, plan.size, plan.known_tasks)
 	assert(!p_mission.child_object?(p_subtask, TaskStructure::Hierarchy))
 
 	remote.remove_subtask
@@ -189,7 +193,6 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	remote.discard_mission
 	process_events
 	assert(!p_mission.mission?)
-	assert(p_mission.plan)
 
 	remote.remove_mission
 	process_events
