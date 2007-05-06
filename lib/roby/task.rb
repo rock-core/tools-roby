@@ -1021,7 +1021,7 @@ module Roby
 	    id = owners.map do |owner|
 		next if owner == Roby::Distributed
 		sibling = remote_siblings[owner]
-		"#{sibling ? sibling.ref.to_s(16) : 'nil'}@#{owner.remote_name}"
+		"#{sibling ? Object.address_from_id(sibling.ref).to_s(16) : 'nil'}@#{owner.remote_name}"
 	    end
 	    unless id.empty?
 		s << "[" << id.join(",") << "]"
