@@ -26,6 +26,14 @@ class Notifications < Roby::Log::DataDecoder
 	end
     end
 
+    def clear
+	super
+
+	@tasks.clear
+	@histories.clear
+    end
+
+
     def process(data)
 	data.each_slice(2) do |m, args|
 	    case m.to_s
@@ -162,6 +170,7 @@ class NotificationsDisplay < Qt::TextBrowser
     end
 
     def clear
+	document.clear
     end
 
     def finalized_pending(time, task)
