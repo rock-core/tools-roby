@@ -110,12 +110,14 @@ module Roby::Log
 	    @current_cycle = Array.new
 	    @event_log = File.open("#{basename}-events.log", 'w')
 	    event_log.sync = true
+	    FileLogger.write_header(@event_log)
 	    @index_log = File.open("#{basename}-index.log", 'w')
 	    index_log.sync = true
 	end
 	def splat?; false end
 
 	def dump_method(m, args)
+	    current_cycle << m << args
 	    if m == :cycle_end
 		info = args[1].dup
 		info[:pos] = event_log.tell
@@ -123,8 +125,6 @@ module Roby::Log
 		Marshal.dump(current_cycle, event_log)
 		Marshal.dump(info, index_log)
 		current_cycle.clear
-	    else
-		current_cycle << m << args
 	    end
 
 	rescue 
@@ -199,7 +199,7 @@ module Roby::Log
 		     end
 
 	    unless format
-		raise "#{file} does not look like a Roby event log file"
+		raise "#{input.path} does not look like a Roby event log file"
 	    end
 	    format
 
