@@ -167,24 +167,15 @@ module Roby
 	            Distributed.keep.ref?(local_object))
 	    end
 
-	    # The tasks we always keep are the tasks referenced in
-	    # Distributed#keep and the subscribed task.
-	    def kept_objects
-	        seeds = Distributed.keep.referenced_objects.to_value_set
-	        Distributed.peers.each_value do |peer|
-	            peer.subscriptions.each do |remote_id|
-	        	seeds << peer.local_object(remote_id)
-	            end
-	        end
-
-		seeds
-	    end
-
 	    def remotely_useful_objects(useful_tasks, candidates, result = nil, seeds = nil)
 		return ValueSet.new if candidates.empty?
 
 		child_set = ValueSet.new
-		seeds  ||= kept_objects
+		unless seeds
+		    seeds = Distributed.keep.referenced_objects.to_value_set
+		    candidates.each { |obj| seeds << obj if obj.subscribed? }
+		end
+
 	        result ||= (candidates & seeds)
 	        candidates.each do |obj|
 	            next if obj.self_owned? || 
