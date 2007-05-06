@@ -271,7 +271,7 @@ module Roby
 		events.each do |ev| 
 		    ev = local_event(ev)
 		    plan.free_events << ev
-		    finalized_events.delete(ev)
+		    plan.finalized_events.delete(ev)
 		end
 	    end
 	    def discovered_tasks(time, plan, tasks)
