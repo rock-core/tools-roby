@@ -1,4 +1,5 @@
 require 'roby/log/hooks'
+require 'roby/log/file'
 
 module Roby::Log
     @loggers = Array.new
@@ -162,16 +163,7 @@ module Roby::Log
 	end
 
 	def open(file)
-	    if file =~ /\.gz$/
-		require 'zlib'
-		require 'roby/log/file'
-		Zlib::GzipReader.open(file)
-	    elsif file =~ /\.db$/
-		raise NotImplementedError
-	    else
-		require 'roby/log/file'
-		File.open(file)
-	    end
+	    Logfile.open(file)
 	end
 
 	def replay(file, &block)

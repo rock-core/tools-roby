@@ -1,7 +1,86 @@
 require 'roby/log/logger'
 require 'roby/distributed'
+require 'tempfile'
+require 'fileutils'
 
 module Roby::Log
+    class Logfile < DelegateClass(File)
+	attr_reader :event_io
+	attr_reader :index_io
+	attr_reader :index_data
+	attr_reader :basename
+	attr_reader :range
+
+	def initialize(path)
+	    @basename = if path =~ /-events\.log$/ then $`
+		       else path
+		       end
+
+	    @event_io = File.open("#{basename}-events.log")
+	    FileLogger.check_format(@event_io)
+
+	    index_path = "#{basename}-index.log"
+	    if !File.file?(index_path)
+		rebuild_index
+	    else
+		@index_io = File.open(index_path)
+		if @index_io.stat.size == 0
+		    rebuild_index
+		end
+	    end
+
+	    super(@event_io)
+
+	    @index_data = Array.new
+	    update_index
+	    rewind
+	end
+
+	# Reads as much index data as possible
+	def update_index
+	    begin
+		pos = nil
+		loop do
+		    pos = index_io.tell
+		    index_data << Marshal.load(index_io)
+		end
+	    rescue EOFError
+		index_io.seek(pos, IO::SEEK_SET)
+	    end
+
+	    return if index_data.empty?
+	    @range = [index_data.first[:start], index_data.last[:end]]
+	end
+
+	def rewind
+	    @event_io.rewind
+	    Marshal.load(@event_io)
+	    @index_io.rewind
+	    @index_data.clear
+	    update_index
+	end
+
+	def rebuild_index
+	    STDOUT.puts "rebuilding index file for #{basename}"
+	    @index_io.close if @index_io
+	    @index_io = File.open("#{basename}-index.log", 'w+')
+	    FileLogger.rebuild_index(@event_io, @index_io)
+	end
+
+	def self.open(path)
+	    io = new(path)
+	    if block_given?
+		begin
+		    yield(io)
+		ensure
+		    io.close unless io.closed?
+		end
+	    else
+		io
+	    end
+	end
+    end
+
     # A logger object which marshals all available events in two files. The
     # event log is the full log, the index log contains only the timings given
     # to Control#cycle_end, along with the corresponding position in the event
@@ -10,6 +89,9 @@ module Roby::Log
     # You can use FileLogger.replay(io) to send the events back into the
     # logging system (using Log.log), for instance to feed an offline display
     class FileLogger
+	# The current log format version
+	FORMAT_VERSION = 2
+
 	@dumped = Hash.new
 	class << self
 	    attr_reader :dumped
@@ -37,6 +119,7 @@ module Roby::Log
 	    if m == :cycle_end
 		info = args[1].dup
 		info[:pos] = event_log.tell
+		info[:event_count] = current_cycle.size
 		Marshal.dump(current_cycle, event_log)
 		Marshal.dump(info, index_log)
 		current_cycle.clear
@@ -61,17 +144,18 @@ module Roby::Log
 	# Creates an index file for +event_log+ in +index_log+
 	def self.rebuild_index(event_log, index_log)
 	    event_log.rewind
-	    current_pos = 0
+	    # Skip the file header
+	    Marshal.load(event_log)
+
+	    current_pos = event_log.tell
 
 	    loop do
-		m    = Marshal.load(event_log)
-		args = Marshal.load(event_log)
-		if m == :cycle_end
-		    info = args[1]
-		    info[:pos] = current_pos
-		    Marshal.dump(info, index_log)
-		    current_pos = event_log.tell
-		end
+		cycle = Marshal.load(event_log)
+		info               = cycle.last.last
+		info[:pos]         = current_pos
+		info[:event_count] = cycle.size
+		Marshal.dump(info, index_log)
+		current_pos = event_log.tell
 	    end
 
 	rescue EOFError
@@ -96,6 +180,102 @@ module Roby::Log
 	    else
 		raise
 	    end
+	end
+
+	def self.log_format(input)
+	    input.rewind
+	    format = begin
+			 header = Marshal.load(input)
+			 case header
+			 when Hash: header[:log_format]
+			 when Symbol
+			     if Marshal.load(input).kind_of?(Array)
+				 0
+			     end
+			 when Array
+			     1 if header[-2] == :cycle_end
+			 end
+		     rescue
+		     end
+
+	    unless format
+		raise "#{file} does not look like a Roby event log file"
+	    end
+	    format
+
+	ensure
+	    input.rewind
+	end
+
+	def self.check_format(input)
+	    format = log_format(input)
+	    if format < FORMAT_VERSION
+		raise "this is an outdated format. Please run roby-log upgrade-format"
+	    elsif format > FORMAT_VERSION
+		raise "this is an unknown format version #{format}: expected #{FORMAT_VERSION}. This file can be read only by newest version of Roby"
+	    end
+	end
+
+	def self.write_header(io)
+	    header = { :log_format => FORMAT_VERSION }
+	    Marshal.dump(header, io)
+	end
+
+	def self.from_format_0(input, output)
+	    current_cycle = []
+	    while !input.eof?
+		m    = Marshal.load(input)
+		args = Marshal.load(input)
+
+		current_cycle << m << args
+		if m == :cycle_end
+		    Marshal.dump(current_cycle, output)
+		    current_cycle.clear
+		end
+	    end
+
+	    unless current_cycle.empty?
+		Marshal.dump(current_cycle, output)
+	    end
+	end
+
+	def self.from_format_1(input, output)
+	    # The only difference between v1 and v2 is the header. Just copy
+	    # data from input to output
+	    output.write(input.read)
+	end
+
+	def self.to_new_format(file, into = file)
+	    input = File.open(file)
+	    log_format = self.log_format(input)
+
+	    if log_format == FORMAT_VERSION
+		STDERR.puts "#{file} is already at format #{log_format}"
+	    else
+		if into =~ /-events\.log$/
+		    into = $`
+		end
+		STDERR.puts "upgrading #{file} from format #{log_format} into #{into}"
+
+		Tempfile.open('roby_to_new_format') do |output|
+		    write_header(output)
+		    send("from_format_#{log_format}", input, output)
+		    output.flush
+
+		    input.close
+		    FileUtils.cp output.path, "#{into}-events.log"
+		end
+
+		File.open("#{into}-events.log") do |event_log|
+		    File.open("#{into}-index.log", 'w') do |index_log|
+			puts "rebuilding indec of #{into}"
+			rebuild_index(event_log, index_log)
+		    end
+		end
+	    end
+
+	ensure
+	    input.close if input && !input.closed?
 	end
     end
 end

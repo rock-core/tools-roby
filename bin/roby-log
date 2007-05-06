@@ -2,13 +2,31 @@
 require 'roby'
 require 'optparse'
 
+def usage
+    STDERR.puts <<-EOU
+roby-log mode [options]
+where the following modes are accepted:
+    list-servers    lists the log servers available
+    upgrade-format  upgrades an event log from an old format to the current one
+    rebuild-index   rebuilds the index file for the given event log
+    stats	    displays statistics about the given event log
+    replay	    displays data saved in logged files
+    display	    displays live data received from log servers
+    help	    this help message
+
+Call roby-log mode --help for more information about each mode
+    EOU
+end
+
+STDOUT.sync = true
+
 SERVER_LIST_TIMEOUT = 5
 SERVER_LIST_POLL = 0.1
-if ARGV.include?("--list-servers")
+case mode = ARGV.shift
+when "list-servers"
     DRb.start_service "druby://localhost:0"
 
     require 'roby/log/server'
-    STDOUT.sync = true
     puts "Finding available servers ... (#{SERVER_LIST_TIMEOUT} seconds)"
 
     Roby::Log::Server.enable_discovery 'localhost'
@@ -32,38 +50,96 @@ if ARGV.include?("--list-servers")
     rescue Interrupt
     end
     exit(0)
-end
 
-require 'roby/log/gui/replay'
-app  = Qt::Application.new(ARGV)
+when "upgrade-format"
+    require 'roby/log/file'
+    Roby::Log::FileLogger.to_new_format(ARGV[0])
+    exit(0)
 
-main = Replay.setup(ARGV) do |main, parser, remaining|
-    if remaining.empty?
-	if main.log_dir
-	    streams = Roby.app.data_streams(main.log_dir)
-	    streams.each do |stream|
-		main.add_stream(stream)
+when "rebuild-index"
+    require 'roby/log/file'
+
+    Roby::Log::Logfile.open(ARGV[0]) do |logfile|
+	logfile.rebuild_index
+    end
+    exit(0)
+
+when "stats"
+    require 'roby/log/file'
+    require 'roby/log/timings'
+    io = Roby::Log.open(ARGV[0])
+
+    cycle_count = io.index_data.size
+    puts "#{cycle_count} cycles between #{io.range.first.to_hms} and #{io.range.last.to_hms}"
+
+    if io.index_data.first.has_key?(:event_count)
+	min, max = nil
+	event_count = io.index_data.inject(0) do |total, cycle_info|
+	    count = cycle_info[:event_count]
+	    min = count if !min || min > count
+	    max = count if !max || max < count
+	    total + count
+	end
+	puts "#{event_count} events, #{event_count / cycle_count} events/cycle (min: #{min}, max: #{max})"
+    else
+	puts "event count unavailable, please rebuild the index"
+    end
+
+    timings = Roby::Log::Timings.new(io)
+    timings.stats
+    exit(0)
+
+when "replay"
+    require 'roby/log/gui/replay'
+    app  = Qt::Application.new(ARGV)
+
+    main = Replay.setup(ARGV) do |main, parser, remaining|
+	if remaining.empty?
+	    if main.log_dir
+		streams = Roby.app.data_streams(main.log_dir)
+		streams.each do |stream|
+		    main.add_stream(stream)
+		end
+	    else
+		STDERR.puts parser
+		exit(0)
 	    end
 	else
-	    STDERR.puts parser
-	    exit(0)
-	end
-    else
-	remaining.each do |file|
-	    if streams = Roby.app.data_streams_of([file])
-		streams.each { |s| main.add_stream(s) }
-	    else
-		STDERR.puts "WARN: unknown file type for #{file}"
+	    remaining.each do |file|
+		if streams = Roby.app.data_streams_of([file])
+		    streams.each { |s| main.add_stream(s) }
+		else
+		    STDERR.puts "WARN: unknown file type for #{file}"
+		end
 	    end
 	end
     end
-end
 
-main.setup
-begin
-    app.exec
-rescue
-    STDERR.puts $!.full_message
-end
+    main.setup
+    begin
+	app.exec
+    rescue
+	STDERR.puts $!.full_message
+    end
 
+when "display"
+    require 'roby/log/gui/runtime'
+    DRb.start_service "druby://localhost:0"
+    Roby::Log::Server.logger.level = Logger::DEBUG
+
+    a = Qt::Application.new(ARGV)
+    w = RuntimeDisplay.new('localhost', Roby::Log::Server::RING_PORT, 5)
+    w.show
+    a.exec
+    exit(0)
+
+when "help"
+    usage
+    exit(0)
+
+else
+    STDERR.puts "no such mode of operation #{mode}"
+    usage
+    exit(1)
+end
 

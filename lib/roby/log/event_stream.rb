@@ -8,60 +8,27 @@ module Roby
 	class EventStream < DataStream
 	    def splat?; true end
 
-	    # The IO object of the event log
-	    attr_reader :event_log
-	    # The IO object of the index log
-	    attr_reader :index_log
-	    # The data from +index_log+ loaded so far
-	    attr_reader :index_data
+	    # The event log
+	    attr_reader :logfile
 
 	    # The index of the currently displayed cycle in +index_data+
 	    attr_reader :current_cycle
 	    # A [min, max] array of the minimum and maximum times for this
 	    # stream
-	    attr_reader :range
+	    def range; logfile.range end
 
 	    def initialize(basename)
-		@event_log = Roby::Log.open("#{basename}-events.log")
-		begin
-		    @index_log  = File.open("#{basename}-index.log")
-		rescue Errno::ENOENT
-		    Roby.warn "rebuilding index file in #{basename}-index.log"
-		    @index_log = File.open("#{basename}-index.log", "w+")
-		    FileLogger.rebuild_index(@event_log, @index_log)
-		end
+		@logfile = Roby::Log.open("#{basename}-events.log")
 
 		super(basename, 'roby-events')
-		@index_data = Array.new
 		reinit!
 	    end
 
-	    def rebuild_index
-		index_log.rewind
-		index_data.clear
-		update_index
-	    end
-
-	    # Reads as much data as possible from the index file and decodes it
-	    # into the #index_data array.
-	    def update_index
-		begin
-		    pos = nil
-		    loop do
-			pos = index_log.tell
-			index_data << Marshal.load(index_log)
-		    end
-		rescue EOFError
-		    index_log.seek(pos, IO::SEEK_SET)
-		end
-
-		return if index_data.empty?
-		@range = [index_data.first[:start], index_data.last[:end]]
-	    end
+	    def index_data; logfile.index_data end
 
 	    # True if the stream has been reinitialized
 	    def reinit?
-		@reinit ||= (!index_data.empty? && event_log.stat.size < index_data.last[:pos])
+		@reinit ||= (!index_data.empty? && logfile.stat.size < index_data.last[:pos])
 	    end
 
 	    # Reinitializes the stream
@@ -75,7 +42,7 @@ module Roby
 	    # True if there is at least one sample available
 	    def has_sample?
 		update_index
-		!index_data.empty? && (index_data.last[:pos] > event_log.tell)
+		!index_data.empty? && (index_data.last[:pos] > logfile.tell)
 	    end
 
 	    # Seek the data stream to the specified time.
@@ -83,11 +50,9 @@ module Roby
 		if !time || !current_time || time < current_time
 		    clear
 
-		    event_log.rewind
-		    # Re-read the index information
-		    index_data.clear
-		    index_log.rewind
-		    update_index
+		    @current_time  = nil
+		    @current_cycle = 0
+		    logfile.rewind
 		end
 	    end
 	    
@@ -123,11 +88,11 @@ module Roby
 		end_pos   = if index_data.size > current_cycle + 1
 				index_data[current_cycle + 1][:pos]
 			    else
-				event_log.stat.size
+				logfile.stat.size
 			    end
 
-		event_log.seek(start_pos)
-		event_log.read(end_pos - start_pos)
+		logfile.seek(start_pos)
+		logfile.read(end_pos - start_pos)
 
 	    ensure
 		@current_cycle += 1
@@ -155,10 +120,10 @@ module Roby
 		end_pos   = if index_data.size > current_cycle + 1
 				index_data[current_cycle + 1][:pos]
 			    else
-				event_log.stat.size
+				logfile.stat.size
 			    end
-		event_log.seek(0)
-		event_log.read(end_pos)
+		logfile.seek(0)
+		logfile.read(end_pos)
 	    end
 	end
     end
