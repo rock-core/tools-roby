@@ -80,7 +80,7 @@ module Roby
 		    end
 		    last_start = start 
 
-		    (numeric + timings).each_with_index { |v, i| mean[i] += v }
+		    (numeric + timings).each_with_index { |v, i| mean[i] += v if v }
 		    count += 1
 		end
 		mean.map! { |v| v / count }
@@ -96,9 +96,9 @@ module Roby
 		    end
 		    last_start = start
 
-		    (numeric + timings).each_with_index { |v, i| stdev[i] += (v - mean[i]) ** 2 }
+		    (numeric + timings).each_with_index { |v, i| stdev[i] += (v - mean[i]) ** 2 if v }
 		end
-		stdev.map! { |v| Math.sqrt(v / count) }
+		stdev.map! { |v| Math.sqrt(v / count) if v }
 
 		format = "%-28s %-10.2f %-10.2f"
 
