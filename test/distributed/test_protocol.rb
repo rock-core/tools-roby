@@ -154,7 +154,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	        local_peer.local_object(object)
 	    end
 	    def remote.check_sibling(remote_id)
-		@task.remote_siblings[local_peer] = remote_id
+		@task.remote_siblings[local_peer] == remote_id
 	    end
 	end
 
