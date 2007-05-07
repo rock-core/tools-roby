@@ -208,18 +208,33 @@ class TC_Control < Test::Unit::TestCase
     end
 
     def test_inside_outside_control
-	t = Thread.new do
-	    assert(!Roby.inside_control?)
-	end
-	t.value
-
+	# First, no control thread
 	assert(Roby.inside_control?)
+	assert(Roby.outside_control?)
 
+	# Add a fake control thread
+	begin
+	    Roby.control.thread = Thread.main
+	    assert(Roby.inside_control?)
+	    assert(!Roby.outside_control?)
+
+	    t = Thread.new do
+		assert(!Roby.inside_control?)
+		assert(Roby.outside_control?)
+	    end
+	    t.value
+	ensure
+	    Roby.control.thread = nil
+	end
+
+	# .. and test with the real one
 	Roby.control.run :detach => true
 	Roby.execute do
 	    assert(Roby.inside_control?)
+	    assert(!Roby.outside_control?)
 	end
 	assert(!Roby.inside_control?)
+	assert(Roby.outside_control?)
     end
 
     def test_execute
