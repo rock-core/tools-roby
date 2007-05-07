@@ -169,6 +169,7 @@ module Roby::Transactions
 	end
 
 	def executable?; false end
+	def unreachable!; end
     end
 
     class TaskEventGenerator < Roby::Transactions::EventGenerator
