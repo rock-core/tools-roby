@@ -48,9 +48,7 @@ module Roby
 	    end
 
 	    add_sibling_for(peer, remote_object)
-	    unless self_owned?
-		peer.transmit(:added_sibling, remote_object, remote_id)
-	    end
+	    peer.transmit(:added_sibling, remote_object, remote_id)
 	end
 
 	# Called to tell us that we should not be involved with +peer+ anymore
