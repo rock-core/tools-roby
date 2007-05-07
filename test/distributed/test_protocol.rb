@@ -149,10 +149,6 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 		@task.data = [42, @task.class]
 	        [@task, @task.remote_id]
 	    end
-	    def remote.proxy(object)
-		Marshal.dump(object)
-	        local_peer.local_object(object)
-	    end
 	    def remote.check_sibling(remote_id)
 		@task.remote_siblings[local_peer] == remote_id
 	    end
@@ -166,6 +162,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_equal([42, remote_task.model], remote_task.data)
 	assert_nothing_raised { Marshal.dump(remote_task) }
 	assert_equal(remote_task_id, remote_task.remote_siblings[remote_peer.droby_dump(nil)], remote_task.remote_siblings)
+	assert(!remote_task.remote_siblings[Roby::Distributed.droby_dump(nil)])
 
 	plan.permanent(local_proxy = remote_peer.local_object(remote_task))
 	assert_kind_of(SimpleTask,  local_proxy)
@@ -181,9 +178,87 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert(remote.check_sibling(local_proxy.remote_id))
 	assert(local_proxy.executable?)
 	assert_raises(OwnershipError) { local_proxy.start! }
+    end
+
+    # See #test_local_task_back_forth_through_drb_race_condition
+    # This test checks the case where we received the added_sibling message
+    def test_local_task_back_forth_through_drb
+	peer2peer do |remote|
+	    def remote.proxy(object)
+		Marshal.dump(object)
+	        local_peer.local_object(object)
+	    end
+	end
 
 	remote_proxy = remote.proxy(local_task = SimpleTask.new(:id => 'local'))
+	remote.flush
+	assert(remote_peer.proxies[remote_proxy.remote_siblings[remote_peer.droby_dump]])
 	assert_same(local_task, remote_peer.local_object(remote_proxy), "#{local_task} #{remote_proxy}")
+    end
+
+    # This tests the handling of the following race condition:
+    # * we send throught DRb a local object and gets back the marshalled
+    #   proxy of our remote peer
+    # * we get the local object which corresponds to the marshalled
+    #   object, which should be the original local object
+    #
+    # The trick here is that, since we disable communication, we call
+    # #local_object while the local host does not know yet that the remote host
+    # has a sibling for the object
+    def test_local_task_back_forth_through_drb_race_condition
+	peer2peer do |remote|
+	    def remote.proxy(object)
+		Marshal.dump(object)
+	        local_peer.local_object(object)
+	    end
+	end
+
+	begin
+	    remote.disable_communication
+	    remote_proxy = remote.proxy(local_task = SimpleTask.new(:id => 'local'))
+	    assert(!remote_peer.proxies[remote_proxy.remote_siblings[remote_peer.droby_dump]])
+	    assert_same(local_task, remote_peer.local_object(remote_proxy), "#{local_task} #{remote_proxy}")
+
+	ensure
+	    remote.enable_communication
+	end
+
+	# Test that it is fine to receive the #added_sibling message now
+	remote.flush
+    end
+
+    # test a particular situations of GC/communication interaction
+    # - A finalizes a task T which is owned by B
+    # - A receives a message involving T which has been emitted while B was not knowing about the
+    #   deletion (it has not yet received the removed_sibling message)
+    def test_finalized_remote_task_race_condition
+	#Distributed.logger.level = Logger::DEBUG
+	peer2peer do |remote|
+	    remote.plan.insert(task = SimpleTask.new(:id => 'remote'))
+	    
+	    remote.singleton_class.class_eval do
+		define_method(:send_task_update) do
+		    task.arguments[:id] = 'tested'
+		    task
+		end
+	    end
+	end
+
+	task = remote_task(:id => 'remote') do |task|
+	    remote_peer.disabled = true
+	    task
+	end
+
+	Roby.control.process_events
+	assert(!task.plan)
+
+	new_task = remote_peer.local_object(remote.send_task_update)
+	assert_not_same(task, new_task)
+	assert_equal('tested', new_task.arguments[:id])
+
+    ensure
+	remote_peer.disabled = false
+	Distributed.state.finished_discovery.broadcast
     end
 
     def test_marshal_task_arguments

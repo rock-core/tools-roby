@@ -124,7 +124,15 @@
   object has not been removed when A processes updates from B and have some ways to feedback B from
   A.
 
-== Display
+* test a particular situations of GC/communication interaction
+  - A finalizes a task T which is owned by B
+  - A receives a message involving T which has been emitted while B was not knowing about the
+    deletion (it has not yet received the removed_sibling message)
+
+      DONE:20070507065309-bd67f-3dbc7c66edddf9a5ca351819d6bb4c6e5b41e809.gz
+
+
+== UI
 * in display, remove transaction proxies right away: the transaction itself is removed and we're
   only interested in the resulting plan
     DONE:20070503185040-bd67f-42a27bff79ff75e45d0a71056db88d767a4e84b8.gz

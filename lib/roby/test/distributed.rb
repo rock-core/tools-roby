@@ -52,6 +52,17 @@ module Roby
 	    module RemotePeerSupport
 		attr_accessor :testcase
 
+		def enable_communication
+		    Roby::Distributed.state.synchronize do
+			local_peer.disabled = false 
+			# make sure we wake up the communication thread
+			Roby::Distributed.state.finished_discovery.broadcast
+		    end
+		end
+		def disable_communication
+		    local_peer.disabled = true 
+		end
+		def flush; local_peer.flush end
 		def process_events; Roby.control.process_events end
 		def local_peer; @local_peer ||= Distributed.peer("local") end
 		def reset_local_peer; @local_peer = nil end
