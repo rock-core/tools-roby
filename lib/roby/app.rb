@@ -317,17 +317,6 @@ module Roby
 		end
 	    end
 
-	    # Set filters for subsystem selection
-	    MainPlanner.class_eval do
-		Roby::State.services.each_member do |name, value|
-		    if value.respond_to?(:mode)
-			filter(name) do |options, method|
-			    options[:id] || method.id == value.mode
-			end
-		    end
-		end
-	    end
-
 	    # MainPlanner is always included in the planner list
 	    Roby.control.planners << MainPlanner
 	   
