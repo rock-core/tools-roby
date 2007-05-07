@@ -19,22 +19,37 @@ module Roby
             end
         end
 
-	# A plan has not been found
+	# Raised a method has found no valid development
         class NotFound < PlanModelError
+	    # The name of the method which has failed
+            attr_accessor :method_name
+	    # The planning options
+	    attr_accessor :method_options
+	    # A method => error hash of all the method that have
+	    # been tried. +error+ can either be a NotFound exception
+	    # or another exception
             attr_reader :errors
-            attr_accessor :method_name, :method_options
+
             def initialize(planner, errors)
                 @errors = errors
                 super(planner)
             end
 
-            def to_s
-                "cannot find a #{method_name}(#{method_options}) method\n" + 
-                    errors.inject("") do |s, (m, e)| 
-			error_message = e.message
-			s << "  #{e.backtrace[0]}:#{e.message} in #{m}\n  #{e.backtrace[1..-1].join("\n  ")}"
-		    end
-            end
+	    def message
+		"cannot develop a #{method_name}(#{method_options}) method"
+	    end
+
+	    def full_message
+		msg = message
+		first, *rem = *Roby.filter_backtrace(backtrace)
+
+		full = "#{first}: #{msg}\n   from #{rem.join("\n    from ")}"
+		errors.each do |m, error|
+		    first     = error.backtrace.first
+		    full << "\n#{first} #{m} failed because of #{error.full_message}"
+		end
+		full
+	    end
         end
 
 	# Some common tools for Planner and Library

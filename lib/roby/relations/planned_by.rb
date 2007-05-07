@@ -48,7 +48,11 @@ module Roby
 	end
 
 	def message # :nodoc:
-	    "failed to plan #{planned_task}.planned_by(#{planning_task}): failed with #{error.symbol}(#{error.context})\n#{super}"
+	    msg = "failed to plan #{planned_task}.planned_by(#{planning_task}): failed with #{error.symbol}"
+	    if error.context.respond_to?(:full_message)
+		msg << "\n" << error.context.full_message
+	    end
+	    msg
 	end
     end
     Control.structure_checks << TaskStructure::PlannedBy.method(:check_planning)
