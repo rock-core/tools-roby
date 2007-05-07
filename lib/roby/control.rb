@@ -130,7 +130,7 @@ module Roby
 	# Execute the given block inside the control thread, and returns when
 	# it has finished. The return value is the value returned by the block
 	def execute
-	    if !Roby.outside_control?
+	    if Roby.inside_control?
 		return yield
 	    end
 
