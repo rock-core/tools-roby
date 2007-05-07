@@ -2,6 +2,7 @@ require 'roby/support'
 require 'roby/graph'
 
 module Roby
+    class CycleFoundError < RuntimeError; end
     # Base support for relations. It is mixed-in objects that are part of
     # relation networks (like Task and EventGenerator)
     module DirectedRelationSupport
@@ -255,7 +256,7 @@ module Roby
 		    # No need to test that we won't create a cycle in child
 		    # relations, since the parent relation graphs are the union
 		    # of all their children
-		    raise ArgumentError, "cannot add a #{from} -> #{to} relation since it would create a cycle"
+		    raise CycleFoundError, "cannot add a #{from} -> #{to} relation since it would create a cycle"
 		end
 	    end
 
@@ -372,6 +373,7 @@ module Roby
 	def relation(relation_name, options = {}, &block)
 	    options = validate_options options, 
 			:child_name => relation_name.to_s.underscore,
+			:const_name => relation_name,
 			:parent_name => nil,
 			:subsets => Set.new,
 			:noinfo => false,
@@ -379,16 +381,25 @@ module Roby
 			:distribute => true,
 			:single_child => false
 
-	    options[:const_name] = relation_name
-	    graph = options[:graph].new "#{self.name}::#{relation_name}", options
+	    # Check if this relation is already defined. If it is the case, reuse it.
+	    # This is needed mostly by the reloading code
+	    begin 
+		graph = const_get(options[:const_name])
+		mod   = graph.support
 
-	    mod = Module.new do
-		singleton_class.class_eval do
-		    define_method("__r_#{relation_name}__") { graph }
+	    rescue NameError
+		graph = options[:graph].new "#{self.name}::#{options[:const_name]}", options
+		mod = Module.new do
+		    singleton_class.class_eval do
+			define_method("__r_#{relation_name}__") { graph }
+		    end
+		    class_eval "@@__r_#{relation_name}__ = __r_#{relation_name}__"
 		end
-		class_eval "@@__r_#{relation_name}__ = __r_#{relation_name}__"
-		class_eval(&block) if block_given?
+		const_set(options[:const_name], graph)
+		relations << graph
 	    end
+
+	    mod.class_eval(&block) if block_given?
 
 	    if parent_enumerator = options[:parent_name]
 		mod.class_eval <<-EOD
@@ -434,8 +445,6 @@ module Roby
 	    end
 
 	    graph.support = mod
-	    const_set(relation_name, graph)
-	    relations << graph
 	    applied.each { |klass| klass.include mod }
 
 	    graph
