@@ -41,7 +41,7 @@ module Roby
 
 	    # True if there is at least one sample available
 	    def has_sample?
-		update_index
+		logfile.update_index
 		!index_data.empty? && (index_data.last[:pos] > logfile.tell)
 	    end
 
