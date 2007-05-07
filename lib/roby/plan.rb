@@ -384,10 +384,14 @@ module Roby
 
 	# The set of events that can be removed from the plan
 	def unneeded_events
+	    useful_events = self.useful_events
 	    useful_events.merge Roby::Distributed.remotely_useful_objects(useful_events, free_events - useful_events)
-	    (free_events - useful_events).delete_if do |ev|
+
+	    result = (free_events - useful_events)
+	    result.delete_if do |ev|
 		transactions.any? { |trsc| trsc.wrap(ev, false) }
 	    end
+	    result
 	end
 
 	# Checks if +task+ is included in this plan
