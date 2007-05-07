@@ -187,16 +187,18 @@ class TC_Control < Test::Unit::TestCase
         Roby.control.abort_on_application_exception = false
 
         FlexMock.use do |mock|
-            mock.should_receive(:before_error).once
+            mock.should_receive(:before_error).at_least.once
             mock.should_receive(:after_error).never
-            mock.should_receive(:called).once
+            mock.should_receive(:called).at_least.once
+
             Control.at_cycle_end do
-               	mock.before_error
-        	raise
-        	mock.after_error
+		mock.before_error
+		raise
+		mock.after_error
             end
+
             Control.at_cycle_end do
-               	mock.called
+		mock.called
 		unless Roby.control.quitting?
 		    Roby.control.quit
 		end
