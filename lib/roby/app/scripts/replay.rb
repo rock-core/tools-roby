@@ -8,9 +8,9 @@ if ARGV.empty?
     require File.join(File.dirname(__FILE__), '..', 'load')
     Roby.app.setup
 
-    sources = Roby.app.data_sources(log_dir)
-    sources.each do |source|
-	main.add_source(source)
+    streams = Roby.app.data_streams(Roby.app.log_dir)
+    streams.each do |stream|
+	main.add_stream(stream)
     end
 else
     ARGV.each do |file|
@@ -23,6 +23,7 @@ else
 end
 
 begin
+    main.show
     app.exec
 rescue
     STDERR.puts $!.full_message
