@@ -162,6 +162,30 @@ module Roby
 	    Roby::Control.once { yield }
 	end
 
+	# Stops the current thread until the given even is emitted
+	def wait_until(ev)
+	    if Roby.inside_control?
+		raise "cannot use #wait_until in control thread"
+	    end
+
+	    condition_variable(true) do |cv, mt|
+		caller_thread = Thread.current
+
+		mt.synchronize do
+		    Roby.once do
+			ev.if_unreachable(true) do
+			    caller_thread.raise UnreachableEvent.new(ev)
+			end
+			ev.on do
+			    mt.synchronize { cv.broadcast }
+			end
+			yield
+		    end
+		    cv.wait(mt)
+		end
+	    end
+	end
+
 	# Returns a ConditionVariable and optionally a Mutex into the
 	# Roby.condition_variables and Roby.mutexes pools
 	def return_condition_variable(cv, mutex = nil)

@@ -221,6 +221,9 @@ class TC_Control < Test::Unit::TestCase
     end
 
     def test_execute
+	# Set a fake control thread
+	Roby.control.thread = Thread.main
+
 	FlexMock.use do |mock|
 	    mock.should_receive(:thread_before).once.ordered
 	    mock.should_receive(:main_before).once.ordered
@@ -247,9 +250,15 @@ class TC_Control < Test::Unit::TestCase
 
 	    assert_equal(42, returned_value)
 	end
+
+    ensure
+	Roby.control.thread = nil
     end
 
     def test_execute_error
+	# Set a fake control thread
+	Roby.control.thread = Thread.main
+
 	returned_value = nil
 	t = Thread.new do
 	    returned_value = begin
@@ -268,6 +277,55 @@ class TC_Control < Test::Unit::TestCase
 
 	assert_kind_of(ArgumentError, returned_value)
 	assert(!Roby.control.quitting?)
+
+    ensure
+	Roby.control.thread = nil
+    end
+    
+    def test_wait_until
+	# Set a fake control thread
+	Roby.control.thread = Thread.main
+
+	plan.permanent(task = SimpleTask.new)
+	t = Thread.new do
+	    Roby.wait_until(task.event(:start)) do
+		task.start!
+	    end
+	end
+
+	while !t.stop?; sleep(0.1) end
+	process_events
+	assert_nothing_raised { t.value }
+
+    ensure
+	Roby.control.thread = nil
+    end
+ 
+    def test_wait_until_unreachable
+	# Set a fake control thread
+	Roby.control.thread = Thread.main
+
+	plan.permanent(task = SimpleTask.new)
+	t = Thread.new do
+	    begin
+		Roby.wait_until(task.event(:success)) do
+		    task.start!
+		    task.stop!
+		end
+	    rescue Exception => e
+		e
+	    end
+	end
+
+	while !t.stop?; sleep(0.1) end
+	process_events
+
+	result = t.value
+	assert_kind_of(UnreachableEvent, result)
+	assert_equal(task.event(:success), result.generator)
+
+    ensure
+	Roby.control.thread = nil
     end
 end
 
