@@ -71,6 +71,7 @@ module Roby
 	# Calls +args+ on all peers and returns a { peer => return_value } hash
 	# of all the values returned by each peer
 	def self.call_peers(calling, m, *args)
+	    Distributed.debug { "distributed call of #{m}(#{args}) on #{calling}" }
 
 	    # This is a tricky procedure. Let's describe what is done here:
 	    # * we send the required message to the peers listed in +calling+,
@@ -105,7 +106,10 @@ module Roby
 		    peer.queue_call false, m, args, callback, Thread.current
 		end
 
-		synchro.wait(mutex) unless waiting_for == 0
+		unless waiting_for == 0
+		    Distributed.debug "waiting for our peers to finish"
+		    synchro.wait(mutex) 
+		end
 	    end
 
 	    if call_local
