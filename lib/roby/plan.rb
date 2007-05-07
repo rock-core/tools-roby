@@ -348,26 +348,27 @@ module Roby
 	    known_tasks.include?(task) && !unneeded_tasks.include?(task)
 	end
 
-	def useful_event_component(events)
-	    useful_events = events.dup
-	    free_events.each do |ev|
-		next if useful_events.include?(ev)
-		EventStructure.each_relation do |rel|
-		    next unless rel.root_relation?
+	def useful_event_component(useful_events)
+	    current_size = useful_events.size
+	    EventStructure.each_relation do |rel|
+		next unless rel.root_relation?
+		rel.components(free_events.to_a, false).
+		    each do |c|
+			c = c.to_value_set
+			if c.intersects?(useful_events) || c.any? { |ev| ev.kind_of?(Roby::TaskEventGenerator) }
+			    useful_events.merge(c)
+			    if useful_events.include_all?(free_events)
+				return free_events
+			    end
+			end
+		    end
 
-		    next unless event_set = rel.components([ev], false).first
-		    useful = event_set.any? do |obj| 
-			obj.kind_of?(Roby::TaskEventGenerator) ||
-			    useful_events.include?(obj)
-		    end
-		    if useful
-			useful_events << ev
-			break
-		    end
+		if useful_events.include_all?(free_events)
+		    return free_events
 		end
 	    end
 
-	    if useful_events.size != free_events.size && useful_events.size != events.size
+	    if current_size != useful_events.size
 		useful_event_component(useful_events)
 	    else
 		useful_events
@@ -378,7 +379,7 @@ module Roby
 	# 'useful' when they are chained to a task.
 	def useful_events
 	    return ValueSet.new if free_events.empty?
-	    useful_event_component(ValueSet.new)
+	    (free_events & useful_event_component(ValueSet.new))
 	end
 
 	# The set of events that can be removed from the plan
