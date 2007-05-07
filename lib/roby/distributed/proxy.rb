@@ -34,7 +34,7 @@ module Roby
 
 		if current = proxy.remote_siblings[peer_sibling]
 		    if current != remote_id
-			raise "inconsistency"
+			raise "inconsistency for sibling of #{peer_sibling}: #{proxy} has #{current} while #{self} has #{remote_id}"
 		    end
 		else
 		    proxy.sibling_of(remote_id, peer_sibling)
