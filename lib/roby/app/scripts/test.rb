@@ -1,6 +1,8 @@
 require 'roby'
 require 'roby/app'
+require 'roby/test/testcase'
 require 'test/unit'
+
 r = Test::Unit::AutoRunner.new(true)
 r.process_args(ARGV) or
   abort r.options.banner + " tests..."
