@@ -490,9 +490,12 @@ module Roby::Distributed
 	# Mark the link as dead regardless of the last neighbour discovery. This
 	# will be reset during the next neighbour discovery
 	def link_dead!; @dead = true end
+	
+	attr_predicate :disabled?, true
+
 	# Checks if the connection is currently alive
 	def link_alive?
-	    return false if @dead
+	    return false if @dead || @disabled
 	    return false unless connection_space.neighbours.find { |n| n.remote_id == neighbour.remote_id }
 	    true
 	end
