@@ -125,7 +125,7 @@ module Roby
 	    new_state = if plan && plan.finalized_tasks.include?(self)
 			    :finalized
 			else
-			    [:finalized, :success, :finished, :started, :pending].
+			    [:success, :finished, :started, :pending].
 				find { |flag| flags[flag] } 
 			end
 
