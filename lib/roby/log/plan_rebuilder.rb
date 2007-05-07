@@ -325,6 +325,17 @@ module Roby
 		plan.transactions.delete(trsc)
 	    end
 
+	    GENERATOR_TO_STATE = { :start => :started,
+		:success => :success,
+		:stop => :finished }
+
+	    def generator_fired(time, generator, id, ev_time, context)
+		generator = local_event(generator)
+		if generator.respond_to?(:task) && (state = GENERATOR_TO_STATE[generator.symbol])
+		    generator.task.flags[state] = true
+		end
+	    end
+
 	    def added_task_child(time, parent, rel, child, info)
 		parent = local_task(parent)
 		child  = local_task(child)
