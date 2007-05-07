@@ -1,3 +1,4 @@
+require 'roby/log/server'
 require File.join(File.dirname(__FILE__), '..', 'load')
 require File.join(File.dirname(__FILE__), '..', 'run')
 
