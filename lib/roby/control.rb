@@ -282,7 +282,7 @@ module Roby
 		if e.kind_of?(ExecutionException)
 		    e = e.exception
 		end
-		raise e, e.message, Roby.filter_backtrace(e.backtrace)
+		raise e, e.message, Roby.filter_backtrace(e.backtrace || [])
 	    else
 		raise Aborting.new(exceptions)
 	    end
