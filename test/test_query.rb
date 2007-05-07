@@ -6,19 +6,7 @@ require 'flexmock'
 class TC_Query < Test::Unit::TestCase
     include Roby::Test
 
-    def test_query_fullfills
-	task_model = Class.new(Task) do
-	    argument :value
-	end
-
-	t0 = Roby::Task.new(:value => 1)
-	t1 = task_model.new(:value => 1)
-	t2 = task_model.new(:value => 2)
-
-	plan.insert(t0)
-	plan.insert(t1)
-	plan.insert(t2)
-
+    def check_matches_fullfill(task_model, plan, t0, t1, t2)
 	result = TaskMatcher.new.enum_for(:each, plan).to_set
 	assert_equal([t1, t2, t0].to_set, result)
 	result = TaskMatcher.new.with_model(Roby::Task).enum_for(:each, plan).to_set
@@ -39,6 +27,39 @@ class TC_Query < Test::Unit::TestCase
 	assert_equal([t2].to_set, result)
 
 	assert_marshallable(TaskMatcher.new.which_fullfills(task_model, :value => 2))
+    end
+
+    def test_match_task_fullfills
+	task_model = Class.new(Task) do
+	    argument :value
+	end
+
+	t0 = Roby::Task.new(:value => 1)
+	t1 = task_model.new(:value => 1)
+	t2 = task_model.new(:value => 2)
+
+	plan.insert(t0)
+	plan.insert(t1)
+	plan.insert(t2)
+
+	check_matches_fullfill(task_model, plan, t0, t1, t2)
+    end
+
+    def test_match_proxy_fullfills
+	task_model = Class.new(Task) do
+	    argument :value
+	end
+
+	t0 = Roby::Task.new(:value => 1)
+	t1 = task_model.new(:value => 1)
+	t2 = task_model.new(:value => 2)
+
+	plan.insert(t0)
+	plan.insert(t1)
+	plan.insert(t2)
+
+	trsc = Transaction.new(plan)
+	check_matches_fullfill(task_model, trsc, trsc[t0], trsc[t1], trsc[t2])
     end
 
     def test_query_information
@@ -194,6 +215,11 @@ class TC_Query < Test::Unit::TestCase
 	assert_equal([trsc[t1]], result)
 	assert(!trsc[t2, false])
 	assert(!trsc[t3, false])
+
+	# Now that the proxy is in the transaction, check that it is still
+	# found by the query
+	result = trsc.find_tasks.which_fullfills(model, :id => 1).to_a
+	assert_equal([trsc[t1]], result)
 
 	trsc << t3
 	result = trsc.find_tasks.which_fullfills(model, :id => 3).to_a

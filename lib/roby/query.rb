@@ -112,7 +112,7 @@ module Roby
 	def ===(task)
 	    return unless task.kind_of?(Roby::Task)
 	    if model
-		return unless model === task
+		return unless task.fullfills?(model)
 	    end
 	    if arguments
 		return unless task.arguments.slice(*arguments.keys) == arguments
