@@ -59,7 +59,6 @@ module Roby
 	# Make the Roby event loop quit
 	def stop
 	    control.quit 
-	    control.join
 	end
 	def plan; Roby.plan end
 
