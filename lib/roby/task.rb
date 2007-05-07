@@ -136,6 +136,19 @@ module Roby
             super
         end
 
+	# See EventGenerator#fired
+	#
+	# In TaskEventGenerator, this hook calls the unreachable handlers added
+	# by EventGenerator#if_unreachable when the task has finished, not
+	# before
+	def fired(event)
+	    super if defined? super
+	    
+	    if symbol == :stop
+		task.each_event { |ev| ev.unreachable! }
+	    end
+	end
+
 	def related_tasks(result = nil)
 	    tasks = super
 	    tasks.delete(task)

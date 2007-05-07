@@ -544,5 +544,61 @@ class TC_Event < Test::Unit::TestCase
 	EventGenerator.remove_event_gathering(collection)
 	assert(!EventGenerator.events_gathered_into(collection))
     end
+
+    def test_if_unreachable
+	FlexMock.use do |mock|
+	    plan.discover(ev = EventGenerator.new(true))
+	    ev.if_unreachable(false) { mock.called }
+	    ev.if_unreachable(true) { mock.canceled_called }
+	    ev.call
+
+	    mock.should_receive(:called).once
+	    mock.should_receive(:canceled_called).never
+	    plan.garbage_collect
+	end
+    end
+
+    def test_or_if_unreachable
+	plan.discover(e1 = EventGenerator.new(true))
+	plan.discover(e2 = EventGenerator.new(true))
+	a = e1 | e2
+	FlexMock.use do |mock|
+	    a.if_unreachable(false) { mock.called }
+	    mock.should_receive(:called).never
+	    plan.remove_object(e1)
+	end
+
+	FlexMock.use do |mock|
+	    a.if_unreachable(false) { mock.called }
+	    mock.should_receive(:called).once
+	    plan.remove_object(e2)
+	end
+    end
+
+    def test_and_if_unreachable
+	FlexMock.use do |mock|
+	    plan.discover(e1 = EventGenerator.new(true))
+	    plan.discover(e2 = EventGenerator.new(true))
+	    a = e1 & e2
+
+	    a.if_unreachable(false) { mock.called }
+	    e1.call
+
+	    mock.should_receive(:called).once
+	    plan.remove_object(e2)
+	end
+
+	FlexMock.use do |mock|
+	    plan.discover(e1 = EventGenerator.new(true))
+	    plan.discover(e2 = EventGenerator.new(true))
+	    a = e1 & e2
+
+	    a.if_unreachable(false) { mock.called }
+	    e1.call
+
+	    mock.should_receive(:called).never
+	    plan.remove_object(e1)
+	end
+    end
 end
 

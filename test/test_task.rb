@@ -603,5 +603,48 @@ class TC_Task < Test::Unit::TestCase
 	t1.event(:start).on t3.event(:start)
 	assert_equal([t3.event(:start)].to_value_set, t1.related_events)
     end
+
+    def test_if_unreachable
+	model = Class.new(SimpleTask) do
+	    event :ready
+	end
+
+	# Test that the stop event will make the handler called on a running task
+	FlexMock.use do |mock|
+	    plan.discover(task = model.new)
+	    ev = task.event(:success)
+	    ev.if_unreachable(false) { mock.success_called }
+	    ev.if_unreachable(true)  { mock.success_cancel_called }
+	    mock.should_receive(:success_called).once
+	    mock.should_receive(:success_cancel_called).never
+	    ev = task.event(:ready)
+	    ev.if_unreachable(false) { mock.ready_called }
+	    ev.if_unreachable(true)  { mock.ready_cancel_called }
+	    mock.should_receive(:ready_called).once
+	    mock.should_receive(:ready_cancel_called).once
+
+	    task.start!
+	    task.success!
+	end
+	plan.garbage_collect
+
+	# Test that it works on pending tasks too
+	FlexMock.use do |mock|
+	    plan.discover(task = model.new)
+	    ev = task.event(:success)
+	    ev.if_unreachable(false) { mock.success_called }
+	    ev.if_unreachable(true)  { mock.success_cancel_called }
+	    mock.should_receive(:success_called).once
+	    mock.should_receive(:success_cancel_called).once
+
+	    ev = task.event(:ready)
+	    ev.if_unreachable(false) { mock.ready_called }
+	    ev.if_unreachable(true)  { mock.ready_cancel_called }
+	    mock.should_receive(:ready_called).once
+	    mock.should_receive(:ready_cancel_called).once
+
+	    plan.garbage_collect
+	end
+    end
 end
 

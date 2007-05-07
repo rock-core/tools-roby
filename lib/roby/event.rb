@@ -12,6 +12,7 @@ module Roby
 	end
     end
 
+    class UnreachableEvent < EventModelViolation; end
     class EventNotExecutable < EventModelViolation; end
     class EventCanceled < EventModelViolation; end
     class EventPreconditionFailed < EventModelViolation; end
@@ -107,6 +108,7 @@ module Roby
 	    @handlers = []
 	    @pending  = false
 	    @executable = true
+	    @unreachable_handlers = []
 
 	    super() if defined? super
 
@@ -217,6 +219,15 @@ module Roby
 
 	    add_signal generator, timespec
 	    self
+	end
+
+	# A set of blocks called when this event cannot be emitted again
+	attr_reader :unreachable_handlers
+
+	# Calls +block+ if it is impossible that this event is ever emitted
+	def if_unreachable(cancel_at_emission = false, &block)
+	    unreachable_handlers << [cancel_at_emission, block]
+	    block.object_id
 	end
 
 	# Emit +generator+ when +self+ is fired, without calling the command of
@@ -464,6 +475,8 @@ module Roby
 	# Hook called when this generator has been fired. +event+ is the Event object
 	# which has been created.
 	def fired(event)
+	    unreachable_handlers.delete_if { |cancel, _| cancel }
+
 	    history << event
 	    collection, _ = EventGenerator.event_gathering.find do |c, events| 
 		events.any? { |ev| ev == event.generator }
@@ -553,12 +566,29 @@ module Roby
 	# event_gathering sets the events that have been finalized
 	module FinalizedEventHook
 	    def finalized_event(event)
+		super if defined? super
+
+		event.unreachable!
 		EventGenerator.event_gathering.each do |collection, events|
 		    events.delete(event)
 		end
 	    end
 	end
 	Roby::Plan.include FinalizedEventHook
+
+	attr_predicate :unreachable?
+
+	# Called internally when the event becomes unreachable
+	def unreachable!
+	    @unreachable = true
+
+	    unreachable_handlers.each do |_, block|
+		Propagation.gather_exceptions(self) do
+		    block.call(self)
+		end
+	    end
+	    unreachable_handlers.clear
+	end
 
 	def pretty_print(pp) # :nodoc:
 	    pp.text to_s
@@ -621,6 +651,13 @@ module Roby
 	    super if defined? super
 	    return unless type == EventStructure::Signal
 	    @events[parent] = parent.last
+
+	    parent.if_unreachable(true) do
+		# Check that the parent has not been removed since ...
+		if @events.has_key?(parent)
+		    unreachable!
+		end
+	    end
 	end
 	# Removes a source from +events+ when the source is removed
 	def removed_parent_object(parent, type) # :nodoc:
@@ -653,6 +690,17 @@ module Roby
 	def emit_if_first(context) # :nodoc:
 	    return if happened?
 	    emit(context)
+	end
+	
+	def added_parent_object(parent, type, info) # :nodoc:
+	    super if defined? super
+	    return unless type == EventStructure::Signal
+
+	    parent.if_unreachable do
+		if parent_objects(EventStructure::Signal).all? { |ev| ev.unreachable? }
+		    unreachable!
+		end
+	    end
 	end
 
 	# Adds +generator+ to the sources of this event
