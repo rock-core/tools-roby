@@ -51,6 +51,10 @@ module Roby::Distributed
 
     # Base class for all communication errors
     class ConnectionError   < RuntimeError; end
+    # Raised when a connection attempt has failed
+    class ConnectionFailedError < RuntimeError
+	def initialize(peer); @peer = peer end
+    end
     # The peer is connected but connection is not alive
     class NotAliveError     < ConnectionError; end
     # The peer is disconnected
@@ -389,7 +393,11 @@ module Roby::Distributed
 	    if remote_server
 		transmit(:connect, connection_space.name, connection_space.remote_id, @local, Roby::State)
 	    else
-		remote_id.to_drb_object.connect(connection_space.name, connection_space.remote_id, @local)
+		begin
+		    remote_id.to_drb_object.connect(connection_space.name, connection_space.remote_id, @local)
+		rescue DRb::DRbConnError => e
+		    raise ConnectionFailedError.new(self), "failed to connect to #{remote_id}: #{e.message}"
+		end
 	    end
 	end
 
