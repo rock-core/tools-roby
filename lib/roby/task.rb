@@ -9,14 +9,13 @@ module Roby
 	    # Returns the list of static arguments required by this task model
 	    def arguments(*new_arguments)
 		new_arguments.each do |arg_name|
-		    argument_set << arg_name
+		    argument_set << arg_name.to_sym
 		    unless method_defined?(arg_name)
 			define_method(arg_name) { arguments[arg_name] }
 		    end
 		end
 
 	       	@argument_enumerator ||= enum_for(:each_argument_set)
-		@argument_enumerator.to_set 
 	    end
 	    # Declares a set of arguments required by this task model
 	    def argument(*args); arguments(*args) end
@@ -25,7 +24,7 @@ module Roby
 
 	def initialize(&block)
 	    super do
-		inherited_enumerable("argument_set", "argument_set") { Set.new }
+		inherited_enumerable("argument_set", "argument_set") { ValueSet.new }
 		unless const_defined? :ClassExtension
 		    const_set(:ClassExtension, Module.new)
 		end
