@@ -267,8 +267,8 @@ module Roby
     class Task < PlanObject
 	unless defined? RootTaskTag
 	    RootTaskTag = TaskModelTag.new
+	    include RootTaskTag
 	end
-	include RootTaskTag
 
 	def self.clear_model
 	    class_eval do
