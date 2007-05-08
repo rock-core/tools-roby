@@ -209,14 +209,28 @@ module Roby
 	    @robot_type = type
 	end
 
+	# The directory in which logs are to be saved
+	# Defaults to APP_DIR/log
 	def log_dir
 	    File.expand_path(log['dir'] || 'log', APP_DIR)
 	end
+
+	# A path => File hash, to re-use the same file object for different
+	# logs
+	attribute(:log_files) { Hash.new }
+
+	# The directory in which results should be saved
+	# Defaults to APP_DIR/results
 	def results_dir
 	    File.expand_path(log['results'] || 'results', APP_DIR)
 	end
 	
 	def setup
+	    # Set up the log directory first
+	    if !File.exists?(log_dir)
+		Dir.mkdir(log_dir)
+	    end
+
 	    # Create the robot namespace
 	    robot_mod = Module.new do
 		class << self
@@ -241,7 +255,10 @@ module Roby
 		    level = Logger.const_get(value)
 		end
 
-		new_logger = if file then Logger.new(File.open(file, 'w'))
+		new_logger = if file
+				 path = File.expand_path(file, log_dir)
+				 io   = (log_files[path] ||= File.open(path, 'w'))
+				 Logger.new(io)
 			     else Logger.new(STDOUT)
 			     end
 		new_logger.level     = level
@@ -268,10 +285,6 @@ module Roby
 		require task_file if task_file =~ /\.rb$/ && File.file?(task_file)
 	    end
 
-	    # Set up some directories
-	    if !File.exists?(log_dir)
-		Dir.mkdir(log_dir)
-	    end
 	    Roby::State.datadirs = []
 	    datadir = File.join(APP_DIR, "data")
 	    if File.directory?(datadir)
