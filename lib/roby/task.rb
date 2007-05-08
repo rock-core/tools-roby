@@ -1100,31 +1100,36 @@ module Roby
 	#   * +args+ is included in the task arguments
 	def fullfills?(models, args = {})
 	    if models.kind_of?(Task)
-		klass, tags, args = 
+		klass, args = 
 		    models.class, 
-		    models.class.tags,
 		    models.meaningful_arguments
-		models = tags.push(klass)
+		models = [klass]
 	    else
 		models = [*models]
 	    end
 	    self_model = self.model
+	    self_args  = self.arguments
+	    args       = args.dup
 
 	    # Check the arguments that are required by the model
-	    required_args = models.inject(Set.new) do |required_args, tag|
+	    models.each do |tag|
 		unless self_model.has_ancestor?(tag)
 		    return false
 		end
-		required_args.merge tag.arguments
-	    end
-	    required_args = required_args.to_a
 
-	    unknown_args = (args.keys - required_args)
-	    unless unknown_args.empty?
-		raise ArgumentError, "the arguments '#{unknown_args.join(", ")}' are unknown to the tags #{models.join(", ")}"
+		unless args.empty?
+		    tag.arguments.each do |arg_name|
+			if user_arg = args.delete(arg_name)
+			    return false unless user_arg == self_args[arg_name]
+			end
+		    end
+		end
 	    end
 
-	    arguments.slice(*args.keys) == args
+	    if !args.empty?
+		raise ArgumentError, "the arguments '#{args.keys.join(", ")}' are unknown to the tags #{models.join(", ")}"
+	    end
+	    true
 	end
 
 	include ExceptionHandlingObject
