@@ -306,7 +306,11 @@ module Roby
 	    @keepalive.find_all { |t| t.finished? }.
 		each { |t| auto(t) }
 
-	    all = @missions | @keepalive
+	    all = (@missions | @keepalive).to_value_set
+	    transactions.each do |trsc|
+		all.merge trsc.proxy_objects.keys.to_value_set
+	    end
+
 	    return ValueSet.new if all.empty?
 	    useful_task_component(all, all.to_a)
 	end
@@ -317,15 +321,6 @@ module Roby
 	    # permanent tasks
 	    useful = self.locally_useful_tasks
 	    
-	    # Get in the remaining set the tasks that are useful because they
-	    # are used in a transaction and compute the set of tasks that are
-	    # needed by them
-	    transaction_useful = (known_tasks - useful).find_all do |t| 
-		transactions.any? { |trsc| trsc.wrap(t, false) }
-	    end
-	    useful.merge transaction_useful.to_value_set
-	    useful = useful_task_component(useful, transaction_useful)
-
 	    # Finally, get in the remaining set the tasks that are useful
 	    # because of our peers. We then remove from the set all local tasks
 	    # that are serving these
