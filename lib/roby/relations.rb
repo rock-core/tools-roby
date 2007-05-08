@@ -16,20 +16,9 @@ module Roby
 	alias :each_relation	    :each_graph
 	alias :clear_relations	    :clear_vertex
 
-	# Cache an enumerator object for the relations this object is part of
-	def enum_relations # :nodoc:
-	    @enum_relations ||= enum_for(:each_graph) 
-	end
-	# Cache an Enumerator object for parents in the +type+ relation
-	def enum_parent_objects(type) # :nodoc:
-	    @enum_parent_objects ||= Hash.new
-	    @enum_parent_objects[type] ||= enum_for(:each_parent_object, type)
-	end
-	# Cache an Enumerator object for children in the +type+ relation
-	def enum_child_objects(type) # :nodoc:
-	    @enum_child_objects ||= Hash.new
-	    @enum_child_objects[type] ||= enum_for(:each_child_object, type)
-	end
+	cached_enum("graph", "relations", false)
+	cached_enum("parent_object", "parent_objects", true)
+	cached_enum("child_object", "child_objects", true)
 
 	# The array of relations this object is part of
 	def relations; enum_relations.to_a end
