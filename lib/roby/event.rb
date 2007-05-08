@@ -103,7 +103,7 @@ module Roby
 	# given, the event is controlable and is 'pass-through': it is emitted
 	# as soon as its command is called. If no argument is given (or a
 	# +false+ argument), then it is not controlable
-	def initialize(controlable = nil, &control)
+	def initialize(command_object = nil, &command_block)
 	    @preconditions = []
 	    @handlers = []
 	    @pending  = false
@@ -112,9 +112,19 @@ module Roby
 
 	    super() if defined? super
 
-	    if controlable || control
-		self.command = (control || lambda { |context| emit(context) })
+	    if command_object || command_block
+		self.command = if command_object.respond_to?(:call)
+				   command_object
+			       elsif command_block
+				   command_block
+			       else
+				   method(:default_command)
+			       end
 	    end
+	end
+
+	def default_command(context)
+	    emit(context)
 	end
 
 	# The current command block
