@@ -405,17 +405,6 @@ module Roby
 	end
 	Roby::Task.extend Distributed::DRobyTaskModel::Dump
 
-	# Returns true if it is marshallable in DRoby
-	def self.marshallable?(object)
-	    if object.respond_to?(:droby_dump)
-		true
-	    elsif object.kind_of?(DRbUndumped)
-		false
-	    else
-		!!Marshal.dump(object) rescue nil
-	    end
-	end
-
 	# Dumps +object+ in the dRoby protocol
 	def self.dump(object, error = false)
 	    if error
