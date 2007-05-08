@@ -608,6 +608,10 @@ module Roby
 			end
 		    end
 
+		    if GC.respond_to?(:time)
+			gc_time_at_start = GC.time
+		    end
+
 		    while Time.now > stats[:start] + cycle
 			stats[:start] += cycle
 			@cycle_index += 1
@@ -653,9 +657,14 @@ module Roby
 			end
 		    end
 
+		    if gc_time_at_start && !control_gc 
+			stats[:ruby_gc_duration] = GC.time - gc_time_at_start
+		    end
 		    if defined? Roby::Log
 			stats[:log_queue_size] = Roby::Log.logged_events.size
 		    end
+		    stats[:plan_task_count] = Roby.plan.known_tasks.size
+		    stats[:plan_event_count] = Roby.plan.free_events.size
 		    cycle_end(stats)
 
 		    stats[:start] += cycle
