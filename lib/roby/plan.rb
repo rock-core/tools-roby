@@ -37,6 +37,9 @@ module Roby
     #   * #finalized_event
     #
     class Plan < BasicObject
+	extend Logger::Hierarchy
+	extend Logger::Forward
+
 	# The list of tasks that are included in this plan
 	attr_reader :known_tasks
 	# The list of missions in this plan
@@ -420,7 +423,7 @@ module Roby
 		tasks = unneeded_tasks | force_gc
 		if tasks.all? { |t| t.pending? || t.finished? }
 		    tasks.each do |t|
-			Roby.debug "GC: #{t} is not running, removed"
+			Plan.debug "GC: #{t} is not running, removed"
 			garbage(t)
 			remove_object(t)
 		    end
@@ -437,7 +440,7 @@ module Roby
 			garbage(t)
 			false
 		    else
-			Roby.debug "GC: ignoring #{t}, it is not root"
+			Plan.debug "GC: ignoring #{t}, it is not root"
 			true
 		    end
 		end
@@ -445,27 +448,27 @@ module Roby
 		did_something = false
 		tasks.each do |t| 
 		    if !t.self_owned?
-			Roby.debug "GC: #{t} is not local, removing it"
+			Plan.debug "GC: #{t} is not local, removing it"
 			remove_object(t)
 			did_something = true
 		    elsif t.starting?
 			# wait for task to be started before killing it
-			Roby.debug "GC: #{t} is starting"
+			Plan.debug "GC: #{t} is starting"
 		    elsif t.pending? || t.finished?
-			Roby.debug "GC: #{t} is not running, removed"
+			Plan.debug "GC: #{t} is not running, removed"
 			remove_object(t)
 			did_something = true
 		    elsif !t.finishing?
 			if t.event(:stop).controlable?
-			    Roby.debug "GC: stopped #{t}"
+			    Plan.debug "GC: stopped #{t}"
 			    Roby::Control.once { t.stop!(nil) }
 			else
-			    Roby.debug "GC: ignored #{t}, it cannot be stopped"
+			    Plan.debug "GC: ignored #{t}, it cannot be stopped"
 			end
 		    elsif t.finishing?
-			Roby.debug "GC: waiting for #{t} to finish"
+			Plan.debug "GC: waiting for #{t} to finish"
 		    else
-			Roby.debug "GC: ignored #{t}"
+			Plan.debug "GC: ignored #{t}"
 		    end
 		end
 
