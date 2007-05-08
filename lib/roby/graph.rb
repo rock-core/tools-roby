@@ -21,17 +21,19 @@ module BGL
 	def clear_vertex
 	    each_graph { |g| g.remove(self) }
 	end
+
+	attribute(:singleton_set) { [self].to_value_set.freeze }
 	# Returns the connected component +self+ is part of in +graph+
 	def component(graph)
-	    graph.components([self], false).first || [self].to_value_set
+	    graph.components([self], false).first || singleton_set
 	end
 	# Returns the vertex set which are reachable from +self+ in +graph+
 	def generated_subgraph(graph)
-	    graph.generated_subgraphs(self, false).first || [self].to_value_set
+	    graph.generated_subgraphs(self, false).first || singleton_set
 	end
 	# Returns the vertex set which can reach +self+ in +graph+
 	def reverse_generated_subgraph(graph)
-	    graph.reverse.generated_subgraphs(self, false).first || [self].to_value_set
+	    graph.reverse.generated_subgraphs(self, false).first || singleton_set
 	end
 
 	# Replace this vertex by +to+ in all graphs. See Graph#replace_vertex.
