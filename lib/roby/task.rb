@@ -913,8 +913,10 @@ module Roby
 	end
 
         # Iterates on all the events defined for this task
-        def each_event(&iterator) # :yield:bound_event
-	    bound_events.each_value(&iterator)
+        def each_event # :yield:bound_event
+	    bound_events.each_value do |ev|
+		yield(ev)
+	    end
         end
 	alias :each_plan_child :each_event
 
