@@ -89,6 +89,14 @@ when "stats"
     timings.stats
     exit(0)
 
+when "timings"
+    require 'roby/log/file'
+    require 'roby/log/timings'
+    io = Roby::Log.open(ARGV[0])
+    timings = Roby::Log::Timings.new(io)
+    timings.display(false)
+    exit(0)
+
 when "replay"
     require 'roby/log/gui/replay'
     app  = Qt::Application.new(ARGV)
