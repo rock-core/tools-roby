@@ -424,6 +424,9 @@ module Roby
 		    def #{name}(options = Hash.new)
 			plan_method("#{name}", options)
 		    end
+		    class << self
+		      cached_enum("#{name}_method", "#{name}_methods", true)
+		    end
 		    PLANNING_METHOD_END
 		end
 
@@ -496,6 +499,11 @@ module Roby
 	    def self.filter(name, &filter)
 		if !respond_to?("#{name}_filters")
 		    inherited_enumerable("#{name}_filter", "#{name}_filters") { Array.new }
+		    class_eval <<-EOD
+			class << self
+			    cached_enum("#{name}_filter", "#{name}_filters", false)
+			end
+		    EOD
 		end
 		send("#{name}_filters") << filter
 	    end
@@ -517,12 +525,12 @@ module Roby
 
 		if method_id = method_selection[:id]
 		    method_selection[:id] = method_id = validate_method_id(method_id)
-		    result = enum_for(:each_method, name, method_id).find { true }
+		    result = send("enum_#{name}_methods", method_id).find { true }
 		    result = if result && result.options.merge(method_selection) == result.options
 				 [result]
 			     end
 		else
-		    result = enum_for(:each_method, name, nil).collect do |id, m|
+		    result = send("enum_#{name}_methods", nil).collect do |id, m|
 			if m.options.merge(method_selection) == m.options 
 			    m
 			end
@@ -531,10 +539,10 @@ module Roby
 
 		return nil if !result
 
-		filter_method = "each_#{name}_filter"
+		filter_method = "enum_#{name}_filters"
 		if respond_to?(filter_method)
 		    # Remove results for which at least one filter returns false
-		    result.reject! { |m| enum_for(filter_method).any? { |f| !f[options, m] } }
+		    result.reject! { |m| send(filter_method).any? { |f| !f[options, m] } }
 		end
 
 		if result.empty?; nil
