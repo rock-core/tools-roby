@@ -561,21 +561,26 @@ module Roby::Distributed
 	    elsif !marshalled.respond_to?(:proxy)
 		return marshalled
 	    elsif marshalled.respond_to?(:remote_siblings)
-		
-		if remote_id = marshalled.remote_siblings[droby_dump]
-		    unless local_object = proxies[remote_id]
-			local_id  = marshalled.remote_siblings[Roby::Distributed.droby_dump]
-			if local_id && !removing_proxies[remote_id]
-			    local_object = local_id.to_local(self, create)
-			else
-			    # remove any local ID since we are re-creating it
-			    marshalled.remote_siblings.delete(Roby::Distributed.droby_dump)
+		# 1/ try any local RemoteID reference registered in the marshalled object
+		local_id  = marshalled.remote_siblings[Roby::Distributed.droby_dump]
+		if local_id
+		    local_object = local_id.local_object rescue nil
+		    local_object = nil if local_object.finalized?
+		end
 
-			    return if !create
-			    return unless local_object = marshalled.proxy(self)
-			end
+		# 2/ try the #proxies hash
+		if !local_object 
+		    remote_id = marshalled.remote_siblings[droby_dump]
+		    unless local_object = proxies[remote_id]
+			return if !create
+
+			# remove any local ID since we are re-creating it
+			marshalled.remote_siblings.delete(Roby::Distributed.droby_dump)
+			local_object = marshalled.proxy(self)
 		    end
-		else
+		end
+
+		if !local_object
 		    raise "no remote siblings for #{remote_name} in #{marshalled} (#{marshalled.remote_siblings})"
 		end
 
