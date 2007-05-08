@@ -42,10 +42,7 @@ module Roby::TaskStructure
 
 	    options[:model] = [options[:model], {}] unless Array === options[:model]
 	    required_model, required_args = *options[:model]
-	    unknown_args = (required_args.keys - required_model.arguments.to_a)
-	    if !unknown_args.empty?
-		raise ArgumentError, "the arguments '#{unknown_args.join(", ")}' are not meaningful to the #{required_model} model"
-	    elsif !task.fullfills?(required_model, required_args)
+	    if !task.fullfills?(required_model, required_args)
 		raise ArgumentError, "task #{task} does not fullfills the provided model #{options[:model]}"
 	    end
 
