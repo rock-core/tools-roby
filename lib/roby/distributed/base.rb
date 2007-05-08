@@ -122,7 +122,7 @@ module Roby
 			marshalled_object.remote_siblings[peer.droby_dump] = self
 			return peer.local_object(marshalled_object)
 		    end
-		    raise ArgumentError, "got a RemoteID which has no proxy"
+		    raise ArgumentError, "#{self} has no proxy"
 		else
 		    object
 		end
