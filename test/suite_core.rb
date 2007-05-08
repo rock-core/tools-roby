@@ -19,6 +19,6 @@ require 'test_transactions_proxy'
 require 'suite_relations'
 
 require 'test_control'
-require 'test_control_interface'
+require 'test_interface'
 require 'test_log'
 
