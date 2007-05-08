@@ -208,7 +208,7 @@ module Roby
 
 	    @options = options
 	    self.conflict_solver = options[:conflict_solver]
-	    super(plan.hierarchy, plan.service_relations)
+	    super()
 
 	    @plan = plan
 

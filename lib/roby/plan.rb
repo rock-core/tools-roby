@@ -46,15 +46,6 @@ module Roby
 	# The list of tasks that are kept outside GC
 	attr_reader :keepalive
 
-	# The hierarchy relation
-	attr_reader :hierarchy
-	# A list of "service" relations that should be considered during GC. If
-	# a task is the parent of a useful task in a service relation, then
-	# this task is tagged as useful
-	attr_reader :service_relations
-
-	attr_reader :all_relations
-
 	# A set of tasks which are useful (and as such would not been garbage
 	# collected), but we want to GC anyway
 	attr_reader :force_gc
@@ -70,16 +61,13 @@ module Roby
 	    end
 	end
 
-	def initialize(hierarchy = Roby::TaskStructure::Hierarchy, service_relations = [Roby::TaskStructure::PlannedBy, Roby::TaskStructure::ExecutionAgent])
-	    @hierarchy = hierarchy
-	    @service_relations = service_relations
+	def initialize
 	    @missions	 = ValueSet.new
 	    @keepalive   = ValueSet.new
 	    @known_tasks = ValueSet.new
 	    @free_events = ValueSet.new
 	    @force_gc    = ValueSet.new
 	    @transactions = ValueSet.new
-	    @all_relations = [@hierarchy] + @service_relations
 
 	    super() if defined? super
 	end
