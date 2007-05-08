@@ -185,9 +185,11 @@ host
 		if File.file?(template)
 		    io.puts File.read(template)
 		end
-		template = File.join(APP_DIR, 'config', 'pocosim', "#{config.robot_type}.conf")
-		if File.file?(template)
-		    io.puts File.read(template)
+		if config.robot_name != config.robot_type
+		    template = File.join(APP_DIR, 'config', 'pocosim', "#{config.robot_type}.conf")
+		    if File.file?(template)
+			io.puts File.read(template)
+		    end
 		end
 	    end
 
