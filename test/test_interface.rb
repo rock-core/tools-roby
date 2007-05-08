@@ -20,7 +20,7 @@ class TC_Interface < Test::Unit::TestCase
         control.planners << planner
 
         planning = nil
-	iface.null_task do |planning, _|
+	iface.null_task! do |planning, _|
 	end
 	process_events
         assert_kind_of(PlanningTask, planning)
