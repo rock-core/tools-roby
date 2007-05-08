@@ -18,6 +18,8 @@ module Roby
 	def self.distribute?; !(@distribute == false) end
 	# Call to make the object of this class never seen by remote hosts
 	def self.local_only; @distribute = false end
+
+	def finalized?; !remote_siblings[Distributed] end
 	
 	# The peer => remote_object hash of known siblings for this peer: if
 	# there is a representation of this object on a peer, then

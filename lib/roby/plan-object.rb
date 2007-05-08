@@ -14,6 +14,8 @@ module Roby
 	# The place where this object has been removed from its plan
 	attr_accessor :removed_at
 
+	def finalized?; !!removed_at end
+
 	# Sets the new plan. Since it is forbidden to re-use a plan object that
 	# has been removed from a plan, it raises ArgumentError if it is the
 	# case

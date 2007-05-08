@@ -389,8 +389,10 @@ module Roby
 
 	    committed_transaction
 	    plan.remove_transaction(self)
+	    @plan = nil
 	end
 	def committed_transaction; super if defined? super end
+	def finalized?; !plan end
 
 	def enable_proxying; @disable_proxying = false end
 	def disable_proxying
@@ -418,6 +420,7 @@ module Roby
 
 	    discarded_transaction
 	    plan.remove_transaction(self)
+	    @plan = nil
 	end
 	def discarded_transaction; super if defined? super end
 
