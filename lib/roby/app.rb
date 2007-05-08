@@ -173,6 +173,7 @@ module Roby
 	# Loads the plugins whose name are listed in +names+
 	def using(*names)
 	    names.each do |name|
+		name = name.to_s
 		unless plugin = plugin_definition(name)
 		    raise ArgumentError, "#{name} is not a known plugin (#{available_plugins.map { |n, *_| n }.join(", ")})"
 		end
