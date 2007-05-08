@@ -459,6 +459,7 @@ class TC_Event < Test::Unit::TestCase
 	    ev.call(42)
 
 	    assert(ev.happened?)
+	    assert_equal(1, ev.history.size, ev.history)
 	    assert(!ev.pending?)
 	end
     end
