@@ -708,6 +708,7 @@ module Roby
 	    thread.join if thread
 
 	rescue Interrupt
+	    Roby.logger.level = Logger::INFO
 	    Roby.info "received interruption request"
 	    quit
 	    if @quit > 2
