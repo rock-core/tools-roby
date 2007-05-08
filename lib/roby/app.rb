@@ -296,34 +296,22 @@ module Roby
 	    Object.const_set(:State, Roby::State)
 
 	    # Load robot-specific configuration
+	    planner_dir = File.join(APP_DIR, 'planners')
+	    models_search = [planner_dir]
 	    if robot_name
 		require_robotfile(File.join(APP_DIR, 'config', "ROBOT.rb"))
-	    end
-	    
-	    # Load the main planner definitions
-	    planner_dir = File.join(APP_DIR, 'planners')
 
-	    if robot_name
-		robot_planner_dir = File.join(planner_dir, robot_name)
-		robot_planner_dir = nil unless File.directory?(robot_planner_dir)
-
-		# First, load the main planner
-		if robot_planner_dir
-		    begin
-			require File.join(robot_planner_dir, 'main')
-		    rescue LoadError => e
-			raise unless e.message =~ /no such file to load -- #{robot_planner_dir}\/main/
-			require File.join(APP_DIR, 'planners', 'main')
-		    end
-		else
-		    require File.join(APP_DIR, 'planners', 'main')
+		models_search << File.join(planner_dir, robot_name) << File.join(planner_dir, robot_type)
+		if !require_robotfile(File.join(APP_DIR, 'planners', 'ROBOT', 'main.rb'))
+		    require File.join(APP_DIR, "planners", "main")
 		end
 	    else
 		require File.join(APP_DIR, "planners", "main")
 	    end
 
 	    # Load the other planners
-	    [robot_planner_dir, planner_dir].compact.each do |base_dir|
+	    models_search.each do |base_dir|
+		next unless File.directory?(base_dir)
 		Dir.new(base_dir).each do |file|
 		    if File.file?(file) && file =~ /\.rb$/ && file !~ 'main\.rb$'
 			require file
@@ -518,10 +506,14 @@ module Roby
 	    robot_config = pattern.gsub /ROBOT/, robot_name
 	    if File.file?(robot_config)
 		require robot_config
+		true
 	    else
 		robot_config = pattern.gsub /ROBOT/, robot_type
 		if File.file?(robot_config)
 		    require robot_config
+		    true
+		else
+		    false
 		end
 	    end
 	end
