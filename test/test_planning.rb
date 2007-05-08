@@ -419,7 +419,7 @@ class TC_Planner < Test::Unit::TestCase
 	main_task.planned_by loop_planner
 
 	loop_planner.append_pattern
-	assert_equal(1, main_task.children.size)
+	assert_equal(1, main_task.children.to_a.size)
 	first_task = main_task.children.find { true }
 	assert_equal(SimpleTask, first_task.class)
 	first_planner = first_task.planning_task
@@ -427,7 +427,7 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal(1, loop_planner.patterns.size)
 
 	loop_planner.append_pattern
-	assert_equal(2, main_task.children.size)
+	assert_equal(2, main_task.children.to_a.size)
 	second_task = main_task.children.find { |t| t != first_task }
 	assert_equal(SimpleTask, first_task.class)
 	second_planner = second_task.planning_task
@@ -461,8 +461,8 @@ class TC_Planner < Test::Unit::TestCase
 	# is running to keep the lookahead
 	loop_planner.loop_start!
 	assert(first_task.running? && !second_task.running?)
-	assert_equal(3, main_task.children.size)
-	third_task = (main_task.children - [first_task, second_task].to_value_set).to_a.first
+	assert_equal(3, main_task.children.to_a.size)
+	third_task = (main_task.children.to_value_set - [first_task, second_task].to_value_set).to_a.first
 	third_planner = third_task.planning_task
 	assert(third_planner.running?)
 
@@ -473,7 +473,7 @@ class TC_Planner < Test::Unit::TestCase
 
 	loop_planner.loop_start!
 	assert(first_task.success? && second_task.running?)
-	fourth_task = (main_task.children - [first_task, second_task, third_task].to_value_set).to_a.first
+	fourth_task = (main_task.children.to_value_set - [first_task, second_task, third_task].to_value_set).to_a.first
 	fourth_planner = fourth_task.planning_task
 	assert(!fourth_planner.running?)
 
@@ -501,7 +501,7 @@ class TC_Planner < Test::Unit::TestCase
 	main_task.planned_by loop_planner
 
 	loop_planner.start!
-	assert_equal(2, main_task.children.size)
+	assert_equal(2, main_task.children.to_a.size)
 	assert(first_task = main_task.children.find { |t| t.planning_task.running? })
     end
 
@@ -573,10 +573,10 @@ class TC_Planner < Test::Unit::TestCase
 	first_task, first_planner = planning_loop_next(main_task)
 	assert_equal(1, first_task.arguments[:id])
 
-	assert_equal(1, main_task.children.size)
+	assert_equal(1, main_task.children.to_a.size)
 	loop_planner.loop_start!(:id => 2)
 	loop_planner.loop_start!(:id => 3)
-	assert_equal(3, main_task.children.size)
+	assert_equal(3, main_task.children.to_a.size)
 	second_task, second_planner = planning_loop_next(main_task)
 	assert_equal(2, second_task.arguments[:id])
 	third_task, third_planner = planning_loop_next(main_task)
@@ -586,16 +586,16 @@ class TC_Planner < Test::Unit::TestCase
 	assert(!second_task.running?)
 	assert(!third_task.running?)
 	first_task.success!
-	assert_equal(2, main_task.children.size)
+	assert_equal(2, main_task.children.to_a.size)
 	assert(!first_task.running?)
 	assert(second_task.running?)
 	assert(!third_task.running?)
 	second_task.success!
-	assert_equal(1, main_task.children.size)
+	assert_equal(1, main_task.children.to_a.size)
 	assert(!second_task.running?)
 	assert(third_task.running?)
 	third_task.success!
-	assert_equal(1, main_task.children.size)
+	assert_equal(1, main_task.children.to_a.size)
 	assert(!third_task.running?)
     end
 

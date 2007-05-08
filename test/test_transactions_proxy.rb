@@ -179,9 +179,9 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	t1.realized_by t2
 
 	p1 = transaction[t1]
-	assert(p1.children.empty?, p1.children)
+	assert(p1.leaf?, p1.children)
 	p2 = transaction[t2]
-	assert([p2].to_value_set, p1.children)
+	assert([p2], p1.children.to_a)
     end
 
     def test_task_events
@@ -189,10 +189,10 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	t1.on(:success, t2, :start)
 
 	p1 = transaction[t1]
-	assert(p1.event(:success).child_objects(EventStructure::Signal).empty?)
+	assert(p1.event(:success).leaf?(EventStructure::Signal))
 
 	p2 = transaction[t2]
-	assert([p2.event(:start)].to_value_set, p1.event(:success).child_objects(EventStructure::Signal))
+	assert([p2.event(:start)], p1.event(:success).child_objects(EventStructure::Signal).to_a)
     end
 end
 

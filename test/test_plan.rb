@@ -72,7 +72,7 @@ module TC_PlanStatic
 
 	plan.remove_object(e)
 	assert(!plan.free_events.include?(e))
-	assert(t1.event(:start).child_objects(EventStructure::Signal).empty?)
+	assert(t1.event(:start).leaf?(EventStructure::Signal))
 	assert(!e.plan)
 	assert_raises(ArgumentError) { e.plan = plan }
 
@@ -185,14 +185,14 @@ module TC_PlanStatic
 	plan.insert(t1)
 	plan.insert(t3)
 
-	assert(!t1.children.empty?)
+	assert(!t1.leaf?)
 	plan.remove_task(t2)
-	assert(t1.children.empty?)
+	assert(t1.leaf?)
 	assert(!plan.include?(t2))
 
-	assert(!t1.event(:stop).child_objects(EventStructure::Signal).empty?)
+	assert(!t1.event(:stop).leaf?(EventStructure::Signal))
 	plan.remove_task(t3)
-	assert(t1.event(:stop).child_objects(EventStructure::Signal).empty?)
+	assert(t1.event(:stop).leaf?(EventStructure::Signal))
 	assert(!plan.include?(t3))
     end
 

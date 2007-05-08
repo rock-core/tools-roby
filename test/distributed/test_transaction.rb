@@ -329,7 +329,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	task   = plan.known_tasks.find { |t| t.arguments[:id] == 'local' }
 	c_task = plan.known_tasks.find { |t| t.arguments[:id] == 'remote-2' }
 
-	assert_equal(2, r_task.children.size, r_task.children)
+	assert_equal(2, r_task.children.to_a.size, r_task.children)
 	assert(r_task.child_object?(task, Roby::TaskStructure::Hierarchy))
 	assert_equal([task.event(:start)], r_task.event(:start).child_objects(Roby::EventStructure::Signal).to_a)
 	assert_equal([c_task], task.children.to_a)

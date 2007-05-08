@@ -274,8 +274,7 @@ module Roby
 	# Returns the set of tasks that are useful for +tasks+
 	def useful_task_component(useful_tasks, seeds)
 	    old_useful_tasks = useful_tasks.dup
-	    TaskStructure.each_relation do |rel| 
-		next unless rel.root_relation?
+	    TaskStructure.each_root_relation do |rel| 
 		rel.generated_subgraphs(seeds, false).each do |subgraph|
 		    useful_tasks.merge(subgraph)
 		end

@@ -30,8 +30,8 @@ module Roby
 	def related_objects(relation = nil, result = nil)
 	    result ||= ValueSet.new
 	    if relation
-		result.merge(parent_objects(relation))
-		result.merge(child_objects(relation))
+		result.merge(parent_objects(relation).to_value_set)
+		result.merge(child_objects(relation).to_value_set)
 	    else
 		each_relation { |rel| related_objects(rel, result) }
 	    end
@@ -39,13 +39,9 @@ module Roby
 	end
 
 	# Set of all parent objects in +relation+
-	def parent_objects(relation)
-	    enum_parent_objects(relation).to_value_set
-	end
+	alias :parent_objects :enum_parent_objects
 	# Set of all child object in +relation+
-	def child_objects(relation)
-	    enum_child_objects(relation).to_value_set
-	end
+	alias :child_objects :enum_child_objects
 
 	# Add a new child object in the +relation+ relation. This calls
 	# * #adding_child_object on +self+ and #adding_parent_object on +child+

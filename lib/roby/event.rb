@@ -677,9 +677,9 @@ module Roby
 	end
 
 	# The set of source events
-	def events;  enum_parent_objects(EventStructure::Signal).to_a end
+	def events;  parent_objects(EventStructure::Signal) end
 	# The set of events which we are waiting for
-	def waiting; enum_parent_objects(EventStructure::Signal).find_all { |ev| @events[ev] == ev.last } end
+	def waiting; parent_objects(EventStructure::Signal).find_all { |ev| @events[ev] == ev.last } end
 	
 	# Add a new source to this generator
 	def << (generator)

@@ -24,8 +24,8 @@ class TC_Task < Test::Unit::TestCase
 	    argument :from, :to
 	end
 	plan.discover(task = model.new(:from => 'B', :useless => 'bla'))
-	assert_equal([].to_set, Task.arguments)
-	assert_equal([:from, :to].to_set, task.model.arguments)
+	assert_equal([], Task.arguments.to_a)
+	assert_equal([:from, :to].to_value_set, task.model.arguments.to_value_set)
 	assert_equal({:from => 'B'}, task.meaningful_arguments)
 
 	assert(task.partially_instanciated?)

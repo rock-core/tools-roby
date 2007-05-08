@@ -145,7 +145,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    # First, add relations between two nodes that are already existing
 	    remote.add_tasks(plan)
 	    r_t2 = subscribe_task(:id => 'remote-2')
-	    assert(1, r_t2.parents.size)
+	    assert(1, r_t2.parents.to_a.size)
 	    r_t1 = r_t2.parents.find { true }
 	    t1, t2, t3 = Control.synchronize { add_tasks(plan, "local") }
 

@@ -137,7 +137,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    process_events
 
 	    proxies = r_mission.children.to_a
-	    assert_equal(1, proxies.size)
+	    assert_equal(1, proxies.to_a.size)
 	    assert_equal(r_subtask, proxies.first)
 	    proxies = r_mission.event(:stop).child_objects(EventStructure::Signal).to_a
 	    assert_equal(r_next_mission.event(:start), proxies.first)
@@ -275,7 +275,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	proxies = r_mission.event(:stop).child_objects(EventStructure::Signal).to_a
 	assert(!plan.unneeded_tasks.include?(r_mission))
 	assert(!plan.unneeded_tasks.include?(r_mission.event(:stop)))
-	assert_equal(1, proxies.size, proxies)
+	assert_equal(1, proxies.to_a.size, proxies)
 	r_next_mission_start = proxies.first
 	assert(!plan.unneeded_tasks.include?(r_next_mission_start))
 	assert(!plan.unneeded_tasks.include?(r_next_mission_start.task))
@@ -286,7 +286,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	remote.add_mission_subtask
 	process_events
 	assert(r_mission.plan)
-	assert(r_mission.children.empty?)
+	assert(r_mission.leaf?(TaskStructure::Hierarchy))
 
 	r_mission = remote_peer.subscribe(r_mission)
 	r_subtask = remote_task(:id => 'subtask')
@@ -339,7 +339,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert(!right.plan)
 
 	assert(middle.plan)
-	assert_equal(1, middle.parent_objects(TaskStructure::Hierarchy).size)
+	assert_equal(1, middle.parent_objects(TaskStructure::Hierarchy).to_a.size)
 
 	remote.remove_last_link
 	process_events
@@ -435,7 +435,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	remote.remove_mission_subtask
 	process_events
-	assert(r_mission.children.empty?)
+	assert(r_mission.leaf?(TaskStructure::Hierarchy))
 
 	remote.add_mission_stop_next_start
 	process_events
@@ -443,7 +443,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	remote.remove_mission_stop_next_start
 	process_events
-	assert(r_mission.event(:stop).child_objects(EventStructure::Signal).empty?)
+	assert(r_mission.event(:stop).leaf?(EventStructure::Signal))
     end
 
     # Check that remote events that are unknown locally are properly ignored
