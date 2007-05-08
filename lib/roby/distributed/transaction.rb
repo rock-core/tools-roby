@@ -301,7 +301,7 @@ module Roby
 	module Roby::Transaction::Proxy
 	    def droby_dump(dest) # :nodoc:
 		DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest),
-			 @__getobj__.droby_dump(dest), transaction.droby_dump(dest))
+			 Distributed.format(@__getobj__, dest), Distributed.format(transaction, dest))
 	    end
 	    class DRoby < Roby::BasicObject::DRoby
 		attr_reader :real_object, :transaction
