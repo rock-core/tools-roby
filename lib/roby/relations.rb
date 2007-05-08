@@ -209,7 +209,7 @@ module Roby
 	def initialize(name, options = {})
 	    @name = name
 	    @options = options
-	    @subsets = Set.new
+	    @subsets = ValueSet.new
 
 	    if options.has_key?(:dag)
 		@dag = options[:dag]
@@ -331,8 +331,11 @@ module Roby
 	attribute(:applied)   { Array.new }
 
 	# Yields the relations that are included in this space
-	def each_relation(&iterator)
-	    relations.each(&iterator)
+	def each_relation
+	    relations.each { |rel| yield(rel) }
+	end
+	def each_root_relation
+	    relations.each { |rel| yield(rel) if rel.root_relation? }
 	end
 
 	# Creates a new relation in this relation space. This defines a
@@ -364,7 +367,7 @@ module Roby
 			:child_name => relation_name.to_s.underscore,
 			:const_name => relation_name,
 			:parent_name => nil,
-			:subsets => Set.new,
+			:subsets => ValueSet.new,
 			:noinfo => false,
 			:graph => RelationGraph,
 			:distribute => true,
