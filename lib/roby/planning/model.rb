@@ -126,7 +126,7 @@ module Roby
                 include MethodInheritance
 
                 attr_reader :name, :options, :body
-                def initialize(name, options, &body)
+                def initialize(name, options, body)
                     @name, @options, @body = name, options, body
                 end
 
@@ -143,7 +143,7 @@ module Roby
 		# reuse? is always false if there is no return type defined
 		def reuse?; (!options.has_key?(:reuse) || options[:reuse]) if returns end
 		# Call the method definition
-                def call;       body.call end
+                def call(planner); body.call(planner) end
 
                 def to_s; "#{name}:#{id}(#{options})" end
             end
@@ -437,8 +437,17 @@ module Roby
                 end
 
 		# Register the method definition
-		send("#{name}_methods")[method_id] = MethodDefinition.new(name, options, &lambda(&body) )
+		#
+		# First, define an "anonymous" method on this planner model to
+		# avoid calling instance_eval during planning
+		if body.arity > 0
+		    raise ArgumentError, "method body must accept zero arguments calls"
+		end
+		temp_method_name = "m#{@@temp_method_id += 1}"
+		define_method(temp_method_name, &body)
+		send("#{name}_methods")[method_id] = MethodDefinition.new(name, options, instance_method(temp_method_name))
             end
+	    @@temp_method_id = 0
 
 	    # Returns an array of the names of all planning methods
 	    def self.planning_methods_names(including_models = true)
@@ -643,7 +652,7 @@ module Roby
                     @stack.push [method.name, method.id]
 		    Planning.debug { "calling #{method.name}:#{method.id} with arguments #{arguments}" }
 		    begin
-			result = instance_eval(&method.body)
+			result = method.call(self)
 		    rescue PlanModelError
 			raise
 		    rescue Exception => e
