@@ -311,8 +311,7 @@ module Roby
 		end
 
 		def proxy(peer)
-		    return unless local_real = peer.local_object(real_object)
-
+		    local_real = peer.local_object(real_object)
 		    local_object = nil
 		    local_transaction = peer.local_object(transaction)
 		    Distributed.update(local_transaction) do

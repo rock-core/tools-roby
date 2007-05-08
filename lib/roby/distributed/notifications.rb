@@ -162,7 +162,7 @@ module Roby
 	    def plan_set_mission(plan, task, flag)
 		plan = peer.local_object(plan)
 
-		return unless task = peer.local_object(task)
+		task = peer.local_object(task)
 		task.mission = flag
 		nil
 	    end
@@ -187,7 +187,6 @@ module Roby
 	    def plan_replace(plan, m_from, m_to)
 		Distributed.update(plan = peer.local_object(plan)) do
 		    from, to = peer.local_object(m_from), peer.local_object(m_to)
-		    return unless from && to
 
 		    Distributed.update_all([from, to]) { plan.replace(from, to) }
 
@@ -206,7 +205,7 @@ module Roby
 	    def plan_remove_object(plan, object)
 		if local = peer.local_object(object, false)
 		    # Beware, transaction proxies have no 'plan' attribute
-		    return unless plan = peer.local_object(plan)
+		    plan = peer.local_object(plan)
 		    Distributed.update(plan) do
 			Distributed.update(local) do
 			    plan.remove_object(local)
@@ -230,7 +229,7 @@ module Roby
 			from = peer.local_object(m_from)
 		    elsif !to
 			return unless from && (from.self_owned? || from.subscribed?)
-			to = peer.local_object(m_to)
+			to   = peer.local_object(m_to)
 		    end
 
 		    rel = peer.local_object(m_rel)
@@ -352,7 +351,7 @@ module Roby
 
 	    # Called by the peer to notify us about an event which has been fired
 	    def event_fired(marshalled_from, event_id, time, context)
-		return unless from_generator = peer.local_object(marshalled_from)
+		from_generator = peer.local_object(marshalled_from)
 		context = peer.local_object(context)
 
 		_, event = event_for(from_generator, event_id, time, context, true)
@@ -362,8 +361,8 @@ module Roby
 
 	    # Called by the peer to notify us about an event signalling
 	    def event_add_propagation(only_forward, marshalled_from, marshalled_to, event_id, time, context)
-		return unless from_generator = peer.local_object(marshalled_from)
-		return unless to = peer.local_object(marshalled_to)
+		from_generator = peer.local_object(marshalled_from)
+		to = peer.local_object(marshalled_to)
 		context = peer.local_object(context)
 
 		fired, event = event_for(from_generator, event_id, time, context, false)

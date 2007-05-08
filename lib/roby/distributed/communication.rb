@@ -143,6 +143,10 @@ module Roby
 	    end
 	end
 
+	def self.ignore!
+	    throw :ignore_this_call
+	end
+
 	class PeerServer
 	    PROCESSING_CALLBACKS_TLS = 'PEER_SERVER_PROCESSING_CALLBACKS'
 	    QUEUED_COMPLETION_TLS    = 'PEER_SERVER_QUEUED_COMPLETION'
@@ -174,9 +178,11 @@ module Roby
 		    end
 
 		    result = Control.synchronize do
-			Thread.current[QUEUED_COMPLETION_TLS] = nil
-			Thread.current[PROCESSING_CALLBACKS_TLS] = !!is_callback
-			send(method, *args)
+			catch(:ignore_this_call) do
+			    Thread.current[QUEUED_COMPLETION_TLS] = nil
+			    Thread.current[PROCESSING_CALLBACKS_TLS] = !!is_callback
+			    send(method, *args)
+			end
 		    end
 
 		    if method != :completed && method != :disconnected

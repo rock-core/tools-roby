@@ -149,7 +149,7 @@ module Roby
 	    # *removed* from the plan. Therefore, if +relations+ is empty, then
 	    # all relations of +object+ are removed.
 	    def set_relations(object, relations)
-		return unless object = peer.local_object(object)
+		object    = peer.local_object(object)
 		relations = peer.local_object(relations)
 
 		Distributed.update(object.root_object) do

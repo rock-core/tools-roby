@@ -348,7 +348,7 @@ module Roby::Distributed
 
 	# Calls the block given to Peer#on when +task+ has matched the trigger
 	def triggered(id, task) # :nodoc:
-	    return unless task = local_object(task)
+	    task = local_object(task)
 	    Roby::Distributed.keep.ref(task)
 	    Thread.new do
 		begin

@@ -128,7 +128,10 @@ module Roby
 
 	    def proxy(peer)
 		task = peer.local_object(self.task)
-		return unless task.has_event?(symbol)
+		unless task.has_event?(symbol)
+		    Roby::Distributed.debug { "ignoring #{self}: #{symbol} is not known on #{task}" }
+		    Roby::Distributed.ignore!
+		end
 		event = task.event(symbol)
 		
 		if happened && !event.happened?
