@@ -162,7 +162,7 @@ class TC_Relations < Test::Unit::TestCase
 	v1, v2, v3 = (1..3).map { v = klass.new; graph.insert(v); v }
 	graph.add_relation(v1, v2, nil)
 	graph.add_relation(v2, v3, nil)
-	assert_raises(ArgumentError) { graph.add_relation(v3, v1, nil) }
+	assert_raises(CycleFoundError) { graph.add_relation(v3, v1, nil) }
     end
 
     def test_single_child
