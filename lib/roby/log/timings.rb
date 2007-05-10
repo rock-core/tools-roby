@@ -126,7 +126,7 @@ module Roby
 		puts header
 		each_cycle(cumulative) do |numeric, results|
 		    print "#{timeval_to_s(results.shift)} "
-		    print results.join(", ")
+		    print results.join(" ")
 		    print " "
 		    puts numeric.join(" ")
 		end
