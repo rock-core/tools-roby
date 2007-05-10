@@ -152,6 +152,7 @@ module Roby::Transactions
 
 	def initialize(object, transaction)
 	    super(object, transaction)
+	    @unreachable_handlers = []
 	    if object.controlable?
 		self.command = method(:emit)
 	    end
