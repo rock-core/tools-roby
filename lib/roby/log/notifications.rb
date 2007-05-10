@@ -199,28 +199,30 @@ class NotificationsDisplay < Qt::TextBrowser
 	    render_task(task)
 	end
     end
+    def render_error(error, tasks)
+	error = Qt.escape(error.to_s)
+	error = error.split("\n").map do |line|
+	    line.gsub(/^\s+/) { "&nbsp;" * $&.size }
+	end.join("<br>")
+
+	text << error
+	text << "<h2>Involved tasks</h2>"
+	text << "<ul>"
+	tasks.each do |t| 
+	    text << "<li>"
+	    render_task(t) 
+	    text << "</li>"
+	end
+    end
+
     def fatal_exception(time, error, tasks)
 	render_event("error", time, "Fatal exception") do
-	    error = Qt.escape(error.to_s)
-	    error = error.split("\n").map do |line|
-		line.gsub(/^\s+/) { "&nbsp;" * $&.size }
-	    end.join("<br>")
-
-	    text << error
-	    text << "<h2>Involved tasks</h2>"
-	    text << "<ul>"
-	    tasks.each do |t| 
-		text << "<li>"
-		render_task(t) 
-		text << "</li>"
-	    end
+	    render_error(error, tasks)
 	end
     end
     def handled_exception(time, error, tasks)
 	render_event("warn", time, "Handled exception") do
-	    text << "<pre>#{Qt.escape(error.to_s)}</pre>\n"
-	    text << "<h2>Involved tasks</h2>"
-	    tasks.each { |t| render_task(t) }
+	    render_error(error, tasks)
 	end
     end
     def failed_task(time, task, history)
