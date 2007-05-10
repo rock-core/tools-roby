@@ -11,22 +11,31 @@ class NilClass
 end
 class Array
     def proxy(peer) # :nodoc:
-	map { |element| peer.proxy(element) }
+	map do |element| 
+	    catch(:ignore_this_call) { peer.proxy(element) }
+	end
     end
 end
 class Hash
     def proxy(peer) # :nodoc:
-	inject({}) { |h, (k, v)| h[peer.proxy(k)] = peer.proxy(v); h }
+	inject({}) do |h, (k, v)| 
+	    h[peer.proxy(k)] = catch(:ignore_this_call) { peer.proxy(v) }
+	    h
+	end
     end
 end
 class Set
     def proxy(peer) # :nodoc:
-	map(&peer.method(:proxy)).to_set 
+	map do |element| 
+	    catch(:ignore_this_call) { peer.proxy(element) }
+	end.to_set
     end
 end
 class ValueSet
     def proxy(peer) # :nodoc:
-	map(&peer.method(:proxy)).to_value_set 
+	map do |element| 
+	    catch(:ignore_this_call) { peer.proxy(element) }
+	end.to_value_set
     end
 end
 

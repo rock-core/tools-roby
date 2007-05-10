@@ -169,12 +169,7 @@ module Roby
 
 	    def plan_discover(plan, m_tasks, m_relations)
 		Distributed.update(plan = peer.local_object(plan)) do
-		    tasks = ValueSet.new
-		    m_tasks.each do |t|
-			next unless t = peer.local_object(t)
-			tasks << t
-		    end
-
+		    tasks = peer.local_object(m_tasks).to_value_set
 		    Distributed.update_all(tasks) do 
 			plan.discover(tasks)
 			m_relations.each_slice(2) do |obj, rel|
