@@ -83,18 +83,21 @@ module Roby
 	#   plan.partition_event_task(objects) => events, tasks
 	#
 	def partition_event_task(objects)
-	    if objects.respond_to?(:to_task) then return *[[], [objects.to_task]]
-	    elsif objects.respond_to?(:to_event) then return *[[objects.to_event], []]
+	    if objects.respond_to?(:to_task) then return nil, [objects.to_task]
+	    elsif objects.respond_to?(:to_event) then return [objects.to_event], nil
 	    elsif !objects.respond_to?(:each)
 		raise TypeError, "expecting a task, event, or a collection of tasks and events, got #{objects}"
 	    end
 
-	    objects.partition do |o| 
+	    evts, tasks = objects.partition do |o| 
 		if o.respond_to?(:to_event) then true
 		elsif o.respond_to?(:to_task) then false
 		else raise ArgumentError, "found #{o || 'nil'} which is neither a task nor an event"
 		end
 	    end
+	    evts  = nil if evts.empty?
+	    tasks = nil if tasks.empty?
+	    return evts, tasks
 	end
 
 	# If this plan is a toplevel plan, returns self. If it is a
@@ -204,13 +207,13 @@ module Roby
 	def discover(objects = nil)
 	    events, tasks = partition_event_task(objects)
 
-	    events = events.to_value_set
-	    unless events.empty?
+	    if events
+		events = events.to_value_set
 		discover_event_set(events)
 	    end
 
-	    tasks  = tasks.to_value_set
-	    unless tasks.empty?
+	    if tasks
+		tasks = tasks.to_value_set
 		new_tasks = useful_task_component(tasks, tasks.to_a)
 		unless new_tasks.empty?
 		    discover_task_set(new_tasks)
@@ -243,7 +246,9 @@ module Roby
 	# This is for internal use, use #discover instead
 	def discover_task_set(tasks)
 	    tasks = tasks.difference(known_tasks)
-	    tasks.each { |t| t.plan = self }
+	    for t in tasks
+		t.plan = self
+	    end
 	    known_tasks.merge tasks
 	    discovered_tasks(tasks)
 	end

@@ -614,7 +614,7 @@ module Roby
 		    end
 		    all_returns.compact!
 				      
-		    all_returns.each do |return_type|
+		    for return_type in all_returns
 			if task = find_reusable_task(return_type)
 			    return task
 			end
@@ -634,18 +634,16 @@ module Roby
             end
 	    
 	    def find_reusable_task(return_type)
-		candidates = plan.find_tasks.
+		query = plan.find_tasks.
 		    which_fullfills(return_type, arguments).
 		    self_owned.
 		    not_abstract.
 		    not_finished.
-		    roots(TaskStructure::Hierarchy).
-		    to_a
+		    roots(TaskStructure::Hierarchy)
 
-		unless candidates.empty?
-		    task = candidates.first
-		    Planning.debug { "selecting task #{task} instead of planning #{return_type}[#{arguments}]" }
-		    task
+		for candidate in query
+		    Planning.debug { "selecting task #{candidate} instead of planning #{return_type}[#{arguments}]" }
+		    return candidate
 		end
 	    end
 

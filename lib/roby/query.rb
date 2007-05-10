@@ -245,13 +245,19 @@ module Roby
 	# Called by TaskMatcher#result_set and Query#result_set to get the set
 	# of tasks matching +matcher+
 	def query_result_set(matcher)
-	    @known_tasks.find_all { |t| matcher === t }
+	    result = ValueSet.new
+	    for task in known_tasks
+		result << task if matcher === task
+	    end
+	    result
 	end
 
 	# Called by TaskMatcher#each and Query#each to return the result of
 	# this query on +self+
 	def query_each(result_set, &block)
-	    result_set.each(&block)
+	    for task in result_set
+		yield(task)
+	    end
 	end
 
 	# Given the result set of +query+, returns the subset of tasks which
@@ -259,7 +265,7 @@ module Roby
 	def query_roots(result_set, relation)
 	    children = ValueSet.new
 	    found    = ValueSet.new
-	    result_set.each do |task|
+	    for task in result_set
 		next if children.include?(task)
 		task_children = task.generated_subgraph(relation)
 		found -= task_children
@@ -284,13 +290,12 @@ module Roby
 	    loop do
 		old_transaction_set = transaction_set.dup
 		transaction_set.merge(transaction_seeds)
-		relation.generated_subgraphs(transaction_seeds.to_a, false).
-		    inject(transaction_set) do |transaction_set, new_set| 
-			transaction_set.merge(new_set)
-		    end
+		for new_set in relation.generated_subgraphs(transaction_seeds.to_a, false)
+		    transaction_set.merge(new_set)
+		end
 
 		if old_transaction_set.size != transaction_set.size
-		    (transaction_set - old_transaction_set).each do |o| 
+		    for o in (transaction_set - old_transaction_set)
 			if o.respond_to?(:__getobj__)
 			    o.__getobj__.each_child_object(relation) do |child|
 				plan_seeds << child unless self[child, false]
@@ -328,13 +333,11 @@ module Roby
 	# tasks matching it. The two sets are disjoint.
 	def query_result_set(matcher)
 	    plan_set, transaction_set = ValueSet.new, ValueSet.new
-	    plan.query_result_set(matcher).each do |task|
+	    for task in plan.query_result_set(matcher)
 		plan_set << task unless self[task, false]
 	    end
-	    super.each do |task|
-		transaction_set << task if self[task, false]
-	    end
-
+	    
+	    transaction_set.merge(super)
 	    [plan_set, transaction_set]
 	end
 
@@ -353,7 +356,7 @@ module Roby
 	    plan_result   , trsc_result   = ValueSet.new     , ValueSet.new
 	    plan_children , trsc_children = ValueSet.new     , ValueSet.new
 
-	    plan_set.each do |task|
+	    for task in plan_set
 		next if plan_children.include?(task)
 		task_plan_children, task_trsc_children = 
 		    merged_generated_subgraphs(relation, [task], [])
@@ -366,7 +369,7 @@ module Roby
 		plan_result << task
 	    end
 
-	    trsc_set.each do |task|
+	    for task in trsc_set
 		next if trsc_children.include?(task)
 		task_plan_children, task_trsc_children = 
 		    merged_generated_subgraphs(relation, [], [task])
