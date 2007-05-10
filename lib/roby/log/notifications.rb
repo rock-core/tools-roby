@@ -58,6 +58,17 @@ class Notifications < Roby::Log::DataDecoder
 		end
 		histories.delete(task)
 		removed_task(args[2])
+
+	    when /generator_calling/
+		@current_call = args.dup
+
+	    when /generator_called/
+		if @current_call == args[1]
+		    duration = args[0] - @current_call[0]
+		    if duration > GENERATOR_CALL_LIMIT
+			event :overly_long_call, args[0], duration, tasks[args[1].task], args[1].symbol, args[2]
+		    end
+		end
 		
 	    when /exception/
 		time, error, involved_tasks = *args
@@ -216,6 +227,12 @@ class NotificationsDisplay < Qt::TextBrowser
 	render_event("warn", time, "Failed task") do
 	    render_task(task)
 	    render_history(history)
+	end
+    end
+    def overly_long_call(time, duration, task, event_name, context)
+	render_event("warn", time, "Overly long call: ") do
+	    text << "Call of #{event_name}(#{context}) lasted #{Integer(duration * 1000)}ms in<br>"
+	    render_task(task)
 	end
     end
 end
