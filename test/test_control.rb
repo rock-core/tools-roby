@@ -44,8 +44,6 @@ class TC_Control < Test::Unit::TestCase
 	# Check that every(cycle_length) works fine
 	Roby.control.run :cycle => 0.1, :detach => true
 
-	assert_raises(ArgumentError) { Control.every(0.09) {} }
-
 	samples = []
 	id = Control.every(0.1) do
 	    samples << Roby.control.cycle_start

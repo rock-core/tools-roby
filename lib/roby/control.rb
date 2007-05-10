@@ -412,10 +412,6 @@ module Roby
 	    # Call +block+ every +duration+ seconds. Note that +duration+ is
 	    # round up to the cycle size (time between calls is *at least* duration)
 	    def every(duration, &block)
-		if duration < Roby.control.cycle_length
-		    raise ArgumentError, "duration cannot be under the cycle length (#{Roby.control.cycle_length})"
-		end
-
 		Control.once do
 		    block.call
 		    process_every << [block, Roby.control.cycle_start, duration]
