@@ -7,7 +7,8 @@ module Roby
 		:fatal_structure_errors, :garbage_collect, :application_errors, :end, 
 		:expected_ruby_gc, :ruby_gc, :expected_sleep, :sleep ]
 
-	    NUMERIC_FIELDS = [:cycle_index, :live_objects, :object_allocation, :log_queue_size]
+	    NUMERIC_FIELDS = [:cycle_index, :live_objects, :object_allocation, :log_queue_size, :ruby_gc_duration, 
+		:plan_task_count, :plan_event_count]
 
 	    ALL_FIELDS = ALL_TIMINGS | NUMERIC_FIELDS
 
