@@ -43,7 +43,10 @@ def build_and_commit
 		to   = arrays[to_origin][rand(TASK_COUNT)]
 		relation_count[from_origin] += 1
 		relation_count[to_origin] += 1
-		from.realized_by to
+		begin
+		    from.realized_by to
+		rescue CycleFoundError
+		end
 	    end
 	end
 
