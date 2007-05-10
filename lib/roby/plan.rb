@@ -225,6 +225,7 @@ module Roby
 	#
 	# This is for internal use, use #discover instead
 	def discover_event_set(events)
+	    events = events.difference(free_events)
 	    events.each do |e| 
 		if !e.root_object?
 		    raise ArgumentError, "trying to discover #{e} which is a non-root event"
@@ -232,7 +233,6 @@ module Roby
 		e.plan = self
 	    end
 
-	    events = events.difference(free_events)
 	    free_events.merge(events)
 	    discovered_events(events)
 	end
