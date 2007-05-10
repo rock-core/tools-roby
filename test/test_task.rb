@@ -543,7 +543,7 @@ class TC_Task < Test::Unit::TestCase
 	assert(task.success?)
     end
 
-    def test_task_same_state
+    def test_compatible_state
 	t1, t2 = prepare_plan :missions => 2, :model => SimpleTask
 
 	assert(t1.compatible_state?(t2))
