@@ -131,15 +131,7 @@ module Roby
 	attr_reader :command
 
 	# Sets a command proc for this event generator. Sets controlable to true
-	def command=(block)
-	    old = @command
-	    @command = block
-	    if !block ^ !old
-		if block then singleton_class.class_eval { public :call }
-		else singleton_class.class_eval { private :call }
-		end
-	    end
-	end
+	attr_writer :command
 	
 	# True if this event is controlable
 	def controlable?; !!@command end
@@ -150,6 +142,10 @@ module Roby
 	#
 	# This is used by propagation code, and should never be called directly
 	def call_without_propagation(context) # :nodoc:
+	    if !controlable?
+		raise EventModelViolation.new(self), "#call called on a non-controlable event"
+	    end
+
 	    error = false
 	    postponed = catch :postponed do 
 		calling(context)
@@ -198,7 +194,6 @@ module Roby
 		errors.each { |e| raise e.exception }
 	    end
 	end
-	private :call
 
 	# Establishes signalling and/or event handlers from this event
 	# generator.  If +time+ is non-nil, it is a delay (in seconds) which
@@ -541,12 +536,12 @@ module Roby
 	def until(limit); UntilGenerator.new(self, limit) end
 	
 	# Checks that ownership allows to add the self => child relation
-	def adding_child_object(child, type, info) # :nodoc:
-	    super if defined? super
-	    
+	def add_child_object(child, type, info) # :nodoc:
 	    unless child.read_write?
 		raise NotOwner, "cannot add an event relation on a child we don't own. #{child} is owned by #{child.owners.to_a} (#{plan.owners.to_a})"
 	    end
+
+	    super
 	end
 
 	@@event_gathering = Array.new
