@@ -645,6 +645,7 @@ module Roby
 		    Planning.debug { "selecting task #{candidate} instead of planning #{return_type}[#{arguments}]" }
 		    return candidate
 		end
+		nil
 	    end
 
 	    def arguments; @arguments.last end
