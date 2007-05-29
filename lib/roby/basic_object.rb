@@ -121,7 +121,7 @@ module Roby
 	
 	# True if this object can be modified in the current context
 	def read_write?
-	    Distributed.updating?([self]) || self_owned? 
+	    Distributed.updating?(self) || self_owned? 
 	end
     end
 end
