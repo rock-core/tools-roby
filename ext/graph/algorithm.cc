@@ -486,6 +486,55 @@ static VALUE graph_undirected_each_dfs(VALUE self, VALUE root, VALUE mode)
     return self;
 }
 
+struct ruby_reachable_visitor : default_dfs_visitor
+{
+    bool& m_found;
+    vertex_descriptor m_target;
+
+    ruby_reachable_visitor(bool& found, vertex_descriptor target)
+	: m_found(found), m_target(target) { m_found = false; }
+
+    template<typename E, typename G>
+    void tree_edge(E e, G const& graph)
+    { 
+	if (m_target == target(e, graph))
+	    m_found = true;
+    }
+};
+
+struct ruby_reachable_terminator
+{ 
+    bool const& found;
+    ruby_reachable_terminator(bool const& found)
+	: found(found) { }
+
+    template<typename G>
+    bool operator()(vertex_descriptor u, G const& g) const { return found; }
+};
+
+/* call-seq:
+ *  graph.reachable?(v1, v2)
+ *
+ * Returns true if v2 can be reached from v1
+ */
+VALUE graph_reachable_p(VALUE self, VALUE source, VALUE target)
+{
+    RubyGraph& graph = graph_wrapped(self);
+    vertex_descriptor s, t; bool exists;
+    tie(s, exists) = rb_to_vertex(source, self);
+    if (! exists)
+	return Qfalse;
+    tie(t, exists) = rb_to_vertex(target, self);
+    if (! exists)
+	return Qfalse;
+
+    map<vertex_descriptor, default_color_type> colors;
+    bool found;
+    depth_first_visit(graph, s, ruby_reachable_visitor(found, t), 
+	    make_assoc_property_map(colors), ruby_reachable_terminator(found));
+
+    return found;
+}
 
 
 struct ruby_bfs_visitor : public default_bfs_visitor
@@ -657,6 +706,7 @@ void Init_graph_algorithms()
     rb_define_method(bglGraph, "generated_subgraphs",   RUBY_METHOD_FUNC(graph_generated_subgraphs), -1);
     rb_define_method(bglGraph, "each_dfs",	RUBY_METHOD_FUNC(graph_direct_each_dfs), 2);
     rb_define_method(bglGraph, "each_bfs",	RUBY_METHOD_FUNC(graph_direct_each_bfs), 2);
+    rb_define_method(bglGraph, "reachable?", RUBY_METHOD_FUNC(graph_reachable_p), 2);
     rb_define_method(bglGraph, "prune",		RUBY_METHOD_FUNC(graph_prune), 0);
     rb_define_method(bglGraph, "topological_sort",		RUBY_METHOD_FUNC(graph_topological_sort), -1);
 

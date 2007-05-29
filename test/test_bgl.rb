@@ -487,5 +487,22 @@ class TC_BGL < Test::Unit::TestCase
 	assert(v1.singleton_vertex?)
 	assert(v3.singleton_vertex?)
     end
+
+    def test_graph_reachable
+	v1, v2, v3 = (1..3).map { Vertex.new }
+	g = Graph.new
+	assert(!g.reachable?(v1, v3))
+	g.link v1, v2, nil
+	assert(!g.reachable?(v1, v3))
+	g.link v2, v3, nil
+	assert(g.reachable?(v1, v2))
+	assert(g.reachable?(v1, v3))
+	assert(!g.reachable?(v3, v1))
+	assert(!g.reachable?(v2, v1))
+
+	g.link(v3, v1, nil)
+	assert(g.reachable?(v2, v1))
+	assert(g.reachable?(v3, v1))
+    end
 end
 

@@ -237,7 +237,7 @@ module Roby
 	    if !linked?(from, to) 
 		if parent
 		    from.add_child_object(to, parent, info)
-		elsif dag? && to.generated_subgraph(self).include?(from)
+		elsif dag? && reachable?(to, from)
 		    # No need to test that we won't create a cycle in child
 		    # relations, since the parent relation graphs are the union
 		    # of all their children
