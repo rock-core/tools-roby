@@ -2,6 +2,8 @@ require 'thread'
 require 'roby'
 require 'roby/planning'
 require 'facet/basicobject'
+require 'utilrb/column_formatter'
+require 'stringio'
 
 module Roby
     class RemoteInterface
@@ -20,8 +22,32 @@ module Roby
 		@interface = interface
 	    end
 
+	    def __history__(history)
+		history = history.map do |ev|
+		    { 'Name' => ev.symbol, 'At' => ev.time }
+		end
+		io = StringIO.new
+		ColumnFormatter.from_hashes(history, io) do
+		    %w{Name At}
+		end
+		"\n#{io.string}"
+	    end
+
+	    def call(m, *args)
+		@calling = true
+		method_missing(m, *args)
+
+	    ensure
+		@calling = false
+	    end
+
 	    def method_missing(m, *args)
-		@interface.call(@remote_id, m, *args)
+		v = @interface.call(@remote_id, m, *args)
+		if respond_to?("__#{m}__") && !@calling
+		    object_self.send("__#{m}__", v)
+		else
+		    v
+		end
 	    end
 	end
 
@@ -107,14 +133,24 @@ module Roby
 	end
 
 	def task_set_to_s(task_set)
-	    task_set.map do |task|
+	    if task_set.empty?
+		return "no tasks"
+	    end
+
+	    task = task_set.map do |task|
 		state_name = %w{pending starting running finishing finished}.find do |state_name|
 		    task.send("#{state_name}?")
 		end
 
-		[task.to_s, state_name]
+		start_event = task.history.find { |ev| ev.symbol == :start }
+		{ 'Task' => task.to_s, 'Since' => start_event.time, 'State' => state_name }
 	    end
+
+	    io = StringIO.new
+	    ColumnFormatter.from_hashes(task, io) { %w{Task Since State} }
+	    "\n#{io.string}"
 	end
+
 	def running_tasks
 	    Roby.execute do
 		task_set_to_s(Roby.plan.find_tasks.running.to_a)
@@ -122,8 +158,14 @@ module Roby
 	end
 
 	def missions
-	    missions = Roby.execute do
+	    Roby.execute do
 		task_set_to_s(control.plan.missions)
+	    end
+	end
+
+	def tasks
+	    Roby.execute do 
+		task_set_to_s(Roby.plan.known_tasks)
 	    end
 	end
 
