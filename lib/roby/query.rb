@@ -154,6 +154,10 @@ module Roby
 	def result_set
 	    @result_set ||= plan.query_result_set(self)
 	end
+	def reset
+	    @result_set = nil
+	    self
+	end
 
 	attr_reader :plan_predicates
 	attr_reader :neg_plan_predicates
