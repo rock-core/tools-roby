@@ -231,9 +231,6 @@ module Roby
 
 	    planner = PlanningTask.new(:planner_model => planner_model, :method_name => name, :method_options => options)
 	    task.planned_by planner
-	    if do_start
-		planner.on(:success, task, :start)
-	    end
 
 	    Roby.execute do
 		control.plan.insert(task)

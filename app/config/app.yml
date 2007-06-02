@@ -55,6 +55,12 @@ control:
   # Abort if an application exception occurs (default: false)
   # abort_on_application_exception: true
   
+  # The executive. Set to 'none' to disable.
+  # The executive object determines, in the current plan, what are
+  # the tasks which must be started. The 'simple' executive starts
+  # all tasks that have no predecessors.
+  executive: simple
+
   # If the GC should be run at each control loop (default: false)
   # WARNING: for now, the performance hit for GCing at each control loop
   # WARNING: is too high

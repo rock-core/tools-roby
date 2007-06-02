@@ -365,6 +365,14 @@ module Roby
 	    options = { :detach => true, 
 		:control_gc => control_config['control_gc'], 
 		:cycle => control_config['cycle'] || 0.1 }
+	    
+	    # Add an executive if one is defined
+	    if control_config['executive']
+		full_name = "roby/executives/#{control_config['executive']}"
+		require full_name
+		executive = full_name.camelize.constantize.new
+		Control.event_processing << executive.method(:initial_events)
+	    end
 
 	    if log['events']
 		require 'roby/log/file'
