@@ -75,11 +75,29 @@ module Roby
     # This class is used to interface with the Roby event loop and plan. It is the
     # main front object when accessing a Roby core remotely
     class Interface
+	module GatherExceptions
+	    attr_accessor :control_interface
+	    def fatal_exception(error, tasks)
+		super if defined? super
+
+		if control_interface
+		    msg = "Fatal exception: #{error.exception.message}:\n"
+		    msg << tasks.map { |t| t.to_s }.join("\n")
+		    msg << "\nThe following tasks have been killed:\n"
+		    tasks.each { |t| msg << "  * " << t.to_s }
+		    control_interface.pending_messages << msg
+		end
+	    end
+	end
+
 	attr_reader :control
-	private :control
+	attr_reader :pending_messages
 	def initialize(control)
-	    @control = control
-	    super()
+	    @control	      = control
+	    @pending_messages = []
+
+	    Roby::Control.extend GatherExceptions
+	    Roby::Control.control_interface = self
 	end
 
 	# Make the Roby event loop quit
@@ -174,6 +192,12 @@ module Roby
 	    result + actions.map { |n| "#{n}!" }
 	end
 
+	def poll_messages
+	    Roby.execute do
+		@pending_messages, messages = [], @pending_messages
+		messages
+	    end
+	end
 
 	# Tries to find a planner method which matches +name+ with +args+. If it finds
 	# one, creates a task planned by a planning task and yields both

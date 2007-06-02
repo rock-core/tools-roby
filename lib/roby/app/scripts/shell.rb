@@ -42,6 +42,20 @@ begin
 	irb.signal_handle
     end
 
+    # Create a thread which reads the remote messages and display them if needed
+    Thread.new do
+	loop do
+	    sleep(1)
+	    msg = control.poll_messages
+	    if !msg.empty?
+		STDERR.puts
+		msg.each do |t| 
+		    STDERR.puts "!" + t.split("\n").join("\n!")
+		end
+	    end
+	end
+    end
+
     if remote_url
 	catch(:IRB_EXIT) do
 	    irb.eval_input
