@@ -1,0 +1,116 @@
+== The bulkHead tutorial: making a simple robot move
+This tutorial show how to make a robot go forward. First, we will define
+a GoForward task. Edit <tt>tasks/go_forward.rb</tt> and add
+  class GoForward < Roby::Task
+    # The GoForward task expects a 'speed' argument
+    arguments :speed
+
+    # Block called at every execution loop
+    poll do
+      State.pos.x += speed
+    end
+
+    # The task needs no specific code to terminate
+    # This allows to stop the task by doing
+    #   task.stop!
+    terminates
+  end
+
+
+And in the controller file, <tt>controllers/bulkHead.rb</tt> do
+  # Define the original value of x
+  State.pos.x = 0
+
+  # Will display the value of x every 1 second
+  Roby.every(1) do
+    puts State.pos.x
+  end
+
+  Roby.plan.insert(go = GoForward.new(:speed => 0.1))
+  puts "Going forward at speed #{go.speed}"
+  go.start!
+
+Now, you can start the process by doing
+  scripts/run bulkHead
+
+* the line
+    State.pos.x = 0 
+  initializes the robot's state. It is in general supposed to be put in the
+  robot configuration file, config/bulkHead.rb (see below)
+* the line
+    arguments :speed
+  tells Roby that the GoForward tasks require a 'speed' argument. If it is
+  omitted, the task is not executable and as such cannot be started. Replace
+    Roby.plan.insert(go = GoForward.new(:speed => 0.1))
+  by
+    Roby.plan.insert(go = GoForward.new)
+  and you'll get
+    controllers/bulkHead.rb:14: start! called on GoForward:0x30517260[] which is partially instanciated (Roby::EventNotExecutable) 
+
+  a /partially instanciated/ task being a task whose all required arguments are
+  not set
+
+* we did not specify a robot name in the call to <tt>scripts/run</tt>. In that
+  case, Roby instantiated a robot named 'bulkHead' of type 'bulkHead'
+* in general, one does not want the robot to start moving just after
+  initialization. To have an interactive interface to the robot's actions, you
+  can use the <tt>scripts/shell</tt> tool. See below.
+
+=== The configuration files
+* the <tt>config/init.rb</tt> file is loaded for all robots, before anything
+  else is done
+* the <tt>config/robotname.rb</tt> and <tt/>config/robotkind.rb</tt> files are
+  loaded for the specific robot. <tt>robotkind.rb</tt> is loaded first. These
+  files are optional.
+
+=== Using the shell to start the robot's movement
+What we want to do here is being able to <em>send a command</em> to the robot,
+instead of hard-coding the movement in its controller. Do do that, we must
+first define an <em>action</em> in the robot's main planner. Edit
+<tt>planners/main.rb</tt> and add the following code to the definition of the
+MainPlanner class.
+
+  method(:move) do
+      GoForward.new :speed => (arguments[:speed] || State.speed)
+  end
+
+and replace the last three lines of <tt>controllers/bulkHead.rb</tt> by
+
+  puts "Ready"
+
+now, start the application and wait for it to be ready
+
+  $ scripts/run bulkHead
+  Ready
+  0
+  0
+
+once you get the Ready message, start a shell and wait for the <tt>>></tt>
+prompt by doing
+
+  $ scripts/shell --remote
+  >>
+
+Let's now check that the <tt>move</tt> action does exist
+  >> actions
+  => [move]
+
+... and start the move
+  >> move! :speed => 0.2
+  =>
+
+wait a little bit and check that the task is running
+  >> running_tasks
+  =>
+    State                                   Task
+  running   GoForward{speed => 0.5}:0x3047b518[]
+
+now, to stop it ...
+  >> tasks = find_tasks.running.to_a
+  => [GoForward{speed => 0.1}:0x30415098[]]
+  >> task = tasks.first
+  => GoForward{speed => 0.1}:0x30415098[]
+  >> task.stop!
+
+---
+vim: tw=80
