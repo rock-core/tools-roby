@@ -52,16 +52,17 @@ module Roby
 	    @history = task.history
 	end
         def to_s
+	    task_name = task.name
 	    history = self.history.map do |event|
 		    "@%i[%s.%03i] %s" % [
 			event.propagation_id,
 			event.time.strftime("%Y/%m/%d %H:%M:%S"),
 			event.time.tv_usec / 1000,
-			event.name
+			event.name.gsub(task_name, "")
 		    ]
 		end
 
-	    super + "\n#{task.name} (0x#{task.address.to_s(16)}) history\n   #{history.join("\n   ")}"
+	    super + "\n#{task_name} (0x#{task.address.to_s(16)}) history\n   #{history.join("\n   ")}"
         end
     end
 
