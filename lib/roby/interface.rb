@@ -112,10 +112,6 @@ module Roby
 	    end
 	end
 
-	def test_find_tasks
-	    plan.find_tasks.to_a
-	end
-
 	def find_tasks
 	    plan.find_tasks
 	end
