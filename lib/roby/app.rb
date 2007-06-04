@@ -323,7 +323,11 @@ module Roby
 	    Roby.control.planners << MainPlanner
 	   
 	    # Set up dRoby, setting an Interface object as front server, for shell access
-	    host = droby['host']
+	    host = droby['host'] || ""
+	    if host !~ /:\d+$/
+		host << ":#{Distributed::DEFAULT_DROBY_PORT}"
+	    end
+
 	    if single? || !robot_name
 		host =~ /:(\d+)$/
 		DRb.start_service "roby://:#{$1 || '0'}", Interface.new(Roby.control)

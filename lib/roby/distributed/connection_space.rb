@@ -8,8 +8,6 @@ require 'roby/distributed/peer'
 
 module Roby
     module Distributed
-	DISCOVERY_RING_PORT = 48932
-
 	# A neighbour is a named remote ConnectionSpace object
 	class Neighbour
 	    attr_reader :name, :remote_id

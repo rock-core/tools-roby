@@ -7,7 +7,7 @@ require 'tempfile'
 module Roby
     module Log
 	class Server
-	    RING_PORT = 48933
+	    RING_PORT = 48904
 
 	    class << self
 		attr_reader :logger

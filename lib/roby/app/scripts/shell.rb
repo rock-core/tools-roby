@@ -6,8 +6,12 @@ require 'optparse'
 remote_url = nil
 if ARGV.include?("--remote")
     opt = OptionParser.new do |opt|
-	opt.on('--remote URL', String, "connect to a remote Roby engine") do |url|
-	    remote_url = url
+	opt.on('--remote [URL]', String, "connect to a remote Roby engine") do |url|
+	    remote_url = 
+		if url then url
+		else
+		     "localhost:#{Roby::Distributed::DEFAULT_DROBY_PORT}"
+		end
 	end
     end
     opt.parse! ARGV
@@ -20,6 +24,7 @@ app = Roby.app
 robot_name = ARGV.shift
 app.robot robot_name, (ARGV.shift || robot_name)
 require File.join(File.dirname(__FILE__), '..', 'load')
+app.droby['host'] = 'localhost:0'
 app.setup
 
 require 'irb'
