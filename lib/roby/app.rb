@@ -462,8 +462,7 @@ module Roby
 
 	    # Start a log server if needed, and poll the log directory for new
 	    # data sources
-	    #
-	    if log_server = options['log']['server']
+	    if log_server = (log.has_key?('server') ? log['server'] : true)
 		require 'roby/log/server'
 		port = if log_server.kind_of?(Hash) && log_server['port']
 			   Integer(log_server['port'])
