@@ -166,9 +166,14 @@ module Roby
 	end
 
 	def read_write?
-	    super || 
-		Distributed.updating?(root_object) || 
-		(!plan || (plan.self_owned? && (owners - plan.owners).empty?))
+	    if (owners.include?(Distributed) || Distributed.updating?(root_object) || !plan)
+		true
+	    elsif plan.owners.include?(Distributed)
+		for peer in owners
+		    return false unless plan.owners.include?(peer)
+		end
+		true
+	    end
 	end
 
 	# We can remove relation if one of the objects is owned by us
