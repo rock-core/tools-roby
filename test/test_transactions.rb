@@ -45,7 +45,10 @@ module TC_TransactionBehaviour
 	# Check that no task in trsc are in plan, and that no task of plan are in trsc
 	assert( (trsc.known_tasks & plan.known_tasks).empty?, (trsc.known_tasks & plan.known_tasks))
 
+	plan = trsc.plan
 	trsc.commit_transaction
+	assert(!trsc.plan)
+	assert(plan.transactions.empty?)
 
 	# Check that there is no proxy left in the graph
 	[[Roby::TaskStructure, Roby::Task], [Roby::EventStructure, Roby::EventGenerator]].each do |structure, klass|
