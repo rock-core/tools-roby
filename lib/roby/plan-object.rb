@@ -62,7 +62,7 @@ module Roby
 		raise InvalidPlanOperation, "cannot add a relation between two objects from different plans. #{self} is from #{plan} and #{other} is from #{other.plan}"
 	    elsif plan
 		plan = self.plan
-		other.instance_eval { @plan = plan }
+		other.instance_variable_set(:@plan, plan)
 		other
 	    elsif other.plan
 		@plan = other.plan
@@ -86,19 +86,17 @@ module Roby
 	    changed = root_object.synchronize_plan(child.root_object)
 	    super
 
-	rescue Exception
-	    if changed
-		changed.instance_eval { @plan = nil }
-	    end
-	    raise
-
-	else
 	    if changed
 		p = plan
-		changed.instance_eval { @plan = nil }
-		changed.plan = p
+		changed.instance_variable_set(:@plan, nil)
 		p.discover(changed)
 	    end
+
+	rescue Exception
+	    if changed
+		changed.instance_variable_set(:@plan, nil)
+	    end
+	    raise
 	end
 
 	def root_object; self end
