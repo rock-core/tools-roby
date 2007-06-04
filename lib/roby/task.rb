@@ -342,7 +342,9 @@ module Roby
         # * the task shall have at least one terminal event. If no +stop+ event
         #   is defined, then all terminal events are aliased to +stop+
         def initialize(arguments = nil) #:yields: task_object
-	    @arguments = TaskArguments.new(self).merge(arguments || {})
+	    @arguments = TaskArguments.new(self)
+	    @arguments.merge!(arguments) if arguments
+
 	    @name = "#{model.name || self.class.name}#{arguments.to_s}:0x#{address.to_s(16)}"
             @bound_events = Hash.new
 
