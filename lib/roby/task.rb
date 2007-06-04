@@ -557,10 +557,9 @@ module Roby
 	def update_terminal_flag
 	    return unless @instantiated_model_events
 
-	    bound_events.each_value { |ev| ev.terminal_flag = nil }
-	    bound_events[:success].terminal_flag = :success
-	    bound_events[:failed].terminal_flag = :failure
-	    bound_events[:stop].terminal_flag = true
+	    for _, ev in bound_events
+		ev.terminal_flag = nil
+	    end
 	    success_events = bound_events[:success].
 		generated_subgraph(EventStructure::CausalLink.reverse)
 	    failure_events = bound_events[:failed].
@@ -568,9 +567,8 @@ module Roby
 	    terminal_events = bound_events[:stop].
 		generated_subgraph(EventStructure::CausalLink.reverse)
 
-	    intersection = (success_events & failure_events)
-	    unless intersection.empty?
-		raise "#{intersection} are both failure and success events"
+	    if success_events.intersects?(failure_events)
+		raise ArgumentError, "#{success_events & failure_events} are both success and failure events"
 	    end
 
 	    for ev in success_events
@@ -579,7 +577,7 @@ module Roby
 	    for ev in failure_events
 		ev.terminal_flag = :failure if ev.respond_to?(:task) && ev.task == self
 	    end
-	    for ev in (terminal_events - (success_events | failure_events))
+	    for ev in (terminal_events - success_events - failure_events)
 		ev.terminal_flag = true if ev.respond_to?(:task) && ev.task == self
 	    end
 	end
