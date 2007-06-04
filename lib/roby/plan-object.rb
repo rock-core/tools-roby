@@ -14,6 +14,7 @@ module Roby
 	# The place where this object has been removed from its plan
 	attr_accessor :removed_at
 
+	# True if this object is not included in a plan anymore
 	def finalized?; !!removed_at end
 
 	# Sets the new plan. Since it is forbidden to re-use a plan object that
