@@ -54,12 +54,11 @@ module Roby
 		if self[child, relation] != info
 		    raise ArgumentError, "trying to override edge data. Was #{self[child, relation]}, new info is #{info}"
 		end
-		return
+	    else
+		adding_child_object(child, relation, info)
+		relation.add_relation(self, child, info)
+		added_child_object(child, relation, info)
 	    end
-
-	    adding_child_object(child, relation, info)
-	    relation.add_relation(self, child, info)
-	    added_child_object(child, relation, info)
 	end
 
 	# Add a new parent object in the +relation+ relation
