@@ -9,11 +9,9 @@ class TC_Event < Test::Unit::TestCase
 
     def test_properties
 	event = EventGenerator.new
-	assert(! event.respond_to?(:call))
 	assert(! event.controlable?)
 
 	event = EventGenerator.new(true)
-	assert(event.respond_to?(:call))
 	assert(event.controlable?)
 
 	# Check command & emission behavior for controlable events
@@ -21,7 +19,6 @@ class TC_Event < Test::Unit::TestCase
 	    plan.discover(event = EventGenerator.new { |context| mock.call_handler(context); event.emit(context) })
 	    event.on { |event| mock.event_handler(event.context) }
 
-	    assert(event.respond_to?(:call))
 	    assert(event.controlable?)
 	    mock.should_receive(:call_handler).once.with(42)
 	    mock.should_receive(:event_handler).once.with(42)
