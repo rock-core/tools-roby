@@ -100,7 +100,7 @@ module Roby
 		super if defined? super
 		return if !plan
 
-		plan.transactions.each do |trsc|
+		for trsc in plan.transactions
 		    next unless trsc.proxying?
 		    if trsc[self, false] && trsc[child, false]
 			trsc.adding_plan_relation(self, child, type, info) 

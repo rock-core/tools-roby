@@ -359,21 +359,26 @@ module Roby
 
 	def instantiate_model_event_relations
 	    # Add the model-level signals to this instance
-	    bound_events.each do |symbol, generator|
-		model.each_signal(symbol) do |signalled|
-		    generator.signal bound_events[signalled]
-		end
-		model.each_forwarding(symbol) do |signalled|
-		    generator.forward bound_events[signalled]
-		end
-		model.each_causal_link(symbol) do |linked|
-		    generator.add_causal_link bound_events[linked]
-		end
+	    
+	    for symbol, generator in bound_events
+	        for signalled in model.signals(symbol)
+	            generator.signal bound_events[signalled]
+	        end
+
+	        for signalled in model.forwardings(symbol)
+	            generator.forward bound_events[signalled]
+	        end
+
+	        for signalled in model.causal_links(symbol)
+	            generator.add_causal_link bound_events[signalled]
+	        end
 	    end
 
 	    start_event = bound_events[:start]
-	    bound_events.each do |symbol, generator|
-		start_event.add_precedence(generator) if symbol != :start
+	    for symbol, generator in bound_events
+	        if symbol != :start
+	            start_event.add_precedence(generator)
+	        end
 	    end
 
 	    @instantiated_model_events = true
@@ -383,11 +388,15 @@ module Roby
 	    # :start to a terminal event
 	    #
 	    # Create the precedence relations between 'normal' events and the terminal events
-	    terminal_events.each do |terminal|
-		next if terminal.symbol == :start
-		bound_events.each_value do |generator|
-		    generator.add_precedence(terminal) unless generator.terminal?
-		end
+	    #
+	    # 272 objects
+	    for terminal in terminal_events
+	        next if terminal.symbol == :start
+	        for _, generator in bound_events
+	            unless generator.terminal?
+	        	generator.add_precedence(terminal)
+	            end
+	        end
 	    end
 	end
 
@@ -563,13 +572,14 @@ module Roby
 	    unless intersection.empty?
 		raise "#{intersection} are both failure and success events"
 	    end
-	    success_events.each do |ev| 
+
+	    for ev in success_events
 		ev.terminal_flag = :success if ev.respond_to?(:task) && ev.task == self
 	    end
-	    failure_events.each do |ev| 
+	    for ev in failure_events
 		ev.terminal_flag = :failure if ev.respond_to?(:task) && ev.task == self
 	    end
-	    (terminal_events - (success_events | failure_events)).each do |ev|
+	    for ev in (terminal_events - (success_events | failure_events))
 		ev.terminal_flag = true if ev.respond_to?(:task) && ev.task == self
 	    end
 	end
@@ -917,7 +927,7 @@ module Roby
 
         # Iterates on all the events defined for this task
         def each_event # :yield:bound_event
-	    bound_events.each_value do |ev|
+	    for _, ev in bound_events
 		yield(ev)
 	    end
         end
