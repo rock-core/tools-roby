@@ -7,12 +7,12 @@ app.setup
 begin
     app.start_server
 
-    Roby::Log::Server.info "server ready"
+    Roby::Log::Server.info "ready"
     sleep
 rescue Interrupt
 ensure
-    Roby::Log::Server.info "server quitting"
+    Roby::Log::Server.info "quitting"
     app.stop_server
 end
-Roby::Log::Server.info "server quit"
+Roby::Log::Server.info "quit"
 

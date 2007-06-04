@@ -468,7 +468,8 @@ module Roby
 			   Integer(log_server['port'])
 		       end
 
-		@log_server  = Log::Server.new(port || Log::Server::RING_PORT)
+		@log_server  = Log::Server.new(port ||= Log::Server::RING_PORT)
+		Roby::Log::Server.info "log server published on port #{port}"
 		@log_streams = []
 		@log_streams_poll = Thread.new do
 		    begin

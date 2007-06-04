@@ -9,7 +9,13 @@ module Roby
 	class Server
 	    RING_PORT = 48933
 
-	    extend Logger::Hierarchy
+	    class << self
+		attr_reader :logger
+	    end
+	    @logger = Logger.new(STDERR)
+	    @logger.level = Logger::INFO
+	    @logger.progname = "Roby server"
+	    @logger.formatter = lambda { |severity, time, progname, msg| "#{time.to_hms} #{progname} #{msg}\n" }
 	    extend Logger::Forward
 
 	    @mutex = Mutex.new
@@ -154,7 +160,9 @@ module Roby
 					     reinit(s.id)
 					     true
 					 elsif s.has_sample?
-					     Roby::Log::Server.info "new sample for #{s} at #{s.current_time.to_hms}"
+					     if Roby::Log::Server.logger.debug?
+						 Roby::Log::Server.debug "new sample for #{s} at #{s.current_time.to_hms}"
+					     end
 					     push(s.id, s.current_time, s.read)
 					     true
 					 end
