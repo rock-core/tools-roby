@@ -21,7 +21,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_arguments
 	model = Class.new(Task) do
-	    argument :from, :to
+	    arguments :from, :to
 	end
 	plan.discover(task = model.new(:from => 'B', :useless => 'bla'))
 	assert_equal([], Task.arguments.to_a)
