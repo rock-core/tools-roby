@@ -124,8 +124,12 @@ class TC_Task < Test::Unit::TestCase
 	model = Class.new(SimpleTask) do
 	    forward :start => :failed
 	end
-	assert_equal({ :start => [:failed, :stop].to_set }, model.forwarding_sets)
+	assert_equal({ :start => [:failed, :stop].to_value_set }, model.forwarding_sets)
 	assert_equal({}, SimpleTask.signal_sets)
+
+	assert_equal([:failed, :stop].to_value_set, model.forwardings(:start))
+	assert_equal([:stop].to_value_set, model.forwardings(:failed))
+	assert_equal(model.forwardings(:failed), model.enum_for(:each_forwarding, :failed).to_value_set)
 
 	FlexMock.use do |mock|
 	    model.on :start do

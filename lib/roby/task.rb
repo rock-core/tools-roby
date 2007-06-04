@@ -163,7 +163,7 @@ module Roby
 
         def controlable?; event_model.controlable? end
 	attr_accessor :terminal_flag
-	def terminal?; @terminal_flag end
+	def terminal?; !!@terminal_flag end
 	def success?; @terminal_flag == :success end
 	def failure?; @terminal_flag == :failure end
 	def added_child_object(child, relation, info)
@@ -286,22 +286,20 @@ module Roby
 	end
 
 	def self.model_attribute_list(name)
-	    inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = Set.new } }
+	    inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = ValueSet.new } }
 	    class_eval <<-EOD
-		class << self
-		    attribute("__#{name}_aux_enumerator__") { Hash.new }
-		    attribute("__#{name}_enumerator__") { Hash.new }
-		end
-
-		def self.each_#{name}_aux(model)
-		    each_#{name}_set(model, false) { |models| models.each { |m| yield(m) } }
-		end
 		def self.each_#{name}(model)
-		    enumerator = (__#{name}_aux_enumerator__[model] ||= enum_for(:each_#{name}_aux, model))
-		    enumerator.each_uniq { |o| yield(o) }
+		    for obj in #{name}s(model)
+			yield(obj)
+		    end
+		    self
 		end
 		def self.#{name}s(model)
-		    __#{name}_enumerator__[model] ||= enum_for(:each_#{name}, model)
+		    result = ValueSet.new
+		    each_#{name}_set(model, false) do |set|
+			result.merge set
+		    end
+		    result
 		end
 		def each_#{name}(model); self.model.each_#{name}(model) { |o| yield(o) } end
 	    EOD
@@ -999,7 +997,7 @@ module Roby
                      else;  []
                      end
 
-		signal_sets[from] |= to.to_set
+		signal_sets[from].merge to.to_value_set
 		update_terminal_flag
 
 		if user_handler 
@@ -1017,7 +1015,7 @@ module Roby
 	def self.causal_link(mappings)
             mappings.each do |from, to|
                 from = event_model(from).symbol
-		causal_link_sets[from] |= Array[*to].map { |ev| event_model(ev).symbol }.to_set
+		causal_link_sets[from].merge Array[*to].map { |ev| event_model(ev).symbol }.to_value_set
             end
 	    update_terminal_flag
 	end
@@ -1026,7 +1024,7 @@ module Roby
 	def self.forward(mappings)
             mappings.each do |from, to|
                 from = event_model(from).symbol
-		forwarding_sets[from] |= Array[*to].map { |ev| event_model(ev).symbol }.to_set
+		forwarding_sets[from].merge Array[*to].map { |ev| event_model(ev).symbol }.to_value_set
             end
 	    update_terminal_flag
 	end
