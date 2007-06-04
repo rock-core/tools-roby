@@ -349,7 +349,6 @@ module Roby
             @bound_events = Hash.new
 
             yield self if block_given?
-            raise TaskModelViolation.new(self), "no start event defined" unless has_event?(:start)
 
 	    # Create all event generators
 	    model.each_event do |symbol, model|
