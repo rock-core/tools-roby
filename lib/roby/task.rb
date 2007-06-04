@@ -1171,12 +1171,12 @@ module Roby
 	end
 	
 	# We can't add relations on objects we don't own
-	def adding_child_object(child, type, info)
-	    super if defined? super
-
+	def add_child_object(child, type, info)
 	    unless read_write? && child.read_write?
-		raise NotOwner, "cannot add a relation between tasks we don't own.  #{self} by #{owners.to_a} and #{child} is owned by #{child.owners.to_a}"
+	        raise NotOwner, "cannot add a relation between tasks we don't own.  #{self} by #{owners.to_a} and #{child} is owned by #{child.owners.to_a}"
 	    end
+
+	    super
 	end
 
 	def replace_by(object)
