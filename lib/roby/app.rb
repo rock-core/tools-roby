@@ -474,16 +474,20 @@ module Roby
 		@log_streams_poll = Thread.new do
 		    begin
 			loop do
-			    known_streams = @log_server.streams
-			    streams	  = data_streams
+			    Thread.exclusive do
+				known_streams = @log_server.streams
+				streams	  = data_streams
 
-			    (streams - known_streams).each do |s|
-				Roby::Log::Server.info "new stream found #{s.name} [#{s.type}]"
-				@log_server.added_stream(s)
-			    end
-			    (known_streams - streams).each do |s|
-				Roby::Log::Server.info "end of stream #{s.name} [#{s.type}]"
-				@log_server.removed_stream(s)
+				(streams - known_streams).each do |s|
+				    Roby::Log::Server.info "new stream found #{s.name} [#{s.type}]"
+				    s.open
+				    @log_server.added_stream(s)
+				end
+				(known_streams - streams).each do |s|
+				    Roby::Log::Server.info "end of stream #{s.name} [#{s.type}]"
+				    s.close
+				    @log_server.removed_stream(s)
+				end
 			    end
 			    sleep(5)
 			end

@@ -10,11 +10,13 @@ if ARGV.empty?
 
     streams = Roby.app.data_streams(Roby.app.log_dir)
     streams.each do |stream|
+	stream.open
 	main.add_stream(stream)
     end
 else
     ARGV.each do |file|
 	if streams = Roby.app.data_source([file])
+	    streams.each { |s| s.open }
 	    main.add_stream(streams)
 	else
 	    STDERR.puts "WARN: unknown file type #{file}"

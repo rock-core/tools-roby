@@ -18,11 +18,13 @@ module Roby
 	    def range; logfile.range end
 
 	    def initialize(basename)
-		@logfile = Roby::Log.open("#{basename}-events.log")
-
-		super(basename, 'roby-events')
+		super(basename, "roby-events")
+	    end
+	    def open
+		@logfile = Roby::Log.open("#{name}-events.log")
 		reinit!
 	    end
+	    def close; @logfile.close end
 
 	    def index_data; logfile.index_data end
 
