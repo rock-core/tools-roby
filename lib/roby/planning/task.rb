@@ -275,6 +275,8 @@ module Roby
 
 	# Starts planning
         event :start do |context|
+	    emit(:start)
+
 	    @transaction = Transaction.new(plan)
 	    @planner     = planner_model.new(transaction)
 
@@ -285,7 +287,6 @@ module Roby
 			  rescue Exception => e; e
 			  end
 	    end
-	    emit(:start)
         end
 
 	# Polls for the planning thread end
