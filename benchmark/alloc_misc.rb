@@ -20,7 +20,7 @@ puts "==== Iteration"
     puts "#{set.class} each: #{after - before}"
 end
 
-puts "===== Method calls"
+puts "\n===== Method calls"
 def bm_args_yield(a, b)
     yield(a, b) if block_given?
 end
@@ -42,10 +42,27 @@ def bm_block(&block)
     block.call
 end
 
+class Test
+    def bla
+    end
+end
+class Foo < Test
+    def bla
+	super
+    end
+end
+
+
 before = ObjectSpace.live_objects
 bm_method_call
 after  = ObjectSpace.live_objects
 puts "Method call: #{after - before}"
+
+test = Foo.new
+before = ObjectSpace.live_objects
+test.bla
+after = ObjectSpace.live_objects
+puts "Method call with super: #{after - before}"
 
 before = ObjectSpace.live_objects
 bm_method_call { 10 }
@@ -67,7 +84,7 @@ bm_block { 10 }
 after  = ObjectSpace.live_objects
 puts "Block: #{after - before}"
 
-puts "=== Exceptions"
+puts "\n=== Exceptions"
 def bm_exception
 rescue
 ensure
@@ -84,5 +101,12 @@ before = ObjectSpace.live_objects
 bm_exception
 after  = ObjectSpace.live_objects
 puts "begin-rescue-ensure method: #{after - before}"
+
+puts "\n=== Misc"
+before = ObjectSpace.live_objects
+defined? yield
+after  = ObjectSpace.live_objects
+puts "defined?: #{after - before}"
+
 
 
