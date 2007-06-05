@@ -9,7 +9,12 @@ module Roby
 	    end
 	    def initial_events
 		query.reset.each do |task|
-		    if task.root?(TaskStructure::Hierarchy) && task.event(:start).root?
+		    next unless task.event(:start).root?
+		    root_task = task.enum_for(:each_relation).all? do |rel|
+			rel == TaskStructure::PlannedBy || task.root?(rel)
+		    end
+
+		    if root_task
 			task.start!
 		    end
 		end
