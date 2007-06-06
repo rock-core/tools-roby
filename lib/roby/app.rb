@@ -332,10 +332,6 @@ module Roby
 		host =~ /:(\d+)$/
 		DRb.start_service "roby://:#{$1 || '0'}", Interface.new(Roby.control)
 	    else
-		if host =~ /^:\d+$/
-		    host = "#{Socket.gethostname}#{host}"
-		end
-
 		DRb.start_service "roby://#{host}", Interface.new(Roby.control)
 		droby_config = { :ring_discovery => !!discovery['ring'],
 		    :name => robot_name, 

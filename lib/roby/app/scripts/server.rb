@@ -3,7 +3,7 @@ require File.join(File.dirname(__FILE__), '..', 'load')
 require File.join(File.dirname(__FILE__), '..', 'run')
 
 app = Roby.app
-app.droby['host'] = 'localhost:0'
+app.droby['host'] = ":0"
 app.setup
 begin
     app.start_server

@@ -24,12 +24,16 @@ SERVER_LIST_TIMEOUT = 5
 SERVER_LIST_POLL = 0.1
 case mode = ARGV.shift
 when "list-servers"
-    DRb.start_service "druby://localhost:0"
+    DRb.start_service "druby://:0"
 
     require 'roby/log/server'
     puts "Finding available servers ... (#{SERVER_LIST_TIMEOUT} seconds)"
 
-    Roby::Log::Server.enable_discovery 'localhost'
+    broadcast = if ARGV.empty? then ['localhost']
+		else ARGV
+		end
+
+    Roby::Log::Server.enable_discovery broadcast
 
     begin
 	end_time = Time.now + SERVER_LIST_TIMEOUT
@@ -132,11 +136,15 @@ when "replay"
 
 when "display"
     require 'roby/log/gui/runtime'
-    DRb.start_service "druby://localhost:0"
+    DRb.start_service "druby://:0"
     Roby::Log::Server.logger.level = Logger::DEBUG
 
-    a = Qt::Application.new(ARGV)
-    w = RuntimeDisplay.new('localhost', Roby::Log::Server::RING_PORT, 5)
+    broadcast = if ARGV.empty? then ['localhost']
+		else ARGV
+		end
+
+    a = Qt::Application.new([])
+    w = RuntimeDisplay.new(broadcast, Roby::Log::Server::RING_PORT, 5)
     w.show
     a.exec
     exit(0)

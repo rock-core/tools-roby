@@ -119,7 +119,7 @@ class RuntimeDisplay < Qt::MainWindow
 end
 
 if $0 == __FILE__
-    DRb.start_service "druby://localhost:0"
+    DRb.start_service "druby://:0"
     Roby::Log::Server.logger.level = Logger::DEBUG
 
     a = Qt::Application.new(ARGV)

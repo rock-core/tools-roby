@@ -10,7 +10,7 @@ if ARGV.include?("--remote")
 	    remote_url = 
 		if url then url
 		else
-		     "localhost:#{Roby::Distributed::DEFAULT_DROBY_PORT}"
+		     ":#{Roby::Distributed::DEFAULT_DROBY_PORT}"
 		end
 	end
     end
@@ -24,7 +24,7 @@ app = Roby.app
 robot_name = ARGV.shift
 app.robot robot_name, (ARGV.shift || robot_name)
 require File.join(File.dirname(__FILE__), '..', 'load')
-app.droby['host'] = 'localhost:0'
+app.droby['host'] = ":0"
 app.setup
 
 require 'irb'
