@@ -293,8 +293,9 @@ module Roby::Genom
 	# when if finishes successfully (see RunnerTask). Otherwise, :ready is emitted immediately otherwise
 	def start(context)
 	    ::Genom::Runner.environment.start_module(genom_module.name, output_io)
-	    poll_running
-	    Roby::Control.event_processing << method(:poll_running)
+	    unless poll_running
+		Roby::Control.event_processing << method(:poll_running)
+	    end
 	end
 	# Event emitted when the module is running
 	event :start
@@ -303,10 +304,12 @@ module Roby::Genom
 	    if genom_module.wait_running(true)
 		Roby::Control.event_processing.delete(method(:poll_running))
 		emit :start, nil
+		true
 	    end
 
 	rescue RuntimeError => e
 	    event(:start).emit_failed e.message
+	    false
 	end
 
 	def ready(context)
