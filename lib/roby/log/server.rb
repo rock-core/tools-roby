@@ -428,7 +428,13 @@ module Roby
 	    end
 
 	    def added_stream(klass_name, id, name, type)
-		@streams[id] = RemoteStream.new(constant(klass_name), id, name, type)
+		raise
+		begin
+		    require klass_name.underscore
+		rescue LoadError
+		end
+		
+		@streams[id] = RemoteStream.new(klass_name.constantize, id, name, type)
 		super if defined? super
 	    end
 	    def removed_stream(id)
