@@ -3,7 +3,9 @@ require 'enumerator'
 
 def build_extension(name, soname = name)
     Dir.chdir("ext/#{name}") do
-	if !system("ruby extconf.rb") || !system("make")
+	extconf = "ruby extconf.rb"
+	extconf << " --with-boost-dir=#{ENV['BOOST_DIR']}" if ENV['BOOST_DIR']
+	if !system(extconf) || !system("make")
 	    raise "cannot set up #{name} extension"
 	end
     end
