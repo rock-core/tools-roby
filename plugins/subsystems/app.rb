@@ -47,7 +47,12 @@ module Roby
 		ready   = AndGenerator.new
 		State.services.each_member do |name, value|
 		    next if name == 'tasks'
-		    new_task = planner.send(name)
+		    new_task = begin
+				   planner.send(name)
+			       rescue Planning::NotFound => e
+				   raise RuntimeError, e.full_message
+			       end
+
 		    State.services.tasks.send("#{name}=", new_task)
 
 		    plan.permanent(new_task)
