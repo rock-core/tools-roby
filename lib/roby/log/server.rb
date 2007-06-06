@@ -495,6 +495,10 @@ module Roby
 		    end
 
 		ObjectSpace.define_finalizer(self, Client.remote_streams_finalizer(server, DRbObject.new(self)))
+
+	    rescue Exception
+		disconnect
+		raise
 	    end
 
 	    def self.remote_streams_finalizer(server, drb_object)
