@@ -803,8 +803,6 @@ module Roby
 	end
         def self.event(ev, options = Hash.new, &block)
             options = validate_options(options, :command => nil, :terminal => nil, :model => TaskEvent)
-	    if block
-	    end
 
             ev_s = ev.to_s
             ev = ev.to_sym
