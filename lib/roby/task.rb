@@ -501,7 +501,7 @@ module Roby
         
 	def starting?; event(:start).pending? end
 	# If this task never ran
-	def pending?; !started? end
+	def pending?; !starting? && !started? end
         # If this task is currently running
         def running?; started? && !finished? end
 	# A terminal event that has already happened. nil if the task
