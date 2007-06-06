@@ -30,6 +30,8 @@ module Roby::Log
 	end
 
 	def to_s; "#{name} [#{type}]" end
+	def open; end
+	def close; end
 
 	def has_sample?; false end
 	attr_predicate :reinit, true
