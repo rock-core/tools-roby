@@ -175,6 +175,14 @@ module Roby
             end
         end
 
+	def get(name, default_value)
+	    if respond_to?(name)
+		send(name)
+	    else
+		default_value
+	    end
+	end
+
 	FORBIDDEN_NAMES=%w{marshal each enum to}
 	FORBIDDEN_NAMES_RX=/^(?:#{FORBIDDEN_NAMES.join("|")})_/
         def method_missing(name, *args, &update) # :nodoc:
