@@ -124,7 +124,7 @@ module Roby
 			    else
 				logfile.stat.size
 			    end
-		logfile.seek(0)
+		logfile.rewind
 		logfile.read(end_pos)
 	    end
 	end
