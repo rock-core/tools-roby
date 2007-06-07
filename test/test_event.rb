@@ -239,24 +239,27 @@ class TC_Event < Test::Unit::TestCase
 	end
     end
 
-    def setup_event_aggregator(aggregator)
-	events = 10.enum_for(:times).map { EventGenerator.new(true) }
-	plan.discover(events)
-	events.each { |ev| aggregator << ev }
-	events.each do |ev| 
-	    ev.call(nil)
-	    if ev != events[-1]
-		yield
-	    end
-	end
-    end
-
     def test_and_generator
 	and_event = AndGenerator.new
-	setup_event_aggregator(and_event) do
-	    assert(!and_event.happened?)
+	assert(and_event.empty?)
+	FlexMock.use do |mock|
+	    and_event.on { mock.called }
+	    mock.should_receive(:called).once
+
+	    events = 5.enum_for(:times).map { EventGenerator.new(true) }
+	    plan.discover(events)
+	    events.each { |ev| and_event << ev }
+	    assert(!and_event.empty?)
+
+	    events.each do |ev| 
+		ev.call(nil)
+		if ev != events[-1]
+		    assert(!and_event.happened?)
+		end
+	    end
+
+	    assert(and_event.happened?)
 	end
-	assert(and_event.happened?)
 	
 	# Check the behavior of the & operator
 	e1, e2, e3, e4 = (1..4).map { EventGenerator.new(true) }.
@@ -341,11 +344,18 @@ class TC_Event < Test::Unit::TestCase
         end
     end
 
-    def test_or
+    def test_or_generator
 	a, b, c = (1..3).map { EventGenerator.new(true) }.
 	    each { |e| plan.discover(e) }
 
+	or_event = OrGenerator.new
+	assert(or_event.empty?)
+	or_event << a << b
+	assert(!or_event.empty?)
+
+	or_event = OrGenerator.new
         or_event = (a | b)
+	
         or_event.on c
         assert( a.enum_for(:each_causal_link).find { |ev| ev == or_event } )
         assert( or_event.enum_for(:each_causal_link).find { |ev| ev == c } )

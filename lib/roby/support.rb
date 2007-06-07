@@ -18,6 +18,13 @@ require 'utilrb/array/to_s'
 require 'utilrb/hash/to_s'
 require 'utilrb/set/to_s'
 
+class Enumerable::Enumerator
+    def empty?
+	each { return false }
+	true
+    end
+end
+
 # Create a new thread and forward all messages
 # to the +forward_to+ object given at initialization.
 # The messages are sent in the new thread.

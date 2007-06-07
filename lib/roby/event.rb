@@ -702,6 +702,8 @@ module Roby
 	    end
 	end
 
+	def empty?; parent_objects(EventStructure::Signal).empty? end
+
 	def emit_if_first(context) # :nodoc:
 	    return if happened?
 	    emit(context)
