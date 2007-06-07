@@ -543,6 +543,31 @@ class TC_Event < Test::Unit::TestCase
 	assert(!EventGenerator.events_gathered_into(collection))
     end
 
+    def test_achieve_with
+	slave  = EventGenerator.new
+	master = EventGenerator.new do
+	    master.achieve_with slave
+	end
+	plan.discover([master, slave])
+
+	master.achieve_with slave
+	master.call(nil)
+	assert(!master.happened?)
+	slave.emit(nil)
+	assert(master.happened?)
+
+	slave  = EventGenerator.new
+	master = EventGenerator.new do
+	    master.achieve_with slave
+	end
+	plan.discover([master, slave])
+
+	master.achieve_with slave
+	master.call(nil)
+	assert(!master.happened?)
+	assert_raises(EventModelViolation) { plan.remove_object(slave) }
+    end
+
     def test_if_unreachable
 	FlexMock.use do |mock|
 	    plan.discover(ev = EventGenerator.new(true))

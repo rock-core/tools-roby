@@ -650,6 +650,36 @@ class TC_Task < Test::Unit::TestCase
 
 	    plan.garbage_collect
 	end
+
+    end
+
+    def test_achieve_with
+	slave  = SimpleTask.new
+	master = Class.new(Task) do
+	    event :start do
+		event(:start).achieve_with slave
+	    end
+	end.new
+	plan.discover([master, slave])
+
+	master.start!
+	assert(master.starting?)
+	assert(master.realized_by?(slave))
+	slave.start!
+	slave.success!
+	assert(master.started?)
+
+	slave  = SimpleTask.new
+	master = Class.new(Task) do
+	    event :start do
+		event(:start).achieve_with slave.event(:start)
+	    end
+	end.new
+	plan.discover([master, slave])
+
+	master.start!
+	assert(master.starting?)
+	assert_raises(EventModelViolation) { plan.remove_object(slave) }
     end
 end
 

@@ -405,10 +405,20 @@ module Roby
 	#	init = <create an initialization task>
 	#	event(:start).realize_with(task)
 	#   end
-	def achieve_with(task)
-	    task.forward(:success, self)
-	    task.on(:failed) do
-		emit_failed(TaskModelViolation.new(self), task.terminal_event)
+	#
+	# or 
+	#   event :start do |context|
+	#	init = <create an initialization task>
+	#	event(:start).realize_with(task)
+	#   end
+	def achieve_with(obj)
+	    if obj.kind_of?(Roby::Task)
+		obj = obj.event(:success)
+	    end
+
+	    obj.forward self
+	    obj.if_unreachable(true) do
+		emit_failed(EventModelViolation.new(self), obj)
 	    end
 	end
 	# For backwards compatibility. Use #achieve_with.

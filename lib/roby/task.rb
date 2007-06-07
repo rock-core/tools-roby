@@ -192,12 +192,15 @@ module Roby
 	    "#{task.inspect}/#{symbol}: #{history.to_s}"
 	end
 
-	def achieve_with(task)
-	    super
-	    self.task.realized_by task
-	    task.on(:stop) do
-		self.task.remove_child task
+	def achieve_with(obj)
+	    if obj.kind_of?(Roby::Task)
+		task.realized_by obj
+		obj.on(:stop) do
+		    task.remove_child obj
+		end
 	    end
+
+	    super
 	end
     end
 
