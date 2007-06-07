@@ -119,7 +119,10 @@ when "replay"
 	else
 	    remaining.each do |file|
 		if streams = Roby.app.data_streams_of([file])
-		    streams.each { |s| main.add_stream(s) }
+		    streams.each do |s|
+			s.open
+			main.add_stream(s)
+		    end
 		else
 		    STDERR.puts "WARN: unknown file type for #{file}"
 		end
