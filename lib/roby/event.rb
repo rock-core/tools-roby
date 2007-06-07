@@ -398,7 +398,7 @@ module Roby
 	    self
 	end
 
-	# Sets up +task+ and +self+ so that +task+ is used
+	# Sets up +obj+ and +self+ so that obj+ is used
 	# to execute the command of +self+. It is to be used in
 	# a command handler:
 	#   event :start do |context|
