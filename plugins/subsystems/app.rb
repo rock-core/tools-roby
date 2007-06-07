@@ -100,6 +100,11 @@ module Roby
 	    end
 
 	    def self.run(config, &block)
+		if Roby::State.services.to_hash.empty?
+		    Robot.info "No subsystems defined"
+		    return yield
+		end
+
 		Robot.info "Starting subsystems ..."
 
 		start_with, ready = initialize_plan
