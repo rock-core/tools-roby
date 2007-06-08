@@ -355,11 +355,11 @@ module Roby::Genom
 	    if !init
 		emit :ready
 	    else
+		event(:ready).achieve_with init
 		if init.respond_to? :to_task
-		    event(:ready).achieve_with init
 		    init.start!
 		else
-		    init.forward event(:ready)
+		    init.call
 		end
 	    end
 	end
