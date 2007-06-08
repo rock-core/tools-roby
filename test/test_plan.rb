@@ -86,13 +86,16 @@ module TC_PlanStatic
     def test_discover
 	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => SimpleTask
 	t1.realized_by t2
-	t2.on(:start, t3, :stop)
+	or_ev = OrGenerator.new
+	t2.event(:start).on or_ev
+	or_ev.on t3.event(:stop)
 	t2.planned_by t4
 
 	result = plan.discover(t1)
 	assert_equal(plan, result)
 	assert( plan.include?(t1) )
 	assert( plan.include?(t2) )
+	assert( plan.free_events.include?(or_ev))
 	assert( !plan.include?(t3) ) # t3 not related because of task structure
 	assert( plan.include?(t4) )
 

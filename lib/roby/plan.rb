@@ -207,18 +207,36 @@ module Roby
 	# +objects+
 	def discover(objects = nil)
 	    events, tasks = partition_event_task(objects)
-
-	    if events
-		events = events.to_value_set
-		discover_event_set(events)
-	    end
-
+	    events = if events then events.to_value_set
+		     else ValueSet.new
+		     end
 	    if tasks
 		tasks = tasks.to_value_set
 		new_tasks = useful_task_component(tasks, tasks)
 		unless new_tasks.empty?
-		    discover_task_set(new_tasks)
+		    new_tasks = discover_task_set(new_tasks)
+		    
+		    # now, we include the set of free events that are linked to
+		    # +new_tasks+ in +events+
+		    task_events = ValueSet.new
+		    EventStructure.each_root_relation do |rel|
+			new_tasks.each do |task|
+			    for _, ev in task.bound_events
+				next if task_events.include?(ev)
+				task_events.merge ev.component(rel).to_value_set
+			    end
+			end
+		    end
+
+		    task_events.each do |ev|
+			events << ev if ev.root_object?
+		    end
 		end
+	    end
+
+	    if events
+		events = events.to_value_set
+		discover_event_set(events)
 	    end
 
 	    self
@@ -253,6 +271,7 @@ module Roby
 	    end
 	    known_tasks.merge tasks
 	    discovered_tasks(tasks)
+	    tasks
 	end
 
 	# DEPRECATED. Use #discovered_tasks instead
