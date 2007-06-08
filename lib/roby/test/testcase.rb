@@ -311,10 +311,23 @@ module Roby
 	class TestCase < Test::Unit::TestCase
 	    include Roby::Test
 	    include Assertions
+	    class << self
+		attribute(:case_config) { Hash.new }
+		attribute(:methods_config) { Hash.new }
+	    end
 
+	    # Sets the robot configuration for this test case. If a block is
+	    # given, it is called between the time the robot configuration is
+	    # loaded and the time the test methods are started. It can
+	    # therefore be used to change the robot configuration for the need
+	    # of this particular test case
 	    def self.robot(name, kind = name)
 		Roby.app.robot name, kind
 		require 'roby/app/load'
+		Roby.app.single
+		Roby.app.setup
+
+		yield if block_given?
 	    end
 
 	    def setup
@@ -327,12 +340,31 @@ module Roby
 		super
 	    end
 
+	    def method_config
+		basename = method_name.gsub(/^test_/, '')
+		self.class.case_config.merge(self.class.methods_config[basename] || Hash.new)
+	    end
+
+	    # Do not run +test_name+ inside a simulation environment
+	    # +test_name+ is the name of the method without +test_+. For
+	    # instance:
+	    #   nosim :init
+	    #   def test_init
+	    #   end
+	    def self.nosim(*names)
+		names.each do |test_name|
+		    config = (methods_config[test_name.to_s] ||= Hash.new)
+		    config[:nosim] = true
+		end
+	    end
+
 	    def run(result)
 		Roby::Test.waiting_threads.clear
 
-		Roby.app.simulation
-		Roby.app.single
-		Roby.app.setup
+		unless method_config[:nosim]
+		    Roby.app.simulation
+		end
+
 		Roby.app.run do
 		    super
 		end
