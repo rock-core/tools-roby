@@ -330,6 +330,10 @@ module Roby
 		yield if block_given?
 	    end
 
+	    def planner
+		MainPlanner.new(plan)
+	    end
+
 	    def setup
 		super
 		Roby::Test.waiting_threads << Thread.current
