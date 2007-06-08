@@ -186,6 +186,9 @@ module Roby
 	    end
 	end
 
+	# Returns true if this object has no member
+	def empty?; @members.empty? end
+
         def respond_to?(name) # :nodoc:
             return true  if super
 

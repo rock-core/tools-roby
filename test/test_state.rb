@@ -86,6 +86,16 @@ class TC_State < Test::Unit::TestCase
 	assert(!r.child?)
     end
 
+    def test_empty
+	r = ExtendedStruct.new
+	c = r.child
+	assert(r.empty?)
+	r.child = 10
+	assert(!r.empty?)
+	r.delete(:child)
+	assert(r.empty?)
+    end
+
     def test_child_class
 	klass = Class.new(ExtendedStruct)
 	root = ExtendedStruct.new(klass)
