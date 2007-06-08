@@ -152,5 +152,31 @@ module Roby
 
         def to_parallel; self end
     end
+
+    class Group < Roby::Task
+	def initialize(*tasks)
+	    super()
+	    if tasks.empty? || tasks.first.kind_of?(Hash)
+		return
+	    end
+
+	    success = AndGenerator.new
+	    tasks.each do |task|
+		realized_by task
+		task.event(:success).on success
+	    end
+	    success.forward event(:success)
+	end
+
+	event :start do
+	    children.each do |child|
+		if child.pending? && child.event(:start).root?
+		    child.start!
+		end
+	    end
+	    emit :start
+	end
+	terminates
+    end
 end
 

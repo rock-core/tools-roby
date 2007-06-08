@@ -681,5 +681,19 @@ class TC_Task < Test::Unit::TestCase
 	assert(master.starting?)
 	assert_raises(EventModelViolation) { plan.remove_object(slave) }
     end
+
+    def test_task_group
+	t1, t2 = SimpleTask.new, SimpleTask.new
+	plan.discover(g = Group.new(t1, t2))
+
+	g.start!
+	assert(t1.running?)
+	assert(t2.running?)
+
+	t1.success!
+	assert(g.running?)
+	t2.success!
+	assert(g.success?)
+    end
 end
 
