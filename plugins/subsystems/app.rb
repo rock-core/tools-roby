@@ -100,7 +100,7 @@ module Roby
 	    end
 
 	    def self.run(config, &block)
-		if Roby::State.services.to_hash.empty?
+		unless Roby::State.services? && !Roby::State.services.empty?
 		    Robot.info "No subsystems defined"
 		    return yield
 		end
