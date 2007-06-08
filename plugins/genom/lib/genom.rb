@@ -242,10 +242,10 @@ module Roby::Genom
     # For instance, for a Pom module
     #
     # module Roby::Genom::Pom
-    #   def self.init
-    #	# call the init request
-    #	# and return an EventGenerator object or a Task object
-    #	# (in which case, task.event(:success) is considered)
+    #   def self.init(runner)
+    #	  # call the init request
+    #	  # and return an EventGenerator object or a Task object
+    #	  # (in which case, task.event(:success) is considered)
     #   end
     # end
     #
@@ -347,7 +347,7 @@ module Roby::Genom
 
 	    # Get the init request if it is needed
 	    init = if roby_module.respond_to?(:init)
-		       roby_module.init
+		       roby_module.init(self)
 		   end
 
 	    # If there is an init task, wait for it. Otherwise,
