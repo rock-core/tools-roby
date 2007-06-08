@@ -54,7 +54,7 @@ module Roby::Genom
 	    end
 	    if config.simulation?
 		if !config.pocosim['gazebo']
-		    raise ArgumentError, "configuration is missing the gazebo terrain file"
+		    raise ArgumentError, "please set pocosim/gazebo to the path of the gazebo terrain file in config/app.yml"
 		end
 	    end
 
