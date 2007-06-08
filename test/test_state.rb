@@ -44,6 +44,48 @@ class TC_State < Test::Unit::TestCase
 	assert_equal(10, s.child)
     end
 
+    def test_delete
+	r = ExtendedStruct.new
+	assert_raises(ArgumentError) { r.delete }
+
+	# Check handling of pending children
+	child = r.child
+	child.delete
+	child.value = 10
+	assert(!r.child?)
+
+	child = r.child
+	r.delete(:child)
+	child.value = 10
+	assert(!r.child?)
+
+	# Check handling of attached children
+	r.child.value = 10
+	assert(r.child?)
+	r.delete(:child)
+	assert(!r.child?)
+
+	r.child.value = 10
+	assert(r.child?)
+	r.child.delete
+	assert(!r.child?)
+
+	# Check handling of aliases
+	r.child.value = 10
+	r.alias(:child, :aliased_child)
+	assert(r.aliased_child?)
+	r.delete(:aliased_child)
+	assert(!r.aliased_child?)
+
+	# Check handling of aliased-to members
+	r.child.value = 10
+	r.alias(:child, :aliased_child)
+	assert(r.aliased_child?)
+	r.child.delete
+	assert(!r.aliased_child?)
+	assert(!r.child?)
+    end
+
     def test_child_class
 	klass = Class.new(ExtendedStruct)
 	root = ExtendedStruct.new(klass)

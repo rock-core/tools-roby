@@ -126,10 +126,32 @@ module Roby
             self
         end
 
-	def delete(name)
+	def delete(name = nil)
 	    raise TypeError, "#{self} is stable" if stable?
-	    @members.delete(self)
-	    @pending.delete(self)
+	    if name
+		name = name.to_s
+		if child = @members.delete(name)
+		    child.instance_variable_set(:@__parent_struct, nil)
+		    child.instance_variable_set(:@__parent_name, nil)
+		elsif child = @pending.delete(name)
+		    child.instance_variable_set(:@attach_as, nil)
+		elsif child = @aliases.delete(name)
+		    # nothing to do here
+		else
+		    raise ArgumentError, "no such child #{name}"
+		end
+
+		# and remove aliases that point to +name+
+		@aliases.delete_if { |_, pointed_to| pointed_to == name }
+	    else
+		if __parent_struct
+		    __parent_struct.delete(__parent_name)
+		elsif @attach_as
+		    @attach_as.first.delete(@attach_as.last)
+		else
+		    raise ArgumentError, "#{self} is attached to nothing"
+		end
+	    end
 	end
 
 	# Define a filter for the +name+ attribute on self. The given block
