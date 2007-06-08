@@ -40,7 +40,7 @@ module Roby
 	#
 	# will not fail
 	def initialize(children_class = ExtendedStruct, attach_to = nil, attach_name = nil) # :nodoc
-            @attach_as = [attach_to, attach_name] if attach_to
+            @attach_as = [attach_to, attach_name.to_s] if attach_to
 	    @children_class = children_class
 
             @stable          = false
@@ -95,7 +95,7 @@ module Roby
 	    @attach_as = nil
 	end
 	def attach_child(name, obj)
-	    @members[name] = obj
+	    @members[name.to_s] = obj
 	end
 	protected :detach, :attach_as
 
