@@ -282,9 +282,19 @@ module Roby::Genom
 	end
 
 	def plan=(new_plan)
-	    return if plan == new_plan
+	    old_plan = plan
 	    super
-	    plan.permanent(self) if plan
+
+	    # Set the permanent flag only in the first plan we are included in:
+	    # if it is a transaction, then it will be propagated. If it is the
+	    # main plan, it is OK too
+	    #
+	    # Setting it if #plan was a transaction and new_plan == transaction.plan
+	    # would break, since it is very likely that self is linked to other objects
+	    # (incl. proxies) and permanent would break the commit process
+	    unless old_plan
+		plan.permanent(self)
+	    end
 	end
 
 	# Start the module
