@@ -334,6 +334,17 @@ module Roby
     #
     # See the files in roby/relations to see definitions of new relations
     class RelationSpace < Module
+	# The set of relations included in this relation space
+	attr_reader :relations
+	# The set of klasses on which the relations have been applied
+	attr_reader :applied
+
+	def initialize
+	    @relations = Array.new
+	    @applied   = Array.new
+	    super
+	end
+
 	# This relation should apply on +klass+
 	def apply_on(klass)
 	    klass.include DirectedRelationSupport
@@ -343,11 +354,6 @@ module Roby
 
 	    applied << klass 
 	end
-	# The set of relations included in this relation space
-	attribute(:relations) { Array.new }
-	# The set of klasses on which the relations have been applied
-	attribute(:applied)   { Array.new }
-
 	# Yields the relations that are included in this space
 	def each_relation
 	    relations.each { |rel| yield(rel) }
