@@ -219,6 +219,22 @@ module Roby
 	# If #dag? is true, it checks that the new relation does not create a
 	# cycle
 	def add_relation(from, to, info = nil)
+	    # Check for the DAG propery. We limit ourselves to the top-level
+	    # graphs (since they are the union of all their children)
+	    top_dag = nil
+	    rel     = self
+	    while rel
+		top_dag = rel if rel.dag?
+		rel = rel.parent
+	    end
+
+	    if top_dag && !top_dag.linked?(from, to) && top_dag.reachable?(to, from)
+		# No need to test that we won't create a cycle in child
+		# relations, since the parent relation graphs are the union
+		# of all their children
+		raise CycleFoundError, "cannot add a #{from} -> #{to} relation since it would create a cycle"
+	    end
+
 	    rel = self
 	    while rel
 		if rel.linked?(from, to)
@@ -226,13 +242,6 @@ module Roby
 			raise ArgumentError, "trying to change edge information"
 		    end
 		    return
-		end
-
-		if dag? && reachable?(to, from)
-		    # No need to test that we won't create a cycle in child
-		    # relations, since the parent relation graphs are the union
-		    # of all their children
-		    raise CycleFoundError, "cannot add a #{from} -> #{to} relation since it would create a cycle"
 		end
 
 		if from.respond_to?(:adding_child_object)
@@ -249,6 +258,16 @@ module Roby
 		end
 		if to.respond_to?(:added_parent_object)
 		    to.added_parent_object(from, rel, info)
+		end
+
+		parent = rel.parent
+		if rel.dag? && (!parent || !parent.dag?)
+		    if rel.dag? && rel.reachable?(to, from)
+			# No need to test that we won't create a cycle in child
+			# relations, since the parent relation graphs are the union
+			# of all their children
+			raise CycleFoundError, "cannot add a #{from} -> #{to} relation since it would create a cycle"
+		    end
 		end
 
 		rel = rel.parent
