@@ -126,6 +126,7 @@ module Roby
 	end
 
 	child_plan_object :task
+	attr_accessor :plan
 
 	# Fire the event
         def fire(event)
@@ -168,6 +169,7 @@ module Roby
 	def failure?; @terminal_flag == :failure end
 	def added_child_object(child, relation, info)
 	    super if defined? super
+
 	    if relation == EventStructure::CausalLink && 
 		    child.respond_to?(:task) && child.task == task &&
 		    child.terminal_flag != terminal_flag
@@ -419,6 +421,10 @@ module Roby
 	    if !old_plan && new_plan
 		# First time we get included in a plan, instantiate all relations
 		instantiate_model_event_relations
+	    end
+
+	    for _, ev in bound_events
+		ev.plan = plan
 	    end
 	end
 
