@@ -310,6 +310,8 @@ module Roby
 	    EOD
 	end
 
+	attr_reader :model
+
 	model_attribute_list('signal')
 	model_attribute_list('forwarding')
 	model_attribute_list('causal_link')
@@ -350,6 +352,7 @@ module Roby
 	    @arguments = TaskArguments.new(self)
 	    @arguments.merge!(arguments) if arguments
 
+	    @model = self.class
 	    @name = "#{model.name || self.class.name}#{arguments.to_s}:0x#{address.to_s(16)}"
             @bound_events = Hash.new
 
@@ -501,9 +504,6 @@ module Roby
 	end
 	# Returns true if one argument required by the task model is not set
 	def partially_instanciated?; !fully_instanciated? end
-
-	# Returns the task model
-	def model; self.class end
 
         # If a model of +event+ is defined in the task model
         def has_event?(event); model.has_event?(event) end
