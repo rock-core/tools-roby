@@ -84,7 +84,10 @@ module Roby
 	end
 
 	def add_child_object(child, type, info = nil)
-	    changed = root_object.synchronize_plan(child.root_object)
+	    if child.plan != plan
+		changed = root_object.synchronize_plan(child.root_object)
+	    end
+
 	    super
 
 	    if changed
