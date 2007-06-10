@@ -171,16 +171,19 @@ module Roby
 	    super if defined? super
 
 	    if relation == EventStructure::CausalLink && 
-		    child.respond_to?(:task) && child.task == task &&
+		child.respond_to?(:task) && child.task == task &&
 		    child.terminal_flag != terminal_flag
+
 		task.update_terminal_flag
 	    end
 	end
 	def removed_child_object(child, relation)
 	    super if defined? super
-	    if relation == EventStructure::CausalLink && 
-		    child.respond_to?(:task) && child.task == task &&
-		    child.terminal_flag != terminal_flag
+
+	    if relation == EventStructure::CausalLink
+		child.respond_to?(:task) && child.task == task &&
+		    terminal_flag
+
 		task.update_terminal_flag
 	    end
 	end
