@@ -362,8 +362,8 @@ module Roby
             yield self if block_given?
 
 	    # Create all event generators
-	    model.each_event do |symbol, model|
-		bound_events[symbol.to_sym] = TaskEventGenerator.new(self, model)
+	    model.each_event do |ev_symbol, ev_model|
+		bound_events[ev_symbol.to_sym] = TaskEventGenerator.new(self, ev_model)
 	    end
 
 	    super() if defined? super
