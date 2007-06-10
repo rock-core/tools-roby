@@ -320,7 +320,7 @@ module Roby
 	    # because of our peers. We then remove from the set all local tasks
 	    # that are serving these
 	    remotely_useful = Distributed.remotely_useful_objects(useful, known_tasks - useful)
-	    useful.merge remotely_useful.to_value_set
+	    useful.merge remotely_useful
 
 	    useful_task_component(useful.dup, remotely_useful.to_a).each do |t|
 		if t.self_owned?
