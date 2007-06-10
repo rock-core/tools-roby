@@ -37,10 +37,10 @@ module Roby
     @condition_variables = Pool.new(ConditionVariable)
     class << self
 	# Returns the only one Control object
-	def control; Control.instance end
+	attr_reader :control
 	# Returns the executed plan. This is equivalent to
 	#   Roby.control.plan
-	def plan; Control.instance.plan end
+	attr_reader :plan
 
 	def every(duration, &block)
 	    Control.every(duration, &block)
@@ -258,6 +258,7 @@ module Roby
 	    @planners    = []
 	    @last_stop_count = 0
 	    @plan        = Plan.new
+	    Roby.instance_variable_set(:@plan, @plan)
 	    plan.extend Roby::Propagation::ExecutablePlanChanged
 	end
 
@@ -740,3 +741,7 @@ module Roby
 end
 
 require 'roby/propagation'
+
+module Roby
+    @control = Control.instance
+end
