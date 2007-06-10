@@ -1,17 +1,17 @@
 require 'roby'
 require 'roby/app'
 require 'roby/distributed'
+require 'roby/distributed/protocol'
 require 'optparse'
 
 remote_url = nil
 if ARGV.include?("--remote")
     opt = OptionParser.new do |opt|
 	opt.on('--remote [URL]', String, "connect to a remote Roby engine") do |url|
-	    remote_url = 
-		if url then url
-		else
-		     ":#{Roby::Distributed::DEFAULT_DROBY_PORT}"
-		end
+	    remote_url = url || ""
+	    unless remote_url =~ /:\d+$/
+		remote_url << ":#{Roby::Distributed::DEFAULT_DROBY_PORT}"
+	    end
 	end
     end
     opt.parse! ARGV
