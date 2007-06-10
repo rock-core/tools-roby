@@ -400,8 +400,6 @@ module Roby
 	    # :start to a terminal event
 	    #
 	    # Create the precedence relations between 'normal' events and the terminal events
-	    #
-	    # 272 objects
 	    for terminal in terminal_events
 	        next if terminal.symbol == :start
 	        for _, generator in bound_events
