@@ -42,6 +42,8 @@ module Roby
 
 	# The list of tasks that are included in this plan
 	attr_reader :known_tasks
+	# The set of events that are defined by #known_tasks
+	attr_reader :task_events
 	# The list of missions in this plan
 	attr_reader :missions
 	# The list of events that are not included in a task
@@ -69,6 +71,7 @@ module Roby
 	    @keepalive   = ValueSet.new
 	    @known_tasks = ValueSet.new
 	    @free_events = ValueSet.new
+	    @task_events = ValueSet.new
 	    @force_gc    = ValueSet.new
 	    @transactions = ValueSet.new
 
@@ -248,6 +251,7 @@ module Roby
 	    tasks = tasks.difference(known_tasks)
 	    for t in tasks
 		t.plan = self
+		task_events.merge t.bound_events.values.to_value_set
 	    end
 	    known_tasks.merge tasks
 	    discovered_tasks(tasks)
@@ -519,7 +523,10 @@ module Roby
 	    when Task
 		# NOTE: we MUST use instance variables directly here. Otherwise,
 		# transaction commits would be broken
-		object.each_event { |ev| finalized_event(ev) }
+		for ev in object.bound_events.values
+		    task_events.delete(ev)
+		    finalized_event(ev)
+		end
 		finalized_task(object)
 
 	    else 

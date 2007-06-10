@@ -202,6 +202,7 @@ module Roby::Transactions
 	proxy :fullfills?
 	proxy :same_state?
 
+	def bound_events; {} end
 	def executable?; false end
 
 	def history; "" end
