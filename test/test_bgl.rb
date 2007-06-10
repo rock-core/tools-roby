@@ -165,46 +165,46 @@ class TC_BGL < Test::Unit::TestCase
 
 	graph.link v1, v2, nil
 	assert_components([[v1, v2], [v3], [v4]], graph.components)
-	assert_raises(NoMethodError) { graph.components(nil, false) }
-	assert_components([[v1, v2]], graph.components([v1]))
-	assert_components([[v5]], graph.components([v5]))
-	assert_components([], graph.components([v5], false))
-	assert_components([[v2, v1]], graph.generated_subgraphs(v1))
-	assert_components([[v2, v1]], graph.generated_subgraphs(v1, false))
-	assert_components([[v2]], graph.generated_subgraphs(v2))
-	assert_components([], graph.generated_subgraphs(v2, false))
-	assert_components([[v2], [v5]], graph.generated_subgraphs([v2, v5]))
+	assert_raises(ArgumentError) { graph.components(nil, false) }
+	assert_components([[v1, v2]], graph.components([v1].to_value_set))
+	assert_components([[v5]], graph.components([v5].to_value_set))
+	assert_components([], graph.components([v5].to_value_set, false))
+	assert_components([[v2, v1]], graph.generated_subgraphs([v1].to_value_set))
+	assert_components([[v2, v1]], graph.generated_subgraphs([v1].to_value_set, false))
+	assert_components([[v2]], graph.generated_subgraphs([v2].to_value_set))
+	assert_components([], graph.generated_subgraphs([v2].to_value_set, false))
+	assert_components([[v2], [v5]], graph.generated_subgraphs([v2, v5].to_value_set))
 
-	assert_components([], graph.generated_subgraphs(v2, false))
-	assert_components([], graph.generated_subgraphs([v2], false))
-	assert_components([], graph.generated_subgraphs([v2, v5], false))
-	assert_components([[v1, v2]], graph.reverse.generated_subgraphs(v2))
-	assert_components([[v4]], graph.components([v4]))
-	assert_components([], graph.components([v4], false))
+	assert_components([], graph.generated_subgraphs([v2].to_value_set, false))
+	assert_components([], graph.generated_subgraphs([v2].to_value_set, false))
+	assert_components([], graph.generated_subgraphs([v2, v5].to_value_set, false))
+	assert_components([[v1, v2]], graph.reverse.generated_subgraphs([v2].to_value_set))
+	assert_components([[v4]], graph.components([v4].to_value_set))
+	assert_components([], graph.components([v4].to_value_set, false))
 
 	graph.link v4, v3, nil
 	assert_components([[v1, v2], [v4, v3]], graph.components)
-	assert_components([[v2], [v3]], graph.generated_subgraphs([v2, v3]))
-	assert_components([], graph.generated_subgraphs([v3, v2], false))
-	assert_components([[v1, v2], [v4, v3]], graph.reverse.generated_subgraphs([v2, v3]))
-	assert_components([[v1, v2], [v4, v3]], graph.reverse.generated_subgraphs([v2, v3], false))
-	assert_components([[v3, v4]], graph.generated_subgraphs(v4))
-	assert_components([[v3, v4]], graph.generated_subgraphs(v4, false))
+	assert_components([[v2], [v3]], graph.generated_subgraphs([v2, v3].to_value_set))
+	assert_components([], graph.generated_subgraphs([v3, v2].to_value_set, false))
+	assert_components([[v1, v2], [v4, v3]], graph.reverse.generated_subgraphs([v2, v3].to_value_set))
+	assert_components([[v1, v2], [v4, v3]], graph.reverse.generated_subgraphs([v2, v3].to_value_set, false))
+	assert_components([[v3, v4]], graph.generated_subgraphs([v4].to_value_set))
+	assert_components([[v3, v4]], graph.generated_subgraphs([v4].to_value_set, false))
 
 	graph.link v1, v3, nil
 	assert_components([[v1, v2, v3, v4]], graph.components)
-	assert_components([[v1, v2, v3, v4]], graph.components([v1]))
+	assert_components([[v1, v2, v3, v4]], graph.components([v1].to_value_set))
 
 	g2 = Graph.new
 	graph.unlink v4, v3
 	g2.link v4, v3, nil
-	assert_components([[v4]], graph.components([v4]))
+	assert_components([[v4]], graph.components([v4].to_value_set))
 	# assert_components([], graph.components([v4], false))
-	assert_components([[v4, v3]], g2.components([v3]))
+	assert_components([[v4, v3]], g2.components([v3].to_value_set))
 
 	v5 = Vertex.new
 	# Check that we get a singleton component even if v5 is not in the graph
-	assert_components([[v5]], graph.components([v5]))
+	assert_components([[v5]], graph.components([v5].to_value_set))
 	# assert_components([], graph.components([v5], false))
     end
 
@@ -219,12 +219,12 @@ class TC_BGL < Test::Unit::TestCase
 	graph.link v3, v2, nil
 	graph.link v3, v4, nil
 	graph.link v2, v4, nil
-	assert_components([[v1, v2, v3, v4]], graph.components([v1]))
-	assert_components([[v1, v2, v3, v4]], graph.components([v2]))
+	assert_components([[v1, v2, v3, v4]], graph.components([v1].to_value_set))
+	assert_components([[v1, v2, v3, v4]], graph.components([v2].to_value_set))
 
 	g2 = Graph.new
 	g2.link v4, v3, nil
-	assert_components([[v4, v3]], g2.components([v4]))
+	assert_components([[v4, v3]], g2.components([v4].to_value_set))
     end
 
     def test_dup

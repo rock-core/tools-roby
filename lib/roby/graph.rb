@@ -29,11 +29,11 @@ module BGL
 	end
 	# Returns the vertex set which are reachable from +self+ in +graph+
 	def generated_subgraph(graph)
-	    graph.generated_subgraphs(self, false).first || singleton_set
+	    graph.generated_subgraphs(singleton_set, false).first || singleton_set
 	end
 	# Returns the vertex set which can reach +self+ in +graph+
 	def reverse_generated_subgraph(graph)
-	    graph.reverse.generated_subgraphs(self, false).first || singleton_set
+	    graph.reverse.generated_subgraphs(singleton_set, false).first || singleton_set
 	end
 
 	# Replace this vertex by +to+ in all graphs. See Graph#replace_vertex.

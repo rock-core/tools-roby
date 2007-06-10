@@ -294,7 +294,7 @@ module Roby
 	    loop do
 		old_transaction_set = transaction_set.dup
 		transaction_set.merge(transaction_seeds)
-		for new_set in relation.generated_subgraphs(transaction_seeds.to_a, false)
+		for new_set in relation.generated_subgraphs(transaction_seeds, false)
 		    transaction_set.merge(new_set)
 		end
 

@@ -214,7 +214,7 @@ module Roby
 
 	    if tasks
 		tasks = tasks.to_value_set
-		new_tasks = useful_task_component(tasks, tasks.to_a)
+		new_tasks = useful_task_component(tasks, tasks)
 		unless new_tasks.empty?
 		    discover_task_set(new_tasks)
 		end
@@ -288,7 +288,7 @@ module Roby
 	    if useful_tasks.size == old_useful_tasks.size
 		useful_tasks
 	    else
-		useful_task_component(useful_tasks, (useful_tasks - old_useful_tasks).to_a)
+		useful_task_component(useful_tasks, (useful_tasks - old_useful_tasks))
 	    end
 	end
 	private :useful_task_component
@@ -307,7 +307,7 @@ module Roby
 	    end
 
 	    return ValueSet.new if all.empty?
-	    useful_task_component(all, all.to_a)
+	    useful_task_component(all, all)
 	end
 
 	# Returns the set of unused tasks

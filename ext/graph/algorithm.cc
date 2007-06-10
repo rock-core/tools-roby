@@ -127,8 +127,18 @@ public:
 };
 
 
+static std::set<VALUE>& rb_to_set(VALUE object)
+{
+    if (!RTEST(rb_obj_is_kind_of(object, utilrbValueSet)))
+	rb_raise(rb_eArgError, "expected a ValueSet");
 
-/** Converts a std::set<VALUE> into a ValueSet object */
+    std::set<VALUE>* result_set;
+    Data_Get_Struct(object, set<VALUE>, result_set);
+    return *result_set;
+}
+
+/** Converts a std::set<VALUE> into a ValueSet object 
+ * After this method, +source+ is empty */
 static VALUE set_to_rb(set<VALUE>& source)
 {
     VALUE result = rb_funcall(utilrbValueSet, id_new, 0);
@@ -216,9 +226,10 @@ static VALUE graph_do_generated_subgraphs(int argc, VALUE* argv, Graph const& g,
     }
     else
     {
-	roots = rb_ary_to_ary(roots);
-	VALUE* begin = RARRAY(roots)->ptr;
-	VALUE* end = begin + RARRAY(roots)->len;
+	std::set<VALUE>& root_set = rb_to_set(roots);
+	std::set<VALUE>::const_iterator 
+	    begin = root_set.begin(),
+	    end   = root_set.end();
 
 	// call graph_components_i with all vertices given in as argument
 	return graph_components_i(result, g, 
@@ -262,15 +273,15 @@ static VALUE graph_components(int argc, VALUE* argv, VALUE self)
     VALUE ret = rb_ary_new2(count);
     std::vector<bool>  enabled_components;
     std::vector<VALUE> components(count);
-    if (0 == argc)
+    if (0 == argc) 
 	enabled_components.resize(count, true);
     else
     {
 	enabled_components.resize(count, false);
-	seeds = rb_funcall(seeds, rb_intern("to_ary"), 0);
-	for (int i = 0; i < RARRAY(seeds)->len; ++i)
+	std::set<VALUE>& seed_set = rb_to_set(seeds);
+	for (std::set<VALUE>::const_iterator it = seed_set.begin(); it != seed_set.end(); ++it)
 	{
-	    VALUE rb_vertex = RARRAY(seeds)->ptr[i];
+	    VALUE rb_vertex = *it;
 
 	    vertex_descriptor v; bool in_graph;
 	    tie(v, in_graph) = rb_to_vertex(rb_vertex, self);
