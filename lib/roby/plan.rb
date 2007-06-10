@@ -423,7 +423,10 @@ module Roby
 		force_gc.merge(force_on.to_value_set)
 	    end
 
-	    loop do
+	    did_something = true
+	    while did_something
+		did_something = false
+
 		tasks = unneeded_tasks | force_gc
 		if tasks.all? { |t| t.pending? || t.finished? }
 		    tasks.each do |t|
@@ -445,7 +448,6 @@ module Roby
 		    end
 		end
 
-		did_something = false
 		tasks.each do |t| 
 		    if !t.self_owned?
 			Plan.debug "GC: #{t} is not local, removing it"
@@ -471,8 +473,6 @@ module Roby
 			Plan.debug "GC: ignored #{t}"
 		    end
 		end
-
-		break unless did_something
 	    end
 
 	    unneeded_events.each do |event|
