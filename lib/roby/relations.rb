@@ -50,15 +50,7 @@ module Roby
 	#   just after
 	def add_child_object(child, relation, info = nil)
 	    check_is_relation(relation)
-	    if relation.linked?(self, child)
-		if self[child, relation] != info
-		    raise ArgumentError, "trying to override edge data. Was #{self[child, relation]}, new info is #{info}"
-		end
-	    else
-		adding_child_object(child, relation, info)
-		relation.add_relation(self, child, info)
-		added_child_object(child, relation, info)
-	    end
+	    relation.add_relation(self, child, info)
 	end
 
 	# Add a new parent object in the +relation+ relation
@@ -71,29 +63,27 @@ module Roby
 	end
 
 	# Hook called before a new child is added in the +relation+ relation
-	def adding_child_object(child, relation, info)
-	    child.adding_parent_object(self, relation, info)
-	    super if defined? super 
-	end
+	# def adding_child_object(child, relation, info)
+	#     child.adding_parent_object(self, relation, info)
+	#     super if defined? super 
+	# end
 	# Hook called after a new child has been added in the +relation+ relation
-	def added_child_object(child, relation, info)
-	    child.added_parent_object(self, relation, info)
-	    super if defined? super 
-	end
+	# def added_child_object(child, relation, info)
+	#     child.added_parent_object(self, relation, info)
+	#     super if defined? super 
+	# end
 
 	# Hook called after a new parent has been added in the +relation+ relation
-	def added_parent_object(parent, relation, info); super if defined? super end
-	# Hook called after a new parent is being added in the +relation+ relation
-	def adding_parent_object(parent, relation, info); super if defined? super end
+	#def added_parent_object(parent, relation, info); super if defined? super end
+	## Hook called after a new parent is being added in the +relation+ relation
+	#def adding_parent_object(parent, relation, info); super if defined? super end
 
 	# Remove the relation between +self+ and +child+. If +relation+ is
 	# given, remove only a relations in this relation kind.
 	def remove_child_object(child, relation = nil)
 	    check_is_relation(relation)
 	    apply_selection(relation, (relation || enum_relations)) do |relation|
-		removing_child_object(child, relation)
 		relation.remove_relation(self, child)
-		removed_child_object(child, relation)
 	    end
 	end
 
@@ -124,20 +114,20 @@ module Roby
 	end
 
 	# Hook called after a parent has been removed
-	def removing_parent_object(parent, relation); super if defined? super end
+	# def removing_parent_object(parent, relation); super if defined? super end
 	# Hook called after a child has been removed
-	def removing_child_object(child, relation)
-	    child.removing_parent_object(self, relation)
-	    super if defined? super 
-	end
+	# def removing_child_object(child, relation)
+	#     child.removing_parent_object(self, relation)
+	#     super if defined? super 
+	# end
 
 	# Hook called after a parent has been removed
-	def removed_parent_object(parent, relation); super if defined? super end
+	# def removed_parent_object(parent, relation); super if defined? super end
 	# Hook called after a child has been removed
-	def removed_child_object(child, relation)
-	    child.removed_parent_object(self, relation)
-	    super if defined? super 
-	end
+	# def removed_child_object(child, relation)
+	#     child.removed_parent_object(self, relation)
+	#     super if defined? super 
+	# end
 
 	# Remove all relations that point to or come from +to+ If +to+ is nil,
 	# it removes all relations of +self+
@@ -233,22 +223,43 @@ module Roby
 	# If #dag? is true, it checks that the new relation does not create a
 	# cycle
 	def add_relation(from, to, info = nil)
-	    if !linked?(from, to) 
-		if parent
-		    from.add_child_object(to, parent, info)
-		elsif dag? && reachable?(to, from)
+	    rel = self
+	    while rel
+		if rel.linked?(from, to)
+		    if info != from[to, self]
+			raise ArgumentError, "trying to change edge information"
+		    end
+		    return
+		end
+
+		if dag? && reachable?(to, from)
 		    # No need to test that we won't create a cycle in child
 		    # relations, since the parent relation graphs are the union
 		    # of all their children
 		    raise CycleFoundError, "cannot add a #{from} -> #{to} relation since it would create a cycle"
 		end
-	    end
 
-	    # If the link already exists, call #link anyway. It will check that
-	    # the edge info remains the same
-	    link(from, to, info)
+		if from.respond_to?(:adding_child_object)
+		    from.adding_child_object(to, rel, info)
+		end
+		if to.respond_to?(:adding_parent_object)
+		    to.adding_parent_object(from, rel, info)
+		end
+
+		rel.__bgl_link(from, to, info)
+
+		if from.respond_to?(:added_child_object)
+		    from.added_child_object(to, rel, info)
+		end
+		if to.respond_to?(:added_parent_object)
+		    to.added_parent_object(from, rel, info)
+		end
+
+		rel = rel.parent
+	    end
 	end
 
+	alias :__bgl_link :link
 	# Reimplemented from BGL::Graph. Unlike this implementation, it is
 	# possible to add an already existing edge if the +info+ parameter
 	# matches.
@@ -265,10 +276,26 @@ module Roby
 	# Remove the relation between +from+ and +to+, in this graph and in its
 	# parent graphs as well
 	def remove_relation(from, to)
-	    if parent
-		from.remove_child_object(to, parent)
+	    rel = self
+	    while rel
+		if from.respond_to?(:removing_child_object)
+		    from.removing_child_object(to, rel)
+		end
+		if to.respond_to?(:removing_parent_object)
+		    to.removing_parent_object(from, rel)
+		end
+
+		rel.unlink(from, to)
+
+		if from.respond_to?(:removed_child_object)
+		    from.removed_child_object(to, rel)
+		end
+		if to.respond_to?(:removed_parent_object)
+		    to.removed_parent_object(from, rel)
+		end
+
+		rel = rel.parent
 	    end
-	    unlink(from, to)
 	end
 	
 	# Returns true if +relation+ is included in this relation (i.e. it is
