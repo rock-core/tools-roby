@@ -195,12 +195,8 @@ module Roby
 	    @name = name
 	    @options = options
 	    @subsets = ValueSet.new
-
-	    if options.has_key?(:dag)
-		@dag = options[:dag]
-	    else
-		@dag = true
-	    end
+	    @distribute = options[:distribute]
+	    @dag = options[:dag]
 
 	    if options[:subsets]
 		options[:subsets].each(&method(:superset_of))
@@ -208,14 +204,14 @@ module Roby
 	end
 
 	# True if this relation graph is a DAG
-	def dag?; @dag end
+	attr_predicate :dag
+	# True if this relation should be seen by remote peers
+	attr_predicate :distribute
+
 	def to_s; name end
 
 	# True if this relation does not have a parent
 	def root_relation?; !parent end
-
-	# True if the relation can be seen by remote plan databases
-	def distribute?; options[:distribute] end
 
 	# Add a new relation between +from+ and +to+. The relation is
 	# added on all parent relation graphs as well. 	
@@ -393,6 +389,7 @@ module Roby
 			:noinfo => false,
 			:graph => RelationGraph,
 			:distribute => true,
+			:dag => true,
 			:single_child => false
 
 	    # Check if this relation is already defined. If it is the case, reuse it.
