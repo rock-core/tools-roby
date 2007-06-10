@@ -91,7 +91,7 @@ module Roby
 	    super
 
 	    if changed
-		p = plan
+		p = changed.plan
 		changed.instance_variable_set(:@plan, nil)
 		p.discover(changed)
 	    end
