@@ -268,7 +268,7 @@ module Roby
 	# Returns the set of tasks directly related to this event
 	def related_tasks(result = nil)
 	    result ||= ValueSet.new
-	    related_events.each do |ev| 
+	    for ev in related_events
 		if ev.respond_to?(:task)
 		    result << ev.task
 		end

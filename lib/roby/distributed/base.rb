@@ -177,7 +177,7 @@ module Roby
 
 		result  ||= Distributed.keep.referenced_objects.to_value_set
 		child_set = ValueSet.new
-	        candidates.each do |obj|
+	        for obj in candidates
 	            next if obj.self_owned? || 
 	        	result.include?(obj.root_object) || 
 	        	useful_tasks.include?(obj.root_object)

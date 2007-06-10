@@ -279,8 +279,9 @@ module Roby
 	# Returns the set of tasks that are useful for +tasks+
 	def useful_task_component(useful_tasks, seeds)
 	    old_useful_tasks = useful_tasks.dup
-	    TaskStructure.each_root_relation do |rel| 
-		rel.generated_subgraphs(seeds, false).each do |subgraph|
+	    for rel in TaskStructure.relations
+		next unless rel.root_relation?
+		for subgraph in rel.generated_subgraphs(seeds, false)
 		    useful_tasks.merge(subgraph)
 		end
 	    end
@@ -322,7 +323,8 @@ module Roby
 	    remotely_useful = Distributed.remotely_useful_objects(useful, known_tasks - useful)
 	    useful.merge remotely_useful
 
-	    useful_task_component(useful.dup, remotely_useful.to_a).each do |t|
+	    # Include the set of local tasks that are serving tasks in +remotely_useful+
+	    for t in (useful_task_component(useful.dup, remotely_useful) - useful)
 		if t.self_owned?
 		    useful << t
 		end
@@ -340,18 +342,18 @@ module Roby
 
 	def useful_event_component(useful_events)
 	    current_size = useful_events.size
-	    EventStructure.each_relation do |rel|
+	    for rel in EventStructure.relations
 		next unless rel.root_relation?
-		rel.components(free_events.to_a, false).
-		    each do |c|
-			c = c.to_value_set
-			if c.intersects?(useful_events) || c.any? { |ev| ev.kind_of?(Roby::TaskEventGenerator) }
-			    useful_events.merge(c)
-			    if useful_events.include_all?(free_events)
-				return free_events
-			    end
+
+		for subgraph in rel.components(free_events, false)
+		    subgraph = subgraph.to_value_set
+		    if subgraph.intersects?(useful_events) || subgraph.intersects?(task_events)
+			useful_events.merge(subgraph)
+			if useful_events.include_all?(free_events)
+			    return free_events
 			end
 		    end
+		end
 
 		if useful_events.include_all?(free_events)
 		    return free_events

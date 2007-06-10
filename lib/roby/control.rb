@@ -286,7 +286,7 @@ module Roby
 	def structure_checking
 	    # Do structure checking and gather the raised exceptions
 	    exceptions = {}
-	    Control.structure_checks.each do |prc|
+	    for prc in Control.structure_checks
 		new_exceptions = nil
 		Propagation.gather_exceptions(prc, 'structure check') { new_exceptions = prc.call(plan) }
 		next unless new_exceptions
@@ -344,7 +344,7 @@ module Roby
 	    # Get the list of tasks we should kill because of fatal_errors
 	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
 		tasks ||= [*error.task]
-		[*tasks].each do |parent|
+		for parent in [*tasks]
 		    new_tasks = parent.reverse_generated_subgraph(TaskStructure::Hierarchy)
 		    Control.fatal_exception(error, new_tasks)
 		    kill_tasks.merge(new_tasks)
@@ -357,7 +357,7 @@ module Roby
 
 	    application_errors = Thread.current[:application_exceptions]
 	    Thread.current[:application_exceptions] = nil
-	    application_errors.each do |(event, origin), error|
+	    for (event, origin), error in application_errors
 		Roby.application_error(event, origin, error)
 	    end
 	    stats[:end] = stats[:application_errors] = Time.now

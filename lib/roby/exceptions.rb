@@ -41,7 +41,9 @@ module Roby
 	end
 	# Enumerates this exception's siblings
 	def each_sibling
-	    siblings.each { |e| yield(e) unless e == self }
+	    for e in siblings
+		yield(e) unless e == self
+	    end
 	end
 
 	# Creates a new execution exception object with the specified source
