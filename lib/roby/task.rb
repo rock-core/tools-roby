@@ -357,16 +357,16 @@ module Roby
 
 	    @model = self.class
 	    @name = "#{model.name || self.class.name}#{arguments.to_s}:0x#{address.to_s(16)}"
-            @bound_events = Hash.new
 
-            yield self if block_given?
+            yield(self) if block_given?
+	    super() if defined? super
 
 	    # Create all event generators
+	    bound_events = Hash.new
 	    model.each_event do |ev_symbol, ev_model|
 		bound_events[ev_symbol.to_sym] = TaskEventGenerator.new(self, ev_model)
 	    end
-
-	    super() if defined? super
+	    @bound_events = bound_events
         end
 
 	def instantiate_model_event_relations
@@ -694,7 +694,7 @@ module Roby
 	    unless event = bound_events[event_model]
 		event_model = self.event_model(event_model)
 		unless event = bound_events[event_model.symbol]
-		    raise "cannot find #{event_model.symbol.inspect} in the set of bound events"
+		    raise "cannot find #{event_model.symbol.inspect} in the set of bound events in #{self}. Known events are #{bound_events}."
 		end
 	    end
 	    event
