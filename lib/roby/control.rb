@@ -374,12 +374,9 @@ module Roby
 
 	# Blocks until at least once execution cycle has been done
 	def wait_one_cycle
-	    wait = ConditionVariable.new
-	    Roby::Control.synchronize do
-		Roby::Control.once { wait.broadcast }
-		wait.wait(Roby::Control.mutex)
-		Roby::Control.once { wait.broadcast }
-		wait.wait(Roby::Control.mutex)
+	    current_cycle = Roby.execute { Roby.control.cycle_index }
+	    while current_cycle == Roby.execute { Roby.control.cycle_index }
+		sleep(0.5)
 	    end
 	end
 
