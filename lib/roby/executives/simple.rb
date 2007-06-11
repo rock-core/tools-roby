@@ -5,7 +5,8 @@ module Roby
 	    def initialize
 		@query = Roby.plan.find_tasks.
 		    executable.
-		    pending
+		    pending.
+		    self_owned
 	    end
 	    def initial_events
 		query.reset.each do |task|
