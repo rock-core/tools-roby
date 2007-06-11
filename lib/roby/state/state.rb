@@ -52,11 +52,14 @@ module Roby
         end
 
 	def self._load(io)
-	    undumped = Marshal.load(io)
-
-	    marshalled_members, aliases = undumped
+	    marshalled_members, aliases = Marshal.load(io)
 	    members = marshalled_members.inject({}) do |h, (n, mv)|
-		h[n] = Marshal.load(mv)
+		begin
+		    h[n] = Marshal.load(mv)
+		rescue Exception
+		    Roby::Distributed.warn "cannot load #{n} #{mv}: #{$!.message}"
+		end
+
 		h
 	    end
 
@@ -64,6 +67,10 @@ module Roby
 	    result.instance_variable_set("@members", members)
 	    result.instance_variable_set("@aliases", aliases)
 	    result
+
+	rescue Exception
+	    Roby::Distributed.warn "cannot load #{members} #{io}: #{$!.message}"
+	    raise
 	end
 
 	def _dump(lvl = -1)
