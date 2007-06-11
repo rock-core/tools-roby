@@ -98,11 +98,11 @@ module Roby::TaskStructure
 	    return unless symbol == :start
 	    return unless agent = task.execution_agent
 
-	    if agent.finished?
+	    if agent.finished? || agent.finishing?
 		raise Roby::TaskModelViolation.new(task), "task #{task} has an execution agent but it is dead"
 	    elsif !agent.event(:ready).happened? && !agent.depends_on?(task)
 		postpone(agent.event(:ready), "spawning execution agent #{agent} for #{self}") do
-		    unless agent.running? || agent.starting?
+		    if agent.pending?
 			agent.event(:start).on do
 			    agent.event(:stop).until(agent.event(:ready)).on do |event|
 				self.emit_failed "execution agent #{agent} failed to initialize\n  #{event.context}"
