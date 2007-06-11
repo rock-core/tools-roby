@@ -98,8 +98,6 @@ module Roby
 		else raise ArgumentError, "found #{o || 'nil'} which is neither a task nor an event"
 		end
 	    end
-	    evts  = nil if evts.empty?
-	    tasks = nil if tasks.empty?
 	    return evts, tasks
 	end
 
