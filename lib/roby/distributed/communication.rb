@@ -336,11 +336,15 @@ module Roby
 		    stack << object
 		    begin
 			object.each do |obj|
-			    begin
-				check_marshallable(obj, stack)
-			    rescue Exception
-				Roby.warn "cannot dump #{obj}(#{obj.class}): #{$!.message}"
-				raise
+			    marshalled = begin
+					     check_marshallable(obj, stack)
+					 rescue Exception
+					     raise TypeError, "cannot dump #{obj}(#{obj.class}): #{$!.message}"
+					 end
+
+				
+			    if Marshal.load(marshalled).kind_of?(DRb::DRbUnknown)
+				raise TypeError, "cannot load #{obj}(#{obj.class})"
 			    end
 			end
 		    ensure
@@ -377,7 +381,7 @@ module Roby
 		formatted_args = Distributed.format(args, self)
 
 		if Roby::Distributed::DEBUG_MARSHALLING
-		    check_marshallable(args)
+		    check_marshallable(formatted_args)
 		end
 		
 		@sending = true
