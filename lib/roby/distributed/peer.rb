@@ -390,7 +390,7 @@ module Roby::Distributed
 	    task.on(:ready) { yield(self) } if block_given?
 	    Roby::Control.once do
 		connection_space.plan.permanent(task)
-		task.emit(:start)
+		task.start!
 	    end
 	    
 	    Roby::Distributed.info "connecting to #{remote_name}"
