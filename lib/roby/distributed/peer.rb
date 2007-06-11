@@ -253,8 +253,11 @@ module Roby::Distributed
 	# +connection_space+.  If a block is given, it is called in the control
 	# thread when the connection is finalized
 	def initialize(connection_space, neighbour, remote_server = nil, &block)
-	    if Roby::Distributed.peers[neighbour.remote_id]
-		raise ArgumentError, "there is already a peer for #{neighbour.name}"
+	    connection_space.synchronize do
+		if Roby::Distributed.peers[neighbour.remote_id]
+		    raise ArgumentError, "there is already a peer for #{neighbour.name}"
+		end
+		Roby::Distributed.peers[neighbour.remote_id] = self
 	    end
 	    super() if defined? super
 
@@ -272,7 +275,6 @@ module Roby::Distributed
 	    @synchro_point_mutex = Mutex.new
 	    @synchro_point_done = ConditionVariable.new
 
-	    Roby::Distributed.peers[remote_id] = self
 
 	    connect(&block)
 	end
