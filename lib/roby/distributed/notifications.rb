@@ -208,6 +208,13 @@ module Roby
 		    end
 		    local.forget_peer(peer)
 		end
+
+	    rescue ArgumentError => e
+		if e.message =~ /has not been included in this plan/
+		    Roby::Distributed.warn "filtering the 'not included in this plan bug'"
+		else
+		    raise
+		end
 	    end
 
 	    # Receive an update on the relation graphs
