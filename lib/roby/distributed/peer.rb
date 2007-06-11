@@ -43,10 +43,8 @@ module Roby::Distributed
 	end
 	forward :aborted => :failed
 
-	event :failed, :terminal => true do
-	    peer.synchronize do
-		peer.disconnect
-	    end
+	event :failed, :terminal => true do |context| 
+	    peer.disconnect
 	end
 	interruptible
     end
