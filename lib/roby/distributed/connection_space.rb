@@ -15,7 +15,7 @@ module Roby
 		@name, @remote_id = name, remote_id
 	    end
 
-	    def connect; Peer.new(ConnectionSpace.state, peer) end
+	    def connect; Peer.initiate_connection(ConnectionSpace.state, peer) end
 	    def ==(other)
 		other.kind_of?(Neighbour) &&
 		    (remote_id == other.remote_id)
