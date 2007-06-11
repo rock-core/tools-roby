@@ -548,7 +548,7 @@ module Roby
 	# Checks that ownership allows to add the self => child relation
 	def add_child_object(child, type, info) # :nodoc:
 	    unless child.read_write?
-		raise NotOwner, "cannot add an event relation on a child we don't own. #{child} is owned by #{child.owners.to_a} (#{plan.owners.to_a})"
+		raise NotOwner, "cannot add an event relation on a child we don't own. #{child} is owned by #{child.owners.to_a} (#{plan.owners.to_a if plan})"
 	    end
 
 	    super
