@@ -144,8 +144,9 @@ module Roby::TaskStructure
 	    candidates = task.plan.find_tasks.
 		with_model(agent_model).
 		self_owned.
-		not_finished.
-		to_a
+		not_finished
+
+	    agent = nil
 
 	    if candidates.empty?
 		Roby::Propagation.gather_exceptions(agent_model) do
@@ -160,15 +161,13 @@ module Roby::TaskStructure
 			    end
 			end
 		    end
-		    candidates << agent
 		end
+	    else
+		running, pending = candidates.partition { |t| t.running? }
+		agent = if running.empty? then pending.first
+			else running.first
+			end
 	    end
-
-	    running, pending = candidates.partition { |t| t.running? }
-	    agent = if running.empty? then pending.first
-		    else running.first
-		    end
-
 	    task.executed_by agent
 	end
     end
