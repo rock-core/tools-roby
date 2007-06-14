@@ -78,6 +78,43 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	end
     end
 
+    def test_array_droby_dump
+	FlexMock.use do |mock|
+	    mock.should_receive(:droby_dump).and_return("mock")
+	    array = [1, mock]
+	    assert_equal([1, "mock"], array.droby_dump(nil))
+	end
+    end
+
+    def test_set_droby_dump
+	FlexMock.use do |mock|
+	    mock.should_receive(:droby_dump).and_return("mock")
+	    set = [1, mock, "q"].to_set
+	    assert_equal([1, "mock", "q"].to_set, set.droby_dump(nil))
+	end
+    end
+
+    def test_hash_droby_dump
+	FlexMock.use do |mock|
+	    mock.should_receive(:droby_dump).and_return("mock")
+	    hash = { 1 => mock, mock => "q" }
+	    assert_equal({ 1 => "mock", "mock" => "q" }, hash.droby_dump(nil))
+	end
+    end
+
+    def test_value_set_droby_dump
+	FlexMock.use do |mock|
+	    mock.should_receive(:droby_dump).and_return("mock")
+	    value_set = [1, mock, "q"].to_value_set
+
+
+	    dumped = value_set.droby_dump(nil)
+	    assert_kind_of(ValueSet, dumped)
+	    assert_equal([1, "mock", "q"].to_set, dumped.to_set)
+	end
+    end
+
+
     def test_enumerables
 	test_case = self
 	peer2peer do |remote|

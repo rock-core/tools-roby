@@ -1,6 +1,7 @@
 #include <ruby.h>
 #include <intern.h>
 #include <st.h>
+#include <set>
 
 static VALUE mRoby;
 static VALUE mRobyDistributed;
@@ -71,9 +72,18 @@ static VALUE array_dump_element(VALUE element, DROBY_DUMP_ITERATION_ARG* arg)
  */
 static VALUE array_droby_dump(VALUE self, VALUE dest)
 {
-    DROBY_DUMP_ITERATION_ARG arg = { rb_ary_new(), dest };
-    rb_iterate(rb_each, self, array_dump_element, (VALUE)&arg);
-    return arg.result;
+    VALUE result = rb_ary_new();
+    struct RArray* array = RARRAY(self);
+    int i;
+
+    VALUE el[2] = { Qnil, dest };
+    for (i = 0; i < array->len; ++i)
+    {
+	el[0] = array->ptr[i];
+	rb_ary_push(result, droby_format(2, el, mRobyDistributed));
+    }
+
+    return result;
 }
 
 static int hash_dump_element(VALUE key, VALUE value, DROBY_DUMP_ITERATION_ARG* arg)
@@ -95,7 +105,7 @@ static int hash_dump_element(VALUE key, VALUE value, DROBY_DUMP_ITERATION_ARG* a
 static VALUE hash_droby_dump(VALUE self, VALUE dest)
 {
     DROBY_DUMP_ITERATION_ARG arg = { rb_hash_new(), dest };
-    rb_hash_foreach(self, hash_dump_element, (VALUE)&arg);
+    rb_hash_foreach(self, (int(*)(ANYARGS)) hash_dump_element, (VALUE)&arg);
     return arg.result;
 }
 
@@ -115,7 +125,7 @@ static VALUE appendable_dump_element(VALUE value, DROBY_DUMP_ITERATION_ARG* arg)
 static VALUE set_droby_dump(VALUE self, VALUE dest)
 {
     DROBY_DUMP_ITERATION_ARG arg = { rb_class_new_instance(0, 0, cSet), dest };
-    rb_iterate(rb_each, self, appendable_dump_element, (VALUE)&arg);
+    rb_iterate(rb_each, self, RUBY_METHOD_FUNC(appendable_dump_element), (VALUE)&arg);
     return arg.result;
 }
 
@@ -127,12 +137,24 @@ static VALUE set_droby_dump(VALUE self, VALUE dest)
  */
 static VALUE value_set_droby_dump(VALUE self, VALUE dest)
 {
-    DROBY_DUMP_ITERATION_ARG arg = { rb_class_new_instance(0, 0, cValueSet), dest };
-    rb_iterate(rb_each, self, appendable_dump_element, (VALUE)&arg);
-    return arg.result;
+    VALUE result = rb_class_new_instance(0, 0, cValueSet);
+    std::set<VALUE>* result_set;
+    Data_Get_Struct(result, std::set<VALUE>, result_set);
+
+    std::set<VALUE> const * source_set;
+    Data_Get_Struct(self, std::set<VALUE>, source_set);
+
+    VALUE el[2] = { Qnil, dest };
+    for (std::set<VALUE>::const_iterator it = source_set->begin(); it != source_set->end(); ++it)
+    {
+	el[0] = *it;
+	result_set->insert(droby_format(2, el, mRobyDistributed));
+    }
+
+    return result;
 }
 
-void Init_droby()
+extern "C" void Init_droby()
 {
     id_droby_dump = rb_intern("droby_dump");
     id_remote_id = rb_intern("remote_id");
@@ -144,11 +166,11 @@ void Init_droby()
     cValueSet  = rb_const_get(rb_cObject, rb_intern("ValueSet"));
     cSet       = rb_const_get(rb_cObject, rb_intern("Set"));
 
-    rb_define_singleton_method(mRobyDistributed, "format", droby_format, -1);
+    rb_define_singleton_method(mRobyDistributed, "format", RUBY_METHOD_FUNC(droby_format), -1);
 
-    rb_define_method(rb_cArray , "droby_dump" , array_droby_dump     , 1);
-    rb_define_method(rb_cHash  , "droby_dump" , hash_droby_dump      , 1);
-    rb_define_method(cSet      , "droby_dump" , set_droby_dump       , 1);
-    rb_define_method(cValueSet , "droby_dump" , value_set_droby_dump , 1);
+    rb_define_method(rb_cArray , "droby_dump" , RUBY_METHOD_FUNC(array_droby_dump)     , 1);
+    rb_define_method(rb_cHash  , "droby_dump" , RUBY_METHOD_FUNC(hash_droby_dump)      , 1);
+    rb_define_method(cSet      , "droby_dump" , RUBY_METHOD_FUNC(set_droby_dump)       , 1);
+    rb_define_method(cValueSet , "droby_dump" , RUBY_METHOD_FUNC(value_set_droby_dump) , 1);
 }
 
