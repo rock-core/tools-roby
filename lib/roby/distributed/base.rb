@@ -147,6 +147,8 @@ module Roby
 
 	@updated_objects = ValueSet.new
 	@allowed_remote_access = Array.new
+	@keep = RefCounting.new
+	@removed_objects = ValueSet.new
 	class << self
 	    attr_reader :state
 	    def state=(new_state)
@@ -164,7 +166,7 @@ module Roby
 
 	    # The set of objects we should temporarily keep because they are used
 	    # in a callback mechanism (like a remote query or a trigger)
-	    attribute(:keep) { RefCounting.new }
+	    attr_reader :keep
 
 	    def keep_object?(local_object)
 	        !local_object.self_owned? && 
@@ -281,7 +283,7 @@ module Roby
 
 	    # The set of objects that have been removed locally, but for which
 	    # there are still references on our peers
-	    attribute(:removed_objects) { ValueSet.new }
+	    attr_reader :removed_objects
 	end
     end
 end
