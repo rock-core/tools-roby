@@ -136,8 +136,8 @@ module Roby::TaskStructure
 	    # Note that it would be solved by plan merging ...
 	    return unless executable?
 
-	    tasks.each do |task|
-		if task.self_owned? && !task.execution_agent && task.model.execution_agent
+	    for task in tasks
+		if !task.execution_agent && task.model.execution_agent && task.self_owned?
 		    ExecutionAgentSpawn.spawn(task)
 		end
 	    end

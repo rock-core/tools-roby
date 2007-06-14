@@ -117,11 +117,21 @@ module Roby
 	    if arguments
 		return unless task.arguments.slice(*arguments.keys) == arguments
 	    end
-	    return unless improved_information.all? { |info| task.improves?(info) }
-	    return unless needed_information.all?   { |info| task.needs?(info) }
-	    return unless predicates.all? { |pred| task.send(pred) }
-	    return if neg_predicates.any? { |pred| task.send(pred) }
-	    return if !owners.empty? && !(task.owners - owners).empty?
+
+	    for info in improved_information
+		return false if !task.improves?(info)
+	    end
+	    for info in needed_information
+		return false if !task.needs?(info)
+	    end
+	    for pred in predicates
+		return false if !task.send(pred)
+	    end
+	    for pred in neg_predicates
+		return false if task.send(pred)
+	    end
+
+	    return false if !owners.empty? && !(task.owners - owners).empty?
 	    true
 	end
 

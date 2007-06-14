@@ -18,7 +18,9 @@ require 'utilrb/set/to_s'
 
 module Enumerable
     def empty?
-	each { return false }
+	for i in self
+	    return false
+	end
 	true
     end
 end

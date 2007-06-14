@@ -1149,16 +1149,17 @@ module Roby
 	    args       = args.dup
 
 	    # Check the arguments that are required by the model
-	    models.each do |tag|
+	    for tag in models
 		unless self_model.has_ancestor?(tag)
 		    return false
 		end
 
 		unless args.empty?
-		    tag.arguments.each do |arg_name|
+		    for arg_name in tag.arguments
 			if user_arg = args.delete(arg_name)
 			    return false unless user_arg == self_args[arg_name]
 			end
+			break if args.empty?
 		    end
 		end
 	    end
