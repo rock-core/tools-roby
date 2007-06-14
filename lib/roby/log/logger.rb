@@ -56,21 +56,25 @@ module Roby::Log
 	# Iterates on all the logger objects. If +m+ is given, yields only the loggers
 	# which respond to this method.
 	def each_logger(m = nil)
-	    @loggers.each do |log|
-		yield(log) if !m || log.respond_to?(m)
+	    for l in @loggers
+		if !m || l.respond_to?(m)
+		    yield(l) 
+		end
 	    end
 	end
 
 	# Returns true if there is at least one loggr for the +m+ message
-	def has_logger?(m); @loggers.any? { |log| log.respond_to?(m) } end
+	def has_logger?(m)
+	    for l in @loggers
+		return true if l.respond_to?(m)
+	    end
+	    false
+	end
 
-	LOGGED_EVENTS_QUEUE_SIZE = 2000
-	attribute(:logged_events) { SizedQueue.new(LOGGED_EVENTS_QUEUE_SIZE) }
-
-	attribute(:flushed_logger_mutex) { Mutex.new }
-	attribute(:flushed_logger) { ConditionVariable.new }
-
-	attribute(:known_objects) { ValueSet.new }
+	attr_reader :logged_events
+	attr_reader :flushed_logger_mutex
+	attr_reader :flushed_logger
+	attr_reader :known_objects
 
 	def incremental_dump?(object); known_objects.include?(object) end
 
@@ -184,5 +188,12 @@ module Roby::Log
 	    end
 	end
     end
+
+    LOGGED_EVENTS_QUEUE_SIZE = 2000
+    @logged_events        = SizedQueue.new(LOGGED_EVENTS_QUEUE_SIZE)
+    @flushed_logger_mutex = Mutex.new
+    @flushed_logger       = ConditionVariable.new
+    @known_objects        = ValueSet.new
+
 end
 
