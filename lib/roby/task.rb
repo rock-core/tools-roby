@@ -115,9 +115,15 @@ module Roby
     #   *bound* to a particular task instance, a Method object represents a particular method 
     #   bound to a particular object
     class TaskEventGenerator < EventGenerator
-        attr_reader :task, :event_model
+	# The task we are part of
+        attr_reader :task
+	# The event symbol (its name as a Symbol object)
+	attr_reader :symbol
+	# The event class
+	attr_reader :event_model
         def initialize(task, model)
             @task, @event_model = task, model
+	    @symbol = model.symbol
 	    super(model.respond_to?(:call))
         end
 
@@ -125,7 +131,11 @@ module Roby
 	    event_model.call(task, context)
 	end
 
+	# See PlanObject::child_plan_object. 
 	child_plan_object :task
+
+	# The event plan. It is the same as task.plan and is actually updated
+	# by task.plan=. It is redefined here for performance reasons.
 	attr_accessor :plan
 
 	# Fire the event
@@ -187,7 +197,6 @@ module Roby
 		task.update_terminal_flag
 	    end
 	end
-        def symbol;       event_model.symbol end
         def new(context); event_model.new(task, self, Propagation.propagation_id, context) end
 
 	def to_s
