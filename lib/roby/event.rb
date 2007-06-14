@@ -304,6 +304,7 @@ module Roby
 		    add_propagation(true, event, signalled, event.context, (self[signalled, EventStructure::Forwarding] rescue nil))
 		end
 
+		@happened = true
 		fired(event)
 
 		call_handlers(event)
@@ -427,7 +428,7 @@ module Roby
 	# A [time, event] array of past event emitted by this object
 	attribute(:history) { Array.new }
 	# True if this event has been emitted once.
-	def happened?; @happened || !history.empty? end
+	attr_predicate :happened
 	# Last event to have been emitted by this generator
 	def last; history.last end
 

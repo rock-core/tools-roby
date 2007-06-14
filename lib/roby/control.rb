@@ -380,9 +380,12 @@ module Roby
 	    end
 	end
 
+	@process_once = Queue.new
+	@at_cycle_end_handlers = Array.new
+	@process_every = Array.new
 	class << self
 	    # A list of blocks to be called at the beginning of the next event loop
-	    attribute(:process_once) { Queue.new }
+	    attr_reader :process_once
 	    # Calls all pending procs in +process_once+
 	    def call_once # :nodoc:
 		while (p = process_once.pop(true) rescue nil)
@@ -397,7 +400,7 @@ module Roby
 	    def each_cycle(&block); Control.event_processing << block end
 
 	    # A set of blocks that are called at each cycle end
-	    attribute(:at_cycle_end_handlers) { Array.new }
+	    attr_reader :at_cycle_end_handlers
 
 	    # Call +block+ at the end of the execution cycle	
 	    def at_cycle_end(&block)
@@ -405,7 +408,7 @@ module Roby
 	    end
 
 	    # A set of blocks which are called every cycle
-	    attribute(:process_every) { Array.new }
+	    attr_reader :process_every
 
 	    # Call +block+ every +duration+ seconds. Note that +duration+ is
 	    # round up to the cycle size (time between calls is *at least* duration)
