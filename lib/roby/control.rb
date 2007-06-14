@@ -224,7 +224,7 @@ module Roby
 	end
 
 	# Do not sleep or call Thread#pass if there is less that
-	# SLEEP_MIN_TIME time left in the cycle
+	# this much time left in the cycle
 	SLEEP_MIN_TIME = 0.01
 
 	# If true, abort if an unhandled exception is found
