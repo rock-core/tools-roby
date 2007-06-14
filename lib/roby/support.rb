@@ -16,7 +16,7 @@ require 'utilrb/array/to_s'
 require 'utilrb/hash/to_s'
 require 'utilrb/set/to_s'
 
-class Enumerable::Enumerator
+module Enumerable
     def empty?
 	each { return false }
 	true
