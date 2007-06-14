@@ -205,17 +205,19 @@ module Roby
 	@mutex = Mutex.new
 	class << self
 	    attr_reader :mutex
+
+	    # Implements a recursive behaviour on Control.mutex
 	    def synchronize
 		if Thread.current[:control_mutex_locked]
 		    yield
 		else
-		    mutex.synchronize do
-			begin
-			    Thread.current[:control_mutex_locked] = true
-			    yield
-			ensure
-			    Thread.current[:control_mutex_locked] = false
-			end
+		    begin
+			mutex.lock
+			Thread.current[:control_mutex_locked] = true
+			yield
+		    ensure
+			Thread.current[:control_mutex_locked] = false
+			mutex.unlock
 		    end
 		end
 	    end
