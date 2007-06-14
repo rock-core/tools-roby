@@ -5,7 +5,14 @@ module Roby::TaskStructure
     # instance to Roby::Task
     module ModelLevelExecutionAgent
 	# The model of execution agent for this class
-	attr_reader :execution_agent
+	def execution_agent
+	    for klass in ancestors
+		if klass.instance_variable_defined?(:@execution_agent)
+		    return klass.instance_variable_get(:@execution_agent)
+		end
+	    end
+	    nil
+	end
 
 	# Defines a model of execution agent. Doing
 	#

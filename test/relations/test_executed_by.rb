@@ -19,6 +19,15 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	assert_equal(exec_task, task.execution_agent)
     end
 
+    def test_inherits_execution_model
+	model = Class.new(Roby::Task) do
+	    executed_by ExecutionAgentModel
+	end
+	submodel = Class.new(model)
+
+	assert_equal(ExecutionAgentModel, submodel.execution_agent)
+    end
+
     def test_nominal
 	plan.insert(task = SimpleTask.new)
 	task.executed_by(ExecutionAgentModel.new)
