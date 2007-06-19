@@ -96,19 +96,21 @@ module Roby::Propagation
     #
     # Returns +true+ if an exception has been raised
     def self.gather_exceptions(source = nil, modname = 'unknown')
-	begin
-	    yield
-	    false
+	yield
+	false
 
-	rescue Exception => e
-	    if Thread.current[:propagation_exceptions] && (plan_exception = to_execution_exception(e, source))
-		Thread.current[:propagation_exceptions] << plan_exception
-	    elsif Thread.current[:application_exceptions]
-		Thread.current[:application_exceptions] << [source, e]
-	    else
-		Roby.application_error(modname, source, e)
-	    end
-	    true
+    rescue Exception => e
+	append_exception(e, source, modname)
+	true
+    end
+
+    def self.append_exception(e, source, modname)
+	if Thread.current[:propagation_exceptions] && (plan_exception = to_execution_exception(e, source))
+	    Thread.current[:propagation_exceptions] << plan_exception
+	elsif Thread.current[:application_exceptions]
+	    Thread.current[:application_exceptions] << [source, e]
+	else
+	    Roby.application_error(modname, source, e)
 	end
     end
 
