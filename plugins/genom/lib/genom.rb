@@ -95,7 +95,7 @@ module Roby::Genom
 	end
 
 	# Starts the request
-	def start(context = nil)
+	event :start do
 	    args = genom_arguments
 	    if Hash === args
 		@activity = request.call(args)
@@ -104,20 +104,17 @@ module Roby::Genom
 	    end
 	    start_polling
 	end
-	event :start
 	
 	# The request has been interrupted
-	def interrupted(context)
+	event :interrupted do
 	    @abort_activity = activity.abort
 	end
-	event :interrupted
 	forward :interrupted => :failed
 
 	# Stops the request. It emits :interrupted
-	def stop(context)
+	event :stop do |context|
 	    interrupted!(context)
 	end
-	event :stop
 	on(:stop) { |event| Roby::Genom.running.delete(event.task) }
 
 	# Poll on the status of the activity
@@ -301,14 +298,12 @@ module Roby::Genom
 	#
 	# If the module has an init request, the ::init module method is started and :ready is emitted
 	# when if finishes successfully (see RunnerTask). Otherwise, :ready is emitted immediately otherwise
-	def start(context)
+	event :start do
 	    ::Genom::Runner.environment.start_module(genom_module.name, output_io)
 	    unless poll_running
 		Roby::Control.event_processing << method(:poll_running)
 	    end
 	end
-	# Event emitted when the module is running
-	event :start
 
 	def poll_running
 	    if genom_module.wait_running(true)
@@ -368,16 +363,12 @@ module Roby::Genom
 	on :start => :ready
 
 	# Stops the module
-	def failed(context)
+	event :failed, :terminal => true do
 	    ::Genom::Runner.environment.stop_module(genom_module.name)
 	    # :failed will be emitted by the dead! handler
 	end
 
-	# Emitted when the module process terminated
-	event :failed, :terminal => true
-
-	def stop(context); failed!(context) end
-	event :stop
+	interruptible
     end
 
     # Base functionalities for Genom modules. It extends
