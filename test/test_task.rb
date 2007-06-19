@@ -695,5 +695,45 @@ class TC_Task < Test::Unit::TestCase
 	t2.success!
 	assert(g.success?)
     end
+
+    def test_task_poll
+	Roby.control.run :cycle => 0.1, :detach => true
+
+	FlexMock.use do |mock|
+	    t = Class.new(SimpleTask) do
+		poll do
+		    mock.polled(self)
+		end
+	    end.new
+	    mock.should_receive(:polled).at_least.once.with(t)
+
+	    Roby.execute do
+		plan.permanent(t)
+		t.start!
+	    end
+	    sleep(1)
+	    Roby.execute do
+		assert(t.running?, t.terminal_event.to_s)
+		t.stop!
+	    end
+	end
+
+	FlexMock.use do |mock|
+	    mock.should_receive(:polled).at_least.once
+	    t = Class.new(SimpleTask) do
+		poll do
+		    mock.polled(self)
+		    raise ArgumentError
+		end
+	    end.new
+
+	    Roby.execute do
+		plan.permanent(t)
+		t.start!
+	    end
+	    sleep(1)
+	    assert(t.failed?)
+	end
+    end
 end
 

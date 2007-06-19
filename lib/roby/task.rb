@@ -483,7 +483,16 @@ module Roby
 		    raise "no block given"
 		end
 
-		define_method(:poll, &block)
+		define_method(:poll) do
+		    begin
+			poll_handler
+		    rescue Exception => e
+			emit :failed, e.message
+		    end
+		end
+
+		define_method(:poll_handler, &block)
+
 		on(:start) { Control.event_processing << method(:poll) }
 		on(:stop)  { Control.event_processing.delete(method(:poll)) }
 	    end
