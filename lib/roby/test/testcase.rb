@@ -355,18 +355,38 @@ module Roby
 	    #   nosim :init
 	    #   def test_init
 	    #   end
+	    #
+	    # See also TestCase.sim
 	    def self.nosim(*names)
 		names.each do |test_name|
 		    config = (methods_config[test_name.to_s] ||= Hash.new)
-		    config[:nosim] = true
+		    config[:mode] = :nosim
+		end
+	    end
+
+	    # Run +test_name+ only inside a simulation environment
+	    # +test_name+ is the name of the method without +test_+. For
+	    # instance:
+	    #   nosim :init
+	    #   def test_init
+	    #   end
+	    #
+	    # See also TestCase.nosim
+	    def self.sim(*names)
+		names.each do |test_name|
+		    config = (methods_config[test_name.to_s] ||= Hash.new)
+		    config[:mode] = :sim
 		end
 	    end
 
 	    def run(result)
 		Roby::Test.waiting_threads.clear
 
-		unless method_config[:nosim]
-		    Roby.app.simulation
+		case method_config[:mode]
+		when :nosim
+		    return if Roby.app.simulation?
+		when :sim
+		    return unless Roby.app.simulation?
 		end
 
 		Roby.app.run do
