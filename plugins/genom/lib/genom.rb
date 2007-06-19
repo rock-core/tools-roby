@@ -521,6 +521,13 @@ module Roby::Genom
 
 	attr_accessor :output_io
 
+	# Removes all modules included in the +used_modules+ and
+	# +ignored_modules+ sets
+	def clear_modules
+	    used_modules.clear
+	    ignored_modules.clear
+	end
+
 	# The list of the module names that have been loaded by #using
 	attribute(:used_modules) { Hash.new }
 	# If +name+ is a used module
