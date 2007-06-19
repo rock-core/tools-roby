@@ -462,6 +462,14 @@ class TC_Task < Test::Unit::TestCase
 	assert(!task.executable?)
 	task.executable = nil
 	assert(task.executable?)
+
+	task = SimpleTask.new
+	plan.permanent(task)
+	assert(task.executable?)
+	task.executable = false
+	assert(!task.executable?)
+	task.executable = nil
+	assert(task.executable?)
     end
 
     def test_task_success_failure
