@@ -207,11 +207,14 @@ module Roby
 	end
 
 	def achieve_with(obj)
-	    if obj.kind_of?(Roby::Task)
-		task.realized_by obj
-		obj.on(:stop) do
-		    task.remove_child obj
-		end
+	    child_task = case obj
+			 when Roby::Task: obj
+			 when Roby::TaskEventGenerator: obj.task
+			 end
+
+	    if child_task
+		task.realized_by child_task
+		child_task.on(:stop) { task.remove_child child_task }
 	    end
 
 	    super
