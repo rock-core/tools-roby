@@ -25,7 +25,7 @@ module BGL
 	attribute(:singleton_set) { [self].to_value_set.freeze }
 	# Returns the connected component +self+ is part of in +graph+
 	def component(graph)
-	    graph.components([self], false).first || singleton_set
+	    graph.components(singleton_set, false).first || singleton_set
 	end
 	# Returns the vertex set which are reachable from +self+ in +graph+
 	def generated_subgraph(graph)
