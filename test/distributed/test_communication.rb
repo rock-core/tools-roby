@@ -15,6 +15,8 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 		sleep(0.1)
 	    end
 	    def wait_next_discovery; wait_discovery end
+
+	    def synchronize; yield end
 	end
 
 	def initialize(name)
