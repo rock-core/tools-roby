@@ -220,16 +220,16 @@ module Roby
 		    # +new_tasks+ in +events+
 		    task_events = ValueSet.new
 		    EventStructure.each_root_relation do |rel|
-			new_tasks.each do |task|
-			    for _, ev in task.bound_events
-				next if task_events.include?(ev)
-				task_events.merge ev.component(rel).to_value_set
-			    end
-			end
+		        for task in new_tasks
+		            for _, ev in task.bound_events
+		        	next if task_events.include?(ev)
+		        	task_events.merge ev.component(rel).to_value_set
+		            end
+		        end
 		    end
 
 		    task_events.each do |ev|
-			events << ev if ev.root_object?
+		        events << ev if ev.root_object?
 		    end
 		end
 	    end
