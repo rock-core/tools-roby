@@ -368,10 +368,7 @@ module Roby
 	    
 	    # Add an executive if one is defined
 	    if control_config['executive']
-		full_name = "roby/executives/#{control_config['executive']}"
-		require full_name
-		executive = full_name.camelize.constantize.new
-		Control.event_processing << executive.method(:initial_events)
+		self.executive = control_config['executive']
 	    end
 
 	    if log['events']
@@ -407,6 +404,21 @@ module Roby
 		    run_plugins(mods, &block)
 		end
 	    end
+	end
+
+	attr_reader :executive
+
+	def executive=(name)
+	    if executive
+		Control.event_processing.delete(executive.method(:initial_events))
+		@executive = nil
+	    end
+	    return unless name
+
+	    full_name = "roby/executives/#{name}"
+	    require full_name
+	    @executive = full_name.camelize.constantize.new
+	    Control.event_processing << executive.method(:initial_events)
 	end
 
 	def stop; call_plugins(:stop, self) end
