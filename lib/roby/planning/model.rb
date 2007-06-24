@@ -493,9 +493,31 @@ module Roby
 		end
 	    end
 
-	    # Add a selection filter on the +name+ method. When developing the +name+
-	    # method, the filter is called with each MethodDefinition object, and should return
-	    # +false+ if the method is to be discarded, and +true+ otherwise
+	    # Add a selection filter on the +name+ method. When developing the
+	    # +name+ method, the filter is called with the method options and
+	    # the MethodDefinition object, and should return +false+ if the
+	    # method is to be discarded, and +true+ otherwise
+	    #
+	    # Example
+	    #    class MyPlanner < Planning::Planner
+	    #	    method(:m, :id => 1) do
+	    #	      raise
+	    #	    end
+	    #
+	    #	    method(:m, :id => 2) do
+	    #	      Roby::Task.new
+	    #	    end
+	    #
+	    #	    # the id == 1 version of m fails, remove it of the set
+	    #	    # of valid methods
+	    #	    filter(:m) do |opts, m|
+	    #	      m.id == 2
+	    #	    end
+	    #    end
+	    #
+	    # This is mainly useful for external selection of methods (for
+	    # instance to implement some kind of dependency injection), or for
+	    # testing
 	    def self.filter(name, &filter)
 		if !respond_to?("#{name}_filters")
 		    inherited_enumerable("#{name}_filter", "#{name}_filters") { Array.new }
