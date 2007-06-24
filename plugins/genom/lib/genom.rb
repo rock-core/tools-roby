@@ -380,6 +380,12 @@ module Roby::Genom
        	attr_reader :name
 	# See RunnerTask#output_io
 	attr_reader :output_io
+	# True if the module currently in use is the simulation version of
+	# another 'live' module. Simulation version are recognized because
+	# their version (in the module { }; block) has a -sim suffix
+	def simulation_version?
+	    genom_module.version && genom_module.version =~ /-sim$/ 
+	end
 
 	# The configuration structure got from the State object
 	def config
@@ -488,6 +494,7 @@ module Roby::Genom
 
 	# Define the base services for the module
 	rb_mod.class_eval do
+	    @simulation_version = (gen_mod.version && gen_mod.version =~ /-sim$/)
 	    @genom_module = gen_mod
 	    @name = "Roby::Genom::#{modname}"
 	    @output_io = output_io
