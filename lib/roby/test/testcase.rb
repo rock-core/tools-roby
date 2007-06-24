@@ -345,8 +345,7 @@ module Roby
 	    end
 
 	    def method_config
-		basename = method_name.gsub(/^test_/, '')
-		self.class.case_config.merge(self.class.methods_config[basename] || Hash.new)
+		self.class.case_config.merge(self.class.methods_config[method_name] || Hash.new)
 	    end
 
 	    # Do not run +test_name+ inside a simulation environment
@@ -379,6 +378,24 @@ module Roby
 		end
 	    end
 
+	    def self.suite
+		method_names = public_instance_methods(true)
+		tests = method_names.delete_if {|method_name| method_name !~ /^(dataset|test)./}
+		suite = Test::Unit::TestSuite.new(name)
+		tests.sort.each do
+		    |test|
+		    catch(:invalid_test) do
+			suite << new(test)
+		    end
+		end
+		if (suite.empty?)
+		    catch(:invalid_test) do
+			suite << new("default_test")
+		    end
+		end
+		return suite
+	    end
+
 	    def run(result)
 		Roby::Test.waiting_threads.clear
 
@@ -398,21 +415,28 @@ module Roby
 		"#{APP_DIR}/test/datasets" 
 	    end
 	    def dataset_prefix
-		"#{Roby.app.robot_name}-#{self.class.name.gsub('TC_', '').underscore}-#{@method_name.gsub('test_', '')}"
+		"#{Roby.app.robot_name}-#{self.class.name.gsub('TC_', '').underscore}-#{@method_name.gsub('dataset_', '')}"
 	    end
 
 	    # Saves +file+, which is taken in the log directory, in the
 	    # test/datasets directory.  The data set is saved as
 	    # 'robot-testname-testmethod-suffix'
-	    def save_dataset(file, suffix = '')
-		unless File.directory?(datasets_dir)
-		    FileUtils.mkdir_p(datasets_dir)
-		end
-		destname = "#{datasets_dir}/#{dataset_prefix}"
+	    def save_dataset(files = nil, suffix = '')
+		destname = dataset_prefix
 		destname << "-#{suffix}" unless suffix.empty?
-		destname << File.extname(file)
 
-		FileUtils.cp "#{Roby.app.log_dir}/#{file}", destname
+		dir = File.join(datasets_dir, destname)
+		unless File.directory?(dir)
+		    FileUtils.mkdir_p(dir)
+		end
+
+		files ||= Dir.entries(Roby.app.log_dir).find_all do |path|
+		    File.file? File.join(Roby.app.log_dir, path)
+		end
+
+		[*files].each do |path|
+		    FileUtils.cp "#{Roby.app.log_dir}/#{path}", dir
+		end
 	    end
 
 	    def sampling(*args, &block); Test.sampling(*args, &block) end
