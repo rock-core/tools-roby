@@ -67,10 +67,6 @@ module Roby::Genom
 			g.autoload_path << genom_tasks
 		    end
 
-		    unless Roby.app.simulation?
-			State.genom.ignoring :sim
-		    end
-
 		    g.output_io = File.join(config.log_dir, "#{config.robot_name}-%m.log")
 		    config.require_robotfile(File.join(APP_DIR, 'config', "ROBOT-genom.rb"))
 
