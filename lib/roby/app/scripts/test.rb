@@ -10,6 +10,9 @@ parser = OptionParser.new do |opt|
 	    Roby.app.simulation
 	end
     end
+    opt.on("--user", "allow user interaction during tests") do |val|
+	Roby.app.automatic_testing = false
+    end
     opt.on("-n", "--name NAME", String, "run tests matching NAME") do |name|
 	testrb_args << "-n" << name
     end

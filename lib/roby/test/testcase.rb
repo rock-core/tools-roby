@@ -350,6 +350,25 @@ module Roby
 		self.class.case_config.merge(self.class.methods_config[method_name] || Hash.new)
 	    end
 
+	    # Returns true if user interaction is to be disabled during this test
+	    def automatic_testing?
+		Roby.app.automatic_testing?
+	    end
+
+	    # Progress report for the curren test. Yields if user interaction is allowed
+	    # and value is not zero
+	    def progress(value)
+		print "\r#{@method_name} progress: #{value}"
+		STDOUT.flush
+		if block_given? && !automatic_testing? && value > 0
+		    yield
+		end
+	    end
+
+	    def user_interaction
+		yield unless automatic_testing?
+	    end
+
 	    # Do not run +test_name+ inside a simulation environment
 	    # +test_name+ is the name of the method without +test_+. For
 	    # instance:

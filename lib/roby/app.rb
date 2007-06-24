@@ -70,6 +70,9 @@ module Roby
 	# An array of directories in which to search for plugins
 	attr_reader :plugin_dirs
 
+	# True if user interaction is disabled during tests
+	attr_predicate :automatic_testing?, true
+
 	def initialize
 	    @plugins = Array.new
 	    @available_plugins = Array.new
@@ -78,6 +81,8 @@ module Roby
 	    @droby     = Hash['period' => 0.5, 'max_errors' => 1] 
 	    @control   = Hash[ 'abort_on_exception' => false, 
 		'abort_on_application_exception' => true ]
+
+	    @automatic_testing = true
 
 	    @plugin_dirs = []
 	end
