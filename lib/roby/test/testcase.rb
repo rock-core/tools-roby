@@ -439,7 +439,17 @@ module Roby
 		"#{APP_DIR}/test/datasets" 
 	    end
 	    def dataset_prefix
-		"#{Roby.app.robot_name}-#{self.class.name.gsub('TC_', '').underscore}-#{@method_name.gsub('dataset_', '')}"
+		"#{Roby.app.robot_name}-#{self.class.name.gsub('TC_', '').underscore}-#{@method_name.gsub(/(?:test|dataset)_/, '')}"
+	    end
+	    def require_dataset(dataset_name, file)
+		path = File.join(datasets_dir, dataset_name, file)
+		if !File.file?(path)
+		    raise "#{path} does not exist"
+		end
+
+		path
+	    rescue
+		flunk("dataset #{dataset_name} has not been generated: #{$!.message}")
 	    end
 
 	    # Saves +file+, which is taken in the log directory, in the
