@@ -327,6 +327,8 @@ module Roby
 		Roby.app.single
 		Roby.app.setup
 
+		Roby.app.control.delete('executive')
+
 		yield if block_given?
 	    end
 
