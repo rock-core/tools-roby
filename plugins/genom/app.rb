@@ -1,6 +1,10 @@
 require 'genom/lib/genom-tools'
 
 module Roby::Genom
+    def self.log_now!
+	Application.poster_logger.now
+    end
+
     # Genom plugin for Roby
     #
     # General principles: modules are loaded and a task model is created for each 
@@ -121,6 +125,48 @@ multi
 	    Process.kill('KILL', @pocosim_server)
 	end
 
+	class << self
+	    # The Pocosim::Logger object set up by setup_logging
+	    attr_reader :poster_logger
+	end
+
+	# Sets a standalone logger for the robot, based
+	# on the configuration in State.genom.module_name.log:
+	#
+	#   .poster_name = [mode]
+	#
+	# where +mode+ is one of:
+	# * [:on_demand] log only when Roby::Genom.log! is called (for use in tests)
+	# * [a number] log every N seconds (N can be fractional)
+	#
+	# The log file is always <tt><logdir>/log/<robot_name>.x.log</tt>
+	def self.setup_logging(app)
+	    configured_posters = []
+	    State.genom.used_modules.each do |mod_name, genom_module|
+		config = State.genom.get(mod_name, nil)
+		if config
+		    config = config.get(:log, nil)
+		end
+		if config
+		    config.each_member do |poster_name, period|
+			poster = genom_module.poster(poster_name)
+			configured_posters << [poster, period]
+		    end
+		end
+	    end
+
+	    unless configured_posters.empty?
+		require 'simlog/logger'
+
+		file    = Pocosim::Logfiles.create(File.join(app.log_dir, app.robot_name))
+		@poster_logger = Pocosim::Logger.new(file)
+
+		configured_posters.each do |poster, period|
+		    poster_logger.add poster, period
+		end
+	    end
+	end
+
 	def self.run(config, &block)
 	    if config.simulation?
 		run_simulation(config) do |env|
@@ -132,7 +178,16 @@ multi
 	    else
 		Genom::Runner.h2(:env => config.robot_name) do |env|
 		    Genom.connect do
-			yield(env)
+			Roby::State.genom.used_modules.each_value do |modname|
+			    Roby::Genom.genom_rb::GenomModule.killmodule(modname)
+			end
+
+			begin
+			    setup_logging(config)
+			    yield(env)
+			ensure
+			    poster_logger.close if poster_logger
+			end
 		    end
 		end
 	    end

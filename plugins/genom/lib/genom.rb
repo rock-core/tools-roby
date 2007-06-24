@@ -597,6 +597,12 @@ module Roby::Genom
 		end
 	    end
 	end
+
+	def remove_all_logging
+	    each_member do |_, config|
+		config.delete(:log) if cofig.log?
+	    end
+	end
     end
     Roby::State.genom = GenomState.new
 end
