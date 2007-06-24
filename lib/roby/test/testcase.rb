@@ -411,6 +411,9 @@ module Roby
 		Roby.app.run do
 		    super
 		end
+
+	    rescue Exception
+		puts "testcase #{method_name} teardown failed with #{$!.full_message}"
 	    end
 
 	    def datasets_dir
