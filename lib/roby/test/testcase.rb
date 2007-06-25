@@ -26,13 +26,16 @@ module Roby
 	    # If the set is empty, it means that the assertion finished
 	    # successfully
 	    def assert_any_event_result(positive, negative)
-		if positive.any? { |ev| ev.happened? }
-		    return []
-		else
-		    failure = negative.find_all { |ev| ev.happened? }
-		    unless failure.empty?
-			return failure
-		    end
+		if positive_ev = positive.find { |ev| ev.happened? }
+		    return false, "#{positive_ev} happened"
+		end
+		failure = negative.find_all { |ev| ev.happened? }
+		unless failure.empty?
+		    return true, "#{failure} happened"
+		end
+
+		if positive.all? { |ev| ev.unreachable? }
+		    return true, "all positive events are unreachable"
 		end
 
 		nil
@@ -42,8 +45,9 @@ module Roby
 	    # Assertions#assert_events
 	    def check_event_assertions
 		event_assertions.delete_if do |thread, cv, positive, negative|
-		    if result = assert_any_event_result(positive, negative)
-			thread[ASSERT_ANY_EVENTS_TLS] = result
+		    error, result = assert_any_event_result(positive, negative)
+		    if !error.nil?
+			thread[ASSERT_ANY_EVENTS_TLS] = [error, result]
 			cv.broadcast
 			true
 		    end
@@ -244,18 +248,10 @@ module Roby
 		Roby.condition_variable(false) do |cv|
 		    positive = Array[*positive].to_value_set
 		    negative = Array[*negative].to_value_set
-		    positive.each do |ev|
-			if ev.respond_to?(:task)
-			    stop = ev.task.event(:stop)
-			    unless positive.include?(stop)
-				negative << stop
-			    end
-			end
-		    end
 
 		    Roby::Control.synchronize do
-			failing_events = nil
-			unless failing_events = Test.assert_any_event_result(positive, negative)
+			error, result = Test.assert_any_event_result(positive, negative)
+			if error.nil?
 			    this_thread = Thread.current
 
 			    Test.event_assertions << [this_thread, cv, positive, negative]
@@ -263,14 +259,18 @@ module Roby
 			    begin
 				cv.wait(Roby::Control.mutex)
 			    ensure
-				Test.event_assertions.delete_if { |thread, *_| thread == this_thread }
+				Test.event_assertions.delete_if { |thread, _| thread == this_thread }
 			    end
 
-			    failing_events = this_thread[ASSERT_ANY_EVENTS_TLS]
+			    error, result = this_thread[ASSERT_ANY_EVENTS_TLS]
 			end
 
-			unless failing_events.empty?
-			    flunk("events #{failing_events.join(", ")} happened in #{msg}")
+			if error
+			    if msg
+				flunk("#{msg} failed: #{result}")
+			    else
+				flunk(result)
+			    end
 			end
 		    end
 		end
