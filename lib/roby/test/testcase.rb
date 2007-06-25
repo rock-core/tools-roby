@@ -366,7 +366,27 @@ module Roby
 	    end
 
 	    def user_interaction
-		yield unless automatic_testing?
+		return unless automatic_testing?
+
+		test_result = catch(:validation_result) do
+		    yield 
+		    return
+		end
+		if test_result
+		    flunk(*test_result)
+		end
+	    end
+
+	    def user_validation(msg)
+		return if automatic_testing?
+
+		assert_block(msg) do
+		    yield
+
+		    STDOUT.print("is the result OK ? [N/y]")
+		    STDOUT.flush
+		    (STDIN.readline.chomp == 'y')
+		end
 	    end
 
 	    # Do not run +test_name+ inside a simulation environment
