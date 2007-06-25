@@ -36,6 +36,10 @@ module Roby
             end
 
 	    def message
+		if errors.empty?
+		    return "no candidate for #{method_name}(#{method_options})"
+		end
+
 		msg = "cannot develop a #{method_name}(#{method_options}) method"
 		first, *rem = *Roby.filter_backtrace(backtrace)
 
