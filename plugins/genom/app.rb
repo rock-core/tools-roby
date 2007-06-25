@@ -1,8 +1,8 @@
 require 'genom/lib/genom-tools'
 
 module Roby::Genom
-    def self.log_now!
-	Application.poster_logger.now
+    def self.log_now!(force = false)
+	Application.poster_logger.now(force)
     end
 
     # Genom plugin for Roby
