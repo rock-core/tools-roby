@@ -605,5 +605,70 @@ module Roby::Genom
 	end
     end
     Roby::State.genom = GenomState.new
+
+    module Application::Test
+	# Tests that mod::Runner can be started and initializes well
+	#
+	# See also Assertions::ClassExtension::test_genmod_initializes
+	def assert_genmod_initializes(mod)
+	    runner = mod.runner!
+	    assert_any_event(runner.event(:ready)) do
+		plan.permanent(runner)
+		runner.start!
+	    end
+	end
+
+	# Save here all poster objects that have been created by the
+	# test to mockup other posters. They will be automatically
+	# destroyed at teardown
+	#
+	# The key is unused, it can be used as a mean to avoid creating
+	# the same poster twice
+	attribute(:mockup_posters) { Hash.new }
+
+	def teardown
+	    mockup_posters.each_value do |poster|
+		if poster.respond_to?(:poster)
+		    poster.poster.delete
+		else
+		    poster.delete
+		end
+	    end
+
+	    super if defined? super
+
+	ensure
+	    mockup_posters.clear
+	end
+
+	# Reload a poster from a sample in a pocosim log file
+	def genom_reload_poster(dataset, file, stream_name, sample, poster_name = stream_name)
+	    path = dataset_file_path(dataset, file)
+	    file = Pocosim::Logfiles.new(File.open(path))
+	    stream = file.stream(poster_name)
+
+	    _, _, data = stream[sample]
+	    p = Genom::Poster.create(stream_name, stream.type)
+	    p.write(data)
+
+	    mockup_posters["genom_reload_#{stream_name}"] = p
+	end
+
+	module ClassExtension
+	    # This method generates the test_<modname>_initializes method
+	    # which tests that the Runner task of +mod+ can be started and
+	    # initializes well.
+	    #
+	    # See also Assertions#assert_genmod_initializes
+	    def test_genmod_initializes(mod)
+		class_eval do
+		    define_method("test_#{mod.name.underscore}_initializes") do
+			assert_genmod_initializes(mod)
+		    end
+		end
+	    end
+	end
+
+    end
 end
 
