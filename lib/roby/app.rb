@@ -124,14 +124,19 @@ module Roby
 	    available_plugins.any? { |plugname, *_| plugname == name }
 	end
 
-	# Yields each extension modules that respond to +method+
-	def each_responding_plugin(method, on_available = false)
+	def each_plugin(on_available = false)
 	    plugins = self.plugins
 	    if on_available
 		plugins = available_plugins.map { |name, _, mod, _| [name, mod] }
 	    end
-
 	    plugins.each do |_, mod|
+		yield(mod)
+	    end
+	end
+
+	# Yields each extension modules that respond to +method+
+	def each_responding_plugin(method, on_available = false)
+	    each_plugin do |mod|
 		yield(mod) if mod.respond_to?(method)
 	    end
 	end
@@ -358,6 +363,17 @@ module Roby
 
 	    # Set up the loaded plugins
 	    call_plugins(:setup, self)
+
+	    # If we are in test mode, import the test extensions from plugins
+	    if testing?
+		require 'roby/test/testcase'
+		each_plugin do |mod|
+		    puts mod
+		    if mod.const_defined?(:Test)
+			Roby::Test::TestCase.include mod.const_get(:Test)
+		    end
+		end
+	    end
 	end
 
 	def run(&block)
@@ -547,10 +563,12 @@ module Roby
 	    end
 	end
 
-	def simulation; @simulation = true end
-	def simulation?; @simulation end
-	def single; @single = true end
+	attr_predicate :simulation?, true
+	def simulation; self.simulation = true end
+	attr_predicate :testing?, true
+	def testing; self.testing = true end
 	def single?; @single || discovery.empty? end
+	def single;  @single = true end
 
 	# Guesses the type of +filename+ if it is a source suitable for
 	# data display in this application

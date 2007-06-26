@@ -297,6 +297,14 @@ module Roby
 	    Marshal.dump([marshalled_members, @aliases])
 	end
 
+	def deep_copy
+	    exported_fields, @exported_fields = @exported_fields, Set.new
+	    Marshal.load(Marshal.dump(self))
+	ensure
+	    @exported_fields = exported_fiels
+	end
+
+	def testing?; Roby.app.testing? end
 	def simulation?; Roby.app.simulation? end
 	def export(*names)
 	    @exported_fields.merge names.map { |n| n.to_s }.to_set

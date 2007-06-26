@@ -17,6 +17,8 @@ parser = OptionParser.new do |opt|
 end
 parser.parse! ARGV
 
+Roby.app.testing = true
+
 r = Test::Unit::AutoRunner.new(true)
 r.process_args(ARGV + testrb_args) or
   abort r.options.banner + " tests..."

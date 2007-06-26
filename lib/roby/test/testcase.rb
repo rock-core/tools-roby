@@ -461,7 +461,7 @@ module Roby
 	    def dataset_prefix
 		"#{Roby.app.robot_name}-#{self.class.name.gsub('TC_', '').underscore}-#{@method_name.gsub(/(?:test|dataset)_/, '')}"
 	    end
-	    def require_dataset(dataset_name, file)
+	    def dataset_file_path(dataset_name, file)
 		path = File.join(datasets_dir, dataset_name, file)
 		if !File.file?(path)
 		    raise "#{path} does not exist"
