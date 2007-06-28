@@ -383,9 +383,7 @@ module Roby
 		assert_block(msg) do
 		    yield
 
-		    STDOUT.print("is the result OK ? [N/y]")
-		    STDOUT.flush
-		    (STDIN.readline.chomp == 'y')
+		    STDIN.ask("\rIs the result OK ? [N,y]", false)
 		end
 	    end
 

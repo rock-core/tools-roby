@@ -16,6 +16,26 @@ require 'utilrb/array/to_s'
 require 'utilrb/hash/to_s'
 require 'utilrb/set/to_s'
 
+class IO
+    def ask(question, default, output_io = STDOUT)
+	output_io.print question
+	output_io.flush
+	loop do
+	    answer = readline.chomp.downcase
+	    if answer.empty?
+		return default
+	    elsif answer == 'y'
+		return true
+	    elsif answer == 'n'
+		return false
+	    else
+		output_io.print "\nInvalid answer, try again: "
+		output_io.flush
+	    end
+	end
+    end
+end
+
 module Enumerable
     def empty?
 	for i in self
