@@ -24,6 +24,24 @@ class TC_State < Test::Unit::TestCase
 	assert_equal(10, s.value.test)
     end
 
+    def test_send
+	s = ExtendedStruct.new
+	s.x = 10
+	assert_equal(10, s.send(:x))
+    end
+
+    # Somebody defines Kernel#y, one thing I try to manage
+    module ::Kernel
+	def y(i)
+	end
+    end
+    def test_does_not_override
+	s = ExtendedStruct.new
+	assert_raises(ArgumentError) { s.y }
+	s.y = 10
+	assert_equal(10, s.y)
+    end
+
     def test_attach
 	s = ExtendedStruct.new
 	child = s.child
@@ -233,6 +251,7 @@ class TC_State < Test::Unit::TestCase
     def test_forbidden_names
 	s = ExtendedStruct.new
 	assert_raises(NoMethodError) { s.each_blah }
+	assert_nothing_raised { s.blato }
 	assert_raises(NoMethodError) { s.enum_blah }
 	assert_raises(NoMethodError) { s.to_blah }
     end

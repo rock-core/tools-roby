@@ -11,10 +11,18 @@ module Roby
     #	    <do something>
     #	end
     #
-    # You'll have to test with respond_to?
+    # You'll have to test with respond_to? or #{name}?. The second one will
+    # return true only if the attribute is defined <b>and</b> it is not false
     #	if (root.respond_to?(:child)
     #	    <do something>
     #	end
+    #
+    # == Handling of methods defined on parents
+    #
+    # Methods defined in Object or Kernel are automatically overriden if needed.
+    # For instance, if you're managing a (x, y, z) position using ExtendedStruct, 
+    # you will want YAML#y to *not* get in the way. The exceptions are the methods
+    # listed in NOT_OVERRIDABLE
     #
     class ExtendedStruct
 	# +attach_to+ and +attach_name+
@@ -158,7 +166,7 @@ module Roby
 	# is called when the attribute is written, and should return true if
 	# the new value if valid or false otherwise
 	def filter(name, &block)
-	    @filters["#{name}="] = block
+	    @filters[name.to_s] = block
 	end
 	
 	# If self is stable, it cannot be updated. That is, calling a setter method
@@ -193,8 +201,7 @@ module Roby
             return true  if super
 
             name = name.to_s
-	    return false if name =~ /marshal_/
-	    return false if name =~ /^to_/
+	    return false if name =~ FORBIDDEN_NAMES_RX
 
             if name =~ /=$/
 		!@stable
@@ -209,46 +216,58 @@ module Roby
 
 	def get(name, default_value)
 	    if respond_to?(name)
-		send(name)
+		send(name.to_sym)
 	    else
 		default_value
 	    end
 	end
 
-	FORBIDDEN_NAMES=%w{marshal each enum to}
-	FORBIDDEN_NAMES_RX=/^(?:#{FORBIDDEN_NAMES.join("|")})_/
+	FORBIDDEN_NAMES=%w{marshal each enum to}.map { |str| "^#{str}_" }
+	FORBIDDEN_NAMES_RX = /(?:#{FORBIDDEN_NAMES.join("|")})/
+
+	NOT_OVERRIDABLE = %w{class} + instance_methods(false)
+	NOT_OVERRIDABLE_RX = /(?:#{NOT_OVERRIDABLE.join("|")})/
+
         def method_missing(name, *args, &update) # :nodoc:
-            name = name.to_s
+	    name = name.to_s
 
 	    super(name.to_sym, *args, &update) if name =~ FORBIDDEN_NAMES_RX
             if name =~ /(.+)=$/
 		# Setter
-		attribute_name = $1
-
-		attach
+		name = $1
 
 		value = *args
                 if stable?
                     raise NoMethodError, "#{self} is stable"
-		elsif @filters[name] && !@filters[name].call(value)
+		elsif @filters.has_key?(name) && !@filters[name].call(value)
 		    raise ArgumentError, "value #{value} is not valid for #{name}"
-		else
-		    @aliases.delete(attribute_name)
-		    pending = @pending.delete(attribute_name)
-
-		    if pending && pending != value
-			pending.detach
+		elsif !@members.has_key?(name) && !@aliases.has_key?(name) && respond_to?(name)
+		    if NOT_OVERRIDABLE_RX =~ name
+			raise ArgumentError, "#{name} is already defined an cannot be overriden"
 		    end
 
-		    name = name[0..-2]
-                    @members[name] = value
-		    updated(name, value)
-                end
+		    # Override it
+		    singleton_class.class_eval { private name }
+		end
+
+		attach
+
+
+		@aliases.delete(name)
+		pending = @pending.delete(name)
+
+		if pending && pending != value
+		    pending.detach
+		end
+
+		@members[name] = value
+		updated(name, value)
+                return value
 
 	    elsif name =~ /(.+)\?$/
 		# Test
-		attribute_name = $1
-		respond_to?(attribute_name) && send(attribute_name)
+		name = $1
+		respond_to?(name) && send(name)
 
             elsif args.empty? # getter
 		attach
