@@ -291,7 +291,7 @@ module Roby
 	    # Require all common task models
 	    task_dir = File.join(APP_DIR, 'tasks')
 	    Dir.new(task_dir).each do |task_file|
-		task_file = File.expand_path(task_file, task_dir)
+		task_file = File.join('tasks', task_file)
 		require task_file if task_file =~ /\.rb$/ && File.file?(task_file)
 	    end
 
