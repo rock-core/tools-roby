@@ -1,5 +1,6 @@
 $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'roby/test/common'
+require 'roby/state/pos'
 require 'flexmock'
 
 class TC_State < Test::Unit::TestCase
@@ -235,4 +236,15 @@ class TC_State < Test::Unit::TestCase
 	assert_raises(NoMethodError) { s.enum_blah }
 	assert_raises(NoMethodError) { s.to_blah }
     end
+
+    def test_pos_euler3d
+	p = Pos::Euler3D.new(30)
+	assert_equal(30, p.x)
+	assert_equal(0, p.y)
+	assert_equal(0, p.z)
+
+	assert_equal(10, p.distance(30, 10))
+	assert_equal(0, p.distance(p))
+    end
 end
+
