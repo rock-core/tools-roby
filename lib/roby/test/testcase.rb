@@ -280,7 +280,7 @@ module Roby
 	    def assert_succeeds(task, msg = nil)
 		assert_any_event([task.event(:success)], [], msg) do
 		    plan.permanent(task)
-		    task.start!
+		    task.start! if task.pending?
 		end
 	    end
 
