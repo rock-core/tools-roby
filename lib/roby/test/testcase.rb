@@ -478,16 +478,21 @@ module Roby
 		destname << "-#{suffix}" unless suffix.empty?
 
 		dir = File.join(datasets_dir, destname)
-		unless File.directory?(dir)
-		    FileUtils.mkdir_p(dir)
+		if File.exists?(dir)
+		    relative_dir = dir.gsub(/^#{Regexp.quote(APP_DIR)}/, '')
+		    unless STDIN.ask("\r#{relative_dir} already exists. Delete ? [N,y]", false)
+			raise "user abort"
+		    end
+		    FileUtils.rm_rf dir
 		end
+		FileUtils.mkdir_p(dir)
 
 		files ||= Dir.entries(Roby.app.log_dir).find_all do |path|
 		    File.file? File.join(Roby.app.log_dir, path)
 		end
 
 		[*files].each do |path|
-		    FileUtils.cp "#{Roby.app.log_dir}/#{path}", dir
+		    FileUtils.mv "#{Roby.app.log_dir}/#{path}", dir
 		end
 	    end
 

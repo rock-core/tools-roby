@@ -237,6 +237,13 @@ module Roby
 	
 	def setup
 	    # Set up the log directory first
+	    if testing? && File.exists?(log_dir)
+		if !STDIN.ask("#{log_dir} still exists. I'll have to clean it up before starting the tests. Proceed ? [N,y]", false)
+		    raise "user abort"
+		end
+		FileUtils.rm_rf log_dir
+	    end
+
 	    if !File.exists?(log_dir)
 		Dir.mkdir(log_dir)
 	    end
