@@ -284,6 +284,30 @@ module Roby
 		end
 	    end
 
+	    def control_priority
+		old_priority = Thread.current.priority 
+		Thread.current.priority = Roby.control.thread.priority
+
+		yield
+	    ensure
+		Thread.current.priority = old_priority
+	    end
+
+	    # Executes until the provided block returns true, or the control
+	    # quits
+	    def assert_happens(msg)
+		control_priority do
+		    assert_block("#{msg} did not happen") do
+			loop do
+			    if yield
+				break true
+			    end
+			    Roby.control.wait_one_cycle
+			end
+		    end
+		end
+	    end
+
 	    # This assertion fails if the relative error between +found+ and
 	    # +expected+is more than +error+
 	    def assert_relative_error(expected, found, error, msg = "")
