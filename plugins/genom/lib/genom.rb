@@ -364,8 +364,9 @@ module Roby::Genom
 
 	# Stops the module
 	event :failed, :terminal => true do
-	    ::Genom::Runner.environment.stop_module(genom_module.name)
+	    # Make the module abort, without blocking
 	    # :failed will be emitted by the dead! handler
+	    ::Genom::Runner.environment.stop_module(genom_module.name, true)
 	end
 
 	interruptible
