@@ -287,7 +287,7 @@ module Roby
 	    # Returns the MethodModel object
 	    def self.update_method_model(name, options)
 		name = name.to_s
-		if respond_to?("#{name}_methods")
+		unless send("#{name}_methods").empty?
 		    raise ArgumentError, "cannot change the method model for #{name} since methods are already using it"
 		end
 
@@ -300,8 +300,6 @@ module Roby
 			instance_variable_set("@#{name}_model", new_model)
 		    end
 		    return new_model
-		elsif respond_to?("#{name}_methods")
-		    raise ArgumentError, "cannot change the method model for #{name} since methods are already using it"
 		elsif instance_variable_get("@#{name}_model")
 		    # old_model is defined at this level
 		    return old_model.merge(options)
@@ -406,6 +404,19 @@ module Roby
 	    # * each_name_filter iterates on all filters for +name+
 	    def self.method(name, options = Hash.new, &body)
                 name, options = validate_method_query(name, options)
+		
+		# Define the method enumerator and the method selection
+		if !respond_to?("#{name}_methods")
+		    inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) { Hash.new }
+		    class_eval <<-PLANNING_METHOD_END
+		    def #{name}(options = Hash.new)
+			plan_method("#{name}", options)
+		    end
+		    class << self
+		      cached_enum("#{name}_method", "#{name}_methods", true)
+		    end
+		    PLANNING_METHOD_END
+		end
 
 		# We are updating the method model
                 if !body
@@ -428,19 +439,6 @@ module Roby
                     options = model.validate(options)
 		    model.freeze
                 end
-
-		# Define the method enumerator and the method selection
-		if !respond_to?("#{name}_methods")
-		    inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) { Hash.new }
-		    class_eval <<-PLANNING_METHOD_END
-		    def #{name}(options = Hash.new)
-			plan_method("#{name}", options)
-		    end
-		    class << self
-		      cached_enum("#{name}_method", "#{name}_methods", true)
-		    end
-		    PLANNING_METHOD_END
-		end
 
 		# Check if we are overloading an old method
 		if send("#{name}_methods")[method_id]
@@ -627,18 +625,18 @@ module Roby
                     options[:recursive] = true
                     options[:lazy] = true
                 end
-		
-		# Get all valid methods
-                methods = singleton_class.find_methods(name, options)
-                if !methods
-                    raise NotFound.new(self, Hash.new)
-                elsif options[:lazy]
+
+                if options[:lazy]
 		    task_model = singleton_class.model_of(name, options).returns
 		    task    = task_model.new
 		    planner = PlanningTask.new(:planner_model => self.class, :method_name => name, :method_options => options)
 		    task.planned_by planner
 		    return task
 		end
+		
+		# Get all valid methods. If no candidate are found, still try 
+		# to get a task to re-use
+                methods = singleton_class.find_methods(name, options) || []
 		
 		# Check if we can reuse a task already in the plan
 		unless options.has_key?(:reuse) && !options[:reuse]
@@ -653,6 +651,10 @@ module Roby
 			    return task
 			end
 		    end
+		end
+
+                if methods.empty?
+                    raise NotFound.new(self, Hash.new)
 		end
 
 		# Call the methods

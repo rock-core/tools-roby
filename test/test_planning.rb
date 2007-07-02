@@ -105,6 +105,23 @@ class TC_Planner < Test::Unit::TestCase
 	assert_result_plan_size(2, planner_model, :check_not_reusable, :id => 1)
 	assert_result_plan_size(2, planner_model, :check_not_reusable, :id => 2)
     end
+
+    def test_empty_method_set
+	task_model = Class.new(Roby::Task)
+	model = Class.new(Roby::Planning::Planner) do
+	    method(:empty_set, :returns => task_model)
+	end
+
+	planner = model.new(plan)
+	assert_raises(NotFound) { planner.empty_set }
+
+	plan.insert(task = task_model.new)
+	found_task = nil
+	assert_nothing_raised { found_task = planner.empty_set }
+	assert_equal(found_task, task)
+	assert_raises(NotFound) { planner.empty_set :reuse => false }
+    end
+
     def assert_result_plan_size(size, planner_model, method, options)
 	planner = planner_model.new(plan)
 	result = planner.send(method, options)
