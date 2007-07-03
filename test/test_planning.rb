@@ -365,8 +365,6 @@ class TC_Planner < Test::Unit::TestCase
 	end
 	assert_equal(['test', 'localization', 'model_only'].to_set, 
 		     model.planning_methods_names.to_set)
-	assert_equal(['test', 'localization'].to_set, 
-		     model.planning_methods_names(false).to_set)
     end
 
     def test_method_filter
@@ -387,7 +385,6 @@ class TC_Planner < Test::Unit::TestCase
 	    filter(:test) { false }
 	end
 	assert(!planner.find_methods('test', :index => 10))
-	
 	
 	(1..2).each do |i|
 	    FlexMock.use do |mock|

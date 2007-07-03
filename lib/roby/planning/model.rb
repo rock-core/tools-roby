@@ -288,7 +288,7 @@ module Roby
 	    # Returns the MethodModel object
 	    def self.update_method_model(name, options)
 		name = name.to_s
-		unless send("#{name}_methods").empty?
+		unless send("enum_#{name}_methods", nil).empty?
 		    raise ArgumentError, "cannot change the method model for #{name} since methods are already using it"
 		end
 
