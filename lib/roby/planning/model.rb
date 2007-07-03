@@ -251,8 +251,9 @@ module Roby
 		    filter_options options, KNOWN_OPTIONS
 
                 validate_option(options, :returns, false, 
-                                "the ':returns' option must be a subclass of Roby::Task") do |opt| 
-                    options[:returns].has_ancestor?(Roby::Task)
+                                "the ':returns' option must be a task model") do |opt| 
+                    opt.is_a?(Roby::TaskModelTag) ||
+			opt.has_ancestor?(Roby::Task)
                 end
 
 		[name, roby_options, method_arguments]

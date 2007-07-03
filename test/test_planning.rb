@@ -229,6 +229,16 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal(tm2, derived.model_of(:root, :id => 'derived').returns)
     end
 
+    def test_returns_validation
+        task_model = Class.new(Roby::Task)
+	task_tag   = TaskModelTag.new
+
+	planner_model = Class.new(Planning::Planner)
+	assert_nothing_raised { planner_model.method(:returns_task, :returns => task_model) }
+	assert_nothing_raised { planner_model.method(:returns_tag, :returns => task_tag) }
+    end
+
+
     def test_returns_inheritance
 	# Some task models
         tm_a = Class.new(Roby::Task)
