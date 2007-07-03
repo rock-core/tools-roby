@@ -626,11 +626,14 @@ module Roby
 
 		# Get all valid methods. If no candidate are found, still try 
 		# to get a task to re-use
-                methods = singleton_class.find_methods(name, options) || []
+                methods = singleton_class.find_methods(name, options)
 		
 		# Check if we can reuse a task already in the plan
 		unless options.has_key?(:reuse) && !options[:reuse]
-		    all_returns = methods.map { |m| m.returns if m.reuse? }
+		    all_returns = if methods
+				      methods.map { |m| m.returns if m.reuse? }
+				  else []
+				  end
 		    if (model = singleton_class.method_model(name)) && !options[:id]
 			all_returns << model.returns if model.reuse?
 		    end
@@ -643,7 +646,7 @@ module Roby
 		    end
 		end
 
-                if methods.empty?
+                if !methods || methods.empty?
                     raise NotFound.new(self, Hash.new)
 		end
 
