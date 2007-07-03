@@ -464,13 +464,11 @@ module Roby
 	    @@temp_method_id = 0
 
 	    # Returns an array of the names of all planning methods
-	    def self.planning_methods_names(including_models = true)
+	    def self.planning_methods_names
 		names = Set.new
 		methods.each do |method_name|
-		    if method_name =~ /each_(\w+)_method/
+		    if method_name =~ /^each_(\w+)_method$/
 			names << $1
-		    elsif including_models && method_name =~ /(\w+)_model/
-			names << $1 if instance_variable_get("@#{method_name}")
 		    end
 		end
 
