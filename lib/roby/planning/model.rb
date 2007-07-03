@@ -113,7 +113,7 @@ module Roby
                 # Checks that options in +options+ can be used to overload +self+. Updates options if needed
                 def validate(options)
                     if returns 
-                        if options[:returns] && !(options[:returns] == returns || options[:returns] < returns)
+                        if options[:returns] && !(options[:returns] <= returns)
                             raise ArgumentError, "return task type #{options[:returns]} forbidden since it overloads #{returns}"
                         else
                             options[:returns] ||= returns
