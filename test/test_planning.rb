@@ -134,13 +134,27 @@ class TC_Planner < Test::Unit::TestCase
     end
 
     def test_recursive
-	t_not_rec = Class.new(Task)
-	t_rec = Class.new(Task)
+	task_model = Class.new(Roby::Task) do
+	    argument :id
+	end
+
         model = Class.new(Planner) do
             method(:not_recursive) { root }
-            method(:recursive, :recursive => true) { root }
+            method(:recursive, :recursive => true) do
+		if @rec_already_called
+		    task_model.new(:id => 'recursive')
+		else
+		    @rec_already_called = true
+		    root
+		end
+	    end
             method(:root, :recursive => true) do
-                recursive + not_recursive
+		if @root_already_called
+		    task_model.new(:id => 'root')
+		else
+		    @root_already_called = true
+		    [recursive, not_recursive]
+		end
             end
         end
 
@@ -161,16 +175,14 @@ class TC_Planner < Test::Unit::TestCase
 	# Calls:
 	#   recursive
 	#    - root
-	#	- recursive => Task (with a planning task)
+	#	- recursive => Task(id: recursive)
 	#	- not_recursive
-	#	    - root => Task (with a planning task)
+	#	    - root => Task(id: root)
         planner = model.new(new_plan)
         assert_nothing_raised { planner.recursive }
-        tasks = planner.plan.enum_for(:each_task).to_a
-	assert_equal(5, tasks.size)
-        planners = tasks.find_all { |node| PlanningTask === node }
-        assert_equal ['recursive', 'root'].to_set, planners.map { |t| t.method_name }.to_set
-	assert_equal [Task, Task].to_set, planners.map { |t| t.planned_task.class }.to_set
+	assert_equal(2, plan.size, plan.known_tasks)
+	assert_equal(1, plan.find_tasks.which_fullfills(task_model, :id => 'recursive').to_a.size)
+	assert_equal(1, plan.find_tasks.which_fullfills(task_model, :id => 'root').to_a.size)
     end
 
     def test_method_model

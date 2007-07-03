@@ -624,17 +624,8 @@ module Roby
 		# Check for recursion
                 if (options[:id] && @stack.include?([name, options[:id]])) || (!options[:id] && @stack.find { |n, _| n == name })
                     options[:recursive] = true
-                    options[:lazy] = true
                 end
 
-                if options[:lazy]
-		    task_model = singleton_class.model_of(name, options).returns
-		    task    = task_model.new
-		    planner = PlanningTask.new(:planner_model => self.class, :method_name => name, :method_options => options)
-		    task.planned_by planner
-		    return task
-		end
-		
 		# Get all valid methods. If no candidate are found, still try 
 		# to get a task to re-use
                 methods = singleton_class.find_methods(name, options) || []
