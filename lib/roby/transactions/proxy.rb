@@ -223,8 +223,10 @@ module Roby::Transactions
 	def method_missing(m, *args, &block)
 	    if m.to_s =~ /^(\w+)!$/ && has_event?($1.to_sym)
 		event($1.to_sym).call(*args)
+	    elsif !Roby::Task.method_defined?(m)
+		__getobj__.send(m, *args, &block)
 	    else
-	        super
+		super
 	    end
 	end
 
