@@ -836,11 +836,14 @@ module Roby
 		end
 
 		new_libraries.reverse_each do |mod|
-		    mod.planning_methods.each { |name, options, body| klass.method(name, options, &body) }
+		    mod.planning_methods.each do |name, options, body| 
+			begin
+			    klass.method(name, options, &body)
+			rescue ArgumentError => e
+			    raise ArgumentError, "cannot include the #{self} library in #{klass}: when inserting #{name}#{options}, #{e.message}", caller(0)
+			end
+		    end
 		end
-
-	    rescue ArgumentError => e
-		raise ArgumentError, "cannot include the #{self} library in #{klass}: #{e.message}", caller(0)
 	    end
 
 	    def self.new(&block)
