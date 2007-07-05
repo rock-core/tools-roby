@@ -121,6 +121,11 @@ module Roby
 		map { |t| t.remote_id }
 	end
 
+	def remote_constant(name)
+	    DRbObject.new(name.to_s.constantize)
+	end
+	    
+
 	# Reload the Roby framework code. For now, it does not
 	def reload
 	    Roby.app.reload
