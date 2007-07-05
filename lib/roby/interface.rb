@@ -222,8 +222,13 @@ module Roby
 	    # HACK: m.returns should not be nil, but it sometimes happen
 	    returns_model = (m.returns if m && m.returns) || Task.new
 
-	    # Create an abstract task which will be planned
-	    task = returns_model.new
+	    if returns_model.kind_of?(TaskModelTag)
+		task = Roby::Task.new
+		task.extend returns_model
+	    else
+		# Create an abstract task which will be planned
+		task = returns_model.new
+	    end
 
 	    planner = PlanningTask.new(:planner_model => planner_model, :method_name => name, :method_options => options)
 	    task.planned_by planner
