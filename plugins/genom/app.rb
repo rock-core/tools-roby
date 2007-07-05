@@ -28,9 +28,11 @@ module Roby::Genom
     # == Runner tasks
     # The request tasks all have for {execution agent}[Roby::TaskStructure::ExecutionAgent]
     # 
-    #
-    # == Configuration files
+    # == Configuration
     # ROBOT-genom.rb
+    # genom:
+    #	keep_h2: false # Do not kill the H2 environment at application end
+    #	mem_size: # size in bytes of shared memory size for the H2 environment
     #
     # == Simulation support
     # pocosim/ simulation
@@ -45,7 +47,7 @@ module Roby::Genom
 	    Hash[ 'display' => nil, 'gdhe' => nil, 'gazebo' => nil ]
 	end
 	attribute(:genom) do
-	    Hash[ 'mem_size' => nil ]
+	    Hash[ 'mem_size' => nil, 'keep_h2' => false ]
 	end
 
 	def self.load(config, options)
@@ -176,7 +178,8 @@ multi
 		    yield(env)
 		end
 	    else
-		Genom::Runner.h2(:env => config.robot_name) do |env|
+		Genom::Runner.h2(:env => config.robot_name, :mem_size => config.genom['mem_size'], 
+				 :keep_h2 => config.genom['keep_h2']) do |env|
 		    Genom.connect do
 			Roby::State.genom.used_modules.each_value do |modname|
 			    Roby::Genom.genom_rb::GenomModule.killmodule(modname)
@@ -251,8 +254,9 @@ host
 	    # Build the simulation configuration file based on configuration in config/#{ROBOT}.conf
 	    conffile = generate_simulation_config(config) 
 	    # Start simulation
-	    reuse_gazebo(Genom::Runner.method(:simulation), conffile, :mem_size => config.genom['mem_size'], 
-			 :env => config.robot_name, :hostname => config.robot_name) do |env|
+	    reuse_gazebo(Genom::Runner.method(:simulation), conffile, :hostname => config.robot_name
+			 :mem_size => config.genom['mem_size'], :env => config.robot_name, 
+			 :keep_h2 => config.genom['keep_h2']) do |env|
 		::Genom.connect do
 		    STDERR.puts "Connected to the Genom environment"
 		    begin
