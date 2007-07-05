@@ -261,9 +261,13 @@ host
 		    Genom.info "connected to the H2 environment"
 		    begin
 			yield(env)
+			Genom.info "leaving Genom"
+
+		    rescue Exception
+			Genom.fatal "leaving Genom: #{$!.full_message}"
+
 		    ensure
 			Roby::Control.instance.disable_propagation
-			Genom.info "leaving Genom"
 		    end
 		end
 	    end
