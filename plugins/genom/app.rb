@@ -258,12 +258,12 @@ host
 			 :mem_size => config.genom['mem_size'], :env => config.robot_name, 
 			 :keep_h2 => config.genom['keep_h2']) do |env|
 		::Genom.connect do
-		    STDERR.puts "Connected to the Genom environment"
+		    Genom.info "connected to the H2 environment"
 		    begin
 			yield(env)
 		    ensure
 			Roby::Control.instance.disable_propagation
-			STDERR.puts "Leaving Genom"
+			Genom.info "leaving Genom"
 		    end
 		end
 	    end
