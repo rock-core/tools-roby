@@ -629,7 +629,7 @@ module Roby
                 methods = singleton_class.find_methods(name, options)
 		
 		# Check if we can reuse a task already in the plan
-		unless options.has_key?(:reuse) && !options[:reuse]
+		if !options.has_key?(:reuse) || options[:reuse]
 		    all_returns = if methods
 				      methods.map { |m| m.returns if m.reuse? }
 				  else []
