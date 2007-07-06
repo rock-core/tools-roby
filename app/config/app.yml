@@ -1,34 +1,29 @@
-# dRoby neighbour discovery
-discovery:
-  # The host:port at which we can connect to a discovery tuplespace
-  # (default: no discovery tuplespace)
-  # tuplespace: "localhost:29568"
-  # The port at which we do ring discovery (default: disabled)
-  # ring: 42865
-
-# dRoby host configuration
-droby:
-  # How many errors are allowed before disconnecting from a peer
-  # (default: 10)
-  # max_errors: 1
-  # The ring discovery period if we do ring discovery (default: 0.5)
-  # period: 0.5
-
-# Pocosim configuration
-pocosim:
-  # The host of the GDHE display
-  # display: localhost
-
-  # An initialization script to display the scene on GDHE. The file is searched
-  # in the data/ director
-  # gdhe: lousa.gdhe
+# Control configuration
+control:
+  # Abort if a task/event exception is not caught 
+  # abort_on_exception: false
+  # Abort if an application exception occurs 
+  # abort_on_application_exception: false
   
-  # The Gazebo world file for pocosim/gazebo simulations. The file is searched
-  # in the data/ directory 
-  # gazebo: lousa.world
+  # The executive. Set to 'none' to disable.
+  # The executive object determines, in the current plan, what are
+  # the tasks which must be started. The 'simple' executive starts
+  # all tasks that have no predecessors.
+  executive: simple
+
+  # If the GC should be run at each control loop (default: false)
+  # WARNING: for now, the performance hit for GCing at each control loop
+  # WARNING: is too high
+  # control_gc: false
+
+  # The length of a cycle (in seconds)
+  # cycle: 0.1
 
 # Logging configuration
 log:
+  # Where log files go
+  # dir: log/
+  
   # Log system events (default: false)
   # events: true
   
@@ -42,36 +37,60 @@ log:
   #     # The discovery period
   #     period: 10
 
-  # Logging levels. It is a hash of Component: level (where level
-  # is one of DEBUG, INFO, WARN and FATAL).
+  # Logging levels. It is a hash of component_name: level (where level is one
+  # of DEBUG, INFO, WARN and FATAL). The output can be redirected in a file
+  # using level:filename, in which case 'filename' is relative to the log
+  # directory. Any occurence of 'ROBOT' in filename is replaced by the robot
+  # name
+  #
   # levels:
-  #   Roby: INFO
-  #   Genom: INFO
+  #   roby: INFO
+  #   roby/planning: DEBUG
+  #   roby/distributed: DEBUG:ROBOT-distributed.log
+  #   genom: INFO
 
-# Control configuration
-control:
-  # Abort if a task/event exception is not caught (default: false)
-  # abort_on_exception: true
-  # Abort if an application exception occurs (default: false)
-  # abort_on_application_exception: true
+# dRoby neighbour discovery
+discovery:
+  # The host:port at which we can connect to a discovery tuplespace
+  # (default: no discovery tuplespace)
+  # tuplespace: "localhost:29568"
+  # The port at which we do ring discovery (default: disabled)
+  # ring: 42865
+
+# dRoby host configuration
+droby:
+  # How many errors are allowed before disconnecting from a peer
+  # max_errors: 1
+  # The ring discovery period if we do ring discovery
+  # period: 0.5
+  # The hostname at the dRoby server must listen to. It is either
+  # 'host:port', or just ':port'
+  # host: ":48902"
+
+# Genom configuration
+genom:
+  # The memory size allocated for H2
+  # mem_size: 4000000
+  # If true, do not remove H2 devices when the application quit
+  # keep_h2: false
   
-  # The executive. Set to 'none' to disable.
-  # The executive object determines, in the current plan, what are
-  # the tasks which must be started. The 'simple' executive starts
-  # all tasks that have no predecessors.
-  executive: simple
+# Pocosim configuration
+pocosim:
+  # The host of the GDHE display
+  # display: localhost
 
-  # If the GC should be run at each control loop (default: false)
-  # WARNING: for now, the performance hit for GCing at each control loop
-  # WARNING: is too high
-  # control_gc: false
-
+  # An initialization script to display the scene on GDHE. The file is searched
+  # in the data/ director
+  # gdhe: lousa.gdhe
+  
+  # The Gazebo world file for pocosim/gazebo simulations. The file is searched
+  # in the data/ directory 
+  # gazebo: lousa.world
 
 # Per-robot configuration. In these, you can override global options, or set
 # new options.
 # dala:
 #   droby:
-#     # The host:port at which this robot listens
-#     host: "localhost:1287"
+#     host: ":1287"
 
 # vim: sw=2
