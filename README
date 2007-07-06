@@ -17,6 +17,10 @@
 * the Genom plugin need Genom.rb, which in turn needs +typelib+ and +utilmm+. 
   All three are available on {my research page}[http://www.laas.fr/~sjoyeux/research.php]
 
+== Other requirements
+The associated GUI require {QtRuby >= 1.4.9}[http://rubyforge.org/projects/korundum], SVG export
+requires QtRuby to be built with Qt >= 4.3
+
 == Creating a new Roby application
 Along with Roby is installed the +roby+ executable, which can create the skeleton of a
 new Roby application. C
