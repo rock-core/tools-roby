@@ -417,9 +417,10 @@ module Roby
 		obj = obj.event(:success)
 	    end
 
+	    stack = caller(1)
 	    obj.forward self
 	    obj.if_unreachable(true) do
-		emit_failed(EventModelViolation.new(self), obj)
+		emit_failed(EventModelViolation.new(self), "#{obj} is unreachable, in #{stack.first}")
 	    end
 	end
 	# For backwards compatibility. Use #achieve_with.
