@@ -148,7 +148,8 @@ module Roby
 	def actions
 	    control.planners.
 		map { |p| p.planning_methods_names.to_a }.
-		flatten
+		flatten.
+		sort
 	end
 
 	def task_set_to_s(task_set)
