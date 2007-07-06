@@ -4,6 +4,11 @@ require 'roby/log/relations'
 require 'roby/log/gui/relations_ui'
 
 module Ui
+    # Manage relations using a two-level tree structure. The relation
+    # categories (tasks and events) have a model index of (row, column, nil)
+    # while the relations have a model index of (row, column, category), where
+    # category is TASK_ROOT_INDEX for task relations and EVENT_ROOT_INDEX for
+    # event relations
     class RelationConfigModel < Qt::AbstractItemModel
 	COL_NAME    = 0
 	COL_COLOR   = 1
@@ -12,8 +17,8 @@ module Ui
 	EVENT_ROOT_INDEX = 1
 	CATEGORIES = ['Task structure', 'Event structure']
 
-	def event_root_index; create_index(TASK_ROOT_INDEX, 0, -1) end
-	def task_root_index; create_index(EVENT_ROOT_INDEX, 0, -1) end
+	def event_root_index; createIndex(TASK_ROOT_INDEX, 0, -1) end
+	def task_root_index; createIndex(EVENT_ROOT_INDEX, 0, -1) end
 
 	attr_reader :relations
 	attr_reader :display
@@ -30,21 +35,21 @@ module Ui
 	end
 
 	def index(row, column, parent)
-	    if parent.valid? && parent.internal_id == -1
-		create_index(row, column, parent.row)
+	    if parent.valid? && parent.internalPointer == -1
+		createIndex(row, column, parent.row)
 	    elsif row < relations.size
-		create_index(row, column, -1)
+		createIndex(row, column, -1)
 	    else
 		Qt::ModelIndex.new
 	    end
 	end
 	def parent(index)
-	    category = index.internal_id
+	    category = index.internalPointer
 	    if !index.valid? || category == -1 then Qt::ModelIndex.new
-	    else create_index(category, 0, -1) end
+	    else createIndex(category, 0, -1) end
 	end
 	def columnCount(parent); 2 end
-	def hasChildren(parent); !parent.valid? || parent.internal_id == -1 end
+	def hasChildren(parent); !parent.valid? || parent.internalPointer == -1 end
 	def rowCount(parent)
 	    if !parent.valid? then relations.size
 	    else relations[parent.row].size end
@@ -58,7 +63,7 @@ module Ui
 	def data(index, role)
 	    return Qt::Variant.new unless index.valid?
 
-	    category = index.internal_id
+	    category = index.internalPointer
 	    value = if category == -1
 			if index.column == COL_NAME && role == Qt::DisplayRole
 			    CATEGORIES[index.row]
@@ -82,7 +87,7 @@ module Ui
 	    end
 	end
 	def setData(index, value, role)
-	    category = index.internal_id
+	    category = index.internalPointer
 	    relation = relations[category][index.row]
 	    if role == Qt::CheckStateRole
 		case value.to_i
@@ -100,7 +105,7 @@ module Ui
 	    emit dataChanged(index, index)
 	end
 	def flags(index)
-	    if !index.valid? || index.internal_id == -1 then Qt::ItemIsEnabled 
+	    if !index.valid? || index.internalPointer == -1 then Qt::ItemIsEnabled 
 	    else 
 		flags = Qt::ItemIsSelectable | Qt::ItemIsTristate | Qt::ItemIsEnabled | Qt::ItemIsUserCheckable
 		if index.column == 1
@@ -120,7 +125,7 @@ module Ui
 	    nil
 	end
 	def paint(painter, option, index)
-	    if index.column == 1 && index.internal_id >= 0
+	    if index.column == 1 && index.internalPointer >= 0
 		color = index.model.data(index, Qt::DisplayRole).to_string
 		rect = option.rect
 		rect.adjust(1, 1, -1, -1)
