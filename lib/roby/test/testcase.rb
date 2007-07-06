@@ -277,8 +277,14 @@ module Roby
 	    end
 
 	    # Starts +task+ and checks it succeeds
-	    def assert_succeeds(task, msg = nil)
-		assert_any_event([task.event(:success)], [], msg) do
+	    def assert_succeeds(task, *args)
+		if !task.kind_of?(Roby::Task)
+		    Roby.execute do
+			plan.insert(task = planner.send(task, *args))
+		    end
+		end
+
+		assert_any_event([task.event(:success)], [], nil) do
 		    plan.permanent(task)
 		    task.start! if task.pending?
 		end
