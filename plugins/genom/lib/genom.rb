@@ -536,6 +536,13 @@ module Roby::Genom
 	    ignored_modules.clear
 	end
 
+	# Disables all logging
+	def remove_all_logging
+	    each_member do |_, config|
+		config.delete(:log) if config.log?
+	    end
+	end
+
 	# The list of the module names that have been loaded by #using
 	attribute(:used_modules) { Hash.new }
 	# If +name+ is a used module
@@ -596,12 +603,6 @@ module Roby::Genom
 			raise if e.backtrace.find { |level| level =~ /#{Regexp.quote(extfile)}/ }
 		    end
 		end
-	    end
-	end
-
-	def remove_all_logging
-	    each_member do |_, config|
-		config.delete(:log) if cofig.log?
 	    end
 	end
     end
