@@ -32,6 +32,23 @@ class Ui::RelationsView
 		scene.render(painter);
 	    end
 	end
+
+	if defined? Qt::SvgGenerator
+	    svg.connect(SIGNAL(:clicked)) do
+		return unless scene
+
+		if path = Qt::FileDialog.get_save_file_name(nil, "SVG Export")
+		    svg = Qt::SvgGenerator.new
+		    svg.file_name = path
+		    painter = Qt::Painter.new
+		    painter.begin(svg)
+		    scene.render(painter)
+		    painter.end
+		end
+	    end
+	else
+	    svg.enabled = false
+	end
     end
 end
 
