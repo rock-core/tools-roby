@@ -64,6 +64,12 @@ module Roby
 	    end
 	end
 
+	def instance_methods(include_super = false)
+	    Interface.instance_methods(false).
+		actions.map { |name| "#{name}!" }
+	end
+	    
+
 	def method_missing(m, *args)
 	    @interface.send(m, *args)
 
