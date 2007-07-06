@@ -89,16 +89,14 @@ begin
 	    Roby.execute do
 		load File.join(APP_DIR, "controllers", "#{app.robot_name}.rb")
 	    end
-	    catch(:IRB_EXIT) do
-		irb.eval_input
+	    begin
+		catch(:IRB_EXIT) do
+		    irb.eval_input
+		end
+	    ensure
+		Roby.control.quit
 	    end
 	end
     end
-
-rescue Interrupt
-    Roby.control.quit
-    Roby.control.join
-ensure 
-    Roby.control.join
 end
 
