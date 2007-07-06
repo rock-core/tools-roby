@@ -41,6 +41,13 @@ begin
     bind = control.instance_eval { binding }
     ws  = IRB::WorkSpace.new(bind)
     irb = IRB::Irb.new(ws)
+
+    context = irb.context
+    def context.evaluate(*args, &block)
+	Roby.execute do
+	    super
+	end
+    end
     IRB.conf[:MAIN_CONTEXT] = irb.context
 
     trap("SIGINT") do
