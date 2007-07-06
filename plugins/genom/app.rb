@@ -254,7 +254,7 @@ host
 	    # Build the simulation configuration file based on configuration in config/#{ROBOT}.conf
 	    conffile = generate_simulation_config(config) 
 	    # Start simulation
-	    reuse_gazebo(Genom::Runner.method(:simulation), conffile, :hostname => config.robot_name
+	    reuse_gazebo(Genom::Runner.method(:simulation), conffile, :hostname => config.robot_name,
 			 :mem_size => config.genom['mem_size'], :env => config.robot_name, 
 			 :keep_h2 => config.genom['keep_h2']) do |env|
 		::Genom.connect do
