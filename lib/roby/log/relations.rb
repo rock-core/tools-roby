@@ -39,6 +39,7 @@ module Roby
 	    unless @display_name
 		model_name = model.ancestors.first.first
 		model_name = model_name.gsub /Generator$/, ''
+		model_name = model_name.gsub /^Roby::Genom::/, ''
 		model_name = model_name.gsub /^Roby::/, ''
 		@display_name = "#{model_name}\n#{remote_siblings_to_s}\n#{owners_to_s}"
 	    end
@@ -106,6 +107,8 @@ module Roby
 	    rect.singleton_class.class_eval { attr_accessor :text }
 	    rect.text = text
 	    rect.z_value = Log::PLAN_LAYER + 1
+
+	    rect.set_data(0, Qt::Variant.new(self.object_id))
 	    rect
 	end
     end
@@ -115,7 +118,7 @@ module Roby
 	def display_name
 	    unless @display_name
 		model_name = model.ancestors[0][0]
-		@display_name = "#{model_name}\n#{remote_siblings_to_s}\n#{owners_to_s}"
+		@display_name = "#{model_name}\n#{owners_to_s}"
 	    end
 
 	    @display_name
@@ -129,7 +132,7 @@ module Roby
 				find { |flag| flags[flag] } 
 			end
 
-	    raise flags.to_s unless new_state
+	    new_state ||= :pending
 	    if @displayed_state != new_state
 		graphics_item.brush = Qt::Brush.new(Log::TASK_BRUSH_COLORS[new_state])
 		graphics_item.pen   = Qt::Pen.new(Log::TASK_PEN_COLORS[new_state])
@@ -338,7 +341,7 @@ module Roby
 
 		@main   = Qt::Widget.new
 		@ui     = Ui::RelationsView.new
-		ui.setupUi(main)
+		ui.setupUi(self)
 		ui.graphics.scene = scene
 		
 		@graphics          = Hash.new
@@ -360,6 +363,16 @@ module Roby
 		connect(shortcut, SIGNAL('activated()'), self, SLOT('find()'))
 		@shortcuts << shortcut
 		main.resize 500, 500
+	    end
+
+	    def object_of(item)
+		return if !(id = item.data(0)).valid?
+		id = id.to_int
+
+		obj, _ = graphics.find do |obj, obj_item| 
+		    obj.object_id == id
+		end
+		obj
 	    end
 
 	    def stream=(data_stream)
@@ -427,6 +440,8 @@ module Roby
 		end
 	    end
 	    slots 'find()'
+
+	    attr_accessor :keep_signals
 
 	    COLORS = %w{'black' #800000 #008000 #000080 #C05800 #6633FF #CDBE70 #CD8162 #A2B5CD}
 	    attr_reader :current_color
@@ -614,16 +629,8 @@ module Roby
 
 	    def update
 		return unless decoder
-		clear_flashing_objects
 
-		signalled_events.each do |_, from, to, _|
-		    add_flashing_object from
-		    add_flashing_object to
-		end
-		pending_events.each do |object|
-		    next if flashing_objects.has_key?(object)
-		    add_flashing_object(object) { pending_events.include?(object) }
-		end
+		clear_flashing_objects
 
 		# The sets of tasks and events know to the data stream
 		all_tasks  = decoder.plans.inject(decoder.tasks.keys.to_value_set) do |all_tasks, (plan, _)|
@@ -651,11 +658,40 @@ module Roby
 		    end
 		end
 
+		signalled_events.each do |_, from, to, _|
+		    if from.respond_to?(:task) 
+			next if !displayed?(from.task)
+		    else
+			next if !all_events.include?(from)
+		    end
+		    if to.respond_to?(:task) 
+			next if !displayed?(to.task)
+		    else
+			next if !all_events.include?(to)
+		    end
+
+		    add_flashing_object from
+		    add_flashing_object to
+		end
+		
+		pending_events.each do |object|
+		    next if object.respond_to?(:task) && !displayed?(object.task)
+		    next if flashing_objects.has_key?(object)
+
+		    add_flashing_object(object) { pending_events.include?(object) }
+		end
+
+
 		[all_tasks, all_events, decoder.plans.keys].each do |object_set|
 		    object_set.each do |object|
 			next unless displayed?(object)
 			object.display(self, graphics[object])
 		    end
+		end
+
+		# Update arrow visibility
+		arrows.each do |(from, to, rel), item|
+		    item.visible = (displayed?(from) && displayed?(to))
 		end
 
 		# Layout the graph
@@ -666,7 +702,7 @@ module Roby
 			dot
 		    end
 		layouts.each { |dot| dot.apply }
-		
+
 		# Display the signals
 		signal_arrow_idx = -1
 		signalled_events.each_with_index do |(forward, from, to, event_id), signal_arrow_idx|
@@ -678,10 +714,12 @@ module Roby
 		    # It is possible that the objects have been removed in the
 		    # same display cycle than they have been signalled. Do not
 		    # display them if it is the case
-		    unless self[from] && self[to]
+		    unless displayed?(from) && displayed?(to)
 			arrow.visible = false
 			next
 		    end
+		    puts from if !self[from]
+		    puts to if !self[to]
 
 		    arrow.visible = true
 		    Log.arrow_set(arrow, self[from], self[to])
@@ -693,16 +731,19 @@ module Roby
 		    end
 		end
 
-		signalled_events.clear
+		unless keep_signals
+		    signalled_events.clear
+		end
 		postponed_events.clear
 	    end
 
 	    def remove_graphics(item, scene = nil)
 		return unless item
 		scene ||= item.scene
-		item.children.each do |child|
-		    remove_graphics(child, scene)
-		end
+		#puts "#{item} #{scene}"
+		#item.children.each do |child|
+		#    remove_graphics(child, scene)
+		#end
 		scene.remove_item(item) if scene
 	    end
 

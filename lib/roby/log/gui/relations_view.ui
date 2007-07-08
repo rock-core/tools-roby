@@ -5,8 +5,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>616</width>
-    <height>500</height>
+    <width>981</width>
+    <height>733</height>
    </rect>
   </property>
   <property name="windowTitle" >
@@ -15,6 +15,27 @@
   <layout class="QVBoxLayout" >
    <item>
     <layout class="QHBoxLayout" >
+     <item>
+      <widget class="QToolButton" name="update" >
+       <property name="text" >
+        <string>Update</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="show_all" >
+       <property name="text" >
+        <string>Show All</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="Line" name="line" >
+       <property name="orientation" >
+        <enum>Qt::Vertical</enum>
+       </property>
+      </widget>
+     </item>
      <item>
       <widget class="QToolButton" name="zoom" >
        <property name="text" >
@@ -37,13 +58,30 @@
       </widget>
      </item>
      <item>
+      <widget class="Line" name="line_2" >
+       <property name="orientation" >
+        <enum>Qt::Vertical</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="keep_signals" >
+       <property name="text" >
+        <string>Keep Signals</string>
+       </property>
+       <property name="checkable" >
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
       <spacer>
        <property name="orientation" >
         <enum>Qt::Horizontal</enum>
        </property>
        <property name="sizeHint" >
         <size>
-         <width>261</width>
+         <width>301</width>
          <height>26</height>
         </size>
        </property>
