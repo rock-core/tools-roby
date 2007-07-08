@@ -375,10 +375,42 @@ module Roby
 	end
 	# Yields the relations that are included in this space
 	def each_relation
-	    relations.each { |rel| yield(rel) }
+	    for rel in relations
+		yield(rel)
+	    end
 	end
 	def each_root_relation
-	    relations.each { |rel| yield(rel) if rel.root_relation? }
+	    for rel in relations
+		yield(rel) unless rel.parent
+	    end
+	end
+
+	# Returns the set of objects that are reachable from +obj+ through any
+	# of the relations. Note that +b+ will be included in the result if
+	# there is an edge <tt>obj => a</tt> in one relation and another edge
+	# <tt>a => b</tt> in another relation
+	#
+	# If +strict+ is true, +obj+ is not included in the returned set
+	def children_of(obj, strict = true)
+	    set = compute_children_of([obj].to_value_set)
+	    set.delete(obj)
+	    set
+	end
+
+	def compute_children_of(current)
+	    old_size = current.size
+	    each_root_relation do |rel|
+		components = rel.generated_subgraphs(current, false)
+		for c in components
+		    current.merge c
+		end
+	    end
+
+	    if current.size == old_size
+		return current
+	    else
+		return compute_children_of(current)
+	    end
 	end
 
 	# Creates a new relation in this relation space. This defines a
