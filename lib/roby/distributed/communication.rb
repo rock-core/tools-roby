@@ -412,18 +412,18 @@ module Roby
 	    # in the communication thread, with the returned value, if the call
 	    # succeeded
 	    def transmit(m, *args, &block)
-		if local.processing?
-		    if local.processing_callback?
+		if local_server.processing?
+		    if local_server.processing_callback?
 			raise RecursiveCallbacksError, "cannot queue callback #{m}(#{args.join(", ")}) while serving one"
 		    end
 		end
 		
 		Distributed.debug do
-		    op = local.processing? ? "adding callback" : "queueing"
+		    op = local_server.processing? ? "adding callback" : "queueing"
 		    "#{op} #{neighbour.name}.#{m}"
 		end
 
-		queue_call local.processing?, m, args, block
+		queue_call local_server.processing?, m, args, block
 	    end
 
 	    # call-seq:
@@ -438,7 +438,7 @@ module Roby
 	    # Note that it is forbidden to use this method in control or
 	    # communication threads, as it would make the application deadlock
 	    def call(m, *args)
-		if local.processing?
+		if local_server.processing?
 		    raise "cannot use Peer#call while processing a remote request"
 		elsif !Roby.outside_control?
 		    raise "cannot use Peer#call in control thread"

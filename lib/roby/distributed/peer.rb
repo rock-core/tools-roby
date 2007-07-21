@@ -73,13 +73,13 @@ module Roby::Distributed
 	    # If +object+ is a trigger, send the :triggered event but do *not*
 	    # act as if +object+ was subscribed
 	    peers.each_value do |peer|
-		peer.local.trigger(*objects)
+		peer.local_server.trigger(*objects)
 	    end
 	end
 	# Remove +objects+ from the sets of already-triggered objects
 	def clean_triggered(object)
 	    peers.each_value do |peer|
-		peer.local.triggers.each_value do |_, triggered|
+		peer.local_server.triggers.each_value do |_, triggered|
 		    triggered.delete object
 		end
 	    end
@@ -218,7 +218,7 @@ module Roby::Distributed
 	# The local ConnectionSpace object we act on
 	attr_reader :connection_space
 	# The local PeerServer object for this peer
-	attr_reader :local
+	attr_reader :local_server
 	# The server object we use to access the remote plan database
 	attr_accessor :remote_server
 	# The neighbour object describing our peer
@@ -261,7 +261,7 @@ module Roby::Distributed
 
 	    @connection_space = connection_space
 	    @neighbour	  = neighbour
-	    @local        = PeerServer.new(self)
+	    @local_server = PeerServer.new(self)
 	    @proxies	  = Hash.new
 	    @removing_proxies = Hash.new
 	    @mutex	  = Mutex.new
@@ -394,10 +394,10 @@ module Roby::Distributed
 	    
 	    Roby::Distributed.info "connecting to #{remote_name}"
 	    if remote_server
-		transmit(:connect, connection_space.name, connection_space.remote_id, @local, Roby::State)
+		transmit(:connect, connection_space.name, connection_space.remote_id, local_server, Roby::State)
 	    else
 		begin
-		    remote_id.to_drb_object.connect(connection_space.name, connection_space.remote_id, @local)
+		    remote_id.to_drb_object.connect(connection_space.name, connection_space.remote_id, local_server)
 		rescue DRb::DRbConnError => e
 		    raise ConnectionFailedError.new(self), "failed to connect to #{remote_id}: #{e.message}"
 		end

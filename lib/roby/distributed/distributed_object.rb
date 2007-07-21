@@ -174,7 +174,7 @@ module Roby
 		call(:create_sibling, object)
 		subscriptions << object.sibling_on(self)
 		Roby::Control.synchronize do
-		    local.subscribe(object)
+		    local_server.subscribe(object)
 		end
 
 		synchro_point

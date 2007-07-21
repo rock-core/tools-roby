@@ -253,7 +253,7 @@ module Roby
 
 	    # Make our peer subscribe to +object+
 	    def push_subscription(object)
-		local.subscribe(object)
+		local_server.subscribe(object)
 		synchro_point
 	    end
 
