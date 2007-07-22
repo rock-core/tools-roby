@@ -1,0 +1,9 @@
+ext/*/Makefile
+ext/*/*.o
+ext/*/*.so
+ext/*/mkmf.log
+lib/roby/*.so
+*_ui.rb
+
+.*.swp
+
