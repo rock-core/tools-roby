@@ -463,7 +463,8 @@ module Roby
 	    def communication_loop
 		Thread.current.priority = 2
 		id = 0
-		data = nil
+		data   = nil
+		buffer = StringIO.new(" " * 8, 'w')
 
 		loop do
 		    data = send_queue.shift
@@ -476,11 +477,12 @@ module Roby
 		    end
 		    return if disconnected?
 
-		    buffer = [id += 1, 0].pack("NN")
-		    marshalled = Marshal.dump(data)
-		    buffer.concat marshalled
-		    buffer[4, 4] = [buffer.size - 8].pack("N")
-		    socket.write(buffer)
+		    buffer.truncate(8)
+		    buffer.seek(8)
+		    Marshal.dump(data, buffer)
+		    buffer.string[0, 8] = [id += 1, buffer.size - 8].pack("NN")
+
+		    socket.write(buffer.string)
 		end
 
 	    rescue Interrupt
