@@ -38,9 +38,7 @@ module Roby::Distributed
 	def ready?; event(:ready).happened? end
 
 	event :aborted, :terminal => true do |context|
-	    peer.synchronize do
-		peer.disconnected!
-	    end
+	    peer.disconnected!
 	end
 	forward :aborted => :failed
 
@@ -203,7 +201,7 @@ module Roby::Distributed
 	def remote_id; neighbour.remote_id end
 
 	# The name of the remote peer
-	def remote_name; (neighbour.name if neighbour) || "#{socket.peer_addr}:#{socket.peer_port}" end
+	def remote_name; (neighbour.name if neighbour) || ("#{socket.peer_addr}:#{socket.peer_port}" unless socket.closed?) || to_s end
 	# The name of the local ConnectionSpace object we are acting on
 	def local_name; connection_space.name end
 

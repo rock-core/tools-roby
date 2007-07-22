@@ -679,6 +679,7 @@ module Roby
 		    quit
 		end
 	    end
+
 	ensure
 	    stats[:end] = Time.now
 	    cycle_end(stats)

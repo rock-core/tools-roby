@@ -223,31 +223,39 @@ module Roby
 				Roby::Distributed.debug "listening to #{socket} for #{peer}"
 			    end
 
-			    read, _, errors = select(sockets.keys, nil, sockets.keys, 0.1)
+			    begin
+				sockets.delete_if { |s, p| s.closed? && p.disconnected? }
+				read, _, errors = select(sockets.keys, nil, sockets.keys, 0.1)
+			    rescue IOError
+				retry
+			    end
+
 			    if errors
 				for socket in errors
-				    if socket.eof?
-					# Closed socket
-					if peer[socket].disconnected?
-					    Roby::Distributed.debug "removing #{socket}: #{peer} is disconnected"
-					    peer.delete(socket)
+				    p = sockets[socket]
+				    if socket.closed? && !p.connected?
+					if p.disconnecting?
+					    p.disconnected
 					end
+
+					p.delete(socket)
 				    end
 				end
 			    end
 
 			    if read
 				for socket in read
-				    next if socket.eof?
+				    next if socket.closed?
+
+				    p = sockets[socket]
 				    begin
 					id, size = socket.read(8).unpack("NN")
 					data     = socket.read(size)
 					Roby::Distributed.pending_cycles << [sockets[socket], Marshal.load(data)]
-				    rescue Errno::EPIPE
+				    rescue Exception => e
 					# Closed socket
-					if peer[socket].disconnected?
-					    Roby::Distributed.debug "removing #{socket}: #{peer} is disconnected"
-					    peer.delete(socket)
+					if p.disconnected?
+					    p.delete(socket)
 					end
 				    end
 				end
@@ -358,12 +366,8 @@ module Roby
 
 		# Force disconnection in case something got wrong in the normal
 		# disconnection process
-		Distributed.peers.each_value do |peer|
-		    peer.synchronize do
-			peer.disconnected! rescue nil
-			peer.do_disconnect rescue nil
-			peer.disconnected rescue nil
-		    end
+		Distributed.peers.values.each do |peer|
+		    peer.disconnected unless peer.disconnected?
 		end
 
 		synchronize do

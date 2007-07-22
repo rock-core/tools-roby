@@ -4,8 +4,8 @@ require 'roby/test/distributed'
 require 'flexmock'
 
 class TC_DistributedCommunication < Test::Unit::TestCase
-    include Roby::Distributed::Test
     include Roby
+    include Roby::Distributed::Test
 
     class ConnectionSpace < Roby::Distributed::ConnectionSpace
         def wait_next_discovery
@@ -31,10 +31,11 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 	    @connection_state = :connected
 	    @link_alive       = true
 	    @sync = true
-	end
 
-	def disconnected!
-	    @connection_state = :disconnected
+	    Roby.execute do
+		task.start!
+		task.emit :ready
+	    end
 	end
     end
 
@@ -92,6 +93,10 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 		def setup_peer(remote)
 		    sleep(0.1)
 		    peer = Distributed.peers.values.first
+		    class << peer
+			attr_predicate :link_alive?, true
+		    end
+
 		    peer.instance_eval do
 			@remote_server    = remote
 			@connection_state = :connected
@@ -108,7 +113,7 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 	    end.new
 
 	    Roby.control.run :detach => true, :cycle => 0.5
-	    Roby.logger.level = Logger::DEBUG
+	    Roby.logger.level = Logger::FATAL
 	    DRb.start_service REMOTE_SERVER, front
 	end
 	Roby.logger.progname = "(local)"
@@ -134,7 +139,7 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 
     def teardown
 	remote_peer.connection_space.quit if remote_peer
-	local_peer.connection_space.quit if local_peer
+	local_peer.connection_space.quit  if local_peer
 	super 
     end
 
@@ -164,7 +169,6 @@ class TC_DistributedCommunication < Test::Unit::TestCase
     end
 
     def test_transmit_error
-	Roby.logger.level = Logger::FATAL
 	FlexMock.use do |mock|
 	    remote_peer.link_alive = false
 	    remote_peer.transmit(:reply_error, 2) do |result|
@@ -172,7 +176,7 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 	    end
 	    mock.should_receive(:block_called).never
 	    remote_peer.link_alive = true
-	    assert_raises(RuntimeError) { remote_peer.synchro_point }
+	    assert_raises(Roby::Distributed::DisconnectedError) { remote_peer.synchro_point }
 
 	    assert(!remote_peer.connected?)
 	end
@@ -189,19 +193,13 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 	remote_peer.link_alive = false
 
 	t1 = Thread.new { test_call(42) }
-	loop do
-	    # wait for the TX thread to notice the new entry in the queue and
-	    # wake up
-	    break if remote_peer.connection_space.send_running?
-	    sleep(0.1)
-	end
+	# wait for the TX thread to notice the new entry in the queue and
+	# wake up
+	sleep(0.5)
 
 	t2 = Thread.new { test_call(21) }
-	loop do
-	    # Wait for +t2+ to insert its entry in the TX queue
-	    break if remote_peer.send_queue.contents.size == 1
-	    sleep(0.1)
-	end
+	# Wait for +t2+ to insert its entry in the TX queue
+	sleep(0.5)
 
 	remote_peer.link_alive = true
 	t1.value
@@ -220,19 +218,10 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 	remote_peer.link_alive = false
 
 	remote_peer.transmit(:reply_error, 2)
-	loop do
-	    # wait for the TX thread to notice the new entry in the queue and
-	    # wake up
-	    break if remote_peer.connection_space.send_running?
-	    sleep(0.1)
-	end
+	sleep(0.5)
 
 	Thread.new do
-	    loop do
-		# Wait for the call to insert its entry in the TX queue
-		break if remote_peer.send_queue.contents.size == 1
-		sleep(0.1)
-	    end
+	    sleep(0.5)
 	    remote_peer.link_alive = true
 	end
 	assert_raises(DisconnectedError) { remote_peer.call(:reply, nil, 42) }

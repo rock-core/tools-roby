@@ -40,10 +40,14 @@ module Roby
 
 		if Distributed.state
 		    Distributed.state.quit
-		    Distributed.state = nil
 		end
 
 		timings[:end] = Time.now
+
+	    rescue Exception
+		STDERR.puts "failing teardown: #{$!.full_message}"
+		raise
+
 	    ensure
 		Distributed.logger.level = @old_distributed_logger_level
 	    end

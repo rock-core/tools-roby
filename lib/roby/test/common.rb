@@ -75,7 +75,6 @@ module Roby
 	    save_collection Roby::Control.structure_checks
 	    save_collection Roby::Control.at_cycle_end_handlers
 	    save_collection Roby::EventGenerator.event_gathering
-	    Roby.control.instance_variable_set("@quit", 0)
 	    Roby.control.abort_on_exception = true
 	    Roby.control.abort_on_application_exception = true
 	    Roby.control.abort_on_framework_exception = true
@@ -102,10 +101,7 @@ module Roby
 		    begin
 			assert_doesnt_timeout(10) do
 			    loop do
-				Roby::Control.synchronize do
-				    Roby.plan.garbage_collect
-				    throw :done_cleanup unless Roby.control.clear
-				end
+				throw :done_cleanup unless Roby.control.clear
 				process_events
 				sleep(0.1)
 			    end

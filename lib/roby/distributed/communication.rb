@@ -64,21 +64,27 @@ module Roby
 	    # messages allowed by #queue_call are 'completed' and 'disconnected'
 	    def disconnect
 		synchronize do
-		    raise "already disconnecting" if disconnecting?
-		    Roby::Control.synchronize do
-			Roby::Distributed.info "disconnecting from #{self}"
-			@connection_state = :disconnecting
-		    end
-
-		    transmit :disconnected do
-			disconnected
-		    end
+		    Roby::Distributed.info "disconnecting from #{self}"
+		    @connection_state = :disconnecting
 		end
+		queue_call false, :disconnect
+	    end
+
+	    # +error+ has been raised while we were processing +msg+(*+args+)
+	    # We will disconnect because of that
+	    def fatal_error(error, msg, args)
+		synchronize do
+		    Roby::Distributed.info "fatal error #{error} while processing #{msg}(#{args.join(", ")})"
+		    @connection_state = :disconnecting
+		end
+		queue_call false, :fatal_error, [error, msg, args]
 	    end
 
 	    # Called when the peer acknowledged the fact that we disconnected
 	    def disconnected(event = :failed) # :nodoc:
-		Roby::Control.synchronize do
+		Roby::Distributed.info "#{remote_name} disconnected"
+
+		synchronize do
 		    @connection_state = :disconnected
 
 		    if @send_thread && @send_thread != Thread.current
@@ -92,22 +98,19 @@ module Roby
 			end
 		    end
 		    @send_thread = nil
-		end
-
-		Roby::Control.once do
-		    task.emit(event)
 
 		    proxies.each_value do |obj|
 			obj.remote_siblings.delete(self)
 		    end
 		    proxies.clear
-		end
-		removing_proxies.clear
+		    removing_proxies.clear
 
-		connection_space.synchronize do
-		    Roby::Distributed.peers.delete(remote_id)
+		    socket.close unless socket.closed?
 		end
-		Roby::Distributed.info "#{remote_name} disconnected"
+
+		Roby.once do
+		    task.emit(event)
+		end
 	    end
 
 	    # Call to disconnect outside of the normal protocol.
@@ -143,18 +146,20 @@ module Roby
 	class PeerServer
 	    # Called by our peer to initialize the connection
 	    def connect(state)
-		peer.synchronize do
-		    peer.connected
-		end
+		peer.connected
 		state_update state
 		Roby::State
 	    end
 
+	    def fatal_error(error, msg, args)
+		Distributed.info "remote reports #{error} while processing #{msg}(#{args.join(", ")})"
+		disconnect
+	    end
+
 	    # Called by our peer when it disconnects
 	    def disconnect
-		peer.synchronize do
-		    peer.disconnected
-		end
+		peer.disconnected
+
 		nil
 	    end
 	end
@@ -192,9 +197,6 @@ module Roby
 	class CallSpec
 	    alias :callback? :is_callback
 
-	    # Converts this object to what PeerServer#demux expects
-	    def to_demux_argument; [is_callback, method, formatted_args] end
-
 	    def to_s
 		args = formatted_args.map do |arg|
 		    if arg.kind_of?(DRbObject) then arg.inspect
@@ -229,7 +231,13 @@ module Roby
 		    if call_spec && thread = call_spec.waiting_thread
 			thread.raise result
 		    else
-			Roby.fatal "error while processing callbacks:in #{result.full_message}"
+			Roby::Distributed.fatal "fatal error in communication with #{peer}: #{result.full_message}"
+			Roby::Distributed.fatal "disconnecting ..."
+			if peer.connected?
+			    peer.disconnect
+			else
+			    peer.disconnected!
+			end
 		    end
 
 		elsif call_spec
@@ -252,13 +260,13 @@ module Roby
 	    # Since #completed! is destined to be called by other threads than
 	    # the communication thread, +comthread+ must be set to the
 	    # communication thread object.
-	    def completed!(result, error, comthread = Thread.current)
+	    def completed!(result, error)
 		if queued_completion?
 		    raise "already queued the completed message"
 		else
-		    Distributed.debug { "done, returns #{result || 'nil'} in completed!" }
+		    Distributed.debug { "done, returns #{'error ' if error}#{result || 'nil'} in completed!" }
 		    self.queued_completion = true
-		    peer.queue_call false, :completed, [result, false]
+		    peer.queue_call false, :completed, [result, error]
 		end
 	    end
 
@@ -273,14 +281,13 @@ module Roby
 		    return yield
 		end
 
-		comthread = Thread.current
 		Roby.execute do
 		    error = nil
 		    begin
 			result = yield
 		    rescue Exception => error
 		    end
-		    completed!(error || result, !!error, comthread)
+		    completed!(error || result, !!error)
 		end
 	    end
 	end
@@ -358,20 +365,10 @@ module Roby
 		# Do some sanity checks
 		if !m.respond_to?(:to_sym)
 		    raise ArgumentError, "method argument should be a symbol, was #{m.class}"
-		elsif m.to_sym == :demux
-		    raise ArgumentError, "you cannot queue a demux call"
 		end
 
 		# Check the connection state
-		if connecting?
-		    if m != :connect && m != :connected
-			raise DisconnectedError, "cannot queue #{m}(#{args.join(", ")}) while we are connecting"
-		    end
-		elsif disconnecting?
-		    if m != :disconnected && m != :completed
-			raise DisconnectedError, "cannot queue #{m}(#{args.join(", ")}) while we are disconnecting"
-		    end
-		elsif disconnected?
+		if (disconnecting? && m != :disconnect && m != :fatal_error) || disconnected?
 		    raise DisconnectedError, "cannot queue #{m}(#{args.join(", ")}), we are not currently connected to #{remote_name}"
 		end
 
@@ -383,14 +380,17 @@ module Roby
 		    check_marshallable(formatted_args)
 		end
 		
-		@sending = true
 		call_spec = CallSpec.new(is_callback, 
-			    m, formatted_args, args, 
-			    on_completion, caller(2), waiting_thread)
+					 m, formatted_args, args, 
+					 on_completion, caller(2), waiting_thread)
 
 		synchronize do
-		    completion_queue << call_spec
-		    current_cycle    << call_spec.to_demux_argument
+		    # No return message for 'completed' (of course)
+		    unless call_spec.method == :completed
+			completion_queue << call_spec
+		    end
+
+		    current_cycle    << [call_spec.is_callback, call_spec.method, call_spec.formatted_args, !waiting_thread]
 		    if sync? || CYCLE_END_CALLS.include?(m)
 			send_queue << current_cycle
 			@current_cycle = Array.new
@@ -482,7 +482,11 @@ module Roby
 		    Marshal.dump(data, buffer)
 		    buffer.string[0, 8] = [id += 1, buffer.size - 8].pack("NN")
 
-		    socket.write(buffer.string)
+		    begin
+			socket.write(buffer.string)
+		    rescue Errno::EPIPE
+			return if disconnected? || disconnecting?
+		    end
 		end
 
 	    rescue Interrupt
@@ -492,18 +496,13 @@ module Roby
 		    "Communication thread dies with\n#{$!.full_message}"
 		end
 
-		synchronize do
-		    disconnected!
-		end
+		disconnected!
 
 	    ensure
 		Distributed.info "communication thread quitting for #{self}"
-		calls = []
+		calls = current_cycle.dup
 		while !completion_queue.empty?
 		    calls << completion_queue.shift
-		end
-		while !send_queue.empty?
-		    calls.concat send_queue.shift
 		end
 
 		calls.each do |call_spec|

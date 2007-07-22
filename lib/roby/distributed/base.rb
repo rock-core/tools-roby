@@ -286,24 +286,25 @@ module Roby
 	def self.process_pending(timeout)
 	    while timeout > Time.now && !pending_cycles.empty?
 		peer, calls = pending_cycles.pop
-		process_cycle(peer.local_server, calls)
+		process_cycle(peer, calls)
 	    end
 	end
 
-	def self.process_cycle(peer_server, calls)
+	def self.process_cycle(peer, calls)
 	    from = Time.now
 	    calls_size = calls.size
 
+	    peer_server = peer.local_server
 	    peer_server.processing = true
 
-	    if peer_server.peer.disconnected?
-		raise DisconnectedError, "not connected to #{peer_server.remote_name}"
+	    if !(peer.connecting? || peer.connected?)
+		return
 	    end
 
 	    while call_spec = calls.shift
 		return unless call_spec
 
-		is_callback, method, args = *call_spec
+		is_callback, method, args, critical = *call_spec
 		Distributed.debug do 
 		    args_s = args.map { |obj| obj ? obj.to_s : 'nil' }
 			"processing #{is_callback ? 'callback' : 'method'} #{method}(#{args_s.join(", ")})"
@@ -312,15 +313,30 @@ module Roby
 		result = catch(:ignore_this_call) do
 		    peer_server.queued_completion = false
 		    peer_server.processing_callback = !!is_callback
-		    peer_server.send(method, *args)
+
+		    result = begin
+				 peer_server.send(method, *args)
+			     rescue Exception => e
+				 if critical
+				     Roby::Distributed.info "fatal error during #{method}(#{args}): #{e}"
+				     peer.fatal_error e, method, args
+				 else
+				     peer_server.completed!(e, true)
+				 end
+			     end
+
+		    if !(peer.connecting? || peer.connected?)
+			return
+		    end
+		    result
 		end
 
-		if method != :completed && method != :disconnected
+		if method != :completed && !peer.disconnecting? && !peer.disconnected?
 		    if peer_server.queued_completion?
 			Distributed.debug "done and already queued the completion message"
 		    else
 			Distributed.debug { "done, returns #{result || 'nil'}" }
-			peer_server.peer.queue_call false, :completed, [result, false]
+			peer.queue_call false, :completed, [result, false]
 		    end
 		end
 	    end
@@ -329,10 +345,8 @@ module Roby
 	    nil
 
 	rescue Exception => e
-	    unless e.kind_of?(DisconnectedError)
-		Distributed.info "failed to process remote calls from #{peer_server}: #{e.full_message}"
-	    end
-	    peer_server.completed(e, true)
+	    Distributed.info "error in dRoby processing: #{e.full_message}"
+	    peer.disconnect
 
 	ensure
 	    peer_server.processing = false
