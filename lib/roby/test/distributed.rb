@@ -11,7 +11,6 @@ module Roby
 		super
 
 		save_collection Distributed.new_neighbours_observers
-		Distributed.allow_remote_access Distributed::Peer
 		@old_distributed_logger_level = Distributed.logger.level
 
 		timings[:setup] = Time.now
@@ -78,15 +77,15 @@ module Roby
 	    def start_peers
 		DRb.stop_service
 		remote_process do
-		    DRb.start_service DISCOVERY_URI, Rinda::TupleSpace.new
+		    DRb.start_service DISCOVERY_SERVER, Rinda::TupleSpace.new
 		end
 
 		remote_process do
-		    central_tuplespace = DRbObject.new_with_uri(DISCOVERY_URI)
+		    central_tuplespace = DRbObject.new_with_uri(DISCOVERY_SERVER)
 		    cs = ConnectionSpace.new :ring_discovery => false, 
 			:discovery_tuplespace => central_tuplespace, :name => "remote" do |remote|
 			    getter = Class.new { def get; DRbObject.new(Distributed.state) end }.new
-			    DRb.start_service REMOTE_URI, getter
+			    DRb.start_service REMOTE_SERVER, getter
 			end
 		    cs.extend RemotePeerSupport
 		    cs.testcase = self
@@ -95,9 +94,9 @@ module Roby
 		    yield(Distributed.state) if block_given?
 		end
 
-		DRb.start_service LOCAL_URI
-		@central_tuplespace = DRbObject.new_with_uri(DISCOVERY_URI)
-		@remote  = DRbObject.new_with_uri(REMOTE_URI).get
+		DRb.start_service LOCAL_SERVER
+		@central_tuplespace = DRbObject.new_with_uri(DISCOVERY_SERVER)
+		@remote  = DRbObject.new_with_uri(REMOTE_SERVER).get
 		@local   = ConnectionSpace.new :ring_discovery => false, 
 		    :discovery_tuplespace => central_tuplespace, :name => 'local', 
 		    :plan => plan
@@ -182,11 +181,11 @@ module Roby
 		    server = Class.new do
 			class_eval(&block)
 		    end.new
-		    DRb.start_service REMOTE_URI, server
+		    DRb.start_service REMOTE_SERVER, server
 		end
 
-		DRb.start_service LOCAL_URI
-		DRbObject.new_with_uri(REMOTE_URI)
+		DRb.start_service LOCAL_SERVER
+		DRbObject.new_with_uri(REMOTE_SERVER)
 	    end
 	end
     end

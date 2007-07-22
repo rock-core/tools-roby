@@ -108,30 +108,34 @@ module Roby
 	    attr_reader :discovery_tuplespace
 	    # Last time a discovery finished
 	    attr_reader :last_discovery
-	    # The main mutex which is used for synchronization with the discovery
-	    # thread
-	    attr_reader :mutex
-	    def synchronize; mutex.synchronize { yield } end
 	    # A condition variable which is signalled to start a new discovery
 	    attr_reader :start_discovery
 	    # A condition variable which is signalled when discovery finishes
 	    attr_reader :finished_discovery
+
+	    # The main mutex which is used for synchronization with the discovery
+	    # thread
+	    attr_reader :mutex
+	    def synchronize; mutex.synchronize { yield } end
 	    # The plan we are publishing, usually Roby.plan
 	    attr_reader :plan
 
-	    # The agent name on the network
+	    # Our name on the network
 	    attr_reader :name
+	    # The socket on which we listen for incoming connections
+	    attr_reader :server_socket
 
 	    def initialize(options = {})
 		super()
 
 		options = validate_options options, 
 		    :name => "#{Socket.gethostname}-#{Process.pid}", # the name of this host
-		    :period => nil,				    # the discovery period
-		    :ring_discovery => true,		    # wether we should do discovery based on Rinda::RingFinger
-		    :ring_broadcast => '',			    # the broadcast address for discovery
-		    :discovery_tuplespace => nil,		    # a central tuplespace which lists hosts (including ourselves)
-		    :plan => nil 				    # the plan we publish, uses Roby.plan if nil
+		    :period => nil,				     # the discovery period
+		    :ring_discovery => true,			     # wether we should do discovery based on Rinda::RingFinger
+		    :ring_broadcast => '',			     # the broadcast address for discovery
+		    :discovery_tuplespace => nil,		     # a central tuplespace which lists hosts (including ourselves)
+		    :plan => nil, 				     # the plan we publish, uses Roby.plan if nil
+		    :listen_at => 0				     # the port at which we listen for incoming connections
 
 		if options[:ring_discovery] && !options[:period]
 		    raise ArgumentError, "you must provide a discovery period when using ring discovery"
@@ -145,6 +149,8 @@ module Roby
 		@ring_discovery       = options[:ring_discovery]
 		@ring_broadcast       = options[:ring_broadcast]
 		@discovery_tuplespace = options[:discovery_tuplespace]
+		@port		      = options[:port]
+		@pending_sockets = Queue.new
 
 		@mutex		      = Mutex.new
 		@start_discovery      = ConditionVariable.new
@@ -154,7 +160,6 @@ module Roby
 		@connection_listeners = Array.new
 
 		yield(self) if block_given?
-
 
 		if central_discovery?
 		    if (discovery_tuplespace.write([:host, name, remote_id]) rescue nil)
@@ -180,7 +185,79 @@ module Roby
 		end
 		start_neighbour_discovery(true)
 
+		listen(options[:listen_at])
+		receive
+
 		Roby::Control.finalizers << method(:quit)
+	    end
+
+	    # Sets up a separate thread which listens for connection
+	    def listen(port)
+		@server_socket = TCPServer.new(nil, port)
+		server_socket.listen(10)
+		Thread.new do
+		    begin
+			while new_connection = server_socket.accept
+			    Peer.connection_request(self, new_connection)
+			end
+		    rescue
+		    end
+		end
+	    end
+
+	    # The set of new sockets to wait for. If one of these is closed,
+	    # Distributed.receive will check wether we are supposed to be
+	    # connected to the peer. If it's not the case, the socket will be
+	    # ignored.
+	    attr_reader :pending_sockets
+	    
+	    # The reception thread
+	    def receive
+		sockets = Hash.new
+		Thread.new do
+		    while true
+			begin
+			    while !pending_sockets.empty?
+				socket, peer = pending_sockets.shift
+				sockets[socket] = peer
+				Roby::Distributed.debug "listening to #{socket} for #{peer}"
+			    end
+
+			    read, _, errors = select(sockets.keys, nil, sockets.keys, 0.1)
+			    if errors
+				for socket in errors
+				    if socket.eof?
+					# Closed socket
+					if peer[socket].disconnected?
+					    Roby::Distributed.debug "removing #{socket}: #{peer} is disconnected"
+					    peer.delete(socket)
+					end
+				    end
+				end
+			    end
+
+			    if read
+				for socket in read
+				    next if socket.eof?
+				    begin
+					id, size = socket.read(8).unpack("NN")
+					data     = socket.read(size)
+					Roby::Distributed.pending_cycles << [sockets[socket], Marshal.load(data)]
+				    rescue Errno::EPIPE
+					# Closed socket
+					if peer[socket].disconnected?
+					    Roby::Distributed.debug "removing #{socket}: #{peer} is disconnected"
+					    peer.delete(socket)
+					end
+				    end
+				end
+			    end
+
+			rescue Exception
+			    Roby::Distributed.fatal "error in ConnectionSpace#receive: #{$!.full_message}"
+			end
+		    end
+		end
 	    end
 
 	    def discovering?
@@ -203,19 +280,6 @@ module Roby
 		    Distributed.server.port
 		else DISCOVERY_RING_PORT
 		end
-	    end
-	    
-	    # Called by our peer to initiate a connection
-	    def connect(name, remote_id, remote_server)
-		# Find the neighour based on remote_id. If it does not exist, accept
-		# the connection anyway
-		unless neighbour = Distributed.neighbours.find { |n| n.remote_id == remote_id }
-		    synchronize do
-			neighbour = Neighbour.new(name, remote_id)
-			@neighbours << neighbour
-		    end
-		end
-		Peer.connection_request(self, neighbour, remote_server)
 	    end
 
 	    # Loop which does neighbour_discovery
@@ -361,6 +425,7 @@ module Roby
 		end
 
 	    ensure
+		server_socket.close if server_socket
 		Roby::Control.finalizers.delete(method(:quit))
 		if Distributed.state == self
 		    Distributed.state = nil
@@ -415,7 +480,6 @@ module Roby
 		end
 	    end
 	end
-	allow_remote_access ConnectionSpace
 
 	@new_neighbours_observers = Array.new
 	class << self

@@ -647,12 +647,14 @@ module Roby
 			stats[:expected_ruby_gc] ||= Time.now
 			stats[:ruby_gc] = Time.now
 
+			Roby::Distributed.process_pending(stats[:start] + cycle)
+			stats[:droby] = Time.now
+
 			sleep_time = cycle - (Time.now - stats[:start])
 			if sleep_time > 0
 			    stats[:expected_sleep] = Time.now + sleep_time
 			    sleep(sleep_time) 
 			    stats[:sleep] = Time.now
-
 			end
 		    end
 

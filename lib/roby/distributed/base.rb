@@ -258,16 +258,6 @@ module Roby
 		@updated_objects.delete(object) if included
 	    end
 
-	    # Allow objects of class +type+ to be accessed remotely using DRbObjects
-	    def allow_remote_access(type)
-		@allowed_remote_access << type
-	    end
-	    # Returns true if +object+ can be remotely represented by a DRbObject
-	    # proxy
-	    def allowed_remote_access?(object)
-		@allowed_remote_access.any? { |type| object.kind_of?(type) }
-	    end
-
 	    def each_object_relation(object)
 		object.each_relation do |rel|
 		    yield(rel) if rel.distribute?
@@ -284,6 +274,68 @@ module Roby
 	    # The set of objects that have been removed locally, but for which
 	    # there are still references on our peers
 	    attr_reader :removed_objects
+	end
+
+	@pending_cycles  = Queue.new
+
+	class << self
+	    # The set of cycle data received so far
+	    attr_reader :pending_cycles
+	end
+
+	def self.process_pending(timeout)
+	    while timeout > Time.now && !pending_cycles.empty?
+		peer, calls = pending_cycles.pop
+		process_cycle(peer.local_server, calls)
+	    end
+	end
+
+	def self.process_cycle(peer_server, calls)
+	    from = Time.now
+	    calls_size = calls.size
+
+	    peer_server.processing = true
+
+	    if peer_server.peer.disconnected?
+		raise DisconnectedError, "not connected to #{peer_server.remote_name}"
+	    end
+
+	    while call_spec = calls.shift
+		return unless call_spec
+
+		is_callback, method, args = *call_spec
+		Distributed.debug do 
+		    args_s = args.map { |obj| obj ? obj.to_s : 'nil' }
+			"processing #{is_callback ? 'callback' : 'method'} #{method}(#{args_s.join(", ")})"
+		end
+
+		result = catch(:ignore_this_call) do
+		    peer_server.queued_completion = false
+		    peer_server.processing_callback = !!is_callback
+		    peer_server.send(method, *args)
+		end
+
+		if method != :completed && method != :disconnected
+		    if peer_server.queued_completion?
+			Distributed.debug "done and already queued the completion message"
+		    else
+			Distributed.debug { "done, returns #{result || 'nil'}" }
+			peer_server.peer.queue_call false, :completed, [result, false]
+		    end
+		end
+	    end
+
+	    Distributed.debug "successfully served #{calls_size} calls in #{Time.now - from} seconds"
+	    nil
+
+	rescue Exception => e
+	    unless e.kind_of?(DisconnectedError)
+		Distributed.info "failed to process remote calls from #{peer_server}: #{e.full_message}"
+	    end
+	    peer_server.completed(e, true)
+
+	ensure
+	    peer_server.processing = false
 	end
     end
 end

@@ -9,9 +9,11 @@ module Roby
 	Unit = ::Test::Unit
 
 	BASE_PORT     = 1245
-	DISCOVERY_URI = "roby://localhost:#{BASE_PORT}"
-	REMOTE_URI    = "roby://localhost:#{BASE_PORT + 1}"
-	LOCAL_URI     = "roby://localhost:#{BASE_PORT + 2}"
+	DISCOVERY_SERVER = "druby://localhost:#{BASE_PORT}"
+	REMOTE_PORT    = BASE_PORT + 1
+	LOCAL_PORT     = BASE_PORT + 2
+	REMOTE_SERVER  = "druby://localhost:#{BASE_PORT + 3}"
+	LOCAL_SERVER   = "druby://localhost:#{BASE_PORT + 4}"
 
 
 	attr_reader :timings
@@ -83,9 +85,6 @@ module Roby
 
 	    save_collection Roby.exception_handlers
 	    timings[:setup] = Time.now
-
-	    DRb.stop_service
-	    DRb.start_service LOCAL_URI
 	end
 
 	def teardown_plan
