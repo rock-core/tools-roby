@@ -180,7 +180,20 @@ module Roby
 		task.started  = flags[:started]
 		task.finished = flags[:finished]
 		task.success  = flags[:success]
-		task.mission  = flags[:mission]
+
+		if task.mission? != flags[:mission]
+		    plan = peer.local_object(self.plan) || Roby.plan
+		    if plan.owns?(task)
+			if flags[:mission]
+			    plan.insert(task)
+			else
+			    plan.discard(task)
+			end
+		    else
+			task.mission = flags[:mission]
+		    end
+		end
+
 		task.arguments.merge!(peer.proxy(arguments))
 		task.instance_variable_set("@data", peer.proxy(data))
 	    end

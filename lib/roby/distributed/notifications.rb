@@ -161,9 +161,16 @@ module Roby
 	class PeerServer
 	    def plan_set_mission(plan, task, flag)
 		plan = peer.local_object(plan)
-
 		task = peer.local_object(task)
-		task.mission = flag
+		if plan.owns?(task)
+		    if flag
+			plan.insert(task)
+		    else
+			plan.discard(task)
+		    end
+		else
+		    task.mission = flag
+		end
 		nil
 	    end
 

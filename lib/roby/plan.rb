@@ -157,6 +157,10 @@ module Roby
 	# Hook called when +tasks+ have been discarded from this plan
 	def discarded(tasks); super if defined? super end
 
+	def owns?(object)
+	    (object.owners - owners).empty?
+	end
+
 	# Remove all tasks
 	def clear
 	    @known_tasks.each { |t| t.clear_relations }
