@@ -119,11 +119,19 @@ module Roby
 
 	    # Establishes a peer to peer connection between two ConnectionSpace objects
 	    def peer2peer(detached_control = false)
+		if Roby.control.thread
+		    begin
+			Roby.control.quit
+			Roby.control.join
+		    rescue Roby::Test::ControlQuitError
+		    end
+		end
+
 		timings[:starting_peers] = Time.now
 		start_peers do |remote|
 		    def remote.start_control_thread
 			Control.event_processing << Distributed.state.method(:start_neighbour_discovery)
-			Roby.control.run :detach => true
+			Roby.control.run :detach => true unless Roby.control.thread
 		    end
 		    yield(remote) if block_given?
 		end
@@ -131,7 +139,7 @@ module Roby
 		setup_connection
 		if detached_control
 		    Control.event_processing << Distributed.state.method(:start_neighbour_discovery)
-		    Roby.control.run :detach => true
+		    Roby.control.run :detach => true unless Roby.control.thread
 		    remote.start_control_thread
 		end
 		timings[:started_peers] = Time.now
