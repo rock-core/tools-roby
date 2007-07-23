@@ -774,6 +774,8 @@ module Roby
 			    end
 			when EventGenerator
 			    [to]
+			else
+			    raise ArgumentError, "expected Task or EventGenerator, got #{to}(#{to.class}: #{to.class.ancestors})"
 			end
 
 	    to_events.each do |ev|
