@@ -352,7 +352,8 @@ module Roby::Distributed
 	    triggers.delete(id)
 	end
 
-	# Calls the block given to Peer#on when +task+ has matched the trigger
+	# Calls the block given to Peer#on in a separate thread when +task+ has
+	# matched the trigger
 	def triggered(id, task) # :nodoc:
 	    task = local_object(task)
 	    Roby::Distributed.keep.ref(task)
