@@ -406,5 +406,42 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	# Commit the transaction
 	check_transaction_commit(trsc)
     end
+
+    def test_create_remote_tasks
+	peer2peer(true) do |remote|
+	    def remote.arguments_of(t)
+		t = local_peer.local_object(t)
+		t.arguments
+	    end
+
+	    def remote.check_ownership(t)
+		t = local_peer.local_object(t)
+		t.self_owned?
+	    end
+
+	    def remote.check_mission(t)
+		t = local_peer.local_object(t)
+		plan.mission?(t)
+	    end
+	end
+
+	t = SimpleTask.new(:arg => 10)
+	t.extend DistributedObject
+	trsc = Roby::Distributed::Transaction.new(plan)
+	trsc.add_owner remote_peer
+	trsc.insert(t)
+	t.owner = remote_peer
+
+	assert(!t.self_owned?)
+	trsc.propose(remote_peer)
+	assert(remote.check_ownership(t))
+
+	trsc.commit_transaction
+	assert(!plan.mission?(t))
+	assert(!t.self_owned?)
+	assert(remote.check_mission(t))
+	assert(remote.check_ownership(t))
+	assert_equal({ :arg => 10 }, remote.arguments_of(t))
+    end
 end
 
