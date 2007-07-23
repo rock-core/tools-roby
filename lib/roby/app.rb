@@ -384,9 +384,7 @@ module Roby
 	end
 
 	def run(&block)
-	    if !robot_name
-		raise ArgumentError, "no robot defined"
-	    end
+	    robot_name ||= 'common'
 
 	    control_config = self.control
 	    control = Roby.control
