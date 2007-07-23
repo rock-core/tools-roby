@@ -82,17 +82,34 @@ module Roby
     # main front object when accessing a Roby core remotely
     class Interface
 	module GatherExceptions
-	    attr_accessor :control_interface
-	    def fatal_exception(error, tasks)
-		super if defined? super
+	    attribute(:interfaces) { Array.new }
+	    def register_interface(iface)
+		Roby::Control.synchronize do
+		    interfaces << iface
+		end
+	    end 
 
-		if control_interface
-		    msg = "Fatal exception: #{error.exception.message}:\n"
+	    def push_exception_message(name, error, tasks)
+		Roby::Control.synchronize do
+		    msg = "#{name}: #{error.exception.message}:\n"
 		    msg << tasks.map { |t| t.to_s }.join("\n")
 		    msg << "\nThe following tasks have been killed:\n"
 		    tasks.each { |t| msg << "  * " << t.to_s }
-		    control_interface.pending_messages << msg
+
+		    interfaces.each do |iface|
+			iface.pending_messages << msg
+		    end
 		end
+	    end
+
+	    def handled_exception(error, tasks)
+		super if defined? super
+		push_exception_message("exception", error, tasks)
+	    end
+
+	    def fatal_exception(error, tasks)
+		super if defined? super
+		push_exception_message("fatal exception", error, tasks)
 	    end
 	end
 
@@ -100,10 +117,10 @@ module Roby
 	attr_reader :pending_messages
 	def initialize(control)
 	    @control	      = control
-	    @pending_messages = []
+	    @pending_messages = Queue.new
 
 	    Roby::Control.extend GatherExceptions
-	    Roby::Control.control_interface = self
+	    Roby::Control.register_interface self
 	end
 
 	# Make the Roby event loop quit
@@ -201,10 +218,12 @@ module Roby
 	end
 
 	def poll_messages
-	    Roby.execute do
-		@pending_messages, messages = [], @pending_messages
-		messages
+	    result = []
+	    while !pending_messages.empty?
+		msg = pending_messages.pop
+		result << msg
 	    end
+	    result
 	end
 
 	# Tries to find a planner method which matches +name+ with +args+. If it finds
