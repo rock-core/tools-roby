@@ -110,6 +110,7 @@ when "replay"
 	    if main.log_dir
 		streams = Roby.app.data_streams(main.log_dir)
 		streams.each do |stream|
+		    stream.open
 		    main.add_stream(stream)
 		end
 	    else
