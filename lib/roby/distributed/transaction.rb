@@ -218,6 +218,10 @@ module Roby
 
 	    # Waits for the edition token
 	    def edit(reloop = false)
+		if Thread.current[:control_mutex_locked]
+		    raise "cannot call #edit with the control mutex taken !"
+		end
+
 		token_lock.synchronize do
 		    if editor # current editor
 			break
