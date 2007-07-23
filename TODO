@@ -69,6 +69,11 @@
 
 * Find a way to remove the "return unless proxying?" in top of proxy_code. It sucks
 
+* fix handling of execution agents: we should re-spawn the execution agents only if there is an
+  execution agent model on the task model. We currently use respawn on the execution agent instance.
+  The problem lies in, for instance, ConnectionTask which are respawned for all pending remote tasks.
+  ConnectionTask should not be created by the plan manager.
+
 == Distributed
 * extension of communication to really have a multi-robot system. It is for now too much
   peer-to-peer
