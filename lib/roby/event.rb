@@ -420,7 +420,11 @@ module Roby
 	    stack = caller(1)
 	    obj.forward self
 	    obj.if_unreachable(true) do
-		emit_failed(EventModelViolation.new(self), "#{obj} is unreachable, in #{stack.first}")
+		msg = "#{obj} is unreachable, in #{stack.first}"
+		if obj.respond_to?(:task)
+		    msg << "\n  " << obj.task.history.map { |ev| "#{ev.time.to_hms} #{ev.symbol}: #{ev.context}" }.join("\n  ")
+		end
+		emit_failed(EventModelViolation.new(self), msg)
 	    end
 	end
 	# For backwards compatibility. Use #achieve_with.
