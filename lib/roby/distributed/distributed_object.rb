@@ -52,6 +52,15 @@ module Roby
 		nil
 	    end
 
+	    def prepare_remove_owner(peer); super if defined? super end
+
+	    def owner=(peer)
+		add_owner(peer)
+		owners.each do |owner|
+		    remove_owner(owner) unless owner == peer
+		end
+	    end
+
 
 	    def call_siblings(m, *args)
 		Distributed.call_peers(updated_peers.dup << Distributed, m, *args)
