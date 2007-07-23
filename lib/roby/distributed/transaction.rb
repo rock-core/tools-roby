@@ -6,6 +6,10 @@ module Roby
     module Distributed
 	class << self
 	    attr_accessor :transaction_handler
+
+	    # Sets up the transaction handler. The given block will be called
+	    # in a separate thread whenever a remote peer proposes a new
+	    # transaction
 	    def on_transaction(&block)
 		Distributed.transaction_handler = block
 	    end
