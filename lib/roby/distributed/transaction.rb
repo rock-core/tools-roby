@@ -97,7 +97,7 @@ module Roby
 	    def discover(objects)
 		if objects
 		    events, tasks = partition_event_task(objects)
-		    (events + tasks).each do |object|
+		    for object in (events || []) + (tasks || [])
 			unless Distributed.updating?(object) || 
 			    Distributed.owns?(object) || 
 			    (object.owners - owners).empty?
@@ -105,8 +105,8 @@ module Roby
 			    raise NotOwner, "#{object} is not owned by #{owners.to_a} (#{object.owners.to_a})"
 			end
 		    end
-		    super(events)
-		    super(tasks)
+		    super(events) if events
+		    super(tasks) if tasks
 		else
 		    super
 		end
