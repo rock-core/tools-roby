@@ -346,10 +346,10 @@ module Roby
 				t
 			    end
 
-		if missions.include?(t)
+		if missions.include?(t) && t.self_owned?
 		    missions.delete(t)
 		    insert << unwrapped
-		elsif keepalive.include?(t)
+		elsif keepalive.include?(t) && t.self_owned?
 		    keepalive.delete(t)
 		    permanent << unwrapped
 		end
