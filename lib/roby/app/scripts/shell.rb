@@ -49,15 +49,27 @@ begin
 
     # Create a thread which reads the remote messages and display them if needed
     Thread.new do
-	loop do
-	    sleep(1)
-	    msg = control.poll_messages
-	    if !msg.empty?
-		STDERR.puts
-		msg.each do |t| 
-		    STDERR.puts "!" + t.split("\n").join("\n!")
+	begin
+	    loop do
+		sleep(1)
+		
+		msg = begin
+			  control.poll_messages
+		      rescue DRb::DRbConnError
+			  []
+		      end
+
+		if !msg.empty?
+		    STDERR.puts
+		    msg.each do |t| 
+			STDERR.puts "!" + t.split("\n").join("\n!")
+		    end
 		end
 	    end
+	rescue
+	    STDERR.puts $!.full_message
+	ensure
+	    STDERR.puts "message polling died"
 	end
     end
 
