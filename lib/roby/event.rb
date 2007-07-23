@@ -418,7 +418,15 @@ module Roby
 	    end
 
 	    stack = caller(1)
-	    obj.forward self
+	    if block_given?
+		obj.add_causal_link self
+		obj.on do |context|
+		    self.emit yield(context)
+		end
+	    else
+		obj.forward self
+	    end
+
 	    obj.if_unreachable(true) do
 		msg = "#{obj} is unreachable, in #{stack.first}"
 		if obj.respond_to?(:task)
