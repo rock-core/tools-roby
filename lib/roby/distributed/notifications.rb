@@ -296,7 +296,7 @@ module Roby
 		super if defined? super
 		if self_owned? && !Distributed.updating?(root_object)
 		    Distributed.each_updated_peer(root_object) do |peer|
-			peer.transmit(:event_fired, self, event.object_id, event.time, nil)
+			peer.transmit(:event_fired, self, event.object_id, event.time, event.context)
 		    end
 		end
 	    end
@@ -304,7 +304,7 @@ module Roby
 		super if defined? super
 		if self_owned? && !Distributed.updating?(root_object)
 		    Distributed.each_updated_peer(root_object, to.root_object) do |peer|
-			peer.transmit(:event_add_propagation, true, self, to, event.object_id, event.time, nil)
+			peer.transmit(:event_add_propagation, true, self, to, event.object_id, event.time, event.context)
 		    end
 		end
 	    end
@@ -312,7 +312,7 @@ module Roby
 		super if defined? super
 		if self_owned? && !Distributed.updating?(root_object)
 		    Distributed.each_updated_peer(root_object, to.root_object) do |peer|
-			peer.transmit(:event_add_propagation, false, self, to, event.object_id, event.time, nil)
+			peer.transmit(:event_add_propagation, false, self, to, event.object_id, event.time, event.context)
 		    end
 		end
 	    end
