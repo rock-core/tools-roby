@@ -18,8 +18,8 @@ module Roby::TaskStructure
     def PlannedBy.check_planning(plan)
 	result = []
 	plan.known_tasks.each do |planned_task|
-	    next unless planned_task.pending? && !planned_task.executable? && planned_task.self_owned?
 	    next unless planning_task = planned_task.planning_task
+	    next unless planned_task.pending? && !planned_task.executable? && planned_task.self_owned?
 	    if planning_task.failed?
 		result << Roby::PlanningFailedError.new(planned_task, planning_task)
 	    end
