@@ -93,6 +93,7 @@ module Roby
 		Roby::Control.synchronize do
 		    msg = "#{name}: #{error.exception.message}:\n"
 		    msg << tasks.map { |t| t.to_s }.join("\n")
+		    msg << "\n  #{error.exception.backtrace.join("\n  ")}"
 		    msg << "\nThe following tasks have been killed:\n"
 		    tasks.each { |t| msg << "  * " << t.to_s }
 
