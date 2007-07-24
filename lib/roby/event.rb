@@ -413,10 +413,6 @@ module Roby
 	#	event(:start).realize_with(task)
 	#   end
 	def achieve_with(obj)
-	    if obj.kind_of?(Roby::Task)
-		obj = obj.event(:success)
-	    end
-
 	    stack = caller(1)
 	    if block_given?
 		obj.add_causal_link self

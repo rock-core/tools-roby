@@ -207,17 +207,17 @@ module Roby
 	end
 
 	def achieve_with(obj)
-	    child_task = case obj
-			 when Roby::Task: obj
-			 when Roby::TaskEventGenerator: obj.task
-			 end
+	    child_task, child_event = case obj
+				      when Roby::Task: [obj, obj.event(:success)]
+				      when Roby::TaskEventGenerator: [obj.task, obj]
+				      end
 
 	    if child_task
-		task.realized_by child_task
-		child_task.on(:stop) { task.remove_child child_task }
+		task.realized_by child_task, :success => [child_event.symbol]
+		super(child_event)
+	    else
+		super(obj)
 	    end
-
-	    super
 	end
     end
 
