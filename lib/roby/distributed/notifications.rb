@@ -473,6 +473,7 @@ module Roby
 		nil
 	    end
 	end
+
 	Roby::Control.each_cycle do
 	    peers.each_value do |peer|
 		if peer.connected?

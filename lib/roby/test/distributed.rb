@@ -67,7 +67,9 @@ module Roby
 		end
 		def flush; local_peer.flush end
 		def process_events; Roby.control.process_events end
-		def local_peer; @local_peer ||= Distributed.peer("local") end
+		def local_peer
+		    @local_peer ||= Distributed.peers.find { true }.last
+		end
 		def reset_local_peer; @local_peer = nil end
 		def send_local_peer(*args); local_peer.send(*args) end
 		def wait_one_cycle; Roby.control.wait_one_cycle end
@@ -78,7 +80,7 @@ module Roby
 	    # Start a central discovery service, a remote connectionspace and a local
 	    # connection space. It yields the remote connection space *in the forked
 	    # child* if a block is given.
-	    def start_peers
+	    def start_peers(detached_control = false)
 		DRb.stop_service
 		remote_process do
 		    DRb.start_service DISCOVERY_SERVER, Rinda::TupleSpace.new
@@ -94,8 +96,13 @@ module Roby
 		    cs.extend RemotePeerSupport
 		    cs.testcase = self
 
+		    def cs.start_control_thread
+			Control.event_processing << Distributed.state.method(:start_neighbour_discovery)
+			Roby.control.run :detach => true
+		    end
+
 		    Distributed.state = cs
-		    yield(Distributed.state) if block_given?
+		    yield(cs) if block_given?
 		end
 
 		DRb.start_service LOCAL_SERVER
@@ -106,45 +113,34 @@ module Roby
 		    :plan => plan
 
 		Distributed.state = local
+
+		if detached_control
+		    remote.start_control_thread
+		    Control.event_processing << Distributed.state.method(:start_neighbour_discovery)
+		    Roby.control.run :detach => true
+		end
 	    end
 
 	    def setup_connection
 		assert(remote_neighbour = local.neighbours.find { true })
 		@remote_peer = Peer.initiate_connection(local, remote_neighbour)
 
-		process_events
-		assert(remote_peer.connected?)
-		process_events
+		while true
+		    process_events
+		    if remote_peer.connected?
+			break
+		    end
+		end
 		assert(remote.send_local_peer(:connected?))
 	    end
 
 	    attr_reader :central_tuplespace, :remote, :remote_peer, :remote_plan, :local
 
 	    # Establishes a peer to peer connection between two ConnectionSpace objects
-	    def peer2peer(detached_control = false)
-		if Roby.control.thread
-		    begin
-			Roby.control.quit
-			Roby.control.join
-		    rescue Roby::Test::ControlQuitError
-		    end
-		end
-
+	    def peer2peer(detached_control = false, &remote_init)
 		timings[:starting_peers] = Time.now
-		start_peers do |remote|
-		    def remote.start_control_thread
-			Control.event_processing << Distributed.state.method(:start_neighbour_discovery)
-			Roby.control.run :detach => true unless Roby.control.thread
-		    end
-		    yield(remote) if block_given?
-		end
-
+		start_peers(detached_control, &remote_init)
 		setup_connection
-		if detached_control
-		    Control.event_processing << Distributed.state.method(:start_neighbour_discovery)
-		    Roby.control.run :detach => true unless Roby.control.thread
-		    remote.start_control_thread
-		end
 		timings[:started_peers] = Time.now
 	    end
 

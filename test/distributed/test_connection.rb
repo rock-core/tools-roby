@@ -9,11 +9,6 @@ class TC_DistributedConnection < Test::Unit::TestCase
     include Distributed
     include Roby::Distributed::Test
 
-    def setup
-	super
-	Distributed.allow_remote_access Distributed::Neighbour
-    end
-
     def assert_has_neighbour(&check)
 	Distributed.state.start_neighbour_discovery
 	Distributed.state.wait_discovery
@@ -65,59 +60,59 @@ class TC_DistributedConnection < Test::Unit::TestCase
     # Note that #peer2peer is the exact same process
     def test_connect(standalone = true)
 	if standalone
-	    start_peers
+	    start_peers(true)
 
 	    notified = []
-	    Distributed.new_neighbours_observers << lambda do |cs, n|
-		notified << [cs, n]
+	    Distributed.on_neighbour do |n|
+		notified << n
 	    end
 	end
 
 	assert(local.discovery_thread)
 
 	# Initiate the connection from +local+
-	local.start_neighbour_discovery(true)
 	remote_neighbour = Distributed.neighbours.find { true }
-	@remote_peer     = Peer.initiate_connection(local, remote_neighbour)
-	assert(remote_peer.connecting? || remote_peer.connected?)
-	assert(remote.send_local_peer(:connecting?) || remote.send_local_peer(:connected?))
-	assert(remote_peer.link_alive?)
-	assert(remote.send_local_peer(:link_alive?))
+	Roby.execute do
+	    @remote_peer     = Peer.initiate_connection(local, remote_neighbour)
+	    # Wait for the remote peer to take into account the fact that we
+	    # try connecting
+	    sleep(1)
+	    assert(remote_peer.connecting? || remote_peer.connected?)
+	    assert(remote.send_local_peer(:connecting?) || remote.send_local_peer(:connected?))
+	    assert(remote_peer.link_alive?)
+	    assert(remote.send_local_peer(:link_alive?))
+	end
 
-	Control.instance.process_events
+	Roby.control.wait_one_cycle
 	assert(remote_peer.task.running?)
-
-	assert_raises(ArgumentError) { Peer.initiate_connection(local, remote_neighbour) }
-
+	#assert_raises(ArgumentError) { Peer.initiate_connection(local, remote_neighbour) }
 	assert(remote_peer.link_alive?)
-	remote_peer.flush
-	remote.send_local_peer(:flush)
+
+	remote_peer.synchro_point
 	assert(remote_peer.connected?)
 	assert(remote_peer.task.ready?)
 
-	assert_equal('remote', remote_peer.neighbour.name)
-	assert_equal('remote', remote_peer.remote_server.local_name)
-	assert_equal('local', remote_peer.remote_server.remote_name)
+	assert_equal('remote', remote_peer.remote_name)
+	assert_equal('remote', remote_peer.local_server.remote_name)
+	assert_equal('local', remote_peer.local_server.local_name)
 
 	if standalone
 	    assert_equal(1, notified.size)
-	    assert_equal([[local, remote_neighbour]], notified)
+	    assert_equal([remote_neighbour], notified)
 	end
     end
 
     # Test the normal disconnection process
     def test_disconnect
-	peer2peer do |remote|
+	peer2peer(true) do |remote|
 	    def remote.peers_empty?; Distributed.peers.empty? end
 	end
 
-	Control.instance.process_events
+	Roby.control.wait_one_cycle
 	assert(remote_peer.task.ready?)
 
 	remote_peer.disconnect
 	assert(remote_peer.disconnecting?)
-	remote_peer.flush
-	remote.send_local_peer(:flush)
 	process_events
 	remote.process_events
 
@@ -135,23 +130,21 @@ class TC_DistributedConnection < Test::Unit::TestCase
     # Tests that the remote peer disconnects if #demux raises DisconnectedError
     def test_disconnect_on_error
 	Roby.logger.level = Logger::FATAL
-	peer2peer do |remote|
+	peer2peer(true) do |remote|
 	    class << remote
 		include Test::Unit::Assertions
 		def assert_demux_raises
 		    peer = peers.find { true }[1]
 		    peer.transmit(:whatever)
-		    peer.flush rescue nil
+		    peer.synchro_point rescue nil
 		end
 	    end
 	end
 
 	remote_peer.disconnect
 	remote.assert_demux_raises
-	remote.start_neighbour_discovery(true)
 	assert(remote.send_local_peer(:disconnected?))
 
-	local.start_neighbour_discovery(true)
 	assert(remote_peer.disconnected?)
 	remote.reset_local_peer
 

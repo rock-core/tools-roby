@@ -2,6 +2,7 @@ require 'rinda/ring'
 require 'rinda/tuplespace'
 require 'utilrb/time/to_hms'
 require 'utilrb/kernel/options'
+require 'utilrb/socket/tcp_server'
 
 require 'roby/distributed/drb'
 require 'roby/distributed/peer'
@@ -161,8 +162,11 @@ module Roby
 
 		yield(self) if block_given?
 
+		listen(options[:listen_at])
+		@remote_id = RemoteID.new(Socket.gethostname, server_socket.port)
+
 		if central_discovery?
-		    if (discovery_tuplespace.write([:host, name, remote_id]) rescue nil)
+		    if (discovery_tuplespace.write([:droby, name, remote_id]) rescue nil)
 			if discovery_tuplespace.kind_of?(DRbObject)
 			    Distributed.info "published #{name}(#{remote_id}) on #{discovery_tuplespace.__drburi}"
 			else
@@ -185,7 +189,6 @@ module Roby
 		end
 		start_neighbour_discovery(true)
 
-		listen(options[:listen_at])
 		receive
 
 		Roby::Control.finalizers << method(:quit)
@@ -204,6 +207,8 @@ module Roby
 		    end
 		end
 	    end
+
+	    attr_reader :remote_id
 
 	    # The set of new sockets to wait for. If one of these is closed,
 	    # Distributed.receive will check wether we are supposed to be
@@ -227,23 +232,14 @@ module Roby
 				sockets.delete_if { |s, p| s.closed? && p.disconnected? }
 				read, _, errors = select(sockets.keys, nil, sockets.keys, 0.1)
 			    rescue IOError
-				# Filter out from read all streams that are closed
-				if read
-				    read.delete_if do |io|
-					errors << io if io.closed?
-				    end
-				else
-				    (errors ||= []).concat sockets.keys
-				end
 			    end
-
+			    
 			    if read
 				for socket in read
-				    if socket.eof? || socket.closed?
+				    if socket.closed? || socket.eof?
 					errors << socket
 					next
 				    end
-
 
 				    p = sockets[socket]
 
@@ -339,7 +335,7 @@ module Roby
 
 		    from = Time.now
 		    if central_discovery?
-			discovery_tuplespace.read_all([:host, nil, nil]).
+			discovery_tuplespace.read_all([:droby, nil, nil]).
 			    each do |n| 
 				next if n[2] == remote_id
 				n = Neighbour.new(n[1], n[2]) 

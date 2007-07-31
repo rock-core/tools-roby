@@ -16,9 +16,10 @@ module Roby
 	    # The connection is done when the remote peer returns us a
 	    # completion message for this connect message
 	    def self.initiate_connection(connection_space, neighbour, &block)
-		socket = TCPSocket.new(neighbour.host, neighbour.port)
+		socket = TCPSocket.new(neighbour.remote_id.uri, neighbour.remote_id.ref)
 		peer = new(connection_space, socket, &block)
 		peer.connect(&block)
+		peer
 	    end
 
 	    # Create a Peer object for a connection attempt on the server
@@ -36,11 +37,10 @@ module Roby
 	    # connection is up
 	    def connect
 		Roby::Distributed.info "connecting to #{remote_name}"
-		transmit(:connect, Roby::State) do |remote_state|
+		transmit(:connect, connection_space.name, connection_space.remote_id, Roby::State) do |remote_name, remote_id, remote_state|
 		    raise "state is #{@connection_state}, not connecting" unless connecting?
-		    @connection_state = :connected
 
-		    local_server.state_update(remote_state)
+		    connected(remote_name, remote_id, remote_state)
 		    Roby::Control.once { task.emit(:ready) }
 		    Roby::Distributed.info "connected to #{self}"
 		end
@@ -83,6 +83,12 @@ module Roby
 	    # Called when the peer acknowledged the fact that we disconnected
 	    def disconnected(event = :failed) # :nodoc:
 		Roby::Distributed.info "#{remote_name} disconnected"
+
+		connection_space.synchronize do
+		    Distributed.peers.delete(peer_info)
+		    Distributed.peers.delete(remote_name)
+		    Distributed.peers.delete(remote_id)
+		end
 
 		synchronize do
 		    @connection_state = :disconnected
@@ -137,18 +143,29 @@ module Roby
 	    # Checks if the connection is currently alive
 	    def link_alive?
 		return false if @dead || @disabled
-		return false unless !neighbour || connection_space.neighbours.find { |n| n.remote_id == neighbour.remote_id }
+		return false unless !remote_id || connection_space.neighbours.find { |n| n.remote_id == remote_id }
 		true
+	    end
+
+	    def connected(name, id, remote_state)
+		@connection_state = :connected
+		@remote_name = name
+		@remote_id = id
+
+		connection_space.synchronize do
+		    Distributed.peers[name] = self
+		    Distributed.peers[id]   = self
+		end
+		local_server.state_update state
 	    end
 
 	end
 
 	class PeerServer
 	    # Called by our peer to initialize the connection
-	    def connect(state)
-		peer.connected
-		state_update state
-		Roby::State
+	    def connect(name, id, state)
+		peer.connected(name, id, state)
+		[peer.connection_space.name, peer.connection_space.remote_id, Roby::State]
 	    end
 
 	    def fatal_error(error, msg, args)
@@ -356,7 +373,7 @@ module Roby
 	    # This set of calls mark the end of a cycle. When one of these is
 	    # encountered, the calls gathered in #current_cycle are moved into
 	    # #send_queue
-	    CYCLE_END_CALLS = [:connect, :disconnect, :update_data]
+	    CYCLE_END_CALLS = [:connect, :disconnect, :state_update]
 
 	    attr_predicate :sync?, true
 	    
@@ -385,7 +402,6 @@ module Roby
 					 on_completion, caller(2), waiting_thread)
 
 		synchronize do
-		    Roby::Distributed.debug { "queueing #{m}(#{args.join(", ")})" }
 		    # No return message for 'completed' (of course)
 		    unless call_spec.method == :completed
 			completion_queue << call_spec
@@ -468,7 +484,7 @@ module Roby
 		buffer = StringIO.new(" " * 8, 'w')
 
 		loop do
-		    data = send_queue.shift
+		    data ||= send_queue.shift
 		    return if disconnected?
 
 		    # Wait for the link to be alive before sending anything
@@ -484,9 +500,13 @@ module Roby
 		    buffer.string[0, 8] = [id += 1, buffer.size - 8].pack("NN")
 
 		    begin
+			Roby::Distributed.debug "sending #{buffer.string.size} to #{self}"
 			socket.write(buffer.string)
+
+			data = nil
 		    rescue Errno::EPIPE
-			return if disconnected? || disconnecting?
+			@dead = true
+			# communication error, retry sending the data (or, if we are disconnected, return)
 		    end
 		end
 
@@ -501,7 +521,7 @@ module Roby
 
 	    ensure
 		Distributed.info "communication thread quitting for #{self}"
-		calls = current_cycle.dup
+		calls = []
 		while !completion_queue.empty?
 		    calls << completion_queue.shift
 		end
@@ -535,7 +555,7 @@ module Roby
 	    def call_attached_block(call, result)
 		if block = call.on_completion
 		    begin
-			Roby.debug "calling completion block #{block} for #{call}"
+			Roby::Distributed.debug "calling completion block #{block} for #{call}"
 			block.call(result)
 		    rescue Exception => e
 			Roby.application_error(:droby_callbacks, block, e)

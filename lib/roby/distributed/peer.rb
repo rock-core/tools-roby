@@ -181,10 +181,6 @@ module Roby::Distributed
 	attr_reader :connection_space
 	# The local PeerServer object for this peer
 	attr_reader :local_server
-	# The server object we use to access the remote plan database
-	attr_accessor :remote_server
-	# The neighbour object describing our peer
-	attr_reader :neighbour
 	# The set of proxies for object from this remote peer
 	attr_reader :proxies
 	# The set of proxies we are currently removing. See BasicObject#forget_peer
@@ -198,31 +194,37 @@ module Roby::Distributed
 	end
 
 	# The object which identifies this peer on the network
-	def remote_id; neighbour.remote_id end
-
+	attr_reader :remote_id
 	# The name of the remote peer
-	def remote_name; (neighbour.name if neighbour) || ("#{socket.peer_addr}:#{socket.peer_port}" unless socket.closed?) || to_s end
+	attr_reader :remote_name
+	# The [host, port] pair at the peer end
+	attr_reader :peer_info
+
 	# The name of the local ConnectionSpace object we are acting on
 	def local_name; connection_space.name end
 
 	# The ID => block hash of all triggers we have defined on the remote plan
 	attr_reader :triggers
-
 	# The remote state
 	attr_accessor :state
 
-	# Creates a Peer object for +neighbour+, which is managed by
-	# +connection_space+.  If a block is given, it is called in the control
-	# thread when the connection is finalized
+	# Creates a Peer object for the peer connected at +socket+. This peer
+	# is to be managed by +connection_space+ If a block is given, it is
+	# called in the control thread when the connection is finalized
 	def initialize(connection_space, socket, &block)
 	    socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
 
+	    # Initialize the remote name with the socket parameters. It will be set to 
+	    # the real name during the connection process
+	    @remote_name = "#{socket.peer_addr}:#{socket.peer_port}"
+	    @peer_info = socket.peer_info
+
 	    connection_space.synchronize do
-		if Roby::Distributed.peers[socket.peer_info]
-		    raise ArgumentError, "there is already a peer for #{neighbour.name}"
+		if Roby::Distributed.peers[peer_info]
+		    raise ArgumentError, "there is already a peer for #{remote_name}"
 		end
 		Roby::Distributed.debug "#{socket} is handled by 0x#{self.address.to_s(16)}"
-		Roby::Distributed.peers[socket.peer_info] = self
+		Roby::Distributed.peers[peer_info] = self
 	    end
 	    super() if defined? super
 
