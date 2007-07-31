@@ -240,7 +240,7 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 
     def test_recursive_callbacks
 	Roby.logger.level = Logger::FATAL
-	assert_raises(RecursiveCallbacksError) { remote_peer.call(:recursive_callbacks) }
+	assert_raises(DisconnectedError) { remote_peer.call(:recursive_callbacks) }
     end
 
     def test_synchro_point

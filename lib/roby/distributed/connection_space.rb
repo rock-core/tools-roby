@@ -227,37 +227,43 @@ module Roby
 				sockets.delete_if { |s, p| s.closed? && p.disconnected? }
 				read, _, errors = select(sockets.keys, nil, sockets.keys, 0.1)
 			    rescue IOError
-				retry
-			    end
-
-			    if errors
-				for socket in errors
-				    p = sockets[socket]
-				    if socket.closed? && !p.connected?
-					if p.disconnecting?
-					    p.disconnected
-					end
-
-					p.delete(socket)
+				# Filter out from read all streams that are closed
+				if read
+				    read.delete_if do |io|
+					errors << io if io.closed?
 				    end
+				else
+				    (errors ||= []).concat sockets.keys
 				end
 			    end
 
 			    if read
 				for socket in read
-				    next if socket.closed?
+				    if socket.eof? || socket.closed?
+					errors << socket
+					next
+				    end
+
 
 				    p = sockets[socket]
-				    begin
-					id, size = socket.read(8).unpack("NN")
-					data     = socket.read(size)
-					Roby::Distributed.pending_cycles << [sockets[socket], Marshal.load(data)]
-				    rescue Exception => e
-					# Closed socket
-					if p.disconnected?
-					    p.delete(socket)
-					end
+
+				    id, size = socket.read(8).unpack("NN")
+				    data     = socket.read(size)
+				    Roby::Distributed.pending_cycles << [sockets[socket], Marshal.load(data)]
+				end
+			    end
+
+			    if errors
+				for socket in errors
+				    p = sockets[socket]
+
+				    if p.connected?
+					Roby::Distributed.info "lost connection with #{p}"
+				    elsif p.disconnecting?
+					Roby::Distributed.info "#{p} disconnected"
+					p.disconnected
 				    end
+				    Roby::Distributed.debug p.connection_state
 				end
 			    end
 
