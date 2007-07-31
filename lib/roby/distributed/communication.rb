@@ -74,7 +74,7 @@ module Roby
 	    # We will disconnect because of that
 	    def fatal_error(error, msg, args)
 		synchronize do
-		    Roby::Distributed.info "fatal error #{error} while processing #{msg}(#{args.join(", ")})"
+		    Roby::Distributed.info "fatal error '#{error}' while processing #{msg}(#{args.join(", ")})"
 		    @connection_state = :disconnecting
 		end
 		queue_call false, :fatal_error, [error, msg, args]
@@ -385,6 +385,7 @@ module Roby
 					 on_completion, caller(2), waiting_thread)
 
 		synchronize do
+		    Roby::Distributed.debug { "queueing #{m}(#{args.join(", ")})" }
 		    # No return message for 'completed' (of course)
 		    unless call_spec.method == :completed
 			completion_queue << call_spec
