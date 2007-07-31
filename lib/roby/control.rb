@@ -489,10 +489,12 @@ module Roby
 
 	ensure
 	    if Thread.current == self.thread
-		# reset the options only if we are in the control thread
-		@thread = nil
-		GC.enable if control_gc && !already_disabled_gc
-		Control.finalizers.each { |blk| blk.call }
+		Roby::Control.synchronize do
+		    # reset the options only if we are in the control thread
+		    @thread = nil
+		    GC.enable if control_gc && !already_disabled_gc
+		    Control.finalizers.each { |blk| blk.call }
+		end
 	    end
 	end
 
@@ -710,12 +712,17 @@ module Roby
 	    thread.join if thread
 
 	rescue Interrupt
-	    Roby.logger.level = Logger::INFO
-	    Roby.info "received interruption request"
-	    quit
-	    if @quit > 2
-		thread.raise Interrupt, "interrupting control thread at user request"
+	    Roby::Control.synchronize do
+		return if thread
+
+		Roby.logger.level = Logger::INFO
+		Roby.info "received interruption request"
+		quit
+		if @quit > 2
+		    thread.raise Interrupt, "interrupting control thread at user request"
+		end
 	    end
+
 	    retry
 	end
 
