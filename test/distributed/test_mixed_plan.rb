@@ -130,20 +130,20 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	# changes we made to the plan
 	check_resulting_plan(trsc, true)
 	trsc.release(false)
-	remote.check_resulting_plan(trsc, true)
+	remote.check_resulting_plan(Distributed.format(trsc), true)
 	trsc.edit
 
 	# Commit and check the result
 	trsc.commit_transaction
 
 	check_resulting_plan(plan, true)
-	remote.check_resulting_plan(plan, true)
+	remote.check_resulting_plan(Distributed.format(plan), true)
     end
 
     def test_rproxy_realizes_lproxy(propose_first = false)
 	common_setup(propose_first) do |trsc|
 	    # First, add relations between two nodes that are already existing
-	    remote.add_tasks(plan)
+	    remote.add_tasks(Distributed.format(plan))
 	    r_t2 = subscribe_task(:id => 'remote-2')
 	    assert(1, r_t2.parents.to_a.size)
 	    r_t1 = r_t2.parents.find { true }
@@ -155,7 +155,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    check_resulting_plan(trsc, false)
 	    if propose_first
 		trsc.release(false)
-		remote.check_resulting_plan(trsc, false)
+		remote.check_resulting_plan(Distributed.format(trsc), false)
 		trsc.edit
 	    end
 
@@ -163,8 +163,8 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    Control.synchronize do
 		t2.remove_planning_task(t3)
 	    end
-	    remote.remove_relations(r_t2)
-	    remote.subscribe(t2)
+	    remote.remove_relations(Distributed.format(r_t2))
+	    remote.subscribe(Distributed.format(t2))
 
 	    process_events
 	    assert(plan.useful_task?(r_t1))
@@ -175,14 +175,14 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    end
 
 	    process_events
-	    remote.assert_cleared_relations(plan)
+	    remote.assert_cleared_relations(Distributed.format(plan))
 	end
     end
     def test_rproxy_realizes_lproxy_dynamic; test_rproxy_realizes_lproxy(true) end
 
     def test_rproxy_realizes_ltask(propose_first = false)
 	common_setup(propose_first) do |trsc|
-	    remote.add_tasks(plan)
+	    remote.add_tasks(Distributed.format(plan))
 	    r_t2 = subscribe_task(:id => 'remote-2')
 	    t1, t2, t3 = Control.synchronize { add_tasks(trsc, "local") }
 
@@ -192,19 +192,19 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    if propose_first
 		remote_peer.push_subscription(t2)
 		trsc.release(false)
-		remote.check_resulting_plan(trsc, false)
+		remote.check_resulting_plan(Distributed.format(trsc), false)
 		trsc.edit
 	    end
 
 	    # remove the relations in the real tasks (not the proxies)
-	    remote.remove_relations(r_t2)
+	    remote.remove_relations(Distributed.format(r_t2))
 
 	    unless propose_first
 		trsc.propose(remote_peer)
 		remote_peer.push_subscription(t2)
 	    end
 	    process_events
-	    remote.assert_cleared_relations(plan)
+	    remote.assert_cleared_relations(Distributed.format(plan))
 	end
     end
     def test_rproxy_realizes_ltask_dynamic; test_rproxy_realizes_ltask(true) end
@@ -214,7 +214,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
     def test_rtask_realizes_lproxy
 	common_setup(true) do |trsc|
 	    trsc.release(false)
-	    r_t1, r_t2, r_t3 = remote.add_tasks(trsc).map { |t| remote_peer.proxy(t) }
+	    r_t1, r_t2, r_t3 = remote.add_tasks(Distributed.format(trsc)).map { |t| remote_peer.proxy(t) }
 	    trsc.edit
 
 	    assert(r_t2.subscribed?)
@@ -225,13 +225,13 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 
 	    check_resulting_plan(trsc, false)
 	    trsc.release(false)
-	    remote.check_resulting_plan(trsc, false)
+	    remote.check_resulting_plan(Distributed.format(trsc), false)
 	    trsc.edit
 
 	    # remove the relations in the real tasks (not the proxies)
 	    t2.remove_planning_task(t3)
 	    process_events
-	    remote.assert_cleared_relations(plan)
+	    remote.assert_cleared_relations(Distributed.format(plan))
 	end
     end
 
@@ -286,17 +286,20 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	trsc.add_owner(remote_peer)
 	trsc.propose(remote_peer)
 	trsc.release
-	remote.insert_children(trsc, trsc[t3])
+	remote.insert_children(Distributed.format(trsc), Distributed.format(trsc[t3]))
 	trsc.edit
 	trsc.commit_transaction
 	process_events
 
+	r2 = remote_task(:id => 'remote-2')
 	Roby::Control.synchronize do
-	    assert(r2 = remote_task(:id => 'remote-2'))
-	    assert(!plan.unneeded_tasks.include?(r2))
+	    assert(r2.plan && !plan.unneeded_tasks.include?(r2))
 	    assert(t3.child_object?(r2, TaskStructure::Hierarchy))
-	    assert(r3 = remote_task(:id => 'remote-3'))
-	    assert(plan.unneeded_tasks.include?(r3))
+	end
+
+	r3 = remote_task(:id => 'remote-3')
+	Roby::Control.synchronize do
+	    assert(!r3.plan || plan.unneeded_tasks.include?(r3))
 	end
     end
 
@@ -321,7 +324,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	trsc.add_owner(remote_peer)
 	trsc.propose(remote_peer)
 	trsc.release
-	remote.add_task(trsc)
+	remote.add_task(Distributed.format(trsc))
 	trsc.edit
 	
 	assert_nothing_raised do

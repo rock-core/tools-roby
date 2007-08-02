@@ -6,8 +6,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     include Roby::Distributed::Test
 
     def test_marshal_transactions
-	peer2peer do |remote|
-	    class << remote
+	peer2peer(true) do |remote|
+	    PeerServer.class_eval do
 		attr_reader :plan
 		def transaction
 		    @plan ||= Plan.new
@@ -20,30 +20,30 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	    end
 	end
 
-	trsc = remote.transaction
+	trsc = remote_peer.call(:transaction)
 	assert_kind_of(Plan::DRoby, trsc)
 	assert_equal(local.plan, remote_peer.local_object(trsc))
 
-	dtrsc = remote.d_transaction
+	dtrsc = remote_peer.call(:d_transaction)
 	assert_kind_of(Distributed::Transaction::DRoby, dtrsc)
 	assert_raises(InvalidRemoteOperation) { remote_peer.local_object(dtrsc) }
     end
 
     def test_transaction_create
 	peer2peer(true) do |remote|
-	    class << remote
+	    PeerServer.class_eval do
 		include Test::Unit::Assertions
 		def check_transaction(marshalled_trsc, trsc_drbobject)
-		    assert(trsc = local_peer.local_object(marshalled_trsc))
-		    assert_equal(trsc_drbobject, trsc.remote_siblings[local_peer])
-		    assert_equal([local_peer, Roby::Distributed], trsc.owners)
+		    assert(trsc = peer.local_object(marshalled_trsc))
+		    assert_equal(trsc_drbobject, trsc.remote_siblings[peer])
+		    assert_equal([peer, Roby::Distributed], trsc.owners)
 		    assert(!trsc.first_editor?)
 		    assert(!trsc.editor?)
 		    assert(trsc.conflict_solver.kind_of?(Roby::SolverIgnoreUpdate))
 
 		    assert(trsc.subscribed?)
-		    assert(trsc.update_on?(local_peer))
-		    assert(trsc.updated_by?(local_peer))
+		    assert(trsc.update_on?(peer))
+		    assert(trsc.updated_by?(peer))
 		    trsc
 		end
 	    end
@@ -56,7 +56,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	remote_peer.create_sibling(trsc)
 	trsc.add_owner remote_peer
 	assert_equal([Distributed, remote_peer], trsc.owners)
-	remote.check_transaction(trsc, trsc.remote_id)
+	remote_peer.call(:check_transaction, trsc, trsc.remote_id)
 	assert(trsc.subscribed?)
 	assert(trsc.update_on?(remote_peer))
 	assert(trsc.updated_by?(remote_peer))
@@ -66,15 +66,15 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
     def test_transaction_proxies
 	peer2peer(true) do |remote|
-	    class << remote
+	    PeerServer.class_eval do
 		include Test::Unit::Assertions
 		def marshalled_transaction_proxy(trsc, task)
-		    task = local_peer.local_object(task)
-		    trsc = local_peer.local_object(trsc)
+		    task = peer.local_object(task)
+		    trsc = peer.local_object(trsc)
 		    proxy = trsc[task]
 
-		    assert(proxy.update_on?(local_peer))
-		    assert(proxy.updated_by?(local_peer))
+		    assert(proxy.update_on?(peer))
+		    assert(proxy.updated_by?(peer))
 		    proxy
 		end
 	    end
@@ -95,7 +95,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert(proxy.updated_by?(remote_peer))
 	process_events
 
-	assert(marshalled_remote = remote.marshalled_transaction_proxy(trsc, task))
+	assert(marshalled_remote = remote_peer.call(:marshalled_transaction_proxy, trsc, task))
 	assert_equal(proxy, remote_peer.local_object(marshalled_remote))
     end
 
@@ -104,15 +104,16 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	peer2peer(true) do |remote|
 	    def remote.add_tasks(trsc)
 		trsc = local_peer.local_object(trsc)
-		trsc.edit
-		t1 = SimpleTask.new :id => 'root'
-		t1.realized_by(t2 = SimpleTask.new(:id => 'child'))
-		t1.on(:start, t2, :start)
-		t2.realized_by(t3 = SimpleTask.new(:id => 'grandchild'))
-		t3.on(:failed, t2, :failed)
 
-		trsc.insert(t1)
-		trsc.release(false)
+		trsc.edit do
+		    t1 = SimpleTask.new :id => 'root'
+		    t1.realized_by(t2 = SimpleTask.new(:id => 'child'))
+		    t1.on(:start, t2, :start)
+		    t2.realized_by(t3 = SimpleTask.new(:id => 'grandchild'))
+		    t3.on(:failed, t2, :failed)
+
+		    trsc.insert(t1)
+		end
 	    end
 	end
 
@@ -121,7 +122,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.propose(remote_peer)
 
 	trsc.release(false)
-	remote.add_tasks(trsc)
+	remote.add_tasks(Distributed.format(trsc))
 	trsc.edit
 	assert(t1 = trsc.find_tasks.with_arguments(:id => 'root').to_a.first)
 	assert(t2 = trsc.find_tasks.with_arguments(:id => 'child').to_a.first)
@@ -161,10 +162,10 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert(trsc.release(true))
 
 	assert_doesnt_timeout(5) do
-	    remote.edit_transaction(trsc)
+	    remote.edit_transaction(Distributed.format(trsc))
 	end
 	assert_raises(NotEditor) { trsc.commit_transaction }
-	remote.give_back(trsc)
+	remote.give_back(Distributed.format(trsc))
 
 	assert_doesnt_timeout(5) do
 	    trsc.edit
@@ -214,7 +215,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert(! task.plan)
 	assert_nothing_raised { t_task.event(:start).on task.event(:start) }
 
-	remote.add_owner_local(trsc)
+	remote.add_owner_local(Distributed.format(trsc))
 
 	assert_nothing_raised { t_task.realized_by task }
 	assert_nothing_raised { t_task.remove_child task }
@@ -264,7 +265,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     end
 
     def test_argument_updates
-	peer2peer do |remote|
+	peer2peer(true) do |remote|
 	    remote.plan.insert(Task.new(:id => 2))
 	    def remote.set_argument(task)
 		task = local_peer.local_object(task)
@@ -274,7 +275,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 		nil
 	    end
 	end
-	r_task = remote_task(:id => 2)
+	r_task = remote_task(:id => 2, :permanent => true)
 	assert_raises(NotOwner, r_task.owners) { r_task.arguments[:foo] = :bar }
 
 	trsc   = Roby::Distributed::Transaction.new(plan)
@@ -289,7 +290,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	task = Task.new(:id => 2)
 	t_task = trsc[task]
 	trsc.release(false)
-	assert_nothing_raised { remote.set_argument(t_task) }
+	assert_nothing_raised { remote.set_argument(Distributed.format(t_task)) }
 
 	trsc.edit
 	assert_equal(:bar, t_task.arguments[:foo], t_task.name)
@@ -341,7 +342,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     def check_transaction_commit(trsc)
 	# Commit the transaction
 	assert(trsc.commit_transaction)
-	remote.check_plan
+	remote_peer.call(:check_plan)
 	check_resulting_plan(local.plan)
     end
 
@@ -351,14 +352,14 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	    remote.plan.insert(root = SimpleTask.new(:id => 'remote-1'))
 	    root.realized_by(child = SimpleTask.new(:id => 'remote-2'))
 
-	    remote.class.class_eval do
+	    PeerServer.class_eval do
 		include Test::Unit::Assertions
 		define_method(:check_transaction) do |trsc|
-		    trsc = local_peer.local_object(trsc)
+		    trsc = peer.local_object(trsc)
 		    testcase.check_resulting_plan(trsc)
 		end
 		define_method(:check_plan) do
-		    testcase.check_resulting_plan(remote.plan)
+		    testcase.check_resulting_plan(plan)
 		end
 	    end
 	end
@@ -371,7 +372,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	# Send the transaction to remote_peer and commit it
 	trsc.propose(remote_peer)
 
-	remote.check_transaction(trsc)
+	remote_peer.call(:check_transaction, trsc)
 	check_resulting_plan(trsc)
 
 	check_transaction_commit(trsc)
@@ -383,9 +384,9 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	    remote.plan.insert(root = SimpleTask.new(:id => 'remote-1'))
 	    root.realized_by SimpleTask.new(:id => 'remote-2')
 
-	    remote.class.class_eval do
+	    PeerServer.class_eval do
 		define_method(:check_transaction) do |trsc|
-		    testcase.check_resulting_plan(local_peer.local_object(trsc))
+		    testcase.check_resulting_plan(peer.local_object(trsc))
 		end
 		define_method(:check_plan) { testcase.check_resulting_plan(remote.plan) }
 	    end
@@ -401,7 +402,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	check_resulting_plan(trsc)
 	process_events
-	remote.check_transaction(trsc)
+	remote_peer.call(:check_transaction, trsc)
 
 	# Commit the transaction
 	check_transaction_commit(trsc)

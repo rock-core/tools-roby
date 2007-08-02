@@ -7,16 +7,12 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
     include Roby::Distributed::Test
 
     def test_triggers
-	Roby::Distributed.allow_remote_access Proc
-	peer2peer do |remote|
+	peer2peer(true) do |remote|
 	    def remote.new_task(kind, args)
 		new_task = kind.proxy(local_peer).new(args)
 		yield(new_task.remote_id) if block_given?
 		plan.insert(new_task)
-		new_task
-	    end
-	    def remote.insert_task(task)
-		plan.insert(task)
+		nil
 	    end
 	end
 
@@ -32,21 +28,24 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 		nil
 	    end
 
-	    remote.new_task(SimpleTask, :id => 3)
-	    remote.new_task(Roby::Task, :id => 2)
-	    remote.new_task(SimpleTask, :id => 2) do |inserted_id|
-		mock.should_receive(:notified).with(inserted_id).once.ordered
-		nil
-	    end
-	    process_events
+	    simple_task = Distributed.format(SimpleTask)
+	    roby_task   = Distributed.format(Roby::Task)
 
-	    remote.new_task(SimpleTask, :id => 3)
-	    remote.new_task(Roby::Task, :id => 2)
-	    remote.new_task(SimpleTask, :id => 2) do |inserted_id|
+	    remote.new_task(simple_task, :id => 3)
+	    remote.new_task(roby_task, :id => 2)
+	    remote.new_task(simple_task, :id => 2) do |inserted_id|
 		mock.should_receive(:notified).with(inserted_id).once.ordered
 		nil
 	    end
-	    process_events
+	    Roby.control.wait_one_cycle
+
+	    remote.new_task(simple_task, :id => 3)
+	    remote.new_task(roby_task, :id => 2)
+	    remote.new_task(simple_task, :id => 2) do |inserted_id|
+		mock.should_receive(:notified).with(inserted_id).once.ordered
+		nil
+	    end
+	    Roby.control.wait_one_cycle
 	end
     end
 
@@ -63,12 +62,16 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	    with_arguments(:id => 1)
 
 	task = nil
-	remote_peer.on(notification) do |task|
-	    remote_peer.subscribe(task)
+	remote_peer.on(notification) do |t|
+	    remote_peer.subscribe(t)
+	    task = t
 	end
 	remote.new_task
-	process_events
+	while !task
+	    remote_peer.synchro_point
+	end
 
+	assert(task)
 	assert_equal([task], plan.find_tasks.with_arguments(:id => 1).to_a)
     end
 
