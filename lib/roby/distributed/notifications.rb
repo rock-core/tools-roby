@@ -195,10 +195,8 @@ module Roby
 		    # Subscribe to the new task if the old task was subscribed
 		    # +from+ will be unsubscribed when it is finalized
 		    if peer.subscribed?(from) && !peer.subscribed?(to)
-			execute do
-			    peer.subscribe(to)
-			    nil
-			end
+			peer.subscribe(to)
+			nil
 		    end
 		end
 		nil

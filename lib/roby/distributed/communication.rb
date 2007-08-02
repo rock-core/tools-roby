@@ -412,6 +412,18 @@ module Roby
 		end
 	    end
 
+	    # If #transmit calls are done in the block given to #queueing, they
+	    # will queue the call instead of marking it as callback
+	    def queueing
+		old_processing = local_server.processing?
+
+		local_server.processing = false
+		yield
+
+	    ensure
+		local_server.processing = old_processing
+	    end
+
 	    # call-seq:
 	    #   peer.transmit(method, arg1, arg2, ...) { |ret| ... }
 	    #
