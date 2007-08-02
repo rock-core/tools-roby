@@ -74,7 +74,7 @@ module Roby
 	    # We will disconnect because of that
 	    def fatal_error(error, msg, args)
 		synchronize do
-		    Roby::Distributed.info "fatal error '#{error}' while processing #{msg}(#{args.join(", ")})"
+		    Roby::Distributed.fatal "fatal error '#{error}' while processing #{msg}(#{args.join(", ")})"
 		    @connection_state = :disconnecting
 		end
 		queue_call false, :fatal_error, [error, msg, args]
@@ -171,7 +171,7 @@ module Roby
 	    end
 
 	    def fatal_error(error, msg, args)
-		Distributed.info "remote reports #{error} while processing #{msg}(#{args.join(", ")})"
+		Distributed.fatal "remote reports #{error} while processing #{msg}(#{args.join(", ")})"
 		disconnect
 	    end
 
