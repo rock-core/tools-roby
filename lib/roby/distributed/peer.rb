@@ -177,6 +177,8 @@ module Roby::Distributed
     end
 
     class Peer
+	include DRbUndumped
+
 	# The local ConnectionSpace object we act on
 	attr_reader :connection_space
 	# The local PeerServer object for this peer
