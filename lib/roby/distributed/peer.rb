@@ -226,11 +226,7 @@ module Roby::Distributed
 	    @peer_info = socket.peer_info
 
 	    connection_space.synchronize do
-		if Roby::Distributed.peers[peer_info]
-		    raise ArgumentError, "there is already a peer for #{remote_name}"
-		end
 		Roby::Distributed.debug "#{socket} is handled by 0x#{self.address.to_s(16)}"
-		Roby::Distributed.peers[peer_info] = self
 	    end
 	    super() if defined? super
 

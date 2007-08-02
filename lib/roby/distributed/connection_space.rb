@@ -92,7 +92,7 @@ module Roby
 	    def neighbours; synchronize { @neighbours.dup } end
 	    # A queue containing all new neighbours
 	    attr_reader :new_neighbours
-	    # List of peers
+	    # A remote_id => Peer map
 	    attr_reader :peers
 	    # The period at which we do discovery
 	    attr_reader :discovery_period

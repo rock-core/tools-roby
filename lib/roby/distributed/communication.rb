@@ -85,8 +85,6 @@ module Roby
 		Roby::Distributed.info "#{remote_name} disconnected"
 
 		connection_space.synchronize do
-		    Distributed.peers.delete(peer_info)
-		    Distributed.peers.delete(remote_name)
 		    Distributed.peers.delete(remote_id)
 		end
 
@@ -153,7 +151,6 @@ module Roby
 		@remote_id = id
 
 		connection_space.synchronize do
-		    Distributed.peers[name] = self
 		    Distributed.peers[id]   = self
 		end
 		local_server.state_update state
