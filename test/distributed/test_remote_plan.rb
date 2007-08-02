@@ -66,20 +66,18 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_remote_proxy_update
-	peer2peer do |remote|
+	peer2peer(true) do |remote|
 	    remote.plan.insert(SimpleTask.new(:id => 'simple_task'))
 	    remote.plan.permanent(SimpleTask.new(:id => 'task'))
 	    remote.plan.permanent(SimpleTask.new(:id => 'other_task'))
 	end
 
-	proxy_model = Distributed.RemoteProxyModel(SimpleTask)
-
-	r_simple_task = remote_task(:id => 'simple_task')
-	r_task        = remote_task(:id => 'task')
-	r_other_task  = remote_task(:id => 'other_task')
+	r_simple_task = remote_task(:id => 'simple_task', :permanent => true)
+	r_task        = remote_task(:id => 'task', :permanent => true)
+	r_other_task  = remote_task(:id => 'other_task', :permanent => true)
 
 	task = SimpleTask.new
-	assert(!r_simple_task.read_write?)
+	assert(!r_simple_task.read_write?, r_simple_task.plan)
 	Distributed.update(r_simple_task) do
 	    assert(r_simple_task.read_write?)
 	    assert_nothing_raised do
@@ -112,7 +110,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     # Test that the remote plan structure is properly mapped to the local
     # plan database
     def test_discover_neighborhood
-	peer2peer do |remote|
+	peer2peer(true) do |remote|
 	    mission, subtask, next_mission =
 		SimpleTask.new(:id => 'mission'), 
 		SimpleTask.new(:id => 'subtask'),
@@ -124,9 +122,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    remote.plan.insert(next_mission)
 	end
 
-	r_mission	= remote_task(:id => 'mission')
-	r_subtask	= remote_task(:id => 'subtask')
-	r_next_mission  = remote_task(:id => 'next_mission')
+	r_mission	= remote_task(:id => 'mission', :permanent => true)
+	r_subtask	= remote_task(:id => 'subtask', :permanent => true)
+	r_next_mission  = remote_task(:id => 'next_mission', :permanent => true)
 
 	# We don't know about the remote relations
 	assert_equal([], r_mission.children.to_a)
@@ -134,8 +132,6 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	# Discover remote relations
 	remote_peer.discover_neighborhood(r_mission, 1) do |r_mission|
-	    process_events
-
 	    proxies = r_mission.children.to_a
 	    assert_equal(1, proxies.to_a.size)
 	    assert_equal(r_subtask, proxies.first)
@@ -143,7 +139,10 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    assert_equal(r_next_mission.event(:start), proxies.first)
 	end
 
-	process_events
+	plan.auto(r_mission)
+	plan.auto(r_subtask)
+	plan.auto(r_next_mission)
+	Roby.control.wait_one_cycle
 	assert_equal([remote_peer.task], plan.keepalive.to_a)
     end
 
@@ -153,10 +152,11 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	end
 
 	r_task, r_task_id = nil
-	Roby::Control.synchronize do
-	    r_task = remote_task(:id => 1)
-	    assert(r_task_id = r_task.remote_siblings[remote_peer])
+	r_task = remote_task(:id => 1) do |t|
+	    assert(r_task_id = t.remote_siblings[remote_peer])
+	    t
 	end
+
 	process_events
 	assert(!r_task.plan)
 	assert_nothing_raised { remote_peer.subscribe(r_task) }
@@ -217,12 +217,12 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_equal([], r_mission.children.to_a)
 	assert_equal([], r_mission.event(:stop).child_objects(EventStructure::Signal).to_a)
 
+	assert(plan.useful_task?(r_mission))
+	r_next_mission = remote_task(:id => 'next_mission')
+	r_subtask = remote_task(:id => 'subtask')
 	Roby::Control.synchronize do
-	    r_next_mission = remote_task(:id => 'next_mission')
-	    r_subtask = remote_task(:id => 'subtask')
-	    assert(plan.useful_task?(r_mission))
-	    assert(!plan.useful_task?(r_next_mission))
-	    assert(!plan.useful_task?(r_subtask))
+	    assert(!r_next_mission.plan || !plan.useful_task?(r_next_mission))
+	    assert(!r_subtask.plan || !plan.useful_task?(r_subtask))
 	end
 	Roby.control.wait_one_cycle
 
@@ -239,8 +239,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_equal(r_next_mission.event(:start), proxies.first)
 
 	## Check plan GC after we have unsubscribed from mission
+	remote_peer.unsubscribe(r_mission)
 	Roby::Control.synchronize do
-	    remote_peer.unsubscribe(r_mission)
+	    assert(r_mission.plan)
 	    assert(!plan.unneeded_tasks.include?(r_mission))
 	    assert(!remote_peer.subscribed?(r_mission))
 	    assert(plan.unneeded_tasks.include?(r_next_mission), Distributed.remotely_useful_objects(ValueSet.new, plan.known_tasks))
@@ -316,6 +317,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 		    assert(left.update_on?(local_peer))
 		    assert(middle.update_on?(local_peer))
 		    left.remove_child(middle)
+		    nil
 		end
 	    end
 	end
