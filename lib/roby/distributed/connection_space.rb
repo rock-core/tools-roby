@@ -245,7 +245,8 @@ module Roby
 
 				    id, size = socket.read(8).unpack("NN")
 				    data     = socket.read(size)
-				    Roby::Distributed.pending_cycles << [sockets[socket], Marshal.load(data)]
+				    p.stats.rx += (size + 8)
+				    Roby::Distributed.pending_cycles << [p, Marshal.load(data)]
 				end
 			    end
 

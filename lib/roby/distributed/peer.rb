@@ -188,6 +188,12 @@ module Roby::Distributed
 	# The connection socket with our peer
 	attr_reader :socket
 
+	ComStats = Struct.new :rx, :tx
+	# A ComStats object which holds the communication statistics for this peer
+	# stats.tx is the count of bytes sent to the peer while stats.rx is the
+	# count of bytes received
+	attr_reader :stats
+
 	def to_s; "Peer:#{remote_name}" end
 	def incremental_dump?(object)
 	    object.respond_to?(:remote_siblings) && object.remote_siblings[self] 
@@ -235,6 +241,7 @@ module Roby::Distributed
 	    @mutex	  = Mutex.new
 	    @triggers     = Hash.new
 	    @socket       = socket
+	    @stats        = ComStats.new 0, 0
 	    connection_space.pending_sockets << [socket, self]
 
 	    @connection_state = :connecting

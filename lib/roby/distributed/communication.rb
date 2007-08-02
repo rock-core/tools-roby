@@ -500,7 +500,9 @@ module Roby
 		    buffer.string[0, 8] = [id += 1, buffer.size - 8].pack("NN")
 
 		    begin
-			Roby::Distributed.debug "sending #{buffer.string.size} to #{self}"
+			size = buffer.string.size
+			Roby::Distributed.debug { "sending #{size}B to #{self}" }
+			stats.tx += size
 			socket.write(buffer.string)
 
 			data = nil
@@ -520,7 +522,7 @@ module Roby
 		disconnected!
 
 	    ensure
-		Distributed.info "communication thread quitting for #{self}"
+		Distributed.info "communication thread quitting for #{self}. Rx: #{stats.rx}B, Tx: #{stats.tx}B"
 		calls = []
 		while !completion_queue.empty?
 		    calls << completion_queue.shift
