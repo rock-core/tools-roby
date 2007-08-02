@@ -143,10 +143,10 @@ module Roby
 		Roby::Control.once do
 		    begin
 			return_value = yield
+			cv.broadcast
 		    rescue Exception => e
 			caller_thread.raise e
 		    end
-		    cv.broadcast
 		end
 		cv.wait(Roby::Control.mutex)
 	    end
