@@ -275,7 +275,6 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     # - A receives a message involving T which has been emitted while B was not knowing about the
     #   deletion (it has not yet received the removed_sibling message)
     def test_finalized_remote_task_race_condition
-	#Distributed.logger.level = Logger::DEBUG
 	peer2peer(true) do |remote|
 	    remote.plan.insert(task = SimpleTask.new(:id => 'remote'))
 	    
@@ -288,7 +287,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	end
 
 	task = remote_task(:id => 'remote') do |task|
-	    remote_peer.disabled = true
+	    remote_peer.disable_tx
 	    task
 	end
 
@@ -300,7 +299,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_equal('tested', new_task.arguments[:id])
 
     ensure
-	remote_peer.disabled = false
+	remote_peer.enable_tx
     end
 
     def test_marshal_task_arguments

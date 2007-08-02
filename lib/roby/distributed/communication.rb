@@ -136,11 +136,16 @@ module Roby
 	    # will be reset during the next neighbour discovery
 	    def link_dead!; @dead = true end
 	    
-	    attr_predicate :disabled?, true
+	    def disable_tx; @disabled_tx += 1 end
+	    def enable_tx; @disabled_tx -= 1 end
+	    def disabled_tx?; @disabled_tx > 0 end
+	    def disable_rx; @disabled_rx += 1 end
+	    def enable_rx; @disabled_rx -= 1 end
+	    def disabled_rx?; @disabled_rx > 0 end
 
 	    # Checks if the connection is currently alive
 	    def link_alive?
-		return false if @dead || @disabled
+		return false if @dead || @disabled_rx > 0
 		return false unless !remote_id || connection_space.neighbours.find { |n| n.remote_id == remote_id }
 		true
 	    end

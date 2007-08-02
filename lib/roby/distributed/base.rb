@@ -276,18 +276,37 @@ module Roby
 	    attr_reader :removed_objects
 	end
 
-	@pending_cycles  = Queue.new
+	@cycles_rx = Queue.new
+	@pending_cycles  = Array.new
 
 	class << self
-	    # The set of cycle data received so far
+	    # The queue of cycles read by ConnectionSpace#receive and not processed
+	    attr_reader :cycles_rx
+	    # The set of cycles that have been read from #pending_cycles but
+	    # have not been processed yet because the peers have disabled_rx? set
+	    #
+	    # This variable must be accessed only in the control thread
 	    attr_reader :pending_cycles
 	end
 
 	def self.process_pending(timeout)
-	    while timeout > Time.now && !pending_cycles.empty?
-		peer, calls = pending_cycles.pop
+	    ignored_pending = []
+	    while timeout > Time.now && (!pending_cycles.empty? || !cycles_rx.empty?)
+		peer, calls = if pending_cycles.empty?
+				  cycles_rx.pop
+			      else pending_cycles.pop
+			      end
+
+		if peer.disabled_rx?
+		    ignored_pending.unshift [peer, calls]
+		    next
+		end
+
 		process_cycle(peer, calls)
 	    end
+
+	ensure
+	    @pending_cycles.concat(ignored_pending)
 	end
 
 	def self.process_cycle(peer, calls)

@@ -240,6 +240,8 @@ module Roby::Distributed
 	    @triggers     = Hash.new
 	    @socket       = socket
 	    @stats        = ComStats.new 0, 0
+	    @disabled_rx  = 0
+	    @disabled_tx  = 0
 	    connection_space.pending_sockets << [socket, self]
 
 	    @connection_state = :connecting
