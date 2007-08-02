@@ -133,7 +133,7 @@ module Roby::Distributed
 	    triggers[id] = [matcher, (triggered = ValueSet.new)]
 	    Roby.info "#{remote_name} wants notification on #{matcher} (#{id})"
 
-	    Roby::Control.once do
+	    peer.queueing do
 		matcher.each(plan) do |task|
 		    if !triggered.include?(task)
 			triggered << task
