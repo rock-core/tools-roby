@@ -447,8 +447,8 @@ module Roby
 	    def call(m, *args)
 		if local_server.processing?
 		    raise "cannot use Peer#call while processing a remote request"
-		elsif !Roby.outside_control?
-		    raise "cannot use Peer#call in control thread"
+		elsif !Roby.outside_control? || Roby::Control.taken_mutex?
+		    raise "cannot use Peer#call in control thread or while taking the Roby::Control mutex"
 		end
 
 		result = nil
