@@ -370,7 +370,7 @@ module Roby
 	    # This set of calls mark the end of a cycle. When one of these is
 	    # encountered, the calls gathered in #current_cycle are moved into
 	    # #send_queue
-	    CYCLE_END_CALLS = [:connect, :disconnect, :state_update]
+	    CYCLE_END_CALLS = [:connect, :disconnect, :fatal_error, :state_update]
 
 	    attr_predicate :sync?, true
 	    
