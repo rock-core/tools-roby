@@ -36,7 +36,9 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	contingent  = *task.event(:start).child_objects(EventStructure::Forwarding).to_a
 
 	remote.fire
+
 	process_events
+	remote_peer.synchro_point
 	assert(controlable.happened?)
 	assert(contingent.happened?)
     end
@@ -181,17 +183,20 @@ class TC_DistributedExecution < Test::Unit::TestCase
     # Tests that running remote tasks are aborted and pending tasks GCed if the
     # connection is killed
     def test_disconnect_kills_tasks
+	Roby.logger.level = Logger::DEBUG
 	peer2peer(true) do |remote|
 	    remote.plan.insert(task = SimpleTask.new(:id => 'remote-1'))
 	    def remote.start(task)
 		task = local_peer.local_object(task)
-		Roby::Control.once { task.start! }
+		Roby.execute do
+		    task.start!
+		end
 		nil
 	    end
 	end
 
 	task = subscribe_task(:id => 'remote-1')
-	remote.start(task)
+	remote.start(Distributed.format(task))
 	process_events
 	assert(task.running?)
 	assert(task.child_object?(remote_peer.task, TaskStructure::ExecutionAgent))
@@ -220,11 +225,11 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	event_time = Time.now
 	remote = subscribe_task(:id => 'remote-1')
 	plan.insert(local = SimpleTask.new(:id => 'local'))
-	process_events
+	remote_peer.synchro_point
 
-	Roby::Control.synchronize do
-	    remote_peer.local.event_fired(remote.event(:success), 0, Time.now, 42)
-	    remote_peer.local.event_add_propagation(true, remote.event(:success), local.event(:start), 0, event_time, 42)
+	Roby.execute do
+	    remote_peer.local_server.event_fired(remote.event(:success), 0, Time.now, 42)
+	    remote_peer.local_server.event_add_propagation(true, remote.event(:success), local.event(:start), 0, event_time, 42)
 	end
 	process_events
 
@@ -232,40 +237,6 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	assert(remote.success?)
 	assert(local.started?)
 	assert_equal(1, remote.history.size, remote.history)
-    end
-    
-    # Checks that we get the update fine if +fired+ and +signalled+ are
-    # received in the same cycle
-    def test_separated_fired_signalled
-	peer2peer(true) do |remote|
-	    remote.plan.insert(task = SimpleTask.new(:id => 'remote-1'))
-	    Roby::Control.once { task.start! }
-	end
-	    
-	event_time = Time.now
-	remote = subscribe_task(:id => 'remote-1')
-	plan.insert(local = SimpleTask.new(:id => 'local'))
-	process_events
-
-
-	Roby::Control.synchronize do
-	    remote_peer.local.event_fired(remote.event(:success), 0, event_time, 42)
-	end
-	process_events
-	assert(remote.finished?)
-	assert(remote.success?)
-	assert_equal(1, remote.history.size, remote.history.to_s)
-
-	FlexMock.use do |mock|
-	    local.on(:start) { |event| mock.started(event.context) }
-	    mock.should_receive(:started).once.with(42)
-
-	    Roby::Control.synchronize do
-		remote_peer.local.event_add_propagation(true, remote.event(:success), local.event(:start), 0, event_time, 42)
-	    end
-	    process_events
-	    assert_equal(1, remote.history.size, remote.history.to_s)
-	end
     end
 end
 
