@@ -1,8 +1,29 @@
 module Roby
     module Distributed
+	class ConnectionSpace
+
+	end
+
 	class Peer
 	    class << self
 		private :new
+	    end
+
+	    class ConnectionToken
+		attr_reader :time, :value
+		def initialize
+		    @time  = Time.now
+		    @value = rand
+		end
+		def <=>(other)
+		    result = (time <=> other.time)
+		    if result == 0
+			value <=> other.value
+		    else
+			result
+		    end
+		end
+		include Comparable
 	    end
 
 	    # A value indicating the current status of the connection. It can
@@ -16,10 +37,58 @@ module Roby
 	    # The connection is done when the remote peer returns us a
 	    # completion message for this connect message
 	    def self.initiate_connection(connection_space, neighbour, &block)
-		socket = TCPSocket.new(neighbour.remote_id.uri, neighbour.remote_id.ref)
-		peer = new(connection_space, socket, &block)
-		peer.connect(&block)
-		peer
+		local_token = ConnectionToken.new
+		remote_id = neighbour.remote_id
+
+		connection_space.synchronize do
+		    if peer = connection_space.peers[remote_id]
+			# already connected
+			return peer
+		    else
+			token, connecting_thread = connection_space.pending_connections[remote_id]
+			if token
+			    # we are already connecting to the peer, check the connection token
+			    peer = connection_thread.value
+			    if token < local_token
+				if !peer
+				    raise "something went wrong during connection: got nil peer with better token"
+				end
+				return peer
+			    end
+			end
+		    end
+
+		    connecting_thread = Thread.new do
+			Thread.current.abort_on_exception = false
+
+			socket = TCPSocket.new(neighbour.remote_id.uri, neighbour.remote_id.ref)
+			socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
+			Distributed.debug "initiate connection with #{neighbour} on #{socket.peer_info}"
+
+			# Send the connection request
+			info = Marshal.dump [:connect, local_token,
+			    connection_space.name,
+			    connection_space.remote_id, 
+			    Distributed.format(Roby::State)]
+			socket.write [info.size].pack("N")
+			socket.write info
+
+			reply_size = socket.read(4)
+			if !reply_size
+			    raise "peer disconnected"
+			end
+			reply = Marshal.load(socket.read(*reply_size.unpack("N")))
+
+			connection_space.synchronize do
+			    connection_space.pending_connections.delete(remote_id)
+			    if reply.shift == :connect
+				new(connection_space, socket, *reply, &block)
+			    end
+			end
+		    end
+		    connection_space.pending_connections[remote_id] = [local_token, connecting_thread]
+		end
+		nil
 	    end
 
 	    # Create a Peer object for a connection attempt on the server
@@ -27,8 +96,39 @@ module Roby
 	    # to send us a #connect message, after which we can assume that the
 	    # connection is up
 	    def self.connection_request(connection_space, socket)
-		Distributed.debug "connection attempt from #{socket}"
-		new(connection_space, socket)
+		socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
+
+		# read connection info from +socket+
+		info_size = *socket.read(4).unpack("N")
+		m, remote_token, remote_name, remote_id, remote_state = 
+		    Marshal.load(socket.read(info_size))
+
+		Distributed.debug "connection attempt from #{socket}: #{m} #{remote_name} #{remote_id}"
+
+		connection_space.synchronize do
+		    # Now check the connection status
+		    if old_peer = connection_space.aborted_connections.delete(remote_id)
+			reply = [:aborted]
+		    elsif peer = connection_space.peers[remote_id]
+			reply = [:already_connected]
+		    else
+			token, connecting_thread = connection_space.pending_connections[remote_id]
+			if token && token < remote_token
+			    reply = [:already_connecting]
+			else
+			    connecting_thread.join if connecting_thread
+			    new(connection_space, socket, remote_name, remote_id, remote_state)
+
+			    reply = [:connect, connection_space.name,
+				connection_space.remote_id, 
+				Distributed.format(Roby::State)]
+			end
+		    end
+
+		    reply = Marshal.dump(reply)
+		    socket.write [reply.size].pack("N")
+		    socket.write reply
+		end
 	    end
 
 	    # Initializes the connection attempt by queueing a 'connected'
@@ -148,17 +248,6 @@ module Roby
 		return false if @dead || @disabled_rx > 0
 		return false unless !remote_id || connection_space.neighbours.find { |n| n.remote_id == remote_id }
 		true
-	    end
-
-	    def connected(name, id, remote_state)
-		@connection_state = :connected
-		@remote_name = name
-		@remote_id = id
-
-		connection_space.synchronize do
-		    Distributed.peers[id]   = self
-		end
-		local_server.state_update state
 	    end
 
 	end

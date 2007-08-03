@@ -123,13 +123,10 @@ module Roby
 
 	    def setup_connection
 		assert(remote_neighbour = local.neighbours.find { true })
-		@remote_peer = Peer.initiate_connection(local, remote_neighbour)
+		Peer.initiate_connection(local, remote_neighbour) do |@remote_peer| end
 
-		while true
+		while !remote_peer
 		    process_events
-		    if remote_peer.connected?
-			break
-		    end
 		end
 		assert(remote.send_local_peer(:connected?))
 	    end

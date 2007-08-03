@@ -88,8 +88,16 @@ module Roby
 	    def neighbours; synchronize { @neighbours.dup } end
 	    # A queue containing all new neighbours
 	    attr_reader :new_neighbours
-	    # A remote_id => Peer map
+	    # A remote_id => Peer map of the connected peers
 	    attr_reader :peers
+	    # A remote_id => thread of the connection threads
+	    #
+	    # See Peer.connection_request and Peer.initiate_connection
+	    attr_reader :pending_connections
+	    # A remote_id => thread of the connection threads
+	    #
+	    # See Peer.connection_request, Peer.initiate_connection and Peer#reconnect
+	    attr_reader :aborted_connections
 	    # The period at which we do discovery
 	    attr_reader :discovery_period
 	    # The discovery thread
@@ -148,6 +156,8 @@ module Roby
 		@discovery_tuplespace = options[:discovery_tuplespace]
 		@port		      = options[:port]
 		@pending_sockets = Queue.new
+		@pending_connections = Hash.new
+		@aborted_connections = Hash.new
 
 		@mutex		      = Mutex.new
 		@start_discovery      = ConditionVariable.new
@@ -197,7 +207,13 @@ module Roby
 		Thread.new do
 		    begin
 			while new_connection = server_socket.accept
-			    Peer.connection_request(self, new_connection)
+			    begin
+				Peer.connection_request(self, new_connection)
+			    rescue Exception => e
+				Roby::Distributed.fatal "failed to handle connection request on #{new_connection}"
+				Roby::Distributed.fatal e.full_message
+				new_connection.close
+			    end
 			end
 		    rescue
 		    end

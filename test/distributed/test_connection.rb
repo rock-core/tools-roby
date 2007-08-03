@@ -73,12 +73,23 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	# Initiate the connection from +local+
 	remote_neighbour = Distributed.neighbours.find { true }
 	Roby.execute do
-	    @remote_peer     = Peer.initiate_connection(local, remote_neighbour)
+	    Peer.initiate_connection(local, remote_neighbour)
 	    # Wait for the remote peer to take into account the fact that we
 	    # try connecting
+	    Distributed.state.synchronize do
+		remote_id = remote_neighbour.remote_id
+		assert(Distributed.state.pending_connections[remote_id] ||
+		       Distributed.state.peers[remote_id])
+	    end
+
 	    sleep(1)
-	    assert(remote_peer.connecting? || remote_peer.connected?)
-	    assert(remote.send_local_peer(:connecting?) || remote.send_local_peer(:connected?))
+	    Distributed.state.synchronize do
+		remote_id = remote_neighbour.remote_id
+		assert(@remote_peer = Distributed.state.peers[remote_id], Distributed.state.peers)
+	    end
+
+	    assert(remote_peer.connected?)
+	    assert(remote.send_local_peer(:connected?))
 	    assert(remote_peer.link_alive?)
 	    assert(remote.send_local_peer(:link_alive?))
 	end

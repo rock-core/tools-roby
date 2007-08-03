@@ -219,17 +219,13 @@ module Roby::Distributed
 	# Creates a Peer object for the peer connected at +socket+. This peer
 	# is to be managed by +connection_space+ If a block is given, it is
 	# called in the control thread when the connection is finalized
-	def initialize(connection_space, socket, &block)
-	    socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
-
+	def initialize(connection_space, socket, remote_name, remote_id, remote_state, &block)
 	    # Initialize the remote name with the socket parameters. It will be set to 
 	    # the real name during the connection process
-	    @remote_name = "#{socket.peer_addr}:#{socket.peer_port}"
-	    @peer_info = socket.peer_info
+	    @remote_name = remote_name
+	    @remote_id   = remote_id
+	    @peer_info   = socket.peer_info
 
-	    connection_space.synchronize do
-		Roby::Distributed.debug "#{socket} is handled by 0x#{self.address.to_s(16)}"
-	    end
 	    super() if defined? super
 
 	    @connection_space = connection_space
@@ -244,16 +240,20 @@ module Roby::Distributed
 	    @disabled_tx  = 0
 	    connection_space.pending_sockets << [socket, self]
 
-	    @connection_state = :connecting
+	    @connection_state = :connected
 	    @send_queue       = Queue.new
 	    @completion_queue = Queue.new
 	    @current_cycle    = Array.new
+
+	    Roby::Distributed.peers[remote_id]   = self
+	    local_server.state_update remote_state
 
 	    @task = ConnectionTask.new :peer => self
 	    task.on(:ready) { yield(self) } if block_given?
 	    Roby::Control.once do
 		connection_space.plan.permanent(task)
 		task.start!
+		task.emit(:ready)
 	    end
 
 	    @send_thread      = Thread.new(&method(:communication_loop))
