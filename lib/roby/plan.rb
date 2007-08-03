@@ -209,7 +209,7 @@ module Roby
 	#
 	# Updates Plan#known_tasks with either the child tree of the tasks in
 	# +objects+
-	def discover(objects = nil)
+	def discover(objects)
 	    events, tasks = partition_event_task(objects)
 	    events = if events then events.to_value_set
 		     else ValueSet.new
