@@ -53,10 +53,6 @@ module Roby
 	end
 
 	def self.transmit(*args)
-	    if !Roby.outside_control?
-		raise "in control thread"
-	    end
-
 	    Roby::Control.once do
 		result = Distributed.state.send(*args)
 		yield(result) if block_given?
