@@ -159,9 +159,15 @@ module Roby
 	    end
 
 	    def remote_task(match)
+		set_permanent = match.delete(:permanent)
+
 		found = nil
 		remote_peer.find_tasks.with_arguments(match).each do |task|
 		    assert(!found)
+		    if set_permanent
+			plan.permanent(task)
+		    end
+
 		    found = if block_given? then yield(task)
 			    else task
 			    end
