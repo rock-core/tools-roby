@@ -383,6 +383,7 @@ module Roby
 	class << self
 	    def distributed_fire_event(generator, event)
 		event.send(:propagation_id=, Propagation.propagation_id)
+		generator.instance_variable_set("@happened", true)
 		generator.fired(event)
 		generator.call_handlers(event)
 	    end
