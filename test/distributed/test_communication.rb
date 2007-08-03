@@ -33,7 +33,6 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 	    @sync = true
 
 	    Roby.execute do
-		task.start!
 		task.emit :ready
 	    end
 	end
@@ -92,7 +91,9 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 
 		def setup_peer(remote)
 		    sleep(0.1)
-		    peer = Distributed.peers.values.first
+		    peer = ObjectSpace.enum_for(:each_object, Peer).find { true }
+		    raise "no peer" unless peer
+
 		    class << peer
 			attr_predicate :link_alive?, true
 		    end
@@ -112,13 +113,13 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 		end
 	    end.new
 
-	    Roby.control.run :detach => true, :cycle => 0.5
+	    Roby.control.run :detach => true, :cycle => 0.1
 	    Roby.logger.level = Logger::FATAL
 	    DRb.start_service REMOTE_SERVER, front
 	end
 	Roby.logger.progname = "(local)"
 	DRb.start_service LOCAL_SERVER
-	Roby.control.run :detach => true, :cycle => 0.5
+	Roby.control.run :detach => true, :cycle => 0.1
 
 	connection_space = ConnectionSpace.new(:ring_discovery => false, :listen_at => LOCAL_PORT)
 	Distributed.state = connection_space
