@@ -82,7 +82,7 @@ module Roby
 
 	    # Called when the peer acknowledged the fact that we disconnected
 	    def disconnected(event = :failed) # :nodoc:
-		Roby::Distributed.info "#{remote_name} disconnected"
+		Roby::Distributed.info "#{remote_name} disconnected (#{event})"
 
 		connection_space.synchronize do
 		    Distributed.peers.delete(remote_id)
