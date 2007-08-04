@@ -38,57 +38,81 @@ module Roby
 	    # completion message for this connect message
 	    def self.initiate_connection(connection_space, neighbour, &block)
 		local_token = ConnectionToken.new
-		remote_id = neighbour.remote_id
 
 		connection_space.synchronize do
-		    if peer = connection_space.peers[remote_id]
+		    if peer = connection_space.peers[neighbour.remote_id]
 			# already connected
 			return peer
-		    else
-			token, connecting_thread = connection_space.pending_connections[remote_id]
-			if token
-			    # we are already connecting to the peer, check the connection token
-			    peer = connection_thread.value
-			    if token < local_token
-				if !peer
-				    raise "something went wrong during connection: got nil peer with better token"
-				end
-				return peer
-			    end
-			end
 		    end
 
-		    connecting_thread = Thread.new do
-			Thread.current.abort_on_exception = false
-
-			socket = TCPSocket.new(neighbour.remote_id.uri, neighbour.remote_id.ref)
-			socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
-			Distributed.debug "initiate connection with #{neighbour} on #{socket.peer_info}"
-
-			# Send the connection request
-			info = Marshal.dump [:connect, local_token,
-			    connection_space.name,
-			    connection_space.remote_id, 
-			    Distributed.format(Roby::State)]
-			socket.write [info.size].pack("N")
-			socket.write info
-
-			reply_size = socket.read(4)
-			if !reply_size
-			    raise "peer disconnected"
-			end
-			reply = Marshal.load(socket.read(*reply_size.unpack("N")))
-
-			connection_space.synchronize do
-			    connection_space.pending_connections.delete(remote_id)
-			    if reply.shift == :connect
-				new(connection_space, socket, *reply, &block)
-			    end
-			end
-		    end
-		    connection_space.pending_connections[remote_id] = [local_token, connecting_thread]
+		    call = [:connect, local_token,
+			connection_space.name,
+			connection_space.remote_id, 
+			Distributed.format(Roby::State)]
+		    send_connection_request(connection_space, neighbour, call, local_token, &block)
 		end
 		nil
+	    end
+
+	    def self.send_connection_request(connection_space, neighbour, call, local_token, &block)
+		remote_id = neighbour.remote_id
+		token, connecting_thread = connection_space.pending_connections[remote_id]
+		if token
+		    # we are already connecting to the peer, check the connection token
+		    peer = begin
+			       connection_space.mutex.unlock
+			       connection_thread.value
+			   ensure
+			       connection_space.mutex.lock
+			   end
+
+		    if token < local_token
+			if !peer
+			    raise "something went wrong during connection: got nil peer with better token"
+			end
+			return peer
+		    end
+		end
+
+		connecting_thread = Thread.new do
+		    Thread.current.abort_on_exception = false
+
+		    socket = TCPSocket.new(remote_id.uri, remote_id.ref)
+		    socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
+		    Distributed.debug "#{call[0]}: #{neighbour} on #{socket.peer_info}"
+
+		    # Send the connection request
+		    call = Marshal.dump(call)
+		    socket.write [call.size].pack("N")
+		    socket.write call
+
+		    reply_size = socket.read(4)
+		    if !reply_size
+			raise "peer disconnected"
+		    end
+		    reply = Marshal.load(socket.read(*reply_size.unpack("N")))
+
+		    connection_space.synchronize do
+			connection_space.pending_connections.delete(remote_id)
+			m = reply.shift
+			Roby::Distributed.debug "remote peer #{m}"
+			
+			# if the remote peer is also connecting, and if its
+			# token is better than our own, m will be nil and thus
+			# the thread will finish without doing anything
+
+			case m
+			when :connected
+			    peer = new(connection_space, socket, *reply, &block)
+			when :reconnected
+			    peer = connection_space.peers[remote_id]
+			    peer.reconnected(socket)
+			when :aborted
+			    connection_space.peers[remote_id].disconnected!
+			end
+		    end
+		end
+		connection_space.pending_connections[remote_id] = [local_token, connecting_thread]
 	    end
 
 	    # Create a Peer object for a connection attempt on the server
@@ -109,26 +133,59 @@ module Roby
 		    # Now check the connection status
 		    if old_peer = connection_space.aborted_connections.delete(remote_id)
 			reply = [:aborted]
-		    elsif peer = connection_space.peers[remote_id]
+		    elsif m == :connect && peer = connection_space.peers[remote_id]
 			reply = [:already_connected]
 		    else
 			token, connecting_thread = connection_space.pending_connections[remote_id]
 			if token && token < remote_token
 			    reply = [:already_connecting]
 			else
-			    connecting_thread.join if connecting_thread
-			    new(connection_space, socket, remote_name, remote_id, remote_state)
+			    if connecting_thread
+				begin
+				    connection_space.mutex.unlock
+				    connecting_thread.join
+				ensure
+				    connection_space.mutex.lock
+				end
+			    end
 
-			    reply = [:connect, connection_space.name,
-				connection_space.remote_id, 
-				Distributed.format(Roby::State)]
+			    # now check if we are connecting or reconnecting
+			    if m == :reconnect
+				peer = connection_space.peers[remote_id]
+				peer.reconnected(socket)
+				reply = [:reconnected]
+			    else
+				new(connection_space, socket, remote_name, remote_id, remote_state)
+
+				reply = [:connected, connection_space.name,
+				    connection_space.remote_id, 
+				    Distributed.format(Roby::State)]
+			    end
 			end
 		    end
 
+		    Distributed.debug "connection attempt from #{socket}: #{reply[0]}"
 		    reply = Marshal.dump(reply)
 		    socket.write [reply.size].pack("N")
 		    socket.write reply
 		end
+	    end
+	    
+	    # Reconnect to the given peer after the socket closed
+	    def reconnect
+		local_token = ConnectionToken.new
+
+		connection_space.synchronize do
+		    call = [:reconnect, local_token, connection_space.name, connection_space.remote_id]
+		    Peer.send_connection_request(connection_space, self, call, local_token)
+		end
+	    end
+
+	    # Called when we managed to reconnect to our peer. +socket+ is the new communication socket
+	    def reconnected(socket)
+		Roby::Distributed.debug "new socket for #{self}: #{socket.peer_info}"
+		connection_space.pending_sockets << [socket, self]
+		@socket = socket
 	    end
 
 	    # Normal disconnection procedure. 
@@ -228,7 +285,7 @@ module Roby
 
 	    # Checks if the connection is currently alive
 	    def link_alive?
-		return false if @dead || @disabled_rx > 0
+		return false if socket.closed? || @dead || @disabled_rx > 0
 		return false unless !remote_id || connection_space.neighbours.find { |n| n.remote_id == remote_id }
 		true
 	    end

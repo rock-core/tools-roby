@@ -98,6 +98,8 @@ module Roby
 	    #
 	    # See Peer.connection_request, Peer.initiate_connection and Peer#reconnect
 	    attr_reader :aborted_connections
+	    # The set of peers for which we have lost the link
+	    attr_reader :pending_reconnections
 	    # The period at which we do discovery
 	    attr_reader :discovery_period
 	    # The discovery thread
@@ -158,6 +160,7 @@ module Roby
 		@pending_sockets = Queue.new
 		@pending_connections = Hash.new
 		@aborted_connections = Hash.new
+		@pending_reconnections = Array.new
 
 		@mutex		      = Mutex.new
 		@start_discovery      = ConditionVariable.new
@@ -268,11 +271,12 @@ module Roby
 
 				    if p.connected?
 					Roby::Distributed.info "lost connection with #{p}"
+					p.reconnect
+					sockets.delete socket
 				    elsif p.disconnecting?
 					Roby::Distributed.info "#{p} disconnected"
 					p.disconnected
 				    end
-				    Roby::Distributed.debug p.connection_state
 				end
 			    end
 
