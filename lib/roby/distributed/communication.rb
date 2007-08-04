@@ -108,7 +108,12 @@ module Roby
 			    peer = connection_space.peers[remote_id]
 			    peer.reconnected(socket)
 			when :aborted
-			    connection_space.peers[remote_id].disconnected!
+			    begin
+				connection_space.mutex.unlock
+				connection_space.peers[remote_id].disconnected(:aborted)
+			    ensure
+				connection_space.mutex.lock
+			    end
 			end
 		    end
 		end
@@ -261,6 +266,9 @@ module Roby
 
 	    # Call to disconnect outside of the normal protocol.
 	    def disconnected!
+		connection_space.synchronize do
+		    connection_space.aborted_connections[remote_id] = self
+		end
 		disconnected(:aborted)
 	    end
 

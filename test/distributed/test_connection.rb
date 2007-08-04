@@ -164,7 +164,6 @@ class TC_DistributedConnection < Test::Unit::TestCase
     end
 
     def test_socket_reconnect
-	Roby::Distributed.logger.level = Logger::DEBUG
 	peer2peer(true)
 	Distributed.state.synchronize do
 	    remote_peer.socket.close
@@ -177,6 +176,17 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert(remote_peer.link_alive?)
 	assert(remote.send_local_peer(:connected?))
 	assert(remote.send_local_peer(:link_alive?))
+    end
+
+    def test_abort_connection
+	Roby.logger.level = Logger::DEBUG
+	peer2peer(true)
+	remote_peer.disconnected!
+
+	sleep(1)
+	assert(remote_peer.socket.closed?)
+	assert(!remote_peer.connected?)
+	assert(!remote.send_local_peer(:connected?))
     end
 end
 
