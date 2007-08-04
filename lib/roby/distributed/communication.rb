@@ -27,7 +27,7 @@ module Roby
 	    end
 
 	    # A value indicating the current status of the connection. It can
-	    # be one of :connecting, :connected, :disconnecting, :disconnected
+	    # be one of :connected, :disconnecting, :disconnected
 	    attr_reader :connection_state
 
 	    # Start connecting to +neighbour+. We create a socket and create a
@@ -131,21 +131,6 @@ module Roby
 		end
 	    end
 
-	    # Initializes the connection attempt by queueing a 'connected'
-	    # message for our remote peer. The peer is supposed to send its
-	    # current state back to us, at which point we can assume the
-	    # connection is up
-	    def connect
-		Roby::Distributed.info "connecting to #{remote_name}"
-		transmit(:connect, connection_space.name, connection_space.remote_id, Roby::State) do |remote_name, remote_id, remote_state|
-		    raise "state is #{@connection_state}, not connecting" unless connecting?
-
-		    connected(remote_name, remote_id, remote_state)
-		    Roby::Control.once { task.emit(:ready) }
-		    Roby::Distributed.info "connected to #{self}"
-		end
-	    end
-
 	    # Normal disconnection procedure. 
 	    #
 	    # The procedure is as follows:
@@ -222,8 +207,6 @@ module Roby
 		disconnected(:aborted)
 	    end
 
-	    # Returns true if we are establishing a connection with this peer
-	    def connecting?; connection_state == :connecting end
 	    # Returns true if the connection has been established. See also #link_alive?
 	    def connected?; connection_state == :connected end
 	    # Returns true if the we disconnected on our side but the peer did not

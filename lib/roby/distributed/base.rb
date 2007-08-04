@@ -316,7 +316,7 @@ module Roby
 	    peer_server = peer.local_server
 	    peer_server.processing = true
 
-	    if !(peer.connecting? || peer.connected?)
+	    if !peer.connected?
 		return
 	    end
 
@@ -347,7 +347,7 @@ module Roby
 				 end
 			     end
 
-		    if !(peer.connecting? || peer.connected?)
+		    if !peer.connected?
 			return
 		    end
 		    result
