@@ -276,8 +276,9 @@ module Roby
 	    attr_reader :removed_objects
 	end
 
-	@cycles_rx = Queue.new
-	@pending_cycles  = Array.new
+	@cycles_rx             = Queue.new
+	@pending_cycles        = Array.new
+	@pending_remote_events = Array.new
 
 	class << self
 	    # The queue of cycles read by ConnectionSpace#receive and not processed
@@ -287,8 +288,18 @@ module Roby
 	    #
 	    # This variable must be accessed only in the control thread
 	    attr_reader :pending_cycles
+
+	    # The set of events for which we have been notified remotely. These
+	    # will be emitted by Distributed.process_remote_events at the
+	    # beginning of the next cycle 
+	    attr_reader :pending_remote_events
 	end
 
+	# Extract data received so far from our peers and replays it if
+	# possible. Data can be ignored if RX is disabled with this peer
+	# (through Peer#disable_rx), or delayed if there is event propagation
+	# involved. In that last case, the remaining events will be played at
+	# the beginning of the next execution cycl 
 	def self.process_pending(timeout)
 	    ignored_pending = []
 	    while timeout > Time.now && (!pending_cycles.empty? || !cycles_rx.empty?)
@@ -302,14 +313,26 @@ module Roby
 		    next
 		end
 
-		process_cycle(peer, calls)
+		if remaining = process_cycle(peer, calls, false)
+		    ignored_pending.unshift [peer, remaining]
+		end
 	    end
 
 	ensure
 	    @pending_cycles.concat(ignored_pending)
 	end
 
-	def self.process_cycle(peer, calls)
+	# Adds to the propagation all the events for which we have been
+	# notified during the last call to Distributed.process_pending
+	def self.process_remote_events
+	    for peer, remote_events in pending_remote_events
+		process_cycle(peer, remote_events, true) 
+	    end
+	    pending_remote_events.clear
+	end
+
+	EXECUTION_CALL = [:event_fired, :event_add_propagation]
+	def self.process_cycle(peer, calls, allow_execution)
 	    from = Time.now
 	    calls_size = calls.size
 
@@ -322,6 +345,13 @@ module Roby
 
 	    while call_spec = calls.shift
 		return unless call_spec
+
+		if EXECUTION_CALL.include?(call_spec[1]) && !allow_execution
+		    calls.unshift(call_spec)
+		    seeds, remaining = calls.partition { |spec| EXECUTION_CALL.include?(spec[1]) }
+		    pending_remote_events << [peer, seeds]
+		    return remaining
+		end
 
 		is_callback, method, args, critical = *call_spec
 		Distributed.debug do 
