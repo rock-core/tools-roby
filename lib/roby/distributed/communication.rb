@@ -293,7 +293,7 @@ module Roby
 
 	    # Checks if the connection is currently alive
 	    def link_alive?
-		return false if socket.closed? || @dead || @disabled_rx > 0
+		return false if socket.closed? || @dead || @disabled_tx > 0
 		return false unless !remote_id || connection_space.neighbours.find { |n| n.remote_id == remote_id }
 		true
 	    end
