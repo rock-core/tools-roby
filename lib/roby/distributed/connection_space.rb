@@ -251,17 +251,20 @@ module Roby
 			    
 			    if read
 				for socket in read
-				    if socket.closed? || socket.eof?
+				    begin
+					if socket.closed? || socket.eof?
+					    raise IOError
+					end
+
+					p = sockets[socket]
+
+					id, size = socket.read(8).unpack("NN")
+					data     = socket.read(size)
+					p.stats.rx += (size + 8)
+					Roby::Distributed.cycles_rx << [p, Marshal.load(data)]
+				    rescue IOError
 					errors << socket
-					next
 				    end
-
-				    p = sockets[socket]
-
-				    id, size = socket.read(8).unpack("NN")
-				    data     = socket.read(size)
-				    p.stats.rx += (size + 8)
-				    Roby::Distributed.cycles_rx << [p, Marshal.load(data)]
 				end
 			    end
 
