@@ -100,6 +100,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	    Peer.initiate_connection(local, remote_neighbour) do |did_yield|
 	    end
 	    assert_equal(remote_peer, did_yield)
+	    assert_equal(remote_peer, Peer.connect(remote_neighbour))
 	end
 
 	Roby.control.wait_one_cycle
@@ -121,8 +122,23 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	end
     end
 
+    def test_synchronous_connect
+	start_peers(true) do |remote|
+	    def remote.connected?
+		local_peer.connected?
+	    end
+	end
+
+	sleep(0.5)
+	assert(remote_neighbour = Distributed.neighbours.find { true })
+	assert(remote_peer = Peer.connect(remote_neighbour))
+
+	assert_kind_of(Distributed::Peer, remote_peer)
+	assert(remote.connected?)
+	assert(remote_peer.connected?)
+    end
+
     def test_concurrent_connection
-	Roby.logger.level = Logger::DEBUG
 	start_peers(true) do |remote|
 	    class << remote
 		def find_neighbour

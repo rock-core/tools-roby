@@ -57,20 +57,17 @@ module Roby
 		    peer = nil
 		    mutex.synchronize do
 			thread = initiate_connection(Distributed.state, neighbour) do |peer|
-			    mutex.synchronize do
-				cv.broadcast
-			    end
+			    return peer unless thread
 			end
 
-			result = begin
-				     mutex.unlock
-				     thread.value
-				 rescue Exception => e
-				     raise ConnectionFailed.new(neighbour), e.message
-				 ensure
-				     mutex.lock
-				 end
-
+			begin
+			    mutex.unlock
+			    thread.value
+			rescue Exception => e
+			    raise ConnectionFailed.new(neighbour), e.message
+			ensure
+			    mutex.lock
+			end
 		    end
 		end
 	    end
