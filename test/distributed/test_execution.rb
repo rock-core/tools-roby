@@ -233,7 +233,6 @@ class TC_DistributedExecution < Test::Unit::TestCase
     # Tests that running remote tasks are aborted and pending tasks GCed if the
     # connection is killed
     def test_disconnect_kills_tasks
-	Roby.logger.level = Logger::DEBUG
 	peer2peer(true) do |remote|
 	    remote.plan.insert(task = SimpleTask.new(:id => 'remote-1'))
 	    def remote.start(task)

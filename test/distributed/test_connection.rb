@@ -179,7 +179,6 @@ class TC_DistributedConnection < Test::Unit::TestCase
     end
 
     def test_abort_connection
-	Roby.logger.level = Logger::DEBUG
 	peer2peer(true)
 	remote_peer.disconnected!
 
