@@ -249,7 +249,6 @@ module Roby::Distributed
 	    local_server.state_update remote_state
 
 	    @task = ConnectionTask.new :peer => self
-	    task.on(:ready) { yield(self) } if block_given?
 	    Roby::Control.once do
 		connection_space.plan.permanent(task)
 		task.start!

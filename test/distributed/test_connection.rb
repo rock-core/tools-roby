@@ -73,7 +73,10 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	# Initiate the connection from +local+
 	remote_neighbour = Distributed.neighbours.find { true }
 	Roby.execute do
-	    Peer.initiate_connection(local, remote_neighbour)
+	    did_yield = nil
+	    Peer.initiate_connection(local, remote_neighbour) do |did_yield|
+	    end
+
 	    # Wait for the remote peer to take into account the fact that we
 	    # try connecting
 	    Distributed.state.synchronize do
@@ -86,12 +89,17 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	    Distributed.state.synchronize do
 		remote_id = remote_neighbour.remote_id
 		assert(@remote_peer = Distributed.state.peers[remote_id], Distributed.state.peers)
+		assert_equal(remote_peer, did_yield)
 	    end
-
 	    assert(remote_peer.connected?)
 	    assert(remote.send_local_peer(:connected?))
 	    assert(remote_peer.link_alive?)
 	    assert(remote.send_local_peer(:link_alive?))
+
+	    did_yield = nil
+	    Peer.initiate_connection(local, remote_neighbour) do |did_yield|
+	    end
+	    assert_equal(remote_peer, did_yield)
 	end
 
 	Roby.control.wait_one_cycle
@@ -111,6 +119,49 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	    assert_equal(1, notified.size)
 	    assert_equal([remote_neighbour], notified)
 	end
+    end
+
+    def test_concurrent_connection
+	Roby.logger.level = Logger::DEBUG
+	start_peers(true) do |remote|
+	    class << remote
+		def find_neighbour
+		    @neighbour = Roby::Distributed.neighbours.find { true }
+		end
+		def connect
+		    Roby::Distributed::Peer.initiate_connection(Roby::Distributed.state, @neighbour) do 
+			@callback_called ||= 0
+			@callback_called += 1
+		    end
+		    nil
+		end
+
+		attr_reader :callback_called
+		def peer_objects
+		    ObjectSpace.enum_for(:each_object, Roby::Distributed::Peer).to_a.size
+		end
+	    end
+	end
+
+	sleep(0.5)
+	assert(remote.find_neighbour)
+	assert(remote_neighbour = Distributed.neighbours.find { true })
+
+	remote.connect
+	remote.connect
+
+	callback_called = 0
+	2.times do
+	    Peer.initiate_connection(local, remote_neighbour) do
+		callback_called += 1
+	    end
+	end
+	sleep(1)
+
+	assert_equal(2, callback_called)
+	assert_equal(2, remote.callback_called)
+	assert_equal(1, remote.peer_objects)
+	assert_equal(1, ObjectSpace.enum_for(:each_object, Distributed::Peer).to_a.size)
     end
 
     # Test the normal disconnection process

@@ -4,6 +4,25 @@ module Roby
 
 	end
 
+
+	# == Connection procedure
+	#
+	# When the user calls Peer.initiate_connection, the following happens:
+	# [local] 
+	#   if the neighbour is already connected to us, we do nothing and yield
+	#   the already existing peer. End.
+	# [local]
+	#   check if we are already connecting to the peer. If it is the case,
+	#   wait for the end of the connection thread.
+	# [local] 
+	#   otherwise, open a new socket and send the connect() message in it
+	#   The connection thread is registered in ConnectionSpace.pending_connections
+	# [remote] 
+	#   check if we are already connecting to the peer (check ConnectionSpace.pending_connections)
+	#   * if it is the case, the lowest token wins
+	#   * if 'remote' wins, return :already_connecting
+	#   * if 'local' wins, return :connected with the relevant information
+	#
 	class Peer
 	    class << self
 		private :new
@@ -30,38 +49,68 @@ module Roby
 	    # be one of :connected, :disconnecting, :disconnected
 	    attr_reader :connection_state
 
-	    # Start connecting to +neighbour+. We create a socket and create a
-	    # Peer object for this neighbour. Then, we call Peer#connect so
-	    # that the Peer object queues a #connect call for the remote peer.
-	    #
-	    # The connection is done when the remote peer returns us a
-	    # completion message for this connect message
-	    def self.initiate_connection(connection_space, neighbour, &block)
-		local_token = ConnectionToken.new
 
+	    # Connect to +neighbour+ and return the corresponding peer. It is a
+	    # blocking method, so it is an error to call it from within the control thread
+	    def self.connect(neighbour)
+		Roby.condition_variable(true) do |cv, mutex|
+		    peer = nil
+		    mutex.synchronize do
+			thread = initiate_connection(Distributed.state, neighbour) do |peer|
+			    mutex.synchronize do
+				cv.broadcast
+			    end
+			end
+
+			result = begin
+				     mutex.unlock
+				     thread.value
+				 rescue Exception => e
+				     raise ConnectionFailed.new(neighbour), e.message
+				 ensure
+				     mutex.lock
+				 end
+
+		    end
+		end
+	    end
+	    
+	    # Start connecting to +neighbour+ in an another thread and yield
+	    # the corresponding Peer object. This is safe to call if we have
+	    # already connected to +neighbour+, in which case the already
+	    # existing peer is returned.
+	    #
+	    # The Peer object is yield from within the control thread, only
+	    # when the :ready event of the peer's ConnectionTask has been
+	    # emitted
+	    #
+	    # Returns the connection thread
+	    def self.initiate_connection(connection_space, neighbour, &block)
 		connection_space.synchronize do
 		    if peer = connection_space.peers[neighbour.remote_id]
 			# already connected
-			return peer
+			yield(peer) if block_given?
+			return
 		    end
 
+		    local_token = ConnectionToken.new
 		    call = [:connect, local_token,
 			connection_space.name,
 			connection_space.remote_id, 
 			Distributed.format(Roby::State)]
 		    send_connection_request(connection_space, neighbour, call, local_token, &block)
 		end
-		nil
 	    end
 
-	    def self.send_connection_request(connection_space, neighbour, call, local_token, &block)
+	    # Generic handling of connection/reconnection initiated by this side
+	    def self.send_connection_request(connection_space, neighbour, call, local_token, &block) # :nodoc:
 		remote_id = neighbour.remote_id
 		token, connecting_thread = connection_space.pending_connections[remote_id]
 		if token
 		    # we are already connecting to the peer, check the connection token
 		    peer = begin
 			       connection_space.mutex.unlock
-			       connection_thread.value
+			       connecting_thread.value
 			   ensure
 			       connection_space.mutex.lock
 			   end
@@ -70,9 +119,11 @@ module Roby
 			if !peer
 			    raise "something went wrong during connection: got nil peer with better token"
 			end
-			return peer
+			yield(peer) if block_given?
+			return
 		    end
 		end
+
 
 		connecting_thread = Thread.new do
 		    Thread.current.abort_on_exception = false
@@ -103,7 +154,7 @@ module Roby
 
 			case m
 			when :connected
-			    peer = new(connection_space, socket, *reply, &block)
+			    peer = new(connection_space, socket, *reply)
 			when :reconnected
 			    peer = connection_space.peers[remote_id]
 			    peer.reconnected(socket)
@@ -114,10 +165,16 @@ module Roby
 			    ensure
 				connection_space.mutex.lock
 			    end
+			when :already_connecting, :already_connected
+			    peer = connection_space.peers[remote_id]
 			end
+
+			yield(peer) if peer && block_given?
+			peer
 		    end
 		end
 		connection_space.pending_connections[remote_id] = [local_token, connecting_thread]
+		connecting_thread
 	    end
 
 	    # Create a Peer object for a connection attempt on the server
@@ -143,8 +200,6 @@ module Roby
 		    else
 			token, connecting_thread = connection_space.pending_connections[remote_id]
 			if token && token < remote_token
-			    reply = [:already_connecting]
-			else
 			    if connecting_thread
 				begin
 				    connection_space.mutex.unlock
@@ -153,19 +208,16 @@ module Roby
 				    connection_space.mutex.lock
 				end
 			    end
-
-			    # now check if we are connecting or reconnecting
-			    if m == :reconnect
-				peer = connection_space.peers[remote_id]
-				peer.reconnected(socket)
-				reply = [:reconnected]
-			    else
-				new(connection_space, socket, remote_name, remote_id, remote_state)
-
-				reply = [:connected, connection_space.name,
-				    connection_space.remote_id, 
-				    Distributed.format(Roby::State)]
-			    end
+			    reply = [:already_connecting]
+			elsif m == :reconnect
+			    peer = connection_space.peers[remote_id]
+			    peer.reconnected(socket)
+			    reply = [:reconnected]
+			else
+			    peer = new(connection_space, socket, remote_name, remote_id, remote_state)
+			    reply = [:connected, connection_space.name,
+				connection_space.remote_id, 
+				Distributed.format(Roby::State)]
 			end
 		    end
 
