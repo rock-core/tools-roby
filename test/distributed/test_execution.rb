@@ -202,14 +202,12 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	assert(task.child_object?(remote_peer.task, TaskStructure::ExecutionAgent))
 	assert(task.subscribed?)
 
-	Roby::Control.synchronize do
-	    remote_peer.synchronize do
-		remote_peer.disconnected!
-	    end
+	Roby.execute do
+	    remote_peer.disconnected!
 	end
-	assert(task.subscribed?)
-	process_events
+	assert(!task.subscribed?)
 	assert(remote_peer.task.finished?)
+	assert(remote_peer.task.event(:aborted).happened?)
 	assert(remote_peer.task.event(:stop).happened?)
 	assert(task.finished?)
     end
