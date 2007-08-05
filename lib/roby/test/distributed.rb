@@ -57,13 +57,13 @@ module Roby
 
 		def enable_communication
 		    Roby::Distributed.state.synchronize do
-			local_peer.disabled = false 
+			local_peer.enable_rx
 			# make sure we wake up the communication thread
 			Roby::Distributed.state.finished_discovery.broadcast
 		    end
 		end
 		def disable_communication
-		    local_peer.disabled = true 
+		    local_peer.disable_rx
 		end
 		def flush; local_peer.flush end
 		def process_events; Roby.control.process_events end
