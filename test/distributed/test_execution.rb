@@ -21,7 +21,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		    nil
 		end
 		def fire
-		    Roby::Control.once do
+		    Roby.execute do
 			controlable.call(nil) 
 			contingent.emit(nil)
 		    end
@@ -35,12 +35,62 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	controlable = *task.event(:start).child_objects(EventStructure::Signal).to_a
 	contingent  = *task.event(:start).child_objects(EventStructure::Forwarding).to_a
 
-	remote.fire
+	FlexMock.use do |mock|
+	    controlable.on do
+		mock.fired_controlable(Roby::Propagation.gathering?)
+	    end
+	    contingent.on do
+		mock.fired_contingent(Roby::Propagation.gathering?)
+	    end
 
-	process_events
-	remote_peer.synchro_point
+	    mock.should_receive(:fired_controlable).with(true).once
+	    mock.should_receive(:fired_contingent).with(true).once
+	    remote.fire
+	    remote_peer.synchro_point
+	end
+
 	assert(controlable.happened?)
 	assert(contingent.happened?)
+    end
+
+    def test_keeps_causality
+	peer2peer(true) do |remote|
+	    class << remote
+		attr_reader :event
+		attr_reader :task
+		def create
+		    # Put the task to avoir having GC clearing the events
+		    plan.insert(@task = SimpleTask.new(:id => 'task'))
+		    plan.discover(@event = Roby::EventGenerator.new(true))
+		    task.on(:start, event)
+		    nil
+		end
+		def fire
+		    Roby.execute do
+			event.call(nil) 
+			plan.discard(task)
+		    end
+		    nil
+		end
+	    end
+	end
+
+	remote.create
+	task = subscribe_task(:id => 'task')
+	event = *task.event(:start).child_objects(EventStructure::Signal).to_a
+
+	FlexMock.use do |mock|
+	    event.on do
+		mock.fired
+		assert(plan.free_events.include?(event))
+	    end
+
+	    mock.should_receive(:fired).once
+	    remote.fire
+	    remote_peer.synchro_point
+	end
+
+	assert(event.happened?)
     end
 
     def test_task_status
