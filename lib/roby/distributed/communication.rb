@@ -301,12 +301,6 @@ module Roby
 	end
 
 	class PeerServer
-	    # Called by our peer to initialize the connection
-	    def connect(name, id, state)
-		peer.connected(name, id, state)
-		[peer.connection_space.name, peer.connection_space.remote_id, Roby::State]
-	    end
-
 	    def fatal_error(error, msg, args)
 		Distributed.fatal "remote reports #{error} while processing #{msg}(#{args.join(", ")})"
 		disconnect
