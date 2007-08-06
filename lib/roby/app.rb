@@ -347,16 +347,16 @@ module Roby
 
 	    if single? || !robot_name
 		host =~ /:(\d+)$/
-		DRb.start_service "roby://:#{$1 || '0'}", Interface.new(Roby.control)
+		DRb.start_service "druby://:#{$1 || '0'}", Interface.new(Roby.control)
 	    else
-		DRb.start_service "roby://#{host}", Interface.new(Roby.control)
+		DRb.start_service "druby://#{host}", Interface.new(Roby.control)
 		droby_config = { :ring_discovery => !!discovery['ring'],
 		    :name => robot_name, 
 		    :plan => Roby.plan, 
 		    :period => discovery['period'] || 0.5 }
 
 		if discovery['tuplespace']
-		    droby_config[:discovery_tuplespace] = DRbObject.new_with_uri("roby://#{discovery['tuplespace']}")
+		    droby_config[:discovery_tuplespace] = DRbObject.new_with_uri("druby://#{discovery['tuplespace']}")
 		end
 		Roby::Distributed.state = Roby::Distributed::ConnectionSpace.new(droby_config)
 
@@ -465,7 +465,7 @@ module Roby
 
 	    unless single? || !discovery['tuplespace']
 		ts = Rinda::TupleSpace.new
-		DRb.start_service "roby://#{discovery['tuplespace']}", ts
+		DRb.start_service "druby://#{discovery['tuplespace']}", ts
 
 		new_db  = ts.notify('write', DISCOVERY_TEMPLATE)
 		take_db = ts.notify('take', DISCOVERY_TEMPLATE)
