@@ -715,10 +715,10 @@ module Roby
 
 	rescue Interrupt
 	    Roby::Control.synchronize do
-		return if thread
+		return unless thread
 
 		Roby.logger.level = Logger::INFO
-		Roby.info "received interruption request"
+		Roby.warn "received interruption request"
 		quit
 		if @quit > 2
 		    thread.raise Interrupt, "interrupting control thread at user request"
