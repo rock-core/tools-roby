@@ -121,7 +121,7 @@ module Roby
     module LoggedPlanObject
 	attr_reader :dot_id
 
-	def dot_label(display); display_name end
+	def dot_label(display); display_name(display) end
 
 	# Adds the dot definition for this object in +io+
 	def to_dot(display, io)
