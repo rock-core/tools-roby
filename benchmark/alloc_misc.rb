@@ -38,8 +38,8 @@ def bm_block_yield(&block)
     yield
 end
 
-def bm_block(&block)
-    block.call
+def bm_block(do_call, &block)
+    block.call if do_call
 end
 
 class Test
@@ -67,7 +67,12 @@ puts "Method call with super: #{after - before}"
 before = ObjectSpace.live_objects
 bm_method_call { 10 }
 after  = ObjectSpace.live_objects
-puts "Method call with block: #{after - before}"
+puts "Method call with block m(): #{after - before}"
+
+before = ObjectSpace.live_objects
+bm_block(false) { 10 }
+after  = ObjectSpace.live_objects
+puts "Method call with block m(&block): #{after - before}"
 
 before = ObjectSpace.live_objects
 bm_yield { 10 }
@@ -75,14 +80,20 @@ after  = ObjectSpace.live_objects
 puts "Yield: #{after - before}"
 
 before = ObjectSpace.live_objects
+bm_block(true) { 10 }
+after  = ObjectSpace.live_objects
+puts "Block & #call: #{after - before}"
+
+before = ObjectSpace.live_objects
 bm_block_yield { 10 }
 after  = ObjectSpace.live_objects
 puts "Block and yield: #{after - before}"
 
+p = Proc.new { 10 }
 before = ObjectSpace.live_objects
-bm_block { 10 }
+p.call
 after  = ObjectSpace.live_objects
-puts "Block: #{after - before}"
+puts "Proc#call: #{after - before}"
 
 puts "\n=== Exceptions"
 def bm_exception
