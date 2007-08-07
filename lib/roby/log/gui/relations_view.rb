@@ -9,6 +9,24 @@ class Ui::RelationsView
 	@display = relations_display
 	super(relations_display.main)
 
+	show_ownership.connect(SIGNAL(:released)) do
+	    relations_display.show_ownership = show_ownership.checked?
+	    relations_display.update
+	end
+
+	removed_prefixes_menu = Qt::Menu.new(relations_display.main)
+	removed_prefixes.set_menu removed_prefixes_menu
+	relations_display.removed_prefixes.each do |prefix, bool|
+	    action = Qt::Action.new prefix, removed_prefixes_menu
+	    action.checkable = true
+	    action.checked = bool
+	    action.connect(SIGNAL('changed()')) do 
+		relations_display.removed_prefixes[prefix] = action.checked?
+		relations_display.update
+	    end
+	    removed_prefixes_menu.add_action action
+	end
+
 	graphics.singleton_class.class_eval do
 	    define_method(:contextMenuEvent) do |event|
 		item = itemAt(event.pos)
@@ -90,6 +108,7 @@ class Ui::RelationsView
 	    if path = Qt::FileDialog.get_save_file_name(nil, "SVG Export")
 		svg = Qt::SvgGenerator.new
 		svg.file_name = path
+		svg.size = Qt::Size.new(Integer(scene.width * 0.8), Integer(scene.height * 0.8))
 		painter = Qt::Painter.new
 		painter.begin(svg)
 		scene.render(painter)

@@ -8,18 +8,19 @@ require 'roby/log/gui/relations_view'
 module Roby
     class PlanObject::DRoby
 	def display_parent; end
-	def display_create(scene); end
+	def display_create(display); end
 	def display_events; ValueSet.new end
-	def display_name; remote_name end
+	def display_name(display); remote_name end
 	def display(display, graphics_item)
 	end
     end
 
     module EventGeneratorDisplay
-	def display_create(scene)
+	def display_create(display)
+	    scene = display.scene
 	    circle_rect = Qt::RectF.new -Log::EVENT_CIRCLE_RADIUS, -Log::EVENT_CIRCLE_RADIUS, Log::EVENT_CIRCLE_RADIUS * 2, Log::EVENT_CIRCLE_RADIUS * 2
 	    circle = scene.add_ellipse(circle_rect)
-	    text   = scene.add_text(display_name)
+	    text   = scene.add_text(display_name(display))
 	    circle.brush = Qt::Brush.new(Qt::Color.new(Log::EVENT_COLOR))
 	    circle.singleton_class.class_eval { attr_accessor :text }
 	    circle.z_value = Log::PLAN_LAYER + 2
@@ -35,23 +36,19 @@ module Roby
     class EventGenerator::DRoby
 	include EventGeneratorDisplay
 
-	def display_name
-	    unless @display_name
-		model_name = model.ancestors.first.first
-		model_name = model_name.gsub /Generator$/, ''
-		model_name = model_name.gsub /^Roby::Genom::/, ''
-		model_name = model_name.gsub /^Roby::/, ''
-		@display_name = "#{model_name}\n#{remote_siblings_to_s}\n#{owners_to_s}"
+	def display_name(display)
+	    name = display.filter_prefixes(model.ancestors[0][0].dup)
+	    if display.show_ownership
+		name << "\n#{owners_to_s}"
 	    end
-
-	    @display_name
+	    name
 	end
     end
 
     class TaskEventGenerator::DRoby
 	include EventGeneratorDisplay
 	def display_parent; task end
-	def display_name; @display_name ||= symbol.to_s end
+	def display_name(display); symbol.to_s end
 
 	def display(display, graphics_item)
 	end
@@ -92,14 +89,16 @@ module Roby
 		@width, @height = width, height
 		coords = Qt::RectF.new -(width / 2), -(height / 2), width, height
 		graphics_item.rect = coords
-		text = graphics_item.text
-		text.pos = Qt::PointF.new(- text.bounding_rect.width / 2, height / 2 + Log::TASK_EVENT_SPACING)
 	    end
+
+	    text = graphics_item.text
+	    text.pos = Qt::PointF.new(- text.bounding_rect.width / 2, height / 2 + Log::TASK_EVENT_SPACING)
 	end
 
-	def display_create(scene)
+	def display_create(display)
+	    scene = display.scene
 	    rect = scene.add_rect Qt::RectF.new(0, 0, 0, 0)
-	    text = scene.add_text display_name
+	    text = scene.add_text display_name(display)
 	    rect.brush = Qt::Brush.new(Log::TASK_BRUSH_COLORS[:pending])
 	    rect.pen   = Qt::Pen.new(Log::TASK_PEN_COLORS[:pending])
 	    @displayed_state = :pending
@@ -115,13 +114,12 @@ module Roby
 
     class Task::DRoby
 	include LoggedTask
-	def display_name
-	    unless @display_name
-		model_name = model.ancestors[0][0]
-		@display_name = "#{model_name}\n#{owners_to_s}"
+	def display_name(display)
+	    name = display.filter_prefixes(model.ancestors[0][0].dup)
+	    if display.show_ownership
+		name << "\n#{owners_to_s}"
 	    end
-
-	    @display_name
+	    name
 	end
 
 	def display(display, graphics_item)
@@ -139,6 +137,8 @@ module Roby
 		@displayed_state = new_state
 	    end
 
+	    graphics_item.text.plain_text = display_name(display).to_s
+
 	    super
 	    layout_events(display)
 	end
@@ -151,8 +151,9 @@ module Roby
 	def flags; real_object.flags end
 
 	def display_parent; end
-	def display_name; "tProxy(#{real_object.display_name})" end
-	def display_create(scene)
+	def display_name(display); "tProxy of #{real_object.display_name(display)}" end
+	def display_create(display)
+	    scene = display.scene
 	    item = super
 
 	    brush = item.brush
@@ -172,7 +173,8 @@ module Roby
 	# The max depth of the plan tree in this branch
 	attr_reader :max_depth
 
-	def display_create(scene)
+	def display_create(display)
+	    scene = display.scene
 	    pen            = Qt::Pen.new
 	    pen.width      = PLAN_STROKE_WIDTH
 	    pen.style      = Qt::SolidLine
@@ -335,14 +337,29 @@ module Roby
 	    # A pool of arrows items used to display the event signalling
 	    attr_reader :signal_arrows
 
+	    # A regex => boolean map of prefixes that should be removed from
+	    # the task names
+	    attr_reader :removed_prefixes
+
+	    def filter_prefixes(string)
+		# @prefixes_removal is computed in RelationsDisplay#update
+		for prefix in @prefixes_removal
+		    string = string.gsub(prefix, '')
+		end
+		string
+	    end
+
+	    # If true, show the ownership in the task descriptions
+	    attr_accessor :show_ownership
+	    # If true, show the arguments in the task descriptions
+	    attr_accessor :show_arguments
+
 	    def initialize
 		@scene  = Qt::GraphicsScene.new
 		super()
 
 		@main   = Qt::Widget.new
 		@ui     = Ui::RelationsView.new
-		ui.setupUi(self)
-		ui.graphics.scene = scene
 		
 		@graphics          = Hash.new
 		@visible_objects   = ValueSet.new
@@ -353,10 +370,20 @@ module Roby
 		@relation_colors   = Hash.new
 		@current_color     = 0
 
+		@removed_prefixes = { 
+		    "Roby::" => false, 
+		    "Roby::Genom::" => false
+		}
+		@show_ownership = true
+		@show_arguments = false
+
 		@signalled_events  = []
 		@pending_events    = ValueSet.new
 		@postponed_events  = []
 		@signal_arrows     = []
+
+		ui.setupUi(self)
+		ui.graphics.scene = scene
 
 		@shortcuts = []
 		shortcut = Qt::Shortcut.new(Qt::KeySequence.new('f'), main)
@@ -416,9 +443,9 @@ module Roby
 
 		# Get the tasks and events matching the string
 		objects = decoder.tasks.keys.
-		    find_all { |object| displayed?(object) && regex === object.display_name }
+		    find_all { |object| displayed?(object) && regex === object.display_name(self) }
 		objects.concat decoder.events.keys.
-		    find_all { |object| displayed?(object) && regex === object.display_name }
+		    find_all { |object| displayed?(object) && regex === object.display_name(self) }
 
 		return if objects.empty?
 
@@ -581,7 +608,7 @@ module Roby
 
 	    def create_or_get_item(object)
 		unless item = graphics[object]
-		    item = graphics[object] = object.display_create(scene)
+		    item = graphics[object] = object.display_create(self)
 		    if item
 			item.flags = item.flags + Qt::ItemIsSelectable
 			yield(item) if block_given?
@@ -629,6 +656,14 @@ module Roby
 
 	    def update
 		return unless decoder
+
+		# Compute the prefixes to remove from in filter_prefixes:
+		# enable only the ones that are flagged, and sort them by
+		# prefix length
+		@prefixes_removal = removed_prefixes.find_all { |p, b| b }.
+		    map { |p, b| p }.
+		    sort_by { |p| p.length }.
+		    reverse
 
 		clear_flashing_objects
 
