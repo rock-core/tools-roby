@@ -23,7 +23,7 @@ module Roby
 	    text   = scene.add_text(display_name(display))
 	    circle.brush = Qt::Brush.new(Qt::Color.new(Log::EVENT_COLOR))
 	    circle.singleton_class.class_eval { attr_accessor :text }
-	    circle.z_value = Log::PLAN_LAYER + 2
+	    circle.z_value = Log::EVENT_LAYER
 
 	    text.parent_item = circle
 	    text_width   = text.bounding_rect.width
@@ -105,7 +105,7 @@ module Roby
 	    text.parent_item = rect
 	    rect.singleton_class.class_eval { attr_accessor :text }
 	    rect.text = text
-	    rect.z_value = Log::PLAN_LAYER + 1
+	    rect.z_value = Log::TASK_LAYER
 
 	    rect.set_data(0, Qt::Variant.new(self.object_id))
 	    rect
@@ -218,21 +218,25 @@ module Roby
 	EVENT_FONTSIZE = 8
 
 	PLAN_LAYER             = 0
-	TASK_RELATIONS_LAYER   = PLAN_LAYER + 50
-	EVENT_RELATIONS_LAYER  = PLAN_LAYER + 51
-	EVENT_SIGNALLING_LAYER = PLAN_LAYER + 52
+	TASK_LAYER	       = PLAN_LAYER + 20
+	EVENT_LAYER	       = PLAN_LAYER + 30
 
 	FIND_MARGIN = 10
 
 	class Qt::GraphicsScene
-	    def add_arrow(size)
+	    attr_reader :default_arrow_pen
+	    attr_reader :default_arrow_brush
+	    def add_arrow(size, pen = nil, brush = nil)
+		@default_arrow_pen   ||= Qt::Pen.new(ARROW_COLOR)
+		@default_arrow_brush ||= Qt::Brush.new(ARROW_COLOR)
+
 		polygon = Qt::PolygonF.new [
 			       Qt::PointF.new(0, 0),
 			       Qt::PointF.new(-size, size / 2),
 			       Qt::PointF.new(-size, -size / 2),
 			       Qt::PointF.new(0, 0)]
 
-		ending = add_polygon polygon, Qt::Pen.new(ARROW_COLOR), Qt::Brush.new(ARROW_COLOR)
+		ending = add_polygon polygon, (pen || default_arrow_pen), (brush || default_arrow_brush)
 		line   = add_line    Qt::LineF.new(-1, 0, 0, 0)
 
 		line.parent_item = ending
@@ -354,12 +358,20 @@ module Roby
 	    # If true, show the arguments in the task descriptions
 	    attr_accessor :show_arguments
 
+
+	    attr_reader :signal_pen
+	    attr_reader :forward_pen
+
 	    def initialize
 		@scene  = Qt::GraphicsScene.new
 		super()
 
-		@main   = Qt::Widget.new
+		@main   = Qt::MainWindow.new
 		@ui     = Ui::RelationsView.new
+
+		@signal_pen  = Qt::Pen.new
+		@forward_pen = Qt::Pen.new
+		forward_pen.dash_pattern = [5.0, 5.0]
 		
 		@graphics          = Hash.new
 		@visible_objects   = ValueSet.new
@@ -368,6 +380,8 @@ module Roby
 		@enabled_relations = Set.new
 		@layout_relations  = Set.new
 		@relation_colors   = Hash.new
+		@relation_pens     = Hash.new(Qt::Pen.new(Qt::Color.new(ARROW_COLOR)))
+		@relation_brushes  = Hash.new(Qt::Brush.new(Qt::Color.new(ARROW_COLOR)))
 		@current_color     = 0
 
 		@removed_prefixes = { 
@@ -410,6 +424,7 @@ module Roby
 		# Get a PlanRebuilder object tied to data_stream
 		@decoder = data_stream.decoder(PlanRebuilder)
 		decoder.displays << self
+		ui.load_config
 
 		# Initialize the display ...
 		decoder.plans.each_key do |plan|
@@ -420,14 +435,21 @@ module Roby
 	    end
 
 	    def [](item); graphics[item] end
-	    def arrow(from, to, rel, info)
+	    def task_relation(from, to, rel, info)
+		arrow(from, to, rel, info, TASK_LAYER)
+	    end
+	    def event_relation(form, to, rel, info)
+		arrow(from, to, rel, info, EVENT_LAYER)
+	    end
+
+	    def arrow(from, to, rel, info, base_layer)
 		id = [from, to, rel]
 		unless item = arrows[id]
 		    item = (arrows[id] ||= scene.add_arrow(ARROW_SIZE))
-		    item.z_value = EVENT_RELATIONS_LAYER
-		    color = Qt::Color.new(relation_color(rel))
-		    item.pen = item.line.pen = Qt::Pen.new(color)
-		    item.brush = Qt::Brush.new(color)
+		    item.z_value      = base_layer + 1
+		    item.line.z_value = base_layer - 1
+		    item.pen   = item.line.pen = relation_pens[rel]
+		    item.brush = relation_brushes[rel]
 		end
 		Log.arrow_set item, self[from], self[to]
 	    end
@@ -518,14 +540,19 @@ module Roby
 	    end
 
 	    attr_reader :relation_colors
+	    attr_reader :relation_pens
+	    attr_reader :relation_brushes
 	    def relation_color(relation)
-		relation_colors[relation] ||= allocate_color
+		if !relation_colors.has_key?(relation)
+		    update_relation_color(relation, allocate_color)
+		end
+		relation_colors[relation]
 	    end
 	    def update_relation_color(relation, color)
 		relation_colors[relation] = color
 		color = Qt::Color.new(color)
-		pen   = Qt::Pen.new(color)
-		brush = Qt::Brush.new(color)
+		pen   = relation_pens[relation]    = Qt::Pen.new(color)
+		brush = relation_brushes[relation] = Qt::Brush.new(color)
 		arrows.each do |(_, _, rel), arrow|
 		    if rel == relation
 			arrow.pen = arrow.line.pen = pen
@@ -743,7 +770,8 @@ module Roby
 		signalled_events.each_with_index do |(forward, from, to, event_id), signal_arrow_idx|
 		    unless arrow = signal_arrows[signal_arrow_idx]
 			arrow = signal_arrows[signal_arrow_idx] = scene.add_arrow(ARROW_SIZE)
-			arrow.z_value = EVENT_SIGNALLING_LAYER
+			arrow.z_value      = EVENT_LAYER + 1
+			arrow.line.z_value = EVENT_LAYER - 1
 		    end
 
 		    # It is possible that the objects have been removed in the
@@ -754,9 +782,14 @@ module Roby
 			next
 		    end
 		    puts from if !self[from]
-		    puts to if !self[to]
+		    puts to   if !self[to]
 
 		    arrow.visible = true
+		    if forward
+			arrow.line.pen = forward_pen
+		    else
+			arrow.line.pen = signal_pen
+		    end
 		    Log.arrow_set(arrow, self[from], self[to])
 		end
 		# ... and hide the remaining arrows that are not used anymore

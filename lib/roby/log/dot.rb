@@ -74,7 +74,7 @@ module Roby
 
 	def layout_relations(positions, display, space, objects)
 	    each_displayed_relation(display, space, objects) do |rel, from, to|
-		display.arrow(from, to, rel, from[to, rel])
+		display.task_relation(from, to, rel, from[to, rel])
 	    end
 	end
 

@@ -68,7 +68,7 @@ module Roby::Log
 	    if dec = decoders.find { |d| d.kind_of?(klass) }
 		dec
 	    else
-		decoders << (dec = klass.new)
+		decoders << (dec = klass.new(name))
 		added_decoder(dec)
 		dec
 	    end
@@ -112,8 +112,12 @@ module Roby::Log
     class DataDecoder
 	# The set of displays attached to this decoder
 	attr_reader :displays
+	attr_reader :name
 
-	def initialize; @displays = [] end
+	def initialize(name)
+	    @name = name
+	    @displays = [] 
+	end
 
 	def clear
 	    displays.each { |d| d.clear }

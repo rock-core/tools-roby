@@ -156,12 +156,13 @@ module Roby
 	    attr_reader :plans
 	    attr_reader :tasks
 	    attr_reader :events
+	    attr_reader :time
 
-	    def initialize
+	    def initialize(name)
 		@plans  = Hash.new { |h, k| h[k] = Set.new }
 		@tasks  = Hash.new { |h, k| h[k] = Set.new }
 		@events = Hash.new { |h, k| h[k] = Set.new }
-		super
+		super(name)
 	    end
 
 	    def clear
@@ -172,6 +173,7 @@ module Roby
 		plans.clear
 		tasks.clear
 		events.clear
+		@time = nil
 	    end
 
 	    def rewind
@@ -204,6 +206,10 @@ module Roby
 			Roby.warn "Ignored #{m}(#{args.join(", ")}): #{reason}"
 		    end
 		end
+	    end
+
+	    def cycle_end(time, stats)
+		@time = stats[:end]
 	    end
 
 	    def local_object(set, object)
