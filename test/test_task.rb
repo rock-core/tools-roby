@@ -48,7 +48,7 @@ class TC_Task < Test::Unit::TestCase
 		end
 	    end
 	    plan.insert(task = model.new)
-	    mock.should_receive(:start).once.with(task, 42)
+	    mock.should_receive(:start).once.with(task, [42])
 	    task.start!(42)
 	end
     end
@@ -65,7 +65,7 @@ class TC_Task < Test::Unit::TestCase
 		event(:start)
 	    end
 	    plan.insert(task = model.new)
-	    mock.should_receive(:start).once.with(task, 42)
+	    mock.should_receive(:start).once.with(task, [42])
 	    task.start!(42)
 	end
     end
@@ -79,12 +79,12 @@ class TC_Task < Test::Unit::TestCase
 	plan.insert(task = SimpleTask.new)
 	FlexMock.use do |mock|
 	    task.on(:start)   { |event| mock.started(event.context) }
-	    task.on(:start)   { |event| task.emit(:success, event.context) }
+	    task.on(:start)   { |event| task.emit(:success, *event.context) }
 	    task.on(:success) { |event| mock.success(event.context) }
 	    task.on(:stop)    { |event| mock.stopped(event.context) }
-	    mock.should_receive(:started).once.with(42).ordered
-	    mock.should_receive(:success).once.with(42).ordered
-	    mock.should_receive(:stopped).once.with(42).ordered
+	    mock.should_receive(:started).once.with([42]).ordered
+	    mock.should_receive(:success).once.with([42]).ordered
+	    mock.should_receive(:stopped).once.with([42]).ordered
 	    task.start!(42)
 	end
         assert(task.finished?)
@@ -311,14 +311,30 @@ class TC_Task < Test::Unit::TestCase
     def test_context_propagation
 	FlexMock.use do |mock|
 	    model = Class.new(SimpleTask) do
-		on(:start) { |event| mock.started(event.context) }
+		event :start do |context|
+		    mock.starting(context)
+		    event(:start).emit(*context)
+		end
+		on(:start) do |event| 
+		    mock.started(event.context)
+		end
+
+
+		event :pass_through, :command => true
+		on(:pass_through) do |event|
+		    mock.pass_through(event.context)
+		end
+
 		on(:stop)  { |event| mock.stopped(event.context) }
 	    end
 	    plan.insert(task = model.new)
 
-	    mock.should_receive(:started).with(42).once
-	    mock.should_receive(:stopped).with(21).once
+	    mock.should_receive(:starting).with([42]).once
+	    mock.should_receive(:started).with([42]).once
+	    mock.should_receive(:pass_through).with([10]).once
+	    mock.should_receive(:stopped).with([21]).once
 	    task.start!(42)
+	    task.pass_through!(10)
 	    task.emit(:stop, 21)
 	    assert(task.finished?)
 	end
@@ -445,8 +461,8 @@ class TC_Task < Test::Unit::TestCase
 	task = model.new
 
 	assert(!task.executable?)
-	assert_raises(EventNotExecutable) { task.start!(nil) }
-	assert_raises(EventNotExecutable) { task.event(:start).call(nil) }
+	assert_raises(EventNotExecutable) { task.start! }
+	assert_raises(EventNotExecutable) { task.event(:start).call }
 
 	plan.discover(task)
 	assert(task.executable?)
@@ -664,6 +680,7 @@ class TC_Task < Test::Unit::TestCase
     def test_achieve_with
 	slave  = SimpleTask.new
 	master = Class.new(Task) do
+	    terminates
 	    event :start do
 		event(:start).achieve_with slave
 	    end

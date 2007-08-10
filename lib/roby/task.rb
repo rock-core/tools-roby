@@ -698,14 +698,14 @@ module Roby
         attr_reader :bound_events
 
         # call-seq:
-        #   emit(event_model, context)                       event object
+        #   emit(event_model, *context)                       event object
         #
         # Emits +event_model+ in the given +context+. Event handlers are fired.
         # This is equivalent to
-        #   event(event_model).emit(context)
+        #   event(event_model).emit(*context)
         #
-        def emit(event_model, context = nil)
-            event(event_model).emit(context)
+        def emit(event_model, *context)
+            event(event_model).emit(*context)
             self
         end
 
@@ -856,12 +856,12 @@ module Roby
 
 		if method
 		    check_arity(method, 1)
-		    options[:command] = lambda do |t, c| 
+		    options[:command] = lambda do |dst_task, *event_context| 
 			begin
-			    t.calling_event = t.event(ev)
-			    method.bind(t).call(c) 
+			    dst_task.calling_event = dst_task.event(ev)
+			    method.bind(dst_task).call(*event_context) 
 			ensure
-			    t.calling_event = nil
+			    dst_task.calling_event = nil
 			end
 		    end
 		end
@@ -907,7 +907,7 @@ module Roby
 			define_method(:call, &command_handler)
 		    else
 			def call(task, context)
-			    task.emit(symbol, context)
+			    task.emit(symbol, *context)
 			end
 		    end
                 end
@@ -915,9 +915,8 @@ module Roby
 		# define an instance method which calls the event command
 		define_method("#{ev_s}!") do |*context| 
 		    begin
-			context = *context # emulate default value for blocks
 			generator = event(ev)
-			generator.call(context) 
+			generator.call(*context) 
 		    rescue EventNotExecutable
 			if partially_instanciated?
 			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} which is partially instanciated"

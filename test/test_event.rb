@@ -16,12 +16,12 @@ class TC_Event < Test::Unit::TestCase
 
 	# Check command & emission behavior for controlable events
 	FlexMock.use do |mock|
-	    plan.discover(event = EventGenerator.new { |context| mock.call_handler(context); event.emit(context) })
+	    plan.discover(event = EventGenerator.new { |context| mock.call_handler(context); event.emit(*context) })
 	    event.on { |event| mock.event_handler(event.context) }
 
 	    assert(event.controlable?)
-	    mock.should_receive(:call_handler).once.with(42)
-	    mock.should_receive(:event_handler).once.with(42)
+	    mock.should_receive(:call_handler).once.with([42])
+	    mock.should_receive(:event_handler).once.with([42])
 	    event.call(42)
 	end
 
@@ -29,7 +29,7 @@ class TC_Event < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    event = EventGenerator.new
 	    event.on { |event| mock.event(event.context) }
-	    mock.should_receive(:event).once.with(42)
+	    mock.should_receive(:event).once.with([42])
 	    event.emit(42)
 	end
     end
@@ -401,17 +401,48 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_context_propagation
-	e1, e2 = (1..2).map { EventGenerator.new(true) }.
-	    each { |e| plan.discover(e) }
-	e1.on e2
-	
 	FlexMock.use do |mock|
+	    e1 = EventGenerator.new { |context| mock.e1_cmd(context); e1.emit(*context) }
+	    e2 = EventGenerator.new { |context| mock.e2_cmd(context); e2.emit(*context) }
+	    e1.on e2
 	    e1.on { |event| mock.e1(event.context) }
 	    e2.on { |event| mock.e2(event.context) }
+	    plan.discover([e1, e2])
 
-	    mock.should_receive(:e1).with(mock).once
-	    mock.should_receive(:e2).with(mock).once
+	    mock.should_receive(:e1_cmd).with([mock]).once
+	    mock.should_receive(:e2_cmd).with([mock]).once
+	    mock.should_receive(:e1).with([mock]).once
+	    mock.should_receive(:e2).with([mock]).once
 	    e1.call(mock)
+	end
+
+	FlexMock.use do |mock|
+	    pass_through = EventGenerator.new(true)
+	    e2 = EventGenerator.new { |context| mock.e2_cmd(context); e2.emit(*context) }
+	    pass_through.on e2
+	    pass_through.on { |event| mock.e1(event.context) }
+	    e2.on { |event| mock.e2(event.context) }
+	    plan.discover([pass_through, e2])
+
+	    mock.should_receive(:e2_cmd).with([mock]).once
+	    mock.should_receive(:e1).with([mock]).once
+	    mock.should_receive(:e2).with([mock]).once
+	    pass_through.call(mock)
+	end
+
+	FlexMock.use do |mock|
+	    e1 = EventGenerator.new { |context| mock.e1_cmd(context); e1.emit(*context) }
+	    e2 = EventGenerator.new { |context| mock.e2_cmd(context); e2.emit(*context) }
+	    e1.on e2
+	    e1.on { |event| mock.e1(event.context) }
+	    e2.on { |event| mock.e2(event.context) }
+	    plan.discover([e1, e2])
+
+	    mock.should_receive(:e1_cmd).with(nil).once
+	    mock.should_receive(:e2_cmd).with(nil).once
+	    mock.should_receive(:e1).with(nil).once
+	    mock.should_receive(:e2).with(nil).once
+	    e1.call
 	end
     end
 
@@ -457,8 +488,8 @@ class TC_Event < Test::Unit::TestCase
     def test_command
 	FlexMock.use do |mock|
 	    ev = EventGenerator.new do |context|
-		ev.emit(context)
-		mock.called(context)
+		ev.emit(*context)
+		mock.called(*context)
 	    end
 	    plan.discover(ev)
 
@@ -508,17 +539,18 @@ class TC_Event < Test::Unit::TestCase
 	    each { |e| plan.discover(e) }
 
 	FlexMock.use do |mock|
-	    ev1.filter { |v| v*2 }.on ev_block
+	    ev1.filter { |v| mock.filtering(v); v*2 }.on ev_block
 	    ev_block.on { |ev| mock.block_filter(ev.context) }
 
 	    ev1.filter(42).on ev_value
 	    ev_value.on { |ev| mock.value_filter(ev.context) }
 
-	    ev1.filter(nil).on ev_nil
+	    ev1.filter.on ev_nil
 	    ev_nil.on { |ev| mock.nil_filter(ev.context) }
 
-	    mock.should_receive(:block_filter).with(42).once
-	    mock.should_receive(:value_filter).with(42).once
+	    mock.should_receive(:filtering).with(21).once
+	    mock.should_receive(:block_filter).with([ 42 ]).once
+	    mock.should_receive(:value_filter).with([42]).once
 	    mock.should_receive(:nil_filter).with(nil).once
 	    ev1.call(21)
 	end
