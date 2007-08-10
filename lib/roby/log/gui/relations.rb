@@ -140,7 +140,7 @@ module Ui
     end
 
     class LayoutMethodModel < Qt::AbstractListModel
-	METHODS    = ["Auto", "dot [LR]", "dot [TB]", "circo", "neato", "twopi"]
+	METHODS    = ["Auto", "dot [rankdir=LR]", "dot [rankdir=TB]", "circo", "neato [overlap=false]", "neato [overlap=false,mode=hier]", "twopi", "fdp"]
 	attr_reader :display, :combo
 	def initialize(display, combo)
 	    super()

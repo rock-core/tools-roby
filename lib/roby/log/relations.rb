@@ -564,21 +564,26 @@ module Roby
 	    def layout_method=(new_method)
 		return if new_method == @layout_method
 
+		@layout_method  = nil
+		@layout_options = nil
 		if new_method
-		    new_method =~ /^(\w+)(?: \[(\w+)\])?$/
+		    new_method =~ /^(\w+)(?: \[(.*)\])?$/
 		    @layout_method    = $1
-		    @layout_direction = $2
-		else
-		    @layout_method    = nil
-		    @layout_direction = nil
+		    if $2
+			@layout_options = $2.split(",").inject(Hash.new) do |h, v|
+			    k, v = v.split("=")
+			    h[k] = v
+			    h
+			end
+		    end
 		end
 		display
 	    end
-	    def layout_direction
-		return @layout_direction if @layout_direction
+	    def layout_options
+		return @layout_options if @layout_options
 		if enabled_event_relations? && !enabled_task_relations?
-		    "LR"
-		else "TB"
+		    { :rankdir => 'LR' }
+		else { :rankdir => 'TB' }
 		end
 	    end
 	    def layout_method
@@ -589,11 +594,7 @@ module Roby
 		end
 	    end
 	    def layout_scale
-		if layout_method == 'neato'
-		    4
-		else
-		    1
-		end
+		1
 	    end
 
 	    def displayed?(object)

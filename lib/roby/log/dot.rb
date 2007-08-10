@@ -189,8 +189,9 @@ module Roby
 		dot_output = Tempfile.new("roby_layout")
 
 		dot_input << "digraph relations {\n"
-		dot_input << "  rankdir=#{display.layout_direction};\n"
-
+		display.layout_options.each do |k, v|
+		    dot_input << "  #{k}=#{v};\n"
+		end
 		plan.to_dot(display, self, 0)
 
 		# Take the signalling into account for the layout
