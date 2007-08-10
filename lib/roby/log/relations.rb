@@ -809,10 +809,6 @@ module Roby
 	    def remove_graphics(item, scene = nil)
 		return unless item
 		scene ||= item.scene
-		#puts "#{item} #{scene}"
-		#item.children.each do |child|
-		#    remove_graphics(child, scene)
-		#end
 		scene.remove_item(item) if scene
 	    end
 
