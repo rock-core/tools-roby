@@ -419,7 +419,7 @@ module Roby
 	    if block_given?
 		obj.add_causal_link self
 		obj.on do |context|
-		    self.emit(*yield(context))
+		    self.emit(yield(context))
 		end
 	    else
 		obj.forward self

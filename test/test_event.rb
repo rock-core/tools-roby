@@ -592,22 +592,34 @@ class TC_Event < Test::Unit::TestCase
 	end
 	plan.discover([master, slave])
 
-	master.achieve_with slave
-	master.call(nil)
+	master.call
 	assert(!master.happened?)
-	slave.emit(nil)
+	slave.emit
 	assert(master.happened?)
 
+	# Test what happens if the slave fails
 	slave  = EventGenerator.new
 	master = EventGenerator.new do
 	    master.achieve_with slave
 	end
 	plan.discover([master, slave])
 
-	master.achieve_with slave
-	master.call(nil)
+	master.call
 	assert(!master.happened?)
 	assert_raises(EventModelViolation) { plan.remove_object(slave) }
+
+	# Now test the filtering case (when a block is given)
+	slave  = EventGenerator.new
+	master = EventGenerator.new do
+	    master.achieve_with(slave) { [21, 42] }
+	end
+	plan.discover([master, slave])
+
+	master.call
+	slave.emit
+	assert(master.happened?)
+	assert_equal(nil,  slave.history[0].context)
+	assert_equal([[21, 42]], master.history[0].context)
     end
 
     def test_if_unreachable
