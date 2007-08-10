@@ -119,7 +119,7 @@ module Roby
 
 	    def connect(remote)
 		synchronize do
-		    queue = Distributed::CommunicationQueue.new
+		    queue = Queue.new
 		    receiver_thread = pushing_loop(remote, queue)
 		    connections[remote] = [queue, receiver_thread]
 
@@ -178,7 +178,10 @@ module Roby
 		Thread.new do
 		    begin
 			loop do
-			    calls = queue.get(false)
+			    calls = []
+			    while !queue.empty?
+				calls << queue.pop
+			    end
 			    remote.demux(calls)
 			    if calls.find { |m, _| m == :quit }
 				break
