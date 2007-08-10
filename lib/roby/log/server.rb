@@ -103,9 +103,7 @@ module Roby
 
 	    attr_reader :polling_timeout
 
-	    attr_predicate :take_over
-
-	    def initialize(take_over = false, port = RING_PORT, polling_timeout = POLLING_TIMEOUT)
+	    def initialize(port = RING_PORT, polling_timeout = POLLING_TIMEOUT)
 		@ring_server = Distributed::RingServer.new(DRbObject.new(self), :port => port)
 		@mutex   = Mutex.new
 		@streams = Array.new
@@ -113,7 +111,6 @@ module Roby
 		@subscriptions = Hash.new { |h, k| h[k] = Set.new }
 		@polling_timeout = polling_timeout
 		@polling = Thread.new(&method(:polling))
-		@take_over = take_over
 	    end
 
 	    def synchronize
