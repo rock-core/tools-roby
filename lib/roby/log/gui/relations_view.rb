@@ -89,7 +89,7 @@ class Ui::RelationsView
 	    define_method(:contextMenuEvent) do |event|
 		item = itemAt(event.pos)
 		if item
-		    unless obj = display.object_of(item)
+		    unless obj = relations_display.object_of(item)
 			return super(event)
 		    end
 		end
@@ -104,18 +104,18 @@ class Ui::RelationsView
 
 		case action.text
 		when "Hide"
-		    display.set_visibility(obj, false)
+		    relations_display.set_visibility(obj, false)
 		when "Hide children"
 		    for child in Roby::TaskStructure.children_of(obj)
-			display.set_visibility(child, false)
+			relations_display.set_visibility(child, false)
 		    end
 		when "Show children"
 		    for child in Roby::TaskStructure.children_of(obj)
-			display.set_visibility(child, true)
+			relations_display.set_visibility(child, true)
 		    end
 		end
 
-		display.update
+		relations_display.update
 	    end
 	end
 
