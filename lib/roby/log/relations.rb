@@ -638,7 +638,7 @@ module Roby
 		unless item = graphics[object]
 		    item = graphics[object] = object.display_create(self)
 		    if item
-			item.flags = item.flags + Qt::ItemIsSelectable
+			item.parent_item = self[object.display_parent] if object.display_parent
 			yield(item) if block_given?
 
 			if !displayed?(object) 
@@ -664,9 +664,7 @@ module Roby
 		    flashing_objects[object] ||= nil
 		end
 
-		if item = graphics[object]
-		    item.visible = true
-		end
+		create_or_get_item(object)
 	    end
 	    def clear_flashing_objects
 		(flashing_objects.keys.to_value_set - visible_objects).each do |object|
@@ -715,9 +713,7 @@ module Roby
 		# update their visibility according to the visible_objects set
 		[all_tasks, all_events, decoder.plans.keys].each do |object_set|
 		    object_set.each do |object|
-			create_or_get_item(object) do |item|
-			    item.parent_item = self[object.display_parent] if object.display_parent
-			end
+			create_or_get_item(object) if displayed?(object)
 		    end
 		end
 
