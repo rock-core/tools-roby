@@ -17,17 +17,17 @@ module Roby
 
     module EventGeneratorDisplay
 	def display_create(display)
+	    @@default_event_brush ||= Qt::Brush.new(Qt::Color.new(Log::EVENT_COLOR))
 	    scene = display.scene
-	    circle_rect = Qt::RectF.new -Log::EVENT_CIRCLE_RADIUS, -Log::EVENT_CIRCLE_RADIUS, Log::EVENT_CIRCLE_RADIUS * 2, Log::EVENT_CIRCLE_RADIUS * 2
-	    circle = scene.add_ellipse(circle_rect)
+	    circle = scene.add_ellipse(-Log::EVENT_CIRCLE_RADIUS, -Log::EVENT_CIRCLE_RADIUS, Log::EVENT_CIRCLE_RADIUS * 2, Log::EVENT_CIRCLE_RADIUS * 2)
 	    text   = scene.add_text(display_name(display))
-	    circle.brush = Qt::Brush.new(Qt::Color.new(Log::EVENT_COLOR))
+	    circle.brush = @@default_event_brush
 	    circle.singleton_class.class_eval { attr_accessor :text }
 	    circle.z_value = Log::EVENT_LAYER
 
 	    text.parent_item = circle
 	    text_width   = text.bounding_rect.width
-	    text.pos = Qt::PointF.new(-text_width / 2, 0)
+	    text.set_pos(-text_width / 2, 0)
 	    circle.text = text
 	    circle
 	end
@@ -78,7 +78,7 @@ module Roby
 	    x = -width  / 2 + Log::TASK_EVENT_SPACING
 	    events.each do |e, br|
 		w  = br.width
-		e.pos = Qt::PointF.new(x + w / 2, -br.height / 2 + Log::EVENT_CIRCLE_RADIUS + Log::TASK_EVENT_SPACING)
+		e.set_pos(x + w / 2, -br.height / 2 + Log::EVENT_CIRCLE_RADIUS + Log::TASK_EVENT_SPACING)
 		x += w + Log::TASK_EVENT_SPACING
 	    end
 
@@ -92,7 +92,7 @@ module Roby
 	    end
 
 	    text = graphics_item.text
-	    text.pos = Qt::PointF.new(- text.bounding_rect.width / 2, height / 2 + Log::TASK_EVENT_SPACING)
+	    text.set_pos(- text.bounding_rect.width / 2, height / 2 + Log::TASK_EVENT_SPACING)
 	end
 
 	def display_create(display)
@@ -230,14 +230,16 @@ module Roby
 		@default_arrow_pen   ||= Qt::Pen.new(ARROW_COLOR)
 		@default_arrow_brush ||= Qt::Brush.new(ARROW_COLOR)
 
-		polygon = Qt::PolygonF.new [
-			       Qt::PointF.new(0, 0),
-			       Qt::PointF.new(-size, size / 2),
-			       Qt::PointF.new(-size, -size / 2),
-			       Qt::PointF.new(0, 0)]
+		@arrow_points ||= (1..4).map { Qt::PointF.new(0, 0) }
+		@arrow_points[1].x = -size
+		@arrow_points[1].y = size / 2
+		@arrow_points[2].x = -size
+		@arrow_points[2].y = -size / 2
+		polygon = Qt::PolygonF.new(@arrow_points)
+		@arrow_line ||=   Qt::LineF.new(-1, 0, 0, 0)
 
 		ending = add_polygon polygon, (pen || default_arrow_pen), (brush || default_arrow_brush)
-		line   = add_line    Qt::LineF.new(-1, 0, 0, 0)
+		line   = add_line @arrow_line
 
 		line.parent_item = ending
 		ending.singleton_class.class_eval { attr_accessor :line }
@@ -299,8 +301,6 @@ module Roby
 	    arrow.line.set_line(-length, 0, 0, 0)
 	    arrow.translate to[0], to[1]
 	    arrow.rotate(alpha * 180 / Math::PI)
-	
-	    br = arrow.line.scene_bounding_rect
 	end
 
 	class RelationsDisplay < Qt::Object
