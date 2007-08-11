@@ -186,6 +186,7 @@ class Replay < Qt::MainWindow
     slots 'play_step_timer()'
     
     def play_until(max_time)
+	start_at = Time.now
 	displayed_streams.inject(timeline = []) do |timeline, s| 
 	    if s.next_time
 		timeline << [s.next_time, s]
@@ -214,9 +215,13 @@ class Replay < Qt::MainWindow
 	    end
 	end
 
+	replayed = Time.now
+
 	updated_streams.each do |stream|
 	    stream.display
 	end
+
+	STDERR.puts "replay #{replayed - start_at}, display #{Time.now-replayed}"
 
 	if timeline.empty? then stop
 	else @time = max_time
