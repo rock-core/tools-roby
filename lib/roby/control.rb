@@ -465,6 +465,10 @@ module Roby
 	# control_gc::	if true, automatic garbage collection is disabled but
 	#		GC.start is called at each event cycle
 	def run(options = {})
+	    if running?
+		raise "there is already a control running in thread #{@thread}"
+	    end
+
 	    options = validate_options options, 
 		:drb => nil, :cycle => 0.1, :detach => false, 
 		:control_gc => false
