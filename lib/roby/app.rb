@@ -384,7 +384,7 @@ module Roby
 	end
 
 	def run(&block)
-	    robot_name ||= 'common'
+	    self.robot_name ||= 'common'
 
 	    control_config = self.control
 	    control = Roby.control
