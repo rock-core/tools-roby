@@ -914,11 +914,17 @@ module Roby
 		    begin
 			generator = event(ev)
 			generator.call(*context) 
-		    rescue EventNotExecutable
+		    rescue EventNotExecutable => e
 			if partially_instanciated?
 			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} which is partially instanciated"
+			elsif !plan
+			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} but the task is in no plan"
+			elsif !plan.executable?
+			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} but the plan is not executable"
+			elsif abstract?
+			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} but the task is abstract"
 			else
-			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} which is not executable"
+			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} which is not executable: #{e.message}"
 			end
 		    end
 		end
