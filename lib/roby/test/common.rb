@@ -272,7 +272,10 @@ module Roby
 	def stop_remote_processes
 	    remote_processes.reverse.each do |pid, quit_w|
 		quit_w.write('OK') 
-		Process.waitpid(pid)
+		begin
+		    Process.waitpid(pid)
+		rescue Errno::ECHILD
+		end
 	    end
 	    remote_processes.clear
 	end
