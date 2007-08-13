@@ -165,23 +165,6 @@ module Roby::Log
 	end
 
 
-	def self.replay(io)
-	    method_name = nil
-	    loop do
-		method_name = Marshal.load(io)
-		method_args = Marshal.load(io)
-		yield(method_name, method_args)
-	    end
-
-	rescue EOFError
-	rescue
-	    if method_name
-		Roby::Log.warn "handling of #{method_name} failed with: #{$!.full_message}"
-	    else
-		raise
-	    end
-	end
-
 	def self.log_format(input)
 	    input.rewind
 	    format = begin
