@@ -630,6 +630,8 @@ module Roby
 			end
 		    end
 		end
+
+		item.visible = displayed?(object)
 		item
 	    end
 
