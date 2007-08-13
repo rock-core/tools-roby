@@ -669,6 +669,11 @@ module Roby
 	    def update
 		return unless decoder
 
+		if keep_signals
+		    @execution_events = @last_execution_events.concat(execution_events)
+		    @signalled_events.concat @last_signalled_events
+		end
+
 		# Compute the prefixes to remove from in filter_prefixes:
 		# enable only the ones that are flagged, and sort them by
 		# prefix length
@@ -708,7 +713,9 @@ module Roby
 		    EventGeneratorDisplay.priorities[object] = index
 		    next if object.respond_to?(:task) && !displayed?(object.task)
 
+		    STDERR.puts object if keep_signals
 		    graphics = if flashing_objects.has_key?(object)
+				   STDERR.puts "ALREADY"
 				   graphics[object]
 			       else
 				   add_flashing_object(object)
@@ -797,10 +804,10 @@ module Roby
 		    end
 		end
 
-		unless keep_signals
-		    signalled_events.clear
-		    execution_events.delete_if { |fired, ev| fired }
-		end
+		@last_signalled_events, @signalled_events = signalled_events, Array.new
+		@last_execution_events, @execution_events = 
+		    execution_events.partition { |fired, ev| fired }
+
 		postponed_events.clear
 	    end
 
