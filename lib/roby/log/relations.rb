@@ -16,12 +16,18 @@ module Roby
     end
 
     module EventGeneratorDisplay
+	def self.default_pending_brush
+	    @@default_pending_brush ||= Qt::Brush.new(Qt::Color.new(Log::PENDING_EVENT_COLOR))
+	end
+	def self.default_fired_brush
+	    @@default_fired_brush ||= Qt::Brush.new(Qt::Color.new(Log::FIRED_EVENT_COLOR))
+	end
+
 	def display_create(display)
-	    @@default_event_brush ||= Qt::Brush.new(Qt::Color.new(Log::EVENT_COLOR))
 	    scene = display.scene
 	    circle = scene.add_ellipse(-Log::EVENT_CIRCLE_RADIUS, -Log::EVENT_CIRCLE_RADIUS, Log::EVENT_CIRCLE_RADIUS * 2, Log::EVENT_CIRCLE_RADIUS * 2)
 	    text   = scene.add_text(display_name(display))
-	    circle.brush = @@default_event_brush
+	    circle.brush = EventGeneratorDisplay.default_pending_brush
 	    circle.singleton_class.class_eval { attr_accessor :text }
 	    circle.z_value = Log::EVENT_LAYER
 
@@ -214,7 +220,8 @@ module Roby
 	TASK_NAME_COLOR = 'black'
 	TASK_FONTSIZE = 10
 
-	EVENT_COLOR    = 'black' # default color for events
+	PENDING_EVENT_COLOR    = 'black' # default color for events
+	FIRED_EVENT_COLOR      = 'red'
 	EVENT_FONTSIZE = 8
 
 	PLAN_LAYER             = 0
@@ -333,6 +340,10 @@ module Roby
 	    # fired. This is actually the list of their remote_object
 	    attr_reader :pending_events
 
+	    # The set of events fired in the current execution cycle.
+	    # This is a list of remote_object
+	    attr_reader :fired_events
+
 	    # The set of postponed events that have occured since the last call
 	    # to #update. Each element is [postponed_generator,
 	    # until_generator]
@@ -393,7 +404,8 @@ module Roby
 
 		@signalled_events  = []
 		@pending_events    = ValueSet.new
-		@postponed_events  = []
+		@fired_events      = ValueSet.new
+		@postponed_events  = ValueSet.new
 		@signal_arrows     = []
 
 		ui.setupUi(self)
@@ -622,7 +634,8 @@ module Roby
 		pending_events << local_event(generator)
 	    end
 	    def generator_fired(time, generator, event_id, event_time, event_context)
-		pending_events.delete(local_event(generator))
+		pending_events.delete(event = local_event(generator))
+		fired_events << event
 	    end
 	    def generator_postponed(time, generator, context, until_generator, reason)
 		postponed_events << [local_event(generator), local_event(until_generator)]
@@ -717,6 +730,22 @@ module Roby
 		    end
 		end
 
+		fired_events.each do |object|
+		    next if object.respond_to?(:task) && !displayed?(object.task)
+		    next if flashing_objects.has_key?(object)
+
+		    graphics = add_flashing_object(object) { fired_events.include?(object) }
+		    graphics.brush = EventGeneratorDisplay.default_fired_brush
+		end
+		
+		pending_events.each do |object|
+		    next if object.respond_to?(:task) && !displayed?(object.task)
+		    next if flashing_objects.has_key?(object)
+
+		    graphics = add_flashing_object(object) { pending_events.include?(object) }
+		    graphics.brush = EventGeneratorDisplay.default_pending_brush
+		end
+
 		signalled_events.each do |_, from, to, _|
 		    if from.respond_to?(:task) 
 			next if !displayed?(from.task)
@@ -731,13 +760,6 @@ module Roby
 
 		    add_flashing_object from
 		    add_flashing_object to
-		end
-		
-		pending_events.each do |object|
-		    next if object.respond_to?(:task) && !displayed?(object.task)
-		    next if flashing_objects.has_key?(object)
-
-		    add_flashing_object(object) { pending_events.include?(object) }
 		end
 
 
@@ -798,6 +820,7 @@ module Roby
 
 		unless keep_signals
 		    signalled_events.clear
+		    fired_events.clear
 		end
 		postponed_events.clear
 	    end
@@ -862,6 +885,7 @@ module Roby
 		flashing_objects.clear
 		signalled_events.clear
 		pending_events.clear
+		fired_events.clear
 		postponed_events.clear
 
 		scene.update(scene.scene_rect)
