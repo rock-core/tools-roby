@@ -16,11 +16,15 @@ module Roby
     end
 
     module EventGeneratorDisplay
-	def self.default_pending_brush
+	def self.pending_style
 	    @@default_pending_brush ||= Qt::Brush.new(Qt::Color.new(Log::PENDING_EVENT_COLOR))
+	    @@default_pending_pen   ||= Qt::Pen.new(Qt::Color.new(Log::PENDING_EVENT_COLOR))
+	    [@@default_pending_brush, @@default_pending_pen]
 	end
-	def self.default_fired_brush
+	def self.fired_style
 	    @@default_fired_brush ||= Qt::Brush.new(Qt::Color.new(Log::FIRED_EVENT_COLOR))
+	    @@default_fired_pen   ||= Qt::Pen.new(Qt::Color.new(Log::FIRED_EVENT_COLOR))
+	    [@@default_fired_brush, @@default_fired_pen]
 	end
 	def self.priorities
 	    @@priorities ||= Hash.new
@@ -30,7 +34,7 @@ module Roby
 	    scene = display.scene
 	    circle = scene.add_ellipse(-Log::EVENT_CIRCLE_RADIUS, -Log::EVENT_CIRCLE_RADIUS, Log::EVENT_CIRCLE_RADIUS * 2, Log::EVENT_CIRCLE_RADIUS * 2)
 	    text   = scene.add_text(display_name(display))
-	    circle.brush = EventGeneratorDisplay.default_pending_brush
+	    circle.brush, circle.pen = EventGeneratorDisplay.pending_style
 	    circle.singleton_class.class_eval { attr_accessor :text }
 	    circle.z_value = Log::EVENT_LAYER
 
@@ -632,24 +636,6 @@ module Roby
 	    attr_predicate :enabled_task_relations?, true
 	    attr_predicate :enabled_event_relations?, true
 
-	    def generator_called(time, generator, context)
-		execution_events << [false, local_event(generator)]
-	    end
-	    def generator_fired(time, generator, event_id, event_time, event_context)
-		generator = local_event(generator)
-		execution_events.delete_if { |fired, ev| !fired && generator == ev }
-		execution_events << [true, generator]
-	    end
-	    def generator_postponed(time, generator, context, until_generator, reason)
-		postponed_events << [local_event(generator), local_event(until_generator)]
-	    end
-	    def generator_signalling(time, flag, from, to, event_id, event_time, event_context)
-		signalled_events << [flag, local_event(from), local_event(to), event_id]
-	    end
-	    def generator_forwarding(time, flag, from, to, event_id, event_time, event_context)
-		signalled_events << [flag, local_event(from), local_event(to), event_id]
-	    end
-
 	    def create_or_get_item(object)
 		unless item = graphics[object]
 		    item = graphics[object] = object.display_create(self)
@@ -734,7 +720,7 @@ module Roby
 		end
 
 		EventGeneratorDisplay.priorities.clear
-		execution_events.each_with_index do |(fired, object), index|
+		execution_events.each_with_index do |(level, object), index|
 		    EventGeneratorDisplay.priorities[object] = index
 		    next if object.respond_to?(:task) && !displayed?(object.task)
 
@@ -744,11 +730,15 @@ module Roby
 				   add_flashing_object(object)
 			       end
 
-		    graphics.brush = if fired
-					 EventGeneratorDisplay.default_fired_brush
-				     else
-					 EventGeneratorDisplay.default_pending_brush
-				     end
+		    graphics.brush, graphics.pen = 
+			case level
+			when 0
+			    EventGeneratorDisplay.pending_style
+			when 1
+			    EventGeneratorDisplay.fired_style
+			when 2
+			    [EventGeneratorDisplay.fired_style[0], EventGeneratorDisplay.pending_style[1]]
+			end
 		end
 		
 		signalled_events.each do |_, from, to, _|
@@ -840,6 +830,31 @@ module Roby
 	    def local_event(obj); decoder.local_event(obj) end
 	    def local_plan(obj); decoder.local_plan(obj) end
 	    def local_object(obj); decoder.local_object(obj) end
+
+	    def generator_called(time, generator, context)
+		execution_events << [0, local_event(generator)]
+	    end
+	    def generator_fired(time, generator, event_id, event_time, event_context)
+		generator = local_event(generator)
+
+		found_pending = false
+		execution_events.delete_if do |level, ev| 
+		    if level == 0 && generator == ev
+			found_pending = true
+		    end
+		end
+		execution_events << [(found_pending ? 2 : 1), generator]
+	    end
+	    def generator_postponed(time, generator, context, until_generator, reason)
+		postponed_events << [local_event(generator), local_event(until_generator)]
+	    end
+	    def generator_signalling(time, flag, from, to, event_id, event_time, event_context)
+		signalled_events << [flag, local_event(from), local_event(to), event_id]
+	    end
+	    def generator_forwarding(time, flag, from, to, event_id, event_time, event_context)
+		signalled_events << [flag, local_event(from), local_event(to), event_id]
+	    end
+
 
 	    def removed_task_child(time, parent, rel, child)
 		remove_graphics(arrows.delete([local_task(parent), local_task(child), rel]))
