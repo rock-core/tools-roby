@@ -18,6 +18,7 @@ class TC_Subsystems < Test::Unit::TestCase
 
     def setup
 	super
+	DRb.start_service
 	State.pos = 0
 	State.services do |s|
 	    s.localization = 'test'
@@ -42,7 +43,7 @@ class TC_Subsystems < Test::Unit::TestCase
 	assert(plan.permanent?(loc))
 	assert(nav.realized_by?(loc))
 
-	assert_equal([loc], start_with)
+	assert_equal([loc.event(:start)], start_with.child_objects(EventStructure::Signal).to_a)
 
 	and_gen = loc.event(:ready).child_objects(EventStructure::Signal).to_a.first
 	assert_equal([nav.event(:start)], and_gen.child_objects(EventStructure::Signal).to_a)

@@ -42,9 +42,16 @@ module Roby
 		setup_main_planner
 		plan = Transaction.new(Roby.plan)
 
-		# Create the tasks and set them up
+		# Event which is emitted when all subsystems are properly
+		# initialized
+		ready = AndGenerator.new
+
+		# Create the one task for each subsystem. +ready+ is an event
+		# which is fired when all subsystems are properly initialized
 		planner = MainPlanner.new(plan)
-		ready   = AndGenerator.new
+
+		tasks = Array.new
+		task_objects = ValueSet.new
 		State.services.each_member do |name, value|
 		    next if name == 'tasks'
 		    new_task = begin
@@ -61,42 +68,46 @@ module Roby
 				   end
 
 		    ready << new_task.event(started_with)
+
 		    new_task.on(started_with) do
-			Robot.warn "#{name} subsystem started (#{value})"
+			Robot.info "#{name} subsystem started (#{value})"
 		    end
 		    new_task.on(:stop) do
-			Robot.warn "#{name} subsystem stopped (#{value})"
+			Robot.info "#{name} subsystem stopped (#{value})"
 		    end
+
+		    tasks << [name, value, new_task]
+		    task_objects << new_task
 		end
 
-		tasks = State.services.tasks.to_hash.values
-		start_with = []
-
-		# Add links to start the tasks in order
-		tasks.each do |task|
-		    children = task.generated_subgraph(TaskStructure::Hierarchy) & tasks.to_value_set
+		# We make sure each subsystem is started only when all the
+		# other subsystems it depends on are started and ready.
+		# +start_with+ is the event which should be called to start
+		# everything
+		starting_point = EventGenerator.new(true)
+		tasks.each do |name, type, task|
+		    children = task.generated_subgraph(TaskStructure::Hierarchy) & task_objects
 		    children.delete(task)
 
-		    if children.empty?
-			start_with << task
-			next
-		    end
-		    children.inject(ev = AndGenerator.new) do |ev, child|
-			started_with = if child.has_event?(:ready) then :ready
-				       else :start
-				       end
-			started_with = child.event(started_with)
+		    ev = if children.empty?
+			     starting_point
+			 else
+			     children.inject(AndGenerator.new) do |ev, child|
+				 started_with = if child.has_event?(:ready) then :ready
+						else :start
+						end
+				 ev << child.event(started_with)
+			     end
+			 end
 
-			ready << started_with
-			ev    << started_with
-		    end
+		    ev.on { Robot.info "starting subsystem #{name} (#{type})" }
 		    ev.on task.event(:start)
 		end
 
 		Roby.execute do
 		    plan.commit_transaction
 		end
-		[start_with, ready]
+		[starting_point, ready]
 	    end
 
 	    def self.run(config, &block)
@@ -107,12 +118,12 @@ module Roby
 
 		Robot.info "Starting subsystems ..."
 
-		start_with, ready = initialize_plan
+		starting_point, ready = initialize_plan
 		# Start the deepest tasks. The signalling order will do the rest.
 		# The 'ready' event is emitted when all the subsystem tasks are
 		Roby.wait_until(ready) do
 		    Roby.execute do
-			start_with.each { |t| t.start! }
+			starting_point.call
 		    end
 		end
 
