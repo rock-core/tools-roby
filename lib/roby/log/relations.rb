@@ -260,8 +260,8 @@ module Roby
 	end
 
 	def self.intersect_rect(w, h, from, to)
-	    to_x, to_y = to.x, to.y
-	    from_x, from_y = from.x, from.y
+	    to_x, to_y = *to
+	    from_x, from_y = *from
 
 	    # We only use half dimensions since 'to' is supposed to be be the
 	    # center of the rectangle we are intersecting
@@ -299,8 +299,9 @@ module Roby
 	    start_point = start_br.center
 	    end_point   = end_br.center
 
-	    from = intersect_rect(start_br.width, start_br.height, end_point, start_point)
-	    to   = intersect_rect(end_br.width, end_br.height, start_point, end_point)
+	    #from = intersect_rect(start_br.width, start_br.height, end_point, start_point)
+	    from = [start_point.x, start_point.y]
+	    to   = intersect_rect(end_br.width, end_br.height, from, [end_point.x, end_point.y])
 
 	    dy = to[1] - from[1]
 	    dx = to[0] - from[0]
@@ -460,8 +461,7 @@ module Roby
 		id = [from, to, rel]
 		unless item = arrows[id]
 		    item = (arrows[id] ||= scene.add_arrow(ARROW_SIZE))
-		    item.z_value      = base_layer + 1
-		    item.line.z_value = base_layer - 1
+		    item.z_value      = base_layer - 1
 		    item.pen   = item.line.pen = relation_pens[rel]
 		    item.brush = relation_brushes[rel]
 		end
