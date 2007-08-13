@@ -22,6 +22,9 @@ module Roby
 	def self.default_fired_brush
 	    @@default_fired_brush ||= Qt::Brush.new(Qt::Color.new(Log::FIRED_EVENT_COLOR))
 	end
+	def self.priorities
+	    @@priorities ||= Hash.new
+	end
 
 	def display_create(display)
 	    scene = display.scene
@@ -67,13 +70,14 @@ module Roby
 	    width, height = 0, 0
 	    events = self.events.map do |_, e| 
 		next unless display.enabled_event_relations? || display.displayed?(e)
-		next unless e = display[e]
-		br = (e.bounding_rect | e.children_bounding_rect)
-		[e, br]
+		next unless circle = display[e]
+		br = (circle.bounding_rect | circle.children_bounding_rect)
+		[e, circle, br]
 	    end
 	    events.compact!
+	    events = events.sort_by { |ev, _| EventGeneratorDisplay.priorities[ev] }
 
-	    events.each do |e, br|
+	    events.each do |_, circle, br|
 		w, h = br.width, br.height
 		height = h if h > height
 		width += w
@@ -82,9 +86,9 @@ module Roby
 	    height += Log::TASK_EVENT_SPACING
 
 	    x = -width  / 2 + Log::TASK_EVENT_SPACING
-	    events.each do |e, br|
+	    events.each do |e, circle, br|
 		w  = br.width
-		e.set_pos(x + w / 2, -br.height / 2 + Log::EVENT_CIRCLE_RADIUS + Log::TASK_EVENT_SPACING)
+		circle.set_pos(x + w / 2, -br.height / 2 + Log::EVENT_CIRCLE_RADIUS + Log::TASK_EVENT_SPACING)
 		x += w + Log::TASK_EVENT_SPACING
 	    end
 
@@ -336,13 +340,13 @@ module Roby
 	    # Each element is [flag, from, to, event_id]
 	    attr_reader :signalled_events
 
-	    # The set of event generators which have been called but not yet
-	    # fired. This is actually the list of their remote_object
-	    attr_reader :pending_events
-
-	    # The set of events fired in the current execution cycle.
-	    # This is a list of remote_object
-	    attr_reader :fired_events
+	    # The array of events for which a command has been called, or which
+	    # have been emitted. The order in this array is the arrival order
+	    # of the corresponding events.
+	    #
+	    # An array element is [fired, event], when fired is true if the
+	    # event has been fired, and false if it is pending
+	    attr_reader :execution_events
 
 	    # The set of postponed events that have occured since the last call
 	    # to #update. Each element is [postponed_generator,
@@ -368,7 +372,6 @@ module Roby
 	    attr_accessor :show_ownership
 	    # If true, show the arguments in the task descriptions
 	    attr_accessor :show_arguments
-
 
 	    attr_reader :signal_pen
 	    attr_reader :forward_pen
@@ -403,8 +406,7 @@ module Roby
 		@show_arguments = false
 
 		@signalled_events  = []
-		@pending_events    = ValueSet.new
-		@fired_events      = ValueSet.new
+		@execution_events  = []
 		@postponed_events  = ValueSet.new
 		@signal_arrows     = []
 
@@ -631,11 +633,12 @@ module Roby
 	    attr_predicate :enabled_event_relations?, true
 
 	    def generator_called(time, generator, context)
-		pending_events << local_event(generator)
+		execution_events << [false, local_event(generator)]
 	    end
 	    def generator_fired(time, generator, event_id, event_time, event_context)
-		pending_events.delete(event = local_event(generator))
-		fired_events << event
+		generator = local_event(generator)
+		execution_events.delete_if { |fired, ev| !fired && generator == ev }
+		execution_events << [true, generator]
 	    end
 	    def generator_postponed(time, generator, context, until_generator, reason)
 		postponed_events << [local_event(generator), local_event(until_generator)]
@@ -730,22 +733,24 @@ module Roby
 		    end
 		end
 
-		fired_events.each do |object|
+		EventGeneratorDisplay.priorities.clear
+		execution_events.each_with_index do |(fired, object), index|
+		    EventGeneratorDisplay.priorities[object] = index
 		    next if object.respond_to?(:task) && !displayed?(object.task)
-		    next if flashing_objects.has_key?(object)
 
-		    graphics = add_flashing_object(object) { fired_events.include?(object) }
-		    graphics.brush = EventGeneratorDisplay.default_fired_brush
+		    graphics = if flashing_objects.has_key?(object)
+				   graphics[object]
+			       else
+				   add_flashing_object(object)
+			       end
+
+		    graphics.brush = if fired
+					 EventGeneratorDisplay.default_fired_brush
+				     else
+					 EventGeneratorDisplay.default_pending_brush
+				     end
 		end
 		
-		pending_events.each do |object|
-		    next if object.respond_to?(:task) && !displayed?(object.task)
-		    next if flashing_objects.has_key?(object)
-
-		    graphics = add_flashing_object(object) { pending_events.include?(object) }
-		    graphics.brush = EventGeneratorDisplay.default_pending_brush
-		end
-
 		signalled_events.each do |_, from, to, _|
 		    if from.respond_to?(:task) 
 			next if !displayed?(from.task)
@@ -820,7 +825,7 @@ module Roby
 
 		unless keep_signals
 		    signalled_events.clear
-		    fired_events.clear
+		    execution_events.delete_if { |fired, ev| fired }
 		end
 		postponed_events.clear
 	    end
@@ -884,8 +889,7 @@ module Roby
 		visible_objects.clear
 		flashing_objects.clear
 		signalled_events.clear
-		pending_events.clear
-		fired_events.clear
+		execution_events.clear
 		postponed_events.clear
 
 		scene.update(scene.scene_rect)
