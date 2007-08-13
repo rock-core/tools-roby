@@ -158,8 +158,8 @@ class Ui::ReplayControls
 			    op = $1
 			    user_time = $2
 			end
-			user_time = Time.from_hms(user_time) - Time.at(0)
 			@last_goto = user_time
+			user_time = Time.from_hms(user_time) - Time.at(0)
 
 		    rescue ArgumentError
 			Qt::MessageBox.warning self, "Invalid user_time", "Invalid user_time: #{$!.message}"
