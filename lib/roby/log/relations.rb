@@ -73,7 +73,7 @@ module Roby
 
 	    width, height = 0, 0
 	    events = self.events.map do |_, e| 
-		next unless display.enabled_event_relations? || display.displayed?(e)
+		next unless display.displayed?(e)
 		next unless circle = display[e]
 		br = (circle.bounding_rect | circle.children_bounding_rect)
 		[e, circle, br]
@@ -529,9 +529,6 @@ module Roby
 			arrow.visible = true 
 		    end
 		end
-
-		@enabled_task_relations  ||= !!(relation.name =~ /TaskStructure/)
-		@enabled_event_relations ||= !!(relation.name =~ /EventStructure/)
 	    end
 
 	    attr_reader :enabled_relations
@@ -552,9 +549,6 @@ module Roby
 			arrow.visible = false 
 		    end
 		end
-
-		self.enabled_task_relations  = enabled_relations.find { |rel| rel.name =~ /TaskStructure/ }
-		self.enabled_event_relations = enabled_relations.find { |rel| rel.name =~ /EventStructure/ }
 	    end
 
 	    attr_reader :relation_colors
@@ -599,20 +593,11 @@ module Roby
 	    end
 	    def layout_options
 		return @layout_options if @layout_options
-		if enabled_event_relations? && !enabled_task_relations?
-		    { :rankdir => 'LR' }
-		else { :rankdir => 'TB' }
-		end
+		{ :rankdir => 'TB' }
 	    end
 	    def layout_method
 		return @layout_method if @layout_method
-		if enabled_event_relations? && enabled_task_relations?
-		    "circo"
-		else "dot"
-		end
-	    end
-	    def layout_scale
-		1
+		"dot"
 	    end
 
 	    def displayed?(object)
@@ -632,9 +617,6 @@ module Roby
 		    visible_objects.delete(object)
 		end
 	    end
-
-	    attr_predicate :enabled_task_relations?, true
-	    attr_predicate :enabled_event_relations?, true
 
 	    def create_or_get_item(object)
 		unless item = graphics[object]
@@ -862,22 +844,15 @@ module Roby
 	    def removed_event_child(time, parent, rel, child)
 		remove_graphics(arrows.delete([local_event(parent), local_event(child), rel]))
 	    end
-	    def discovered_events(time, plan, events)
-		return unless enabled_event_relations?
-		events.each { |obj| set_visibility(local_event(obj), true) }
-	    end
 	    def discovered_tasks(time, plan, tasks)
 		tasks.each do |obj| 
 		    obj.flags[:pending] = true if obj.respond_to?(:flags)
 		    task = local_task(obj)
 
 		    set_visibility(task, true)
-		    unless enabled_event_relations? 
-			# Hide the task events ...
-			task.events.each_value do |ev|
-			    if item = self[ev]
-				item.visible = false
-			    end
+		    task.events.each_value do |ev|
+			if item = self[ev]
+			    item.visible = false
 			end
 		    end
 		end
