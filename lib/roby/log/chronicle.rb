@@ -37,8 +37,31 @@ module Roby
 		@last_event_graphics = Hash.new
 		self.show_ownership = false
 
+		connect(main.horizontalScrollBar, SIGNAL('sliderReleased()'), self, SLOT('hscroll()'))
+
 		@time_scale = 100.0
 	    end
+
+	    def hscroll
+		left_side = main.mapToScene(0, 0).x
+
+		graphic_stack.each do |line|
+		    item = line.item
+		    next unless item.kind_of?(Roby::Task::DRoby)
+
+		    graphics = graphic_objects[item]
+
+		    task_x   = graphics.pos.x
+		    text_pos = graphics.text.pos
+		    text_pos.x = if task_x < left_side
+				     left_side
+				 else task_x
+				 end
+
+		    graphics.text.pos = text_pos
+		end
+	    end
+	    slots 'hscroll()'
 
 	    def time_to_display(time)
 		(time - decoder.start_time) * time_scale
@@ -57,6 +80,7 @@ module Roby
 		    g = graphic_objects[item] = item.display_create(self)
 		    class << g; attr_accessor :start_time end
 		    g.start_time = time
+		    g.rect = Qt::RectF.new(0, 0, 0, Log::DEFAULT_TASK_HEIGHT)
 		    g.move_by pos_x, 0
 		    group = create_line(item)
 		    group.add_to_group g
@@ -71,6 +95,19 @@ module Roby
 		nil
 	    end
 
+	    def stream=(stream)
+		super
+
+		# Initialize the set of running tasks
+		update_prefixes_removal
+		decoder.tasks.each_key do |task|
+		    if task.current_state == :started
+			create_or_get_task(task, decoder.time)
+		    end
+		end
+	    end
+
+
 	    def append_event(task, event)
 		index = line_of(task)
 		create_or_get_item(event, index)
@@ -78,6 +115,9 @@ module Roby
 
 	    def update
 		update_prefixes_removal
+
+		scrollbar = main.horizontalScrollBar
+		following_execution = (scrollbar.maximum == scrollbar.value)
 
 		execution_events.each do |flag, time, event|
 		    graphics = event.display_create(self)
@@ -142,6 +182,11 @@ module Roby
 				end
 		    rect.width = time_to_display(last_time) - time_to_display(task_graphics.start_time)
 		    task_graphics.rect = rect
+		end
+
+		if following_execution
+		    scrollbar.value = scrollbar.maximum
+		    hscroll
 		end
 
 		# layout lines
