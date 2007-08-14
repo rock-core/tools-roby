@@ -344,7 +344,7 @@ module Roby
 		    while !data_file.eof?
 			chunk_length = data_file.read(4).unpack("N").first
 			chunk = data_file.read(chunk_length)
-			dec.process(decode(sample))
+			dec.process(decode(chunk))
 		    end
 
 		    display
@@ -403,6 +403,7 @@ module Roby
 
 	    def init(data, &block)
 		Server.info "#{self} initializing with #{data.size} bytes of data"
+		data_file.rewind
 		data_file << [data.size].pack("N") << data
 		stream_model.init(data, &block)
 	    end
