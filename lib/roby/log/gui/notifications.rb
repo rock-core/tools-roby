@@ -8,7 +8,7 @@ module Ui
 	def setupUi(streams_model, widget)
 	    super(widget)
 
-	    display = NotificationsDisplay.new
+	    display = Roby::Log::NotificationsDisplay.new
 	    @streams_model = FilteredDataStreamListModel.new(stream, display, 'roby-events', streams_model.streams)
 	    Qt::Object.connect(stream, SIGNAL("currentIndexChanged(int)"), @streams_model, SLOT("selectedStream()"))
 	    @streams_model.source_model = streams_model
