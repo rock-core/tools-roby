@@ -7,9 +7,20 @@ require 'stringio'
 
 module Roby
     class TaskProxy < DRbObject
-	def to_s; method_missing(:to_s) end
+	attr_accessor :remote_interface
+
+	def to_s; __method_missing__(:to_s) end
 	def pretty_print(pp)
 	    pp.text to_s
+	end
+
+	alias __method_missing__ method_missing
+	def method_missing(*args, &block)
+	    if remote_interface
+		remote_interface.call(self, *args, &block)
+	    else
+		super
+	    end
 	end
     end
 
@@ -23,7 +34,9 @@ module Roby
 	end
 
 	def query_result_set(query)
-	    @interface.remote_query_result_set(Distributed.format(query))
+	    @interface.remote_query_result_set(Distributed.format(query)).each do |t|
+		t.remote_interface = self
+	    end
 	end
 	def query_each(result_set)
 	    result_set.each do |t|
