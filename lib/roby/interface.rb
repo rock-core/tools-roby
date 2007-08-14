@@ -112,7 +112,7 @@ module Roby
 
 	def call(task, m, *args)
 	    Roby.execute do
-		task.local_object.send(m, *args)
+		task.send(m, *args)
 	    end
 	end
 
