@@ -8,10 +8,10 @@ class Notifications < Roby::Log::DataDecoder
     attr_reader :tasks
 
     attr_reader :histories
-    def initialize
+    def initialize(name)
 	@tasks     = Hash.new
 	@histories = Hash.new { |h, k| h[k] = Array.new }
-	super
+	super(name)
     end
 
     def added_task(task)
