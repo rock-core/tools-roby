@@ -372,9 +372,7 @@ module Roby
 		end
 	    end
 
-	    def current_time
-		synchronize { @current_time }
-	    end
+	    attr_reader :current_time
 	    
 	    def next_time
 		synchronize do
