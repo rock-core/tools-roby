@@ -10,7 +10,12 @@ app.run do
     include Roby
     Roby.execute do
 	begin
-	    load File.join(APP_DIR, "controllers", "#{app.robot_name}.rb")
+	    controller_file = File.join(APP_DIR, "controllers", "#{app.robot_name}.rb")
+	    if File.readable?(controller_file)
+		Robot.info "loading controller file #{controller_file}"
+		load controller_file
+	    end
+	    Robot.info "done initialization"
 	rescue Interrupt
 	end
     end
