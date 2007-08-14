@@ -10,7 +10,7 @@ module Roby
 	    RING_PORT = 48904
 
 	    class << self
-		attr_reader :logger
+		attr_accessor :logger
 	    end
 	    @logger = Logger.new(STDERR)
 	    @logger.level = Logger::INFO
