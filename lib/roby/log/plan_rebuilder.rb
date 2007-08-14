@@ -183,7 +183,7 @@ module Roby
 	    end
 	    
 	    def process(data)
-		@time = stream.current_time
+		@time = data.last[1][:start]
 	        @start_time ||= @time
 
 		data.each_slice(2) do |m, args|
