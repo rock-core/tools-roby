@@ -425,7 +425,6 @@ module Roby::Genom
 		    def initialize(args)
 			@control = self.class.control_model.new(args)
 			super(control.arguments)
-			realized_by control
 		    end
 
 		    event :start do |context|
