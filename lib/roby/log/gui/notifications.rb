@@ -1,8 +1,8 @@
-require 'roby/log/gui/notifications_ui'
+require 'roby/log/gui/basic_display_ui'
 require 'roby/log/notifications'
 
 module Ui
-    class NotificationsConfig
+    class NotificationsConfig < Ui::BasicDisplayConfig
 	attr_reader :streams_model
 
 	def setupUi(streams_model, widget)

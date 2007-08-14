@@ -1,6 +1,6 @@
 <ui version="4.0" >
- <class>NotificationsConfig</class>
- <widget class="QWidget" name="NotificationsConfig" >
+ <class>BasicDisplayConfig</class>
+ <widget class="QWidget" name="BasicDisplayConfig" >
   <property name="geometry" >
    <rect>
     <x>0</x>
