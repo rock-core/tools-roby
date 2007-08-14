@@ -18,26 +18,26 @@ class TC_Propagation < Test::Unit::TestCase
 	    e3.call(5)
 	    e3.emit(6)
 	end
-	assert_equal({ e1 => [nil, [nil, 1, nil, nil, 4, nil]], e2 => [[nil, 2, nil, nil, 3, nil], nil], e3 => [[nil, 6, nil], [nil, 5, nil]] }, set)
+	assert_equal({ e1 => [nil, [nil, [1], nil, nil, [4], nil]], e2 => [[nil, [2], nil, nil, [3], nil], nil], e3 => [[nil, [6], nil], [nil, [5], nil]] }, set)
     end
 
     def test_prepare_propagation
 	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
 
-	step = [nil, 1, nil, nil, 4, nil]
+	step = [nil, [1], nil, nil, [4], nil]
 	sources, context = Propagation.prepare_propagation(nil, false, step)
-	assert_equal([nil, nil], sources)
+	assert_equal([], sources)
 	assert_equal([1, 4], context)
 
-	step = [nil, nil, nil, nil, 4, nil]
+	step = [nil, [], nil, nil, [4], nil]
 	sources, context = Propagation.prepare_propagation(nil, false, step)
-	assert_equal([nil, nil], sources)
-	assert_equal([nil, 4], context)
+	assert_equal([], sources)
+	assert_equal([4], context)
 
-	step = [e1, nil, nil, nil, nil, nil]
+	step = [e1, [], nil, nil, [], nil]
 	sources, context = Propagation.prepare_propagation(nil, false, step)
-	assert_equal([e1, nil], sources)
-	assert_equal([nil, nil], context)
+	assert_equal([e1], sources)
+	assert_equal(nil, context)
     end
 
     def test_precedence_graph
@@ -86,7 +86,7 @@ class TC_Propagation < Test::Unit::TestCase
 	Control.once { t.start! }
 	process_events
 	assert(!e.happened?)
-	sleep(0.2)
+	sleep(0.5)
 	process_events
 	assert(e.happened?)
     end
@@ -95,13 +95,13 @@ class TC_Propagation < Test::Unit::TestCase
 	plan.insert(t = SimpleTask.new)
 	
 	FlexMock.use do |mock|
-	    t.on(:start)   { |event| t.emit(:success, event.context) }
-	    t.on(:start)   { |event| t.emit(:success, event.context) }
+	    t.on(:start)   { |event| t.emit(:success, *event.context) }
+	    t.on(:start)   { |event| t.emit(:success, *event.context) }
 
 	    t.on(:success) { |event| mock.success(event.context) }
 	    t.on(:stop)    { |event| mock.stop(event.context) }
-	    mock.should_receive(:success).with(42).once.ordered
-	    mock.should_receive(:stop).with(42).once.ordered
+	    mock.should_receive(:success).with([42, 42]).once.ordered
+	    mock.should_receive(:stop).with([42, 42]).once.ordered
 	    t.start!(42)
 	end
     end
@@ -120,7 +120,7 @@ class TC_Propagation < Test::Unit::TestCase
 
 	FlexMock.use do |mock|
 	    a.on(:child_stop) { mock.stopped }
-	    mock.should_receive(:stopped).twice.ordered
+	    mock.should_receive(:stopped).once.ordered
 	    a.start!
 	    b.start!
 	    b.success!
@@ -146,9 +146,8 @@ class TC_Propagation < Test::Unit::TestCase
 		forward.call(24)
 		signal.call(42)
 	    end
-	    mock.should_receive(:command_called).with(42).once.ordered
-	    mock.should_receive(:handler_called).with(42).once.ordered
-	    mock.should_receive(:handler_called).with(24).once.ordered
+	    mock.should_receive(:command_called).with([42]).once.ordered
+	    mock.should_receive(:handler_called).with([42, 24]).once.ordered
 	    Propagation.propagate_events([seed])
 	end
     end

@@ -31,7 +31,7 @@ require 'irb'
 IRB.setup(nil)
 
 control = if remote_url
-	      Roby::RemoteInterface.new(DRbObject.new_with_uri("roby://#{remote_url}"))
+	      Roby::RemoteInterface.new(DRbObject.new_with_uri("druby://#{remote_url}"))
 	  else
 	      Roby::Interface.new(Roby.control)
 	  end

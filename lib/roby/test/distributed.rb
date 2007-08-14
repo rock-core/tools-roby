@@ -11,7 +11,6 @@ module Roby
 		super
 
 		save_collection Distributed.new_neighbours_observers
-		Distributed.allow_remote_access Distributed::Peer
 		@old_distributed_logger_level = Distributed.logger.level
 
 		timings[:setup] = Time.now
@@ -41,10 +40,14 @@ module Roby
 
 		if Distributed.state
 		    Distributed.state.quit
-		    Distributed.state = nil
 		end
 
 		timings[:end] = Time.now
+
+	    rescue Exception
+		STDERR.puts "failing teardown: #{$!.full_message}"
+		raise
+
 	    ensure
 		Distributed.logger.level = @old_distributed_logger_level
 	    end
@@ -54,17 +57,19 @@ module Roby
 
 		def enable_communication
 		    Roby::Distributed.state.synchronize do
-			local_peer.disabled = false 
+			local_peer.enable_rx
 			# make sure we wake up the communication thread
 			Roby::Distributed.state.finished_discovery.broadcast
 		    end
 		end
 		def disable_communication
-		    local_peer.disabled = true 
+		    local_peer.disable_rx
 		end
 		def flush; local_peer.flush end
 		def process_events; Roby.control.process_events end
-		def local_peer; @local_peer ||= Distributed.peer("local") end
+		def local_peer
+		    @local_peer ||= Distributed.peers.find { true }.last
+		end
 		def reset_local_peer; @local_peer = nil end
 		def send_local_peer(*args); local_peer.send(*args) end
 		def wait_one_cycle; Roby.control.wait_one_cycle end
@@ -75,73 +80,72 @@ module Roby
 	    # Start a central discovery service, a remote connectionspace and a local
 	    # connection space. It yields the remote connection space *in the forked
 	    # child* if a block is given.
-	    def start_peers
+	    def start_peers(detached_control = false)
 		DRb.stop_service
 		remote_process do
-		    DRb.start_service DISCOVERY_URI, Rinda::TupleSpace.new
+		    DRb.start_service DISCOVERY_SERVER, Rinda::TupleSpace.new
+		end
+
+		if Roby.control.running?
+		    Roby.control.quit
+		    begin
+			Roby.control.join
+		    rescue Roby::Test::ControlQuitError
+		    end
 		end
 
 		remote_process do
-		    central_tuplespace = DRbObject.new_with_uri(DISCOVERY_URI)
+		    central_tuplespace = DRbObject.new_with_uri(DISCOVERY_SERVER)
 		    cs = ConnectionSpace.new :ring_discovery => false, 
 			:discovery_tuplespace => central_tuplespace, :name => "remote" do |remote|
 			    getter = Class.new { def get; DRbObject.new(Distributed.state) end }.new
-			    DRb.start_service REMOTE_URI, getter
+			    DRb.start_service REMOTE_SERVER, getter
 			end
 		    cs.extend RemotePeerSupport
 		    cs.testcase = self
 
+		    def cs.start_control_thread
+			Control.event_processing << Distributed.state.method(:start_neighbour_discovery)
+			Roby.control.run :detach => true
+		    end
+
 		    Distributed.state = cs
-		    yield(Distributed.state) if block_given?
+		    yield(cs) if block_given?
 		end
 
-		DRb.start_service LOCAL_URI
-		@central_tuplespace = DRbObject.new_with_uri(DISCOVERY_URI)
-		@remote  = DRbObject.new_with_uri(REMOTE_URI).get
+		DRb.start_service LOCAL_SERVER
+		@central_tuplespace = DRbObject.new_with_uri(DISCOVERY_SERVER)
+		@remote  = DRbObject.new_with_uri(REMOTE_SERVER).get
 		@local   = ConnectionSpace.new :ring_discovery => false, 
 		    :discovery_tuplespace => central_tuplespace, :name => 'local', 
 		    :plan => plan
 
 		Distributed.state = local
+
+		if detached_control
+		    remote.start_control_thread
+		    Control.event_processing << Distributed.state.method(:start_neighbour_discovery)
+		    Roby.control.run :detach => true
+		end
 	    end
 
 	    def setup_connection
 		assert(remote_neighbour = local.neighbours.find { true })
-		@remote_peer = Peer.initiate_connection(local, remote_neighbour)
+		Peer.initiate_connection(local, remote_neighbour) do |@remote_peer| end
 
-		process_events
-		assert(remote_peer.connected?)
-		process_events
+		while !remote_peer
+		    process_events
+		end
 		assert(remote.send_local_peer(:connected?))
 	    end
 
 	    attr_reader :central_tuplespace, :remote, :remote_peer, :remote_plan, :local
 
 	    # Establishes a peer to peer connection between two ConnectionSpace objects
-	    def peer2peer(detached_control = false)
-		if Roby.control.thread
-		    begin
-			Roby.control.quit
-			Roby.control.join
-		    rescue Roby::Test::ControlQuitError
-		    end
-		end
-
+	    def peer2peer(detached_control = false, &remote_init)
 		timings[:starting_peers] = Time.now
-		start_peers do |remote|
-		    def remote.start_control_thread
-			Control.event_processing << Distributed.state.method(:start_neighbour_discovery)
-			Roby.control.run :detach => true unless Roby.control.thread
-		    end
-		    yield(remote) if block_given?
-		end
-
+		start_peers(detached_control, &remote_init)
 		setup_connection
-		if detached_control
-		    Control.event_processing << Distributed.state.method(:start_neighbour_discovery)
-		    Roby.control.run :detach => true unless Roby.control.thread
-		    remote.start_control_thread
-		end
 		timings[:started_peers] = Time.now
 	    end
 
@@ -160,9 +164,15 @@ module Roby
 	    end
 
 	    def remote_task(match)
+		set_permanent = match.delete(:permanent)
+
 		found = nil
 		remote_peer.find_tasks.with_arguments(match).each do |task|
 		    assert(!found)
+		    if set_permanent
+			plan.permanent(task)
+		    end
+
 		    found = if block_given? then yield(task)
 			    else task
 			    end
@@ -182,11 +192,11 @@ module Roby
 		    server = Class.new do
 			class_eval(&block)
 		    end.new
-		    DRb.start_service REMOTE_URI, server
+		    DRb.start_service REMOTE_SERVER, server
 		end
 
-		DRb.start_service LOCAL_URI
-		DRbObject.new_with_uri(REMOTE_URI)
+		DRb.start_service LOCAL_SERVER
+		DRbObject.new_with_uri(REMOTE_SERVER)
 	    end
 	end
     end

@@ -4,50 +4,10 @@ require 'roby/test/distributed'
 require 'flexmock'
 
 class TC_DistributedCommunication < Test::Unit::TestCase
-    include Roby::Distributed::Test
     include Roby
+    include Roby::Distributed::Test
 
-    class FakePeer < Peer
-	class ConnectionSpace
-	    attr_predicate :send_running?
-	    def wait_discovery
-		@send_running = true
-		sleep(0.1)
-	    end
-	    def wait_next_discovery; wait_discovery end
-
-	    def synchronize; yield end
-	end
-
-	def initialize(name)
-	    neighbour = Roby::Distributed::Neighbour.new(name, nil)
-	    super(ConnectionSpace.new, neighbour)
-	end
-	def connect; end
-	attr_predicate :link_alive?, true
-
-	class << self
-	    public :new
-	end
-
-	attr_reader :remote_server
-	def setup(remote)
-	    @remote_server = remote
-	    @connection_state = :connected
-	    @send_queue  = Roby::Distributed::CommunicationQueue.new
-	    @completion_queue  = Roby::Distributed::CommunicationQueue.new
-	    @send_thread = Thread.new(&method(:communication_loop))
-	    @link_alive = true
-	end
-
-	def disconnected!
-	    @connection_state = nil
-	end
-    end
-
-    attr_reader :local_peer, :remote_peer
-    attr_reader :local_server, :remote_server
-
+    attr_reader :local_peer
     module FakePeerServerMethods
 	def reply(mock, value)
 	    mock.method_called(value) if mock
@@ -64,11 +24,11 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 	end
 
 	def reply_with_callback(mock, value)
-	    peer.link_alive = false
+	    peer.disable_tx
 	    mock.method_called(value)
 	    peer.transmit(:reply, mock, value + 1)
 	    mock.method_called(value + 2)
-	    peer.link_alive = true
+	    peer.enable_tx
 	    value
 	end
 
@@ -83,116 +43,50 @@ class TC_DistributedCommunication < Test::Unit::TestCase
     def setup
 	super
 
-	DRb.stop_service
-	Roby::Distributed.allow_remote_access FlexMock
-
-	remote_process do
-	    Roby.logger.progname = "(remote)"
-	    getter = Class.new do
-		attr_accessor :peer_server
+	peer2peer(true) do |remote|
+	    def remote.install_fake_methods
+		local_peer.local_server.extend FakePeerServerMethods
 	    end
-	    Roby.logger.level = Logger::FATAL
-	    front = getter.new
-	    DRb.start_service REMOTE_URI, front
-
-	    peer = FakePeer.new 'local'
-	    peer.local.extend FakePeerServerMethods
-	    front.peer_server = DRbObject.new(peer.local)
 	end
-	Roby.logger.progname = "(local)"
 
-	DRb.start_service LOCAL_URI
-	@remote_peer = FakePeer.new 'remote'
-	@remote_server = remote_peer.local
-	remote_server.extend FakePeerServerMethods
-
-	@local_server  = DRbObject.new_with_uri(REMOTE_URI).peer_server
-	@local_peer    = local_server.peer_drb_object
-
-	remote_peer.setup(local_server)
-	local_peer.setup(DRbObject.new(remote_server))
-
-	assert(local_peer.connected?)
-	assert(remote_peer.connected?)
-    end
-
-    def test_communication_queue
-	queue = Roby::Distributed::CommunicationQueue.new
-	assert(queue.empty?)
-
-	queue.push 42
-	assert(!queue.empty?)
-	assert_equal([42], queue.get)
-	assert(queue.empty?)
-
-	queue.concat([42])
-	queue.concat([84, 21])
-	assert_equal([42, 84, 21], queue.get)
-	assert(queue.empty?)
-	assert_equal([], queue.get(true))
-    end
-
-    def test_communication_queue_max_size
-	queue = Roby::Distributed::CommunicationQueue.new(2)
-	assert(queue.empty?)
-
-	queue.push 42
-	assert(!queue.empty?)
-	assert_equal([42], queue.get)
-	assert(queue.empty?)
-
-	queue.push 42
-	queue.push 24
-	t = Thread.new do
-	    queue.push 10
-	end
-	while !t.stop?; sleep(0.1) end
-	assert(t.alive?)
-	assert_equal([42, 24], queue.get)
-	assert(t.join)
-	assert_equal([10], queue.get)
+	remote_peer.local_server.extend FakePeerServerMethods
+	remote.install_fake_methods
     end
 
     def test_transmit
 	FlexMock.use do |mock|
 	    # Check that nothing is sent while the link is not alive
-	    remote_peer.link_alive = false
+	    remote_peer.disable_tx
 	    remote_peer.transmit(:reply, DRbObject.new(mock), 42) do |result|
 		mock.block_called(result)
 	    end
-	    assert(remote_peer.sending?)
 
 	    remote_peer.transmit(:reply, DRbObject.new(mock), 24)
 	    remote_peer.transmit(:reply, DRbObject.new(mock), 24) do |result|
 		mock.block_called(result)
 	    end
-	    assert(remote_peer.sending?)
 
-	    mock.should_receive(:link_alive).ordered
+	    mock.should_receive(:link_alive).once.ordered
 	    mock.should_receive(:method_called).with(42).once.ordered(:first_call)
 	    mock.should_receive(:method_called).with(24).twice.ordered(:second_calls)
 	    mock.should_receive(:block_called).with(42).once.ordered(:second_calls)
 	    mock.should_receive(:block_called).with(24).once.ordered
 
 	    mock.link_alive
-	    remote_peer.link_alive = true
-	    remote_peer.flush
-	    assert(!remote_peer.sending?)
-	    assert(remote_peer.send_queue.empty?)
-	    assert(remote_peer.completion_queue.empty?)
+	    remote_peer.enable_tx
+	    remote_peer.synchro_point
 	end
     end
 
     def test_transmit_error
-	Roby.logger.level = Logger::FATAL
 	FlexMock.use do |mock|
-	    remote_peer.link_alive = false
+	    remote_peer.disable_tx
 	    remote_peer.transmit(:reply_error, 2) do |result|
 		mock.block_called
 	    end
 	    mock.should_receive(:block_called).never
-	    remote_peer.link_alive = true
-	    assert_raises(RuntimeError) { remote_peer.flush }
+	    remote_peer.enable_tx
+	    assert_raises(Roby::Distributed::DisconnectedError) { remote_peer.synchro_point }
 
 	    assert(!remote_peer.connected?)
 	end
@@ -206,41 +100,20 @@ class TC_DistributedCommunication < Test::Unit::TestCase
     end
 
     def test_concurrent_calls
-	remote_peer.link_alive = false
+	remote_peer.disable_tx
 
 	t1 = Thread.new { test_call(42) }
-	loop do
-	    # wait for the TX thread to notice the new entry in the queue and
-	    # wake up
-	    break if remote_peer.connection_space.send_running?
-	    sleep(0.1)
-	end
+	# wait for the TX thread to notice the new entry in the queue and
+	# wake up
+	sleep(0.5)
 
 	t2 = Thread.new { test_call(21) }
-	loop do
-	    # Wait for +t2+ to insert its entry in the TX queue
-	    break if remote_peer.send_queue.contents.size == 1
-	    sleep(0.1)
-	end
+	# Wait for +t2+ to insert its entry in the TX queue
+	sleep(0.5)
 
-	remote_peer.link_alive = true
+	remote_peer.enable_tx
 	t1.value
 	t2.value
-    end
-
-    def test_flush_raises
-	Roby.logger.level = Logger::FATAL
-	remote_peer.link_alive = false
-	remote_peer.transmit(:reply_error, 2)
-	t = Thread.current
-	Thread.new do
-	    loop do
-		break if t.stop?
-		sleep 0.1
-	    end
-	    remote_peer.link_alive = true
-	end
-	assert_raises(RuntimeError) { remote_peer.flush }
     end
 
     def test_call_raises
@@ -252,23 +125,14 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 
     def test_call_disconnects
 	Roby.logger.level = Logger::FATAL
-	remote_peer.link_alive = false
+	remote_peer.disable_tx
 
 	remote_peer.transmit(:reply_error, 2)
-	loop do
-	    # wait for the TX thread to notice the new entry in the queue and
-	    # wake up
-	    break if remote_peer.connection_space.send_running?
-	    sleep(0.1)
-	end
+	sleep(0.5)
 
 	Thread.new do
-	    loop do
-		# Wait for the call to insert its entry in the TX queue
-		break if remote_peer.send_queue.contents.size == 1
-		sleep(0.1)
-	    end
-	    remote_peer.link_alive = true
+	    sleep(0.5)
+	    remote_peer.enable_tx
 	end
 	assert_raises(DisconnectedError) { remote_peer.call(:reply, nil, 42) }
     end
@@ -286,22 +150,24 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 
     def test_recursive_callbacks
 	Roby.logger.level = Logger::FATAL
-	assert_raises(RecursiveCallbacksError) { remote_peer.call(:recursive_callbacks) }
+	assert_raises(DisconnectedError) { remote_peer.call(:recursive_callbacks) }
     end
 
     def test_synchro_point
-	remote_peer.link_alive = false
-	local_peer.link_alive = false
+	remote_peer.disable_tx
+	remote.send_local_peer(:disable_tx)
 	FlexMock.use do |mock|
-	    mock.should_receive(:method_called).times(4)
 	    remote_peer.transmit(:reply, DRbObject.new(mock), 42)
 	    remote_peer.transmit(:reply, DRbObject.new(mock), 21)
-	    local_peer.transmit(:reply, DRbObject.new(mock), 42)
-	    local_peer.transmit(:reply, DRbObject.new(mock), 21)
+	    remote.send_local_peer(:transmit, :reply, DRbObject.new(mock), 42)
+	    remote.send_local_peer(:transmit, :reply, DRbObject.new(mock), 21)
 
 	    Thread.current.priority = 10
-	    remote_peer.link_alive = true
-	    local_peer.link_alive = true
+	    sleep(0.5)
+	    mock.should_receive(:method_called).times(4)
+
+	    remote_peer.enable_tx
+	    remote.send_local_peer(:enable_tx)
 	    remote_peer.synchro_point
 	end
 

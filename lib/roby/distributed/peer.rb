@@ -1,5 +1,6 @@
 require 'set'
 require 'utilrb/array/to_s'
+require 'utilrb/socket/tcp_socket'
 
 require 'roby'
 require 'roby/state'
@@ -37,9 +38,7 @@ module Roby::Distributed
 	def ready?; event(:ready).happened? end
 
 	event :aborted, :terminal => true do |context|
-	    peer.synchronize do
-		peer.disconnected!
-	    end
+	    peer.disconnected!
 	end
 	forward :aborted => :failed
 
@@ -73,13 +72,13 @@ module Roby::Distributed
 	    # If +object+ is a trigger, send the :triggered event but do *not*
 	    # act as if +object+ was subscribed
 	    peers.each_value do |peer|
-		peer.local.trigger(*objects)
+		peer.local_server.trigger(*objects)
 	    end
 	end
 	# Remove +objects+ from the sets of already-triggered objects
 	def clean_triggered(object)
 	    peers.each_value do |peer|
-		peer.local.triggers.each_value do |_, triggered|
+		peer.local_server.triggers.each_value do |_, triggered|
 		    triggered.delete object
 		end
 	    end
@@ -134,7 +133,7 @@ module Roby::Distributed
 	    triggers[id] = [matcher, (triggered = ValueSet.new)]
 	    Roby.info "#{remote_name} wants notification on #{matcher} (#{id})"
 
-	    Roby::Control.once do
+	    peer.queueing do
 		matcher.each(plan) do |task|
 		    if !triggered.include?(task)
 			triggered << task
@@ -175,58 +174,27 @@ module Roby::Distributed
 	    edges
 	end
 
-	# Called by our peer when it successfully processed the connection
-	# request
-	def connect(name, remote_id, remote_server, state)
-	    peer.remote_server = remote_server
-	    peer.queue_call false, :connected, [Roby::State]
-	    peer.synchronize do
-		peer.connected
-	    end
-	    state_update state
-	    nil
-	end
-
-	def connected(state)
-	    peer.synchronize do
-		peer.connected
-	    end
-	    state_update(state)
-	    nil
-	end
-
-	# Called by our peer when it disconnects
-	def disconnected(finalize = true)
-	    peer.synchronize do
-		if peer.disconnecting?
-		    Roby::Control.once do
-			peer.remote_server.disconnected(false) if finalize
-			peer.synchronize do
-			    peer.disconnected
-			end
-		    end
-		else
-		    peer.do_disconnect
-		end
-	    end
-	    nil
-	end
     end
-    allow_remote_access PeerServer
 
     class Peer
+	include DRbUndumped
+
 	# The local ConnectionSpace object we act on
 	attr_reader :connection_space
 	# The local PeerServer object for this peer
-	attr_reader :local
-	# The server object we use to access the remote plan database
-	attr_accessor :remote_server
-	# The neighbour object describing our peer
-	attr_reader :neighbour
+	attr_reader :local_server
 	# The set of proxies for object from this remote peer
 	attr_reader :proxies
 	# The set of proxies we are currently removing. See BasicObject#forget_peer
 	attr_reader :removing_proxies
+	# The connection socket with our peer
+	attr_reader :socket
+
+	ComStats = Struct.new :rx, :tx
+	# A ComStats object which holds the communication statistics for this peer
+	# stats.tx is the count of bytes sent to the peer while stats.rx is the
+	# count of bytes received
+	attr_reader :stats
 
 	def to_s; "Peer:#{remote_name}" end
 	def incremental_dump?(object)
@@ -234,59 +202,60 @@ module Roby::Distributed
 	end
 
 	# The object which identifies this peer on the network
-	def remote_id; neighbour.remote_id end
-
+	attr_reader :remote_id
 	# The name of the remote peer
-	def remote_name; neighbour.name end
+	attr_reader :remote_name
+	# The [host, port] pair at the peer end
+	attr_reader :peer_info
+
 	# The name of the local ConnectionSpace object we are acting on
 	def local_name; connection_space.name end
 
 	# The ID => block hash of all triggers we have defined on the remote plan
 	attr_reader :triggers
-
 	# The remote state
 	attr_accessor :state
 
-	# Creates a Peer object for +neighbour+, which is managed by
-	# +connection_space+.  If a block is given, it is called in the control
-	# thread when the connection is finalized
-	def initialize(connection_space, neighbour, remote_server = nil, &block)
-	    connection_space.synchronize do
-		if Roby::Distributed.peers[neighbour.remote_id]
-		    raise ArgumentError, "there is already a peer for #{neighbour.name}"
-		end
-		Roby::Distributed.peers[neighbour.remote_id] = self
-	    end
+	# Creates a Peer object for the peer connected at +socket+. This peer
+	# is to be managed by +connection_space+ If a block is given, it is
+	# called in the control thread when the connection is finalized
+	def initialize(connection_space, socket, remote_name, remote_id, remote_state, &block)
+	    # Initialize the remote name with the socket parameters. It will be set to 
+	    # the real name during the connection process
+	    @remote_name = remote_name
+	    @remote_id   = remote_id
+	    @peer_info   = socket.peer_info
+
 	    super() if defined? super
 
 	    @connection_space = connection_space
-	    @neighbour	  = neighbour
-	    @local        = PeerServer.new(self)
+	    @local_server = PeerServer.new(self)
 	    @proxies	  = Hash.new
 	    @removing_proxies = Hash.new
 	    @mutex	  = Mutex.new
-	    @send_flushed = ConditionVariable.new
-	    @condition_variables = [ConditionVariable.new]
-	    @triggers      = Hash.new
-	    @remote_server = remote_server
+	    @triggers     = Hash.new
+	    @socket       = socket
+	    @stats        = ComStats.new 0, 0
+	    @disabled_rx  = 0
+	    @disabled_tx  = 0
+	    connection_space.pending_sockets << [socket, self]
 
-	    @synchro_point_mutex = Mutex.new
-	    @synchro_point_done = ConditionVariable.new
+	    @connection_state = :connected
+	    @send_queue       = Queue.new
+	    @completion_queue = Queue.new
+	    @current_cycle    = Array.new
 
+	    Roby::Distributed.peers[remote_id]   = self
+	    local_server.state_update remote_state
 
-	    connect(&block)
-	end
+	    @task = ConnectionTask.new :peer => self
+	    Roby::Control.once do
+		connection_space.plan.permanent(task)
+		task.start!
+		task.emit(:ready)
+	    end
 
-	class << self
-	    private :new
-	end
-
-	def self.initiate_connection(connection_space, neighbour, &block)
-	    new(connection_space, neighbour, &block)
-	end
-
-	def self.connection_request(connection_space, neighbour, remote_server)
-	    new(connection_space, neighbour, remote_server)
+	    @send_thread      = Thread.new(&method(:communication_loop))
 	end
 
 	# The peer name
@@ -301,7 +270,7 @@ module Roby::Distributed
 
 	# Returns a set of remote tasks for +query+ applied on the remote plan
 	def query_result_set(query)
-	    remote_server.query_result_set(query)
+	    call(:query_result_set, query)
 	end
 	
 	# Yields the tasks saved in +result_set+ by #query_result_set.  During
@@ -368,147 +337,6 @@ module Roby::Distributed
 		    Roby::Distributed.keep.deref(task)
 		end
 	    end
-	end
-
-	attr_reader :connection_state
-
-	# Initiates a connection with this peer. This inserts a new
-	# ConnectionTask task in the plan and starts it. When the connection is
-	# complete (the peer has finalized the handshake), the 'ready' event of
-	# this task is emitted.
-	def connect
-	    raise "already connecting" if connecting?
-	    raise "already connected" unless disconnected?
-
-	    @connection_state = :connecting
-	    @send_queue       = CommunicationQueue.new
-	    @completion_queue = CommunicationQueue.new
-	    @send_thread      = Thread.new(&method(:communication_loop))
-
-	    @task = ConnectionTask.new :peer => self
-	    task.on(:ready) { yield(self) } if block_given?
-	    Roby::Control.once do
-		connection_space.plan.permanent(task)
-		task.start!
-	    end
-	    
-	    Roby::Distributed.info "connecting to #{remote_name}"
-	    if remote_server
-		transmit(:connect, connection_space.name, connection_space.remote_id, @local, Roby::State)
-	    else
-		begin
-		    remote_id.to_drb_object.connect(connection_space.name, connection_space.remote_id, @local)
-		rescue DRb::DRbConnError => e
-		    raise ConnectionFailedError.new(self), "failed to connect to #{remote_id}: #{e.message}"
-		end
-	    end
-	end
-
-	# Called when the handshake is finished. After this call, the
-	# connection task has emitted its 'ready' event and the connection is
-	# alive
-	def connected # :nodoc:
-	    Roby::Control.synchronize do
-		raise "state is #{@connection_state}, not connecting" unless connecting?
-		@connection_state = :connected
-	    end
-
-	    Roby::Control.once { task.emit(:ready) }
-	    Roby::Distributed.info "connected to #{self}"
-	end
-
-	# Normal disconnection procedure. 
-	#
-	# The procedure is as follows:
-	# * we set the connection state as 'disconnecting'. This disables all
-	#   notifications for this peer (see for instance
-	#   Distributed.each_subscribed_peer)
-	# * we queue the :disconnected message
-	#
-	# At this point, we are waiting for the remote peer to do the same:
-	# send us 'disconnected'. When we receive that message, we put the
-	# connection into the disconnected state and all transmission is
-	# forbidden. We make the transmission thread quit then, and the
-	# 'failed' event is emitted on the ConnectionTask task
-	#
-	# Note that once the connection leaves the connected state, the only
-	# messages allowed by #queue_call are 'completed' and 'disconnected'
-	def disconnect
-	    synchronize { do_disconnect }
-	end
-
-	def do_disconnect # :nodoc:
-	    raise "already disconnecting" if disconnecting?
-	    Roby::Control.synchronize do
-		Roby::Distributed.info "disconnecting from #{self}"
-		@connection_state = :disconnecting
-	    end
-
-	    transmit :disconnected
-	end
-
-	# Called when the peer acknowledged the fact that we disconnected
-	def disconnected(event = :failed) # :nodoc:
-	    Roby::Control.synchronize do
-		raise "state is #{@connection_state}, not disconnecting" unless connecting? || disconnecting?
-		@connection_state = nil
-
-		if @send_thread && @send_thread != Thread.current
-		    begin
-			@send_queue.clear
-			@send_queue.push nil
-			mutex.unlock
-			@send_thread.join
-		    ensure
-			mutex.lock
-		    end
-		end
-		@send_thread = nil
-	    end
-
-	    Roby::Control.once do
-		task.emit(event)
-
-		proxies.each_value do |obj|
-		    obj.remote_siblings.delete(self)
-		end
-		proxies.clear
-	    end
-	    removing_proxies.clear
-
-	    connection_space.synchronize do
-		Roby::Distributed.peers.delete(remote_id)
-	    end
-	    Roby::Distributed.info "#{neighbour.name} disconnected"
-	end
-
-	# Call to disconnect outside of the normal protocol.
-	def disconnected!
-	    @connection_state = :disconnecting
-	    disconnected(:aborted)
-	end
-
-	# Returns true if we are establishing a connection with this peer
-	def connecting?; connection_state == :connecting end
-	# Returns true if the connection has been established. See also #link_alive?
-	def connected?; connection_state == :connected end
-	# Returns true if the we disconnected on our side but the peer did not
-	# acknowledge it yet
-	def disconnecting?; connection_state == :disconnecting end
-	# Returns true if the connection with this peer has been removed
-	def disconnected?; !connection_state end
-
-	# Mark the link as dead regardless of the last neighbour discovery. This
-	# will be reset during the next neighbour discovery
-	def link_dead!; @dead = true end
-	
-	attr_predicate :disabled?, true
-
-	# Checks if the connection is currently alive
-	def link_alive?
-	    return false if @dead || @disabled
-	    return false unless connection_space.neighbours.find { |n| n.remote_id == neighbour.remote_id }
-	    true
 	end
 
 	# Returns true if this peer owns +object+

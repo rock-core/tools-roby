@@ -335,32 +335,24 @@ module Roby
 	class PeerServer
 	    def transaction_prepare_commit(trsc)
 		trsc = peer.local_object(trsc)
-		execute do 
-		    peer.connection_space.transaction_prepare_commit(trsc)
-		    trsc.freezed!
-		    nil
-		end
+		peer.connection_space.transaction_prepare_commit(trsc)
+		trsc.freezed!
+		nil
 	    end
 	    def transaction_commit(trsc)
 		trsc = peer.local_object(trsc)
-		execute do 
-		    peer.connection_space.transaction_commit(trsc)
-		    nil
-		end
+		peer.connection_space.transaction_commit(trsc)
+		nil
 	    end
 	    def transaction_abandon_commit(trsc, error)
 		trsc = peer.local_object(trsc)
-		execute do
-		    peer.connection_space.transaction_abandon_commit(trsc, error)
-		    nil
-		end
+		peer.connection_space.transaction_abandon_commit(trsc, error)
+		nil
 	    end
 	    def transaction_discard(trsc)
 		trsc = peer.local_object(trsc)
-		execute do
-		    peer.connection_space.transaction_discard(trsc)
-		    nil
-		end
+		peer.connection_space.transaction_discard(trsc)
+		nil
 	    end
 	    def transaction_give_token(trsc, needs_edition)
 		trsc = peer.local_object(trsc)

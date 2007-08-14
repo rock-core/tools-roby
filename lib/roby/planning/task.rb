@@ -95,7 +95,7 @@ module Roby
 	# Appends a new unplanned pattern after all the patterns already developped
 	#
 	# +context+ is forwarded to the planned task
-	def append_pattern(context = nil)
+	def append_pattern(*context)
 	    # Create the new pattern
 	    planning = PlanningTask.new(arguments.slice(:planner_model, :planned_model, :method_name, :method_options))
 	    planned  = planning.planned_task
@@ -125,9 +125,9 @@ module Roby
 		end
 
 		if last_planning.success?
-		    planning.start!(context) 
+		    planning.start!(*context) 
 		else
-		    last_planning.event(:success).filter(context).on(planning.event(:start))
+		    last_planning.event(:success).filter(*context).on(planning.event(:start))
 		end
 	    else
 		command = precondition & user_command
@@ -169,7 +169,7 @@ module Roby
 
 	# Generates the first +lookahead+ patterns and start planning. The
 	# tasks are started when +loop_start+ is called.
-	event :start do |context|
+	event :start do
 	    if lookahead > 0
 		first_planning = nil
 		while patterns.size < lookahead
@@ -179,22 +179,22 @@ module Roby
 		on(:start, first_planning)
 	    end
 
-	    emit :start, context
+	    emit :start
 	end
 
 	event :loop_start do |context|
 	    if lookahead == 0
 		start_planning = !last_planning_task
-		planning = append_pattern(context)
+		planning = append_pattern(*context)
 		if start_planning
-		    planning.start!(context)
+		    planning.start!(*context)
 		end
 	    end
 
 	    # Find the first non-running pattern and start it
 	    patterns.reverse.each do |task, ev|
 		unless ev.happened?
-		    ev.call(context)
+		    ev.call(*context)
 		    break
 		end
 	    end

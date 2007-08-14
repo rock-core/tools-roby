@@ -93,7 +93,6 @@ module Roby
 	    result              = Hash.new
 	    call_local          = calling.include?(Distributed)
 	    synchro, mutex      = Roby.condition_variable(true)
-	    block_communication = Roby.condition_variable
 
 	    mutex.synchronize do
 		waiting_for = calling.size
@@ -106,30 +105,33 @@ module Roby
 			mutex.synchronize do
 			    result[peer] = peer_result
 			    waiting_for -= 1
+			    Distributed.debug { "reply for #{m}(#{args.join(", ")}) from #{peer}, #{waiting_for} remaining" }
 			    if waiting_for == 0
 				synchro.broadcast
 			    end
+			    peer.disable_rx
 			end
-			block_communication.wait(Roby::Control.mutex)
 		    end
 		    peer.queue_call false, m, args, callback, Thread.current
 		end
 
 		unless waiting_for == 0
-		    Distributed.debug "waiting for our peers to finish"
+		    Distributed.debug "waiting for our peers to complete the call"
 		    synchro.wait(mutex) 
 		end
 	    end
 
 	    if call_local
+		Distributed.debug "processing locally ..."
 		result[Distributed] = Distributed.call(m, *args)
 	    end
 	    result
 
 	ensure
-	    block_communication.broadcast
+	    for peer in calling
+		peer.enable_rx if peer != Distributed
+	    end
 	    Roby.return_condition_variable(synchro, mutex)
-	    Roby.return_condition_variable(block_communication)
 	end
 
 	class PeerServer
@@ -174,7 +176,7 @@ module Roby
 		call(:create_sibling, object)
 		subscriptions << object.sibling_on(self)
 		Roby::Control.synchronize do
-		    local.subscribe(object)
+		    local_server.subscribe(object)
 		end
 
 		synchro_point

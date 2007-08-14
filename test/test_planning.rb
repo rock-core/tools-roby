@@ -412,7 +412,7 @@ class TC_Planner < Test::Unit::TestCase
 	result_task = SimpleTask.new
 	planner = Class.new(Planning::Planner) do
 	    method(:task) do
-		raise unless arguments[:context] == 42
+		raise unless arguments[:context] == [42]
 		result_task
 	    end
 	end
@@ -592,7 +592,7 @@ class TC_Planner < Test::Unit::TestCase
 	id = 0
 	planner_model = Class.new(Planning::Planner) do 
 	    method(:task) do 
-		task_model.new(arguments[:context])
+		task_model.new(*arguments[:context])
 	    end
 	end
 

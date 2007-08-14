@@ -258,16 +258,6 @@ module Roby
 		@updated_objects.delete(object) if included
 	    end
 
-	    # Allow objects of class +type+ to be accessed remotely using DRbObjects
-	    def allow_remote_access(type)
-		@allowed_remote_access << type
-	    end
-	    # Returns true if +object+ can be remotely represented by a DRbObject
-	    # proxy
-	    def allowed_remote_access?(object)
-		@allowed_remote_access.any? { |type| object.kind_of?(type) }
-	    end
-
 	    def each_object_relation(object)
 		object.each_relation do |rel|
 		    yield(rel) if rel.distribute?
@@ -284,6 +274,134 @@ module Roby
 	    # The set of objects that have been removed locally, but for which
 	    # there are still references on our peers
 	    attr_reader :removed_objects
+	end
+
+	@cycles_rx             = Queue.new
+	@pending_cycles        = Array.new
+	@pending_remote_events = Array.new
+
+	class << self
+	    # The queue of cycles read by ConnectionSpace#receive and not processed
+	    attr_reader :cycles_rx
+	    # The set of cycles that have been read from #pending_cycles but
+	    # have not been processed yet because the peers have disabled_rx? set
+	    #
+	    # This variable must be accessed only in the control thread
+	    attr_reader :pending_cycles
+
+	    # The set of events for which we have been notified remotely. These
+	    # will be emitted by Distributed.process_remote_events at the
+	    # beginning of the next cycle 
+	    attr_reader :pending_remote_events
+	end
+
+	# Extract data received so far from our peers and replays it if
+	# possible. Data can be ignored if RX is disabled with this peer
+	# (through Peer#disable_rx), or delayed if there is event propagation
+	# involved. In that last case, the remaining events will be played at
+	# the beginning of the next execution cycl 
+	def self.process_pending(timeout)
+	    ignored_pending = []
+	    while timeout > Time.now && (!pending_cycles.empty? || !cycles_rx.empty?)
+		peer, calls = if pending_cycles.empty?
+				  cycles_rx.pop
+			      else pending_cycles.pop
+			      end
+
+		if peer.disabled_rx?
+		    ignored_pending.unshift [peer, calls]
+		    next
+		end
+
+		if remaining = process_cycle(peer, calls, false)
+		    ignored_pending.unshift [peer, remaining]
+		end
+	    end
+
+	ensure
+	    @pending_cycles.concat(ignored_pending)
+	end
+
+	# Adds to the propagation all the events for which we have been
+	# notified during the last call to Distributed.process_pending
+	def self.process_remote_events
+	    for peer, remote_events in pending_remote_events
+		process_cycle(peer, remote_events, true) 
+	    end
+	    pending_remote_events.clear
+	end
+
+	EXECUTION_CALL = [:event_fired, :event_add_propagation]
+	def self.process_cycle(peer, calls, allow_execution)
+	    from = Time.now
+	    calls_size = calls.size
+
+	    peer_server = peer.local_server
+	    peer_server.processing = true
+
+	    if !peer.connected?
+		return
+	    end
+
+	    while call_spec = calls.shift
+		return unless call_spec
+
+		if EXECUTION_CALL.include?(call_spec[1]) && !allow_execution
+		    calls.unshift(call_spec)
+		    seeds, remaining = calls.partition { |spec| EXECUTION_CALL.include?(spec[1]) }
+		    pending_remote_events << [peer, seeds]
+		    return remaining
+		end
+
+		is_callback, method, args, critical = *call_spec
+		Distributed.debug do 
+		    args_s = args.map { |obj| obj ? obj.to_s : 'nil' }
+			"processing #{is_callback ? 'callback' : 'method'} #{method}(#{args_s.join(", ")})"
+		end
+
+		result = catch(:ignore_this_call) do
+		    peer_server.queued_completion = false
+		    peer_server.processing_callback = !!is_callback
+
+		    result = begin
+				 peer_server.send(method, *args)
+			     rescue Exception => e
+				 if critical
+				     Roby::Distributed.fatal "fatal error during #{method}(#{args}): #{e}"
+				     Roby::Distributed.debug do
+					 e.full_message
+				     end
+				     peer.fatal_error e, method, args
+				 else
+				     peer_server.completed!(e, true)
+				 end
+			     end
+
+		    if !peer.connected?
+			return
+		    end
+		    result
+		end
+
+		if method != :completed && !peer.disconnecting? && !peer.disconnected?
+		    if peer_server.queued_completion?
+			Distributed.debug "done and already queued the completion message"
+		    else
+			Distributed.debug { "done, returns #{result || 'nil'}" }
+			peer.queue_call false, :completed, [result, false]
+		    end
+		end
+	    end
+
+	    Distributed.debug "successfully served #{calls_size} calls in #{Time.now - from} seconds"
+	    nil
+
+	rescue Exception => e
+	    Distributed.info "error in dRoby processing: #{e.full_message}"
+	    peer.disconnect
+
+	ensure
+	    peer_server.processing = false
 	end
     end
 end

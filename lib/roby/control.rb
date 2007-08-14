@@ -143,10 +143,10 @@ module Roby
 		Roby::Control.once do
 		    begin
 			return_value = yield
+			cv.broadcast
 		    rescue Exception => e
 			caller_thread.raise e
 		    end
-		    cv.broadcast
 		end
 		cv.wait(Roby::Control.mutex)
 	    end
@@ -205,6 +205,8 @@ module Roby
 	@mutex = Mutex.new
 	class << self
 	    attr_reader :mutex
+
+	    def taken_mutex?; Thread.current[:control_mutex_locked] end
 
 	    # Implements a recursive behaviour on Control.mutex
 	    def synchronize
@@ -463,6 +465,10 @@ module Roby
 	# control_gc::	if true, automatic garbage collection is disabled but
 	#		GC.start is called at each event cycle
 	def run(options = {})
+	    if running?
+		raise "there is already a control running in thread #{@thread}"
+	    end
+
 	    options = validate_options options, 
 		:drb => nil, :cycle => 0.1, :detach => false, 
 		:control_gc => false
@@ -489,10 +495,12 @@ module Roby
 
 	ensure
 	    if Thread.current == self.thread
-		# reset the options only if we are in the control thread
-		@thread = nil
-		GC.enable if control_gc && !already_disabled_gc
-		Control.finalizers.each { |blk| blk.call }
+		Roby::Control.synchronize do
+		    # reset the options only if we are in the control thread
+		    @thread = nil
+		    GC.enable if control_gc && !already_disabled_gc
+		    Control.finalizers.each { |blk| blk.call }
+		end
 	    end
 	end
 
@@ -648,11 +656,13 @@ module Roby
 			stats[:expected_sleep] = stats[:sleep] =
 			    stats[:ruby_gc] = stats[:end] = Time.now
 
+			Roby::Distributed.process_pending(stats[:start] + cycle)
+			stats[:droby] = Time.now
+
 			sleep_time = cycle - (Time.now - stats[:start])
 			if sleep_time > 0
 			    stats[:expected_sleep] = Time.now + sleep_time
 			    sleep(sleep_time) 
-			    stats[:end] = stats[:sleep] = Time.now
 			end
 		    end
 
@@ -677,6 +687,7 @@ module Roby
 		    quit
 		end
 	    end
+
 	ensure
 	    stats[:end] = Time.now
 	    cycle_end(stats)
@@ -707,12 +718,17 @@ module Roby
 	    thread.join if thread
 
 	rescue Interrupt
-	    Roby.logger.level = Logger::INFO
-	    Roby.info "received interruption request"
-	    quit
-	    if @quit > 2
-		thread.raise Interrupt, "interrupting control thread at user request"
+	    Roby::Control.synchronize do
+		return unless thread
+
+		Roby.logger.level = Logger::INFO
+		Roby.warn "received interruption request"
+		quit
+		if @quit > 2
+		    thread.raise Interrupt, "interrupting control thread at user request"
+		end
 	    end
+
 	    retry
 	end
 

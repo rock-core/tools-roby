@@ -6,49 +6,16 @@ require 'utilrb/column_formatter'
 require 'stringio'
 
 module Roby
+    class TaskProxy < DRbObject
+	def to_s; method_missing(:to_s) end
+	def pretty_print(pp)
+	    pp.text to_s
+	end
+    end
+
     class RemoteInterface
 	def initialize(interface)
 	    @interface = interface
-	end
-
-	# This class wraps the RemoteID of a task. When a method is called on
-	# it, the corresponding method is called on the other side, in control
-	# context.
-	#
-	# This is used to interface a remote Task object with the user
-	class TaskProxy < ::BasicObject
-	    def initialize(remote_id, interface)
-		@remote_id = remote_id
-		@interface = interface
-	    end
-
-	    def __history__(history)
-		history = history.map do |ev|
-		    { 'Name' => ev.symbol, 'At' => ev.time }
-		end
-		io = StringIO.new
-		ColumnFormatter.from_hashes(history, io) do
-		    %w{Name At}
-		end
-		"\n#{io.string}"
-	    end
-
-	    def call(m, *args)
-		@calling = true
-		method_missing(m, *args)
-
-	    ensure
-		@calling = false
-	    end
-
-	    def method_missing(m, *args)
-		v = @interface.call(@remote_id, m, *args)
-		if respond_to?("__#{m}__") && !@calling
-		    object_self.send("__#{m}__", v)
-		else
-		    v
-		end
-	    end
 	end
 
 	def find_tasks
@@ -56,11 +23,11 @@ module Roby
 	end
 
 	def query_result_set(query)
-	    @interface.remote_query_result_set(query)
+	    @interface.remote_query_result_set(Distributed.format(query))
 	end
 	def query_each(result_set)
 	    result_set.each do |t|
-		yield(TaskProxy.new(t, @interface))
+		yield(t)
 	    end
 	end
 
@@ -93,7 +60,7 @@ module Roby
 		Roby::Control.synchronize do
 		    msg = "#{name}: #{error.exception.message}:\n"
 		    msg << tasks.map { |t| t.to_s }.join("\n")
-		    msg << "\n  #{error.exception.backtrace.join("\n  ")}"
+		    msg << "\n  #{error.exception.backtrace.join("\n  ")}" if error.exception.backtrace
 		    msg << "\nThe following tasks have been killed:\n"
 		    tasks.each { |t| msg << "  * " << t.to_s }
 
@@ -142,7 +109,7 @@ module Roby
 
 	def remote_query_result_set(m_query)
 	    plan.query_result_set(m_query.to_query(plan)).
-		map { |t| t.remote_id }
+		map { |t| TaskProxy.new(t) }
 	end
 
 	def remote_constant(name)

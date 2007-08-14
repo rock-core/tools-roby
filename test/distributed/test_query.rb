@@ -7,6 +7,7 @@ class TC_DistributedQuery < Test::Unit::TestCase
     include Roby::Distributed::Test
 
     def test_ownership
+	DRb.start_service
 	FlexMock.use do |fake_peer|
 	    fake_peer.should_receive(:remote_name).and_return('fake_peer')
 	    fake_peer.should_receive(:subscribed_plan?).and_return(false)
@@ -26,13 +27,15 @@ class TC_DistributedQuery < Test::Unit::TestCase
     end
 
     def test_marshal_query
-	peer2peer do |remote|
-	    def remote.query
-		plan.find_tasks
+	peer2peer(true) do |remote|
+	    PeerServer.class_eval do
+		def query
+		    plan.find_tasks
+		end
 	    end
 	end
 
-	m_query = remote.query
+	m_query = remote_peer.call(:query)
 	assert_kind_of(Query::DRoby, m_query)
 	query = remote_peer.local_object(m_query)
 	assert_kind_of(Query, query)
@@ -40,7 +43,7 @@ class TC_DistributedQuery < Test::Unit::TestCase
 
     # Check that we can query the remote plan database
     def test_query
-	peer2peer do |remote|
+	peer2peer(true) do |remote|
 	    local_model = Class.new(SimpleTask)
 
 	    mission, subtask = Task.new(:id => 1), local_model.new(:id => 2)

@@ -21,7 +21,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		    nil
 		end
 		def fire
-		    Roby::Control.once do
+		    Roby.execute do
 			controlable.call(nil) 
 			contingent.emit(nil)
 		    end
@@ -35,10 +35,62 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	controlable = *task.event(:start).child_objects(EventStructure::Signal).to_a
 	contingent  = *task.event(:start).child_objects(EventStructure::Forwarding).to_a
 
-	remote.fire
-	process_events
+	FlexMock.use do |mock|
+	    controlable.on do
+		mock.fired_controlable(Roby::Propagation.gathering?)
+	    end
+	    contingent.on do
+		mock.fired_contingent(Roby::Propagation.gathering?)
+	    end
+
+	    mock.should_receive(:fired_controlable).with(true).once
+	    mock.should_receive(:fired_contingent).with(true).once
+	    remote.fire
+	    remote_peer.synchro_point
+	end
+
 	assert(controlable.happened?)
 	assert(contingent.happened?)
+    end
+
+    def test_keeps_causality
+	peer2peer(true) do |remote|
+	    class << remote
+		attr_reader :event
+		attr_reader :task
+		def create
+		    # Put the task to avoir having GC clearing the events
+		    plan.insert(@task = SimpleTask.new(:id => 'task'))
+		    plan.discover(@event = Roby::EventGenerator.new(true))
+		    task.on(:start, event)
+		    nil
+		end
+		def fire
+		    Roby.execute do
+			event.call(nil) 
+			plan.discard(task)
+		    end
+		    nil
+		end
+	    end
+	end
+
+	remote.create
+	task = subscribe_task(:id => 'task')
+	event = *task.event(:start).child_objects(EventStructure::Signal).to_a
+
+	FlexMock.use do |mock|
+	    event.on do
+		mock.fired
+		assert(plan.free_events.include?(event))
+	    end
+
+	    mock.should_receive(:fired).once
+	    remote.fire
+	    remote_peer.synchro_point
+	end
+
+	assert(event.happened?)
     end
 
     def test_task_status
@@ -185,26 +237,26 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    remote.plan.insert(task = SimpleTask.new(:id => 'remote-1'))
 	    def remote.start(task)
 		task = local_peer.local_object(task)
-		Roby::Control.once { task.start! }
+		Roby.execute do
+		    task.start!
+		end
 		nil
 	    end
 	end
 
 	task = subscribe_task(:id => 'remote-1')
-	remote.start(task)
+	remote.start(Distributed.format(task))
 	process_events
 	assert(task.running?)
 	assert(task.child_object?(remote_peer.task, TaskStructure::ExecutionAgent))
 	assert(task.subscribed?)
 
-	Roby::Control.synchronize do
-	    remote_peer.synchronize do
-		remote_peer.disconnected!
-	    end
+	Roby.execute do
+	    remote_peer.disconnected!
 	end
-	assert(task.subscribed?)
-	process_events
+	assert(!task.subscribed?)
 	assert(remote_peer.task.finished?)
+	assert(remote_peer.task.event(:aborted).happened?)
 	assert(remote_peer.task.event(:stop).happened?)
 	assert(task.finished?)
     end
@@ -220,11 +272,11 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	event_time = Time.now
 	remote = subscribe_task(:id => 'remote-1')
 	plan.insert(local = SimpleTask.new(:id => 'local'))
-	process_events
+	remote_peer.synchro_point
 
-	Roby::Control.synchronize do
-	    remote_peer.local.event_fired(remote.event(:success), 0, Time.now, 42)
-	    remote_peer.local.event_add_propagation(true, remote.event(:success), local.event(:start), 0, event_time, 42)
+	Roby.execute do
+	    remote_peer.local_server.event_fired(remote.event(:success), 0, Time.now, 42)
+	    remote_peer.local_server.event_add_propagation(true, remote.event(:success), local.event(:start), 0, event_time, 42)
 	end
 	process_events
 
@@ -232,40 +284,6 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	assert(remote.success?)
 	assert(local.started?)
 	assert_equal(1, remote.history.size, remote.history)
-    end
-    
-    # Checks that we get the update fine if +fired+ and +signalled+ are
-    # received in the same cycle
-    def test_separated_fired_signalled
-	peer2peer(true) do |remote|
-	    remote.plan.insert(task = SimpleTask.new(:id => 'remote-1'))
-	    Roby::Control.once { task.start! }
-	end
-	    
-	event_time = Time.now
-	remote = subscribe_task(:id => 'remote-1')
-	plan.insert(local = SimpleTask.new(:id => 'local'))
-	process_events
-
-
-	Roby::Control.synchronize do
-	    remote_peer.local.event_fired(remote.event(:success), 0, event_time, 42)
-	end
-	process_events
-	assert(remote.finished?)
-	assert(remote.success?)
-	assert_equal(1, remote.history.size, remote.history.to_s)
-
-	FlexMock.use do |mock|
-	    local.on(:start) { |event| mock.started(event.context) }
-	    mock.should_receive(:started).once.with(42)
-
-	    Roby::Control.synchronize do
-		remote_peer.local.event_add_propagation(true, remote.event(:success), local.event(:start), 0, event_time, 42)
-	    end
-	    process_events
-	    assert_equal(1, remote.history.size, remote.history.to_s)
-	end
     end
 end
 

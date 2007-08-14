@@ -519,10 +519,7 @@ module Roby
 	
 	# Check that all arguments required by the task model are set
 	def fully_instanciated?
-	    if @fully_instanciated; true
-	    else
-		@fully_instanciated = model.arguments.all? { |name| arguments.has_key?(name) } 
-	    end
+	    @fully_instanciated ||= model.arguments.all? { |name| arguments.has_key?(name) }
 	end
 	# Returns true if one argument required by the task model is not set
 	def partially_instanciated?; !fully_instanciated? end
@@ -698,14 +695,14 @@ module Roby
         attr_reader :bound_events
 
         # call-seq:
-        #   emit(event_model, context)                       event object
+        #   emit(event_model, *context)                       event object
         #
         # Emits +event_model+ in the given +context+. Event handlers are fired.
         # This is equivalent to
-        #   event(event_model).emit(context)
+        #   event(event_model).emit(*context)
         #
-        def emit(event_model, context = nil)
-            event(event_model).emit(context)
+        def emit(event_model, *context)
+            event(event_model).emit(*context)
             self
         end
 
@@ -856,12 +853,12 @@ module Roby
 
 		if method
 		    check_arity(method, 1)
-		    options[:command] = lambda do |t, c| 
+		    options[:command] = lambda do |dst_task, *event_context| 
 			begin
-			    t.calling_event = t.event(ev)
-			    method.bind(t).call(c) 
+			    dst_task.calling_event = dst_task.event(ev)
+			    method.bind(dst_task).call(*event_context) 
 			ensure
-			    t.calling_event = nil
+			    dst_task.calling_event = nil
 			end
 		    end
 		end
@@ -907,7 +904,7 @@ module Roby
 			define_method(:call, &command_handler)
 		    else
 			def call(task, context)
-			    task.emit(symbol, context)
+			    task.emit(symbol, *context)
 			end
 		    end
                 end
@@ -915,14 +912,19 @@ module Roby
 		# define an instance method which calls the event command
 		define_method("#{ev_s}!") do |*context| 
 		    begin
-			context = *context # emulate default value for blocks
 			generator = event(ev)
-			generator.call(context) 
-		    rescue EventNotExecutable
+			generator.call(*context) 
+		    rescue EventNotExecutable => e
 			if partially_instanciated?
 			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} which is partially instanciated"
+			elsif !plan
+			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} but the task is in no plan"
+			elsif !plan.executable?
+			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} but the plan is not executable"
+			elsif abstract?
+			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} but the task is abstract"
 			else
-			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} which is not executable"
+			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} which is not executable: #{e.message}"
 			end
 		    end
 		end

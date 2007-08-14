@@ -183,6 +183,7 @@ module Roby::Propagation
 	initial_set = []
 	next_step = gather_propagation do
 	    gather_exceptions(nil, 'initial set setup') { yield(initial_set) } if block_given?
+	    gather_exceptions(nil, 'distributed events') { Roby::Distributed.process_remote_events }
 	    seeds.each do |s|
 		gather_exceptions(s, 'seed') { s.call }
 	    end
@@ -301,14 +302,16 @@ module Roby::Propagation
 
 	    # Merge identical signals. Needed because two different event handlers
 	    # can both call #emit, and two signals are set up
-	    next if src && sources.include?(src)
-
-	    sources << src
-	    context << ctxt
+	    if src && !sources.include?(src)
+		sources << src
+	    end
+	    if ctxt
+		context.concat ctxt
+	    end
 	end
 
 	unless delayed
-	    [sources, context]
+	    [sources, (context unless context.empty?)]
 	end
     end
 
@@ -337,7 +340,6 @@ module Roby::Propagation
 		    next_step = gather_propagation(current_step) do
 			propagation_context(sources) do |result|
 			    gather_exceptions(signalled) do
-				context = *context
 				signalled.call_without_propagation(context) 
 			    end
 			end
@@ -357,13 +359,13 @@ module Roby::Propagation
 	    if sources
 		sources.each { |source| source.generator.forwarding(source, signalled) if source }
 
+		# If the destination event is not owned, but if the peer is not
+		# connected, the event is our responsibility now.
 		if signalled.self_owned? || !signalled.owners.any? { |peer| peer != Roby::Distributed && peer.connected? }
 		    next_step = gather_propagation(current_step) do
-			sources.each_with_index do |src, i|
-			    propagation_context([src]) do |result|
-				gather_exceptions(signalled) do
-				    signalled.emit_without_propagation(context[i])
-				end
+			propagation_context(sources) do |result|
+			    gather_exceptions(signalled) do
+				signalled.emit_without_propagation(context)
 			    end
 			end
 		    end

@@ -257,11 +257,9 @@ module Roby
 	    end
 	    super(self[t, true]) 
 	end
-	def discover(objects = nil)
+	def discover(objects)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
-	    if !objects then super
-	    else super(self[objects, true])
-	    end
+	    super(self[objects, true])
 	    self
 	end
 

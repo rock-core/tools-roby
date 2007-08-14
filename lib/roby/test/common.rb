@@ -9,9 +9,11 @@ module Roby
 	Unit = ::Test::Unit
 
 	BASE_PORT     = 1245
-	DISCOVERY_URI = "roby://localhost:#{BASE_PORT}"
-	REMOTE_URI    = "roby://localhost:#{BASE_PORT + 1}"
-	LOCAL_URI     = "roby://localhost:#{BASE_PORT + 2}"
+	DISCOVERY_SERVER = "druby://localhost:#{BASE_PORT}"
+	REMOTE_PORT    = BASE_PORT + 1
+	LOCAL_PORT     = BASE_PORT + 2
+	REMOTE_SERVER  = "druby://localhost:#{BASE_PORT + 3}"
+	LOCAL_SERVER   = "druby://localhost:#{BASE_PORT + 4}"
 
 
 	attr_reader :timings
@@ -73,7 +75,6 @@ module Roby
 	    save_collection Roby::Control.structure_checks
 	    save_collection Roby::Control.at_cycle_end_handlers
 	    save_collection Roby::EventGenerator.event_gathering
-	    Roby.control.instance_variable_set("@quit", 0)
 	    Roby.control.abort_on_exception = true
 	    Roby.control.abort_on_application_exception = true
 	    Roby.control.abort_on_framework_exception = true
@@ -83,9 +84,6 @@ module Roby
 
 	    save_collection Roby.exception_handlers
 	    timings[:setup] = Time.now
-
-	    DRb.stop_service
-	    DRb.start_service LOCAL_URI
 	end
 
 	def teardown_plan
@@ -103,10 +101,7 @@ module Roby
 		    begin
 			assert_doesnt_timeout(10) do
 			    loop do
-				Roby::Control.synchronize do
-				    Roby.plan.garbage_collect
-				    throw :done_cleanup unless Roby.control.clear
-				end
+				throw :done_cleanup unless Roby.control.clear
 				process_events
 				sleep(0.1)
 			    end
@@ -277,7 +272,10 @@ module Roby
 	def stop_remote_processes
 	    remote_processes.reverse.each do |pid, quit_w|
 		quit_w.write('OK') 
-		Process.waitpid(pid)
+		begin
+		    Process.waitpid(pid)
+		rescue Errno::ECHILD
+		end
 	    end
 	    remote_processes.clear
 	end

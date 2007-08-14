@@ -21,7 +21,7 @@ module Roby
 	attr_reader :generator
 
 	def initialize(generator, propagation_id, context, time = Time.now)
-	    @generator, @propagation_id, @context, @time = generator, propagation_id, context, time
+	    @generator, @propagation_id, @context, @time = generator, propagation_id, context.freeze, time
 	end
 
 	attr_accessor :propagation_id, :context, :time
@@ -124,7 +124,7 @@ module Roby
 	end
 
 	def default_command(context)
-	    emit(context)
+	    emit(*context)
 	end
 
 	# The current command block
@@ -174,7 +174,7 @@ module Roby
 	# Call the command associated with self. Note that an event might be
 	# non-controlable and respond to the :call message. Controlability must
 	# be checked using #controlable?
-	def call(context = nil)
+	def call(*context)
 	    if !self_owned?
 		raise OwnershipError, "not owner"
 	    elsif !controlable?
@@ -185,11 +185,12 @@ module Roby
 		raise EventNotExecutable.new(self), "#call called while not in control thread"
 	    end
 
+	    context.compact!
 	    if Propagation.gathering?
-		Propagation.add_event_propagation(false, Propagation.source_events, self, context, nil)
+		Propagation.add_event_propagation(false, Propagation.source_events, self, (context unless context.empty?), nil)
 	    else
 		errors = Propagation.propagate_events do |initial_set|
-		    initial_set << self if call_without_propagation(context)
+		    initial_set << self if call_without_propagation((context unless context.empty?))
 		end
 		errors.each { |e| raise e.exception }
 	    end
@@ -298,10 +299,10 @@ module Roby
 	def fire(event)
 	    Propagation.propagation_context([event]) do |result|
 		each_signal do |signalled|
-		    add_propagation(false, event, signalled, event.context, (self[signalled, EventStructure::Signal] rescue nil))
+		    add_propagation(false, event, signalled, event.context, self[signalled, EventStructure::Signal])
 		end
 		each_forwarding do |signalled|
-		    add_propagation(true, event, signalled, event.context, (self[signalled, EventStructure::Forwarding] rescue nil))
+		    add_propagation(true, event, signalled, event.context, self[signalled, EventStructure::Forwarding])
 		end
 
 		@happened = true
@@ -370,7 +371,7 @@ module Roby
 	end
 
 	# Emit the event with +context+ as the event context
-	def emit(context = nil)
+	def emit(*context)
 	    if !executable?
 		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"
 	    elsif !self_owned?
@@ -379,12 +380,13 @@ module Roby
 		raise EventNotExecutable.new(self), "#emit called while not in control thread"
 	    end
 
+	    context.compact!
 	    if Propagation.gathering?
-		Propagation.add_event_propagation(true, Propagation.source_events, self, context, nil)
+		Propagation.add_event_propagation(true, Propagation.source_events, self, (context unless context.empty?), nil)
 	    else
 		errors = Propagation.propagate_events do |initial_set|
 		    initial_set << self
-		    emit_without_propagation(context)
+		    emit_without_propagation((context unless context.empty?))
 		end
 		errors.each { |e| raise e.exception }
 	    end
@@ -417,7 +419,7 @@ module Roby
 	    if block_given?
 		obj.add_causal_link self
 		obj.on do |context|
-		    self.emit yield(context)
+		    self.emit(yield(context))
 		end
 	    else
 		obj.forward self
@@ -533,7 +535,7 @@ module Roby
 	# one, but by changing the context. In the first form, the new context
 	# is set to +new_context+.  In the second form, to the value returned
 	# by the given block
-	def filter(new_context = nil, &block)
+	def filter(*new_context, &block)
 	    filter = FilterGenerator.new(new_context, &block)
 	    self.on(filter)
 	    filter
@@ -633,15 +635,22 @@ module Roby
     # This generator reemits an event after having changed its context. See
     # EventGenerator#filter for a more complete explanation
     class FilterGenerator < EventGenerator
-	def initialize(context = nil, &block)
-	    if block && context
+	def initialize(user_context, &block)
+	    if block && !user_context.empty?
 		raise ArgumentError, "you must set either the filter or the value, not both"
 	    end
 
 	    if block
-		super() { |context| emit(block[context]) }
+		super() do |context| 
+		    context = context.map do |val|
+			block.call(val)
+		    end
+		    emit(*context)
+		end
 	    else
-		super() { emit(context) }
+		super() do 
+		    emit(*user_context)
+		end
 	    end
 	end
     end

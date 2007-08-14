@@ -53,7 +53,7 @@ module Roby
 		# We put the subscription process outside the communication
 		# thread so that the remote peer can send back the siblings it
 		# has created
-		execute do
+		peer.queueing do
 		    peer.transmit(:subscribed, [local_object])
 
 		    case local_object
@@ -72,8 +72,9 @@ module Roby
 			tasks.each  { |obj| subscribe_plan_object(obj) }
 			events.each { |obj| subscribe_plan_object(obj) }
 		    end
-		    local_object.remote_id
 		end
+
+		local_object.remote_id
 	    end
 	    
 	    # Called by the remote host because it has subscribed us to a plan
@@ -253,7 +254,7 @@ module Roby
 
 	    # Make our peer subscribe to +object+
 	    def push_subscription(object)
-		local.subscribe(object)
+		local_server.subscribe(object)
 		synchro_point
 	    end
 
