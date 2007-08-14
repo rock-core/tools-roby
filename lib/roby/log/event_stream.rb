@@ -108,7 +108,11 @@ module Roby
 	    # Unmarshalls a set of data returned by #read_all and yield
 	    # each sample that should be fed to the decoders
 	    def self.init(data)
-		yield(Marshal.load(data))
+		io = StringIO.new(data)
+		while !io.eof?
+		    yield(Marshal.load(io))
+		end
+	    rescue EOFError
 	    end
 
 	    # Unmarshalls one cycle of data returned by #read and feeds
