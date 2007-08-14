@@ -213,9 +213,11 @@ module Roby
 				      end
 
 	    if child_task
-		task.realized_by child_task, 
-		    :success => [child_event.symbol],
-		    :remove_when_done => true
+		unless task.realized_by?(child_task)
+		    task.realized_by child_task, 
+			:success => [child_event.symbol],
+			:remove_when_done => true
+		end
 		super(child_event)
 	    else
 		super(obj)
