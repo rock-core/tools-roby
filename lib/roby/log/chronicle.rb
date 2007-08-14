@@ -120,6 +120,17 @@ module Roby
 		scrollbar = main.horizontalScrollBar
 		following_execution = (scrollbar.maximum == scrollbar.value)
 
+		decoder.plans.each_key do |plan|
+		    next unless plan.root_plan?
+		    (plan.finalized_tasks | plan.finalized_events).each do |object|
+			if line = line_of(object)
+			    graphic_objects.delete(object)
+			    scene.removeItem(graphic_stack[line].graphic_group)
+			    graphic_stack.delete_at(line)
+			end
+		    end
+		end
+
 		execution_events.each do |flag, time, event|
 		    graphics = event.display_create(self)
 
