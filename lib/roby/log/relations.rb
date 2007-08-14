@@ -320,14 +320,10 @@ module Roby
 	end
 
 	class RelationsDisplay < Qt::Object
-	    def splat?; true end
-
-	    # The PlanRebuilder object for this display
-	    attr_accessor :decoder
+	    include DataDisplay
+	    decoder PlanRebuilder
 
 	    attr_reader :ui, :scene
-	    attr_reader :main
-	    attr_accessor :config_ui
 
 	    # A [DRbObject, DRbObject] => GraphicsItem mapping of arrows
 	    attr_reader :arrows
@@ -436,14 +432,7 @@ module Roby
 	    end
 
 	    def stream=(data_stream)
-		if decoder
-		    clear
-		end
-
-		# Get a PlanRebuilder object tied to data_stream
-		@decoder = data_stream.decoder(PlanRebuilder)
-		decoder.displays << self
-		ui.load_config
+		super
 
 		# Initialize the display ...
 		decoder.plans.each_key do |plan|

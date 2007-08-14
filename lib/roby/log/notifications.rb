@@ -96,9 +96,8 @@ class Notifications < Roby::Log::DataDecoder
 end
 
 class NotificationsDisplay < Qt::TextBrowser
-    attr_reader :decoder
-    def main; self end
-    attr_accessor :config_ui
+    include DataDisplay
+    decoder Notifications
 
     attr_reader :document
     attr_reader :text
@@ -133,7 +132,9 @@ class NotificationsDisplay < Qt::TextBrowser
 
     def initialize
 	super()
+
 	resize(500, 600)
+	@main     = self
 	@document = Qt::TextDocument.new
 
 	self.document = document
@@ -173,11 +174,6 @@ class NotificationsDisplay < Qt::TextBrowser
 	    text << "<li>#{time.to_hms} #{generator.symbol} [#{context}]</li>"
 	end
 	text << "</ul>"
-    end
-
-    def stream=(data_stream)
-	@decoder = data_stream.decoder(Notifications)
-	decoder.displays << self
     end
 
     def clear

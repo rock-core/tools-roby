@@ -130,5 +130,33 @@ module Roby::Log
 	    end
 	end
     end
+
+    module DataDisplay
+	module ClassExtension
+	    def decoder(new_type = nil)
+		if new_type
+		    @decoder_class = new_type
+		else
+		    @decoder_class
+		end
+	    end
+	end
+
+	attr_reader :decoder
+	attr_reader :main
+	attr_accessor :config_ui
+	def splat?; true end
+
+	def stream=(data_stream)
+	    if decoder
+		clear
+	    end
+
+	    @decoder = data_stream.decoder(self.class.decoder)
+	    decoder.displays << self
+	end
+
+	def clear; end
+    end
 end
 
