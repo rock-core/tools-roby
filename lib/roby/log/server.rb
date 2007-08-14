@@ -426,7 +426,6 @@ module Roby
 	    end
 
 	    def added_stream(klass_name, id, name, type)
-		raise
 		begin
 		    require klass_name.underscore
 		rescue LoadError
