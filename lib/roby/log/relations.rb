@@ -44,6 +44,9 @@ module Roby
 	    circle.text = text
 	    circle
 	end
+
+	def display_time_start(circle, pos); circle.translate(pos) end
+	def display_time_end(circle, pos); end
     end
 
     class EventGenerator::DRoby
@@ -124,10 +127,15 @@ module Roby
 	    rect.set_data(0, Qt::Variant.new(self.object_id))
 	    rect
 	end
+
+	def display_time_start(rect, pos); rect.left = pos end
+	def display_time_end(rect, pos);   rect.right = pos end
     end
 
     class Task::DRoby
 	include LoggedTask
+	attr_accessor :last_event
+
 	def display_name(display)
 	    name = display.filter_prefixes(model.ancestors[0][0].dup)
 	    if display.show_ownership
@@ -136,23 +144,31 @@ module Roby
 	    name
 	end
 
-	def display(display, graphics_item)
+	def current_state
 	    new_state = if plan && plan.finalized_tasks.include?(self)
 			    :finalized
 			else
 			    [:success, :finished, :started, :pending].
 				find { |flag| flags[flag] } 
 			end
+	    new_state || :pending
+	end
 
-	    new_state ||= :pending
-	    if @displayed_state != new_state
+	attr_reader :displayed_state
+	def update_graphics(display, graphics_item)
+	    new_state = current_state
+	    if displayed_state != new_state
 		graphics_item.brush = Qt::Brush.new(Log::TASK_BRUSH_COLORS[new_state])
 		graphics_item.pen   = Qt::Pen.new(Log::TASK_PEN_COLORS[new_state])
-		@displayed_state = new_state
+		displayed_state = new_state
 	    end
 
 	    graphics_item.text.plain_text = display_name(display).to_s
 
+	end
+
+	def display(display, graphics_item)
+	    update_graphics(display, graphics_item)
 	    super
 	    layout_events(display)
 	end
@@ -319,9 +335,43 @@ module Roby
 	    arrow.rotate(alpha * 180 / Math::PI)
 	end
 
+	module TaskDisplaySupport
+	    # A regex => boolean map of prefixes that should be removed from
+	    # the task names
+	    attribute :removed_prefixes do
+		{ "Roby::" => false, 
+		    "Roby::Genom::" => false }
+	    end
+
+	    # Compute the prefixes to remove from in filter_prefixes:
+	    # enable only the ones that are flagged, and sort them by
+	    # prefix length
+	    def update_prefixes_removal
+		@prefixes_removal = removed_prefixes.find_all { |p, b| b }.
+		    map { |p, b| p }.
+		    sort_by { |p| p.length }.
+		    reverse
+	    end
+
+	    def filter_prefixes(string)
+		# @prefixes_removal is computed in RelationsDisplay#update
+		for prefix in @prefixes_removal
+		    string = string.gsub(prefix, '')
+		end
+		string
+	    end
+
+	    # If true, show the ownership in the task descriptions
+	    attribute(:show_ownership) { true }
+	    # If true, show the arguments in the task descriptions
+	    attribute(:show_arguments) { false }
+	end
+
 	class RelationsDisplay < Qt::Object
 	    include DataDisplay
 	    decoder PlanRebuilder
+
+	    include TaskDisplaySupport
 
 	    attr_reader :ui, :scene
 
@@ -357,23 +407,6 @@ module Roby
 	    # A pool of arrows items used to display the event signalling
 	    attr_reader :signal_arrows
 
-	    # A regex => boolean map of prefixes that should be removed from
-	    # the task names
-	    attr_reader :removed_prefixes
-
-	    def filter_prefixes(string)
-		# @prefixes_removal is computed in RelationsDisplay#update
-		for prefix in @prefixes_removal
-		    string = string.gsub(prefix, '')
-		end
-		string
-	    end
-
-	    # If true, show the ownership in the task descriptions
-	    attr_accessor :show_ownership
-	    # If true, show the arguments in the task descriptions
-	    attr_accessor :show_arguments
-
 	    attr_reader :signal_pen
 	    attr_reader :forward_pen
 
@@ -398,13 +431,6 @@ module Roby
 		@relation_pens     = Hash.new(Qt::Pen.new(Qt::Color.new(ARROW_COLOR)))
 		@relation_brushes  = Hash.new(Qt::Brush.new(Qt::Color.new(ARROW_COLOR)))
 		@current_color     = 0
-
-		@removed_prefixes = { 
-		    "Roby::" => false, 
-		    "Roby::Genom::" => false
-		}
-		@show_ownership = true
-		@show_arguments = false
 
 		@signalled_events  = []
 		@execution_events  = []
@@ -663,14 +689,7 @@ module Roby
 		    @signalled_events.concat @last_signalled_events
 		end
 
-		# Compute the prefixes to remove from in filter_prefixes:
-		# enable only the ones that are flagged, and sort them by
-		# prefix length
-		@prefixes_removal = removed_prefixes.find_all { |p, b| b }.
-		    map { |p, b| p }.
-		    sort_by { |p| p.length }.
-		    reverse
-
+		update_prefixes_removal
 		clear_flashing_objects
 
 		# The sets of tasks and events know to the data stream
