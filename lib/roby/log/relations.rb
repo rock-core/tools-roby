@@ -702,9 +702,7 @@ module Roby
 		    EventGeneratorDisplay.priorities[object] = index
 		    next if object.respond_to?(:task) && !displayed?(object.task)
 
-		    STDERR.puts object if keep_signals
 		    graphics = if flashing_objects.has_key?(object)
-				   STDERR.puts "ALREADY"
 				   graphics[object]
 			       else
 				   add_flashing_object(object)
