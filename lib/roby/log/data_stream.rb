@@ -69,6 +69,7 @@ module Roby::Log
 		dec
 	    else
 		decoders << (dec = klass.new(name))
+		dec.stream = self
 		added_decoder(dec)
 		dec
 	    end
@@ -113,6 +114,7 @@ module Roby::Log
 	# The set of displays attached to this decoder
 	attr_reader :displays
 	attr_reader :name
+	attr_accessor :stream
 
 	def initialize(name)
 	    @name = name
