@@ -57,6 +57,11 @@ module Roby
 		    logfile.rewind
 		end
 	    end
+
+	    def start_time
+		return if index_data.empty?
+		index_data[0][:start]
+	    end
 	    
 	    # The current time
 	    def current_time
