@@ -57,6 +57,7 @@ module Roby
 				     left_side
 				 else task_x
 				 end
+		    text_pos.x -= task_x
 
 		    graphics.text.pos = text_pos
 		end
