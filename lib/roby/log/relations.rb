@@ -748,6 +748,7 @@ module Roby
 
 		# Remove the items for objects that don't exist anymore
 		(graphics.keys.to_value_set - all_tasks - all_events).each do |obj|
+		    visible_objects.delete(obj)
 		    remove_graphics(graphics.delete(obj))
 		    clear_arrows(obj)
 		end
