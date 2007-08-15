@@ -769,7 +769,7 @@ module Roby
 		    next if object.respond_to?(:task) && !displayed?(object.task)
 
 		    graphics = if flashing_objects.has_key?(object)
-				   graphics[object]
+				   self.graphics[object]
 			       else
 				   add_flashing_object(object)
 			       end
