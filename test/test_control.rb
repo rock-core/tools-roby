@@ -271,8 +271,10 @@ class TC_Control < Test::Unit::TestCase
     end
 
     def test_execute_error
+	assert(!Roby.control.thread)
 	# Set a fake control thread
 	Roby.control.thread = Thread.main
+	assert(!Roby.control.quitting?)
 
 	returned_value = nil
 	t = Thread.new do

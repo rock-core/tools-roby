@@ -500,6 +500,7 @@ module Roby
 		    @thread = nil
 		    GC.enable if control_gc && !already_disabled_gc
 		    Control.finalizers.each { |blk| blk.call }
+		    @quit = 0
 		end
 	    end
 	end
