@@ -156,7 +156,7 @@ class Replay < Qt::MainWindow
     BASE_TIME_SLICE = 0.5
     attr_reader :play_timer, :play_speed
     def play
-	seek_start unless first_sample
+	seek(nil) unless first_sample
 
 	@play_timer = Qt::Timer.new(self)
 	connect(play_timer, SIGNAL("timeout()"), self, SLOT("play_step_timer()"))
@@ -172,7 +172,7 @@ class Replay < Qt::MainWindow
     end
 
     def play_step
-	seek_start unless first_sample
+	seek(nil) unless first_sample
        	play_until(next_time) 
     end
 
