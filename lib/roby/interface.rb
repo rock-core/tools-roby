@@ -91,10 +91,17 @@ module Roby
 	    Roby::Control.register_interface self
 	end
 
-	# Make the Roby event loop quit
-	def stop
-	    control.quit 
+	# Clear the current plan
+	def clear
+	    Roby.execute do
+		plan.missions.dup.each  { |t| plan.discard(t) }
+		plan.keepalive.dup.each { |t| plan.auto(t) }
+	    end
 	end
+
+	# Make the Roby event loop quit
+	def stop; control.quit end
+	# The Roby plan
 	def plan; Roby.plan end
 
 	def call(task, m, *args)
