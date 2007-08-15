@@ -61,7 +61,7 @@ module Roby
 	    end
 	    known_tasks.dup.each { |t| finalized_task(t) }
 	    free_events.dup.each { |e| finalized_event(e) }
-	    clear_finalized
+	    clear_finalized(finalized_tasks, finalized_events)
 	end
 
 	def finalized_task(task)
@@ -73,11 +73,11 @@ module Roby
 	    free_events.delete(event)
 	    finalized_events << event unless event.respond_to?(:task)
 	end
-	def clear_finalized
-	    finalized_tasks.each { |task| task.clear_vertex }
-	    finalized_tasks.clear
-	    finalized_events.each { |event| event.clear_vertex }
-	    finalized_events.clear
+	def clear_finalized(tasks, events)
+	    tasks.each { |task| task.clear_vertex }
+	    @finalized_tasks = finalized_tasks - tasks
+	    events.each { |event| event.clear_vertex }
+	    @finalized_events = finalized_events - events
 	end
 	def removed_transaction(trsc)
 	    transactions.delete(trsc)
@@ -156,6 +156,7 @@ module Roby
 	    attr_reader :plans
 	    attr_reader :tasks
 	    attr_reader :events
+	    attr_reader :last_finalized
 
 	    attr_reader :start_time
 	    attr_reader :time
@@ -163,6 +164,7 @@ module Roby
 		@plans  = Hash.new { |h, k| h[k] = Set.new }
 		@tasks  = Hash.new { |h, k| h[k] = Set.new }
 		@events = Hash.new { |h, k| h[k] = Set.new }
+		@last_finalized = Hash.new
 		super(name)
 	    end
 	    
@@ -236,10 +238,19 @@ module Roby
 	    end
 
 	    def display
+		plans.each_key do |plan|
+		    if finalized = last_finalized[plan]
+			plan.clear_finalized(*finalized)
+		    end
+		end
+
 		super
 		
+		# Save a per-plan set of finalized tasks, to be removed the
+		# next time #display is called
+		@last_finalized = Hash.new
 		plans.each_key do |plan|
-		    plan.clear_finalized
+		    last_finalized[plan] = [plan.finalized_tasks.dup, plan.finalized_events.dup]
 		end
 	    end
 
@@ -327,7 +338,7 @@ module Roby
 		    trsc.finalized_event(obj)
 		end
 
-		trsc.clear_finalized
+		trsc.clear_finalized(trsc.finalized_tasks, trsc.finalized_events)
 		Log.remove_object(plans, trsc)
 		plan.transactions.delete(trsc)
 	    end
