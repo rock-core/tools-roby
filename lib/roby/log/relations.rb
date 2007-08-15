@@ -67,11 +67,20 @@ module Roby
 	include EventGeneratorDisplay
 
 	def display_name(display)
-	    name = display.filter_prefixes(model.ancestors[0][0].dup)
+	    name = if model.ancestors[0][0] != 'Roby::EventGenerator'
+		       [display.filter_prefixes(model.ancestors[0][0].dup)]
+		   else
+		       []
+		   end
+
 	    if display.show_ownership
-		name << "\n#{owners_to_s}"
+		name << owners_to_s
 	    end
-	    name
+	    name.join("\n")
+	end
+
+	def display(display, graphics_item)
+	    graphics_item.text.plain_text = display_name(display).to_s
 	end
     end
 
