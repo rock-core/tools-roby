@@ -99,7 +99,7 @@ module Roby::Log
 
 	def calling(context)
 	    super if defined? super
-	    Roby::Log.log(:generator_calling) { [Time.now, self, context.to_s] }
+	    Roby::Log.log(:generator_calling) { [Time.now, self, Propagation.source_generators, context.to_s] }
 	end
 
 	def called(context)
@@ -119,7 +119,7 @@ module Roby::Log
 
 	def emitting(context)
 	    super if defined? super
-	    Roby::Log.log(:generator_emitting) { [Time.now, self, context.to_s] }
+	    Roby::Log.log(:generator_emitting) { [Time.now, self, Propagation.source_generators, context.to_s] }
 	end
 
 	def forwarding(event, to)

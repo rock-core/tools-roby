@@ -187,7 +187,7 @@ module Roby
 
 	    context.compact!
 	    if Propagation.gathering?
-		Propagation.add_event_propagation(false, Propagation.source_events, self, (context unless context.empty?), nil)
+		Propagation.add_event_propagation(false, Propagation.sources, self, (context unless context.empty?), nil)
 	    else
 		errors = Propagation.propagate_events do |initial_set|
 		    initial_set << self if call_without_propagation((context unless context.empty?))
@@ -382,7 +382,7 @@ module Roby
 
 	    context.compact!
 	    if Propagation.gathering?
-		Propagation.add_event_propagation(true, Propagation.source_events, self, (context unless context.empty?), nil)
+		Propagation.add_event_propagation(true, Propagation.sources, self, (context unless context.empty?), nil)
 	    else
 		errors = Propagation.propagate_events do |initial_set|
 		    initial_set << self

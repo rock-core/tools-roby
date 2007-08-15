@@ -46,8 +46,21 @@ module Roby::Propagation
 
     # If we are currently in the propagation stage
     def self.gathering?; !!Thread.current[:propagation] end
-    def self.source_events; Thread.current[:propagation_events] end
-    def self.source_generators; Thread.current[:propagation_generators] end
+    # The set of source events for the current propagation action. This is a
+    # mix of EventGenerator and Event objects.
+    def self.sources; Thread.current[:propagation_sources] end
+    # The set of generators extracted from Propagation.sources
+    def self.source_generators
+	result = ValueSet.new
+	for ev in Thread.current[:propagation_sources]
+	    result << if ev.respond_to?(:generator)
+			  ev.generator
+		      else
+			  ev
+		      end
+	end
+	result
+    end
     def self.propagation_id; Thread.current[:propagation_id] end
 
     @@delayed_events = []
@@ -120,28 +133,16 @@ module Roby::Propagation
 	raise "not in a gathering context in #fire" unless gathering?
 
 	if sources
-	    event, generator = source_events, source_generators
-
-	    Thread.current[:propagation_events], Thread.current[:propagation_generators] = 
-		sources.inject([[], []]) do |(e, g), s|
-		    if s.respond_to?(:generator)
-			e << s
-			g << s.generator
-		    else
-			e << nil
-			g << s
-		    end
-		    [e, g]
-		end
+	    current_sources = sources
+	    Thread.current[:propagation_sources] = sources
 	else
-	    Thread.current[:propagation_events], Thread.current[:propagation_generators] = [], []
+	    Thread.current[:propagation_sources] = []
 	end
 
 	yield Thread.current[:propagation]
 
     ensure
-	Thread.current[:propagation_event] = event
-	Thread.current[:propagation_generator] = generator
+	Thread.current[:propagation_sources] = sources
     end
 
     # Adds a propagation to the next propagation step. More specifically, it
@@ -289,7 +290,7 @@ module Roby::Propagation
     def self.prepare_propagation(signalled, forward, info)
 	timeref = Time.now
 
-	sources, context = [], []
+	source_events, source_generators, context = ValueSet.new, ValueSet.new, []
 
 	delayed = true
 	info.each_slice(3) do |src, ctxt, time|
@@ -302,8 +303,13 @@ module Roby::Propagation
 
 	    # Merge identical signals. Needed because two different event handlers
 	    # can both call #emit, and two signals are set up
-	    if src && !sources.include?(src)
-		sources << src
+	    if src
+		if src.respond_to?(:generator)
+		    source_events << src 
+		    source_generators << src.generator
+		else
+		    source_generators << src
+		end
 	    end
 	    if ctxt
 		context.concat ctxt
@@ -311,7 +317,7 @@ module Roby::Propagation
 	end
 
 	unless delayed
-	    [sources, (context unless context.empty?)]
+	    [source_events, source_generators, (context unless context.empty?)]
 	end
     end
 
@@ -332,13 +338,15 @@ module Roby::Propagation
 
 	next_step = nil
 	if call_info
-	    sources, context = prepare_propagation(signalled, false, call_info)
-	    if sources
-		sources.each { |source| source.generator.signalling(source, signalled) if source }
+	    source_events, source_generators, context = prepare_propagation(signalled, false, call_info)
+	    if source_events
+		for source_ev in source_events
+		    source_ev.generator.signalling(source_ev, signalled)
+		end
 
 		if signalled.self_owned?
 		    next_step = gather_propagation(current_step) do
-			propagation_context(sources) do |result|
+			propagation_context(source_generators) do |result|
 			    gather_exceptions(signalled) do
 				signalled.call_without_propagation(context) 
 			    end
@@ -355,15 +363,17 @@ module Roby::Propagation
 	    end
 
 	elsif forward_info
-	    sources, context = prepare_propagation(signalled, true, forward_info)
-	    if sources
-		sources.each { |source| source.generator.forwarding(source, signalled) if source }
+	    source_events, source_generators, context = prepare_propagation(signalled, true, forward_info)
+	    if source_events
+		for source_ev in source_events
+		    source_ev.generator.forwarding(source_ev, signalled)
+		end
 
 		# If the destination event is not owned, but if the peer is not
 		# connected, the event is our responsibility now.
 		if signalled.self_owned? || !signalled.owners.any? { |peer| peer != Roby::Distributed && peer.connected? }
 		    next_step = gather_propagation(current_step) do
-			propagation_context(sources) do |result|
+			propagation_context(source_generators) do |result|
 			    gather_exceptions(signalled) do
 				signalled.emit_without_propagation(context)
 			    end

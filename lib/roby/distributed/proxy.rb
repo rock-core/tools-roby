@@ -106,12 +106,13 @@ module Roby
 	def _dump(lvl); Marshal.dump(remote_id) end
 	def self._load(str); Marshal.load(str) end
 	def droby_dump(dest)
-	    DRoby.new(happened?, Distributed.format(task, dest), symbol)
+	    DRoby.new(controlable?, happened?, Distributed.format(task, dest), symbol)
 	end
 
 	class DRoby
-	    attr_reader :happened, :task, :symbol
-	    def initialize(happened, task, symbol)
+	    attr_reader :controlable, :happened, :task, :symbol
+	    def initialize(controlable, happened, task, symbol)
+		@controlable = controlable
 		@happened = happened
 		@task   = task
 		@symbol = symbol

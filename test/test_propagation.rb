@@ -22,21 +22,31 @@ class TC_Propagation < Test::Unit::TestCase
     end
 
     def test_prepare_propagation
-	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
+	g1, g2 = EventGenerator.new(true), EventGenerator.new(true)
+	ev = Event.new(g2, 0, nil)
 
 	step = [nil, [1], nil, nil, [4], nil]
-	sources, context = Propagation.prepare_propagation(nil, false, step)
-	assert_equal([], sources)
+	source_events, source_generators, context = Propagation.prepare_propagation(nil, false, step)
+	assert_equal(ValueSet.new, source_events)
+	assert_equal(ValueSet.new, source_generators)
 	assert_equal([1, 4], context)
 
 	step = [nil, [], nil, nil, [4], nil]
-	sources, context = Propagation.prepare_propagation(nil, false, step)
-	assert_equal([], sources)
+	source_events, source_generators, context = Propagation.prepare_propagation(nil, false, step)
+	assert_equal(ValueSet.new, source_events)
+	assert_equal(ValueSet.new, source_generators)
 	assert_equal([4], context)
 
-	step = [e1, [], nil, nil, [], nil]
-	sources, context = Propagation.prepare_propagation(nil, false, step)
-	assert_equal([e1], sources)
+	step = [g1, [], nil, ev, [], nil]
+	source_events, source_generators, context = Propagation.prepare_propagation(nil, false, step)
+	assert_equal([g1, g2].to_value_set, source_generators)
+	assert_equal([ev].to_value_set, source_events)
+	assert_equal(nil, context)
+
+	step = [g2, [], nil, ev, [], nil]
+	source_events, source_generators, context = Propagation.prepare_propagation(nil, false, step)
+	assert_equal([g2].to_value_set, source_generators)
+	assert_equal([ev].to_value_set, source_events)
 	assert_equal(nil, context)
     end
 
@@ -150,6 +160,51 @@ class TC_Propagation < Test::Unit::TestCase
 	    mock.should_receive(:handler_called).with([42, 24]).once.ordered
 	    Propagation.propagate_events([seed])
 	end
+    end
+
+    module LogEventGathering
+	class << self
+	    attr_accessor :mockup
+	    def handle(name, obj)
+		mockup.send(name, obj, Roby::Propagation.sources) if mockup
+	    end
+	end
+
+	def signalling(event, to)
+	    super if defined? super
+	    LogEventGathering.handle(:signalling, self)
+	end
+	def forwarding(event, to)
+	    super if defined? super
+	    LogEventGathering.handle(:forwarding, self)
+	end
+	def emitting(context)
+	    super if defined? super
+	    LogEventGathering.handle(:emitting, self)
+	end
+	def calling(context)
+	    super if defined? super
+	    LogEventGathering.handle(:calling, self)
+	end
+    end
+    EventGenerator.include LogEventGathering
+
+    def test_log_events
+	FlexMock.use do |mock|
+	    LogEventGathering.mockup = mock
+	    dst = EventGenerator.new { }
+	    src = EventGenerator.new { dst.call }
+	    plan.discover [src, dst]
+
+	    mock.should_receive(:signalling).never
+	    mock.should_receive(:forwarding).never
+	    mock.should_receive(:calling).with(src, []).once
+	    mock.should_receive(:calling).with(dst, [src].to_value_set).once
+	    src.call
+	end
+
+    ensure 
+	LogEventGathering.mockup = nil
     end
 end
 

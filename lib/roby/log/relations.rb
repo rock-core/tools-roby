@@ -250,10 +250,15 @@ module Roby
 	ARROW_OPENING = 30
 	ARROW_SIZE    = 10
 
+	PROPAG_SIGNAL   = 1
+	PROPAG_FORWARD  = 2
+	PROPAG_CALLING  = 3
+	PROPAG_EMITTING = 4
+
 	EVENT_CONTINGENT  = 0
 	EVENT_CONTROLABLE = 1
-	EVENT_CALLED  = 2
-	EVENT_EMITTED = 4
+	EVENT_CALLED      = 2
+	EVENT_EMITTED     = 4
 	EVENT_CALLED_AND_EMITTED = EVENT_CALLED | EVENT_EMITTED
 
 	TASK_BRUSH_COLORS = {
@@ -418,7 +423,7 @@ module Roby
 
 	    # The set of signals since the last call to #update
 	    # Each element is [flag, from, to, event_id]
-	    attr_reader :signalled_events
+	    attr_reader :propagated_events
 
 	    # The array of events for which a command has been called, or which
 	    # have been emitted. The order in this array is the arrival order
@@ -435,9 +440,7 @@ module Roby
 
 	    # A pool of arrows items used to display the event signalling
 	    attr_reader :signal_arrows
-
-	    attr_reader :signal_pen
-	    attr_reader :forward_pen
+		
 
 	    def initialize
 		@scene  = Qt::GraphicsScene.new
@@ -446,10 +449,6 @@ module Roby
 		@main   = Qt::MainWindow.new
 		@ui     = Ui::RelationsView.new
 
-		@signal_pen  = Qt::Pen.new
-		@forward_pen = Qt::Pen.new
-		forward_pen.dash_pattern = [5.0, 5.0]
-		
 		@graphics          = Hash.new
 		@visible_objects   = ValueSet.new
 		@flashing_objects  = Hash.new
@@ -461,7 +460,7 @@ module Roby
 		@relation_brushes  = Hash.new(Qt::Brush.new(Qt::Color.new(ARROW_COLOR)))
 		@current_color     = 0
 
-		@signalled_events  = []
+		@propagated_events  = []
 		@execution_events  = []
 		@postponed_events  = ValueSet.new
 		@signal_arrows     = []
@@ -710,12 +709,30 @@ module Roby
 		end
 	    end
 
+	    def propagation_style(arrow, flag)
+		unless defined? @@propagation_styles
+		    @@propagation_styles = Hash.new
+		    @@propagation_styles[PROPAG_FORWARD] = 
+			[Qt::Brush.new(Qt::Color.new('black')), (forward_pen = Qt::Pen.new)]
+		    forward_pen.style = Qt::DotLine
+		    @@propagation_styles[PROPAG_SIGNAL] = 
+			[Qt::Brush.new(Qt::Color.new('black')), Qt::Pen.new]
+		    @@propagation_styles[PROPAG_EMITTING] = 
+			[Qt::Brush.new(Qt::Color.new('blue')), (emitting_pen = Qt::Pen.new(Qt::Color.new('blue')))]
+		    emitting_pen.style = Qt::DotLine
+		    @@propagation_styles[PROPAG_CALLING] = 
+			[Qt::Brush.new(Qt::Color.new('blue')), Qt::Pen.new(Qt::Color.new('blue'))]
+		end
+		arrow.brush, pen = @@propagation_styles[flag]
+		arrow.pen = arrow.line.pen = pen
+	    end
+
 	    def update
 		return unless decoder
 
 		if keep_signals
 		    @execution_events = @last_execution_events.concat(execution_events)
-		    @signalled_events.concat @last_signalled_events
+		    @propagated_events.concat @last_propagated_events
 		end
 
 		update_prefixes_removal
@@ -759,20 +776,22 @@ module Roby
 		    graphics.brush, graphics.pen = EventGeneratorDisplay.style(object, flags)
 		end
 		
-		signalled_events.each do |_, from, to, _|
-		    if from.respond_to?(:task) 
-			next if !displayed?(from.task)
-		    else
-			next if !all_events.include?(from)
-		    end
-		    if to.respond_to?(:task) 
-			next if !displayed?(to.task)
-		    else
-			next if !all_events.include?(to)
-		    end
+		propagated_events.each do |_, sources, to, _|
+		    sources.each do |from|
+			if from.respond_to?(:task) 
+			    next if !displayed?(from.task)
+			else
+			    next if !all_events.include?(from)
+			end
+			if to.respond_to?(:task) 
+			    next if !displayed?(to.task)
+			else
+			    next if !all_events.include?(to)
+			end
 
-		    add_flashing_object from
-		    add_flashing_object to
+			add_flashing_object from
+			add_flashing_object to
+		    end
 		end
 
 
@@ -799,30 +818,28 @@ module Roby
 
 		# Display the signals
 		signal_arrow_idx = -1
-		signalled_events.each_with_index do |(forward, from, to, event_id), signal_arrow_idx|
-		    unless arrow = signal_arrows[signal_arrow_idx]
-			arrow = signal_arrows[signal_arrow_idx] = scene.add_arrow(ARROW_SIZE)
-			arrow.z_value      = EVENT_LAYER + 1
-			arrow.line.z_value = EVENT_LAYER - 1
-		    end
+		propagated_events.each_with_index do |(flag, sources, to), signal_arrow_idx|
+		    sources.each do |from|
+			unless arrow = signal_arrows[signal_arrow_idx]
+			    arrow = signal_arrows[signal_arrow_idx] = scene.add_arrow(ARROW_SIZE)
+			    arrow.z_value      = EVENT_LAYER + 1
+			    arrow.line.z_value = EVENT_LAYER - 1
+			end
 
-		    # It is possible that the objects have been removed in the
-		    # same display cycle than they have been signalled. Do not
-		    # display them if it is the case
-		    unless displayed?(from) && displayed?(to)
-			arrow.visible = false
-			next
-		    end
-		    puts from if !self[from]
-		    puts to   if !self[to]
+			# It is possible that the objects have been removed in the
+			# same display cycle than they have been signalled. Do not
+			# display them if it is the case
+			unless displayed?(from) && displayed?(to)
+			    arrow.visible = false
+			    next
+			end
+			puts from if !self[from]
+			puts to   if !self[to]
 
-		    arrow.visible = true
-		    if forward
-			arrow.line.pen = forward_pen
-		    else
-			arrow.line.pen = signal_pen
+			arrow.visible = true
+			propagation_style(arrow, flag)
+			Log.arrow_set(arrow, self[from], self[to])
 		    end
-		    Log.arrow_set(arrow, self[from], self[to])
 		end
 		# ... and hide the remaining arrows that are not used anymore
 		if signal_arrow_idx + 1 < signal_arrows.size
@@ -831,7 +848,7 @@ module Roby
 		    end
 		end
 
-		@last_signalled_events, @signalled_events = signalled_events, Array.new
+		@last_propagated_events, @propagated_events = propagated_events, Array.new
 		@last_execution_events, @execution_events = 
 		    execution_events.partition { |fired, ev| fired }
 
@@ -849,6 +866,32 @@ module Roby
 	    def local_plan(obj); decoder.local_plan(obj) end
 	    def local_object(obj); decoder.local_object(obj) end
 
+	    def add_internal_propagation(flag, generator, source_generators)
+		generator = local_event(generator)
+		if source_generators && !source_generators.empty?
+		    source_generators = source_generators.map { |source_generator| local_event(source_generator) }
+		    source_generators.delete_if do |ev|
+			ev == generator ||
+			    propagated_events.find { |_, from, to| to == generator && from.include?(ev) }
+		    end
+		    unless source_generators.empty?
+			propagated_events << [flag, source_generators, generator]
+		    end
+		end
+	    end
+	    def generator_calling(time, generator, source_generators, context)
+		add_internal_propagation(PROPAG_CALLING, generator, source_generators)
+	    end
+	    def generator_emitting(time, generator, source_generators, context)
+		add_internal_propagation(PROPAG_EMITTING, generator, source_generators)
+	    end
+	    def generator_signalling(time, flag, from, to, event_id, event_time, event_context)
+		propagated_events << [PROPAG_SIGNAL, [local_event(from)], local_event(to)]
+	    end
+	    def generator_forwarding(time, flag, from, to, event_id, event_time, event_context)
+		propagated_events << [PROPAG_FORWARD, [local_event(from)], local_event(to)]
+	    end
+
 	    def generator_called(time, generator, context)
 		execution_events << [EVENT_CALLED, local_event(generator)]
 	    end
@@ -865,12 +908,6 @@ module Roby
 	    end
 	    def generator_postponed(time, generator, context, until_generator, reason)
 		postponed_events << [local_event(generator), local_event(until_generator)]
-	    end
-	    def generator_signalling(time, flag, from, to, event_id, event_time, event_context)
-		signalled_events << [flag, local_event(from), local_event(to), event_id]
-	    end
-	    def generator_forwarding(time, flag, from, to, event_id, event_time, event_context)
-		signalled_events << [flag, local_event(from), local_event(to), event_id]
 	    end
 
 
@@ -914,7 +951,7 @@ module Roby
 
 		visible_objects.clear
 		flashing_objects.clear
-		signalled_events.clear
+		propagated_events.clear
 		execution_events.clear
 		postponed_events.clear
 
