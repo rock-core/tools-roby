@@ -121,7 +121,7 @@ class Ui::RelationsView
 
 	actionShowAll.connect(SIGNAL(:triggered)) do
 	    display.graphics.keys.each do |obj|
-		display.set_visibility(obj, true) if obj.kind_of?(Roby::Task)
+		display.set_visibility(obj, true) if obj.kind_of?(Roby::Task::DRoby) || (obj.kind_of?(Roby::EventGenerator::DRoby) && !obj.respond_to?(:task))
 	    end
 	    display.update
 	end
