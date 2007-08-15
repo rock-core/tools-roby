@@ -68,7 +68,8 @@ module Roby::Log
 	    if dec = decoders.find { |d| d.kind_of?(klass) }
 		dec
 	    else
-		decoders << (dec = klass.new)
+		decoders << (dec = klass.new(name))
+		dec.stream = self
 		added_decoder(dec)
 		dec
 	    end
@@ -112,8 +113,13 @@ module Roby::Log
     class DataDecoder
 	# The set of displays attached to this decoder
 	attr_reader :displays
+	attr_reader :name
+	attr_accessor :stream
 
-	def initialize; @displays = [] end
+	def initialize(name)
+	    @name = name
+	    @displays = [] 
+	end
 
 	def clear
 	    displays.each { |d| d.clear }
@@ -125,6 +131,34 @@ module Roby::Log
 		display.update
 	    end
 	end
+    end
+
+    module DataDisplay
+	module ClassExtension
+	    def decoder(new_type = nil)
+		if new_type
+		    @decoder_class = new_type
+		else
+		    @decoder_class
+		end
+	    end
+	end
+
+	attr_reader :decoder
+	attr_reader :main
+	attr_accessor :config_ui
+	def splat?; true end
+
+	def stream=(data_stream)
+	    if decoder
+		clear
+	    end
+
+	    @decoder = data_stream.decoder(self.class.decoder)
+	    decoder.displays << self
+	end
+
+	def clear; end
     end
 end
 

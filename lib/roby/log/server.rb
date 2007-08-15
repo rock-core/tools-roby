@@ -10,7 +10,7 @@ module Roby
 	    RING_PORT = 48904
 
 	    class << self
-		attr_reader :logger
+		attr_accessor :logger
 	    end
 	    @logger = Logger.new(STDERR)
 	    @logger.level = Logger::INFO
@@ -103,9 +103,7 @@ module Roby
 
 	    attr_reader :polling_timeout
 
-	    attr_predicate :take_over
-
-	    def initialize(take_over = false, port = RING_PORT, polling_timeout = POLLING_TIMEOUT)
+	    def initialize(port = RING_PORT, polling_timeout = POLLING_TIMEOUT)
 		@ring_server = Distributed::RingServer.new(DRbObject.new(self), :port => port)
 		@mutex   = Mutex.new
 		@streams = Array.new
@@ -113,7 +111,6 @@ module Roby
 		@subscriptions = Hash.new { |h, k| h[k] = Set.new }
 		@polling_timeout = polling_timeout
 		@polling = Thread.new(&method(:polling))
-		@take_over = take_over
 	    end
 
 	    def synchronize
@@ -122,7 +119,7 @@ module Roby
 
 	    def connect(remote)
 		synchronize do
-		    queue = Distributed::CommunicationQueue.new
+		    queue = Queue.new
 		    receiver_thread = pushing_loop(remote, queue)
 		    connections[remote] = [queue, receiver_thread]
 
@@ -181,7 +178,10 @@ module Roby
 		Thread.new do
 		    begin
 			loop do
-			    calls = queue.get(false)
+			    calls = []
+			    while !queue.empty?
+				calls << queue.pop
+			    end
 			    remote.demux(calls)
 			    if calls.find { |m, _| m == :quit }
 				break
@@ -344,7 +344,7 @@ module Roby
 		    while !data_file.eof?
 			chunk_length = data_file.read(4).unpack("N").first
 			chunk = data_file.read(chunk_length)
-			dec.process(decode(sample))
+			dec.process(decode(chunk))
 		    end
 
 		    display
@@ -372,9 +372,7 @@ module Roby
 		end
 	    end
 
-	    def current_time
-		synchronize { @current_time }
-	    end
+	    attr_reader :current_time
 	    
 	    def next_time
 		synchronize do
@@ -405,6 +403,7 @@ module Roby
 
 	    def init(data, &block)
 		Server.info "#{self} initializing with #{data.size} bytes of data"
+		data_file.rewind
 		data_file << [data.size].pack("N") << data
 		stream_model.init(data, &block)
 	    end
@@ -428,7 +427,6 @@ module Roby
 	    end
 
 	    def added_stream(klass_name, id, name, type)
-		raise
 		begin
 		    require klass_name.underscore
 		rescue LoadError

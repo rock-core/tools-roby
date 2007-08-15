@@ -1,147 +1,136 @@
 <ui version="4.0" >
  <class>RelationsView</class>
- <widget class="QWidget" name="RelationsView" >
+ <widget class="QMainWindow" name="RelationsView" >
   <property name="geometry" >
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>981</width>
-    <height>733</height>
+    <width>800</width>
+    <height>600</height>
    </rect>
   </property>
   <property name="windowTitle" >
-   <string>Form</string>
+   <string>MainWindow</string>
   </property>
-  <layout class="QVBoxLayout" >
-   <item>
-    <layout class="QHBoxLayout" >
-     <item>
-      <widget class="QToolButton" name="update" >
-       <property name="text" >
-        <string>Update</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QToolButton" name="show_all" >
-       <property name="text" >
-        <string>Show All</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="Line" name="line" >
-       <property name="orientation" >
-        <enum>Qt::Vertical</enum>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QToolButton" name="zoom" >
-       <property name="text" >
-        <string>+</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QToolButton" name="unzoom" >
-       <property name="text" >
-        <string>-</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QToolButton" name="fit" >
-       <property name="text" >
-        <string>Fit</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="Line" name="line_2" >
-       <property name="orientation" >
-        <enum>Qt::Vertical</enum>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QToolButton" name="keep_signals" >
-       <property name="text" >
-        <string>Keep Signals</string>
-       </property>
-       <property name="checkable" >
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QToolButton" name="show_ownership" >
-       <property name="text" >
-        <string>Ownership</string>
-       </property>
-       <property name="checkable" >
-        <bool>true</bool>
-       </property>
-       <property name="checked" >
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QToolButton" name="removed_prefixes" >
-       <property name="text" >
-        <string>Removed prefixes</string>
-       </property>
-       <property name="checkable" >
-        <bool>false</bool>
-       </property>
-       <property name="checked" >
-        <bool>false</bool>
-       </property>
-       <property name="popupMode" >
-        <enum>QToolButton::InstantPopup</enum>
-       </property>
-       <property name="toolButtonStyle" >
-        <enum>Qt::ToolButtonTextBesideIcon</enum>
-       </property>
-       <property name="arrowType" >
-        <enum>Qt::DownArrow</enum>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <spacer>
-       <property name="orientation" >
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" >
-        <size>
-         <width>91</width>
-         <height>26</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
-      <widget class="QToolButton" name="svg" >
-       <property name="text" >
-        <string>SVG Export</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QToolButton" name="print" >
-       <property name="text" >
-        <string>Print</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item>
-    <widget class="QGraphicsView" name="graphics" />
-   </item>
-  </layout>
+  <widget class="QWidget" name="centralwidget" >
+   <layout class="QVBoxLayout" >
+    <item>
+     <widget class="QGraphicsView" name="graphics" >
+      <property name="renderHints" >
+       <set>QPainter::Antialiasing|QPainter::TextAntialiasing</set>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar" >
+   <property name="geometry" >
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>800</width>
+     <height>29</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuView" >
+    <property name="title" >
+     <string>View</string>
+    </property>
+    <addaction name="actionKeepSignals" />
+    <addaction name="actionShowAll" />
+    <addaction name="actionRedraw" />
+    <addaction name="separator" />
+    <addaction name="actionZoom" />
+    <addaction name="actionUnzoom" />
+    <addaction name="actionFit" />
+    <addaction name="separator" />
+    <addaction name="actionSVGExport" />
+    <addaction name="actionPrint" />
+   </widget>
+   <widget class="QMenu" name="menuTask_labels" >
+    <property name="title" >
+     <string>Task labels</string>
+    </property>
+    <widget class="QMenu" name="menuRemovedPrefixes" >
+     <property name="title" >
+      <string>Removed prefixes</string>
+     </property>
+     <addaction name="actionPrefixAdd" />
+     <addaction name="separator" />
+    </widget>
+    <addaction name="actionOwnership" />
+    <addaction name="menuRemovedPrefixes" />
+   </widget>
+   <addaction name="menuView" />
+   <addaction name="menuTask_labels" />
+  </widget>
+  <action name="actionShowAll" >
+   <property name="text" >
+    <string>Show All</string>
+   </property>
+  </action>
+  <action name="actionRedraw" >
+   <property name="text" >
+    <string>Redaw</string>
+   </property>
+  </action>
+  <action name="actionZoom" >
+   <property name="text" >
+    <string>Zoom +</string>
+   </property>
+  </action>
+  <action name="actionUnzoom" >
+   <property name="text" >
+    <string>Zoom -</string>
+   </property>
+  </action>
+  <action name="actionFit" >
+   <property name="text" >
+    <string>Fit</string>
+   </property>
+  </action>
+  <action name="actionOwnership" >
+   <property name="checkable" >
+    <bool>true</bool>
+   </property>
+   <property name="checked" >
+    <bool>true</bool>
+   </property>
+   <property name="text" >
+    <string>Ownership</string>
+   </property>
+  </action>
+  <action name="actionPrefixAdd" >
+   <property name="text" >
+    <string>Add...</string>
+   </property>
+  </action>
+  <action name="actionSVGExport" >
+   <property name="text" >
+    <string>SVG Export</string>
+   </property>
+  </action>
+  <action name="actionPrint" >
+   <property name="text" >
+    <string>Print</string>
+   </property>
+  </action>
+  <action name="actionKeepSignals" >
+   <property name="checkable" >
+    <bool>true</bool>
+   </property>
+   <property name="checked" >
+    <bool>false</bool>
+   </property>
+   <property name="text" >
+    <string>Keep signals</string>
+   </property>
+  </action>
+  <action name="actionBookmarksAdd" >
+   <property name="text" >
+    <string>Add ...</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>

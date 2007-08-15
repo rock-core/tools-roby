@@ -32,7 +32,9 @@ module Roby::TaskStructure
             options = validate_options options, 
 		:model => [task.model, task.meaningful_arguments], 
 		:success => [:success], 
-		:failure => [:failed]
+		:failure => [:failed],
+		:remove_when_done => false
+
 	    options[:success] = Array[*options[:success]]
 	    options[:failure] = Array[*options[:failure]]
 
@@ -158,8 +160,11 @@ module Roby::TaskStructure
 		success = options[:success]
 		failure = options[:failure]
 
-		next if success.any? { |e| child.event(e).happened? }
-		if failing_event = failure.find { |e| child.event(e).happened? }
+		if success.any? { |e| child.event(e).happened? }
+		    if options[:remove_when_done]
+			parent.remove_child child
+		    end
+		elsif failing_event = failure.find { |e| child.event(e).happened? }
 		    result << Roby::ChildFailedError.new(parent, child, child.event(failing_event).last)
 		    failing_tasks << child
 		end

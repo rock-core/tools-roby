@@ -213,7 +213,11 @@ module Roby
 				      end
 
 	    if child_task
-		task.realized_by child_task, :success => [child_event.symbol]
+		unless task.realized_by?(child_task)
+		    task.realized_by child_task, 
+			:success => [child_event.symbol],
+			:remove_when_done => true
+		end
 		super(child_event)
 	    else
 		super(obj)
@@ -656,11 +660,11 @@ module Roby
 	    end
 
             if finished? && !event.terminal?
-                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.source_generators} but the task has finished"
+                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task has finished"
             elsif pending? && event.symbol != :start
-                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.source_generators} but the task is not running"
+                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task is not running"
             elsif running? && event.symbol == :start
-                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.source_generators} but the task is already running"
+                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task is already running"
             end
 
 	    update_task_status(event)

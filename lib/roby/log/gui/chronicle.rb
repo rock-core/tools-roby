@@ -1,14 +1,14 @@
 require 'roby/log/gui/basic_display_ui'
-require 'roby/log/notifications'
+require 'roby/log/chronicle'
 
 module Ui
-    class NotificationsConfig < Ui::BasicDisplayConfig
+    class ChronicleConfig < Ui::BasicDisplayConfig
 	attr_reader :streams_model
 
 	def setupUi(streams_model, widget)
 	    super(widget)
 
-	    display = Roby::Log::NotificationsDisplay.new
+	    display = Roby::Log::ChronicleDisplay.new
 	    @streams_model = FilteredDataStreamListModel.new(stream, display, 'roby-events', streams_model.streams)
 	    Qt::Object.connect(stream, SIGNAL("currentIndexChanged(int)"), @streams_model, SLOT("selectedStream()"))
 	    @streams_model.source_model = streams_model
@@ -17,8 +17,8 @@ module Ui
 	end
 
 	def self.setup_optparse(opt, replay)
-	    opt.on("--notifications") do
-		replay.add_display('Notifications')
+	    opt.on("--chronicle") do
+		replay.add_display('Chronicle')
 	    end
 	end
     end

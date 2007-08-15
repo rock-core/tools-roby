@@ -111,6 +111,11 @@
           </item>
           <item>
            <property name="text" >
+            <string>Chronicle</string>
+           </property>
+          </item>
+          <item>
+           <property name="text" >
             <string>Notifications</string>
            </property>
           </item>

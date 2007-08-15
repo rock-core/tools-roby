@@ -629,7 +629,7 @@ module Roby
 		    stats = Control.synchronize { process_events(stats) }
 		    
 		    stats[:expected_ruby_gc] = stats[:ruby_gc] = 
-			stats[:sleep] = stats[:expected_sleep] = stats[:end]
+			stats[:expected_sleep] = stats[:sleep] = stats[:end]
 
 		    cycle_duration = stats[:end] - stats[:start]
 		    if ObjectSpace.respond_to?(:live_objects)
@@ -654,7 +654,8 @@ module Roby
 			    end
 			end
 			stats[:expected_ruby_gc] ||= Time.now
-			stats[:ruby_gc] = Time.now
+			stats[:expected_sleep] = stats[:sleep] =
+			    stats[:ruby_gc] = stats[:end] = Time.now
 
 			Roby::Distributed.process_pending(stats[:start] + cycle)
 			stats[:droby] = Time.now
@@ -663,7 +664,6 @@ module Roby
 			if sleep_time > 0
 			    stats[:expected_sleep] = Time.now + sleep_time
 			    sleep(sleep_time) 
-			    stats[:sleep] = Time.now
 			end
 		    end
 

@@ -57,6 +57,11 @@ module Roby
 		    logfile.rewind
 		end
 	    end
+
+	    def start_time
+		return if index_data.empty?
+		index_data[0][:start]
+	    end
 	    
 	    # The current time
 	    def current_time
@@ -107,13 +112,13 @@ module Roby
 		while !io.eof?
 		    yield(Marshal.load(io))
 		end
+	    rescue EOFError
 	    end
 
 	    # Unmarshalls one cycle of data returned by #read and feeds
 	    # it to the decoders
 	    def self.decode(data)
-		io = StringIO.new(data)
-		Marshal.load(io)
+		Marshal.load(data)
 	    end
 
 	    # Read all data read so far in a format suitable to feed to

@@ -2,7 +2,7 @@ require 'Qt4'
 require 'roby/app'
 require 'optparse'
 
-require 'roby/log/gui/replay_controls_ui'
+require 'roby/log/gui/replay_controls'
 require 'roby/log/gui/data_displays'
 
 # This class is a data stream list model for offline replay:
@@ -36,6 +36,9 @@ class Replay < Qt::MainWindow
     # The widget which hold the replay controls (play, pause, ...)
     attr_reader :ui_controls
 
+    # The set of bookmarks as a name => time map
+    attr_reader :bookmarks
+
     KEY_GOTO = Qt::KeySequence.new('g')
     
     # True if we should start playing right away
@@ -54,6 +57,7 @@ class Replay < Qt::MainWindow
 	@logdir        = nil
 	@goto          = nil
 	@initial_setup = []
+	@bookmarks     = Hash.new
 
 	# Create the vertical layout for this window
 	central_widget = Qt::Widget.new(self)
@@ -62,7 +66,7 @@ class Replay < Qt::MainWindow
 	layout.spacing = 6
 	layout.margin  = 0
 
-	# add support for the data streams and display setup
+	# Add support for the data streams and display setup
 	@streams = Array.new
 	@streams_model = OfflineStreamListModel.new(streams)
 	displays_holder = Qt::Widget.new(central_widget)
@@ -75,43 +79,9 @@ class Replay < Qt::MainWindow
 	connect(ui_displays.display_add, SIGNAL("clicked()"), self, SLOT("add_display()"))
 
 	controls_holder = Qt::Widget.new(central_widget)
+	@ui_controls = Ui::ReplayControls.new
+	ui_controls.setupUi(self, controls_holder)
 	layout.add_widget controls_holder
-	@ui_controls = Ui_ReplayControls.new
-	ui_controls.setupUi(controls_holder)
-	connect(ui_controls.seek_start, SIGNAL("clicked()"), self, SLOT("seek_start()"))
-	connect(ui_controls.play, SIGNAL("toggled(bool)"), self, SLOT("play()"))
-	connect(ui_controls.play_step, SIGNAL("clicked()"), self, SLOT("play_step()"))
-	connect(ui_controls.faster, SIGNAL('clicked()')) do
-	    factor = play_speed < 1 ? 10 : 1
-	    self.play_speed = Float(Integer(factor * play_speed) + 1.0) / factor
-	    if play_speed > 0.1
-		ui_controls.slower.enabled = true
-	    end
-	end
-	connect(ui_controls.slower, SIGNAL('clicked()')) do
-	    factor = play_speed <= 1 ? 10 : 1
-	    self.play_speed = Float(Integer(factor * play_speed) - 1.0) / factor
-	    if play_speed == 0.1
-		ui_controls.slower.enabled = false
-	    end
-	end
-	connect(ui_controls.speed, SIGNAL('editingFinished()')) do
-	    begin
-		new_speed = Float(ui_controls.speed.text)
-		if new_speed <= 0
-		    raise ArgumentError, "negative values are not allowed for speed"
-		end
-	    rescue ArgumentError
-		Qt::MessageBox.warning self, "Invalid speed", "Invalid value for speed \"#{ui_controls.speed.text}\": #{$!.message}"
-		# Reinitialize the line edit to the old value
-		self.play_speed = play_speed
-	    end
-	end
-	connect(ui_controls.goto, SIGNAL('clicked()'), self, SLOT('goto()'))
-
-
-	@shortcuts = []
-	@shortcuts << Qt::Shortcut.new(KEY_GOTO, self, SLOT('goto()'))
     end
 
     def play_speed=(value)
@@ -142,12 +112,9 @@ class Replay < Qt::MainWindow
     # Time of the last known sample
     attr_reader :last_sample
 
-    def seek_start; seek(nil) end
-    slots 'seek_start()'
-
     def seek(time)
 	if time && !first_sample
-	    seek_start 
+	    seek(nil) 
 	elsif time && first_sample && time < first_sample
 	    time = nil
 	end
@@ -169,6 +136,7 @@ class Replay < Qt::MainWindow
 	    @last_sample  = max
 	    ui_controls.progress.minimum = first_sample.to_i
 	    ui_controls.progress.maximum = last_sample.to_i
+	    ui_controls.update_bookmarks_menu
 	else
 	    play_until time
 	end
@@ -176,34 +144,6 @@ class Replay < Qt::MainWindow
 	ui_controls.time_lcd.display(self.time - first_sample)
 	ui_controls.progress.value = self.time.to_i
     end
-
-    def goto
-	user_time = begin
-			user_time = Qt::InputDialog.get_text nil, 'Going to ...', 
-					"<html><b>Go to time</b><ul><li>use \'+\' for a relative jump forward</li><li>'-' for a relative jump backwards</li></ul></html>", 
-					Qt::LineEdit::Normal, (user_time || @last_goto || "")
-			return if !user_time || user_time.empty?
-			@last_goto = user_time
-			if user_time =~ /^\s*([\+\-])(.*)/
-			    op = $1
-			    user_time = $2
-			end
-			user_time = Time.from_hms(user_time) - Time.at(0)
-
-		    rescue ArgumentError
-			Qt::MessageBox.warning self, "Invalid user_time", "Invalid user_time: #{$!.message}"
-			retry
-		    end
-
-	seek_start unless first_sample
-	user_time = if op
-			self.time.send(op, user_time)
-		    else
-			first_sample + user_time
-		    end
-	seek(user_time)
-    end
-    slots 'goto()'
 
     attr_reader :time
 
@@ -216,30 +156,25 @@ class Replay < Qt::MainWindow
     BASE_TIME_SLICE = 0.5
     attr_reader :play_timer, :play_speed
     def play
-	if ui_controls.play.checked?
-	    seek_start unless first_sample
+	seek(nil) unless first_sample
 
-	    @play_timer = Qt::Timer.new(self)
-	    connect(play_timer, SIGNAL("timeout()"), self, SLOT("play_step_timer()"))
-	    play_timer.start(Integer(time_slice * 1000))
-	else
-	    play_timer.stop
-	end
+	@play_timer = Qt::Timer.new(self)
+	connect(play_timer, SIGNAL("timeout()"), self, SLOT("play_step_timer()"))
+	play_timer.start(Integer(time_slice * 1000))
     end
-    slots 'play()'
 
     def stop
-	ui_controls.play.checked = false
-	play_timer.stop if play_timer
-	@play_timer = nil
+	if play_timer
+	    ui_controls.play.checked = false
+	    play_timer.stop
+	    @play_timer = nil
+	end
     end
-    slots 'stop()'
 
     def play_step
-	seek_start unless first_sample
+	seek(nil) unless first_sample
        	play_until(next_time) 
     end
-    slots 'play_step()'
 
     def play_step_timer
 	start = Time.now
@@ -251,6 +186,7 @@ class Replay < Qt::MainWindow
     slots 'play_step_timer()'
     
     def play_until(max_time)
+	start_at = Time.now
 	displayed_streams.inject(timeline = []) do |timeline, s| 
 	    if s.next_time
 		timeline << [s.next_time, s]
@@ -279,9 +215,13 @@ class Replay < Qt::MainWindow
 	    end
 	end
 
+	replayed = Time.now
+
 	updated_streams.each do |stream|
 	    stream.display
 	end
+
+	STDERR.puts "replay #{replayed - start_at}, display #{Time.now-replayed}"
 
 	if timeline.empty? then stop
 	else @time = max_time
@@ -314,11 +254,7 @@ class Replay < Qt::MainWindow
     slots 'remove_stream()'
 
     def add_display(kind = nil)
-	display  = ui_displays.add_display(streams_model, kind)
-	shortcut = Qt::Shortcut.new(KEY_GOTO, display.main)
-	connect(shortcut, SIGNAL('activated()'), self, SLOT('goto()'))
-	@shortcuts << shortcut
-	display
+	ui_displays.add_display(streams_model, kind)
     end
     slots 'add_display()'
 

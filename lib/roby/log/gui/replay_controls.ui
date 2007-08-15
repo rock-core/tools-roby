@@ -13,32 +13,14 @@
    <string>Form</string>
   </property>
   <layout class="QVBoxLayout" >
-   <property name="margin" >
-    <number>9</number>
-   </property>
-   <property name="spacing" >
-    <number>6</number>
-   </property>
    <item>
     <widget class="QGroupBox" name="grp_play" >
      <property name="title" >
       <string>Play</string>
      </property>
      <layout class="QVBoxLayout" >
-      <property name="margin" >
-       <number>9</number>
-      </property>
-      <property name="spacing" >
-       <number>6</number>
-      </property>
       <item>
        <layout class="QHBoxLayout" >
-        <property name="margin" >
-         <number>0</number>
-        </property>
-        <property name="spacing" >
-         <number>6</number>
-        </property>
         <item>
          <widget class="QProgressBar" name="progress" >
           <property name="value" >
@@ -73,12 +55,6 @@
       </item>
       <item>
        <layout class="QHBoxLayout" >
-        <property name="margin" >
-         <number>0</number>
-        </property>
-        <property name="spacing" >
-         <number>6</number>
-        </property>
         <item>
          <widget class="QLabel" name="textLabel1" >
           <property name="text" >
@@ -92,9 +68,7 @@
         <item>
          <widget class="QLineEdit" name="speed" >
           <property name="sizePolicy" >
-           <sizepolicy>
-            <hsizetype>1</hsizetype>
-            <vsizetype>0</vsizetype>
+           <sizepolicy vsizetype="Fixed" hsizetype="Minimum" >
             <horstretch>1</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -137,9 +111,7 @@ p, li { white-space: pre-wrap; }
         <item>
          <widget class="QPushButton" name="play" >
           <property name="sizePolicy" >
-           <sizepolicy>
-            <hsizetype>3</hsizetype>
-            <vsizetype>0</vsizetype>
+           <sizepolicy vsizetype="Fixed" hsizetype="MinimumExpanding" >
             <horstretch>2</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
@@ -175,12 +147,35 @@ p, li { white-space: pre-wrap; }
       </item>
       <item>
        <layout class="QHBoxLayout" >
-        <property name="margin" >
-         <number>0</number>
-        </property>
-        <property name="spacing" >
-         <number>6</number>
-        </property>
+        <item>
+         <widget class="QToolButton" name="bookmarks" >
+          <property name="text" >
+           <string>Bookmarks</string>
+          </property>
+          <property name="popupMode" >
+           <enum>QToolButton::InstantPopup</enum>
+          </property>
+          <property name="toolButtonStyle" >
+           <enum>Qt::ToolButtonTextBesideIcon</enum>
+          </property>
+          <property name="arrowType" >
+           <enum>Qt::DownArrow</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer>
+          <property name="orientation" >
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" >
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
         <item>
          <widget class="QPushButton" name="seek_start" >
           <property name="toolTip" >
@@ -216,6 +211,43 @@ p, li { white-space: pre-wrap; }
     </widget>
    </item>
   </layout>
+  <action name="actionBookmarksAdd" >
+   <property name="text" >
+    <string>Add...</string>
+   </property>
+  </action>
+  <action name="actionGoto" >
+   <property name="text" >
+    <string>goto</string>
+   </property>
+   <property name="shortcut" >
+    <string>Shift+G, G</string>
+   </property>
+   <property name="shortcutContext" >
+    <enum>Qt::ApplicationShortcut</enum>
+   </property>
+  </action>
+  <action name="actionBookmarksSave" >
+   <property name="enabled" >
+    <bool>false</bool>
+   </property>
+   <property name="text" >
+    <string>Save</string>
+   </property>
+  </action>
+  <action name="actionBookmarksSaveAs" >
+   <property name="enabled" >
+    <bool>true</bool>
+   </property>
+   <property name="text" >
+    <string>Save As</string>
+   </property>
+  </action>
+  <action name="actionBookmarksLoad" >
+   <property name="text" >
+    <string>Load</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>

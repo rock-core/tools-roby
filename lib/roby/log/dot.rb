@@ -34,7 +34,6 @@ module Roby
 	    end
 
 	    relations_to_dot(display, io, TaskStructure, known_tasks)
-	    relations_to_dot(display, io, EventStructure, all_events(display))
 	end
 
 	def each_displayed_relation(display, space, objects)
@@ -74,7 +73,7 @@ module Roby
 
 	def layout_relations(positions, display, space, objects)
 	    each_displayed_relation(display, space, objects) do |rel, from, to|
-		display.arrow(from, to, rel, from[to, rel])
+		display.task_relation(from, to, rel, from[to, rel])
 	    end
 	end
 
@@ -114,7 +113,6 @@ module Roby
 		trsc.apply_layout(bounding_rects, positions, display, max_depth)
 	    end
 	    layout_relations(positions, display, TaskStructure, known_tasks)
-	    layout_relations(positions, display, EventStructure, all_events(display))
 	end
     end
 
@@ -189,15 +187,18 @@ module Roby
 		dot_output = Tempfile.new("roby_layout")
 
 		dot_input << "digraph relations {\n"
-		dot_input << "  rankdir=#{display.layout_direction};\n"
-
+		display.layout_options.each do |k, v|
+		    dot_input << "  #{k}=#{v};\n"
+		end
 		plan.to_dot(display, self, 0)
 
 		# Take the signalling into account for the layout
-		display.signalled_events.each do |_, from, to, _|
-		    from_id, to_id = from.dot_id, to.dot_id
-		    if from_id && to_id
-			dot_input << "  #{from.dot_id} -> #{to.dot_id}\n"
+		display.propagated_events.each do |_, sources, to, _|
+		    sources.each do |from|
+			from_id, to_id = from.dot_id, to.dot_id
+			if from_id && to_id
+			    dot_input << "  #{from.dot_id} -> #{to.dot_id}\n"
+			end
 		    end
 		end
 
@@ -235,12 +236,12 @@ module Roby
 
 		    case full_line
 		    when /((?:\w+_)+\d+) \[.*pos="(\d+),(\d+)"/
-			object_pos[$1] = Qt::PointF.new(Integer($2) * display.layout_scale, Integer($3) * display.layout_scale)
+			object_pos[$1] = Qt::PointF.new(Integer($2), Integer($3))
 		    when /subgraph cluster_(plan_\d+)/
 			current_graph_id = $1
 		    when /graph \[bb="(\d+),(\d+),(\d+),(\d+)"\]/
 			bb = [$1, $2, $3, $4].map do |c|
-			    c = Integer(c) * display.layout_scale
+			    c = Integer(c)
 			end
 			bounding_rects[current_graph_id] = [bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1]]
 		    end

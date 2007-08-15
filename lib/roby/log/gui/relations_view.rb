@@ -3,30 +3,88 @@ require 'roby/log/gui/relations_view_ui'
 class Ui::RelationsView
     def scene; graphics.scene end
     attr_reader :display
+    attr_reader :prefixActions
+
+    def config_path
+	"#{display.decoder.name}-events.yml"
+    end
+
+    def load_config
+	if File.readable?(config_path)
+	    STDERR.puts "Loading config from #{config_path}"
+	    config_data = File.open(config_path) do |io|
+		YAML.load(io)
+	    end
+
+	    display.removed_prefixes.clear
+	    if removed_prefixes_config = config_data['prefixes']
+		removed_prefixes_config.each do |name, enabled|
+		    display.removed_prefixes[name] = enabled
+		end
+	    end
+	else
+	    STDERR.puts "No such config file #{config_path}"
+	end
+    end
+    def save_config
+	STDERR.puts "Saving config into #{display.decoder.name}-events.yml"
+	config = { 'prefixes' => Hash.new }
+	display.removed_prefixes.each do |name, enabled|
+	    config['prefixes'][name] = enabled
+	end
+	config['show_ownership'] = display.show_ownership
+	config['show_arguments'] = display.show_arguments
+
+	File.open(config_path, 'w') do |io|
+	    YAML.dump(config, io)
+	end
+    end
+
+    def update_prefix_menu
+	@prefixActions ||= []
+	prefixActions.each do |action|
+	    menuRemovedPrefixes.remove_action(action)
+	end
+
+	prefixActions.clear
+	display.removed_prefixes.each do |prefix, bool|
+	    action = Qt::Action.new prefix, menuRemovedPrefixes
+	    prefixActions << action
+	    action.checkable = true
+	    action.checked = bool
+	    action.connect(SIGNAL(:triggered)) do 
+		display.removed_prefixes[prefix] = action.checked?
+		display.update
+	    end
+	    menuRemovedPrefixes.add_action action
+	end
+    end
 
     ZOOM_STEP = 0.25
     def setupUi(relations_display)
-	@display = relations_display
+	@display   = relations_display
 	super(relations_display.main)
 
-	show_ownership.connect(SIGNAL(:released)) do
-	    relations_display.show_ownership = show_ownership.checked?
-	    relations_display.update
+	actionOwnership.connect(SIGNAL(:triggered)) do
+	    display.show_ownership = actionOwnership.checked?
+	    display.update
 	end
 
-	removed_prefixes_menu = Qt::Menu.new(relations_display.main)
-	removed_prefixes.set_menu removed_prefixes_menu
-	relations_display.removed_prefixes.each do |prefix, bool|
-	    action = Qt::Action.new prefix, removed_prefixes_menu
-	    action.checkable = true
-	    action.checked = bool
-	    action.connect(SIGNAL('changed()')) do 
-		relations_display.removed_prefixes[prefix] = action.checked?
-		relations_display.update
+	#############################################################
+	# Build the removed_prefixes menu
+	actionPrefixAdd.connect(SIGNAL(:triggered)) do
+	    new_prefix = Qt::InputDialog.get_text display.main, "New prefix", "New prefix to remove"
+	    if !new_prefix.nil?
+		display.removed_prefixes[new_prefix] = true
+		save_config
+		update_prefix_menu
+		display.update
 	    end
-	    removed_prefixes_menu.add_action action
 	end
-
+	update_prefix_menu
+	
+	#############################################################
+	# Handle the other toolbar's buttons
 	graphics.singleton_class.class_eval do
 	    define_method(:contextMenuEvent) do |event|
 		item = itemAt(event.pos)
@@ -61,17 +119,17 @@ class Ui::RelationsView
 	    end
 	end
 
-	show_all.connect(SIGNAL(:clicked)) do
-	    relations_display.graphics.keys.each do |obj|
-		relations_display.set_visibility(obj, true) if obj.kind_of?(Roby::Task)
+	actionShowAll.connect(SIGNAL(:triggered)) do
+	    display.graphics.keys.each do |obj|
+		display.set_visibility(obj, true) if obj.kind_of?(Roby::Task)
 	    end
-	    relations_display.update
+	    display.update
 	end
-	update.connect(SIGNAL(:clicked)) do
-	    relations_display.update
+	actionRedraw.connect(SIGNAL(:triggered)) do
+	    display.update
 	end
 
-	zoom.connect(SIGNAL(:clicked)) do 
+	actionZoom.connect(SIGNAL(:triggered)) do 
 	    scale = graphics.matrix.m11
 	    if scale + ZOOM_STEP > 1
 		scale = 1 - ZOOM_STEP
@@ -79,20 +137,20 @@ class Ui::RelationsView
 	    graphics.resetMatrix
 	    graphics.scale scale + ZOOM_STEP, scale + ZOOM_STEP
 	end
-	unzoom.connect(SIGNAL(:clicked)) do
+	actionUnzoom.connect(SIGNAL(:triggered)) do
 	    scale = graphics.matrix.m11
 	    graphics.resetMatrix
 	    graphics.scale scale - ZOOM_STEP, scale - ZOOM_STEP
 	end
-	fit.connect(SIGNAL(:clicked)) do
+	actionFit.connect(SIGNAL(:triggered)) do
 	    graphics.fitInView(graphics.scene.items_bounding_rect, Qt::KeepAspectRatio)
 	end
 
-	keep_signals.connect(SIGNAL('clicked()')) do 
-	    relations_display.keep_signals = keep_signals.checked
+	actionKeepSignals.connect(SIGNAL(:triggered)) do 
+	    display.keep_signals = actionKeepSignals.checked?
 	end
 
-	print.connect(SIGNAL(:clicked)) do
+	actionPrint.connect(SIGNAL(:triggered)) do
 	    return unless scene
 	    printer = Qt::Printer.new;
 	    if Qt::PrintDialog.new(printer).exec() == Qt::Dialog::Accepted
@@ -102,7 +160,7 @@ class Ui::RelationsView
 	    end
 	end
 
-	svg.connect(SIGNAL(:clicked)) do
+	actionSVGExport.connect(SIGNAL(:triggered)) do
 	    return unless scene
 
 	    if path = Qt::FileDialog.get_save_file_name(nil, "SVG Export")
@@ -115,7 +173,7 @@ class Ui::RelationsView
 		painter.end
 	    end
 	end
-	svg.enabled = defined?(Qt::SvgGenerator)
+	actionSVGExport.enabled = defined?(Qt::SvgGenerator)
     end
 end
 

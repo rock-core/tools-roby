@@ -42,7 +42,10 @@ module Roby::Log
 		pos = nil
 		loop do
 		    pos = index_io.tell
-		    index_data << Marshal.load(index_io)
+		    length = index_io.read(4)
+		    raise EOFError unless length
+		    length = length.unpack("N").first
+		    index_data << Marshal.load(index_io.read(length))
 		end
 	    rescue EOFError
 		index_io.seek(pos, IO::SEEK_SET)
@@ -104,9 +107,12 @@ module Roby::Log
 	# The set of events for the current cycle. This is dumped only
 	# when the +cycle_end+ event is received
 	attr_reader :current_cycle
+	# StringIO object on which we dump the data
+	attr_reader :dump_io
 
 	def initialize(basename)
 	    @current_pos   = 0
+	    @dump_io	   = StringIO.new('', 'w')
 	    @current_cycle = Array.new
 	    @event_log = File.open("#{basename}-events.log", 'w')
 	    event_log.sync = true
@@ -123,7 +129,12 @@ module Roby::Log
 		info[:pos] = event_log.tell
 		info[:event_count] = current_cycle.size
 		Marshal.dump(current_cycle, event_log)
-		Marshal.dump(info, index_log)
+
+		dump_io.truncate(0)
+		dump_io.seek(0)
+		Marshal.dump(info, dump_io)
+		index_log.write [dump_io.size].pack("N")
+		index_log.write dump_io.string
 		current_cycle.clear
 	    end
 
@@ -148,13 +159,20 @@ module Roby::Log
 	    Marshal.load(event_log)
 
 	    current_pos = event_log.tell
+	    dump_io	   = StringIO.new("", 'w')
 
 	    loop do
 		cycle = Marshal.load(event_log)
 		info               = cycle.last.last
 		info[:pos]         = current_pos
 		info[:event_count] = cycle.size
-		Marshal.dump(info, index_log)
+
+		dump_io.truncate(0)
+		dump_io.seek(0)
+		Marshal.dump(info, dump_io)
+		index_log.write [dump_io.size].pack("N")
+		index_log.write dump_io.string
+
 		current_pos = event_log.tell
 	    end
 
@@ -164,23 +182,6 @@ module Roby::Log
 	    index_log.rewind
 	end
 
-
-	def self.replay(io)
-	    method_name = nil
-	    loop do
-		method_name = Marshal.load(io)
-		method_args = Marshal.load(io)
-		yield(method_name, method_args)
-	    end
-
-	rescue EOFError
-	rescue
-	    if method_name
-		Roby::Log.warn "handling of #{method_name} failed with: #{$!.full_message}"
-	    else
-		raise
-	    end
-	end
 
 	def self.log_format(input)
 	    input.rewind

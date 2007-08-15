@@ -157,13 +157,15 @@ module Roby
 	    attr_reader :tasks
 	    attr_reader :events
 
-	    def initialize
+	    attr_reader :start_time
+	    attr_reader :time
+	    def initialize(name)
 		@plans  = Hash.new { |h, k| h[k] = Set.new }
 		@tasks  = Hash.new { |h, k| h[k] = Set.new }
 		@events = Hash.new { |h, k| h[k] = Set.new }
-		super
+		super(name)
 	    end
-
+	    
 	    def clear
 		Log.all_siblings.clear
 		super
@@ -172,6 +174,8 @@ module Roby
 		plans.clear
 		tasks.clear
 		events.clear
+		@start_time = nil
+		@time = nil
 	    end
 
 	    def rewind
@@ -179,6 +183,9 @@ module Roby
 	    end
 	    
 	    def process(data)
+		@time = data.last[1][:start]
+	        @start_time ||= @time
+
 		data.each_slice(2) do |m, args|
 		    reason = catch :ignored do
 			begin
