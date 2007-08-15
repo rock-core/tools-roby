@@ -1,14 +1,28 @@
 require 'roby/log/data_stream'
 require 'roby/log/relations'
-
-class Chronicle < Roby::Log::DataDecoder
-end
+require 'roby/log/gui/chronicle_view'
 
 module Roby
     module Log
 	class ChronicleDisplay < Qt::Object
 
-	    Line = Struct.new :y, :item, :graphic_group
+	    # y:: the Y of this line in the graphics scene
+	    # item:: the main item, either a free event or a task
+	    # graphic_items:: the array of graphic items
+	    # graphics_group:: a Qt::GraphicsGroup object holding all graphic objects for this line
+	    Line = Struct.new :y, :item, :graphic_items, :graphic_group, :start_time
+	    class Line
+		def add(graphic_item, time)
+		    class << graphic_item; attr_accessor :time end
+		    graphic_item.time = time
+		    graphic_group.add_to_group graphic_item
+
+		    if graphic_items.empty?
+			self.start_time = time
+		    end
+		    graphic_items << graphic_item
+		end
+	    end
 
 	    include DataDisplay
 	    decoder PlanRebuilder
@@ -16,6 +30,8 @@ module Roby
 	    include TaskDisplaySupport
 
 	    attr_reader :scene
+	    attr_reader :ui
+
 	    attr_reader :signalled_events
 	    attr_reader :execution_events
 	    attr_reader :graphic_stack
@@ -23,12 +39,18 @@ module Roby
 	    attr_reader :last_event_graphics
 	    attr_reader :time_scale
 
+	    attr_predicate :display_follows_execution?, true
+	    attr_predicate :display_follows_new_tasks?, true
+
 	    def initialize
 		@scene  = Qt::GraphicsScene.new
 		super()
 
-		@main = Qt::GraphicsView.new(@scene)
+		@main = Qt::MainWindow.new
 		main.resize 500, 500
+		@ui = Ui::ChronicleView.new
+		ui.setupUi(self, main)
+		ui.graphics.scene = @scene
 
 		@signalled_events    = []
 		@execution_events    = []
@@ -37,29 +59,55 @@ module Roby
 		@last_event_graphics = Hash.new
 		self.show_ownership = false
 
-		connect(main.horizontalScrollBar, SIGNAL('sliderReleased()'), self, SLOT('hscroll()'))
+		connect(ui.graphics.horizontalScrollBar, SIGNAL('valueChanged(int)'), self, SLOT('hscroll()'))
+		connect(ui.graphics.verticalScrollBar, SIGNAL('valueChanged(int)'), self, SLOT('vscroll()'))
 
 		@time_scale = 100.0
 	    end
 
-	    def hscroll
-		left_side = main.mapToScene(0, 0).x
+	    def time_scale=(new_value)
+		@time_scale = new_value
+
+		# For now, we don't relayout event labels
+		graphic_stack.each do |line_info|
+		    base_x = time_to_display(line_info.start_time)
+
+		    line_info.graphic_items.each do |g|
+			g.set_pos(time_to_display(g.time), g.pos.y)
+		    end
+		end
+
+		# call update to update the task width
+		update
+	    end
+
+	    def vscroll(user = true)
+		if user
+		    scrollbar = ui.graphics.verticalScrollBar
+		    @display_follows_new_tasks = (scrollbar.maximum == scrollbar.value)
+		end
+	    end
+	    slots 'vscroll()'
+
+	    def hscroll(user = true)
+		left_side = ui.graphics.mapToScene(0, 0).x
+
+		if user
+		    scrollbar = ui.graphics.horizontalScrollBar
+		    @display_follows_execution = (scrollbar.maximum == scrollbar.value)
+		end
 
 		graphic_stack.each do |line|
 		    item = line.item
 		    next unless item.kind_of?(Roby::Task::DRoby)
 
 		    graphics = graphic_objects[item]
-
-		    task_x   = graphics.pos.x
-		    text_pos = graphics.text.pos
-		    text_pos.x = if task_x < left_side
-				     left_side
-				 else task_x
-				 end
-		    text_pos.x -= task_x
-
-		    graphics.text.pos = text_pos
+		    dx = graphics.pos.x - left_side
+		    if dx <= 0
+			graphics.text.set_pos(-dx, graphics.text.pos.y)
+		    else
+			graphics.text.set_pos(0, graphics.text.pos.y)
+		    end
 		end
 	    end
 	    slots 'hscroll()'
@@ -70,8 +118,8 @@ module Roby
 
 	    def create_line(item)
 		group = scene.create_item_group([])
-		graphic_stack << Line.new(0, item, group)
-		group
+		graphic_stack << (new_line = Line.new(0, item, [], group))
+		new_line
 	    end
 
 	    def create_or_get_task(item, time)
@@ -79,12 +127,10 @@ module Roby
 		    pos_x = time_to_display(time)
 
 		    g = graphic_objects[item] = item.display_create(self)
-		    class << g; attr_accessor :start_time end
-		    g.start_time = time
 		    g.rect = Qt::RectF.new(0, 0, 0, Log::DEFAULT_TASK_HEIGHT)
 		    g.move_by pos_x, 0
-		    group = create_line(item)
-		    group.add_to_group g
+		    line = create_line(item)
+		    line.add g, time
 		end
 		g
 	    end
@@ -117,63 +163,79 @@ module Roby
 	    def update
 		update_prefixes_removal
 
-		scrollbar = main.horizontalScrollBar
-		following_execution = (scrollbar.maximum == scrollbar.value)
-
-		decoder.plans.each_key do |plan|
-		    next unless plan.root_plan?
-		    (plan.finalized_tasks | plan.finalized_events).each do |object|
-			if line = line_of(object)
-			    graphic_objects.delete(object)
-			    scene.removeItem(graphic_stack[line].graphic_group)
-			    graphic_stack.delete_at(line)
-			end
-		    end
-		end
-
 		execution_events.each do |flags, time, event|
 		    graphics = event.display_create(self)
+		    graphics.move_by time_to_display(time), 0
+		    y_offset = Log::EVENT_CIRCLE_RADIUS + Log::TASK_EVENT_SPACING
 
 		    if event.respond_to?(:task)
 			task_graphics = create_or_get_task(event.task, time)
+			line = line_of(event.task)
+
+			# Check that the event labels to not collide. If it is
+			# the case, move the current label at the bottom of the
+			# last label found
+			line_info = graphic_stack[line]
+			if line_info.graphic_items.size > 1
+			    last_event = line_info.graphic_items[-1]
+			    last_br    = last_event.text.scene_bounding_rect
+			    current_br = graphics.text.scene_bounding_rect
+			    if last_br.right > current_br.left
+				if event.task.last_event[1] == event
+				    last_event.text.hide
+				else
+				    graphics.text.set_pos(0, last_br.bottom - last_event.scene_pos.y)
+				end
+			    end
+			end
 
 			# Move the right edge of the task to reflect that it is
 			# still running. Then, make sure the rectangle can
 			# contain the event graphics
-			rect = task_graphics.rect
-			expected_height = graphics.children_bounding_rect.height + Log::TASK_EVENT_SPACING
-			if rect.height < expected_height
-			    dy = expected_height - rect.height
-			    rect.height = expected_height
-			    task_graphics.text.move_by 0, dy
+			expected_height = graphics.text.bounding_rect.bottom + y_offset
+			if expected_height > task_graphics.rect.height
+			    task_graphics.set_rect(0, 0, time_to_display(time) - time_to_display(line_info.start_time), expected_height)
+			    task_graphics.text.set_pos(task_graphics.text.pos.x, expected_height)
 			end
-			task_graphics.rect = rect
 			event.task.last_event = [time, event]
-			line = line_of(event.task)
+
 		    elsif !(line = line_of(event))
 			group = create_line(event)
 			line = (graphic_stack.size - 1)
 		    end
 
-		    graphics.move_by time_to_display(time), 
-			graphic_stack[line].y + Log::EVENT_CIRCLE_RADIUS + Log::TASK_EVENT_SPACING
+		    line_info = graphic_stack[line]
+		    graphics.move_by 0, line_info.y + y_offset
 
 		    # Try to handle too-near events gracefully
-		    old_flag, old_graphics = last_event_graphics[event]
-		    if old_flag
-			flag = 2 if old_flag == 0 && flag == 1
-			if old_graphics.text.bounding_rect.right > graphics.text.bounding_rect.left
-			    old_graphics.text.hide
-			end
-		    end
-		    last_event_graphics[event] = [flag, graphics]
+		    #old_flag, old_graphics = last_event_graphics[event]
+		    #if old_flag
+		    #    flag = 2 if old_flag == 0 && flag == 1
+		    #    if old_graphics.text.bounding_rect.right > graphics.text.bounding_rect.left
+		    #        old_graphics.text.hide
+		    #    end
+		    #end
+		    #last_event_graphics[event] = [flag, graphics]
 
 		    graphics.brush, graphics.pen = EventGeneratorDisplay.style(event, flags)
-		    graphic_stack[line].graphic_group.add_to_group graphics
+		    if flags & EVENT_EMITTED == 1
+			graphics.z_layer += 1
+		    end
+		    line_info.add graphics, time
+		end
+
+		removed_objects = (graphic_objects.keys - decoder.tasks.keys - decoder.events.keys)
+		removed_objects.each do |obj|
+		    if line = line_of(obj)
+			graphic_objects.delete(obj)
+			scene.remove_item graphic_stack[line].graphic_group
+			graphic_stack.delete_at(line)
+		    end
 		end
 
 		decoder.tasks.each_key do |task|
 		    next unless task_graphics = graphic_objects[task]
+		    line_info = graphic_stack[line_of(task)]
 
 		    old_state = task.displayed_state
 		    task.update_graphics(self, task_graphics)
@@ -181,17 +243,22 @@ module Roby
 		    state = task.current_state
 		    rect = task_graphics.rect
 
-		    last_time = if state != old_state && (state == :success || state == :finished)
+		    last_time = if state == :success || state == :finished
 				    task.last_event[0]
 				else decoder.time
 				end
-		    rect.width = time_to_display(last_time) - time_to_display(task_graphics.start_time)
-		    task_graphics.rect = rect
+		    task_graphics.set_rect(0, 0, time_to_display(last_time) - time_to_display(line_info.start_time), rect.height)
 		end
 
-		if following_execution
+		if display_follows_execution?
+		    scrollbar = ui.graphics.horizontalScrollBar
 		    scrollbar.value = scrollbar.maximum
-		    hscroll
+		    hscroll(false)
+		end
+
+		if display_follows_new_tasks?
+		    scrollbar = ui.graphics.verticalScrollBar
+		    scrollbar.value = scrollbar.maximum
 		end
 
 		# layout lines
