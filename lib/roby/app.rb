@@ -255,6 +255,7 @@ module Roby
 		end
 		extend Logger::Forward
 	    end
+	    STDOUT.sync = true
 	    Object.const_set('Robot', robot_mod)
 	    robot_mod.logger = Logger.new(STDOUT)
 	    robot_mod.logger.level = Logger::INFO
