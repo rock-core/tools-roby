@@ -16,16 +16,31 @@ module Roby
     end
 
     module EventGeneratorDisplay
-	def self.pending_style
-	    @@default_pending_brush ||= Qt::Brush.new(Qt::Color.new(Log::PENDING_EVENT_COLOR))
-	    @@default_pending_pen   ||= Qt::Pen.new(Qt::Color.new(Log::PENDING_EVENT_COLOR))
-	    [@@default_pending_brush, @@default_pending_pen]
+	def self.style(object, flags)
+	    flags |= (object.controlable ? Log::EVENT_CONTROLABLE : Log::EVENT_CONTINGENT)
+	    styles[flags]
 	end
-	def self.fired_style
-	    @@default_fired_brush ||= Qt::Brush.new(Qt::Color.new(Log::FIRED_EVENT_COLOR))
-	    @@default_fired_pen   ||= Qt::Pen.new(Qt::Color.new(Log::FIRED_EVENT_COLOR))
-	    [@@default_fired_brush, @@default_fired_pen]
+
+	def self.styles
+	    if defined? @@event_styles
+		return @@event_styles
+	    end
+
+	    @@event_styles = Hash.new
+	    @@event_styles[Log::EVENT_CONTROLABLE | Log::EVENT_CALLED] =
+		[Qt::Brush.new(Qt::Color.new(Log::PENDING_EVENT_COLOR)),
+		    Qt::Pen.new(Qt::Color.new(Log::PENDING_EVENT_COLOR))]
+	    @@event_styles[Log::EVENT_CONTROLABLE | Log::EVENT_EMITTED] =
+		[Qt::Brush.new(Qt::Color.new(Log::FIRED_EVENT_COLOR)),
+		    Qt::Pen.new(Qt::Color.new(Log::FIRED_EVENT_COLOR))]
+	    @@event_styles[Log::EVENT_CONTROLABLE | Log::EVENT_CALLED_AND_EMITTED] =
+		[Qt::Brush.new(Qt::Color.new(Log::FIRED_EVENT_COLOR)),
+		    Qt::Pen.new(Qt::Color.new(Log::PENDING_EVENT_COLOR))]
+	    @@event_styles[Log::EVENT_CONTINGENT | Log::EVENT_EMITTED] =
+		[Qt::Brush.new, Qt::Pen.new(Qt::Color.new(Log::FIRED_EVENT_COLOR))]
+	    @@event_styles
 	end
+
 	def self.priorities
 	    @@priorities ||= Hash.new
 	end
@@ -34,7 +49,6 @@ module Roby
 	    scene = display.scene
 	    circle = scene.add_ellipse(-Log::EVENT_CIRCLE_RADIUS, -Log::EVENT_CIRCLE_RADIUS, Log::EVENT_CIRCLE_RADIUS * 2, Log::EVENT_CIRCLE_RADIUS * 2)
 	    text   = scene.add_text(display_name(display))
-	    circle.brush, circle.pen = EventGeneratorDisplay.pending_style
 	    circle.singleton_class.class_eval { attr_accessor :text }
 	    circle.z_value = Log::EVENT_LAYER
 
@@ -226,6 +240,12 @@ module Roby
 	ARROW_COLOR   = Qt::Color.new('black')
 	ARROW_OPENING = 30
 	ARROW_SIZE    = 10
+
+	EVENT_CONTINGENT  = 0
+	EVENT_CONTROLABLE = 1
+	EVENT_CALLED  = 2
+	EVENT_EMITTED = 4
+	EVENT_CALLED_AND_EMITTED = EVENT_CALLED | EVENT_EMITTED
 
 	TASK_BRUSH_COLORS = {
 	    :pending  => Qt::Color.new('#6DF3FF'),
@@ -717,7 +737,7 @@ module Roby
 		end
 
 		EventGeneratorDisplay.priorities.clear
-		execution_events.each_with_index do |(level, object), index|
+		execution_events.each_with_index do |(flags, object), index|
 		    EventGeneratorDisplay.priorities[object] = index
 		    next if object.respond_to?(:task) && !displayed?(object.task)
 
@@ -727,15 +747,7 @@ module Roby
 				   add_flashing_object(object)
 			       end
 
-		    graphics.brush, graphics.pen = 
-			case level
-			when 0
-			    EventGeneratorDisplay.pending_style
-			when 1
-			    EventGeneratorDisplay.fired_style
-			when 2
-			    [EventGeneratorDisplay.fired_style[0], EventGeneratorDisplay.pending_style[1]]
-			end
+		    graphics.brush, graphics.pen = EventGeneratorDisplay.style(object, flags)
 		end
 		
 		signalled_events.each do |_, from, to, _|
@@ -829,18 +841,18 @@ module Roby
 	    def local_object(obj); decoder.local_object(obj) end
 
 	    def generator_called(time, generator, context)
-		execution_events << [0, local_event(generator)]
+		execution_events << [EVENT_CALLED, local_event(generator)]
 	    end
 	    def generator_fired(time, generator, event_id, event_time, event_context)
 		generator = local_event(generator)
 
 		found_pending = false
-		execution_events.delete_if do |level, ev| 
-		    if level == 0 && generator == ev
+		execution_events.delete_if do |flags, ev| 
+		    if flags == EVENT_CALLED && generator == ev
 			found_pending = true
 		    end
 		end
-		execution_events << [(found_pending ? 2 : 1), generator]
+		execution_events << [(found_pending ? EVENT_CALLED_AND_EMITTED : EVENT_EMITTED), generator]
 	    end
 	    def generator_postponed(time, generator, context, until_generator, reason)
 		postponed_events << [local_event(generator), local_event(until_generator)]

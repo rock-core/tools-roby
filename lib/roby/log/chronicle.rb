@@ -131,7 +131,7 @@ module Roby
 		    end
 		end
 
-		execution_events.each do |flag, time, event|
+		execution_events.each do |flags, time, event|
 		    graphics = event.display_create(self)
 
 		    if event.respond_to?(:task)
@@ -168,14 +168,7 @@ module Roby
 		    end
 		    last_event_graphics[event] = [flag, graphics]
 
-		    graphics.brush, graphics.pen = 
-			case flag
-			when 0: EventGeneratorDisplay.pending_style
-			when 1: EventGeneratorDisplay.fired_style
-			when 2
-			    [EventGeneratorDisplay.fired_style[0], 
-				EventGeneratorDisplay.pending_style[1]]
-			end
+		    graphics.brush, graphics.pen = EventGeneratorDisplay.style(event, flags)
 		    graphic_stack[line].graphic_group.add_to_group graphics
 		end
 
@@ -224,11 +217,11 @@ module Roby
 	    def local_object(obj); decoder.local_object(obj) end
 
 	    def generator_called(time, generator, context)
-		execution_events << [0, time, local_event(generator)]
+		execution_events << [EVENT_CALLED, time, local_event(generator)]
 	    end
 	    def generator_fired(time, generator, event_id, event_time, event_context)
 		generator = local_event(generator)
-		execution_events << [1, event_time, generator]
+		execution_events << [EVENT_EMITTED, event_time, generator]
 	    end
 	    def generator_signalling(time, flag, from, to, event_id, event_time, event_context)
 		signalled_events << [flag, local_event(from), local_event(to), event_id]
