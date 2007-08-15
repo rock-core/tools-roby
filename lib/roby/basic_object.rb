@@ -2,6 +2,8 @@ module Roby
     class RemotePeerMismatch     < RuntimeError; end
 
     class BasicObject
+	include DRbUndumped
+
 	# The set of Peer objects which own this object
 	attribute(:owners) { [Distributed] }
 	# True if we own this object
