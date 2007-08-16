@@ -207,7 +207,7 @@ module Roby
 	    def initialize(peer, id); @peer, @id = peer, id end
 	    def proxy(peer); peer.connection_space.plan end
 	    def to_s; "#<dRoby:Plan #{id.to_s(peer)}>" end
-	    def remote_siblings; Hash[peer, id] end
+	    def remote_siblings; @remote_siblings ||= Hash[peer, id] end
 	    def sibling_on(peer)
 		if peer.remote_id == self.peer.peer_id then id
 		else raise ArgumentError, "no known sibling for #{self} on #{peer}"

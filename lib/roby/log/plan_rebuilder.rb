@@ -100,20 +100,18 @@ module Roby
 	end
 
 	def self.local_object(object_set, marshalled)
-	    old = marshalled.remote_siblings.find do |peer, id| 
-		raise "problem with remote_siblings: #{marshalled.remote_siblings}" unless peer && id
-		all_siblings.has_key?(id)
+	    old = marshalled.remote_siblings.each_value do |id|
+		break(id) if all_siblings.has_key?(id)
 	    end
 
-	    object = if old
-			 peer, id = *old
-			 update_object(all_siblings[id], marshalled)
+	    object = if old.kind_of?(Distributed::RemoteID)
+			 update_object(all_siblings[old], marshalled)
 		     else
 			 marshalled
 		     end
 
 
-	    marshalled.remote_siblings.each do |_, id|
+	    for id in marshalled.remote_siblings.values
 		all_siblings[id] = object
 		object_set[object] << id
 	    end
@@ -349,6 +347,7 @@ module Roby
 
 	    def generator_fired(time, generator, id, ev_time, context)
 		generator = local_event(generator)
+		generator.instance_variable_set("@happened", true)
 		if generator.respond_to?(:task) && (state = GENERATOR_TO_STATE[generator.symbol])
 		    generator.task.flags[state] = true
 		end
