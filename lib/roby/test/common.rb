@@ -66,6 +66,10 @@ module Roby
 		GC.disable
 	    end
 
+	    unless DRb.primary_server
+		DRb.start_service
+	    end
+
 	    if defined? Roby::Planning::Planner
 		Roby::Planning::Planner.last_id = 0 
 	    end
