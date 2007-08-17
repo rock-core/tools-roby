@@ -155,7 +155,17 @@ module Roby
 		end
 		all_relations << rel << parents << children
 	    end
-	    remove_relations
+
+	    all_relations.each_slice(3) do |rel, parents, children|
+		parents.each_slice(2) do |parent, info|
+		    next if parent.root_object == root_object
+		    parent.remove_child_object(self, rel)
+		end
+		children.each_slice(2) do |child, info|
+		    next if child.root_object == root_object
+		    remove_child_object(child, rel)
+		end
+	    end
 
 	    all_relations.each_slice(3) do |rel, parents, children|
 		parents.each_slice(2) do |parent, info|
