@@ -48,7 +48,7 @@ module Roby
 		[Qt::Brush.new(Qt::Color.new(Log::FIRED_EVENT_COLOR)),
 		    Qt::Pen.new(Qt::Color.new(Log::PENDING_EVENT_COLOR))]
 	    @@event_styles[Log::EVENT_CONTINGENT | Log::EVENT_EMITTED] =
-		[Qt::Brush.new, Qt::Pen.new(Qt::Color.new(Log::FIRED_EVENT_COLOR))]
+		[Qt::Brush.new(Qt::Color.new('white')), Qt::Pen.new(Qt::Color.new(Log::FIRED_EVENT_COLOR))]
 	    @@event_styles
 	end
 
