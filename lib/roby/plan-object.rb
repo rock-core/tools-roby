@@ -159,7 +159,7 @@ module Roby
 	    end
 	end
 
-	def replace_subtree_by(object)
+	def replace_subplan_by(object)
 	    changes = []
 	    each_relation do |rel|
 		parents = []
@@ -182,11 +182,15 @@ module Roby
 	    each_relation do |rel|
 		parents = []
 		each_parent_object(rel) do |parent|
-		    parents << parent << parent[self, rel]
+		    unless parent.root_object == root_object
+			parents << parent << parent[self, rel]
+		    end
 		end
 		children = []
 		each_child_object(rel) do |child|
-		    children << child << self[child, rel]
+		    unless child.root_object == root_object
+			children << child << self[child, rel]
+		    end
 		end
 		changes << rel << parents << children
 	    end

@@ -139,13 +139,64 @@ module TC_PlanStatic
 	assert_equal([t1, t2, t4].to_value_set, plan.unneeded_tasks)
     end
 
-    def test_replace
-	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Test::NullTask
+    def test_replace_task
+	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => SimpleTask
 	p.realized_by c1
 	c1.realized_by c11
 	c1.realized_by c12
 	p.realized_by c2
 	c1.on(:stop, c2, :start)
+	c1.forward :start, c1, :stop
+	c11.forward :success, c1
+
+	# Replace c1 by c3 and check that the hooks are properly called
+	FlexMock.use do |mock|
+	    p.singleton_class.class_eval do
+		define_method('removed_child_object') do |child, type|
+		    mock.removed_hook(p, child, type)
+		end
+	    end
+	    c1.singleton_class.class_eval do
+		define_method('removed_parent_object') do |parent, type|
+		    mock.removed_hook(c1, parent, type)
+		end
+	    end
+
+	    mock.should_receive(:removed_hook).with(p, c1, TaskStructure::Hierarchy).once
+	    mock.should_receive(:removed_hook).with(c1, p, TaskStructure::Hierarchy).once
+	    assert_nothing_raised { plan.replace_task(c1, c3) }
+	end
+
+	# Check that the external task and event structures have been
+	# transferred. 
+	assert( !p.child_object?(c1, TaskStructure::Hierarchy) )
+	assert( p.child_object?(c3, TaskStructure::Hierarchy) )
+	assert( c3.child_object?(c11, TaskStructure::Hierarchy) )
+	assert( !c1.child_object?(c11, TaskStructure::Hierarchy) )
+
+	assert( !c1.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )
+	assert( c3.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )
+	assert( c3.event(:success).parent_object?(c11.event(:success), EventStructure::Forwarding) )
+	assert( !c1.event(:success).parent_object?(c11.event(:success), EventStructure::Forwarding) )
+	# Also check that the internal event structure has *not* been transferred
+	assert( !c3.event(:start).child_object?(c3.event(:stop), EventStructure::Forwarding) )
+	assert( c1.event(:start).child_object?(c1.event(:stop), EventStructure::Forwarding) )
+
+	# Check that +c1+ is no more marked as mission, and that c3 is marked. c1 should
+	# still be in the plan
+	assert(! plan.mission?(c1) )
+	assert( plan.mission?(c3) )
+	assert( plan.include?(c1) )
+    end
+
+    def test_replace
+	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => SimpleTask
+	p.realized_by c1
+	c1.realized_by c11
+	c1.realized_by c12
+	p.realized_by c2
+	c1.on(:stop, c2, :start)
+	c1.forward :start, c1, :stop
 	c11.forward :success, c1
 
 	# Replace c1 by c3 and check that the hooks are properly called
@@ -178,6 +229,7 @@ module TC_PlanStatic
 	assert( c1.event(:success).parent_object?(c11.event(:success), EventStructure::Forwarding) )
 	assert( !c3.event(:success).parent_object?(c11.event(:success), EventStructure::Forwarding) )
 	# Also check that the internal event structure has *not* been transferred
+	assert( !c3.event(:start).child_object?(c3.event(:stop), EventStructure::Forwarding) )
 	assert( c1.event(:start).child_object?(c1.event(:stop), EventStructure::Forwarding) )
 
 	# Check that +c1+ is no more marked as mission, and that c3 is marked. c1 should

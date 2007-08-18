@@ -177,9 +177,7 @@ module Roby
 	    @keepalive.clear
 	end
 
-	# Replaces +from+ by +to+. If +to+ cannot replace +from+, an
-	# InvalidReplace exception is raised.
-	def replace(from, to)
+	def handle_replace(from, to)
 	    return if from == to
 
 	    # Check that +to+ is valid in all hierarchy relations where +from+ is a child
@@ -192,8 +190,8 @@ module Roby
 		raise InvalidReplace.new(from, to, "state")
 	    end
 
-	    # Copy all graph relations on +from+ events that are in +to+
-	    from.replace_subtree_by(to)
+	    # Swap the subplans of +from+ and +to+
+	    yield(from, to)
 
 	    replaced(from, to)
 	    if mission?(from)
@@ -203,6 +201,19 @@ module Roby
 		discover(to)
 	    end
 	end
+
+	def replace_task(from, to)
+	    handle_replace(from, to) do
+		from.replace_by(to)
+	    end
+	end
+
+	def replace(from, to)
+	    handle_replace(from, to) do
+		from.replace_subplan_by(to)
+	    end
+	end
+
 	# Hook called when +to+ has replaced +from+ in this plan
 	def replaced(from, to); super if defined? super end
 

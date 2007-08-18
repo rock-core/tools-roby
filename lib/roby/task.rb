@@ -1227,7 +1227,7 @@ module Roby
 	    super
 	end
 
-	def replace_subtree_by(object)
+	def replace_subplan_by(object)
 	    super
 
 	    # Compute the set of tasks that are in our subtree and not in
