@@ -203,18 +203,22 @@ module Ui
 
 	def self.setup_optparse(opt, replay)
 	    opt.on("--relations=REL1,REL2", Array, "create a relation display with the given relations") do |relations|
-		relations.map! do |relname|
-		    rel = (Roby::TaskStructure.relations.find { |rel| rel.name =~ /#{relname}/ }) ||
-			(Roby::EventStructure.relations.find { |rel| rel.name =~ /#{relname}/ })
+		if relations.include?("all")
+		    relations = Roby::TaskStructure.relations
+		else
+		    relations.map! do |relname|
+			rel = (Roby::TaskStructure.relations.find { |rel| rel.name =~ /#{relname}/ }) ||
+			    (Roby::EventStructure.relations.find { |rel| rel.name =~ /#{relname}/ })
 
-			unless rel
-			    STDERR.puts "Unknown relation #{relname}. Available relations are:"
-			    STDERR.puts "  Tasks: " + Roby::TaskStructure.enum_for(:each_relation).map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
-			    STDERR.puts "  Events: " + Roby::EventStructure.enum_for(:each_relation).map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
-			    exit(1)
-			end
+			    unless rel
+				STDERR.puts "Unknown relation #{relname}. Available relations are:"
+				STDERR.puts "  Tasks: " + Roby::TaskStructure.enum_for(:each_relation).map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
+				STDERR.puts "  Events: " + Roby::EventStructure.enum_for(:each_relation).map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
+				exit(1)
+			    end
 
-		    rel
+			rel
+		    end
 		end
 
 		replay.initial_setup << lambda do |gui|
