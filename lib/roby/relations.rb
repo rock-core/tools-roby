@@ -8,8 +8,8 @@ module Roby
     module DirectedRelationSupport
 	include BGL::Vertex
 
-	alias :child_object?	    :child_vertex?	
-	alias :parent_object?	    :parent_vertex?	
+	alias :child_object?	    :child_vertex?
+	alias :parent_object?	    :parent_vertex?
 	alias :related_object?	    :related_vertex?
 	alias :each_child_object    :each_child_vertex
 	alias :each_parent_object   :each_parent_vertex
@@ -65,12 +65,12 @@ module Roby
 	# Hook called before a new child is added in the +relation+ relation
 	# def adding_child_object(child, relation, info)
 	#     child.adding_parent_object(self, relation, info)
-	#     super if defined? super 
+	#     super if defined? super
 	# end
 	# Hook called after a new child has been added in the +relation+ relation
 	# def added_child_object(child, relation, info)
 	#     child.added_parent_object(self, relation, info)
-	#     super if defined? super 
+	#     super if defined? super
 	# end
 
 	# Hook called after a new parent has been added in the +relation+ relation
@@ -118,7 +118,7 @@ module Roby
 	# Hook called after a child has been removed
 	# def removing_child_object(child, relation)
 	#     child.removing_parent_object(self, relation)
-	#     super if defined? super 
+	#     super if defined? super
 	# end
 
 	# Hook called after a parent has been removed
@@ -126,7 +126,7 @@ module Roby
 	# Hook called after a child has been removed
 	# def removed_child_object(child, relation)
 	#     child.removed_parent_object(self, relation)
-	#     super if defined? super 
+	#     super if defined? super
 	# end
 
 	# Remove all relations that point to or come from +to+ If +to+ is nil,
@@ -167,7 +167,7 @@ module Roby
 	end
 	private :apply_selection
     end
-    
+
     # This class manages the graph defined by an object relation in Roby.
     # Relation graphs are managed in hierarchies (for instance, Precedence is a
     # superset of CausalLink, and CausalLink a superset of both Forwarding and
@@ -214,7 +214,7 @@ module Roby
 	def root_relation?; !parent end
 
 	# Add a new relation between +from+ and +to+. The relation is
-	# added on all parent relation graphs as well. 	
+	# added on all parent relation graphs as well.
 	#
 	# If #dag? is true, it checks that the new relation does not create a
 	# cycle
@@ -312,7 +312,7 @@ module Roby
 		rel = rel.parent
 	    end
 	end
-	
+
 	# Returns true if +relation+ is included in this relation (i.e. it is
 	# either the same relation or one of its children)
 	def subset?(relation)
@@ -341,7 +341,7 @@ module Roby
 		source.add_child_object(target, self, info)
 	    end
 	end
-	
+
 	# The Ruby module that gets included in graph objects
 	attr_accessor :support
     end
@@ -371,7 +371,7 @@ module Roby
 		klass.include graph.support
 	    end
 
-	    applied << klass 
+	    applied << klass
 	end
 	# Yields the relations that are included in this space
 	def each_relation
@@ -419,26 +419,26 @@ module Roby
 	# the relation module, which is included in the applied classes.
 	#
 	# = Options
-	# child_name:: 
+	# child_name::
 	#   define a <tt>each_#{child_name}</tt> method to iterate
 	#   on the vertex children. Uses the relation name by default (a Child
 	#   relation would define a <tt>each_child</tt> method)
-	# parent_name:: 
+	# parent_name::
 	#   define a <tt>each_#{parent_name}</tt> method to iterate
 	#   on the vertex parents.  If none is given, no method is defined
 	# subsets:: a list of subgraphs. See RelationGraph#superset_of
-	# noinfo:: 
+	# noinfo::
 	#   if the relation embeds some additional information. If true,
 	#   the child iterator method (<tt>each_#{child_name}</tt>) will yield (child,
 	#   info) instead of only child [false]
 	# graph:: the relation graph class
 	# distribute:: if true, the relation can be seen by remote peers [true]
-	# single_child:: 
+	# single_child::
 	#   if the relations accepts only one child per vertex
 	#   [false]. If this option is set, defines a <tt>#{child_name}</tt>
 	#   method which returns the only child or nil
 	def relation(relation_name, options = {}, &block)
-	    options = validate_options options, 
+	    options = validate_options options,
 			:child_name => relation_name.to_s.underscore,
 			:const_name => relation_name,
 			:parent_name => nil,
@@ -451,7 +451,7 @@ module Roby
 
 	    # Check if this relation is already defined. If it is the case, reuse it.
 	    # This is needed mostly by the reloading code
-	    begin 
+	    begin
 		graph = const_get(options[:const_name])
 		mod   = graph.support
 
@@ -476,7 +476,7 @@ module Roby
 		end
 		EOD
 	    end
-		
+
 	    if options[:noinfo]
 		mod.class_eval <<-EOD
 		def each_#{options[:child_name]}

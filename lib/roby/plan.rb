@@ -63,7 +63,7 @@ module Roby
 	# The set of transactions which are built on top of this plan
 	attr_reader :transactions
 
-	# If this object is the main plan, checks if we are subscribed to 
+	# If this object is the main plan, checks if we are subscribed to
 	# the whole remote plan
 	def sibling_on?(peer)
 	    if Roby.plan == self then peer.remote_plan
@@ -98,7 +98,7 @@ module Roby
 		raise TypeError, "expecting a task, event, or a collection of tasks and events, got #{objects}"
 	    end
 
-	    evts, tasks = objects.partition do |o| 
+	    evts, tasks = objects.partition do |o|
 		if o.respond_to?(:to_event) then true
 		elsif o.respond_to?(:to_task) then false
 		else raise ArgumentError, "found #{o || 'nil'} which is neither a task nor an event"
@@ -137,7 +137,7 @@ module Roby
 	    @keepalive << task
 	    discover(task)
 	end
-	
+
 	# Make GC finalize +task+ if it is not useful anymore
 	def auto(task); @keepalive.delete(task) end
 
@@ -209,7 +209,7 @@ module Roby
 	# Check that this is an executable plan. This is always true for
 	# plain Plan objects and false for transcations
 	def executable?; true end
-	
+
 	# call-seq:
 	#   plan.discover([t1, t2, ...]) => plan
 	#
@@ -225,7 +225,7 @@ module Roby
 		new_tasks = useful_task_component(tasks, tasks)
 		unless new_tasks.empty?
 		    new_tasks = discover_task_set(new_tasks)
-		    
+
 		    # now, we include the set of free events that are linked to
 		    # +new_tasks+ in +events+
 		    task_events = ValueSet.new
@@ -258,7 +258,7 @@ module Roby
 	# This is for internal use, use #discover instead
 	def discover_event_set(events)
 	    events = events.difference(free_events)
-	    events.each do |e| 
+	    events.each do |e|
 		if !e.root_object?
 		    raise ArgumentError, "trying to discover #{e} which is a non-root event"
 		end
@@ -289,11 +289,11 @@ module Roby
 	# Hook called when new tasks have been discovered in this plan
 	def discovered_tasks(tasks)
 	    discovered(tasks)
-	    super if defined? super 
+	    super if defined? super
 	end
 	# Hook called when new events have been discovered in this plan
 	def discovered_events(events)
-	    super if defined? super 
+	    super if defined? super
 	end
 
 	# Hook called when a new transaction has been built on top of this plan
@@ -347,7 +347,7 @@ module Roby
 	    # Get the set of tasks that are serving one of our own missions or
 	    # permanent tasks
 	    useful = self.locally_useful_tasks
-	    
+
 	    # Finally, get in the remaining set the tasks that are useful
 	    # because of our peers. We then remove from the set all local tasks
 	    # that are serving these
@@ -428,7 +428,7 @@ module Roby
 	# Iterates on all tasks
 	def each_task; @known_tasks.each { |t| yield(t) } end
 
-	# Install a plan repair for +failure_point+ with +task+
+	# Install a plan repair for +failure_point+ with +task+. If +task+ is pending, it is started.
 	def add_repair(failure_point, task)
 	    if task.plan && task.plan != self
 		raise ArgumentError, "wrong plan: #{task} is in #{task.plan}, not #{self}"
@@ -522,7 +522,7 @@ module Roby
 		end
 
 		# Mark all root tasks as garbage
-		tasks.delete_if do |t| 
+		tasks.delete_if do |t|
 		    if t.root?
 			garbage(t)
 			false
@@ -532,7 +532,7 @@ module Roby
 		    end
 		end
 
-		tasks.each do |t| 
+		tasks.each do |t|
 		    if !t.self_owned?
 			Plan.debug "GC: #{t} is not local, removing it"
 			remove_object(t)
@@ -570,7 +570,7 @@ module Roby
 	    elsif object.plan != self
 		if known_tasks.include?(object) || free_events.include?(object)
 		    raise ArgumentError, "#{object} is included in #{self} but #plan == #{object.plan}"
-		elsif !object.plan 
+		elsif !object.plan
 		    if object.removed_at
 			raise ArgumentError, "#{object} has been removed at\n  #{object.removed_at.join("\n  ")}"
 		    else
@@ -607,7 +607,7 @@ module Roby
 		end
 		finalized_task(object)
 
-	    else 
+	    else
 		raise ArgumentError, "unknown object type #{object}"
 	    end
 
@@ -616,7 +616,7 @@ module Roby
 
 	# Backward compatibility
 	def remove_task(t) # :nodoc:
-	    remove_object(t) 
+	    remove_object(t)
 	end
 
 	# Hook called when +task+ is marked as garbage. It will be garbage
@@ -634,7 +634,7 @@ module Roby
 		end
 	    end
 
-	    super if defined? super 
+	    super if defined? super
 	end
 
 	# backward compatibility
@@ -643,7 +643,7 @@ module Roby
 	end
 	# Hook called when +task+ has been removed from this plan
 	def finalized_task(task)
-	    super if defined? super 
+	    super if defined? super
 	    finalized(task)
 	end
 	# Hook called when +event+ has been removed from this plan
