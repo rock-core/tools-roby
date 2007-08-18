@@ -482,20 +482,25 @@ module Roby
 		end
 		poll(&method(:poll))
 	    end
+
+	    def setup_poll_method(block)
+		define_method(:poll) do
+		    begin
+			poll_handler
+		    rescue Exception => e
+			emit :failed, e
+		    end
+		end
+
+		define_method(:poll_handler, &block)
+	    end
+
 	    def poll(&block)
 		if !block_given?
 		    raise "no block given"
 		end
 
-		define_method(:poll) do
-		    begin
-			poll_handler
-		    rescue Exception => e
-			emit :failed, e.message
-		    end
-		end
-
-		define_method(:poll_handler, &block)
+		setup_poll_method(block)
 
 		on(:start) { Control.event_processing << method(:poll) }
 		on(:stop)  { Control.event_processing.delete(method(:poll)) }
@@ -1230,6 +1235,19 @@ module Roby
 		end
 	    end
 	    super
+	end
+
+	def poll(&block)
+	    if !pending?
+		raise ArgumentError, "cannot set a polling block when the task is not pending"
+	    end
+
+	    
+	    singleton_class.class_eval do
+		setup_poll_method(block)
+	    end
+	    on(:start) { Control.event_processing << method(:poll) }
+	    on(:stop)  { Control.event_processing.delete(method(:poll)) }
 	end
     end
 
