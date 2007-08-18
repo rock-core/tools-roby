@@ -49,8 +49,10 @@ module Roby
 
 	def message # :nodoc:
 	    msg = "failed to plan #{planned_task}.planned_by(#{planning_task}): failed with #{error.symbol}"
-	    if error.context.respond_to?(:full_message)
-		msg << "\n" << error.context.full_message
+	    if error.context.first.respond_to?(:full_message)
+		msg << "\n" << error.context.first.full_message
+	    else
+		msg << "(" << error.context.first << ")"
 	    end
 	    msg
 	end
