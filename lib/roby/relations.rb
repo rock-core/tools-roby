@@ -479,14 +479,28 @@ module Roby
 		
 	    if options[:noinfo]
 		mod.class_eval <<-EOD
-		def each_#{options[:child_name]}(&iterator)
-		    each_child_object(@@__r_#{relation_name}__, &iterator)
+		def each_#{options[:child_name]}
+		    each_child_object(@@__r_#{relation_name}__) { |child| yield(child) }
+		end
+		def find_#{options[:child_name]}
+		    each_child_object(@@__r_#{relation_name}__) do |child|
+			return child if yield(child)
+		    end
+		    nil
 		end
 		EOD
 	    else
 		mod.class_eval <<-EOD
 		def each_#{options[:child_name]}
-		    each_child_object(@@__r_#{relation_name}__) { |child| yield(child, self[child, @@__r_#{relation_name}__]) }
+		    each_child_object(@@__r_#{relation_name}__) do |child|
+			yield(child, self[child, @@__r_#{relation_name}__])
+		    end
+		end
+		def find_#{options[:child_name]}
+		    each_child_object(@@__r_#{relation_name}__) do |child|
+			return child if yield(child, self[child, @@__r_#{relation_name}__])
+		    end
+		    nil
 		end
 		EOD
 	    end
