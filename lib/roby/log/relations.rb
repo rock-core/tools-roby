@@ -17,7 +17,18 @@ module Roby
 
     module EventGeneratorDisplay
 	def self.style(object, flags)
-	    flags |= (object.controlable ? Log::EVENT_CONTROLABLE : Log::EVENT_CONTINGENT)
+	    # This is for backward compatibility only. All events are now marshalled
+	    # with their controllability.
+	    if object.respond_to?(:controlable)
+		flags |= (object.controlable ? Log::EVENT_CONTROLABLE : Log::EVENT_CONTINGENT)
+	    elsif flags & Log::EVENT_CALLED
+		flags |= Log::EVENT_CONTROLABLE
+	    end
+
+	    if !styles.has_key?(flags)
+		raise ArgumentError, "event flags #{flags} have not style"
+	    end
+
 	    styles[flags]
 	end
 
@@ -880,10 +891,24 @@ module Roby
 		    end
 		end
 	    end
-	    def generator_calling(time, generator, source_generators, context)
+	    def generator_calling(*args)
+		if args.size == 3
+		    time, generator, context = *args
+		    source_generators = []
+		else
+		    time, generator, source_generators, context = *args
+		end
+
 		add_internal_propagation(PROPAG_CALLING, generator, source_generators)
 	    end
-	    def generator_emitting(time, generator, source_generators, context)
+	    def generator_emitting(*args)
+		if args.size == 3
+		    time, generator, context = *args
+		    source_generators = []
+		else
+		    time, generator, source_generators, context = *args
+		end
+
 		add_internal_propagation(PROPAG_EMITTING, generator, source_generators)
 	    end
 	    def generator_signalling(time, flag, from, to, event_id, event_time, event_context)
