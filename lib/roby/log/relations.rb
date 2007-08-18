@@ -479,6 +479,16 @@ module Roby
 		ui.setupUi(self)
 		ui.graphics.scene = scene
 
+		default_colors = {
+		    Roby::TaskStructure::Hierarchy => 'grey',
+		    Roby::TaskStructure::PlannedBy => '#32ba21',
+		    Roby::TaskStructure::ExecutionAgent => '#5d95cf',
+		    Roby::TaskStructure::ErrorHandling => '#ff2727'
+		}
+		default_colors.each do |rel, color|
+		    update_relation_color(rel, color)
+		end
+
 		@shortcuts = []
 		shortcut = Qt::Shortcut.new(Qt::KeySequence.new('f'), main)
 		connect(shortcut, SIGNAL('activated()'), self, SLOT('find()'))
