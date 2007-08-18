@@ -439,19 +439,41 @@ module Roby
 	    end
 
 	    repairs[failure_point] = task
+	    if task.pending?
+		Roby.once { task.start! }
+	    end
 	end
 
 	def remove_repair(task)
-	    repairs.delete_if { |_, repair| repair == task }
+	    repairs.delete_if do |_, repair|
+		repair == task
+	    end
 	end
 
 	# Return all repairs which apply on +event+
 	def repairs_for(event)
 	    result = Hash.new
-	    for ev in event.generated_subgraph(EventStructure::Forwarding)
-		if task = repairs[ev]
-		    result[ev] = task
+
+	    if event.generator.respond_to?(:task)
+		equivalent_generators = event.generator.generated_subgraph(EventStructure::Forwarding)
+
+		history = event.generator.task.history
+		id    = event.propagation_id
+		index = history.index(event)
+		while index < history.size
+		    ev = history[index]
+		    break if ev.propagation_id != id
+
+		    if equivalent_generators.include?(ev.generator) &&
+			(task = repairs[ev])
+
+			result[ev] = task
+		    end
+
+		    index += 1
 		end
+	    elsif task = repairs[event]
+		result[event] = task
 	    end
 
 	    result

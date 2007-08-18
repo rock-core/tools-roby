@@ -346,7 +346,7 @@ module Roby
 	    stats[:exception_propagation] = Time.now
 
 	    # Get the remaining problems in the plan structure, and act on it
-	    fatal_structure_errors = structure_checking
+	    fatal_structure_errors = Propagation.remove_inhibited_exceptions(structure_checking)
 	    fatal_errors = fatal_structure_errors.to_a + events_errors
 	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
 		tasks ||= [*error.task]

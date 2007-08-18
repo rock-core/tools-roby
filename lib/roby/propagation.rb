@@ -2,6 +2,7 @@ require 'roby/support'
 require 'roby/exceptions'
 require 'utilrb/exception/full_message'
 require 'utilrb/unbound_method'
+require 'roby/relations/error_handling'
 
 # This module contains all code necessary for the propagation steps during
 # execution. This includes event and exception propagation
@@ -387,15 +388,30 @@ module Roby::Propagation
 	current_step
     end
 
-    def self.inhibited_error?(error)
-	if !error.respond_to?(:failure_point) ||
-	    !(point = error.failure_point)
-	    false
-	elsif (repairs = point.plan.repairs_for(point)).empty?
-	    false
-	else
-	    true
+    # Checks if +error+ is being repaired in the corresponding plan. Note that
+    # +error+ is supposed to be the original exception, not the corresponding
+    # ExecutionException object
+    def self.remove_inhibited_exceptions(exceptions)
+	exceptions.find_all do |e, _|
+	    error = e.exception
+	    if !error.respond_to?(:failure_point) ||
+		!(failure_point = error.failure_point)
+		true
+	    else
+		Roby.plan.repairs_for(failure_point).empty?
+	    end
 	end
+    end
+
+    def self.remove_useless_repairs
+	plan = Roby.plan
+
+	finished_repairs = plan.repairs.dup.delete_if { |_, task| task.starting? || task.running? }
+	for repair in finished_repairs
+	    plan.remove_repair(repair[1])
+	end
+
+	finished_repairs
     end
 
     # Performs exception propagation for the given ExecutionException objects
@@ -403,8 +419,33 @@ module Roby::Propagation
     def self.propagate_exceptions(exceptions)
 	fatal   = [] # the list of exceptions for which no handler has been found
 
-	exceptions = exceptions.find_all do |e, _|
-	    !inhibited_error?(e)
+	# Remove finished repairs and remove exceptions for which a repair
+	# exists
+	finished_repairs = remove_useless_repairs
+	exceptions = remove_inhibited_exceptions(exceptions)
+
+	# Install new repairs based on the HandledBy task relation. If a repair
+	# is installed, remove the exception from the set of errors to handle
+	exceptions.delete_if do |e, _|
+	    # Check for handled_by relations which would be able to handle +e+
+	    error = e.exception
+	    next unless error.respond_to?(:failure_point) && (failure_point = error.failure_point)
+	    next if finished_repairs.has_key?(failure_point)
+
+	    failure_generator = failure_point.generator
+	    next unless failure_generator.respond_to?(:task)
+
+	    failure_task = failure_generator.task
+	    repair = failure_task.find_error_handler do |repairing_task, event_set|
+		event_set.include?(failure_generator) && !repairing_task.finished?
+	    end
+
+	    if repair
+		failure_task.plan.add_repair(failure_point, repair)
+		true
+	    else
+		false
+	    end
 	end
 
 	while !exceptions.empty?

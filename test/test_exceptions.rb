@@ -356,32 +356,79 @@ class TC_Exceptions < Test::Unit::TestCase
 	# First, check methods located in Plan
 	plan.insert(task = model.new)
 	r1, r2 = SimpleTask.new, SimpleTask.new
-	plan.add_repair task.event(:failed), r1
-	plan.add_repair task.event(:blocked), r2
 
-	assert_equal({}, plan.repairs_for(task.event(:stop)))
-	assert_equal({task.event(:failed) => r1}, plan.repairs_for(task.event(:failed)))
-	assert_equal({task.event(:blocked) => r2, task.event(:failed) => r1}, plan.repairs_for(task.event(:blocked)))
+	task.start!
+	task.emit :blocked
+
+	blocked_event = task.history[-3]
+	failed_event  = task.history[-2]
+	stop_event    = task.history[-1]
+	plan.add_repair failed_event, r1
+	plan.add_repair blocked_event, r2
+
+	assert_equal({}, plan.repairs_for(stop_event))
+	assert_equal({failed_event => r1}, plan.repairs_for(failed_event))
+	assert_equal({blocked_event => r2, failed_event => r1}, plan.repairs_for(blocked_event))
 	plan.remove_repair r1
-	assert_equal({}, plan.repairs_for(task.event(:failed)))
-	assert_equal({task.event(:blocked) => r2}, plan.repairs_for(task.event(:blocked)))
+	assert_equal({}, plan.repairs_for(failed_event))
+	assert_equal({blocked_event => r2}, plan.repairs_for(blocked_event))
 	plan.remove_repair r2
-	assert_equal({}, plan.repairs_for(task.event(:stop)))
-	assert_equal({}, plan.repairs_for(task.event(:failed)))
-	assert_equal({}, plan.repairs_for(task.event(:blocked)))
+	assert_equal({}, plan.repairs_for(stop_event))
+	assert_equal({}, plan.repairs_for(failed_event))
+	assert_equal({}, plan.repairs_for(blocked_event))
+    end
 
-	# Next: add a plan repair and check it really inhibits an exception
-	parent, child = prepare_plan :tasks => 2, :model => model
+    def test_exception_inhibition
+	parent, child = prepare_plan :tasks => 2, :model => SimpleTask
 	plan.insert(parent)
 	parent.realized_by child
 	parent.on :start, child, :start
 	parent.start!
+	child.failed!
 
-	error = ChildFailedError.new(parent, child, child.event(:failed))
+	exceptions = Roby.control.structure_checking
+
+	plan.discover(repairing_task = SimpleTask.new)
+	repairing_task.start!
+	assert_equal(exceptions.to_a, Propagation.remove_inhibited_exceptions(exceptions))
+	assert_equal(exceptions.keys, Propagation.propagate_exceptions(exceptions))
+	plan.add_repair(child.terminal_event, repairing_task)
+	assert_equal([], Propagation.remove_inhibited_exceptions(exceptions))
+	assert_equal([], Propagation.propagate_exceptions(exceptions))
+
+    ensure
+	# Remove the child so that the test's plan cleanup does not complain
+	parent.remove_child child
+    end
+
+    def test_error_handling_relation
+	parent, child = prepare_plan :tasks => 2, :model => SimpleTask
+	plan.insert(parent)
+	parent.realized_by child
 	repairing_task = SimpleTask.new
-	assert(!Propagation.inhibited_error?(error))
-	plan.add_repair(child.event(:failed), repairing_task)
-	assert(Propagation.inhibited_error?(error))
+	child.event(:failed).handle_with repairing_task
+
+	parent.start!
+	child.start!
+	child.emit :failed
+
+	exceptions = Roby.control.structure_checking
+
+	assert_equal([], Propagation.propagate_exceptions(exceptions))
+	assert_equal({ child.terminal_event => repairing_task },
+		     plan.repairs_for(child.terminal_event), [plan.repairs, child.terminal_event])
+
+	Roby.control.abort_on_exception = false
+	process_events
+	assert(repairing_task.running?)
+
+	# Make the "repair task" finish, but do not repair the plan.
+	# propagate_exceptions must not add a new repair
+	repairing_task.success!
+	assert_equal(exceptions.keys, Propagation.propagate_exceptions(exceptions))
+
+    ensure
+	parent.remove_child child
     end
 end
 
