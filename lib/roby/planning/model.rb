@@ -37,18 +37,18 @@ module Roby
 
 	    def message
 		if errors.empty?
-		    return "no candidate for #{method_name}(#{method_options})"
-		end
+		    "no candidate for #{method_name}(#{method_options})"
+		else
+		    msg = "cannot develop a #{method_name}(#{method_options}) method"
+		    first, *rem = *Roby.filter_backtrace(backtrace)
 
-		msg = "cannot develop a #{method_name}(#{method_options}) method"
-		first, *rem = *Roby.filter_backtrace(backtrace)
-
-		full = "#{first}: #{msg}\n   from #{rem.join("\n    from ")}"
-		errors.each do |m, error|
-		    first     = error.backtrace.first
-		    full << "\n#{first} #{m} failed because of #{error.full_message}"
+		    full = "#{first}: #{msg}\n   from #{rem.join("\n    from ")}"
+		    errors.each do |m, error|
+			first     = error.backtrace.first
+			full << "\n#{first} #{m} failed because of #{error.full_message}"
+		    end
+		    full
 		end
-		full
 	    end
 
 	    def full_message
