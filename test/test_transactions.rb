@@ -235,29 +235,43 @@ module TC_TransactionBehaviour
     end
     
     def test_commit_replace
-	task, (parent, child, r) = prepare_plan :missions => 1, :tasks => 3
-	parent.realized_by task
-	task.planned_by child
-	parent.on(:stop, task, :start)
-	task.forward(:stop, child, :start)
+	task, (planned, mission, child, r) = prepare_plan :missions => 1, :tasks => 4, :model => SimpleTask
+	mission.realized_by task
+	planned.planned_by task
+	task.realized_by child
+	task.on(:stop, mission, :stop)
+	task.forward(:stop, planned, :success)
+	task.on(:start, child, :start)
 
-	transaction_commit(plan, task, parent, child) do |trsc, pt, pp, pc|
+	transaction_commit(plan, mission, planned, task, child) do |trsc, pm, pp, pt, pc|
 	    trsc.replace(pt, r)
-	    assert([r], trsc.missions.to_a)
-	    assert(Hierarchy.linked?(pp, r))
-	    assert(!Hierarchy.linked?(parent, r))
-	    assert(PlannedBy.linked?(r, pc))
-	    assert(!PlannedBy.linked?(r, child))
 
-	    assert(Signal.linked?(pp.event(:stop), r.event(:start)))
-	    assert(!Signal.linked?(parent.event(:stop), r.event(:start)))
-	    assert(Forwarding.linked?(r.event(:stop), pc.event(:start)))
-	    assert(!Forwarding.linked?(r.event(:stop), child.event(:start)))
+	    assert([r], trsc.missions.to_a)
+	    assert(Hierarchy.linked?(pm, r))
+	    assert(!Hierarchy.linked?(mission, r))
+	    assert(!Hierarchy.linked?(r, pc))
+	    assert(PlannedBy.linked?(pp, r))
+	    assert(!PlannedBy.linked?(planned, r))
+
+	    assert(Signal.linked?(r.event(:stop), pm.event(:stop)))
+	    assert(!Signal.linked?(r.event(:stop), mission.event(:stop)))
+	    assert(Forwarding.linked?(r.event(:stop), pp.event(:success)))
+	    assert(!Forwarding.linked?(r.event(:stop), planned.event(:success)))
+	    assert(!Signal.linked?(r.event(:stop), pc.event(:stop)))
+	    assert(!Signal.linked?(r.event(:stop), mission.event(:stop)))
 	end
-	assert(Hierarchy.linked?(parent, r))
-	assert(PlannedBy.linked?(r, child))
-	assert(Signal.linked?(parent.event(:stop), r.event(:start)))
-	assert(Forwarding.linked?(r.event(:stop), child.event(:start)))
+	assert(Hierarchy.linked?(mission, r))
+	assert(!Hierarchy.linked?(mission, task))
+	assert(PlannedBy.linked?(planned, r))
+	assert(!PlannedBy.linked?(planned, task))
+	assert(Hierarchy.linked?(task, child))
+	assert(!Hierarchy.linked?(r, child))
+	assert(Signal.linked?(r.event(:stop), mission.event(:stop)))
+	assert(!Signal.linked?(task.event(:stop), mission.event(:stop)))
+	assert(Forwarding.linked?(r.event(:stop), planned.event(:success)))
+	assert(!Forwarding.linked?(task.event(:stop), planned.event(:success)))
+	assert(Signal.linked?(task.event(:start), child.event(:start)))
+	assert(!Signal.linked?(r.event(:start), child.event(:start)))
 	assert_equal([r], plan.missions.to_a)
     end
 

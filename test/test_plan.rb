@@ -140,10 +140,13 @@ module TC_PlanStatic
     end
 
     def test_replace
-	(p, c1), (c2, c3) = prepare_plan :missions => 2, :tasks => 2, :model => Roby::Test::NullTask
+	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Test::NullTask
 	p.realized_by c1
+	c1.realized_by c11
+	c1.realized_by c12
 	p.realized_by c2
 	c1.on(:stop, c2, :start)
+	c11.forward :success, c1
 
 	# Replace c1 by c3 and check that the hooks are properly called
 	FlexMock.use do |mock|
@@ -158,8 +161,8 @@ module TC_PlanStatic
 		end
 	    end
 
-	    mock.should_receive(:removed_hook).with(p, c1, TaskStructure::Hierarchy)
-	    mock.should_receive(:removed_hook).with(c1, p, TaskStructure::Hierarchy)
+	    mock.should_receive(:removed_hook).with(p, c1, TaskStructure::Hierarchy).once
+	    mock.should_receive(:removed_hook).with(c1, p, TaskStructure::Hierarchy).once
 	    assert_nothing_raised { plan.replace(c1, c3) }
 	end
 
@@ -167,8 +170,13 @@ module TC_PlanStatic
 	# transferred. 
 	assert( !p.child_object?(c1, TaskStructure::Hierarchy) )
 	assert( p.child_object?(c3, TaskStructure::Hierarchy) )
+	assert( c1.child_object?(c11, TaskStructure::Hierarchy) )
+	assert( !c3.child_object?(c11, TaskStructure::Hierarchy) )
+
 	assert( !c1.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )
 	assert( c3.event(:stop).child_object?(c2.event(:start), EventStructure::Signal) )
+	assert( c1.event(:success).parent_object?(c11.event(:success), EventStructure::Forwarding) )
+	assert( !c3.event(:success).parent_object?(c11.event(:success), EventStructure::Forwarding) )
 	# Also check that the internal event structure has *not* been transferred
 	assert( c1.event(:start).child_object?(c1.event(:stop), EventStructure::Forwarding) )
 

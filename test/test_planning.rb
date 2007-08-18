@@ -421,10 +421,16 @@ class TC_Planner < Test::Unit::TestCase
 	plan.insert(planned_task = Task.new)
 	planned_task.planned_by planning_task
 
-	planning_task.on(:success, planned_task, :start)
 	planning_task.start!(42)
-	planning_task.thread.join
-	process_events
+	FlexMock.use do |mock|
+	    planning_task.on(:success) do
+	        mock.planned_task(planning_task.planned_task)
+		planning_task.planned_task.start!
+	    end
+	    mock.should_receive(:planned_task).with(result_task).once
+	    planning_task.thread.join
+	    process_events
+	end
 
 	plan_task = plan.missions.find { true }
         assert_equal(result_task, plan_task)

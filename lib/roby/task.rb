@@ -1227,6 +1227,42 @@ module Roby
 	    super
 	end
 
+	def replace_subtree_by(object)
+	    super
+
+	    # Compute the set of tasks that are in our subtree and not in
+	    # object's *after* the replacement
+	    own_subtree = ValueSet.new
+	    TaskStructure.each_root_relation do |rel|
+		own_subtree.merge generated_subgraph(rel)
+		own_subtree -= object.generated_subgraph(rel)
+	    end
+
+	    changes = []
+	    each_event do |event|
+		next unless object.has_event?(event.symbol)
+		changes.clear
+
+		event.each_relation do |rel|
+		    parents = []
+		    event.each_parent_object(rel) do |parent|
+			if !parent.respond_to?(:task) || !own_subtree.include?(parent.task)
+			    parents << parent << parent[event, rel]
+			end
+		    end
+		    children = []
+		    event.each_child_object(rel) do |child|
+			if !child.respond_to?(:task) || !own_subtree.include?(child.task)
+			    children << child << event[child, rel]
+			end
+		    end
+		    changes << rel << parents << children
+		end
+
+		event.apply_relation_changes(object.event(event.symbol), changes)
+	    end
+	end
+
 	def replace_by(object)
 	    each_event do |event|
 		event_name = event.symbol

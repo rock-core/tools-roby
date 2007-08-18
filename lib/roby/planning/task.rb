@@ -99,9 +99,9 @@ module Roby
 	    # Create the new pattern
 	    planning = PlanningTask.new(arguments.slice(:planner_model, :planned_model, :method_name, :method_options))
 	    planned  = planning.planned_task
-	    planned.forward(:start, self, :loop_start)
-	    planned.forward(:success,  self, :loop_success)
-	    planned.forward(:stop,  self, :loop_end)
+	    planned.forward(:start,   self, :loop_start)
+	    planned.forward(:success, self, :loop_success)
+	    planned.forward(:stop,    self, :loop_end)
 	    main_task.realized_by planned
 	    
 	    # Schedule it. We start the new pattern when these three conditions are met:
@@ -297,7 +297,11 @@ module Roby
 
 	    case result
 	    when Roby::Task
-		transaction.replace(transaction[planned_task], result)
+		placeholder = transaction[planned_task]
+		transaction.replace(placeholder, result)
+		result.planned_by transaction[self]
+		placeholder.remove_planning_task transaction[self]
+
 		transaction.commit_transaction
 		emit(:success)
 	    else

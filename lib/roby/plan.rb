@@ -193,7 +193,7 @@ module Roby
 	    end
 
 	    # Copy all graph relations on +from+ events that are in +to+
-	    from.replace_by(to)
+	    from.replace_subtree_by(to)
 
 	    replaced(from, to)
 	    if mission?(from)

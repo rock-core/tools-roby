@@ -139,11 +139,46 @@ module Roby
 	    EOD
 	end
 
+	def apply_relation_changes(object, changes)
+	    changes.each_slice(3) do |rel, parents, children|
+		parents.each_slice(2) do |parent, info|
+		    parent.remove_child_object(self, rel)
+		end
+		children.each_slice(2) do |child, info|
+		    remove_child_object(child, rel)
+		end
+	    end
+
+	    changes.each_slice(3) do |rel, parents, children|
+		parents.each_slice(2) do |parent, info|
+		    parent.add_child_object(object, rel, info)
+		end
+		children.each_slice(2) do |child, info|
+		    object.add_child_object(child, rel, info)
+		end
+	    end
+	end
+
+	def replace_subtree_by(object)
+	    changes = []
+	    each_relation do |rel|
+		parents = []
+		each_parent_object(rel) do |parent|
+		    unless parent.root_object == root_object
+			parents << parent << parent[self, rel]
+		    end
+		end
+		changes << rel << parents << []
+	    end
+
+	    apply_relation_changes(object, changes)
+	end
+
 	# Replaces +self+ by +object+ in all graphs +self+ is part of. Unlike
 	# BGL::Vertex#replace_by, this calls the various add/remove hooks
 	# defined in DirectedRelationSupport
 	def replace_by(object)
-	    all_relations = []
+	    changes = []
 	    each_relation do |rel|
 		parents = []
 		each_parent_object(rel) do |parent|
@@ -153,30 +188,10 @@ module Roby
 		each_child_object(rel) do |child|
 		    children << child << self[child, rel]
 		end
-		all_relations << rel << parents << children
+		changes << rel << parents << children
 	    end
 
-	    all_relations.each_slice(3) do |rel, parents, children|
-		parents.each_slice(2) do |parent, info|
-		    next if parent.root_object == root_object
-		    parent.remove_child_object(self, rel)
-		end
-		children.each_slice(2) do |child, info|
-		    next if child.root_object == root_object
-		    remove_child_object(child, rel)
-		end
-	    end
-
-	    all_relations.each_slice(3) do |rel, parents, children|
-		parents.each_slice(2) do |parent, info|
-		    next if parent.root_object == root_object
-		    parent.add_child_object(object, rel, info)
-		end
-		children.each_slice(2) do |child, info|
-		    next if child.root_object == root_object
-		    object.add_child_object(child, rel, info)
-		end
-	    end
+	    apply_relation_changes(object, changes)
 	end
 
 	def read_write?
