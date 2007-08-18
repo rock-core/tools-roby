@@ -193,11 +193,14 @@ module Roby
 	attr_reader :relation
 	# The event because of which this exception is raised
 	attr_reader :with
+
+	attr_reader :failure_point
+
 	def initialize(parent, child, with)
 	    super(child)
 	    @parent = parent
 	    @relation = parent[child, TaskStructure::Hierarchy]
-	    @with = with
+	    @with = @failure_point = with
 	end
 
 	def message # :nodoc:

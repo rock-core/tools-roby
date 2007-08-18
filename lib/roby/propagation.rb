@@ -387,10 +387,25 @@ module Roby::Propagation
 	current_step
     end
 
+    def self.inhibited_error?(error)
+	if !error.respond_to?(:failure_point) ||
+	    !(point = error.failure_point)
+	    false
+	elsif (repairs = point.plan.repairs_for(point)).empty?
+	    false
+	else
+	    true
+	end
+    end
+
     # Performs exception propagation for the given ExecutionException objects
     # Returns all exceptions which have found no handlers in the task hierarchy
     def self.propagate_exceptions(exceptions)
 	fatal   = [] # the list of exceptions for which no handler has been found
+
+	exceptions = exceptions.find_all do |e, _|
+	    !inhibited_error?(e)
+	end
 
 	while !exceptions.empty?
 	    by_task = Hash.new { |h, k| h[k] = Array.new }

@@ -331,21 +331,23 @@ module Roby
 	    # HACK: events_errors is sometime nil here. It shouldn't
 	    events_errors ||= []
 
-	    # Propagate exceptions that came from event propagation
-	    events_errors = Propagation.propagate_exceptions(events_errors)
-	    stats[:events_exceptions] = Time.now
-
 	    # Generate exceptions from task structure
 	    structure_errors = structure_checking
 	    stats[:structure_check] = Time.now
-	    structure_errors = Propagation.propagate_exceptions(structure_errors)
-	    stats[:structure_check_exceptions] = Time.now
+
+	    # Propagate the errors. Note that the plan repairs are taken into
+	    # account in Propagation.propagate_exceptions drectly.  We keep
+	    # event and structure errors separate since in the first case there
+	    # is not two-stage handling (all errors that have not been handled
+	    # are fatal), and in the second case we call #structure_checking
+	    # again to get the remaining errors
+	    events_errors    = Propagation.propagate_exceptions(events_errors)
+	    Propagation.propagate_exceptions(structure_errors)
+	    stats[:exception_propagation] = Time.now
 
 	    # Get the remaining problems in the plan structure, and act on it
 	    fatal_structure_errors = structure_checking
 	    fatal_errors = fatal_structure_errors.to_a + events_errors
-	    stats[:fatal_structure_errors] = Time.now
-	    # Get the list of tasks we should kill because of fatal_errors
 	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
 		tasks ||= [*error.task]
 		for parent in [*tasks]
@@ -355,6 +357,7 @@ module Roby
 		end
 		kill_tasks
 	    end
+	    stats[:exceptions_fatal] = Time.now
 
 	    plan.garbage_collect(kill_tasks)
 	    stats[:garbage_collect] = Time.now

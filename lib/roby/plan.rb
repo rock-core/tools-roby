@@ -51,6 +51,11 @@ module Roby
 	# The list of tasks that are kept outside GC
 	attr_reader :keepalive
 
+	# A map of event => task repairs. Whenever an exception is found,
+	# exception propagation checks that no repair is defined for that
+	# particular event or for events that are forwarded by it.
+	attr_reader :repairs
+
 	# A set of tasks which are useful (and as such would not been garbage
 	# collected), but we want to GC anyway
 	attr_reader :force_gc
@@ -74,6 +79,7 @@ module Roby
 	    @task_events = ValueSet.new
 	    @force_gc    = ValueSet.new
 	    @transactions = ValueSet.new
+	    @repairs     = Hash.new
 
 	    super() if defined? super
 	end
@@ -421,6 +427,35 @@ module Roby
 	def empty?; @known_tasks.empty? end
 	# Iterates on all tasks
 	def each_task; @known_tasks.each { |t| yield(t) } end
+
+	# Install a plan repair for +failure_point+ with +task+
+	def add_repair(failure_point, task)
+	    if task.plan && task.plan != self
+		raise ArgumentError, "wrong plan: #{task} is in #{task.plan}, not #{self}"
+	    elsif repairs.has_key?(failure_point)
+		raise ArgumentError, "there is already a plan repair defined for #{failure_point}: #{repairs[failure_point]}"
+	    elsif !task.plan
+		discover(task)
+	    end
+
+	    repairs[failure_point] = task
+	end
+
+	def remove_repair(task)
+	    repairs.delete_if { |_, repair| repair == task }
+	end
+
+	# Return all repairs which apply on +event+
+	def repairs_for(event)
+	    result = Hash.new
+	    for ev in event.generated_subgraph(EventStructure::Forwarding)
+		if task = repairs[ev]
+		    result[ev] = task
+		end
+	    end
+
+	    result
+	end
 
 	# Returns +object+ if object is a plan object from this plan, or if
 	# it has no plan yet (in which case it is added to the plan first).

@@ -346,5 +346,42 @@ class TC_Exceptions < Test::Unit::TestCase
 	    Propagation.propagate_exceptions([ExecutionException.new(RuntimeError.exception, t21)])
 	end
     end
+
+    def test_plan_repairs
+	model = Class.new(SimpleTask) do
+	    event :blocked
+	    forward :blocked => :failed
+	end
+
+	# First, check methods located in Plan
+	plan.insert(task = model.new)
+	r1, r2 = SimpleTask.new, SimpleTask.new
+	plan.add_repair task.event(:failed), r1
+	plan.add_repair task.event(:blocked), r2
+
+	assert_equal({}, plan.repairs_for(task.event(:stop)))
+	assert_equal({task.event(:failed) => r1}, plan.repairs_for(task.event(:failed)))
+	assert_equal({task.event(:blocked) => r2, task.event(:failed) => r1}, plan.repairs_for(task.event(:blocked)))
+	plan.remove_repair r1
+	assert_equal({}, plan.repairs_for(task.event(:failed)))
+	assert_equal({task.event(:blocked) => r2}, plan.repairs_for(task.event(:blocked)))
+	plan.remove_repair r2
+	assert_equal({}, plan.repairs_for(task.event(:stop)))
+	assert_equal({}, plan.repairs_for(task.event(:failed)))
+	assert_equal({}, plan.repairs_for(task.event(:blocked)))
+
+	# Next: add a plan repair and check it really inhibits an exception
+	parent, child = prepare_plan :tasks => 2, :model => model
+	plan.insert(parent)
+	parent.realized_by child
+	parent.on :start, child, :start
+	parent.start!
+
+	error = ChildFailedError.new(parent, child, child.event(:failed))
+	repairing_task = SimpleTask.new
+	assert(!Propagation.inhibited_error?(error))
+	plan.add_repair(child.event(:failed), repairing_task)
+	assert(Propagation.inhibited_error?(error))
+    end
 end
 
