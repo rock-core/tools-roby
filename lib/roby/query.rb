@@ -107,7 +107,7 @@ module Roby
 	    end
 	end
 	match_predicates :executable, :abstract, :partially_instanciated, :fully_instanciated,
-	    :pending, :running, :finished, :success, :failure
+	    :pending, :running, :finished, :success, :failed
 
 	def ===(task)
 	    return unless task.kind_of?(Roby::Task)
@@ -133,6 +133,23 @@ module Roby
 
 	    return false if !owners.empty? && !(task.owners - owners).empty?
 	    true
+	end
+
+	STATE_PREDICATES = [:pending, :running, :finished, :success, :failed].to_value_set
+	def filter(initial_set, task_index)
+	    if model
+		initial_set &= task_index.by_model[model]
+	    end
+
+	    for pred in (predicates & STATE_PREDICATES)
+		initial_set &= task_index.by_state[pred]
+	    end
+
+	    for pred in (neg_predicates & STATE_PREDICATES)
+		initial_set -= task_index.by_state[pred]
+	    end
+
+	    initial_set
 	end
 
 	def each(plan, &block)
@@ -204,8 +221,13 @@ module Roby
 
 	def ===(task)
 	    return unless super
-	    return unless plan_predicates.all? { |pred| plan.send(pred, task) }
-	    return if neg_plan_predicates.any? { |pred| plan.send(pred, task) }
+
+	    for pred in plan_predicates
+		return unless plan.send(pred, task)
+	    end
+	    for neg_pred in neg_plan_predicates
+		return if plan.send(neg_pred, task)
+	    end
 	    true
 	end
 
@@ -216,11 +238,80 @@ module Roby
 	include Enumerable
     end
 
+    class TaskIndex
+	# A model => ValueSet map of the tasks for each model
+	attr_reader :by_model
+	# A state => ValueSet map of tasks given their state. The state is
+	# a symbol in [:pending, :starting, :running, :finishing,
+	# :finished]
+	attr_reader :by_state
+
+	def initialize
+	    @by_model = Hash.new { |h, k| h[k] = ValueSet.new }
+	    @by_state = Hash.new
+	    TaskMatcher::STATE_PREDICATES.each do |state_name|
+		by_state[state_name] = ValueSet.new
+	    end
+	end
+
+	def state_of(task)
+	    if task.pending?
+		yield(:pending)
+	    elsif task.running?
+		yield(:running)
+	    elsif task.finished?
+		yield(:finished)
+		if task.success? then
+		    yield(:success)
+		else
+		    yield(:failed)
+		end
+	    end
+	end
+
+	def add(task)
+	    for klass in task.model.ancestors
+		by_model[klass] << task
+	    end
+	    state_of(task) do |state_name|
+		by_state[state_name] << task
+	    end
+	end
+
+	def change_state(task, new_state)
+	    state_of(task) do |state_name|
+		by_state[state_name].delete(task)
+	    end
+	    by_state[new_state] << task
+	    if new_state == :success || new_state == :failed
+		by_state[:finished] << task
+	    end
+	end
+
+	def remove(task)
+	    for klass in task.model.ancestors
+		by_model[klass].delete(task)
+	    end
+	    state_of(task) do |state_name|
+		by_state[state_name].delete(task)
+	    end
+	end
+    end
+
     class OrTaskMatcher < TaskMatcher
 	def initialize(*ops)
 	    @ops = ops 
 	    super()
 	end
+
+	def filter(task_set, task_index)
+	    result = ValueSet.new
+	    for child in @ops
+		result.merge child.filter(task_set, task_index)
+	    end
+	    result
+	end
+
 	def <<(op); @ops << op end
 	def ===(task)
 	    return unless @ops.any? { |op| op === task }
@@ -233,6 +324,22 @@ module Roby
 	    @op = op
 	    super()
        	end
+	def filter(initial_set, task_index)
+	    if model
+		initial_set -= task_index.by_model[model]
+	    end
+
+	    for pred in (predicates & STATE_PREDICATES)
+		initial_set -= task_index.by_state[pred]
+	    end
+
+	    for pred in (neg_predicates & STATE_PREDICATES)
+		initial_set |= task_index.by_state[pred]
+	    end
+
+	    initial_set
+	end
+
 	def ===(task)
 	    return if @op === task
 	    super
@@ -244,6 +351,14 @@ module Roby
 	    @ops = ops 
 	    super()
 	end
+	def filter(task_set, task_index)
+	    result = task_set
+	    for child in @ops
+		result &= child.filter(task_set, task_index)
+	    end
+	    result
+	end
+
 	def ===(task)
 	    return unless @ops.all? { |op| op === task }
 	    super
@@ -260,7 +375,7 @@ module Roby
 	# of tasks matching +matcher+
 	def query_result_set(matcher)
 	    result = ValueSet.new
-	    for task in known_tasks
+	    for task in matcher.filter(known_tasks, task_index)
 		result << task if matcher === task
 	    end
 	    result

@@ -385,6 +385,8 @@ module Roby
 	    @bound_events = bound_events
         end
 
+	def model; self.class end
+
 	def instantiate_model_event_relations
 	    # Add the model-level signals to this instance
 	    
@@ -683,19 +685,23 @@ module Roby
 	# Call to update the task status because of +event+
 	def update_task_status(event)
 	    if event.success?
+		plan.task_index.change_state(self, :success)
 		self.success = true
 		self.finished = true
 		@terminal_event ||= event
 	    elsif event.failure?
+		plan.task_index.change_state(self, :failed)
 		self.success = false
 		self.finished = true
 		@terminal_event ||= event
 	    elsif event.terminal?
+		plan.task_index.change_state(self, :finished)
 		self.finished = true
 		@terminal_event ||= event
 	    end
 	    
 	    if event.symbol == :start
+		plan.task_index.change_state(self, :running)
 		self.started = true
 	    end
 	end

@@ -10,7 +10,7 @@ class TC_Query < Test::Unit::TestCase
 	result = TaskMatcher.new.enum_for(:each, plan).to_set
 	assert_equal([t1, t2, t0].to_set, result)
 	result = TaskMatcher.new.with_model(Roby::Task).enum_for(:each, plan).to_set
-	assert_equal([t1, t2, t0].to_set, result)
+	assert_equal([t1, t2, t0].to_set, result, plan.task_index.by_model)
 
 	result = TaskMatcher.which_fullfills(task_model).enum_for(:each, plan).to_set
 	assert_equal([t1, t2].to_set, result)
@@ -109,6 +109,30 @@ class TC_Query < Test::Unit::TestCase
 	t1.arguments[:id] = 2
 	assert_finds_tasks([t1, t2]) { TaskMatcher.fully_instanciated }
 	assert_finds_tasks([t2]) { TaskMatcher.fully_instanciated.abstract }
+
+	assert_finds_tasks([t1, t2]) { TaskMatcher.pending }
+	t1.start!
+	assert_finds_tasks([t2]) { TaskMatcher.pending }
+	assert_finds_tasks([t1, t2]) { TaskMatcher.not_failed }
+	assert_finds_tasks([t1, t2]) { TaskMatcher.not_success }
+	assert_finds_tasks([t1, t2]) { TaskMatcher.not_finished }
+
+	assert_finds_tasks([t1]) { TaskMatcher.running }
+	t1.success!
+	assert_finds_tasks([t1]) { TaskMatcher.success }
+	assert_finds_tasks([t1]) { TaskMatcher.finished }
+	assert_finds_tasks([t1, t2]) { TaskMatcher.not_failed }
+	assert_finds_tasks([t2]) { TaskMatcher.not_finished }
+
+	plan.remove_object(t1)
+
+	t1 = SimpleTask.new
+	plan << t1
+	t1.start!
+	t1.failed!
+	assert_finds_tasks([t1]) { TaskMatcher.failed }
+	assert_finds_tasks([t1]) { TaskMatcher.finished }
+	assert_finds_tasks([t1]) { TaskMatcher.finished.not_success }
     end
 
     def test_query_plan_predicates

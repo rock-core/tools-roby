@@ -40,6 +40,9 @@ module Roby
 	extend Logger::Hierarchy
 	extend Logger::Forward
 
+	# The task index for this plan
+	attr_reader :task_index
+
 	# The list of tasks that are included in this plan
 	attr_reader :known_tasks
 	# The set of events that are defined by #known_tasks
@@ -80,6 +83,8 @@ module Roby
 	    @force_gc    = ValueSet.new
 	    @transactions = ValueSet.new
 	    @repairs     = Hash.new
+
+	    @task_index  = Roby::TaskIndex.new
 
 	    super() if defined? super
 	end
@@ -236,6 +241,10 @@ module Roby
 		new_tasks = useful_task_component(tasks, tasks)
 		unless new_tasks.empty?
 		    new_tasks = discover_task_set(new_tasks)
+
+		    for t in new_tasks
+			task_index.add(t)
+		    end
 
 		    # now, we include the set of free events that are linked to
 		    # +new_tasks+ in +events+
@@ -610,6 +619,8 @@ module Roby
 		finalized_event(object)
 
 	    when Task
+		task_index.remove(object)
+
 		# NOTE: we MUST use instance variables directly here. Otherwise,
 		# transaction commits would be broken
 		for ev in object.bound_events.values

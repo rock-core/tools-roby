@@ -15,6 +15,7 @@ require 'roby/task'
 require 'roby/event'
 
 require 'roby/plan'
+require 'roby/query'
 require 'roby/control'
 
 require 'roby/propagation'
@@ -26,7 +27,6 @@ require 'roby/relations/ensured'
 
 require 'roby/state'
 require 'roby/interface'
-require 'roby/query'
 
 require 'roby/distributed/protocol'
 

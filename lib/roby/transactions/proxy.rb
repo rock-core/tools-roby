@@ -196,6 +196,12 @@ module Roby::Transactions
 	def_delegator :@__getobj__, :arguments
 	def_delegator :@__getobj__, :has_event?
 
+	def_delegator :@__getobj__, :pending?
+	def_delegator :@__getobj__, :running?
+	def_delegator :@__getobj__, :success?
+	def_delegator :@__getobj__, :failed?
+	def_delegator :@__getobj__, :finished?
+
 	proxy :event
 	proxy :each_event
 	alias :each_plan_child :each_event
