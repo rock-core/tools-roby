@@ -1,6 +1,7 @@
 $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'roby/test/common'
-require 'mockups/tasks'
+require 'roby/test/tasks/simple_task'
+require 'roby/test/tasks/empty_task'
 require 'flexmock'
 
 class TC_Task < Test::Unit::TestCase 
@@ -302,10 +303,12 @@ class TC_Task < Test::Unit::TestCase
 
         assert_equal(start_event, task.event(:start))
         assert_equal([], start_event.handlers)
-        assert_equal([task.event(:success)], start_event.enum_for(:each_forwarding).to_a)
+	# Note that the start => stop forwarding is added because 'start' is
+	# detected as terminal in the EmptyTask model
+        assert_equal([task.event(:stop), task.event(:success)].to_set, start_event.enum_for(:each_forwarding).to_set)
         start_model = task.event_model(:start)
         assert_equal(start_model, start_event.event_model)
-        assert_equal([:success], task.enum_for(:each_forwarding, :start).to_a)
+        assert_equal([:stop, :success].to_set, task.enum_for(:each_forwarding, :start).to_set)
     end
 
     def test_context_propagation

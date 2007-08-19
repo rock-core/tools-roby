@@ -2,7 +2,7 @@ $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/log'
 require 'roby/state/information'
-require 'test/mockups/tasks'
+require 'roby/test/tasks/simple_task'
 
 require 'flexmock'
 
@@ -84,7 +84,7 @@ module TC_PlanStatic
     end
 
     def test_discover
-	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => SimpleTask
+	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => Roby::Test::SimpleTask
 	t1.realized_by t2
 	or_ev = OrGenerator.new
 	t2.event(:start).on or_ev
@@ -104,7 +104,7 @@ module TC_PlanStatic
     end
 
     def test_insert
-	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => SimpleTask
+	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => Roby::Test::SimpleTask
 	t1.realized_by t2
 	t2.on(:start, t3, :stop)
 	t2.planned_by t4
@@ -124,7 +124,7 @@ module TC_PlanStatic
     end
 
     def test_useful_task_components
-	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => SimpleTask
+	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => Roby::Test::SimpleTask
 	t1.realized_by t2
 	t2.on(:start, t3, :stop)
 	t2.planned_by t4
@@ -140,7 +140,7 @@ module TC_PlanStatic
     end
 
     def test_replace_task
-	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => SimpleTask
+	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Test::SimpleTask
 	p.realized_by c1
 	c1.realized_by c11
 	c1.realized_by c12
@@ -190,7 +190,7 @@ module TC_PlanStatic
     end
 
     def test_replace
-	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => SimpleTask
+	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Test::SimpleTask
 	p.realized_by c1
 	c1.realized_by c11
 	c1.realized_by c12

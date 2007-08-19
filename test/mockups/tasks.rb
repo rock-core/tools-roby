@@ -1,19 +1,7 @@
 require 'roby/task'
 
 # We define here a set of tasks needed by unit testing
-if !defined?(EmptyTask)
-    # A class that calls stop when :start is fired
-    class EmptyTask < Roby::Task
-        event :start, :command => true
-        forward :start => :success
-    end
-
-    class SimpleTask < Roby::Task
-	event :start, :command => true
-	event :success, :command => true, :terminal => true
-	terminates
-    end
-
+if !defined?(ChoiceTask)
     class ChoiceTask < Roby::Task
         def start(context)
             emit :start, context

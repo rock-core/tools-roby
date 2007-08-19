@@ -1,7 +1,7 @@
 $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/test/distributed'
-require 'test/mockups/tasks'
+require 'roby/test/tasks/simple_task'
 
 require 'roby'
 require 'roby/log'

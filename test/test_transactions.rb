@@ -1,6 +1,6 @@
 $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'roby/test/common'
-require 'mockups/tasks'
+require 'roby/test/tasks/simple_task'
 require 'flexmock'
 
 require 'test/test_plan'
@@ -30,6 +30,8 @@ module TC_TransactionBehaviour
     PlannedBy = Roby::TaskStructure::PlannedBy
     Signal = Roby::EventStructure::Signal
     Forwarding = Roby::EventStructure::Forwarding
+
+    SimpleTask = Roby::Test::SimpleTask
 
     def transaction_commit(plan, *needed_proxies)
 	trsc = Roby::Transaction.new(plan)

@@ -1,7 +1,6 @@
 $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'roby/test/common'
 require 'flexmock'
-require 'mockups/tasks'
 
 class TC_Interface < Test::Unit::TestCase 
     include Roby::Test

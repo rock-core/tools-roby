@@ -3,7 +3,7 @@ require 'roby/test/common'
 require 'roby/planning'
 
 require 'flexmock'
-require 'mockups/tasks'
+require 'roby/test/tasks/simple_task'
 
 class TC_Planner < Test::Unit::TestCase
     include Roby::Planning
