@@ -398,7 +398,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
     ensure
 	# Remove the child so that the test's plan cleanup does not complain
-	parent.remove_child child
+	parent.remove_child child if child
     end
 
     def test_error_handling_relation
@@ -428,7 +428,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	assert_equal(exceptions.keys, Propagation.propagate_exceptions(exceptions))
 
     ensure
-	parent.remove_child child
+	parent.remove_child child if child
     end
 end
 
