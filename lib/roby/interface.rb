@@ -83,9 +83,9 @@ module Roby
 		end
 	    end
 
-	    def handled_exception(error, tasks)
+	    def handled_exception(error, task)
 		super if defined? super
-		push_exception_message("exception", error, tasks)
+		push_exception_message("exception", error, [task])
 	    end
 
 	    def fatal_exception(error, tasks)
