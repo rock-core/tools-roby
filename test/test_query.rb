@@ -248,6 +248,12 @@ class TC_Query < Test::Unit::TestCase
 	trsc << t3
 	result = trsc.find_tasks.which_fullfills(model, :id => 3).to_a
 	assert_equal([t3], result)
+
+	# Commit the transaction and check that the tasks are added to the plan
+	# index
+	trsc.commit_transaction
+	result = plan.find_tasks.which_fullfills(model, :id => 3).to_a
+	assert_equal([t3], result)
     end
 end
 

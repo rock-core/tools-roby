@@ -242,10 +242,6 @@ module Roby
 		unless new_tasks.empty?
 		    new_tasks = discover_task_set(new_tasks)
 
-		    for t in new_tasks
-			task_index.add(t)
-		    end
-
 		    # now, we include the set of free events that are linked to
 		    # +new_tasks+ in +events+
 		    task_events = ValueSet.new
@@ -298,6 +294,7 @@ module Roby
 	    for t in tasks
 		t.plan = self
 		task_events.merge t.bound_events.values.to_value_set
+		task_index.add t
 	    end
 	    known_tasks.merge tasks
 	    discovered_tasks(tasks)
