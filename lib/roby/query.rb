@@ -135,7 +135,7 @@ module Roby
 	    true
 	end
 
-	STATE_PREDICATES = [:pending, :running, :finished, :success, :failed].to_value_set
+	STATE_PREDICATES = [:pending?, :running?, :finished?, :success?, :failed?].to_value_set
 	def filter(initial_set, task_index)
 	    if model
 		initial_set &= task_index.by_model[model]
@@ -252,39 +252,23 @@ module Roby
 	    TaskMatcher::STATE_PREDICATES.each do |state_name|
 		by_state[state_name] = ValueSet.new
 	    end
-	end
-
-	def state_of(task)
-	    if task.pending?
-		yield(:pending)
-	    elsif task.running?
-		yield(:running)
-	    elsif task.finished?
-		yield(:finished)
-		if task.success? then
-		    yield(:success)
-		else
-		    yield(:failed)
-		end
-	    end
+	    @task_state = Hash.new
 	end
 
 	def add(task)
 	    for klass in task.model.ancestors
 		by_model[klass] << task
 	    end
-	    state_of(task) do |state_name|
-		by_state[state_name] << task
-	    end
+	    by_state[:pending?] << task
 	end
 
-	def change_state(task, new_state)
-	    state_of(task) do |state_name|
-		by_state[state_name].delete(task)
+	def set_state(task, new_state)
+	    for state_set in by_state
+		state_set.last.delete(task)
 	    end
 	    by_state[new_state] << task
-	    if new_state == :success || new_state == :failed
-		by_state[:finished] << task
+	    if new_state == :success? || new_state == :failed?
+		by_state[:finished?] << task
 	    end
 	end
 
@@ -292,8 +276,8 @@ module Roby
 	    for klass in task.model.ancestors
 		by_model[klass].delete(task)
 	    end
-	    state_of(task) do |state_name|
-		by_state[state_name].delete(task)
+	    for state_set in by_state
+		state_set.last.delete(task)
 	    end
 	end
     end
@@ -324,19 +308,13 @@ module Roby
 	    @op = op
 	    super()
        	end
+
 	def filter(initial_set, task_index)
-	    if model
-		initial_set -= task_index.by_model[model]
-	    end
-
-	    for pred in (predicates & STATE_PREDICATES)
-		initial_set -= task_index.by_state[pred]
-	    end
-
-	    for pred in (neg_predicates & STATE_PREDICATES)
-		initial_set |= task_index.by_state[pred]
-	    end
-
+	    # WARNING: the value returned by filter is a SUPERSET of the
+	    # possible values for the query. Therefore, the result of
+	    # NegateTaskMatcher#filter is NOT
+	    #
+	    #   initial_set - @op.filter(...)
 	    initial_set
 	end
 
@@ -461,12 +439,12 @@ module Roby
 	# plan tasks matching +matcher+ and the second the set of transaction
 	# tasks matching it. The two sets are disjoint.
 	def query_result_set(matcher)
-	    plan_set, transaction_set = ValueSet.new, ValueSet.new
+	    plan_set = ValueSet.new
 	    for task in plan.query_result_set(matcher)
 		plan_set << task unless self[task, false]
 	    end
 	    
-	    transaction_set.merge(super)
+	    transaction_set = super
 	    [plan_set, transaction_set]
 	end
 

@@ -685,23 +685,23 @@ module Roby
 	# Call to update the task status because of +event+
 	def update_task_status(event)
 	    if event.success?
-		plan.task_index.change_state(self, :success)
+		plan.task_index.set_state(self, :success?)
 		self.success = true
 		self.finished = true
 		@terminal_event ||= event
 	    elsif event.failure?
-		plan.task_index.change_state(self, :failed)
+		plan.task_index.set_state(self, :failed?)
 		self.success = false
 		self.finished = true
 		@terminal_event ||= event
-	    elsif event.terminal?
-		plan.task_index.change_state(self, :finished)
+	    elsif event.terminal? && !finished?
+		plan.task_index.set_state(self, :finished?)
 		self.finished = true
 		@terminal_event ||= event
 	    end
 	    
 	    if event.symbol == :start
-		plan.task_index.change_state(self, :running)
+		plan.task_index.set_state(self, :running?)
 		self.started = true
 	    end
 	end

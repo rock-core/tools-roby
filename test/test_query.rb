@@ -92,8 +92,8 @@ class TC_Query < Test::Unit::TestCase
 	assert_equal(task_set.to_set, yield.enum_for(:each).to_set)
     end
 
-    def assert_finds_tasks(task_set)
-	assert_equal(task_set.to_set, yield.enum_for(:each, plan).to_set)
+    def assert_finds_tasks(task_set, msg = "")
+	assert_equal(task_set.to_set, yield.enum_for(:each, plan).to_set, msg)
     end
 
     def test_query_predicates
@@ -119,7 +119,7 @@ class TC_Query < Test::Unit::TestCase
 
 	assert_finds_tasks([t1]) { TaskMatcher.running }
 	t1.success!
-	assert_finds_tasks([t1]) { TaskMatcher.success }
+	assert_finds_tasks([t1], plan.task_index.by_state) { TaskMatcher.success }
 	assert_finds_tasks([t1]) { TaskMatcher.finished }
 	assert_finds_tasks([t1, t2]) { TaskMatcher.not_failed }
 	assert_finds_tasks([t2]) { TaskMatcher.not_finished }
