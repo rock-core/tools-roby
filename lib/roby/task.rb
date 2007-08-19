@@ -1227,6 +1227,10 @@ module Roby
 	    super
 	end
 
+	def respawn
+	    plan.respawn(self)
+	end
+
 	def replace_subplan_by(object)
 	    super
 
