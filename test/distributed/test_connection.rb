@@ -139,6 +139,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
     end
 
     def test_concurrent_connection
+	GC.disable
 	start_peers(true) do |remote|
 	    class << remote
 		def find_neighbour
@@ -154,7 +155,8 @@ class TC_DistributedConnection < Test::Unit::TestCase
 
 		attr_reader :callback_called
 		def peer_objects
-		    ObjectSpace.enum_for(:each_object, Roby::Distributed::Peer).to_a.size
+		    peer_objects = ObjectSpace.enum_for(:each_object, Roby::Distributed::Peer).to_a
+		    [Roby::Distributed.peers.keys.size, peer_objects.size]
 		end
 	    end
 	end
@@ -162,6 +164,16 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	sleep(0.5)
 	assert(remote.find_neighbour)
 	assert(remote_neighbour = Distributed.neighbours.find { true })
+
+	# We want to check that a concurrent connection creates only one Peer
+	# object. Still, we have to take into account that the remote peer is a
+	# fork of ourselves, and as such inherits the Peer objects this process
+	# has in its ObjectSpace (like the leftovers of other tests)
+	registered_peer_count, initial_remote_peer_count = remote.peer_objects
+	assert_equal(0, registered_peer_count)
+	registered_peer_count, initial_local_peer_count = Distributed.peers.keys.size,
+	    ObjectSpace.enum_for(:each_object, Distributed::Peer).to_a.size
+	assert_equal(0, registered_peer_count)
 
 	remote.connect
 	remote.connect
@@ -176,8 +188,11 @@ class TC_DistributedConnection < Test::Unit::TestCase
 
 	assert_equal(2, callback_called)
 	assert_equal(2, remote.callback_called)
-	assert_equal(1, remote.peer_objects)
-	assert_equal(1, ObjectSpace.enum_for(:each_object, Distributed::Peer).to_a.size)
+	assert_equal([1, initial_remote_peer_count + 1], remote.peer_objects)
+	assert_equal(1, Distributed.peers.keys.size)
+	assert_equal(initial_local_peer_count + 1, ObjectSpace.enum_for(:each_object, Distributed::Peer).to_a.size)
+    ensure
+	GC.enable
     end
 
     # Test the normal disconnection process
