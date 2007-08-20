@@ -360,24 +360,28 @@ module Roby
 		elsif !child then throw :ignored, "unknown child"
 		end
 
+		rel = rel.first if rel.kind_of?(Array)
 		rel    = rel.proxy(nil)
 		parent.add_child_object(child, rel, [info, nil])
 	    end
 	    def removed_task_child(time, parent, rel, child)
 		parent = local_task(parent)
 		child  = local_task(child)
+		rel = rel.first if rel.kind_of?(Array)
 		rel    = rel.proxy(nil)
 		parent.remove_child_object(child, rel)
 	    end
 	    def added_event_child(time, parent, rel, child, info)
 		parent = local_event(parent)
 		child  = local_event(child)
+		rel = rel.first if rel.kind_of?(Array)
 		rel    = rel.proxy(nil)
 		parent.add_child_object(child, rel, [info, nil])
 	    end
 	    def removed_event_child(time, parent, rel, child)
 		parent = local_event(parent)
 		child  = local_event(child)
+		rel = rel.first if rel.kind_of?(Array)
 		rel    = rel.proxy(nil)
 		parent.remove_child_object(child, rel)
 	    end
