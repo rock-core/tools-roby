@@ -130,6 +130,7 @@ module Roby::TaskStructure
 		    end
 	end
 	task.executed_by agent
+	agent
     end
 
     # This module is hooked in Roby::TaskEventGenerator to check that a task
