@@ -23,6 +23,7 @@ module Roby
 	    def open
 		@logfile = Roby::Log.open("#{name}-events.log")
 		reinit!
+		self
 	    end
 	    def close; @logfile.close end
 
