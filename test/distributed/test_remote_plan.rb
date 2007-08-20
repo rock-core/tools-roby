@@ -203,13 +203,16 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	end
 
 	r_root = subscribe_task(:id => 'root')
+	# No need to explicitely synchronize here. #subscribe is supposed to return only
+	# when the subscription is completely done (i.e. the remote peer knows we have 
+	# a sibling)
+	remote.check_local_updated(Distributed.format(r_root))
 	assert(r_root.subscribed?, remote_peer.subscriptions)
 	assert(r_root.updated_by?(remote_peer))
 	assert(r_root.update_on?(remote_peer))
 	assert_equal([remote_peer], r_root.updated_peers)
 	assert(!r_root.remotely_useful?)
 	assert_equal([remote_peer], Distributed.enum_for(:each_updated_peer, r_root).to_a)
-	remote.check_local_updated(r_root)
 
 	assert(r_root.mission?)
 	r_mission = remote_task(:id => 'mission')
