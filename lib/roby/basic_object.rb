@@ -38,7 +38,7 @@ module Roby
 	# of +self+ on +peer+), or self if peer is Roby::Distributed
 	def sibling_on(peer)
 	    if sibling = remote_siblings[peer] then sibling
-	    elsif peer == Roby::Distributed then self
+	    elsif Roby::Distributed == peer then self
 	    else 
 		raise RemotePeerMismatch, "#{self} has no known sibling on #{peer}"
 	    end
