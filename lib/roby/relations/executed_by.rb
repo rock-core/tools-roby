@@ -94,6 +94,42 @@ module Roby::TaskStructure
 
 	    add_execution_agent(agent)
         end
+
+    end
+    
+    # Add a suitable execution agent to +task+ if its model has a execution
+    # agent model (see ModelLevelExecutionAgent), either by reusing one
+    # that is already in the plan, or by creating a new one.
+    def ExecutionAgent.spawn(task)
+	agent_model = task.model.execution_agent
+	candidates = task.plan.find_tasks.
+	    with_model(agent_model).
+	    self_owned.
+	    not_finished
+
+	agent = nil
+
+	if candidates.empty?
+	    Roby::Propagation.gather_exceptions(agent_model) do
+		agent = agent_model.new
+		agent.on(:stop) do
+		    agent.each_executed_task do |task|
+			if task.running?
+			    task.emit(:aborted, "execution agent #{self} failed") 
+			elsif task.pending?
+			    task.remove_execution_agent agent
+			    spawn(task)
+			end
+		    end
+		end
+	    end
+	else
+	    running, pending = candidates.partition { |t| t.running? }
+	    agent = if running.empty? then pending.first
+		    else running.first
+		    end
+	end
+	task.executed_by agent
     end
 
     # This module is hooked in Roby::TaskEventGenerator to check that a task
@@ -138,44 +174,9 @@ module Roby::TaskStructure
 
 	    for task in tasks
 		if !task.execution_agent && task.model.execution_agent && task.self_owned?
-		    ExecutionAgentSpawn.spawn(task)
+		    ExecutionAgent.spawn(task)
 		end
 	    end
-	end
-
-	# Add a suitable execution agent to +task+ if its model has a execution
-	# agent model (see ModelLevelExecutionAgent), either by reusing one
-	# that is already in the plan, or by creating a new one.
-	def self.spawn(task)
-	    agent_model = task.model.execution_agent
-	    candidates = task.plan.find_tasks.
-		with_model(agent_model).
-		self_owned.
-		not_finished
-
-	    agent = nil
-
-	    if candidates.empty?
-		Roby::Propagation.gather_exceptions(agent_model) do
-		    agent = agent_model.new
-		    agent.on(:stop) do
-			agent.each_executed_task do |task|
-			    if task.running?
-				task.emit(:aborted, "execution agent #{self} failed") 
-			    elsif task.pending?
-				task.remove_execution_agent agent
-				spawn(task)
-			    end
-			end
-		    end
-		end
-	    else
-		running, pending = candidates.partition { |t| t.running? }
-		agent = if running.empty? then pending.first
-			else running.first
-			end
-	    end
-	    task.executed_by agent
 	end
     end
     Roby::Plan.include ExecutionAgentSpawn
