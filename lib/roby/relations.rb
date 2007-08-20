@@ -233,38 +233,46 @@ module Roby
 
 	    # Now compute the set of relations in which we really have to add a
 	    # new relation
-	    relations = []
+	    new_relations = []
+	    changed_info  = []
 	    rel = self
 	    while rel
 		if rel.linked?(from, to)
-		    if info != from[to, rel]
-			raise ArgumentError, "trying to change edge information"
+		    if !(old_info = from[to, rel]).nil?
+			if old_info == info
+			    break
+			else
+			    raise ArgumentError, "trying to change edge information"
+			end
 		    end
-		    break
+		    changed_info << rel
 		else
-		    relations.push rel
+		    new_relations.push rel
 		end
 
 		rel = rel.parent
 	    end
 
+	    for rel in changed_info
+		from[to, rel] = info
+	    end
 
 	    if from.respond_to?(:adding_child_object)
-		from.adding_child_object(to, relations, info)
+		from.adding_child_object(to, new_relations, info)
 	    end
 	    if to.respond_to?(:adding_parent_object)
-		to.adding_parent_object(from, relations, info)
+		to.adding_parent_object(from, new_relations, info)
 	    end
 
-	    for rel in relations
+	    for rel in new_relations
 		rel.__bgl_link(from, to, info)
 	    end
 
 	    if from.respond_to?(:added_child_object)
-		from.added_child_object(to, relations, info)
+		from.added_child_object(to, new_relations, info)
 	    end
 	    if to.respond_to?(:added_parent_object)
-		to.added_parent_object(from, relations, info)
+		to.added_parent_object(from, new_relations, info)
 	    end
 	end
 
