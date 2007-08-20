@@ -1,10 +1,12 @@
 module Roby
     module Distributed
-	class ConnectionSpace
+	class ConnectionFailed < RuntimeError
+	    attr_reader :neighbour
 
+	    def initialize(neighbour)
+		@neighbour = neighbour
+	    end
 	end
-
-
 	# == Connection procedure
 	#
 	# When the user calls Peer.initiate_connection, the following happens:
