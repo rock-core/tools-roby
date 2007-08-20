@@ -1,6 +1,6 @@
 $LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
 require 'roby/test/distributed'
-require 'test/mockups/tasks'
+require 'roby/test/tasks/simple_task'
 
 # This testcase tests local views of remote plans
 class TC_DistributedRemotePlan < Test::Unit::TestCase
