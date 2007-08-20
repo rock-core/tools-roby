@@ -25,6 +25,8 @@ module Roby
     # listed in NOT_OVERRIDABLE
     #
     class ExtendedStruct
+	include DRbUndumped
+
 	# +attach_to+ and +attach_name+
 	# are used so that
 	#   root = ExtendedStruct.new
