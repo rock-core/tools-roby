@@ -177,20 +177,20 @@ module Roby
 	def terminal?; !!@terminal_flag end
 	def success?; @terminal_flag == :success end
 	def failure?; @terminal_flag == :failure end
-	def added_child_object(child, relation, info)
+	def added_child_object(child, relations, info)
 	    super if defined? super
 
-	    if relation == EventStructure::CausalLink && 
+	    if relations.include?(EventStructure::CausalLink) && 
 		child.respond_to?(:task) && child.task == task &&
 		    child.terminal_flag != terminal_flag
 
 		task.update_terminal_flag
 	    end
 	end
-	def removed_child_object(child, relation)
+	def removed_child_object(child, relations)
 	    super if defined? super
 
-	    if relation == EventStructure::CausalLink
+	    if relations.include?(EventStructure::CausalLink) &&
 		child.respond_to?(:task) && child.task == task &&
 		    terminal_flag
 

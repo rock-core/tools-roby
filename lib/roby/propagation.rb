@@ -246,15 +246,15 @@ module Roby::Propagation
     # This module hooks in event relation modifications to clear the event
     # ordering cache (Propagation.event_ordering) when needed.
     module EventPrecedenceChanged
-	def added_child_object(child, relation, info)
+	def added_child_object(child, relations, info)
 	    super if defined? super
-	    if relation == Roby::EventStructure::Precedence && plan == Roby.plan
+	    if relations.include?(Roby::EventStructure::Precedence) && plan == Roby.plan
 		Roby::Propagation.event_ordering.clear
 	    end
 	end
-	def removed_child_object(child, relation)
+	def removed_child_object(child, relations)
 	    super if defined? super
-	    if relation == Roby::EventStructure::Precedence && plan == Roby.plan
+	    if relations.include?(Roby::EventStructure::Precedence) && plan == Roby.plan
 		Roby::Propagation.event_ordering.clear
 	    end
 	end

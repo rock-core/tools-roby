@@ -83,8 +83,8 @@ class TC_Relations < Test::Unit::TestCase
     def test_hooks
 	FlexMock.use do |mock|
 	    hooks = Module.new do
-		define_method(:added_child_object) { |to, type, info| mock.add(to, type, info) }
-		define_method(:removed_child_object) { |to, type| mock.remove(to, type) }
+		define_method(:added_child_object) { |to, relations, info| mock.add(to, relations, info) }
+		define_method(:removed_child_object) { |to, relations| mock.remove(to, relations) }
 	    end
 
 	    klass = Class.new do
@@ -96,8 +96,8 @@ class TC_Relations < Test::Unit::TestCase
 	    Roby::RelationSpace(klass) { r1 = relation :R1 }
 
 	    v1, v2 = klass.new, klass.new
-	    mock.should_receive(:add).with(v2, r1, 1).once
-	    mock.should_receive(:remove).with(v2, r1).once
+	    mock.should_receive(:add).with(v2, [r1], 1).once
+	    mock.should_receive(:remove).with(v2, [r1]).once
 	    v1.add_r1(v2, 1)
 	    v1.remove_r1(v2)
 	end
@@ -109,13 +109,13 @@ class TC_Relations < Test::Unit::TestCase
 		def initialize(index); @index = index end
 		def to_s; "v#{@index.to_s}" end
 		include DirectedRelationSupport
-		define_method(:added_child_object) do |child, rel, info|
+		define_method(:added_child_object) do |child, relations, info|
 		    super if defined? super
-		    mock.hooked_addition(child, rel)
+		    mock.hooked_addition(child, relations)
 		end
-		define_method(:removed_child_object) do |child, rel|
+		define_method(:removed_child_object) do |child, relations|
 		    super if defined? super
-		    mock.hooked_removal(child, rel)
+		    mock.hooked_removal(child, relations)
 		end
 	    end
 
@@ -134,23 +134,19 @@ class TC_Relations < Test::Unit::TestCase
 		klass.new(i)
 	    end
 
-	    mock.should_receive(:hooked_addition).with(n2, r1).once
-	    mock.should_receive(:hooked_addition).with(n2, r2).once
+	    mock.should_receive(:hooked_addition).with(n2, [r1, r2]).once
 	    n1.add_child_object(n2, r1)
 	    assert(n1.child_object?(n2, r2))
 
-	    mock.should_receive(:hooked_addition).with(n3, r1).never
-	    mock.should_receive(:hooked_addition).with(n3, r2).once
+	    mock.should_receive(:hooked_addition).with(n3, [r2]).once
 	    n1.add_child_object(n3, r2)
 	    assert_equal([n2], n1.enum_for(:each_child_object, r1).to_a)
 	    assert_equal([n3, n2].to_set, n1.enum_for(:each_child_object, r2).to_set)
 
-	    mock.should_receive(:hooked_removal).with(n2, r1).once
-	    mock.should_receive(:hooked_removal).with(n2, r2).once
+	    mock.should_receive(:hooked_removal).with(n2, [r1, r2]).once
 	    n1.remove_child_object(n2, r1)
 
-	    mock.should_receive(:hooked_removal).with(n3, r1).never
-	    mock.should_receive(:hooked_removal).with(n3, r2).once
+	    mock.should_receive(:hooked_removal).with(n3, [r2]).once
 	    n1.remove_child_object(n3, r2)
 	end
     end

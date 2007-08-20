@@ -682,9 +682,9 @@ module Roby
 	def empty?; events.empty? end
 	
 	# Adds a new source to +events+ when a source event is added
-	def added_parent_object(parent, type, info) # :nodoc:
+	def added_parent_object(parent, relations, info) # :nodoc:
 	    super if defined? super
-	    return unless type == EventStructure::Signal
+	    return unless relations.include?(EventStructure::Signal)
 	    @events[parent] = parent.last
 
 	    parent.if_unreachable(true) do
@@ -695,9 +695,9 @@ module Roby
 	    end
 	end
 	# Removes a source from +events+ when the source is removed
-	def removed_parent_object(parent, type) # :nodoc:
+	def removed_parent_object(parent, relations) # :nodoc:
 	    super if defined? super
-	    return unless type == EventStructure::Signal
+	    return unless relations.include?(EventStructure::Signal)
 	    @events.delete(parent)
 	end
 
@@ -729,10 +729,10 @@ module Roby
 	    return if happened?
 	    emit(context)
 	end
-	
-	def added_parent_object(parent, type, info) # :nodoc:
+
+	def added_parent_object(parent, relations, info) # :nodoc:
 	    super if defined? super
-	    return unless type == EventStructure::Signal
+	    return unless relations.include?(EventStructure::Signal)
 
 	    parent.if_unreachable(true) do
 		if !happened? && parent_objects(EventStructure::Signal).all? { |ev| ev.unreachable? }

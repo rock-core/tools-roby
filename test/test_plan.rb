@@ -152,18 +152,18 @@ module TC_PlanStatic
 	# Replace c1 by c3 and check that the hooks are properly called
 	FlexMock.use do |mock|
 	    p.singleton_class.class_eval do
-		define_method('removed_child_object') do |child, type|
-		    mock.removed_hook(p, child, type)
+		define_method('removed_child_object') do |child, relations|
+		    mock.removed_hook(p, child, relations)
 		end
 	    end
 	    c1.singleton_class.class_eval do
-		define_method('removed_parent_object') do |parent, type|
-		    mock.removed_hook(c1, parent, type)
+		define_method('removed_parent_object') do |parent, relations|
+		    mock.removed_hook(c1, parent, relations)
 		end
 	    end
 
-	    mock.should_receive(:removed_hook).with(p, c1, TaskStructure::Hierarchy).once
-	    mock.should_receive(:removed_hook).with(c1, p, TaskStructure::Hierarchy).once
+	    mock.should_receive(:removed_hook).with(p, c1, [TaskStructure::Hierarchy]).once
+	    mock.should_receive(:removed_hook).with(c1, p, [TaskStructure::Hierarchy]).once
 	    assert_nothing_raised { plan.replace_task(c1, c3) }
 	end
 
@@ -202,18 +202,18 @@ module TC_PlanStatic
 	# Replace c1 by c3 and check that the hooks are properly called
 	FlexMock.use do |mock|
 	    p.singleton_class.class_eval do
-		define_method('removed_child_object') do |child, type|
-		    mock.removed_hook(p, child, type)
+		define_method('removed_child_object') do |child, relations|
+		    mock.removed_hook(p, child, relations)
 		end
 	    end
 	    c1.singleton_class.class_eval do
-		define_method('removed_parent_object') do |parent, type|
-		    mock.removed_hook(c1, parent, type)
+		define_method('removed_parent_object') do |parent, relations|
+		    mock.removed_hook(c1, parent, relations)
 		end
 	    end
 
-	    mock.should_receive(:removed_hook).with(p, c1, TaskStructure::Hierarchy).once
-	    mock.should_receive(:removed_hook).with(c1, p, TaskStructure::Hierarchy).once
+	    mock.should_receive(:removed_hook).with(p, c1, [TaskStructure::Hierarchy]).once
+	    mock.should_receive(:removed_hook).with(c1, p, [TaskStructure::Hierarchy]).once
 	    assert_nothing_raised { plan.replace(c1, c3) }
 	end
 

@@ -64,11 +64,11 @@ module Roby
 
 	# Hook called before a new child is added in the +relation+ relation
 	# def adding_child_object(child, relation, info)
-	#     child.adding_parent_object(self, relation, info)
+	#     child.adding_parent_object(self, relations, info)
 	#     super if defined? super
 	# end
 	# Hook called after a new child has been added in the +relation+ relation
-	# def added_child_object(child, relation, info)
+	# def added_child_object(child, relations, info)
 	#     child.added_parent_object(self, relation, info)
 	#     super if defined? super
 	# end
@@ -219,58 +219,52 @@ module Roby
 	# If #dag? is true, it checks that the new relation does not create a
 	# cycle
 	def add_relation(from, to, info = nil)
-	    # Check for the DAG propery. We limit ourselves to the top-level
-	    # graphs (since they are the union of all their children)
+	    # Get the toplevel DAG in our relation hierarchy. We only test for the
+	    # DAG property on this one, as it is the union of all its children
 	    top_dag = nil
 	    rel     = self
 	    while rel
 		top_dag = rel if rel.dag?
 		rel = rel.parent
 	    end
-
 	    if top_dag && !top_dag.linked?(from, to) && top_dag.reachable?(to, from)
-		# No need to test that we won't create a cycle in child
-		# relations, since the parent relation graphs are the union
-		# of all their children
 		raise CycleFoundError, "cannot add a #{from} -> #{to} relation since it would create a cycle"
 	    end
 
+	    # Now compute the set of relations in which we really have to add a
+	    # new relation
+	    relations = []
 	    rel = self
 	    while rel
 		if rel.linked?(from, to)
-		    if info != from[to, self]
+		    if info != from[to, rel]
 			raise ArgumentError, "trying to change edge information"
 		    end
-		    return
-		end
-
-		if from.respond_to?(:adding_child_object)
-		    from.adding_child_object(to, rel, info)
-		end
-		if to.respond_to?(:adding_parent_object)
-		    to.adding_parent_object(from, rel, info)
-		end
-
-		rel.__bgl_link(from, to, info)
-
-		if from.respond_to?(:added_child_object)
-		    from.added_child_object(to, rel, info)
-		end
-		if to.respond_to?(:added_parent_object)
-		    to.added_parent_object(from, rel, info)
-		end
-
-		parent = rel.parent
-		if rel.dag? && (!parent || !parent.dag?)
-		    if rel.dag? && rel.reachable?(to, from)
-			# No need to test that we won't create a cycle in child
-			# relations, since the parent relation graphs are the union
-			# of all their children
-			raise CycleFoundError, "cannot add a #{from} -> #{to} relation since it would create a cycle"
-		    end
+		    break
+		else
+		    relations.push rel
 		end
 
 		rel = rel.parent
+	    end
+
+
+	    if from.respond_to?(:adding_child_object)
+		from.adding_child_object(to, relations, info)
+	    end
+	    if to.respond_to?(:adding_parent_object)
+		to.adding_parent_object(from, relations, info)
+	    end
+
+	    for rel in relations
+		rel.__bgl_link(from, to, info)
+	    end
+
+	    if from.respond_to?(:added_child_object)
+		from.added_child_object(to, relations, info)
+	    end
+	    if to.respond_to?(:added_parent_object)
+		to.added_parent_object(from, relations, info)
 	    end
 	end
 
@@ -292,24 +286,28 @@ module Roby
 	# parent graphs as well
 	def remove_relation(from, to)
 	    rel = self
+	    relations = []
 	    while rel
-		if from.respond_to?(:removing_child_object)
-		    from.removing_child_object(to, rel)
-		end
-		if to.respond_to?(:removing_parent_object)
-		    to.removing_parent_object(from, rel)
-		end
-
-		rel.unlink(from, to)
-
-		if from.respond_to?(:removed_child_object)
-		    from.removed_child_object(to, rel)
-		end
-		if to.respond_to?(:removed_parent_object)
-		    to.removed_parent_object(from, rel)
-		end
-
+		relations << rel
 		rel = rel.parent
+	    end
+
+	    if from.respond_to?(:removing_child_object)
+		from.removing_child_object(to, relations)
+	    end
+	    if to.respond_to?(:removing_parent_object)
+		to.removing_parent_object(from, relations)
+	    end
+
+	    for rel in relations
+		rel.unlink(from, to)
+	    end
+
+	    if from.respond_to?(:removed_child_object)
+		from.removed_child_object(to, relations)
+	    end
+	    if to.respond_to?(:removed_parent_object)
+		to.removed_parent_object(from, relations)
 	    end
 	end
 

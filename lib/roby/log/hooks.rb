@@ -5,14 +5,14 @@ module Roby::Log
     module TaskHooks
 	HOOKS = %w{added_task_child removed_task_child}
 
-	def added_child_object(child, type, info)
+	def added_child_object(child, relations, info)
 	    super if defined? super
-	    Roby::Log.log(:added_task_child) { [Time.now, self, type, child, info] }
+	    Roby::Log.log(:added_task_child) { [Time.now, self, relations, child, info] }
 	end
 
-	def removed_child_object(child, type)
+	def removed_child_object(child, relations)
 	    super if defined? super
-	    Roby::Log.log(:removed_task_child) { [Time.now, self, type, child] }
+	    Roby::Log.log(:removed_task_child) { [Time.now, self, relations, child] }
 	end
     end
     Roby::Task.include TaskHooks
@@ -87,14 +87,14 @@ module Roby::Log
 		   generator_signalling generator_forwarding generator_emitting
 		   generator_postponed}
 
-	def added_child_object(to, type, info)
+	def added_child_object(to, relations, info)
 	    super if defined? super
-	    Roby::Log.log(:added_event_child) { [Time.now, self, type, to, info] }
+	    Roby::Log.log(:added_event_child) { [Time.now, self, relations, to, info] }
 	end
 
-	def removed_child_object(to, type)
+	def removed_child_object(to, relations)
 	    super if defined? super
-	    Roby::Log.log(:removed_event_child) { [Time.now, self, type, to] }
+	    Roby::Log.log(:removed_event_child) { [Time.now, self, relations, to] }
 	end
 
 	def calling(context)

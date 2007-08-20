@@ -53,9 +53,9 @@ module Roby::TaskStructure
         end
 
 	# Set up the event gathering needed by Hierarchy.check_structure
-	def added_child_object(child, relation, info) # :nodoc:
+	def added_child_object(child, relations, info) # :nodoc:
 	    super if defined? super
-	    if relation == Hierarchy
+	    if relations.include?(Hierarchy)
 		events = info[:success].map { |ev| child.event(ev) }
 		events.concat info[:failure].map { |ev| child.event(ev) }
 		if !events.all? { |ev| ev.respond_to?(:task) }

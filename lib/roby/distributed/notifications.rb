@@ -255,34 +255,44 @@ module Roby
 	# This module defines the hooks needed to notify our peers of relation
 	# modifications
 	module RelationModificationHooks
-	    def added_child_object(child, type, info)
+	    def added_child_object(child, relations, info)
 		super if defined? super
 
-		return unless type.distribute? && Distributed.state
-		# If our peer is pushing a distributed transaction, new
-		# children can be created Avoid sending unneeded updates by
-		# testing on plan update
 		return if Distributed.updating?(plan)
 		return if Distributed.updating_all?([self.root_object, child.root_object])
-		Distributed.each_updated_peer(self.root_object, child.root_object) do |peer|
-		    peer.transmit(:update_relation, plan, self, :add_child_object, child, type, info)
+		return unless Distributed.state
+
+		# Remove all relations that should not be distributed, and if
+		# there is a relation remaining, notify our peer only of the
+		# first one: this is the child of all others
+		if notified_relation = relations.find { |rel| rel.distribute? }
+		    Distributed.each_updated_peer(self.root_object, child.root_object) do |peer|
+			peer.transmit(:update_relation, plan, self, :add_child_object, child, notified_relation, info)
+		    end
+		    Distributed.trigger(self, child)
 		end
-		Distributed.trigger(self, child)
 	    end
 
-	    def removed_child_object(child, type)
+	    def removed_child_object(child, relations)
 		super if defined? super
+		return unless Distributed.state
 
-		return unless type.distribute? && Distributed.state
+		return unless Distributed.state
 		# If our peer is pushing a distributed transaction, children
 		# can be removed Avoid sending unneeded updates by testing on
 		# plan update
 		return if Distributed.updating?(plan)
 		return if Distributed.updating_all?([self.root_object, child.root_object])
-		Distributed.each_updated_peer(self.root_object, child.root_object) do |peer|
-		    peer.transmit(:update_relation, plan, self, :remove_child_object, child, type)
+
+		# Remove all relations that should not be distributed, and if
+		# there is a relation remaining, notify our peer only of the
+		# first one: this is the child of all others
+		if notified_relation = relations.find { |rel| rel.distribute? }
+		    Distributed.each_updated_peer(self.root_object, child.root_object) do |peer|
+			peer.transmit(:update_relation, plan, self, :remove_child_object, child, notified_relation)
+		    end
+		    Distributed.trigger(self, child)
 		end
-		Distributed.trigger(self, child)
 	    end
 	end
 	PlanObject.include RelationModificationHooks

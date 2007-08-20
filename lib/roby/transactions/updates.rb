@@ -3,9 +3,9 @@ module Roby
 	def self.finalized_plan_task(trsc, task); end
 	def self.finalized_plan_event(trsc, task); end
 
-	def self.adding_plan_relation(trsc, parent, child, type, info)
+	def self.adding_plan_relation(trsc, parent, child, relations, info)
 	end
-	def self.removing_plan_relation(trsc, parent, child, type)
+	def self.removing_plan_relation(trsc, parent, child, relations)
 	end
     end
 
@@ -15,16 +15,20 @@ module Roby
 	def self.finalized_plan_event(trsc, task)
 	end
 
-	def self.adding_plan_relation(trsc, parent, child, type, info)
+	def self.adding_plan_relation(trsc, parent, child, relations, info)
 	    parent_proxy = trsc.wrap(parent)
 	    child_proxy  = trsc.wrap(child)
-	    type.link(parent_proxy, child_proxy, info)	   
+	    for rel in relations
+		rel.link(parent_proxy, child_proxy, info)	   
+	    end
 	    trsc.invalid = false
 	end
-	def self.removing_plan_relation(trsc, parent, child, type)
+	def self.removing_plan_relation(trsc, parent, child, relations)
 	    parent_proxy = trsc.wrap(parent)
 	    child_proxy  = trsc.wrap(child)
-	    type.unlink(parent_proxy, child_proxy)
+	    for rel in relations
+		rel.unlink(parent_proxy, child_proxy)
+	    end
 	    trsc.invalid = false
 	end
     end
@@ -39,11 +43,11 @@ module Roby
 	    trsc.invalid = false
 	end
 
-	def adding_plan_relation(trsc, parent, child, type, info)
+	def adding_plan_relation(trsc, parent, child, relations, info)
 	    Roby.debug "#{trsc} is valid again"
 	    trsc.invalid = false
 	end
-	def removing_plan_relation(trsc, parent, child, type)
+	def removing_plan_relation(trsc, parent, child, relations)
 	    Roby.debug "#{trsc} is valid again"
 	    trsc.invalid = false
 	end
@@ -61,14 +65,14 @@ module Roby
 	    conflict_solver.finalized_plan_event(self, event)
 	end
 
-	def adding_plan_relation(parent, child, type, info)
-	    invalidate("plan added a relation #{parent} -> #{child} of type #{type} with info #{info}")
-	    conflict_solver.adding_plan_relation(self, parent, child, type, info)
+	def adding_plan_relation(parent, child, relations, info)
+	    invalidate("plan added a relation #{parent} -> #{child} in #{relations} with info #{info}")
+	    conflict_solver.adding_plan_relation(self, parent, child, relations, info)
 	end
 
-	def removing_plan_relation(parent, child, type)
-	    invalidate("plan removed the #{parent} -> #{child} relation of type #{type}")
-	    conflict_solver.removing_plan_relation(self, parent, child, type)
+	def removing_plan_relation(parent, child, relations)
+	    invalidate("plan removed the #{parent} -> #{child} relation in #{relations}")
+	    conflict_solver.removing_plan_relation(self, parent, child, relations)
 	end
     end
 
@@ -96,25 +100,25 @@ module Roby
 	Roby::Plan.include PlanUpdates
 
 	module PlanObjectUpdates
-	    def adding_child_object(child, type, info)
+	    def adding_child_object(child, relations, info)
 		super if defined? super
 		return if !plan
 
 		for trsc in plan.transactions
 		    next unless trsc.proxying?
 		    if trsc[self, false] && trsc[child, false]
-			trsc.adding_plan_relation(self, child, type, info) 
+			trsc.adding_plan_relation(self, child, relations, info) 
 		    end
 		end
 	    end
-	    def removing_child_object(child, type)
+	    def removing_child_object(child, relations)
 		super if defined? super
 		return if !plan
 
 		plan.transactions.each do |trsc|
 		    next unless trsc.proxying?
 		    if trsc[self, false] && trsc[child, false]
-			trsc.removing_plan_relation(self, child, type) 
+			trsc.removing_plan_relation(self, child, relations) 
 		    end
 		end
 	    end
