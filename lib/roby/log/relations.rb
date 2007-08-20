@@ -19,9 +19,9 @@ module Roby
 	def self.style(object, flags)
 	    # This is for backward compatibility only. All events are now marshalled
 	    # with their controllability.
-	    if object.respond_to?(:controlable)
+	    if !object.controlable.nil?
 		flags |= (object.controlable ? Log::EVENT_CONTROLABLE : Log::EVENT_CONTINGENT)
-	    elsif flags & Log::EVENT_CALLED
+	    elsif (flags & Log::EVENT_CALLED) != 0
 		flags |= Log::EVENT_CONTROLABLE
 	    end
 
