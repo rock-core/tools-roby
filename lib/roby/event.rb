@@ -662,6 +662,7 @@ module Roby
 	    super do |context|
 		emit_if_achieved(context)
 	    end
+	    on { unreachable! }
 
 	    # This hash is a event_generator => event mapping of the last
 	    # events of each event generator. We compare the event stored in
@@ -688,7 +689,7 @@ module Roby
 
 	    parent.if_unreachable(true) do
 		# Check that the parent has not been removed since ...
-		if @events.has_key?(parent)
+		if @events[parent] == parent.last
 		    unreachable!
 		end
 	    end
@@ -719,6 +720,7 @@ module Roby
 	    super do |context|
 		emit_if_first(context)
 	    end
+	    on { unreachable! }
 	end
 
 	def empty?; parent_objects(EventStructure::Signal).empty? end
@@ -732,8 +734,8 @@ module Roby
 	    super if defined? super
 	    return unless type == EventStructure::Signal
 
-	    parent.if_unreachable do
-		if parent_objects(EventStructure::Signal).all? { |ev| ev.unreachable? }
+	    parent.if_unreachable(true) do
+		if !happened? && parent_objects(EventStructure::Signal).all? { |ev| ev.unreachable? }
 		    unreachable!
 		end
 	    end
