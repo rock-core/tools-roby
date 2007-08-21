@@ -217,6 +217,29 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_raises(OwnershipError) { local_proxy.start! }
     end
 
+    def test_marshal_exception
+	model = Class.new(Exception)
+	e = model.exception("test")
+
+	formatted = Distributed.format(e)
+	assert_kind_of(Exception::DRoby, formatted)
+	assert_nothing_raised { Marshal.dump(formatted) }
+
+	peer2peer(true) do |remote|
+	    def remote.exception
+		model = Class.new(Exception)
+		e = model.exception("test")
+		Distributed.format(e)
+	    end
+	end
+
+	m_e = remote.exception
+	e   = remote_peer.local_object(m_e)
+	assert_kind_of(Exception, e)
+	assert_not_same(Exception, e.class)
+	assert_equal("test", e.message)
+    end
+
     # See #test_local_task_back_forth_through_drb_race_condition
     # This test checks the case where we received the added_sibling message
     def test_local_task_back_forth_through_drb

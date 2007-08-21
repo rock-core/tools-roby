@@ -50,21 +50,6 @@ class Class
     end
 end
 
-class Exception
-    class DRoby
-	attr_reader :error
-	def initialize(error); @error = error end
-	def self._load(str); Marshal.load(str) end
-	def _dump(lvl = -1)
-	    Marshal.dump(error)
-	rescue TypeError
-	    Marshal.dump(DRb::DRbRemoteError.new(error))
-	end
-    end
-
-    def droby_dump(dest); DRoby.new(self) end
-end
-
 module Roby
     class TaskModelTag
 	@@local_to_remote = Hash.new
@@ -415,4 +400,19 @@ module Roby
 	Roby::Task.extend Distributed::DRobyTaskModel::Dump
     end
 end
+
+Exception.extend Roby::Distributed::DRobyModel::Dump
+class Exception
+    class DRoby
+	attr_reader :model, :message
+	def initialize(model, message); @model, @message = model, message end
+
+	def proxy(peer)
+	    model.proxy(peer).exception(message)
+	end
+    end
+
+    def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), message) end
+end
+
 
