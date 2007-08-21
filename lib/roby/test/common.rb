@@ -288,18 +288,6 @@ module Roby
 	    remote_processes.clear
 	end
 
-	def finish_planning(task)
-	    assert(planner = task.planning_task)
-	    planner.start! if planner.pending?
-	    unless planner.success?
-		planner.thread.join
-		Roby.control.process_events
-		assert(planner.success?)
-	    end
-	    planner.planned_task
-	end
-
-
 	# Exception raised in the block of assert_doesnt_timeout when the timeout
 	# is reached
 	class FailedTimeout < RuntimeError; end
@@ -321,37 +309,6 @@ module Roby
 		    watchdog.kill
 		    watchdog.join
 		end
-	    end
-	end
-
-	# Checks that the assertions in the block pass within +timeout+ seconds. If
-	# +event+ is given, it is the message that is displayed if the assertion
-	# fails
-	def assert_happens(timeout = 10, event = "")
-	    error = nil
-	    assert_doesnt_timeout(timeout, "#{event} did not happen") do
-		loop do
-		    begin
-			yield
-			return
-		    rescue Exception => e
-			error = e
-			process_events
-			sleep(0.1)
-		    end
-		end
-	    end
-
-	rescue Test::Unit::AssertionFailedError
-	    raise error, "failed to achieve #{event}: #{error.message}", error.backtrace
-	end
-
-	# Checks that +event+ is emitted within +timeout+ seconds
-	def assert_event(event, timeout = 5)
-	    last_event = event.last
-	    yield if block_given?
-	    assert_happens(timeout, "event #{event.symbol}") do
-		assert(event.last != last_event)
 	    end
 	end
 

@@ -21,6 +21,7 @@ module Roby
 		    State.pos.y = y
 		    emit :success
 		end
+		STDERR.puts "#{x} #{y} #{speed} #{State.pos}"
 	    end
 
 	    module Planning
