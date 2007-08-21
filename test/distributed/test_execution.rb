@@ -196,7 +196,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 
 	    task = subscribe_task(:id => 1)
 	    task.on(:start) { mock.started }
-	    remote.start(task)
+	    remote.start(Distributed.format(task))
 	    process_events
 
 	    assert(task.running?)

@@ -435,14 +435,14 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	assert(!t.self_owned?)
 	trsc.propose(remote_peer)
-	assert(remote.check_ownership(t))
+	assert(remote.check_ownership(Distributed.format(t)))
 
 	trsc.commit_transaction
 	assert(!plan.mission?(t))
 	assert(!t.self_owned?)
-	assert(remote.check_mission(t))
-	assert(remote.check_ownership(t))
-	assert_equal({ :arg => 10 }, remote.arguments_of(t))
+	assert(remote.check_mission(Distributed.format(t)))
+	assert(remote.check_ownership(Distributed.format(t)))
+	assert_equal({ :arg => 10 }, remote.arguments_of(Distributed.format(t)))
     end
 end
 
