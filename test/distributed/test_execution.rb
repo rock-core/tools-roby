@@ -5,6 +5,7 @@ require 'flexmock'
 
 class TC_DistributedExecution < Test::Unit::TestCase
     include Roby::Distributed::Test
+    SimpleTask = Roby::Test::SimpleTask
 
     def test_event_status
 	peer2peer(true) do |remote|

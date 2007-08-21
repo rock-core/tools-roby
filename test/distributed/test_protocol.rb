@@ -195,7 +195,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_kind_of(Task::DRoby, remote_task)
 	assert_equal({:id => 1},    remote_task.arguments)
 	assert_kind_of(Plan::DRoby, remote_task.plan)
-	assert_equal("SimpleTask",  remote_task.model.ancestors[1].first)
+	assert_equal("Roby::Test::SimpleTask",  remote_task.model.ancestors[1].first)
 	assert_equal([42, remote_task.model], remote_task.data)
 	assert_nothing_raised { Marshal.dump(remote_task) }
 	assert_equal(remote_task_id, remote_task.remote_siblings[remote_peer.droby_dump(nil)], remote_task.remote_siblings)
