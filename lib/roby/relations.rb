@@ -257,22 +257,24 @@ module Roby
 		from[to, rel] = info
 	    end
 
-	    if from.respond_to?(:adding_child_object)
-		from.adding_child_object(to, new_relations, info)
-	    end
-	    if to.respond_to?(:adding_parent_object)
-		to.adding_parent_object(from, new_relations, info)
-	    end
+	    unless new_relations.empty?
+		if from.respond_to?(:adding_child_object)
+		    from.adding_child_object(to, new_relations, info)
+		end
+		if to.respond_to?(:adding_parent_object)
+		    to.adding_parent_object(from, new_relations, info)
+		end
 
-	    for rel in new_relations
-		rel.__bgl_link(from, to, info)
-	    end
+		for rel in new_relations
+		    rel.__bgl_link(from, to, info)
+		end
 
-	    if from.respond_to?(:added_child_object)
-		from.added_child_object(to, new_relations, info)
-	    end
-	    if to.respond_to?(:added_parent_object)
-		to.added_parent_object(from, new_relations, info)
+		if from.respond_to?(:added_child_object)
+		    from.added_child_object(to, new_relations, info)
+		end
+		if to.respond_to?(:added_parent_object)
+		    to.added_parent_object(from, new_relations, info)
+		end
 	    end
 	end
 
