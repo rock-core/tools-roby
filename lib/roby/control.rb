@@ -601,8 +601,17 @@ module Roby
 
 	    last_stop_count = 0
 
+	    gc_enable_has_argument = begin
+					 GC.enable(true)
+					 true
+				     rescue
+					 false
+				     end
+
 	    GC.start
-	    already_disabled_gc = GC.disable
+	    if gc_enable_has_argument
+		already_disabled_gc = GC.disable
+	    end
 
 	    if ObjectSpace.respond_to?(:live_objects)
 		stats[:live_objects] = ObjectSpace.live_objects
@@ -654,7 +663,7 @@ module Roby
 				stats[:expected_ruby_gc] = Time.now + gc_runtime
 				start_ruby_gc
 			    end
-			else
+			elsif gc_enable_has_argument
 			    GC.enable(true)
 			    GC.disable
 			end
