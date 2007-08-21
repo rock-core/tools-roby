@@ -388,6 +388,7 @@ module Roby
 	def model; self.class end
 
 	def instantiate_model_event_relations
+	    return if @instantiated_model_events
 	    # Add the model-level signals to this instance
 	    
 	    for symbol, generator in bound_events
@@ -437,13 +438,7 @@ module Roby
 		end
 	    end
 
-	    old_plan = plan
 	    super
-
-	    if !old_plan && new_plan
-		# First time we get included in a plan, instantiate all relations
-		instantiate_model_event_relations
-	    end
 
 	    for _, ev in bound_events
 		ev.plan = plan

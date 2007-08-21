@@ -298,6 +298,10 @@ module Roby
 	    end
 	    known_tasks.merge tasks
 	    discovered_tasks(tasks)
+
+	    for t in tasks
+		t.instantiate_model_event_relations
+	    end
 	    tasks
 	end
 
