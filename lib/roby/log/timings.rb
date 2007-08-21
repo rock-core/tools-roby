@@ -3,14 +3,16 @@ module Roby
 	class Timings
 	    REF_TIMING = :start
 	    ALL_TIMINGS = [ :real_start, :events, 
-		:events_exceptions, :structure_check, :structure_check_exceptions, 
-		:fatal_structure_errors, :garbage_collect, :application_errors, :end, 
-		:expected_ruby_gc, :ruby_gc, :expected_sleep, :sleep ]
-
+		:structure_check, :exception_propagation,
+		:exceptions_fatal, :garbage_collect, :application_errors, 
+		:expected_ruby_gc, :ruby_gc, :droby, :expected_sleep, :sleep, :end ]
+	
 	    NUMERIC_FIELDS = [:cycle_index, :live_objects, :object_allocation, :log_queue_size, :ruby_gc_duration, 
 		:plan_task_count, :plan_event_count]
+	    DELTAS = [:cpu_time]
+	    ALL_NUMERIC_FIELDS = NUMERIC_FIELDS + DELTAS
 
-	    ALL_FIELDS = ALL_TIMINGS | NUMERIC_FIELDS
+	    ALL_FIELDS = ALL_TIMINGS + ALL_NUMERIC_FIELDS + [:event_count, :pos]
 
 	    attr_reader :logfile
 	    def initialize(logfile)
@@ -20,9 +22,10 @@ module Roby
 	    def rewind; logfile.rewind end
 
 	    def each_cycle(cumulative = false)
-		while !logfile.eof?
+		last_deltas = Hash.new
+		for data in logfile.index_data[1..-1]
 		    result  = []
-		    data    = timings = Marshal.load(logfile).last.last
+		    timings = data
 		    ref     = timings.delete(REF_TIMING)
 		    result  << ref
 
@@ -46,7 +49,18 @@ module Roby
 			end
 		    end
 
-		    yield(data.values_at(*NUMERIC_FIELDS), result)
+		    numeric = data.values_at(*NUMERIC_FIELDS)
+		    deltas = DELTAS.map do |name|
+			value = if old_value = last_deltas[name]
+				    data[name] - old_value
+				else
+				    0
+				end
+			last_deltas[name] = data[name]
+			value
+		    end
+
+		    yield(numeric + deltas, result)
 		end
 
 	    rescue ArgumentError => e
@@ -106,20 +120,20 @@ module Roby
 		puts "\n" + "Per-cycle statistics".center(50)
 		puts "%-28s %-10s %-10s" % ['', 'mean', 'stddev']
 		puts format % ["cycle", mean_cycle * 1000, Math.sqrt(stdev_cycle / count) * 1000]
-		NUMERIC_FIELDS.each_with_index do |name, i|
+		ALL_NUMERIC_FIELDS.each_with_index do |name, i|
 		    puts format % [name, mean[i], stdev[i]] unless name == :cycle_index
 		end
 
 		puts "\n" + "Broken down cycle timings".center(50)
 		puts "%-28s %-10s %-10s" % ['', 'mean', 'stddev']
 		(ALL_TIMINGS).each_with_index do |name, i|
-		    i += NUMERIC_FIELDS.size
+		    i += ALL_NUMERIC_FIELDS.size
 		    puts format % [name, mean[i] * 1000, stdev[i] * 1000]
 		end
 	    end
 
 	    def display(cumulative)
-		header = ([REF_TIMING] + ALL_TIMINGS + NUMERIC_FIELDS).enum_for(:each_with_index).
+		header = ([REF_TIMING] + ALL_TIMINGS + ALL_NUMERIC_FIELDS).enum_for(:each_with_index).
 		    map { |n, i| "#{i + 1}_#{n}" }.
 		    join("\t")
 

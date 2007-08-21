@@ -71,7 +71,14 @@ when "rebuild-index"
 when "stats"
     require 'roby/log/file'
     require 'roby/log/timings'
-    io = Roby::Log.open(ARGV[0])
+
+    filename = if ARGV[0] == "--csv"
+		   do_csv = true
+		   ARGV[1]
+	       else
+		   ARGV[0]
+	       end
+    io = Roby::Log.open(filename)
 
     cycle_count = io.index_data.size
     puts "#{cycle_count} cycles between #{io.range.first.to_hms} and #{io.range.last.to_hms}"
@@ -90,15 +97,11 @@ when "stats"
     end
 
     timings = Roby::Log::Timings.new(io)
-    timings.stats
-    exit(0)
-
-when "timings"
-    require 'roby/log/file'
-    require 'roby/log/timings'
-    io = Roby::Log.open(ARGV[0])
-    timings = Roby::Log::Timings.new(io)
-    timings.display(false)
+    if do_csv
+	timings.display(false)
+    else
+	timings.stats
+    end
     exit(0)
 
 when "replay"
