@@ -17,12 +17,10 @@ module Roby::TaskStructure
     # for which planning has failed
     def PlannedBy.check_planning(plan)
 	result = []
-	plan.known_tasks.each do |planned_task|
-	    next unless planning_task = planned_task.planning_task
+	Roby::TaskStructure::PlannedBy.each_edge do |planning_task, planned_task, _|
+	    next unless plan == planning_task.plan && planning_task.failed?
 	    next unless planned_task.pending? && !planned_task.executable? && planned_task.self_owned?
-	    if planning_task.failed?
-		result << Roby::PlanningFailedError.new(planned_task, planning_task)
-	    end
+	    result << Roby::PlanningFailedError.new(planned_task, planning_task)
 	end
 
 	result
