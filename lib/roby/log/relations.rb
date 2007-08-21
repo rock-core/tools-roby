@@ -215,7 +215,7 @@ module Roby
 	def flags; real_object.flags end
 
 	def display_parent; end
-	def display_name(display); "tProxy of #{real_object.display_name(display)}" end
+	def display_name(display); real_object.display_name(display) end
 	def display_create(display)
 	    scene = display.scene
 	    item = super
@@ -226,6 +226,7 @@ module Roby
 	    item
 	end
 	def display(display, graphics_item)
+	    graphics_item.text.plain_text = display_name(display).to_s
 	    layout_events(display)
 	end
     end
