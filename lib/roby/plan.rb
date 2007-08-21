@@ -345,13 +345,15 @@ module Roby
 	# Returns the set of useful tasks in this plan
 	def locally_useful_tasks
 	    # Remove all missions that are finished
-	    @missions.find_all { |t| t.finished? }.
-		each { |t| discard(t) }
-	    @keepalive.find_all { |t| t.finished? }.
-		each { |t| auto(t) }
+	    for finished_mission in (@missions & task_index.by_state[:finished?])
+		discard(finished_mission)
+	    end
+	    for finished_permanent in (@keepalive & task_index.by_state[:finished?])
+		auto(finished_permanent)
+	    end
 
-	    all = (@missions | @keepalive).to_value_set
-	    transactions.each do |trsc|
+	    all = @missions | @keepalive
+	    for trsc in transactions
 		all.merge trsc.proxy_objects.keys.to_value_set
 	    end
 

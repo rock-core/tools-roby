@@ -3,11 +3,18 @@ module Roby
     module Distributed
 	class << self
 	    def each_updated_peer(*objects)
-		return if objects.any? { |o| !o.distribute? }
-		Distributed.peers.each_value do |peer|
+		for obj in objects
+		    return if !obj.distribute?
+		end
+
+		for _, peer in Distributed.peers
 		    next unless peer.connected?
-		    return unless objects.any? { |obj| obj.update_on?(peer) }
-		    yield(peer)
+		    for obj in objects
+			if obj.update_on?(peer)
+			    yield(peer)
+			    break
+			end
+		    end
 		end
 	    end
 	end

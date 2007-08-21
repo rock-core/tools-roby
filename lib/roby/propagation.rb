@@ -268,13 +268,16 @@ module Roby::Propagation
 	if event_ordering.empty?
 	    Roby::EventStructure::Precedence.topological_sort(event_ordering)
 	    event_priorities.clear
-	    event_ordering.each_with_index do |ev, i|
+	    i = 0
+	    for ev in event_ordering
 		event_priorities[ev] = i
+		i += 1
 	    end
 	end
 
 	signalled, min = nil, event_ordering.size
-	pending.each_key do |event|
+	for propagation_step in pending
+	    event = propagation_step[0]
 	    if priority = event_priorities[event]
 		if priority < min
 		    signalled = event

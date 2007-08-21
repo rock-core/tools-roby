@@ -116,19 +116,19 @@ module Roby::Transactions
 	def commit_transaction
 	    real_object = __getobj__
 	    partition_new_old_relations(:parent_objects) do |trsc_objects, rel, new, del|
-		new.each do |other|
+		for other in new
 		    other.add_child_object(real_object, rel, trsc_objects[other][self, rel])
 		end
-		del.each do |other|
+		for other in del
 		    other.remove_child_object(real_object, rel)
 		end
 	    end
 
 	    partition_new_old_relations(:child_objects) do |trsc_objects, rel, new, del|
-		new.each do |other|
+		for other in new
 		    real_object.add_child_object(other, rel, self[trsc_objects[other], rel])
 		end
-		del.each do |other|
+		for other in del
 		    real_object.remove_child_object(other, rel)
 		end
 	    end
