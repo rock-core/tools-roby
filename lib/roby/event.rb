@@ -505,11 +505,10 @@ module Roby
 	    unreachable_handlers.delete_if { |cancel, _| cancel }
 
 	    history << event
-	    collection, _ = EventGenerator.event_gathering.find do |c, events| 
-		events.any? { |ev| ev == event.generator }
-	    end
-	    if collection
-		collection << event
+	    if EventGenerator.event_gathering.has_key?(event.generator)
+		for c in EventGenerator.event_gathering[event.generator]
+		    c << event
+		end
 	    end
 
 	    super if defined? super
@@ -566,39 +565,31 @@ module Roby
 	    super
 	end
 
-	@@event_gathering = Array.new
+	@@event_gathering = Hash.new { |h, k| h[k] = ValueSet.new }
 	# If a generator in +events+ fires, add the fired event in +collection+
 	def self.gather_events(collection, *events)
-	    gathered_events = events_gathered_into(collection)
-	    if gathered_events
-		gathered_events.merge events.to_value_set
-	    else
-		event_gathering << [collection, events.to_value_set]
+	    for ev in events
+		event_gathering[ev] << collection
 	    end
 	end
 	# Remove the notifications that have been registered for +collection+
 	def self.remove_event_gathering(collection)
-	    @@event_gathering.delete_if { |c, _| c.object_id == collection.object_id }
+	    @@event_gathering.delete_if do |_, collections| 
+		collections.delete(collection)
+		collections.empty?
+	    end
 	end
 	# An array of [collection, events] elements, collection being the
 	# object in which we must add the fired events, and events the set of
 	# event generators +collection+ is listening for.
 	def self.event_gathering; @@event_gathering end
-	def self.events_gathered_into(collection)
-	    _, events = event_gathering.find { |c, _| c.object_id == collection.object_id }
-	    events
-	end
 
 	# This module is hooked in Roby::Plan to remove from the
 	# event_gathering sets the events that have been finalized
 	module FinalizedEventHook
 	    def finalized_event(event)
 		super if defined? super
-
 		event.unreachable!
-		EventGenerator.event_gathering.each do |collection, events|
-		    events.delete(event)
-		end
 	    end
 	end
 	Roby::Plan.include FinalizedEventHook
@@ -607,6 +598,7 @@ module Roby
 
 	# Called internally when the event becomes unreachable
 	def unreachable!
+	    return if @unreachable
 	    @unreachable = true
 
 	    unreachable_handlers.each do |_, block|

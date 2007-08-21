@@ -16,7 +16,9 @@ class TC_RealizedBy < Test::Unit::TestCase
 	# Check validation of the model
 	child = nil
 	assert_nothing_raised { t1.realized_by((child = klass.new), :model => SimpleTask) }
-	assert_equal([[Hierarchy.interesting_events, [child.event(:success), child.event(:failed)].to_value_set]], EventGenerator.event_gathering)
+
+	assert_same(Hierarchy.interesting_events, EventGenerator.event_gathering[child.event(:success)].find { true })
+	assert_same(Hierarchy.interesting_events, EventGenerator.event_gathering[child.event(:failed)].find { true })
 	assert_equal([SimpleTask, {}], t1[child, Hierarchy][:model])
 
 	assert_nothing_raised { t1.realized_by klass.new, :model => [Roby::Task, {}] }

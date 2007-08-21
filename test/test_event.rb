@@ -626,10 +626,8 @@ class TC_Event < Test::Unit::TestCase
 	# removed from the plan
 	collection.clear
 	plan.remove_object(e1)
-	assert_equal([e2].to_value_set, EventGenerator.events_gathered_into(collection))
 
 	EventGenerator.remove_event_gathering(collection)
-	assert(!EventGenerator.events_gathered_into(collection))
     end
 
     def test_achieve_with
