@@ -98,8 +98,9 @@ module Roby
 
 	    if Roby.control.thread
 		# Control thread is running, quit it
+		# Beware, it will raise an error if there is one ...
 		Roby.control.quit
-		Roby.control.join
+		Roby.control.join rescue nil
 	    else
 		catch(:done_cleanup) do
 		    begin
