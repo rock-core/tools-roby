@@ -276,8 +276,8 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	remote_peer.synchro_point
 
 	Roby.execute do
-	    remote_peer.local_server.event_fired(remote.event(:success), 0, Time.now, 42)
-	    remote_peer.local_server.event_add_propagation(true, remote.event(:success), local.event(:start), 0, event_time, 42)
+	    remote_peer.local_server.event_fired(remote.event(:success), 0, Time.now, [42])
+	    remote_peer.local_server.event_add_propagation(true, remote.event(:success), local.event(:start), 0, event_time, [42])
 	end
 	process_events
 
