@@ -489,11 +489,7 @@ module Roby
 	    yield if block_given?
 
 	    cycle_length = options[:cycle]
-	    if control_gc = options[:control_gc]
-		already_disabled_gc = GC.disable
-		GC.force
-	    end
-
+	    control_gc   = options[:control_gc]
 	    event_loop(cycle_length, control_gc)
 
 	ensure
@@ -501,7 +497,6 @@ module Roby
 		Roby::Control.synchronize do
 		    # reset the options only if we are in the control thread
 		    @thread = nil
-		    GC.enable if control_gc && !already_disabled_gc
 		    Control.finalizers.each { |blk| blk.call }
 		    @quit = 0
 		end
@@ -606,6 +601,12 @@ module Roby
 
 	    last_stop_count = 0
 
+	    GC.start
+	    already_disabled_gc = GC.disable
+
+	    if ObjectSpace.respond_to?(:live_objects)
+		stats[:live_objects] = ObjectSpace.live_objects
+	    end
 	    loop do
 		begin
 		    if quitting?
@@ -617,10 +618,6 @@ module Roby
 			    Roby.warn e.full_message
 			    return
 			end
-		    end
-
-		    if GC.respond_to?(:time)
-			gc_time_at_start = GC.time
 		    end
 
 		    while Time.now > stats[:start] + cycle
@@ -635,16 +632,18 @@ module Roby
 			stats[:expected_sleep] = stats[:sleep] = stats[:end]
 
 		    cycle_duration = stats[:end] - stats[:start]
+
+		    # Record the statistics about object allocation *before* running the Ruby
+		    # GC. It is also updated at 
 		    if ObjectSpace.respond_to?(:live_objects)
-			live_objects = ObjectSpace.live_objects
-			if stats[:live_objects]
-			    stats[:object_allocation] = live_objects - stats[:live_objects]
-			else
-			    stats[:object_allocation] = 0
-			end
-			stats[:live_objects]      = live_objects
+			live_objects_before_gc = ObjectSpace.live_objects
 		    end
 
+		    # Handle Ruby GC
+		    #
+		    # If control_gc is set, we try to be smart about starting
+		    # it. Otherwise, we just call GC.enable(true) to make it
+		    # run now if needed, and we call disable just after
 		    if cycle - cycle_duration > SLEEP_MIN_TIME
 			# Take the time we passed for GC into account
 			sleep_time = cycle - cycle_duration
@@ -655,29 +654,53 @@ module Roby
 				stats[:expected_ruby_gc] = Time.now + gc_runtime
 				start_ruby_gc
 			    end
+			else
+			    GC.enable(true)
+			    GC.disable
 			end
-			stats[:expected_ruby_gc] ||= Time.now
-			stats[:expected_sleep] = stats[:sleep] =
-			    stats[:ruby_gc] = stats[:end] = Time.now
+		    end
+		    stats[:expected_ruby_gc] ||= stats[:end]
+		    stats[:ruby_gc] = Time.now
 
+		    if ObjectSpace.respond_to?(:live_objects)
+			live_objects_after_gc = ObjectSpace.live_objects
+		    end
+		    
+		    # Handle data received from our peers
+		    cycle_duration = Time.now - stats[:start]
+		    if cycle - cycle_duration > SLEEP_MIN_TIME
 			Roby::Distributed.process_pending(stats[:start] + cycle)
-			stats[:droby] = Time.now
+		    end
+		    stats[:droby] = Time.now
 
-			sleep_time = cycle - (Time.now - stats[:start])
+		    # Sleep if there is enough time for it
+		    cycle_duration = Time.now - stats[:start]
+		    if cycle - cycle_duration > SLEEP_MIN_TIME
+			sleep_time = cycle - cycle_duration
 			if sleep_time > 0
 			    stats[:expected_sleep] = Time.now + sleep_time
 			    sleep(sleep_time) 
 			end
 		    end
+		    stats[:expected_sleep] ||= stats[:droby]
+		    stats[:sleep] = Time.now
 
-		    if gc_time_at_start && !control_gc 
-			stats[:ruby_gc_duration] = GC.time - gc_time_at_start
-		    end
+		    # Add some statistics and call cycle_end
 		    if defined? Roby::Log
 			stats[:log_queue_size] = Roby::Log.logged_events.size
 		    end
-		    stats[:plan_task_count] = Roby.plan.known_tasks.size
-		    stats[:plan_event_count] = Roby.plan.free_events.size
+		    stats[:plan_task_count]  = plan.known_tasks.size
+		    stats[:plan_event_count] = plan.free_events.size
+		    process_time = Process.times
+		    stats[:cpu_time] = (process_time.utime + process_time.stime) * 1000
+		    stats[:end] = Time.now
+
+		    if ObjectSpace.respond_to?(:live_objects)
+			live_objects = ObjectSpace.live_objects
+			stats[:object_allocation] = live_objects - stats[:live_objects] - (live_objects_after_gc - live_objects_before_gc)
+			stats[:live_objects]      = live_objects
+		    end
+
 		    cycle_end(stats)
 
 		    stats[:start] += cycle
@@ -693,6 +716,7 @@ module Roby
 	    end
 
 	ensure
+	    GC.enable if !already_disabled_gc
 	    stats[:end] = Time.now
 	    cycle_end(stats)
 	end
