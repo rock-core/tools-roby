@@ -181,6 +181,9 @@ module Roby
 		end
 	    end
 
+	rescue Exception => e
+	    STDERR.puts "failed teardown: #{e.full_message}"
+
 	ensure
 	    Roby.logger.level = @original_roby_logger_level
 	    self.console_logger = false
