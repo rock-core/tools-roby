@@ -140,6 +140,7 @@ module Roby
 		assert_any_event([task.event(:success)], [], nil) do
 		    plan.permanent(task)
 		    task.start! if task.pending?
+		    yield if block_given?
 		end
 	    end
 
@@ -150,21 +151,6 @@ module Roby
 		yield
 	    ensure
 		Thread.current.priority = old_priority
-	    end
-
-	    # Executes until the provided block returns true, or the control
-	    # quits
-	    def assert_happens(msg)
-		control_priority do
-		    assert_block("#{msg} did not happen") do
-			loop do
-			    if yield
-				break true
-			    end
-			    Roby.control.wait_one_cycle
-			end
-		    end
-		end
 	    end
 
 	    # This assertion fails if the relative error between +found+ and

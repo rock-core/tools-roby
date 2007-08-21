@@ -437,15 +437,22 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal(result_task, planning_task.planned_task)
     end
 
+    def planning_task_result(planning_task)
+	plan.permanent(planning_task)
+	planning_task.start! if planning_task.pending?
+	planning_task.thread.join
+	process_events
+	assert(planning_task.success?)
+	planning_task.planned_task
+    end
+
     def planning_loop_next(main_task)
 	assert(task = main_task.children.find { |t| t.planning_task.running? })
 	planner = task.planning_task
-	planner.thread.join
-	process_events
-	assert(planner.success?)
-
-	[planner.planned_task, planner]
+	next_pattern = planning_task_result(planner)
+	[next_pattern, planner]
     end
+
     def test_planning_loop
 	task_model = Class.new(SimpleTask)
 	planner_model = Class.new(Planning::Planner) do
@@ -481,21 +488,12 @@ class TC_Planner < Test::Unit::TestCase
 	loop_planner.emit(:start) # bypass the command
 	
 	# Plan the first two patterns (lookahead == 2)
-	first_planner.start!
-	first_planner.thread.join
-	process_events
-
-	assert(first_planner.success?)
+	first_task = planning_task_result(first_planner)
 	assert(second_planner.running?)
-
-	first_task = first_planner.planned_task
 	assert(!first_task.running? && !second_task.running?)
 	assert_equal(2, loop_planner.patterns.size)
 
-	second_planner.thread.join
-	process_events
-	assert(second_planner.success?)
-	second_task = second_planner.planned_task
+	second_task = planning_task_result(second_planner)
 	assert(!first_task.running? && !second_task.running?)
 	assert_equal(2, loop_planner.patterns.size)
 
@@ -574,9 +572,9 @@ class TC_Planner < Test::Unit::TestCase
 	assert(!first_task.running? && !second_task.running?)
 	process_events
 	assert(!second_task.running?)
-	assert_happens do
-	    assert(second_task.running?)
-	end
+	sleep(0.5)
+	process_events
+	assert(second_task.running?)
 
 	# Check that the timeout can be overriden by calling loop_start! on the PlanningLoop
 	# task
@@ -672,7 +670,8 @@ class TC_Planner < Test::Unit::TestCase
 	    assert_equal(first_planner, loop_planner.patterns.last.first)
 	    # Make sure the old task is GCed
 	    first_task, first_planner = planning_loop_next(main_task)
-	    assert_event(old_first.event(:stop))
+	    process_events
+	    old_first.event(:stop)
 	    assert(!old_first.plan)
 	    assert(first_planner.finished?)
 	    assert_not_equal(first_task, old_first)
@@ -750,13 +749,11 @@ class TC_Planner < Test::Unit::TestCase
 	plan.insert(t2)
 
 	t1.start!
-	assert_event(t1.last_planning_task.event(:success))
-	planned_task = t1.children.find { true }
+	planned_task = planning_task_result(t1.last_planning_task)
 	assert_equal('first_loop', planned_task.arguments[:id])
 
 	t2.start!
-	assert_event(t2.last_planning_task.event(:success))
-	planned_task = t2.children.find { true }
+	planned_task = planning_task_result(t2.last_planning_task)
 	assert_equal('second_loop', planned_task.arguments[:id])
 
 	t3 = planner.make_loop(:period => 0, :parent_argument => 1, :child_argument => 2) do
@@ -776,11 +773,5 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal(id2, t2.method_options[:id])
     end
 
-    def planning_task_result(task)
-	plan.insert(task)
-	task.start! if task.pending?
-	assert_event(task.event(:success))
-	task.planned_task
-    end
 end
 
