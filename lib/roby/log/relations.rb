@@ -786,8 +786,9 @@ module Roby
 		end
 
 		EventGeneratorDisplay.priorities.clear
-		execution_events.each_with_index do |(flags, object), index|
-		    EventGeneratorDisplay.priorities[object] = index
+		event_priority = 0
+		execution_events.each_with_index do |(flags, object), event_priority|
+		    EventGeneratorDisplay.priorities[object] = event_priority
 		    next if object.respond_to?(:task) && !displayed?(object.task)
 
 		    graphics = if flashing_objects.has_key?(object)
@@ -801,6 +802,13 @@ module Roby
 		
 		propagated_events.each do |_, sources, to, _|
 		    sources.each do |from|
+			if !EventGeneratorDisplay.priorities.has_key?(from)
+			    EventGeneratorDisplay.priorities[from] = (event_priority += 1)
+			end
+			if !EventGeneratorDisplay.priorities.has_key?(to)
+			    EventGeneratorDisplay.priorities[to] = (event_priority += 1)
+			end
+
 			if from.respond_to?(:task) 
 			    next if !displayed?(from.task)
 			else
