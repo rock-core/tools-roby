@@ -44,6 +44,10 @@ module Roby
 	    end
 	end
 
+	def state
+	    remote_constant('State')
+	end
+
 	def instance_methods(include_super = false)
 	    Interface.instance_methods(false).
 		actions.map { |name| "#{name}!" }
@@ -74,8 +78,8 @@ module Roby
 		    msg = "#{name}: #{error.exception.message}:\n"
 		    msg << tasks.map { |t| t.to_s }.join("\n")
 		    msg << "\n  #{error.exception.backtrace.join("\n  ")}" if error.exception.backtrace
-		    msg << "\nThe following tasks have been killed:\n"
-		    tasks.each { |t| msg << "  * " << t.to_s }
+		    msg << "\nThe following tasks have been killed:"
+		    tasks.each { |t| msg << "\n  * " << t.to_s }
 
 		    interfaces.each do |iface|
 			iface.pending_messages << msg
