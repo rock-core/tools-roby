@@ -402,7 +402,9 @@ module Roby
 	    if log['events']
 		require 'roby/log/file'
 		logfile = File.join(log_dir, robot_name)
-		Roby::Log.add_logger Roby::Log::FileLogger.new(logfile)
+		logger  = Roby::Log::FileLogger.new(logfile)
+		logger.stats_mode = log['events'] == 'stats'
+		Roby::Log.add_logger logger
 	    end
 	    control.abort_on_exception = 
 		control_config['abort_on_exception']

@@ -120,10 +120,14 @@ module Roby::Log
 	    @index_log = File.open("#{basename}-index.log", 'w')
 	    index_log.sync = true
 	end
+
+	attr_accessor :stats_mode
 	def splat?; false end
 
 	def dump_method(m, args)
-	    current_cycle << m << args
+	    if m == :cycle_end || !stats_mode
+		current_cycle << m << args
+	    end
 	    if m == :cycle_end
 		info = args[1].dup
 		info[:pos] = event_log.tell
