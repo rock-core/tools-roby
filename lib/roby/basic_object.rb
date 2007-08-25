@@ -58,11 +58,15 @@ module Roby
 	# Called to tell us that we should not be involved with +peer+ anymore
 	def forget_peer(peer)
 	    if remote_object = remove_sibling_for(peer)
-		peer.removing_proxies[remote_object] = droby_dump(nil)
+		peer.removing_proxies[remote_object] << droby_dump(nil)
 
 		if peer.connected?
 		    peer.transmit(:removed_sibling, remote_object, self.remote_id) do
-			peer.removing_proxies.delete(remote_object)
+			set = peer.removing_proxies[remote_object]
+			set.shift
+			if set.empty?
+			    peer.removing_proxies.delete(remote_object)
+			end
 			yield if block_given?
 		    end
 		else

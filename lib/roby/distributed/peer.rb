@@ -231,7 +231,7 @@ module Roby::Distributed
 	    @connection_space = connection_space
 	    @local_server = PeerServer.new(self)
 	    @proxies	  = Hash.new
-	    @removing_proxies = Hash.new
+	    @removing_proxies = Hash.new { |h, k| h[k] = Array.new }
 	    @mutex	  = Mutex.new
 	    @triggers     = Hash.new
 	    @socket       = socket
