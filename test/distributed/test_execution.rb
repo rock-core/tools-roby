@@ -54,6 +54,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	assert(contingent.happened?)
     end
 
+    # This test that the event/plan modification order is kept on a remote host
     def test_keeps_causality
 	peer2peer(true) do |remote|
 	    class << remote
@@ -63,13 +64,17 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		    # Put the task to avoir having GC clearing the events
 		    plan.insert(@task = SimpleTask.new(:id => 'task'))
 		    plan.discover(@event = Roby::EventGenerator.new(true))
-		    task.on(:start, event)
+		    event.on task.event(:start)
 		    nil
 		end
 		def fire
 		    Roby.execute do
+			event.on do
+			    plan.discard(task)
+			    task.event(:start).on task.event(:success)
+			end
+		
 			event.call(nil) 
-			plan.discard(task)
 		    end
 		    nil
 		end
@@ -78,7 +83,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 
 	remote.create
 	task = subscribe_task(:id => 'task')
-	event = *task.event(:start).child_objects(EventStructure::Signal).to_a
+	event = *task.event(:start).parent_objects(EventStructure::Signal).to_a
 
 	FlexMock.use do |mock|
 	    event.on do
