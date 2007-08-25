@@ -9,7 +9,15 @@ if Dir.enum_for(:glob, File.join(app.log_dir, "*")).to_a.empty?
     exit 0
 end
 
-basename = ARGV.shift
+user_base_path = ARGV.shift
+if user_base_path =~ /\/$/
+    basename = ""
+    dirname = user_base_path
+else
+    basename = File.basename(user_base_path)
+    dirname  = File.dirname(user_base_path)
+end
+
 date = Date.today
 date = "%i%02i%02i" % [date.year, date.month, date.mday]
 if basename && !basename.empty?
@@ -20,16 +28,18 @@ end
 
 # Check if +basename+ already exists, and if it is the case add a
 # .x suffix to it
-basename = File.join(app.results_dir, basename)
-dirname, i = basename, 0
-while File.exists?(dirname)
+full_path = File.expand_path(File.join(dirname, basename), app.results_dir)
+base_dir  = File.dirname(full_path)
+
+unless File.exists?(base_dir)
+    FileUtils.mkdir_p(base_dir)
+end
+
+final_path, i = full_path, 0
+while File.exists?(final_path)
     i += 1
-    dirname = basename + ".#{i}"
+    final_path = full_path + ".#{i}"
 end
 
-if !File.directory?(app.results_dir)
-    Dir.mkdir(app.results_dir)
-end
-
-puts "moving #{app.log_dir} to #{dirname}"
-FileUtils.mv app.log_dir, dirname
+puts "moving #{app.log_dir} to #{final_path}"
+FileUtils.mv app.log_dir, final_path
