@@ -408,7 +408,22 @@ class Exception
 	def initialize(model, message); @model, @message = model, message end
 
 	def proxy(peer)
-	    model.proxy(peer).exception(message)
+	    error_model = model.proxy(peer)
+	    error_model.exception(self.message)
+
+	rescue ArgumentError
+	    # try to get a less-specific error model which does allow a simple
+	    # message. In the worst case, we will fall back to Exception itself
+	    #
+	    # However, include the real model name in the message
+	    message = "#{self.message} (#{model.ancestors.first.first})"
+	    for model in error_model.ancestors
+		next unless model.kind_of?(Class)
+		begin
+		    return model.exception(message)
+		rescue ArgumentError
+		end
+	    end
 	end
     end
 

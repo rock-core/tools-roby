@@ -217,6 +217,11 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_raises(OwnershipError) { local_proxy.start! }
     end
 
+    class ErrorWithArguments < Exception
+	def initialize(a, b)
+	end
+    end
+
     def test_marshal_exception
 	model = Class.new(Exception)
 	e = model.exception("test")
@@ -231,6 +236,16 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 		e = model.exception("test")
 		Distributed.format(e)
 	    end
+
+	    def remote.exception_with_arguments
+		e = begin
+			raise ErrorWithArguments.new(1, 2), "test"
+		    rescue ErrorWithArguments => e
+			e
+		    end
+
+		Distributed.format(e)
+	    end
 	end
 
 	m_e = remote.exception
@@ -238,6 +253,12 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_kind_of(Exception, e)
 	assert_not_same(Exception, e.class)
 	assert_equal("test", e.message)
+
+	m_e = remote.exception_with_arguments
+	e   = remote_peer.local_object(m_e)
+	assert_kind_of(Exception, e)
+	assert_same(Exception, e.class)
+	assert_equal("test (TC_DistributedRobyProtocol::ErrorWithArguments)", e.message)
     end
 
     # See #test_local_task_back_forth_through_drb_race_condition
