@@ -450,7 +450,7 @@ module Roby
 
 	def stop; call_plugins(:stop, self) end
 
-	DISCOVERY_TEMPLATE = [:host, nil, nil]
+	DISCOVERY_TEMPLATE = [:droby, nil, nil]
 
 	# Starts services needed for distributed operations. These services are
 	# supposed to be started only once for a whole system

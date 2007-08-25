@@ -434,7 +434,7 @@ module Roby
 		# Remove us from the central tuplespace
 		if central_discovery?
 		    begin
-			discovery_tuplespace.take [:host, nil, remote_id], 0
+			discovery_tuplespace.take [:droby, nil, remote_id], 0
 		    rescue DRb::DRbConnError, Rinda::RequestExpiredError
 		    end
 		end
