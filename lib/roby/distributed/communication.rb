@@ -353,7 +353,7 @@ module Roby
 
 	class PeerServer
 	    def fatal_error(error, msg, args)
-		Distributed.fatal "remote reports #{error} while processing #{msg}(#{args.join(", ")})"
+		Distributed.fatal "remote reports #{peer.local_object(error)} while processing #{msg}(#{args.join(", ")})"
 		disconnect
 	    end
 
