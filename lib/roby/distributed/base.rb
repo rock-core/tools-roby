@@ -380,7 +380,7 @@ module Roby
 		    result
 		end
 
-		if method != :completed && !peer.disconnecting? && !peer.disconnected?
+		if method != :completed && method != :completion_group && !peer.disconnecting? && !peer.disconnected?
 		    if peer_server.queued_completion?
 			Distributed.debug "done and already queued the completion message"
 		    else

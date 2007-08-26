@@ -429,6 +429,13 @@ module Roby
 	    end
 	    def done_synchro_point; end
 
+	    def completion_group(from_id, to_id)
+		for id in (from_id..to_id)
+		    completed(nil, nil, id)
+		end
+		nil
+	    end
+
 	    def completed(result, error, id)
 		call_spec = peer.completion_queue.pop
 		if call_spec.message_id != id
@@ -602,6 +609,26 @@ module Roby
 			@@message_id += 1
 			call_spec.message_id = @@message_id
 			completion_queue << call_spec
+
+		    elsif !current_cycle.empty? && !(args[0] || args[1])
+			# Try to merge empty completed messages
+			last_call = current_cycle.last
+			last_method, last_args = last_call[1], last_call[2]
+
+			case last_method
+			when :completed
+			    if !(last_args[0] || last_args[1])
+				Distributed.debug "merging two completion messages"
+				current_cycle.pop
+				call_spec.method = :completion_group
+				call_spec.formatted_args = [last_args[2], args[2]]
+			    end
+			when :completion_group
+			    Distributed.debug "extending a completion group"
+			    current_cycle.pop
+			    call_spec.method = :completion_group
+			    call_spec.formatted_args = [last_args[0], args[2]]
+			end
 		    end
 
 		    Distributed.debug { "#{call_spec.is_callback ? 'adding callback' : 'queueing'} [#{call_spec.message_id}]#{remote_name}.#{call_spec.method}" }
