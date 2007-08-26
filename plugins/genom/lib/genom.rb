@@ -538,7 +538,7 @@ module Roby::Genom
 	# Disables all logging
 	def remove_all_logging
 	    each_member do |_, config|
-		config.delete(:log) if config.log?
+		config.delete(:log) if config.respond_to?(:log) && config.log
 	    end
 	end
 
