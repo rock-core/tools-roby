@@ -675,13 +675,6 @@ module Roby
 			live_objects_after_gc = ObjectSpace.live_objects
 		    end
 		    
-		    # Handle data received from our peers
-		    cycle_duration = Time.now - stats[:start]
-		    if cycle - cycle_duration > SLEEP_MIN_TIME
-			Roby::Distributed.process_pending(stats[:start] + cycle)
-		    end
-		    stats[:droby] = Time.now
-
 		    # Sleep if there is enough time for it
 		    cycle_duration = Time.now - stats[:start]
 		    if cycle - cycle_duration > SLEEP_MIN_TIME

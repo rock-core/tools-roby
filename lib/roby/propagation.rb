@@ -185,7 +185,7 @@ module Roby::Propagation
 	initial_set = []
 	next_step = gather_propagation do
 	    gather_exceptions(nil, 'initial set setup') { yield(initial_set) } if block_given?
-	    gather_exceptions(nil, 'distributed events') { Roby::Distributed.process_remote_events }
+	    gather_exceptions(nil, 'distributed events') { Roby::Distributed.process_pending }
 	    seeds.each do |s|
 		gather_exceptions(s, 'seed') { s.call }
 	    end
