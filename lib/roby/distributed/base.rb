@@ -124,7 +124,26 @@ module Roby
 			Distributed.debug "reusing marshalled #{marshalled_object} for #{self} from #{peer}"
 			marshalled_object.remote_siblings.delete(Distributed.droby_dump)
 			marshalled_object.remote_siblings[peer.droby_dump] = self
-			return peer.local_object(marshalled_object)
+
+			if marshalled_object.respond_to?(:plan) && !marshalled_object.plan
+			    # Take care of the "proxy is GCed while the peer
+			    # sends us messages about it" case. In this case,
+			    # the object has already been removed when it is
+			    # marshalled (#plan == nil).
+			    #
+			    # This cannot happen in transactions: it only happens
+			    # in plans where one side can remove an object while
+			    # the other side is doing something on it
+			    marshalled_object.instance_variable_set(:@plan, Roby.plan)
+			end
+
+			object = peer.local_object(marshalled_object)
+
+			if object.respond_to?(:plan) && !object.plan
+			    raise "#{object} has no plan !"
+			end
+
+			return object
 		    end
 		    raise ArgumentError, "#{self} has no proxy"
 		else
