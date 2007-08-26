@@ -76,26 +76,35 @@ module Roby
 
 	    def stats
 		last_start = nil
-		mean, stdev = nil
+		mean, max, stdev = nil
 		count = 0
 
 		mean_cycle  = 0
 		stdev_cycle = 0
+		max_cycle   = nil
 
 		# Compute mean value
 		each_cycle(false) do |numeric, timings|
 		    if !mean
 			mean  = Array.new(numeric.size + timings.size, 0.0)
+			max   = Array.new
 		    end
 
 		    # Compute mean value
 		    start = timings.shift + timings.first
 		    if last_start
-			mean_cycle += start - last_start
+			cycle_length = start - last_start
+			if !max_cycle || max_cycle < cycle_length
+			    max_cycle = cycle_length
+			end
+			mean_cycle += cycle_length
 		    end
 		    last_start = start 
 
-		    (numeric + timings).each_with_index { |v, i| mean[i] += v if v }
+		    (numeric + timings).each_with_index do |v, i| 
+			mean[i] += v if v
+			max[i] = v if v && (!max[i] || max[i] < v)
+		    end
 		    count += 1
 		end
 		mean.map! { |v| v / count }
@@ -115,20 +124,20 @@ module Roby
 		end
 		stdev.map! { |v| Math.sqrt(v / count) if v }
 
-		format = "%-28s %-10.2f %-10.2f"
+		format = "%-28s %-10.2f %-10.2f %-10.2f"
 
 		puts "\n" + "Per-cycle statistics".center(50)
-		puts "%-28s %-10s %-10s" % ['', 'mean', 'stddev']
-		puts format % ["cycle", mean_cycle * 1000, Math.sqrt(stdev_cycle / count) * 1000]
+		puts "%-28s %-10s %-10s %-10s" % ['', 'mean', 'stddev', 'max']
+		puts format % ["cycle", mean_cycle * 1000, Math.sqrt(stdev_cycle / count) * 1000, max_cycle * 1000]
 		ALL_NUMERIC_FIELDS.each_with_index do |name, i|
-		    puts format % [name, mean[i], stdev[i]] unless name == :cycle_index
+		    puts format % [name, mean[i], stdev[i], (max[i] || 0)] unless name == :cycle_index
 		end
 
 		puts "\n" + "Broken down cycle timings".center(50)
-		puts "%-28s %-10s %-10s" % ['', 'mean', 'stddev']
+		puts "%-28s %-10s %-10s %-10s" % ['', 'mean', 'stddev', 'max']
 		(ALL_TIMINGS).each_with_index do |name, i|
 		    i += ALL_NUMERIC_FIELDS.size
-		    puts format % [name, mean[i] * 1000, stdev[i] * 1000]
+		    puts format % [name, mean[i] * 1000, stdev[i] * 1000, max[i] * 1000]
 		end
 	    end
 
