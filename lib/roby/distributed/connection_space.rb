@@ -327,7 +327,7 @@ module Roby
 		    Control.synchronize do
 			old_neighbours, @neighbours = @neighbours, []
 			for new in discovered
-			    unless @neighbours.include?(new)
+			    unless new.remote_id == remote_id || @neighbours.include?(new)
 				@neighbours << new
 				unless old_neighbours.include?(new)
 				    new_neighbours << [self, new]
