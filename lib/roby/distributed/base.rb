@@ -349,14 +349,15 @@ module Roby
 	    while call_spec = calls.shift
 		return unless call_spec
 
-		is_callback, method, args, critical = *call_spec
+		is_callback, method, args, critical, message_id = *call_spec
 		Distributed.debug do 
 		    args_s = args.map { |obj| obj ? obj.to_s : 'nil' }
-			"processing #{is_callback ? 'callback' : 'method'} #{method}(#{args_s.join(", ")})"
+			"processing #{is_callback ? 'callback' : 'method'} [#{message_id}]#{method}(#{args_s.join(", ")})"
 		end
 
 		result = catch(:ignore_this_call) do
 		    peer_server.queued_completion = false
+		    peer_server.current_message_id = message_id
 		    peer_server.processing_callback = !!is_callback
 
 		    result = begin
@@ -384,7 +385,7 @@ module Roby
 			Distributed.debug "done and already queued the completion message"
 		    else
 			Distributed.debug { "done, returns #{result || 'nil'}" }
-			peer.queue_call false, :completed, [result, false]
+			peer.queue_call false, :completed, [result, false, message_id]
 		    end
 		end
 	    end

@@ -370,7 +370,8 @@ module Roby
 
 	CallSpec = Struct.new :is_callback, 
 	    :method, :formatted_args, :original_args,
-	    :on_completion, :trace, :waiting_thread
+	    :on_completion, :trace, :waiting_thread,
+	    :message_id
 
 	# The specification of a call in Peer#send_queue and Peer#completion_queue. Note
 	# that only the #is_callback, #method and #formatted_args are sent to the remote
@@ -419,6 +420,8 @@ module Roby
 	    attr_predicate :processing_callback?, true
 	    # True if we have already queued a +completed+ message for the message being processed
 	    attr_predicate :queued_completion?, true
+	    # The ID of the message we are currently processing
+	    attr_accessor :current_message_id
 
 	    def synchro_point
 		peer.transmit(:done_synchro_point)
@@ -426,10 +429,16 @@ module Roby
 	    end
 	    def done_synchro_point; end
 
-	    def completed(result, error)
+	    def completed(result, error, id)
 		call_spec = peer.completion_queue.pop
+		if call_spec.message_id != id
+		    result = Exception.exception("something fishy: ID mismatch in completion queue (#{call_spec.message_id} != #{id}")
+		    error  = true
+		    call_spec = nil
+		end
 		if error
 		    if call_spec && thread = call_spec.waiting_thread
+			result = peer.local_object(result)
 			thread.raise result
 		    else
 			Roby::Distributed.fatal "fatal error in communication with #{peer}: #{result.full_message}"
@@ -467,7 +476,7 @@ module Roby
 		else
 		    Distributed.debug { "done, returns #{'error ' if error}#{result || 'nil'} in completed!" }
 		    self.queued_completion = true
-		    peer.queue_call false, :completed, [result, error]
+		    peer.queue_call false, :completed, [result, error, current_message_id]
 		end
 	    end
 
@@ -488,7 +497,7 @@ module Roby
 			result = yield
 		    rescue Exception => error
 		    end
-		    completed!(error || result, !!error)
+		    completed!(error || result, !!error, peer.current_message_id)
 		end
 	    end
 	end
@@ -522,6 +531,8 @@ module Roby
 	    attr_reader :completion_queue
 	    # The cycle data which is being gathered before queueing it into #send_queue
 	    attr_reader :current_cycle
+
+	    @@message_id = 0
 
 	    # Checks that +object+ is marshallable. If +object+ is a
 	    # collection, it will check that each of its elements is
@@ -587,11 +598,14 @@ module Roby
 
 		synchronize do
 		    # No return message for 'completed' (of course)
+		    @@message_id += 1
+		    call_spec.message_id = @@message_id
 		    unless call_spec.method == :completed
 			completion_queue << call_spec
 		    end
 
-		    current_cycle    << [call_spec.is_callback, call_spec.method, call_spec.formatted_args, !waiting_thread]
+		    Distributed.debug { "#{call_spec.is_callback ? 'adding callback' : 'queueing'} [#{@@message_id}]#{remote_name}.#{call_spec.method}" }
+		    current_cycle    << [call_spec.is_callback, call_spec.method, call_spec.formatted_args, !waiting_thread, @@message_id]
 		    if sync? || CYCLE_END_CALLS.include?(m)
 			send_queue << current_cycle
 			@current_cycle = Array.new
@@ -623,11 +637,6 @@ module Roby
 		    raise RecursiveCallbacksError, "cannot queue callback #{m}(#{args.join(", ")}) while serving one"
 		end
 		
-		Distributed.debug do
-		    op = local_server.processing? ? "adding callback" : "queueing"
-		    "#{op} #{remote_name}.#{m}"
-		end
-
 		queue_call is_callback, m, args, block
 	    end
 
