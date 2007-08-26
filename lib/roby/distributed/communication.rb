@@ -598,14 +598,14 @@ module Roby
 
 		synchronize do
 		    # No return message for 'completed' (of course)
-		    @@message_id += 1
-		    call_spec.message_id = @@message_id
-		    unless call_spec.method == :completed
+		    if call_spec.method != :completed
+			@@message_id += 1
+			call_spec.message_id = @@message_id
 			completion_queue << call_spec
 		    end
 
-		    Distributed.debug { "#{call_spec.is_callback ? 'adding callback' : 'queueing'} [#{@@message_id}]#{remote_name}.#{call_spec.method}" }
-		    current_cycle    << [call_spec.is_callback, call_spec.method, call_spec.formatted_args, !waiting_thread, @@message_id]
+		    Distributed.debug { "#{call_spec.is_callback ? 'adding callback' : 'queueing'} [#{call_spec.message_id}]#{remote_name}.#{call_spec.method}" }
+		    current_cycle    << [call_spec.is_callback, call_spec.method, call_spec.formatted_args, !waiting_thread, call_spec.message_id]
 		    if sync? || CYCLE_END_CALLS.include?(m)
 			send_queue << current_cycle
 			@current_cycle = Array.new
