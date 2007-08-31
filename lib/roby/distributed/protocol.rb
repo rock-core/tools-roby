@@ -130,7 +130,7 @@ module Roby
 	    def self.setup_matcher(matcher, args)
 		model, args, improves, needs, predicates, neg_predicates, owners = *args
 		model  = model.proxy(nil) if model
-		owners = owners.proxy(nil) if owners
+		owners = owners.map { |peer| peer.proxy(nil) } if owners
 		args   = args
 
 		matcher = matcher.with_model(model).with_arguments(args || {}).

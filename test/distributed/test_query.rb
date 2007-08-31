@@ -15,14 +15,13 @@ class TC_DistributedQuery < Test::Unit::TestCase
 
 	    t1 = Class.new(Task).new
 	    t2 = Class.new(Task).new
-	    plan << t1 << t2
-
-	    t2.owners.clear
 	    t2.owners << fake_peer
+	    plan << t1 << t2
 
 	    assert_equal([t1].to_set, TaskMatcher.owned_by(Distributed).enum_for(:each, plan).to_set)
 	    assert_equal([t1].to_set, TaskMatcher.self_owned.enum_for(:each, plan).to_set)
-	    assert_equal([t2].to_set, TaskMatcher.owned_by(fake_peer).enum_for(:each, plan).to_set)
+	    assert_equal([t2].to_set, TaskMatcher.owned_by(fake_peer, Distributed).enum_for(:each, plan).to_set, plan.task_index.by_owner)
+	    assert_equal([].to_set, TaskMatcher.owned_by(fake_peer).enum_for(:each, plan).to_set, plan.task_index.by_owner)
 	end
     end
 
@@ -93,6 +92,11 @@ class TC_DistributedQuery < Test::Unit::TestCase
 	    with_model(r_subtask.model).to_a
 	assert_equal(1, result.size)
 	assert(2, result[0].arguments[:id])
+
+	assert_equal([], remote_peer.find_tasks.
+	    self_owned.to_a)
+	assert_equal(2, remote_peer.find_tasks.
+	    owned_by(remote_peer).to_a.size)
     end
 end
 
