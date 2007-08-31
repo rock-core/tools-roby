@@ -103,7 +103,7 @@ module Roby
 
 		    callback = Proc.new do |peer_result|
 			mutex.synchronize do
-			    result[peer] = peer_result
+			    result[peer] = peer.local_object(peer_result)
 			    waiting_for -= 1
 			    Distributed.debug { "reply for #{m}(#{args.join(", ")}) from #{peer}, #{waiting_for} remaining" }
 			    if waiting_for == 0
