@@ -678,7 +678,7 @@ module Roby
 	    #
 	    # Note that it is forbidden to use this method in control or
 	    # communication threads, as it would make the application deadlock
-	    def call(m, *args)
+	    def call(m, *args, &block)
 		if !Roby.outside_control? || Roby::Control.taken_mutex?
 		    raise "cannot use Peer#call in control thread or while taking the Roby::Control mutex"
 		end
@@ -693,6 +693,7 @@ module Roby
 			callback = Proc.new do |return_value|
 			    mt.synchronize do
 				result = return_value
+				block.call(return_value) if block
 				cv.broadcast
 			    end
 			end
