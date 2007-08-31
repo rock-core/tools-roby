@@ -198,11 +198,12 @@ module Roby
 		return ValueSet.new if candidates.empty?
 
 		result  ||= Distributed.keep.referenced_objects.to_value_set
+
 		child_set = ValueSet.new
 	        for obj in candidates
-	            next if result.include?(obj.root_object)
-
-		    if obj.subscribed?
+	            if result.include?(obj.root_object)
+			next
+		    elsif obj.subscribed?
 			result << obj
 			next
 		    end
@@ -211,10 +212,8 @@ module Roby
 	        	next unless rel.distribute? && rel.root_relation?
 
 	        	not_found = obj.each_parent_object(rel) do |parent|
-	        	    next unless parent.distribute?
-
 	        	    parent = parent.root_object
-	        	    if parent.subscribed? || parent.self_owned?
+	        	    if parent.distribute? && parent.self_owned?
 	        		result << obj.root_object
 	        		break
 	        	    end
@@ -222,10 +221,8 @@ module Roby
 	        	break unless not_found
 
 	        	not_found = obj.each_child_object(rel) do |child|
-	        	    next unless child.distribute?
-
 	        	    child = child.root_object
-	        	    if child.subscribed? || child.self_owned?
+	        	    if child.distribute? && child.self_owned?
 	        		result << obj.root_object
 	        		break
 	        	    end

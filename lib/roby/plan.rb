@@ -371,7 +371,7 @@ module Roby
 
 	    # Compute the set of LOCAL tasks which serve the seeds.  The set of
 	    # locally_useful_tasks is the union of the seeds and of this one 
-	    useful_task_component(task_index.by_owner[Roby::Distributed], seeds, seeds) | seeds
+	    useful_task_component(task_index.by_owner[Roby::Distributed], seeds.dup, seeds) | seeds
 	end
 
 	def local_tasks
@@ -394,10 +394,12 @@ module Roby
 
 	    # Append to that the set of tasks that are useful for our peers
 	    remotely_useful = Distributed.remotely_useful_objects(remote_tasks, nil)
-	    useful.merge remotely_useful
 
 	    # Include the set of local tasks that are serving tasks in +remotely_useful+
-	    useful.merge useful_task_component(task_index.by_owner[Roby::Distributed], useful.dup, remotely_useful)
+	    serving_remote = useful_task_component(task_index.by_owner[Roby::Distributed], useful.dup, remotely_useful)
+
+	    useful.merge remotely_useful
+	    useful.merge serving_remote
 
 	    (known_tasks - useful)
 	end
@@ -549,8 +551,17 @@ module Roby
 		did_something = false
 
 		tasks = unneeded_tasks | force_gc
-		if tasks.all? { |t| t.pending? || t.finished? }
-		    tasks.each do |t|
+		local_tasks  = self.local_tasks & tasks
+		remote_tasks = tasks - local_tasks
+
+		# Remote tasks are simply removed, regardless of other concerns
+		for t in remote_tasks
+		    Plan.debug "GC: removing the remote task #{t}"
+		    remove_object(t)
+		end
+
+		if local_tasks.all? { |t| t.pending? || t.finished? }
+		    local_tasks.each do |t|
 			Plan.debug "GC: #{t} is not running, removed"
 			garbage(t)
 			remove_object(t)
@@ -558,8 +569,8 @@ module Roby
 		    break
 		end
 
-		# Mark all root tasks as garbage
-		tasks.delete_if do |t|
+		# Mark all root local_tasks as garbage
+		local_tasks.delete_if do |t|
 		    if t.root?
 			garbage(t)
 			false
@@ -569,12 +580,8 @@ module Roby
 		    end
 		end
 
-		tasks.each do |t|
-		    if !t.self_owned?
-			Plan.debug "GC: #{t} is not local, removing it"
-			remove_object(t)
-			did_something = true
-		    elsif t.starting?
+		for t in local_tasks
+		    if t.starting?
 			# wait for task to be started before killing it
 			Plan.debug "GC: #{t} is starting"
 		    elsif t.pending? || t.finished?
