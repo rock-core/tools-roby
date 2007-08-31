@@ -327,7 +327,9 @@ module Roby
 		if peer.disabled_rx?
 		    delayed_cycles.push [peer, calls]
 		else
-		    process_cycle(peer, calls)
+		    if remaining = process_cycle(peer, calls)
+			delayed_cycles.push [peer, remaining]
+		    end
 		end
 	    end
 
@@ -388,6 +390,11 @@ module Roby
 			peer.queue_call false, :completed, [result, false, message_id]
 		    end
 		end
+
+		if peer.disabled_rx?
+		    return calls
+		end
+
 	    end
 
 	    Distributed.debug "successfully served #{calls_size} calls in #{Time.now - from} seconds"
