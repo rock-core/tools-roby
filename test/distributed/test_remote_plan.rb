@@ -203,6 +203,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	end
 
 	r_root = subscribe_task(:id => 'root')
+	# Check that the task index has been updated
+	assert(plan.task_index.by_owner[remote_peer].include?(r_root))
+	
 	# No need to explicitely synchronize here. #subscribe is supposed to return only
 	# when the subscription is completely done (i.e. the remote peer knows we have 
 	# a sibling)
@@ -228,6 +231,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    assert(!r_subtask.plan || !plan.useful_task?(r_subtask))
 	end
 	Roby.control.wait_one_cycle
+	
+	# Check that the task index has been updated
+	assert(!plan.task_index.by_owner[remote_peer].include?(r_subtask))
 
 	# Check that subscribing again is handled nicely
 	assert_same(r_root, remote_peer.subscribe(r_root))

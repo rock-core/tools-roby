@@ -29,6 +29,9 @@ module Roby
 		    call_siblings(:add_owner, self, peer)
 		else
 		    owners << peer
+		    if plan
+			plan.task_index.add_owner(self, peer)
+		    end
 		    Distributed.debug { "added owner to #{self}: #{owners.to_a}" }
 		end
 	    end
@@ -47,6 +50,9 @@ module Roby
 		    call_siblings(:remove_owner, self, peer)
 		else
 		    owners.delete(peer)
+		    if plan
+			plan.task_index.remove_owner(self, peer)
+		    end
 		    Distributed.debug { "removed owner to #{self}: #{owners.to_a}" }
 		end
 		nil

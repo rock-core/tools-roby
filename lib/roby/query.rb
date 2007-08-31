@@ -141,6 +141,16 @@ module Roby
 		initial_set &= task_index.by_model[model]
 	    end
 
+	    if !owners.empty?
+		for o in owners
+		    if candidates = task_index.by_owner[o]
+			initial_set &= candidates
+		    else
+			return ValueSet.new
+		    end
+		end
+	    end
+
 	    for pred in (predicates & STATE_PREDICATES)
 		initial_set &= task_index.by_state[pred]
 	    end
@@ -245,6 +255,8 @@ module Roby
 	# a symbol in [:pending, :starting, :running, :finishing,
 	# :finished]
 	attr_reader :by_state
+	# A peer => ValueSet map of tasks given their owner.
+	attr_reader :by_owner
 
 	def initialize
 	    @by_model = Hash.new { |h, k| h[k] = ValueSet.new }
@@ -252,6 +264,7 @@ module Roby
 	    TaskMatcher::STATE_PREDICATES.each do |state_name|
 		by_state[state_name] = ValueSet.new
 	    end
+	    @by_owner = Hash.new
 	    @task_state = Hash.new
 	end
 
@@ -260,6 +273,22 @@ module Roby
 		by_model[klass] << task
 	    end
 	    by_state[:pending?] << task
+	    for owner in task.owners
+		add_owner(task, owner)
+	    end
+	end
+
+	def add_owner(task, new_owner)
+	    (by_owner[new_owner] ||= ValueSet.new) << task
+	end
+
+	def remove_owner(task, peer)
+	    if set = by_owner[peer]
+		set.delete(task)
+		if set.empty?
+		    by_owner.delete(peer)
+		end
+	    end
 	end
 
 	def set_state(task, new_state)
@@ -278,6 +307,9 @@ module Roby
 	    end
 	    for state_set in by_state
 		state_set.last.delete(task)
+	    end
+	    for owner in task.owners
+		remove_owner(task, owner)
 	    end
 	end
     end

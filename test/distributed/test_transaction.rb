@@ -433,13 +433,20 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.insert(t)
 	t.owner = remote_peer
 
+	assert(trsc.task_index.by_owner[remote_peer].include?(t))
+	assert(!trsc.task_index.by_owner[Roby::Distributed])
+
 	assert(!t.self_owned?)
 	trsc.propose(remote_peer)
 	assert(remote.check_ownership(Distributed.format(t)))
+	remote_peer.subscribe(t)
 
 	trsc.commit_transaction
+	assert(plan.include?(t))
 	assert(!plan.mission?(t))
 	assert(!t.self_owned?)
+	assert(plan.task_index.by_owner[remote_peer].include?(t), plan.task_index.by_owner)
+	assert(!plan.task_index.by_owner[Roby::Distributed].include?(t))
 	assert(remote.check_mission(Distributed.format(t)))
 	assert(remote.check_ownership(Distributed.format(t)))
 	assert_equal({ :arg => 10 }, remote.arguments_of(Distributed.format(t)))
