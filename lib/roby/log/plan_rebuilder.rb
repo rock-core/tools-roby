@@ -362,7 +362,7 @@ module Roby
 
 		rel = rel.first if rel.kind_of?(Array)
 		rel    = rel.proxy(nil)
-		parent.add_child_object(child, rel, [info, nil])
+		parent.add_child_object(child, rel, info)
 	    end
 	    def removed_task_child(time, parent, rel, child)
 		parent = local_task(parent)
@@ -376,7 +376,7 @@ module Roby
 		child  = local_event(child)
 		rel = rel.first if rel.kind_of?(Array)
 		rel    = rel.proxy(nil)
-		parent.add_child_object(child, rel, [info, nil])
+		parent.add_child_object(child, rel, info)
 	    end
 	    def removed_event_child(time, parent, rel, child)
 		parent = local_event(parent)
