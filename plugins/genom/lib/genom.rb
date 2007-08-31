@@ -289,7 +289,7 @@ module Roby::Genom
 	    # Setting it if #plan was a transaction and new_plan == transaction.plan
 	    # would break, since it is very likely that self is linked to other objects
 	    # (incl. proxies) and permanent would break the commit process
-	    unless old_plan
+	    if !old_plan && self_owned?
 		plan.permanent(self)
 	    end
 	end
