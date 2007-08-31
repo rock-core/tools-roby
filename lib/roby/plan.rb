@@ -238,7 +238,7 @@ module Roby
 		     end
 	    if tasks
 		tasks = tasks.to_value_set
-		new_tasks = useful_task_component(tasks, tasks)
+		new_tasks = useful_task_component(nil, tasks, tasks)
 		unless new_tasks.empty?
 		    new_tasks = discover_task_set(new_tasks)
 
@@ -328,20 +328,25 @@ module Roby
 	# Hook called when a new transaction has been built on top of this plan
 	def removed_transaction(trsc); super if defined? super end
 
-	# Returns the set of tasks that are useful for +tasks+
-	def useful_task_component(useful_tasks, seeds)
-	    old_useful_tasks = useful_tasks.dup
+	# Merges the set of tasks that are useful for +seeds+ into +useful_set+.
+	# Only the tasks that are in +complete_set+ are included.
+	def useful_task_component(complete_set, useful_set, seeds)
+	    old_useful_set = useful_set.dup
 	    for rel in TaskStructure.relations
 		next unless rel.root_relation?
 		for subgraph in rel.generated_subgraphs(seeds, false)
-		    useful_tasks.merge(subgraph)
+		    useful_set.merge(subgraph)
 		end
 	    end
 
-	    if useful_tasks.size == old_useful_tasks.size
-		useful_tasks
+	    if complete_set
+		useful_set &= complete_set
+	    end
+
+	    if useful_set.size == old_useful_set.size || (complete_set && useful_set.size == complete_set.size)
+		useful_set
 	    else
-		useful_task_component(useful_tasks, (useful_tasks - old_useful_tasks))
+		useful_task_component(complete_set, useful_set, (useful_set - old_useful_set))
 	    end
 	end
 	private :useful_task_component
@@ -356,33 +361,43 @@ module Roby
 		auto(finished_permanent)
 	    end
 
-	    all = @missions | @keepalive
+	    # Create the set of tasks which must be kept as-is
+	    seeds = @missions | @keepalive
 	    for trsc in transactions
-		all.merge trsc.proxy_objects.keys.to_value_set
+		seeds.merge trsc.proxy_objects.keys.to_value_set
 	    end
 
-	    return ValueSet.new if all.empty?
-	    useful_task_component(all, all)
+	    return ValueSet.new if seeds.empty?
+
+	    # Compute the set of LOCAL tasks which serve the seeds.  The set of
+	    # locally_useful_tasks is the union of the seeds and of this one 
+	    useful_task_component(task_index.by_owner[Roby::Distributed], seeds, seeds) | seeds
+	end
+
+	def local_tasks
+	    task_index.by_owner[Roby::Distributed] || ValueSet.new
+	end
+
+	def remote_tasks
+	    if local_tasks = task_index.by_owner[Roby::Distributed]
+		known_tasks - local_tasks
+	    else
+		known_tasks
+	    end
 	end
 
 	# Returns the set of unused tasks
 	def unneeded_tasks
-	    # Get the set of tasks that are serving one of our own missions or
+	    # Get the set of local tasks that are serving one of our own missions or
 	    # permanent tasks
 	    useful = self.locally_useful_tasks
 
-	    # Finally, get in the remaining set the tasks that are useful
-	    # because of our peers. We then remove from the set all local tasks
-	    # that are serving these
-	    remotely_useful = Distributed.remotely_useful_objects(useful, known_tasks - useful)
+	    # Append to that the set of tasks that are useful for our peers
+	    remotely_useful = Distributed.remotely_useful_objects(remote_tasks, nil)
 	    useful.merge remotely_useful
 
 	    # Include the set of local tasks that are serving tasks in +remotely_useful+
-	    for t in (useful_task_component(useful.dup, remotely_useful) - useful)
-		if t.self_owned?
-		    useful << t
-		end
-	    end
+	    useful.merge useful_task_component(task_index.by_owner[Roby::Distributed], useful.dup, remotely_useful)
 
 	    (known_tasks - useful)
 	end
@@ -431,7 +446,6 @@ module Roby
 	# The set of events that can be removed from the plan
 	def unneeded_events
 	    useful_events = self.useful_events
-	    useful_events.merge Roby::Distributed.remotely_useful_objects(useful_events, free_events - useful_events)
 
 	    result = (free_events - useful_events)
 	    result.delete_if do |ev|

@@ -194,15 +194,13 @@ module Roby
 	            Distributed.keep.ref?(local_object))
 	    end
 
-	    def remotely_useful_objects(useful_tasks, candidates, result = nil)
+	    def remotely_useful_objects(candidates, result = nil)
 		return ValueSet.new if candidates.empty?
 
 		result  ||= Distributed.keep.referenced_objects.to_value_set
 		child_set = ValueSet.new
 	        for obj in candidates
-	            next if obj.self_owned? || 
-	        	result.include?(obj.root_object) || 
-	        	useful_tasks.include?(obj.root_object)
+	            next if result.include?(obj.root_object)
 
 		    if obj.subscribed?
 			result << obj
@@ -240,7 +238,7 @@ module Roby
 		    end
 	        end
 
-		result.merge remotely_useful_objects(useful_tasks, child_set, result)
+		result.merge remotely_useful_objects(child_set, result)
 	    end
 
 	    # The list of objects that are being updated because of remote update
