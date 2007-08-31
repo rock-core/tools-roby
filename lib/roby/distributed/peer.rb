@@ -270,7 +270,16 @@ module Roby::Distributed
 
 	# Returns a set of remote tasks for +query+ applied on the remote plan
 	def query_result_set(query)
-	    call(:query_result_set, query)
+	    result = ValueSet.new
+	    call(:query_result_set, query) do |marshalled_set|
+		for task in marshalled_set
+		    task = local_object(task)
+		    Roby::Distributed.keep.ref(task)
+		    result << task
+		end
+	    end
+
+	    result
 	end
 	
 	# Yields the tasks saved in +result_set+ by #query_result_set.  During
@@ -279,22 +288,14 @@ module Roby::Distributed
 	# block has returned, all non-subscribed tasks will be subject to plan
 	# GC.
 	def query_each(result_set)
-	    local_tasks = Roby::Control.synchronize do
-		result_set.map do |task|
-		    task = local_object(task)
-		    Roby::Distributed.keep.ref(task)
-		    task
-		end
-	    end
-
-	    local_tasks.each do |task|
+	    result_set.each do |task|
 		yield(task)
 	    end
 
 	ensure
 	    Roby::Control.synchronize do
-		if local_tasks
-		    local_tasks.each do |task|
+		if result_set
+		    result_set.each do |task|
 			Roby::Distributed.keep.deref(task)
 		    end
 		end
