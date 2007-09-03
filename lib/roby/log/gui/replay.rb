@@ -19,7 +19,7 @@ class OfflineStreamListModel < DataStreamListModel
 	    if newstream = Roby.app.data_stream(newfiles)
 		return newstream
 	    else
-		Qt::MessageBox.warning self, "Add data stream", "Cannot determine data stream type for #{newfiles.join(", ")}"
+		Qt::MessageBox.warning nil, "Add data stream", "Cannot determine data stream type for #{newfiles.join(", ")}"
 		return
 	    end
 	end

@@ -129,7 +129,7 @@ class Ui::ReplayControls
 		end
 		replay.speed = new_speed
 	    rescue ArgumentError
-		Qt::MessageBox.warning self, "Invalid speed", "Invalid value for speed \"#{ui_controls.speed.text}\": #{$!.message}"
+		Qt::MessageBox.warning nil, "Invalid speed", "Invalid value for speed \"#{ui_controls.speed.text}\": #{$!.message}"
 		self.play_speed = play_speed
 	    end
 	end
@@ -162,7 +162,7 @@ class Ui::ReplayControls
 			user_time = Time.from_hms(user_time) - Time.at(0)
 
 		    rescue ArgumentError
-			Qt::MessageBox.warning self, "Invalid user_time", "Invalid user_time: #{$!.message}"
+			Qt::MessageBox.warning nil, "Invalid user_time", "Invalid user_time: #{$!.message}", "OK"
 			retry
 		    end
 
