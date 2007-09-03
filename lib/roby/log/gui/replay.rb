@@ -270,6 +270,10 @@ class Replay < Qt::MainWindow
 	replay = self.new
 
 	parser = OptionParser.new do |opt|
+	    Ui_DataDisplays::DISPLAYS.each_value do |config_ui|
+		config_ui.setup_optparse(opt, replay)
+	    end
+
 	    opt.on("--logdir=DIR", String, "the log directory in which we initialize the data streams") do |dir|
 		replay.log_dir = dir
 	    end
@@ -283,10 +287,8 @@ class Replay < Qt::MainWindow
 	    opt.on("--goto=TIME", String, "go to TIME before playing normally. Time is given relatively to the simulation start") do |goto| 
 		replay.initial_time = Time.from_hms(goto)
 	    end
-
-
-	    Ui_DataDisplays::DISPLAYS.each_value do |config_ui|
-		config_ui.setup_optparse(opt, replay)
+	    opt.on('--bookmarks=FILE', String, "load the bookmarks in FILE") do |file|
+		replay.ui_controls.load_bookmarks(file)
 	    end
 	end
 	args = argv.dup

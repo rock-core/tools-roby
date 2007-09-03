@@ -6,6 +6,7 @@ class Ui::ReplayControls
     attr_reader :bookmarks_menu
     attr_reader :bookmarks_actions
     attr_reader :bookmarks_file
+    attr_reader :bookmarks_start_mark
 
     KEY_GOTO = Qt::KeySequence.new('g')
 
@@ -14,13 +15,9 @@ class Ui::ReplayControls
 	unless !file || file.empty?
 	    replay.bookmarks.clear
 
-	    if !replay.first_sample
-		replay.seek(nil)
-	    end
-
 	    list = File.open(file) { |io| YAML.load(io) }
-	    list.each do |name, time|
-		replay.bookmarks[name] = Time.from_hms(time)
+	    list.each do |name, times|
+		replay.bookmarks[name] = times.map { |t| Time.from_hms(t) if t }
 	    end
 	    update_bookmarks_menu
 
@@ -39,8 +36,8 @@ class Ui::ReplayControls
     end
 
     def save_bookmarks
-	data = replay.bookmarks.inject(Hash.new) do |data, (name, time)|
-	    data[name] = time.to_hms
+	data = replay.bookmarks.inject(Hash.new) do |data, (name, times)|
+	    data[name] = times.map { |t| t.to_hms if t }
 	    data
 	end
 	File.open(bookmarks_file, 'w') do |io|
@@ -55,20 +52,34 @@ class Ui::ReplayControls
 	end
 	bookmarks_actions.clear
 
-	replay.bookmarks.sort_by { |name, time| time }.
-	    each do |name, time|
-		display_time = if replay.first_sample
-				   time - replay.first_sample
-			       else time.to_hms
-			       end
+	bookmarks = replay.bookmarks.sort_by { |name, time| time }
+	bookmarks.unshift(["Mark", [bookmarks_start_mark, nil]]) if bookmarks_start_mark
 
-		action = Qt::Action.new "#{name} (#{display_time})", bookmarks_menu
-		action.connect(SIGNAL(:triggered)) do
-		    replay.seek(time)
-		end
-		bookmarks_actions << action
-		bookmarks_menu.add_action action
+	bookmarks.each do |name, range|
+	    start_time, end_time = if replay.first_sample
+				       # Handle sub-millisecond rounding effects
+				       range.map do |t| 
+					   if t
+					       ((t - replay.first_sample) * 1000).round / 1000.0
+					   end
+				       end
+				   else 
+				       range.map { |t| t.to_hms if t }
+				   end
+
+	    display = if start_time && end_time
+			  "#{start_time} - #{end_time}"
+		      else
+			  (start_time || end_time).to_s
+		      end
+
+	    action = Qt::Action.new "#{name} (#{display})", bookmarks_menu
+	    action.connect(SIGNAL(:triggered)) do
+		range.each { |t| replay.seek(t) if t }
 	    end
+	    bookmarks_actions << action
+	    bookmarks_menu.add_action action
+	end
     end
     
     def setupUi(replay, widget)
@@ -81,15 +92,20 @@ class Ui::ReplayControls
 	bookmarks_menu.add_action actionBookmarksSaveAs
 	bookmarks_menu.add_action actionBookmarksLoad
 	bookmarks_menu.add_separator
+	bookmarks_menu.add_action actionBookmarksSetMark
 	bookmarks_menu.add_action actionBookmarksAdd
 	bookmarks_menu.add_separator
 	actionBookmarksLoad.connect(SIGNAL(:triggered)) { load_bookmarks }
 	actionBookmarksSaveAs.connect(SIGNAL(:triggered)) { save_bookmarks_as }
 	actionBookmarksSave.connect(SIGNAL(:triggered)) { save_bookmarks }
+	actionBookmarksSetMark.connect(SIGNAL(:triggered)) do
+	    @bookmarks_start_mark = replay.time
+	    update_bookmarks_menu
+	end
 	actionBookmarksAdd.connect(SIGNAL(:triggered)) do
 	    new_name = Qt::InputDialog.get_text widget, "New bookmark", "Name: "
 	    unless new_name && new_name.empty?
-		replay.bookmarks[new_name] = replay.time
+		replay.bookmarks[new_name] = [bookmarks_start_mark, replay.time]
 		update_bookmarks_menu
 	    end
 	end

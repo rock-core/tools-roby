@@ -248,6 +248,11 @@ p, li { white-space: pre-wrap; }
     <string>Load</string>
    </property>
   </action>
+  <action name="actionBookmarksSetMark" >
+   <property name="text" >
+    <string>Set mark</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>
