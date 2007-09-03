@@ -170,11 +170,11 @@ class Ui::ReplayControls
 					Qt::LineEdit::Normal, (user_time || @last_goto || "")
 			return unless user_time && !user_time.empty?
 
+			@last_goto = user_time
 			if user_time =~ /^\s*([\+\-])(.*)/
 			    op = $1
 			    user_time = $2
 			end
-			@last_goto = user_time
 			user_time = Time.from_hms(user_time) - Time.at(0)
 
 		    rescue ArgumentError
