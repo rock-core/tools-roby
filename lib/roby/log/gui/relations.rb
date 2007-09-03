@@ -15,7 +15,7 @@ module Ui
 
 	TASK_ROOT_INDEX  = 0
 	EVENT_ROOT_INDEX = 1
-	CATEGORIES = ['Task structure', 'Event structure']
+	CATEGORIES = ['Task structure']
 
 	def event_root_index; createIndex(TASK_ROOT_INDEX, 0, -1) end
 	def task_root_index; createIndex(EVENT_ROOT_INDEX, 0, -1) end
@@ -30,7 +30,6 @@ module Ui
 	    @display   = display
 	    @relations = []
 
-	    relations[EVENT_ROOT_INDEX] = Roby::EventStructure.enum_for(:each_relation).to_a
 	    relations[TASK_ROOT_INDEX]  = Roby::TaskStructure.enum_for(:each_relation).to_a
 	end
 
@@ -207,15 +206,12 @@ module Ui
 		    relations = Roby::TaskStructure.relations
 		else
 		    relations.map! do |relname|
-			rel = (Roby::TaskStructure.relations.find { |rel| rel.name =~ /#{relname}/ }) ||
-			    (Roby::EventStructure.relations.find { |rel| rel.name =~ /#{relname}/ })
-
-			    unless rel
-				STDERR.puts "Unknown relation #{relname}. Available relations are:"
-				STDERR.puts "  Tasks: " + Roby::TaskStructure.enum_for(:each_relation).map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
-				STDERR.puts "  Events: " + Roby::EventStructure.enum_for(:each_relation).map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
-				exit(1)
-			    end
+			rel = Roby::TaskStructure.relations.find { |rel| rel.name =~ /#{relname}/ }
+			unless rel
+			    STDERR.puts "Unknown relation #{relname}. Available relations are:"
+			    STDERR.puts "  Tasks: " + Roby::TaskStructure.enum_for(:each_relation).map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
+			    exit(1)
+			end
 
 			rel
 		    end
