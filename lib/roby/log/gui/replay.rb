@@ -131,18 +131,25 @@ class Replay < Qt::MainWindow
 		end
 		[min, max]
 	    end
-		    
+
 	    @first_sample = @time = min
 	    @last_sample  = max
-	    ui_controls.progress.minimum = first_sample.to_i
-	    ui_controls.progress.maximum = last_sample.to_i
+
+	    min = (min.to_i / 1000)
+	    max = (max.to_i / 1000.0).ceil
+	    ui_controls.progress.minimum = min
+	    ui_controls.progress.maximum = max
 	    ui_controls.update_bookmarks_menu
 	else
 	    play_until time
 	end
 
-	ui_controls.time_lcd.display(self.time - first_sample)
-	ui_controls.progress.value = self.time.to_i
+	update_time_display
+    end
+
+    def update_time_display
+	ui_controls.time_lcd.display(((self.time - first_sample) * 1000.0).round / 1000.0)
+	ui_controls.progress.value = (self.time.to_i / 1000.0).round
     end
 
     attr_reader :time
@@ -202,8 +209,7 @@ class Replay < Qt::MainWindow
 	updated_streams = Set.new
 
 	timeline.sort_by { |t, _| t }
-	while !timeline.empty? && timeline[0][0] <= max_time
-	    timeline.sort_by { |t, _| t }
+	while !timeline.empty? && (timeline[0][0] - max_time) < 0.001
 	    @time, stream = timeline.first
 
 	    stream.advance
@@ -213,6 +219,7 @@ class Replay < Qt::MainWindow
 	    else
 		timeline.shift
 	    end
+	    timeline.sort_by { |t, _| t }
 	end
 
 	replayed = Time.now
@@ -228,13 +235,14 @@ class Replay < Qt::MainWindow
 	end
 
 	if time > last_sample
-	    last_sample = time
-	    if ui_controls.progress.maximum < time.to_i
-		ui_controls.progress.maximum = (first_sample + (last_sample - first_sample) * 4 / 3).to_i
+	    @last_sample = time
+
+	    time_display = (time.to_i / 1000.0).round
+	    if ui_controls.progress.maximum < time_display
+		ui_controls.progress.maximum = (first_sample + (last_sample - first_sample) * 4 / 3).to_i / 1000
 	    end
 	end
-	ui_controls.progress.value = time.to_i
-	ui_controls.time_lcd.display(time - first_sample)
+	update_time_display
 
     rescue Exception => e
 	message = "<html>#{Qt.escape(e.message)}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"
