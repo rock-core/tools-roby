@@ -1,3 +1,4 @@
+require 'roby/log'
 module Roby::Log
     # == Displaying log data
     #
@@ -19,6 +20,22 @@ module Roby::Log
 	attr_reader :name
 	# The stream type, as a string.
 	attr_reader :type
+
+	def self.open(basename)
+	    stream = new(basename)
+	    stream.open
+
+	    if block_given?
+		begin
+		    yield(stream)
+		ensure
+		    stream.logfile.close
+		end
+	    else
+		stream
+	    end
+	end
+
 
 	def initialize(name, type)
 	    @id   = object_id
@@ -43,6 +60,10 @@ module Roby::Log
 	    clear
 	end
 	def read_all; end
+
+	def read_and_decode
+	    self.class.decode(read)
+	end
 
 	# The [min, max] range of available samples. Initially
 	# [nil, nil]
