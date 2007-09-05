@@ -567,7 +567,7 @@ module Roby
 
 	@@event_gathering = Hash.new { |h, k| h[k] = ValueSet.new }
 	# If a generator in +events+ fires, add the fired event in +collection+
-	def self.gather_events(collection, *events)
+	def self.gather_events(collection, events)
 	    for ev in events
 		event_gathering[ev] << collection
 	    end
