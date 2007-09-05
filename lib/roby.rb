@@ -17,6 +17,7 @@ require 'roby/event'
 require 'roby/plan'
 require 'roby/query'
 require 'roby/control'
+require 'roby/decision_control'
 
 require 'roby/propagation'
 require 'roby/relations/events'
