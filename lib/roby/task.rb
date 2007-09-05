@@ -344,7 +344,9 @@ module Roby
 	    arguments.slice(*task_model.arguments)
 	end
 	# The task name
-	attr_reader :name
+	def name
+	    @name ||= "#{model.name || self.class.name}#{arguments.to_s}:0x#{address.to_s(16)}"
+	end
 	
 	# This predicate is true if this task is a mission for its owners. If
 	# you want to know if it a mission for the local pDB, use Plan#mission?
@@ -372,7 +374,6 @@ module Roby
 	    @arguments.merge!(arguments) if arguments
 
 	    @model = self.class
-	    @name = "#{model.name || self.class.name}#{arguments.to_s}:0x#{address.to_s(16)}"
 
             yield(self) if block_given?
 	    super() if defined? super
