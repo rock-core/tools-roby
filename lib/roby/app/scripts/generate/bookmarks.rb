@@ -57,7 +57,7 @@ class Roby::Log::EventMatcher
 
     def parse(expr, &block)
 	case expr
-	when /^(start|ready|stop)\((.*)\)$/
+	when /^(\w+)\((.*)\)$/
 	    method = :generator_fired
 	    task_model = Regexp.new($2)
 	    symbol = $1.to_sym
@@ -126,7 +126,9 @@ config.each do |name, (start_point, end_point)|
 	bookmarks[name] << [args[0]]
     end
     filter.parse(end_point) do |args|
-	bookmarks[name].last[1] = args[0]
+	if bookmarks[name].last && bookmarks[name].last[0] && !bookmarks[name].last[1]
+	    bookmarks[name].last[1] = args[0]
+	end
     end
 end
 
