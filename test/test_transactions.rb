@@ -74,17 +74,17 @@ module TC_TransactionBehaviour
 	t = prepare_plan :tasks => 1
 	transaction_commit(plan, t) do |trsc, p|
 	    trsc.discover(p)
-	    assert(p.event(:start).child_object?(p.event(:stop), Roby::EventStructure::Precedence))
+	    assert(p.event(:start).child_object?(p.event(:updated_data), Roby::EventStructure::Precedence))
 	    assert(p.event(:failed).child_object?(p.event(:stop), Roby::EventStructure::Forwarding))
 	end
-	assert(t.event(:start).child_object?(t.event(:stop), Roby::EventStructure::Precedence))
+	assert(t.event(:start).child_object?(t.event(:updated_data), Roby::EventStructure::Precedence))
 	assert(t.event(:failed).child_object?(t.event(:stop), Roby::EventStructure::Forwarding))
 
 	t = prepare_plan :discover => 1
 	transaction_commit(plan, t) do |trsc, p|
 	    trsc.insert(p)
 	end
-	assert(t.event(:start).child_object?(t.event(:stop), Roby::EventStructure::Precedence))
+	assert(t.event(:start).child_object?(t.event(:updated_data), Roby::EventStructure::Precedence))
 	assert(t.event(:failed).child_object?(t.event(:stop), Roby::EventStructure::Forwarding))
     end
 

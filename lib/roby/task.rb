@@ -390,38 +390,71 @@ module Roby
 	def instantiate_model_event_relations
 	    return if @instantiated_model_events
 	    # Add the model-level signals to this instance
-	    
-	    for symbol, generator in bound_events
-	        for signalled in model.signals(symbol)
-	            generator.signal bound_events[signalled]
-	        end
-
-	        for signalled in model.forwardings(symbol)
-	            generator.forward bound_events[signalled]
-	        end
-
-	        for signalled in model.causal_links(symbol)
-	            generator.add_causal_link bound_events[signalled]
-	        end
-	    end
-
-	    start_event = bound_events[:start]
-	    for symbol, generator in bound_events
-	        if symbol != :start
-	            start_event.add_precedence(generator)
-	        end
-	    end
-
 	    @instantiated_model_events = true
+	    
+	    left_border = bound_events.values.to_value_set
+	    right_border = bound_events.values.to_value_set
+
+	    model.each_signal_set do |generator, signalled_events|
+		next if signalled_events.empty?
+	        generator = bound_events[generator]
+	        right_border.delete(generator)
+
+	        for signalled in signalled_events
+	            signalled = bound_events[signalled]
+	            generator.signal signalled
+	            left_border.delete(signalled)
+	        end
+	    end
+
+
+	    model.each_forwarding_set do |generator, signalled_events|
+		next if signalled_events.empty?
+	        generator = bound_events[generator]
+	        right_border.delete(generator)
+
+	        for signalled in signalled_events
+	            signalled = bound_events[signalled]
+	            generator.forward signalled
+	            left_border.delete(signalled)
+	        end
+	    end
+
+	    model.each_causal_link_set do |generator, signalled_events|
+		next if signalled_events.empty?
+	        generator = bound_events[generator]
+	        right_border.delete(generator)
+
+	        for signalled in signalled_events
+	            signalled = bound_events[signalled]
+	            generator.add_causal_link signalled
+	            left_border.delete(signalled)
+	        end
+	    end
+
 	    update_terminal_flag
+
+	    # WARNING: this works only because:
+	    #   * there is always at least updated_data as an intermediate event
+	    #   * there is always one terminal event which is not stop
+	    start_event = bound_events[:start]
+	    stop_event  = bound_events[:stop]
+	    left_border.delete(start_event)
+	    right_border.delete(start_event)
+	    left_border.delete(stop_event)
+	    right_border.delete(stop_event)
+
+	    for generator in left_border
+		start_event.add_precedence(generator) unless generator.terminal?
+	    end
 
 	    # WARN: the start event CAN be terminal: it can be a signal from
 	    # :start to a terminal event
 	    #
 	    # Create the precedence relations between 'normal' events and the terminal events
-	    for terminal in terminal_events
-	        next if terminal.symbol == :start
-	        for _, generator in bound_events
+	    for terminal in left_border
+		next unless terminal.terminal?
+	        for generator in right_border
 	            unless generator.terminal?
 	        	generator.add_precedence(terminal)
 	            end
@@ -1131,7 +1164,7 @@ module Roby
 	event :success, :terminal => true
 	event :failed,  :terminal => true
 
-	event :aborted, :terminal => true
+	event :aborted
 	forward :aborted => :failed
 
 	attr_reader :data

@@ -60,7 +60,7 @@ class TC_Propagation < Test::Unit::TestCase
 	task = Roby::Task.new
 	Roby.plan.discover(task)
 	assert(Propagation.event_ordering.empty?)
-	assert(EventStructure::Precedence.linked?(task.event(:start), task.event(:failed)))
+	assert(EventStructure::Precedence.linked?(task.event(:start), task.event(:updated_data)))
 
 	e1.signal e2
 	assert(EventStructure::Precedence.linked?(e1, e2))
