@@ -296,12 +296,10 @@ module Roby
 		end
 	    end
 
-	    # Require all common task models
-	    task_dir = File.join(APP_DIR, 'tasks')
-	    Dir.new(task_dir).each do |task_file|
-		task_file = File.join('tasks', task_file)
-		require task_file if task_file =~ /\.rb$/ && File.file?(task_file)
-	    end
+	    # Require all common task models and the task models specific to
+	    # this robot
+	    require_dir(File.join(APP_DIR, 'tasks'))
+	    require_robotdir(File.join(APP_DIR, 'tasks', 'ROBOT'))
 
 	    Roby::State.datadirs = []
 	    datadir = File.join(APP_DIR, "data")
@@ -554,6 +552,23 @@ module Roby
 	    end
 
 	    call_plugins(:stop_server, self)
+	end
+
+	def require_dir(dirname)
+	    Dir.new(dirname).each do |file|
+		file = File.join(dirname, file)
+		file = file.gsub /^#{Regexp.quote(APP_DIR)}\//, ''
+		require file if file =~ /\.rb$/ && File.file?(file)
+	    end
+	end
+
+	def require_robotdir(pattern)
+	    return unless robot_name && robot_type
+
+	    [robot_name, robot_type].each do |name|
+		dirname = pattern.gsub /ROBOT/, name
+		require_dir(dirname) if File.directory?(dirname)
+	    end
 	end
 
 	def require_robotfile(pattern)
