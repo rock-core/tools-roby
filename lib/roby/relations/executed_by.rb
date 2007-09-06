@@ -48,7 +48,7 @@ module Roby::TaskStructure
 	# Defines a new execution agent for this task.
         def executed_by(agent)
 	    return if execution_agent == agent
-	    if !agent.event(:start).controlable?
+	    if !agent.event(:start).controlable? && !agent.running?
 		raise TaskModelViolation.new(self), "the start event of #{self}'s execution agent #{agent} is not controlable"
 	    end
 	    # Check that agent defines the :ready event
