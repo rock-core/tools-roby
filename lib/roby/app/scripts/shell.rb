@@ -24,8 +24,9 @@ app = Roby.app
 robot_name = ARGV.shift
 app.robot robot_name, (ARGV.shift || robot_name)
 require File.join(File.dirname(__FILE__), '..', 'load')
-app.droby['host'] = ":0"
 app.setup
+
+DRb.start_service
 
 require 'irb'
 IRB.setup(nil)

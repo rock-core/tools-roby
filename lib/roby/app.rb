@@ -338,6 +338,23 @@ module Roby
 	    # MainPlanner is always included in the planner list
 	    Roby.control.planners << MainPlanner
 	   
+
+	    # Set up the loaded plugins
+	    call_plugins(:setup, self)
+
+	    # If we are in test mode, import the test extensions from plugins
+	    if testing?
+		require 'roby/test/testcase'
+		each_plugin do |mod|
+		    puts mod
+		    if mod.const_defined?(:Test)
+			Roby::Test::TestCase.include mod.const_get(:Test)
+		    end
+		end
+	    end
+	end
+
+	def run(&block)
 	    # Set up dRoby, setting an Interface object as front server, for shell access
 	    host = droby['host'] || ""
 	    if host !~ /:\d+$/
@@ -367,22 +384,6 @@ module Roby
 		end
 	    end
 
-	    # Set up the loaded plugins
-	    call_plugins(:setup, self)
-
-	    # If we are in test mode, import the test extensions from plugins
-	    if testing?
-		require 'roby/test/testcase'
-		each_plugin do |mod|
-		    puts mod
-		    if mod.const_defined?(:Test)
-			Roby::Test::TestCase.include mod.const_get(:Test)
-		    end
-		end
-	    end
-	end
-
-	def run(&block)
 	    @robot_name ||= 'common'
 	    @robot_type ||= 'common'
 
