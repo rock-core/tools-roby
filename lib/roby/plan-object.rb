@@ -62,12 +62,9 @@ module Roby
 	    elsif other.plan && plan
 		raise InvalidPlanOperation, "cannot add a relation between two objects from different plans. #{self} is from #{plan} and #{other} is from #{other.plan}"
 	    elsif plan
-		plan = self.plan
-		other.instance_variable_set(:@plan, plan)
-		other
+		self.plan.discover(other)
 	    elsif other.plan
-		@plan = other.plan
-		self
+		other.plan.discover(self)
 	    end
 	end
 	protected :synchronize_plan
@@ -85,22 +82,10 @@ module Roby
 
 	def add_child_object(child, type, info = nil)
 	    if child.plan != plan
-		changed = root_object.synchronize_plan(child.root_object)
+		root_object.synchronize_plan(child.root_object)
 	    end
 
 	    super
-
-	    if changed
-		p = changed.plan
-		changed.instance_variable_set(:@plan, nil)
-		p.discover(changed)
-	    end
-
-	rescue Exception
-	    if changed
-		changed.instance_variable_set(:@plan, nil)
-	    end
-	    raise
 	end
 
 	def root_object; self end

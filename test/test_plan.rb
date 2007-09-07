@@ -308,8 +308,8 @@ module TC_PlanStatic
 	assert_equal(nil, t2.plan)
 	assert_raises(RuntimeError) { t1.realized_by t2 }
 	assert_equal(plan, t1.plan)
-	assert_equal(nil, t2.plan)
-	assert(!plan.include?(t2))
+	assert_equal(plan, t2.plan)
+	assert(plan.include?(t2))
     end
 end
 
