@@ -510,7 +510,8 @@ module Roby
 		plan.keepalive.dup.each { |t| plan.auto(t) }
 		plan.force_gc.merge( plan.known_tasks )
 
-		remaining = plan.known_tasks.find_all { |t| Plan.can_gc?(t) }
+		quaranteened_subplan = plan.useful_task_component(nil, ValueSet.new, plan.gc_quarantine.dup)
+		remaining = plan.known_tasks - quaranteened_subplan
 
 		if remaining.empty?
 		    # Have to call #garbage_collect one more to make
@@ -524,15 +525,16 @@ module Roby
 		    return
 		end
 
-		remaining = remaining.find_all do |task|
-		    !task.finished?
-		end
-
 		if last_stop_count != remaining.size
 		    if last_stop_count == 0
-			Roby.info "control quitting. Waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan):\n  #{remaining.join("\n  ")}"
+			Roby.info "control quitting. Waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan)"
+			Roby.debug "  " + remaining.to_a.join("\n  ")
 		    else
-			Roby.info "waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan):\n  #{remaining.join("\n  ")}"
+			Roby.info "waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan)"
+			Roby.debug "  #{remaining.to_a.join("\n  ")}"
+		    end
+		    if plan.gc_quarantine.size != 0
+			Roby.info "#{plan.gc_quarantine.size} tasks in quarantine"
 		    end
 		    @last_stop_count = remaining.size
 		end
@@ -709,10 +711,8 @@ module Roby
 		    @cycle_index += 1
 
 		rescue Exception => e
-		    unless quitting?
-			Roby.warn "Control quitting because of unhandled exception"
-			Roby.warn e.full_message
-		    end
+		    Roby.fatal "Control quitting because of unhandled exception"
+		    Roby.fatal e.full_message
 		    quit
 		end
 	    end
@@ -721,6 +721,13 @@ module Roby
 	    GC.enable if !already_disabled_gc
 	    stats[:end] = Time.now
 	    cycle_end(stats)
+
+	    if !plan.known_tasks.empty?
+		Roby.warn "the following tasks are still present in the plan:"
+		plan.known_tasks.each do |t|
+		    Roby.warn "  #{t}"
+		end
+	    end
 	end
 
 	@finalizers = []

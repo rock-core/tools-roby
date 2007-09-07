@@ -63,6 +63,11 @@ module Roby
 	# collected), but we want to GC anyway
 	attr_reader :force_gc
 
+	# A set of task for which GC should not be attempted, either because
+	# they are not interruptible or because their start or stop command
+	# failed
+	attr_reader :gc_quarantine
+
 	# The set of transactions which are built on top of this plan
 	attr_reader :transactions
 
@@ -81,6 +86,7 @@ module Roby
 	    @free_events = ValueSet.new
 	    @task_events = ValueSet.new
 	    @force_gc    = ValueSet.new
+	    @gc_quarantine = ValueSet.new
 	    @transactions = ValueSet.new
 	    @repairs     = Hash.new
 
@@ -346,7 +352,6 @@ module Roby
 		useful_task_component(complete_set, useful_set, (useful_set - old_useful_set))
 	    end
 	end
-	private :useful_task_component
 
 	# Returns the set of useful tasks in this plan
 	def locally_useful_tasks
@@ -553,13 +558,13 @@ module Roby
 
 		# Remote tasks are simply removed, regardless of other concerns
 		for t in remote_tasks
-		    Plan.debug "GC: removing the remote task #{t}"
+		    Plan.debug { "GC: removing the remote task #{t}" }
 		    remove_object(t)
 		end
 
 		if local_tasks.all? { |t| t.pending? || t.finished? }
 		    local_tasks.each do |t|
-			Plan.debug "GC: #{t} is not running, removed"
+			Plan.debug { "GC: #{t} is not running, removed" }
 			garbage(t)
 			remove_object(t)
 		    end
@@ -572,30 +577,36 @@ module Roby
 			garbage(t)
 			false
 		    else
-			Plan.debug "GC: ignoring #{t}, it is not root"
+			Plan.debug { "GC: ignoring #{t}, it is not root" }
 			true
 		    end
 		end
 
-		for t in local_tasks
+		(local_tasks - gc_quarantine).each do |t|
 		    if t.starting?
 			# wait for task to be started before killing it
-			Plan.debug "GC: #{t} is starting"
+			Plan.debug { "GC: #{t} is starting" }
 		    elsif t.pending? || t.finished?
-			Plan.debug "GC: #{t} is not running, removed"
+			Plan.debug { "GC: #{t} is not running, removed" }
 			remove_object(t)
 			did_something = true
 		    elsif !t.finishing?
 			if t.event(:stop).controlable?
-			    Plan.debug "GC: stopped #{t}"
-			    Roby::Control.once { t.stop!(nil) }
+			    Plan.debug { "GC: stopping #{t}" }
+			    if !t.respond_to?(:stop!)
+				Plan.fatal "something fishy: #{t}/stop is controlable but there is not #stop! method"
+				gc_quarantine << t
+			    else
+				Roby::Control.once { t.stop!(nil) }
+			    end
 			else
-			    Plan.debug "GC: ignored #{t}, it cannot be stopped"
+			    Plan.warn "GC: ignored #{t}, it cannot be stopped"
+			    gc_quarantine << t
 			end
 		    elsif t.finishing?
-			Plan.debug "GC: waiting for #{t} to finish"
+			Plan.debug { "GC: waiting for #{t} to finish" }
 		    else
-			Plan.debug "GC: ignored #{t}"
+			Plan.warn "GC: ignored #{t}"
 		    end
 		end
 	    end
