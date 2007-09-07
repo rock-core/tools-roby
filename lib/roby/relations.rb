@@ -222,9 +222,11 @@ module Roby
 	    # Get the toplevel DAG in our relation hierarchy. We only test for the
 	    # DAG property on this one, as it is the union of all its children
 	    top_dag = nil
+	    new_relations = []
 	    rel     = self
 	    while rel
 		top_dag = rel if rel.dag?
+		new_relations << rel
 		rel = rel.parent
 	    end
 	    if top_dag && !top_dag.linked?(from, to) && top_dag.reachable?(to, from)
@@ -233,28 +235,27 @@ module Roby
 
 	    # Now compute the set of relations in which we really have to add a
 	    # new relation
-	    new_relations = []
-	    changed_info  = []
-	    rel = self
-	    while rel
-		if rel.linked?(from, to)
-		    if !(old_info = from[to, rel]).nil?
-			if old_info == info
-			    break
-			else
-			    raise ArgumentError, "trying to change edge information"
-			end
+	    top_rel = new_relations.last
+	    if top_rel.linked?(from, to)
+		if !(old_info = from[to, top_rel]).nil?
+		    if old_info != info
+			raise ArgumentError, "trying to change edge information"
 		    end
-		    changed_info << rel
-		else
-		    new_relations.push rel
 		end
 
-		rel = rel.parent
-	    end
+		changed_info = [new_relations.pop]
 
-	    for rel in changed_info
-		from[to, rel] = info
+		while !new_relations.empty?
+		    if new_relations.last.linked?(from, to)
+			changed_info << new_relations.pop
+		    else
+			break
+		    end
+		end
+
+		for rel in changed_info
+		    from[to, rel] = info
+		end
 	    end
 
 	    unless new_relations.empty?

@@ -58,10 +58,7 @@ module Roby::TaskStructure
 	    if relations.include?(Hierarchy)
 		events = info[:success].map { |ev| child.event(ev) }
 		events.concat info[:failure].map { |ev| child.event(ev) }
-		if !events.all? { |ev| ev.respond_to?(:task) }
-		    raise
-		end
-		Roby::EventGenerator.gather_events(Hierarchy.interesting_events, *events)
+		Roby::EventGenerator.gather_events(Hierarchy.interesting_events, events)
 	    end
 	end
 

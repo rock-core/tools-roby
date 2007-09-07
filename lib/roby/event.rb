@@ -110,8 +110,6 @@ module Roby
 	    @executable = true
 	    @unreachable_handlers = []
 
-	    super() if defined? super
-
 	    if command_object || command_block
 		self.command = if command_object.respond_to?(:call)
 				   command_object
@@ -128,11 +126,8 @@ module Roby
 	end
 
 	# The current command block
-	attr_reader :command
+	attr_accessor :command
 
-	# Sets a command proc for this event generator. Sets controlable to true
-	attr_writer :command
-	
 	# True if this event is controlable
 	def controlable?; !!@command end
 
@@ -567,7 +562,7 @@ module Roby
 
 	@@event_gathering = Hash.new { |h, k| h[k] = ValueSet.new }
 	# If a generator in +events+ fires, add the fired event in +collection+
-	def self.gather_events(collection, *events)
+	def self.gather_events(collection, events)
 	    for ev in events
 		event_gathering[ev] << collection
 	    end

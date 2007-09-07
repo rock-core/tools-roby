@@ -240,28 +240,25 @@ module Roby
 		tasks = tasks.to_value_set
 		new_tasks = useful_task_component(nil, tasks, tasks)
 		unless new_tasks.empty?
+		    old_task_events = task_events.dup
 		    new_tasks = discover_task_set(new_tasks)
 
 		    # now, we include the set of free events that are linked to
 		    # +new_tasks+ in +events+
-		    task_events = ValueSet.new
 		    EventStructure.each_root_relation do |rel|
-		        for task in new_tasks
-		            for _, ev in task.bound_events
-		        	next if task_events.include?(ev)
-		        	task_events.merge ev.component(rel).to_value_set
-		            end
-		        end
+			components = rel.generated_subgraphs(task_events - old_task_events, false)
+			components.concat rel.reverse.generated_subgraphs(task_events - old_task_events, false)
+			for c in components
+			    events.merge(c.to_value_set - task_events - free_events)
+			end
 		    end
 
-		    task_events.each do |ev|
-		        events << ev if ev.root_object?
-		    end
+		    events.delete_if { |ev| !ev.root_object? }
 		end
 	    end
 
+	    raise unless (task_events & events).empty?
 	    if events
-		events = events.to_value_set
 		discover_event_set(events)
 	    end
 
@@ -274,7 +271,7 @@ module Roby
 	# This is for internal use, use #discover instead
 	def discover_event_set(events)
 	    events = events.difference(free_events)
-	    events.each do |e|
+	    for e in events
 		if !e.root_object?
 		    raise ArgumentError, "trying to discover #{e} which is a non-root event"
 		end

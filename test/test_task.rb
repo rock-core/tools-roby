@@ -54,6 +54,39 @@ class TC_Task < Test::Unit::TestCase
 	end
     end
 
+    Precedence = Roby::EventStructure::Precedence
+    def assert_direct_precedence(task, relations)
+	relations.each do |from, to|
+	    from = task.event(from)
+	    to   = to.map { |sym| task.event(sym) }
+
+	    assert_equal(to.to_value_set, from.child_objects(Precedence).to_value_set, from.symbol)
+	end
+    end
+
+    def test_instantiate_model_event_relations
+	# Create a task model with two intermediate events being
+	# linked by a causal link
+	task = Class.new(Roby::Test::SimpleTask) do
+	    event :first
+	    event :second
+	    event :third
+	    causal_link :first => :third
+	    causal_link :second => :third
+	end.new
+	plan.discover(task)
+
+	assert_direct_precedence task, 
+	    :start => [:first, :second, :updated_data],
+	    :first => [:third],
+	    :second => [:third],
+	    :third => [:success, :aborted],
+	    :aborted => [:failed],
+	    :failed => [:stop],
+	    :success => [:stop]
+
+    end
+
     # Tests that an event is controlable if there is a method with the same
     # name in the task model
     def test_command_method
