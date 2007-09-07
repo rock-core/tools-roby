@@ -147,10 +147,8 @@ module Roby::TaskStructure
 	    elsif !agent.event(:ready).happened? && !agent.depends_on?(task)
 		postpone(agent.event(:ready), "spawning execution agent #{agent} for #{self}") do
 		    if agent.pending?
-			agent.event(:start).on do
-			    agent.event(:stop).until(agent.event(:ready)).on do |event|
-				self.emit_failed "execution agent #{agent} failed to initialize\n  #{event.context}"
-			    end
+			agent.event(:ready).if_unreachable(true) do
+			    self.emit_failed "execution agent #{agent} failed to initialize\n  #{event.context}"
 			end
 			agent.start!
 		    end
