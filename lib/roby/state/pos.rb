@@ -1,5 +1,4 @@
 module Roby::Pos
-
     class Vector3D
 	attr_accessor :x, :y, :z
 
@@ -14,6 +13,8 @@ module Roby::Pos
 	def -(v); Vector3D.new(x - v.x, y - v.y, z - v.z) end
 	def *(a); Vector3D.new(x * a, y * a, z * a) end
 	def /(a); Vector3D.new(x / a, y / a, z / a) end
+
+	def xyz; [x, y, z] end
 
 	def distance(x = 0, y = nil, z = nil)
 	    if !y && x.respond_to?(:x)
@@ -33,6 +34,10 @@ module Roby::Pos
 	def initialize(x = 0, y = 0, z = 0, yaw = 0, pitch = 0, roll = 0)
 	    super(x, y, z)
 	    @yaw, @pitch, @roll = yaw, pitch, roll
+	end
+
+	def ypr
+	    [yaw, pitch, roll]
 	end
 
 	def to_s; "#<Euler3D (x,y,z) = (%f,%f,%f); (y,p,r) = (%f,%f,%f)>" % [x,y,z,yaw,pitch,roll] end
