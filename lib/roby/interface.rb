@@ -256,12 +256,16 @@ module Roby
 	    planner = PlanningTask.new(:planner_model => planner_model, :method_name => name, :method_options => options)
 	    task.planned_by planner
 
-	    Roby.execute do
-		control.plan.insert(task)
-		yield(planner, task) if block_given?
+	    begin
+		Roby.wait_until(planner.event(:success)) do
+		    control.plan.insert(task)
+		    planner.start!
+		end
+	    rescue Roby::UnreachableEvent
+		raise RuntimeError, "cannot start #{name}: #{planner.terminal_event.context.first}"
 	    end
 
-	    nil
+	    planner.planned_task
 	end
     end
 
