@@ -548,6 +548,9 @@ module Roby
 		force_gc.merge(force_on.to_value_set)
 	    end
 
+	    # The set of tasks for which we queued stop! at this cycle
+	    # #finishing? is false until the next event propagation cycle
+	    finishing = ValueSet.new
 	    did_something = true
 	    while did_something
 		did_something = false
@@ -582,21 +585,26 @@ module Roby
 		    end
 		end
 
-		(local_tasks - gc_quarantine).each do |t|
-		    if t.starting?
+		(local_tasks - finishing - gc_quarantine).each do |t|
+		    if t.pending? 
+			Plan.warn "removing pending task #{t}"
+			remove_object(t)
+			did_something = true
+		    elsif t.starting?
 			# wait for task to be started before killing it
 			Plan.debug { "GC: #{t} is starting" }
-		    elsif t.pending? || t.finished?
+		    elsif t.finished?
 			Plan.debug { "GC: #{t} is not running, removed" }
 			remove_object(t)
 			did_something = true
 		    elsif !t.finishing?
 			if t.event(:stop).controlable?
-			    Plan.debug { "GC: stopping #{t}" }
+			    Plan.info { "GC: stopping #{t}" }
 			    if !t.respond_to?(:stop!)
-				Plan.fatal "something fishy: #{t}/stop is controlable but there is not #stop! method"
+				Plan.fatal "something fishy: #{t}/stop is controlable but there is no #stop! method"
 				gc_quarantine << t
 			    else
+				finishing << t
 				Roby::Control.once { t.stop!(nil) }
 			    end
 			else
@@ -653,8 +661,6 @@ module Roby
 	    when Task
 		task_index.remove(object)
 
-		# NOTE: we MUST use instance variables directly here. Otherwise,
-		# transaction commits would be broken
 		for ev in object.bound_events.values
 		    task_events.delete(ev)
 		    finalized_event(ev)

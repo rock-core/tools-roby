@@ -437,6 +437,40 @@ class TC_Plan < Test::Unit::TestCase
 	assert(!b.event(:start).happened?)
     end
 
+    # Test the case where the GC does more than one loop
+    def test_gc_did_something
+	running_task = nil
+	FlexMock.use do |mock|
+	    running_task = Class.new(Task) do
+		event :start, :command => true
+		event :stop do
+		    mock.stop
+		end
+	    end.new
+
+	    plan.discover(running_task)
+	    t1, t2 = Roby::Task.new, Roby::Task.new
+	    t1.realized_by t2
+	    plan.discover(t1)
+
+	    running_task.start!
+	    mock.should_receive(:stop).once
+	    plan.garbage_collect
+	    process_events
+
+	    assert(running_task.finishing?)
+	    assert(!plan.include?(t1))
+	    assert(!plan.include?(t2))
+
+	    running_task.emit(:stop)
+	    plan.garbage_collect
+	    assert(!plan.include?(running_task))
+	end
+
+    ensure
+	running_task.emit(:stop) if running_task && !running_task.finished?
+    end
+
     def test_garbage_collect_events
 	t  = SimpleTask.new
 	e1 = EventGenerator.new(true)
