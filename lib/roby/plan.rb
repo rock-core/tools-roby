@@ -599,7 +599,7 @@ module Roby
 			did_something = true
 		    elsif !local_task.finishing?
 			if local_task.event(:stop).controlable?
-			    Plan.info { "GC: queueing #{local_task}/stop" }
+			    Plan.debug { "GC: queueing #{local_task}/stop" }
 			    if !local_task.respond_to?(:stop!)
 				Plan.fatal "something fishy: #{local_task}/stop is controlable but there is no #stop! method"
 				gc_quarantine << local_task
