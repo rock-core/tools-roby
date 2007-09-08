@@ -437,34 +437,48 @@ class TC_Plan < Test::Unit::TestCase
 	assert(!b.event(:start).happened?)
     end
 
-    # Test the case where the GC does more than one loop
-    def test_gc_did_something
+    # Test a setup where there is both pending tasks and running tasks. This
+    # checks that #stop! is called on all the involved tasks. This tracks
+    # problems related to bindings in the implementation of #garbage_collect:
+    # the killed task bound to the Control.once block must remain the same.
+    def test_gc_stopping
 	running_task = nil
 	FlexMock.use do |mock|
-	    running_task = Class.new(Task) do
+	    task_model = Class.new(Task) do
 		event :start, :command => true
 		event :stop do
-		    mock.stop
+		    mock.stop(self)
 		end
-	    end.new
+	    end
 
-	    plan.discover(running_task)
+	    running_tasks = (1..5).map do
+		task_model.new
+	    end
+
+	    plan.discover(running_tasks)
 	    t1, t2 = Roby::Task.new, Roby::Task.new
 	    t1.realized_by t2
 	    plan.discover(t1)
 
-	    running_task.start!
-	    mock.should_receive(:stop).once
+	    running_tasks.each do |t|
+		t.start!
+		mock.should_receive(:stop).with(t).once
+	    end
+		
 	    plan.garbage_collect
 	    process_events
 
-	    assert(running_task.finishing?)
 	    assert(!plan.include?(t1))
 	    assert(!plan.include?(t2))
+	    running_tasks.each do |t|
+		assert(t.finishing?)
+		t.emit(:stop)
+	    end
 
-	    running_task.emit(:stop)
 	    plan.garbage_collect
-	    assert(!plan.include?(running_task))
+	    running_tasks.each do |t|
+		assert(!plan.include?(t))
+	    end
 	end
 
     ensure

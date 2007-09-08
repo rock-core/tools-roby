@@ -585,36 +585,39 @@ module Roby
 		    end
 		end
 
-		(local_tasks - finishing - gc_quarantine).each do |t|
-		    if t.pending? 
-			Plan.warn "removing pending task #{t}"
-			remove_object(t)
+		(local_tasks - finishing - gc_quarantine).each do |local_task|
+		    if local_task.pending? 
+			Plan.warn "GC: removing pending task #{local_task}"
+			remove_object(local_task)
 			did_something = true
-		    elsif t.starting?
+		    elsif local_task.starting?
 			# wait for task to be started before killing it
-			Plan.debug { "GC: #{t} is starting" }
-		    elsif t.finished?
-			Plan.debug { "GC: #{t} is not running, removed" }
-			remove_object(t)
+			Plan.debug { "GC: #{local_task} is starting" }
+		    elsif local_task.finished?
+			Plan.debug { "GC: #{local_task} is not running, removed" }
+			remove_object(local_task)
 			did_something = true
-		    elsif !t.finishing?
-			if t.event(:stop).controlable?
-			    Plan.info { "GC: stopping #{t}" }
-			    if !t.respond_to?(:stop!)
-				Plan.fatal "something fishy: #{t}/stop is controlable but there is no #stop! method"
-				gc_quarantine << t
+		    elsif !local_task.finishing?
+			if local_task.event(:stop).controlable?
+			    Plan.info { "GC: queueing #{local_task}/stop" }
+			    if !local_task.respond_to?(:stop!)
+				Plan.fatal "something fishy: #{local_task}/stop is controlable but there is no #stop! method"
+				gc_quarantine << local_task
 			    else
-				finishing << t
-				Roby::Control.once { t.stop!(nil) }
+				finishing << local_task
+				Roby::Control.once do
+				    Plan.debug { "GC: stopping #{local_task}" }
+				    local_task.stop!(nil)
+				end
 			    end
 			else
-			    Plan.warn "GC: ignored #{t}, it cannot be stopped"
-			    gc_quarantine << t
+			    Plan.warn "GC: ignored #{local_task}, it cannot be stopped"
+			    gc_quarantine << local_task
 			end
-		    elsif t.finishing?
-			Plan.debug { "GC: waiting for #{t} to finish" }
+		    elsif local_task.finishing?
+			Plan.debug { "GC: waiting for #{local_task} to finish" }
 		    else
-			Plan.warn "GC: ignored #{t}"
+			Plan.warn "GC: ignored #{local_task}"
 		    end
 		end
 	    end
