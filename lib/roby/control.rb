@@ -774,7 +774,11 @@ module Roby
 	attr_reader :cycle_index
 
 	# Hook called when a set of tasks is being killed because of an exception
-	def self.fatal_exception(error, tasks); super if defined? super end
+	def self.fatal_exception(error, tasks)
+	    super if defined? super
+	    Roby.fatal "#{error.exception.message}: killing\n  #{tasks.to_a.join("\n  ")}"
+	    Roby.info error.exception.full_message
+	end
 	# Hook called when an exception +e+ has been handled by +task+
 	def self.handled_exception(e, task); super if defined? super end
     end
