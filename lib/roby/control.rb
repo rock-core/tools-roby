@@ -351,8 +351,10 @@ module Roby
 	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
 		tasks ||= [*error.task]
 		for parent in [*tasks]
-		    new_tasks = parent.reverse_generated_subgraph(TaskStructure::Hierarchy)
-		    Control.fatal_exception(error, new_tasks)
+		    new_tasks = parent.reverse_generated_subgraph(TaskStructure::Hierarchy) - plan.force_gc
+		    if !new_tasks.empty?
+			Control.fatal_exception(error, new_tasks)
+		    end
 		    kill_tasks.merge(new_tasks)
 		end
 		kill_tasks
