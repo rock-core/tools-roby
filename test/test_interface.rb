@@ -18,25 +18,12 @@ class TC_Interface < Test::Unit::TestCase
         end
         control.planners << planner
 
-        planning = nil
-	iface.null_task! do |planning, _|
-	end
-	process_events
-        assert_kind_of(PlanningTask, planning)
-
-        mock_task = plan.missions.find { true }
-        assert(Task === mock_task, mock_task.class.inspect)
-
-	planning.start!
-        poll(0.5) do
-            thread_finished = !planning.thread.alive?
-            process_events
-            assert(planning.running? ^ thread_finished)
-            break unless planning.running?
-        end
+	control.run :detach => true
+	returned_task = iface.null_task!
 
 	plan_task = plan.missions.find { true }
-        assert(plan_task == result_task, plan_task)
+	assert_equal(returned_task, result_task)
+        assert_equal(plan_task, result_task)
     end
 end
 
