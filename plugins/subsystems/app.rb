@@ -122,7 +122,9 @@ module Roby
 		# Start the deepest tasks. The signalling order will do the rest.
 		# The 'ready' event is emitted when all the subsystem tasks are
 		Roby.wait_until(ready) do
-		    starting_point.call
+		    Roby.execute do
+			starting_point.call
+		    end
 		end
 
 		yield
