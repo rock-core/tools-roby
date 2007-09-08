@@ -343,6 +343,62 @@ class TC_Task < Test::Unit::TestCase
         assert_equal(start_model, start_event.event_model)
         assert_equal([:stop, :success].to_set, task.enum_for(:each_forwarding, :start).to_set)
     end
+    def test_status
+	task = Class.new(Roby::Task) do
+	    event :start do
+	    end
+	    event :failed, :terminal => true do
+	    end
+	    event :stop do
+		failed!
+	    end
+	end.new
+	plan.discover(task)
+
+	assert(task.pending?)
+	assert(!task.starting?)
+	assert(!task.running?)
+	assert(!task.success?)
+	assert(!task.failed?)
+	assert(!task.finishing?)
+	assert(!task.finished?)
+
+	task.start!
+	assert(!task.pending?)
+	assert(task.starting?)
+	assert(!task.running?)
+	assert(!task.success?)
+	assert(!task.failed?)
+	assert(!task.finishing?)
+	assert(!task.finished?)
+
+	task.emit(:start)
+	assert(!task.pending?)
+	assert(!task.starting?)
+	assert(task.running?)
+	assert(!task.success?)
+	assert(!task.failed?)
+	assert(!task.finishing?)
+	assert(!task.finished?)
+
+	task.stop!
+	assert(!task.pending?)
+	assert(!task.starting?)
+	assert(task.running?)
+	assert(!task.success?)
+	assert(!task.failed?)
+	assert(task.finishing?)
+	assert(!task.finished?)
+
+	task.emit(:failed)
+	assert(!task.pending?)
+	assert(!task.starting?)
+	assert(!task.running?)
+	assert(!task.success?)
+	assert(task.failed?)
+	assert(!task.finishing?)
+	assert(task.finished?)
+    end
 
     def test_context_propagation
 	FlexMock.use do |mock|
