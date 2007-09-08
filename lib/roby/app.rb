@@ -4,6 +4,8 @@ require 'roby/planning'
 require 'roby/log'
 require 'roby/log/event_stream'
 
+require 'roby/robot'
+
 module Roby
     # Returns the only one Application object
     def self.app; Application.instance end
@@ -249,18 +251,11 @@ module Roby
 	    end
 
 	    # Create the robot namespace
-	    robot_mod = Module.new do
-		class << self
-		    attr_accessor :logger
-		end
-		extend Logger::Forward
-	    end
 	    STDOUT.sync = true
-	    Object.const_set('Robot', robot_mod)
-	    robot_mod.logger = Logger.new(STDOUT)
-	    robot_mod.logger.level = Logger::INFO
-	    robot_mod.logger.formatter = Roby.logger.formatter
-	    robot_mod.logger.progname = robot_name
+	    Robot.logger = Logger.new(STDOUT)
+	    Robot.logger.level = Logger::INFO
+	    Robot.logger.formatter = Roby.logger.formatter
+	    Robot.logger.progname = robot_name
 
 	    # Set up log levels
 	    log['levels'].each do |name, value|
