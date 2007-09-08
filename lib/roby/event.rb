@@ -12,7 +12,21 @@ module Roby
 	end
     end
 
-    class UnreachableEvent < EventModelViolation; end
+    class UnreachableEvent < EventModelViolation
+	attr_reader :reason
+	def initialize(generator, reason)
+	    @reason = reason
+	    super(generator)
+	end
+
+	def message
+	    if reason
+		"#{generator} has become unreachable: #{reason}"
+	    else
+		"#{generator} has become unreachable"
+	    end
+	end
+    end
     class EventNotExecutable < EventModelViolation; end
     class EventCanceled < EventModelViolation; end
     class EventPreconditionFailed < EventModelViolation; end
@@ -420,8 +434,8 @@ module Roby
 		obj.forward self
 	    end
 
-	    obj.if_unreachable(true) do
-		msg = "#{obj} is unreachable, in #{stack.first}"
+	    obj.if_unreachable(true) do |reason|
+		msg = "#{obj} is unreachable#{ " (#{reason})" if reason }, in #{stack.first}"
 		if obj.respond_to?(:task)
 		    msg << "\n  " << obj.task.history.map { |ev| "#{ev.time.to_hms} #{ev.symbol}: #{ev.context}" }.join("\n  ")
 		end
@@ -592,13 +606,13 @@ module Roby
 	attr_predicate :unreachable?
 
 	# Called internally when the event becomes unreachable
-	def unreachable!
+	def unreachable!(reason = nil)
 	    return if @unreachable
 	    @unreachable = true
 
 	    unreachable_handlers.each do |_, block|
 		Propagation.gather_exceptions(self) do
-		    block.call(self)
+		    block.call(reason)
 		end
 	    end
 	    unreachable_handlers.clear
@@ -649,7 +663,7 @@ module Roby
 	    super do |context|
 		emit_if_achieved(context)
 	    end
-	    on { unreachable! }
+	    on { unreachable!(self) }
 
 	    # This hash is a event_generator => event mapping of the last
 	    # events of each event generator. We compare the event stored in
@@ -674,10 +688,10 @@ module Roby
 	    return unless relations.include?(EventStructure::Signal)
 	    @events[parent] = parent.last
 
-	    parent.if_unreachable(true) do
+	    parent.if_unreachable(true) do |reason|
 		# Check that the parent has not been removed since ...
 		if @events[parent] == parent.last
-		    unreachable!
+		    unreachable!(reason || parent)
 		end
 	    end
 	end
@@ -707,7 +721,7 @@ module Roby
 	    super do |context|
 		emit_if_first(context)
 	    end
-	    on { unreachable! }
+	    on { unreachable!(self) }
 	end
 
 	def empty?; parent_objects(EventStructure::Signal).empty? end
@@ -721,9 +735,9 @@ module Roby
 	    super if defined? super
 	    return unless relations.include?(EventStructure::Signal)
 
-	    parent.if_unreachable(true) do
+	    parent.if_unreachable(true) do |reason|
 		if !happened? && parent_objects(EventStructure::Signal).all? { |ev| ev.unreachable? }
-		    unreachable!
+		    unreachable!(reason || parent)
 		end
 	    end
 	end

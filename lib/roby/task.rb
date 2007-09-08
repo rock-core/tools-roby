@@ -153,7 +153,7 @@ module Roby
 	    super if defined? super
 	    
 	    if symbol == :stop
-		task.each_event { |ev| ev.unreachable! }
+		task.each_event { |ev| ev.unreachable!(task.terminal_event) }
 	    end
 	end
 

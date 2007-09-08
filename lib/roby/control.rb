@@ -172,9 +172,9 @@ module Roby
 		caller_thread = Thread.current
 
 		mt.synchronize do
-		    Roby.once do
-			ev.if_unreachable(true) do
-			    caller_thread.raise UnreachableEvent.new(ev)
+		    Roby::Control.once do
+			ev.if_unreachable(true) do |reason|
+			    caller_thread.raise UnreachableEvent.new(ev, reason)
 			end
 			ev.on do
 			    mt.synchronize { cv.broadcast }
