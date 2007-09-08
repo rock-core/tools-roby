@@ -4,14 +4,79 @@ require 'roby/planning'
 require 'facet/basicobject'
 require 'utilrb/column_formatter'
 require 'stringio'
+require 'roby/robot'
+
+module Robot
+    def self.prepare_action(name, arguments)
+	control = Roby.control
+
+	# Check if +name+ is a planner method, and in that case
+	# add a planning method for it and plan it
+	planner_model = control.planners.find do |planner_model|
+	    planner_model.has_method?(name)
+	end
+	if !planner_model
+	    raise ArgumentError, "no such planning method #{name}"
+	end
+
+	m = planner_model.model_of(name, arguments)
+
+	# HACK: m.returns should not be nil, but it sometimes happen
+	returns_model = (m.returns if m && m.returns) || Task.new
+
+	if returns_model.kind_of?(Roby::TaskModelTag)
+	    task = Roby::Task.new
+	    task.extend returns_model
+	else
+	    # Create an abstract task which will be planned
+	    task = returns_model.new
+	end
+
+	planner = Roby::PlanningTask.new(:planner_model => planner_model, :method_name => name, :method_options => arguments)
+	task.planned_by planner
+	return task, planner
+    end
+
+    def self.method_missing(name, *args)
+	if name.to_s =~ /!$/
+	    name = $`.to_sym
+	else
+	    super
+	end
+
+	if args.size > 1
+	    raise ArgumentError, "wrong number of arguments (#{args.size} for 1) in #{name}!"
+	end
+
+	options = args.first || {}
+	task, planner = Robot.prepare_action(name, options)
+	Roby.control.plan.insert(task)
+
+	return task, planner
+    end
+end
 
 module Roby
-    class TaskProxy < DRbObject
+    class RemoteObjectProxy < DRbObject
 	attr_accessor :remote_interface
 
 	def to_s; __method_missing__(:to_s) end
 	def pretty_print(pp)
 	    pp.text to_s
+	end
+
+	def self._load(str)
+	    drb_unmarshalled = super
+	    if drb_unmarshalled.kind_of?(DRbObject)
+		it = self.allocate
+		it.instance_variable_set('@uri', drb_unmarshalled.instance_variable_get(:@uri))
+		it.instance_variable_set('@ref', drb_unmarshalled.instance_variable_get(:@ref))
+		it
+	    else
+		drb_unmarshalled
+	    end
+	rescue Exception => e
+	    STDERR.puts e.full_message
 	end
 
 	alias __method_missing__ method_missing
@@ -133,7 +198,7 @@ module Roby
 
 	def remote_query_result_set(m_query)
 	    plan.query_result_set(m_query.to_query(plan)).
-		map { |t| TaskProxy.new(t) }
+		map { |t| RemoteObjectProxy.new(t) }
 	end
 
 	def remote_constant(name)
@@ -227,49 +292,24 @@ module Roby
 		super
 	    end
 
-	    # Check if +name+ is a planner method, and in that case
-	    # add a planning method for it and plan it
-	    planner_model = control.planners.find do |planner_model|
-		planner_model.has_method?(name)
-	    end
-	    super if !planner_model
-
 	    if args.size > 1
-		raise ArgumentError, "wrong number of arguments (#{args.size} for 1) in `#{planner_model}##{name}'"
+		raise ArgumentError, "wrong number of arguments (#{args.size} for 1) in #{name}!"
 	    end
+
 	    options = args.first || {}
-	    do_start = options.delete(:start) || options.delete('start')
-
-	    m = planner_model.model_of(name, options)
-
-	    # HACK: m.returns should not be nil, but it sometimes happen
-	    returns_model = (m.returns if m && m.returns) || Task.new
-
-	    if returns_model.kind_of?(TaskModelTag)
-		task = Roby::Task.new
-		task.extend returns_model
-	    else
-		# Create an abstract task which will be planned
-		task = returns_model.new
-	    end
-
-	    planner = PlanningTask.new(:planner_model => planner_model, :method_name => name, :method_options => options)
-	    task.planned_by planner
-
+	    task, planner = Robot.prepare_action(name, options)
 	    begin
 		Roby.wait_until(planner.event(:success)) do
 		    control.plan.insert(task)
-		    planner.start!
+		    yield(task, planner) if block_given?
 		end
 	    rescue Roby::UnreachableEvent
 		raise RuntimeError, "cannot start #{name}: #{planner.terminal_event.context.first}"
 	    end
 
-	    planner.planned_task
+	    RemoteObjectProxy.new(planner.planned_task)
 	end
     end
-
-
 end
 
 
