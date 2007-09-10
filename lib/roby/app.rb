@@ -250,6 +250,10 @@ module Roby
 		Dir.mkdir(log_dir)
 	    end
 
+	    if File.directory?(File.join(APP_DIR, 'lib'))
+		$LOAD_PATH.unshift File.join(APP_DIR, 'lib')
+	    end
+
 	    # Create the robot namespace
 	    STDOUT.sync = true
 	    Robot.logger = Logger.new(STDOUT)
