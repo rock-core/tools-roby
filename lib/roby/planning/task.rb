@@ -259,7 +259,7 @@ module Roby
 
 	def planned_task
 	    task = planned_tasks.find { true }
-	    if !task
+	    if !task && pending?
 		task = planned_model.new
 		task.planned_by self
 		task.executable = false
