@@ -102,7 +102,14 @@ module Roby
 		    positive = Array[*positive].to_value_set
 		    negative = Array[*negative].to_value_set
 
+		    unreachability_reason = ValueSet.new
 		    Roby::Control.synchronize do
+			positive.each do |ev|
+			    ev.if_unreachable(true) do |reason|
+				unreachability_reason << reason if reason
+			    end
+			end
+
 			error, result = Test.assert_any_event_result(positive, negative)
 			if error.nil?
 			    this_thread = Thread.current
@@ -119,7 +126,9 @@ module Roby
 			end
 
 			if error
-			    if msg
+			    if !unreachability_reason.empty?
+				flunk("#{msg} all positive events are unreachable for the following reason:\n  #{unreachability_reason.to_a.join("\n  ")}")
+			    elsif msg
 				flunk("#{msg} failed: #{result}")
 			    else
 				flunk(result)
