@@ -574,6 +574,8 @@ module Roby
 	end
 
 	def require_robotfile(pattern)
+	    return unless robot_name && robot_type
+
 	    robot_config = pattern.gsub /ROBOT/, robot_name
 	    if File.file?(robot_config)
 		require robot_config
