@@ -442,7 +442,7 @@ class TC_Planner < Test::Unit::TestCase
 	planning_task.start! if planning_task.pending?
 	planning_task.thread.join
 	process_events
-	assert(planning_task.success?)
+	assert(planning_task.success?, planning_task.terminal_event.context)
 	planning_task.planned_task
     end
 
