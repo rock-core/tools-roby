@@ -42,10 +42,10 @@ module Roby
 		    msg = "cannot develop a #{method_name}(#{method_options}) method"
 		    first, *rem = *Roby.filter_backtrace(backtrace)
 
-		    full = "#{first}: #{msg}\n   from #{rem.join("\n    from ")}"
+		    full = "#{first}: #{msg}\n   from #{rem.join("\n  from ")}"
 		    errors.each do |m, error|
 			first     = error.backtrace.first
-			full << "\n#{first} #{m} failed because of #{error.full_message}"
+			full << "\n#{first} #{m} failed because of\n #{error.full_message}"
 		    end
 		    full
 		end
