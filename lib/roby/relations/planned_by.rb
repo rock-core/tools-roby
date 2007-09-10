@@ -17,7 +17,7 @@ module Roby::TaskStructure
     # for which planning has failed
     def PlannedBy.check_planning(plan)
 	result = []
-	Roby::TaskStructure::PlannedBy.each_edge do |planning_task, planned_task, _|
+	Roby::TaskStructure::PlannedBy.each_edge do |planned_task, planning_task, _|
 	    next unless plan == planning_task.plan && planning_task.failed?
 	    next unless planned_task.pending? && !planned_task.executable? && planned_task.self_owned?
 	    result << Roby::PlanningFailedError.new(planned_task, planning_task)
@@ -47,10 +47,12 @@ module Roby
 
 	def message # :nodoc:
 	    msg = "failed to plan #{planned_task}.planned_by(#{planning_task}): failed with #{error.symbol}"
-	    if error.context.first.respond_to?(:full_message)
-		msg << "\n" << error.context.first.full_message
-	    else
-		msg << "(" << error.context.first << ")"
+	    if error.context
+		if error.context.first.respond_to?(:full_message)
+		    msg << "\n" << error.context.first.full_message
+		else
+		    msg << "(" << error.context.first << ")"
+		end
 	    end
 	    msg
 	end
