@@ -3,6 +3,12 @@ require 'roby/transactions'
 require 'roby/state/information'
 
 module Roby
+    class Task
+	def self.match
+	    TaskMatcher.new
+	end
+    end
+
     # The query class represents a search in a plan. 
     # It can be used locally on any Plan object, but 
     # is mainly used as an argument to DRb::Server#find
