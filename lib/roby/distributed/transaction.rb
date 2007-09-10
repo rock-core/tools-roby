@@ -287,6 +287,7 @@ module Roby
 			    Distributed.transaction_handler[trsc] if Distributed.transaction_handler
 			rescue 
 			    STDERR.puts "Transaction handler for #{trsc} failed with #{$!.full_message}"
+			    trsc.invalidate("failed transaction handler")
 			end
 		    end
 		end
