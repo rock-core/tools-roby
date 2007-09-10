@@ -161,6 +161,9 @@ module Roby
 	def once
 	    Roby::Control.once { yield }
 	end
+	def wait_one_cycle
+	    Roby.control.wait_one_cycle
+	end
 
 	# Stops the current thread until the given even is emitted
 	def wait_until(ev)
