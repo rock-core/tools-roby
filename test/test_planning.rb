@@ -773,5 +773,27 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal(id2, t2.method_options[:id])
     end
 
+    def test_replan_task
+	planner = Class.new(Planning::Planner) do
+	    method(:test_task) do
+	       	result_task = SimpleTask.new(:id => arguments[:task_id])
+		result_task.realized_by replan_task
+		plan.permanent(result_task)
+		result_task
+	    end
+	end.new(plan)
+
+	plan.permanent(task = planner.test_task(:task_id => 100))
+	assert_kind_of(SimpleTask, task)
+	assert_equal(100, task.arguments[:id])
+
+	assert(planning_task = task.enum_child_objects(Roby::TaskStructure::Hierarchy).to_a.first)
+	assert_kind_of(PlanningTask, planning_task)
+	assert(planning_task.pending?)
+
+	new_task = planning_task_result(planning_task)
+	assert_kind_of(SimpleTask, new_task, planning_task)
+	assert_equal(100, new_task.arguments[:id])
+    end
 end
 

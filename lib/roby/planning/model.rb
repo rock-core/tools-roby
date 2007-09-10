@@ -603,6 +603,18 @@ module Roby
 		MethodModel.new(name, :returns => Task)
 	    end
 
+	    def replan_task(strict = true)
+		method_options = arguments.dup
+		if strict
+		    method_options.merge!(:id => @stack.last[1])
+		end
+
+		Roby::PlanningTask.new :planner_model => self.class,
+		    :method_name => @stack.last[0], 
+		    :method_options => method_options
+	    end
+
+
             # Find a suitable development for the +name+ method.
             def plan_method(name, options = Hash.new)
                 name    = name.to_s
