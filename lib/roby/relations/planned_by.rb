@@ -8,7 +8,7 @@ module Roby::TaskStructure
 	def planned_tasks; parent_objects(PlannedBy) end
 	# Set +task+ as the planning task of +self+
         def planned_by(task)
-            raise TaskModelViolation.new(self), "this task already has a planner" if planning_task
+            raise Roby::TaskModelViolation.new(self), "this task already has a planner" if planning_task
 	    add_planning_task(task)
         end
     end

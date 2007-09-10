@@ -49,7 +49,7 @@ module Roby::TaskStructure
         def executed_by(agent)
 	    return if execution_agent == agent
 	    if !agent.event(:start).controlable? && !agent.running?
-		raise TaskModelViolation.new(self), "the start event of #{self}'s execution agent #{agent} is not controlable"
+		raise Roby::TaskModelViolation.new(self), "the start event of #{self}'s execution agent #{agent} is not controlable"
 	    end
 	    # Check that agent defines the :ready event
 	    if !agent.has_event?(:ready)
