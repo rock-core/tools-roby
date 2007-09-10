@@ -120,7 +120,11 @@ module Roby
 	    
 
 	def method_missing(m, *args)
-	    @interface.send(m, *args)
+	    result = @interface.send(m, *args)
+	    if result.kind_of?(RemoteObjectProxy)
+		result.remote_interface = @interface
+	    end
+	    result
 
 	rescue Exception => e
 	    raise e, e.message, Roby.filter_backtrace(e.backtrace)
