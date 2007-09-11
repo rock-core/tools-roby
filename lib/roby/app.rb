@@ -335,13 +335,9 @@ module Roby
 
 		if (mod = name.constantize rescue nil)
 		    if robot_name
-			if mod.logger.progname && !mod.logger.progname.empty?
-			    new_logger.progname  = mod.logger.progname + " (#{robot_name})"
-			else
-			    new_logger.progname  = robot_name
-			end
+			new_logger.progname = "#{name} #{robot_name}"
 		    else
-			new_logger.progname  = mod.logger.progname
+			new_logger.progname = name
 		    end
 		    mod.logger = new_logger
 		end
