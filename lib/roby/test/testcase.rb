@@ -253,6 +253,7 @@ module Roby
 		return if automatic_testing?
 
 		assert_block(msg) do
+		    STDOUT.puts "Now validating #{msg}"
 		    yield
 
 		    STDIN.ask("\rIs the result OK ? [N,y]", false)
