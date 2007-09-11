@@ -7,8 +7,14 @@ module Roby::TaskStructure
 	# The set of tasks which are planned by this one
 	def planned_tasks; parent_objects(PlannedBy) end
 	# Set +task+ as the planning task of +self+
-        def planned_by(task)
-            raise Roby::TaskModelViolation.new(self), "this task already has a planner" if planning_task
+        def planned_by(task, options = {})
+	    if old = planning_task
+		if options[:replace]
+		    remove_planning_task(task)
+		else
+		    raise Roby::TaskModelViolation.new(self), "this task already has a planner" if planning_task
+		end
+	    end
 	    add_planning_task(task)
         end
     end
