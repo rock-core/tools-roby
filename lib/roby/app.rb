@@ -190,6 +190,9 @@ module Roby
 		    raise ArgumentError, "#{name} is not a known plugin (#{available_plugins.map { |n, *_| n }.join(", ")})"
 		end
 		name, dir, mod, init = *plugin
+		if plugins.find { |n, m| n == name && m == mod }
+		    next
+		end
 
 		if init
 		    begin
