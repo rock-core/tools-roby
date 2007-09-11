@@ -7,10 +7,10 @@ module Roby
     # at initialization time, and other planning methods to 
     #
     # == Configuration
-    # The set of subsystems that should be considered is to be set through the State.subsystems
+    # The set of subsystems that should be considered is to be set through the State.services
     # configuration object:
     #
-    #   State.subsystems do |sys|
+    #   State.services do |sys|
     #	  sys.localization = 'pom'
     #	  sys.laser_ranges = 'sick'
     #	  sys.on_demand    = 'ranges'
