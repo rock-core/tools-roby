@@ -239,7 +239,42 @@ module Roby
 	def results_dir
 	    File.expand_path(log['results'] || 'results', APP_DIR)
 	end
-	
+
+	def self.unique_dirname(base_dir, path_spec)
+	    if path_spec =~ /\/$/
+		basename = ""
+		dirname = path_spec
+	    else
+		basename = File.basename(path_spec)
+		dirname  = File.dirname(path_spec)
+	    end
+
+	    date = Date.today
+	    date = "%i%02i%02i" % [date.year, date.month, date.mday]
+	    if basename && !basename.empty?
+		basename = date + "-" + basename
+	    else
+		basename = date
+	    end
+
+	    # Check if +basename+ already exists, and if it is the case add a
+	    # .x suffix to it
+	    full_path = File.expand_path(File.join(dirname, basename), base_dir)
+	    base_dir  = File.dirname(full_path)
+
+	    unless File.exists?(base_dir)
+		FileUtils.mkdir_p(base_dir)
+	    end
+
+	    final_path, i = full_path, 0
+	    while File.exists?(final_path)
+		i += 1
+		final_path = full_path + ".#{i}"
+	    end
+
+	    final_path
+	end
+
 	def setup
 	    # Set up the log directory first
 	    if testing? && File.exists?(log_dir)
