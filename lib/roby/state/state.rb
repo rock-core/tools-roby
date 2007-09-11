@@ -119,7 +119,20 @@ module Roby
 	    @observers[name] << block
 	end
 
-	def to_hash; @members.to_sym_keys end
+	# Converts this ExtendedStruct into a corresponding hash, where all
+	# keys are symbols. If +recursive+ is true, any member which responds
+	# to #to_hash will be converted as well
+	def to_hash(recursive = true)
+	    result = Hash.new
+	    @members.each do |k, v|
+		result[k.to_sym] = if recursive && v.respond_to?(:to_hash)
+				       v.to_hash
+				   else v
+				   end
+	    end
+	end
+
+	# Iterates on all defined members of this object
 	def each_member(&block)
 	    @members.each(&block)
 	end
