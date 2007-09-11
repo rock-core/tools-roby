@@ -232,7 +232,10 @@ module Roby
 	attr_reader :robot_name, :robot_type
 	def robot(name, type = name)
 	    if @robot_name
-		raise ArgumentError, "the robot is already set to #{name}, of type #{type}"
+		if name != @robot_name && type != @robot_type
+		    raise ArgumentError, "the robot is already set to #{name}, of type #{type}"
+		end
+		return
 	    end
 	    @robot_name = name
 	    @robot_type = type
