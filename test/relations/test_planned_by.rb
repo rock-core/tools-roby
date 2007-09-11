@@ -6,6 +6,20 @@ class TC_PlannedBy < Test::Unit::TestCase
     include Roby::Test
 
     PlannedBy = Roby::TaskStructure::PlannedBy
+    SimpleTask = Roby::Test::SimpleTask
+    def test_replace
+	task, p1, p2 = prepare_plan :discover => 3
+	task.planned_by p1
+
+	assert_raises(TaskModelViolation) { task.planned_by p2 }
+	assert(task.child_object?(p1, PlannedBy))
+	assert(!task.child_object?(p2, PlannedBy))
+
+	assert_nothing_raised { task.planned_by p2, :replace => true }
+	assert(!task.child_object?(p1, PlannedBy))
+	assert(task.child_object?(p2, PlannedBy))
+    end
+
     def test_check
 	task = Roby::Task.new
 	planner = Roby::Test::SimpleTask.new

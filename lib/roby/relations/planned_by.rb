@@ -10,9 +10,9 @@ module Roby::TaskStructure
         def planned_by(task, options = {})
 	    if old = planning_task
 		if options[:replace]
-		    remove_planning_task(task)
+		    remove_planning_task(old)
 		else
-		    raise Roby::TaskModelViolation.new(self), "this task already has a planner" if planning_task
+		    raise Roby::TaskModelViolation.new(self), "this task already has a planner"
 		end
 	    end
 	    add_planning_task(task)
