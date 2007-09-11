@@ -50,16 +50,20 @@ module Roby
 	#
 	# will not fail
 	def initialize(children_class = ExtendedStruct, attach_to = nil, attach_name = nil) # :nodoc
+	    clear
             @attach_as = [attach_to, attach_name.to_s] if attach_to
 	    @children_class = children_class
+            @observers       = Hash.new { |h, k| h[k] = [] }
+        end
 
+	def clear
+	    @attach_as	     = nil
             @stable          = false
             @members         = Hash.new
             @pending         = Hash.new
             @filters         = Hash.new
             @aliases         = Hash.new
-            @observers       = Hash.new { |h, k| h[k] = [] }
-        end
+	end
 
 	def self._load(io)
 	    marshalled_members, aliases = Marshal.load(io)
