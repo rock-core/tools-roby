@@ -75,6 +75,9 @@ module Roby
 	# True if user interaction is disabled during tests
 	attr_predicate :automatic_testing?, true
 
+	# True if all logs should be kept after testing
+	attr_predicate :testing_keep_logs?, true
+
 	def initialize
 	    @plugins = Array.new
 	    @available_plugins = Array.new
@@ -85,6 +88,7 @@ module Roby
 		'abort_on_application_exception' => true ]
 
 	    @automatic_testing = true
+	    @testing_keep_logs = false
 
 	    @plugin_dirs = []
 	end
@@ -198,6 +202,7 @@ module Roby
 		    begin
 			$LOAD_PATH.unshift dir
 			init.call
+			mod.reset(self) if mod.respond_to?(:reset)
 		    rescue Exception => e
 			Roby.fatal "cannot load plugin #{name}: #{e.full_message}"
 			exit(1)
@@ -213,6 +218,15 @@ module Roby
 		    mod.load(self, options)
 		end
 	    end
+	end
+
+	def reset
+	    if defined? State
+		State.clear
+	    else
+		Roby.const_set(:State, StateSpace.new)
+	    end
+	    call_plugins(:reset, self)
 	end
 
 	attr_reader :robot_name, :robot_type
@@ -352,7 +366,7 @@ module Roby
 	    planner_dir = File.join(APP_DIR, 'planners')
 	    models_search = [planner_dir]
 	    if robot_name
-		require_robotfile(File.join(APP_DIR, 'config', "ROBOT.rb"))
+		load_robotfile(File.join(APP_DIR, 'config', "ROBOT.rb"))
 
 		models_search << File.join(planner_dir, robot_name) << File.join(planner_dir, robot_type)
 		if !require_robotfile(File.join(APP_DIR, 'planners', 'ROBOT', 'main.rb'))
@@ -375,7 +389,6 @@ module Roby
 	    # MainPlanner is always included in the planner list
 	    Roby.control.planners << MainPlanner
 	   
-
 	    # Set up the loaded plugins
 	    call_plugins(:setup, self)
 
@@ -611,17 +624,21 @@ module Roby
 	    end
 	end
 
-	def require_robotfile(pattern)
+	def load_robotfile(pattern)
+	    require_robotfile(pattern, :load)
+	end
+
+	def require_robotfile(pattern, method = :require)
 	    return unless robot_name && robot_type
 
 	    robot_config = pattern.gsub /ROBOT/, robot_name
 	    if File.file?(robot_config)
-		require robot_config
+		Kernel.send(method, robot_config)
 		true
 	    else
 		robot_config = pattern.gsub /ROBOT/, robot_type
 		if File.file?(robot_config)
-		    require robot_config
+		    Kernel.send(method, robot_config)
 		    true
 		else
 		    false

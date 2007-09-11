@@ -192,6 +192,7 @@ module Roby
 	    class << self
 		attribute(:case_config) { Hash.new }
 		attribute(:methods_config) { Hash.new }
+		attr_reader :app_setup
 	    end
 
 	    # Sets the robot configuration for this test case. If a block is
@@ -199,15 +200,8 @@ module Roby
 	    # loaded and the time the test methods are started. It can
 	    # therefore be used to change the robot configuration for the need
 	    # of this particular test case
-	    def self.robot(name, kind = name)
-		Roby.app.robot name, kind
-		require 'roby/app/load'
-		Roby.app.single
-		Roby.app.setup
-
-		Roby.app.control.delete('executive')
-
-		yield if block_given?
+	    def self.robot(name, kind = name, &block)
+		@app_setup = [name, kind, block]
 	    end
 
 	    def planner
@@ -316,6 +310,25 @@ module Roby
 	    def run(result)
 		Roby::Test.waiting_threads.clear
 
+		name, kind, block = self.class.app_setup
+		# Silently ignore the test suites which use a different robot
+		if Roby.app.robot_name && 
+		    (Roby.app.robot_name != name || Roby.app.robot_type != kind)
+		    return
+		end
+		Roby.app.reset
+		Roby.app.robot name, kind
+		require 'roby/app/load'
+		Roby.app.single
+		Roby.app.setup
+		if block
+		    block.call
+		end
+
+		Roby.app.control.delete('executive')
+
+		yield if block_given?
+
 		case method_config[:mode]
 		when :nosim
 		    return if Roby.app.simulation?
@@ -323,12 +336,33 @@ module Roby
 		    return unless Roby.app.simulation?
 		end
 
+		@failed_test = false
 		Roby.app.run do
 		    super
 		end
 
+		keep_logdir = @failed_test || Roby.app.testing_keep_logs?
+		save_logdir = (@failed_test && automatic_testing?) ||  Roby.app.testing_keep_logs?
+		if save_logdir
+		    subdir = @failed_test ? 'failures' : 'results'
+		    dirname = Roby::Application.unique_dirname(File.join(APP_DIR, 'test', subdir), dataset_prefix)
+		    FileUtils.mv Roby.app.log_dir, dirname
+		end
+		if !keep_logdir
+		    FileUtils.rm_rf Roby.app.log_dir
+		end
+
 	    rescue Exception
-		puts "testcase #{method_name} teardown failed with #{$!.full_message}"
+		puts "testcase #{method_name} teardown failed with\n#{$!.full_message}"
+	    end
+
+	    def add_error(*args, &block)
+		@failed_test = true
+		super
+	    end
+	    def add_failure(*args, &block)
+		@failed_test = true
+		super
 	    end
 
 	    def datasets_dir

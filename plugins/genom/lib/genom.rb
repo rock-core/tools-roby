@@ -605,7 +605,6 @@ module Roby::Genom
 	    end
 	end
     end
-    Roby::State.genom = GenomState.new
 
     module Application::Test
 	# Tests that mod::Runner can be started and initializes well

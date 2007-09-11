@@ -348,7 +348,5 @@ module Roby
 	    @exported_fields.merge names.map { |n| n.to_s }.to_set
 	end
     end
-
-    State = StateSpace.new
 end
 

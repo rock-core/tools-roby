@@ -74,7 +74,7 @@ module Roby::Genom
 		    end
 
 		    g.output_io = File.join(config.log_dir, "#{config.robot_name}-%m.log")
-		    config.require_robotfile(File.join(APP_DIR, 'config', "ROBOT-genom.rb"))
+		    config.load_robotfile(File.join(APP_DIR, 'config', "ROBOT-genom.rb"))
 
 		    ::MainPlanner.class_eval do
 			using *g.used_modules.values.
@@ -167,6 +167,10 @@ multi
 		    poster_logger.add poster, period
 		end
 	    end
+	end
+
+	def self.reset(config)
+	    Roby::State.genom = Roby::Genom::GenomState.new
 	end
 
 	def self.run(config, &block)
