@@ -294,8 +294,7 @@ module Roby
 		method_names = public_instance_methods(true)
 		tests = method_names.delete_if {|method_name| method_name !~ /^(dataset|test)./}
 		suite = Test::Unit::TestSuite.new(name)
-		tests.sort.each do
-		    |test|
+		tests.sort.each do |test|
 		    catch(:invalid_test) do
 			suite << new(test)
 		    end
