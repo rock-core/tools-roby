@@ -365,6 +365,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	stop_event    = task.history[-1]
 	plan.add_repair failed_event, r1
 	plan.add_repair blocked_event, r2
+	assert(plan.task_index.repaired_tasks.include?(task))
 
 	assert_equal({}, plan.repairs_for(stop_event))
 	assert_equal({failed_event => r1}, plan.repairs_for(failed_event))
@@ -376,6 +377,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	assert_equal({}, plan.repairs_for(stop_event))
 	assert_equal({}, plan.repairs_for(failed_event))
 	assert_equal({}, plan.repairs_for(blocked_event))
+	assert(!plan.task_index.repaired_tasks.include?(task))
     end
 
     def test_exception_inhibition
@@ -429,6 +431,33 @@ class TC_Exceptions < Test::Unit::TestCase
 
     ensure
 	parent.remove_child child if child
+    end
+
+    def test_handling_missions_exceptions
+	mission = prepare_plan :missions => 1, :model => SimpleTask
+	repairing_task = SimpleTask.new
+	mission.event(:failed).handle_with repairing_task
+
+	mission.start!
+	mission.emit :failed
+
+	exceptions = Roby.control.structure_checking
+	assert_equal(1, exceptions.size)
+	assert_kind_of(Roby::MissionFailedError, exceptions.to_a[0][0].exception, exceptions)
+
+	assert_equal([], Propagation.propagate_exceptions(exceptions))
+	assert_equal({ mission.terminal_event => repairing_task },
+		     plan.repairs_for(mission.terminal_event), [plan.repairs, mission.terminal_event])
+
+	Roby.control.abort_on_exception = false
+	process_events
+	assert(plan.mission?(mission))
+	assert(repairing_task.running?)
+
+	# Make the "repair task" finish, but do not repair the plan.
+	# propagate_exceptions must not add a new repair
+	repairing_task.success!
+	assert_equal(exceptions.keys, Propagation.propagate_exceptions(exceptions))
     end
 end
 

@@ -263,6 +263,8 @@ module Roby
 	attr_reader :by_state
 	# A peer => ValueSet map of tasks given their owner.
 	attr_reader :by_owner
+	# The set of tasks which have an event which is being repaired
+	attr_reader :repaired_tasks
 
 	def initialize
 	    @by_model = Hash.new { |h, k| h[k] = ValueSet.new }
@@ -272,6 +274,7 @@ module Roby
 	    end
 	    @by_owner = Hash.new
 	    @task_state = Hash.new
+	    @repaired_tasks = ValueSet.new
 	end
 
 	def add(task)

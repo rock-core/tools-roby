@@ -357,10 +357,14 @@ module Roby
 	def locally_useful_tasks
 	    # Remove all missions that are finished
 	    for finished_mission in (@missions & task_index.by_state[:finished?])
-		discard(finished_mission)
+		if !task_index.repaired_tasks.include?(finished_mission)
+		    discard(finished_mission)
+		end
 	    end
 	    for finished_permanent in (@keepalive & task_index.by_state[:finished?])
-		auto(finished_permanent)
+		if !task_index.repaired_tasks.include?(finished_permanent)
+		    auto(finished_permanent)
+		end
 	    end
 
 	    # Create the set of tasks which must be kept as-is
@@ -480,14 +484,23 @@ module Roby
 	    end
 
 	    repairs[failure_point] = task
+	    if failure_point.generator.respond_to?(:task)
+		task_index.repaired_tasks << failure_point.generator.task
+	    end
+
 	    if task.pending?
 		Roby.once { task.start! }
 	    end
 	end
 
 	def remove_repair(task)
-	    repairs.delete_if do |_, repair|
-		repair == task
+	    repairs.delete_if do |ev, repair|
+		if repair == task
+		    if ev.generator.respond_to?(:task)
+			task_index.repaired_tasks.delete(ev.generator.task)
+		    end
+		    true
+		end
 	    end
 	end
 
