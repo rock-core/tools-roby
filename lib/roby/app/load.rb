@@ -14,5 +14,7 @@ file = YAML.load(File.open(file))
 conf.load(file)
 
 # Get the application-wide configuration
-require File.join(APP_DIR, 'config', 'init')
+if File.exists?(initfile = File.join(APP_DIR, 'config', 'init.rb'))
+    load initfile
+end
 
