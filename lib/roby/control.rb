@@ -789,6 +789,12 @@ module Roby
     # Exception raised when a mission has failed
     class MissionFailedError < TaskModelViolation
 	alias :mission :task
+	attr_reader :failure_point
+	def initialize(task)
+	    @failure_point = task.terminal_event
+	    super
+	end
+
 	def message
 	    "mission #{mission} failed with failed(#{mission.terminal_event.context})\n#{super}"
 	end
