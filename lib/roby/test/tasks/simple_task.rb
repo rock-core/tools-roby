@@ -5,7 +5,7 @@ module Roby
 	class SimpleTask < Roby::Task
 	    argument :id
 
-	    def initialize(arguments)
+	    def initialize(arguments = {})
 		arguments = { :id => object_id.to_s }.merge(arguments)
 		super(arguments)
 	    end
