@@ -32,6 +32,7 @@ module Roby::Propagation
     extend Logger::Forward
 
     @@propagation_id = 0
+    def self.propagation_id; Thread.current[:propagation_id] end
 
     # If we are currently in the propagation stage
     def self.gathering?; !!Thread.current[:propagation] end
@@ -61,7 +62,6 @@ module Roby::Propagation
 	end
 	result
     end
-    def self.propagation_id; Thread.current[:propagation_id] end
 
     @@delayed_events = []
     def self.delayed_events; @@delayed_events end
