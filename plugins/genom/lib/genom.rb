@@ -55,7 +55,7 @@ module Roby::Genom
 
     # Raised when a request failed because of Pocolibs's timeout.
     # The 'task' attribute is the target request.
-    class RequestTimeout < Roby::TaskModelViolation; end
+    class RequestTimeout < Roby::EmissionFailed; end
 
     # Base class for the task models defined for Genom modules requests
     #
@@ -136,10 +136,10 @@ module Roby::Genom
 
 	rescue ::Genom::ReplyTimeout => e # timeout waiting for reply
 	    if abort_activity
-		event(:stop).emit_failed(RequestTimeout.new(self), e.message)
+		event(:stop).emit_failed(RequestTimeout.new(e, self), e.message)
 	    else
 		stop_polling
-		event(:start).emit_failed(RequestTimeout.new(self), "timeout waiting for intermediate reply: #{e.message}")
+		event(:start).emit_failed(RequestTimeout.new(e, self), "timeout waiting for intermediate reply: #{e.message}")
 	    end
 
 	rescue ::Genom::ActivityInterrupt # interrupted
