@@ -852,5 +852,21 @@ class TC_Task < Test::Unit::TestCase
 	    assert(t.failed?)
 	end
     end
+
+    def test_event_task_sources
+	task = Class.new(SimpleTask) do
+	    event :specialized_failure, :command => true
+	    forward :specialized_failure => :failed
+	end.new
+	plan.discover(task)
+
+	task.start!
+	assert_equal([task.event(:start).last], task.event(:start).last.task_sources.to_a)
+
+	ev = EventGenerator.new(true)
+	ev.forward task.event(:specialized_failure)
+	ev.call
+	assert_equal([task.event(:specialized_failure).last], task.event(:failed).last.task_sources.to_a)
+    end
 end
 

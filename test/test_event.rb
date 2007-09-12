@@ -135,6 +135,39 @@ class TC_Event < Test::Unit::TestCase
 	end
     end
 
+    def test_event_sources
+	events = (1..6).map { EventGenerator.new(true) }
+	forwarded, signalled, 
+	    emitted_in_handler, called_in_handler,
+	    emitted_in_command, called_in_command = *events
+
+	src = EventGenerator.new(true)
+	e = EventGenerator.new do
+	    called_in_command.call
+	    emitted_in_command.emit
+	    e.emit
+	end
+	events << e
+
+	plan.discover(events)
+
+	e.forward forwarded
+	e.on signalled
+	e.on do 
+	    called_in_handler.call 
+	    emitted_in_handler.emit
+	end
+
+	src.on e
+	src.call
+	assert_equal([e.last], forwarded.last.sources.to_a)
+	assert_equal([e.last], emitted_in_handler.last.sources.to_a)
+	assert_equal([], emitted_in_command.last.sources.to_a)
+	assert_equal([], signalled.last.sources.to_a)
+	assert_equal([], called_in_handler.last.sources.to_a)
+	assert_equal([], called_in_command.last.sources.to_a)
+    end
+
     def test_simple_signal_handler_ordering
 	e1, e2, e3 = (1..3).map { EventGenerator.new(true) }.
 	    each { |e| plan.discover(e) }
@@ -226,6 +259,7 @@ class TC_Event < Test::Unit::TestCase
 	plan.discover([a, b])
 	a.on b
 	def b.controlable?; false end
+
 	assert_raise(EmissionFailed) { a.call(nil) }
     end
 

@@ -11,6 +11,7 @@ module Roby
 	end
 
 	attr_accessor :propagation_id, :context, :time
+	attr_accessor :sources
 	protected :propagation_id=, :context=, :time=
 
 	# To be used in the event generators ::new methods, when we need to reemit
@@ -359,6 +360,7 @@ module Roby
 	    unless event.respond_to?(:context)
 		raise TypeError, "#{event} is not a valid event object in #{self}"
 	    end
+	    event.sources = Propagation.source_events
 	    fire(event)
 
 	    true

@@ -52,6 +52,23 @@ module Roby
             super(generator, propagation_id, context, time)
         end
 
+	# Returns the set of events from the task that are the cause of this
+	# event
+	def task_sources
+	    result = ValueSet.new
+	    for ev in sources
+		gen = ev.generator
+		if gen.respond_to?(:task) && gen.task == task
+		    result.merge ev.task_sources
+		end
+	    end
+	    if result.empty?
+		result << self
+	    end
+
+	    result
+	end
+
         # If the event model defines a controlable event
         # By default, an event is controlable if the model
         # responds to #call

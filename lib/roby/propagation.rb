@@ -38,6 +38,17 @@ module Roby::Propagation
     # The set of source events for the current propagation action. This is a
     # mix of EventGenerator and Event objects.
     def self.sources; Thread.current[:propagation_sources] end
+    # The set of events extracted from PropagationException.sources
+    def self.source_events
+	result = ValueSet.new
+	for ev in Thread.current[:propagation_sources]
+	    if ev.respond_to?(:generator)
+		result << ev
+	    end
+	end
+	result
+    end
+
     # The set of generators extracted from Propagation.sources
     def self.source_generators
 	result = ValueSet.new

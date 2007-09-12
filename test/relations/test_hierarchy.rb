@@ -49,7 +49,25 @@ class TC_RealizedBy < Test::Unit::TestCase
 
     def assert_children_failed(children, plan)
 	result = Hierarchy.check_structure(plan)
-	assert_equal(children.to_set, result.map { |e| e.task }.to_set)
+	assert_equal(children.to_set, result.map { |e| e.failed_task }.to_set)
+    end
+
+    def test_failure_point
+	model = Class.new(SimpleTask) do
+	    event :specialized_failure, :command => true
+	    forward :specialized_failure => :failed
+	end
+	parent, child = prepare_plan :missions => 1, :tasks => 1, :model => model
+	parent.realized_by child
+
+	parent.start!
+	child.start!
+	child.specialized_failure!
+
+	error = Hierarchy.check_structure(plan).first.exception
+	assert_kind_of(ChildFailedError, error)
+	assert_equal(child.event(:specialized_failure).last, error.failure_point)
+	assert_equal(child.event(:specialized_failure).last, error.failed_event)
     end
 
     def test_structure_checking
