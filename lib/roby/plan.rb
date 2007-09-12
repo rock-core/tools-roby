@@ -462,7 +462,9 @@ module Roby
 
 	# Install a plan repair for +failure_point+ with +task+. If +task+ is pending, it is started.
 	def add_repair(failure_point, task)
-	    if task.plan && task.plan != self
+	    if !failure_point.kind_of?(Event)
+		raise TypeError, "failure point #{failure_point} should be an event"
+	    elsif task.plan && task.plan != self
 		raise ArgumentError, "wrong plan: #{task} is in #{task.plan}, not #{self}"
 	    elsif repairs.has_key?(failure_point)
 		raise ArgumentError, "there is already a plan repair defined for #{failure_point}: #{repairs[failure_point]}"
