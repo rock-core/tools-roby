@@ -3,34 +3,6 @@ require 'roby/exceptions'
 require 'set'
 
 module Roby
-    class EventModelViolation < ModelViolation
-	attr_reader :generator
-	def initialize(generator)
-	    raise TypeError, "not an event" unless generator.respond_to?(:to_event)
-	    @generator = generator.to_event
-	    super()
-	end
-    end
-
-    class UnreachableEvent < EventModelViolation
-	attr_reader :reason
-	def initialize(generator, reason)
-	    @reason = reason
-	    super(generator)
-	end
-
-	def message
-	    if reason
-		"#{generator} has become unreachable: #{reason}"
-	    else
-		"#{generator} has become unreachable"
-	    end
-	end
-    end
-    class EventNotExecutable < EventModelViolation; end
-    class EventCanceled < EventModelViolation; end
-    class EventPreconditionFailed < EventModelViolation; end
-
     class Event
 	attr_reader :generator
 
@@ -154,25 +126,21 @@ module Roby
 	# This is used by propagation code, and should never be called directly
 	def call_without_propagation(context) # :nodoc:
 	    if !controlable?
-		raise EventModelViolation.new(self), "#call called on a non-controlable event"
+		raise EventNotControlable.new(self), "#call called on a non-controlable event"
 	    end
 
-	    error = false
 	    postponed = catch :postponed do 
 		calling(context)
 		@pending = true
 
 		Propagation.propagation_context([self]) do
-		    error = Propagation.gather_exceptions(self) { command[context] }
+		    command[context]
 		end
 
 		false
 	    end
 
-	    if error
-		@pending = false
-		false
-	    elsif postponed
+	    if postponed
 		@pending = false
 		postponed(context, *postponed)
 		false
@@ -180,6 +148,10 @@ module Roby
 		called(context)
 		true
 	    end
+
+	rescue Exception
+	    @pending = false
+	    raise
 	end
 
 	# Call the command associated with self. Note that an event might be
@@ -189,11 +161,11 @@ module Roby
 	    if !self_owned?
 		raise OwnershipError, "not owner"
 	    elsif !controlable?
-		raise EventModelViolation.new(self), "#call called on a non-controlable event"
+		raise EventNotControlable.new(self), "#call called on a non-controlable event"
 	    elsif !executable?
 		raise EventNotExecutable.new(self), "#call called on #{self} which is non-executable event"
 	    elsif !Roby.inside_control?
-		raise EventNotExecutable.new(self), "#call called while not in control thread"
+		raise ThreadMismatch, "#call called while not in control thread"
 	    end
 
 	    context.compact!
@@ -201,9 +173,17 @@ module Roby
 		Propagation.add_event_propagation(false, Propagation.sources, self, (context unless context.empty?), nil)
 	    else
 		errors = Propagation.propagate_events do |initial_set|
-		    initial_set << self if call_without_propagation((context unless context.empty?))
+		    Propagation.add_event_propagation(false, nil, self, (context unless context.empty?), nil)
 		end
-		errors.each { |e| raise e.exception }
+		if errors.size == 1
+		    e = errors.first.exception
+		    raise e, e.message, e.backtrace
+		elsif !errors.empty?
+		    for e in errors
+			STDERR.puts e.exception.full_message
+		    end
+		    raise "multiple exceptions"
+		end
 	    end
 	end
 
@@ -230,7 +210,7 @@ module Roby
 	# must be called.
 	def signal(generator, timespec = nil)
 	    if !generator.controlable?
-		raise EventModelViolation.new(self), "trying to establish a signal between #{self} and #{generator}"
+		raise EventNotControlable.new(self), "trying to establish a signal between #{self} and #{generator}"
 	    end
 	    timespec = Propagation.validate_timespec(timespec)
 
@@ -294,9 +274,9 @@ module Roby
 	# Adds a propagation originating from this event to event propagation
 	def add_propagation(only_forward, event, signalled, context, timespec) # :nodoc:
 	    if self == signalled
-		raise EventModelViolation.new(self), "#{self} is trying to signal itself"
+		raise PropagationError, "#{self} is trying to signal itself"
 	    elsif !only_forward && !signalled.controlable?
-		raise EventModelViolation.new(self), "trying to signal #{signalled} from #{self}"
+		raise PropagationError, "trying to signal #{signalled} from #{self}"
 	    end
 
 	    Propagation.add_event_propagation(only_forward, [event], signalled, context, timespec)
@@ -331,7 +311,11 @@ module Roby
 	    # to other objects are not done, but gathered in the 
 	    # :propagation TLS
 	    each_handler do |h| 
-		Propagation.gather_exceptions(self) { h.call(event) }
+		begin
+		    h.call(event)
+		rescue Exception => e
+		    Propagation.add_error( EventHandlerError.new(e, event) )
+		end
 	    end
 	end
 
@@ -339,18 +323,20 @@ module Roby
 	# called won't be emitted (ever)
 	def emit_failed(*what)
 	    what, message = *what
-	    what ||= EventModelViolation
+	    what ||= EmissionFailed
 
 	    if !message && what.respond_to?(:to_str)
 		message = what.to_str
-		what = EventModelViolation
+		what = EmissionFailed
 	    end
 
-	    if Class === what
-		raise what.new(self), "failed to emit #{self}: #{message}"
-	    else
-		raise what, "failed to emit #{self}: #{message}"	
-	    end
+	    failure_message = "failed to emit #{self}: #{message}"
+	    error = if Class === what then what.new(nil, self)
+		    else what
+		    end
+	    error = error.exception failure_message
+
+	    Propagation.add_error(error)
 
 	ensure
 	    @pending = false
@@ -388,7 +374,7 @@ module Roby
 	    elsif !self_owned?
 		raise OwnershipError, "cannot emit an event we don't own. #{self} is owned by #{owners}"
 	    elsif !Roby.inside_control?
-		raise EventNotExecutable.new(self), "#emit called while not in control thread"
+		raise ThreadMismatch, "#emit called while not in control thread"
 	    end
 
 	    context.compact!
@@ -396,10 +382,17 @@ module Roby
 		Propagation.add_event_propagation(true, Propagation.sources, self, (context unless context.empty?), nil)
 	    else
 		errors = Propagation.propagate_events do |initial_set|
-		    initial_set << self
-		    emit_without_propagation((context unless context.empty?))
+		    Propagation.add_event_propagation(true, Propagation.sources, self, (context unless context.empty?), nil)
 		end
-		errors.each { |e| raise e.exception }
+		if errors.size == 1
+		    e = errors.first.exception
+		    raise e, e.message, e.backtrace
+		elsif !errors.empty?
+		    for e in errors
+			STDERR.puts e.full_message
+		    end
+		    raise "multiple exceptions"
+		end
 	    end
 	end
 
@@ -441,7 +434,7 @@ module Roby
 		if obj.respond_to?(:task)
 		    msg << "\n  " << obj.task.history.map { |ev| "#{ev.time.to_hms} #{ev.symbol}: #{ev.context}" }.join("\n  ")
 		end
-		emit_failed(EventModelViolation.new(self), msg)
+		emit_failed(UnreachableEvent.new(self, reason), msg)
 	    end
 	end
 	# For backwards compatibility. Use #achieve_with.
@@ -570,7 +563,7 @@ module Roby
 	# Checks that ownership allows to add the self => child relation
 	def add_child_object(child, type, info) # :nodoc:
 	    unless child.read_write?
-		raise NotOwner, "cannot add an event relation on a child we don't own. #{child} is owned by #{child.owners.to_a} (#{plan.owners.to_a if plan})"
+		raise OwnershipError, "cannot add an event relation on a child we don't own. #{child} is owned by #{child.owners.to_a} (#{plan.owners.to_a if plan})"
 	    end
 
 	    super
@@ -613,8 +606,10 @@ module Roby
 	    @unreachable = true
 
 	    unreachable_handlers.each do |_, block|
-		Propagation.gather_exceptions(self) do
+		begin
 		    block.call(reason)
+		rescue Exception => e
+		    Propagation.add_error(EventHandlerError.new(e, self))
 		end
 	    end
 	    unreachable_handlers.clear

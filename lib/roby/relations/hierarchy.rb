@@ -162,7 +162,7 @@ module Roby::TaskStructure
 			parent.remove_child child
 		    end
 		elsif failing_event = failure.find { |e| child.event(e).happened? }
-		    result << Roby::ChildFailedError.new(parent, child, child.event(failing_event).last)
+		    result << Roby::ChildFailedError.new(parent, child.event(failing_event).last)
 		    failing_tasks << child
 		end
 	    end
@@ -183,25 +183,26 @@ end
 
 module Roby
     # This exception is raised when a {hierarchy relation}[classes/Roby/TaskStructure/Hierarchy.html] fails
-    class ChildFailedError < TaskModelViolation
-	alias :child :task
+    class ChildFailedError < LocalizedError
+	# The parent in the relation
 	attr_reader :parent
+	# The child in the relation
+	def child; failed_task end
 	# The relation parameters (i.e. the hash given to #realized_by)
 	attr_reader :relation
-	# The event because of which this exception is raised
-	attr_reader :with
 
-	attr_reader :failure_point
+	# The event which is the cause of this error. This is either the task
+	# source of a failure event, or the reason why a positive event has
+	# become unreachable (if there is one)
 
-	def initialize(parent, child, with)
-	    super(child)
+	def initialize(parent, event)
+	    super(event.task_sources.find { true })
 	    @parent = parent
 	    @relation = parent[child, TaskStructure::Hierarchy]
-	    @with = @failure_point = with
 	end
 
 	def message # :nodoc:
-	    "#{parent}.realized_by(#{child}, #{relation}) failed with #{with.symbol}(#{with.context})\n#{super}"
+	    "#{super}\nthe failed relation is: #{parent}.realized_by(#{child}, #{relation})"
 	end
 
 	def backtrace; [] end

@@ -70,7 +70,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	end.new
 	task.executed_by exec
 
-	assert_raises(EventModelViolation) { task.start! }
+	assert_original_error(NilClass, EmissionFailed) { task.start! }
 	assert(!task.running?)
 	assert(!exec.running?)
 	assert(exec.finished?)
@@ -120,7 +120,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 
 	agent.start!
 	agent.stop!
-	assert_raises(Roby::TaskModelViolation) { task.start! }
+	assert_raises(CommandFailed) { task.start! }
     end
 
     def test_initialization

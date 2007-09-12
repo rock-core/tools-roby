@@ -7,16 +7,17 @@ require 'roby'
 
 class TC_Exceptions < Test::Unit::TestCase 
     include Roby::Test
+    class SpecializedError < LocalizedError; end
 
     def test_execution_exception_initialize
 	plan.discover(task = Task.new)
-	error = ExecutionException.new(TaskModelViolation.new(task))
+	error = ExecutionException.new(LocalizedError.new(task))
 	assert_equal(task, error.task)
 	assert_equal([task], error.trace)
 	assert_equal(nil, error.generator)
 
 	ev = task.event(:start)
-	error = ExecutionException.new(EventModelViolation.new(ev))
+	error = ExecutionException.new(LocalizedError.new(ev))
 	assert_equal(task, error.task)
 	assert_equal(ev, error.generator)
 	assert_equal([task], error.trace)
@@ -24,7 +25,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
     def test_execution_exception_fork
 	task, t1, t2, t3 = prepare_plan :discover => 5
-	e = ExecutionException.new(TaskModelViolation.new(task))
+	e = ExecutionException.new(LocalizedError.new(task))
 	s = e.fork
 
 	assert_equal([e, s], e.siblings)
@@ -48,7 +49,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	assert_equal([t1, t2, t3], e.task)
 	assert_equal(task, e.origin)
 
-	e = ExecutionException.new(TaskModelViolation.new(task))
+	e = ExecutionException.new(LocalizedError.new(task))
 	s = e.fork
 	t1, t2 = prepare_plan :discover => 2
 	s.trace << t1 << t2
@@ -56,21 +57,22 @@ class TC_Exceptions < Test::Unit::TestCase
 	assert_equal([task, t2], e.task)
 	assert_equal(task, e.origin)
 
-	e = ExecutionException.new(TaskModelViolation.new(task))
+	e = ExecutionException.new(LocalizedError.new(task))
 	s = e.fork
 	e.merge(s)
 	assert_equal(task, e.task)
 	assert_equal(task, e.origin)
     end
 
+    class SignallingHandler < Roby::LocalizedError; end
     def test_task_handle_exception
 	FlexMock.use do |mock|
 	    received_handler2 = false
 	    klass = Class.new(Task) do 
-		on_exception(TaskModelViolation) do |exception|
+		on_exception(SpecializedError) do |exception|
 		    mock.handler1(exception, exception.task, self)
 		end
-		on_exception(TaskModelViolation) do |exception|
+		on_exception(SpecializedError) do |exception|
 		    if received_handler2
 			pass_exception
 		    end
@@ -86,15 +88,15 @@ class TC_Exceptions < Test::Unit::TestCase
 	    end
 
 	    plan.discover(task  = klass.new)
-	    error = ExecutionException.new(TaskModelViolation.new(task))
+	    error = ExecutionException.new(SpecializedError.new(task))
 	    mock.should_receive(:handler2).with(error, task, task).once.ordered
 	    mock.should_receive(:handler1).with(error, task, task).once.ordered
 	    assert(task.handle_exception(error))
 	    assert(task.handle_exception(error))
 
-	    error = ExecutionException.new(RuntimeError.new, task)
+	    error = ExecutionException.new(CodeError.new(nil, task))
 	    assert(! task.handle_exception(error))
-	    error = ExecutionException.new(SignalException, task)
+	    error = ExecutionException.new(SignallingHandler.new(task))
 	    assert(! task.handle_exception(error))
 	end
     end
@@ -109,7 +111,7 @@ class TC_Exceptions < Test::Unit::TestCase
 		define_method(:mock) { mock }
 		def start(context)
 		    mock.event_called
-		    raise TaskModelViolation.new(self)
+		    raise SpecializedError.new(self)
 		end
 		event :start
 
@@ -132,7 +134,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    mock.should_receive(:task_handler_called).once.ordered
 	    mock.should_receive(:global_handler_called).once.ordered
 	    Control.once { t2.start! }
-	    assert_raises(Roby::TaskModelViolation) { process_events }
+	    assert_raises(SpecializedError) { process_events }
 	end
     end
 
@@ -140,7 +142,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    t1, t2 = Task.new, Task.new
 	    t0 = Class.new(Task) do 
-		on_exception(TaskModelViolation) do |exception|
+		on_exception(SpecializedError) do |exception|
 		    mock.handler(exception, exception.task, self)
 		end
 	    end.new
@@ -148,20 +150,20 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t0.realized_by t1
 	    t1.realized_by t2
 
-	    error = ExecutionException.new(TaskModelViolation.new(t2))
+	    error = ExecutionException.new(SpecializedError.new(t2))
 	    mock.should_receive(:handler).with(error, t1, t0).once
 	    assert_equal([], Propagation.propagate_exceptions([error]))
 	    assert_equal([error], error.siblings)
 	    assert_equal([t2, t1], error.trace)
 
-	    error = ExecutionException.new(RuntimeError.new, t2)
+	    error = ExecutionException.new(CodeError.new(nil, t2))
 	    assert_equal([error], Propagation.propagate_exceptions([error]))
 	    assert_equal(t0, error.task)
 	    assert_equal([t2, t1, t0], error.trace)
 
 	    # Redo that but this time define a global exception handler
-	    error = ExecutionException.new(RuntimeError.new, t2)
-	    Roby.on_exception(RuntimeError) do |mod, exception|
+	    error = ExecutionException.new(CodeError.new(nil, t2))
+	    Roby.on_exception(CodeError) do |mod, exception|
 		mock.global_handler(exception, exception.task, mod)
 	    end
 	    mock.should_receive(:global_handler).with(error, t0, Roby).once
@@ -177,7 +179,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t1, t2, t3 = prepare_plan :discover => 3
 	    t0 = Class.new(Task) do 
 		attr_accessor :handled_exception
-		on_exception(TaskModelViolation) do |exception|
+		on_exception(CodeError) do |exception|
 		    self.handled_exception = exception
 		    mock.handler(exception, exception.task, self)
 		end
@@ -187,7 +189,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t1.realized_by t2
 	    t3.realized_by t2
 
-	    error = ExecutionException.new(TaskModelViolation.new(t2))
+	    error = ExecutionException.new(CodeError.new(nil, t2))
 	    mock.should_receive(:handler).with(ExecutionException, t1, t0).once
 	    # There are two possibilities here:
 	    #	1/ the error propagation begins with t1 -> t0, in which case +error+
@@ -202,7 +204,7 @@ class TC_Exceptions < Test::Unit::TestCase
 		assert_equal([t0.handled_exception, error].to_set, error.siblings.to_set)
 	    end
 
-	    error = ExecutionException.new(RuntimeError.new, t2)
+	    error = ExecutionException.new(LocalizedError.new(t2))
 	    assert(fatal = Propagation.propagate_exceptions([error]))
 	    assert_equal(1, fatal.size)
 	    e = *fatal
@@ -220,7 +222,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    found_exception = nil
 	    t0 = Class.new(Task) do 
-		on_exception(TaskModelViolation) do |exception|
+		on_exception(LocalizedError) do |exception|
 		    found_exception = exception
 		    mock.handler(exception, exception.task.to_set, self)
 		end
@@ -230,7 +232,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t0.realized_by t3 ; t3.realized_by t2
 	    
 
-	    error = ExecutionException.new(TaskModelViolation.new(t2))
+	    error = ExecutionException.new(LocalizedError.new(t2))
 	    mock.should_receive(:handler).with(ExecutionException, [t1, t3].to_set, t0).once
 	    assert_equal([], Propagation.propagate_exceptions([error]))
 	    assert_equal(2, found_exception.trace.size, found_exception.trace)
@@ -245,7 +247,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    ev.emit(context)
 	end
 	plan.discover(ev)
-	assert_raises(RuntimeError) { ev.call(nil) }
+	assert_original_error(RuntimeError, CommandFailed) { ev.call(nil) }
 	assert(!ev.happened?)
 
 	# Check that the event is emitted anyway
@@ -254,7 +256,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    raise RuntimeError
 	end
 	plan.discover(ev)
-	assert_raises(RuntimeError) { ev.call(nil) }
+	assert_original_error(RuntimeError, CommandFailed) { ev.call(nil) }
 	assert(ev.happened?)
 
 	# Check signalling
@@ -266,7 +268,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	ev2 = EventGenerator.new(true)
 	ev.on ev2
 
-	assert_raises(RuntimeError) { ev.call(nil) }
+	assert_original_error(RuntimeError, CommandFailed) { ev.call(nil) }
 	assert(ev.happened?)
 	assert(ev2.happened?)
 
@@ -275,9 +277,9 @@ class TC_Exceptions < Test::Unit::TestCase
 	    ev = EventGenerator.new(true)
 	    plan.discover(ev)
 	    ev.on { mock.handler ; raise RuntimeError }
-	    ev.on { mock.handler ; raise RuntimeError }
+	    ev.on { mock.handler }
 	    mock.should_receive(:handler).twice
-	    assert_raises(RuntimeError) { ev.call }
+	    assert_original_error(RuntimeError, EventHandlerError) { ev.call }
 	end
     end
 
@@ -312,7 +314,12 @@ class TC_Exceptions < Test::Unit::TestCase
 	    Roby::Control.once { mock.other_once_handler }
 	    Roby::Control.event_processing << lambda { mock.other_event_processing }
 
-	    assert_raises(RuntimeError) { process_events }
+	    begin
+		process_events
+		flunk("should have raised")
+	    rescue Roby::CommandFailed => e
+		assert_kind_of(RuntimeError, e.error)
+	    end
 	end
 	assert(task.event(:start).happened?)
     end
@@ -343,7 +350,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t31.realized_by(t21)
 
 	    mock.should_receive(:caught).once
-	    Propagation.propagate_exceptions([ExecutionException.new(RuntimeError.exception, t21)])
+	    Propagation.propagate_exceptions([ExecutionException.new(LocalizedError.new(t21))])
 	end
     end
 
@@ -403,8 +410,13 @@ class TC_Exceptions < Test::Unit::TestCase
 	parent.remove_child child if child
     end
 
-    def test_error_handling_relation
-	parent, child = prepare_plan :tasks => 2, :model => SimpleTask
+    def test_error_handling_relation(error_event = :failed)
+	task_model = Class.new(SimpleTask) do
+	    event :blocked
+	    forward :blocked => :failed
+	end
+
+	parent, child = prepare_plan :tasks => 2, :model => task_model
 	plan.insert(parent)
 	parent.realized_by child
 	repairing_task = SimpleTask.new
@@ -412,7 +424,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	parent.start!
 	child.start!
-	child.emit :failed
+	child.emit error_event
 
 	exceptions = Roby.control.structure_checking
 
@@ -431,6 +443,10 @@ class TC_Exceptions < Test::Unit::TestCase
 
     ensure
 	parent.remove_child child if child
+    end
+
+    def test_error_handling_relation_generalization
+	test_error_handling_relation(:blocked)
     end
 
     def test_handling_missions_exceptions

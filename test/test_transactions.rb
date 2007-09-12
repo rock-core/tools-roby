@@ -284,11 +284,11 @@ module TC_TransactionBehaviour
 	    assert_equal(plan, t1.plan)
 	    assert_equal(trsc, p1.plan)
 	    assert_equal(trsc, t2.plan)
-	    assert_raises(Roby::InvalidPlanOperation) { t1.realized_by t2 }
+	    assert_raises(RuntimeError) { t1.realized_by t2 }
 	    assert_equal(plan, t1.event(:start).plan)
 	    assert_equal(trsc, p1.event(:start).plan)
 	    assert_equal(trsc, t2.event(:start).plan)
-	    assert_raises(Roby::InvalidPlanOperation) { t1.event(:start).on t2.event(:start) }
+	    assert_raises(RuntimeError) { t1.event(:start).on t2.event(:start) }
 	end
     end
 

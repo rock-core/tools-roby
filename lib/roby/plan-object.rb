@@ -3,9 +3,6 @@ require 'roby/distributed/base'
 require 'roby/basic_object'
 
 module Roby
-    class OwnershipError         < RuntimeError; end
-    class NotOwner               < OwnershipError; end
-
     class PlanObject < BasicObject
 	include DirectedRelationSupport
 
@@ -60,7 +57,7 @@ module Roby
 	def synchronize_plan(other)
 	    if plan == other.plan
 	    elsif other.plan && plan
-		raise InvalidPlanOperation, "cannot add a relation between two objects from different plans. #{self} is from #{plan} and #{other} is from #{other.plan}"
+		raise RuntimeError, "cannot add a relation between two objects from different plans. #{self} is from #{plan} and #{other} is from #{other.plan}"
 	    elsif plan
 		self.plan.discover(other)
 	    elsif other.plan
@@ -199,7 +196,7 @@ module Roby
 	    super if defined? super
 
 	    unless read_write? || child.read_write?
-		raise NotOwner, "cannot remove a relation between two objects we don't own"
+		raise OwnershipError, "cannot remove a relation between two objects we don't own"
 	    end
 	end
     end

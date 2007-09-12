@@ -5,21 +5,6 @@ require 'drb'
 require 'set'
 
 module Roby
-    # Exception raised when the event loop aborts because of an unhandled
-    # exception
-    class Aborting < RuntimeError
-	attr_reader :all_exceptions
-	def initialize(exceptions); @all_exceptions = exceptions end
-	def message
-	    "#{super}\n  " +
-		all_exceptions.
-		    map { |e| e.exception.full_message }.
-		    join("\n  ")
-	end
-	def full_message; message end
-	def backtrace; [] end
-    end
-
     class Pool < Queue
 	def initialize(klass)
 	    @klass = klass
@@ -166,7 +151,7 @@ module Roby
 	# Stops the current thread until the given even is emitted
 	def wait_until(ev)
 	    if Roby.inside_control?
-		raise "cannot use #wait_until in control thread"
+		raise ThreadMismatchError, "cannot use #wait_until in control thread"
 	    end
 
 	    condition_variable(true) do |cv, mt|
@@ -298,14 +283,16 @@ module Roby
 	    # Do structure checking and gather the raised exceptions
 	    exceptions = {}
 	    for prc in Control.structure_checks
-		new_exceptions = nil
-		Propagation.gather_exceptions(prc, 'structure check') { new_exceptions = prc.call(plan) }
+		begin
+		    new_exceptions = prc.call(plan)
+		rescue Exception => e
+		    Propagation.add_framework_error(e, 'structure checking')
+		end
 		next unless new_exceptions
 
 		[*new_exceptions].each do |e, tasks|
-		    if e = Propagation.to_execution_exception(e)
-			exceptions[e] = tasks
-		    end
+		    e = Propagation.to_execution_exception(e)
+		    exceptions[e] = tasks
 		end
 	    end
 	    exceptions
@@ -373,8 +360,8 @@ module Roby
 
 	    application_errors = Thread.current[:application_exceptions]
 	    Thread.current[:application_exceptions] = nil
-	    for (event, origin), error in application_errors
-		Roby.application_error(event, origin, error)
+	    for error, origin in application_errors
+		Propagation.add_framework_error(error, origin)
 	    end
 	    add_timepoint(stats, :application_errors)
 
@@ -404,7 +391,11 @@ module Roby
 	    def call_once # :nodoc:
 		while !process_once.empty?
 		    p = process_once.pop
-		    Propagation.gather_exceptions(p, 'call once processing') { p.call }
+		    begin
+			p.call
+		    rescue Exception => e
+			Roby.add_framework_error(e, "call once in #{p}")
+		    end
 		end
 	    end
 	    Control.event_processing << Control.method(:call_once)
@@ -445,13 +436,15 @@ module Roby
 		now        = Roby.control.cycle_start
 		length     = Roby.control.cycle_length
 		process_every.map! do |block, last_call, duration|
-		    Propagation.gather_exceptions(block, "call every(#{duration})") do
+		    begin
 			# Check if the nearest timepoint is the beginning of
 			# this cycle or of the next cycle
 			if !last_call || (duration - (now - last_call)) < length / 2
 			    block.call
 			    last_call = now
 			end
+		    rescue Exception => e
+			Propagation.add_framework_error(e, "#call_every, in #{block}")
 		    end
 		    [block, last_call, duration]
 		end
@@ -691,7 +684,11 @@ module Roby
 	    super if defined? super 
 
 	    Control.at_cycle_end_handlers.each do |handler|
-		Propagation.gather_exceptions(handler, "at cycle end") { handler.call }
+		begin
+		    handler.call
+		rescue Exception => e
+		    Propagation.add_framework_error(e, "during cycle end handler #{handler}")
+		end
 	    end
 	end
 
@@ -727,19 +724,6 @@ module Roby
 	def self.handled_exception(e, task); super if defined? super end
     end
 
-    # Exception raised when a mission has failed
-    class MissionFailedError < TaskModelViolation
-	alias :mission :task
-	attr_reader :failure_point
-	def initialize(task)
-	    @failure_point = task.terminal_event
-	    super
-	end
-
-	def message
-	    "mission #{mission} failed with failed(#{mission.terminal_event.context})\n#{super}"
-	end
-    end
     # Get all missions that have failed
     def self.check_failed_missions(plan)
 	result = []

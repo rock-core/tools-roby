@@ -198,7 +198,7 @@ class TC_Propagation < Test::Unit::TestCase
 
 	    mock.should_receive(:signalling).never
 	    mock.should_receive(:forwarding).never
-	    mock.should_receive(:calling).with(src, []).once
+	    mock.should_receive(:calling).with(src, [].to_value_set).once
 	    mock.should_receive(:calling).with(dst, [src].to_value_set).once
 	    src.call
 	end

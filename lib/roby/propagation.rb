@@ -31,18 +31,6 @@ module Roby::Propagation
     extend Logger::Hierarchy
     extend Logger::Forward
 
-    class PropagationException < Roby::ModelViolation
-	attr_reader :sources
-	def initialize(sources)
-	    @sources = sources
-	end
-    end
-
-    @@propagate = true
-    def self.disable_propagation; @@propagate = false end
-    def self.enable_propagation; @@propagate = true end
-    def self.propagate?; @@propagate end
-
     @@propagation_id = 0
 
     # If we are currently in the propagation stage
@@ -99,32 +87,36 @@ module Roby::Propagation
 	Thread.current[:propagation] = nil
     end
 
-    def self.to_execution_exception(error, source = nil)
-	Roby::ExecutionException.new(error, source)
-    rescue ArgumentError
+    def self.to_execution_exception(error)
+	Roby::ExecutionException.new(error)
     end
 
-    # Gather any exception raised by the block and saves it for later
-    # processing by the event loop. If +source+ is given, it is used as the
-    # exception source
-    #
-    # Returns +true+ if an exception has been raised
-    def self.gather_exceptions(source = nil, modname = 'unknown')
-	yield
-	false
-
-    rescue Exception => e
-	append_exception(e, source, modname)
-	true
-    end
-
-    def self.append_exception(e, source, modname)
-	if Thread.current[:propagation_exceptions] && (plan_exception = to_execution_exception(e, source))
+    def self.add_error(e)
+	if Thread.current[:propagation_exceptions]
+	    plan_exception = to_execution_exception(e)
 	    Thread.current[:propagation_exceptions] << plan_exception
-	elsif Thread.current[:application_exceptions]
-	    Thread.current[:application_exceptions] << [source, e]
 	else
-	    Roby.application_error(modname, source, e)
+	    if e.respond_to?(:error) && e.error
+		add_framework_error(e.error, "error outside error handling")
+	    else
+		add_framework_error(e, "error outside error handling")
+	    end
+	end
+    end
+
+    def self.gather_framework_errors(source)
+	yield
+    rescue Exception => e
+	add_framework_error(e, source)
+    end
+
+    def self.add_framework_error(error, source)
+	if Thread.current[:application_exceptions]
+	    Thread.current[:application_exceptions] << [error, source]
+	elsif Roby.control.abort_on_application_exception || error.kind_of?(SignalException)
+	    raise error, "in #{source}: #{error.message}", error.backtrace
+	else
+	    Roby.error "Application error in #{source}: #{error.full_message}"
 	end
     end
 
@@ -151,7 +143,7 @@ module Roby::Propagation
     # the +signalled+ event generator, with the context +context+
     def self.add_event_propagation(forward, from, signalled, context, timespec)
 	if signalled.plan != Roby.plan
-	    raise "#{signalled} not in main plan"
+	    raise Roby::EventNotExecutable.new(signalled), "#{signalled} not in main plan"
 	end
 
 	step = (Thread.current[:propagation][signalled] ||= [nil, nil])
@@ -174,7 +166,6 @@ module Roby::Propagation
     # +seeds+ si a list of procs which should be called to initiate the propagation
     # (i.e. build an initial set of events)
     def self.propagate_events(seeds = [])
-	return if !propagate?
 	if Thread.current[:propagation_exceptions]
 	    raise "recursive call to propagate_events"
 	end
@@ -184,10 +175,10 @@ module Roby::Propagation
 
 	initial_set = []
 	next_step = gather_propagation do
-	    gather_exceptions(nil, 'initial set setup') { yield(initial_set) } if block_given?
-	    gather_exceptions(nil, 'distributed events') { Roby::Distributed.process_pending }
+	    gather_framework_errors('initial set setup') { yield(initial_set) } if block_given?
+	    gather_framework_errors('distributed events') { Roby::Distributed.process_pending }
 	    seeds.each do |s|
-		gather_exceptions(s, 'seed') { s.call }
+		gather_framework_errors("seed #{s}") { s.call }
 	    end
 	end
 
@@ -350,9 +341,13 @@ module Roby::Propagation
 
 		if signalled.self_owned?
 		    next_step = gather_propagation(current_step) do
-			propagation_context(source_generators) do |result|
-			    gather_exceptions(signalled) do
+			propagation_context(source_events | source_generators) do |result|
+			    begin
 				signalled.call_without_propagation(context) 
+			    rescue Roby::LocalizedError => e
+				add_error(e)
+			    rescue Exception => e
+				add_error(Roby::CommandFailed.new(e, signalled))
 			    end
 			end
 		    end
@@ -377,9 +372,13 @@ module Roby::Propagation
 		# connected, the event is our responsibility now.
 		if signalled.self_owned? || !signalled.owners.any? { |peer| peer != Roby::Distributed && peer.connected? }
 		    next_step = gather_propagation(current_step) do
-			propagation_context(source_generators) do |result|
-			    gather_exceptions(signalled) do
+			propagation_context(source_events | source_generators) do |result|
+			    begin
 				signalled.emit_without_propagation(context)
+			    rescue Roby::LocalizedError => e
+				add_error(e)
+			    rescue Exception => e
+				add_error(Roby::EmissionFailed.new(e, signalled))
 			    end
 			end
 		    end
@@ -397,8 +396,8 @@ module Roby::Propagation
     def self.remove_inhibited_exceptions(exceptions)
 	exceptions.find_all do |e, _|
 	    error = e.exception
-	    if !error.respond_to?(:failure_point) ||
-		!(failure_point = error.failure_point)
+	    if !error.respond_to?(:failed_event) ||
+		!(failure_point = error.failed_event)
 		true
 	    else
 		Roby.plan.repairs_for(failure_point).empty?
@@ -432,19 +431,22 @@ module Roby::Propagation
 	exceptions.delete_if do |e, _|
 	    # Check for handled_by relations which would be able to handle +e+
 	    error = e.exception
-	    next unless error.respond_to?(:failure_point) && (failure_point = error.failure_point)
-	    next if finished_repairs.has_key?(failure_point)
+	    next unless (failed_event = error.failed_event)
+	    next unless (failed_task = error.failed_task)
+	    next if finished_repairs.has_key?(failed_event)
 
-	    failure_generator = failure_point.generator
-	    next unless failure_generator.respond_to?(:task)
+	    failed_generator = error.failed_generator
 
-	    failure_task = failure_generator.task
-	    repair = failure_task.find_error_handler do |repairing_task, event_set|
-		event_set.include?(failure_generator) && !repairing_task.finished?
+	    repair = failed_task.find_error_handler do |repairing_task, event_set|
+		event_set.find do |repaired_generator|
+		    !repairing_task.finished? &&
+			(repaired_generator == failed_generator ||
+			Roby::EventStructure::Forwarding.reachable?(failed_generator, repaired_generator))
+		end
 	    end
 
 	    if repair
-		failure_task.plan.add_repair(failure_point, repair)
+		failed_task.plan.add_repair(failed_event, repair)
 		true
 	    else
 		false
@@ -535,26 +537,6 @@ module Roby
 	# define_method(:each_exception_handler, &Roby::Propagation.exception_handlers.method(:each))
 	def on_exception(*matchers, &handler); exception_handlers.unshift [matchers, handler] end
 	include ExceptionHandlingObject
-
-	# Called when an exception has been raised by application code. +error+ is the
-	# exception itself and +origin+ its origin.
-	#
-	# +event+ can be one of:
-	# exception_handling:: error in exception handler. +origin+ is either
-	#		       the task of the handler or the Roby module for
-	#		       global exceptions
-	#
-	def application_error(event, origin, error)
-	    if Thread.current[:application_exceptions]
-		Thread.current[:application_exceptions] << [[event, origin], error]
-	    elsif Roby.control.abort_on_application_exception || error.kind_of?(SignalException)
-		raise error, "during #{event} in #{origin}: #{error.message}", error.backtrace
-	    else
-		Roby.error "Application error during #{event} in #{origin}:in #{error.full_message}"
-	    end
-
-	    nil
-	end
     end
 end
 

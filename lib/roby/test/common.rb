@@ -304,6 +304,17 @@ module Roby
 	# is reached
 	class FailedTimeout < RuntimeError; end
 
+	def assert_original_error(klass, localized_error_type = LocalizedError)
+	    assert_nothing_raised do
+		begin
+		    yield
+		rescue localized_error_type => e
+		    assert_respond_to(e, :error)
+		    assert_kind_of(klass, e.error)
+		end
+	    end
+	end
+
 	# Checks that the given block returns within +seconds+ seconds
 	def assert_doesnt_timeout(seconds, message = "watchdog #{seconds} failed")
 	    watched_thread = Thread.current

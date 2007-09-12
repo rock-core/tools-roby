@@ -39,35 +39,6 @@ module Roby
 	end
     end
 
-    class TaskModelViolation < ModelViolation
-	# The task from which this exception has been raised
-        attr_reader :task
-	# The task history when the exception has been created
-	attr_reader :history
-        def initialize(obj)
-	    @task = if obj.respond_to?(:to_task) then obj
-		    elsif obj.respond_to?(:task) then obj.task
-		    else raise TypeError, "not a task" 
-		    end
-	    @history = task.history
-	end
-        def to_s
-	    task_name = task.name
-	    history = self.history.map do |event|
-		    "@%i[%s.%03i] %s" % [
-			event.propagation_id,
-			event.time.strftime("%Y/%m/%d %H:%M:%S"),
-			event.time.tv_usec / 1000,
-			event.name.gsub(task_name, "")
-		    ]
-		end
-
-	    super + "\n#{task_name} (0x#{task.address.to_s(16)}) history\n   #{history.join("\n   ")}"
-        end
-    end
-
-    class TaskNotExecutable < TaskModelViolation; end
-
     # Base class for task events
     # When events are emitted, then the created object is 
     # an instance of a class derived from this one
@@ -246,7 +217,7 @@ module Roby
 	def []=(key, value)
 	    if writable?(key)
 		if !task.read_write?
-		    raise NotOwner, "cannot change the argument set of a task which is not owned #{task} is owned by #{task.owners} and #{task.plan} by #{task.plan.owners}"
+		    raise OwnershipError, "cannot change the argument set of a task which is not owned #{task} is owned by #{task.owners} and #{task.plan} by #{task.plan.owners}"
 		end
 
 		updating
@@ -469,9 +440,9 @@ module Roby
 	def plan=(new_plan)
 	    if plan != new_plan
 		if plan && plan.include?(self)
-		    raise TaskModelViolation.new(self), "still included in #{plan}, cannot change the plan"
+		    raise ModelViolation.new, "still included in #{plan}, cannot change the plan"
 		elsif self_owned? && running?
-		    raise TaskModelViolation.new(self), "cannot change the plan of a running task"
+		    raise ModelViolation.new, "cannot change the plan of a running task"
 		end
 	    end
 
@@ -553,9 +524,9 @@ module Roby
 	    return if flag == @executable
 	    return unless self_owned?
 	    if flag && !pending? 
-		raise TaskModelViolation.new(self), "cannot set the executable flag on a task which is not pending"
+		raise ModelViolation, "cannot set the executable flag on a task which is not pending"
 	    elsif !flag && running?
-		raise TaskModelViolation.new(self), "cannot unset the executable flag on a task which is running"
+		raise ModelViolation, "cannot unset the executable flag on a task which is running"
 	    end
 	    super
 	end
@@ -698,15 +669,18 @@ module Roby
         # and commands are called
         def fire_event(event)
 	    if !executable?
-		raise EventNotExecutable.new(self), "trying to fire #{event.generator.symbol} on #{self} but #{self} is not executable"
+		raise TaskNotExecutable.new(self), "trying to fire #{event.generator.symbol} on #{self} but #{self} is not executable"
 	    end
 
             if finished? && !event.terminal?
-                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task has finished"
+                raise EmissionFailed.new(self), 
+		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task has finished"
             elsif pending? && event.symbol != :start
-                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task is not running"
+                raise EmissionFailed.new(self), 
+		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task is not running"
             elsif running? && event.symbol == :start
-                raise TaskModelViolation.new(self), "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task is already running"
+                raise EmissionFailed.new(self), 
+		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task is already running"
             end
 
 	    update_task_status(event)

@@ -49,7 +49,7 @@ module Roby::TaskStructure
         def executed_by(agent)
 	    return if execution_agent == agent
 	    if !agent.event(:start).controlable? && !agent.running?
-		raise Roby::TaskModelViolation.new(self), "the start event of #{self}'s execution agent #{agent} is not controlable"
+		raise ArgumentError, "the start event of #{self}'s execution agent #{agent} is not controlable"
 	    end
 	    # Check that agent defines the :ready event
 	    if !agent.has_event?(:ready)
@@ -96,6 +96,14 @@ module Roby::TaskStructure
         end
 
     end
+
+    class ExecutionAgentSpawningFailed < Roby::LocalizedError
+	attr_reader :agent_model, :error
+	def initialize(task, agent_model, error)
+	    super(task)
+	    @agent_model, @error = agent_model, error
+	end
+    end
     
     # Add a suitable execution agent to +task+ if its model has a execution
     # agent model (see ModelLevelExecutionAgent), either by reusing one
@@ -110,7 +118,7 @@ module Roby::TaskStructure
 	agent = nil
 
 	if candidates.empty?
-	    Roby::Propagation.gather_exceptions(agent_model) do
+	    begin
 		agent = agent_model.new
 		agent.on(:stop) do
 		    agent.each_executed_task do |task|
@@ -122,6 +130,8 @@ module Roby::TaskStructure
 			end
 		    end
 		end
+	    rescue Exception => e
+		Roby.add_error(ExecutionAgentSpawningFailed.new(task, agent_model, e))
 	    end
 	else
 	    running, pending = candidates.partition { |t| t.running? }
@@ -143,7 +153,7 @@ module Roby::TaskStructure
 	    return unless agent = task.execution_agent
 
 	    if agent.finished? || agent.finishing?
-		raise Roby::TaskModelViolation.new(task), "task #{task} has an execution agent but it is dead"
+		raise CommandFailed.new(self), "task #{task} has an execution agent but it is dead"
 	    elsif !agent.event(:ready).happened? && !agent.depends_on?(task)
 		postpone(agent.event(:ready), "spawning execution agent #{agent} for #{self}") do
 		    if agent.pending?

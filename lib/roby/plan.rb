@@ -4,19 +4,6 @@ require 'roby/relations'
 require 'roby/basic_object'
 
 module Roby
-    class InvalidPlanOperation < RuntimeError; end
-    class InvalidReplace < RuntimeError
-	attr_reader :from, :to, :error
-	def initialize(from, to, error)
-	    @from, @to, @error = from, to, error
-	end
-	def message
-	    "#{error} while replacing #{from} by #{to}"
-	end
-    end
-
-    class PlanModelViolation < ModelViolation; end
-
     # A plan object is a collection of tasks and events. In plans, tasks can be
     # +missions+ (#missions, #mission?), which means that they are the final
     # goals of the system. A task is +useful+ if it helps into the realization

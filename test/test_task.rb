@@ -487,14 +487,14 @@ class TC_Task < Test::Unit::TestCase
 	end
 	plan.insert(task = model.new)
 
-	assert_raises(Roby::TaskModelViolation) { task.inter! }
+	assert_raises(EmissionFailed) { task.inter! }
 	assert(!task.event(:inter).pending)
 	task.start!
-	assert_raise(Roby::TaskModelViolation) { task.start! }
+	assert_raise(EmissionFailed) { task.start! }
 	assert_nothing_raised { task.inter! }
 	task.stop!
 
-	assert_raises(Roby::TaskModelViolation) { task.inter! }
+	assert_raises(EmissionFailed) { task.inter! }
 	assert(!task.event(:inter).pending)
 
 	model = Class.new(SimpleTask) do
@@ -561,7 +561,7 @@ class TC_Task < Test::Unit::TestCase
 	assert_nothing_raised { task.event(:start).call(nil) }
 
 	# The task is running, cannot change the executable flag
-	assert_raises(TaskModelViolation) { task.executable = false }
+	assert_raises(ModelViolation) { task.executable = false }
 
 	task = SimpleTask.new
 	plan.insert(task)
@@ -796,7 +796,7 @@ class TC_Task < Test::Unit::TestCase
 
 	master.start!
 	assert(master.starting?)
-	assert_raises(EventModelViolation) { plan.remove_object(slave) }
+	assert_raises(UnreachableEvent) { plan.remove_object(slave) }
     end
 
     def test_task_group

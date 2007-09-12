@@ -9,7 +9,7 @@ require 'utilrb/hash/slice'
 class TC_Control < Test::Unit::TestCase 
     include Roby::Test
 
-    def test_application_error
+    def test_add_framework_errors
 	# Shut up the logger in this test
 	Roby.logger.level = Logger::FATAL
 	exception = begin; raise RuntimeError
@@ -17,10 +17,10 @@ class TC_Control < Test::Unit::TestCase
 		    end
 
 	Roby.control.abort_on_application_exception = false
-	assert_nothing_raised { Roby.application_error(:exceptions, Task, exception) }
+	assert_nothing_raised { Propagation.add_framework_error(exception, :exceptions) }
 
 	Roby.control.abort_on_application_exception = true
-	assert_raises(RuntimeError) { Roby.application_error(:exceptions, Task, exception) }
+	assert_raises(RuntimeError) { Propagation.add_framework_error(exception, :exceptions) }
     end
 
     def test_event_loop
@@ -91,9 +91,8 @@ class TC_Control < Test::Unit::TestCase
 	    event :start
 	end
 	plan.insert(t = model.new)
-	begin; t.start!
-	rescue SpecificException
-	end
+
+	assert_original_error(SpecificException, CommandFailed) { t.start! }
 	assert(!t.event(:start).pending?)
 
 	# Check that the propagation is pruned if the command raises
@@ -114,7 +113,7 @@ class TC_Control < Test::Unit::TestCase
 	    mock.should_receive(:handler_called).never
 
 	    Control.once { t.start!(nil) }
-	    assert_raises(SpecificException) { process_events }
+	    assert_original_error(SpecificException, CommandFailed) { process_events }
 	    assert(!t.event(:start).pending)
 	end
 
@@ -135,7 +134,7 @@ class TC_Control < Test::Unit::TestCase
 
 	# Check on a single task
 	plan.insert(t = SimpleTask.new)
-	apply_structure_checking { TaskModelViolation.new(t) }
+	apply_structure_checking { LocalizedError.new(t) }
 	assert(! plan.include?(t))
 
 	# Make sure that a task which has been repaired will not be killed
@@ -144,7 +143,7 @@ class TC_Control < Test::Unit::TestCase
 	apply_structure_checking do
 	    unless did_once
 		did_once = true
-		TaskModelViolation.new(t)
+		LocalizedError.new(t)
 	    end
 	end
 	assert(plan.include?(t))
@@ -161,7 +160,7 @@ class TC_Control < Test::Unit::TestCase
 	    mock.should_receive(:checking).twice
 	    apply_structure_checking do
 		mock.checking
-		TaskModelViolation.new(t2)
+		LocalizedError.new(t2)
 	    end
 	end
 	assert(!plan.include?(t0))
@@ -176,7 +175,7 @@ class TC_Control < Test::Unit::TestCase
 	t1.realized_by t2
 	plan.insert(t0)
 	plan.insert(t1)
-	apply_structure_checking { { TaskModelViolation.new(t2) => t0 } }
+	apply_structure_checking { { LocalizedError.new(t2) => t0 } }
 	assert(!plan.include?(t0))
 	assert(plan.include?(t1))
 	assert(plan.include?(t2))

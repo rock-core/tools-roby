@@ -1,6 +1,4 @@
 module Roby
-    class RemotePeerMismatch     < RuntimeError; end
-
     class BasicObject
 	include DRbUndumped
 

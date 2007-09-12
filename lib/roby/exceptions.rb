@@ -50,29 +50,16 @@ module Roby
 	# If +source+ is nil, tries to guess the source from +exception+: if
 	# +exception+ responds to #task or #generator we use either #task or
 	# call #generator.task
-	def initialize(exception, source = nil)
+	def initialize(exception)
 	    @exception = exception
 	    @trace = Array.new
 	    @siblings = [self]
 
-	    if source
-		if source.respond_to?(:to_task)
-		    @trace << source.to_task
-		end
-		if source.kind_of?(EventGenerator)
-		    @generator = source
-		end
-	    else
-		if exception.respond_to?(:task)
-		    @trace << exception.task
-		end
-		if exception.respond_to?(:generator)
-		    @generator = exception.generator
-		end
+	    if task = exception.failed_task
+		@trace << exception.failed_task
 	    end
-
-	    if !task && generator.respond_to?(:task)
-		@trace << generator.task
+	    if generator = exception.failed_generator
+		@generator = exception.failed_generator
 	    end
 
 	    if !task && !generator
@@ -123,8 +110,15 @@ module Roby
 	    each_exception_handler do |matchers, handler|
 		if matchers.find { |m| m === exception_object.exception }
 		    catch(:next_exception_handler) do 
-			unless Propagation.gather_exceptions([:exception_handling, self]) { handler.call(self, exception_object) }
+			begin
+			    handler.call(self, exception_object)
 			    return true
+			rescue Exception => e
+			    if self == Roby
+				Propagation.add_framework_error(e, 'global exception handling')
+			    else
+				Propagation.add_error(FailedExceptionHandler.new(e, self, exception_object))
+			    end
 			end
 		    end
 		end

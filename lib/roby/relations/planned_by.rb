@@ -12,7 +12,7 @@ module Roby::TaskStructure
 		if options[:replace]
 		    remove_planning_task(old)
 		else
-		    raise Roby::TaskModelViolation.new(self), "this task already has a planner"
+		    raise ArgumentError, "this task already has a planner"
 		end
 	    end
 	    add_planning_task(task)
@@ -37,27 +37,22 @@ module Roby
     # This exception is raised when a task is abstract, and its planner failed:
     # the system will therefore not have a suitable executable development for
     # this task, and this is a failure
-    class PlanningFailedError < TaskModelViolation
-	# The task which was planned
-	alias :planned_task :task
+    class PlanningFailedError < LocalizedError
 	# The planning task
-	attr_reader :planning_task
-	# The planning error
-	attr_reader :error
+	attr_reader :planned_task
 
 	def initialize(planned_task, planning_task)
-	    super(planned_task)
-	    @planning_task = planning_task
-	    @error = planning_task.terminal_event
+	    @planned_task = planned_task
+	    super(planning_task.terminal_event.last)
 	end
 
 	def message # :nodoc:
-	    msg = "failed to plan #{planned_task}.planned_by(#{planning_task}): failed with #{error.symbol}"
-	    if error.context
-		if error.context.first.respond_to?(:full_message)
-		    msg << "\n" << error.context.first.full_message
+	    msg = "failed to plan #{planned_task}.planned_by(#{planning_task}): failed with #{failure_point.symbol}"
+	    if failure_point.context
+		if failure_point.context.first.respond_to?(:full_message)
+		    msg << "\n" << failure_point.context.first.full_message
 		else
-		    msg << "(" << error.context.first << ")"
+		    msg << "(" << failure_point.context.first << ")"
 		end
 	    end
 	    msg

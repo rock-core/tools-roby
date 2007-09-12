@@ -28,6 +28,7 @@ class TC_Event < Test::Unit::TestCase
 	# Check emission behavior for non-controlable events
 	FlexMock.use do |mock|
 	    event = EventGenerator.new
+	    plan.discover(event)
 	    event.on { |event| mock.event(event.context) }
 	    mock.should_receive(:event).once.with([42])
 	    event.emit(42)
@@ -57,15 +58,16 @@ class TC_Event < Test::Unit::TestCase
 	event.remove_forwarding(other)
 	assert_nothing_raised { event.emit(nil) }
 	event.on { other.emit(nil) }
-	assert_raises(EventNotExecutable) { event.call(nil) }
+	assert_original_error(EventNotExecutable, EventHandlerError) { event.call(nil) }
     end
 
     def test_emit_failed
 	event = EventGenerator.new
-	assert_raises(EventModelViolation) { event.emit_failed }
-	assert_raises(EventModelViolation) { event.emit_failed("test") }
+	plan.discover(event)
+	assert_original_error(NilClass, EmissionFailed) { event.emit_failed }
+	assert_original_error(NilClass, EmissionFailed) { event.emit_failed("test") }
 
-	klass = Class.new(EventModelViolation)
+	klass = Class.new(EmissionFailed)
 	assert_raises(klass) { event.emit_failed(klass) }
 	assert_raises(klass) { event.emit_failed(klass, "test") }
 	begin; event.emit_failed(klass, "test")
@@ -73,18 +75,19 @@ class TC_Event < Test::Unit::TestCase
 	    assert( e.message =~ /: test$/ )
 	end
 
-	exception = klass.new(event)
+	exception = klass.new(nil, event)
 	assert_raises(klass) { event.emit_failed(exception, "test") }
 	begin; event.emit_failed(exception, "test")
 	rescue klass => e
-	    assert_equal(event, e.generator)
+	    assert_equal(event, e.failed_generator)
 	    assert( e.message =~ /: test$/ )
 	end
 
 	event = EventGenerator.new { }
+	plan.discover(event)
 	event.call
 	assert(event.pending?)
-	assert_raises(EventModelViolation) { event.emit_failed }
+	assert_raises(EmissionFailed) { event.emit_failed }
 	assert(!event.pending?)
     end
 
@@ -216,14 +219,14 @@ class TC_Event < Test::Unit::TestCase
     def test_can_signal
 	a, b = EventGenerator.new(true), EventGenerator.new
 	plan.discover([a, b])
-	assert_raises(EventModelViolation) { a.on b }
+	assert_raises(EventNotControlable) { a.on b }
 	assert_nothing_raised { a.forward b }
 
 	a, b = EventGenerator.new(true), EventGenerator.new(true)
 	plan.discover([a, b])
 	a.on b
 	def b.controlable?; false end
-	assert_raise(EventModelViolation) { a.call(nil) }
+	assert_raise(EmissionFailed) { a.call(nil) }
     end
 
     def test_emit_on
@@ -435,11 +438,11 @@ class TC_Event < Test::Unit::TestCase
 	end.new(true)
 	plan.discover(generator)
 
-	assert_raises(TypeError) { generator.call(nil) }
+	assert_raises(EmissionFailed) { generator.emit(nil) }
 
 	generator = Class.new(EventGenerator) do
 	    def new(context); 
-		event_klass = Struct.new :propagation_id, :context, :generator
+		event_klass = Struct.new :propagation_id, :context, :generator, :sources
 		event_klass.new(Propagation.propagation_id, context, self)
 	    end
 	end.new(true)
@@ -509,6 +512,7 @@ class TC_Event < Test::Unit::TestCase
 		cancel("testing cancel method")
 	    end
 	end.new(true)
+	plan.discover(e1)
 	assert_raises(EventCanceled) { e1.call(nil) }
     end
 
@@ -552,6 +556,7 @@ class TC_Event < Test::Unit::TestCase
     def test_set_command
 	FlexMock.use do |mock|
 	    ev = EventGenerator.new
+	    plan.discover(ev)
 	    assert(!ev.controlable?)
 
 	    ev.command = lambda { mock.first }
@@ -651,7 +656,7 @@ class TC_Event < Test::Unit::TestCase
 
 	master.call
 	assert(!master.happened?)
-	assert_raises(EventModelViolation) { plan.remove_object(slave) }
+	assert_raises(UnreachableEvent) { plan.remove_object(slave) }
 
 	# Now test the filtering case (when a block is given)
 	slave  = EventGenerator.new
