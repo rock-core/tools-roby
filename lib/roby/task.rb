@@ -1080,7 +1080,7 @@ module Roby
                 to = if to
 			 Array[*to].map do |ev| 
 			     model = event_model(ev)
-			     raise "trying to signal #{ev} which is not controlable" unless model.controlable?
+			     raise ArgumentError, "trying to signal #{ev} which is not controlable" unless model.controlable?
 			     model.symbol
 			 end
                      else;  []

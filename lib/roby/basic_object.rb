@@ -46,7 +46,7 @@ module Roby
 	# notifies peer that +self+ is the remote siblings for +remote_object+
 	def sibling_of(remote_object, peer)
 	    if !distribute?
-		raise "#{self} is local only"
+		raise ArgumentError, "#{self} is local only"
 	    end
 
 	    add_sibling_for(peer, remote_object)
@@ -78,7 +78,7 @@ module Roby
 	def add_sibling_for(peer, remote_object)
 	    if old_sibling = remote_siblings[peer]
 		if old_sibling != remote_object
-		    raise "#{self} has already a sibling for #{peer} (#{old_sibling}) #{remote_siblings}"
+		    raise ArgumentError, "#{self} has already a sibling for #{peer} (#{old_sibling}) #{remote_siblings}"
 		else
 		    # This is OK. The same sibling information can come from
 		    # different sources.  We only check for inconsistencies

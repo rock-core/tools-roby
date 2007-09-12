@@ -68,7 +68,7 @@ module Roby
 
 	def forget_peer(peer)
 	    if !root_object?
-		raise "#{self} is not root"
+		raise ArgumentError, "#{self} is not root"
 	    end
 
 	    each_plan_child do |child|
@@ -110,7 +110,7 @@ module Roby
 	    end
 	    def sibling_of(remote_object, peer)
 		if !distribute?
-		    raise "#{self} is local only"
+		    raise ArgumentError, "#{self} is local only"
 		end
 
 		add_sibling_for(peer, remote_object)

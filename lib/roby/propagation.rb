@@ -88,7 +88,7 @@ module Roby::Propagation
 
     # Begin an event propagation stage
     def self.gather_propagation(initial_set = Hash.new)
-	raise "nested call to #gather_propagation" if gathering?
+	raise InternalError, "nested call to #gather_propagation" if gathering?
 	Thread.current[:propagation] = initial_set
 
 	propagation_context(nil) { yield }
@@ -134,7 +134,7 @@ module Roby::Propagation
     # Sets the source_event and source_generator variables according
     # to +source+. +source+ is the +from+ argument of #add_event_propagation
     def self.propagation_context(sources)
-	raise "not in a gathering context in #fire" unless gathering?
+	raise InternalError, "not in a gathering context in #fire" unless gathering?
 
 	if sources
 	    current_sources = sources
@@ -178,7 +178,7 @@ module Roby::Propagation
     # (i.e. build an initial set of events)
     def self.propagate_events(seeds = [])
 	if Thread.current[:propagation_exceptions]
-	    raise "recursive call to propagate_events"
+	    raise InternalError, "recursive call to propagate_events"
 	end
 
 	Thread.current[:propagation_id] = (@@propagation_id += 1)
@@ -216,7 +216,7 @@ module Roby::Propagation
 	if delay = timespec[:delay] then timeref + delay
 	elsif at = timespec[:at] then at
 	else
-	    raise "invalid timespec #{timespec}"
+	    raise ArgumentError, "invalid timespec #{timespec}"
 	end
     end
 
