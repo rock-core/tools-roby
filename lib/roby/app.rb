@@ -44,6 +44,7 @@ module Roby
 	#	     Roby: FATAL
 	#	     Roby::Distributed: INFO
 	# dir:: the log directory. Uses APP_DIR/log if not set
+	# filter_backtraces:: true if the framework code should be removed from the error backtraces
 	attr_reader :log
 	
 	# A [name, dir, file, module] array of available plugins, where 'name'
@@ -78,10 +79,14 @@ module Roby
 	# True if all logs should be kept after testing
 	attr_predicate :testing_keep_logs?, true
 
+	# True if we should remove the framework code from the error backtraces
+	def filter_backtraces?; log['filter_backtraces'] end
+	def filter_backtraces=(value); log['filter_backtraces'] = value end
+
 	def initialize
 	    @plugins = Array.new
 	    @available_plugins = Array.new
-	    @log = Hash['timings' => false, 'events' => false, 'levels' => Hash.new] 
+	    @log = Hash['events' => 'stats', 'levels' => Hash.new, 'filter_backtraces' => true] 
 	    @discovery = Hash.new
 	    @droby     = Hash['period' => 0.5, 'max_errors' => 1] 
 	    @control   = Hash[ 'abort_on_exception' => false, 
