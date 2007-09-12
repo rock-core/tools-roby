@@ -802,7 +802,7 @@ module Roby
     # Get all missions that have failed
     def self.check_failed_missions(plan)
 	result = []
-	plan.missions.each do |task|
+	for task in plan.missions
 	    result << MissionFailedError.new(task) if task.failed?
 	end
 	result
