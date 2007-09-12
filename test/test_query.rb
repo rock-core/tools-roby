@@ -97,7 +97,7 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_query_predicates
-	t1 = Class.new(SimpleTask) { argument :id }.new
+	t1 = Class.new(SimpleTask) { argument :fake }.new
 	t2 = Roby::Task.new
 	plan << t1 << t2
 
@@ -106,7 +106,7 @@ class TC_Query < Test::Unit::TestCase
 	assert_finds_tasks([t2]) { TaskMatcher.abstract }
 	assert_finds_tasks([t1]) { TaskMatcher.partially_instanciated }
 	assert_finds_tasks([t2]) { TaskMatcher.fully_instanciated }
-	t1.arguments[:id] = 2
+	t1.arguments[:fake] = 2
 	assert_finds_tasks([t1, t2]) { TaskMatcher.fully_instanciated }
 	assert_finds_tasks([t2]) { TaskMatcher.fully_instanciated.abstract }
 
