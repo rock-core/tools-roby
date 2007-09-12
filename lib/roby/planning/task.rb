@@ -297,11 +297,12 @@ module Roby
 
 	    case result
 	    when Roby::Task
-		placeholder = transaction[planned_task]
-		transaction.replace(placeholder, result)
-		result.planned_by transaction[self]
-		placeholder.remove_planning_task transaction[self]
-
+		if placeholder = planned_task
+		    placeholder = transaction[placeholder]
+		    transaction.replace(placeholder, result)
+		    placeholder.remove_planning_task transaction[self]
+		end
+		result.planned_by transaction[self], :replace => true
 		transaction.commit_transaction
 		emit(:success)
 	    else
