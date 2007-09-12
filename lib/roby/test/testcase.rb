@@ -202,6 +202,28 @@ module Roby
 	    # of this particular test case
 	    def self.robot(name, kind = name, &block)
 		@app_setup = [name, kind, block]
+		apply_robot_setup
+	    end
+
+	    def self.apply_robot_setup
+		name, kind, block = app_setup
+		# Silently ignore the test suites which use a different robot
+		if Roby.app.robot_name && 
+		    (Roby.app.robot_name != name || Roby.app.robot_type != kind)
+		    return
+		end
+		Roby.app.reset
+		Roby.app.robot name, kind
+		require 'roby/app/load'
+		Roby.app.single
+		Roby.app.setup
+		if block
+		    block.call
+		end
+
+		Roby.app.control.delete('executive')
+
+		yield if block_given?
 	    end
 
 	    def planner
@@ -310,46 +332,31 @@ module Roby
 	    def run(result)
 		Roby::Test.waiting_threads.clear
 
-		name, kind, block = self.class.app_setup
-		# Silently ignore the test suites which use a different robot
-		if Roby.app.robot_name && 
-		    (Roby.app.robot_name != name || Roby.app.robot_type != kind)
-		    return
-		end
-		Roby.app.reset
-		Roby.app.robot name, kind
-		require 'roby/app/load'
-		Roby.app.single
-		Roby.app.setup
-		if block
-		    block.call
-		end
+		self.class.apply_robot_setup do
+		    yield if block_given?
 
-		Roby.app.control.delete('executive')
+		    case method_config[:mode]
+		    when :nosim
+			return if Roby.app.simulation?
+		    when :sim
+			return unless Roby.app.simulation?
+		    end
 
-		yield if block_given?
+		    @failed_test = false
+		    Roby.app.run do
+			super
+		    end
 
-		case method_config[:mode]
-		when :nosim
-		    return if Roby.app.simulation?
-		when :sim
-		    return unless Roby.app.simulation?
-		end
-
-		@failed_test = false
-		Roby.app.run do
-		    super
-		end
-
-		keep_logdir = @failed_test || Roby.app.testing_keep_logs?
-		save_logdir = (@failed_test && automatic_testing?) ||  Roby.app.testing_keep_logs?
-		if save_logdir
-		    subdir = @failed_test ? 'failures' : 'results'
-		    dirname = Roby::Application.unique_dirname(File.join(APP_DIR, 'test', subdir), dataset_prefix)
-		    FileUtils.mv Roby.app.log_dir, dirname
-		end
-		if !keep_logdir
-		    FileUtils.rm_rf Roby.app.log_dir
+		    keep_logdir = @failed_test || Roby.app.testing_keep_logs?
+		    save_logdir = (@failed_test && automatic_testing?) ||  Roby.app.testing_keep_logs?
+		    if save_logdir
+			subdir = @failed_test ? 'failures' : 'results'
+			dirname = Roby::Application.unique_dirname(File.join(APP_DIR, 'test', subdir), dataset_prefix)
+			FileUtils.mv Roby.app.log_dir, dirname
+		    end
+		    if !keep_logdir
+			FileUtils.rm_rf Roby.app.log_dir
+		    end
 		end
 
 	    rescue Exception
