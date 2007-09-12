@@ -36,9 +36,8 @@ module Roby
 	attr_reader :options
 
 	# Logging options.
-	# timings:: saves a ROBOT-timings.log file with the timings of each step in the event loop
-	#           This log can be read using roby-cntrllog
 	# events:: save a log of all events in the system. This log can be read using scripts/replay
+	#          If this value is 'stats', only the data necessary for timing statistics is saved.
 	# levels:: a component => level hash of the minimum level of the messages that 
 	#	   should be displayed on the console. The levels are DEBUG, INFO, WARN and FATAL.
 	#	     Roby: FATAL
@@ -65,9 +64,10 @@ module Roby
 	attr_reader :droby
 	
 	# Configuration of the control loop
-	# abort_on_exception:: if the control loop should abort if an uncaught task or event exception is received
+	# abort_on_exception:: if the control loop should abort if an uncaught task or event exception is received. Defaults
+	#                      to false
 	# abort_on_application_exception:: if the control should abort if an uncaught application exception (not originating
-	#                                  from a task or event) is caught
+	#                                  from a task or event) is caught. Defaults to true.
 	attr_reader :control
 
 	# An array of directories in which to search for plugins
