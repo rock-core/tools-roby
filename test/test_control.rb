@@ -130,6 +130,7 @@ class TC_Control < Test::Unit::TestCase
     end
 
     def test_structure_checking
+	Roby.logger.level = Logger::FATAL
 	Roby.control.abort_on_exception = false
 
 	# Check on a single task

@@ -591,7 +591,7 @@ module Roby
 
 		(local_tasks - finishing - gc_quarantine).each do |local_task|
 		    if local_task.pending? 
-			Plan.warn "GC: removing pending task #{local_task}"
+			Plan.info "GC: removing pending task #{local_task}"
 			remove_object(local_task)
 			did_something = true
 		    elsif local_task.starting?

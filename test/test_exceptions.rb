@@ -286,6 +286,7 @@ class TC_Exceptions < Test::Unit::TestCase
     # Tests exception handling mechanism during event propagation
     def test_task_propagation_with_exception
 	Roby.control.abort_on_exception = true
+	Roby.logger.level = Logger::FATAL
 
 	task = Class.new(SimpleTask) do
 	    def start(context)

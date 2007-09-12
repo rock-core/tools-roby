@@ -305,6 +305,8 @@ module Roby
 	class FailedTimeout < RuntimeError; end
 
 	def assert_original_error(klass, localized_error_type = LocalizedError)
+	    old_level = Roby.logger.level
+	    Roby.logger.level = Logger::FATAL
 	    assert_nothing_raised do
 		begin
 		    yield
@@ -313,6 +315,8 @@ module Roby
 		    assert_kind_of(klass, e.error)
 		end
 	    end
+	ensure
+	    Roby.logger.level = old_level
 	end
 
 	# Checks that the given block returns within +seconds+ seconds

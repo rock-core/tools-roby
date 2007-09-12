@@ -652,8 +652,8 @@ module Roby
 		    @cycle_index += 1
 
 		rescue Exception => e
-		    Roby.fatal "Control quitting because of unhandled exception"
-		    Roby.fatal e.full_message
+		    Roby.warn "Control quitting because of unhandled exception"
+		    Roby.warn e.full_message
 		    quit
 		end
 	    end
@@ -717,7 +717,7 @@ module Roby
 	# Hook called when a set of tasks is being killed because of an exception
 	def self.fatal_exception(error, tasks)
 	    super if defined? super
-	    Roby.fatal "#{error.exception.message}: killing\n  #{tasks.to_a.join("\n  ")}"
+	    Roby.warn "#{error.exception.message}: killing\n  #{tasks.to_a.join("\n  ")}"
 	    Roby.info error.exception.full_message
 	end
 	# Hook called when an exception +e+ has been handled by +task+

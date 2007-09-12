@@ -426,6 +426,7 @@ class TC_Plan < Test::Unit::TestCase
     end
 
     def test_gc_ignores_incoming_events
+	Roby::Plan.logger.level = Logger::WARN
 	a, b = prepare_plan :discover => 2, :model => SimpleTask
 	a.on(:stop, b, :start)
 	a.start!
@@ -442,6 +443,7 @@ class TC_Plan < Test::Unit::TestCase
     # problems related to bindings in the implementation of #garbage_collect:
     # the killed task bound to the Control.once block must remain the same.
     def test_gc_stopping
+	Roby::Plan.logger.level = Logger::WARN
 	running_task = nil
 	FlexMock.use do |mock|
 	    task_model = Class.new(Task) do
