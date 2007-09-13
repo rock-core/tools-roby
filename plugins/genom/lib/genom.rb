@@ -65,6 +65,16 @@ module Roby::Genom
 
 	class << self
 	    attr_reader :timeout
+	    attribute(:error_events) { Hash.new }
+
+	    def failure_report(name, event_name)
+		name = name.to_s
+		event_name = event_name.to_sym
+
+		event event_name
+		forward event_name => :failed
+		error_events[name] = event_name
+	    end
 	end
 
 	argument :request_name
@@ -136,7 +146,7 @@ module Roby::Genom
 
 	rescue ::Genom::ReplyTimeout => e # timeout waiting for reply
 	    if abort_activity
-		event(:stop).emit_failed(RequestTimeout.new(e, self), e.message)
+		event(:interrupted).emit_failed(RequestTimeout.new(e, self), e.message)
 	    else
 		stop_polling
 		event(:start).emit_failed(RequestTimeout.new(e, self), "timeout waiting for intermediate reply: #{e.message}")
@@ -153,10 +163,16 @@ module Roby::Genom
 		alias :__to_s__ :to_s
 		def to_s; "[#{request.arguments}] #{__to_s__}" end
 	    end
-	    
 
+	    # Necessary since we can have missed the intermediate reply
 	    emit :start, nil if !running?
-	    emit :failed, e
+
+	    # Check for mappings between replies and events
+	    if failure_event = self.class.error_events[e.error_name]
+		emit failure_event, e
+	    else
+		emit :failed, e
+	    end
 	end
 	def start_polling; Roby::Genom.running << self end
 	def stop_polling; Roby::Genom.running.delete(self) end
