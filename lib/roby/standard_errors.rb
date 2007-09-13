@@ -145,7 +145,7 @@ module Roby
 	end
 
 	def message
-	    "mission #{mission} failed with #{super}"
+	    "mission #{failed_task} failed with #{super}"
 	end
     end
 end
