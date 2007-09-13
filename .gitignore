@@ -1,4 +1,4 @@
-ext/*/Makefile
+Makefile
 ext/*/*.o
 ext/*/*.so
 ext/*/mkmf.log
@@ -6,4 +6,21 @@ lib/roby/*.so
 *_ui.rb
 
 .*.swp
+
+plugins/genom/test/prefix.init
+plugins/genom/test/prefix.mockup
+plugins/genom/test/modules/*/*.pc
+plugins/genom/test/modules/*/Makefile.in
+plugins/genom/test/modules/*/config.status
+plugins/genom/test/modules/*/configure
+plugins/genom/test/modules/*/config.log
+plugins/genom/test/modules/*/.genom
+plugins/genom/test/modules/*/local.mk
+plugins/genom/test/modules/*/server
+plugins/genom/test/modules/*/*/posix-obj
+plugins/genom/test/modules/*/libtool
+plugins/genom/test/modules/*/autoconf
+plugins/genom/test/modules/*/libtool
+plugins/genom/test/modules/*/config.mk
+plugins/genom/test/modules/*/autogen
 
