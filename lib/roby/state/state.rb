@@ -130,6 +130,7 @@ module Roby
 				   else v
 				   end
 	    end
+	    result
 	end
 
 	# Iterates on all defined members of this object

@@ -30,6 +30,16 @@ class TC_State < Test::Unit::TestCase
 	assert_equal(10, s.send(:x))
     end
 
+    def test_to_hash
+
+	s = ExtendedStruct.new
+	s.a = 10
+	s.b.a = 10
+
+	assert_equal({:a => 10, :b => { :a => 10 }}, s.to_hash)
+	assert_equal({:a => 10, :b => s.b}, s.to_hash(false))
+    end
+
     # Somebody defines Kernel#y, one thing I try to manage
     module ::Kernel
 	def y(i)
