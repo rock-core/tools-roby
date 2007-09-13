@@ -269,8 +269,8 @@ host
 			yield(env)
 			Genom.info "leaving Genom"
 
-		    ensure
-			Roby::Control.instance.disable_propagation
+		    rescue Exception
+			Genom.fatal "leaving Genom: #{$!.full_message}"
 		    end
 		end
 	    end
