@@ -258,24 +258,6 @@ module Roby
 	    plan.extend Roby::Propagation::ExecutablePlanChanged
 	end
 
-	# Disable event propagation
-	def disable_propagation
-	    if block_given?
-		begin
-		    Propagation.disable_propagation 
-		    yield
-		ensure
-		    Propagation.enable_propagation 
-		end
-	    else
-		Propagation.disable_propagation 
-	    end
-	end
-	# Enable event propagation
-	def enable_propagation; EventGenerator.enable_propagation end
-	# Check if event propagation is enabled or not
-	def propagate?; EventGenerator.propagate? end
-
 	# Perform the structure checking step by calling the procs registered
 	# in Control::structure_checks. These procs are supposed to return a
 	# collection of exception objects, or nil if no error has been found
