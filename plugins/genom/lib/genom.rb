@@ -390,7 +390,7 @@ module Roby::Genom
 
 	# The configuration structure got from the State object
 	def config
-	    State.genom.send(genom_module.name)
+	    Roby::State.genom.send(genom_module.name)
 	end
 
 	# True if we are running in simulation
