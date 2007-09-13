@@ -1,8 +1,10 @@
+require 'roby'
 require 'roby/test/common'
-require 'roby/app'
+require 'flexmock'
 require 'genom/runner'
 
 Roby.app.plugin_dir File.expand_path('../..', File.dirname(__FILE__))
+Roby.app.reset
 Roby.app.using 'genom'
 
 BASE_TEST_DIR = File.expand_path(File.dirname(__FILE__))
@@ -22,16 +24,15 @@ class TC_Genom < Test::Unit::TestCase
 
     def env; Runner.environment end
     def setup
+	Roby.control.run :detach => true
 	super
 
         Runner.environment || Runner.h2 
     end
     def teardown
-	Roby.control.disable_propagation do
-	    Genom.connect do
-		env.stop_module('mockup')
-		env.stop_module('init_test')
-	    end
+	Genom.connect do
+	    env.stop_module('mockup')
+	    env.stop_module('init_test')
 	end
 	super
     end
@@ -53,79 +54,99 @@ class TC_Genom < Test::Unit::TestCase
 	assert_raises(TypeError) { model::SetIndexControl.new(:new_value => "bla") }
     end
 
+    def start_runner(mod)
+	runner = mod.runner!
+	assert_event(runner.event(:start)) do
+	    plan.discover(runner)
+	    runner.start!
+	end
+
+	runner
+    end
+    def stop_runner(task, event = :stop)
+	assert_event(task.event(event)) do
+	    if block_given?
+		yield
+	    else
+		plan.auto(task)
+	    end
+	end
+    end
+
+    def assert_event(event)
+	did_once = false
+	while true
+	    result = Roby.execute do
+		unless did_once
+		    yield if block_given?
+		    did_once = true
+		end
+
+		if event.happened?
+		    true
+		elsif event.unreachable?
+		    raise
+		end
+	    end
+	    return if result
+	    Roby.wait_one_cycle
+	end
+    end
+
     def test_runner_task
         Genom.connect do
-            Genom::GenomModule('mockup')
-            plan.discover(runner = Genom::Mockup.runner!)
+            mod = Genom::GenomModule('mockup')
 	    
-	    runner.start!
-	    assert_happens do
-		assert(runner.running?)
-	    end
-
+	    runner = start_runner(mod)
 	    assert(runner.running?)
 	    assert(runner.event(:ready).happened?)
 
-	    assert_event( runner.event(:stop) ) do
-		runner.stop!
-	    end
+	    stop_runner(runner)
 
-	    plan.discover(runner = Genom::Mockup.runner!)
-	    assert_event( runner.event(:start) ) do
-		runner.start!
+	    runner = start_runner(mod)
+	    stop_runner(runner) do
+		Process.kill 'INT', Genom::Mockup.genom_module.pid
 	    end
-	    Process.kill 'INT', Genom::Mockup.genom_module.pid
-	    assert_event( runner.event(:failed) )
         end
     end
 
     def test_init
 	mod = Genom::GenomModule('init_test')
-
-	# There is no init singleton method, should fail
 	assert_raises(ArgumentError) do
 	    Genom.connect { mod.runner! }
 	end
 	
 	# Create the ::init singleton method
-	init_period = nil
-	mod.singleton_class.class_eval do
-	    include Test::Unit::Assertions
-	    define_method(:init) do
-		assert(mod.genom_module.roby_runner_task.running?)
-	       	init_period = init!(42)
-	    end
-	end
-
-	did_start = false
-	mod::Init.on(:start) { did_start = true }
-	Genom.connect do
-	    plan.discover(runner = mod.runner!)
-	    assert_event(runner.event(:start)) do
-		runner.start!
+	FlexMock.use do |mock|
+	    mod.singleton_class.class_eval do
+		define_method(:init) do
+		    mock.runner_running(mod.genom_module.roby_runner_task.running?)
+		    mock.init_called
+		    init!(42)
+		end
 	    end
 
-	    assert( init_period )
-	    assert( Genom.running.include?(init_period) )
-	    assert( init_period.event(:start).pending? )
+	    mod::Init.on(:start) { mock.init_started }
+	    mod::Init.on(:success) { mock.init_success }
 
-	    assert_event( init_period.event(:success) )
-	    assert(runner.event(:ready).happened?)
+	    mock.should_receive(:runner_running).with(true).once.ordered
+	    mock.should_receive(:init_called).once.ordered
+	    mock.should_receive(:init_started).once.ordered
+	    mock.should_receive(:init_success).once.ordered
+	    Genom.connect do
+		runner = start_runner(mod)
+		assert(runner.event(:ready).happened?)
 
-	    mod.genom_module.poster(:index).wait
-	    assert_equal(42, mod.genom_module.index!.update_period)
+		mod.genom_module.poster(:index).wait
+		assert_equal(42, mod.genom_module.index!.update_period)
+	    end
 	end
-	assert(did_start)
     end
             
-    def test_event_handling
+    def test_interruption_handling
         ::Genom.connect do
-            Genom::GenomModule('mockup')
-
-            plan.discover(runner = Genom::Mockup.runner!)
-	    assert_event( runner.event(:ready) ) do
-		runner.start!
-	    end
+            mod = Genom::GenomModule('mockup')
+	    start_runner(mod)
 
 	    plan.permanent(task = Genom::Mockup.start!)
 	    assert_equal(Genom::Mockup::Runner, task.class.execution_agent)
@@ -133,9 +154,9 @@ class TC_Genom < Test::Unit::TestCase
 	    assert_event( task.event(:start) ) do
 		task.start!
 	    end
-	    
 	    assert(!task.finished?)
-	    assert_event( task.event(:stop) ) do
+
+	    assert_event( task.event(:interrupted) ) do
 		task.stop!
 	    end
 	    assert(task.finished?)
