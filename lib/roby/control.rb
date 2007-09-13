@@ -151,7 +151,7 @@ module Roby
 	# Stops the current thread until the given even is emitted
 	def wait_until(ev)
 	    if Roby.inside_control?
-		raise ThreadMismatchError, "cannot use #wait_until in control thread"
+		raise ThreadMismatch, "cannot use #wait_until in control thread"
 	    end
 
 	    condition_variable(true) do |cv, mt|

@@ -53,7 +53,7 @@ module Roby
     class InternalError < RuntimeError; end
     class PropagationError < InternalError; end
 
-    class ThreadMismatchError < RuntimeError; end
+    class ThreadMismatch < RuntimeError; end
 
     class CodeError < LocalizedError
 	attr_reader :error
