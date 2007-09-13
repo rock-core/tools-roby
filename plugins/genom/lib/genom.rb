@@ -115,7 +115,7 @@ module Roby::Genom
 	event :stop do |context|
 	    interrupted!(context)
 	end
-	on(:stop) { |event| Roby::Genom.running.delete(event.task) }
+	on(:stop) { |event| stop_polling }
 
 	# Poll on the status of the activity
 	def poll
