@@ -472,24 +472,24 @@ module Roby
 	end
 	def run_plugins(mods, &block)
 	    control = Roby.control
+
 	    if mods.empty?
-		begin
-		    yield
-		    control.join
-		rescue Exception => e
-		    control.quit
-		    control.join
-		    if e.kind_of?(Interrupt)
-			Roby.fatal "interrupted"
-		    else
-			raise e, e.message, Roby.filter_backtrace(e.backtrace)
-		    end
-		end
+		yield
+		control.join
 	    else
 		mod = mods.shift
 		mod.run(self) do
 		    run_plugins(mods, &block)
 		end
+	    end
+
+	rescue Exception => e
+	    control.quit
+	    control.join
+	    if e.kind_of?(Interrupt)
+		Roby.fatal "interrupted"
+	    else
+		raise e, e.message, Roby.filter_backtrace(e.backtrace)
 	    end
 	end
 
