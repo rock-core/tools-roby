@@ -565,7 +565,10 @@ module Roby
 	def partially_instanciated?; !fully_instanciated? end
 
         # If a model of +event+ is defined in the task model
-        def has_event?(event); model.has_event?(event) end
+        def has_event?(event_model)
+	    bound_events.has_key?(event_model) ||
+		self.class.has_event?(event_model)
+	end
         
 	def starting?; event(:start).pending? end
 	# If this task never ran
