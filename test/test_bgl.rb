@@ -409,25 +409,25 @@ class TC_BGL < Test::Unit::TestCase
 	end
     end
 
-    def test_undirected_dfs
-	# v1---->v2-->v3-->v4
-	# |       ^---------|
-	# |-->v5--^     
-	graph, vertices = setup_test_graph(false)
-	v1, v2, v3, v4, v5 = *vertices
-	
-	# Do instead
-	# v1---->v2
-	# |       ^
-	# |-->v5--^     
-	graph.unlink(v2, v3)
-	graph.unlink(v4, v2)
+    #def test_undirected_dfs
+    #    # v1---->v2-->v3-->v4
+    #    # |       ^---------|
+    #    # |-->v5--^     
+    #    graph, vertices = setup_test_graph(false)
+    #    v1, v2, v3, v4, v5 = *vertices
+    #    
+    #    # Do instead
+    #    # v1---->v2
+    #    # |       ^
+    #    # |-->v5--^     
+    #    graph.unlink(v2, v3)
+    #    graph.unlink(v4, v2)
 
-	traces = []
-	traces << [ [v1, v2, 1], [v2, v5, 6], [v5, v1, 5] ]
-	traces << [ [v1, v5, 5], [v5, v2, 6], [v2, v1, 1] ]
-	assert_dfs_trace(traces, graph.undirected, :each_dfs, v2, Graph::ALL, false)
-    end
+    #    traces = []
+    #    traces << [ [v1, v2, 1], [v2, v5, 6], [v5, v1, 5] ]
+    #    traces << [ [v1, v5, 5], [v5, v2, 6], [v2, v1, 1] ]
+    #    assert_dfs_trace(traces, graph.undirected, :each_dfs, v2, Graph::ALL, false)
+    #end
 
     def test_topological_sort
 	graph, (v1, v2, v3, v4) = setup_graph(4)
