@@ -18,9 +18,11 @@ module Roby::Genom
 	raise "you must not load Genom.rb by yourself"
     end
 
+    @loaded_modules = Hash.new
     class << self
 	extend Forwardable
 	attr_reader :genom_rb
+	attr_reader :loaded_modules
 	def_delegators(:@genom_rb, :connect)
 	def_delegators(:@genom_rb, :disconnect)
 	def_delegators(:@genom_rb, :types)
@@ -543,7 +545,7 @@ module Roby::Genom
 	end
 
 	# The list of the module names that have been loaded by #using
-	attribute(:used_modules) { Hash.new }
+	def used_modules; Roby::Genom.loaded_modules end
 	# If +name+ is a used module
 	def uses?(modname); used_modules.any? { |n, _| n == modname.to_s } end
 
