@@ -365,8 +365,10 @@ module Roby
 	    end
 
 	    # Import some constants directly at toplevel
-	    Object.const_set(:Application, Roby::Application)
-	    Object.const_set(:State, Roby::State)
+	    unless Object.const_defined?(:Application)
+		Object.const_set(:Application, Roby::Application)
+		Object.const_set(:State, Roby::State)
+	    end
 
 	    # Load robot-specific configuration
 	    planner_dir = File.join(APP_DIR, 'planners')
