@@ -5,19 +5,23 @@ robot_name = ARGV.shift
 app.robot robot_name, (ARGV.shift || robot_name)
 require File.join(File.dirname(__FILE__), '..', 'load')
 app.setup
-app.run do
-    # Load the controller
-    include Roby
-    Roby.execute do
-	begin
-	    controller_file = File.join(APP_DIR, "controllers", "#{app.robot_name}.rb")
-	    if File.readable?(controller_file)
-		Robot.info "loading controller file #{controller_file}"
-		load controller_file
+begin
+    app.run do
+	# Load the controller
+	include Roby
+	Roby.execute do
+	    begin
+		controller_file = File.join(APP_DIR, "controllers", "#{app.robot_name}.rb")
+		if File.readable?(controller_file)
+		    Robot.info "loading controller file #{controller_file}"
+		    load controller_file
+		end
+		Robot.info "done initialization"
+	    rescue Interrupt
 	    end
-	    Robot.info "done initialization"
-	rescue Interrupt
 	end
     end
+rescue Interrupt
+    Roby.fatal "interrupted"
 end
 
