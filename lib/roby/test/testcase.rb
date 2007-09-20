@@ -348,8 +348,12 @@ module Roby
 		    end
 
 		    @failed_test = false
-		    Roby.app.run do
-			super
+		    begin
+			Roby.app.run do
+			    super
+			end
+		    rescue Exception => e
+			add_error(e)
 		    end
 
 		    keep_logdir = @failed_test || Roby.app.testing_keep_logs?
