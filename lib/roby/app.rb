@@ -484,12 +484,12 @@ module Roby
 	    end
 
 	rescue Exception => e
-	    control.quit
-	    control.join
-	    if e.kind_of?(Interrupt)
-		Roby.fatal "interrupted"
-	    else
+	    if Roby.control.running?
+		control.quit
+		control.join
 		raise e, e.message, Roby.filter_backtrace(e.backtrace)
+	    else
+		raise
 	    end
 	end
 
