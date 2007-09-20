@@ -357,7 +357,11 @@ module Roby
 			    super
 			end
 		    rescue Exception => e
-			add_error(e)
+			if @_result
+			    add_error(e)
+			else
+			    raise
+			end
 		    end
 
 		    keep_logdir = @failed_test || Roby.app.testing_keep_logs?
