@@ -11,16 +11,24 @@ module Roby::Log
 	attr_reader :basename
 	attr_reader :range
 
-	def initialize(path)
-	    @basename = if path =~ /-events\.log$/ then $`
-		       else path
-		       end
+	def initialize(file, allow_old_format = false, force_rebuild_index = false)
+	    @event_io = if file.respond_to?(:to_str)
+			    @basename = if file =~ /-events\.log$/ then $`
+					else file
+					end
 
-	    @event_io = File.open("#{basename}-events.log")
-	    FileLogger.check_format(@event_io)
+			    File.open("#{basename}-events.log")
+			else
+			    @basename = file.path
+			    file
+			end
+
+	    if !allow_old_format
+		FileLogger.check_format(@event_io)
+	    end
 
 	    index_path = "#{basename}-index.log"
-	    if !File.file?(index_path)
+	    if force_rebuild_index || !File.file?(index_path)
 		rebuild_index
 	    else
 		@index_io = File.open(index_path)
