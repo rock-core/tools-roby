@@ -281,7 +281,7 @@ module Roby::Log
 
 		File.open("#{into}-events.log") do |event_log|
 		    File.open("#{into}-index.log", 'w') do |index_log|
-			puts "rebuilding indec of #{into}"
+			puts "rebuilding index of #{into}"
 			rebuild_index(event_log, index_log)
 		    end
 		end
