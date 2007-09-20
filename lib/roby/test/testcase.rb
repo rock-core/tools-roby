@@ -251,9 +251,14 @@ module Roby
 
 	    # Progress report for the curren test. Yields if user interaction is allowed
 	    # and value is not zero
-	    def progress(value)
-		print "\r#{@method_name} progress: #{value}"
+	    def progress(value, max = nil)
+		if max
+		    print "\r#{@method_name} progress: #{value}/#{max}"
+		else
+		    print "\r#{@method_name} progress: #{"%.2f" % [value * 100]}"
+		end
 		STDOUT.flush
+
 		if block_given? && !automatic_testing? && value > 0
 		    yield
 		end
