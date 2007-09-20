@@ -15,8 +15,10 @@ module Roby
 	    ALL_FIELDS = ALL_TIMINGS + ALL_NUMERIC_FIELDS + [:event_count, :pos]
 
 	    attr_reader :logfile
+	    attr_reader :ignored_timings
 	    def initialize(logfile)
 		@logfile = logfile
+		@ignored_timings = Set.new
 		rewind
 	    end
 	    def rewind; logfile.rewind end
@@ -29,8 +31,11 @@ module Roby
 		    ref     = timings.delete(REF_TIMING)
 		    result  << ref
 
-		    unknown_timings = (timings.keys.to_set - ALL_FIELDS.to_set)
-		    raise "invalid list of timings: unknown #{unknown_timings.to_a.join(", ")}" unless unknown_timings.empty?
+		    unknown_timings = (timings.keys.to_set - ALL_FIELDS.to_set - ignored_timings)
+		    if !unknown_timings.empty?
+			STDERR.puts "ignoring the following timings: #{unknown_timings.to_a.join(", ")}"
+			@ignored_timings |= unknown_timings
+		    end
 		    timings = ALL_TIMINGS.map do |name|
 			timings[name]
 		    end
