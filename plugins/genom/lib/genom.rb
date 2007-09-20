@@ -67,6 +67,10 @@ module Roby::Genom
 	    attr_reader :timeout
 	    attribute(:error_events) { Hash.new }
 
+	    # Defines +event_name+ as a terminal event which is emitted when
+	    # the +name+ failure report is returned by the activity
+	    #
+	    # The new event is forwarded to :failed
 	    def failure_report(name, event_name)
 		name = name.to_s
 		event_name = event_name.to_sym

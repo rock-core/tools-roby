@@ -49,4 +49,13 @@ do_count(int *report)
   return EXEC;
 }
 
+ACTIVITY_EVENT
+return_failure(int *error, int *report)
+{
+    if (*error == 1)
+	*report = S_mockup_FIRST_ERROR;
+    else if (*error == 2)
+	*report = S_mockup_SECOND_ERROR;
+    return ETHER;
+}
 

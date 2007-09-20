@@ -163,6 +163,29 @@ class TC_Genom < Test::Unit::TestCase
         end
     end
 
+    def test_error_events
+	mod = Genom::GenomModule('mockup')
+	mod::Failure.failure_report('FIRST_ERROR', :first_error)
+	assert(mod::Failure.has_event?(:first_error))
+
+        ::Genom.connect do
+	    start_runner(mod)
+
+	    plan.permanent(task = mod.failure!(1))
+	    assert_event( task.event(:first_error) ) do
+		task.start!
+	    end
+	    assert(task.failed?)
+
+	    plan.permanent(task = mod.failure!(2))
+	    assert_event( task.event(:failed) ) do
+		task.start!
+	    end
+	    assert(!task.event(:first_error).happened?)
+	    assert(task.failed?)
+        end
+    end
+
     def test_control_to_exec
 	mod = Genom::GenomModule('mockup')
 	original_model = mod::SetIndexControl
@@ -193,22 +216,30 @@ class TC_Genom < Test::Unit::TestCase
 	end
     end
 
-    def test_needs_precondition
-	mod = Genom::GenomModule('mockup')
-	Roby::Genom::Mockup::Start.class_eval do
-	    needs :SetIndexControl
-	end
+    # def test_needs_precondition
+    #     mod = Genom::GenomModule('mockup')
+    #     Roby::Genom::Mockup::Start.class_eval do
+    #         needs :SetIndexControl
+    #     end
 
-	GC.start
+    #     ::Genom.connect do
+    #         start_runner(mod)
 
-	::Genom.connect do
-	    plan.discover(runner = Genom::Mockup.runner!)
-	    runner.start!
-	    assert_event( runner.event(:ready) )
+    #         plan.permanent(task = Genom::Mockup.start!)
+    #         assert_raises(Roby::EventPreconditionFailed) do
+    #            Roby.execute do
+    #        	   task.start!(nil)
+    #            end
+    #         end
 
-	    plan.permanent(task = Genom::Mockup.start!)
-	    assert_raises(Roby::EventPreconditionFailed) { task.start!(nil) }
-	end
-    end
+    #         plan.permanent(set_index = mod.set_index_control!(10))
+    #         assert_event(set_index.event(:start)) do
+    #     	set_index.start!
+    #         end
+    #         assert_event(task.event(:start)) do
+    #     	task.start!
+    #         end
+    #     end
+    # end
 end
 
