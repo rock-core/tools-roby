@@ -426,7 +426,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	    end
 	end
 
-	t = SimpleTask.new(:arg => 10)
+	t = SimpleTask.new(:arg => 10, :id => 0)
 	t.extend DistributedObject
 	trsc = Roby::Distributed::Transaction.new(plan)
 	trsc.add_owner remote_peer
@@ -449,7 +449,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert(!plan.task_index.by_owner[Roby::Distributed].include?(t))
 	assert(remote.check_mission(Distributed.format(t)))
 	assert(remote.check_ownership(Distributed.format(t)))
-	assert_equal({ :arg => 10 }, remote.arguments_of(Distributed.format(t)))
+	assert_equal({ :arg => 10, :id => 0 }, remote.arguments_of(Distributed.format(t)))
     end
 end
 
