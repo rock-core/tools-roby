@@ -183,16 +183,18 @@ module Roby
 	    end
 	    
 	    def process(data)
-		@time = data.last[1][:start]
+		@time = data.last[0][:start]
 	        @start_time ||= @time
 
-		data.each_slice(2) do |m, args|
+		data.each_slice(4) do |m, sec, usec, args|
+		    STDERR.puts m
+		    time = Time.at(sec, usec)
 		    reason = catch :ignored do
 			begin
 			    if respond_to?(m)
-				send(m, *args)
+				send(m, time, *args)
 			    end
-			    displays.each { |d| d.send(m, *args) if d.respond_to?(m) }
+			    displays.each { |d| d.send(m, time, *args) if d.respond_to?(m) }
 			rescue Exception => e
 			    display_args = args.map do |obj|
 				case obj

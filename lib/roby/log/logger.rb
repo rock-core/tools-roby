@@ -86,8 +86,7 @@ module Roby::Log
 	def log(m, args = nil)
 	    if m == :discovered_tasks || m == :discovered_events
 		Roby::Control.synchronize do
-		    args ||= yield
-		    objects = args[2].to_value_set
+		    objects = args[1].to_value_set
 		    # Do not give a 'peer' argument at Distributed.format, to
 		    # make sure we do a full dump
 		    args = Roby::Distributed.format(args) if has_logger?(m)
@@ -95,8 +94,7 @@ module Roby::Log
 		end
 	    elsif m == :finalized_task || m == :finalized_event
 		Roby::Control.synchronize do
-		    args ||= yield
-		    object = args[2]
+		    object = args[1]
 		    args = Roby::Distributed.format(args, self) if has_logger?(m)
 		    known_objects.delete(object)
 		end
@@ -109,7 +107,7 @@ module Roby::Log
 		    end
 		end
 
-		logged_events << [m, args]
+		logged_events << [m, now.tv_sec, now.tv_usec, args]
 	    end
 	end
 

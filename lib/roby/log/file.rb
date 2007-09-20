@@ -101,7 +101,7 @@ module Roby::Log
     # logging system (using Log.log), for instance to feed an offline display
     class FileLogger
 	# The current log format version
-	FORMAT_VERSION = 2
+	FORMAT_VERSION = 3
 
 	@dumped = Hash.new
 	class << self
@@ -258,6 +258,37 @@ module Roby::Log
 	    output.write(input.read)
 	end
 
+	def self.from_format_2(input, output)
+	    # In format 3, we did two things:
+	    #   * changed the way exceptions were dumped: instead of relying on
+	    #     DRbRemoteError, we are now using DRobyModel
+	    #   * stopped dumping Time objects and instead marshalled tv_sec
+	    #     and tv_usec directly
+	    Exception::DRoby.class_eval do
+		def self._load(str)
+		    Marshal.load(str)
+		end
+	    end
+
+	    new_cycle = []
+	    input_stream = EventStream.new("input", Logfile.new(input, true))
+	    while !input.eof?
+		new_cycle.clear
+		begin
+		    m_data = input_stream.read
+		    cycle_data = Marshal.load(m_data)
+		    cycle_data.each_slice(2) do |m, args|
+			time = args.shift
+			new_cycle << m << time.tv_sec << time.tv_usec << args
+		    end
+		    Marshal.dump(new_cycle, output)
+		rescue Exception => e
+		    STDERR.puts "dropped cycle because of the following error:"
+		    STDERR.puts "  #{e.message}"
+		end
+	    end
+	end
+
 	def self.to_new_format(file, into = file)
 	    input = File.open(file)
 	    log_format = self.log_format(input)
@@ -270,6 +301,7 @@ module Roby::Log
 		end
 		STDERR.puts "upgrading #{file} from format #{log_format} into #{into}"
 
+		input.rewind
 		Tempfile.open('roby_to_new_format') do |output|
 		    write_header(output)
 		    send("from_format_#{log_format}", input, output)

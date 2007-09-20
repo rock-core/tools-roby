@@ -7,12 +7,12 @@ module Roby::Log
 
 	def added_child_object(child, relations, info)
 	    super if defined? super
-	    Roby::Log.log(:added_task_child) { [Time.now, self, relations, child, info] }
+	    Roby::Log.log(:added_task_child) { [self, relations, child, info] }
 	end
 
 	def removed_child_object(child, relations)
 	    super if defined? super
-	    Roby::Log.log(:removed_task_child) { [Time.now, self, relations, child] }
+	    Roby::Log.log(:removed_task_child) { [self, relations, child] }
 	end
     end
     Roby::Task.include TaskHooks
@@ -25,44 +25,44 @@ module Roby::Log
 
 	def inserted(tasks)
 	    super if defined? super
-	    Roby::Log.log(:inserted_tasks) { [Time.now, self, tasks] }
+	    Roby::Log.log(:inserted_tasks) { [self, tasks] }
 	end
 	def discarded(tasks)
 	    super if defined? super
-	    Roby::Log.log(:discarded_tasks) { [Time.now, self, tasks] }
+	    Roby::Log.log(:discarded_tasks) { [self, tasks] }
 	end
 	def replaced(from, to)
 	    super if defined? super
-	    Roby::Log.log(:replaced_tasks) { [Time.now, self, from, to] }
+	    Roby::Log.log(:replaced_tasks) { [self, from, to] }
 	end
 	def discovered_events(tasks)
 	    super if defined? super
-	    Roby::Log.log(:discovered_events) { [Time.now, self, tasks] }
+	    Roby::Log.log(:discovered_events) { [self, tasks] }
 	end
 	def discovered_tasks(tasks)
 	    super if defined? super
-	    Roby::Log.log(:discovered_tasks) { [Time.now, self, tasks] }
+	    Roby::Log.log(:discovered_tasks) { [self, tasks] }
 	end
 	def garbage(task)
 	    super if defined? super
-	    Roby::Log.log(:garbage_task) { [Time.now, self, task] }
+	    Roby::Log.log(:garbage_task) { [self, task] }
 	end
 	def finalized_event(event)
 	    super if defined? super
-	    Roby::Log.log(:finalized_event) { [Time.now, self, event] }
+	    Roby::Log.log(:finalized_event) { [self, event] }
 	end
 	def finalized_task(task)
 	    super if defined? super
-	    Roby::Log.log(:finalized_task) { [Time.now, self, task] }
+	    Roby::Log.log(:finalized_task) { [self, task] }
 	end
 
 	def added_transaction(trsc)
 	    super if defined? super
-	    Roby::Log.log(:added_transaction) { [Time.now, self, trsc] }
+	    Roby::Log.log(:added_transaction) { [self, trsc] }
 	end
 	def removed_transaction(trsc)
 	    super if defined? super
-	    Roby::Log.log(:removed_transaction) { [Time.now, self, trsc] }
+	    Roby::Log.log(:removed_transaction) { [self, trsc] }
 	end
     end
     Roby::Plan.include PlanHooks
@@ -72,11 +72,11 @@ module Roby::Log
 
 	def committed_transaction
 	    super if defined? super
-	    Roby::Log.log(:committed_transaction) { [Time.now, self] }
+	    Roby::Log.log(:committed_transaction) { [self] }
 	end
 	def discarded_transaction
 	    super if defined? super
-	    Roby::Log.log(:discarded_transaction) { [Time.now, self] }
+	    Roby::Log.log(:discarded_transaction) { [self] }
 	end
     end
     Roby::Transaction.include TransactionHooks
@@ -89,47 +89,47 @@ module Roby::Log
 
 	def added_child_object(to, relations, info)
 	    super if defined? super
-	    Roby::Log.log(:added_event_child) { [Time.now, self, relations, to, info] }
+	    Roby::Log.log(:added_event_child) { [self, relations, to, info] }
 	end
 
 	def removed_child_object(to, relations)
 	    super if defined? super
-	    Roby::Log.log(:removed_event_child) { [Time.now, self, relations, to] }
+	    Roby::Log.log(:removed_event_child) { [self, relations, to] }
 	end
 
 	def calling(context)
 	    super if defined? super
-	    Roby::Log.log(:generator_calling) { [Time.now, self, Roby::Propagation.source_generators, context.to_s] }
+	    Roby::Log.log(:generator_calling) { [self, Roby::Propagation.source_generators, context.to_s] }
 	end
 
 	def called(context)
 	    super if defined? super
-	    Roby::Log.log(:generator_called) { [Time.now, self, context.to_s] }
+	    Roby::Log.log(:generator_called) { [self, context.to_s] }
 	end
 
 	def fired(event)
 	    super if defined? super
-	    Roby::Log.log(:generator_fired) { [Time.now, self, event.object_id, event.time, event.context.to_s] }
+	    Roby::Log.log(:generator_fired) { [self, event.object_id, event.time, event.context.to_s] }
 	end
 
 	def signalling(event, to)
 	    super if defined? super
-	    Roby::Log.log(:generator_signalling) { [Time.now, false, self, to, event.object_id, event.time, event.context.to_s] }
+	    Roby::Log.log(:generator_signalling) { [false, self, to, event.object_id, event.time, event.context.to_s] }
 	end
 
 	def emitting(context)
 	    super if defined? super
-	    Roby::Log.log(:generator_emitting) { [Time.now, self, Roby::Propagation.source_generators, context.to_s] }
+	    Roby::Log.log(:generator_emitting) { [self, Roby::Propagation.source_generators, context.to_s] }
 	end
 
 	def forwarding(event, to)
 	    super if defined? super
-	    Roby::Log.log(:generator_forwarding) { [Time.now, true, self, to, event.object_id, event.time, event.context.to_s] }
+	    Roby::Log.log(:generator_forwarding) { [true, self, to, event.object_id, event.time, event.context.to_s] }
 	end
 
 	def postponed(context, generator, reason)
 	    super if defined? super 
-	    Roby::Log.log(:generator_postponed) { [Time.now, self, context.to_s, generator, reason.to_s] }
+	    Roby::Log.log(:generator_postponed) { [self, context.to_s, generator, reason.to_s] }
 	end	
     end
     Roby::EventGenerator.include EventGeneratorHooks
@@ -139,7 +139,7 @@ module Roby::Log
 
 	def cycle_end(timings)
 	    super if defined? super
-	    Roby::Log.log(:cycle_end) { [Time.now, timings] }
+	    Roby::Log.log(:cycle_end) { [timings] }
 	end
 
 	module ClassExtension
@@ -147,11 +147,11 @@ module Roby::Log
 
 	    def fatal_exception(error, tasks)
 		super if defined? super
-		Roby::Log.log(:fatal_exception) { [Time.now, error.exception, tasks] }
+		Roby::Log.log(:fatal_exception) { [error.exception, tasks] }
 	    end
 	    def handled_exception(error, task)
 		super if defined? super
-		Roby::Log.log(:handled_exception) { [Time.now, error.exception, task] }
+		Roby::Log.log(:handled_exception) { [error.exception, task] }
 	    end
 	end
     end
