@@ -98,40 +98,42 @@ module Roby
 	    #	end
 	    #
 	    def assert_any_event(positive, negative = [], msg = nil, &block)
-		Roby.condition_variable(false) do |cv|
-		    positive = Array[*positive].to_value_set
-		    negative = Array[*negative].to_value_set
+		control_priority do
+		    Roby.condition_variable(false) do |cv|
+			positive = Array[*positive].to_value_set
+			negative = Array[*negative].to_value_set
 
-		    unreachability_reason = ValueSet.new
-		    Roby::Control.synchronize do
-			positive.each do |ev|
-			    ev.if_unreachable(true) do |reason|
-				unreachability_reason << reason if reason
-			    end
-			end
-
-			error, result = Test.assert_any_event_result(positive, negative)
-			if error.nil?
-			    this_thread = Thread.current
-
-			    Test.event_assertions << [this_thread, cv, positive, negative]
-			    Roby.once(&block) if block_given?
-			    begin
-				cv.wait(Roby::Control.mutex)
-			    ensure
-				Test.event_assertions.delete_if { |thread, _| thread == this_thread }
+			unreachability_reason = ValueSet.new
+			Roby::Control.synchronize do
+			    positive.each do |ev|
+				ev.if_unreachable(true) do |reason|
+				    unreachability_reason << reason if reason
+				end
 			    end
 
-			    error, result = this_thread[ASSERT_ANY_EVENTS_TLS]
-			end
+			    error, result = Test.assert_any_event_result(positive, negative)
+			    if error.nil?
+				this_thread = Thread.current
 
-			if error
-			    if !unreachability_reason.empty?
-				flunk("#{msg} all positive events are unreachable for the following reason:\n  #{unreachability_reason.to_a.join("\n  ")}")
-			    elsif msg
-				flunk("#{msg} failed: #{result}")
-			    else
-				flunk(result)
+				Test.event_assertions << [this_thread, cv, positive, negative]
+				Roby.once(&block) if block_given?
+				begin
+				    cv.wait(Roby::Control.mutex)
+				ensure
+				    Test.event_assertions.delete_if { |thread, _| thread == this_thread }
+				end
+
+				error, result = this_thread[ASSERT_ANY_EVENTS_TLS]
+			    end
+
+			    if error
+				if !unreachability_reason.empty?
+				    flunk("#{msg} all positive events are unreachable for the following reason:\n  #{unreachability_reason.to_a.join("\n  ")}")
+				elsif msg
+				    flunk("#{msg} failed: #{result}")
+				else
+				    flunk(result)
+				end
 			    end
 			end
 		    end
@@ -140,22 +142,24 @@ module Roby
 
 	    # Starts +task+ and checks it succeeds
 	    def assert_succeeds(task, *args)
-		if !task.kind_of?(Roby::Task)
-		    Roby.execute do
-			plan.insert(task = planner.send(task, *args))
+		control_priority do
+		    if !task.kind_of?(Roby::Task)
+			Roby.execute do
+			    plan.insert(task = planner.send(task, *args))
+			end
 		    end
-		end
 
-		assert_any_event([task.event(:success)], [], nil) do
-		    plan.permanent(task)
-		    task.start! if task.pending?
-		    yield if block_given?
+		    assert_any_event([task.event(:success)], [], nil) do
+			plan.permanent(task)
+			task.start! if task.pending?
+			yield if block_given?
+		    end
 		end
 	    end
 
 	    def control_priority
 		old_priority = Thread.current.priority 
-		Thread.current.priority = Roby.control.thread.priority
+		Thread.current.priority = Roby.control.thread.priority + 1
 
 		yield
 	    ensure

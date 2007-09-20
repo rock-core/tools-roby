@@ -232,6 +232,9 @@ module Roby
 	# this much time left in the cycle
 	SLEEP_MIN_TIME = 0.01
 
+	# The priority of the control thread
+	THREAD_PRIORITY = 10
+
 	# If true, abort if an unhandled exception is found
 	attr_accessor :abort_on_exception
 	# If true, abort if an application exception is found
@@ -488,7 +491,7 @@ module Roby
 		return
 	    end
 	    self.thread = Thread.current
-	    self.thread.priority = 10
+	    self.thread.priority = THREAD_PRIORITY
 
 	    @quit = 0
 	    yield if block_given?
