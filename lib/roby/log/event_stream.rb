@@ -17,8 +17,12 @@ module Roby
 	    # stream
 	    def range; logfile.range end
 
-	    def initialize(basename)
+	    def initialize(basename, file = nil)
 		super(basename, "roby-events")
+		if file
+		    @logfile = file
+		    reinit!
+		end
 	    end
 	    def open
 		@logfile = Roby::Log.open("#{name}-events.log")
