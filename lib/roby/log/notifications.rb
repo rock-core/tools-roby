@@ -7,6 +7,8 @@ end
 module Roby
     module Log
 	class Notifications < Roby::Log::DataDecoder
+	    GENERATOR_CALL_LIMIT = 0.1
+
 	    attr_reader :tasks
 
 	    attr_reader :histories
@@ -37,51 +39,52 @@ module Roby
 
 
 	    def process(data)
-		data.each_slice(2) do |m, args|
+		data.each_slice(4) do |m, sec, usec, args|
+		    time = Time.at(sec, usec)
 		    case m.to_s
 		    when /inserted/
-			task = tasks[args[2]]
+			task = tasks[args[1]]
 			task.mission = true
 			event :added_mission, args[0], task
 
 		    when /discarded/
-			task = tasks[args[2]]
+			task = tasks[args[1]]
 			task.mission = false
 			event :discarded_mission, args[0], task
 
 		    when /discovered_tasks/
-			args[2].each { |t| added_task(t) }
+			args[1].each { |t| added_task(t) }
 
 		    when /finalized_task/
-			id = args[2]
+			id = args[1]
 			task = tasks[id]
 			if histories[id].empty?
-			    event :finalized_pending, args[0], task
+			    event :finalized_pending, time, task
 			end
 			histories.delete(task)
-			removed_task(args[2])
+			removed_task(args[1])
 
 		    when /generator_calling/
-			@current_call = args.dup
+			@current_call = [time, args[0]]
 
 		    when /generator_called/
-			if @current_call == args[1]
-			    duration = args[0] - @current_call[0]
+			if @current_call[1] == args[0]
+			    duration = time - @current_call[0]
 			    if duration > GENERATOR_CALL_LIMIT
-				event :overly_long_call, args[0], duration, tasks[args[1].task], args[1].symbol, args[2]
+				event :overly_long_call, time, duration, tasks[args[0].task], args[0].symbol, args[1]
 			    end
 			end
 			
 		    when /exception/
-			time, error, involved_tasks = *args
+			error, involved_tasks = *args
 			involved_tasks = involved_tasks.map { |id| tasks[id] }
 			event m, time, error, involved_tasks
 		    when /generator_fired/
-			generator = args[1]
+			generator = args[0]
 			if generator.respond_to?(:task)
-			    histories[generator.task] << args[1..-1]
+			    histories[generator.task] << args
 			    if generator.symbol == :failed
-				event :failed_task, args[0], tasks[generator.task], histories[generator.task]
+				event :failed_task, time, tasks[generator.task], histories[generator.task]
 			    end
 			end
 		    end
