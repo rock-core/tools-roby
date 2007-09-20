@@ -19,10 +19,20 @@ def clean_extension(name, soname = name)
     end
 end
 
+task :cruise => [:test, :core_docs]
+task :test => :test_core
+task :test_core => :setup do
+    if !system("testrb -x test_undirected_dfs test/suite_core.rb")
+	puts "failed core suite"
+	exit(1)
+    end
+end
+
 task :setup => :uic do
     build_extension 'droby'
     build_extension 'graph', 'bgl'
 end
+
 task :clean do
     clean_extension 'droby'
     clean_extension 'graph', 'bgl'
