@@ -98,11 +98,9 @@ module Roby
 		Roby.logger.level = Logger::DEBUG
 	    end
 
-	    if Roby.control.thread
-		# Control thread is running, quit it
-		# Beware, it will raise an error if there is one ...
+	    if Roby.control.running?
 		Roby.control.quit
-		Roby.control.join rescue nil
+		Roby.control.join
 	    else
 		catch(:done_cleanup) do
 		    begin
@@ -187,6 +185,12 @@ module Roby
 	    STDERR.puts "failed teardown: #{e.full_message}"
 
 	ensure
+	    while Roby.control.running?
+		Roby.control.quit
+		Roby.control.join rescue nil
+	    end
+	    Roby.plan.clear
+
 	    Roby.logger.level = @original_roby_logger_level
 	    self.console_logger = false
 	end
