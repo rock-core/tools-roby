@@ -159,7 +159,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	process_events
 	assert(!r_task.plan)
-	assert_nothing_raised { remote_peer.subscribe(r_task) }
+	assert_raises(Roby::RemotePeerMismatch) { remote_peer.subscribe(r_task) }
     end
 
     def test_subscription
