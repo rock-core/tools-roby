@@ -239,13 +239,13 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_same(r_root, remote_peer.subscribe(r_root))
 	assert_same(r_mission, remote_peer.subscribe(r_mission))
 	r_subtask = remote_task(:id => 'subtask')
-	r_next_mission = remote_task(:id => 'next_mission')
 	assert(!plan.unneeded_tasks.include?(r_subtask))
-	assert(!plan.unneeded_tasks.include?(r_next_mission))
+	r_next_mission = remote_task(:id => 'next_mission')
+	Roby::Control.synchronize do
+	    assert(!r_next_mission.plan || plan.unneeded_tasks.include?(r_next_mission))
+	end
 
 	assert_equal([r_subtask], r_mission.children.to_a)
-	proxies = r_mission.event(:stop).child_objects(EventStructure::Signal).to_a
-	assert_equal(r_next_mission.event(:start), proxies.first)
 
 	## Check plan GC after we have unsubscribed from mission
 	remote_peer.unsubscribe(r_mission)
@@ -253,7 +253,6 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    assert(r_mission.plan)
 	    assert(!plan.unneeded_tasks.include?(r_mission))
 	    assert(!remote_peer.subscribed?(r_mission))
-	    assert(plan.unneeded_tasks.include?(r_next_mission), Distributed.remotely_useful_objects(ValueSet.new, plan.known_tasks))
 	    assert(plan.unneeded_tasks.include?(r_subtask))
 	end
 	Roby.control.wait_one_cycle
@@ -266,7 +265,6 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 		(obj.root_object == r_subtask if obj.respond_to?(:root_object))
 	end
 	assert(!subtask_proxy)
-	assert(!r_next_mission.plan)
 	assert_raises(RemotePeerMismatch) { r_next_mission.sibling_on(remote_peer) }
 	next_mission_proxy = remote_peer.proxies.find do |_, obj| 
 	    obj == r_next_mission || 
@@ -282,13 +280,8 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_same(r_mission, remote_peer.subscribe(r_mission))
 	proxies = r_mission.children.to_a
 	assert(proxies.empty?, proxies)
-	proxies = r_mission.event(:stop).child_objects(EventStructure::Signal).to_a
 	assert(!plan.unneeded_tasks.include?(r_mission))
 	assert(!plan.unneeded_tasks.include?(r_mission.event(:stop)))
-	assert_equal(1, proxies.to_a.size, proxies)
-	r_next_mission_start = proxies.first
-	assert(!plan.unneeded_tasks.include?(r_next_mission_start))
-	assert(!plan.unneeded_tasks.include?(r_next_mission_start.task))
 
 	## Re-add the child relation and test #unsubscribe
 	remote_peer.unsubscribe(r_mission)
@@ -301,11 +294,10 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	r_mission = remote_peer.subscribe(r_mission)
 	r_subtask = remote_task(:id => 'subtask')
 	r_next_mission = remote_task(:id => 'next_mission')
-	process_events
+	Roby.control.wait_one_cycle
+
 	proxies = r_mission.children.to_a
 	assert(! proxies.empty?)
-	proxies = r_mission.event(:stop).child_objects(EventStructure::Signal).to_a
-	assert_equal(r_next_mission.event(:start), proxies.first)
     end
 
     def test_remove_not_needed
