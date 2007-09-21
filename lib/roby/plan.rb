@@ -399,7 +399,7 @@ module Roby
 	    useful = self.locally_useful_tasks
 
 	    # Append to that the set of tasks that are useful for our peers
-	    remotely_useful = Distributed.remotely_useful_objects(remote_tasks, nil)
+	    remotely_useful = Distributed.remotely_useful_objects(remote_tasks, true, nil)
 
 	    # Include the set of local tasks that are serving tasks in +remotely_useful+
 	    serving_remote = useful_task_component(task_index.by_owner[Roby::Distributed], useful.dup, remotely_useful)

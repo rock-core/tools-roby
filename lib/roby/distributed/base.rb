@@ -194,7 +194,7 @@ module Roby
 	            Distributed.keep.ref?(local_object))
 	    end
 
-	    def remotely_useful_objects(candidates, result = nil)
+	    def remotely_useful_objects(candidates, include_subscriptions_relations, result = nil)
 		return ValueSet.new if candidates.empty?
 
 		result  ||= Distributed.keep.referenced_objects.to_value_set
@@ -213,7 +213,8 @@ module Roby
 
 	        	not_found = obj.each_parent_object(rel) do |parent|
 	        	    parent = parent.root_object
-	        	    if parent.distribute? && parent.self_owned?
+	        	    if parent.distribute? && 
+				((include_subscriptions_relations && parent.subscribed?) || parent.self_owned?)
 	        		result << obj.root_object
 	        		break
 	        	    end
@@ -222,7 +223,8 @@ module Roby
 
 	        	not_found = obj.each_child_object(rel) do |child|
 	        	    child = child.root_object
-	        	    if child.distribute? && child.self_owned?
+	        	    if child.distribute? && 
+				((include_subscriptions_relations && child.subscribed?) || child.self_owned?)
 	        		result << obj.root_object
 	        		break
 	        	    end
@@ -235,7 +237,7 @@ module Roby
 		    end
 	        end
 
-		result.merge remotely_useful_objects(child_set, result)
+		result.merge remotely_useful_objects(child_set, false, result)
 	    end
 
 	    # The list of objects that are being updated because of remote update
