@@ -584,6 +584,8 @@ module Roby
 		    remove_object(t)
 		end
 
+		break if local_tasks.empty?
+
 		if local_tasks.all? { |t| t.pending? || t.finished? }
 		    local_tasks.each do |t|
 			Plan.debug { "GC: #{t} is not running, removed" }
