@@ -377,10 +377,7 @@ module Roby
 
 	    # Compute the set of LOCAL tasks which serve the seeds.  The set of
 	    # locally_useful_tasks is the union of the seeds and of this one 
-	    useful_task_component(
-		task_index.by_owner[Roby::Distributed], 
-		seeds & task_index.by_owner[Roby::Distributed], 
-		seeds) | seeds
+	    useful_task_component(local_tasks, seeds & local_tasks, seeds) | seeds
 	end
 
 	def local_tasks
@@ -401,14 +398,11 @@ module Roby
 	    # permanent tasks
 	    useful = self.locally_useful_tasks
 
-	    # Append to that the set of tasks that are useful for our peers
+	    # Append to that the set of tasks that are useful for our peers and
+	    # include the set of local tasks that are serving tasks in
+	    # +remotely_useful+
 	    remotely_useful = Distributed.remotely_useful_objects(remote_tasks, true, nil)
-
-	    # Include the set of local tasks that are serving tasks in +remotely_useful+
-	    serving_remote = useful_task_component(
-		task_index.by_owner[Roby::Distributed], 
-		useful & task_index.by_owner[Roby::Distributed], 
-		remotely_useful)
+	    serving_remote = useful_task_component(local_tasks, useful & local_tasks, remotely_useful)
 
 	    useful.merge remotely_useful
 	    useful.merge serving_remote
