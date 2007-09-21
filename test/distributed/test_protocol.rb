@@ -324,7 +324,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	    
 	    remote.singleton_class.class_eval do
 		define_method(:send_task_update) do
-		    task.arguments[:id] = 'tested'
+		    task.arguments[:newarg] = 'tested'
 		    Distributed.format(task)
 		end
 	    end
@@ -340,7 +340,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
 	new_task = remote_peer.local_object(remote.send_task_update)
 	assert_not_same(task, new_task)
-	assert_equal('tested', new_task.arguments[:id])
+	assert_equal('tested', new_task.arguments[:newarg])
 
     ensure
 	remote_peer.enable_tx
