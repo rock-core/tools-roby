@@ -301,17 +301,16 @@ module Roby
 	    reset
 
 	    # Set up the log directory first
-	    if testing? && File.exists?(log_dir)
-		if !STDIN.ask("#{log_dir} still exists. I'll have to clean it up before starting the tests. Proceed ? [N,y]", false)
-		    raise "user abort"
+	    if File.exists?(log_dir)
+		if !Dir.new(log_dir).empty?
+		    if !STDIN.ask("#{log_dir} still exists and must be cleaned before starting. Proceed ? [N,y]", false)
+			raise "user abort"
+		    end
 		end
 		FileUtils.rm_rf log_dir
 	    end
 
-	    if !File.exists?(log_dir)
-		Dir.mkdir(log_dir)
-	    end
-
+	    Dir.mkdir(log_dir)
 	    if File.directory?(File.join(APP_DIR, 'lib'))
 		$LOAD_PATH.unshift File.join(APP_DIR, 'lib')
 	    end
