@@ -54,7 +54,9 @@ module Roby
 	end
 
 	def setup
-	    Roby.app.reset
+	    if !defined? Roby::State
+		Roby.app.reset
+	    end
 
 	    @original_roby_logger_level = Roby.logger.level
 	    @timings = { :start => Time.now }
