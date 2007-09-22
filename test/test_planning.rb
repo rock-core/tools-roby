@@ -455,14 +455,22 @@ class TC_Planner < Test::Unit::TestCase
 
     def test_planning_loop
 	task_model = Class.new(SimpleTask)
+
+	first_patterns = []
 	planner_model = Class.new(Planning::Planner) do
-	    @result_task = nil
 	    attr_reader :result_task
-	    method(:task) { @result_task = task_model.new }
+	    method(:task) do
+		first_patterns << arguments[:first_pattern]
+		@result_task = task_model.new(:id => first_patterns.size)
+	    end
 	end
 
 	plan.insert(main_task = Roby::Task.new)
-	planning_task_options = {:planner_model => planner_model, :planned_model => SimpleTask, :method_name => :task, :method_options => {}}
+	planning_task_options = { 
+	    :planner_model => planner_model, 
+	    :planned_model => SimpleTask, 
+	    :method_name => :task, 
+	    :method_options => {} }
 	loop_task_options = planning_task_options.merge(:period => nil, :lookahead => 2)
 	loop_planner = PlanningLoop.new(loop_task_options)
 	main_task.planned_by loop_planner
@@ -472,7 +480,9 @@ class TC_Planner < Test::Unit::TestCase
 	first_task = main_task.children.find { true }
 	assert_equal(SimpleTask, first_task.class)
 	first_planner = first_task.planning_task
-	assert_equal(planning_task_options, first_task.planning_task.arguments)
+	assert(first_planner.arguments[:method_options][:first_pattern])
+	assert_equal(planning_task_options.merge(:method_options => { :first_pattern => true }), 
+		     first_planner.arguments)
 	assert_equal(1, loop_planner.patterns.size)
 
 	loop_planner.append_pattern
@@ -480,15 +490,21 @@ class TC_Planner < Test::Unit::TestCase
 	second_task = main_task.children.find { |t| t != first_task }
 	assert_equal(SimpleTask, first_task.class)
 	second_planner = second_task.planning_task
-	assert_equal(planning_task_options, first_task.planning_task.arguments)
+	assert_equal(planning_task_options.merge(:method_options => { :first_pattern => false }), 
+		     second_task.planning_task.arguments)
 	assert_equal(2, loop_planner.patterns.size)
 
 	assert_not_same(first_planner, second_planner)
 
 	loop_planner.emit(:start) # bypass the command
+	assert(!first_planner.running? && !second_planner.running?)
 	
 	# Plan the first two patterns (lookahead == 2)
 	first_task = planning_task_result(first_planner)
+	assert(!second_planner.finished?)
+	assert(first_planner.arguments[:method_options][:first_pattern])
+	assert_equal(1, first_task.arguments[:id])
+	assert_equal(true, first_patterns[0])
 	assert(second_planner.running?)
 	assert(!first_task.running? && !second_task.running?)
 	assert_equal(2, loop_planner.patterns.size)
@@ -528,6 +544,10 @@ class TC_Planner < Test::Unit::TestCase
 	third_task = third_planner.planned_task
 	assert(third_task.running?)
 	assert(fourth_planner.running?)
+
+	assert(first_patterns[0], first_patterns)
+	assert(first_patterns.size > 1)
+	assert(first_patterns[1..-1].all? { |v| !v }, first_patterns)
     end
 
     def test_planning_loop_start

@@ -97,7 +97,12 @@ module Roby
 	# +context+ is forwarded to the planned task
 	def append_pattern(*context)
 	    # Create the new pattern
-	    planning = PlanningTask.new(arguments.slice(:planner_model, :planned_model, :method_name, :method_options))
+	    task_arguments = arguments.slice(:planner_model, :planned_model, :method_name)
+	    task_arguments[:method_options] = method_options.dup
+	    task_arguments[:method_options][:first_pattern] = !@did_once
+	    @did_once = true
+
+	    planning = PlanningTask.new(task_arguments)
 	    planned  = planning.planned_task
 	    planned.forward(:start,   self, :loop_start)
 	    planned.forward(:success, self, :loop_success)
