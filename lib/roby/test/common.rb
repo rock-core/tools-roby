@@ -54,6 +54,7 @@ module Roby
 	end
 
 	def setup
+	    @console_logger ||= false
 	    if !defined? Roby::State
 		Roby.app.reset
 	    end

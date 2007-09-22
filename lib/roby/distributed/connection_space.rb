@@ -161,6 +161,7 @@ module Roby
 		@pending_connections = Hash.new
 		@aborted_connections = Hash.new
 		@pending_reconnections = Array.new
+		@quit_neighbour_thread = false
 
 		@mutex		      = Mutex.new
 		@start_discovery      = ConditionVariable.new
@@ -319,6 +320,7 @@ module Roby
 		discovered = []
 
 		# Initialize so that @discovery_start == discovery_start
+		@discovery_start = nil
 		discovery_start = nil
 		finger	    = nil
 		loop do
@@ -517,9 +519,8 @@ module Roby
 	    # neighbours in the control thread
 	    def notify_new_neighbours
 		return unless Distributed.state
-		loop do
-		    cs, neighbour = new_neighbours.pop(true) rescue nil
-		    break unless neighbour
+		while !new_neighbours.empty?
+		    cs, neighbour = new_neighbours.pop(true)
 		    new_neighbours_observers.each do |obs|
 			obs[cs, neighbour]
 		    end

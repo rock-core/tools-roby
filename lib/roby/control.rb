@@ -262,6 +262,7 @@ module Roby
 	def initialize
 	    super
 	    @quit        = 0
+	    @thread      = nil
 	    @cycle_index = 0
 	    @planners    = []
 	    @last_stop_count = 0
@@ -401,7 +402,8 @@ module Roby
 	    attr_reader :process_once
 	    # Calls all pending procs in +process_once+
 	    def call_once # :nodoc:
-		while (p = process_once.pop(true) rescue nil)
+		while !process_once.empty?
+		    p = process_once.pop
 		    Propagation.gather_exceptions(p, 'call once processing') { p.call }
 		end
 	    end
@@ -503,7 +505,7 @@ module Roby
 		Roby::Control.synchronize do
 		    # reset the options only if we are in the control thread
 		    @thread = nil
-		    Control.finalizers.each { |blk| blk.call }
+		    Control.finalizers.each { |blk| blk.call rescue nil }
 		    @quit = 0
 		end
 	    end

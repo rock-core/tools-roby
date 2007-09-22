@@ -460,11 +460,11 @@ module Roby
 
 	    # Check if this relation is already defined. If it is the case, reuse it.
 	    # This is needed mostly by the reloading code
-	    begin
+	    if const_defined?(options[:const_name])
 		graph = const_get(options[:const_name])
 		mod   = graph.support
 
-	    rescue NameError
+	    else
 		graph = options[:graph].new "#{self.name}::#{options[:const_name]}", options
 		mod = Module.new do
 		    singleton_class.class_eval do

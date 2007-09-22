@@ -378,6 +378,8 @@ module Roby
             yield(self) if block_given?
 	    super() if defined? super
 
+	    @instantiated_model_events = false
+
 	    # Create all event generators
 	    bound_events = Hash.new
 	    model.each_event do |ev_symbol, ev_model|

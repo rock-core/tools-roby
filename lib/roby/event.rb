@@ -122,6 +122,7 @@ module Roby
 	    @handlers = []
 	    @pending  = false
 	    @executable = true
+	    @unreachable = false
 	    @unreachable_handlers = []
 
 	    if command_object || command_block
@@ -133,6 +134,7 @@ module Roby
 				   method(:default_command)
 			       end
 	    end
+	    super() if defined? super
 	end
 
 	def default_command(context)

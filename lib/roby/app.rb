@@ -617,7 +617,7 @@ module Roby
 	def require_dir(dirname)
 	    Dir.new(dirname).each do |file|
 		file = File.join(dirname, file)
-		file = file.gsub /^#{Regexp.quote(APP_DIR)}\//, ''
+		file = file.gsub(/^#{Regexp.quote(APP_DIR)}\//, '')
 		require file if file =~ /\.rb$/ && File.file?(file)
 	    end
 	end
@@ -626,7 +626,7 @@ module Roby
 	    return unless robot_name && robot_type
 
 	    [robot_name, robot_type].each do |name|
-		dirname = pattern.gsub /ROBOT/, name
+		dirname = pattern.gsub(/ROBOT/, name)
 		require_dir(dirname) if File.directory?(dirname)
 	    end
 	end
@@ -638,12 +638,12 @@ module Roby
 	def require_robotfile(pattern, method = :require)
 	    return unless robot_name && robot_type
 
-	    robot_config = pattern.gsub /ROBOT/, robot_name
+	    robot_config = pattern.gsub(/ROBOT/, robot_name)
 	    if File.file?(robot_config)
 		Kernel.send(method, robot_config)
 		true
 	    else
-		robot_config = pattern.gsub /ROBOT/, robot_type
+		robot_config = pattern.gsub(/ROBOT/, robot_type)
 		if File.file?(robot_config)
 		    Kernel.send(method, robot_config)
 		    true
