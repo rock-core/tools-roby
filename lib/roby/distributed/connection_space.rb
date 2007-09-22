@@ -219,7 +219,7 @@ module Roby
 				new_connection.close
 			    end
 			end
-		    rescue
+		    rescue Exception
 		    end
 		end
 	    end
@@ -453,7 +453,13 @@ module Roby
 		end
 
 	    ensure
-		server_socket.close if server_socket
+		if server_socket
+		    begin
+			server_socket.close 
+		    rescue IOError
+		    end
+		end
+
 		Roby::Control.finalizers.delete(method(:quit))
 		if Distributed.state == self
 		    Distributed.state = nil
