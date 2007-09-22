@@ -66,6 +66,9 @@ module Roby
 			    mutex.unlock
 			    thread.value
 			rescue Exception => e
+			    connection_space.synchronize do
+				connection_space.pending_connections.delete(neighbour.remote_id)
+			    end
 			    raise ConnectionFailed.new(neighbour), e.message
 			ensure
 			    mutex.lock
@@ -101,6 +104,81 @@ module Roby
 		end
 	    end
 
+	    def self.abort_connection_thread(connection_space, remote_id, lock = true)
+		if lock
+		    connection_space.synchronize do
+			abort_connection_thread(connection_space, remote_id, false)
+		    end
+		end
+
+		connection_space.pending_connections.delete(remote_id)
+		if peer = connection_space.peers[remote_id]
+		    begin
+			connection_space.mutex.unlock
+			peer.disconnected(:aborted)
+		    ensure
+			connection_space.mutex.lock
+		    end
+		end
+	    end
+
+	    def self.send_connection_thread(connection_space, neighbour, call, local_token, &block)
+		remote_id = neighbour.remote_id
+		Thread.current.abort_on_exception = false
+
+		begin
+		    socket = TCPSocket.new(remote_id.uri, remote_id.ref)
+		rescue Errno::ECONNREFUSED
+		    abort_connection_thread(connection_space, remote_id)
+		    return
+		end
+
+		begin
+		    socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
+		    Distributed.debug "#{call[0]}: #{neighbour} on #{socket.peer_info}"
+
+		    # Send the connection request
+		    call = Marshal.dump(call)
+		    socket.write [call.size].pack("N")
+		    socket.write call
+
+		    reply_size = socket.read(4)
+		    if !reply_size
+			raise "peer disconnected"
+		    end
+		    reply = Marshal.load(socket.read(*reply_size.unpack("N")))
+		rescue Errno::ECONNRESET
+		    abort_connection_thread(connection_space, remote_id)
+		    return
+		end
+
+		connection_space.synchronize do
+		    connection_space.pending_connections.delete(remote_id)
+		    m = reply.shift
+		    Roby::Distributed.debug "remote peer #{m}"
+
+		    # if the remote peer is also connecting, and if its
+		    # token is better than our own, m will be nil and thus
+		    # the thread will finish without doing anything
+
+		    case m
+		    when :connected
+			peer = new(connection_space, socket, *reply)
+		    when :reconnected
+			peer = connection_space.peers[remote_id]
+			peer.reconnected(socket)
+		    when :aborted
+			abort_connection_thread(connection_space, remote_id, false)
+			return
+		    when :already_connecting, :already_connected
+			peer = connection_space.peers[remote_id]
+		    end
+
+		    yield(peer) if peer && block_given?
+		    peer
+		end
+	    end
+
 	    # Generic handling of connection/reconnection initiated by this side
 	    def self.send_connection_request(connection_space, neighbour, call, local_token, &block) # :nodoc:
 		remote_id = neighbour.remote_id
@@ -125,52 +203,7 @@ module Roby
 
 
 		connecting_thread = Thread.new do
-		    Thread.current.abort_on_exception = false
-
-		    socket = TCPSocket.new(remote_id.uri, remote_id.ref)
-		    socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, 1)
-		    Distributed.debug "#{call[0]}: #{neighbour} on #{socket.peer_info}"
-
-		    # Send the connection request
-		    call = Marshal.dump(call)
-		    socket.write [call.size].pack("N")
-		    socket.write call
-
-		    reply_size = socket.read(4)
-		    if !reply_size
-			raise "peer disconnected"
-		    end
-		    reply = Marshal.load(socket.read(*reply_size.unpack("N")))
-
-		    connection_space.synchronize do
-			connection_space.pending_connections.delete(remote_id)
-			m = reply.shift
-			Roby::Distributed.debug "remote peer #{m}"
-			
-			# if the remote peer is also connecting, and if its
-			# token is better than our own, m will be nil and thus
-			# the thread will finish without doing anything
-
-			case m
-			when :connected
-			    peer = new(connection_space, socket, *reply)
-			when :reconnected
-			    peer = connection_space.peers[remote_id]
-			    peer.reconnected(socket)
-			when :aborted
-			    begin
-				connection_space.mutex.unlock
-				connection_space.peers[remote_id].disconnected(:aborted)
-			    ensure
-				connection_space.mutex.lock
-			    end
-			when :already_connecting, :already_connected
-			    peer = connection_space.peers[remote_id]
-			end
-
-			yield(peer) if peer && block_given?
-			peer
-		    end
+		    send_connection_thread(connection_space, neighbour, call, local_token, &block)
 		end
 		connection_space.pending_connections[remote_id] = [local_token, connecting_thread]
 		connecting_thread

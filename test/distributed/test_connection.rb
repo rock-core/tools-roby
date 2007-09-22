@@ -260,6 +260,15 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert(remote.send_local_peer(:link_alive?))
     end
 
+    def test_remote_dies
+	peer2peer(true)
+	Process.kill('KILL', remote_processes[1][0])
+
+	sleep(1)
+	assert(remote_peer.disconnected?)
+    end
+
+
     def test_abort_connection
 	peer2peer(true)
 	remote_peer.disconnected!
