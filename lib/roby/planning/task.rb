@@ -226,7 +226,6 @@ module Roby
 
     # An asynchronous planning task using Ruby threads
     class PlanningTask < Roby::Task
-        attr_reader :planner_model, :method_name, :method_options, :planned_model
 	attr_reader :planner, :transaction
 
 	argument :planner_model, :method_name, :method_options, :planned_model
@@ -244,17 +243,14 @@ module Roby
 		raise ArgumentError, "missing required argument 'method_name'"
 	    end
 	    task_options[:planned_model] ||= nil
-	    [task_options, method_options]
+	    task_options[:method_options] ||= Hash.new
+	    task_options[:method_options].merge! method_options
+	    task_options
 	end
 
         def initialize(options)
-	    task_options, planning_options = PlanningTask.filter_options(options)
+	    task_options = PlanningTask.filter_options(options)
             super(task_options)
-
-	    @planner_model, @method_name, @method_options, @planned_model =
-		task_options.values_at(:planner_model, :method_name, :method_options, :planned_model)
-
-	    @method_options.merge!(planning_options)
 	    @planned_model ||= planner_model.model_of(method_name, method_options).returns || Roby::Task
         end
 
@@ -288,7 +284,7 @@ module Roby
 	    @thread = Thread.new do
 		Thread.current.priority = 0
 		@result = begin
-			      @planner.send(@method_name, @method_options.merge(:context => context))
+			      @planner.send(method_name, method_options.merge(:context => context))
 			  rescue Exception => e; e
 			  end
 	    end

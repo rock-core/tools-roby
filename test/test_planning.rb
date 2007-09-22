@@ -412,12 +412,16 @@ class TC_Planner < Test::Unit::TestCase
 	result_task = SimpleTask.new
 	planner = Class.new(Planning::Planner) do
 	    method(:task) do
-		raise unless arguments[:context] == [42]
+		raise arguments.to_s unless arguments[:bla] == 42
+		raise arguments.to_s unless arguments[:blo] == 84
+		raise arguments.to_s unless arguments[:context] == [42]
 		result_task
 	    end
 	end
 
-	planning_task = PlanningTask.new(:planner_model => planner, :method_name => :task)
+	planning_task = PlanningTask.new(:planner_model => planner, :method_name => :task,
+				:method_options => { :bla => 42 },
+				:blo => 84)
 	plan.insert(planned_task = Task.new)
 	planned_task.planned_by planning_task
 
