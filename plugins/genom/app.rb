@@ -77,9 +77,11 @@ module Roby::Genom
 		    config.load_robotfile(File.join(APP_DIR, 'config', "ROBOT-genom.rb"))
 
 		    ::MainPlanner.class_eval do
-			using *g.used_modules.values.
-			    map { |mod| mod::Planning rescue nil }.
+			planning_modules = g.used_modules.values.
+			    map { |mod| mod::Planning if mod.const_defined?(Planning) }.
 			    compact
+
+			using(*planning_modules)
 		    end
 		end
 	    end
