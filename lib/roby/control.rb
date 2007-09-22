@@ -214,8 +214,8 @@ module Roby
 		if Thread.current[:control_mutex_locked]
 		    yield
 		else
+		    mutex.lock
 		    begin
-			mutex.lock
 			Thread.current[:control_mutex_locked] = true
 			yield
 		    ensure
