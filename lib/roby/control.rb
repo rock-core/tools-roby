@@ -26,10 +26,8 @@ module Roby
 	end
 
 	def pop
-	    unless value = pop(true) rescue nil
-		return @klass.new
-	    end
-	    value
+	    value = super(true) rescue nil
+	    value || @klass.new
 	end
     end
 
