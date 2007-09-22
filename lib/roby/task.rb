@@ -370,13 +370,14 @@ module Roby
         # * the task shall have at least one terminal event. If no +stop+ event
         #   is defined, then all terminal events are aliased to +stop+
         def initialize(arguments = nil) #:yields: task_object
+	    super() if defined? super
+
 	    @arguments = TaskArguments.new(self)
 	    @arguments.merge!(arguments) if arguments
 
 	    @model = self.class
 
             yield(self) if block_given?
-	    super() if defined? super
 
 	    @instantiated_model_events = false
 

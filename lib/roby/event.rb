@@ -121,7 +121,6 @@ module Roby
 	    @preconditions = []
 	    @handlers = []
 	    @pending  = false
-	    @executable = true
 	    @unreachable = false
 	    @unreachable_handlers = []
 
@@ -135,6 +134,7 @@ module Roby
 			       end
 	    end
 	    super() if defined? super
+	    @executable = true
 	end
 
 	def default_command(context)

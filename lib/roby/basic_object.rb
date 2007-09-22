@@ -4,13 +4,8 @@ module Roby
     class BasicObject
 	include DRbUndumped
 
-	def initialize
-	    @distribute = false
-	    @owners = [Distributed]
-	end
-
 	# The set of Peer objects which own this object
-	attr_reader :owners
+	attribute(:owners) { [Distributed] }
 	# True if we own this object
 	def self_owned?; owners.include?(Distributed) end
 

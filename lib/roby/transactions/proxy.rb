@@ -43,6 +43,7 @@ module Roby::Transactions
 	end
 
 	def initialize(object, transaction)
+	    @distribute  = nil
 	    @transaction = transaction
 	    @__getobj__  = object
 	end

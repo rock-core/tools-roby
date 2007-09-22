@@ -9,11 +9,6 @@ module Roby
     class PlanObject < BasicObject
 	include DirectedRelationSupport
 
-	def initialize
-	    @executable = nil
-	    super()
-	end
-
 	# The plan this object belongs to
 	attr_reader :plan
 	# The place where this object has been removed from its plan
