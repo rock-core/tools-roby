@@ -258,16 +258,18 @@ static void vertex_mark(graph_map* map)
 /* Returns the graph => descriptor map for +self+ */
 graph_map& vertex_descriptor_map(VALUE self)
 {
-    VALUE descriptors = rb_ivar_get(self, id_rb_graph_map);
     graph_map* map;
-    if (NIL_P(descriptors))
+    if (RTEST(rb_ivar_defined(self, id_rb_graph_map)))
+    {
+	VALUE descriptors = rb_ivar_get(self, id_rb_graph_map);
+	Data_Get_Struct(descriptors, graph_map, map);
+    }
+    else
     {
 	map = new graph_map;
 	VALUE rb_map = Data_Wrap_Struct(rb_cObject, vertex_mark, vertex_free, map);
 	rb_ivar_set(self, id_rb_graph_map, rb_map);
     }
-    else
-	Data_Get_Struct(descriptors, graph_map, map);
 
     return *map;
 }
