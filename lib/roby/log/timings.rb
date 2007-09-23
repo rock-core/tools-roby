@@ -28,7 +28,7 @@ module Roby
 		for data in logfile.index_data[1..-1]
 		    result  = []
 		    timings = data
-		    ref     = timings.delete(REF_TIMING)
+		    ref     = Time.at(*timings.delete(REF_TIMING))
 		    result  << ref
 
 		    unknown_timings = (timings.keys.to_set - ALL_FIELDS.to_set - ignored_timings)
@@ -41,13 +41,13 @@ module Roby
 		    end
 
 		    if cumulative
-			timings.inject(ref) do |last, time| 
+			timings.inject(0) do |last, time| 
 			    time ||= last
-			    result << time - ref
+			    result << time
 			    time
 			end
 		    else
-			timings.inject(ref) do |last, time| 
+			timings.inject(0) do |last, time| 
 			    time ||= last
 			    result << time - last
 			    time

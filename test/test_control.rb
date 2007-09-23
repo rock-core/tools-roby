@@ -4,6 +4,7 @@ require 'roby/test/tasks/simple_task'
 require 'roby/test/tasks/empty_task'
 require 'mockups/tasks'
 require 'flexmock'
+require 'utilrb/hash/slice'
 
 class TC_Control < Test::Unit::TestCase 
     include Roby::Test
@@ -345,6 +346,36 @@ class TC_Control < Test::Unit::TestCase
 
     ensure
 	Roby.control.thread = nil
+    end
+
+    class CaptureLastStats
+	attr_reader :last_stats
+	def splat?; true end
+	def cycle_end(now_sec, now_usec, stats)
+	    @last_stats = stats.first
+	end
+    end
+    
+    def test_stats
+	Roby.control.run :detach => true, :cycle => 0.1
+
+	capture = CaptureLastStats.new
+	Roby::Log.add_logger capture
+
+	time_events = [:real_start, :events, :structure_check, :exception_propagation, :exception_fatal, :garbage_collect, :application_errors, :ruby_gc, :sleep, :end]
+	10.times do
+	    Roby.control.wait_one_cycle
+	    next unless capture.last_stats
+
+	    Roby::Control.synchronize do
+		timepoints = capture.last_stats.slice(*time_events)
+		assert(timepoints.all? { |name, d| d > 0 })
+		assert_equal(timepoints.sort_by { |name, d| time_events.index(name) }, timepoints.sort_by { |name, d| d })
+	    end
+	end
+
+    ensure
+	Roby::Log.remove_logger capture if capture
     end
 end
 

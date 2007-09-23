@@ -60,7 +60,8 @@ module Roby::Log
 	    end
 
 	    return if index_data.empty?
-	    @range = [index_data.first[:start], index_data.last[:end]]
+	    start = Time.at(*index_data.first[:start])
+	    @range = [start, start + index_data.last[:end]]
 	end
 
 	def rewind
@@ -137,7 +138,7 @@ module Roby::Log
 		current_cycle << m << args
 	    end
 	    if m == :cycle_end
-		info = args[1].dup
+		info = args[2].first
 		info[:pos] = event_log.tell
 		info[:event_count] = current_cycle.size
 		Marshal.dump(current_cycle, event_log)
