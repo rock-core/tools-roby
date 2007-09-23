@@ -9,7 +9,10 @@ module Roby::Log
 	attr_reader :index_io
 	attr_reader :index_data
 	attr_reader :basename
-	attr_reader :range
+	def range
+	    [Time.at(*index_data.first[:start]), 
+		Time.at(*index_data.last[:start]) + index_data.last[:end]]
+	end
 
 	def initialize(file, allow_old_format = false, force_rebuild_index = false)
 	    @event_io = if file.respond_to?(:to_str)
@@ -19,7 +22,7 @@ module Roby::Log
 
 			    File.open("#{basename}-events.log")
 			else
-			    @basename = file.path
+			    @basename = file.path.gsub(/-events\.log$/, '')
 			    file
 			end
 
@@ -60,9 +63,6 @@ module Roby::Log
 	    end
 
 	    return if index_data.empty?
-	    start = 
-	    @range = [Time.at(*index_data.first[:start]), 
-		Time.at(*index_data.last[:start]) + index_data.last[:end]]
 	end
 
 	def rewind
@@ -283,10 +283,21 @@ module Roby::Log
 			time = args.shift
 			new_cycle << m << time.tv_sec << time.tv_usec << args
 		    end
+
+		    stats   = new_cycle.last.first
+		    reftime = stats[:start]
+		    stats[:start] = [reftime.tv_sec, reftime.tv_usec]
+		    new_cycle.last[0] = stats.inject(Hash.new) do |new_stats, (name, value)|
+			new_stats[name] = if value.kind_of?(Time) then value - reftime
+					  else value
+					  end
+			new_stats
+		    end
+
 		    Marshal.dump(new_cycle, output)
 		rescue Exception => e
 		    STDERR.puts "dropped cycle because of the following error:"
-		    STDERR.puts "  #{e.message}"
+		    STDERR.puts "  #{e.full_message}"
 		end
 	    end
 	end
@@ -315,7 +326,7 @@ module Roby::Log
 
 		File.open("#{into}-events.log") do |event_log|
 		    File.open("#{into}-index.log", 'w') do |index_log|
-			puts "rebuilding index of #{into}"
+			puts "rebuilding index file for #{into}"
 			rebuild_index(event_log, index_log)
 		    end
 		end
