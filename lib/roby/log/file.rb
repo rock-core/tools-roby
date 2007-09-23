@@ -60,8 +60,9 @@ module Roby::Log
 	    end
 
 	    return if index_data.empty?
-	    start = Time.at(*index_data.first[:start])
-	    @range = [start, start + index_data.last[:end]]
+	    start = 
+	    @range = [Time.at(*index_data.first[:start]), 
+		Time.at(*index_data.last[:start]) + index_data.last[:end]]
 	end
 
 	def rewind
