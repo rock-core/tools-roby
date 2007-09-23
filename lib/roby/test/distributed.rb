@@ -86,6 +86,14 @@ module Roby
 		    DRb.start_service DISCOVERY_SERVER, Rinda::TupleSpace.new
 		end
 
+		if detached_control && Roby.control.running?
+		    begin
+			Roby.control.quit
+			Roby.control.join
+		    rescue ControlQuitError
+		    end
+		end
+
 		remote_process do
 		    central_tuplespace = DRbObject.new_with_uri(DISCOVERY_SERVER)
 		    cs = ConnectionSpace.new :ring_discovery => false, 
