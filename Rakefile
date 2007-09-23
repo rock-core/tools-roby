@@ -19,7 +19,7 @@ def clean_extension(name, soname = name)
     end
 end
 
-task :cruise => [:test, :core_docs]
+task :cruise => [:recore_docs, :test]
 task :test => :test_core
 task :test_core => :setup do
     if !system("testrb test/suite_core.rb")
