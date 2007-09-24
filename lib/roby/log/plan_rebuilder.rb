@@ -187,7 +187,6 @@ module Roby
 	        @start_time ||= @time
 
 		data.each_slice(4) do |m, sec, usec, args|
-		    STDERR.puts m
 		    time = Time.at(sec, usec)
 		    reason = catch :ignored do
 			begin
