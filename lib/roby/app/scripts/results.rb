@@ -1,5 +1,4 @@
-require File.join(File.dirname(__FILE__), '..', 'run')
-require File.join(File.dirname(__FILE__), '..', 'load')
+require 'roby'
 Roby.app.setup
 app = Roby.app
 

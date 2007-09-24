@@ -1,10 +1,11 @@
+require 'roby'
 require 'active_support/core_ext/string/inflections'
 class String # :nodoc: all
     include ActiveSupport::CoreExtensions::String::Inflections
 end
 
+require 'test/unit'
 require 'roby/test/common'
-require 'roby/app'
 require 'roby/test/tools'
 require 'fileutils'
 
@@ -209,23 +210,37 @@ module Roby
 		apply_robot_setup
 	    end
 
+	    @@first_time = true
 	    def self.apply_robot_setup
+		app = Roby.app
+		if @@first_time
+		    # Make sure the log directory is empty
+		    if File.exists?(app.log_dir)
+			if !Dir.new(app.log_dir).empty?
+			    if !STDIN.ask("#{app.log_dir} still exists and must be cleaned before starting. Proceed ? [N,y]", false)
+				raise "user abort"
+			    end
+			end
+			FileUtils.rm_rf app.log_dir
+		    end
+		    @@first_time = false
+		end
+
 		name, kind, block = app_setup
 		# Silently ignore the test suites which use a different robot
-		if Roby.app.robot_name && 
-		    (Roby.app.robot_name != name || Roby.app.robot_type != kind)
+		if app.robot_name && 
+		    (app.robot_name != name || app.robot_type != kind)
 		    return
 		end
-		Roby.app.reset
-		Roby.app.robot name, kind
-		require 'roby/app/load'
-		Roby.app.single
-		Roby.app.setup
+		app.robot name, kind
+		app.reset
+		app.single
+		app.setup
 		if block
 		    block.call
 		end
 
-		Roby.app.control.delete('executive')
+		app.control.delete('executive')
 
 		yield if block_given?
 	    end

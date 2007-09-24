@@ -1,8 +1,8 @@
-require File.join(File.dirname(__FILE__), '..', 'load')
 require 'roby/distributed/connection_space'
 require 'roby/distributed/protocol'
 
 config = Roby.app
+config.setup
 begin
     config.start_distributed
     sleep

@@ -1,12 +1,13 @@
 require 'roby'
-require 'roby/app'
 require 'roby/test/testcase'
-require 'test/unit'
 
 testrb_args = []
 parser = OptionParser.new do |opt|
     opt.on("-s", "--sim", "run tests in simulation mode") do |val|
 	Roby.app.simulation = val
+    end
+    opt.on("-k", "--keep-logs", "keep all logs") do |val|
+	Roby.app.testing_keep_logs = val
     end
     opt.on("-i", "--interactive", "allow user interaction during tests") do |val|
 	Roby.app.automatic_testing = false
@@ -16,8 +17,9 @@ parser = OptionParser.new do |opt|
     end
 end
 parser.parse! ARGV
-
 Roby.app.testing = true
+
+app = Roby.app
 
 r = Test::Unit::AutoRunner.new(true)
 r.process_args(ARGV + testrb_args) or

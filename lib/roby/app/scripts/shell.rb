@@ -5,37 +5,33 @@ require 'roby/distributed/protocol'
 require 'optparse'
 
 remote_url = nil
-if ARGV.include?("--remote")
-    opt = OptionParser.new do |opt|
-	opt.on('--remote [URL]', String, "connect to a remote Roby engine") do |url|
-	    remote_url = url || ""
-	    unless remote_url =~ /:\d+$/
-		remote_url << ":#{Roby::Distributed::DEFAULT_DROBY_PORT}"
-	    end
-	end
+opt = OptionParser.new do |opt|
+    opt.on('--host URL', String, "sets the host to connect to") do |url|
+	remote_url = url
     end
-    opt.parse! ARGV
-else
-    require File.join(File.dirname(__FILE__), '..', 'run')
 end
+opt.parse! ARGV
 
 app = Roby.app
-
 robot_name = ARGV.shift
 app.robot robot_name, (ARGV.shift || robot_name)
-require File.join(File.dirname(__FILE__), '..', 'load')
 app.setup
+
+remote_url ||= app.droby['host']
+if remote_url !~ /:\d+$/
+    if app.droby['host'] && app.droby['host'] =~ /(:\d+)$/
+	remote_url << $1
+    else
+	remote_url << ":#{Roby::Distributed::DEFAULT_DROBY_PORT}"
+    end
+end
 
 DRb.start_service
 
 require 'irb'
 IRB.setup(nil)
 
-control = if remote_url
-	      Roby::RemoteInterface.new(DRbObject.new_with_uri("druby://#{remote_url}"))
-	  else
-	      Roby::Interface.new(Roby.control)
-	  end
+control = Roby::RemoteInterface.new(DRbObject.new_with_uri("druby://#{remote_url}"))
 
 begin
     # Make control the top-level object
@@ -81,23 +77,8 @@ begin
 	end
     end
 
-    if remote_url
-	catch(:IRB_EXIT) do
-	    irb.eval_input
-	end
-    else
-	app.run do
-	    Roby.execute do
-		load File.join(APP_DIR, "controllers", "#{app.robot_name}.rb")
-	    end
-	    begin
-		catch(:IRB_EXIT) do
-		    irb.eval_input
-		end
-	    ensure
-		Roby.control.quit
-	    end
-	end
+    catch(:IRB_EXIT) do
+	irb.eval_input
     end
 end
 

@@ -161,7 +161,7 @@ module Roby
 	end
 
 	# Load configuration from the given option hash
-	def load(options)
+	def load_yaml(options)
 	    options = options.dup
 
 	    if robot_name && (robot_config = options['robots'])
@@ -297,24 +297,7 @@ module Roby
 	    final_path
 	end
 
-	def setup
-	    reset
-
-	    # Set up the log directory first
-	    if File.exists?(log_dir)
-		if !Dir.new(log_dir).empty?
-		    if !STDIN.ask("#{log_dir} still exists and must be cleaned before starting. Proceed ? [N,y]", false)
-			raise "user abort"
-		    end
-		end
-		FileUtils.rm_rf log_dir
-	    end
-
-	    Dir.mkdir(log_dir)
-	    if File.directory?(File.join(APP_DIR, 'lib'))
-		$LOAD_PATH.unshift File.join(APP_DIR, 'lib')
-	    end
-
+	def setup_loggers
 	    # Create the robot namespace
 	    STDOUT.sync = true
 	    Robot.logger = Logger.new(STDOUT)
@@ -351,23 +334,28 @@ module Roby
 		    mod.logger = new_logger
 		end
 	    end
+	end
 
-	    # Require all common task models and the task models specific to
-	    # this robot
-	    require_dir(File.join(APP_DIR, 'tasks'))
-	    require_robotdir(File.join(APP_DIR, 'tasks', 'ROBOT'))
+	def setup_dirs
+	    Dir.mkdir(log_dir) unless File.exists?(log_dir)
+	    if File.directory?(libdir = File.join(APP_DIR, 'lib'))
+		if !$LOAD_PATH.include?(libdir)
+		    $LOAD_PATH.unshift File.join(APP_DIR, 'lib')
+		end
+	    end
 
 	    Roby::State.datadirs = []
 	    datadir = File.join(APP_DIR, "data")
 	    if File.directory?(datadir)
 		Roby::State.datadirs << datadir
 	    end
+	end
 
-	    # Import some constants directly at toplevel
-	    unless Object.const_defined?(:Application)
-		Object.const_set(:Application, Roby::Application)
-		Object.const_set(:State, Roby::State)
-	    end
+	def require_models
+	    # Require all common task models and the task models specific to
+	    # this robot
+	    require_dir(File.join(APP_DIR, 'tasks'))
+	    require_robotdir(File.join(APP_DIR, 'tasks', 'ROBOT'))
 
 	    # Load robot-specific configuration
 	    planner_dir = File.join(APP_DIR, 'planners')
@@ -392,6 +380,32 @@ module Roby
 		    end
 		end
 	    end
+	end
+
+	def setup
+	    reset
+
+	    $LOAD_PATH.unshift(APP_DIR) unless $LOAD_PATH.include?(APP_DIR)
+
+	    # Get the application-wide configuration
+	    file = File.join(APP_DIR, 'config', 'app.yml')
+	    file = YAML.load(File.open(file))
+	    load_yaml(file)
+	    if File.exists?(initfile = File.join(APP_DIR, 'config', 'init.rb'))
+		load initfile
+	    end
+
+	    setup_dirs
+	    setup_loggers
+
+	    # Import some constants directly at toplevel before loading the
+	    # user-defined models
+	    unless Object.const_defined?(:Application)
+		Object.const_set(:Application, Roby::Application)
+		Object.const_set(:State, Roby::State)
+	    end
+
+	    require_models
 
 	    # MainPlanner is always included in the planner list
 	    Roby.control.planners << MainPlanner
@@ -614,6 +628,7 @@ module Roby
 	    call_plugins(:stop_server, self)
 	end
 
+	# Require all files in +dirname+
 	def require_dir(dirname)
 	    Dir.new(dirname).each do |file|
 		file = File.join(dirname, file)
@@ -622,6 +637,9 @@ module Roby
 	    end
 	end
 
+	# Require all files in the directories matching +pattern+. If +pattern+
+	# contains the word ROBOT, it is replaced by -- in order -- the robot
+	# name and then the robot type
 	def require_robotdir(pattern)
 	    return unless robot_name && robot_type
 
@@ -631,10 +649,17 @@ module Roby
 	    end
 	end
 
+	# Loads the first file found matching +pattern+
+	#
+	# See #require_robotfile
 	def load_robotfile(pattern)
 	    require_robotfile(pattern, :load)
 	end
 
+	# Requires or loads (according to the value of +method+) the first file
+	# found matching +pattern+. +pattern+ can contain the word ROBOT, in
+	# which case the file is first checked against the robot name and then
+	# against the robot type
 	def require_robotfile(pattern, method = :require)
 	    return unless robot_name && robot_type
 

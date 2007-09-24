@@ -4,8 +4,6 @@ app  = Qt::Application.new(ARGV)
 main = Replay.setup(ARGV)
 
 if ARGV.empty?
-    require File.join(File.dirname(__FILE__), '..', 'run')
-    require File.join(File.dirname(__FILE__), '..', 'load')
     Roby.app.setup
 
     streams = Roby.app.data_streams(Roby.app.log_dir)

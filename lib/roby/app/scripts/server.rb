@@ -1,10 +1,9 @@
 require 'roby/log/server'
-require File.join(File.dirname(__FILE__), '..', 'load')
-require File.join(File.dirname(__FILE__), '..', 'run')
 
 app = Roby.app
-app.droby['host'] = ":0"
 app.setup
+DRb.start_service "druby://:0"
+
 begin
     app.start_server
 
