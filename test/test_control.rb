@@ -351,8 +351,8 @@ class TC_Control < Test::Unit::TestCase
     class CaptureLastStats
 	attr_reader :last_stats
 	def splat?; true end
-	def cycle_end(now_sec, now_usec, stats)
-	    @last_stats = stats.first
+	def cycle_end(time, stats)
+	    @last_stats = stats
 	end
     end
     
@@ -370,7 +370,12 @@ class TC_Control < Test::Unit::TestCase
 	    Roby::Control.synchronize do
 		timepoints = capture.last_stats.slice(*time_events)
 		assert(timepoints.all? { |name, d| d > 0 })
-		assert_equal(timepoints.sort_by { |name, d| time_events.index(name) }, timepoints.sort_by { |name, d| d })
+
+		sorted_by_time = timepoints.sort_by { |name, d| d }
+		sorted_by_name = timepoints.sort_by { |name, d| time_events.index(name) }
+		sorted_by_time.each_with_index do |(name, d), i|
+		    assert(sorted_by_name[i][1] == d)
+		end
 	    end
 	end
 

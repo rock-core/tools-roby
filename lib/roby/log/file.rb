@@ -134,9 +134,9 @@ module Roby::Log
 	attr_accessor :stats_mode
 	def splat?; false end
 
-	def dump_method(m, args)
+	def dump_method(m, time, args)
 	    if m == :cycle_end || !stats_mode
-		current_cycle << m << args
+		current_cycle << m << time.tv_sec << time.tv_usec << args
 	    end
 	    if m == :cycle_end
 		info = args[2].first

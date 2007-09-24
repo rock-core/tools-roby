@@ -45,7 +45,7 @@ class TC_Log < Test::Unit::TestCase
     def test_message_splat
 	FlexMock.use do |mock|
 	    mock.should_receive(:splat?).and_return(true).twice
-	    mock.should_receive(:splat_event).with(1, 2).once
+	    mock.should_receive(:splat_event).with(FlexMock.any, 1, 2).once
 	    mock.should_receive(:flush).once
 	    Log.add_logger mock
 
@@ -57,7 +57,7 @@ class TC_Log < Test::Unit::TestCase
     def test_message_nonsplat
 	FlexMock.use do |mock|
 	    mock.should_receive(:splat?).and_return(false).twice
-	    mock.should_receive(:nonsplat_event).with([1, 2]).once
+	    mock.should_receive(:nonsplat_event).with(FlexMock.any, [1, 2]).once
 	    mock.should_receive(:flush).once
 	    Log.add_logger mock
 

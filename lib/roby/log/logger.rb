@@ -109,8 +109,7 @@ module Roby::Log
 		    end
 		end
 
-		now = Time.now
-		logged_events << [m, now.tv_sec, now.tv_usec, args]
+		logged_events << [m, Time.now, args]
 	    end
 	end
 
@@ -121,14 +120,14 @@ module Roby::Log
 	def logger_loop
 	    Thread.current.priority = 2
 	    loop do
-		m, *args = logged_events.pop
+		m, time, args = logged_events.pop
 		break unless m
 
 		each_logger(m) do |logger|
 		    if logger.splat?
-			logger.send(m, *args)
+			logger.send(m, time, *args)
 		    else
-			logger.send(m, args)
+			logger.send(m, time, args)
 		    end
 		end
 
