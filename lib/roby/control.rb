@@ -264,6 +264,8 @@ module Roby
 	    @quit        = 0
 	    @thread      = nil
 	    @cycle_index = 0
+	    @cycle_start = Time.now
+	    @cycle_length = 0
 	    @planners    = []
 	    @last_stop_count = 0
 	    @plan        = Plan.new
