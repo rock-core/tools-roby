@@ -1335,6 +1335,52 @@ module Roby
         def null?; true end
     end
 
+    class VirtualTask < Task
+	attr_reader :start_event
+	def start_event=(ev)
+	    if !ev.controlable?
+		raise ArgumentError, "the start event of a virtual task must be controlable"
+	    end
+
+	    ev.forward event(:start)
+	    @start_event = ev
+	end
+
+	attr_reader :success_event
+	def success_event=(ev)
+	    ev.forward event(:success)
+	    @success_event = ev
+
+	    # Emit failed if the success event becomes unreachable *and* the
+	    # task is still included in a plan
+	    ev.if_unreachable(true) do
+		emit :failed if executable?
+	    end
+	end
+
+	event :start do
+	    event(:start).achieve_with(start_event)
+	    start_event.call
+	end
+	
+	terminates
+
+	def self.create(start, success)
+	    task = VirtualTask.new
+	    task.start_event = start
+	    task.success_event = success
+
+	    if start.respond_to?(:task)
+		task.realized_by start.task
+	    end
+	    if success.respond_to?(:task)
+		task.realized_by success.task
+	    end
+
+	    task
+	end
+    end
+
     unless defined? TaskStructure
 	TaskStructure   = RelationSpace(Task)
     end

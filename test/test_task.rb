@@ -868,5 +868,31 @@ class TC_Task < Test::Unit::TestCase
 	ev.call
 	assert_equal([task.event(:specialized_failure).last], task.event(:failed).last.task_sources.to_a)
     end
+
+    def test_virtual_task
+	start, success = EventGenerator.new(true), EventGenerator.new
+	assert_raises(ArgumentError) { VirtualTask.create(success, start) }
+
+	assert_kind_of(VirtualTask, task = VirtualTask.create(start, success))
+	plan.discover(task)
+	assert_equal(start, task.start_event)
+	assert_equal(success, task.success_event)
+	FlexMock.use do |mock|
+	    start.on { mock.start_event }
+	    task.event(:start).on { mock.start_task }
+	    mock.should_receive(:start_event).once.ordered
+	    mock.should_receive(:start_task).once.ordered
+	    task.start!
+
+	    success.emit
+	    assert(task.success?)
+	end
+
+	start, success = EventGenerator.new(true), EventGenerator.new
+	plan.discover(task = VirtualTask.create(start, success))
+	task.start!
+	plan.remove_object(success)
+	assert(task.failed?)
+    end
 end
 
