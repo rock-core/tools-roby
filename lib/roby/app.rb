@@ -418,7 +418,6 @@ module Roby
 	    if testing?
 		require 'roby/test/testcase'
 		each_plugin do |mod|
-		    puts mod
 		    if mod.const_defined?(:Test)
 			Roby::Test::TestCase.include mod.const_get(:Test)
 		    end
