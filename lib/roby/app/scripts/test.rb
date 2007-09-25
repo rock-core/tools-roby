@@ -1,5 +1,5 @@
 require 'roby'
-require 'roby/test/testcase'
+require 'optparse'
 
 testrb_args = []
 parser = OptionParser.new do |opt|
@@ -18,8 +18,10 @@ parser = OptionParser.new do |opt|
 end
 parser.parse! ARGV
 Roby.app.testing = true
+require 'roby/test/testcase'
 
 app = Roby.app
+app.setup
 
 r = Test::Unit::AutoRunner.new(true)
 r.process_args(ARGV + testrb_args) or
