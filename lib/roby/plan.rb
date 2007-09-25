@@ -195,6 +195,9 @@ module Roby
 	    if mission?(from)
 		discard(from)
 		insert(to)
+	    elsif permanent?(from)
+		auto(from)
+		permanent(to)
 	    else
 		discover(to)
 	    end

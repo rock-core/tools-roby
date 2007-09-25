@@ -240,7 +240,7 @@ module Roby
 		missions << t
 	    end
 	    (1..options[:permanent]).each do |i|
-		options[:plan].permnanent(t = options[:model].new(:id => "perm-#{i}"))
+		options[:plan].permanent(t = options[:model].new(:id => "perm-#{i}"))
 		permanent << t
 	    end
 	    (1..options[:discover]).each do |i|

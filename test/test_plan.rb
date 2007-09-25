@@ -187,6 +187,13 @@ module TC_PlanStatic
 	assert(! plan.mission?(c1) )
 	assert( plan.mission?(c3) )
 	assert( plan.include?(c1) )
+
+	# Check that #replace_task keeps the permanent flag too
+	p, t = prepare_plan :permanent => 1, :tasks => 1, :model => Roby::Test::SimpleTask
+	plan.permanent(p)
+	plan.replace_task(p, t)
+	assert(!plan.permanent?(p))
+	assert(plan.permanent?(t))
     end
 
     def test_replace
