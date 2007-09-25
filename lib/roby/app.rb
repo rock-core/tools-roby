@@ -461,9 +461,7 @@ module Roby
 
 	    control_config = self.control
 	    control = Roby.control
-	    options = { :detach => true, 
-		:control_gc => control_config['control_gc'], 
-		:cycle => control_config['cycle'] || 0.1 }
+	    options = { :detach => true, :cycle => control_config['cycle'] || 0.1 }
 	    
 	    # Add an executive if one is defined
 	    if control_config['executive']

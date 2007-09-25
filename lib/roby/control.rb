@@ -476,15 +476,13 @@ module Roby
 	# cycle::   the cycle duration in seconds (default: 0.1)
 	# drb:: address of the DRuby server if one should be started (default: nil)
 	# detach::  if true, start in its own thread (default: false)
-	# control_gc::	if true, automatic garbage collection is disabled but
-	#		GC.start is called at each event cycle
 	def run(options = {})
 	    if running?
 		raise "there is already a control running in thread #{@thread}"
 	    end
 
 	    options = validate_options options, 
-		:cycle => 0.1, :detach => false, :control_gc => false
+		:cycle => 0.1, :detach => false
 
 	    @quit = 0
 	    if !options[:detach]
@@ -511,8 +509,7 @@ module Roby
 	    yield if block_given?
 
 	    @cycle_length = options[:cycle]
-	    control_gc   = options[:control_gc]
-	    event_loop(control_gc)
+	    event_loop
 
 	ensure
 	    if Thread.current == self.thread
@@ -564,61 +561,6 @@ module Roby
 	    end
 	end
 
-	# Object count on which we base ourselves to start the GC
-	attr_reader :gc_last_cycle
-	attr_reader :gc_last_count
-
-	# If ObjectSpace.live_objects is available, we start the GC only if
-	# there is more than this constant objects allocated more than
-	# gc_base_count
-	GC_OBJECT_THRESHOLD = 10000
-
-	# If ObjectSpace.live_objects is not available, we start the GC only if
-	# there is at least more than this count of cycles spent before the
-	# last time we ran it. 	
-	GC_CYCLE_THRESHOLD = 20
-
-	# Statistics about the GC. It is used to compute a GC_run / object
-	# count ratio and determine if we are likely to have enough time to run
-	# the garbage collector
-	attr_reader :gc_stats
-
-	# If no statistics are available, consider that the GC needs at least
-	# this much time to run
-	GC_DEFAULT_TIME = 0.050
-
-	# Always start the GC if the predicted time is more that this much time
-	GC_MAX_TIME = 0.090
-
-	def predicted_gc_runtime
-	    if gc_stats && gc_stats[0] != 0
-		ObjectSpace.live_objects * gc_stats[0] / gc_stats[1]
-	    else
-		GC_DEFAULT_TIME
-	    end
-	end
-
-	def start_ruby_gc
-	    if ObjectSpace.respond_to?(:live_objects)
-		if !gc_last_count
-		    @gc_last_count = ObjectSpace.live_objects
-		    @gc_stats = [0, 0]
-		elsif (ObjectSpace.live_objects - gc_last_count) > GC_OBJECT_THRESHOLD
-		    before_count = ObjectSpace.live_objects
-		    gc_stats[1] += ObjectSpace.live_objects
-		    before = Time.now
-		    GC.force
-		    gc_stats[0] += Time.now - before
-		    @gc_last_count = ObjectSpace.live_objects
-		end
-	    elsif !gc_last_cycle
-		@gc_last_cycle = cycle_index
-	    elsif (cycle_index - gc_last_cycle) > GC_CYCLE_THRESHOLD
-		GC.force
-		@gc_last_cycle = cycle_index
-	    end
-	end
-
 	attr_reader :remaining_cycle_time
 	def add_timepoint(stats, name)
 	    stats[:end] = stats[name] = Time.now - cycle_start
@@ -628,7 +570,7 @@ module Roby
 	    stats[name] = Time.now + duration - cycle_start
 	end
 
-	def event_loop(control_gc)
+	def event_loop
 	    @last_stop_count = 0
 	    @cycle_start  = Time.now
 	    @cycle_index  = 0
@@ -674,23 +616,12 @@ module Roby
 			live_objects_before_gc = ObjectSpace.live_objects
 		    end
 
-		    # Handle Ruby GC
-		    #
-		    # If control_gc is set, we try to be smart about starting
-		    # it. Otherwise, we just call GC.enable(true) to make it
-		    # run now if needed, and we call disable just after
-		    if remaining_cycle_time > SLEEP_MIN_TIME
-			# Take the time we passed for GC into account
-			if control_gc 
-			    gc_runtime = predicted_gc_runtime
-			    if remaining_cycle_time > gc_runtime || gc_runtime > GC_MAX_TIME
-				add_expected_duration(stats, :ruby_gc, gc_runtime)
-				start_ruby_gc
-			    end
-			elsif gc_enable_has_argument
-			    GC.enable(true)
-			    GC.disable
-			end
+		    # If the ruby interpreter we run on offers a true/false argument to
+		    # GC.enable, we disabled the GC and just run GC.enable(true) to make
+		    # it run immediately if needed. Then, we re-disable it just after.
+		    if gc_enable_has_argument && remaining_cycle_time > SLEEP_MIN_TIME
+			GC.enable(true)
+			GC.disable
 		    end
 		    add_timepoint(stats, :ruby_gc)
 

@@ -11,11 +11,6 @@ control:
   # all tasks that have no predecessors.
   executive: simple
 
-  # If the GC should be run at each control loop (default: false)
-  # WARNING: for now, the performance hit for GCing at each control loop
-  # WARNING: is too high
-  # control_gc: false
-
   # The length of a cycle (in seconds)
   # cycle: 0.1
 
