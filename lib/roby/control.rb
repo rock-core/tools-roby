@@ -484,8 +484,7 @@ module Roby
 	    end
 
 	    options = validate_options options, 
-		:drb => nil, :cycle => 0.1, :detach => false, 
-		:control_gc => false
+		:cycle => 0.1, :detach => false, :control_gc => false
 
 	    @quit = 0
 	    if !options[:detach]
