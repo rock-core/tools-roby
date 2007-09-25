@@ -198,7 +198,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	r_task = subscribe_task(:id => 1)
 	assert(!Distributed.owns?(r_task))
 	assert(remote_peer.owns?(r_task))
-	assert_raises(NotOwner) { t_task = trsc[r_task] }
+	assert_raises(OwnershipError) { t_task = trsc[r_task] }
 	# Check we still can remove the peer from the transaction owners
 	trsc.add_owner(remote_peer)
 	t_task = trsc[r_task]
@@ -207,11 +207,11 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.self_owned = false
 
 	task = Task.new
-	assert_raises(NotOwner) { t_task.realized_by task }
-	assert_raises(NotOwner) { task.realized_by t_task }
-	assert_raises(NotOwner) { task.event(:start).on t_task.event(:start) }
-	assert_raises(NotOwner) { trsc.discard_transaction }
-	assert_raises(NotOwner) { trsc.commit_transaction }
+	assert_raises(OwnershipError) { t_task.realized_by task }
+	assert_raises(OwnershipError) { task.realized_by t_task }
+	assert_raises(OwnershipError) { task.event(:start).on t_task.event(:start) }
+	assert_raises(OwnershipError) { trsc.discard_transaction }
+	assert_raises(OwnershipError) { trsc.commit_transaction }
 	assert(! task.plan)
 	assert_nothing_raised { t_task.event(:start).on task.event(:start) }
 
@@ -276,7 +276,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	    end
 	end
 	r_task = remote_task(:id => 2, :permanent => true)
-	assert_raises(NotOwner, r_task.owners) { r_task.arguments[:foo] = :bar }
+	assert_raises(OwnershipError, r_task.owners) { r_task.arguments[:foo] = :bar }
 
 	trsc   = Roby::Distributed::Transaction.new(plan)
 	trsc.add_owner remote_peer
@@ -285,7 +285,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	t_task = trsc[r_task]
 	# fails because we cannot override an argument already set
-	assert_raises(NotOwner) { t_task.arguments[:foo] = :bar }
+	assert_raises(OwnershipError) { t_task.arguments[:foo] = :bar }
 
 	task = Task.new(:id => 2)
 	t_task = trsc[task]

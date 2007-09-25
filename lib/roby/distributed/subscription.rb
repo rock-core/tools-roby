@@ -52,9 +52,9 @@ module Roby
 	    # an object owned locally.
 	    def subscribe(m_object)
 		if !(local_object = peer.local_object(m_object, false))
-		    raise NotOwner, "no object for #{m_object}"
+		    raise OwnershipError, "no object for #{m_object}"
 		elsif !local_object.self_owned?
-		    raise NotOwner, "not owner of #{local_object}"
+		    raise OwnershipError, "not owner of #{local_object}"
 		end
 
 		# We put the subscription process outside the communication

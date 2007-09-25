@@ -23,7 +23,7 @@ module Roby
 		return if owners.include?(peer)
 		if distributed 
 		    if !self_owned?
-			raise NotOwner, "not object owner"
+			raise OwnershipError, "not object owner"
 		    end
 
 		    call_siblings(:add_owner, self, peer)
@@ -73,7 +73,7 @@ module Roby
 	    end
 
 	    def call_owners(*args) # :nodoc:
-		raise NotOwner, "not owner" if !self_owned?
+		raise OwnershipError, "not owner" if !self_owned?
 		    
 		if owners.any? { |peer| !has_sibling_on?(peer) }
 		    raise InvalidRemoteOperation, "cannot do #{args} if the object is not distributed on all its owners"

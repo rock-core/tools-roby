@@ -39,7 +39,7 @@ module Roby
 		#     ConnectionTask for instance).
 		#   * the object is owned by the transaction owners
 		if create && (base_object.distribute? && !(base_object.owners - owners).empty?)
-		    raise NotOwner, "plan owners #{owners} do not own #{base_object}: #{base_object.owners}"
+		    raise OwnershipError, "plan owners #{owners} do not own #{base_object}: #{base_object.owners}"
 		end
 
 		temporarily_subscribed = !base_object.updated?
@@ -93,7 +93,7 @@ module Roby
 	    # Sends the transaction to +peer+. This must be done only once.
 	    def propose(peer, &block)
 		if !self_owned?
-		    raise NotOwner, "cannot propose a transaction we don't own"
+		    raise OwnershipError, "cannot propose a transaction we don't own"
 		end
 		peer.transaction_propose(self, &block)
 	    end
@@ -106,7 +106,7 @@ module Roby
 			    Distributed.owns?(object) || 
 			    (object.owners - owners).empty?
 
-			    raise NotOwner, "#{object} is not owned by #{owners.to_a} (#{object.owners.to_a})"
+			    raise OwnershipError, "#{object} is not owned by #{owners.to_a} (#{object.owners.to_a})"
 			end
 		    end
 		    super(events) if events
@@ -131,7 +131,7 @@ module Roby
 	    # #abandoned_commit is called as well.
 	    def commit_transaction(synchro = true)
 		if !self_owned?
-		    raise NotOwner, "cannot commit a transaction which is not owned locally. #{self} is owned by #{owners.to_a}"
+		    raise OwnershipError, "cannot commit a transaction which is not owned locally. #{self} is owned by #{owners.to_a}"
 		elsif synchro
 		    if !editor? || !first_editor?
 			raise NotEditor, "transactions are committed by their first editor"
@@ -179,7 +179,7 @@ module Roby
 	    # remote peers
 	    def discard_transaction(synchro = true) # :nodoc:
 		unless Distributed.owns?(self)
-		    raise NotOwner, "cannot discard a transaction which is not owned locally. #{self} is owned by #{owners}"
+		    raise OwnershipError, "cannot discard a transaction which is not owned locally. #{self} is owned by #{owners}"
 		end
 
 		if synchro

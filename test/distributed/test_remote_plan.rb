@@ -89,22 +89,22 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	end
 	assert(!r_simple_task.read_write?)
 
-	assert_raises(NotOwner) { r_simple_task.realized_by task }
-	assert_raises(NotOwner) { task.realized_by r_simple_task }
+	assert_raises(OwnershipError) { r_simple_task.realized_by task }
+	assert_raises(OwnershipError) { task.realized_by r_simple_task }
 	Distributed.update(r_simple_task) { r_simple_task.realized_by task }
 	assert_nothing_raised { r_simple_task.remove_child task }
 	Distributed.update(r_simple_task) { task.realized_by r_simple_task }
 	assert_nothing_raised { task.remove_child r_simple_task }
 
-	assert_raises(NotOwner) { r_simple_task.realized_by r_other_task }
-	assert_raises(NotOwner) { r_other_task.realized_by r_simple_task }
+	assert_raises(OwnershipError) { r_simple_task.realized_by r_other_task }
+	assert_raises(OwnershipError) { r_other_task.realized_by r_simple_task }
 	Distributed.update_all([r_simple_task, r_other_task]) { r_simple_task.realized_by r_other_task }
-	assert_raises(NotOwner) { r_simple_task.remove_child r_other_task }
+	assert_raises(OwnershipError) { r_simple_task.remove_child r_other_task }
 	Distributed.update_all([r_simple_task, r_other_task]) do
 	    r_simple_task.remove_child r_other_task
 	    r_other_task.realized_by r_simple_task
 	end
-	assert_raises(NotOwner) { r_other_task.remove_child r_simple_task }
+	assert_raises(OwnershipError) { r_other_task.remove_child r_simple_task }
 
 	# Force a synchro point, or we will have a conflict between the remote
 	# GC process and the pending messages
