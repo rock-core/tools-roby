@@ -121,12 +121,18 @@ module Roby
 
 	    return_value = nil
 	    Roby::Control.synchronize do
+		if !Roby.control.running?
+		    raise "control thread not running"
+		end
+
 		caller_thread = Thread.current
+		Control.waiting_threads << caller_thread
 
 		Roby::Control.once do
 		    begin
 			return_value = yield
 			cv.broadcast
+			Control.waiting_threads.delete(caller_thread)
 		    rescue Exception => e
 			caller_thread.raise e
 		    end
@@ -366,7 +372,14 @@ module Roby
 	@process_once = Queue.new
 	@at_cycle_end_handlers = Array.new
 	@process_every = Array.new
+	@waiting_threads = Array.new
 	class << self
+	    # A list of threads which are currently waitiing for the control thread
+	    # (see for instance Roby.execute)
+	    #
+	    # Control#run will raise ControlQuitError on this threads if they
+	    # are still waiting while the control is quitting
+	    attr_reader :waiting_threads
 	    # A list of blocks to be called at the beginning of the next event loop
 	    attr_reader :process_once
 	    # Calls all pending procs in +process_once+
@@ -491,6 +504,9 @@ module Roby
 		Roby::Control.synchronize do
 		    # reset the options only if we are in the control thread
 		    @thread = nil
+		    Control.waiting_threads.each do |th|
+			th.raise ControlQuitError
+		    end
 		    Control.finalizers.each { |blk| blk.call rescue nil }
 		    @quit = 0
 		end

@@ -148,5 +148,9 @@ module Roby
 	    "mission #{failed_task} failed with #{super}"
 	end
     end
+
+    # Exception raised in threads which are waiting for the control thread
+    # See for instance Roby.execute
+    class ControlQuitError < RuntimeError; end
 end
 
