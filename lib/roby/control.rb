@@ -487,16 +487,28 @@ module Roby
 		:drb => nil, :cycle => 0.1, :detach => false, 
 		:control_gc => false
 
-	    @cycle_length = options[:cycle]
-	
+	    @quit = 0
+	    if !options[:detach]
+		@thread = Thread.current
+		@thread.priority = THREAD_PRIORITY
+	    end
+
 	    if options[:detach]
-		self.thread = Thread.new { run(options.merge(:detach => false, :drb => nil)) }
+		# Start the control thread and wait for @thread to be set
+		Roby.condition_variable(true) do |cv, mt|
+		    mt.synchronize do
+			Thread.new do
+			    run(options.merge(:detach => false)) do
+				mt.synchronize { cv.signal }
+			    end
+			end
+			cv.wait(mt)
+		    end
+		end
+		raise unless @thread
 		return
 	    end
-	    self.thread = Thread.current
-	    self.thread.priority = THREAD_PRIORITY
 
-	    @quit = 0
 	    yield if block_given?
 
 	    cycle_length = options[:cycle]
