@@ -78,6 +78,21 @@ class TC_Control < Test::Unit::TestCase
 	end
     end
 
+    def test_failing_once
+	Roby.logger.level = Logger::FATAL
+	Roby.control.abort_on_exception = true
+	Roby.control.run :detach => true
+
+	FlexMock.use do |mock|
+	    Control.once { mock.called; raise }
+	    mock.should_receive(:called).once
+
+	    assert_raises(ControlQuitError) do
+		Roby.wait_one_cycle
+		Roby.control.join
+	    end
+	end
+    end
 
     class SpecificException < RuntimeError; end
     def test_unhandled_event_exceptions
