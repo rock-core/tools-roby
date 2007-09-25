@@ -139,7 +139,7 @@ module Roby::Log
 		current_cycle << m << time.tv_sec << time.tv_usec << args
 	    end
 	    if m == :cycle_end
-		info = args[2].first
+		info = args.first
 		info[:pos] = event_log.tell
 		info[:event_count] = current_cycle.size
 		Marshal.dump(current_cycle, event_log)
@@ -163,7 +163,7 @@ module Roby::Log
 	end
 
 	Roby::Log.each_hook do |klass, m|
-	    define_method(m) { |args| dump_method(m, args) }
+	    define_method(m) { |time, args| dump_method(m, time, args) }
 	end
 	
 	# Creates an index file for +event_log+ in +index_log+
