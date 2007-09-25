@@ -1348,7 +1348,6 @@ module Roby
 
 	attr_reader :success_event
 	def success_event=(ev)
-	    ev.forward event(:success)
 	    @success_event = ev
 
 	    # Emit failed if the success event becomes unreachable *and* the
@@ -1360,9 +1359,10 @@ module Roby
 
 	event :start do
 	    event(:start).achieve_with(start_event)
+	    success_event.forward event(:success)
 	    start_event.call
 	end
-	
+
 	terminates
 
 	def self.create(start, success)

@@ -893,6 +893,11 @@ class TC_Task < Test::Unit::TestCase
 	task.start!
 	plan.remove_object(success)
 	assert(task.failed?)
+
+	start, success = EventGenerator.new(true), EventGenerator.new
+	plan.discover(success)
+	plan.discover(task = VirtualTask.create(start, success))
+	assert_nothing_raised { success.emit }
     end
 end
 
