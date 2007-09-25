@@ -694,13 +694,13 @@ module Roby
 	    end
 
             if finished? && !event.terminal?
-                raise EmissionFailed.new(self), 
+                raise EmissionFailed.new(nil, self), 
 		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task has finished"
             elsif pending? && event.symbol != :start
-                raise EmissionFailed.new(self), 
+                raise EmissionFailed.new(nil, self), 
 		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task is not running"
             elsif running? && event.symbol == :start
-                raise EmissionFailed.new(self), 
+                raise EmissionFailed.new(nil, self), 
 		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task is already running"
             end
 
