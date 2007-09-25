@@ -365,6 +365,7 @@ module Roby
 	def wait_one_cycle
 	    current_cycle = Roby.execute { Roby.control.cycle_index }
 	    while current_cycle == Roby.execute { Roby.control.cycle_index }
+		raise ControlQuitError if !Roby.control.running?
 		sleep(Roby.control.cycle_length)
 	    end
 	end
