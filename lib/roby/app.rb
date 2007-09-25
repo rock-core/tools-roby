@@ -678,8 +678,11 @@ module Roby
 
 	attr_predicate :simulation?, true
 	def simulation; self.simulation = true end
+
 	attr_predicate :testing?, true
 	def testing; self.testing = true end
+	attr_predicate :shell?, true
+	def shell; self.shell = true end
 	def single?; @single || discovery.empty? end
 	def single;  @single = true end
 

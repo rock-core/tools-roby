@@ -13,6 +13,9 @@ end
 opt.parse! ARGV
 
 app = Roby.app
+app.shell
+app.single
+
 robot_name = ARGV.shift
 app.robot robot_name, (ARGV.shift || robot_name)
 app.setup
