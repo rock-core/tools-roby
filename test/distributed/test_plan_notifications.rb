@@ -9,9 +9,11 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
     def test_triggers
 	peer2peer(true) do |remote|
 	    def remote.new_task(kind, args)
-		new_task = kind.proxy(local_peer).new(args)
-		yield(new_task.remote_id) if block_given?
-		plan.insert(new_task)
+		Roby.execute do
+		    new_task = kind.proxy(local_peer).new(args)
+		    yield(new_task.remote_id) if block_given?
+		    plan.insert(new_task)
+		end
 		nil
 	    end
 	end
@@ -37,7 +39,6 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 		mock.should_receive(:notified).with(inserted_id).once.ordered
 		nil
 	    end
-	    Roby.control.wait_one_cycle
 
 	    remote.new_task(simple_task, :id => 3)
 	    remote.new_task(roby_task, :id => 2)
@@ -45,7 +46,8 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 		mock.should_receive(:notified).with(inserted_id).once.ordered
 		nil
 	    end
-	    Roby.control.wait_one_cycle
+
+	    remote_peer.synchro_point
 	end
     end
 
