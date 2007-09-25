@@ -510,9 +510,9 @@ module Roby
 
 	    yield if block_given?
 
-	    cycle_length = options[:cycle]
+	    @cycle_length = options[:cycle]
 	    control_gc   = options[:control_gc]
-	    event_loop(cycle_length, control_gc)
+	    event_loop(control_gc)
 
 	ensure
 	    if Thread.current == self.thread
@@ -628,10 +628,9 @@ module Roby
 	    stats[name] = Time.now + duration - cycle_start
 	end
 
-	def event_loop(cycle, control_gc)
+	def event_loop(control_gc)
 	    @last_stop_count = 0
 	    @cycle_start  = Time.now
-	    @cycle_length = cycle
 	    @cycle_index  = 0
 
 	    gc_enable_has_argument = begin
@@ -725,7 +724,7 @@ module Roby
 
 		    stats = Hash.new
 		    stats[:live_objects] = live_objects
-		    @cycle_start += cycle
+		    @cycle_start += cycle_length
 		    @cycle_index += 1
 
 		rescue Exception => e
