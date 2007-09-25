@@ -288,7 +288,10 @@ module Roby
 	# Stop all the remote processes that have been started using #remote_process
 	def stop_remote_processes
 	    remote_processes.reverse.each do |pid, quit_w|
-		quit_w.write('OK') 
+		begin
+		    quit_w.write('OK') 
+		rescue Errno::EPIPE
+		end
 		begin
 		    Process.waitpid(pid)
 		rescue Errno::ECHILD
