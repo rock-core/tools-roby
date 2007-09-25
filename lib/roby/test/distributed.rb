@@ -22,6 +22,13 @@ module Roby
 	    end
 
 	    def teardown
+		begin
+		    if remote && remote.respond_to?(:cleanup)
+			remote.cleanup
+		    end
+		rescue DRb::DRbConnError
+		end
+
 		super
 
 		unless Distributed.peers.empty?
@@ -75,6 +82,10 @@ module Roby
 		def wait_one_cycle; Roby.control.wait_one_cycle end
 		def console_logger=(value); testcase.console_logger = value end
 		def log_level=(value); Roby.logger.level = value end
+		def cleanup
+		    Roby.control.quit
+		    Roby.control.join
+		end
 	    end
 
 	    # Start a central discovery service, a remote connectionspace and a local
