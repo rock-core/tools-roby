@@ -190,7 +190,6 @@ module Roby
 	    end
 	end
 
-	class ControlQuitError < RuntimeError; end
 	class TestCase < Test::Unit::TestCase
 	    include Roby::Test
 	    include Assertions
