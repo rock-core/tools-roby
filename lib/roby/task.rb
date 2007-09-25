@@ -69,6 +69,10 @@ module Roby
 	    result
 	end
 
+	def to_s
+	    "#{generator.to_s}@#{propagation_id} [#{time.to_hms}]: #{context}"
+	end
+
         # If the event model defines a controlable event
         # By default, an event is controlable if the model
         # responds to #call

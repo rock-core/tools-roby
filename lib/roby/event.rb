@@ -31,6 +31,9 @@ module Roby
 	def name; model.name end
 	def model; self.class end
 	def inspect; "#<#{model.to_s}:0x#{address.to_s(16)} generator=#{generator} model=#{model}" end
+	def to_s
+	    "#{self.class.to_s}@#{propagation_id} [#{time.to_hms}]: #{context}"
+	end
     end
 
     # EventGenerator objects are the objects which manage the event generation
