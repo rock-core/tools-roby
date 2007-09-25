@@ -43,11 +43,11 @@ module Roby
 
 	def initialize(planned_task, planning_task)
 	    @planned_task = planned_task
-	    super(planning_task.terminal_event.last)
+	    super(planning_task.terminal_event)
 	end
 
 	def message # :nodoc:
-	    msg = "failed to plan #{planned_task}.planned_by(#{planning_task}): failed with #{failure_point.symbol}"
+	    msg = "failed to plan #{planned_task}.planned_by(#{failed_task}): failed with #{failure_point.symbol}"
 	    if failure_point.context
 		if failure_point.context.first.respond_to?(:full_message)
 		    msg << "\n" << failure_point.context.first.full_message

@@ -11,7 +11,7 @@ class TC_PlannedBy < Test::Unit::TestCase
 	task, p1, p2 = prepare_plan :discover => 3
 	task.planned_by p1
 
-	assert_raises(TaskModelViolation) { task.planned_by p2 }
+	assert_raises(ArgumentError) { task.planned_by p2 }
 	assert(task.child_object?(p1, PlannedBy))
 	assert(!task.child_object?(p2, PlannedBy))
 
@@ -43,9 +43,12 @@ class TC_PlannedBy < Test::Unit::TestCase
 
 	error = *PlannedBy.check_planning(plan)
 	assert_kind_of(Roby::PlanningFailedError, error)
-	assert_equal(planner, error.planning_task)
+	assert_equal(planner, error.failed_task)
 	assert_equal(task, error.planned_task)
-	assert_equal(planner.terminal_event, error.error)
+	assert_equal(planner.terminal_event, error.failed_event)
+
+	# Clear the planned task to make test teardown happy
+	plan.remove_object(task)
     end
 end
 
