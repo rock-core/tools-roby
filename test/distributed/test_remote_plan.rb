@@ -105,6 +105,13 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    r_other_task.realized_by r_simple_task
 	end
 	assert_raises(NotOwner) { r_other_task.remove_child r_simple_task }
+
+	# Force a synchro point, or we will have a conflict between the remote
+	# GC process and the pending messages
+	#
+	# ... did I already told that distributed transactions were here for
+	# something ?
+	remote_peer.synchro_point
     end
 
     # Test that the remote plan structure is properly mapped to the local
