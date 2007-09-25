@@ -603,10 +603,24 @@ module Roby
 		MethodModel.new(name, :returns => Task)
 	    end
 
-	    def replan_task(strict = true)
+	    # Creates a planning task which will call the same planning method
+	    # than the one currently being generated.
+	    #
+	    # +options+ is an option hash. These options are used to override
+	    # the current method options. Only one option is recognized by
+	    # +replan_task+:
+	    #
+	    # strict:: if true, we use the current method name and id for 
+	    #          the planning task. If false, use only the method name.
+	    #	       defaults to true.
+	    def replan_task(options = nil)
 		method_options = arguments.dup
-		if strict
+		if !options.has_key?(:strict) || options.delete(:strict)
 		    method_options.merge!(:id => @stack.last[1])
+		end
+
+		if options
+		    method_options.merge!(options)
 		end
 
 		Roby::PlanningTask.new :planner_model => self.class,

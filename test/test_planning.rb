@@ -810,7 +810,7 @@ class TC_Planner < Test::Unit::TestCase
 	planner = Class.new(Planning::Planner) do
 	    method(:test_task) do
 	       	result_task = SimpleTask.new(:id => arguments[:task_id])
-		result_task.realized_by replan_task
+		result_task.realized_by replan_task(:task_id => arguments[:task_id] + 1)
 		plan.permanent(result_task)
 		result_task
 	    end
@@ -826,7 +826,7 @@ class TC_Planner < Test::Unit::TestCase
 
 	new_task = planning_task_result(planning_task)
 	assert_kind_of(SimpleTask, new_task, planning_task)
-	assert_equal(100, new_task.arguments[:id])
+	assert_equal(101, new_task.arguments[:id])
     end
 end
 
