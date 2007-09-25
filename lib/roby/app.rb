@@ -5,6 +5,7 @@ require 'roby/log'
 require 'roby/log/event_stream'
 
 require 'roby/robot'
+require 'yaml'
 
 module Roby
     # Returns the only one Application object
