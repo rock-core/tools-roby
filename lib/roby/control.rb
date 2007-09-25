@@ -390,7 +390,7 @@ module Roby
 		    begin
 			p.call
 		    rescue Exception => e
-			Roby.add_framework_error(e, "call once in #{p}")
+			Propagation.add_framework_error(e, "call once in #{p}")
 		    end
 		end
 	    end
