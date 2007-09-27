@@ -1335,7 +1335,7 @@ module Roby
     class NullTask < Task
         event :start, :command => true
         event :stop
-        forward :start => :stop
+        forward :start => :success
 
         def null?; true end
     end
