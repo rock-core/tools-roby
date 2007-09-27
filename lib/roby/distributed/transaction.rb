@@ -334,6 +334,13 @@ module Roby
 	    end
 	end
 
+	class Roby::Transactions::TaskEventGenerator
+	    def has_sibling?(peer); false end
+	    def droby_dump(dest)
+		Roby::TaskEventGenerator::DRoby.new(controlable?, happened?, Distributed.format(task, dest), symbol)
+	    end
+	end
+
 	class PeerServer
 	    def transaction_prepare_commit(trsc)
 		trsc = peer.local_object(trsc)

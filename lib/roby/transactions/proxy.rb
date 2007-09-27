@@ -166,9 +166,7 @@ module Roby::Transactions
 
 	def_delegator :@__getobj__, :owners
 	def_delegator :@__getobj__, :distribute?
-	def has_sibling?(peer)
-	    plan.has_sibling?(peer)
-	end
+	def has_sibling?(peer); plan.has_sibling?(peer) end
 
 	def executable?; false end
 	def unreachable!; end
@@ -183,6 +181,7 @@ module Roby::Transactions
 	    super(object, transaction)
 	    @task = transaction.wrap(object.task)
 	end
+	def has_sibling?(peer); false end
     end
 
     # Proxy for Roby::Task
