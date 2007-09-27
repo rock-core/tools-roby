@@ -68,10 +68,6 @@ module Roby::Genom
 		include Roby::Genom
 
 		if config.robot_name
-		    genom_tasks = File.join(APP_DIR, 'tasks', 'genom')
-		    if File.directory?(genom_tasks)
-			g.autoload_path << genom_tasks
-		    end
 
 		    g.output_io = File.join(config.log_dir, "#{config.robot_name}-%m.log")
 		    config.load_robotfile(File.join(APP_DIR, 'config', "ROBOT-genom.rb"))
@@ -173,6 +169,10 @@ multi
 
 	def self.reset(config)
 	    Roby::State.genom = Roby::Genom::GenomState.new
+	    genom_tasks = File.join(APP_DIR, 'tasks', 'genom')
+	    if File.directory?(genom_tasks)
+		Roby::State.genom.autoload_path << genom_tasks
+	    end
 	end
 
 	def self.run(config, &block)
