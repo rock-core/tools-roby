@@ -22,7 +22,7 @@ module Robot
 	m = planner_model.model_of(name, arguments)
 
 	# HACK: m.returns should not be nil, but it sometimes happen
-	returns_model = (m.returns if m && m.returns) || Task.new
+	returns_model = (m.returns if m && m.returns) || Task
 
 	if returns_model.kind_of?(Roby::TaskModelTag)
 	    task = Roby::Task.new
