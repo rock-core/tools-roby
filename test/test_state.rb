@@ -274,6 +274,8 @@ class TC_State < Test::Unit::TestCase
 
 	assert_equal(10, p.distance(30, 10))
 	assert_equal(0, p.distance(p))
+
+	assert_equal(Pos::Vector3D.new(-30), -p)
     end
 end
 

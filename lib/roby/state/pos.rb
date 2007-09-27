@@ -13,8 +13,17 @@ module Roby::Pos
 	def -(v); Vector3D.new(x - v.x, y - v.y, z - v.z) end
 	def *(a); Vector3D.new(x * a, y * a, z * a) end
 	def /(a); Vector3D.new(x / a, y / a, z / a) end
+	def -@; Vector3D.new(-x, -y, -z) end
 
 	def xyz; [x, y, z] end
+	def ==(v)
+	    v.kind_of?(Vector3D) &&
+		v.x == x && v.y == y && v.z == z
+	end
+
+	def null?(tolerance = 0)
+	    length <= tolerance
+	end
 
 	def distance(x = 0, y = nil, z = nil)
 	    if !y && x.respond_to?(:x)
