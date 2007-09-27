@@ -322,10 +322,13 @@ module Roby
 	    def local_event(event, &block)
 		if event.respond_to?(:task)
 		    task = local_task(event.task, &block)
-		    event.task = task
-		    event.plan = task.plan
-		    task.events[event.symbol] = event
-		    event
+		    if task.events[event.symbol]
+			task.events[event.symbol]
+		    else
+			event.task = task
+			event.plan = task.plan
+			task.events[event.symbol] = event 
+		    end
 		else
 		    local_object(event, &block) 
 		end
