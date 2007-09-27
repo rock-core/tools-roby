@@ -476,5 +476,24 @@ class TC_Exceptions < Test::Unit::TestCase
 	repairing_task.success!
 	assert_equal(exceptions.keys, Propagation.propagate_exceptions(exceptions))
     end
+
+    def test_event_not_executable_message
+	ev = EventGenerator.new(true)
+	begin
+	    raise EventNotExecutable.new(ev), "user message"
+	rescue EventNotExecutable => e
+	    error = e
+	end
+	assert(error.message =~ /user message/)
+
+	begin
+	    raise EventHandlerError.new(e, ev), "another message"
+	rescue EventHandlerError => e
+	    error = e
+	end
+	STDERR.puts e.message
+	assert(error.message =~ /user message/)
+    end
+
 end
 

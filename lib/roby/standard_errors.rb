@@ -67,7 +67,7 @@ module Roby
 
 	def message
 	    if error
-		"#{self.class} in #{failure_point}: #{error}"
+		"#{self.class} in #{failure_point}: #{error.message} (#{error.class})"
 	    else
 		super
 	    end
