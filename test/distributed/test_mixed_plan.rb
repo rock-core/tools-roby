@@ -151,6 +151,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 
 	    assert(plan.useful_task?(r_t1))
 	    trsc[r_t2].realized_by trsc[t2]
+	    trsc[r_t2].on(:start, trsc[t2])
 	    assert(plan.useful_task?(r_t1))
 	    check_resulting_plan(trsc, false)
 	    if propose_first
@@ -187,6 +188,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    t1, t2, t3 = Control.synchronize { add_tasks(trsc, "local") }
 
 	    trsc[r_t2].realized_by t2
+	    trsc[r_t2].on(:start, t2)
 	    check_resulting_plan(trsc, false)
 	    process_events
 	    if propose_first
@@ -220,6 +222,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    assert(r_t2.subscribed?)
 	    t1, t2, t3 = Control.synchronize { add_tasks(plan, "local") }
 	    r_t2.realized_by trsc[t2]
+	    r_t2.on(:start, trsc[t2])
 	    remote_peer.subscribe(r_t2)
 	    remote_peer.push_subscription(t2)
 

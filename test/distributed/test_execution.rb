@@ -54,6 +54,36 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	assert(contingent.happened?)
     end
 
+    def test_signal_establishment
+	Roby.app.filter_backtraces = false
+	peer2peer(true) do |remote|
+	    Roby::Distributed.on_transaction do |trsc|
+		trsc.edit do
+		    local_task = trsc.find_tasks.which_fullfills(Roby::Test::SimpleTask).to_a.first
+		    t = trsc[SimpleTask.new(:id => 'remote_task')]
+		    local_task.realized_by t
+		    local_task.on :start, t, :start
+		    nil
+		end
+	    end
+	end
+
+	trsc = Roby::Distributed::Transaction.new(plan)
+	trsc.add_owner remote_peer
+	trsc.propose(remote_peer)
+
+	plan.insert(local_task = Roby::Test::SimpleTask.new)
+	trsc[local_task]
+	trsc.release
+	trsc.edit
+	trsc.commit_transaction
+
+	Roby.execute { local_task.start! }
+	remote_peer.synchro_point
+	remote_task = subscribe_task(:id => 'remote_task')
+	assert(remote_task.happened?)
+    end
+
     # This test that the event/plan modification order is kept on a remote host
     def test_keeps_causality
 	peer2peer(true) do |remote|
