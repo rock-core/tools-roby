@@ -334,6 +334,15 @@ class TC_Planner < Test::Unit::TestCase
 	    include b
 	end
 	assert_nothing_raised { d.method(:root, :id => 'c') { } }
+
+	e = Module.new do
+	    planning_library(:id => "e")
+	    method(:test) { Roby::Test::SimpleTask.new }
+	end
+	planner = Class.new(Planner) do
+	    using e
+	end.new(plan)
+	assert_nothing_raised { planner.test(:id => 'e') }
     end
 
     def test_return_type

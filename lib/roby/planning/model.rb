@@ -820,8 +820,13 @@ module Roby
 	module Library
 	    include Tools
 
+	    attr_reader :default_options
+
 	    def planning_methods; @methods ||= Array.new end
 	    def method(name, options = Hash.new, &body)
+		if body && default_options
+		    options = default_options.merge(options)
+		end
 		planning_methods << [name, options, body]
 	    end
 
@@ -871,8 +876,9 @@ end
 
 
 class Module
-    def planning_library
+    def planning_library(default_options = Hash.new)
 	extend Roby::Planning::Library
+	instance_variable_set(:@default_options, default_options)
     end
 end
 
