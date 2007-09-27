@@ -511,7 +511,7 @@ module Roby
 		super
 
 		# Initialize the display ...
-		decoder.plans.each_key do |plan|
+		decoder.plans.each do |plan|
 		    discovered_tasks(Time.now, plan, plan.known_tasks)
 		    discovered_events(Time.now, plan, plan.free_events)
 		end
@@ -547,10 +547,13 @@ module Roby
 		regex = /#{regex.to_str}/i if regex.respond_to?(:to_str)
 
 		# Get the tasks and events matching the string
-		objects = decoder.tasks.keys.
-		    find_all { |object| displayed?(object) && regex === object.display_name(self) }
-		objects.concat decoder.events.keys.
-		    find_all { |object| displayed?(object) && regex === object.display_name(self) }
+		objects = []
+		for p in decoder.plans
+		    objects.concat decoder.known_tasks.
+			find_all { |object| displayed?(object) && regex === object.display_name(self) }
+		    objects.concat decoder.free_events.
+			find_all { |object| displayed?(object) && regex === object.display_name(self) }
+		end
 
 		return if objects.empty?
 
@@ -761,10 +764,12 @@ module Roby
 		clear_flashing_objects
 
 		# The sets of tasks and events know to the data stream
-		all_tasks  = decoder.plans.inject(decoder.tasks.keys.to_value_set) do |all_tasks, (plan, _)|
+		all_tasks  = decoder.plans.inject(ValueSet.new) do |all_tasks, plan|
+		    all_tasks.merge plan.known_tasks
 		    all_tasks.merge plan.finalized_tasks
 		end
-		all_events = decoder.plans.inject(decoder.events.keys.to_value_set) do |all_events, (plan, _)|
+		all_events = decoder.plans.inject(ValueSet.new) do |all_events, plan|
+		    all_events.merge plan.free_events
 		    all_events.merge plan.finalized_events
 		end
 
@@ -775,11 +780,11 @@ module Roby
 		    clear_arrows(obj)
 		end
 
-		visible_objects.merge(decoder.plans.keys.to_value_set)
+		visible_objects.merge(decoder.plans)
 
 		# Create graphics items for tasks and events if necessary, and
 		# update their visibility according to the visible_objects set
-		[all_tasks, all_events, decoder.plans.keys].each do |object_set|
+		[all_tasks, all_events, decoder.plans].each do |object_set|
 		    object_set.each do |object|
 			create_or_get_item(object) if displayed?(object)
 		    end
@@ -826,7 +831,7 @@ module Roby
 		end
 
 
-		[all_tasks, all_events, decoder.plans.keys].each do |object_set|
+		[all_tasks, all_events, decoder.plans].each do |object_set|
 		    object_set.each do |object|
 			next unless displayed?(object)
 			object.display(self, graphics[object])
@@ -839,7 +844,7 @@ module Roby
 		end
 
 		# Layout the graph
-		layouts = decoder.plans.keys.find_all { |p| p.root_plan? }.
+		layouts = decoder.plans.find_all { |p| p.root_plan? }.
 		    map do |p| 
 			dot = Layout.new
 			dot.layout(self, p)

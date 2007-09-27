@@ -1,10 +1,23 @@
 = TODO
 
-== Renames
+== Refactoring
 * remote_id => network_id
 * incremental_dump? => dump_reference?
 * fix Roby::Control and Roby.control. Everything should be accessible from the same
-  object
+  object. In a more general way, clean up the mess in globally used methods of Roby
+* don't allow to change any event or task relations if the task is not incldued in a
+  plan. This would finally fix problems related to logging and other stuff like
+  the possibility of having tasks hanging around because they have never been removed
+  from any plan.
+* have a thread-safe handling of transactions. This requires a few things:
+  - separate relation graphs: have one relation graph per plan object. The global
+    constants would then be only numeric IDS (or symbols, whatever), and the various
+    methods would get the relation graph from the object's plan. Note that it requires
+    that all objects are always included in a plan (check the previous todo point)
+  - stop using method forwarding, which is not the good way to do that. Instead, 
+    do as for distributed: update the task status in the transaction thread. Need
+    to define a notion of "transaction thread" and how messages can get propagated
+    there, though.
 
 == Core
 * dynamic parameters. State prediction in both plan and transaction context: allow
