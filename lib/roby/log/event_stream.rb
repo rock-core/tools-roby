@@ -65,24 +65,24 @@ module Roby
 
 	    def start_time
 		return if index_data.empty?
-		index_data[0][:start]
+		Time.at(*index_data[0][:start])
 	    end
 	    
 	    # The current time
 	    def current_time
 		return if index_data.empty?
+		time = Time.at(*index_data[current_cycle][:start])
 		if index_data.size == current_cycle + 1
-		    index_data[current_cycle][:end]
-		else
-		    index_data[current_cycle][:start]
+		    time += index_data[current_cycle][:end]
 		end
+		time
 	    end
 
 	    # The time we will reach when the next sample is processed
 	    def next_time
 		return if index_data.empty?
 		if index_data.size > current_cycle + 1
-		    index_data[current_cycle + 1][:start]
+		    Time.at(*index_data[current_cycle + 1][:start])
 		end
 	    end
 
