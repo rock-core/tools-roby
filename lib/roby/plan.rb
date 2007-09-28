@@ -185,7 +185,7 @@ module Roby
 
 	    # Check that +to+ is in the same execution state than +from+
 	    if !to.compatible_state?(from)
-		raise InvalidReplace.new(from, to, "state")
+		raise InvalidReplace.new(from, to, "state. #{from.running?}, #{to.running?}")
 	    end
 
 	    # Swap the subplans of +from+ and +to+
