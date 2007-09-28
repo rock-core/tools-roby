@@ -298,12 +298,17 @@ module Roby
 
 	    case result
 	    when Roby::Task
+		# Don't replace the planning task with ourselves if the
+		# transaction specifies another planning task
+		if !result.planning_task
+		    result.planned_by transaction[self]
+		end
+
 		if placeholder = planned_task
 		    placeholder = transaction[placeholder]
 		    transaction.replace(placeholder, result)
 		    placeholder.remove_planning_task transaction[self]
 		end
-		result.planned_by transaction[self], :replace => true
 		transaction.commit_transaction
 		emit(:success)
 	    else
