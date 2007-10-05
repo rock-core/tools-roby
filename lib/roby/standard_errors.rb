@@ -27,7 +27,7 @@ module Roby
 	    if failed_event && failed_event.context
 		failed_event.context.each do |error|
 		    if error.kind_of?(Exception)
-			base_msg << "\n  * #{error}:\n    #{Roby.filter_backtrace(error.backtrace).join("\n    ")}"
+			base_msg << "\n  * #{error.message}:\n    #{Roby.filter_backtrace(error.backtrace).join("\n    ")}"
 		    end
 		end
 	    end
