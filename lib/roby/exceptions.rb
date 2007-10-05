@@ -131,7 +131,7 @@ module Roby
 	if Roby.app.filter_backtraces? && backtrace
 	    backtrace = backtrace.dup
 	    backtrace.delete_if do |caller|
-	        caller =~ /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}|scripts\/)/
+	        caller =~ /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
 	    end
 	end
 	backtrace || []
