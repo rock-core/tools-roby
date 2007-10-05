@@ -44,8 +44,8 @@ module Roby
 
 		    full = "#{first}: #{msg}\n   from #{rem.join("\n  from ")}"
 		    errors.each do |m, error|
-			first     = error.backtrace.first
-			full << "\n#{first} #{m} failed because of\n #{error.full_message}"
+			first, *rem = *Roby.filter_backtrace(error.backtrace)
+			full << "\n#{first}: #{m} failed with #{error.message}\n  from #{rem.join("\n  from ")}"
 		    end
 		    full
 		end
