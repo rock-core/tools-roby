@@ -276,6 +276,7 @@ module Roby
 
 	    free_events.merge(events)
 	    discovered_events(events)
+	    events
 	end
 
 	# Add +tasks+ to the set of known tasks and call discovered_tasks for
