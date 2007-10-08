@@ -78,12 +78,8 @@ module Roby
 		nil
 	    elsif object.respond_to?(:each) 
 		object.map { |o| wrap(o, create) }
-	    elsif object.respond_to?(:each_event)
-		object.enum_for(:each_event) { |o| wrap(o, create) }
-	    elsif object.respond_to?(:each_task)
-		object.enum_for(:each_task) { |o| wrap(o, create) }
 	    else
-		raise TypeError, "don't know how to wrap #{object || 'nil'}"
+		raise TypeError, "don't know how to wrap #{object || 'nil'} of type #{object.class.ancestors}"
 	    end
 	end
 	alias :[] :wrap
