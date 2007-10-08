@@ -382,7 +382,9 @@ module Roby
 	    clear
 	    # Replace proxies by forwarder objects
 	    proxies.each do |object, proxy|
-		Kernel.swap! proxy, Proxy.forwarder(object)
+		forwarder = Proxy.forwarder(object)
+		forwarder.freeze
+		Kernel.swap! proxy, forwarder
 	    end
 
 	    committed_transaction
