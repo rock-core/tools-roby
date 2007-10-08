@@ -33,7 +33,7 @@ module TC_TransactionBehaviour
 
     SimpleTask = Roby::Test::SimpleTask
 
-    def transaction_commit(plan, *needed_proxies)
+    def transaction_op(plan, op, *needed_proxies)
 	trsc = Roby::Transaction.new(plan)
 	proxies = needed_proxies.map do |o|
 	    plan.discover(o) unless o.plan
@@ -48,7 +48,7 @@ module TC_TransactionBehaviour
 	assert( (trsc.known_tasks & plan.known_tasks).empty?, (trsc.known_tasks & plan.known_tasks))
 
 	plan = trsc.plan
-	trsc.commit_transaction
+	trsc.send(op)
 	assert(!trsc.plan)
 	assert(plan.transactions.empty?)
 
@@ -69,6 +69,13 @@ module TC_TransactionBehaviour
 	raise
     end
 
+    def transaction_commit(plan, *needed_proxies, &block)
+	transaction_op(plan, :commit_transaction, *needed_proxies, &block)
+    end
+    def transaction_discard(plan, *needed_proxies, &block)
+	transaction_op(plan, :discard_transaction, *needed_proxies, &block)
+    end
+
     # Checks that model-level task relations are kept if a task is modified by a transaction
     def test_commit_task
 	t = prepare_plan :tasks => 1
@@ -86,6 +93,29 @@ module TC_TransactionBehaviour
 	end
 	assert(t.event(:start).child_object?(t.event(:updated_data), Roby::EventStructure::Precedence))
 	assert(t.event(:failed).child_object?(t.event(:stop), Roby::EventStructure::Forwarding))
+    end
+
+    def test_commit_arguments
+	(t1, t2), t = prepare_plan :discover => 2, :tasks => 1
+	t1.arguments[:first] = 10
+	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+	    p1.arguments[:first] = 20
+	    p1.arguments[:second] = p2
+	    trsc.discover(t)
+	    t.arguments[:task] = p2
+	end
+
+	assert_equal(20, t1.arguments[:first])
+	assert_equal(t2, t1.arguments[:second])
+	assert_equal(t2, t.arguments[:task])
+
+	transaction_discard(plan, t1, t2) do |trsc, p1, p2|
+	    p1.arguments[:first] = 10
+	    assert_equal(p2, p1.arguments[:second])
+	end
+
+	assert_equal(20, t1.arguments[:first])
+	assert_equal(t2, t1.arguments[:second])
     end
 
     # Tests insertion and removal of tasks

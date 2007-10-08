@@ -134,11 +134,13 @@ module Roby::Transactions
 		end
 	    end
 
+	    super if defined? super
 	end
 
 	# Discards the transaction by clearing this proxy
 	def discard_transaction
 	    clear_vertex
+	    super if defined? super
 	end
     end
 
@@ -193,7 +195,6 @@ module Roby::Transactions
 	def_delegator :@__getobj__, :finished?
 	def_delegator :@__getobj__, :pending?
 	def_delegator :@__getobj__, :model
-	def_delegator :@__getobj__, :arguments
 	def_delegator :@__getobj__, :has_event?
 
 	def_delegator :@__getobj__, :pending?
@@ -208,6 +209,19 @@ module Roby::Transactions
 	proxy :fullfills?
 	proxy :same_state?
 
+	def initialize(object, transaction)
+	    super(object, transaction)
+
+	    @arguments = Roby::TaskArguments.new(self)
+	    object.arguments.each do |key, value|
+		if value.kind_of?(Roby::PlanObject)
+		    arguments.update!(key, transaction[value])
+		else
+		    arguments.update!(key, value)
+		end
+	    end
+	end
+
 	def bound_events; {} end
 	def executable?; false end
 
@@ -220,6 +234,17 @@ module Roby::Transactions
 	end
 
 	def instantiate_model_event_relations
+	end
+
+	def commit_transaction
+	    super
+	    
+	    # Update the task arguments. The original
+	    # Roby::Task#commit_transaction has already translated the proxy
+	    # objects into real objects
+	    arguments.each do |key, value|
+		__getobj__.arguments.update!(key, value)
+	    end
 	end
 
 	def discard_transaction

@@ -367,8 +367,19 @@ module Roby
 		discover_events << unwrapped
 	    end
 
-	    plan.discover_task_set(discover_tasks)
-	    plan.discover_event_set(discover_events)
+	    new_tasks = plan.discover_task_set(discover_tasks)
+	    new_tasks.each do |task|
+		if task.respond_to?(:commit_transaction)
+		    task.commit_transaction
+		end
+	    end
+
+	    new_events = plan.discover_event_set(discover_events)
+	    new_events.each do |event|
+		if event.respond_to?(:commit_transaction)
+		    event.commit_transaction
+		end
+	    end
 
 	    # Set the plan to nil in known tasks to avoid having the checks on
 	    # #plan to raise an exception

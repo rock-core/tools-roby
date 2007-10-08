@@ -237,6 +237,7 @@ module Roby
 	    inject({}) { |h, (k, v)| h[k] = v ; h }
 	end
 
+	alias :update! :[]=
 	def []=(key, value)
 	    if writable?(key)
 		if !task.read_write?
@@ -1263,6 +1264,16 @@ module Roby
 	    end
 
 	    super
+	end
+
+	def commit_transaction
+	    super if defined? super
+
+	    arguments.dup.each do |key, value|
+		if value.kind_of?(Roby::Transactions::Proxy)
+		    arguments.update!(key, value.__getobj__)
+		end
+	    end
 	end
 
 	def respawn
