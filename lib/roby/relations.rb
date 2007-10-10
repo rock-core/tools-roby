@@ -400,15 +400,17 @@ module Roby
 	# <tt>a => b</tt> in another relation
 	#
 	# If +strict+ is true, +obj+ is not included in the returned set
-	def children_of(obj, strict = true)
-	    set = compute_children_of([obj].to_value_set)
-	    set.delete(obj)
+	def children_of(obj, strict = true, relations = nil)
+	    set = compute_children_of([obj].to_value_set, relations || self.relations)
+	    set.delete(obj) if strict
 	    set
 	end
 
-	def compute_children_of(current)
+	def compute_children_of(current, relations)
 	    old_size = current.size
-	    each_root_relation do |rel|
+	    for rel in relations
+		next if (rel.parent && relations.include?(rel.parent))
+
 		components = rel.generated_subgraphs(current, false)
 		for c in components
 		    current.merge c
@@ -418,7 +420,7 @@ module Roby
 	    if current.size == old_size
 		return current
 	    else
-		return compute_children_of(current)
+		return compute_children_of(current, relations)
 	    end
 	end
 

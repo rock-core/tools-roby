@@ -106,11 +106,11 @@ class Ui::RelationsView
 		when "Hide"
 		    relations_display.set_visibility(obj, false)
 		when "Hide children"
-		    for child in Roby::TaskStructure.children_of(obj)
+		    for child in Roby::TaskStructure.children_of(obj, relations_display.enabled_relations)
 			relations_display.set_visibility(child, false)
 		    end
 		when "Show children"
-		    for child in Roby::TaskStructure.children_of(obj)
+		    for child in Roby::TaskStructure.children_of(obj, relations_display.enabled_relations)
 			relations_display.set_visibility(child, true)
 		    end
 		end
