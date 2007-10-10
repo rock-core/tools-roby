@@ -108,6 +108,11 @@ module Roby
 		yield(t)
 	    end
 	end
+	def query_roots(result_set, relation)
+	    @interface.remote_query_roots(result_set, Distributed.format(relation)).each do |t|
+		t.remote_interface = self
+	    end
+	end
 
 	def state
 	    remote_constant('State')
@@ -202,6 +207,10 @@ module Roby
 
 	def remote_query_result_set(m_query)
 	    plan.query_result_set(m_query.to_query(plan)).
+		map { |t| RemoteObjectProxy.new(t) }
+	end
+	def remote_query_roots(result_set, m_relation)
+	    plan.query_roots(result_set, m_relation.proxy(nil)).
 		map { |t| RemoteObjectProxy.new(t) }
 	end
 
