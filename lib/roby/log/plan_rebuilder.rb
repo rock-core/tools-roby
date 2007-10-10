@@ -294,6 +294,15 @@ module Roby
 		object
 	    end
 
+	    def clear_integrated
+		last_finalized.clear
+		plans.each do |plan|
+		    plan.clear_finalized(plan.finalized_tasks.dup, plan.finalized_events.dup)
+		end
+
+		super
+	    end
+
 	    def display
 		plans.each do |plan|
 		    if finalized = last_finalized[plan]

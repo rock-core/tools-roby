@@ -112,7 +112,7 @@ class Replay < Qt::MainWindow
     # Time of the last known sample
     attr_reader :last_sample
 
-    def seek(time)
+    def seek(time, integrate = true)
 	if time && !first_sample
 	    seek(nil) 
 	elsif time && first_sample && time < first_sample
@@ -141,7 +141,7 @@ class Replay < Qt::MainWindow
 	    ui_controls.progress.maximum = max
 	    ui_controls.update_bookmarks_menu
 	else
-	    play_until time
+	    play_until time, integrate
 	end
 
 	update_time_display
@@ -192,7 +192,7 @@ class Replay < Qt::MainWindow
     end
     slots 'play_step_timer()'
     
-    def play_until(max_time)
+    def play_until(max_time, integrate = true)
 	start_at = Time.now
 	displayed_streams.inject(timeline = []) do |timeline, s| 
 	    if s.next_time
@@ -213,6 +213,7 @@ class Replay < Qt::MainWindow
 	    @time, stream = timeline.first
 
 	    stream.advance
+	    stream.clear_integrated unless integrate
 	    updated_streams << stream
 	    if next_time = stream.next_time
 		timeline[0] = [next_time, stream]

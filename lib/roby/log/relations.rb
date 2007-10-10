@@ -752,6 +752,12 @@ module Roby
 		arrow.pen = arrow.line.pen = pen
 	    end
 
+	    def clear_integrated
+		postponed_events.clear
+		execution_events.clear
+		@execution_events = execution_events.find_all { |fired, ev| !fired }
+	    end
+
 	    def update
 		return unless decoder
 

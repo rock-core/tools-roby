@@ -115,6 +115,12 @@ module Roby::Log
 	    self.class.decode(data)
 	end
 
+	def clear_integrated
+	    decoders.each do |decoder|
+		decoder.clear_integrated
+	    end
+	end
+
 	# Update the displays
 	def display
 	    decoders.each do |decoder|
@@ -144,6 +150,12 @@ module Roby::Log
 
 	def clear
 	    displays.each { |d| d.clear }
+	end
+
+	def clear_integrated
+	    displays.each do |display|
+		display.clear_integrated if display.respond_to?(:clear_integrated)
+	    end
 	end
 
 	# Update the display to the current state of the decoder
