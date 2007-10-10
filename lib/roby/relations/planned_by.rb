@@ -52,7 +52,7 @@ module Roby
 		if failure_point.context.first.respond_to?(:full_message)
 		    msg << "\n" << failure_point.context.first.full_message
 		else
-		    msg << "(" << failure_point.context.first << ")"
+		    msg << "(" << failure_point.context.first.to_s << ")"
 		end
 	    end
 	    msg
