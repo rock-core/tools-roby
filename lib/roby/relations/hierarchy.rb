@@ -202,7 +202,7 @@ module Roby
 	end
 
 	def message # :nodoc:
-	    "#{super}\nthe failed relation is: #{parent}.realized_by(#{child}, #{relation})"
+	    "#{super}\nthe failed relation is: #{parent}\n        realized_by\n    #{child}"
 	end
 
 	def backtrace; [] end
