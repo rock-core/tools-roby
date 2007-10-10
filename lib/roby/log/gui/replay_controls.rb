@@ -171,11 +171,11 @@ class Ui::ReplayControls
 			return unless user_time && !user_time.empty?
 
 			@last_goto = user_time
-			if user_time =~ /^\s*([\+\-])(.*)/
+			if user_time =~ /^\s*([\+\-@])(.*)/
 			    op = $1
 			    user_time = $2
 			end
-			user_time = Time.from_hms(user_time) - Time.at(0)
+			user_time = Time.from_hms(user_time)
 
 		    rescue ArgumentError
 			Qt::MessageBox.warning nil, "Invalid user_time", "Invalid user_time: #{$!.message}", "OK"
@@ -186,10 +186,12 @@ class Ui::ReplayControls
 	    replay.seek(nil)
 	end
 
-	user_time = if op
-			replay.time.send(op, user_time)
+	user_time = if !op
+			replay.first_sample + (user_time - Time.at(0))
+		    elsif op != "@"
+			replay.time.send(op, user_time - Time.at(0))
 		    else
-			replay.first_sample + user_time
+			user_time
 		    end
 
 	replay.seek(user_time)

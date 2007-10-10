@@ -286,7 +286,7 @@ class Replay < Qt::MainWindow
 		replay.play_speed = speed
 	    end
 	    opt.on("--goto=TIME", String, "go to TIME before playing normally. Time is given relatively to the simulation start") do |goto| 
-		replay.initial_time = Time.from_hms(goto)
+		replay.initial_time = goto
 	    end
 	    opt.on('--bookmarks=FILE', String, "load the bookmarks in FILE") do |file|
 		replay.ui_controls.load_bookmarks(file)
@@ -308,7 +308,13 @@ class Replay < Qt::MainWindow
 	show
 	if initial_time
 	    seek(nil)
-	    seek(first_sample + (initial_time - Time.at(0)))
+
+	    seek_time = if initial_time[0] == ?@
+			    Time.from_hms(initial_time[1..-1])
+			else
+			    first_sample + (Time.from_hms(initial_time) - Time.at(0))
+			end
+	    seek(seek_time, false)
 	end
 
 	if play_now
