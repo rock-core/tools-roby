@@ -549,9 +549,9 @@ module Roby
 		# Get the tasks and events matching the string
 		objects = []
 		for p in decoder.plans
-		    objects.concat decoder.known_tasks.
+		    objects.concat p.known_tasks.
 			find_all { |object| displayed?(object) && regex === object.display_name(self) }
-		    objects.concat decoder.free_events.
+		    objects.concat p.free_events.
 			find_all { |object| displayed?(object) && regex === object.display_name(self) }
 		end
 
