@@ -363,10 +363,6 @@ module Roby
 				 peer_server.send(method, *args)
 			     rescue Exception => e
 				 if critical
-				     Roby::Distributed.fatal "fatal error during #{method}(#{args}): #{e}"
-				     Roby::Distributed.debug do
-					 e.full_message
-				     end
 				     peer.fatal_error e, method, args
 				 else
 				     peer_server.completed!(e, true)

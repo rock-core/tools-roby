@@ -305,7 +305,8 @@ module Roby
 	    # We will disconnect because of that
 	    def fatal_error(error, msg, args)
 		synchronize do
-		    Roby::Distributed.fatal "fatal error '#{error}' while processing #{msg}(#{args.join(", ")})"
+		    Roby::Distributed.fatal "fatal error '#{error.message}' while processing #{msg}(#{args.join(", ")})"
+		    Roby::Distributed.fatal Roby.filter_backtrace(error.backtrace).join("\n  ")
 		    @connection_state = :disconnecting
 		end
 		queue_call false, :fatal_error, [error, msg, args]
