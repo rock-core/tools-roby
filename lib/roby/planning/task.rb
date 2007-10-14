@@ -17,11 +17,6 @@ module Roby
     class PlanningLoop < Roby::Task
 	terminates
 
-	# The period. Zero means continuously and false 'on demand'
-	attr_reader :period
-	# How many loops we must have unrolled at all times
-	attr_reader :lookahead
-
 	# An array of [planning_task, user_command]. The *last* element is the
 	# *first* arrived
 	attr_reader :patterns
@@ -228,7 +223,7 @@ module Roby
     class PlanningTask < Roby::Task
 	attr_reader :planner, :transaction
 
-	argument :planner_model, :method_name, :method_options, :planned_model
+	arguments :planner_model, :method_name, :method_options, :planned_model
 
 	def self.filter_options(options)
 	    task_options, method_options = Kernel.filter_options options,
@@ -251,8 +246,12 @@ module Roby
         def initialize(options)
 	    task_options = PlanningTask.filter_options(options)
             super(task_options)
-	    @planned_model ||= planner_model.model_of(method_name, method_options).returns || Roby::Task
         end
+
+	def planned_model
+	    arguments[:planned_model] ||= planner_model.model_of(method_name, method_options).returns || Roby::Task
+	end
+
 
 	def to_s
 	    "#{super}[#{method_name}:#{method_options}] -> #{@planned_task || "nil"}"
