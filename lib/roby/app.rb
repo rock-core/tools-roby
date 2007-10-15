@@ -539,7 +539,10 @@ module Roby
 
 	    unless single? || !discovery['tuplespace']
 		ts = Rinda::TupleSpace.new
-		DRb.start_service "druby://#{discovery['tuplespace']}", ts
+
+
+		discovery['tuplespace'] =~ /(:\d+)$/
+		DRb.start_service "druby://#{$1}", ts
 
 		new_db  = ts.notify('write', DISCOVERY_TEMPLATE)
 		take_db = ts.notify('take', DISCOVERY_TEMPLATE)
