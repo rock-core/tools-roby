@@ -143,7 +143,6 @@ module Roby
 	def reinit
 	    return unless running?
 
-	    count = patterns.size
 	    while !patterns.empty?
 		planning_task, command = patterns.first
 		task = planning_task.planned_task
@@ -158,11 +157,12 @@ module Roby
 
 	    has_running_task = !patterns.empty?
 	    first_planning_task = nil
-	    while patterns.size < count
+	    remaining_tasks = patterns.size
+	    while patterns.size < (lookahead + remaining_tasks)
 		new_planning = append_pattern
 		first_planning ||= new_planning
 	    end
-	    if !has_running_task && count > 0
+	    if !has_running_task && lookahead > 0
 		first_planning.start!
 	    end
 	end
