@@ -452,7 +452,9 @@ module Roby
 
 	    # A pool of arrows items used to display the event signalling
 	    attr_reader :signal_arrows
-		
+
+	    # True if the finalized tasks should not be displayed
+	    attr_reader :hide_finalized
 
 	    def initialize
 		@scene  = Qt::GraphicsScene.new
@@ -476,6 +478,7 @@ module Roby
 		@execution_events  = []
 		@postponed_events  = ValueSet.new
 		@signal_arrows     = []
+		@hide_finalized	   = true
 
 		ui.setupUi(self)
 		ui.graphics.scene = scene
@@ -787,6 +790,16 @@ module Roby
 		end
 
 		visible_objects.merge(decoder.plans)
+
+		decoder.plans.each do |plan|
+		    if hide_finalized
+			@visible_objects = visible_objects - plan.finalized_tasks
+			@visible_objects = visible_objects - plan.finalized_events
+		    else
+			visible_objects.merge(plan.finalized_tasks)
+			visible_objects.merge(plan.finalized_events)
+		    end
+		end
 
 		# Create graphics items for tasks and events if necessary, and
 		# update their visibility according to the visible_objects set
