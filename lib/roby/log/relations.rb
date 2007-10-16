@@ -805,7 +805,13 @@ module Roby
 		# update their visibility according to the visible_objects set
 		[all_tasks, all_events, decoder.plans].each do |object_set|
 		    object_set.each do |object|
-			create_or_get_item(object) if displayed?(object)
+			if displayed?(object)
+			    create_or_get_item(object)
+			elsif !object.display_parent
+			    if item = graphics[object]
+				item.visible = false
+			    end
+			end
 		    end
 		end
 
