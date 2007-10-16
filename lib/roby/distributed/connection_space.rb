@@ -241,46 +241,48 @@ module Roby
 			    while !pending_sockets.empty?
 				socket, peer = pending_sockets.shift
 				sockets[socket] = peer
-				Roby::Distributed.debug "listening to #{socket} for #{peer}"
+				Roby::Distributed.info "listening to #{socket.peer_info} for #{peer}"
 			    end
 
 			    begin
 				sockets.delete_if { |s, p| s.closed? && p.disconnected? }
-				read, _, errors = select(sockets.keys, nil, sockets.keys, 0.1)
+				read, _, errors = select(sockets.keys, nil, nil, 0.1)
 			    rescue IOError
 			    end
+			    next if !read
 			    
-			    if read
-				for socket in read
-				    begin
-					if socket.closed? || socket.eof?
-					    raise IOError
-					end
-
-					p = sockets[socket]
-
-					id, size = socket.read(8).unpack("NN")
-					data     = socket.read(size)
-					p.stats.rx += (size + 8)
-					Roby::Distributed.cycles_rx << [p, Marshal.load(data)]
-				    rescue IOError
-					errors << socket
-				    end
+			    closed_sockets = []
+			    for socket in read
+				if socket.closed?
+				    closed_sockets << socket
+				    next
+				elsif socket.eof?
+				    socket.clearerr
 				end
+
+				header = socket.read(8)
+				unless header && header.size == 8
+				    closed_sockets << socket
+				    next
+				end
+
+				id, size = header.unpack("NN")
+				data     = socket.read(size)
+
+				p = sockets[socket]
+				p.stats.rx += (size + 8)
+				Roby::Distributed.cycles_rx << [p, Marshal.load(data)]
 			    end
 
-			    if errors
-				for socket in errors
-				    p = sockets[socket]
-
-				    if p.connected?
-					Roby::Distributed.info "lost connection with #{p}"
-					p.reconnect
-					sockets.delete socket
-				    elsif p.disconnecting?
-					Roby::Distributed.info "#{p} disconnected"
-					p.disconnected
-				    end
+			    for socket in closed_sockets
+				p = sockets[socket]
+				if p.connected?
+				    Roby::Distributed.info "lost connection with #{p}: #{e}"
+				    p.reconnect
+				    sockets.delete socket
+				elsif p.disconnecting?
+				    Roby::Distributed.info "#{p} disconnected"
+				    p.disconnected
 				end
 			    end
 
