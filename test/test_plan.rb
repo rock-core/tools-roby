@@ -101,6 +101,13 @@ module TC_PlanStatic
 
 	# Discover t3 to help plan cleanup
 	plan.discover(t3)
+
+	# Discover an AndGenerator and not its sources. The sources
+	# must be discovered automatically
+	a, b = (1..2).map { EventGenerator.new(true) }
+	and_event = a & b
+	plan.discover(and_event)
+	assert_equal(plan, a.plan)
     end
 
     def test_insert

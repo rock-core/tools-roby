@@ -228,34 +228,33 @@ module Roby
 	# Updates Plan#known_tasks with either the child tree of the tasks in
 	# +objects+
 	def discover(objects)
-	    events, tasks = partition_event_task(objects)
-	    events = if events then events.to_value_set
-		     else ValueSet.new
-		     end
+	    event_seeds, tasks = partition_event_task(objects)
+	    event_seeds = (event_seeds || ValueSet.new).to_value_set
+
 	    if tasks
 		tasks = tasks.to_value_set
 		new_tasks = useful_task_component(nil, tasks, tasks)
 		unless new_tasks.empty?
 		    old_task_events = task_events.dup
 		    new_tasks = discover_task_set(new_tasks)
-
-		    # now, we include the set of free events that are linked to
-		    # +new_tasks+ in +events+
-		    EventStructure.each_root_relation do |rel|
-			components = rel.generated_subgraphs(task_events - old_task_events, false)
-			components.concat rel.reverse.generated_subgraphs(task_events - old_task_events, false)
-			for c in components
-			    events.merge(c.to_value_set - task_events - free_events)
-			end
-		    end
-
-		    events.delete_if { |ev| !ev.root_object? }
+		    event_seeds.merge(task_events - old_task_events)
 		end
 	    end
 
-	    raise unless (task_events & events).empty?
-	    if events
-		discover_event_set(events)
+	    if !event_seeds.empty?
+		events = event_seeds.dup
+
+		# now, we include the set of free events that are linked to
+		# +new_tasks+ in +events+
+		EventStructure.each_root_relation do |rel|
+		    components = rel.generated_subgraphs(event_seeds, false)
+		    components.concat rel.reverse.generated_subgraphs(event_seeds, false)
+		    for c in components
+			events.merge(c.to_value_set)
+		    end
+		end
+
+		discover_event_set(events - task_events - free_events)
 	    end
 
 	    self
@@ -267,15 +266,20 @@ module Roby
 	# This is for internal use, use #discover instead
 	def discover_event_set(events)
 	    events = events.difference(free_events)
-	    for e in events
+	    events.delete_if do |e|
 		if !e.root_object?
-		    raise ArgumentError, "trying to discover #{e} which is a non-root event"
+		    true
+		else
+		    e.plan = self
+		    false
 		end
-		e.plan = self
 	    end
 
-	    free_events.merge(events)
-	    discovered_events(events)
+	    unless events.empty?
+		free_events.merge(events)
+		discovered_events(events)
+	    end
+
 	    events
 	end
 
