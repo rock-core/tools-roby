@@ -665,20 +665,33 @@ module Roby
 	    super do |context|
 		emit_if_achieved(context)
 	    end
-	    on { unreachable!(self) }
 
 	    # This hash is a event_generator => event mapping of the last
 	    # events of each event generator. We compare the event stored in
 	    # this hash with the last events of each source to know if the
 	    # source fired since it has been added to this AndGenerator
 	    @events = Hash.new
+
+	    # This flag is true unless we are not waiting for the emission
+	    # anymore.
+	    @active = true
+	end
+
+	# Resets the waiting. If the event has already been emitted, it re-arms
+	# it.
+	def reset
+	    @active = true
+	    each_parent_object(EventStructure::Signal) do |source|
+		@events[source] = source.last
+	    end
 	end
 
 	def emit_if_achieved(context) # :nodoc:
-	    return if happened?
+	    return unless @active
 	    each_parent_object(EventStructure::Signal) do |source|
 		return if @events[source] == source.last
 	    end
+	    @active = false
 	    emit(nil)
 	end
 
@@ -690,13 +703,15 @@ module Roby
 	    return unless relations.include?(EventStructure::Signal)
 	    @events[parent] = parent.last
 
+	    # If the parent is unreachable, check that it has neither been
+	    # removed, nor it has been emitted
 	    parent.if_unreachable(true) do |reason|
-		# Check that the parent has not been removed since ...
 		if @events[parent] == parent.last
 		    unreachable!(reason || parent)
 		end
 	    end
 	end
+
 	# Removes a source from +events+ when the source is removed
 	def removed_parent_object(parent, relations) # :nodoc:
 	    super if defined? super
@@ -723,13 +738,18 @@ module Roby
 	    super do |context|
 		emit_if_first(context)
 	    end
-	    on { unreachable!(self) }
+	    @active = true
 	end
 
 	def empty?; parent_objects(EventStructure::Signal).empty? end
 
+	def reset
+	    @active = true
+	end
+
 	def emit_if_first(context) # :nodoc:
-	    return if happened?
+	    return unless @active
+	    @active = false
 	    emit(context)
 	end
 

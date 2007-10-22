@@ -278,7 +278,6 @@ class TC_Event < Test::Unit::TestCase
 
     def test_and_generator
 	and_event = AndGenerator.new
-	assert(and_event.empty?)
 	FlexMock.use do |mock|
 	    and_event.on { mock.called }
 	    mock.should_receive(:called).once
@@ -286,7 +285,6 @@ class TC_Event < Test::Unit::TestCase
 	    events = 5.enum_for(:times).map { EventGenerator.new(true) }
 	    plan.discover(events)
 	    events.each { |ev| and_event << ev }
-	    assert(!and_event.empty?)
 
 	    events.each do |ev| 
 		ev.call(nil)
@@ -296,6 +294,12 @@ class TC_Event < Test::Unit::TestCase
 	    end
 
 	    assert(and_event.happened?)
+
+	    # Call the events again. The and generator should not emit.
+	    # This is checked by the flexmock object
+	    events.each do |ev| 
+		ev.call(nil)
+	    end
 	end
 	
 	# Check the behavior of the & operator
@@ -334,6 +338,20 @@ class TC_Event < Test::Unit::TestCase
 	assert_equal([], and2.waiting)
 
 	assert(d.happened?)
+    end
+
+    def test_and_empty
+	plan.discover(and_event = AndGenerator.new)
+
+	assert(and_event.empty?)
+	and_event << EventGenerator.new(true)
+	assert(!and_event.empty?)
+
+    end
+
+    def test_and_unreachability
+	a, b = (1..2).map { EventGenerator.new(true) }.
+	    each { |e| plan.discover(e) }
 
 	# Test unreachability
 	## it is unreachable once emitted, but if_unreachable(true) blocks
@@ -347,7 +365,7 @@ class TC_Event < Test::Unit::TestCase
 	    a.call
 	    assert( !and_event.unreachable? )
 	    b.call
-	    assert( and_event.unreachable? )
+	    assert( !and_event.unreachable? )
 	end
 
 	## must be unreachable once one of the nonemitted source events are
@@ -357,6 +375,24 @@ class TC_Event < Test::Unit::TestCase
 	assert(!and_event.unreachable?)
 	b.unreachable!
 	assert(and_event.unreachable?)
+    end
+
+    def test_and_reset
+	a, b = (1..2).map { EventGenerator.new(true) }.
+	    each { |e| plan.discover(e) }
+	and_event = (a & b)
+	a.emit(nil)
+
+	and_event.reset
+	b.emit(nil)
+	assert(!and_event.happened?)
+	a.emit(nil)
+	assert(and_event.happened?)
+
+	and_event.reset
+	a.emit(nil)
+	b.emit(nil)
+	assert(2, and_event.history.size)
     end
 
     def setup_aggregation(mock)
@@ -420,7 +456,38 @@ class TC_Event < Test::Unit::TestCase
 	a.call(nil)
 	assert(c.happened?)
 	assert( or_event.happened? )
+    end
 
+    def test_or_emission
+	plan.discover(or_event = OrGenerator.new)
+	events = (1..4).map { EventGenerator.new(true) }.
+	    each { |e| or_event << e }
+
+	FlexMock.use do |mock|
+	    or_event.on { mock.called }
+	    mock.should_receive(:called).once
+	    events.each_with_index do |ev, i|
+		ev.call(nil)
+		assert(ev.happened?)
+	    end
+	end
+    end
+
+    def test_or_reset
+	plan.discover(or_event = OrGenerator.new)
+	events = (1..4).map { EventGenerator.new(true) }.
+	    each { |e| or_event << e }
+
+	FlexMock.use do |mock|
+	    events.each_with_index do |ev, i|
+		ev.call
+		assert_equal(i + 1, or_event.history.size)
+		or_event.reset
+	    end
+	end
+    end
+
+    def test_or_unreachability
 	# Test unreachability properties
 	a, b = (1..3).map { EventGenerator.new(true) }.
 	    each { |e| plan.discover(e) }
@@ -436,7 +503,7 @@ class TC_Event < Test::Unit::TestCase
 
 	    assert( !or_event.unreachable? )
 	    a.call
-	    assert( or_event.unreachable? )
+	    assert( !or_event.unreachable? )
 	end
 
 	## must be unreachable if all its source events are
