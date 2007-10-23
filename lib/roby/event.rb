@@ -253,8 +253,26 @@ module Roby
 
 	# Signal the +signal+ event the first time this event is emitted.  If
 	# +time+ is non-nil, delay the signalling this many seconds. 
-	def signal_once(signal, time = nil)
-	    on(signal, time) { remove_signal(signal) }
+	def signal_once(signal, time = nil); once(signal, time) end
+
+	# Equivalent to #on, but call the handler and/or signal the target
+	# event only once.
+	def once(signal = nil, time = nil)
+	    handler = nil
+	    on(signal, time) do |context|
+		yield(context) if block_given?
+		self.handlers.delete(handler)
+		remove_signal(signal)
+	    end
+	    handler = self.handlers.last
+	end
+
+	# Forwards to +ev+ only once
+	def forward_once(ev)
+	    forward(ev)
+	    once do
+		remove_forwarding ev
+	    end
 	end
 
 	def to_event; self end

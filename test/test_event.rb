@@ -684,13 +684,36 @@ class TC_Event < Test::Unit::TestCase
 	end
     end
 
-    def test_signal_once
+    def test_once
 	ev1, ev2 = EventGenerator.new(true), EventGenerator.new(true)
 	plan.discover([ev1, ev2])
-	ev1.signal_once ev2
+
+
 	FlexMock.use do |mock|
+	    ev1.once(ev2) do
+		mock.called_once
+	    end
+
 	    ev2.on { mock.called }
+
 	    mock.should_receive(:called).once
+	    mock.should_receive(:called_once).once
+
+	    ev1.call
+	    ev1.call
+	end
+    end
+
+    def test_forward_once
+	ev1, ev2 = EventGenerator.new(true), EventGenerator.new(true)
+	plan.discover([ev1, ev2])
+
+	FlexMock.use do |mock|
+	    ev1.forward_once(ev2)
+	    ev2.on { mock.called }
+
+	    mock.should_receive(:called).once
+
 	    ev1.call
 	    ev1.call
 	end
