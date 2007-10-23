@@ -2,6 +2,7 @@ $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/state/pos'
 require 'flexmock'
+require 'roby/state/events'
 
 class TC_State < Test::Unit::TestCase
     include Roby::Test
@@ -276,6 +277,125 @@ class TC_State < Test::Unit::TestCase
 	assert_equal(0, p.distance(p))
 
 	assert_equal(Pos::Vector3D.new(-30), -p)
+    end
+
+    def test_pos_delta_event
+	State.pos = Pos::Euler3D.new
+
+	plan.discover(d = State.on_delta(:d => 10))
+	assert_kind_of(PosDeltaEvent, d)
+	d.poll
+	assert_equal(State.pos, d.last_value)
+	assert(!d.happened?)
+
+	State.pos.x = 5
+	d.poll
+	assert(!d.happened?)
+
+	State.pos.x = 10
+	d.poll
+	assert(1, d.history.size)
+
+	d.poll
+	assert(1, d.history.size)
+
+	State.pos.x = 0
+	d.poll
+	assert(2, d.history.size)
+    end
+
+    def test_yaw_delta_event
+	State.pos = Pos::Euler3D.new
+
+	plan.discover(y = State.on_delta(:yaw => 2))
+	assert_kind_of(YawDeltaEvent, y)
+	y.poll
+	assert_equal(0, y.last_value)
+
+	assert(!y.happened?)
+	State.pos.yaw = 20
+	y.poll
+	assert(y.happened?)
+
+	y.poll
+	assert(1, y.history.size)
+
+	State.pos.yaw = 0
+	y.poll
+	assert(2, y.history.size)
+    end
+
+    def test_time_delta_event
+	plan.discover(t = State.on_delta(:t => 3600))
+	assert_kind_of(TimeDeltaEvent, t)
+
+	t.poll
+	assert(!t.happened?)
+	sleep(0.5)
+	t.poll
+	assert(!t.happened?)
+
+	t.instance_variable_set(:@last_value, Time.now - 3600)
+	t.poll
+	assert(1, t.history.size)
+    end
+
+    def test_and_state_events
+	State.pos = Pos::Euler3D.new
+	plan.discover(ev = State.on_delta(:yaw => 2, :d => 10))
+	assert_kind_of(AndGenerator, ev)
+
+	DeltaEvent.poll
+	assert_equal(0, ev.history.size)
+
+	State.pos.yaw = 1
+	State.pos.x = 15
+	DeltaEvent.poll
+	assert_equal(0, ev.history.size)
+
+	State.pos.yaw = 2
+	DeltaEvent.poll
+	assert_equal(1, ev.history.size)
+
+	State.pos.yaw = 3
+	State.pos.x = 25
+	DeltaEvent.poll
+	assert_equal(1, ev.history.size)
+
+	State.pos.yaw = 4
+	DeltaEvent.poll
+	assert_equal(2, ev.history.size, ev.waiting.to_a)
+    end
+
+    def test_or_state_events
+	State.pos = Pos::Euler3D.new
+	plan.discover(y = State.on_delta(:yaw => 2))
+
+	ev = y.or(:d => 10)
+	DeltaEvent.poll
+	assert_equal(0, ev.history.size)
+
+	State.pos.yaw = 1
+	State.pos.x = 15
+	DeltaEvent.poll
+	assert_equal(1, ev.history.size)
+
+	State.pos.yaw = 2
+	DeltaEvent.poll
+	assert_equal(1, ev.history.size)
+
+	State.pos.yaw = 3
+	DeltaEvent.poll
+	assert_equal(2, ev.history.size)
+
+	ev = ev.or(:t => 3600)
+	DeltaEvent.poll
+	assert_equal(0, ev.history.size)
+
+	time_event = plan.free_events.find { |t| t.kind_of?(TimeDeltaEvent) }
+	time_event.instance_variable_set(:@last_value, Time.now - 3600)
+	DeltaEvent.poll
+	assert_equal(1, ev.history.size)
     end
 end
 
