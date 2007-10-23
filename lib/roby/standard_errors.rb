@@ -67,7 +67,7 @@ module Roby
 
 	def message
 	    if error
-		"#{self.class} in #{failure_point}: #{error.message} (#{error.class})"
+		"#{self.class} in #{failure_point}: #{error.message} (#{error.class})\n  #{Roby.filter_backtrace(error.backtrace).join("\n  ")}"
 	    else
 		super
 	    end
