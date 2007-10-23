@@ -1372,8 +1372,10 @@ module Roby
 
 	event :start do
 	    event(:start).achieve_with(start_event)
-	    success_event.forward event(:success)
 	    start_event.call
+	end
+	on :start do
+	    success_event.forward_once event(:success)
 	end
 
 	terminates
