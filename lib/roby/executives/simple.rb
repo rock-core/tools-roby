@@ -12,7 +12,11 @@ module Roby
 		query.reset.each do |task|
 		    next unless task.event(:start).root? && task.event(:start).controlable?
 		    root_task = task.enum_for(:each_relation).all? do |rel|
-			rel == TaskStructure::PlannedBy || task.root?(rel)
+			if task.root?(rel)
+			    true
+			elsif rel == TaskStructure::PlannedBy 
+			    task.planned_tasks.all? { |t| !t.executable? }
+			end
 		    end
 
 		    if root_task
