@@ -775,15 +775,20 @@ module Roby
 		_, planning_options = PlanningLoop.filter_options(options)
 
 		defs = Planner.loop_definitions[[block.file, block.line]]
-		if m = defs.find { |p, _| p.same_body?(block) }
-		    m = m.last
-		else
-		    planning_options[:id] = Planner.next_id
+		# if m = defs.find { |p, _| p.same_body?(block) }
+		#     m = m.last
+		# else
+		
+		    loop_id = Planner.next_id
+		    if !@stack.empty?
+			loop_id = "#{@stack.last[1]}_#{loop_id}"
+		    end
+		    planning_options[:id] = loop_id
 		    planning_options[:reuse] = false
 		    m = self.class.method('loops', planning_options, &block)
 
 		    defs << [block, m]
-		end
+		# end
 
 		options[:method_options] ||= {}
 		options[:method_options].merge!(arguments || {})

@@ -795,15 +795,6 @@ class TC_Planner < Test::Unit::TestCase
 	plan.insert(t3)
 	t3.start!
 	assert_equal('third_loop', planning_task_result(t3.last_planning_task).arguments[:id])
-
-	# Now, make sure unneccessary methods are created
-	name1, id1 = t1.method_name, t1.method_options[:id]
-	name2, id2 = t2.method_name, t2.method_options[:id]
-	t1, t2 = planner.looping_tasks(:parent_argument => 1)
-	assert_equal(name1, t1.method_name)
-	assert_equal(name2, t2.method_name)
-	assert_equal(id1, t1.method_options[:id])
-	assert_equal(id2, t2.method_options[:id])
     end
 
     def test_replan_task
