@@ -155,8 +155,8 @@ module Roby
 		end
 	    end
 
+	    @did_once = false
 	    has_running_task = !patterns.empty?
-	    first_planning_task = nil
 	    remaining_tasks = patterns.size
 	    while patterns.size < (lookahead + remaining_tasks)
 		new_planning = append_pattern
