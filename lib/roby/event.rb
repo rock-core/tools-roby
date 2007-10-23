@@ -445,11 +445,11 @@ module Roby
 	    stack = caller(1)
 	    if block_given?
 		obj.add_causal_link self
-		obj.on do |context|
+		obj.once do |context|
 		    self.emit(yield(context))
 		end
 	    else
-		obj.forward self
+		obj.forward_once self
 	    end
 
 	    obj.if_unreachable(true) do |reason|
