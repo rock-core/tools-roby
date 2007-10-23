@@ -490,6 +490,23 @@ class TC_Transactions < Test::Unit::TestCase
 	end
     end
 
+    def test_forwarder_behaviour
+	t1, t2, t3 = (1..3).map { SimpleTask.new }
+
+	ev = nil
+	transaction_commit(plan, t1) do |trsc, p1|
+	    ev = EventGenerator.new do
+		p1.forward(:start, t2, :start)
+		p1.on(:start, t3, :start)
+	    end
+	    trsc.discover(ev)
+	    ev
+	end
+	ev.call
+
+	assert(t1.event(:start).child_object?(t2.event(:start), Roby::EventStructure::Forwarding))
+	assert(t1.event(:start).child_object?(t3.event(:start), Roby::EventStructure::Signal))
+    end
 end
 
 class TC_RecursiveTransaction < Test::Unit::TestCase

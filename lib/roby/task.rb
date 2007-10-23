@@ -810,14 +810,13 @@ module Roby
 	#
 	def forward(event_model, to, *to_task_events)
             generator = event(event_model)
-	    to_events = case to
-			when Task
+	    to_events = if to.respond_to?(:event)
 			    if to_task_events.empty?
 				[to.event(generator.symbol)]
 			    else
 				to_task_events.map { |ev| to.event(ev) }
 			    end
-			when EventGenerator
+			elsif to.kind_of?(EventGenerator)
 			    [to]
 			else
 			    raise ArgumentError, "expected Task or EventGenerator, got #{to}(#{to.class}: #{to.class.ancestors})"
