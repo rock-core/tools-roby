@@ -683,6 +683,9 @@ module Roby
 	    @active = true
 	    each_parent_object(EventStructure::Signal) do |source|
 		@events[source] = source.last
+		if source.respond_to?(:reset)
+		    source.reset
+		end
 	    end
 	end
 
@@ -745,6 +748,11 @@ module Roby
 
 	def reset
 	    @active = true
+	    each_parent_object(EventStructure::Signal) do |source|
+		if source.respond_to?(:reset)
+		    source.reset
+		end
+	    end
 	end
 
 	def emit_if_first(context) # :nodoc:
