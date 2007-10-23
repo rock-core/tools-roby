@@ -262,7 +262,7 @@ module Roby
 	    on(signal, time) do |context|
 		yield(context) if block_given?
 		self.handlers.delete(handler)
-		remove_signal(signal)
+		remove_signal(signal) if signal
 	    end
 	    handler = self.handlers.last
 	end
