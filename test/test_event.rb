@@ -392,7 +392,16 @@ class TC_Event < Test::Unit::TestCase
 	and_event.reset
 	a.emit(nil)
 	b.emit(nil)
-	assert(2, and_event.history.size)
+	assert_equal(2, and_event.history.size)
+
+	and_event.on { and_event.reset }
+	and_event.reset
+	a.emit(nil)
+	b.emit(nil)
+	assert_equal(3, and_event.history.size)
+	a.emit(nil)
+	b.emit(nil)
+	assert_equal(4, and_event.history.size)
     end
 
     def setup_aggregation(mock)
