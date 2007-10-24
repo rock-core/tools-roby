@@ -1370,21 +1370,9 @@ module Roby
 	    if !ev.controlable?
 		raise ArgumentError, "the start event of a virtual task must be controlable"
 	    end
-
-	    ev.forward event(:start)
 	    @start_event = ev
 	end
-
-	attr_reader :success_event
-	def success_event=(ev)
-	    @success_event = ev
-
-	    # Emit failed if the success event becomes unreachable *and* the
-	    # task is still included in a plan
-	    ev.if_unreachable(true) do
-		emit :failed if executable?
-	    end
-	end
+	attr_accessor :success_event
 
 	event :start do
 	    event(:start).achieve_with(start_event)
@@ -1392,6 +1380,9 @@ module Roby
 	end
 	on :start do
 	    success_event.forward_once event(:success)
+	    success_event.if_unreachable(true) do
+		emit :failed if executable?
+	    end
 	end
 
 	terminates
