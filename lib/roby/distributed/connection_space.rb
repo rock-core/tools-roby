@@ -277,7 +277,7 @@ module Roby
 			    for socket in closed_sockets
 				p = sockets[socket]
 				if p.connected?
-				    Roby::Distributed.info "lost connection with #{p}: #{e}"
+				    Roby::Distributed.info "lost connection with #{p}"
 				    p.reconnect
 				    sockets.delete socket
 				elsif p.disconnecting?
