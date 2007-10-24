@@ -454,7 +454,7 @@ module Roby
 	    attr_reader :signal_arrows
 
 	    # True if the finalized tasks should not be displayed
-	    attr_reader :hide_finalized
+	    attr_accessor :hide_finalized
 
 	    def initialize
 		@scene  = Qt::GraphicsScene.new

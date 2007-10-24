@@ -34,6 +34,7 @@ class Ui::RelationsView
 	end
 	config['show_ownership'] = display.show_ownership
 	config['show_arguments'] = display.show_arguments
+	config['hide_finalized'] = display.hide_finalized
 
 	File.open(config_path, 'w') do |io|
 	    YAML.dump(config, io)
@@ -67,6 +68,11 @@ class Ui::RelationsView
 
 	actionOwnership.connect(SIGNAL(:triggered)) do
 	    display.show_ownership = actionOwnership.checked?
+	    display.update
+	end
+
+	actionHideFinalized.connect(SIGNAL(:triggered)) do
+	    display.hide_finalized = actionHideFinalized.checked?
 	    display.update
 	end
 
