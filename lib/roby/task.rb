@@ -138,6 +138,23 @@ module Roby
             super
         end
 
+	# See EventGenerator#calling
+	#
+	# In TaskEventGenerator, this hook checks that the task is running
+	def calling(context)
+	    super if defined? super
+            if task.finished? && !terminal?
+                raise CommandFailed.new(nil, self), 
+		    "#{symbol}!(#{context})) called by #{Propagation.sources} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources}."
+            elsif task.pending? && symbol != :start
+                raise CommandFailed.new(nil, self), 
+		    "#{symbol}!(#{context})) called by #{Propagation.sources} but the task is not running"
+            elsif task.running? && symbol == :start
+                raise CommandFailed.new(nil, self), 
+		    "#{symbol}!(#{context})) called by #{Propagation.sources} but the task is already running. Task has been started by #{task.event(:start).history.first.sources}."
+            end
+	end
+
 	# See EventGenerator#fired
 	#
 	# In TaskEventGenerator, this hook calls the unreachable handlers added
