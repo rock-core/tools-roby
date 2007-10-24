@@ -277,7 +277,6 @@ module Roby
 		super if defined? super
 		return unless Distributed.state
 
-		return unless Distributed.state
 		# If our peer is pushing a distributed transaction, children
 		# can be removed Avoid sending unneeded updates by testing on
 		# plan update
