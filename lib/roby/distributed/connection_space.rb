@@ -256,8 +256,6 @@ module Roby
 				if socket.closed?
 				    closed_sockets << socket
 				    next
-				elsif socket.eof?
-				    socket.clearerr
 				end
 
 				header = socket.read(8)
