@@ -44,17 +44,11 @@ module Roby
 	    event_types[name] = self
 	end
 
-	def initialize
-	    super
-	    @cumulative = 0
-	end
-
 	attr_reader   :last_value
 	attr_accessor :threshold
 
 	def reset
 	    @last_value = read
-	    @cumulative = 0
 	end
 
 	def self.or(spec, base_event)
@@ -77,12 +71,9 @@ module Roby
 	    elsif !last_value
 		@last_value = read
 	    else
-		@cumulative += delta.abs
-		if @cumulative >= threshold
+		if delta.abs >= threshold
 		    reset
 		    emit(last_value)
-		else
-		    @last_value = read
 		end
 	    end
 	end
