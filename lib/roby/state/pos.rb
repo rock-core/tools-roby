@@ -25,6 +25,16 @@ module Roby::Pos
 	    length <= tolerance
 	end
 
+	def distance2d(x = 0, y = nil)
+	    if !y && x.respond_to?(:x)
+		x, y = x.x, x.y
+	    else
+		y ||= 0
+	    end
+
+	    Math.sqrt( (x - self.x) ** 2 + (y - self.y) ** 2 )
+	end
+
 	def distance(x = 0, y = nil, z = nil)
 	    if !y && x.respond_to?(:x)
 		x, y, z = x.x, x.y, x.z
