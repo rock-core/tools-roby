@@ -68,6 +68,8 @@ class TC_RealizedBy < Test::Unit::TestCase
 	assert_kind_of(ChildFailedError, error)
 	assert_equal(child.event(:specialized_failure).last, error.failure_point)
 	assert_equal(child.event(:specialized_failure).last, error.failed_event)
+
+	parent.stop!
     end
 
     def test_structure_checking
