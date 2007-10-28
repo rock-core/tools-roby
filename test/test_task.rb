@@ -487,14 +487,16 @@ class TC_Task < Test::Unit::TestCase
 	end
 	plan.insert(task = model.new)
 
-	assert_raises(EmissionFailed) { task.inter! }
+	assert_raises(CommandFailed) { task.inter! }
+	assert_raises(EmissionFailed) { task.emit(:inter) }
 	assert(!task.event(:inter).pending)
 	task.start!
-	assert_raise(EmissionFailed) { task.start! }
+	assert_raise(CommandFailed) { task.start! }
 	assert_nothing_raised { task.inter! }
 	task.stop!
 
-	assert_raises(EmissionFailed) { task.inter! }
+	assert_raises(EmissionFailed) { task.emit(:inter) }
+	assert_raises(CommandFailed) { task.inter! }
 	assert(!task.event(:inter).pending)
 
 	model = Class.new(SimpleTask) do
