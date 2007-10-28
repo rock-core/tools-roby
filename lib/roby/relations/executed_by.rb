@@ -153,7 +153,7 @@ module Roby::TaskStructure
 	    return unless agent = task.execution_agent
 
 	    if agent.finished? || agent.finishing?
-		raise CommandFailed.new(self), "task #{task} has an execution agent but it is dead"
+		raise CommandFailed.new(nil, self), "task #{task} has an execution agent but it is dead"
 	    elsif !agent.event(:ready).happened? && !agent.depends_on?(task)
 		postpone(agent.event(:ready), "spawning execution agent #{agent} for #{self}") do
 		    if agent.pending?
