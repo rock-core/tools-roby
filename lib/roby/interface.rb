@@ -1,7 +1,7 @@
 require 'thread'
 require 'roby'
 require 'roby/planning'
-require 'facet/basicobject'
+require 'facets/basicobject'
 require 'utilrb/column_formatter'
 require 'stringio'
 require 'roby/robot'

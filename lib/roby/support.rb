@@ -4,8 +4,8 @@ class String # :nodoc: all
 end
 
 require 'roby/graph'
-require 'facet/kernel/constant'
-require 'facet/module/dirname'
+require 'facets/kernel/constant'
+require 'facets/module/dirname'
 require 'utilrb/enumerable'
 require 'utilrb/time/to_hms'
 require 'utilrb/module/cached_enum'
