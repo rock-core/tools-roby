@@ -2,6 +2,12 @@ module Roby
     class BasicObject
 	include DRbUndumped
 
+	def initialize_copy(old)
+	    super
+
+	    @remote_siblings = Hash[Distributed, Roby::Distributed::RemoteID.from_object(self)]
+	end
+
 	# The set of Peer objects which own this object
 	attribute(:owners) { [Distributed] }
 	# True if we own this object
