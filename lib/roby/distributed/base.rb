@@ -33,6 +33,11 @@ class RefCounting
 end
 
 class Object
+    def initialize_copy(old)
+	super
+	@__droby_remote_id__ = nil
+    end
+
     # The Roby::Distributed::RemoteID for this object
     def remote_id
 	@__droby_remote_id__ ||= Roby::Distributed::RemoteID.from_object(self)
