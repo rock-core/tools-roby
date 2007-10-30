@@ -25,6 +25,11 @@ class TC_Query < Test::Unit::TestCase
 
 	result = plan.find_tasks.which_fullfills(task_model, :value => 2).to_set
 	assert_equal([t2].to_set, result)
+	# Try the shortcut of find_tasks(model, args) for find_tasks.which_fullfills(model, args)
+	result = plan.find_tasks(task_model, :value => 2).to_set
+	assert_equal([t2].to_set, result)
+	result = plan.find_tasks(task_model).to_set
+	assert_equal([t1, t2].to_set, result)
 
 	assert_marshallable(TaskMatcher.new.which_fullfills(task_model, :value => 2))
     end

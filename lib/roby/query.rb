@@ -25,11 +25,12 @@ module Roby
 	    @owners               = Array.new
 	    @improved_information = ValueSet.new
 	    @needed_information   = ValueSet.new
+	    @interruptible	  = nil
 	end
 
 	# Shortcut to set both model and argument 
-	def which_fullfills(model, arguments = {})
-	    with_model(model).with_model_arguments(arguments)
+	def which_fullfills(model, arguments = nil)
+	    with_model(model).with_model_arguments(arguments || {})
 	end
 
 	# Find by model
@@ -386,8 +387,12 @@ module Roby
 
     class Plan
 	# Returns a Query object on this plan
-	def find_tasks
-	    Query.new(self)
+	def find_tasks(model = nil, args = nil)
+	    q = Query.new(self)
+	    if model || args
+		q.which_fullfills(model, args)
+	    end
+	    q
 	end
 
 	# Called by TaskMatcher#result_set and Query#result_set to get the set

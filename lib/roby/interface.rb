@@ -94,8 +94,12 @@ module Roby
 	    @interface = interface
 	end
 
-	def find_tasks
-	    Query.new(self)
+	def find_tasks(model = nil, args = nil)
+	    q = Query.new(self)
+	    if model
+		q.which_fullfills(model, args)
+	    end
+	    q
 	end
 
 	def query_result_set(query)
@@ -201,8 +205,8 @@ module Roby
 	    end
 	end
 
-	def find_tasks
-	    plan.find_tasks
+	def find_tasks(model = nil, args = nil)
+	    plan.find_tasks(model, args)
 	end
 
 	def remote_query_result_set(m_query)
