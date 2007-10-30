@@ -271,6 +271,7 @@ module Roby
 	def updating; super if defined? super end
 	def updated; super if defined? super end
 
+	alias :do_merge! :merge!
 	def merge!(hash)
 	    super do |key, old, new|
 		if old == new then old
@@ -413,7 +414,8 @@ module Roby
 	    @name = nil
 	    @history = old.history.dup
 
-	    @arguments = old.arguments.dup
+	    @arguments = TaskArguments.new(self)
+	    arguments.do_merge! old.arguments
 	    arguments.instance_variable_set(:@task, self)
 
 	    initialize_events
