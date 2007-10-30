@@ -7,10 +7,17 @@ module Roby::TaskStructure
 		task.add_error_handler repairing_task, ValueSet.new
 	    end
 
-	    task[repairing_task, ErrorHandling] << self
+	    task[repairing_task, ErrorHandling] << symbol
 	end
     end
 
-    relation :ErrorHandling, :child_name => :error_handler
+    relation :ErrorHandling, :child_name => :error_handler do
+	def failed_task
+	    each_parent_object(ErrorHandling) do |task|
+		return task
+	    end
+	    nil
+	end
+    end
 end
 
