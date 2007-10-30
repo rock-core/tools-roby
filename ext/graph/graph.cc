@@ -259,9 +259,9 @@ static void vertex_mark(graph_map* map)
 graph_map& vertex_descriptor_map(VALUE self)
 {
     graph_map* map;
-    if (RTEST(rb_ivar_defined(self, id_rb_graph_map)))
+    VALUE descriptors = rb_ivar_get(self, id_rb_graph_map);
+    if (RTEST(descriptors))
     {
-	VALUE descriptors = rb_ivar_get(self, id_rb_graph_map);
 	Data_Get_Struct(descriptors, graph_map, map);
     }
     else

@@ -391,6 +391,10 @@ module Roby
 
             yield(self) if block_given?
 
+	    initialize_events
+	end
+
+	def initialize_events
 	    @instantiated_model_events = false
 
 	    # Create all event generators
@@ -402,6 +406,19 @@ module Roby
         end
 
 	def model; self.class end
+
+	def initialize_copy(old) # :nodoc:
+	    super
+
+	    @name = nil
+	    @history = old.history.dup
+
+	    @arguments = old.arguments.dup
+	    arguments.instance_variable_set(:@task, self)
+
+	    initialize_events
+	    plan.discover(self)
+	end
 
 	def instantiate_model_event_relations
 	    return if @instantiated_model_events

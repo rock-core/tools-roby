@@ -74,6 +74,12 @@ module Roby
 
 	attr_enumerable(:handler, :handlers) { Array.new }
 
+	def initialize_copy(old) # :nodoc:
+	    super
+
+	    @history = old.history.dup
+	end
+
 	def model; self.class end
 	# The model name
 	def name; model.name end

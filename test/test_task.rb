@@ -901,5 +901,24 @@ class TC_Task < Test::Unit::TestCase
 	plan.discover(task = VirtualTask.create(start, success))
 	assert_nothing_raised { success.emit }
     end
+
+    def test_dup
+	plan.discover(task = Roby::Test::SimpleTask.new)
+	task.start!
+
+	new = task.dup
+	assert_not_same(new.event(:stop), task.event(:stop))
+	assert_same(new, new.event(:stop).task)
+	assert(plan.include?(new))
+	assert_same(plan, new.plan)
+	assert(new.event(:failed).child_object?(new.event(:stop), Roby::EventStructure::Forwarding))
+
+	task.stop!
+	assert(!task.running?)
+	assert(new.running?)
+
+	new.event(:stop).call
+	assert(new.finished?, new.history)
+    end
 end
 

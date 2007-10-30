@@ -860,5 +860,16 @@ class TC_Event < Test::Unit::TestCase
 	    plan.remove_object(e1)
 	end
     end
+
+    def test_dup
+	plan.discover(e = EventGenerator.new(true))
+
+	e.call
+	new = e.dup
+	e.call
+	assert_equal(2, e.history.size)
+	assert_equal(1, new.history.size)
+    end
+
 end
 

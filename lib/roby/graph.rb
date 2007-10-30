@@ -10,11 +10,9 @@ end
 
 module BGL
     module Vertex
-	def initialize_copy(v) # :nodoc:
+	def initialize_copy(old)
 	    super
-
 	    @__bgl_graphs__ = nil
-	    v.each_graph(&g.method(:insert))
 	end
 
 	# Removes +self+ from all the graphs it is included in.
