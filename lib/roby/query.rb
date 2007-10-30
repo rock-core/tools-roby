@@ -113,7 +113,7 @@ module Roby
 	    end
 	end
 	match_predicates :executable, :abstract, :partially_instanciated, :fully_instanciated,
-	    :pending, :running, :finished, :success, :failed
+	    :pending, :running, :finished, :success, :failed, :interruptible
 
 	def ===(task)
 	    return unless task.kind_of?(Roby::Task)

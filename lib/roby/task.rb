@@ -559,6 +559,8 @@ module Roby
 	def abstract?; self.class.abstract? end
 	# Check if this task is executable
 	def executable?; !abstract? && !partially_instanciated? && super end
+	# Returns true if this task's stop event is controlable
+	def interruptible?; event(:stop).controlable? end
 	# Set the executable flag. executable cannot be set to +false+ is the 
 	# task is running, and cannot be set to true on a finished task.
 	def executable=(flag)
