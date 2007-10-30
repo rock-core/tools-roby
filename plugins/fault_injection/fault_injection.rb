@@ -9,14 +9,18 @@ module Roby
 		    elsif p.kind_of?(Numeric)
 			p
 		    else
-			Roby.warn "invalid fault model #{p} for #{model}/#{ev}. Ignored"
+			Robot.warn "invalid fault model #{p} for #{model}/#{ev}. Ignored"
 		    end
 
-		Roby.plan.find_tasks(model).running.interruptible.each do |task|
-		    if rand <= p
-			injected_faults << [task, ev, task.inject_fault(ev)]
+		Roby.plan.find_tasks(model).
+		    running.not_finishing.
+		    interruptible.each do |task|
+			value = rand
+			if value <= p
+			    Robot.info "injecting fault #{ev} on #{task} (#{value} <= #{p})"
+			    injected_faults << [task, ev, task.inject_fault(ev)]
+			end
 		    end
-		end
 	    end
 	end
 
