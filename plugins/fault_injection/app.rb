@@ -27,7 +27,7 @@ module Roby
 
     Application.register_plugin('fault_injection', Roby::FaultInjection::Application) do
 	require 'fault_injection'
-	Roby::Control.each_cycle do
+	Roby::Control.every(1) do
 	    FaultInjection.apply(Roby.app.fault_models)
 	end
     end
