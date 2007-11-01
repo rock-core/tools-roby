@@ -47,8 +47,8 @@ class TC_FaultInjection < Test::Unit::TestCase
 	end
 
 	fault_models = Hash.new { |h, k| h[k] = Hash.new }
-	fault_models[model][:specialized_fault] = 1
-	fault_models[Roby::Test::SimpleTask][:stop] = 0
+	fault_models[model][:specialized_fault] = FaultInjection::Rate.new(0.01, 1.0)
+	fault_models[Roby::Test::SimpleTask][:stop] = FaultInjection::Rate.new(1_000_000, 1.0)
 	
 	simple, specialized = nil
 	Roby.execute do
@@ -59,6 +59,7 @@ class TC_FaultInjection < Test::Unit::TestCase
 	end
 	Roby.wait_one_cycle
 
+	sleep(0.5)
 	fake_specialized = nil
 	Roby.execute do
 	    result = Roby::FaultInjection.apply(fault_models)
@@ -71,6 +72,13 @@ class TC_FaultInjection < Test::Unit::TestCase
 	assert(specialized.finished?)
 	assert(fake_specialized.finished?)
 	assert(fake_specialized.event(:specialized_fault).happened?)
+    end
+
+    def test_task_lifetime
+	plan.discover(task = Roby::Test::SimpleTask.new)
+	task.start!
+	sleep(0.5)
+	assert(task.lifetime > 0.5)
     end
 end
 

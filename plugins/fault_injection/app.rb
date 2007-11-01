@@ -22,6 +22,12 @@ module Roby
 	    attribute(:fault_models) do
 		Hash.new { |h, k| h[k] = Hash.new }
 	    end
+	    def add_fault_model(task_model, *args)
+		fault_model = args.pop
+		args.each do |ev|
+		    fault_models[task_model][ev] = fault_model
+		end
+	    end
 	end
     end
 

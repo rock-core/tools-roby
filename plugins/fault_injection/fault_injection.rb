@@ -1,30 +1,56 @@
 module Roby
-    def FaultInjection.apply(fault_models)
-	injected_faults = Array.new
+    class Task
+	# Returns for how many seconds this task is running.  Returns nil if
+	# the task is not running.
+	def lifetime
+	    if running?
+		Time.now - history.first.time
+	    end
+	end
+    end
 
-	for model, faults in fault_models
-	    for ev, p in faults
-		p = if p.respond_to?(:call)
-			p.call
-		    elsif p.kind_of?(Numeric)
-			p
-		    else
-			Robot.warn "invalid fault model #{p} for #{model}/#{ev}. Ignored"
-		    end
+    module FaultInjection
+	extend Logger::Hierarchy
+	extend Logger::Forward
+	
+	# This fault model is based on a constant fault rate, defined upon the
+	# mean-time-to-failure of the task.
+	#
+	# In this model, the probability of having a fault for task t at any
+	# given instant is
+	#
+	#   p(fault) = max * (1.0 - exp(- task.lifetime / mttf))
+	#
+	class Rate
+	    attr_reader :mttf, :max
+	    def initialize(mttf, max = 1.0)
+		@mttf, @max = mttf, max
+	    end
 
-		Roby.plan.find_tasks(model).
-		    running.not_finishing.
-		    interruptible.each do |task|
-			value = rand
-			if value <= p
-			    Robot.info "injecting fault #{ev} on #{task} (#{value} <= #{p})"
-			    injected_faults << [task, ev, task.inject_fault(ev)]
-			end
-		    end
+	    def fault?(task)
+		f = max * (1.0 - Math.exp(- task.lifetime / mttf))
+		rand <= f
 	    end
 	end
 
-	injected_faults
+	def self.apply(fault_models)
+	    injected_faults = Array.new
+
+	    for model, faults in fault_models
+		for ev, p in faults
+		    Roby.plan.find_tasks(model).
+			running.not_finishing.
+			interruptible.each do |task|
+			    if p.fault?(task)
+				FaultInjection.info "injecting fault #{ev} on #{task}"
+				injected_faults << [task, ev, task.inject_fault(ev)]
+			    end
+			end
+		end
+	    end
+
+	    injected_faults
+	end
     end
 
     class Task
