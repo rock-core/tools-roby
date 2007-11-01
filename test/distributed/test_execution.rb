@@ -79,9 +79,10 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	trsc.commit_transaction
 
 	Roby.execute { local_task.start! }
+	Roby.wait_one_cycle
 	remote_peer.synchro_point
 	remote_task = subscribe_task(:id => 'remote_task')
-	assert(remote_task.happened?)
+	assert(remote_task.running?)
     end
 
     # This test that the event/plan modification order is kept on a remote host
