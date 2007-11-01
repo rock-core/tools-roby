@@ -321,6 +321,12 @@ module Roby
 	    thread.kill 
 	end
 	on(:stop) do
+	    if transaction && !transaction.freezed?
+		# Something went wront at transaction commit time.
+		# Discard the transaction
+		transaction.discard_transaction
+	    end
+
 	    # Make sure the transaction will be finalized event if the 
 	    # planning task is not removed from the plan
 	    @transaction = nil
