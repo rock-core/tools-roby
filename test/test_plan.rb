@@ -531,6 +531,28 @@ class TC_Plan < Test::Unit::TestCase
 	assert_raises(ArgumentError) { plan.discover(e) }
     end
 
+    def test_garbage_collect_weak
+	Roby.control.run :detach => true
+
+	Roby.execute do
+	    planning, planned, influencing = prepare_plan :discover => 3, :model => SimpleTask
+
+	    planned.planned_by planning
+	    influencing.realized_by planned
+	    planning.influenced_by influencing
+
+	    planned.start!
+	    planning.start!
+	    influencing.start!
+	end
+
+	Roby.wait_one_cycle
+	Roby.wait_one_cycle
+	Roby.wait_one_cycle
+
+	assert(plan.known_tasks.empty?)
+    end
+
     def test_mission_failed
 	model = Class.new(SimpleTask) do
 	    event :specialized_failure, :command => true

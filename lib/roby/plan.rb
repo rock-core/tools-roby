@@ -587,17 +587,33 @@ module Roby
 		end
 
 		# Mark all root local_tasks as garbage
-		local_tasks.delete_if do |t|
-		    if t.root?
-			garbage(t)
-			false
-		    else
-			Plan.debug { "GC: ignoring #{t}, it is not root" }
-			true
+		roots = nil
+		2.times do |i|
+		    roots = local_tasks.find_all do |t|
+			if t.root?
+			    garbage(t)
+			    true
+			else
+			    Plan.debug { "GC: ignoring #{t}, it is not root" }
+			    false
+			end
+		    end
+
+		    break if i == 1 || !roots.empty?
+
+		    # There is a cycle somewhere. Try to break it by removing
+		    # weak relations within elements of local_tasks
+		    Plan.debug "cycle found, removing weak relations"
+
+		    local_tasks.each do |t|
+			next if t.root?
+			t.each_graph do |rel|
+			    rel.remove(t) if rel.weak?
+			end
 		    end
 		end
 
-		(local_tasks - finishing - gc_quarantine).each do |local_task|
+		(roots.to_value_set - finishing - gc_quarantine).each do |local_task|
 		    if local_task.pending? 
 			Plan.info "GC: removing pending task #{local_task}"
 			remove_object(local_task)

@@ -197,6 +197,7 @@ module Roby
 	    @subsets = ValueSet.new
 	    @distribute = options[:distribute]
 	    @dag = options[:dag]
+	    @weak = options[:weak]
 
 	    if options[:subsets]
 		options[:subsets].each(&method(:superset_of))
@@ -207,6 +208,9 @@ module Roby
 	attr_predicate :dag
 	# True if this relation should be seen by remote peers
 	attr_predicate :distribute
+	# If this relation is weak. Weak relations can be removed without major
+	# consequences. This is mainly used during plan garbage collection
+	attr_predicate :weak
 
 	def to_s; name end
 
@@ -458,7 +462,8 @@ module Roby
 			:graph => RelationGraph,
 			:distribute => true,
 			:dag => true,
-			:single_child => false
+			:single_child => false,
+			:weak => false
 
 	    # Check if this relation is already defined. If it is the case, reuse it.
 	    # This is needed mostly by the reloading code
