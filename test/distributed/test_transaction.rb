@@ -264,9 +264,13 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	remote.check_execution_agent
     end
 
+    class ArgumentUpdateTest < Roby::Task
+	arguments :foo
+    end
+
     def test_argument_updates
 	peer2peer(true) do |remote|
-	    remote.plan.insert(Task.new(:id => 2))
+	    remote.plan.insert(ArgumentUpdateTest.new(:id => 2))
 	    def remote.set_argument(task)
 		task = local_peer.local_object(task)
 		task.plan.edit
@@ -284,16 +288,15 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.propose(remote_peer)
 
 	t_task = trsc[r_task]
-	# fails because we cannot override an argument already set
-	assert_raises(OwnershipError) { t_task.arguments[:foo] = :bar }
-
-	task = Task.new(:id => 2)
-	t_task = trsc[task]
 	trsc.release(false)
 	assert_nothing_raised { remote.set_argument(Distributed.format(t_task)) }
 
 	trsc.edit
 	assert_equal(:bar, t_task.arguments[:foo], t_task.name)
+	assert(!t_task.arguments.writable?(:foo))
+	assert_raises(ArgumentError) { t_task.arguments[:foo] = :blo }
+	trsc.commit_transaction
+	assert_equal(:bar, r_task.arguments[:foo])
     end
 
     def build_transaction(trsc)
