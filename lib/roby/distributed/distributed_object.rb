@@ -27,6 +27,7 @@ module Roby
 		    end
 
 		    call_siblings(:add_owner, self, peer)
+		    added_owner(peer)
 		else
 		    owners << peer
 		    if plan
@@ -35,6 +36,7 @@ module Roby
 		    Distributed.debug { "added owner to #{self}: #{owners.to_a}" }
 		end
 	    end
+	    def added_owner(peer); super if defined? super end
 
 	    # Removes +peer+ from the list of owners. Raises OwnershipError if
 	    # there are modified tasks in this transaction which are owned by
@@ -50,6 +52,7 @@ module Roby
 		    call_siblings(:remove_owner, self, peer)
 		else
 		    owners.delete(peer)
+		    removed_owner(peer)
 		    if plan
 			plan.task_index.remove_owner(self, peer)
 		    end
@@ -57,8 +60,8 @@ module Roby
 		end
 		nil
 	    end
-
 	    def prepare_remove_owner(peer); super if defined? super end
+	    def removed_owner(peer); super if defined? super end
 
 	    def owner=(peer)
 		add_owner(peer)

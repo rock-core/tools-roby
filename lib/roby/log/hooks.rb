@@ -2,6 +2,21 @@ require 'roby/log/logger'
 require 'roby'
 
 module Roby::Log
+    module BasicObjectHooks
+	HOOKS = %w{added_owner removed_owner}
+
+	def added_owner(peer)
+	    super if defined? super
+	    Roby::Log.log(:added_owner) { [self, peer] }
+	end
+
+	def removed_owner(peer)
+	    super if defined? super
+	    Roby::Log.log(:removed_owner) { [self, peer] }
+	end
+    end
+    Roby::BasicObject.include BasicObjectHooks
+
     module TaskHooks
 	HOOKS = %w{added_task_child removed_task_child}
 
@@ -158,11 +173,13 @@ module Roby::Log
     Roby::Control.include ControlHooks
 
     def self.each_hook
-	[TransactionHooks, TaskHooks, PlanHooks, EventGeneratorHooks, ControlHooks, ControlHooks::ClassExtension].each do |klass|
-	    klass::HOOKS.each do |m|
-		yield(klass, m.to_sym)
+	[TransactionHooks, BasicObjectHooks, TaskHooks,
+	    PlanHooks, EventGeneratorHooks, ControlHooks,
+	    ControlHooks::ClassExtension].each do |klass|
+		klass::HOOKS.each do |m|
+		    yield(klass, m.to_sym)
+		end
 	    end
-	end
     end
 end
 
