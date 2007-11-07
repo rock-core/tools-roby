@@ -113,6 +113,14 @@ module Roby
 
 	# True if we explicitely want this object to be updated by our peers
 	def subscribed?; owners.any? { |peer| peer.subscribed?(self) if peer != Distributed } end
+	def subscribe
+	    if !self_owned? && !subscribed?
+		owners.each do |peer|
+		    peer.subscribe(self)
+		end
+	    end
+	end
+
 	# True if this object is maintained up-to-date
 	def updated?; self_owned? || owners.any?(&remote_siblings.method(:[])) end
 	# True if +peer+ will send us updates about this object
