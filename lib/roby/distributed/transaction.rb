@@ -90,12 +90,24 @@ module Roby
 		nil
 	    end
 
-	    # Sends the transaction to +peer+. This must be done only once.
-	    def propose(peer, &block)
+	    # Sends the transaction to +peer+.
+	    def propose(peer = nil, &block)
 		if !self_owned?
 		    raise OwnershipError, "cannot propose a transaction we don't own"
 		end
-		peer.transaction_propose(self, &block)
+
+		if peer
+		    peer.transaction_propose(self, &block)
+		else
+		    (owners - remote_siblings.keys).each do |peer|
+			if peer != Roby::Distributed
+			    Distributed.debug "proposing #{self} to #{peer}"
+			    propose(peer) do
+				yield(peer)
+			    end
+			end
+		    end
+		end
 	    end
 
 	    def discover(objects)
