@@ -145,7 +145,9 @@ module Roby
 		if !self_owned?
 		    raise OwnershipError, "cannot commit a transaction which is not owned locally. #{self} is owned by #{owners.to_a}"
 		elsif synchro
-		    if !editor? || !first_editor?
+		    if !editor?
+			raise NotEditor, "not editor of this transaction"
+		    elsif !first_editor?
 			raise NotEditor, "transactions are committed by their first editor"
 		    elsif edition_reloop
 			raise NotReady, "transaction still needs editing"
