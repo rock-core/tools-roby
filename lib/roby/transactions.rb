@@ -320,87 +320,89 @@ module Roby
 	# Commit all modifications that have been registered
 	# in this transaction
 	def commit_transaction
+	    # if !Roby.control.running?
+	    #     raise "#commit_transaction requires the presence of a control thread"
+	    # end
+
 	    check_valid_transaction
-
-	    if !Roby.inside_control?
-		raise ThreadError, "trying to commit a transaction outside the control thread"
-	    end
-
 	    freezed!
-	    auto_tasks.each      { |t| plan.auto(t) }
-	    discarded_tasks.each { |t| plan.discard(t) }
-	    removed_objects.each { |obj| plan.remove_object(obj) }
 
-	    discover_tasks  = ValueSet.new
-	    discover_events  = ValueSet.new
-	    insert    = ValueSet.new
-	    permanent = ValueSet.new
-	    known_tasks.dup.each do |t|
-		unwrapped = if t.kind_of?(Transactions::Proxy)
-				finalized_task(t)
-				t.__getobj__
-			    else
-				known_tasks.delete(t)
-				t
-			    end
+	    Roby.execute do
+		auto_tasks.each      { |t| plan.auto(t) }
+		discarded_tasks.each { |t| plan.discard(t) }
+		removed_objects.each { |obj| plan.remove_object(obj) }
 
-		if missions.include?(t) && t.self_owned?
-		    missions.delete(t)
-		    insert << unwrapped
-		elsif keepalive.include?(t) && t.self_owned?
-		    keepalive.delete(t)
-		    permanent << unwrapped
+		discover_tasks  = ValueSet.new
+		discover_events  = ValueSet.new
+		insert    = ValueSet.new
+		permanent = ValueSet.new
+		known_tasks.dup.each do |t|
+		    unwrapped = if t.kind_of?(Transactions::Proxy)
+				    finalized_task(t)
+				    t.__getobj__
+				else
+				    known_tasks.delete(t)
+				    t
+				end
+
+		    if missions.include?(t) && t.self_owned?
+			missions.delete(t)
+			insert << unwrapped
+		    elsif keepalive.include?(t) && t.self_owned?
+			keepalive.delete(t)
+			permanent << unwrapped
+		    end
+
+		    discover_tasks << unwrapped
 		end
 
-		discover_tasks << unwrapped
-	    end
+		free_events.dup.each do |ev|
+		    unwrapped = if ev.kind_of?(Transactions::Proxy)
+				    finalized_event(ev)
+				    ev.__getobj__
+				else
+				    free_events.delete(ev)
+				    ev
+				end
 
-	    free_events.dup.each do |ev|
-		unwrapped = if ev.kind_of?(Transactions::Proxy)
-				finalized_event(ev)
-				ev.__getobj__
-			    else
-				free_events.delete(ev)
-				ev
-			    end
-
-		discover_events << unwrapped
-	    end
-
-	    new_tasks = plan.discover_task_set(discover_tasks)
-	    new_tasks.each do |task|
-		if task.respond_to?(:commit_transaction)
-		    task.commit_transaction
+		    discover_events << unwrapped
 		end
-	    end
 
-	    new_events = plan.discover_event_set(discover_events)
-	    new_events.each do |event|
-		if event.respond_to?(:commit_transaction)
-		    event.commit_transaction
+		new_tasks = plan.discover_task_set(discover_tasks)
+		new_tasks.each do |task|
+		    if task.respond_to?(:commit_transaction)
+			task.commit_transaction
+		    end
 		end
+
+		new_events = plan.discover_event_set(discover_events)
+		new_events.each do |event|
+		    if event.respond_to?(:commit_transaction)
+			event.commit_transaction
+		    end
+		end
+
+		# Set the plan to nil in known tasks to avoid having the checks on
+		# #plan to raise an exception
+		proxy_objects.each_value { |proxy| proxy.commit_transaction }
+		proxy_objects.each_value { |proxy| proxy.clear_relations  }
+
+		insert.each    { |t| plan.insert(t) }
+		permanent.each { |t| plan.permanent(t) }
+
+		proxies     = proxy_objects.dup
+		clear
+		# Replace proxies by forwarder objects
+		proxies.each do |object, proxy|
+		    forwarder = Proxy.forwarder(object)
+		    forwarder.freeze
+		    Kernel.swap! proxy, forwarder
+		end
+
+		committed_transaction
+		plan.remove_transaction(self)
+		@plan = nil
 	    end
-
-	    # Set the plan to nil in known tasks to avoid having the checks on
-	    # #plan to raise an exception
-	    proxy_objects.each_value { |proxy| proxy.commit_transaction }
-	    proxy_objects.each_value { |proxy| proxy.clear_relations  }
-
-	    insert.each    { |t| plan.insert(t) }
-	    permanent.each { |t| plan.permanent(t) }
-
-	    proxies     = proxy_objects.dup
-	    clear
-	    # Replace proxies by forwarder objects
-	    proxies.each do |object, proxy|
-		forwarder = Proxy.forwarder(object)
-		forwarder.freeze
-		Kernel.swap! proxy, forwarder
-	    end
-
-	    committed_transaction
-	    plan.remove_transaction(self)
-	    @plan = nil
 	end
 	def committed_transaction; super if defined? super end
 	def finalized?; !plan end
@@ -421,7 +423,9 @@ module Roby
 	# Discard all the modifications that have been registered 
 	# in this transaction
 	def discard_transaction
-	    unless transactions.empty?
+	#    if !Roby.control.running?
+	#	raise "#commit_transaction requires the presence of a control thread"
+	    if !transactions.empty?
 		raise InvalidTransaction, "there is still transactions on top of this one"
 	    end
 
@@ -430,7 +434,9 @@ module Roby
 	    clear
 
 	    discarded_transaction
-	    plan.remove_transaction(self)
+	    Roby.execute do
+		plan.remove_transaction(self)
+	    end
 	    @plan = nil
 	end
 	def discarded_transaction; super if defined? super end
