@@ -232,7 +232,8 @@ module Roby
 		attr_reader :name, :peer_id
 		def initialize(name, peer_id); @name, @peer_id = name, peer_id end
 		def hash; peer_id.hash end
-		def eql?(obj); obj.respond_to?(:peer_id) && peer_id.eql?(obj.peer_id) end
+		def eql?(obj); obj.respond_to?(:peer_id) && peer_id == obj.peer_id end
+		alias :== :eql?
 
 		def to_s; "#<dRoby:Peer #{name} #{peer_id}>" end 
 		def proxy(peer)
