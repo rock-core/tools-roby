@@ -30,7 +30,6 @@ module Roby
 	# The task model we should produce
 	argument :planned_model
 
-	attr_reader :planner_model, :method_name, :method_options
 	# The planner model we should use
 	argument :planner_model
 	# The planner method name
@@ -67,9 +66,6 @@ module Roby
 
 	    super(task_arguments)
 
-	    @period, @lookahead, @planner_model, @method_name, @method_options, @planned_model = 
-		arguments.values_at(:period, :lookahead, :planner_model, :method_name, :method_options, :planned_model)
-	    
 	    @patterns = []
 	end
 
