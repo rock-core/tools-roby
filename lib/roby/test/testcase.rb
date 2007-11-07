@@ -129,7 +129,21 @@ module Roby
 
 			    if error
 				if !unreachability_reason.empty?
-				    flunk("#{msg} all positive events are unreachable for the following reason:\n  #{unreachability_reason.to_a.join("\n  ")}")
+				    msg = unreachability_reason.map do |reason|
+					if reason.respond_to?(:context)
+					    context = reason.context.map do |obj|
+						if obj.kind_of?(Exception)
+						    obj.full_message
+						else
+						    obj.to_s
+						end
+					    end
+					    reason.to_s + context.join("\n  ")
+					end
+				    end
+				    msg.join("\n  ")
+
+				    flunk("#{msg} all positive events are unreachable for the following reason:\n  #{msg}")
 				elsif msg
 				    flunk("#{msg} failed: #{result}")
 				else
