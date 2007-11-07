@@ -116,7 +116,7 @@ module Roby
 	def subscribe
 	    if !self_owned? && !subscribed?
 		owners.each do |peer|
-		    peer.subscribe(self)
+		    peer.subscribe(self) unless peer.subcribed?(self)
 		end
 	    end
 	end
