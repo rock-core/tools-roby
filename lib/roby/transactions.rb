@@ -30,6 +30,7 @@ module Roby
 	    proxy
 	end
 
+	def propose; end
 	def edit
 	    yield if block_given?
 	end
