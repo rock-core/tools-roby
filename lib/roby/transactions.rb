@@ -30,6 +30,10 @@ module Roby
 	    proxy
 	end
 
+	def edit
+	    yield if block_given?
+	end
+
 	# This method copies on +proxy+ all relations of +object+ for which
 	# both ends of the relation are already in the transaction.
 	def copy_object_relations(object, proxy)
