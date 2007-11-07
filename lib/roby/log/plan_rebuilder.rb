@@ -455,6 +455,14 @@ module Roby
 		rel    = rel.proxy(nil)
 		parent.remove_child_object(child, rel)
 	    end
+	    def added_owner(time, object, peer)
+		object = local_object(object)
+		object.owners << peer
+	    end
+	    def removed_owner(time, object, peer)
+		object = local_object(object)
+		object.owners.delete(peer)
+	    end
 	end
 
     end
