@@ -47,7 +47,8 @@ module Roby
 		:planner_model => nil,
 		:planned_model => Roby::Task,
 		:method_name => nil,
-		:method_options => {}
+		:method_options => {},
+		:planning_owners => nil
 
 	    if !task_arguments[:method_name]
 		raise ArgumentError, "required argument :method_name missing"
@@ -219,14 +220,17 @@ module Roby
     class PlanningTask < Roby::Task
 	attr_reader :planner, :transaction
 
-	arguments :planner_model, :method_name, :method_options, :planned_model
+	arguments :planner_model, :method_name, 
+	    :method_options, :planned_model, 
+	    :planning_owners
 
 	def self.filter_options(options)
 	    task_options, method_options = Kernel.filter_options options,
 		:planner_model => nil,
 		:method_name => nil,
 		:method_options => {},
-		:planned_model => nil
+		:planned_model => nil,
+		:planning_owners => nil
 
 	    if !task_options[:planner_model]
 		raise ArgumentError, "missing required argument 'planner_model'"
@@ -236,6 +240,7 @@ module Roby
 	    task_options[:planned_model] ||= nil
 	    task_options[:method_options] ||= Hash.new
 	    task_options[:method_options].merge! method_options
+	    task_options[:planning_owners] ||= nil
 	    task_options
 	end
 
@@ -266,24 +271,50 @@ module Roby
 
 	# The thread that is running the planner
         attr_reader :thread
+	# The transaction in which we build the new plan. It gets committed on
+	# success.
+	attr_reader :transaction
 	# The planner result. It is either an exception or a task object
 	attr_reader :result
 
 	# Starts planning
         event :start do |context|
-	    emit(:start)
+	    emit :start
 
-	    @transaction = Transaction.new(plan)
-	    @planner     = planner_model.new(transaction)
+	    if planning_owners
+		@transaction = Distributed::Transaction.new(plan)
+		planning_owners.each do |peer|
+		    transaction.add_owner peer
+		end
+	    else
+		@transaction = Transaction.new(plan)
+	    end
+	    @planner = planner_model.new(transaction)
 
 	    @thread = Thread.new do
 		Thread.current.priority = 0
-		@result = begin
-			      @planner.send(method_name, method_options.merge(:context => context))
-			  rescue Exception => e; e
-			  end
+		planning_thread(context)
 	    end
         end
+
+	def planning_thread(context)
+	    result_task = planner.send(method_name, method_options.merge(:context => context))
+
+	    # Don't replace the planning task with ourselves if the
+	    # transaction specifies another planning task
+	    if !result_task.planning_task
+		result_task.planned_by transaction[self]
+	    end
+
+	    if placeholder = planned_task
+		placeholder = transaction[placeholder]
+		transaction.replace(placeholder, result_task)
+		placeholder.remove_planning_task transaction[self]
+	    end
+	    transaction.commit_transaction
+
+	    @result = result_task
+	end
 
 	# Polls for the planning thread end
 	poll do
@@ -291,24 +322,19 @@ module Roby
 		return 
 	    end
 
-	    case result
-	    when Roby::Task
-		# Don't replace the planning task with ourselves if the
-		# transaction specifies another planning task
-		if !result.planning_task
-		    result.planned_by transaction[self]
-		end
-
-		if placeholder = planned_task
-		    placeholder = transaction[placeholder]
-		    transaction.replace(placeholder, result)
-		    placeholder.remove_planning_task transaction[self]
-		end
-		transaction.commit_transaction
-		emit(:success)
+	    # Check if the transaction has been committed. If it is not the
+	    # case, assume that the thread failed
+	    if transaction.freezed?
+		emit :success
 	    else
+		error = begin
+			    thread.value
+			rescue Exception => e
+			    @result = e
+			end
+
 		transaction.discard_transaction
-		emit(:failed, result)
+		emit :failed, error
 	    end
 	end
 
@@ -316,15 +342,7 @@ module Roby
         event :stop do 
 	    thread.kill 
 	end
-	on(:stop) do
-	    if transaction && !transaction.freezed?
-		# Something went wront at transaction commit time.
-		# Discard the transaction
-		transaction.discard_transaction
-	    end
-
-	    # Make sure the transaction will be finalized event if the 
-	    # planning task is not removed from the plan
+	on :stop do
 	    @transaction = nil
 	    @planner = nil
 	    @thread = nil

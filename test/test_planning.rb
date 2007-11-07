@@ -479,7 +479,8 @@ class TC_Planner < Test::Unit::TestCase
 	end
 
 	plan.insert(main_task = Roby::Task.new)
-	planning_task_options = { 
+	planning_task_options = {
+	    :planning_owners => nil,
 	    :planner_model => planner_model, 
 	    :planned_model => SimpleTask, 
 	    :method_name => :task, 
