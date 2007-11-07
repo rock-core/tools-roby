@@ -179,7 +179,7 @@ module Roby
 	    def state=(new_state)
 		if log = logger
 		    if new_state
-			logger.progname = "Roby (#{new_state.name})"
+			logger.progname = new_state.name
 		    else
 			logger.progname = "Roby"
 		    end
