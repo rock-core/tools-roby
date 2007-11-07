@@ -382,7 +382,14 @@ module Roby
 		    save_logdir = (@failed_test && automatic_testing?) ||  Roby.app.testing_keep_logs?
 		    if save_logdir
 			subdir = @failed_test ? 'failures' : 'results'
-			dirname = Roby::Application.unique_dirname(File.join(APP_DIR, 'test', subdir), dataset_prefix)
+			basedir = File.join(APP_DIR, 'test', subdir)
+			dirname = Roby::Application.unique_dirname(basedir, dataset_prefix)
+
+			if Roby.app.testing_overwrites_logs?
+			    dirname.gsub! /\.\d+$/, ''
+			    FileUtils.rm_rf dirname
+			end
+
 			FileUtils.mv Roby.app.log_dir, dirname
 		    end
 		    if !keep_logdir

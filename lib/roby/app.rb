@@ -80,6 +80,9 @@ module Roby
 	# True if all logs should be kept after testing
 	attr_predicate :testing_keep_logs?, true
 
+	# True if all logs should be kept after testing
+	attr_predicate :testing_overwrites_logs?, true
+
 	# True if we should remove the framework code from the error backtraces
 	def filter_backtraces?; log['filter_backtraces'] end
 	def filter_backtraces=(value); log['filter_backtraces'] = value end
