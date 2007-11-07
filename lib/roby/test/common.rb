@@ -101,29 +101,14 @@ module Roby
 		Roby.logger.level = Logger::DEBUG
 	    end
 
-	    if Roby.control.running?
-		Roby.control.quit
-		Roby.control.join
-	    else
-		catch(:done_cleanup) do
-		    begin
-			assert_doesnt_timeout(10) do
-			    loop do
-				throw :done_cleanup unless Roby.control.clear
-				process_events
-				sleep(0.1)
-			    end
-			end
-		    rescue Test::Unit::AssertionFailedError
-			Roby.warn "  timeout on plan cleanup. Remaining tasks are #{Roby.plan.known_tasks}"
-			STDERR.puts $!.full_message
-		    rescue
-			Roby.warn "  failed to properly cleanup the plan\n  #{$!.full_message}"
-		    end
-		end
+	    if !Roby.control.running?
+		Roby.control.run :detach => true
 	    end
 
+	    Roby.control.quit
+	    Roby.control.join
 	    plan.clear
+
 	ensure
 	    Roby.logger.level = old_gc_roby_logger_level
 	end
