@@ -66,13 +66,23 @@ module Roby
 	end
 
 	def adding_plan_relation(parent, child, relations, info)
-	    invalidate("plan added a relation #{parent} -> #{child} in #{relations} with info #{info}")
-	    conflict_solver.adding_plan_relation(self, parent, child, relations, info)
+	    missing_relations = relations.find_all do |rel|
+		!parent.child_object?(child, rel)
+	    end
+	    unless missing_relations.empty?
+		invalidate("plan added a relation #{parent} -> #{child} in #{relations} with info #{info}")
+		conflict_solver.adding_plan_relation(self, parent, child, relations, info)
+	    end
 	end
 
 	def removing_plan_relation(parent, child, relations)
-	    invalidate("plan removed the #{parent} -> #{child} relation in #{relations}")
-	    conflict_solver.removing_plan_relation(self, parent, child, relations)
+	    present_relations = relations.find_all do |rel|
+		parent.child_object?(child, rel)
+	    end
+	    unless present_relations.empty?
+		invalidate("plan removed the #{parent} -> #{child} relation in #{relations}")
+		conflict_solver.removing_plan_relation(self, parent, child, relations)
+	    end
 	end
     end
 
@@ -83,18 +93,18 @@ module Roby
 		plan.transactions.each do |trsc|
 		    next unless trsc.proxying?
 
-		    if trsc.wrap(object, false)
-			yield(trsc)
+		    if proxy = trsc.wrap(object, false)
+			yield(trsc, proxy)
 		    end
 		end
 	    end
 	    def finalized_event(event)
 		super if defined? super
-		PlanUpdates.finalized_object(self, event) { |trsc| trsc.finalized_plan_event(event) }
+		PlanUpdates.finalized_object(self, event) { |trsc, proxy| trsc.finalized_plan_event(proxy) }
 	    end
 	    def finalized_task(task)
 		super if defined? super
-		PlanUpdates.finalized_object(self, task) { |trsc| trsc.finalized_plan_task(task) }
+		PlanUpdates.finalized_object(self, task) { |trsc, proxy| trsc.finalized_plan_task(proxy) }
 	    end
 	end
 	Roby::Plan.include PlanUpdates
@@ -106,8 +116,8 @@ module Roby
 
 		for trsc in plan.transactions
 		    next unless trsc.proxying?
-		    if trsc[self, false] && trsc[child, false]
-			trsc.adding_plan_relation(self, child, relations, info) 
+		    if (parent_proxy = trsc[self, false]) && (child_proxy = trsc[child, false])
+			trsc.adding_plan_relation(parent_proxy, child_proxy, relations, info) 
 		    end
 		end
 	    end
@@ -117,8 +127,8 @@ module Roby
 
 		plan.transactions.each do |trsc|
 		    next unless trsc.proxying?
-		    if trsc[self, false] && trsc[child, false]
-			trsc.removing_plan_relation(self, child, relations) 
+		    if (parent_proxy = trsc[self, false]) && (child_proxy = trsc[child, false])
+			trsc.removing_plan_relation(parent_proxy, child_proxy, relations) 
 		    end
 		end
 	    end
