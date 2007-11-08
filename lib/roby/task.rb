@@ -176,7 +176,10 @@ module Roby
 
 	def each_handler
 	    super
-	    task.each_handler(event_model.symbol) { |o| yield(o) }
+
+	    if self_owned?
+		task.each_handler(event_model.symbol) { |o| yield(o) }
+	    end
 	end
 	def each_precondition
 	    super
@@ -550,6 +553,7 @@ module Roby
 
 	    def setup_poll_method(block)
 		define_method(:poll) do
+		    return unless self_owned?
 		    begin
 			poll_handler
 		    rescue Exception => e

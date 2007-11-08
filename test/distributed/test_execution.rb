@@ -298,6 +298,46 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	assert(task.finished?)
     end
 
+    # Checks that the code blocks are called only in owning controllers
+    class CodeBlocksOwnersMockup < Roby::Test::SimpleTask
+	attr_reader :command_called
+	event :start do
+	    @command_called = true
+	    emit :start
+	end
+
+	attr_reader :handler_called
+	on(:start) { @handler_called = true }
+
+	attr_reader :poller_called
+	poll { @poller_called = true }
+    end
+
+    def test_code_blocks_owners
+	peer2peer(true) do |remote|
+	    remote.plan.insert(CodeBlocksOwnersMockup.new(:id => 'mockup'))
+
+	    def remote.call
+		task = plan.find_tasks(CodeBlocksOwnersMockup).to_a.first
+		Roby.execute { task.start! }
+	    end
+
+	    def remote.blocks_called
+		task = plan.find_tasks(CodeBlocksOwnersMockup).to_a.first
+		task.command_called && task.poller_called && task.handler_called
+	    end
+	end
+
+	mockup = subscribe_task(:id => 'mockup')
+	remote.call
+	remote_peer.synchro_point
+
+	assert(remote.blocks_called)
+	assert(!mockup.command_called)
+	assert(!mockup.poller_called)
+	assert(!mockup.handler_called)
+    end
+
     # Checks that we get the update fine if +fired+ and +signalled+ are
     # received in the same cycle
     def test_joint_fired_signalled
