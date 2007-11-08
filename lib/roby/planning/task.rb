@@ -311,6 +311,10 @@ module Roby
 		transaction.replace(placeholder, result_task)
 		placeholder.remove_planning_task transaction[self]
 	    end
+
+	    # If the transaction is distributed, and is not proposed to all
+	    # owners, do it
+	    transaction.propose
 	    transaction.commit_transaction
 
 	    @result = result_task
