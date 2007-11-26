@@ -795,6 +795,9 @@ module Roby
 		    if hide_finalized
 			@visible_objects = visible_objects - plan.finalized_tasks
 			@visible_objects = visible_objects - plan.finalized_events
+
+			all_finalized = plan.finalized_tasks | plan.finalized_events
+			flashing_objects.delete_if { |obj, _| all_finalized.include?(obj) }
 		    else
 			visible_objects.merge(plan.finalized_tasks)
 			visible_objects.merge(plan.finalized_events)
