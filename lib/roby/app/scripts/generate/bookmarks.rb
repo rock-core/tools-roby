@@ -142,13 +142,21 @@ filter.filter(log)
 bookmark_data = Hash.new
 bookmarks.each do |name, ranges|
     if ranges.size == 1
-	bookmark_data[name] = ranges[0].map { |t| t.to_hms }
+	bookmark_data[name] = ranges[0].map { |t| t }
     else
 	ranges.each_with_index do |r, i|
-	    bookmark_data["#{name}-#{i}"] = r.map { |t| t.to_hms }
+	    bookmark_data["#{name}-#{i}"] = r.map { |t| t }
 	end
     end
 end
 
-puts YAML.dump(bookmark_data)
+bookmark_data = 
+
+bookmark_data.sort_by { |n, r| r[0] }.
+    each do |name, range|
+	puts "#{name}:"
+	range.each do |time|
+	    puts "  - \"#{time.to_hms}\""
+	end
+    end
 
