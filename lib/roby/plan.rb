@@ -128,7 +128,6 @@ module Roby
 	end
 	# Hook called when +tasks+ have been inserted in this plan
 	def inserted(tasks); super if defined? super end
-	alias :<< :insert
 
 	# Forbid the GC to take out +task+
 	def permanent(task)

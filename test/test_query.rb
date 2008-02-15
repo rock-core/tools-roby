@@ -77,7 +77,7 @@ class TC_Query < Test::Unit::TestCase
 	    improves :yet_another_info
 	end.new
 
-	plan << t1 << t2
+	plan.discover [t1, t2]
 	result = TaskMatcher.which_needs(:source_info).enum_for(:each, plan).to_set
 	assert_equal([t1, t2].to_set, result)
 	result = TaskMatcher.which_needs(:foo_bar).enum_for(:each, plan).to_set
@@ -104,7 +104,7 @@ class TC_Query < Test::Unit::TestCase
     def test_query_predicates
 	t1 = Class.new(SimpleTask) { argument :fake }.new
 	t2 = Roby::Task.new
-	plan << t1 << t2
+	plan.discover [t1, t2]
 
 	assert_finds_tasks([]) { TaskMatcher.executable }
 	assert_finds_tasks([t1,t2]) { TaskMatcher.not_executable }
@@ -132,7 +132,7 @@ class TC_Query < Test::Unit::TestCase
 	plan.remove_object(t1)
 
 	t1 = SimpleTask.new
-	plan << t1
+	plan.discover(t1)
 	t1.start!
 	t1.failed!
 	assert_finds_tasks([t1]) { TaskMatcher.failed }
@@ -153,7 +153,7 @@ class TC_Query < Test::Unit::TestCase
 	t1 = Class.new(SimpleTask) { argument :id }.new(:id => 1)
 	t2 = Class.new(SimpleTask) { argument :id }.new(:id => 2)
 	t3 = Roby::Task.new
-	plan << t1 << t2 << t3
+	plan.discover [t1, t2, t3]
 
 	assert_finds_tasks([t3]) { (TaskMatcher.with_arguments(:id => 1) | TaskMatcher.with_arguments(:id => 2)).negate }
     end
@@ -162,7 +162,7 @@ class TC_Query < Test::Unit::TestCase
 	t1 = Class.new(SimpleTask) { argument :id }.new(:id => 1)
 	t2 = Class.new(SimpleTask) { argument :id }.new(:id => 2)
 	t3 = Roby::Task.new
-	plan << t1 << t2 << t3
+	plan.discover [t1, t2, t3]
 
 	assert_finds_tasks([t1, t2]) { TaskMatcher.with_arguments(:id => 1) | TaskMatcher.with_arguments(:id => 2) }
     end
@@ -171,7 +171,7 @@ class TC_Query < Test::Unit::TestCase
 	t1 = Class.new(SimpleTask) { argument :id }.new(:id => 1)
 	t2 = Class.new(SimpleTask) { argument :id }.new(:id => 2)
 	t3 = Roby::Task.new
-	plan << t1 << t2 << t3
+	plan.discover [t1, t2, t3]
 
 	assert_finds_tasks([t1, t2]) { TaskMatcher.fully_instanciated & TaskMatcher.executable }
 	assert_finds_tasks([t1]) { (TaskMatcher.fully_instanciated & TaskMatcher.executable).with_arguments(:id => 1) }
@@ -250,7 +250,7 @@ class TC_Query < Test::Unit::TestCase
 	result = trsc.find_tasks.which_fullfills(model, :id => 1).to_a
 	assert_equal([trsc[t1]], result)
 
-	trsc << t3
+	trsc.discover(t3)
 	result = trsc.find_tasks.which_fullfills(model, :id => 3).to_a
 	assert_equal([t3], result)
 
