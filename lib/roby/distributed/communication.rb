@@ -128,7 +128,7 @@ module Roby
 
 		begin
 		    socket = TCPSocket.new(remote_id.uri, remote_id.ref)
-		rescue Errno::ECONNREFUSED
+		rescue Errno::ECONNRESET, Errno::ECONNREFUSED
 		    abort_connection_thread(connection_space, remote_id)
 		    return
 		end
@@ -147,7 +147,7 @@ module Roby
 			raise "peer disconnected"
 		    end
 		    reply = Marshal.load(socket.read(*reply_size.unpack("N")))
-		rescue Errno::ECONNRESET
+		rescue Errno::ECONNRESET, Errno::ENOTCONN
 		    abort_connection_thread(connection_space, remote_id)
 		    return
 		end
