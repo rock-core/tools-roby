@@ -72,7 +72,7 @@ module Roby
 	    end
 
 	    unless DRb.primary_server
-		DRb.start_service
+		DRb.start_service 'druby://localhost:0'
 	    end
 
 	    if defined? Roby::Planning::Planner
