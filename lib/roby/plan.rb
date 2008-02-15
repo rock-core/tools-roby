@@ -457,7 +457,7 @@ module Roby
 	end
 
 	# Checks if +task+ is included in this plan
-	def include?(task); @known_tasks.include?(task) end
+	def include?(object); @known_tasks.include?(object) || @free_events.include?(object) end
 	# Checks if +task+ is a mission of this plan
 	def mission?(task); @missions.include?(task) end
 	# Count of tasks in this plan

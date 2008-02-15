@@ -331,7 +331,9 @@ module Roby
 	    Roby.execute do
 		auto_tasks.each      { |t| plan.auto(t) }
 		discarded_tasks.each { |t| plan.discard(t) }
-		removed_objects.each { |obj| plan.remove_object(obj) }
+		removed_objects.each do |obj| 
+		    plan.remove_object(obj) if plan.include?(obj)
+		end
 
 		discover_tasks  = ValueSet.new
 		discover_events  = ValueSet.new
