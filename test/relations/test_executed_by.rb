@@ -29,7 +29,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_nominal
-	plan.insert(task = SimpleTask.new)
+	plan.discover(task = SimpleTask.new)
 	task.executed_by(ExecutionAgentModel.new)
 	task.executed_by(exec = ExecutionAgentModel.new)
 
@@ -49,7 +49,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_agent_fails
-	plan.insert(task = SimpleTask.new)
+	plan.discover(task = SimpleTask.new)
 	exec = ExecutionAgentModel.new
 	task.executed_by exec
 	task.start!
@@ -92,7 +92,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     def test_respawn
 	task_model = Class.new(SimpleTask)
 	task_model.executed_by ExecutionAgentModel
-	first, second = prepare_plan :missions => 2, :model => task_model
+	first, second = prepare_plan :discover => 2, :model => task_model
 	assert(first.execution_agent)
 	assert(ExecutionAgentModel, first.execution_agent.class)
 	assert(second.execution_agent)

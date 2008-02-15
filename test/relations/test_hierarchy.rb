@@ -57,7 +57,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	    event :specialized_failure, :command => true
 	    forward :specialized_failure => :failed
 	end
-	parent, child = prepare_plan :missions => 1, :tasks => 1, :model => model
+	parent, child = prepare_plan :discover => 1, :tasks => 1, :model => model
 	parent.realized_by child
 
 	parent.start!

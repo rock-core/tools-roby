@@ -362,7 +362,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	end
 
 	# First, check methods located in Plan
-	plan.insert(task = model.new)
+	plan.discover(task = model.new)
 	r1, r2 = SimpleTask.new, SimpleTask.new
 
 	task.start!
@@ -475,6 +475,9 @@ class TC_Exceptions < Test::Unit::TestCase
 	# propagate_exceptions must not add a new repair
 	repairing_task.success!
 	assert_equal(exceptions.keys, Propagation.propagate_exceptions(exceptions))
+
+	# Discard the mission so that the test teardown does not complain
+	plan.discard(mission)
     end
 
     def test_event_not_executable_message

@@ -98,7 +98,7 @@ class TC_Task < Test::Unit::TestCase
 		end
 		event(:start)
 	    end
-	    plan.insert(task = model.new)
+	    plan.discover(task = model.new)
 	    mock.should_receive(:start).once.with(task, [42])
 	    task.start!(42)
 	end
@@ -110,7 +110,7 @@ class TC_Task < Test::Unit::TestCase
 	assert_raises(ArgumentError) { t1.on(:start) }
 	
 	# Test command handlers
-	plan.insert(task = SimpleTask.new)
+	plan.discover(task = SimpleTask.new)
 	FlexMock.use do |mock|
 	    task.on(:start)   { |event| mock.started(event.context) }
 	    task.on(:start)   { |event| task.emit(:success, *event.context) }
@@ -127,7 +127,7 @@ class TC_Task < Test::Unit::TestCase
 
 	# Same test, but with signals
 	FlexMock.use do |mock|
-	    t1, t2 = prepare_plan :missions => 2, :model => SimpleTask
+	    t1, t2 = prepare_plan :discover => 2, :model => SimpleTask
 	    t1.on(:start, t2)
 	    t2.on(:start) { mock.start }
 
@@ -136,7 +136,7 @@ class TC_Task < Test::Unit::TestCase
 	end
 
 	FlexMock.use do |mock|
-	    t1, t2 = prepare_plan :missions => 2, :model => SimpleTask
+	    t1, t2 = prepare_plan :discover => 2, :model => SimpleTask
 	    t2.start!
 
 	    t1.on(:start, t2, :stop)
@@ -485,7 +485,7 @@ class TC_Task < Test::Unit::TestCase
 	model = Class.new(SimpleTask) do
 	    event(:inter, :command => true)
 	end
-	plan.insert(task = model.new)
+	plan.discover(task = model.new)
 
 	assert_raises(CommandFailed) { task.inter! }
 	assert_raises(EmissionFailed) { task.emit(:inter) }
@@ -523,7 +523,7 @@ class TC_Task < Test::Unit::TestCase
 	    event :stop, :command => true
 	end
 
-	plan.insert(task = model.new)
+	plan.discover(task = model.new)
 	task.start!
 	task.emit(:stop)
 	assert(!task.success?)
@@ -531,7 +531,7 @@ class TC_Task < Test::Unit::TestCase
 	assert(task.finished?)
 	assert_equal(task.event(:stop).last, task.terminal_event)
 
-	plan.insert(task = model.new)
+	plan.discover(task = model.new)
 	task.start!
 	task.emit(:success)
 	assert(task.success?)
@@ -539,7 +539,7 @@ class TC_Task < Test::Unit::TestCase
 	assert(task.finished?)
 	assert_equal(task.event(:success).last, task.terminal_event)
 
-	plan.insert(task = model.new)
+	plan.discover(task = model.new)
 	task.start!
 	task.emit(:failed)
 	assert(!task.success?)
@@ -667,13 +667,13 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_compatible_state
-	t1, t2 = prepare_plan :missions => 2, :model => SimpleTask
+	t1, t2 = prepare_plan :discover => 2, :model => SimpleTask
 
 	assert(t1.compatible_state?(t2))
 	t1.start!; assert(! t1.compatible_state?(t2) && !t2.compatible_state?(t1))
 	t1.stop!; assert(t1.compatible_state?(t2) && t2.compatible_state?(t1))
 
-	plan.insert(t1 = SimpleTask.new)
+	plan.discover(t1 = SimpleTask.new)
 	t1.start!
 	t2.start!; assert(t1.compatible_state?(t2) && t2.compatible_state?(t1))
 	t1.stop!; assert(t1.compatible_state?(t2) && !t2.compatible_state?(t1))
