@@ -55,7 +55,6 @@ class TC_DistributedExecution < Test::Unit::TestCase
     end
 
     def test_signal_establishment
-	Roby.app.filter_backtraces = false
 	peer2peer(true) do |remote|
 	    Roby::Distributed.on_transaction do |trsc|
 		trsc.edit do
@@ -83,6 +82,11 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	remote_peer.synchro_point
 	remote_task = subscribe_task(:id => 'remote_task')
 	assert(remote_task.running?)
+
+	Roby.execute do
+	    plan.discard(local_task)
+	    local_task.stop!
+	end
     end
 
     # This test that the event/plan modification order is kept on a remote host
@@ -143,7 +147,10 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		def start_task; Roby::Control.once { task.start! }; nil end
 		def stop_task
 		    assert(task.executable?)
-		    Roby::Control.once { task.stop!  }
+		    Roby::Control.once do
+			plan.discard(task)
+			task.stop!
+		    end
 		    nil
 		end
 	    end
