@@ -467,7 +467,7 @@ module Roby
 
 	    # Check if this relation is already defined. If it is the case, reuse it.
 	    # This is needed mostly by the reloading code
-	    if const_defined?(options[:const_name])
+	    if const_defined?(options[:const_name], false)
 		graph = const_get(options[:const_name])
 		mod   = graph.support
 
