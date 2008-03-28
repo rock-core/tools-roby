@@ -28,7 +28,7 @@ class TC_Relations < Test::Unit::TestCase
     end
 
     def test_directed_relation
-	klass = Class.new { include DirectedRelationSupport }
+	klass = Class.new { include Roby::DirectedRelationSupport }
 
 	r1, r2 = nil
 	Roby::RelationSpace(klass) do
@@ -93,7 +93,7 @@ class TC_Relations < Test::Unit::TestCase
 	    end
 
 	    klass = Class.new do
-		include DirectedRelationSupport 
+		include Roby::DirectedRelationSupport 
 		include hooks
 	    end
 		
@@ -113,7 +113,7 @@ class TC_Relations < Test::Unit::TestCase
 	    klass = Class.new do
 		def initialize(index); @index = index end
 		def to_s; "v#{@index.to_s}" end
-		include DirectedRelationSupport
+		include Roby::DirectedRelationSupport
 		define_method(:added_child_object) do |child, relations, info|
 		    super if defined? super
 		    mock.hooked_addition(child, relations)
@@ -157,7 +157,7 @@ class TC_Relations < Test::Unit::TestCase
     end
 
     def test_dag_checking
-	klass = Class.new { include DirectedRelationSupport }
+	klass = Class.new { include Roby::DirectedRelationSupport }
 	graph = RelationGraph.new("test", :dag => true)
 
 	v1, v2, v3 = (1..3).map { v = klass.new; graph.insert(v); v }
@@ -167,7 +167,7 @@ class TC_Relations < Test::Unit::TestCase
     end
 
     def test_single_child
-	klass = Class.new { include DirectedRelationSupport }
+	klass = Class.new { include Roby::DirectedRelationSupport }
 
 	r1 = nil
 	Roby::RelationSpace(klass) { r1 = relation :R1, :single_child => true }
