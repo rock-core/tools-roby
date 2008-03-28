@@ -1,6 +1,6 @@
 #include <ruby.h>
-#include <intern.h>
-#include <st.h>
+#include <ruby/intern.h>
+#include <ruby/st.h>
 #include <set>
 
 static VALUE mRoby;
