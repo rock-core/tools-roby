@@ -473,12 +473,8 @@ module Roby
 
 	    else
 		graph = options[:graph].new "#{self.name}::#{options[:const_name]}", options
-		mod = Module.new do
-		    singleton_class.class_eval do
-			define_method("__r_#{relation_name}__") { graph }
-		    end
-		    class_eval "@@__r_#{relation_name}__ = __r_#{relation_name}__"
-		end
+		mod = Module.new
+                mod.class_variable_set "@@__r_#{relation_name}__", graph
 		const_set(options[:const_name], graph)
 		relations << graph
 	    end

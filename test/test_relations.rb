@@ -15,8 +15,10 @@ class TC_Relations < Test::Unit::TestCase
 	end
 	assert(Module === space)
 
+        assert_equal(r1, r1.support.class_variable_get("@@__r_R1__"))
+
 	n = klass.new
-	assert_equal(r2, space.constant('R2s'))
+	assert_equal(r2, space.const_get('R2s'))
 	assert( n.respond_to?(:each_child) )
 	assert( n.respond_to?(:add_child) )
 	assert( n.respond_to?(:remove_child) )
