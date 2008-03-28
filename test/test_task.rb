@@ -199,7 +199,7 @@ class TC_Task < Test::Unit::TestCase
 		mock.called
 		ev.emit
 	    end
-	    ev.on { mock.emitted }
+	    ev.on { |event| mock.emitted }
 	    t1.forward(:start, ev)
 
 	    mock.should_receive(:called).never
@@ -330,11 +330,11 @@ class TC_Task < Test::Unit::TestCase
     end
     def test_status
 	task = Class.new(Roby::Task) do
-	    event :start do
+	    event :start do |context|
 	    end
-	    event :failed, :terminal => true do
+	    event :failed, :terminal => true do |context|
 	    end
-	    event :stop do
+	    event :stop do |context|
 		failed!
 	    end
 	end.new
@@ -565,7 +565,7 @@ class TC_Task < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    plan.insert(t = EmptyTask.new)
 	    [:start, :success, :stop].each do |name|
-		t.on(name) { mock.send(name) }
+		t.on(name) { |event| mock.send(name) }
 		mock.should_receive(name).once.ordered
 	    end
 	    t.start!
@@ -754,7 +754,7 @@ class TC_Task < Test::Unit::TestCase
 	slave  = SimpleTask.new
 	master = Class.new(Task) do
 	    terminates
-	    event :start do
+	    event :start do |context|
 		event(:start).achieve_with slave
 	    end
 	end.new
@@ -769,7 +769,7 @@ class TC_Task < Test::Unit::TestCase
 
 	slave  = SimpleTask.new
 	master = Class.new(Task) do
-	    event :start do
+	    event :start do |context|
 		event(:start).achieve_with slave.event(:start)
 	    end
 	end.new
@@ -859,8 +859,8 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal(start, task.start_event)
 	assert_equal(success, task.success_event)
 	FlexMock.use do |mock|
-	    start.on { mock.start_event }
-	    task.event(:start).on { mock.start_task }
+	    start.on { |event| mock.start_event }
+	    task.event(:start).on { |event| mock.start_task }
 	    mock.should_receive(:start_event).once.ordered
 	    mock.should_receive(:start_task).once.ordered
 	    task.start!

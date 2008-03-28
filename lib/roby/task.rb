@@ -1402,11 +1402,11 @@ module Roby
 	end
 	attr_accessor :success_event
 
-	event :start do
+	event :start do |context|
 	    event(:start).achieve_with(start_event)
 	    start_event.call
 	end
-	on :start do
+	on :start do |context|
 	    success_event.forward_once event(:success)
 	    success_event.if_unreachable(true) do
 		emit :failed if executable?
