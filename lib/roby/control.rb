@@ -8,6 +8,7 @@ module Roby
     class Pool < Queue
 	def initialize(klass)
 	    @klass = klass
+            super()
 	end
 
 	def pop
