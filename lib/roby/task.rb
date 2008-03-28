@@ -222,8 +222,8 @@ module Roby
 
 	def achieve_with(obj)
 	    child_task, child_event = case obj
-				      when Roby::Task: [obj, obj.event(:success)]
-				      when Roby::TaskEventGenerator: [obj.task, obj]
+				      when Roby::Task then [obj, obj.event(:success)]
+				      when Roby::TaskEventGenerator then [obj.task, obj]
 				      end
 
 	    if child_task
@@ -836,7 +836,7 @@ module Roby
 			    else
 				to_task_events.map { |ev_model| to.event(ev_model) }
 			    end
-			when EventGenerator: [to]
+			when EventGenerator then [to]
 			else []
 			end
 

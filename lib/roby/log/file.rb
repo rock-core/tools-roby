@@ -202,7 +202,7 @@ module Roby::Log
 	    format = begin
 			 header = Marshal.load(input)
 			 case header
-			 when Hash: header[:log_format]
+			 when Hash then header[:log_format]
 			 when Symbol
 			     if Marshal.load(input).kind_of?(Array)
 				 0
