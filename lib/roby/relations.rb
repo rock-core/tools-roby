@@ -479,7 +479,7 @@ module Roby
 		relations << graph
 	    end
 
-	    mod.class_eval(&block) if block_given?
+	    mod.class_exec(&block) if block_given?
 
 	    if parent_enumerator = options[:parent_name]
 		mod.class_eval <<-EOD

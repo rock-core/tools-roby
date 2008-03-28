@@ -11,7 +11,10 @@ class TC_RealizedBy < Test::Unit::TestCase
 	    argument :id
 	    include tag
 	end
+
+        assert(klass.ancestors.find { |m| m == Roby::TaskStructure::Hierarchy.support })
 	plan.discover(t1 = SimpleTask.new)
+        assert(t1.respond_to?(:realized_by))
 
 	# Check validation of the model
 	child = nil

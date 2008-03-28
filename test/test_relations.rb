@@ -10,7 +10,9 @@ class TC_Relations < Test::Unit::TestCase
 
 	r1, r2 = nil
 	space = Roby::RelationSpace(klass) do
-	    r1 = relation :R1
+	    r1 = relation :R1 do
+                def specific_relation_method; end
+            end
 	    r2 = relation :R2s, :child_name => :child, :parent_name => :parent
 	end
 	assert(Module === space)
@@ -25,6 +27,7 @@ class TC_Relations < Test::Unit::TestCase
 	assert( n.respond_to?(:each_parent) )
 	assert( n.respond_to?(:add_r1) )
 	assert( n.respond_to?(:add_child) )
+        assert( n.respond_to?(:specific_relation_method))
     end
 
     def test_directed_relation
