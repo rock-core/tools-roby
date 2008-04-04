@@ -109,11 +109,10 @@ class TC_Exceptions < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    klass = Class.new(SimpleTask) do
 		define_method(:mock) { mock }
-		def start(context)
+		event :start do |context|
 		    mock.event_called
 		    raise SpecializedError.new(self)
-		end
-		event :start
+                end
 
 		on_exception(RuntimeError) do |exception|
 		    mock.task_handler_called
@@ -289,11 +288,10 @@ class TC_Exceptions < Test::Unit::TestCase
 	Roby.logger.level = Logger::FATAL
 
 	task = Class.new(SimpleTask) do
-	    def start(context)
+	    event :start do |context|
 		emit(:start)
 		raise RuntimeError, "failed"
-	    end
-	    event :start
+            end
 	end.new
 
 	FlexMock.use do |mock|

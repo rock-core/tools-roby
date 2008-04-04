@@ -100,10 +100,9 @@ class TC_Control < Test::Unit::TestCase
 
 	# Test that the event is not pending if the command raises
 	model = Class.new(SimpleTask) do
-	    def start(context)
+	    event :start do |context|
 		raise SpecificException, "bla"
-	    end
-	    event :start
+            end
 	end
 	plan.insert(t = model.new)
 

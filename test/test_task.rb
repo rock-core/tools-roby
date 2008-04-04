@@ -267,15 +267,16 @@ class TC_Task < Test::Unit::TestCase
 	klass = Class.new(Task) do
 	    def ev_not_controlable;     end
 	    def ev_method(event = :ev_method); :ev_method if event == :ev_redirected end
-	    def ev_controlable(event = :ev_controlable); :ev_controlable end
 
 	    event :ev_contingent
-	    event :ev_controlable
-	    event :ev_not_controlable, :command => false
+	    event :ev_controlable do |*events|
+                :ev_controlable
+            end
+
+	    event :ev_not_controlable
 	    event :ev_redirected, :command => lambda { |task, event, *args| task.ev_method(event) }
 	end
 
-	# Must raise because there is not terminal event
 	klass.event :ev_terminal, :terminal => true, :command => true
 
 	plan.discover(task = klass.new)
@@ -298,13 +299,10 @@ class TC_Task < Test::Unit::TestCase
         assert( !klass::EvContingent.terminal? )
 
         # Check properties on EvControlable
+        assert( klass::EvControlable.controlable? )
         assert( klass::EvControlable.respond_to?(:call) )
         event = klass::EvControlable.new(task, task.event(:ev_controlable), 0, nil)
-        # Check for the definition of :call
         assert_equal(:ev_controlable, klass::EvControlable.call(task, :ev_controlable))
-        # Check for default argument in :call
-        assert_equal(task.ev_controlable, klass::EvControlable.call(task, nil))
-        assert( klass::EvControlable.controlable? )
 
         # Check Event.terminal? if :terminal => true
         assert( klass::EvTerminal.terminal? )
@@ -435,16 +433,12 @@ class TC_Task < Test::Unit::TestCase
             assert_raises(ArgumentError) { event :failed, :terminal => false }
             assert_raises(ArgumentError) { event :failed }
 
-            def stop(context)
-            end
-            assert_nothing_raised { event :stop }
+            assert_nothing_raised { event(:stop) { |context| } }
             assert(find_event_model(:stop).controlable?)
         end
 
 	Class.new(base) do
-	    def start(context)
-	    end
-	    assert_nothing_raised { event :start }
+	    assert_nothing_raised { event(:start) { |context| } }
 	end
     end
 
@@ -487,16 +481,14 @@ class TC_Task < Test::Unit::TestCase
 	assert(!task.event(:inter).pending)
 
 	model = Class.new(SimpleTask) do
-	    def start(context)
-		inter(nil)
-		emit :start
-	    end
-	    event :start
-
-	    def inter(context)
+	    event :start do |context|
 		emit :inter
-	    end
-	    event :inter
+		emit :start
+            end
+
+	    event :inter do |context|
+		emit :inter
+            end
 	end
 	plan.discover(task = model.new)
 	assert_nothing_raised { task.start! }

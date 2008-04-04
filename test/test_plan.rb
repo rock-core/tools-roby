@@ -378,14 +378,13 @@ class TC_Plan < Test::Unit::TestCase
 	    attr_accessor :delays
 
 	    event(:start, :command => true)
-	    def stop(context)
+	    event(:stop) do |context|
 		if delays
 		    return
 		else
 		    emit(:stop)
 		end
-	    end
-	    event(:stop)
+            end
 	end
 
 	t1, t2, t3, t4, t5, t6, t7, t8, p1 = (1..9).map { |i| klass.new(:id => i) }
@@ -420,8 +419,7 @@ class TC_Plan < Test::Unit::TestCase
     
     def test_force_garbage_collect_tasks
 	t1 = Class.new(Task) do
-	    def stop(context); end
-	    event :stop
+	    event(:stop) { |context| }
 	end.new
 	t2 = Task.new
 	t1.realized_by t2
