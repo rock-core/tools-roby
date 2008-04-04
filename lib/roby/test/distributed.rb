@@ -142,7 +142,9 @@ module Roby
 
 	    def setup_connection
 		assert(remote_neighbour = local.neighbours.find { true })
-		Peer.initiate_connection(local, remote_neighbour) do |@remote_peer| end
+		Peer.initiate_connection(local, remote_neighbour) do |remote_peer|
+                    @remote_peer = peer
+                end
 
 		while !remote_peer
 		    process_events
