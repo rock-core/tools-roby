@@ -1,3 +1,11 @@
+== 0.6
+  * is compatible only with Ruby 1.9
+  * Task#event only takes :command and the block to define a controllable
+    event. Don't search for a method with the same name anymore.
+  * for 1.9, a block defined as { } is a block with arity zero. Therefore,
+    all blocks given to Task#event, Task.event and the various #on methods
+    must have an argument defined.
+
 == 0.4
 
 == 0.3
