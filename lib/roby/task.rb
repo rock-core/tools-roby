@@ -1122,6 +1122,10 @@ module Roby
         # all events given in argument will be called. If they are controlable,
         # then the command is called. If not, they are just fired
         def self.on(mappings, &user_handler)
+            if user_handler
+                check_arity(user_handler, 1)
+            end
+
             mappings = [*mappings].zip([]) unless Hash === mappings
             mappings.each do |from, to|
                 from = event_model(from).symbol
