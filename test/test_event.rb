@@ -544,7 +544,7 @@ class TC_Event < Test::Unit::TestCase
     def test_event_creation
 	# Test for validation of the return value of #event
 	generator = Class.new(EventGenerator) do
-	    def new(context); [Propagation.propagation_id, context] end
+	    def new(context); [Roby::Propagation.propagation_id, context] end
 	end.new(true)
 	plan.discover(generator)
 
@@ -553,7 +553,7 @@ class TC_Event < Test::Unit::TestCase
 	generator = Class.new(EventGenerator) do
 	    def new(context); 
 		event_klass = Struct.new :propagation_id, :context, :generator, :sources
-		event_klass.new(Propagation.propagation_id, context, self)
+		event_klass.new(Roby::Propagation.propagation_id, context, self)
 	    end
 	end.new(true)
 	plan.discover(generator)
