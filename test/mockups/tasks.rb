@@ -3,7 +3,7 @@ require 'roby/task'
 # We define here a set of tasks needed by unit testing
 if !defined?(ChoiceTask)
     class ChoiceTask < Roby::Task
-        def start(context)
+        event :start do |context|
             emit :start, context
             if rand > 0.5
                 emit :b
@@ -11,7 +11,6 @@ if !defined?(ChoiceTask)
                 emit :a
             end
         end
-        event :start
 
         event :a
 	forward :a => :success

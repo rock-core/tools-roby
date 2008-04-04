@@ -87,23 +87,6 @@ class TC_Task < Test::Unit::TestCase
 
     end
 
-    # Tests that an event is controlable if there is a method with the same
-    # name in the task model
-    def test_command_method
-	FlexMock.use do |mock|
-	    model = Class.new(SimpleTask) do
-		define_method(:start) do |context|
-		    mock.start(self, context)
-		    emit :start
-		end
-		event(:start)
-	    end
-	    plan.discover(task = model.new)
-	    mock.should_receive(:start).once.with(task, [42])
-	    task.start!(42)
-	end
-    end
-
     # Test the behaviour of Task#on, and event propagation inside a task
     def test_instance_on
 	plan.discover(t1 = SimpleTask.new)

@@ -936,8 +936,6 @@ module Roby
 		if block
 		    define_method("event_command_#{ev_s}", &block)
 		    method = instance_method("event_command_#{ev_s}")
-		elsif method_defined?(ev_s)
-		    method = instance_method(ev)
 		end
 
 		if method
