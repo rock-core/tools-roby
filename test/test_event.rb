@@ -209,7 +209,7 @@ class TC_Event < Test::Unit::TestCase
 	plan.discover([wait_for, event])
 	event.singleton_class.class_eval do
 	    define_method(:calling) do |context|
-		super if defined? super
+		super(context) if defined? super
 		unless wait_for.happened?
 		    postpone(wait_for, "bla") {}
 		end
@@ -231,7 +231,7 @@ class TC_Event < Test::Unit::TestCase
 	    plan.discover([wait_for, event])
 	    event.singleton_class.class_eval do
 		define_method(:calling) do |context|
-		    super if defined? super
+		    super(context) if defined? super
 		    if !wait_for.happened?
 			postpone(wait_for, "bla") do
 			    wait_for.call(nil)
