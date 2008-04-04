@@ -571,8 +571,8 @@ module Roby
 
 		setup_poll_method(block)
 
-		on(:start) { Control.event_processing << method(:poll) }
-		on(:stop)  { Control.event_processing.delete(method(:poll)) }
+		on(:start) { |ev| Control.event_processing << method(:poll) }
+		on(:stop)  { |ev| Control.event_processing.delete(method(:poll)) }
 	    end
 	end
 

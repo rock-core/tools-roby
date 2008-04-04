@@ -112,7 +112,7 @@ class TC_Task < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    t1, t2 = prepare_plan :discover => 2, :model => SimpleTask
 	    t1.on(:start, t2)
-	    t2.on(:start) { mock.start }
+	    t2.on(:start) { |ev| mock.start }
 
 	    mock.should_receive(:start).once
 	    t1.start!
@@ -123,8 +123,8 @@ class TC_Task < Test::Unit::TestCase
 	    t2.start!
 
 	    t1.on(:start, t2, :stop)
-	    t2.on(:start) { mock.start }
-	    t2.on(:stop)  { mock.stop }
+	    t2.on(:start) { |ev| mock.start }
+	    t2.on(:stop)  { |ev| mock.stop }
 
 	    mock.should_receive(:start).never
 	    mock.should_receive(:stop).once
@@ -154,7 +154,7 @@ class TC_Task < Test::Unit::TestCase
         assert_raises(ArgumentError) { model.on(:start) { |a, b| } }
 
 	FlexMock.use do |mock|
-	    model.on :start do
+	    model.on :start do |ev|
 		mock.start_called(self)
 	    end
 	    plan.discover(task = model.new)
@@ -173,7 +173,7 @@ class TC_Task < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    t1, t2 = prepare_plan :missions => 2, :model => SimpleTask
 	    t1.forward(:start, t2)
-	    t2.on(:start) { mock.start }
+	    t2.on(:start) { |context| mock.start }
 
 	    mock.should_receive(:start).once
 	    t1.start!
@@ -184,8 +184,8 @@ class TC_Task < Test::Unit::TestCase
 	    t2.start!
 
 	    t1.forward(:start, t2, :stop)
-	    t2.on(:start) { mock.start }
-	    t2.on(:stop) { mock.stop }
+	    t2.on(:start) { |ev| mock.start }
+	    t2.on(:stop) { |ev| mock.stop }
 
 	    mock.should_receive(:start).never
 	    mock.should_receive(:stop).once
@@ -576,7 +576,7 @@ class TC_Task < Test::Unit::TestCase
 	plan.insert(a)
 	FlexMock.use do |mock|
 	    [:start, :success, :stop].each do |name|
-		a.on(name) { mock.send(name) }
+		a.on(name) { |ev| mock.send(name) }
 		mock.should_receive(name).once.ordered
 	    end
 	    a.start!

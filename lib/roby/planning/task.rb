@@ -134,7 +134,7 @@ module Roby
         event :stop do |context|
 	    planner.stop
 	end
-	on :stop do
+	on :stop do |ev|
 	    @transaction = nil
 	    @planner = nil
 	    @thread = nil
