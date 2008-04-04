@@ -11,7 +11,7 @@ module Roby::TaskStructure
 	end
     end
 
-    relation :ErrorHandling, :child_name => :error_handler do
+    module ErrorHandlingSupport
 	def failed_task
 	    each_parent_object(ErrorHandling) do |task|
 		return task
@@ -19,5 +19,7 @@ module Roby::TaskStructure
 	    nil
 	end
     end
+
+    relation :ErrorHandling, :child_name => :error_handler
 end
 

@@ -463,7 +463,12 @@ module Roby
 			:distribute => true,
 			:dag => true,
 			:single_child => false,
-			:weak => false
+			:weak => false,
+                        :methods => nil
+
+            if block_given?
+                raise ArgumentError, "due to a bug in Ruby 1.9, the block form is no more supported"
+            end
 
 	    # Check if this relation is already defined. If it is the case, reuse it.
 	    # This is needed mostly by the reloading code
@@ -473,13 +478,18 @@ module Roby
 
 	    else
 		graph = options[:graph].new "#{self.name}::#{options[:const_name]}", options
-		mod = Module.new
+                unless mod = options[:methods]
+                    mod = if const_defined?("#{options[:const_name]}Support", false)
+                              const_get("#{options[:const_name]}Support")
+                          else
+                              Module.new
+                          end
+                end
+
                 mod.class_variable_set "@@__r_#{relation_name}__", graph
 		const_set(options[:const_name], graph)
 		relations << graph
 	    end
-
-	    mod.class_exec(&block) if block_given?
 
 	    if parent_enumerator = options[:parent_name]
 		mod.class_eval <<-EOD

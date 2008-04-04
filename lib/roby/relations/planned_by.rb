@@ -1,9 +1,7 @@
 require 'roby/task'
 
 module Roby::TaskStructure
-    relation :PlannedBy, :child_name => :planning_task, 
-	:parent_name => :planned_task, :noinfo => true, :single_child => true do
-
+    module PlannedBySupport
 	# The set of tasks which are planned by this one
 	def planned_tasks; parent_objects(PlannedBy) end
 	# Set +task+ as the planning task of +self+
@@ -18,6 +16,9 @@ module Roby::TaskStructure
 	    add_planning_task(task)
         end
     end
+
+    relation :PlannedBy, :child_name => :planning_task, 
+	:parent_name => :planned_task, :noinfo => true, :single_child => true
 
     # Returns a set of PlanningFailedError exceptions for all abstract tasks
     # for which planning has failed

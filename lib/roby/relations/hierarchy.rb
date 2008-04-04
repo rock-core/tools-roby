@@ -3,8 +3,7 @@ require 'roby/control'
 require 'set'
 
 module Roby::TaskStructure
-    # Document-module: Hierarchy
-    relation :Hierarchy, :child_name => :child, :parent_name => :parent_task do
+    module HierarchySupport
 	# True if +obj+ is a parent of this object in the hierarchy relation
 	# (+obj+ is realized by +self+)
 	def realizes?(obj);	parent_object?(obj, Hierarchy) end
@@ -128,6 +127,9 @@ module Roby::TaskStructure
 	    end
 	end
     end
+
+    # Document-module: Hierarchy
+    relation :Hierarchy, :child_name => :child, :parent_name => :parent_task
 
     # Checks the structure of +plan+ w.r.t. the constraints of the hierarchy
     # relations. It returns an array of ChildFailedError for all failed

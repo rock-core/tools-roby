@@ -2,32 +2,28 @@
 module Roby
     module TaskStructure
 	Roby::Task.inherited_enumerable(:conflicting_model, :conflicting_models) { ValueSet.new }
-	module ModelConflicts
-	    def conflicts_with(model)
-		conflicting_models << model
-		model.conflicting_models << self
-	    end
 
-	    def conflicts_with?(model)
-		each_conflicting_model do |m|
-		    return true if m == model
-		end
-		false
-	    end
-	end
-	Roby::Task.extend ModelConflicts
+        module ConflictsMethods
+            module ClassExtension
+                def conflicts_with(model)
+                    conflicting_models << model
+                    model.conflicting_models << self
+                end
 
-	relation :Conflicts, :noinfo => true do
+                def conflicts_with?(model)
+                    each_conflicting_model do |m|
+                        return true if m == model
+                    end
+                    false
+                end
+            end
+
 	    def conflicts_with(task)
 		task.event(:stop).add_precedence event(:start)
 		add_conflicts(task)
 	    end
-
-	    def self.included(klass) # :nodoc:
-		klass.extend ModelConflicts
-		super
-	    end
-	end
+        end
+	relation :Conflicts, :noinfo => true
     end
 
     module ConflictEventHandling

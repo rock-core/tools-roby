@@ -5,22 +5,26 @@ require 'flexmock'
 class TC_Relations < Test::Unit::TestCase
     include Roby::Test
 
-    def test_definition
-	klass = Class.new
+    class TestRelationVertex; end
+    TestRelationSpace = Roby::RelationSpace(TestRelationVertex)
 
+    module TestRelationSpace
+        module R1Support
+            def specific_relation_method; end
+        end
+    end
+
+
+    def test_definition
 	r1, r2 = nil
-	space = Roby::RelationSpace(klass) do
-	    r1 = relation :R1 do
-                def specific_relation_method; end
-            end
-	    r2 = relation :R2s, :child_name => :child, :parent_name => :parent
-	end
-	assert(Module === space)
+	assert_kind_of(Module, TestRelationSpace)
+        r1 = TestRelationSpace.relation :R1
+        r2 = TestRelationSpace.relation :R2s, :child_name => :child, :parent_name => :parent
 
         assert_equal(r1, r1.support.class_variable_get("@@__r_R1__"))
 
-	n = klass.new
-	assert_equal(r2, space.const_get('R2s'))
+	n = TestRelationVertex.new
+	assert_equal(r2, TestRelationSpace.const_get('R2s'))
 	assert( n.respond_to?(:each_child) )
 	assert( n.respond_to?(:add_child) )
 	assert( n.respond_to?(:remove_child) )
