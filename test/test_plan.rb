@@ -331,7 +331,10 @@ class TC_Plan < Test::Unit::TestCase
     include TC_PlanStatic
     include Roby::Test
 
-    def clear_finalized; @finalized_tasks_recorder.clear end
+    def clear_finalized
+        Roby::Log.flush
+        @finalized_tasks_recorder.clear
+    end
     def finalized_tasks; @finalized_tasks_recorder.tasks end
     def finalized_events; @finalized_tasks_recorder.events end
     class FinalizedTaskRecorder
@@ -368,7 +371,13 @@ class TC_Plan < Test::Unit::TestCase
 
 	assert_equal(unneeded.to_set, plan.unneeded_tasks.to_set)
 	plan.garbage_collect
-	process_events
+        process_events
+	plan.garbage_collect
+
+        # !!! We are actually relying on the logging queue for this to work.
+        # make sure it is empty before testing anything
+        Roby::Log.flush
+
 	assert_equal(finalized.to_set, (finalized_tasks.to_set | finalized_events.to_set))
 	assert(! finalized.any? { |t| plan.include?(t) })
     end
