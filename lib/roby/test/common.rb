@@ -244,11 +244,14 @@ module Roby
 		end
 	    end
 
-            if result.size == 1
-                result = result.first
-                if result.size == 1
-                    return result.first
+            result = result.map do |set|
+                if set.size == 1 then set.first
+                else set
                 end
+            end
+
+            if result.size == 1
+                return result.first
             end
             return *result
 	end
