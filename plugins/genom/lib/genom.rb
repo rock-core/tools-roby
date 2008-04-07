@@ -198,7 +198,8 @@ module Roby::Genom
     # Additionally, it defines a task_name!(*args) singleton method
     # to build a task instance more easily
     def self.define_task(mod, name, &block) # :nodoc:
-	klass = mod.define_under(name, &block)
+	klass = mod.define_or_reuse(name, &block)
+
 	method_name = name.underscore
 	mod.singleton_class.send(:define_method, method_name + '!') { |*args| klass.new(args) }
     end
@@ -501,7 +502,8 @@ module Roby::Genom
 
 	# Check for the presence of a module with the same name
 	modname = gen_mod.name.camelize
-	rb_mod = Roby::Genom.define_under(modname) { Module.new }
+        rb_mod = Roby::Genom.define_or_reuse(modname, Module.new)
+
 	if !rb_mod.is_a?(Module)
 	    raise "module #{modname} already defined, but it is not a Ruby module: #{rb_mod}"
 	elsif rb_mod.respond_to?(:genom_module)

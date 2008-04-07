@@ -25,9 +25,7 @@ module Roby
 	def initialize(&block)
 	    super do
 		inherited_enumerable("argument_set", "argument_set") { ValueSet.new }
-		unless const_defined? :ClassExtension
-		    const_set(:ClassExtension, Module.new)
-		end
+                define_or_reuse(:ClassExtension, Module.new)
 
 		self::ClassExtension.include TaskModelTag::ClassExtension
 	    end

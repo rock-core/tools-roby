@@ -74,7 +74,7 @@ module Roby::Genom
 
 		    ::MainPlanner.class_eval do
 			planning_modules = g.used_modules.values.
-			    map { |mod| mod::Planning if mod.const_defined?(:Planning) }.
+			    map { |mod| mod::Planning if mod.const_defined?(:Planning, false) }.
 			    compact
 
 			using(*planning_modules)

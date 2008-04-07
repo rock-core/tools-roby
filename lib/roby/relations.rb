@@ -472,24 +472,18 @@ module Roby
 
 	    # Check if this relation is already defined. If it is the case, reuse it.
 	    # This is needed mostly by the reloading code
-	    if const_defined?(options[:const_name], false)
-		graph = const_get(options[:const_name])
-		mod   = graph.support
-
-	    else
+            graph = define_or_reuse(options[:const_name]) do
 		graph = options[:graph].new "#{self.name}::#{options[:const_name]}", options
                 unless mod = options[:methods]
-                    mod = if const_defined?("#{options[:const_name]}Support", false)
-                              const_get("#{options[:const_name]}Support")
-                          else
-                              Module.new
-                          end
+                    mod = define_or_reuse("#{options[:const_name]}Support", Module.new)
                 end
+                graph.support = mod
 
                 mod.class_variable_set "@@__r_#{relation_name}__", graph
-		const_set(options[:const_name], graph)
 		relations << graph
+                graph
 	    end
+            mod = graph.support
 
 	    if parent_enumerator = options[:parent_name]
 		mod.class_eval <<-EOD

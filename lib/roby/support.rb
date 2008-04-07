@@ -9,6 +9,7 @@ require 'facets/module/dirname'
 require 'utilrb/enumerable'
 require 'utilrb/time/to_hms'
 require 'utilrb/module/cached_enum'
+require 'utilrb/module/define_or_reuse'
 require 'utilrb/logger'
 require 'utilrb/gc/force'
 require 'utilrb/hash/to_sym_keys'
@@ -42,23 +43,6 @@ module Enumerable
 	    return false
 	end
 	true
-    end
-end
-
-class Module
-    # Defines a new constant under a given module
-    # :call-seq
-    #   define_under(name, value)   ->              value
-    #   define_under(name) { ... }  ->              value
-    #
-    # In the first form, the method gets its value from its argument. 
-    # In the second case, it calls the provided block
-    def define_under(name, value = nil)
-	if old = constants.find { |cn| cn == name.to_s }
-	    return const_get(old)
-	else
-            const_set(name, (value || yield))
-        end
     end
 end
 
