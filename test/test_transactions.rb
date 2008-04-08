@@ -521,8 +521,8 @@ class TC_Transactions < Test::Unit::TestCase
 
 	FlexMock.use do |mock|
 	    transaction_commit(plan, e) do |trsc, pe|
-		pe.on { mock.handler_called }
-		pe.on { pe.called_by_handler(mock) }
+		pe.on { |ev| mock.handler_called }
+		pe.on { |ev| pe.called_by_handler(mock) }
 	    end
 
 	    mock.should_receive(:handler_called).once

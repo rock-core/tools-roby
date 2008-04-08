@@ -27,8 +27,8 @@ class TC_Control < Test::Unit::TestCase
         plan.insert(start_node = EmptyTask.new)
         next_event = [ start_node, :start ]
         plan.insert(if_node    = ChoiceTask.new)
-        start_node.on(:stop) { next_event = [if_node, :start] }
-	if_node.on(:stop) {  }
+        start_node.on(:stop) { |ev| next_event = [if_node, :start] }
+	if_node.on(:stop) { |ev|  }
             
         Control.event_processing << lambda do 
             next unless next_event
