@@ -9,6 +9,8 @@ class TC_PlanningTask < Test::Unit::TestCase
     include Roby::Planning
     include Roby::Test
 
+    SimpleTask = Roby::Test::SimpleTask
+
     def planning_task_result(planning_task)
         assert(planning_task)
 	plan.permanent(planning_task)
@@ -38,7 +40,7 @@ class TC_PlanningTask < Test::Unit::TestCase
 
 	planning_task.start!(42)
 	FlexMock.use do |mock|
-	    planning_task.on(:success) do
+	    planning_task.on(:success) do |ev|
 	        mock.planned_task(planning_task.planned_task)
 		planning_task.planned_task.start!
 	    end

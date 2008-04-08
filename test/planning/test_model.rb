@@ -9,6 +9,8 @@ class TC_Planner < Test::Unit::TestCase
     include Roby::Planning
     include Roby::Test
 
+    NullTask = Roby::NullTask
+
     def test_id_validation
 	assert_equal(15, Planner.validate_method_id("15"))
 	assert_equal('foo', Planner.validate_method_id(:foo))
@@ -398,7 +400,7 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal(2, planner.find_methods('test', :index => 10).size)
 
 	planner = Class.new(base) do
-	    filter(:test) { false }
+	    filter(:test) { |a, b| false }
 	end
 	assert(!planner.find_methods('test', :index => 10))
 	
@@ -419,7 +421,7 @@ class TC_Planner < Test::Unit::TestCase
 	end
 	
 	planner = Class.new(base) do
-	    filter(:test) { false }
+	    filter(:test) { |a, b| false }
 	end.new(plan)
 	assert_raises(Planning::NotFound) { planner.test }
     end

@@ -235,7 +235,7 @@ module Roby
         # Generates the first +lookahead+ patterns and start planning. The
         # patterns themselves are started when +loop_start+ is called the first
         # time.
-	event :start do
+	event :start do |context|
 	    if lookahead > 0
 		first_planning = nil
 		while patterns.size < lookahead

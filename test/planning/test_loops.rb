@@ -260,7 +260,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
 
 	FlexMock.use do |mock|
 	    mock.should_receive(:started).twice
-	    task_model.on(:start) { mock.started }
+	    task_model.on(:start) { |ev| mock.started }
 
 	    loop_planner.start!
             planners = loop_planner.patterns.reverse.map { |t, _| t }
