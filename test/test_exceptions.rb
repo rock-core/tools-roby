@@ -275,8 +275,8 @@ class TC_Exceptions < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    ev = EventGenerator.new(true)
 	    plan.discover(ev)
-	    ev.on { mock.handler ; raise RuntimeError }
-	    ev.on { mock.handler }
+	    ev.on { |ev| mock.handler ; raise RuntimeError }
+	    ev.on { |ev| mock.handler }
 	    mock.should_receive(:handler).twice
 	    assert_original_error(RuntimeError, EventHandlerError) { ev.call }
 	end
@@ -296,7 +296,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	FlexMock.use do |mock|
 	    parent = Class.new(Task) do
-		on_exception RuntimeError do
+		on_exception RuntimeError do |exception|
 		    mock.exception
 		    task.pass_exception
 		end

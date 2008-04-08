@@ -469,7 +469,7 @@ class TC_Plan < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    task_model = Class.new(Task) do
 		event :start, :command => true
-		event :stop do
+		event :stop do |ev|
 		    mock.stop(self)
 		end
 	    end

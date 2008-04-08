@@ -129,7 +129,7 @@ class TC_Propagation < Test::Unit::TestCase
 	b.forward(:stop, a, :child_stop)
 
 	FlexMock.use do |mock|
-	    a.on(:child_stop) { mock.stopped }
+	    a.on(:child_stop) { |ev| mock.stopped }
 	    mock.should_receive(:stopped).once.ordered
 	    a.start!
 	    b.start!
