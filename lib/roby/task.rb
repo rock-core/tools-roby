@@ -1295,6 +1295,7 @@ module Roby
 	# has been fired. The first matching handler is called. Call #pass
 	# to pass the exception to previous handlers
 	def self.on_exception(*matchers, &handler)
+            check_arity(handler, 1)
 	    id = (@@exception_handler_id += 1)
 	    define_method("exception_handler_#{id}", &handler)
 	    exception_handlers.unshift [matchers, instance_method("exception_handler_#{id}")]

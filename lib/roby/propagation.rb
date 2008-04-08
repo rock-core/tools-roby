@@ -548,7 +548,10 @@ module Roby
 	attr_reader :exception_handlers
 	def each_exception_handler(&iterator); exception_handlers.each(&iterator) end
 	# define_method(:each_exception_handler, &Roby::Propagation.exception_handlers.method(:each))
-	def on_exception(*matchers, &handler); exception_handlers.unshift [matchers, handler] end
+	def on_exception(*matchers, &handler)
+            check_arity(handler, 2)
+            exception_handlers.unshift [matchers, handler]
+        end
 	include ExceptionHandlingObject
     end
 end

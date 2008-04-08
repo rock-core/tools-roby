@@ -323,6 +323,34 @@ class TC_Exceptions < Test::Unit::TestCase
 	assert(task.event(:start).happened?)
     end
 
+    def test_exception_argument_count_validation
+        assert_raises(ArgumentError) do
+            Class.new(Task).on_exception(RuntimeError) do
+            end
+        end
+        assert_raises(ArgumentError) do |a, b|
+            Class.new(Task).on_exception(RuntimeError) do
+            end
+        end
+        assert_nothing_raised do
+            Class.new(Task).on_exception(RuntimeError) do |_|
+            end
+        end
+
+        assert_raises(ArgumentError) do
+            Roby.on_exception(RuntimeError) do
+            end
+        end
+        assert_raises(ArgumentError) do |a, b|
+            Roby.on_exception(RuntimeError) do |_|
+            end
+        end
+        assert_nothing_raised do
+            Roby.on_exception(RuntimeError) do |_, _|
+            end
+        end
+    end
+
     def test_exception_propagation_merging
 	FlexMock.use do |mock|
 	    t11 = Task.new(:id => '11')
