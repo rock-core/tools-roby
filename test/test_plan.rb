@@ -422,7 +422,7 @@ class TC_Plan < Test::Unit::TestCase
 	end
 	assert(t5.event(:stop).pending?)
 	assert_finalizes(plan, [t5, t4, p1, t6]) do
-	    t5.event(:stop).emit(nil)
+	    t5.emit(:stop)
 	end
     end
     

@@ -32,7 +32,6 @@ class TC_State < Test::Unit::TestCase
     end
 
     def test_to_hash
-
 	s = ExtendedStruct.new
 	s.a = 10
 	s.b.a = 10
