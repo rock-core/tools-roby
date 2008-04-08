@@ -382,10 +382,17 @@ class TC_Planner < Test::Unit::TestCase
 	    method(:test, :id => 2) { arguments[:mock].m(2) }
 	end
 
-	filter_block = lambda { true }
-	planner = Class.new(base) do
-	    filter(:test, &filter_block)
-	end
+        assert_raises(ArgumentError) { Class.new(base).filter(:test) { true } }
+        assert_raises(ArgumentError) { Class.new(base).filter(:test) { |a| true } }
+        assert_raises(ArgumentError) { Class.new(base).filter(:test) { |a, b, c| true } }
+
+	planner, filter_block = nil, lambda { |a, b| true }
+	assert_nothing_raised do
+            planner = Class.new(base) do
+                filter(:test, &filter_block)
+            end
+        end
+
 	assert(planner.respond_to?(:each_test_filter))
 	assert_equal([filter_block], planner.enum_for(:each_test_filter).to_a)
 	assert_equal(2, planner.find_methods('test', :index => 10).size)

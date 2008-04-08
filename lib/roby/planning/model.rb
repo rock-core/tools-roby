@@ -528,6 +528,8 @@ module Roby
 	    # instance to implement some kind of dependency injection), or for
 	    # testing
 	    def self.filter(name, &filter)
+                check_arity(filter, 2)
+
 		if !respond_to?("#{name}_filters")
 		    inherited_enumerable("#{name}_filter", "#{name}_filters") { Array.new }
 		    class_eval <<-EOD
