@@ -256,7 +256,8 @@ module Roby
 		# Setter
 		name = $1
 
-		value = *args
+		value = args.first
+
                 if stable?
                     raise NoMethodError, "#{self} is stable"
 		elsif @filters.has_key?(name) && !@filters[name].call(value)

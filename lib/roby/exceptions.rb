@@ -85,7 +85,8 @@ module Roby
 	    s_origin   = sibling.trace.shift
 	    origin     = origin || s_origin || topstack
 
-	    new_top    = *(Array[*topstack] | Array[*s_topstack])
+	    new_top    = (Array[*topstack] | Array[*s_topstack])
+            new_top = new_top.first if new_top.size == 1
 	    @trace = [origin] + (trace | sibling.trace) << new_top
 	end
 

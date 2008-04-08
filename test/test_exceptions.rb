@@ -206,7 +206,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    error = ExecutionException.new(LocalizedError.new(t2))
 	    assert(fatal = Propagation.propagate_exceptions([error]))
 	    assert_equal(1, fatal.size)
-	    e = *fatal
+	    e = fatal.first
 	    assert_equal(t2, e.origin)
 	    assert_equal([t3, t0], e.task)
 	end
