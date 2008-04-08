@@ -65,7 +65,7 @@ module Roby::TaskStructure
 			agent.forward(:stop, self, :aborted)
 		    end
 		else
-		    on(:start) do
+		    on(:start) do |ev|
 			# The event handler will be called even if the
 			# execution agent has been removed. Check that there is
 			# actually an execution agent 
@@ -77,7 +77,7 @@ module Roby::TaskStructure
 		    end
 		end
 
-		on(:stop) do 
+		on(:stop) do  |ev|
 		    if execution_agent
 			Roby::Distributed.update(self) do
 			    execution_agent.event(:stop).remove_forwarding event(:aborted)
@@ -121,7 +121,7 @@ module Roby::TaskStructure
 	if candidates.empty?
 	    begin
 		agent = agent_model.new
-		agent.on(:stop) do
+		agent.on(:stop) do |ev|
 		    agent.each_executed_task do |task|
 			if task.running?
 			    task.emit(:aborted, "execution agent #{self} failed") 

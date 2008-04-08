@@ -34,9 +34,9 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	task.executed_by(exec = ExecutionAgentModel.new)
 
 	FlexMock.use do |mock|
-	    exec.on(:start) { mock.agent_started }
-	    exec.on(:ready) { mock.agent_ready }
-	    task.on(:start) { mock.task_started }
+	    exec.on(:start) { |ev| mock.agent_started }
+	    exec.on(:ready) { |ev| mock.agent_ready }
+	    task.on(:start) { |ev| mock.task_started }
 
 	    mock.should_receive(:agent_started).once.ordered
 	    mock.should_receive(:agent_ready).once.ordered
@@ -55,7 +55,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	task.start!
 
 	FlexMock.use do |mock|
-	    task.on(:aborted) { mock.aborted }
+	    task.on(:aborted) { |ev| mock.aborted }
 	    mock.should_receive(:aborted).once
 	    exec.stop!
 	end
