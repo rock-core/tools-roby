@@ -178,7 +178,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t1, t2, t3 = prepare_plan :discover => 3
 	    t0 = Class.new(Task) do 
 		attr_accessor :handled_exception
-		on_exception(CodeError) do |exception|
+		on_exception(Roby::CodeError) do |exception|
 		    self.handled_exception = exception
 		    mock.handler(exception, exception.task, self)
 		end
@@ -221,7 +221,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    found_exception = nil
 	    t0 = Class.new(Task) do 
-		on_exception(LocalizedError) do |exception|
+		on_exception(Roby::LocalizedError) do |exception|
 		    found_exception = exception
 		    mock.handler(exception, exception.task.to_set, self)
 		end

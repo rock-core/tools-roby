@@ -61,7 +61,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	end
 
 	proxy_klass = Class.new(Roby::EventGenerator) do
-	    include Proxy
+	    include Roby::Transactions::Proxy
 
 	    proxy_for real_klass
 	    def clear_vertex; end
@@ -82,13 +82,13 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	base_klass = Class.new(Roby::EventGenerator)
 	derv_klass = Class.new(base_klass)
 	proxy_base_klass = Class.new(Roby::EventGenerator) do
-	    include Proxy
+	    include Roby::Transactions::Proxy
 	    proxy_for base_klass
 	    def clear_vertex; end
 	end
 
 	proxy_derv_klass = Class.new(Roby::EventGenerator) do
-	    include Proxy
+	    include Roby::Transactions::Proxy
 	    proxy_for derv_klass
 	    def clear_vertex; end
 	end
