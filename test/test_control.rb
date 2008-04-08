@@ -113,13 +113,12 @@ class TC_Control < Test::Unit::TestCase
 	t = nil
 	FlexMock.use do |mock|
 	    t = Class.new(SimpleTask) do
-		define_method(:start) do |context|
+		event :start do |context|
 		    mock.command_called
 		    raise SpecificException, "bla"
 		    emit :start
-		end
-		event :start
-		on(:start) { mock.handler_called }
+                end
+		on(:start) { |ev| mock.handler_called }
 	    end.new
 	    plan.insert(t)
 
