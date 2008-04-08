@@ -41,7 +41,7 @@ class TC_PlannedBy < Test::Unit::TestCase
 	assert_equal([], PlannedBy.check_planning(plan))
 	planner.failed!
 
-	error = *PlannedBy.check_planning(plan)
+	error = PlannedBy.check_planning(plan).first
 	assert_kind_of(Roby::PlanningFailedError, error)
 	assert_equal(planner, error.failed_task)
 	assert_equal(task, error.planned_task)
