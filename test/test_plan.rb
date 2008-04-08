@@ -388,11 +388,9 @@ class TC_Plan < Test::Unit::TestCase
 
 	    event(:start, :command => true)
 	    event(:stop) do |context|
-		if delays
-		    return
-		else
-		    emit(:stop)
-		end
+                if !delays
+                    emit(:stop)
+                end
             end
 	end
 
