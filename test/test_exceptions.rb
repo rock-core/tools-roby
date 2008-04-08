@@ -325,11 +325,11 @@ class TC_Exceptions < Test::Unit::TestCase
 
     def test_exception_argument_count_validation
         assert_raises(ArgumentError) do
-            Class.new(Task).on_exception(RuntimeError) do
+            Class.new(Task).on_exception(RuntimeError) do ||
             end
         end
-        assert_raises(ArgumentError) do |a, b|
-            Class.new(Task).on_exception(RuntimeError) do
+        assert_raises(ArgumentError) do
+            Class.new(Task).on_exception(RuntimeError) do |a, b|
             end
         end
         assert_nothing_raised do
@@ -338,7 +338,7 @@ class TC_Exceptions < Test::Unit::TestCase
         end
 
         assert_raises(ArgumentError) do
-            Roby.on_exception(RuntimeError) do
+            Roby.on_exception(RuntimeError) do ||
             end
         end
         assert_raises(ArgumentError) do |a, b|

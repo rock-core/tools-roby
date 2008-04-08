@@ -150,7 +150,7 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal(model.forwardings(:failed), model.enum_for(:each_forwarding, :failed).to_value_set)
 
         # Event handlers must accept exactly one argument
-        assert_raises(ArgumentError) { model.on(:start) { } }
+        assert_raises(ArgumentError) { model.on(:start) { || } }
         assert_raises(ArgumentError) { model.on(:start) { |a, b| } }
 
 	FlexMock.use do |mock|
