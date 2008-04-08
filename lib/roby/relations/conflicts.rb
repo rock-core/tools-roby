@@ -3,7 +3,7 @@ module Roby
     module TaskStructure
 	Roby::Task.inherited_enumerable(:conflicting_model, :conflicting_models) { ValueSet.new }
 
-        module ConflictsMethods
+        module ConflictsSupport
             module ClassExtension
                 def conflicts_with(model)
                     conflicting_models << model
