@@ -398,7 +398,6 @@ module Roby
 		# Replace proxies by forwarder objects
 		proxies.each do |object, proxy|
 		    forwarder = Proxy.forwarder(object)
-		    forwarder.freeze
 		    Kernel.swap! proxy, forwarder
 		end
 
