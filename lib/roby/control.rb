@@ -133,10 +133,10 @@ module Roby
 		    begin
 			return_value = yield
 			cv.broadcast
-			Control.waiting_threads.delete(caller_thread)
 		    rescue Exception => e
 			caller_thread.raise e
 		    end
+                    Control.waiting_threads.delete(caller_thread)
 		end
 		cv.wait(Roby::Control.mutex)
 	    end
