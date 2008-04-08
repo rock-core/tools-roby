@@ -24,7 +24,7 @@ module Roby
     # you will want YAML#y to *not* get in the way. The exceptions are the methods
     # listed in NOT_OVERRIDABLE
     #
-    class ExtendedStruct
+    class ExtendedStruct < BasicObject
 	include DRbUndumped
 
 	# +attach_to+ and +attach_name+
@@ -217,6 +217,11 @@ module Roby
 	# Returns true if this object has no member
 	def empty?; @members.empty? end
 
+        # has_method? will be used to know if a given method is already defined
+        # on the ExtendedStruct object, without taking into account the members
+        # and aliases.
+        alias :has_method? :respond_to?
+
         def respond_to?(name) # :nodoc:
             return true  if super
 
@@ -262,7 +267,7 @@ module Roby
                     raise NoMethodError, "#{self} is stable"
 		elsif @filters.has_key?(name) && !@filters[name].call(value)
 		    raise ArgumentError, "value #{value} is not valid for #{name}"
-		elsif !@members.has_key?(name) && !@aliases.has_key?(name) && respond_to?(name)
+		elsif has_method?(name)
 		    if NOT_OVERRIDABLE_RX =~ name
 			raise ArgumentError, "#{name} is already defined an cannot be overriden"
 		    end
