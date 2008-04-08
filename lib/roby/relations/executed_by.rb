@@ -131,7 +131,7 @@ module Roby::TaskStructure
 		    end
 		end
 	    rescue Exception => e
-		Roby.add_error(ExecutionAgentSpawningFailed.new(task, agent_model, e))
+		Roby::Propagation.add_error(ExecutionAgentSpawningFailed.new(task, agent_model, e))
 	    end
 	else
 	    running, pending = candidates.partition { |t| t.running? }
