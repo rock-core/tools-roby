@@ -871,5 +871,16 @@ class TC_Event < Test::Unit::TestCase
 	assert_equal(1, new.history.size)
     end
 
+    def test_event_after
+	plan.discover(e = EventGenerator.new(true))
+        e.call
+        sleep(0.5)
+        plan.discover(delayed = e.last.after(1))
+        delayed.poll
+        assert(!delayed.happened?)
+        sleep(0.5)
+        delayed.poll
+        assert(delayed.happened?)
+    end
 end
 

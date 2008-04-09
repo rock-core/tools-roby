@@ -31,6 +31,13 @@ module Roby
 	def name; model.name end
 	def model; self.class end
 	def inspect; "#<#{model.to_s}:0x#{address.to_s(16)} generator=#{generator} model=#{model}" end
+
+        # Returns an event generator which will be emitted once +time+ seconds
+        # after this event has been emitted.
+        def after(time)
+            State.at :time => (self.time + time)
+        end
+
 	def to_s
 	    "#{self.class.to_s}@#{propagation_id} [#{time.to_hms}]: #{context}"
 	end
