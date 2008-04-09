@@ -79,6 +79,137 @@ module Roby
 	    end
 	end
 
+        # This mixin defines the method inheritance validation method. This is
+        # then used by MethodDefinition and MethodModel
+        module MethodInheritance
+            # Checks that options in +options+ can be used to overload +self+.
+            # Updates options if needed
+            def validate(options)
+                if returns 
+                    if options[:returns] && !(options[:returns] <= returns)
+                        raise ArgumentError, "return task type #{options[:returns]} forbidden since it overloads #{returns}"
+                    else
+                        options[:returns] ||= returns
+                    end
+                end
+
+                if self.options.has_key?(:reuse)
+                    if options.has_key?(:reuse) && options[:reuse] != self.options[:reuse]
+                        raise ArgumentError, "the :reuse option is already set on the #{name} model"
+                    end
+                    options[:reuse] = self.options[:reuse]
+                else
+                    options[:reuse] = true unless options.has_key?(:reuse)
+                end
+
+                options
+            end
+        end
+
+        # An implementation of a planning method.
+        class MethodDefinition
+            include MethodInheritance
+
+            attr_reader :name, :options, :body
+            def initialize(name, options, body)
+                @name, @options, @body = name, options, body
+            end
+
+            # The method ID
+            def id;         options[:id] end
+            # If this method handles recursion
+            def recursive?; options[:recursive] end
+            # What kind of task this method returns
+            #
+            # If this is nil, the method may return a task array or a task
+            # aggregation
+            def returns;    options[:returns] end
+            # If the method allows reusing tasks already in the plan
+            # reuse? is always false if there is no return type defined
+            def reuse?; (!options.has_key?(:reuse) || options[:reuse]) if returns end
+            # Call the method definition
+            def call(planner); body.call(planner) end
+
+            def to_s; "#{name}:#{id}(#{options})" end
+        end
+
+        # The model of a planning method. This does not define an actual
+        # implementation of the method, only the model methods should abide to.
+        class MethodModel
+            include MethodInheritance
+
+            # The return type the method model defines
+            #
+            # If this is nil, methods of this model may return a task array
+            # or a task aggregation
+            def returns;    options[:returns] end
+            # If the model allows reusing tasks already in the plan
+            def reuse?; !options.has_key?(:reuse) || options[:reuse] end
+
+            # The model name
+            attr_reader :name
+            # The model options, as a Hash
+            attr_reader :options
+
+            def initialize(name, options = Hash.new); @name, @options = name, options end
+            def ==(model)
+                name == model.name && options == model.options
+            end
+
+            # :call-seq
+            #   merge(new_options)	    => self
+            #
+            # Add new options in this model. Raises ArgumentError if the
+            # new options cannot be merged because they are incompatible
+            # with the current model definition
+            def merge(new_options)
+                validate_options(new_options, [:returns, :reuse])
+                validate_option(new_options, :returns, false) do |rettype| 
+                    if options[:returns] && options[:returns] != rettype
+                        raise ArgumentError, "return type already specified for method #{name}"
+                    end
+                    options[:returns] = rettype
+                end
+                validate_option(new_options, :reuse, false) do |flag|
+                    if options.has_key?(:reuse) && options[:reuse] != flag
+                        raise ArgumentError, "the reuse flag is already set to #{options[:reuse]} on #{name}"
+                    end
+                    options[:reuse] = flag
+                    true
+                end
+
+                self
+            end
+
+            def overload(old_model)
+                if old_returns = old_model.returns
+                    if returns && !(returns < old_returns)
+                        raise ArgumentError, "new return type #{returns} is not a subclass of the old one #{old_returns}"
+                    elsif !returns
+                        options[:returns] = old_returns
+                    end
+                end
+                if options.has_key?(:reuse) && old_model.options.has_key?(:reuse) && options[:reuse] != old_model.reuse
+                    raise ArgumentError, "the reuse flag for #{name}h as already been set to #{options[:reuse]} on our parent model"
+                elsif !options.has_key?(:reuse) && old_model.options.has_key?(:reuse)
+                    options[:reuse] = old_model.reuse
+                end
+            end
+                    
+            # Do not allow changing this model anymore
+            def freeze
+                options.freeze
+                super
+            end
+
+            def initialize_copy(from) # :nodoc:
+                @name    = from.name.dup
+                @options = from.options.dup
+            end
+
+            def to_s; "#{name}(#{options})" end
+        end
+
 	# A planner searches a suitable development for a set of methods. 
 	# Methods are defined using Planner::method. You can then ask
 	# for a plan by sending your method name to the Planner object
@@ -107,133 +238,6 @@ module Roby
 		@plan	   = plan
                 @stack     = Array.new
 		@arguments = Array.new
-            end
-
-            module MethodInheritance
-                # Checks that options in +options+ can be used to overload +self+. Updates options if needed
-                def validate(options)
-                    if returns 
-                        if options[:returns] && !(options[:returns] <= returns)
-                            raise ArgumentError, "return task type #{options[:returns]} forbidden since it overloads #{returns}"
-                        else
-                            options[:returns] ||= returns
-                        end
-                    end
-
-		    if self.options.has_key?(:reuse)
-			if options.has_key?(:reuse) && options[:reuse] != self.options[:reuse]
-			    raise ArgumentError, "the :reuse option is already set on the #{name} model"
-			end
-			options[:reuse] = self.options[:reuse]
-		    else
-			options[:reuse] = true unless options.has_key?(:reuse)
-		    end
-
-                    options
-                end
-            end
-
-	    # A particular method
-            class MethodDefinition
-                include MethodInheritance
-
-                attr_reader :name, :options, :body
-                def initialize(name, options, body)
-                    @name, @options, @body = name, options, body
-                end
-
-		# The method ID
-                def id;         options[:id] end
-		# If this method handles recursion
-                def recursive?; options[:recursive] end
-		# What kind of task this method returns
-		#
-		# If this is nil, the method may return a task array or a task
-		# aggregation
-                def returns;    options[:returns] end
-		# If the method allows reusing tasks already in the plan
-		# reuse? is always false if there is no return type defined
-		def reuse?; (!options.has_key?(:reuse) || options[:reuse]) if returns end
-		# Call the method definition
-                def call(planner); body.call(planner) end
-
-                def to_s; "#{name}:#{id}(#{options})" end
-            end
-
-	    # A method model
-            class MethodModel
-                include MethodInheritance
-
-		# The return type the method model defines
-		#
-		# If this is nil, methods of this model may return a task array
-		# or a task aggregation
-                def returns;    options[:returns] end
-		# If the model allows reusing tasks already in the plan
-		def reuse?; !options.has_key?(:reuse) || options[:reuse] end
-
-		# The model name
-                attr_reader :name
-		# The model options, as a Hash
-		attr_reader :options
-
-                def initialize(name, options = Hash.new); @name, @options = name, options end
-		def ==(model)
-		    name == model.name && options == model.options
-		end
-
-		# :call-seq
-		#   merge(new_options)	    => self
-		#
-		# Add new options in this model. Raises ArgumentError if the
-		# new options cannot be merged because they are incompatible
-		# with the current model definition
-                def merge(new_options)
-                    validate_options(new_options, [:returns, :reuse])
-                    validate_option(new_options, :returns, false) do |rettype| 
-                        if options[:returns] && options[:returns] != rettype
-			    raise ArgumentError, "return type already specified for method #{name}"
-                        end
-                        options[:returns] = rettype
-		    end
-		    validate_option(new_options, :reuse, false) do |flag|
-                        if options.has_key?(:reuse) && options[:reuse] != flag
-			    raise ArgumentError, "the reuse flag is already set to #{options[:reuse]} on #{name}"
-                        end
-                        options[:reuse] = flag
-			true
-		    end
-
-		    self
-                end
-
-		def overload(old_model)
-		    if old_returns = old_model.returns
-			if returns && !(returns < old_returns)
-			    raise ArgumentError, "new return type #{returns} is not a subclass of the old one #{old_returns}"
-			elsif !returns
-			    options[:returns] = old_returns
-			end
-		    end
-		    if options.has_key?(:reuse) && old_model.options.has_key?(:reuse) && options[:reuse] != old_model.reuse
-			raise ArgumentError, "the reuse flag for #{name}h as already been set to #{options[:reuse]} on our parent model"
-		    elsif !options.has_key?(:reuse) && old_model.options.has_key?(:reuse)
-			options[:reuse] = old_model.reuse
-		    end
-		end
-                        
-		# Do not allow changing this model anymore
-                def freeze
-                    options.freeze
-                    super
-                end
-
-                def initialize_copy(from) # :nodoc:
-                    @name    = from.name.dup
-                    @options = from.options.dup
-                end
-
-                def to_s; "#{name}(#{options})" end
             end
 
 	    # A list of options on which the methods are selected
