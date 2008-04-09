@@ -633,9 +633,16 @@ module Roby
 		    :method_options => method_options
 	    end
 
+            def stop; @stop_required = true end
+            def interruption_point; raise Interrupt if @stop_required end
 
             # Find a suitable development for the +name+ method.
             def plan_method(name, options = Hash.new)
+                if @stack.empty?
+                    @stop_required = false
+                end
+                interruption_point
+
                 name    = name.to_s
 
 		planning_options, method_options = 
@@ -684,6 +691,9 @@ module Roby
 		# Call the methods
 		call_planning_methods(Hash.new, options, *methods)
 
+            rescue Interrupt
+                raise
+
             rescue NotFound => e
                 e.method_name       = name
                 e.method_options    = options
@@ -720,7 +730,7 @@ module Roby
 		    Planning.debug { "calling #{method.name}:#{method.id} with arguments #{arguments}" }
 		    begin
 			result = method.call(self)
-		    rescue PlanModelError
+		    rescue PlanModelError, Interrupt
 			raise
 		    rescue Exception => e
 			raise PlanModelError.new(self), e.message, e.backtrace

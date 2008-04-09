@@ -586,6 +586,34 @@ class TC_Planner < Test::Unit::TestCase
 	assert(first_task = main_task.children.find { |t| t.planning_task.running? })
     end
 
+    def test_planning_interruption
+        started, normal_finish = nil
+        planner = Class.new(Planning::Planner) do
+            method(:interruptible) do
+                started = true
+                10.times do
+                    sleep 0.1
+                    interruption_point
+                end
+                normal_finish = true
+            end
+        end
+
+	planning_task = PlanningTask.new(:planner_model => planner, :method_name => :interruptible)
+	plan.permanent(planning_task)
+        planning_task.start!
+        loop { sleep 0.1 ; break if started }
+        planning_task.stop!
+        loop do
+            begin
+                process_events
+            rescue Interrupt
+            end
+            break unless planning_task.running?
+        end
+        assert(!normal_finish)
+    end
+
     def test_planning_loop_periodic
 	task_model = Class.new(SimpleTask)
 	planner_model = Class.new(Planning::Planner) do 

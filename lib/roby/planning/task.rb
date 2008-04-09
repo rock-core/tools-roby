@@ -343,8 +343,8 @@ module Roby
 	end
 
 	# Stops the planning thread
-        event :stop do 
-	    thread.kill 
+        event :stop do |context|
+	    planner.stop
 	end
 	on :stop do
 	    @transaction = nil
