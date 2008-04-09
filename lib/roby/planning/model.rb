@@ -483,7 +483,6 @@ module Roby
 		planning_methods_names.each do |name|
 		    remove_planning_method(name)
 		end
-		loop_definitions.clear
 	    end
 
 	    # Undefines all the definitions for the planning method +name+ on
@@ -768,10 +767,6 @@ module Roby
 
             private :call_planning_methods
 
-	    @@loop_definitions = Hash.new { |h, k| h[k] = [] }
-	    class << self
-		def loop_definitions; @@loop_definitions end
-	    end
 	    # Builds a loop in a plan (i.e. a method which is generated in
 	    # loop)
 	    def make_loop(options = {}, &block)
