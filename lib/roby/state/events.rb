@@ -27,17 +27,44 @@ module Roby
 		events.first
 	    end
 	end
+
+        def at(options)
+            options = validate_options options, :time => nil
+            if time = options[:time]
+                TimePointEvent.new(time)
+            end
+        end
     end
 
-    class DeltaEvent < EventGenerator
-	def self.poll
-	    for ev in Roby.plan.free_events
-		if ev.kind_of?(DeltaEvent)
-		    ev.poll
-		end
-	    end
-	end
+    def self.poll_state_events
+        for ev in Roby.plan.free_events
+            if ev.kind_of?(StateEvent)
+                ev.poll
+            end
+        end
+    end
+    Roby::Control.each_cycle(&Roby.method(:poll_state_events))
 
+    class StateEvent < EventGenerator; end
+
+    # This event emits itself when the specified time is reached
+    class TimePointEvent < StateEvent
+        # Time at which this event should emit himself
+        attr_reader :time
+
+        def initialize(time)
+            @time = time
+            super
+        end
+
+        def poll
+            if !happened? && Time.now >= time
+                emit
+            end
+        end
+    end
+
+    class DeltaEvent < StateEvent
 	@@event_types = Hash.new
 	def self.event_types; @@event_types end
 	def self.register_as(name)
@@ -78,7 +105,6 @@ module Roby
 	    end
 	end
     end
-    Roby::Control.each_cycle(&DeltaEvent.method(:poll))
 
     class TimeDeltaEvent < DeltaEvent
 	register_as :t
