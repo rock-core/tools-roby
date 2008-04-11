@@ -634,7 +634,7 @@ module Roby
 	    end
 
             def stop; @stop_required = true end
-            def interruption_point; raise Interrupt if @stop_required end
+            def interruption_point; raise Interrupt, "interrupted planner" if @stop_required end
 
             # Find a suitable development for the +name+ method.
             def plan_method(name, options = Hash.new)
