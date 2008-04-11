@@ -38,14 +38,22 @@ module Roby
 
     def self.poll_state_events
         for ev in Roby.plan.free_events
-            if ev.kind_of?(StateEvent)
+            if ev.kind_of?(StateEvent) && ev.enabled?
                 ev.poll
             end
         end
     end
     Roby::Control.each_cycle(&Roby.method(:poll_state_events))
 
-    class StateEvent < EventGenerator; end
+    class StateEvent < EventGenerator
+        def enabled?; !@disabled end
+        def disabled?; @disabled end
+        def enable(reset = true)
+            @disabled = false
+            self.reset if reset
+        end
+        def disable; @disabled = true end
+    end
 
     # This event emits itself when the specified time is reached
     class TimePointEvent < StateEvent
