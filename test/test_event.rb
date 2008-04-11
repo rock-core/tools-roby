@@ -818,6 +818,14 @@ class TC_Event < Test::Unit::TestCase
 	end
     end
 
+    def test_when_unreachable
+        plan.discover(ev = EventGenerator.new(true))
+        ev.when_unreachable.on { |ev| mock.unreachable_fired }
+        ev.call
+        plan.garbage_collect
+        assert(ev.happened?)
+    end
+
     def test_or_if_unreachable
 	plan.discover(e1 = EventGenerator.new(true))
 	plan.discover(e2 = EventGenerator.new(true))

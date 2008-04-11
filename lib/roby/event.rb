@@ -244,6 +244,26 @@ module Roby
 	    block.object_id
 	end
 
+        # Returns an event which will be emitted when this event becones
+        # unreachable
+        def when_unreachable
+            # NOTE: the unreachable event is not directly tied to this one from
+            # a GC point of view (being able to do this would be useful, but
+            # anyway). So, it is possible that it is GCed because the event
+            # user did not take care to use it.
+            if !@unreachable_event || !@unreachable_event.plan
+                result = EventGenerator.new(true)
+                if_unreachable(false) do
+                    if result.plan
+                        result.emit
+                    end
+                end
+                add_causal_link result
+                @unreachable_event = result
+            end
+            @unreachable_event
+        end
+
 	# Emit +generator+ when +self+ is fired, without calling the command of
 	# +generator+, if any. If +timespec+ is given it is a delay in seconds
 	# between the instant this event is fired and the instant +generator+
