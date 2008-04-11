@@ -8,5 +8,6 @@ module Roby
 end
 
 require 'roby/planning/task'
+require 'roby/planning/loops'
 require 'roby/planning/model'
 
