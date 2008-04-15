@@ -1,5 +1,32 @@
-require 'rake/rdoctask'
+#require 'rake/rdoctask'
 require 'enumerator'
+require 'hoe'
+require 'roby/dist'
+
+begin
+    require 'hoe'
+    Hoe.new('roby', Roby::VERSION) do |p|
+        p.developer 'Sylvain Joyeux', 'sylvain.joyeux@m4x.org'
+
+        p.summary = 'A robotic control framework'
+        p.description = p.paragraphs_of('README.txt', 2..3).join("\n\n")
+        p.url         = p.paragraphs_of('README.txt', 0).first.split(/\n/)[1..-1]
+        p.changes     = p.paragraphs_of('History.txt', 0..1).join("\n\n")
+
+        p.extra_deps << 'facets >= 2.0' << 'activesupport' << 'utilrb >= 1.1'
+        p.rdoc_pattern = /(^ext\/.*cc$|^lib)|^\w+\.txt$/
+#  rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
+#  rdoc.rdoc_dir = 'html'
+#  rdoc.title    = "Roby Core"
+#  rdoc.options << '-T' << 'hefss'
+#  rdoc.options << '--main' << 'README'
+#  rdoc.rdoc_files.include('README', 'TODO')
+#  rdoc.rdoc_files.include('lib/**/*.rb', 'doc/**/*.rdoc', 'ext/**/*.cc')
+#  rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
+    end
+rescue LoadError
+    puts "cannot load the Hoe gem, distribution is disabled"
+end
 
 def build_extension(name, soname = name)
     Dir.chdir("ext/#{name}") do
@@ -20,7 +47,14 @@ def clean_extension(name, soname = name)
 end
 
 task :cruise => [:setup, :recore_docs, :test]
+
+#########
+# Test-related targets
+
+desc 'run all tests'
 task :test => :test_core
+
+desc 'run tests only on the Core'
 task :test_core => :setup do
     if !system("testrb test/suite_core.rb")
 	puts "failed core suite"
@@ -32,28 +66,20 @@ task :test_core => :setup do
     end
 end
 
+desc 'generate and build all the necessary files'
 task :setup => :uic do
     build_extension 'droby'
     build_extension 'graph', 'bgl'
 end
 
+desc 'remove all generated files'
 task :clean do
     clean_extension 'droby'
     clean_extension 'graph', 'bgl'
 end
 
-Rake::RDocTask.new("core_docs") do |rdoc|
-  rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
-  rdoc.rdoc_dir = 'html'
-  rdoc.title    = "Roby Core"
-  rdoc.options << '-T' << 'hefss'
-  rdoc.options << '--main' << 'README'
-  rdoc.rdoc_files.include('README', 'TODO')
-  rdoc.rdoc_files.include('lib/**/*.rb', 'doc/**/*.rdoc', 'ext/**/*.cc')
-  rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
-end
-
 UIFILES = %w{relations.ui relations_view.ui data_displays.ui replay_controls.ui basic_display.ui chronicle_view.ui}
+desc 'generate all Qt UI files using rbuic4'
 task :uic do
     UIFILES.each do |file|
 	file = 'lib/roby/log/gui/' + file

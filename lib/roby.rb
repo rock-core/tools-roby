@@ -1,3 +1,11 @@
+# The main namespace for the Roby library. The namespace is divided as follows:
+#
+# [Roby] core namespace for the Roby kernel
+# [Roby::Distributed] parts that are very specific to distributed plan management
+# [Roby::Planning] basic tools for plan generation
+# [Roby::Transactions] implementation of transactions
+# [Roby::EventStructure] event relations
+# [Roby::TaskStructure] task relations
 module Roby
     ROBY_LIB_DIR  = File.expand_path( File.join(File.dirname(__FILE__)) )
     ROBY_ROOT_DIR = File.expand_path( File.join(ROBY_LIB_DIR, '..') )

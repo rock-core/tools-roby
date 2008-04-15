@@ -97,9 +97,12 @@ module Roby
 
     # This module is to be included in all objects that are
     # able to handle exception. These objects should define
-    # #each_exception_handler { |matchers, handler| ... }
+    #   #each_exception_handler { |matchers, handler| ... }
+    #
+    # See Task::on_exception and Task#on_exception
     module ExceptionHandlingObject
-	# Passes the exception to the next matching exception handler
+        # To be used in exception handlers themselves. Passes the exception to
+        # the next matching exception handler
 	def pass_exception
 	    throw :next_exception_handler
 	end

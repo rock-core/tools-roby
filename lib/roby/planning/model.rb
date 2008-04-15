@@ -156,7 +156,7 @@ module Roby
                 name == model.name && options == model.options
             end
 
-            # :call-seq
+            # call-seq:
             #   merge(new_options)	    => self
             #
             # Add new options in this model. Raises ArgumentError if the

@@ -1,0 +1,4 @@
+== 0.7
+
+* First public release. This release is still not compatible with Ruby 1.9, as
+  too many bugs remain in 1.9.0
