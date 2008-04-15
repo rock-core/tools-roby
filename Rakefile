@@ -14,15 +14,7 @@ begin
         p.changes     = p.paragraphs_of('History.txt', 0..1).join("\n\n")
 
         p.extra_deps << 'facets >= 2.0' << 'activesupport' << 'utilrb >= 1.1'
-        p.rdoc_pattern = /(^ext\/.*cc$|^lib)|^\w+\.txt$/
-#  rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
-#  rdoc.rdoc_dir = 'html'
-#  rdoc.title    = "Roby Core"
-#  rdoc.options << '-T' << 'hefss'
-#  rdoc.options << '--main' << 'README'
-#  rdoc.rdoc_files.include('README', 'TODO')
-#  rdoc.rdoc_files.include('lib/**/*.rb', 'doc/**/*.rdoc', 'ext/**/*.cc')
-#  rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
+        p.rdoc_pattern = /^$/
     end
 rescue LoadError
     puts "cannot load the Hoe gem, distribution is disabled"
@@ -87,5 +79,34 @@ task :uic do
 	    STDERR.puts "Failed to generate #{file}"
 	end
     end
+end
+
+###########
+# Documentation generation
+#
+# This redefines Hoe's targets for documentation, as the documentation
+# generation is not flexible enough for us
+#
+# Plus, I don't like RDoc default template, and I much prefer allison's.
+
+allison_path = `allison --path`.chomp.chomp
+if allison_path.empty?
+    allison_path = nil
+end
+
+Rake::RDocTask.new("core_docs") do |rdoc|
+  rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
+  rdoc.rdoc_dir = 'doc/core'
+  rdoc.title    = "Roby Core"
+  if allison_path
+      rdoc.template = allison_path
+  else
+      puts "warning: allison template not available, will use hefss instead"
+      rdoc.template = 'hefss'
+  end
+  rdoc.options << '--main' << 'README.txt'
+  rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
+  rdoc.rdoc_files.include('lib/**/*.rb', 'ext/**/*.cc')
+  rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
 end
 

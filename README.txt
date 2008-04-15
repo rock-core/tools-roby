@@ -11,7 +11,7 @@ This work is licensed under the CeCiLL-B license, which is a free software
 license with the same spirit than the BSD license. See License.txt for details
 
 
-= What is Roby ?
+== What is Roby ?
 
 Roby is a plan manager: it allows to represent, execute and adapt a plan, which
 is a set of past, present and future activities of a robot along with the
@@ -31,10 +31,10 @@ Roby is:
 * (G)UI tools for interacting/controlling the living system.
 * all of that in a multi-robot context.
 
-== Related publications
+= Related publications
 
-= Installation
-== External dependencies
+== Installation
+= External dependencies
 * The Roby engine needs 
   * +utilrb+, which is available on RubyForge[http://utilrb.rubyforge.org] as a gem
   * +utilmm+, which is available on SourceForge
@@ -49,13 +49,13 @@ Roby is:
   1.4.9}[http://rubyforge.org/projects/korundum], SVG export requires QtRuby to
   be built with Qt >= 4.3
 
-== Installing the easy way
+= Installing the easy way
 
 Roby is available on RubyForge as a gem. After having installed the C++ dependencies (boost/graph and utilmm), you can simply install it with
 
   gem install roby
 
-== Installing from source
+= Installing from source
 
 First, install all the required dependencies. Then, get the sources either
 from a release tarball or the RubyForge git
