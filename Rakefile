@@ -14,6 +14,9 @@ begin
         p.changes     = p.paragraphs_of('History.txt', 0..1).join("\n\n")
 
         p.extra_deps << 'facets >= 2.0' << 'activesupport' << 'utilrb >= 1.1'
+        if p.respond_to? :need_rdoc=
+            p.need_rdoc = false
+        end
         p.rdoc_pattern = /^$/
     end
 rescue LoadError
