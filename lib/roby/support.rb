@@ -5,7 +5,6 @@ end
 
 require 'roby/graph'
 require 'facets/kernel/constant'
-require 'facets/module/dirname'
 require 'utilrb/enumerable'
 require 'utilrb/time/to_hms'
 require 'utilrb/module/cached_enum'

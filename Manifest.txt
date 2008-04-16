@@ -179,3 +179,9 @@ test/test_task.rb
 test/test_testcase.rb
 test/test_transactions.rb
 test/test_transactions_proxy.rb
+
+plugins/fault_injection/app.rb
+plugins/fault_injection/fault_injection.rb
+plugins/fault_injection/History.txt
+plugins/fault_injection/README.txt
+plugins/fault_injection/test/test_fault_injection.rb

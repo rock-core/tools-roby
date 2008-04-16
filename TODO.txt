@@ -127,6 +127,11 @@
   general check if the object has not been removed when A processes updates
   from B and have some ways to feedback B from A.
 
+* Better handling of errors during transactions, better management of new
+  peers, ... DecisionControl should really be the central component handling
+  all that. Moreover, defining management policies for distributed transactions
+  should also be defined.
+
 == UI
 * log snapshot: build a set of logging messages which represent the current
   state of the plan. Useful for display (it would allow to seek a lot faster)

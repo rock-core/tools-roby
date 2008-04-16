@@ -57,10 +57,14 @@ module Robot
 end
 
 module Roby
+    # An augmented DRbObject which allow to properly interface with remotely
+    # running plan objects.
     class RemoteObjectProxy < DRbObject
 	attr_accessor :remote_interface
 
-	def to_s; __method_missing__(:to_s) end
+	def to_s
+            __method_missing__(:to_s) 
+        end
 	def pretty_print(pp)
 	    pp.text to_s
 	end
@@ -89,11 +93,19 @@ module Roby
 	end
     end
 
+    # RemoteInterface objects are used as local representation of remote
+    # interface objects.  They offer a seamless interface to a remotely running
+    # Roby controller.
     class RemoteInterface
+        # Create a RemoteInterface object for the remote object represented by
+        # +interface+, where +interface+ is a DRbObject for a remote Interface
+        # object.
 	def initialize(interface)
 	    @interface = interface
 	end
 
+        # Returns a Query object which can be used to interactively query the
+        # running plan
 	def find_tasks(model = nil, args = nil)
 	    q = Query.new(self)
 	    if model
@@ -102,33 +114,37 @@ module Roby
 	    q
 	end
 
-	def query_result_set(query)
+        # Defined for remotes queries to work
+	def query_result_set(query) # :nodoc:
 	    @interface.remote_query_result_set(Distributed.format(query)).each do |t|
 		t.remote_interface = self
 	    end
 	end
-	def query_each(result_set)
+        # Defined for remotes queries to work
+	def query_each(result_set) # :nodoc:
 	    result_set.each do |t|
 		yield(t)
 	    end
 	end
-	def query_roots(result_set, relation)
+        # Defined for remotes queries to work
+	def query_roots(result_set, relation) # :nodoc:
 	    @interface.remote_query_roots(result_set, Distributed.format(relation)).each do |t|
 		t.remote_interface = self
 	    end
 	end
 
+        # Returns the DRbObject for the remote controller state object
 	def state
 	    remote_constant('State')
 	end
 
-	def instance_methods(include_super = false)
+	def instance_methods(include_super = false) # :nodoc:
 	    Interface.instance_methods(false).
 		actions.map { |name| "#{name}!" }
 	end
 	    
 
-	def method_missing(m, *args)
+	def method_missing(m, *args) # :nodoc:
 	    result = @interface.send(m, *args)
 	    if result.kind_of?(RemoteObjectProxy)
 		result.remote_interface = @interface
@@ -144,13 +160,18 @@ module Roby
     # main front object when accessing a Roby core remotely
     class Interface
 	module GatherExceptions
+            # The set of Interface objects that have been registered to us
 	    attribute(:interfaces) { Array.new }
+
+            # Register a new Interface object so that it gets feedback information
+            # from the running controller.
 	    def register_interface(iface)
 		Roby::Control.synchronize do
 		    interfaces << iface
 		end
 	    end 
 
+            # Pushes a exception message to all the already registered remote interfaces.
 	    def push_exception_message(name, error, tasks)
 		Roby::Control.synchronize do
 		    msg = "#{name}: #{error.exception.message}:\n"
@@ -165,19 +186,24 @@ module Roby
 		end
 	    end
 
+            # Pushes an exception information on all remote interfaces connected to us
 	    def handled_exception(error, task)
 		super if defined? super
 		push_exception_message("exception", error, [task])
 	    end
 
+            # Pushes an exception information on all remote interfaces connected to us
 	    def fatal_exception(error, tasks)
 		super if defined? super
 		push_exception_message("fatal exception", error, tasks)
 	    end
 	end
 
+        # The Roby::Control object this interface is working on
 	attr_reader :control
+        # The set of pending messages that are to be displayed on the remote interface
 	attr_reader :pending_messages
+        # Creates a local server for a remote interface, acting on +control+
 	def initialize(control)
 	    @control	      = control
 	    @pending_messages = Queue.new
@@ -186,7 +212,7 @@ module Roby
 	    Roby::Control.register_interface self
 	end
 
-	# Clear the current plan
+	# Clear the current plan: remove all running and permanent tasks.
 	def clear
 	    Roby.execute do
 		plan.missions.dup.each  { |t| plan.discard(t) }
@@ -199,6 +225,10 @@ module Roby
 	# The Roby plan
 	def plan; Roby.plan end
 
+        # Synchronously call +m+ on +tasks+ with the given arguments. This,
+        # along with the implementation of RemoteInterface#method_missing,
+        # ensures that no interactive operations are performed outside the
+        # control thread.
 	def call(task, m, *args)
 	    Roby.execute do
 		task.send(m, *args)
@@ -209,26 +239,33 @@ module Roby
 	    plan.find_tasks(model, args)
 	end
 
-	def remote_query_result_set(m_query)
+        # For using Query on Interface objects
+	def remote_query_result_set(m_query) # :nodoc:
 	    plan.query_result_set(m_query.to_query(plan)).
 		map { |t| RemoteObjectProxy.new(t) }
 	end
-	def remote_query_roots(result_set, m_relation)
+        # For using Query on Interface objects
+	def remote_query_roots(result_set, m_relation) # :nodoc:
 	    plan.query_roots(result_set, m_relation.proxy(nil)).
 		map { |t| RemoteObjectProxy.new(t) }
 	end
 
+        # Returns a DRbObject on the given named constant. Use this to get a
+        # remote interface to a given object, not taking into account its
+        # 'marshallability'
 	def remote_constant(name)
 	    DRbObject.new(name.to_s.constantize)
 	end
-	    
 
-	# Reload the Roby framework code. For now, it does not
+	# Reload the Roby framework code
+        #
+        # WARNING: does not work for now
 	def reload
 	    Roby.app.reload
 	    nil
 	end
 
+        # Displays the set of models as well as their superclasses
 	def models
 	    task_models = []
 	    Roby.execute do
@@ -242,6 +279,8 @@ module Roby
 	    end
 	end
 
+        # Displays the set of actions which are available through the planners
+        # registered on #control. See Control#planners
 	def actions
 	    control.planners.
 		map { |p| p.planning_methods_names.to_a }.
@@ -249,7 +288,8 @@ module Roby
 		sort
 	end
 
-	def task_set_to_s(task_set)
+        # Pretty-prints a set of tasks
+	def task_set_to_s(task_set) # :nodoc:
 	    if task_set.empty?
 		return "no tasks"
 	    end
@@ -268,18 +308,21 @@ module Roby
 	    "\n#{io.string}"
 	end
 
+        # Returns a string representing the set of running tasks
 	def running_tasks
 	    Roby.execute do
 		task_set_to_s(Roby.plan.find_tasks.running.to_a)
 	    end
 	end
 
+        # Returns a string representing the set of missions
 	def missions
 	    Roby.execute do
 		task_set_to_s(control.plan.missions)
 	    end
 	end
 
+        # Returns a string representing the set of tasks present in the plan
 	def tasks
 	    Roby.execute do 
 		task_set_to_s(Roby.plan.known_tasks)
@@ -291,6 +334,8 @@ module Roby
 	    result + actions.map { |n| "#{n}!" }
 	end
 
+        # Called every once in a while by RemoteInterface to read and clear the
+        # set of pending messages.
 	def poll_messages
 	    result = []
 	    while !pending_messages.empty?

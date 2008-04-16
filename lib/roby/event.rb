@@ -3,7 +3,12 @@ require 'roby/exceptions'
 require 'set'
 
 module Roby
+    # Event objects are the objects representing a particular emission in the
+    # event propagation process. They represent the common propagation
+    # information (time, generator, sources, ...) and provide some common
+    # functionalities related to propagation as well.
     class Event
+        # The generator which emitted this event
 	attr_reader :generator
 
 	def initialize(generator, propagation_id, context, time = Time.now)
@@ -461,34 +466,37 @@ module Roby
 	    self
 	end
 
-	# Sets up +obj+ and +self+ so that obj+ is used
-	# to execute the command of +self+. It is to be used in
-	# a command handler:
+        # Sets up +ev+ and +self+ to represent that the command of +self+ is to
+        # be achieved by the emission of +ev+. It is to be used in a command
+        # handler:
+        #
 	#   event :start do |context|
-	#	init = <create an initialization task>
-	#	event(:start).realize_with(task)
+	#	init = <create an initialization event>
+	#	event(:start).achieve_with(init)
 	#   end
-	#
-	# or 
-	#   event :start do |context|
-	#	init = <create an initialization task>
-	#	event(:start).realize_with(task)
-	#   end
-	def achieve_with(obj)
+        #
+        # If +ev+ becomes unreachable, an EmissionFailed exception will be
+        # raised. If a block is given, it is supposed to return the context of
+        # the event emitted by +self+, given the context of the event emitted
+        # by +ev+.
+        #
+        # From an event propagation point of view, it looks like:
+        # TODO: add a figure
+	def achieve_with(ev)
 	    stack = caller(1)
 	    if block_given?
-		obj.add_causal_link self
-		obj.once do |context|
+		ev.add_causal_link self
+		ev.once do |context|
 		    self.emit(yield(context))
 		end
 	    else
-		obj.forward_once self
+		ev.forward_once self
 	    end
 
-	    obj.if_unreachable(true) do |reason|
-		msg = "#{obj} is unreachable#{ " (#{reason})" if reason }, in #{stack.first}"
-		if obj.respond_to?(:task)
-		    msg << "\n  " << obj.task.history.map { |ev| "#{ev.time.to_hms} #{ev.symbol}: #{ev.context}" }.join("\n  ")
+	    ev.if_unreachable(true) do |reason|
+		msg = "#{ev} is unreachable#{ " (#{reason})" if reason }, in #{stack.first}"
+		if ev.respond_to?(:task)
+		    msg << "\n  " << ev.task.history.map { |ev| "#{ev.time.to_hms} #{ev.symbol}: #{ev.context}" }.join("\n  ")
 		end
 		emit_failed(UnreachableEvent.new(self, reason), msg)
 	    end
@@ -503,9 +511,10 @@ module Roby
 	# Last event to have been emitted by this generator
 	def last; history.last end
 
-	# Defines a precondition handler for this event. Precondition handlers
-	# are checked before calling the command. If the handler returns false,
-	# the calling is aborted by a PreconditionFailed exception
+        # Defines a precondition handler for this event. Precondition handlers
+        # are blocks which are called just before the event command is called.
+        # If the handler returns false, the calling is aborted by a
+        # PreconditionFailed exception
 	def precondition(reason = nil, &block)
 	    @preconditions << [reason, block]
 	end
@@ -785,9 +794,12 @@ module Roby
 	end
     end
 
-    # Event generator which fires when the first of its source events fires
-    # See EventGenerator#| for a more complete description
+    # Event generator which fires when the first of its source events fires.
+    # All event generators which signal this one are considered as sources.
+    #
+    # See also EventGenerator#| and #<<
     class OrGenerator < EventGenerator
+        # Creates a new OrGenerator without any sources.
 	def initialize
 	    super do |context|
 		emit_if_first(context)
@@ -795,8 +807,11 @@ module Roby
 	    @active = true
 	end
 
+        # True if there is no source event for this combinator.
 	def empty?; parent_objects(EventStructure::Signal).empty? end
 
+        # Reset its state, so as to behave as if no source has ever
+        # been emitted.
 	def reset
 	    @active = true
 	    each_parent_object(EventStructure::Signal) do |source|
@@ -830,9 +845,19 @@ module Roby
 	end
     end
 
-    # Event generator which fires only until a certain other event is reached.
-    # See EventGenerator#until for a more complete description
+    # This event generator combines a source and a limit in a temporal pattern.
+    # The generator acts as a pass-through for the source, until the limit is
+    # itself emitted. It means that:
+    #
+    # * before the limit is emitted, the generator will emit each time its
+    #  source emits 
+    # * since the point where the limit is emitted, the generator
+    #   does not emit anymore
+    #
+    # See also EventGenerator#until
     class UntilGenerator < Roby::EventGenerator
+        # Creates a until generator for the given source and limit event
+        # generators
 	def initialize(source = nil, limit = nil)
 	    super() do |context|
 		plan.remove_object(self) if plan 

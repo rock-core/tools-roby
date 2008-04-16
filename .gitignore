@@ -5,6 +5,10 @@ ext/*/mkmf.log
 lib/roby/*.so
 *_ui.rb
 
+doc/core
+doc/plugins
+doc/cache
+
 .*.swp
 
 plugins/genom/test/prefix.init

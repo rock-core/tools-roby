@@ -1,11 +1,15 @@
 require 'drb'
 
+# A thread-safe reference-counting class
 class RefCounting
     def initialize
 	@values = Hash.new(0)
 	@mutex  = Mutex.new
     end
+
+    # True if +obj+ is referenced
     def ref?(obj); @mutex.synchronize { @values[obj] > 0 } end
+    # Dereference +obj+ by one
     def deref(obj)
 	@mutex.synchronize do
 	    if (@values[obj] -= 1) == 0
@@ -15,16 +19,20 @@ class RefCounting
 	end
 	false
     end
+    # Add +1 to the reference count of +obj+
     def ref(obj)
 	@mutex.synchronize do
 	    @values[obj] += 1
 	end
     end
+    # Returns the set of referenced objects
     def referenced_objects
 	@mutex.synchronize do
 	    @values.keys
 	end
     end
+    # Remove +object+ from the set of referenced objects, regardless of its
+    # reference count
     def delete(object)
 	@mutex.synchronize do
 	    @values.delete(object)
@@ -33,7 +41,7 @@ class RefCounting
 end
 
 class Object
-    def initialize_copy(old)
+    def initialize_copy(old) # :nodoc:
 	super
 	@__droby_remote_id__ = nil
     end
@@ -45,7 +53,10 @@ class Object
 end
 
 class DRbObject
-    def to_s; inspect end
+    # We don't want this method to call the remote object.
+    def to_s
+        inspect 
+    end
     # Converts this DRbObject into Roby::Distributed::RemoteID
     def remote_id
 	@__droby_remote_id__ ||= Roby::Distributed::RemoteID.new(__drburi, __drbref)
@@ -175,7 +186,10 @@ module Roby
 	@keep = RefCounting.new
 	@removed_objects = ValueSet.new
 	class << self
+            # The one and only ConnectionSpace object
 	    attr_reader :state
+
+            # Sets the #state attribute for Roby::Distributed
 	    def state=(new_state)
 		if log = logger
 		    if new_state
@@ -187,6 +201,7 @@ module Roby
 		@state = new_state
 	    end
 
+            # True if this plan manager owns +object+
 	    def owns?(object); !state || state.owns?(object) end
 
 	    # The set of objects we should temporarily keep because they are used
@@ -284,6 +299,8 @@ module Roby
 		@updated_objects.delete(object) if included
 	    end
 
+            # Yields the relations of +object+ which are to be distributed
+            # among peers.
 	    def each_object_relation(object)
 		object.each_relation do |rel|
 		    yield(rel) if rel.distribute?
@@ -343,6 +360,7 @@ module Roby
 	    @pending_cycles = delayed_cycles
 	end
 
+        # Process once cycle worth of data from the given peer.
 	def self.process_cycle(peer, calls)
 	    from = Time.now
 	    calls_size = calls.size

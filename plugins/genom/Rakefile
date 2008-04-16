@@ -1,3 +1,14 @@
+require 'rake/rdoctask'
+require 'roby/app/rake'
+Rake::RDocTask.new("docs") do |rdoc|
+  rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
+  rdoc.rdoc_dir = "../../doc/plugins/genom"
+  rdoc.title    = "Genom plugin for Roby"
+  rdoc.template = Roby::Rake.rdoc_template
+  # rdoc.options << '--main' << 'README.txt'
+  # rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
+  rdoc.rdoc_files.include('lib/*', 'app.rb')
+end
 
 def add_to_path(pathvar, value)
     pathvalue = ENV[pathvar]
@@ -14,7 +25,6 @@ def add_prefix_pkgconfig(prefix)
         add_to_path('PKG_CONFIG_PATH', pkgconfig_dir)
     end
 end
-
 
 BASEDIR = File.expand_path(File.join(File.dirname(__FILE__), "test"))
 

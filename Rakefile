@@ -13,7 +13,7 @@ begin
         p.url         = p.paragraphs_of('README.txt', 0).first.split(/\n/)[1..-1]
         p.changes     = p.paragraphs_of('History.txt', 0..1).join("\n\n")
 
-        p.extra_deps << 'facets >= 2.0' << 'activesupport' << 'utilrb >= 1.1'
+        p.extra_deps << 'facets >= 2.0' << 'activesupport' << 'utilrb >= 1.2'
         if p.respond_to? :need_rdoc=
             p.need_rdoc = false
         end
@@ -89,27 +89,27 @@ end
 #
 # This redefines Hoe's targets for documentation, as the documentation
 # generation is not flexible enough for us
-#
-# Plus, I don't like RDoc default template, and I much prefer allison's.
-
-allison_path = `allison --path`.chomp.chomp
-if allison_path.empty?
-    allison_path = nil
-end
-
+require 'roby/app/rake'
 Rake::RDocTask.new("core_docs") do |rdoc|
   rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
   rdoc.rdoc_dir = 'doc/core'
   rdoc.title    = "Roby Core"
-  if allison_path
-      rdoc.template = allison_path
-  else
-      puts "warning: allison template not available, will use hefss instead"
-      rdoc.template = 'hefss'
-  end
+  rdoc.template = Roby::Rake.rdoc_template
   rdoc.options << '--main' << 'README.txt'
   rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
   rdoc.rdoc_files.include('lib/**/*.rb', 'ext/**/*.cc')
   rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
 end
+
+def plugins_documentation_generation(target_prefix)
+    task "plugins_#{target_prefix}docs" do
+        Roby::Rake.invoke_plugin_target("#{target_prefix}docs")
+    end
+end
+desc 'generate the documentation for all installed plugins'
+plugins_documentation_generation ''
+desc 'remove the documentation for all installed plugins'
+plugins_documentation_generation 'clobber_'
+desc 'regenerate the documentation for all installed plugins'
+plugins_documentation_generation 're'
 

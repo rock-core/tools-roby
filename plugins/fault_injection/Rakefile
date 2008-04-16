@@ -1,0 +1,13 @@
+require 'rake/rdoctask'
+
+require 'roby/app/rake'
+Rake::RDocTask.new("docs") do |rdoc|
+  rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
+  rdoc.rdoc_dir = "../../doc/plugins/fault_injection"
+  rdoc.title    = "Fault injection plugin for Roby"
+  rdoc.template = Roby::Rake.rdoc_template
+  rdoc.options << '--main' << 'README.txt'
+  rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
+  rdoc.rdoc_files.include('fault_injection.rb', 'app.rb')
+end
+
