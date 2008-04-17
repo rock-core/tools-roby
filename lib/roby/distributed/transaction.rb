@@ -5,6 +5,7 @@ require 'roby/distributed/proxy'
 module Roby
     module Distributed
 	class << self
+            # The block which is called when a new transaction has been proposed to us.
 	    attr_accessor :transaction_handler
 
 	    # Sets up the transaction handler. The given block will be called
@@ -15,13 +16,30 @@ module Roby
 	    end
 	end
 
+        # Raised when an operation needs the edition token, while the local
+        # plan manager does not have it.
 	class NotEditor < RuntimeError; end
+        # Raised when a commit is attempted while the transaction is not ready,
+        # i.e. the token should be passed once more in the edition ring.
 	class NotReady < RuntimeError; end
+
+        # An implementation of a transaction distributed over multiple plan
+        # managers.  The transaction modification protocol is based on an
+        # edition token, which is passed through all the transaction owners by
+        # #edit and #release.
+        #
+        # Most operations on this distributed transaction must be done outside
+        # the control thread, as they are blocking.
+        #
+        # See DistributedObject for a list of operations valid on distributed objects.
 	class Transaction < Roby::Transaction
 	    attr_reader :owners
 	    attr_reader :token_lock, :token_lock_signal
 	    include DistributedObject
 
+            # Create a new distributed transaction based on the given plan. The
+            # transaction sole owner is the local plan manager, which is also
+            # the owner of the edition token.
 	    def initialize(plan, options = {})
 		@owners  = [Distributed]
 		@editor  = true
@@ -32,7 +50,7 @@ module Roby
 		super
 	    end
 
-	    def do_wrap(base_object, create)
+	    def do_wrap(base_object, create) # :nodoc:
 		# It is allowed to add objects in a transaction only if
 		#   * the object is not distribuable. It means that we are
 		#     annotating *locally* remote tasks (like it is done for
@@ -69,7 +87,7 @@ module Roby
 		end
 	    end
 
-	    def copy_object_relations(object, proxy)
+	    def copy_object_relations(object, proxy) # :nodoc:
 		# If the transaction is being updated, it means that we are
 		# discovering the new transaction. In that case, no need to
 		# discover the plan relations since our peer will send us all
@@ -90,7 +108,12 @@ module Roby
 		nil
 	    end
 
-	    # Sends the transaction to +peer+.
+            # Announces the transaction on +peer+ or, if +peer+ is nil, to all
+            # owners who don't know about it yet. This operation is
+            # asynchronous, so the block, if given, will be called for each
+            # remote peer which has processed the message.
+            #
+            # See Peer#transaction_propose
 	    def propose(peer = nil, &block)
 		if !self_owned?
 		    raise OwnershipError, "cannot propose a transaction we don't own"
@@ -110,7 +133,7 @@ module Roby
 		end
 	    end
 
-	    def discover(objects)
+	    def discover(objects) # :nodoc:
 		if objects
 		    events, tasks = partition_event_task(objects)
 		    for object in (events || []) + (tasks || [])
@@ -129,18 +152,22 @@ module Roby
 	    end
 
 	    # call-seq:
-	    #   commit_transaction			=> self
-	    #   commit_transaction { |done| ... }	=> self
+	    #   commit_transaction => self
 	    #
-	    # Commits the transaction. Distributed commit is done in two steps,
-	    # to make sure that all owners agree on the transaction commit. 
-	    #
-	    # Unlike Roby::Transaction#commit_transaction the transaction is
-	    # *not* yet committed when the method returns. The provided block
-	    # (if any) will be called in the control thread with +result+ to
-	    # true if the transaction has been committed, to false if the
-	    # commit is being canceled. In the latter case,
-	    # #abandoned_commit is called as well.
+            # Commits the transaction. This method can only be called by the
+            # first editor of the transaction, once all owners have requested
+            # no additional modifications.
+            #
+            # Distributed commits are done in two steps, to make sure that all
+            # owners agree to actually perform it. First, the
+            # PeerServer#transaction_prepare_commit message is sent, which can
+            # return either nil or an error object.
+            #
+            # If all peers return nil, the actual commit is performed by
+            # sending the PeerServer#transaction_commit message. Otherwise, the
+            # commit is abandonned by sending the
+            # PeerServer#transaction_abandon_commit message to the transaction
+            # owners.
 	    def commit_transaction(synchro = true)
 		if !self_owned?
 		    raise OwnershipError, "cannot commit a transaction which is not owned locally. #{self} is owned by #{owners.to_a}"
@@ -188,9 +215,8 @@ module Roby
 	    # call-seq:
 	    #	discard_transaction	    => self 
 	    #
-	    # Discards the transaction. Unlike #commit_transaction, this is
-	    # done synchronously on the local plan and cannot be canceled by
-	    # remote peers
+            # Discards the transaction. Unlike #commit_transaction, this can be
+            # called by any of the owners.
 	    def discard_transaction(synchro = true) # :nodoc:
 		unless Distributed.owns?(self)
 		    raise OwnershipError, "cannot discard a transaction which is not owned locally. #{self} is owned by #{owners}"
@@ -203,13 +229,22 @@ module Roby
 		self
 	    end
 
-	    attr_reader :editor
-	    alias :editor? :editor
+            # True if we currently have the edition token
+            attr_predicate :editor?
+            # True if one of the editors request that the token is passed to
+            # them once more. The transaction can be committed only when all
+            # peers did not request that.
+            #
+            # See #release
 	    attr_reader :edition_reloop
 
+            # True if this plan manager is the first editor, i.e. the plan
+            # manager whose responsibility is to manage the edition protocol.
 	    def first_editor?
 		owners.first == Distributed
 	    end
+            # Returns the peer which is after this plan manager in the edition
+            # order.  The edition token will be sent to this peer by #release
 	    def next_editor
 		if owners.last == Distributed
 		    return owners.first
@@ -230,7 +265,9 @@ module Roby
 		end
 	    end
 
-	    # Waits for the edition token
+            # Waits for the edition token. If a block is given, it is called
+            # when the token is achieved, and releases the token when the
+            # blocks returns.
 	    def edit(reloop = false)
 		if Thread.current[:control_mutex_locked]
 		    raise "cannot call #edit with the control mutex taken !"
@@ -251,11 +288,21 @@ module Roby
 		end
 	    end
 
-	    # Releases the edition token
+            # Releases the edition token, giving it to the next owner. If
+            # +give_back+ is true, the local plan manager announces that it
+            # expects the token to be given back to it once more. The commit is
+            # allowed only when all peers have released the edition token
+            # without requesting it once more.
+            #
+            # It sends the #transaction_give_token to the peer returned by
+            # #next_editor.
+            #
+            # Raised NotEditor if the local plan manager is not the current
+            # transaction editor.
 	    def release(give_back = false)
 		token_lock.synchronize do
 		    if !editor
-			raise ArgumentError, "not editor"
+			raise NotEditor, "not editor"
 		    else
 			reloop = if first_editor?
 				     give_back
@@ -271,17 +318,23 @@ module Roby
 		end
 	    end
 
-	    class DRoby < Roby::BasicObject::DRoby # :nodoc:
+            # Intermediate representation of a Roby::Distributed::Transaction
+            # object, suitable for representing that transaction in the dRoby
+            # protocol.
+	    class DRoby < Roby::BasicObject::DRoby
 		attr_reader :plan, :options
 		def initialize(remote_siblings, owners, plan, options)
 		    super(remote_siblings, owners)
 		    @plan, @options = plan, options
 		end
 
+                # Returns the local representation of this transaction, or
+                # raises InvalidRemoteOperation if none exists.
 		def proxy(peer)
 		    raise InvalidRemoteOperation, "the transaction #{self} does not exist on #{peer.connection_space.name}"
 		end
 
+                # Create a local representation for this transaction.
 		def sibling(peer)
 		    plan = peer.local_object(self.plan)
 		    trsc = Roby::Distributed::Transaction.new(plan, peer.local_object(options))
@@ -292,6 +345,15 @@ module Roby
 		    trsc
 		end
 
+                # Called when a new sibling has been created locally for a
+                # distributed transaction present on +peer+. +trsc+ is the
+                # local representation of this transaction.
+                #
+                # In practice, it announces the new transaction by calling the
+                # block stored in Distributed.transaction_handler (if there is
+                # one).
+                #
+                # See PeerServer#created_sibling
 		def created_sibling(peer, trsc)
 		    Thread.new do
 			Thread.current.priority = 0
@@ -305,10 +367,13 @@ module Roby
 		    end
 		end
 
-		def to_s
+		def to_s # :nodoc:
 		    "#<dRoby:Trsc#{remote_siblings_to_s} owners=#{owners_to_s} plan=#{plan}>"
 		end
 	    end
+
+            # Returns a representation of +self+ which can be used to reference
+            # it in our communication with +dest+.
 	    def droby_dump(dest) # :nodoc:
 		if remote_siblings.has_key?(dest)
 		    remote_id
@@ -325,13 +390,27 @@ module Roby
 		DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest),
 			 Distributed.format(@__getobj__, dest), Distributed.format(transaction, dest))
 	    end
+
+            # A representation of a distributed transaction proxy suitable for
+            # communication with the remote plan managers.
 	    class DRoby < Roby::BasicObject::DRoby
-		attr_reader :real_object, :transaction
+                # The DRoby version of the underlying object
+		attr_reader :real_object
+                # The DRoby representation of the transaction
+                attr_reader :transaction
+                # Create a new dRoby representation for a transaction proxy.
+                # The proxy currently has the given set of remote siblings and
+                # owners, is a view on the given real object and is stored in
+                # the given transaction. All objects must already be formatted
+                # for marshalling using Distributed.format.
 		def initialize(remote_siblings, owners, real_object, transaction)
 		    super(remote_siblings, owners)
 		    @real_object, @transaction = real_object, transaction 
 		end
 
+                # Returns the local object matching this dRoby-formatted
+                # representation of a remote transaction proxy present on
+                # +peer+.
 		def proxy(peer)
 		    local_real = peer.local_object(real_object)
 		    local_object = nil
@@ -342,39 +421,52 @@ module Roby
 		    local_object
 		end
 
-		def to_s; "#<dRoby:mTrscProxy#{remote_siblings} transaction=#{transaction} real_object=#{real_object}>" end
+		def to_s # :nodoc:
+                    "#<dRoby:mTrscProxy#{remote_siblings} transaction=#{transaction} real_object=#{real_object}>"
+                end
 	    end
 	end
 
 	class Roby::Transactions::TaskEventGenerator
+            # A task event generator has no remote sibling. It is always
+            # referenced through its own task.
 	    def has_sibling?(peer); false end
+            # Create an intermediate object which represent this task event
+            # generator in our communication with +dest+
 	    def droby_dump(dest)
 		Roby::TaskEventGenerator::DRoby.new(controlable?, happened?, Distributed.format(task, dest), symbol)
 	    end
 	end
 
 	class PeerServer
+            # Message received when the 'prepare' stage of the transaction
+            # commit is requested.
 	    def transaction_prepare_commit(trsc)
 		trsc = peer.local_object(trsc)
 		peer.connection_space.transaction_prepare_commit(trsc)
 		trsc.freezed!
 		nil
 	    end
+            # Message received when a transaction commit is requested.
 	    def transaction_commit(trsc)
 		trsc = peer.local_object(trsc)
 		peer.connection_space.transaction_commit(trsc)
 		nil
 	    end
+            # Message received when a transaction commit is to be abandonned.
 	    def transaction_abandon_commit(trsc, error)
 		trsc = peer.local_object(trsc)
 		peer.connection_space.transaction_abandon_commit(trsc, error)
 		nil
 	    end
+            # Message received when a transaction discard is requested.
 	    def transaction_discard(trsc)
 		trsc = peer.local_object(trsc)
 		peer.connection_space.transaction_discard(trsc)
 		nil
 	    end
+            # Message received when the transaction edition token is given to
+            # this plan manager.
 	    def transaction_give_token(trsc, needs_edition)
 		trsc = peer.local_object(trsc)
 		trsc.edit!(needs_edition)
@@ -383,12 +475,21 @@ module Roby
 	end
 
 	class Peer
+            # Send the information related to the given transaction in the
+            # remote plan manager.
 	    def transaction_propose(trsc)
 		synchro_point
 		create_sibling(trsc)
 		nil
 	    end
 
+            # Give the edition token on +trsc+ to the given peer.
+            # +needs_edition+ is a flag which, if true, requests that the token
+            # is given back at least once to the local plan manager.
+            #
+            # Do not use this directly, it is part of the multi-robot
+            # communication protocol. Use the edition-related methods on
+            # Distributed::Transaction instead.
 	    def transaction_give_token(trsc, needs_edition)
 		call(:transaction_give_token, trsc, needs_edition)
 	    end

@@ -443,6 +443,8 @@ module Roby
 	    end
 	end
 
+        # Called in PeerServer messages handlers to completely ignore the
+        # message which is currently being processed
 	def self.ignore!
 	    throw :ignore_this_call
 	end

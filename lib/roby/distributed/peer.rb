@@ -60,6 +60,11 @@ module Roby::Distributed
     class DisconnectedError < ConnectionError; end
 
     class << self
+        # This method will call PeerServer#trigger on all peers, for the
+        # objects in +objects+ which are eligible for triggering.
+        #
+        # The same task cannot match the same trigger twice. To allow that,
+        # call #clean_triggered.
 	def trigger(*objects)
 	    return unless Roby::Distributed.state 
 	    objects.delete_if do |o| 
@@ -75,7 +80,9 @@ module Roby::Distributed
 		peer.local_server.trigger(*objects)
 	    end
 	end
-	# Remove +objects+ from the sets of already-triggered objects
+        # Remove +objects+ from the sets of already-triggered objects. So, next
+        # time +object+ will be tested for triggers, it will re-match the
+        # triggers it has already matched.
 	def clean_triggered(object)
 	    peers.each_value do |peer|
 		peer.local_server.triggers.each_value do |_, triggered|
@@ -83,25 +90,36 @@ module Roby::Distributed
 		end
 	    end
 	end
-
     end
 
+    # PeerServer objects are the objects which act as servers for the plan
+    # managers we are connected on, i.e. it will process the messages sent by
+    # those remote plan managers.
+    #
+    # The client part, that is the part which actually send the messages, is
+    # a Peer object accessible through the Peer#peer attribute.
     class PeerServer
 	include DRbUndumped
 
 	# The Peer object we are associated to
 	attr_reader :peer
 
+        # The set of triggers our peer has added to our plan
 	attr_reader :triggers
 
+        # Create a PeerServer object for the given peer
 	def initialize(peer)
 	    @peer	    = peer 
 	    @triggers	    = Hash.new
 	end
 
-	def to_s; "PeerServer:#{remote_name}" end
+	def to_s # :nodoc:
+            "PeerServer:#{remote_name}" 
+        end
 
-	# Activate any trigger that may exist on +objects+
+        # Activate any trigger that may exist on +objects+
+        # It sends the PeerServer#triggered message for each objects that are
+        # actually matching a registered trigger.
 	def trigger(*objects)
 	    triggers.each do |id, (matcher, triggered)|
 		objects.each do |object|
@@ -151,7 +169,7 @@ module Roby::Distributed
 	    nil
 	end
 
-	# The peer tells us that +task+ has triggered the notification +id+
+        # Message received when +task+ has matched the trigger referenced by +id+
 	def triggered(id, task)
 	    peer.triggered(id, task) 
 	    nil
@@ -173,9 +191,12 @@ module Roby::Distributed
 	    end
 	    edges
 	end
-
     end
 
+    # A Peer object is the client part of a connection with a remote plan
+    # manager. The server part, i.e. the object which actually receives
+    # requests from the remote plan manager, is the PeerServer object
+    # accessible through the Peer#local_server attribute.
     class Peer
 	include DRbUndumped
 
@@ -264,12 +285,20 @@ module Roby::Distributed
 	# The ConnectionTask object for this peer
 	attr_reader :task
 
-	# Creates a query object on the remote plan
+	# Creates a query object on the remote plan. 
+        #
+        # For thread-safe operation, always use #each on the resulting query:
+        # during the enumeration, the local plan GC will not remove those
+        # tasks.
 	def find_tasks
 	    Roby::Query.new(self)
 	end
 
-	# Returns a set of remote tasks for +query+ applied on the remote plan
+        # Returns a set of remote tasks for +query+ applied on the remote plan
+        # This is not to be accessed directly. It is part of the Query
+        # interface.
+        #
+        # See #find_tasks.
 	def query_result_set(query)
 	    result = ValueSet.new
 	    call(:query_result_set, query) do |marshalled_set|
@@ -283,12 +312,12 @@ module Roby::Distributed
 	    result
 	end
 	
-	# Yields the tasks saved in +result_set+ by #query_result_set.  During
-	# the enumeration, the tasks are marked as permanent to avoid plan GC.
-	# The block can subscribe to the one that are interesting. After the
-	# block has returned, all non-subscribed tasks will be subject to plan
-	# GC.
-	def query_each(result_set)
+        # Yields the tasks saved in +result_set+ by #query_result_set.  During
+        # the enumeration, the tasks are marked as permanent to avoid plan GC.
+        # The block can subscribe to the one that are interesting. After the
+        # block has returned, all non-subscribed tasks will be subject to plan
+        # GC.
+	def query_each(result_set) # :nodoc:
 	    result_set.each do |task|
 		yield(task)
 	    end
@@ -312,12 +341,17 @@ module Roby::Distributed
 	#
 	# The return value is an identifier which can be later used to remove
 	# the trigger with Peer#remove_trigger
+        #
+        # This sends the PeerServer#add_trigger message to the peer.
 	def on(matcher, &block)
 	    triggers[matcher.object_id] = [matcher, block]
 	    transmit(:add_trigger, matcher.object_id, matcher)
 	end
 
-	# Remove a trigger from its ID. +id+ is the return value of Peer#on
+        # Remove a trigger referenced by its ID. +id+ is the value returned by
+        # Peer#on
+        #
+        # This sends the PeerServer#remove_trigger message to the peer.
 	def remove_trigger(id)
 	    transmit(:remove_trigger, id)
 	    triggers.delete(id)

@@ -494,27 +494,32 @@ module Roby
 	    # Disable the keeper thread, we will do cleanup ourselves
 	    def start_keeper; end
 
-            # This makes ConnectionSpace act as a Peer object locally
+            # This makes ConnectionSpace act as a PeerServer object locally
 	    def transaction_prepare_commit(trsc) # :nodoc:
 		!trsc.valid_transaction?
 	    end
-            # This makes ConnectionSpace act as a Peer object locally
+            # This makes ConnectionSpace act as a PeerServer object locally
 	    def transaction_abandon_commit(trsc, reason) # :nodoc:
 		trsc.abandoned_commit(reason)
 	    end
-            # This makes ConnectionSpace act as a Peer object locally
+            # This makes ConnectionSpace act as a PeerServer object locally
 	    def transaction_commit(trsc) # :nodoc:
 		trsc.commit_transaction(false)
 	    end
-            # This makes ConnectionSpace act as a Peer object locally
+            # This makes ConnectionSpace act as a PeerServer object locally
 	    def transaction_discard(trsc) # :nodoc:
 		trsc.discard_transaction(false)
 	    end
 	end
 
 	class << self
+            # The RingServer object through which we publish this plan manager
+            # on the network
 	    attr_reader :server
 
+            # True if we are published on the network.
+            #
+            # See #server, #publish and #unpublish
 	    def published?; !!@server end
             
             # Enable ring discovery on our part. A RingServer object is set up

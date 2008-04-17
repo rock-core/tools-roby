@@ -208,12 +208,21 @@ module Roby
 	    # in a callback mechanism (like a remote query or a trigger)
 	    attr_reader :keep
 
-	    def keep_object?(local_object)
-	        !local_object.self_owned? && 
-	            (local_object.subscribed? || 
-	            Distributed.keep.ref?(local_object))
-	    end
-
+            # Compute the subset of +candidates+ that are to be considered as
+            # useful because of our peers and returns it.
+            #
+            # More specifically, an object will be included in the result if:
+            # * this plan manager is subscribed to it
+            # * the object is directly related to a self-owned object
+            # * if +include_subscriptions_relations+ is true, +object+ is
+            #   directly related to a subscribed object.
+            #
+            # The method takes into account plan children in its computation:
+            # for instance, a task will be included in the result if one of
+            # its events meet the requirements described above.
+            #
+            # If +result+ is non-nil, the method adds the objects to +result+
+            # using #<< and returns it.
 	    def remotely_useful_objects(candidates, include_subscriptions_relations, result = nil)
 		return ValueSet.new if candidates.empty?
 
