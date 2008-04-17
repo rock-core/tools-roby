@@ -47,7 +47,8 @@ module Roby
 	end
 
 	def exception(user_message = nil) # :nodoc:
-	    new_error = dup new_error.instance_variable_set(:@user_message, user_message)
+	    new_error = dup
+            new_error.instance_variable_set(:@user_message, user_message)
 	    new_error
 	end
     end

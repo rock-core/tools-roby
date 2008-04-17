@@ -40,7 +40,7 @@ module Roby
         # Returns an event generator which will be emitted once +time+ seconds
         # after this event has been emitted.
         def after(time)
-            State.at :time => (self.time + time)
+            State.at :t => (self.time + time)
         end
 
 	def to_s

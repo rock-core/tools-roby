@@ -9,10 +9,9 @@ class TC_Relations < Test::Unit::TestCase
 	klass = Class.new
 
 	r1, r2 = nil
-	space = Roby::RelationSpace(klass) do
-	    r1 = relation :R1
-	    r2 = relation :R2s, :child_name => :child, :parent_name => :parent
-	end
+	space = Roby::RelationSpace(klass)
+        r1 = space.relation :R1
+        r2 = space.relation :R2s, :child_name => :child, :parent_name => :parent
 	assert(Module === space)
 
 	n = klass.new
@@ -29,10 +28,9 @@ class TC_Relations < Test::Unit::TestCase
 	klass = Class.new { include DirectedRelationSupport }
 
 	r1, r2 = nil
-	Roby::RelationSpace(klass) do
-	    r1 = relation :R1
-	    r2 = relation :Child, :parent_name => :parent
-	end
+	space = Roby::RelationSpace(klass)
+        r1 = space.relation :R1
+        r2 = space.relation :Child, :parent_name => :parent
 
 	n1, n2, n3, n4 = 4.enum_for(:times).map { klass.new }
 	n1.add_child_object(n2, r1)
@@ -96,7 +94,8 @@ class TC_Relations < Test::Unit::TestCase
 	    end
 		
 	    r1 = nil
-	    Roby::RelationSpace(klass) { r1 = relation :R1 }
+	    space = Roby::RelationSpace(klass)
+            r1 = space.relation :R1
 
 	    v1, v2 = klass.new, klass.new
 	    mock.should_receive(:add).with(v2, [r1], 1).once
@@ -123,10 +122,9 @@ class TC_Relations < Test::Unit::TestCase
 	    end
 
 	    r1, r2 = nil
-	    Roby::RelationSpace(klass) do
-		r1 = relation :R1
-		r2 = relation :R2, :subsets => [r1]
-	    end
+	    space = Roby::RelationSpace(klass)
+            r1 = space.relation :R1
+            r2 = space.relation :R2, :subsets => [r1]
 	    assert_equal(r2, r1.parent)
 	    assert(! r1.subset?(r2))
 	    assert(r2.subset?(r1))
@@ -168,7 +166,8 @@ class TC_Relations < Test::Unit::TestCase
 	klass = Class.new { include DirectedRelationSupport }
 
 	r1 = nil
-	Roby::RelationSpace(klass) { r1 = relation :R1, :single_child => true }
+	space = Roby::RelationSpace(klass)
+        r1 = space.relation :R1, :single_child => true
 	parent = klass.new 
 	child  = klass.new
 	assert_equal(nil, parent.r1)

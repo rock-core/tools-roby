@@ -197,6 +197,39 @@ module Roby::Distributed
     # manager. The server part, i.e. the object which actually receives
     # requests from the remote plan manager, is the PeerServer object
     # accessible through the Peer#local_server attribute.
+    #
+    # == Connection procedure
+    #
+    # Connections are initiated When the user calls Peer.initiate_connection.
+    # The following protocol is then followed:
+    # [local] 
+    #   if the neighbour is already connected to us, we do nothing and yield
+    #   the already existing peer. End.
+    # [local]
+    #   check if we are already connecting to the peer. If it is the case,
+    #   wait for the end of the connection thread.
+    # [local] 
+    #   otherwise, open a new socket and send the connect() message in it
+    #   The connection thread is registered in ConnectionSpace.pending_connections
+    # [remote] 
+    #   check if we are already connecting to the peer (check ConnectionSpace.pending_connections)
+    #   * if it is the case, the lowest token wins
+    #   * if 'remote' wins, return :already_connecting
+    #   * if 'local' wins, return :connected with the relevant information
+    #
+    # == Communication
+    #
+    # Communication is done in two threads. The sending thread gets the calls
+    # from Peer#send_queue, formats them and sends them to the PeerServer#demux
+    # for processing. The reception thread is managed by dRb and its entry
+    # point is always #demux.
+    #
+    # Very often we need to have processing on both sides to finish an
+    # operation. For instance, the creation of two siblings need to register
+    # the siblings on both sides. To manage that, it is possible for PeerServer
+    # methods which are serving a remote request to queue callbacks.  These
+    # callbacks will be processed by Peer#send_thread before the rest of the
+    # queue might be processed
     class Peer
 	include DRbUndumped
 
@@ -217,7 +250,13 @@ module Roby::Distributed
 	# count of bytes received
 	attr_reader :stats
 
-	def to_s; "Peer:#{remote_name}" end
+	def to_s # :nodoc:
+            "Peer:#{remote_name}" 
+        end
+        # This method is used by Distributed.format to determine the dumping
+        # policy for +object+. If the method returns true, then only the
+        # RemoteID object of +object+ will be sent to the peer. Otherwise,
+        # an intermediate object describing +object+ is sent.
 	def incremental_dump?(object)
 	    object.respond_to?(:remote_siblings) && object.remote_siblings[self] 
 	end

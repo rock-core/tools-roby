@@ -274,7 +274,7 @@ module Roby
 		end
 
 		token_lock.synchronize do
-		    if !editor # not the current editor
+		    if !editor? # not the current editor
 			token_lock_signal.wait(token_lock)
 		    end
 		end
@@ -301,7 +301,7 @@ module Roby
             # transaction editor.
 	    def release(give_back = false)
 		token_lock.synchronize do
-		    if !editor
+		    if !editor?
 			raise NotEditor, "not editor"
 		    else
 			reloop = if first_editor?

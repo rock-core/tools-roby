@@ -933,7 +933,7 @@ module Roby
         # As for Task.on, <tt>forward(:start, task)</tt> is a shortcut to
         # <tt>forward(:start, task)</tt>.
 	def forward(name, to, *to_task_events)
-            generator = event(event_model)
+            generator = event(name)
 	    to_events = if to.respond_to?(:event)
 			    if to_task_events.empty?
 				[to.event(generator.symbol)]

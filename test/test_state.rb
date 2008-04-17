@@ -342,7 +342,7 @@ class TC_State < Test::Unit::TestCase
     end
 
     def test_timepoint_event
-        plan.discover(ev = State.at(:time => Time.now + 0.5))
+        plan.discover(ev = State.at(:t => Time.now + 0.5))
         ev.poll
         assert(!ev.happened?)
         sleep(0.5)

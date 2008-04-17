@@ -1,5 +1,6 @@
 module Roby
     module Distributed
+        # Error raised when a connection attempt failed on the given neighbour
 	class ConnectionFailed < RuntimeError
 	    attr_reader :neighbour
 
@@ -7,29 +8,21 @@ module Roby
 		@neighbour = neighbour
 	    end
 	end
-	# == Connection procedure
-	#
-	# When the user calls Peer.initiate_connection, the following happens:
-	# [local] 
-	#   if the neighbour is already connected to us, we do nothing and yield
-	#   the already existing peer. End.
-	# [local]
-	#   check if we are already connecting to the peer. If it is the case,
-	#   wait for the end of the connection thread.
-	# [local] 
-	#   otherwise, open a new socket and send the connect() message in it
-	#   The connection thread is registered in ConnectionSpace.pending_connections
-	# [remote] 
-	#   check if we are already connecting to the peer (check ConnectionSpace.pending_connections)
-	#   * if it is the case, the lowest token wins
-	#   * if 'remote' wins, return :already_connecting
-	#   * if 'local' wins, return :connected with the relevant information
-	#
+
 	class Peer
 	    class << self
 		private :new
 	    end
 
+            # ConnectionToken objects are used to sort out concurrent
+            # connections, i.e. cases where two peers are trying to initiate a
+            # connection with each other at the same time.
+            #
+            # When this situation appears, each peer compares its own token
+            # with the one sent by the remote peer. The greatest token wins and
+            # is considered the initiator of the connection.
+            #
+            # See #initiate_connection
 	    class ConnectionToken
 		attr_reader :time, :value
 		def initialize
@@ -50,7 +43,6 @@ module Roby
 	    # A value indicating the current status of the connection. It can
 	    # be one of :connected, :disconnecting, :disconnected
 	    attr_reader :connection_state
-
 
 	    # Connect to +neighbour+ and return the corresponding peer. It is a
 	    # blocking method, so it is an error to call it from within the control thread
@@ -301,8 +293,11 @@ module Roby
 		queue_call false, :disconnect
 	    end
 
-	    # +error+ has been raised while we were processing +msg+(*+args+)
-	    # We will disconnect because of that
+            # +error+ has been raised while we were processing +msg+(*+args+)
+            # This error cannot be recovered, and the connection to the peer
+            # will be closed.
+            #
+            # This sends the PeerServer#fatal_error message to our peer
 	    def fatal_error(error, msg, args)
 		synchronize do
 		    Roby::Distributed.fatal "fatal error '#{error.message}' while processing #{msg}(#{args.join(", ")})"
@@ -369,14 +364,31 @@ module Roby
 	    # will be reset during the next neighbour discovery
 	    def link_dead!; @dead = true end
 	    
+            # Disables the sending part of the communication link. It is an
+            # accumulator: if #disable_tx is called twice, then TX will be
+            # reenabled only when #enable_tx is also called twice.
 	    def disable_tx; @disabled_tx += 1 end
+            # Enables the sending part of the communication link. It is an
+            # accumulator: if #enable_tx is called twice, then TX will be
+            # disabled only when #disable_tx is also called twice.
 	    def enable_tx; @disabled_tx -= 1 end
+            # True if TX is currently disabled
 	    def disabled_tx?; @disabled_tx > 0 end
+            # Disables the receiving part of the communication link. It is an
+            # accumulator: if #disable_rx is called twice, then RX will be
+            # reenabled only when #enable_rx is also called twice.
 	    def disable_rx; @disabled_rx += 1 end
+            # Enables the receiving part of the communication link. It is an
+            # accumulator: if #enable_rx is called twice, then RX will be
+            # disabled only when #disable_rx is also called twice.
 	    def enable_rx; @disabled_rx -= 1 end
+            # True if RX is currently disabled
 	    def disabled_rx?; @disabled_rx > 0 end
 
-	    # Checks if the connection is currently alive
+            # Checks if the connection is currently alive, i.e. if we can send
+            # data on the link. This does not mean that we currently have no
+            # interaction with the peer: it only means that we cannot currently
+            # communicate with it.
 	    def link_alive?
 		return false if socket.closed? || @dead || @disabled_tx > 0
 		return false unless !remote_id || connection_space.neighbours.find { |n| n.remote_id == remote_id }
@@ -386,20 +398,24 @@ module Roby
 	end
 
 	class PeerServer
+            # Message received when an error occured on the remote side, if
+            # this error cannot be recovered.
 	    def fatal_error(error, msg, args)
 		Distributed.fatal "remote reports #{peer.local_object(error)} while processing #{msg}(#{args.join(", ")})"
 		disconnect
 	    end
 
-	    # Called by our peer when it disconnects
+            # Message received when our peer is closing the connection
 	    def disconnect
 		peer.disconnected
-
 		nil
 	    end
 	end
 
+        # Error raised when a communication callback is queueing another
+        # communication callback
 	class RecursiveCallbacksError < RuntimeError; end
+        # Error raised when a callback has failed.
 	class CallbackProcessingError < RuntimeError; end
 
 	CallSpec = Struct.new :is_callback, 
@@ -459,12 +475,22 @@ module Roby
 	    # The ID of the message we are currently processing
 	    attr_accessor :current_message_id
 
+            # Message received when the first half of a synchro point is
+            # reached. See Peer#synchro_point.
 	    def synchro_point
 		peer.transmit(:done_synchro_point)
 		nil
 	    end
+            # Message received when the synchro point is finished.
 	    def done_synchro_point; end
 
+            # Message received to describe a group of consecutive calls that
+            # have been completed, when all those calls return nil. This is
+            # simply an optimization of the communication protocol, as most
+            # remote calls return nil.
+            #
+            # +from_id+ is the ID of the first call of the group and +to_id+
+            # the last. Both are included in the group.
 	    def completion_group(from_id, to_id)
 		for id in (from_id..to_id)
 		    completed(nil, nil, id)
@@ -472,6 +498,10 @@ module Roby
 		nil
 	    end
 
+            # Message received when a given call, identified by its ID, has
+            # been processed on the remote peer.  +result+ is the value
+            # returned by the method, +error+ an exception object (if an error
+            # occured).
 	    def completed(result, error, id)
 		call_spec = peer.completion_queue.pop
 		if call_spec.message_id != id
@@ -509,10 +539,6 @@ module Roby
 	    # by the control thread while the #completed message is not.
 	    # #completed! both queues the message *and* makes sure that #demux
 	    # won't.
-	    #
-	    # Since #completed! is destined to be called by other threads than
-	    # the communication thread, +comthread+ must be set to the
-	    # communication thread object.
 	    def completed!(result, error)
 		if queued_completion?
 		    raise "already queued the completed message"
@@ -545,18 +571,6 @@ module Roby
 	    end
 	end
 
-	# == Communication
-	# Communication is done in two threads. The sending thread gets the
-	# calls from Peer#send_queue, formats them and sends them to the
-	# PeerServer#demux for processing. The reception thread is managed by
-	# dRb and its entry point is always #demux.
-	#
-	# Very often we need to have processing on both sides to finish an
-	# operation. For instance, the creation of two siblings need to
-	# register the siblings on both sides. To manage that, it is possible
-	# for PeerServer methods which are serving a remote request to queue
-	# callbacks.  These callbacks will be processed by Peer#send_thread
-	# before the rest of the queue might be processed
 	class Peer
 	    # The main synchronization mutex to access the peer. See also
 	    # Peer#synchronize
@@ -577,9 +591,10 @@ module Roby
 
 	    @@message_id = 0
 
-	    # Checks that +object+ is marshallable. If +object+ is a
-	    # collection, it will check that each of its elements is
-	    # marshallable first
+            # Checks that +object+ is marshallable. If +object+ is a
+            # collection, it will check that each of its elements is
+            # marshallable first. This is automatically called for all
+            # messages if DEBUG_MARSHALLING is set to true.
 	    def check_marshallable(object, stack = ValueSet.new)
 		if !object.kind_of?(DRbObject) && object.respond_to?(:each) && !object.kind_of?(String)
 		    if stack.include?(object)
@@ -615,7 +630,25 @@ module Roby
 
 	    attr_predicate :sync?, true
 	    
-	    # Add a CallSpec object in #send_queue
+            # Add a CallSpec object in #send_queue. Do not use that method
+            # directly, but use #transmit and #call instead.
+            #
+            # The message to be sent is m(*args).  +on_completion+ is either
+            # nil or a block object which should be called once the message has
+            # been processed by our remote peer. +waiting_thread+ is a Thread
+            # object of a thread waiting for the message to be processed.
+            # #raise will be called on it if an error has occured during the
+            # remote processing.
+            #
+            # If +is_callback+ is true, it means that the message is being
+            # queued during the processing of another message. In that case, we
+            # will receive the completion message only when all callbacks have
+            # also been processed. Queueing callbacks while processing another
+            # callback is forbidden and the communication layer raises
+            # RecursiveCallbacksError if it happens.
+            #
+            # #queueing allow to queue normal messages when they would have
+            # been marked as callbacks.
 	    def queue_call(is_callback, m, args = [], on_completion = nil, waiting_thread = nil)
 		# Do some sanity checks
 		if !m.respond_to?(:to_sym)
@@ -676,8 +709,8 @@ module Roby
 		end
 	    end
 
-	    # If #transmit calls are done in the block given to #queueing, they
-	    # will queue the call instead of marking it as callback
+            # If #transmit calls are done in the block given to #queueing, they
+            # will queue the call normally, instead of marking it as callback
 	    def queueing
 		old_processing = local_server.processing?
 
@@ -691,9 +724,9 @@ module Roby
 	    # call-seq:
 	    #   peer.transmit(method, arg1, arg2, ...) { |ret| ... }
 	    #
-	    # Queues a call to the remote host. If a block is given, it is
-	    # called in the communication thread, with the returned value, if
-	    # the call succeeded
+            # Asynchronous call to the remote host. If a block is given, it is
+            # called in the communication thread when the call succeeds, with
+            # the returned value as argument.
 	    def transmit(m, *args, &block)
 		is_callback = Roby.inside_control? && local_server.processing?
 		if is_callback && local_server.processing_callback?
@@ -706,11 +739,11 @@ module Roby
 	    # call-seq:
 	    #	peer.call(method, arg1, arg2)	    => result
 	    #
-	    # Calls a method synchronously and returns the value returned by
-	    # the remote server. If we disconnect before this call is
-	    # processed, raises DisconnectedError. If the remote server returns
-	    # an exception, this exception is raised in the thread calling
-	    # #call as well.
+            # Calls a method synchronously and returns the value returned by
+            # the remote server. If we disconnect before this call is
+            # processed, raises DisconnectedError. If the remote server returns
+            # an exception, this exception is raised in the calling thread as
+            # well.
 	    #
 	    # Note that it is forbidden to use this method in control or
 	    # communication threads, as it would make the application deadlock
@@ -815,11 +848,12 @@ module Roby
 		end
 	    end
 
-	    # Calls the block that has been given to #transmit when +call+ is
-	    # completed. A remote call is completed when it has been processed
-	    # remotely *and* the callbacks returned by the remote server (if
-	    # any) have been processed as well. +result+ is the value returned
-	    # by the remote server.
+            # Calls the completion block that has been given to #transmit when
+            # +call+ is completed (the +on_completion+ parameter of
+            # #queue_call). A remote call is completed when it has been
+            # processed remotely *and* the callbacks returned by the remote
+            # server (if any) have been processed as well. +result+ is the
+            # value returned by the remote server.
 	    def call_attached_block(call, result)
 		if block = call.on_completion
 		    begin
