@@ -174,19 +174,27 @@ module Roby::Transactions
 	def unreachable!; end
     end
 
+    # Transaction proxy for Roby::TaskEventGenerator
     class TaskEventGenerator < Roby::Transactions::EventGenerator
 	proxy_for Roby::TaskEventGenerator
+
+        # The transaction proxy which represents the event generator's real
+        # task
 	attr_reader :task
 	child_plan_object :task
 
+        # Create a new proxy representing +object+ in +transaction+
 	def initialize(object, transaction)
 	    super(object, transaction)
 	    @task = transaction.wrap(object.task)
 	end
+
+        # Task event generators do not have siblings on remote plan managers.
+        # They are always referenced by their name and task.
 	def has_sibling?(peer); false end
     end
 
-    # Proxy for Roby::Task
+    # Transaction proxy for Roby::Task
     class Task < Roby::Task
 	include Proxy
 	proxy_for Roby::Task
@@ -209,6 +217,7 @@ module Roby::Transactions
 	proxy :fullfills?
 	proxy :same_state?
 
+        # Create a new proxy representing +object+ in +transaction+
 	def initialize(object, transaction)
 	    super(object, transaction)
 
@@ -222,20 +231,29 @@ module Roby::Transactions
 	    end
 	end
 
+        # There is no bound_events map in task proxies. The proxy instead
+        # enumerates the real task's events and create proxies when needed.
+        #
+        # #bound_events is not part of the public API anyways
 	def bound_events; {} end
+
+	def instantiate_model_event_relations # :nodoc:
+	end
+       
+        # Transaction proxies are never executable
 	def executable?; false end
 
+        # Transaction proxies do not have history
 	def history; "" end
-	def plan=(new_plan)
+	def plan=(new_plan) # :nodoc:
 	    if new_plan && new_plan.plan != __getobj__.plan
 		raise "invalid plan #{new_plan}"
 	    end
 	    @plan = new_plan
 	end
 
-	def instantiate_model_event_relations
-	end
-
+        # Perform the operations needed for the commit to be successful.  In
+        # practice, it updates the task arguments as needed.
 	def commit_transaction
 	    super
 	    
@@ -247,11 +265,12 @@ module Roby::Transactions
 	    end
 	end
 
+        # Perform the operations needed for the transaction to be discarded.
 	def discard_transaction
 	    clear_relations
 	end
 
-	def method_missing(m, *args, &block)
+	def method_missing(m, *args, &block) # :nodoc:
 	    if m.to_s =~ /^(\w+)!$/ && has_event?($1.to_sym)
 		event($1.to_sym).call(*args)
 	    elsif !Roby::Task.method_defined?(m)
@@ -263,6 +282,8 @@ module Roby::Transactions
 
 	def_delegator :@__getobj__, :owners
 	def_delegator :@__getobj__, :distribute?
+
+        # True if +peer+ has a representation of this object
 	def has_sibling?(peer)
 	    plan.has_sibling?(peer)
 	end
