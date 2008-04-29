@@ -231,6 +231,20 @@ module Roby
         # control thread.
 	def call(task, m, *args)
 	    Roby.execute do
+                if m.to_s =~ /!$/
+                    event_name = $`
+                    # Check if the called event is terminal. If it is the case,
+                    # discard the task before calling it, and make sure the user
+                    # will get a message
+                    #
+                    if task.event(event_name).terminal?
+                        plan.discard(task)
+                        task.on(:stop) { |ev| pending_messages << "task #{ev.task} stopped by user request" }
+                    else
+                        task.on(event_name) { |ev| pending_messages << "done emitting #{ev.generator}" }
+                    end
+                end
+
 		task.send(m, *args)
 	    end
 	end
