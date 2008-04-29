@@ -221,7 +221,7 @@ module Roby
 	end
 
 	# Make the Roby event loop quit
-	def stop; control.quit end
+	def stop; control.quit; nil end
 	# The Roby plan
 	def plan; Roby.plan end
 
