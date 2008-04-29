@@ -19,9 +19,8 @@ module Roby
     # planners/
     # data/
     #
-    # == Scripts
-    #
-    # == Configuration
+    # == File loading logic
+    # TODO: describe that properly
     # * YAML configuration files (config/roby.yml and config/app.yml)
     # * init.rb
     # * robot-specific configuration files, robot kind and single robots

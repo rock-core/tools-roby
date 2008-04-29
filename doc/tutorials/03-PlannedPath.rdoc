@@ -1,0 +1,140 @@
+{Previous tutorial}[link:files/doc/tutorials/02-GoForward.html]
+= Planning and following a path
+We'll now use a (slightly) more complex system to make our robot move. The
+robot will now have a goal, defined as a (x, y) point. It will generate a
+trajectory which leads it to that goal, and then execute that trajectory.
+
+This tutorial therefore shows the following:
+* how multiple activities can be _temporally_ coordinated to make the robot
+  reach a defined goal, and
+* how the plan represents how one activity relates to another.
+
+In this new robot, three activities will be used to make the robot reach
+its goal. The plan will therefore represent various things:
+* the three activities: the high-level activity which represent the goal of
+  the robot; the path planning activity and the path execution activity.
+* how these activities relate to each other. For that, Roby defines <it>
+  task relations</it>.
+* how the plan describes the temporal relations between these activities (i.e.
+  when a given activity should be started).
+
+To hold all these, we will create a new robot:
+
+  roby robot PathPlan
+
+== Defining the task models
+There will be three different tasks:
+* the +MoveTo+ task express the current goal of the
+  robot, and holds the path data
+    class MoveTo < Roby::Task
+        terminates
+        # The movement goal as [x, y]
+        argument :goal
+        # The generated path
+        def path; data end
+    end
+
+* the +ComputePath+ task generates the path on behalf of a +MoveTo+. When
+  successful, it updates the +data+ attribute of the +MoveTo+ task it is planning
+
+    class ComputePath < Roby::Task
+      terminates
+
+      # The path goal as [x, y]
+      argument :goal
+      # The maximum speed limit
+      argument :max_speed
+      # The distance at which we consider that we have reached the goal
+      argument :threshold
+
+      <code: see below>
+    end
+
+* the +TrackPath+ takes the path generated and follows it
+    class TrackPath < Roby::Task
+      terminates
+
+      # The task holding the path data
+      argument :path
+      # The current waypoint, as [x, y]
+      def waypoint; path[waypoint_index] end
+      # The index of the current waypoint
+      attr_reader :waypoint_index
+
+      <code: see below>
+    end
+
+== Building the movement plan
+Let's add a +move_to+ action to our robot. Add the following method definition
+to the MainPlanner class definition:
+
+  method(:move_to) do
+    move = MoveTo.new(:goal => arguments[:goal])
+    move.planned_by(compute = ComputePath.new)
+    move.realized_by(track = TrackPath.new)
+
+    move.on :start, compute, :start
+    compute.on :success, track, :start
+    track.forward :success, move, :success
+
+    move
+  end
+
+The first part creates the <em>task structure</em>, which expresses the
+relationships of the different tasks of the plan. In this plan, there is two
+kinds of logical relationships:
+* the +ComputePath+ task generates the plan (in this case, the trajectory)
+  needed to achieve +MoveTo+'s goal. In Roby, this is represented as a PlannedBy
+  relation.
+* the +TrackPath+ task actually executes the actions needed to achieve
+  +MoveTo+'s goal. In Roby, this is represented as a RealizedBy relation.
+
+The second part creates the <em>event structure</em>, which expresses how the
+plan should respond to new situations. In our case, the three line describe the following:
+* the path planning must be started when the movement is started. This uses the Signal
+  event relation.
+* the path execution must be started when the path planning has successfully finished, and
+* the movement <it>has finished</it> when the path tracking <it>has finished</it>. This uses
+  the Forward relation.
+
+The difference between those two relations is subtle, so let's try to explain a bit more:
+* in the first two cases, what the system must do is <it>executing a new action</it> in
+  response to a new situation. When the +start+ event of +move+ is emitted, the +move+
+  activity has just started (i.e. all necessary actions have been taken to start that
+  new activity). The system should then make what is necessary to start computing the
+  path: it calls the _command_ of the +start+ event of +compute+.
+* in the third case, however, no specific action should be taken to end the
+  +move+ task. Instead, the plan expresses that the +move+ task is finished
+  <it>as soon as</it> the +track+ task is.
+
+Task relations allow the system to keep track of what a given task is useful for,
+what are error conditions and how to react to errors. The next two tutorials will
+describe these parts in more details.
+
+== Implementation of +ComputePath+ and +TrackPath+
+The first section did mainly explain how the plan represents the logical
+relations between each tasks and each task's events. We will now get into the
+details of actually implementing these tasks.
+
+* for +ComputePath+, we will simply generate a random set of points in-between the current
+  robot position and the specified goal.
+
+    class ComputePath < Roby::Task
+      terminates
+
+      # The path goal as [x, y]
+      argument :goal
+      # The maximum speed limit
+      argument :max_speed
+      # The distance at which we consider that we have reached the goal
+      argument :threshold
+
+      # The starting point
+      attr_reader :start
+      event :start do |context|
+        @start = [State.pos.x, State.pos.y]
+        emit :start
+      end
+    end
+---
+vim: tw=80 et
