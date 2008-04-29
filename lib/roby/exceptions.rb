@@ -136,6 +136,9 @@ module Roby
 	    backtrace.delete_if do |caller|
 	        caller =~ /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
 	    end
+            backtrace.each do |line|
+                line.gsub! /^#{APP_DIR}\/?/, './'
+            end
 	end
 	backtrace || []
     end

@@ -134,7 +134,7 @@ module Roby
 			return_value = yield
 			cv.broadcast
 		    rescue Exception => e
-			caller_thread.raise e
+			caller_thread.raise e, e.message, e.backtrace
 		    end
                     Control.waiting_threads.delete(caller_thread)
 		end
@@ -294,7 +294,7 @@ module Roby
 		if e.kind_of?(ExecutionException)
 		    e = e.exception
 		end
-		raise e, e.message, Roby.filter_backtrace(e.backtrace || [])
+		raise e, e.message, e.backtrace
 	    else
 		raise Aborting.new(exceptions)
 	    end

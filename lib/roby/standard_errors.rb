@@ -1,3 +1,4 @@
+require 'pp'
 module Roby
     # This kind of errors are generated during the plan execution, allowing to
     # blame a fault on a plan object (#failure_point). The precise failure
@@ -33,7 +34,7 @@ module Roby
 	    end
 	end
 
-	def message # :nodoc:
+        def pretty_print(pp)
 	    base_msg = "#{self.class.name} in #{failure_point.to_s}: #{user_message}"
 	    if failed_event && failed_event.context
 		failed_event.context.each do |error|
@@ -43,9 +44,16 @@ module Roby
 		end
 	    end
 
-	    base_msg
-	end
+            pp.text base_msg
+            pp.group(2) do
+                Roby.filter_backtrace(backtrace).each do |line|
+                    pp.breakable
+                    pp.text line
+                end
+            end
+        end
 
+        def message; user_message end
 	def exception(user_message = nil) # :nodoc:
 	    new_error = dup
             new_error.instance_variable_set(:@user_message, user_message)

@@ -485,6 +485,13 @@ module Roby
 
 	    plugins = self.plugins.map { |_, mod| mod if mod.respond_to?(:run) }.compact
 	    run_plugins(plugins, &block)
+
+        rescue Exception => e
+            if e.respond_to?(:pretty_print)
+                pp e
+            else
+                pp e.full_message
+            end
 	end
 	def run_plugins(mods, &block)
 	    control = Roby.control
@@ -503,7 +510,7 @@ module Roby
 	    if Roby.control.running?
 		control.quit
 		control.join
-		raise e, e.message, Roby.filter_backtrace(e.backtrace)
+		raise e, e.message, e.backtrace
 	    else
 		raise
 	    end
