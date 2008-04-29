@@ -21,6 +21,7 @@ app.robot robot_name, (ARGV.shift || robot_name)
 app.setup
 
 remote_url ||= app.droby['host']
+remote_url ||= 'localhost'
 if remote_url !~ /:\d+$/
     if app.droby['host'] && app.droby['host'] =~ /(:\d+)$/
 	remote_url << $1
