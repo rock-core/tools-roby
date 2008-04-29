@@ -54,6 +54,29 @@ class TC_Task < Test::Unit::TestCase
 	end
     end
 
+    def test_command_inheritance
+        FlexMock.use do |mock|
+            parent_m = Class.new(SimpleTask) do
+                event :start do |context|
+                    mock.parent_started(self, context)
+                    emit :start
+                end
+            end
+
+            child_m = Class.new(parent_m) do
+                event :start do |context|
+                    mock.child_started(self, context.first)
+                    super(context.first / 2)
+                end
+            end
+
+            plan.insert(task = child_m.new)
+            mock.should_receive(:parent_started).once.with(task, 21)
+            mock.should_receive(:child_started).once.with(task, 42)
+            task.start!(42)
+        end
+    end
+
     Precedence = Roby::EventStructure::Precedence
     def assert_direct_precedence(task, relations)
 	relations.each do |from, to|
