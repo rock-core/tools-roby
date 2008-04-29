@@ -106,7 +106,18 @@ namespace 'doc' do
       rdoc.options << '--main' << 'README.txt'
       rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
       rdoc.rdoc_files.include('lib/**/*.rb', 'ext/**/*.cc')
+      rdoc.rdoc_files.include('doc/tutorials/**/*')
       rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
+    end
+
+    Rake::RDocTask.new("tutorials") do |rdoc|
+      rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
+      rdoc.rdoc_dir = 'doc/main'
+      rdoc.title    = "Roby Tutorials"
+      rdoc.template = Roby::Rake.rdoc_template
+      rdoc.options << '--main' << 'README.txt'
+      rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
+      rdoc.rdoc_files.include('doc/tutorials/**/*')
     end
 
     def plugins_documentation_generation(target_prefix)

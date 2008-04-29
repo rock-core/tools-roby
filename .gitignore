@@ -8,6 +8,7 @@ lib/roby/*.so
 doc/core
 doc/plugins
 doc/cache
+doc/main
 
 .*.swp
 
