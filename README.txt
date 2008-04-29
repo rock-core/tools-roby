@@ -11,11 +11,12 @@ This work is licensed under the CeCiLL-B license, which is a free software
 license with the same spirit than the BSD license. See License.txt for details
 
 
-== What is Roby ?
+= What is Roby ?
 
 Roby is a plan manager: it allows to represent, execute and adapt a plan, which
-is a set of past, present and future activities of a robot along with the
-information needed to supervise their execution.
+is a representation of the past, present and future activities of a robot along
+with the information needed to verify that their executin is going well, and to
+manage errors.
 
 Roby is:
 * a task/event model in which one can represent the activities (Roby::Task) and
@@ -31,10 +32,37 @@ Roby is:
 * (G)UI tools for interacting/controlling the living system.
 * all of that in a multi-robot context.
 
-= Related publications
+== Related publications
 
-== Installation
-= External dependencies
+Roby is the result of my PhD work. As such, my {PhD
+thesis}[files:joyeux_Thesis.pdf] can be considered as a design document for the
+system. If you want an overview of the principles, you can also refer to these two
+publications [IROS,FSR].
+
+== Videos
+
+Those videos are shown here for reference purpose, but frankly you will not be
+able to understand them unless you have already an idea on what is going on.
+They are also referenced in other parts of the API documentation, when it is
+meaningful.
+
+TODO: link the videos
+
+== Tutorials
+
+I've written a set of tutorials which describe Roby's main features and let you
+experiment with them:
+1. the GettingStarted[link:files/doc/tutorials/01-GettingStarted_rdoc.html] tutorial makes
+   you start a brand new Roby application and explains its structure.
+2. the GoForward[link:files/doc/tutorials/02-GoForward_rdoc.html] tutorial shows how to create
+   a simple task, how to start the Roby controller and how to interact with it
+   using a shell.
+3. the PlannedPath[link:files/doc/tutorials/03-PlannedPath_rdoc.html] tutorial
+   shows how to create a (slightly) more plan, using the plan-generation
+   capabilities of Roby. It also shows some properties of that plan.
+
+= Installation
+== External dependencies
 * The Roby engine needs 
   * +utilrb+, which is available on RubyForge[http://utilrb.rubyforge.org] as a gem
   * +utilmm+, which is available on SourceForge
@@ -49,13 +77,13 @@ Roby is:
   1.4.9}[http://rubyforge.org/projects/korundum], SVG export requires QtRuby to
   be built with Qt >= 4.3
 
-= Installing the easy way
+== Installing the easy way
 
 Roby is available on RubyForge as a gem. After having installed the C++ dependencies (boost/graph and utilmm), you can simply install it with
 
   gem install roby
 
-= Installing from source
+== Installing from source
 
 First, install all the required dependencies. Then, get the sources either
 from a release tarball or the RubyForge git
