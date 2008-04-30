@@ -305,7 +305,10 @@ module Roby
 		end
 
 		start_event = task.history.find { |ev| ev.symbol == :start }
-		{ 'Task' => task.to_s, 'Since' => start_event.time, 'State' => state_name }
+                since = if start_event then start_event.time
+                        else 'N/A'
+                        end
+		{ 'Task' => task.to_s, 'Since' => since, 'State' => state_name }
 	    end
 
 	    io = StringIO.new
