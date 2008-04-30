@@ -86,6 +86,28 @@ You can then start the robot controller with <tt>scripts/run</tt> and stop it wi
   a <i>partially instanciated</i> task being a task whose all required
   arguments are not set.
 
+* to understand the meaning of the +poll+ statement, you have to understand
+  the idea behind Roby's execution model. Roby relies on a _synchronous_
+  execution model, which is basically a two-steps loops (a more detailed
+  explanation will come in the following tutorials). This two-steps loops
+  is basically:
+  1. gather all events that have occured since the last loop
+  2. react to those events
+
+  What should be noted here is that the duration of this whole execution loop
+  is also a higher bound for the plan-based reaction to new situations. In
+  other words, it means that the worst-case latency between the moment
+  something happens and the moment the system reacts to it is the duration of
+  the execution cycle.  In general, one considers that the duration of the
+  execution cycle should be small with respect to the system's dynamic (the
+  latency in reaction must not have a physical effect).
+
+  Now, what is the role of +poll+ here ? The block given to +poll+ is executed
+  at each execution cycle <i>while the task is running</i>. It can therefore be
+  used to break done lengthy computation in small steps, or represent a computation
+  thread in the plan, using a task (Roby::PlannerTask does this to represent a plan
+  generation thread).
+
 * we did not specify a robot name in the call to <tt>scripts/run</tt>. In that
   case, Roby instantiated a robot named 'goForward' of type 'goForward'
 * in general, one does not want the robot to start moving just after
