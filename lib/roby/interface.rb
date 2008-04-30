@@ -377,7 +377,7 @@ module Roby
 		raise RuntimeError, "cannot start #{name}: #{planner.terminal_event.context.first}"
 	    end
 
-	    RemoteObjectProxy.new(planner.planned_task)
+	    RemoteObjectProxy.new(planner.result)
 	end
     end
 end
