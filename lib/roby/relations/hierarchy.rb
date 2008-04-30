@@ -194,18 +194,32 @@ module Roby
 	# The event which is the cause of this error. This is either the task
 	# source of a failure event, or the reason why a positive event has
 	# become unreachable (if there is one)
-
 	def initialize(parent, event)
 	    super(event.task_sources.find { true })
 	    @parent = parent
 	    @relation = parent[child, TaskStructure::Hierarchy]
 	end
 
-	def message # :nodoc:
-	    "#{super}\nthe failed relation is: #{parent}\n        realized_by\n    #{child}"
+	def pretty_print(pp) # :nodoc:
+            super
+            pp.breakable
+            pp.breakable
+            pp.text "The failed relation is"
+            pp.breakable
+            pp.nest(2) do
+                pp.text "  "
+                parent.pretty_print pp
+                pp.breakable
+                pp.text "realized_by "
+                child.pretty_print pp
+            end
 	end
-
 	def backtrace; [] end
+
+        # True if +obj+ is involved in this exception
+        def involved_plan_object?(obj)
+            super || obj == parent
+        end
     end
     Control.structure_checks << TaskStructure::Hierarchy.method(:check_structure)
 end

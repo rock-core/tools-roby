@@ -11,8 +11,6 @@ module Roby
         
         # The objects of the given categories which are related to #failure_point
         attr_reader :failed_event, :failed_generator, :failed_task
-        # The user message
-	attr_reader :user_message
 
         # Create a LocalizedError object with the given failure point
         def initialize(failure_point)
@@ -32,33 +30,30 @@ module Roby
 	    if !@failed_task && !@failed_generator
 		raise ArgumentError, "cannot deduce a task and/or a generator from #{failure_point}"
 	    end
+
+            super("")
 	end
 
         def pretty_print(pp)
-	    base_msg = "#{self.class.name} in #{failure_point.to_s}: #{user_message}"
-	    if failed_event && failed_event.context
-		failed_event.context.each do |error|
-		    if error.kind_of?(Exception)
-			base_msg << "\n  * #{error.message}:\n    #{Roby.filter_backtrace(error.backtrace).join("\n    ")}"
-		    end
-		end
-	    end
+	    pp.text "#{self.class.name}"
+            if !message.empty?
+                pp.text ": #{message}"
+            end
+            pp.breakable
+            failure_point.pretty_print(pp)
 
-            pp.text base_msg
-            pp.group(2) do
-                Roby.filter_backtrace(backtrace).each do |line|
-                    pp.breakable
-                    pp.text line
-                end
+            if backtrace && !backtrace.empty?
+                Roby.pretty_print_backtrace(pp, backtrace)
             end
         end
 
-        def message; user_message end
-	def exception(user_message = nil) # :nodoc:
-	    new_error = dup
-            new_error.instance_variable_set(:@user_message, user_message)
-	    new_error
-	end
+        # True if +obj+ is involved in this error
+        def involved_plan_object?(obj)
+            obj.kind_of?(PlanObject) && 
+                (obj == failed_event ||
+                 obj == failed_generator ||
+                 obj == failed_task)
+        end
     end
 
     # Raised during event propagation if a task event is called or emitted,
@@ -102,17 +97,13 @@ module Roby
 	    @error = error
 	end
 
-	def message # :nodoc:
+	def pretty_print(pp) # :nodoc:
 	    if error
-		"#{self.class} in #{failure_point}: #{error.message} (#{error.class})\n  #{Roby.filter_backtrace(error.backtrace).join("\n  ")}"
-	    else
-		super
-	    end
-	end
-
-	def full_message # :nodoc:
-	    if error
-		message + "\n  #{super}"
+                pp.text "user code raised an exception in the "
+                failure_point.pretty_print(pp)
+                pp.breakable
+                pp.breakable
+                error.pretty_print(pp)
 	    else
 		super
 	    end
@@ -155,12 +146,12 @@ module Roby
 	    super(reason || generator)
 	end
 
-	def message # :nodoc:
+	def pretty_print(pp) # :nodoc:
+            pp.text "#{generator} has become unreachable"
 	    if failure_point
-		"#{generator} has become unreachable: #{failure_point}"
-	    else
-		"#{generator} has become unreachable"
-	    end
+		pp.breakable ':'
+                failure_point.pretty_print(pp)
+            end
 	end
     end
     
@@ -168,15 +159,15 @@ module Roby
     # exception
     class Aborting < RuntimeError
 	attr_reader :all_exceptions
-	def initialize(exceptions); @all_exceptions = exceptions end
-	def message # :nodoc:
-	    "#{super}\n  " +
-		all_exceptions.
-		    map { |e| e.exception.full_message }.
-		    join("\n  ")
-	end
-	def full_message # :nodoc:
-            message 
+	def initialize(exceptions)
+            @all_exceptions = exceptions 
+            super("")
+        end
+        def pretty_print(pp) # :nodoc:
+            pp.text "control loop aborting because of unhandled exceptions"
+            pp.seplist(",") do
+                all_exceptions.pretty_print(pp)
+            end
         end
 	def backtrace # :nodoc:
             [] 
@@ -196,9 +187,15 @@ module Roby
 	def initialize(from, to, error)
 	    @from, @to, @error = from, to, error
 	end
-	def message # :nodoc:
-	    "#{error} while replacing #{from} by #{to}"
-	end
+        def pretty_print(pp) # :nodoc:
+            pp.text "invalid replacement: #{message}"
+            pp.breakable
+            pp.text "from "
+            from.pretty_print(pp)
+            pp.breakable
+            pp.text "to "
+            to.pretty_print(pp)
+        end
     end
     
     # Exception raised when a mission has failed
@@ -208,9 +205,10 @@ module Roby
 	    super(task.terminal_event)
 	end
 
-	def message # :nodoc:
-	    "mission #{failed_task} failed with #{super}"
-	end
+        def pretty_print(pp)
+            pp.text "mission failed: "
+            super
+        end
     end
 
     # Exception raised in threads which are waiting for the control thread

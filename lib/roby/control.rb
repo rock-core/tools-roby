@@ -590,7 +590,9 @@ module Roby
 			    return if forced_exit? || !clear
 			rescue Exception => e
 			    Roby.warn "Control failed to clean up"
-			    Roby.warn e.full_message
+                            Roby.format_exception(e).each do |line|
+                                Roby.warn line
+                            end
 			    return
 			end
 		    end
@@ -653,7 +655,9 @@ module Roby
 
 		rescue Exception => e
 		    Roby.warn "Control quitting because of unhandled exception"
-		    Roby.warn e.full_message
+                    Roby.format_exception(e).each do |line|
+                        Roby.warn line
+                    end
 		    quit
 		end
 	    end
@@ -717,8 +721,9 @@ module Roby
 	# Hook called when a set of tasks is being killed because of an exception
 	def self.fatal_exception(error, tasks)
 	    super if defined? super
-	    Roby.warn "#{error.exception.message}: killing\n  #{tasks.to_a.join("\n  ")}"
-	    Roby.info error.exception.full_message
+            Roby.format_exception(error.exception).each do |line|
+                Roby.warn line
+            end
 	end
 	# Hook called when an exception +e+ has been handled by +task+
 	def self.handled_exception(e, task); super if defined? super end

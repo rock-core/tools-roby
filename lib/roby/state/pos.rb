@@ -10,7 +10,10 @@ module Roby::Pos
 	end
 
 	def to_s # :nodoc:
-            "#<Vector3D (x,y,z) = (%f,%f,%f)>" % [x,y,z] 
+            "Vector3D(x=%f,y=%f,z=%f)" % [x,y,z] 
+        end
+        def pretty_print(pp)
+            pp.text to_s
         end
 
         # The length of the vector
@@ -100,7 +103,7 @@ module Roby::Pos
 	end
 
 	def to_s # :nodoc:
-            "#<Euler3D (x,y,z) = (%f,%f,%f); (y,p,r) = (%f,%f,%f)>" % [x,y,z,yaw,pitch,roll]
+            "Euler3D(x=%f,y=%f,z=%f,y=%f,p=%f,r=%f)" % [x,y,z,yaw,pitch,roll]
         end
     end
 end

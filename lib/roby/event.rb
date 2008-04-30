@@ -44,8 +44,16 @@ module Roby
         end
 
 	def to_s
-	    "#{self.class.to_s}@#{propagation_id} [#{time.to_hms}]: #{context}"
+	    "[#{time.to_hms} @#{propagation_id}] #{self.class.to_s}: #{context}"
 	end
+        def pretty_print(pp)
+            pp.text "[#{time.to_hms} @#{propagation_id}] #{self.class}"
+            pp.breakable
+            pp.nest(2) do
+                pp.text "  "
+                pp.seplist(context) { |v| v.pretty_print(pp) }
+            end
+        end
     end
 
     # EventGenerator objects are the objects which manage the event generation

@@ -506,23 +506,61 @@ class TC_Exceptions < Test::Unit::TestCase
 	plan.discard(mission)
     end
 
-    def test_event_not_executable_message
-	ev = EventGenerator.new(true)
-	begin
-	    raise EventNotExecutable.new(ev), "user message"
-	rescue EventNotExecutable => e
-	    error = e
-	end
-	assert(error.message =~ /user message/)
+    def test_filter_command_errors
+        model = Class.new(SimpleTask) do
+            event :start do
+                raise ArgumentError
+            end
+        end
 
-	begin
-	    raise EventHandlerError.new(e, ev), "another message"
-	rescue EventHandlerError => e
-	    error = e
-	end
-	STDERR.puts e.message
-	assert(error.message =~ /user message/)
+        task = prepare_plan :permanent => 1, :model => model
+        error = begin task.start!
+                rescue Exception => e; e
+                end
+        assert_kind_of CodeError, e
+        assert_nothing_raised do
+            Roby.format_exception e
+        end
+
+        trace = e.error.backtrace
+        filtered = Roby.filter_backtrace(trace)
+        assert(filtered[0] =~ /command of 'start'/, filtered[0])
+        assert(filtered[1] =~ /test_filter_command_errors/,   filtered[1])
     end
 
+    def test_filter_handler_errors
+        task = prepare_plan :permanent => 1, :model => SimpleTask
+        task.on(:start) { raise ArgumentError }
+        error = begin task.start!
+                rescue Exception => e; e
+                end
+        assert_kind_of CodeError, e
+        assert_nothing_raised do
+            Roby.format_exception e
+        end
+    end
+
+    def test_filter_polling_errors
+        #Roby.control.fatal_exceptions = false
+
+        model = Class.new(SimpleTask) do
+            poll do
+                raise ArgumentError, "bla"
+            end
+        end
+
+        parent = prepare_plan :permanent => 1, :model => SimpleTask
+        child = prepare_plan :permanent => 1, :model => model
+        parent.realized_by child
+        parent.start!
+        child.start!
+        child.failed!
+
+	error = TaskStructure::Hierarchy.check_structure(plan).first.exception
+	assert_kind_of(ChildFailedError, error)
+        assert_nothing_raised do
+            Roby.format_exception(error)
+        end
+    end
 end
 

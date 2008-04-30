@@ -72,6 +72,22 @@ class TC_RealizedBy < Test::Unit::TestCase
 	parent.stop!
     end
 
+    def test_exception_printing
+        parent, child = prepare_plan :discover => 2, :model => SimpleTask
+        parent.realized_by child
+        parent.start!
+        child.start!
+        child.failed!
+
+	error = Hierarchy.check_structure(plan).first.exception
+	assert_kind_of(ChildFailedError, error)
+        assert_nothing_raised do
+            Roby.format_exception(error)
+        end
+
+        parent.stop!
+    end
+
     def test_structure_checking
 	child_model = Class.new(SimpleTask) do
 	    event :first, :command => true

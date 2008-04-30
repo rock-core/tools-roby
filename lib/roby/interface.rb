@@ -174,11 +174,16 @@ module Roby
             # Pushes a exception message to all the already registered remote interfaces.
 	    def push_exception_message(name, error, tasks)
 		Roby::Control.synchronize do
-		    msg = "#{name}: #{error.exception.message}:\n"
-		    msg << tasks.map { |t| t.to_s }.join("\n")
-		    msg << "\n  #{error.exception.backtrace.join("\n  ")}" if error.exception.backtrace
-		    msg << "\nThe following tasks have been killed:"
-		    tasks.each { |t| msg << "\n  * " << t.to_s }
+                    msg = Roby.format_exception(error.exception).join("\n")
+		    msg << "\nThe following tasks have been killed:\n"
+		    tasks.each do |t|
+                        msg << "  "
+                        if error.exception.involved_plan_object?(t)
+                            msg << "#{t.class}:0x#{t.address.to_s(16)}\n"
+                        else
+                            PP.pp(t, msg)
+                        end
+                    end
 
 		    interfaces.each do |iface|
 			iface.pending_messages << msg

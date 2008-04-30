@@ -75,6 +75,15 @@ module Roby
 	    "#{generator.to_s}@#{propagation_id} [#{time.to_hms}]: #{context}"
 	end
 
+        def pretty_print(pp)
+            pp.text "at [#{time.to_hms}/#{propagation_id}] in the "
+            generator.pretty_print(pp)
+            pp.breakable
+            pp.group(2) do
+                pp.seplist(context || []) { |v| v.pretty_print pp }
+            end
+        end
+
         # If the event model defines a controlable event
         # By default, an event is controlable if the model
         # responds to #call
@@ -219,6 +228,9 @@ module Roby
 	def inspect
 	    "#{task.inspect}/#{symbol}: #{history.to_s}"
 	end
+        def pretty_print(pp)
+            pp.text "#{symbol} event of #{task.class}:0x#{task.address.to_s(16)}"
+        end
 
 	def achieve_with(obj)
 	    child_task, child_event = case obj
@@ -1270,19 +1282,15 @@ module Roby
 	end
 
 	def pretty_print(pp) # :nodoc:
-	    pp.text to_s
-	    pp.group(2, ' {', '}') do
-		pp.breakable
-		pp.text "owners: "
+	    pp.text "#{self.class.name}:0x#{self.address.to_s(16)}"
+            pp.breakable
+	    pp.nest(2) do
+		pp.text "  owners: "
 		pp.seplist(owners) { |r| pp.text r.to_s }
 
 		pp.breakable
-		pp.text "relations: "
-		pp.seplist(relations) { |r| pp.text r.name }
-
-		pp.breakable
 		pp.text "arguments: "
-		pp.pp arguments
+		arguments.pretty_print(pp)
 	    end
 	end
 

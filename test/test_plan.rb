@@ -573,6 +573,9 @@ class TC_Plan < Test::Unit::TestCase
 	error = Roby.check_failed_missions(plan).first.exception
 	assert_kind_of(Roby::MissionFailedError, error)
 	assert_equal(task.event(:specialized_failure).last, error.failure_point)
+        assert_nothing_raised do
+            Roby.format_exception error
+        end
 
 	# Makes teardown happy
 	plan.remove_object(task)
