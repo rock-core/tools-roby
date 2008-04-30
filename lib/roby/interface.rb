@@ -69,20 +69,6 @@ module Roby
 	    pp.text to_s
 	end
 
-	def self._load(str)
-	    drb_unmarshalled = super
-	    if drb_unmarshalled.kind_of?(DRbObject)
-		it = self.allocate
-		it.instance_variable_set('@uri', drb_unmarshalled.instance_variable_get(:@uri))
-		it.instance_variable_set('@ref', drb_unmarshalled.instance_variable_get(:@ref))
-		it
-	    else
-		drb_unmarshalled
-	    end
-	rescue Exception => e
-	    STDERR.puts e.full_message
-	end
-
 	alias __method_missing__ method_missing
 	def method_missing(*args, &block)
 	    if remote_interface
