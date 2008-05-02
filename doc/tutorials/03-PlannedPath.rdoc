@@ -23,71 +23,75 @@ To hold all these, we will create a new robot:
   roby robot PathPlan
 
 == Defining the task models
-There will be three different tasks:
-* the +MoveTo+ task express the current goal of the
-  robot, and holds the path data
+This section will describe the task models, without the actual implementation
+of the actual implementation of these activities. That implementation is
+discussed later in that tutorial. The goal is to first make you grasp what the
+task models, and the plan model is about and only then how the tasks can
+actually control the robot itself.
+
+* the +MoveTo+ task express the current goal of the robot, and holds the path
+  data. Open <tt>tasks/move_to.rb</tt> and add the following:
     class MoveTo < Roby::Task
         terminates
-        # The movement goal as [x, y]
+
+        # The movement goal
         argument :goal
         # The generated path
         def path; data end
     end
 
 * the +ComputePath+ task generates the path on behalf of a +MoveTo+. When
-  successful, it updates the +data+ attribute of the +MoveTo+ task it is planning
+  successful, it updates the +data+ attribute of the +MoveTo+ task it is
+  planning. It uses a standard task, Roby::ThreadTask, which allows to
+  represent the execution of a separate thread into the main plan. Open
+  <tt>tasks/compute_path.rb</tt> and add the following:
 
-    class ComputePath < Roby::Task
-      terminates
-
-      # The path goal as [x, y]
+    require 'roby/thread_task'
+    class ComputePath < Roby::ThreadTask
+      # The movement goal
       argument :goal
       # The maximum speed limit
       argument :max_speed
-      # The distance at which we consider that we have reached the goal
-      argument :threshold
-
-      <code: see below>
     end
 
-* the +TrackPath+ takes the path generated and follows it
+* finally, +TrackPath+ takes the path generated and follows it. Open
+  <tt>tasks/track_path.rb</tt> and add the following:
     class TrackPath < Roby::Task
       terminates
 
       # The task holding the path data
-      argument :path
-      # The current waypoint, as [x, y]
-      def waypoint; path[waypoint_index] end
-      # The index of the current waypoint
-      attr_reader :waypoint_index
-
-      <code: see below>
+      argument :path_task
     end
 
+*Note*: the file names are "best practice" recommandations. They are not at all
+required for the application to work.
+
 == Building the movement plan
-Let's add a +move_to+ action to our robot. Add the following method definition
-to the MainPlanner class definition:
+Let's add a +move_to+ action to our robot, which builds the plan corresponding
+to the whole movement. The action definition, in
+<tt>planners/PathPlan/main.rb</tt> would look like this:
 
+  # Note: the method arguments are accessed through the +arguments+ hash
   method(:move_to) do
-    move = MoveTo.new(:goal => arguments[:goal])
-    move.planned_by(compute = ComputePath.new)
-    move.realized_by(track = TrackPath.new)
+    # The goal point
+    goal = Pos::Vector3D.new(*arguments.values_at(:x, :y))
+    # The high-level representation of the movement
+    move = MoveTo.new :goal => goal
+    move.realized_by compute = ComputePath.new(:goal => goal, :max_speed => 1.0)
+    move.realized_by track   = TrackPath.new(:path_task => move)
 
-    move.on :start, compute, :start
-    compute.on :success, track, :start
-    track.forward :success, move, :success
+    move.on       :start,   compute, :start
+    compute.on    :success, track,   :start
+    track.forward :success, move,    :success
 
     move
   end
 
 The first part creates the <em>task structure</em>, which expresses the
-relationships of the different tasks of the plan. In this plan, there is two
-kinds of logical relationships:
-* the +ComputePath+ task generates the plan (in this case, the trajectory)
-  needed to achieve +MoveTo+'s goal. In Roby, this is represented as a PlannedBy
-  relation.
-* the +TrackPath+ task actually executes the actions needed to achieve
-  +MoveTo+'s goal. In Roby, this is represented as a RealizedBy relation.
+relationships of the different tasks of the plan. This simple plan uses only
+one kind of relation, the RealizedBy relation. In this relation, the child task
+(i.e. +compute+ and +track+) are simple activities which achieve the parent's higher-level
+action.
 
 The second part creates the <em>event structure</em>, which expresses how the
 plan should respond to new situations. In our case, the three line describe the following:
@@ -111,30 +115,141 @@ Task relations allow the system to keep track of what a given task is useful for
 what are error conditions and how to react to errors. The next two tutorials will
 describe these parts in more details.
 
+== Running this unfinished controller
+
+Let's run this controller. Launch the controller
+  $ scripts/run PathPlan
+  
+In another terminal, launch the shell and start the move_to! action
+  $ scripts/shell
+  >> move_to! :x => 10, :y => 10
+  => MoveTo{goal => Vector3D(x=10.000000,y=10.000000,z=0.000000)}:0x48350370[]
+  >>
+  !Roby::ChildFailedError
+  !at [336040:01:45.419/186] in the failed event of ComputePath:0x483502e0
+  !block not supplied (ArgumentError)
+  !  /home/doudou/dev/roby/lib/roby/thread_task.rb:51:in `instance_eval',
+  !    /home/doudou/dev/roby/lib/roby/thread_task.rb:61:in `value',
+  !    /home/doudou/dev/roby/lib/roby/thread_task.rb:61:in the polling handler,
+  !    /home/doudou/system/powerpc-linux/ruby-1.8.6/lib/ruby/site_ruby/1.8/rubygems/custom_require.rb:27:in `gem_original_require',
+  !    /home/doudou/system/powerpc-linux/ruby-1.8.6/lib/ruby/site_ruby/1.8/rubygems/custom_require.rb:27:in `require',
+  !    scripts/run:3
+  !
+  !The failed relation is
+  !  MoveTo:0x48350370
+  !    owners: Roby::Distributed
+  !    arguments: {:goal=>Vector3D(x=10.000000,y=10.000000,z=0.000000)}
+  !  realized_by ComputePath:0x483502e0
+  !    owners: Roby::Distributed
+  !    arguments: {:max_speed=>1.0,
+  !     :goal=>Vector3D(x=10.000000,y=10.000000,z=0.000000)}
+  !The following tasks have been killed:
+  !  ComputePath:0x483502e0
+  !  MoveTo:0x48350370
+
+Mmmm... What happened ? The call to <tt>move_to!</tt> returned properly, which
+means that the plan has been properly generated and the MoveTo high-level
+action started. Nonetheless, an error occured.
+
+The error message appeared because an ArgumentError exception has been raised
+in <tt>thread_task.rb:51</tt> Looking at the documentation of Roby::ThreadTask,
+we see that the definition of ComputePath has not called the implementation
+statement, and as such the polling handler failed. Roby answers to that by
+emitting the +failed+ event of the problematic task.
+
+The plan-related error (ChildFailedError) has then been generated by Roby's
+plan analysis because the +realized_by+ relation between MoveTo and ComputePath
+requires that ComputePath finishes successfully in order to properly realize
+the MoveTo action. Since it failed here, Roby generated an error and killed the
+MoveTo action.
+
+A more complete description of errors and, more importantly, of how to handle
+them is given in the following tutorials.
+
 == Implementation of +ComputePath+ and +TrackPath+
 The first section did mainly explain how the plan represents the logical
 relations between each tasks and each task's events. We will now get into the
 details of actually implementing these tasks.
 
-* for +ComputePath+, we will simply generate a random set of points in-between the current
-  robot position and the specified goal.
+* First, we have to initialize the position in <tt>tasks/PathPlan.rb</tt>
 
-    class ComputePath < Roby::Task
-      terminates
-
-      # The path goal as [x, y]
-      argument :goal
-      # The maximum speed limit
-      argument :max_speed
-      # The distance at which we consider that we have reached the goal
-      argument :threshold
-
-      # The starting point
-      attr_reader :start
-      event :start do |context|
-        @start = [State.pos.x, State.pos.y]
-        emit :start
-      end
+    Roby::State.update do |s|
+      s.pos = Roby::Pos::Vector3D.new
     end
+
+* for +ComputePath+, we will simply generate a random set of points in-between
+  the current robot position and the specified goal. In general (i.e. not here,
+  but in a real case), this process takes time and as such cannot be done in
+  one pass of the execution cycle. We will therefore use a thread to do it,
+  leaving the actual thread management to Roby::ThreadTask:
+
+    # The robot position at which we should start planning
+    # the path
+    attr_reader :start_point
+
+    # Initialize start_point and call ThreadTask's start command
+    event :start do |context|
+      @start_point = State.pos.dup
+      super
+    end
+
+    # Implementation of the computation thread
+    implementation do
+      path = [start_point]
+      while goal.distance(path.last) > max_speed
+        u = goal - path.last
+        u /= u.length / max_speed
+        path << path.last + u
+      end
+      path << goal
+
+      Robot.info "#{path.size} points between #{start_point} and #{goal}"
+      path
+    end
+
+    on :success do |ev|
+      # Parents is a ValuSet, it has no #first method. Get
+      # the first element with #find
+      parents.find { true }.data = result
+    end
+
+  See Roby::ThreadTask to implement _interruptible_ external threads.
+
+  Robot is a namespace which (among other things) can be used to access an
+  application-specific logger set up by Roby itself. It answers to #debug,
+  #info, #warning and #fatal, and by default is at the INFO level.  The Logger
+  object itself is accessible at Robot.logger. Therefore, use
+  Robot.logger.level= to change the logger level itself.
+
+* as stated before, MoveTo does not require any special code. It is here
+  only to represent a high level activity (the whole movement), not to actually
+  execute it.
+
+* TrackPath will then take the path data and execute the corresponding movement. For
+  the purpose of this tutorial, it will simply move to the next point in the path
+  at each execution cycle:
+
+    # The current waypoint
+    def current_waypoint; path_task.data[@waypoint_index] end
+
+    poll do
+      @waypoint_index ||= 0
+      State.pos = current_waypoint
+      @waypoint_index += 1
+      if @waypoint_index == path_task.data.size
+        emit :success
+      end
+
+      Robot.info "moved to #{current_waypoint}"
+    end
+
+= Conclusion
+
+That's all, folks. After this tutorial, you should be able to build simple task
+models and simple plans, as well as execute them and understand the most common
+error -- ChildFailedError. The next tutorial will go back in more details on
+the execution cycle and some of Roby's specificities in that domain. To do
+that, it will also show you the logging capabilities of Roby and its display
+feature.
 ---
 vim: tw=80 et
