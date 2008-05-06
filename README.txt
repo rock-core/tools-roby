@@ -65,7 +65,7 @@ experiment with them:
 == External dependencies
 * The Roby engine needs 
   * +utilrb+, which is available on RubyForge[http://utilrb.rubyforge.org] as a gem
-  * +utilmm+, which is available on SourceForge
+  * +utilmm+, which is available on SourceForge[http://utilmm.sourceforge.net]
   * Facets, available on RubyForge[http://rubyforge.org/projects/facets] or as a gem
   * ActiveSupport, available on RubyForge[http://rubyforge.org/projects/activesupport] or as a gem
   * the Boost/Graph C++ library
