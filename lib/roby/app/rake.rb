@@ -42,7 +42,9 @@ module Roby
                     Dir.chdir(plugin_dir) do
                         task_list = `rake --tasks`.split("\n")
                         if !task_list.grep(/^rake #{target}(\s|$)/).empty?
-                            system 'rake', target
+                            if !system 'rake', target
+                                raise "failed to call rake target #{target} in #{plugin_dir}"
+                            end
                         end
                     end
                 end
