@@ -13,22 +13,48 @@ module Roby
 
     # = Roby Applications
     #
-    # == Directory Layout
-    # config/
-    # tasks/
-    # planners/
-    # data/
+    # There is one and only one Application object, which holds mainly the
+    # system-wide configuration and takes care of file loading and system-wide
+    # setup (#setup). A Roby application can be started in multiple modes. The
+    # first and most important mode is the runtime mode
+    # (<tt>scripts/run</tt>). Other modes are the testing mode (#testing?
+    # returns true, entered through <tt>scripts/test</tt>) and the shell mode
+    # (#shell? returns true, entered through <tt>scripts/shell</tt>). Usually,
+    # user code does not have to take the modes into account, but it is
+    # sometime useful.
     #
-    # == File loading logic
-    # TODO: describe that properly
-    # * YAML configuration files (config/roby.yml and config/app.yml)
-    # * init.rb
-    # * robot-specific configuration files, robot kind and single robots
-    # * load order (roby, plugins, init.rb, Roby and plugin configuration,
-    #   robot-specific configuration files, controller)
+    # Finally, in both testing and runtime mode, the code can be started in
+    # simulation or live setups (see #simulation?). Specific plugins can for
+    # instance start and set up a simulation system in simulation mode, and as
+    # well set up some simulation-specific configuration for the functional
+    # layer of the architecture.
     #
-    # == Test support
+    # == Configuration files
     #
+    # In all modes, a specific set of configuration files are loaded.  The
+    # files that are actually loaded are defined by the robot name and type, as
+    # specified to #robot. The loaded files are, in order, the following:
+    # [config/app.yml]
+    #   the application configuration as a YAML file. See the comments in that
+    #   file for more details.
+    # [config/init.rb]
+    #   Ruby code for the common configuration of all robots
+    # [config/ROBOT_NAME.rb or config/ROBOT_TYPE.rb]
+    #   Ruby code for the configuration of either all robots of the same type,
+    #   or a specific robot. It is one or the other. If a given robot needs to
+    #   inherit the configuration of its type, explicitely require the
+    #   ROBOT_TYPE.rb file in config/ROBOT_NAME.rb.
+    #
+    # == Runtime mode (<tt>scripts/run</tt>)
+    # Then, in runtime mode the robot controller
+    # <tt>controller/ROBOT_NAME.rb</tt> or <tt>controller/ROBOT_TYPE.rb</tt> is
+    # loaded. The same rules than for the configuration file
+    # config/ROBOT_NAME.rb apply.
+    #
+    # == Testing mode (<tt>scripts/test</tt>)
+    # This mode is used to run test suites in the +test+ directory.
+    #
+    # TODO: finish
     class Application
 	include Singleton
 
