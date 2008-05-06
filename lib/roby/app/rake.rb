@@ -19,16 +19,16 @@ module Roby
             if ENV['RDOC_TEMPLATE']
                 if ENV['RDOC_TEMPLATE'] == 'jamis'
                     Roby::Rake.info "using in-source jamis template"
-                    File.expand_path('doc/styles/jamis')
+                    File.expand_path('doc/styles/jamis', ROBY_ROOT_DIR)
                 elsif ENV['RDOC_TEMPLATE'] == 'allison'
                     Roby::Rake.info "using in-source allison template"
-                    File.expand_path('doc/styles/allison')
+                    File.expand_path('doc/styles/allison', ROBY_ROOT_DIR)
                 else
                     Roby::Rake.info "using the #{ENV['RDOC_TEMPLATE']} template"
                     ENV['RDOC_TEMPLATE']
                 end
             else
-                File.expand_path('doc/styles/jamis')
+                File.expand_path('doc/styles/jamis', ROBY_ROOT_DIR)
             end
         end
 
