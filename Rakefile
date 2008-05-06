@@ -133,3 +133,6 @@ namespace 'doc' do
     plugins_documentation_generation 're'
 end
 
+task 'docs' => ['doc:core', 'doc:plugins_docs']
+task 'clobber_docs' => ['doc:clobber_core', 'doc:plugins_clobber_docs']
+task 'redocs' => ['doc:recore', 'doc:replugins_docs']
