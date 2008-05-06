@@ -3,6 +3,7 @@ class String # :nodoc: all
     include ActiveSupport::CoreExtensions::String::Inflections
 end
 
+require 'roby/config'
 require 'facets/kernel/constant'
 require 'utilrb/enumerable'
 require 'utilrb/time/to_hms'

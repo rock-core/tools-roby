@@ -1,7 +1,7 @@
 #require 'rake/rdoctask'
 require 'enumerator'
 require 'hoe'
-require 'roby/dist'
+require 'roby/config'
 
 begin
     require 'hoe'
