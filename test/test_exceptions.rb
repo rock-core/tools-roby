@@ -524,7 +524,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
         trace = e.error.backtrace
         filtered = Roby.filter_backtrace(trace)
-        assert(filtered[0] =~ /command of 'start'/, filtered[0])
+        assert(filtered[0] =~ /command for 'start'/, filtered[0])
         assert(filtered[1] =~ /test_filter_command_errors/,   filtered[1])
     end
 
