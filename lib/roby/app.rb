@@ -237,7 +237,12 @@ module Roby
 	    call_plugins(:reset, self)
 	end
 
-	attr_reader :robot_name, :robot_type
+        # The robot name
+	attr_reader :robot_name
+        # The robot type
+        attr_reader :robot_type
+        # Sets up the name and type of the robot. This can be called only once
+        # in a given Roby controller.
 	def robot(name, type = name)
 	    if @robot_name
 		if name != @robot_name && type != @robot_type
@@ -265,6 +270,12 @@ module Roby
 	    File.expand_path(log['results'] || 'results', APP_DIR)
 	end
 
+        # Returns a unique directory name as a subdirectory of
+        # +base_dir+, based on +path_spec+. The generated name
+        # is of the form
+        #   <base_dir>/a/b/c/YYYYMMDD-basename
+        # if <tt>path_spec = "a/b/c/basename"</tt>. A .<number> suffix
+        # is appended if the path already exists.
 	def self.unique_dirname(base_dir, path_spec)
 	    if path_spec =~ /\/$/
 		basename = ""
@@ -300,6 +311,9 @@ module Roby
 	    final_path
 	end
 
+        # Sets up all the default loggers. It creates the logger for the Robot
+        # module (accessible through Robot.logger), and sets up log levels as
+        # specified in the <tt>config/app.yml</tt> file.
 	def setup_loggers
 	    # Create the robot namespace
 	    STDOUT.sync = true
@@ -354,6 +368,7 @@ module Roby
 	    end
 	end
 
+        # Loads the models, based on the given robot name and robot type
 	def require_models
 	    # Require all common task models and the task models specific to
 	    # this robot
