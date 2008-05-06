@@ -561,6 +561,8 @@ class TC_Exceptions < Test::Unit::TestCase
         assert_nothing_raised do
             Roby.format_exception(error)
         end
+        # To silently finish the test ...
+        parent.stop!
     end
 end
 
