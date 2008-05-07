@@ -10,7 +10,7 @@ begin
             p.developer 'Sylvain Joyeux', 'sylvain.joyeux@m4x.org'
 
             p.summary = 'A robotic control framework'
-            p.description = p.paragraphs_of('README.txt', 2..3).join("\n\n")
+            p.description = p.paragraphs_of('README.txt', 3..13).join("\n\n")
             p.url         = p.paragraphs_of('README.txt', 0).first.split(/\n/)[1..-1]
             p.changes     = p.paragraphs_of('History.txt', 0..1).join("\n\n")
 
