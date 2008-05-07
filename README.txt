@@ -59,7 +59,7 @@ them:
    a simple task, how to start the Roby controller and how to interact with it
    using a shell.
 3. the PlannedPath[link:files/doc/tutorials/03-PlannedPath_rdoc.html] tutorial
-   shows how to create a (slightly) more plan, using the plan-generation
+   shows how to create a (slightly) more complex plan, using the plan-generation
    capabilities of Roby. It also shows some properties of that plan.
 4. the ExecutionCycle[link:files/doc/tutorials/04-ExecutionCycle_rdoc.html]
    tutorial describes how the plan execution actually goes, with examples from
