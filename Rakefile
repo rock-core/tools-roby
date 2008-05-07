@@ -6,7 +6,7 @@ require 'roby/config'
 begin
     require 'hoe'
     namespace 'dist' do
-        Hoe.new('roby', Roby::VERSION) do |p|
+        hoe = Hoe.new('roby', Roby::VERSION) do |p|
             p.developer 'Sylvain Joyeux', 'sylvain.joyeux@m4x.org'
 
             p.summary = 'A robotic control framework'
@@ -14,12 +14,21 @@ begin
             p.url         = p.paragraphs_of('README.txt', 0).first.split(/\n/)[1..-1]
             p.changes     = p.paragraphs_of('History.txt', 0..1).join("\n\n")
 
-            p.extra_deps << 'facets >= 2.0' << 'activesupport' << 'utilrb >= 1.2'
+            p.extra_deps << ['facets', '>= 2.0'] << 'activesupport' << ['utilrb', '1.2']
             if p.respond_to? :need_rdoc=
                 p.need_rdoc = false
             end
             p.rdoc_pattern = /^$/
         end
+	hoe.spec.extensions << 
+	    'ext/droby/extconf.rb' <<
+	    'ext/graph/extconf.rb'
+	if !hoe.respond_to? :need_rdoc=
+	    # This sucks, I know, but Hoe's handling of documentation is not
+	    # enough for me
+	    tasks = Rake.application.instance_variable_get :@tasks
+	    tasks.delete_if { |n, _| n =~ /dist:(re|clobber_|)docs/ }
+	end
     end
 rescue LoadError
     puts "cannot load the Hoe gem, distribution is disabled"
