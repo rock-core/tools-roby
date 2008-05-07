@@ -1,4 +1,5 @@
-{Previous tutorial}[link:files/doc/tutorials/02-GoForward.html]
+{Previous tutorial}[link:files/doc/tutorials/02-GoForward_rdoc.html]
+{Next tutorial}[link:files/doc/tutorials/04-ExecutionCycle_rdoc.html]
 = Planning and following a path
 We'll now use a (slightly) more complex system to make our robot move. The
 robot will now have a goal, defined as a (x, y) point. It will generate a
