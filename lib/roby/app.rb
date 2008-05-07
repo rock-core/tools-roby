@@ -52,9 +52,8 @@ module Roby
     # config/ROBOT_NAME.rb apply.
     #
     # == Testing mode (<tt>scripts/test</tt>)
-    # This mode is used to run test suites in the +test+ directory.
-    #
-    # TODO: finish
+    # This mode is used to run test suites in the +test+ directory. See
+    # Roby::Test::TestCase for a description of Roby-specific tests.
     class Application
 	include Singleton
 

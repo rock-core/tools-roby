@@ -204,6 +204,41 @@ module Roby
 	    end
 	end
 
+	# This is the base class for running tests which uses a Roby control
+	# loop (i.e. plan execution).
+	#
+	# Because configuration and planning can be robot-specific, parts of
+	# the tests can also be splitted into generic parts and specific parts.
+	# The TestCase.robot statement allows to specify that a given test case
+	# is specific to a given robot, in which case it is ran only if the
+	# call to <tt>scripts/test</tt> specified a robot which matches (i.e.
+	# same name and type).
+	#
+	# Finally, two other mode of operation control the way tests are ran
+	# [simulation]
+	#   if the <tt>--sim</tt> flag is given to <tt>scripts/test</tt>, the
+	#   tests are ran under simulation. Otherwise, they are run in live
+	#   mode (see Roby::Application for a description of simulation and
+	#   live modes). It is possible to constrain that a given test method
+	#   is run only in simulation or live mode with the TestCase.sim and
+	#   TestCase.nosim statements:
+	#
+	#     sim :sim_only
+	#     def test_sim_only
+	#     end
+	#
+	#     nosim :live_only
+	#     def test_live_only
+	#     end
+	# [interactive]
+	#   Sometime, it is hard to actually assess the quality of processing
+	#   results automatically. In these cases, it is possible to show the
+	#   user the result of data processing, and then ask if the result is
+	#   valid by using the #user_validation method. Nonetheless, the tests
+	#   can be ran in automatic mode, in which the assertions which require
+	#   user validation are simply skipped. The <tt>--interactive</tt> or
+	#   <tt>-i</tt> flags of <tt>scripts/test</tt> specify that user
+	#   interaction is possible.
 	class TestCase < Test::Unit::TestCase
 	    include Roby::Test
 	    include Assertions
@@ -224,6 +259,7 @@ module Roby
 	    end
 
 	    @@first_time = true
+	    # Loads the configuration as specified by TestCase.robot
 	    def self.apply_robot_setup
 		app = Roby.app
 		if @@first_time
@@ -258,21 +294,22 @@ module Roby
 		yield if block_given?
 	    end
 
+	    # Returns a fresh MainPlanner object for the current plan
 	    def planner
 		MainPlanner.new(plan)
 	    end
 
-	    def setup
+	    def setup # :nodoc:
 		super
 		Roby::Test.waiting_threads << Thread.current
 	    end
 
-	    def teardown
+	    def teardown # :nodoc:
 		Roby::Test.waiting_threads.delete(Thread.current)
 		super
 	    end
 
-	    def method_config
+	    def method_config # :nodoc:
 		self.class.case_config.merge(self.class.methods_config[method_name] || Hash.new)
 	    end
 
@@ -281,19 +318,16 @@ module Roby
 		Roby.app.automatic_testing?
 	    end
 
-	    # Progress report for the curren test. Yields if user interaction is allowed
-	    # and value is not zero
+	    # Progress report for the curren test. If +max+ is given, then
+	    # +value+ is assumed to be between 0 and +max+. Otherwise, +value+
+	    # is a float value between 0 and 1 and is displayed as a percentage.
 	    def progress(value, max = nil)
 		if max
 		    print "\r#{@method_name} progress: #{value}/#{max}"
 		else
-		    print "\r#{@method_name} progress: #{"%.2f" % [value * 100]}"
+		    print "\r#{@method_name} progress: #{"%.2f %%" % [value * 100]}"
 		end
 		STDOUT.flush
-
-		if block_given? && !automatic_testing? && value > 0
-		    yield
-		end
 	    end
 
 	    def user_interaction
@@ -308,6 +342,10 @@ module Roby
 		end
 	    end
 
+	    # Ask for user validation. The method first yields, and then asks
+	    # the user if the showed dataset is nominal. If the tests are ran
+	    # in automated mode (#automatic_testing? returns true), it does
+	    # nothing.
 	    def user_validation(msg)
 		return if automatic_testing?
 
@@ -337,7 +375,7 @@ module Roby
 	    # Run +test_name+ only inside a simulation environment
 	    # +test_name+ is the name of the method without +test_+. For
 	    # instance:
-	    #   nosim :init
+	    #   sim :init
 	    #   def test_init
 	    #   end
 	    #
@@ -349,7 +387,7 @@ module Roby
 		end
 	    end
 
-	    def self.suite
+	    def self.suite # :nodoc:
 		method_names = public_instance_methods(true)
 		tests = method_names.delete_if {|method_name| method_name !~ /^(dataset|test)./}
 		suite = Test::Unit::TestSuite.new(name)
@@ -366,7 +404,7 @@ module Roby
 		return suite
 	    end
 
-	    def run(result)
+	    def run(result) # :nodoc:
 		Roby::Test.waiting_threads.clear
 
 		self.class.apply_robot_setup do
@@ -415,21 +453,26 @@ module Roby
 		puts "testcase #{method_name} teardown failed with\n#{$!.full_message}"
 	    end
 
-	    def add_error(*args, &block)
+	    def add_error(*args, &block) # :nodoc:
 		@failed_test = true
 		super
 	    end
-	    def add_failure(*args, &block)
+	    def add_failure(*args, &block) # :nodoc:
 		@failed_test = true
 		super
 	    end
 
+	    # The directory in which datasets are to be saved
 	    def datasets_dir
 		"#{APP_DIR}/test/datasets" 
 	    end
+	    # The directory into which the datasets generated by the current
+	    # testcase are to be saved.
 	    def dataset_prefix
-		"#{Roby.app.robot_name}-#{self.class.name.gsub('TC_', '').underscore}-#{@method_name.gsub(/(?:test|dataset)_/, '')}"
+		"#{Roby.app.robot_name}-#{self.class.name.gsub('TC_', '').underscore}/, '')}"
 	    end
+	    # Returns the full path of the file name into which the log file +file+
+	    # should be saved to be referred to as the +dataset_name+ dataset
 	    def dataset_file_path(dataset_name, file)
 		path = File.join(datasets_dir, dataset_name, file)
 		if !File.file?(path)
