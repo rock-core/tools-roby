@@ -62,6 +62,7 @@ experiment with them:
    capabilities of Roby. It also shows some properties of that plan.
 
 = Installation
+
 == External dependencies
 * The Roby engine needs 
   * +utilrb+, which is available on RubyForge[http://utilrb.rubyforge.org] as a gem
@@ -76,6 +77,23 @@ experiment with them:
 * finally, the GUI requires {QtRuby >=
   1.4.9}[http://rubyforge.org/projects/korundum], SVG export requires QtRuby to
   be built with Qt >= 4.3
+
+== Before installation
+
+Whatever the way you install Roby, the only dependencies that you really have
+to install yourself are util-- and (optionally) QtRuby (see above). In the case
+of Util--, you must make sure that it is, after installation, available to
+pkg-config by either installing it in a standard prefix (either <tt>/usr</tt>
+or <tt>/usr/local</tt>) or by updating PKG_CONFIG_PATH.
+
+Moreover, Roby uses {the jamis
+template}[http://weblog.jamisbuck.org/2005/4/8/rdoc-template], which is
+provided with the Roby sources (nothing needs to be done). If you want to use
+another template, you can define the +ROBY_RDOC_TEMPLATE+ environment variable
+before the installation. For instance, to use the standard RDoc HTML template,
+do (for Unix-like shells):
+
+  ROBY_RDOC_TEMPLATE=html rake docs
 
 == Installing the easy way
 
