@@ -61,6 +61,15 @@ them:
 3. the PlannedPath[link:files/doc/tutorials/03-PlannedPath_rdoc.html] tutorial
    shows how to create a (slightly) more plan, using the plan-generation
    capabilities of Roby. It also shows some properties of that plan.
+4. the ExecutionCycle[link:files/doc/tutorials/04-ExecutionCycle_rdoc.html]
+   tutorial describes how the plan execution actually goes, with examples from
+   Roby's plan execution display (requires to have QtRuby)
+5. the ErrorHandling[link:files/doc/tutorials/05-ErrorHandling_rdoc.html]
+   tutorial shows how errors are represented in the system, and how it is possible
+   to handle and repair them.
+6. the Transaction[link:files/doc/tutorials/06-Transactions_rdoc.html]
+   describes one of the most innovative ideas of Roby: the transaction. This tool
+   allows safe simultaneous plan execution and modification.
 
 = Installation
 
