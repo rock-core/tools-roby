@@ -1,4 +1,4 @@
-{Previous tutorial}[link:files/doc/tutorials/02-PathPlan.html]
+{Previous tutorial}[link:files/doc/tutorials/03-PlannedPath.html]
 = Understanding plan execution
 
 This tutorial will show you how to trace plan execution, and understand how the
