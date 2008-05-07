@@ -1,5 +1,9 @@
+if ENV['ROBY_ROOT_DIR']
+    $LOAD_PATH << File.join(ENV['ROBY_ROOT_DIR'], 'lib')
+end
 require 'rake/rdoctask'
 require 'roby/app/rake'
+
 Rake::RDocTask.new("docs") do |rdoc|
   rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
   rdoc.rdoc_dir = "../../doc/plugins/genom"
