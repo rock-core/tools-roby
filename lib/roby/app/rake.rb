@@ -16,16 +16,16 @@ module Roby
         # default is jamis. Allison is nicer, but the javascript-based indexes
         # are slow given the count of classes and methods there is in Roby.
         def self.rdoc_template
-            if ENV['RDOC_TEMPLATE']
-                if ENV['RDOC_TEMPLATE'] == 'jamis'
+            if ENV['ROBY_RDOC_TEMPLATE']
+                if ENV['ROBY_RDOC_TEMPLATE'] == 'jamis'
                     Roby::Rake.info "using in-source jamis template"
                     File.expand_path('doc/styles/jamis', ROBY_ROOT_DIR)
-                elsif ENV['RDOC_TEMPLATE'] == 'allison'
+                elsif ENV['ROBY_RDOC_TEMPLATE'] == 'allison'
                     Roby::Rake.info "using in-source allison template"
                     File.expand_path('doc/styles/allison', ROBY_ROOT_DIR)
                 else
-                    Roby::Rake.info "using the #{ENV['RDOC_TEMPLATE']} template"
-                    ENV['RDOC_TEMPLATE']
+                    Roby::Rake.info "using the #{ENV['ROBY_RDOC_TEMPLATE']} template"
+                    ENV['ROBY_RDOC_TEMPLATE']
                 end
             else
                 File.expand_path('doc/styles/jamis', ROBY_ROOT_DIR)
