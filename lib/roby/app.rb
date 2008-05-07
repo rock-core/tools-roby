@@ -49,7 +49,7 @@ module Roby
     # Then, in runtime mode the robot controller
     # <tt>controller/ROBOT_NAME.rb</tt> or <tt>controller/ROBOT_TYPE.rb</tt> is
     # loaded. The same rules than for the configuration file
-    # config/ROBOT_NAME.rb apply.
+    # <tt>config/ROBOT_NAME.rb</tt> apply.
     #
     # == Testing mode (<tt>scripts/test</tt>)
     # This mode is used to run test suites in the +test+ directory. See
