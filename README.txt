@@ -34,24 +34,25 @@ Roby is:
 
 == Related publications
 
-Roby is the result of my PhD work. As such, my {PhD
-thesis}[files:joyeux_Thesis.pdf] can be considered as a design document for the
-system. If you want an overview of the principles, you can also refer to these two
-publications [IROS,FSR].
+Roby is the result of my PhD. As such, my PhD thesis can be considered as a
+design document for the system. If you want an overview of the principles, you
+can also refer to the two publications I published.
+
+See http://roby.rubyforge.org/publications for the PDF files.
 
 == Videos
 
-Those videos are shown here for reference purpose, but frankly you will not be
-able to understand them unless you have already an idea on what is going on.
-They are also referenced in other parts of the API documentation, when it is
-meaningful.
+The videos that are available show some capabilities of the system. Frankly you
+will not be able to understand them unless you have already an idea on what is
+going on. They are also referenced in other parts of the API documentation,
+when it is meaningful.
 
-TODO: link the videos
+See http://roby.rubyforge.org/videos for the available videos.
 
 == Tutorials
 
-I've written a set of tutorials which describe Roby's main features and let you
-experiment with them:
+A set of tutorials describe Roby's main features and let you experiment with
+them:
 1. the GettingStarted[link:files/doc/tutorials/01-GettingStarted_rdoc.html] tutorial makes
    you start a brand new Roby application and explains its structure.
 2. the GoForward[link:files/doc/tutorials/02-GoForward_rdoc.html] tutorial shows how to create
