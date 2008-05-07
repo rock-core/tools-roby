@@ -13,10 +13,9 @@ module Roby
     # is saved in the +result+ attribute.
     #
     # By default, the task is not interruptible (i.e. +stop+ is not
-    # controllable). The +interruptible+ statement allows to change that.  In
-    # that latter case, the thread must call #interruption_point when the
-    # interruption can be safely performed. This method will raise Interrupt
-    # if an interruption has been requested.
+    # controllable). The +interruptible+ statement allows to change that, in
+    # which case, the thread must call #interruption_point explicitely when the
+    # interruption can be safely performed by raising an exception. 
     class ThreadTask < Roby::Task
         # The thread object. Only valid when the task is running
         attr_reader :thread
@@ -27,6 +26,9 @@ module Roby
             # The implementation block for that task model
             attr_reader :implementation_block
 
+	    # Defines the block which should be executed in the separate
+	    # thread. The currently defined block can be accessed
+	    # through the implementation_block attribute.
             def implementation(&block)
                 @implementation_block = block
             end
