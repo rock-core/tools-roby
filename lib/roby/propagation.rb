@@ -31,14 +31,6 @@ module Roby::Propagation
     extend Logger::Hierarchy
     extend Logger::Forward
 
-    def self.forward_to_plan(name, to = name)
-        self.singleton_class.class_eval <<-EOD
-        def #{name}(*args, &block)
-            Roby.plan.#{to}(*args, &block)
-        end
-        EOD
-    end
-
     def initialize(*args)
         @exception_handlers = Array.new
         @propagation_id = 0
@@ -51,15 +43,12 @@ module Roby::Propagation
     end
 
     attr_reader :propagation_id
-    forward_to_plan :propagation_id
 
     # If we are currently in the propagation stage
     def gathering?; !!@propagation end
-    forward_to_plan :gathering?
     # The set of source events for the current propagation action. This is a
     # mix of EventGenerator and Event objects.
     attr_reader :propagation_sources
-    forward_to_plan :sources, :propagation_sources
     # The set of events extracted from PropagationException.sources
     def propagation_source_events
 	result = ValueSet.new
@@ -70,7 +59,6 @@ module Roby::Propagation
 	end
 	result
     end
-    forward_to_plan :source_events, :propagation_source_events
 
     # The set of generators extracted from Propagation.sources
     def propagation_source_generators
@@ -84,14 +72,11 @@ module Roby::Propagation
 	end
 	result
     end
-    forward_to_plan :source_generators, :propagation_source_generators
 
     attr_reader :delayed_events
-    forward_to_plan :delayed_events
     def add_event_delay(time, forward, source, signalled, context)
 	delayed_events << [time, forward, source, signalled, context]
     end
-    forward_to_plan :add_event_delay
     def execute_delayed_events
 	reftime = Time.now
 	delayed_events.delete_if do |time, forward, source, signalled, context|
@@ -101,7 +86,6 @@ module Roby::Propagation
 	    end
 	end
     end
-    forward_to_plan :execute_delayed_events
     def finalized_event(event)
         super if defined? super
         event.unreachable!(nil, self)
@@ -119,7 +103,6 @@ module Roby::Propagation
     ensure
 	@propagation = nil
     end
-    forward_to_plan :gather_propagation
 
     def self.to_execution_exception(error)
 	Roby::ExecutionException.new(error)
@@ -137,14 +120,12 @@ module Roby::Propagation
 	    end
 	end
     end
-    forward_to_plan :add_error
 
     def gather_framework_errors(source)
 	yield
     rescue Exception => e
 	add_framework_error(e, source)
     end
-    forward_to_plan :gather_framework_errors
 
     def add_framework_error(error, source)
 	if @application_exceptions
@@ -155,7 +136,6 @@ module Roby::Propagation
 	    Roby.error "Application error in #{source}: #{error.full_message}"
 	end
     end
-    forward_to_plan :add_framework_error
 
     # Sets the source_event and source_generator variables according
     # to +source+. +source+ is the +from+ argument of #add_event_propagation
@@ -174,7 +154,6 @@ module Roby::Propagation
     ensure
 	@propagation_sources = sources
     end
-    forward_to_plan :propagation_context
 
     # Adds a propagation to the next propagation step. More specifically, it
     # adds either forwarding or signalling the set of Event objects +from+ to
@@ -195,7 +174,6 @@ module Roby::Propagation
 	    step << ev << context << timespec
 	end
     end
-    forward_to_plan :add_event_propagation
 
     # Calls its block in a #gather_propagation context and propagate events
     # that have been called and/or emitted by the block
@@ -238,7 +216,6 @@ module Roby::Propagation
     ensure
 	@propagation_exceptions = nil
     end
-    forward_to_plan :propagate_events
 
     def self.validate_timespec(timespec)
 	if timespec
@@ -440,7 +417,6 @@ module Roby::Propagation
 	    end
 	end
     end
-    forward_to_plan :remove_inhibited_exceptions
 
     def remove_useless_repairs
 	finished_repairs = repairs.dup.delete_if { |_, task| task.starting? || task.running? }
@@ -450,7 +426,6 @@ module Roby::Propagation
 
 	finished_repairs
     end
-    forward_to_plan :remove_useless_repairs
 
     # Performs exception propagation for the given ExecutionException objects
     # Returns all exceptions which have found no handlers in the task hierarchy
@@ -566,7 +541,6 @@ module Roby::Propagation
 	    find_all { |e| !e.handled? }.
 	    reject { |e| handle_exception(e) }
     end
-    forward_to_plan :propagate_exceptions
 
     # A set of proc objects which should be executed at the next
     # execution cycle.
