@@ -90,8 +90,7 @@ module Roby
 
 	    save_collection Roby.plan.event_ordering
 	    save_collection Roby.plan.delayed_events
-
-	    save_collection Roby.exception_handlers
+	    save_collection Roby.plan.exception_handlers
 	    timings[:setup] = Time.now
 	end
 

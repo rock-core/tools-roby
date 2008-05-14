@@ -429,7 +429,7 @@ module Roby
 
 		event = event_for(from_generator, event_id, time, context)
 
-		event.send(:propagation_id=, Propagation.propagation_id)
+		event.send(:propagation_id=, from_generator.plan.propagation_id)
 		from_generator.instance_variable_set("@happened", true)
 		from_generator.fired(event)
 		from_generator.call_handlers(event)
@@ -450,7 +450,7 @@ module Roby
 
 		# Only add the signalling if we own +to+
 		if to_generator.self_owned?
-		    Propagation.add_event_propagation(only_forward, [event], to_generator, event.context, nil)
+		    to_generator.plan.add_event_propagation(only_forward, [event], to_generator, event.context, nil)
 		else
 		    # Call #signalling or #forwarding to make
 		    # +from_generator+ look like as if the event was really

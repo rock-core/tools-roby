@@ -130,10 +130,10 @@ module Roby
 			    handler.call(self, exception_object)
 			    return true
 			rescue Exception => e
-			    if self == Roby
-				Propagation.add_framework_error(e, 'global exception handling')
+			    if self == propagation_engine
+				propagation_engine.add_framework_error(e, 'global exception handling')
 			    else
-				Propagation.add_error(FailedExceptionHandler.new(e, self, exception_object))
+				propagation_engine.add_error(FailedExceptionHandler.new(e, self, exception_object))
 			    end
 			end
 		    end

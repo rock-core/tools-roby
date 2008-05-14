@@ -3,6 +3,7 @@ require 'roby/exceptions'
 require 'utilrb/exception/full_message'
 require 'utilrb/unbound_method'
 require 'roby/relations/error_handling'
+require 'roby/exceptions'
 
 # This module contains all code necessary for the propagation steps during
 # execution. This includes event and exception propagation
@@ -39,10 +40,13 @@ module Roby::Propagation
     end
 
     def initialize(*args)
+        @exception_handlers = Array.new
         @propagation_id = 0
         @delayed_events = []
+	@process_once = Queue.new
         @event_ordering = Array.new
         @event_priorities = Hash.new
+        @propagation_engine = self
         super
     end
 
@@ -213,6 +217,10 @@ module Roby::Propagation
 	    gather_framework_errors('initial set setup') { yield(initial_set) } if block_given?
 	    gather_framework_errors('distributed events') { Roby::Distributed.process_pending }
             gather_framework_errors('delayed events') { execute_delayed_events }
+            while !process_once.empty?
+                p = process_once.pop
+                gather_framework_errors("'once' block #{p}") { p.call }
+            end
 	    seeds.each do |s|
 		gather_framework_errors("seed #{s}") { s.call }
 	    end
@@ -556,27 +564,31 @@ module Roby::Propagation
 	# set of still unhandled exceptions
 	fatal.
 	    find_all { |e| !e.handled? }.
-	    reject { |e| Roby.handle_exception(e) }
+	    reject { |e| handle_exception(e) }
     end
     forward_to_plan :propagate_exceptions
 
+    # A set of proc objects which should be executed at the next
+    # execution cycle.
+    attr_reader :process_once
+
+    attr_reader :exception_handlers
+    def each_exception_handler(&iterator); exception_handlers.each(&iterator) end
+    # define_method(:each_exception_handler, &Roby::Propagation.exception_handlers.method(:each))
+    def on_exception(*matchers, &handler)
+        check_arity(handler, 2)
+        exception_handlers.unshift [matchers, handler]
+    end
+
+    include Roby::ExceptionHandlingObject
 end
 
 module Roby
     class MainPlan < Plan
         include Propagation
     end
-
-    @exception_handlers = Array.new
-    class << self
-	attr_reader :exception_handlers
-	def each_exception_handler(&iterator); exception_handlers.each(&iterator) end
-	# define_method(:each_exception_handler, &Roby::Propagation.exception_handlers.method(:each))
-	def on_exception(*matchers, &handler)
-            check_arity(handler, 2)
-            exception_handlers.unshift [matchers, handler]
-        end
-	include ExceptionHandlingObject
+    def self.on_exception(*matchers, &handler)
+        Roby.plan.on_exception(*matchers, &handler)
     end
 end
 

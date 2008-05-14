@@ -66,6 +66,10 @@ module Roby
 	    end
 	end
 
+        # The propagation engine for this object. It is either nil (if no
+        # propagation engine is available) or self.
+        attr_reader :propagation_engine
+
 	def initialize
 	    @missions	 = ValueSet.new
 	    @keepalive   = ValueSet.new

@@ -18,6 +18,7 @@ end
 require 'roby/support'
 require 'roby/task'
 require 'roby/event'
+require 'roby/exceptions'
 require 'roby/standard_errors'
 
 require 'roby/plan'

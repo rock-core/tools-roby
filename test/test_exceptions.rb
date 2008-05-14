@@ -165,7 +165,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    Roby.on_exception(CodeError) do |mod, exception|
 		mock.global_handler(exception, exception.task, mod)
 	    end
-	    mock.should_receive(:global_handler).with(error, t0, Roby).once
+	    mock.should_receive(:global_handler).with(error, t0, plan).once
 	    assert_equal([], plan.propagate_exceptions([error]))
 	end
     end

@@ -1,4 +1,3 @@
-require 'roby'
 require 'utilrb/exception/full_message'
 
 require 'drb'
@@ -274,7 +273,7 @@ module Roby
 		begin
 		    new_exceptions = prc.call(plan)
 		rescue Exception => e
-		    Propagation.add_framework_error(e, 'structure checking')
+		    plan.add_framework_error(e, 'structure checking')
 		end
 		next unless new_exceptions
 
@@ -370,7 +369,6 @@ module Roby
 	    end
 	end
 
-	@process_once = Queue.new
 	@at_cycle_end_handlers = Array.new
 	@process_every = Array.new
 	@waiting_threads = Array.new
@@ -381,23 +379,9 @@ module Roby
 	    # Control#run will raise ControlQuitError on this threads if they
 	    # are still waiting while the control is quitting
 	    attr_reader :waiting_threads
-	    # A list of blocks to be called at the beginning of the next event loop
-	    attr_reader :process_once
-	    # Calls all pending procs in +process_once+
-	    def call_once # :nodoc:
-		while !process_once.empty?
-		    p = process_once.pop
-		    begin
-			p.call
-		    rescue Exception => e
-			Propagation.add_framework_error(e, "call once in #{p}")
-		    end
-		end
-	    end
-	    Control.event_processing << Control.method(:call_once)
 
 	    # Call block once before event processing
-	    def once(&block); process_once.push block end
+	    def once(&block); Roby.plan.process_once.push block end
 	    # Call +block+ at each cycle
 	    def each_cycle(&block); Control.event_processing << block end
 
@@ -440,7 +424,7 @@ module Roby
 			    last_call = now
 			end
 		    rescue Exception => e
-			Propagation.add_framework_error(e, "#call_every, in #{block}")
+			Roby.plan.add_framework_error(e, "#call_every, in #{block}")
 		    end
 		    [block, last_call, duration]
 		end
@@ -690,7 +674,7 @@ module Roby
 		begin
 		    handler.call
 		rescue Exception => e
-		    Propagation.add_framework_error(e, "during cycle end handler #{handler}")
+		    plan.add_framework_error(e, "during cycle end handler #{handler}")
 		end
 	    end
 	end
@@ -744,3 +728,4 @@ require 'roby/propagation'
 module Roby
     @control = Control.instance
 end
+

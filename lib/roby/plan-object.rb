@@ -29,6 +29,12 @@ module Roby
 	    @plan = new_plan
 	end
 
+        # The propagation engine object for this. For PlanObject instances, it
+        # is always the plan itself.
+        def propagation_engine
+            plan
+        end
+
 	# A three-state flag with the following values:
 	# nil:: the object is executable if its plan is
 	# true:: the object is executable
