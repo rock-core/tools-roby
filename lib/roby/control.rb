@@ -260,9 +260,8 @@ module Roby
 	    @cycle_length = 0
 	    @planners    = []
 	    @last_stop_count = 0
-	    @plan        = Plan.new
+	    @plan        = MainPlan.new
 	    Roby.instance_variable_set(:@plan, @plan)
-	    plan.extend Roby::Propagation::ExecutablePlanChanged
 	end
 
 	# Perform the structure checking step by calling the procs registered

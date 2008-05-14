@@ -88,8 +88,8 @@ module Roby
 	    Roby.control.abort_on_application_exception = true
 	    Roby.control.abort_on_framework_exception = true
 
-	    save_collection Roby::Propagation.event_ordering
-	    save_collection Roby::Propagation.delayed_events
+	    save_collection Roby.plan.event_ordering
+	    save_collection Roby.plan.delayed_events
 
 	    save_collection Roby.exception_handlers
 	    timings[:setup] = Time.now

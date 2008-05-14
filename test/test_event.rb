@@ -7,6 +7,10 @@ require 'roby'
 class TC_Event < Test::Unit::TestCase
     include Roby::Test
 
+    def test_gathering
+        assert(! Propagation.gathering?)
+    end
+
     def test_properties
 	event = EventGenerator.new
 	assert(! event.controlable?)

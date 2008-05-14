@@ -27,33 +27,54 @@ require 'roby/relations/error_handling'
 #
 # == Exception propagation
 #
+#
+# TODO: Roby::Control.event_processing << Roby::Propagation.method(:execute_delayed_events)
 module Roby::Propagation
     extend Logger::Hierarchy
     extend Logger::Forward
 
-    @@propagation_id = 0
-    def self.propagation_id; Thread.current[:propagation_id] end
+    def self.forward_to_plan(name, to = name)
+        self.singleton_class.class_eval <<-EOD
+        def #{name}(*args, &block)
+            Roby.plan.#{to}(*args, &block)
+        end
+        EOD
+    end
+
+    def initialize(*args)
+        @propagation_id = 0
+        @delayed_events = []
+        @event_ordering = Array.new
+        @event_priorities = Hash.new
+        super
+    end
+
+    attr_reader :propagation_id
+    forward_to_plan :propagation_id
 
     # If we are currently in the propagation stage
-    def self.gathering?; !!Thread.current[:propagation] end
+    def gathering?; !!@propagation end
+    forward_to_plan :gathering?
     # The set of source events for the current propagation action. This is a
     # mix of EventGenerator and Event objects.
-    def self.sources; Thread.current[:propagation_sources] end
+    attr_reader :propagation_sources
+    forward_to_plan :sources, :propagation_sources
     # The set of events extracted from PropagationException.sources
-    def self.source_events
+    def propagation_source_events
 	result = ValueSet.new
-	for ev in Thread.current[:propagation_sources]
+	for ev in @propagation_sources
 	    if ev.respond_to?(:generator)
 		result << ev
 	    end
 	end
 	result
     end
+    forward_to_plan :source_events, :propagation_source_events
 
     # The set of generators extracted from Propagation.sources
-    def self.source_generators
+    def propagation_source_generators
 	result = ValueSet.new
-	for ev in Thread.current[:propagation_sources]
+	for ev in @propagation_sources
 	    result << if ev.respond_to?(:generator)
 			  ev.generator
 		      else
@@ -62,13 +83,15 @@ module Roby::Propagation
 	end
 	result
     end
+    forward_to_plan :source_generators, :propagation_source_generators
 
-    @@delayed_events = []
-    def self.delayed_events; @@delayed_events end
-    def self.add_event_delay(time, forward, source, signalled, context)
+    attr_reader :delayed_events
+    forward_to_plan :delayed_events
+    def add_event_delay(time, forward, source, signalled, context)
 	delayed_events << [time, forward, source, signalled, context]
     end
-    def self.execute_delayed_events
+    forward_to_plan :add_event_delay
+    def execute_delayed_events
 	reftime = Time.now
 	delayed_events.delete_if do |time, forward, source, signalled, context|
 	    if time < reftime
@@ -77,35 +100,33 @@ module Roby::Propagation
 	    end
 	end
     end
-    module RemoveDelayedOnFinalized
-	def finalized_event(event)
-	    super if defined? super
-	    Roby::Propagation.delayed_events.delete_if { |_, _, _, signalled, _| signalled == event }
-	end
+    forward_to_plan :execute_delayed_events
+    def finalized_event(event)
+        super if defined? super
+        delayed_events.delete_if { |_, _, _, signalled, _| signalled == event }
     end
-    Roby::Plan.include RemoveDelayedOnFinalized
-    Roby::Control.event_processing << Roby::Propagation.method(:execute_delayed_events)
 
     # Begin an event propagation stage
-    def self.gather_propagation(initial_set = Hash.new)
+    def gather_propagation(initial_set = Hash.new)
 	raise InternalError, "nested call to #gather_propagation" if gathering?
-	Thread.current[:propagation] = initial_set
+	@propagation = initial_set
 
 	propagation_context(nil) { yield }
 
-	return Thread.current[:propagation]
+	return @propagation
     ensure
-	Thread.current[:propagation] = nil
+	@propagation = nil
     end
+    forward_to_plan :gather_propagation
 
     def self.to_execution_exception(error)
 	Roby::ExecutionException.new(error)
     end
 
-    def self.add_error(e)
-	if Thread.current[:propagation_exceptions]
-	    plan_exception = to_execution_exception(e)
-	    Thread.current[:propagation_exceptions] << plan_exception
+    def add_error(e)
+	if @propagation_exceptions
+	    plan_exception = Roby::Propagation.to_execution_exception(e)
+	    @propagation_exceptions << plan_exception
 	else
 	    if e.respond_to?(:error) && e.error
 		add_framework_error(e.error, "error outside error handling")
@@ -114,50 +135,54 @@ module Roby::Propagation
 	    end
 	end
     end
+    forward_to_plan :add_error
 
-    def self.gather_framework_errors(source)
+    def gather_framework_errors(source)
 	yield
     rescue Exception => e
 	add_framework_error(e, source)
     end
+    forward_to_plan :gather_framework_errors
 
-    def self.add_framework_error(error, source)
-	if Thread.current[:application_exceptions]
-	    Thread.current[:application_exceptions] << [error, source]
+    def add_framework_error(error, source)
+	if @application_exceptions
+	    @application_exceptions << [error, source]
 	elsif Roby.control.abort_on_application_exception || error.kind_of?(SignalException)
 	    raise error, "in #{source}: #{error.message}", error.backtrace
 	else
 	    Roby.error "Application error in #{source}: #{error.full_message}"
 	end
     end
+    forward_to_plan :add_framework_error
 
     # Sets the source_event and source_generator variables according
     # to +source+. +source+ is the +from+ argument of #add_event_propagation
-    def self.propagation_context(sources)
+    def propagation_context(sources)
 	raise InternalError, "not in a gathering context in #fire" unless gathering?
 
 	if sources
 	    current_sources = sources
-	    Thread.current[:propagation_sources] = sources
+	    @propagation_sources = sources
 	else
-	    Thread.current[:propagation_sources] = []
+	    @propagation_sources = []
 	end
 
-	yield Thread.current[:propagation]
+	yield @propagation
 
     ensure
-	Thread.current[:propagation_sources] = sources
+	@propagation_sources = sources
     end
+    forward_to_plan :propagation_context
 
     # Adds a propagation to the next propagation step. More specifically, it
     # adds either forwarding or signalling the set of Event objects +from+ to
     # the +signalled+ event generator, with the context +context+
-    def self.add_event_propagation(forward, from, signalled, context, timespec)
-	if signalled.plan != Roby.plan
+    def add_event_propagation(forward, from, signalled, context, timespec)
+	if signalled.plan != self
 	    raise Roby::EventNotExecutable.new(signalled), "#{signalled} not in main plan"
 	end
 
-	step = (Thread.current[:propagation][signalled] ||= [nil, nil])
+	step = (@propagation[signalled] ||= [nil, nil])
 	from = [nil] unless from && !from.empty?
 
 	step = if forward then (step[0] ||= [])
@@ -168,6 +193,7 @@ module Roby::Propagation
 	    step << ev << context << timespec
 	end
     end
+    forward_to_plan :add_event_propagation
 
     # Calls its block in a #gather_propagation context and propagate events
     # that have been called and/or emitted by the block
@@ -176,18 +202,19 @@ module Roby::Propagation
     # events we should consider as already emitted in the following propagation.
     # +seeds+ si a list of procs which should be called to initiate the propagation
     # (i.e. build an initial set of events)
-    def self.propagate_events(seeds = [])
-	if Thread.current[:propagation_exceptions]
+    def propagate_events(seeds = [])
+	if @propagation_exceptions
 	    raise InternalError, "recursive call to propagate_events"
 	end
 
-	Thread.current[:propagation_id] = (@@propagation_id += 1)
-	Thread.current[:propagation_exceptions] = []
+	@propagation_id = (@propagation_id += 1)
+	@propagation_exceptions = []
 
 	initial_set = []
 	next_step = gather_propagation do
 	    gather_framework_errors('initial set setup') { yield(initial_set) } if block_given?
 	    gather_framework_errors('distributed events') { Roby::Distributed.process_pending }
+            gather_framework_errors('delayed events') { execute_delayed_events }
 	    seeds.each do |s|
 		gather_framework_errors("seed #{s}") { s.call }
 	    end
@@ -200,12 +227,12 @@ module Roby::Propagation
 	while !next_step.empty?
 	    next_step = event_propagation_step(next_step, already_seen)
 	end        
-	Thread.current[:propagation_exceptions]
+	@propagation_exceptions
 
     ensure
-	Thread.current[:propagation_id] = nil
-	Thread.current[:propagation_exceptions] = nil
+	@propagation_exceptions = nil
     end
+    forward_to_plan :propagate_events
 
     def self.validate_timespec(timespec)
 	if timespec
@@ -220,29 +247,21 @@ module Roby::Propagation
 	end
     end
 
-    @event_ordering = Array.new
-    @event_priorities = Hash.new
-    class << self
-	# The topological ordering of events w.r.t. the Precedence relation
-	attr_reader :event_ordering
-	# The event => index hash which give the propagation priority for each
-	# event
-	attr_reader :event_priorities
-    end
+    # The topological ordering of events w.r.t. the Precedence relation
+    attr_reader :event_ordering
+    # The event => index hash which give the propagation priority for each
+    # event
+    attr_reader :event_priorities
 
-    # This module hooks in plan modifications to clear the event ordering cache
-    # (Propagation.event_ordering) when needed.
-    #
-    # It is included in the main plan by Control#initialize
-    module ExecutablePlanChanged
-	def discovered_events(objects)
-	    super if defined? super
-	    Roby::Propagation.event_ordering.clear
-	end
-	def discovered_tasks(objects)
-	    super if defined? super
-	    Roby::Propagation.event_ordering.clear
-	end
+    # Hooks which clear the event ordering cache (Propagation.event_ordering)
+    # when needed.
+    def discovered_events(objects)
+        super if defined? super
+        event_ordering.clear
+    end
+    def discovered_tasks(objects)
+        super if defined? super
+        event_ordering.clear
     end
     
     # This module hooks in event relation modifications to clear the event
@@ -250,14 +269,14 @@ module Roby::Propagation
     module EventPrecedenceChanged
 	def added_child_object(child, relations, info)
 	    super if defined? super
-	    if relations.include?(Roby::EventStructure::Precedence) && plan == Roby.plan
-		Roby::Propagation.event_ordering.clear
+	    if relations.include?(Roby::EventStructure::Precedence) && plan.respond_to?(:event_ordering)
+		plan.event_ordering.clear
 	    end
 	end
 	def removed_child_object(child, relations)
 	    super if defined? super
-	    if relations.include?(Roby::EventStructure::Precedence) && plan == Roby.plan
-		Roby::Propagation.event_ordering.clear
+	    if relations.include?(Roby::EventStructure::Precedence) && plan.respond_to?(:event_ordering)
+		plan.event_ordering.clear
 	    end
 	end
     end
@@ -266,7 +285,7 @@ module Roby::Propagation
     # Determines the event in +current_step+ which should be signalled now.
     # Removes it from the set and returns the event and the associated
     # propagation information
-    def self.next_event(pending)
+    def next_event(pending)
 	if event_ordering.empty?
 	    Roby::EventStructure::Precedence.topological_sort(event_ordering)
 	    event_priorities.clear
@@ -293,14 +312,14 @@ module Roby::Propagation
 	[signalled, *pending.delete(signalled)]
     end
 
-    def self.prepare_propagation(signalled, forward, info)
+    def prepare_propagation(signalled, forward, info)
 	timeref = Time.now
 
 	source_events, source_generators, context = ValueSet.new, ValueSet.new, []
 
 	delayed = true
 	info.each_slice(3) do |src, ctxt, time|
-	    if time && (delay = make_delay(timeref, src, signalled, time))
+	    if time && (delay = Roby::Propagation.make_delay(timeref, src, signalled, time))
 		add_event_delay(delay, forward, src, signalled, ctxt)
 		next
 	    end
@@ -339,7 +358,7 @@ module Roby::Propagation
     # The method returns the next set of pending emissions and calls, adding
     # the forwardings and signals that the propagation of the considered event
     # have added.
-    def self.event_propagation_step(current_step, already_seen)
+    def event_propagation_step(current_step, already_seen)
 	signalled, forward_info, call_info = next_event(current_step)
 
 	next_step = nil
@@ -404,32 +423,32 @@ module Roby::Propagation
     # Checks if +error+ is being repaired in the corresponding plan. Note that
     # +error+ is supposed to be the original exception, not the corresponding
     # ExecutionException object
-    def self.remove_inhibited_exceptions(exceptions)
+    def remove_inhibited_exceptions(exceptions)
 	exceptions.find_all do |e, _|
 	    error = e.exception
 	    if !error.respond_to?(:failed_event) ||
 		!(failure_point = error.failed_event)
 		true
 	    else
-		Roby.plan.repairs_for(failure_point).empty?
+		repairs_for(failure_point).empty?
 	    end
 	end
     end
+    forward_to_plan :remove_inhibited_exceptions
 
-    def self.remove_useless_repairs
-	plan = Roby.plan
-
-	finished_repairs = plan.repairs.dup.delete_if { |_, task| task.starting? || task.running? }
+    def remove_useless_repairs
+	finished_repairs = repairs.dup.delete_if { |_, task| task.starting? || task.running? }
 	for repair in finished_repairs
-	    plan.remove_repair(repair[1])
+	    remove_repair(repair[1])
 	end
 
 	finished_repairs
     end
+    forward_to_plan :remove_useless_repairs
 
     # Performs exception propagation for the given ExecutionException objects
     # Returns all exceptions which have found no handlers in the task hierarchy
-    def self.propagate_exceptions(exceptions)
+    def propagate_exceptions(exceptions)
 	fatal   = [] # the list of exceptions for which no handler has been found
 
 	# Remove finished repairs and remove exceptions for which a repair
@@ -459,7 +478,7 @@ module Roby::Propagation
 	    end
 
 	    if repair
-		failed_task.plan.add_repair(failed_event, repair)
+		add_repair(failed_event, repair)
 		true
 	    else
 		false
@@ -541,9 +560,15 @@ module Roby::Propagation
 	    find_all { |e| !e.handled? }.
 	    reject { |e| Roby.handle_exception(e) }
     end
+    forward_to_plan :propagate_exceptions
+
 end
 
 module Roby
+    class MainPlan < Plan
+        include Propagation
+    end
+
     @exception_handlers = Array.new
     class << self
 	attr_reader :exception_handlers

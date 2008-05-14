@@ -10,7 +10,7 @@ class TC_Propagation < Test::Unit::TestCase
 	e1, e2, e3 = EventGenerator.new(true), EventGenerator.new(true), EventGenerator.new(true)
 	plan.discover [e1, e2, e3]
 
-	set = Propagation.gather_propagation do
+	set = plan.gather_propagation do
 	    e1.call(1)
 	    e1.call(4)
 	    e2.emit(2)
@@ -26,25 +26,25 @@ class TC_Propagation < Test::Unit::TestCase
 	ev = Event.new(g2, 0, nil)
 
 	step = [nil, [1], nil, nil, [4], nil]
-	source_events, source_generators, context = Propagation.prepare_propagation(nil, false, step)
+	source_events, source_generators, context = plan.prepare_propagation(nil, false, step)
 	assert_equal(ValueSet.new, source_events)
 	assert_equal(ValueSet.new, source_generators)
 	assert_equal([1, 4], context)
 
 	step = [nil, [], nil, nil, [4], nil]
-	source_events, source_generators, context = Propagation.prepare_propagation(nil, false, step)
+	source_events, source_generators, context = plan.prepare_propagation(nil, false, step)
 	assert_equal(ValueSet.new, source_events)
 	assert_equal(ValueSet.new, source_generators)
 	assert_equal([4], context)
 
 	step = [g1, [], nil, ev, [], nil]
-	source_events, source_generators, context = Propagation.prepare_propagation(nil, false, step)
+	source_events, source_generators, context = plan.prepare_propagation(nil, false, step)
 	assert_equal([g1, g2].to_value_set, source_generators)
 	assert_equal([ev].to_value_set, source_events)
 	assert_equal(nil, context)
 
 	step = [g2, [], nil, ev, [], nil]
-	source_events, source_generators, context = Propagation.prepare_propagation(nil, false, step)
+	source_events, source_generators, context = plan.prepare_propagation(nil, false, step)
 	assert_equal([g2].to_value_set, source_generators)
 	assert_equal([ev].to_value_set, source_events)
 	assert_equal(nil, context)
@@ -52,23 +52,23 @@ class TC_Propagation < Test::Unit::TestCase
 
     def test_precedence_graph
 	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
-	Propagation.event_ordering << :bla
+	plan.event_ordering << :bla
 	Roby.plan.discover e1
 	Roby.plan.discover e2
-	assert(Propagation.event_ordering.empty?)
+	assert(plan.event_ordering.empty?)
 	
 	task = Roby::Task.new
 	Roby.plan.discover(task)
-	assert(Propagation.event_ordering.empty?)
+	assert(plan.event_ordering.empty?)
 	assert(EventStructure::Precedence.linked?(task.event(:start), task.event(:updated_data)))
 
 	e1.signal e2
 	assert(EventStructure::Precedence.linked?(e1, e2))
-	assert(Propagation.event_ordering.empty?)
+	assert(plan.event_ordering.empty?)
 
-	Propagation.event_ordering << :bla
+	plan.event_ordering << :bla
 	e1.remove_signal e2
-	assert(Propagation.event_ordering.empty?)
+	assert(plan.event_ordering.empty?)
 	assert(!EventStructure::Precedence.linked?(e1, e2))
     end
 
@@ -82,11 +82,11 @@ class TC_Propagation < Test::Unit::TestCase
 	def pending.delete(ev); delete_if { |(k, v)| k == ev } end
 
 	e1.add_precedence e2
-	assert_equal(e1, Propagation.next_event(pending).first)
+	assert_equal(e1, plan.next_event(pending).first)
 
 	e1.remove_precedence e2
 	e2.add_precedence e1
-	assert_equal(e2, Propagation.next_event(pending).first)
+	assert_equal(e2, plan.next_event(pending).first)
     end
 
     def test_delay
@@ -158,7 +158,7 @@ class TC_Propagation < Test::Unit::TestCase
 	    end
 	    mock.should_receive(:command_called).with([42]).once.ordered
 	    mock.should_receive(:handler_called).with([42, 24]).once.ordered
-	    Propagation.propagate_events([seed])
+	    plan.propagate_events([seed])
 	end
     end
 
@@ -166,7 +166,7 @@ class TC_Propagation < Test::Unit::TestCase
 	class << self
 	    attr_accessor :mockup
 	    def handle(name, obj)
-		mockup.send(name, obj, Roby::Propagation.sources) if mockup
+		mockup.send(name, obj, Roby.plan.propagation_sources) if mockup
 	    end
 	end
 
