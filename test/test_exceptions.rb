@@ -151,12 +151,12 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    error = ExecutionException.new(SpecializedError.new(t2))
 	    mock.should_receive(:handler).with(error, t1, t0).once
-	    assert_equal([], Propagation.propagate_exceptions([error]))
+	    assert_equal([], plan.propagate_exceptions([error]))
 	    assert_equal([error], error.siblings)
 	    assert_equal([t2, t1], error.trace)
 
 	    error = ExecutionException.new(CodeError.new(nil, t2))
-	    assert_equal([error], Propagation.propagate_exceptions([error]))
+	    assert_equal([error], plan.propagate_exceptions([error]))
 	    assert_equal(t0, error.task)
 	    assert_equal([t2, t1, t0], error.trace)
 
@@ -166,7 +166,7 @@ class TC_Exceptions < Test::Unit::TestCase
 		mock.global_handler(exception, exception.task, mod)
 	    end
 	    mock.should_receive(:global_handler).with(error, t0, Roby).once
-	    assert_equal([], Propagation.propagate_exceptions([error]))
+	    assert_equal([], plan.propagate_exceptions([error]))
 	end
     end
 
@@ -196,7 +196,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    #	   never tested on t3
 	    #	2/ propagation begins with t3, in which case +error+ is a sibling of
 	    #	   t0.handled_exception
-	    assert_equal([], Propagation.propagate_exceptions([error]))
+	    assert_equal([], plan.propagate_exceptions([error]))
 	    assert_equal([t2, t1], t0.handled_exception.trace)
 	    if t0.handled_exception != error
 		assert_equal([t2, t3], error.trace)
@@ -204,7 +204,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    end
 
 	    error = ExecutionException.new(LocalizedError.new(t2))
-	    assert(fatal = Propagation.propagate_exceptions([error]))
+	    assert(fatal = plan.propagate_exceptions([error]))
 	    assert_equal(1, fatal.size)
 	    e = *fatal
 	    assert_equal(t2, e.origin)
@@ -233,7 +233,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    error = ExecutionException.new(LocalizedError.new(t2))
 	    mock.should_receive(:handler).with(ExecutionException, [t1, t3].to_set, t0).once
-	    assert_equal([], Propagation.propagate_exceptions([error]))
+	    assert_equal([], plan.propagate_exceptions([error]))
 	    assert_equal(2, found_exception.trace.size, found_exception.trace)
 	    assert_equal(t2, found_exception.origin)
 	    assert_equal([t3, t1].to_set, found_exception.task.to_set)
@@ -377,7 +377,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t31.realized_by(t21)
 
 	    mock.should_receive(:caught).once
-	    Propagation.propagate_exceptions([ExecutionException.new(LocalizedError.new(t21))])
+	    plan.propagate_exceptions([ExecutionException.new(LocalizedError.new(t21))])
 	end
     end
 
@@ -426,11 +426,11 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	plan.discover(repairing_task = SimpleTask.new)
 	repairing_task.start!
-	assert_equal(exceptions.to_a, Propagation.remove_inhibited_exceptions(exceptions))
-	assert_equal(exceptions.keys, Propagation.propagate_exceptions(exceptions))
+	assert_equal(exceptions.to_a, plan.remove_inhibited_exceptions(exceptions))
+	assert_equal(exceptions.keys, plan.propagate_exceptions(exceptions))
 	plan.add_repair(child.terminal_event, repairing_task)
-	assert_equal([], Propagation.remove_inhibited_exceptions(exceptions))
-	assert_equal([], Propagation.propagate_exceptions(exceptions))
+	assert_equal([], plan.remove_inhibited_exceptions(exceptions))
+	assert_equal([], plan.propagate_exceptions(exceptions))
 
     ensure
 	# Remove the child so that the test's plan cleanup does not complain
@@ -455,7 +455,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	exceptions = Roby.control.structure_checking
 
-	assert_equal([], Propagation.propagate_exceptions(exceptions))
+	assert_equal([], plan.propagate_exceptions(exceptions))
 	assert_equal({ child.terminal_event => repairing_task },
 		     plan.repairs_for(child.terminal_event), [plan.repairs, child.terminal_event])
 
@@ -466,7 +466,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	# Make the "repair task" finish, but do not repair the plan.
 	# propagate_exceptions must not add a new repair
 	repairing_task.success!
-	assert_equal(exceptions.keys, Propagation.propagate_exceptions(exceptions))
+	assert_equal(exceptions.keys, plan.propagate_exceptions(exceptions))
 
     ensure
 	parent.remove_child child if child
@@ -488,7 +488,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	assert_equal(1, exceptions.size)
 	assert_kind_of(Roby::MissionFailedError, exceptions.to_a[0][0].exception, exceptions)
 
-	assert_equal([], Propagation.propagate_exceptions(exceptions))
+	assert_equal([], plan.propagate_exceptions(exceptions))
 	assert_equal({ mission.terminal_event => repairing_task },
 		     plan.repairs_for(mission.terminal_event), [plan.repairs, mission.terminal_event])
 
@@ -500,7 +500,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	# Make the "repair task" finish, but do not repair the plan.
 	# propagate_exceptions must not add a new repair
 	repairing_task.success!
-	assert_equal(exceptions.keys, Propagation.propagate_exceptions(exceptions))
+	assert_equal(exceptions.keys, plan.propagate_exceptions(exceptions))
 
 	# Discard the mission so that the test teardown does not complain
 	plan.discard(mission)

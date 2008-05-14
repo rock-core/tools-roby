@@ -8,7 +8,7 @@ class TC_Event < Test::Unit::TestCase
     include Roby::Test
 
     def test_gathering
-        assert(! Propagation.gathering?)
+        assert(! plan.gathering?)
     end
 
     def test_properties
@@ -548,7 +548,7 @@ class TC_Event < Test::Unit::TestCase
     def test_event_creation
 	# Test for validation of the return value of #event
 	generator = Class.new(EventGenerator) do
-	    def new(context); [Propagation.propagation_id, context] end
+	    def new(context); [plan.propagation_id, context] end
 	end.new(true)
 	plan.discover(generator)
 
@@ -557,7 +557,7 @@ class TC_Event < Test::Unit::TestCase
 	generator = Class.new(EventGenerator) do
 	    def new(context); 
 		event_klass = Struct.new :propagation_id, :context, :generator, :sources
-		event_klass.new(Propagation.propagation_id, context, self)
+		event_klass.new(plan.propagation_id, context, self)
 	    end
 	end.new(true)
 	plan.discover(generator)

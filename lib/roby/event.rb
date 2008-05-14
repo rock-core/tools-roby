@@ -165,7 +165,7 @@ module Roby
 		calling(context)
 		@pending = true
 
-		Propagation.propagation_context([self]) do
+		plan.propagation_context([self]) do
 		    command[context]
 		end
 
@@ -201,11 +201,11 @@ module Roby
 	    end
 
 	    context.compact!
-	    if Propagation.gathering?
-		Propagation.add_event_propagation(false, Propagation.sources, self, (context unless context.empty?), nil)
+	    if plan.gathering?
+		plan.add_event_propagation(false, plan.propagation_sources, self, (context unless context.empty?), nil)
 	    else
-		errors = Propagation.propagate_events do |initial_set|
-		    Propagation.add_event_propagation(false, nil, self, (context unless context.empty?), nil)
+		errors = plan.propagate_events do |initial_set|
+		    plan.add_event_propagation(false, nil, self, (context unless context.empty?), nil)
 		end
 		if errors.size == 1
 		    e = errors.first.exception
@@ -339,7 +339,7 @@ module Roby
 	end
 
 	# Create a new event object for +context+
-	def new(context); Event.new(self, Propagation.propagation_id, context, Time.now) end
+	def new(context); Event.new(self, plan.propagation_id, context, Time.now) end
 
 	# Adds a propagation originating from this event to event propagation
 	def add_propagation(only_forward, event, signalled, context, timespec) # :nodoc:
@@ -349,7 +349,7 @@ module Roby
 		raise PropagationError, "trying to signal #{signalled} from #{self}"
 	    end
 
-	    Propagation.add_event_propagation(only_forward, [event], signalled, context, timespec)
+	    plan.add_event_propagation(only_forward, [event], signalled, context, timespec)
 	end
 	private :add_propagation
 
@@ -358,7 +358,7 @@ module Roby
 	#
 	# This method is always called in a propagation context
 	def fire(event)
-	    Propagation.propagation_context([event]) do |result|
+	    plan.propagation_context([event]) do |result|
 		each_signal do |signalled|
 		    add_propagation(false, event, signalled, event.context, self[signalled, EventStructure::Signal])
 		end
@@ -384,7 +384,7 @@ module Roby
 		begin
 		    h.call(event)
 		rescue Exception => e
-		    Propagation.add_error( EventHandlerError.new(e, event) )
+		    plan.add_error( EventHandlerError.new(e, event) )
 		end
 	    end
 	end
@@ -406,7 +406,7 @@ module Roby
 		    end
 	    error = error.exception failure_message
 
-	    Propagation.add_error(error)
+	    plan.add_error(error)
 
 	ensure
 	    @pending = false
@@ -429,7 +429,7 @@ module Roby
 	    unless event.respond_to?(:context)
 		raise TypeError, "#{event} is not a valid event object in #{self}"
 	    end
-	    event.sources = Propagation.source_events
+	    event.sources = plan.propagation_source_events
 	    fire(event)
 
 	    true
@@ -449,11 +449,11 @@ module Roby
 	    end
 
 	    context.compact!
-	    if Propagation.gathering?
-		Propagation.add_event_propagation(true, Propagation.sources, self, (context unless context.empty?), nil)
+	    if plan.gathering?
+		plan.add_event_propagation(true, plan.propagation_sources, self, (context unless context.empty?), nil)
 	    else
-		errors = Propagation.propagate_events do |initial_set|
-		    Propagation.add_event_propagation(true, Propagation.sources, self, (context unless context.empty?), nil)
+		errors = plan.propagate_events do |initial_set|
+		    plan.add_event_propagation(true, plan.propagation_sources, self, (context unless context.empty?), nil)
 		end
 		if errors.size == 1
 		    e = errors.first.exception
@@ -663,20 +663,10 @@ module Roby
 	# event generators +collection+ is listening for.
 	def self.event_gathering; @@event_gathering end
 
-	# This module is hooked in Roby::Plan to remove from the
-	# event_gathering sets the events that have been finalized
-	module FinalizedEventHook
-	    def finalized_event(event)
-		super if defined? super
-		event.unreachable!
-	    end
-	end
-	Roby::Plan.include FinalizedEventHook
-
 	attr_predicate :unreachable?
 
 	# Called internally when the event becomes unreachable
-	def unreachable!(reason = nil)
+	def unreachable!(reason = nil, plan = self.plan)
 	    return if @unreachable
 	    @unreachable = true
 
@@ -684,7 +674,7 @@ module Roby
 		begin
 		    block.call(reason)
 		rescue Exception => e
-		    Propagation.add_error(EventHandlerError.new(e, self))
+		    plan.add_error(EventHandlerError.new(e, self))
 		end
 	    end
 	    unreachable_handlers.clear

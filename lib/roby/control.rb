@@ -307,7 +307,7 @@ module Roby
 	    add_timepoint(stats, :real_start)
 
 	    # Gather new events and propagate them
-	    events_errors = Propagation.propagate_events(Control.event_processing)
+	    events_errors = plan.propagate_events(Control.event_processing)
 	    add_timepoint(stats, :events)
 
 	    # HACK: events_errors is sometime nil here. It shouldn't
@@ -323,12 +323,12 @@ module Roby
 	    # is not two-stage handling (all errors that have not been handled
 	    # are fatal), and in the second case we call #structure_checking
 	    # again to get the remaining errors
-	    events_errors    = Propagation.propagate_exceptions(events_errors)
-	    Propagation.propagate_exceptions(structure_errors)
+	    events_errors    = plan.propagate_exceptions(events_errors)
+	    plan.propagate_exceptions(structure_errors)
 	    add_timepoint(stats, :exception_propagation)
 
 	    # Get the remaining problems in the plan structure, and act on it
-	    fatal_structure_errors = Propagation.remove_inhibited_exceptions(structure_checking)
+	    fatal_structure_errors = plan.remove_inhibited_exceptions(structure_checking)
 	    fatal_errors = fatal_structure_errors.to_a + events_errors
 	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
 		tasks ||= [*error.task]
@@ -349,7 +349,7 @@ module Roby
 	    application_errors = Thread.current[:application_exceptions]
 	    Thread.current[:application_exceptions] = nil
 	    for error, origin in application_errors
-		Propagation.add_framework_error(error, origin)
+		plan.add_framework_error(error, origin)
 	    end
 	    add_timepoint(stats, :application_errors)
 

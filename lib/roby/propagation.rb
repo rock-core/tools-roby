@@ -26,9 +26,6 @@ require 'roby/relations/error_handling'
 #   'b'. All edges in Signal and Forwarding are present in Precedence
 #
 # == Exception propagation
-#
-#
-# TODO: Roby::Control.event_processing << Roby::Propagation.method(:execute_delayed_events)
 module Roby::Propagation
     extend Logger::Hierarchy
     extend Logger::Forward
@@ -103,6 +100,7 @@ module Roby::Propagation
     forward_to_plan :execute_delayed_events
     def finalized_event(event)
         super if defined? super
+        event.unreachable!(nil, self)
         delayed_events.delete_if { |_, _, _, signalled, _| signalled == event }
     end
 

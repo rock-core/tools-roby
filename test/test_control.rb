@@ -17,10 +17,10 @@ class TC_Control < Test::Unit::TestCase
 		    end
 
 	Roby.control.abort_on_application_exception = false
-	assert_nothing_raised { Propagation.add_framework_error(exception, :exceptions) }
+	assert_nothing_raised { plan.add_framework_error(exception, :exceptions) }
 
 	Roby.control.abort_on_application_exception = true
-	assert_raises(RuntimeError) { Propagation.add_framework_error(exception, :exceptions) }
+	assert_raises(RuntimeError) { plan.add_framework_error(exception, :exceptions) }
     end
 
     def test_event_loop

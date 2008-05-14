@@ -154,13 +154,13 @@ module Roby
 	    super if defined? super
             if task.finished? && !terminal?
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}!(#{context})) called by #{Propagation.sources} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources}."
+		    "#{symbol}!(#{context})) called by #{plan.propagation_sources} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources}."
             elsif task.pending? && symbol != :start
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}!(#{context})) called by #{Propagation.sources} but the task is not running"
+		    "#{symbol}!(#{context})) called by #{plan.propagation_sources} but the task is not running"
             elsif task.running? && symbol == :start
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}!(#{context})) called by #{Propagation.sources} but the task is already running. Task has been started by #{task.event(:start).history.first.sources}."
+		    "#{symbol}!(#{context})) called by #{plan.propagation_sources} but the task is already running. Task has been started by #{task.event(:start).history.first.sources}."
             end
 	end
 
@@ -220,7 +220,7 @@ module Roby
 		task.update_terminal_flag
 	    end
 	end
-        def new(context); event_model.new(task, self, Propagation.propagation_id, context) end
+        def new(context); event_model.new(task, self, plan.propagation_id, context) end
 
 	def to_s
 	    "#{task}/#{symbol}"
@@ -836,13 +836,13 @@ module Roby
 
             if finished? && !event.terminal?
                 raise EmissionFailed.new(nil, self), 
-		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task has finished. Task has been terminated by #{event(:stop).history.first.sources}."
+		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{plan.propagation_sources} but the task has finished. Task has been terminated by #{event(:stop).history.first.sources}."
             elsif pending? && event.symbol != :start
                 raise EmissionFailed.new(nil, self), 
-		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task is not running"
+		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{plan.propagation_sources} but the task is not running"
             elsif running? && event.symbol == :start
                 raise EmissionFailed.new(nil, self), 
-		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task is already running. Task has been started by #{event(:start).history.first.sources}."
+		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{plan.propagation_sources} but the task is already running. Task has been started by #{event(:start).history.first.sources}."
             end
 
 	    update_task_status(event)
