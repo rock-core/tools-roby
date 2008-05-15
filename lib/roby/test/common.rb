@@ -81,12 +81,11 @@ module Roby
 
 	    # Save and restore Control's global arrays
 	    save_collection Roby::Control.event_processing
-	    save_collection Roby::Control.structure_checks
+	    save_collection Roby::Plan.structure_checks
 	    save_collection Roby::Control.at_cycle_end_handlers
 	    save_collection Roby::EventGenerator.event_gathering
-	    Roby.control.abort_on_exception = true
-	    Roby.control.abort_on_application_exception = true
-	    Roby.control.abort_on_framework_exception = true
+	    Roby.app.abort_on_exception = true
+	    Roby.app.abort_on_application_exception = true
 
 	    save_collection Roby.plan.event_ordering
 	    save_collection Roby.plan.delayed_events
@@ -141,10 +140,9 @@ module Roby
 	    end
 
 	    Roby::TaskStructure::Hierarchy.interesting_events.clear
-	    if defined? Roby::Control
-		Roby.control.abort_on_exception = false
-		Roby.control.abort_on_application_exception = false
-		Roby.control.abort_on_framework_exception = false
+	    if defined? Roby::Application
+		Roby.app.abort_on_exception = false
+		Roby.app.abort_on_application_exception = false
 	    end
 
 	    if defined? Roby::Log
@@ -185,7 +183,7 @@ module Roby
 	# Process pending events
 	def process_events
 	    Roby::Control.synchronize do
-		Roby.control.process_events
+		Roby.plan.process_events
 	    end
 	end
 

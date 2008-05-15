@@ -73,7 +73,7 @@ module Roby
 		    local_peer.disable_rx
 		end
 		def flush; local_peer.flush end
-		def process_events; Roby.control.process_events end
+		def process_events; Roby.plan.process_events end
 		def local_peer
 		    @local_peer ||= Distributed.peers.find { true }.last
 		end

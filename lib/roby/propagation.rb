@@ -130,7 +130,7 @@ module Roby::Propagation
     def add_framework_error(error, source)
 	if @application_exceptions
 	    @application_exceptions << [error, source]
-	elsif Roby.control.abort_on_application_exception || error.kind_of?(SignalException)
+	elsif Roby.app.abort_on_application_exception? || error.kind_of?(SignalException)
 	    raise error, "in #{source}: #{error.message}", error.backtrace
 	else
 	    Roby.error "Application error in #{source}: #{error.full_message}"
@@ -521,7 +521,7 @@ module Roby::Propagation
 		    handled = task.handle_exception(e)
 
 		    if handled
-			Roby::Control.handled_exception(e, task)
+			handled_exception(e, task)
 			e.handled = true
 		    else
 			# We do not have the framework to handle concurrent repairs
@@ -555,6 +555,106 @@ module Roby::Propagation
     end
 
     include Roby::ExceptionHandlingObject
+
+    def self.add_timepoint(stats, name)
+        stats[:end] = stats[name] = Time.now - stats[:start]
+    end
+
+    # The set of errors which have been generated outside of the plan's
+    # control. For those errors, either specific handling must be designed or
+    # the whole controller must shut down.
+    #
+    # The handling of those errors is to be done by the event loop in control
+    attr_reader :application_exceptions
+    def clear_application_exceptions
+        result, @application_exceptions = @application_exceptions, nil
+        result
+    end
+    
+    # Abort the control loop because of +exceptions+
+    def reraise(exceptions)
+        if exceptions.size == 1
+            e = exceptions.first
+            if e.kind_of?(Roby::ExecutionException)
+                e = e.exception
+            end
+            raise e, e.message, e.backtrace
+        else
+            raise Aborting.new(exceptions)
+        end
+    end
+    
+    # Process the pending events. The time at each event loop step
+    # is saved into +stats+.
+    def process_events(stats = {:start => Time.now})
+        @application_exceptions = []
+
+        Roby::Propagation.add_timepoint(stats, :real_start)
+
+        # Gather new events and propagate them
+        events_errors = propagate_events(Roby::Control.event_processing)
+        Roby::Propagation.add_timepoint(stats, :events)
+
+        # HACK: events_errors is sometime nil here. It shouldn't
+        events_errors ||= []
+
+        # Generate exceptions from task structure
+        structure_errors = structure_checking
+        Roby::Propagation.add_timepoint(stats, :structure_check)
+
+        # Propagate the errors. Note that the plan repairs are taken into
+        # account in Propagation.propagate_exceptions drectly.  We keep
+        # event and structure errors separate since in the first case there
+        # is not two-stage handling (all errors that have not been handled
+        # are fatal), and in the second case we call #structure_checking
+        # again to get the remaining errors
+        events_errors    = propagate_exceptions(events_errors)
+        propagate_exceptions(structure_errors)
+        Roby::Propagation.add_timepoint(stats, :exception_propagation)
+
+        # Get the remaining problems in the plan structure, and act on it
+        fatal_structure_errors = remove_inhibited_exceptions(structure_checking)
+        fatal_errors = fatal_structure_errors.to_a + events_errors
+        kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
+            tasks ||= [*error.task]
+            for parent in [*tasks]
+                new_tasks = parent.reverse_generated_subgraph(Roby::TaskStructure::Hierarchy) - force_gc
+                if !new_tasks.empty?
+                    fatal_exception(error, new_tasks)
+                end
+                kill_tasks.merge(new_tasks)
+            end
+            kill_tasks
+        end
+        Roby::Propagation.add_timepoint(stats, :exceptions_fatal)
+
+        garbage_collect(kill_tasks)
+        Roby::Propagation.add_timepoint(stats, :garbage_collect)
+
+        application_errors, @application_exceptions = 
+            @application_exceptions, nil
+        for error, origin in application_errors
+            add_framework_error(error, origin)
+        end
+        Roby::Propagation.add_timepoint(stats, :application_errors)
+
+        if Roby.app.abort_on_exception? && !fatal_errors.empty?
+            reraise(fatal_errors.map { |e, _| e })
+        end
+
+    ensure
+        @application_exceptions = nil
+    end
+
+    # Hook called when a set of tasks is being killed because of an exception
+    def fatal_exception(error, tasks)
+        super if defined? super
+        Roby.format_exception(error.exception).each do |line|
+            Roby.warn line
+        end
+    end
+    # Hook called when an exception +e+ has been handled by +task+
+    def handled_exception(e, task); super if defined? super end
 end
 
 module Roby

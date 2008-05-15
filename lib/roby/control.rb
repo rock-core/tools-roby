@@ -4,18 +4,6 @@ require 'drb'
 require 'set'
 
 module Roby
-    class Pool < Queue
-	def initialize(klass)
-	    @klass = klass
-            super()
-	end
-
-	def pop
-	    value = super(true) rescue nil
-	    value || @klass.new
-	end
-    end
-
     @mutexes = Pool.new(Mutex)
     @condition_variables = Pool.new(ConditionVariable)
     class << self
@@ -224,25 +212,10 @@ module Roby
 	# The priority of the control thread
 	THREAD_PRIORITY = 10
 
-	# If true, abort if an unhandled exception is found
-	attr_accessor :abort_on_exception
-	# If true, abort if an application exception is found
-	attr_accessor :abort_on_application_exception
-	# If true, abort if a framework exception is found
-	attr_accessor :abort_on_framework_exception
-
 	@event_processing	= []
-	@structure_checks	= []
 	class << self
 	    # List of procs which are called at each event cycle
 	    attr_reader :event_processing
-
-	    # List of procs to be called for task structure checking
-	    #
-	    # The blocks return a set of exceptions or nil. The exception
-	    # *must* respond to #task or #generator to know from which task the
-	    # problem comes.
-	    attr_reader :structure_checks
 	end
 
 	# The plan being executed
@@ -261,103 +234,6 @@ module Roby
 	    @last_stop_count = 0
 	    @plan        = MainPlan.new
 	    Roby.instance_variable_set(:@plan, @plan)
-	end
-
-	# Perform the structure checking step by calling the procs registered
-	# in Control::structure_checks. These procs are supposed to return a
-	# collection of exception objects, or nil if no error has been found
-	def structure_checking
-	    # Do structure checking and gather the raised exceptions
-	    exceptions = {}
-	    for prc in Control.structure_checks
-		begin
-		    new_exceptions = prc.call(plan)
-		rescue Exception => e
-		    plan.add_framework_error(e, 'structure checking')
-		end
-		next unless new_exceptions
-
-		[*new_exceptions].each do |e, tasks|
-		    e = Propagation.to_execution_exception(e)
-		    exceptions[e] = tasks
-		end
-	    end
-	    exceptions
-	end
-
-	# Abort the control loop because of +exceptions+
-	def reraise(exceptions)
-	    if exceptions.size == 1
-		e = exceptions.first
-		if e.kind_of?(ExecutionException)
-		    e = e.exception
-		end
-		raise e, e.message, e.backtrace
-	    else
-		raise Aborting.new(exceptions)
-	    end
-	end
-
-	# Process the pending events. The time at each event loop step
-	# is saved into +stats+.
-	def process_events(stats = {})
-	    Thread.current[:application_exceptions] = []
-
-	    add_timepoint(stats, :real_start)
-
-	    # Gather new events and propagate them
-	    events_errors = plan.propagate_events(Control.event_processing)
-	    add_timepoint(stats, :events)
-
-	    # HACK: events_errors is sometime nil here. It shouldn't
-	    events_errors ||= []
-
-	    # Generate exceptions from task structure
-	    structure_errors = structure_checking
-	    add_timepoint(stats, :structure_check)
-
-	    # Propagate the errors. Note that the plan repairs are taken into
-	    # account in Propagation.propagate_exceptions drectly.  We keep
-	    # event and structure errors separate since in the first case there
-	    # is not two-stage handling (all errors that have not been handled
-	    # are fatal), and in the second case we call #structure_checking
-	    # again to get the remaining errors
-	    events_errors    = plan.propagate_exceptions(events_errors)
-	    plan.propagate_exceptions(structure_errors)
-	    add_timepoint(stats, :exception_propagation)
-
-	    # Get the remaining problems in the plan structure, and act on it
-	    fatal_structure_errors = plan.remove_inhibited_exceptions(structure_checking)
-	    fatal_errors = fatal_structure_errors.to_a + events_errors
-	    kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
-		tasks ||= [*error.task]
-		for parent in [*tasks]
-		    new_tasks = parent.reverse_generated_subgraph(TaskStructure::Hierarchy) - plan.force_gc
-		    if !new_tasks.empty?
-			Control.fatal_exception(error, new_tasks)
-		    end
-		    kill_tasks.merge(new_tasks)
-		end
-		kill_tasks
-	    end
-	    add_timepoint(stats, :exceptions_fatal)
-
-	    plan.garbage_collect(kill_tasks)
-	    add_timepoint(stats, :garbage_collect)
-
-	    application_errors = Thread.current[:application_exceptions]
-	    Thread.current[:application_exceptions] = nil
-	    for error, origin in application_errors
-		plan.add_framework_error(error, origin)
-	    end
-	    add_timepoint(stats, :application_errors)
-
-	    if abort_on_exception && !quitting? && !fatal_errors.empty?
-		reraise(fatal_errors.map { |e, _| e })
-	    end
-
-	ensure
-	    Thread.current[:application_exceptions] = nil
 	end
 
 	# Blocks until at least once execution cycle has been done
@@ -538,13 +414,14 @@ module Roby
 	end
 
 	attr_reader :remaining_cycle_time
-	def add_timepoint(stats, name)
-	    stats[:end] = stats[name] = Time.now - cycle_start
-	    @remaining_cycle_time = cycle_length - stats[:end]
-	end
 	def add_expected_duration(stats, name, duration)
 	    stats[name] = Time.now + duration - cycle_start
 	end
+
+        def add_timepoint(stats, name)
+            Propagation.add_timepoint(stats, name)
+            @remaining_cycle_time = cycle_length - stats[:end]
+        end
 
 	def event_loop
 	    @last_stop_count = 0
@@ -584,9 +461,13 @@ module Roby
 			@cycle_start += cycle_length
 			@cycle_index += 1
 		    end
-		    stats[:start]       = [cycle_start.tv_sec, cycle_start.tv_usec]
+                    stats[:start] = cycle_start
 		    stats[:cycle_index] = cycle_index
-		    Control.synchronize { process_events(stats) }
+		    Control.synchronize do
+                        plan.process_events(stats) 
+                    end
+
+                    @remaining_cycle_time = cycle_length - stats[:end]
 		    
 		    # Record the statistics about object allocation *before* running the Ruby
 		    # GC. It is also updated at 
@@ -629,6 +510,7 @@ module Roby
 			stats[:live_objects]      = live_objects
 		    end
 
+		    stats[:start]       = [cycle_start.tv_sec, cycle_start.tv_usec]
 		    cycle_end(stats)
 
 		    stats = Hash.new
@@ -700,27 +582,7 @@ module Roby
 	end
 
 	attr_reader :cycle_index
-
-	# Hook called when a set of tasks is being killed because of an exception
-	def self.fatal_exception(error, tasks)
-	    super if defined? super
-            Roby.format_exception(error.exception).each do |line|
-                Roby.warn line
-            end
-	end
-	# Hook called when an exception +e+ has been handled by +task+
-	def self.handled_exception(e, task); super if defined? super end
     end
-
-    # Get all missions that have failed
-    def self.check_failed_missions(plan)
-	result = []
-	for task in plan.missions
-	    result << MissionFailedError.new(task) if task.failed?
-	end
-	result
-    end
-    Control.structure_checks << method(:check_failed_missions)
 end
 
 require 'roby/propagation'

@@ -38,10 +38,10 @@ class TC_DistributedExecution < Test::Unit::TestCase
 
 	FlexMock.use do |mock|
 	    controlable.on do
-		mock.fired_controlable(Roby::Propagation.gathering?)
+		mock.fired_controlable(Roby.plan.gathering?)
 	    end
 	    contingent.on do
-		mock.fired_contingent(Roby::Propagation.gathering?)
+		mock.fired_contingent(Roby.plan.gathering?)
 	    end
 
 	    mock.should_receive(:fired_controlable).with(true).once
@@ -135,7 +135,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
     end
 
     def test_task_status
-	Roby.control.abort_on_exception = false
+	Roby.app.abort_on_exception = false
 	peer2peer(true) do |remote|
 	    class << remote
 		include Test::Unit::Assertions

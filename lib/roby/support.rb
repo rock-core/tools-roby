@@ -88,5 +88,17 @@ module Roby
 
     extend Logger::Hierarchy
     extend Logger::Forward
+
+    class Pool < Queue
+	def initialize(klass)
+	    @klass = klass
+            super()
+	end
+
+	def pop
+	    value = super(true) rescue nil
+	    value || @klass.new
+	end
+    end
 end
 

@@ -221,6 +221,6 @@ module Roby
             super || obj == parent
         end
     end
-    Control.structure_checks << TaskStructure::Hierarchy.method(:check_structure)
+    Plan.structure_checks << TaskStructure::Hierarchy.method(:check_structure)
 end
 

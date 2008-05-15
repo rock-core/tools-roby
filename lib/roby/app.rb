@@ -94,6 +94,11 @@ module Roby
 	# abort_on_application_exception:: if the control should abort if an uncaught application exception (not originating
 	#                                  from a task or event) is caught. Defaults to true.
 	attr_reader :control
+        
+	# If true, abort if an unhandled exception is found
+	attr_predicate :abort_on_exception, true
+	# If true, abort if an application exception is found
+	attr_predicate :abort_on_application_exception, true
 
 	# An array of directories in which to search for plugins
 	attr_reader :plugin_dirs
@@ -516,9 +521,9 @@ module Roby
 		logger.stats_mode = log['events'] == 'stats'
 		Roby::Log.add_logger logger
 	    end
-	    control.abort_on_exception = 
+	    self.abort_on_exception = 
 		control_config['abort_on_exception']
-	    control.abort_on_application_exception = 
+	    self.abort_on_application_exception = 
 		control_config['abort_on_application_exception']
 	    control.run options
 

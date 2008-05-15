@@ -6,6 +6,10 @@ require 'flexmock'
 
 class TC_Task < Test::Unit::TestCase 
     include Roby::Test
+    def setup
+        super
+        Roby.app.filter_backtraces = false
+    end
 
     def test_model_tag
 	my_tag = TaskModelTag.new do

@@ -6,6 +6,10 @@ require 'roby/test/tasks/simple_task'
 require 'roby'
 class TC_Event < Test::Unit::TestCase
     include Roby::Test
+    def setup
+        super
+        Roby.app.filter_backtraces = false
+    end
 
     def test_gathering
         assert(! plan.gathering?)

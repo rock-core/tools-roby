@@ -751,6 +751,48 @@ module Roby
 	    Control.once { new_task.start!(nil) }
 	    new_task
 	end
+
+        @structure_checks = Array.new
+        class << self
+            attr_reader :structure_checks
+        end
+
+        # Get all missions that have failed
+        def self.check_failed_missions(plan)
+            result = []
+            for task in plan.missions
+                result << MissionFailedError.new(task) if task.failed?
+            end
+            result
+        end
+        Plan.structure_checks << method(:check_failed_missions)
+        
+	# Perform the structure checking step by calling the procs registered
+	# in Control::structure_checks. These procs are supposed to return a
+	# collection of exception objects, or nil if no error has been found
+	def structure_checking
+	    # Do structure checking and gather the raised exceptions
+	    exceptions = {}
+	    for prc in Plan.structure_checks
+		begin
+		    new_exceptions = prc.call(self)
+		rescue Exception => e
+                    if respond_to? :add_framework_error
+                        add_framework_error(e, 'structure checking')
+                    else
+                        raise
+                    end
+		end
+		next unless new_exceptions
+
+		[*new_exceptions].each do |e, tasks|
+		    e = Propagation.to_execution_exception(e)
+		    exceptions[e] = tasks
+		end
+	    end
+	    exceptions
+	end
+
     end
 end
 

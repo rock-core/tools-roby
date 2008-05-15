@@ -58,6 +58,6 @@ module Roby
 	    msg
 	end
     end
-    Control.structure_checks << TaskStructure::PlannedBy.method(:check_planning)
+    Plan.structure_checks << TaskStructure::PlannedBy.method(:check_planning)
 end
 

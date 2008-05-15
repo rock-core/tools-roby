@@ -570,7 +570,7 @@ class TC_Plan < Test::Unit::TestCase
 	task.start!
 	task.specialized_failure!
 	
-	error = Roby.check_failed_missions(plan).first.exception
+	error = Roby::Plan.check_failed_missions(plan).first.exception
 	assert_kind_of(Roby::MissionFailedError, error)
 	assert_equal(task.event(:specialized_failure).last, error.failure_point)
         assert_nothing_raised do

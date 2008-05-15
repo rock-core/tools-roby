@@ -16,10 +16,10 @@ class TC_Control < Test::Unit::TestCase
 		    rescue; $!
 		    end
 
-	Roby.control.abort_on_application_exception = false
+	Roby.app.abort_on_application_exception = false
 	assert_nothing_raised { plan.add_framework_error(exception, :exceptions) }
 
-	Roby.control.abort_on_application_exception = true
+	Roby.app.abort_on_application_exception = true
 	assert_raises(RuntimeError) { plan.add_framework_error(exception, :exceptions) }
     end
 
@@ -80,7 +80,7 @@ class TC_Control < Test::Unit::TestCase
 
     def test_failing_once
 	Roby.logger.level = Logger::FATAL
-	Roby.control.abort_on_exception = true
+	Roby.app.abort_on_exception = true
 	Roby.control.run :detach => true
 
 	FlexMock.use do |mock|
@@ -96,7 +96,7 @@ class TC_Control < Test::Unit::TestCase
 
     class SpecificException < RuntimeError; end
     def test_unhandled_event_exceptions
-	Roby.control.abort_on_exception = true
+	Roby.app.abort_on_exception = true
 
 	# Test that the event is not pending if the command raises
 	model = Class.new(SimpleTask) do
@@ -135,16 +135,16 @@ class TC_Control < Test::Unit::TestCase
     end
 
     def apply_structure_checking(&block)
-	Control.structure_checks.clear
-	Control.structure_checks << lambda(&block)
+	Plan.structure_checks.clear
+	Plan.structure_checks << lambda(&block)
 	process_events
     ensure
-	Control.structure_checks.clear
+	Plan.structure_checks.clear
     end
 
     def test_structure_checking
 	Roby.logger.level = Logger::FATAL
-	Roby.control.abort_on_exception = false
+	Roby.app.abort_on_exception = false
 
 	# Check on a single task
 	plan.insert(t = SimpleTask.new)
@@ -198,7 +198,7 @@ class TC_Control < Test::Unit::TestCase
     def test_at_cycle_end
 	# Shut up the logger in this test
 	Roby.logger.level = Logger::FATAL
-        Roby.control.abort_on_application_exception = false
+        Roby.app.abort_on_application_exception = false
 
         FlexMock.use do |mock|
             mock.should_receive(:before_error).at_least.once

@@ -104,8 +104,8 @@ class TC_Exceptions < Test::Unit::TestCase
     def test_exception_in_handler
 	Roby.logger.level = Logger::FATAL
 
-	Roby.control.abort_on_exception = true
-	Roby.control.abort_on_application_exception = false
+	Roby.app.abort_on_exception = true
+	Roby.app.abort_on_application_exception = false
 	FlexMock.use do |mock|
 	    klass = Class.new(SimpleTask) do
 		define_method(:mock) { mock }
@@ -284,7 +284,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
     # Tests exception handling mechanism during event propagation
     def test_task_propagation_with_exception
-	Roby.control.abort_on_exception = true
+	Roby.app.abort_on_exception = true
 	Roby.logger.level = Logger::FATAL
 
 	task = Class.new(SimpleTask) do
@@ -422,7 +422,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	parent.start!
 	child.failed!
 
-	exceptions = Roby.control.structure_checking
+	exceptions = Roby.plan.structure_checking
 
 	plan.discover(repairing_task = SimpleTask.new)
 	repairing_task.start!
@@ -453,13 +453,13 @@ class TC_Exceptions < Test::Unit::TestCase
 	child.start!
 	child.emit error_event
 
-	exceptions = Roby.control.structure_checking
+	exceptions = Roby.plan.structure_checking
 
 	assert_equal([], plan.propagate_exceptions(exceptions))
 	assert_equal({ child.terminal_event => repairing_task },
 		     plan.repairs_for(child.terminal_event), [plan.repairs, child.terminal_event])
 
-	Roby.control.abort_on_exception = false
+	Roby.app.abort_on_exception = false
 	process_events
 	assert(repairing_task.running?)
 
@@ -484,7 +484,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	mission.start!
 	mission.emit :failed
 
-	exceptions = Roby.control.structure_checking
+	exceptions = Roby.plan.structure_checking
 	assert_equal(1, exceptions.size)
 	assert_kind_of(Roby::MissionFailedError, exceptions.to_a[0][0].exception, exceptions)
 
@@ -492,7 +492,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	assert_equal({ mission.terminal_event => repairing_task },
 		     plan.repairs_for(mission.terminal_event), [plan.repairs, mission.terminal_event])
 
-	Roby.control.abort_on_exception = false
+	Roby.app.abort_on_exception = false
 	process_events
 	assert(plan.mission?(mission))
 	assert(repairing_task.running?)
@@ -507,6 +507,7 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_filter_command_errors
+        Roby.app.filter_backtraces = true
         model = Class.new(SimpleTask) do
             event :start do
                 raise ArgumentError
