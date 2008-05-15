@@ -48,10 +48,12 @@ module Roby
 	end
         def pretty_print(pp)
             pp.text "[#{time.to_hms} @#{propagation_id}] #{self.class}"
-            pp.breakable
-            pp.nest(2) do
-                pp.text "  "
-                pp.seplist(context) { |v| v.pretty_print(pp) }
+            if context
+                pp.breakable
+                pp.nest(2) do
+                    pp.text "  "
+                    pp.seplist(context) { |v| v.pretty_print(pp) }
+                end
             end
         end
     end
