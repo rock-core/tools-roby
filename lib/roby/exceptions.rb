@@ -218,5 +218,11 @@ module Roby
                   end
         message.split("\n")
     end
+
+    def self.log_exception(e, logger, level)
+        format_exception(e).each do |line|
+            logger.send(level, line)
+        end
+    end
 end
 
