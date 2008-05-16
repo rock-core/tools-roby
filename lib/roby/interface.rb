@@ -152,14 +152,14 @@ module Roby
             # Register a new Interface object so that it gets feedback information
             # from the running controller.
 	    def register_interface(iface)
-		Roby::Control.synchronize do
+		Roby.synchronize do
 		    interfaces << iface
 		end
 	    end 
 
             # Pushes a exception message to all the already registered remote interfaces.
 	    def push_exception_message(name, error, tasks)
-		Roby::Control.synchronize do
+		Roby.synchronize do
                     msg = Roby.format_exception(error.exception).join("\n")
 		    msg << "\nThe following tasks have been killed:\n"
 		    tasks.each do |t|

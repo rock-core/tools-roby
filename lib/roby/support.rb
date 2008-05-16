@@ -155,5 +155,31 @@ module Roby
         end
         nil
     end
+
+    @global_lock = Mutex.new
+    class << self
+        # This Mutex object is locked during the event propagation loop, and
+        # unlock while this loop is sleeping. It is used to wait for the
+        # availability of the main plan.
+        attr_reader :global_lock
+    end
+
+    def self.taken_global_lock?; Thread.current[:global_lock_taken] end
+
+    # Implements a recursive behaviour on Roby.mutex
+    def self.synchronize
+        if Thread.current[:global_lock_taken]
+            yield
+        else
+            global_lock.lock
+            begin
+                Thread.current[:global_lock_taken] = true
+                yield
+            ensure
+                Thread.current[:global_lock_taken] = false
+                global_lock.unlock
+            end
+        end
+    end
 end
 

@@ -69,7 +69,7 @@ module Roby
         #
         # This makes Roby::Distributed behave like a Peer object
 	def self.transmit(*args)
-	    Roby::Control.once do
+	    Roby.once do
 		result = Distributed.state.send(*args)
 		yield(result) if block_given?
 	    end
@@ -350,7 +350,7 @@ module Roby
 		loop do
 		    return if @quit_neighbour_thread
 
-		    Control.synchronize do
+		    Roby.synchronize do
 			old_neighbours, @neighbours = @neighbours, []
 			for new in discovered
 			    unless new.remote_id == remote_id || @neighbours.include?(new)
@@ -582,7 +582,7 @@ module Roby
             # detected
 	    def on_neighbour
 		current = neighbours.dup
-		Roby::Control.once { current.each { |n| yield(n) } }
+		Roby.once { current.each { |n| yield(n) } }
 		new_neighbours_observers << lambda { |_, n| yield(n) }
 	    end
 	end

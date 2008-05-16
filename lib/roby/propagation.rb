@@ -542,9 +542,13 @@ module Roby::Propagation
 	    reject { |e| handle_exception(e) }
     end
 
-    # A set of proc objects which should be executed at the next
-    # execution cycle.
+    # A set of proc objects which should be executed at the beginning of the
+    # next execution cycle.
     attr_reader :process_once
+
+    def once(&block)
+        process_once.push block
+    end
 
     attr_reader :exception_handlers
     def each_exception_handler(&iterator); exception_handlers.each(&iterator) end
@@ -653,6 +657,7 @@ module Roby::Propagation
             Roby.warn line
         end
     end
+
     # Hook called when an exception +e+ has been handled by +task+
     def handled_exception(e, task); super if defined? super end
 end
@@ -661,8 +666,50 @@ module Roby
     class MainPlan < Plan
         include Propagation
     end
+
+    @plan = MainPlan.new
+    class << self
+	# Returns the executed plan. This is equivalent to
+	#   Roby.control.plan
+	attr_reader :plan
+    end
+
+
+    # Define a global exception handler on the main plan's execution engine.
+    # See also #on_exception
     def self.on_exception(*matchers, &handler)
         Roby.plan.on_exception(*matchers, &handler)
+    end
+
+    # Execute the given block in the main plan's propagation context, but don't
+    # wait for its completion like Roby.execute does
+    def self.once
+        Roby.plan.once { yield }
+    end
+
+    # Stops the current thread until the given even is emitted. If the event
+    # becomes unreachable, an UnreachableEvent exception is raised.
+    def self.wait_until(ev)
+        if Roby.inside_control?
+            raise ThreadMismatch, "cannot use #wait_until in control thread"
+        end
+
+        condition_variable(true) do |cv, mt|
+            caller_thread = Thread.current
+
+            mt.synchronize do
+                once do
+                    ev.if_unreachable(true) do |reason|
+                        caller_thread.raise UnreachableEvent.new(ev, reason)
+                    end
+                    ev.on do
+                        mt.synchronize { cv.broadcast }
+                    end
+                    yield
+                end
+                cv.wait(mt)
+            end
+        end
     end
 end
 

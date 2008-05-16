@@ -66,12 +66,12 @@ class TC_Control < Test::Unit::TestCase
 
     def test_once
 	FlexMock.use do |mock|
-	    Control.once { mock.called }
+	    Roby.once { mock.called }
 	    mock.should_receive(:called).once
 	    process_events
 	end
 	FlexMock.use do |mock|
-	    Control.once { mock.called }
+	    Roby.once { mock.called }
 	    mock.should_receive(:called).once
 	    process_events
 	    process_events
@@ -84,7 +84,7 @@ class TC_Control < Test::Unit::TestCase
 	Roby.control.run :detach => true
 
 	FlexMock.use do |mock|
-	    Control.once { mock.called; raise }
+	    Roby.once { mock.called; raise }
 	    mock.should_receive(:called).once
 
 	    assert_raises(ControlQuitError) do
@@ -125,7 +125,7 @@ class TC_Control < Test::Unit::TestCase
 	    mock.should_receive(:command_called).once
 	    mock.should_receive(:handler_called).never
 
-	    Control.once { t.start!(nil) }
+	    Roby.once { t.start!(nil) }
 	    assert_original_error(SpecificException, CommandFailed) { process_events }
 	    assert(!t.event(:start).pending)
 	end
@@ -217,7 +217,8 @@ class TC_Control < Test::Unit::TestCase
 		    Roby.control.quit
 		end
             end
-            Roby.control.run
+            Roby.control.run(:detach => true)
+            Roby.control.join
         end
     end
 
@@ -380,7 +381,7 @@ class TC_Control < Test::Unit::TestCase
 	    Roby.control.wait_one_cycle
 	    next unless capture.last_stats
 
-	    Roby::Control.synchronize do
+	    Roby.synchronize do
 		timepoints = capture.last_stats.slice(*time_events)
 		assert(timepoints.all? { |name, d| d > 0 })
 

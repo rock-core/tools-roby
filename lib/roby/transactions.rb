@@ -38,7 +38,7 @@ module Roby
 	# This method copies on +proxy+ all relations of +object+ for which
 	# both ends of the relation are already in the transaction.
 	def copy_object_relations(object, proxy)
-	    Roby::Control.synchronize do
+	    Roby.synchronize do
 		# Create edges between the neighbours that are really in the transaction
 		object.each_relation do |rel|
 		    object.each_parent_object(rel) do |parent|
@@ -115,7 +115,7 @@ module Roby
 	def restore_relation(proxy, relation)
 	    object = proxy.__getobj__
 
-	    Control.synchronize do
+	    Roby.synchronize do
 		proxy_children = proxy.child_objects(relation)
 		object.child_objects(relation).each do |object_child| 
 		    next unless proxy_child = wrap(object_child, false)
@@ -218,7 +218,7 @@ module Roby
 	    @discarded_tasks    = ValueSet.new
 	    @auto_tasks	        = ValueSet.new
 
-	    Roby::Control.synchronize do
+	    Roby.synchronize do
 		plan.transactions << self
 		plan.added_transaction(self)
 	    end

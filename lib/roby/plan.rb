@@ -144,7 +144,7 @@ module Roby
 
 	def edit
 	    if block_given?
-		Roby::Control.synchronize do
+		Roby.synchronize do
 		    yield
 		end
 	    end
@@ -636,7 +636,7 @@ module Roby
 				gc_quarantine << local_task
 			    else
 				finishing << local_task
-				Roby::Control.once do
+				Roby.once do
 				    Plan.debug { "GC: stopping #{local_task}" }
 				    local_task.stop!(nil)
 				end
@@ -748,7 +748,7 @@ module Roby
 	    new_task = task.class.new(task.arguments.dup)
 
 	    replace_task(task, new_task)
-	    Control.once { new_task.start!(nil) }
+	    Roby.once { new_task.start!(nil) }
 	    new_task
 	end
 

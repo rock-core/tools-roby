@@ -310,7 +310,7 @@ module Roby::Distributed
 	    local_server.state_update remote_state
 
 	    @task = ConnectionTask.new :peer => self
-	    Roby::Control.once do
+	    Roby.once do
 		connection_space.plan.permanent(task)
 		task.start!
 		task.emit(:ready)
@@ -362,7 +362,7 @@ module Roby::Distributed
 	    end
 
 	ensure
-	    Roby::Control.synchronize do
+	    Roby.synchronize do
 		if result_set
 		    result_set.each do |task|
 			Roby::Distributed.keep.deref(task)
@@ -539,7 +539,7 @@ module Roby::Distributed
 
 	    yield(local_object(remote_object(object)))
 
-	    Roby::Control.synchronize do
+	    Roby.synchronize do
 		objects.each { |obj| Roby::Distributed.keep.deref(obj) }
 	    end
 	end

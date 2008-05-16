@@ -1,27 +1,12 @@
-require 'utilrb/exception/full_message'
-
-require 'drb'
-require 'set'
-
 module Roby
     class << self
 	# Returns the only one Control object
 	attr_reader :control
-	# Returns the executed plan. This is equivalent to
-	#   Roby.control.plan
-	attr_reader :plan
-
 	def every(duration, &block)
 	    Control.every(duration, &block)
 	end
 	def each_cycle(&block)
 	    Control.each_cycle(&block)
-	end
-
-	# Returns the control thread or, if control is not in a separate
-	# thread, Thread.main
-	def control_thread
-	    Control.instance.thread || Thread.main
 	end
 
 	# True if the current thread is the control thread
@@ -55,7 +40,6 @@ module Roby
 	    !t || t != Thread.current
 	end
 
-
 	# Execute the given block inside the control thread, and returns when
 	# it has finished. The return value is the value returned by the block
 	def execute
@@ -66,7 +50,7 @@ module Roby
 	    cv = condition_variable
 
 	    return_value = nil
-	    Roby::Control.synchronize do
+	    Roby.synchronize do
 		if !Roby.control.running?
 		    raise "control thread not running"
 		end
@@ -74,7 +58,7 @@ module Roby
 		caller_thread = Thread.current
 		Control.waiting_threads << caller_thread
 
-		Roby::Control.once do
+		Roby.once do
 		    begin
 			return_value = yield
 			cv.broadcast
@@ -83,7 +67,7 @@ module Roby
 		    end
                     Control.waiting_threads.delete(caller_thread)
 		end
-		cv.wait(Roby::Control.mutex)
+		cv.wait(Roby.global_lock)
 	    end
 	    return_value
 
@@ -91,68 +75,16 @@ module Roby
 	    return_condition_variable(cv)
 	end
 
-	# Execute the given block in the control thread, but don't wait for its
-	# completion like Roby.execute does
-	def once
-	    Roby::Control.once { yield }
-	end
 	def wait_one_cycle
 	    Roby.control.wait_one_cycle
 	end
-
-	# Stops the current thread until the given even is emitted
-	def wait_until(ev)
-	    if Roby.inside_control?
-		raise ThreadMismatch, "cannot use #wait_until in control thread"
-	    end
-
-	    condition_variable(true) do |cv, mt|
-		caller_thread = Thread.current
-
-		mt.synchronize do
-		    Roby::Control.once do
-			ev.if_unreachable(true) do |reason|
-			    caller_thread.raise UnreachableEvent.new(ev, reason)
-			end
-			ev.on do
-			    mt.synchronize { cv.broadcast }
-			end
-			yield
-		    end
-		    cv.wait(mt)
-		end
-	    end
-	end
-
     end
+
 
     # This singleton class is the central object: it handles the event loop,
     # event propagation and exception propagation.
     class Control
 	include Singleton
-
-	@mutex = Mutex.new
-	class << self
-	    attr_reader :mutex
-
-	    def taken_mutex?; Thread.current[:control_mutex_locked] end
-
-	    # Implements a recursive behaviour on Control.mutex
-	    def synchronize
-		if Thread.current[:control_mutex_locked]
-		    yield
-		else
-		    mutex.lock
-		    begin
-			Thread.current[:control_mutex_locked] = true
-			yield
-		    ensure
-			Thread.current[:control_mutex_locked] = false
-			mutex.unlock
-		    end
-		end
-	    end
-	end
 
 	# Do not sleep or call Thread#pass if there is less that
 	# this much time left in the cycle
@@ -181,8 +113,7 @@ module Roby
 	    @cycle_length = 0
 	    @planners    = []
 	    @last_stop_count = 0
-	    @plan        = MainPlan.new
-	    Roby.instance_variable_set(:@plan, @plan)
+	    @plan        = Roby.plan
 	end
 
 	# Blocks until at least once execution cycle has been done
@@ -195,7 +126,7 @@ module Roby
 	end
 
 	@at_cycle_end_handlers = Array.new
-	@process_every = Array.new
+	@process_every   = Array.new
 	@waiting_threads = Array.new
 	class << self
 	    # A list of threads which are currently waitiing for the control thread
@@ -205,8 +136,6 @@ module Roby
 	    # are still waiting while the control is quitting
 	    attr_reader :waiting_threads
 
-	    # Call block once before event processing
-	    def once(&block); Roby.plan.process_once.push block end
 	    # Call +block+ at each cycle
 	    def each_cycle(&block); Control.event_processing << block end
 
@@ -224,7 +153,7 @@ module Roby
 	    # Call +block+ every +duration+ seconds. Note that +duration+ is
 	    # round up to the cycle size (time between calls is *at least* duration)
 	    def every(duration, &block)
-		Control.once do
+		Roby.once do
 		    block.call
 		    process_every << [block, Roby.control.cycle_start, duration]
 		end
@@ -284,48 +213,42 @@ module Roby
 
 	    @quit = 0
 	    if !options[:detach]
-		@thread = Thread.current
-		@thread.priority = THREAD_PRIORITY
+                raise
 	    end
 
-	    if options[:detach]
-		# Start the control thread and wait for @thread to be set
-		Roby.condition_variable(true) do |cv, mt|
-		    mt.synchronize do
-			Thread.new do
-			    run(options.merge(:detach => false)) do
-				mt.synchronize { cv.signal }
-			    end
-			end
-			cv.wait(mt)
-		    end
-		end
-		raise unless @thread
-		return
-	    end
+            # Start the control thread and wait for @thread to be set
+            Roby.condition_variable(true) do |cv, mt|
+                mt.synchronize do
+                    Thread.new do
+                        @thread = Thread.current
+                        @thread.priority = THREAD_PRIORITY
 
-	    yield if block_given?
+                        begin
+                            mt.synchronize { cv.signal }
+                            @cycle_length = options[:cycle]
+                            event_loop
 
-	    @cycle_length = options[:cycle]
-	    event_loop
-
-	ensure
-	    if Thread.current == self.thread
-		Roby::Control.synchronize do
-		    # reset the options only if we are in the control thread
-		    @thread = nil
-		    Control.waiting_threads.each do |th|
-			th.raise ControlQuitError
-		    end
-		    Control.finalizers.each { |blk| blk.call rescue nil }
-		    @quit = 0
-		end
-	    end
+                        ensure
+                            Roby.synchronize do
+                                # reset the options only if we are in the control thread
+                                @thread = nil
+                                Control.waiting_threads.each do |th|
+                                    th.raise ControlQuitError
+                                end
+                                Control.finalizers.each { |blk| blk.call rescue nil }
+                                @quit = 0
+                            end
+                        end
+                    end
+                    cv.wait(mt)
+                end
+            end
+            raise unless @thread
 	end
 
 	attr_reader :last_stop_count
 	def clear
-	    Control.synchronize do
+	    Roby.synchronize do
 		plan.missions.dup.each { |t| plan.discard(t) }
 		plan.keepalive.dup.each { |t| plan.auto(t) }
 		plan.force_gc.merge( plan.known_tasks )
@@ -412,7 +335,7 @@ module Roby
 		    end
                     stats[:start] = cycle_start
 		    stats[:cycle_index] = cycle_index
-		    Control.synchronize do
+		    Roby.synchronize do
                         plan.process_events(stats) 
                     end
 
@@ -516,7 +439,7 @@ module Roby
 	    thread.join if thread
 
 	rescue Interrupt
-	    Roby::Control.synchronize do
+	    Roby.synchronize do
 		return unless thread
 
 		Roby.logger.level = Logger::INFO

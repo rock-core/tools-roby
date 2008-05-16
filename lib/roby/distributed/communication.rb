@@ -748,7 +748,7 @@ module Roby
 	    # Note that it is forbidden to use this method in control or
 	    # communication threads, as it would make the application deadlock
 	    def call(m, *args, &block)
-		if !Roby.outside_control? || Roby::Control.taken_mutex?
+		if !Roby.outside_control? || Roby.taken_global_lock?
 		    raise "cannot use Peer#call in control thread or while taking the Roby::Control mutex"
 		end
 

@@ -182,7 +182,7 @@ module Roby
 
 	# Process pending events
 	def process_events
-	    Roby::Control.synchronize do
+	    Roby.synchronize do
 		Roby.plan.process_events
 	    end
 	end

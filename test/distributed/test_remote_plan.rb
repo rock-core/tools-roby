@@ -233,7 +233,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert(plan.useful_task?(r_mission))
 	r_next_mission = remote_task(:id => 'next_mission')
 	r_subtask = remote_task(:id => 'subtask')
-	Roby::Control.synchronize do
+	Roby.synchronize do
 	    assert(!r_next_mission.plan || !plan.useful_task?(r_next_mission))
 	    assert(!r_subtask.plan || !plan.useful_task?(r_subtask))
 	end
@@ -248,7 +248,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	r_subtask = remote_task(:id => 'subtask')
 	assert(!plan.unneeded_tasks.include?(r_subtask))
 	r_next_mission = remote_task(:id => 'next_mission')
-	Roby::Control.synchronize do
+	Roby.synchronize do
 	    assert(!r_next_mission.plan || plan.unneeded_tasks.include?(r_next_mission))
 	end
 
@@ -256,7 +256,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	## Check plan GC after we have unsubscribed from mission
 	remote_peer.unsubscribe(r_mission)
-	Roby::Control.synchronize do
+	Roby.synchronize do
 	    assert(r_mission.plan)
 	    assert(!plan.unneeded_tasks.include?(r_mission))
 	    assert(!remote_peer.subscribed?(r_mission))
@@ -338,7 +338,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert(!plan.unneeded_tasks.include?(right))
 	assert(!plan.unneeded_tasks.include?(middle))
 
-	Roby::Control.synchronize do
+	Roby.synchronize do
 	    remote_peer.unsubscribe(right)
 	    assert(!right.remotely_useful?)
 	    assert(!right.subscribed?)
@@ -380,13 +380,13 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	    remote.class.class_eval do
 		define_method(:discard_mission) do
-		    Roby::Control.synchronize do
+		    Roby.synchronize do
 			remote.plan.discard(mission)
 			remote.plan.permanent(mission)
 		    end
 		end
 		define_method(:insert_mission) do
-		    Roby::Control.synchronize do
+		    Roby.synchronize do
 			remote.plan.auto(mission)
 			remote.plan.insert(mission)
 		    end

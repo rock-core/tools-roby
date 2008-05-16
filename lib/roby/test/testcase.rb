@@ -105,7 +105,7 @@ module Roby
 			negative = Array[*negative].to_value_set
 
 			unreachability_reason = ValueSet.new
-			Roby::Control.synchronize do
+			Roby.synchronize do
 			    positive.each do |ev|
 				ev.if_unreachable(true) do |reason|
 				    unreachability_reason << reason if reason

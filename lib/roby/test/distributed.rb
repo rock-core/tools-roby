@@ -165,7 +165,7 @@ module Roby
 		    remote.wait_one_cycle
 		    Roby.control.wait_one_cycle
 		elsif remote_peer && !remote_peer.disconnected?
-		    Roby::Control.synchronize do
+		    Roby.synchronize do
 			remote.process_events
 			Roby.control.process_events
 		    end

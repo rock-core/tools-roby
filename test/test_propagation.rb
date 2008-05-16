@@ -93,7 +93,7 @@ class TC_Propagation < Test::Unit::TestCase
 	plan.insert(t = SimpleTask.new)
 	e = EventGenerator.new(true)
 	t.event(:start).on e, :delay => 0.1
-	Control.once { t.start! }
+	Roby.once { t.start! }
 	process_events
 	assert(!e.happened?)
 	sleep(0.5)

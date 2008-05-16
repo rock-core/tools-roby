@@ -462,7 +462,7 @@ class TC_Plan < Test::Unit::TestCase
     # Test a setup where there is both pending tasks and running tasks. This
     # checks that #stop! is called on all the involved tasks. This tracks
     # problems related to bindings in the implementation of #garbage_collect:
-    # the killed task bound to the Control.once block must remain the same.
+    # the killed task bound to the Roby.once block must remain the same.
     def test_gc_stopping
 	Roby::Plan.logger.level = Logger::WARN
 	running_task = nil

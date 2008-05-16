@@ -144,10 +144,10 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		    plan.clear
 		    plan.insert(@task = SimpleTask.new(:id => 1))
 		end
-		def start_task; Roby::Control.once { task.start! }; nil end
+		def start_task; Roby.once { task.start! }; nil end
 		def stop_task
 		    assert(task.executable?)
-		    Roby::Control.once do
+		    Roby.once do
 			plan.discard(task)
 			task.stop!
 		    end
@@ -191,7 +191,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		    assert(fev = events.find { |ev| !ev.controlable? })
 		    assert(task.event(:start).child_object?(sev, Roby::EventStructure::Signal))
 		    assert(task.event(:start).child_object?(fev, Roby::EventStructure::Forwarding))
-		    Control.once { task.start! }
+		    Roby.once { task.start! }
 		    nil
 		end
 	    end
@@ -230,7 +230,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    remote.plan.insert(task = SimpleTask.new(:id => 1))
 	    def remote.start(task)
 		task = local_peer.local_object(task)
-		Roby::Control.once { task.start! }
+		Roby.once { task.start! }
 		nil
 	    end
 	end
@@ -350,7 +350,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
     def test_joint_fired_signalled
 	peer2peer(true) do |remote|
 	    remote.plan.insert(task = SimpleTask.new(:id => 'remote-1'))
-	    Roby::Control.once { task.start! }
+	    Roby.once { task.start! }
 	end
 	    
 	event_time = Time.now

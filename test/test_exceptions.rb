@@ -132,7 +132,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    mock.should_receive(:event_called).once.ordered
 	    mock.should_receive(:task_handler_called).once.ordered
 	    mock.should_receive(:global_handler_called).once.ordered
-	    Control.once { t2.start! }
+	    Roby.once { t2.start! }
 	    assert_raises(SpecializedError) { process_events }
 	end
     end
@@ -306,11 +306,11 @@ class TC_Exceptions < Test::Unit::TestCase
 	    parent.realized_by task
 	    plan.insert(parent)
 
-	    Roby::Control.once { task.start! }
+	    Roby.once { task.start! }
 
 	    mock.should_receive(:other_once_handler).once
 	    mock.should_receive(:other_event_processing).once
-	    Roby::Control.once { mock.other_once_handler }
+	    Roby.once { mock.other_once_handler }
 	    Roby::Control.event_processing << lambda { mock.other_event_processing }
 
 	    begin

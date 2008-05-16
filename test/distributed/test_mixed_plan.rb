@@ -147,7 +147,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    r_t2 = subscribe_task(:id => 'remote-2')
 	    assert(1, r_t2.parents.to_a.size)
 	    r_t1 = r_t2.parents.find { true }
-	    t1, t2, t3 = Control.synchronize { add_tasks(plan, "local") }
+	    t1, t2, t3 = Roby.synchronize { add_tasks(plan, "local") }
 
 	    assert(plan.useful_task?(r_t1))
 	    trsc[r_t2].realized_by trsc[t2]
@@ -161,7 +161,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    end
 
 	    # Remove the relations in the real tasks (not the proxies)
-	    Control.synchronize do
+	    Roby.synchronize do
 		t2.remove_planning_task(t3)
 	    end
 	    remote.remove_relations(Distributed.format(r_t2))
@@ -185,7 +185,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	common_setup(propose_first) do |trsc|
 	    remote.add_tasks(Distributed.format(plan))
 	    r_t2 = subscribe_task(:id => 'remote-2')
-	    t1, t2, t3 = Control.synchronize { add_tasks(trsc, "local") }
+	    t1, t2, t3 = Roby.synchronize { add_tasks(trsc, "local") }
 
 	    trsc[r_t2].realized_by t2
 	    trsc[r_t2].on(:start, t2)
@@ -220,7 +220,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    trsc.edit
 
 	    assert(r_t2.subscribed?)
-	    t1, t2, t3 = Control.synchronize { add_tasks(plan, "local") }
+	    t1, t2, t3 = Roby.synchronize { add_tasks(plan, "local") }
 	    r_t2.realized_by trsc[t2]
 	    r_t2.on(:start, trsc[t2])
 	    remote_peer.subscribe(r_t2)
@@ -262,7 +262,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	trsc = Distributed::Transaction.new(plan)
 	trsc.add_owner(remote_peer)
 	trsc[r1].realized_by t1
-	Roby::Control.synchronize do
+	Roby.synchronize do
 	    remote_peer.unsubscribe(r1)
 	    assert(!plan.unneeded_tasks.include?(r1))
 	end
@@ -275,7 +275,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	# Ok, we now create a r1 => t1 => t2 => t3 chain
 	#   * t2 and t3 are kept because they are useful for r1
 	t2, t3 = nil
-	Roby::Control.synchronize do
+	Roby.synchronize do
 	    t1.realized_by(t2 = SimpleTask.new)
 	    assert(!plan.unneeded_tasks.include?(t2))
 	    t2.realized_by(t3 = SimpleTask.new)
@@ -295,13 +295,13 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	process_events
 
 	r2 = remote_task(:id => 'remote-2')
-	Roby::Control.synchronize do
+	Roby.synchronize do
 	    assert(r2.plan && !plan.unneeded_tasks.include?(r2))
 	    assert(t3.child_object?(r2, TaskStructure::Hierarchy))
 	end
 
 	r3 = remote_task(:id => 'remote-3')
-	Roby::Control.synchronize do
+	Roby.synchronize do
 	    assert(!r3.plan || plan.unneeded_tasks.include?(r3))
 	end
     end
