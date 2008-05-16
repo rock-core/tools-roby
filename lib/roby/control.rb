@@ -4,8 +4,6 @@ require 'drb'
 require 'set'
 
 module Roby
-    @mutexes = Pool.new(Mutex)
-    @condition_variables = Pool.new(ConditionVariable)
     class << self
 	# Returns the only one Control object
 	attr_reader :control
@@ -57,46 +55,6 @@ module Roby
 	    !t || t != Thread.current
 	end
 
-	# A pool of mutexes (as a Queue)
-	attr_reader :mutexes
-	# A pool of condition variables (as a Queue)
-	attr_reader :condition_variables
-
-	# call-seq:
-	#   condition_variable => cv
-	#   condition_variable(true) => cv, mutex
-	#   condition_variable { |cv| ... } => value returned by the block
-	#   condition_variable(true) { |cv, mutex| ... } => value returned by the block
-	#
-	# Get a condition variable object from the Roby.condition_variables
-	# pool and, if mutex is not true, a Mutex object
-	#
-	# If a block is given, the two objects are yield and returned into the
-	# pool after the block has returned. In that case, the method returns
-	# the value returned by the block
-	def condition_variable(mutex = false)
-	    cv = condition_variables.pop
-
-	    if block_given?
-		begin
-		    if mutex
-			mt = mutexes.pop
-			yield(cv, mt)
-		    else
-			yield(cv)
-		    end
-
-		ensure
-		    return_condition_variable(cv, mt)
-		end
-	    else
-		if mutex
-		    return cv, mutexes.pop
-		else
-		    return cv
-		end
-	    end
-	end
 
 	# Execute the given block inside the control thread, and returns when
 	# it has finished. The return value is the value returned by the block
@@ -166,15 +124,6 @@ module Roby
 	    end
 	end
 
-	# Returns a ConditionVariable and optionally a Mutex into the
-	# Roby.condition_variables and Roby.mutexes pools
-	def return_condition_variable(cv, mutex = nil)
-	    condition_variables.push cv
-	    if mutex
-		mutexes.push mutex
-	    end
-	    nil
-	end
     end
 
     # This singleton class is the central object: it handles the event loop,
