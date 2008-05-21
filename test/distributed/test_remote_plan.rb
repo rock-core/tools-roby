@@ -150,7 +150,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	plan.auto(r_subtask)
 	plan.auto(r_next_mission)
 	Roby.control.wait_one_cycle
-	assert_equal([remote_peer.task], plan.keepalive.to_a)
+	assert_equal([remote_peer.task], plan.permanent_tasks.to_a)
     end
 
     def test_subscribing_old_objects

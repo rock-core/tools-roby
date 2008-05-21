@@ -250,7 +250,8 @@ module Roby
 	def clear
 	    Roby.synchronize do
 		plan.missions.dup.each { |t| plan.discard(t) }
-		plan.keepalive.dup.each { |t| plan.auto(t) }
+		plan.permanent_tasks.dup.each { |t| plan.auto(t) }
+		plan.permanent_events.dup.each { |t| plan.auto(t) }
 		plan.force_gc.merge( plan.known_tasks )
 
 		quaranteened_subplan = plan.useful_task_component(nil, ValueSet.new, plan.gc_quarantine.dup)

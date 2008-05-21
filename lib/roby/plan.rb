@@ -36,10 +36,12 @@ module Roby
 	attr_reader :task_events
 	# The list of missions in this plan
 	attr_reader :missions
+	# The set of tasks that are kept out of GC's reach
+	attr_reader :permanent_tasks
 	# The list of events that are not included in a task
 	attr_reader :free_events
-	# The list of tasks that are kept outside GC
-	attr_reader :keepalive
+	# The set of events that are kept out of GC's reach
+	attr_reader :permanent_events
 
 	# A map of event => task repairs. Whenever an exception is found,
 	# exception propagation checks that no repair is defined for that
@@ -66,13 +68,17 @@ module Roby
 	    end
 	end
 
+        # The set of relations available for this plan
+        attr_reader :relations
+
         # The propagation engine for this object. It is either nil (if no
         # propagation engine is available) or self.
         attr_reader :propagation_engine
 
 	def initialize
 	    @missions	 = ValueSet.new
-	    @keepalive   = ValueSet.new
+	    @permanent_tasks   = ValueSet.new
+	    @permanent_events   = ValueSet.new
 	    @known_tasks = ValueSet.new
 	    @free_events = ValueSet.new
 	    @task_events = ValueSet.new
@@ -134,13 +140,20 @@ module Roby
 	def inserted(tasks); super if defined? super end
 
 	# Forbid the GC to take out +task+
-	def permanent(task)
-	    @keepalive << task
-	    discover(task)
+	def permanent(object)
+            if object.kind_of?(Task)
+                @permanent_tasks << object
+            else
+                @permanent_events << object
+            end
+	    discover(object)
 	end
 
 	# Make GC finalize +task+ if it is not useful anymore
-	def auto(task); @keepalive.delete(task) end
+	def auto(object)
+            @permanent_tasks.delete(object) 
+            @permanent_events.delete(object)
+        end
 
 	def edit
 	    if block_given?
@@ -150,7 +163,7 @@ module Roby
 	    end
 	end
 
-	def permanent?(task); @keepalive.include?(task) end
+	def permanent?(obj); @permanent_tasks.include?(obj) || @permanent_events.include?(obj) end
 
 	# Removes the task in +tasks+ from the list of missions
 	def discard(task)
@@ -175,7 +188,8 @@ module Roby
 	    @free_events.each { |e| e.clear_relations }
 	    @free_events.clear
 	    @missions.clear
-	    @keepalive.clear
+	    @permanent_tasks.clear
+	    @permanent_events.clear
 	end
 
 	def handle_replace(from, to)
@@ -359,14 +373,14 @@ module Roby
 		    discard(finished_mission)
 		end
 	    end
-	    for finished_permanent in (@keepalive & task_index.by_state[:finished?])
+	    for finished_permanent in (@permanent_tasks & task_index.by_state[:finished?])
 		if !task_index.repaired_tasks.include?(finished_permanent)
 		    auto(finished_permanent)
 		end
 	    end
 
 	    # Create the set of tasks which must be kept as-is
-	    seeds = @missions | @keepalive
+	    seeds = @missions | @permanent_tasks
 	    for trsc in transactions
 		seeds.merge trsc.proxy_objects.keys.to_value_set
 	    end
@@ -446,7 +460,7 @@ module Roby
 	# 'useful' when they are chained to a task.
 	def useful_events
 	    return ValueSet.new if free_events.empty?
-	    (free_events & useful_event_component(ValueSet.new))
+	    (free_events & useful_event_component(permanent_events.dup))
 	end
 
 	# The set of events that can be removed from the plan
@@ -682,7 +696,8 @@ module Roby
 	    @free_events.delete(object)
 	    @missions.delete(object)
 	    @known_tasks.delete(object)
-	    @keepalive.delete(object)
+	    @permanent_tasks.delete(object)
+	    @permanent_events.delete(object)
 	    force_gc.delete(object)
 
 	    object.plan = nil

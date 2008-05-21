@@ -187,6 +187,38 @@ module TC_TransactionBehaviour
 	end
 	assert(plan.permanent?(t3))
     end
+    
+    # Tests insertion and removal of free events
+    def test_commit_plan_events
+        e1, e2 = (1..2).map { Roby::EventGenerator.new }
+        plan.permanent(e1)
+        plan.discover(e2)
+
+	transaction_commit(plan, e1, e2) do |trsc, p1, p2|
+	    assert(trsc.include?(p1))
+	    assert(trsc.permanent?(p1))
+	    assert(trsc.include?(p2))
+	    assert(!trsc.permanent?(p2))
+
+            trsc.auto(p1)
+	    assert(!trsc.permanent?(p1))
+	end
+        assert(!plan.permanent?(e1))
+
+        e3, e4 = (1..2).map { Roby::EventGenerator.new }
+	transaction_commit(plan) do |trsc|
+            trsc.permanent(e3)
+            trsc.discover(e4)
+	    assert(trsc.permanent?(e3))
+	    assert(trsc.include?(e4))
+	    assert(!trsc.permanent?(e4))
+	end
+        assert(plan.include?(e3))
+        assert(plan.permanent?(e3))
+        assert(plan.include?(e4))
+        assert(!plan.permanent?(e4))
+    end
+
 
     def test_commit_task_relations
 	(t1, t2), (t3, t4) = prepare_plan(:missions => 2, :tasks => 2)

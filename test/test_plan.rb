@@ -10,7 +10,7 @@ require 'flexmock'
 module TC_PlanStatic
     include Roby
 
-    def test_add_remove
+    def test_add_remove_object
 	t1 = Task.new
 
 	plan.discover(t1)
@@ -61,6 +61,35 @@ module TC_PlanStatic
 	assert(!plan.mission?(t1))
 	assert(!t1.mission?)
 	assert(!plan.permanent?(t1))
+    end
+
+    def test_add_remove_event
+	ev = EventGenerator.new
+
+	plan.discover(ev)
+	assert(plan.include?(ev))
+	assert(!plan.permanent?(ev))
+
+	plan.remove_object(ev)
+	assert(!plan.include?(ev))
+	assert(!plan.permanent?(ev))
+
+	plan.permanent(ev = EventGenerator.new)
+	assert(plan.include?(ev))
+	assert(plan.permanent?(ev))
+
+	plan.auto(ev)
+	assert(plan.include?(ev))
+	assert(!plan.permanent?(ev))
+	plan.remove_object(ev)
+
+	plan.discover(ev = Task.new)
+	assert(plan.include?(ev))
+	assert(!plan.permanent?(ev))
+	plan.permanent(ev)
+	assert(plan.include?(ev))
+	assert(plan.permanent?(ev))
+	plan.remove_object(ev)
     end
 
     def test_plan_remove_object
@@ -525,6 +554,15 @@ class TC_Plan < Test::Unit::TestCase
 	assert_equal([], plan.unneeded_events.to_a)
 
 	plan.remove_object(t)
+	assert_equal([e1, e2].to_value_set, plan.unneeded_events)
+
+        plan.permanent(e1)
+	assert_equal([], plan.unneeded_events.to_a)
+        plan.auto(e1)
+	assert_equal([e1, e2].to_value_set, plan.unneeded_events)
+        plan.permanent(e2)
+	assert_equal([], plan.unneeded_events.to_a)
+        plan.auto(e2)
 	assert_equal([e1, e2].to_value_set, plan.unneeded_events)
     end
 

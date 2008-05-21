@@ -351,8 +351,8 @@ module Roby
 		    if missions.include?(t) && t.self_owned?
 			missions.delete(t)
 			insert << unwrapped
-		    elsif keepalive.include?(t) && t.self_owned?
-			keepalive.delete(t)
+		    elsif permanent_tasks.include?(t) && t.self_owned?
+			permanent_tasks.delete(t)
 			permanent << unwrapped
 		    end
 
@@ -367,6 +367,10 @@ module Roby
 				    free_events.delete(ev)
 				    ev
 				end
+                    if permanent_events.include?(ev) && ev.self_owned?
+                        permanent_events.delete(ev)
+                        permanent << unwrapped
+                    end
 
 		    discover_events << unwrapped
 		end
