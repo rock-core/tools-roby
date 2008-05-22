@@ -1,7 +1,3 @@
-require 'roby/relations'
-require 'roby/distributed/base'
-require 'roby/basic_object'
-
 module Roby
     # Base class for all objects which are included in a plan.
     class PlanObject < BasicObject

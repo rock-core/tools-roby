@@ -1,16 +1,4 @@
-require 'roby'
-require 'roby/distributed'
-require 'roby/planning'
-require 'roby/log'
-require 'roby/log/event_stream'
-
-require 'roby/robot'
-require 'yaml'
-
 module Roby
-    # Returns the only one Application object
-    def self.app; Application.instance end
-
     # = Roby Applications
     #
     # There is one and only one Application object, which holds mainly the
@@ -56,6 +44,9 @@ module Roby
     # Roby::Test::TestCase for a description of Roby-specific tests.
     class Application
 	include Singleton
+        
+	# A set of planners declared in this application
+	attr_reader :planners
 
 	# The plain option hash saved in config/app.yml
 	attr_reader :options
@@ -129,6 +120,7 @@ module Roby
 	    @testing_keep_logs = false
 
 	    @plugin_dirs = []
+            @planners    = []
 	end
 
 	# Adds +dir+ in the list of directories searched for plugins
@@ -432,6 +424,8 @@ module Roby
 
 	def setup
 	    reset
+            require 'roby/planning'
+            require 'roby/interface'
 
 	    $LOAD_PATH.unshift(APP_DIR) unless $LOAD_PATH.include?(APP_DIR)
 
@@ -456,7 +450,7 @@ module Roby
 	    require_models
 
 	    # MainPlanner is always included in the planner list
-	    Roby.control.planners << MainPlanner
+	    self.planners << MainPlanner
 	   
 	    # Set up the loaded plugins
 	    call_plugins(:setup, self)
@@ -473,6 +467,8 @@ module Roby
 	end
 
 	def run(&block)
+            setup_global_singletons
+
 	    # Set up dRoby, setting an Interface object as front server, for shell access
 	    host = droby['host'] || ""
 	    if host !~ /:\d+$/
@@ -481,9 +477,9 @@ module Roby
 
 	    if single? || !robot_name
 		host =~ /:(\d+)$/
-		DRb.start_service "druby://:#{$1 || '0'}", Interface.new(Roby.control)
+		DRb.start_service "druby://:#{$1 || '0'}", Interface.new
 	    else
-		DRb.start_service "druby://#{host}", Interface.new(Roby.control)
+		DRb.start_service "druby://#{host}", Interface.new
 		droby_config = { :ring_discovery => !!discovery['ring'],
 		    :name => robot_name, 
 		    :plan => Roby.plan, 
@@ -510,8 +506,9 @@ module Roby
 	    options = { :detach => true, :cycle => control_config['cycle'] || 0.1 }
 	    
 	    # Add an executive if one is defined
-	    if control_config['executive']
-		self.executive = control_config['executive']
+            scheduler = (control_config['scheduler'] || control_config['executive'])
+	    if scheduler
+		self.scheduler = control_config['scheduler']
 	    end
 
 	    if log['events']
@@ -560,19 +557,16 @@ module Roby
 	    end
 	end
 
-	attr_reader :executive
-
-	def executive=(name)
-	    if executive
-		Control.event_processing.delete(executive.method(:initial_events))
-		@executive = nil
+	def scheduler=(name)
+	    if Roby.plan.scheduler
+                Roby.plan.scheduler = nil
 	    end
+            @scheduler = name
 	    return unless name
 
-	    full_name = "roby/executives/#{name}"
+	    full_name = "roby/schedulers/#{name}"
 	    require full_name
-	    @executive = full_name.camelize.constantize.new
-	    Control.event_processing << executive.method(:initial_events)
+	    Roby.plan.scheduler = full_name.camelize.constantize.new
 	end
 
 	def stop; call_plugins(:stop, self) end
@@ -743,6 +737,15 @@ module Roby
 	def single?; @single || discovery.empty? end
 	def single;  @single = true end
 
+        def setup_global_singletons
+            if !Roby.plan
+                Roby.instance_variable_set :@plan, MainPlan.new
+            end
+            if !Roby.control
+                Roby.instance_variable_set :@control, Control.new(Roby.plan)
+            end
+        end
+
 	# Guesses the type of +filename+ if it is a source suitable for
 	# data display in this application
 	def data_streams_of(filenames)
@@ -860,6 +863,11 @@ module Roby
 		end
 	    end
 	end
+    end
+
+    @app = Application.instance
+    class << self
+        attr_reader :app
     end
 
     # Load the plugins 'main' files

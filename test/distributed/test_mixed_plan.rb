@@ -83,7 +83,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 
     # Common setup of the remote peer
     def common_setup(propose_first)
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    testcase = self
 	    remote.singleton_class.class_eval do
 		define_method(:add_tasks) do |plan|
@@ -239,7 +239,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
     end
 
     def test_garbage_collect
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    remote.plan.insert(SimpleTask.new(:id => 'remote-1'))
 	    def remote.insert_children(trsc, root_task)
 		trsc = local_peer.local_object(trsc)
@@ -311,7 +311,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
     # after the commit, there is a race condition possibility if the other
     # peers do not have committed the transaction yet
     def test_commit_race_condition
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    def remote.add_task(trsc)
 		trsc = local_peer.local_object(trsc)
 		trsc.edit

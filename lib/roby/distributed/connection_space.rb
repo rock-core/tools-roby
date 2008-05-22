@@ -222,6 +222,10 @@ module Roby
 		end
 		start_neighbour_discovery(true)
 
+                plan.propagation_handlers << lambda do
+                    start_neighbour_discovery
+                end
+
 		receive
 
 		Roby::Control.finalizers << method(:quit)
@@ -373,13 +377,12 @@ module Roby
 			end
 			return if @quit_neighbour_thread
 			discovery_start = @discovery_start
-
-			if ring_discovery? && (!finger || (finger.port != discovery_port))
-			    finger = Rinda::RingFinger.new(ring_broadcast, discovery_port)
-			end
 		    end
 
 		    from = Time.now
+                    if ring_discovery? && (!finger || (finger.port != discovery_port))
+                        finger = Rinda::RingFinger.new(ring_broadcast, discovery_port)
+                    end
 		    if central_discovery?
 			discovery_tuplespace.read_all([:droby, nil, nil]).
 			    each do |n| 
@@ -389,11 +392,11 @@ module Roby
 			    end
 		    end
 
-		    if discovery_period
-			remaining = (@discovery_start + discovery_period) - Time.now
-		    end
-
 		    if ring_discovery?
+                        if discovery_period
+                            remaining = (@discovery_start + discovery_period) - Time.now
+                        end
+
 			finger.lookup_ring(remaining) do |cs|
 			    next if cs == self
 
@@ -432,7 +435,7 @@ module Roby
 		    end
 
 		    @discovery_start = Time.now
-		    start_discovery.signal
+		    start_discovery.broadcast
 		end
 		wait_discovery if block
 	    end
@@ -568,7 +571,7 @@ module Roby
             # neighbours. It fills the new_neighbours queue which is read by
             # notify_new_neighbours to notify application code of new
             # neighbours in the control thread
-	    def notify_new_neighbours
+	    def notify_new_neighbours(plan)
 		return unless Distributed.state
 		while !new_neighbours.empty?
 		    cs, neighbour = new_neighbours.pop(true)
@@ -586,7 +589,7 @@ module Roby
 		new_neighbours_observers << lambda { |_, n| yield(n) }
 	    end
 	end
-	Roby::Control.event_processing << method(:notify_new_neighbours)
+	Roby::Propagation.propagation_handlers << method(:notify_new_neighbours)
     end
 end
 

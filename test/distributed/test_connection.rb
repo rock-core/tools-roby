@@ -60,7 +60,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
     # Note that #peer2peer is the exact same process
     def test_connect(standalone = true)
 	if standalone
-	    start_peers(true)
+	    start_peers
 
 	    notified = []
 	    Distributed.on_neighbour do |n|
@@ -123,7 +123,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
     end
 
     def test_synchronous_connect
-	start_peers(true) do |remote|
+	start_peers do |remote|
 	    def remote.connected?
 		local_peer.connected?
 	    end
@@ -140,7 +140,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 
     def test_concurrent_connection
 	GC.disable
-	start_peers(true) do |remote|
+	start_peers do |remote|
 	    class << remote
 		def find_neighbour
 		    @neighbour = Roby::Distributed.neighbours.find { true }
@@ -197,7 +197,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 
     # Test the normal disconnection process
     def test_disconnect
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    def remote.peers_empty?; Distributed.peers.empty? end
 	end
 
@@ -223,7 +223,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
     # Tests that the remote peer disconnects if #demux raises DisconnectedError
     def test_disconnect_on_error
 	Roby.logger.level = Logger::FATAL
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    class << remote
 		include Test::Unit::Assertions
 		def assert_demux_raises
@@ -246,7 +246,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
     end
 
     def test_socket_reconnect
-	peer2peer(true)
+	peer2peer
 	Distributed.state.synchronize do
 	    remote_peer.socket.close
 	    assert(!remote_peer.link_alive?)
@@ -261,7 +261,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
     end
 
     def test_remote_dies
-	peer2peer(true)
+	peer2peer
 	Process.kill('KILL', remote_processes[1][0])
 
 	sleep(1)
@@ -270,7 +270,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 
 
     def test_abort_connection
-	peer2peer(true)
+	peer2peer
 	remote_peer.disconnected!
 
 	sleep(1)

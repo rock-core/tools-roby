@@ -1,60 +1,4 @@
-require 'thread'
-require 'roby'
-require 'roby/planning'
-require 'facets/basicobject'
 require 'utilrb/column_formatter'
-require 'stringio'
-require 'roby/robot'
-
-module Robot
-    def self.prepare_action(name, arguments)
-	control = Roby.control
-
-	# Check if +name+ is a planner method, and in that case
-	# add a planning method for it and plan it
-	planner_model = control.planners.find do |planner_model|
-	    planner_model.has_method?(name)
-	end
-	if !planner_model
-	    raise ArgumentError, "no such planning method #{name}"
-	end
-
-	m = planner_model.model_of(name, arguments)
-
-	# HACK: m.returns should not be nil, but it sometimes happen
-	returns_model = (m.returns if m && m.returns) || Task
-
-	if returns_model.kind_of?(Roby::TaskModelTag)
-	    task = Roby::Task.new
-	    task.extend returns_model
-	else
-	    # Create an abstract task which will be planned
-	    task = returns_model.new
-	end
-
-	planner = Roby::PlanningTask.new(:planner_model => planner_model, :method_name => name, :method_options => arguments)
-	task.planned_by planner
-	return task, planner
-    end
-
-    def self.method_missing(name, *args)
-	if name.to_s =~ /!$/
-	    name = $`.to_sym
-	else
-	    super
-	end
-
-	if args.size > 1
-	    raise ArgumentError, "wrong number of arguments (#{args.size} for 1) in #{name}!"
-	end
-
-	options = args.first || {}
-	task, planner = Robot.prepare_action(name, options)
-	Roby.control.plan.insert(task)
-
-	return task, planner
-    end
-end
 
 module Roby
     # An augmented DRbObject which allow to properly interface with remotely
@@ -190,29 +134,27 @@ module Roby
 	    end
 	end
 
-        # The Roby::Control object this interface is working on
-	attr_reader :control
         # The set of pending messages that are to be displayed on the remote interface
 	attr_reader :pending_messages
         # Creates a local server for a remote interface, acting on +control+
-	def initialize(control)
-	    @control	      = control
+	def initialize
 	    @pending_messages = Queue.new
 
-	    Roby::Control.extend GatherExceptions
-	    Roby::Control.register_interface self
+	    Roby.plan.extend GatherExceptions
+	    Roby.plan.register_interface self
 	end
 
 	# Clear the current plan: remove all running and permanent tasks.
 	def clear
 	    Roby.execute do
 		plan.missions.dup.each  { |t| plan.discard(t) }
-		plan.keepalive.dup.each { |t| plan.auto(t) }
+		plan.permanent_tasks.dup.each { |t| plan.auto(t) }
+		plan.permanent_events.dup.each { |t| plan.auto(t) }
 	    end
 	end
 
 	# Make the Roby event loop quit
-	def stop; control.quit; nil end
+	def stop; Roby.control.quit; nil end
 	# The Roby plan
 	def plan; Roby.plan end
 
@@ -285,9 +227,9 @@ module Roby
 	end
 
         # Displays the set of actions which are available through the planners
-        # registered on #control. See Control#planners
+        # registered on the application. See Application#planners
 	def actions
-	    control.planners.
+	    app.planners.
 		map { |p| p.planning_methods_names.to_a }.
 		flatten.
 		sort
@@ -326,7 +268,7 @@ module Roby
         # Returns a string representing the set of missions
 	def missions
 	    Roby.execute do
-		task_set_to_s(control.plan.missions)
+		task_set_to_s(Roby.plan.missions)
 	    end
 	end
 
@@ -370,7 +312,7 @@ module Roby
 	    task, planner = Robot.prepare_action(name, options)
 	    begin
 		Roby.wait_until(planner.event(:success)) do
-		    control.plan.insert(task)
+		    Roby.plan.insert(task)
 		    yield(task, planner) if block_given?
 		end
 	    rescue Roby::UnreachableEvent

@@ -18,7 +18,7 @@ module TC_PlanStatic
 	assert(!plan.mission?(t1))
 	assert(!plan.permanent?(t1))
 
-	plan.remove_task(t1)
+	plan.remove_object(t1)
 	assert(!plan.include?(t1))
 	assert(!plan.mission?(t1))
 	assert(!plan.permanent?(t1))
@@ -34,7 +34,7 @@ module TC_PlanStatic
 	assert(!plan.mission?(t1))
 	assert(!t1.mission?)
 	assert(!plan.permanent?(t1))
-	plan.remove_task(t1)
+	plan.remove_object(t1)
 
 	plan.discover(t1 = Task.new)
 	assert(plan.include?(t1))
@@ -42,7 +42,7 @@ module TC_PlanStatic
 	plan.insert(t1)
 	assert(plan.mission?(t1))
 	assert(t1.mission?)
-	plan.remove_task(t1)
+	plan.remove_object(t1)
 
 	plan.permanent(t1 = Task.new)
 	assert(plan.include?(t1))
@@ -56,7 +56,7 @@ module TC_PlanStatic
 	assert(!plan.permanent?(t1))
 
 	plan.permanent(t1)
-	plan.remove_task(t1)
+	plan.remove_object(t1)
 	assert(!plan.include?(t1))
 	assert(!plan.mission?(t1))
 	assert(!t1.mission?)
@@ -291,12 +291,12 @@ module TC_PlanStatic
 	plan.insert(t3)
 
 	assert(!t1.leaf?)
-	plan.remove_task(t2)
+	plan.remove_object(t2)
 	assert(t1.leaf?)
 	assert(!plan.include?(t2))
 
 	assert(!t1.event(:stop).leaf?(EventStructure::Signal))
-	plan.remove_task(t3)
+	plan.remove_object(t3)
 	assert(t1.event(:stop).leaf?(EventStructure::Signal))
 	assert(!plan.include?(t3))
     end
@@ -617,6 +617,34 @@ class TC_Plan < Test::Unit::TestCase
 
 	# Makes teardown happy
 	plan.remove_object(task)
+    end
+
+    def test_check_relations_structure
+        r_t = TaskStructure.relation :TestRT
+        r_e = EventStructure.relation :TestRE
+
+        FlexMock.use do |mock|
+            r_t.singleton_class.class_eval do
+                define_method :check_structure do |plan|
+                    mock.checked_task_relation(plan)
+                    []
+                end
+            end
+            r_e.singleton_class.class_eval do
+                define_method :check_structure do |plan|
+                    mock.checked_event_relation(plan)
+                    []
+                end
+            end
+
+            plan = Plan.new
+            assert plan.relations.include?(r_t)
+            assert plan.relations.include?(r_e)
+
+            mock.should_receive(:checked_task_relation).with(plan).once
+            mock.should_receive(:checked_event_relation).with(plan).once
+            assert_equal(Hash.new, plan.check_structure)
+        end
     end
 end
 

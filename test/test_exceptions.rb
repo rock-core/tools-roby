@@ -311,7 +311,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    mock.should_receive(:other_once_handler).once
 	    mock.should_receive(:other_event_processing).once
 	    Roby.once { mock.other_once_handler }
-	    Roby::Control.event_processing << lambda { mock.other_event_processing }
+	    plan.propagation_handlers << lambda { mock.other_event_processing }
 
 	    begin
 		process_events
@@ -422,7 +422,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	parent.start!
 	child.failed!
 
-	exceptions = Roby.plan.structure_checking
+	exceptions = Roby.plan.check_structure
 
 	plan.discover(repairing_task = SimpleTask.new)
 	repairing_task.start!
@@ -453,7 +453,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	child.start!
 	child.emit error_event
 
-	exceptions = Roby.plan.structure_checking
+	exceptions = Roby.plan.check_structure
 
 	assert_equal([], plan.propagate_exceptions(exceptions))
 	assert_equal({ child.terminal_event => repairing_task },
@@ -484,7 +484,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	mission.start!
 	mission.emit :failed
 
-	exceptions = Roby.plan.structure_checking
+	exceptions = Roby.plan.check_structure
 	assert_equal(1, exceptions.size)
 	assert_kind_of(Roby::MissionFailedError, exceptions.to_a[0][0].exception, exceptions)
 

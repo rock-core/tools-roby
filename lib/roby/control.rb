@@ -2,11 +2,9 @@ module Roby
     class << self
 	# Returns the only one Control object
 	attr_reader :control
+
 	def every(duration, &block)
 	    Control.every(duration, &block)
-	end
-	def each_cycle(&block)
-	    Control.each_cycle(&block)
 	end
 
 	# True if the current thread is the control thread
@@ -14,7 +12,7 @@ module Roby
 	# See #outside_control? for a discussion of the use of #inside_control?
 	# and #outside_control? when testing the threading context
 	def inside_control?
-	    t = Control.instance.thread
+	    t = control.thread
 	    !t || t == Thread.current
 	end
 
@@ -36,7 +34,7 @@ module Roby
 	# the second form will work. Use the first form only if you require
 	# that there actually IS a control thread.
 	def outside_control?
-	    t = Control.instance.thread
+	    t = control.thread
 	    !t || t != Thread.current
 	end
 
@@ -84,8 +82,6 @@ module Roby
     # This singleton class is the central object: it handles the event loop,
     # event propagation and exception propagation.
     class Control
-	include Singleton
-
 	# Do not sleep or call Thread#pass if there is less that
 	# this much time left in the cycle
 	SLEEP_MIN_TIME = 0.01
@@ -93,27 +89,24 @@ module Roby
 	# The priority of the control thread
 	THREAD_PRIORITY = 10
 
-	@event_processing	= []
-	class << self
-	    # List of procs which are called at each event cycle
-	    attr_reader :event_processing
-	end
+        # The plan this event loop acts on
+        attr_reader :plan
 
-	# The plan being executed
-	attr_reader :plan
-	# A set of planners declared in this application
-	attr_reader :planners
+	def initialize(plan)
+            if !plan.kind_of?(Propagation)
+                raise ArgumentError, "the provided plan does not provide Propagation"
+            end
 
-	def initialize
-	    super
+            @plan        = plan
+	    plan.each_cycle(&method(:call_every))
+
+	    super()
 	    @quit        = 0
 	    @thread      = nil
 	    @cycle_index = 0
 	    @cycle_start = Time.now
 	    @cycle_length = 0
-	    @planners    = []
 	    @last_stop_count = 0
-	    @plan        = Roby.plan
 	end
 
 	# Blocks until at least once execution cycle has been done
@@ -125,6 +118,24 @@ module Roby
 	    end
 	end
 
+        def call_every(plan) # :nodoc:
+            now        = cycle_start
+            length     = cycle_length
+            Control.process_every.map! do |block, last_call, duration|
+                begin
+                    # Check if the nearest timepoint is the beginning of
+                    # this cycle or of the next cycle
+                    if !last_call || (duration - (now - last_call)) < length / 2
+                        block.call
+                        last_call = now
+                    end
+                rescue Exception => e
+                    plan.add_framework_error(e, "#call_every, in #{block}")
+                end
+                [block, last_call, duration]
+            end
+        end
+
 	@at_cycle_end_handlers = Array.new
 	@process_every   = Array.new
 	@waiting_threads = Array.new
@@ -135,9 +146,6 @@ module Roby
 	    # Control#run will raise ControlQuitError on this threads if they
 	    # are still waiting while the control is quitting
 	    attr_reader :waiting_threads
-
-	    # Call +block+ at each cycle
-	    def each_cycle(&block); Control.event_processing << block end
 
 	    # A set of blocks that are called at each cycle end
 	    attr_reader :at_cycle_end_handlers
@@ -165,27 +173,7 @@ module Roby
 		    process_every.delete_if { |spec| spec[0].object_id == id }
 		end
 	    end
-
-	    def call_every # :nodoc:
-		now        = Roby.control.cycle_start
-		length     = Roby.control.cycle_length
-		process_every.map! do |block, last_call, duration|
-		    begin
-			# Check if the nearest timepoint is the beginning of
-			# this cycle or of the next cycle
-			if !last_call || (duration - (now - last_call)) < length / 2
-			    block.call
-			    last_call = now
-			end
-		    rescue Exception => e
-			Roby.plan.add_framework_error(e, "#call_every, in #{block}")
-		    end
-		    [block, last_call, duration]
-		end
-	    end
-	    Control.event_processing << Control.method(:call_every)
 	end
-
 
 	attr_accessor :thread
 	def running?; !!@thread end
@@ -202,7 +190,6 @@ module Roby
 	# Main event loop. Valid options are
 	# cycle::   the cycle duration in seconds (default: 0.1)
 	# drb:: address of the DRuby server if one should be started (default: nil)
-	# detach::  if true, start in its own thread (default: false)
 	def run(options = {})
 	    if running?
 		raise "there is already a control running in thread #{@thread}"
@@ -212,14 +199,12 @@ module Roby
 		:cycle => 0.1, :detach => false
 
 	    @quit = 0
-	    if !options[:detach]
-                raise
-	    end
+
 
             # Start the control thread and wait for @thread to be set
             Roby.condition_variable(true) do |cv, mt|
                 mt.synchronize do
-                    Thread.new do
+                    @thread = Thread.new do
                         @thread = Thread.current
                         @thread.priority = THREAD_PRIORITY
 
@@ -453,14 +438,6 @@ module Roby
 
 	    retry
 	end
-
-	attr_reader :cycle_index
     end
-end
-
-require 'roby/propagation'
-
-module Roby
-    @control = Control.instance
 end
 

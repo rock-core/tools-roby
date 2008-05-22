@@ -1,10 +1,3 @@
-require 'roby/support'
-require 'roby/exceptions'
-require 'utilrb/exception/full_message'
-require 'utilrb/unbound_method'
-require 'roby/relations/error_handling'
-require 'roby/exceptions'
-
 # This module contains all code necessary for the propagation steps during
 # execution. This includes event and exception propagation
 #
@@ -38,11 +31,41 @@ module Roby::Propagation
 	@process_once = Queue.new
         @event_ordering = Array.new
         @event_priorities = Hash.new
-        @propagation_engine = self
+        @propagation_engine   = self
+        @propagation_handlers = []
         super
     end
 
+    # A numeric ID giving the count of the current propagation cycle
     attr_reader :propagation_id
+
+    @propagation_handlers = []
+    class << self
+        # A set of block objects that have to be called at the beginning of
+        # every propagation phase for all plans. These objects are called in
+        # propagation context, which means that the events they would call or
+        # emit are injected in the propagation process itself.
+        attr_reader :propagation_handlers
+    end
+
+    # A set of block objects that have to be called at the beginning of every
+    # propagation phase. These objects are called in propagation context, which
+    # means that the events they would call or emit are injected in the
+    # propagation process itself.
+    attr_reader :propagation_handlers
+
+    def each_cycle(&block)
+        check_arity block, 1
+        propagation_handlers << block
+    end
+    def self.each_cycle(&block)
+        Roby.plan.each_cycle(&block)
+    end
+
+    # An executive object, which would handle parts of the propagation cycle.
+    # For now, its #initial_events method is called at the beginning of each
+    # propagation cycle and can call or emit a set of events.
+    attr_accessor :scheduler
 
     # If we are currently in the propagation stage
     def gathering?; !!@propagation end
@@ -182,7 +205,7 @@ module Roby::Propagation
     # events we should consider as already emitted in the following propagation.
     # +seeds+ si a list of procs which should be called to initiate the propagation
     # (i.e. build an initial set of events)
-    def propagate_events(seeds = [])
+    def propagate_events(seeds = nil)
 	if @propagation_exceptions
 	    raise InternalError, "recursive call to propagate_events"
 	end
@@ -192,16 +215,27 @@ module Roby::Propagation
 
 	initial_set = []
 	next_step = gather_propagation do
-	    gather_framework_errors('initial set setup') { yield(initial_set) } if block_given?
+	    gather_framework_errors('initial set setup')  { yield(initial_set) } if block_given?
 	    gather_framework_errors('distributed events') { Roby::Distributed.process_pending }
-            gather_framework_errors('delayed events') { execute_delayed_events }
+            gather_framework_errors('delayed events')     { execute_delayed_events }
             while !process_once.empty?
                 p = process_once.pop
                 gather_framework_errors("'once' block #{p}") { p.call }
             end
-	    seeds.each do |s|
-		gather_framework_errors("seed #{s}") { s.call }
-	    end
+            if seeds
+                for s in seeds
+                    gather_framework_errors("seed #{s}") { s.call }
+                end
+            end
+            if scheduler
+                gather_framework_errors('scheduler')          { scheduler.initial_events }
+            end
+            for h in Roby::Propagation.propagation_handlers
+                gather_framework_errors("propagation handler #{h}") { h.call(self) }
+            end
+            for h in propagation_handlers
+                gather_framework_errors("propagation handler #{h}") { h.call(self) }
+            end
 	end
 
 	# Problem with postponed: the object is included in already_seen while it
@@ -596,28 +630,28 @@ module Roby::Propagation
         Roby::Propagation.add_timepoint(stats, :real_start)
 
         # Gather new events and propagate them
-        events_errors = propagate_events(Roby::Control.event_processing)
+        events_errors = propagate_events
         Roby::Propagation.add_timepoint(stats, :events)
 
         # HACK: events_errors is sometime nil here. It shouldn't
         events_errors ||= []
 
         # Generate exceptions from task structure
-        structure_errors = structure_checking
+        structure_errors = check_structure
         Roby::Propagation.add_timepoint(stats, :structure_check)
 
         # Propagate the errors. Note that the plan repairs are taken into
         # account in Propagation.propagate_exceptions drectly.  We keep
         # event and structure errors separate since in the first case there
         # is not two-stage handling (all errors that have not been handled
-        # are fatal), and in the second case we call #structure_checking
+        # are fatal), and in the second case we call #check_structure
         # again to get the remaining errors
         events_errors    = propagate_exceptions(events_errors)
         propagate_exceptions(structure_errors)
         Roby::Propagation.add_timepoint(stats, :exception_propagation)
 
         # Get the remaining problems in the plan structure, and act on it
-        fatal_structure_errors = remove_inhibited_exceptions(structure_checking)
+        fatal_structure_errors = remove_inhibited_exceptions(check_structure)
         fatal_errors = fatal_structure_errors.to_a + events_errors
         kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
             tasks ||= [*error.task]
@@ -660,6 +694,110 @@ module Roby::Propagation
 
     # Hook called when an exception +e+ has been handled by +task+
     def handled_exception(e, task); super if defined? super end
+    
+	# Kills and removes all unneeded tasks
+	def garbage_collect(force_on = nil)
+	    if force_on && !force_on.empty?
+		force_gc.merge(force_on.to_value_set)
+	    end
+
+	    # The set of tasks for which we queued stop! at this cycle
+	    # #finishing? is false until the next event propagation cycle
+	    finishing = ValueSet.new
+	    did_something = true
+	    while did_something
+		did_something = false
+
+		tasks = unneeded_tasks | force_gc
+		local_tasks  = self.local_tasks & tasks
+		remote_tasks = tasks - local_tasks
+
+		# Remote tasks are simply removed, regardless of other concerns
+		for t in remote_tasks
+		    Roby::Propagation.debug { "GC: removing the remote task #{t}" }
+		    remove_object(t)
+		end
+
+		break if local_tasks.empty?
+
+		if local_tasks.all? { |t| t.pending? || t.finished? }
+		    local_tasks.each do |t|
+			Roby::Propagation.debug { "GC: #{t} is not running, removed" }
+			garbage(t)
+			remove_object(t)
+		    end
+		    break
+		end
+
+		# Mark all root local_tasks as garbage
+		roots = nil
+		2.times do |i|
+		    roots = local_tasks.find_all do |t|
+			if t.root?
+			    garbage(t)
+			    true
+			else
+			    Roby::Propagation.debug { "GC: ignoring #{t}, it is not root" }
+			    false
+			end
+		    end
+
+		    break if i == 1 || !roots.empty?
+
+		    # There is a cycle somewhere. Try to break it by removing
+		    # weak relations within elements of local_tasks
+		    Roby::Propagation.debug "cycle found, removing weak relations"
+
+		    local_tasks.each do |t|
+			next if t.root?
+			t.each_graph do |rel|
+			    rel.remove(t) if rel.weak?
+			end
+		    end
+		end
+
+		(roots.to_value_set - finishing - gc_quarantine).each do |local_task|
+		    if local_task.pending? 
+			Roby::Propagation.info "GC: removing pending task #{local_task}"
+			remove_object(local_task)
+			did_something = true
+		    elsif local_task.starting?
+			# wait for task to be started before killing it
+			Roby::Propagation.debug { "GC: #{local_task} is starting" }
+		    elsif local_task.finished?
+			Roby::Propagation.debug { "GC: #{local_task} is not running, removed" }
+			remove_object(local_task)
+			did_something = true
+		    elsif !local_task.finishing?
+			if local_task.event(:stop).controlable?
+			    Roby::Propagation.debug { "GC: queueing #{local_task}/stop" }
+			    if !local_task.respond_to?(:stop!)
+				Roby::Propagation.fatal "something fishy: #{local_task}/stop is controlable but there is no #stop! method"
+				gc_quarantine << local_task
+			    else
+				finishing << local_task
+				Roby.once do
+				    Roby::Propagation.debug { "GC: stopping #{local_task}" }
+				    local_task.stop!(nil)
+				end
+			    end
+			else
+			    Roby::Propagation.warn "GC: ignored #{local_task}, it cannot be stopped"
+			    gc_quarantine << local_task
+			end
+		    elsif local_task.finishing?
+			Roby::Propagation.debug { "GC: waiting for #{local_task} to finish" }
+		    else
+			Roby::Propagation.warn "GC: ignored #{local_task}"
+		    end
+		end
+	    end
+
+	    unneeded_events.each do |event|
+		remove_object(event)
+	    end
+	end
+
 end
 
 module Roby
@@ -667,13 +805,11 @@ module Roby
         include Propagation
     end
 
-    @plan = MainPlan.new
     class << self
 	# Returns the executed plan. This is equivalent to
 	#   Roby.control.plan
 	attr_reader :plan
     end
-
 
     # Define a global exception handler on the main plan's execution engine.
     # See also #on_exception

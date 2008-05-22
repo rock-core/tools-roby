@@ -1,8 +1,3 @@
-require 'roby/plan-object'
-require 'roby/exceptions'
-require 'roby/event'
-require 'utilrb/module/attr_predicate'
-
 module Roby
     class TaskModelTag < Module
 	module ClassExtension
@@ -658,8 +653,8 @@ module Roby
 
 		setup_poll_method(block)
 
-		on(:start) { Control.event_processing << method(:poll) }
-		on(:stop)  { Control.event_processing.delete(method(:poll)) }
+		on(:start) { |ev| ev.task.plan.propagation_handlers << method(:poll) }
+		on(:stop)  { |ev| ev.task.plan.propagation_handlers.delete(method(:poll)) }
 	    end
 	end
 
@@ -1504,8 +1499,8 @@ module Roby
 	    singleton_class.class_eval do
 		setup_poll_method(block)
 	    end
-	    on(:start) { Control.event_processing << method(:poll) }
-	    on(:stop)  { Control.event_processing.delete(method(:poll)) }
+            on(:start) { |ev| ev.task.plan.propagation_handlers << method(:poll) }
+            on(:stop)  { |ev| ev.task.plan.propagation_handlers.delete(method(:poll)) }
 	end
     end
 
@@ -1574,6 +1569,4 @@ module Roby
 	TaskStructure   = RelationSpace(Task)
     end
 end
-
-require 'roby/task-operations'
 

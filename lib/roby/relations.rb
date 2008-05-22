@@ -1,6 +1,3 @@
-require 'roby/support'
-require 'roby/graph'
-
 module Roby
     # This exception is raised when an edge is being added in a DAG, while this
     # edge would create a cycle.
@@ -571,13 +568,6 @@ module Roby
 	relation_space = RelationSpace.new
         relation_space.apply_on klass
         relation_space
-    end
-
-    # Requires all Roby relation files (all files in roby/relations/)
-    def self.load_all_relations
-	Dir.glob("#{File.dirname(__FILE__)}/relations/*.rb").each do |file|
-	    require "roby/relations/#{File.basename(file, '.rb')}"
-	end
     end
 end
 

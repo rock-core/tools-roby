@@ -1,7 +1,3 @@
-require 'roby/plan-object'
-require 'roby/exceptions'
-require 'set'
-
 module Roby
     # Event objects are the objects representing a particular emission in the
     # event propagation process. They represent the common propagation

@@ -1,9 +1,3 @@
-require 'utilrb/module'
-require 'utilrb/kernel'
-require 'utilrb/enumerable'
-require 'utilrb/value_set'
-require 'roby/bgl'
-
 Utilrb.unless_ext do
     raise LoadError, "Roby needs Utilrb's C extension to be compiled"
 end

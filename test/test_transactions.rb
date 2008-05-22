@@ -255,7 +255,7 @@ module TC_TransactionBehaviour
 	assert(!Hierarchy.linked?(t1, t2))
 
 	transaction_commit(plan, t3, t4) do |trsc, p3, p4|
-	    trsc.remove_task(p3)
+	    trsc.remove_object(p3)
 	    assert(!trsc.include?(p3))
 	    assert(!PlannedBy.linked?(p3, p4))
 	    assert(PlannedBy.linked?(t3, t4))
@@ -589,8 +589,8 @@ class TC_RecursiveTransaction < Test::Unit::TestCase
     alias :real_plan :plan
     attr_reader :plan
     def setup
-	@plan = Roby::Transaction.new(real_plan)
 	super
+	@plan = Roby::Transaction.new(real_plan)
     end
     def teardown
 	plan.discard_transaction

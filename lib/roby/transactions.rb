@@ -1,8 +1,3 @@
-require 'roby/plan'
-require 'utilrb/value_set'
-require 'utilrb/kernel/swap'
-require 'roby/transactions/proxy'
-
 module Roby
     # Exception raised when someone tries do commit an invalid transaction
     class InvalidTransaction < RuntimeError; end
@@ -461,6 +456,4 @@ module Roby
 	end
     end
 end
-
-require 'roby/transactions/updates'
 

@@ -21,7 +21,7 @@ module Roby::TaskStructure
 
     # Returns a set of PlanningFailedError exceptions for all abstract tasks
     # for which planning has failed
-    def PlannedBy.check_planning(plan)
+    def PlannedBy.check_structure(plan)
 	result = []
 	Roby::TaskStructure::PlannedBy.each_edge do |planned_task, planning_task, _|
 	    next unless plan == planning_task.plan && planning_task.failed?
@@ -58,6 +58,5 @@ module Roby
 	    msg
 	end
     end
-    Plan.structure_checks << TaskStructure::PlannedBy.method(:check_planning)
 end
 

@@ -1,5 +1,6 @@
 require File.join(File.dirname(__FILE__), '..', 'run')
 app = Roby.app
+Roby.app.filter_backtraces = false
 
 robot_name = ARGV.shift
 app.robot robot_name, (ARGV.shift || robot_name)

@@ -62,14 +62,14 @@ module Roby
     end
 
     # Registered on Control to call the #poll method of state events
-    def self.poll_state_events # :nodoc:
-        for ev in Roby.plan.free_events
+    def self.poll_state_events(plan) # :nodoc:
+        for ev in plan.free_events
             if ev.kind_of?(StateEvent) && ev.enabled?
                 ev.poll
             end
         end
     end
-    Roby::Control.each_cycle(&Roby.method(:poll_state_events))
+    Roby::Propagation.propagation_handlers << Roby.method(:poll_state_events)
 
     # A state event is an event which emits when some parameters over the state
     # are reached. See DeltaEvent and TimePointEvent.

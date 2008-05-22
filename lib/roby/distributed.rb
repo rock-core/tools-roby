@@ -1,6 +1,10 @@
 require 'roby'
+require 'stringio'
+require 'roby/planning'
+require 'roby/droby'
 require 'roby/distributed/drb'
 require 'roby/distributed/protocol'
+require 'roby/distributed/base'
 
 require 'roby/distributed/proxy'
 require 'roby/distributed/connection_space'

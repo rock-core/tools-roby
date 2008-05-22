@@ -1,4 +1,3 @@
-require 'pp'
 module Roby
     # This kind of errors are generated during the plan execution, allowing to
     # blame a fault on a plan object (#failure_point). The precise failure

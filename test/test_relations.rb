@@ -176,5 +176,12 @@ class TC_Relations < Test::Unit::TestCase
 	parent.remove_r1(child)
 	assert_equal(nil, parent.r1)
     end
+
+    def test_relations
+	klass = Class.new { include DirectedRelationSupport }
+	space = Roby::RelationSpace(klass)
+        r1 = space.relation :R1
+        assert_equal [r1], space.relations
+    end
 end
 

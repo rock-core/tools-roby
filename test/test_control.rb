@@ -30,7 +30,7 @@ class TC_Control < Test::Unit::TestCase
         start_node.on(:stop) { next_event = [if_node, :start] }
 	if_node.on(:stop) {  }
             
-        Control.event_processing << lambda do 
+        plan.propagation_handlers << lambda do 
             next unless next_event
             task, event = *next_event
             next_event = nil
@@ -134,7 +134,7 @@ class TC_Control < Test::Unit::TestCase
 	assert(! plan.include?(t))
     end
 
-    def apply_structure_checking(&block)
+    def apply_check_structure(&block)
 	Plan.structure_checks.clear
 	Plan.structure_checks << lambda(&block)
 	process_events
@@ -142,19 +142,19 @@ class TC_Control < Test::Unit::TestCase
 	Plan.structure_checks.clear
     end
 
-    def test_structure_checking
+    def test_check_structure
 	Roby.logger.level = Logger::FATAL
 	Roby.app.abort_on_exception = false
 
 	# Check on a single task
 	plan.insert(t = SimpleTask.new)
-	apply_structure_checking { LocalizedError.new(t) }
+	apply_check_structure { LocalizedError.new(t) }
 	assert(! plan.include?(t))
 
 	# Make sure that a task which has been repaired will not be killed
 	plan.insert(t = SimpleTask.new)
 	did_once = false
-	apply_structure_checking do
+	apply_check_structure do
 	    unless did_once
 		did_once = true
 		LocalizedError.new(t)
@@ -172,7 +172,7 @@ class TC_Control < Test::Unit::TestCase
 	plan.insert(t1)
 	FlexMock.use do |mock|
 	    mock.should_receive(:checking).twice
-	    apply_structure_checking do
+	    apply_check_structure do
 		mock.checking
 		LocalizedError.new(t2)
 	    end
@@ -189,7 +189,7 @@ class TC_Control < Test::Unit::TestCase
 	t1.realized_by t2
 	plan.insert(t0)
 	plan.insert(t1)
-	apply_structure_checking { { LocalizedError.new(t2) => t0 } }
+	apply_check_structure { { LocalizedError.new(t2) => t0 } }
 	assert(!plan.include?(t0))
 	assert(plan.include?(t1))
 	assert(plan.include?(t2))

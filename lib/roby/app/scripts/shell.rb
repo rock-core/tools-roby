@@ -1,7 +1,5 @@
 require 'roby'
-require 'roby/app'
 require 'roby/distributed'
-require 'roby/distributed/protocol'
 require 'optparse'
 
 remote_url = nil
@@ -44,11 +42,6 @@ begin
     irb = IRB::Irb.new(ws)
 
     context = irb.context
-    def context.evaluate(*args, &block)
-	Roby.execute do
-	    super
-	end
-    end
     IRB.conf[:MAIN_CONTEXT] = irb.context
 
     trap("SIGINT") do

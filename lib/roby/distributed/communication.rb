@@ -703,6 +703,7 @@ module Roby
 		    Distributed.debug { "#{call_spec.is_callback ? 'adding callback' : 'queueing'} [#{call_spec.message_id}]#{remote_name}.#{call_spec.method}" }
 		    current_cycle    << [call_spec.is_callback, call_spec.method, call_spec.formatted_args, !waiting_thread, call_spec.message_id]
 		    if sync? || CYCLE_END_CALLS.include?(m)
+                        Distributed.debug "transmitting #{@current_cycle.size} calls"
 			send_queue << current_cycle
 			@current_cycle = Array.new
 		    end
@@ -782,6 +783,8 @@ module Roby
 		data   = nil
 		buffer = StringIO.new(" " * 8, 'w')
 
+                Roby::Distributed.debug "starting communication loop to #{self}"
+
 		loop do
 		    data ||= send_queue.shift
 		    return if disconnected?
@@ -789,6 +792,7 @@ module Roby
 		    # Wait for the link to be alive before sending anything
 		    while !link_alive?
 			return if disconnected?
+                        Roby::Distributed.info "#{self} is out of reach. Waiting before transmitting"
 			connection_space.wait_next_discovery
 		    end
 		    return if disconnected?

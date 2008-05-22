@@ -66,7 +66,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_remote_proxy_update
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    remote.plan.insert(SimpleTask.new(:id => 'simple_task'))
 	    remote.plan.permanent(SimpleTask.new(:id => 'task'))
 	    remote.plan.permanent(SimpleTask.new(:id => 'other_task'))
@@ -117,7 +117,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     # Test that the remote plan structure is properly mapped to the local
     # plan database
     def test_discover_neighborhood
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    mission, subtask, next_mission =
 		SimpleTask.new(:id => 'mission'), 
 		SimpleTask.new(:id => 'subtask'),
@@ -154,7 +154,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_subscribing_old_objects
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    plan.insert(@task = SimpleTask.new(:id => 1))
 	end
 
@@ -170,7 +170,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_subscription
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    root, mission, subtask, next_mission =
 		SimpleTask.new(:id => 'root'), 
 		SimpleTask.new(:id => 'mission'), 
@@ -308,7 +308,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_remove_not_needed
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    left, right, middle =
 		SimpleTask.new(:id => 'left'), 
 		SimpleTask.new(:id => 'right'), 
@@ -357,7 +357,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_data_update
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    task = SimpleTask.new(:id => 'task')
 	    task.data = [4, 2]
 	    remote.plan.insert(task)
@@ -375,7 +375,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_mission_notifications
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    plan.insert(mission = SimpleTask.new(:id => 'mission'))
 
 	    remote.class.class_eval do
@@ -409,7 +409,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_relation_updates
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    mission, subtask, next_mission =
 		SimpleTask.new(:id => 'mission'), 
 		SimpleTask.new(:id => 'subtask'),
@@ -458,7 +458,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
     # Check that remote events that are unknown locally are properly ignored
     def test_ignored_events
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    model = Class.new(SimpleTask) do
 		event :unknown, :command => true
 	    end

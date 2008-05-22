@@ -43,7 +43,7 @@ class TC_DistributedCommunication < Test::Unit::TestCase
     def setup
 	super
 
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    def remote.install_fake_methods
 		local_peer.local_server.extend FakePeerServerMethods
 	    end
