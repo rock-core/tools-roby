@@ -109,7 +109,7 @@ namespace 'doc' do
     require 'roby/app/rake'
     Rake::RDocTask.new("core") do |rdoc|
       rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
-      rdoc.rdoc_dir = 'doc/core'
+      rdoc.rdoc_dir = 'doc/rdoc/core'
       rdoc.title    = "Roby Core"
       rdoc.template = Roby::Rake.rdoc_template
       rdoc.options << '--main' << 'README.txt'
@@ -121,7 +121,7 @@ namespace 'doc' do
 
     Rake::RDocTask.new("tutorials") do |rdoc|
       rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
-      rdoc.rdoc_dir = 'doc/main'
+      rdoc.rdoc_dir = 'doc/rdoc/tutorials'
       rdoc.title    = "Roby Tutorials"
       rdoc.template = Roby::Rake.rdoc_template
       rdoc.options << '--main' << 'README.txt'
