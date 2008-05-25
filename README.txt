@@ -78,7 +78,7 @@ them:
   * +utilrb+, which is available on RubyForge[http://utilrb.rubyforge.org] as a gem
   * Facets, available on RubyForge[http://rubyforge.org/projects/facets] or as a gem
   * ActiveSupport, available on RubyForge[http://rubyforge.org/projects/activesupport] or as a gem
-  * the Boost/Graph C++ library
+  * the Boost C++ library, including Boost/Graph[www.boost.org]
 
 * the test suite needs also
   * FlexMock, available on RubyForge[http://rubyforge.org/projects/flexmock]
