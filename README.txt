@@ -76,7 +76,6 @@ them:
 == External dependencies
 * The Roby engine needs 
   * +utilrb+, which is available on RubyForge[http://utilrb.rubyforge.org] as a gem
-  * +utilmm+, which is available on SourceForge[http://utilmm.sourceforge.net]
   * Facets, available on RubyForge[http://rubyforge.org/projects/facets] or as a gem
   * ActiveSupport, available on RubyForge[http://rubyforge.org/projects/activesupport] or as a gem
   * the Boost/Graph C++ library
@@ -91,10 +90,9 @@ them:
 == Before installation
 
 Whatever the way you install Roby, the only dependencies that you really have
-to install yourself are util-- and (optionally) QtRuby (see above). In the case
-of Util--, you must make sure that it is, after installation, available to
-pkg-config by either installing it in a standard prefix (either <tt>/usr</tt>
-or <tt>/usr/local</tt>) or by updating PKG_CONFIG_PATH.
+to install yourself are boost (including boost/graph) and (optionally) QtRuby
+(see above). If boost is not installed in a standard location, you will also
+have to use the --with-boost-dir option to build Roby graph's extension.
 
 Moreover, Roby uses {the jamis
 template}[http://weblog.jamisbuck.org/2005/4/8/rdoc-template], which is
@@ -107,7 +105,8 @@ do (for Unix-like shells):
 
 == Installing the easy way
 
-Roby is available on RubyForge as a gem. After having installed the C++ dependencies (boost/graph and utilmm), you can simply install it with
+Roby is available on RubyForge as a gem. After having installed the C++
+dependencies (boost with boost/graph), you can simply install it with
 
   gem install roby
 
