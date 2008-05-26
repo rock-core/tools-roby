@@ -143,7 +143,7 @@ class Ui::ReplayControls
 		if new_speed <= 0
 		    raise ArgumentError, "negative values are not allowed for speed"
 		end
-		replay.speed = new_speed
+		replay.play_speed = new_speed
 	    rescue ArgumentError
 		Qt::MessageBox.warning nil, "Invalid speed", "Invalid value for speed \"#{ui_controls.speed.text}\": #{$!.message}"
 		self.play_speed = play_speed
