@@ -176,6 +176,14 @@ module Ui
 	attr_reader :relation_item
 	attr_reader :model
 	attr_reader :delegate
+
+        def initialize(*args)
+            super()
+            if !system("dot", "-V")
+                raise "the 'dot' tool is unavailable"
+            end
+        end
+
 	def setupUi(streams_model, widget)
 	    super(widget)
 
@@ -218,10 +226,11 @@ module Ui
 		end
 
 		replay.initial_setup << lambda do |gui|
-		    relation_display = gui.add_display('Relations')
-		    relations.each do |rel|
-			relation_display.enable_relation(rel)
-		    end
+		    if relation_display = gui.add_display('Relations')
+                        relations.each do |rel|
+                            relation_display.enable_relation(rel)
+                        end
+                    end
 		end
 	    end
 	end

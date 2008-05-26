@@ -132,9 +132,15 @@ class Ui_DataDisplays
     def add_display(streams, kind = nil)
 	kind ||= display_types.current_text
 
-	config_widget = DisplayConfigHandler.new
-	config_ui     = DISPLAYS[kind].new
-	display	      = config_ui.setupUi(streams, config_widget)
+        begin
+            config_widget = DisplayConfigHandler.new
+            config_ui     = DISPLAYS[kind].new
+        rescue Exception => e
+            Qt::MessageBox.critical nil, "Cannot create display", "cannot create display #{kind}: #{e.message}"
+            return
+        end
+
+        display	      = config_ui.setupUi(streams, config_widget)
 
 	name = "#{kind}##{allocate_display_number}"
 	idx  = display_configs.add_item(config_widget, name)
