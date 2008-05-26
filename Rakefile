@@ -94,7 +94,7 @@ desc 'generate all Qt UI files using rbuic4'
 task :uic do
     UIFILES.each do |file|
 	file = 'lib/roby/log/gui/' + file
-	if !system('rbuic4', '-x', '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
+	if !system('rbuic4', '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
 	    STDERR.puts "Failed to generate #{file}"
 	end
     end
