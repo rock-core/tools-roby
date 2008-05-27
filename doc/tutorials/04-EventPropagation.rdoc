@@ -146,8 +146,8 @@ Next execution step gives us the following:
 
 link:../images/roby_replay_03.png
 
-PlannedPath emitted its 'success' event. We see here that the emission of the
-'success' event of that task does not mean 'the plan modification has just took
+PlannedPath emitted its +success+ event. We see here that the emission of the
++success+ event of that task does not mean 'the plan modification has just took
 place' but instead that 'it has taken place some time earlier'.
 
 The ComputePath task has also finished generating the path. That has two
@@ -170,8 +170,8 @@ of +success+ is the cause of the emission of +success+, and as such counts for
 a forward. The same would have happened if the event handler would have called
 an event command.
 
-Finally, light grey here represents tasks that have finished with the 'success'
-event. Tasks whose 'failed' event has been emitted are represented in red.
+Finally, light grey here represents tasks that have finished with the +success+
+event. Tasks whose +failed+ event has been emitted are represented in red.
 
 == To finish: the garbage collection process
 
