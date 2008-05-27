@@ -175,7 +175,8 @@ event. Tasks whose 'failed' event has been emitted are represented in red.
 
 == To finish: the garbage collection process
 
-If you go a few cycles further, you should get the following:
+Now, uncheck the box <tt>View/Hide finalized</tt> in the menu. If you go a few
+cycles further, you should then get the following:
 
 link:../images/roby_replay_04.png
 
@@ -203,7 +204,8 @@ which are actually useful for those "important" tasks
 <tt>a=>b</tt> relation exists, then +b+ is useful for +a+.
 
 The remaining tasks, i.e. the tasks that are not useful, are killed (if needed)
-and removed from the plan.
+and removed from the plan. When it is done, the task is said to be finalized
+(hence the need to not hide this kind of task in the View menu).
 
 = Next tutorial
 
