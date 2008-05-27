@@ -1,5 +1,5 @@
 {Previous tutorial}[link:files/doc/tutorials/02-GoForward_rdoc.html]
-{Next tutorial}[link:files/doc/tutorials/04-ExecutionCycle_rdoc.html]
+{Next tutorial}[link:files/doc/tutorials/04-EventPropagation_rdoc.html]
 = Planning and following a path
 We'll now use a (slightly) more complex system to make our robot move. The
 robot will now have a goal, defined as a (x, y) point. It will generate a
@@ -245,13 +245,12 @@ details of actually implementing these tasks.
       Robot.info "moved to #{current_waypoint}"
     end
 
-= Conclusion
+= Next tutorial
 
-That's all, folks. After this tutorial, you should be able to build simple task
+The {next tutorial}[link:files/doc/tutorials/04-EventPropagation_rdoc.html] will
+allow you to understand more by actually seeing what happens during the plan
+execution. After this tutorial, you should be able to build simple task
 models and simple plans, as well as execute them and understand the most common
-error -- ChildFailedError. The next tutorial will go back in more details on
-the execution cycle and some of Roby's specificities in that domain. To do
-that, it will also show you the logging capabilities of Roby and its display
-feature.
+error -- ChildFailedError.
 ---
 vim: tw=80 et
