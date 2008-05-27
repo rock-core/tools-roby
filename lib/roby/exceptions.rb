@@ -173,6 +173,7 @@ module Roby
                         when /in `(gem_original_)?require'$/
                         when /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
                         when /^(#{app_dir}\/)?scripts\//
+                        when /^\(eval\):6:in `each/
                         else
                             line
                         end
