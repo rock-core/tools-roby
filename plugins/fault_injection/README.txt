@@ -22,6 +22,14 @@ model. The probability distribution used is a rate distribution with MTTF of
 500s and base probability of 0.3. See Roby::FaultInjection for the description
 of the available probability distributions.
 
+== Enabling the plugin
+
+The plugin must be enabled in the configuration files (i.e. either in
+<tt>config/init.rb</tt> or in one of the robot-specific files) through a call
+to Roby.app.using:
+
+  Roby.app.using 'fault_injection'
+
 == License:
 
 This work is licensed under the CeCiLL-B license, which is a free software

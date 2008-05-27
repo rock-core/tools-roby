@@ -71,6 +71,19 @@ them:
    describes one of the most innovative ideas of Roby: the transaction. This tool
    allows safe simultaneous plan execution and modification.
 
+== Core plugins
+
+Two plugins are shipped with the Roby core:
+fault_injection[../plugins/fault_injection/index.html] and
+subsystems[../plugins/subsystems/index.html]. See their respective
+documentation for description and usage.
+
+Roby::Application#using(plugin_name) must be calledallows to enable the
+plugins at initialization time. You can for instance put the following in
+<tt>config/init.rb</tt>
+
+  Roby.app.using 'fault_injection'
+
 = Installation
 
 == External dependencies

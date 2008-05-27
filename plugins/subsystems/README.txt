@@ -25,6 +25,14 @@ subsystems are present:
 The returned tasks are also started, in order. The controller file gets loaded
 only when the subsystems are ready (i.e. their start events are emitted).
 
+== Enabling the plugin
+
+The plugin must be enabled in the configuration files (i.e. either in
+<tt>config/init.rb</tt> or in one of the robot-specific files) through a call
+to Roby.app.using:
+
+  Roby.app.using 'subsystems'
+
 == License:
 
 This work is licensed under the CeCiLL-B license, which is a free software
