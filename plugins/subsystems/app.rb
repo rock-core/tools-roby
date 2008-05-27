@@ -2,30 +2,41 @@
 module Roby
     # Subsystem plugin for Roby
     #
-    # This plugin manages a set of  services that should be available at all
-    # times (for instance: localization). This allows to make Roby start them
-    # at initialization time, and other planning methods to 
+    # This plugin manages a set of services that should be available at all
+    # times (for instance: localization). For now, it makes Roby start them at
+    # initialization time, allowing to consider that they are always available
+    # during plan generation afterwards.
     #
-    # == Configuration
+    # == Subsystems at initialization
     # The set of subsystems that should be considered is to be set through the State.services
     # configuration object:
     #
     #   State.services do |sys|
     #	  sys.localization = 'pom'
     #	  sys.laser_ranges = 'sick'
-    #	  sys.on_demand    = 'ranges'
     #	end
     #
     # The subsystem plugin will then use <tt>MainPlanner#subsystem_name(:id =>
-    # 'subsystem_selected')</tt> to start the subsystems that are not listed in
-    # +on_demand+. In the example above, the initial plan will be made using
+    # 'subsystem_selected')</tt> to generate the subsystems' plans. In the
+    # example above, the initial plan will be made using
     #
     #   planner.localization(:id => 'pom')
+    #   planner.laser_ranges(:id => 'sick')
     #
     # The resulting plan is then started one subsystem after the other
     # <b>before</b> the controller is loaded
     #
     # == Subsystems and state update
+    #
+    # If the main tasks representing the subsystem -- the one returned by the
+    # planning methods, respond to update_<sysname>(state), that method is
+    # called, provided that the task is running, at every cycle with the
+    # system's state representation as an argument.
+    #
+    # For instance, the Localization task which represents the localization
+    # subsystems can have a #update_localization method which takes an
+    # argument. This method would update at each cycle the system's position in
+    # the state representation.
     module Subsystems
 	module Application
 	    def self.setup_main_planner
@@ -38,6 +49,8 @@ module Roby
 		end
 	    end
 
+	    # This method generates the initial plan built upon the set of
+	    # required subsystems.
 	    def self.initialize_plan
 		setup_main_planner
 		plan = Transaction.new(Roby.plan)
@@ -110,6 +123,8 @@ module Roby
 		[starting_point, ready]
 	    end
 
+	    # Hook to generate the initial plan and start subsystems when the
+	    # application starts.
 	    def self.run(config, &block)
 		unless Roby::State.services? && !Roby::State.services.empty?
 		    Robot.info "No subsystems defined"
@@ -133,7 +148,8 @@ module Roby
     end
 
     Application.register_plugin('subsystems', Roby::Subsystems::Application) do
-	Roby::Control.each_cycle do
+	# Call the #update_ methods for the subsystems tasks which define it.
+	Roby.each_cycle do
 	    srv = Roby::State.services
 	    srv.each_member do |name, value|
 		task = srv.tasks.send(name)
