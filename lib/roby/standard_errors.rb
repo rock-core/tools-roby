@@ -99,7 +99,7 @@ module Roby
 
 	def pretty_print(pp) # :nodoc:
 	    if error
-                pp.text "user code raised an exception in the "
+                pp.text "user code raised an exception "
                 failure_point.pretty_print(pp)
                 pp.breakable
                 pp.breakable
