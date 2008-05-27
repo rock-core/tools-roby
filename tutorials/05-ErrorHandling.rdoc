@@ -41,8 +41,7 @@ child of MoveTo:
   !  /home/doudou/dev/roby/lib/roby/thread_task.rb:51:in `instance_eval',
   !    /home/doudou/dev/roby/lib/roby/thread_task.rb:61:in `value',
   !    /home/doudou/dev/roby/lib/roby/thread_task.rb:61:in the polling handler,
-  !    /home/doudou/system/powerpc-linux/ruby-1.8.6/lib/ruby/site_ruby/1.8/rubygems/custom_require.rb:27:in
-`gem_original_require',
+  !    /home/doudou/system/powerpc-linux/ruby-1.8.6/lib/ruby/site_ruby/1.8/rubygems/custom_require.rb:27:in `gem_original_require',
   !    /home/doudou/system/powerpc-linux/ruby-1.8.6/lib/ruby/site_ruby/1.8/rubygems/custom_require.rb:27:in `require',
   !    scripts/run:3
   !
