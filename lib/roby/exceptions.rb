@@ -160,6 +160,8 @@ module Roby
                     line.gsub /:in.*/, ':in the polling handler'
                 when /in `event_command_(\w+)'$/
                     line.gsub /:in.*/, ":in command for '#{$1}'"
+                when /in `event_handler_(\w+)_(?:[a-f0-9]+)'$/
+                    line.gsub /:in.*/, ":in event handler for '#{$1}'"
                 else
                     if original_backtrace.size > idx + 4 &&
                         original_backtrace[idx + 1] =~ /in `call'$/ &&
@@ -173,7 +175,7 @@ module Roby
                         when /in `(gem_original_)?require'$/
                         when /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
                         when /^(#{app_dir}\/)?scripts\//
-                        when /^\(eval\):6:in `each/
+                        when /^\(eval\):\d+:in `each(?:_handler)?'/
                         else
                             line
                         end
