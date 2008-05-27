@@ -109,16 +109,17 @@ shell. The following should happen:
   !  MoveTo:0x2b4330b4fae8
 
 An equivalent thing would happen with a task-level event handler (i.e. one
-defined on the task object instead of the task model). Try adding
+defined on the task object instead of the task model). Remove the model-level
+handler we just added and try adding the following to the planning method in
+<tt>planners/PathPlan/main.rb</tt>. Execute, and see the result !
 
   move.on :start do
     raise
   end
 
-to the planning method in <tt>planners/PathPlan/main.rb</tt>.
-
-What we can see in the relation display is the following two successive steps
-(don't forget to uncheck <tt>View/Hide finalized</tt>).
+Now, what happens during execution: how Roby does react to that error ? What we
+can see in the relation display is the following two successive steps (don't
+forget to uncheck <tt>View/Hide finalized</tt>).
 
 link:../images/replay_handler_error_0.png
 link:../images/replay_handler_error_1.png
