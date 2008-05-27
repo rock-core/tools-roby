@@ -11,7 +11,7 @@ previous tutorial.
 Roby plan execution is based on a fixed-duration execution cycle which includes
 three steps:
 
-link:../images/roby_cycle_overview.png
+link:../../images/roby_cycle_overview.png
 
 This tutorial focusses on the first process. It will show how to use the log and
 display tools that are shipped with Roby, and how event propagation works. The
@@ -66,7 +66,7 @@ To start it, simply do the following in the directory of the log files:
 
 The following window should appear:
 
-link:../images/roby_replay_startup.png
+link:../../images/roby_replay_startup.png
 
 This window is separated in three:
 * the toplevel part is the list of data sources defined for this project. It is
@@ -81,7 +81,7 @@ Right now, we will be looking at the plan structure and execution trace. The
 appear (including the data source associated with the display), and a new
 window:
 
-link:../images/roby_replay_relations.png
+link:../../images/roby_replay_relations.png
 
 This display will show two things: the task structure (i.e. how tasks are
 related to each other) and the event propagation (i.e. how events call and/or
@@ -100,7 +100,7 @@ that, even though it is the case, the robot _behaviour_ remains unchanged.
 Let's get to the first task-related events. Click on the 'Step' button until
 something appears on the display. It should look like the next image:
 
-link:../images/roby_replay_first_state.png
+link:../../images/roby_replay_first_state.png
 
 The displays shows two plans (black boxes). The left one is the plan as it is
 being executed. The right one is called a _transaction_ and allows to build a
@@ -121,7 +121,7 @@ started.  The various cases of event propagation are represented in different
 ways, based on wether or not the event is controlable or contingent, or if it is
 called and/or emitted.
 
-link:../images/roby_replay_event_representation.png
+link:../../images/roby_replay_event_representation.png
 
 A note about propagation representation: it would be useless to represent all
 the event propagation from the beginning of the execution to the current point.
@@ -135,7 +135,7 @@ planning task +start+ event has been called and emitted.
 
 Advance again using 'Step' until the display looks like this:
 
-link:../images/roby_replay_02.png
+link:../../images/roby_replay_02.png
 
 The MoveTo action has been planned and the executed plan is modified to reflect
 that. The MoveTo action itself is then started, and that is propagated to the
@@ -144,7 +144,7 @@ defined betweem both.
 
 Next execution step gives us the following:
 
-link:../images/roby_replay_03.png
+link:../../images/roby_replay_03.png
 
 PlannedPath emitted its +success+ event. We see here that the emission of the
 +success+ event of that task does not mean 'the plan modification has just took
@@ -178,7 +178,7 @@ event. Tasks whose +failed+ event has been emitted are represented in red.
 Now, uncheck the box <tt>View/Hide finalized</tt> in the menu. If you go a few
 cycles further, you should then get the following:
 
-link:../images/roby_replay_04.png
+link:../../images/roby_replay_04.png
 
 Here, TrackPath has finished its execution with success and MoveTo is therefore
 finished as well -- per the forwarding relation between those two events. Note
