@@ -161,10 +161,13 @@ module Roby
                 when /in `event_command_(\w+)'$/
                     line.gsub /:in.*/, ":in command for '#{$1}'"
                 else
-                    if original_backtrace.size > idx + 2 &&
-                        line !~ /:in `each_handler'$/ &&
-                        original_backtrace[idx + 1] =~ /:in `call'$/ &&
-                        original_backtrace[idx + 2] =~ /:in `call_handlers'$/
+                    if original_backtrace.size > idx + 4 &&
+                        original_backtrace[idx + 1] =~ /in `call'$/ &&
+                        original_backtrace[idx + 2] =~ /in `call_handlers'$/ &&
+                        original_backtrace[idx + 3] =~ /`each'$/ &&
+                        original_backtrace[idx + 4] =~ /`each_handler'$/
+
+                        line.gsub /:in /, ":in event handler, "
                     else
                         case line
                         when /in `(gem_original_)?require'$/

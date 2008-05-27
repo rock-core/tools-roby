@@ -538,6 +538,10 @@ class TC_Exceptions < Test::Unit::TestCase
         assert_nothing_raised do
             Roby.format_exception e
         end
+
+        trace = e.error.backtrace
+        filtered = Roby.filter_backtrace(trace)
+        assert(filtered[0] =~ /event handler/, filtered.join("\n"))
     end
 
     def test_filter_polling_errors
