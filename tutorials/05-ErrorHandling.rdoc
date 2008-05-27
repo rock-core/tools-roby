@@ -120,8 +120,8 @@ Now, what happens during execution: how Roby does react to that error ? What we
 can see in the relation display is the following two successive steps (don't
 forget to uncheck <tt>View/Hide finalized</tt>).
 
-link:../images/replay_handler_error_0.png
-link:../images/replay_handler_error_1.png
+link:../../images/replay_handler_error_0.png
+link:../../images/replay_handler_error_1.png
 
 From Roby point of view, the event has already happened when the event handlers
 are called. Therefore, the event propagation should go on (the temporal
