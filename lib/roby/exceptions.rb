@@ -146,9 +146,7 @@ module Roby
     RX_IN_FRAMEWORK = /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
     def self.filter_backtrace(original_backtrace)
 	if Roby.app.filter_backtraces? && original_backtrace
-            app_dir = if defined? APP_DIR then Regexp.quote(APP_DIR)
-                      else ""
-                      end
+            app_dir = if defined? APP_DIR then Regexp.quote(APP_DIR) end
 
             original_backtrace = original_backtrace.dup
             backtrace_bottom   = []
@@ -186,8 +184,10 @@ module Roby
                 backtrace[i] = line || original_backtrace[i]
             end
 
-            backtrace = backtrace.map do |line|
-                line.gsub /^#{app_dir}\/?/, './'
+            if app_dir
+                backtrace = backtrace.map do |line|
+                    line.gsub /^#{app_dir}\/?/, './'
+                end
             end
             backtrace.concat backtrace_bottom
 	end

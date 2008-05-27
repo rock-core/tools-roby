@@ -1,4 +1,5 @@
 {Previous tutorial}[link:files/doc/tutorials/03-PlannedPath_rdoc.html]
+{Next tutorial}[link:files/doc/tutorials/05-ErrorHandling_rdoc.html]
 = Understanding event propagation
 
 This tutorial will show you how to trace plan execution, and understand how the
