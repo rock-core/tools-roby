@@ -184,9 +184,6 @@ class Replay < Qt::MainWindow
     def play_step_timer
 	start = Time.now
 	play_until(time + time_slice * play_speed)
-
-	STDERR.puts time.to_hms
-	STDERR.puts "play: #{Time.now - start}"
     end
     slots 'play_step_timer()'
     
