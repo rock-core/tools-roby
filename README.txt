@@ -61,7 +61,7 @@ them:
 3. the PlannedPath[link:files/doc/tutorials/03-PlannedPath_rdoc.html] tutorial
    shows how to create a (slightly) more complex plan, using the plan-generation
    capabilities of Roby. It also shows some properties of that plan.
-4. the ExecutionCycle[link:files/doc/tutorials/04-ExecutionCycle_rdoc.html]
+4. the EventPropagation[link:files/doc/tutorials/04-EventPropagation_rdoc.html]
    tutorial describes how the plan execution actually goes, with examples from
    Roby's plan execution display (requires to have QtRuby)
 5. the ErrorHandling[link:files/doc/tutorials/05-ErrorHandling_rdoc.html]

@@ -34,11 +34,13 @@ module Roby
 	attr_reader :known_tasks
 	# The set of events that are defined by #known_tasks
 	attr_reader :task_events
-	# The list of missions in this plan
+        # The list of the robot's missions. Do not change that set directly, use
+        # #insert and #discard instead.
 	attr_reader :missions
 	# The list of events that are not included in a task
 	attr_reader :free_events
-	# The list of tasks that are kept outside GC
+	# The list of tasks that are kept outside GC. Do not change that set
+        # directly, use #permanent and #auto instead.
 	attr_reader :keepalive
 
 	# A map of event => task repairs. Whenever an exception is found,
