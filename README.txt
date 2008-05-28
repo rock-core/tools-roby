@@ -74,9 +74,9 @@ them:
 5. the ErrorHandling[link:files/doc/tutorials/05-ErrorHandling_rdoc.html]
    tutorial shows how errors are represented in the system, and how it is possible
    to handle and repair them.
-6. the Transaction[link:files/doc/tutorials/06-Transactions_rdoc.html]
-   describes one of the most innovative ideas of Roby: the transaction. This tool
-   allows safe simultaneous plan execution and modification.
+6. {not really a tutorial}[link:files/doc/tutorials/06-Overview_rdoc.html], but
+   an overview of features that have not been presented in the first five
+   tutorials.
 
 == Core plugins
 
