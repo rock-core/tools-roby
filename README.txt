@@ -95,7 +95,6 @@ and License-fr.txt for the french version.
 === Core plugins
 
 Two plugins are shipped with the Roby core:
-
 fault_injection[link:../plugins/fault_injection/index.html] and
 subsystems[link:../plugins/subsystems/index.html]. See their respective
 documentation for description and usage.
@@ -111,7 +110,7 @@ plugins at initialization time. You can for instance put the following in
 For now, only one plugins exists. This plugin allows to represent and control
 seamlessly a Genom[http://softs.laas.fr/openrobots] functional layer in a Roby
 plan. This plugin is not yet released, but if you're interested I can give you
-directions on how to get it and install it.
+directions on how to get it and install it. The documentation is available here[link:../plugins/genom/index.html]
 
 = Installation
 
