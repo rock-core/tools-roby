@@ -268,3 +268,46 @@ Run as usual and see what happens ...
 Another, more complex example is the "P3d repaired" video presented
 {here}[files/doc/videos_rdoc.html]
 
+=== Exception propagation
+
+This is the third error handling paradigm available in Roby. It is akin to
+classical exception propagation: 
+* task models can define per-type exception handlers using Roby::Task#on_exception
+* when an error occurs and is not handled by a plan repair, the error is
+  propagated up in the +realized_by+ relation, searching for a matching
+  exception handler.
+* if an exception handler is found, it is called with the error. If the
+  exception handlers raises, or if it calls #pass_exception, the propagation is
+  resumed.  Otherwise, the system stops propagating the exception. In addition
+  to following the +realized_by+ relation, the +planned_by+ relation is used
+  to check if planning activities can repair the error as well (see example below).
+* if no handler accepted the error, it is passed to a global error handler defined
+  by Roby.on_exception.
+
+link:../../images/exception_propagation_5.png
+
+== Unhandled errors
+
+Once the exception propagation phase is finished, the plan analysis (i.e.
+constraint verification) is re-ran once to verify that exception handlers do
+have repaired the errors. If errors are still found, they cannot be handled
+anymore.
+
+This set of errors, and the errors that have not been handled before, determine
+a set of tasks that can be dangerous for the whole system. The garbage
+collection kicks in and will take the necessary actions to remove these tasks
+from the plan. Once necessity is to kill all tasks which were actually
+depending on the faulty activities: all tasks that are parents of the faulty
+tasks in any relation are forcefully garbage collected. In the exception
+propagation example above, all tasks which have a number will be killed and
+remove from the plan.
+
+= Conclusion
+
+This tutorial presented you with one of the two most singular features of Roby:
+an extensive way to represent and handle them. Among them, the error handling
+relation is the most powerful, as it allows to represent error handling
+directly in the plan and would for instance work in multi-robot context, even
+without communication between the two robots.
+
+
