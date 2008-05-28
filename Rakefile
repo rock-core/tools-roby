@@ -115,6 +115,7 @@ namespace 'doc' do
       rdoc.options << '--main' << 'README.txt'
       rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
       rdoc.rdoc_files.include('lib/**/*.rb', 'ext/**/*.cc')
+      rdoc.rdoc_files.include('doc/videos.rdoc')
       rdoc.rdoc_files.include('doc/tutorials/**/*')
       rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
     end
@@ -126,6 +127,7 @@ namespace 'doc' do
       rdoc.template = Roby::Rake.rdoc_template
       rdoc.options << '--main' << 'README.txt'
       rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
+      rdoc.rdoc_files.include('doc/videos.rdoc')
       rdoc.rdoc_files.include('doc/tutorials/**/*')
     end
 

@@ -54,7 +54,7 @@ will not be able to understand them unless you have already an idea on what is
 going on. They are also referenced in other parts of the API documentation,
 when it is meaningful.
 
-See http://roby.rubyforge.org/videos for the available videos.
+See {here}[link:files/doc/videos_rdoc.html] for the available videos.
 
 == Tutorials
 
