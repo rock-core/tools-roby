@@ -110,7 +110,19 @@ The difference between those two relations is subtle, so let's try to explain a 
   path: it calls the _command_ of the +start+ event of +compute+.
 * in the third case, however, no specific action should be taken to end the
   +move+ task. Instead, the plan expresses that the +move+ task is finished
-  <it>as soon as</it> the +track+ task is.
+  <it>as soon as</it> the +track+ task is. Another way to put it is that the
+  situation represented by the +success+ event of MoveTo is, in this particular
+  plan, the same than the situation represented by the +success+ event of
+  TrackPath. More generally, if +a+ is forwarded to +b+ all situations that lead
+  to the emission of +a+ also lead to the emission of +b+. Or, in other words, that
+  the situation represented by +b+ is a superset of the one represented by +a+
+  (the equality, like here, is a particular case)
+
+  link:../../images/event_generalization.png
+
+  *Example*: in this plan, the +success+ event of a particular low-level action
+  is forwarded in more high-level parts of the plan. This allows to actually
+  link the low and high level parts of the plan and reason on that link.
 
 Task relations allow the system to keep track of what a given task is useful for,
 what are error conditions and how to react to errors. The next two tutorials will
