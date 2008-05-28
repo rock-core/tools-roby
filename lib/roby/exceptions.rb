@@ -146,9 +146,7 @@ module Roby
     RX_IN_FRAMEWORK = /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
     def self.filter_backtrace(original_backtrace)
 	if Roby.app.filter_backtraces? && original_backtrace
-            app_dir = if defined? APP_DIR then Regexp.quote(APP_DIR)
-                      else ""
-                      end
+            app_dir = if defined? APP_DIR then Regexp.quote(APP_DIR) end
 
             original_backtrace = original_backtrace.dup
             backtrace_bottom   = []
@@ -162,16 +160,22 @@ module Roby
                     line.gsub /:in.*/, ':in the polling handler'
                 when /in `event_command_(\w+)'$/
                     line.gsub /:in.*/, ":in command for '#{$1}'"
+                when /in `event_handler_(\w+)_(?:[a-f0-9]+)'$/
+                    line.gsub /:in.*/, ":in event handler for '#{$1}'"
                 else
-                    if original_backtrace.size > idx + 2 &&
-                        line !~ /:in `each_handler'$/ &&
-                        original_backtrace[idx + 1] =~ /:in `call'$/ &&
-                        original_backtrace[idx + 2] =~ /:in `call_handlers'$/
+                    if original_backtrace.size > idx + 4 &&
+                        original_backtrace[idx + 1] =~ /in `call'$/ &&
+                        original_backtrace[idx + 2] =~ /in `call_handlers'$/ &&
+                        original_backtrace[idx + 3] =~ /`each'$/ &&
+                        original_backtrace[idx + 4] =~ /`each_handler'$/
+
+                        line.gsub /:in /, ":in event handler, "
                     else
                         case line
                         when /in `(gem_original_)?require'$/
                         when /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
                         when /^(#{app_dir}\/)?scripts\//
+                        when /^\(eval\):\d+:in `each(?:_handler)?'/
                         else
                             line
                         end
@@ -186,8 +190,10 @@ module Roby
                 backtrace[i] = line || original_backtrace[i]
             end
 
-            backtrace = backtrace.map do |line|
-                line.gsub /^#{app_dir}\/?/, './'
+            if app_dir
+                backtrace = backtrace.map do |line|
+                    line.gsub /^#{app_dir}\/?/, './'
+                end
             end
             backtrace.concat backtrace_bottom
 	end

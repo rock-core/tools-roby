@@ -38,7 +38,7 @@ require 'roby/support.rb'
 require 'roby/basic_object.rb'
 require 'roby/standard_errors.rb'
 require 'roby/exceptions.rb'
-require 'roby/bgl'
+require 'roby_bgl'
 require 'roby/graph.rb'
 require 'roby/relations.rb'
 

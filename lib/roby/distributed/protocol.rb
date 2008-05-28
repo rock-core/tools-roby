@@ -2,7 +2,7 @@ require 'drb'
 require 'set'
 require 'rinda/tuplespace'
 require 'utilrb/value_set'
-require 'roby/droby'
+require 'roby_marshalling'
 
 require 'roby'
 

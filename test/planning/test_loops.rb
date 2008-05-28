@@ -162,46 +162,54 @@ class TC_PlanningLoop < Test::Unit::TestCase
     # end. The system tries to always have some prepared subplans ready to be
     # executed.
     def test_periodic
-        main_task, loop_planner = prepare_plan :period => 0.5, :lookahead => 2
+        main_task, loop_planner = prepare_plan :period => 1, :lookahead => 2
 	loop_planner.start!
 
-        assert_equal(2, loop_planner.patterns.size)
-        first_planner  = loop_planner.patterns[-1].first
-        second_planner = loop_planner.patterns[-2].first
-        assert(first_planner.running?)
-        assert(!second_planner.running?)
+	FlexMock.use(Time) do |time_proxy|
+	    current_time = Time.now + 5
+	    time_proxy.should_receive(:now).and_return { current_time }
 
-        # Call #loop_start! already, to make the loop start the first running
-        # task as soon as it is ready.
-	loop_planner.loop_start!
+	    assert_equal(2, loop_planner.patterns.size)
+	    first_planner  = loop_planner.patterns[-1].first
+	    second_planner = loop_planner.patterns[-2].first
+	    assert(first_planner.running?)
+	    assert(!second_planner.running?)
 
-        # Usual pattern: wait for the result of the first two planners, check
-        # that the first task actually runs
-        first_task  = planning_task_result(first_planner)
-        second_task = planning_task_result(second_planner)
-        third_planner = loop_planner.patterns[-3].first
-        assert(third_planner.running?)
-	assert(first_task.running?)
-	assert(second_task.pending?)
+	    # Call #loop_start! already, to make the loop start the first running
+	    # task as soon as it is ready.
+	    loop_planner.loop_start!
 
-        # Make the first task finish and make sure the system does not start it right away
-	first_task.success!
-	assert(first_task.success?)
-        assert(second_task.pending?)
-	process_events
-	assert(second_task.pending?)
-	sleep(0.6)
-	process_events
-	assert(second_task.running?, loop_planner.arguments)
+	    # Usual pattern: wait for the result of the first two planners, check
+	    # that the first task actually runs
+	    first_task  = planning_task_result(first_planner)
+	    second_task = planning_task_result(second_planner)
+	    third_planner = loop_planner.patterns[-3].first
+	    assert(third_planner.running?)
+	    assert(first_task.running?)
+	    assert(second_task.pending?)
 
-        # Use the third task to check that the timeout can be overriden by
-        # calling loop_start! on the PlanningLoop task
-        third_task = planning_task_result(third_planner)
+	    # Make the first task finish and make sure the system does not start it right away
+	    first_task.success!
+	    assert(first_task.success?)
+	    assert(second_task.pending?)
 
-	assert(second_task.running? && !third_task.running?)
-	second_task.success!
-	loop_planner.loop_start!
-	assert(!second_task.running? && third_task.running?)
+	    current_time += 0.2
+	    process_events
+	    assert(second_task.pending?)
+
+	    current_time += 0.8
+	    process_events
+	    assert(second_task.running?, loop_planner.arguments)
+
+	    # Use the third task to check that the timeout can be overriden by
+	    # calling loop_start! on the PlanningLoop task
+	    third_task = planning_task_result(third_planner)
+
+	    assert(second_task.running? && !third_task.running?)
+	    second_task.success!
+	    loop_planner.loop_start!
+	    assert(!second_task.running? && third_task.running?)
+	end
     end
 
     # Test periodic loop tasks with zero lookahead

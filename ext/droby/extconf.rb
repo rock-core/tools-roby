@@ -1,3 +1,3 @@
 require 'mkmf'
-create_makefile("droby")
+create_makefile("roby_marshalling")
 

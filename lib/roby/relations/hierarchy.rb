@@ -28,6 +28,19 @@ module Roby::TaskStructure
 	# failure:: the list of failing events. The default is [:failed]
 	# model:: a <tt>[task_model, arguments]</tt> pair which defines the task model the parent is expecting. 
 	#   The default value is to get these parameters from +task+
+        #
+        # The +success+ set describes the events of the child task that are
+        # _required_ by the parent task. More specifically, the child task
+        # remains useful for the parent task as long as none of these events are
+        # emitted. By default, it is the +success+ event. Of course, an error
+        # condition is encountered when all events of +success+ become
+        # unreachable. In addition, the relation is removed if the
+        # +remove_when_done+ flag is set to true (false by default).
+        #
+        # The +failure+ set describes the events of the child task which are an
+        # error condition from the parent task point of view.
+        #
+        # In both error cases, a +ChildFailedError+ exception is raised.
         def realized_by(task, options = {})
             options = validate_options options, 
 		:model => [task.model, task.meaningful_arguments], 

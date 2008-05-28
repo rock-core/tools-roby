@@ -767,15 +767,37 @@ module Roby
 	    for _, ev in bound_events
 		ev.terminal_flag = nil
 	    end
-	    success_events = bound_events[:success].
-		generated_subgraph(EventStructure::CausalLink.reverse)
-	    failure_events = bound_events[:failed].
-		generated_subgraph(EventStructure::CausalLink.reverse)
-	    terminal_events = bound_events[:stop].
-		generated_subgraph(EventStructure::CausalLink.reverse)
 
-	    if success_events.intersects?(failure_events)
-		raise ArgumentError, "#{success_events & failure_events} are both success and failure events"
+            success_events, failure_events, terminal_events =
+                [event(:success)].to_value_set, 
+                [event(:failed)].to_value_set,
+                [event(:stop), event(:success), event(:failed)].to_value_set
+
+	    loop do
+		old_size = terminal_events.size
+		for _, ev in bound_events
+                    for relation in [EventStructure::Signal, EventStructure::Forwarding]
+                        for target in ev.child_objects(relation)
+                            next if !target.respond_to?(:task) || target.task != self
+                            next if ev[target, relation]
+
+                            if success_events.include?(target)
+                                success_events << ev
+                                terminal_events << ev
+                                break
+                            elsif failure_events.include?(target)
+                                failure_events << ev
+                                terminal_events << ev
+                                break
+                            elsif terminal_events.include?(target)
+                                terminal_events << ev
+                            end
+                        end
+                    end
+
+                    success_events.include?(ev) || failure_events.include?(ev) || terminal_events.include?(ev)
+		end
+		break if old_size == terminal_events.size
 	    end
 
 	    for ev in success_events
@@ -903,18 +925,23 @@ module Roby
         #   on(event, task[, event1, event2, ...])
 	#   on(event) { |event| ... }
         #   on(event[, task, event1, event2, ...]) { |event| ... }
+        #   on(event, task[, event1, event2, ...], delay)
         #
         # Adds a signal from the given event to the specified targets, and/or
-        # defines an event handler.
-	#
-        # Note that <tt>on(event, task)</tt> is equivalent to <tt>on(event,
-        # task, event)</tt>
+        # defines an event handler. Note that <tt>on(event, task)</tt> is
+        # equivalent to <tt>on(event, task, event)</tt>
+        #
+        # +delay+, if given, specifies that the signal must be postponed for as
+        # much time as specified. See EventGenerator#signal for valid values.
         def on(event_model, to = nil, *to_task_events, &user_handler)
             unless to || user_handler
                 raise ArgumentError, "you must provide either a task or an event handler (got nil for both)"
             end
 
             generator = event(event_model)
+            if Hash === to_task_events.last
+                delay = to_task_events.pop
+            end
 	    to_events = case to
 			when Task
 			    if to_task_events.empty?
@@ -926,21 +953,33 @@ module Roby
 			else []
 			end
 
+            to_events.push delay if delay
             generator.on(*to_events, &user_handler)
             self
         end
 
+        # call-seq:
+        #   forward source_event, dest_task, ev1, ev2, ev3, ...
+        #   forward source_event, dest_task, ev1, ev2, ev3, delay_options
+        #
         # Fowards +name+ to the events in +to_task_events+ on task +to+.  The
         # target events will be emitted as soon as the +name+ event is emitted
         # on the receiving task, without calling any command.
         #
         # To call an event whenever other events are emitted, use the Signal
-        # relation. See Task#on, Task.on and EventGenerator.on
+        # relation. See Task#on, Task.on and EventGenerator#on. As for Task#on,
+        # <tt>forward(:start, task)</tt> is a shortcut to <tt>forward(:start,
+        # task, :start)</tt>.
         #
-        # As for Task.on, <tt>forward(:start, task)</tt> is a shortcut to
-        # <tt>forward(:start, task)</tt>.
+        # If a +delay_options+ hash is provided, the forwarding is not performed
+        # immediately, but with a given delay. See EventGenerator#forward for
+        # the delay specification.
 	def forward(name, to, *to_task_events)
             generator = event(name)
+            if Hash === to_task_events.last
+                delay = to_task_events.pop
+            end
+
 	    to_events = if to.respond_to?(:event)
 			    if to_task_events.empty?
 				[to.event(generator.symbol)]
@@ -954,7 +993,7 @@ module Roby
 			end
 
 	    to_events.each do |ev|
-		generator.forward ev
+		generator.forward ev, delay
 	    end
 	end
 

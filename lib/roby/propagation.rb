@@ -466,9 +466,11 @@ module Roby::Propagation
     def propagate_exceptions(exceptions)
 	fatal   = [] # the list of exceptions for which no handler has been found
 
-	# Remove finished repairs and remove exceptions for which a repair
-	# exists
+	# Remove finished repairs. Those are still considered during this cycle,
+        # as it is possible that some actions have been scheduled for the
+        # beginning of the next cycle through Roby.once
 	finished_repairs = remove_useless_repairs
+	# Remove remove exceptions for which a repair exists
 	exceptions = remove_inhibited_exceptions(exceptions)
 
 	# Install new repairs based on the HandledBy task relation. If a repair

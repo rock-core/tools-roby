@@ -77,13 +77,10 @@ During the tutorials, we will be creating different robots which is done by the
 This creates the basic templates for the robot named EmptyRobot. The following
 tutorials will explain their role to you.
 
-== Tutorials
-* the GoForward[link:files/doc/tutorials/02-GoForward_rdoc.html] tutorial shows how to create
-  a simple task, how to start the Roby controller and how to interact with it
-  using a shell.
-* the PlannedPath[link:files/doc/tutorials/03-PlannedPath_rdoc.html] tutorial
-  shows how to create a (slightly) more plan, using the plan-generation
-  capabilities of Roby. It also shows some properties of that plan.
+= Next tutorial
 
+{The next tutorial}[link:files/doc/tutorials/02-GoForward_rdoc.html] will show you
+the basic plan model used by Roby and some central tool, which allow to execute the
+Roby applications and to interact/control them remotely.
 ---
 vim: tw=80

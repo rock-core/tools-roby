@@ -216,9 +216,12 @@ module Roby
 	end
 
 	# Establishes signalling and/or event handlers from this event
-	# generator.  If +time+ is non-nil, it is a delay (in seconds) which
-	# must pass between the time this event is emitted and the time
-	# +signal+ is called
+	# generator. 
+        #
+        # If +time+ is given it is either a :delay => time association, or a
+        # :at => time association. In the first case, +time+ is a floating-point
+        # delay in seconds and in the second case it is a Time object which is
+        # the absolute point in time at which this propagation must happen.
 	def on(signal = nil, time = nil, &handler)
 	    if signal
 		self.signal(signal, time)
@@ -233,9 +236,12 @@ module Roby
 	end
 
 	# Adds a signal from this event to +generator+. +generator+ must be
-	# controlable.  If +timespec+ is given, it is a delay, in seconds,
-	# between the instant this event is fired and the instant +generator+
-	# must be called.
+	# controlable.
+        #
+        # If +time+ is given it is either a :delay => time association, or a
+        # :at => time association. In the first case, +time+ is a floating-point
+        # delay in seconds and in the second case it is a Time object which is
+        # the absolute point in time at which this propagation must happen.
 	def signal(generator, timespec = nil)
 	    if !generator.controlable?
 		raise EventNotControlable.new(self), "trying to establish a signal between #{self} and #{generator}"
@@ -275,10 +281,13 @@ module Roby
             @unreachable_event
         end
 
-	# Emit +generator+ when +self+ is fired, without calling the command of
-	# +generator+, if any. If +timespec+ is given it is a delay in seconds
-	# between the instant this event is fired and the instant +generator+
-	# is fired
+        # Emit +generator+ when +self+ is fired, without calling the command of
+        # +generator+, if any.
+        #
+        # If +timespec+ is given it is either a :delay => time association, or a
+        # :at => time association. In the first case, +time+ is a floating-point
+        # delay in seconds and in the second case it is a Time object which is
+        # the absolute point in time at which this propagation must happen.
 	def forward(generator, timespec = nil)
 	    timespec = Propagation.validate_timespec(timespec)
 	    add_forwarding generator, timespec

@@ -539,6 +539,30 @@ class TC_Exceptions < Test::Unit::TestCase
         assert_nothing_raised do
             Roby.format_exception e
         end
+
+        trace = e.error.backtrace
+        filtered = Roby.filter_backtrace(trace)
+        assert(filtered[0] =~ /event handler/, filtered.join("\n"))
+        assert(filtered[1] =~ /test_filter_handler_errors/, filtered.join("\n"))
+
+        model = Class.new(SimpleTask) do
+            on :start do
+                raise ArgumentError
+            end
+        end
+        task = prepare_plan :permanent => 1, :model => model
+        error = begin task.start!
+                rescue Exception => e; e
+                end
+        assert_kind_of CodeError, e
+        assert_nothing_raised do
+            Roby.format_exception e
+        end
+
+        trace = e.error.backtrace
+        filtered = Roby.filter_backtrace(trace)
+        assert(filtered[0] =~ /event handler for 'start'$/, filtered.join("\n"))
+        assert(filtered[1] =~ /test_filter_handler_errors/, filtered.join("\n"))
     end
 
     def test_filter_polling_errors

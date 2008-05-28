@@ -13,9 +13,11 @@ module Roby
 
 	    # The index of the currently displayed cycle in +index_data+
 	    attr_reader :current_cycle
+            # The index of the first non-empty cycle
+            attr_reader :start_cycle
 	    # A [min, max] array of the minimum and maximum times for this
 	    # stream
-	    def range; logfile.range end
+	    def range; [start_time, logfile.range.last] end
 
 	    def initialize(basename, file = nil)
 		super(basename, "roby-events")
@@ -40,11 +42,17 @@ module Roby
 
 	    # Reinitializes the stream
 	    def reinit!
-		@current_cycle = 0
 		prepare_seek(nil)
 
 		super
-	    end
+
+                start_cycle = 0
+                while start_cycle < index_data.size && index_data[start_cycle][:event_count] == 4
+                    start_cycle += 1
+                end
+                @start_cycle   = start_cycle
+		@current_cycle = start_cycle
+            end
 
 	    # True if there is at least one sample available
 	    def has_sample?
@@ -58,14 +66,14 @@ module Roby
 		    clear
 
 		    @current_time  = nil
-		    @current_cycle = 0
+		    @current_cycle = start_cycle
 		    logfile.rewind
 		end
 	    end
 
 	    def start_time
-		return if index_data.empty?
-		Time.at(*index_data[0][:start])
+		return if start_cycle == index_data.size
+		Time.at(*index_data[start_cycle][:start])
 	    end
 	    
 	    # The current time

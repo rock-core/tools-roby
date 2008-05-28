@@ -1,5 +1,5 @@
 {Previous tutorial}[link:files/doc/tutorials/02-GoForward_rdoc.html]
-{Next tutorial}[link:files/doc/tutorials/04-ExecutionCycle_rdoc.html]
+{Next tutorial}[link:files/doc/tutorials/04-EventPropagation_rdoc.html]
 = Planning and following a path
 We'll now use a (slightly) more complex system to make our robot move. The
 robot will now have a goal, defined as a (x, y) point. It will generate a
@@ -110,7 +110,19 @@ The difference between those two relations is subtle, so let's try to explain a 
   path: it calls the _command_ of the +start+ event of +compute+.
 * in the third case, however, no specific action should be taken to end the
   +move+ task. Instead, the plan expresses that the +move+ task is finished
-  <it>as soon as</it> the +track+ task is.
+  <it>as soon as</it> the +track+ task is. Another way to put it is that the
+  situation represented by the +success+ event of MoveTo is, in this particular
+  plan, the same than the situation represented by the +success+ event of
+  TrackPath. More generally, if +a+ is forwarded to +b+ all situations that lead
+  to the emission of +a+ also lead to the emission of +b+. Or, in other words, that
+  the situation represented by +b+ is a superset of the one represented by +a+
+  (the equality, like here, is a particular case)
+
+  link:../../images/event_generalization.png
+
+  *Example*: in this plan, the +success+ event of a particular low-level action
+  is forwarded in more high-level parts of the plan. This allows to actually
+  link the low and high level parts of the plan and reason on that link.
 
 Task relations allow the system to keep track of what a given task is useful for,
 what are error conditions and how to react to errors. The next two tutorials will
@@ -245,13 +257,12 @@ details of actually implementing these tasks.
       Robot.info "moved to #{current_waypoint}"
     end
 
-= Conclusion
+= Next tutorial
 
-That's all, folks. After this tutorial, you should be able to build simple task
+The {next tutorial}[link:files/doc/tutorials/04-EventPropagation_rdoc.html] will
+allow you to understand more by actually seeing what happens during the plan
+execution. After this tutorial, you should be able to build simple task
 models and simple plans, as well as execute them and understand the most common
-error -- ChildFailedError. The next tutorial will go back in more details on
-the execution cycle and some of Roby's specificities in that domain. To do
-that, it will also show you the logging capabilities of Roby and its display
-feature.
+error -- ChildFailedError.
 ---
 vim: tw=80 et

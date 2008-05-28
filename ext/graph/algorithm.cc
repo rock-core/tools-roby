@@ -7,8 +7,8 @@
 #include <boost/graph/topological_sort.hpp>
 #include <boost/bind.hpp>
 #include <boost/graph/reverse_graph.hpp>
-#include <utilmm/undirected_graph.hh>
-#include <utilmm/undirected_dfs.hh>
+#include "undirected_graph.hh"
+#include "undirected_dfs.hh"
 #include <queue>
 #include <functional>
 

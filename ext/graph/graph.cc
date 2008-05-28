@@ -491,7 +491,7 @@ static VALUE vertex_leaf_p(int argc, VALUE* argv, VALUE self)
 { return vertex_has_adjacent<true>(argc, argv, self); }
 
 void Init_graph_algorithms();
-extern "C" void Init_bgl()
+extern "C" void Init_roby_bgl()
 {
     id_rb_graph_map = rb_intern("@__bgl_graphs__");
 

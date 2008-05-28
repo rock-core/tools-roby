@@ -149,7 +149,7 @@ static VALUE value_set_droby_dump(VALUE self, VALUE dest)
     return result;
 }
 
-extern "C" void Init_droby()
+extern "C" void Init_roby_marshalling()
 {
     id_droby_dump = rb_intern("droby_dump");
     id_remote_id = rb_intern("remote_id");

@@ -135,10 +135,8 @@ class Replay < Qt::MainWindow
 	    @first_sample = @time = min
 	    @last_sample  = max
 
-	    min = (min.to_i / 1000)
-	    max = (max.to_i / 1000.0).ceil
-	    ui_controls.progress.minimum = min
-	    ui_controls.progress.maximum = max
+	    ui_controls.progress.minimum = min.to_i
+	    ui_controls.progress.maximum = max.to_i
 	    ui_controls.update_bookmarks_menu
 	else
 	    play_until time, integrate
@@ -149,7 +147,7 @@ class Replay < Qt::MainWindow
 
     def update_time_display
 	ui_controls.time_lcd.display(((self.time - first_sample) * 1000.0).round / 1000.0)
-	ui_controls.progress.value = (self.time.to_i / 1000.0).round
+	ui_controls.progress.value = self.time.to_i
     end
 
     attr_reader :time
@@ -186,9 +184,6 @@ class Replay < Qt::MainWindow
     def play_step_timer
 	start = Time.now
 	play_until(time + time_slice * play_speed)
-
-	STDERR.puts time.to_hms
-	STDERR.puts "play: #{Time.now - start}"
     end
     slots 'play_step_timer()'
     
@@ -238,9 +233,9 @@ class Replay < Qt::MainWindow
 	if time > last_sample
 	    @last_sample = time
 
-	    time_display = (time.to_i / 1000.0).round
+	    time_display = time.to_i
 	    if ui_controls.progress.maximum < time_display
-		ui_controls.progress.maximum = (first_sample + (last_sample - first_sample) * 4 / 3).to_i / 1000
+		ui_controls.progress.maximum = (first_sample + (last_sample - first_sample) * 4 / 3).to_i
 	    end
 	end
 	update_time_display

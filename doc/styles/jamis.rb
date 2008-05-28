@@ -90,6 +90,10 @@ h1 a:hover, h2 a:hover, .sectiontitle a:hover, .banner a:hover {
   color: #FF7;
 }
 
+img {
+  margin: 2em;
+}
+
 .dyn-source {
   display: none;
   background: #FFE;

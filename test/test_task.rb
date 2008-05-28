@@ -252,6 +252,7 @@ class TC_Task < Test::Unit::TestCase
 	    forward :failure_model_signal => :failure_model
 
 	    event(:ev)
+            event :controlable_terminal, :terminal => true, :command => true
 	end
 	assert(klass.event_model(:stop).terminal?)
 	assert(klass.event_model(:success).terminal?)
@@ -287,6 +288,15 @@ class TC_Task < Test::Unit::TestCase
 	assert(ev.terminal?)
 	assert(!ev.success?)
 	assert(ev.failure?)
+
+	ev.remove_forwarding task.event(:failure_model_signal)
+	ev.remove_forwarding task.event(:terminal_model_signal)
+	assert(!ev.terminal?)
+	ev.forward task.event(:failure_model_signal), :delay => 0.2
+	assert(!ev.terminal?)
+	ev.remove_forwarding task.event(:failure_model_signal)
+	ev.signal task.event(:controlable_terminal), :delay => 0.2
+	assert(!ev.terminal?)
     end
 
     # Tests Task::event

@@ -29,18 +29,23 @@ module Roby
 	attr_reader :known_tasks
 	# The set of events that are defined by #known_tasks
 	attr_reader :task_events
-	# The list of missions in this plan
+        # The list of the robot's missions. Do not change that set directly, use
+        # #insert and #discard instead.
 	attr_reader :missions
-	# The set of tasks that are kept out of GC's reach
+	# The list of tasks that are kept outside GC. Do not change that set
+        # directly, use #permanent and #auto instead.
 	attr_reader :permanent_tasks
 	# The list of events that are not included in a task
 	attr_reader :free_events
-	# The set of events that are kept out of GC's reach
+	# The list of events that are kept outside GC. Do not change that set
+        # directly, use #permanent and #auto instead.
 	attr_reader :permanent_events
 
 	# A map of event => task repairs. Whenever an exception is found,
 	# exception propagation checks that no repair is defined for that
 	# particular event or for events that are forwarded by it.
+        #
+        # See also #add_repair and #remove_repair
 	attr_reader :repairs
 
 	# A set of tasks which are useful (and as such would not been garbage
@@ -485,7 +490,10 @@ module Roby
 	# Iterates on all tasks
 	def each_task; @known_tasks.each { |t| yield(t) } end
 
-	# Install a plan repair for +failure_point+ with +task+. If +task+ is pending, it is started.
+        # Install a plan repair for +failure_point+ with +task+. If +task+ is
+        # pending, it is started.
+        #
+        # See also #repairs and #remove_repair
 	def add_repair(failure_point, task)
 	    if !failure_point.kind_of?(Event)
 		raise TypeError, "failure point #{failure_point} should be an event"
@@ -507,6 +515,9 @@ module Roby
 	    end
 	end
 
+        # Removes +task+ from the set of active plan repairs.
+        #
+        # See also #repairs and #add_repair
 	def remove_repair(task)
 	    repairs.delete_if do |ev, repair|
 		if repair == task

@@ -206,5 +206,15 @@ Now, to make the whole Roby controller quit:
 Note that you don't have to restart the shell between to runs: if you start the
 controller again, the same shell will reconnect automatically to the new
 controller.
+
+= Next tutorial
+
+This tutorial showed you how to build a very simple task model, and how to
+create planner methods to interface with the shell. The {next
+tutorial}[link:files/doc/tutorials/03-PlannedPath_rdoc.html] will build upon
+that by making you create a very small plan, in which different tasks represent
+different aspects of the robot activity. The fourth tutorial will then be about
+displaying the execution trace of that plan to understand what happens under the
+hood.
 ---
 vim: tw=80 et

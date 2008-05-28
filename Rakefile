@@ -9,20 +9,32 @@ begin
         hoe = Hoe.new('roby', Roby::VERSION) do |p|
             p.developer 'Sylvain Joyeux', 'sylvain.joyeux@m4x.org'
 
-            p.summary = 'A robotic control framework'
-            p.description = p.paragraphs_of('README.txt', 3..13).join("\n\n")
-            p.url         = p.paragraphs_of('README.txt', 0).first.split(/\n/)[1..-1]
+            p.summary = 'A plan-based control framework for autonomous systems'
+            p.url         = p.paragraphs_of('README.txt', 1).join("\n\n")
+            p.description = p.paragraphs_of('README.txt', 2..18).join("\n\n")
             p.changes     = p.paragraphs_of('History.txt', 0..1).join("\n\n")
+            p.post_install_message = p.paragraphs_of('README.txt', 2).join("\n\n")
 
             p.extra_deps << ['facets', '>= 2.0'] << 'activesupport' << ['utilrb', '1.2']
             if p.respond_to? :need_rdoc=
                 p.need_rdoc = false
             end
-            p.rdoc_pattern = /^$/
         end
 	hoe.spec.extensions << 
 	    'ext/droby/extconf.rb' <<
 	    'ext/graph/extconf.rb'
+
+        hoe.spec.extra_rdoc_files =
+            hoe.spec.files.grep /(\.rdoc|\.cc|\.hh|\.rb|\.txt)$/
+
+        hoe.spec.description = hoe.summary
+            
+        hoe.spec.rdoc_options << 
+            '--main' << 'README.txt' <<
+            "--inline-source" << 
+            "--accessor" << "attribute" << 
+            "--accessor" << "attr_predicate"
+
 	if !hoe.respond_to? :need_rdoc=
 	    # This sucks, I know, but Hoe's handling of documentation is not
 	    # enough for me
@@ -42,7 +54,7 @@ def build_extension(name, soname = name)
 	    raise "cannot set up #{name} extension"
 	end
     end
-    FileUtils.ln_sf "../../ext/#{name}/#{soname}.so", "lib/roby/#{soname}.so"
+    FileUtils.ln_sf "../ext/#{name}/#{soname}.so", "lib/#{soname}.so"
 end
 def clean_extension(name, soname = name)
     puts "Cleaning ext/#{name}"
@@ -79,8 +91,8 @@ end
 
 desc 'generate and build all the necessary files'
 task :setup => :uic do
-    build_extension 'droby'
-    build_extension 'graph', 'bgl'
+    build_extension 'droby', 'roby_marshalling'
+    build_extension 'graph', 'roby_bgl'
 end
 
 desc 'remove all generated files'
@@ -94,7 +106,7 @@ desc 'generate all Qt UI files using rbuic4'
 task :uic do
     UIFILES.each do |file|
 	file = 'lib/roby/log/gui/' + file
-	if !system('rbuic4', '-x', '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
+	if !system('rbuic4', '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
 	    STDERR.puts "Failed to generate #{file}"
 	end
     end
@@ -109,23 +121,25 @@ namespace 'doc' do
     require 'roby/app/rake'
     Rake::RDocTask.new("core") do |rdoc|
       rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
-      rdoc.rdoc_dir = 'doc/core'
+      rdoc.rdoc_dir = 'doc/rdoc/core'
       rdoc.title    = "Roby Core"
       rdoc.template = Roby::Rake.rdoc_template
       rdoc.options << '--main' << 'README.txt'
       rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
       rdoc.rdoc_files.include('lib/**/*.rb', 'ext/**/*.cc')
+      rdoc.rdoc_files.include('doc/videos.rdoc', 'doc/papers.rdoc')
       rdoc.rdoc_files.include('doc/tutorials/**/*')
       rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
     end
 
     Rake::RDocTask.new("tutorials") do |rdoc|
       rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
-      rdoc.rdoc_dir = 'doc/main'
+      rdoc.rdoc_dir = 'doc/rdoc/tutorials'
       rdoc.title    = "Roby Tutorials"
       rdoc.template = Roby::Rake.rdoc_template
       rdoc.options << '--main' << 'README.txt'
       rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
+      rdoc.rdoc_files.include('doc/videos.rdoc', 'doc/papers.rdoc')
       rdoc.rdoc_files.include('doc/tutorials/**/*')
     end
 

@@ -1,14 +1,13 @@
-= Fault injection plugin for Roby
 
 http://rubyforge.org/projects/roby
 
-== DESCRIPTION:
+= Fault injection plugin for Roby
 
 This is a fault injection plugin for the Roby robotic control framework. It
 allows to test the management of rarely occuring events by simulating the
-emission of those events.
+emission of those events. This plugin relies only on the core Roby library.
 
-== SYNOPSIS:
+== Usage
 
 The fault injection plugin can be used in a system to inject some spurious
 events randomly. To set it up, one must call Application#add_fault_model
@@ -23,17 +22,15 @@ model. The probability distribution used is a rate distribution with MTTF of
 500s and base probability of 0.3. See Roby::FaultInjection for the description
 of the available probability distributions.
 
-== REQUIREMENTS:
+== Enabling the plugin
 
-This plugin relies only on the core Roby library.
+The plugin must be enabled in the configuration files (i.e. either in
+<tt>config/init.rb</tt> or in one of the robot-specific files) through a call
+to Roby.app.using:
 
-== INSTALL:
+  Roby.app.using 'fault_injection'
 
-This plugin can be installed using 
-
-  gem install roby-fault-injection
-
-== LICENSE:
+== License:
 
 This work is licensed under the CeCiLL-B license, which is a free software
 license similar to the BSD license. See License.txt for details.

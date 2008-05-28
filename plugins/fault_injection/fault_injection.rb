@@ -33,6 +33,7 @@ module Roby
 	    end
 	end
 
+	# Apply the given fault models to the main Roby plan
 	def self.apply(fault_models)
 	    injected_faults = Array.new
 
