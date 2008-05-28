@@ -131,3 +131,140 @@ collection process, which queues the 'stop' event, to be executed during the
 next cycle. The MoveTo task is therefore stopped at the next cycle, and the
 tasks that are now useless are also stopped.
 
+For event commands, all depends on where the exception actually appears. If
+'emit' has already been called, then the event will be emitted and propagated.
+Otherwise, it counts as a cancelling of the event command.
+
+== Handling errors
+
+Now that we have seen how errors are detected and represented, we can tackle
+the problem of handling them. There are three ways to do that in Roby, that we
+will present right away.
+
+As we saw in the fifth tutorial, the forwarding relation represents an event
+generalization (the target represents a superset of the situations represented
+by the source), allowing to represent <i>fault modes</i>, i.e. specific fault
+situations that are classified through the forwarding relation (see figure
+below). The target of the forwarding relations being, of course, the +failed+
+event. This is used during error handling to generalize the event handlers: an
+event handler which applies to a given erroneous situation also applies to all
+the situations that are subsets of it.
+
+link:../../images/task_event_generalization.png
+
+*Example*: the +blocked+ event is a particular fault mode during the movement.
+More complex forwarding network would allow to represent the relationships
+between the different type of faults recognized by the system.
+
+=== Repairing during events propagation
+
+If a child fails, for instance because of a spurious problem, it would have been
+possible to actually restart the failing child directly in the event handler of
+'failed' and replace the failed task through this new one. This is as simple as:
+
+  on(:failed) do
+      plan.respawn(self)
+  end
+
+Let's try it. Add the following to the definition of +TrackPath+ to simulate an
+error:
+  attr_accessor :should_pass
+  event :start do
+    if !should_pass
+      forward :start, self, :failed, :delay => 0.2
+    end
+    emit :start
+  end
+
+What the event command does is schedule a delayed forwarding of 0.2 seconds if
+#should_pass is false (the default). +failed+ will therefore be emitted 0.2
+seconds after the path tracking has been started, if +should_pass+ is false.
+    
+Then, the error handler itself:
+
+  on :failed do
+    if !should_pass
+      Robot.info "respawning ..."
+      new_task = plan.respawn(self)
+      new_task.should_pass = true
+    end
+  end
+
+This handler replaces the failed TrackPath with a copy of itself and schedules
+it for starting. Then, we set @should_pass to true to avoid having further
+errors. Look at the relation display to see how it worked. Note that doing such
+a thing on the +failed+ event is a bad idea, as +failed+ is emitted when the
+task gets interrupted.
+
+The next figure is an example of how it works on a real robot. As a workaround
+of a spurious error in the +TrackSpeedStart+ task, known to be harmless, an
+event handler is defined on this task model, which restarts the task online.
+
+link:../../images/repair_event_propagation.png
+
+=== Asynchronous repairs
+
+Sometime, repairing the plan needs a few actions. While those actions are
+performed, we do not actually know yet if the plan *can* be repaired or not,
+only that necessary measures are taken to assess it and/or repair it.
+
+In Roby's plans, asynchronous repairs are represented as <i>plan repairs</i>
+(Roby::Plan#add_repair). Plan repairs are tasks which are associated with a
+task's event. While the plan repair is running, errors whose failure point is
+the associated event are simply ignored by the system. Once the task finished,
+normal error detection and handling resumes.
+
+To automate the process of installing plan repairs, a ErrorHandling relation
+exists, which defines the set of possible plan repairs for a given task and
+event. Roby::TaskEventGenerator#handle_with allows to easily add a new plan
+repair by associated the receiving task event with the (pending) task.
+
+Here is a simple example: http://roby.rubyforge.org/videos/rflex_repaired.avi.
+In this video, the microcontroller which drives the robot's motors can give us
+spurious <tt>BRAKES_ON</tt> messages. Our problem is that the Roby controller
+must determine if the message is spurious, or if brakes are actually set by the
+means of an emergency switch for instance. To do that, an error handling is set
+up, which wait for a few seconds and tests the <tt>BRAKES_ON</tt> state of the
+robot. If the brakes are reported as off, then the robot can start moving again.
+Otherwise, the error was a rightful one and should be handled by other means.
+
+Let's simulate the same kind of problem in the PathPlan controller. What we will
+do is the following:
+* add a 'blocked' fault event to the model of TrackPath, and make the 'poll'
+  event of TrackPath emit 'blocked' randomly.
+* have a 'repair' task wait 2 seconds and either (randomly) respawn the path
+  tracking after those two seconds, or emit +failed+.
+
+The first point is done by adding the following to the definition of TrackPath:
+  event :blocked
+  forward :blocked => :failed
+
+and then those three lines to the polling block:
+  if rand < 0.05
+    emit :blocked
+  end
+
+A new RepairTask model has to be added. Open <tt>tasks/repair_task.rb</tt> and
+add the following
+  class RepairTask < Roby::Task
+    terminates
+
+    event :start do
+      Robot.info "repair will succeed in 2 seconds"
+      forward :start, self, :success, :delay => 2
+      emit :start
+    end
+
+    on :success do
+      plan.respawn(failed_task)
+    end
+  end
+
+Finally, the repair handler must be defined added to the plan. Edit the +move_to+ method in <tt>planners/PathPlan/main.rb</tt> and add the following line before the last line of the method:
+  track.event(:blocked).handle_with(RepairTask.new)
+
+Run as usual and see what happens ...
+
+Another, more complex example is the "P3d repaired" video presented
+{here}[files/doc/videos_rdoc.html]
+
