@@ -47,14 +47,16 @@ module Roby
 	end
 
 	def planned_task
-	    task = planned_tasks.find { true }
-	    if !task && pending?
+	    if finished?
+		result
+	    elsif task = planned_tasks.find { true }
+		task
+	    elsif pending?
 		task = planned_model.new
 		task.planned_by self
 		task.executable = false
+		task
 	    end
-
-	    task
 	end
 
 	# The thread that is running the planner
