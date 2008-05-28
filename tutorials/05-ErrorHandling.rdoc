@@ -1,4 +1,5 @@
 {Previous tutorial}[link:files/doc/tutorials/04-EventPropagation_rdoc.html]
+{Next tutorial}[link:files/doc/tutorials/06-Overview_rdoc.html]
 = Representing and handling errors
 
 One thing about robotics, and in particular plan execution, is that Murphy's
@@ -302,12 +303,17 @@ tasks in any relation are forcefully garbage collected. In the exception
 propagation example above, all tasks which have a number will be killed and
 remove from the plan.
 
-= Conclusion
+= Next tutorial
 
 This tutorial presented you with one of the two most singular features of Roby:
-an extensive way to represent and handle them. Among them, the error handling
+an extensive way to represent and handle errors. Among them, the error handling
 relation is the most powerful, as it allows to represent error handling
 directly in the plan and would for instance work in multi-robot context, even
 without communication between the two robots.
+
+{The next tutorial} is not really a tutorial. It is an overview of important
+Roby features that these tutorials did not cover. Again, my PhD thesis should
+still be considered one of the most central design document which allow to
+understand the system.
 
 
