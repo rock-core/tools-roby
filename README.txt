@@ -3,13 +3,12 @@ Roby
     http://www.rubyforge.org/projects/roby
     http://github.com/doudou/roby (dev. repository)
 
-Copyright (c) 2006-2008
-    Sylvain Joyeux <sylvain.joyeux@m4x.org>
-    LAAS/CNRS <openrobots@laas.fr>
+Copyright 2006-2007, LAAS/CNRS <openrobots@laas.fr>
+Copyright 2006-2008, Sylvain Joyeux <sylvain.joyeux@m4x.org>
+Copyright 2008 DFKI <robotik-bremen@dfki.de>
 
 This work is licensed under the CeCiLL-B license, which is a free software
 license with the same spirit than the BSD license. See License.txt for details
-
 
 = What is Roby ?
 
@@ -31,6 +30,13 @@ Roby is:
 * a mean to modify the plan as it is being executed (Roby::Transaction)
 * (G)UI tools for interacting/controlling the living system.
 * all of that in a multi-robot context.
+
+== Acknowledgments
+
+This work has been supported by the DGA (http://www.defense.gouv.fr/dga) which
+financed my PhD and the LAAS/CNRS (http://www.laas.fr), where I did it. It is
+now supported by the DFKI (http://www.dfki.de) where I currently work and use
+this plan manager.
 
 == Related publications
 
