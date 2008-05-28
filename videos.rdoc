@@ -20,9 +20,10 @@ robot and the change of heading, to reduce the number of times it is actually do
 http://roby.rubyforge.org/videos/birobot.avi
 
 What we see in this video is the cooperation between a rover and an UAV for a
-navigation task. The joint plan, including part of the data transfer process,
-are managed by Roby.  This bi-robot setup has also been tested on real robots,
-with an iRobot ATRV and a Yamaha RMAX helicopter.
+navigation task. Both robots, as well as the common part of their joint plan is
+written in and managed by Roby.  Including part of the data transfer process.
+This bi-robot setup has also successfully been tested on real robots, with an
+iRobot ATRV and a Yamaha RMAX helicopter.
 
 == Error handling
 === Rflex repaired
