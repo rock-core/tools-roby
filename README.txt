@@ -1,14 +1,14 @@
-Roby
-    http://roby.rubyforge.org
-    http://www.rubyforge.org/projects/roby
-    http://github.com/doudou/roby (dev. repository)
-
-Copyright 2006-2007, LAAS/CNRS <openrobots@laas.fr>
-Copyright 2006-2008, Sylvain Joyeux <sylvain.joyeux@m4x.org>
-Copyright 2008 DFKI <robotik-bremen@dfki.de>
+  http://roby.rubyforge.org
+  http://www.rubyforge.org/projects/roby
+  http://github.com/doudou/roby (dev. repository)
+  
+  Copyright 2006-2007, LAAS/CNRS <openrobots@laas.fr>
+  Copyright 2006-2008, Sylvain Joyeux <sylvain.joyeux@m4x.org>
+  Copyright 2008 DFKI <robotik-bremen@dfki.de>
 
 This work is licensed under the CeCiLL-B license, which is a free software
-license with the same spirit than the BSD license. See License.txt for details
+license with the same spirit than the BSD license. See License.txt for details,
+and License-fr.txt for the french version.
 
 = What is Roby ?
 
@@ -42,9 +42,10 @@ this plan manager.
 
 Roby is the result of my PhD. As such, my PhD thesis can be considered as a
 design document for the system. If you want an overview of the principles, you
-can also refer to the two publications I published.
+can also refer to the two publications I did.
 
-See http://roby.rubyforge.org/publications for the PDF files.
+See http://roby.rubyforge.org/publications for the list of publication and the
+associated PDF files.
 
 == Videos
 

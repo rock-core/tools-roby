@@ -75,6 +75,9 @@ This window is separated in three:
 * the second part is the set of displays defined. More about that later.
 * the third part is the replay controls: play, fast forward, position, ...
 
+Note that you can either print the display, or export it as a SVG file for
+further editing. See the +View+ menu.
+
 Right now, we will be looking at the plan structure and execution trace. The
 +Relations+ display is designed for that. Let's add one by clicking on the
 +Add+ button just next to the display type combo. The configuration options
