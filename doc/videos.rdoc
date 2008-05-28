@@ -25,6 +25,13 @@ written in and managed by Roby.  Including part of the data transfer process.
 This bi-robot setup has also successfully been tested on real robots, with an
 iRobot ATRV and a Yamaha RMAX helicopter.
 
+In this video, the rover plans its path (the line on the ground) in a
+traversability map (red/green map: red is non-traversable, green is
+traversable). It also generates a set of regions of interest for him. Those
+regions are then considered by the UAV which decides how it will schedule its
+own perception. When the UAV does have perceived a zone, it informs the rover
+and sends it the relevant data. The rover can then update its own map.
+
 == Error handling
 === Rflex repaired
 
