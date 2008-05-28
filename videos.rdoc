@@ -1,5 +1,31 @@
-= Error handling
-== Rflex repaired
+= Videos
+
+== Normal operations
+
+Those videos don't show what Roby itself does, only results showing
+robots (real and in simulation) acting as they are controlled by a
+Roby application.
+
+=== Single robot navigation
+
+http://roby.rubyforge.org/videos/perception_loops.avi
+
+What we see in this video is the perception loop (whose visible part is the DEM
+building) being handled by Roby. The perception updates are triggered by Roby
+on the basis of state events: they are triggered by the translation of the
+robot and the change of heading, to reduce the number of times it is actually done.
+
+=== Bi-robot navigation
+
+http://roby.rubyforge.org/videos/birobot.avi
+
+What we see in this video is the cooperation between a rover and an UAV for a
+navigation task. The joint plan, including part of the data transfer process,
+are managed by Roby.  This bi-robot setup has also been tested on real robots,
+with an iRobot ATRV and a Yamaha RMAX helicopter.
+
+== Error handling
+=== Rflex repaired
 
 http://roby.rubyforge.org/videos/rflex_repaired.avi
 
@@ -12,7 +38,7 @@ which wait for a few seconds and tests the <tt>BRAKES_ON</tt> state of the
 robot. If the brakes are reported as off, then the robot can start moving again.
 Otherwise, the error was a rightful one and should be handled by other means.
 
-== P3d repaired
+=== P3d repaired
 
 http://roby.rubyforge.org/videos/p3d_repaired.avi.
 
