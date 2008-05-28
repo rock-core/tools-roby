@@ -772,15 +772,37 @@ module Roby
 	    for _, ev in bound_events
 		ev.terminal_flag = nil
 	    end
-	    success_events = bound_events[:success].
-		generated_subgraph(EventStructure::CausalLink.reverse)
-	    failure_events = bound_events[:failed].
-		generated_subgraph(EventStructure::CausalLink.reverse)
-	    terminal_events = bound_events[:stop].
-		generated_subgraph(EventStructure::CausalLink.reverse)
 
-	    if success_events.intersects?(failure_events)
-		raise ArgumentError, "#{success_events & failure_events} are both success and failure events"
+            success_events, failure_events, terminal_events =
+                [event(:success)].to_value_set, 
+                [event(:failed)].to_value_set,
+                [event(:stop), event(:success), event(:failed)].to_value_set
+
+	    loop do
+		old_size = terminal_events.size
+		for _, ev in bound_events
+                    for relation in [EventStructure::Signal, EventStructure::Forwarding]
+                        for target in ev.child_objects(relation)
+                            next if !target.respond_to?(:task) || target.task != self
+                            next if ev[target, relation]
+
+                            if success_events.include?(target)
+                                success_events << ev
+                                terminal_events << ev
+                                break
+                            elsif failure_events.include?(target)
+                                failure_events << ev
+                                terminal_events << ev
+                                break
+                            elsif terminal_events.include?(target)
+                                terminal_events << ev
+                            end
+                        end
+                    end
+
+                    success_events.include?(ev) || failure_events.include?(ev) || terminal_events.include?(ev)
+		end
+		break if old_size == terminal_events.size
 	    end
 
 	    for ev in success_events
