@@ -54,7 +54,7 @@ def build_extension(name, soname = name)
 	    raise "cannot set up #{name} extension"
 	end
     end
-    FileUtils.ln_sf "../../ext/#{name}/#{soname}.so", "lib/roby/#{soname}.so"
+    FileUtils.ln_sf "../ext/#{name}/#{soname}.so", "lib/#{soname}.so"
 end
 def clean_extension(name, soname = name)
     puts "Cleaning ext/#{name}"
@@ -91,8 +91,8 @@ end
 
 desc 'generate and build all the necessary files'
 task :setup => :uic do
-    build_extension 'droby'
-    build_extension 'graph', 'bgl'
+    build_extension 'droby', 'roby_marshalling'
+    build_extension 'graph', 'roby_bgl'
 end
 
 desc 'remove all generated files'
