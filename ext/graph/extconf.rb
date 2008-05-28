@@ -3,5 +3,5 @@ CONFIG['CC'] = "g++"
 dir_config 'boost'
 $LDFLAGS += "-module"
 
-create_makefile("bgl")
+create_makefile("roby_bgl")
 
