@@ -9,20 +9,32 @@ begin
         hoe = Hoe.new('roby', Roby::VERSION) do |p|
             p.developer 'Sylvain Joyeux', 'sylvain.joyeux@m4x.org'
 
-            p.summary = 'A robotic control framework'
-            p.description = p.paragraphs_of('README.txt', 3..13).join("\n\n")
-            p.url         = p.paragraphs_of('README.txt', 0).first.split(/\n/)[1..-1]
+            p.summary = 'A plan-based control framework for autonomous systems'
+            p.url         = p.paragraphs_of('README.txt', 1).join("\n\n")
+            p.description = p.paragraphs_of('README.txt', 2..18).join("\n\n")
             p.changes     = p.paragraphs_of('History.txt', 0..1).join("\n\n")
+            p.post_install_message = p.paragraphs_of('README.txt', 2).join("\n\n")
 
             p.extra_deps << ['facets', '>= 2.0'] << 'activesupport' << ['utilrb', '1.2']
             if p.respond_to? :need_rdoc=
                 p.need_rdoc = false
             end
-            p.rdoc_pattern = /^$/
         end
 	hoe.spec.extensions << 
 	    'ext/droby/extconf.rb' <<
 	    'ext/graph/extconf.rb'
+
+        hoe.spec.extra_rdoc_files =
+            hoe.spec.files.grep /(\.rdoc|\.cc|\.hh|\.rb|\.txt)$/
+
+        hoe.spec.description = hoe.summary
+            
+        hoe.spec.rdoc_options << 
+            '--main' << 'README.txt' <<
+            "--inline-source" << 
+            "--accessor" << "attribute" << 
+            "--accessor" << "attr_predicate"
+
 	if !hoe.respond_to? :need_rdoc=
 	    # This sucks, I know, but Hoe's handling of documentation is not
 	    # enough for me

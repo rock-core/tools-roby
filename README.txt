@@ -1,14 +1,16 @@
+= Roby: a plan manager for robot control in Ruby
+
   http://roby.rubyforge.org
   http://www.rubyforge.org/projects/roby
   http://github.com/doudou/roby (dev. repository)
-  
-  Copyright 2006-2007, LAAS/CNRS <openrobots@laas.fr>
-  Copyright 2006-2008, Sylvain Joyeux <sylvain.joyeux@m4x.org>
-  Copyright 2008 DFKI <robotik-bremen@dfki.de>
 
-This work is licensed under the CeCiLL-B license, which is a free software
-license with the same spirit than the BSD license. See License.txt for details,
-and License-fr.txt for the french version.
+<b>Note for Gem users</b> While using the normal RDoc generator, the
+documentation generation process of Roby is a bit modified. In particular, the
+plugin documentation is separated from the core documentation, and a clearer
+template is used instead of the standard one. RubyGems does not support any
+kind of customization in that area, so I would _strongly_ suggest that you use
+the documentation provided at http://roby.rubyforge.org instead of the
+RubyGem-generated one.
 
 = What is Roby ?
 
@@ -78,11 +80,24 @@ them:
    an overview of features that have not been presented in the first five
    tutorials.
 
-== Core plugins
+== License
+
+  Copyright 2006-2007, LAAS/CNRS <openrobots@laas.fr>
+  Copyright 2006-2008, Sylvain Joyeux <sylvain.joyeux@m4x.org>
+  Copyright 2008 DFKI <robotik-bremen@dfki.de>
+
+This work is licensed under the CeCiLL-B license, which is a free software
+license with the same spirit than the BSD license. See License.txt for details,
+and License-fr.txt for the french version.
+
+== Plugins
+
+=== Core plugins
 
 Two plugins are shipped with the Roby core:
-fault_injection[../plugins/fault_injection/index.html] and
-subsystems[../plugins/subsystems/index.html]. See their respective
+
+fault_injection[link:../plugins/fault_injection/index.html] and
+subsystems[link:../plugins/subsystems/index.html]. See their respective
 documentation for description and usage.
 
 Roby::Application#using(plugin_name) must be calledallows to enable the
@@ -90,6 +105,13 @@ plugins at initialization time. You can for instance put the following in
 <tt>config/init.rb</tt>
 
   Roby.app.using 'fault_injection'
+
+=== External plugins
+
+For now, only one plugins exists. This plugin allows to represent and control
+seamlessly a Genom[http://softs.laas.fr/openrobots] functional layer in a Roby
+plan. This plugin is not yet released, but if you're interested I can give you
+directions on how to get it and install it.
 
 = Installation
 
