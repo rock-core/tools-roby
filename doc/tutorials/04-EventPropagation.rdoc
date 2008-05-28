@@ -210,6 +210,20 @@ The remaining tasks, i.e. the tasks that are not useful, are killed (if needed)
 and removed from the plan. When it is done, the task is said to be finalized
 (hence the need to not hide this kind of task in the View menu).
 
+== Some insight in the internal event propagation process
+
+The whole propagation process tries to make life as easy as possible in cases
+where multiple events are propagated towards the same source. To make that happen, 
+event propagation is done in a bunch of gathering/propagation pairs:
+* the most suitable propagation step (forward and/or signal) is selected
+* This step is performed. The associated user code is called (i.e. event
+  command in case of a signal and event handler in case of a forward). Any call
+  to command and/or emission which is performed in this user code is delayed in
+  the set of pending propagation steps, to be considered for propagation in the
+  global propagation loop.
+
+See my PhD thesis for more details (links are available in README.txt).
+
 = Next tutorial
 
 Now that we have seen what happens in the nominal case, the {next
