@@ -44,8 +44,8 @@ Roby is the result of my PhD. As such, my PhD thesis can be considered as a
 design document for the system. If you want an overview of the principles, you
 can also refer to the two publications I did.
 
-See http://roby.rubyforge.org/publications for the list of publication and the
-associated PDF files.
+See {this page}[link:files/doc/papers_rdoc.html] for the list of publication
+and the associated PDF files.
 
 == Videos
 
