@@ -161,3 +161,6 @@ one[http://github.com/doudou/roby].
 Once the source is installed, run
   rake setup
 
+Define first the BOOST_DIR environment variable to Boost's installation path if
+that path is non-standard.
+
