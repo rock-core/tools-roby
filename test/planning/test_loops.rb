@@ -19,6 +19,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
 
     def setup
         super
+	Roby.app.filter_backtraces = false
 
 	task_model = @task_model = Class.new(SimpleTask)
         pattern_id = 0
