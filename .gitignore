@@ -2,7 +2,7 @@ Makefile
 ext/*/*.o
 ext/*/*.so
 ext/*/mkmf.log
-lib/roby/*.so
+lib/roby_*.so
 *_ui.rb
 
 doc/rdoc
