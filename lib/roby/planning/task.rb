@@ -47,7 +47,7 @@ module Roby
 	end
 
 	def planned_task
-	    if finished?
+	    if success? || result
 		result
 	    elsif task = planned_tasks.find { true }
 		task
@@ -105,9 +105,9 @@ module Roby
 	    # If the transaction is distributed, and is not proposed to all
 	    # owners, do it
 	    transaction.propose
-	    transaction.commit_transaction
-
-	    @result = result_task
+	    transaction.commit_transaction do
+		@result = result_task
+	    end
 	end
 
 	# Polls for the planning thread end

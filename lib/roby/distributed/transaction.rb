@@ -196,7 +196,7 @@ module Roby
 		    proxy_objects.each_key { |o| all_objects << o }
 		    Distributed.update(self) do
 			Distributed.update_all(all_objects) do
-			    super()
+			    super() { yield if block_given? }
 			end
 		    end
 		end
