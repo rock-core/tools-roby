@@ -115,7 +115,7 @@ module Roby
 	# it has finished. The return value is the value returned by the block
 	def execute
 	    if Roby.inside_control?
-		return yield
+		return Roby::Control.synchronize { yield }
 	    end
 
 	    cv = condition_variable
