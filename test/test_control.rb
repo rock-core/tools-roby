@@ -48,7 +48,7 @@ class TC_Control < Test::Unit::TestCase
 	Roby.control.run :cycle => 0.1, :detach => true
 
 	samples = []
-	id = Control.every(0.1) do
+	id = Roby.every(0.1) do
 	    samples << Roby.control.cycle_start
 	end
 	sleep(1)

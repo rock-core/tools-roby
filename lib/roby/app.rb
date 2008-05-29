@@ -493,7 +493,7 @@ module Roby
 		if discovery['ring']
 		    Roby::Distributed.publish discovery['ring']
 		end
-		Roby::Control.every(discovery['period'] || 0.5) do
+		Roby.every(discovery['period'] || 0.5) do
 		    Roby::Distributed.state.start_neighbour_discovery
 		end
 	    end
