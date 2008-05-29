@@ -200,17 +200,20 @@ module Roby
 	    if plan.gathering?
 		plan.add_event_propagation(false, plan.propagation_sources, self, (context unless context.empty?), nil)
 	    else
-		errors = plan.propagate_events do |initial_set|
-		    plan.add_event_propagation(false, nil, self, (context unless context.empty?), nil)
-		end
-		if errors.size == 1
-		    e = errors.first.exception
-		    raise e, e.message, e.backtrace
-		elsif !errors.empty?
-		    for e in errors
-			STDERR.puts e.exception.full_message
+		Roby.synchronize do
+		    errors = plan.propagate_events do |initial_set|
+			plan.add_event_propagation(false, nil, self, (context unless context.empty?), nil)
 		    end
-		    raise "multiple exceptions"
+		    if errors.size == 1
+			e = errors.first.exception
+			pp e
+			raise e, e.message, e.backtrace
+		    elsif !errors.empty?
+			for e in errors
+			    STDERR.puts e.exception.full_message
+			end
+			raise "multiple exceptions"
+		    end
 		end
 	    end
 	end
@@ -457,17 +460,19 @@ module Roby
 	    if plan.gathering?
 		plan.add_event_propagation(true, plan.propagation_sources, self, (context unless context.empty?), nil)
 	    else
-		errors = plan.propagate_events do |initial_set|
-		    plan.add_event_propagation(true, plan.propagation_sources, self, (context unless context.empty?), nil)
-		end
-		if errors.size == 1
-		    e = errors.first.exception
-		    raise e, e.message, e.backtrace
-		elsif !errors.empty?
-		    for e in errors
-			STDERR.puts e.full_message
+		Roby.synchronize do
+		    errors = plan.propagate_events do |initial_set|
+			plan.add_event_propagation(true, plan.propagation_sources, self, (context unless context.empty?), nil)
 		    end
-		    raise "multiple exceptions"
+		    if errors.size == 1
+			e = errors.first.exception
+			raise e, e.message, e.backtrace
+		    elsif !errors.empty?
+			for e in errors
+			    STDERR.puts e.full_message
+			end
+			raise "multiple exceptions"
+		    end
 		end
 	    end
 	end
