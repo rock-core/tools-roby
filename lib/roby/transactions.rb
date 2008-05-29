@@ -405,6 +405,8 @@ module Roby
 		committed_transaction
 		plan.remove_transaction(self)
 		@plan = nil
+
+		yield if block_given?
 	    end
 	end
 	def committed_transaction; super if defined? super end
