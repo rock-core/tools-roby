@@ -103,7 +103,7 @@ module Roby::Propagation
     def execute_delayed_events
 	reftime = Time.now
 	delayed_events.delete_if do |time, forward, source, signalled, context|
-	    if time < reftime
+	    if time <= reftime
 		add_event_propagation(forward, [source], signalled, context, nil)
 		true
 	    end

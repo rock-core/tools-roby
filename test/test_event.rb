@@ -888,15 +888,20 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_event_after
-	plan.discover(e = EventGenerator.new(true))
-        e.call
-        sleep(0.5)
-        plan.discover(delayed = e.last.after(1))
-        delayed.poll
-        assert(!delayed.happened?)
-        sleep(0.5)
-        delayed.poll
-        assert(delayed.happened?)
+	FlexMock.use(Time) do |time_proxy|
+	    current_time = Time.now + 5
+	    time_proxy.should_receive(:now).and_return { current_time }
+
+	    plan.discover(e = EventGenerator.new(true))
+	    e.call
+	    current_time += 0.5
+	    plan.discover(delayed = e.last.after(1))
+	    delayed.poll
+	    assert(!delayed.happened?)
+	    current_time += 0.5
+	    delayed.poll
+	    assert(delayed.happened?)
+	end
     end
 end
 

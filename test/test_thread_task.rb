@@ -7,6 +7,15 @@ require 'roby/test/tasks/empty_task'
 class TC_ThreadTask < Test::Unit::TestCase 
     include Roby::Test
 
+    # Starts +task+ and waits for the thread to end
+    def wait_thread_end(task)
+        task.start!
+        while task.thread
+            process_events
+            sleep 0.1
+        end
+    end
+
     def test_normal
         model = Class.new(Roby::ThreadTask) do
             implementation do
@@ -15,11 +24,7 @@ class TC_ThreadTask < Test::Unit::TestCase
         end
 
         plan.insert(task = model.new)
-        task.start!
-        while task.thread
-            process_events
-            sleep 0.1
-        end
+	wait_thread_end(task)
 
         assert task.success?
         assert_equal 1, task.result
@@ -27,19 +32,15 @@ class TC_ThreadTask < Test::Unit::TestCase
 
     def test_implementation_fails
         Thread.abort_on_exception = false
-        Roby.control.abort_on_exception = false
+        Roby.app.abort_on_exception = false
         model = Class.new(Roby::ThreadTask) do
             implementation do
                 raise ArgumentError, "blaaaaaaaaah"
             end
         end
 
-        plan.discover(task = model.new)
-        task.start!
-        while task.thread
-            process_events
-            sleep 0.1
-        end
+        plan.permanent(task = model.new)
+	wait_thread_end(task)
 
         assert task.failed?
         assert_kind_of ArgumentError, task.event(:failed).last.context.first
@@ -59,11 +60,7 @@ class TC_ThreadTask < Test::Unit::TestCase
         end
 
         plan.discover(task = model.new)
-        task.start!
-        while task.thread
-            process_events
-            sleep 0.1
-        end
+	wait_thread_end(task)
 
         assert task.failed?
         assert_kind_of Interrupt, task.event(:failed).last.context.first

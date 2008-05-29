@@ -90,15 +90,20 @@ class TC_Propagation < Test::Unit::TestCase
     end
 
     def test_delay
-	plan.insert(t = SimpleTask.new)
-	e = EventGenerator.new(true)
-	t.event(:start).on e, :delay => 0.1
-	Roby.once { t.start! }
-	process_events
-	assert(!e.happened?)
-	sleep(0.5)
-	process_events
-	assert(e.happened?)
+	FlexMock.use(Time) do |time_proxy|
+	    current_time = Time.now + 5
+	    time_proxy.should_receive(:now).and_return { current_time }
+
+	    plan.insert(t = SimpleTask.new)
+	    e = EventGenerator.new(true)
+	    t.event(:start).on e, :delay => 0.1
+	    Roby.once { t.start! }
+	    process_events
+	    assert(!e.happened?)
+	    current_time += 0.1
+	    process_events
+	    assert(e.happened?)
+	end
     end
 
     def test_duplicate_signals

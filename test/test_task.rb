@@ -846,7 +846,7 @@ class TC_Task < Test::Unit::TestCase
 		plan.permanent(t)
 		t.start!
 	    end
-	    sleep(1)
+	    Roby.wait_one_cycle
 	    Roby.execute do
 		assert(t.running?, t.terminal_event.to_s)
 		t.stop!
@@ -866,7 +866,7 @@ class TC_Task < Test::Unit::TestCase
 		plan.permanent(t)
 		t.start!
 	    end
-	    sleep(1)
+	    Roby.wait_one_cycle
 	    assert(t.failed?)
 	end
     end

@@ -327,30 +327,48 @@ class TC_State < Test::Unit::TestCase
     end
 
     def test_time_delta_event
-	plan.discover(t = State.on_delta(:t => 3600))
-	assert_kind_of(TimeDeltaEvent, t)
+	FlexMock.use(Time) do |time_proxy|
+	    current_time = Time.now + 5
+	    time_proxy.should_receive(:now).and_return { current_time }
 
-	t.poll
-	assert(!t.happened?)
-	sleep(0.5)
-	t.poll
-	assert(!t.happened?)
+	    plan.discover(t = State.on_delta(:t => 1))
+	    assert_kind_of(TimeDeltaEvent, t)
 
-	t.instance_variable_set(:@last_value, Time.now - 3600)
-	t.poll
-	assert(1, t.history.size)
+	    t.poll
+	    assert(!t.happened?)
+	    current_time += 0.5
+	    t.poll
+	    assert(!t.happened?)
+
+	    current_time += 0.5
+	    t.poll
+	    assert(1, t.history.size)
+
+	    current_time += 0.5
+	    t.poll
+	    assert(1, t.history.size)
+
+	    current_time += 0.5
+	    t.poll
+	    assert(2, t.history.size)
+	end
     end
 
     def test_timepoint_event
-        plan.discover(ev = State.at(:t => Time.now + 0.5))
-        ev.poll
-        assert(!ev.happened?)
-        sleep(0.5)
-        ev.poll
-        assert(ev.happened?)
-        sleep(0.5)
-        ev.poll
-        assert_equal(1, ev.history.size)
+	FlexMock.use(Time) do |time_proxy|
+	    current_time = Time.now + 5
+	    time_proxy.should_receive(:now).and_return { current_time }
+
+	    plan.discover(ev = State.at(:t => current_time + 1))
+	    ev.poll
+	    assert(!ev.happened?)
+	    current_time += 1
+	    ev.poll
+	    assert(ev.happened?)
+	    current_time += 1
+	    ev.poll
+	    assert_equal(1, ev.history.size)
+	end
     end
 
     def test_and_state_events

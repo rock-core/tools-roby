@@ -214,53 +214,58 @@ class TC_PlanningLoop < Test::Unit::TestCase
 
     # Test periodic loop tasks with zero lookahead
     def test_periodic_zero_lookahead
-        main_task, loop_planner = prepare_plan :period => 0.5, :lookahead => 0
-	loop_planner.start!
+	FlexMock.use(Time) do |time_proxy|
+	    current_time = Time.now + 5
+	    time_proxy.should_receive(:now).and_return { current_time }
 
-        # Zero lookahead: no children until we call #loop_start!
-	assert(main_task.children.empty?)
+	    main_task, loop_planner = prepare_plan :period => 0.5, :lookahead => 0
+	    loop_planner.start!
 
-        # Start a first pattern
-        loop_planner.loop_start!(:id => 1)
-        assert_equal(1, loop_planner.patterns.size)
-        first_planner = loop_planner.last_planning_task
-        first_task    = planning_task_result(first_planner)
-	assert_equal(1, first_task.arguments[:id])
+	    # Zero lookahead: no children until we call #loop_start!
+	    assert(main_task.children.empty?)
 
-        # Check the normal behaviour: a new pattern is to be added only when
-        # the first pattern has finished AND the period has occured.
-        assert(first_task.running?)
-        assert_equal(1, main_task.children.to_a.size)
-        first_task.success!
-        assert_equal(1, main_task.children.to_a.size)
-        sleep(0.6)
-        process_events
-        assert_equal(2, main_task.children.to_a.size)
-        assert(second_planner = loop_planner.last_planning_task)
-        assert(second_planner.running?)
-        second_task = planning_task_result(second_planner)
-        assert(second_task.running?)
-        assert_equal(1, main_task.children.to_a.size)
+	    # Start a first pattern
+	    loop_planner.loop_start!(:id => 1)
+	    assert_equal(1, loop_planner.patterns.size)
+	    first_planner = loop_planner.last_planning_task
+	    first_task    = planning_task_result(first_planner)
+	    assert_equal(1, first_task.arguments[:id])
 
-        # And queue one other. The second call to #loop_start! should be
-        # completely ignored because there is already one pending pattern.
-        loop_planner.loop_start!(:id => 3)
-        loop_planner.loop_start!(:id => 4)
-	assert_equal(2, main_task.children.to_a.size)
-        third_planner = loop_planner.last_planning_task
-        third_task  = planning_task_result(third_planner)
-        assert_equal(3, third_task.arguments[:id])
+	    # Check the normal behaviour: a new pattern is to be added only when
+	    # the first pattern has finished AND the period has occured.
+	    assert(first_task.running?)
+	    assert_equal(1, main_task.children.to_a.size)
+	    first_task.success!
+	    assert_equal(1, main_task.children.to_a.size)
+	    current_time += 0.6
+	    process_events
+	    assert_equal(2, main_task.children.to_a.size)
+	    assert(second_planner = loop_planner.last_planning_task)
+	    assert(second_planner.running?)
+	    second_task = planning_task_result(second_planner)
+	    assert(second_task.running?)
+	    assert_equal(1, main_task.children.to_a.size)
 
-        # Check the dynamic behaviour
-        # - the 3rd task should start as soon as the 2nd has: the call to
-        #   #loop_start! should have done that for us.
-	assert(second_task.running?)
-	assert(third_task.pending?)
-	second_task.success!
-	assert(second_task.success?)
-	assert(third_task.running?)
-	third_task.success!
-	assert(third_task.success?)
+	    # And queue one other. The second call to #loop_start! should be
+	    # completely ignored because there is already one pending pattern.
+	    loop_planner.loop_start!(:id => 3)
+	    loop_planner.loop_start!(:id => 4)
+	    assert_equal(2, main_task.children.to_a.size)
+	    third_planner = loop_planner.last_planning_task
+	    third_task  = planning_task_result(third_planner)
+	    assert_equal(3, third_task.arguments[:id])
+
+	    # Check the dynamic behaviour
+	    # - the 3rd task should start as soon as the 2nd has: the call to
+	    #   #loop_start! should have done that for us.
+	    assert(second_task.running?)
+	    assert(third_task.pending?)
+	    second_task.success!
+	    assert(second_task.success?)
+	    assert(third_task.running?)
+	    third_task.success!
+	    assert(third_task.success?)
+	end
     end
 
     def test_reinit_periodic
@@ -279,7 +284,6 @@ class TC_PlanningLoop < Test::Unit::TestCase
 
 	    loop_planner.reinit!
             process_events
-            sleep(0.1)
             process_events
             
             # reinit should keep the first pattern because it is running, but
