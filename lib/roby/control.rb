@@ -289,7 +289,9 @@ module Roby
 	    gc_enable_has_argument = begin
 					 GC.enable(true)
 					 true
-				     rescue; false
+				     rescue
+                                         Roby.warn "GC.enable does not accept an argument. GC will not be controlled by Roby"
+                                         false
 				     end
 	    stats = Hash.new
 	    if ObjectSpace.respond_to?(:live_objects)
