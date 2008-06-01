@@ -282,6 +282,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
 
 	    loop_planner.loop_start!
 	    assert(tasks[0].running?)
+            planning_task_result(loop_planner.patterns[0].first)
 
 	    loop_planner.reinit!
             process_events
