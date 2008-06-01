@@ -311,7 +311,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    mock.should_receive(:other_once_handler).once
 	    mock.should_receive(:other_event_processing).once
 	    Roby.once { mock.other_once_handler }
-	    plan.propagation_handlers << lambda { mock.other_event_processing }
+	    plan.add_propagation_handler { |plan| mock.other_event_processing }
 
 	    begin
 		process_events

@@ -21,6 +21,41 @@ class TC_Propagation < Test::Unit::TestCase
 	assert_equal({ e1 => [nil, [nil, [1], nil, nil, [4], nil]], e2 => [[nil, [2], nil, nil, [3], nil], nil], e3 => [[nil, [6], nil], [nil, [5], nil]] }, set)
     end
 
+    def test_propagation_handlers
+        test_obj = Object.new
+        def test_obj.mock_handler(plan)
+            @mockup.called(plan)
+        end
+
+        FlexMock.use do |mock|
+            test_obj.instance_variable_set :@mockup, mock
+            id = Roby::Propagation.add_propagation_handler test_obj.method(:mock_handler)
+
+            mock.should_receive(:called).with(plan).twice
+            process_events
+            process_events
+            Roby::Propagation.remove_propagation_handler id
+            process_events
+        end
+
+        FlexMock.use do |mock|
+            test_obj.instance_variable_set :@mockup, mock
+            id = Roby::Propagation.add_propagation_handler { |plan| mock.called(plan) }
+
+            mock.should_receive(:called).with(plan).twice
+            process_events
+            process_events
+            Roby::Propagation.remove_propagation_handler id
+            process_events
+        end
+
+        assert_raises(ArgumentError) do
+            Roby::Propagation.add_propagation_handler { |plan, failure| mock.called(plan) }
+        end
+
+        assert_nothing_raised { process_events }
+    end
+
     def test_prepare_propagation
 	g1, g2 = EventGenerator.new(true), EventGenerator.new(true)
 	ev = Event.new(g2, 0, nil)
