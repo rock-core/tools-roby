@@ -222,20 +222,19 @@ module Roby
         # and aliases.
         alias :has_method? :respond_to?
 
-        def respond_to?(name) # :nodoc:
-            return true  if super
-
+        def respond_to?(name, include_private = false) # :nodoc:
+            return true if super
             name = name.to_s
-	    return false if name =~ FORBIDDEN_NAMES_RX
+            return false if name =~ FORBIDDEN_NAMES_RX
 
             if name =~ /=$/
-		!@stable
+                !@stable
             else
                 if @members.has_key?(name)
-		    true
-		else
-		    (alias_to = @aliases[name]) && respond_to?(alias_to)
-		end
+                    true
+                else
+                    (alias_to = @aliases[name]) && respond_to?(alias_to)
+                end
             end
         end
 
