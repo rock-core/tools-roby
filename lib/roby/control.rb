@@ -273,7 +273,7 @@ module Roby
 
 	attr_reader :remaining_cycle_time
 	def add_expected_duration(stats, name, duration)
-	    stats[name] = Time.now + duration - cycle_start
+	    stats[:"expected_#{name}"] = Time.now + duration - cycle_start
 	end
 
         def add_timepoint(stats, name)
