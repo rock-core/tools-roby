@@ -509,7 +509,7 @@ class TC_Exceptions < Test::Unit::TestCase
     def test_filter_command_errors
         Roby.app.filter_backtraces = true
         model = Class.new(SimpleTask) do
-            event :start do
+            event :start do |ev|
                 raise ArgumentError
             end
         end
@@ -531,7 +531,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
     def test_filter_handler_errors
         task = prepare_plan :permanent => 1, :model => SimpleTask
-        task.on(:start) { raise ArgumentError }
+        task.on(:start) { |ev| raise ArgumentError }
         error = begin task.start!
                 rescue Exception => e; e
                 end
@@ -546,7 +546,7 @@ class TC_Exceptions < Test::Unit::TestCase
         #assert(filtered[1] =~ /test_filter_handler_errors/, filtered.join("\n"))
 
         model = Class.new(SimpleTask) do
-            on :start do
+            on :start do |ev|
                 raise ArgumentError
             end
         end

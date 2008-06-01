@@ -192,7 +192,7 @@ class TC_Relations < Test::Unit::TestCase
     end
 
     def test_relations
-	klass = Class.new { include DirectedRelationSupport }
+	klass = Class.new { include Roby::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
         r1 = space.relation :R1
         assert_equal [r1], space.relations
