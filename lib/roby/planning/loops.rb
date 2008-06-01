@@ -189,10 +189,6 @@ module Roby
         # as lookahead requires. Kills the currently running pattern (if there
         # is one).
 	event :reinit do |context|
-            unless running?
-                raise ArgumentError, "#reinit called, but the loop is not running"
-            end
-
             did_reinit = []
 
             # Remove all realized_by relations and all pending patterns from
