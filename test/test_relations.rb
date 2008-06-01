@@ -21,12 +21,6 @@ class TC_Relations < Test::Unit::TestCase
         r1 = TestRelationSpace.relation :R1
         r2 = TestRelationSpace.relation :R2s, :child_name => :child, :parent_name => :parent
 
-        assert_equal(r1, r1.support.class_variable_get("@@__r_R1__"))
-	space = Roby::RelationSpace(klass)
-        r1 = space.relation :R1
-        r2 = space.relation :R2s, :child_name => :child, :parent_name => :parent
-	assert(Module === space)
-
 	n = TestRelationVertex.new
 	assert_equal(r2, TestRelationSpace.const_get('R2s'))
 	assert( n.respond_to?(:each_child) )
