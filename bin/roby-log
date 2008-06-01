@@ -87,7 +87,12 @@ when "stats"
     io = Roby::Log.open(filename)
 
     cycle_count = io.index_data.size
-    puts "#{cycle_count} cycles between #{io.range.first.to_hms} and #{io.range.last.to_hms}"
+    timespan    = io.range
+    puts "#{cycle_count} cycles between #{timespan.first.to_hms} and #{timespan.last.to_hms}"
+    cpu_time = io.index_data.last[:cpu_time] / 1000
+    real_time = timespan.last - timespan.first
+    ratio = cpu_time / real_time
+    puts "Time: %.2fs CPU / %.2fs real (%i%% CPU use)" % [cpu_time, real_time, ratio * 100]
 
     if io.index_data.first.has_key?(:event_count)
 	min, max = nil
