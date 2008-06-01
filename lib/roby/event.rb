@@ -206,7 +206,6 @@ module Roby
 		    end
 		    if errors.size == 1
 			e = errors.first.exception
-			pp e
 			raise e, e.message, e.backtrace
 		    elsif !errors.empty?
 			for e in errors
