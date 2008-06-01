@@ -79,6 +79,26 @@ VALUE graph_each_vertex(VALUE self)
     return self;
 }
 
+/* call-seq:
+ *    graph.size => vertex_count
+ *
+ * Returns the number of vertices in +graph+
+ */
+static
+VALUE graph_size(VALUE self)
+{
+    RubyGraph& graph = graph_wrapped(self);
+
+    vertex_iterator begin, end;
+    tie(begin, end) = vertices(graph);
+
+    size_t count = 0;
+    for (vertex_iterator it = begin; it != end; ++it)
+	++count;
+    return UINT2NUM(count);
+}
+
+
 /*
  * call-seq:
  *  graph.insert(vertex)		    => graph
@@ -500,6 +520,7 @@ extern "C" void Init_roby_bgl()
     rb_define_alloc_func(bglGraph, graph_alloc);
 
     // Functions to manipulate BGL::Vertex objects in Graphs
+    rb_define_method(bglGraph, "size",    RUBY_METHOD_FUNC(graph_size), 0);
     rb_define_method(bglGraph, "insert",    RUBY_METHOD_FUNC(graph_insert), 1);
     rb_define_method(bglGraph, "remove",    RUBY_METHOD_FUNC(graph_remove), 1);
     rb_define_method(bglGraph, "include?",  RUBY_METHOD_FUNC(graph_include_p), 1);
