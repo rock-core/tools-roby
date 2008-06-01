@@ -629,7 +629,7 @@ module Roby
 	    end
 
 	    def setup_poll_method(block) # :nodoc:
-		define_method(:poll) do
+		define_method(:poll) do |plan|
 		    return unless self_owned?
 		    begin
 			poll_handler
@@ -1536,8 +1536,8 @@ module Roby
 	    singleton_class.class_eval do
 		setup_poll_method(block)
 	    end
-            on(:start) { |ev| ev.task.plan.propagation_handlers << method(:poll) }
-            on(:stop)  { |ev| ev.task.plan.propagation_handlers.delete(method(:poll)) }
+            on(:start) { |ev| @poll_handler_id = plan.add_propagation_handler(method(:poll)) }
+            on(:stop)  { |ev| plan.remove_propagation_handler(@poll_handler_id) }
 	end
     end
 

@@ -30,7 +30,7 @@ class TC_Control < Test::Unit::TestCase
         start_node.on(:stop) { |ev| next_event = [if_node, :start] }
 	if_node.on(:stop) { |ev|  }
             
-        plan.propagation_handlers << lambda do 
+        plan.propagation_handlers << lambda do |plan|
             next unless next_event
             task, event = *next_event
             next_event = nil
