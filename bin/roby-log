@@ -75,7 +75,13 @@ when "stats"
     filename = if ARGV[0] == "--csv"
 		   do_csv = true
 		   ARGV[1]
-	       else
+               elsif ARGV[0] == "--help"
+                   puts "roby-log stats [--csv]"
+                   puts "  displays statistics about the execution timings"
+                   puts "  if the --csv option is given, a table with all"
+                   puts "  the timings is output on stdout instead"
+                   exit(0)
+               else
 		   ARGV[0]
 	       end
     io = Roby::Log.open(filename)
