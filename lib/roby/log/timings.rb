@@ -7,7 +7,7 @@ module Roby
 		:exceptions_fatal, :garbage_collect, :application_errors, 
 		:expected_ruby_gc, :ruby_gc, :droby, :expected_sleep, :sleep, :end ]
 	
-	    NUMERIC_FIELDS = [:cycle_index, :live_objects, :object_allocation, :log_queue_size, :ruby_gc_duration, 
+	    NUMERIC_FIELDS = [:cycle_index, :live_objects, :object_allocation, :log_queue_size,
 		:plan_task_count, :plan_event_count]
 	    DELTAS = [:cpu_time]
 	    ALL_NUMERIC_FIELDS = NUMERIC_FIELDS + DELTAS
