@@ -8,7 +8,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
     SimpleTask = Roby::Test::SimpleTask
 
     def test_event_status
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    class << remote
 		attr_reader :controlable
 		attr_reader :contingent
@@ -38,10 +38,10 @@ class TC_DistributedExecution < Test::Unit::TestCase
 
 	FlexMock.use do |mock|
 	    controlable.on do
-		mock.fired_controlable(Roby::Propagation.gathering?)
+		mock.fired_controlable(Roby.plan.gathering?)
 	    end
 	    contingent.on do
-		mock.fired_contingent(Roby::Propagation.gathering?)
+		mock.fired_contingent(Roby.plan.gathering?)
 	    end
 
 	    mock.should_receive(:fired_controlable).with(true).once
@@ -55,7 +55,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
     end
 
     def test_signal_establishment
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    Roby::Distributed.on_transaction do |trsc|
 		trsc.edit do
 		    local_task = trsc.find_tasks.which_fullfills(Roby::Test::SimpleTask).to_a.first
@@ -91,7 +91,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 
     # This test that the event/plan modification order is kept on a remote host
     def test_keeps_causality
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    class << remote
 		attr_reader :event
 		attr_reader :task
@@ -135,8 +135,8 @@ class TC_DistributedExecution < Test::Unit::TestCase
     end
 
     def test_task_status
-	Roby.control.abort_on_exception = false
-	peer2peer(true) do |remote|
+	Roby.app.abort_on_exception = false
+	peer2peer do |remote|
 	    class << remote
 		include Test::Unit::Assertions
 		attr_reader :task
@@ -144,10 +144,10 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		    plan.clear
 		    plan.insert(@task = SimpleTask.new(:id => 1))
 		end
-		def start_task; Roby::Control.once { task.start! }; nil end
+		def start_task; Roby.once { task.start! }; nil end
 		def stop_task
 		    assert(task.executable?)
-		    Roby::Control.once do
+		    Roby.once do
 			plan.discard(task)
 			task.stop!
 		    end
@@ -180,7 +180,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
     end
 
     def test_signalling
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    remote.plan.insert(task = SimpleTask.new(:id => 1))
 	    remote.class.class_eval do
 		include Test::Unit::Assertions
@@ -191,7 +191,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		    assert(fev = events.find { |ev| !ev.controlable? })
 		    assert(task.event(:start).child_object?(sev, Roby::EventStructure::Signal))
 		    assert(task.event(:start).child_object?(fev, Roby::EventStructure::Forwarding))
-		    Control.once { task.start! }
+		    Roby.once { task.start! }
 		    nil
 		end
 	    end
@@ -226,11 +226,11 @@ class TC_DistributedExecution < Test::Unit::TestCase
     end
 
     def test_event_handlers
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    remote.plan.insert(task = SimpleTask.new(:id => 1))
 	    def remote.start(task)
 		task = local_peer.local_object(task)
-		Roby::Control.once { task.start! }
+		Roby.once { task.start! }
 		nil
 	    end
 	end
@@ -249,7 +249,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
     # Test that we can 'forget' running tasks that was known to us because they
     # were related to subscribed tasks
     def test_forgetting
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    parent, child =
 		SimpleTask.new(:id => 'parent'), 
 		SimpleTask.new(:id => 'child')
@@ -277,7 +277,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
     # Tests that running remote tasks are aborted and pending tasks GCed if the
     # connection is killed
     def test_disconnect_kills_tasks
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    remote.plan.insert(task = SimpleTask.new(:id => 'remote-1'))
 	    def remote.start(task)
 		task = local_peer.local_object(task)
@@ -321,7 +321,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
     end
 
     def test_code_blocks_owners
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    remote.plan.insert(CodeBlocksOwnersMockup.new(:id => 'mockup'))
 
 	    def remote.call
@@ -348,9 +348,9 @@ class TC_DistributedExecution < Test::Unit::TestCase
     # Checks that we get the update fine if +fired+ and +signalled+ are
     # received in the same cycle
     def test_joint_fired_signalled
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    remote.plan.insert(task = SimpleTask.new(:id => 'remote-1'))
-	    Roby::Control.once { task.start! }
+	    Roby.once { task.start! }
 	end
 	    
 	event_time = Time.now

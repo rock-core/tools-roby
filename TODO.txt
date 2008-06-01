@@ -1,21 +1,27 @@
 = TODO
 
 == Refactoring
+=== Small stuff
 * remote_id => network_id
 * incremental_dump? => dump_reference?
-* fix Roby::Control and Roby.control. Everything should be accessible from the
-  same object. In a more general way, clean up the mess in globally used
-  methods of Roby
-* don't allow to change any event or task relations if the task is not incldued
-  in a plan. This would finally fix problems related to logging and other stuff
-  like the possibility of having tasks hanging around because they have never
-  been removed from any plan.
+
+=== Big stuff
+* fix the Roby singleton methods/Roby::Control/Roby::Propagation mess. Maybe move
+  all the execution-related stuff in a subclass of Plan, MainPlan. That would allow
+  per-MainPlan execution management and in the end having multiple executable
+  plan in the same plan manager (I'm thinking bi-simulation)
+* have separate relation graphs in each Plan object. That would be possible
+  if we don't allow anymore to change any event or task relations if the task
+  is not included in a plan, which would greatly simply logging-related stuff
+  (for instance, rebuilding a representation of plans from logged data).
+  Moreover, we would not have tasks hanging around anymore because they have
+  never been removed from any plan.
+* in dRoby, separate the implementation of the RX/TX and
+  connection/disconnection protocol, including the management of the TX queue
+  (callbacks, synchronous/asynchronous).
 * have a thread-safe handling of transactions. This requires a few things:
-  - separate relation graphs: have one relation graph per plan object. The
-    global constants would then be only numeric IDS (or symbols, whatever), and
-    the various methods would get the relation graph from the object's plan.
-    Note that it requires that all objects are always included in a plan (check
-    the previous todo point)
+  - separate relation graphs: have one relation graph per plan object: see previous
+    point.
   - stop using method forwarding, which is not the good way to do that.
     Instead, do as for distributed: update the task status in the transaction
     thread. Need to define a notion of "transaction thread" and how messages
@@ -126,6 +132,11 @@
   I don't think we should really fix the race condition per se. We should in
   general check if the object has not been removed when A processes updates
   from B and have some ways to feedback B from A.
+
+* Better handling of errors during transactions, better management of new
+  peers, ... DecisionControl should really be the central component handling
+  all that. Moreover, defining management policies for distributed transactions
+  should also be defined.
 
 == UI
 * log snapshot: build a set of logging messages which represent the current

@@ -1,8 +1,3 @@
-require 'roby/plan'
-require 'utilrb/value_set'
-require 'utilrb/kernel/swap'
-require 'roby/transactions/proxy'
-
 module Roby
     # Exception raised when someone tries do commit an invalid transaction
     class InvalidTransaction < RuntimeError; end
@@ -38,7 +33,7 @@ module Roby
 	# This method copies on +proxy+ all relations of +object+ for which
 	# both ends of the relation are already in the transaction.
 	def copy_object_relations(object, proxy)
-	    Roby::Control.synchronize do
+	    Roby.synchronize do
 		# Create edges between the neighbours that are really in the transaction
 		object.each_relation do |rel|
 		    object.each_parent_object(rel) do |parent|
@@ -115,7 +110,7 @@ module Roby
 	def restore_relation(proxy, relation)
 	    object = proxy.__getobj__
 
-	    Control.synchronize do
+	    Roby.synchronize do
 		proxy_children = proxy.child_objects(relation)
 		object.child_objects(relation).each do |object_child| 
 		    next unless proxy_child = wrap(object_child, false)
@@ -218,7 +213,7 @@ module Roby
 	    @discarded_tasks    = ValueSet.new
 	    @auto_tasks	        = ValueSet.new
 
-	    Roby::Control.synchronize do
+	    Roby.synchronize do
 		plan.transactions << self
 		plan.added_transaction(self)
 	    end
@@ -351,8 +346,8 @@ module Roby
 		    if missions.include?(t) && t.self_owned?
 			missions.delete(t)
 			insert << unwrapped
-		    elsif keepalive.include?(t) && t.self_owned?
-			keepalive.delete(t)
+		    elsif permanent_tasks.include?(t) && t.self_owned?
+			permanent_tasks.delete(t)
 			permanent << unwrapped
 		    end
 
@@ -367,6 +362,10 @@ module Roby
 				    free_events.delete(ev)
 				    ev
 				end
+                    if permanent_events.include?(ev) && ev.self_owned?
+                        permanent_events.delete(ev)
+                        permanent << unwrapped
+                    end
 
 		    discover_events << unwrapped
 		end
@@ -404,6 +403,8 @@ module Roby
 		committed_transaction
 		plan.remove_transaction(self)
 		@plan = nil
+
+		yield if block_given?
 	    end
 	end
 	def committed_transaction; super if defined? super end
@@ -456,6 +457,4 @@ module Roby
 	end
     end
 end
-
-require 'roby/transactions/updates'
 

@@ -2,7 +2,7 @@ module Roby
     class BasicObject
 	include DRbUndumped
 
-	def initialize_copy(old)
+	def initialize_copy(old) # :nodoc:
 	    super
 
 	    @remote_siblings = Hash[Distributed, Roby::Distributed::RemoteID.from_object(self)]
@@ -59,7 +59,7 @@ module Roby
 	    peer.transmit(:added_sibling, remote_object, remote_id)
 	end
 
-	# Called to tell us that we should not be involved with +peer+ anymore
+        # Called when all links to +peer+ should be removed.
 	def forget_peer(peer)
 	    if remote_object = remove_sibling_for(peer)
 		peer.removing_proxies[remote_object] << droby_dump(nil)
@@ -113,6 +113,11 @@ module Roby
 
 	# True if we explicitely want this object to be updated by our peers
 	def subscribed?; owners.any? { |peer| peer.subscribed?(self) if peer != Distributed } end
+
+        # Subscribe to this object on all the peers which own it.
+        #
+        # This is a blocking operation, and cannot be used in the control
+        # thread.
 	def subscribe
 	    if !self_owned? && !subscribed?
 		owners.each do |peer|
@@ -134,7 +139,7 @@ module Roby
 	    peers
 	end
 
-	# If this object is useful for our peers
+	# True if this object is useful for our peers
 	def remotely_useful?; self_owned? && remote_siblings.size > 1  end
 	
 	# True if this object can be modified in the current context

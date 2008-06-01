@@ -187,6 +187,38 @@ module TC_TransactionBehaviour
 	end
 	assert(plan.permanent?(t3))
     end
+    
+    # Tests insertion and removal of free events
+    def test_commit_plan_events
+        e1, e2 = (1..2).map { Roby::EventGenerator.new }
+        plan.permanent(e1)
+        plan.discover(e2)
+
+	transaction_commit(plan, e1, e2) do |trsc, p1, p2|
+	    assert(trsc.include?(p1))
+	    assert(trsc.permanent?(p1))
+	    assert(trsc.include?(p2))
+	    assert(!trsc.permanent?(p2))
+
+            trsc.auto(p1)
+	    assert(!trsc.permanent?(p1))
+	end
+        assert(!plan.permanent?(e1))
+
+        e3, e4 = (1..2).map { Roby::EventGenerator.new }
+	transaction_commit(plan) do |trsc|
+            trsc.permanent(e3)
+            trsc.discover(e4)
+	    assert(trsc.permanent?(e3))
+	    assert(trsc.include?(e4))
+	    assert(!trsc.permanent?(e4))
+	end
+        assert(plan.include?(e3))
+        assert(plan.permanent?(e3))
+        assert(plan.include?(e4))
+        assert(!plan.permanent?(e4))
+    end
+
 
     def test_commit_task_relations
 	(t1, t2), (t3, t4) = prepare_plan(:missions => 2, :tasks => 2)
@@ -223,7 +255,7 @@ module TC_TransactionBehaviour
 	assert(!Hierarchy.linked?(t1, t2))
 
 	transaction_commit(plan, t3, t4) do |trsc, p3, p4|
-	    trsc.remove_task(p3)
+	    trsc.remove_object(p3)
 	    assert(!trsc.include?(p3))
 	    assert(!PlannedBy.linked?(p3, p4))
 	    assert(PlannedBy.linked?(t3, t4))
@@ -557,8 +589,8 @@ class TC_RecursiveTransaction < Test::Unit::TestCase
     alias :real_plan :plan
     attr_reader :plan
     def setup
-	@plan = Roby::Transaction.new(real_plan)
 	super
+	@plan = Roby::Transaction.new(real_plan)
     end
     def teardown
 	plan.discard_transaction

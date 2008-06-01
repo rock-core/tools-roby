@@ -47,14 +47,16 @@ module Roby
 	end
 
 	def planned_task
-	    task = planned_tasks.find { true }
-	    if !task && pending?
+	    if success? || result
+		result
+	    elsif task = planned_tasks.find { true }
+		task
+	    elsif pending?
 		task = planned_model.new
 		task.planned_by self
 		task.executable = false
+		task
 	    end
-
-	    task
 	end
 
 	# The thread that is running the planner
@@ -103,9 +105,9 @@ module Roby
 	    # If the transaction is distributed, and is not proposed to all
 	    # owners, do it
 	    transaction.propose
-	    transaction.commit_transaction
-
-	    @result = result_task
+	    transaction.commit_transaction do
+		@result = result_task
+	    end
 	end
 
 	# Polls for the planning thread end

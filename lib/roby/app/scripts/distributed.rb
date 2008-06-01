@@ -1,5 +1,4 @@
-require 'roby/distributed/connection_space'
-require 'roby/distributed/protocol'
+require 'roby/distributed'
 
 config = Roby.app
 config.setup

@@ -117,7 +117,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
     def test_enumerables
 	test_case = self
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    PeerServer.class_eval do
 		define_method(:array)     { test_case.dumpable_array }
 		define_method(:value_set) { test_case.dumpable_array.to_value_set }
@@ -148,7 +148,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     end
 
     def test_marshal_peer
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    def remote.remote_peer_id; Distributed.state.remote_id end
 	end
 
@@ -159,7 +159,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     end
 
     def test_marshal_model
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    PeerServer.class_eval do
 		def model; SimpleTask end
 		def anonymous_model; @anonymous ||= Class.new(model) end
@@ -178,7 +178,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     end
 
     def test_marshal_task
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    PeerServer.class_eval do
 		def task
 		    plan.insert(@task = Class.new(SimpleTask).new(:id => 1))
@@ -230,7 +230,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_kind_of(Exception::DRoby, formatted)
 	assert_nothing_raised { Marshal.dump(formatted) }
 
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    def remote.exception
 		model = Class.new(Exception)
 		e = model.exception("test")
@@ -264,7 +264,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     # See #test_local_task_back_forth_through_drb_race_condition
     # This test checks the case where we received the added_sibling message
     def test_local_task_back_forth_through_drb
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    PeerServer.class_eval do
 		def proxy(object)
 		    Marshal.dump(object)
@@ -291,7 +291,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     # #local_object while the local host does not know yet that the remote host
     # has a sibling for the object
     def test_local_task_back_forth_through_drb_race_condition
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    def remote.proxy(object)
 		Marshal.dump(object)
 		plan.permanent(task = local_peer.local_object(object))
@@ -319,7 +319,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     # - A receives a message involving T which has been emitted while B was not knowing about the
     #   deletion (it has not yet received the removed_sibling message)
     def test_finalized_remote_task_race_condition
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    remote.plan.insert(task = SimpleTask.new(:id => 'remote'))
 	    
 	    remote.singleton_class.class_eval do
@@ -347,7 +347,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     end
 
     def test_marshal_task_arguments
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    PeerServer.class_eval do
 		def task
 		    plan.insert(@task = model.new(:id => 1, :model => model))
@@ -370,7 +370,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     end
 
     def test_marshal_task_event
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    PeerServer.class_eval do
 		attr_reader :task
 		def task_event
@@ -390,7 +390,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
     CommonTaskModelTag = TaskModelTag.new
     def test_marshal_task_model_tag
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    PeerServer.class_eval do
 		def tag; CommonTaskModelTag end
 		def anonymous_tag
@@ -428,7 +428,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     end
 
     def test_marshal_event
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    remote.plan.insert(t = Task.new)
 	    t.on(:start, (ev = EventGenerator.new(true)))
 	    t.event(:start).forward(ev = EventGenerator.new(false))
@@ -454,7 +454,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     end
 
     def test_siblings
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    plan.insert(Roby::Task.new(:id => 'remote'))
 	end
 

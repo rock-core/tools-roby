@@ -1,6 +1,6 @@
 module Roby
-    module Executives
-	class Simple
+    module Schedulers
+	class Basic
 	    attr_reader :query
 	    def initialize
 		@query = Roby.plan.find_tasks.

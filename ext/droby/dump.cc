@@ -12,17 +12,22 @@ static ID id_droby_dump;
 static ID id_remote_id;
 static ID id_append;
 
+/* 
+ * Document-class: Roby::Distributed
+ */
+
 /* call-seq:
- *   format(object, partial_dumps = nil) => formatted_object
+ *   format(object, peer) => formatted_object
  *
- * Formats +object+ so that it is ready to be dumped by Marshal.dump in the
- * dRoby protocol. This means that if the object has a droby_dump method, it 
- * is called to get a marshallable object which represents +object+. If
- * +partial_dumps+ is non-nil, it is supposed to be a collection of objects for
- * which we should only send a DRbObject instead of calling #droby_dump.
+ * Formats +object+ so that it is ready to be dumped by Marshal.dump for
+ * sending to +peer+. This means that if the object has a droby_dump method, it
+ * is called to get a marshallable object which represents +object+. Moreover,
+ * if +peer+ responds to #incremental_dump?(object), this is called to
+ * determine wether a full dump is required or if sending a
+ * Roby::Distributed::RemoteID for remote reference is enough.
  *
  * If the object is not a DRbObject and does not define a #droby_dump method,
- * it is proxied through a DRbObject if it has been allowed by
+ * it is proxied through a DRbObject if it present in
  * Distributed.allow_remote_access. Otherwise, we will try to dump it as-is.
  */
 static VALUE droby_format(int argc, VALUE* argv, VALUE self)
@@ -64,12 +69,11 @@ static VALUE array_dump_element(VALUE element, DROBY_DUMP_ITERATION_ARG* arg)
     return Qnil; 
 }
 
-/* call-seq:
- *   droby_dump(dest) => dumped_array
- *
- * Creates a copy of this Array with all its values formatted for marshalling
- * using Distributed.format.
- */
+// call-seq:
+//   droby_dump(dest) => dumped_array
+// 
+// Creates a copy of this Array with all its values formatted for marshalling
+// using Distributed.format.
 static VALUE array_droby_dump(VALUE self, VALUE dest)
 {
     VALUE result = rb_ary_new();
@@ -96,12 +100,11 @@ static int hash_dump_element(VALUE key, VALUE value, DROBY_DUMP_ITERATION_ARG* a
     return ST_CONTINUE;
 }
 
-/* call-seq:
- *   droby_dump => dumped_hash
- *
- * Creates a copy of this Hash with all its values formatted for marshalling
- * using Distributed.format. The keys are not modified.
- */
+// call-seq:
+//   droby_dump => dumped_hash
+// 
+// Creates a copy of this Hash with all its values formatted for marshalling
+// using Distributed.format. The keys are not modified.
 static VALUE hash_droby_dump(VALUE self, VALUE dest)
 {
     DROBY_DUMP_ITERATION_ARG arg = { rb_hash_new(), dest };
@@ -116,12 +119,8 @@ static VALUE appendable_dump_element(VALUE value, DROBY_DUMP_ITERATION_ARG* arg)
     return Qnil;
 }
 
-/* call-seq:
- *   droby_dump => dumped_set
- *
- * Creates a copy of this Set with all its values formatted for marshalling
- * using Distributed.format
- */
+// Creates a copy of this Set with all its values formatted for marshalling
+// using Distributed.format
 static VALUE set_droby_dump(VALUE self, VALUE dest)
 {
     DROBY_DUMP_ITERATION_ARG arg = { rb_class_new_instance(0, 0, cSet), dest };
@@ -129,12 +128,8 @@ static VALUE set_droby_dump(VALUE self, VALUE dest)
     return arg.result;
 }
 
-/* call-seq:
- *   droby_dump => dumped_set
- *
- * Creates a copy of this ValueSet with all its values formatted for
- * marshalling using Distributed.format
- */
+// Creates a copy of this ValueSet with all its values formatted for
+// marshalling using Distributed.format
 static VALUE value_set_droby_dump(VALUE self, VALUE dest)
 {
     VALUE result = rb_class_new_instance(0, 0, cValueSet);
@@ -154,23 +149,27 @@ static VALUE value_set_droby_dump(VALUE self, VALUE dest)
     return result;
 }
 
-extern "C" void Init_droby()
+extern "C" void Init_roby_marshalling()
 {
     id_droby_dump = rb_intern("droby_dump");
     id_remote_id = rb_intern("remote_id");
     id_append = rb_intern("<<");
     
-    mRoby            = rb_define_module("Roby");
-    mRobyDistributed = rb_define_module_under(mRoby, "Distributed");
     cDRbObject = rb_const_get(rb_cObject, rb_intern("DRbObject"));
     cValueSet  = rb_const_get(rb_cObject, rb_intern("ValueSet"));
     cSet       = rb_const_get(rb_cObject, rb_intern("Set"));
 
-    rb_define_singleton_method(mRobyDistributed, "format", RUBY_METHOD_FUNC(droby_format), -1);
+    /* */
+    mRoby            = rb_define_module("Roby");
+    /* */
+    mRobyDistributed = rb_define_module_under(mRoby, "Distributed");
 
     rb_define_method(rb_cArray , "droby_dump" , RUBY_METHOD_FUNC(array_droby_dump)     , 1);
     rb_define_method(rb_cHash  , "droby_dump" , RUBY_METHOD_FUNC(hash_droby_dump)      , 1);
     rb_define_method(cSet      , "droby_dump" , RUBY_METHOD_FUNC(set_droby_dump)       , 1);
     rb_define_method(cValueSet , "droby_dump" , RUBY_METHOD_FUNC(value_set_droby_dump) , 1);
+
+    rb_define_singleton_method(mRobyDistributed, "format", RUBY_METHOD_FUNC(droby_format), -1);
+
 }
 

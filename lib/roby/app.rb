@@ -1,37 +1,52 @@
-require 'roby'
-require 'roby/distributed'
-require 'roby/planning'
-require 'roby/log'
-require 'roby/log/event_stream'
-
-require 'roby/robot'
-require 'yaml'
-
 module Roby
-    # Returns the only one Application object
-    def self.app; Application.instance end
-
     # = Roby Applications
     #
-    # == Directory Layout
-    # config/
-    # tasks/
-    # planners/
-    # data/
+    # There is one and only one Application object, which holds mainly the
+    # system-wide configuration and takes care of file loading and system-wide
+    # setup (#setup). A Roby application can be started in multiple modes. The
+    # first and most important mode is the runtime mode
+    # (<tt>scripts/run</tt>). Other modes are the testing mode (#testing?
+    # returns true, entered through <tt>scripts/test</tt>) and the shell mode
+    # (#shell? returns true, entered through <tt>scripts/shell</tt>). Usually,
+    # user code does not have to take the modes into account, but it is
+    # sometime useful.
     #
-    # == Scripts
+    # Finally, in both testing and runtime mode, the code can be started in
+    # simulation or live setups (see #simulation?). Specific plugins can for
+    # instance start and set up a simulation system in simulation mode, and as
+    # well set up some simulation-specific configuration for the functional
+    # layer of the architecture.
     #
-    # == Configuration
-    # * YAML configuration files (config/roby.yml and config/app.yml)
-    # * init.rb
-    # * robot-specific configuration files, robot kind and single robots
-    # * load order (roby, plugins, init.rb, Roby and plugin configuration,
-    #   robot-specific configuration files, controller)
+    # == Configuration files
     #
-    # == Test support
+    # In all modes, a specific set of configuration files are loaded.  The
+    # files that are actually loaded are defined by the robot name and type, as
+    # specified to #robot. The loaded files are, in order, the following:
+    # [config/app.yml]
+    #   the application configuration as a YAML file. See the comments in that
+    #   file for more details.
+    # [config/init.rb]
+    #   Ruby code for the common configuration of all robots
+    # [config/ROBOT_NAME.rb or config/ROBOT_TYPE.rb]
+    #   Ruby code for the configuration of either all robots of the same type,
+    #   or a specific robot. It is one or the other. If a given robot needs to
+    #   inherit the configuration of its type, explicitely require the
+    #   ROBOT_TYPE.rb file in config/ROBOT_NAME.rb.
     #
+    # == Runtime mode (<tt>scripts/run</tt>)
+    # Then, in runtime mode the robot controller
+    # <tt>controller/ROBOT_NAME.rb</tt> or <tt>controller/ROBOT_TYPE.rb</tt> is
+    # loaded. The same rules than for the configuration file
+    # <tt>config/ROBOT_NAME.rb</tt> apply.
+    #
+    # == Testing mode (<tt>scripts/test</tt>)
+    # This mode is used to run test suites in the +test+ directory. See
+    # Roby::Test::TestCase for a description of Roby-specific tests.
     class Application
 	include Singleton
+        
+	# A set of planners declared in this application
+	attr_reader :planners
 
 	# The plain option hash saved in config/app.yml
 	attr_reader :options
@@ -70,6 +85,11 @@ module Roby
 	# abort_on_application_exception:: if the control should abort if an uncaught application exception (not originating
 	#                                  from a task or event) is caught. Defaults to true.
 	attr_reader :control
+        
+	# If true, abort if an unhandled exception is found
+	attr_predicate :abort_on_exception, true
+	# If true, abort if an application exception is found
+	attr_predicate :abort_on_application_exception, true
 
 	# An array of directories in which to search for plugins
 	attr_reader :plugin_dirs
@@ -100,6 +120,7 @@ module Roby
 	    @testing_keep_logs = false
 
 	    @plugin_dirs = []
+            @planners    = []
 	end
 
 	# Adds +dir+ in the list of directories searched for plugins
@@ -238,7 +259,12 @@ module Roby
 	    call_plugins(:reset, self)
 	end
 
-	attr_reader :robot_name, :robot_type
+        # The robot name
+	attr_reader :robot_name
+        # The robot type
+        attr_reader :robot_type
+        # Sets up the name and type of the robot. This can be called only once
+        # in a given Roby controller.
 	def robot(name, type = name)
 	    if @robot_name
 		if name != @robot_name && type != @robot_type
@@ -266,6 +292,12 @@ module Roby
 	    File.expand_path(log['results'] || 'results', APP_DIR)
 	end
 
+        # Returns a unique directory name as a subdirectory of
+        # +base_dir+, based on +path_spec+. The generated name
+        # is of the form
+        #   <base_dir>/a/b/c/YYYYMMDD-basename
+        # if <tt>path_spec = "a/b/c/basename"</tt>. A .<number> suffix
+        # is appended if the path already exists.
 	def self.unique_dirname(base_dir, path_spec)
 	    if path_spec =~ /\/$/
 		basename = ""
@@ -301,6 +333,9 @@ module Roby
 	    final_path
 	end
 
+        # Sets up all the default loggers. It creates the logger for the Robot
+        # module (accessible through Robot.logger), and sets up log levels as
+        # specified in the <tt>config/app.yml</tt> file.
 	def setup_loggers
 	    # Create the robot namespace
 	    STDOUT.sync = true
@@ -355,6 +390,7 @@ module Roby
 	    end
 	end
 
+        # Loads the models, based on the given robot name and robot type
 	def require_models
 	    # Require all common task models and the task models specific to
 	    # this robot
@@ -388,6 +424,8 @@ module Roby
 
 	def setup
 	    reset
+            require 'roby/planning'
+            require 'roby/interface'
 
 	    $LOAD_PATH.unshift(APP_DIR) unless $LOAD_PATH.include?(APP_DIR)
 
@@ -410,7 +448,7 @@ module Roby
 	    require_models
 
 	    # MainPlanner is always included in the planner list
-	    Roby.control.planners << MainPlanner
+	    self.planners << MainPlanner
 	   
 	    # Set up the loaded plugins
 	    call_plugins(:setup, self)
@@ -427,6 +465,8 @@ module Roby
 	end
 
 	def run(&block)
+            setup_global_singletons
+
 	    # Set up dRoby, setting an Interface object as front server, for shell access
 	    host = droby['host'] || ""
 	    if host !~ /:\d+$/
@@ -435,9 +475,9 @@ module Roby
 
 	    if single? || !robot_name
 		host =~ /:(\d+)$/
-		DRb.start_service "druby://:#{$1 || '0'}", Interface.new(Roby.control)
+		DRb.start_service "druby://:#{$1 || '0'}", Interface.new
 	    else
-		DRb.start_service "druby://#{host}", Interface.new(Roby.control)
+		DRb.start_service "druby://#{host}", Interface.new
 		droby_config = { :ring_discovery => !!discovery['ring'],
 		    :name => robot_name, 
 		    :plan => Roby.plan, 
@@ -451,7 +491,7 @@ module Roby
 		if discovery['ring']
 		    Roby::Distributed.publish discovery['ring']
 		end
-		Roby::Control.every(discovery['period'] || 0.5) do
+		Roby.every(discovery['period'] || 0.5) do
 		    Roby::Distributed.state.start_neighbour_discovery
 		end
 	    end
@@ -464,8 +504,9 @@ module Roby
 	    options = { :detach => true, :cycle => control_config['cycle'] || 0.1 }
 	    
 	    # Add an executive if one is defined
-	    if control_config['executive']
-		self.executive = control_config['executive']
+            scheduler = (control_config['scheduler'] || control_config['executive'])
+	    if scheduler
+		self.scheduler = control_config['scheduler']
 	    end
 
 	    if log['events']
@@ -475,14 +516,21 @@ module Roby
 		logger.stats_mode = log['events'] == 'stats'
 		Roby::Log.add_logger logger
 	    end
-	    control.abort_on_exception = 
+	    self.abort_on_exception = 
 		control_config['abort_on_exception']
-	    control.abort_on_application_exception = 
+	    self.abort_on_application_exception = 
 		control_config['abort_on_application_exception']
 	    control.run options
 
 	    plugins = self.plugins.map { |_, mod| mod if mod.respond_to?(:run) }.compact
 	    run_plugins(plugins, &block)
+
+        rescue Exception => e
+            if e.respond_to?(:pretty_print)
+                pp e
+            else
+                pp e.full_message
+            end
 	end
 	def run_plugins(mods, &block)
 	    control = Roby.control
@@ -501,25 +549,22 @@ module Roby
 	    if Roby.control.running?
 		control.quit
 		control.join
-		raise e, e.message, Roby.filter_backtrace(e.backtrace)
+		raise e, e.message, e.backtrace
 	    else
 		raise
 	    end
 	end
 
-	attr_reader :executive
-
-	def executive=(name)
-	    if executive
-		Control.event_processing.delete(executive.method(:initial_events))
-		@executive = nil
+	def scheduler=(name)
+	    if Roby.plan.scheduler
+                Roby.plan.scheduler = nil
 	    end
+            @scheduler = name
 	    return unless name
 
-	    full_name = "roby/executives/#{name}"
+	    full_name = "roby/schedulers/#{name}"
 	    require full_name
-	    @executive = full_name.camelize.constantize.new
-	    Control.event_processing << executive.method(:initial_events)
+	    Roby.plan.scheduler = full_name.camelize.constantize.new
 	end
 
 	def stop; call_plugins(:stop, self) end
@@ -690,6 +735,15 @@ module Roby
 	def single?; @single || discovery.empty? end
 	def single;  @single = true end
 
+        def setup_global_singletons
+            if !Roby.plan
+                Roby.instance_variable_set :@plan, MainPlan.new
+            end
+            if !Roby.control
+                Roby.instance_variable_set :@control, Control.new(Roby.plan)
+            end
+        end
+
 	# Guesses the type of +filename+ if it is a source suitable for
 	# data display in this application
 	def data_streams_of(filenames)
@@ -807,6 +861,11 @@ module Roby
 		end
 	    end
 	end
+    end
+
+    @app = Application.instance
+    class << self
+        attr_reader :app
     end
 
     # Load the plugins 'main' files

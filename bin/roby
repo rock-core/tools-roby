@@ -8,7 +8,7 @@ require 'fileutils'
 require 'yaml'
 require 'find'
 
-require 'roby/app'
+require 'roby'
 
 MODES = %w{init robot}
 config = OpenStruct.new

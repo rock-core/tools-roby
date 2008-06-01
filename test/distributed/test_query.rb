@@ -26,7 +26,7 @@ class TC_DistributedQuery < Test::Unit::TestCase
     end
 
     def test_marshal_query
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    PeerServer.class_eval do
 		def query
 		    plan.find_tasks
@@ -42,7 +42,7 @@ class TC_DistributedQuery < Test::Unit::TestCase
 
     # Check that we can query the remote plan database
     def test_query
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    local_model = Class.new(SimpleTask)
 
 	    mission, subtask = Task.new(:id => 1), local_model.new(:id => 2)

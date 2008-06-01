@@ -6,6 +6,10 @@ require 'flexmock'
 
 class TC_Task < Test::Unit::TestCase 
     include Roby::Test
+    def setup
+        super
+        Roby.app.filter_backtraces = false
+    end
 
     def test_model_tag
 	my_tag = TaskModelTag.new do
@@ -52,6 +56,29 @@ class TC_Task < Test::Unit::TestCase
 	    mock.should_receive(:start).once.with(task, [42])
 	    task.start!(42)
 	end
+    end
+
+    def test_command_inheritance
+        FlexMock.use do |mock|
+            parent_m = Class.new(SimpleTask) do
+                event :start do |context|
+                    mock.parent_started(self, context)
+                    emit :start
+                end
+            end
+
+            child_m = Class.new(parent_m) do
+                event :start do |context|
+                    mock.child_started(self, context.first)
+                    super(context.first / 2)
+                end
+            end
+
+            plan.insert(task = child_m.new)
+            mock.should_receive(:parent_started).once.with(task, 21)
+            mock.should_receive(:child_started).once.with(task, 42)
+            task.start!(42)
+        end
     end
 
     Precedence = Roby::EventStructure::Precedence
@@ -225,6 +252,7 @@ class TC_Task < Test::Unit::TestCase
 	    forward :failure_model_signal => :failure_model
 
 	    event(:ev)
+            event :controlable_terminal, :terminal => true, :command => true
 	end
 	assert(klass.event_model(:stop).terminal?)
 	assert(klass.event_model(:success).terminal?)
@@ -260,6 +288,15 @@ class TC_Task < Test::Unit::TestCase
 	assert(ev.terminal?)
 	assert(!ev.success?)
 	assert(ev.failure?)
+
+	ev.remove_forwarding task.event(:failure_model_signal)
+	ev.remove_forwarding task.event(:terminal_model_signal)
+	assert(!ev.terminal?)
+	ev.forward task.event(:failure_model_signal), :delay => 0.2
+	assert(!ev.terminal?)
+	ev.remove_forwarding task.event(:failure_model_signal)
+	ev.signal task.event(:controlable_terminal), :delay => 0.2
+	assert(!ev.terminal?)
     end
 
     # Tests Task::event
@@ -809,7 +846,7 @@ class TC_Task < Test::Unit::TestCase
 		plan.permanent(t)
 		t.start!
 	    end
-	    sleep(1)
+	    Roby.wait_one_cycle
 	    Roby.execute do
 		assert(t.running?, t.terminal_event.to_s)
 		t.stop!
@@ -829,7 +866,7 @@ class TC_Task < Test::Unit::TestCase
 		plan.permanent(t)
 		t.start!
 	    end
-	    sleep(1)
+	    Roby.wait_one_cycle
 	    assert(t.failed?)
 	end
     end

@@ -85,7 +85,7 @@ module Roby::Log
 	# there is at least one logger which listens for +message+.
 	def log(m, args = nil)
 	    if m == :discovered_tasks || m == :discovered_events
-		Roby::Control.synchronize do
+		Roby.synchronize do
 		    args ||= yield
 		    objects = args[1].to_value_set
 		    # Do not give a 'peer' argument at Distributed.format, to
@@ -94,7 +94,7 @@ module Roby::Log
 		    known_objects.merge(objects)
 		end
 	    elsif m == :finalized_task || m == :finalized_event
-		Roby::Control.synchronize do
+		Roby.synchronize do
 		    args ||= yield
 		    object = args[1]
 		    args = Roby::Distributed.format(args, self) if has_logger?(m)
@@ -104,7 +104,7 @@ module Roby::Log
 
 	    if has_logger?(m)
 		if !args && block_given?
-		    Roby::Control.synchronize do 
+		    Roby.synchronize do 
 			args = Roby::Distributed.format(yield, self)
 		    end
 		end

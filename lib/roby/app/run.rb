@@ -1,4 +1,4 @@
-require 'roby/app'
+require 'roby'
 
 app = Roby.app
 require 'optparse'

@@ -27,6 +27,19 @@ module Roby::TaskStructure
 	# failure:: the list of failing events. The default is [:failed]
 	# model:: a <tt>[task_model, arguments]</tt> pair which defines the task model the parent is expecting. 
 	#   The default value is to get these parameters from +task+
+        #
+        # The +success+ set describes the events of the child task that are
+        # _required_ by the parent task. More specifically, the child task
+        # remains useful for the parent task as long as none of these events are
+        # emitted. By default, it is the +success+ event. Of course, an error
+        # condition is encountered when all events of +success+ become
+        # unreachable. In addition, the relation is removed if the
+        # +remove_when_done+ flag is set to true (false by default).
+        #
+        # The +failure+ set describes the events of the child task which are an
+        # error condition from the parent task point of view.
+        #
+        # In both error cases, a +ChildFailedError+ exception is raised.
         def realized_by(task, options = {})
             options = validate_options options, 
 		:model => [task.model, task.meaningful_arguments], 
@@ -196,19 +209,32 @@ module Roby
 	# The event which is the cause of this error. This is either the task
 	# source of a failure event, or the reason why a positive event has
 	# become unreachable (if there is one)
-
 	def initialize(parent, event)
 	    super(event.task_sources.find { true })
 	    @parent = parent
 	    @relation = parent[child, TaskStructure::Hierarchy]
 	end
 
-	def message # :nodoc:
-	    "#{super}\nthe failed relation is: #{parent}\n        realized_by\n    #{child}"
+	def pretty_print(pp) # :nodoc:
+            super
+            pp.breakable
+            pp.breakable
+            pp.text "The failed relation is"
+            pp.breakable
+            pp.nest(2) do
+                pp.text "  "
+                parent.pretty_print pp
+                pp.breakable
+                pp.text "realized_by "
+                child.pretty_print pp
+            end
 	end
-
 	def backtrace; [] end
+
+        # True if +obj+ is involved in this exception
+        def involved_plan_object?(obj)
+            super || obj == parent
+        end
     end
-    Control.structure_checks << TaskStructure::Hierarchy.method(:check_structure)
 end
 

@@ -66,7 +66,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_remote_proxy_update
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    remote.plan.insert(SimpleTask.new(:id => 'simple_task'))
 	    remote.plan.permanent(SimpleTask.new(:id => 'task'))
 	    remote.plan.permanent(SimpleTask.new(:id => 'other_task'))
@@ -117,7 +117,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     # Test that the remote plan structure is properly mapped to the local
     # plan database
     def test_discover_neighborhood
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    mission, subtask, next_mission =
 		SimpleTask.new(:id => 'mission'), 
 		SimpleTask.new(:id => 'subtask'),
@@ -150,11 +150,11 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	plan.auto(r_subtask)
 	plan.auto(r_next_mission)
 	Roby.control.wait_one_cycle
-	assert_equal([remote_peer.task], plan.keepalive.to_a)
+	assert_equal([remote_peer.task], plan.permanent_tasks.to_a)
     end
 
     def test_subscribing_old_objects
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    plan.insert(@task = SimpleTask.new(:id => 1))
 	end
 
@@ -170,7 +170,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_subscription
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    root, mission, subtask, next_mission =
 		SimpleTask.new(:id => 'root'), 
 		SimpleTask.new(:id => 'mission'), 
@@ -233,7 +233,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert(plan.useful_task?(r_mission))
 	r_next_mission = remote_task(:id => 'next_mission')
 	r_subtask = remote_task(:id => 'subtask')
-	Roby::Control.synchronize do
+	Roby.synchronize do
 	    assert(!r_next_mission.plan || !plan.useful_task?(r_next_mission))
 	    assert(!r_subtask.plan || !plan.useful_task?(r_subtask))
 	end
@@ -248,7 +248,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	r_subtask = remote_task(:id => 'subtask')
 	assert(!plan.unneeded_tasks.include?(r_subtask))
 	r_next_mission = remote_task(:id => 'next_mission')
-	Roby::Control.synchronize do
+	Roby.synchronize do
 	    assert(!r_next_mission.plan || plan.unneeded_tasks.include?(r_next_mission))
 	end
 
@@ -256,7 +256,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	## Check plan GC after we have unsubscribed from mission
 	remote_peer.unsubscribe(r_mission)
-	Roby::Control.synchronize do
+	Roby.synchronize do
 	    assert(r_mission.plan)
 	    assert(!plan.unneeded_tasks.include?(r_mission))
 	    assert(!remote_peer.subscribed?(r_mission))
@@ -308,7 +308,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_remove_not_needed
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    left, right, middle =
 		SimpleTask.new(:id => 'left'), 
 		SimpleTask.new(:id => 'right'), 
@@ -338,7 +338,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert(!plan.unneeded_tasks.include?(right))
 	assert(!plan.unneeded_tasks.include?(middle))
 
-	Roby::Control.synchronize do
+	Roby.synchronize do
 	    remote_peer.unsubscribe(right)
 	    assert(!right.remotely_useful?)
 	    assert(!right.subscribed?)
@@ -357,7 +357,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_data_update
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    task = SimpleTask.new(:id => 'task')
 	    task.data = [4, 2]
 	    remote.plan.insert(task)
@@ -375,18 +375,18 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_mission_notifications
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    plan.insert(mission = SimpleTask.new(:id => 'mission'))
 
 	    remote.class.class_eval do
 		define_method(:discard_mission) do
-		    Roby::Control.synchronize do
+		    Roby.synchronize do
 			remote.plan.discard(mission)
 			remote.plan.permanent(mission)
 		    end
 		end
 		define_method(:insert_mission) do
-		    Roby::Control.synchronize do
+		    Roby.synchronize do
 			remote.plan.auto(mission)
 			remote.plan.insert(mission)
 		    end
@@ -409,7 +409,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     end
 
     def test_relation_updates
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    mission, subtask, next_mission =
 		SimpleTask.new(:id => 'mission'), 
 		SimpleTask.new(:id => 'subtask'),
@@ -458,7 +458,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
     # Check that remote events that are unknown locally are properly ignored
     def test_ignored_events
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    model = Class.new(SimpleTask) do
 		event :unknown, :command => true
 	    end

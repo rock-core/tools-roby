@@ -1,0 +1,13 @@
+=== 0.7.1
+
+* Fixed extension handling in 'rake setup'. It should work again.
+* Fixed a lack of proper synchronization in operations without an execution
+  thread. This led to pile of strange errors in Roby's own test suite, but
+  should not have impacted normal operations (where a separate execution thread
+  exists)
+* Fixed a potential race condition in PlanningTask
+
+=== 0.7
+
+* First public release. This release is still not compatible with Ruby 1.9, as
+  too many bugs remain in 1.9.0

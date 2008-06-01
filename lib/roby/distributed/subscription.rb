@@ -2,6 +2,8 @@
 module Roby
     module Distributed
 	class << self
+            # Yields the peers which are interested in at least one of the
+            # objects in +objects+.
 	    def each_updated_peer(*objects)
 		for obj in objects
 		    return if !obj.distribute?

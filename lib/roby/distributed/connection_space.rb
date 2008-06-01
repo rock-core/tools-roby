@@ -9,7 +9,9 @@ require 'roby/distributed/peer'
 
 module Roby
     module Distributed
-	# A neighbour is a named remote ConnectionSpace object
+        # A neighbour is a [name, remote_id] tuple, where +name+ is the name of
+        # the neighbour and +remote_id+ the RemoteID which describes the remote
+        # ConnectionSpace, used to connect to it.
 	class Neighbour
 	    attr_reader :name, :remote_id
 	    def initialize(name, remote_id)
@@ -25,6 +27,8 @@ module Roby
 	    def eql?(other); other == self end
 	end
 
+        # Returns the Peer object for the given ID. +id+ can be either the peer
+        # RemoteID or its name.
 	def self.peer(id)
 	    if id.kind_of?(Distributed::RemoteID)
 		if id == remote_id
@@ -40,47 +44,57 @@ module Roby
 	    end
 	end
 
+        # Returns a RemoteID object suitable to represent this plan manager on
+        # the network.
+        #
+        # This makes Roby::Distributed behave like a Peer object
 	def self.remote_id
 	    if state then state.remote_id
 	    else @__single_remote_id__ ||= RemoteID.new('local', 0)
 	    end
 	end
 
+        # Returns a Peer::DRoby object which can be used in the dRoby
+        # connection to represent this plan manager.
+        #
+        # This makes Roby::Distributed behave like a Peer object
 	def self.droby_dump(dest = nil)
 	    if state then state.droby_dump(dest)
 	    else @__single_marshalled_peer__ ||= Peer::DRoby.new('single', remote_id)
 	    end
 	end
 
+        # Execute the given message without blocking. If a block is given,
+        # yield the result to that block.
+        #
+        # This makes Roby::Distributed behave like a Peer object
 	def self.transmit(*args)
-	    Roby::Control.once do
+	    Roby.once do
 		result = Distributed.state.send(*args)
 		yield(result) if block_given?
 	    end
 	end
 
+        # Execute the given message and wait for its result to be available.
+        #
+        # This makes Roby::Distributed behave like a Peer object
 	def self.call(*args)
 	    Roby.execute do
 		Distributed.state.send(*args)
 	    end
 	end
 
+        # True if this plan manager is subscribed to +object+ 
+        #
+        # This makes Roby::Distributed behave like a Peer object
 	def self.subscribed?(object)
 	    object.subscribed?
 	end
 
-	# Connection discovery based on Rinda::RingServer
-	#
-	# Each plan database spawns its own RingServer, providing:
-	# * the list of other robots it has been involved with and the status of
-	# this connection: if it is currently connected, if the two agents are
-	# still related, for how long they did not have any connection. This list is
-	# of the form
-	#	[:name, PeerServer, DrbObject, name]
-	#
-	# * the list of teams it is part of
-	#	[:name, TeamServer, DrbObject, name]
-	#
+        # This class manages the connections between this plan manager and the
+        # remote plan managers
+        #
+        # * there is only one reception thread, at which all peers send data
 	class ConnectionSpace
 	    include DRbUndumped
 
@@ -132,6 +146,15 @@ module Roby
 	    # The socket on which we listen for incoming connections
 	    attr_reader :server_socket
 
+            # Create a new ConnectionSpace objects. The following options can be provided:
+            #
+            # name:: the name of this plan manager. Defaults to <hostname>-<PID>
+            # period:: the discovery period [default: nil]
+            # ring_discovery:: whether or not ring discovery should be attempted [default: true]
+            # ring_broadcast:: the broadcast address for ring discovery
+            # discovery_tuplespace:: the DRbObject referencing the remote tuplespace which holds references to plan managers [default: nil]
+            # plan:: the plan this ConnectionSpace acts on. [default: Roby.plan]
+            # listen_at:: the port at which we should listen for incoming connections [default: 0]
 	    def initialize(options = {})
 		super()
 
@@ -199,6 +222,10 @@ module Roby
 		end
 		start_neighbour_discovery(true)
 
+                plan.propagation_handlers << lambda do
+                    start_neighbour_discovery
+                end
+
 		receive
 
 		Roby::Control.finalizers << method(:quit)
@@ -224,6 +251,7 @@ module Roby
 		end
 	    end
 
+            # The RemoteID object which allows to reference this ConnectionSpace on the network
 	    attr_reader :remote_id
 
 	    # The set of new sockets to wait for. If one of these is closed,
@@ -232,8 +260,8 @@ module Roby
 	    # ignored.
 	    attr_reader :pending_sockets
 	    
-	    # The reception thread
-	    def receive
+	    # Starts the reception thread
+	    def receive # :nodoc:
 		sockets = Hash.new
 		Thread.new do
 		    while true
@@ -326,7 +354,7 @@ module Roby
 		loop do
 		    return if @quit_neighbour_thread
 
-		    Control.synchronize do
+		    Roby.synchronize do
 			old_neighbours, @neighbours = @neighbours, []
 			for new in discovered
 			    unless new.remote_id == remote_id || @neighbours.include?(new)
@@ -349,13 +377,12 @@ module Roby
 			end
 			return if @quit_neighbour_thread
 			discovery_start = @discovery_start
-
-			if ring_discovery? && (!finger || (finger.port != discovery_port))
-			    finger = Rinda::RingFinger.new(ring_broadcast, discovery_port)
-			end
 		    end
 
 		    from = Time.now
+                    if ring_discovery? && (!finger || (finger.port != discovery_port))
+                        finger = Rinda::RingFinger.new(ring_broadcast, discovery_port)
+                    end
 		    if central_discovery?
 			discovery_tuplespace.read_all([:droby, nil, nil]).
 			    each do |n| 
@@ -365,11 +392,11 @@ module Roby
 			    end
 		    end
 
-		    if discovery_period
-			remaining = (@discovery_start + discovery_period) - Time.now
-		    end
-
 		    if ring_discovery?
+                        if discovery_period
+                            remaining = (@discovery_start + discovery_period) - Time.now
+                        end
+
 			finger.lookup_ring(remaining) do |cs|
 			    next if cs == self
 
@@ -408,7 +435,7 @@ module Roby
 		    end
 
 		    @discovery_start = Time.now
-		    start_discovery.signal
+		    start_discovery.broadcast
 		end
 		wait_discovery if block
 	    end
@@ -430,6 +457,7 @@ module Roby
 	    # Define #droby_dump for Peer-like behaviour
 	    def droby_dump(dest = nil); @__droby_marshalled__ ||= Peer::DRoby.new(name, remote_id) end
 
+            # Make the ConnectionSpace quit
 	    def quit
 		Distributed.debug "ConnectionSpace #{self} quitting"
 
@@ -469,30 +497,46 @@ module Roby
 	    # Disable the keeper thread, we will do cleanup ourselves
 	    def start_keeper; end
 
-	    def transaction_prepare_commit(trsc)
+            # This makes ConnectionSpace act as a PeerServer object locally
+	    def transaction_prepare_commit(trsc) # :nodoc:
 		!trsc.valid_transaction?
 	    end
-	    def transaction_abandon_commit(trsc, reason)
+            # This makes ConnectionSpace act as a PeerServer object locally
+	    def transaction_abandon_commit(trsc, reason) # :nodoc:
 		trsc.abandoned_commit(reason)
 	    end
-	    def transaction_commit(trsc)
+            # This makes ConnectionSpace act as a PeerServer object locally
+	    def transaction_commit(trsc) # :nodoc:
 		trsc.commit_transaction(false)
 	    end
-	    def transaction_discard(trsc)
+            # This makes ConnectionSpace act as a PeerServer object locally
+	    def transaction_discard(trsc) # :nodoc:
 		trsc.discard_transaction(false)
 	    end
 	end
 
 	class << self
+            # The RingServer object through which we publish this plan manager
+            # on the network
 	    attr_reader :server
 
-	    # Publish Distributed.state on the network
+            # True if we are published on the network.
+            #
+            # See #server, #publish and #unpublish
 	    def published?; !!@server end
+            
+            # Enable ring discovery on our part. A RingServer object is set up
+            # to listen to connections on the port given as a :port option (or
+            # DISCOVERY_RING_PORT if none is specified).
+            #
+            # Note that all plan managers must use the same discovery port.
 	    def publish(options = {})
 		options[:port] ||= DISCOVERY_RING_PORT
 		@server = RingServer.new(state, options) 
 		Distributed.info "listening for distributed discovery on #{options[:port]}"
 	    end
+
+            # Disable the ring discovery on our part.
 	    def unpublish
 		if server 
 		    server.close
@@ -508,6 +552,8 @@ module Roby
 		end
 	    end
 
+            # The list of neighbours that have been found since the last
+            # execution cycle
 	    def new_neighbours
 		if state then state.new_neighbours
 		else []
@@ -517,13 +563,15 @@ module Roby
 
 	@new_neighbours_observers = Array.new
 	class << self
+            # The set of proc objects which should be notified when new
+            # neighbours are detected.
 	    attr_reader :new_neighbours_observers
 	    
-	    # Called in the neighbour discovery thread to detect new
-	    # neighbours. It fills the new_neighbours queue which is read by
-	    # notify_new_neighbours to notify application code of new
-	    # neighbours in the control thread
-	    def notify_new_neighbours
+            # Called in the neighbour discovery thread to detect new
+            # neighbours. It fills the new_neighbours queue which is read by
+            # notify_new_neighbours to notify application code of new
+            # neighbours in the control thread
+	    def notify_new_neighbours(plan)
 		return unless Distributed.state
 		while !new_neighbours.empty?
 		    cs, neighbour = new_neighbours.pop(true)
@@ -533,13 +581,15 @@ module Roby
 		end
 	    end
 
+            # Defines a block which should be called when a new neighbour is
+            # detected
 	    def on_neighbour
 		current = neighbours.dup
-		Roby::Control.once { current.each { |n| yield(n) } }
+		Roby.once { current.each { |n| yield(n) } }
 		new_neighbours_observers << lambda { |_, n| yield(n) }
 	    end
 	end
-	Roby::Control.event_processing << method(:notify_new_neighbours)
+	Roby::Propagation.propagation_handlers << method(:notify_new_neighbours)
     end
 end
 

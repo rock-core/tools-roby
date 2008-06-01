@@ -6,7 +6,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     include Roby::Distributed::Test
 
     def test_marshal_transactions
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    PeerServer.class_eval do
 		attr_reader :plan
 		def transaction
@@ -30,7 +30,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     end
 
     def test_transaction_create
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    PeerServer.class_eval do
 		include Test::Unit::Assertions
 		def check_transaction(marshalled_trsc, trsc_drbobject)
@@ -65,7 +65,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     end
 
     def test_transaction_proxies
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    PeerServer.class_eval do
 		include Test::Unit::Assertions
 		def marshalled_transaction_proxy(trsc, task)
@@ -101,7 +101,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
     # Checks that if we discover a set of tasks, then their relations are updated as well
     def test_discover
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    def remote.add_tasks(trsc)
 		trsc = local_peer.local_object(trsc)
 
@@ -133,7 +133,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     end
 
     def test_edition
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    class << remote
 		include Test::Unit::Assertions
 		def edit_transaction(trsc)
@@ -175,7 +175,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     end
 
     def test_ownership
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    remote.plan.insert(Task.new(:id => 1))
 	    def remote.add_owner_local(trsc)
 		trsc = local_peer.local_object(trsc)
@@ -228,7 +228,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     end
 
     def test_executed_by
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    task = Task.new(:id => 1) 
 	    exec = Class.new(Task) do
 		event :ready, :command => true
@@ -269,7 +269,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     end
 
     def test_argument_updates
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    remote.plan.insert(ArgumentUpdateTest.new(:id => 2))
 	    def remote.set_argument(task)
 		task = local_peer.local_object(task)
@@ -350,7 +350,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     end
 
     def test_propose_commit
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    testcase = self
 	    remote.plan.insert(root = SimpleTask.new(:id => 'remote-1'))
 	    root.realized_by(child = SimpleTask.new(:id => 'remote-2'))
@@ -382,7 +382,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     end
 
     def test_synchronization
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    testcase = self
 	    remote.plan.insert(root = SimpleTask.new(:id => 'remote-1'))
 	    root.realized_by SimpleTask.new(:id => 'remote-2')
@@ -412,7 +412,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     end
 
     def test_create_remote_tasks
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    def remote.arguments_of(t)
 		t = local_peer.local_object(t)
 		t.arguments

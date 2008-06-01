@@ -7,7 +7,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
     include Roby::Distributed::Test
 
     def test_triggers
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    def remote.new_task(kind, args)
 		Roby.execute do
 		    new_task = kind.proxy(local_peer).new(args)
@@ -52,7 +52,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
     end
 
     def test_trigger_subscribe
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    def remote.new_task
 		plan.insert(SimpleTask.new(:id => 1))
 		nil
@@ -78,7 +78,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
     end
 
     def test_subscribe_plan
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    plan.insert(mission = Task.new(:id => 'mission'))
 	    subtask = Task.new :id => 'subtask'
 	    plan.insert(next_mission = Task.new(:id => 'next_mission'))
@@ -103,7 +103,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
     end
 
     def test_plan_updates
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    class << remote
 		attr_reader :mission, :subtask, :next_mission, :free_event
 		def create_mission
@@ -206,7 +206,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
     end
 
     def test_unsubscribe_plan
-	peer2peer(true) do |remote|
+	peer2peer do |remote|
 	    remote.plan.insert(Task.new(:id => 'remote-1'))
 	    remote.plan.insert(Task.new(:id => 'remote-2'))
 

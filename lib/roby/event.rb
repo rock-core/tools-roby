@@ -1,9 +1,10 @@
-require 'roby/plan-object'
-require 'roby/exceptions'
-require 'set'
-
 module Roby
+    # Event objects are the objects representing a particular emission in the
+    # event propagation process. They represent the common propagation
+    # information (time, generator, sources, ...) and provide some common
+    # functionalities related to propagation as well.
     class Event
+        # The generator which emitted this event
 	attr_reader :generator
 
 	def initialize(generator, propagation_id, context, time = Time.now)
@@ -35,12 +36,22 @@ module Roby
         # Returns an event generator which will be emitted once +time+ seconds
         # after this event has been emitted.
         def after(time)
-            State.at :time => (self.time + time)
+            State.at :t => (self.time + time)
         end
 
 	def to_s
-	    "#{self.class.to_s}@#{propagation_id} [#{time.to_hms}]: #{context}"
+	    "[#{time.to_hms} @#{propagation_id}] #{self.class.to_s}: #{context}"
 	end
+        def pretty_print(pp)
+            pp.text "[#{time.to_hms} @#{propagation_id}] #{self.class}"
+            if context
+                pp.breakable
+                pp.nest(2) do
+                    pp.text "  "
+                    pp.seplist(context) { |v| v.pretty_print(pp) }
+                end
+            end
+        end
     end
 
     # EventGenerator objects are the objects which manage the event generation
@@ -150,7 +161,7 @@ module Roby
 		calling(context)
 		@pending = true
 
-		Propagation.propagation_context([self]) do
+		plan.propagation_context([self]) do
 		    command[context]
 		end
 
@@ -186,28 +197,34 @@ module Roby
 	    end
 
 	    context.compact!
-	    if Propagation.gathering?
-		Propagation.add_event_propagation(false, Propagation.sources, self, (context unless context.empty?), nil)
+	    if plan.gathering?
+		plan.add_event_propagation(false, plan.propagation_sources, self, (context unless context.empty?), nil)
 	    else
-		errors = Propagation.propagate_events do |initial_set|
-		    Propagation.add_event_propagation(false, nil, self, (context unless context.empty?), nil)
-		end
-		if errors.size == 1
-		    e = errors.first.exception
-		    raise e, e.message, e.backtrace
-		elsif !errors.empty?
-		    for e in errors
-			STDERR.puts e.exception.full_message
+		Roby.synchronize do
+		    errors = plan.propagate_events do |initial_set|
+			plan.add_event_propagation(false, nil, self, (context unless context.empty?), nil)
 		    end
-		    raise "multiple exceptions"
+		    if errors.size == 1
+			e = errors.first.exception
+			pp e
+			raise e, e.message, e.backtrace
+		    elsif !errors.empty?
+			for e in errors
+			    STDERR.puts e.exception.full_message
+			end
+			raise "multiple exceptions"
+		    end
 		end
 	    end
 	end
 
 	# Establishes signalling and/or event handlers from this event
-	# generator.  If +time+ is non-nil, it is a delay (in seconds) which
-	# must pass between the time this event is emitted and the time
-	# +signal+ is called
+	# generator. 
+        #
+        # If +time+ is given it is either a :delay => time association, or a
+        # :at => time association. In the first case, +time+ is a floating-point
+        # delay in seconds and in the second case it is a Time object which is
+        # the absolute point in time at which this propagation must happen.
 	def on(signal = nil, time = nil, &handler)
 	    if signal
 		self.signal(signal, time)
@@ -222,9 +239,12 @@ module Roby
 	end
 
 	# Adds a signal from this event to +generator+. +generator+ must be
-	# controlable.  If +timespec+ is given, it is a delay, in seconds,
-	# between the instant this event is fired and the instant +generator+
-	# must be called.
+	# controlable.
+        #
+        # If +time+ is given it is either a :delay => time association, or a
+        # :at => time association. In the first case, +time+ is a floating-point
+        # delay in seconds and in the second case it is a Time object which is
+        # the absolute point in time at which this propagation must happen.
 	def signal(generator, timespec = nil)
 	    if !generator.controlable?
 		raise EventNotControlable.new(self), "trying to establish a signal between #{self} and #{generator}"
@@ -264,10 +284,13 @@ module Roby
             @unreachable_event
         end
 
-	# Emit +generator+ when +self+ is fired, without calling the command of
-	# +generator+, if any. If +timespec+ is given it is a delay in seconds
-	# between the instant this event is fired and the instant +generator+
-	# is fired
+        # Emit +generator+ when +self+ is fired, without calling the command of
+        # +generator+, if any.
+        #
+        # If +timespec+ is given it is either a :delay => time association, or a
+        # :at => time association. In the first case, +time+ is a floating-point
+        # delay in seconds and in the second case it is a Time object which is
+        # the absolute point in time at which this propagation must happen.
 	def forward(generator, timespec = nil)
 	    timespec = Propagation.validate_timespec(timespec)
 	    add_forwarding generator, timespec
@@ -324,7 +347,7 @@ module Roby
 	end
 
 	# Create a new event object for +context+
-	def new(context); Event.new(self, Propagation.propagation_id, context, Time.now) end
+	def new(context); Event.new(self, plan.propagation_id, context, Time.now) end
 
 	# Adds a propagation originating from this event to event propagation
 	def add_propagation(only_forward, event, signalled, context, timespec) # :nodoc:
@@ -334,7 +357,7 @@ module Roby
 		raise PropagationError, "trying to signal #{signalled} from #{self}"
 	    end
 
-	    Propagation.add_event_propagation(only_forward, [event], signalled, context, timespec)
+	    plan.add_event_propagation(only_forward, [event], signalled, context, timespec)
 	end
 	private :add_propagation
 
@@ -343,7 +366,7 @@ module Roby
 	#
 	# This method is always called in a propagation context
 	def fire(event)
-	    Propagation.propagation_context([event]) do |result|
+	    plan.propagation_context([event]) do |result|
 		each_signal do |signalled|
 		    add_propagation(false, event, signalled, event.context, self[signalled, EventStructure::Signal])
 		end
@@ -369,7 +392,7 @@ module Roby
 		begin
 		    h.call(event)
 		rescue Exception => e
-		    Propagation.add_error( EventHandlerError.new(e, event) )
+		    plan.add_error( EventHandlerError.new(e, event) )
 		end
 	    end
 	end
@@ -391,7 +414,7 @@ module Roby
 		    end
 	    error = error.exception failure_message
 
-	    Propagation.add_error(error)
+	    plan.add_error(error)
 
 	ensure
 	    @pending = false
@@ -414,7 +437,7 @@ module Roby
 	    unless event.respond_to?(:context)
 		raise TypeError, "#{event} is not a valid event object in #{self}"
 	    end
-	    event.sources = Propagation.source_events
+	    event.sources = plan.propagation_source_events
 	    fire(event)
 
 	    true
@@ -434,20 +457,22 @@ module Roby
 	    end
 
 	    context.compact!
-	    if Propagation.gathering?
-		Propagation.add_event_propagation(true, Propagation.sources, self, (context unless context.empty?), nil)
+	    if plan.gathering?
+		plan.add_event_propagation(true, plan.propagation_sources, self, (context unless context.empty?), nil)
 	    else
-		errors = Propagation.propagate_events do |initial_set|
-		    Propagation.add_event_propagation(true, Propagation.sources, self, (context unless context.empty?), nil)
-		end
-		if errors.size == 1
-		    e = errors.first.exception
-		    raise e, e.message, e.backtrace
-		elsif !errors.empty?
-		    for e in errors
-			STDERR.puts e.full_message
+		Roby.synchronize do
+		    errors = plan.propagate_events do |initial_set|
+			plan.add_event_propagation(true, plan.propagation_sources, self, (context unless context.empty?), nil)
 		    end
-		    raise "multiple exceptions"
+		    if errors.size == 1
+			e = errors.first.exception
+			raise e, e.message, e.backtrace
+		    elsif !errors.empty?
+			for e in errors
+			    STDERR.puts e.full_message
+			end
+			raise "multiple exceptions"
+		    end
 		end
 	    end
 	end
@@ -461,34 +486,37 @@ module Roby
 	    self
 	end
 
-	# Sets up +obj+ and +self+ so that obj+ is used
-	# to execute the command of +self+. It is to be used in
-	# a command handler:
+        # Sets up +ev+ and +self+ to represent that the command of +self+ is to
+        # be achieved by the emission of +ev+. It is to be used in a command
+        # handler:
+        #
 	#   event :start do |context|
-	#	init = <create an initialization task>
-	#	event(:start).realize_with(task)
+	#	init = <create an initialization event>
+	#	event(:start).achieve_with(init)
 	#   end
-	#
-	# or 
-	#   event :start do |context|
-	#	init = <create an initialization task>
-	#	event(:start).realize_with(task)
-	#   end
-	def achieve_with(obj)
+        #
+        # If +ev+ becomes unreachable, an EmissionFailed exception will be
+        # raised. If a block is given, it is supposed to return the context of
+        # the event emitted by +self+, given the context of the event emitted
+        # by +ev+.
+        #
+        # From an event propagation point of view, it looks like:
+        # TODO: add a figure
+	def achieve_with(ev)
 	    stack = caller(1)
 	    if block_given?
-		obj.add_causal_link self
-		obj.once do |context|
+		ev.add_causal_link self
+		ev.once do |context|
 		    self.emit(yield(context))
 		end
 	    else
-		obj.forward_once self
+		ev.forward_once self
 	    end
 
-	    obj.if_unreachable(true) do |reason|
-		msg = "#{obj} is unreachable#{ " (#{reason})" if reason }, in #{stack.first}"
-		if obj.respond_to?(:task)
-		    msg << "\n  " << obj.task.history.map { |ev| "#{ev.time.to_hms} #{ev.symbol}: #{ev.context}" }.join("\n  ")
+	    ev.if_unreachable(true) do |reason|
+		msg = "#{ev} is unreachable#{ " (#{reason})" if reason }, in #{stack.first}"
+		if ev.respond_to?(:task)
+		    msg << "\n  " << ev.task.history.map { |ev| "#{ev.time.to_hms} #{ev.symbol}: #{ev.context}" }.join("\n  ")
 		end
 		emit_failed(UnreachableEvent.new(self, reason), msg)
 	    end
@@ -503,9 +531,10 @@ module Roby
 	# Last event to have been emitted by this generator
 	def last; history.last end
 
-	# Defines a precondition handler for this event. Precondition handlers
-	# are checked before calling the command. If the handler returns false,
-	# the calling is aborted by a PreconditionFailed exception
+        # Defines a precondition handler for this event. Precondition handlers
+        # are blocks which are called just before the event command is called.
+        # If the handler returns false, the calling is aborted by a
+        # PreconditionFailed exception
 	def precondition(reason = nil, &block)
 	    @preconditions << [reason, block]
 	end
@@ -644,20 +673,10 @@ module Roby
 	# event generators +collection+ is listening for.
 	def self.event_gathering; @@event_gathering end
 
-	# This module is hooked in Roby::Plan to remove from the
-	# event_gathering sets the events that have been finalized
-	module FinalizedEventHook
-	    def finalized_event(event)
-		super if defined? super
-		event.unreachable!
-	    end
-	end
-	Roby::Plan.include FinalizedEventHook
-
 	attr_predicate :unreachable?
 
 	# Called internally when the event becomes unreachable
-	def unreachable!(reason = nil)
+	def unreachable!(reason = nil, plan = self.plan)
 	    return if @unreachable
 	    @unreachable = true
 
@@ -665,7 +684,7 @@ module Roby
 		begin
 		    block.call(reason)
 		rescue Exception => e
-		    Propagation.add_error(EventHandlerError.new(e, self))
+		    plan.add_error(EventHandlerError.new(e, self))
 		end
 	    end
 	    unreachable_handlers.clear
@@ -785,9 +804,12 @@ module Roby
 	end
     end
 
-    # Event generator which fires when the first of its source events fires
-    # See EventGenerator#| for a more complete description
+    # Event generator which fires when the first of its source events fires.
+    # All event generators which signal this one are considered as sources.
+    #
+    # See also EventGenerator#| and #<<
     class OrGenerator < EventGenerator
+        # Creates a new OrGenerator without any sources.
 	def initialize
 	    super do |context|
 		emit_if_first(context)
@@ -795,8 +817,11 @@ module Roby
 	    @active = true
 	end
 
+        # True if there is no source event for this combinator.
 	def empty?; parent_objects(EventStructure::Signal).empty? end
 
+        # Reset its state, so as to behave as if no source has ever
+        # been emitted.
 	def reset
 	    @active = true
 	    each_parent_object(EventStructure::Signal) do |source|
@@ -830,9 +855,19 @@ module Roby
 	end
     end
 
-    # Event generator which fires only until a certain other event is reached.
-    # See EventGenerator#until for a more complete description
+    # This event generator combines a source and a limit in a temporal pattern.
+    # The generator acts as a pass-through for the source, until the limit is
+    # itself emitted. It means that:
+    #
+    # * before the limit is emitted, the generator will emit each time its
+    #  source emits 
+    # * since the point where the limit is emitted, the generator
+    #   does not emit anymore
+    #
+    # See also EventGenerator#until
     class UntilGenerator < Roby::EventGenerator
+        # Creates a until generator for the given source and limit event
+        # generators
 	def initialize(source = nil, limit = nil)
 	    super() do |context|
 		plan.remove_object(self) if plan 

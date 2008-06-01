@@ -1,3 +1,16 @@
+class Exception
+    def pretty_print(pp)
+        pp.text "#{message} (#{self.class.name})"
+        pp.breakable
+        Roby.pretty_print_backtrace(pp, backtrace)
+    end
+    
+    # True if +obj+ is involved in this error
+    def involved_plan_object?(obj)
+        false
+    end
+end
+
 module Roby
     class ConfigError < RuntimeError; end
     class ModelViolation < RuntimeError; end
@@ -98,9 +111,12 @@ module Roby
 
     # This module is to be included in all objects that are
     # able to handle exception. These objects should define
-    # #each_exception_handler { |matchers, handler| ... }
+    #   #each_exception_handler { |matchers, handler| ... }
+    #
+    # See Task::on_exception and Task#on_exception
     module ExceptionHandlingObject
-	# Passes the exception to the next matching exception handler
+        # To be used in exception handlers themselves. Passes the exception to
+        # the next matching exception handler
 	def pass_exception
 	    throw :next_exception_handler
 	end
@@ -115,10 +131,10 @@ module Roby
 			    handler.call(self, exception_object)
 			    return true
 			rescue Exception => e
-			    if self == Roby
-				Propagation.add_framework_error(e, 'global exception handling')
+			    if self == propagation_engine
+				propagation_engine.add_framework_error(e, 'global exception handling')
 			    else
-				Propagation.add_error(FailedExceptionHandler.new(e, self, exception_object))
+				propagation_engine.add_error(FailedExceptionHandler.new(e, self, exception_object))
 			    end
 			end
 		    end
@@ -128,14 +144,92 @@ module Roby
 	end
     end
 
-    def self.filter_backtrace(backtrace)
-	if Roby.app.filter_backtraces? && backtrace
-	    backtrace = backtrace.dup
-	    backtrace.delete_if do |caller|
-	        caller =~ /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
-	    end
+    RX_IN_FRAMEWORK = /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
+    def self.filter_backtrace(original_backtrace)
+	if Roby.app.filter_backtraces? && original_backtrace
+            app_dir = if defined? APP_DIR then Regexp.quote(APP_DIR) end
+
+            original_backtrace = original_backtrace.dup
+            backtrace_bottom   = []
+            while !original_backtrace.empty? && original_backtrace.last !~ RX_IN_FRAMEWORK
+                backtrace_bottom.unshift original_backtrace.pop
+            end
+
+            backtrace = original_backtrace.enum_for(:each_with_index).map do |line, idx|
+                case line
+                when /in `poll_handler'$/
+                    line.gsub /:in.*/, ':in the polling handler'
+                when /in `event_command_(\w+)'$/
+                    line.gsub /:in.*/, ":in command for '#{$1}'"
+                when /in `event_handler_(\w+)_(?:[a-f0-9]+)'$/
+                    line.gsub /:in.*/, ":in event handler for '#{$1}'"
+                else
+                    if original_backtrace.size > idx + 4 &&
+                        original_backtrace[idx + 1] =~ /in `call'$/ &&
+                        original_backtrace[idx + 2] =~ /in `call_handlers'$/ &&
+                        original_backtrace[idx + 3] =~ /`each'$/ &&
+                        original_backtrace[idx + 4] =~ /`each_handler'$/
+
+                        line.gsub /:in /, ":in event handler, "
+                    else
+                        case line
+                        when /in `(gem_original_)?require'$/
+                        when /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
+                        when /^(#{app_dir}\/)?scripts\//
+                        when /^\(eval\):\d+:in `each(?:_handler)?'/
+                        else
+                            line
+                        end
+                    end
+                end
+            end
+
+            while !backtrace.empty? && !backtrace.last
+                backtrace.pop
+            end
+            backtrace.each_with_index do |line, i|
+                backtrace[i] = line || original_backtrace[i]
+            end
+
+            if app_dir
+                backtrace = backtrace.map do |line|
+                    line.gsub /^#{app_dir}\/?/, './'
+                end
+            end
+            backtrace.concat backtrace_bottom
 	end
-	backtrace || []
+	backtrace || original_backtrace || []
+    end
+
+    def self.pretty_print_backtrace(pp, backtrace)
+        if backtrace && !backtrace.empty?
+            pp.group(2) do
+                pp.seplist(filter_backtrace(backtrace)) { |line| pp.text line }
+            end
+        end
+    end
+
+    def self.format_exception(exception)
+        message = begin
+                      PP.pp(exception, "")
+                  rescue Exception => formatting_error
+                      begin
+                          "error formatting exception\n" +
+                              exception.full_message +
+                          "\nplease report the formatting error: \n" + 
+                              formatting_error.full_message
+                      rescue Exception => formatting_error
+                          "\nerror formatting exception\n" +
+                              formatting_error.full_message
+                      end
+                  end
+        message.split("\n")
+    end
+
+    def self.log_exception(e, logger, level)
+        format_exception(e).each do |line|
+            logger.send(level, line)
+        end
     end
 end
 

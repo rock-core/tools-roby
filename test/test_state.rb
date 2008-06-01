@@ -322,87 +322,105 @@ class TC_State < Test::Unit::TestCase
     end
 
     def test_time_delta_event
-	plan.discover(t = State.on_delta(:t => 3600))
-	assert_kind_of(TimeDeltaEvent, t)
+	FlexMock.use(Time) do |time_proxy|
+	    current_time = Time.now + 5
+	    time_proxy.should_receive(:now).and_return { current_time }
 
-	t.poll
-	assert(!t.happened?)
-	sleep(0.5)
-	t.poll
-	assert(!t.happened?)
+	    plan.discover(t = State.on_delta(:t => 1))
+	    assert_kind_of(TimeDeltaEvent, t)
 
-	t.instance_variable_set(:@last_value, Time.now - 3600)
-	t.poll
-	assert(1, t.history.size)
+	    t.poll
+	    assert(!t.happened?)
+	    current_time += 0.5
+	    t.poll
+	    assert(!t.happened?)
+
+	    current_time += 0.5
+	    t.poll
+	    assert(1, t.history.size)
+
+	    current_time += 0.5
+	    t.poll
+	    assert(1, t.history.size)
+
+	    current_time += 0.5
+	    t.poll
+	    assert(2, t.history.size)
+	end
     end
 
     def test_timepoint_event
-        plan.discover(ev = State.at(:time => Time.now + 0.5))
-        ev.poll
-        assert(!ev.happened?)
-        sleep(0.5)
-        ev.poll
-        assert(ev.happened?)
-        sleep(0.5)
-        ev.poll
-        assert_equal(1, ev.history.size)
+	FlexMock.use(Time) do |time_proxy|
+	    current_time = Time.now + 5
+	    time_proxy.should_receive(:now).and_return { current_time }
+
+	    plan.discover(ev = State.at(:t => current_time + 1))
+	    ev.poll
+	    assert(!ev.happened?)
+	    current_time += 1
+	    ev.poll
+	    assert(ev.happened?)
+	    current_time += 1
+	    ev.poll
+	    assert_equal(1, ev.history.size)
+	end
     end
 
     def test_and_state_events
 	State.pos = Pos::Euler3D.new
-	plan.discover(ev = State.on_delta(:yaw => 2, :d => 10))
+	plan.permanent(ev = State.on_delta(:yaw => 2, :d => 10))
 	assert_kind_of(AndGenerator, ev)
 
-	Roby.poll_state_events
+	Roby.plan.process_events
 	assert_equal(0, ev.history.size)
 
 	State.pos.yaw = 1
 	State.pos.x = 15
-	Roby.poll_state_events
+	Roby.plan.process_events
 	assert_equal(0, ev.history.size)
 
 	State.pos.yaw = 2
-	Roby.poll_state_events
+	Roby.plan.process_events
 	assert_equal(1, ev.history.size)
 
 	State.pos.yaw = 3
 	State.pos.x = 25
-	Roby.poll_state_events
+	Roby.plan.process_events
 	assert_equal(1, ev.history.size)
 
 	State.pos.yaw = 4
-	Roby.poll_state_events
+	Roby.plan.process_events
 	assert_equal(2, ev.history.size, ev.waiting.to_a)
     end
 
     def test_or_state_events
 	State.pos = Pos::Euler3D.new
-	plan.discover(y = State.on_delta(:yaw => 2))
+	plan.permanent(y = State.on_delta(:yaw => 2))
 
 	ev = y.or(:d => 10)
-	Roby.poll_state_events
+	Roby.plan.process_events
 	assert_equal(0, ev.history.size)
 
 	State.pos.yaw = 1
 	State.pos.x = 15
-	Roby.poll_state_events
+	Roby.plan.process_events
 	assert_equal(1, ev.history.size)
 
 	State.pos.yaw = 2
-	Roby.poll_state_events
+	Roby.plan.process_events
 	assert_equal(1, ev.history.size)
 
 	State.pos.yaw = 3
-	Roby.poll_state_events
+	Roby.plan.process_events
 	assert_equal(2, ev.history.size)
 
 	ev = ev.or(:t => 3600)
-	Roby.poll_state_events
+	Roby.plan.process_events
 	assert_equal(0, ev.history.size)
 
 	time_event = plan.free_events.find { |t| t.kind_of?(TimeDeltaEvent) }
 	time_event.instance_variable_set(:@last_value, Time.now - 3600)
-	Roby.poll_state_events
+	Roby.plan.process_events
 	assert_equal(1, ev.history.size)
     end
 end

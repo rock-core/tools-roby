@@ -21,7 +21,7 @@ module Roby
 		Roby.condition_variable(true) do |cv, mt|
 		    first_sample = nil
 		    mt.synchronize do
-			id = Roby::Control.every(period) do
+			id = Roby.every(period) do
 			    result = yield
 			    if result
 				if compute_time

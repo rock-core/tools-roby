@@ -73,7 +73,7 @@ module Roby
 		    local_peer.disable_rx
 		end
 		def flush; local_peer.flush end
-		def process_events; Roby.control.process_events end
+		def process_events; Roby.plan.process_events end
 		def local_peer
 		    @local_peer ||= Distributed.peers.find { true }.last
 		end
@@ -91,13 +91,13 @@ module Roby
 	    # Start a central discovery service, a remote connectionspace and a local
 	    # connection space. It yields the remote connection space *in the forked
 	    # child* if a block is given.
-	    def start_peers(detached_control = false)
+	    def start_peers
 		DRb.stop_service
 		remote_process do
 		    DRb.start_service DISCOVERY_SERVER, Rinda::TupleSpace.new
 		end
 
-		if detached_control && Roby.control.running?
+		if Roby.control.running?
 		    begin
 			Roby.control.quit
 			Roby.control.join
@@ -116,8 +116,7 @@ module Roby
 		    cs.testcase = self
 
 		    def cs.start_control_thread
-			Control.event_processing << Distributed.state.method(:start_neighbour_discovery)
-			Roby.control.run :detach => true
+			Roby.control.run
 		    end
 
 		    Distributed.state = cs
@@ -133,11 +132,8 @@ module Roby
 
 		Distributed.state = local
 
-		if detached_control
-		    remote.start_control_thread
-		    Control.event_processing << Distributed.state.method(:start_neighbour_discovery)
-		    Roby.control.run :detach => true
-		end
+                remote.start_control_thread
+                Roby.control.run
 	    end
 
 	    def setup_connection
@@ -155,9 +151,9 @@ module Roby
 	    attr_reader :central_tuplespace, :remote, :remote_peer, :remote_plan, :local
 
 	    # Establishes a peer to peer connection between two ConnectionSpace objects
-	    def peer2peer(detached_control = false, &remote_init)
+	    def peer2peer(&remote_init)
 		timings[:starting_peers] = Time.now
-		start_peers(detached_control, &remote_init)
+		start_peers(&remote_init)
 		setup_connection
 		timings[:started_peers] = Time.now
 	    end
@@ -167,7 +163,7 @@ module Roby
 		    remote.wait_one_cycle
 		    Roby.control.wait_one_cycle
 		elsif remote_peer && !remote_peer.disconnected?
-		    Roby::Control.synchronize do
+		    Roby.synchronize do
 			remote.process_events
 			Roby.control.process_events
 		    end

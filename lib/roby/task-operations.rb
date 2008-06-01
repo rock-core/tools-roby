@@ -1,5 +1,3 @@
-require 'roby/task'
-
 module Roby
     module TaskOperations
         def +(task)

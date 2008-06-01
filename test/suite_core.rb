@@ -7,11 +7,11 @@ require 'test_state'
 require 'test_propagation'
 require 'test_exceptions'
 
-
 require 'test_plan'
 require 'test_query'
 require 'test_transactions'
 require 'test_transactions_proxy'
+require 'test_thread_task'
 
 require 'suite_planning'
 require 'suite_relations'

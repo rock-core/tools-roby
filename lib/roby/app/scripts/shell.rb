@@ -1,7 +1,5 @@
 require 'roby'
-require 'roby/app'
 require 'roby/distributed'
-require 'roby/distributed/protocol'
 require 'optparse'
 
 remote_url = nil
@@ -21,6 +19,7 @@ app.robot robot_name, (ARGV.shift || robot_name)
 app.setup
 
 remote_url ||= app.droby['host']
+remote_url ||= 'localhost'
 if remote_url !~ /:\d+$/
     if app.droby['host'] && app.droby['host'] =~ /(:\d+)$/
 	remote_url << $1
@@ -43,11 +42,6 @@ begin
     irb = IRB::Irb.new(ws)
 
     context = irb.context
-    def context.evaluate(*args, &block)
-	Roby.execute do
-	    super
-	end
-    end
     IRB.conf[:MAIN_CONTEXT] = irb.context
 
     trap("SIGINT") do

@@ -5,6 +5,10 @@ require 'roby/test/tasks/simple_task'
 class TC_RealizedBy < Test::Unit::TestCase
     include Roby::Test
 
+    def test_check_structure_registration
+        assert plan.structure_checks.include?(Hierarchy.method(:check_structure))
+    end
+
     def test_definition
 	tag   = TaskModelTag.new
 	klass = Class.new(SimpleTask) do
@@ -51,8 +55,8 @@ class TC_RealizedBy < Test::Unit::TestCase
     Hierarchy = TaskStructure::Hierarchy
 
     def assert_children_failed(children, plan)
-	result = Hierarchy.check_structure(plan)
-	assert_equal(children.to_set, result.map { |e| e.failed_task }.to_set)
+	result = plan.check_structure
+	assert_equal(children.to_set, result.map { |e, _| e.exception.failed_task }.to_set)
     end
 
     def test_failure_point
@@ -67,7 +71,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	child.start!
 	child.specialized_failure!
 
-	error = Hierarchy.check_structure(plan).first.exception
+	error = plan.check_structure.find { true }[0].exception
 	assert_kind_of(ChildFailedError, error)
 	assert_equal(child.event(:specialized_failure).last, error.failure_point)
 	assert_equal(child.event(:specialized_failure).last, error.failed_event)
@@ -75,7 +79,23 @@ class TC_RealizedBy < Test::Unit::TestCase
 	parent.stop!
     end
 
-    def test_structure_checking
+    def test_exception_printing
+        parent, child = prepare_plan :discover => 2, :model => SimpleTask
+        parent.realized_by child
+        parent.start!
+        child.start!
+        child.failed!
+
+	error = plan.check_structure.find { true }[0].exception
+	assert_kind_of(ChildFailedError, error)
+        assert_nothing_raised do
+            Roby.format_exception(error)
+        end
+
+        parent.stop!
+    end
+
+    def test_check_structure
 	child_model = Class.new(SimpleTask) do
 	    event :first, :command => true
 	    event :second, :command => true
@@ -88,7 +108,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	plan.insert(p1)
 
 	child.start!; p1.start!
-	assert_equal([], Hierarchy.check_structure(plan))
+	assert_equal({}, plan.check_structure)
 	child.stop!
 	assert_equal([child.event(:failed).last], Hierarchy.interesting_events)
 	assert_children_failed([child], plan)

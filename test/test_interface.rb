@@ -1,14 +1,20 @@
 $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'roby/test/common'
+require 'roby/interface'
 require 'flexmock'
 
 class TC_Interface < Test::Unit::TestCase 
     include Roby::Test
 
+    def setup
+        super
+        Roby.app.filter_backtraces = false
+    end
+
+
     include Roby::Planning
     def test_method_missing
-        control = Roby.control
-        iface   = Interface.new(control)
+        iface   = Interface.new
 
         task_model = Class.new(Task)
 
@@ -16,9 +22,9 @@ class TC_Interface < Test::Unit::TestCase
         planner = Class.new(Planner) do
             method(:null_task) { result_task = task_model.new }
         end
-        control.planners << planner
+        Roby.app.planners << planner
 
-	control.run :detach => true
+	Roby.control.run :detach => true
 	returned_task = iface.null_task! do |_, planner|
 	    planner.start!
 	end

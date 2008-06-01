@@ -1,8 +1,3 @@
-require 'roby/plan-object'
-require 'roby/exceptions'
-require 'roby/event'
-require 'utilrb/module/attr_predicate'
-
 module Roby
     class TaskModelTag < Module
 	module ClassExtension
@@ -72,6 +67,15 @@ module Roby
 	def to_s
 	    "#{generator.to_s}@#{propagation_id} [#{time.to_hms}]: #{context}"
 	end
+
+        def pretty_print(pp)
+            pp.text "at [#{time.to_hms}/#{propagation_id}] in the "
+            generator.pretty_print(pp)
+            pp.breakable
+            pp.group(2) do
+                pp.seplist(context || []) { |v| v.pretty_print pp }
+            end
+        end
 
         # If the event model defines a controlable event
         # By default, an event is controlable if the model
@@ -143,13 +147,13 @@ module Roby
 	    super if defined? super
             if task.finished? && !terminal?
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}!(#{context})) called by #{Propagation.sources} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources}."
+		    "#{symbol}!(#{context})) called by #{plan.propagation_sources} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources}."
             elsif task.pending? && symbol != :start
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}!(#{context})) called by #{Propagation.sources} but the task is not running"
+		    "#{symbol}!(#{context})) called by #{plan.propagation_sources} but the task is not running"
             elsif task.running? && symbol == :start
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}!(#{context})) called by #{Propagation.sources} but the task is already running. Task has been started by #{task.event(:start).history.first.sources}."
+		    "#{symbol}!(#{context})) called by #{plan.propagation_sources} but the task is already running. Task has been started by #{task.event(:start).history.first.sources}."
             end
 	end
 
@@ -209,7 +213,7 @@ module Roby
 		task.update_terminal_flag
 	    end
 	end
-        def new(context); event_model.new(task, self, Propagation.propagation_id, context) end
+        def new(context); event_model.new(task, self, plan.propagation_id, context) end
 
 	def to_s
 	    "#{task}/#{symbol}"
@@ -217,6 +221,9 @@ module Roby
 	def inspect
 	    "#{task.inspect}/#{symbol}: #{history.to_s}"
 	end
+        def pretty_print(pp)
+            pp.text "#{symbol} event of #{task.class}:0x#{task.address.to_s(16)}"
+        end
 
 	def achieve_with(obj)
 	    child_task, child_event = case obj
@@ -284,31 +291,90 @@ module Roby
 	end
     end
 
-    # Tasks represent processes in a plan. Task subclasses model specific tasks
-    # Tasks are made of events, which are
-    # defined by calling Task::event on a Task class.
+    # In a plan, Task objects represent the activities of the robot. 
+    # 
+    # === Task models
+    #
+    # A task model is mainly described by:
+    #
+    # <b>a set of named arguments</b>, which are required to parametrize the
+    # task instance. The argument list is described using Task.argument and
+    # arguments are either set at object creation by passing an argument hash
+    # to Task.new, or by calling Task#argument explicitely.
+    #
+    # <b>a set of events</b>, which are situations describing the task
+    # progression.  The base Roby::Task model defines the
+    # +start+,+success+,+failed+ and +stop+ events. Events can be defined on
+    # the models by using Task.event:
+    #
+    #   class MyTask < Roby::Task
+    #       event :intermediate_event
+    #   end
+    #
+    # defines a non-controllable event, i.e. an event which can be emitted, but
+    # cannot be triggered explicitely by the system. Controllable events are defined
+    # by associating a block of code with the event, this block being responsible for
+    # making the event emitted either in the future or just now. For instance,
+    #
+    #   class MyTask < Roby::Task
+    #       event :intermediate_event do |context|
+    #           emit :intermediate_event
+    #       end
+    #
+    #       event :other_event do |context|
+    #           Roby.once { emit :other_event }
+    #       end
+    #   end
+    #
+    # define two controllable event. In the first case, the event is
+    # immediately emitted, and in the second case it will be emitted at the
+    # beginning of the next execution cycle.
     #
     # === Executability
-    # By default, a task is not executable, which means that no event command
-    # can be called and no event can be emitted. A task becomes executable either
-    # because Task#executable= has been called or because it has been inserted
-    # in a Plan object. This constraint has been added to make sure that no
-    # task is executed outside of the plan supervision. Note that tasks inserted
-    # in transactions are *not* executable either. An abstract task is a task
-    # which can never be executed. Call Task::abstract in the class definition
-    # to make a task abstract.
     #
-    # === Inheritance
-    # * a task subclass has all events of its parent class
-    # * some event attributes can be overriden. The rules are:
-    #   - a non-controlable event can become a controlable one
-    #   - a non-terminal event can become a terminal one
+    # By default, a task is not executable, which means that no event command
+    # can be called and no event can be emitted. A task becomes executable
+    # either because Task#executable= has explicitely been called or because it
+    # has been inserted in a Plan object. Note that forcing executability with
+    # #executable= is only useful for testing. When the Roby controller manages
+    # a real systems, the executability property enforces the constraint that a
+    # task cannot be executed outside of the plan supervision. 
+    #
+    # Finally, it is possible to describe _abstract_ task models: tasks which
+    # do represent an action, but for which the _means_ to perform that action
+    # are still unknown. This is done by calling Task.abstract in the task definition:
+    #
+    #   class AbstTask < Roby::Task
+    #       abstract
+    #   end
+    #
+    # An instance of an abstract model cannot be executed, even if it is included
+    # in a plan.
+    #
+    # === Inheritance rules
+    #
+    # On task models, a submodel can inherit from a parent model if the actions
+    # described by the parent model are also performed by the child model. For
+    # instance, a <tt>Goto(x, y)</tt> model could be subclassed into a
+    # <tt>Goto::ByFoot(x, y)</tt> model.
+    #
+    # The following constraints apply when subclassing a task model:
+    # * a task subclass has at least the same events than the parent class
+    # * changes to event attributes are limited. The rules are:
+    #   - a controlable event must remain controlable. Nonetheless, a
+    #     non-controlable event can become a controlable one
+    #   - a terminal event (i.e. a terminal event which ends the task
+    #     execution) cannot become non-terminal. Nonetheless, a non-terminal
+    #     event can become terminal.
+    #
     class Task < PlanObject
 	unless defined? RootTaskTag
 	    RootTaskTag = TaskModelTag.new
 	    include RootTaskTag
 	end
 
+        # Clears all definitions saved in this model. This is to be used by the
+        # reloading code
 	def self.clear_model
 	    class_eval do
 		# Remove event models
@@ -323,7 +389,18 @@ module Roby
 	    end
 	end
 
-	def self.model_attribute_list(name)
+        # Declares an attribute set which follows the task models inheritance
+        # hierarchy. Define the corresponding enumeration methods as well.
+        #
+        # For instance,
+        #   model_attribute_list 'signal'
+        #
+        # defines the model-level signals, which can be accessed through
+        #   .each_signal(model)
+        #   .signals(model)
+        #   #each_signal(model)
+        #   
+	def self.model_attribute_list(name) # :nodoc:
 	    inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = ValueSet.new } }
 	    class_eval <<-EOD
 		def self.each_#{name}(model)
@@ -342,8 +419,6 @@ module Roby
 		def each_#{name}(model); self.model.each_#{name}(model) { |o| yield(o) } end
 	    EOD
 	end
-
-	attr_reader :model
 
 	model_attribute_list('signal')
 	model_attribute_list('forwarding')
@@ -396,7 +471,9 @@ module Roby
 	    initialize_events
 	end
 
-	def initialize_events
+        # Helper methods which creates all the necessary TaskEventGenerator
+        # objects and stores them in the #bound_events map
+	def initialize_events # :nodoc:
 	    @instantiated_model_events = false
 
 	    # Create all event generators
@@ -498,7 +575,7 @@ module Roby
 	    end
 	end
 
-	def plan=(new_plan)
+	def plan=(new_plan) # :nodoc:
 	    if plan != new_plan
 		if plan && plan.include?(self)
 		    raise ModelViolation.new, "still included in #{plan}, cannot change the plan"
@@ -526,10 +603,18 @@ module Roby
 		@abstract = true
 	    end
 
+            # Declare that nothing special is required to stop this task.
+            # This makes +failed+ and +stop+ controlable events, and
+            # makes the interruption sequence be stop! => calls failed! =>
+            # emits +failed+ => emits +stop+.
 	    def terminates
 		event :failed, :command => true, :terminal => true
 		interruptible
 	    end
+
+            # Sets up a command for +stop+ in the case where +failed+ is also
+            # controllable, if the command of +failed+ should be used to stop
+            # the task.
 	    def interruptible
 		if !has_event?(:failed) || !event_model(:failed).controlable?
 		    raise ArgumentError, "failed is not controlable"
@@ -542,14 +627,8 @@ module Roby
 		    failed!(context)
 		end
 	    end
-	    def polls
-		if !instance_method?(:poll)
-		    raise ArgumentError, "#{self} does not define a 'poll' instance method"
-		end
-		poll(&method(:poll))
-	    end
 
-	    def setup_poll_method(block)
+	    def setup_poll_method(block) # :nodoc:
 		define_method(:poll) do
 		    return unless self_owned?
 		    begin
@@ -562,6 +641,9 @@ module Roby
 		define_method(:poll_handler, &block)
 	    end
 
+            # Defines a block which will be called at each execution cycle for
+            # each running task of this model. The block is called in the
+            # instance context of the target task (i.e. using instance_eval)
 	    def poll(&block)
 		if !block_given?
 		    raise "no block given"
@@ -569,14 +651,16 @@ module Roby
 
 		setup_poll_method(block)
 
-		on(:start) { |ev| Control.event_processing << method(:poll) }
-		on(:stop)  { |ev| Control.event_processing.delete(method(:poll)) }
+		on(:start) { |ev| ev.task.plan.propagation_handlers << method(:poll) }
+		on(:stop)  { |ev| ev.task.plan.propagation_handlers.delete(method(:poll)) }
 	    end
 	end
 
-	# Roby::Task is an abstract model
+	# Roby::Task is an abstract model. See Task::abstract
 	abstract
-
+        
+        # Returns true if this task is from an abstract model. If it is the
+        # case, the task is not executable.
 	def abstract?; self.class.abstract? end
 	# Check if this task is executable
 	def executable?; !abstract? && !partially_instanciated? && super end
@@ -595,26 +679,30 @@ module Roby
 	    super
 	end
 	
-	# Check that all arguments required by the task model are set
+	# True if all arguments defined by Task.argument on the task model are set.
 	def fully_instanciated?
 	    @fully_instanciated ||= model.arguments.all? { |name| arguments.has_key?(name) }
 	end
-	# Returns true if one argument required by the task model is not set
+        # True if at least one argument required by the task model is not set.
+        # See Task.argument.
 	def partially_instanciated?; !fully_instanciated? end
 
-        # If a model of +event+ is defined in the task model
+        # True if this task has an event of the required model. The event model
+        # can either be a event class or an event name.
         def has_event?(event_model)
 	    bound_events.has_key?(event_model) ||
 		self.class.has_event?(event_model)
 	end
         
+        # True if this task is starting, i.e. if its start event is pending
+        # (has been called, but is not emitted yet)
 	def starting?; event(:start).pending? end
-	# If this task never ran
+	# True if this task has never been started
 	def pending?; !starting? && !started? end
-        # If this task is currently running
+        # True if this task is currently running (i.e. is has already started,
+        # and is not finished)
         def running?; started? && !finished? end
-	# A terminal event that has already happened. nil if the task
-	# is not finished
+        # True if the task is finishing, i.e. if a terminal event is pending.
 	def finishing?
 	    if running?
 		each_event { |ev| return true if ev.terminal? && ev.pending? }
@@ -622,10 +710,11 @@ module Roby
 	    false
 	end
 
-        # If this task ran and is finished
 	attr_predicate :started?, true
 	attr_predicate :finished?, true
 	attr_predicate :success?, true
+
+        # True if the +failed+ event of this task has been fired
 	def failed?; finished? && @success == false end
 
 	# Remove all relations in which +self+ or its event are involved
@@ -634,9 +723,9 @@ module Roby
 	    super
 	end
 
-	# Update the terminal flag for the event models that are defined in
-	# this task model. The event is terminal if model-level signals (set up
-	# by Task::on) lead to the emission of the +stop+ event
+        # Update the terminal flag for the event models that are defined in
+        # this task model. The event is terminal if model-level signals (set up
+        # by Task::on) lead to the emission of the +stop+ event
 	def self.update_terminal_flag # :nodoc:
 	    events = enum_events.map { |name, _| name }
 	    terminal_events = [:stop]
@@ -670,21 +759,43 @@ module Roby
 	# Updates the terminal flag for all events in the task. An event is
 	# terminal if the +stop+ event of the task will be called because this
 	# event is.
-	def update_terminal_flag
+	def update_terminal_flag # :nodoc:
 	    return unless @instantiated_model_events
 
 	    for _, ev in bound_events
 		ev.terminal_flag = nil
 	    end
-	    success_events = bound_events[:success].
-		generated_subgraph(EventStructure::CausalLink.reverse)
-	    failure_events = bound_events[:failed].
-		generated_subgraph(EventStructure::CausalLink.reverse)
-	    terminal_events = bound_events[:stop].
-		generated_subgraph(EventStructure::CausalLink.reverse)
 
-	    if success_events.intersects?(failure_events)
-		raise ArgumentError, "#{success_events & failure_events} are both success and failure events"
+            success_events, failure_events, terminal_events =
+                [event(:success)].to_value_set, 
+                [event(:failed)].to_value_set,
+                [event(:stop), event(:success), event(:failed)].to_value_set
+
+	    loop do
+		old_size = terminal_events.size
+		for _, ev in bound_events
+                    for relation in [EventStructure::Signal, EventStructure::Forwarding]
+                        for target in ev.child_objects(relation)
+                            next if !target.respond_to?(:task) || target.task != self
+                            next if ev[target, relation]
+
+                            if success_events.include?(target)
+                                success_events << ev
+                                terminal_events << ev
+                                break
+                            elsif failure_events.include?(target)
+                                failure_events << ev
+                                terminal_events << ev
+                                break
+                            elsif terminal_events.include?(target)
+                                terminal_events << ev
+                            end
+                        end
+                    end
+
+                    success_events.include?(ev) || failure_events.include?(ev) || terminal_events.include?(ev)
+		end
+		break if old_size == terminal_events.size
 	    end
 
 	    for ev in success_events
@@ -698,8 +809,8 @@ module Roby
 	    end
 	end
 
-	# List of [time, event] pair for all events that
-	# have already been achieved in this task.
+        # Returns a sorted list of Event objects, for all events that have been
+        # fired by this task
 	def history
 	    history = []
 	    each_event do |event|
@@ -709,9 +820,9 @@ module Roby
 	    history.sort_by { |ev| ev.time }
 	end
 
-	# Returns the set of tasks directly related to this task, either because 
-	# of task relations or because of task events that are related to other
-	# task events
+        # Returns the set of tasks directly related to this task, either
+        # because of task relations or because of task events that are related
+        # to other task events
 	def related_tasks(result = nil)
 	    result = related_objects(nil, result)
 	    each_event do |ev|
@@ -720,6 +831,8 @@ module Roby
 
 	    result
 	end
+        
+        # Returns the set of events directly related to this task
 	def related_events(result = nil)
 	    each_event do |ev|
 		result = ev.related_events(result)
@@ -731,20 +844,20 @@ module Roby
             
         # This method is called by TaskEventGenerator#fire just before the event handlers
         # and commands are called
-        def fire_event(event)
+        def fire_event(event) # :nodoc:
 	    if !executable?
 		raise TaskNotExecutable.new(self), "trying to fire #{event.generator.symbol} on #{self} but #{self} is not executable"
 	    end
 
             if finished? && !event.terminal?
                 raise EmissionFailed.new(nil, self), 
-		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task has finished. Task has been terminated by #{event(:stop).history.first.sources}."
+		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{plan.propagation_sources} but the task has finished. Task has been terminated by #{event(:stop).history.first.sources}."
             elsif pending? && event.symbol != :start
                 raise EmissionFailed.new(nil, self), 
-		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task is not running"
+		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{plan.propagation_sources} but the task is not running"
             elsif running? && event.symbol == :start
                 raise EmissionFailed.new(nil, self), 
-		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{Propagation.sources} but the task is already running. Task has been started by #{event(:start).history.first.sources}."
+		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{plan.propagation_sources} but the task is already running. Task has been started by #{event(:start).history.first.sources}."
             end
 
 	    update_task_status(event)
@@ -752,11 +865,11 @@ module Roby
 	    super if defined? super
         end
 
-	# The event which has finished the task
+	# The event which has finished the task (if there is one)
 	attr_reader :terminal_event
 	
 	# Call to update the task status because of +event+
-	def update_task_status(event)
+	def update_task_status(event) # :nodoc:
 	    if event.success?
 		plan.task_index.set_state(self, :success?)
 		self.success = true
@@ -783,7 +896,7 @@ module Roby
         attr_reader :bound_events
 
         # call-seq:
-        #   emit(event_model, *context)                       event object
+        #   emit(event_model, *context) => self
         #
         # Emits +event_model+ in the given +context+. Event handlers are fired.
         # This is equivalent to
@@ -794,8 +907,8 @@ module Roby
             self
         end
 
-        # Returns an TaskEventGenerator object which is the given task event bound
-        # to this particular task
+        # Returns the TaskEventGenerator which describes the required event
+        # model. +event_model+ can either be an event name or an Event class.
         def event(event_model)
 	    unless event = bound_events[event_model]
 		event_model = self.event_model(event_model)
@@ -810,23 +923,23 @@ module Roby
         #   on(event, task[, event1, event2, ...])
 	#   on(event) { |event| ... }
         #   on(event[, task, event1, event2, ...]) { |event| ... }
+        #   on(event, task[, event1, event2, ...], delay)
         #
-        # Adds an event handler for the given event model. When the corresponding
-	# event is fired,
-	# * all signalled events will be called in +task+. As such, all of
-	#   these events shall be controlable
-        # * the supplied handler will be called with the event object
-	#
-	#   on(event, task)
-	# is equivalent to 
-	#   on(event, task, event)
+        # Adds a signal from the given event to the specified targets, and/or
+        # defines an event handler. Note that <tt>on(event, task)</tt> is
+        # equivalent to <tt>on(event, task, event)</tt>
         #
+        # +delay+, if given, specifies that the signal must be postponed for as
+        # much time as specified. See EventGenerator#signal for valid values.
         def on(event_model, to = nil, *to_task_events, &user_handler)
             unless to || user_handler
                 raise ArgumentError, "you must provide either a task or an event handler (got nil for both)"
             end
 
             generator = event(event_model)
+            if Hash === to_task_events.last
+                delay = to_task_events.pop
+            end
 	    to_events = case to
 			when Task
 			    if to_task_events.empty?
@@ -838,18 +951,33 @@ module Roby
 			else []
 			end
 
+            to_events.push delay if delay
             generator.on(*to_events, &user_handler)
             self
         end
 
-	# Fowards +event_model+ to the events in +to_events+ on task +to_task+
-	# If no destination events are given, use the event in +to_task+ with
-	# the same name than +event_model+: the two following lines are equivalent:
-	#   t1.forward(:start, t2, :start)
-	#   t1.forward(:start, t2)
-	#
-	def forward(event_model, to, *to_task_events)
-            generator = event(event_model)
+        # call-seq:
+        #   forward source_event, dest_task, ev1, ev2, ev3, ...
+        #   forward source_event, dest_task, ev1, ev2, ev3, delay_options
+        #
+        # Fowards +name+ to the events in +to_task_events+ on task +to+.  The
+        # target events will be emitted as soon as the +name+ event is emitted
+        # on the receiving task, without calling any command.
+        #
+        # To call an event whenever other events are emitted, use the Signal
+        # relation. See Task#on, Task.on and EventGenerator#on. As for Task#on,
+        # <tt>forward(:start, task)</tt> is a shortcut to <tt>forward(:start,
+        # task, :start)</tt>.
+        #
+        # If a +delay_options+ hash is provided, the forwarding is not performed
+        # immediately, but with a given delay. See EventGenerator#forward for
+        # the delay specification.
+	def forward(name, to, *to_task_events)
+            generator = event(name)
+            if Hash === to_task_events.last
+                delay = to_task_events.pop
+            end
+
 	    to_events = if to.respond_to?(:event)
 			    if to_task_events.empty?
 				[to.event(generator.symbol)]
@@ -863,12 +991,12 @@ module Roby
 			end
 
 	    to_events.each do |ev|
-		generator.forward ev
+		generator.forward ev, delay
 	    end
 	end
 
 	attr_accessor :calling_event
-	def method_missing(name, *args, &block)
+	def method_missing(name, *args, &block) # :nodoc:
 	    if calling_event && calling_event.respond_to?(name)
 		calling_event.send(name, *args, &block)
 	    else
@@ -878,8 +1006,10 @@ module Roby
 	    raise $!, $!.message, $!.backtrace[1..-1]
 	end
 
-        # :section: Event model
-        
+	@@event_command_id = 0
+	def self.allocate_event_command_id # :nodoc:
+	    @@event_command_id += 1
+	end
         # call-seq:
         #   self.event(name, options = nil) { ... } -> event class or nil
         #
@@ -887,43 +1017,30 @@ module Roby
         #
         # ==== Available options
         #
-        # <tt>:command</tt>::
-        #   either an event command for the new event, which is an object which must respond
-        #   to proc, +true+ or +false+. If it is true, a default handler is defined which 
-        #   simply emits the event. +false+ can be used to override the automatic definition
-        #   of the event command (see below). If a block is given, it is used as the event
-	#   command.
+        # <tt>command</tt>::
+        #   either true, false or an event command for the new event. In that
+        #   latter case, the command is an object which must respond to
+        #   #to_proc. If it is true, a default handler is defined which simply
+        #   emits the event. If a block is given, it is used as the event
+        #   command.
         #
-        # <tt>:terminal</tt>::
-        #   set to true if this event is a terminal event
+        # <tt>terminal</tt>::
+        #   set to true if this event is a terminal event, i.e. if its emission
+        #   means that the task has finished.
         #
-        # <tt>:model</tt>::
+        # <tt>model</tt>::
         #   base class for the event model (see "Event models" below). The default is the 
         #   TaskEvent class
         #
-        #
-        # ==== Automatic event command
-        #
-        # If the task class defines a method with the same name as the
-        # event, then the event is controlable, and this method is defined
-        # as the event command.
-        #
-        # Setting the <tt>:command</tt> option explicitely to a false value overrides 
-        # this behaviour (use +false+ or +nil+ to disable the command handler)
-        #
-        #
         # ==== Event models
         #
-        # The event model is described using a Ruby class. Task::event defines a 
-        # class, usually a subclass of TaskEvent and stores it in MyTask::MyEvent
-        # for a my_event event. Then, when the event is emitted, the event object
-        # will be an instance of this particular class. To override the base class
-        # for a particular event, use the <tt>:model</tt> option
-        #
-	@@event_command_id = 0
-	def self.allocate_event_command_id
-	    @@event_command_id += 1
-	end
+        # When a task event (for instance +start+) is emitted, a Roby::Event
+        # object is created to describe the information related to this
+        # emission (time, sources, context information, ...). Task.event
+        # defines a specific event model MyTask::MyEvent for each task event
+        # with name :my_event. This specific model is by default a subclass of
+        # Roby::TaskEvent, but it is possible to override that by using the +model+
+        # option.
         def self.event(ev, options = Hash.new, &block)
             options = validate_options(options, :command => nil, :terminal => nil, :model => TaskEvent)
 
@@ -988,7 +1105,7 @@ module Roby
 		    if command_handler
 			define_method(:call, &command_handler)
 		    else
-			def call(task, context)
+			def call(task, context) # :nodoc:
 			    task.emit(symbol, *context)
 			end
 		    end
@@ -1056,6 +1173,9 @@ module Roby
         end
 	alias :each_plan_child :each_event
 
+        # Returns the set of terminal events this task has. A terminal event is
+        # an event whose emission announces the end of the task. In most case,
+        # it is an event which is forwarded directly on indirectly to +stop+.
 	def terminal_events
 	    bound_events.values.find_all { |ev| ev.terminal? }
 	end
@@ -1148,7 +1268,9 @@ module Roby
 	# call-seq:
 	#   causal_link(:from => :to)
 	#
-	# Declares a causal link between two events in the task
+        # Declares a causal link between two events in the task. See
+        # EventStructure::CausalLink for a description of the causal link
+        # relation.
 	def self.causal_link(mappings)
             mappings.each do |from, to|
                 from = event_model(from).symbol
@@ -1157,7 +1279,14 @@ module Roby
 	    update_terminal_flag
 	end
 
-	# +mappings+ is a from => to hash where +from+ is forwarded to +to+.
+	# call-seq:
+        #   forward :from => :to
+        #
+        # Defines a forwarding relation between two events of the same task
+        # instance. See EventStructure::Forward for a description of the
+        # forwarding relation.
+        #
+        # See also Task#forward and EventGenerator#forward.
 	def self.forward(mappings)
             mappings.each do |from, to|
                 from = event_model(from).symbol
@@ -1171,7 +1300,7 @@ module Roby
 	    precondition_sets[event.symbol] << [reason, block]
 	end
 
-        def to_s
+        def to_s # :nodoc:
 	    s = name.dup
 	    id = owners.map do |owner|
 		next if owner == Roby::Distributed
@@ -1183,24 +1312,23 @@ module Roby
 	    end
 	    s
 	end
-	def pretty_print(pp)
-	    pp.text to_s
-	    pp.group(2, ' {', '}') do
-		pp.breakable
-		pp.text "owners: "
+
+	def pretty_print(pp) # :nodoc:
+	    pp.text "#{self.class.name}:0x#{self.address.to_s(16)}"
+            pp.breakable
+	    pp.nest(2) do
+		pp.text "  owners: "
 		pp.seplist(owners) { |r| pp.text r.to_s }
 
 		pp.breakable
-		pp.text "relations: "
-		pp.seplist(relations) { |r| pp.text r.name }
-
-		pp.breakable
 		pp.text "arguments: "
-		pp.pp arguments
+		arguments.pretty_print(pp)
 	    end
 	end
-	    
+
+        # True if this task is a null task. See NullTask.
         def null?; false end
+        # Converts this object into a task object
 	def to_task; self end
 	
 	event :start, :command => true
@@ -1213,12 +1341,17 @@ module Roby
 	event :aborted
 	forward :aborted => :failed
 
+        # The internal data for this task
 	attr_reader :data
+        # Sets the internal data value for this task. This calls the
+        # #updated_data hook, and emits +updated_data+ if the task is running.
 	def data=(value)
 	    @data = value
 	    updated_data
 	    emit :updated_data if running?
 	end
+        # This hook is called whenever the internal data of this task is
+        # updated.  See #data, #data= and the +updated_data+ event
 	def updated_data
 	    super if defined? super
 	end
@@ -1230,6 +1363,7 @@ module Roby
 	    finished? || !(running? ^ task.running?)
 	end
 
+        # Returns the lists of tags this model fullfills.
 	def self.tags
 	    ancestors.find_all { |m| m.instance_of?(TaskModelTag) }
 	end
@@ -1277,21 +1411,26 @@ module Roby
 
 	include ExceptionHandlingObject
 	inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }
+
+        # Lists all exception handlers attached to this task
 	def each_exception_handler(&iterator); model.each_exception_handler(&iterator) end
 
 	@@exception_handler_id = 0
 
 	# call-seq:
-	#   task_model.on_exception(TaskModelViolation, ...) { |task, exception_object| ... }
-	#   task_model.on_exception(TaskModelViolation, ...) do |task, exception_object|
-	#	....
-	#	task.pass_exception # send to the next handler
-	#   end
+	#   on_exception(TaskModelViolation, ...) { |task, exception_object| ... }
 	#
-	# Defines an exception handler. We use matcher === exception_object
-	# to determine if the handler should be called when +exception_object+
-	# has been fired. The first matching handler is called. Call #pass
-	# to pass the exception to previous handlers
+        # Defines an exception handler. matcher === exception_object is used to
+        # determine if the handler should be called when +exception_object+ has
+        # been fired. The first matching handler is called. Call #pass_exception to pass
+        # the exception to previous handlers
+        #
+	#   on_exception(TaskModelViolation, ...) do |task, exception_object|
+	#	if cannot_handle
+	#	    task.pass_exception # send to the next handler
+        #	end
+        #       do_handle
+	#   end
 	def self.on_exception(*matchers, &handler)
             check_arity(handler, 1)
 	    id = (@@exception_handler_id += 1)
@@ -1308,6 +1447,7 @@ module Roby
 	    super
 	end
 
+        # This method is called during the commit process to 
 	def commit_transaction
 	    super if defined? super
 
@@ -1318,10 +1458,20 @@ module Roby
 	    end
 	end
 
+        # Create a new task of the same model and with the same arguments
+        # than this one. Insert this task in the plan and make it replace
+        # the fresh one.
+        #
+        # See Plan#respawn
 	def respawn
 	    plan.respawn(self)
 	end
 
+        # Replaces, in the plan, the subplan generated by this plan object by
+        # the one generated by +object+. In practice, it means that we transfer
+        # all parent edges whose target is +self+ from the receiver to
+        # +object+. It calls the various add/remove hooks defined in
+        # DirectedRelationSupport.
 	def replace_subplan_by(object)
 	    super
 
@@ -1358,6 +1508,8 @@ module Roby
 	    end
 	end
 
+        # Replaces +self+ by +object+ in all relations +self+ is part of, and
+        # do the same for the task's event generators.
 	def replace_by(object)
 	    each_event do |event|
 		event_name = event.symbol
@@ -1368,6 +1520,13 @@ module Roby
 	    super
 	end
 
+        # Define a polling block for this task. The polling block is called at
+        # each execution cycle while the task is running (i.e. in-between the
+        # emission of +start+ and the emission of +stop+.
+        #
+        # Raises ArgumentError if the task is already running.
+        #
+        # See also Task::poll
 	def poll(&block)
 	    if !pending?
 		raise ArgumentError, "cannot set a polling block when the task is not pending"
@@ -1377,28 +1536,41 @@ module Roby
 	    singleton_class.class_eval do
 		setup_poll_method(block)
 	    end
-	    on(:start) { Control.event_processing << method(:poll) }
-	    on(:stop)  { Control.event_processing.delete(method(:poll)) }
+            on(:start) { |ev| ev.task.plan.propagation_handlers << method(:poll) }
+            on(:stop)  { |ev| ev.task.plan.propagation_handlers.delete(method(:poll)) }
 	end
     end
 
+    # A special task model which does nothing and emits +success+
+    # as soon as it is started.
     class NullTask < Task
         event :start, :command => true
         event :stop
         forward :start => :success
 
+        # Always true. See Task#null?
         def null?; true end
     end
 
+    # A virtual task is a task representation for a combination of two events.
+    # This allows to combine two unrelated events, one being the +start+ event
+    # of the virtual task and the other its success event.
+    #
+    # The task fails if the success event becomes unreachable.
+    #
+    # See VirtualTask.create
     class VirtualTask < Task
+        # The start event
 	attr_reader :start_event
+        # The success event
+	attr_accessor :success_event
+        # Set the start event
 	def start_event=(ev)
 	    if !ev.controlable?
 		raise ArgumentError, "the start event of a virtual task must be controlable"
 	    end
 	    @start_event = ev
 	end
-	attr_accessor :success_event
 
 	event :start do |context|
 	    event(:start).achieve_with(start_event)
@@ -1413,6 +1585,7 @@ module Roby
 
 	terminates
 
+        # Creates a new VirtualTask with the given start and success events
 	def self.create(start, success)
 	    task = VirtualTask.new
 	    task.start_event = start
@@ -1433,6 +1606,4 @@ module Roby
 	TaskStructure   = RelationSpace(Task)
     end
 end
-
-require 'roby/task-operations'
 

@@ -1,8 +1,8 @@
-require 'roby/support'
-require 'roby/graph'
-
 module Roby
+    # This exception is raised when an edge is being added in a DAG, while this
+    # edge would create a cycle.
     class CycleFoundError < RuntimeError; end
+
     # Base support for relations. It is mixed-in objects that are part of
     # relation networks (like Task and EventGenerator)
     module DirectedRelationSupport
@@ -169,11 +169,12 @@ module Roby
     end
 
     # This class manages the graph defined by an object relation in Roby.
-    # Relation graphs are managed in hierarchies (for instance, Precedence is a
-    # superset of CausalLink, and CausalLink a superset of both Forwarding and
-    # Signal). In this hierarchy, at each level, an edge cannot be present in
-    # more than one graph. Nonetheless, it is possible for a parent relation to
-    # have an edge which is present in none of its children.
+    # Relation graphs are managed in hierarchies (for instance, in
+    # EventStructure, Precedence is a superset of CausalLink, and CausalLink a
+    # superset of both Forwarding and Signal). In this hierarchy, at each
+    # level, an edge cannot be present in more than one graph. Nonetheless, it
+    # is possible for a parent relation to have an edge which is present in
+    # none of its children.
     class RelationGraph < BGL::Graph
 	# The relation name
 	attr_reader   :name
@@ -184,13 +185,16 @@ module Roby
 	# The graph options as given to RelationSpace#relation
 	attr_reader   :options
 
-	# Creates a new relation graph named +name+ with options +options+. The following options are
-	# recognized:
-	# +dag+:: if the graph is a DAG. If true, add_relation will check that
+        # Creates a relation graph with the given name and options. The
+        # following options are recognized:
+	# +dag+:: 
+        #   if the graph is a DAG. If true, add_relation will check that
 	#   no cycle is created
-	# +subsets+:: a set of RelationGraph objects that are children of this
+	# +subsets+:: 
+        #   a set of RelationGraph objects that are children of this
 	#   one
-	# +distributed+:: if this relation graph should be seen by remote hosts
+	# +distributed+:: 
+        #   if this relation graph should be seen by remote hosts
 	def initialize(name, options = {})
 	    @name = name
 	    @options = options
@@ -208,8 +212,10 @@ module Roby
 	attr_predicate :dag
 	# True if this relation should be seen by remote peers
 	attr_predicate :distribute
-	# If this relation is weak. Weak relations can be removed without major
-	# consequences. This is mainly used during plan garbage collection
+        # If this relation is weak. Weak relations can be removed without major
+        # consequences. This is mainly used during plan garbage collection to
+        # break cross-relations cycles (cycles which exist in the graph union
+        # of all the relation graphs).
 	attr_predicate :weak
 
 	def to_s; name end
@@ -217,11 +223,11 @@ module Roby
 	# True if this relation does not have a parent
 	def root_relation?; !parent end
 
-	# Add a new relation between +from+ and +to+. The relation is
-	# added on all parent relation graphs as well.
+        # Add a relation between +from+ and +to+. The relation is added on all
+        # parent relation graphs as well.
 	#
-	# If #dag? is true, it checks that the new relation does not create a
-	# cycle
+        # If #dag? is true, it checks that the new relation does not create a
+        # cycle
 	def add_relation(from, to, info = nil)
 	    # Get the toplevel DAG in our relation hierarchy. We only test for the
 	    # DAG property on this one, as it is the union of all its children
@@ -377,7 +383,9 @@ module Roby
 	    super
 	end
 
-	# This relation should apply on +klass+
+        # This relation applies on klass. It mainly means that a relation
+        # defined on this RelationSpace will define the relation-access methods
+        # and include its support module (if any) in +klass+.
 	def apply_on(klass)
 	    klass.include DirectedRelationSupport
 	    each_relation do |graph|
@@ -386,12 +394,15 @@ module Roby
 
 	    applied << klass
 	end
-	# Yields the relations that are included in this space
+
+	# Yields the relations that are defined on this space
 	def each_relation
 	    for rel in relations
 		yield(rel)
 	    end
 	end
+
+        # Yields the root relations that are defined on this space
 	def each_root_relation
 	    for rel in relations
 		yield(rel) unless rel.parent
@@ -410,7 +421,8 @@ module Roby
 	    set
 	end
 
-	def compute_children_of(current, relations)
+        # Internal implementation method for +children_of+
+	def compute_children_of(current, relations) # :nodoc:
 	    old_size = current.size
 	    for rel in relations
 		next if (rel.parent && relations.include?(rel.parent))
@@ -428,10 +440,10 @@ module Roby
 	    end
 	end
 
-	# Creates a new relation in this relation space. This defines a
-	# relation graph in the RelationSpace, and iteration methods on the
-	# vertices. If a block is given, it is class_eval'd in the context of
-	# the relation module, which is included in the applied classes.
+        # Defines a relation in this relation space. This defines a relation
+        # graph, and various iteration methods on the vertices.  If a block is
+        # given, it defines a set of functions which should be defined on the
+        # vertex objects.
 	#
 	# = Options
 	# child_name::
@@ -551,20 +563,11 @@ module Roby
 
     # Creates a new relation space which applies on +klass+. If a block is
     # given, it is eval'd in the context of the new relation space instance
-    def self.RelationSpace(klass, &block)
+    def self.RelationSpace(klass)
 	klass.include DirectedRelationSupport
-	relation_space = RelationSpace.new do
-	    apply_on klass
-	end
-	relation_space.class_eval(&block) if block_given?
-	relation_space
-    end
-
-    # Requires all Roby relation files (all files in roby/relations/)
-    def self.load_all_relations
-	Dir.glob("#{File.dirname(__FILE__)}/relations/*.rb").each do |file|
-	    require "roby/relations/#{File.basename(file, '.rb')}"
-	end
+	relation_space = RelationSpace.new
+        relation_space.apply_on klass
+        relation_space
     end
 end
 

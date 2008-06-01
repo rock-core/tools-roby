@@ -1,17 +1,15 @@
-require 'roby/plan'
-require 'roby/transactions'
-require 'roby/state/information'
-
 module Roby
     class Task
+        # Returns a TaskMatcher object
 	def self.match
 	    TaskMatcher.new
 	end
     end
 
-    # The query class represents a search in a plan. 
-    # It can be used locally on any Plan object, but 
-    # is mainly used as an argument to DRb::Server#find
+    # This class represents a predicate which can be used to filter tasks. To
+    # filter plan-related properties, use Query.
+    #
+    # A TaskMatcher object is a AND combination of various tests against tasks.
     class TaskMatcher
 	attr_reader :model, :arguments
 	attr_reader :predicates, :neg_predicates, :owners
@@ -19,6 +17,7 @@ module Roby
 	attr_reader :improved_information
 	attr_reader :needed_information
 
+        # Initializes an empty TaskMatcher object
 	def initialize
 	    @predicates           = ValueSet.new
 	    @neg_predicates       = ValueSet.new
@@ -60,29 +59,37 @@ module Roby
 	    self
 	end
 
-	# find tasks which improves information contained in +info+
+	# Find tasks which improves information contained in +info+
 	def which_improves(*info)
 	    improved_information.merge(info.to_value_set)
 	    self
 	end
 
-	# find tasks which need information contained in +info+
+	# Find tasks which need information contained in +info+
 	def which_needs(*info)
 	    needed_information.merge(info.to_value_set)
 	    self
 	end
 
+        # Finds by owners. The set of owner is added to any owner already
+        # added. Do
+        #
+        #   matcher.owners.clear
+        #
+        # to remove all owners
 	def owned_by(*ids)
 	    @owners |= ids
 	    self
 	end
+
+        # Finds tasks which we own ourselves.
 	def self_owned
 	    owned_by(Roby::Distributed)
 	    self
 	end
 
 	class << self
-	    def declare_class_methods(*names)
+	    def declare_class_methods(*names) # :nodoc:
 		names.each do |name|
 		    raise "no instance method #{name} on TaskMatcher" unless TaskMatcher.method_defined?(name)
 		    TaskMatcher.singleton_class.send(:define_method, name) do |*args|
@@ -90,6 +97,11 @@ module Roby
 		    end
 		end
 	    end
+
+            # For each name in +names+, define a #name and a #not_name method.
+            # If the first is called, the matcher will match only tasks whose
+            # #name? method returns true.  If the second is called, the
+            # opposite will be done.
 	    def match_predicates(*names)
 		names.each do |name|
 		    class_eval <<-EOD
@@ -116,6 +128,7 @@ module Roby
 	match_predicates :executable, :abstract, :partially_instanciated, :fully_instanciated,
 	    :pending, :running, :finished, :success, :failed, :interruptible, :finishing
 
+        # True if +task+ matches all the criteria defined on this object.
 	def ===(task)
 	    return unless task.kind_of?(Roby::Task)
 	    if model
@@ -142,7 +155,10 @@ module Roby
 	    true
 	end
 
-	STATE_PREDICATES = [:pending?, :running?, :finished?, :success?, :failed?].to_value_set
+        # Filters the tasks in +initial_set+ by using the information in
+        # +task_index+, and returns the result. The resulting set must
+        # include all tasks in +initial_set+ which match with #===, but can
+        # include tasks which do not match #===
 	def filter(initial_set, task_index)
 	    if model
 		initial_set &= task_index.by_model[model]
@@ -158,36 +174,45 @@ module Roby
 		end
 	    end
 
-	    for pred in (predicates & STATE_PREDICATES)
+	    for pred in (predicates & TaskIndex::STATE_PREDICATES)
 		initial_set &= task_index.by_state[pred]
 	    end
 
-	    for pred in (neg_predicates & STATE_PREDICATES)
+	    for pred in (neg_predicates & TaskIndex::STATE_PREDICATES)
 		initial_set -= task_index.by_state[pred]
 	    end
 
 	    initial_set
 	end
 
+        # Enumerates all tasks of +plan+ which match this TaskMatcher object
 	def each(plan, &block)
 	    plan.query_each(plan.query_result_set(self), &block)
 	    self
 	end
 
-	# Define singleton classes. For instance, calling Query.which_fullfills is equivalent
-	# to Query.new.which_fullfills
+	# Define singleton classes. For instance, calling TaskMatcher.which_fullfills is equivalent
+	# to TaskMatcher.new.which_fullfills
 	declare_class_methods :which_fullfills, 
 	    :with_model, :with_arguments, 
 	    :which_needs, :which_improves, 
 	    :owned_by, :self_owned
 
+        # Returns the negation of this predicate
 	def negate; NegateTaskMatcher.new(self) end
+        # Combines this predicate with another using a AND logical operation
 	def &(other); AndTaskMatcher.new(self, other) end
+        # Combines this predicate with another using an OR logical operation
 	def |(other); OrTaskMatcher.new(self, other) end
     end
 
+    # A query is a predicate on both the task internal properties, and their
+    # plan-related properties as well.
     class Query < TaskMatcher
+        # The plan this query acts on
 	attr_reader :plan
+
+        # Create a query object on the given plan
 	def initialize(plan)
 	    @plan = plan
 	    super()
@@ -195,17 +220,32 @@ module Roby
 	    @neg_plan_predicates = Array.new
 	end
 
+        # The set of tasks which match in plan. This is a cached value, so use
+        # #reset to actually recompute this set.
 	def result_set
 	    @result_set ||= plan.query_result_set(self)
 	end
+
+        # #result_set is a cached value. Call this method to reinitialize,
+        # making sure the result set is recomputed next time #result_set is
+        # called.
 	def reset
 	    @result_set = nil
 	    self
 	end
 
+        # The set of predicates of Plan which must return true for #=== to
+        # return true
 	attr_reader :plan_predicates
+        # The set of predicates of Plan which must return false for #=== to
+        # return true.
 	attr_reader :neg_plan_predicates
+
 	class << self
+            # For each name in +names+, define the #name and #not_name methods
+            # on Query objects. When one of these methods is called on a Query
+            # object, plan.name?(task) must return true (resp. false) for the
+            # task to match.
 	    def match_plan_predicates(*names)
 		names.each do |name|
 		    class_eval <<-EOD
@@ -229,13 +269,15 @@ module Roby
 	end
 	match_plan_predicates :mission, :permanent
 	
-	# Returns the set of tasks from the query for which no parent in
-	# +relation+ can be found in the query itself
+        # Returns the set of tasks from the query for which no parent in
+        # +relation+ can be found in the query itself
 	def roots(relation)
 	    @result_set = plan.query_roots(result_set, relation)
 	    self
 	end
 
+        # True if +task+ matches the query. Call #result_set to have the set of
+        # tasks which match in the given plan.
 	def ===(task)
 	    return unless super
 
@@ -248,6 +290,7 @@ module Roby
 	    true
 	end
 
+        # Iterates on all the tasks in the given plan which match the query
 	def each(&block)
 	    plan.query_each(result_set, &block)
 	    self
@@ -255,81 +298,17 @@ module Roby
 	include Enumerable
     end
 
-    class TaskIndex
-	# A model => ValueSet map of the tasks for each model
-	attr_reader :by_model
-	# A state => ValueSet map of tasks given their state. The state is
-	# a symbol in [:pending, :starting, :running, :finishing,
-	# :finished]
-	attr_reader :by_state
-	# A peer => ValueSet map of tasks given their owner.
-	attr_reader :by_owner
-	# The set of tasks which have an event which is being repaired
-	attr_reader :repaired_tasks
-
-	def initialize
-	    @by_model = Hash.new { |h, k| h[k] = ValueSet.new }
-	    @by_state = Hash.new
-	    TaskMatcher::STATE_PREDICATES.each do |state_name|
-		by_state[state_name] = ValueSet.new
-	    end
-	    @by_owner = Hash.new
-	    @task_state = Hash.new
-	    @repaired_tasks = ValueSet.new
-	end
-
-	def add(task)
-	    for klass in task.model.ancestors
-		by_model[klass] << task
-	    end
-	    by_state[:pending?] << task
-	    for owner in task.owners
-		add_owner(task, owner)
-	    end
-	end
-
-	def add_owner(task, new_owner)
-	    (by_owner[new_owner] ||= ValueSet.new) << task
-	end
-
-	def remove_owner(task, peer)
-	    if set = by_owner[peer]
-		set.delete(task)
-		if set.empty?
-		    by_owner.delete(peer)
-		end
-	    end
-	end
-
-	def set_state(task, new_state)
-	    for state_set in by_state
-		state_set.last.delete(task)
-	    end
-	    by_state[new_state] << task
-	    if new_state == :success? || new_state == :failed?
-		by_state[:finished?] << task
-	    end
-	end
-
-	def remove(task)
-	    for klass in task.model.ancestors
-		by_model[klass].delete(task)
-	    end
-	    for state_set in by_state
-		state_set.last.delete(task)
-	    end
-	    for owner in task.owners
-		remove_owner(task, owner)
-	    end
-	end
-    end
-
+    # This task combines multiple task matching predicates through a OR boolean
+    # operator.
     class OrTaskMatcher < TaskMatcher
+        # Create a new OrTaskMatcher object combining the given predicates.
 	def initialize(*ops)
 	    @ops = ops 
 	    super()
 	end
 
+        # Filters as much as non-matching tasks as possible out of +task_set+,
+        # based on the information in +task_index+
 	def filter(task_set, task_index)
 	    result = ValueSet.new
 	    for child in @ops
@@ -338,19 +317,25 @@ module Roby
 	    result
 	end
 
+        # Add a new predicate to the combination
 	def <<(op); @ops << op end
+        # True if the task matches at least one of the underlying predicates
 	def ===(task)
 	    return unless @ops.any? { |op| op === task }
 	    super
 	end
     end
 
+    # Negate a given task-matching predicate
     class NegateTaskMatcher < TaskMatcher
+        # Create a new TaskMatcher which matches if and only if +op+ does not
 	def initialize(op)
 	    @op = op
 	    super()
        	end
 
+        # Filters as much as non-matching tasks as possible out of +task_set+,
+        # based on the information in +task_index+
 	def filter(initial_set, task_index)
 	    # WARNING: the value returned by filter is a SUPERSET of the
 	    # possible values for the query. Therefore, the result of
@@ -360,17 +345,24 @@ module Roby
 	    initial_set
 	end
 
+        # True if the task matches at least one of the underlying predicates
 	def ===(task)
 	    return if @op === task
 	    super
 	end
     end
 
+    # This task combines multiple task matching predicates through a AND boolean
+    # operator.
     class AndTaskMatcher < TaskMatcher
+        # Create a new AndTaskMatcher object combining the given predicates.
 	def initialize(*ops)
 	    @ops = ops 
 	    super()
 	end
+
+        # Filters as much as non-matching tasks as possible out of +task_set+,
+        # based on the information in +task_index+
 	def filter(task_set, task_index)
 	    result = task_set
 	    for child in @ops
@@ -379,6 +371,9 @@ module Roby
 	    result
 	end
 
+        # Add a new predicate to the combination
+	def <<(op); @ops << op end
+        # True if the task matches at least one of the underlying predicates
 	def ===(task)
 	    return unless @ops.all? { |op| op === task }
 	    super

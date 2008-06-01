@@ -104,8 +104,8 @@ class TC_Exceptions < Test::Unit::TestCase
     def test_exception_in_handler
 	Roby.logger.level = Logger::FATAL
 
-	Roby.control.abort_on_exception = true
-	Roby.control.abort_on_application_exception = false
+	Roby.app.abort_on_exception = true
+	Roby.app.abort_on_application_exception = false
 	FlexMock.use do |mock|
 	    klass = Class.new(SimpleTask) do
 		define_method(:mock) { mock }
@@ -132,7 +132,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    mock.should_receive(:event_called).once.ordered
 	    mock.should_receive(:task_handler_called).once.ordered
 	    mock.should_receive(:global_handler_called).once.ordered
-	    Control.once { t2.start! }
+	    Roby.once { t2.start! }
 	    assert_raises(SpecializedError) { process_events }
 	end
     end
@@ -151,12 +151,12 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    error = ExecutionException.new(SpecializedError.new(t2))
 	    mock.should_receive(:handler).with(error, t1, t0).once
-	    assert_equal([], Propagation.propagate_exceptions([error]))
+	    assert_equal([], plan.propagate_exceptions([error]))
 	    assert_equal([error], error.siblings)
 	    assert_equal([t2, t1], error.trace)
 
 	    error = ExecutionException.new(CodeError.new(nil, t2))
-	    assert_equal([error], Propagation.propagate_exceptions([error]))
+	    assert_equal([error], plan.propagate_exceptions([error]))
 	    assert_equal(t0, error.task)
 	    assert_equal([t2, t1, t0], error.trace)
 
@@ -165,8 +165,8 @@ class TC_Exceptions < Test::Unit::TestCase
 	    Roby.on_exception(CodeError) do |mod, exception|
 		mock.global_handler(exception, exception.task, mod)
 	    end
-	    mock.should_receive(:global_handler).with(error, t0, Roby).once
-	    assert_equal([], Propagation.propagate_exceptions([error]))
+	    mock.should_receive(:global_handler).with(error, t0, plan).once
+	    assert_equal([], plan.propagate_exceptions([error]))
 	end
     end
 
@@ -196,7 +196,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    #	   never tested on t3
 	    #	2/ propagation begins with t3, in which case +error+ is a sibling of
 	    #	   t0.handled_exception
-	    assert_equal([], Propagation.propagate_exceptions([error]))
+	    assert_equal([], plan.propagate_exceptions([error]))
 	    assert_equal([t2, t1], t0.handled_exception.trace)
 	    if t0.handled_exception != error
 		assert_equal([t2, t3], error.trace)
@@ -204,7 +204,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    end
 
 	    error = ExecutionException.new(LocalizedError.new(t2))
-	    assert(fatal = Propagation.propagate_exceptions([error]))
+	    assert(fatal = plan.propagate_exceptions([error]))
 	    assert_equal(1, fatal.size)
 	    e = fatal.first
 	    assert_equal(t2, e.origin)
@@ -233,7 +233,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    error = ExecutionException.new(LocalizedError.new(t2))
 	    mock.should_receive(:handler).with(ExecutionException, [t1, t3].to_set, t0).once
-	    assert_equal([], Propagation.propagate_exceptions([error]))
+	    assert_equal([], plan.propagate_exceptions([error]))
 	    assert_equal(2, found_exception.trace.size, found_exception.trace)
 	    assert_equal(t2, found_exception.origin)
 	    assert_equal([t3, t1].to_set, found_exception.task.to_set)
@@ -284,7 +284,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
     # Tests exception handling mechanism during event propagation
     def test_task_propagation_with_exception
-	Roby.control.abort_on_exception = true
+	Roby.app.abort_on_exception = true
 	Roby.logger.level = Logger::FATAL
 
 	task = Class.new(SimpleTask) do
@@ -306,12 +306,12 @@ class TC_Exceptions < Test::Unit::TestCase
 	    parent.realized_by task
 	    plan.insert(parent)
 
-	    Roby::Control.once { task.start! }
+	    Roby.once { task.start! }
 
 	    mock.should_receive(:other_once_handler).once
 	    mock.should_receive(:other_event_processing).once
-	    Roby::Control.once { mock.other_once_handler }
-	    Roby::Control.event_processing << lambda { mock.other_event_processing }
+	    Roby.once { mock.other_once_handler }
+	    plan.propagation_handlers << lambda { mock.other_event_processing }
 
 	    begin
 		process_events
@@ -377,7 +377,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t31.realized_by(t21)
 
 	    mock.should_receive(:caught).once
-	    Propagation.propagate_exceptions([ExecutionException.new(LocalizedError.new(t21))])
+	    plan.propagate_exceptions([ExecutionException.new(LocalizedError.new(t21))])
 	end
     end
 
@@ -422,15 +422,15 @@ class TC_Exceptions < Test::Unit::TestCase
 	parent.start!
 	child.failed!
 
-	exceptions = Roby.control.structure_checking
+	exceptions = Roby.plan.check_structure
 
 	plan.discover(repairing_task = SimpleTask.new)
 	repairing_task.start!
-	assert_equal(exceptions.to_a, Propagation.remove_inhibited_exceptions(exceptions))
-	assert_equal(exceptions.keys, Propagation.propagate_exceptions(exceptions))
+	assert_equal(exceptions.to_a, plan.remove_inhibited_exceptions(exceptions))
+	assert_equal(exceptions.keys, plan.propagate_exceptions(exceptions))
 	plan.add_repair(child.terminal_event, repairing_task)
-	assert_equal([], Propagation.remove_inhibited_exceptions(exceptions))
-	assert_equal([], Propagation.propagate_exceptions(exceptions))
+	assert_equal([], plan.remove_inhibited_exceptions(exceptions))
+	assert_equal([], plan.propagate_exceptions(exceptions))
 
     ensure
 	# Remove the child so that the test's plan cleanup does not complain
@@ -453,20 +453,20 @@ class TC_Exceptions < Test::Unit::TestCase
 	child.start!
 	child.emit error_event
 
-	exceptions = Roby.control.structure_checking
+	exceptions = Roby.plan.check_structure
 
-	assert_equal([], Propagation.propagate_exceptions(exceptions))
+	assert_equal([], plan.propagate_exceptions(exceptions))
 	assert_equal({ child.terminal_event => repairing_task },
 		     plan.repairs_for(child.terminal_event), [plan.repairs, child.terminal_event])
 
-	Roby.control.abort_on_exception = false
+	Roby.app.abort_on_exception = false
 	process_events
 	assert(repairing_task.running?)
 
 	# Make the "repair task" finish, but do not repair the plan.
 	# propagate_exceptions must not add a new repair
 	repairing_task.success!
-	assert_equal(exceptions.keys, Propagation.propagate_exceptions(exceptions))
+	assert_equal(exceptions.keys, plan.propagate_exceptions(exceptions))
 
     ensure
 	parent.remove_child child if child
@@ -484,15 +484,15 @@ class TC_Exceptions < Test::Unit::TestCase
 	mission.start!
 	mission.emit :failed
 
-	exceptions = Roby.control.structure_checking
+	exceptions = Roby.plan.check_structure
 	assert_equal(1, exceptions.size)
 	assert_kind_of(Roby::MissionFailedError, exceptions.to_a[0][0].exception, exceptions)
 
-	assert_equal([], Propagation.propagate_exceptions(exceptions))
+	assert_equal([], plan.propagate_exceptions(exceptions))
 	assert_equal({ mission.terminal_event => repairing_task },
 		     plan.repairs_for(mission.terminal_event), [plan.repairs, mission.terminal_event])
 
-	Roby.control.abort_on_exception = false
+	Roby.app.abort_on_exception = false
 	process_events
 	assert(plan.mission?(mission))
 	assert(repairing_task.running?)
@@ -500,29 +500,94 @@ class TC_Exceptions < Test::Unit::TestCase
 	# Make the "repair task" finish, but do not repair the plan.
 	# propagate_exceptions must not add a new repair
 	repairing_task.success!
-	assert_equal(exceptions.keys, Propagation.propagate_exceptions(exceptions))
+	assert_equal(exceptions.keys, plan.propagate_exceptions(exceptions))
 
 	# Discard the mission so that the test teardown does not complain
 	plan.discard(mission)
     end
 
-    def test_event_not_executable_message
-	ev = EventGenerator.new(true)
-	begin
-	    raise EventNotExecutable.new(ev), "user message"
-	rescue EventNotExecutable => e
-	    error = e
-	end
-	assert(error.message =~ /user message/)
+    def test_filter_command_errors
+        Roby.app.filter_backtraces = true
+        model = Class.new(SimpleTask) do
+            event :start do
+                raise ArgumentError
+            end
+        end
 
-	begin
-	    raise EventHandlerError.new(e, ev), "another message"
-	rescue EventHandlerError => e
-	    error = e
-	end
-	STDERR.puts e.message
-	assert(error.message =~ /user message/)
+        task = prepare_plan :permanent => 1, :model => model
+        error = begin task.start!
+                rescue Exception => e; e
+                end
+        assert_kind_of CodeError, e
+        assert_nothing_raised do
+            Roby.format_exception e
+        end
+
+        trace = e.error.backtrace
+        filtered = Roby.filter_backtrace(trace)
+        assert(filtered[0] =~ /command for 'start'/, filtered[0])
+        assert(filtered[1] =~ /test_filter_command_errors/,   filtered[1])
     end
 
+    def test_filter_handler_errors
+        task = prepare_plan :permanent => 1, :model => SimpleTask
+        task.on(:start) { raise ArgumentError }
+        error = begin task.start!
+                rescue Exception => e; e
+                end
+        assert_kind_of CodeError, e
+        assert_nothing_raised do
+            Roby.format_exception e
+        end
+
+        trace = e.error.backtrace
+        filtered = Roby.filter_backtrace(trace)
+        assert(filtered[0] =~ /event handler/, filtered.join("\n"))
+        assert(filtered[1] =~ /test_filter_handler_errors/, filtered.join("\n"))
+
+        model = Class.new(SimpleTask) do
+            on :start do
+                raise ArgumentError
+            end
+        end
+        task = prepare_plan :permanent => 1, :model => model
+        error = begin task.start!
+                rescue Exception => e; e
+                end
+        assert_kind_of CodeError, e
+        assert_nothing_raised do
+            Roby.format_exception e
+        end
+
+        trace = e.error.backtrace
+        filtered = Roby.filter_backtrace(trace)
+        assert(filtered[0] =~ /event handler for 'start'$/, filtered.join("\n"))
+        assert(filtered[1] =~ /test_filter_handler_errors/, filtered.join("\n"))
+    end
+
+    def test_filter_polling_errors
+        #Roby.control.fatal_exceptions = false
+
+        model = Class.new(SimpleTask) do
+            poll do
+                raise ArgumentError, "bla"
+            end
+        end
+
+        parent = prepare_plan :permanent => 1, :model => SimpleTask
+        child = prepare_plan :permanent => 1, :model => model
+        parent.realized_by child
+        parent.start!
+        child.start!
+        child.failed!
+
+	error = TaskStructure::Hierarchy.check_structure(plan).first.exception
+	assert_kind_of(ChildFailedError, error)
+        assert_nothing_raised do
+            Roby.format_exception(error)
+        end
+        # To silently finish the test ...
+        parent.stop!
+    end
 end
 

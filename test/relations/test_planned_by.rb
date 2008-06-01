@@ -26,22 +26,24 @@ class TC_PlannedBy < Test::Unit::TestCase
 	task.planned_by planner
 	plan.permanent(task)
 
-	assert_equal([], PlannedBy.check_planning(plan))
+	assert_equal([], plan.check_structure.to_a)
 	planner.start!
-	assert_equal([], PlannedBy.check_planning(plan))
+	assert_equal([], plan.check_structure.to_a)
 	planner.success!
-	assert_equal([], PlannedBy.check_planning(plan))
+	assert_equal([], plan.check_structure.to_a)
 
 	task.remove_planning_task planner
 	planner = Roby::Test::SimpleTask.new
 	task.planned_by planner
 
-	assert_equal([], PlannedBy.check_planning(plan))
+	assert_equal([], plan.check_structure.to_a)
 	planner.start!
-	assert_equal([], PlannedBy.check_planning(plan))
+	assert_equal([], plan.check_structure.to_a)
 	planner.failed!
 
-	error = PlannedBy.check_planning(plan).first
+	errors = plan.check_structure.to_a
+        assert_equal 1, errors.size
+        error = errors.first.first.exception
 	assert_kind_of(Roby::PlanningFailedError, error)
 	assert_equal(planner, error.failed_task)
 	assert_equal(task, error.planned_task)

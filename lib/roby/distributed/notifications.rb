@@ -61,6 +61,11 @@ module Roby
 
 	# Set of hooks which send Plan updates to remote hosts
 	module PlanModificationHooks
+            # Hook called when a new task is marked as mission. It sends a
+            # PeerServer#plan_set_mission message to the remote host.
+            #
+            # Note that plan will have called the #discovered_tasks hook
+            # beforehand
 	    def inserted(task)
 		super if defined? super
 		return unless task.distribute? && task.self_owned?
@@ -73,6 +78,8 @@ module Roby
 		end
 	    end
 
+            # Hook called when a new task is not a mission anymore. It sends a
+            # PeerServer#plan_set_mission message to the remote host.
 	    def discarded(task)
 		super if defined? super
 		return unless task.distribute? && task.self_owned?
@@ -84,7 +91,9 @@ module Roby
 		end
 	    end
 
-	    # Common implementation for the #discovered_events and #discovered_tasks hooks
+            # Common implementation for the #discovered_events and
+            # #discovered_tasks hooks. It sends PeerServer#plan_discover for
+            # all tasks which can be shared among plan managers
 	    def self.discovered_objects(plan, objects)
 		unless Distributed.updating?(plan)
 		    relations = nil
@@ -101,15 +110,23 @@ module Roby
 		    Distributed.trigger(*objects)
 		end
 	    end
+            # New tasks have been discovered in the plan.
+            #
+            # See PlanModificationHooks.discovered_objects
 	    def discovered_tasks(tasks)
 		super if defined? super
 		PlanModificationHooks.discovered_objects(self, tasks)
 	    end
+            # New free events have been discovered in the plan.
+            #
+            # See PlanModificationHooks.discovered_objects
 	    def discovered_events(events)
 		super if defined? super
 		PlanModificationHooks.discovered_objects(self, events) 
 	    end
 
+            # Hook called when +from+ has been replaced by +to+ in the plan.
+            # It sends a PeerServer#plan_replace message
 	    def replaced(from, to)
 		super if defined? super
 		if (from.distribute? && to.distribute?) && (to.self_owned? || from.self_owned?)
@@ -121,7 +138,8 @@ module Roby
 		end
 	    end
 
-	    # Common implementation for the #finalized_task and #finalized_event hooks
+            # Common implementation for the #finalized_task and
+            # PeerServer#finalized_event hooks. It sends the plan_remove_object message.
 	    def self.finalized_object(plan, object)
 		return unless object.distribute? && object.root_object?
 
@@ -147,10 +165,16 @@ module Roby
 		    end
 		end
 	    end
+            # Hook called when a task has been removed from the plan.
+            #
+            # See PlanModificationHooks.finalized_object
 	    def finalized_task(task)
 		super if defined? super
 		PlanModificationHooks.finalized_object(self, task) 
 	    end
+            # Hook called when a free event has been removed from the plan.
+            #
+            # See PlanModificationHooks.finalized_object
 	    def finalized_event(event)
 		super if defined? super
 		PlanModificationHooks.finalized_object(self, event) 
@@ -159,6 +183,8 @@ module Roby
 	Plan.include PlanModificationHooks
 
 	class PeerServer
+            # Message received when +task+ has become a mission (flag = true),
+            # or has become a non-mission (flag = false) in +plan+.
 	    def plan_set_mission(plan, task, flag)
 		plan = peer.local_object(plan)
 		task = peer.local_object(task)
@@ -174,6 +200,10 @@ module Roby
 		nil
 	    end
 
+            # Message received when the set of tasks +m_tasks+ has been
+            # discovered by the remote plan. +m_relations+ describes the
+            # internal relations between elements of +m_tasks+. It is in a
+            # format suitable for PeerServer#set_relations.
 	    def plan_discover(plan, m_tasks, m_relations)
 		Distributed.update(plan = peer.local_object(plan)) do
 		    tasks = peer.local_object(m_tasks).to_value_set
@@ -186,6 +216,9 @@ module Roby
 		end
 		nil
 	    end
+
+            # Message received when +m_from+ has been replaced by +m_to+ in the
+            # plan
 	    def plan_replace(plan, m_from, m_to)
 		Distributed.update(plan = peer.local_object(plan)) do
 		    from, to = peer.local_object(m_from), peer.local_object(m_to)
@@ -202,6 +235,7 @@ module Roby
 		nil
 	    end
 
+            # Message received when +object+ has been removed from +plan+
 	    def plan_remove_object(plan, object)
 		if local = peer.local_object(object, false)
 		    # Beware, transaction proxies have no 'plan' attribute
@@ -222,7 +256,12 @@ module Roby
 		end
 	    end
 
-	    # Receive an update on the relation graphs
+            # Message received when a relation graph has been updated. +op+ is
+            # either +add_child_object+ or +remove_child_object+ and describes
+            # what relation modification should be done. The two plan objects
+            # +m_from+ and +m_to+ are respectively linked or unlinked in the
+            # relation +m_rel+, with the given information object in case of a
+            # new relation.
 	    def update_relation(plan, m_from, op, m_to, m_rel, m_info = nil)
 		if plan
 		    Roby::Distributed.update(peer.local_object(plan)) { update_relation(nil, m_from, op, m_to, m_rel, m_info) }
@@ -252,9 +291,11 @@ module Roby
 	    end
 	end
 
-	# This module defines the hooks needed to notify our peers of relation
-	# modifications
+        # This module defines the hooks needed to notify our peers of relation
+        # modifications. It is included in plan objects.
 	module RelationModificationHooks
+            # Hook called when a new relation is added. It sends the
+            # PeerServer#update_relation message.
 	    def added_child_object(child, relations, info)
 		super if defined? super
 
@@ -273,6 +314,8 @@ module Roby
 		end
 	    end
 
+            # Hook called when a relation is removed. It sends the
+            # PeerServer#update_relation message.
 	    def removed_child_object(child, relations)
 		super if defined? super
 		return unless Distributed.state
@@ -296,9 +339,11 @@ module Roby
 	end
 	PlanObject.include RelationModificationHooks
 
-	# This module includes the hooks needed to notify our peers of event
-	# propagation (fired, forwarding and signalling)
+        # This module includes the hooks needed to notify our peers of event
+        # propagation (fired, forwarding and signalling)
 	module EventNotifications
+            # Hook called when an event has been emitted. It sends the
+            # PeerServer#event_fired message.
 	    def fired(event)
 		super if defined? super
 		if self_owned? && !Distributed.updating?(root_object)
@@ -307,6 +352,8 @@ module Roby
 		    end
 		end
 	    end
+            # Hook called when an event is being forwarded. It sends the
+            # PeerServer#event_add_propagation message.
 	    def forwarding(event, to)
 		super if defined? super
 		if self_owned? && !Distributed.updating?(root_object)
@@ -315,6 +362,8 @@ module Roby
 		    end
 		end
 	    end
+            # Hook called when an event is being forwarded. It sends the
+            # PeerServer#event_add_propagation message.
 	    def signalling(event, to)
 		super if defined? super
 		if self_owned? && !Distributed.updating?(root_object)
@@ -323,24 +372,36 @@ module Roby
 		    end
 		end
 	    end
+
+            # This module define hooks on Roby::Plan to manage the event fired
+            # cache. It is required by the receiving side of the event
+            # propagation distribution.
+            #
+            # See PeerServer#pending_events
+            module PlanCacheCleanup
+                # Removes events generated by +generator+ from the Event object
+                # cache, PeerServer#pending_events. This cache is used by
+                # PeerServer#event_for on behalf of PeerServer#event_fired and
+                # PeerServer#event_add_propagation
+                def finalized_event(generator)
+                    super if defined? super
+                    Distributed.peers.each_value do |peer|
+                        peer.local_server.pending_events.delete(generator)
+                    end
+                end
+            end
+            Roby::Plan.include PlanCacheCleanup
 	end
 	Roby::EventGenerator.include EventNotifications
 
-	module PlanCacheCleanup
-	    # Removes events generated by +generator+ from the Event object
-	    # cache, PeerServer#pending_events. This cache is used by
-	    # PeerServer#event_for on behalf of PeerServer#event_fired and
-	    # PeerServer#event_add_propagation
-	    def finalized_event(generator)
-		super if defined? super
-		Distributed.peers.each_value do |peer|
-		    peer.local_server.pending_events.delete(generator)
-		end
-	    end
-	end
-	Roby::Plan.include PlanCacheCleanup
-
 	class PeerServer
+            # A set of events which have been received by #event_fired. This
+            # cache in cleaned up by PlanCacheCleanup#finalized_event when the
+            # associated generator is finalized.
+            #
+            # This cache is used to merge the events between the firing step
+            # (event_fired) and the propagation steps (add_event_propagation).
+            # Without it, different Event objects at the various method calls.
 	    attribute(:pending_events) { Hash.new }
 
 	    # Creates an Event object for +generator+, with the given argument
@@ -360,15 +421,15 @@ module Roby
 		event
 	    end
 
-	    # Called by the peer to notify us about an event which has been
-	    # fired
+            # Message received when the +marshalled_from+ generator fired an
+            # event, with the given event id, time and context.
 	    def event_fired(marshalled_from, event_id, time, context)
 		from_generator = peer.local_object(marshalled_from)
 		context	       = peer.local_object(context)
 
 		event = event_for(from_generator, event_id, time, context)
 
-		event.send(:propagation_id=, Propagation.propagation_id)
+		event.send(:propagation_id=, from_generator.plan.propagation_id)
 		from_generator.instance_variable_set("@happened", true)
 		from_generator.fired(event)
 		from_generator.call_handlers(event)
@@ -376,7 +437,10 @@ module Roby
 		nil
 	    end
 
-	    # Called by the peer to notify us about an event signalling
+            # Message received when the +marshalled_from+ generator has either
+            # been forwarded (only_forward = true) or signals (only_forward =
+            # false) the +marshalled_to+ generator. The remaining information
+            # describes the event itself.
 	    def event_add_propagation(only_forward, marshalled_from, marshalled_to, event_id, time, context)
 		from_generator  = peer.local_object(marshalled_from)
 		to_generator	= peer.local_object(marshalled_to)
@@ -386,7 +450,7 @@ module Roby
 
 		# Only add the signalling if we own +to+
 		if to_generator.self_owned?
-		    Propagation.add_event_propagation(only_forward, [event], to_generator, event.context, nil)
+		    to_generator.plan.add_event_propagation(only_forward, [event], to_generator, event.context, nil)
 		else
 		    # Call #signalling or #forwarding to make
 		    # +from_generator+ look like as if the event was really
@@ -402,7 +466,10 @@ module Roby
 	    end
 	end
 
+        # This module defines the hooks required by dRoby on Roby::Task
 	module TaskNotifications
+            # Hook called when the internal task data is modified. It sends
+            # PeerServer#updated_data
 	    def updated_data
 		super if defined? super
 
@@ -415,7 +482,10 @@ module Roby
 	end
 	Roby::Task.include TaskNotifications
 
+        # This module defines the hooks required by dRoby on Roby::TaskArguments
 	module TaskArgumentsNotifications
+            # Hook called when the task argumensts are modified. It sends
+            # the PeerServer#updated_arguments message.
 	    def updated
 		super if defined? super
 
@@ -429,12 +499,17 @@ module Roby
 	TaskArguments.include TaskArgumentsNotifications
 
 	class PeerServer
+            # Message received to announce that the internal data of +task+ is
+            # now +data+.
 	    def updated_data(task, data)
 		proxy = peer.local_object(task)
 		proxy.instance_variable_set("@data", peer.proxy(data))
 		nil
 	    end
 
+            # Message received to announce that the arguments of +task+ have
+            # been modified. +arguments+ is a hash containing only the new
+            # values.
 	    def updated_arguments(task, arguments)
 		proxy = peer.local_object(task)
 		arguments = peer.proxy(arguments)
@@ -446,6 +521,7 @@ module Roby
 	end
 
 	class PeerServer
+            # Message received to update our view of the remote robot state.
 	    def state_update(new_state)
 		peer.state = new_state
 		nil

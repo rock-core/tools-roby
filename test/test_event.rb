@@ -6,6 +6,14 @@ require 'roby/test/tasks/simple_task'
 require 'roby'
 class TC_Event < Test::Unit::TestCase
     include Roby::Test
+    def setup
+        super
+        Roby.app.filter_backtraces = false
+    end
+
+    def test_gathering
+        assert(! plan.gathering?)
+    end
 
     def test_properties
 	event = EventGenerator.new
@@ -544,7 +552,7 @@ class TC_Event < Test::Unit::TestCase
     def test_event_creation
 	# Test for validation of the return value of #event
 	generator = Class.new(EventGenerator) do
-	    def new(context); [Roby::Propagation.propagation_id, context] end
+	    def new(context); [plan.propagation_id, context] end
 	end.new(true)
 	plan.discover(generator)
 
@@ -553,7 +561,7 @@ class TC_Event < Test::Unit::TestCase
 	generator = Class.new(EventGenerator) do
 	    def new(context); 
 		event_klass = Struct.new :propagation_id, :context, :generator, :sources
-		event_klass.new(Roby::Propagation.propagation_id, context, self)
+		event_klass.new(plan.propagation_id, context, self)
 	    end
 	end.new(true)
 	plan.discover(generator)
@@ -880,15 +888,20 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_event_after
-	plan.discover(e = EventGenerator.new(true))
-        e.call
-        sleep(0.5)
-        plan.discover(delayed = e.last.after(1))
-        delayed.poll
-        assert(!delayed.happened?)
-        sleep(0.5)
-        delayed.poll
-        assert(delayed.happened?)
+	FlexMock.use(Time) do |time_proxy|
+	    current_time = Time.now + 5
+	    time_proxy.should_receive(:now).and_return { current_time }
+
+	    plan.discover(e = EventGenerator.new(true))
+	    e.call
+	    current_time += 0.5
+	    plan.discover(delayed = e.last.after(1))
+	    delayed.poll
+	    assert(!delayed.happened?)
+	    current_time += 0.5
+	    delayed.poll
+	    assert(delayed.happened?)
+	end
     end
 end
 

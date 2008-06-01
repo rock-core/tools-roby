@@ -1,8 +1,3 @@
-require 'roby/event'
-require 'roby/task'
-require 'roby/relations'
-require 'roby/basic_object'
-
 module Roby
     # A plan object is a collection of tasks and events. In plans, tasks can be
     # +missions+ (#missions, #mission?), which means that they are the final
@@ -34,16 +29,23 @@ module Roby
 	attr_reader :known_tasks
 	# The set of events that are defined by #known_tasks
 	attr_reader :task_events
-	# The list of missions in this plan
+        # The list of the robot's missions. Do not change that set directly, use
+        # #insert and #discard instead.
 	attr_reader :missions
+	# The list of tasks that are kept outside GC. Do not change that set
+        # directly, use #permanent and #auto instead.
+	attr_reader :permanent_tasks
 	# The list of events that are not included in a task
 	attr_reader :free_events
-	# The list of tasks that are kept outside GC
-	attr_reader :keepalive
+	# The list of events that are kept outside GC. Do not change that set
+        # directly, use #permanent and #auto instead.
+	attr_reader :permanent_events
 
 	# A map of event => task repairs. Whenever an exception is found,
 	# exception propagation checks that no repair is defined for that
 	# particular event or for events that are forwarded by it.
+        #
+        # See also #add_repair and #remove_repair
 	attr_reader :repairs
 
 	# A set of tasks which are useful (and as such would not been garbage
@@ -66,9 +68,17 @@ module Roby
 	    end
 	end
 
+        # The set of relations available for this plan
+        attr_reader :relations
+
+        # The propagation engine for this object. It is either nil (if no
+        # propagation engine is available) or self.
+        attr_reader :propagation_engine
+
 	def initialize
 	    @missions	 = ValueSet.new
-	    @keepalive   = ValueSet.new
+	    @permanent_tasks   = ValueSet.new
+	    @permanent_events   = ValueSet.new
 	    @known_tasks = ValueSet.new
 	    @free_events = ValueSet.new
 	    @task_events = ValueSet.new
@@ -76,6 +86,11 @@ module Roby
 	    @gc_quarantine = ValueSet.new
 	    @transactions = ValueSet.new
 	    @repairs     = Hash.new
+
+            @relations = TaskStructure.relations + EventStructure.relations
+            @structure_checks = relations.
+                map { |r| r.method(:check_structure) if r.respond_to?(:check_structure) }.
+                compact
 
 	    @task_index  = Roby::TaskIndex.new
 
@@ -130,23 +145,30 @@ module Roby
 	def inserted(tasks); super if defined? super end
 
 	# Forbid the GC to take out +task+
-	def permanent(task)
-	    @keepalive << task
-	    discover(task)
+	def permanent(object)
+            if object.kind_of?(Task)
+                @permanent_tasks << object
+            else
+                @permanent_events << object
+            end
+	    discover(object)
 	end
 
 	# Make GC finalize +task+ if it is not useful anymore
-	def auto(task); @keepalive.delete(task) end
+	def auto(object)
+            @permanent_tasks.delete(object) 
+            @permanent_events.delete(object)
+        end
 
 	def edit
 	    if block_given?
-		Roby::Control.synchronize do
+		Roby.synchronize do
 		    yield
 		end
 	    end
 	end
 
-	def permanent?(task); @keepalive.include?(task) end
+	def permanent?(obj); @permanent_tasks.include?(obj) || @permanent_events.include?(obj) end
 
 	# Removes the task in +tasks+ from the list of missions
 	def discard(task)
@@ -171,7 +193,8 @@ module Roby
 	    @free_events.each { |e| e.clear_relations }
 	    @free_events.clear
 	    @missions.clear
-	    @keepalive.clear
+	    @permanent_tasks.clear
+	    @permanent_events.clear
 	end
 
 	def handle_replace(from, to)
@@ -355,14 +378,14 @@ module Roby
 		    discard(finished_mission)
 		end
 	    end
-	    for finished_permanent in (@keepalive & task_index.by_state[:finished?])
+	    for finished_permanent in (@permanent_tasks & task_index.by_state[:finished?])
 		if !task_index.repaired_tasks.include?(finished_permanent)
 		    auto(finished_permanent)
 		end
 	    end
 
 	    # Create the set of tasks which must be kept as-is
-	    seeds = @missions | @keepalive
+	    seeds = @missions | @permanent_tasks
 	    for trsc in transactions
 		seeds.merge trsc.proxy_objects.keys.to_value_set
 	    end
@@ -442,7 +465,7 @@ module Roby
 	# 'useful' when they are chained to a task.
 	def useful_events
 	    return ValueSet.new if free_events.empty?
-	    (free_events & useful_event_component(ValueSet.new))
+	    (free_events & useful_event_component(permanent_events.dup))
 	end
 
 	# The set of events that can be removed from the plan
@@ -467,7 +490,10 @@ module Roby
 	# Iterates on all tasks
 	def each_task; @known_tasks.each { |t| yield(t) } end
 
-	# Install a plan repair for +failure_point+ with +task+. If +task+ is pending, it is started.
+        # Install a plan repair for +failure_point+ with +task+. If +task+ is
+        # pending, it is started.
+        #
+        # See also #repairs and #remove_repair
 	def add_repair(failure_point, task)
 	    if !failure_point.kind_of?(Event)
 		raise TypeError, "failure point #{failure_point} should be an event"
@@ -489,6 +515,9 @@ module Roby
 	    end
 	end
 
+        # Removes +task+ from the set of active plan repairs.
+        #
+        # See also #repairs and #add_repair
 	def remove_repair(task)
 	    repairs.delete_if do |ev, repair|
 		if repair == task
@@ -551,109 +580,6 @@ module Roby
 	    end
 	end
 
-	# Kills and removes all unneeded tasks
-	def garbage_collect(force_on = nil)
-	    if force_on && !force_on.empty?
-		force_gc.merge(force_on.to_value_set)
-	    end
-
-	    # The set of tasks for which we queued stop! at this cycle
-	    # #finishing? is false until the next event propagation cycle
-	    finishing = ValueSet.new
-	    did_something = true
-	    while did_something
-		did_something = false
-
-		tasks = unneeded_tasks | force_gc
-		local_tasks  = self.local_tasks & tasks
-		remote_tasks = tasks - local_tasks
-
-		# Remote tasks are simply removed, regardless of other concerns
-		for t in remote_tasks
-		    Plan.debug { "GC: removing the remote task #{t}" }
-		    remove_object(t)
-		end
-
-		break if local_tasks.empty?
-
-		if local_tasks.all? { |t| t.pending? || t.finished? }
-		    local_tasks.each do |t|
-			Plan.debug { "GC: #{t} is not running, removed" }
-			garbage(t)
-			remove_object(t)
-		    end
-		    break
-		end
-
-		# Mark all root local_tasks as garbage
-		roots = nil
-		2.times do |i|
-		    roots = local_tasks.find_all do |t|
-			if t.root?
-			    garbage(t)
-			    true
-			else
-			    Plan.debug { "GC: ignoring #{t}, it is not root" }
-			    false
-			end
-		    end
-
-		    break if i == 1 || !roots.empty?
-
-		    # There is a cycle somewhere. Try to break it by removing
-		    # weak relations within elements of local_tasks
-		    Plan.debug "cycle found, removing weak relations"
-
-		    local_tasks.each do |t|
-			next if t.root?
-			t.each_graph do |rel|
-			    rel.remove(t) if rel.weak?
-			end
-		    end
-		end
-
-		(roots.to_value_set - finishing - gc_quarantine).each do |local_task|
-		    if local_task.pending? 
-			Plan.info "GC: removing pending task #{local_task}"
-			remove_object(local_task)
-			did_something = true
-		    elsif local_task.starting?
-			# wait for task to be started before killing it
-			Plan.debug { "GC: #{local_task} is starting" }
-		    elsif local_task.finished?
-			Plan.debug { "GC: #{local_task} is not running, removed" }
-			remove_object(local_task)
-			did_something = true
-		    elsif !local_task.finishing?
-			if local_task.event(:stop).controlable?
-			    Plan.debug { "GC: queueing #{local_task}/stop" }
-			    if !local_task.respond_to?(:stop!)
-				Plan.fatal "something fishy: #{local_task}/stop is controlable but there is no #stop! method"
-				gc_quarantine << local_task
-			    else
-				finishing << local_task
-				Roby::Control.once do
-				    Plan.debug { "GC: stopping #{local_task}" }
-				    local_task.stop!(nil)
-				end
-			    end
-			else
-			    Plan.warn "GC: ignored #{local_task}, it cannot be stopped"
-			    gc_quarantine << local_task
-			end
-		    elsif local_task.finishing?
-			Plan.debug { "GC: waiting for #{local_task} to finish" }
-		    else
-			Plan.warn "GC: ignored #{local_task}"
-		    end
-		end
-	    end
-
-	    unneeded_events.each do |event|
-		remove_object(event)
-	    end
-	end
-
 	def remove_object(object)
 	    if !object.root_object?
 		raise ArgumentError, "cannot remove #{object} which is a non-root object"
@@ -678,7 +604,8 @@ module Roby
 	    @free_events.delete(object)
 	    @missions.delete(object)
 	    @known_tasks.delete(object)
-	    @keepalive.delete(object)
+	    @permanent_tasks.delete(object)
+	    @permanent_events.delete(object)
 	    force_gc.delete(object)
 
 	    object.plan = nil
@@ -702,11 +629,6 @@ module Roby
 	    end
 
 	    self
-	end
-
-	# Backward compatibility
-	def remove_task(t) # :nodoc:
-	    remove_object(t)
 	end
 
 	# Hook called when +task+ is marked as garbage. It will be garbage
@@ -744,9 +666,57 @@ module Roby
 	    new_task = task.class.new(task.arguments.dup)
 
 	    replace_task(task, new_task)
-	    Control.once { new_task.start!(nil) }
+	    Roby.once { new_task.start!(nil) }
 	    new_task
 	end
+        
+        # The set of blocks that should be called to check the structure of the
+        # plan. See also Plan.structure_checks.
+        attr_reader :structure_checks
+
+        @structure_checks = Array.new
+        class << self
+            # A set of structure checking procedures that must be performed on all plans
+            attr_reader :structure_checks
+        end
+
+        # Get all missions that have failed
+        def self.check_failed_missions(plan)
+            result = []
+            for task in plan.missions
+                result << MissionFailedError.new(task) if task.failed?
+            end
+            result
+        end
+        structure_checks << method(:check_failed_missions)
+        
+        # Perform the structure checking step by calling the procs registered
+        # in #structure_checks and Plan.structure_checks. These procs are
+        # supposed to return a collection of exception objects, or nil if no
+        # error has been found
+	def check_structure
+	    # Do structure checking and gather the raised exceptions
+	    exceptions = {}
+	    for prc in (Plan.structure_checks + structure_checks)
+		begin
+		    new_exceptions = prc.call(self)
+		rescue Exception => e
+                    if respond_to? :add_framework_error
+                        add_framework_error(e, 'structure checking')
+                    else
+                        raise
+                    end
+		end
+		next unless new_exceptions
+
+		[*new_exceptions].each do |e, tasks|
+		    e = Propagation.to_execution_exception(e)
+		    exceptions[e] = tasks
+		end
+	    end
+	    exceptions
+	end
+
     end
 end
 

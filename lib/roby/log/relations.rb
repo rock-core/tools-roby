@@ -158,7 +158,7 @@ module Roby
 	    rect.text = text
 	    rect.z_value = Log::TASK_LAYER
 
-	    rect.set_data(0, Qt::Variant.new(self.object_id))
+	    rect.set_data(0, Qt::Variant.new(self.object_id.to_s))
 	    rect
 	end
 
@@ -501,7 +501,7 @@ module Roby
 	    end
 
 	    def object_of(item)
-		return if !(id = item.data(0)).valid?
+		return if !(id = item.data(0).to_int).valid?
 		id = id.to_int
 
 		obj, _ = graphics.find do |obj, obj_item| 
