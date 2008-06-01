@@ -246,11 +246,13 @@ module Roby::Transactions
         # Transaction proxies do not have history
 	def history; "" end
 	def plan=(new_plan) # :nodoc:
-	    if new_plan && new_plan.plan != __getobj__.plan
-		raise "invalid plan #{new_plan}"
-	    elsif !new_plan.kind_of?(Roby::Transaction)
-		raise "trying to insert a transaction proxy in something else than a transaction (#{new_plan})"
-	    end
+	    if new_plan 
+                if new_plan.plan != __getobj__.plan
+                    raise "invalid plan #{new_plan}"
+                elsif !new_plan.kind_of?(Roby::Transaction)
+                    raise "trying to insert a transaction proxy in something else than a transaction (#{new_plan})"
+                end
+            end
 	    @plan = new_plan
 	end
 
