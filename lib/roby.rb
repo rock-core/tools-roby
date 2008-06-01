@@ -16,6 +16,7 @@ module Roby
 end
 
 require 'drb'
+require 'weakref'
 require 'pp'
 require 'thread'
 require 'set'

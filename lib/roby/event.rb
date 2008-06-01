@@ -12,8 +12,23 @@ module Roby
 	end
 
 	attr_accessor :propagation_id, :context, :time
-	attr_accessor :sources
 	protected :propagation_id=, :context=, :time=
+
+        def sources
+            result = []
+            sources.delete_if do |ref|
+                obj = begin 
+                          ref.__getobj__
+                      rescue WeakRef::RefError
+                      end
+                if obj
+                    result << obj
+                end
+            end
+        end
+        def sources=(sources)
+            @sources = sources.map { |obj| WeakRef.new(obj) }
+        end
 
 	# To be used in the event generators ::new methods, when we need to reemit
 	# an event while changing its 
