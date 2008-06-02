@@ -8,22 +8,34 @@ module Roby
     class PlanningTask < Roby::Task
 	attr_reader :planner, :transaction
 
-	arguments :planner_model, :method_name, 
+	arguments :planner_model, :planning_method, 
 	    :method_options, :planned_model, 
 	    :planning_owners
+
+        attr_reader :method_name
 
 	def self.filter_options(options)
 	    task_options, method_options = Kernel.filter_options options,
 		:planner_model => nil,
-		:method_name => nil,
+		:planning_method => nil,
 		:method_options => {},
+                :method_name => nil, # kept for backward compatibility
 		:planned_model => nil,
 		:planning_owners => nil
 
+            if task_options[:method_name]
+                method_name = task_options[:planning_method] = task_options[:method_name]
+            elsif task_options[:planning_method].respond_to?(:to_str) || task_options[:planning_method].respond_to?(:to_sym)
+                method_name = task_options[:method_name] = task_options[:planning_method].to_s
+            end
+
 	    if !task_options[:planner_model]
 		raise ArgumentError, "missing required argument 'planner_model'"
-	    elsif !task_options[:method_name]
-		raise ArgumentError, "missing required argument 'method_name'"
+	    elsif !task_options[:planning_method]
+		raise ArgumentError, "missing required argument 'planning_method'"
+            elsif !(method_name || task_options[:planning_method].kind_of?(Roby::Planning::MethodDefinition))
+		raise ArgumentError, "the planning_method argument is neither a method object nor a name"
+
 	    end
 	    task_options[:planned_model] ||= nil
 	    task_options[:method_options] ||= Hash.new
@@ -34,16 +46,23 @@ module Roby
 
         def initialize(options)
 	    task_options = PlanningTask.filter_options(options)
+            @method_name = task_options[:method_name]
             super(task_options)
         end
 
 	def planned_model
-	    arguments[:planned_model] ||= planner_model.model_of(method_name, method_options).returns || Roby::Task
+	    arguments[:planned_model] ||= if method_name
+                                              planner_model.model_of(method_name, method_options).returns
+                                          else
+                                              planning_method.returns
+                                          end
+
+            arguments[:planned_model] ||= Roby::Task
 	end
 
 
 	def to_s
-	    "#{super}[#{method_name}:#{method_options}] -> #{@planned_task || "nil"}"
+	    "#{super}[#{planning_method}:#{method_options}] -> #{@planned_task || "nil"}"
 	end
 
 	def planned_task
@@ -88,7 +107,11 @@ module Roby
         end
 
 	def planning_thread(context)
-	    result_task = planner.send(method_name, method_options.merge(:context => context))
+	    result_task = if method_name
+                              planner.send(method_name, method_options.merge(:context => context))
+                          else
+                              planner.send(:call_planning_methods, Hash.new, method_options.merge(:context => context), planning_method)
+                          end
 
 	    # Don't replace the planning task with ourselves if the
 	    # transaction specifies another planning task
@@ -145,6 +168,7 @@ module Roby
 	class TransactionProxy < Roby::Transactions::Task
 	    proxy_for PlanningTask
 	    def_delegator :@__getobj__, :planner
+	    def_delegator :@__getobj__, :planning_method
 	    def_delegator :@__getobj__, :method_name
 	    def_delegator :@__getobj__, :method_options
 	end

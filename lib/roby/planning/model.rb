@@ -133,6 +133,10 @@ module Roby
             def to_s; "#{name}:#{id}(#{options})" end
         end
 
+        class FreeMethod < MethodDefinition
+            def call(planner); planner.instance_eval(&body) end
+        end
+
         # The model of a planning method. This does not define an actual
         # implementation of the method, only the model methods should abide to.
         class MethodModel
@@ -653,9 +657,8 @@ module Roby
 		elsif planning_options[:args] && !planning_options[:args].empty?
 		    raise ArgumentError, "provided method-specific options through both :args and the option hash"
 		end
-		@arguments.push(method_options)
 
-		Planning.debug { "planning #{name}[#{arguments}]" }
+		Planning.debug { "planning #{name}[#{method_options}]" }
 
 		# Check for recursion
                 if (options[:id] && @stack.include?([name, options[:id]])) || (!options[:id] && @stack.find { |n, _| n == name })
@@ -678,7 +681,7 @@ module Roby
 		    all_returns.compact!
 				      
 		    for return_type in all_returns
-			if task = find_reusable_task(return_type)
+			if task = find_reusable_task(return_type, method_options)
 			    return task
 			end
 		    end
@@ -689,7 +692,7 @@ module Roby
 		end
 
 		# Call the methods
-		call_planning_methods(Hash.new, options, *methods)
+		call_planning_methods(Hash.new, method_options, *methods)
 
             rescue Interrupt
                 raise
@@ -698,21 +701,18 @@ module Roby
                 e.method_name       = name
                 e.method_options    = options
                 raise e
-		
-	    ensure
-		@arguments.pop
             end
 	    
-	    def find_reusable_task(return_type)
+	    def find_reusable_task(return_type, method_options)
 		query = plan.find_tasks.
-		    which_fullfills(return_type, arguments).
+		    which_fullfills(return_type, method_options).
 		    self_owned.
 		    not_abstract.
 		    not_finished.
 		    roots(TaskStructure::Hierarchy)
 
 		for candidate in query
-		    Planning.debug { "selecting task #{candidate} instead of planning #{return_type}[#{arguments}]" }
+		    Planning.debug { "selecting task #{candidate} instead of planning #{return_type}[#{method_options}]" }
 		    return candidate
 		end
 		nil
@@ -724,9 +724,10 @@ module Roby
             # Tries to find a successfull development in the provided method list.
             #
             # It raises NotFound if none of the methods returned successfully
-            def call_planning_methods(errors, options, method, *methods)
+            def call_planning_methods(errors, method_options, method, *methods)
                 begin
                     @stack.push [method.name, method.id]
+                    @arguments.push(method_options)
 		    Planning.debug { "calling #{method.name}:#{method.id} with arguments #{arguments}" }
 		    begin
 			result = method.call(self)
@@ -762,6 +763,7 @@ module Roby
 		    result
 
                 ensure
+                    @arguments.pop
                     @stack.pop
                 end
 
@@ -771,7 +773,7 @@ module Roby
                 if methods.empty?
                     raise NotFound.new(self, errors)
                 else
-                    call_planning_methods(errors, options, *methods)
+                    call_planning_methods(errors, method_options, *methods)
                 end
             end
 
@@ -782,20 +784,22 @@ module Roby
 	    def make_loop(options = {}, &block)
 		raise ArgumentError, "no block given" unless block
 
-		options.merge! :planner_model => self.class, :method_name => 'loops'
-		_, planning_options = PlanningLoop.filter_options(options)
-
                 loop_id = Planner.next_id
                 if !@stack.empty?
                     loop_id = "#{@stack.last[1]}_#{loop_id}"
                 end
+                loop_method = FreeMethod.new 'loops', {}, lambda(&block)
+
+                options[:planner_model] = self.class
+                options[:planning_method] = loop_method
+		_, planning_options = PlanningLoop.filter_options(options)
                 planning_options[:id] = loop_id
                 planning_options[:reuse] = false
-                m = self.class.method('loops', planning_options, &block)
+                loop_method.options.merge!(planning_options)
 
 		options[:method_options] ||= {}
 		options[:method_options].merge!(arguments || {})
-		options[:method_options][:id] = m.id
+		options[:method_options][:id] = loop_method.id
 		PlanningLoop.new(options)
 	    end
         end

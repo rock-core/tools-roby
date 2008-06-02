@@ -69,25 +69,28 @@ module Roby
 	# The planner model we should use
 	argument :planner_model
 	# The planner method name
-	argument :method_name
+	argument :planning_method
 	# The planner method options
 	argument :method_options
 
 	# Filters the options in +options+, splitting between the options that
 	# are specific to the planning task and those that are to be forwarded
 	# to the planner itself
-	def self.filter_options(options) # :nodoc:
+	def self.filter_options(options)
 	    task_arguments, planning_options = Kernel.filter_options options, 
 		:period => nil,
 		:lookahead => 1,
 		:planner_model => nil,
+                :planning_method => nil,
 		:planned_model => Roby::Task,
 		:method_name => nil,
 		:method_options => {},
 		:planning_owners => nil
 
-	    if !task_arguments[:method_name]
-		raise ArgumentError, "required argument :method_name missing"
+            task_arguments[:planning_method] ||= task_arguments[:method_name]
+
+	    if !task_arguments[:planning_method]
+		raise ArgumentError, "you should provide either a method name or a method object"
 	    elsif !task_arguments[:planner_model]
 		raise ArgumentError, "required argument :planner_model missing"
 	    elsif task_arguments[:lookahead] < 0
@@ -135,7 +138,7 @@ module Roby
 	# +context+ is forwarded to the planned task
 	def append_pattern(*context)
 	    # Create the new pattern
-	    task_arguments = arguments.slice(:planner_model, :planned_model, :method_name)
+	    task_arguments = arguments.slice(:planner_model, :planned_model, :planning_method)
 	    task_arguments[:method_options] = method_options.dup
 	    task_arguments[:method_options][:pattern_id] = @pattern_id
 	    @pattern_id += 1

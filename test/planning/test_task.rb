@@ -103,4 +103,24 @@ class TC_PlanningTask < Test::Unit::TestCase
 	assert_kind_of(SimpleTask, new_task, planning_task)
 	assert_equal(101, new_task.arguments[:id])
     end
+
+    def test_method_object
+	planner_model = Class.new(Planning::Planner)
+
+        FlexMock.use do |mock|
+            mock.should_receive(:method_called).with(:context => nil, :arg => 10).once
+
+            body = lambda do
+                mock.method_called(arguments)
+                Roby::Task.new(:id => 'result_of_lambda')
+            end
+            m = FreeMethod.new 'test_object', {:id => 10}, body
+            planning_task = PlanningTask.new(:planner_model => planner_model, :planning_method => m, :arg => 10)
+            plan.permanent(planning_task)
+            planning_task.start!
+            new_task = planning_task_result(planning_task)
+            assert_equal 'result_of_lambda', new_task.arguments[:id]
+        end
+    end
 end
+
