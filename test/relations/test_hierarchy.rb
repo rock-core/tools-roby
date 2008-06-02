@@ -159,4 +159,19 @@ class TC_RealizedBy < Test::Unit::TestCase
 	c1.on(:start, c2, :start)
 	assert_equal([c1].to_value_set, p.first_children)
     end
+
+    def test_remove_finished_children
+	p, c1, c2 = prepare_plan :discover => 3, :model => SimpleTask
+        plan.permanent(p)
+	p.realized_by c1
+	p.realized_by c2
+
+        p.start!
+        c1.start!
+        c1.success!
+        p.remove_finished_children
+        process_events
+        assert(!plan.include?(c1))
+        assert(plan.include?(c2))
+    end
 end
