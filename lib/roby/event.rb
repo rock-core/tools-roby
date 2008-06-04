@@ -694,6 +694,8 @@ module Roby
 	    return if @unreachable
 	    @unreachable = true
 
+            EventGenerator.event_gathering.delete(self)
+
 	    unreachable_handlers.each do |_, block|
 		begin
 		    block.call(reason)

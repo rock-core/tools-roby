@@ -772,6 +772,7 @@ class TC_Event < Test::Unit::TestCase
 	# removed from the plan
 	collection.clear
 	plan.remove_object(e1)
+        assert(!EventGenerator.event_gathering.has_key?(e1))
 
 	EventGenerator.remove_event_gathering(collection)
     end
