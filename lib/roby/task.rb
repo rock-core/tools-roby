@@ -56,14 +56,13 @@ module Roby
 	# event
 	def task_sources
 	    result = ValueSet.new
-	    if sources
-		for ev in sources
-		    gen = ev.generator
-		    if gen.respond_to?(:task) && gen.task == task
-			result.merge ev.task_sources
-		    end
-		end
-	    end
+	    event_sources = sources
+            for ev in event_sources
+                gen = ev.generator
+                if gen.respond_to?(:task) && gen.task == task
+                    result.merge ev.task_sources
+                end
+            end
 	    if result.empty?
 		result << self
 	    end

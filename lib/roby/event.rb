@@ -21,15 +21,20 @@ module Roby
 
         def sources
             result = []
-            sources.delete_if do |ref|
+            @sources.delete_if do |ref|
                 obj = begin 
                           ref.__getobj__
                       rescue WeakRef::RefError
                       end
+
                 if obj
                     result << obj
+                    false
+                else
+                    true
                 end
             end
+            result
         end
         def sources=(sources)
             @sources = sources.map { |obj| WeakRef.new(obj) }
