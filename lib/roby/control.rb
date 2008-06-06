@@ -492,7 +492,6 @@ module Roby
 			cv.wait(mt)
 		    end
 		end
-		raise unless @thread
 		return
 	    end
 
