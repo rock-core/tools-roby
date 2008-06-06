@@ -1,4 +1,4 @@
-require 'weakref'
+require 'utilrb/weakref'
 require 'roby/plan-object'
 require 'roby/exceptions'
 require 'set'
@@ -12,8 +12,11 @@ module Roby
         # The generator which emitted this event
 	attr_reader :generator
 
+        @@creation_places = Hash.new
 	def initialize(generator, propagation_id, context, time = Time.now)
 	    @generator, @propagation_id, @context, @time = generator, propagation_id, context.freeze, time
+
+            @@creation_places[object_id] = "#{generator.class}"
 	end
 
 	attr_accessor :propagation_id, :context, :time
@@ -22,22 +25,20 @@ module Roby
         def sources
             result = []
             @sources.delete_if do |ref|
-                obj = begin 
-                          ref.__getobj__
-                      rescue WeakRef::RefError
-                      end
-
-                if obj
-                    result << obj
+                begin 
+                    result << ref.get
                     false
-                else
+                rescue Utilrb::WeakRef::RefError
                     true
                 end
             end
             result
         end
         def sources=(sources)
-            @sources = sources.map { |obj| WeakRef.new(obj) }
+            @sources = ValueSet.new
+            for s in sources
+                @sources << Utilrb::WeakRef.new(s)
+            end
         end
 
 	# To be used in the event generators ::new methods, when we need to reemit

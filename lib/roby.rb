@@ -39,3 +39,4 @@ require 'roby/interface'
 require 'roby/distributed/protocol'
 
 require 'roby/app'
+
