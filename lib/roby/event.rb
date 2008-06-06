@@ -22,6 +22,11 @@ module Roby
 	attr_accessor :propagation_id, :context, :time
 	protected :propagation_id=, :context=, :time=
 
+        # The events whose emission triggered this event during the
+        # propagation. The events in this set are subject to Ruby's own
+        # garbage collection, which means that if a source event is garbage
+        # collected (i.e. if all references to the associated task/event
+        # generator are removed), it will be removed from this set as well.
         def sources
             result = []
             @sources.delete_if do |ref|
@@ -34,7 +39,9 @@ module Roby
             end
             result
         end
-        def sources=(sources)
+
+        # Sets the sources. See #sources
+        def sources=(sources) # :nodoc:
             @sources = ValueSet.new
             for s in sources
                 @sources << Utilrb::WeakRef.new(s)
@@ -57,7 +64,9 @@ module Roby
 
 	def name; model.name end
 	def model; self.class end
-	def inspect; "#<#{model.to_s}:0x#{address.to_s(16)} generator=#{generator} model=#{model}" end
+	def inspect # :nodoc:
+            "#<#{model.to_s}:0x#{address.to_s(16)} generator=#{generator} model=#{model}"
+        end
 
         # Returns an event generator which will be emitted once +time+ seconds
         # after this event has been emitted.
@@ -65,10 +74,11 @@ module Roby
             State.at :t => (self.time + time)
         end
 
-	def to_s
+	def to_s # :nodoc:
 	    "[#{time.to_hms} @#{propagation_id}] #{self.class.to_s}: #{context}"
 	end
-        def pretty_print(pp)
+
+        def pretty_print(pp) # :nodoc:
             pp.text "[#{time.to_hms} @#{propagation_id}] #{self.class}"
             if context
                 pp.breakable
