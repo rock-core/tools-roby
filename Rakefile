@@ -11,7 +11,10 @@ begin
 
             p.summary = 'A plan-based control framework for autonomous systems'
             p.url         = p.paragraphs_of('README.txt', 1).join("\n\n")
-            p.description = p.paragraphs_of('README.txt', 2..18).join("\n\n")
+            p.description = p.paragraphs_of('README.txt', 3..5).join("\n\n")
+            p.description +=
+"\n\nSee the README.txt file at http://roby.rubyforge.org for more
+informations, including links to tutorials and demonstration videos"
             p.changes     = p.paragraphs_of('History.txt', 0..1).join("\n\n")
             p.post_install_message = p.paragraphs_of('README.txt', 2).join("\n\n")
 
