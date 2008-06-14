@@ -15,7 +15,7 @@ begin
             p.changes     = p.paragraphs_of('History.txt', 0..1).join("\n\n")
             p.post_install_message = p.paragraphs_of('README.txt', 2).join("\n\n")
 
-            p.extra_deps << ['facets', '>= 2.0'] << 'activesupport' << ['utilrb', '1.3']
+            p.extra_deps << ['facets', '>= 2.0'] << 'activesupport' << ['utilrb', '>= 1.3.1']
             if p.respond_to? :need_rdoc=
                 p.need_rdoc = false
             end
