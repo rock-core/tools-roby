@@ -6,6 +6,7 @@
   is fixed by internally using weak references. Histories will therefore be
   truncated as the Ruby GC removes references to the concerned plan objects.
 * misc small fixes, which mostly remove some false negatives in the test suite
+* small change to be compatible with 1.8.7
 
 === 0.7.1
 
