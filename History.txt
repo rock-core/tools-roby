@@ -1,3 +1,12 @@
+=== 0.7.2
+
+* fixed a memory leak regarding the event propagation histories. Until now,
+  all the propagation histories where kept through Event#sources, leading to
+  actually keeping most plan objects since the beginning of execution. This
+  is fixed by internally using weak references. Histories will therefore be
+  truncated as the Ruby GC removes references to the concerned plan objects.
+* misc small fixes, which mostly remove some false negatives in the test suite
+
 === 0.7.1
 
 * Fixed extension handling in 'rake setup'. It should work again.
