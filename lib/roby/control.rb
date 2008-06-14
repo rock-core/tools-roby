@@ -228,7 +228,6 @@ module Roby
                     cv.wait(mt)
                 end
             end
-            raise unless @thread
 	end
 
 	attr_reader :last_stop_count

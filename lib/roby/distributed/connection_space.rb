@@ -269,7 +269,10 @@ module Roby
 			    while !pending_sockets.empty?
 				socket, peer = pending_sockets.shift
 				sockets[socket] = peer
-				Roby::Distributed.info "listening to #{socket.peer_info} for #{peer}"
+                                begin
+                                    Roby::Distributed.info "listening to #{socket.peer_info} for #{peer}"
+                                rescue IOError
+                                end
 			    end
 
 			    begin
@@ -286,18 +289,22 @@ module Roby
 				    next
 				end
 
-				header = socket.read(8)
-				unless header && header.size == 8
-				    closed_sockets << socket
-				    next
-				end
+                                begin
+                                    header = socket.read(8)
+                                    unless header && header.size == 8
+                                        closed_sockets << socket
+                                        next
+                                    end
 
-				id, size = header.unpack("NN")
-				data     = socket.read(size)
+                                    id, size = header.unpack("NN")
+                                    data     = socket.read(size)
 
-				p = sockets[socket]
-				p.stats.rx += (size + 8)
-				Roby::Distributed.cycles_rx << [p, Marshal.load(data)]
+                                    p = sockets[socket]
+                                    p.stats.rx += (size + 8)
+                                    Roby::Distributed.cycles_rx << [p, Marshal.load(data)]
+                                rescue Errno::ECONNRESET, IOError
+                                    closed_sockets << socket
+                                end
 			    end
 
 			    for socket in closed_sockets

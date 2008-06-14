@@ -11,11 +11,14 @@ begin
 
             p.summary = 'A plan-based control framework for autonomous systems'
             p.url         = p.paragraphs_of('README.txt', 1).join("\n\n")
-            p.description = p.paragraphs_of('README.txt', 2..18).join("\n\n")
+            p.description = p.paragraphs_of('README.txt', 3..5).join("\n\n")
+            p.description +=
+"\n\nSee the README.txt file at http://roby.rubyforge.org for more
+informations, including links to tutorials and demonstration videos"
             p.changes     = p.paragraphs_of('History.txt', 0..1).join("\n\n")
             p.post_install_message = p.paragraphs_of('README.txt', 2).join("\n\n")
 
-            p.extra_deps << ['facets', '>= 2.0'] << 'activesupport' << ['utilrb', '1.2']
+            p.extra_deps << ['facets', '>= 2.0'] << 'activesupport' << ['utilrb', '>= 1.3.1']
             if p.respond_to? :need_rdoc=
                 p.need_rdoc = false
             end
