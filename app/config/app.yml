@@ -51,26 +51,6 @@ droby:
   # 'host:port', or just ':port'
   # host: ":48902"
 
-# Genom configuration
-genom:
-  # The memory size allocated for H2
-  # mem_size: 4000000
-  # If true, do not remove H2 devices when the application quit
-  # keep_h2: false
-  
-# Pocosim configuration
-pocosim:
-  # The host of the GDHE display
-  # display: localhost
-
-  # An initialization script to display the scene on GDHE. The file is searched
-  # in the data/ director
-  # gdhe: lousa.gdhe
-  
-  # The Gazebo world file for pocosim/gazebo simulations. The file is searched
-  # in the data/ directory 
-  # gazebo: lousa.world
-
 # Per-robot configuration. In these, you can override global options, or set
 # new options.
 # dala:
