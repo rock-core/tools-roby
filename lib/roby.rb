@@ -61,7 +61,6 @@ require 'roby/task_index.rb'
 require 'roby/plan.rb'
 require 'roby/transactions/proxy.rb'
 require 'roby/transactions.rb'
-require 'roby/transactions/updates.rb'
 require 'roby/query.rb'
 
 require 'roby/distributed/base'

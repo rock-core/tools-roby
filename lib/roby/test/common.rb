@@ -23,6 +23,8 @@ module Roby
 
 	# The plan used by the tests
         attr_reader :plan
+        # The decision control component used by the tests
+        attr_reader :control
         def engine; plan.engine end
 
 	# Clear the plan and return it
@@ -83,8 +85,9 @@ module Roby
 	    end
 
             @plan ||= Plan.new
+            @control ||= DecisionControl.new
             if !plan.engine
-                ExecutionEngine.new(@plan)
+                ExecutionEngine.new(@plan, @control)
             end
 
 	    # Save and restore some arrays

@@ -238,15 +238,32 @@ module Roby
 	    end
 	end
 
-        # Checks if we have the right to remove a relation. Raises
-        # OwnershipError if it is not the case
-	def removing_child_object(child, type)
-	    super if defined? super
+        def adding_child_object(child, relations, info)
+            super if defined? super
+            return if !plan
 
+            for trsc in plan.transactions
+                next unless trsc.proxying?
+                if (parent_proxy = trsc[self, false]) && (child_proxy = trsc[child, false])
+                    trsc.adding_plan_relation(parent_proxy, child_proxy, relations, info) 
+                end
+            end
+        end
+        def removing_child_object(child, relations)
 	    unless read_write? || child.read_write?
 		raise OwnershipError, "cannot remove a relation between two objects we don't own"
 	    end
-	end
+
+            super if defined? super
+            return if !plan
+
+            for trsc in plan.transactions
+                next unless trsc.proxying?
+                if (parent_proxy = trsc[self, false]) && (child_proxy = trsc[child, false])
+                    trsc.removing_plan_relation(parent_proxy, child_proxy, relations) 
+                end
+            end
+        end
     end
 end
 

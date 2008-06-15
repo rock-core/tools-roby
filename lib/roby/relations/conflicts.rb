@@ -42,7 +42,7 @@ module Roby
 	    end
 
 	    if result
-		Roby.decision_control.conflict(task, result)
+		plan.control.conflict(task, result)
 	    end
 
 	    # Add the needed conflict relations

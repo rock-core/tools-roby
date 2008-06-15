@@ -25,9 +25,11 @@ module Roby
         extend Logger::Hierarchy
         extend Logger::Forward
 
-        def initialize(plan)
+        def initialize(plan, control)
             @plan = plan
             plan.engine = self
+            @control = control
+
             @propagation_id = 0
             @delayed_events = []
             @process_once = Queue.new
@@ -50,7 +52,9 @@ module Roby
 	end
 
         # The plan this engine is acting on
-        attr_reader :plan
+        attr_accessor :plan
+        # The decision control object associated with this engine
+        attr_accessor :control
         # A numeric ID giving the count of the current propagation cycle
         attr_reader :propagation_id
         
@@ -1265,6 +1269,20 @@ module Roby
     class << self
         # The ExecutionEngine object which executes Roby.plan
         attr_reader :engine
+
+        # Sets the engine. This can be done only once
+        def engine=(new_engine)
+            if engine
+                raise ArgumentError, "cannot change the execution engine"
+            elsif plan && plan.engine && plan.engine != new_engine
+                raise ArgumentError, "must have Roby.engine == Roby.plan.engine"
+            elsif control && new_engine.control != control
+                raise ArgumentError, "must have Roby.control == Roby.engine.control"
+            end
+
+            @engine  = new_engine
+            @control = new_engine.control
+        end
     end
 
     # Execute the given block in the main plan's propagation context, but don't

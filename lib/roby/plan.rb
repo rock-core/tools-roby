@@ -24,6 +24,8 @@ module Roby
 
         # The ExecutionEngine object which handles this plan
         attr_accessor :engine
+        # The DecisionControl object which is associated with this plan
+        def control; engine.control end
 
 	# The task index for this plan
 	attr_reader :task_index
@@ -673,17 +675,35 @@ module Roby
 	def finalized(task) # :nodoc:
 	    super if defined? super
 	end
+
 	# Hook called when +task+ has been removed from this plan
 	def finalized_task(task)
+            finalized_transaction_object(task) { |trsc, proxy| trsc.finalized_plan_task(proxy) }
 	    super if defined? super
 	    finalized(task)
 	end
+
 	# Hook called when +event+ has been removed from this plan
 	def finalized_event(event)
             if engine && executable?
                 engine.finalized_event(event)
             end
+            finalized_transaction_object(event) { |trsc, proxy| trsc.finalized_plan_event(proxy) }
             super if defined? super 
+        end
+
+        # Generic filter which checks if +object+ is included in one of the
+        # transactions of this plan. If it is the case, it yields the
+        # transaction and the associated proxy
+        def finalized_transaction_object(object) 
+            return unless object.root_object?
+            for trsc in transactions
+                next unless trsc.proxying?
+
+                if proxy = trsc.wrap(object, false)
+                    yield(trsc, proxy)
+                end
+            end
         end
 
 	# Replace +task+ with a fresh copy of itself

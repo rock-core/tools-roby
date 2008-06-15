@@ -181,29 +181,16 @@ module Roby
 	attr_reader :plan
 	# The proxy objects built for this transaction
 	attr_reader :proxy_objects
-
-	attr_reader :conflict_solver
+        # The option hash given at initialization
 	attr_reader :options
 
-	def conflict_solver=(value)
-	    @conflict_solver = case value
-			       when :update
-				   SolverUpdateRelations
-			       when :invalidate
-				   SolverInvalidateTransaction
-			       when :ignore
-				   SolverIgnoreUpdate.new
-			       else value
-			       end
-	end
+        # The decision control object associated with this transaction. It is
+        # in general plan.control
+        def control; plan.control end
 
 	# Creates a new transaction which applies on +plan+
 	def initialize(plan, options = {})
-	    options = validate_options options, 
-		:conflict_solver => :invalidate
-
 	    @options = options
-	    self.conflict_solver = options[:conflict_solver]
 	    super()
 
 	    @plan   = plan
@@ -464,6 +451,38 @@ module Roby
 	    proxy_objects.each_value { |proxy| proxy.clear_relations }
 	    proxy_objects.clear
 	    super
+	end
+
+	def finalized_plan_task(task)
+	    invalidate("task #{task} has been removed from the plan")
+            discard_modifications(task)
+	    control.finalized_plan_task(self, task)
+	end
+
+	def finalized_plan_event(event)
+	    invalidate("event #{event} has been removed from the plan")
+            discard_modifications(event)
+	    control.finalized_plan_event(self, event)
+	end
+
+	def adding_plan_relation(parent, child, relations, info)
+	    missing_relations = relations.find_all do |rel|
+		!parent.child_object?(child, rel)
+	    end
+	    unless missing_relations.empty?
+		invalidate("plan added a relation #{parent} -> #{child} in #{relations} with info #{info}")
+		control.adding_plan_relation(self, parent, child, relations, info)
+	    end
+	end
+
+	def removing_plan_relation(parent, child, relations)
+	    present_relations = relations.find_all do |rel|
+		parent.child_object?(child, rel)
+	    end
+	    unless present_relations.empty?
+		invalidate("plan removed a relation #{parent} -> #{child} in #{relations}")
+		control.removing_plan_relation(self, parent, child, relations)
+	    end
 	end
     end
 end

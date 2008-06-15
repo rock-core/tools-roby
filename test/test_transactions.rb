@@ -397,7 +397,6 @@ module TC_TransactionBehaviour
 	t1 = prepare_plan :discover => 1
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1) do |trsc, p1|
-		trsc.conflict_solver = :invalidate
 		plan.remove_object(t1)
 		assert(trsc.invalid?)
 	    end
@@ -406,7 +405,6 @@ module TC_TransactionBehaviour
 	t1 = prepare_plan :discover => 1
 	assert_nothing_raised do
 	    transaction_commit(plan, t1) do |trsc, p1|
-		trsc.conflict_solver = :invalidate
 		trsc.remove_object(p1)
 		plan.remove_object(t1)
 		assert(!trsc.invalid?)
@@ -420,7 +418,6 @@ module TC_TransactionBehaviour
 	t1.realized_by t2
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		trsc.conflict_solver = :invalidate
 		assert(p1.child_object?(p2, Roby::TaskStructure::Hierarchy))
 		t1.remove_child t2
 		assert(trsc.invalid?)
@@ -430,7 +427,6 @@ module TC_TransactionBehaviour
 	t1.realized_by t2
 	assert_nothing_raised do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		trsc.conflict_solver = :invalidate
 		p1.remove_child p2
 		t1.remove_child t2
 		assert(!trsc.invalid?)
@@ -440,7 +436,6 @@ module TC_TransactionBehaviour
 	t1.remove_child t2
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		trsc.conflict_solver = :invalidate
 		t1.realized_by(t2)
 		assert(trsc.invalid?)
 	    end
@@ -449,69 +444,12 @@ module TC_TransactionBehaviour
 	t1.remove_child t2
 	assert_nothing_raised do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		trsc.conflict_solver = :invalidate
 		p1.realized_by p2
 		t1.realized_by t2
 		assert(!trsc.invalid?)
 	    end
 	end
     end
-
-    def test_plan_relation_update_solver
-	solver = Roby::SolverIgnoreUpdate.new
-
-	t1, t2, t3 = (1..3).map { SimpleTask.new }
-	t1.realized_by t2
-	plan.insert(t1)
-
-	assert_nothing_raised do
-	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		trsc.conflict_solver = solver
-		p1.realized_by(t3)
-		t1.remove_child(t2)
-		assert(!trsc.invalid?)
-	    end
-	end
-
-	t3 = SimpleTask.new
-	t1.remove_child t2
-	assert_nothing_raised do
-	    transaction_commit(plan, t1) do |trsc, p1|
-		trsc.conflict_solver = solver
-		p1.realized_by(t3)
-		t1.realized_by(t2)
-		assert(!trsc.invalid?)
-	    end
-	end
-    end
-
-    def test_plan_relation_update_update
-	t1, t2, t3 = (1..3).map { SimpleTask.new }
-	t1.realized_by t2
-	plan.insert(t1)
-
-	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    trsc.conflict_solver = :update
-	    p1.realized_by(t3)
-	    assert(p1.child_object?(p2))
-	    t1.remove_child(t2)
-	    assert(!trsc.invalid?)
-	    assert(!p1.child_object?(p2))
-	end
-
-	t3 = SimpleTask.new
-	t1.remove_child t2
-	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    trsc.conflict_solver = :update
-	    p1.realized_by(t3)
-	    assert(!p1.child_object?(p2))
-
-	    t1.realized_by(t2)
-	    assert(p1.child_object?(p2))
-	    assert(!trsc.invalid?)
-	end
-    end
-
 end
 
 class TC_Transactions < Test::Unit::TestCase

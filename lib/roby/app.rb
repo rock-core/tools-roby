@@ -423,6 +423,10 @@ module Roby
 	end
 
 	def setup
+            if !Roby.plan
+                Roby.instance_variable_set :@plan, Plan.new
+            end
+
 	    reset
             require 'roby/planning'
             require 'roby/interface'
@@ -742,13 +746,22 @@ module Roby
                 Roby.instance_variable_set :@plan, Plan.new
             end
 
+            if !Roby.engine && Roby.plan.engine
+                # This checks coherence with Roby.control, and sets it
+                # accordingly
+                Roby.engine  = Roby.plan.engine
+            elsif !Roby.control
+                Roby.control = DecisionControl.new
+            end
+
             if !Roby.engine
-                if !Roby.plan.engine
-                    ExecutionEngine.new(Roby.plan)
-                end
-                Roby.instance_variable_set :@engine, Roby.plan.engine
-            elsif Roby.plan.engine != Roby.engine
-                raise "mismatch beween Roby.plan.engine and Roby.engine"
+                Roby.engine  = ExecutionEngine.new(Roby.plan, Roby.control)
+            end
+            
+            if Roby.control != Roby.engine.control
+                raise "inconsistency between Roby.control and Roby.engine.control"
+            elsif Roby.engine != Roby.plan.engine
+                raise "inconsistency between Roby.engine and Roby.plan.engine"
             end
         end
 
