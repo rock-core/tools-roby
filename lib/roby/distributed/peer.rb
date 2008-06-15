@@ -149,7 +149,7 @@ module Roby::Distributed
 	# +matcher+ changes
 	def add_trigger(id, matcher)
 	    triggers[id] = [matcher, (triggered = ValueSet.new)]
-	    Roby.info "#{remote_name} wants notification on #{matcher} (#{id})"
+	    Roby::Distributed.info "#{remote_name} wants notification on #{matcher} (#{id})"
 
 	    peer.queueing do
 		matcher.each(plan) do |task|
@@ -164,7 +164,7 @@ module Roby::Distributed
 
 	# Remove the trigger +id+ defined by this peer
 	def remove_trigger(id)
-	    Roby.info "#{remote_name} removed #{id} notification"
+	    Roby::Distributed.info "#{remote_name} removed #{id} notification"
 	    triggers.delete(id)
 	    nil
 	end
@@ -412,7 +412,7 @@ module Roby::Distributed
 			trigger.last.call(task)
 		    end
 		rescue Exception
-		    Roby.warn "trigger handler #{trigger.last} failed with #{$!.full_message}"
+		    Roby::Distributed.warn "trigger handler #{trigger.last} failed with #{$!.full_message}"
 		ensure
 		    Roby::Distributed.keep.deref(task)
 		end

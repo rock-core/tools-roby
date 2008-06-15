@@ -598,7 +598,7 @@ module Roby
 	    def check_marshallable(object, stack = ValueSet.new)
 		if !object.kind_of?(DRbObject) && object.respond_to?(:each) && !object.kind_of?(String)
 		    if stack.include?(object)
-			Roby.warn "recursive marshalling of #{obj}"
+			Roby::Distributed.warn "recursive marshalling of #{obj}"
 			raise "recursive marshalling"
 		    end
 
