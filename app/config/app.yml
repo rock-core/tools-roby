@@ -1,16 +1,5 @@
 # Control configuration
-control:
-  # Abort if a task/event exception is not caught 
-  # abort_on_exception: false
-  # Abort if an application exception occurs 
-  # abort_on_application_exception: false
-  
-  # The scheduler. Set to 'none' to disable.
-  # The scheduler object determines, in the current plan, what are
-  # the tasks which must be started. The 'simple' scheduler starts
-  # all tasks that have no predecessors.
-  scheduler: basic
-
+engine:
   # The length of a cycle (in seconds)
   # cycle: 0.1
 

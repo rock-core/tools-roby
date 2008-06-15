@@ -79,13 +79,6 @@ module Roby
 	#              detected
 	attr_reader :droby
 	
-	# Configuration of the event loop
-	# abort_on_exception:: if it should abort if an uncaught task or event exception is received. Defaults
-	#                      to false
-	# abort_on_application_exception:: if it should abort if an uncaught application exception (not originating
-	#                                  from a task or event) is caught. Defaults to true.
-	attr_reader :engine
-        
 	# If true, abort if an unhandled exception is found
 	attr_predicate :abort_on_exception, true
 	# If true, abort if an application exception is found
@@ -113,8 +106,6 @@ module Roby
 	    @log = Hash['events' => 'stats', 'levels' => Hash.new, 'filter_backtraces' => true] 
 	    @discovery = Hash.new
 	    @droby     = Hash['period' => 0.5, 'max_errors' => 1] 
-	    @engine    = Hash[ 'abort_on_exception' => false, 
-		'abort_on_application_exception' => true ]
 
 	    @automatic_testing = true
 	    @testing_keep_logs = false
@@ -509,12 +500,6 @@ module Roby
 	    engine = Roby.engine
 	    options = { :cycle => engine_config['cycle'] || 0.1 }
 	    
-	    # Add an executive if one is defined
-            scheduler = (engine_config['scheduler'] || engine_config['executive'])
-	    if scheduler
-		self.scheduler = engine_config['scheduler']
-	    end
-
 	    if log['events']
 		require 'roby/log/file'
 		logfile = File.join(log_dir, robot_name)
@@ -522,10 +507,6 @@ module Roby
 		logger.stats_mode = log['events'] == 'stats'
 		Roby::Log.add_logger logger
 	    end
-	    self.abort_on_exception = 
-		engine_config['abort_on_exception']
-	    self.abort_on_application_exception = 
-		engine_config['abort_on_application_exception']
 	    engine.run options
 
 	    plugins = self.plugins.map { |_, mod| mod if mod.respond_to?(:run) }.compact
@@ -559,18 +540,6 @@ module Roby
 	    else
 		raise
 	    end
-	end
-
-	def scheduler=(name)
-	    if Roby.plan.scheduler
-                Roby.plan.scheduler = nil
-	    end
-            @scheduler = name
-	    return unless name
-
-	    full_name = "roby/schedulers/#{name}"
-	    require full_name
-	    Roby.plan.scheduler = full_name.camelize.constantize.new
 	end
 
 	def stop; call_plugins(:stop, self) end
@@ -886,7 +855,16 @@ module Roby
 
     @app = Application.instance
     class << self
+        # The one and only Application object
         attr_reader :app
+
+        # The scheduler object to be used during execution. See
+        # ExecutionEngine#scheduler.
+        #
+        # This is only used during the configuration of the application, and
+        # not afterwards. It is also possible to set per-engine through
+        # ExecutionEngine#scheduler=
+        attr_accessor :scheduler
     end
 
     # Load the plugins 'main' files
