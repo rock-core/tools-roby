@@ -82,8 +82,10 @@ module Roby
 		Roby::Planning::Planner.last_id = 0 
 	    end
 
-            @plan = Plan.new
-            ExecutionEngine.new(@plan)
+            @plan ||= Plan.new
+            if !plan.engine
+                ExecutionEngine.new(@plan)
+            end
 
 	    # Save and restore some arrays
 	    save_collection engine.propagation_handlers

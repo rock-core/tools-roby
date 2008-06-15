@@ -19,53 +19,50 @@ module Roby
 
 	ASSERT_ANY_EVENTS_TLS = :assert_any_events
 
-	class << self
-	    # A [thread, cv, positive, negative] list of event assertions
-	    attr_reader :event_assertions
+        class << self
+            # A [thread, cv, positive, negative] list of event assertions
+            attr_reader :event_assertions
+        end
 
-	    # Tests for events in +positive+ and +negative+ and returns
-	    # the set of failing events if the assertion has finished.
-	    # If the set is empty, it means that the assertion finished
-	    # successfully
-	    def assert_any_event_result(positive, negative)
-		if positive_ev = positive.find { |ev| ev.happened? }
-		    return false, "#{positive_ev} happened"
-		end
-		failure = negative.find_all { |ev| ev.happened? }
-		unless failure.empty?
-		    return true, "#{failure} happened"
-		end
+        # Tests for events in +positive+ and +negative+ and returns
+        # the set of failing events if the assertion has finished.
+        # If the set is empty, it means that the assertion finished
+        # successfully
+        def self.assert_any_event_result(positive, negative)
+            if positive_ev = positive.find { |ev| ev.happened? }
+                return false, "#{positive_ev} happened"
+            end
+            failure = negative.find_all { |ev| ev.happened? }
+            unless failure.empty?
+                return true, "#{failure} happened"
+            end
 
-		if positive.all? { |ev| ev.unreachable? }
-		    return true, "all positive events are unreachable"
-		end
+            if positive.all? { |ev| ev.unreachable? }
+                return true, "all positive events are unreachable"
+            end
 
-		nil
-	    end
+            nil
+        end
 
-	    # This method is inserted in the control thread to implement
-	    # Assertions#assert_events
-	    def check_event_assertions
-		event_assertions.delete_if do |thread, cv, positive, negative|
-		    error, result = assert_any_event_result(positive, negative)
-		    if !error.nil?
-			thread[ASSERT_ANY_EVENTS_TLS] = [error, result]
-			cv.broadcast
-			true
-		    end
-		end
-	    end
+        # This method is inserted in the control thread to implement
+        # Assertions#assert_events
+        def self.check_event_assertions
+            event_assertions.delete_if do |thread, cv, positive, negative|
+                error, result = Test.assert_any_event_result(positive, negative)
+                if !error.nil?
+                    thread[ASSERT_ANY_EVENTS_TLS] = [error, result]
+                    cv.broadcast
+                    true
+                end
+            end
+        end
 
-	    def finalize_event_assertions
-		check_event_assertions
-		event_assertions.dup.each do |thread, *_|
-		    thread.raise ControlQuitError
-		end
-	    end
-
-	end
-	Roby::Control.at_cycle_end(&method(:check_event_assertions))
-	Roby::Control.finalizers << method(:finalize_event_assertions)
+        def self.finalize_event_assertions
+            check_event_assertions
+            event_assertions.dup.each do |thread, *_|
+                thread.raise ControlQuitError
+            end
+        end
 
 	module Assertions
 	    # Wait for any event in +positive+ to happen. If +negative+ is
@@ -116,7 +113,7 @@ module Roby
 				if !unreachability_reason.empty?
 				    msg = unreachability_reason.map do |reason|
 					if reason.respond_to?(:context)
-					    context = reason.context.map do |obj|
+					    context = (reason.context || []).map do |obj|
 						if obj.kind_of?(Exception)
 						    obj.full_message
 						else
@@ -158,12 +155,16 @@ module Roby
 	    end
 
 	    def control_priority
+                if !Roby.engine.thread
+                    return yield
+                end
+
 		old_priority = Thread.current.priority 
 		Thread.current.priority = Roby.engine.thread.priority + 1
 
 		yield
 	    ensure
-		Thread.current.priority = old_priority
+		Thread.current.priority = old_priority if old_priority
 	    end
 
 	    # This assertion fails if the relative error between +found+ and
@@ -286,10 +287,14 @@ module Roby
 
 	    def setup # :nodoc:
 		super
+                Roby.engine.at_cycle_end(&Test.method(:check_event_assertions))
+                Roby.engine.finalizers << Test.method(:finalize_event_assertions)
 		Roby.engine.waiting_threads << Thread.current
 	    end
 
 	    def teardown # :nodoc:
+                Roby.engine.at_cycle_end_handlers.delete(&Test.method(:check_event_assertions))
+                Roby.engine.finalizers.delete(Test.method(:finalize_event_assertions))
 		Roby.engine.waiting_threads.delete(Thread.current)
 		super
 	    end
@@ -390,7 +395,9 @@ module Roby
 	    end
 
 	    def run(result) # :nodoc:
-		Roby::Test.waiting_threads.clear
+                if self.class == TestCase
+                    return
+                end
 
 		self.class.apply_robot_setup do
 		    yield if block_given?

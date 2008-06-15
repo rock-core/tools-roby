@@ -15,6 +15,8 @@ require 'test_transactions'
 require 'test_transactions_proxy'
 require 'test_thread_task'
 
+require 'test_testcase'
+
 require 'suite_planning'
 require 'suite_relations'
 

@@ -741,13 +741,14 @@ module Roby
             if !Roby.plan
                 Roby.instance_variable_set :@plan, Plan.new
             end
+
             if !Roby.engine
                 if !Roby.plan.engine
-                    Roby.instance_variable_set :@engine, ExecutionEngine.new(Roby.plan)
-                    Roby.plan.engine = Roby.engine
-                elsif Roby.plan.engine != Roby.engine
-                    raise "mismatch beween Roby.plan.engine and Roby.engine"
+                    ExecutionEngine.new(Roby.plan)
                 end
+                Roby.instance_variable_set :@engine, Roby.plan.engine
+            elsif Roby.plan.engine != Roby.engine
+                raise "mismatch beween Roby.plan.engine and Roby.engine"
             end
         end
 
