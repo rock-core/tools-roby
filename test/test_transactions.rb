@@ -10,11 +10,13 @@ class TC_TransactionAsPlan < Test::Unit::TestCase
     include TC_PlanStatic
     include Roby::Test
 
-    alias :real_plan :plan
+    attr_reader :real_plan
     attr_reader :plan
+    def engine; (real_plan || plan).engine end
     def setup
-	@plan = Transaction.new(real_plan)
 	super
+        @real_plan = @plan
+	@plan = Transaction.new(real_plan)
     end
     def teardown
 	@plan.discard_transaction
@@ -586,10 +588,11 @@ class TC_RecursiveTransaction < Test::Unit::TestCase
     include TC_TransactionBehaviour
     include Roby::Test
 
-    alias :real_plan :plan
-    attr_reader :plan
+    attr_reader :real_plan
+    def engine; (real_plan || plan).engine end
     def setup
 	super
+        @real_plan = @plan
 	@plan = Roby::Transaction.new(real_plan)
     end
     def teardown

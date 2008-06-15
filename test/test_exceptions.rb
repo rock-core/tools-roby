@@ -120,7 +120,7 @@ class TC_Exceptions < Test::Unit::TestCase
 		end
 	    end
 
-	    Roby.on_exception(RuntimeError) do |task, exception|
+	    plan.on_exception(RuntimeError) do |task, exception|
 		mock.global_handler_called
 		raise
 	    end
@@ -132,7 +132,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    mock.should_receive(:event_called).once.ordered
 	    mock.should_receive(:task_handler_called).once.ordered
 	    mock.should_receive(:global_handler_called).once.ordered
-	    Roby.once { t2.start! }
+	    engine.once { t2.start! }
 	    assert_raises(SpecializedError) { process_events }
 	end
     end
@@ -151,22 +151,22 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    error = ExecutionException.new(SpecializedError.new(t2))
 	    mock.should_receive(:handler).with(error, t1, t0).once
-	    assert_equal([], plan.propagate_exceptions([error]))
+	    assert_equal([], engine.propagate_exceptions([error]))
 	    assert_equal([error], error.siblings)
 	    assert_equal([t2, t1], error.trace)
 
 	    error = ExecutionException.new(CodeError.new(nil, t2))
-	    assert_equal([error], plan.propagate_exceptions([error]))
+	    assert_equal([error], engine.propagate_exceptions([error]))
 	    assert_equal(t0, error.task)
 	    assert_equal([t2, t1, t0], error.trace)
 
 	    # Redo that but this time define a global exception handler
 	    error = ExecutionException.new(CodeError.new(nil, t2))
-	    Roby.on_exception(CodeError) do |mod, exception|
+	    plan.on_exception(CodeError) do |mod, exception|
 		mock.global_handler(exception, exception.task, mod)
 	    end
 	    mock.should_receive(:global_handler).with(error, t0, plan).once
-	    assert_equal([], plan.propagate_exceptions([error]))
+	    assert_equal([], engine.propagate_exceptions([error]))
 	end
     end
 
@@ -196,7 +196,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    #	   never tested on t3
 	    #	2/ propagation begins with t3, in which case +error+ is a sibling of
 	    #	   t0.handled_exception
-	    assert_equal([], plan.propagate_exceptions([error]))
+	    assert_equal([], engine.propagate_exceptions([error]))
 	    assert_equal([t2, t1], t0.handled_exception.trace)
 	    if t0.handled_exception != error
 		assert_equal([t2, t3], error.trace)
@@ -204,7 +204,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    end
 
 	    error = ExecutionException.new(LocalizedError.new(t2))
-	    assert(fatal = plan.propagate_exceptions([error]))
+	    assert(fatal = engine.propagate_exceptions([error]))
 	    assert_equal(1, fatal.size)
 	    e = *fatal
 	    assert_equal(t2, e.origin)
@@ -233,7 +233,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    error = ExecutionException.new(LocalizedError.new(t2))
 	    mock.should_receive(:handler).with(ExecutionException, [t1, t3].to_set, t0).once
-	    assert_equal([], plan.propagate_exceptions([error]))
+	    assert_equal([], engine.propagate_exceptions([error]))
 	    assert_equal(2, found_exception.trace.size, found_exception.trace)
 	    assert_equal(t2, found_exception.origin)
 	    assert_equal([t3, t1].to_set, found_exception.task.to_set)
@@ -306,12 +306,12 @@ class TC_Exceptions < Test::Unit::TestCase
 	    parent.realized_by task
 	    plan.insert(parent)
 
-	    Roby.once { task.start! }
+	    engine.once { task.start! }
 
 	    mock.should_receive(:other_once_handler).once
 	    mock.should_receive(:other_event_processing).once
-	    Roby.once { mock.other_once_handler }
-	    plan.add_propagation_handler { |plan| mock.other_event_processing }
+	    engine.once { mock.other_once_handler }
+	    engine.add_propagation_handler { |plan| mock.other_event_processing }
 
 	    begin
 		process_events
@@ -338,15 +338,15 @@ class TC_Exceptions < Test::Unit::TestCase
         end
 
         assert_raises(ArgumentError) do
-            Roby.on_exception(RuntimeError) do ||
+            plan.on_exception(RuntimeError) do ||
             end
         end
         assert_raises(ArgumentError) do |a, b|
-            Roby.on_exception(RuntimeError) do |_|
+            plan.on_exception(RuntimeError) do |_|
             end
         end
         assert_nothing_raised do
-            Roby.on_exception(RuntimeError) do |_, _|
+            plan.on_exception(RuntimeError) do |_, _|
             end
         end
     end
@@ -377,7 +377,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t31.realized_by(t21)
 
 	    mock.should_receive(:caught).once
-	    plan.propagate_exceptions([ExecutionException.new(LocalizedError.new(t21))])
+	    engine.propagate_exceptions([ExecutionException.new(LocalizedError.new(t21))])
 	end
     end
 
@@ -422,15 +422,15 @@ class TC_Exceptions < Test::Unit::TestCase
 	parent.start!
 	child.failed!
 
-	exceptions = Roby.plan.check_structure
+	exceptions = plan.check_structure
 
 	plan.discover(repairing_task = SimpleTask.new)
 	repairing_task.start!
-	assert_equal(exceptions.to_a, plan.remove_inhibited_exceptions(exceptions))
-	assert_equal(exceptions.keys, plan.propagate_exceptions(exceptions))
+	assert_equal(exceptions.to_a, engine.remove_inhibited_exceptions(exceptions))
+	assert_equal(exceptions.keys, engine.propagate_exceptions(exceptions))
 	plan.add_repair(child.terminal_event, repairing_task)
-	assert_equal([], plan.remove_inhibited_exceptions(exceptions))
-	assert_equal([], plan.propagate_exceptions(exceptions))
+	assert_equal([], engine.remove_inhibited_exceptions(exceptions))
+	assert_equal([], engine.propagate_exceptions(exceptions))
 
     ensure
 	# Remove the child so that the test's plan cleanup does not complain
@@ -453,9 +453,9 @@ class TC_Exceptions < Test::Unit::TestCase
 	child.start!
 	child.emit error_event
 
-	exceptions = Roby.plan.check_structure
+	exceptions = plan.check_structure
 
-	assert_equal([], plan.propagate_exceptions(exceptions))
+	assert_equal([], engine.propagate_exceptions(exceptions))
 	assert_equal({ child.terminal_event => repairing_task },
 		     plan.repairs_for(child.terminal_event), [plan.repairs, child.terminal_event])
 
@@ -466,7 +466,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	# Make the "repair task" finish, but do not repair the plan.
 	# propagate_exceptions must not add a new repair
 	repairing_task.success!
-	assert_equal(exceptions.keys, plan.propagate_exceptions(exceptions))
+	assert_equal(exceptions.keys, engine.propagate_exceptions(exceptions))
 
     ensure
 	parent.remove_child child if child
@@ -484,11 +484,11 @@ class TC_Exceptions < Test::Unit::TestCase
 	mission.start!
 	mission.emit :failed
 
-	exceptions = Roby.plan.check_structure
+	exceptions = plan.check_structure
 	assert_equal(1, exceptions.size)
 	assert_kind_of(Roby::MissionFailedError, exceptions.to_a[0][0].exception, exceptions)
 
-	assert_equal([], plan.propagate_exceptions(exceptions))
+	assert_equal([], engine.propagate_exceptions(exceptions))
 	assert_equal({ mission.terminal_event => repairing_task },
 		     plan.repairs_for(mission.terminal_event), [plan.repairs, mission.terminal_event])
 
@@ -500,7 +500,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	# Make the "repair task" finish, but do not repair the plan.
 	# propagate_exceptions must not add a new repair
 	repairing_task.success!
-	assert_equal(exceptions.keys, plan.propagate_exceptions(exceptions))
+	assert_equal(exceptions.keys, engine.propagate_exceptions(exceptions))
 
 	# Discard the mission so that the test teardown does not complain
 	plan.discard(mission)
@@ -566,8 +566,6 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_filter_polling_errors
-        #Roby.control.fatal_exceptions = false
-
         model = Class.new(SimpleTask) do
             poll do
                 raise ArgumentError, "bla"

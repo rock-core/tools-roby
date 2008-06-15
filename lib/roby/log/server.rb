@@ -48,7 +48,7 @@ module Roby
 		@available_servers  = Array.new
 
 		# Add disable_discovery in the list of finalizers
-		Control.finalizers << method(:disable_discovery)
+		Roby.engine.finalizers << method(:disable_discovery)
 
 		@discovery_thread = Thread.new do
 		    begin
@@ -75,7 +75,7 @@ module Roby
 
 	    # Stops the discovery thread if it is running
 	    def self.disable_discovery
-		Control.finalizers.delete(method(:disable_discovery))
+		Roby.engine.finalizers.delete(method(:disable_discovery))
 		if @discovery_thread
 		    @discovery_thread.raise Interrupt, "quitting"
 		    @discovery_thread.join

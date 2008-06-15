@@ -148,13 +148,13 @@ module Roby
 	    super if defined? super
             if task.finished? && !terminal?
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}!(#{context})) called by #{plan.propagation_sources} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources}."
+		    "#{symbol}!(#{context})) called by #{plan.engine.propagation_sources} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources}."
             elsif task.pending? && symbol != :start
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}!(#{context})) called by #{plan.propagation_sources} but the task is not running"
+		    "#{symbol}!(#{context})) called by #{plan.engine.propagation_sources} but the task is not running"
             elsif task.running? && symbol == :start
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}!(#{context})) called by #{plan.propagation_sources} but the task is already running. Task has been started by #{task.event(:start).history.first.sources}."
+		    "#{symbol}!(#{context})) called by #{plan.engine.propagation_sources} but the task is already running. Task has been started by #{task.event(:start).history.first.sources}."
             end
 	end
 
@@ -214,7 +214,7 @@ module Roby
 		task.update_terminal_flag
 	    end
 	end
-        def new(context); event_model.new(task, self, plan.propagation_id, context) end
+        def new(context); event_model.new(task, self, plan.engine.propagation_id, context) end
 
 	def to_s
 	    "#{task}/#{symbol}"
@@ -323,7 +323,7 @@ module Roby
     #       end
     #
     #       event :other_event do |context|
-    #           Roby.once { emit :other_event }
+    #           engine.once { emit :other_event }
     #       end
     #   end
     #
@@ -652,8 +652,8 @@ module Roby
 
 		setup_poll_method(block)
 
-		on(:start) { |ev| ev.task.plan.propagation_handlers << method(:poll) }
-		on(:stop)  { |ev| ev.task.plan.propagation_handlers.delete(method(:poll)) }
+		on(:start) { |ev| ev.task.plan.engine.propagation_handlers << method(:poll) }
+		on(:stop)  { |ev| ev.task.plan.engine.propagation_handlers.delete(method(:poll)) }
 	    end
 	end
 
@@ -852,13 +852,13 @@ module Roby
 
             if finished? && !event.terminal?
                 raise EmissionFailed.new(nil, self), 
-		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{plan.propagation_sources} but the task has finished. Task has been terminated by #{event(:stop).history.first.sources}."
+		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{plan.engine.propagation_sources} but the task has finished. Task has been terminated by #{event(:stop).history.first.sources}."
             elsif pending? && event.symbol != :start
                 raise EmissionFailed.new(nil, self), 
-		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{plan.propagation_sources} but the task is not running"
+		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{plan.engine.propagation_sources} but the task is not running"
             elsif running? && event.symbol == :start
                 raise EmissionFailed.new(nil, self), 
-		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{plan.propagation_sources} but the task is already running. Task has been started by #{event(:start).history.first.sources}."
+		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{plan.engine.propagation_sources} but the task is already running. Task has been started by #{event(:start).history.first.sources}."
             end
 
 	    update_task_status(event)
@@ -1537,8 +1537,8 @@ module Roby
 	    singleton_class.class_eval do
 		setup_poll_method(block)
 	    end
-            on(:start) { |ev| @poll_handler_id = plan.add_propagation_handler(method(:poll)) }
-            on(:stop)  { |ev| plan.remove_propagation_handler(@poll_handler_id) }
+            on(:start) { |ev| @poll_handler_id = plan.engine.add_propagation_handler(method(:poll)) }
+            on(:stop)  { |ev| plan.engine.remove_propagation_handler(@poll_handler_id) }
 	end
     end
 

@@ -63,24 +63,9 @@ module Roby
 		end
 	    end
 
-	    # A set of threads waiting for something to happen. This is used
-	    # during #teardown to make sure no threads are block indefinitely
-	    attr_reader :waiting_threads
-
-	    # This proc is to be called by Control when it quits. It makes sure
-	    # that threads which are waiting are interrupted
-	    def interrupt_waiting_threads
-		waiting_threads.dup.each do |task|
-		    task.raise ControlQuitError
-		end
-	    ensure
-		waiting_threads.clear
-	    end
-
 	end
 	Roby::Control.at_cycle_end(&method(:check_event_assertions))
 	Roby::Control.finalizers << method(:finalize_event_assertions)
-	Roby::Control.finalizers << method(:interrupt_waiting_threads)
 
 	module Assertions
 	    # Wait for any event in +positive+ to happen. If +negative+ is
@@ -119,7 +104,7 @@ module Roby
 				Test.event_assertions << [this_thread, cv, positive, negative]
 				Roby.once(&block) if block_given?
 				begin
-				    cv.wait(Roby::Control.mutex)
+				    cv.wait(Roby.global_lock)
 				ensure
 				    Test.event_assertions.delete_if { |thread, _| thread == this_thread }
 				end
@@ -174,7 +159,7 @@ module Roby
 
 	    def control_priority
 		old_priority = Thread.current.priority 
-		Thread.current.priority = Roby.control.thread.priority + 1
+		Thread.current.priority = Roby.engine.thread.priority + 1
 
 		yield
 	    ensure
@@ -301,11 +286,11 @@ module Roby
 
 	    def setup # :nodoc:
 		super
-		Roby::Test.waiting_threads << Thread.current
+		Roby.engine.waiting_threads << Thread.current
 	    end
 
 	    def teardown # :nodoc:
-		Roby::Test.waiting_threads.delete(Thread.current)
+		Roby.engine.waiting_threads.delete(Thread.current)
 		super
 	    end
 

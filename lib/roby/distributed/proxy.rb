@@ -271,7 +271,7 @@ module Roby
 		task.success  = flags[:success]
 
 		if task.mission? != flags[:mission]
-		    plan = peer.local_object(self.plan) || Roby.plan
+		    plan = peer.local_object(self.plan) || peer.connection_space.plan
 		    if plan.owns?(task)
 			if flags[:mission]
 			    plan.insert(task)

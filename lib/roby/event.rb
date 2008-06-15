@@ -192,7 +192,7 @@ module Roby
 		calling(context)
 		@pending = true
 
-		plan.propagation_context([self]) do
+		plan.engine.propagation_context([self]) do
 		    command[context]
 		end
 
@@ -223,17 +223,18 @@ module Roby
 		raise EventNotControlable.new(self), "#call called on a non-controlable event"
 	    elsif !executable?
 		raise EventNotExecutable.new(self), "#call called on #{self} which is non-executable event"
-	    elsif !Roby.inside_control?
+	    elsif !engine.inside_control?
 		raise ThreadMismatch, "#call called while not in control thread"
 	    end
 
 	    context.compact!
-	    if plan.gathering?
-		plan.add_event_propagation(false, plan.propagation_sources, self, (context unless context.empty?), nil)
+            engine = plan.engine
+	    if engine.gathering?
+		engine.add_event_propagation(false, engine.propagation_sources, self, (context unless context.empty?), nil)
 	    else
 		Roby.synchronize do
-		    errors = plan.propagate_events do |initial_set|
-			plan.add_event_propagation(false, nil, self, (context unless context.empty?), nil)
+		    errors = engine.propagate_events do |initial_set|
+			engine.add_event_propagation(false, nil, self, (context unless context.empty?), nil)
 		    end
 		    if errors.size == 1
 			e = errors.first.exception
@@ -279,7 +280,7 @@ module Roby
 	    if !generator.controlable?
 		raise EventNotControlable.new(self), "trying to establish a signal between #{self} and #{generator}"
 	    end
-	    timespec = Propagation.validate_timespec(timespec)
+	    timespec = ExecutionEngine.validate_timespec(timespec)
 
 	    add_signal generator, timespec
 	    self
@@ -322,7 +323,7 @@ module Roby
         # delay in seconds and in the second case it is a Time object which is
         # the absolute point in time at which this propagation must happen.
 	def forward(generator, timespec = nil)
-	    timespec = Propagation.validate_timespec(timespec)
+	    timespec = ExecutionEngine.validate_timespec(timespec)
 	    add_forwarding generator, timespec
 	    self
 	end
@@ -377,7 +378,7 @@ module Roby
 	end
 
 	# Create a new event object for +context+
-	def new(context); Event.new(self, plan.propagation_id, context, Time.now) end
+	def new(context); Event.new(self, plan.engine.propagation_id, context, Time.now) end
 
 	# Adds a propagation originating from this event to event propagation
 	def add_propagation(only_forward, event, signalled, context, timespec) # :nodoc:
@@ -387,7 +388,7 @@ module Roby
 		raise PropagationError, "trying to signal #{signalled} from #{self}"
 	    end
 
-	    plan.add_event_propagation(only_forward, [event], signalled, context, timespec)
+	    plan.engine.add_event_propagation(only_forward, [event], signalled, context, timespec)
 	end
 	private :add_propagation
 
@@ -396,7 +397,7 @@ module Roby
 	#
 	# This method is always called in a propagation context
 	def fire(event)
-	    plan.propagation_context([event]) do |result|
+	    plan.engine.propagation_context([event]) do |result|
 		each_signal do |signalled|
 		    add_propagation(false, event, signalled, event.context, self[signalled, EventStructure::Signal])
 		end
@@ -422,7 +423,7 @@ module Roby
 		begin
 		    h.call(event)
 		rescue Exception => e
-		    plan.add_error( EventHandlerError.new(e, event) )
+		    plan.engine.add_error( EventHandlerError.new(e, event) )
 		end
 	    end
 	end
@@ -444,7 +445,7 @@ module Roby
 		    end
 	    error = error.exception failure_message
 
-	    plan.add_error(error)
+	    plan.engine.add_error(error)
 
 	ensure
 	    @pending = false
@@ -467,7 +468,7 @@ module Roby
 	    unless event.respond_to?(:context)
 		raise TypeError, "#{event} is not a valid event object in #{self}"
 	    end
-	    event.sources = plan.propagation_source_events
+	    event.sources = plan.engine.propagation_source_events
 	    fire(event)
 
 	    true
@@ -482,17 +483,18 @@ module Roby
 		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"
 	    elsif !self_owned?
 		raise OwnershipError, "cannot emit an event we don't own. #{self} is owned by #{owners}"
-	    elsif !Roby.inside_control?
+	    elsif !engine.inside_control?
 		raise ThreadMismatch, "#emit called while not in control thread"
 	    end
 
 	    context.compact!
-	    if plan.gathering?
-		plan.add_event_propagation(true, plan.propagation_sources, self, (context unless context.empty?), nil)
+            engine = plan.engine
+	    if engine.gathering?
+		engine.add_event_propagation(true, engine.propagation_sources, self, (context unless context.empty?), nil)
 	    else
 		Roby.synchronize do
-		    errors = plan.propagate_events do |initial_set|
-			plan.add_event_propagation(true, plan.propagation_sources, self, (context unless context.empty?), nil)
+		    errors = engine.propagate_events do |initial_set|
+			engine.add_event_propagation(true, engine.propagation_sources, self, (context unless context.empty?), nil)
 		    end
 		    if errors.size == 1
 			e = errors.first.exception
@@ -684,6 +686,19 @@ module Roby
 	    super
 	end
 
+        def added_child_object(child, relations, info) # :nodoc:
+            super if defined? super
+            if relations.include?(Roby::EventStructure::Precedence) && plan && plan.engine
+                plan.engine.event_ordering.clear
+            end
+        end
+        def removed_child_object(child, relations) # :nodoc:
+            super if defined? super
+            if relations.include?(Roby::EventStructure::Precedence) && plan && plan.engine
+                plan.engine.event_ordering.clear
+            end
+        end
+
 	@@event_gathering = Hash.new { |h, k| h[k] = ValueSet.new }
 	# If a generator in +events+ fires, add the fired event in +collection+
 	def self.gather_events(collection, events)
@@ -716,7 +731,7 @@ module Roby
 		begin
 		    block.call(reason)
 		rescue Exception => e
-		    plan.add_error(EventHandlerError.new(e, self))
+		    plan.engine.add_error(EventHandlerError.new(e, self))
 		end
 	    end
 	    unreachable_handlers.clear

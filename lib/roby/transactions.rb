@@ -206,7 +206,7 @@ module Roby
 	    self.conflict_solver = options[:conflict_solver]
 	    super()
 
-	    @plan = plan
+	    @plan   = plan
 
 	    @proxy_objects      = Hash.new
 	    @removed_objects    = ValueSet.new
@@ -218,6 +218,15 @@ module Roby
 		plan.added_transaction(self)
 	    end
 	end
+
+        # Calls the given block in the execution thread of the engine of the
+        # underlying plan. If there is no engine attached to this plan, yields
+        # immediately.
+        #
+        # See Plan#execute and ExecutionEngine#execute
+        def execute(&block)
+            plan.execute(&block)
+        end
 
 	def discover_neighborhood(object)
 	    self[object]
@@ -323,7 +332,7 @@ module Roby
 	    check_valid_transaction
 	    freezed!
 
-	    Roby.execute do
+	    plan.execute do
 		auto_tasks.each      { |t| plan.auto(t) }
 		discarded_tasks.each { |t| plan.discard(t) }
 		removed_objects.each do |obj| 
@@ -438,7 +447,7 @@ module Roby
 	    clear
 
 	    discarded_transaction
-	    Roby.execute do
+	    plan.execute do
 		plan.remove_transaction(self)
 	    end
 	    @plan = nil

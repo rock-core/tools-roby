@@ -1,5 +1,3 @@
-require 'roby/planning/task'
-
 module Roby
     # This class unrolls a loop in the plan. It maintains +lookahead+ patterns
     # developped at all times by calling an external planner, and manages them.

@@ -14,7 +14,7 @@ class TC_Interface < Test::Unit::TestCase
 
     include Roby::Planning
     def test_method_missing
-        iface   = Interface.new
+        iface   = Interface.new(engine)
 
         task_model = Class.new(Task)
 
@@ -24,7 +24,7 @@ class TC_Interface < Test::Unit::TestCase
         end
         Roby.app.planners << planner
 
-	Roby.control.run :detach => true
+	engine.run
 	returned_task = iface.null_task! do |_, planner|
 	    planner.start!
 	end

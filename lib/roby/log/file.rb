@@ -96,7 +96,7 @@ module Roby::Log
 
     # A logger object which marshals all available events in two files. The
     # event log is the full log, the index log contains only the timings given
-    # to Control#cycle_end, along with the corresponding position in the event
+    # to ExecutionEngine#cycle_end, along with the corresponding position in the event
     # log file.
     #
     # You can use FileLogger.replay(io) to send the events back into the

@@ -1,4 +1,3 @@
-
 module Roby::TaskStructure
     class Roby::TaskEventGenerator
 	# Mark this event as being handled by the task +task+

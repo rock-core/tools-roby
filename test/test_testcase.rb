@@ -29,7 +29,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	end
 
 	Roby.logger.level = Logger::FATAL
-	Roby.control.run :detach => true
+	engine.run
 	plan.insert(t = SimpleTask.new)
 	assert_any_event(t.event(:success)) do 
 	    t.start!
@@ -47,7 +47,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 
 	## Same test, but check that the assertion succeeds since we *are*
 	## checking that +failed+ happens
-	Roby.control.run :detach => true
+	engine.run
 	plan.insert(t = SimpleTask.new)
 	assert_nothing_raised do
 	    assert_any_event(t.event(:failed)) do
@@ -58,7 +58,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
     end
 
     def test_assert_succeeds
-	Roby.control.run :detach => true
+	engine.run
     
 	task = Class.new(SimpleTask) do
 	    forward :start => :success
@@ -76,12 +76,12 @@ class TC_Test_TestCase < Test::Unit::TestCase
     end
 
     def test_sampling
-	Roby.control.run :cycle => 0.1, :detach => true
+	engine.run
 
 	i = 0
 	samples = Roby::Test.sampling(1, 0.1, :time_test, :index, :dummy) do
 	    i += 1
-	    [Roby.control.cycle_start, rand / 10 - 0.05 + i, rand / 10 + 0.95]
+	    engine.cycle_start, rand / 10 - 0.05 + i, rand / 10 + 0.95]
 	end
 	cur_size = samples.size
 

@@ -139,7 +139,7 @@ module Roby::Log
 	    end
 
 	rescue Exception => e
-	    Roby.fatal "logger thread dies with #{e.full_message}" unless e.kind_of?(Interrupt)
+	    Roby::Log.fatal "logger thread dies with #{e.full_message}" unless e.kind_of?(Interrupt)
 
 	ensure
 	    # Wake up any waiting thread

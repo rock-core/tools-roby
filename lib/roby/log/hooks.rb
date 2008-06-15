@@ -149,7 +149,7 @@ module Roby::Log
     end
     Roby::EventGenerator.include EventGeneratorHooks
 
-    module ControlHooks
+    module ExecutionHooks
 	HOOKS = %w{cycle_end}
 
 	def cycle_end(timings)
@@ -170,12 +170,12 @@ module Roby::Log
 	    end
 	end
     end
-    Roby::Control.include ControlHooks
+    Roby::ExecutionEngine.include ExecutionHooks
 
     def self.each_hook
 	[TransactionHooks, BasicObjectHooks, TaskHooks,
-	    PlanHooks, EventGeneratorHooks, ControlHooks,
-	    ControlHooks::ClassExtension].each do |klass|
+	    PlanHooks, EventGeneratorHooks, ExecutionHooks,
+	    ExecutionHooks::ClassExtension].each do |klass|
 		klass::HOOKS.each do |m|
 		    yield(klass, m.to_sym)
 		end

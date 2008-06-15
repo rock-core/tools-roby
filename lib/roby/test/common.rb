@@ -22,11 +22,12 @@ module Roby
 	end
 
 	# The plan used by the tests
-	def plan; Roby.plan end
+        attr_reader :plan
+        def engine; plan.engine end
 
 	# Clear the plan and return it
 	def new_plan
-	    Roby.plan.clear
+	    plan.clear
 	    plan
 	end
 
@@ -54,18 +55,18 @@ module Roby
 	end
 
 	def setup
-            Roby.app.setup_global_singletons
-
 	    @console_logger ||= false
 	    if !defined? Roby::State
-		Roby.app.reset
+                Roby.const_set(:State, StateSpace.new)
+            else
+                Roby::State.clear
 	    end
 
 	    @original_roby_logger_level = Roby.logger.level
 	    @timings = { :start => Time.now }
 
 	    @original_collections = []
-	    Thread.abort_on_exception = true
+	    Thread.abort_on_exception = false
 	    @remote_processes = []
 
 	    if Test.check_allocation_count
@@ -81,19 +82,22 @@ module Roby
 		Roby::Planning::Planner.last_id = 0 
 	    end
 
-	    # Save and restore Control's global arrays
-	    save_collection Roby.plan.propagation_handlers
-	    save_collection Roby::Propagation.propagation_handlers
-	    save_collection Roby.plan.structure_checks
+            @plan = Plan.new
+            ExecutionEngine.new(@plan)
+
+	    # Save and restore some arrays
+	    save_collection engine.propagation_handlers
+	    save_collection Roby::ExecutionEngine.propagation_handlers
+	    save_collection plan.structure_checks
 	    save_collection Roby::Plan.structure_checks
-	    save_collection Roby::Control.at_cycle_end_handlers
+	    save_collection engine.at_cycle_end_handlers
 	    save_collection Roby::EventGenerator.event_gathering
 	    Roby.app.abort_on_exception = true
 	    Roby.app.abort_on_application_exception = true
 
-	    save_collection Roby.plan.event_ordering
-	    save_collection Roby.plan.delayed_events
-	    save_collection Roby.plan.exception_handlers
+	    save_collection engine.event_ordering
+	    save_collection engine.delayed_events
+	    save_collection plan.exception_handlers
 	    timings[:setup] = Time.now
 	end
 
@@ -103,12 +107,12 @@ module Roby
 		Roby.logger.level = Logger::DEBUG
 	    end
 
-	    if !Roby.control.running?
-		Roby.control.run :detach => true
+	    if !engine.running?
+		engine.run
 	    end
 
-	    Roby.control.quit
-	    Roby.control.join
+	    engine.quit
+	    engine.join
 	    plan.clear
 
 	ensure
@@ -174,11 +178,12 @@ module Roby
 	    STDERR.puts "failed teardown: #{e.full_message}"
 
 	ensure
-	    while Roby.control.running?
-		Roby.control.quit
-		Roby.control.join rescue nil
+	    while engine.running?
+		engine.quit
+		engine.join rescue nil
 	    end
-	    Roby.plan.clear
+	    plan.clear
+            @plan = nil
 
 	    Roby.logger.level = @original_roby_logger_level
 	    self.console_logger = false
@@ -187,7 +192,7 @@ module Roby
 	# Process pending events
 	def process_events
 	    Roby.synchronize do
-		Roby.plan.process_events
+		engine.process_events
 	    end
 	end
 

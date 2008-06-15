@@ -103,7 +103,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	    assert_equal(remote_peer, Peer.connect(remote_neighbour))
 	end
 
-	Roby.control.wait_one_cycle
+	Roby.engine.wait_one_cycle
 	assert(remote_peer.task.running?)
 	#assert_raises(ArgumentError) { Peer.initiate_connection(local, remote_neighbour) }
 	assert(remote_peer.link_alive?)
@@ -201,7 +201,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	    def remote.peers_empty?; Distributed.peers.empty? end
 	end
 
-	Roby.control.wait_one_cycle
+	Roby.engine.wait_one_cycle
 	assert(remote_peer.task.ready?)
 
 	remote_peer.disconnect

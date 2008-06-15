@@ -429,7 +429,7 @@ module Roby
 
 		event = event_for(from_generator, event_id, time, context)
 
-		event.send(:propagation_id=, from_generator.plan.propagation_id)
+		event.send(:propagation_id=, from_generator.plan.engine.propagation_id)
 		from_generator.instance_variable_set("@happened", true)
 		from_generator.fired(event)
 		from_generator.call_handlers(event)
@@ -525,14 +525,6 @@ module Roby
 	    def state_update(new_state)
 		peer.state = new_state
 		nil
-	    end
-	end
-
-	Roby::Control.at_cycle_end do
-	    peers.each_value do |peer|
-		if peer.connected?
-		    peer.transmit(:state_update, Roby::State) 
-		end
 	    end
 	end
     end

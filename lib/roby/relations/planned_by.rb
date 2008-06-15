@@ -1,5 +1,3 @@
-require 'roby/task'
-
 module Roby::TaskStructure
     relation :PlannedBy, :child_name => :planning_task, 
 	:parent_name => :planned_task, :noinfo => true, :single_child => true do

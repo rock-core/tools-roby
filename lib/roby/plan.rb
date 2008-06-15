@@ -22,6 +22,9 @@ module Roby
 	extend Logger::Hierarchy
 	extend Logger::Forward
 
+        # The ExecutionEngine object which handles this plan
+        attr_accessor :engine
+
 	# The task index for this plan
 	attr_reader :task_index
 
@@ -86,6 +89,7 @@ module Roby
 	    @gc_quarantine = ValueSet.new
 	    @transactions = ValueSet.new
 	    @repairs     = Hash.new
+            @exception_handlers = Array.new
 
             @relations = TaskStructure.relations + EventStructure.relations
             @structure_checks = relations.
@@ -97,9 +101,21 @@ module Roby
 	    super() if defined? super
 	end
 
-	def inspect
+	def inspect # :nodoc:
 	    "#<#{to_s}: missions=#{missions.to_s} tasks=#{known_tasks.to_s} events=#{free_events.to_s} transactions=#{transactions.to_s}>"
 	end
+
+        # Calls the given block in the execution thread of this plan's engine.
+        # If there is no engine attached to this plan, yields immediately
+        #
+        # See ExecutionEngine#execute
+        def execute(&block)
+            if engine
+                engine.execute(&block)
+            else
+                yield
+            end
+        end
 
 	# call-seq:
 	#   plan.partition_event_task(objects) => events, tasks
@@ -330,10 +346,19 @@ module Roby
 	# Hook called when new tasks have been discovered in this plan
 	def discovered_tasks(tasks)
 	    discovered(tasks)
+
+            if engine
+                engine.event_ordering.clear
+            end
+
 	    super if defined? super
 	end
 	# Hook called when new events have been discovered in this plan
 	def discovered_events(events)
+            if engine
+                engine.event_ordering.clear
+            end
+
 	    super if defined? super
 	end
 
@@ -489,16 +514,15 @@ module Roby
 	def empty?; @known_tasks.empty? end
 	# Iterates on all tasks
 	def each_task; @known_tasks.each { |t| yield(t) } end
-
-        # Install a plan repair for +failure_point+ with +task+. If +task+ is
-        # pending, it is started.
+ 
+        # Install a plan repair for +failure_point+ with +task+.
         #
         # See also #repairs and #remove_repair
 	def add_repair(failure_point, task)
 	    if !failure_point.kind_of?(Event)
 		raise TypeError, "failure point #{failure_point} should be an event"
 	    elsif task.plan && task.plan != self
-		raise ArgumentError, "wrong plan: #{task} is in #{task.plan}, not #{self}"
+		raise ArgumentError, "wrong plan: #{task} is in #{task.plan}, not #{plan}"
 	    elsif repairs.has_key?(failure_point)
 		raise ArgumentError, "there is already a plan repair defined for #{failure_point}: #{repairs[failure_point]}"
 	    elsif !task.plan
@@ -508,10 +532,6 @@ module Roby
 	    repairs[failure_point] = task
 	    if failure_point.generator.respond_to?(:task)
 		task_index.repaired_tasks << failure_point.generator.task
-	    end
-
-	    if task.pending?
-		Roby.once { task.start! }
 	    end
 	end
 
@@ -659,14 +679,19 @@ module Roby
 	    finalized(task)
 	end
 	# Hook called when +event+ has been removed from this plan
-	def finalized_event(event); super if defined? super end
+	def finalized_event(event)
+            if engine && executable?
+                engine.finalized_event(event)
+            end
+            super if defined? super 
+        end
 
 	# Replace +task+ with a fresh copy of itself
 	def respawn(task)
 	    new_task = task.class.new(task.arguments.dup)
 
 	    replace_task(task, new_task)
-	    Roby.once { new_task.start!(nil) }
+	    engine.once { new_task.start!(nil) }
 	    new_task
 	end
         
@@ -701,8 +726,8 @@ module Roby
 		begin
 		    new_exceptions = prc.call(self)
 		rescue Exception => e
-                    if respond_to? :add_framework_error
-                        add_framework_error(e, 'structure checking')
+                    if engine
+                        engine.add_framework_error(e, 'structure checking')
                     else
                         raise
                     end
@@ -710,13 +735,31 @@ module Roby
 		next unless new_exceptions
 
 		[*new_exceptions].each do |e, tasks|
-		    e = Propagation.to_execution_exception(e)
+		    e = ExecutionEngine.to_execution_exception(e)
 		    exceptions[e] = tasks
 		end
 	    end
 	    exceptions
 	end
 
+
+        include Roby::ExceptionHandlingObject
+
+        attr_reader :exception_handlers
+        def each_exception_handler(&iterator); exception_handlers.each(&iterator) end
+        def on_exception(*matchers, &handler)
+            check_arity(handler, 2)
+            exception_handlers.unshift [matchers, handler]
+        end
     end
+
+    class << self
+        # Returns the main plan
+        attr_reader :plan
+    end
+    
+    # Defines a global exception handler on the main plan.
+    # See also Plan#on_exception
+    def self.on_exception(*matchers, &handler); Roby.plan.on_exception(*matchers, &handler) end
 end
 

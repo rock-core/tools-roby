@@ -6,7 +6,7 @@ require 'test_event'
 require 'test_task'
 require 'test_state'
 
-require 'test_propagation'
+require 'test_execution_engine'
 require 'test_exceptions'
 
 require 'test_plan'
@@ -18,7 +18,6 @@ require 'test_thread_task'
 require 'suite_planning'
 require 'suite_relations'
 
-require 'test_control'
 require 'test_interface'
 require 'test_log'
 

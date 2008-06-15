@@ -376,25 +376,25 @@ class TC_State < Test::Unit::TestCase
 	plan.permanent(ev = State.on_delta(:yaw => 2, :d => 10))
 	assert_kind_of(AndGenerator, ev)
 
-	Roby.plan.process_events
+	engine.process_events
 	assert_equal(0, ev.history.size)
 
 	State.pos.yaw = 1
 	State.pos.x = 15
-	Roby.plan.process_events
+	engine.process_events
 	assert_equal(0, ev.history.size)
 
 	State.pos.yaw = 2
-	Roby.plan.process_events
+	engine.process_events
 	assert_equal(1, ev.history.size)
 
 	State.pos.yaw = 3
 	State.pos.x = 25
-	Roby.plan.process_events
+	engine.process_events
 	assert_equal(1, ev.history.size)
 
 	State.pos.yaw = 4
-	Roby.plan.process_events
+	engine.process_events
 	assert_equal(2, ev.history.size, ev.waiting.to_a)
     end
 
@@ -403,29 +403,29 @@ class TC_State < Test::Unit::TestCase
 	plan.permanent(y = State.on_delta(:yaw => 2))
 
 	ev = y.or(:d => 10)
-	Roby.plan.process_events
+	engine.process_events
 	assert_equal(0, ev.history.size)
 
 	State.pos.yaw = 1
 	State.pos.x = 15
-	Roby.plan.process_events
+	engine.process_events
 	assert_equal(1, ev.history.size)
 
 	State.pos.yaw = 2
-	Roby.plan.process_events
+	engine.process_events
 	assert_equal(1, ev.history.size)
 
 	State.pos.yaw = 3
-	Roby.plan.process_events
+	engine.process_events
 	assert_equal(2, ev.history.size)
 
 	ev = ev.or(:t => 3600)
-	Roby.plan.process_events
+	engine.process_events
 	assert_equal(0, ev.history.size)
 
 	time_event = plan.free_events.find { |t| t.kind_of?(TimeDeltaEvent) }
 	time_event.instance_variable_set(:@last_value, Time.now - 3600)
-	Roby.plan.process_events
+	engine.process_events
 	assert_equal(1, ev.history.size)
     end
 end

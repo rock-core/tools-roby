@@ -79,12 +79,12 @@ module Roby
 	#              detected
 	attr_reader :droby
 	
-	# Configuration of the control loop
-	# abort_on_exception:: if the control loop should abort if an uncaught task or event exception is received. Defaults
+	# Configuration of the event loop
+	# abort_on_exception:: if it should abort if an uncaught task or event exception is received. Defaults
 	#                      to false
-	# abort_on_application_exception:: if the control should abort if an uncaught application exception (not originating
+	# abort_on_application_exception:: if it should abort if an uncaught application exception (not originating
 	#                                  from a task or event) is caught. Defaults to true.
-	attr_reader :control
+	attr_reader :engine
         
 	# If true, abort if an unhandled exception is found
 	attr_predicate :abort_on_exception, true
@@ -113,7 +113,7 @@ module Roby
 	    @log = Hash['events' => 'stats', 'levels' => Hash.new, 'filter_backtraces' => true] 
 	    @discovery = Hash.new
 	    @droby     = Hash['period' => 0.5, 'max_errors' => 1] 
-	    @control   = Hash[ 'abort_on_exception' => false, 
+	    @engine    = Hash[ 'abort_on_exception' => false, 
 		'abort_on_application_exception' => true ]
 
 	    @automatic_testing = true
@@ -204,7 +204,7 @@ module Roby
 
 	    @options = options
 
-	    load_option_hashes(options, %w{log control discovery droby})
+	    load_option_hashes(options, %w{log engine discovery droby})
 	    call_plugins(:load, self, options)
 	end
 
@@ -477,9 +477,9 @@ module Roby
 
 	    if single? || !robot_name
 		host =~ /:(\d+)$/
-		DRb.start_service "druby://:#{$1 || '0'}", Interface.new
+		DRb.start_service "druby://:#{$1 || '0'}", Interface.new(Roby.engine)
 	    else
-		DRb.start_service "druby://#{host}", Interface.new
+		DRb.start_service "druby://#{host}", Interface.new(Roby.engine)
 		droby_config = { :ring_discovery => !!discovery['ring'],
 		    :name => robot_name, 
 		    :plan => Roby.plan, 
@@ -501,14 +501,14 @@ module Roby
 	    @robot_name ||= 'common'
 	    @robot_type ||= 'common'
 
-	    control_config = self.control
-	    control = Roby.control
-	    options = { :detach => true, :cycle => control_config['cycle'] || 0.1 }
+	    engine_config = self.engine
+	    engine = Roby.engine
+	    options = { :cycle => engine_config['cycle'] || 0.1 }
 	    
 	    # Add an executive if one is defined
-            scheduler = (control_config['scheduler'] || control_config['executive'])
+            scheduler = (engine_config['scheduler'] || engine_config['executive'])
 	    if scheduler
-		self.scheduler = control_config['scheduler']
+		self.scheduler = engine_config['scheduler']
 	    end
 
 	    if log['events']
@@ -519,10 +519,10 @@ module Roby
 		Roby::Log.add_logger logger
 	    end
 	    self.abort_on_exception = 
-		control_config['abort_on_exception']
+		engine_config['abort_on_exception']
 	    self.abort_on_application_exception = 
-		control_config['abort_on_application_exception']
-	    control.run options
+		engine_config['abort_on_application_exception']
+	    engine.run options
 
 	    plugins = self.plugins.map { |_, mod| mod if mod.respond_to?(:run) }.compact
 	    run_plugins(plugins, &block)
@@ -535,11 +535,11 @@ module Roby
             end
 	end
 	def run_plugins(mods, &block)
-	    control = Roby.control
+	    engine = Roby.engine
 
 	    if mods.empty?
 		yield
-		control.join
+		engine.join
 	    else
 		mod = mods.shift
 		mod.run(self) do
@@ -548,9 +548,9 @@ module Roby
 	    end
 
 	rescue Exception => e
-	    if Roby.control.running?
-		control.quit
-		control.join
+	    if Roby.engine.running?
+		engine.quit
+		engine.join
 		raise e, e.message, e.backtrace
 	    else
 		raise
@@ -739,10 +739,15 @@ module Roby
 
         def setup_global_singletons
             if !Roby.plan
-                Roby.instance_variable_set :@plan, MainPlan.new
+                Roby.instance_variable_set :@plan, Plan.new
             end
-            if !Roby.control
-                Roby.instance_variable_set :@control, Control.new(Roby.plan)
+            if !Roby.engine
+                if !Roby.plan.engine
+                    Roby.instance_variable_set :@engine, ExecutionEngine.new(Roby.plan)
+                    Roby.plan.engine = Roby.engine
+                elsif Roby.plan.engine != Roby.engine
+                    raise "mismatch beween Roby.plan.engine and Roby.engine"
+                end
             end
         end
 

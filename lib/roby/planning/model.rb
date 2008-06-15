@@ -1,10 +1,3 @@
-require 'roby/planning/task'
-require 'roby/task'
-require 'roby/control'
-require 'roby/plan'
-require 'utilrb/module/ancestor_p'
-require 'set'
-
 module Roby
     # The Planning module provides basic tools to create plans (graph of tasks
     # and events)

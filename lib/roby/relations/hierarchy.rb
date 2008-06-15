@@ -1,7 +1,3 @@
-require 'roby/task'
-require 'roby/control'
-require 'set'
-
 module Roby::TaskStructure
     # Document-module: Hierarchy
     relation :Hierarchy, :child_name => :child, :parent_name => :parent_task do

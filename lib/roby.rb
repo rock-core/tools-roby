@@ -65,9 +65,8 @@ require 'roby/transactions/updates.rb'
 require 'roby/query.rb'
 
 require 'roby/distributed/base'
-require 'roby/control.rb'
 require 'roby/decision_control.rb'
-require 'roby/propagation.rb'
+require 'roby/execution_engine.rb'
 require 'roby/app.rb'
 
 require 'roby/robot.rb'

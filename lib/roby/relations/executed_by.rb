@@ -1,5 +1,3 @@
-require 'roby/task'
-
 module Roby::TaskStructure
     # This module defines model-level definition of execution agent, for
     # instance to Roby::Task
@@ -131,7 +129,7 @@ module Roby::TaskStructure
 		    end
 		end
 	    rescue Exception => e
-		Roby::Propagation.add_error(ExecutionAgentSpawningFailed.new(task, agent_model, e))
+		task.plan.engine.add_error(ExecutionAgentSpawningFailed.new(task, agent_model, e))
 	    end
 	else
 	    running, pending = candidates.partition { |t| t.running? }

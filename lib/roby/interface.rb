@@ -89,6 +89,8 @@ module Roby
     # This class is used to interface with the Roby event loop and plan. It is the
     # main front object when accessing a Roby core remotely
     class Interface
+        # This module defines the hooks needed to plug Interface objects onto
+        # ExecutionEngine
 	module GatherExceptions
             # The set of Interface objects that have been registered to us
 	    attribute(:interfaces) { Array.new }
@@ -134,19 +136,22 @@ module Roby
 	    end
 	end
 
+        # The engine this interface is tied to
+        attr_reader :engine
         # The set of pending messages that are to be displayed on the remote interface
 	attr_reader :pending_messages
         # Creates a local server for a remote interface, acting on +control+
-	def initialize
+	def initialize(engine)
 	    @pending_messages = Queue.new
+            @engine = engine
 
-	    Roby.plan.extend GatherExceptions
-	    Roby.plan.register_interface self
+	    engine.extend GatherExceptions
+	    engine.register_interface self
 	end
 
 	# Clear the current plan: remove all running and permanent tasks.
 	def clear
-	    Roby.execute do
+	    engine.execute do
 		plan.missions.dup.each  { |t| plan.discard(t) }
 		plan.permanent_tasks.dup.each { |t| plan.auto(t) }
 		plan.permanent_events.dup.each { |t| plan.auto(t) }
@@ -154,16 +159,16 @@ module Roby
 	end
 
 	# Make the Roby event loop quit
-	def stop; Roby.control.quit; nil end
+	def stop; engine.quit; nil end
 	# The Roby plan
-	def plan; Roby.plan end
+	def plan; engine.plan end
 
         # Synchronously call +m+ on +tasks+ with the given arguments. This,
         # along with the implementation of RemoteInterface#method_missing,
         # ensures that no interactive operations are performed outside the
         # control thread.
 	def call(task, m, *args)
-	    Roby.execute do
+	    engine.execute do
                 if m.to_s =~ /!$/
                     event_name = $`
                     # Check if the called event is terminal. If it is the case,
@@ -215,7 +220,7 @@ module Roby
         # Displays the set of models as well as their superclasses
 	def models
 	    task_models = []
-	    Roby.execute do
+	    engine.execute do
 		ObjectSpace.each_object(Class) do |obj|
 		    task_models << obj if obj <= Roby::Task && obj.name !~ /^Roby::/
 		end
@@ -260,22 +265,22 @@ module Roby
 
         # Returns a string representing the set of running tasks
 	def running_tasks
-	    Roby.execute do
-		task_set_to_s(Roby.plan.find_tasks.running.to_a)
+	    engine.execute do
+		task_set_to_s(plan.find_tasks.running.to_a)
 	    end
 	end
 
         # Returns a string representing the set of missions
 	def missions
-	    Roby.execute do
-		task_set_to_s(Roby.plan.missions)
+	    engine.execute do
+		task_set_to_s(plan.missions)
 	    end
 	end
 
         # Returns a string representing the set of tasks present in the plan
 	def tasks
-	    Roby.execute do 
-		task_set_to_s(Roby.plan.known_tasks)
+	    engine.execute do 
+		task_set_to_s(plan.known_tasks)
 	    end
 	end
 
@@ -311,15 +316,15 @@ module Roby
 	    options = args.first || {}
 	    task, planner = Robot.prepare_action(name, options)
 	    begin
-		Roby.wait_until(planner.event(:success)) do
-		    Roby.plan.insert(task)
+		engine.wait_until(planner.event(:success)) do
+		    plan.insert(task)
 		    yield(task, planner) if block_given?
 		end
 	    rescue Roby::UnreachableEvent
 		raise RuntimeError, "cannot start #{name}: #{planner.terminal_event.context.first}"
 	    end
 
-            Roby.execute do
+            engine.execute do
                 result = planner.result
                 result.on(:failed) { |ev| pending_messages << "task #{ev.task} failed" }
                 result.on(:success) { |ev| pending_messages << "task #{ev.task} finished successfully" }

@@ -1,4 +1,3 @@
-require 'roby/event'
 module Roby::EventStructure
     relation :EnsuredEvent, :noinfo => true do
 	def calling(context)

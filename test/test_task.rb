@@ -765,7 +765,7 @@ class TC_Task < Test::Unit::TestCase
 	    task.start!
 	    task.success!
 	end
-	plan.garbage_collect
+	engine.garbage_collect
 
 	# Test that it works on pending tasks too
 	FlexMock.use do |mock|
@@ -782,7 +782,7 @@ class TC_Task < Test::Unit::TestCase
 	    mock.should_receive(:ready_called).once
 	    mock.should_receive(:ready_cancel_called).once
 
-	    plan.garbage_collect
+	    engine.garbage_collect
 	end
 
     end
@@ -832,7 +832,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_task_poll
-	Roby.control.run :cycle => 0.1, :detach => true
+	engine.run
 
 	FlexMock.use do |mock|
 	    t = Class.new(SimpleTask) do
@@ -842,12 +842,12 @@ class TC_Task < Test::Unit::TestCase
 	    end.new
 	    mock.should_receive(:polled).at_least.once.with(t)
 
-	    Roby.execute do
+	    engine.execute do
 		plan.permanent(t)
 		t.start!
 	    end
-	    Roby.wait_one_cycle
-	    Roby.execute do
+	    engine.wait_one_cycle
+	    engine.execute do
 		assert(t.running?, t.terminal_event.to_s)
 		t.stop!
 	    end
@@ -862,11 +862,11 @@ class TC_Task < Test::Unit::TestCase
 		end
 	    end.new
 
-	    Roby.execute do
+	    engine.execute do
 		plan.permanent(t)
 		t.start!
 	    end
-	    Roby.wait_one_cycle
+	    engine.wait_one_cycle
 	    assert(t.failed?)
 	end
     end

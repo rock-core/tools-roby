@@ -6,6 +6,9 @@ module Roby
 	# The plan this object belongs to
 	attr_reader :plan
 
+        # The engine which acts on +plan+ (if there is one)
+        def engine; plan.engine end
+
         # The place where this object has been removed from its plan. Once an
         # object is removed from its plan, it cannot be added back again.
 	attr_accessor :removed_at

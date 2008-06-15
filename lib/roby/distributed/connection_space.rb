@@ -228,7 +228,15 @@ module Roby
 
 		receive
 
-		Roby::Control.finalizers << method(:quit)
+		plan.engine.finalizers << method(:quit)
+
+                engine.at_cycle_end do
+                    peers.each_value do |peer|
+                        if peer.connected?
+                            peer.transmit(:state_update, Roby::State) 
+                        end
+                    end
+                end
 	    end
 
 	    # Sets up a separate thread which listens for connection
@@ -495,7 +503,7 @@ module Roby
 		    end
 		end
 
-		Roby::Control.finalizers.delete(method(:quit))
+		plan.engine.finalizers.delete(method(:quit))
 		if Distributed.state == self
 		    Distributed.state = nil
 		end
@@ -596,7 +604,7 @@ module Roby
 		new_neighbours_observers << lambda { |_, n| yield(n) }
 	    end
 	end
-	Roby::Propagation.propagation_handlers << method(:notify_new_neighbours)
+	Roby::ExecutionEngine.propagation_handlers << method(:notify_new_neighbours)
     end
 end
 

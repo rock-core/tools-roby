@@ -12,7 +12,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_gathering
-        assert(! plan.gathering?)
+        assert(! engine.gathering?)
     end
 
     def test_properties
@@ -552,7 +552,7 @@ class TC_Event < Test::Unit::TestCase
     def test_event_creation
 	# Test for validation of the return value of #event
 	generator = Class.new(EventGenerator) do
-	    def new(context); [plan.propagation_id, context] end
+	    def new(context); [] end
 	end.new(true)
 	plan.discover(generator)
 
@@ -561,7 +561,7 @@ class TC_Event < Test::Unit::TestCase
 	generator = Class.new(EventGenerator) do
 	    def new(context); 
 		event_klass = Struct.new :propagation_id, :context, :generator, :sources
-		event_klass.new(plan.propagation_id, context, self)
+		event_klass.new(plan.engine.propagation_id, context, self)
 	    end
 	end.new(true)
 	plan.discover(generator)
@@ -823,7 +823,7 @@ class TC_Event < Test::Unit::TestCase
 
 	    mock.should_receive(:called).once
 	    mock.should_receive(:canceled_called).never
-	    plan.garbage_collect
+	    engine.garbage_collect
 	end
     end
 
@@ -831,7 +831,7 @@ class TC_Event < Test::Unit::TestCase
         plan.discover(ev = EventGenerator.new(true))
         ev.when_unreachable.on { |ev| mock.unreachable_fired }
         ev.call
-        plan.garbage_collect
+        engine.garbage_collect
         assert(ev.happened?)
     end
 

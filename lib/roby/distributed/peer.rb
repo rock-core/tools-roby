@@ -10,7 +10,7 @@ require 'roby/distributed/proxy'
 require 'roby/distributed/communication'
 
 module Roby
-    class Control; include DRbUndumped end
+    class ExecutionEngine; include DRbUndumped end
 end
 
 module Roby::Distributed
@@ -276,6 +276,11 @@ module Roby::Distributed
 	# The remote state
 	attr_accessor :state
 
+        # The plan associated to our connection space
+        def plan; connection_space.plan end
+        # The execution engine associated to #plan
+        def engine; connection_space.plan.engine end
+
 	# Creates a Peer object for the peer connected at +socket+. This peer
 	# is to be managed by +connection_space+ If a block is given, it is
 	# called in the control thread when the connection is finalized
@@ -310,7 +315,7 @@ module Roby::Distributed
 	    local_server.state_update remote_state
 
 	    @task = ConnectionTask.new :peer => self
-	    Roby.once do
+	    connection_space.plan.engine.once do
 		connection_space.plan.permanent(task)
 		task.start!
 		task.emit(:ready)

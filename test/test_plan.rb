@@ -399,9 +399,9 @@ class TC_Plan < Test::Unit::TestCase
 	yield if block_given?
 
 	assert_equal(unneeded.to_set, plan.unneeded_tasks.to_set)
-	plan.garbage_collect
+	engine.garbage_collect
         process_events
-	plan.garbage_collect
+	engine.garbage_collect
 
         # !!! We are actually relying on the logging queue for this to work.
         # make sure it is empty before testing anything
@@ -465,7 +465,7 @@ class TC_Plan < Test::Unit::TestCase
 	plan.insert(t1)
 	t1.start!
 	assert_finalizes(plan, []) do
-	    plan.garbage_collect([t1])
+	    engine.garbage_collect([t1])
 	end
 	assert(t1.event(:stop).pending?)
 
@@ -517,7 +517,7 @@ class TC_Plan < Test::Unit::TestCase
 		mock.should_receive(:stop).with(t).once
 	    end
 		
-	    plan.garbage_collect
+	    engine.garbage_collect
 	    process_events
 
 	    assert(!plan.include?(t1))
@@ -527,7 +527,7 @@ class TC_Plan < Test::Unit::TestCase
 		t.emit(:stop)
 	    end
 
-	    plan.garbage_collect
+	    engine.garbage_collect
 	    running_tasks.each do |t|
 		assert(!plan.include?(t))
 	    end
@@ -571,15 +571,15 @@ class TC_Plan < Test::Unit::TestCase
 	t = SimpleTask.new
 	e = EventGenerator.new(true)
 	plan.discover [t, e]
-	plan.garbage_collect
+	engine.garbage_collect
 	assert_raises(ArgumentError) { plan.discover(t) }
 	assert_raises(ArgumentError) { plan.discover(e) }
     end
 
     def test_garbage_collect_weak
-	Roby.control.run :detach => true
+	engine.run
 
-	Roby.execute do
+	engine.execute do
 	    planning, planned, influencing = prepare_plan :discover => 3, :model => SimpleTask
 
 	    planned.planned_by planning
@@ -591,9 +591,9 @@ class TC_Plan < Test::Unit::TestCase
 	    influencing.start!
 	end
 
-	Roby.wait_one_cycle
-	Roby.wait_one_cycle
-	Roby.wait_one_cycle
+	engine.wait_one_cycle
+	engine.wait_one_cycle
+	engine.wait_one_cycle
 
 	assert(plan.known_tasks.empty?)
     end
@@ -645,6 +645,9 @@ class TC_Plan < Test::Unit::TestCase
             mock.should_receive(:checked_event_relation).with(plan).once
             assert_equal(Hash.new, plan.check_structure)
         end
+    ensure
+        TaskStructure.remove_relation r_t if r_t
+        EventStructure.remove_relation r_e if r_e
     end
 end
 

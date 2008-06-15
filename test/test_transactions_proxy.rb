@@ -8,8 +8,8 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 
     attr_reader :transaction
     def setup
-	@transaction = Roby::Transaction.new(plan)
 	super
+	@transaction = Roby::Transaction.new(plan)
     end
     def teardown
 	transaction.discard_transaction

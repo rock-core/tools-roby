@@ -1,8 +1,3 @@
-require 'roby/task'
-require 'roby/relations/planned_by'
-require 'roby/control'
-require 'roby/transactions'
-
 module Roby
     # An asynchronous planning task using Ruby threads
     class PlanningTask < Roby::Task

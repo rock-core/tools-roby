@@ -79,12 +79,12 @@ module Roby
 		end
 		def reset_local_peer; @local_peer = nil end
 		def send_local_peer(*args); local_peer.send(*args) end
-		def wait_one_cycle; Roby.control.wait_one_cycle end
+		def wait_one_cycle; Roby.engine.wait_one_cycle end
 		def console_logger=(value); testcase.console_logger = value end
 		def log_level=(value); Roby.logger.level = value end
 		def cleanup
-		    Roby.control.quit
-		    Roby.control.join
+		    Roby.engine.quit
+		    Roby.engine.join
 		end
 	    end
 
@@ -97,10 +97,10 @@ module Roby
 		    DRb.start_service DISCOVERY_SERVER, Rinda::TupleSpace.new
 		end
 
-		if Roby.control.running?
+		if Roby.engine.running?
 		    begin
-			Roby.control.quit
-			Roby.control.join
+			Roby.engine.quit
+			Roby.engine.join
 		    rescue ControlQuitError
 		    end
 		end
@@ -116,7 +116,7 @@ module Roby
 		    cs.testcase = self
 
 		    def cs.start_control_thread
-			Roby.control.run
+			Roby.engine.run
 		    end
 
 		    Distributed.state = cs
@@ -133,7 +133,7 @@ module Roby
 		Distributed.state = local
 
                 remote.start_control_thread
-                Roby.control.run
+                Roby.engine.run
 	    end
 
 	    def setup_connection
@@ -157,13 +157,13 @@ module Roby
 	    end
 
 	    def process_events
-		if Roby.control.running?
+		if Roby.engine.running?
 		    remote.wait_one_cycle
-		    Roby.control.wait_one_cycle
+		    Roby.engine.wait_one_cycle
 		elsif remote_peer && !remote_peer.disconnected?
 		    Roby.synchronize do
 			remote.process_events
-			Roby.control.process_events
+			Roby.engine.process_events
 		    end
 		else
 		    super

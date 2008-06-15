@@ -559,6 +559,10 @@ module Roby
 
 	    graph
 	end
+
+        def remove_relation(rel)
+            relations.delete(rel)
+        end
     end
 
     # Creates a new relation space which applies on +klass+. If a block is
