@@ -755,7 +755,7 @@ module Roby
                 # Remote tasks are simply removed, regardless of other concerns
                 for t in remote_tasks
                     ExecutionEngine.debug { "GC: removing the remote task #{t}" }
-                    remove_object(t)
+                    plan.remove_object(t)
                 end
 
                 break if local_tasks.empty?

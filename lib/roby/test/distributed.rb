@@ -10,7 +10,6 @@ module Roby
 	    def setup
 		super
 
-		save_collection Distributed.new_neighbours_observers
 		@old_distributed_logger_level = Distributed.logger.level
 
 		timings[:setup] = Time.now
@@ -32,7 +31,7 @@ module Roby
 		super
 
 		unless Distributed.peers.empty?
-		    Roby.warn "  still referencing #{Distributed.peers.keys}"
+		    Roby::Distributed.warn "  still referencing #{Distributed.peers.keys}"
 		    Distributed.peers.clear
 		end
 
@@ -44,9 +43,13 @@ module Roby
 		    @__droby_remote_id__ = nil
 		    @__droby_marshalled__ = nil
 		end
+                Roby.class_eval do
+                    @plan = nil
+                    @engine = nil
+                end
 
-		if Distributed.state
-		    Distributed.state.quit
+		if local
+		    local.quit
 		end
 
 		timings[:end] = Time.now
@@ -63,28 +66,28 @@ module Roby
 		attr_accessor :testcase
 
 		def enable_communication
-		    Roby::Distributed.state.synchronize do
+		    synchronize do
 			local_peer.enable_rx
 			# make sure we wake up the communication thread
-			Roby::Distributed.state.finished_discovery.broadcast
+			finished_discovery.broadcast
 		    end
 		end
 		def disable_communication
 		    local_peer.disable_rx
 		end
 		def flush; local_peer.flush end
-		def process_events; Roby.plan.process_events end
+		def process_events; engine.process_events end
 		def local_peer
-		    @local_peer ||= Distributed.peers.find { true }.last
+		    @local_peer ||= peers.find { true }.last
 		end
 		def reset_local_peer; @local_peer = nil end
 		def send_local_peer(*args); local_peer.send(*args) end
-		def wait_one_cycle; Roby.engine.wait_one_cycle end
+		def wait_one_cycle; engine.wait_one_cycle end
 		def console_logger=(value); testcase.console_logger = value end
 		def log_level=(value); Roby.logger.level = value end
 		def cleanup
-		    Roby.engine.quit
-		    Roby.engine.join
+		    engine.quit
+		    engine.join
 		end
 	    end
 
@@ -97,29 +100,38 @@ module Roby
 		    DRb.start_service DISCOVERY_SERVER, Rinda::TupleSpace.new
 		end
 
-		if Roby.engine.running?
+		if engine.running?
 		    begin
-			Roby.engine.quit
-			Roby.engine.join
+			engine.quit
+			engine.join
 		    rescue ControlQuitError
 		    end
 		end
 
 		remote_process do
 		    central_tuplespace = DRbObject.new_with_uri(DISCOVERY_SERVER)
+
 		    cs = ConnectionSpace.new :ring_discovery => false, 
-			:discovery_tuplespace => central_tuplespace, :name => "remote" do |remote|
-			    getter = Class.new { def get; DRbObject.new(Distributed.state) end }.new
-			    DRb.start_service REMOTE_SERVER, getter
-			end
+			:discovery_tuplespace => central_tuplespace, :name => "remote",
+                        :plan => plan
+
+                    getter = Class.new do
+                        attr_accessor :cs
+                        def get; DRbObject.new(cs) end
+                    end.new
+                    getter.cs = cs
+
+                    Distributed.state = cs
+
+                    DRb.start_service REMOTE_SERVER, getter
+
 		    cs.extend RemotePeerSupport
 		    cs.testcase = self
 
 		    def cs.start_control_thread
-			Roby.engine.run
+			engine.run
 		    end
 
-		    Distributed.state = cs
 		    yield(cs) if block_given?
 		end
 
@@ -129,11 +141,10 @@ module Roby
 		@local   = ConnectionSpace.new :ring_discovery => false, 
 		    :discovery_tuplespace => central_tuplespace, :name => 'local', 
 		    :plan => plan
-
-		Distributed.state = local
+                Distributed.state = local
 
                 remote.start_control_thread
-                Roby.engine.run
+                engine.run
 	    end
 
 	    def setup_connection
@@ -157,13 +168,13 @@ module Roby
 	    end
 
 	    def process_events
-		if Roby.engine.running?
+		if engine.running?
 		    remote.wait_one_cycle
-		    Roby.engine.wait_one_cycle
+		    engine.wait_one_cycle
 		elsif remote_peer && !remote_peer.disconnected?
 		    Roby.synchronize do
 			remote.process_events
-			Roby.engine.process_events
+			engine.process_events
 		    end
 		else
 		    super

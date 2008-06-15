@@ -450,7 +450,7 @@ module Roby
 
 		# Only add the signalling if we own +to+
 		if to_generator.self_owned?
-		    to_generator.plan.add_event_propagation(only_forward, [event], to_generator, event.context, nil)
+                    to_generator.plan.engine.add_event_propagation(only_forward, [event], to_generator, event.context, nil)
 		else
 		    # Call #signalling or #forwarding to make
 		    # +from_generator+ look like as if the event was really

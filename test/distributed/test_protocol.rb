@@ -335,7 +335,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	    task
 	end
 
-	Roby.engine.wait_one_cycle
+	engine.wait_one_cycle
 	assert(!task.plan)
 
 	new_task = remote_peer.local_object(remote.send_task_update)

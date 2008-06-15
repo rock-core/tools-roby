@@ -140,6 +140,8 @@ module Roby
 	    def synchronize; mutex.synchronize { yield } end
 	    # The plan we are publishing, usually Roby.plan
 	    attr_reader :plan
+            # The execution engine tied to +plan+, or nil if there is none
+            def engine; plan.engine end
 
 	    # Our name on the network
 	    attr_reader :name
@@ -190,6 +192,7 @@ module Roby
 		@start_discovery      = ConditionVariable.new
 		@finished_discovery   = ConditionVariable.new
 		@new_neighbours	      = Queue.new
+                @new_neighbours_observers = Array.new
 
 		@connection_listeners = Array.new
 
@@ -222,14 +225,11 @@ module Roby
 		end
 		start_neighbour_discovery(true)
 
-                plan.propagation_handlers << lambda do
+                engine.add_propagation_handler do |plan|
                     start_neighbour_discovery
+                    notify_new_neighbours
                 end
-
-		receive
-
-		plan.engine.finalizers << method(:quit)
-
+		engine.finalizers << method(:quit)
                 engine.at_cycle_end do
                     peers.each_value do |peer|
                         if peer.connected?
@@ -237,6 +237,9 @@ module Roby
                         end
                     end
                 end
+
+                # Finally, start the reception thread
+                receive
 	    end
 
 	    # Sets up a separate thread which listens for connection
@@ -528,6 +531,30 @@ module Roby
 	    def transaction_discard(trsc) # :nodoc:
 		trsc.discard_transaction(false)
 	    end
+
+            def on_neighbour
+		current = neighbours.dup
+		engine.once { current.each { |n| yield(n) } }
+		new_neighbours_observers << lambda { |_, n| yield(n) }
+	    end
+
+            # The set of proc objects which should be notified when new
+            # neighbours are detected.
+	    attr_reader :new_neighbours_observers
+	    
+            # Called in the neighbour discovery thread to detect new
+            # neighbours. It fills the new_neighbours queue which is read by
+            # notify_new_neighbours to notify application code of new
+            # neighbours in the control thread
+	    def notify_new_neighbours
+		while !new_neighbours.empty?
+		    cs, neighbour = new_neighbours.pop(true)
+		    new_neighbours_observers.each do |obs|
+			obs[cs, neighbour]
+		    end
+		end
+	    end
+
 	end
 
 	class << self
@@ -574,37 +601,13 @@ module Roby
 		else []
 		end
 	    end
-	end
-
-	@new_neighbours_observers = Array.new
-	class << self
-            # The set of proc objects which should be notified when new
-            # neighbours are detected.
-	    attr_reader :new_neighbours_observers
-	    
-            # Called in the neighbour discovery thread to detect new
-            # neighbours. It fills the new_neighbours queue which is read by
-            # notify_new_neighbours to notify application code of new
-            # neighbours in the control thread
-	    def notify_new_neighbours(plan)
-		return unless Distributed.state
-		while !new_neighbours.empty?
-		    cs, neighbour = new_neighbours.pop(true)
-		    new_neighbours_observers.each do |obs|
-			obs[cs, neighbour]
-		    end
-		end
-	    end
-
+            
             # Defines a block which should be called when a new neighbour is
             # detected
-	    def on_neighbour
-		current = neighbours.dup
-		Roby.once { current.each { |n| yield(n) } }
-		new_neighbours_observers << lambda { |_, n| yield(n) }
-	    end
+            #
+            # See ConnectionSpace#on_neighbour
+            def on_neighbour(&block); Roby::Distributed.state.on_neighbour(&block) end
 	end
-	Roby::ExecutionEngine.propagation_handlers << method(:notify_new_neighbours)
     end
 end
 

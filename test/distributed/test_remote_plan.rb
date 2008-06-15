@@ -149,7 +149,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	plan.auto(r_mission)
 	plan.auto(r_subtask)
 	plan.auto(r_next_mission)
-	Roby.engine.wait_one_cycle
+	engine.wait_one_cycle
 	assert_equal([remote_peer.task], plan.permanent_tasks.to_a)
     end
 
@@ -237,7 +237,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    assert(!r_next_mission.plan || !plan.useful_task?(r_next_mission))
 	    assert(!r_subtask.plan || !plan.useful_task?(r_subtask))
 	end
-	Roby.engine.wait_one_cycle
+	engine.wait_one_cycle
 	
 	# Check that the task index has been updated
 	assert(!plan.task_index.by_owner[remote_peer].include?(r_subtask))
@@ -262,7 +262,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    assert(!remote_peer.subscribed?(r_mission))
 	    assert(plan.unneeded_tasks.include?(r_subtask))
 	end
-	Roby.engine.wait_one_cycle
+	engine.wait_one_cycle
 
 	# Check that subtask and next_mission are removed from the plan
 	assert(!r_subtask.plan)
@@ -301,7 +301,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	r_mission = remote_peer.subscribe(r_mission)
 	r_subtask = remote_task(:id => 'subtask')
 	r_next_mission = remote_task(:id => 'next_mission')
-	Roby.engine.wait_one_cycle
+	engine.wait_one_cycle
 
 	proxies = r_mission.children.to_a
 	assert(! proxies.empty?)

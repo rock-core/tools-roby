@@ -9,7 +9,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
     def test_triggers
 	peer2peer do |remote|
 	    def remote.new_task(kind, args)
-		Roby.execute do
+		engine.execute do
 		    new_task = kind.proxy(local_peer).new(args)
 		    yield(new_task.remote_id) if block_given?
 		    plan.insert(new_task)

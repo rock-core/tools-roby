@@ -7,6 +7,11 @@ class TC_DistributedExecution < Test::Unit::TestCase
     include Roby::Distributed::Test
     SimpleTask = Roby::Test::SimpleTask
 
+    def setup
+        super
+        Roby.app.filter_backtraces = false
+    end
+
     def test_event_status
 	peer2peer do |remote|
 	    class << remote
@@ -22,7 +27,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		    nil
 		end
 		def fire
-		    Roby.execute do
+		    engine.execute do
 			controlable.call(nil) 
 			contingent.emit(nil)
 		    end
@@ -38,10 +43,10 @@ class TC_DistributedExecution < Test::Unit::TestCase
 
 	FlexMock.use do |mock|
 	    controlable.on do
-		mock.fired_controlable(Roby.plan.gathering?)
+		mock.fired_controlable(engine.gathering?)
 	    end
 	    contingent.on do
-		mock.fired_contingent(Roby.plan.gathering?)
+		mock.fired_contingent(engine.gathering?)
 	    end
 
 	    mock.should_receive(:fired_controlable).with(true).once
@@ -77,13 +82,13 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	trsc.edit
 	trsc.commit_transaction
 
-	Roby.execute { local_task.start! }
-	Roby.wait_one_cycle
+	engine.execute { local_task.start! }
+	engine.wait_one_cycle
 	remote_peer.synchro_point
 	remote_task = subscribe_task(:id => 'remote_task')
 	assert(remote_task.running?)
 
-	Roby.execute do
+	engine.execute do
 	    plan.discard(local_task)
 	    local_task.stop!
 	end
@@ -103,7 +108,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		    nil
 		end
 		def fire
-		    Roby.execute do
+		    engine.execute do
 			event.on do
 			    plan.discard(task)
 			    task.event(:start).on task.event(:success)
@@ -144,10 +149,10 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		    plan.clear
 		    plan.insert(@task = SimpleTask.new(:id => 1))
 		end
-		def start_task; Roby.once { task.start! }; nil end
+		def start_task; engine.once { task.start! }; nil end
 		def stop_task
 		    assert(task.executable?)
-		    Roby.once do
+		    engine.once do
 			plan.discard(task)
 			task.stop!
 		    end
@@ -191,7 +196,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		    assert(fev = events.find { |ev| !ev.controlable? })
 		    assert(task.event(:start).child_object?(sev, Roby::EventStructure::Signal))
 		    assert(task.event(:start).child_object?(fev, Roby::EventStructure::Forwarding))
-		    Roby.once { task.start! }
+		    engine.once { task.start! }
 		    nil
 		end
 	    end
@@ -230,7 +235,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    remote.plan.insert(task = SimpleTask.new(:id => 1))
 	    def remote.start(task)
 		task = local_peer.local_object(task)
-		Roby.once { task.start! }
+		engine.once { task.start! }
 		nil
 	    end
 	end
@@ -281,7 +286,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    remote.plan.insert(task = SimpleTask.new(:id => 'remote-1'))
 	    def remote.start(task)
 		task = local_peer.local_object(task)
-		Roby.execute do
+		engine.execute do
 		    task.start!
 		end
 		nil
@@ -295,7 +300,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	assert(task.child_object?(remote_peer.task, TaskStructure::ExecutionAgent))
 	assert(task.subscribed?)
 
-	Roby.execute do
+	engine.execute do
 	    remote_peer.disconnected!
 	end
 	assert(!task.subscribed?)
@@ -326,7 +331,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 
 	    def remote.call
 		task = plan.find_tasks(CodeBlocksOwnersMockup).to_a.first
-		Roby.execute { task.start! }
+		engine.execute { task.start! }
 	    end
 
 	    def remote.blocks_called
@@ -350,7 +355,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
     def test_joint_fired_signalled
 	peer2peer do |remote|
 	    remote.plan.insert(task = SimpleTask.new(:id => 'remote-1'))
-	    Roby.once { task.start! }
+	    engine.once { task.start! }
 	end
 	    
 	event_time = Time.now
@@ -358,7 +363,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	plan.insert(local = SimpleTask.new(:id => 'local'))
 	remote_peer.synchro_point
 
-	Roby.execute do
+	engine.execute do
 	    remote_peer.local_server.event_fired(remote.event(:success), 0, Time.now, [42])
 	    remote_peer.local_server.event_add_propagation(true, remote.event(:success), local.event(:start), 0, event_time, [42])
 	end

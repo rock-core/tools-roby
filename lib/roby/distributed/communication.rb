@@ -46,11 +46,11 @@ module Roby
 
 	    # Connect to +neighbour+ and return the corresponding peer. It is a
 	    # blocking method, so it is an error to call it from within the control thread
-	    def self.connect(neighbour)
+	    def self.connect(neighbour, connection_space = Distributed.state)
 		Roby.condition_variable(true) do |cv, mutex|
 		    peer = nil
 		    mutex.synchronize do
-			thread = initiate_connection(Distributed.state, neighbour) do |peer|
+			thread = initiate_connection(connection_space, neighbour) do |peer|
 			    return peer unless thread
 			end
 
