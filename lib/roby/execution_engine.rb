@@ -25,6 +25,10 @@ module Roby
         extend Logger::Hierarchy
         extend Logger::Forward
 
+        # Create an execution engine acting on +plan+, using +control+ as the
+        # decision control object
+        #
+        # See Roby::Plan and Roby::DecisionControl
         def initialize(plan, control)
             @plan = plan
             plan.engine = self
@@ -137,9 +141,12 @@ module Roby
             nil
         end
 
+        # Execute the given block at the beginning of each cycle, in propagation
+        # context.
         def each_cycle(&block)
             check_arity block, 1
             propagation_handlers << block
+            self
         end
 
         # The scheduler is the object which handles non-generic parts of the
@@ -153,7 +160,7 @@ module Roby
         # The set of source events for the current propagation action. This is a
         # mix of EventGenerator and Event objects.
         attr_reader :propagation_sources
-        # The set of events extracted from ExecutionEngine.sources
+        # The set of events extracted from #sources
         def propagation_source_events
             result = ValueSet.new
             for ev in @propagation_sources
@@ -164,7 +171,7 @@ module Roby
             result
         end
 
-        # The set of generators extracted from ExecutionEngine.sources
+        # The set of generators extracted from #sources
         def propagation_source_generators
             result = ValueSet.new
             for ev in @propagation_sources
@@ -177,10 +184,29 @@ module Roby
             result
         end
 
+        # The set of pending delayed events. This is an array of the form
+        #
+        #   [[time, is_forward, source, target, context], ...]
+        #
+        # See #add_event_delay for more information
         attr_reader :delayed_events
-        def add_event_delay(time, forward, source, signalled, context)
-            delayed_events << [time, forward, source, signalled, context]
+
+        # Adds a propagation step to be performed when the current time is
+        # greater than +time+. The propagation step is a signal if +is_forward+
+        # is false and a forward otherwise.
+        #
+        # This method should not be called directly. Use #add_event_propagation
+        # with the appropriate +timespec+ argument.
+        #
+        # See also #delayed_events and #execute_delayed_events
+        def add_event_delay(time, is_forward, source, target, context)
+            delayed_events << [time, is_forward, source, target, context]
         end
+
+        # Adds the events in +delayed_events+ whose time has passed into the
+        # propagation. This must be called in propagation context.
+        #
+        # See #add_event_delay and #delayed_events
         def execute_delayed_events
             reftime = Time.now
             delayed_events.delete_if do |time, forward, source, signalled, context|
@@ -191,12 +217,23 @@ module Roby
             end
         end
 
+        # Called by #plan when an event has been finalized
         def finalized_event(event)
             event.unreachable!(nil, plan)
             delayed_events.delete_if { |_, _, _, signalled, _| signalled == event }
         end
 
-        # Begin an event propagation stage
+        # Sets up a propagation context, yielding the block in it. During this
+        # propagation stage, all calls to #emit and #call are stored in an
+        # internal hash of the form:
+        #   target => [forward_sources, signal_sources]
+        #
+        # where the two +_sources+ are arrays of the form 
+        #   [[source, context], ...]
+        #
+        # The method returns the resulting hash. Use #gathering? to know if the
+        # current engine is in a propagation context, and #add_event_propagation
+        # to add a new entry to this set.
         def gather_propagation(initial_set = Hash.new)
             raise InternalError, "nested call to #gather_propagation" if gathering?
             @propagation = initial_set
@@ -208,10 +245,18 @@ module Roby
             @propagation = nil
         end
 
+        # Converts the Exception object +error+ into a Roby::ExecutionException
         def self.to_execution_exception(error)
-            Roby::ExecutionException.new(error)
+            if error.kind_of?(Roby::ExecutionException)
+                error
+            else
+                Roby::ExecutionException.new(error)
+            end
         end
 
+        # If called in execution context, adds the plan-based error +e+ to be
+        # handled later in the execution cycle. Otherwise, calls
+        # #add_framework_error
         def add_error(e)
             if @propagation_exceptions
                 plan_exception = ExecutionEngine.to_execution_exception(e)
@@ -225,19 +270,28 @@ module Roby
             end
         end
 
+        # Yields to the block, calling #add_framework_error if an exception is
+        # raised 
         def gather_framework_errors(source)
             yield
         rescue Exception => e
             add_framework_error(e, source)
         end
 
+        # If called in execution context, adds the framework error +error+ to be
+        # handled later in the execution cycle. Otherwise, either raises the
+        # error again if Application#abort_on_application_exception is true. IF
+        # abort_on_application_exception is false, simply displays a warning
         def add_framework_error(error, source)
             if @application_exceptions
                 @application_exceptions << [error, source]
             elsif Roby.app.abort_on_application_exception? || error.kind_of?(SignalException)
                 raise error, "in #{source}: #{error.message}", error.backtrace
             else
-                ExecutionEngine.error "Application error in #{source}: #{error.full_message}"
+                ExecutionEngine.error "Application error in #{source}"
+                Roby.format_exception(error).each do |line|
+                    Roby.warn line
+                end
             end
         end
 
@@ -259,18 +313,24 @@ module Roby
             @propagation_sources = sources
         end
 
-        # Adds a propagation to the next propagation step. More specifically, it
-        # adds either forwarding or signalling the set of Event objects +from+ to
-        # the +signalled+ event generator, with the context +context+
-        def add_event_propagation(forward, from, signalled, context, timespec)
-            if signalled.plan != plan
-                raise Roby::EventNotExecutable.new(signalled), "#{signalled} not in executed plan"
+        # Adds a propagation to the next propagation step: it registers a
+        # propagation step to be performed between +source+ and +target+ with
+        # the given +context+. If +is_forward+ is true, the propagation will be
+        # a forwarding, otherwise it is a signal.
+        #
+        # If +timespec+ is not nil, it defines a delay to be applied before
+        # calling the target event.
+        #
+        # See #gather_propagation
+        def add_event_propagation(is_forward, from, target, context, timespec)
+            if target.plan != plan
+                raise Roby::EventNotExecutable.new(target), "#{target} not in executed plan"
             end
 
-            step = (@propagation[signalled] ||= [nil, nil])
+            step = (@propagation[target] ||= [nil, nil])
             from = [nil] unless from && !from.empty?
 
-            step = if forward then (step[0] ||= [])
+            step = if is_forward then (step[0] ||= [])
                    else (step[1] ||= [])
                    end
 
@@ -319,12 +379,8 @@ module Roby
                 end
             end
 
-            # Problem with postponed: the object is included in already_seen while it
-            # has not been fired
-            already_seen = initial_set.to_set
-
             while !next_step.empty?
-                next_step = event_propagation_step(next_step, already_seen)
+                next_step = event_propagation_step(next_step)
             end        
             @propagation_exceptions
 
@@ -332,12 +388,25 @@ module Roby
             @propagation_exceptions = nil
         end
 
+        # Validates +timespec+ as a delay specification. A valid delay
+        # specification is either +nil+ or a hash, in which case two forms are
+        # possible:
+        #
+        #   :at => absolute_time
+        #   :delay => number
+        #
         def self.validate_timespec(timespec)
             if timespec
                 timespec = validate_options timespec, [:delay, :at]
             end
         end
-        def self.make_delay(timeref, source, signalled, timespec)
+
+        # Returns a Time object which represents the absolute point in time
+        # referenced by +timespec+ in the context of delaying a propagation
+        # between +source+ and +target+.
+        #
+        # See validate_timespec for more information
+        def self.make_delay(timeref, source, target, timespec)
             if delay = timespec[:delay] then timeref + delay
             elsif at = timespec[:at] then at
             else
@@ -351,9 +420,14 @@ module Roby
         # event
         attr_reader :event_priorities
 
+        # call-seq:
+        #   next_event(pending) => event, propagation_info
+        #
         # Determines the event in +current_step+ which should be signalled now.
         # Removes it from the set and returns the event and the associated
-        # propagation information
+        # propagation information.
+        #
+        # See #gather_propagation for the format of the returned # +propagation_info+
         def next_event(pending)
             if event_ordering.empty?
                 Roby::EventStructure::Precedence.topological_sort(event_ordering)
@@ -381,15 +455,29 @@ module Roby
             [signalled, *pending.delete(signalled)]
         end
 
-        def prepare_propagation(signalled, forward, info)
+        # call-seq:
+        #   prepare_propagation(target, is_forward, info) => source_events, source_generators, context
+        #   prepare_propagation(target, is_forward, info) => nil
+        #
+        # Parses the propagation information +info+ in the context of a
+        # signalling if +is_forward+ is true and a forwarding otherwise.
+        # +target+ is the target event.
+        #
+        # The method adds the appropriate delayed events using #add_event_delay,
+        # and returns either nil if no propagation is to be performed, or the
+        # propagation source events, generators and context.
+        #
+        # The format of +info+ is the same as the hash values described in
+        # #gather_propagation.
+        def prepare_propagation(target, is_forward, info)
             timeref = Time.now
 
             source_events, source_generators, context = ValueSet.new, ValueSet.new, []
 
             delayed = true
             info.each_slice(3) do |src, ctxt, time|
-                if time && (delay = ExecutionEngine.make_delay(timeref, src, signalled, time))
-                    add_event_delay(delay, forward, src, signalled, ctxt)
+                if time && (delay = ExecutionEngine.make_delay(timeref, src, target, time))
+                    add_event_delay(delay, is_forward, src, target, ctxt)
                     next
                 end
 
@@ -418,8 +506,7 @@ module Roby
 
         # Propagate one step
         #
-        # +current_step+ describes all pending emissions and calls. +already_seen+
-        # is obsolete and is not used anymore.
+        # +current_step+ describes all pending emissions and calls.
         # 
         # This method calls ExecutionEngine.next_event to get the description of the
         # next event to call. If there are signals going to this event, they are
@@ -428,7 +515,7 @@ module Roby
         # The method returns the next set of pending emissions and calls, adding
         # the forwardings and signals that the propagation of the considered event
         # have added.
-        def event_propagation_step(current_step, already_seen)
+        def event_propagation_step(current_step)
             signalled, forward_info, call_info = next_event(current_step)
 
             next_step = nil
@@ -505,6 +592,8 @@ module Roby
             end
         end
 
+        # Removes the set of repairs defined on #plan that are not useful
+        # anymore, and returns it.
         def remove_useless_repairs
             finished_repairs = plan.repairs.dup.delete_if { |_, task| task.starting? || task.running? }
             for repair in finished_repairs
@@ -638,6 +727,8 @@ module Roby
         # next execution cycle.
         attr_reader :process_once
 
+        # Schedules +block+ to be called at the beginning of the next execution
+        # cycle, in propagation context.
         def once(&block)
             process_once.push block
         end
@@ -858,6 +949,7 @@ module Roby
 	    end
 	end
 
+        # Calls the periodic blocks which should be called
         def self.call_every(plan) # :nodoc:
             engine = plan.engine
             now        = engine.cycle_start
@@ -895,8 +987,11 @@ module Roby
         # A set of blocks which are called every cycle
         attr_reader :process_every
 
-        # Call +block+ every +duration+ seconds. Note that +duration+ is
-        # round up to the cycle size (time between calls is *at least* duration)
+        # Call +block+ every +duration+ seconds. Note that +duration+ is round
+        # up to the cycle size (time between calls is *at least* duration)
+        #
+        # The returned value is the periodic handler ID. It can be passed to
+        # #remove_periodic_handler to undefine it.
         def every(duration, &block)
             once do
                 block.call
@@ -905,13 +1000,17 @@ module Roby
             block.object_id
         end
 
+        # Removes a periodic handler defined by #every. +id+ is the value
+        # returned by #every.
         def remove_periodic_handler(id)
             execute do
                 process_every.delete_if { |spec| spec[0].object_id == id }
             end
         end
 
+        # The execution thread if there is one running
 	attr_accessor :thread
+        # True if an execution thread is running
 	def running?; !!@thread end
 
 	# The cycle length in seconds
@@ -956,7 +1055,6 @@ module Roby
 
 	# Main event loop. Valid options are
 	# cycle::   the cycle duration in seconds (default: 0.1)
-	# drb:: address of the DRuby server if one should be started (default: nil)
 	def run(options = {})
 	    if running?
 		raise "there is already a control running in thread #{@thread}"
@@ -995,7 +1093,14 @@ module Roby
             end
 	end
 
-	attr_reader :last_stop_count
+	attr_reader :last_stop_count # :nodoc:
+
+        # Sets up the plan for clearing: it discards all missions and undefines
+        # all permanent tasks and events.
+        #
+        # Returns nil if the plan is cleared, and the set of remaining tasks
+        # otherwise. Note that quaranteened tasks are not counted as remaining,
+        # as it is not possible for the execution engine to stop them.
 	def clear
 	    Roby.synchronize do
 		plan.missions.dup.each { |t| plan.discard(t) }
@@ -1036,15 +1141,20 @@ module Roby
 	end
 
 	attr_reader :remaining_cycle_time
+        # Adds to the stats the given duration as the expected duration of the
+        # +name+ step. The field in +stats+ is named "expected_#{name}".
 	def add_expected_duration(stats, name, duration)
-	    stats[:"expected_#{name}"] = Time.now + duration - cycle_start
+	    stats[:"expected_#{name}"] = Time.now + duration
 	end
-
+        # Adds in +stats+ the current time as a timepoint named +time+
         def add_timepoint(stats, name)
             stats[:end] = stats[name] = Time.now - stats[:start]
             @remaining_cycle_time = cycle_length - stats[:end]
         end
 
+        # The main event loop. It returns when the execution engine is asked to
+        # quit. In general, this does not need to be called direclty: use #run
+        # to start the event loop in a separate thread.
 	def event_loop
 	    @last_stop_count = 0
 	    @cycle_start  = Time.now
@@ -1162,7 +1272,9 @@ module Roby
 	    end
 	end
 
-	def finalizers; @finalizers end
+        # A set of proc objects which are to be called when the execution engine
+        # has quit.
+        attr_reader :finalizers
 
 	# True if the control thread is currently quitting
 	def quitting?; @quit > 0 end
@@ -1204,6 +1316,14 @@ module Roby
 	    retry
 	end
 
+        # Block until the given block is executed by the execution thread, at
+        # the beginning of the event loop, in propagation context. If the block
+        # raises, the exception is raised back in the calling thread.
+        #
+        # This cannot be used in the execution thread itself.
+        #
+        # If no execution thread is present, yields after having taken
+        # Roby.global_lock
         def execute
 	    if inside_control?
 		return Roby.synchronize { yield }
