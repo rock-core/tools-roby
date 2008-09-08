@@ -136,9 +136,14 @@ class Replay < Qt::MainWindow
 	    @first_sample = @time = min
 	    @last_sample  = max
 
-	    ui_controls.progress.minimum = min.to_i
-	    ui_controls.progress.maximum = max.to_i
-	    ui_controls.update_bookmarks_menu
+            if min
+                ui_controls.progress.minimum = min.to_i
+                ui_controls.progress.maximum = max.to_i
+                ui_controls.update_bookmarks_menu
+            else
+                ui_controls.progress.minimum = 0
+                ui_controls.progress.maximum = 1
+            end
 	else
 	    play_until time, integrate
 	end
@@ -147,8 +152,13 @@ class Replay < Qt::MainWindow
     end
 
     def update_time_display
-	ui_controls.time_lcd.display(((self.time - first_sample) * 1000.0).round / 1000.0)
-	ui_controls.progress.value = self.time.to_i
+        if first_sample
+            ui_controls.time_lcd.display(((self.time - first_sample) * 1000.0).round / 1000.0)
+            ui_controls.progress.value = self.time.to_i
+        else
+            ui_controls.time_lcd.display(0)
+            ui_controls.progress.value = 0
+        end
     end
 
     attr_reader :time
