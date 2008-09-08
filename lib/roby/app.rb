@@ -730,11 +730,15 @@ module Roby
             if !Roby.engine
                 Roby.engine  = ExecutionEngine.new(Roby.plan, Roby.control)
             end
-            
+
             if Roby.control != Roby.engine.control
                 raise "inconsistency between Roby.control and Roby.engine.control"
             elsif Roby.engine != Roby.plan.engine
                 raise "inconsistency between Roby.engine and Roby.plan.engine"
+            end
+
+            if !Roby.engine.scheduler && Roby.scheduler
+                Roby.engine.scheduler = Roby.scheduler
             end
         end
 
