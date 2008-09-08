@@ -47,9 +47,6 @@ module Roby
 		discovered_displays = Array.new
 		@available_servers  = Array.new
 
-		# Add disable_discovery in the list of finalizers
-		Roby.engine.finalizers << method(:disable_discovery)
-
 		@discovery_thread = Thread.new do
 		    begin
 			loop do
