@@ -7,6 +7,7 @@ app.robot robot_name, (ARGV.shift || robot_name)
 app.setup
 begin
     app.run do
+        Robot.info "loaded Roby #{Roby::VERSION}"
 	# Load the controller
 	include Roby
 	Roby.execute do
