@@ -182,9 +182,12 @@ class Ui::ReplayControls
 			retry
 		    end
 
-	unless replay.first_sample
+	if !replay.first_sample
 	    replay.seek(nil)
 	end
+        if !replay.first_sample # no samples at all !
+            return
+        end
 
 	user_time = if !op
 			replay.first_sample + (user_time - Time.at(0))
