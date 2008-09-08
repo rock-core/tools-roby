@@ -43,8 +43,17 @@ module Roby::Log
 	    super(@event_io)
 
 	    @index_data = Array.new
-	    update_index
-	    rewind
+            begin
+                rewind
+            rescue ArgumentError, EOFError
+                rebuild_index
+                rewind
+            end
+
+            if !valid_index?
+                rebuild_index
+                rewind
+            end
 	end
 
 	# Reads as much index data as possible
@@ -64,6 +73,28 @@ module Roby::Log
 
 	    return if index_data.empty?
 	end
+
+        def valid_index?
+            100.times do |i|
+                break if i * 10 >= index_data.size
+                index = index_data[i * 10]
+
+                event_io.seek(index[:pos])
+                cycle = begin
+                    Marshal.load(event_io)
+                rescue EOFError
+                    return false
+                rescue ArgumentError
+                    return false
+                end
+
+                if cycle[-4] != :cycle_end ||
+                    cycle[-1].first != index
+                    return false
+                end
+            end
+            true
+        end
 
 	def rewind
 	    @event_io.rewind
