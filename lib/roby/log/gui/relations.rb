@@ -25,7 +25,6 @@ module Ui
 	def initialize(display)
 	    super()
 
-	    Roby.load_all_relations
 	    @current_color = 0
 	    @display   = display
 	    @relations = []
