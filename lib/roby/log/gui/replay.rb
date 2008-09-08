@@ -2,6 +2,7 @@ require 'Qt4'
 require 'roby/app'
 require 'optparse'
 
+require 'roby/log/event_stream'
 require 'roby/log/gui/replay_controls'
 require 'roby/log/gui/data_displays'
 
