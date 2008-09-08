@@ -2,6 +2,8 @@ require 'roby'
 require 'roby/distributed'
 require 'optparse'
 
+require 'pp'
+
 remote_url = nil
 opt = OptionParser.new do |opt|
     opt.on('--host URL', String, "sets the host to connect to") do |url|
@@ -31,7 +33,18 @@ end
 DRb.start_service
 
 require 'irb'
-IRB.setup(nil)
+IRB.setup(remote_url)
+IRB.conf[:INSPECT_MODE] = false
+IRB.conf[:IRB_NAME]     = remote_url
+IRB.conf[:PROMPT_MODE]  = :ROBY
+IRB.conf[:AUTO_INDENT] = true
+IRB.conf[:PROMPT][:ROBY] = {
+    :PROMPT_I => "%N > ",
+    :PROMPT_N => "%N > ",
+    :PROMPT_S => "%N %l ",
+    :PROMPT_C => "%N * ",
+    :RETURN => "=> %s\n"
+}
 
 control = Roby::RemoteInterface.new(DRbObject.new_with_uri("druby://#{remote_url}"))
 
