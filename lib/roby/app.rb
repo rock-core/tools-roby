@@ -61,6 +61,9 @@ module Roby
 	# dir:: the log directory. Uses APP_DIR/log if not set
 	# filter_backtraces:: true if the framework code should be removed from the error backtraces
 	attr_reader :log
+
+        # ExecutionEngine setup
+        attr_reader :engine
 	
 	# A [name, dir, file, module] array of available plugins, where 'name'
 	# is the plugin name, 'dir' the directory in which it is installed,
@@ -106,6 +109,7 @@ module Roby
 	    @log = Hash['events' => 'stats', 'levels' => Hash.new, 'filter_backtraces' => true] 
 	    @discovery = Hash.new
 	    @droby     = Hash['period' => 0.5, 'max_errors' => 1] 
+            @engine    = Hash.new
 
 	    @automatic_testing = true
 	    @testing_keep_logs = false
