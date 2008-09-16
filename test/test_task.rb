@@ -560,6 +560,17 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal(task.event(:failed).last, task.terminal_event)
     end
 
+    def assert_exception_message(klass, msg)
+        yield
+        flunk 'no exception raised'
+    rescue klass => e
+        unless msg === e.message
+            flunk "exception message '#{e.message}' does not match the expected pattern"
+        end
+    rescue Exception => e
+        flunk "expected an exception of class #{klass} but got #{e.full_message}"
+    end
+
     def test_executable
 	model = Class.new(SimpleTask) do 
 	    event(:inter, :command => true)
@@ -569,6 +580,8 @@ class TC_Task < Test::Unit::TestCase
 	assert(!task.executable?)
 	assert_raises(EventNotExecutable) { task.start! }
 	assert_raises(EventNotExecutable) { task.event(:start).call }
+
+
 
 	plan.discover(task)
 	assert(task.executable?)
@@ -593,6 +606,83 @@ class TC_Task < Test::Unit::TestCase
 	task.executable = nil
 	assert(task.executable?)
     end
+	
+    class ParameterizedTask < Roby::Task
+        arguments :arg
+    end
+    
+    class AbstractTask < Roby::Task
+        abstract
+    end
+
+    class NotExecutablePlan < Roby::Plan
+        def executable?
+            false
+	end
+    end
+    
+    def exception_propagator(task, relation)
+	first_task  = SimpleTask.new
+	second_task = task
+	first_task.send(relation, :start, second_task, :start)
+	first_task.start!
+    end
+    
+    def check_direct_start(substring, check_signaling)
+        error = yield
+	assert_exception_message(EventNotExecutable, substring) { error.start! }
+        error = yield
+	assert_exception_message(EventNotExecutable, substring) {error.event(:start).call(nil)}
+        error = yield
+	assert_exception_message(EventNotExecutable, substring) {error.event(:start).emit(nil)}
+	
+	if check_signaling then
+	    error = yield
+	    assert_exception_message(EventNotExecutable, substring) do
+	       exception_propagator(error, :on)
+	    end
+	    error = yield
+	    assert_exception_message(EventNotExecutable, substring) do
+	       exception_propagator(error, :forward)
+	    end
+	end
+    end
+        
+    def test_exception_refinement
+	# test for partially instanciation
+	check_direct_start(/partially instanciated/,true) do
+	   plan.discover(task = ParameterizedTask.new)
+	   task
+	end
+
+        #test for a task that is in no plan
+        check_direct_start(/no plan/,false) do
+            SimpleTask.new
+	end
+        
+        #test for an abstract task
+        check_direct_start(/abstract/,true) do
+            plan.discover(task = AbstractTask.new)
+            task
+	end
+	
+	#test for a not executable plan
+	erroneous_plan = NotExecutablePlan.new	
+	check_direct_start(/plan is not executable/,false) do
+	   erroneous_plan.discover(task = SimpleTask.new)
+	   task
+	end
+        erroneous_plan.garbage_collect	
+        
+        #test for a not executable task
+        check_direct_start(/is not executable/,true) do
+            plan.discover(task = SimpleTask.new)
+            task.executable = false
+            task
+	end
+    end
+	
+    
 
     def test_task_success_failure
 	FlexMock.use do |mock|

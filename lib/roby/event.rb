@@ -171,6 +171,7 @@ module Roby
 	    end
 	    super() if defined? super
 	    @executable = true
+
 	end
 
 	def default_command(context)
@@ -183,12 +184,39 @@ module Roby
 	# True if this event is controlable
 	def controlable?; !!@command end
 
+	# Checks that the event can be called. Raises various exception
+	# when it is not the case.
+	def check_call_validity
+	    if !self_owned?
+		raise OwnershipError, "not owner"
+	    elsif !controlable?
+		raise EventNotControlable.new(self), "#call called on a non-controlable event"
+	    elsif !executable?
+		raise EventNotExecutable.new(self), "#call called on #{self} which is non-executable event"
+	    elsif !Roby.inside_control?
+		raise ThreadMismatch, "#call called while not in control thread"
+	    end
+	end
+
+	# Checks that the event can be emitted. Raises various exception
+	# when it is not the case.
+	def check_emission_validity
+	    if !executable?
+		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"
+	    elsif !self_owned?
+		raise OwnershipError, "cannot emit an event we don't own. #{self} is owned by #{owners}"
+	    elsif !Roby.inside_control?
+		raise ThreadMismatch, "#emit called while not in control thread"
+	    end
+	end
+
 	# Returns true if the command has been called and false otherwise
 	# The command won't be called if #postpone() is called within the
 	# #calling hook
 	#
 	# This is used by propagation code, and should never be called directly
 	def call_without_propagation(context) # :nodoc:
+            check_call_validity
 	    if !controlable?
 		raise EventNotControlable.new(self), "#call called on a non-controlable event"
 	    end
@@ -222,15 +250,7 @@ module Roby
 	# non-controlable and respond to the :call message. Controlability must
 	# be checked using #controlable?
 	def call(*context)
-	    if !self_owned?
-		raise OwnershipError, "not owner"
-	    elsif !controlable?
-		raise EventNotControlable.new(self), "#call called on a non-controlable event"
-	    elsif !executable?
-		raise EventNotExecutable.new(self), "#call called on #{self} which is non-executable event"
-	    elsif !Roby.inside_control?
-		raise ThreadMismatch, "#call called while not in control thread"
-	    end
+            check_call_validity
 
 	    context.compact!
 	    if Propagation.gathering?
@@ -426,7 +446,7 @@ module Roby
 		begin
 		    h.call(event)
 		rescue Exception => e
-		    Propagation.add_error( EventHandlerError.new(e, event) )
+                    Propagation.add_error( EventHandlerError.new(e, event) )
 		end
 	    end
 	end
@@ -460,6 +480,7 @@ module Roby
 	#
 	# This is used by event propagation. Do not call directly: use #call instead
 	def emit_without_propagation(context) # :nodoc:
+            check_emission_validity
 	    if !executable?
 		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"
 	    end
@@ -482,13 +503,7 @@ module Roby
 
 	# Emit the event with +context+ as the event context
 	def emit(*context)
-	    if !executable?
-		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"
-	    elsif !self_owned?
-		raise OwnershipError, "cannot emit an event we don't own. #{self} is owned by #{owners}"
-	    elsif !Roby.inside_control?
-		raise ThreadMismatch, "#emit called while not in control thread"
-	    end
+            check_emission_validity
 
 	    context.compact!
 	    if Propagation.gathering?
