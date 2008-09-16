@@ -243,6 +243,41 @@ module Roby
 		super(obj)
 	    end
 	end
+
+	# Checks that the event can be called. Raises various exception
+	# when it is not the case.
+	def check_call_validity
+  	    super
+    	rescue EventNotExecutable => e
+	    refine_exception(e)
+	end
+
+	# Checks that the event can be emitted. Raises various exception
+	# when it is not the case.
+	def check_emission_validity
+  	    super
+    	rescue EventNotExecutable => e
+	    refine_exception(e)
+    	end
+
+
+	def refine_exception (e)
+	    if task.partially_instanciated?
+		raise EventNotExecutable.new(self), "#{name}! called on #{task} which is partially instanciated\n" + 
+			"The following arguments were not set: \n" +
+			task.list_unset_arguments.map {|n| "\t#{n}"}.join("\n")+"\n"
+# 						
+	    elsif !plan
+		raise EventNotExecutable.new(self), "#{name}! called on #{task} but the task is in no plan"
+	    elsif !plan.executable?
+		raise EventNotExecutable.new(self), "#{name}! called on #{task} but the plan is not executable"
+	    elsif task.abstract?
+		raise EventNotExecutable.new(self), "#{name}! called on #{task} but the task is abstract"
+	    else
+		raise EventNotExecutable.new(self), "#{name}! called on #{task} which is not executable: #{e.message}"
+	    end
+	end
+
     end
 
     class TaskArguments < Hash
@@ -468,9 +503,22 @@ module Roby
 	    @model = self.class
 
             yield(self) if block_given?
-
 	    initialize_events
 	end
+
+
+        # Lists all arguments, that are set to be needed via the :argument 
+        # syntax but are not set.
+        # This is needed for debugging purposes.
+        def list_unset_arguments
+            ret = Array.new
+            model.arguments.each { |name| 
+                  if !arguments.has_key?(name) then 
+                     ret << name
+                  end }
+            ret
+        end
+            
 
         # Helper methods which creates all the necessary TaskEventGenerator
         # objects and stores them in the #bound_events map
@@ -667,7 +715,7 @@ module Roby
 	def executable?; !abstract? && !partially_instanciated? && super end
 	# Returns true if this task's stop event is controlable
 	def interruptible?; event(:stop).controlable? end
-	# Set the executable flag. executable cannot be set to +false+ is the 
+	# Set the executable flag. executable cannot be set to +false+ if the 
 	# task is running, and cannot be set to true on a finished task.
 	def executable=(flag)
 	    return if flag == @executable
@@ -1114,22 +1162,8 @@ module Roby
 
 		# define an instance method which calls the event command
 		define_method("#{ev_s}!") do |*context| 
-		    begin
 			generator = event(ev)
 			generator.call(*context) 
-		    rescue EventNotExecutable => e
-			if partially_instanciated?
-			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} which is partially instanciated"
-			elsif !plan
-			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} but the task is in no plan"
-			elsif !plan.executable?
-			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} but the plan is not executable"
-			elsif abstract?
-			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} but the task is abstract"
-			else
-			    raise EventNotExecutable.new(generator), "#{ev_s}! called on #{generator.task} which is not executable: #{e.message}"
-			end
-		    end
 		end
             end
 
@@ -1606,5 +1640,6 @@ module Roby
     unless defined? TaskStructure
 	TaskStructure   = RelationSpace(Task)
     end
+
 end
 
