@@ -33,21 +33,22 @@ Roby is:
 * (G)UI tools for interacting/controlling the living system.
 * all of that in a multi-robot context.
 
+
+Roby is the result of my PhD. As such, my PhD thesis can be considered as a
+design document for the system. If you want an overview of the principles, you
+can also refer to the two publications I did. See {this
+page}[link:files/doc/papers_rdoc.html] for the list of publication and the
+associated PDF files.
+
+{This overview}[link:files/doc/overview_rdoc.html] also provides a more in-depth
+overview of the implementation itself.
+
 == Acknowledgments
 
 This work has been supported by the DGA (http://www.defense.gouv.fr/dga) which
 financed my PhD and the LAAS/CNRS (http://www.laas.fr), where I did it. It is
 now supported by the DFKI (http://www.dfki.de) where I currently work and use
 this plan manager.
-
-== Related publications
-
-Roby is the result of my PhD. As such, my PhD thesis can be considered as a
-design document for the system. If you want an overview of the principles, you
-can also refer to the two publications I did.
-
-See {this page}[link:files/doc/papers_rdoc.html] for the list of publication
-and the associated PDF files.
 
 == Videos
 

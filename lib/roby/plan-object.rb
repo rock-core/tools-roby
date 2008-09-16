@@ -238,6 +238,8 @@ module Roby
 	    end
 	end
 
+        # Hook called when a new child is added to this object in the given
+        # relations and with the given information object.
         def adding_child_object(child, relations, info)
             super if defined? super
             return if !plan
@@ -249,6 +251,9 @@ module Roby
                 end
             end
         end
+
+        # Hook called when a child of this object is being removed from the
+        # given relations.
         def removing_child_object(child, relations)
 	    unless read_write? || child.read_write?
 		raise OwnershipError, "cannot remove a relation between two objects we don't own"

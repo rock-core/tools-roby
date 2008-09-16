@@ -180,10 +180,10 @@ module Roby
 
 	# Returns true if the command has been called and false otherwise
 	# The command won't be called if #postpone() is called within the
-	# #calling hook
+	# #calling hook, in which case the method returns false.
 	#
 	# This is used by propagation code, and should never be called directly
-	def call_without_propagation(context) # :nodoc:
+	def call_without_propagation(context)
 	    if !controlable?
 		raise EventNotControlable.new(self), "#call called on a non-controlable event"
 	    end
@@ -452,11 +452,10 @@ module Roby
 	end
 
 	# Emits the event regardless of wether we are in a propagation context
-	# or not Returns true to match the behavior of
-	# #call_without_propagation
+	# or not. Returns true to match the behavior of #call_without_propagation
 	#
 	# This is used by event propagation. Do not call directly: use #call instead
-	def emit_without_propagation(context) # :nodoc:
+	def emit_without_propagation(context)
 	    if !executable?
 		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"
 	    end

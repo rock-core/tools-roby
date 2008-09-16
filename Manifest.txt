@@ -49,6 +49,7 @@ doc/images/roby_replay_first_state.png
 doc/images/roby_replay_relations.png
 doc/images/roby_replay_startup.png
 doc/images/task_event_generalization.png
+doc/overview.rdoc
 doc/papers.rdoc
 doc/styles/allison.css
 doc/styles/allison.js

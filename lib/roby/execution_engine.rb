@@ -1,26 +1,127 @@
-# This module contains all code necessary for the propagation steps during
-# execution. This includes event and exception propagation
-#
-# == Event propagation
-# Event propagation is based on three event relations:
-#
-# * Signal describes the commands that must be called when an event occurs. The
-#   signalled event command is called when the signalling events are emitted. If
-#   more than one event are signalling the same event in the same execution
-#   cycle, the command will be called only once
-# * Forwarding describes the events that must be emitted whenever a source
-#   event is. It is to be used as a way to define event aliases (for instance
-#   'stop' is an alias for 'success'), because a task is stopped when it has
-#   finished with success. Unlike with signals, if more than one event is
-#   forwarded to the same event in the same cycle, the target event will be
-#   emitted as many times as the incoming events.
-# * Precedence is a graph which constrains the order in which propagation is
-#   done. If there is a a => b edge in Precedence, and if both events are either
-#   called and/or forwarded in the same cycle, then 'a' will be propagated before
-#   'b'. All edges in Signal and Forwarding are present in Precedence
-#
-# == Exception propagation
 module Roby
+    # This class contains all code necessary for the propagation steps during
+    # execution. This includes event and exception propagation. This
+    # documentation will first present some useful tools provided by execution
+    # engines, and will continue by an overview of the implementation of the
+    # execution engine itself.
+    #
+    # == Misc tools
+    #
+    # === Block execution queueing
+    # <em>periodic handlers</em> are code blocks called at the beginning of the
+    # execution cycle, at the given periodicity (of course rounded to a cycle
+    # length). They are added by #every and removed by
+    # #remove_periodic_handler.
+    #
+    # === Thread synchronization primitives
+    # Most direct plan modifications and propagation operations are forbidden
+    # outside the execution engine's thread, to avoid the need for handling
+    # asynchronicity. Nonetheless, it is possible that a separate thread has to
+    # execute some of those operations. To simplify that, the following methods
+    # are available:
+    # * #execute blocks the calling thread until the given code
+    #   block is executed by the execution engine. Any exception that is raised
+    #   by the code block is raised back into the original thread and will not
+    #   affect the engine thread.
+    # * #once queues a block to be executed at the beginning of
+    #   the next execution cycle. Exceptions raised in it _will_ affect the
+    #   execution thread and most likely cause its shutdown.
+    # * #wait_until(ev) blocks the calling thread until +ev+ is emitted. If +ev+
+    #   becomes unreachable, an UnreachableEvent exception is raised in the
+    #   calling thread.
+    #
+    # To simplify the controller development, those tools are available directly
+    # as singleton methods of the Roby module, which forwards them to the
+    # main execution engine (Roby.engine). One can for instance do
+    #   Roby.once { puts "start of the execution thread" }
+    #
+    # Instead of
+    #   Roby.engine.once { ... }
+    #
+    # Or 
+    #   engine.once { ... }
+    #
+    # Nonetheless, note that it breaks the object-orientation of the system and
+    # therefore won't work in cases where you want multiple execution engine to
+    # run in parallel.
+    #
+    # == Execution cycle
+    #
+    # link:../../images/roby_cycle_overview.png
+    #
+    # === Event propagation
+    # Event propagation is based on three main event relations:
+    #
+    # * Signal describes the commands that must be called when an event occurs. The
+    #   signalled event command is called when the signalling events are emitted. If
+    #   more than one event are signalling the same event in the same execution
+    #   cycle, the command will be called only once
+    # * Forwarding describes the events that must be emitted whenever a source
+    #   event is. It is to be used as a way to define event aliases (for instance
+    #   'stop' is an alias for 'success'), because a task is stopped when it has
+    #   finished with success. Unlike with signals, if more than one event is
+    #   forwarded to the same event in the same cycle, the target event will be
+    #   emitted as many times as the incoming events.
+    # * the Precedence relation is a subset of the two preceding relations. It
+    #   represents a partial ordering of the events that must be maintained during
+    #   the propagation stage (i.e. a notion of causality).
+    #
+    # In the code, the followin procedure is followed: when a code fragment calls
+    # EventGenerator#emit or EventGenerator#call, the event is not emitted right
+    # away. Instead, it is queued in the set of "pending" events through the use of
+    # #add_event_propagation. The execution engine will then consider
+    # the pending set of events, choose the appropriate one by following the
+    # information contained in the Precedence relation and emit or call it. The
+    # actual call/emission is done through EventGenerator#call_without_propagation
+    # and EventGenerator#emit_without_propagation. The error checking (i.e. wether
+    # or not the emission/call is allowed) is done at both steps of propagation,
+    # because doing it late in the *_without_propagation versions would make the
+    # system more difficult to debug/test.
+    #
+    # === Error handling
+    # Each user-provided code fragment (i.e. event handlers, event commands,
+    # polling blocks, ...) are called into a specific error-gathering context.
+    # Once an exception is caught, it is added to the set of detected errors
+    # through #add_error. Those errors are handled after the
+    # event propagation cycle by the #propagate_exceptions
+    # method. It follows the following steps:
+    #
+    # * it removes all exceptions for which a running repair exists
+    #   (#remove_inhibited_exceptions)
+    #
+    # * it checks for repairs declared through the
+    #   Roby::TaskStructure::ErrorHandling relation. If one exists, the
+    #   corresponding task is started, adds it to the set of running repairs
+    #   (Plan#add_repair)
+    #
+    #   For example, the following code fragment declares that +repair_task+ 
+    #   is a plan repair for all errors involving the +low_battery+ event of the
+    #   +moving+ task
+    #
+    #       task.event(:moving).handle_with repair_task
+    #
+    # * it executes the exception handlers that have been declared for this
+    #   exception by a call to Roby::Task.on_exception.  The following code
+    #   fragment defines an exception handler for LowBattery exceptions:
+    #
+    #       class Moving
+    #           on_exception(LowBattery) { |error| do_something_to_handle_that }
+    #       end
+    #
+    #   Exception handling is finished whenever an exception handler did not
+    #   call #pass_exception to notify that it cannot handle the given
+    #   exception.
+    #
+    # * if no exception handler is found, or if all of them called
+    #   #pass_exception, then plan-level exception handlers are searched in the
+    #   corresponding Roby::Plan instance. Plan-level exception handlers are
+    #   defined by Plan#on_exception. Alternatively, for the main plan,
+    #   Roby.on_exception can be also used.
+    #
+    # * finally, tasks that are still involved in an error are injected into the
+    #   garbage collection process through the +force+ argument of
+    #   #garbage_collect, so that they get killed and removed from the plan.
+    #
     class ExecutionEngine
         extend Logger::Hierarchy
         extend Logger::Forward
@@ -55,15 +156,17 @@ module Roby
             @finalizers = []
 	end
 
-        # The plan this engine is acting on
+        # The Plan this engine is acting on
         attr_accessor :plan
-        # The decision control object associated with this engine
+        # The DecisionControl object associated with this engine
         attr_accessor :control
         # A numeric ID giving the count of the current propagation cycle
         attr_reader :propagation_id
         
         @propagation_handlers = []
         class << self
+            # Code blocks that get called at the beginning of each cycle. See
+            # #add_propagation_handler
             attr_reader :propagation_handlers
 
             # The propagation handlers are a set of block objects that have to be
@@ -79,7 +182,7 @@ module Roby
             #
             # This method sets up global propagation handlers (i.e. to be used for
             # all propagation on any plan). For per-plan propagation handlers, see
-            # ExecutionEngine#add_propagation_handler.
+            # #add_propagation_handler.
             #
             # See also #remove_propagation_handler
             def add_propagation_handler(proc_obj = nil, &block)
@@ -153,9 +256,11 @@ module Roby
         # propagation cycle.  For now, its #initial_events method is called at
         # the beginning of each propagation cycle and can call or emit a set of
         # events.
+        #
+        # See Schedulers::Basic
         attr_accessor :scheduler
 
-        # If we are currently in the propagation stage
+        # True if we are currently in the propagation stage
         def gathering?; !!@propagation end
         # The set of source events for the current propagation action. This is a
         # mix of EventGenerator and Event objects.
@@ -414,7 +519,8 @@ module Roby
             end
         end
 
-        # The topological ordering of events w.r.t. the Precedence relation
+        # The topological ordering of events w.r.t. the Precedence relation.
+        # This gets updated on-demand when the event relations change.
         attr_reader :event_ordering
         # The event => index hash which give the propagation priority for each
         # event
@@ -734,10 +840,8 @@ module Roby
         end
 
         # The set of errors which have been generated outside of the plan's
-        # control. For those errors, either specific handling must be designed or
-        # the whole controller must shut down.
-        #
-        # The handling of those errors is to be done by the event loop in control
+        # control. For now, those errors cause the whole controller to shut
+        # down.
         attr_reader :application_exceptions
         def clear_application_exceptions
             result, @application_exceptions = @application_exceptions, nil
@@ -830,7 +934,10 @@ module Roby
         # Hook called when an exception +e+ has been handled by +task+
         def handled_exception(e, task); super if defined? super end
         
-        # Kills and removes all unneeded tasks
+        # Kills and removes all unneeded tasks. +force_on+ is a set of task
+        # whose garbage-collection must be performed, even though those tasks
+        # are actually useful for the system. This is used to properly kill
+        # tasks for which errors have been detected.
         def garbage_collect(force_on = nil)
             if force_on && !force_on.empty?
                 plan.force_gc.merge(force_on.to_value_set)
@@ -972,7 +1079,7 @@ module Roby
         # A list of threads which are currently waitiing for the control thread
         # (see for instance Roby.execute)
         #
-        # ExecutionEngine#run will raise ExecutionQuitError on this threads if they
+        # #run will raise ExecutionQuitError on this threads if they
         # are still waiting while the control is quitting
         attr_reader :waiting_threads
 
@@ -1016,7 +1123,7 @@ module Roby
 	# The cycle length in seconds
 	attr_reader :cycle_length
 
-	# The starting point of this cycle
+	# The starting Time of this cycle
 	attr_reader :cycle_start
 
 	# The number of this cycle since the beginning
@@ -1140,13 +1247,18 @@ module Roby
 	    end
 	end
 
+        # How much time remains before the end of the cycle. Updated by
+        # #add_timepoint
 	attr_reader :remaining_cycle_time
+
         # Adds to the stats the given duration as the expected duration of the
         # +name+ step. The field in +stats+ is named "expected_#{name}".
 	def add_expected_duration(stats, name, duration)
 	    stats[:"expected_#{name}"] = Time.now + duration
 	end
-        # Adds in +stats+ the current time as a timepoint named +time+
+
+        # Adds in +stats+ the current time as a timepoint named +time+, and
+        # update #remaining_cycle_time
         def add_timepoint(stats, name)
             stats[:end] = stats[name] = Time.now - stats[:start]
             @remaining_cycle_time = cycle_length - stats[:end]
@@ -1273,7 +1385,7 @@ module Roby
 	end
 
         # A set of proc objects which are to be called when the execution engine
-        # has quit.
+        # quits.
         attr_reader :finalizers
 
 	# True if the control thread is currently quitting
