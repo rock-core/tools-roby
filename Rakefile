@@ -107,9 +107,14 @@ end
 UIFILES = %w{relations.ui relations_view.ui data_displays.ui replay_controls.ui basic_display.ui chronicle_view.ui}
 desc 'generate all Qt UI files using rbuic4'
 task :uic do
+    rbuic = 'rbuic4'
+    if File.exists?('/usr/lib/kde4/bin/rbuic4')
+        rbuic = '/usr/lib/kde4/bin/rbuic4'
+    end
+
     UIFILES.each do |file|
 	file = 'lib/roby/log/gui/' + file
-	if !system('rbuic4', '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
+	if !system(rbuic, '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
 	    STDERR.puts "Failed to generate #{file}"
 	end
     end
