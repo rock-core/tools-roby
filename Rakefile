@@ -45,8 +45,8 @@ informations, including links to tutorials and demonstration videos"
 	    tasks.delete_if { |n, _| n =~ /dist:(re|clobber_|)docs/ }
 	end
     end
-rescue LoadError
-    puts "cannot load the Hoe gem, distribution is disabled"
+rescue
+    puts "cannot setup Hoe, distribution is disabled"
 end
 
 def build_extension(name, soname = name)
