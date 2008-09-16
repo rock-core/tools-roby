@@ -45,8 +45,8 @@ informations, including links to tutorials and demonstration videos"
 	    tasks.delete_if { |n, _| n =~ /dist:(re|clobber_|)docs/ }
 	end
     end
-rescue LoadError
-    puts "cannot load the Hoe gem, distribution is disabled"
+rescue
+    puts "cannot setup Hoe, distribution is disabled"
 end
 
 def build_extension(name, soname = name)
@@ -107,9 +107,14 @@ end
 UIFILES = %w{relations.ui relations_view.ui data_displays.ui replay_controls.ui basic_display.ui chronicle_view.ui}
 desc 'generate all Qt UI files using rbuic4'
 task :uic do
+    rbuic = 'rbuic4'
+    if File.exists?('/usr/lib/kde4/bin/rbuic4')
+        rbuic = '/usr/lib/kde4/bin/rbuic4'
+    end
+
     UIFILES.each do |file|
 	file = 'lib/roby/log/gui/' + file
-	if !system('rbuic4', '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
+	if !system(rbuic, '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
 	    STDERR.puts "Failed to generate #{file}"
 	end
     end

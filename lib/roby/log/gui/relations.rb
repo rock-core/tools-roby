@@ -18,7 +18,7 @@ module Ui
 	CATEGORIES = ['Task structure']
 
 	def event_root_index; createIndex(TASK_ROOT_INDEX, 0, -1) end
-	def task_root_index; createIndex(EVENT_ROOT_INDEX, 0, -1) end
+	def task_root_index;  createIndex(EVENT_ROOT_INDEX, 0, -1) end
 
 	attr_reader :relations
 	attr_reader :display
@@ -30,10 +30,30 @@ module Ui
 	    @relations = []
 
 	    relations[TASK_ROOT_INDEX]  = Roby::TaskStructure.enum_for(:each_relation).to_a
+
+            RelationConfigModel.detect_qtruby_behaviour(createIndex(0, 0, 0))
 	end
 
+        QTRUBY_INDEX_USING_POINTERS  = 1
+        QTRUBY_INDEX_USING_OBJECTIDS = 2
+        def self.detect_qtruby_behaviour(idx)
+            if idx.internalPointer == 0
+                @@qtruby_behaviour = QTRUBY_INDEX_USING_POINTERS
+            elsif idx.internalId == 1
+                @@qtruby_behaviour = QTRUBY_INDEX_USING_OBJECTIDS
+            end
+        end
+
+        def self.category_from_index(idx)
+            if @@qtruby_behaviour == QTRUBY_INDEX_USING_POINTERS
+                idx.internalPointer
+            else
+                idx.internalId >> 1
+            end
+        end
+
 	def index(row, column, parent)
-	    if parent.valid? && parent.internalPointer == -1
+	    if parent.valid? && RelationConfigModel.category_from_index(parent) == -1
 		createIndex(row, column, parent.row)
 	    elsif row < relations.size
 		createIndex(row, column, -1)
@@ -41,13 +61,14 @@ module Ui
 		Qt::ModelIndex.new
 	    end
 	end
+
 	def parent(index)
-	    category = index.internalPointer
+	    category = RelationConfigModel.category_from_index(index)
 	    if !index.valid? || category == -1 then Qt::ModelIndex.new
 	    else createIndex(category, 0, -1) end
 	end
 	def columnCount(parent); 2 end
-	def hasChildren(parent); !parent.valid? || parent.internalPointer == -1 end
+	def hasChildren(parent); !parent.valid? || RelationConfigModel.category_from_index(parent) == -1 end
 	def rowCount(parent)
 	    if !parent.valid? then relations.size
 	    else relations[parent.row].size end
@@ -61,7 +82,7 @@ module Ui
 	def data(index, role)
 	    return Qt::Variant.new unless index.valid?
 
-	    category = index.internalPointer
+	    category = RelationConfigModel.category_from_index(index)
 	    value = if category == -1
 			if index.column == COL_NAME && role == Qt::DisplayRole
 			    CATEGORIES[index.row]
@@ -85,7 +106,7 @@ module Ui
 	    end
 	end
 	def setData(index, value, role)
-	    category = index.internalPointer
+	    category = RelationConfigModel.category_from_index(index)
 	    relation = relations[category][index.row]
 	    if role == Qt::CheckStateRole
 		case value.to_i
@@ -103,7 +124,7 @@ module Ui
 	    emit dataChanged(index, index)
 	end
 	def flags(index)
-	    if !index.valid? || index.internalPointer == -1 then Qt::ItemIsEnabled 
+	    if !index.valid? || RelationConfigModel.category_from_index(index) == -1 then Qt::ItemIsEnabled 
 	    else 
 		flags = Qt::ItemIsSelectable | Qt::ItemIsTristate | Qt::ItemIsEnabled | Qt::ItemIsUserCheckable
 		if index.column == 1
@@ -123,7 +144,7 @@ module Ui
 	    nil
 	end
 	def paint(painter, option, index)
-	    if index.column == 1 && index.internalPointer >= 0
+	    if index.column == 1 && RelationConfigModel.category_from_index(index) >= 0
 		color = index.model.data(index, Qt::DisplayRole).to_string
 		rect = option.rect
 		rect.adjust(1, 1, -1, -1)
