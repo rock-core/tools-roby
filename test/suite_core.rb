@@ -22,3 +22,5 @@ require 'test_control'
 require 'test_interface'
 require 'test_log'
 
+require 'test_gui'
+
