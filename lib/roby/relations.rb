@@ -169,12 +169,24 @@ module Roby
     end
 
     # This class manages the graph defined by an object relation in Roby.
+    # 
     # Relation graphs are managed in hierarchies (for instance, in
     # EventStructure, Precedence is a superset of CausalLink, and CausalLink a
     # superset of both Forwarding and Signal). In this hierarchy, at each
     # level, an edge cannot be present in more than one graph. Nonetheless, it
     # is possible for a parent relation to have an edge which is present in
     # none of its children.
+    #
+    # Each relation define two things:
+    # * a graph, which is represented by the RelationGraph instance itself
+    # * support methods that are defined on the vertices of the relation. They 
+    #   allow to manage the vertex in its relations easily. Those methods are
+    #   defined in a separate module (see #module)
+    #
+    # In general, relations are part of a RelationSpace instance, which manages
+    # the set of relations whose vertices are of the same kind (for instance
+    # TaskStructure manages all relations whose vertices are Task instances).
+    # In these cases, RelationSpace#relation allow to define new relations easily.
     class RelationGraph < BGL::Graph
 	# The relation name
 	attr_reader   :name
@@ -365,12 +377,27 @@ module Roby
 	attr_accessor :support
     end
 
-    # A relation space is a module which handles a list of relations and
-    # applies them to a set of classes. In this context, a relation is both a
-    # Ruby module which gets included in the classes this space is applied on,
-    # and a RelationGraph object which holds the object graphs.
+    # A relation space is a module which handles a list of relations
+    # (RelationGraph instances) and applies them to a set of classes.
+    # For instance, the TaskStructure relation space is defined by
+    #   TaskStructure = RelationSpace(Task)
     #
-    # See the files in roby/relations to see definitions of new relations
+    # See the files in roby/relations to see example definitions of new
+    # relations
+    #
+    # Use RelationSpace#relation allow to define a new relation in a given
+    # space. For instance, one can either do
+    #
+    #   TaskStructure.relation :NewRelation
+    #
+    # or
+    #
+    #   module TaskStructure
+    #       relation :NewRelation
+    #   end
+    #
+    # This relation can then be referenced by
+    # <tt>TaskStructure::NewRelation</tt>
     class RelationSpace < Module
 	# The set of relations included in this relation space
 	attr_reader :relations
@@ -442,40 +469,44 @@ module Roby
 
         # Defines a relation in this relation space. This defines a relation
         # graph, and various iteration methods on the vertices.  If a block is
-        # given, it defines a set of functions which should be defined on the
-        # vertex objects.
+        # given, it defines a set of functions which should additionally be
+        # defined on the vertex objects.
+        #
+        # The valid options are:
 	#
-	# = Options
 	# child_name::
 	#   define a <tt>each_#{child_name}</tt> method to iterate
 	#   on the vertex children. Uses the relation name by default (a Child
 	#   relation would define a <tt>each_child</tt> method)
 	# parent_name::
 	#   define a <tt>each_#{parent_name}</tt> method to iterate
-	#   on the vertex parents.  If none is given, no method is defined
+	#   on the parent vertices. If none is given, no method is defined
 	# subsets:: a list of subgraphs. See RelationGraph#superset_of
 	# noinfo::
-	#   if the relation embeds some additional information. If true,
+	#   wether the relation embeds some additional information. If false,
 	#   the child iterator method (<tt>each_#{child_name}</tt>) will yield (child,
 	#   info) instead of only child [false]
-	# graph:: the relation graph class
+	# graph:: the relation graph class [RelationGraph]
 	# distribute:: if true, the relation can be seen by remote peers [true]
 	# single_child::
 	#   if the relations accepts only one child per vertex
 	#   [false]. If this option is set, defines a <tt>#{child_name}</tt>
-	#   method which returns the only child or nil
+	#   method which returns the only child (or nil if there is no child at
+        #   all)
+        # dag:: if true, CycleFoundError will be raised if a new vertex would
+        #   create a cycle in this relation
 	def relation(relation_name, options = {}, &block)
 	    options = validate_options options,
-			:child_name => relation_name.to_s.underscore,
-			:const_name => relation_name,
+			:child_name  => relation_name.to_s.underscore,
+			:const_name  => relation_name,
 			:parent_name => nil,
-			:subsets => ValueSet.new,
-			:noinfo => false,
-			:graph => RelationGraph,
-			:distribute => true,
-			:dag => true,
+			:subsets     => ValueSet.new,
+			:noinfo      => false,
+			:graph       => RelationGraph,
+			:distribute  => true,
+			:dag         => true,
 			:single_child => false,
-			:weak => false
+			:weak        => false
 
 	    # Check if this relation is already defined. If it is the case, reuse it.
 	    # This is needed mostly by the reloading code
