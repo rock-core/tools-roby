@@ -1,6 +1,9 @@
 module Roby::TaskStructure
-    # Document-module: Hierarchy
     relation :Hierarchy, :child_name => :child, :parent_name => :parent_task do
+        ##
+        # :method: add_child(v, info)
+        # Adds a new child to +v+. You should use #realized_by instead.
+
 	# True if +obj+ is a parent of this object in the hierarchy relation
 	# (+obj+ is realized by +self+)
 	def realizes?(obj);	parent_object?(obj, Hierarchy) end
@@ -22,8 +25,10 @@ module Roby::TaskStructure
 	#
 	# success:: the list of success events. The default is [:success]
 	# failure:: the list of failing events. The default is [:failed]
-	# model:: a <tt>[task_model, arguments]</tt> pair which defines the task model the parent is expecting. 
-	#   The default value is to get these parameters from +task+
+	# model:: 
+        #   a <tt>[task_model, arguments]</tt> pair which defines the task
+        #   model the parent is expecting.  The default value is to get these
+        #   parameters from +task+
         #
         # The +success+ set describes the events of the child task that are
         # _required_ by the parent task. More specifically, the child task

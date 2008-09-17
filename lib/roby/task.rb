@@ -366,6 +366,13 @@ module Roby
     # immediately emitted, and in the second case it will be emitted at the
     # beginning of the next execution cycle.
     #
+    # === Task relations
+    #
+    # Task relations are defined in the TaskStructure RelationSpace instance.
+    # See TaskStructure documentation for the list of special methods defined
+    # by the various graphs, and the TaskStructure namespace for the name and
+    # purpose of the various relation graphs themselves.
+    #
     # === Executability
     #
     # By default, a task is not executable, which means that no event command
