@@ -67,7 +67,7 @@ def clean_extension(name, soname = name)
     end
 end
 
-task :cruise => [:setup, :recore_docs, :test]
+task :cruise => [:setup, 'doc:recore', :test]
 
 #########
 # Test-related targets
