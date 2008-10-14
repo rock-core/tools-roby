@@ -676,7 +676,7 @@ class TC_Task < Test::Unit::TestCase
 	   erroneous_plan.discover(task = SimpleTask.new)
 	   task
 	end
-        erroneous_plan.garbage_collect	
+        erroneous_plan.clear
         
         #test for a not executable task
         check_direct_start(/is not executable/,true) do
