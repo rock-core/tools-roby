@@ -52,7 +52,7 @@ class TC_Task < Test::Unit::TestCase
 		    emit :start
 		end
 	    end
-	    plan.insert(task = model.new)
+	    plan.add_mission(task = model.new)
 	    mock.should_receive(:start).once.with(task, [42])
 	    task.start!(42)
 	end
@@ -74,7 +74,7 @@ class TC_Task < Test::Unit::TestCase
                 end
             end
 
-            plan.insert(task = child_m.new)
+            plan.add_mission(task = child_m.new)
             mock.should_receive(:parent_started).once.with(task, 21)
             mock.should_receive(:child_started).once.with(task, 42)
             task.start!(42)
@@ -441,7 +441,7 @@ class TC_Task < Test::Unit::TestCase
 
 		on(:stop)  { |event| mock.stopped(event.context) }
 	    end
-	    plan.insert(task = model.new)
+	    plan.add_mission(task = model.new)
 
 	    mock.should_receive(:starting).with([42]).once
 	    mock.should_receive(:started).with([42]).once
@@ -595,7 +595,7 @@ class TC_Task < Test::Unit::TestCase
 	assert_raises(ModelViolation) { task.executable = false }
 
 	task = SimpleTask.new
-	plan.insert(task)
+	plan.add_mission(task)
 	assert(task.executable?)
 	task.executable = false
 	assert(!task.executable?)
@@ -690,7 +690,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_task_success_failure
 	FlexMock.use do |mock|
-	    plan.insert(t = EmptyTask.new)
+	    plan.add_mission(t = EmptyTask.new)
 	    [:start, :success, :stop].each do |name|
 		t.on(name) { mock.send(name) }
 		mock.should_receive(name).once.ordered
@@ -700,7 +700,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def aggregator_test(a, *tasks)
-	plan.insert(a)
+	plan.add_mission(a)
 	FlexMock.use do |mock|
 	    [:start, :success, :stop].each do |name|
 		a.on(name) { mock.send(name) }
@@ -759,7 +759,7 @@ class TC_Task < Test::Unit::TestCase
 
 	task = seq.to_task(model)
 
-	plan.insert(task)
+	plan.add_mission(task)
 
 	assert(!seq.child_object?(t1, TaskStructure::Hierarchy))
 	assert(!seq.child_object?(t2, TaskStructure::Hierarchy))

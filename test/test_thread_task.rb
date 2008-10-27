@@ -23,7 +23,7 @@ class TC_ThreadTask < Test::Unit::TestCase
             end
         end
 
-        plan.insert(task = model.new)
+        plan.add_mission(task = model.new)
 	wait_thread_end(task)
 
         assert task.success?

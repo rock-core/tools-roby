@@ -84,7 +84,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	# Check that marshalling the remote view of a local transaction proxy
 	# returns the local proxy itself
-	plan.insert(task = Task.new)
+	plan.add_mission(task = Task.new)
 	assert(!plan.update_on?(remote_peer))
 	assert(trsc.update_on?(remote_peer))
 	assert(!task.update_on?(remote_peer))
@@ -176,7 +176,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
     def test_ownership
 	peer2peer do |remote|
-	    remote.plan.insert(Task.new(:id => 1))
+	    remote.plan.add_mission(Task.new(:id => 1))
 	    def remote.add_owner_local(trsc)
 		trsc = local_peer.local_object(trsc)
 		trsc.add_owner local_peer
@@ -234,7 +234,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 		event :ready, :command => true
 	    end.new(:id => 'exec')
 	    task.executed_by exec
-	    remote.plan.insert(task)
+	    remote.plan.add_mission(task)
 
 	    remote.singleton_class.class_eval do
 		include Test::Unit::Assertions
@@ -270,7 +270,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
     def test_argument_updates
 	peer2peer do |remote|
-	    remote.plan.insert(ArgumentUpdateTest.new(:id => 2))
+	    remote.plan.add_mission(ArgumentUpdateTest.new(:id => 2))
 	    def remote.set_argument(task)
 		task = local_peer.local_object(task)
 		task.plan.edit
@@ -352,7 +352,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     def test_propose_commit
 	peer2peer do |remote|
 	    testcase = self
-	    remote.plan.insert(root = SimpleTask.new(:id => 'remote-1'))
+	    remote.plan.add_mission(root = SimpleTask.new(:id => 'remote-1'))
 	    root.realized_by(child = SimpleTask.new(:id => 'remote-2'))
 
 	    PeerServer.class_eval do
@@ -384,7 +384,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     def test_synchronization
 	peer2peer do |remote|
 	    testcase = self
-	    remote.plan.insert(root = SimpleTask.new(:id => 'remote-1'))
+	    remote.plan.add_mission(root = SimpleTask.new(:id => 'remote-1'))
 	    root.realized_by SimpleTask.new(:id => 'remote-2')
 
 	    PeerServer.class_eval do

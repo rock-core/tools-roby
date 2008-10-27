@@ -17,11 +17,11 @@ module Roby
     # called.
     #
     # Two special kinds of objects exist in plans:
-    # * the +missions+ (#missions, #mission?, #mission and #discard) are the
+    # * the +missions+ (#missions, #mission?, #add_mission and #remove_mission) are the
     #   final goals of the system.  A task is +useful+ if it helps into the
     #   Realization of a mission (it is the child of a mission through one of the
     #   task relations).
-    # * the +permanent+ objects (#permanent, #auto, #permanent_tasks and
+    # * the +permanent+ objects (#permanent, #auto, #permanent?, #permanent_tasks and
     #   #permanent_events) are plan objects that are not affected by the plan's
     #   garbage collection mechanism. As for missions, task that are useful to
     #   permanent tasks are also 
@@ -48,7 +48,7 @@ module Roby
 	# The set of events that are defined by #known_tasks
 	attr_reader :task_events
         # The list of the robot's missions. Do not change that set directly, use
-        # #insert and #discard instead.
+        # #add_mission and #remove_mission instead.
 	attr_reader :missions
 	# The list of tasks that are kept outside GC. Do not change that set
         # directly, use #permanent and #auto instead.
@@ -161,21 +161,68 @@ module Roby
 	    ret
 	end
 
-	# Inserts a new mission in the plan. Its child tree is automatically
-	# inserted too.  Returns the plan
-        def insert(task)
+	# Inserts a new mission in the plan.
+        #
+        # In the plan manager, missions are the tasks which constitute the
+        # robot's goal. This is the base for two things:
+        # * if a mission fails, the MissionFailedError is raised
+        # * the mission and all the tasks and events which are useful for it,
+        #   are not removed automatically by the garbage collection mechanism.
+        #   A task or event is <b>useful</b> if it is part of the child subgraph
+        #   of the mission, i.e. if there is a path in the relation graphs where
+        #   the mission is the source and the task is the target.
+        def add_mission(task)
 	    return if @missions.include?(task)
 
 	    @missions << task
 	    discover(task)
 	    task.mission = true if task.self_owned?
-	    inserted(task)
+	    added_mission(task)
 	    self
 	end
-	# Hook called when +tasks+ have been inserted in this plan
+        # DEPRECATED. Use #add_mission(task) instead.
+        def insert(task); add_mission(task) end
+	# DEPRECATED, use #added_mission instead.
 	def inserted(tasks); super if defined? super end
+	# Hook called when +tasks+ have been inserted in this plan
+	def added_mission(tasks)
+            super if defined? super 
+            inserted(tasks)
+        end
+	# Checks if +task+ is a mission of this plan
+	def mission?(task); @missions.include?(task) end
 
-	# Forbid the GC to take out +task+
+	# Removes the task in +tasks+ from the list of missions
+	def remove_mission(task)
+	    @missions.delete(task)
+	    discover(task)
+	    task.mission = false if task.self_owned?
+
+	    removed_mission(task)
+	    self
+	end
+	# Hook called when +tasks+ have been discarded from this plan
+	def removed_mission(task)
+            super if defined? super
+            discarded(task)
+        end
+        # DEPRECATED. Use #remove_mission instead
+        def discard(task); remove_mission(task) end
+        # DEPRECATED. Hook to #removed_mission instead
+        def discarded(task); super if defined? super end
+
+	# Adds +object+ in the list of permanent tasks. Permanent tasks are
+        # tasks that are not to be subject to the plan's garbage collection
+        # mechanism (i.e. they will not be removed even though they are not
+        # directly linked to a mission).
+        #
+        # #object is also discovered, meaning that all the tasks and events
+        # related to it are added in the plan as well. See #discover.
+        #
+        # Unlike missions, the failure of a permanent task does not constitute
+        # an error.
+        #
+        # See also #auto and #permanent?
 	def permanent(object)
             if object.kind_of?(Task)
                 @permanent_tasks << object
@@ -183,13 +230,22 @@ module Roby
                 @permanent_events << object
             end
 	    discover(object)
+            self
 	end
 
-	# Make GC finalize +task+ if it is not useful anymore
+	# Removes +object+ from the list of permanent objects. Permanent objects
+        # are protected from the plan's garbage collection.
+        #
+        # See also #permanent and #permanent?
 	def auto(object)
             @permanent_tasks.delete(object) 
             @permanent_events.delete(object)
         end
+
+        # True if +obj+ is a permanent task.
+        #
+        # See also #permanent and #auto
+	def permanent?(obj); @permanent_tasks.include?(obj) || @permanent_events.include?(obj) end
 
 	def edit
 	    if block_given?
@@ -199,20 +255,8 @@ module Roby
 	    end
 	end
 
-	def permanent?(obj); @permanent_tasks.include?(obj) || @permanent_events.include?(obj) end
-
-	# Removes the task in +tasks+ from the list of missions
-	def discard(task)
-	    @missions.delete(task)
-	    discover(task)
-	    task.mission = false if task.self_owned?
-
-	    discarded(task)
-	    self
-	end
-	# Hook called when +tasks+ have been discarded from this plan
-	def discarded(tasks); super if defined? super end
-
+        # True if this plan owns the given object, i.e. if all the owners of the
+        # object are also owners of the plan.
 	def owns?(object)
 	    (object.owners - owners).empty?
 	end
@@ -246,8 +290,8 @@ module Roby
 
 	    replaced(from, to)
 	    if mission?(from)
-		discard(from)
-		insert(to)
+		remove_mission(from)
+		add_mission(to)
 	    elsif permanent?(from)
 		auto(from)
 		permanent(to)
@@ -430,7 +474,7 @@ module Roby
 	    # Remove all missions that are finished
 	    for finished_mission in (@missions & task_index.by_state[:finished?])
 		if !task_index.repaired_tasks.include?(finished_mission)
-		    discard(finished_mission)
+		    remove_mission(finished_mission)
 		end
 	    end
 	    for finished_permanent in (@permanent_tasks & task_index.by_state[:finished?])
@@ -536,8 +580,6 @@ module Roby
 
 	# Checks if +task+ is included in this plan
 	def include?(object); @known_tasks.include?(object) || @free_events.include?(object) end
-	# Checks if +task+ is a mission of this plan
-	def mission?(task); @missions.include?(task) end
 	# Count of tasks in this plan
 	def size; @known_tasks.size end
 	# Returns true if there is no task in this plan

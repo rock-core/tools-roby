@@ -142,7 +142,7 @@ module Roby
 		control_priority do
 		    if !task.kind_of?(Roby::Task)
 			Roby.execute do
-			    plan.insert(task = planner.send(task, *args))
+			    plan.add_mission(task = planner.send(task, *args))
 			end
 		    end
 

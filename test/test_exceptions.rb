@@ -127,7 +127,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    t1, t2 = klass.new, klass.new
 	    t1.realized_by t2
-	    plan.insert(t1)
+	    plan.add_mission(t1)
 
 	    mock.should_receive(:event_called).once.ordered
 	    mock.should_receive(:task_handler_called).once.ordered
@@ -304,7 +304,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    mock.should_receive(:exception).once
 
 	    parent.realized_by task
-	    plan.insert(parent)
+	    plan.add_mission(parent)
 
 	    engine.once { task.start! }
 
@@ -416,7 +416,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
     def test_exception_inhibition
 	parent, child = prepare_plan :tasks => 2, :model => SimpleTask
-	plan.insert(parent)
+	plan.add_mission(parent)
 	parent.realized_by child
 	parent.on :start, child, :start
 	parent.start!
@@ -444,7 +444,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	end
 
 	parent, child = prepare_plan :tasks => 2, :model => task_model
-	plan.insert(parent)
+	plan.add_mission(parent)
 	parent.realized_by child
 	repairing_task = SimpleTask.new
 	child.event(:failed).handle_with repairing_task
@@ -503,7 +503,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	assert_equal(exceptions.keys, engine.propagate_exceptions(exceptions))
 
 	# Discard the mission so that the test teardown does not complain
-	plan.discard(mission)
+	plan.remove_mission(mission)
     end
 
     def test_filter_command_errors

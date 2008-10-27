@@ -23,13 +23,13 @@ module TC_PlanStatic
 	assert(!plan.mission?(t1))
 	assert(!plan.permanent?(t1))
 
-	plan.insert(t1 = Task.new)
+	plan.add_mission(t1 = Task.new)
 	assert(plan.include?(t1))
 	assert(plan.mission?(t1))
 	assert(t1.mission?)
 	assert(!plan.permanent?(t1))
 
-	plan.discard(t1)
+	plan.remove_mission(t1)
 	assert(plan.include?(t1))
 	assert(!plan.mission?(t1))
 	assert(!t1.mission?)
@@ -39,7 +39,7 @@ module TC_PlanStatic
 	plan.discover(t1 = Task.new)
 	assert(plan.include?(t1))
 	assert(!plan.mission?(t1))
-	plan.insert(t1)
+	plan.add_mission(t1)
 	assert(plan.mission?(t1))
 	assert(t1.mission?)
 	plan.remove_object(t1)
@@ -145,7 +145,7 @@ module TC_PlanStatic
 	t2.on(:start, t3, :stop)
 	t2.planned_by t4
 
-	result = plan.insert(t1)
+	result = plan.add_mission(t1)
 	assert_equal(plan, result)
 	assert( plan.include?(t1) )
 	assert( plan.include?(t2) )
@@ -165,12 +165,12 @@ module TC_PlanStatic
 	t2.on(:start, t3, :stop)
 	t2.planned_by t4
 
-	plan.insert(t1)
+	plan.add_mission(t1)
 
 	assert_equal([t1, t2, t4].to_value_set, plan.locally_useful_tasks)
-	plan.insert(t3)
+	plan.add_mission(t3)
 	assert_equal([t1, t2, t3, t4].to_value_set, plan.locally_useful_tasks)
-	plan.discard(t1)
+	plan.remove_mission(t1)
 	assert_equal([t3].to_value_set, plan.locally_useful_tasks)
 	assert_equal([t1, t2, t4].to_value_set, plan.unneeded_tasks)
     end
@@ -287,8 +287,8 @@ module TC_PlanStatic
 	t1.realized_by t2
 	t1.on(:stop, t3, :start)
 
-	plan.insert(t1)
-	plan.insert(t3)
+	plan.add_mission(t1)
+	plan.add_mission(t3)
 
 	assert(!t1.leaf?)
 	plan.remove_object(t2)
@@ -303,7 +303,7 @@ module TC_PlanStatic
 
     def test_free_events
 	t1, t2, t3 = (1..3).map { Roby::Task.new }
-	plan.insert(t1)
+	plan.add_mission(t1)
 	t1.realized_by t2
 	assert_equal(plan, t2.plan)
 	assert_equal(plan, t1.event(:start).plan)
@@ -321,7 +321,7 @@ module TC_PlanStatic
 
     def test_plan_synchronization
 	t1, t2 = prepare_plan :tasks => 2
-	plan.insert(t1)
+	plan.add_mission(t1)
 	assert_equal(plan, t1.plan)
 	assert_equal(nil, t2.plan)
 	t1.realized_by t2
@@ -346,7 +346,7 @@ module TC_PlanStatic
 	    include adding_child_failure
 	end
 	t1, t2 = model.new, model.new
-	plan.insert(t1)
+	plan.add_mission(t1)
 	assert_equal(plan, t1.plan)
 	assert_equal(nil, t2.plan)
 	assert_raises(RuntimeError) { t1.realized_by t2 }
@@ -435,19 +435,19 @@ class TC_Plan < Test::Unit::TestCase
 
 	t7.realized_by t8
 
-	[t1, t2, t5].each { |t| plan.insert(t) }
+	[t1, t2, t5].each { |t| plan.add_mission(t) }
 	plan.permanent(t7)
 
 	assert_finalizes(plan, [])
-	assert_finalizes(plan, [t1]) { plan.discard(t1) }
+	assert_finalizes(plan, [t1]) { plan.remove_mission(t1) }
 	assert_finalizes(plan, [t2, t3]) do
 	    t2.start!(nil)
-	    plan.discard(t2)
+	    plan.remove_mission(t2)
 	end
 	assert_finalizes(plan, [t5, t4, p1, t6], []) do
 	    t5.delays = true
 	    t5.start!(nil)
-	    plan.discard(t5)
+	    plan.remove_mission(t5)
 	end
 	assert(t5.event(:stop).pending?)
 	assert_finalizes(plan, [t5, t4, p1, t6]) do
@@ -462,7 +462,7 @@ class TC_Plan < Test::Unit::TestCase
 	t2 = Task.new
 	t1.realized_by t2
 
-	plan.insert(t1)
+	plan.add_mission(t1)
 	t1.start!
 	assert_finalizes(plan, []) do
 	    engine.garbage_collect([t1])
@@ -541,7 +541,7 @@ class TC_Plan < Test::Unit::TestCase
 	t  = SimpleTask.new
 	e1 = EventGenerator.new(true)
 
-	plan.insert(t)
+	plan.add_mission(t)
 	plan.discover(e1)
 	assert_equal([e1], plan.unneeded_events.to_a)
 	t.event(:start).on e1

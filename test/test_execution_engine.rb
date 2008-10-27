@@ -140,7 +140,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    current_time = Time.now + 5
 	    time_proxy.should_receive(:now).and_return { current_time }
 
-	    plan.insert(t = SimpleTask.new)
+	    plan.add_mission(t = SimpleTask.new)
 	    e = EventGenerator.new(true)
 	    t.event(:start).on e, :delay => 0.1
 	    engine.once { t.start! }
@@ -153,7 +153,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     end
 
     def test_duplicate_signals
-	plan.insert(t = SimpleTask.new)
+	plan.add_mission(t = SimpleTask.new)
 	
 	FlexMock.use do |mock|
 	    t.on(:start)   { |event| t.emit(:success, *event.context) }
@@ -173,7 +173,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    forward :child_success => :child_stop
 	end.new(:id => 'a')
 
-	plan.insert(a)
+	plan.add_mission(a)
 	a.realized_by(b = SimpleTask.new(:id => 'b'))
 
 	b.forward(:success, a, :child_success)
@@ -273,9 +273,9 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     end
 
     def test_event_loop
-        plan.insert(start_node = EmptyTask.new)
+        plan.add_mission(start_node = EmptyTask.new)
         next_event = [ start_node, :start ]
-        plan.insert(if_node    = ChoiceTask.new)
+        plan.add_mission(if_node    = ChoiceTask.new)
         start_node.on(:stop) { next_event = [if_node, :start] }
 	if_node.on(:stop) {  }
             
@@ -353,7 +353,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 		raise SpecificException, "bla"
             end
 	end
-	plan.insert(t = model.new)
+	plan.add_mission(t = model.new)
 
 	assert_original_error(SpecificException, CommandFailed) { t.start! }
 	assert(!t.event(:start).pending?)
@@ -369,7 +369,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
                 end
 		on(:start) { |ev| mock.handler_called }
 	    end.new
-	    plan.insert(t)
+	    plan.add_mission(t)
 
 	    mock.should_receive(:command_called).once
 	    mock.should_receive(:handler_called).never
@@ -396,12 +396,12 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	Roby.app.abort_on_exception = false
 
 	# Check on a single task
-	plan.insert(t = SimpleTask.new)
+	plan.add_mission(t = SimpleTask.new)
 	apply_check_structure { LocalizedError.new(t) }
 	assert(! plan.include?(t))
 
 	# Make sure that a task which has been repaired will not be killed
-	plan.insert(t = SimpleTask.new)
+	plan.add_mission(t = SimpleTask.new)
 	did_once = false
 	apply_check_structure do
 	    unless did_once
@@ -417,8 +417,8 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	t1.realized_by t2
 	t2.realized_by t3
 
-	plan.insert(t0)
-	plan.insert(t1)
+	plan.add_mission(t0)
+	plan.add_mission(t1)
 	FlexMock.use do |mock|
 	    mock.should_receive(:checking).twice
 	    apply_check_structure do
@@ -436,8 +436,8 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	t0, t1, t2 = prepare_plan :discover => 3
 	t0.realized_by t2
 	t1.realized_by t2
-	plan.insert(t0)
-	plan.insert(t1)
+	plan.add_mission(t0)
+	plan.add_mission(t1)
 	apply_check_structure { { LocalizedError.new(t2) => t0 } }
 	assert(!plan.include?(t0))
 	assert(plan.include?(t1))

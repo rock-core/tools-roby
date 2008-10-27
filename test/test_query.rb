@@ -43,9 +43,9 @@ class TC_Query < Test::Unit::TestCase
 	t1 = task_model.new(:value => 1)
 	t2 = task_model.new(:value => 2)
 
-	plan.insert(t0)
-	plan.insert(t1)
-	plan.insert(t2)
+	plan.add_mission(t0)
+	plan.add_mission(t1)
+	plan.add_mission(t2)
 
 	check_matches_fullfill(task_model, plan, t0, t1, t2)
     end
@@ -59,9 +59,9 @@ class TC_Query < Test::Unit::TestCase
 	t1 = task_model.new(:value => 1)
 	t2 = task_model.new(:value => 2)
 
-	plan.insert(t0)
-	plan.insert(t1)
-	plan.insert(t2)
+	plan.add_mission(t0)
+	plan.add_mission(t1)
+	plan.add_mission(t2)
 
 	trsc = Transaction.new(plan)
 	check_matches_fullfill(task_model, trsc, trsc[t0], trsc[t1], trsc[t2])

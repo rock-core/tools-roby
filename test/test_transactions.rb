@@ -91,7 +91,7 @@ module TC_TransactionBehaviour
 
 	t = prepare_plan :discover => 1
 	transaction_commit(plan, t) do |trsc, p|
-	    trsc.insert(p)
+	    trsc.add_mission(p)
 	end
 	assert(t.event(:start).child_object?(t.event(:updated_data), Roby::EventStructure::Precedence))
 	assert(t.event(:failed).child_object?(t.event(:stop), Roby::EventStructure::Forwarding))
@@ -142,7 +142,7 @@ module TC_TransactionBehaviour
 
 	transaction_commit(plan) do |trsc| 
 	    assert(!trsc.include?(t2))
-	    trsc.insert(t2) 
+	    trsc.add_mission(t2) 
 	    assert(trsc.include?(t2))
 	    assert(trsc.mission?(t2))
 	    assert(!plan.include?(t2))
@@ -153,7 +153,7 @@ module TC_TransactionBehaviour
 
 	transaction_commit(plan, t2) do |trsc, p2|
 	    assert(trsc.mission?(p2))
-	    trsc.discard(p2)
+	    trsc.remove_mission(p2)
 	    assert(trsc.include?(p2))
 	    assert(!trsc.mission?(p2))
 	    assert(plan.include?(t2))
@@ -344,7 +344,7 @@ module TC_TransactionBehaviour
     def test_relation_validation
 	t1, t2 = prepare_plan :tasks => 2
 	transaction_commit(plan, t1) do |trsc, p1|
-	    trsc.insert(t2)
+	    trsc.add_mission(t2)
 	    assert_equal(plan, t1.plan)
 	    assert_equal(trsc, p1.plan)
 	    assert_equal(trsc, t2.plan)
@@ -459,8 +459,8 @@ class TC_Transactions < Test::Unit::TestCase
     def test_and_event_aggregator
 	t1, t2, t3 = (1..3).map { SimpleTask.new }
 	transaction_commit(plan, t1) do |trsc, p1|
-	    trsc.insert(t2)
-	    trsc.insert(t3)
+	    trsc.add_mission(t2)
+	    trsc.add_mission(t3)
 	    and_generator = (p1.event(:start) & t2.event(:start))
 	    assert_equal(trsc, and_generator.plan)
 	    and_generator.on t3.event(:start)
@@ -475,8 +475,8 @@ class TC_Transactions < Test::Unit::TestCase
     def test_or_event_aggregator
 	t1, t2, t3 = (1..3).map { SimpleTask.new }
 	transaction_commit(plan, t1) do |trsc, p1|
-	    trsc.insert(t2)
-	    trsc.insert(t3)
+	    trsc.add_mission(t2)
+	    trsc.add_mission(t3)
 	    (p1.event(:start) | t2.event(:start)).on t3.event(:start)
 	end
 

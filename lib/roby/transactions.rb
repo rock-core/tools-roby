@@ -66,7 +66,7 @@ module Roby
 		    elsif object.plan == self.plan
 			wrapped = do_wrap(object, true)
 			if plan.mission?(object)
-			    insert(wrapped)
+			    add_mission(wrapped)
 			elsif plan.permanent?(object)
 			    permanent(wrapped)
 			end
@@ -235,7 +235,7 @@ module Roby
 	    super(self[from], self[to])
 	end
 
-	def insert(t)
+	def add_mission(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if proxy = self[t, false]
 		discarded_tasks.delete(may_unwrap(proxy))
@@ -267,7 +267,7 @@ module Roby
 	    end
 	end
 
-	def discard(t)
+	def remove_mission(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if proxy = self[t, false]
 		super(proxy)
@@ -321,7 +321,7 @@ module Roby
 
 	    plan.execute do
 		auto_tasks.each      { |t| plan.auto(t) }
-		discarded_tasks.each { |t| plan.discard(t) }
+		discarded_tasks.each { |t| plan.remove_mission(t) }
 		removed_objects.each do |obj| 
 		    plan.remove_object(obj) if plan.include?(obj)
 		end
@@ -385,7 +385,7 @@ module Roby
 		proxy_objects.each_value { |proxy| proxy.commit_transaction }
 		proxy_objects.each_value { |proxy| proxy.clear_relations  }
 
-		insert.each    { |t| plan.insert(t) }
+		insert.each    { |t| plan.add_mission(t) }
 		permanent.each { |t| plan.permanent(t) }
 
 		proxies     = proxy_objects.dup

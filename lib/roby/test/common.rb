@@ -232,7 +232,7 @@ module Roby
 
 	    missions, permanent, discovered, tasks = [], [], [], []
 	    (1..options[:missions]).each do |i|
-		options[:plan].insert(t = options[:model].new(:id => "mission-#{i}"))
+		options[:plan].add_mission(t = options[:model].new(:id => "mission-#{i}"))
 		missions << t
 	    end
 	    (1..options[:permanent]).each do |i|

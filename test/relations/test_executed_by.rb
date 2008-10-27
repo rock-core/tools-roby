@@ -63,7 +63,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_agent_start_failed
-	plan.insert(task = SimpleTask.new)
+	plan.add_mission(task = SimpleTask.new)
 	exec = Class.new(SimpleTask) do
 	    event :ready
 	    on :start => :failed
@@ -80,7 +80,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	task_model = Class.new(SimpleTask)
 
 	task_model.executed_by ExecutionAgentModel
-	plan.insert(task = task_model.new)
+	plan.add_mission(task = task_model.new)
 	assert(task.execution_agent)
 	assert(ExecutionAgentModel, task.execution_agent.class)
 
@@ -115,7 +115,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_cannot_respawn
-	plan.insert(task  = Class.new(SimpleTask).new)
+	plan.add_mission(task  = Class.new(SimpleTask).new)
 	task.executed_by(agent = ExecutionAgentModel.new)
 
 	agent.start!

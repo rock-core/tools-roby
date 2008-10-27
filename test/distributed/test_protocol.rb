@@ -181,7 +181,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	peer2peer do |remote|
 	    PeerServer.class_eval do
 		def task
-		    plan.insert(@task = Class.new(SimpleTask).new(:id => 1))
+		    plan.add_mission(@task = Class.new(SimpleTask).new(:id => 1))
 		    @task.data = [42, @task.class]
 		    [@task, @task.remote_id]
 		end
@@ -320,7 +320,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
     #   deletion (it has not yet received the removed_sibling message)
     def test_finalized_remote_task_race_condition
 	peer2peer do |remote|
-	    remote.plan.insert(task = SimpleTask.new(:id => 'remote'))
+	    remote.plan.add_mission(task = SimpleTask.new(:id => 'remote'))
 	    
 	    remote.singleton_class.class_eval do
 		define_method(:send_task_update) do
@@ -350,7 +350,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	peer2peer do |remote|
 	    PeerServer.class_eval do
 		def task
-		    plan.insert(@task = model.new(:id => 1, :model => model))
+		    plan.add_mission(@task = model.new(:id => 1, :model => model))
 		    @task
 		end
 		def model
@@ -429,7 +429,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
     def test_marshal_event
 	peer2peer do |remote|
-	    remote.plan.insert(t = Task.new)
+	    remote.plan.add_mission(t = Task.new)
 	    t.on(:start, (ev = EventGenerator.new(true)))
 	    t.event(:start).forward(ev = EventGenerator.new(false))
 	    t.on(:start, (ev = EventGenerator.new { }))
@@ -455,10 +455,10 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
     def test_siblings
 	peer2peer do |remote|
-	    plan.insert(Roby::Task.new(:id => 'remote'))
+	    plan.add_mission(Roby::Task.new(:id => 'remote'))
 	end
 
-	plan.insert(remote_task = remote_task(:id => 'remote'))
+	plan.add_mission(remote_task = remote_task(:id => 'remote'))
 	assert(remote_task.has_sibling_on?(remote_peer))
 	remote_object, _ = remote_peer.proxies.find { |_, task| task == remote_task }
 	assert(remote_object)

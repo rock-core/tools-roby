@@ -66,7 +66,7 @@ module Roby
             #
             # Note that plan will have called the #discovered_tasks hook
             # beforehand
-	    def inserted(task)
+	    def added_mission(task)
 		super if defined? super
 		return unless task.distribute? && task.self_owned?
 
@@ -80,7 +80,7 @@ module Roby
 
             # Hook called when a new task is not a mission anymore. It sends a
             # PeerServer#plan_set_mission message to the remote host.
-	    def discarded(task)
+	    def removed_mission(task)
 		super if defined? super
 		return unless task.distribute? && task.self_owned?
 
@@ -190,9 +190,9 @@ module Roby
 		task = peer.local_object(task)
 		if plan.owns?(task)
 		    if flag
-			plan.insert(task)
+			plan.add_mission(task)
 		    else
-			plan.discard(task)
+			plan.remove_mission(task)
 		    end
 		else
 		    task.mission = flag

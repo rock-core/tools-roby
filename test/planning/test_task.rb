@@ -33,7 +33,7 @@ class TC_PlanningTask < Test::Unit::TestCase
 	planning_task = PlanningTask.new(:planner_model => planner, :method_name => :task,
 				:method_options => { :bla => 42 },
 				:blo => 84)
-	plan.insert(planned_task = Task.new)
+	plan.add_mission(planned_task = Task.new)
 	planned_task.planned_by planning_task
 
 	planning_task.start!(42)

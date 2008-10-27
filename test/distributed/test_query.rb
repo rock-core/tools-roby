@@ -47,7 +47,7 @@ class TC_DistributedQuery < Test::Unit::TestCase
 
 	    mission, subtask = Task.new(:id => 1), local_model.new(:id => 2)
 	    mission.realized_by subtask
-	    remote.plan.insert(mission)
+	    remote.plan.add_mission(mission)
 	end
 
 	# Get the remote missions

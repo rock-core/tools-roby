@@ -115,7 +115,7 @@ class TC_Planner < Test::Unit::TestCase
 	planner = model.new(plan)
 	assert_raises(NotFound) { planner.empty_set }
 
-	plan.insert(task = task_model.new)
+	plan.add_mission(task = task_model.new)
 	found_task = nil
 	assert_nothing_raised { found_task = planner.empty_set }
 	assert_equal(found_task, task)
@@ -126,7 +126,7 @@ class TC_Planner < Test::Unit::TestCase
 	planner = planner_model.new(plan)
 	result = planner.send(method, options)
 	result.each do |task|
-	    planner.plan.insert(task)
+	    planner.plan.add_mission(task)
 	end
 	assert_equal(size, planner.plan.size, planner.plan.known_tasks.to_a.inspect)
 

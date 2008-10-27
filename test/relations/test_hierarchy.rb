@@ -102,7 +102,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	child = child_model.new
 	plan.discover([p1, child])
 	p1.realized_by child
-	plan.insert(p1)
+	plan.add_mission(p1)
 
 	child.start!; p1.start!
 	assert_equal({}, plan.check_structure)
@@ -115,7 +115,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	child = child_model.new
 	plan.discover([p1, child])
 	p1.realized_by child, :success => [:second], :failure => [:first]
-	plan.insert(p1)
+	plan.add_mission(p1)
 	child.start! ; p1.start!
 	child.event(:first).emit(nil)
 	assert_children_failed([child], plan)
@@ -125,7 +125,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	child = child_model.new
 	plan.discover([p1, child])
 	p1.realized_by child, :success => [:first], :failure => [:second]
-	plan.insert(p1)
+	plan.add_mission(p1)
 	child.start! ; p1.start!
 	child.event(:first).emit(nil)
 	assert_children_failed([], plan)

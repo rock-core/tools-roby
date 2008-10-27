@@ -176,7 +176,7 @@ module Roby
                     # will get a message
                     #
                     if task.event(event_name).terminal?
-                        plan.discard(task)
+                        plan.remove_mission(task)
                         task.on(:stop) { |ev| pending_messages << "task #{ev.task} stopped by user request" }
                     else
                         task.on(event_name) { |ev| pending_messages << "done emitting #{ev.generator}" }
@@ -317,7 +317,7 @@ module Roby
 	    task, planner = Robot.prepare_action(name, options)
 	    begin
 		engine.wait_until(planner.event(:success)) do
-		    plan.insert(task)
+		    plan.add_mission(task)
 		    yield(task, planner) if block_given?
 		end
 	    rescue Roby::UnreachableEvent

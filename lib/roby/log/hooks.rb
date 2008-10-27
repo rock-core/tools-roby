@@ -38,13 +38,13 @@ module Roby::Log
 		   garbage_task finalized_task finalized_event 
 		   added_transaction removed_transaction}
 
-	def inserted(tasks)
+	def added_mission(tasks)
 	    super if defined? super
-	    Roby::Log.log(:inserted_tasks) { [self, tasks] }
+	    Roby::Log.log(:added_mission) { [self, tasks] }
 	end
-	def discarded(tasks)
+	def removed_mission(tasks)
 	    super if defined? super
-	    Roby::Log.log(:discarded_tasks) { [self, tasks] }
+	    Roby::Log.log(:removed_mission) { [self, tasks] }
 	end
 	def replaced(from, to)
 	    super if defined? super

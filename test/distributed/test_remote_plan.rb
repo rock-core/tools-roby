@@ -67,7 +67,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
     def test_remote_proxy_update
 	peer2peer do |remote|
-	    remote.plan.insert(SimpleTask.new(:id => 'simple_task'))
+	    remote.plan.add_mission(SimpleTask.new(:id => 'simple_task'))
 	    remote.plan.permanent(SimpleTask.new(:id => 'task'))
 	    remote.plan.permanent(SimpleTask.new(:id => 'other_task'))
 	end
@@ -125,8 +125,8 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    mission.realized_by subtask
 	    mission.on(:stop, next_mission, :start)
 
-	    remote.plan.insert(mission)
-	    remote.plan.insert(next_mission)
+	    remote.plan.add_mission(mission)
+	    remote.plan.add_mission(next_mission)
 	end
 
 	r_mission	= remote_task(:id => 'mission', :permanent => true)
@@ -155,7 +155,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
     def test_subscribing_old_objects
 	peer2peer do |remote|
-	    plan.insert(@task = SimpleTask.new(:id => 1))
+	    plan.add_mission(@task = SimpleTask.new(:id => 1))
 	end
 
 	r_task, r_task_id = nil
@@ -181,9 +181,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    mission.on(:stop, next_mission, :start)
 
 	    remote.plan.permanent(subtask)
-	    remote.plan.insert(root)
-	    remote.plan.insert(mission)
-	    remote.plan.insert(next_mission)
+	    remote.plan.add_mission(root)
+	    remote.plan.add_mission(mission)
+	    remote.plan.add_mission(next_mission)
 
 	    remote.singleton_class.class_eval do
 		include Test::Unit::Assertions
@@ -313,8 +313,8 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 		SimpleTask.new(:id => 'left'), 
 		SimpleTask.new(:id => 'right'), 
 		SimpleTask.new(:id => 'middle')
-	    remote.plan.insert(left)
-	    remote.plan.insert(right)
+	    remote.plan.add_mission(left)
+	    remote.plan.add_mission(right)
 
 	    left.realized_by middle
 	    right.realized_by middle
@@ -360,7 +360,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	peer2peer do |remote|
 	    task = SimpleTask.new(:id => 'task')
 	    task.data = [4, 2]
-	    remote.plan.insert(task)
+	    remote.plan.add_mission(task)
 
 	    remote.singleton_class.class_eval do 
 		define_method(:change_data) { task.data = 42 }
@@ -376,19 +376,19 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
     def test_mission_notifications
 	peer2peer do |remote|
-	    plan.insert(mission = SimpleTask.new(:id => 'mission'))
+	    plan.add_mission(mission = SimpleTask.new(:id => 'mission'))
 
 	    remote.class.class_eval do
 		define_method(:discard_mission) do
 		    Roby.synchronize do
-			remote.plan.discard(mission)
+			remote.plan.remove_mission(mission)
 			remote.plan.permanent(mission)
 		    end
 		end
 		define_method(:insert_mission) do
 		    Roby.synchronize do
 			remote.plan.auto(mission)
-			remote.plan.insert(mission)
+			remote.plan.add_mission(mission)
 		    end
 		end
 	    end
@@ -415,8 +415,8 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 		SimpleTask.new(:id => 'subtask'),
 		SimpleTask.new(:id => 'next_mission')
 
-	    remote.plan.insert(mission)
-	    remote.plan.insert(next_mission)
+	    remote.plan.add_mission(mission)
+	    remote.plan.add_mission(next_mission)
 	    remote.plan.permanent(subtask)
 
 	    remote.singleton_class.class_eval do
@@ -462,9 +462,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    model = Class.new(SimpleTask) do
 		event :unknown, :command => true
 	    end
-	    remote.plan.insert(t1 = SimpleTask.new(:id => 1))
-	    remote.plan.insert(t2 = SimpleTask.new(:id => 2))
-	    remote.plan.insert(u = model.new(:id => 0))
+	    remote.plan.add_mission(t1 = SimpleTask.new(:id => 1))
+	    remote.plan.add_mission(t2 = SimpleTask.new(:id => 2))
+	    remote.plan.add_mission(u = model.new(:id => 0))
 
 	    t1.event(:start).on u.event(:unknown)
 	    t2.event(:start).emit_on u.event(:unknown)

@@ -46,7 +46,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
 
     # Prepare the default plan for all planning loop tests
     def prepare_plan(loop_options = {})
-	plan.insert(main_task = Roby::Task.new)
+	plan.add_mission(main_task = Roby::Task.new)
 	loop_task_options = planning_task_options.merge(loop_options)
 	loop_planner = PlanningLoop.new(loop_task_options)
 	main_task.planned_by loop_planner
@@ -318,7 +318,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
     #        end
     #    end
 
-    #    plan.insert(main_task = Roby::Task.new)
+    #    plan.add_mission(main_task = Roby::Task.new)
     #    loop_planner = PlanningLoop.new :period => nil, :lookahead => 0, 
     #        :planner_model => planner_model, :planned_model => Roby::Task, 
     #        :method_name => :task, :method_options => {}	
@@ -376,8 +376,8 @@ class TC_PlanningLoop < Test::Unit::TestCase
         t1, t2 = planner.looping_tasks(:parent_argument => 1)
         assert(t1.fully_instanciated?, t1.arguments.keys - t1.class.arguments.to_a)
         assert(t2.fully_instanciated?)
-        plan.insert(t1)
-        plan.insert(t2)
+        plan.add_mission(t1)
+        plan.add_mission(t2)
 
         t1.start!
         planned_task = planning_task_result(t1.last_planning_task)
@@ -390,7 +390,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
         t3 = planner.make_loop(:period => 0, :parent_argument => 1, :child_argument => 2) do
             task(:task_id => 'third_loop')
         end
-        plan.insert(t3)
+        plan.add_mission(t3)
         t3.start!
         assert_equal('third_loop', planning_task_result(t3.last_planning_task).arguments[:id])
     end

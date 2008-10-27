@@ -26,7 +26,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	t1, t2, t3 = (1..3).map { |i| SimpleTask.new(:id => "#{name}-#{i}") }
 	t1.realized_by t2
 	t2.planned_by t3
-	plan.insert(t1)
+	plan.add_mission(t1)
 	plan.discover(t2)
 	plan.discover(t3)
 
@@ -240,7 +240,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 
     def test_garbage_collect
 	peer2peer do |remote|
-	    remote.plan.insert(SimpleTask.new(:id => 'remote-1'))
+	    remote.plan.add_mission(SimpleTask.new(:id => 'remote-1'))
 	    def remote.insert_children(trsc, root_task)
 		trsc = local_peer.local_object(trsc)
 		root_task = local_peer.local_object(root_task)

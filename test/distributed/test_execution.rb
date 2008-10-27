@@ -19,7 +19,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		attr_reader :contingent
 		def create
 		    # Put the task to avoir having GC clearing the events
-		    plan.insert(t = SimpleTask.new(:id => 'task'))
+		    plan.add_mission(t = SimpleTask.new(:id => 'task'))
 		    plan.discover(@controlable = Roby::EventGenerator.new(true))
 		    plan.discover(@contingent = Roby::EventGenerator.new(false))
 		    t.on(:start, controlable)
@@ -76,7 +76,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	trsc.add_owner remote_peer
 	trsc.propose(remote_peer)
 
-	plan.insert(local_task = Roby::Test::SimpleTask.new)
+	plan.add_mission(local_task = Roby::Test::SimpleTask.new)
 	trsc[local_task]
 	trsc.release
 	trsc.edit
@@ -89,7 +89,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	assert(remote_task.running?)
 
 	engine.execute do
-	    plan.discard(local_task)
+	    plan.remove_mission(local_task)
 	    local_task.stop!
 	end
     end
@@ -102,7 +102,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		attr_reader :task
 		def create
 		    # Put the task to avoir having GC clearing the events
-		    plan.insert(@task = SimpleTask.new(:id => 'task'))
+		    plan.add_mission(@task = SimpleTask.new(:id => 'task'))
 		    plan.discover(@event = Roby::EventGenerator.new(true))
 		    event.on task.event(:start)
 		    nil
@@ -110,7 +110,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		def fire
 		    engine.execute do
 			event.on do
-			    plan.discard(task)
+			    plan.remove_mission(task)
 			    task.event(:start).on task.event(:success)
 			end
 		
@@ -147,13 +147,13 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		attr_reader :task
 		def create_task
 		    plan.clear
-		    plan.insert(@task = SimpleTask.new(:id => 1))
+		    plan.add_mission(@task = SimpleTask.new(:id => 1))
 		end
 		def start_task; engine.once { task.start! }; nil end
 		def stop_task
 		    assert(task.executable?)
 		    engine.once do
-			plan.discard(task)
+			plan.remove_mission(task)
 			task.stop!
 		    end
 		    nil
@@ -186,7 +186,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 
     def test_signalling
 	peer2peer do |remote|
-	    remote.plan.insert(task = SimpleTask.new(:id => 1))
+	    remote.plan.add_mission(task = SimpleTask.new(:id => 1))
 	    remote.class.class_eval do
 		include Test::Unit::Assertions
 		define_method(:start_task) do
@@ -232,7 +232,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 
     def test_event_handlers
 	peer2peer do |remote|
-	    remote.plan.insert(task = SimpleTask.new(:id => 1))
+	    remote.plan.add_mission(task = SimpleTask.new(:id => 1))
 	    def remote.start(task)
 		task = local_peer.local_object(task)
 		engine.once { task.start! }
@@ -260,7 +260,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		SimpleTask.new(:id => 'child')
 	    parent.realized_by child
 
-	    remote.plan.insert(parent)
+	    remote.plan.add_mission(parent)
 	    child.start!
 	    remote.singleton_class.class_eval do
 		define_method(:remove_link) do
@@ -283,7 +283,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
     # connection is killed
     def test_disconnect_kills_tasks
 	peer2peer do |remote|
-	    remote.plan.insert(task = SimpleTask.new(:id => 'remote-1'))
+	    remote.plan.add_mission(task = SimpleTask.new(:id => 'remote-1'))
 	    def remote.start(task)
 		task = local_peer.local_object(task)
 		engine.execute do
@@ -327,7 +327,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 
     def test_code_blocks_owners
 	peer2peer do |remote|
-	    remote.plan.insert(CodeBlocksOwnersMockup.new(:id => 'mockup'))
+	    remote.plan.add_mission(CodeBlocksOwnersMockup.new(:id => 'mockup'))
 
 	    def remote.call
 		task = plan.find_tasks(CodeBlocksOwnersMockup).to_a.first
@@ -354,13 +354,13 @@ class TC_DistributedExecution < Test::Unit::TestCase
     # received in the same cycle
     def test_joint_fired_signalled
 	peer2peer do |remote|
-	    remote.plan.insert(task = SimpleTask.new(:id => 'remote-1'))
+	    remote.plan.add_mission(task = SimpleTask.new(:id => 'remote-1'))
 	    engine.once { task.start! }
 	end
 	    
 	event_time = Time.now
 	remote = subscribe_task(:id => 'remote-1')
-	plan.insert(local = SimpleTask.new(:id => 'local'))
+	plan.add_mission(local = SimpleTask.new(:id => 'local'))
 	remote_peer.synchro_point
 
 	engine.execute do

@@ -42,12 +42,12 @@ module Roby
 		data.each_slice(4) do |m, sec, usec, args|
 		    time = Time.at(sec, usec)
 		    case m.to_s
-		    when /inserted/
+		    when /added_mission/, /inserted_task/
 			task = tasks[args[1]]
 			task.mission = true
 			event :added_mission, args[0], task
 
-		    when /discarded/
+		    when /removed_mission/, /discarded_task/
 			task = tasks[args[1]]
 			task.mission = false
 			event :discarded_mission, args[0], task
