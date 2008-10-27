@@ -89,6 +89,7 @@ module Roby
             if !plan.engine
                 ExecutionEngine.new(@plan, @control)
             end
+            plan.engine.gc_warning = false
 
 	    # Save and restore some arrays
 	    save_collection engine.propagation_handlers

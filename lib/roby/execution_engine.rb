@@ -154,6 +154,7 @@ module Roby
 	    @cycle_length = 0
 	    @last_stop_count = 0
             @finalizers = []
+            @gc_warning = true
 	end
 
         # The Plan this engine is acting on
@@ -1264,6 +1265,9 @@ module Roby
             @remaining_cycle_time = cycle_length - stats[:end]
         end
 
+        # If set to true, Roby will warn if the GC cannot be controlled by Roby
+        attr_predicate :gc_warning?, true
+
         # The main event loop. It returns when the execution engine is asked to
         # quit. In general, this does not need to be called direclty: use #run
         # to start the event loop in a separate thread.
@@ -1276,7 +1280,9 @@ module Roby
 					 GC.enable(true)
 					 true
 				     rescue
-                                         ExecutionEngine.warn "GC.enable does not accept an argument. GC will not be controlled by Roby"
+                                         if gc_warning?
+                                             ExecutionEngine.warn "GC.enable does not accept an argument. GC will not be controlled by Roby"
+                                         end
                                          false
 				     end
 	    stats = Hash.new
