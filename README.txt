@@ -59,10 +59,15 @@ when it is meaningful.
 
 See {here}[link:files/doc/videos_rdoc.html] for the available videos.
 
-== Tutorials
+== Documentation
 
-A set of tutorials describe Roby's main features and let you experiment with
-them:
+The documentation is split into four parts:
+* the API documentation (see left pane on this window)
+* the {User's Guide}[link:files/doc/using/index_rdoc.html]
+* the {Developer's Guide}[link:files/doc/extending/index_rdoc.html]
+
+Finally, a set of tutorials describe Roby's main features and let you experiment
+with them:
 1. the GettingStarted[link:files/doc/tutorials/01-GettingStarted_rdoc.html] tutorial makes
    you start a brand new Roby application and explains its structure.
 2. the GoForward[link:files/doc/tutorials/02-GoForward_rdoc.html] tutorial shows how to create

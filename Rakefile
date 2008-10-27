@@ -135,7 +135,7 @@ namespace 'doc' do
       rdoc.options << '--main' << 'README.txt' << '--show-hash'
       rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
       rdoc.rdoc_files.include('lib/**/*.rb', 'ext/**/*.cc')
-      rdoc.rdoc_files.include('doc/videos.rdoc', 'doc/papers.rdoc', 'doc/overview.rdoc')
+      rdoc.rdoc_files.include('doc/videos.rdoc', 'doc/papers.rdoc', 'doc/using/**/*.rdoc', 'doc/extending/**/*.rdoc')
       rdoc.rdoc_files.include('doc/tutorials/**/*')
       rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
     end
