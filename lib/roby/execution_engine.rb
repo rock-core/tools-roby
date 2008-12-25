@@ -914,7 +914,6 @@ module Roby
             for error, origin in application_errors
                 add_framework_error(error, origin)
             end
-            add_timepoint(stats, :application_errors)
 
             if Roby.app.abort_on_exception? && !fatal_errors.empty?
                 reraise(fatal_errors.map { |e, _| e })

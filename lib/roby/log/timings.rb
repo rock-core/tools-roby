@@ -4,8 +4,8 @@ module Roby
 	    REF_TIMING = :start
 	    ALL_TIMINGS = [ :real_start, :events, 
 		:structure_check, :exception_propagation,
-		:exceptions_fatal, :garbage_collect, :application_errors, 
-		:expected_ruby_gc, :ruby_gc, :droby, :expected_sleep, :sleep, :end ]
+		:exceptions_fatal, :garbage_collect, 
+		:ruby_gc, :expected_sleep, :sleep, :end ]
 	
 	    NUMERIC_FIELDS = [:cycle_index, :live_objects, :object_allocation, :log_queue_size,
 		:plan_task_count, :plan_event_count]
@@ -23,7 +23,86 @@ module Roby
 	    end
 	    def rewind; logfile.rewind end
 
-	    def each_cycle(cumulative = false)
+            # Read the logfile index, extract statistic information from it and
+            # yield them cycle-by-cycle. The format of +timings+ is the
+            # following:
+            #
+            #   [start, real_start, events, 
+            #       structure_check, exception_propagation,
+            #       exceptions_fatal, garbage_collect,
+            #       ruby_gc, expected_sleep, sleep, end]
+            #
+            # where +start+ is the target start time of the cycle as a Time
+            # object. The rest of the values are floating-point values which
+            # represent offset from +start+ if +cumulative+ is true or offset
+            # from the previous one if +cumulative+ is false. Therefore, in the
+            # latter case, the values represent the actual duration of each
+            # phase in the execution engine.
+            #
+            # The phases are as follows:
+            # real_start::
+            #   the actual starting time. It allows to see the offset due (for
+            #   instance) to the uncertainty in sleep
+            # events::
+            #   event propagation phase, including the propagation of dRoby
+            #   events (events coming from remote hosts)
+            # structure_check::
+            #   first structure checking pass
+            # exception_propagation::
+            #   exception propagation phase
+            # exceptions_fatal::
+            #   second structure checking pass, and propagation of the fatal
+            #   errors (i.e. killing the involved tasks)
+            # garbage_collect::
+            #   Roby's garbage collection pass
+            # ruby_gc:: 
+            #   if GC.enable accepts a true/false argument, Roby will
+            #   explicitely allow the GC to run only at a specific point, and
+            #   monitor its execution time. This is the result.  Note that Roby
+            #   issues a warning at startup if it is not the case.
+            # expected_sleep:: 
+            #   how much time Roby wanted to sleep (i.e. how many milliseconds
+            #   were given to the sleep() call)
+            # sleep::
+            #   how much time Roby actually slept
+            # end::
+            #   end of the cycle
+            #
+            # The second array that is yield, +numeric+, contains non-timing
+            # statistics. Its format is:
+            #
+	    #   [cycle_index, live_objects, object_allocation, log_queue_size,
+	    #       plan_task_count, plan_event_count, cpu_time]
+            # 
+            # where
+            #
+            # cycle_index::
+            #   The index of this cycle. Note that some number can be missing: if one
+            #   cycle takes more than two time its allocated period, then +cycle_index+ is
+            #   updated to reflect the cycles that have been missed.
+            # live_objects:: 
+            #   The count of allocated objects at the end of the cycle. It is only valid
+            #   on Ruby interpreters that have been patched to report this value
+            #   efficiently.
+            # object_allocation::
+            #   How many objects have been allocated during this cycle. This is valid only
+            #   if Ruby GC is controlled by Roby (see the description of +ruby_gc+ above).
+            #   Otherwise, it will be invalid in cycles where the Ruby GC ran, as the
+            #   statistics can't correct the objects freed by Ruby's GC.
+            # log_queue_size::
+            #   The logger runs in a thread separated from the execution engine, and a
+            #   fixed-size queue is used to communicate between the threads. This value is
+            #   the size of the queue at the end of the cycle (after sleep()). It is
+            #   mainly used for debugging purposes: if this queue is almost full, then the
+            #   execution engine thread will probably be interrupted to let the log thread
+            #   empty the queue.
+            # plan_task_count::
+            #   The count of tasks in the plan at the end of the cycle.
+            # plan_event_count::
+            #   The count of free events in the plan at the end of the cycle.
+            # cpu_time::
+            #   The CPU time taken by the Roby controller for this cycle.
+	    def each_cycle(cumulative = false) # :yield:numeric, timings
 		last_deltas = Hash.new
 		for data in logfile.index_data[1..-1]
 		    result  = []
