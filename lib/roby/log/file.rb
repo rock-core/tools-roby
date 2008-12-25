@@ -172,7 +172,7 @@ module Roby::Log
 	    if m == :cycle_end
 		info = args.first
 		info[:pos] = event_log.tell
-		info[:event_count] = current_cycle.size
+		info[:event_count] = current_cycle.size / 4
 		Marshal.dump(current_cycle, event_log)
 
 		dump_io.truncate(0)
