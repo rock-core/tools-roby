@@ -1,4 +1,5 @@
 require 'roby'
+require 'fileutils'
 Roby.app.setup
 app = Roby.app
 
