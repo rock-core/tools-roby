@@ -1254,7 +1254,7 @@ module Roby
         # Adds to the stats the given duration as the expected duration of the
         # +name+ step. The field in +stats+ is named "expected_#{name}".
 	def add_expected_duration(stats, name, duration)
-	    stats[:"expected_#{name}"] = Time.now + duration
+	    stats[:"expected_#{name}"] = Time.now + duration - stats[:start]
 	end
 
         # Adds in +stats+ the current time as a timepoint named +time+, and
