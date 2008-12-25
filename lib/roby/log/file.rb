@@ -184,13 +184,16 @@ module Roby::Log
 	    end
 
 	rescue 
-	    puts "failed to dump #{m}#{args}: #{$!.full_message}"
-	    args.each do |obj|
-		unless (Marshal.dump(obj) rescue nil)
-		    puts "there is a problem with"
-		    pp obj
+            current_cycle.each_slice(4) do |m, sec, usec, args|
+		unless (Marshal.dump(args) rescue nil)
+                    args.each do |obj|
+                        unless (Marshal.dump(obj) rescue nil)
+                            puts "cannot dump the following object in #{m}(#{args.join(", ")}):"
+                            pp obj
+                        end
+                    end
 		end
-	    end
+            end
 	end
 
 	Roby::Log.each_hook do |klass, m|
