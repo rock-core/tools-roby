@@ -1,6 +1,6 @@
 # Control configuration
 engine:
-  # The length of a cycle (in seconds)
+  # The length of a cycle (in seconds). It defaults to 100ms.
   # cycle: 0.1
 
 # Logging configuration
@@ -8,10 +8,25 @@ log:
   # Where log files go
   # dir: log/
   
-  # Log system events (default: false)
+  # Log system events. It can be either true, false or stats. If true, all
+  # plan-level events are logged, allowing to use the roby-log GUI to replay
+  # the plans. If false, nothing is logged. If set to stats, only execution
+  # statistics are logged. This mode is useful to monitor execution latencies
+  # without having the big impact of full logging.
+  #
+  # See the roby-log tool to read the generated files, Roby::Log::Logfile to read the
+  # files from a Ruby script and Roby::Log::Timings for reading and using per-cycle
+  # statistics.
+  #
+  # The default is stats
+  #
   # events: true
   
-  # Disables the log server (default: enabled)
+  # Set to false to disables the log server and true to enable it (it is enabled by
+  # default). The log server allows to display the controller state remotely by using the
+  # <tt>roby-log</tt> tool. Note that it is completely separated from the Roby remote
+  # shell, which is always enabled.
+  #
   # server: false
   #
   # ... or configure it
@@ -21,17 +36,32 @@ log:
   #     # The discovery period
   #     period: 10
 
-  # Logging levels. It is a hash of component_name: level (where level is one
-  # of DEBUG, INFO, WARN and FATAL). The output can be redirected in a file
-  # using level:filename, in which case 'filename' is relative to the log
-  # directory. Any occurence of 'ROBOT' in filename is replaced by the robot
-  # name
+  # Logging levels.
+  #
+  # Logging in Roby is controlled per-module in a hierarchical way. It means that to get
+  # debugging output for the whole framework, set
   #
   # levels:
-  #   roby: INFO
-  #   roby/planning: DEBUG
+  #     roby: DEBUG
+  #
+  # now, if you want to have it do debug for everything but the classes in
+  # Roby::Distributed, do
+  #
+  # levels:
+  #     roby: DEBUG
+  #     roby/distributed: INFO
+  #
+  # The available logging levels are DEBUG, INFO, WARN and FATAL. The output can be
+  # redirected in a file using level:filename, in which case 'filename' is relative to the
+  # log directory. Any occurence of 'ROBOT' in filename is replaced by the robot name. For
+  # instance, in a 'dala' robot, the following setup would redirect the debugging outut of
+  # Roby::Distributed classes into data-distributed.log:
+  #
+  # levels:
   #   roby/distributed: DEBUG:ROBOT-distributed.log
-  #   genom: INFO
+  #
+  # Log files are saved in the log directory (controlled by the 'dir' option above, it is
+  # 'log' by default).
 
 # dRoby neighbour discovery
 discovery:
