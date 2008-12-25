@@ -218,7 +218,7 @@ module Roby
 	def droby_dump(dest)
 	    DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest),
 		      model.droby_dump(dest),  plan.droby_dump(dest), 
-		      Distributed.format(arguments, dest), Distributed.format(data, dest),
+		      Distributed.format(meaningful_arguments, dest), Distributed.format(data, dest),
 		      :mission => mission?, :started => started?, 
 		      :finished => finished?, :success => success?)
 	end

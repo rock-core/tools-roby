@@ -3,11 +3,35 @@ module Roby
     class PlanningTask < Roby::Task
 	attr_reader :planner, :transaction
 
-	arguments :planner_model, :planning_method, 
-	    :method_options, :planned_model, 
-	    :planning_owners
+	arguments :planner_model, :method_options, :method_name, :planned_model, :planning_owners
 
-        attr_reader :method_name
+        def planning_method
+            arguments[:planning_method]
+        end
+
+        def self.validate_planning_options(options)
+            options = options.dup
+            if options[:method_name]
+                method_name = options[:planning_method] = options[:method_name]
+            elsif options[:planning_method].respond_to?(:to_str) || options[:planning_method].respond_to?(:to_sym)
+                method_name = options[:method_name] = options[:planning_method].to_s
+            end
+
+	    if !options[:planner_model]
+		raise ArgumentError, "missing required argument 'planner_model'"
+	    elsif !options[:planning_method]
+		raise ArgumentError, "missing required argument 'planning_method'"
+            elsif !method_name
+                if options[:planning_method].kind_of?(Roby::Planning::MethodDefinition)
+                    method_name = options[:method_name] = options[:planning_method].name
+                else
+                    raise ArgumentError, "the planning_method argument is neither a method object nor a name"
+                end
+	    end
+	    options[:planned_model] ||= nil
+	    options[:planning_owners] ||= nil
+            options
+        end
 
 	def self.filter_options(options)
 	    task_options, method_options = Kernel.filter_options options,
@@ -18,30 +42,14 @@ module Roby
 		:planned_model => nil,
 		:planning_owners => nil
 
-            if task_options[:method_name]
-                method_name = task_options[:planning_method] = task_options[:method_name]
-            elsif task_options[:planning_method].respond_to?(:to_str) || task_options[:planning_method].respond_to?(:to_sym)
-                method_name = task_options[:method_name] = task_options[:planning_method].to_s
-            end
-
-	    if !task_options[:planner_model]
-		raise ArgumentError, "missing required argument 'planner_model'"
-	    elsif !task_options[:planning_method]
-		raise ArgumentError, "missing required argument 'planning_method'"
-            elsif !(method_name || task_options[:planning_method].kind_of?(Roby::Planning::MethodDefinition))
-		raise ArgumentError, "the planning_method argument is neither a method object nor a name"
-
-	    end
-	    task_options[:planned_model] ||= nil
+            task_options = validate_planning_options(task_options)
 	    task_options[:method_options] ||= Hash.new
 	    task_options[:method_options].merge! method_options
-	    task_options[:planning_owners] ||= nil
 	    task_options
 	end
 
         def initialize(options)
 	    task_options = PlanningTask.filter_options(options)
-            @method_name = task_options[:method_name]
             super(task_options)
         end
 
@@ -102,10 +110,10 @@ module Roby
         end
 
 	def planning_thread(context)
-	    result_task = if method_name
-                              planner.send(method_name, method_options.merge(:context => context))
-                          else
+	    result_task = if planning_method.kind_of?(Roby::Planning::MethodDefinition)
                               planner.send(:call_planning_methods, Hash.new, method_options.merge(:context => context), planning_method)
+                          else
+                              planner.send(method_name, method_options.merge(:context => context))
                           end
 
 	    # Don't replace the planning task with ourselves if the

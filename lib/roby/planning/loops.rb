@@ -66,10 +66,22 @@ module Roby
 
 	# The planner model we should use
 	argument :planner_model
-	# The planner method name
-	argument :planning_method
+
+        # The planner method name. This is not a mandatory argument as
+        # otherwise we would break logging and distributed Roby: this attribute
+        # can hold a MethodDefinition object that cannot be shared.
+        #
+        # Anyway, the only meaningful argument in distributed context is the
+        # method name itself. Event method_options could be removed in the
+        # future.
+	def planning_method
+            arguments[:planning_method]
+        end
 	# The planner method options
 	argument :method_options
+
+        # The method name. This can be nil a FreeMethod is used for planning
+        argument :method_name
 
 	# Filters the options in +options+, splitting between the options that
 	# are specific to the planning task and those that are to be forwarded
@@ -85,13 +97,9 @@ module Roby
 		:method_options => {},
 		:planning_owners => nil
 
-            task_arguments[:planning_method] ||= task_arguments[:method_name]
+            task_arguments = PlanningTask.validate_planning_options(task_arguments)
 
-	    if !task_arguments[:planning_method]
-		raise ArgumentError, "you should provide either a method name or a method object"
-	    elsif !task_arguments[:planner_model]
-		raise ArgumentError, "required argument :planner_model missing"
-	    elsif task_arguments[:lookahead] < 0
+	    if task_arguments[:lookahead] < 0
 		raise ArgumentError, "lookahead must be positive"
 	    end
 	    task_arguments[:period] ||= nil

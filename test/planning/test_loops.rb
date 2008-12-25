@@ -34,7 +34,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
 	    :planning_owners => nil,
 	    :planner_model => planner_model, 
 	    :planned_model => SimpleTask, 
-	    :planning_method => :task, 
+	    :planning_method => "task", 
 	    :method_name => 'task', 
 	    :method_options => {} }
     end
