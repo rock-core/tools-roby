@@ -26,8 +26,8 @@
 
 ##############################
 # Set the scheduler object to be used during execution (can also be done
-# per-robot)
-#
-# require 'roby/schedulers/basic'
-# Roby.scheduler = Roby::Schedulers::Basic.new
+# per-robot by setting it in config/#{ROBOT}.rb)
+
+require 'roby/schedulers/basic'
+Roby.scheduler = Roby::Schedulers::Basic.new
 
