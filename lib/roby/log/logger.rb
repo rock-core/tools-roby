@@ -66,7 +66,7 @@ module Roby::Log
 	# Returns true if there is at least one loggr for the +m+ message
 	def has_logger?(m)
 	    for l in @loggers
-		return true if l.respond_to?(m)
+		return true if l.logs_message?(m)
 	    end
 	    false
 	end

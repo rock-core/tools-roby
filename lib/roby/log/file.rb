@@ -164,6 +164,9 @@ module Roby::Log
 
 	attr_accessor :stats_mode
 	def splat?; false end
+        def logs_message?(m)
+	    m == :cycle_end || !stats_mode
+        end
 
 	def dump_method(m, time, args)
 	    if m == :cycle_end || !stats_mode
