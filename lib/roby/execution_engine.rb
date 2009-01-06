@@ -1286,7 +1286,7 @@ module Roby
 				     end
 	    stats = Hash.new
 	    if ObjectSpace.respond_to?(:live_objects)
-		stats[:live_objects] = ObjectSpace.live_objects
+		last_allocated_objects = ObjectSpace.allocated_objects
 	    end
 
 	    GC.start
@@ -1320,12 +1320,6 @@ module Roby
 
                     @remaining_cycle_time = cycle_length - stats[:end]
 		    
-		    # Record the statistics about object allocation *before* running the Ruby
-		    # GC. It is also updated at 
-		    if ObjectSpace.respond_to?(:live_objects)
-			live_objects_before_gc = ObjectSpace.live_objects
-		    end
-
 		    # If the ruby interpreter we run on offers a true/false argument to
 		    # GC.enable, we disabled the GC and just run GC.enable(true) to make
 		    # it run immediately if needed. Then, we re-disable it just after.
@@ -1335,10 +1329,6 @@ module Roby
 		    end
 		    add_timepoint(stats, :ruby_gc)
 
-		    if ObjectSpace.respond_to?(:live_objects)
-			live_objects_after_gc = ObjectSpace.live_objects
-		    end
-		    
 		    # Sleep if there is enough time for it
 		    if remaining_cycle_time > SLEEP_MIN_TIME
 			add_expected_duration(stats, :sleep, remaining_cycle_time)
@@ -1356,16 +1346,15 @@ module Roby
 		    stats[:cpu_time] = (process_time.utime + process_time.stime) * 1000
 
 		    if ObjectSpace.respond_to?(:live_objects)
-			live_objects = ObjectSpace.live_objects
-			stats[:object_allocation] = live_objects - stats[:live_objects] - (live_objects_after_gc - live_objects_before_gc)
-			stats[:live_objects]      = live_objects
+			stats[:object_allocation] = ObjectSpace.allocated_objects - last_allocated_objects
+                        stats[:live_objects] = ObjectSpace.live_objects
+                        last_allocated_objects = ObjectSpace.allocated_objects
 		    end
 
 		    stats[:start]       = [cycle_start.tv_sec, cycle_start.tv_usec]
 		    cycle_end(stats)
+                    stats = Hash.new
 
-		    stats = Hash.new
-		    stats[:live_objects] = live_objects
 		    @cycle_start += cycle_length
 		    @cycle_index += 1
 
