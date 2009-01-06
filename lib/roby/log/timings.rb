@@ -1,3 +1,5 @@
+require 'set'
+
 module Roby
     module Log
 	class Timings
@@ -7,10 +9,8 @@ module Roby
 		:exceptions_fatal, :garbage_collect, 
 		:ruby_gc, :expected_sleep, :sleep, :end ]
 	
-	    NUMERIC_FIELDS = [:cycle_index, :live_objects, :object_allocation, :log_queue_size,
-		:plan_task_count, :plan_event_count]
-	    DELTAS = [:cpu_time]
-	    ALL_NUMERIC_FIELDS = NUMERIC_FIELDS + DELTAS
+	    ALL_NUMERIC_FIELDS = [:cycle_index, :live_objects, :object_allocation, :heap_slots,
+                :log_queue_size, :plan_task_count, :plan_event_count, :cpu_time]
 
 	    ALL_FIELDS = ALL_TIMINGS + ALL_NUMERIC_FIELDS + [:event_count, :pos]
 
@@ -133,18 +133,8 @@ module Roby
 			end
 		    end
 
-		    numeric = data.values_at(*NUMERIC_FIELDS)
-		    deltas = DELTAS.map do |name|
-			value = if old_value = last_deltas[name]
-				    data[name] - old_value
-				else
-				    0
-				end
-			last_deltas[name] = data[name]
-			value
-		    end
-
-		    yield(numeric + deltas, result)
+		    numeric = data.values_at(*ALL_NUMERIC_FIELDS)
+		    yield(numeric, result)
 		end
 
 	    rescue ArgumentError => e

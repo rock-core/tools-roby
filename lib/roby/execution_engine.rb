@@ -1288,6 +1288,8 @@ module Roby
 	    if ObjectSpace.respond_to?(:live_objects)
 		last_allocated_objects = ObjectSpace.allocated_objects
 	    end
+            last_cpu_time = Process.times
+            last_cpu_time = (last_cpu_time.utime + last_cpu_time.stime) * 1000
 
 	    GC.start
 	    if gc_enable_has_argument
@@ -1342,8 +1344,10 @@ module Roby
 		    end
 		    stats[:plan_task_count]  = plan.known_tasks.size
 		    stats[:plan_event_count] = plan.free_events.size
-		    process_time = Process.times
-		    stats[:cpu_time] = (process_time.utime + process_time.stime) * 1000
+		    cpu_time = Process.times
+                    cpu_time = (cpu_time.utime + cpu_time.stime) * 1000
+		    stats[:cpu_time] = cpu_time - last_cpu_time
+                    last_cpu_time = cpu_time
 
 		    if ObjectSpace.respond_to?(:live_objects)
 			stats[:object_allocation] = ObjectSpace.allocated_objects - last_allocated_objects
