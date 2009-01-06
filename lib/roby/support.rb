@@ -1,4 +1,4 @@
-require 'active_support/core_ext/string/inflections'
+require 'active_support/inflector'
 class String # :nodoc: all
     include ActiveSupport::CoreExtensions::String::Inflections
 end
