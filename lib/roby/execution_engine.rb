@@ -1350,6 +1350,9 @@ module Roby
                         stats[:live_objects] = ObjectSpace.live_objects
                         last_allocated_objects = ObjectSpace.allocated_objects
 		    end
+                    if ObjectSpace.respond_to?(:heap_slots)
+                        stats[:heap_slots] = ObjectSpace.heap_slots
+                    end
 
 		    stats[:start]       = [cycle_start.tv_sec, cycle_start.tv_usec]
 		    cycle_end(stats)
