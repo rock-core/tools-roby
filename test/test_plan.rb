@@ -369,6 +369,7 @@ class TC_Plan < Test::Unit::TestCase
     class FinalizedTaskRecorder
 	attribute(:tasks) { Array.new }
 	attribute(:events) { Array.new }
+        def logs_message?(m); m == :finalized_task || m == :finalized_event end
 	def finalized_task(time, plan, task)
 	    tasks << task
 	end

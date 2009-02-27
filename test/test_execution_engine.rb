@@ -614,6 +614,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     class CaptureLastStats
 	attr_reader :last_stats
 	def splat?; true end
+        def logs_message?(m); m == :cycle_end end
 	def cycle_end(time, stats)
 	    @last_stats = stats
 	end
