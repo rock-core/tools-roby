@@ -1,12 +1,7 @@
-require 'roby/support'
-
 module Roby
     # This module contains some tools used in the Rakefile of both Roby core
     # and plugins
     module Rake
-        extend Logger::Hierarchy
-        extend Logger::Forward
-
         # Returns the rdoc template path the documentation
         # generation should be using in Rakefile
         #
