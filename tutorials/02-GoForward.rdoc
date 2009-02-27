@@ -160,16 +160,16 @@ the application and wait for the "done initialization" line.
   0
   0
 
-Now, start a shell and wait its prompt.
+Now, leave the controller running and start a shell in another console. Wait its prompt.
 
   $ scripts/shell
   >>
 
-Let's now check that the <tt>move</tt> action does exist
+The <tt>move</tt> action does exist
   >> actions
   => [move]
 
-... and start the move
+And can be started ...
   >> m = move! :speed => 0.2
   => GoForward{speed => 0.2}:0x4886b248[]
 
