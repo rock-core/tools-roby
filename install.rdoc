@@ -1,0 +1,92 @@
+= Installing Roby on Linux systems
+
+In this tutorial, we are creating a functional workspace for roby with all
+dependencies. While most of it would be independent of the Linux distribution
+chosen, some parts are specific to Debian-based systems (tested on Debian and
+Ubuntu 8.10).
+
+=== Setting the environment
+
+As a first step, you should set you environmentvariables. This is done by
+the following commands.
+
+  export GEM_HOME=$HOME/gems/
+  export ROBYHOME=$HOME/roby
+  export RUBYOPT=-rubygems
+  export PATH=$PATH:$GEM_HOME/bin:$ROBYHOME/bin
+  export RUBYLIB=$RUBYLIB:$ROBYHOME/lib
+
+The +GEM_HOME+ and +ROBYHOME+ should be set to wherever you want these parts to
+be installed. It would be wise to append these lines to your ~/.bashrc so that
+they are executed each time you start a console.
+
+=== Installing the dependencies
+
+Your workspace must have some packages installed, which are
+
+- Ruby1.8 with rubygems
+- Openssl libraries
+- Boost libraries
+- QT4
+- g++
+- git
+
+You can install those packages with the following line.
+
+  sudo apt-get install ruby1.8-dev rubygems ruby libopenssl-ruby1.8 libqt4-ruby1.8 g++ libboost-dev git-core
+
+If you don't have administrative rights on your local pc, contact your system 
+administrator.
+
+Furthermore the following gems are needed.
+
+- Rake
+- Utilrb
+- Facets
+- ActiveSupport
+- FlexMock (only for testing)
+
+These are installed in the folder indicated by +$GEM_HOME+ by
+
+  gem install rake utilrb facets activesupport flexmock
+
+=== Cloning the git repository
+
+All you have to do now is changing into your development folder and clone 
+the github repository for roby.
+
+  git clone git://github.com/doudou/roby.git roby
+
+The last parameter (+roby+) is the folder which should be created to put
+roby's files in. You can easily adjust this to your needs.
+
+Change into the newly created roby folder.
+
+To work on the development version of roby, check it out with
+
+  git checkout -b next origin/next
+
+Otherwise just stay on the default master branch.
+To finally have a running copy of roby, run
+
+  rake setup
+
+to compile roby on your workstation and you're done. Additionally, you can run
+  
+  rake docs
+
+To generate HTML documentation of Roby and its core plugins. The documentation
+is generated in doc/rdoc
+
+=== Staying up to date
+
+To grab the newest updates of roby just change into your robyfolder and run
+
+  git pull
+
+After you merged all possible conflicts between your work and the origin,
+you must run
+
+  rake setup
+
+again.
