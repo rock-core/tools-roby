@@ -1,3 +1,9 @@
+=== 0.7.3
+
+* fix needed update to run on latest activesupport
+This is probably the last release of 0.7. The 'next' branch will become 0.8 as
+soon as it is tested enough
+
 === 0.7.2
 
 * fixed a memory leak regarding the event propagation histories. Until now,

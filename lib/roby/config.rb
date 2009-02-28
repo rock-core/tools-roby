@@ -8,7 +8,7 @@ try it on 1.9, checkout the 1.9 branch of the development repository on github
 end
 
 module Roby
-    VERSION = '0.7.2'
+    VERSION = '0.7.3'
     ROBY_LIB_DIR  = File.expand_path( File.join(File.dirname(__FILE__), '..') )
     ROBY_ROOT_DIR = File.expand_path( File.join(ROBY_LIB_DIR, '..') )
 end
