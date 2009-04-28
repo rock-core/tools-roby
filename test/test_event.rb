@@ -11,14 +11,17 @@ class TC_Event < Test::Unit::TestCase
         Roby.app.filter_backtraces = false
     end
 
-    def test_gathering
-        assert(! engine.gathering?)
+    def test_no_plan
+        event = EventGenerator.new { }
+        assert(!event.executable?)
+        assert_raises(Roby::EventNotExecutable) { event.emit }
+        assert_raises(Roby::EventNotExecutable) { event.call }
+
+        plan.discover(event)
+        assert(event.executable?)
     end
 
-    def test_properties
-	event = EventGenerator.new
-	assert(! event.controlable?)
-
+    def test_controlable_events
 	event = EventGenerator.new(true)
 	assert(event.controlable?)
 
@@ -32,7 +35,9 @@ class TC_Event < Test::Unit::TestCase
 	    mock.should_receive(:event_handler).once.with([42])
 	    event.call(42)
 	end
+    end
 
+    def test_contingent_events
 	# Check emission behavior for non-controlable events
 	FlexMock.use do |mock|
 	    event = EventGenerator.new
@@ -43,8 +48,9 @@ class TC_Event < Test::Unit::TestCase
 	end
     end
 
-    def test_executable
+    def test_explicit_executable
 	plan.discover(event = EventGenerator.new(true))
+        assert(event.executable?)
 	event.executable = false
 	assert_raises(EventNotExecutable) { event.call(nil) }
 	assert_raises(EventNotExecutable) { event.emit(nil) }
@@ -69,9 +75,8 @@ class TC_Event < Test::Unit::TestCase
 	assert_original_error(EventNotExecutable, EventHandlerError) { event.call(nil) }
     end
 
-    def test_emit_failed
-	event = EventGenerator.new
-	plan.discover(event)
+    def test_emit_failed_raises
+	plan.discover(event = EventGenerator.new)
 	assert_original_error(NilClass, EmissionFailed) { event.emit_failed }
 	assert_original_error(NilClass, EmissionFailed) { event.emit_failed("test") }
 
@@ -90,7 +95,9 @@ class TC_Event < Test::Unit::TestCase
 	    assert_equal(event, e.failed_generator)
 	    assert( e.message =~ /: test$/ )
 	end
+    end
 
+    def test_emit_failed_removes_pending
 	event = EventGenerator.new { }
 	plan.discover(event)
 	event.call
