@@ -1,0 +1,28 @@
+#! /usr/bin/env ruby
+
+require 'optparse'
+
+io = STDOUT
+common = false
+parser = OptionParser.new do |opt|
+    opt.on("--common") { common = true }
+    opt.on("--error") { exit(1) }
+    opt.on("--stderr") { io = STDERR }
+    opt.on("--no-output") { io = nil }
+    opt.on("--block") do
+        sleep
+    end
+end
+parser.parse! ARGV
+
+if common
+    STDOUT.puts "O: FIRST LINE"
+    STDERR.puts "E: FIRST LINE"
+    STDOUT.puts "O: SECOND LINE"
+    STDERR.puts "E: SECOND LINE"
+
+elsif io
+    io.puts "FIRST LINE"
+    io.puts "SECOND LINE"
+end
+exit 0
