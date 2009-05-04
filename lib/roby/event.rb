@@ -289,6 +289,9 @@ module Roby
 
 	    self
 	end
+        def signals(generator, timespec = nil)
+            signal(generator, timespec)
+        end
 
 	# Adds a signal from this event to +generator+. +generator+ must be
 	# controlable.
@@ -348,6 +351,10 @@ module Roby
 	    add_forwarding generator, timespec
 	    self
 	end
+
+        def forward_to(generator, timespec = nil)
+            forward(generator, timespec)
+        end
 
 	# Returns an event which is emitted +seconds+ seconds after this one
 	def delay(seconds)
