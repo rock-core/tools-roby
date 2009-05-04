@@ -13,7 +13,8 @@ require 'test_plan'
 require 'test_query'
 require 'test_transactions'
 require 'test_transactions_proxy'
-require 'test_thread_task'
+
+require 'tasks/test_thread_task'
 
 require 'test_testcase'
 
