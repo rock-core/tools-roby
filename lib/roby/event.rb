@@ -197,7 +197,7 @@ module Roby
 	# when it is not the case.
 	def check_emission_validity
 	    if !executable?
-		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"
+		raise EventNotExecutable.new(self), "#emit called on #{self} which is a non-executable event"
 	    elsif !self_owned?
 		raise OwnershipError, "cannot emit an event we don't own. #{self} is owned by #{owners}"
 	    elsif !engine.inside_control?
@@ -302,7 +302,7 @@ module Roby
         # the absolute point in time at which this propagation must happen.
 	def signal(generator, timespec = nil)
 	    if !generator.controlable?
-		raise EventNotControlable.new(self), "trying to establish a signal between #{self} and #{generator}"
+		raise EventNotControlable.new(self), "trying to establish a signal from #{self} to #{generator} which is not controllable"
 	    end
 	    timespec = ExecutionEngine.validate_timespec(timespec)
 
