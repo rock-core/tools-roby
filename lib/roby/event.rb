@@ -182,12 +182,12 @@ module Roby
 	# Checks that the event can be called. Raises various exception
 	# when it is not the case.
 	def check_call_validity
-	    if !self_owned?
+	    if !executable?
+		raise EventNotExecutable.new(self), "#call called on #{self} which is a non-executable event"
+	    elsif !self_owned?
 		raise OwnershipError, "not owner"
 	    elsif !controlable?
 		raise EventNotControlable.new(self), "#call called on a non-controlable event"
-	    elsif !executable?
-		raise EventNotExecutable.new(self), "#call called on #{self} which is non-executable event"
 	    elsif !engine.inside_control?
 		raise ThreadMismatch, "#call called while not in control thread"
 	    end
