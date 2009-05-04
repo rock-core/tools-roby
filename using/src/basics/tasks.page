@@ -1,0 +1,221 @@
+---
+title: Tasks
+sort_info: 200
+--- pipeline:tags,markdown,blocks
+Tasks
+=====
+
+In Roby, the __tasks__ represent the longstanding processes. In particular, they
+represent the possibility of failures. What we will see in this section is:
+
+* how to define a task class (a type of class)
+* the basic manipulation methods
+* some things you should know
+
+Definition
+----------
+
+Unlike with event objects, which are usually created and parametrized on-the-fly, tasks are mostly first _defined_ and then _used_. To define a task, one creates a subclass of Roby::Task. In our examples, we'll take "the mother of all tasks in robotic systems": the MoveTo task.
+
+{coderay:: ruby}
+ class MoveTo < Roby::Task
+     ...
+ end
+{coderay}
+
+Then, to use it, one would do:
+{coderay:: ruby}
+ plan.discover(task = MoveTo.new)
+{coderay}
+
+As for events, the task must be included in a plan to be usable. Don't forget that !
+
+Parametrization
+---------------
+
+Obviously, a plain MoveTo task is nothing if the system does not know *where* to go to ... That is called parametrization and has to be declared in the task definition, using Task.argument
+{coderay:: ruby}
+ >> class MoveTo < Roby::Task
+ >?    argument :x
+ >?    argument :y
+ >> end
+{coderay}
+
+Then, the arguments are provided at instanciation through an argument hash:
+
+{coderay:: ruby}
+ >> task = MoveTo.new :x => 10, :y => 20
+ >> task.x
+ => 10
+ >> task.y
+ => 20
+{coderay}
+
+A task instance (i.e. the result of TaskClass.new) will *not* be usable unless
+you initialize all its arguments. Such a task is called _partially
+instanciated_:
+
+{coderay:: ruby}
+ >> task = MoveTo.new
+ >> task.partially_instanciated?
+ => true
+ >> task = MoveTo.new(:x => 10, :y => 10)
+ >> task.partially_instanciated?
+ => false
+{coderay}
+
+Of course, it is possible to set default arguments by defining a #initialize
+method (like with all Ruby classes)
+{coderay:: ruby}
+ >> class MoveTo
+ >?   argument :max_speed
+ >?   def initialize(arguments)
+ >?     arguments[:max_speed] ||= 1
+ >?     super(arguments)
+ >?   end
+ >? end
+ >> task = MoveTo.new(:x => 10, :y => 20)
+ >> task.max_speed
+ => 1
+ >> task.partially_instanciated?
+ => false
+{coderay}
+
+Task control and monitoring: defining events
+--------------------------------------------
+
+In Roby, tasks are a __collection of events__.  Now that  you know the basics
+about events, the purpose of those events should be clear:
+
+* the controllable events allow to change the process' behaviour (the obvious
+  one being "start" which allows to start the task)
+* both contingent and controllable events allow to monitor the task's execution.
+
+The basic task already defines four events:
+ * the *start* event
+ * the *stop* event
+ * the *success* event
+ * and finally the *failed* event
+
+In the class definition, events are defined using Task#event. To define a
+controllable event, simply associate a block (see below).
+
+{coderay:: ruby}
+ >> class MyTask < Roby::Task
+ >?     event :start do |argument|
+ >?        emit :start
+ >?     end
+ >?     event :controllable do |argument|
+ >?        puts "controllable event called"
+ >?        emit(:controllable)
+ >?     end
+ >?     event :contingent
+ >? end
+{coderay}
+
+Finally, an event can be *terminal*: its emission means the end of the task's
+execution. +failed+ and +success+ are examples of terminal events. To declare a
+terminal event, one does
+{coderay:: ruby}
+ >> class MyTask < Roby::Task
+ >?     event :finished, :terminal => true
+ >? end
+{coderay}
+
+Using task events
+-----------------
+The {rdoc_class: EventGenerator} class that defines the task event can be
+accessed with Task#event. Then, you can manipulate them as for normal events:
+{coderay:: ruby}
+ >> plan.discover(task = MyTask.new)
+ >> ev = task.event(:start)
+ >> ev.controllable?
+ => true
+ >> ev.call
+ >> task.running?
+ => true
+ >> ev = task.event(:contingent)
+ >> ev.controllable?
+ => false
+{coderay}
+
+Instead of calling #on, #signal, #emit and #call on the event object, one can use
+shortcuts that are defined on {rdoc_class: Task}:
+{coderay:: ruby}
+ >> plan.discover(task = MyTask.new)
+ # Same as task.event(:contingent).on { |_| ... }
+ >> task.on(:contingent) { |_| puts "contingent event emitted" } 
+ # Same as task.event(:contingent).emit
+ >> task.emit(:contingent)
+ contingent event emitted
+ # Same as task.event(:controllable).call
+ >> task.controllable!
+ controllable event called
+ # Same as task.event(:contingent).signal task.event(:controllable)
+ >> task.signal(:contingent, task, :stop)
+ >> task.emit(:contingent)
+ contingent event emitted
+ controllable event called
+{coderay}
+
+Event classification: using the *forward* relation
+--------------------------------------------------
+As we saw earlier, it is possible to have _terminal_ events, which are events
+that end the task. Obviously, the _stop_ event should be emitted when they are
+emitted (_stop_ represents the task end, does not it ?).
+
+In a more generic way, these terminal events are likely to be either special
+cases of the task success or of the task failure. Then, we actually need a way
+to *classify* events: to say "_success_ is a special case of _stop_, or
+"_wheel\_blocked_.is a special case of _failed_, which is a special case of
+_stop_".
+
+To represent this specific event relationship, Roby provides a *forward*
+relation between events, which can be added as follows:
+{coderay:: ruby}
+ >> class MyTask < Roby::Task
+ >?     event :wheel_blocked
+ >? end
+ >> task = MyTask.new
+ >> blocked = task.event(:wheel_blocked)
+ >> failure = task.event(:failed)
+ >> blocked.forward_to failed
+{coderay}
+
+In practice, a _forward_ relation between two events a and b says "b should be
+emitted when a is". Or "b is a superset of the situations that a represents".
+
+This relation is also available on "plain" events (i.e. EventGenerator.new). 
+
+Task model and event relations
+------------------------------
+Until now, we only saw how to add relations between events of task instances.
+Sometime (especially with forwarding relations), some relations should be
+defined on _all_ the task instances of a given task class. To do that, use the
+class methods <tt>signal</tt> and <tt>forward</tt> defined on {rdoc_class:
+Task}:
+
+{coderay:: ruby}
+ >> class MyTask < Roby::Task
+ >?     signal :start => :controllable
+ >?     forward :wheel_blocked => :failed
+ >?     on :wheel_blocked { |_| puts "wheel blocked !" }
+ >? end
+{coderay}
+
+Summary
+-------
+
+What do we do know ?
+* we know how the robot's situation is represented: through the *emission
+  of events*
+* we know how the robot is controlled: through the call of *controllable
+  events*
+* we know how to sort events in tasks, in order to represent the different
+  processes that run on the robot.
+
+One important question is still left open: how all of this can be made into a
+whole that allows to control a robot ? Right now, we only have an overview of
+the basics of Roby plan. What follows will show what a *Roby application* is
+made of.
+
