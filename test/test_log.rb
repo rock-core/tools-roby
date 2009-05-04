@@ -29,21 +29,25 @@ class TC_Log < Test::Unit::TestCase
 
     def test_misc
 	FlexMock.use do |mock|
+            mock.should_receive(:logs_message?).with(:flush).and_return(false)
+            mock.should_receive(:logs_message?).with(:event).and_return(true)
 	    mock.should_receive(:splat?).and_return(true)
 	    mock.should_receive(:event).with(1, 2)
 	    mock.should_receive(:flush)
 	    Log.add_logger mock
 
-	    assert(Log.has_logger?(:flush))
+	    assert(!Log.has_logger?(:flush))
 	    assert(Log.has_logger?(:event))
 
 	    assert_equal([mock], Log.enum_for(:each_logger, :event).to_a)
 	    assert_equal([], Log.enum_for(:each_logger, :bla).to_a)
+            Log.remove_logger mock
 	end
     end
 
     def test_message_splat
 	FlexMock.use do |mock|
+            mock.should_receive(:logs_message?).and_return(true)
 	    mock.should_receive(:splat?).and_return(true).twice
 	    mock.should_receive(:splat_event).with(FlexMock.any, 1, 2).once
 	    mock.should_receive(:flush).once
@@ -56,6 +60,7 @@ class TC_Log < Test::Unit::TestCase
 
     def test_message_nonsplat
 	FlexMock.use do |mock|
+            mock.should_receive(:logs_message?).and_return(true)
 	    mock.should_receive(:splat?).and_return(false).twice
 	    mock.should_receive(:nonsplat_event).with(FlexMock.any, [1, 2]).once
 	    mock.should_receive(:flush).once
@@ -74,6 +79,7 @@ class TC_Log < Test::Unit::TestCase
     def test_known_objects_management
 	t1, t2 = SimpleTask.new, SimpleTask.new
 	FlexMock.use do |mock|
+            mock.should_receive(:logs_message?).and_return(true)
 	    mock.should_receive(:splat?).and_return(true)
 	    mock.should_receive(:added_task_child).
 		with(FlexMock.any, on_marshalled_task(t1), [TaskStructure::Hierarchy].droby_dump(nil), 

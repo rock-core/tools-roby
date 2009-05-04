@@ -159,14 +159,8 @@ dependencies (boost with boost/graph), you can simply install it with
 
 == Installing from source
 
-First, install all the required dependencies. Then, get the sources either
-from a release tarball or the RubyForge git
-repository[http://rubyforge.org/projects/roby], or from the development
-one[http://github.com/doudou/roby].
+You can also install from scratch with {this guide}[link:files/doc/install_rdoc.html]
 
-Once the source is installed, run
-  rake setup
-
-Define first the BOOST_DIR environment variable to Boost's installation path if
-that path is non-standard.
+You may have to first define the BOOST_DIR environment variable to Boost's
+installation path if that path is non-standard.
 

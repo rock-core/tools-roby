@@ -234,7 +234,7 @@ module Roby
         # Displays the set of actions which are available through the planners
         # registered on the application. See Application#planners
 	def actions
-	    app.planners.
+	    Roby.app.planners.
 		map { |p| p.planning_methods_names.to_a }.
 		flatten.
 		sort

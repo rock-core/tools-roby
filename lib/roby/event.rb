@@ -103,12 +103,6 @@ module Roby
     # * #forwarding
     #
     class EventGenerator < PlanObject
-	attr_writer :executable
-
-	# True if this event is executable. A non-executable event cannot be
-	# called even if it is controlable
-	def executable?; @executable end
-
 	# Creates a new Event generator which is emitted as soon as one of this
 	# object and +generator+ is emitted
 	def |(generator)
@@ -165,7 +159,6 @@ module Roby
 			       end
 	    end
 	    super() if defined? super
-	    @executable = true
 
 	end
 
