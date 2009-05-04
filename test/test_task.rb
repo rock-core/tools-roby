@@ -974,7 +974,7 @@ class TC_Task < Test::Unit::TestCase
 	ev = EventGenerator.new(true)
 	ev.forward task.event(:specialized_failure)
 	ev.call
-	assert_equal([task.event(:specialized_failure).last], task.event(:failed).last.task_sources.to_a)
+	assert_equal([task.event(:specialized_failure).last], task.event(:stop).last.task_sources.to_a)
     end
 
     def test_virtual_task

@@ -41,7 +41,7 @@ module Roby
 
 	def initialize(planned_task, planning_task)
 	    @planned_task = planned_task
-	    super(planning_task.terminal_event)
+	    super(planning_task.failure_event)
 	end
 
 	def message # :nodoc:

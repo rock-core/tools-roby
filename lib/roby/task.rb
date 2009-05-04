@@ -923,6 +923,13 @@ module Roby
 
 	# The event which has finished the task (if there is one)
 	attr_reader :terminal_event
+
+        # The event that caused this task to fail. This is equivalent to taking
+        # the first emitted element of
+        #   task.event(:failed).last.task_sources
+        #
+        # It is only much more efficient
+        attr_reader :failure_event
 	
 	# Call to update the task status because of +event+
 	def update_task_status(event) # :nodoc:
@@ -936,6 +943,7 @@ module Roby
 		self.success = false
 		self.finished = true
 		@terminal_event ||= event
+                @failure_event  ||= event
 	    elsif event.terminal? && !finished?
 		plan.task_index.set_state(self, :finished?)
 		self.finished = true
