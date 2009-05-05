@@ -8,9 +8,8 @@ module Roby
             require 'rake/rdoctask'
 
             ::Rake::RDocTask.new("docs") do |rdoc|
-                rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
-                rdoc.rdoc_dir = "#{ROBY_ROOT_DIR}/doc/rdoc/plugins/#{name}"
-                rdoc.template = Roby::Rake.rdoc_template
+                rdoc.options << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
+                rdoc.rdoc_dir = "#{ROBY_ROOT_DIR}/doc/html/plugins/#{name}"
 
                 yield(rdoc)
             end

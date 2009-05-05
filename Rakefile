@@ -34,7 +34,6 @@ informations, including links to tutorials and demonstration videos"
             
         hoe.spec.rdoc_options << 
             '--main' << 'README.txt' <<
-            "--inline-source" << 
             "--accessor" << "attribute" << 
             "--accessor" << "attr_predicate"
 
@@ -125,13 +124,17 @@ end
 #
 # This redefines Hoe's targets for documentation, as the documentation
 # generation is not flexible enough for us
+
+# This is for the user's guide
+require 'webgen/webgentask'
+require 'rdoc/task'
 namespace 'doc' do
     require 'roby/app/rake'
-    Rake::RDocTask.new("core") do |rdoc|
-      rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
-      rdoc.rdoc_dir = 'doc/rdoc/core'
+    RDoc::Task.new("api") do |rdoc|
+      #rdoc.options << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
+      rdoc.rdoc_dir = 'doc/html/api'
       rdoc.title    = "Roby Core"
-      rdoc.template = Roby::Rake.rdoc_template
+      #rdoc.template = Roby::Rake.rdoc_template
       rdoc.options << '--main' << 'README.txt' << '--show-hash'
       rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
       rdoc.rdoc_files.include('lib/**/*.rb', 'ext/**/*.cc')
@@ -140,15 +143,12 @@ namespace 'doc' do
       rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
     end
 
-    Rake::RDocTask.new("tutorials") do |rdoc|
-      rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
-      rdoc.rdoc_dir = 'doc/rdoc/tutorials'
-      rdoc.title    = "Roby Tutorials"
-      rdoc.template = Roby::Rake.rdoc_template
-      rdoc.options << '--main' << 'README.txt'
-      rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
-      rdoc.rdoc_files.include('doc/videos.rdoc', 'doc/papers.rdoc')
-      rdoc.rdoc_files.include('doc/tutorials/**/*')
+    Webgen::WebgenTask.new('guide') do |website|
+        website.clobber_outdir = true
+        website.directory = File.join(Dir.pwd, 'doc', 'guide')
+        website.config_block = lambda do |config|
+            config['output'] = ['Webgen::Output::FileSystem', File.join(Dir.pwd, 'doc', 'html', 'guide')]
+        end
     end
 
     def plugins_documentation_generation(target_prefix)
@@ -164,6 +164,6 @@ namespace 'doc' do
     plugins_documentation_generation 're'
 end
 
-task 'docs' => ['doc:core', 'doc:plugins_docs']
-task 'clobber_docs' => ['doc:clobber_core', 'doc:plugins_clobber_docs']
-task 'redocs' => ['doc:recore', 'doc:replugins_docs']
+task 'docs' => ['doc:guide', 'doc:api', 'doc:plugins_docs']
+task 'clobber_docs' => ['doc:clobber_guide', 'doc:clobber_api', 'doc:plugins_clobber_docs']
+task 'redocs' => ['doc:reapi', 'doc:replugins_docs']
