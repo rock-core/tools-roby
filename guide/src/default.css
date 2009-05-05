@@ -129,7 +129,7 @@ margin: 0px;
 padding: 0px;
 }
 
-#sidebar #menu li a, #sidebar #menu li span, .sidelink, #sidebar #submenu li a, #sidebar #submenu li span {
+#sidebar #menu li, .sidelink, #sidebar #submenu li, #sidebar #submenu li {
 display:block;
 width:140px;
 margin:3px 10px 2px 0;
@@ -145,7 +145,7 @@ border-bottom:1px solid #bbb;
 border-left:1px solid #ddd;
 }
 
-#sidebar #menu li a:hover, #sidebar #menu li.webgen-menu-item-selected a, #sidebar #menu li.webgen-menu-item-selected span, #sidebar #menu li.webgen-menu-submenu-inhierarchy a, #sidebar #menu li.webgen-menu-submenu-inhierarchy span, #sidebar #submenu li a:hover, .sidelink:hover, .menuheader {
+#sidebar #menu li a:hover, #sidebar #menu li.webgen-menu-item-selected, #sidebar #menu li.webgen-menu-submenu-inhierarchy, #sidebar #submenu li a:hover, .sidelink:hover, .menuheader {
 background:#fff url(images/gradient2.png) repeat-x;
 color:#222;
 border-top:1px solid #ddd;
@@ -161,10 +161,28 @@ text-decoration:none;
     margin-bottom: .4em;
 }
 
-#sidebar #submenu li.webgen-menu-item-selected a, #sidebar #submenu li.webgen-menu-item-selected span, #sidebar #submenu li a:hover {
+#sidebar #submenu li.webgen-menu-item-selected, #sidebar #submenu li a:hover {
 background: none;
 font-size: 1em: 
 }
+
+#sidebar #menu li ul li, #sidebar #submenu li ul li, #sidebar #submenu li ul li.webgen-menu-item-selected {
+display:block;
+width:130px;
+margin:3px 10px 2px 0;
+padding:5px 0 5px 8px;
+margin-top: 3px;
+margin-bottom: 3px;
+padding-top: 3px;
+padding-bottom: 3px;
+font-size:0.8em;
+font-weight:bold;
+text-align:left;
+background: none;
+color:#26c;
+border: none;
+}
+
 
 #footer{
 margin:0 auto 20px auto;
