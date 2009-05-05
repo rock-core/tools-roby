@@ -244,6 +244,8 @@ padding:20px;
 background:#fbb;
 color:#222;
 border:2px solid #eaa;
+margin-top: 3em;
+margin-bottom: 3em;
 margin-left: 2em;
 margin-right: 2em;
 
@@ -256,6 +258,13 @@ background-color:inherit;
 
 .hide{
 display:none;
+}
+
+pre .code{
+margin-left: 2.5em;
+}
+pre {
+margin-left: 2.5em;
 }
 
 /* Original open source design by Andreas Viklund - http://andreasviklund.com
