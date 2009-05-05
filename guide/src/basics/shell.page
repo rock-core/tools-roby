@@ -33,7 +33,7 @@ Exporting actions to the user's shell
 Edit planners/goForward/main.rb and edit so that it looks like this:
 
 {coderay:: ruby}
-require 'planners/main'
+ require 'planners/main'
  class MainPlanner
    method(:move) do
        GoForward.new :speed => arguments[:speed]
@@ -99,8 +99,10 @@ move!**):
  => false
 {coderay}
 
-The new task is already running ! In Roby, some tasks are automatically started
-by the so-called scheduler We'll see more about this later.
+The new task is running just after it has been added ! In Roby, a new task, when
+added in the main plan, becomes eligible for _scheduling_, i.e. a special
+component tries to find the best time to start it (which, in our case, is
+"now"). We'll see more about this later.
 {: .warning}
 
 You can see that the action method returns the task that the planning method
