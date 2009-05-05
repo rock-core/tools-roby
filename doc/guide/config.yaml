@@ -23,6 +23,8 @@ default_meta_info:
     Webgen::SourceHandler::Page:
         in_menu: true
 
+tag.menu.nested: false
+
 rdoclinks.base_url: /rdoc/core/
 rdoclinks.base_module: Roby
 
