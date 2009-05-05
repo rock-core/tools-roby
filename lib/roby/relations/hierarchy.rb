@@ -19,7 +19,6 @@ module Roby::TaskStructure
 	# The set of child objects in the Hierarchy relation
 	def children; child_objects(Hierarchy) end
 
-
 	# Adds +task+ as a child of +self+ in the Hierarchy relation. The
 	# following options are allowed:
 	#
@@ -46,7 +45,7 @@ module Roby::TaskStructure
             options = validate_options options, 
 		:model => [task.model, task.meaningful_arguments], 
 		:success => [:success], 
-		:failure => [:failed],
+		:failure => [],
 		:remove_when_done => false
 
 	    options[:success] = Array[*options[:success]]
@@ -70,7 +69,11 @@ module Roby::TaskStructure
 	def added_child_object(child, relations, info) # :nodoc:
 	    super if defined? super
 	    if relations.include?(Hierarchy) && !respond_to?(:__getobj__) && !child.respond_to?(:__getobj__)
-		events = info[:success].map { |ev| child.event(ev) }
+		events = info[:success].map do |ev|
+                    ev = child.event(ev)
+                    ev.if_unreachable { Hierarchy.interesting_events << ev }
+                    ev
+                end
 		events.concat info[:failure].map { |ev| child.event(ev) }
 		Roby::EventGenerator.gather_events(Hierarchy.interesting_events, events)
 	    end
@@ -156,7 +159,15 @@ module Roby::TaskStructure
 	# registered The tasks that are failing the hierarchy requirements
 	# are registered in Hierarchy.failing_tasks. The interesting_events
 	# set is cleared at cycle end (see below)
-	tasks = events.inject(failing_tasks) { |set, event| set << event.generator.task }
+	tasks = events.inject(failing_tasks) do |set, event|
+            if event.respond_to?(:generator)
+                set << event.generator.task
+            else
+                set << event.task
+            end
+            set
+        end
+
 	@failing_tasks = ValueSet.new
 	tasks.each do |child|
 	    # Check if the task has been removed from the plan
@@ -177,6 +188,10 @@ module Roby::TaskStructure
 		    end
 		elsif failing_event = failure.find { |e| child.event(e).happened? }
 		    result << Roby::ChildFailedError.new(parent, child.event(failing_event).last)
+		    failing_tasks << child
+		elsif success.all? { |e| child.event(e).unreachable? }
+                    failing_event = success.find { |e| child.event(e) }
+		    result << Roby::ChildFailedError.new(parent, child.event(failing_event))
 		    failing_tasks << child
 		end
 	    end
@@ -209,7 +224,7 @@ module Roby
 	# source of a failure event, or the reason why a positive event has
 	# become unreachable (if there is one)
 	def initialize(parent, event)
-	    super(event.task_sources.find { true })
+            super(event)
 	    @parent = parent
 	    @relation = parent[child, TaskStructure::Hierarchy]
 	end

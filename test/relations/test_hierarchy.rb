@@ -20,9 +20,6 @@ class TC_RealizedBy < Test::Unit::TestCase
 	# Check validation of the model
 	child = nil
 	assert_nothing_raised { t1.realized_by((child = klass.new), :model => SimpleTask) }
-
-	assert_same(Hierarchy.interesting_events, EventGenerator.event_gathering[child.event(:success)].find { true })
-	assert_same(Hierarchy.interesting_events, EventGenerator.event_gathering[child.event(:failed)].find { true })
 	assert_equal([SimpleTask, {}], t1[child, Hierarchy][:model])
 
 	assert_nothing_raised { t1.realized_by klass.new, :model => [Roby::Task, {}] }
@@ -51,31 +48,6 @@ class TC_RealizedBy < Test::Unit::TestCase
 
     Hierarchy = TaskStructure::Hierarchy
 
-    def assert_children_failed(children, plan)
-	result = plan.check_structure
-	assert_equal(children.to_set, result.map { |e, _| e.exception.failed_task }.to_set)
-    end
-
-    def test_failure_point
-	model = Class.new(SimpleTask) do
-	    event :specialized_failure, :command => true
-	    forward :specialized_failure => :failed
-	end
-	parent, child = prepare_plan :discover => 1, :tasks => 1, :model => model
-	parent.realized_by child
-
-	parent.start!
-	child.start!
-	child.specialized_failure!
-
-	error = plan.check_structure.find { true }[0].exception
-	assert_kind_of(ChildFailedError, error)
-	assert_equal(child.event(:specialized_failure).last, error.failure_point)
-	assert_equal(child.event(:specialized_failure).last, error.failed_event)
-
-	parent.stop!
-    end
-
     def test_exception_printing
         parent, child = prepare_plan :discover => 2, :model => SimpleTask
         parent.realized_by child
@@ -92,7 +64,7 @@ class TC_RealizedBy < Test::Unit::TestCase
         parent.stop!
     end
 
-    def test_check_structure
+    def create_pair(options)
 	child_model = Class.new(SimpleTask) do
 	    event :first, :command => true
 	    event :second, :command => true
@@ -101,36 +73,73 @@ class TC_RealizedBy < Test::Unit::TestCase
 	p1 = SimpleTask.new
 	child = child_model.new
 	plan.discover([p1, child])
-	p1.realized_by child
+	p1.realized_by child, options
 	plan.add_mission(p1)
 
 	child.start!; p1.start!
+        return p1, child
+    end
+
+    def assert_child_failed(child, reason, plan)
+	result = plan.check_structure
+	assert_equal([child].to_set, result.map { |e, _| e.exception.failed_task }.to_set)
+	assert_equal([reason].to_set, result.map { |e, _| e.exception.failure_point }.to_set)
+    end
+
+
+    def test_success
+        parent, child = create_pair :success => [:first], 
+            :failure => [:stop],
+            :remove_when_done => false
+
 	assert_equal({}, plan.check_structure)
-	child.stop!
-	assert_equal([child.event(:failed).last], Hierarchy.interesting_events)
-	assert_children_failed([child], plan)
+	child.first!
+	assert_equal({}, plan.check_structure)
+        assert(parent.realized_by?(child))
+    end
 
-	plan.clear
-	p1 = SimpleTask.new
-	child = child_model.new
-	plan.discover([p1, child])
-	p1.realized_by child, :success => [:second], :failure => [:first]
-	plan.add_mission(p1)
-	child.start! ; p1.start!
-	child.event(:first).emit(nil)
-	assert_children_failed([child], plan)
+    def test_success_removal
+        parent, child = create_pair :success => [:first], 
+            :failure => [:stop],
+            :remove_when_done => true
 
-	plan.clear
-	p1    = SimpleTask.new
-	child = child_model.new
-	plan.discover([p1, child])
-	p1.realized_by child, :success => [:first], :failure => [:second]
-	plan.add_mission(p1)
-	child.start! ; p1.start!
-	child.event(:first).emit(nil)
-	assert_children_failed([], plan)
-	child.event(:second).emit(nil)
-	assert_children_failed([], plan)
+	child.first!
+	assert_equal({}, plan.check_structure)
+        assert(!parent.realized_by?(child))
+    end
+
+    def test_success_preempts_explicit_failed
+        parent, child = create_pair :success => [:first], 
+            :failure => [:stop]
+
+	child.first!
+        child.stop!
+	assert_equal({}, plan.check_structure)
+    end
+
+    def test_success_preempts_failure_on_unreachable
+        parent, child = create_pair :success => [:first]
+
+	child.first!
+        child.stop!
+	assert_equal({}, plan.check_structure)
+    end
+
+    def test_failure_explicit
+        parent, child = create_pair :success => [:first], 
+            :failure => [:stop]
+
+        child.stop!
+	assert_child_failed(child, child.event(:stop).last, plan)
+        plan.clear
+    end
+
+    def test_failure_on_unreachable
+        parent, child = create_pair :success => [:first]
+
+        child.stop!
+	assert_child_failed(child, child.event(:first), plan)
+        plan.clear
     end
 
     def test_fullfilled_model

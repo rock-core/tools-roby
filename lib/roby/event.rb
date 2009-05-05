@@ -175,12 +175,12 @@ module Roby
 	# Checks that the event can be called. Raises various exception
 	# when it is not the case.
 	def check_call_validity
-	    if !self_owned?
+	    if !executable?
+		raise EventNotExecutable.new(self), "#call called on #{self} which is a non-executable event"
+	    elsif !self_owned?
 		raise OwnershipError, "not owner"
 	    elsif !controlable?
 		raise EventNotControlable.new(self), "#call called on a non-controlable event"
-	    elsif !executable?
-		raise EventNotExecutable.new(self), "#call called on #{self} which is non-executable event"
 	    elsif !engine.inside_control?
 		raise ThreadMismatch, "#call called while not in control thread"
 	    end
@@ -190,7 +190,7 @@ module Roby
 	# when it is not the case.
 	def check_emission_validity
 	    if !executable?
-		raise EventNotExecutable.new(self), "#emit called on #{self} which is not executable"
+		raise EventNotExecutable.new(self), "#emit called on #{self} which is a non-executable event"
 	    elsif !self_owned?
 		raise OwnershipError, "cannot emit an event we don't own. #{self} is owned by #{owners}"
 	    elsif !engine.inside_control?
@@ -282,6 +282,9 @@ module Roby
 
 	    self
 	end
+        def signals(generator, timespec = nil)
+            signal(generator, timespec)
+        end
 
 	# Adds a signal from this event to +generator+. +generator+ must be
 	# controlable.
@@ -292,7 +295,7 @@ module Roby
         # the absolute point in time at which this propagation must happen.
 	def signal(generator, timespec = nil)
 	    if !generator.controlable?
-		raise EventNotControlable.new(self), "trying to establish a signal between #{self} and #{generator}"
+		raise EventNotControlable.new(self), "trying to establish a signal from #{self} to #{generator} which is not controllable"
 	    end
 	    timespec = ExecutionEngine.validate_timespec(timespec)
 
@@ -341,6 +344,10 @@ module Roby
 	    add_forwarding generator, timespec
 	    self
 	end
+
+        def forward_to(generator, timespec = nil)
+            forward(generator, timespec)
+        end
 
 	# Returns an event which is emitted +seconds+ seconds after this one
 	def delay(seconds)
