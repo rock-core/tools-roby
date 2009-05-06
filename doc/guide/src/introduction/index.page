@@ -1,0 +1,30 @@
+---
+title: Introduction
+sort_info: 0
+--- pipeline:rdoc
+
+= What is Roby ?
+
+Roby is a plan manager: it allows to represent, execute and adapt a plan, which
+is a representation of the past, present and future activities of a robot along
+with the information needed to verify that their executin is going well, and to
+manage errors.
+
+Roby is:
+* a task/event model in which one can represent the activities (Roby::Task) and
+  the noticeable situations during execution (Roby::EventGenerator,
+  Roby::Task.event).
+* a set of task relations describing the interactions between the activities
+  (Roby::TaskStructure).
+* a set of event relations describing the reaction the system should have in
+  response to some situations (Roby::EventStructure).
+* error management tools which allow to catch errors during execution and
+  repair them (i.e. let the system manage the error).
+* a mean to modify the plan as it is being executed (Roby::Transaction)
+* (G)UI tools for interacting/controlling the living system.
+* all of that in a multi-robot context.
+
+Roby is the result of my PhD. As such, my PhD thesis can be considered as a
+design document for the system. If you want an overview of the principles, you
+can also refer to the publications I did.
+

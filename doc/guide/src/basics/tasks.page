@@ -5,15 +5,8 @@ sort_info: 200
 Tasks
 =====
 
-In Roby, the __tasks__ represent the longstanding processes. In particular, they
-represent the possibility of failures. What we will see in this section is:
-
-* how to define a task class (a type of class)
-* the basic manipulation methods
-* some things you should know
-
-Definition
-----------
+Definition of Tasks
+-------------------
 
 Unlike with event objects, which are usually created and parametrized on-the-fly, tasks are mostly first _defined_ and then _used_. To define a task, one creates a subclass of Roby::Task. In our examples, we'll take "the mother of all tasks in robotic systems": the MoveTo task.
 

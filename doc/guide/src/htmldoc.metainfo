@@ -1,0 +1,10 @@
+/introduction:
+    sort_info: 0
+/basics:
+    sort_info: 100
+
+/basics/index.page:
+    in_menu: false
+/introduction/index.page:
+    in_menu: false
+

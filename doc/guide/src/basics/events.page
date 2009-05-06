@@ -5,11 +5,6 @@ sort_info: 100
 Events
 ======
 
-{coderay:: ruby}
-    require 'roby/standalone'
-    plan = Roby.plan
-{coderay}
-
 The basics
 ----------
 We'll see here the basic manipulation around events. We'll see how to associate
@@ -20,8 +15,8 @@ In the plan, events are represented through the {rdoc_class: EventGenerator}
 class. With:
 
 {coderay:: ruby}
-  >> ev1 = Roby::EventGenerator.new
-  >> plan.discover(ev1)
+ >> ev1 = Roby::EventGenerator.new
+ >> plan.discover(ev1)
 {coderay}
 
 you create an event that has no command (it is called a _contingent_ event, or a
@@ -30,32 +25,32 @@ display something using an <i>event handler</i>: a piece of code that is
 executed when the event is emitted.
 
 {coderay:: ruby}
-  >> ev1.on { |e| puts "ev1 emitted with context=#{e.context.inspect}" }
+ >> ev1.on { |e| puts "ev1 emitted with context=#{e.context.inspect}" }
 {coderay}
 
 To emit it, you would write:
 {coderay:: ruby}
-  >> ev1.emit
-  ev1 emitted with context=nil
+ >> ev1.emit
+ ev1 emitted with context=nil
 {coderay}
 
 And if you would like to associate data with the event (what is called the event
 context), you would do
   
 {coderay:: ruby}
-  >> ev1.emit(10)
-  ev1 emitted with context=[10]
+ >> ev1.emit(10)
+ ev1 emitted with context=[10]
 {coderay}
 
 Let's now create a second event
 
 {coderay:: ruby}
-  >> ev2 = Roby::EventGenerator.new do |argument|
-  ?>   puts "ev2 called with argument=#{argument.inspect}"
-  ?>   ev2.emit(argument.first + 1)
-  >> end
-  >> plan.discover(ev2)
-  >> ev2.on { |ev| puts "ev2 emitted with context=#{ev.context.inspect}" }
+ >> ev2 = Roby::EventGenerator.new do |argument|
+ ?>   puts "ev2 called with argument=#{argument.inspect}"
+ ?>   ev2.emit(argument.first + 1)
+ >> end
+ >> plan.discover(ev2)
+ >> ev2.on { |ev| puts "ev2 emitted with context=#{ev.context.inspect}" }
 {coderay}
 
 This second event is _controllable_: the block given to EventGenerator.new being
@@ -66,9 +61,9 @@ but in general they would be represented by tasks (that we will see later on).
 
 Let's try our controllable event
 {coderay:: ruby}
-  >> ev2.call(10)
-  ev2 called with argument=[10]
-  ev2 emitted with context=[11]
+ >> ev2.call(10)
+ ev2 called with argument=[10]
+ ev2 emitted with context=[11]
 {coderay}
 
 Reacting to events
@@ -78,16 +73,16 @@ how the system should react when something happens. The basic tool to do that,
 is to create a _signal_ between two events:
 
 {coderay:: ruby}
-  >> ev1.signals ev2
+ >> ev1.signals ev2
 {coderay}
 
 Try it:
 
 {coderay:: ruby}
-  >> ev1.emit(10)
-  ev1 emitted with context=10
-  ev2 called with argument=10
-  ev2 emitted with context=11
+ >> ev1.emit(10)
+ ev1 emitted with context=10
+ ev2 called with argument=10
+ ev2 emitted with context=11
 {coderay}
 
 You can therefore see that
@@ -108,29 +103,29 @@ ev1 __and__ ev2 have been emitted and <tt>or_ev</tt> is emitted as soon as _one
 of_ ev1 __or__ ev2 have been emitted.
 
 {coderay:: ruby}
-  >> plan.discover(ev1 = EventGenerator.new)
-  >> plan.discover(ev2 = EventGenerator.new)
-  >> and_ev = ev1 & ev2
-  >> or_ev  = ev1 | ev2
-  >> and_ev.on { puts "AND" }
-  >> or_ev.on { puts "OR" }
-  >> ev1.emit
-  OR
-  >> ev2.emit
-  AND
+ >> plan.discover(ev1 = EventGenerator.new)
+ >> plan.discover(ev2 = EventGenerator.new)
+ >> and_ev = ev1 & ev2
+ >> or_ev  = ev1 | ev2
+ >> and_ev.on { puts "AND" }
+ >> or_ev.on { puts "OR" }
+ >> ev1.emit
+ OR
+ >> ev2.emit
+ AND
 {coderay}
 
 You can see that the <tt>OR</tt> event is emitted only once. If you want it to be
 emitted everytime one of its sources are, you would do:
 {coderay:: ruby}
-  >> or_ev = ev1 | ev2
-  >> or_ev.on { or_ev.reset }
-  >> ev2.emit
-  OR
-  >> ev2.emit
-  OR
-  >> ev1.emit
-  OR
+ >> or_ev = ev1 | ev2
+ >> or_ev.on { or_ev.reset }
+ >> ev2.emit
+ OR
+ >> ev2.emit
+ OR
+ >> ev1.emit
+ OR
 {coderay}
 
 In the same way, the <tt>AND</tt> event is emitted only once. You can also use
@@ -144,11 +139,11 @@ plan. In that case, the event is not executable and you will get the following
 error:
 
 {coderay:: ruby}
-    >> ev = EventGenerator.new { }
-    >> ev.call
-    Roby::EventNotExecutable: #call called on #<Roby::EventGenerator:0x484aa3c0> which is a non-executable event
-    >> ev.emit
-    Roby::EventNotExecutable: #emit called on #<Roby::EventGenerator:0x484aa3c0> which is a non-executable event
+ >> ev = EventGenerator.new { }
+ >> ev.call
+ Roby::EventNotExecutable: #call called on #<Roby::EventGenerator:0x484aa3c0> which is a non-executable event
+ >> ev.emit
+ Roby::EventNotExecutable: #emit called on #<Roby::EventGenerator:0x484aa3c0> which is a non-executable event
 {coderay}
 
 A first common error is to try to call (or signal) and event that is non
@@ -156,13 +151,13 @@ controllable. In that case, Roby raises a {rdoc_class: EventNotControlable}
 exception.
 
 {coderay:: ruby}
-    >> ev = EventGenerator.new
-    >> ev.call
-    Roby::EventNotControlable: #call called on a non-controlable event
-    >> source = EventGenerator.new
-    >> source.signal(ev)
-    Roby::EventNotControlable: trying to establish a signal from
-    #<Roby::EventGenerator:0x484a77f8> to #<Roby::EventGenerator:0x484aab88>
-    which is not controllable
+ >> ev = EventGenerator.new
+ >> ev.call
+ Roby::EventNotControlable: #call called on a non-controlable event
+ >> source = EventGenerator.new
+ >> source.signal(ev)
+ Roby::EventNotControlable: trying to establish a signal from
+ #<Roby::EventGenerator:0x484a77f8> to #<Roby::EventGenerator:0x484aab88>
+ which is not controllable
 {coderay}
 

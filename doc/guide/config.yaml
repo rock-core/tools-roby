@@ -25,6 +25,8 @@ default_meta_info:
 
 tag.menu.nested: false
 
+tag.breadcrumbtrail.omit_index_path: true
+
 rdoclinks.base_url: /rdoc/core/
 rdoclinks.base_module: Roby
 
