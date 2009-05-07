@@ -5,10 +5,7 @@ sort_info: 0
 This section will present the basics of plan management using Roby. You will
 learn the following things:
 * the two core objects used in Roby to represent the robot's actions
-* what is a Roby application, how to create a simple one and how to start it
-* how it is possible to interact with a running Roby application through the
-  Roby shell
-* h
-* what are plans and how they are structured. This will lead to the
-  definition of **errors**.
+* what is a Roby application and how create one
+* how it is possible to interact with a running Roby application
+* how to build complex actions from simple ones
 

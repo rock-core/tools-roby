@@ -2,6 +2,7 @@
 title: Tasks
 sort_info: 200
 --- pipeline:tags,markdown,blocks
+{include_file: {filename: src/basics_shell_header.txt, escape_html: false}}
 
 Definition of Tasks
 -------------------
@@ -150,7 +151,8 @@ shortcuts that are defined on {rdoc_class: Task}:
  # Same as task.event(:contingent).on { ... }
  >> task.on(:contingent) { puts "contingent event emitted" } 
  # Same as task.event(:contingent).emit
- >> task.emit(:contingent) # there's two handlers now
+ >> task.emit(:contingent)
+ # There's two handlers now, so we should have two lines displayed
  contingent event emitted
  contingent event emitted
  # Same as task.event(:controlable).call
@@ -158,37 +160,44 @@ shortcuts that are defined on {rdoc_class: Task}:
  controlable event called
  controlable event emitted
  # Same as task.event(:contingent).signals task.event(:controlable)
- >> task.signal(:contingent, task, :stop)
+ >> task.signals(:contingent, task, :controlable)
  >> task.emit :contingent
+ contingent event emitted
  contingent event emitted
  controlable event called
  controlable event emitted
  >> task.emit :finished
  finished event emitted
  stop event emitted
+ >> task.running?
+ => false
 {coderay}
 
 Event classification: using the *forward* relation
 --------------------------------------------------
-As we saw earlier, it is possible to have _terminal_ events, which are events
-that end the task. Obviously, the _stop_ event should be emitted when they are
-emitted (_stop_ represents the task end, does not it ?).
+As we in the above examples, it is possible to have terminal events, which are events
+that end the task. Obviously, the "stop" event should be emitted when they are
+emitted ("stop" represents the task end, does not it ?).
 
 In a more generic way, these terminal events are likely to be either special
 cases of the task success or of the task failure. Then, we actually need a way
-to *classify* events: to say "_success_ is a special case of _stop_, or
-"_wheel\_blocked_.is a special case of _failed_, which is a special case of
-_stop_".
+to *classify* events: to say "success is a special case of stop, or
+"wheel\_blocked is a special case of failed, which is a special case of
+stop".
 
 To represent this specific event relationship, Roby provides a *forward*
 relation between events, which can be added as follows:
 {coderay:: ruby}
  >> class MyTask < Roby::Task
  ?>     event :wheel_blocked
+ ?>     on(:wheel_blocked) { puts "wheel_blocked emitted" }
  ?> end
- >> task = MyTask.new
+ >> plan.discover(task = MyTask.new)
+ >> task.start!
+ start event called
+ start event emitted
  >> blocked = task.event(:wheel_blocked)
- >> failure = task.event(:failed)
+ >> failed = task.event(:failed)
  >> blocked.forward_to failed
  >> task.emit :wheel_blocked
  wheel_blocked emitted
@@ -213,23 +222,24 @@ Task}:
  ?>     signal :start => :controlable
  ?>     forward :wheel_blocked => :failed
  ?> end
- >> task = MyTask.new
+ >> plan.discover(task = MyTask.new)
  >> task.start!
  start event called
  start event emitted
  controlable event called
  controlable event emitted
  >> task.emit :wheel_blocked
- wheel_blocked event emitted
+ wheel_blocked emitted
  failed event emitted
  stop event emitted
 {coderay}
 
-Task that terminates
---------------------
+Tasks that terminates
+---------------------
 A very important characteristic of tasks is their ability to be _interrupted_
-(or lack of). What I mean by that is the fact that a task can be stopped when
-needed. In Roby, that is implemented by giving a command to the 'stop' event.
+(or lack of). What is meant by that is that Roby should be able to stop some
+(actually, most) tasks. In Roby, that ability is represented by giving a command
+to the 'stop' event.
 
 For most of the tasks, there is actually no need to perform specific actions.
 Simply having Roby mark the task as 'stopped' is enough. For those tasks, using
@@ -239,16 +249,15 @@ the 'terminates' statement is enough:
  >> class MyTask
  ?>   terminates
  ?> end
- >> task = MyTask.new
+ >> plan.discover(task = MyTask.new)
  >> task.start!
  start event called
  start event emitted
  controlable event called
  controlable event emitted
  >> task.stop!
- stop event called
  failed event emitted
- controlable event emitted
+ stop event emitted
 {coderay}
 
 As you can see, 'terminates' is equivalent to
@@ -259,10 +268,81 @@ As you can see, 'terminates' is equivalent to
  ?> end
 {coderay}
 
+Common errors when manipulating tasks
+-------------------------------------
+
+As for the event, a common error is to forget to include the task in a plan
+before calling events on it:
+
+{coderay:: ruby}
+ >> task = MyTask.new
+ >> task.start!
+ Roby::EventNotExecutable: start! called on MyTask{}:0x7f336c455af0[] but the task is in no plan
+{coderay}
+
+Another related error is to emit/call events other than "start" while the task is not yet running ...
+
+{coderay:: ruby}
+ >> plan.discover(task = MyTask.new)
+ >> task.controllable!
+ Roby::CommandFailed: controlable!() called by [] but the task has never been started
+    from (irb):30
+ >> task.emit :contingent
+ Roby::EmissionFailed: emit(contingent, []) called by [] but the task has never been started
+    from (irb):31
+{coderay}
+
+... or when it has stopped
+
+{coderay:: ruby}
+ >> task.start!
+ >> task.stop!
+ >> task.controlable!
+ Roby::CommandFailed: controlable!() called by [] but the task has finished. Task has been terminated by [MyTask{}:0x7ff179064358[]/failed@7 [344917:00:42.215]:
+        from (irb):32
+ >> task.emit :contingent
+ Roby::EmissionFailed: emit(contingent, []) called by [] but the task has finished. Task has been terminated by [MyTask{}:0x7ff179064358[]/failed@7 [344917:00:42.215]: ].
+        from (irb):33
+{coderay}
+
+<div markdown="1" class="block">
+In these messages, the notation
+
+    MyTask{}:0x7ff179064358[]
+
+represents a task, the notation
+
+    MyTask{}:0x7ff179064358[]/failed
+
+represents the event "failed" of the same task and finally
+
+    MyTask{}:0x7ff179064358[]/failed@7 [344917:00:42.215]
+
+is an emitted event that has been generated by the "failed" event of the given
+task. The time on the right is the time of emission, and the "@x" notation is
+the propagation cycle (usually, you don't care about this but it is VERY useful
+for debugging Roby itself).
+</div>
+
+Of course, as we saw at the beginning of this page, a task must be fully
+instanciated to be started:
+
+{coderay:: ruby}
+ >> class Bla < Roby::Task
+ >>    argument :foo
+ >> end
+ >> plan.discover(task = Bla.new)
+ >> task.start!
+ Roby::EventNotExecutable: start! called on Bar{}:0x7ff17901c1e8[] which is partially instanciated
+ The following arguments were not set:
+        foo
+{coderay}
+
 Summary
 -------
 
 What do we do know ?
+
 * we know how the robot's situation is represented: through the *emission
   of events*
 * we know how the robot is controlled: through the call of *controlable
