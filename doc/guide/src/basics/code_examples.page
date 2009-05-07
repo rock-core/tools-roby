@@ -2,9 +2,6 @@
 title: Code Examples
 sort_info: 10
 --- pipeline:tags,markdown
-Code Examples
-=============
-
 Notations
 ---------
 In the following pages, the example code is meant to be run either in a Ruby

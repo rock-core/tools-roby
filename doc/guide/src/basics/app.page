@@ -1,10 +1,8 @@
 ---
-title: First App
+title: A First Roby Application
 sort_info: 300
 --- pipeline:tags,markdown,blocks
 
-A first Roby application
-========================
 
 Creation
 --------

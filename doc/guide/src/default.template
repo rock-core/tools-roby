@@ -31,13 +31,22 @@
           <p>Here could go a description of your website! Or a quick overview of the page!</p>
           -->
         </div>
-      <div class="clear">&nbsp;</div>
+          <div class="clear">&nbsp;</div>
 
-      {breadcrumb_trail: }
+          <div class="navbar">
+              {breadcrumb_trail: }
+              <webgen:block name="navbar" notfound="ignore"/>
+          </div>
 
-      <div class="clear">&nbsp;</div>
-        <webgen:block name="content" />
+          <h1>{title: }</h1>
+          <div class="clear">&nbsp;</div>
+            <webgen:block name="content" />
+      <div class="navbar">
+          {breadcrumb_trail: }
+          <webgen:block name="navbar" notfound="ignore"/>
       </div>
+      </div>
+
 
       <div id="sidebar">
 
