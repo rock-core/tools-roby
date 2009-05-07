@@ -252,10 +252,10 @@ module Roby
 		    end
 		    if errors.size == 1
 			e = errors.first.exception
-			raise e, e.message, e.backtrace
+			raise e.dup, e.message, Roby.filter_backtrace(e.backtrace)
 		    elsif !errors.empty?
 			for e in errors
-			    STDERR.puts e.exception.full_message
+			    pp e.exception
 			end
 			raise "multiple exceptions"
 		    end
@@ -535,11 +535,11 @@ module Roby
 		    end
 		    if errors.size == 1
 			e = errors.first.exception
-			raise e, e.message, e.backtrace
+			raise e.dup, e.message, Roby.filter_backtrace(e.backtrace)
 		    elsif !errors.empty?
-			for e in errors
-			    STDERR.puts e.full_message
-			end
+                        for e in errors
+                            pp e.exception
+                        end
 			raise "multiple exceptions"
 		    end
 		end
