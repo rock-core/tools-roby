@@ -159,11 +159,11 @@ class ComputePath < Roby::ThreadTask
 end
 {coderay}
 
-Finally, TrackPath takes the path generated and follows it. Open
-tasks/track\_path.rb and add the following:
+Finally, ExecutePath takes the path generated and follows it. Open
+tasks/execute\_path.rb and add the following:
 
 {coderay:: ruby}
-class TrackPath < Roby::Task
+class ExecutePath < Roby::Task
   terminates
 
   # The task holding the path data
