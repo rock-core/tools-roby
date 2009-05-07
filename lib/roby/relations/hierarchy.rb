@@ -190,8 +190,12 @@ module Roby::TaskStructure
 		    result << Roby::ChildFailedError.new(parent, child.event(failing_event).last)
 		    failing_tasks << child
 		elsif success.all? { |e| child.event(e).unreachable? }
-                    failing_event = success.find { |e| child.event(e) }
-		    result << Roby::ChildFailedError.new(parent, child.event(failing_event))
+                    failing_event = success.find { |e| child.event(e).unreachability_reason }
+                    failing_event = child.event(failing_event).unreachability_reason
+                    if !failing_event
+                        failing_event = child.event(success.find { |e| child.event(e) })
+                    end
+		    result << Roby::ChildFailedError.new(parent, failing_event)
 		    failing_tasks << child
 		end
 	    end

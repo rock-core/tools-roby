@@ -757,11 +757,17 @@ module Roby
 	def self.event_gathering; @@event_gathering end
 
 	attr_predicate :unreachable?
+        # If the event became unreachable, this holds the reason for its
+        # unreachability, if that reason is known. This reason is always an
+        # Event instance which represents the emission that triggered this
+        # unreachability.
+        attr_reader :unreachability_reason
 
 	# Called internally when the event becomes unreachable
 	def unreachable!(reason = nil, plan = self.plan)
 	    return if @unreachable
 	    @unreachable = true
+            @unreachability_reason = reason
 
             EventGenerator.event_gathering.delete(self)
 

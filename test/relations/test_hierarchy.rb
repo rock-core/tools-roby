@@ -64,6 +64,13 @@ class TC_RealizedBy < Test::Unit::TestCase
         parent.stop!
     end
 
+    # This method is a common method used in the various error/nominal tests
+    # below. It creates two tasks:
+    #  p1 which is an instance of SimpleTask
+    #  child which is an instance of a task model with two controllable events
+    #  'first' and 'second'
+    #
+    # p1 is a parent of child. Both tasks are started and returned.
     def create_pair(options)
 	child_model = Class.new(SimpleTask) do
 	    event :first, :command => true
@@ -83,7 +90,7 @@ class TC_RealizedBy < Test::Unit::TestCase
     def assert_child_failed(child, reason, plan)
 	result = plan.check_structure
 	assert_equal([child].to_set, result.map { |e, _| e.exception.failed_task }.to_set)
-	assert_equal([reason].to_set, result.map { |e, _| e.exception.failure_point }.to_set)
+	assert_equal([reason].to_set, result.map { |e, _| e.exception.failed_event }.to_set)
     end
 
 
@@ -138,7 +145,7 @@ class TC_RealizedBy < Test::Unit::TestCase
         parent, child = create_pair :success => [:first]
 
         child.stop!
-	assert_child_failed(child, child.event(:first), plan)
+	assert_child_failed(child, child.event(:failed).last, plan)
         plan.clear
     end
 
