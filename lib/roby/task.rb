@@ -135,10 +135,15 @@ module Roby
 	# by task.plan=. It is redefined here for performance reasons.
 	attr_accessor :plan
 
-	# Fire the event
+	# Check that the event can be emitted
+        def emitting(context)
+            task.emitting_event(self, context)
+            super if defined? super
+        end
+
         def fire(event)
             task.fire_event(event)
-            super
+            super if defined? super
         end
 
 	# See EventGenerator#calling
@@ -148,13 +153,13 @@ module Roby
 	    super if defined? super
             if task.finished? && !terminal?
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}!(#{context})) called by #{plan.engine.propagation_sources} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources}."
+		    "#{symbol}!(#{context}) called by #{plan.engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources}."
             elsif task.pending? && symbol != :start
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}!(#{context})) called by #{plan.engine.propagation_sources} but the task is not running"
+		    "#{symbol}!(#{context}) called by #{plan.engine.propagation_sources.to_a} but the task has never been started"
             elsif task.running? && symbol == :start
                 raise CommandFailed.new(nil, self), 
-		    "#{symbol}!(#{context})) called by #{plan.engine.propagation_sources} but the task is already running. Task has been started by #{task.event(:start).history.first.sources}."
+		    "#{symbol}!(#{context}) called by #{plan.engine.propagation_sources.to_a} but the task is already running. Task has been started by #{task.event(:start).history.first.sources}."
             end
 	end
 
@@ -263,18 +268,18 @@ module Roby
 
 	def refine_exception (e)
 	    if task.partially_instanciated?
-		raise EventNotExecutable.new(self), "#{name}! called on #{task} which is partially instanciated\n" + 
+		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} which is partially instanciated\n" + 
 			"The following arguments were not set: \n" +
 			task.list_unset_arguments.map {|n| "\t#{n}"}.join("\n")+"\n"
 # 						
 	    elsif !plan
-		raise EventNotExecutable.new(self), "#{name}! called on #{task} but the task is in no plan"
+		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} but the task is in no plan"
 	    elsif !plan.executable?
-		raise EventNotExecutable.new(self), "#{name}! called on #{task} but the plan is not executable"
+		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} but the plan is not executable"
 	    elsif task.abstract?
-		raise EventNotExecutable.new(self), "#{name}! called on #{task} but the task is abstract"
+		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} but the task is abstract"
 	    else
-		raise EventNotExecutable.new(self), "#{name}! called on #{task} which is not executable: #{e.message}"
+		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} which is not executable: #{e.message}"
 	    end
 	end
 
@@ -904,24 +909,27 @@ module Roby
             
         # This method is called by TaskEventGenerator#fire just before the event handlers
         # and commands are called
-        def fire_event(event) # :nodoc:
+        def emitting_event(event, context) # :nodoc:
 	    if !executable?
-		raise TaskNotExecutable.new(self), "trying to fire #{event.generator.symbol} on #{self} but #{self} is not executable"
+		raise TaskNotExecutable.new(self), "trying to emit #{symbol} on #{self} but #{self} is not executable"
 	    end
 
             if finished? && !event.terminal?
-                raise EmissionFailed.new(nil, self), 
-		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{plan.engine.propagation_sources} but the task has finished. Task has been terminated by #{event(:stop).history.first.sources}."
+                raise EmissionFailed.new(nil, self),
+		    "emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{event(:stop).history.first.sources}."
             elsif pending? && event.symbol != :start
-                raise EmissionFailed.new(nil, self), 
-		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{plan.engine.propagation_sources} but the task is not running"
+                raise EmissionFailed.new(nil, self),
+		    "emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has never been started"
             elsif running? && event.symbol == :start
-                raise EmissionFailed.new(nil, self), 
-		    "emit(#{event.symbol}: #{event.model}[#{event.context}]) called @#{event.propagation_id} by #{plan.engine.propagation_sources} but the task is already running. Task has been started by #{event(:start).history.first.sources}."
+                raise EmissionFailed.new(nil, self),
+		    "emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task is already running. Task has been started by #{event(:start).history.first.sources}."
             end
 
-	    update_task_status(event)
+	    super if defined? super
+        end
 
+        def fire_event(event)
+	    update_task_status(event)
 	    super if defined? super
         end
 
