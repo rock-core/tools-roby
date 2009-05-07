@@ -28,33 +28,36 @@ module Roby
                 super(planner)
             end
 
-	    def message
+            def pretty_print(pp)
 		if errors.empty?
-		    "no candidate for #{method_name}(#{method_options})"
+		    pp.text "no candidate for #{method_name}(#{method_options})"
 		else
-		    msg = "cannot develop a #{method_name}(#{method_options}) method"
-		    first, *rem = *Roby.filter_backtrace(backtrace)
+                    first, *rem = Roby.filter_backtrace(backtrace)
+                    pp.text "#{first}: cannot develop a #{method_name}(#{method_options.to_s[1..-2]}) method"
+                    pp.breakable
+                    pp.group(4, "    ") do
+                        rem.each do |line|
+                            pp.text "from #{line}"
+                            pp.breakable
+                        end
+                    end
 
-		    full = "#{first}: #{msg}\n   from #{rem.join("\n  from ")}"
+                    pp.breakable
 		    errors.each do |m, error|
 			first, *rem = *Roby.filter_backtrace(error.backtrace)
-			full << "\n#{first}: #{m} failed with #{error.message}\n  from #{rem.join("\n  from ")}"
+                        pp.text "#{first}: planning method #{m} failed"
+                        pp.breakable
+                        pp.text "#{first}: #{error.message}"
+                        pp.breakable
+                        pp.group(4, "    ") do
+                            rem.each do |line|
+                                pp.text "from #{line}"
+                                pp.breakable
+                            end
+                        end
 		    end
-		    full
 		end
-	    end
-
-	    def full_message
-		msg = message
-		first, *rem = *Roby.filter_backtrace(backtrace)
-
-		full = "#{first}: #{msg}\n   from #{rem.join("\n    from ")}"
-		errors.each do |m, error|
-		    first     = error.backtrace.first
-		    full << "\n#{first} #{m} failed because of #{error.full_message}"
-		end
-		full
-	    end
+            end
         end
 
 	# Some common tools for Planner and Library
@@ -123,7 +126,11 @@ module Roby
             # Call the method definition
             def call(planner); body.call(planner) end
 
-            def to_s; "#{name}:#{id}(#{options})" end
+            def to_s
+                opts = options.dup
+                opts.delete :id
+                "#{name}:#{id}(#{opts.to_s[1..-2]})"
+            end
         end
 
         class FreeMethod < MethodDefinition
