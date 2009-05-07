@@ -11,3 +11,4 @@ config = Webgen::WebsiteAccess.website.config
 
 $LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
 require 'ext/rdoc_links'
+require 'ext/previous_next'

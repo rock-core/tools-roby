@@ -2,8 +2,6 @@
 title: Task Hierarchies
 sort_info: 500
 --- pipeline:tags,markdown
-Task Hierarchies
-================
 
 What have we seen until now ?
 * events and signals: a way to represent how the execution should proceed: the

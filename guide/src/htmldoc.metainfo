@@ -8,3 +8,12 @@
 /introduction/index.page:
     in_menu: false
 
+/basics/*:
+    template: /basics.template
+/basics/index.page:
+    template: /default.template
+/basics/plan_objects.page:
+    template: /default.template
+/basics/code_examples.page:
+    template: /default.template
+

@@ -1,0 +1,15 @@
+---
+template: default.template
+--- pipeline:tags,blocks
+<webgen:block name="content" />
+
+--- name:navbar
+<div>
+    &nbsp;
+    <div class="previous">
+        {previous:: }<b>Previous</b>: %{previous}
+    </div>
+    <div class="next">
+        {next:: }<b>Next</b>: %{next}
+    </div>
+</div>
