@@ -21,7 +21,8 @@ Then, to use it, one would do:
  plan.discover(task = MoveTo.new)
 {coderay}
 
-As for events, the task must be included in a plan to be usable. Don't forget that !
+As for events, the task must be included in a plan to be usable, which is done
+by calling plan.discover(). Don't forget that !
 
 Parametrization
 ---------------
@@ -29,8 +30,8 @@ Parametrization
 Obviously, a plain MoveTo task is nothing if the system does not know *where* to go to ... That is called parametrization and has to be declared in the task definition, using Task.argument
 {coderay:: ruby}
  >> class MoveTo < Roby::Task
- >?    argument :x
- >?    argument :y
+ ?>    argument :x
+ ?>    argument :y
  >> end
 {coderay}
 
@@ -61,12 +62,12 @@ Of course, it is possible to set default arguments by defining a #initialize
 method (like with all Ruby classes)
 {coderay:: ruby}
  >> class MoveTo
- >?   argument :max_speed
- >?   def initialize(arguments)
- >?     arguments[:max_speed] ||= 1
- >?     super(arguments)
- >?   end
- >? end
+ ?>   argument :max_speed
+ ?>   def initialize(arguments)
+ ?>     arguments[:max_speed] ||= 1
+ ?>     super(arguments)
+ ?>   end
+ ?> end
  >> task = MoveTo.new(:x => 10, :y => 20)
  >> task.max_speed
  => 1
@@ -91,28 +92,39 @@ The basic task already defines four events:
  * and finally the *failed* event
 
 In the class definition, events are defined using Task#event. To define a
-controllable event, simply associate a block (see below).
+controllable event, simply associate a block. First, copy/paste the following code in a
+my\_task.rb file.
 
 {coderay:: ruby}
- >> class MyTask < Roby::Task
- >?     event :start do |argument|
- >?        emit :start
- >?     end
- >?     event :controllable do |argument|
- >?        puts "controllable event called"
- >?        emit(:controllable)
- >?     end
- >?     event :contingent
- >? end
+ class MyTask < Roby::Task
+     event :start do
+        puts "start event called"
+        emit :start
+     end
+     event :controlable do
+        puts "controlable event called"
+        emit :controlable
+     end
+     event :contingent
+ 
+     on(:start) { puts "start event emitted" }
+     on(:controlable) { puts "controlable event emitted" }
+     on(:contingent) { puts "contingent event emitted" }
+     on(:failed) { puts "failed event emitted" }
+     on(:stop) { puts "stop event emitted" }
+
+     event :finished, :terminal => true
+     on(:finished) { puts "finished event emitted" }
+ end
 {coderay}
 
 Finally, an event can be *terminal*: its emission means the end of the task's
 execution. +failed+ and +success+ are examples of terminal events. To declare a
-terminal event, one does
+terminal event, one does as for the "finished" event above.
+
+Now, read that code into the ruby shell with
 {coderay:: ruby}
- >> class MyTask < Roby::Task
- >?     event :finished, :terminal => true
- >? end
+ >> source "my_task.rb"
 {coderay}
 
 Using task events
@@ -122,33 +134,40 @@ accessed with Task#event. Then, you can manipulate them as for normal events:
 {coderay:: ruby}
  >> plan.discover(task = MyTask.new)
  >> ev = task.event(:start)
- >> ev.controllable?
- => true
  >> ev.call
+ start event called
+ start event emitted
  >> task.running?
  => true
  >> ev = task.event(:contingent)
- >> ev.controllable?
+ >> ev.controlable?
  => false
+ >> ev.emit
+ contingent event emitted
 {coderay}
 
 Instead of calling #on, #signal, #emit and #call on the event object, one can use
 shortcuts that are defined on {rdoc_class: Task}:
 {coderay:: ruby}
- >> plan.discover(task = MyTask.new)
- # Same as task.event(:contingent).on { |_| ... }
- >> task.on(:contingent) { |_| puts "contingent event emitted" } 
+ # Same as task.event(:contingent).on { ... }
+ >> task.on(:contingent) { puts "contingent event emitted" } 
  # Same as task.event(:contingent).emit
- >> task.emit(:contingent)
+ >> task.emit(:contingent) # there's two handlers now
  contingent event emitted
- # Same as task.event(:controllable).call
- >> task.controllable!
- controllable event called
- # Same as task.event(:contingent).signal task.event(:controllable)
+ contingent event emitted
+ # Same as task.event(:controlable).call
+ >> task.controlable!
+ controlable event called
+ controlable event emitted
+ # Same as task.event(:contingent).signals task.event(:controlable)
  >> task.signal(:contingent, task, :stop)
- >> task.emit(:contingent)
+ >> task.emit :contingent
  contingent event emitted
- controllable event called
+ controlable event called
+ controlable event emitted
+ >> task.emit :finished
+ finished event emitted
+ stop event emitted
 {coderay}
 
 Event classification: using the *forward* relation
@@ -167,12 +186,15 @@ To represent this specific event relationship, Roby provides a *forward*
 relation between events, which can be added as follows:
 {coderay:: ruby}
  >> class MyTask < Roby::Task
- >?     event :wheel_blocked
- >? end
+ ?>     event :wheel_blocked
+ ?> end
  >> task = MyTask.new
  >> blocked = task.event(:wheel_blocked)
  >> failure = task.event(:failed)
  >> blocked.forward_to failed
+ >> task.emit :wheel_blocked
+ wheel_blocked emitted
+ stop event emitted
 {coderay}
 
 In practice, a _forward_ relation between two events a and b says "b should be
@@ -190,10 +212,53 @@ Task}:
 
 {coderay:: ruby}
  >> class MyTask < Roby::Task
- >?     signal :start => :controllable
- >?     forward :wheel_blocked => :failed
- >?     on :wheel_blocked { |_| puts "wheel blocked !" }
- >? end
+ ?>     signal :start => :controlable
+ ?>     forward :wheel_blocked => :failed
+ ?> end
+ >> task = MyTask.new
+ >> task.start!
+ start event called
+ start event emitted
+ controlable event called
+ controlable event emitted
+ >> task.emit :wheel_blocked
+ wheel_blocked event emitted
+ failed event emitted
+ stop event emitted
+{coderay}
+
+Task that terminates
+--------------------
+A very important characteristic of tasks is their ability to be _interrupted_
+(or lack of). What I mean by that is the fact that a task can be stopped when
+needed. In Roby, that is implemented by giving a command to the 'stop' event.
+
+For most of the tasks, there is actually no need to perform specific actions.
+Simply having Roby mark the task as 'stopped' is enough. For those tasks, using
+the 'terminates' statement is enough:
+
+{coderay:: ruby}
+ >> class MyTask
+ ?>   terminates
+ ?> end
+ >> task = MyTask.new
+ >> task.start!
+ start event called
+ start event emitted
+ controlable event called
+ controlable event emitted
+ >> task.stop!
+ stop event called
+ failed event emitted
+ controlable event emitted
+{coderay}
+
+As you can see, 'terminates' is equivalent to
+{coderay:: ruby}
+ >> class MyTask
+ ?>   event(:failed) { emit :failed }
+ ?>   event(:stop) { failed! }
+ ?> end
 {coderay}
 
 Summary
@@ -202,7 +267,7 @@ Summary
 What do we do know ?
 * we know how the robot's situation is represented: through the *emission
   of events*
-* we know how the robot is controlled: through the call of *controllable
+* we know how the robot is controlled: through the call of *controlable
   events*
 * we know how to sort events in tasks, in order to represent the different
   processes that run on the robot.
