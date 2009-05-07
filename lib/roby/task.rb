@@ -510,6 +510,10 @@ module Roby
 	    @model = self.class
 
             yield(self) if block_given?
+            # Create the EventGenerator instances that represent this task's
+            # events. Note that the event relations are instanciated by
+            # Plan#discover when this task is included in a plan, thus avoiding
+            # filling up the relation graphs with unused relations.
 	    initialize_events
 	end
 
