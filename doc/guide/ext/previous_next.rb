@@ -9,6 +9,7 @@ class PrevNextTag
         end
 
         siblings = node.parent.children.sort
+        siblings.delete_if { |n| !n.meta_info['in_menu'] }
         prev, _ = siblings.
             enum_for(:each_cons, 2).
             find { |prev, this| this == node }
