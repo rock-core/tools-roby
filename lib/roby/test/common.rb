@@ -33,6 +33,13 @@ module Roby
 	    plan
 	end
 
+        def deprecated_feature
+            Roby.enable_deprecation_warnings = false
+            yield
+        ensure
+            Roby.enable_deprecation_warnings = true
+        end
+
 	# a [collection, collection_backup] array of the collections saved
 	# by #original_collections
 	attr_reader :original_collections

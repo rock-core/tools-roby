@@ -66,7 +66,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	plan.add_mission(task = SimpleTask.new)
 	exec = Class.new(SimpleTask) do
 	    event :ready
-	    on :start => :failed
+	    signal :start => :failed
 	end.new
 	task.executed_by exec
 
@@ -133,8 +133,8 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	init2.executed_by agent
 
 	agent.realized_by(init = (init1 + init2))
-	agent.on(:start, init, :start)
-	init.forward(:success, agent, :ready)
+	agent.signals(:start, init, :start)
+	init.forward_to(:success, agent, :ready)
 
 	task.start!
 	assert(!task.running?)

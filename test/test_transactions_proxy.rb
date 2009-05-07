@@ -186,7 +186,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 
     def test_task_events
 	t1, t2 = prepare_plan :discover => 2
-	t1.on(:success, t2, :start)
+	t1.signals(:success, t2, :start)
 
 	p1 = transaction[t1]
 	assert(p1.event(:success).leaf?(EventStructure::Signal))

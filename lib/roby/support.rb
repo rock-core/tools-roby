@@ -181,5 +181,16 @@ module Roby
             end
         end
     end
+
+    class << self
+        attr_accessor :enable_deprecation_warnings
+    end
+    @enable_deprecation_warnings = true
+
+    def self.warn_deprecated(msg)
+        if enable_deprecation_warnings
+            Roby.warn "Deprecation Warning: #{msg} at #{caller[1]}"
+        end
+    end
 end
 

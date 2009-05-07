@@ -118,7 +118,7 @@ module Roby
             if period && period > 0
                 @periodic_trigger = State.on_delta :t => period
                 periodic_trigger.disable
-                periodic_trigger.on event(:loop_start)
+                periodic_trigger.signals event(:loop_start)
             end
             
 	    @patterns = []
@@ -151,9 +151,9 @@ module Roby
 
 	    planning = PlanningTask.new(task_arguments)
 	    planned  = planning.planned_task
-	    planned.forward(:start,   self, :loop_start)
-	    planned.forward(:success, self, :loop_success)
-	    planned.forward(:stop,    self, :loop_end)
+	    planned.forward_to(:start,   self, :loop_start)
+	    planned.forward_to(:success, self, :loop_success)
+	    planned.forward_to(:stop,    self, :loop_end)
 	    main_task.realized_by planned
 	    
 	    # Schedule it. We start the new pattern when these three conditions are met:
@@ -184,13 +184,15 @@ module Roby
 		if last_planning.finished?
 		    planning.start!(*context) 
 		else
-		    last_planning.event(:success).filter(*context).on(planning.event(:start))
+		    last_planning.event(:success).
+                        filter(*context).
+                        signals(planning.event(:start))
 		end
 	    end
             command &= precondition
 
 	    patterns.unshift([planning, user_command])
-	    command.on(planned.event(:start))
+	    command.signals(planned.event(:start))
 	    planning
 	end
 
@@ -221,7 +223,7 @@ module Roby
                 did_reinit.
                     map { |ev| ev.when_unreachable }.
                     inject { |a, b| a & b }.
-                    forward event(:reinit)
+                    forward_to event(:reinit)
             end
         end
         on :reinit do |ev|
@@ -247,7 +249,7 @@ module Roby
 		    new_planning = append_pattern
 		    first_planning ||= new_planning
 		end
-		on(:start, first_planning)
+		signals(:start, first_planning, :start)
 	    end
 
 	    emit :start

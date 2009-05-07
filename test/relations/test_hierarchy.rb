@@ -165,7 +165,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	p.realized_by c2
 	assert_equal([c1, c2].to_value_set, p.first_children)
 
-	c1.on(:start, c2, :start)
+	c1.signals(:start, c2, :start)
 	assert_equal([c1].to_value_set, p.first_children)
     end
 

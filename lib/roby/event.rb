@@ -17,7 +17,7 @@ module Roby
 	attr_accessor :propagation_id, :context, :time
 	protected :propagation_id=, :context=, :time=
 
-        # The events whose emission triggered this event during the
+        # The events whose emission directly triggered this event during the
         # propagation. The events in this set are subject to Ruby's own
         # garbage collection, which means that if a source event is garbage
         # collected (i.e. if all references to the associated task/event
@@ -263,16 +263,16 @@ module Roby
 	    end
 	end
 
-	# Establishes signalling and/or event handlers from this event
-	# generator. 
+	# call-seq:
+        #   on { |event| ... }
         #
-        # If +time+ is given it is either a :delay => time association, or a
-        # :at => time association. In the first case, +time+ is a floating-point
-        # delay in seconds and in the second case it is a Time object which is
-        # the absolute point in time at which this propagation must happen.
+        # Adds an event handler on this generator. The block gets an Event
+        # object which describes the parameters of the emission (context value,
+        # time, ...). See Event for details.
 	def on(signal = nil, time = nil, &handler)
 	    if signal
-		self.signal(signal, time)
+                Roby.warn_deprecated "EventGenerator#on only accepts event handlers now. Use #signals to establish signalling"
+		self.signals(signal, time)
 	    end
 
 	    if handler
@@ -282,9 +282,6 @@ module Roby
 
 	    self
 	end
-        def signals(generator, timespec = nil)
-            signal(generator, timespec)
-        end
 
 	# Adds a signal from this event to +generator+. +generator+ must be
 	# controlable.
@@ -293,7 +290,7 @@ module Roby
         # :at => time association. In the first case, +time+ is a floating-point
         # delay in seconds and in the second case it is a Time object which is
         # the absolute point in time at which this propagation must happen.
-	def signal(generator, timespec = nil)
+        def signals(generator, timespec = nil)
 	    if !generator.controlable?
 		raise EventNotControlable.new(self), "trying to establish a signal from #{self} to #{generator} which is not controllable"
 	    end
@@ -301,6 +298,11 @@ module Roby
 
 	    add_signal generator, timespec
 	    self
+        end
+
+	def signal(generator, timespec = nil)
+            Roby.warn_deprecated "EventGenerator#signal has been renamed into EventGenerator#signals"
+            signals(generator, timespec)
 	end
 
 	# A set of blocks called when this event cannot be emitted again
@@ -332,6 +334,11 @@ module Roby
             @unreachable_event
         end
 
+	def forward(generator, timespec = nil)
+            Roby.warn_deprecated "EventGenerator#forward has been renamed into EventGenerator#forward_to"
+            forward_to(generator, timespec)
+	end
+
         # Emit +generator+ when +self+ is fired, without calling the command of
         # +generator+, if any.
         #
@@ -339,14 +346,10 @@ module Roby
         # :at => time association. In the first case, +time+ is a floating-point
         # delay in seconds and in the second case it is a Time object which is
         # the absolute point in time at which this propagation must happen.
-	def forward(generator, timespec = nil)
+        def forward_to(generator, timespec = nil)
 	    timespec = ExecutionEngine.validate_timespec(timespec)
 	    add_forwarding generator, timespec
 	    self
-	end
-
-        def forward_to(generator, timespec = nil)
-            forward(generator, timespec)
         end
 
 	# Returns an event which is emitted +seconds+ seconds after this one
@@ -354,33 +357,51 @@ module Roby
 	    if seconds == 0 then self
 	    else
 		ev = EventGenerator.new
-		forward(ev, :delay => seconds)
+		forward_to(ev, :delay => seconds)
 		ev
 	    end
 	end
 
-	# Signal the +signal+ event the first time this event is emitted.  If
-	# +time+ is non-nil, delay the signalling this many seconds. 
-	def signal_once(signal, time = nil); once(signal, time) end
+        # Signals the given target event only once
+	def signals_once(signal, delay = nil)
+            signals(signal, delay)
+            once do |context|
+		remove_signal signal
+	    end
+            self
+        end
 
-	# Equivalent to #on, but call the handler and/or signal the target
-	# event only once.
+	# call-seq:
+        #   once { |context| ... }
+        #
+        # Calls the provided event handler only once
 	def once(signal = nil, time = nil)
+            if signal
+                Roby.warn_deprecated "the once(event_name) form has been replaced by #signal_once"
+                signal_once(signal, time)
+            end
+
 	    handler = nil
-	    on(signal, time) do |context|
+	    on do |context|
 		yield(context) if block_given?
 		self.handlers.delete(handler)
-		remove_signal(signal) if signal
 	    end
 	    handler = self.handlers.last
+            self
 	end
 
-	# Forwards to +ev+ only once
-	def forward_once(ev)
-	    forward(ev)
-	    once do
+        def forward_once(ev, delay = nil)
+            Roby.warn_deprecated "#forward_once has been renamed into #forward_to_once"
+            forward_to_once(ev)
+        end
+
+	# Forwards to the given target event only once
+	def forward_to_once(ev, delay = nil)
+	    forward_to(ev, delay)
+	    once do |context|
 		remove_forwarding ev
 	    end
+            self
 	end
 
 	def to_event; self end
@@ -528,8 +549,9 @@ module Roby
 	# Deprecated. Instead of using
 	#   dest.emit_on(source)
 	# now use
-	#   source.forward(dest)
+	#   source.forward_to(dest)
 	def emit_on(generator, timespec = nil)
+            Roby.warn_deprecated "a.emit_on(b) has been replaced by b.forward_to(a)"
 	    generator.forward(self, timespec)
 	    self
 	end
@@ -558,7 +580,7 @@ module Roby
 		    self.emit(yield(context))
 		end
 	    else
-		ev.forward_once self
+		ev.forward_to_once self
 	    end
 
 	    ev.if_unreachable(true) do |reason|
@@ -597,7 +619,7 @@ module Roby
 	#
 	# A reason string can be provided for debugging purposes
 	def postpone(generator, reason = nil)
-	    generator.on self
+	    generator.signals self
 	    yield if block_given?
 	    throw :postponed, [generator, reason]
 	end
@@ -673,7 +695,7 @@ module Roby
 	# by the given block
 	def filter(*new_context, &block)
 	    filter = FilterGenerator.new(new_context, &block)
-	    self.on(filter)
+	    self.signals(filter)
 	    filter
 	end
 
@@ -682,7 +704,7 @@ module Roby
 	#
 	#   source, ev, limit = (1..3).map { EventGenerator.new(true) }
 	#   ev.until(limit).on { STDERR.puts "FIRED !!!" }
-	#   source.on ev
+	#   source.signals ev
 	#
 	# Will do
 	#
@@ -938,8 +960,8 @@ module Roby
 	    end
 
 	    if source && limit
-		source.forward(self)
-		limit.signal(self)
+		source.forward_to(self)
+		limit.signals(self)
 	    end
 	end
     end

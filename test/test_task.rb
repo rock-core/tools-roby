@@ -81,45 +81,89 @@ class TC_Task < Test::Unit::TestCase
         end
     end
 
-    Precedence = Roby::EventStructure::Precedence
-    def assert_direct_precedence(task, relations)
-	relations.each do |from, to|
-	    from = task.event(from)
-	    to   = to.map { |sym| task.event(sym) }
-
-	    assert_equal(to.to_value_set, from.child_objects(Precedence).to_value_set, from.symbol)
-	end
+    def assert_task_relation_set(task, relation, expected)
+        plan.discover(task)
+        task.each_event do |from|
+            task.each_event do |to|
+                next if from == to
+                exp = expected[from.symbol]
+                if exp == to.symbol || (exp.respond_to?(:include?) && exp.include?(to.symbol))
+                    assert from.child_object?(to, relation), "expected relation #{from} => #{to} in #{relation} is missing"
+                else
+                    assert !from.child_object?(to, relation), "unexpected relation #{from} => #{to} found in #{relation}"
+                end
+            end
+        end
     end
 
-    def test_instantiate_model_event_relations
-	# Create a task model with two intermediate events being
-	# linked by a causal link
-	task = Class.new(Roby::Test::SimpleTask) do
-	    event :first
-	    event :second
-	    event :third
-	    causal_link :first => :third
-	    causal_link :second => :third
-	end.new
-	plan.discover(task)
+    def do_test_instantiate_model_relations(method, relation, additional_links = Hash.new)
+	klass = Class.new(Roby::Test::SimpleTask) do
+            4.times { |i| event "e#{i + 1}", :command => true }
+            send(method, :e1 => [:e2, :e3], :e4 => :stop)
+	end
 
-	assert_direct_precedence task, 
-	    :start => [:first, :second, :updated_data],
-	    :first => [:third],
-	    :second => [:third],
-	    :third => [:success, :aborted],
-	    :aborted => [:failed],
-	    :failed => [:stop],
-	    :success => [:stop]
+        plan.discover(task = klass.new)
+        expected_links = Hash[:e1 => [:e2, :e3], :e4 => :stop]
+        
+        assert_task_relation_set task, relation, expected_links.merge(additional_links)
+    end
+    def test_instantiate_model_signals
+        do_test_instantiate_model_relations(:signal, EventStructure::Signal)
+    end
+    def test_instantiate_deprecated_model_on
+        deprecated_feature do
+            do_test_instantiate_model_relations(:on, EventStructure::Signal)
+        end
+    end
+    def test_instantiate_model_forward
+        do_test_instantiate_model_relations(:forward, EventStructure::Forwarding,
+                           :success => :stop, :aborted => :failed, :failed => :stop)
+    end
+    def test_instantiate_model_causal_links
+        do_test_instantiate_model_relations(:causal_link, EventStructure::CausalLink,
+                           :success => :stop, :aborted => :failed, :failed => :stop)
+    end
 
+    
+    def do_test_inherit_model_relations(method, relation, additional_links = Hash.new)
+	base = Class.new(Roby::Test::SimpleTask) do
+            4.times { |i| event "e#{i + 1}", :command => true }
+            send(method, :e1 => [:e2, :e3])
+	end
+        subclass = Class.new(base) do
+            send(method, :e4 => :stop)
+        end
+
+        task = base.new
+        assert_task_relation_set task, relation,
+            Hash[:e1 => [:e2, :e3]].merge(additional_links)
+
+        task = subclass.new
+        assert_task_relation_set task, relation,
+            Hash[:e1 => [:e2, :e3], :e4 => :stop].merge(additional_links)
+    end
+    def test_inherit_model_signals
+        do_test_inherit_model_relations(:signal, EventStructure::Signal)
+    end
+    def test_inherit_deprecated_model_on
+        deprecated_feature do
+            do_test_inherit_model_relations(:on, EventStructure::Signal)
+        end
+    end
+    def test_inherit_model_forward
+        do_test_inherit_model_relations(:forward, EventStructure::Forwarding,
+                           :success => :stop, :aborted => :failed, :failed => :stop)
+    end
+    def test_inherit_model_causal_links
+        do_test_inherit_model_relations(:causal_link, EventStructure::CausalLink,
+                           :success => :stop, :aborted => :failed, :failed => :stop)
     end
 
     # Test the behaviour of Task#on, and event propagation inside a task
-    def test_instance_on
+    def test_instance_event_handlers
 	plan.discover(t1 = SimpleTask.new)
 	assert_raises(ArgumentError) { t1.on(:start) }
 	
-	# Test command handlers
 	plan.discover(task = SimpleTask.new)
 	FlexMock.use do |mock|
 	    task.on(:start)   { |event| mock.started(event.context) }
@@ -134,38 +178,64 @@ class TC_Task < Test::Unit::TestCase
         assert(task.finished?)
 	event_history = task.history.map { |ev| ev.generator }
 	assert_equal([task.event(:start), task.event(:success), task.event(:stop)], event_history)
+    end
 
-	# Same test, but with signals
+    def test_instance_signals
 	FlexMock.use do |mock|
-	    t1, t2 = prepare_plan :discover => 2, :model => SimpleTask
-	    t1.on(:start, t2)
-	    t2.on(:start) { mock.start }
+	    t1, t2 = prepare_plan :discover => 3, :model => SimpleTask
+            t1.signals(:start, t2, :start)
 
-	    mock.should_receive(:start).once
+            t2.on(:start) { mock.start }
+            mock.should_receive(:start).once
 	    t1.start!
 	end
+    end
 
+    def test_instance_signals_deprecated_default_event_name
 	FlexMock.use do |mock|
-	    t1, t2 = prepare_plan :discover => 2, :model => SimpleTask
-	    t2.start!
+	    t1, t2 = prepare_plan :discover => 3, :model => SimpleTask
+            deprecated_feature do
+                t1.on(:start, t2)
+            end
 
-	    t1.on(:start, t2, :stop)
-	    t2.on(:start) { mock.start }
-	    t2.on(:stop)  { mock.stop }
-
-	    mock.should_receive(:start).never
-	    mock.should_receive(:stop).once
+            t2.on(:start) { mock.start }
+            mock.should_receive(:start).once
 	    t1.start!
 	end
+    end
 
+    def test_instance_signals_deprecated_on_usage
+	FlexMock.use do |mock|
+	    t1, t2 = prepare_plan :discover => 3, :model => SimpleTask
+            deprecated_feature do
+                t1.on(:start, t2, :start)
+            end
+
+            t2.on(:start) { mock.start }
+            mock.should_receive(:start).once
+	    t1.start!
+	end
+    end
+
+    def test_instance_signals_plain_events
 	t = prepare_plan :missions => 1, :model => SimpleTask
 	e = EventGenerator.new(true)
-	t.on(:start, e)
+	t.signals(:start, e)
 	t.start!
 	assert(e.happened?)
     end
 
-    def test_model_event_handling
+    def test_instance_signals_plain_events_deprecated_on_usage
+	t = prepare_plan :missions => 1, :model => SimpleTask
+	e = EventGenerator.new(true)
+        deprecated_feature do
+            t.on(:start, e)
+        end
+	t.start!
+	assert(e.happened?)
+    end
+
+    def test_model_forwardings
 	model = Class.new(SimpleTask) do
 	    forward :start => :failed
 	end
@@ -173,10 +243,20 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal({}, SimpleTask.signal_sets)
 
 	assert_equal([:failed, :stop].to_value_set, model.forwardings(:start))
-	assert_equal([:stop].to_value_set, model.forwardings(:failed))
-	assert_equal(model.forwardings(:failed), model.enum_for(:each_forwarding, :failed).to_value_set)
+	assert_equal([:stop].to_value_set,          model.forwardings(:failed))
+	assert_equal([:stop].to_value_set,          model.enum_for(:each_forwarding, :failed).to_value_set)
 
-        # Event handlers must accept exactly one argument
+        plan.discover(task = model.new)
+        task.start!
+
+	# Make sure the model-level relation is not applied to parent models
+	plan.discover(task = SimpleTask.new)
+	task.start!
+	assert(!task.failed?)
+    end
+
+    def test_model_event_handlers
+	model = Class.new(SimpleTask)
         assert_raises(ArgumentError) { model.on(:start) { || } }
         assert_raises(ArgumentError) { model.on(:start) { |a, b| } }
 
@@ -187,39 +267,26 @@ class TC_Task < Test::Unit::TestCase
 	    plan.discover(task = model.new)
 	    mock.should_receive(:start_called).with(task).once
 	    task.start!
-	    assert(task.failed?)
-	end
 
-	# Make sure the model-level signal is not applied to parent models
-	plan.discover(task = SimpleTask.new)
-	task.start!
-	assert(!task.failed?)
+            # Make sure the model-level handler is not applied to parent models
+            plan.discover(task = SimpleTask.new)
+            task.start!
+            assert(!task.failed?)
+	end
     end
 
-    def test_forward
+    def test_instance_forward_to
 	FlexMock.use do |mock|
 	    t1, t2 = prepare_plan :missions => 2, :model => SimpleTask
-	    t1.forward(:start, t2)
+	    t1.forward_to(:start, t2, :start)
 	    t2.on(:start) { mock.start }
 
 	    mock.should_receive(:start).once
 	    t1.start!
 	end
+    end
 
-	FlexMock.use do |mock|
-	    t1, t2 = prepare_plan :missions => 2, :model => SimpleTask
-	    t2.start!
-
-	    t1.forward(:start, t2, :stop)
-	    t2.on(:start) { mock.start }
-	    t2.on(:stop) { mock.stop }
-
-	    mock.should_receive(:start).never
-	    mock.should_receive(:stop).once
-	    t1.start!
-	end
-
-
+    def test_instance_forward_to_plain_events
 	FlexMock.use do |mock|
 	    t1 = prepare_plan :missions => 1, :model => SimpleTask
 	    ev = EventGenerator.new do 
@@ -227,7 +294,7 @@ class TC_Task < Test::Unit::TestCase
 		ev.emit
 	    end
 	    ev.on { mock.emitted }
-	    t1.forward(:start, ev)
+	    t1.forward_to(:start, ev)
 
 	    mock.should_receive(:called).never
 	    mock.should_receive(:emitted).once
@@ -235,68 +302,78 @@ class TC_Task < Test::Unit::TestCase
 	end
     end
 
-    def test_terminal
+    def test_terminal_option
 	klass = Class.new(Task) do
-	    event(:terminal_model, :terminal => true)
-	    event(:terminal_model_signal)
-	    forward :terminal_model_signal => :terminal_model
+            event :terminal, :terminal => true
+        end
+        assert klass.event_model(:terminal).terminal?
+        plan.discover(task = klass.new)
+        assert task.event(:terminal).terminal?
+        assert task.event(:terminal).child_object?(task.event(:stop), EventStructure::Forwarding)
+    end
 
-	    event(:success_model, :terminal => true)
-	    event(:success_model_signal)
-	    forward :success_model_signal => :success
-	    forward :success_model_signal => :success_model
-
-	    event(:failure_model, :terminal => true)
-	    event(:failure_model_signal)
-	    forward :failure_model_signal => :failed
-	    forward :failure_model_signal => :failure_model
-
-	    event(:ev)
-            event :controlable_terminal, :terminal => true, :command => true
+    def test_terminal_direct_forward_in_model
+	klass = Class.new(Task) do
+	    event :terminal
+	    forward :terminal => :stop
 	end
-	assert(klass.event_model(:stop).terminal?)
-	assert(klass.event_model(:success).terminal?)
-	assert(klass.event_model(:failed).terminal?)
-	assert(klass.event_model(:terminal_model).terminal?)
-	assert(klass.event_model(:terminal_model_signal).terminal?)
+        assert klass.event_model(:terminal).terminal?
+        plan.discover(task = klass.new)
+        assert task.event(:terminal).terminal?
+    end
 
-	plan.discover(task = klass.new)
-	assert(task.event(:stop).terminal?)
-	assert(!task.event(:stop).success?)
-	assert(!task.event(:stop).failure?)
-	assert(task.event(:success).terminal?)
-	assert(task.event(:success).success?)
-	assert(!task.event(:success).failure?)
-	assert(task.event(:failed).terminal?)
-	assert(!task.event(:failed).success?)
-	assert(task.event(:failed).failure?)
+    def test_terminal_indirect_forward_in_model
+	klass = Class.new(Task) do
+	    event :terminal
+            event :intermediate
 
-	ev = task.event(:ev)
-	assert(!ev.terminal?)
-	assert(!ev.success?)
-	assert(!ev.failure?)
-	ev.forward task.event(:terminal_model_signal)
-	assert(ev.terminal?)
-	assert(!ev.success?)
-	assert(!ev.failure?)
-	ev.forward task.event(:success_model_signal)
-	assert(ev.terminal?)
-	assert(ev.success?)
-	assert(!ev.failure?)
-	ev.remove_forwarding task.event(:success_model_signal)
-	ev.forward task.event(:failure_model_signal)
-	assert(ev.terminal?)
-	assert(!ev.success?)
-	assert(ev.failure?)
+	    forward :terminal => :intermediate
+            forward :intermediate => :failed
+	end
+        assert klass.event_model(:terminal).terminal?
+        plan.discover(task = klass.new)
+        assert task.event(:terminal).terminal?
+    end
 
-	ev.remove_forwarding task.event(:failure_model_signal)
-	ev.remove_forwarding task.event(:terminal_model_signal)
-	assert(!ev.terminal?)
-	ev.forward task.event(:failure_model_signal), :delay => 0.2
-	assert(!ev.terminal?)
-	ev.remove_forwarding task.event(:failure_model_signal)
-	ev.signal task.event(:controlable_terminal), :delay => 0.2
-	assert(!ev.terminal?)
+    def test_terminal_direct_signal_in_model
+	klass = Class.new(SimpleTask) do
+	    event :terminal
+	    signal :terminal => :stop
+	end
+        assert klass.event_model(:terminal).terminal?
+        plan.discover(task = klass.new)
+        assert task.event(:terminal).terminal?
+    end
+
+    def test_terminal_indirect_signal_in_model
+	klass = Class.new(Task) do
+	    event :terminal
+            event :intermediate, :command => true
+
+	    signal :terminal => :intermediate
+            forward :intermediate => :failed
+	end
+        assert klass.event_model(:terminal).terminal?
+        plan.discover(task = klass.new)
+        assert task.event(:terminal).terminal?
+    end
+
+    def test_should_not_establish_signal_from_terminal_to_non_terminal
+	klass = Class.new(Task) do
+	    event :terminal, :terminal => true
+            event :intermediate
+	end
+        assert_raises(ArgumentError) { klass.forward :terminal => :intermediate }
+        klass.new
+    end
+
+    def test_should_not_establish_signal_from_terminal_to_non_terminal
+	klass = Class.new(Task) do
+	    event :terminal, :terminal => true
+            event :intermediate, :command => true
+	end
+        assert_raises(ArgumentError) { klass.signal :terminal => :intermediate }
+        klass.new
     end
 
     # Tests Task::event
@@ -643,11 +720,11 @@ class TC_Task < Test::Unit::TestCase
 	if check_signaling then
 	    error = yield
 	    assert_exception_message(EventNotExecutable, substring) do
-	       exception_propagator(error, :on)
+	       exception_propagator(error, :signals)
 	    end
 	    error = yield
 	    assert_exception_message(EventNotExecutable, substring) do
-	       exception_propagator(error, :forward)
+	       exception_propagator(error, :forward_to)
 	    end
 	end
     end
@@ -819,7 +896,7 @@ class TC_Task < Test::Unit::TestCase
 	t1, t2, t3 = (1..3).map { SimpleTask.new }.
 	    each { |t| plan.discover(t) }
 	t1.realized_by t2
-	t1.event(:start).on t3.event(:start)
+	t1.event(:start).signals t3.event(:start)
 	assert_equal([t3].to_value_set, t1.event(:start).related_tasks)
 	assert_equal([t2].to_value_set, t1.related_objects)
 	assert_equal([t2, t3].to_value_set, t1.related_tasks)
@@ -829,7 +906,7 @@ class TC_Task < Test::Unit::TestCase
 	t1, t2, t3 = (1..3).map { SimpleTask.new }.
 	    each { |t| plan.discover(t) }
 	t1.realized_by t2
-	t1.event(:start).on t3.event(:start)
+	t1.event(:start).signals t3.event(:start)
 	assert_equal([t3.event(:start)].to_value_set, t1.related_events)
     end
 
@@ -972,7 +1049,7 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal([task.event(:start).last], task.event(:start).last.task_sources.to_a)
 
 	ev = EventGenerator.new(true)
-	ev.forward task.event(:specialized_failure)
+	ev.forward_to task.event(:specialized_failure)
 	ev.call
 	assert_equal([task.event(:specialized_failure).last], task.event(:stop).last.task_sources.to_a)
     end

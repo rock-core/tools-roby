@@ -108,7 +108,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	assert(EventStructure::Precedence.linked?(task.event(:start), task.event(:updated_data)))
 
 	engine.event_ordering << :bla
-	e1.signal e2
+	e1.signals e2
 	assert(EventStructure::Precedence.linked?(e1, e2))
 	assert(engine.event_ordering.empty?)
 
@@ -142,7 +142,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 
 	    plan.add_mission(t = SimpleTask.new)
 	    e = EventGenerator.new(true)
-	    t.event(:start).on e, :delay => 0.1
+	    t.event(:start).signals e, :delay => 0.1
 	    engine.once { t.start! }
 	    process_events
 	    assert(!e.happened?)
@@ -176,8 +176,8 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	plan.add_mission(a)
 	a.realized_by(b = SimpleTask.new(:id => 'b'))
 
-	b.forward(:success, a, :child_success)
-	b.forward(:stop, a, :child_stop)
+	b.forward_to(:success, a, :child_success)
+	b.forward_to(:stop, a, :child_stop)
 
 	FlexMock.use do |mock|
 	    a.on(:child_stop) { mock.stopped }
@@ -200,8 +200,8 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    end
 	    sink.on { |event| mock.handler_called(event.context) }
 
-	    forward.forward sink
-	    signal.signal   sink
+	    forward.forward_to sink
+	    signal.signals   sink
 
 	    seed = lambda do
 		forward.call(24)

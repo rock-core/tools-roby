@@ -60,8 +60,8 @@ module Roby
 	    task = task.new unless task.kind_of?(Roby::Task)
 	    @tasks.each { |t| task.realized_by t }
 
-	    task.on(:start, @tasks.first, :start)
-	    @tasks.last.forward(:success, task, :success)
+	    task.signals(:start, @tasks.first, :start)
+	    @tasks.last.forward_to(:success, task, :success)
 
 	    delete
 
@@ -71,18 +71,18 @@ module Roby
 	def connect_start(task)
 	    if old = @tasks.first
 		event(:start).remove_signal old.event(:start)
-		task.on(:success, old, :start)
+		task.signals(:success, old, :start)
 	    end
 
-	    event(:start).on task.event(:start)
+	    event(:start).signals task.event(:start)
 	end
 
 	def connect_stop(task)
 	    if old = @tasks.last
-		old.on(:success, task, :start)
+		old.signals(:success, task, :start)
 		old.event(:success).remove_forwarding event(:success)
 	    end
-	    task.forward(:success, self)
+	    task.forward_to(:success, self, :success)
 	end
 	private :connect_stop, :connect_start
 
@@ -119,7 +119,7 @@ module Roby
 	    super
 
 	    @children_success = Roby::AndGenerator.new
-	    @children_success.forward event(:success)
+	    @children_success.forward_to event(:success)
         end
 
 	def to_task(task = nil)
@@ -128,7 +128,7 @@ module Roby
 	    task = task.new unless task.kind_of?(Roby::Task)
 	    @tasks.each do |t| 
 		task.realized_by t
-		task.on(:start, t, :start)
+		task.signals(:start, t, :start)
 	    end
 	    task.event(:success).emit_on children_success
 
@@ -141,7 +141,7 @@ module Roby
 	    raise "trying to change a running parallel task" if running?
             @tasks << task
 
-	    on(:start, task, :start)
+	    signals(:start, task, :start)
 	    realized_by task
 	    children_success << task.event(:success)
 
@@ -161,9 +161,9 @@ module Roby
 	    success = AndGenerator.new
 	    tasks.each do |task|
 		realized_by task
-		task.event(:success).on success
+		task.event(:success).signals success
 	    end
-	    success.forward event(:success)
+	    success.forward_to event(:success)
 	end
 
 	event :start do

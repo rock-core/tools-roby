@@ -265,7 +265,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	end
 	plan.discover(ev)
 	ev2 = EventGenerator.new(true)
-	ev.on ev2
+	ev.signals ev2
 
 	assert_original_error(RuntimeError, CommandFailed) { ev.call(nil) }
 	assert(ev.happened?)
@@ -418,7 +418,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	parent, child = prepare_plan :tasks => 2, :model => SimpleTask
 	plan.add_mission(parent)
 	parent.realized_by child
-	parent.on :start, child, :start
+	parent.signals :start, child, :start
 	parent.start!
 	child.failed!
 
@@ -476,7 +476,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	test_error_handling_relation(:blocked)
     end
 
-    def test_handling_missions_exceptions
+    def test_mission_exceptions
 	mission = prepare_plan :missions => 1, :model => SimpleTask
 	repairing_task = SimpleTask.new
 	mission.event(:failed).handle_with repairing_task

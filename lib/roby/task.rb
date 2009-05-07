@@ -571,7 +571,7 @@ module Roby
 
 	        for signalled in signalled_events
 	            signalled = bound_events[signalled]
-	            generator.signal signalled
+	            generator.signals signalled
 	            left_border.delete(signalled)
 	        end
 	    end
@@ -584,7 +584,7 @@ module Roby
 
 	        for signalled in signalled_events
 	            signalled = bound_events[signalled]
-	            generator.forward signalled
+	            generator.forward_to signalled
 	            left_border.delete(signalled)
 	        end
 	    end
@@ -984,22 +984,42 @@ module Roby
         end
 
         # call-seq:
-        #   on(event, task[, event1, event2, ...])
 	#   on(event) { |event| ... }
-        #   on(event[, task, event1, event2, ...]) { |event| ... }
-        #   on(event, task[, event1, event2, ...], delay)
         #
-        # Adds a signal from the given event to the specified targets, and/or
-        # defines an event handler. Note that <tt>on(event, task)</tt> is
-        # equivalent to <tt>on(event, task, event)</tt>
-        #
-        # +delay+, if given, specifies that the signal must be postponed for as
-        # much time as specified. See EventGenerator#signal for valid values.
+        # Defines an event handler for the given event.
         def on(event_model, to = nil, *to_task_events, &user_handler)
-            unless to || user_handler
+            if to
+                Roby.warn_deprecated "on(event_name, task, target_events) has been replaced by #signals"
+            elsif !(to || user_handler)
                 raise ArgumentError, "you must provide either a task or an event handler (got nil for both)"
             end
 
+            if to
+                signals(event_model, to, *to_task_events)
+            end
+            if user_handler
+                generator = event(event_model)
+                generator.on(&user_handler)
+            end
+            self
+        end
+
+        # call-seq:
+        #   signals source_event, dest_task, ev1, ev2, ev3, ...
+        #   signals source_event, dest_task, ev1, ev2, ev3, delay_options
+        #
+        # Creates a signal from +source_event+, which is an event name of
+        # +self+, to the listed events of +dest_task+. The destination events
+        # will be called when the source event is emitted.
+        #
+        # To simply emit target events (i.e. not calling the event's commands),
+        # use #forwards
+        #
+        # Optionally, a delay can be added to the signal. +delay_options+ can be
+        # either:
+        #   :delay => relative_delay_in_seconds
+        #   :at => absolute_time
+        def signals(event_model, to, *to_task_events)
             generator = event(event_model)
             if Hash === to_task_events.last
                 delay = to_task_events.pop
@@ -1007,6 +1027,7 @@ module Roby
 	    to_events = case to
 			when Task
 			    if to_task_events.empty?
+                                Roby.warn_deprecated "signals(event_name, target_task) is deprecated. You must now always specify the target event name"
 				[to.event(generator.symbol)]
 			    else
 				to_task_events.map { |ev_model| to.event(ev_model) }
@@ -1016,27 +1037,35 @@ module Roby
 			end
 
             to_events.push delay if delay
-            generator.on(*to_events, &user_handler)
+            generator.signals(*to_events)
             self
         end
 
+	def forward(name, to, *to_task_events)
+            Roby.warn_deprecated "Task#forward has been renamed into Task#forward_to"
+            if to_task_events.empty?
+                Roby.warn_deprecated "the Task#forward(event_name, target_task) form is deprecated. Use Task#forward_to and specify the target event name"
+            end
+
+            forward_to(name, to, *to_task_events)
+        end
+
         # call-seq:
-        #   forward source_event, dest_task, ev1, ev2, ev3, ...
-        #   forward source_event, dest_task, ev1, ev2, ev3, delay_options
+        #   forward_to source_event, dest_task, ev1, ev2, ev3, ...
+        #   forward_to source_event, dest_task, ev1, ev2, ev3, delay_options
         #
-        # Fowards +name+ to the events in +to_task_events+ on task +to+.  The
-        # target events will be emitted as soon as the +name+ event is emitted
-        # on the receiving task, without calling any command.
+        # Fowards the +source_event+, which is the name of an event of +self+,
+        # to the listed events in +dest_task+. The target events will be emitted
+        # as soon as the source event is emitted,
         #
         # To call an event whenever other events are emitted, use the Signal
-        # relation. See Task#on, Task.on and EventGenerator#on. As for Task#on,
-        # <tt>forward(:start, task)</tt> is a shortcut to <tt>forward(:start,
-        # task, :start)</tt>.
+        # relation. See Task#signals, Task.signal and EventGenerator#signals.
         #
-        # If a +delay_options+ hash is provided, the forwarding is not performed
-        # immediately, but with a given delay. See EventGenerator#forward for
-        # the delay specification.
-	def forward(name, to, *to_task_events)
+        # Optionally, a delay can be added to the signal. +delay_options+ can be
+        # either:
+        #   :delay => relative_delay_in_seconds
+        #   :at => absolute_time
+	def forward_to(name, to, *to_task_events)
             generator = event(name)
             if Hash === to_task_events.last
                 delay = to_task_events.pop
@@ -1044,10 +1073,11 @@ module Roby
 
 	    to_events = if to.respond_to?(:event)
 			    if to_task_events.empty?
+                                Roby.warn_deprecated "forward_to(event_name, target_task) is deprecated. You must now always specify the target event name"
 				[to.event(generator.symbol)]
-			    else
-				to_task_events.map { |ev| to.event(ev) }
-			    end
+                            else
+                                to_task_events.map { |ev| to.event(ev) }
+                            end
 			elsif to.kind_of?(EventGenerator)
 			    [to]
 			else
@@ -1055,7 +1085,7 @@ module Roby
 			end
 
 	    to_events.each do |ev|
-		generator.forward ev, delay
+		generator.forward_to ev, delay
 	    end
 	end
 
@@ -1281,8 +1311,34 @@ module Roby
         end
     
         # call-seq:
-        #   on(event_model) { |event| ... }
-        #   on(event_model => ev1, ev2 => [ ev3, ev4 ]) { |event| ... }
+        #   signal(name1 => name2, name3 => [name4, name5])
+        #
+        # Establish model-level signals between events of that task. These
+        # signals will be established on all the instances of this task model
+        # (and its subclasses).
+        def self.signal(mappings)
+            mappings.each do |from, to|
+                from    = event_model(from)
+                targets = Array[*to].map { |ev| event_model(ev) }
+
+                if from.terminal?
+                    non_terminal = targets.find_all { |ev| !ev.terminal? }
+                    if !non_terminal.empty?
+                        raise ArgumentError, "trying to establish a forwarding relation from the terminal event #{from} to the non-terminal events #{non_terminal}"
+                    end
+                end
+                non_controlable = targets.find_all { |ev| !ev.controlable? }
+                if !non_controlable.empty?
+                    raise ArgumentError, "trying to signal #{target} which is not controlable"
+                end
+
+                signal_sets[from.symbol].merge targets.map { |ev| ev.symbol }.to_value_set
+            end
+            update_terminal_flag
+        end
+
+        # call-seq:
+        #   on(event_name) { |event| ... }
         #
         # Adds an event handler for the given event model. When the event is fired,
         # all events given in argument will be called. If they are controlable,
@@ -1292,21 +1348,14 @@ module Roby
                 check_arity(user_handler, 1)
             end
 
+            if mappings.kind_of?(Hash)
+                Roby.warn_deprecated "the on(event => event) form of Task.on is deprecated. Use #signal to establish signals"
+                signal(mappings)
+            end
+
             mappings = [*mappings].zip([]) unless Hash === mappings
-            mappings.each do |from, to|
+            mappings.each do |from, _|
                 from = event_model(from).symbol
-                to = if to
-			 Array[*to].map do |ev| 
-			     model = event_model(ev)
-			     raise ArgumentError, "trying to signal #{ev} which is not controlable" unless model.controlable?
-			     model.symbol
-			 end
-                     else;  []
-                     end
-
-		signal_sets[from].merge to.to_value_set
-		update_terminal_flag
-
 		if user_handler 
 		    method_name = "event_handler_#{from}_#{Object.address_from_id(user_handler.object_id).to_s(16)}"
 		    define_method(method_name, &user_handler)
@@ -1339,8 +1388,17 @@ module Roby
         # See also Task#forward and EventGenerator#forward.
 	def self.forward(mappings)
             mappings.each do |from, to|
-                from = event_model(from).symbol
-		forwarding_sets[from].merge Array[*to].map { |ev| event_model(ev).symbol }.to_value_set
+                from    = event_model(from).symbol
+                targets = Array[*to].map { |ev| event_model(ev).symbol }
+
+                if event_model(from).terminal?
+                    non_terminal = targets.find_all { |name| !event_model(name).terminal? }
+                    if !non_terminal.empty?
+                        raise ArgumentError, "trying to establish a forwarding relation from the terminal event #{from} to the non-terminal event(s) #{targets}"
+                    end
+                end
+
+		forwarding_sets[from].merge targets.to_value_set
             end
 	    update_terminal_flag
 	end
@@ -1627,7 +1685,7 @@ module Roby
 	    start_event.call
 	end
 	on :start do
-	    success_event.forward_once event(:success)
+	    success_event.forward_to_once event(:success)
 	    success_event.if_unreachable(true) do
 		emit :failed if executable?
 	    end

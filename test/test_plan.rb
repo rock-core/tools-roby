@@ -97,7 +97,7 @@ module TC_PlanStatic
 	plan.discover(e = EventGenerator.new(true))
 
 	t1.realized_by(t2)
-	t1.on(:start, e)
+	t1.signals(:start, e, :start)
 
 	plan.remove_object(e)
 	assert(!plan.free_events.include?(e))
@@ -116,8 +116,8 @@ module TC_PlanStatic
 	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => Roby::Test::SimpleTask
 	t1.realized_by t2
 	or_ev = OrGenerator.new
-	t2.event(:start).on or_ev
-	or_ev.on t3.event(:stop)
+	t2.event(:start).signals or_ev
+	or_ev.signals t3.event(:stop)
 	t2.planned_by t4
 
 	result = plan.discover(t1)
@@ -142,7 +142,7 @@ module TC_PlanStatic
     def test_insert
 	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => Roby::Test::SimpleTask
 	t1.realized_by t2
-	t2.on(:start, t3, :stop)
+	t2.signals(:start, t3, :stop)
 	t2.planned_by t4
 
 	result = plan.add_mission(t1)
@@ -162,7 +162,7 @@ module TC_PlanStatic
     def test_useful_task_components
 	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => Roby::Test::SimpleTask
 	t1.realized_by t2
-	t2.on(:start, t3, :stop)
+	t2.signals(:start, t3, :stop)
 	t2.planned_by t4
 
 	plan.add_mission(t1)
@@ -181,9 +181,9 @@ module TC_PlanStatic
 	c1.realized_by c11
 	c1.realized_by c12
 	p.realized_by c2
-	c1.on(:stop, c2, :start)
-	c1.forward :start, c1, :stop
-	c11.forward :success, c1
+	c1.signals(:stop, c2, :start)
+	c1.forward_to :start, c1, :stop
+	c11.forward_to :success, c1, :success
 
 	# Replace c1 by c3 and check that the hooks are properly called
 	FlexMock.use do |mock|
@@ -238,9 +238,9 @@ module TC_PlanStatic
 	c1.realized_by c11
 	c1.realized_by c12
 	p.realized_by c2
-	c1.on(:stop, c2, :start)
-	c1.forward :start, c1, :stop
-	c11.forward :success, c1
+	c1.signals(:stop, c2, :start)
+	c1.forward_to :start, c1, :stop
+	c11.forward_to :success, c1, :success
 
 	# Replace c1 by c3 and check that the hooks are properly called
 	FlexMock.use do |mock|
@@ -285,7 +285,7 @@ module TC_PlanStatic
     def test_remove_task
 	t1, t2, t3 = (1..3).map { Roby::Task.new }
 	t1.realized_by t2
-	t1.on(:stop, t3, :start)
+	t1.signals(:stop, t3, :start)
 
 	plan.add_mission(t1)
 	plan.add_mission(t3)
@@ -311,7 +311,7 @@ module TC_PlanStatic
 	or_generator  = (t1.event(:stop) | t2.event(:stop))
 	assert_equal(plan, or_generator.plan)
 	assert(plan.free_events.include?(or_generator))
-	or_generator.on t3.event(:start)
+	or_generator.signals t3.event(:start)
 	assert_equal(plan, t3.plan)
 
 	and_generator = (t1.event(:stop) & t2.event(:stop))
@@ -331,7 +331,7 @@ module TC_PlanStatic
 
 	e = EventGenerator.new(true)
 	assert_equal(nil, e.plan)
-	t1.on(:start, e)
+	t1.signals(:start, e, :start)
 	assert_equal(plan, e.plan)
 	assert(plan.free_events.include?(e))
 
@@ -479,7 +479,7 @@ class TC_Plan < Test::Unit::TestCase
     def test_gc_ignores_incoming_events
 	Roby::Plan.logger.level = Logger::WARN
 	a, b = prepare_plan :discover => 2, :model => SimpleTask
-	a.on(:stop, b, :start)
+	a.signals(:stop, b, :start)
 	a.start!
 
 	process_events
@@ -545,13 +545,13 @@ class TC_Plan < Test::Unit::TestCase
 	plan.add_mission(t)
 	plan.discover(e1)
 	assert_equal([e1], plan.unneeded_events.to_a)
-	t.event(:start).on e1
+	t.event(:start).signals e1
 	assert_equal([], plan.unneeded_events.to_a)
 
 	e2 = EventGenerator.new(true)
 	plan.discover(e2)
 	assert_equal([e2], plan.unneeded_events.to_a)
-	e1.forward e2
+	e1.forward_to e2
 	assert_equal([], plan.unneeded_events.to_a)
 
 	plan.remove_object(t)

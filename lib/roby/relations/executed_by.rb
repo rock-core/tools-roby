@@ -65,7 +65,7 @@ module Roby::TaskStructure
 		# are already set up
 		if running?
 		    Roby::Distributed.update(self) do
-			agent.forward(:stop, self, :aborted)
+			agent.forward_to(:stop, self, :aborted)
 		    end
 		else
 		    on(:start) do
@@ -74,7 +74,7 @@ module Roby::TaskStructure
 			# actually an execution agent 
 			if execution_agent
 			    Roby::Distributed.update(self) do
-				execution_agent.forward(:stop, self, :aborted)
+				execution_agent.forward_to(:stop, self, :aborted)
 			    end
 			end
 		    end

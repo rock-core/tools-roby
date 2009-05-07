@@ -268,18 +268,18 @@ module TC_TransactionBehaviour
     def test_commit_event_relations
 	(t1, t2), (t3, t4) = prepare_plan :missions => 2, :tasks => 2,
 	    :model => SimpleTask
-	t1.on(:start, t2, :success)
+	t1.signals(:start, t2, :success)
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    trsc.discover t3
-	    t3.event(:stop).on p2.event(:start)
+            t3.signals(:stop, p2, :start)
 	    assert(Signal.linked?(t3.event(:stop), p2.event(:start)))
 	    assert(!Signal.linked?(t3.event(:stop), t2.event(:start)))
 	end
 	assert(Signal.linked?(t3.event(:stop), t2.event(:start)))
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    p1.event(:stop).on p2.event(:start)
+            p1.signals(:stop, p2, :start)
 	    assert(Signal.linked?(p1.event(:stop), p2.event(:start)))
 	    assert(!Signal.linked?(t1.event(:stop), t2.event(:start)))
 	end
@@ -287,7 +287,7 @@ module TC_TransactionBehaviour
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    trsc.discover t4
-	    p1.event(:stop).on t4.event(:start)
+	    p1.signals(:stop, t4, :start)
 	    assert(Signal.linked?(p1.event(:stop), t4.event(:start)))
 	end
 	assert(Signal.linked?(t1.event(:stop), t4.event(:start)))
@@ -305,9 +305,9 @@ module TC_TransactionBehaviour
 	mission.realized_by task
 	planned.planned_by task
 	task.realized_by child
-	task.on(:stop, mission, :stop)
-	task.forward(:stop, planned, :success)
-	task.on(:start, child, :start)
+	task.signals(:stop, mission, :stop)
+	task.forward_to(:stop, planned, :success)
+	task.signals(:start, child, :start)
 
 	transaction_commit(plan, mission, planned, task, child) do |trsc, pm, pp, pt, pc|
 	    trsc.replace(pt, r)
@@ -352,7 +352,7 @@ module TC_TransactionBehaviour
 	    assert_equal(plan, t1.event(:start).plan)
 	    assert_equal(trsc, p1.event(:start).plan)
 	    assert_equal(trsc, t2.event(:start).plan)
-	    assert_raises(RuntimeError) { t1.event(:start).on t2.event(:start) }
+	    assert_raises(RuntimeError) { t1.signals(:start, t2, :start) }
 	end
     end
 
@@ -463,7 +463,7 @@ class TC_Transactions < Test::Unit::TestCase
 	    trsc.add_mission(t3)
 	    and_generator = (p1.event(:start) & t2.event(:start))
 	    assert_equal(trsc, and_generator.plan)
-	    and_generator.on t3.event(:start)
+	    and_generator.signals t3.event(:start)
 	end
 
 	t1.start!
@@ -477,7 +477,7 @@ class TC_Transactions < Test::Unit::TestCase
 	transaction_commit(plan, t1) do |trsc, p1|
 	    trsc.add_mission(t2)
 	    trsc.add_mission(t3)
-	    (p1.event(:start) | t2.event(:start)).on t3.event(:start)
+	    (p1.event(:start) | t2.event(:start)).signals t3.event(:start)
 	end
 
 	t1.start!
@@ -509,8 +509,8 @@ class TC_Transactions < Test::Unit::TestCase
 	ev = nil
 	transaction_commit(plan, t1) do |trsc, p1|
 	    ev = EventGenerator.new do
-		p1.forward(:start, t2, :start)
-		p1.on(:start, t3, :start)
+		p1.forward_to(:start, t2, :start)
+		p1.signals(:start, t3, :start)
 	    end
 	    trsc.discover(ev)
 	    ev
