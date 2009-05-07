@@ -41,10 +41,10 @@
           <h1>{title: }</h1>
           <div class="clear">&nbsp;</div>
             <webgen:block name="content" />
-      <div class="navbar">
-          {breadcrumb_trail: }
-          <webgen:block name="navbar" notfound="ignore"/>
-      </div>
+          <div class="navbar">
+              {breadcrumb_trail: }
+              <webgen:block name="navbar" notfound="ignore"/>
+          </div>
       </div>
 
 

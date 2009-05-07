@@ -3,17 +3,12 @@
 /basics:
     sort_info: 100
 
-/basics/index.page:
-    in_menu: false
 /introduction/index.page:
     in_menu: false
 
 /basics/*:
     template: /basics.template
 /basics/index.page:
-    template: /default.template
-/basics/plan_objects.page:
-    template: /default.template
-/basics/code_examples.page:
+    in_menu: false
     template: /default.template
 
