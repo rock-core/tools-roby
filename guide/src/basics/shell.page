@@ -9,10 +9,7 @@ non-interruption of that event loop. Therefore, in a Roby application, the user
 runs a remote shell that is used to send specific commands to the Roby
 application itself.
 
-While the tasks represent single activities, Roby provides a so-called **task
-structure** that allows to create more complex activities by combining multiple
-tasks. The plan generation is then the process of building that aggregation and
-inserting it for execution.
+{include_file: {filename: src/basics_shell_header.txt, escape_html: false}}
 
 Planners
 --------
@@ -38,12 +35,9 @@ Edit planners/goForward/main.rb and edit so that it looks like this:
  end
 {coderay}
 
-That exports an aggregate action to the user's shell. This action is made of one
-simple task, but we'll see that the planning model is much more powerful than
-that. Now, we can try out the Roby shell.
-
-First, remove the last three lines in controllers/goForward.rb so that it looks
-like this:
+That exports a very simple action to the user's shell. Now, we can try out the
+Roby shell. First, remove the last three lines in controllers/goForward.rb so
+that it looks like this:
 
 {coderay:: ruby}
  # Define the original value of x
@@ -102,6 +96,7 @@ component tries to find the best time to start it (which, in our case, is
 "now"). We'll see more about this later.
 {: .warning}
 
-You can see that the action method returns the task that the planning method
-returns (in this case, the GoForward instance. The returned task object supports
-sending commands, checking its status, emitting events, ...
+You can see that the action method returns the task that the planning method has
+returned. Even though we are on a remote shell, the returned task object
+supports sending commands, checking its status, emitting events, ...
+
