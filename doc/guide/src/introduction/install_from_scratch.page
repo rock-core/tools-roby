@@ -2,9 +2,7 @@
 title: Install on Debian/Ubuntu
 sort_info: 200
 --- pipeline:rdoc
-= Installing on a Debian-like system (including Ubuntu)
-
-The followin describes the installation of a functional workspace for roby with
+The following describes the installation of a functional workspace for roby with
 all dependencies. While most of it would be independent of the Linux
 distribution chosen, some parts are specific to Debian-based systems (tested on
 Debian and Ubuntu 8.10).

@@ -1,9 +1,8 @@
 ---
-title: Introduction
+title: What is Roby?
+routed_title: Introduction
 sort_info: 0
 --- pipeline:rdoc
-
-= What is Roby ?
 
 Roby is a plan manager: it allows to represent, execute and adapt a plan, which
 is a representation of the past, present and future activities of a robot along
