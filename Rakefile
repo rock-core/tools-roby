@@ -131,15 +131,10 @@ require 'rdoc/task'
 namespace 'doc' do
     require 'roby/app/rake'
     RDoc::Task.new("api") do |rdoc|
-      #rdoc.options << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
       rdoc.rdoc_dir = 'doc/html/api'
       rdoc.title    = "Roby Core"
-      #rdoc.template = Roby::Rake.rdoc_template
-      rdoc.options << '--main' << 'README.txt' << '--show-hash'
-      rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
+      rdoc.options << '--show-hash'
       rdoc.rdoc_files.include('lib/**/*.rb', 'ext/**/*.cc')
-      rdoc.rdoc_files.include('doc/install.rdoc', 'doc/videos.rdoc', 'doc/papers.rdoc', 'doc/using/**/*.rdoc', 'doc/extending/**/*.rdoc')
-      rdoc.rdoc_files.include('doc/tutorials/**/*')
       rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
     end
 
@@ -147,7 +142,7 @@ namespace 'doc' do
         website.clobber_outdir = true
         website.directory = File.join(Dir.pwd, 'doc', 'guide')
         website.config_block = lambda do |config|
-            config['output'] = ['Webgen::Output::FileSystem', File.join(Dir.pwd, 'doc', 'html', 'guide')]
+            config['output'] = ['Webgen::Output::FileSystem', File.join(Dir.pwd, 'doc', 'html')]
         end
     end
 
@@ -164,7 +159,7 @@ namespace 'doc' do
     plugins_documentation_generation 're'
 
     desc 'update the pages that are displayed on doudou.github.com/roby'
-    task "github" => "doc:guide" do
+    task "github" => ["doc:guide", "doc:api"] do
         if !system( File.join("doc", "misc", "update_github") )
             raise "cannot update the gh-pages branch"
         end
