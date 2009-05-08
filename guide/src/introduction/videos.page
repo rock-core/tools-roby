@@ -1,5 +1,7 @@
-= Videos
-
+---
+title: Demonstration Videos
+sort_info: 400
+--- pipeline:tags,rdoc
 == Normal operations
 
 Those videos don't show what Roby itself does, only results showing

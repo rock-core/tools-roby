@@ -1,8 +1,0 @@
-= Roby's Extension Guide
-
-This guide is *definitely* a work in progress -- actually it is for now an
-embryo of a guide, but things should improve ...
-
-For people which simply want to use Roby, see {this
-guide}[link:files/doc/using/index_rdoc.html]
-
