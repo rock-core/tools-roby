@@ -1,20 +1,22 @@
 #! /bin/sh
 
 PAGES_BRANCH=gh-pages
+DOC_DIR=doc/html
 
 set -e
 
 git reset -q HEAD
 
 # Create the tree object
-git add doc/html/guide
-tree=$(git write-tree --prefix=doc/html/guide)
+git add -f $DOC_DIR
+tree=$(git write-tree --prefix=$DOC_DIR)
 
 # Get the parent commit for the tree. If the branch does not yet exist, create
 # it
 msg="generated from $(git show-ref HEAD | awk '{print $1}')"
-parent=$(git show-ref $PAGES_BRANCH | awk '{ print $1 }')
+parent=$(git show-ref refs/heads/$PAGES_BRANCH | awk '{ print $1 }')
 if test -n "$parent"; then
+    echo $parent
     # Check that some things changes since last time
     last_tree=$(git cat-file commit $PAGES_BRANCH | grep tree | awk '{print $2}')
     if test "x$last_tree" = "x$tree"; then
