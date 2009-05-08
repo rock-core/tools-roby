@@ -38,6 +38,12 @@
               <webgen:block name="navbar" notfound="ignore"/>
           </div>
 
+          <div class="warning">
+          This user's guide documents the upcoming 0.8 branch of Roby, which is available
+          in the next/ branch of the GitHub repository. This documentation only partially
+          applies to the 0.7 version.
+          </div>
+
           <h1>{title: }</h1>
           <div class="clear">&nbsp;</div>
             <webgen:block name="content" />
