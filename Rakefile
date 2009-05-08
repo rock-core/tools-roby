@@ -162,6 +162,13 @@ namespace 'doc' do
     plugins_documentation_generation 'clobber_'
     desc 'regenerate the documentation for all installed plugins'
     plugins_documentation_generation 're'
+
+    desc 'update the pages that are displayed on doudou.github.com/roby'
+    task "github" => "doc:guide" do
+        if !system( File.join("doc", "misc", "update_github") )
+            raise "cannot update the gh-pages branch"
+        end
+    end
 end
 
 task 'docs' => ['doc:guide', 'doc:api', 'doc:plugins_docs']
