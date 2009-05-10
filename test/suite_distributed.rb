@@ -1,3 +1,4 @@
+$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'distributed/test_communication'
 require 'distributed/test_connection'
 require 'distributed/test_execution'
