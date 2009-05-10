@@ -39,7 +39,7 @@ class TC_ThreadTask < Test::Unit::TestCase
             end
         end
 
-        plan.permanent(task = model.new)
+        plan.add_permanent(task = model.new)
 	wait_thread_end(task)
 
         assert task.failed?
@@ -59,7 +59,7 @@ class TC_ThreadTask < Test::Unit::TestCase
             end
         end
 
-        plan.discover(task = model.new)
+        plan.add(task = model.new)
 	wait_thread_end(task)
 
         assert task.failed?

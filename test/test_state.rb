@@ -283,7 +283,7 @@ class TC_State < Test::Unit::TestCase
     def test_pos_delta_event
 	State.pos = Pos::Euler3D.new
 
-	plan.discover(d = State.on_delta(:d => 10))
+	plan.add(d = State.on_delta(:d => 10))
 	assert_kind_of(PosDeltaEvent, d)
 	d.poll
 	assert_equal(State.pos, d.last_value)
@@ -308,7 +308,7 @@ class TC_State < Test::Unit::TestCase
     def test_yaw_delta_event
 	State.pos = Pos::Euler3D.new
 
-	plan.discover(y = State.on_delta(:yaw => 2))
+	plan.add(y = State.on_delta(:yaw => 2))
 	assert_kind_of(YawDeltaEvent, y)
 	y.poll
 	assert_equal(0, y.last_value)
@@ -331,7 +331,7 @@ class TC_State < Test::Unit::TestCase
 	    current_time = Time.now + 5
 	    time_proxy.should_receive(:now).and_return { current_time }
 
-	    plan.discover(t = State.on_delta(:t => 1))
+	    plan.add(t = State.on_delta(:t => 1))
 	    assert_kind_of(TimeDeltaEvent, t)
 
 	    t.poll
@@ -359,7 +359,7 @@ class TC_State < Test::Unit::TestCase
 	    current_time = Time.now + 5
 	    time_proxy.should_receive(:now).and_return { current_time }
 
-	    plan.discover(ev = State.at(:t => current_time + 1))
+	    plan.add(ev = State.at(:t => current_time + 1))
 	    ev.poll
 	    assert(!ev.happened?)
 	    current_time += 1
@@ -373,7 +373,7 @@ class TC_State < Test::Unit::TestCase
 
     def test_and_state_events
 	State.pos = Pos::Euler3D.new
-	plan.permanent(ev = State.on_delta(:yaw => 2, :d => 10))
+	plan.add_permanent(ev = State.on_delta(:yaw => 2, :d => 10))
 	assert_kind_of(AndGenerator, ev)
 
 	engine.process_events
@@ -400,7 +400,7 @@ class TC_State < Test::Unit::TestCase
 
     def test_or_state_events
 	State.pos = Pos::Euler3D.new
-	plan.permanent(y = State.on_delta(:yaw => 2))
+	plan.add_permanent(y = State.on_delta(:yaw => 2))
 
 	ev = y.or(:d => 10)
 	engine.process_events

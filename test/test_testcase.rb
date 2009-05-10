@@ -25,7 +25,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
     end
 
     def test_assert_any_event
-	plan.discover(t = SimpleTask.new)
+	plan.add(t = SimpleTask.new)
 	t.start!
 	assert_nothing_raised do
 	    assert_any_event(t.event(:start))
@@ -37,7 +37,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	    assert_any_event([t.event(:success)], [t.event(:stop)])
 	end
 
-	plan.discover(t = SimpleTask.new)
+	plan.add(t = SimpleTask.new)
 	t.start!
 	t.failed!
 	assert_raises(Test::Unit::AssertionFailedError) do

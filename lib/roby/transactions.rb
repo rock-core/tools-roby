@@ -18,7 +18,7 @@ module Roby
 	    proxy = proxy_objects[object] = Proxy.proxy_class(object).new(object, self)
 	    if do_include && object.root_object?
 		proxy.plan = self
-		discover(proxy)
+		add(proxy)
 	    end
 
 	    copy_object_relations(object, proxy)
@@ -61,14 +61,14 @@ module Roby
 		if create
 		    if !object.plan
 			object.plan = self
-			discover(object)
+			add(object)
 			return object
 		    elsif object.plan == self.plan
 			wrapped = do_wrap(object, true)
 			if plan.mission?(object)
 			    add_mission(wrapped)
 			elsif plan.permanent?(object)
-			    permanent(wrapped)
+			    add_permanent(wrapped)
 			end
 			return wrapped
 		    else
@@ -128,7 +128,7 @@ module Roby
 		end
 	    end
 
-	    discovered_objects.delete(proxy)
+	    added_objects.delete(proxy)
 	    proxy.discovered_relations.delete(relation)
 	    proxy.do_discover(relation, false)
 	end
@@ -242,20 +242,20 @@ module Roby
 	    end
 	    super(self[t, true]) 
 	end
-	def permanent(t)
+	def add_permanent(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if proxy = self[t, false]
 		auto_tasks.delete(may_unwrap(proxy))
 	    end
 	    super(self[t, true]) 
 	end
-	def discover(objects)
+	def add(objects)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    super(self[objects, true])
 	    self
 	end
 
-	def auto(t)
+	def unmark_permanent(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if proxy = self[t, false]
 		super(proxy)
@@ -267,7 +267,7 @@ module Roby
 	    end
 	end
 
-	def remove_mission(t)
+	def unmark_mission(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if proxy = self[t, false]
 		super(proxy)
@@ -320,8 +320,8 @@ module Roby
 	    freezed!
 
 	    plan.execute do
-		auto_tasks.each      { |t| plan.auto(t) }
-		discarded_tasks.each { |t| plan.remove_mission(t) }
+		auto_tasks.each      { |t| plan.unmark_permanent(t) }
+		discarded_tasks.each { |t| plan.unmark_mission(t) }
 		removed_objects.each do |obj| 
 		    plan.remove_object(obj) if plan.include?(obj)
 		end
@@ -366,14 +366,14 @@ module Roby
 		    discover_events << unwrapped
 		end
 
-		new_tasks = plan.discover_task_set(discover_tasks)
+		new_tasks = plan.add_task_set(discover_tasks)
 		new_tasks.each do |task|
 		    if task.respond_to?(:commit_transaction)
 			task.commit_transaction
 		    end
 		end
 
-		new_events = plan.discover_event_set(discover_events)
+		new_events = plan.add_event_set(discover_events)
 		new_events.each do |event|
 		    if event.respond_to?(:commit_transaction)
 			event.commit_transaction
@@ -386,7 +386,7 @@ module Roby
 		proxy_objects.each_value { |proxy| proxy.clear_relations  }
 
 		insert.each    { |t| plan.add_mission(t) }
-		permanent.each { |t| plan.permanent(t) }
+		permanent.each { |t| plan.add_permanent(t) }
 
 		proxies     = proxy_objects.dup
 		clear

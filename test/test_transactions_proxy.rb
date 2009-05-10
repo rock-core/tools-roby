@@ -42,7 +42,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     end
     
     def test_event_proxy
-	plan.discover(ev = EventGenerator.new)
+	plan.add(ev = EventGenerator.new)
 	wrapped = transaction[ev]
 	assert_kind_of(Roby::Transactions::EventGenerator, wrapped)
 	assert_equal(plan, ev.plan)
@@ -67,7 +67,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	    def clear_vertex; end
 	end
 
-	plan.discover(obj = real_klass.new)
+	plan.add(obj = real_klass.new)
 	proxy = transaction[obj]
 	assert_is_proxy_of(obj, proxy, proxy_klass)
 	assert_same(proxy, transaction[obj])
@@ -104,7 +104,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 
     def test_proxy_class_selection
 	task  = Roby::Task.new
-	plan.discover(task)
+	plan.add(task)
 	proxy = transaction[task]
 
 	assert_is_proxy_of(task, proxy, Task)
@@ -123,7 +123,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	task  = Class.new(SimpleTask) do
 	    event :intermediate, :command => true
 	end.new
-	plan.discover(task)
+	plan.add(task)
 	proxy = transaction[task]
 
 	assert_nothing_raised { task.event(:start).emit(nil) }
@@ -149,7 +149,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     # Tests that the graph of proxys is separated from
     # the Task and EventGenerator graphs
     def test_proxy_graph_separation
-	tasks = prepare_plan :discover => 3
+	tasks = prepare_plan :add => 3
 	proxies = tasks.map { |t| transaction[t] }
 
 	t1, t2, t3 = tasks
@@ -175,7 +175,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     Hierarchy = Roby::TaskStructure::Hierarchy
 
     def test_task_relation_copy
-	t1, t2 = prepare_plan :discover => 2
+	t1, t2 = prepare_plan :add => 2
 	t1.realized_by t2
 
 	p1 = transaction[t1]
@@ -185,7 +185,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     end
 
     def test_task_events
-	t1, t2 = prepare_plan :discover => 2
+	t1, t2 = prepare_plan :add => 2
 	t1.signals(:success, t2, :start)
 
 	p1 = transaction[t1]

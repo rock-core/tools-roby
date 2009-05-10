@@ -515,8 +515,8 @@ module Roby
 
 		# Initialize the display ...
 		decoder.plans.each do |plan|
-		    discovered_tasks(Time.now, plan, plan.known_tasks)
-		    discovered_events(Time.now, plan, plan.free_events)
+		    added_tasks(Time.now, plan, plan.known_tasks)
+		    added_events(Time.now, plan, plan.free_events)
 		end
 		display
 	    end
@@ -995,7 +995,7 @@ module Roby
 	    def removed_event_child(time, parent, rel, child)
 		remove_graphics(arrows.delete([local_event(parent), local_event(child), rel]))
 	    end
-	    def discovered_tasks(time, plan, tasks)
+	    def added_tasks(time, plan, tasks)
 		tasks.each do |obj| 
 		    obj.flags[:pending] = true if obj.respond_to?(:flags)
 		    task = local_task(obj)

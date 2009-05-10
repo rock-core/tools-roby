@@ -84,7 +84,7 @@ module Roby::Log
 	# Logs +message+ with argument +args+. The block is called only once if
 	# there is at least one logger which listens for +message+.
 	def log(m, args = nil)
-	    if m == :discovered_tasks || m == :discovered_events
+	    if m == :added_tasks || m == :added_events
 		Roby.synchronize do
 		    args ||= yield
 		    objects = args[1].to_value_set

@@ -353,14 +353,14 @@ module Roby
 	    end
 	    def replaced_tasks(time, plan, from, to)
 	    end
-	    def discovered_events(time, plan, events)
+	    def added_events(time, plan, events)
 		plan = local_plan(plan)
 		events.each do |ev| 
 		    ev = local_event(ev) { plan }
 		    plan.free_events << ev
 		end
 	    end
-	    def discovered_tasks(time, plan, tasks)
+	    def added_tasks(time, plan, tasks)
 		plan = local_plan(plan)
 		tasks.each do |t| 
 		    t = local_task(t) { plan }

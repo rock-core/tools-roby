@@ -147,7 +147,7 @@ module Roby
 		    end
 
 		    assert_any_event([task.event(:success)], [], nil) do
-			plan.permanent(task)
+			plan.add_permanent(task)
 			task.start! if task.pending?
 			yield if block_given?
 		    end

@@ -11,7 +11,7 @@ class TC_PlanningTask < Test::Unit::TestCase
 
     def planning_task_result(planning_task)
         assert(planning_task)
-	plan.permanent(planning_task)
+	plan.add_permanent(planning_task)
 	planning_task.start! if planning_task.pending?
 	planning_task.thread.join
 	process_events
@@ -67,7 +67,7 @@ class TC_PlanningTask < Test::Unit::TestCase
         end
 
 	planning_task = PlanningTask.new(:planner_model => planner, :method_name => :interruptible)
-	plan.permanent(planning_task)
+	plan.add_permanent(planning_task)
         planning_task.start!
         loop { sleep 0.1 ; break if started }
         planning_task.stop!
@@ -86,12 +86,12 @@ class TC_PlanningTask < Test::Unit::TestCase
 	    method(:test_task) do
 	       	result_task = SimpleTask.new(:id => arguments[:task_id])
 		result_task.realized_by replan_task(:task_id => arguments[:task_id] + 1)
-		plan.permanent(result_task)
+		plan.add_permanent(result_task)
 		result_task
 	    end
 	end.new(plan)
 
-	plan.permanent(task = planner.test_task(:task_id => 100))
+	plan.add_permanent(task = planner.test_task(:task_id => 100))
 	assert_kind_of(SimpleTask, task)
 	assert_equal(100, task.arguments[:id])
 
@@ -116,7 +116,7 @@ class TC_PlanningTask < Test::Unit::TestCase
             end
             m = FreeMethod.new 'test_object', {:id => 10}, body
             planning_task = PlanningTask.new(:planner_model => planner_model, :planning_method => m, :arg => 10)
-            plan.permanent(planning_task)
+            plan.add_permanent(planning_task)
             planning_task.start!
             new_task = planning_task_result(planning_task)
             assert_equal 'result_of_lambda', new_task.arguments[:id]

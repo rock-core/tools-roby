@@ -64,7 +64,7 @@ module Roby
             # Hook called when a new task is marked as mission. It sends a
             # PeerServer#plan_set_mission message to the remote host.
             #
-            # Note that plan will have called the #discovered_tasks hook
+            # Note that plan will have called the #added_tasks hook
             # beforehand
 	    def added_mission(task)
 		super if defined? super
@@ -91,10 +91,10 @@ module Roby
 		end
 	    end
 
-            # Common implementation for the #discovered_events and
-            # #discovered_tasks hooks. It sends PeerServer#plan_discover for
+            # Common implementation for the #added_events and
+            # #added_tasks hooks. It sends PeerServer#plan_add for
             # all tasks which can be shared among plan managers
-	    def self.discovered_objects(plan, objects)
+	    def self.added_objects(plan, objects)
 		unless Distributed.updating?(plan)
 		    relations = nil
 		    Distributed.each_updated_peer(plan) do |peer|
@@ -105,24 +105,24 @@ module Roby
 			    return if objects.empty?
 			    relations = Distributed.subgraph_of(objects)
 			end
-			peer.transmit(:plan_discover, plan, objects, relations)
+			peer.transmit(:plan_add, plan, objects, relations)
 		    end
 		    Distributed.trigger(*objects)
 		end
 	    end
-            # New tasks have been discovered in the plan.
+            # New tasks have been added in the plan.
             #
-            # See PlanModificationHooks.discovered_objects
-	    def discovered_tasks(tasks)
+            # See PlanModificationHooks.added_objects
+	    def added_tasks(tasks)
 		super if defined? super
-		PlanModificationHooks.discovered_objects(self, tasks)
+		PlanModificationHooks.added_objects(self, tasks)
 	    end
-            # New free events have been discovered in the plan.
+            # New free events have been added in the plan.
             #
-            # See PlanModificationHooks.discovered_objects
-	    def discovered_events(events)
+            # See PlanModificationHooks.added_objects
+	    def added_events(events)
 		super if defined? super
-		PlanModificationHooks.discovered_objects(self, events) 
+		PlanModificationHooks.added_objects(self, events) 
 	    end
 
             # Hook called when +from+ has been replaced by +to+ in the plan.
@@ -201,14 +201,14 @@ module Roby
 	    end
 
             # Message received when the set of tasks +m_tasks+ has been
-            # discovered by the remote plan. +m_relations+ describes the
+            # added by the remote plan. +m_relations+ describes the
             # internal relations between elements of +m_tasks+. It is in a
             # format suitable for PeerServer#set_relations.
-	    def plan_discover(plan, m_tasks, m_relations)
+	    def plan_add(plan, m_tasks, m_relations)
 		Distributed.update(plan = peer.local_object(plan)) do
 		    tasks = peer.local_object(m_tasks).to_value_set
 		    Distributed.update_all(tasks) do 
-			plan.discover(tasks)
+			plan.add(tasks)
 			m_relations.each_slice(2) do |obj, rel|
 			    set_relations(obj, rel)
 			end

@@ -743,7 +743,7 @@ module Roby
 		    end
 		    
 		    # Insert resulting tasks in +plan+
-		    plan.discover(result)
+		    plan.add(result)
 
 		    expected_return = method.returns
 		    if expected_return 

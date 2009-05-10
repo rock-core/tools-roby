@@ -6,18 +6,23 @@ require 'roby/test/tasks/empty_task'
 require 'mockups/tasks'
 require 'flexmock'
 require 'utilrb/hash/slice'
+require 'roby/log'
 
 class TC_ExecutionEngine < Test::Unit::TestCase
     include Roby::Test
 
     def setup
-        super
-        Roby.app.filter_backtraces = false
+	super
+	Roby::Log.add_logger(@finalized_tasks_recorder = FinalizedTaskRecorder.new)
+    end
+    def teardown
+	Roby::Log.remove_logger @finalized_tasks_recorder
+	super
     end
 
     def test_gather_propagation
 	e1, e2, e3 = EventGenerator.new(true), EventGenerator.new(true), EventGenerator.new(true)
-	plan.discover [e1, e2, e3]
+	plan.add [e1, e2, e3]
 
 	set = engine.gather_propagation do
 	    e1.call(1)
@@ -97,13 +102,13 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     def test_precedence_graph
 	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
 	engine.event_ordering << :bla
-	plan.discover e1
+	plan.add e1
 	assert(engine.event_ordering.empty?)
-	plan.discover e2
+	plan.add e2
 	
 	engine.event_ordering << :bla
 	task = Roby::Task.new
-	plan.discover(task)
+	plan.add(task)
 	assert(engine.event_ordering.empty?)
 	assert(EventStructure::Precedence.linked?(task.event(:start), task.event(:updated_data)))
 
@@ -122,7 +127,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	# For the test to be valid, we need +pending+ to have a deterministic ordering
 	# Fix that here
 	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
-	plan.discover [e1, e2]
+	plan.add [e1, e2]
 	pending = [ [e1, [true, nil, nil, nil]], [e2, [false, nil, nil, nil]] ]
 	def pending.each_key; each { |(k, v)| yield(k) } end
 	def pending.delete(ev); delete_if { |(k, v)| k == ev } end
@@ -191,7 +196,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     def test_signal_forward
 	forward = EventGenerator.new(true)
 	signal  = EventGenerator.new(true)
-	plan.discover [forward, signal]
+	plan.add [forward, signal]
 
 	FlexMock.use do |mock|
 	    sink = EventGenerator.new do |context|
@@ -245,7 +250,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    LogEventGathering.mockup = mock
 	    dst = EventGenerator.new { }
 	    src = EventGenerator.new { dst.call }
-	    plan.discover [src, dst]
+	    plan.add [src, dst]
 
 	    mock.should_receive(:signalling).never
 	    mock.should_receive(:forwarding).never
@@ -569,7 +574,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	# Set a fake control thread
 	engine.thread = Thread.main
 
-	plan.permanent(task = SimpleTask.new)
+	plan.add_permanent(task = SimpleTask.new)
 	t = Thread.new do
 	    engine.wait_until(task.event(:start)) do
 		task.start!
@@ -588,7 +593,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	# Set a fake control thread
 	engine.thread = Thread.main
 
-	plan.permanent(task = SimpleTask.new)
+	plan.add_permanent(task = SimpleTask.new)
 	t = Thread.new do
 	    begin
 		engine.wait_until(task.event(:success)) do
@@ -646,6 +651,282 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 
     ensure
 	Roby::Log.remove_logger capture if capture
+    end
+
+    def clear_finalized
+        Roby::Log.flush
+        @finalized_tasks_recorder.clear
+    end
+    # Returns the RemoteID for tasks that have been finalized since the last
+    # call to #clear_finalized.
+    def finalized_tasks; @finalized_tasks_recorder.tasks end
+    # Returns the RemoteID for events that have been finalized since the last
+    # call to #clear_finalized.
+    def finalized_events; @finalized_tasks_recorder.events end
+    class FinalizedTaskRecorder
+	attribute(:tasks) { Array.new }
+	attribute(:events) { Array.new }
+        def logs_message?(m); m == :finalized_task || m == :finalized_event end
+	def finalized_task(time, plan, task)
+	    tasks << task
+	end
+	def finalized_event(time, plan, event)
+	    events << event unless event.respond_to?(:task)
+	end
+	def clear
+	    tasks.clear
+	    events.clear
+	end
+	def splat?; true end
+    end
+
+    def assert_finalizes(plan, unneeded, finalized = nil)
+	finalized ||= unneeded
+	finalized = finalized.map { |obj| obj.remote_id }
+	clear_finalized
+
+	yield if block_given?
+
+	assert_equal(unneeded.to_set, plan.unneeded_tasks.to_set)
+	engine.garbage_collect
+        process_events
+	engine.garbage_collect
+
+        # !!! We are actually relying on the logging queue for this to work.
+        # make sure it is empty before testing anything
+        Roby::Log.flush
+
+	assert_equal(finalized.to_set, (finalized_tasks.to_set | finalized_events.to_set) )
+	assert(! finalized.any? { |t| plan.include?(t) })
+    end
+
+    def test_garbage_collect_tasks
+	klass = Class.new(Task) do
+	    attr_accessor :delays
+
+	    event(:start, :command => true)
+	    event(:stop) do |context|
+		if delays
+		    return
+		else
+		    emit(:stop)
+		end
+            end
+	end
+
+	t1, t2, t3, t4, t5, t6, t7, t8, p1 = (1..9).map { |i| klass.new(:id => i) }
+	t1.realized_by t3
+	t2.realized_by t3
+	t3.realized_by t4
+	t5.realized_by t4
+	t5.planned_by p1
+	p1.realized_by t6
+
+	t7.realized_by t8
+
+	[t1, t2, t5].each { |t| plan.add_mission(t) }
+	plan.add_permanent(t7)
+
+	assert_finalizes(plan, [])
+	assert_finalizes(plan, [t1]) { plan.unmark_mission(t1) }
+	assert_finalizes(plan, [t2, t3]) do
+	    t2.start!(nil)
+	    plan.unmark_mission(t2)
+	end
+	assert_finalizes(plan, [t5, t4, p1, t6], []) do
+	    t5.delays = true
+	    t5.start!(nil)
+	    plan.unmark_mission(t5)
+	end
+	assert(t5.event(:stop).pending?)
+	assert_finalizes(plan, [t5, t4, p1, t6]) do
+	    t5.event(:stop).emit(nil)
+	end
+    end
+    
+    def test_force_garbage_collect_tasks
+	t1 = Class.new(Task) do
+	    event(:stop) { |context| }
+	end.new
+	t2 = Task.new
+	t1.realized_by t2
+
+	plan.add_mission(t1)
+	t1.start!
+	assert_finalizes(plan, []) do
+	    engine.garbage_collect([t1])
+	end
+	assert(t1.event(:stop).pending?)
+
+	assert_finalizes(plan, [t1, t2], [t1, t2]) do
+	    # This stops the mission, which will be automatically discarded
+	    t1.event(:stop).emit(nil)
+	end
+    end
+
+    def test_gc_ignores_incoming_events
+	Roby::Plan.logger.level = Logger::WARN
+	a, b = prepare_plan :discover => 2, :model => SimpleTask
+	a.signals(:stop, b, :start)
+	a.start!
+
+	process_events
+	process_events
+	assert(!a.plan)
+	assert(!b.plan)
+	assert(!b.event(:start).happened?)
+    end
+
+    # Test a setup where there is both pending tasks and running tasks. This
+    # checks that #stop! is called on all the involved tasks. This tracks
+    # problems related to bindings in the implementation of #garbage_collect:
+    # the killed task bound to the Roby.once block must remain the same.
+    def test_gc_stopping
+	Roby::Plan.logger.level = Logger::WARN
+	running_task = nil
+	FlexMock.use do |mock|
+	    task_model = Class.new(Task) do
+		event :start, :command => true
+		event :stop do
+		    mock.stop(self)
+		end
+	    end
+
+	    running_tasks = (1..5).map do
+		task_model.new
+	    end
+
+	    plan.add(running_tasks)
+	    t1, t2 = Roby::Task.new, Roby::Task.new
+	    t1.realized_by t2
+	    plan.add(t1)
+
+	    running_tasks.each do |t|
+		t.start!
+		mock.should_receive(:stop).with(t).once
+	    end
+		
+	    engine.garbage_collect
+	    process_events
+
+	    assert(!plan.include?(t1))
+	    assert(!plan.include?(t2))
+	    running_tasks.each do |t|
+		assert(t.finishing?)
+		t.emit(:stop)
+	    end
+
+	    engine.garbage_collect
+	    running_tasks.each do |t|
+		assert(!plan.include?(t))
+	    end
+	end
+
+    ensure
+	running_task.emit(:stop) if running_task && !running_task.finished?
+    end
+
+    def test_garbage_collect_events
+	t  = SimpleTask.new
+	e1 = EventGenerator.new(true)
+
+	plan.add_mission(t)
+	plan.add(e1)
+	assert_equal([e1], plan.unneeded_events.to_a)
+	t.event(:start).signals e1
+	assert_equal([], plan.unneeded_events.to_a)
+
+	e2 = EventGenerator.new(true)
+	plan.add(e2)
+	assert_equal([e2], plan.unneeded_events.to_a)
+	e1.forward_to e2
+	assert_equal([], plan.unneeded_events.to_a)
+
+	plan.remove_object(t)
+	assert_equal([e1, e2].to_value_set, plan.unneeded_events)
+
+        plan.add_permanent(e1)
+	assert_equal([], plan.unneeded_events.to_a)
+        plan.unmark_permanent(e1)
+	assert_equal([e1, e2].to_value_set, plan.unneeded_events)
+        plan.add_permanent(e2)
+	assert_equal([], plan.unneeded_events.to_a)
+        plan.unmark_permanent(e2)
+	assert_equal([e1, e2].to_value_set, plan.unneeded_events)
+    end
+
+    def test_garbage_collect_weak_relations
+	engine.run
+
+	engine.execute do
+	    planning, planned, influencing = prepare_plan :discover => 3, :model => SimpleTask
+
+	    planned.planned_by planning
+	    influencing.realized_by planned
+	    planning.influenced_by influencing
+
+	    planned.start!
+	    planning.start!
+	    influencing.start!
+	end
+
+	engine.wait_one_cycle
+	engine.wait_one_cycle
+	engine.wait_one_cycle
+
+	assert(plan.known_tasks.empty?)
+    end
+
+    def test_mission_failed
+	model = Class.new(SimpleTask) do
+	    event :specialized_failure, :command => true
+	    forward :specialized_failure => :failed
+	end
+
+	task = prepare_plan :missions => 1, :model => model
+	task.start!
+	task.specialized_failure!
+	
+	error = Roby::Plan.check_failed_missions(plan).first.exception
+	assert_kind_of(Roby::MissionFailedError, error)
+	assert_equal(task.event(:specialized_failure).last, error.failure_point)
+        assert_nothing_raised do
+            Roby.format_exception error
+        end
+
+	# Makes teardown happy
+	plan.remove_object(task)
+    end
+
+    def test_check_relations_structure
+        r_t = TaskStructure.relation :TestRT
+        r_e = EventStructure.relation :TestRE
+
+        FlexMock.use do |mock|
+            r_t.singleton_class.class_eval do
+                define_method :check_structure do |plan|
+                    mock.checked_task_relation(plan)
+                    []
+                end
+            end
+            r_e.singleton_class.class_eval do
+                define_method :check_structure do |plan|
+                    mock.checked_event_relation(plan)
+                    []
+                end
+            end
+
+            plan = Plan.new
+            assert plan.relations.include?(r_t)
+            assert plan.relations.include?(r_e)
+
+            mock.should_receive(:checked_task_relation).with(plan).once
+            mock.should_receive(:checked_event_relation).with(plan).once
+            assert_equal(Hash.new, plan.check_structure)
+        end
+    ensure
+        TaskStructure.remove_relation r_t if r_t
+        EventStructure.remove_relation r_e if r_e
     end
 end
 

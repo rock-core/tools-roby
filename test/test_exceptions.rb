@@ -10,7 +10,7 @@ class TC_Exceptions < Test::Unit::TestCase
     class SpecializedError < LocalizedError; end
 
     def test_execution_exception_initialize
-	plan.discover(task = Task.new)
+	plan.add(task = Task.new)
 	error = ExecutionException.new(LocalizedError.new(task))
 	assert_equal(task, error.task)
 	assert_equal([task], error.trace)
@@ -24,7 +24,7 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_execution_exception_fork
-	task, t1, t2, t3 = prepare_plan :discover => 5
+	task, t1, t2, t3 = prepare_plan :add => 5
 	e = ExecutionException.new(LocalizedError.new(task))
 	s = e.fork
 
@@ -51,7 +51,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	e = ExecutionException.new(LocalizedError.new(task))
 	s = e.fork
-	t1, t2 = prepare_plan :discover => 2
+	t1, t2 = prepare_plan :add => 2
 	s.trace << t1 << t2
 	e.merge(s)
 	assert_equal([task, t2], e.task)
@@ -87,7 +87,7 @@ class TC_Exceptions < Test::Unit::TestCase
 		end
 	    end
 
-	    plan.discover(task  = klass.new)
+	    plan.add(task  = klass.new)
 	    error = ExecutionException.new(SpecializedError.new(task))
 	    mock.should_receive(:handler2).with(error, task, task).once.ordered
 	    mock.should_receive(:handler1).with(error, task, task).once.ordered
@@ -145,7 +145,7 @@ class TC_Exceptions < Test::Unit::TestCase
 		    mock.handler(exception, exception.task, self)
 		end
 	    end.new
-	    plan.discover(t0)
+	    plan.add(t0)
 	    t0.realized_by t1
 	    t1.realized_by t2
 
@@ -175,7 +175,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	# 0 being able to handle the exception and 1, 3 not
 
 	FlexMock.use do |mock|
-	    t1, t2, t3 = prepare_plan :discover => 3
+	    t1, t2, t3 = prepare_plan :add => 3
 	    t0 = Class.new(Task) do 
 		attr_accessor :handled_exception
 		on_exception(CodeError) do |exception|
@@ -183,7 +183,7 @@ class TC_Exceptions < Test::Unit::TestCase
 		    mock.handler(exception, exception.task, self)
 		end
 	    end.new
-	    plan.discover(t0)
+	    plan.add(t0)
 	    t0.realized_by t1
 	    t1.realized_by t2
 	    t3.realized_by t2
@@ -217,7 +217,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	# 0 being able to handle the exception and 1, 3 not
 
 	FlexMock.use do |mock|
-	    t1, t2, t3 = prepare_plan :discover => 3
+	    t1, t2, t3 = prepare_plan :add => 3
 
 	    found_exception = nil
 	    t0 = Class.new(Task) do 
@@ -226,7 +226,7 @@ class TC_Exceptions < Test::Unit::TestCase
 		    mock.handler(exception, exception.task.to_set, self)
 		end
 	    end.new
-	    plan.discover(t0)
+	    plan.add(t0)
 	    t0.realized_by t1 ; t1.realized_by t2
 	    t0.realized_by t3 ; t3.realized_by t2
 	    
@@ -245,7 +245,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    raise RuntimeError
 	    ev.emit(context)
 	end
-	plan.discover(ev)
+	plan.add(ev)
 	assert_original_error(RuntimeError, CommandFailed) { ev.call(nil) }
 	assert(!ev.happened?)
 
@@ -254,7 +254,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    ev.emit(context)
 	    raise RuntimeError
 	end
-	plan.discover(ev)
+	plan.add(ev)
 	assert_original_error(RuntimeError, CommandFailed) { ev.call(nil) }
 	assert(ev.happened?)
 
@@ -263,7 +263,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    ev.emit(context)
 	    raise RuntimeError
 	end
-	plan.discover(ev)
+	plan.add(ev)
 	ev2 = EventGenerator.new(true)
 	ev.signals ev2
 
@@ -274,7 +274,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	# Check event handlers
 	FlexMock.use do |mock|
 	    ev = EventGenerator.new(true)
-	    plan.discover(ev)
+	    plan.add(ev)
 	    ev.on { mock.handler ; raise RuntimeError }
 	    ev.on { mock.handler }
 	    mock.should_receive(:handler).twice
@@ -364,7 +364,7 @@ class TC_Exceptions < Test::Unit::TestCase
 		    mock.caught(exception.task)
 		end
 	    end.new(:id => 'root')
-	    plan.discover(root)
+	    plan.add(root)
 	    root.realized_by(t11)
 	    root.realized_by(t12)
 	    root.realized_by(t13)
@@ -388,7 +388,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	end
 
 	# First, check methods located in Plan
-	plan.discover(task = model.new)
+	plan.add(task = model.new)
 	r1, r2 = SimpleTask.new, SimpleTask.new
 
 	task.start!
@@ -424,7 +424,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	exceptions = plan.check_structure
 
-	plan.discover(repairing_task = SimpleTask.new)
+	plan.add(repairing_task = SimpleTask.new)
 	repairing_task.start!
 	assert_equal(exceptions.to_a, engine.remove_inhibited_exceptions(exceptions))
 	assert_equal(exceptions.keys, engine.propagate_exceptions(exceptions))
@@ -503,7 +503,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	assert_equal(exceptions.keys, engine.propagate_exceptions(exceptions))
 
 	# Discard the mission so that the test teardown does not complain
-	plan.remove_mission(mission)
+	plan.unmark_mission(mission)
     end
 
     def test_filter_command_errors

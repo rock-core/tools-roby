@@ -17,35 +17,41 @@ class TC_ThreadTask < Test::Unit::TestCase
         end
     end
 
+    def assert_polling_successful(timeout, sleep = 0.05)
+        now = Time.now
+        while (Time.now - now) < timeout
+            if yield
+                return
+            end
+        end
+        flunk "reached timeout"
+    end
+
     def test_nominal
-        plan.permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP, "--no-output"]))
+        plan.add_permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP, "--no-output"]))
         engine.run
         engine.once { task.start! }
 
-        sleep 0.5
-        assert task.success?
+        assert_polling_successful(5) { task.success? }
     end
 
     def test_failure
-        plan.permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP, "--error"]))
+        plan.add_permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP, "--error"]))
         engine.run
         engine.once { task.start! }
 
-        sleep 0.5
-        assert task.failed?
+        assert_polling_successful(5) { task.failed? }
         assert_equal 1, task.event(:failed).last.context.first.exitstatus
     end
 
     def test_signaling
-        plan.permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP, "--block"]))
+        plan.add_permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP, "--block"]))
         engine.run
         engine.once { task.start! }
-        sleep 0.5
-        assert task.running?
+        assert_polling_successful(5) { task.running? }
 
         Process.kill 'KILL', task.pid
-        sleep 0.5
-        assert task.failed?
+        assert_polling_successful(5) { task.failed? }
         assert task.event(:signaled).happened?
 
         ev = task.event(:signaled).last
@@ -53,13 +59,12 @@ class TC_ThreadTask < Test::Unit::TestCase
     end
 
     def do_redirection(expected)
-        plan.permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP]))
+        plan.add_permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP]))
         yield(task)
         engine.run
         engine.once { task.start! }
 
-        sleep 0.5
-        assert task.success?
+        assert_polling_successful(5) { task.success? }
 
         assert File.exists?("mockup-#{task.pid}.log")
         File.read("mockup-#{task.pid}.log")

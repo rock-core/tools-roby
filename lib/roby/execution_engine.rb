@@ -1210,9 +1210,9 @@ module Roby
         # as it is not possible for the execution engine to stop them.
 	def clear
 	    Roby.synchronize do
-		plan.missions.dup.each { |t| plan.remove_mission(t) }
-		plan.permanent_tasks.dup.each { |t| plan.auto(t) }
-		plan.permanent_events.dup.each { |t| plan.auto(t) }
+		plan.missions.dup.each { |t| plan.unmark_mission(t) }
+		plan.permanent_tasks.dup.each { |t| plan.unmark_permanent(t) }
+		plan.permanent_events.dup.each { |t| plan.unmark_permanent(t) }
 		plan.force_gc.merge( plan.known_tasks )
 
 		quaranteened_subplan = plan.useful_task_component(nil, ValueSet.new, plan.gc_quarantine.dup)

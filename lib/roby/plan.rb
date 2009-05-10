@@ -2,7 +2,7 @@ module Roby
     # A plan object manages a collection of tasks and events.
     #
     # == Adding and removing objects from plans
-    # The #discover, #mission and #permanent calls allow to add objects in
+    # The #add, #add_mission and #add_permanent calls allow to add objects in
     # plans. The #remove_object removes the same objects from the plan. Note
     # that you should never remove objects yourself: a GC mechanism will do
     # that properly for you, taking into account the consequences of the object
@@ -17,11 +17,11 @@ module Roby
     # called.
     #
     # Two special kinds of objects exist in plans:
-    # * the +missions+ (#missions, #mission?, #add_mission and #remove_mission) are the
+    # * the +missions+ (#missions, #mission?, #add_mission and #unmark_mission) are the
     #   final goals of the system.  A task is +useful+ if it helps into the
     #   Realization of a mission (it is the child of a mission through one of the
     #   task relations).
-    # * the +permanent+ objects (#permanent, #auto, #permanent?, #permanent_tasks and
+    # * the +permanent+ objects (#add_permanent, #unmark_permanent, #permanent?, #permanent_tasks and
     #   #permanent_events) are plan objects that are not affected by the plan's
     #   garbage collection mechanism. As for missions, task that are useful to
     #   permanent tasks are also 
@@ -175,76 +175,99 @@ module Roby
 	    return if @missions.include?(task)
 
 	    @missions << task
-	    discover(task)
+	    add(task)
 	    task.mission = true if task.self_owned?
 	    added_mission(task)
 	    self
 	end
-        # DEPRECATED. Use #add_mission(task) instead.
-        def insert(task); add_mission(task) end
-	# DEPRECATED, use #added_mission instead.
-	def inserted(tasks); super if defined? super end
+        def insert(task) # :nodoc:
+            Roby.warn_deprecated "#insert has been replaced by #add_mission"
+            add_mission(task)
+        end
 	# Hook called when +tasks+ have been inserted in this plan
 	def added_mission(tasks)
             super if defined? super 
-            inserted(tasks)
+            if respond_to?(:inserted)
+                Roby.warn_deprecated "the #inserted hook has been replaced by #added_mission"
+                inserted(tasks)
+            end
         end
 	# Checks if +task+ is a mission of this plan
 	def mission?(task); @missions.include?(task) end
 
+        def remove_mission(task) # :nodoc:
+            Roby.warn_deprecated "#remove_mission renamed #unmark_mission"
+            unmark_mission(task)
+        end
+
 	# Removes the task in +tasks+ from the list of missions
-	def remove_mission(task)
+	def unmark_mission(task)
 	    @missions.delete(task)
-	    discover(task)
+	    add(task)
 	    task.mission = false if task.self_owned?
 
-	    removed_mission(task)
+	    unmarked_mission(task)
 	    self
 	end
 	# Hook called when +tasks+ have been discarded from this plan
-	def removed_mission(task)
+	def unmarked_mission(task)
             super if defined? super
-            discarded(task)
+            if respond_to?(:discarded)
+                Roby.warn_deprecated "the #discarded hook has been replaced by #unmarked_mission"
+                discarded(task)
+            end
         end
-        # DEPRECATED. Use #remove_mission instead
-        def discard(task); remove_mission(task) end
-        # DEPRECATED. Hook to #removed_mission instead
-        def discarded(task); super if defined? super end
+        def discard(task) # :nodoc:
+            Roby.warn_deprecated "#discard has been replaced by #unmark_mission"
+            unmark_mission(task)
+        end
 
 	# Adds +object+ in the list of permanent tasks. Permanent tasks are
         # tasks that are not to be subject to the plan's garbage collection
         # mechanism (i.e. they will not be removed even though they are not
         # directly linked to a mission).
         #
-        # #object is also discovered, meaning that all the tasks and events
-        # related to it are added in the plan as well. See #discover.
+        # #object is at the same time added in the plan, meaning that all the
+        # tasks and events related to it are added in the plan as well. See
+        # #add.
         #
         # Unlike missions, the failure of a permanent task does not constitute
         # an error.
         #
-        # See also #auto and #permanent?
-	def permanent(object)
+        # See also #unmark_permanent and #permanent?
+	def add_permanent(object)
             if object.kind_of?(Task)
                 @permanent_tasks << object
             else
                 @permanent_events << object
             end
-	    discover(object)
+	    add(object)
             self
 	end
 
+        def permanent(object) # :nodoc:
+            Roby.warn_deprecated "#permanent has been replaced by #add_permanent"
+            add_permanent(object)
+        end
+
 	# Removes +object+ from the list of permanent objects. Permanent objects
-        # are protected from the plan's garbage collection.
+        # are protected from the plan's garbage collection. This does not remove
+        # the task/event itself from the plan.
         #
-        # See also #permanent and #permanent?
-	def auto(object)
+        # See also #add_permanent and #permanent?
+	def unmark_permanent(object)
             @permanent_tasks.delete(object) 
             @permanent_events.delete(object)
         end
 
-        # True if +obj+ is a permanent task.
+        def auto(obj) # :nodoc:
+            Roby.warn_deprecated "#auto has been replaced by #unmark_permanent"
+            unmark_permanent(obj)
+        end
+
+        # True if +obj+ is neither a permanent task nor a permanent object.
         #
-        # See also #permanent and #auto
+        # See also #add_permanent and #unmark_permanent
 	def permanent?(obj); @permanent_tasks.include?(obj) || @permanent_events.include?(obj) end
 
 	def edit
@@ -290,13 +313,13 @@ module Roby
 
 	    replaced(from, to)
 	    if mission?(from)
-		remove_mission(from)
+		unmark_mission(from)
 		add_mission(to)
 	    elsif permanent?(from)
-		auto(from)
-		permanent(to)
+		unmark_permanent(from)
+		add_permanent(to)
 	    else
-		discover(to)
+		add(to)
 	    end
 	end
 
@@ -330,16 +353,24 @@ module Roby
 	# plain Plan objects and false for transcations
 	def executable?; true end
 
+        def discover(objects) # :nodoc:
+            Roby.warn_deprecated "#discover has been replaced by #add"
+            add(objects)
+        end
+
 	# call-seq:
-	#   plan.discover([t1, t2, ...]) => plan
+        #   plan.add(task) => plan
+        #   plan.add(event) => plan
+        #   plan.add([task, event, task2, ...]) => plan
+	#   plan.add([t1, t2, ...]) => plan
 	#
-        # Inserts the subplan of the given tasks and events into the plan (i.e.
-        # the task/events themselves and the task/events that are reachable
-        # through any relations). The #discovered_events and #discovered_tasks
-        # hooks are called for the objects that were not in the plan.
+        # Adds the subplan of the given tasks and events into the plan.
         #
-        # It raises ArgumentError for objects is discovered by this plan 
-	def discover(objects)
+        # That means that it adds the listed tasks/events and the task/events
+        # that are reachable through any relations). The #added_events and
+        # #added_tasks hooks are called for the objects that were not in
+        # the plan.
+	def add(objects)
 	    event_seeds, tasks = partition_event_task(objects)
 	    event_seeds = (event_seeds || ValueSet.new).to_value_set
 
@@ -348,7 +379,7 @@ module Roby
 		new_tasks = useful_task_component(nil, tasks, tasks)
 		unless new_tasks.empty?
 		    old_task_events = task_events.dup
-		    new_tasks = discover_task_set(new_tasks)
+		    new_tasks = add_task_set(new_tasks)
 		    event_seeds.merge(task_events - old_task_events)
 		end
 	    end
@@ -366,17 +397,17 @@ module Roby
 		    end
 		end
 
-		discover_event_set(events - task_events - free_events)
+		add_event_set(events - task_events - free_events)
 	    end
 
 	    self
 	end
 
-	# Add +events+ to the set of known events and call discovered_events
+	# Add +events+ to the set of known events and call added_events
 	# for the new events
 	#
-	# This is for internal use, use #discover instead
-	def discover_event_set(events)
+	# This is for internal use, use #add instead
+	def add_event_set(events)
 	    events = events.difference(free_events)
 	    events.delete_if do |e|
 		if !e.root_object?
@@ -389,17 +420,17 @@ module Roby
 
 	    unless events.empty?
 		free_events.merge(events)
-		discovered_events(events)
+		added_events(events)
 	    end
 
 	    events
 	end
 
-	# Add +tasks+ to the set of known tasks and call discovered_tasks for
+	# Add +tasks+ to the set of known tasks and call added_tasks for
 	# the new tasks
 	#
-	# This is for internal use, use #discover instead
-	def discover_task_set(tasks)
+	# This is for internal use, use #add instead
+	def add_task_set(tasks)
 	    tasks = tasks.difference(known_tasks)
 	    for t in tasks
 		t.plan = self
@@ -407,7 +438,7 @@ module Roby
 		task_index.add t
 	    end
 	    known_tasks.merge tasks
-	    discovered_tasks(tasks)
+	    added_tasks(tasks)
 
 	    for t in tasks
 		t.instantiate_model_event_relations
@@ -415,24 +446,32 @@ module Roby
 	    tasks
 	end
 
-	# DEPRECATED. Use #discovered_tasks instead
-	def discovered(tasks); super if defined? super end
-	# Hook called when new tasks have been discovered in this plan
-	def discovered_tasks(tasks)
-	    discovered(tasks)
+        def added_tasks(tasks)
+            if respond_to?(:discovered)
+                Roby.warn_deprecated "the #discovered hook is deprecated, use #added_tasks instead"
+                discovered(tasks)
+            end
+            if respond_to?(:discovered_tasks)
+                Roby.warn_deprecated "the #discovered_tasks hook is deprecated, use #added_tasks instead"
+                discovered_tasks(tasks)
+            end
 
             if engine
                 engine.event_ordering.clear
             end
+            super if defined? super
+        end
 
-	    super if defined? super
-	end
 	# Hook called when new events have been discovered in this plan
-	def discovered_events(events)
+	def added_events(events)
             if engine
                 engine.event_ordering.clear
             end
 
+            if respond_to?(:discovered_events)
+                Roby.warn_deprecated "the #discovered_events hook has been replaced by #added_events"
+                discovered_events(events)
+            end
 	    super if defined? super
 	end
 
@@ -474,12 +513,12 @@ module Roby
 	    # Remove all missions that are finished
 	    for finished_mission in (@missions & task_index.by_state[:finished?])
 		if !task_index.repaired_tasks.include?(finished_mission)
-		    remove_mission(finished_mission)
+		    unmark_mission(finished_mission)
 		end
 	    end
 	    for finished_permanent in (@permanent_tasks & task_index.by_state[:finished?])
 		if !task_index.repaired_tasks.include?(finished_permanent)
-		    auto(finished_permanent)
+		    unmark_permanent(finished_permanent)
 		end
 	    end
 
@@ -603,7 +642,7 @@ module Roby
 	    elsif repairs.has_key?(failure_point)
 		raise ArgumentError, "there is already a plan repair defined for #{failure_point}: #{repairs[failure_point]}"
 	    elsif !task.plan
-		discover(task)
+		add(task)
 	    end
 
 	    repairs[failure_point] = task
@@ -664,7 +703,7 @@ module Roby
 	    if object.plan != self
 		raise ArgumentError, "#{object} is not from #{plan}"
 	    elsif !object.plan
-		discover(object)
+		add(object)
 	    end
 	    object
 	end
@@ -703,6 +742,9 @@ module Roby
 
 	    @free_events.delete(object)
 	    @missions.delete(object)
+            if object.respond_to? :mission=
+                object.mission = false
+            end
 	    @known_tasks.delete(object)
 	    @permanent_tasks.delete(object)
 	    @permanent_events.delete(object)

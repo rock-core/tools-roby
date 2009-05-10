@@ -73,9 +73,9 @@ module Roby
 	    elsif other.plan && plan
 		raise RuntimeError, "cannot add a relation between two objects from different plans. #{self} is from #{plan} and #{other} is from #{other.plan}"
 	    elsif plan
-		self.plan.discover(other)
+		self.plan.add(other)
 	    elsif other.plan
-		other.plan.discover(self)
+		other.plan.add(self)
 	    end
 	end
 	protected :synchronize_plan

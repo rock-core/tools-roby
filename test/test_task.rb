@@ -28,7 +28,7 @@ class TC_Task < Test::Unit::TestCase
 	model = Class.new(Task) do
 	    arguments :from, :to
 	end
-	plan.discover(task = model.new(:from => 'B', :useless => 'bla'))
+	plan.add(task = model.new(:from => 'B', :useless => 'bla'))
 	assert_equal([], Task.arguments.to_a)
 	assert_equal([:from, :to].to_value_set, task.model.arguments.to_value_set)
 	assert_equal({:from => 'B', :useless => 'bla'}, task.arguments)
@@ -82,7 +82,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def assert_task_relation_set(task, relation, expected)
-        plan.discover(task)
+        plan.add(task)
         task.each_event do |from|
             task.each_event do |to|
                 next if from == to
@@ -102,7 +102,7 @@ class TC_Task < Test::Unit::TestCase
             send(method, :e1 => [:e2, :e3], :e4 => :stop)
 	end
 
-        plan.discover(task = klass.new)
+        plan.add(task = klass.new)
         expected_links = Hash[:e1 => [:e2, :e3], :e4 => :stop]
         
         assert_task_relation_set task, relation, expected_links.merge(additional_links)
@@ -161,10 +161,10 @@ class TC_Task < Test::Unit::TestCase
 
     # Test the behaviour of Task#on, and event propagation inside a task
     def test_instance_event_handlers
-	plan.discover(t1 = SimpleTask.new)
+	plan.add(t1 = SimpleTask.new)
 	assert_raises(ArgumentError) { t1.on(:start) }
 	
-	plan.discover(task = SimpleTask.new)
+	plan.add(task = SimpleTask.new)
 	FlexMock.use do |mock|
 	    task.on(:start)   { |event| mock.started(event.context) }
 	    task.on(:start)   { |event| task.emit(:success, *event.context) }
@@ -182,7 +182,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_instance_signals
 	FlexMock.use do |mock|
-	    t1, t2 = prepare_plan :discover => 3, :model => SimpleTask
+	    t1, t2 = prepare_plan :add => 3, :model => SimpleTask
             t1.signals(:start, t2, :start)
 
             t2.on(:start) { mock.start }
@@ -193,7 +193,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_instance_signals_deprecated_default_event_name
 	FlexMock.use do |mock|
-	    t1, t2 = prepare_plan :discover => 3, :model => SimpleTask
+	    t1, t2 = prepare_plan :add => 3, :model => SimpleTask
             deprecated_feature do
                 t1.on(:start, t2)
             end
@@ -206,7 +206,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_instance_signals_deprecated_on_usage
 	FlexMock.use do |mock|
-	    t1, t2 = prepare_plan :discover => 3, :model => SimpleTask
+	    t1, t2 = prepare_plan :add => 3, :model => SimpleTask
             deprecated_feature do
                 t1.on(:start, t2, :start)
             end
@@ -246,11 +246,11 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal([:stop].to_value_set,          model.forwardings(:failed))
 	assert_equal([:stop].to_value_set,          model.enum_for(:each_forwarding, :failed).to_value_set)
 
-        plan.discover(task = model.new)
+        plan.add(task = model.new)
         task.start!
 
 	# Make sure the model-level relation is not applied to parent models
-	plan.discover(task = SimpleTask.new)
+	plan.add(task = SimpleTask.new)
 	task.start!
 	assert(!task.failed?)
     end
@@ -264,12 +264,12 @@ class TC_Task < Test::Unit::TestCase
 	    model.on :start do
 		mock.start_called(self)
 	    end
-	    plan.discover(task = model.new)
+	    plan.add(task = model.new)
 	    mock.should_receive(:start_called).with(task).once
 	    task.start!
 
             # Make sure the model-level handler is not applied to parent models
-            plan.discover(task = SimpleTask.new)
+            plan.add(task = SimpleTask.new)
             task.start!
             assert(!task.failed?)
 	end
@@ -307,7 +307,7 @@ class TC_Task < Test::Unit::TestCase
             event :terminal, :terminal => true
         end
         assert klass.event_model(:terminal).terminal?
-        plan.discover(task = klass.new)
+        plan.add(task = klass.new)
         assert task.event(:terminal).terminal?
         assert task.event(:terminal).child_object?(task.event(:stop), EventStructure::Forwarding)
     end
@@ -318,7 +318,7 @@ class TC_Task < Test::Unit::TestCase
 	    forward :terminal => :stop
 	end
         assert klass.event_model(:terminal).terminal?
-        plan.discover(task = klass.new)
+        plan.add(task = klass.new)
         assert task.event(:terminal).terminal?
     end
 
@@ -331,7 +331,7 @@ class TC_Task < Test::Unit::TestCase
             forward :intermediate => :failed
 	end
         assert klass.event_model(:terminal).terminal?
-        plan.discover(task = klass.new)
+        plan.add(task = klass.new)
         assert task.event(:terminal).terminal?
     end
 
@@ -341,7 +341,7 @@ class TC_Task < Test::Unit::TestCase
 	    signal :terminal => :stop
 	end
         assert klass.event_model(:terminal).terminal?
-        plan.discover(task = klass.new)
+        plan.add(task = klass.new)
         assert task.event(:terminal).terminal?
     end
 
@@ -354,7 +354,7 @@ class TC_Task < Test::Unit::TestCase
             forward :intermediate => :failed
 	end
         assert klass.event_model(:terminal).terminal?
-        plan.discover(task = klass.new)
+        plan.add(task = klass.new)
         assert task.event(:terminal).terminal?
     end
 
@@ -393,7 +393,7 @@ class TC_Task < Test::Unit::TestCase
 
 	klass.event :ev_terminal, :terminal => true, :command => true
 
-	plan.discover(task = klass.new)
+	plan.add(task = klass.new)
 	assert_respond_to(task, :start!)
 
         # Test modifications to the class hierarchy
@@ -430,7 +430,7 @@ class TC_Task < Test::Unit::TestCase
         # Check validation of options[:command]
         assert_raise(ArgumentError) { klass.event :try_event, :command => "bla" }
 
-        plan.discover(task = EmptyTask.new)
+        plan.add(task = EmptyTask.new)
 	start_event = task.event(:start)
 
         assert_equal(start_event, task.event(:start))
@@ -452,7 +452,7 @@ class TC_Task < Test::Unit::TestCase
 		failed!
 	    end
 	end.new
-	plan.discover(task)
+	plan.add(task)
 
 	assert(task.pending?)
 	assert(!task.starting?)
@@ -569,7 +569,7 @@ class TC_Task < Test::Unit::TestCase
 	ev_models = Hash[*model.enum_for(:each_event).to_a.flatten]
 	assert_equal([:start, :success, :aborted, :updated_data, :stop, :failed, :inter].to_set, ev_models.keys.to_set)
 
-	plan.discover(task = model.new)
+	plan.add(task = model.new)
 	ev_models = Hash[*task.model.enum_for(:each_event).to_a.flatten]
 	assert_equal([:start, :success, :aborted, :updated_data, :stop, :failed, :inter].to_set, ev_models.keys.to_set)
 	assert( ev_models[:start].symbol )
@@ -580,7 +580,7 @@ class TC_Task < Test::Unit::TestCase
 	model = Class.new(SimpleTask) do
 	    event(:inter, :command => true)
 	end
-	plan.discover(task = model.new)
+	plan.add(task = model.new)
 
 	assert_raises(CommandFailed) { task.inter! }
 	assert_raises(EmissionFailed) { task.emit(:inter) }
@@ -604,7 +604,7 @@ class TC_Task < Test::Unit::TestCase
 		emit :inter
             end
 	end
-	plan.discover(task = model.new)
+	plan.add(task = model.new)
 	assert_nothing_raised { task.start! }
     end
 
@@ -616,7 +616,7 @@ class TC_Task < Test::Unit::TestCase
 	    event :stop, :command => true
 	end
 
-	plan.discover(task = model.new)
+	plan.add(task = model.new)
 	task.start!
 	task.emit(:stop)
 	assert(!task.success?)
@@ -624,7 +624,7 @@ class TC_Task < Test::Unit::TestCase
 	assert(task.finished?)
 	assert_equal(task.event(:stop).last, task.terminal_event)
 
-	plan.discover(task = model.new)
+	plan.add(task = model.new)
 	task.start!
 	task.emit(:success)
 	assert(task.success?)
@@ -632,7 +632,7 @@ class TC_Task < Test::Unit::TestCase
 	assert(task.finished?)
 	assert_equal(task.event(:success).last, task.terminal_event)
 
-	plan.discover(task = model.new)
+	plan.add(task = model.new)
 	task.start!
 	task.emit(:failed)
 	assert(!task.success?)
@@ -664,7 +664,7 @@ class TC_Task < Test::Unit::TestCase
 
 
 
-	plan.discover(task)
+	plan.add(task)
 	assert(task.executable?)
 	assert_nothing_raised { task.event(:start).call(nil) }
 
@@ -680,7 +680,7 @@ class TC_Task < Test::Unit::TestCase
 	assert(task.executable?)
 
 	task = SimpleTask.new
-	plan.permanent(task)
+	plan.add_permanent(task)
 	assert(task.executable?)
 	task.executable = false
 	assert(!task.executable?)
@@ -732,7 +732,7 @@ class TC_Task < Test::Unit::TestCase
     def test_exception_refinement
 	# test for partially instanciation
 	check_direct_start(/partially instanciated/,true) do
-	   plan.discover(task = ParameterizedTask.new)
+	   plan.add(task = ParameterizedTask.new)
 	   task
 	end
 
@@ -743,21 +743,21 @@ class TC_Task < Test::Unit::TestCase
         
         #test for an abstract task
         check_direct_start(/abstract/,true) do
-            plan.discover(task = AbstractTask.new)
+            plan.add(task = AbstractTask.new)
             task
 	end
 	
 	#test for a not executable plan
 	erroneous_plan = NotExecutablePlan.new	
 	check_direct_start(/plan is not executable/,false) do
-	   erroneous_plan.discover(task = SimpleTask.new)
+	   erroneous_plan.add(task = SimpleTask.new)
 	   task
 	end
         erroneous_plan.clear
         
         #test for a not executable task
         check_direct_start(/is not executable/,true) do
-            plan.discover(task = SimpleTask.new)
+            plan.add(task = SimpleTask.new)
             task.executable = false
             task
 	end
@@ -790,10 +790,10 @@ class TC_Task < Test::Unit::TestCase
 
     def test_task_parallel_aggregator
         t1, t2 = EmptyTask.new, EmptyTask.new
-	plan.discover([t1, t2])
+	plan.add([t1, t2])
 	aggregator_test((t1 | t2), t1, t2)
         t1, t2 = EmptyTask.new, EmptyTask.new
-	plan.discover([t1, t2])
+	plan.add([t1, t2])
 	aggregator_test( (t1 | t2).to_task, t1, t2 )
     end
 
@@ -850,13 +850,13 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_compatible_state
-	t1, t2 = prepare_plan :discover => 2, :model => SimpleTask
+	t1, t2 = prepare_plan :add => 2, :model => SimpleTask
 
 	assert(t1.compatible_state?(t2))
 	t1.start!; assert(! t1.compatible_state?(t2) && !t2.compatible_state?(t1))
 	t1.stop!; assert(t1.compatible_state?(t2) && t2.compatible_state?(t1))
 
-	plan.discover(t1 = SimpleTask.new)
+	plan.add(t1 = SimpleTask.new)
 	t1.start!
 	t2.start!; assert(t1.compatible_state?(t2) && t2.compatible_state?(t1))
 	t1.stop!; assert(t1.compatible_state?(t2) && !t2.compatible_state?(t1))
@@ -872,29 +872,29 @@ class TC_Task < Test::Unit::TestCase
 	end
 
 	t1, t2 = task_model.new, task_model.new
-	plan.discover([t1, t2])
+	plan.add([t1, t2])
 	assert(t1.fullfills?(t1.model))
 	assert(t1.fullfills?(t2))
 	assert(t1.fullfills?(abstract_task_model))
 	
-	plan.discover(t2 = task_model.new(:index => 2))
+	plan.add(t2 = task_model.new(:index => 2))
 	assert(!t1.fullfills?(t2))
 
-	plan.discover(t3 = task_model.new(:universe => 42))
+	plan.add(t3 = task_model.new(:universe => 42))
 	assert(t3.fullfills?(t1))
 	assert(!t1.fullfills?(t3))
 
-	plan.discover(t3 = Class.new(Task).new)
+	plan.add(t3 = Class.new(Task).new)
 	assert(!t1.fullfills?(t3))
 
-	plan.discover(t3 = Class.new(task_model).new)
+	plan.add(t3 = Class.new(task_model).new)
 	assert(!t1.fullfills?(t3))
 	assert(t3.fullfills?(t1))
     end
 
     def test_related_tasks
 	t1, t2, t3 = (1..3).map { SimpleTask.new }.
-	    each { |t| plan.discover(t) }
+	    each { |t| plan.add(t) }
 	t1.realized_by t2
 	t1.event(:start).signals t3.event(:start)
 	assert_equal([t3].to_value_set, t1.event(:start).related_tasks)
@@ -904,7 +904,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_related_events
 	t1, t2, t3 = (1..3).map { SimpleTask.new }.
-	    each { |t| plan.discover(t) }
+	    each { |t| plan.add(t) }
 	t1.realized_by t2
 	t1.event(:start).signals t3.event(:start)
 	assert_equal([t3.event(:start)].to_value_set, t1.related_events)
@@ -917,7 +917,7 @@ class TC_Task < Test::Unit::TestCase
 
 	# Test that the stop event will make the handler called on a running task
 	FlexMock.use do |mock|
-	    plan.discover(task = model.new)
+	    plan.add(task = model.new)
 	    ev = task.event(:success)
 	    ev.if_unreachable(false) { mock.success_called }
 	    ev.if_unreachable(true)  { mock.success_cancel_called }
@@ -936,7 +936,7 @@ class TC_Task < Test::Unit::TestCase
 
 	# Test that it works on pending tasks too
 	FlexMock.use do |mock|
-	    plan.discover(task = model.new)
+	    plan.add(task = model.new)
 	    ev = task.event(:success)
 	    ev.if_unreachable(false) { mock.success_called }
 	    ev.if_unreachable(true)  { mock.success_cancel_called }
@@ -962,7 +962,7 @@ class TC_Task < Test::Unit::TestCase
 		event(:start).achieve_with slave
 	    end
 	end.new
-	plan.discover([master, slave])
+	plan.add([master, slave])
 
 	master.start!
 	assert(master.starting?)
@@ -977,7 +977,7 @@ class TC_Task < Test::Unit::TestCase
 		event(:start).achieve_with slave.event(:start)
 	    end
 	end.new
-	plan.discover([master, slave])
+	plan.add([master, slave])
 
 	master.start!
 	assert(master.starting?)
@@ -986,7 +986,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_task_group
 	t1, t2 = SimpleTask.new, SimpleTask.new
-	plan.discover(g = Group.new(t1, t2))
+	plan.add(g = Group.new(t1, t2))
 
 	g.start!
 	assert(t1.running?)
@@ -1010,7 +1010,7 @@ class TC_Task < Test::Unit::TestCase
 	    mock.should_receive(:polled).at_least.once.with(t)
 
 	    engine.execute do
-		plan.permanent(t)
+		plan.add_permanent(t)
 		t.start!
 	    end
 	    engine.wait_one_cycle
@@ -1030,7 +1030,7 @@ class TC_Task < Test::Unit::TestCase
 	    end.new
 
 	    engine.execute do
-		plan.permanent(t)
+		plan.add_permanent(t)
 		t.start!
 	    end
 	    engine.wait_one_cycle
@@ -1043,7 +1043,7 @@ class TC_Task < Test::Unit::TestCase
 	    event :specialized_failure, :command => true
 	    forward :specialized_failure => :failed
 	end.new
-	plan.discover(task)
+	plan.add(task)
 
 	task.start!
 	assert_equal([task.event(:start).last], task.event(:start).last.task_sources.to_a)
@@ -1059,7 +1059,7 @@ class TC_Task < Test::Unit::TestCase
 	assert_raises(ArgumentError) { VirtualTask.create(success, start) }
 
 	assert_kind_of(VirtualTask, task = VirtualTask.create(start, success))
-	plan.discover(task)
+	plan.add(task)
 	assert_equal(start, task.start_event)
 	assert_equal(success, task.success_event)
 	FlexMock.use do |mock|
@@ -1074,19 +1074,19 @@ class TC_Task < Test::Unit::TestCase
 	end
 
 	start, success = EventGenerator.new(true), EventGenerator.new
-	plan.discover(task = VirtualTask.create(start, success))
+	plan.add(task = VirtualTask.create(start, success))
 	task.start!
 	plan.remove_object(success)
 	assert(task.failed?)
 
 	start, success = EventGenerator.new(true), EventGenerator.new
-	plan.discover(success)
-	plan.discover(task = VirtualTask.create(start, success))
+	plan.add(success)
+	plan.add(task = VirtualTask.create(start, success))
 	assert_nothing_raised { success.emit }
     end
 
     def test_dup
-	plan.discover(task = Roby::Test::SimpleTask.new)
+	plan.add(task = Roby::Test::SimpleTask.new)
 	task.start!
 
 	new = task.dup

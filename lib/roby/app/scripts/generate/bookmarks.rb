@@ -33,7 +33,7 @@ class Roby::Log::EventMatcher
     end
 
     def event(m, sec, usec, args)
-	if m == :discovered_tasks || m == :discovered_events
+	if m == :added_tasks || m == :added_events
 	    objects = args[1]
 	    for object in objects
 		for remote_id in object.remote_siblings.values

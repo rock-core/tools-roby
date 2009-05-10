@@ -15,7 +15,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	    argument :id
 	    include tag
 	end
-	plan.discover(t1 = SimpleTask.new)
+	plan.add(t1 = SimpleTask.new)
 
 	# Check validation of the model
 	child = nil
@@ -25,15 +25,15 @@ class TC_RealizedBy < Test::Unit::TestCase
 	assert_nothing_raised { t1.realized_by klass.new, :model => [Roby::Task, {}] }
 	assert_nothing_raised { t1.realized_by klass.new, :model => tag }
 
-	plan.discover(simple_task = SimpleTask.new)
+	plan.add(simple_task = SimpleTask.new)
 	assert_raises(ArgumentError) { t1.realized_by simple_task, :model => [Class.new(Roby::Task), {}] }
 	assert_raises(ArgumentError) { t1.realized_by simple_task, :model => TaskModelTag.new }
 	
 	# Check validation of the arguments
-	plan.discover(model_task = klass.new)
+	plan.add(model_task = klass.new)
 	assert_raises(ArgumentError) { t1.realized_by model_task, :model => [SimpleTask, {:id => 'bad'}] }
 
-	plan.discover(child = klass.new(:id => 'good'))
+	plan.add(child = klass.new(:id => 'good'))
 	assert_raises(ArgumentError) { t1.realized_by child, :model => [klass, {:id => 'bad'}] }
 	assert_nothing_raised { t1.realized_by child, :model => [klass, {:id => 'good'}] }
 	assert_equal([klass, { :id => 'good' }], t1[child, TaskStructure::Hierarchy][:model])
@@ -49,7 +49,7 @@ class TC_RealizedBy < Test::Unit::TestCase
     Hierarchy = TaskStructure::Hierarchy
 
     def test_exception_printing
-        parent, child = prepare_plan :discover => 2, :model => SimpleTask
+        parent, child = prepare_plan :add => 2, :model => SimpleTask
         parent.realized_by child
         parent.start!
         child.start!
@@ -79,7 +79,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 
 	p1 = SimpleTask.new
 	child = child_model.new
-	plan.discover([p1, child])
+	plan.add([p1, child])
 	p1.realized_by child, options
 	plan.add_mission(p1)
 
@@ -155,7 +155,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	    include tag
 	end
 
-	p1, p2, child = prepare_plan :discover => 3, :model => klass
+	p1, p2, child = prepare_plan :add => 3, :model => klass
 
 	p1.realized_by child, :model => SimpleTask
 	p2.realized_by child, :model => Roby::Task
@@ -167,7 +167,7 @@ class TC_RealizedBy < Test::Unit::TestCase
     end
 
     def test_first_children
-	p, c1, c2 = prepare_plan :discover => 3, :model => SimpleTask
+	p, c1, c2 = prepare_plan :add => 3, :model => SimpleTask
 	p.realized_by c1
 	p.realized_by c2
 	assert_equal([c1, c2].to_value_set, p.first_children)
@@ -177,8 +177,8 @@ class TC_RealizedBy < Test::Unit::TestCase
     end
 
     def test_remove_finished_children
-	p, c1, c2 = prepare_plan :discover => 3, :model => SimpleTask
-        plan.permanent(p)
+	p, c1, c2 = prepare_plan :add => 3, :model => SimpleTask
+        plan.add_permanent(p)
 	p.realized_by c1
 	p.realized_by c2
 

@@ -33,30 +33,31 @@ module Roby::Log
     Roby::Task.include TaskHooks
 
     module PlanHooks
-	HOOKS = %w{inserted_tasks discarded_tasks replaced_tasks 
-		   discovered_tasks discovered_events 
-		   garbage_task finalized_task finalized_event 
-		   added_transaction removed_transaction}
+	HOOKS = %w{
+            added_mission unmarked_mission
+            added_permanent unmarked_permanent
+            added_tasks added_events finalized_task finalized_event
+            replaced_tasks garbage_task added_transaction removed_transaction}
 
 	def added_mission(tasks)
 	    super if defined? super
 	    Roby::Log.log(:added_mission) { [self, tasks] }
 	end
-	def removed_mission(tasks)
+	def unmarked_mission(tasks)
 	    super if defined? super
-	    Roby::Log.log(:removed_mission) { [self, tasks] }
+	    Roby::Log.log(:unmarked_mission) { [self, tasks] }
 	end
 	def replaced(from, to)
 	    super if defined? super
 	    Roby::Log.log(:replaced_tasks) { [self, from, to] }
 	end
-	def discovered_events(tasks)
+	def added_events(tasks)
 	    super if defined? super
-	    Roby::Log.log(:discovered_events) { [self, tasks] }
+	    Roby::Log.log(:added_events) { [self, tasks] }
 	end
-	def discovered_tasks(tasks)
+	def added_tasks(tasks)
 	    super if defined? super
-	    Roby::Log.log(:discovered_tasks) { [self, tasks] }
+	    Roby::Log.log(:added_tasks) { [self, tasks] }
 	end
 	def garbage(task)
 	    super if defined? super

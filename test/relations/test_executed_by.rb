@@ -12,7 +12,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_relationships
-	plan.discover(task = SimpleTask.new)
+	plan.add(task = SimpleTask.new)
 	exec_task = ExecutionAgentModel.new
 
 	task.executed_by exec_task
@@ -29,7 +29,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_nominal
-	plan.discover(task = SimpleTask.new)
+	plan.add(task = SimpleTask.new)
 	task.executed_by(ExecutionAgentModel.new)
 	task.executed_by(exec = ExecutionAgentModel.new)
 
@@ -49,7 +49,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_agent_fails
-	plan.discover(task = SimpleTask.new)
+	plan.add(task = SimpleTask.new)
 	exec = ExecutionAgentModel.new
 	task.executed_by exec
 	task.start!
@@ -92,7 +92,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     def test_respawn
 	task_model = Class.new(SimpleTask)
 	task_model.executed_by ExecutionAgentModel
-	first, second = prepare_plan :discover => 2, :model => task_model
+	first, second = prepare_plan :add => 2, :model => task_model
 	assert(first.execution_agent)
 	assert(ExecutionAgentModel, first.execution_agent.class)
 	assert(second.execution_agent)
@@ -104,7 +104,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	first_agent = first.execution_agent
 	assert(first_agent.running?)
 
-	plan.discover(third = task_model.new)
+	plan.add(third = task_model.new)
 	assert_equal(first.execution_agent, third.execution_agent)
 
 	first.execution_agent.stop!
@@ -127,7 +127,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	agent = Class.new(SimpleTask) do
 	    event :ready, :command => true
 	end.new
-	task, (init1, init2) = prepare_plan :missions => 1, :discover => 2, :model => SimpleTask
+	task, (init1, init2) = prepare_plan :missions => 1, :add => 2, :model => SimpleTask
 	task.executed_by agent
 	init1.executed_by agent
 	init2.executed_by agent

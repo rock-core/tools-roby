@@ -562,7 +562,7 @@ module Roby
 	    arguments.instance_variable_set(:@task, self)
 
 	    initialize_events
-	    plan.discover(self)
+	    plan.add(self)
 	end
 
 	def instantiate_model_event_relations

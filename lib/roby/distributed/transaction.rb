@@ -133,7 +133,7 @@ module Roby
 		end
 	    end
 
-	    def discover(objects) # :nodoc:
+	    def add(objects) # :nodoc:
 		if objects
 		    events, tasks = partition_event_task(objects)
 		    for object in (events || []) + (tasks || [])

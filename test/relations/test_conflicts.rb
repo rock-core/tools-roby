@@ -19,8 +19,8 @@ class TC_Conflicts < Test::Unit::TestCase
 	assert(m2.conflicts_with?(m1))
 
 	# Create two tasks ...
-	plan.discover(t1 = m1.new)
-	plan.discover(t2 = m2.new)
+	plan.add(t1 = m1.new)
+	plan.add(t2 = m2.new)
 	assert !t1.child_object?(t2, Roby::TaskStructure::Conflicts)
 	assert !t2.child_object?(t1, Roby::TaskStructure::Conflicts)
 

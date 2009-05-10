@@ -8,7 +8,7 @@ class TC_PlannedBy < Test::Unit::TestCase
     PlannedBy = Roby::TaskStructure::PlannedBy
     SimpleTask = Roby::Test::SimpleTask
     def test_replace
-	task, p1, p2 = prepare_plan :discover => 3
+	task, p1, p2 = prepare_plan :add => 3
 	task.planned_by p1
 
 	assert_raises(ArgumentError) { task.planned_by p2 }
@@ -24,7 +24,7 @@ class TC_PlannedBy < Test::Unit::TestCase
 	task = Roby::Task.new
 	planner = Roby::Test::SimpleTask.new
 	task.planned_by planner
-	plan.permanent(task)
+	plan.add_permanent(task)
 
 	assert_equal([], plan.check_structure.to_a)
 	planner.start!

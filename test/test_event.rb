@@ -17,7 +17,7 @@ class TC_Event < Test::Unit::TestCase
         assert_raises(Roby::EventNotExecutable) { event.emit }
         assert_raises(Roby::EventNotExecutable) { event.call }
 
-        plan.discover(event)
+        plan.add(event)
         assert(event.executable?)
     end
 
@@ -27,7 +27,7 @@ class TC_Event < Test::Unit::TestCase
 
 	# Check command & emission behavior for controlable events
 	FlexMock.use do |mock|
-	    plan.discover(event = EventGenerator.new { |context| mock.call_handler(context); event.emit(*context) })
+	    plan.add(event = EventGenerator.new { |context| mock.call_handler(context); event.emit(*context) })
 	    event.on { |event| mock.event_handler(event.context) }
 
 	    assert(event.controlable?)
@@ -41,7 +41,7 @@ class TC_Event < Test::Unit::TestCase
 	# Check emission behavior for non-controlable events
 	FlexMock.use do |mock|
 	    event = EventGenerator.new
-	    plan.discover(event)
+	    plan.add(event)
 	    event.on { |event| mock.event(event.context) }
 	    mock.should_receive(:event).once.with([42])
 	    event.emit(42)
@@ -49,7 +49,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_explicit_executable_flag
-	plan.discover(event = EventGenerator.new(true))
+	plan.add(event = EventGenerator.new(true))
         assert(event.executable?)
 	event.executable = false
 	assert_raises(EventNotExecutable) { event.call(nil) }
@@ -59,7 +59,7 @@ class TC_Event < Test::Unit::TestCase
 	assert_nothing_raised { event.call(nil) }
 	assert_nothing_raised { event.emit(nil) }
 
-	plan.discover(other = EventGenerator.new(true))
+	plan.add(other = EventGenerator.new(true))
 	other.executable = false
 	event.signals other
 	assert_raises(EventNotExecutable) { event.call(nil) }
@@ -76,7 +76,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_emit_failed_raises
-	plan.discover(event = EventGenerator.new)
+	plan.add(event = EventGenerator.new)
 	assert_original_error(NilClass, EmissionFailed) { event.emit_failed }
 	assert_original_error(NilClass, EmissionFailed) { event.emit_failed("test") }
 
@@ -99,7 +99,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_emit_failed_removes_pending
 	event = EventGenerator.new { }
-	plan.discover(event)
+	plan.add(event)
 	event.call
 	assert(event.pending?)
 	assert_raises(EmissionFailed) { event.emit_failed }
@@ -108,7 +108,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_propagation_id
 	e1, e2, e3 = (1..3).map { EventGenerator.new(true) }.
-	    each { |e| plan.discover(e) }
+	    each { |e| plan.add(e) }
 	e1.signals e2
 	e1.emit(nil)
 	assert_equal(e1.last.propagation_id, e2.last.propagation_id)
@@ -124,7 +124,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_signals_without_delay
 	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
-	plan.discover([e1, e2])
+	plan.add([e1, e2])
 
         e1.signals e2
 
@@ -137,7 +137,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_forward_to_without_delay
 	e1, e2 = EventGenerator.new, Roby::EventGenerator.new
-	plan.discover([e1, e2])
+	plan.add([e1, e2])
 
         e1.forward_to e2
 
@@ -151,7 +151,7 @@ class TC_Event < Test::Unit::TestCase
     # b.emit_on(a) is replaced by a.forward_to(b)
     def test_deprecated_emit_on
 	e1, e2 = EventGenerator.new, Roby::EventGenerator.new
-	plan.discover([e1, e2])
+	plan.add([e1, e2])
 
         deprecated_feature do
             e2.emit_on e1
@@ -167,7 +167,7 @@ class TC_Event < Test::Unit::TestCase
     # forward has been renamed into #forward_to
     def test_deprecated_forward
 	e1, e2 = EventGenerator.new, Roby::EventGenerator.new
-	plan.discover([e1, e2])
+	plan.add([e1, e2])
 
         deprecated_feature do
             e1.forward e2
@@ -182,7 +182,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_deprecated_on
 	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
-	plan.discover([e1, e2])
+	plan.add([e1, e2])
 
         deprecated_feature do
             e1.on e2
@@ -197,7 +197,7 @@ class TC_Event < Test::Unit::TestCase
  
     def test_handlers
 	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
-	plan.discover([e1, e2])
+	plan.add([e1, e2])
 	e1.on { e2.call(nil) }
 
 	FlexMock.use do |mock|
@@ -215,7 +215,7 @@ class TC_Event < Test::Unit::TestCase
 	src    = EventGenerator.new(true)
 	e      = EventGenerator.new(true)
         target = EventGenerator.new(true)
-        plan.discover([src, e, target])
+        plan.add([src, e, target])
         src.signals e
         yield(e, target)
         src.call
@@ -246,7 +246,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_simple_signal_handler_ordering
 	e1, e2, e3 = (1..3).map { EventGenerator.new(true) }.
-	    each { |e| plan.discover(e) }
+	    each { |e| plan.add(e) }
 	e1.signals(e2)
 	e1.on { e2.remove_signal(e3) }
 	e2.signals(e3)
@@ -270,7 +270,7 @@ class TC_Event < Test::Unit::TestCase
             generator = Class.new(EventGenerator) do
 		include mod
 	    end.new(true)
-	    plan.discover(generator)
+	    plan.add(generator)
             
 	    hooks.each do |name|
 		mock.should_receive(name).once.with(generator).ordered
@@ -282,7 +282,7 @@ class TC_Event < Test::Unit::TestCase
     def test_postpone
 	wait_for = EventGenerator.new(true)
 	event = EventGenerator.new(true)
-	plan.discover([wait_for, event])
+	plan.add([wait_for, event])
 	event.singleton_class.class_eval do
 	    define_method(:calling) do |context|
 		super if defined? super
@@ -304,7 +304,7 @@ class TC_Event < Test::Unit::TestCase
         FlexMock.use do |mock|
 	    wait_for = EventGenerator.new(true)
 	    event = EventGenerator.new(true)
-	    plan.discover([wait_for, event])
+	    plan.add([wait_for, event])
 	    event.singleton_class.class_eval do
 		define_method(:calling) do |context|
 		    super if defined? super
@@ -327,12 +327,12 @@ class TC_Event < Test::Unit::TestCase
 
     def test_can_signal
 	a, b = EventGenerator.new(true), EventGenerator.new
-	plan.discover([a, b])
+	plan.add([a, b])
 	assert_raises(EventNotControlable) { a.signals b }
 	assert_nothing_raised { a.forward_to b }
 
 	a, b = EventGenerator.new(true), EventGenerator.new(true)
-	plan.discover([a, b])
+	plan.add([a, b])
 	a.signals b
 	def b.controlable?; false end
 
@@ -346,7 +346,7 @@ class TC_Event < Test::Unit::TestCase
 	    mock.should_receive(:called).once
 
 	    events = 5.enum_for(:times).map { EventGenerator.new(true) }
-	    plan.discover(events)
+	    plan.add(events)
 	    events.each { |ev| and_event << ev }
 
 	    events.each do |ev| 
@@ -367,7 +367,7 @@ class TC_Event < Test::Unit::TestCase
 	
 	# Check the behavior of the & operator
 	e1, e2, e3, e4 = (1..4).map { EventGenerator.new(true) }.
-	    each { |e| plan.discover(e) }
+	    each { |e| plan.add(e) }
 	and_event = e1 & e2
 	and_and = and_event & e3
 	assert_equal([e1, e2].to_set, and_event.waiting.to_set)
@@ -376,7 +376,7 @@ class TC_Event < Test::Unit::TestCase
 
 	# Check dynamic behaviour
 	a, b, c, d = (1..4).map { EventGenerator.new(true) }.
-	    each { |e| plan.discover(e) }
+	    each { |e| plan.add(e) }
         and1 = a & b
 	and2 = and1 & c
         and2.signals d
@@ -404,7 +404,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_and_empty
-	plan.discover(and_event = AndGenerator.new)
+	plan.add(and_event = AndGenerator.new)
 
 	assert(and_event.empty?)
 	and_event << EventGenerator.new(true)
@@ -414,7 +414,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_and_unreachability
 	a, b = (1..2).map { EventGenerator.new(true) }.
-	    each { |e| plan.discover(e) }
+	    each { |e| plan.add(e) }
 
 	# Test unreachability
 	## it is unreachable once emitted, but if_unreachable(true) blocks
@@ -442,7 +442,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_and_reset
 	a, b = (1..2).map { EventGenerator.new(true) }.
-	    each { |e| plan.discover(e) }
+	    each { |e| plan.add(e) }
 	and_event = (a & b)
 	a.emit(nil)
 
@@ -469,7 +469,7 @@ class TC_Event < Test::Unit::TestCase
 
     def setup_aggregation(mock)
 	e1, e2, m1, m2, m3 = 5.enum_for(:times).map { EventGenerator.new(true) }
-	plan.discover([e1, e2, m1, m2, m3])
+	plan.add([e1, e2, m1, m2, m3])
 	e1.signals e2
 	m1.signals m2
 	m2.signals m3
@@ -514,7 +514,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_or_generator
 	a, b, c = (1..3).map { EventGenerator.new(true) }.
-	    each { |e| plan.discover(e) }
+	    each { |e| plan.add(e) }
 
 	or_event = OrGenerator.new
 	assert(or_event.empty?)
@@ -531,7 +531,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_or_emission
-	plan.discover(or_event = OrGenerator.new)
+	plan.add(or_event = OrGenerator.new)
 	events = (1..4).map { EventGenerator.new(true) }.
 	    each { |e| or_event << e }
 
@@ -546,7 +546,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_or_reset
-	plan.discover(or_event = OrGenerator.new)
+	plan.add(or_event = OrGenerator.new)
 	events = (1..4).map { EventGenerator.new(true) }.
 	    each { |e| or_event << e }
 
@@ -562,7 +562,7 @@ class TC_Event < Test::Unit::TestCase
     def test_or_unreachability
 	# Test unreachability properties
 	a, b = (1..3).map { EventGenerator.new(true) }.
-	    each { |e| plan.discover(e) }
+	    each { |e| plan.add(e) }
         or_event = (a | b)
 	
 	## must be unreachable once emitted, but if_unreachable(true) blocks
@@ -589,7 +589,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_until
 	source, sink, filter, limit = 4.enum_for(:times).map { EventGenerator.new(true) }
-	plan.discover [source, sink, filter, limit]
+	plan.add [source, sink, filter, limit]
 
 	source.signals(filter)
 	filter.until(limit).signals(sink)
@@ -609,7 +609,7 @@ class TC_Event < Test::Unit::TestCase
 	generator = Class.new(EventGenerator) do
 	    def new(context); [] end
 	end.new(true)
-	plan.discover(generator)
+	plan.add(generator)
 
 	assert_raises(EmissionFailed) { generator.emit(nil) }
 
@@ -619,7 +619,7 @@ class TC_Event < Test::Unit::TestCase
 		event_klass.new(plan.engine.propagation_id, context, self)
 	    end
 	end.new(true)
-	plan.discover(generator)
+	plan.add(generator)
 	assert_nothing_raised { generator.call(nil) }
     end
 
@@ -630,7 +630,7 @@ class TC_Event < Test::Unit::TestCase
 	    e1.signals e2
 	    e1.on { |event| mock.e1(event.context) }
 	    e2.on { |event| mock.e2(event.context) }
-	    plan.discover([e1, e2])
+	    plan.add([e1, e2])
 
 	    mock.should_receive(:e1_cmd).with([mock]).once
 	    mock.should_receive(:e2_cmd).with([mock]).once
@@ -645,7 +645,7 @@ class TC_Event < Test::Unit::TestCase
 	    pass_through.signals e2
 	    pass_through.on { |event| mock.e1(event.context) }
 	    e2.on { |event| mock.e2(event.context) }
-	    plan.discover([pass_through, e2])
+	    plan.add([pass_through, e2])
 
 	    mock.should_receive(:e2_cmd).with([mock]).once
 	    mock.should_receive(:e1).with([mock]).once
@@ -659,7 +659,7 @@ class TC_Event < Test::Unit::TestCase
 	    e1.signals e2
 	    e1.on { |event| mock.e1(event.context) }
 	    e2.on { |event| mock.e2(event.context) }
-	    plan.discover([e1, e2])
+	    plan.add([e1, e2])
 
 	    mock.should_receive(:e1_cmd).with(nil).once
 	    mock.should_receive(:e2_cmd).with(nil).once
@@ -670,7 +670,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_preconditions
-	plan.discover(e1 = EventGenerator.new(true))
+	plan.add(e1 = EventGenerator.new(true))
 	e1.precondition("context must be non-nil") do |generator, context|
 	    context
 	end
@@ -685,13 +685,13 @@ class TC_Event < Test::Unit::TestCase
 		cancel("testing cancel method")
 	    end
 	end.new(true)
-	plan.discover(e1)
+	plan.add(e1)
 	assert_raises(EventCanceled) { e1.call(nil) }
     end
 
     def test_related_events
 	e1, e2 = (1..2).map { EventGenerator.new(true) }.
-	    each { |ev| plan.discover(ev) }
+	    each { |ev| plan.add(ev) }
 
 	assert_equal([].to_value_set, e1.related_events)
 	e1.signals e2
@@ -701,7 +701,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_related_tasks
 	e1, e2 = (1..2).map { EventGenerator.new(true) }.
-	    each { |ev| plan.discover(ev) }
+	    each { |ev| plan.add(ev) }
 	t1 = SimpleTask.new
 
 	assert_equal([].to_value_set, e1.related_tasks)
@@ -715,7 +715,7 @@ class TC_Event < Test::Unit::TestCase
 		ev.emit(*context)
 		mock.called(*context)
 	    end
-	    plan.discover(ev)
+	    plan.add(ev)
 
 	    mock.should_receive(:called).with(42).once
 	    ev.call(42)
@@ -729,7 +729,7 @@ class TC_Event < Test::Unit::TestCase
     def test_set_command
 	FlexMock.use do |mock|
 	    ev = EventGenerator.new
-	    plan.discover(ev)
+	    plan.add(ev)
 	    assert(!ev.controlable?)
 
 	    ev.command = lambda { mock.first }
@@ -748,7 +748,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_once
-	plan.discover(ev = EventGenerator.new(true))
+	plan.add(ev = EventGenerator.new(true))
 	FlexMock.use do |mock|
 	    ev.once { mock.called_once }
 	    mock.should_receive(:called_once).once
@@ -760,7 +760,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_signal_once
 	ev1, ev2 = EventGenerator.new(true), EventGenerator.new(true)
-	plan.discover([ev1, ev2])
+	plan.add([ev1, ev2])
 
 	FlexMock.use do |mock|
 	    ev1.signals_once(ev2)
@@ -775,7 +775,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_forward_once
 	ev1, ev2 = EventGenerator.new(true), EventGenerator.new(true)
-	plan.discover([ev1, ev2])
+	plan.add([ev1, ev2])
 
 	FlexMock.use do |mock|
 	    ev1.forward_to_once(ev2)
@@ -790,7 +790,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_filter
 	ev1, ev_block, ev_value, ev_nil = (1..4).map { EventGenerator.new(true) }.
-	    each { |e| plan.discover(e) }
+	    each { |e| plan.add(e) }
 
 	FlexMock.use do |mock|
 	    ev1.filter { |v| mock.filtering(v); v*2 }.signals ev_block
@@ -812,7 +812,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_gather_events
 	e1, e2 = (1..2).map { EventGenerator.new(true) }.
-	    each { |e| plan.discover(e) }
+	    each { |e| plan.add(e) }
 
 	collection = []
 
@@ -843,7 +843,7 @@ class TC_Event < Test::Unit::TestCase
 	master = EventGenerator.new do
 	    master.achieve_with slave
 	end
-	plan.discover([master, slave])
+	plan.add([master, slave])
 
 	master.call
 	assert(!master.happened?)
@@ -855,7 +855,7 @@ class TC_Event < Test::Unit::TestCase
 	master = EventGenerator.new do
 	    master.achieve_with slave
 	end
-	plan.discover([master, slave])
+	plan.add([master, slave])
 
 	master.call
 	assert(!master.happened?)
@@ -866,7 +866,7 @@ class TC_Event < Test::Unit::TestCase
 	master = EventGenerator.new do
 	    master.achieve_with(slave) { [21, 42] }
 	end
-	plan.discover([master, slave])
+	plan.add([master, slave])
 
 	master.call
 	slave.emit
@@ -877,7 +877,7 @@ class TC_Event < Test::Unit::TestCase
 
     def test_if_unreachable
 	FlexMock.use do |mock|
-	    plan.discover(ev = EventGenerator.new(true))
+	    plan.add(ev = EventGenerator.new(true))
 	    ev.if_unreachable(false) { mock.called }
 	    ev.if_unreachable(true) { mock.canceled_called }
 	    ev.call
@@ -889,7 +889,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_when_unreachable
-        plan.discover(ev = EventGenerator.new(true))
+        plan.add(ev = EventGenerator.new(true))
         ev.when_unreachable.on { |ev| mock.unreachable_fired }
         ev.call
         engine.garbage_collect
@@ -897,8 +897,8 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_or_if_unreachable
-	plan.discover(e1 = EventGenerator.new(true))
-	plan.discover(e2 = EventGenerator.new(true))
+	plan.add(e1 = EventGenerator.new(true))
+	plan.add(e2 = EventGenerator.new(true))
 	a = e1 | e2
 	FlexMock.use do |mock|
 	    a.if_unreachable(false) { mock.called }
@@ -915,8 +915,8 @@ class TC_Event < Test::Unit::TestCase
 
     def test_and_if_unreachable
 	FlexMock.use do |mock|
-	    plan.discover(e1 = EventGenerator.new(true))
-	    plan.discover(e2 = EventGenerator.new(true))
+	    plan.add(e1 = EventGenerator.new(true))
+	    plan.add(e2 = EventGenerator.new(true))
 	    a = e1 & e2
 
 	    a.if_unreachable(false) { mock.called }
@@ -927,8 +927,8 @@ class TC_Event < Test::Unit::TestCase
 	end
 
 	FlexMock.use do |mock|
-	    plan.discover(e1 = EventGenerator.new(true))
-	    plan.discover(e2 = EventGenerator.new(true))
+	    plan.add(e1 = EventGenerator.new(true))
+	    plan.add(e2 = EventGenerator.new(true))
 	    a = e1 & e2
 
 	    a.if_unreachable(false) { mock.called }
@@ -940,7 +940,7 @@ class TC_Event < Test::Unit::TestCase
     end
 
     def test_dup
-	plan.discover(e = EventGenerator.new(true))
+	plan.add(e = EventGenerator.new(true))
 
 	e.call
 	new = e.dup
@@ -954,10 +954,10 @@ class TC_Event < Test::Unit::TestCase
 	    current_time = Time.now + 5
 	    time_proxy.should_receive(:now).and_return { current_time }
 
-	    plan.discover(e = EventGenerator.new(true))
+	    plan.add(e = EventGenerator.new(true))
 	    e.call
 	    current_time += 0.5
-	    plan.discover(delayed = e.last.after(1))
+	    plan.add(delayed = e.last.after(1))
 	    delayed.poll
 	    assert(!delayed.happened?)
 	    current_time += 0.5

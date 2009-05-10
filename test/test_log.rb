@@ -89,7 +89,7 @@ class TC_Log < Test::Unit::TestCase
 		task_set.map { |obj| obj.remote_siblings[Roby::Distributed.droby_dump(nil)] }.to_set == [t1.remote_id, t2.remote_id].to_set
 	    end
 
-	    mock.should_receive(:discovered_tasks).
+	    mock.should_receive(:added_tasks).
 		with(FlexMock.any, FlexMock.any, match_discovered_set).
 		once
 	    mock.should_receive(:removed_task_child).
@@ -103,7 +103,7 @@ class TC_Log < Test::Unit::TestCase
 	    begin
 		t1.realized_by t2
 		assert(Log.known_objects.empty?)
-		plan.discover(t1)
+		plan.add(t1)
 		assert_equal([t1, t2].to_value_set, Log.known_objects)
 		t1.remove_child t2
 		assert_equal([t1, t2].to_value_set, Log.known_objects)

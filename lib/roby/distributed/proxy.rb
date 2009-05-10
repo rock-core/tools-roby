@@ -83,7 +83,7 @@ module Roby
 		    plan = peer.local_object(self.plan)
 		    return if proxy.plan == plan
 		    Distributed.update_all([plan, proxy]) do
-			plan.discover(proxy)
+			plan.add(proxy)
 		    end
 		end
 	    end

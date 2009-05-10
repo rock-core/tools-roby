@@ -234,29 +234,29 @@ module Roby
 	#    
 	def prepare_plan(options)
 	    options = validate_options options,
-		:missions => 0, :discover => 0, :tasks => 0,
+		:missions => 0, :add => 0, :discover => 0, :tasks => 0,
 		:permanent => 0,
 		:model => Roby::Task, :plan => plan
 
-	    missions, permanent, discovered, tasks = [], [], [], []
+	    missions, permanent, added, tasks = [], [], [], []
 	    (1..options[:missions]).each do |i|
 		options[:plan].add_mission(t = options[:model].new(:id => "mission-#{i}"))
 		missions << t
 	    end
 	    (1..options[:permanent]).each do |i|
-		options[:plan].permanent(t = options[:model].new(:id => "perm-#{i}"))
+		options[:plan].add_permanent(t = options[:model].new(:id => "perm-#{i}"))
 		permanent << t
 	    end
-	    (1..options[:discover]).each do |i|
-		options[:plan].discover(t = options[:model].new(:id => "discover-#{i}"))
-		discovered << t
+	    (1..(options[:discover] + options[:add])).each do |i|
+		options[:plan].add(t = options[:model].new(:id => "discover-#{i}"))
+		added << t
 	    end
 	    (1..options[:tasks]).each do |i|
 		tasks << options[:model].new(:id => "task-#{i}")
 	    end
 
 	    result = []
-	    [missions, permanent, discovered, tasks].each do |set|
+	    [missions, permanent, added, tasks].each do |set|
 		unless set.empty?
 		    set = *set
 		    result << set

@@ -39,7 +39,7 @@ module TC_TransactionBehaviour
     def transaction_op(plan, op, *needed_proxies)
 	trsc = Roby::Transaction.new(plan)
 	proxies = needed_proxies.map do |o|
-	    plan.discover(o) unless o.plan
+	    plan.add(o) unless o.plan
 
 	    p = trsc[o]
 	    assert_not_equal(p, o)
@@ -83,14 +83,14 @@ module TC_TransactionBehaviour
     def test_commit_task
 	t = prepare_plan :tasks => 1
 	transaction_commit(plan, t) do |trsc, p|
-	    trsc.discover(p)
+	    trsc.add(p)
 	    assert(p.event(:start).child_object?(p.event(:updated_data), Roby::EventStructure::Precedence))
 	    assert(p.event(:failed).child_object?(p.event(:stop), Roby::EventStructure::Forwarding))
 	end
 	assert(t.event(:start).child_object?(t.event(:updated_data), Roby::EventStructure::Precedence))
 	assert(t.event(:failed).child_object?(t.event(:stop), Roby::EventStructure::Forwarding))
 
-	t = prepare_plan :discover => 1
+	t = prepare_plan :add => 1
 	transaction_commit(plan, t) do |trsc, p|
 	    trsc.add_mission(p)
 	end
@@ -99,12 +99,12 @@ module TC_TransactionBehaviour
     end
 
     def test_commit_arguments
-	(t1, t2), t = prepare_plan :discover => 2, :tasks => 1
+	(t1, t2), t = prepare_plan :add => 2, :tasks => 1
 	t1.arguments[:first] = 10
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    p1.arguments[:first] = 20
 	    p1.arguments[:second] = p2
-	    trsc.discover(t)
+	    trsc.add(t)
 	    t.arguments[:task] = p2
 	end
 
@@ -132,7 +132,7 @@ module TC_TransactionBehaviour
 
 	transaction_commit(plan) do |trsc| 
 	    assert(!trsc.include?(t3))
-	    trsc.discover(t3)
+	    trsc.add(t3)
 	    assert(trsc.include?(t3))
 	    assert(!trsc.mission?(t3))
 	    assert(!plan.include?(t3))
@@ -154,7 +154,7 @@ module TC_TransactionBehaviour
 
 	transaction_commit(plan, t2) do |trsc, p2|
 	    assert(trsc.mission?(p2))
-	    trsc.remove_mission(p2)
+	    trsc.unmark_mission(p2)
 	    assert(trsc.include?(p2))
 	    assert(!trsc.mission?(p2))
 	    assert(plan.include?(t2))
@@ -174,17 +174,17 @@ module TC_TransactionBehaviour
 	assert(!plan.include?(t3))
 	assert(!plan.mission?(t3))
 
-	plan.permanent(t3 = Roby::Task.new)
+	plan.add_permanent(t3 = Roby::Task.new)
 	transaction_commit(plan, t3) do |trsc, p3|
 	    assert(trsc.permanent?(p3))
-	    trsc.auto(t3)
+	    trsc.unmark_permanent(t3)
 	    assert(!trsc.permanent?(p3))
 	    assert(plan.permanent?(t3))
 	end
 	assert(!plan.permanent?(t3))
 
 	transaction_commit(plan, t3) do |trsc, p3|
-	    trsc.permanent(p3)
+	    trsc.add_permanent(p3)
 	    assert(trsc.permanent?(p3))
 	    assert(!plan.permanent?(t3))
 	end
@@ -194,8 +194,8 @@ module TC_TransactionBehaviour
     # Tests insertion and removal of free events
     def test_commit_plan_events
         e1, e2 = (1..2).map { Roby::EventGenerator.new }
-        plan.permanent(e1)
-        plan.discover(e2)
+        plan.add_permanent(e1)
+        plan.add(e2)
 
 	transaction_commit(plan, e1, e2) do |trsc, p1, p2|
 	    assert(trsc.include?(p1))
@@ -203,15 +203,15 @@ module TC_TransactionBehaviour
 	    assert(trsc.include?(p2))
 	    assert(!trsc.permanent?(p2))
 
-            trsc.auto(p1)
+            trsc.unmark_permanent(p1)
 	    assert(!trsc.permanent?(p1))
 	end
         assert(!plan.permanent?(e1))
 
         e3, e4 = (1..2).map { Roby::EventGenerator.new }
 	transaction_commit(plan) do |trsc|
-            trsc.permanent(e3)
-            trsc.discover(e4)
+            trsc.add_permanent(e3)
+            trsc.add(e4)
 	    assert(trsc.permanent?(e3))
 	    assert(trsc.include?(e4))
 	    assert(!trsc.permanent?(e4))
@@ -228,8 +228,8 @@ module TC_TransactionBehaviour
 	t1.realized_by t2
 
 	transaction_commit(plan) do |trsc|
-	    trsc.discover t3
-	    trsc.discover t4
+	    trsc.add t3
+	    trsc.add t4
 	    t3.planned_by t4
 	end
 	assert(PlannedBy.linked?(t3, t4))
@@ -272,7 +272,7 @@ module TC_TransactionBehaviour
 	t1.signals(:start, t2, :success)
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    trsc.discover t3
+	    trsc.add t3
             t3.signals(:stop, p2, :start)
 	    assert(Signal.linked?(t3.event(:stop), p2.event(:start)))
 	    assert(!Signal.linked?(t3.event(:stop), t2.event(:start)))
@@ -287,7 +287,7 @@ module TC_TransactionBehaviour
 	assert(Signal.linked?(t1.event(:stop), t2.event(:start)))
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    trsc.discover t4
+	    trsc.add t4
 	    p1.signals(:stop, t4, :start)
 	    assert(Signal.linked?(p1.event(:stop), t4.event(:start)))
 	end
@@ -358,7 +358,7 @@ module TC_TransactionBehaviour
     end
 
     def test_discard_modifications
-	t1, t2, t3 = prepare_plan :missions => 1, :discover => 1, :tasks => 1
+	t1, t2, t3 = prepare_plan :missions => 1, :add => 1, :tasks => 1
 	t1.realized_by t2
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    p1.realized_by(t3)
@@ -379,7 +379,7 @@ module TC_TransactionBehaviour
      end
 
     def test_plan_finalized_task
-	t1, t2, t3 = prepare_plan :missions => 1, :discover => 1
+	t1, t2, t3 = prepare_plan :missions => 1, :add => 1
 	t1.realized_by t2
 
 	t3 = SimpleTask.new
@@ -395,7 +395,7 @@ module TC_TransactionBehaviour
     end
 
     def test_plan_add_remove_invalidate
-	t1 = prepare_plan :discover => 1
+	t1 = prepare_plan :add => 1
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1) do |trsc, p1|
 		plan.remove_object(t1)
@@ -403,7 +403,7 @@ module TC_TransactionBehaviour
 	    end
 	end
 
-	t1 = prepare_plan :discover => 1
+	t1 = prepare_plan :add => 1
 	assert_nothing_raised do
 	    transaction_commit(plan, t1) do |trsc, p1|
 		trsc.remove_object(p1)
@@ -414,7 +414,7 @@ module TC_TransactionBehaviour
     end
 
     def test_plan_relation_update_invalidate
-	t1, t2 = prepare_plan :discover => 2
+	t1, t2 = prepare_plan :add => 2
 
 	t1.realized_by t2
 	assert_raises(Roby::InvalidTransaction) do
@@ -487,7 +487,7 @@ class TC_Transactions < Test::Unit::TestCase
     end
 
     def test_commit_event_handlers
-	plan.discover(e = Roby::EventGenerator.new(true))
+	plan.add(e = Roby::EventGenerator.new(true))
 	def e.called_by_handler(mock)
 	    mock.called_by_handler
 	end
@@ -513,7 +513,7 @@ class TC_Transactions < Test::Unit::TestCase
 		p1.forward_to(:start, t2, :start)
 		p1.signals(:start, t3, :start)
 	    end
-	    trsc.discover(ev)
+	    trsc.add(ev)
 	    ev
 	end
 	ev.call
