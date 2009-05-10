@@ -22,7 +22,8 @@
 
         <div id="logo">
           <h1>[<a href="{relocatable: /index.html}" accesskey="4">Roby</a>]</h1>
-          <span id="tagline">User's guide</span>
+          <span id="tagline">User's guide</span><BR />
+          for {execute_cmd: git describe --tags}
         </div>
 
         <div id="intro">
