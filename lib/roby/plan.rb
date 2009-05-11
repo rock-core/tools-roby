@@ -830,13 +830,25 @@ module Roby
             end
         end
 
-	# Replace +task+ with a fresh copy of itself
-	def respawn(task)
+	# Replace +task+ with a fresh copy of itself.
+        #
+        # The new task takes the place of the old one in the plan: any relation
+        # that was going to/from +task+ or one of its events is removed, and the
+        # corresponding one is created, but this time involving the newly
+        # created task.
+        def recreate(task)
 	    new_task = task.class.new(task.arguments.dup)
-
 	    replace_task(task, new_task)
-	    engine.once { new_task.start!(nil) }
-	    new_task
+            new_task
+        end
+
+	# Replace +task+ with a fresh copy of itself and start it.
+        #
+        # See #recreate for details about the new task.
+	def respawn(task)
+            new = recreate(task)
+            engine.once { new.start!(nil) }
+	    new
 	end
         
         # The set of blocks that should be called to check the structure of the
