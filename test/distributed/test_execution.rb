@@ -20,10 +20,10 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		def create
 		    # Put the task to avoir having GC clearing the events
 		    plan.add_mission(t = SimpleTask.new(:id => 'task'))
-		    plan.discover(@controlable = Roby::EventGenerator.new(true))
-		    plan.discover(@contingent = Roby::EventGenerator.new(false))
-		    t.on(:start, controlable)
-		    t.forward(:start, contingent)
+		    plan.add(@controlable = Roby::EventGenerator.new(true))
+		    plan.add(@contingent = Roby::EventGenerator.new(false))
+		    t.signals(:start, controlable, :start)
+		    t.forward_to(:start, contingent, :start)
 		    nil
 		end
 		def fire
@@ -66,7 +66,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		    local_task = trsc.find_tasks.which_fullfills(Roby::Test::SimpleTask).to_a.first
 		    t = trsc[SimpleTask.new(:id => 'remote_task')]
 		    local_task.realized_by t
-		    local_task.on :start, t, :start
+		    local_task.signals :start, t, :start
 		    nil
 		end
 	    end
@@ -89,7 +89,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	assert(remote_task.running?)
 
 	engine.execute do
-	    plan.remove_mission(local_task)
+	    plan.unmark_mission(local_task)
 	    local_task.stop!
 	end
     end
@@ -103,15 +103,15 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		def create
 		    # Put the task to avoir having GC clearing the events
 		    plan.add_mission(@task = SimpleTask.new(:id => 'task'))
-		    plan.discover(@event = Roby::EventGenerator.new(true))
-		    event.on task.event(:start)
+		    plan.add(@event = Roby::EventGenerator.new(true))
+		    event.signals task.event(:start)
 		    nil
 		end
 		def fire
 		    engine.execute do
 			event.on do
-			    plan.remove_mission(task)
-			    task.event(:start).on task.event(:success)
+			    plan.unmark_mission(task)
+			    task.event(:start).signals task.event(:success)
 			end
 		
 			event.call(nil) 
@@ -153,7 +153,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		def stop_task
 		    assert(task.executable?)
 		    engine.once do
-			plan.remove_mission(task)
+			plan.unmark_mission(task)
 			task.stop!
 		    end
 		    nil
@@ -215,8 +215,8 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    forwarded_ev.on { |ev| mock.forward_emitted }
 	    assert(!forwarded_ev.controlable?)
 
-	    p_task.event(:start).on signalled_ev
-	    p_task.event(:start).forward forwarded_ev
+	    p_task.event(:start).signals signalled_ev
+	    p_task.event(:start).forward_to forwarded_ev
 
 	    mock.should_receive(:signal_command).once.ordered('signal')
 	    mock.should_receive(:signal_emitted).once.ordered('signal')

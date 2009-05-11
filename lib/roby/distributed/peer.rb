@@ -316,7 +316,7 @@ module Roby::Distributed
 
 	    @task = ConnectionTask.new :peer => self
 	    connection_space.plan.engine.once do
-		connection_space.plan.permanent(task)
+		connection_space.plan.add_permanent(task)
 		task.start!
 		task.emit(:ready)
 	    end

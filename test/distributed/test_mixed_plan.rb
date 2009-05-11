@@ -27,8 +27,8 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	t1.realized_by t2
 	t2.planned_by t3
 	plan.add_mission(t1)
-	plan.discover(t2)
-	plan.discover(t3)
+	plan.add(t2)
+	plan.add(t3)
 
 	[t1, t2, t3]
     end
@@ -151,7 +151,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 
 	    assert(plan.useful_task?(r_t1))
 	    trsc[r_t2].realized_by trsc[t2]
-	    trsc[r_t2].on(:start, trsc[t2])
+	    trsc[r_t2].signals(:start, trsc[t2], :start)
 	    assert(plan.useful_task?(r_t1))
 	    check_resulting_plan(trsc, false)
 	    if propose_first
@@ -188,7 +188,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    t1, t2, t3 = Roby.synchronize { add_tasks(trsc, "local") }
 
 	    trsc[r_t2].realized_by t2
-	    trsc[r_t2].on(:start, t2)
+	    trsc[r_t2].signals(:start, t2, :start)
 	    check_resulting_plan(trsc, false)
 	    process_events
 	    if propose_first
@@ -222,7 +222,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    assert(r_t2.subscribed?)
 	    t1, t2, t3 = Roby.synchronize { add_tasks(plan, "local") }
 	    r_t2.realized_by trsc[t2]
-	    r_t2.on(:start, trsc[t2])
+	    r_t2.signals(:start, trsc[t2], :start)
 	    remote_peer.subscribe(r_t2)
 	    remote_peer.push_subscription(t2)
 
@@ -315,13 +315,13 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    def remote.add_task(trsc)
 		trsc = local_peer.local_object(trsc)
 		trsc.edit
-		trsc.discover(SimpleTask.new(:id => 'remote'))
+		trsc.add(SimpleTask.new(:id => 'remote'))
 		trsc.release(false)
 	    end
 	end
 	
 	# Create an empty transaction and send it to our peer
-	# The peer will then discover a task, which 
+	# The peer will then add a task, which 
 	# will be GCed as soon as the transaction is committed
 	trsc = Distributed::Transaction.new(plan)
 	trsc.add_owner(remote_peer)

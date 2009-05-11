@@ -80,7 +80,7 @@ module Roby
 
             # Hook called when a new task is not a mission anymore. It sends a
             # PeerServer#plan_set_mission message to the remote host.
-	    def removed_mission(task)
+	    def unmarked_mission(task)
 		super if defined? super
 		return unless task.distribute? && task.self_owned?
 

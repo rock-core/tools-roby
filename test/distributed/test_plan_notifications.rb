@@ -83,7 +83,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	    subtask = SimpleTask.new :id => 'subtask'
 	    plan.add_mission(next_mission = SimpleTask.new(:id => 'next_mission'))
 	    mission.realized_by subtask
-	    mission.on(:start, next_mission, :start)
+	    mission.signals(:start, next_mission, :start)
 	end
 
 	# Subscribe to the remote plan
@@ -111,19 +111,19 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 		    plan.add_mission(mission)
 		end
 		def create_subtask
-		    plan.permanent(@subtask = Roby::Task.new(:id => 'subtask'))
+		    plan.add_permanent(@subtask = Roby::Task.new(:id => 'subtask'))
 		    mission.realized_by subtask
 		end
 		def create_next_mission
 		    @next_mission = Roby::Task.new :id => 'next_mission'
-		    mission.on(:start, next_mission, :start)
+		    mission.signals(:start, next_mission, :start)
 		    plan.add_mission(next_mission)
 		end
 		def create_free_event
 		    @free_event = Roby::EventGenerator.new(true)
 		    # Link the event to a task to protect it from GC
-		    @next_mission.on(:start, @free_event)
-		    plan.discover(free_event)
+		    @next_mission.signals(:start, @free_event, :start)
+		    plan.add(free_event)
 		end
 		def remove_free_event
 		    plan.remove_object(free_event)
@@ -133,8 +133,8 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 		def unlink_subtask; mission.remove_child(subtask) end
 		def remove_subtask; plan.remove_object(subtask) end
 		def discard_mission 
-		    plan.permanent(mission)
-		    plan.remove_mission(mission) 
+		    plan.add_permanent(mission)
+		    plan.unmark_mission(mission) 
 		end
 		def remove_mission; plan.remove_object(mission) end
 	    end
