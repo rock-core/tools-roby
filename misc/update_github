@@ -13,7 +13,8 @@ tree=$(git write-tree --prefix=$DOC_DIR)
 
 # Get the parent commit for the tree. If the branch does not yet exist, create
 # it
-msg="generated from $(git show-ref HEAD | awk '{print $1}')"
+head_sha=$(git show HEAD | grep commit | awk '{print $2}')
+msg="generated from $head_sha"
 parent=$(git show-ref refs/heads/$PAGES_BRANCH | awk '{ print $1 }')
 if test -n "$parent"; then
     # Check that some things changes since last time
