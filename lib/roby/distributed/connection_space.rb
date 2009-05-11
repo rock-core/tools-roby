@@ -225,7 +225,7 @@ module Roby
 		end
 		start_neighbour_discovery(true)
 
-                engine.add_propagation_handler do |plan|
+                @discovery_start_handler = engine.add_propagation_handler do |plan|
                     start_neighbour_discovery
                     notify_new_neighbours
                 end
@@ -478,6 +478,9 @@ module Roby
             # Make the ConnectionSpace quit
 	    def quit
 		Distributed.debug "ConnectionSpace #{self} quitting"
+                if @discovery_start_handler
+                    engine.remove_propagation_handler(@discovery_start_handler)
+                end
 
 		# Remove us from the central tuplespace
 		if central_discovery?
