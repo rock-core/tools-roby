@@ -78,6 +78,17 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 	end
     end
 
+    def disable_logging
+        remote.disable_logging
+        logger = Roby::Distributed.logger
+        old_loglevel = logger.level
+        logger.level = Logger::UNKNOWN
+        yield
+    ensure
+        remote.enable_logging
+        logger.level = old_loglevel
+    end
+
     def test_transmit_error
 	FlexMock.use do |mock|
 	    remote_peer.disable_tx
@@ -85,8 +96,10 @@ class TC_DistributedCommunication < Test::Unit::TestCase
 		mock.block_called
 	    end
 	    mock.should_receive(:block_called).never
-	    remote_peer.enable_tx
-	    assert_raises(Roby::Distributed::DisconnectedError) { remote_peer.synchro_point }
+            disable_logging do
+                remote_peer.enable_tx
+                assert_raises(Roby::Distributed::DisconnectedError) { remote_peer.synchro_point }
+            end
 
 	    assert(!remote_peer.connected?)
 	end
@@ -117,24 +130,26 @@ class TC_DistributedCommunication < Test::Unit::TestCase
     end
 
     def test_call_raises
-	Roby.logger.level = Logger::FATAL
-	assert_raises(RuntimeError) do
-	    remote_peer.call(:reply_error, 2)
-	end
+        disable_logging do
+            assert_raises(RuntimeError) do
+                remote_peer.call(:reply_error, 2)
+            end
+        end
     end
 
     def test_call_disconnects
-	Roby.logger.level = Logger::FATAL
 	remote_peer.disable_tx
 
 	remote_peer.transmit(:reply_error, 2)
 	sleep(0.5)
 
-	Thread.new do
-	    sleep(0.5)
-	    remote_peer.enable_tx
-	end
-	assert_raises(DisconnectedError) { remote_peer.call(:reply, nil, 42) }
+        disable_logging do
+            Thread.new do
+                sleep(0.5)
+                remote_peer.enable_tx
+            end
+            assert_raises(DisconnectedError) { remote_peer.call(:reply, nil, 42) }
+        end
     end
 
     def test_callback
@@ -149,8 +164,9 @@ class TC_DistributedCommunication < Test::Unit::TestCase
     end
 
     def test_recursive_callbacks
-	Roby.logger.level = Logger::FATAL
-	assert_raises(DisconnectedError) { remote_peer.call(:recursive_callbacks) }
+        disable_logging do
+            assert_raises(DisconnectedError) { remote_peer.call(:recursive_callbacks) }
+        end
     end
 
     def test_synchro_point

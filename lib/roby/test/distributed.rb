@@ -89,6 +89,15 @@ module Roby
 		    engine.quit
 		    engine.join
 		end
+                def disable_logging
+                    logger = Roby::Distributed.logger
+                    @orig_logger_level = logger.level
+                    logger.level = Logger::UNKNOWN
+                end
+                def enable_logging
+                    logger = Roby::Distributed.logger
+                    logger.level = (@orig_logger_level || Logger::WARN)
+                end
 	    end
 
 	    # Start a central discovery service, a remote connectionspace and a local
