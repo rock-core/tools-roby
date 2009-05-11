@@ -212,6 +212,10 @@ module Roby
 	# Hook called when +tasks+ have been discarded from this plan
 	def unmarked_mission(task)
             super if defined? super
+            if respond_to?(:removed_mission)
+                Roby.warn_deprecated "the #removed_mission hook has been replaced by #unmarked_mission"
+                removed_mission(task)
+            end
             if respond_to?(:discarded)
                 Roby.warn_deprecated "the #discarded hook has been replaced by #unmarked_mission"
                 discarded(task)
