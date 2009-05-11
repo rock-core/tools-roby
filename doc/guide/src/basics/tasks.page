@@ -17,11 +17,11 @@ Unlike with event objects, which are usually created and parametrized on-the-fly
 
 Then, to use it, one would do:
 {coderay:: ruby}
- plan.discover(task = MoveTo.new)
+ plan.add(task = MoveTo.new)
 {coderay}
 
 As for events, the task must be included in a plan to be usable, which is done
-by calling plan.discover(). Don't forget that !
+by calling plan.add(). Don't forget that !
 
 Parametrization
 ---------------
@@ -131,7 +131,7 @@ Using task events
 The {rdoc_class: EventGenerator} class that defines the task event can be
 accessed with Task#event. Then, you can manipulate them as for normal events:
 {coderay:: ruby}
- >> plan.discover(task = MyTask.new)
+ >> plan.add(task = MyTask.new)
  >> ev = task.event(:start)
  >> ev.call
  start event called
@@ -192,7 +192,7 @@ relation between events, which can be added as follows:
  ?>     event :wheel_blocked
  ?>     on(:wheel_blocked) { puts "wheel_blocked emitted" }
  ?> end
- >> plan.discover(task = MyTask.new)
+ >> plan.add(task = MyTask.new)
  >> task.start!
  start event called
  start event emitted
@@ -222,7 +222,7 @@ Task}:
  ?>     signal :start => :controlable
  ?>     forward :wheel_blocked => :failed
  ?> end
- >> plan.discover(task = MyTask.new)
+ >> plan.add(task = MyTask.new)
  >> task.start!
  start event called
  start event emitted
@@ -249,7 +249,7 @@ the 'terminates' statement is enough:
  >> class MyTask
  ?>   terminates
  ?> end
- >> plan.discover(task = MyTask.new)
+ >> plan.add(task = MyTask.new)
  >> task.start!
  start event called
  start event emitted
@@ -283,7 +283,7 @@ before calling events on it:
 Another related error is to emit/call events other than "start" while the task is not yet running ...
 
 {coderay:: ruby}
- >> plan.discover(task = MyTask.new)
+ >> plan.add(task = MyTask.new)
  >> task.controllable!
  Roby::CommandFailed: controlable!() called by [] but the task has never been started
     from (irb):30
@@ -305,7 +305,7 @@ Another related error is to emit/call events other than "start" while the task i
         from (irb):33
 {coderay}
 
-<div markdown="1" class="block">
+<div markdown="1" class="info">
 In these messages, the notation
 
     MyTask{}:0x7ff179064358[]
@@ -331,7 +331,7 @@ instanciated to be started:
  >> class Bla < Roby::Task
  >>    argument :foo
  >> end
- >> plan.discover(task = Bla.new)
+ >> plan.add(task = Bla.new)
  >> task.start!
  Roby::EventNotExecutable: start! called on Bar{}:0x7ff17901c1e8[] which is partially instanciated
  The following arguments were not set:

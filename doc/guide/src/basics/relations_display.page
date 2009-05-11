@@ -188,7 +188,7 @@ the end of the execution cycle.
 The general idea is to kill and remove from the plan the tasks that are not
 useful for the achievement of the robot's missions. The "important" tasks for
 the robot is defined by the set of its missions.  These are added by calling
-Plan#add\_mission instead of the Plan#discover that we were using until now. Note
+Plan#add\_mission instead of the Plan#add that we were using until now. Note
 that, by calling the action through the shell, #add\_mission has been called
 automatically by the framework.
 

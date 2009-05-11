@@ -302,3 +302,17 @@ Released through OSWD.org */
     float: right;
 }
 
+.fullfigure {
+    text-align: center;
+}
+.figurecaption {
+    text-align: center;
+    margin-top: -1em;
+    margin-bottom: 4em;
+    margin-left: 10%;
+    margin-right: 10%;
+    background:#eee;
+    color:#222;
+    border:2px solid #ddd;
+}
+
