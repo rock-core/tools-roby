@@ -5,7 +5,6 @@ template: default.template
 
 --- name:navbar
 <div>
-    &nbsp;
     <div class="previous">
         {previous:: }<b>Previous</b>: %{previous}
     </div>

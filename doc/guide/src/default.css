@@ -289,6 +289,7 @@ Released through OSWD.org */
 .navbar {
     padding-left: 1em;
     padding-right: 1em;
+    padding-bottom: 2em;
 }
 .previous .next {
     margin: 1em;
