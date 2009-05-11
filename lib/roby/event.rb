@@ -177,8 +177,6 @@ module Roby
 	def check_call_validity
 	    if !executable?
 		raise EventNotExecutable.new(self), "#call called on #{self} which is a non-executable event"
-	    elsif !self_owned?
-		raise OwnershipError, "not owner"
 	    elsif !controlable?
 		raise EventNotControlable.new(self), "#call called on a non-controlable event"
 	    elsif !engine.inside_control?
@@ -191,8 +189,6 @@ module Roby
 	def check_emission_validity
 	    if !executable?
 		raise EventNotExecutable.new(self), "#emit called on #{self} which is a non-executable event"
-	    elsif !self_owned?
-		raise OwnershipError, "cannot emit an event we don't own. #{self} is owned by #{owners}"
 	    elsif !engine.inside_control?
 		raise ThreadMismatch, "#emit called while not in control thread"
 	    end
@@ -240,6 +236,14 @@ module Roby
 	# be checked using #controlable?
 	def call(*context)
             check_call_validity
+
+            # This test must not be done in #emit_without_propagation as the
+            # other ones: it is possible, using Distributed.update, to disable
+            # ownership tests, but that does not work if the test is in
+            # #emit_without_propagation
+	    if !self_owned?
+		raise OwnershipError, "not owner"
+            end
 
 	    context.compact!
             engine = plan.engine
@@ -523,6 +527,14 @@ module Roby
 	# Emit the event with +context+ as the event context
 	def emit(*context)
             check_emission_validity
+
+            # This test must not be done in #emit_without_propagation as the
+            # other ones: it is possible, using Distributed.update, to disable
+            # ownership tests, but that does not work if the test is in
+            # #emit_without_propagation
+	    if !self_owned?
+		raise OwnershipError, "cannot emit an event we don't own. #{self} is owned by #{owners}"
+            end
 
 	    context.compact!
             engine = plan.engine
