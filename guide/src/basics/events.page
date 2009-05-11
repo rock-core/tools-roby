@@ -28,7 +28,7 @@ is called a _contingent_ event, or a _non-controllable_ event):
 
 Then, before using it, you need to include it in a plan, so do
 {coderay:: ruby}
- >> plan.discover(ev1)
+ >> plan.add(ev1)
 {coderay}
 
 Finally, to be able to see the event's emission, we would display some text
@@ -60,7 +60,7 @@ Let's now create a second event
  ?>   puts "ev2 called with argument=#{argument.inspect}"
  ?>   ev2.emit(argument.first + 1)
  >> end
- >> plan.discover(ev2)
+ >> plan.add(ev2)
  >> ev2.on { |ev| puts "ev2 emitted with context=#{ev.context.inspect}" }
 {coderay}
 
@@ -116,8 +116,8 @@ __and__ ev2 have been emitted and "or_ev" is emitted as soon as _one of_ ev1
 __or__ ev2 have been emitted.
 
 {coderay:: ruby}
- >> plan.discover(ev1 = EventGenerator.new)
- >> plan.discover(ev2 = EventGenerator.new)
+ >> plan.add(ev1 = EventGenerator.new)
+ >> plan.add(ev2 = EventGenerator.new)
  >> and_ev = ev1 & ev2
  >> or_ev  = ev1 | ev2
  >> and_ev.on { puts "AND" }
@@ -127,6 +127,10 @@ __or__ ev2 have been emitted.
  >> ev2.emit
  AND
 {coderay}
+
+You did not have to add the and_ev and or_ev events to the plan. This is because
+they are linked to ev1 and ev2, so Roby added them to the plan automatically.
+{.info}
 
 You can see that the "OR" event is emitted only once. If you want it to be
 emitted every time one of its sources are, you would do:
@@ -149,7 +153,7 @@ Common errors when manipulating events
 ---------------------------------------
 
 A common error is to try to manipulate an event which is not included in a
-plan (objects are included in plans through the #discover call). In that case,
+plan (objects are included in plans through the #add call). In that case,
 the event is not executable and you will get the following error:
 
 {coderay:: ruby}
@@ -165,7 +169,7 @@ controllable. In that case, Roby raises a {rdoc_class: EventNotControlable}
 exception.
 
 {coderay:: ruby}
- >> plan.discover(ev = EventGenerator.new)
+ >> plan.add(ev = EventGenerator.new)
  >> ev.call
  Roby::EventNotControlable: #call called on a non-controllable event
  >> source = EventGenerator.new
