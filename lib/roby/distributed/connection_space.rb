@@ -436,7 +436,7 @@ module Roby
 		# Force disconnection in case something got wrong in the normal
 		# disconnection process
 		Distributed.peers.values.each do |peer|
-		    peer.disconnected unless peer.disconnected?
+		    peer.disconnected! unless peer.disconnected?
 		end
 
 		synchronize do
