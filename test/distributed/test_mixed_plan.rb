@@ -118,7 +118,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	end
 
 	# Create the transaction, and do the necessary modifications
-	trsc = Distributed::Transaction.new(plan, :conflict_solver => SolverIgnoreUpdate.new)
+	trsc = Distributed::Transaction.new(plan)
 
 	trsc.add_owner remote_peer
 	trsc.self_owned
