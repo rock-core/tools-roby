@@ -79,9 +79,9 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 
     def test_subscribe_plan
 	peer2peer do |remote|
-	    plan.add_mission(mission = Task.new(:id => 'mission'))
-	    subtask = Task.new :id => 'subtask'
-	    plan.add_mission(next_mission = Task.new(:id => 'next_mission'))
+	    plan.add_mission(mission = SimpleTask.new(:id => 'mission'))
+	    subtask = SimpleTask.new :id => 'subtask'
+	    plan.add_mission(next_mission = SimpleTask.new(:id => 'next_mission'))
 	    mission.realized_by subtask
 	    mission.on(:start, next_mission, :start)
 	end
@@ -207,11 +207,11 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 
     def test_unsubscribe_plan
 	peer2peer do |remote|
-	    remote.plan.add_mission(Task.new(:id => 'remote-1'))
-	    remote.plan.add_mission(Task.new(:id => 'remote-2'))
+	    remote.plan.add_mission(SimpleTask.new(:id => 'remote-1'))
+	    remote.plan.add_mission(SimpleTask.new(:id => 'remote-2'))
 
 	    def remote.new_task
-		plan.add_mission(Task.new(:id => 'remote-3'))
+		plan.add_mission(SimpleTask.new(:id => 'remote-3'))
 	    end
 	end
 
