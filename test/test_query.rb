@@ -183,16 +183,16 @@ class TC_Query < Test::Unit::TestCase
 	(d1, d2, d3, d4, d5, d6), t1 = prepare_plan :add => 6, :tasks => 1
 
 	trsc = Transaction.new(plan)
-	d1.realized_by d2
-	d2.realized_by d3
-	d4.realized_by d5
-	d5.realized_by d6
+	d1.depends_on d2
+	d2.depends_on d3
+	d4.depends_on d5
+	d5.depends_on d6
 
 	# Add a new relation which connects two components. Beware that
 	# modifying trsc[d3] and trsc[d4] makes d2 and d5 proxies to be
 	# discovered
-	trsc[d3].realized_by t1
-	t1.realized_by trsc[d4]
+	trsc[d3].depends_on t1
+	t1.depends_on trsc[d4]
 	plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
 	assert_equal([trsc[d3], trsc[d4], t1].to_value_set, trsc_set)
 	assert_equal([d1, d2, d5, d6].to_value_set, plan_set)
@@ -219,11 +219,11 @@ class TC_Query < Test::Unit::TestCase
 	[tr1, tr2, tr3].each { |t| trsc.add(t) }
 
 	assert_equal([t1, t2, t3].to_value_set, plan.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
-	t1.realized_by t2
+	t1.depends_on t2
 	assert_equal([t1, t3].to_value_set, plan.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
 
-	tr1.realized_by tr2
-	trsc[t3].realized_by tr3
+	tr1.depends_on tr2
+	trsc[t3].depends_on tr3
 	assert_equal([trsc[t1], trsc[t3], tr1].to_value_set, trsc.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
     end
 
@@ -232,7 +232,7 @@ class TC_Query < Test::Unit::TestCase
 	    argument :id
 	end
 	t1, t2, t3 = (1..3).map { |i| model.new(:id => i) }
-	t1.realized_by t2
+	t1.depends_on t2
 	plan.add(t1)
 
 	trsc = Transaction.new(plan)

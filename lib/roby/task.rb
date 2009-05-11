@@ -238,8 +238,8 @@ module Roby
 				      end
 
 	    if child_task
-		unless task.realized_by?(child_task)
-		    task.realized_by child_task, 
+		unless task.depends_on?(child_task, false)
+		    task.depends_on child_task, 
 			:success => [child_event.symbol],
 			:remove_when_done => true
 		end

@@ -85,7 +85,7 @@ class TC_PlanningTask < Test::Unit::TestCase
 	planner = Class.new(Planning::Planner) do
 	    method(:test_task) do
 	       	result_task = SimpleTask.new(:id => arguments[:task_id])
-		result_task.realized_by replan_task(:task_id => arguments[:task_id] + 1)
+		result_task.depends_on replan_task(:task_id => arguments[:task_id] + 1)
 		plan.add_permanent(result_task)
 		result_task
 	    end

@@ -58,7 +58,7 @@ module Roby
 	def to_task(task = nil)
 	    return super() unless task
 	    task = task.new unless task.kind_of?(Roby::Task)
-	    @tasks.each { |t| task.realized_by t }
+	    @tasks.each { |t| task.depends_on t }
 
 	    task.signals(:start, @tasks.first, :start)
 	    @tasks.last.forward_to(:success, task, :success)
@@ -92,7 +92,7 @@ module Roby
 	    connect_stop(task) if @tasks.empty?
 
             @tasks.unshift(task)
-	    realized_by task
+	    depends_on task
 	    self
         end
 
@@ -102,7 +102,7 @@ module Roby
 	    connect_stop(task)
 	    
 	    @tasks << task
-	    realized_by task
+	    depends_on task
 	    self
         end
 
@@ -127,7 +127,7 @@ module Roby
 
 	    task = task.new unless task.kind_of?(Roby::Task)
 	    @tasks.each do |t| 
-		task.realized_by t
+		task.depends_on t
 		task.signals(:start, t, :start)
 	    end
 	    task.event(:success).emit_on children_success
@@ -142,7 +142,7 @@ module Roby
             @tasks << task
 
 	    signals(:start, task, :start)
-	    realized_by task
+	    depends_on task
 	    children_success << task.event(:success)
 
             self
@@ -160,7 +160,7 @@ module Roby
 
 	    success = AndGenerator.new
 	    tasks.each do |task|
-		realized_by task
+		depends_on task
 		task.event(:success).signals success
 	    end
 	    success.forward_to event(:success)

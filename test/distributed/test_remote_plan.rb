@@ -81,28 +81,28 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	Distributed.update(r_simple_task) do
 	    assert(r_simple_task.read_write?)
 	    assert_nothing_raised do
-		r_simple_task.realized_by task
+		r_simple_task.depends_on task
 		r_simple_task.remove_child task
-		task.realized_by r_simple_task
+		task.depends_on r_simple_task
 		task.remove_child r_simple_task
 	    end
 	end
 	assert(!r_simple_task.read_write?)
 
-	assert_raises(OwnershipError) { r_simple_task.realized_by task }
-	assert_raises(OwnershipError) { task.realized_by r_simple_task }
-	Distributed.update(r_simple_task) { r_simple_task.realized_by task }
+	assert_raises(OwnershipError) { r_simple_task.depends_on task }
+	assert_raises(OwnershipError) { task.depends_on r_simple_task }
+	Distributed.update(r_simple_task) { r_simple_task.depends_on task }
 	assert_nothing_raised { r_simple_task.remove_child task }
-	Distributed.update(r_simple_task) { task.realized_by r_simple_task }
+	Distributed.update(r_simple_task) { task.depends_on r_simple_task }
 	assert_nothing_raised { task.remove_child r_simple_task }
 
-	assert_raises(OwnershipError) { r_simple_task.realized_by r_other_task }
-	assert_raises(OwnershipError) { r_other_task.realized_by r_simple_task }
-	Distributed.update_all([r_simple_task, r_other_task]) { r_simple_task.realized_by r_other_task }
+	assert_raises(OwnershipError) { r_simple_task.depends_on r_other_task }
+	assert_raises(OwnershipError) { r_other_task.depends_on r_simple_task }
+	Distributed.update_all([r_simple_task, r_other_task]) { r_simple_task.depends_on r_other_task }
 	assert_raises(OwnershipError) { r_simple_task.remove_child r_other_task }
 	Distributed.update_all([r_simple_task, r_other_task]) do
 	    r_simple_task.remove_child r_other_task
-	    r_other_task.realized_by r_simple_task
+	    r_other_task.depends_on r_simple_task
 	end
 	assert_raises(OwnershipError) { r_other_task.remove_child r_simple_task }
 
@@ -122,7 +122,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 		SimpleTask.new(:id => 'mission'), 
 		SimpleTask.new(:id => 'subtask'),
 		SimpleTask.new(:id => 'next_mission')
-	    mission.realized_by subtask
+	    mission.depends_on subtask
 	    mission.signals(:stop, next_mission, :start)
 
 	    remote.plan.add_mission(mission)
@@ -176,8 +176,8 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 		SimpleTask.new(:id => 'mission'), 
 		SimpleTask.new(:id => 'subtask'),
 		SimpleTask.new(:id => 'next_mission')
-	    root.realized_by mission
-	    mission.realized_by subtask
+	    root.depends_on mission
+	    mission.depends_on subtask
 	    mission.signals(:stop, next_mission, :start)
 
 	    remote.plan.add_permanent(subtask)
@@ -204,7 +204,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 		    mission.remove_child subtask
 		end
 		define_method(:add_mission_subtask) do
-		    mission.realized_by subtask
+		    mission.depends_on subtask
 		end
 	    end
 	end
@@ -316,8 +316,8 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    remote.plan.add_mission(left)
 	    remote.plan.add_mission(right)
 
-	    left.realized_by middle
-	    right.realized_by middle
+	    left.depends_on middle
+	    right.depends_on middle
 
 	    remote.singleton_class.class_eval do
 		include Test::Unit::Assertions
@@ -421,7 +421,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
 	    remote.singleton_class.class_eval do
 		define_method(:add_mission_subtask) do
-		    mission.realized_by subtask
+		    mission.depends_on subtask
 		end
 		define_method(:remove_mission_subtask) do
 		    mission.remove_child subtask

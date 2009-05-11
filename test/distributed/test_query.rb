@@ -50,7 +50,7 @@ class TC_DistributedQuery < Test::Unit::TestCase
 	    local_model = Class.new(SimpleTask)
 
 	    mission, subtask = QueryTaskModel.new(:id => 1), local_model.new(:id => 2)
-	    mission.realized_by subtask
+	    mission.depends_on subtask
 	    remote.plan.add_mission(mission)
 	end
 

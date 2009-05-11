@@ -106,9 +106,9 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 		trsc.edit do
 		    t1 = SimpleTask.new :id => 'root'
-		    t1.realized_by(t2 = SimpleTask.new(:id => 'child'))
+		    t1.depends_on(t2 = SimpleTask.new(:id => 'child'))
 		    t1.signals(:start, t2, :start)
-		    t2.realized_by(t3 = SimpleTask.new(:id => 'grandchild'))
+		    t2.depends_on(t3 = SimpleTask.new(:id => 'grandchild'))
 		    t3.signals(:failed, t2, :failed)
 
 		    trsc.add_mission(t1)
@@ -206,8 +206,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.self_owned = false
 
 	task = Task.new
-	assert_raises(OwnershipError) { t_task.realized_by task }
-	assert_raises(OwnershipError) { task.realized_by t_task }
+	assert_raises(OwnershipError) { t_task.depends_on task }
+	assert_raises(OwnershipError) { task.depends_on t_task }
 	assert_raises(OwnershipError) { task.event(:start).signals t_task.event(:start) }
 	assert_raises(OwnershipError) { trsc.discard_transaction }
 	assert_raises(OwnershipError) { trsc.commit_transaction }
@@ -216,10 +216,10 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	remote.add_owner_local(Distributed.format(trsc))
 
-	t_task.realized_by task
+	t_task.depends_on task
 	t_task.remove_child task
 	t_task.event(:start).remove_signal task.event(:start)
-	task.realized_by t_task
+	task.depends_on t_task
 	task.signals(:start, t_task, :start)
 	assert_raises(OwnershipError) { trsc.remove_owner remote_peer }
 	assert_raises(OwnershipError) { trsc.self_owned = false }
@@ -317,8 +317,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert(task.event(:stop).read_write?)
 
 	# Add relations
-	trsc[parent].realized_by task
-	task.realized_by trsc[child]
+	trsc[parent].depends_on task
+	task.depends_on trsc[child]
 	trsc[parent].event(:start).signals task.event(:start)
 	task.event(:stop).signals trsc[child].event(:stop)
 
@@ -352,7 +352,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	peer2peer do |remote|
 	    testcase = self
 	    remote.plan.add_mission(root = SimpleTask.new(:id => 'remote-1'))
-	    root.realized_by(child = SimpleTask.new(:id => 'remote-2'))
+	    root.depends_on(child = SimpleTask.new(:id => 'remote-2'))
 
 	    PeerServer.class_eval do
 		include Test::Unit::Assertions
@@ -384,7 +384,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	peer2peer do |remote|
 	    testcase = self
 	    remote.plan.add_mission(root = SimpleTask.new(:id => 'remote-1'))
-	    root.realized_by SimpleTask.new(:id => 'remote-2')
+	    root.depends_on SimpleTask.new(:id => 'remote-2')
 
 	    PeerServer.class_eval do
 		define_method(:check_transaction) do |trsc|
@@ -441,7 +441,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	t = RemoteTaskModel.new(:arg => 10, :id => 0)
 	t.extend DistributedObject
-	local_task.realized_by t
+	local_task.depends_on t
 	trsc.add_mission(t)
 	t.owner = remote_peer
 

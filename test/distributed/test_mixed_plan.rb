@@ -17,14 +17,14 @@ require 'roby/test/tasks/simple_task'
 class TC_DistributedMixedPlan < Test::Unit::TestCase
     include Roby::Distributed::Test
 
-    # Creates in +plan+ a task which is a child in a realized_by relation and a parent
+    # Creates in +plan+ a task which is a child in a depends_on relation and a parent
     # in a planned_by relation. All tasks have an ID of "#{name}-#{number}", with
     # 2 for the central task, 1 for its parent task and 3 for its planning task.
     #
     # Returns [-1, -2, -3]
     def add_tasks(plan, name)
 	t1, t2, t3 = (1..3).map { |i| SimpleTask.new(:id => "#{name}-#{i}") }
-	t1.realized_by t2
+	t1.depends_on t2
 	t2.planned_by t3
 	plan.add_mission(t1)
 	plan.add(t2)
@@ -59,8 +59,8 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
     #
     # Tests are in two parts: first we build the transaction and check the
     # relations of the resulting proxies. Then, we remove all relations of
-    # tasks *in the plan*.  Since we have added a realized_by between the
-    # central tasks, the realized_by relations are kept inside the transaction.
+    # tasks *in the plan*.  Since we have added a depends_on between the
+    # central tasks, the depends_on relations are kept inside the transaction.
     # However, this is not the case for planning relations.  Thus, the planning
     # relation does not exist anymore in the transaction after they have been
     # removed from the plan.
@@ -150,7 +150,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    t1, t2, t3 = Roby.synchronize { add_tasks(plan, "local") }
 
 	    assert(plan.useful_task?(r_t1))
-	    trsc[r_t2].realized_by trsc[t2]
+	    trsc[r_t2].depends_on trsc[t2]
 	    trsc[r_t2].signals(:start, trsc[t2], :start)
 	    assert(plan.useful_task?(r_t1))
 	    check_resulting_plan(trsc, false)
@@ -187,7 +187,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    r_t2 = subscribe_task(:id => 'remote-2')
 	    t1, t2, t3 = Roby.synchronize { add_tasks(trsc, "local") }
 
-	    trsc[r_t2].realized_by t2
+	    trsc[r_t2].depends_on t2
 	    trsc[r_t2].signals(:start, t2, :start)
 	    check_resulting_plan(trsc, false)
 	    process_events
@@ -221,7 +221,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 
 	    assert(r_t2.subscribed?)
 	    t1, t2, t3 = Roby.synchronize { add_tasks(plan, "local") }
-	    r_t2.realized_by trsc[t2]
+	    r_t2.depends_on trsc[t2]
 	    r_t2.signals(:start, trsc[t2], :start)
 	    remote_peer.subscribe(r_t2)
 	    remote_peer.push_subscription(t2)
@@ -246,8 +246,8 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 		root_task = local_peer.local_object(root_task)
 		trsc.edit
 
-		root_task.realized_by(r2 = SimpleTask.new(:id => 'remote-2'))
-		r2.realized_by(r3 = SimpleTask.new(:id => 'remote-3'))
+		root_task.depends_on(r2 = SimpleTask.new(:id => 'remote-2'))
+		r2.depends_on(r3 = SimpleTask.new(:id => 'remote-3'))
 		trsc.release(false)
 	    end
 	end
@@ -261,7 +261,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	# we are not subscribed to r1 anymore
 	trsc = Distributed::Transaction.new(plan)
 	trsc.add_owner(remote_peer)
-	trsc[r1].realized_by t1
+	trsc[r1].depends_on t1
 	Roby.synchronize do
 	    remote_peer.unsubscribe(r1)
 	    assert(!plan.unneeded_tasks.include?(r1))
@@ -276,9 +276,9 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	#   * t2 and t3 are kept because they are useful for r1
 	t2, t3 = nil
 	Roby.synchronize do
-	    t1.realized_by(t2 = SimpleTask.new)
+	    t1.depends_on(t2 = SimpleTask.new)
 	    assert(!plan.unneeded_tasks.include?(t2))
-	    t2.realized_by(t3 = SimpleTask.new)
+	    t2.depends_on(t3 = SimpleTask.new)
 	    assert(!plan.unneeded_tasks.include?(t3))
 	end
 

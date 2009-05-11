@@ -225,7 +225,7 @@ module TC_TransactionBehaviour
 
     def test_commit_task_relations
 	(t1, t2), (t3, t4) = prepare_plan(:missions => 2, :tasks => 2)
-	t1.realized_by t2
+	t1.depends_on t2
 
 	transaction_commit(plan) do |trsc|
 	    trsc.add t3
@@ -236,7 +236,7 @@ module TC_TransactionBehaviour
 
 	t = Roby::Task.new
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    t.realized_by p1
+	    t.depends_on p1
 	    assert(Hierarchy.linked?(t, p1))
 	    assert(!Hierarchy.linked?(t, t1))
 	end
@@ -244,7 +244,7 @@ module TC_TransactionBehaviour
 
 	t = Roby::Task.new
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    p2.realized_by t
+	    p2.depends_on t
 	    assert(Hierarchy.linked?(p2, t))
 	    assert(!Hierarchy.linked?(t2, t))
 	end
@@ -303,9 +303,9 @@ module TC_TransactionBehaviour
     
     def test_commit_replace
 	task, (planned, mission, child, r) = prepare_plan :missions => 1, :tasks => 4, :model => SimpleTask
-	mission.realized_by task
+	mission.depends_on task
 	planned.planned_by task
-	task.realized_by child
+	task.depends_on child
 	task.signals(:stop, mission, :stop)
 	task.forward_to(:stop, planned, :success)
 	task.signals(:start, child, :start)
@@ -349,7 +349,7 @@ module TC_TransactionBehaviour
 	    assert_equal(plan, t1.plan)
 	    assert_equal(trsc, p1.plan)
 	    assert_equal(trsc, t2.plan)
-	    assert_raises(RuntimeError) { t1.realized_by t2 }
+	    assert_raises(RuntimeError) { t1.depends_on t2 }
 	    assert_equal(plan, t1.event(:start).plan)
 	    assert_equal(trsc, p1.event(:start).plan)
 	    assert_equal(trsc, t2.event(:start).plan)
@@ -359,9 +359,9 @@ module TC_TransactionBehaviour
 
     def test_discard_modifications
 	t1, t2, t3 = prepare_plan :missions => 1, :add => 1, :tasks => 1
-	t1.realized_by t2
+	t1.depends_on t2
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    p1.realized_by(t3)
+	    p1.depends_on(t3)
 	    trsc.remove_object(p1)
 	    trsc.discard_modifications(t1)
 	end
@@ -370,7 +370,7 @@ module TC_TransactionBehaviour
  
  	t3 = SimpleTask.new
  	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
- 	    p1.realized_by t3
+ 	    p1.depends_on t3
  	    p1.remove_child p2
  	    trsc.discard_modifications(t1)
  	end
@@ -380,12 +380,12 @@ module TC_TransactionBehaviour
 
     def test_plan_finalized_task
 	t1, t2, t3 = prepare_plan :missions => 1, :add => 1
-	t1.realized_by t2
+	t1.depends_on t2
 
 	t3 = SimpleTask.new
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		p1.realized_by(t3)
+		p1.depends_on(t3)
 		assert(trsc.wrap(t1, false))
 		plan.remove_object(t1)
 		assert(trsc.invalid?)
@@ -416,7 +416,7 @@ module TC_TransactionBehaviour
     def test_plan_relation_update_invalidate
 	t1, t2 = prepare_plan :add => 2
 
-	t1.realized_by t2
+	t1.depends_on t2
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 		assert(p1.child_object?(p2, Roby::TaskStructure::Hierarchy))
@@ -425,7 +425,7 @@ module TC_TransactionBehaviour
 	    end
 	end
 
-	t1.realized_by t2
+	t1.depends_on t2
 	assert_nothing_raised do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 		p1.remove_child p2
@@ -437,7 +437,7 @@ module TC_TransactionBehaviour
 	t1.remove_child t2
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		t1.realized_by(t2)
+		t1.depends_on(t2)
 		assert(trsc.invalid?)
 	    end
 	end
@@ -445,8 +445,8 @@ module TC_TransactionBehaviour
 	t1.remove_child t2
 	assert_nothing_raised do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		p1.realized_by p2
-		t1.realized_by t2
+		p1.depends_on p2
+		t1.depends_on t2
 		assert(!trsc.invalid?)
 	    end
 	end

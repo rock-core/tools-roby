@@ -65,7 +65,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		trsc.edit do
 		    local_task = trsc.find_tasks.which_fullfills(Roby::Test::SimpleTask).to_a.first
 		    t = trsc[SimpleTask.new(:id => 'remote_task')]
-		    local_task.realized_by t
+		    local_task.depends_on t
 		    local_task.signals :start, t, :start
 		    nil
 		end
@@ -258,7 +258,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	    parent, child =
 		SimpleTask.new(:id => 'parent'), 
 		SimpleTask.new(:id => 'child')
-	    parent.realized_by child
+	    parent.depends_on child
 
 	    remote.plan.add_mission(parent)
 	    child.start!

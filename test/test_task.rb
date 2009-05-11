@@ -895,7 +895,7 @@ class TC_Task < Test::Unit::TestCase
     def test_related_tasks
 	t1, t2, t3 = (1..3).map { SimpleTask.new }.
 	    each { |t| plan.add(t) }
-	t1.realized_by t2
+	t1.depends_on t2
 	t1.event(:start).signals t3.event(:start)
 	assert_equal([t3].to_value_set, t1.event(:start).related_tasks)
 	assert_equal([t2].to_value_set, t1.related_objects)
@@ -905,7 +905,7 @@ class TC_Task < Test::Unit::TestCase
     def test_related_events
 	t1, t2, t3 = (1..3).map { SimpleTask.new }.
 	    each { |t| plan.add(t) }
-	t1.realized_by t2
+	t1.depends_on t2
 	t1.event(:start).signals t3.event(:start)
 	assert_equal([t3.event(:start)].to_value_set, t1.related_events)
     end
@@ -966,7 +966,7 @@ class TC_Task < Test::Unit::TestCase
 
 	master.start!
 	assert(master.starting?)
-	assert(master.realized_by?(slave))
+	assert(master.depends_on?(slave))
 	slave.start!
 	slave.success!
 	assert(master.started?)

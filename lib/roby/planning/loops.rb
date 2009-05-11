@@ -154,7 +154,7 @@ module Roby
 	    planned.forward_to(:start,   self, :loop_start)
 	    planned.forward_to(:success, self, :loop_success)
 	    planned.forward_to(:stop,    self, :loop_end)
-	    main_task.realized_by planned
+	    main_task.depends_on planned
 	    
 	    # Schedule it. We start the new pattern when these three conditions are met:
 	    # * it has been planned (planning has finished)
@@ -202,7 +202,7 @@ module Roby
 	event :reinit do |context|
             did_reinit = []
 
-            # Remove all realized_by relations and all pending patterns from
+            # Remove all depends_on relations and all pending patterns from
             # the pattern set.
             for pattern in patterns
                 old_planning, ev = pattern

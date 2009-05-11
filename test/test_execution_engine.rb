@@ -179,7 +179,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	end.new(:id => 'a')
 
 	plan.add_mission(a)
-	a.realized_by(b = SimpleTask.new(:id => 'b'))
+	a.depends_on(b = SimpleTask.new(:id => 'b'))
 
 	b.forward_to(:success, a, :child_success)
 	b.forward_to(:stop, a, :child_stop)
@@ -418,9 +418,9 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 
 	# Check that whole task trees are killed
 	t0, t1, t2, t3 = prepare_plan :discover => 4
-	t0.realized_by t2
-	t1.realized_by t2
-	t2.realized_by t3
+	t0.depends_on t2
+	t1.depends_on t2
+	t2.depends_on t3
 
 	plan.add_mission(t0)
 	plan.add_mission(t1)
@@ -439,8 +439,8 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 
 	# Check that we can kill selectively by returning a hash
 	t0, t1, t2 = prepare_plan :discover => 3
-	t0.realized_by t2
-	t1.realized_by t2
+	t0.depends_on t2
+	t1.depends_on t2
 	plan.add_mission(t0)
 	plan.add_mission(t1)
 	apply_check_structure { { LocalizedError.new(t2) => t0 } }
@@ -715,14 +715,14 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	end
 
 	t1, t2, t3, t4, t5, t6, t7, t8, p1 = (1..9).map { |i| klass.new(:id => i) }
-	t1.realized_by t3
-	t2.realized_by t3
-	t3.realized_by t4
-	t5.realized_by t4
+	t1.depends_on t3
+	t2.depends_on t3
+	t3.depends_on t4
+	t5.depends_on t4
 	t5.planned_by p1
-	p1.realized_by t6
+	p1.depends_on t6
 
-	t7.realized_by t8
+	t7.depends_on t8
 
 	[t1, t2, t5].each { |t| plan.add_mission(t) }
 	plan.add_permanent(t7)
@@ -749,7 +749,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    event(:stop) { |context| }
 	end.new
 	t2 = Task.new
-	t1.realized_by t2
+	t1.depends_on t2
 
 	plan.add_mission(t1)
 	t1.start!
@@ -798,7 +798,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 
 	    plan.add(running_tasks)
 	    t1, t2 = Roby::Task.new, Roby::Task.new
-	    t1.realized_by t2
+	    t1.depends_on t2
 	    plan.add(t1)
 
 	    running_tasks.each do |t|
@@ -862,7 +862,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    planning, planned, influencing = prepare_plan :discover => 3, :model => SimpleTask
 
 	    planned.planned_by planning
-	    influencing.realized_by planned
+	    influencing.depends_on planned
 	    planning.influenced_by influencing
 
 	    planned.start!

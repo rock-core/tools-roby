@@ -4,20 +4,38 @@ module Roby::TaskStructure
         # :method: add_child(v, info)
         # Adds a new child to +v+. You should use #realized_by instead.
 
+        def realizes?(obj)
+            Roby.warn_deprecated "#realizes? is deprecated. Use #depended_upon_by? instead"
+            depended_upon_by?(obj)
+        end
+	def realized_by?(obj)
+            Roby.warn_deprecated "#realized_by? is deprecated. Use #depends_on?(obj, false) instead"
+            depends_on?(obj, false)
+        end
+
 	# True if +obj+ is a parent of this object in the hierarchy relation
 	# (+obj+ is realized by +self+)
-	def realizes?(obj);	parent_object?(obj, Hierarchy) end
-	# True if +obj+ is a child of this object in the hierarchy relation
-	def realized_by?(obj);  child_object?(obj, Hierarchy) end
-	# True if +obj+ can be reached through the Hierarchy relation by
-	# starting from this object
-	def depends_on?(obj)
-	    generated_subgraph(Hierarchy).include?(obj)
+	def depended_upon_by?(obj);	parent_object?(obj, Hierarchy) end
+
+	# True if +obj+ is a child of this object in the hierarchy relation.
+        # If +recursive+ is true, take into account the whole subgraph.
+        # Otherwise, only direct children are checked.
+        def depends_on?(obj, recursive = true)
+            if recursive
+                generated_subgraph(Hierarchy).include?(obj)
+            else
+                child_object?(obj, Hierarchy)
+            end
 	end
 	# The set of parent objects in the Hierarchy relation
 	def parents; parent_objects(Hierarchy) end
 	# The set of child objects in the Hierarchy relation
 	def children; child_objects(Hierarchy) end
+
+        def realized_by(task, options = {})
+            Roby.warn_deprecated "#realized_by is deprecated. Use #depends_on instead"
+            depends_on(task, options)
+        end
 
 	# Adds +task+ as a child of +self+ in the Hierarchy relation. The
 	# following options are allowed:
@@ -41,7 +59,7 @@ module Roby::TaskStructure
         # error condition from the parent task point of view.
         #
         # In both error cases, a +ChildFailedError+ exception is raised.
-        def realized_by(task, options = {})
+        def depends_on(task, options = {})
             options = validate_options options, 
 		:model => [task.model, task.meaningful_arguments], 
 		:success => [:success], 
@@ -221,7 +239,7 @@ module Roby
 	attr_reader :parent
 	# The child in the relation
 	def child; failed_task end
-	# The relation parameters (i.e. the hash given to #realized_by)
+	# The relation parameters (i.e. the hash given to #depends_on)
 	attr_reader :relation
 
 	# The event which is the cause of this error. This is either the task
@@ -243,7 +261,7 @@ module Roby
                 pp.text "  "
                 parent.pretty_print pp
                 pp.breakable
-                pp.text "realized_by "
+                pp.text "depends_on "
                 child.pretty_print pp
             end
 	end

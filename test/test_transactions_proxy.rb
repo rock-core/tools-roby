@@ -154,10 +154,10 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 
 	t1, t2, t3 = tasks
 	p1, p2, p3 = proxies
-	p1.realized_by p2
+	p1.depends_on p2
 
 	assert_equal([], t1.enum_for(:each_child_object, Hierarchy).to_a)
-	t2.realized_by t3
+	t2.depends_on t3
 	assert(! Hierarchy.linked?(p2, p3))
     end
 
@@ -176,7 +176,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 
     def test_task_relation_copy
 	t1, t2 = prepare_plan :add => 2
-	t1.realized_by t2
+	t1.depends_on t2
 
 	p1 = transaction[t1]
 	assert(p1.leaf?, p1.children)

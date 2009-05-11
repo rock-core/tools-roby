@@ -19,38 +19,38 @@ class TC_RealizedBy < Test::Unit::TestCase
 
 	# Check validation of the model
 	child = nil
-	assert_nothing_raised { t1.realized_by((child = klass.new), :model => SimpleTask) }
+	assert_nothing_raised { t1.depends_on((child = klass.new), :model => SimpleTask) }
 	assert_equal([SimpleTask, {}], t1[child, Hierarchy][:model])
 
-	assert_nothing_raised { t1.realized_by klass.new, :model => [Roby::Task, {}] }
-	assert_nothing_raised { t1.realized_by klass.new, :model => tag }
+	assert_nothing_raised { t1.depends_on klass.new, :model => [Roby::Task, {}] }
+	assert_nothing_raised { t1.depends_on klass.new, :model => tag }
 
 	plan.add(simple_task = SimpleTask.new)
-	assert_raises(ArgumentError) { t1.realized_by simple_task, :model => [Class.new(Roby::Task), {}] }
-	assert_raises(ArgumentError) { t1.realized_by simple_task, :model => TaskModelTag.new }
+	assert_raises(ArgumentError) { t1.depends_on simple_task, :model => [Class.new(Roby::Task), {}] }
+	assert_raises(ArgumentError) { t1.depends_on simple_task, :model => TaskModelTag.new }
 	
 	# Check validation of the arguments
 	plan.add(model_task = klass.new)
-	assert_raises(ArgumentError) { t1.realized_by model_task, :model => [SimpleTask, {:id => 'bad'}] }
+	assert_raises(ArgumentError) { t1.depends_on model_task, :model => [SimpleTask, {:id => 'bad'}] }
 
 	plan.add(child = klass.new(:id => 'good'))
-	assert_raises(ArgumentError) { t1.realized_by child, :model => [klass, {:id => 'bad'}] }
-	assert_nothing_raised { t1.realized_by child, :model => [klass, {:id => 'good'}] }
+	assert_raises(ArgumentError) { t1.depends_on child, :model => [klass, {:id => 'bad'}] }
+	assert_nothing_raised { t1.depends_on child, :model => [klass, {:id => 'good'}] }
 	assert_equal([klass, { :id => 'good' }], t1[child, TaskStructure::Hierarchy][:model])
 
 	# Check edge annotation
 	t2 = SimpleTask.new
-	t1.realized_by t2, :model => SimpleTask
+	t1.depends_on t2, :model => SimpleTask
 	assert_equal([SimpleTask, {}], t1[t2, TaskStructure::Hierarchy][:model])
 	t2 = klass.new(:id => 10)
-	t1.realized_by t2, :model => [klass, { :id => 10 }]
+	t1.depends_on t2, :model => [klass, { :id => 10 }]
     end
 
     Hierarchy = TaskStructure::Hierarchy
 
     def test_exception_printing
         parent, child = prepare_plan :add => 2, :model => SimpleTask
-        parent.realized_by child
+        parent.depends_on child
         parent.start!
         child.start!
         child.failed!
@@ -80,7 +80,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	p1 = SimpleTask.new
 	child = child_model.new
 	plan.add([p1, child])
-	p1.realized_by child, options
+	p1.depends_on child, options
 	plan.add_mission(p1)
 
 	child.start!; p1.start!
@@ -102,7 +102,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	assert_equal({}, plan.check_structure)
 	child.first!
 	assert_equal({}, plan.check_structure)
-        assert(parent.realized_by?(child))
+        assert(parent.depends_on?(child))
     end
 
     def test_success_removal
@@ -112,7 +112,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 
 	child.first!
 	assert_equal({}, plan.check_structure)
-        assert(!parent.realized_by?(child))
+        assert(!parent.depends_on?(child))
     end
 
     def test_success_preempts_explicit_failed
@@ -157,19 +157,19 @@ class TC_RealizedBy < Test::Unit::TestCase
 
 	p1, p2, child = prepare_plan :add => 3, :model => klass
 
-	p1.realized_by child, :model => SimpleTask
-	p2.realized_by child, :model => Roby::Task
+	p1.depends_on child, :model => SimpleTask
+	p2.depends_on child, :model => Roby::Task
 	assert_equal([[SimpleTask], {}], child.fullfilled_model)
 	p1.remove_child(child)
 	assert_equal([[Roby::Task], {}], child.fullfilled_model)
-	p1.realized_by child, :model => tag
+	p1.depends_on child, :model => tag
 	assert_equal([[Roby::Task, tag], {}], child.fullfilled_model)
     end
 
     def test_first_children
 	p, c1, c2 = prepare_plan :add => 3, :model => SimpleTask
-	p.realized_by c1
-	p.realized_by c2
+	p.depends_on c1
+	p.depends_on c2
 	assert_equal([c1, c2].to_value_set, p.first_children)
 
 	c1.signals(:start, c2, :start)
@@ -179,8 +179,8 @@ class TC_RealizedBy < Test::Unit::TestCase
     def test_remove_finished_children
 	p, c1, c2 = prepare_plan :add => 3, :model => SimpleTask
         plan.add_permanent(p)
-	p.realized_by c1
-	p.realized_by c2
+	p.depends_on c1
+	p.depends_on c2
 
         p.start!
         c1.start!

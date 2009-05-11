@@ -126,7 +126,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    end
 
 	    t1, t2 = klass.new, klass.new
-	    t1.realized_by t2
+	    t1.depends_on t2
 	    plan.add_mission(t1)
 
 	    mock.should_receive(:event_called).once.ordered
@@ -146,8 +146,8 @@ class TC_Exceptions < Test::Unit::TestCase
 		end
 	    end.new
 	    plan.add(t0)
-	    t0.realized_by t1
-	    t1.realized_by t2
+	    t0.depends_on t1
+	    t1.depends_on t2
 
 	    error = ExecutionException.new(SpecializedError.new(t2))
 	    mock.should_receive(:handler).with(error, t1, t0).once
@@ -184,9 +184,9 @@ class TC_Exceptions < Test::Unit::TestCase
 		end
 	    end.new
 	    plan.add(t0)
-	    t0.realized_by t1
-	    t1.realized_by t2
-	    t3.realized_by t2
+	    t0.depends_on t1
+	    t1.depends_on t2
+	    t3.depends_on t2
 
 	    error = ExecutionException.new(CodeError.new(nil, t2))
 	    mock.should_receive(:handler).with(ExecutionException, t1, t0).once
@@ -227,8 +227,8 @@ class TC_Exceptions < Test::Unit::TestCase
 		end
 	    end.new
 	    plan.add(t0)
-	    t0.realized_by t1 ; t1.realized_by t2
-	    t0.realized_by t3 ; t3.realized_by t2
+	    t0.depends_on t1 ; t1.depends_on t2
+	    t0.depends_on t3 ; t3.depends_on t2
 	    
 
 	    error = ExecutionException.new(LocalizedError.new(t2))
@@ -303,7 +303,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    end.new
 	    mock.should_receive(:exception).once
 
-	    parent.realized_by task
+	    parent.depends_on task
 	    plan.add_mission(parent)
 
 	    engine.once { task.start! }
@@ -365,16 +365,16 @@ class TC_Exceptions < Test::Unit::TestCase
 		end
 	    end.new(:id => 'root')
 	    plan.add(root)
-	    root.realized_by(t11)
-	    root.realized_by(t12)
-	    root.realized_by(t13)
+	    root.depends_on(t11)
+	    root.depends_on(t12)
+	    root.depends_on(t13)
 
-	    t11.realized_by(t21 = Task.new(:id => '21'))
-	    t12.realized_by(t21)
+	    t11.depends_on(t21 = Task.new(:id => '21'))
+	    t12.depends_on(t21)
 
-	    t13.realized_by(t22 = Task.new(:id => '22'))
-	    t22.realized_by(t31 = Task.new(:id => '31'))
-	    t31.realized_by(t21)
+	    t13.depends_on(t22 = Task.new(:id => '22'))
+	    t22.depends_on(t31 = Task.new(:id => '31'))
+	    t31.depends_on(t21)
 
 	    mock.should_receive(:caught).once
 	    engine.propagate_exceptions([ExecutionException.new(LocalizedError.new(t21))])
@@ -417,7 +417,7 @@ class TC_Exceptions < Test::Unit::TestCase
     def test_exception_inhibition
 	parent, child = prepare_plan :tasks => 2, :model => SimpleTask
 	plan.add_mission(parent)
-	parent.realized_by child
+	parent.depends_on child
 	parent.signals :start, child, :start
 	parent.start!
 	child.failed!
@@ -445,7 +445,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	parent, child = prepare_plan :tasks => 2, :model => task_model
 	plan.add_mission(parent)
-	parent.realized_by child
+	parent.depends_on child
 	repairing_task = SimpleTask.new
 	child.event(:failed).handle_with repairing_task
 
@@ -574,7 +574,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
         parent = prepare_plan :permanent => 1, :model => SimpleTask
         child = prepare_plan :permanent => 1, :model => model
-        parent.realized_by child
+        parent.depends_on child
         parent.start!
         child.start!
         child.failed!

@@ -82,7 +82,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	    plan.add_mission(mission = SimpleTask.new(:id => 'mission'))
 	    subtask = SimpleTask.new :id => 'subtask'
 	    plan.add_mission(next_mission = SimpleTask.new(:id => 'next_mission'))
-	    mission.realized_by subtask
+	    mission.depends_on subtask
 	    mission.signals(:start, next_mission, :start)
 	end
 
@@ -112,7 +112,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 		end
 		def create_subtask
 		    plan.add_permanent(@subtask = Roby::Task.new(:id => 'subtask'))
-		    mission.realized_by subtask
+		    mission.depends_on subtask
 		end
 		def create_next_mission
 		    @next_mission = Roby::Task.new :id => 'next_mission'

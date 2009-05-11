@@ -101,7 +101,7 @@ class TC_Log < Test::Unit::TestCase
 
 	    Log.add_logger mock
 	    begin
-		t1.realized_by t2
+		t1.depends_on t2
 		assert(Log.known_objects.empty?)
 		plan.add(t1)
 		assert_equal([t1, t2].to_value_set, Log.known_objects)

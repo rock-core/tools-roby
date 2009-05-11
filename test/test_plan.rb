@@ -152,7 +152,7 @@ module TC_PlanStatic
 
     #def test_discover
     #    t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => Roby::Test::SimpleTask
-    #    t1.realized_by t2
+    #    t1.depends_on t2
     #    or_ev = OrGenerator.new
     #    t2.event(:start).signals or_ev
     #    or_ev.signals t3.event(:stop)
@@ -179,7 +179,7 @@ module TC_PlanStatic
 
     def test_useful_task_components
 	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => Roby::Test::SimpleTask
-	t1.realized_by t2
+	t1.depends_on t2
 	t2.signals(:start, t3, :stop)
 	t2.planned_by t4
 
@@ -195,10 +195,10 @@ module TC_PlanStatic
 
     def test_replace_task
 	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Test::SimpleTask
-	p.realized_by c1
-	c1.realized_by c11
-	c1.realized_by c12
-	p.realized_by c2
+	p.depends_on c1
+	c1.depends_on c11
+	c1.depends_on c12
+	p.depends_on c2
 	c1.signals(:stop, c2, :start)
 	c1.forward_to :start, c1, :stop
 	c11.forward_to :success, c1, :success
@@ -252,10 +252,10 @@ module TC_PlanStatic
 
     def test_replace
 	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Test::SimpleTask
-	p.realized_by c1
-	c1.realized_by c11
-	c1.realized_by c12
-	p.realized_by c2
+	p.depends_on c1
+	c1.depends_on c11
+	c1.depends_on c12
+	p.depends_on c2
 	c1.signals(:stop, c2, :start)
 	c1.forward_to :start, c1, :stop
 	c11.forward_to :success, c1, :success
@@ -302,7 +302,7 @@ module TC_PlanStatic
 
     def test_remove_task
 	t1, t2, t3 = (1..3).map { Roby::Task.new }
-	t1.realized_by t2
+	t1.depends_on t2
 	t1.signals(:stop, t3, :start)
 
 	plan.add_mission(t1)
@@ -322,7 +322,7 @@ module TC_PlanStatic
     def test_free_events
 	t1, t2, t3 = (1..3).map { Roby::Task.new }
 	plan.add_mission(t1)
-	t1.realized_by t2
+	t1.depends_on t2
 	assert_equal(plan, t2.plan)
 	assert_equal(plan, t1.event(:start).plan)
 
@@ -342,7 +342,7 @@ module TC_PlanStatic
 	plan.add_mission(t1)
 	assert_equal(plan, t1.plan)
 	assert_equal(nil, t2.plan)
-	t1.realized_by t2
+	t1.depends_on t2
 	assert_equal(plan, t1.plan)
 	assert_equal(plan, t2.plan)
 	assert(plan.include?(t2))
@@ -367,7 +367,7 @@ module TC_PlanStatic
 	plan.add_mission(t1)
 	assert_equal(plan, t1.plan)
 	assert_equal(nil, t2.plan)
-	assert_raises(RuntimeError) { t1.realized_by t2 }
+	assert_raises(RuntimeError) { t1.depends_on t2 }
 	assert_equal(plan, t1.plan)
 	assert_equal(plan, t2.plan)
 	assert(plan.include?(t2))

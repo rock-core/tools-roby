@@ -132,7 +132,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	init1.executed_by agent
 	init2.executed_by agent
 
-	agent.realized_by(init = (init1 + init2))
+	agent.depends_on(init = (init1 + init2))
 	agent.signals(:start, init, :start)
 	init.forward_to(:success, agent, :ready)
 
