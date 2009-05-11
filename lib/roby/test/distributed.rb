@@ -197,7 +197,7 @@ module Roby
 		remote_peer.find_tasks.with_arguments(match).each do |task|
 		    assert(!found)
 		    if set_permanent
-			plan.permanent(task)
+			plan.add_permanent(task)
 		    end
 
 		    found = if block_given? then yield(task)

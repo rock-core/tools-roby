@@ -16,7 +16,7 @@ class TC_DistributedQuery < Test::Unit::TestCase
 	    t1 = Class.new(Task).new
 	    t2 = Class.new(Task).new
 	    t2.owners << fake_peer
-	    plan.discover [t1, t2]
+	    plan.add [t1, t2]
 
 	    assert_equal([t1].to_set, TaskMatcher.owned_by(Distributed).enum_for(:each, plan).to_set)
 	    assert_equal([t1].to_set, TaskMatcher.self_owned.enum_for(:each, plan).to_set)
@@ -40,12 +40,16 @@ class TC_DistributedQuery < Test::Unit::TestCase
 	assert_kind_of(Query, query)
     end
 
+    class QueryTaskModel < Roby::Task
+        argument :id
+    end
+
     # Check that we can query the remote plan database
     def test_query
 	peer2peer do |remote|
 	    local_model = Class.new(SimpleTask)
 
-	    mission, subtask = Task.new(:id => 1), local_model.new(:id => 2)
+	    mission, subtask = QueryTaskModel.new(:id => 1), local_model.new(:id => 2)
 	    mission.realized_by subtask
 	    remote.plan.add_mission(mission)
 	end
