@@ -51,7 +51,8 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	end
 
 	DRb.start_service
-	Distributed.state = ConnectionSpace.new :period => 0.5, :ring_discovery => true, :ring_broadcast => BROADCAST, :plan => plan
+        @local = ConnectionSpace.new :period => 0.5, :ring_discovery => true, :ring_broadcast => BROADCAST, :plan => plan
+	Distributed.state = local
 	Distributed.publish :bind => '127.0.0.1'
 
 	assert_has_neighbour { |n| n.name == "#{Socket.gethostname}-#{remote_pid}" }
