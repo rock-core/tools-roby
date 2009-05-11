@@ -1341,7 +1341,7 @@ module Roby
                 end
                 non_controlable = targets.find_all { |ev| !ev.controlable? }
                 if !non_controlable.empty?
-                    raise ArgumentError, "trying to signal #{target} which is not controlable"
+                    raise ArgumentError, "trying to signal #{non_controlable.join(" ")} which is/are not controlable"
                 end
 
                 signal_sets[from.symbol].merge targets.map { |ev| ev.symbol }.to_value_set
