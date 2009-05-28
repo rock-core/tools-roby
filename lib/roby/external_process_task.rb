@@ -159,6 +159,10 @@ module Roby
             emit :start
         end
 
+        def kill(signo)
+            Process.kill(signo, pid)
+        end
+
         on :stop do |_|
             ExternalProcessTask.processes.delete(pid)
         end
