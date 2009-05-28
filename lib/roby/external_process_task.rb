@@ -21,9 +21,15 @@ module Roby
     #  - the stop event is emitted when the process exits
     class ExternalProcessTask < Roby::Task
         argument :command_line
+        argument :working_directory
 
         # Redirection specification. See #redirect_output
         attr_reader :redirection
+
+        def initialize(arguments)
+            arguments[:working_directory] ||= nil
+            super(arguments)
+        end
 
         class << self
             attr_reader :processes
@@ -90,7 +96,7 @@ module Roby
             pattern.gsub '%p', Process.pid.to_s
         end
 
-        event :start do |_|
+        def start_process
             # Open a pipe to monitor the child startup
             r, w = IO.pipe
 
@@ -140,6 +146,16 @@ module Roby
             end
 
             ExternalProcessTask.processes[pid] = self
+        end
+
+        event :start do |_|
+            if working_directory
+                Dir.chdir(working_directory) do
+                    start_process
+                end
+            else
+                start_process
+            end
             emit :start
         end
 
