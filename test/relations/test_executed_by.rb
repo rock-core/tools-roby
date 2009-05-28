@@ -10,6 +10,10 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	event :ready
 	forward :start => :ready
     end
+    class SecondExecutionModel < SimpleTask
+	event :ready
+	forward :start => :ready
+    end
 
     def test_relationships
 	plan.add(task = SimpleTask.new)
@@ -131,6 +135,33 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	task.start!
 	assert(task.running?)
 	assert(task.execution_agent.running?)
+    end
+
+    def test_task_has_wrong_agent
+	task_model = Class.new(SimpleTask)
+	task_model.executed_by ExecutionAgentModel, :id => 2
+
+	plan.add_mission(task = task_model.new)
+
+        # Wrong agent type
+        plan.remove_object(task.execution_agent)
+        task.executed_by SecondExecutionModel.new(:id => 2)
+        assert_raises(Roby::CommandFailed) { task.start! }
+
+        # Wrong agent arguments
+        plan.remove_object(task.execution_agent)
+        task.executed_by ExecutionAgentModel.new(:id => 3)
+        assert_raises(Roby::CommandFailed) { task.start! }
+    end
+
+    def test_model_requires_agent_but_none_exists
+	task_model = Class.new(SimpleTask)
+	task_model.executed_by ExecutionAgentModel, :id => 2
+
+	plan.add_mission(task = task_model.new)
+        plan.remove_object(task.execution_agent)
+
+        assert_raises(Roby::CommandFailed) { task.start! }
     end
 
     def test_respawn

@@ -149,7 +149,23 @@ module Roby::TaskStructure
 	def calling(context)
 	    super if defined? super
 	    return unless symbol == :start
-	    return unless agent = task.execution_agent
+
+            agent = task.execution_agent
+            if !agent
+                if task.model.execution_agent
+                    raise CommandFailed.new(nil, self), "the model of #{task} requires an execution agent, but the task has none"
+                else
+                    return
+                end
+            end
+
+            # Check that the agent matches the model
+            agent_model, arguments = task.model.execution_agent
+            if agent_model
+                if !agent.fullfills?(agent_model, arguments)
+                    raise CommandFailed.new(nil, self), "the execution agent #{agent} does not match the required model #{agent_model}, #{arguments}"
+                end
+            end
 
 	    if agent.finished? || agent.finishing?
 		raise CommandFailed.new(nil, self), "task #{task} has an execution agent but it is dead"
