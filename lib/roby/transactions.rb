@@ -10,7 +10,8 @@ module Roby
 	
 	# A transaction is not an executable plan
 	def executable?; false end
-	def freezed?; @freezed end
+        attr_predicate :freezed
+        attr_predicate :committed
 
 	def do_wrap(object, do_include = false) # :nodoc:
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
@@ -397,6 +398,7 @@ module Roby
 		    Kernel.swap! proxy, forwarder
 		end
 
+                @committed = true
 		committed_transaction
 		plan.remove_transaction(self)
 		@plan = nil

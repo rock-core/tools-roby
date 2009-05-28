@@ -144,7 +144,7 @@ module Roby
 
 	    # Check if the transaction has been committed. If it is not the
 	    # case, assume that the thread failed
-	    if transaction.freezed?
+	    if transaction.committed?
 		emit :success
 	    else
 		error = begin
