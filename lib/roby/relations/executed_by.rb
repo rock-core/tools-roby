@@ -25,8 +25,8 @@ module Roby::TaskStructure
 	#   
 	# for all instances of TaskModel. The actual job is done in the
 	# ExecutionAgentSpawn module
-	def executed_by(agent)
-	    @execution_agent = agent
+	def executed_by(agent_model, arguments = Hash.new)
+	    @execution_agent = [agent_model, arguments]
 	end
     end
 
@@ -107,9 +107,10 @@ module Roby::TaskStructure
     # agent model (see ModelLevelExecutionAgent), either by reusing one
     # that is already in the plan, or by creating a new one.
     def ExecutionAgent.spawn(task)
-	agent_model = task.model.execution_agent
+	agent_model, arguments = task.model.execution_agent
 	candidates = task.plan.find_tasks.
 	    with_model(agent_model).
+            with_arguments(arguments).
 	    self_owned.
 	    not_finished
 
@@ -117,7 +118,7 @@ module Roby::TaskStructure
 
 	if candidates.empty?
 	    begin
-		agent = agent_model.new
+		agent = agent_model.new(arguments)
 		agent.on(:stop) do
 		    agent.each_executed_task do |task|
 			if task.running?

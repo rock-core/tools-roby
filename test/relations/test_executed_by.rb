@@ -21,11 +21,11 @@ class TC_ExecutedBy < Test::Unit::TestCase
 
     def test_inherits_execution_model
 	model = Class.new(Roby::Task) do
-	    executed_by ExecutionAgentModel
+	    executed_by ExecutionAgentModel, :id => 20
 	end
 	submodel = Class.new(model)
 
-	assert_equal(ExecutionAgentModel, submodel.execution_agent)
+	assert_equal([ExecutionAgentModel, {:id => 20}], submodel.execution_agent)
     end
 
     def test_nominal
@@ -76,13 +76,57 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	assert(exec.finished?)
     end
 
-    def test_agent_model
+    def test_agent_model_spawns
 	task_model = Class.new(SimpleTask)
 
-	task_model.executed_by ExecutionAgentModel
+	task_model.executed_by ExecutionAgentModel, :id => 10
 	plan.add_mission(task = task_model.new)
 	assert(task.execution_agent)
-	assert(ExecutionAgentModel, task.execution_agent.class)
+        assert_equal(10, task.execution_agent.arguments[:id])
+	assert_kind_of(ExecutionAgentModel, task.execution_agent)
+
+	task.start!
+	assert(task.running?)
+	assert(task.execution_agent.running?)
+    end
+
+    def test_agent_model_reuses
+        plan.add_permanent(agent = ExecutionAgentModel.new)
+
+	task_model = Class.new(SimpleTask)
+	task_model.executed_by ExecutionAgentModel
+
+	plan.add_mission(task = task_model.new)
+	assert_same(agent, task.execution_agent)
+
+	task.start!
+	assert(task.running?)
+	assert(task.execution_agent.running?)
+    end
+
+    def test_agent_model_reuses_running_agent
+        plan.add_permanent(agent = ExecutionAgentModel.new)
+        agent.start!
+
+	task_model = Class.new(SimpleTask)
+	task_model.executed_by ExecutionAgentModel
+
+	plan.add_mission(task = task_model.new)
+	assert_same(agent, task.execution_agent)
+
+	task.start!
+	assert(task.running?)
+    end
+
+    def test_agent_model_arguments
+        plan.add_permanent(agent1 = ExecutionAgentModel.new(:id => 1))
+        plan.add_permanent(agent2 = ExecutionAgentModel.new(:id => 2))
+
+	task_model = Class.new(SimpleTask)
+	task_model.executed_by ExecutionAgentModel, :id => 2
+
+	plan.add_mission(task = task_model.new)
+	assert_same(agent2, task.execution_agent)
 
 	task.start!
 	assert(task.running?)
