@@ -117,6 +117,7 @@ module Roby
                 rescue Exception => e
                     Roby.fatal e.message
                     w.write("#{KO_REDIRECTION}")
+                    return
                 end
 
                 STDOUT.reopen(stdout) if stdout
