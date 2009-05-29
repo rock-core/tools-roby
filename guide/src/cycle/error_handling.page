@@ -1,0 +1,8 @@
+---
+title: Error Handling
+sort_info: 200
+--- name:content pipeline:tags,markdown,blocks
+
+* two-subphases
+* no emit/call (remember) => use once blocks or repair tasks
+* the rest is put for garbage-collection

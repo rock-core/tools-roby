@@ -2,13 +2,25 @@
     sort_info: 0
 /basics:
     sort_info: 100
+/cycle:
+    routed_title: Execution Cycle
+    sort_info: 200
+/abstraction:
+    sort_info: 300
+/relations:
+    sort_info: 400
 
 /introduction/index.page:
     in_menu: false
 
-/basics/*:
-    template: /basics.template
-/basics/index.page:
+/*/index.page:
     in_menu: false
-    template: /default.template
+
+/cycle/error_handling.page:
+    in_menu: false
+/cycle/garbage_collection.page:
+    in_menu: false
+
+/abstraction/*:
+    in_menu: false
 
