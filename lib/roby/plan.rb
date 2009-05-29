@@ -315,7 +315,6 @@ module Roby
 	    # Swap the subplans of +from+ and +to+
 	    yield(from, to)
 
-	    replaced(from, to)
 	    if mission?(from)
 		unmark_mission(from)
 		add_mission(to)
@@ -325,6 +324,7 @@ module Roby
 	    else
 		add(to)
 	    end
+	    replaced(from, to)
 	end
 
         # Replace the task +from+ by +to+ in all relations +from+ is part of
