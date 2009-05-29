@@ -177,6 +177,8 @@ module Roby
 	def check_call_validity
 	    if !executable?
 		raise EventNotExecutable.new(self), "#call called on #{self} which is a non-executable event"
+            elsif !engine.allow_propagation?
+                raise PhaseMismatch, "call to #emit is not allowed in this context"
 	    elsif !controlable?
 		raise EventNotControlable.new(self), "#call called on a non-controlable event"
 	    elsif !engine.inside_control?
@@ -189,6 +191,8 @@ module Roby
 	def check_emission_validity
 	    if !executable?
 		raise EventNotExecutable.new(self), "#emit called on #{self} which is a non-executable event"
+            elsif !engine.allow_propagation?
+                raise PhaseMismatch, "call to #emit is not allowed in this context"
 	    elsif !engine.inside_control?
 		raise ThreadMismatch, "#emit called while not in control thread"
 	    end
@@ -249,7 +253,7 @@ module Roby
             engine = plan.engine
 	    if engine.gathering?
 		engine.add_event_propagation(false, engine.propagation_sources, self, (context unless context.empty?), nil)
-	    else
+            else
 		Roby.synchronize do
 		    errors = engine.propagate_events do |initial_set|
 			engine.add_event_propagation(false, nil, self, (context unless context.empty?), nil)
@@ -540,7 +544,7 @@ module Roby
             engine = plan.engine
 	    if engine.gathering?
 		engine.add_event_propagation(true, engine.propagation_sources, self, (context unless context.empty?), nil)
-	    else
+            else
 		Roby.synchronize do
 		    errors = engine.propagate_events do |initial_set|
 			engine.add_event_propagation(true, engine.propagation_sources, self, (context unless context.empty?), nil)

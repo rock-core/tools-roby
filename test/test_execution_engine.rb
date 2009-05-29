@@ -35,6 +35,33 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	assert_equal({ e1 => [nil, [nil, [1], nil, nil, [4], nil]], e2 => [[nil, [2], nil, nil, [3], nil], nil], e3 => [[nil, [6], nil], [nil, [5], nil]] }, set)
     end
 
+    def test_emission_is_forbidden_outside_propagation_phase
+        # Temporarily disable logging as we are going to generate a fatal error
+        # ..
+        Roby.logger.level = Logger::FATAL
+
+        plan.add_permanent(task = SimpleTask.new)
+
+        error = nil
+        failure = lambda do
+            begin
+                task.emit(:start)
+            rescue Exception => e
+                error = e
+                raise
+            end
+            nil
+        end
+        plan.structure_checks << failure
+
+        engine.run
+        engine.join
+        assert_kind_of(PhaseMismatch, error)
+
+    ensure
+        plan.structure_checks.delete_if { |v| v == failure }
+    end
+
     def test_propagation_handlers
         test_obj = Object.new
         def test_obj.mock_handler(plan)

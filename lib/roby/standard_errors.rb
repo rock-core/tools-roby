@@ -78,6 +78,11 @@ module Roby
     # Some operations need to be performed in the control thread, and some
     # other (namely blocking operations) must not. This exception is raised
     # when this constraint is not met.
+    class PhaseMismatch < RuntimeError; end
+
+    # Some operations need to be performed in the control thread, and some
+    # other (namely blocking operations) must not. This exception is raised
+    # when this constraint is not met.
     class ThreadMismatch < RuntimeError; end
 
     # Raised when a user-provided code block (i.e. a code block which is

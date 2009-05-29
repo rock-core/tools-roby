@@ -148,6 +148,7 @@ module Roby
 	    each_cycle(&ExecutionEngine.method(:call_every))
 
 	    @quit        = 0
+            @allow_propagation = true
 	    @thread      = nil
 	    @cycle_index = 0
 	    @cycle_start = Time.now
@@ -263,6 +264,9 @@ module Roby
 
         # True if we are currently in the propagation stage
         def gathering?; !!@propagation end
+
+        attr_predicate :allow_propagation
+
         # The set of source events for the current propagation action. This is a
         # mix of EventGenerator and Event objects.
         attr_reader :propagation_sources
@@ -870,7 +874,11 @@ module Roby
             add_timepoint(stats, :real_start)
 
             # Gather new events and propagate them
-            events_errors = propagate_events
+            events_errors = begin 
+                                old_allow_propagation, @allow_propagation = @allow_propagation, true
+                                propagate_events
+                            ensure @allow_propagation = old_allow_propagation
+                            end
             add_timepoint(stats, :events)
 
             # HACK: events_errors is sometime nil here. It shouldn't
@@ -991,7 +999,6 @@ module Roby
                     ExecutionEngine.debug "cycle found, removing weak relations"
 
                     local_tasks.each do |t|
-                        next if t.root?
                         t.each_graph do |rel|
                             rel.remove(t) if rel.weak?
                         end
@@ -1170,6 +1177,7 @@ module Roby
 	    options = validate_options options, :cycle => 0.1
 
 	    @quit = 0
+            @allow_propagation = false
 
             # Start the control thread and wait for @thread to be set
             Roby.condition_variable(true) do |cv, mt|
@@ -1192,6 +1200,7 @@ module Roby
                                 end
                                 finalizers.each { |blk| blk.call rescue nil }
                                 @quit = 0
+                                @allow_propagation = true
                             end
                         end
                     end
@@ -1316,7 +1325,8 @@ module Roby
 		    end
                     stats[:start] = cycle_start
 		    stats[:cycle_index] = cycle_index
-		    Roby.synchronize do
+
+                    Roby.synchronize do
                         process_events(stats) 
                     end
 
