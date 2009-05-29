@@ -4,11 +4,3 @@ template: default.template
 <webgen:block name="content" />
 
 --- name:navbar
-<div>
-    <div class="previous">
-        {previous:: }<b>Previous</b>: %{previous}
-    </div>
-    <div class="next">
-        {next:: }<b>Next</b>: %{next}
-    </div>
-</div>
