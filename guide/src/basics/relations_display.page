@@ -125,8 +125,9 @@ process _in a separate thread_.
 
 Once that initial plan has been built, the Roby::PlanningTask task has been
 started. The various cases of event propagation are represented in different
-ways, based on whether or not the event is controlable or contingent, or if it is
-called and/or emitted.
+ways, based on whether or not the event is controlable or contingent, if it has been
+called and/or emitted. Finally, two different arrow representations are used for
+signalling (plain) and forwarding (dotted):
 
 ![](log_replay/roby_replay_event_representation.png)
 
