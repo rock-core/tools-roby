@@ -1,0 +1,13 @@
+---
+title: Abstraction in taks dependencies
+sort_info: 200
+--- name:content pipeline:tags,markdown,blocks
+
+* representing a dependency as an abstract model
+* the syntax and other concepts
+  - depends\_on :model
+  - fullfilled\_model
+  - fullfilled\_events
+* the replace operator
+* semantics of the :returns flag in this context
+
