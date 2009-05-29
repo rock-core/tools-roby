@@ -248,10 +248,11 @@ module Roby
 
         # Execute the given block at the beginning of each cycle, in propagation
         # context.
+        #
+        # The returned value is an ID that can be used to remove the handler using
+        # #remove_propagation_handler
         def each_cycle(&block)
-            check_arity block, 1
-            propagation_handlers << block
-            self
+            add_propagation_handler(block)
         end
 
         # The scheduler is the object which handles non-generic parts of the
