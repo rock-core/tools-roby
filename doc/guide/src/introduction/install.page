@@ -34,6 +34,31 @@ See the next page for a step-by-step installation on Debian/Ubuntu.
 
 All the rest can be installed with RubyGems
 
+== Setting the environment
+
+As a first step, you should set you environment variables. This is done by
+the following commands.
+
+  export GEM_HOME=$HOME/gems/
+  export ROBYHOME=$HOME/roby
+  export RUBYOPT=-rubygems
+  export PATH=$PATH:$GEM_HOME/bin:$ROBYHOME/bin
+  export RUBYLIB=$RUBYLIB:$ROBYHOME/lib
+
+The +GEM_HOME+ and +ROBYHOME+ should be set to wherever you want these parts to
+be installed. It would be wise to append these lines to your ~/.bashrc so that
+they are executed each time you start a console.
+
+== Debian/Ubuntu: Installing binary dependencies with apt-get
+
+You can install those packages with the following line.
+
+  sudo apt-get install ruby1.8-dev rubygems ruby libopenssl-ruby1.8
+  sudo apt-get install libqt4-ruby1.8 g++ libboost-dev git-core
+
+If you don't have administrative rights on your local pc, contact your system 
+administrator.
+
 == Install using RubyGems
 
 This is as simple as
