@@ -3,6 +3,82 @@ title: Error Handling
 sort_info: 200
 --- name:content pipeline:tags,markdown,blocks
 
-* two-subphases
-* no emit/call (remember) => use once blocks or repair tasks
-* the rest is put for garbage-collection
+Where do errors come from ?
+---------------------------
+
+In a robotic system, errors can come from multiple sources:
+ * the most obvious one is the _environment_. In this case, an "error" is the
+   inability for the system to cope with its current environment, and therefore
+   its failure to reach its current goal.
+ * failing hardware. Hardware can fail and in this case the supervision system
+   has to cope with a "crippled" robot.
+ * the other source is the programmer itself: the robotic system mainly runs on
+   software, which - as all software - has bugs. Even the supervision system's
+   code can have bugs, and as we will see later on Roby has been designed so
+   that it isolates the framework code from the controller-specific exceptions.
+
+In Roby terms, these three sources of errors take essentially two forms:
+ * the plan is inconsistent. As what happens with the hierarchy relation,
+   relations (task or event) define a _constraint_ on the plan's structure. In
+   the case of the hierarchy, it is a constraint on the events that should or
+   should not be emitted. Other relations define other constraints. A failure to
+   meet one of these constraints consistue an error that must be dealt with.
+   This can be used to represent problems with the environment (failure to
+   complete a task).
+ * the Ruby code raises an exception. Most of the time, it will be caused by
+   a bug in the code, but also may be a way to represent a problem with
+   a particular process (the "bug in external software supervised by Roby"
+   case).
+
+Representing task's errors using events
+---------------------------------------
+In Roby, _tasks_ are an abstraction of a process.
+
+On one side, ther can be a one-to-one mapping between tasks in the plan and
+actual external processes.  For instance, it can be a task that is running in
+a module of the robot's functional layer. Or something that the robot think is
+happening in its environment, as for instance what a human is doing in
+a human-robot interaction situation. In both cases, the task's implementation
+has two roles:
+ * use the means of communication it has with the external process. In the
+   functional layer case, the modules usually have ways to report their state
+   and, if needs be, the occurence of errors.
+ * _diagnostics_. In this case, the task does not assume that what the external
+   process is reporting is true, but instead tries to assess the external
+   process states by indirect means. A simple example is to verify that the
+   output values of the module is within specified boundaries.
+
+The more useful strategy is to actually do _both_. Simple diagnostics can be
+implemented using the task's __poll__ block. More complex ones can use two
+different tasks (one task for the process, one task for the monitoring), and
+according event relations.
+
+On the other side, the hierarchy relation allows to create more abstract views
+of the plan: an abstract action (e.g. MoveTo) is decomposed into actual external
+processes (e.g. Localization, Control, PathPlanning). Nonetheless, it is
+still possible at the abstract level to monitor the good progress of the task.
+It is actually possible, at this level, to spot problems that the lower levels
+where missing, as for instance a recurring hesitation of the robot in a movement
+task, that forbids him to reach its goal.
+
+In any case, Roby offers a unique way to represent __fault modes__. Instead of
+having a binary success/failure outcome, it is possible to define an arbitrary
+set of terminal events. Then, by forwarding these events to either _success_ or
+_failed_, the events become either a nominal outcome or a fault mode. As we will
+see later on, it has an interesting impact on the fault handling possibilities.
+
+How errors are represented in Roby
+----------------------------------
+
+Repairing the plan during the event propagation
+-----------------------------------------------
+
+Roby's exception system: synchronous reparations
+------------------------------------------------
+
+Plan repairs: asynchronous reparations
+--------------------------------------
+
+What to do with non-repaired tasks ?
+------------------------------------
+
