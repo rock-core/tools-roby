@@ -94,6 +94,9 @@ The default scheduler ({rdoc_class: Schedulers::Basic}) starts tasks:
  * whose start event is root in the event graph (i.e. not child of a signal or
    forward relation for instance).
 
+In other words, the default scheduler starts the high-level missions of the
+robot that do not have a predecessor.
+
 Note that it is possible to disable any scheduling by assigning 'nil' to
 Roby.engine.scheduler:
 {coderay:: ruby}
@@ -104,7 +107,9 @@ One can also reimplement its own scheduler. See roby/schedulers/basic.rb for an
 example. The new scheduler is then selected by doing:
 {coderay:: ruby}
 Roby.engine.scheduler = MyOwnScheduler.new
-{coderay}.
+{coderay}
+
+in config/init.rb
 
 Event propagation, #call and #emit
 ----------------------------------
@@ -114,19 +119,21 @@ action is not taken right away__. Instead, the emission or call is registered in
 a separate queue and will be handled later.
 
 The main reason for this is to provide a sane behaviour in conditions where
-multiple events are propagated. For instance, on the next figure, the event _d_
-must be emitted only once in the current execution cycle.
+multiple propagation paths (i.e. chains of signals/forward) lead to the same
+event. For instance, on the next figure, the initial emission of _a_ could lead
+to having _d_ emitted twice in the current execution cycle, which is something
+that we want to avoid.
 
-![](images/propagation_diamond)
+![](propagation_diamond.png)
 
 Because of this property, it is **forbidden** to use #emit and #call outside (1)
 the control thread and (2) outside the propagation phase (the other phases will
 be introduced later on). The places where it is safe to do so are:
 
-  * event commands and event handlers
-  * polling handlers
-  * periodic handlers
-  * blocks given to Roby.once
+ * event commands and event handlers
+ * polling handlers
+ * periodic handlers
+ * blocks given to Roby.once
 
 If you use these two method calls in a "forbidden place", the PhaseMismatch
 error will be raised. You can then simply fix this usage by queueing the call
@@ -141,4 +148,7 @@ simply do
 {coderay:: ruby}
    Roby.once { my_task.start! }
 {coderay}
+
+The block will then be called at the beginning of the next execution cycle, in
+the propagation phase.
 
