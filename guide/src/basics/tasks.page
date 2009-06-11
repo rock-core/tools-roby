@@ -118,7 +118,7 @@ my\_task.rb file.
 {coderay}
 
 Finally, an event can be *terminal*: its emission means the end of the task's
-execution. +failed+ and +success+ are examples of terminal events. To declare a
+execution. __failed__ and __success__ are examples of terminal events. To declare a
 terminal event, one does as for the "finished" event above.
 
 Now, read that code into the ruby shell with

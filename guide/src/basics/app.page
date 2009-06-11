@@ -122,7 +122,7 @@ Broken down explanation
   represents the robot's state. In our case, we initialize the robot's position
   in the controller file, and then update it when the robot moves.
 
-* to understand the meaning of the +poll+ statement, you have to understand
+* to understand the meaning of the __poll__ statement, you have to understand
   the idea behind Roby's execution model. Roby relies on a _synchronous_
   execution model, which is basically a two-steps loops (a more detailed
   explanation will come later). This two-steps loops is basically:
@@ -132,7 +132,7 @@ Broken down explanation
   In practice, this event loop runs with a fixed period which is by default
   100ms. This period can be changed in the configuration file config/app.yml.
 
-  Now, what is the role of +poll+ here ? The block given to +poll+ is executed
+  Now, what is the role of __poll__ here ? The block given to +poll+ is executed
   at each execution cycle _while the task is running_. It can therefore be
   used to _implement_ the actual task functionality (or to check the state of
   external processes, ...)
