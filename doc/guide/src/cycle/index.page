@@ -10,7 +10,7 @@ application is structured, how it is initialized and when the execution engine,
 that executes Roby plans, starts to kick in. We will present, in turn, each of
 the three phases that make the event propagation cycle (see figure below).
 
-![](roby_cycle_overview.png)
+![](cycle-overview.png)
 
 * a high-level overview of how event propagation works. In there, you will
   learn that the #emit and #call method calls are handled specially during
