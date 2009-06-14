@@ -16,8 +16,6 @@
 /*/index.page:
     in_menu: false
 
-/cycle/error_handling.page:
-    in_menu: false
 /cycle/garbage_collection.page:
     in_menu: false
 
