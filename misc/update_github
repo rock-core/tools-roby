@@ -13,19 +13,21 @@ tree=$(git write-tree --prefix=$DOC_DIR)
 
 # Get the parent commit for the tree. If the branch does not yet exist, create
 # it
-head_branch=$(git symbolic-ref HEAD)
-head_sha=$(git show-ref -s $head_branch)
 msg="generated from $head_sha"
-parent=$(git show-ref -s refs/heads/$PAGES_BRANCH)
-if test -n "$parent"; then
+head_sha=$(git show-ref -s -h HEAD)
+if git show-ref -q --verify refs/heads/$PAGES_BRANCH; then
+    parent=$(git show-ref -s refs/heads/$PAGES_BRANCH)
+
     # Check that some things changes since last time
     last_tree=$(git cat-file commit refs/heads/$PAGES_BRANCH | grep tree | awk '{print $2}')
     if test "x$last_tree" = "x$tree"; then
         echo "no changes to commit"
     else
+        echo "updating $PAGES_BRANCH"
         commit=$(echo $msg | git commit-tree $tree -p $parent)
     fi
 else
+    echo "creating initial commit on the $PAGES_BRANCH branch"
     commit=$(echo $msg | git commit-tree $tree)
 fi
 
