@@ -127,9 +127,6 @@ when "replay"
 		    stream.open
 		    main.add_stream(stream)
 		end
-	    else
-		STDERR.puts parser
-		exit(0)
 	    end
 	else
 	    remaining.each do |file|
