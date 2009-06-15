@@ -122,6 +122,12 @@ module Roby::Log
 	end
 
 	# Update the displays
+        #
+        # It returns false if all decoders have reported that no display update
+        # was required, and true otherwise. The method relies on the decoder's
+        # #display method to return true/false when required.
+        #
+        # See DataDecoder#display
 	def display
 	    decoders.each do |decoder|
 		decoder.display
@@ -137,10 +143,16 @@ module Roby::Log
 	def hash; [name, type].hash end
     end
 
+    # In the data flow model we're using, a data decoder gets data from a
+    # DataStream object and builds a representation that can be used by
+    # displays.
     class DataDecoder
 	# The set of displays attached to this decoder
 	attr_reader :displays
+        # The decoder name
 	attr_reader :name
+
+        # The DataStream object we're getting our data from
 	attr_accessor :stream
 
 	def initialize(name)
@@ -148,6 +160,7 @@ module Roby::Log
 	    @displays = [] 
 	end
 
+        # Clear the stream data
 	def clear
 	    displays.each { |d| d.clear }
 	end
@@ -166,6 +179,22 @@ module Roby::Log
 	end
     end
 
+    # This module gets mixed-in the display classes. It creates the necessary
+    # stream => decoder => display link, reusing (if possible) a decoder that
+    # already exists.
+    #
+    # One should use it that way:
+    #
+    # class Display
+    #   include DataDisplay
+    #   decoder DecoderClass
+    # end
+    #
+    # Then, one can do
+    #   display = Display.new
+    #   display.stream = data_stream
+    #
+    # and leave the rest to the DataDisplay implementation.
     module DataDisplay
 	module ClassExtension
 	    def decoder(new_type = nil)
@@ -177,11 +206,23 @@ module Roby::Log
 	    end
 	end
 
+        # The decoder object. That object gets data from a DataStream object and
+        # decodes it into the format required by the display.
+        #
+        # Examples: PlanRebuilder
 	attr_reader :decoder
 	attr_reader :main
-	attr_accessor :config_ui
-	def splat?; true end
 
+        # The configuration UI object. Usually a subclass of Qt::Widget
+	attr_accessor :config_ui
+
+
+	def splat? #:nodoc:
+            true
+        end
+
+        # Sets the data stream that this display listens to. It creates or gets
+        # the decoder that is necessary between the raw stream and the display
 	def stream=(data_stream)
 	    if decoder
 		clear

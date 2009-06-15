@@ -128,8 +128,10 @@ module Roby
 	    rescue EOFError
 	    end
 
-	    # Unmarshalls one cycle of data returned by #read and feeds
-	    # it to the decoders
+	    # Unmarshalls one cycle of data returned by #read
+            #
+            # In the case of the event stream, this is one array dumped with
+            # Marshal.dump
 	    def self.decode(data)
 		Marshal.load(data)
 	    end
