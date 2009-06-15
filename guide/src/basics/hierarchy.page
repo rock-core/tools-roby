@@ -191,7 +191,7 @@ class ComputePath < Roby::ThreadTask
   end
 
   on :success do |ev|
-    path_task.path = ev.context
+    path_task.path = result
   end
 end
 {coderay}
@@ -209,7 +209,7 @@ class ExecutePath < Roby::Task
   argument :path_task
 
   # The current waypoint
-  def current_waypoint; path_task.data[@waypoint_index] end
+  def current_waypoint; path_task.task[@waypoint_index] end
 
   poll do
     @waypoint_index ||= 0
