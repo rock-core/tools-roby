@@ -27,7 +27,7 @@ tag.menu.nested: false
 
 tag.breadcrumbtrail.omit_index_path: true
 
-rdoclinks.base_url: /rdoc/core/
+rdoclinks.base_url: /api
 rdoclinks.base_module: Roby
 
 tag.coderay.line_numbers: false

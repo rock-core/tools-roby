@@ -17,14 +17,15 @@ class RdocLinks
 
         path = class_name.split('::')
         path[-1] += ".html"
-        url = param('rdoclinks.base_url') + File.join("classes", *path)
+        url = "#{param('rdoclinks.base_url')}/#{path.join("/")}"
 
-        "<a href=\"#{url}\">#{param('rdoclinks.name')}</a>"
+        "<a href=\"#{context.ref_node.route_to(url)}\">#{param('rdoclinks.name')}</a>"
     end
 end
 
 config = Webgen::WebsiteAccess.website.config
 config.rdoclinks.name        "", :mandatory => 'default'
+config.rdoclinks.base_webgen "", :mandatory => false
 config.rdoclinks.base_url    "", :mandatory => false
 config.rdoclinks.base_module nil, :mandatory => false
 config.rdoclinks.full_name   false, :mandatory => false
