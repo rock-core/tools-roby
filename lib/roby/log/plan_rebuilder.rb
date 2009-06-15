@@ -239,18 +239,30 @@ module Roby
 		clear
 	    end
 	    
+            # Processes one cycle worth of data coming from an EventStream, and
+            # builds the corresponding plan representation
+            #
+            # It returns true if there was something noteworthy in there, and
+            # false otherwise.
 	    def process(data)
 		@time = data.last[0][:start]
 	        @start_time ||= @time
 
+                done_something = false
 		data.each_slice(4) do |m, sec, usec, args|
 		    time = Time.at(sec, usec)
 		    reason = catch :ignored do
 			begin
 			    if respond_to?(m)
 				send(m, time, *args)
+                                done_someting = true
 			    end
-			    displays.each { |d| d.send(m, time, *args) if d.respond_to?(m) }
+			    displays.each do |d|
+                                if d.respond_to?(m)
+                                    done_something = true
+                                    d.send(m, time, *args) 
+                                end
+                            end
 			rescue Exception => e
 			    display_args = args.map do |obj|
 				case obj
@@ -269,6 +281,7 @@ module Roby
 			Roby.warn "Ignored #{m}(#{args.join(", ")}): #{reason}"
 		    end
 		end
+                done_something
 	    end
 
 	    def local_object(object)

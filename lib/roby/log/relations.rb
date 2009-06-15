@@ -939,6 +939,7 @@ module Roby
 		    execution_events.partition { |fired, ev| fired }
 
 		postponed_events.clear
+                true
 	    end
 
 	    def remove_graphics(item, scene = nil)

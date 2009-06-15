@@ -161,6 +161,9 @@ class Ui::ReplayControls
 	play_step.connect(SIGNAL("clicked()")) do
 	    replay.play_step
 	end
+	play_next_nonempty.connect(SIGNAL("clicked()")) do
+	    replay.play_next_nonempty
+	end
     end
 
     def handleGoto

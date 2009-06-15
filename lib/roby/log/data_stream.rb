@@ -100,12 +100,18 @@ module Roby::Log
 	    super if defined? super
 	end
 
-	# Do a read - decode - feed cycle
-	def advance
+	# Do a read and decode the data
+        #
+        # It returns false if no decoders have found interesting updates in the
+        # decoded data, and true otherwise. The method relies on the decoder's
+        # #process method to return true/false when required.
+        #
+        # See DataDecoder#process
+        def advance
 	    data = decode(read)
-	    decoders.each do |dec|
+	    !decoders.find_all do |dec|
 		dec.process(data)
-	    end
+	    end.empty?
 	end
 
 	def init(data)
@@ -171,11 +177,15 @@ module Roby::Log
 	    end
 	end
 
-	# Update the display to the current state of the decoder
+	# Updates the displays that are associated with this decoder. Returns
+        # true if one of the displays have been changed, and false otherwise.
+        #
+        # It relies on the display's #update method to return true if something
+        # has changed on the display and false otherwise.
 	def display
-	    displays.each do |display| 
+	    !displays.find_all do |display| 
 		display.update
-	    end
+	    end.empty?
 	end
     end
 

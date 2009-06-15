@@ -50,6 +50,8 @@ class Replay < Qt::MainWindow
     attr_accessor :initial_time
     # A set of procs which are to be called to set up the display
     attr_accessor :initial_setup
+    # Set to true if we are playing some data right now
+    attr_predicate :running?, true
 
     def initialize
 	super()
@@ -180,6 +182,7 @@ class Replay < Qt::MainWindow
     end
 
     def stop
+        self.running = false
 	if play_timer
 	    ui_controls.play.checked = false
 	    play_timer.stop
@@ -197,8 +200,14 @@ class Replay < Qt::MainWindow
 	play_until(time + time_slice * play_speed)
     end
     slots 'play_step_timer()'
+
+    def play_next_nonempty
+        self.running = true
+        while running? && !play_step
+        end
+    end
     
-    def play_until(max_time, integrate = true)
+    def play_until(max_time, integrate = true, skip_empty = false)
 	start_at = Time.now
 	displayed_streams.inject(timeline = []) do |timeline, s| 
 	    if s.next_time
@@ -218,9 +227,11 @@ class Replay < Qt::MainWindow
 	while !timeline.empty? && (timeline[0][0] - max_time) < 0.001
 	    @time, stream = timeline.first
 
-	    stream.advance
+	    if stream.advance
+                updated_streams << stream
+            end
+
 	    stream.clear_integrated unless integrate
-	    updated_streams << stream
 	    if next_time = stream.next_time
 		timeline[0] = [next_time, stream]
 	    else
@@ -250,6 +261,7 @@ class Replay < Qt::MainWindow
 	    end
 	end
 	update_time_display
+        !updated_streams.empty?
 
     rescue Exception => e
 	message = "<html>#{Qt.escape(e.message)}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"
