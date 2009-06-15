@@ -17,8 +17,12 @@ class OfflineStreamListModel < DataStreamListModel
 	newfiles = Qt::FileDialog.get_open_file_names nil, "New data stream", dir
 	return if newfiles.empty?
 	if !newfiles.empty?
-	    if newstream = Roby.app.data_stream(newfiles)
-		return newstream
+            newstreams = Roby.app.data_streams_of(newfiles)
+	    if !newstreams.empty?
+                newstreams.each do |s|
+                    s.open
+                end
+		return newstreams
 	    else
 		Qt::MessageBox.warning nil, "Add data stream", "Cannot determine data stream type for #{newfiles.join(", ")}"
 		return

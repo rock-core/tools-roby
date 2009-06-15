@@ -35,13 +35,12 @@ class DataStreamListModel < Qt::AbstractListModel
     end
 
     def insertRow(row, parent)
-        emit beginInsertRows(parent, row, row)
-	if stream = edit(nil)
-	    @streams.insert row, stream
+	if streams = edit(nil)
+            streams.each do |s|
+                add_new(s)
+            end
 	    return true
 	end
-    ensure
-	emit endInsertRows()
     end
 
     def removeRow(row, parent)
