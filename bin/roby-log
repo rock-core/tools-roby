@@ -130,7 +130,9 @@ when "replay"
 	    end
 	else
 	    remaining.each do |file|
-		if streams = Roby.app.data_streams_of([file])
+                if !File.exists?(file)
+		    STDERR.puts "WARN: #{file} does not exist"
+		elsif streams = Roby.app.data_streams_of([file])
 		    streams.each do |s|
 			s.open
 			main.add_stream(s)
