@@ -468,6 +468,123 @@ module Roby
 	    EOD
 	end
 
+        ## 
+        # :singleton-method: signals
+        # :call-seq:
+        #   task_model.signals(event_model) => [target_event_models]
+        #
+        # Returns the set of model-level signal targets for the given event.
+
+        ## 
+        # :singleton-method: each_signal
+        # :call-seq:
+        #   task_model.each_signal(event_model) do |target_event_model|
+        #   end
+        #
+        # Enumerates the set of model-level causal links that are defined for
+        # the given event. It enumerates all the ones defined on this model
+        # (using Task::signal) and also on its parent classes.
+
+        ## 
+        # :method: each_signal
+        # :call-seq:
+        #   task.each_signal(event_model) do |target_event_model|
+        #   end
+        #
+        # Enumerates the set of model-level causal links that are defined for
+        # the given event. It enumerates all the ones defined on this task's model
+        # (using Task::signal) and also on its parent classes.
+
+
+
+
+        ## 
+        # :singleton-method: forwardings
+        # :call-seq:
+        #   task_model.forwardings(event_model) => [target_event_models]
+        #
+        # Returns the set of model-level forwarding targets for the given event.
+
+        ## 
+        # :singleton-method: each_forwarding
+        # :call-seq:
+        #   task_model.each_forwarding(event_model) do |target_event_model|
+        #   end
+        #
+        # Enumerates the set of model-level causal links that are defined for
+        # the given event. It enumerates all the ones defined on this model
+        # (using Task::forward) and also on its parent classes.
+
+        ## 
+        # :method: each_forwarding
+        # :call-seq:
+        #   task.each_forwarding(event_model) do |target_event_model|
+        #   end
+        #
+        # Enumerates the set of model-level causal links that are defined for
+        # the given event. It enumerates all the ones defined on this task's
+        # model (using Task::forward) and also on its parent classes.
+
+
+
+
+        ## 
+        # :singleton-method: causal_links
+        # :call-seq:
+        #   task_model.causal_links(event_model) => [target_event_models]
+        #
+        # Returns the set of model-level causal_link targets for the given event.
+
+        ## 
+        # :singleton-method: each_causal_link
+        # :call-seq:
+        #   task_model.each_causal_link(event_model) do |target_event_model|
+        #   end
+        #
+        # Enumerates the set of model-level causal links that are defined for
+        # the given event. It enumerates all the ones defined on this model
+        # (using Task::causal_link) and also on its parent classes.
+
+        ## 
+        # :method: each_causal_link
+        # :call-seq:
+        #   task.each_causal_link(event_model) do |target_event_model|
+        #   end
+        #
+        # Enumerates the set of model-level causal links that are defined for
+        # the given event. It enumerates all the ones defined on this task's model
+        # (using Task::causal_link) and also on its parent classes.
+
+
+
+
+        ## 
+        # :singleton-method: handlers
+        # :call-seq:
+        #   task_model.handlers(event_model) => [target_event_models]
+        #
+        # Returns the set of model-level event handlers for the given event.
+
+        ## 
+        # :singleton-method: each_handler
+        # :call-seq:
+        #   task_model.each_handler(event_model) do |target_event_model|
+        #   end
+        #
+        # Enumerates the set of model-level event handlers that are defined for
+        # the given event. It enumerates all handlers defined on the instance's
+        # task model and its parent classes.
+
+        ## 
+        # :method: each_handler
+        # :call-seq:
+        #   task.each_handler(event_model) do |target_event_model|
+        #   end
+        #
+        # Enumerates the set of model-level event handlers that are defined for
+        # the given event. It enumerates all handlers defined on the instance's
+        # task model and its parent classes.
+
 	model_attribute_list('signal')
 	model_attribute_list('forwarding')
 	model_attribute_list('causal_link')
@@ -476,10 +593,14 @@ module Roby
 
 	# The task arguments as symbol => value associative container
 	attr_reader :arguments
-	# The part of +arguments+ that is meaningful for this task model
+
+	# The part of +arguments+ that is meaningful for this task model. I.e.
+        # it returns the set of elements in the +arguments+ property that define
+        # arguments listed in the task model
 	def meaningful_arguments(task_model = self.model)
 	    arguments.slice(*task_model.arguments)
 	end
+
 	# The task name
 	def name
 	    @name ||= "#{model.name || self.class.name}#{arguments.to_s}:0x#{address.to_s(16)}"
@@ -525,8 +646,9 @@ module Roby
 
         # Lists all arguments, that are set to be needed via the :argument 
         # syntax but are not set.
+        #
         # This is needed for debugging purposes.
-        def list_unset_arguments
+        def list_unset_arguments # :nodoc:
             ret = Array.new
             model.arguments.each { |name| 
                   if !arguments.has_key?(name) then 
@@ -534,7 +656,6 @@ module Roby
                   end }
             ret
         end
-            
 
         # Helper methods which creates all the necessary TaskEventGenerator
         # objects and stores them in the #bound_events map
@@ -657,29 +778,44 @@ module Roby
 	end
 
 	class << self
-	    # If this task is an abstract task
-	    # Abstract tasks are not executable. This attribute is
-	    # not inherited in the task hierarchy
-	    attr_reader :abstract
-	    alias :abstract? :abstract
+            ##
+            # :singleton-method: abstract?
+            #
+            # True if this task is an abstract task.
+            #
+            # See Task::abstract() for more information.
+            attr_predicate :abstract
 
-	    # Mark this task model as an abstract model
+	    # Declare that this task model defines abstract tasks. Abstract
+            # tasks can be used to represent an action, without specifically
+            # representing how this action should be done.
+            #
+            # Instances of abstract task models are not executable, i.e. they
+            # cannot be started.
+            #
+            # See also #abstract? and #executable?
 	    def abstract
 		@abstract = true
 	    end
 
-            # Declare that nothing special is required to stop this task.
-            # This makes +failed+ and +stop+ controlable events, and
-            # makes the interruption sequence be stop! => calls failed! =>
-            # emits +failed+ => emits +stop+.
+            # Declare that tasks of this model can finish by simply emitting
+            # +stop+. Use it this way:
+            #
+            #   class MyTask < Roby::Task
+            #     terminates
+            #   end
+            #
+            # It adds a +stop!+ command that emits the +failed+ event.
 	    def terminates
 		event :failed, :command => true, :terminal => true
 		interruptible
 	    end
 
-            # Sets up a command for +stop+ in the case where +failed+ is also
-            # controllable, if the command of +failed+ should be used to stop
-            # the task.
+            # Declare that tasks of this model can be interrupted. It does so by
+            # defining a command for +stop+, which in effect calls the command
+            # for +failed+.
+            #
+            # Raises ArgumentError if failed is not controlable.
 	    def interruptible
 		if !has_event?(:failed) || !event_model(:failed).controlable?
 		    raise ArgumentError, "failed is not controlable"
@@ -706,9 +842,17 @@ module Roby
 		define_method(:poll_handler, &block)
 	    end
 
-            # Defines a block which will be called at each execution cycle for
-            # each running task of this model. The block is called in the
-            # instance context of the target task (i.e. using instance_eval)
+            # Declares that the given block should be called at each execution
+            # cycle, when the task is running. Use it that way:
+            #
+            #   class MyTask < Roby::Task
+            #     poll do
+            #       ... do something ...
+            #     end
+            #   end
+            #
+            # If the given polling block raises an exception, the task will be
+            # terminated by emitting its +failed+ event.
 	    def poll(&block)
 		if !block_given?
 		    raise "no block given"
@@ -726,8 +870,13 @@ module Roby
         
         # Returns true if this task is from an abstract model. If it is the
         # case, the task is not executable.
+        #
+        # See Task::abstract for more details.
 	def abstract?; self.class.abstract? end
-	# Check if this task is executable
+	# True if this task is executable. A task is not executable if it is
+        # abstract or partially instanciated.
+        #
+        # See #abstract? and #partially_instanciated?
 	def executable?; !abstract? && !partially_instanciated? && super end
 	# Returns true if this task's stop event is controlable
 	def interruptible?; event(:stop).controlable? end
@@ -874,8 +1023,8 @@ module Roby
 	    end
 	end
 
-        # Returns a sorted list of Event objects, for all events that have been
-        # fired by this task
+        # Returns a list of Event objects, for all events that have been fired
+        # by this task. The list is sorted by emission times.
 	def history
 	    history = []
 	    each_event do |event|
@@ -885,9 +1034,9 @@ module Roby
 	    history.sort_by { |ev| ev.time }
 	end
 
-        # Returns the set of tasks directly related to this task, either
-        # because of task relations or because of task events that are related
-        # to other task events
+        # Returns the set of tasks directly related to this task, either because
+        # of task relations or because of task events that are related to other
+        # task events
 	def related_tasks(result = nil)
 	    result = related_objects(nil, result)
 	    each_event do |ev|
@@ -928,6 +1077,8 @@ module Roby
 	    super if defined? super
         end
 
+        # Hook called by TaskEventGenerator#fired when one of this task's events
+        # is fired.
         def fire_event(event)
 	    update_task_status(event)
 	    super if defined? super
@@ -1101,7 +1252,9 @@ module Roby
 	    end
 	end
 
+        # :stopdoc:
 	attr_accessor :calling_event
+
 	def method_missing(name, *args, &block) # :nodoc:
 	    if calling_event && calling_event.respond_to?(name)
 		calling_event.send(name, *args, &block)
@@ -1116,12 +1269,14 @@ module Roby
 	def self.allocate_event_command_id # :nodoc:
 	    @@event_command_id += 1
 	end
+        # :startdoc:
+
         # call-seq:
-        #   self.event(name, options = nil) { ... } -> event class or nil
+        #   self.event(name, options = nil) { ... } => event class or nil
         #
         # Define a new event in this task. 
         #
-        # ==== Available options
+        # <b>Available options</b>
         #
         # <tt>command</tt>::
         #   either true, false or an event command for the new event. In that
@@ -1138,7 +1293,7 @@ module Roby
         #   base class for the event model (see "Event models" below). The default is the 
         #   TaskEvent class
         #
-        # ==== Event models
+        # <b>Event models</b>
         #
         # When a task event (for instance +start+) is emitted, a Roby::Event
         # object is created to describe the information related to this
@@ -1253,7 +1408,8 @@ module Roby
 
         # Events defined by the task model
         inherited_enumerable(:event, :events, :map => true) { Hash.new }
-	def self.enum_events
+
+	def self.enum_events # :nodoc
 	    @__enum_events__ ||= enum_for(:each_event)
 	end
 
@@ -1537,9 +1693,10 @@ module Roby
 
 	@@exception_handler_id = 0
 
-	# call-seq:
-	#   on_exception(TaskModelViolation, ...) { |task, exception_object| ... }
-	#
+	##
+        # :call-seq:
+	#   on_exception(exception_class, ...) { |task, exception_object| ... }
+	# 
         # Defines an exception handler. matcher === exception_object is used to
         # determine if the handler should be called when +exception_object+ has
         # been fired. The first matching handler is called. Call #pass_exception to pass

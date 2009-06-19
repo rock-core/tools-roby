@@ -45,11 +45,11 @@ module Enumerable
 end
 
 class Module
-    # Defines a new constant under a given module
     # :call-seq
     #   define_under(name, value)   ->              value
     #   define_under(name) { ... }  ->              value
     #
+    # Defines a new constant under a given module
     # In the first form, the method gets its value from its argument. 
     # In the second case, it calls the provided block
     def define_under(name, value = nil)

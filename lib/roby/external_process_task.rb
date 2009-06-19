@@ -12,15 +12,26 @@ module Roby
     # error output to files.
     #
     # The events will act as follows:
-    #  - the start command starts the process per se. The event is emitted once
-    #    exec() has been called with success
-    #  - the signaled event is emitted when the process dies because of a signal
-    #  - the failed event is emitted whenever the process exits with a nonzero
-    #    status
-    #  - the success event is emitted when the process exits with a zero status
-    #  - the stop event is emitted when the process exits
+    # * the start command starts the process per se. The event is emitted once
+    #   exec() has been called with success
+    # * the signaled event is emitted when the process dies because of a signal
+    # * the failed event is emitted whenever the process exits with a nonzero
+    #   status
+    # * the success event is emitted when the process exits with a zero status
+    # * the stop event is emitted when the process exits
     class ExternalProcessTask < Roby::Task
+        ##
+        # :attr_reader:
+        # This task argument is an array whose first element is the executable
+        # to start and the rest the arguments that need to be passed to it.
+        #
+        # It can also be set to a simple string, which is interpreted as the
+        # executable name with no arguments.
         argument :command_line
+
+        ##
+        # :attr_reader:
+        # The working directory. If not set, the current directory is used.
         argument :working_directory
 
         # Redirection specification. See #redirect_output
@@ -32,11 +43,15 @@ module Roby
         end
 
         class << self
+            # The set of running ExternalProcessTask instances. It is a mapping
+            # from the PID value to the instances.
             attr_reader :processes
         end
         @processes = Hash.new
 
-        def self.dead!(pid, result)
+        # Called by the SIGCHLD handler to announce that a particular process
+        # has finished. It emits the right events on the corresponding task.
+        def self.dead!(pid, result) # :nodoc:
             task = processes[pid]
             return if !task
 
@@ -50,15 +65,12 @@ module Roby
             end
         end
 
-        # This event gets signaled if the process died because of a signal
+        # This event gets emitted if the process died because of a signal
         event :signaled
+
         forward :signaled => :failed
 
-        # call-seq:
-        #   redirect_output "file"
-        #   redirect_output :stdout => "file-out", :stderr => "another-file"
-        #   redirect_output nil
-        #
+        ##
         # If set to a string, the process' standard output will be redirected to
         # the given file. The following replacement is done:
         # * '%p' is replaced by the process PID
@@ -66,6 +78,11 @@ module Roby
         # The last form (with nil argument) removes any redirection. A specific
         # redirection can also be disabled using the hash form:
         #   redirect_output :stdout => nil
+        #
+        # :call-seq:
+        #   redirect_output "file"
+        #   redirect_output :stdout => "file-out", :stderr => "another-file"
+        #   redirect_output nil
         #
         def redirect_output(args)
             if !args
@@ -84,19 +101,26 @@ module Roby
             end
         end
 
+        # The PID of the child process, or nil if the child process is not
+        # running
         attr_reader :pid
 
         # Error codes between the child and the parent. Note that the error
         # codes must not be greater than 9
+        # :stopdoc:
         KO_REDIRECTION  = 1
         KO_NO_SUCH_FILE = 2
         KO_EXEC         = 3
+        # :startdoc:
 
-        def redirection_path(pattern)
+        # Returns the file name based on the redirection pattern and the current
+        # PID values. This is called in the child process before exec().
+        def redirection_path(pattern) # :nodoc:
             pattern.gsub '%p', Process.pid.to_s
         end
 
-        def start_process
+        # Starts the child process
+        def start_process # :nodoc:
             # Open a pipe to monitor the child startup
             r, w = IO.pipe
 
@@ -163,6 +187,11 @@ module Roby
             raise e
         end
 
+        ##
+        # :method: start!
+        #
+        # Starts the child process. Emits +start+ when the process is actually
+        # started.
         event :start do |_|
             if working_directory
                 Dir.chdir(working_directory) do
@@ -174,6 +203,7 @@ module Roby
             emit :start
         end
 
+        # Kills the child process
         def kill(signo)
             Process.kill(signo, pid)
         end
