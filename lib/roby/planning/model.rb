@@ -612,6 +612,13 @@ module Roby
 		MethodModel.new(name, :returns => Task)
 	    end
 
+            # Creates a TaskSequence with the given tasks
+            def sequence(*tasks)
+                seq = Sequence.new
+                tasks.each { |t| seq << t }
+                seq
+            end
+
 	    # Creates a planning task which will call the same planning method
 	    # than the one currently being generated.
 	    #
