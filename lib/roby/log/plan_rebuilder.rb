@@ -308,29 +308,14 @@ module Roby
 	    end
 
 	    def clear_integrated
-		last_finalized.clear
+                updated = false
 		plans.each do |plan|
+                    updated = !(plan.finalized_events.empty? && plan.finalized_tasks.empty?)
 		    plan.clear_finalized(plan.finalized_tasks.dup, plan.finalized_events.dup)
 		end
 
-		super
-	    end
-
-	    def display
-		plans.each do |plan|
-		    if finalized = last_finalized[plan]
-			plan.clear_finalized(*finalized)
-		    end
-		end
-
-		super
-		
-		# Save a per-plan set of finalized tasks, to be removed the
-		# next time #display is called
-		@last_finalized = Hash.new
-		plans.each do |plan|
-		    last_finalized[plan] = [plan.finalized_tasks.dup, plan.finalized_events.dup]
-		end
+		super_result = super
+                super_result || updated
 	    end
 
 	    def local_plan(plan, allow_new = false)

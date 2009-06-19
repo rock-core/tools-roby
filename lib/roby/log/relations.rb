@@ -773,9 +773,12 @@ module Roby
 	    end
 
 	    def clear_integrated
-		postponed_events.clear
-		execution_events.clear
-		@execution_events = execution_events.find_all { |fired, ev| !fired }
+                unless keep_signals
+                    last_propagated_events, @propagated_events = propagated_events, Array.new
+                    last_execution_events, @execution_events = 
+                        execution_events.partition { |fired, ev| fired }
+                end
+                !(last_propagated_events.empty? && last_execution_events.empty?)
 	    end
 
             # Update the display with new data that has come from the data
@@ -785,11 +788,6 @@ module Roby
             # updated, so the method always returns true
 	    def update
 		return unless decoder
-
-		if keep_signals
-		    @execution_events = @last_execution_events.concat(execution_events)
-		    @propagated_events.concat @last_propagated_events
-		end
 
 		update_prefixes_removal
 		clear_flashing_objects
@@ -934,11 +932,6 @@ module Roby
 		    end
 		end
 
-		@last_propagated_events, @propagated_events = propagated_events, Array.new
-		@last_execution_events, @execution_events = 
-		    execution_events.partition { |fired, ev| fired }
-
-		postponed_events.clear
                 true
 	    end
 

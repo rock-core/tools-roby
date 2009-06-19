@@ -121,10 +121,17 @@ module Roby::Log
 	    self.class.decode(data)
 	end
 
+        # Displays may have the ability to not display a per-cycle information,
+        # but to add information as it is coming over. This call asks them to
+        # remove the information integrated until now.
+        #
+        # It forwards the call to the decoders' #clear_integrated call. These
+        # methods should return true if a change has been needed on any of their
+        # display, and false otherwise.
 	def clear_integrated
-	    decoders.each do |decoder|
+	    !decoders.find_all do |decoder|
 		decoder.clear_integrated
-	    end
+	    end.empty?
 	end
 
 	# Update the displays
@@ -171,10 +178,19 @@ module Roby::Log
 	    displays.each { |d| d.clear }
 	end
 
+        # Displays may have the ability to not display a per-cycle information,
+        # but to add information as it is coming over. This call asks them to
+        # remove the information integrated until now.
+        #
+        # It forwards the call to the displays' #clear_integrated call(if any). These
+        # methods should return true if a change has been needed on any of their
+        # display, and false otherwise.
 	def clear_integrated
-	    displays.each do |display|
-		display.clear_integrated if display.respond_to?(:clear_integrated)
-	    end
+	    !displays.find_all do |display|
+                if display.respond_to?(:clear_integrated)
+                    display.clear_integrated 
+                end
+	    end.empty?
 	end
 
 	# Updates the displays that are associated with this decoder. Returns

@@ -211,7 +211,7 @@ class Replay < Qt::MainWindow
         end
     end
     
-    def play_until(max_time, integrate = true, skip_empty = false)
+    def play_until(max_time, integrate = false)
 	start_at = Time.now
 	displayed_streams.inject(timeline = []) do |timeline, s| 
 	    if s.next_time
@@ -225,17 +225,24 @@ class Replay < Qt::MainWindow
 	    return
 	end
 
+        needs_display = Set.new
 	updated_streams = Set.new
 
 	timeline.sort_by { |t, _| t }
 	while !timeline.empty? && (timeline[0][0] - max_time) < 0.001
 	    @time, stream = timeline.first
 
+            unless integrate
+                if stream.clear_integrated 
+                    needs_display << stream
+                end
+            end
+
 	    if stream.advance
+                needs_display << stream
                 updated_streams << stream
             end
 
-	    stream.clear_integrated unless integrate
 	    if next_time = stream.next_time
 		timeline[0] = [next_time, stream]
 	    else
@@ -246,7 +253,7 @@ class Replay < Qt::MainWindow
 
 	replayed = Time.now
 
-	updated_streams.each do |stream|
+	needs_display.each do |stream|
 	    stream.display
 	end
 
