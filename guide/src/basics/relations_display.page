@@ -29,10 +29,10 @@ and in the shell, do
 Finally, let's save the log files for further analysis (otherwise, one could
 destroy them by restarting the controller).
 
-    # scripts/result planned_move
+    # scripts/results planned_move
     moving /home/doudou/dev/first_app/log to /home/doudou/dev/roby-tutorials/results/20080502-planned_move
 
-"scripts/result" copies all files in "log/" into a subdirectory
+"scripts/results" copies all files in "log/" into a subdirectory
 of the result dir (by default APP\_DIR/results, but can be changed in
 "config/app.yml"). The target directory name is generated following a pattern of
 "current\_date-name\_provided\_on\_command\_line".
