@@ -67,6 +67,9 @@ module Roby
 
 	    task
 	end
+        def child_of(task = nil)
+            to_task(task)
+        end
 
 	def connect_start(task)
 	    if old = @tasks.first
@@ -122,6 +125,9 @@ module Roby
 	    @children_success.forward_to event(:success)
         end
 
+        def child_of(task = nil)
+            to_task(task)
+        end
 	def to_task(task = nil)
 	    return super() unless task
 
