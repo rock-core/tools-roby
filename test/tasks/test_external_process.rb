@@ -35,6 +35,15 @@ class TC_ThreadTask < Test::Unit::TestCase
         assert_polling_successful(5) { task.success? }
     end
 
+    def test_inexistent_program
+        plan.add_permanent(task = ExternalProcessTask.new(:command_line => ['does_not_exist', "--error"]))
+        engine.run
+        engine.once { task.start! }
+
+        assert_polling_successful(5) { task.failed? }
+        assert_equal 1, task.event(:failed).last.context.first.exitstatus
+    end
+
     def test_failure
         plan.add_permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP, "--error"]))
         engine.run
