@@ -16,6 +16,7 @@ class TC_Relations < Test::Unit::TestCase
 
 	n = klass.new
 	assert_equal(r2, space.constant('R2s'))
+        assert(r2.embeds_info?)
 	assert( n.respond_to?(:each_child) )
 	assert( n.respond_to?(:add_child) )
 	assert( n.respond_to?(:remove_child) )
@@ -24,7 +25,35 @@ class TC_Relations < Test::Unit::TestCase
 	assert( n.respond_to?(:add_child) )
     end
 
-    def test_directed_relation
+    def test_relation_info
+	klass = Class.new { include DirectedRelationSupport }
+
+	space = Roby::RelationSpace(klass)
+        r1 = space.relation :R1
+        r2 = space.relation :R2
+        r1.superset_of r2
+        r3 = space.relation :R3, :noinfo => true
+        r1.superset_of r3
+
+        assert(r1.embeds_info?)
+        assert(r2.embeds_info?)
+        assert(!r3.embeds_info?)
+
+	n1, n2, n3, n4 = 4.enum_for(:times).map { klass.new }
+	n1.add_child_object(n2, r2)
+        assert_equal(nil, n1[n2, r2])
+        # Setting it to a non-nil value is allowed
+	n1.add_child_object(n2, r2, false)
+        assert_equal(false, n1[n2, r2])
+        # Changing a non-nil value is not allowed
+        assert_raises(ArgumentError) { n1.add_child_object(n2, r2, true) }
+        
+        # Embedded information is graph-specific
+        assert_equal(nil, n1[n2, r1])
+        n1.add_child_object(n2, r1, Hash.new)
+    end
+
+    def test_add_remove_relations
 	klass = Class.new { include DirectedRelationSupport }
 
 	r1, r2 = nil
@@ -33,12 +62,7 @@ class TC_Relations < Test::Unit::TestCase
         r2 = space.relation :Child, :parent_name => :parent
 
 	n1, n2, n3, n4 = 4.enum_for(:times).map { klass.new }
-	n1.add_child_object(n2, r1)
-	assert_nothing_raised { n1.add_child_object(n2, r1, false) }
-	assert_raises(ArgumentError) { n1.add_child_object(n2, r1, true) }
-	n1.remove_child_object n2, r1
-	assert_nothing_raised { n1.add_child_object(n2, r1) }
-	assert_nothing_raised { n1.add_child_object(n2, r1, true) }
+	n1.add_child_object(n2, r1, true)
 	assert_equal([n2], n1.child_objects(r1).to_a)
 	assert_equal([n1], n2.parent_objects(r1).to_a)
 

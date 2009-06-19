@@ -205,6 +205,7 @@ module Roby
 	    @distribute = options[:distribute]
 	    @dag = options[:dag]
 	    @weak = options[:weak]
+            @embeds_info = !options[:noinfo]
 
 	    if options[:subsets]
 		options[:subsets].each(&method(:superset_of))
@@ -220,6 +221,8 @@ module Roby
         # break cross-relations cycles (cycles which exist in the graph union
         # of all the relation graphs).
 	attr_predicate :weak
+        # If this relation embeds some additional information
+        attr_predicate :embeds_info?
 
 	def to_s; name end
 
@@ -251,37 +254,25 @@ module Roby
 	    rel     = self
 	    while rel
 		top_dag = rel if rel.dag?
-		new_relations << rel
+                if !rel.linked?(from, to)
+                    new_relations << rel
+                end
 		rel = rel.parent
 	    end
 	    if top_dag && !top_dag.linked?(from, to) && top_dag.reachable?(to, from)
 		raise CycleFoundError, "cannot add a #{from} -> #{to} relation since it would create a cycle"
 	    end
 
-	    # Now compute the set of relations in which we really have to add a
-	    # new relation
-	    top_rel = new_relations.last
-	    if top_rel.linked?(from, to)
-		if !(old_info = from[to, top_rel]).nil?
-		    if old_info != info
-			raise ArgumentError, "trying to change edge information"
-		    end
-		end
-
-		changed_info = [new_relations.pop]
-
-		while !new_relations.empty?
-		    if new_relations.last.linked?(from, to)
-			changed_info << new_relations.pop
-		    else
-			break
-		    end
-		end
-
-		for rel in changed_info
-		    from[to, rel] = info
-		end
-	    end
+	    # Now check that we're not changing the edge info. This is ignored
+            # if +self+ has the noinfo flag set.
+            if linked?(from, to)
+                if !(old_info = from[to, self]).nil?
+                    if old_info != info
+                        raise ArgumentError, "trying to change edge information in #{self}: #{old_info} => #{info}"
+                    end
+                end
+                from[to, self] = info
+            end
 
 	    unless new_relations.empty?
 		if from.respond_to?(:adding_child_object)
