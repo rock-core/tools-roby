@@ -136,6 +136,17 @@ module Roby
                 end
             end
 
+            ExternalProcessTask.processes[pid] = self
+
+            is_running = begin
+                             !Process.waitpid(pid, Process::WNOHANG)
+                         rescue Errno::ECHILD
+                             false
+                         end
+            if !is_running
+                raise "child #{command_line.first} died unexpectedly during its startup"
+            end
+
             w.close
             control = Integer(r.read(1))
             if control == KO_REDIRECTION
@@ -146,7 +157,10 @@ module Roby
                 raise "could not start #{command_line.first}: exec() call failed"
             end
 
-            ExternalProcessTask.processes[pid] = self
+
+        rescue Exception => e
+            ExternalProcessTask.processes.delete(pid)
+            raise e
         end
 
         event :start do |_|
