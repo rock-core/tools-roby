@@ -72,6 +72,166 @@ module Roby
 	    Interface.instance_methods(false).
 		actions.map { |name| "#{name}!" }
 	end
+
+        def actions_summary(with_advanced = false)
+            methods = @interface.actions
+            if !with_advanced
+                methods = methods.delete_if { |m| m.description.advanced? }
+            end
+
+            if !methods.empty?
+                puts
+                desc = methods.map do |p|
+                    doc = p.description.doc
+                    Hash['Name' => "#{p.name}!", 'Description' => doc.join("\n")]
+                end
+
+                ColumnFormatter.from_hashes(desc, STDOUT,
+                                            :header_delimiter => true, 
+                                            :column_delimiter => "|",
+                                            :order => %w{Name Description})
+                puts
+            end
+
+            nil
+        end
+
+        def actions(with_advanced = false)
+            @interface.actions.each do |m|
+                next if m.description.advanced? if !with_advanced
+                display_action_description(m)
+                puts
+            end
+            nil
+        end
+
+        # Standard way to display a set of tasks
+	def task_set_to_s(task_set) # :nodoc:
+	    if task_set.empty?
+		return "no tasks"
+	    end
+
+	    task = task_set.map do |task|
+		state_name = %w{pending starting running finishing finished}.find do |state_name|
+		    task.send("#{state_name}?")
+		end
+
+                since      = task.start_time
+                lifetime   = task.lifetime
+		Hash['Task' => task.to_s,
+                    'State' => state_name,
+                    'Since' => (since.asctime if since),
+                    'Lifetime' => (Time.at(lifetime).to_hms if lifetime)
+                ]
+	    end
+
+            io = StringIO.new
+	    ColumnFormatter.from_hashes(task, STDOUT,
+                    :header_delimiter => true,
+                    :column_delimiter => "|",
+                    :order => %w{Task State Lifetime Since})
+	end
+        
+        # Displays information about the plan's missions
+        def missions
+            missions = find_tasks.mission.to_a
+            task_set_to_s(missions)
+            nil
+        end
+
+        # Displays information about the running tasks
+        def running_tasks
+            tasks = find_tasks.running.to_a
+            task_set_to_s(tasks)
+            nil
+        end
+
+        # Displays details about the actions matching 'regex'
+        def describe(name, with_advanced = false)
+            name = Regexp.new(name)
+            m = @interface.actions.find_all { |p| name === p.name }
+
+            if !with_advanced
+                filtered = m.find_all { |m| !m.description.advanced? }
+                m = filtered if !filtered.empty?
+            end
+
+            if m.empty?
+                puts "no such method"
+            else
+                m.each do |desc|
+                    puts
+                    display_action_description(desc)
+                    puts
+                end
+            end
+            nil
+        end
+
+        # Displays a help message
+        def help
+            puts
+            puts "Available Actions"
+            puts "================="
+            actions_summary
+            puts ""
+
+
+            puts <<-EOHELP
+each action is started with action_name!(:arg1 => value1, :arg2 => value2, ...)
+and returns the corresponding task object. A message is displayed in the shell
+when the task finishes."
+
+Shell Commands
+==============
+Command         | Help
+---------------------------------------------------------------------------------------------
+actions_summary(advanced = false) | displays the list of actions with a short documentation |
+actions(advanced = false)         | displays details for each available actions             |
+describe(regex)                   | displays details about the actions matching 'regex'     |
+missions                          | displays the set of running missions with their status  |
+running_tasks                     | displays the set of running tasks with their status     |
+                                  |                                                         |
+help                              | this help message                                       |
+
+            EOHELP
+        end
+
+        # Standard display of an action description. +m+ is a PlanningMethod
+        # object.
+        def display_action_description(m) # :nodoc:
+            args = m.description.arguments.
+                sort_by { |arg_desc| arg_desc.name }
+
+            first = true
+            args_summary = args.map do |arg_desc|
+                name        = arg_desc.name
+                is_required = arg_desc.required
+                format = if is_required then "%s"
+                         else "[%s]"
+                         end
+                text = format % ["#{", " if !first}:#{name} => #{name}"]
+                first = false
+                text
+            end
+
+            args_table = args.
+                map do |arg_desc|
+                Hash['Argument' => arg_desc.name,
+                            'Description' => (arg_desc.doc || "(no description set)")]
+                end
+
+            puts "#{m.name}! #{args_summary.join("")}\n#{m.description.doc.join("\n")}"
+            if m.description.arguments.empty?
+                puts "No arguments"
+            else
+                ColumnFormatter.from_hashes(args_table, STDOUT,
+                                            :left_padding => "  ",
+                                            :header_delimiter => true,
+                                            :column_delimiter => "|",
+                                            :order => %w{Argument Description})
+            end
+        end
 	    
 
 	def method_missing(m, *args) # :nodoc:
@@ -217,76 +377,27 @@ module Roby
 	    nil
 	end
 
-        # Displays the set of models as well as their superclasses
-	def models
+        # Returns the set of task models as DRobyTaskModel objects. The standard
+        # Roby task models are excluded.
+	def task_models
 	    task_models = []
 	    engine.execute do
 		ObjectSpace.each_object(Class) do |obj|
-		    task_models << obj if obj <= Roby::Task && obj.name !~ /^Roby::/
+                    if obj <= Roby::Task && obj.name !~ /^Roby::/
+                        task_models << obj
+                    end
 		end
 	    end
-
-	    task_models.map do |model|
-		"#{model} #{model.superclass}"
-	    end
+            task_models.map { |t| t.droby_dump(nil) }
 	end
 
-        # Displays the set of actions which are available through the planners
-        # registered on the application. See Application#planners
+        # Returns the set of PlanningMethod objects that describe the methods
+        # exported in the application's planners.
 	def actions
 	    Roby.app.planners.
-		map { |p| p.planning_methods_names.to_a }.
-		flatten.
-		sort
-	end
-
-        # Pretty-prints a set of tasks
-	def task_set_to_s(task_set) # :nodoc:
-	    if task_set.empty?
-		return "no tasks"
-	    end
-
-	    task = task_set.map do |task|
-		state_name = %w{pending starting running finishing finished}.find do |state_name|
-		    task.send("#{state_name}?")
-		end
-
-		start_event = task.history.find { |ev| ev.symbol == :start }
-                since = if start_event then start_event.time
-                        else 'N/A'
-                        end
-		{ 'Task' => task.to_s, 'Since' => since, 'State' => state_name }
-	    end
-
-	    io = StringIO.new
-	    ColumnFormatter.from_hashes(task, io) { %w{Task Since State} }
-	    "\n#{io.string}"
-	end
-
-        # Returns a string representing the set of running tasks
-	def running_tasks
-	    engine.execute do
-		task_set_to_s(plan.find_tasks.running.to_a)
-	    end
-	end
-
-        # Returns a string representing the set of missions
-	def missions
-	    engine.execute do
-		task_set_to_s(plan.missions)
-	    end
-	end
-
-        # Returns a string representing the set of tasks present in the plan
-	def tasks
-	    engine.execute do 
-		task_set_to_s(plan.known_tasks)
-	    end
-	end
-
-	def methods
-	    result = super
-	    result + actions.map { |n| "#{n}!" }
+		map do |p|
+                    p.planning_methods
+                end.flatten.sort_by { |p| p.name }
 	end
 
         # Called every once in a while by RemoteInterface to read and clear the
