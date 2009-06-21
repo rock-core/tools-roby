@@ -46,7 +46,12 @@ IRB.conf[:PROMPT][:ROBY] = {
     :RETURN => "=> %s\n"
 }
 
-control = Roby::RemoteInterface.new(DRbObject.new_with_uri("druby://#{remote_url}"))
+control = begin
+              Roby::RemoteInterface.new(DRbObject.new_with_uri("druby://#{remote_url}"))
+          rescue DRb::DRbConnError
+              STDERR.puts "cannot connect to a Roby controller at #{remote_url}, is the controller started ?"
+              exit(1)
+          end
 
 begin
     # Make control the top-level object

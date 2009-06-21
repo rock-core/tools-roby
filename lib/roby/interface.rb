@@ -32,7 +32,32 @@ module Roby
         # object.
 	def initialize(interface)
 	    @interface = interface
-	end
+            reconnect
+        end
+
+        def reconnect
+            remote_models = @interface.task_models
+            remote_models.map do |klass|
+                klass = klass.proxy(nil)
+
+                if klass.respond_to?(:remote_name)
+                    # This is a local proxy for a remote model. Add it in our
+                    # namespace as well.
+                    path  = klass.remote_name.split '::'
+                    klass_name = path.pop
+                    mod = Object
+                    while !path.empty?
+                        name = path.shift
+                        mod = begin
+                                  mod.const_get(name)
+                              rescue NameError
+                                  mod.const_set(name, Module.new)
+                              end
+                    end
+                    mod.const_set(klass_name, klass)
+                end
+            end
+        end
 
         # Returns a Query object which can be used to interactively query the
         # running plan
