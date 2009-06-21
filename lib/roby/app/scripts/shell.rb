@@ -80,10 +80,8 @@ begin
 		    end
 		end
 	    end
-	rescue
+	rescue Exception => e
 	    STDERR.puts $!.full_message
-	ensure
-	    STDERR.puts "message polling died"
 	end
     end
 
