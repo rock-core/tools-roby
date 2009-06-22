@@ -672,6 +672,21 @@ module Roby
 
 	def model; self.class end
 
+	# Returns for how many seconds this task is running.  Returns nil if
+	# the task is not running.
+	def lifetime
+	    if running?
+		Time.now - history.first.time
+	    end
+	end
+
+        # Returns when this task has been started
+        def start_time
+            if running?
+                history.first.time
+            end
+        end
+
 	def initialize_copy(old) # :nodoc:
 	    super
 

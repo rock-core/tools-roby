@@ -12,6 +12,33 @@ module Roby
             end
         end
 
+        MethodArgDescription = Struct.new :name, :doc, :required
+        class MethodDescription
+            attr_reader :doc
+
+            attr_reader :arguments
+
+            attr_predicate :advanced?
+
+            def initialize(doc = nil)
+                @doc = doc
+                @arguments = []
+            end
+
+            def required_arg(name, doc)
+                arguments << MethodArgDescription.new(name, doc, true)
+                self
+            end
+            def optional_arg(name, doc)
+                arguments << MethodArgDescription.new(name, doc, false)
+                self
+            end
+            def advanced
+                @advanced = true 
+                self
+            end
+        end
+
 	# Raised a method has found no valid development
         class NotFound < PlanModelError
 	    # The name of the method which has failed
@@ -155,7 +182,9 @@ module Roby
             # The model options, as a Hash
             attr_reader :options
 
-            def initialize(name, options = Hash.new); @name, @options = name, options end
+            def initialize(name, options = Hash.new)
+                @name, @options = name, options
+            end
             def ==(model)
                 name == model.name && options == model.options
             end
@@ -213,6 +242,8 @@ module Roby
 
             def to_s; "#{name}(#{options})" end
         end
+
+        PlanningMethod = Struct.new :name, :model, :description, :instances
 
 	# A planner searches a suitable development for a set of methods. 
 	# Methods are defined using Planner::method. You can then ask
@@ -325,6 +356,25 @@ module Roby
 		end
 	    end
 
+            # call-seq:
+            #   describe(first_line, second_line, ...).
+            #       required_arg(arg_name, arg_doc).
+            #       optional_arg(arg_name, arg_doc)
+            #
+            # Describes the next method or method model. It adds a description
+            # text for the method, which can be shown for instance by the
+            # shell's "action" command. It is also possible to describe the
+            # expected method arguments.
+            def self.describe(*text)
+                if text.empty?
+                    text = ["(no description set)"]
+                else
+                    text.map! { |s| s.to_str }
+                end
+
+                @next_method_description = MethodDescription.new(text)
+            end
+
 	    # call-seq:
 	    #	method(name, option1 => value1, option2 => value2) { }	    => method definition
 	    #	method(name, option1 => value1, option2 => value2)	    => method model
@@ -414,7 +464,7 @@ module Roby
 	    def self.method(name, options = Hash.new, &body)
                 name, options = validate_method_query(name, options)
 		
-		# Define the method enumerator and the method selection
+		# Define the method enumerator and the method public interface
 		if !respond_to?("#{name}_methods")
 		    inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) { Hash.new }
 		    class_eval <<-PLANNING_METHOD_END
@@ -425,7 +475,17 @@ module Roby
 		      cached_enum("#{name}_method", "#{name}_methods", true)
 		    end
 		    PLANNING_METHOD_END
+                    singleton_class.class_eval do
+                        attr_reader "#{name}_description"
+                    end
 		end
+                if @next_method_description
+                    if instance_variable_get("@#{name}_description")
+                        raise "#{name} already has a description"
+                    end
+                    instance_variable_set("@#{name}_description", @next_method_description)
+                    @next_method_description = nil
+                end
 
 		# We are updating the method model
                 if !body
@@ -467,7 +527,8 @@ module Roby
 		end
 		temp_method_name = "m#{@@temp_method_id += 1}"
 		define_method(temp_method_name, &body)
-		send("#{name}_methods")[method_id] = MethodDefinition.new(name, options, instance_method(temp_method_name))
+                mdef = MethodDefinition.new(name, options, instance_method(temp_method_name))
+		send("#{name}_methods")[method_id] = mdef
             end
 	    @@temp_method_id = 0
 
@@ -482,6 +543,33 @@ module Roby
 
 		names
 	    end
+
+            def self.planning_methods
+                names = methods.map do |method_name|
+                    if method_name =~ /^each_(\w+)_method$/
+                        $1
+                    end
+                end.compact.sort
+
+                names.map do |name|
+                    desc = PlanningMethod.new
+                    desc.name = name
+                    desc.description = planning_method_description(name)
+                    #desc.model = method_model(name)
+                    #desc.instances = Array.new
+                    #send("each_#{name}_method") do |instance|
+                    #    desc.instances << instance
+                    #end
+                    desc
+                end
+            end
+            
+            def self.planning_method_description(name)
+                return instance_variable_get("@#{name}_description") || MethodDescription.new
+            end
+            def planning_method_description(name)
+                self.class.planning_method_description(name)
+            end
 
 	    def self.clear_model
 		planning_methods_names.each do |name|
