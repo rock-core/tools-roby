@@ -29,28 +29,49 @@ class TC_Relations < Test::Unit::TestCase
 	klass = Class.new { include DirectedRelationSupport }
 
 	space = Roby::RelationSpace(klass)
-        r1 = space.relation :R1
         r2 = space.relation :R2
-        r1.superset_of r2
-        r3 = space.relation :R3, :noinfo => true
-        r1.superset_of r3
-
+        r1 = space.relation :R1, :subsets => [r2]
         assert(r1.embeds_info?)
         assert(r2.embeds_info?)
+
+        r3 = space.relation :R3, :noinfo => true
+        r1.superset_of r3
         assert(!r3.embeds_info?)
 
-	n1, n2, n3, n4 = 4.enum_for(:times).map { klass.new }
+	n1, n2 = 2.enum_for(:times).map { klass.new }
 	n1.add_child_object(n2, r2)
         assert_equal(nil, n1[n2, r2])
-        # Setting it to a non-nil value is allowed
+        # Updating from nil to non-nil is allowed
 	n1.add_child_object(n2, r2, false)
         assert_equal(false, n1[n2, r2])
-        # Changing a non-nil value is not allowed
+        # But changing a non-nil value is not allowed
         assert_raises(ArgumentError) { n1.add_child_object(n2, r2, true) }
-        
-        # Embedded information is graph-specific
+    end
+
+    def test_relation_info_in_subgraphs
+	klass = Class.new { include DirectedRelationSupport }
+	space = Roby::RelationSpace(klass)
+        r2 = space.relation :R2
+        r1 = space.relation :R1, :subsets => [r2]
+
+	n1, n2 = 2.enum_for(:times).map { klass.new }
+        n1.add_child_object(n2, r2, obj = Hash.new)
+        assert_equal(obj, n1[n2, r2])
         assert_equal(nil, n1[n2, r1])
-        n1.add_child_object(n2, r1, Hash.new)
+        n1.add_child_object(n2, r1, other_obj = Hash.new)
+        assert_equal(obj, n1[n2, r2])
+        assert_equal(other_obj, n1[n2, r1])
+
+        n1.remove_child_object(n2, r2)
+
+        # Check that it works as well if we are updating a nil value
+        n1.add_child_object(n2, r2, nil)
+        n1.add_child_object(n2, r2, obj = Hash.new)
+        assert_equal(obj, n1[n2, r2])
+        assert_equal(nil, n1[n2, r1])
+        n1.add_child_object(n2, r1, other_obj = Hash.new)
+        assert_equal(obj, n1[n2, r2])
+        assert_equal(other_obj, n1[n2, r1])
     end
 
     def test_add_remove_relations

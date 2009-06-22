@@ -268,7 +268,7 @@ module Roby
             if linked?(from, to)
                 if !(old_info = from[to, self]).nil?
                     if old_info != info
-                        raise ArgumentError, "trying to change edge information in #{self}: #{old_info} => #{info}"
+                        raise ArgumentError, "trying to change edge information in #{self} for #{from} => #{to}: old was #{old_info} and new is #{info}"
                     end
                 end
                 from[to, self] = info
@@ -283,7 +283,7 @@ module Roby
 		end
 
 		for rel in new_relations
-		    rel.__bgl_link(from, to, info)
+		    rel.__bgl_link(from, to, (info if self == rel))
 		end
 
 		if from.respond_to?(:added_child_object)
