@@ -361,7 +361,7 @@ help                              | this help message                           
                     # will get a message
                     #
                     if task.event(event_name).terminal?
-                        plan.remove_mission(task)
+                        plan.unmark_mission(task)
                         task.on(:stop) { |ev| pending_messages << "task #{ev.task} stopped by user request" }
                     else
                         task.on(event_name) { |ev| pending_messages << "done emitting #{ev.generator}" }
