@@ -47,13 +47,11 @@ module Roby
 
 	    # Add the needed conflict relations
 	    models = task.class.conflicting_models
-	    for model in models
-		if candidates = plan.task_index.by_model[model]
-		    for t in candidates
-			t.conflicts_with task if t.pending?
-		    end
-		end
-	    end
+            for model in models
+                for t in plan.find_tasks.with_model(model).pending
+                    t.conflicts_with task if t != task
+                end
+            end
 	end
     
 	def fired(event)
