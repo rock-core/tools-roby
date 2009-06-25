@@ -541,30 +541,35 @@ module Roby
         #
         # See #gather_propagation for the format of the returned # +propagation_info+
         def next_event(pending)
-            if event_ordering.empty?
-                Roby::EventStructure::Precedence.topological_sort(event_ordering)
-                event_priorities.clear
-                i = 0
-                for ev in event_ordering
-                    event_priorities[ev] = i
-                    i += 1
-                end
-            end
-
-            signalled, min = nil, event_ordering.size
+            # this variable is 2 if selected_event is being forwarded, 1 if it
+            # is both forwarded and signalled and 0 if it is only signalled
+            priority, selected_event = nil
             for propagation_step in pending
-                event = propagation_step[0]
-                if priority = event_priorities[event]
-                    if priority < min
-                        signalled = event
-                        min = priority
-                    end
-                else
-                    signalled = event
-                    break
+                target_event = propagation_step[0]
+                forwards, signals = *propagation_step[1]
+                target_priority = if forwards && signals then 1
+                                  elsif signals then 0
+                                  else 2
+                                  end
+
+                do_select = if selected_event
+                                if EventStructure::Precedence.reachable?(selected_event, target_event)
+                                    false
+                                elsif EventStructure::Precedence.reachable?(target_event, selected_event)
+                                    true
+                                else
+                                    priority < target_priority
+                                end
+                            else
+                                true
+                            end
+
+                if do_select
+                    selected_event = target_event
+                    priority       = target_priority
                 end
             end
-            [signalled, *pending.delete(signalled)]
+            [selected_event, *pending.delete(selected_event)]
         end
 
         # call-seq:
