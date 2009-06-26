@@ -1,4 +1,4 @@
-$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/planning'
 
@@ -13,7 +13,7 @@ class TC_PlanningTask < Test::Unit::TestCase
 
     def planning_task_result(planning_task)
         assert(planning_task)
-	plan.permanent(planning_task)
+	plan.add_permanent(planning_task)
 	planning_task.start! if planning_task.pending?
 	planning_task.thread.join
 	process_events
@@ -35,7 +35,7 @@ class TC_PlanningTask < Test::Unit::TestCase
 	planning_task = PlanningTask.new(:planner_model => planner, :method_name => :task,
 				:method_options => { :bla => 42 },
 				:blo => 84)
-	plan.insert(planned_task = Task.new)
+	plan.add_mission(planned_task = Task.new)
 	planned_task.planned_by planning_task
 
 	planning_task.start!(42)
@@ -69,7 +69,7 @@ class TC_PlanningTask < Test::Unit::TestCase
         end
 
 	planning_task = PlanningTask.new(:planner_model => planner, :method_name => :interruptible)
-	plan.permanent(planning_task)
+	plan.add_permanent(planning_task)
         planning_task.start!
         loop { sleep 0.1 ; break if started }
         planning_task.stop!
@@ -87,13 +87,13 @@ class TC_PlanningTask < Test::Unit::TestCase
 	planner = Class.new(Planning::Planner) do
 	    method(:test_task) do
 	       	result_task = SimpleTask.new(:id => arguments[:task_id])
-		result_task.realized_by replan_task(:task_id => arguments[:task_id] + 1)
-		plan.permanent(result_task)
+		result_task.depends_on replan_task(:task_id => arguments[:task_id] + 1)
+		plan.add_permanent(result_task)
 		result_task
 	    end
 	end.new(plan)
 
-	plan.permanent(task = planner.test_task(:task_id => 100))
+	plan.add_permanent(task = planner.test_task(:task_id => 100))
 	assert_kind_of(SimpleTask, task)
 	assert_equal(100, task.arguments[:id])
 
@@ -105,4 +105,24 @@ class TC_PlanningTask < Test::Unit::TestCase
 	assert_kind_of(SimpleTask, new_task, planning_task)
 	assert_equal(101, new_task.arguments[:id])
     end
+
+    def test_method_object
+	planner_model = Class.new(Planning::Planner)
+
+        FlexMock.use do |mock|
+            mock.should_receive(:method_called).with(:context => nil, :arg => 10).once
+
+            body = lambda do
+                mock.method_called(arguments)
+                Roby::Task.new(:id => 'result_of_lambda')
+            end
+            m = FreeMethod.new 'test_object', {:id => 10}, body
+            planning_task = PlanningTask.new(:planner_model => planner_model, :planning_method => m, :arg => 10)
+            plan.add_permanent(planning_task)
+            planning_task.start!
+            new_task = planning_task_result(planning_task)
+            assert_equal 'result_of_lambda', new_task.arguments[:id]
+        end
+    end
 end
+

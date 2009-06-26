@@ -25,7 +25,7 @@ module Roby
 			    result = yield
 			    if result
 				if compute_time
-				    result << Roby.control.cycle_start
+				    result << Roby.engine.cycle_start
 				end
 				new_sample = sample_type.new(*result)
 
@@ -43,7 +43,7 @@ module Roby
 			end
 
 			cv.wait(mt)
-			Roby::Control.remove_periodic_handler(id)
+			Roby.engine.remove_periodic_handler(id)
 		    end
 		end
 

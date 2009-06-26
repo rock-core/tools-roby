@@ -2,6 +2,7 @@ require 'Qt4'
 require 'roby/app'
 require 'optparse'
 
+require 'roby/log/event_stream'
 require 'roby/log/gui/replay_controls'
 require 'roby/log/gui/data_displays'
 
@@ -16,8 +17,12 @@ class OfflineStreamListModel < DataStreamListModel
 	newfiles = Qt::FileDialog.get_open_file_names nil, "New data stream", dir
 	return if newfiles.empty?
 	if !newfiles.empty?
-	    if newstream = Roby.app.data_stream(newfiles)
-		return newstream
+            newstreams = Roby.app.data_streams_of(newfiles)
+	    if !newstreams.empty?
+                newstreams.each do |s|
+                    s.open
+                end
+		return newstreams
 	    else
 		Qt::MessageBox.warning nil, "Add data stream", "Cannot determine data stream type for #{newfiles.join(", ")}"
 		return
@@ -49,6 +54,8 @@ class Replay < Qt::MainWindow
     attr_accessor :initial_time
     # A set of procs which are to be called to set up the display
     attr_accessor :initial_setup
+    # Set to true if we are playing some data right now
+    attr_predicate :running?, true
 
     def initialize
 	super()
@@ -135,9 +142,14 @@ class Replay < Qt::MainWindow
 	    @first_sample = @time = min
 	    @last_sample  = max
 
-	    ui_controls.progress.minimum = min.to_i
-	    ui_controls.progress.maximum = max.to_i
-	    ui_controls.update_bookmarks_menu
+            if min
+                ui_controls.progress.minimum = min.to_i
+                ui_controls.progress.maximum = max.to_i
+                ui_controls.update_bookmarks_menu
+            else
+                ui_controls.progress.minimum = 0
+                ui_controls.progress.maximum = 1
+            end
 	else
 	    play_until time, integrate
 	end
@@ -146,8 +158,13 @@ class Replay < Qt::MainWindow
     end
 
     def update_time_display
-	ui_controls.time_lcd.display(((self.time - first_sample) * 1000.0).round / 1000.0)
-	ui_controls.progress.value = self.time.to_i
+        if first_sample
+            ui_controls.time_lcd.display(((self.time - first_sample) * 1000.0).round / 1000.0)
+            ui_controls.progress.value = self.time.to_i
+        else
+            ui_controls.time_lcd.display(0)
+            ui_controls.progress.value = 0
+        end
     end
 
     attr_reader :time
@@ -169,6 +186,7 @@ class Replay < Qt::MainWindow
     end
 
     def stop
+        self.running = false
 	if play_timer
 	    ui_controls.play.checked = false
 	    play_timer.stop
@@ -186,8 +204,14 @@ class Replay < Qt::MainWindow
 	play_until(time + time_slice * play_speed)
     end
     slots 'play_step_timer()'
+
+    def play_next_nonempty
+        self.running = true
+        while running? && !play_step
+        end
+    end
     
-    def play_until(max_time, integrate = true)
+    def play_until(max_time, integrate = false)
 	start_at = Time.now
 	displayed_streams.inject(timeline = []) do |timeline, s| 
 	    if s.next_time
@@ -201,15 +225,24 @@ class Replay < Qt::MainWindow
 	    return
 	end
 
+        needs_display = Set.new
 	updated_streams = Set.new
 
 	timeline.sort_by { |t, _| t }
 	while !timeline.empty? && (timeline[0][0] - max_time) < 0.001
 	    @time, stream = timeline.first
 
-	    stream.advance
-	    stream.clear_integrated unless integrate
-	    updated_streams << stream
+            unless integrate
+                if stream.clear_integrated 
+                    needs_display << stream
+                end
+            end
+
+	    if stream.advance
+                needs_display << stream
+                updated_streams << stream
+            end
+
 	    if next_time = stream.next_time
 		timeline[0] = [next_time, stream]
 	    else
@@ -220,7 +253,7 @@ class Replay < Qt::MainWindow
 
 	replayed = Time.now
 
-	updated_streams.each do |stream|
+	needs_display.each do |stream|
 	    stream.display
 	end
 
@@ -239,6 +272,7 @@ class Replay < Qt::MainWindow
 	    end
 	end
 	update_time_display
+        !updated_streams.empty?
 
     rescue Exception => e
 	message = "<html>#{Qt.escape(e.message)}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"

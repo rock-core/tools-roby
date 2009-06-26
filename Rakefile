@@ -11,11 +11,14 @@ begin
 
             p.summary = 'A plan-based control framework for autonomous systems'
             p.url         = p.paragraphs_of('README.txt', 1).join("\n\n")
-            p.description = p.paragraphs_of('README.txt', 2..18).join("\n\n")
+            p.description = p.paragraphs_of('README.txt', 3..5).join("\n\n")
+            p.description +=
+"\n\nSee the README.txt file at http://roby.rubyforge.org for more
+informations, including links to tutorials and demonstration videos"
             p.changes     = p.paragraphs_of('History.txt', 0..1).join("\n\n")
             p.post_install_message = p.paragraphs_of('README.txt', 2).join("\n\n")
 
-            p.extra_deps << ['facets', '>= 2.0'] << 'activesupport' << ['utilrb', '1.2']
+            p.extra_deps << ['facets', '>= 2.0'] << 'activesupport' << ['utilrb', '>= 1.3.1']
             if p.respond_to? :need_rdoc=
                 p.need_rdoc = false
             end
@@ -31,7 +34,6 @@ begin
             
         hoe.spec.rdoc_options << 
             '--main' << 'README.txt' <<
-            "--inline-source" << 
             "--accessor" << "attribute" << 
             "--accessor" << "attr_predicate"
 
@@ -42,13 +44,13 @@ begin
 	    tasks.delete_if { |n, _| n =~ /dist:(re|clobber_|)docs/ }
 	end
     end
-rescue LoadError
-    puts "cannot load the Hoe gem, distribution is disabled"
+rescue
+    puts "cannot setup Hoe, distribution is disabled"
 end
 
 def build_extension(name, soname = name)
     Dir.chdir("ext/#{name}") do
-	extconf = "ruby extconf.rb"
+	extconf = "#{RUBY} extconf.rb"
 	extconf << " --with-boost-dir=#{ENV['BOOST_DIR']}" if ENV['BOOST_DIR']
 	if !system(extconf) || !system("make")
 	    raise "cannot set up #{name} extension"
@@ -64,7 +66,7 @@ def clean_extension(name, soname = name)
     end
 end
 
-task :cruise => [:setup, :recore_docs, :test]
+task :cruise => [:setup, 'doc:recore', :test]
 
 #########
 # Test-related targets
@@ -104,9 +106,14 @@ end
 UIFILES = %w{relations.ui relations_view.ui data_displays.ui replay_controls.ui basic_display.ui chronicle_view.ui}
 desc 'generate all Qt UI files using rbuic4'
 task :uic do
+    rbuic = 'rbuic4'
+    if File.exists?('/usr/lib/kde4/bin/rbuic4')
+        rbuic = '/usr/lib/kde4/bin/rbuic4'
+    end
+
     UIFILES.each do |file|
 	file = 'lib/roby/log/gui/' + file
-	if !system('rbuic4', '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
+	if !system(rbuic, '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
 	    STDERR.puts "Failed to generate #{file}"
 	end
     end
@@ -117,45 +124,5 @@ end
 #
 # This redefines Hoe's targets for documentation, as the documentation
 # generation is not flexible enough for us
-namespace 'doc' do
-    require 'roby/app/rake'
-    Rake::RDocTask.new("core") do |rdoc|
-      rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
-      rdoc.rdoc_dir = 'doc/rdoc/core'
-      rdoc.title    = "Roby Core"
-      rdoc.template = Roby::Rake.rdoc_template
-      rdoc.options << '--main' << 'README.txt'
-      rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
-      rdoc.rdoc_files.include('lib/**/*.rb', 'ext/**/*.cc')
-      rdoc.rdoc_files.include('doc/videos.rdoc', 'doc/papers.rdoc')
-      rdoc.rdoc_files.include('doc/tutorials/**/*')
-      rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
-    end
 
-    Rake::RDocTask.new("tutorials") do |rdoc|
-      rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
-      rdoc.rdoc_dir = 'doc/rdoc/tutorials'
-      rdoc.title    = "Roby Tutorials"
-      rdoc.template = Roby::Rake.rdoc_template
-      rdoc.options << '--main' << 'README.txt'
-      rdoc.rdoc_files.include('README.txt', 'TODO.txt', 'History.txt')
-      rdoc.rdoc_files.include('doc/videos.rdoc', 'doc/papers.rdoc')
-      rdoc.rdoc_files.include('doc/tutorials/**/*')
-    end
-
-    def plugins_documentation_generation(target_prefix)
-        task "plugins_#{target_prefix}docs" do
-            Roby::Rake.invoke_plugin_target("#{target_prefix}docs")
-        end
-    end
-    desc 'generate the documentation for all installed plugins'
-    plugins_documentation_generation ''
-    desc 'remove the documentation for all installed plugins'
-    plugins_documentation_generation 'clobber_'
-    desc 'regenerate the documentation for all installed plugins'
-    plugins_documentation_generation 're'
-end
-
-task 'docs' => ['doc:core', 'doc:plugins_docs']
-task 'clobber_docs' => ['doc:clobber_core', 'doc:plugins_clobber_docs']
-task 'redocs' => ['doc:recore', 'doc:replugins_docs']
+# This is for the user's guide

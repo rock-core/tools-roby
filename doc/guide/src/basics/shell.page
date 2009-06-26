@@ -1,0 +1,102 @@
+---
+title: Interactive Shell
+sort_info: 400
+--- pipeline:tags,markdown,blocks
+
+As we saw earlier, the execution of Roby applications is done by an _event
+loop_. The reactivity of the supervision system obviously depend on the
+non-interruption of that event loop. Therefore, in a Roby application, the user
+runs a remote shell that is used to send specific commands to the Roby
+application itself.
+
+{include_file: {filename: src/basics_shell_header.txt, escape_html: false}}
+
+Planners
+--------
+Right now, we saw two different places where code is stored:
+1. the tasks/ files, where task models are defined
+2. the controllers/ files, which is the startup code for the application
+
+What we will see in this section is a third component: the **planners**. These
+planners define the aggregate actions that the robot knows about. As we will see
+later, they also are the user interface of the robot.
+
+Exporting actions to the user's shell
+-------------------------------------
+
+Edit planners/goForward/main.rb and edit so that it looks like this:
+
+{coderay:: ruby}
+ require 'planners/main'
+ class MainPlanner
+   method(:move) do
+       GoForward.new :speed => arguments[:speed]
+   end
+ end
+{coderay}
+
+That exports a very simple action to the user's shell. Now, we can try out the
+Roby shell. First, remove the last three lines in controllers/goForward.rb so
+that it looks like this:
+
+{coderay:: ruby}
+ # Define the original value of x
+ State.pos.x = 0
+
+ # Will display the value of x every 1 second
+ Roby.every(1) do
+   puts State.pos.x
+ end
+{coderay}
+
+Now, start the roby application in one console:
+
+    $ scripts/run goForward
+    44848:44:51.498 (Roby) GC.enable does not accept an argument. GC will not be controlled by Roby
+    344848:44:51.581 (goForward) loaded Roby 0.7.90 on ruby 1.8.7 (2008-08-11 patchlevel 72) [powerpc-linux]
+    344848:44:51.603 (goForward) loading controller file /home/doudou/dev/roby-tutorials/controllers/goForward.rb
+    344848:44:51.605 (goForward) done initialization
+    0
+    0
+
+Finally, start the shell in another console:
+
+    $ scripts/shell
+    localhost:48902 >
+
+The new prompt you get is a Ruby prompt (i.e. you should type Ruby code in it).
+Some special commands are available to interact with the Roby controller. For
+instance:
+
+{coderay:: ruby}
+ > actions
+ => [move]
+{coderay}
+
+The 'action' command lists the available planning methods that are exported
+through the MainPlanner class. Let's try it (**notice the '!' at the end of
+move!**):
+
+{coderay:: ruby}
+ > task = move! :speed => 1
+ => GoForward{speed => 1}:0x48410aa8[]
+ > task.running?
+ => true
+ > task.stop!
+ => []
+ !task GoForward{speed => 1}:0x4850ddb0[] failed
+ !task GoForward{speed => 1}:0x4850ddb0[] stopped by user request
+ > task.running?
+ => false
+{coderay}
+
+The new task is running just after it has been added ! In Roby, a new task, when
+added in the main plan, becomes eligible for _scheduling_, i.e. a special
+component tries to find the best time to start it (which, in our case, is
+"now"). We'll see more about this later.
+{: .warning}
+
+You can see that the action method returns the task that the planning method has
+returned. Even though we are on a remote shell, the returned task object
+supports sending commands, checking its status, emitting events, ...
+

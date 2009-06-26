@@ -133,7 +133,7 @@ module Roby
 		end
 	    end
 
-	    def discover(objects) # :nodoc:
+	    def add(objects) # :nodoc:
 		if objects
 		    events, tasks = partition_event_task(objects)
 		    for object in (events || []) + (tasks || [])
@@ -360,8 +360,8 @@ module Roby
 			begin
 			    Distributed.transaction_handler[trsc] if Distributed.transaction_handler
 			rescue 
-			    Roby.warn "transaction handler for #{trsc} failed"
-			    Roby.warn $!.full_message
+			    Roby::Distributed.warn "transaction handler for #{trsc} failed"
+			    Roby::Distributed.warn $!.full_message
 			    trsc.invalidate("failed transaction handler")
 			end
 		    end

@@ -1,34 +1,50 @@
-require 'roby/task'
-require 'roby/relations/planned_by'
-require 'roby/control'
-require 'roby/transactions'
-
 module Roby
     # An asynchronous planning task using Ruby threads
     class PlanningTask < Roby::Task
 	attr_reader :planner, :transaction
 
-	arguments :planner_model, :method_name, 
-	    :method_options, :planned_model, 
-	    :planning_owners
+	arguments :planner_model, :method_options, :method_name, :planned_model, :planning_owners
+
+        def planning_method
+            arguments[:planning_method]
+        end
+
+        def self.validate_planning_options(options)
+            options = options.dup
+            if options[:method_name]
+                method_name = options[:planning_method] = options[:method_name]
+            elsif options[:planning_method].respond_to?(:to_str) || options[:planning_method].respond_to?(:to_sym)
+                method_name = options[:method_name] = options[:planning_method].to_s
+            end
+
+	    if !options[:planner_model]
+		raise ArgumentError, "missing required argument 'planner_model'"
+	    elsif !options[:planning_method]
+		raise ArgumentError, "missing required argument 'planning_method'"
+            elsif !method_name
+                if options[:planning_method].kind_of?(Roby::Planning::MethodDefinition)
+                    method_name = options[:method_name] = options[:planning_method].name
+                else
+                    raise ArgumentError, "the planning_method argument is neither a method object nor a name"
+                end
+	    end
+	    options[:planned_model] ||= nil
+	    options[:planning_owners] ||= nil
+            options
+        end
 
 	def self.filter_options(options)
 	    task_options, method_options = Kernel.filter_options options,
 		:planner_model => nil,
-		:method_name => nil,
+		:planning_method => nil,
 		:method_options => {},
+                :method_name => nil, # kept for backward compatibility
 		:planned_model => nil,
 		:planning_owners => nil
 
-	    if !task_options[:planner_model]
-		raise ArgumentError, "missing required argument 'planner_model'"
-	    elsif !task_options[:method_name]
-		raise ArgumentError, "missing required argument 'method_name'"
-	    end
-	    task_options[:planned_model] ||= nil
+            task_options = validate_planning_options(task_options)
 	    task_options[:method_options] ||= Hash.new
 	    task_options[:method_options].merge! method_options
-	    task_options[:planning_owners] ||= nil
 	    task_options
 	end
 
@@ -38,12 +54,18 @@ module Roby
         end
 
 	def planned_model
-	    arguments[:planned_model] ||= planner_model.model_of(method_name, method_options).returns || Roby::Task
+	    arguments[:planned_model] ||= if method_name
+                                              planner_model.model_of(method_name, method_options).returns
+                                          else
+                                              planning_method.returns
+                                          end
+
+            arguments[:planned_model] ||= Roby::Task
 	end
 
 
 	def to_s
-	    "#{super}[#{method_name}:#{method_options}] -> #{@planned_task || "nil"}"
+	    "#{super}[#{planning_method}:#{method_options}] -> #{@planned_task || "nil"}"
 	end
 
 	def planned_task
@@ -88,7 +110,11 @@ module Roby
         end
 
 	def planning_thread(context)
-	    result_task = planner.send(method_name, method_options.merge(:context => context))
+	    result_task = if planning_method.kind_of?(Roby::Planning::MethodDefinition)
+                              planner.send(:call_planning_methods, Hash.new, method_options.merge(:context => context), planning_method)
+                          else
+                              planner.send(method_name, method_options.merge(:context => context))
+                          end
 
 	    # Don't replace the planning task with ourselves if the
 	    # transaction specifies another planning task
@@ -118,7 +144,7 @@ module Roby
 
 	    # Check if the transaction has been committed. If it is not the
 	    # case, assume that the thread failed
-	    if transaction.freezed?
+	    if transaction.committed?
 		emit :success
 	    else
 		error = begin
@@ -145,6 +171,7 @@ module Roby
 	class TransactionProxy < Roby::Transactions::Task
 	    proxy_for PlanningTask
 	    def_delegator :@__getobj__, :planner
+	    def_delegator :@__getobj__, :planning_method
 	    def_delegator :@__getobj__, :method_name
 	    def_delegator :@__getobj__, :method_options
 	end

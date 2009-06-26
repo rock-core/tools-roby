@@ -1,14 +1,9 @@
-rdoc_base_dir = Dir.pwd
 if ENV['ROBY_ROOT_DIR']
     $LOAD_PATH << File.join(ENV['ROBY_ROOT_DIR'], 'lib')
-    rdoc_base_dir = ENV['ROBY_ROOT_DIR']
 end
-require 'rake/rdoctask'
-require 'roby/app/rake'
+require 'roby/app/plugins/rake'
 
-Rake::RDocTask.new("docs") do |rdoc|
-  rdoc.options << "--inline-source" << "--accessor" << "attribute" << "--accessor" << "attr_predicate"
-  rdoc.rdoc_dir = "#{rdoc_base_dir}/doc/rdoc/plugins/subsystems"
+Roby::Rake.plugin_doc("subsystems") do |rdoc|
   rdoc.title    = "Subsystems plugin for Roby"
   rdoc.template = Roby::Rake.rdoc_template
   rdoc.options << '--main' << 'README.txt'

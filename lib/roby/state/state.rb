@@ -222,8 +222,23 @@ module Roby
         # and aliases.
         alias :has_method? :respond_to?
 
-        def respond_to?(name, include_private = false) # :nodoc:
-            return true if super
+        if RUBY_VERSION >= "1.8.7"
+            def respond_to?(name, include_private = false) # :nodoc:
+                return true  if super
+                return __respond_to__(name)
+            end
+        else
+            def respond_to?(name) # :nodoc:
+                return true  if super
+                return __respond_to__(name)
+            end
+        end
+
+
+        # 1.8.7's #respond_to? takes two arguments, 1.8.6 only one. This is the
+        # common implementation for both version. #respond_to? is adapted (see
+        # above)
+        def __respond_to__(name) # :nodoc:
             name = name.to_s
             return false if name =~ FORBIDDEN_NAMES_RX
 

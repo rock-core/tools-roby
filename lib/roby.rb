@@ -3,9 +3,12 @@
 # [Roby] core namespace for the Roby kernel
 # [Roby::Distributed] parts that are very specific to distributed plan management
 # [Roby::Planning] basic tools for plan generation
-# [Roby::Transactions] implementation of transactions
-# [Roby::EventStructure] event relations
-# [Roby::TaskStructure] task relations
+# [Roby::Transactions] implementation of transactions. Transactions represent a
+# change in the main plan, and can be distributed among different plan managers.
+# [Roby::EventStructure] main namespace for event relations. The methods listed
+# in the documentation of EventStructure are actually methods of Roby::EventGenerator
+# [Roby::TaskStructure] main namespace for task relations. The methods listed in
+# the documentation of TaskStructure are actually methods of Roby::Task
 module Roby
     class BasicObject; end
     class PlanObject < BasicObject; end
@@ -16,6 +19,7 @@ module Roby
 end
 
 require 'drb'
+require 'utilrb/weakref'
 require 'pp'
 require 'thread'
 require 'set'
@@ -60,13 +64,11 @@ require 'roby/task_index.rb'
 require 'roby/plan.rb'
 require 'roby/transactions/proxy.rb'
 require 'roby/transactions.rb'
-require 'roby/transactions/updates.rb'
 require 'roby/query.rb'
 
 require 'roby/distributed/base'
-require 'roby/control.rb'
 require 'roby/decision_control.rb'
-require 'roby/propagation.rb'
+require 'roby/execution_engine.rb'
 require 'roby/app.rb'
 
 require 'roby/robot.rb'

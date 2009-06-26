@@ -1,4 +1,4 @@
-$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/planning'
 
@@ -34,7 +34,8 @@ class TC_PlanningLoop < Test::Unit::TestCase
 	    :planning_owners => nil,
 	    :planner_model => planner_model, 
 	    :planned_model => SimpleTask, 
-	    :method_name => :task, 
+	    :planning_method => "task", 
+	    :method_name => 'task', 
 	    :method_options => {} }
     end
 
@@ -45,7 +46,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
 
     # Prepare the default plan for all planning loop tests
     def prepare_plan(loop_options = {})
-	plan.insert(main_task = Roby::Task.new)
+	plan.add_mission(main_task = Roby::Task.new)
 	loop_task_options = planning_task_options.merge(loop_options)
 	loop_planner = PlanningLoop.new(loop_task_options)
 	main_task.planned_by loop_planner
@@ -317,7 +318,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
     #        end
     #    end
 
-    #    plan.insert(main_task = Roby::Task.new)
+    #    plan.add_mission(main_task = Roby::Task.new)
     #    loop_planner = PlanningLoop.new :period => nil, :lookahead => 0, 
     #        :planner_model => planner_model, :planned_model => Roby::Task, 
     #        :method_name => :task, :method_options => {}	
@@ -348,47 +349,49 @@ class TC_PlanningLoop < Test::Unit::TestCase
     #    end
     #end
 
-    #def test_make_loop
-    #    planner_model = Class.new(Planning::Planner) do
-    #        include Test::Unit::Assertions
+    def test_make_loop
+        planner_model = Class.new(Planning::Planner) do
+            include Test::Unit::Assertions
 
-    #        @result_task = nil
-    #        attr_reader :result_task
-    #        method(:task) {  @result_task = SimpleTask.new(:id => arguments[:task_id])}
-    #        method(:looping_tasks) do
-    #    	t1 = make_loop(:period => 0, :child_argument => 2) do
-    #    	    # arguments of 'my_looping_task' shall be forwarded
-    #    	    raise unless arguments[:parent_argument] == 1
-    #    	    raise unless arguments[:child_argument] == 2
-    #    	    task(:task_id => 'first_loop')
-    #    	end
-    #    	t2 = make_loop do
-    #    	    task(:task_id => 'second_loop')
-    #    	end
-    #    	# Make sure the two loops are different
-    #    	assert(t1.method_options[:id] != t2.method_options[:id])
-    #    	[t1, t2]
-    #        end
-    #    end
+            @result_task = nil
+            attr_reader :result_task
+            method(:task) {  @result_task = SimpleTask.new(:id => arguments[:task_id])}
+            method(:looping_tasks) do
+        	t1 = make_loop(:period => 0, :child_argument => 2) do
+        	    # arguments of 'my_looping_task' shall be forwarded
+        	    raise unless arguments[:parent_argument] == 1
+        	    raise unless arguments[:child_argument] == 2
+        	    task(:task_id => 'first_loop')
+        	end
+        	t2 = make_loop do
+        	    task(:task_id => 'second_loop')
+        	end
+        	# Make sure the two loops are different
+        	assert(t1.method_options[:id] != t2.method_options[:id])
+        	[t1, t2]
+            end
+        end
 
-    #    planner = planner_model.new(plan)
-    #    t1, t2 = planner.looping_tasks(:parent_argument => 1)
-    #    plan.insert(t1)
-    #    plan.insert(t2)
+        planner = planner_model.new(plan)
+        t1, t2 = planner.looping_tasks(:parent_argument => 1)
+        assert(t1.fully_instanciated?, t1.arguments.keys - t1.class.arguments.to_a)
+        assert(t2.fully_instanciated?)
+        plan.add_mission(t1)
+        plan.add_mission(t2)
 
-    #    t1.start!
-    #    planned_task = planning_task_result(t1.last_planning_task)
-    #    assert_equal('first_loop', planned_task.arguments[:id])
+        t1.start!
+        planned_task = planning_task_result(t1.last_planning_task)
+        assert_equal('first_loop', planned_task.arguments[:id])
 
-    #    t2.start!
-    #    planned_task = planning_task_result(t2.last_planning_task)
-    #    assert_equal('second_loop', planned_task.arguments[:id])
+        t2.start!
+        planned_task = planning_task_result(t2.last_planning_task)
+        assert_equal('second_loop', planned_task.arguments[:id])
 
-    #    t3 = planner.make_loop(:period => 0, :parent_argument => 1, :child_argument => 2) do
-    #        task(:task_id => 'third_loop')
-    #    end
-    #    plan.insert(t3)
-    #    t3.start!
-    #    assert_equal('third_loop', planning_task_result(t3.last_planning_task).arguments[:id])
-    #end
+        t3 = planner.make_loop(:period => 0, :parent_argument => 1, :child_argument => 2) do
+            task(:task_id => 'third_loop')
+        end
+        plan.add_mission(t3)
+        t3.start!
+        assert_equal('third_loop', planning_task_result(t3.last_planning_task).arguments[:id])
+    end
 end

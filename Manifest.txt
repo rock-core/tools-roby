@@ -31,6 +31,7 @@ app/tasks/ROBOT/.gitattributes
 bin/roby
 bin/roby-log
 bin/roby-shell
+doc/extending/index.rdoc
 doc/images/event_generalization.png
 doc/images/exception_propagation_1.png
 doc/images/exception_propagation_2.png
@@ -60,6 +61,9 @@ doc/tutorials/03-PlannedPath.rdoc
 doc/tutorials/04-EventPropagation.rdoc
 doc/tutorials/05-ErrorHandling.rdoc
 doc/tutorials/06-Overview.rdoc
+doc/using/index.rdoc
+doc/using/overview.rdoc
+doc/using/plan_modifications.rdoc
 doc/videos.rdoc
 ext/droby/dump.cc
 ext/droby/extconf.rb
@@ -84,7 +88,6 @@ lib/roby/app/scripts/shell.rb
 lib/roby/app/scripts/test.rb
 lib/roby/basic_object.rb
 lib/roby/config.rb
-lib/roby/control.rb
 lib/roby/decision_control.rb
 lib/roby/distributed.rb
 lib/roby/distributed/base.rb
@@ -100,7 +103,7 @@ lib/roby/distributed/subscription.rb
 lib/roby/distributed/transaction.rb
 lib/roby/event.rb
 lib/roby/exceptions.rb
-lib/roby/executives/simple.rb
+lib/roby/execution_engine.rb
 lib/roby/graph.rb
 lib/roby/interface.rb
 lib/roby/log.rb
@@ -145,7 +148,6 @@ lib/roby/planning.rb
 lib/roby/planning/loops.rb
 lib/roby/planning/model.rb
 lib/roby/planning/task.rb
-lib/roby/propagation.rb
 lib/roby/query.rb
 lib/roby/relations.rb
 lib/roby/relations/conflicts.rb
@@ -157,6 +159,7 @@ lib/roby/relations/hierarchy.rb
 lib/roby/relations/influence.rb
 lib/roby/relations/planned_by.rb
 lib/roby/robot.rb
+lib/roby/schedulers/basic.rb
 lib/roby/standard_errors.rb
 lib/roby/state.rb
 lib/roby/state/events.rb
@@ -167,6 +170,7 @@ lib/roby/state/state.rb
 lib/roby/support.rb
 lib/roby/task-operations.rb
 lib/roby/task.rb
+lib/roby/task_index.rb
 lib/roby/test/common.rb
 lib/roby/test/distributed.rb
 lib/roby/test/tasks/empty_task.rb
@@ -177,7 +181,6 @@ lib/roby/test/tools.rb
 lib/roby/thread_task.rb
 lib/roby/transactions.rb
 lib/roby/transactions/proxy.rb
-lib/roby/transactions/updates.rb
 plugins/fault_injection/History.txt
 plugins/fault_injection/README.txt
 plugins/fault_injection/Rakefile
@@ -226,14 +229,14 @@ test/suite_distributed.rb
 test/suite_planning.rb
 test/suite_relations.rb
 test/test_bgl.rb
-test/test_control.rb
 test/test_event.rb
 test/test_exceptions.rb
+test/test_execution_engine.rb
+test/test_gui.rb
 test/test_interface.rb
 test/test_log.rb
 test/test_log_server.rb
 test/test_plan.rb
-test/test_propagation.rb
 test/test_query.rb
 test/test_relations.rb
 test/test_state.rb

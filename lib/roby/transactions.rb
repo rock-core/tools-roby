@@ -10,7 +10,8 @@ module Roby
 	
 	# A transaction is not an executable plan
 	def executable?; false end
-	def freezed?; @freezed end
+        attr_predicate :freezed
+        attr_predicate :committed
 
 	def do_wrap(object, do_include = false) # :nodoc:
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
@@ -18,7 +19,7 @@ module Roby
 	    proxy = proxy_objects[object] = Proxy.proxy_class(object).new(object, self)
 	    if do_include && object.root_object?
 		proxy.plan = self
-		discover(proxy)
+		add(proxy)
 	    end
 
 	    copy_object_relations(object, proxy)
@@ -61,14 +62,14 @@ module Roby
 		if create
 		    if !object.plan
 			object.plan = self
-			discover(object)
+			add(object)
 			return object
 		    elsif object.plan == self.plan
 			wrapped = do_wrap(object, true)
 			if plan.mission?(object)
-			    insert(wrapped)
+			    add_mission(wrapped)
 			elsif plan.permanent?(object)
-			    permanent(wrapped)
+			    add_permanent(wrapped)
 			end
 			return wrapped
 		    else
@@ -128,7 +129,7 @@ module Roby
 		end
 	    end
 
-	    discovered_objects.delete(proxy)
+	    added_objects.delete(proxy)
 	    proxy.discovered_relations.delete(relation)
 	    proxy.do_discover(relation, false)
 	end
@@ -181,32 +182,19 @@ module Roby
 	attr_reader :plan
 	# The proxy objects built for this transaction
 	attr_reader :proxy_objects
-
-	attr_reader :conflict_solver
+        # The option hash given at initialization
 	attr_reader :options
 
-	def conflict_solver=(value)
-	    @conflict_solver = case value
-			       when :update
-				   SolverUpdateRelations
-			       when :invalidate
-				   SolverInvalidateTransaction
-			       when :ignore
-				   SolverIgnoreUpdate.new
-			       else value
-			       end
-	end
+        # The decision control object associated with this transaction. It is
+        # in general plan.control
+        def control; plan.control end
 
 	# Creates a new transaction which applies on +plan+
 	def initialize(plan, options = {})
-	    options = validate_options options, 
-		:conflict_solver => :invalidate
-
 	    @options = options
-	    self.conflict_solver = options[:conflict_solver]
 	    super()
 
-	    @plan = plan
+	    @plan   = plan
 
 	    @proxy_objects      = Hash.new
 	    @removed_objects    = ValueSet.new
@@ -218,6 +206,15 @@ module Roby
 		plan.added_transaction(self)
 	    end
 	end
+
+        # Calls the given block in the execution thread of the engine of the
+        # underlying plan. If there is no engine attached to this plan, yields
+        # immediately.
+        #
+        # See Plan#execute and ExecutionEngine#execute
+        def execute(&block)
+            plan.execute(&block)
+        end
 
 	def discover_neighborhood(object)
 	    self[object]
@@ -239,27 +236,27 @@ module Roby
 	    super(self[from], self[to])
 	end
 
-	def insert(t)
+	def add_mission(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if proxy = self[t, false]
 		discarded_tasks.delete(may_unwrap(proxy))
 	    end
 	    super(self[t, true]) 
 	end
-	def permanent(t)
+	def add_permanent(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if proxy = self[t, false]
 		auto_tasks.delete(may_unwrap(proxy))
 	    end
 	    super(self[t, true]) 
 	end
-	def discover(objects)
+	def add(objects)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    super(self[objects, true])
 	    self
 	end
 
-	def auto(t)
+	def unmark_permanent(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if proxy = self[t, false]
 		super(proxy)
@@ -271,7 +268,7 @@ module Roby
 	    end
 	end
 
-	def discard(t)
+	def unmark_mission(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if proxy = self[t, false]
 		super(proxy)
@@ -323,9 +320,9 @@ module Roby
 	    check_valid_transaction
 	    freezed!
 
-	    Roby.execute do
-		auto_tasks.each      { |t| plan.auto(t) }
-		discarded_tasks.each { |t| plan.discard(t) }
+	    plan.execute do
+		auto_tasks.each      { |t| plan.unmark_permanent(t) }
+		discarded_tasks.each { |t| plan.unmark_mission(t) }
 		removed_objects.each do |obj| 
 		    plan.remove_object(obj) if plan.include?(obj)
 		end
@@ -370,14 +367,14 @@ module Roby
 		    discover_events << unwrapped
 		end
 
-		new_tasks = plan.discover_task_set(discover_tasks)
+		new_tasks = plan.add_task_set(discover_tasks)
 		new_tasks.each do |task|
 		    if task.respond_to?(:commit_transaction)
 			task.commit_transaction
 		    end
 		end
 
-		new_events = plan.discover_event_set(discover_events)
+		new_events = plan.add_event_set(discover_events)
 		new_events.each do |event|
 		    if event.respond_to?(:commit_transaction)
 			event.commit_transaction
@@ -389,8 +386,8 @@ module Roby
 		proxy_objects.each_value { |proxy| proxy.commit_transaction }
 		proxy_objects.each_value { |proxy| proxy.clear_relations  }
 
-		insert.each    { |t| plan.insert(t) }
-		permanent.each { |t| plan.permanent(t) }
+		insert.each    { |t| plan.add_mission(t) }
+		permanent.each { |t| plan.add_permanent(t) }
 
 		proxies     = proxy_objects.dup
 		clear
@@ -400,6 +397,7 @@ module Roby
 		    Kernel.swap! proxy, forwarder
 		end
 
+                @committed = true
 		committed_transaction
 		plan.remove_transaction(self)
 		@plan = nil
@@ -437,7 +435,7 @@ module Roby
 	    clear
 
 	    discarded_transaction
-	    Roby.execute do
+	    plan.execute do
 		plan.remove_transaction(self)
 	    end
 	    @plan = nil
@@ -454,6 +452,38 @@ module Roby
 	    proxy_objects.each_value { |proxy| proxy.clear_relations }
 	    proxy_objects.clear
 	    super
+	end
+
+	def finalized_plan_task(task)
+	    invalidate("task #{task} has been removed from the plan")
+            discard_modifications(task)
+	    control.finalized_plan_task(self, task)
+	end
+
+	def finalized_plan_event(event)
+	    invalidate("event #{event} has been removed from the plan")
+            discard_modifications(event)
+	    control.finalized_plan_event(self, event)
+	end
+
+	def adding_plan_relation(parent, child, relations, info)
+	    missing_relations = relations.find_all do |rel|
+		!parent.child_object?(child, rel)
+	    end
+	    unless missing_relations.empty?
+		invalidate("plan added a relation #{parent} -> #{child} in #{relations} with info #{info}")
+		control.adding_plan_relation(self, parent, child, relations, info)
+	    end
+	end
+
+	def removing_plan_relation(parent, child, relations)
+	    present_relations = relations.find_all do |rel|
+		parent.child_object?(child, rel)
+	    end
+	    unless present_relations.empty?
+		invalidate("plan removed a relation #{parent} -> #{child} in #{relations}")
+		control.removing_plan_relation(self, parent, child, relations)
+	    end
 	end
     end
 end

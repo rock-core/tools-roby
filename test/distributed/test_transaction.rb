@@ -1,4 +1,4 @@
-$LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
+$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'roby/test/tasks/simple_task'
 
@@ -39,7 +39,6 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 		    assert_equal([peer, Roby::Distributed], trsc.owners)
 		    assert(!trsc.first_editor?)
 		    assert(!trsc.editor?)
-		    assert(trsc.conflict_solver.kind_of?(Roby::SolverIgnoreUpdate))
 
 		    assert(trsc.subscribed?)
 		    assert(trsc.update_on?(peer))
@@ -48,7 +47,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 		end
 	    end
 	end
-	trsc = Distributed::Transaction.new(plan, :conflict_solver => SolverIgnoreUpdate.new)
+	trsc = Distributed::Transaction.new(plan)
 	assert(trsc.self_owned?)
 	assert(trsc.first_editor?)
 	assert(trsc.editor?)
@@ -84,7 +83,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	# Check that marshalling the remote view of a local transaction proxy
 	# returns the local proxy itself
-	plan.insert(task = Task.new)
+	plan.add_mission(task = Task.new)
 	assert(!plan.update_on?(remote_peer))
 	assert(trsc.update_on?(remote_peer))
 	assert(!task.update_on?(remote_peer))
@@ -99,7 +98,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert_equal(proxy, remote_peer.local_object(marshalled_remote))
     end
 
-    # Checks that if we discover a set of tasks, then their relations are updated as well
+    # Checks that if we add a set of tasks, then their relations are updated as well
     def test_discover
 	peer2peer do |remote|
 	    def remote.add_tasks(trsc)
@@ -107,12 +106,12 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 		trsc.edit do
 		    t1 = SimpleTask.new :id => 'root'
-		    t1.realized_by(t2 = SimpleTask.new(:id => 'child'))
-		    t1.on(:start, t2, :start)
-		    t2.realized_by(t3 = SimpleTask.new(:id => 'grandchild'))
-		    t3.on(:failed, t2, :failed)
+		    t1.depends_on(t2 = SimpleTask.new(:id => 'child'))
+		    t1.signals(:start, t2, :start)
+		    t2.depends_on(t3 = SimpleTask.new(:id => 'grandchild'))
+		    t3.signals(:failed, t2, :failed)
 
-		    trsc.insert(t1)
+		    trsc.add_mission(t1)
 		end
 	    end
 	end
@@ -176,7 +175,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
     def test_ownership
 	peer2peer do |remote|
-	    remote.plan.insert(Task.new(:id => 1))
+	    remote.plan.add_mission(Task.new(:id => 1))
 	    def remote.add_owner_local(trsc)
 		trsc = local_peer.local_object(trsc)
 		trsc.add_owner local_peer
@@ -207,24 +206,24 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.self_owned = false
 
 	task = Task.new
-	assert_raises(OwnershipError) { t_task.realized_by task }
-	assert_raises(OwnershipError) { task.realized_by t_task }
-	assert_raises(OwnershipError) { task.event(:start).on t_task.event(:start) }
+	assert_raises(OwnershipError) { t_task.depends_on task }
+	assert_raises(OwnershipError) { task.depends_on t_task }
+	assert_raises(OwnershipError) { task.event(:start).signals t_task.event(:start) }
 	assert_raises(OwnershipError) { trsc.discard_transaction }
 	assert_raises(OwnershipError) { trsc.commit_transaction }
 	assert(! task.plan)
-	assert_nothing_raised { t_task.event(:start).on task.event(:start) }
+	t_task.signals(:start, task, :start)
 
 	remote.add_owner_local(Distributed.format(trsc))
 
-	assert_nothing_raised { t_task.realized_by task }
-	assert_nothing_raised { t_task.remove_child task }
-	assert_nothing_raised { t_task.event(:start).remove_signal task.event(:start) }
-	assert_nothing_raised { task.realized_by t_task }
-	assert_nothing_raised { task.event(:start).on t_task.event(:start) }
+	t_task.depends_on task
+	t_task.remove_child task
+	t_task.event(:start).remove_signal task.event(:start)
+	task.depends_on t_task
+	task.signals(:start, t_task, :start)
 	assert_raises(OwnershipError) { trsc.remove_owner remote_peer }
 	assert_raises(OwnershipError) { trsc.self_owned = false }
-	assert_nothing_raised { trsc.discard_transaction }
+	trsc.discard_transaction
     end
 
     def test_executed_by
@@ -234,7 +233,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 		event :ready, :command => true
 	    end.new(:id => 'exec')
 	    task.executed_by exec
-	    remote.plan.insert(task)
+	    remote.plan.add_mission(task)
 
 	    remote.singleton_class.class_eval do
 		include Test::Unit::Assertions
@@ -270,7 +269,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
     def test_argument_updates
 	peer2peer do |remote|
-	    remote.plan.insert(ArgumentUpdateTest.new(:id => 2))
+	    remote.plan.add_mission(ArgumentUpdateTest.new(:id => 2))
 	    def remote.set_argument(task)
 		task = local_peer.local_object(task)
 		task.plan.edit
@@ -303,7 +302,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 
 	# Now, add a task of our own and link the remote and the local
 	task = SimpleTask.new :id => 'local'
-	trsc.discover(task)
+	trsc.add(task)
 
 	parent = subscribe_task(:id => 'remote-1')
 	child  = subscribe_task(:id => 'remote-2')
@@ -318,10 +317,10 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	assert(task.event(:stop).read_write?)
 
 	# Add relations
-	trsc[parent].realized_by task
-	task.realized_by trsc[child]
-	trsc[parent].event(:start).on task.event(:start)
-	task.event(:stop).on trsc[child].event(:stop)
+	trsc[parent].depends_on task
+	task.depends_on trsc[child]
+	trsc[parent].event(:start).signals task.event(:start)
+	task.event(:stop).signals trsc[child].event(:stop)
 
 	[task, parent]
     end
@@ -352,8 +351,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     def test_propose_commit
 	peer2peer do |remote|
 	    testcase = self
-	    remote.plan.insert(root = SimpleTask.new(:id => 'remote-1'))
-	    root.realized_by(child = SimpleTask.new(:id => 'remote-2'))
+	    remote.plan.add_mission(root = SimpleTask.new(:id => 'remote-1'))
+	    root.depends_on(child = SimpleTask.new(:id => 'remote-2'))
 
 	    PeerServer.class_eval do
 		include Test::Unit::Assertions
@@ -384,8 +383,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     def test_synchronization
 	peer2peer do |remote|
 	    testcase = self
-	    remote.plan.insert(root = SimpleTask.new(:id => 'remote-1'))
-	    root.realized_by SimpleTask.new(:id => 'remote-2')
+	    remote.plan.add_mission(root = SimpleTask.new(:id => 'remote-1'))
+	    root.depends_on SimpleTask.new(:id => 'remote-2')
 
 	    PeerServer.class_eval do
 		define_method(:check_transaction) do |trsc|
@@ -411,6 +410,10 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	check_transaction_commit(trsc)
     end
 
+    class RemoteTaskModel < SimpleTask
+        argument :arg
+    end
+
     def test_create_remote_tasks
 	peer2peer do |remote|
 	    def remote.arguments_of(t)
@@ -434,12 +437,12 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.propose(remote_peer)
 
 	local_task = SimpleTask.new(:id => 'local')
-	trsc.insert(local_task)
+	trsc.add_mission(local_task)
 
-	t = SimpleTask.new(:arg => 10, :id => 0)
+	t = RemoteTaskModel.new(:arg => 10, :id => 0)
 	t.extend DistributedObject
-	local_task.realized_by t
-	trsc.insert(t)
+	local_task.depends_on t
+	trsc.add_mission(t)
 	t.owner = remote_peer
 
 	assert(trsc.task_index.by_owner[remote_peer].include?(t))

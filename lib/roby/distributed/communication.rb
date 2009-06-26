@@ -46,11 +46,11 @@ module Roby
 
 	    # Connect to +neighbour+ and return the corresponding peer. It is a
 	    # blocking method, so it is an error to call it from within the control thread
-	    def self.connect(neighbour)
+	    def self.connect(neighbour, connection_space = Distributed.state)
 		Roby.condition_variable(true) do |cv, mutex|
 		    peer = nil
 		    mutex.synchronize do
-			thread = initiate_connection(Distributed.state, neighbour) do |peer|
+			thread = initiate_connection(connection_space, neighbour) do |peer|
 			    return peer unless thread
 			end
 
@@ -339,7 +339,7 @@ module Roby
 		    socket.close unless socket.closed?
 		end
 
-		Roby.once do
+		engine.once do
 		    task.emit(event)
 		end
 	    end
@@ -560,7 +560,7 @@ module Roby
 		    return yield
 		end
 
-		Roby.execute do
+		peer.engine.execute do
 		    error = nil
 		    begin
 			result = yield
@@ -598,7 +598,7 @@ module Roby
 	    def check_marshallable(object, stack = ValueSet.new)
 		if !object.kind_of?(DRbObject) && object.respond_to?(:each) && !object.kind_of?(String)
 		    if stack.include?(object)
-			Roby.warn "recursive marshalling of #{obj}"
+			Roby::Distributed.warn "recursive marshalling of #{obj}"
 			raise "recursive marshalling"
 		    end
 
@@ -729,7 +729,7 @@ module Roby
             # called in the communication thread when the call succeeds, with
             # the returned value as argument.
 	    def transmit(m, *args, &block)
-		is_callback = Roby.inside_control? && local_server.processing?
+		is_callback = engine.inside_control? && local_server.processing?
 		if is_callback && local_server.processing_callback?
 		    raise RecursiveCallbacksError, "cannot queue callback #{m}(#{args.join(", ")}) while serving one"
 		end
@@ -749,8 +749,8 @@ module Roby
 	    # Note that it is forbidden to use this method in control or
 	    # communication threads, as it would make the application deadlock
 	    def call(m, *args, &block)
-		if !Roby.outside_control? || Roby.taken_global_lock?
-		    raise "cannot use Peer#call in control thread or while taking the Roby::Control mutex"
+		if !engine.outside_control? || Roby.taken_global_lock?
+		    raise "cannot use Peer#call in control thread or while taking the Roby global lock"
 		end
 
 		result = nil

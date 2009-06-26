@@ -1,4 +1,4 @@
-$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/test/tasks/simple_task'
 
@@ -15,73 +15,42 @@ class TC_RealizedBy < Test::Unit::TestCase
 	    argument :id
 	    include tag
 	end
-
-        assert(klass.ancestors.find { |m| m == Roby::TaskStructure::Hierarchy.support })
-	plan.discover(t1 = SimpleTask.new)
-        assert(t1.respond_to?(:realized_by))
+	plan.add(t1 = SimpleTask.new)
 
 	# Check validation of the model
 	child = nil
-	assert_nothing_raised { t1.realized_by((child = klass.new), :model => SimpleTask) }
-
-	assert_same(Hierarchy.interesting_events, EventGenerator.event_gathering[child.event(:success)].find { true })
-	assert_same(Hierarchy.interesting_events, EventGenerator.event_gathering[child.event(:failed)].find { true })
+	assert_nothing_raised { t1.depends_on((child = klass.new), :model => SimpleTask) }
 	assert_equal([SimpleTask, {}], t1[child, Hierarchy][:model])
 
-	assert_nothing_raised { t1.realized_by klass.new, :model => [Roby::Task, {}] }
-	assert_nothing_raised { t1.realized_by klass.new, :model => tag }
+	assert_nothing_raised { t1.depends_on klass.new, :model => [Roby::Task, {}] }
+	assert_nothing_raised { t1.depends_on klass.new, :model => tag }
 
-	plan.discover(simple_task = SimpleTask.new)
-	assert_raises(ArgumentError) { t1.realized_by simple_task, :model => [Class.new(Roby::Task), {}] }
-	assert_raises(ArgumentError) { t1.realized_by simple_task, :model => TaskModelTag.new }
+	plan.add(simple_task = SimpleTask.new)
+	assert_raises(ArgumentError) { t1.depends_on simple_task, :model => [Class.new(Roby::Task), {}] }
+	assert_raises(ArgumentError) { t1.depends_on simple_task, :model => TaskModelTag.new }
 	
 	# Check validation of the arguments
-	plan.discover(model_task = klass.new)
-	assert_raises(ArgumentError) { t1.realized_by model_task, :model => [SimpleTask, {:id => 'bad'}] }
+	plan.add(model_task = klass.new)
+	assert_raises(ArgumentError) { t1.depends_on model_task, :model => [SimpleTask, {:id => 'bad'}] }
 
-	plan.discover(child = klass.new(:id => 'good'))
-	assert_raises(ArgumentError) { t1.realized_by child, :model => [klass, {:id => 'bad'}] }
-	assert_nothing_raised { t1.realized_by child, :model => [klass, {:id => 'good'}] }
+	plan.add(child = klass.new(:id => 'good'))
+	assert_raises(ArgumentError) { t1.depends_on child, :model => [klass, {:id => 'bad'}] }
+	assert_nothing_raised { t1.depends_on child, :model => [klass, {:id => 'good'}] }
 	assert_equal([klass, { :id => 'good' }], t1[child, TaskStructure::Hierarchy][:model])
 
 	# Check edge annotation
 	t2 = SimpleTask.new
-	t1.realized_by t2, :model => SimpleTask
+	t1.depends_on t2, :model => SimpleTask
 	assert_equal([SimpleTask, {}], t1[t2, TaskStructure::Hierarchy][:model])
 	t2 = klass.new(:id => 10)
-	t1.realized_by t2, :model => [klass, { :id => 10 }]
+	t1.depends_on t2, :model => [klass, { :id => 10 }]
     end
 
     Hierarchy = TaskStructure::Hierarchy
 
-    def assert_children_failed(children, plan)
-	result = plan.check_structure
-	assert_equal(children.to_set, result.map { |e, _| e.exception.failed_task }.to_set)
-    end
-
-    def test_failure_point
-	model = Class.new(SimpleTask) do
-	    event :specialized_failure, :command => true
-	    forward :specialized_failure => :failed
-	end
-	parent, child = prepare_plan :discover => 1, :tasks => 1, :model => model
-	parent.realized_by child
-
-	parent.start!
-	child.start!
-	child.specialized_failure!
-
-	error = plan.check_structure.find { true }[0].exception
-	assert_kind_of(ChildFailedError, error)
-	assert_equal(child.event(:specialized_failure).last, error.failure_point)
-	assert_equal(child.event(:specialized_failure).last, error.failed_event)
-
-	parent.stop!
-    end
-
     def test_exception_printing
-        parent, child = prepare_plan :discover => 2, :model => SimpleTask
-        parent.realized_by child
+        parent, child = prepare_plan :add => 2, :model => SimpleTask
+        parent.depends_on child
         parent.start!
         child.start!
         child.failed!
@@ -95,7 +64,14 @@ class TC_RealizedBy < Test::Unit::TestCase
         parent.stop!
     end
 
-    def test_check_structure
+    # This method is a common method used in the various error/nominal tests
+    # below. It creates two tasks:
+    #  p1 which is an instance of SimpleTask
+    #  child which is an instance of a task model with two controllable events
+    #  'first' and 'second'
+    #
+    # p1 is a parent of child. Both tasks are started and returned.
+    def create_pair(options)
 	child_model = Class.new(SimpleTask) do
 	    event :first, :command => true
 	    event :second, :command => true
@@ -103,37 +79,74 @@ class TC_RealizedBy < Test::Unit::TestCase
 
 	p1 = SimpleTask.new
 	child = child_model.new
-	plan.discover([p1, child])
-	p1.realized_by child
-	plan.insert(p1)
+	plan.add([p1, child])
+	p1.depends_on child, options
+	plan.add_mission(p1)
 
 	child.start!; p1.start!
+        return p1, child
+    end
+
+    def assert_child_failed(child, reason, plan)
+	result = plan.check_structure
+	assert_equal([child].to_set, result.map { |e, _| e.exception.failed_task }.to_set)
+	assert_equal([reason].to_set, result.map { |e, _| e.exception.failed_event }.to_set)
+    end
+
+
+    def test_success
+        parent, child = create_pair :success => [:first], 
+            :failure => [:stop],
+            :remove_when_done => false
+
 	assert_equal({}, plan.check_structure)
-	child.stop!
-	assert_equal([child.event(:failed).last], Hierarchy.interesting_events)
-	assert_children_failed([child], plan)
+	child.first!
+	assert_equal({}, plan.check_structure)
+        assert(parent.depends_on?(child))
+    end
 
-	plan.clear
-	p1 = SimpleTask.new
-	child = child_model.new
-	plan.discover([p1, child])
-	p1.realized_by child, :success => [:second], :failure => [:first]
-	plan.insert(p1)
-	child.start! ; p1.start!
-	child.event(:first).emit(nil)
-	assert_children_failed([child], plan)
+    def test_success_removal
+        parent, child = create_pair :success => [:first], 
+            :failure => [:stop],
+            :remove_when_done => true
 
-	plan.clear
-	p1    = SimpleTask.new
-	child = child_model.new
-	plan.discover([p1, child])
-	p1.realized_by child, :success => [:first], :failure => [:second]
-	plan.insert(p1)
-	child.start! ; p1.start!
-	child.event(:first).emit(nil)
-	assert_children_failed([], plan)
-	child.event(:second).emit(nil)
-	assert_children_failed([], plan)
+	child.first!
+	assert_equal({}, plan.check_structure)
+        assert(!parent.depends_on?(child))
+    end
+
+    def test_success_preempts_explicit_failed
+        parent, child = create_pair :success => [:first], 
+            :failure => [:stop]
+
+	child.first!
+        child.stop!
+	assert_equal({}, plan.check_structure)
+    end
+
+    def test_success_preempts_failure_on_unreachable
+        parent, child = create_pair :success => [:first]
+
+	child.first!
+        child.stop!
+	assert_equal({}, plan.check_structure)
+    end
+
+    def test_failure_explicit
+        parent, child = create_pair :success => [:first], 
+            :failure => [:stop]
+
+        child.stop!
+	assert_child_failed(child, child.event(:stop).last, plan)
+        plan.clear
+    end
+
+    def test_failure_on_unreachable
+        parent, child = create_pair :success => [:first]
+
+        child.stop!
+	assert_child_failed(child, child.event(:failed).last, plan)
+        plan.clear
     end
 
     def test_fullfilled_model
@@ -142,24 +155,39 @@ class TC_RealizedBy < Test::Unit::TestCase
 	    include tag
 	end
 
-	p1, p2, child = prepare_plan :discover => 3, :model => klass
+	p1, p2, child = prepare_plan :add => 3, :model => klass
 
-	p1.realized_by child, :model => SimpleTask
-	p2.realized_by child, :model => Roby::Task
+	p1.depends_on child, :model => SimpleTask
+	p2.depends_on child, :model => Roby::Task
 	assert_equal([[SimpleTask], {}], child.fullfilled_model)
 	p1.remove_child(child)
 	assert_equal([[Roby::Task], {}], child.fullfilled_model)
-	p1.realized_by child, :model => tag
+	p1.depends_on child, :model => tag
 	assert_equal([[Roby::Task, tag], {}], child.fullfilled_model)
     end
 
     def test_first_children
-	p, c1, c2 = prepare_plan :discover => 3, :model => SimpleTask
-	p.realized_by c1
-	p.realized_by c2
+	p, c1, c2 = prepare_plan :add => 3, :model => SimpleTask
+	p.depends_on c1
+	p.depends_on c2
 	assert_equal([c1, c2].to_value_set, p.first_children)
 
-	c1.on(:start, c2, :start)
+	c1.signals(:start, c2, :start)
 	assert_equal([c1].to_value_set, p.first_children)
+    end
+
+    def test_remove_finished_children
+	p, c1, c2 = prepare_plan :add => 3, :model => SimpleTask
+        plan.add_permanent(p)
+	p.depends_on c1
+	p.depends_on c2
+
+        p.start!
+        c1.start!
+        c1.success!
+        p.remove_finished_children
+        process_events
+        assert(!plan.include?(c1))
+        assert(plan.include?(c2))
     end
 end

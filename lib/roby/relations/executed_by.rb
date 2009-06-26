@@ -1,5 +1,3 @@
-require 'roby/task'
-
 module Roby::TaskStructure
     # This module defines model-level definition of execution agent, for
     # instance to Roby::Task
@@ -27,12 +25,16 @@ module Roby::TaskStructure
 	#   
 	# for all instances of TaskModel. The actual job is done in the
 	# ExecutionAgentSpawn module
-	def executed_by(agent)
-	    @execution_agent = agent
+	def executed_by(agent_model, arguments = Hash.new)
+	    @execution_agent = [agent_model, arguments]
 	end
     end
 
-    module ExecutionAgentSupport
+    # The execution_agent defines an agent (process or otherwise) a given
+    # task is executed by. It allows to define a class of these execution agent,
+    # so that the specific agents are managed externally (load-balancing, ...)
+    relation :ExecutionAgent, :parent_name => :executed_task, :child_name => :execution_agent, 
+	:noinfo => true, :distribute => false, :single_child => true do
 	# When ExecutionAgent support is included in a model (for instance Roby::Task), add
 	# the model-level classes  
         def self.included(klass) # :nodoc:
@@ -62,7 +64,7 @@ module Roby::TaskStructure
 		# are already set up
 		if running?
 		    Roby::Distributed.update(self) do
-			agent.forward(:stop, self, :aborted)
+			agent.forward_to(:stop, self, :aborted)
 		    end
 		else
 		    on(:start) do |ev|
@@ -71,7 +73,7 @@ module Roby::TaskStructure
 			# actually an execution agent 
 			if execution_agent
 			    Roby::Distributed.update(self) do
-				execution_agent.forward(:stop, self, :aborted)
+				execution_agent.forward_to(:stop, self, :aborted)
 			    end
 			end
 		    end
@@ -92,12 +94,6 @@ module Roby::TaskStructure
 
     end
 
-    # The execution_agent defines an agent (process or otherwise) a given
-    # task is executed by. It allows to define a class of these execution agent,
-    # so that the specific agents are managed externally (load-balancing, ...)
-    relation :ExecutionAgent, :parent_name => :executed_task, :child_name => :execution_agent, 
-	:noinfo => true, :distribute => false, :single_child => true
-
     class ExecutionAgentSpawningFailed < Roby::LocalizedError
 	attr_reader :agent_model, :error
 	def initialize(task, agent_model, error)
@@ -110,9 +106,10 @@ module Roby::TaskStructure
     # agent model (see ModelLevelExecutionAgent), either by reusing one
     # that is already in the plan, or by creating a new one.
     def ExecutionAgent.spawn(task)
-	agent_model = task.model.execution_agent
+	agent_model, arguments = task.model.execution_agent
 	candidates = task.plan.find_tasks.
 	    with_model(agent_model).
+            with_arguments(arguments).
 	    self_owned.
 	    not_finished
 
@@ -120,7 +117,7 @@ module Roby::TaskStructure
 
 	if candidates.empty?
 	    begin
-		agent = agent_model.new
+		agent = agent_model.new(arguments)
 		agent.on(:stop) do |ev|
 		    agent.each_executed_task do |task|
 			if task.running?
@@ -132,7 +129,7 @@ module Roby::TaskStructure
 		    end
 		end
 	    rescue Exception => e
-		Roby::Propagation.add_error(ExecutionAgentSpawningFailed.new(task, agent_model, e))
+		task.plan.engine.add_error(ExecutionAgentSpawningFailed.new(task, agent_model, e))
 	    end
 	else
 	    running, pending = candidates.partition { |t| t.running? }
@@ -151,7 +148,23 @@ module Roby::TaskStructure
 	def calling(context)
 	    super if defined? super
 	    return unless symbol == :start
-	    return unless agent = task.execution_agent
+
+            agent = task.execution_agent
+            if !agent
+                if task.model.execution_agent
+                    raise CommandFailed.new(nil, self), "the model of #{task} requires an execution agent, but the task has none"
+                else
+                    return
+                end
+            end
+
+            # Check that the agent matches the model
+            agent_model, arguments = task.model.execution_agent
+            if agent_model
+                if !agent.fullfills?(agent_model, arguments)
+                    raise CommandFailed.new(nil, self), "the execution agent #{agent} does not match the required model #{agent_model}, #{arguments}"
+                end
+            end
 
 	    if agent.finished? || agent.finishing?
 		raise CommandFailed.new(nil, self), "task #{task} has an execution agent but it is dead"
@@ -174,7 +187,7 @@ module Roby::TaskStructure
     module ExecutionAgentSpawn
 	# Hook into plan discovery to add execution agents to new tasks. 
 	# See ExecutionAgentSpawn.spawn
-	def discovered_tasks(tasks)
+	def added_tasks(tasks)
 	    # For now, settle on adding the execution agents only in the
 	    # main plan. Otherwise, it is possible that two transactions
 	    # will try to add two different agents

@@ -39,14 +39,14 @@ module Roby
 
 	    # The peer wants to subscribe to our main plan
 	    def subscribe_plan(sibling)
-		added_sibling(Roby.plan.remote_id, sibling)
-		peer.transmit(:subscribed_plan, Roby.plan.remote_id)
-		subscribe(Roby.plan)
+		added_sibling(peer.connection_space.plan.remote_id, sibling)
+		peer.transmit(:subscribed_plan, peer.connection_space.plan.remote_id)
+		subscribe(peer.connection_space.plan)
 	    end
 
 	    # Called by our peer because it has subscribed us to its main plan
 	    def subscribed_plan(remote_plan_id)
-		peer.proxies[remote_plan_id] = Roby.plan
+		peer.proxies[remote_plan_id] = peer.connection_space.plan
 		peer.remote_plan = remote_plan_id
 	    end
 

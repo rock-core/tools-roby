@@ -1,9 +1,8 @@
-
 module Roby
     module TaskStructure
 	Roby::Task.inherited_enumerable(:conflicting_model, :conflicting_models) { ValueSet.new }
 
-        module ConflictsSupport
+	relation :Conflicts, :noinfo => true do
             module ClassExtension
                 def conflicts_with(model)
                     conflicting_models << model
@@ -23,7 +22,6 @@ module Roby
 		add_conflicts(task)
 	    end
         end
-	relation :Conflicts, :noinfo => true
     end
 
     module ConflictEventHandling
@@ -39,7 +37,7 @@ module Roby
 	    end
 
 	    if result
-		Roby.decision_control.conflict(task, result)
+		plan.control.conflict(task, result)
 	    end
 
 	    # Add the needed conflict relations

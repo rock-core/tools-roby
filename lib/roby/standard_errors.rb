@@ -78,6 +78,11 @@ module Roby
     # Some operations need to be performed in the control thread, and some
     # other (namely blocking operations) must not. This exception is raised
     # when this constraint is not met.
+    class PhaseMismatch < RuntimeError; end
+
+    # Some operations need to be performed in the control thread, and some
+    # other (namely blocking operations) must not. This exception is raised
+    # when this constraint is not met.
     class ThreadMismatch < RuntimeError; end
 
     # Raised when a user-provided code block (i.e. a code block which is
@@ -201,7 +206,7 @@ module Roby
     class MissionFailedError < LocalizedError
         # Create a new MissionFailedError for the given mission
 	def initialize(task)
-	    super(task.terminal_event)
+	    super(task.failure_event)
 	end
 
         def pretty_print(pp)
@@ -212,6 +217,6 @@ module Roby
 
     # Exception raised in threads which are waiting for the control thread
     # See for instance Roby.execute
-    class ControlQuitError < RuntimeError; end
+    class ExecutionQuitError < RuntimeError; end
 end
 

@@ -198,6 +198,14 @@ module Roby
 			logger.progname = "Roby"
 		    end
 		end
+
+                if !Roby.plan
+                    Roby.instance_variable_set :@plan, new_state.plan
+                    Roby.instance_variable_set :@engine, new_state.plan.engine
+                elsif new_state && Roby.plan != new_state.plan
+                    raise ArgumentError, "plan mismatch between Roby.plan(#{plan}) and new_state.plan(#{new_state.plan}). Cannot set Distributed.state"
+                end
+
 		@state = new_state
 	    end
 

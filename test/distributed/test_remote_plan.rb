@@ -1,4 +1,4 @@
-$LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
+$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'roby/test/tasks/simple_task'
 
@@ -67,9 +67,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
     def test_remote_proxy_update
 	peer2peer do |remote|
-	    remote.plan.insert(SimpleTask.new(:id => 'simple_task'))
-	    remote.plan.permanent(SimpleTask.new(:id => 'task'))
-	    remote.plan.permanent(SimpleTask.new(:id => 'other_task'))
+	    remote.plan.add_mission(SimpleTask.new(:id => 'simple_task'))
+	    remote.plan.add_permanent(SimpleTask.new(:id => 'task'))
+	    remote.plan.add_permanent(SimpleTask.new(:id => 'other_task'))
 	end
 
 	r_simple_task = remote_task(:id => 'simple_task', :permanent => true)
@@ -81,28 +81,28 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	Distributed.update(r_simple_task) do
 	    assert(r_simple_task.read_write?)
 	    assert_nothing_raised do
-		r_simple_task.realized_by task
+		r_simple_task.depends_on task
 		r_simple_task.remove_child task
-		task.realized_by r_simple_task
+		task.depends_on r_simple_task
 		task.remove_child r_simple_task
 	    end
 	end
 	assert(!r_simple_task.read_write?)
 
-	assert_raises(OwnershipError) { r_simple_task.realized_by task }
-	assert_raises(OwnershipError) { task.realized_by r_simple_task }
-	Distributed.update(r_simple_task) { r_simple_task.realized_by task }
+	assert_raises(OwnershipError) { r_simple_task.depends_on task }
+	assert_raises(OwnershipError) { task.depends_on r_simple_task }
+	Distributed.update(r_simple_task) { r_simple_task.depends_on task }
 	assert_nothing_raised { r_simple_task.remove_child task }
-	Distributed.update(r_simple_task) { task.realized_by r_simple_task }
+	Distributed.update(r_simple_task) { task.depends_on r_simple_task }
 	assert_nothing_raised { task.remove_child r_simple_task }
 
-	assert_raises(OwnershipError) { r_simple_task.realized_by r_other_task }
-	assert_raises(OwnershipError) { r_other_task.realized_by r_simple_task }
-	Distributed.update_all([r_simple_task, r_other_task]) { r_simple_task.realized_by r_other_task }
+	assert_raises(OwnershipError) { r_simple_task.depends_on r_other_task }
+	assert_raises(OwnershipError) { r_other_task.depends_on r_simple_task }
+	Distributed.update_all([r_simple_task, r_other_task]) { r_simple_task.depends_on r_other_task }
 	assert_raises(OwnershipError) { r_simple_task.remove_child r_other_task }
 	Distributed.update_all([r_simple_task, r_other_task]) do
 	    r_simple_task.remove_child r_other_task
-	    r_other_task.realized_by r_simple_task
+	    r_other_task.depends_on r_simple_task
 	end
 	assert_raises(OwnershipError) { r_other_task.remove_child r_simple_task }
 
@@ -122,11 +122,11 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 		SimpleTask.new(:id => 'mission'), 
 		SimpleTask.new(:id => 'subtask'),
 		SimpleTask.new(:id => 'next_mission')
-	    mission.realized_by subtask
-	    mission.on(:stop, next_mission, :start)
+	    mission.depends_on subtask
+	    mission.signals(:stop, next_mission, :start)
 
-	    remote.plan.insert(mission)
-	    remote.plan.insert(next_mission)
+	    remote.plan.add_mission(mission)
+	    remote.plan.add_mission(next_mission)
 	end
 
 	r_mission	= remote_task(:id => 'mission', :permanent => true)
@@ -137,7 +137,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	assert_equal([], r_mission.children.to_a)
 	assert_equal([], r_mission.event(:stop).child_objects(EventStructure::Signal).to_a)
 
-	# Discover remote relations
+	# add remote relations
 	remote_peer.discover_neighborhood(r_mission, 1) do |r_mission|
 	    proxies = r_mission.children.to_a
 	    assert_equal(1, proxies.to_a.size)
@@ -146,16 +146,16 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    assert_equal(r_next_mission.event(:start), proxies.first)
 	end
 
-	plan.auto(r_mission)
-	plan.auto(r_subtask)
-	plan.auto(r_next_mission)
-	Roby.control.wait_one_cycle
+	plan.unmark_permanent(r_mission)
+	plan.unmark_permanent(r_subtask)
+	plan.unmark_permanent(r_next_mission)
+	engine.wait_one_cycle
 	assert_equal([remote_peer.task], plan.permanent_tasks.to_a)
     end
 
     def test_subscribing_old_objects
 	peer2peer do |remote|
-	    plan.insert(@task = SimpleTask.new(:id => 1))
+	    plan.add_mission(@task = SimpleTask.new(:id => 1))
 	end
 
 	r_task, r_task_id = nil
@@ -176,14 +176,14 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 		SimpleTask.new(:id => 'mission'), 
 		SimpleTask.new(:id => 'subtask'),
 		SimpleTask.new(:id => 'next_mission')
-	    root.realized_by mission
-	    mission.realized_by subtask
-	    mission.on(:stop, next_mission, :start)
+	    root.depends_on mission
+	    mission.depends_on subtask
+	    mission.signals(:stop, next_mission, :start)
 
-	    remote.plan.permanent(subtask)
-	    remote.plan.insert(root)
-	    remote.plan.insert(mission)
-	    remote.plan.insert(next_mission)
+	    remote.plan.add_permanent(subtask)
+	    remote.plan.add_mission(root)
+	    remote.plan.add_mission(mission)
+	    remote.plan.add_mission(next_mission)
 
 	    remote.singleton_class.class_eval do
 		include Test::Unit::Assertions
@@ -204,7 +204,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 		    mission.remove_child subtask
 		end
 		define_method(:add_mission_subtask) do
-		    mission.realized_by subtask
+		    mission.depends_on subtask
 		end
 	    end
 	end
@@ -237,7 +237,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    assert(!r_next_mission.plan || !plan.useful_task?(r_next_mission))
 	    assert(!r_subtask.plan || !plan.useful_task?(r_subtask))
 	end
-	Roby.control.wait_one_cycle
+	engine.wait_one_cycle
 	
 	# Check that the task index has been updated
 	assert(!plan.task_index.by_owner[remote_peer].include?(r_subtask))
@@ -262,7 +262,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    assert(!remote_peer.subscribed?(r_mission))
 	    assert(plan.unneeded_tasks.include?(r_subtask))
 	end
-	Roby.control.wait_one_cycle
+	engine.wait_one_cycle
 
 	# Check that subtask and next_mission are removed from the plan
 	assert(!r_subtask.plan)
@@ -301,7 +301,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	r_mission = remote_peer.subscribe(r_mission)
 	r_subtask = remote_task(:id => 'subtask')
 	r_next_mission = remote_task(:id => 'next_mission')
-	Roby.control.wait_one_cycle
+	engine.wait_one_cycle
 
 	proxies = r_mission.children.to_a
 	assert(! proxies.empty?)
@@ -313,11 +313,11 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 		SimpleTask.new(:id => 'left'), 
 		SimpleTask.new(:id => 'right'), 
 		SimpleTask.new(:id => 'middle')
-	    remote.plan.insert(left)
-	    remote.plan.insert(right)
+	    remote.plan.add_mission(left)
+	    remote.plan.add_mission(right)
 
-	    left.realized_by middle
-	    right.realized_by middle
+	    left.depends_on middle
+	    right.depends_on middle
 
 	    remote.singleton_class.class_eval do
 		include Test::Unit::Assertions
@@ -360,7 +360,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	peer2peer do |remote|
 	    task = SimpleTask.new(:id => 'task')
 	    task.data = [4, 2]
-	    remote.plan.insert(task)
+	    remote.plan.add_mission(task)
 
 	    remote.singleton_class.class_eval do 
 		define_method(:change_data) { task.data = 42 }
@@ -376,19 +376,19 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
     def test_mission_notifications
 	peer2peer do |remote|
-	    plan.insert(mission = SimpleTask.new(:id => 'mission'))
+	    plan.add_mission(mission = SimpleTask.new(:id => 'mission'))
 
 	    remote.class.class_eval do
 		define_method(:discard_mission) do
 		    Roby.synchronize do
-			remote.plan.discard(mission)
-			remote.plan.permanent(mission)
+			remote.plan.unmark_mission(mission)
+			remote.plan.add_permanent(mission)
 		    end
 		end
 		define_method(:insert_mission) do
 		    Roby.synchronize do
-			remote.plan.auto(mission)
-			remote.plan.insert(mission)
+			remote.plan.unmark_permanent(mission)
+			remote.plan.add_mission(mission)
 		    end
 		end
 	    end
@@ -415,19 +415,19 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 		SimpleTask.new(:id => 'subtask'),
 		SimpleTask.new(:id => 'next_mission')
 
-	    remote.plan.insert(mission)
-	    remote.plan.insert(next_mission)
-	    remote.plan.permanent(subtask)
+	    remote.plan.add_mission(mission)
+	    remote.plan.add_mission(next_mission)
+	    remote.plan.add_permanent(subtask)
 
 	    remote.singleton_class.class_eval do
 		define_method(:add_mission_subtask) do
-		    mission.realized_by subtask
+		    mission.depends_on subtask
 		end
 		define_method(:remove_mission_subtask) do
 		    mission.remove_child subtask
 		end
 		define_method(:add_mission_stop_next_start) do
-		    mission.on(:stop, next_mission, :start)
+		    mission.signals(:stop, next_mission, :start)
 		end
 		define_method(:remove_mission_stop_next_start) do
 		    mission.event(:stop).remove_signal(next_mission.event(:start))
@@ -462,12 +462,12 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 	    model = Class.new(SimpleTask) do
 		event :unknown, :command => true
 	    end
-	    remote.plan.insert(t1 = SimpleTask.new(:id => 1))
-	    remote.plan.insert(t2 = SimpleTask.new(:id => 2))
-	    remote.plan.insert(u = model.new(:id => 0))
+	    remote.plan.add_mission(t1 = SimpleTask.new(:id => 1))
+	    remote.plan.add_mission(t2 = SimpleTask.new(:id => 2))
+	    remote.plan.add_mission(u = model.new(:id => 0))
 
-	    t1.event(:start).on u.event(:unknown)
-	    t2.event(:start).emit_on u.event(:unknown)
+	    t1.signals(:start, u, :unknown)
+            u.forward_to(:unknown, t2, :start)
 
 	    remote.singleton_class.class_eval do
 		define_method(:remove_relations) do

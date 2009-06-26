@@ -1,4 +1,4 @@
-$LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
+$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'roby/test/tasks/simple_task'
 require 'flexmock'
@@ -9,10 +9,10 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
     def test_triggers
 	peer2peer do |remote|
 	    def remote.new_task(kind, args)
-		Roby.execute do
+		engine.execute do
 		    new_task = kind.proxy(local_peer).new(args)
 		    yield(new_task.remote_id) if block_given?
-		    plan.insert(new_task)
+		    plan.add_mission(new_task)
 		end
 		nil
 	    end
@@ -54,7 +54,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
     def test_trigger_subscribe
 	peer2peer do |remote|
 	    def remote.new_task
-		plan.insert(SimpleTask.new(:id => 1))
+		plan.add_mission(SimpleTask.new(:id => 1))
 		nil
 	    end
 	end
@@ -79,11 +79,11 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 
     def test_subscribe_plan
 	peer2peer do |remote|
-	    plan.insert(mission = Task.new(:id => 'mission'))
-	    subtask = Task.new :id => 'subtask'
-	    plan.insert(next_mission = Task.new(:id => 'next_mission'))
-	    mission.realized_by subtask
-	    mission.on(:start, next_mission, :start)
+	    plan.add_mission(mission = SimpleTask.new(:id => 'mission'))
+	    subtask = SimpleTask.new :id => 'subtask'
+	    plan.add_mission(next_mission = SimpleTask.new(:id => 'next_mission'))
+	    mission.depends_on subtask
+	    mission.signals(:start, next_mission, :start)
 	end
 
 	# Subscribe to the remote plan
@@ -108,22 +108,22 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 		attr_reader :mission, :subtask, :next_mission, :free_event
 		def create_mission
 		    @mission = Roby::Task.new :id => 'mission'
-		    plan.insert(mission)
+		    plan.add_mission(mission)
 		end
 		def create_subtask
-		    plan.permanent(@subtask = Roby::Task.new(:id => 'subtask'))
-		    mission.realized_by subtask
+		    plan.add_permanent(@subtask = Roby::Task.new(:id => 'subtask'))
+		    mission.depends_on subtask
 		end
 		def create_next_mission
 		    @next_mission = Roby::Task.new :id => 'next_mission'
-		    mission.on(:start, next_mission, :start)
-		    plan.insert(next_mission)
+		    mission.signals(:start, next_mission, :start)
+		    plan.add_mission(next_mission)
 		end
 		def create_free_event
 		    @free_event = Roby::EventGenerator.new(true)
 		    # Link the event to a task to protect it from GC
-		    @next_mission.on(:start, @free_event)
-		    plan.discover(free_event)
+		    @next_mission.signals(:start, @free_event, :start)
+		    plan.add(free_event)
 		end
 		def remove_free_event
 		    plan.remove_object(free_event)
@@ -133,8 +133,8 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 		def unlink_subtask; mission.remove_child(subtask) end
 		def remove_subtask; plan.remove_object(subtask) end
 		def discard_mission 
-		    plan.permanent(mission)
-		    plan.discard(mission) 
+		    plan.add_permanent(mission)
+		    plan.unmark_mission(mission) 
 		end
 		def remove_mission; plan.remove_object(mission) end
 	    end
@@ -207,11 +207,11 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 
     def test_unsubscribe_plan
 	peer2peer do |remote|
-	    remote.plan.insert(Task.new(:id => 'remote-1'))
-	    remote.plan.insert(Task.new(:id => 'remote-2'))
+	    remote.plan.add_mission(SimpleTask.new(:id => 'remote-1'))
+	    remote.plan.add_mission(SimpleTask.new(:id => 'remote-2'))
 
 	    def remote.new_task
-		plan.insert(Task.new(:id => 'remote-3'))
+		plan.add_mission(SimpleTask.new(:id => 'remote-3'))
 	    end
 	end
 

@@ -1,4 +1,4 @@
-$LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
+$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'roby/test/tasks/simple_task'
 require 'flexmock'
@@ -30,13 +30,13 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
     TEST_ARRAY_SIZE = 7
     def dumpable_array
-	task = Roby::Task.new(:id => 1)
+	task = SimpleTask.new(:id => 1)
 	[1, task, 
 	    Roby::EventGenerator.new {}, 
 	    SimpleTask.new(:id => 2), 
 	    task.event(:start), 
 	    Roby::TaskStructure::Hierarchy, 
-	    Class.new(Task).new(:id => 3) ]
+	    Class.new(SimpleTask).new(:id => 3) ]
     end
     def dumpable_hash
 	Hash[*(0...TEST_ARRAY_SIZE).zip(dumpable_array).flatten]
@@ -47,7 +47,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
 	assert_kind_of(Task::DRoby, array[1])
 	assert_equal({:id => 1}, array[1].arguments)
-	assert_equal(Task, array[1].model.proxy(remote_peer))
+	assert_equal(SimpleTask, array[1].model.proxy(remote_peer))
 
 	assert_kind_of(EventGenerator::DRoby, array[2])
 	assert(array[2].controlable)
@@ -181,7 +181,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	peer2peer do |remote|
 	    PeerServer.class_eval do
 		def task
-		    plan.insert(@task = Class.new(SimpleTask).new(:id => 1))
+		    plan.add_mission(@task = Class.new(SimpleTask).new(:id => 1))
 		    @task.data = [42, @task.class]
 		    [@task, @task.remote_id]
 		end
@@ -201,7 +201,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_equal(remote_task_id, remote_task.remote_siblings[remote_peer.droby_dump(nil)], remote_task.remote_siblings)
 	assert(!remote_task.remote_siblings[Roby::Distributed.droby_dump(nil)])
 
-	plan.permanent(local_proxy = remote_peer.local_object(remote_task))
+	plan.add_permanent(local_proxy = remote_peer.local_object(remote_task))
 	assert_kind_of(SimpleTask,  local_proxy)
 	assert_not_same(SimpleTask, local_proxy.class)
 	assert_equal([42, local_proxy.class], local_proxy.data)
@@ -214,7 +214,9 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	remote_peer.synchro_point
 	assert(remote_peer.call(:check_sibling, local_proxy.remote_id))
 	assert(local_proxy.executable?)
-	assert_raises(OwnershipError) { local_proxy.start! }
+        Roby.execute do
+            assert_raises(OwnershipError) { local_proxy.start! }
+        end
     end
 
     class ErrorWithArguments < Exception
@@ -268,13 +270,13 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	    PeerServer.class_eval do
 		def proxy(object)
 		    Marshal.dump(object)
-		    plan.permanent(task = peer.local_object(object))
+		    plan.add_permanent(task = peer.local_object(object))
 		    task
 		end
 	    end
 	end
 
-	plan.permanent(local_task = SimpleTask.new(:id => 'local'))
+	plan.add_permanent(local_task = SimpleTask.new(:id => 'local'))
 	remote_proxy = remote_peer.call(:proxy, local_task)
 	remote_peer.synchro_point
 	assert(remote_peer.proxies[remote_proxy], [remote_peer.proxies, remote_proxy])
@@ -294,14 +296,14 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	peer2peer do |remote|
 	    def remote.proxy(object)
 		Marshal.dump(object)
-		plan.permanent(task = local_peer.local_object(object))
+		plan.add_permanent(task = local_peer.local_object(object))
 		task
 	    end
 	end
 
 	begin
 	    remote.disable_communication
-	    plan.permanent(local_task = SimpleTask.new(:id => 'local'))
+	    plan.add_permanent(local_task = SimpleTask.new(:id => 'local'))
 	    remote_proxy = remote.proxy(Distributed.format(local_task))
 	    assert_equal(remote_proxy, remote.proxy(Distributed.format(local_task)))
 	    assert(!remote_peer.proxies[remote_proxy])
@@ -314,13 +316,17 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	assert_nothing_raised { remote_peer.synchro_point }
     end
 
+    class FinalizedRemoteTaskRaceTask < SimpleTask
+        argument :newarg
+    end
+
     # test a particular situations of GC/communication interaction
     # - A finalizes a task T which is owned by B
     # - A receives a message involving T which has been emitted while B was not knowing about the
     #   deletion (it has not yet received the removed_sibling message)
     def test_finalized_remote_task_race_condition
 	peer2peer do |remote|
-	    remote.plan.insert(task = SimpleTask.new(:id => 'remote'))
+	    remote.plan.add_mission(task = FinalizedRemoteTaskRaceTask.new(:id => 'remote'))
 	    
 	    remote.singleton_class.class_eval do
 		define_method(:send_task_update) do
@@ -335,7 +341,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	    task
 	end
 
-	Roby.control.wait_one_cycle
+	engine.wait_one_cycle
 	assert(!task.plan)
 
 	new_task = remote_peer.local_object(remote.send_task_update)
@@ -350,11 +356,13 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 	peer2peer do |remote|
 	    PeerServer.class_eval do
 		def task
-		    plan.insert(@task = model.new(:id => 1, :model => model))
+		    plan.add_mission(@task = model.new(:id => 1, :model => model))
 		    @task
 		end
 		def model
-		    @model ||= Class.new(SimpleTask)
+		    @model ||= Class.new(SimpleTask) do
+                        argument :model
+                    end
 		end
 	    end
 	end
@@ -429,36 +437,37 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
     def test_marshal_event
 	peer2peer do |remote|
-	    remote.plan.insert(t = Task.new)
-	    t.on(:start, (ev = EventGenerator.new(true)))
-	    t.event(:start).forward(ev = EventGenerator.new(false))
-	    t.on(:start, (ev = EventGenerator.new { }))
+	    remote.plan.add_mission(t = Task.new)
+	    t.signals(:start, (ev = EventGenerator.new(true)))
+	    t.event(:start).forward_to(ev = EventGenerator.new(false))
+	    t.signals(:start, (ev = EventGenerator.new { }))
 	    PeerServer.class_eval do
 		include Test::Unit::Assertions
 		define_method(:events) { plan.free_events }
 	    end
 	end
 	
-	marshalled = remote_peer.call(:events)
-	marshalled.each { |ev| assert_kind_of(EventGenerator::DRoby, ev) }
-
-	all_events = marshalled.map { |ev| remote_peer.local_object(ev) }
-	assert_equal(1, all_events.find_all { |ev| !ev.controlable? }.size)
-	assert_equal(2, all_events.find_all { |ev| ev.controlable? }.size)
-	all_events.each do |ev|
-	    if ev.controlable?
-		assert_raises(OwnershipError) { ev.call }
-	    end
-	    assert_raises(OwnershipError) { ev.emit }
-	end
+        marshalled = remote_peer.call(:events)
+        marshalled.each { |ev| assert_kind_of(EventGenerator::DRoby, ev) }
+        Roby.execute do
+            all_events = marshalled.map { |ev| remote_peer.local_object(ev) }
+            assert_equal(1, all_events.find_all { |ev| !ev.controlable? }.size)
+            assert_equal(2, all_events.find_all { |ev| ev.controlable? }.size)
+            all_events.each do |ev|
+                if ev.controlable?
+                    assert_raises(OwnershipError) { ev.call }
+                end
+                assert_raises(OwnershipError) { ev.emit }
+            end
+        end
     end
 
     def test_siblings
 	peer2peer do |remote|
-	    plan.insert(Roby::Task.new(:id => 'remote'))
+	    plan.add_mission(Roby::Task.new(:id => 'remote'))
 	end
 
-	plan.insert(remote_task = remote_task(:id => 'remote'))
+	plan.add_mission(remote_task = remote_task(:id => 'remote'))
 	assert(remote_task.has_sibling_on?(remote_peer))
 	remote_object, _ = remote_peer.proxies.find { |_, task| task == remote_task }
 	assert(remote_object)
@@ -497,7 +506,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
     def test_dump_sequence
 	DRb.start_service
-	t1, t2 = prepare_plan :discover => 2
+	t1, t2 = prepare_plan :add => 2
 	p = t1+t2
 
 	formatted = Distributed.format(p)
@@ -506,7 +515,7 @@ class TC_DistributedRobyProtocol < Test::Unit::TestCase
 
     def test_dump_parallel
 	DRb.start_service
-	t1, t2 = prepare_plan :discover => 2
+	t1, t2 = prepare_plan :add => 2
 	p = t1|t2
 
 	formatted = Distributed.format(p)

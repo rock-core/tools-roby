@@ -100,12 +100,18 @@ module Roby::Log
 	    super if defined? super
 	end
 
-	# Do a read - decode - feed cycle
-	def advance
+	# Do a read and decode the data
+        #
+        # It returns false if no decoders have found interesting updates in the
+        # decoded data, and true otherwise. The method relies on the decoder's
+        # #process method to return true/false when required.
+        #
+        # See DataDecoder#process
+        def advance
 	    data = decode(read)
-	    decoders.each do |dec|
+	    !decoders.find_all do |dec|
 		dec.process(data)
-	    end
+	    end.empty?
 	end
 
 	def init(data)
@@ -115,13 +121,26 @@ module Roby::Log
 	    self.class.decode(data)
 	end
 
+        # Displays may have the ability to not display a per-cycle information,
+        # but to add information as it is coming over. This call asks them to
+        # remove the information integrated until now.
+        #
+        # It forwards the call to the decoders' #clear_integrated call. These
+        # methods should return true if a change has been needed on any of their
+        # display, and false otherwise.
 	def clear_integrated
-	    decoders.each do |decoder|
+	    !decoders.find_all do |decoder|
 		decoder.clear_integrated
-	    end
+	    end.empty?
 	end
 
 	# Update the displays
+        #
+        # It returns false if all decoders have reported that no display update
+        # was required, and true otherwise. The method relies on the decoder's
+        # #display method to return true/false when required.
+        #
+        # See DataDecoder#display
 	def display
 	    decoders.each do |decoder|
 		decoder.display
@@ -137,10 +156,16 @@ module Roby::Log
 	def hash; [name, type].hash end
     end
 
+    # In the data flow model we're using, a data decoder gets data from a
+    # DataStream object and builds a representation that can be used by
+    # displays.
     class DataDecoder
 	# The set of displays attached to this decoder
 	attr_reader :displays
+        # The decoder name
 	attr_reader :name
+
+        # The DataStream object we're getting our data from
 	attr_accessor :stream
 
 	def initialize(name)
@@ -148,24 +173,54 @@ module Roby::Log
 	    @displays = [] 
 	end
 
+        # Clear the stream data
 	def clear
 	    displays.each { |d| d.clear }
 	end
 
+        # Displays may have the ability to not display a per-cycle information,
+        # but to add information as it is coming over. This call asks them to
+        # remove the information integrated until now.
+        #
+        # It forwards the call to the displays' #clear_integrated call(if any). These
+        # methods should return true if a change has been needed on any of their
+        # display, and false otherwise.
 	def clear_integrated
-	    displays.each do |display|
-		display.clear_integrated if display.respond_to?(:clear_integrated)
-	    end
+	    !displays.find_all do |display|
+                if display.respond_to?(:clear_integrated)
+                    display.clear_integrated 
+                end
+	    end.empty?
 	end
 
-	# Update the display to the current state of the decoder
+	# Updates the displays that are associated with this decoder. Returns
+        # true if one of the displays have been changed, and false otherwise.
+        #
+        # It relies on the display's #update method to return true if something
+        # has changed on the display and false otherwise.
 	def display
-	    displays.each do |display| 
+	    !displays.find_all do |display| 
 		display.update
-	    end
+	    end.empty?
 	end
     end
 
+    # This module gets mixed-in the display classes. It creates the necessary
+    # stream => decoder => display link, reusing (if possible) a decoder that
+    # already exists.
+    #
+    # One should use it that way:
+    #
+    # class Display
+    #   include DataDisplay
+    #   decoder DecoderClass
+    # end
+    #
+    # Then, one can do
+    #   display = Display.new
+    #   display.stream = data_stream
+    #
+    # and leave the rest to the DataDisplay implementation.
     module DataDisplay
 	module ClassExtension
 	    def decoder(new_type = nil)
@@ -177,11 +232,23 @@ module Roby::Log
 	    end
 	end
 
+        # The decoder object. That object gets data from a DataStream object and
+        # decodes it into the format required by the display.
+        #
+        # Examples: PlanRebuilder
 	attr_reader :decoder
 	attr_reader :main
-	attr_accessor :config_ui
-	def splat?; true end
 
+        # The configuration UI object. Usually a subclass of Qt::Widget
+	attr_accessor :config_ui
+
+
+	def splat? #:nodoc:
+            true
+        end
+
+        # Sets the data stream that this display listens to. It creates or gets
+        # the decoder that is necessary between the raw stream and the display
 	def stream=(data_stream)
 	    if decoder
 		clear

@@ -510,25 +510,31 @@ module Roby
 		obj
 	    end
 
+            # Initializes the display with the data already decoded from the
+            # given data stream, and binds this display to the stream.
 	    def stream=(data_stream)
 		super
 
 		# Initialize the display ...
 		decoder.plans.each do |plan|
-		    discovered_tasks(Time.now, plan, plan.known_tasks)
-		    discovered_events(Time.now, plan, plan.free_events)
+		    added_tasks(Time.now, plan, plan.known_tasks)
+		    added_events(Time.now, plan, plan.free_events)
 		end
 		display
 	    end
 
 	    def [](item); graphics[item] end
+
+            # Returns a canvas object that represents this relation
 	    def task_relation(from, to, rel, info)
 		arrow(from, to, rel, info, TASK_LAYER)
 	    end
+            # Returns a canvas object that represents this relation
 	    def event_relation(form, to, rel, info)
 		arrow(from, to, rel, info, EVENT_LAYER)
 	    end
 
+            # Creates or reuses an arrow object to represent the given relation
 	    def arrow(from, to, rel, info, base_layer)
 		id = [from, to, rel]
 		unless item = arrows[id]
@@ -589,9 +595,14 @@ module Roby
 		COLORS[current_color]
 	    end
 
+            # True if this relation should be displayed
 	    def relation_enabled?(relation); @enabled_relations.include?(relation) end
+            # True if this relation should be used for layout
+            #
+            # See also #relation_enabled?, #layout_relation, #ignore_relation
 	    def layout_relation?(relation); relation_enabled?(relation) || @layout_relations.include?(relation) end
 
+            # Display this relation
 	    def enable_relation(relation)
 		return if relation_enabled?(relation)
 		@enabled_relations << relation
@@ -602,11 +613,17 @@ module Roby
 		end
 	    end
 
+            # The set of relations that should be displayed
 	    attr_reader :enabled_relations
+
+            # Use this relation for layout but not for display
+            #
+            # See also #ignore_relation
 	    def layout_relation(relation)
 		disable_relation(relation)
 		@layout_relations << relation
 	    end
+            # Don't use this relation at all
 	    def ignore_relation(relation)
 		disable_relation(relation)
 		@layout_relations.delete(relation)
@@ -756,18 +773,21 @@ module Roby
 	    end
 
 	    def clear_integrated
-		postponed_events.clear
-		execution_events.clear
-		@execution_events = execution_events.find_all { |fired, ev| !fired }
+                unless keep_signals
+                    last_propagated_events, @propagated_events = propagated_events, Array.new
+                    last_execution_events, @execution_events = 
+                        execution_events.partition { |fired, ev| fired }
+                end
+                !(last_propagated_events.empty? && last_execution_events.empty?)
 	    end
 
+            # Update the display with new data that has come from the data
+            # stream. 
+            #
+            # It would be too complex at this stage to know if the plan has been
+            # updated, so the method always returns true
 	    def update
 		return unless decoder
-
-		if keep_signals
-		    @execution_events = @last_execution_events.concat(execution_events)
-		    @propagated_events.concat @last_propagated_events
-		end
 
 		update_prefixes_removal
 		clear_flashing_objects
@@ -912,11 +932,7 @@ module Roby
 		    end
 		end
 
-		@last_propagated_events, @propagated_events = propagated_events, Array.new
-		@last_execution_events, @execution_events = 
-		    execution_events.partition { |fired, ev| fired }
-
-		postponed_events.clear
+                true
 	    end
 
 	    def remove_graphics(item, scene = nil)
@@ -995,7 +1011,7 @@ module Roby
 	    def removed_event_child(time, parent, rel, child)
 		remove_graphics(arrows.delete([local_event(parent), local_event(child), rel]))
 	    end
-	    def discovered_tasks(time, plan, tasks)
+	    def added_tasks(time, plan, tasks)
 		tasks.each do |obj| 
 		    obj.flags[:pending] = true if obj.respond_to?(:flags)
 		    task = local_task(obj)

@@ -1,6 +1,7 @@
-$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/test/tasks/simple_task'
+require 'roby/state/information'
 require 'flexmock'
 
 class TC_Query < Test::Unit::TestCase
@@ -43,9 +44,9 @@ class TC_Query < Test::Unit::TestCase
 	t1 = task_model.new(:value => 1)
 	t2 = task_model.new(:value => 2)
 
-	plan.insert(t0)
-	plan.insert(t1)
-	plan.insert(t2)
+	plan.add_mission(t0)
+	plan.add_mission(t1)
+	plan.add_mission(t2)
 
 	check_matches_fullfill(task_model, plan, t0, t1, t2)
     end
@@ -59,9 +60,9 @@ class TC_Query < Test::Unit::TestCase
 	t1 = task_model.new(:value => 1)
 	t2 = task_model.new(:value => 2)
 
-	plan.insert(t0)
-	plan.insert(t1)
-	plan.insert(t2)
+	plan.add_mission(t0)
+	plan.add_mission(t1)
+	plan.add_mission(t2)
 
 	trsc = Transaction.new(plan)
 	check_matches_fullfill(task_model, trsc, trsc[t0], trsc[t1], trsc[t2])
@@ -77,7 +78,7 @@ class TC_Query < Test::Unit::TestCase
 	    improves :yet_another_info
 	end.new
 
-	plan.discover [t1, t2]
+	plan.add [t1, t2]
 	result = TaskMatcher.which_needs(:source_info).enum_for(:each, plan).to_set
 	assert_equal([t1, t2].to_set, result)
 	result = TaskMatcher.which_needs(:foo_bar).enum_for(:each, plan).to_set
@@ -104,7 +105,7 @@ class TC_Query < Test::Unit::TestCase
     def test_query_predicates
 	t1 = Class.new(SimpleTask) { argument :fake }.new
 	t2 = Roby::Task.new
-	plan.discover [t1, t2]
+	plan.add [t1, t2]
 
 	assert_finds_tasks([]) { TaskMatcher.executable }
 	assert_finds_tasks([t1,t2]) { TaskMatcher.not_executable }
@@ -132,7 +133,7 @@ class TC_Query < Test::Unit::TestCase
 	plan.remove_object(t1)
 
 	t1 = SimpleTask.new
-	plan.discover(t1)
+	plan.add(t1)
 	t1.start!
 	t1.failed!
 	assert_finds_tasks([t1]) { TaskMatcher.failed }
@@ -141,8 +142,8 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_query_plan_predicates
-	t1, t2, t3 = prepare_plan :missions => 1, :discover => 1, :tasks => 1
-	plan.permanent(t3)
+	t1, t2, t3 = prepare_plan :missions => 1, :add => 1, :tasks => 1
+	plan.add_permanent(t3)
 	assert_query_finds_tasks([t1]) { plan.find_tasks.mission }
 	assert_query_finds_tasks([t2, t3]) { plan.find_tasks.not_mission }
 	assert_query_finds_tasks([t3]) { plan.find_tasks.permanent }
@@ -153,7 +154,7 @@ class TC_Query < Test::Unit::TestCase
 	t1 = Class.new(SimpleTask) { argument :id }.new(:id => 1)
 	t2 = Class.new(SimpleTask) { argument :id }.new(:id => 2)
 	t3 = Roby::Task.new
-	plan.discover [t1, t2, t3]
+	plan.add [t1, t2, t3]
 
 	assert_finds_tasks([t3]) { (TaskMatcher.with_arguments(:id => 1) | TaskMatcher.with_arguments(:id => 2)).negate }
     end
@@ -162,7 +163,7 @@ class TC_Query < Test::Unit::TestCase
 	t1 = Class.new(SimpleTask) { argument :id }.new(:id => 1)
 	t2 = Class.new(SimpleTask) { argument :id }.new(:id => 2)
 	t3 = Roby::Task.new
-	plan.discover [t1, t2, t3]
+	plan.add [t1, t2, t3]
 
 	assert_finds_tasks([t1, t2]) { TaskMatcher.with_arguments(:id => 1) | TaskMatcher.with_arguments(:id => 2) }
     end
@@ -171,7 +172,7 @@ class TC_Query < Test::Unit::TestCase
 	t1 = Class.new(SimpleTask) { argument :id }.new(:id => 1)
 	t2 = Class.new(SimpleTask) { argument :id }.new(:id => 2)
 	t3 = Roby::Task.new
-	plan.discover [t1, t2, t3]
+	plan.add [t1, t2, t3]
 
 	assert_finds_tasks([t1, t2]) { TaskMatcher.fully_instanciated & TaskMatcher.executable }
 	assert_finds_tasks([t1]) { (TaskMatcher.fully_instanciated & TaskMatcher.executable).with_arguments(:id => 1) }
@@ -179,19 +180,19 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_merged_generated_subgraphs
-	(d1, d2, d3, d4, d5, d6), t1 = prepare_plan :discover => 6, :tasks => 1
+	(d1, d2, d3, d4, d5, d6), t1 = prepare_plan :add => 6, :tasks => 1
 
 	trsc = Transaction.new(plan)
-	d1.realized_by d2
-	d2.realized_by d3
-	d4.realized_by d5
-	d5.realized_by d6
+	d1.depends_on d2
+	d2.depends_on d3
+	d4.depends_on d5
+	d5.depends_on d6
 
 	# Add a new relation which connects two components. Beware that
 	# modifying trsc[d3] and trsc[d4] makes d2 and d5 proxies to be
 	# discovered
-	trsc[d3].realized_by t1
-	t1.realized_by trsc[d4]
+	trsc[d3].depends_on t1
+	t1.depends_on trsc[d4]
 	plan_set, trsc_set = trsc.merged_generated_subgraphs(TaskStructure::Hierarchy, [d1], [])
 	assert_equal([trsc[d3], trsc[d4], t1].to_value_set, trsc_set)
 	assert_equal([d1, d2, d5, d6].to_value_set, plan_set)
@@ -213,16 +214,16 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_roots
-	(t1, t2, t3), (tr1, tr2, tr3) = prepare_plan :discover => 3, :tasks => 3
+	(t1, t2, t3), (tr1, tr2, tr3) = prepare_plan :add => 3, :tasks => 3
 	trsc = Transaction.new(plan)
-	[tr1, tr2, tr3].each { |t| trsc.discover(t) }
+	[tr1, tr2, tr3].each { |t| trsc.add(t) }
 
 	assert_equal([t1, t2, t3].to_value_set, plan.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
-	t1.realized_by t2
+	t1.depends_on t2
 	assert_equal([t1, t3].to_value_set, plan.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
 
-	tr1.realized_by tr2
-	trsc[t3].realized_by tr3
+	tr1.depends_on tr2
+	trsc[t3].depends_on tr3
 	assert_equal([trsc[t1], trsc[t3], tr1].to_value_set, trsc.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
     end
 
@@ -231,8 +232,8 @@ class TC_Query < Test::Unit::TestCase
 	    argument :id
 	end
 	t1, t2, t3 = (1..3).map { |i| model.new(:id => i) }
-	t1.realized_by t2
-	plan.discover(t1)
+	t1.depends_on t2
+	plan.add(t1)
 
 	trsc = Transaction.new(plan)
 	assert(trsc.find_tasks.which_fullfills(SimpleTask).to_a.empty?)
@@ -250,7 +251,7 @@ class TC_Query < Test::Unit::TestCase
 	result = trsc.find_tasks.which_fullfills(model, :id => 1).to_a
 	assert_equal([trsc[t1]], result)
 
-	trsc.discover(t3)
+	trsc.add(t3)
 	result = trsc.find_tasks.which_fullfills(model, :id => 3).to_a
 	assert_equal([t3], result)
 

@@ -1,10 +1,3 @@
-require 'roby/planning/task'
-require 'roby/task'
-require 'roby/control'
-require 'roby/plan'
-require 'utilrb/module/ancestor_p'
-require 'set'
-
 module Roby
     # The Planning module provides basic tools to create plans (graph of tasks
     # and events)
@@ -16,6 +9,33 @@ module Roby
             def initialize(planner = nil)
                 @planner = planner 
 		super()
+            end
+        end
+
+        MethodArgDescription = Struct.new :name, :doc, :required
+        class MethodDescription
+            attr_reader :doc
+
+            attr_reader :arguments
+
+            attr_predicate :advanced?
+
+            def initialize(doc = nil)
+                @doc = doc
+                @arguments = []
+            end
+
+            def required_arg(name, doc)
+                arguments << MethodArgDescription.new(name, doc, true)
+                self
+            end
+            def optional_arg(name, doc)
+                arguments << MethodArgDescription.new(name, doc, false)
+                self
+            end
+            def advanced
+                @advanced = true 
+                self
             end
         end
 
@@ -35,33 +55,36 @@ module Roby
                 super(planner)
             end
 
-	    def message
+            def pretty_print(pp)
 		if errors.empty?
-		    "no candidate for #{method_name}(#{method_options})"
+		    pp.text "no candidate for #{method_name}(#{method_options})"
 		else
-		    msg = "cannot develop a #{method_name}(#{method_options}) method"
-		    first, *rem = *Roby.filter_backtrace(backtrace)
+                    first, *rem = Roby.filter_backtrace(backtrace)
+                    pp.text "#{first}: cannot develop a #{method_name}(#{method_options.to_s[1..-2]}) method"
+                    pp.breakable
+                    pp.group(4, "    ") do
+                        rem.each do |line|
+                            pp.text "from #{line}"
+                            pp.breakable
+                        end
+                    end
 
-		    full = "#{first}: #{msg}\n   from #{rem.join("\n  from ")}"
+                    pp.breakable
 		    errors.each do |m, error|
 			first, *rem = *Roby.filter_backtrace(error.backtrace)
-			full << "\n#{first}: #{m} failed with #{error.message}\n  from #{rem.join("\n  from ")}"
+                        pp.text "#{first}: planning method #{m} failed"
+                        pp.breakable
+                        pp.text "#{first}: #{error.message}"
+                        pp.breakable
+                        pp.group(4, "    ") do
+                            rem.each do |line|
+                                pp.text "from #{line}"
+                                pp.breakable
+                            end
+                        end
 		    end
-		    full
 		end
-	    end
-
-	    def full_message
-		msg = message
-		first, *rem = *Roby.filter_backtrace(backtrace)
-
-		full = "#{first}: #{msg}\n   from #{rem.join("\n    from ")}"
-		errors.each do |m, error|
-		    first     = error.backtrace.first
-		    full << "\n#{first} #{m} failed because of #{error.full_message}"
-		end
-		full
-	    end
+            end
         end
 
 	# Some common tools for Planner and Library
@@ -130,7 +153,15 @@ module Roby
             # Call the method definition
             def call(planner); body.call(planner) end
 
-            def to_s; "#{name}:#{id}(#{options})" end
+            def to_s
+                opts = options.dup
+                opts.delete :id
+                "#{name}:#{id}(#{opts.to_s[1..-2]})"
+            end
+        end
+
+        class FreeMethod < MethodDefinition
+            def call(planner); planner.instance_eval(&body) end
         end
 
         # The model of a planning method. This does not define an actual
@@ -151,7 +182,9 @@ module Roby
             # The model options, as a Hash
             attr_reader :options
 
-            def initialize(name, options = Hash.new); @name, @options = name, options end
+            def initialize(name, options = Hash.new)
+                @name, @options = name, options
+            end
             def ==(model)
                 name == model.name && options == model.options
             end
@@ -209,6 +242,8 @@ module Roby
 
             def to_s; "#{name}(#{options})" end
         end
+
+        PlanningMethod = Struct.new :name, :model, :description, :instances
 
 	# A planner searches a suitable development for a set of methods. 
 	# Methods are defined using Planner::method. You can then ask
@@ -321,6 +356,25 @@ module Roby
 		end
 	    end
 
+            # call-seq:
+            #   describe(first_line, second_line, ...).
+            #       required_arg(arg_name, arg_doc).
+            #       optional_arg(arg_name, arg_doc)
+            #
+            # Describes the next method or method model. It adds a description
+            # text for the method, which can be shown for instance by the
+            # shell's "action" command. It is also possible to describe the
+            # expected method arguments.
+            def self.describe(*text)
+                if text.empty?
+                    text = ["(no description set)"]
+                else
+                    text.map! { |s| s.to_str }
+                end
+
+                @next_method_description = MethodDescription.new(text)
+            end
+
 	    # call-seq:
 	    #	method(name, option1 => value1, option2 => value2) { }	    => method definition
 	    #	method(name, option1 => value1, option2 => value2)	    => method model
@@ -410,7 +464,7 @@ module Roby
 	    def self.method(name, options = Hash.new, &body)
                 name, options = validate_method_query(name, options)
 		
-		# Define the method enumerator and the method selection
+		# Define the method enumerator and the method public interface
 		if !respond_to?("#{name}_methods")
 		    inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) { Hash.new }
 		    class_eval <<-PLANNING_METHOD_END
@@ -421,7 +475,17 @@ module Roby
 		      cached_enum("#{name}_method", "#{name}_methods", true)
 		    end
 		    PLANNING_METHOD_END
+                    singleton_class.class_eval do
+                        attr_reader "#{name}_description"
+                    end
 		end
+                if @next_method_description
+                    if instance_variable_get("@#{name}_description")
+                        raise "#{name} already has a description"
+                    end
+                    instance_variable_set("@#{name}_description", @next_method_description)
+                    @next_method_description = nil
+                end
 
 		# We are updating the method model
                 if !body
@@ -463,7 +527,8 @@ module Roby
 		end
 		temp_method_name = "m#{@@temp_method_id += 1}"
 		define_method(temp_method_name, &body)
-		send("#{name}_methods")[method_id] = MethodDefinition.new(name, options, instance_method(temp_method_name))
+                mdef = MethodDefinition.new(name, options, instance_method(temp_method_name))
+		send("#{name}_methods")[method_id] = mdef
             end
 	    @@temp_method_id = 0
 
@@ -478,6 +543,33 @@ module Roby
 
 		names
 	    end
+
+            def self.planning_methods
+                names = methods.map do |method_name|
+                    if method_name =~ /^each_(\w+)_method$/
+                        $1
+                    end
+                end.compact.sort
+
+                names.map do |name|
+                    desc = PlanningMethod.new
+                    desc.name = name
+                    desc.description = planning_method_description(name)
+                    #desc.model = method_model(name)
+                    #desc.instances = Array.new
+                    #send("each_#{name}_method") do |instance|
+                    #    desc.instances << instance
+                    #end
+                    desc
+                end
+            end
+            
+            def self.planning_method_description(name)
+                return instance_variable_get("@#{name}_description") || MethodDescription.new
+            end
+            def planning_method_description(name)
+                self.class.planning_method_description(name)
+            end
 
 	    def self.clear_model
 		planning_methods_names.each do |name|
@@ -608,6 +700,13 @@ module Roby
 		MethodModel.new(name, :returns => Task)
 	    end
 
+            # Creates a TaskSequence with the given tasks
+            def sequence(*tasks)
+                seq = Sequence.new
+                tasks.each { |t| seq << t }
+                seq
+            end
+
 	    # Creates a planning task which will call the same planning method
 	    # than the one currently being generated.
 	    #
@@ -653,9 +752,8 @@ module Roby
 		elsif planning_options[:args] && !planning_options[:args].empty?
 		    raise ArgumentError, "provided method-specific options through both :args and the option hash"
 		end
-		@arguments.push(method_options)
 
-		Planning.debug { "planning #{name}[#{arguments}]" }
+		Planning.debug { "planning #{name}[#{method_options}]" }
 
 		# Check for recursion
                 if (options[:id] && @stack.include?([name, options[:id]])) || (!options[:id] && @stack.find { |n, _| n == name })
@@ -678,7 +776,7 @@ module Roby
 		    all_returns.compact!
 				      
 		    for return_type in all_returns
-			if task = find_reusable_task(return_type)
+			if task = find_reusable_task(return_type, method_options)
 			    return task
 			end
 		    end
@@ -689,7 +787,7 @@ module Roby
 		end
 
 		# Call the methods
-		call_planning_methods(Hash.new, options, *methods)
+		call_planning_methods(Hash.new, method_options, *methods)
 
             rescue Interrupt
                 raise
@@ -698,21 +796,18 @@ module Roby
                 e.method_name       = name
                 e.method_options    = options
                 raise e
-		
-	    ensure
-		@arguments.pop
             end
 	    
-	    def find_reusable_task(return_type)
+	    def find_reusable_task(return_type, method_options)
 		query = plan.find_tasks.
-		    which_fullfills(return_type, arguments).
+		    which_fullfills(return_type, method_options).
 		    self_owned.
 		    not_abstract.
 		    not_finished.
 		    roots(TaskStructure::Hierarchy)
 
 		for candidate in query
-		    Planning.debug { "selecting task #{candidate} instead of planning #{return_type}[#{arguments}]" }
+		    Planning.debug { "selecting task #{candidate} instead of planning #{return_type}[#{method_options}]" }
 		    return candidate
 		end
 		nil
@@ -724,9 +819,10 @@ module Roby
             # Tries to find a successfull development in the provided method list.
             #
             # It raises NotFound if none of the methods returned successfully
-            def call_planning_methods(errors, options, method, *methods)
+            def call_planning_methods(errors, method_options, method, *methods)
                 begin
                     @stack.push [method.name, method.id]
+                    @arguments.push(method_options)
 		    Planning.debug { "calling #{method.name}:#{method.id} with arguments #{arguments}" }
 		    begin
 			result = method.call(self)
@@ -742,7 +838,7 @@ module Roby
 		    end
 		    
 		    # Insert resulting tasks in +plan+
-		    plan.discover(result)
+		    plan.add(result)
 
 		    expected_return = method.returns
 		    if expected_return 
@@ -762,6 +858,7 @@ module Roby
 		    result
 
                 ensure
+                    @arguments.pop
                     @stack.pop
                 end
 
@@ -771,7 +868,7 @@ module Roby
                 if methods.empty?
                     raise NotFound.new(self, errors)
                 else
-                    call_planning_methods(errors, options, *methods)
+                    call_planning_methods(errors, method_options, *methods)
                 end
             end
 
@@ -782,20 +879,22 @@ module Roby
 	    def make_loop(options = {}, &block)
 		raise ArgumentError, "no block given" unless block
 
-		options.merge! :planner_model => self.class, :method_name => 'loops'
-		_, planning_options = PlanningLoop.filter_options(options)
-
                 loop_id = Planner.next_id
                 if !@stack.empty?
                     loop_id = "#{@stack.last[1]}_#{loop_id}"
                 end
+                loop_method = FreeMethod.new 'loops', {}, lambda(&block)
+
+                options[:planner_model] = self.class
+                options[:planning_method] = loop_method
+		_, planning_options = PlanningLoop.filter_options(options)
                 planning_options[:id] = loop_id
                 planning_options[:reuse] = false
-                m = self.class.method('loops', planning_options, &block)
+                loop_method.options.merge!(planning_options)
 
 		options[:method_options] ||= {}
 		options[:method_options].merge!(arguments || {})
-		options[:method_options][:id] = m.id
+		options[:method_options][:id] = loop_method.id
 		PlanningLoop.new(options)
 	    end
         end

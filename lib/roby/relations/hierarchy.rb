@@ -1,32 +1,51 @@
-require 'roby/task'
-require 'roby/control'
-require 'set'
-
 module Roby::TaskStructure
-    module HierarchySupport
+    relation :Hierarchy, :child_name => :child, :parent_name => :parent_task do
+        ##
+        # :method: add_child(v, info)
+        # Adds a new child to +v+. You should use #realized_by instead.
+
+        def realizes?(obj)
+            Roby.warn_deprecated "#realizes? is deprecated. Use #depended_upon_by? instead"
+            depended_upon_by?(obj)
+        end
+	def realized_by?(obj)
+            Roby.warn_deprecated "#realized_by? is deprecated. Use #depends_on?(obj, false) instead"
+            depends_on?(obj, false)
+        end
+
 	# True if +obj+ is a parent of this object in the hierarchy relation
 	# (+obj+ is realized by +self+)
-	def realizes?(obj);	parent_object?(obj, Hierarchy) end
-	# True if +obj+ is a child of this object in the hierarchy relation
-	def realized_by?(obj);  child_object?(obj, Hierarchy) end
-	# True if +obj+ can be reached through the Hierarchy relation by
-	# starting from this object
-	def depends_on?(obj)
-	    generated_subgraph(Hierarchy).include?(obj)
+	def depended_upon_by?(obj);	parent_object?(obj, TaskStructure::Hierarchy) end
+
+	# True if +obj+ is a child of this object in the hierarchy relation.
+        # If +recursive+ is true, take into account the whole subgraph.
+        # Otherwise, only direct children are checked.
+        def depends_on?(obj, recursive = true)
+            if recursive
+                generated_subgraph(TaskStructure::Hierarchy).include?(obj)
+            else
+                child_object?(obj, TaskStructure::Hierarchy)
+            end
 	end
 	# The set of parent objects in the Hierarchy relation
-	def parents; parent_objects(Hierarchy) end
+	def parents; parent_objects(TaskStructure::Hierarchy) end
 	# The set of child objects in the Hierarchy relation
-	def children; child_objects(Hierarchy) end
+	def children; child_objects(TaskStructure::Hierarchy) end
 
+        def realized_by(task, options = {})
+            Roby.warn_deprecated "#realized_by is deprecated. Use #depends_on instead"
+            depends_on(task, options)
+        end
 
 	# Adds +task+ as a child of +self+ in the Hierarchy relation. The
 	# following options are allowed:
 	#
 	# success:: the list of success events. The default is [:success]
 	# failure:: the list of failing events. The default is [:failed]
-	# model:: a <tt>[task_model, arguments]</tt> pair which defines the task model the parent is expecting. 
-	#   The default value is to get these parameters from +task+
+	# model:: 
+        #   a <tt>[task_model, arguments]</tt> pair which defines the task
+        #   model the parent is expecting.  The default value is to get these
+        #   parameters from +task+
         #
         # The +success+ set describes the events of the child task that are
         # _required_ by the parent task. More specifically, the child task
@@ -40,11 +59,11 @@ module Roby::TaskStructure
         # error condition from the parent task point of view.
         #
         # In both error cases, a +ChildFailedError+ exception is raised.
-        def realized_by(task, options = {})
+        def depends_on(task, options = {})
             options = validate_options options, 
 		:model => [task.model, task.meaningful_arguments], 
 		:success => [:success], 
-		:failure => [:failed],
+		:failure => [],
 		:remove_when_done => false
 
 	    options[:success] = Array[*options[:success]]
@@ -67,10 +86,14 @@ module Roby::TaskStructure
 	# Set up the event gathering needed by Hierarchy.check_structure
 	def added_child_object(child, relations, info) # :nodoc:
 	    super if defined? super
-	    if relations.include?(Hierarchy) && !respond_to?(:__getobj__) && !child.respond_to?(:__getobj__)
-		events = info[:success].map { |ev| child.event(ev) }
+	    if relations.include?(TaskStructure::Hierarchy) && !respond_to?(:__getobj__) && !child.respond_to?(:__getobj__)
+		events = info[:success].map do |ev|
+                    ev = child.event(ev)
+                    ev.if_unreachable { TaskStructure::Hierarchy.interesting_events << ev }
+                    ev
+                end
 		events.concat info[:failure].map { |ev| child.event(ev) }
-		Roby::EventGenerator.gather_events(Hierarchy.interesting_events, events)
+		Roby::EventGenerator.gather_events(TaskStructure::Hierarchy.interesting_events, events)
 	    end
 	end
 
@@ -79,7 +102,7 @@ module Roby::TaskStructure
         def first_children
 	    result = ValueSet.new
 
-	    generated_subgraph(Hierarchy).each do |task|
+	    generated_subgraph(TaskStructure::Hierarchy).each do |task|
 		next if task == self
 		if task.event(:start).root?(Roby::EventStructure::CausalLink)
 		    result << task
@@ -92,7 +115,7 @@ module Roby::TaskStructure
 	def fullfilled_events
 	    needed = ValueSet.new
 	    each_parent_task do |parent|
-		needed.merge(parent[self, Hierarchy][:success])
+		needed.merge(parent[self, TaskStructure::Hierarchy][:success])
 	    end
 	    needed
 	end
@@ -107,7 +130,7 @@ module Roby::TaskStructure
 	    model, tags, arguments = Roby::Task, [], {}
 
 	    each_parent_task do |parent|
-		m, a = parent[self, Hierarchy][:model]
+		m, a = parent[self, TaskStructure::Hierarchy][:model]
 		if m.instance_of?(Roby::TaskModelTag)
 		    tags << m
 		elsif m.has_ancestor?(model)
@@ -133,16 +156,13 @@ module Roby::TaskStructure
 	    # since #children is a relation enumerator (not the relation list
 	    # itself)
 	    children.to_a.each do |child|
-		success_events = self[child, Hierarchy][:success]
+		success_events = self[child, TaskStructure::Hierarchy][:success]
 		if success_events.any? { |ev| child.event(ev).happened? }
 		    remove_child(child)
 		end
 	    end
 	end
     end
-
-    # Document-module: Hierarchy
-    relation :Hierarchy, :child_name => :child, :parent_name => :parent_task
 
     # Checks the structure of +plan+ w.r.t. the constraints of the hierarchy
     # relations. It returns an array of ChildFailedError for all failed
@@ -157,7 +177,15 @@ module Roby::TaskStructure
 	# registered The tasks that are failing the hierarchy requirements
 	# are registered in Hierarchy.failing_tasks. The interesting_events
 	# set is cleared at cycle end (see below)
-	tasks = events.inject(failing_tasks) { |set, event| set << event.generator.task }
+	tasks = events.inject(failing_tasks) do |set, event|
+            if event.respond_to?(:generator)
+                set << event.generator.task
+            else
+                set << event.task
+            end
+            set
+        end
+
 	@failing_tasks = ValueSet.new
 	tasks.each do |child|
 	    # Check if the task has been removed from the plan
@@ -178,6 +206,14 @@ module Roby::TaskStructure
 		    end
 		elsif failing_event = failure.find { |e| child.event(e).happened? }
 		    result << Roby::ChildFailedError.new(parent, child.event(failing_event).last)
+		    failing_tasks << child
+		elsif success.all? { |e| child.event(e).unreachable? }
+                    failing_event = success.find { |e| child.event(e).unreachability_reason }
+                    failing_event = child.event(failing_event).unreachability_reason
+                    if !failing_event
+                        failing_event = child.event(success.find { |e| child.event(e) })
+                    end
+		    result << Roby::ChildFailedError.new(parent, failing_event)
 		    failing_tasks << child
 		end
 	    end
@@ -203,14 +239,14 @@ module Roby
 	attr_reader :parent
 	# The child in the relation
 	def child; failed_task end
-	# The relation parameters (i.e. the hash given to #realized_by)
+	# The relation parameters (i.e. the hash given to #depends_on)
 	attr_reader :relation
 
 	# The event which is the cause of this error. This is either the task
 	# source of a failure event, or the reason why a positive event has
 	# become unreachable (if there is one)
 	def initialize(parent, event)
-	    super(event.task_sources.find { true })
+            super(event)
 	    @parent = parent
 	    @relation = parent[child, TaskStructure::Hierarchy]
 	end
@@ -225,7 +261,7 @@ module Roby
                 pp.text "  "
                 parent.pretty_print pp
                 pp.breakable
-                pp.text "realized_by "
+                pp.text "depends_on "
                 child.pretty_print pp
             end
 	end

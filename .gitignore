@@ -5,7 +5,7 @@ ext/*/mkmf.log
 lib/roby_*.so
 *_ui.rb
 
-doc/rdoc
+doc/html
 doc/cache
 
 .*.swp

@@ -43,8 +43,17 @@ module Roby::Log
 	    super(@event_io)
 
 	    @index_data = Array.new
-	    update_index
-	    rewind
+            begin
+                rewind
+            rescue ArgumentError, EOFError
+                rebuild_index
+                rewind
+            end
+
+            if !valid_index?
+                rebuild_index
+                rewind
+            end
 	end
 
 	# Reads as much index data as possible
@@ -64,6 +73,28 @@ module Roby::Log
 
 	    return if index_data.empty?
 	end
+
+        def valid_index?
+            100.times do |i|
+                break if i * 10 >= index_data.size
+                index = index_data[i * 10]
+
+                event_io.seek(index[:pos])
+                cycle = begin
+                    Marshal.load(event_io)
+                rescue EOFError
+                    return false
+                rescue ArgumentError
+                    return false
+                end
+
+                if cycle[-4] != :cycle_end ||
+                    cycle[-1].first != index
+                    return false
+                end
+            end
+            true
+        end
 
 	def rewind
 	    @event_io.rewind
@@ -96,7 +127,7 @@ module Roby::Log
 
     # A logger object which marshals all available events in two files. The
     # event log is the full log, the index log contains only the timings given
-    # to Control#cycle_end, along with the corresponding position in the event
+    # to ExecutionEngine#cycle_end, along with the corresponding position in the event
     # log file.
     #
     # You can use FileLogger.replay(io) to send the events back into the
@@ -133,6 +164,9 @@ module Roby::Log
 
 	attr_accessor :stats_mode
 	def splat?; false end
+        def logs_message?(m)
+	    m == :cycle_end || !stats_mode
+        end
 
 	def dump_method(m, time, args)
 	    if m == :cycle_end || !stats_mode
@@ -141,7 +175,7 @@ module Roby::Log
 	    if m == :cycle_end
 		info = args.first
 		info[:pos] = event_log.tell
-		info[:event_count] = current_cycle.size
+		info[:event_count] = current_cycle.size / 4
 		Marshal.dump(current_cycle, event_log)
 
 		dump_io.truncate(0)
@@ -153,13 +187,16 @@ module Roby::Log
 	    end
 
 	rescue 
-	    puts "failed to dump #{m}#{args}: #{$!.full_message}"
-	    args.each do |obj|
-		unless (Marshal.dump(obj) rescue nil)
-		    puts "there is a problem with"
-		    pp obj
+            current_cycle.each_slice(4) do |m, sec, usec, args|
+		unless (Marshal.dump(args) rescue nil)
+                    args.each do |obj|
+                        unless (Marshal.dump(obj) rescue nil)
+                            puts "cannot dump the following object in #{m}(#{args.join(", ")}):"
+                            pp obj
+                        end
+                    end
 		end
-	    end
+            end
 	end
 
 	Roby::Log.each_hook do |klass, m|

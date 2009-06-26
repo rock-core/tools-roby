@@ -1,0 +1,8 @@
+---
+title: The forwarding relation
+sort_info: 200
+--- name:content pipeline:tags,markdown,blocks
+
+* we already saw its usefulness inside tasks
+* semantics of forwarding in-between tasks
+* example: loops

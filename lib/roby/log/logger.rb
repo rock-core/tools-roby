@@ -66,7 +66,7 @@ module Roby::Log
 	# Returns true if there is at least one loggr for the +m+ message
 	def has_logger?(m)
 	    for l in @loggers
-		return true if l.respond_to?(m)
+		return true if l.logs_message?(m)
 	    end
 	    false
 	end
@@ -84,7 +84,7 @@ module Roby::Log
 	# Logs +message+ with argument +args+. The block is called only once if
 	# there is at least one logger which listens for +message+.
 	def log(m, args = nil)
-	    if m == :discovered_tasks || m == :discovered_events
+	    if m == :added_tasks || m == :added_events
 		Roby.synchronize do
 		    args ||= yield
 		    objects = args[1].to_value_set
@@ -139,7 +139,7 @@ module Roby::Log
 	    end
 
 	rescue Exception => e
-	    Roby.fatal "logger thread dies with #{e.full_message}" unless e.kind_of?(Interrupt)
+	    Roby::Log.fatal "logger thread dies with #{e.full_message}" unless e.kind_of?(Interrupt)
 
 	ensure
 	    # Wake up any waiting thread

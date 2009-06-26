@@ -140,6 +140,8 @@ module Roby
 	    def synchronize; mutex.synchronize { yield } end
 	    # The plan we are publishing, usually Roby.plan
 	    attr_reader :plan
+            # The execution engine tied to +plan+, or nil if there is none
+            def engine; plan.engine end
 
 	    # Our name on the network
 	    attr_reader :name
@@ -190,6 +192,7 @@ module Roby
 		@start_discovery      = ConditionVariable.new
 		@finished_discovery   = ConditionVariable.new
 		@new_neighbours	      = Queue.new
+                @new_neighbours_observers = Array.new
 
 		@connection_listeners = Array.new
 
@@ -222,13 +225,21 @@ module Roby
 		end
 		start_neighbour_discovery(true)
 
-                plan.propagation_handlers << lambda do
+                @discovery_start_handler = engine.add_propagation_handler do |plan|
                     start_neighbour_discovery
+                    notify_new_neighbours
+                end
+		engine.finalizers << method(:quit)
+                engine.at_cycle_end do
+                    peers.each_value do |peer|
+                        if peer.connected?
+                            peer.transmit(:state_update, Roby::State) 
+                        end
+                    end
                 end
 
-		receive
-
-		Roby::Control.finalizers << method(:quit)
+                # Finally, start the reception thread
+                receive
 	    end
 
 	    # Sets up a separate thread which listens for connection
@@ -269,7 +280,10 @@ module Roby
 			    while !pending_sockets.empty?
 				socket, peer = pending_sockets.shift
 				sockets[socket] = peer
-				Roby::Distributed.info "listening to #{socket.peer_info} for #{peer}"
+                                begin
+                                    Roby::Distributed.info "listening to #{socket.peer_info} for #{peer}"
+                                rescue IOError
+                                end
 			    end
 
 			    begin
@@ -286,18 +300,22 @@ module Roby
 				    next
 				end
 
-				header = socket.read(8)
-				unless header && header.size == 8
-				    closed_sockets << socket
-				    next
-				end
+                                begin
+                                    header = socket.read(8)
+                                    unless header && header.size == 8
+                                        closed_sockets << socket
+                                        next
+                                    end
 
-				id, size = header.unpack("NN")
-				data     = socket.read(size)
+                                    id, size = header.unpack("NN")
+                                    data     = socket.read(size)
 
-				p = sockets[socket]
-				p.stats.rx += (size + 8)
-				Roby::Distributed.cycles_rx << [p, Marshal.load(data)]
+                                    p = sockets[socket]
+                                    p.stats.rx += (size + 8)
+                                    Roby::Distributed.cycles_rx << [p, Marshal.load(data)]
+                                rescue Errno::ECONNRESET, IOError
+                                    closed_sockets << socket
+                                end
 			    end
 
 			    for socket in closed_sockets
@@ -418,7 +436,7 @@ module Roby
 		# Force disconnection in case something got wrong in the normal
 		# disconnection process
 		Distributed.peers.values.each do |peer|
-		    peer.disconnected unless peer.disconnected?
+		    peer.disconnected! unless peer.disconnected?
 		end
 
 		synchronize do
@@ -460,6 +478,9 @@ module Roby
             # Make the ConnectionSpace quit
 	    def quit
 		Distributed.debug "ConnectionSpace #{self} quitting"
+                if @discovery_start_handler
+                    engine.remove_propagation_handler(@discovery_start_handler)
+                end
 
 		# Remove us from the central tuplespace
 		if central_discovery?
@@ -488,7 +509,7 @@ module Roby
 		    end
 		end
 
-		Roby::Control.finalizers.delete(method(:quit))
+		plan.engine.finalizers.delete(method(:quit))
 		if Distributed.state == self
 		    Distributed.state = nil
 		end
@@ -513,6 +534,30 @@ module Roby
 	    def transaction_discard(trsc) # :nodoc:
 		trsc.discard_transaction(false)
 	    end
+
+            def on_neighbour
+		current = neighbours.dup
+		engine.once { current.each { |n| yield(n) } }
+		new_neighbours_observers << lambda { |_, n| yield(n) }
+	    end
+
+            # The set of proc objects which should be notified when new
+            # neighbours are detected.
+	    attr_reader :new_neighbours_observers
+	    
+            # Called in the neighbour discovery thread to detect new
+            # neighbours. It fills the new_neighbours queue which is read by
+            # notify_new_neighbours to notify application code of new
+            # neighbours in the control thread
+	    def notify_new_neighbours
+		while !new_neighbours.empty?
+		    cs, neighbour = new_neighbours.pop(true)
+		    new_neighbours_observers.each do |obs|
+			obs[cs, neighbour]
+		    end
+		end
+	    end
+
 	end
 
 	class << self
@@ -559,37 +604,13 @@ module Roby
 		else []
 		end
 	    end
-	end
-
-	@new_neighbours_observers = Array.new
-	class << self
-            # The set of proc objects which should be notified when new
-            # neighbours are detected.
-	    attr_reader :new_neighbours_observers
-	    
-            # Called in the neighbour discovery thread to detect new
-            # neighbours. It fills the new_neighbours queue which is read by
-            # notify_new_neighbours to notify application code of new
-            # neighbours in the control thread
-	    def notify_new_neighbours(plan)
-		return unless Distributed.state
-		while !new_neighbours.empty?
-		    cs, neighbour = new_neighbours.pop(true)
-		    new_neighbours_observers.each do |obs|
-			obs[cs, neighbour]
-		    end
-		end
-	    end
-
+            
             # Defines a block which should be called when a new neighbour is
             # detected
-	    def on_neighbour
-		current = neighbours.dup
-		Roby.once { current.each { |n| yield(n) } }
-		new_neighbours_observers << lambda { |_, n| yield(n) }
-	    end
+            #
+            # See ConnectionSpace#on_neighbour
+            def on_neighbour(&block); Roby::Distributed.state.on_neighbour(&block) end
 	end
-	Roby::Propagation.propagation_handlers << method(:notify_new_neighbours)
     end
 end
 

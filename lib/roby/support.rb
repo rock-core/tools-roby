@@ -1,4 +1,4 @@
-require 'active_support/core_ext/string/inflections'
+require 'active_support/inflector'
 class String # :nodoc: all
     include ActiveSupport::CoreExtensions::String::Inflections
 end
@@ -42,6 +42,23 @@ module Enumerable
 	    return false
 	end
 	true
+    end
+end
+
+class Module
+    # :call-seq
+    #   define_under(name, value)   ->              value
+    #   define_under(name) { ... }  ->              value
+    #
+    # Defines a new constant under a given module
+    # In the first form, the method gets its value from its argument. 
+    # In the second case, it calls the provided block
+    def define_under(name, value = nil)
+	if old = constants.find { |cn| cn == name.to_s }
+	    return const_get(old)
+	else
+            const_set(name, (value || yield))
+        end
     end
 end
 
@@ -163,6 +180,17 @@ module Roby
                 Thread.current[:global_lock_taken] = false
                 global_lock.unlock
             end
+        end
+    end
+
+    class << self
+        attr_accessor :enable_deprecation_warnings
+    end
+    @enable_deprecation_warnings = true
+
+    def self.warn_deprecated(msg)
+        if enable_deprecation_warnings
+            Roby.warn "Deprecation Warning: #{msg} at #{caller[1]}"
         end
     end
 end

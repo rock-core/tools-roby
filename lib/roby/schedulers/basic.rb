@@ -2,7 +2,9 @@ module Roby
     module Schedulers
 	class Basic
 	    attr_reader :query
-	    def initialize
+            attr_reader :include_children
+	    def initialize(include_children = false)
+                @include_children = include_children
 		@query = Roby.plan.find_tasks.
 		    executable.
 		    pending.
@@ -19,7 +21,8 @@ module Roby
 			end
 		    end
 
-		    if root_task
+		    if root_task || (include_children && task.parents.any? { |t| t.running? })
+                        Robot.info "scheduler starts #{task}"
 			task.start!
 		    end
 		end

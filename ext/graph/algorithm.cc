@@ -328,7 +328,7 @@ static VALUE graph_components(int argc, VALUE* argv, VALUE self)
 	{
 	    if (! enabled_components[i])
 		continue;
-	    if (RARRAY(components[i])->len == 1)
+	    if (RARRAY_LEN(components[i]) == 1)
 		rb_ary_store(ret, i, Qnil);
 	}
     }

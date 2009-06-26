@@ -161,6 +161,9 @@ class Ui::ReplayControls
 	play_step.connect(SIGNAL("clicked()")) do
 	    replay.play_step
 	end
+	play_next_nonempty.connect(SIGNAL("clicked()")) do
+	    replay.play_next_nonempty
+	end
     end
 
     def handleGoto
@@ -182,9 +185,12 @@ class Ui::ReplayControls
 			retry
 		    end
 
-	unless replay.first_sample
+	if !replay.first_sample
 	    replay.seek(nil)
 	end
+        if !replay.first_sample # no samples at all !
+            return
+        end
 
 	user_time = if !op
 			replay.first_sample + (user_time - Time.at(0))

@@ -1,4 +1,4 @@
-$LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
+$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'flexmock'
 
@@ -8,7 +8,7 @@ class TC_EnsuredEvent < Test::Unit::TestCase
     def test_ensure
 	setup = lambda do |mock|
 	    e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
-	    plan.discover [e1, e2]
+	    plan.add [e1, e2]
 	    e1.ensure e2
 	    e1.on { |ev| mock.e1 }
 	    e2.on { |ev| mock.e2 }

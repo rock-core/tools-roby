@@ -1,12 +1,11 @@
 module Roby
     module TaskStructure
-        module InfluenceSupport
+	relation :Influence, :child_name => 'influenced_task', :noinfo => true, :weak => true do
 	    def influenced_by(task)
 		add_influenced_task(task)
 	    end
         end
 
-	relation :Influence, :child_name => 'influenced_task', :noinfo => true, :weak => true
     end
 end
 

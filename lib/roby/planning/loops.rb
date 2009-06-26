@@ -1,5 +1,3 @@
-require 'roby/planning/task'
-
 module Roby
     # This class unrolls a loop in the plan. It maintains +lookahead+ patterns
     # developped at all times by calling an external planner, and manages them.
@@ -68,29 +66,40 @@ module Roby
 
 	# The planner model we should use
 	argument :planner_model
-	# The planner method name
-	argument :method_name
+
+        # The planner method name. This is not a mandatory argument as
+        # otherwise we would break logging and distributed Roby: this attribute
+        # can hold a MethodDefinition object that cannot be shared.
+        #
+        # Anyway, the only meaningful argument in distributed context is the
+        # method name itself. Event method_options could be removed in the
+        # future.
+	def planning_method
+            arguments[:planning_method]
+        end
 	# The planner method options
 	argument :method_options
+
+        # The method name. This can be nil a FreeMethod is used for planning
+        argument :method_name
 
 	# Filters the options in +options+, splitting between the options that
 	# are specific to the planning task and those that are to be forwarded
 	# to the planner itself
-	def self.filter_options(options) # :nodoc:
+	def self.filter_options(options)
 	    task_arguments, planning_options = Kernel.filter_options options, 
 		:period => nil,
 		:lookahead => 1,
 		:planner_model => nil,
+                :planning_method => nil,
 		:planned_model => Roby::Task,
 		:method_name => nil,
 		:method_options => {},
 		:planning_owners => nil
 
-	    if !task_arguments[:method_name]
-		raise ArgumentError, "required argument :method_name missing"
-	    elsif !task_arguments[:planner_model]
-		raise ArgumentError, "required argument :planner_model missing"
-	    elsif task_arguments[:lookahead] < 0
+            task_arguments = PlanningTask.validate_planning_options(task_arguments)
+
+	    if task_arguments[:lookahead] < 0
 		raise ArgumentError, "lookahead must be positive"
 	    end
 	    task_arguments[:period] ||= nil
@@ -109,7 +118,7 @@ module Roby
             if period && period > 0
                 @periodic_trigger = State.on_delta :t => period
                 periodic_trigger.disable
-                periodic_trigger.on event(:loop_start)
+                periodic_trigger.signals event(:loop_start)
             end
             
 	    @patterns = []
@@ -135,17 +144,17 @@ module Roby
 	# +context+ is forwarded to the planned task
 	def append_pattern(*context)
 	    # Create the new pattern
-	    task_arguments = arguments.slice(:planner_model, :planned_model, :method_name)
+	    task_arguments = arguments.slice(:planner_model, :planned_model, :planning_method)
 	    task_arguments[:method_options] = method_options.dup
 	    task_arguments[:method_options][:pattern_id] = @pattern_id
 	    @pattern_id += 1
 
 	    planning = PlanningTask.new(task_arguments)
 	    planned  = planning.planned_task
-	    planned.forward(:start,   self, :loop_start)
-	    planned.forward(:success, self, :loop_success)
-	    planned.forward(:stop,    self, :loop_end)
-	    main_task.realized_by planned
+	    planned.forward_to(:start,   self, :loop_start)
+	    planned.forward_to(:success, self, :loop_success)
+	    planned.forward_to(:stop,    self, :loop_end)
+	    main_task.depends_on planned
 	    
 	    # Schedule it. We start the new pattern when these three conditions are met:
 	    # * it has been planned (planning has finished)
@@ -175,13 +184,15 @@ module Roby
 		if last_planning.finished?
 		    planning.start!(*context) 
 		else
-		    last_planning.event(:success).filter(*context).on(planning.event(:start))
+		    last_planning.event(:success).
+                        filter(*context).
+                        signals(planning.event(:start))
 		end
 	    end
             command &= precondition
 
 	    patterns.unshift([planning, user_command])
-	    command.on(planned.event(:start))
+	    command.signals(planned.event(:start))
 	    planning
 	end
 
@@ -191,7 +202,7 @@ module Roby
 	event :reinit do |context|
             did_reinit = []
 
-            # Remove all realized_by relations and all pending patterns from
+            # Remove all depends_on relations and all pending patterns from
             # the pattern set.
             for pattern in patterns
                 old_planning, ev = pattern
@@ -212,7 +223,7 @@ module Roby
                 did_reinit.
                     map { |ev| ev.when_unreachable }.
                     inject { |a, b| a & b }.
-                    forward event(:reinit)
+                    forward_to event(:reinit)
             end
         end
         on :reinit do |ev|
@@ -238,7 +249,7 @@ module Roby
 		    new_planning = append_pattern
 		    first_planning ||= new_planning
 		end
-		on(:start, first_planning)
+		signals(:start, first_planning, :start)
 	    end
 
 	    emit :start

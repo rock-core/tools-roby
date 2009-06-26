@@ -61,6 +61,9 @@ module Roby
 	# dir:: the log directory. Uses APP_DIR/log if not set
 	# filter_backtraces:: true if the framework code should be removed from the error backtraces
 	attr_reader :log
+
+        # ExecutionEngine setup
+        attr_reader :engine
 	
 	# A [name, dir, file, module] array of available plugins, where 'name'
 	# is the plugin name, 'dir' the directory in which it is installed,
@@ -79,13 +82,6 @@ module Roby
 	#              detected
 	attr_reader :droby
 	
-	# Configuration of the control loop
-	# abort_on_exception:: if the control loop should abort if an uncaught task or event exception is received. Defaults
-	#                      to false
-	# abort_on_application_exception:: if the control should abort if an uncaught application exception (not originating
-	#                                  from a task or event) is caught. Defaults to true.
-	attr_reader :control
-        
 	# If true, abort if an unhandled exception is found
 	attr_predicate :abort_on_exception, true
 	# If true, abort if an application exception is found
@@ -113,8 +109,7 @@ module Roby
 	    @log = Hash['events' => 'stats', 'levels' => Hash.new, 'filter_backtraces' => true] 
 	    @discovery = Hash.new
 	    @droby     = Hash['period' => 0.5, 'max_errors' => 1] 
-	    @control   = Hash[ 'abort_on_exception' => false, 
-		'abort_on_application_exception' => true ]
+            @engine    = Hash.new
 
 	    @automatic_testing = true
 	    @testing_keep_logs = false
@@ -204,7 +199,7 @@ module Roby
 
 	    @options = options
 
-	    load_option_hashes(options, %w{log control discovery droby})
+	    load_option_hashes(options, %w{log engine discovery droby})
 	    call_plugins(:load, self, options)
 	end
 
@@ -423,6 +418,10 @@ module Roby
 	end
 
 	def setup
+            if !Roby.plan
+                Roby.instance_variable_set :@plan, Plan.new
+            end
+
 	    reset
             require 'roby/planning'
             require 'roby/interface'
@@ -475,9 +474,9 @@ module Roby
 
 	    if single? || !robot_name
 		host =~ /:(\d+)$/
-		DRb.start_service "druby://:#{$1 || '0'}", Interface.new
+		DRb.start_service "druby://:#{$1 || '0'}", Interface.new(Roby.engine)
 	    else
-		DRb.start_service "druby://#{host}", Interface.new
+		DRb.start_service "druby://#{host}", Interface.new(Roby.engine)
 		droby_config = { :ring_discovery => !!discovery['ring'],
 		    :name => robot_name, 
 		    :plan => Roby.plan, 
@@ -499,16 +498,10 @@ module Roby
 	    @robot_name ||= 'common'
 	    @robot_type ||= 'common'
 
-	    control_config = self.control
-	    control = Roby.control
-	    options = { :detach => true, :cycle => control_config['cycle'] || 0.1 }
+	    engine_config = self.engine
+	    engine = Roby.engine
+	    options = { :cycle => engine_config['cycle'] || 0.1 }
 	    
-	    # Add an executive if one is defined
-            scheduler = (control_config['scheduler'] || control_config['executive'])
-	    if scheduler
-		self.scheduler = control_config['scheduler']
-	    end
-
 	    if log['events']
 		require 'roby/log/file'
 		logfile = File.join(log_dir, robot_name)
@@ -516,11 +509,7 @@ module Roby
 		logger.stats_mode = log['events'] == 'stats'
 		Roby::Log.add_logger logger
 	    end
-	    self.abort_on_exception = 
-		control_config['abort_on_exception']
-	    self.abort_on_application_exception = 
-		control_config['abort_on_application_exception']
-	    control.run options
+	    engine.run options
 
 	    plugins = self.plugins.map { |_, mod| mod if mod.respond_to?(:run) }.compact
 	    run_plugins(plugins, &block)
@@ -533,11 +522,11 @@ module Roby
             end
 	end
 	def run_plugins(mods, &block)
-	    control = Roby.control
+	    engine = Roby.engine
 
 	    if mods.empty?
 		yield
-		control.join
+		engine.join
 	    else
 		mod = mods.shift
 		mod.run(self) do
@@ -546,25 +535,13 @@ module Roby
 	    end
 
 	rescue Exception => e
-	    if Roby.control.running?
-		control.quit
-		control.join
+	    if Roby.engine.running?
+		engine.quit
+		engine.join
 		raise e, e.message, e.backtrace
 	    else
 		raise
 	    end
-	end
-
-	def scheduler=(name)
-	    if Roby.plan.scheduler
-                Roby.plan.scheduler = nil
-	    end
-            @scheduler = name
-	    return unless name
-
-	    full_name = "roby/schedulers/#{name}"
-	    require full_name
-	    Roby.plan.scheduler = full_name.camelize.constantize.new
 	end
 
 	def stop; call_plugins(:stop, self) end
@@ -737,10 +714,29 @@ module Roby
 
         def setup_global_singletons
             if !Roby.plan
-                Roby.instance_variable_set :@plan, MainPlan.new
+                Roby.instance_variable_set :@plan, Plan.new
             end
-            if !Roby.control
-                Roby.instance_variable_set :@control, Control.new(Roby.plan)
+
+            if !Roby.engine && Roby.plan.engine
+                # This checks coherence with Roby.control, and sets it
+                # accordingly
+                Roby.engine  = Roby.plan.engine
+            elsif !Roby.control
+                Roby.control = DecisionControl.new
+            end
+
+            if !Roby.engine
+                Roby.engine  = ExecutionEngine.new(Roby.plan, Roby.control)
+            end
+
+            if Roby.control != Roby.engine.control
+                raise "inconsistency between Roby.control and Roby.engine.control"
+            elsif Roby.engine != Roby.plan.engine
+                raise "inconsistency between Roby.engine and Roby.plan.engine"
+            end
+
+            if !Roby.engine.scheduler && Roby.scheduler
+                Roby.engine.scheduler = Roby.scheduler
             end
         end
 
@@ -865,7 +861,16 @@ module Roby
 
     @app = Application.instance
     class << self
+        # The one and only Application object
         attr_reader :app
+
+        # The scheduler object to be used during execution. See
+        # ExecutionEngine#scheduler.
+        #
+        # This is only used during the configuration of the application, and
+        # not afterwards. It is also possible to set per-engine through
+        # ExecutionEngine#scheduler=
+        attr_accessor :scheduler
     end
 
     # Load the plugins 'main' files

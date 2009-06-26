@@ -131,10 +131,10 @@ module Roby
 			    handler.call(self, exception_object)
 			    return true
 			rescue Exception => e
-			    if self == propagation_engine
-				propagation_engine.add_framework_error(e, 'global exception handling')
+			    if !kind_of?(PlanObject)
+				engine.add_framework_error(e, 'global exception handling')
 			    else
-				propagation_engine.add_error(FailedExceptionHandler.new(e, self, exception_object))
+				engine.add_error(FailedExceptionHandler.new(e, self, exception_object))
 			    end
 			end
 		    end

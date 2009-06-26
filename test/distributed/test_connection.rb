@@ -1,4 +1,4 @@
-$LOAD_PATH.unshift File.expand_path('../..', File.dirname(__FILE__))
+$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
 require 'roby/test/tasks/simple_task'
 require 'flexmock'
@@ -14,8 +14,8 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	Distributed.state.wait_discovery
 
 	assert(!Distributed.state.discovering?)
-	assert(1, Distributed.neighbours.size)
-	assert(Distributed.neighbours.find(&check), Distributed.neighbours.map { |n| [n.name, n.remote_id] }.to_s)
+	assert(1, local.neighbours.size)
+	assert(local.neighbours.find(&check), local.neighbours.map { |n| [n.name, n.remote_id] }.to_s)
     end
 
     # Test neighbour discovery using a remote central tuplespace as neighbour list
@@ -31,10 +31,11 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	    central_tuplespace = DRbObject.new_with_uri('druby://localhost:1245')
 
 	    Distributed.state = ConnectionSpace.new :ring_discovery => false, 
-		:discovery_tuplespace => central_tuplespace
+		:discovery_tuplespace => central_tuplespace, :plan => plan
 	end
-	Distributed.state = ConnectionSpace.new :ring_discovery => false, 
-	    :discovery_tuplespace => central_tuplespace
+	@local = ConnectionSpace.new :ring_discovery => false, 
+	    :discovery_tuplespace => central_tuplespace, :plan => plan
+        Distributed.state = local
 	assert_has_neighbour { |n| n.name == "#{Socket.gethostname}-#{remote_pid}" }
     end
 
@@ -45,12 +46,13 @@ class TC_DistributedConnection < Test::Unit::TestCase
 
 	remote_pid = remote_process do
 	    DRb.start_service
-	    Distributed.state = ConnectionSpace.new :period => 0.5, :ring_discovery => true, :ring_broadcast => BROADCAST
+	    Distributed.state = ConnectionSpace.new :period => 0.5, :ring_discovery => true, :ring_broadcast => BROADCAST, :plan => plan
 	    Distributed.publish :bind => '127.0.0.2'
 	end
 
 	DRb.start_service
-	Distributed.state = ConnectionSpace.new :period => 0.5, :ring_discovery => true, :ring_broadcast => BROADCAST
+        @local = ConnectionSpace.new :period => 0.5, :ring_discovery => true, :ring_broadcast => BROADCAST, :plan => plan
+	Distributed.state = local
 	Distributed.publish :bind => '127.0.0.1'
 
 	assert_has_neighbour { |n| n.name == "#{Socket.gethostname}-#{remote_pid}" }
@@ -63,7 +65,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	    start_peers
 
 	    notified = []
-	    Distributed.on_neighbour do |n|
+	    local.on_neighbour do |n|
 		notified << n
 	    end
 	end
@@ -71,24 +73,24 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	assert(local.discovery_thread)
 
 	# Initiate the connection from +local+
-	remote_neighbour = Distributed.neighbours.find { true }
-	Roby.execute do
+	remote_neighbour = local.neighbours.find { true }
+	engine.execute do
 	    did_yield = nil
 	    Peer.initiate_connection(local, remote_neighbour) do |did_yield|
 	    end
 
 	    # Wait for the remote peer to take into account the fact that we
 	    # try connecting
-	    Distributed.state.synchronize do
+	    local.synchronize do
 		remote_id = remote_neighbour.remote_id
-		assert(Distributed.state.pending_connections[remote_id] ||
-		       Distributed.state.peers[remote_id])
+		assert(local.pending_connections[remote_id] ||
+		       local.peers[remote_id])
 	    end
 
 	    sleep(1)
-	    Distributed.state.synchronize do
+	    local.synchronize do
 		remote_id = remote_neighbour.remote_id
-		assert(@remote_peer = Distributed.state.peers[remote_id], Distributed.state.peers)
+		assert(@remote_peer = local.peers[remote_id], local.peers)
 		assert_equal(remote_peer, did_yield)
 	    end
 	    assert(remote_peer.connected?)
@@ -103,7 +105,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	    assert_equal(remote_peer, Peer.connect(remote_neighbour))
 	end
 
-	Roby.control.wait_one_cycle
+	engine.wait_one_cycle
 	assert(remote_peer.task.running?)
 	#assert_raises(ArgumentError) { Peer.initiate_connection(local, remote_neighbour) }
 	assert(remote_peer.link_alive?)
@@ -201,7 +203,7 @@ class TC_DistributedConnection < Test::Unit::TestCase
 	    def remote.peers_empty?; Distributed.peers.empty? end
 	end
 
-	Roby.control.wait_one_cycle
+	engine.wait_one_cycle
 	assert(remote_peer.task.ready?)
 
 	remote_peer.disconnect

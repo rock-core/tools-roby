@@ -33,21 +33,22 @@ Roby is:
 * (G)UI tools for interacting/controlling the living system.
 * all of that in a multi-robot context.
 
+
+Roby is the result of my PhD. As such, my PhD thesis can be considered as a
+design document for the system. If you want an overview of the principles, you
+can also refer to the two publications I did. See {this
+page}[link:files/doc/papers_rdoc.html] for the list of publication and the
+associated PDF files.
+
+{This overview}[link:files/doc/overview_rdoc.html] also provides a more in-depth
+overview of the implementation itself.
+
 == Acknowledgments
 
 This work has been supported by the DGA (http://www.defense.gouv.fr/dga) which
 financed my PhD and the LAAS/CNRS (http://www.laas.fr), where I did it. It is
 now supported by the DFKI (http://www.dfki.de) where I currently work and use
 this plan manager.
-
-== Related publications
-
-Roby is the result of my PhD. As such, my PhD thesis can be considered as a
-design document for the system. If you want an overview of the principles, you
-can also refer to the two publications I did.
-
-See {this page}[link:files/doc/papers_rdoc.html] for the list of publication
-and the associated PDF files.
 
 == Videos
 
@@ -58,10 +59,15 @@ when it is meaningful.
 
 See {here}[link:files/doc/videos_rdoc.html] for the available videos.
 
-== Tutorials
+== Documentation
 
-A set of tutorials describe Roby's main features and let you experiment with
-them:
+The documentation is split into four parts:
+* the API documentation (see left pane on this window)
+* the {User's Guide}[link:files/doc/using/index_rdoc.html]
+* the {Developer's Guide}[link:files/doc/extending/index_rdoc.html]
+
+Finally, a set of tutorials describe Roby's main features and let you experiment
+with them:
 1. the GettingStarted[link:files/doc/tutorials/01-GettingStarted_rdoc.html] tutorial makes
    you start a brand new Roby application and explains its structure.
 2. the GoForward[link:files/doc/tutorials/02-GoForward_rdoc.html] tutorial shows how to create
@@ -153,14 +159,8 @@ dependencies (boost with boost/graph), you can simply install it with
 
 == Installing from source
 
-First, install all the required dependencies. Then, get the sources either
-from a release tarball or the RubyForge git
-repository[http://rubyforge.org/projects/roby], or from the development
-one[http://github.com/doudou/roby].
+You can also install from scratch with {this guide}[link:files/doc/install_rdoc.html]
 
-Once the source is installed, run
-  rake setup
-
-Define first the BOOST_DIR environment variable to Boost's installation path if
-that path is non-standard.
+You may have to first define the BOOST_DIR environment variable to Boost's
+installation path if that path is non-standard.
 

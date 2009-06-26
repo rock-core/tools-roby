@@ -239,18 +239,30 @@ module Roby
 		clear
 	    end
 	    
+            # Processes one cycle worth of data coming from an EventStream, and
+            # builds the corresponding plan representation
+            #
+            # It returns true if there was something noteworthy in there, and
+            # false otherwise.
 	    def process(data)
 		@time = data.last[0][:start]
 	        @start_time ||= @time
 
+                done_something = false
 		data.each_slice(4) do |m, sec, usec, args|
 		    time = Time.at(sec, usec)
 		    reason = catch :ignored do
 			begin
 			    if respond_to?(m)
 				send(m, time, *args)
+                                done_someting = true
 			    end
-			    displays.each { |d| d.send(m, time, *args) if d.respond_to?(m) }
+			    displays.each do |d|
+                                if d.respond_to?(m)
+                                    done_something = true
+                                    d.send(m, time, *args) 
+                                end
+                            end
 			rescue Exception => e
 			    display_args = args.map do |obj|
 				case obj
@@ -269,6 +281,7 @@ module Roby
 			Roby.warn "Ignored #{m}(#{args.join(", ")}): #{reason}"
 		    end
 		end
+                done_something
 	    end
 
 	    def local_object(object)
@@ -295,29 +308,14 @@ module Roby
 	    end
 
 	    def clear_integrated
-		last_finalized.clear
+                updated = false
 		plans.each do |plan|
+                    updated = !(plan.finalized_events.empty? && plan.finalized_tasks.empty?)
 		    plan.clear_finalized(plan.finalized_tasks.dup, plan.finalized_events.dup)
 		end
 
-		super
-	    end
-
-	    def display
-		plans.each do |plan|
-		    if finalized = last_finalized[plan]
-			plan.clear_finalized(*finalized)
-		    end
-		end
-
-		super
-		
-		# Save a per-plan set of finalized tasks, to be removed the
-		# next time #display is called
-		@last_finalized = Hash.new
-		plans.each do |plan|
-		    last_finalized[plan] = [plan.finalized_tasks.dup, plan.finalized_events.dup]
-		end
+		super_result = super
+                super_result || updated
 	    end
 
 	    def local_plan(plan, allow_new = false)
@@ -353,14 +351,14 @@ module Roby
 	    end
 	    def replaced_tasks(time, plan, from, to)
 	    end
-	    def discovered_events(time, plan, events)
+	    def added_events(time, plan, events)
 		plan = local_plan(plan)
 		events.each do |ev| 
 		    ev = local_event(ev) { plan }
 		    plan.free_events << ev
 		end
 	    end
-	    def discovered_tasks(time, plan, tasks)
+	    def added_tasks(time, plan, tasks)
 		plan = local_plan(plan)
 		tasks.each do |t| 
 		    t = local_task(t) { plan }

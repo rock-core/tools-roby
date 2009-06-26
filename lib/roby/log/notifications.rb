@@ -42,17 +42,17 @@ module Roby
 		data.each_slice(4) do |m, sec, usec, args|
 		    time = Time.at(sec, usec)
 		    case m.to_s
-		    when /inserted/
+		    when /added_mission/
 			task = tasks[args[1]]
 			task.mission = true
 			event :added_mission, args[0], task
 
-		    when /discarded/
+		    when /unmarked_mission/
 			task = tasks[args[1]]
 			task.mission = false
-			event :discarded_mission, args[0], task
+			event :unmarked_mission, args[0], task
 
-		    when /discovered_tasks/
+		    when /added_tasks/
 			args[1].each { |t| added_task(t) }
 
 		    when /finalized_task/

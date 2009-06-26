@@ -75,13 +75,24 @@ when "stats"
     filename = if ARGV[0] == "--csv"
 		   do_csv = true
 		   ARGV[1]
-	       else
+               elsif ARGV[0] == "--help"
+                   puts "roby-log stats [--csv]"
+                   puts "  displays statistics about the execution timings"
+                   puts "  if the --csv option is given, a table with all"
+                   puts "  the timings is output on stdout instead"
+                   exit(0)
+               else
 		   ARGV[0]
 	       end
     io = Roby::Log.open(filename)
 
     cycle_count = io.index_data.size
-    puts "#{cycle_count} cycles between #{io.range.first.to_hms} and #{io.range.last.to_hms}"
+    timespan    = io.range
+    puts "#{cycle_count} cycles between #{timespan.first.to_hms} and #{timespan.last.to_hms}"
+    cpu_time = io.index_data.inject(0) { |old, info| old + info[:cpu_time] } / 1000
+    real_time = timespan.last - timespan.first
+    ratio = cpu_time / real_time
+    puts "Time: %.2fs CPU / %.2fs real (%i%% CPU use)" % [cpu_time, real_time, ratio * 100]
 
     if io.index_data.first.has_key?(:event_count)
 	min, max = nil
@@ -116,13 +127,12 @@ when "replay"
 		    stream.open
 		    main.add_stream(stream)
 		end
-	    else
-		STDERR.puts parser
-		exit(0)
 	    end
 	else
 	    remaining.each do |file|
-		if streams = Roby.app.data_streams_of([file])
+                if !File.exists?(file)
+		    STDERR.puts "WARN: #{file} does not exist"
+		elsif streams = Roby.app.data_streams_of([file])
 		    streams.each do |s|
 			s.open
 			main.add_stream(s)

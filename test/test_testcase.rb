@@ -1,4 +1,4 @@
-$LOAD_PATH.unshift File.expand_path('..', File.dirname(__FILE__))
+$LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/test/testcase'
 require 'roby/test/tasks/simple_task'
@@ -7,9 +7,25 @@ require 'flexmock'
 class TC_Test_TestCase < Test::Unit::TestCase 
     include Roby::Test
     include Roby::Test::Assertions
+    
+    def setup
+        Roby.app.setup_global_singletons
+
+        Roby.engine.at_cycle_end(&Test.method(:check_event_assertions))
+        Roby.engine.finalizers << Test.method(:finalize_event_assertions)
+        @plan    = Roby.plan
+        @control = Roby.control
+        @engine  = Roby.engine
+        super
+    end
+    def teardown
+        Roby.engine.at_cycle_end_handlers.delete(Test.method(:check_event_assertions))
+        Roby.engine.finalizers.delete(Test.method(:finalize_event_assertions))
+        super
+    end
 
     def test_assert_any_event
-	plan.discover(t = SimpleTask.new)
+	plan.add(t = SimpleTask.new)
 	t.start!
 	assert_nothing_raised do
 	    assert_any_event(t.event(:start))
@@ -21,7 +37,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	    assert_any_event([t.event(:success)], [t.event(:stop)])
 	end
 
-	plan.discover(t = SimpleTask.new)
+	plan.add(t = SimpleTask.new)
 	t.start!
 	t.failed!
 	assert_raises(Test::Unit::AssertionFailedError) do
@@ -29,15 +45,15 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	end
 
 	Roby.logger.level = Logger::FATAL
-	Roby.control.run :detach => true
-	plan.insert(t = SimpleTask.new)
+	engine.run
+	plan.add_mission(t = SimpleTask.new)
 	assert_any_event(t.event(:success)) do 
 	    t.start!
 	    t.success!
 	end
 
 	# Make control quit and check that we get ControlQuitError
-	plan.insert(t = SimpleTask.new)
+	plan.add_mission(t = SimpleTask.new)
 	assert_raises(Test::Unit::AssertionFailedError) do
 	    assert_any_event(t.event(:success)) do
 		t.start!
@@ -47,8 +63,8 @@ class TC_Test_TestCase < Test::Unit::TestCase
 
 	## Same test, but check that the assertion succeeds since we *are*
 	## checking that +failed+ happens
-	Roby.control.run :detach => true
-	plan.insert(t = SimpleTask.new)
+	engine.run
+	plan.add_mission(t = SimpleTask.new)
 	assert_nothing_raised do
 	    assert_any_event(t.event(:failed)) do
 		t.start!
@@ -58,7 +74,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
     end
 
     def test_assert_succeeds
-	Roby.control.run :detach => true
+	engine.run
     
 	task = Class.new(SimpleTask) do
 	    forward :start => :success
@@ -76,12 +92,13 @@ class TC_Test_TestCase < Test::Unit::TestCase
     end
 
     def test_sampling
-	Roby.control.run :cycle => 0.1, :detach => true
+	engine.run
 
 	i = 0
+        # Sampling of 1s, every 100ms (== 1 cycle)
 	samples = Roby::Test.sampling(1, 0.1, :time_test, :index, :dummy) do
 	    i += 1
-	    [Roby.control.cycle_start, rand / 10 - 0.05 + i, rand / 10 + 0.95]
+	    [engine.cycle_start, i + rand / 10 - 0.05, rand / 10 + 0.95]
 	end
 	cur_size = samples.size
 
@@ -106,17 +123,17 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	samples = test_sampling
 	stats = Roby::Test.stats(samples, :dummy => :absolute)
 	assert_in_delta(1, stats.index.mean, 0.05)
-	assert_in_delta(0.025, stats.index.stddev, 0.026)
+	assert_in_delta(0.025, stats.index.stddev, 0.1)
 	assert_in_delta(1, stats.dummy.mean, 0.05)
-	assert_in_delta(0.025, stats.dummy.stddev, 0.026)
+	assert_in_delta(0.025, stats.dummy.stddev, 0.1)
 	assert_in_delta(0.1, stats.dt.mean, 0.001, stats.dt)
 	assert_in_delta(0, stats.dt.stddev, 0.001)
 
 	stats = Roby::Test.stats(samples, :index => :rate, :dummy => :absolute_rate)
 	assert_in_delta(10, stats.index.mean,  1)
-	assert_in_delta(0.25, stats.index.stddev, 0.25)
+	assert_in_delta(0.25, stats.index.stddev, 0.5)
 	assert_in_delta(10, stats.dummy.mean,  1)
-	assert_in_delta(0.25, stats.dummy.stddev, 0.25)
+	assert_in_delta(0.25, stats.dummy.stddev, 0.5)
     end
 end
 

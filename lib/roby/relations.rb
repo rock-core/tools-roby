@@ -3,8 +3,14 @@ module Roby
     # edge would create a cycle.
     class CycleFoundError < RuntimeError; end
 
-    # Base support for relations. It is mixed-in objects that are part of
-    # relation networks (like Task and EventGenerator)
+    # Base support for relations. It is mixed in objects on which a
+    # RelationSpace applies on, like Task for TaskStructure and EventGenerator
+    # for EventStructure.
+    #
+    # See also the definition of RelationGraph#add_relation and
+    # RelationGraph#remove_relation for the possibility to define hooks that
+    # get called when a new edge involving +self+ as a vertex gets added and
+    # removed 
     module DirectedRelationSupport
 	include BGL::Vertex
 
@@ -16,8 +22,20 @@ module Roby
 	alias :each_relation	    :each_graph
 	alias :clear_relations	    :clear_vertex
 
+        ##
+        # :method: enum_relations => enumerator
+        # Returns an Enumerator object for the set of relations this object is
+        # included in. The same enumerator instance is always returned.
 	cached_enum("graph", "relations", false)
+        ##
+        # :method: enum_parent_objects(relation) => enumerator
+        # Returns an Enumerator object for the set of parents this object has
+        # in +relation+. The same enumerator instance is always returned.
 	cached_enum("parent_object", "parent_objects", true)
+        ##
+        # :method: enum_child_objects(relation) => enumerator
+        # Returns an Enumerator object for the set of children this object has
+        # in +relation+. The same enumerator instance is always returned.
 	cached_enum("child_object", "child_objects", true)
 
 	# The array of relations this object is part of
@@ -62,24 +80,9 @@ module Roby
 	    parent.add_child_object(self, relation, info)
 	end
 
-	# Hook called before a new child is added in the +relation+ relation
-	# def adding_child_object(child, relation, info)
-	#     child.adding_parent_object(self, relations, info)
-	#     super if defined? super
-	# end
-	# Hook called after a new child has been added in the +relation+ relation
-	# def added_child_object(child, relations, info)
-	#     child.added_parent_object(self, relation, info)
-	#     super if defined? super
-	# end
-
-	# Hook called after a new parent has been added in the +relation+ relation
-	#def added_parent_object(parent, relation, info); super if defined? super end
-	## Hook called after a new parent is being added in the +relation+ relation
-	#def adding_parent_object(parent, relation, info); super if defined? super end
-
-	# Remove the relation between +self+ and +child+. If +relation+ is
-	# given, remove only a relations in this relation kind.
+        # Remove all edges in which +self+ is the source and +child+ the
+        # target. If +relation+ is given, it removes only the edge in that
+        # relation graph.
 	def remove_child_object(child, relation = nil)
 	    check_is_relation(relation)
 	    apply_selection(relation, (relation || enum_relations)) do |relation|
@@ -87,8 +90,8 @@ module Roby
 	    end
 	end
 
-	# Remove relations where self is a parent. If +relation+ is given,
-	# remove only the relations in this relation graph.
+        # Remove all edges in which +self+ is the source. If +relation+
+        # is given, it removes only the edges in that relation graph.
 	def remove_children(relation = nil)
 	    apply_selection(relation, (relation || enum_relations)) do |relation|
 		self.each_child_object(relation) do |child|
@@ -97,13 +100,15 @@ module Roby
 	    end
 	end
 
-	# Remove relations where +self+ is a child. If +relation+ is given,
-	# remove only the relations in this relation graph
+        # Remove all edges in which +child+ is the source and +self+ the
+        # target. If +relation+ is given, it removes only the edge in that
+        # relation graph.
 	def remove_parent_object(parent, relation = nil)
 	    parent.remove_child_object(self, relation)
 	end
-	# Remove all parents of +self+. If +relation+ is given, remove only the
-	# parents in this relation graph
+
+        # Remove all edges in which +self+ is the target. If +relation+
+        # is given, it removes only the edges in that relation graph.
 	def remove_parents(relation = nil)
 	    check_is_relation(relation)
 	    apply_selection(relation, (relation || enum_relations)) do |relation|
@@ -113,24 +118,10 @@ module Roby
 	    end
 	end
 
-	# Hook called after a parent has been removed
-	# def removing_parent_object(parent, relation); super if defined? super end
-	# Hook called after a child has been removed
-	# def removing_child_object(child, relation)
-	#     child.removing_parent_object(self, relation)
-	#     super if defined? super
-	# end
-
-	# Hook called after a parent has been removed
-	# def removed_parent_object(parent, relation); super if defined? super end
-	# Hook called after a child has been removed
-	# def removed_child_object(child, relation)
-	#     child.removed_parent_object(self, relation)
-	#     super if defined? super
-	# end
-
 	# Remove all relations that point to or come from +to+ If +to+ is nil,
-	# it removes all relations of +self+
+	# it removes all edges in which +self+ is involved.
+        #
+        # If +relation+ is not nil, only edges of that relation graph are removed.
 	def remove_relations(to = nil, relation = nil)
 	    check_is_relation(relation)
 	    if to
@@ -169,16 +160,28 @@ module Roby
     end
 
     # This class manages the graph defined by an object relation in Roby.
+    # 
     # Relation graphs are managed in hierarchies (for instance, in
     # EventStructure, Precedence is a superset of CausalLink, and CausalLink a
     # superset of both Forwarding and Signal). In this hierarchy, at each
     # level, an edge cannot be present in more than one graph. Nonetheless, it
     # is possible for a parent relation to have an edge which is present in
     # none of its children.
+    #
+    # Each relation define two things:
+    # * a graph, which is represented by the RelationGraph instance itself
+    # * support methods that are defined on the vertices of the relation. They 
+    #   allow to manage the vertex in its relations easily. Those methods are
+    #   defined in a separate module (see #support)
+    #
+    # In general, relations are part of a RelationSpace instance, which manages
+    # the set of relations whose vertices are of the same kind (for instance
+    # TaskStructure manages all relations whose vertices are Task instances).
+    # In these cases, RelationSpace#relation allow to define new relations easily.
     class RelationGraph < BGL::Graph
 	# The relation name
 	attr_reader   :name
-	# The relation parent if any
+	# The relation parent (if any). See #superset_of.
 	attr_accessor :parent
 	# The set of graphs
 	attr_reader   :subsets
@@ -191,8 +194,8 @@ module Roby
         #   if the graph is a DAG. If true, add_relation will check that
 	#   no cycle is created
 	# +subsets+:: 
-        #   a set of RelationGraph objects that are children of this
-	#   one
+        #   a set of RelationGraph objects that are children of this one.
+        #   See #superset_of.
 	# +distributed+:: 
         #   if this relation graph should be seen by remote hosts
 	def initialize(name, options = {})
@@ -202,6 +205,7 @@ module Roby
 	    @distribute = options[:distribute]
 	    @dag = options[:dag]
 	    @weak = options[:weak]
+            @embeds_info = !options[:noinfo]
 
 	    if options[:subsets]
 		options[:subsets].each(&method(:superset_of))
@@ -217,17 +221,31 @@ module Roby
         # break cross-relations cycles (cycles which exist in the graph union
         # of all the relation graphs).
 	attr_predicate :weak
+        # If this relation embeds some additional information
+        attr_predicate :embeds_info?
 
 	def to_s; name end
 
 	# True if this relation does not have a parent
 	def root_relation?; !parent end
 
-        # Add a relation between +from+ and +to+. The relation is added on all
-        # parent relation graphs as well.
-	#
-        # If #dag? is true, it checks that the new relation does not create a
-        # cycle
+        # Add an edge between +from+ and +to+. The relation is added on all
+        # parent relation graphs as well. If #dag? is true on +self+ or on one
+        # of its parents, the method will raise CycleFoundError in case the new
+        # edge would create a cycle.
+        #
+        # If +from+ or +to+ define the following hooks:
+        #   adding_parent_object(parent, relations, info)
+        #   adding_child_object(child, relations, info)
+        #   added_parent_object(parent, relations, info)
+        #   added_child_object(child, relations, info)
+        #
+        # then these hooks get respectively called before and after having
+        # added the relation, where +relations+ is the set of RelationGraph
+        # instances where the edge has been added. It can be either [+self+] if
+        # the edge does not already exist in it, or [+self+, +parent+,
+        # <tt>parent.parent</tt>, ...] if the parent, grandparent, ... graphs
+        # do not include the edge either.
 	def add_relation(from, to, info = nil)
 	    # Get the toplevel DAG in our relation hierarchy. We only test for the
 	    # DAG property on this one, as it is the union of all its children
@@ -236,37 +254,25 @@ module Roby
 	    rel     = self
 	    while rel
 		top_dag = rel if rel.dag?
-		new_relations << rel
+                if !rel.linked?(from, to)
+                    new_relations << rel
+                end
 		rel = rel.parent
 	    end
 	    if top_dag && !top_dag.linked?(from, to) && top_dag.reachable?(to, from)
 		raise CycleFoundError, "cannot add a #{from} -> #{to} relation since it would create a cycle"
 	    end
 
-	    # Now compute the set of relations in which we really have to add a
-	    # new relation
-	    top_rel = new_relations.last
-	    if top_rel.linked?(from, to)
-		if !(old_info = from[to, top_rel]).nil?
-		    if old_info != info
-			raise ArgumentError, "trying to change edge information"
-		    end
-		end
-
-		changed_info = [new_relations.pop]
-
-		while !new_relations.empty?
-		    if new_relations.last.linked?(from, to)
-			changed_info << new_relations.pop
-		    else
-			break
-		    end
-		end
-
-		for rel in changed_info
-		    from[to, rel] = info
-		end
-	    end
+	    # Now check that we're not changing the edge info. This is ignored
+            # if +self+ has the noinfo flag set.
+            if linked?(from, to)
+                if !(old_info = from[to, self]).nil?
+                    if old_info != info
+                        raise ArgumentError, "trying to change edge information in #{self} for #{from} => #{to}: old was #{old_info} and new is #{info}"
+                    end
+                end
+                from[to, self] = info
+            end
 
 	    unless new_relations.empty?
 		if from.respond_to?(:adding_child_object)
@@ -277,7 +283,7 @@ module Roby
 		end
 
 		for rel in new_relations
-		    rel.__bgl_link(from, to, info)
+		    rel.__bgl_link(from, to, (info if self == rel))
 		end
 
 		if from.respond_to?(:added_child_object)
@@ -303,8 +309,20 @@ module Roby
 	    super
 	end
 
-	# Remove the relation between +from+ and +to+, in this graph and in its
-	# parent graphs as well
+        # Remove the relation between +from+ and +to+, in this graph and in its
+        # parent graphs as well.
+        #
+        # If +from+ or +to+ define the following hooks:
+        #   removing_parent_object(parent, relations)
+        #   removing_child_object(child, relations)
+        #   removed_parent_object(parent, relations)
+        #   removed_child_object(child, relations)
+        #
+        # then these hooks get respectively called once before and once after
+        # having removed the relation, where +relations+ is the set of
+        # RelationGraph instances where the edge has been removed. It is always
+        # <tt>[self, parent, parent.parent, ...]</tt> up to the root relation
+        # which is a superset of +self+.
 	def remove_relation(from, to)
 	    rel = self
 	    relations = []
@@ -334,17 +352,31 @@ module Roby
 
 	# Returns true if +relation+ is included in this relation (i.e. it is
 	# either the same relation or one of its children)
+        #
+        # See also #superset_of
 	def subset?(relation)
 	    self.eql?(relation) || subsets.any? { |subrel| subrel.subset?(relation) }
 	end
 
 	# Returns +true+ if there is an edge +source+ -> +target+ in this graph
 	# or in one of its parents
-	def linked_in_hierarchy?(source, target) # :nodoc:
+        #
+        # See #superset_of for a description of the parent mechanism
+	def linked_in_hierarchy?(source, target)
 	    linked?(source, target) || (parent.linked?(source, target) if parent)
 	end
 
-	# Declare that +relation+ is a superset of this relation
+	# Declare that +self+ is a superset of +relation+. Once this is done,
+        # the system manages two constraints:
+        # * all new relations added in +relation+ are also added in +self+
+        # * it is not allowed for an edge to exist in two different subsets of
+        #   +self+
+        # * of course, if +self+ is a DAG, then in effect +relation+ is constrained
+        #   to be one as well.
+        #
+        # One single graph can be the superset of multiple subgraphs (these are
+        # stored in the #subsets attribute), but one graph can have only one
+        # parent (#parent).
 	def superset_of(relation)
 	    relation.each_edge do |source, target, info|
 		if linked_in_hierarchy?(source, target)
@@ -365,27 +397,44 @@ module Roby
 	attr_accessor :support
     end
 
-    # A relation space is a module which handles a list of relations and
-    # applies them to a set of classes. In this context, a relation is both a
-    # Ruby module which gets included in the classes this space is applied on,
-    # and a RelationGraph object which holds the object graphs.
+    # A relation space is a module which handles a list of relations
+    # (RelationGraph instances) and applies them to a set of classes.
+    # For instance, the TaskStructure relation space is defined by
+    #   TaskStructure = RelationSpace(Task)
     #
-    # See the files in roby/relations to see definitions of new relations
+    # See the files in roby/relations to see example definitions of new
+    # relations
+    #
+    # Use RelationSpace#relation allow to define a new relation in a given
+    # space. For instance, one can either do
+    #
+    #   TaskStructure.relation :NewRelation
+    #
+    # or
+    #
+    #   module TaskStructure
+    #       relation :NewRelation
+    #   end
+    #
+    # This relation can then be referenced by
+    # <tt>TaskStructure::NewRelation</tt>
     class RelationSpace < Module
 	# The set of relations included in this relation space
 	attr_reader :relations
-	# The set of klasses on which the relations have been applied
+	# The set of classes on which the relations have been applied
 	attr_reader :applied
 
-	def initialize
+	def initialize # :nodoc:
 	    @relations = Array.new
 	    @applied   = Array.new
 	    super
 	end
 
-        # This relation applies on klass. It mainly means that a relation
+        # This relation applies on +klass+. It mainly means that a relation
         # defined on this RelationSpace will define the relation-access methods
-        # and include its support module (if any) in +klass+.
+        # and include its support module (if any) in +klass+. Note that the
+        # DirectedRelationSupport module is automatically included in +klass+
+        # as well.
 	def apply_on(klass)
 	    klass.include DirectedRelationSupport
 	    each_relation do |graph|
@@ -402,18 +451,20 @@ module Roby
 	    end
 	end
 
-        # Yields the root relations that are defined on this space
+        # Yields the root relations that are defined on this space. A relation
+        # is a root relation when it has no parent relation (i.e. it is the
+        # subset of no other relations).
 	def each_root_relation
 	    for rel in relations
 		yield(rel) unless rel.parent
 	    end
 	end
 
-	# Returns the set of objects that are reachable from +obj+ through any
-	# of the relations. Note that +b+ will be included in the result if
-	# there is an edge <tt>obj => a</tt> in one relation and another edge
-	# <tt>a => b</tt> in another relation
-	#
+        # Returns the set of objects that are reachable from +obj+ in the union
+        # graph of all the relations defined in this space. In other words, it
+        # returns the set of vertices so that it exists a path starting at
+        # +obj+ and ending at +v+ in the union graph of all the relations.
+        # 
 	# If +strict+ is true, +obj+ is not included in the returned set
 	def children_of(obj, strict = true, relations = nil)
 	    set = compute_children_of([obj].to_value_set, relations || self.relations)
@@ -442,60 +493,94 @@ module Roby
 
         # Defines a relation in this relation space. This defines a relation
         # graph, and various iteration methods on the vertices.  If a block is
-        # given, it defines a set of functions which should be defined on the
-        # vertex objects.
+        # given, it defines a set of functions which should additionally be
+        # defined on the vertex objects.
+        #
+        # The valid options are:
 	#
-	# = Options
 	# child_name::
 	#   define a <tt>each_#{child_name}</tt> method to iterate
 	#   on the vertex children. Uses the relation name by default (a Child
 	#   relation would define a <tt>each_child</tt> method)
 	# parent_name::
 	#   define a <tt>each_#{parent_name}</tt> method to iterate
-	#   on the vertex parents.  If none is given, no method is defined
-	# subsets:: a list of subgraphs. See RelationGraph#superset_of
+	#   on the parent vertices. If none is given, no method is defined.
+	# subsets:: a list of subgraphs. See RelationGraph#superset_of [empty set by default]
 	# noinfo::
-	#   if the relation embeds some additional information. If true,
+	#   wether the relation embeds some additional information. If false,
 	#   the child iterator method (<tt>each_#{child_name}</tt>) will yield (child,
-	#   info) instead of only child [false]
-	# graph:: the relation graph class
-	# distribute:: if true, the relation can be seen by remote peers [true]
+	#   info) instead of only child [false by default]
+	# graph:: the relation graph class [RelationGraph by default]
+	# distribute:: if true, the relation can be seen by remote peers [true by default]
 	# single_child::
-	#   if the relations accepts only one child per vertex
-	#   [false]. If this option is set, defines a <tt>#{child_name}</tt>
-	#   method which returns the only child or nil
+        #   if the relations accepts only one child per vertex. If this option
+        #   is set, defines a <tt>#{child_name}</tt> method which returns the
+        #   only child (or nil if there is no child at all) [false by default]
+        # dag::
+        #   if true, CycleFoundError will be raised if a new vertex would
+        #   create a cycle in this relation [true by default]
+        #
+        # For instance,
+        #   relation :Children
+        #
+        # defines an instance of RelationGraph which is a DAG, defining the
+        # following methods on its vertices:
+        #   each_children { |v, info| ... } => graph
+        #   find_children { |v, info| ... } => object or nil
+        #   add_children(v, info = nil) => graph
+        #   remove_children(v) => graph
+        #
+        # and
+        #
+        #   relation :Children, :child_name => :child
+        #
+        # would define
+        #
+        #   each_child { |v, info| ... } => graph
+        #   find_child { |v, info| ... } => object or nil
+        #   add_child(v, info = nil) => graph
+        #   remove_child(v) => graph
+        #
+        # * the DirectedRelationSupport module gets included in the vertex classes at the
+        #   construction of the RelationSpace instance. See #apply_on.
+        # * the <tt>:noinfo</tt> option would then remove the 'info' parameter
+        #   to the various blocks.
+        # * if <tt>:single_child</tt> is set to true, then an additional method is defined:
+        #     child => object or nil
+        # * and finally if the following is used
+        #     relation :Children, :child_name => :child, :parent_name => :parent
+        #   then the following method is additionally defined
+        #     each_parent { |v| ... }
+        #
 	def relation(relation_name, options = {}, &block)
 	    options = validate_options options,
-			:child_name => relation_name.to_s.underscore,
-			:const_name => relation_name,
+			:child_name  => relation_name.to_s.underscore,
+			:const_name  => relation_name,
 			:parent_name => nil,
-			:subsets => ValueSet.new,
-			:noinfo => false,
-			:graph => RelationGraph,
-			:distribute => true,
-			:dag => true,
+			:subsets     => ValueSet.new,
+			:noinfo      => false,
+			:graph       => RelationGraph,
+			:distribute  => true,
+			:dag         => true,
 			:single_child => false,
-			:weak => false,
-                        :methods => nil
-
-            if block_given?
-                raise ArgumentError, "due to a bug in Ruby 1.9, the block form is no more supported"
-            end
+			:weak        => false
 
 	    # Check if this relation is already defined. If it is the case, reuse it.
 	    # This is needed mostly by the reloading code
             graph = define_or_reuse(options[:const_name]) do
 		graph = options[:graph].new "#{self.name}::#{options[:const_name]}", options
-                unless mod = options[:methods]
-                    mod = define_or_reuse("#{options[:const_name]}Support", Module.new)
-                end
-                graph.support = mod
-
-                mod.class_variable_set "@@__r_#{relation_name}__", graph
+		mod = Module.new do
+		    singleton_class.class_eval do
+			define_method("__r_#{relation_name}__") { graph }
+		    end
+		    class_eval "@@__r_#{relation_name}__ = __r_#{relation_name}__"
+		end
 		relations << graph
+                graph.support = mod
                 graph
 	    end
             mod = graph.support
+            mod.class_eval(&block) if block
 
 	    if parent_enumerator = options[:parent_name]
 		mod.class_eval <<-EOD
@@ -559,6 +644,11 @@ module Roby
 
 	    graph
 	end
+
+        # Remove +rel+ from the set of relations managed in this space
+        def remove_relation(rel)
+            relations.delete(rel)
+        end
     end
 
     # Creates a new relation space which applies on +klass+. If a block is

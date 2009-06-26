@@ -83,7 +83,7 @@ module Roby
 		    plan = peer.local_object(self.plan)
 		    return if proxy.plan == plan
 		    Distributed.update_all([plan, proxy]) do
-			plan.discover(proxy)
+			plan.add(proxy)
 		    end
 		end
 	    end
@@ -218,7 +218,7 @@ module Roby
 	def droby_dump(dest)
 	    DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest),
 		      model.droby_dump(dest),  plan.droby_dump(dest), 
-		      Distributed.format(arguments, dest), Distributed.format(data, dest),
+		      Distributed.format(meaningful_arguments, dest), Distributed.format(data, dest),
 		      :mission => mission?, :started => started?, 
 		      :finished => finished?, :success => success?)
 	end
@@ -271,12 +271,12 @@ module Roby
 		task.success  = flags[:success]
 
 		if task.mission? != flags[:mission]
-		    plan = peer.local_object(self.plan) || Roby.plan
+		    plan = peer.local_object(self.plan) || peer.connection_space.plan
 		    if plan.owns?(task)
 			if flags[:mission]
-			    plan.insert(task)
+			    plan.add_mission(task)
 			else
-			    plan.discard(task)
+			    plan.remove_mission(task)
 			end
 		    else
 			task.mission = flags[:mission]

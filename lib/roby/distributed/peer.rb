@@ -10,7 +10,7 @@ require 'roby/distributed/proxy'
 require 'roby/distributed/communication'
 
 module Roby
-    class Control; include DRbUndumped end
+    class ExecutionEngine; include DRbUndumped end
 end
 
 module Roby::Distributed
@@ -149,7 +149,7 @@ module Roby::Distributed
 	# +matcher+ changes
 	def add_trigger(id, matcher)
 	    triggers[id] = [matcher, (triggered = ValueSet.new)]
-	    Roby.info "#{remote_name} wants notification on #{matcher} (#{id})"
+	    Roby::Distributed.info "#{remote_name} wants notification on #{matcher} (#{id})"
 
 	    peer.queueing do
 		matcher.each(plan) do |task|
@@ -164,7 +164,7 @@ module Roby::Distributed
 
 	# Remove the trigger +id+ defined by this peer
 	def remove_trigger(id)
-	    Roby.info "#{remote_name} removed #{id} notification"
+	    Roby::Distributed.info "#{remote_name} removed #{id} notification"
 	    triggers.delete(id)
 	    nil
 	end
@@ -276,6 +276,11 @@ module Roby::Distributed
 	# The remote state
 	attr_accessor :state
 
+        # The plan associated to our connection space
+        def plan; connection_space.plan end
+        # The execution engine associated to #plan
+        def engine; connection_space.plan.engine end
+
 	# Creates a Peer object for the peer connected at +socket+. This peer
 	# is to be managed by +connection_space+ If a block is given, it is
 	# called in the control thread when the connection is finalized
@@ -310,8 +315,8 @@ module Roby::Distributed
 	    local_server.state_update remote_state
 
 	    @task = ConnectionTask.new :peer => self
-	    Roby.once do
-		connection_space.plan.permanent(task)
+	    connection_space.plan.engine.once do
+		connection_space.plan.add_permanent(task)
 		task.start!
 		task.emit(:ready)
 	    end
@@ -407,7 +412,7 @@ module Roby::Distributed
 			trigger.last.call(task)
 		    end
 		rescue Exception
-		    Roby.warn "trigger handler #{trigger.last} failed with #{$!.full_message}"
+		    Roby::Distributed.warn "trigger handler #{trigger.last} failed with #{$!.full_message}"
 		ensure
 		    Roby::Distributed.keep.deref(task)
 		end
