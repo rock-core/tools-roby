@@ -60,7 +60,7 @@ module Roby
 		    pp.text "no candidate for #{method_name}(#{method_options})"
 		else
                     first, *rem = Roby.filter_backtrace(backtrace)
-                    pp.text "#{first}: cannot develop a #{method_name}(#{method_options.to_s[1..-2]}) method"
+                    pp.text "cannot develop a #{method_name}(#{method_options.to_s[1..-2]}) method"
                     pp.breakable
                     pp.group(4, "    ") do
                         rem.each do |line|
@@ -71,15 +71,22 @@ module Roby
 
                     pp.breakable
 		    errors.each do |m, error|
-			first, *rem = *Roby.filter_backtrace(error.backtrace)
-                        pp.text "#{first}: planning method #{m} failed"
-                        pp.breakable
-                        pp.text "#{first}: #{error.message}"
-                        pp.breakable
-                        pp.group(4, "    ") do
-                            rem.each do |line|
-                                pp.text "from #{line}"
-                                pp.breakable
+                        if error.kind_of?(NotFound)
+                            first, *rem = *Roby.filter_backtrace(error.backtrace)
+                            pp.text "in method #{m}"
+                            pp.breakable
+                            error.pretty_print(pp)
+                        else
+                            first, *rem = *Roby.filter_backtrace(error.backtrace)
+                            pp.text "planning method #{m} failed"
+                            pp.breakable
+                            pp.text "#{first}: #{error.message}"
+                            pp.breakable
+                            pp.group(4, "    ") do
+                                rem.each do |line|
+                                    pp.text "from #{line}"
+                                    pp.breakable
+                                end
                             end
                         end
 		    end
@@ -795,7 +802,7 @@ module Roby
             rescue NotFound => e
                 e.method_name       = name
                 e.method_options    = options
-                raise e
+                raise e.dup, e.message, caller(1)
             end
 	    
 	    def find_reusable_task(return_type, method_options)
