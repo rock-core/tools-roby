@@ -355,7 +355,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
 
             @result_task = nil
             attr_reader :result_task
-            method(:task) {  @result_task = SimpleTask.new(:id => arguments[:task_id])}
+            method(:task) {  @result_task = Roby::Test::SimpleTask.new(:id => arguments[:task_id])}
             method(:looping_tasks) do
         	t1 = make_loop(:period => 0, :child_argument => 2) do
         	    # arguments of 'my_looping_task' shall be forwarded
