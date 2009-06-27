@@ -45,23 +45,6 @@ module Enumerable
     end
 end
 
-class Module
-    # :call-seq
-    #   define_under(name, value)   ->              value
-    #   define_under(name) { ... }  ->              value
-    #
-    # Defines a new constant under a given module
-    # In the first form, the method gets its value from its argument. 
-    # In the second case, it calls the provided block
-    def define_under(name, value = nil)
-	if old = constants.find { |cn| cn == name.to_s }
-	    return const_get(old)
-	else
-            const_set(name, (value || yield))
-        end
-    end
-end
-
 class Thread
     def send_to(object, name, *args, &prc)
 	if Thread.current == self
