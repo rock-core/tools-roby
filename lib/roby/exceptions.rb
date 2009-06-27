@@ -155,7 +155,34 @@ module Roby
                 backtrace_bottom.unshift original_backtrace.pop
             end
 
-            backtrace = original_backtrace.dup
+            backtrace = original_backtrace.enum_for(:each_with_index).map do |line, idx|
+                case line
+                when /in `poll_handler'$/
+                    line.gsub /:in.*/, ':in the polling handler'
+                when /in `event_command_(\w+)'$/
+                    line.gsub /:in.*/, ":in command for '#{$1}'"
+                when /in `event_handler_(\w+)_(?:[a-f0-9]+)'$/
+                    line.gsub /:in.*/, ":in event handler for '#{$1}'"
+                else
+                    if original_backtrace.size > idx + 4 &&
+                        original_backtrace[idx + 1] =~ /in `call'$/ &&
+                        original_backtrace[idx + 2] =~ /in `call_handlers'$/ &&
+                        original_backtrace[idx + 3] =~ /`each'$/ &&
+                        original_backtrace[idx + 4] =~ /`each_handler'$/
+
+                        line.gsub /:in /, ":in event handler, "
+                    else
+                        case line
+                        when /in `(gem_original_)?require'$/
+                        when /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
+                        when /^(#{app_dir}\/)?scripts\//
+                        when /^\(eval\):\d+:in `each(?:_handler)?'/
+                        else
+                            line
+                        end
+                    end
+                end
+            end
 
             while !backtrace.empty? && !backtrace.last
                 backtrace.pop
