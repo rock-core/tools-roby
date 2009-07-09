@@ -18,7 +18,7 @@ module Roby
 
 	relation :Conflicts, :noinfo => true do
 	    def conflicts_with(task)
-		task.event(:stop).add_precedence event(:start)
+		# task.event(:stop).add_precedence event(:start)
 		add_conflicts(task)
 	    end
 
