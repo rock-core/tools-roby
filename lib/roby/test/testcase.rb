@@ -275,8 +275,6 @@ module Roby
 		    block.call
 		end
 
-		app.control.delete('executive')
-
 		yield if block_given?
 	    end
 
@@ -286,14 +284,18 @@ module Roby
 	    end
 
 	    def setup # :nodoc:
+                @plan = Roby.plan
+                @control = Roby.control
+
 		super
+
                 Roby.engine.at_cycle_end(&Test.method(:check_event_assertions))
                 Roby.engine.finalizers << Test.method(:finalize_event_assertions)
 		Roby.engine.waiting_threads << Thread.current
 	    end
 
 	    def teardown # :nodoc:
-                Roby.engine.at_cycle_end_handlers.delete(&Test.method(:check_event_assertions))
+                Roby.engine.at_cycle_end_handlers.delete(Test.method(:check_event_assertions))
                 Roby.engine.finalizers.delete(Test.method(:finalize_event_assertions))
 		Roby.engine.waiting_threads.delete(Thread.current)
 		super
