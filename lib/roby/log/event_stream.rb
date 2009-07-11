@@ -104,6 +104,10 @@ module Roby
 		    reinit!
 		end
 
+                if current_cycle >= index_data.size
+                    return
+                end
+
 		start_pos = index_data[current_cycle][:pos]
 		end_pos   = if index_data.size > current_cycle + 1
 				index_data[current_cycle + 1][:pos]
