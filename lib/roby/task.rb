@@ -1394,6 +1394,17 @@ module Roby
 		end
             end
 
+            if !method_defined?("#{ev_s}_event")
+                define_method("#{ev_s}_event") do
+                    event(ev)
+                end
+            end
+            if !method_defined?("#{ev_s}?")
+                define_method("#{ev_s}?") do
+                    event(ev).happened?
+                end
+            end
+
 	    new_event
         end
 
