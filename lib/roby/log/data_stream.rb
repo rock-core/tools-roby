@@ -116,10 +116,13 @@ module Roby::Log
         #
         # See DataDecoder#process
         def advance
-	    data = decode(read)
-	    !decoders.find_all do |dec|
-		dec.process(data)
-	    end.empty?
+	    if data = read_and_decode
+                !decoders.find_all do |dec|
+                    dec.process(data)
+                end.empty?
+            else
+                raise EOFError
+            end
 	end
 
 	def init(data)
