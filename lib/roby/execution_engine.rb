@@ -1379,7 +1379,8 @@ module Roby
                         stats[:heap_slots] = ObjectSpace.heap_slots
                     end
 
-		    stats[:start]       = [cycle_start.tv_sec, cycle_start.tv_usec]
+		    stats[:start] = [cycle_start.tv_sec, cycle_start.tv_usec]
+                    stats[:state] = Roby::State
 		    cycle_end(stats)
                     stats = Hash.new
 
