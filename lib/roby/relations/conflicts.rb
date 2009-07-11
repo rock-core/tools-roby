@@ -9,7 +9,7 @@ module Roby
 
 	    def conflicts_with?(model)
 		each_conflicting_model do |m|
-		    return true if m == model
+		    return true if model <= m
 		end
 		false
 	    end
@@ -46,12 +46,9 @@ module Roby
 	    end
 
 	    # Add the needed conflict relations
-	    models = task.class.conflicting_models
-	    for model in models
-		if candidates = plan.task_index.by_model[model]
-		    for t in candidates
-			t.conflicts_with task if t.pending?
-		    end
+            task.class.each_conflicting_model do |model|
+		for t in plan.find_tasks(model)
+                    t.conflicts_with task if t.pending? && t != task
 		end
 	    end
 	end
