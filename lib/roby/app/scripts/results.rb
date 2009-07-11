@@ -9,7 +9,7 @@ if Dir.enum_for(:glob, File.join(app.log_dir, "*")).to_a.empty?
     exit 0
 end
 
-user_path = ARGV.shift
+user_path = ARGV.shift || ''
 final_path = Roby::Application.unique_dirname(Roby.app.results_dir, user_path)
 puts "moving #{app.log_dir} to #{final_path}"
 FileUtils.mv app.log_dir, final_path
