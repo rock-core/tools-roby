@@ -551,20 +551,30 @@ module Roby
                 end
             end
 
-            signalled, min = nil, event_ordering.size
+            # HACK: forcefully prefer forwarded targets to signalled ones
+            is_fwd = false
+            selected_event, min_priority = nil, event_ordering.size
             for propagation_step in pending
-                event = propagation_step[0]
-                if priority = event_priorities[event]
-                    if priority < min
-                        signalled = event
-                        min = priority
+                target_event = propagation_step[0]
+                forwards, signals = *propagation_step[1]
+                target_is_fwd = forwards && !signals
+                if is_fwd && !target_is_fwd
+                    next
+                end
+
+                if priority = event_priorities[target_event]
+                    if priority < min_priority || (!is_fwd && target_is_fwd)
+                        selected_event = target_event
+                        min_priority   = priority
+
+                        is_fwd         = target_is_fwd
                     end
                 else
-                    signalled = event
+                    selected_event = target_event
                     break
                 end
             end
-            [signalled, *pending.delete(signalled)]
+            [selected_event, *pending.delete(selected_event)]
         end
 
         # call-seq:

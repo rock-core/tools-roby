@@ -955,5 +955,31 @@ class TC_ExecutionEngine < Test::Unit::TestCase
         TaskStructure.remove_relation r_t if r_t
         EventStructure.remove_relation r_e if r_e
     end
+
+    def test_forward_signal_ordering
+        100.times do
+            stop_called = false
+            source = SimpleTask.new(:id => 'source')
+            target = Class.new(SimpleTask) do
+                event :start do
+                    if !stop_called
+                        raise ArgumentError, "ordering failed"
+                    end
+                    emit :start
+                end
+            end.new(:id => 'target')
+            plan.add_permanent(source)
+            plan.add_permanent(target)
+
+            source.signals :success, target, :start
+            source.on :stop do
+                stop_called = true
+            end
+            source.start!
+            source.emit :success
+            assert(target.running?)
+            target.stop!
+        end
+    end
 end
 
