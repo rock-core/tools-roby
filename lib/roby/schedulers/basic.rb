@@ -22,7 +22,6 @@ module Roby
 		    end
 
 		    if root_task || (include_children && task.parents.any? { |t| t.running? })
-                        Robot.info "scheduler starts #{task}"
 			task.start!
 		    end
 		end
