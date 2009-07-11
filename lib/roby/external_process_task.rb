@@ -39,6 +39,7 @@ module Roby
 
         def initialize(arguments)
             arguments[:working_directory] ||= nil
+			arguments[:command_line] = [arguments[:command_line]] unless arguments[:command_line].kind_of?(Array)
             super(arguments)
         end
 
