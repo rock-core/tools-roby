@@ -116,6 +116,7 @@ module Roby
 	end
 
 	attr_enumerable(:handler, :handlers) { Array.new }
+	attr_enumerable(:once_handler, :once_handlers) { Array.new }
 
 	def initialize_copy(old) # :nodoc:
 	    super
@@ -383,18 +384,13 @@ module Roby
         #   once { |context| ... }
         #
         # Calls the provided event handler only once
-	def once(signal = nil, time = nil)
+	def once(signal = nil, time = nil, &block)
             if signal
                 Roby.warn_deprecated "the once(event_name) form has been replaced by #signal_once"
                 signal_once(signal, time)
             end
 
-	    handler = nil
-	    on do |context|
-		yield(context) if block_given?
-		self.handlers.delete(handler)
-	    end
-	    handler = self.handlers.last
+            once_handlers << block
             self
 	end
 
@@ -476,6 +472,14 @@ module Roby
 		    plan.engine.add_error( EventHandlerError.new(e, event) )
 		end
 	    end
+            each_once_handler do |h|
+                begin
+                    h.call(event)
+                rescue Exception => e
+                    plan.engine_add_error( EventHandlerError.new(e, event) )
+                end
+            end
+            once_handlers.clear
 	end
 
 	# Raises an exception object when an event whose command has been
