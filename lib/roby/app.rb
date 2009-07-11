@@ -371,7 +371,7 @@ module Roby
 	end
 
 	def setup_dirs
-	    Dir.mkdir(log_dir) unless File.exists?(log_dir)
+	    FileUtils.mkdir_p(log_dir) unless File.exists?(log_dir)
 	    if File.directory?(libdir = File.join(APP_DIR, 'lib'))
 		if !$LOAD_PATH.include?(libdir)
 		    $LOAD_PATH.unshift File.join(APP_DIR, 'lib')
@@ -559,7 +559,7 @@ module Roby
 	    Thread.abort_on_exception = true
 
 	    if !File.exists?(log_dir)
-		Dir.mkdir(log_dir)
+		FileUtils.mkdir_p(log_dir)
 	    end
 
 	    unless single? || !discovery['tuplespace']
