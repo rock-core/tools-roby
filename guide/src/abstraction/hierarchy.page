@@ -1,13 +1,19 @@
 ---
-title: Abstraction in taks dependencies
+title: Abstraction as task dependencies
 sort_info: 200
 --- name:content pipeline:tags,markdown,blocks
 
-* representing a dependency as an abstract model
+Dependency relations
+--------------------
+* Dependency is also a refinement relation
 * the syntax and other concepts
   - depends\_on :model
   - fullfilled\_model
   - fullfilled\_events
+
+Plan modifications and model abstraction
+----------------------------------------
+
 * the replace operator
 * semantics of the :returns flag in this context
 

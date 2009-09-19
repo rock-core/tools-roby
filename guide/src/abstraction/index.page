@@ -1,5 +1,5 @@
 ---
-title: Introduction
+title: Representing Abstraction
 sort_info: 0
 --- name:content pipeline:tags,markdown,blocks
 Being able to abstract away the little details of execution is crucial. Indeed,

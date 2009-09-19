@@ -1,6 +1,6 @@
 ---
 title: Achieving event commands with tasks
-sort_info: 200
+sort_info: 400
 --- name:content pipeline:tags,markdown,blocks
 
 * the achieve\_with operator
