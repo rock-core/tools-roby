@@ -1,6 +1,6 @@
 ---
 title: The forwarding relation
-sort_info: 200
+sort_info: 300
 --- name:content pipeline:tags,markdown,blocks
 
 * we already saw its usefulness inside tasks

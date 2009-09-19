@@ -16,9 +16,9 @@
 /*/index.page:
     in_menu: false
 
-/cycle/garbage_collection.page:
-    in_menu: false
+#/cycle/garbage_collection.page:
+#    in_menu: false
 
-/abstraction/*:
-    in_menu: false
+#/abstraction/*:
+#    in_menu: false
 
