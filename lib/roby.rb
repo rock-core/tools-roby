@@ -56,7 +56,7 @@ require 'roby/relations/ensured.rb'
 require 'roby/relations/error_handling.rb'
 require 'roby/relations/events.rb'
 require 'roby/relations/executed_by.rb'
-require 'roby/relations/hierarchy.rb'
+require 'roby/relations/dependency.rb'
 require 'roby/relations/influence.rb'
 require 'roby/relations/planned_by.rb'
 

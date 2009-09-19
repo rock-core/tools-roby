@@ -6,7 +6,7 @@ class TC_RealizedBy < Test::Unit::TestCase
     include Roby::Test
 
     def test_check_structure_registration
-        assert plan.structure_checks.include?(Hierarchy.method(:check_structure))
+        assert plan.structure_checks.include?(Dependency.method(:check_structure))
     end
 
     def test_definition
@@ -20,7 +20,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	# Check validation of the model
 	child = nil
 	assert_nothing_raised { t1.depends_on((child = klass.new), :model => SimpleTask) }
-	assert_equal([SimpleTask, {}], t1[child, Hierarchy][:model])
+	assert_equal([SimpleTask, {}], t1[child, Dependency][:model])
 
 	assert_nothing_raised { t1.depends_on klass.new, :model => [Roby::Task, {}] }
 	assert_nothing_raised { t1.depends_on klass.new, :model => tag }
@@ -36,17 +36,17 @@ class TC_RealizedBy < Test::Unit::TestCase
 	plan.add(child = klass.new(:id => 'good'))
 	assert_raises(ArgumentError) { t1.depends_on child, :model => [klass, {:id => 'bad'}] }
 	assert_nothing_raised { t1.depends_on child, :model => [klass, {:id => 'good'}] }
-	assert_equal([klass, { :id => 'good' }], t1[child, TaskStructure::Hierarchy][:model])
+	assert_equal([klass, { :id => 'good' }], t1[child, TaskStructure::Dependency][:model])
 
 	# Check edge annotation
 	t2 = SimpleTask.new
 	t1.depends_on t2, :model => SimpleTask
-	assert_equal([SimpleTask, {}], t1[t2, TaskStructure::Hierarchy][:model])
+	assert_equal([SimpleTask, {}], t1[t2, TaskStructure::Dependency][:model])
 	t2 = klass.new(:id => 10)
 	t1.depends_on t2, :model => [klass, { :id => 10 }]
     end
 
-    Hierarchy = TaskStructure::Hierarchy
+    Dependency = TaskStructure::Dependency
 
     def test_exception_printing
         parent, child = prepare_plan :add => 2, :model => SimpleTask
