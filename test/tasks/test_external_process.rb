@@ -35,6 +35,22 @@ class TC_ThreadTask < Test::Unit::TestCase
         assert_polling_successful(5) { task.success? }
     end
 
+    def test_nominal_array_with_one_element
+        plan.add_permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP]))
+        engine.run
+        engine.once { task.start! }
+
+        assert_polling_successful(5) { task.success? }
+    end
+
+    def test_nominal_no_array
+        plan.add_permanent(task = ExternalProcessTask.new(:command_line => MOCKUP))
+        engine.run
+        engine.once { task.start! }
+
+        assert_polling_successful(5) { task.success? }
+    end
+
     def test_inexistent_program
         plan.add_permanent(task = ExternalProcessTask.new(:command_line => ['does_not_exist', "--error"]))
         engine.run

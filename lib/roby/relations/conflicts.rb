@@ -9,7 +9,7 @@ module Roby
 
 	    def conflicts_with?(model)
 		each_conflicting_model do |m|
-		    return true if m == model
+		    return true if model <= m
 		end
 		false
 	    end
@@ -18,7 +18,7 @@ module Roby
 
 	relation :Conflicts, :noinfo => true do
 	    def conflicts_with(task)
-		task.event(:stop).add_precedence event(:start)
+		# task.event(:stop).add_precedence event(:start)
 		add_conflicts(task)
 	    end
 
@@ -48,10 +48,10 @@ module Roby
 	    # Add the needed conflict relations
 	    models = task.class.conflicting_models
             for model in models
-                for t in plan.find_tasks.with_model(model).pending
-                    t.conflicts_with task if t != task
-                end
-            end
+		for t in plan.find_tasks(model)
+                    t.conflicts_with task if t.pending? && t != task
+		end
+	    end
 	end
     
 	def fired(event)

@@ -64,7 +64,7 @@ module Roby::TaskStructure
 		:model => [task.model, task.meaningful_arguments], 
 		:success => [:success], 
 		:failure => [],
-		:remove_when_done => false
+		:remove_when_done => true
 
 	    options[:success] = Array[*options[:success]]
 	    options[:failure] = Array[*options[:failure]]

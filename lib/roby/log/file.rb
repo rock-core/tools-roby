@@ -88,8 +88,13 @@ module Roby::Log
                     return false
                 end
 
-                if cycle[-4] != :cycle_end ||
-                    cycle[-1].first != index
+                stats = cycle.last[0].dup
+                stats.delete(:state)
+                index = index.dup
+                index.delete(:state)
+                if stats != index
+                    STDERR.puts stats.inspect
+                    STDERR.puts index.inspect
                     return false
                 end
             end
@@ -215,8 +220,6 @@ module Roby::Log
 	    loop do
 		cycle = Marshal.load(event_log)
 		info               = cycle.last.last
-		info[:pos]         = current_pos
-		info[:event_count] = cycle.size
 
 		dump_io.truncate(0)
 		dump_io.seek(0)

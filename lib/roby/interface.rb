@@ -107,7 +107,7 @@ module Roby
             if !methods.empty?
                 puts
                 desc = methods.map do |p|
-                    doc = p.description.doc
+                    doc = p.description.doc || ["(no description set)"]
                     Hash['Name' => "#{p.name}!", 'Description' => doc.join("\n")]
                 end
 
@@ -242,11 +242,12 @@ help                              | this help message                           
 
             args_table = args.
                 map do |arg_desc|
-                Hash['Argument' => arg_desc.name,
-                            'Description' => (arg_desc.doc || "(no description set)")]
+                    Hash['Argument' => arg_desc.name,
+                         'Description' => (arg_desc.doc || "(no description set)")]
                 end
 
-            puts "#{m.name}! #{args_summary.join("")}\n#{m.description.doc.join("\n")}"
+            method_doc = m.description.doc || [""]
+            puts "#{m.name}! #{args_summary.join("")}\n#{method_doc.join("\n")}"
             if m.description.arguments.empty?
                 puts "No arguments"
             else

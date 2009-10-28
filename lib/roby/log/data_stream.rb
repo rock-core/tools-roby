@@ -46,6 +46,12 @@ module Roby::Log
 	    @decoders = []
 	end
 
+        def each_sample
+            while sample = read_and_decode
+                yield(sample)
+            end
+        end
+
 	def to_s; "#{name} [#{type}]" end
 	def open; end
 	def close; end
@@ -62,7 +68,9 @@ module Roby::Log
 	def read_all; end
 
 	def read_and_decode
-	    self.class.decode(read)
+            if raw = read
+                self.class.decode(raw)
+            end
 	end
 
 	# The [min, max] range of available samples. Initially
@@ -108,10 +116,13 @@ module Roby::Log
         #
         # See DataDecoder#process
         def advance
-	    data = decode(read)
-	    !decoders.find_all do |dec|
-		dec.process(data)
-	    end.empty?
+	    if data = read_and_decode
+                !decoders.find_all do |dec|
+                    dec.process(data)
+                end.empty?
+            else
+                raise EOFError
+            end
 	end
 
 	def init(data)

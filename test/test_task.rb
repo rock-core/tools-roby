@@ -395,6 +395,7 @@ class TC_Task < Test::Unit::TestCase
 
 	plan.add(task = klass.new)
 	assert_respond_to(task, :start!)
+        assert_respond_to(task, :start?)
 
         # Test modifications to the class hierarchy
         my_event = nil
