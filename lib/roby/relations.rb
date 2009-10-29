@@ -588,6 +588,10 @@ module Roby
 	    if parent_enumerator = options[:parent_name]
 		mod.class_eval <<-EOD
 		def each_#{parent_enumerator}(&iterator)
+                    if !block_given?
+                        return enum_parent_objects(@@__r_#{relation_name}__)
+                    end
+
 		    self.each_parent_object(@@__r_#{relation_name}__, &iterator)
 		end
 		EOD
@@ -596,6 +600,10 @@ module Roby
 	    if options[:noinfo]
 		mod.class_eval <<-EOD
 		def each_#{options[:child_name]}
+                    if !block_given?
+                        return enum_child_objects(@@__r_#{relation_name}__)
+                    end
+
 		    each_child_object(@@__r_#{relation_name}__) { |child| yield(child) }
 		end
 		def find_#{options[:child_name]}
@@ -608,6 +616,10 @@ module Roby
 	    else
 		mod.class_eval <<-EOD
 		def each_#{options[:child_name]}
+                    if !block_given?
+                        return enum_child_objects(@@__r_#{relation_name}__)
+                    end
+
 		    each_child_object(@@__r_#{relation_name}__) do |child|
 			yield(child, self[child, @@__r_#{relation_name}__])
 		    end
