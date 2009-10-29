@@ -220,6 +220,12 @@ module Roby
 	    @neg_plan_predicates = Array.new
 	end
 
+        # Changes the plan this query works on
+        def plan=(new_plan)
+            reset
+            @plan = new_plan
+        end
+
         # The set of tasks which match in plan. This is a cached value, so use
         # #reset to actually recompute this set.
 	def result_set
