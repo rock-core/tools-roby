@@ -427,7 +427,7 @@ module Roby
 	    class_eval do
 		# Remove event models
 		events.each_key do |ev_symbol|
-		    remove_const ev_symbol.to_s.camelize
+		    remove_const ev_symbol.to_s.camelcase(true)
 		end
 
 		[@events, @signal_sets, @forwarding_sets, @causal_link_sets,
@@ -1352,10 +1352,10 @@ module Roby
                 @symbol   = ev
                 @command_handler = command_handler
 
-		define_method(:name) { "#{task.name}::#{ev_s.camelize}" }
+		define_method(:name) { "#{task.name}::#{ev_s.camelcase(true)}" }
                 singleton_class.class_eval do
                     attr_reader :command_handler
-		    define_method(:name) { "#{task_klass.name}::#{ev_s.camelize}" }
+		    define_method(:name) { "#{task_klass.name}::#{ev_s.camelcase(true)}" }
 		    def to_s; name end
                 end
             end
@@ -1370,7 +1370,7 @@ module Roby
 	    if setup_terminal_handler
 		forward(new_event => :stop)
 	    end
-	    const_set(ev_s.camelize, new_event)
+	    const_set(ev_s.camelcase(true), new_event)
 
 	    if options[:command]
 		# check that the supplied command handler can take two arguments

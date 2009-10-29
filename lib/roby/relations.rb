@@ -554,7 +554,7 @@ module Roby
         #
 	def relation(relation_name, options = {}, &block)
 	    options = validate_options options,
-			:child_name  => relation_name.to_s.underscore,
+			:child_name  => relation_name.to_s.snakecase,
 			:const_name  => relation_name,
 			:parent_name => nil,
 			:subsets     => ValueSet.new,

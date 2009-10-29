@@ -1,9 +1,4 @@
 require 'roby'
-require 'active_support/core_ext/string/inflections'
-class String # :nodoc: all
-    include ActiveSupport::CoreExtensions::String::Inflections
-end
-
 require 'test/unit'
 require 'roby/test/common'
 require 'roby/test/tools'
