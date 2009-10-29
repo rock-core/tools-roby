@@ -171,6 +171,9 @@ module Roby
             # #add_propagation_handler
             attr_reader :propagation_handlers
 
+            # call-seq:
+            #   ExecutionEngine.add_propagation_handler { |plan| ... }
+            #
             # The propagation handlers are a set of block objects that have to be
             # called at the beginning of every propagation phase for all plans.
             # These objects are called in propagation context, which means that the
@@ -180,13 +183,15 @@ module Roby
             # This method adds a new propagation handler. In its first form, the
             # argument is the proc object to be added. In the second form, the
             # block is taken the handler. In both cases, the method returns a value
-            # which can be used to remove the propagation handler later.
+            # which can be used to remove the propagation handler later. In both
+            # cases, the block or proc is called with the plan to propagate on
+            # as argument.
             #
             # This method sets up global propagation handlers (i.e. to be used for
-            # all propagation on any plan). For per-plan propagation handlers, see
-            # #add_propagation_handler.
+            # all propagation on all plans). For per-plan propagation handlers, see
+            # ExecutionEngine#add_propagation_handler.
             #
-            # See also #remove_propagation_handler
+            # See also ExecutionEngine.remove_propagation_handler
             def add_propagation_handler(proc_obj = nil, &block)
                 proc_obj ||= block
                 check_arity proc_obj, 1
@@ -195,13 +200,8 @@ module Roby
             end
             
             # This method removes a propagation handler which has been added by
-            # #add_propagation_handler.  THe +id+ value is the value returned by
-            # #add_propagation_handler. In its first form, the argument is the proc
-            # object to be added. In the second form, the block is taken the
-            # handler. In both cases, the method returns a value which can be used
-            # to remove the propagation handler later.
-            #
-            # See also #add_propagation_handler
+            # ExecutionEngine.add_propagation_handler.  THe +id+ value is the
+            # value returned by ExecutionEngine.add_propagation_handler.
             def remove_propagation_handler(id)
                 propagation_handlers.delete_if { |p| p.object_id == id }
                 nil
@@ -214,6 +214,9 @@ module Roby
         # propagation process itself.
         attr_reader :propagation_handlers
         
+        # call-seq:
+        #   engine.add_propagation_handler { |plan| ... }
+        #
         # The propagation handlers are a set of block objects that have to be
         # called at the beginning of every propagation phase for all plans.
         # These objects are called in propagation context, which means that the
@@ -246,6 +249,9 @@ module Roby
             nil
         end
 
+        # call-seq:
+        #   Roby.each_cycle { |plan| ... }
+        #
         # Execute the given block at the beginning of each cycle, in propagation
         # context.
         #
