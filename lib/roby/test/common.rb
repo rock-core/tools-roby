@@ -64,6 +64,8 @@ module Roby
 	end
 
 	def setup
+            super if defined? super
+
 	    @console_logger ||= false
 	    if !defined? Roby::State
                 Roby.const_set(:State, StateSpace.new)
@@ -112,9 +114,18 @@ module Roby
 	    save_collection engine.delayed_events
 	    save_collection plan.exception_handlers
 	    timings[:setup] = Time.now
+
+            engine.at_cycle_end(&Test.method(:check_event_assertions))
+            engine.finalizers << Test.method(:finalize_event_assertions)
+            engine.waiting_threads << Thread.current
 	end
 
+
 	def teardown_plan
+            engine.at_cycle_end_handlers.delete(Test.method(:check_event_assertions))
+            engine.finalizers.delete(Test.method(:finalize_event_assertions))
+            engine.waiting_threads.delete(Thread.current)
+
 	    old_gc_roby_logger_level = Roby.logger.level
 	    if debug_gc?
 		Roby.logger.level = Logger::DEBUG
@@ -186,6 +197,8 @@ module Roby
 		    Roby.warn $!.full_message
 		end
 	    end
+
+            super if defined? super
 
 	rescue Exception => e
 	    STDERR.puts "failed teardown: #{e.full_message}"
@@ -418,6 +431,188 @@ module Roby
 
 	    result
 	end
+
+	@event_assertions = []
+	@waiting_threads  = []
+
+	ASSERT_ANY_EVENTS_TLS = :assert_any_events
+
+        class << self
+            # A [thread, cv, positive, negative] list of event assertions
+            attr_reader :event_assertions
+        end
+
+        # Tests for events in +positive+ and +negative+ and returns
+        # the set of failing events if the assertion has finished.
+        # If the set is empty, it means that the assertion finished
+        # successfully
+        def self.assert_any_event_result(positive, negative)
+            if positive_ev = positive.find { |ev| ev.happened? }
+                return false, "#{positive_ev} happened"
+            end
+            failure = negative.find_all { |ev| ev.happened? }
+            unless failure.empty?
+                return true, "#{failure} happened"
+            end
+
+            if positive.all? { |ev| ev.unreachable? }
+                positive.each do |ev|
+                    Robot.info "#{ev} is unreachable because of"
+                    Roby.log_exception(ev, Robot.logger, :info)
+                    Roby.log_exception(ev.unreachability_reason, Robot.logger, :info)
+                end
+                return true, "all positive events are unreachable"
+            end
+
+            nil
+        end
+
+        # This method is inserted in the control thread to implement
+        # Assertions#assert_events
+        def self.check_event_assertions
+            event_assertions.delete_if do |thread, cv, positive, negative|
+                error, result = Test.assert_any_event_result(positive, negative)
+                if !error.nil?
+                    thread[ASSERT_ANY_EVENTS_TLS] = [error, result]
+                    cv.broadcast
+                    true
+                end
+            end
+        end
+
+        def self.finalize_event_assertions
+            check_event_assertions
+            event_assertions.dup.each do |thread, *_|
+                thread.raise ControlQuitError
+            end
+        end
+
+	module Assertions
+	    # Wait for any event in +positive+ to happen. If +negative+ is
+	    # non-empty, any event happening in this set will make the
+	    # assertion fail. If events in +positive+ are task events, the
+	    # :stop events of the corresponding tasks are added to negative
+	    # automatically.
+	    #
+	    # If a block is given, it is called from within the control thread
+	    # after the checks are in place
+	    #
+	    # So, to check that a task fails, do
+	    #
+	    #	assert_events(task.event(:fail)) do
+	    #	    task.start!
+	    #	end
+	    #
+	    def assert_any_event(positive, negative = [], msg = nil, &block)
+		control_priority do
+		    Roby.condition_variable(false) do |cv|
+			positive = Array[*positive].to_value_set
+			negative = Array[*negative].to_value_set
+
+			unreachability_reason = ValueSet.new
+			Roby.synchronize do
+			    positive.each do |ev|
+				ev.if_unreachable(true) do |reason|
+				    unreachability_reason << reason if reason
+				end
+			    end
+
+			    error, result = Test.assert_any_event_result(positive, negative)
+			    if error.nil?
+				this_thread = Thread.current
+
+				Test.event_assertions << [this_thread, cv, positive, negative]
+				engine.once(&block) if block_given?
+				begin
+				    cv.wait(Roby.global_lock)
+				ensure
+				    Test.event_assertions.delete_if { |thread, _| thread == this_thread }
+				end
+
+				error, result = this_thread[ASSERT_ANY_EVENTS_TLS]
+			    end
+
+			    if error
+				if !unreachability_reason.empty?
+				    msg = unreachability_reason.map do |reason|
+					if reason.respond_to?(:context)
+					    context = (reason.context || []).map do |obj|
+						if obj.kind_of?(Exception)
+						    obj.full_message
+						else
+						    obj.to_s
+						end
+					    end
+					    reason.to_s + context.join("\n  ")
+					end
+				    end
+				    msg.join("\n  ")
+
+				    flunk("#{msg} all positive events are unreachable for the following reason:\n  #{msg}")
+				elsif msg
+				    flunk("#{msg} failed: #{result}")
+				else
+				    flunk(result)
+				end
+			    end
+			end
+		    end
+		end
+	    end
+
+	    # Starts +task+ and checks it succeeds
+	    def assert_succeeds(task, *args)
+		control_priority do
+		    if !task.kind_of?(Roby::Task)
+			engine.execute do
+			    plan.add_mission(task = planner.send(task, *args))
+			end
+		    end
+
+		    assert_any_event([task.event(:success)], [], nil) do
+			plan.add_permanent(task)
+			task.start! if task.pending?
+			yield if block_given?
+		    end
+		end
+	    end
+
+	    def control_priority
+                if !engine.thread
+                    return yield
+                end
+
+		old_priority = Thread.current.priority 
+		Thread.current.priority = engine.thread.priority + 1
+
+		yield
+	    ensure
+		Thread.current.priority = old_priority if old_priority
+	    end
+
+	    # This assertion fails if the relative error between +found+ and
+	    # +expected+is more than +error+
+	    def assert_relative_error(expected, found, error, msg = "")
+		if expected == 0
+		    assert_in_delta(0, found, error, "comparing #{found} to #{expected} in #{msg}")
+		else
+		    assert_in_delta(0, (found - expected) / expected, error, "comparing #{found} to #{expected} in #{msg}")
+		end
+	    end
+
+	    # This assertion fails if +found+ and +expected+ are more than +dl+
+	    # meters apart in the x, y and z coordinates, or +dt+ radians apart
+	    # in angles
+	    def assert_same_position(expected, found, dl = 0.01, dt = 0.01, msg = "")
+		assert_relative_error(expected.x, found.x, dl, msg)
+		assert_relative_error(expected.y, found.y, dl, msg)
+		assert_relative_error(expected.z, found.z, dl, msg)
+		assert_relative_error(expected.yaw, found.yaw, dt, msg)
+		assert_relative_error(expected.pitch, found.pitch, dt, msg)
+		assert_relative_error(expected.roll, found.roll, dt, msg)
+	    end
+	end
+
     end
 end
 
