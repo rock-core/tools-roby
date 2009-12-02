@@ -228,5 +228,26 @@ class TC_Relations < Test::Unit::TestCase
         r1 = space.relation :R1
         assert_equal [r1], space.relations
     end
+
+    def test_child_enumeration_without_info
+	klass = Class.new { include DirectedRelationSupport }
+	space = Roby::RelationSpace(klass)
+        r1 = space.relation :R1, :child_name => 'child', :noinfo => true
+
+        v1, v2 = klass.new, klass.new
+        v1.add_child(v2, :test => true)
+
+        assert_equal([v2], v1.each_child.to_a)
+    end
+    def test_child_enumeration_with_info
+	klass = Class.new { include DirectedRelationSupport }
+	space = Roby::RelationSpace(klass)
+        r1 = space.relation :R1, :child_name => 'child'
+
+        v1, v2 = klass.new, klass.new
+        v1.add_child(v2, :test => true)
+
+        assert_equal([[v2, {:test => true}]], v1.each_child.to_a)
+    end
 end
 

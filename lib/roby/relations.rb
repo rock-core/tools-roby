@@ -615,9 +615,10 @@ module Roby
 		EOD
 	    else
 		mod.class_eval <<-EOD
+                cached_enum("#{options[:child_name]}", "#{options[:child_name]}", false)
 		def each_#{options[:child_name]}
                     if !block_given?
-                        return enum_child_objects(@@__r_#{relation_name}__)
+                        return enum_#{options[:child_name]}
                     end
 
 		    each_child_object(@@__r_#{relation_name}__) do |child|
