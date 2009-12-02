@@ -495,7 +495,7 @@ module Roby
 	def useful_task_component(complete_set, useful_set, seeds)
 	    old_useful_set = useful_set.dup
 	    for rel in TaskStructure.relations
-		next unless rel.root_relation?
+		next if !rel.root_relation?
 		for subgraph in rel.generated_subgraphs(seeds, false)
 		    useful_set.merge(subgraph)
 		end

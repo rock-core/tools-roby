@@ -1691,7 +1691,7 @@ module Roby
 
 	    # Check the arguments that are required by the model
 	    for tag in models
-		unless self_model.has_ancestor?(tag)
+		if !self_model.has_ancestor?(tag)
 		    return false
 		end
 
