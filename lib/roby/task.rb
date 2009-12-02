@@ -1670,6 +1670,15 @@ module Roby
 	    ancestors.find_all { |m| m.instance_of?(TaskModelTag) }
 	end
 
+        # Checks if this 
+        def self.fullfills?(*models)
+	    for tag in models
+		if !has_ancestor?(tag)
+		    return false
+		end
+            end
+        end
+
 	# The fullfills? predicate checks if this task can be used
 	# to fullfill the need of the given +model+ and +arguments+
 	# The default is to check if
