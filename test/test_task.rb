@@ -327,8 +327,8 @@ class TC_Task < Test::Unit::TestCase
 	    event :terminal
             event :intermediate
 
-	    forward :terminal => :intermediate
             forward :intermediate => :failed
+	    forward :terminal => :intermediate
 	end
         assert klass.event_model(:terminal).terminal?
         plan.add(task = klass.new)
