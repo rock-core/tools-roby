@@ -25,6 +25,8 @@ module Roby
 	    @improved_information = ValueSet.new
 	    @needed_information   = ValueSet.new
 	    @interruptible	  = nil
+            @parents              = Hash.new { |h, k| h[k] = Array.new }
+            @children             = Hash.new { |h, k| h[k] = Array.new }
 	end
 
 	# Shortcut to set both model and argument 
@@ -128,6 +130,34 @@ module Roby
 	match_predicates :executable, :abstract, :partially_instanciated, :fully_instanciated,
 	    :pending, :running, :finished, :success, :failed, :interruptible, :finishing
 
+        def with_child(other_query, relation = nil)
+            if other_query.kind_of?(Class)
+                if relation.kind_of?(Hash)
+                    relation, arguments = Kernel.filter_options relation, :relation => nil
+                    relation = relation[:relation]
+                else
+                    arguments = Hash.new
+                end
+                other_query = TaskMatcher.which_fullfills(other_query, arguments)
+            end
+            @children[relation] << other_query
+            self
+        end
+
+        def with_parent(other_query, relation = nil)
+            if other_query.kind_of?(Class)
+                if relation.kind_of?(Hash)
+                    relation, arguments = Kernel.filter_options relation, :relation => nil
+                    relation = relation[:relation]
+                else
+                    arguments = Hash.new
+                end
+                other_query = TaskMatcher.which_fullfills(other_query, arguments)
+            end
+            @parents[relation] << other_query
+            self
+        end
+
         # True if +task+ matches all the criteria defined on this object.
 	def ===(task)
 	    return unless task.kind_of?(Roby::Task)
@@ -137,6 +167,36 @@ module Roby
 	    if arguments
 		return unless task.arguments.slice(*arguments.keys) == arguments
 	    end
+
+            for parent_spec in @parents
+                relation, matchers = *parent_spec
+                return false if !relation && task.relations.empty?
+                for m in matchers
+                    if relation
+                        return false if !task.enum_parent_objects(relation).any? { |parent| m === parent }
+                    else
+                        result = task.relations.any? do |rel|
+                            task.enum_parent_objects(rel).any? { |parent| m === parent }
+                        end
+                        return false if !result
+                    end
+                end
+            end
+
+            for child_spec in @children
+                relation, matchers = *child_spec
+                return false if !relation && task.relations.empty?
+                for m in matchers
+                    if relation
+                        return false if !task.enum_child_objects(relation).any? { |child| m === child }
+                    else
+                        result = task.relations.any? do |rel|
+                            task.enum_child_objects(rel).any? { |child| m === child }
+                        end
+                        return false if !result
+                    end
+                end
+            end
 
 	    for info in improved_information
 		return false if !task.improves?(info)
