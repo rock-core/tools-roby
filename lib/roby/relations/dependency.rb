@@ -130,7 +130,10 @@ module Roby::TaskStructure
 	def fullfilled_model
 	    model, tags, arguments = Roby::Task, [], {}
 
+            has_parent = false
 	    each_parent_task do |parent|
+                has_parent = true
+
 		m, a = parent[self, Dependency][:model]
 		if m.instance_of?(Roby::TaskModelTag)
 		    tags << m
@@ -146,8 +149,12 @@ module Roby::TaskStructure
 		end
 	    end
 
-	    tags.unshift(model)
-	    [tags, arguments]
+            if !has_parent
+                [[self.model], self.arguments]
+            else
+                tags.unshift(model)
+                [tags, arguments]
+            end
 	end
 
 	# Remove all children that have successfully finished
