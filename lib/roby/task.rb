@@ -1720,6 +1720,11 @@ module Roby
 	    true
 	end
 
+        # True if +self+ can be used to replace +target+
+        def can_replace?(target)
+            fullfills?(*target.fullfilled_model)
+        end
+
 	include ExceptionHandlingObject
 	inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }
 
