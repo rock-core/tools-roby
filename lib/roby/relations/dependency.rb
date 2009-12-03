@@ -137,11 +137,11 @@ module Roby::TaskStructure
 		elsif m.has_ancestor?(model)
 		    model = m
 		elsif !model.has_ancestor?(m)
-		    raise "inconsistency in fullfilled models: #{model} and #{m} are incompatible"
+		    raise Roby::ModelViolation, "inconsistency in fullfilled models: #{model} and #{m} are incompatible"
 		end
 		a.merge!(arguments) do |old, new| 
 		    if old != new
-			raise "inconsistency in fullfilled models: #{old} and #{new}"
+			raise Roby::ModelViolation, "inconsistency in fullfilled models: #{old} and #{new}"
 		    end
 		end
 	    end
