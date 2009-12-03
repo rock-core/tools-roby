@@ -149,6 +149,21 @@ class TC_RealizedBy < Test::Unit::TestCase
         plan.clear
     end
 
+    def test_fullfilled_model_validation
+	tag = TaskModelTag.new
+	klass = Class.new(Roby::Task)
+
+	p1, p2, child = prepare_plan :add => 3, :model => SimpleTask
+	p1.depends_on child, :model => [SimpleTask, { :id => "discover-3" }]
+        p2.depends_on child, :model => [SimpleTask, { :id => 'discover-3' }]
+
+        # Mess with the relation definition
+        p1[child, Dependency][:model].last[:id] = 'discover-10'
+        assert_raises(ModelViolation) { child.fullfilled_model }
+        p1[child, Dependency][:model] = [klass, {}]
+        assert_raises(ModelViolation) { child.fullfilled_model }
+    end
+
     def test_fullfilled_model
 	tag = TaskModelTag.new
 	klass = Class.new(SimpleTask) do
@@ -157,13 +172,16 @@ class TC_RealizedBy < Test::Unit::TestCase
 
 	p1, p2, child = prepare_plan :add => 3, :model => klass
 
-	p1.depends_on child, :model => SimpleTask
+	p1.depends_on child, :model => [SimpleTask, { :id => "discover-3" }]
 	p2.depends_on child, :model => Roby::Task
-	assert_equal([[SimpleTask], {}], child.fullfilled_model)
+	assert_equal([[SimpleTask], {:id => 'discover-3'}], child.fullfilled_model)
 	p1.remove_child(child)
 	assert_equal([[Roby::Task], {}], child.fullfilled_model)
 	p1.depends_on child, :model => tag
 	assert_equal([[Roby::Task, tag], {}], child.fullfilled_model)
+	p2.remove_child(child)
+	p2.depends_on child, :model => [klass, { :id => 'discover-3' }]
+	assert_equal([[klass, tag], {:id => 'discover-3'}], child.fullfilled_model)
     end
 
     def test_first_children
