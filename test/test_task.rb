@@ -12,16 +12,23 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_model_tag
-	my_tag = TaskModelTag.new do
-	    argument :model_tag
-	end
-	assert(my_tag.const_defined?(:ClassExtension))
-	assert(my_tag::ClassExtension.method_defined?(:argument))
+        tag1 = TaskModelTag.new { argument :model_tag_1 }
+	assert(tag1.const_defined?(:ClassExtension))
+	assert(tag1::ClassExtension.method_defined?(:argument))
+
+	tag2 = TaskModelTag.new do
+            include tag1
+            argument :model_tag_2
+        end
+	assert(tag2 < tag1)
+	assert(tag2.const_defined?(:ClassExtension))
+	assert(tag2::ClassExtension.method_defined?(:argument))
+
 	task = Class.new(Task) do
-	    include my_tag
+	    include tag2
 	    argument :task_tag
 	end
-	assert_equal([:task_tag, :model_tag].to_set, task.arguments.to_set)
+	assert_equal([:task_tag, :model_tag_2, :model_tag_1].to_set, task.arguments.to_set)
     end
 
     def test_arguments
