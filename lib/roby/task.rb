@@ -4,6 +4,7 @@ module Roby
 	    # Returns the list of static arguments required by this task model
 	    def arguments(*new_arguments)
 		new_arguments.each do |arg_name|
+                    arg_name = arg_name.to_sym
 		    argument_set << arg_name.to_sym
 		    unless method_defined?(arg_name)
 			define_method(arg_name) { arguments[arg_name] }
