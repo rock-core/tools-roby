@@ -8,6 +8,7 @@ module Roby
 		    argument_set << arg_name.to_sym
 		    unless method_defined?(arg_name)
 			define_method(arg_name) { arguments[arg_name] }
+			define_method("#{arg_name}=") { |value| arguments[arg_name] = value }
 		    end
 		end
 
@@ -635,11 +636,17 @@ module Roby
         # * the task shall have a +start+ event
         # * the task shall have at least one terminal event. If no +stop+ event
         #   is defined, then all terminal events are aliased to +stop+
-        def initialize(arguments = nil) #:yields: task_object
+        def initialize(arguments = Hash.new) #:yields: task_object
 	    super() if defined? super
 
 	    @arguments = TaskArguments.new(self)
-	    @arguments.merge!(arguments) if arguments
+            arguments.each do |key, value|
+                if self.respond_to?("#{key}=")
+                    self.send("#{key}=", value)
+                else
+                    @arguments[key] = value
+                end
+            end
 
 	    @model = self.class
 

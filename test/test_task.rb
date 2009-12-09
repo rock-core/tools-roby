@@ -31,24 +31,73 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal([:task_tag, :model_tag_2, :model_tag_1].to_set, task.arguments.to_set)
     end
 
-    def test_arguments
-	model = Class.new(Task) do
-	    arguments :from, :to
-	end
-	plan.add(task = model.new(:from => 'B', :useless => 'bla'))
+    def test_arguments_declaration
+	model = Class.new(Task) { arguments :from, :to }
 	assert_equal([], Task.arguments.to_a)
-	assert_equal([:from, :to].to_value_set, task.model.arguments.to_value_set)
-	assert_equal({:from => 'B', :useless => 'bla'}, task.arguments)
-	assert_equal({:from => 'B'}, task.meaningful_arguments)
+	assert_equal([:from, :to].to_value_set, model.arguments.to_value_set)
+    end
 
-	assert(task.partially_instanciated?)
-	task.arguments[:to] = 'A'
-	assert_equal('A', task.arguments[:to])
-	assert(!task.partially_instanciated?)
-	assert_raises(ArgumentError) { task.arguments[:to] = 10 }
+    def test_arguments_initialization
+	model = Class.new(Task) { arguments :arg, :to }
+	plan.add(task = model.new(:arg => 'B'))
+	assert_equal({:arg => 'B'}, task.arguments)
+        assert_equal('B', task.arg)
+        assert_equal(nil, task.to)
+    end
 
+    def test_arguments_initialization_uses_assignation_operator
+	model = Class.new(Task) do
+            arguments :arg, :to
+
+            def arg=(value)
+                arguments[:assigned] = true
+                arguments[:arg] = value
+            end
+        end
+
+	plan.add(task = model.new(:arg => 'B'))
+	assert_equal({:arg => 'B', :assigned => true}, task.arguments)
+    end
+
+    def test_arguments_assignation
+	model = Class.new(Task) { arguments :arg }
+	plan.add(task = model.new)
+	task.arguments[:arg] = 'A'
+        assert_equal('A', task.arg)
+        assert_equal({ :arg => 'A' }, task.arguments)
+    end
+    
+    def test_arguments_assignation_operator
+	model = Class.new(Task) { arguments :arg }
+	plan.add(task = model.new)
+        task.arg = 'B'
+        assert_equal('B', task.arg)
+        assert_equal({ :arg => 'B' }, task.arguments)
+    end
+
+    def test_meaningful_arguments
+	model = Class.new(Task) { arguments :arg }
+	plan.add(task = model.new(:arg => 'B', :useless => 'bla'))
+	assert_equal({:arg => 'B', :useless => 'bla'}, task.arguments)
+	assert_equal({:arg => 'B'}, task.meaningful_arguments)
+    end
+
+    def test_arguments_cannot_override
+	model = Class.new(Task) { arguments :arg }
+	plan.add(task = model.new(:arg => 'B', :useless => 'bla'))
+	assert_raises(ArgumentError) { task.arg = 10 }
+
+        # But we can override non-meaningful arguments
 	task.arguments[:bar] = 42
 	assert_nothing_raised { task.arguments[:bar] = 43 }
+    end
+
+    def test_arguments_partially_instanciated
+	model = Class.new(Task) { arguments :arg0, :arg1 }
+	plan.add(task = model.new(:arg0 => 'B', :useless => 'bla'))
+	assert(task.partially_instanciated?)
+        task.arg1 = 'C'
+	assert(!task.partially_instanciated?)
     end
 
     def test_command_block
