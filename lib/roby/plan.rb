@@ -479,6 +479,16 @@ module Roby
 	    super if defined? super
 	end
 
+        # Creates a new transaction and yields it. Ensures that the transaction
+        # is discarded if the block returns without having committed it.
+        def in_transaction
+            yield(trsc = Transaction.new(self))
+
+        ensure
+            if trsc && !trsc.finalized?
+                trsc.discard_transaction
+            end
+        end
 	# Hook called when a new transaction has been built on top of this plan
 	def added_transaction(trsc); super if defined? super end
 	# Removes the transaction +trsc+ from the list of known transactions
