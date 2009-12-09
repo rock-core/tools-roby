@@ -16,6 +16,13 @@ module Roby
 	    end
 	    # Declares a set of arguments required by this task model
 	    def argument(*args); arguments(*args) end
+            # The part of +arguments+ that is meaningful for this task model
+            def meaningful_arguments(arguments)
+                self_arguments = self.arguments.to_set
+                arguments.to_hash.delete_if do |key, _|
+                    !self_arguments.include?(key)
+                end
+            end
 	end
 	include TaskModelTag::ClassExtension
 
