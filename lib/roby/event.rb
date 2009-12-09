@@ -176,8 +176,10 @@ module Roby
 	# Checks that the event can be called. Raises various exception
 	# when it is not the case.
 	def check_call_validity
-	    if !executable?
-		raise EventNotExecutable.new(self), "#call called on #{self} which is a non-executable event"
+            if !plan
+		raise EventNotExecutable.new(self), "#emit called on #{self} which is in no plan"
+            elsif !engine
+		raise EventNotExecutable.new(self), "#emit called on #{self} which is has no associated execution engine"
             elsif !engine.allow_propagation?
                 raise PhaseMismatch, "call to #emit is not allowed in this context"
 	    elsif !controlable?
@@ -214,6 +216,10 @@ module Roby
 	    postponed = catch :postponed do 
 		calling(context)
 		@pending = true
+
+                if !executable?
+                    raise EventNotExecutable.new(self), "#call called on #{self} which is a non-executable event"
+                end
 
 		plan.engine.propagation_context([self]) do
 		    command[context]

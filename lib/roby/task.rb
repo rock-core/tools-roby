@@ -250,6 +250,13 @@ module Roby
 	    end
 	end
 
+	# Refines exceptions that may be thrown by #call_without_propagation
+        def call_without_propagation(context)
+            super
+    	rescue EventNotExecutable => e
+	    refine_exception(e)
+        end
+
 	# Checks that the event can be called. Raises various exception
 	# when it is not the case.
 	def check_call_validity

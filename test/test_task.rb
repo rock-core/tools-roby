@@ -654,7 +654,7 @@ class TC_Task < Test::Unit::TestCase
         flunk 'no exception raised'
     rescue klass => e
         unless msg === e.message
-            flunk "exception message '#{e.message}' does not match the expected pattern"
+            flunk "exception message '#{e.message}' does not match the expected pattern #{msg}"
         end
     rescue Exception => e
         flunk "expected an exception of class #{klass} but got #{e.full_message}"
@@ -669,8 +669,6 @@ class TC_Task < Test::Unit::TestCase
 	assert(!task.executable?)
 	assert_raises(EventNotExecutable) { task.start! }
 	assert_raises(EventNotExecutable) { task.event(:start).call }
-
-
 
 	plan.add(task)
 	assert(task.executable?)
