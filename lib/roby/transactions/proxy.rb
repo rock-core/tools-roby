@@ -217,6 +217,10 @@ module Roby::Transactions
 	proxy :fullfills?
 	proxy :same_state?
 
+        def kind_of?(klass)
+            super || __getobj__.kind_of?(klass)
+        end
+
         # Create a new proxy representing +object+ in +transaction+
 	def initialize(object, transaction)
 	    super(object, transaction)
