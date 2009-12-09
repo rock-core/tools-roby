@@ -30,14 +30,16 @@ module Roby::Log
 	def arg_to_s(arg)
 	    case arg
 	    when Time then Time.at(arg - @reftime).to_hms
-	    when Array then arg.map(&method(:arg_to_s)).to_s
+	    when Array then arg.map { |v| arg_to_s(v) }.to_s
 	    when Hash then arg.map { |k, v| [arg_to_s(k), arg_to_s(v)].join(" => ") }.to_s
 	    else arg.to_s
 	    end
 	end
 
 
-	def display(m, time, *args) # :nodoc:
+        def logs_message?(m); true end
+        def close; end
+	def dump_method(m, time, *args) # :nodoc:
 	    @reftime ||= time
 
 	    args.map! { |a| arg_to_s(a) }
@@ -65,7 +67,7 @@ module Roby::Log
 	private :display
 
 	Roby::Log.each_hook do |klass, m|
-	    define_method(m) { |args| display(m, *args) }
+	    define_method(m) { |time, args| dump_method(m, time, args) }
 	end
     end
 end
