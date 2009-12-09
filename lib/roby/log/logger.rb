@@ -45,6 +45,7 @@ module Roby::Log
 		stop_logging
 	    end
 	    @loggers.delete logger
+            logger.close
 	end
 
 	# Remove all loggers

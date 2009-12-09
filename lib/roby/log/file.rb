@@ -173,6 +173,12 @@ module Roby::Log
 	    m == :cycle_end || !stats_mode
         end
 
+        def close
+            dump_method(:cycle_end, Time.now, [])
+            @event_log.close
+            @index_log.close
+        end
+
 	def dump_method(m, time, args)
 	    if m == :cycle_end || !stats_mode
 		current_cycle << m << time.tv_sec << time.tv_usec << args
