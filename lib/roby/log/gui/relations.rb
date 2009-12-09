@@ -17,8 +17,8 @@ module Ui
 	EVENT_ROOT_INDEX = 1
 	CATEGORIES = ['Task structure']
 
-	def event_root_index; createIndex(TASK_ROOT_INDEX, 0, -1) end
-	def task_root_index;  createIndex(EVENT_ROOT_INDEX, 0, -1) end
+	def event_root_index; createIndex(EVENT_ROOT_INDEX, 0, -1) end
+	def task_root_index;  createIndex(TASK_ROOT_INDEX, 0, -1) end
 
 	attr_reader :relations
 	attr_reader :display
@@ -29,7 +29,7 @@ module Ui
 	    @display   = display
 	    @relations = []
 
-	    relations[TASK_ROOT_INDEX]  = Roby::TaskStructure.enum_for(:each_relation).to_a
+	    relations[TASK_ROOT_INDEX]  = Roby::Log::RelationsDisplay.all_task_relations
 
             RelationConfigModel.detect_qtruby_behaviour(createIndex(0, 0, 0))
 	end
@@ -230,22 +230,23 @@ module Ui
 
 	def self.setup_optparse(opt, replay)
 	    opt.on("--relations=REL1,REL2", Array, "create a relation display with the given relations") do |relations|
-		if relations.include?("all")
-		    relations = Roby::TaskStructure.relations
-		else
-		    relations.map! do |relname|
-			rel = Roby::TaskStructure.relations.find { |rel| rel.name =~ /#{relname}/ }
-			unless rel
-			    STDERR.puts "Unknown relation #{relname}. Available relations are:"
-			    STDERR.puts "  Tasks: " + Roby::TaskStructure.enum_for(:each_relation).map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
-			    exit(1)
-			end
-
-			rel
-		    end
-		end
-
 		replay.initial_setup << lambda do |gui|
+                    all_relations = Roby::Log::RelationsDisplay.all_task_relations
+                    if relations.include?("all")
+                        relations = all_relations
+                    else
+                        relations.map! do |relname|
+                            rel = all_relations.find { |rel| rel.name =~ /#{relname}/ }
+                            unless rel
+                                STDERR.puts "Unknown relation #{relname}. Available relations are:"
+                                STDERR.puts "  Tasks: " + all_relations.map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
+                                exit(1)
+                            end
+
+                            rel
+                        end
+                    end
+
 		    if relation_display = gui.add_display('Relations')
                         relations.each do |rel|
                             relation_display.enable_relation(rel)

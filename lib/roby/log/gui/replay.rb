@@ -300,6 +300,9 @@ class Replay < Qt::MainWindow
 	replay = self.new
 
 	parser = OptionParser.new do |opt|
+            opt.on('--require=FILE', '-r FILE', String, 'load this file at startup') do |file|
+                require file
+            end
 	    Ui_DataDisplays::DISPLAYS.each_value do |config_ui|
 		config_ui.setup_optparse(opt, replay)
 	    end

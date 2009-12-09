@@ -419,6 +419,18 @@ module Roby
 
 	    include TaskDisplaySupport
 
+            def self.all_task_relations
+                if @all_task_relations
+                    @all_task_relations
+                else
+                    result = []
+                    ObjectSpace.each_object(Roby::RelationSpace) do |space|
+                        result.concat(space.relations) if space.applied.find { |t| t <= Roby::Task }
+                    end
+                    @all_task_relations = result
+                end
+            end
+
 	    attr_reader :ui, :scene
 
 	    # A [DRbObject, DRbObject] => GraphicsItem mapping of arrows
