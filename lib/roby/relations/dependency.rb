@@ -76,7 +76,9 @@ module Roby::TaskStructure
 
 	    options[:model] = [options[:model], {}] unless Array === options[:model]
 	    required_model, required_args = *options[:model]
-	    if !task.fullfills?(required_model, required_args)
+            if !required_args.respond_to?(:to_hash)
+                raise ArgumentError, "argument specification must be a hash, got #{required_args} (#{required_args.class})"
+	    elsif !task.fullfills?(required_model, required_args)
 		raise ArgumentError, "task #{task} does not fullfills the provided model #{options[:model]}"
 	    end
 
