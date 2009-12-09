@@ -67,6 +67,7 @@ module Roby
             super if defined? super
 
 	    @console_logger ||= false
+            @event_logger   ||= false
 	    if !defined? Roby::State
                 Roby.const_set(:State, StateSpace.new)
             else
@@ -213,6 +214,7 @@ module Roby
 
 	    Roby.logger.level = @original_roby_logger_level
 	    self.console_logger = false
+            self.event_logger   = false
 	end
 
 	# Process pending events
@@ -408,6 +410,21 @@ module Roby
 		@console_logger = nil
 	    end
 	end
+
+        attr_reader :event_logger
+        def event_logger=(value)
+            if value && !@event_logger
+		require 'roby/log/file'
+		logfile = @method_name + ".log"
+		logger  = Roby::Log::FileLogger.new(logfile)
+		logger.stats_mode = false
+		Roby::Log.add_logger logger
+                @event_logger = logger
+            elsif !value && @event_logger
+                Roby::Log.remove_logger @event_logger
+                @event_logger = nil
+            end
+        end
 
 	def wait_thread_stopped(thread)
 	    while !thread.stop?
