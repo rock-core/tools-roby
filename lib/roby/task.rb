@@ -327,6 +327,7 @@ module Roby
 
 	alias :update! :[]=
 	def []=(key, value)
+            key = key.to_sym if key.respond_to?(:to_str)
 	    if writable?(key)
 		if !task.read_write?
 		    raise OwnershipError, "cannot change the argument set of a task which is not owned #{task} is owned by #{task.owners} and #{task.plan} by #{task.plan.owners}"
@@ -341,6 +342,11 @@ module Roby
 	end
 	def updating; super if defined? super end
 	def updated; super if defined? super end
+
+        def [](key)
+            key = key.to_sym if key.respond_to?(:to_str)
+            super(key)
+        end
 
 	alias :do_merge! :merge!
 	def merge!(hash)
