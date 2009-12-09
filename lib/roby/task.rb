@@ -294,6 +294,12 @@ module Roby
 
     end
 
+    # Class that handles task arguments. They are handled specially as the
+    # arguments cannot be overwritten and can not be changed by a task that is
+    # not owned.
+    #
+    # Moreover, two hooks #updating and #updated allow to hook into the argument
+    # update system.
     class TaskArguments < Hash
 	private :delete, :delete_if
 
