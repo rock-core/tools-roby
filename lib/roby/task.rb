@@ -1316,6 +1316,13 @@ module Roby
 	    raise e, e.message, caller(1)
 	end
 
+        # Declares that this task model provides the given interface. +model+
+        # must be an instance of TaskModelTag
+        def self.provides(model)
+            include model
+        end
+
+
 	@@event_command_id = 0
 	def self.allocate_event_command_id # :nodoc:
 	    @@event_command_id += 1
