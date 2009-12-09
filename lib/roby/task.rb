@@ -1297,8 +1297,10 @@ module Roby
 	    else
 		super
 	    end
-	rescue
-	    raise $!, $!.message, $!.backtrace[1..-1]
+	rescue NameError => e
+	    raise e, e.message, caller(1)
+	rescue NoMethodError => e
+	    raise e, e.message, caller(1)
 	end
 
 	@@event_command_id = 0
