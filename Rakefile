@@ -6,22 +6,27 @@ require 'roby/config'
 begin
     require 'hoe'
     namespace 'dist' do
-        hoe = Hoe.new('roby', Roby::VERSION) do |p|
-            p.developer 'Sylvain Joyeux', 'sylvain.joyeux@m4x.org'
+        hoe = Hoe.spec 'roby' do
+            self.developer 'Sylvain Joyeux', 'sylvain.joyeux@m4x.org'
 
-            p.summary = 'A plan-based control framework for autonomous systems'
-            p.url         = p.paragraphs_of('README.txt', 1).join("\n\n")
-            p.description = p.paragraphs_of('README.txt', 3..5).join("\n\n")
-            p.description +=
+            self.summary = 'A plan-based control framework for autonomous systems'
+            self.url         = paragraphs_of('README.txt', 1).join("\n\n")
+            self.description = paragraphs_of('README.txt', 3..5).join("\n\n")
+            self.description +=
 "\n\nSee the README.txt file at http://roby.rubyforge.org for more
 informations, including links to tutorials and demonstration videos"
-            p.changes     = p.paragraphs_of('History.txt', 0..1).join("\n\n")
-            p.post_install_message = p.paragraphs_of('README.txt', 2).join("\n\n")
+            self.changes     = paragraphs_of('History.txt', 0..1).join("\n\n")
+            self.post_install_message = paragraphs_of('README.txt', 2).join("\n\n")
 
-            p.extra_deps << ['facets', '>= 2.0'] << 'activesupport' << ['utilrb', '>= 1.3.1']
-            if p.respond_to? :need_rdoc=
-                p.need_rdoc = false
-            end
+            self.extra_deps <<
+                ['facets', '>= 2.0'] <<
+                ['utilrb', '>= 1.3.1']
+
+            self.extra_dev_deps <<
+                ['rdoc', '>= 2.4'] <<
+                ['webgen', '>= 0.5'] <<
+
+            self.need_rdoc = false
         end
 	hoe.spec.extensions << 
 	    'ext/droby/extconf.rb' <<
@@ -36,16 +41,10 @@ informations, including links to tutorials and demonstration videos"
             '--main' << 'README.txt' <<
             "--accessor" << "attribute" << 
             "--accessor" << "attr_predicate"
-
-	if !hoe.respond_to? :need_rdoc=
-	    # This sucks, I know, but Hoe's handling of documentation is not
-	    # enough for me
-	    tasks = Rake.application.instance_variable_get :@tasks
-	    tasks.delete_if { |n, _| n =~ /dist:(re|clobber_|)docs/ }
-	end
     end
-rescue
+rescue Exception => e
     puts "cannot setup Hoe, distribution is disabled"
+    puts "error is: #{e.message}"
 end
 
 def build_extension(name, soname = name)
