@@ -130,12 +130,14 @@ class Replay < Qt::MainWindow
 	if !time || time == Time.at(0)
 	    min, max = displayed_streams.inject([nil, nil]) do |(min, max), stream|
 		stream_min, stream_max = stream.range
-		if !min || stream_min < min
-		    min = stream_min
-		end
-		if !max || stream_max > max
-		    max = stream_max
-		end
+                if stream_min && stream_max
+                    if !min || stream_min < min
+                        min = stream_min
+                    end
+                    if !max || stream_max > max
+                        max = stream_max
+                    end
+                end
 		[min, max]
 	    end
 

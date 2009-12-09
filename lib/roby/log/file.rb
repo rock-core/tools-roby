@@ -10,8 +10,10 @@ module Roby::Log
 	attr_reader :index_data
 	attr_reader :basename
 	def range
-	    [Time.at(*index_data.first[:start]), 
-		Time.at(*index_data.last[:start]) + index_data.last[:end]]
+            if !index_data.empty?
+                [Time.at(*index_data.first[:start]), 
+                    Time.at(*index_data.last[:start]) + index_data.last[:end]]
+            end
 	end
 
 	def initialize(file, allow_old_format = false, force_rebuild_index = false)
