@@ -137,7 +137,7 @@ module Roby::TaskStructure
                 has_parent = true
 
 		m, a = parent[self, Dependency][:model]
-		if m.instance_of?(Roby::TaskModelTag)
+		if m.kind_of?(Roby::TaskModelTag)
 		    tags << m
 		elsif m.has_ancestor?(model)
 		    model = m
