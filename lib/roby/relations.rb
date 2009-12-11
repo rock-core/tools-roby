@@ -229,6 +229,13 @@ module Roby
 	# True if this relation does not have a parent
 	def root_relation?; !parent end
 
+        # Remove +vertex+ from this graph. It removes all relations that
+        # +vertex+ is part of, and calls the corresponding hooks
+        def remove(vertex)
+            vertex.remove_relations(nil, self)
+            super
+        end
+
         # Add an edge between +from+ and +to+. The relation is added on all
         # parent relation graphs as well. If #dag? is true on +self+ or on one
         # of its parents, the method will raise CycleFoundError in case the new
