@@ -136,7 +136,7 @@ module Roby
 
         # Helper method for #with_child and #with_parent
         def handle_parent_child_arguments(other_query, relation, relation_options) # :nodoc:
-            if other_query.kind_of?(Class)
+            if !other_query.kind_of?(TaskMatcher) && !other_query.kind_of?(Task)
                 if relation.kind_of?(Hash)
                     arguments = relation
                     relation = (arguments.delete(:relation) || arguments.delete('relation'))

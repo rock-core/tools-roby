@@ -51,6 +51,23 @@ class TC_Query < Test::Unit::TestCase
 	check_matches_fullfill(task_model, plan, t0, t1, t2)
     end
 
+    def test_match_tag
+        tag = TaskModelTag.new
+        tag.argument :id
+	task_model = Class.new(SimpleTask)
+        task_model.include tag
+
+        plan.add(task = task_model.new(:id => 3))
+        assert(Task.match(tag)              === task)
+        assert(Task.match(tag, :id => 3)    === task)
+        assert(! (Task.match(tag, :id => 2) === task))
+
+        plan.add(task = SimpleTask.new)
+        assert(! (Task.match(tag)           === task))
+        assert(! (Task.match(tag, :id => 3) === task))
+        assert(! (Task.match(tag, :id => 2) === task))
+    end
+
     def test_match_proxy_fullfills
 	task_model = Class.new(Task) do
 	    argument :value
@@ -229,8 +246,11 @@ class TC_Query < Test::Unit::TestCase
 
     def test_child_match
         plan.add(t1 = SimpleTask.new(:id => 1))
-        t2 = Class.new(SimpleTask).new(:id => 2)
-        t3 = Class.new(SimpleTask).new(:id => 3)
+        t2 = Class.new(SimpleTask).new(:id => '2')
+        tag = TaskModelTag.new
+        t3_model = Class.new(SimpleTask)
+        t3_model.include tag
+        t3 = t3_model.new(:id => 3)
         t1.depends_on t2
         t2.depends_on t3
         t1.depends_on t3
@@ -243,9 +263,15 @@ class TC_Query < Test::Unit::TestCase
         assert_equal([t1, t2].to_set, plan.find_tasks(SimpleTask).
             with_child(SimpleTask).to_set)
         assert_equal([t1].to_set, plan.find_tasks(SimpleTask).
+            with_child(SimpleTask, :id => '2').to_set)
+        assert_equal([t1].to_set, plan.find_tasks(SimpleTask).
             with_child(t2.model).with_child(t3.model).to_set)
         assert_equal([t1, t2].to_set, plan.find_tasks(SimpleTask).
             with_child(t3.model).to_set)
+        assert_equal([t1, t2].to_set, plan.find_tasks(SimpleTask).
+            with_child(tag, :id => 3).to_set)
+        assert_equal([].to_set, plan.find_tasks(SimpleTask).
+            with_child(tag, :id => 2).to_set)
         assert_equal([], plan.find_tasks(t1.model).
             with_child(SimpleTask, TaskStructure::PlannedBy).to_a)
         t1.planned_by t2
