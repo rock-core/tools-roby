@@ -248,6 +248,16 @@ class TC_Query < Test::Unit::TestCase
             with_child(t3.model).to_set)
         assert_equal([], plan.find_tasks(t1.model).
             with_child(SimpleTask, TaskStructure::PlannedBy).to_a)
+        t1.planned_by t2
+        assert_equal([t1], plan.find_tasks(t1.model).
+            with_child(SimpleTask, TaskStructure::PlannedBy).to_a)
+        assert_equal([t1], plan.find_tasks(t1.model).
+            with_child(SimpleTask, :relation => TaskStructure::PlannedBy).to_a)
+        assert_equal([], plan.find_tasks(t1.model).
+            with_child(SimpleTask, :id => 42, :relation => TaskStructure::PlannedBy).to_a)
+        assert_equal([], plan.find_tasks(t1.model).
+            with_child(SimpleTask, TaskStructure::PlannedBy, :an_argument => :which_is_set).to_a)
+        t1.remove_child_object(t2, TaskStructure::PlannedBy)
 
         child_match = TaskMatcher.which_fullfills(SimpleTask, :id => t2.arguments[:id])
         assert_equal([t1].to_set, plan.find_tasks(t1.model).
@@ -257,6 +267,7 @@ class TC_Query < Test::Unit::TestCase
     end
 
     def test_child_in_transactions
+	(t1, t2), t3 = prepare_plan :add => 2, :tasks => 1, :model => SimpleTask
         t1.depends_on t2
 	trsc = Transaction.new(plan)
         trsc[t2].depends_on t3
@@ -295,6 +306,16 @@ class TC_Query < Test::Unit::TestCase
             with_parent(t3.model).with_parent(t2.model).to_set)
         assert_equal([], plan.find_tasks(SimpleTask).
             with_parent(SimpleTask, TaskStructure::PlannedBy).to_a)
+        t2.planned_by t1
+        assert_equal([t1], plan.find_tasks(t1.model).
+            with_parent(SimpleTask, TaskStructure::PlannedBy).to_a)
+        assert_equal([t1], plan.find_tasks(t1.model).
+            with_parent(SimpleTask, :relation => TaskStructure::PlannedBy).to_a)
+        assert_equal([], plan.find_tasks(t1.model).
+            with_parent(SimpleTask, :id => 42, :relation => TaskStructure::PlannedBy).to_a)
+        assert_equal([], plan.find_tasks(t1.model).
+            with_parent(SimpleTask, TaskStructure::PlannedBy, :an_argument => :which_is_set).to_a)
+        t2.remove_child_object(t1, TaskStructure::PlannedBy)
 
         assert_equal([t1].to_set, plan.find_tasks(SimpleTask).
             with_parent(SimpleTask, :id => t2.arguments[:id]).to_set)

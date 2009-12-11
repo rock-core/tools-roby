@@ -134,32 +134,50 @@ module Roby
 	match_predicates :executable, :abstract, :partially_instanciated, :fully_instanciated,
 	    :pending, :running, :finished, :success, :failed, :interruptible, :finishing
 
-        def with_child(other_query, relation = nil)
+        # Helper method for #with_child and #with_parent
+        def handle_parent_child_arguments(other_query, relation, relation_options) # :nodoc:
             if other_query.kind_of?(Class)
                 if relation.kind_of?(Hash)
-                    relation, arguments = Kernel.filter_options relation, :relation => nil
-                    relation = relation[:relation]
+                    arguments = relation
+                    relation = (arguments.delete(:relation) || arguments.delete('relation'))
                 else
                     arguments = Hash.new
                 end
                 other_query = TaskMatcher.which_fullfills(other_query, arguments)
             end
-            @children[relation] << other_query
+            return relation, [other_query, relation_options]
+        end
+
+        def with_child(other_query, relation = nil, relation_options = nil)
+            relation, spec = handle_parent_child_arguments(other_query, relation, relation_options)
+            @children[relation] << spec
             self
         end
 
-        def with_parent(other_query, relation = nil)
-            if other_query.kind_of?(Class)
-                if relation.kind_of?(Hash)
-                    relation, arguments = Kernel.filter_options relation, :relation => nil
-                    relation = relation[:relation]
-                else
-                    arguments = Hash.new
-                end
-                other_query = TaskMatcher.which_fullfills(other_query, arguments)
-            end
-            @parents[relation] << other_query
+        def with_parent(other_query, relation = nil, relation_options = nil)
+            relation, spec = handle_parent_child_arguments(other_query, relation, relation_options)
+            @parents[relation] << spec
             self
+        end
+
+        # Helper method for handling parent/child matches in #===
+        def handle_parent_child_match(task, match_spec) # :nodoc:
+            relation, matchers = *match_spec
+            return false if !relation && task.relations.empty?
+            for match_spec in matchers
+                m, relation_options = *match_spec
+                if relation
+                    if !yield(relation, m, relation_options)
+                        return false 
+                    end
+                else
+                    result = task.relations.any? do |rel|
+                        yield(rel, m, relation_options)
+                    end
+                    return false if !result
+                end
+            end
+            true
         end
 
         # True if +task+ matches all the criteria defined on this object.
@@ -173,33 +191,19 @@ module Roby
 	    end
 
             for parent_spec in @parents
-                relation, matchers = *parent_spec
-                return false if !relation && task.relations.empty?
-                for m in matchers
-                    if relation
-                        return false if !task.enum_parent_objects(relation).any? { |parent| m === parent }
-                    else
-                        result = task.relations.any? do |rel|
-                            task.enum_parent_objects(rel).any? { |parent| m === parent }
-                        end
-                        return false if !result
-                    end
+                result = handle_parent_child_match(task, parent_spec) do |relation, m, relation_options|
+                    task.enum_parent_objects(relation).
+                        any? { |parent| m === parent && (!relation_options || relation_options === parent[task, relation]) }
                 end
+                return false if !result
             end
 
             for child_spec in @children
-                relation, matchers = *child_spec
-                return false if !relation && task.relations.empty?
-                for m in matchers
-                    if relation
-                        return false if !task.enum_child_objects(relation).any? { |child| m === child }
-                    else
-                        result = task.relations.any? do |rel|
-                            task.enum_child_objects(rel).any? { |child| m === child }
-                        end
-                        return false if !result
-                    end
+                result = handle_parent_child_match(task, child_spec) do |relation, m, relation_options|
+                    task.enum_child_objects(relation).
+                        any? { |child| m === child && (!relation_options || relation_options === task[child, relation]) }
                 end
+                return false if !result
             end
 
 	    for info in improved_information
