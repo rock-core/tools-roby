@@ -1,8 +1,12 @@
 module Roby
     class Task
         # Returns a TaskMatcher object
-	def self.match
-	    TaskMatcher.new
+	def self.match(*args)
+	    matcher = TaskMatcher.new
+            if !args.empty?
+                matcher.which_fullfills(*args)
+            end
+            matcher
 	end
     end
 
