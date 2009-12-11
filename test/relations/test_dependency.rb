@@ -208,4 +208,94 @@ class TC_RealizedBy < Test::Unit::TestCase
         assert(!plan.include?(c1))
         assert(plan.include?(c2))
     end
+
+    def test_role_definition
+        plan.add(parent = SimpleTask.new)
+
+        child = SimpleTask.new
+        parent.depends_on child, :role => 'child1'
+        puts parent.roles_of(child).to_a.inspect
+        assert_equal(['child1'].to_set, parent.roles_of(child))
+
+        child = SimpleTask.new
+        parent.depends_on child, :roles => ['child1', 'child2']
+        assert_equal(['child1', 'child2'].to_set, parent.roles_of(child))
+    end
+
+    def setup_merging_test
+        plan.add(parent = SimpleTask.new)
+        tag = TaskModelTag.new
+        intermediate = Class.new(SimpleTask)
+        intermediate.include tag
+        child_model = Class.new(intermediate)
+        child = child_model.new(:id => 'child')
+        parent.depends_on child, :role => 'child1', :model => Task, :success => [], :failure => []
+
+        expected_info = { :remove_when_done=>true,
+            :model => [Roby::Task, {}],
+            :roles => ['child1'].to_set,
+            :success=>[],
+            :failure=>[] }
+        assert_equal expected_info, parent[child, Dependency]
+
+        return parent, child, expected_info, child_model, tag
+    end
+
+    def test_merging_events
+        parent, child, info, child_model, _ = setup_merging_test
+        parent.depends_on child, :success => []
+        info[:model] = [child_model, {:id => 'child'}]
+        assert_equal info, parent[child, Dependency]
+
+        parent.depends_on child, :success => [:success]
+        info[:success] = [:success]
+        assert_equal info, parent[child, Dependency]
+
+        assert_raises(ModelViolation) { parent.depends_on child, :failure => [:success] }
+        assert_equal info, parent[child, Dependency]
+
+        parent.depends_on child, :failure => [:stop]
+        info[:failure] = [:stop]
+        assert_equal info, parent[child, Dependency]
+    end
+    
+    def test_merging_remove_when_done_cannot_change
+        parent, child, info, _ = setup_merging_test
+        assert_raises(ModelViolation) { parent.depends_on child, :remove_when_done => false }
+        parent.depends_on child, :model => info[:model], :remove_when_done => true
+        assert_equal info, parent[child, Dependency]
+    end
+
+    def test_merging_models
+        parent, child, info, child_model, tag = setup_merging_test
+
+        # Test that models are "upgraded"
+        parent.depends_on child, :model => SimpleTask
+        info[:model][0] = SimpleTask
+        assert_equal info, parent[child, Dependency]
+        parent.depends_on child, :model => Roby::Task, :remove_when_done => true
+        assert_equal info, parent[child, Dependency]
+
+        # Test that arguments are merged
+        parent.depends_on child, :model => [SimpleTask, {:id => 'child'}]
+        info[:model][1] = {:id => 'child'}
+        assert_equal info, parent[child, Dependency]
+        # note: arguments can't be changed on the task *and* #depends_on
+        # validates them, so we don't need to test that.
+
+        # Test model/tag handling: #depends_on should find the most generic
+        # model matching +task+ that includes all required models
+        parent.depends_on child, :model => tag
+        info[:model][0] = child_model.superclass
+        assert_equal info, parent[child, Dependency]
+    end
+
+    def test_merging_roles
+        parent, child, info, _ = setup_merging_test
+
+        parent.depends_on child, :model => Roby::Task, :role => 'child2'
+        info[:roles] << 'child2'
+        assert_equal info, parent[child, Dependency]
+    end
 end
+

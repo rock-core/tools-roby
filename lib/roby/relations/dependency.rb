@@ -32,6 +32,11 @@ module Roby::TaskStructure
 	# The set of child objects in the Dependency relation
 	def children; child_objects(Dependency) end
 
+        def roles_of(child)
+            info = self[child, Dependency]
+            info[:roles]
+        end
+
         def realized_by(task, options = {})
             Roby.warn_deprecated "#realized_by is deprecated. Use #depends_on instead"
             depends_on(task, options)
@@ -65,10 +70,19 @@ module Roby::TaskStructure
 		:success => [:success], 
 		:failure => [],
 		:remove_when_done => true,
-                :roles => nil
+                :roles => nil,
+                :role => nil
+
+            roles = options[:roles] || ValueSet.new
+            if role = options.delete(:role)
+                roles << role.to_str
+            end
+            roles = roles.map { |r| r.to_str }
+            options[:roles] = roles.to_set
 
 	    options[:success] = Array[*options[:success]]
 	    options[:failure] = Array[*options[:failure]]
+            options[:success] -= options[:failure]
 
 	    # Validate failure and success event names
 	    options[:success].each { |ev| task.event(ev) }
@@ -82,7 +96,15 @@ module Roby::TaskStructure
 		raise ArgumentError, "task #{task} does not fullfills the provided model #{options[:model]}"
 	    end
 
-	    add_child(task, options)
+            # Check if there is already a dependency link. If it is the case,
+            # merge the options. Otherwise, just add.
+            if child_object?(task, Dependency)
+                options = Dependency.merge_options(task, self[task, Dependency], options)
+                self[task, Dependency] = options
+            else
+                add_child(task, options)
+            end
+
             self
         end
 
@@ -175,6 +197,55 @@ module Roby::TaskStructure
 	end
     end
     Hierarchy = Dependency
+
+    def Dependency.merge_options(task, opt1, opt2)
+        if opt1[:remove_when_done] != opt2[:remove_when_done]
+            raise Roby::ModelViolation, "incompatible dependency specification: trying to change the value of +remove_when_done+"
+        end
+
+        result = { :remove_when_done => opt1[:remove_when_done] }
+
+        # Remove from :success the events listed in :failure. We can't remove
+        # the events in opt1[:success] that would lead to having opt2[:success]
+        # unreachable though ...
+        result[:success] = (opt1[:success] - opt2[:failure]) | (opt2[:success] - opt1[:failure])
+        result[:failure] = opt1[:failure] | opt2[:failure]
+        if result[:success].empty? && (!opt1[:success].empty? || !opt2[:success].empty?)
+            raise Roby::ModelViolation, "incompatibility between the :success and :failure sets of #{opt1} and #{opt2}"
+        end
+
+        # Check model compatibility
+        model1, arguments1 = opt1[:model]
+        model2, arguments2 = opt2[:model]
+        if model1 <= model2
+            result[:model] = [model1, {}]
+        elsif model2 < model1
+            result[:model] = [model2, {}]
+        else
+            # Find the most generic model that +task+ fullfills and that
+            # includes both +model1+ and +model2+
+            klass = task.model
+            while klass != Roby::Task && (klass <= model1 && klass <= model2)
+                candidate = klass
+                klass = klass.superclass
+            end
+            # We should always have a solution, as +task+ fullfills both model1 and model2
+            result[:model] = [candidate, []]
+        end
+
+        # Merge arguments
+        result[:model][1] = arguments1.merge(arguments2) do |key, old_value, new_value|
+            if old_value != new_value
+                raise Roby::ModelViolation, "incompatible argument constraint #{old_value} and #{new_value} for #{key}"
+            end
+            old_value
+        end
+
+        # Finally, merge the roles (the easy part ;-))
+        result[:roles] = opt1[:roles] | opt2[:roles]
+
+        result
+    end
 
     # Checks the structure of +plan+ w.r.t. the constraints of the hierarchy
     # relations. It returns an array of ChildFailedError for all failed
