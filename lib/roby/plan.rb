@@ -304,12 +304,12 @@ module Roby
 
 	    # Check that +to+ is valid in all hierarchy relations where +from+ is a child
 	    if !to.fullfills?(*from.fullfilled_model)
-		raise InvalidReplace.new(from, to, "to does not fullfills #{from.fullfilled_model}")
+		raise InvalidReplace.new(from, to), "task #{to} does not fullfills #{from.fullfilled_model}"
 	    end
 
 	    # Check that +to+ is in the same execution state than +from+
 	    if !to.compatible_state?(from)
-		raise InvalidReplace.new(from, to, "state. #{from.running?}, #{to.running?}")
+		raise InvalidReplace.new(from, to), "cannot replace #{from} by #{to} as their state is incompatible: from is #{from.running?} and to is #{to.running?}"
 	    end
 
 	    # Swap the subplans of +from+ and +to+

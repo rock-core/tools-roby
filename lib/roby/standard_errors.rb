@@ -184,12 +184,10 @@ module Roby
 	attr_reader :from
         # The task which should have replaced #from
         attr_reader :to
-        # A description of the replacement failure
-        attr_reader :error
 
         # Create a new InvalidReplace object
-	def initialize(from, to, error)
-	    @from, @to, @error = from, to, error
+	def initialize(from, to)
+	    @from, @to = from, to
 	end
         def pretty_print(pp) # :nodoc:
             pp.text "invalid replacement: #{message}"
