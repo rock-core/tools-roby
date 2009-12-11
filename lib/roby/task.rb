@@ -1768,6 +1768,20 @@ module Roby
             fullfills?(*target.fullfilled_model)
         end
 
+	def can_merge?(target)
+	    target_model = target.fullfilled_model
+	    if !fullfills?(target_model.first)
+		return false
+	    end
+
+	    target_model.last.each do |key, val|
+		if arguments.has_key?(key) && arguments[key] != val
+		    return false
+		end
+	    end
+	    true
+	end
+
 	include ExceptionHandlingObject
 	inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }
 
