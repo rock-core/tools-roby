@@ -1731,7 +1731,7 @@ module Roby
 	def fullfills?(models, args = {})
 	    if models.kind_of?(Task)
 		klass, args = 
-		    models.class, 
+		    models.model, 
 		    models.meaningful_arguments
 		models = [klass]
 	    else
