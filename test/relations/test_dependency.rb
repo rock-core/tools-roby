@@ -184,6 +184,30 @@ class TC_RealizedBy < Test::Unit::TestCase
 	assert_equal([[klass, tag], {:id => 'discover-3'}], child.fullfilled_model)
     end
 
+    def test_fullfilled_model_transaction
+	tag = TaskModelTag.new
+	klass = Class.new(SimpleTask) do
+	    include tag
+	end
+
+	p1, p2, child = prepare_plan :add => 3, :model => Class.new(klass)
+        trsc = Transaction.new(plan)
+
+	p1.depends_on child, :model => [SimpleTask, { :id => "discover-3" }]
+	p2.depends_on child, :model => klass
+
+        t_child = trsc[child]
+        assert_equal([[klass], {:id => "discover-3"}], t_child.fullfilled_model)
+        t_p2 = trsc[p2]
+        assert_equal([[klass], {:id => "discover-3"}], t_child.fullfilled_model)
+        t_p2.remove_child(t_child)
+        assert_equal([[SimpleTask], { :id => 'discover-3' }], t_child.fullfilled_model)
+	t_p2.depends_on t_child, :model => klass
+        assert_equal([[klass], { :id => 'discover-3' }], t_child.fullfilled_model)
+        trsc.remove_object(t_p2)
+        assert_equal([[SimpleTask], { :id => 'discover-3' }], t_child.fullfilled_model)
+    end
+
     def test_first_children
 	p, c1, c2 = prepare_plan :add => 3, :model => SimpleTask
 	p.depends_on c1

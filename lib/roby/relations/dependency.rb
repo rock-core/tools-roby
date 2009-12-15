@@ -139,8 +139,8 @@ module Roby::TaskStructure
 	# The set of events that are needed by the parent tasks
 	def fullfilled_events
 	    needed = ValueSet.new
-	    each_parent_task do |parent|
-		needed.merge(parent[self, Dependency][:success])
+	    merged_relations(:each_parent_task, false) do |myself, parent|
+		needed.merge(parent[myself, Dependency][:success])
 	    end
 	    needed
 	end
@@ -155,10 +155,10 @@ module Roby::TaskStructure
 	    model, tags, arguments = Roby::Task, [], {}
 
             has_parent = false
-	    each_parent_task do |parent|
+	    merged_relations(:each_parent_task, false) do |myself, parent|
                 has_parent = true
 
-		m, a = parent[self, Dependency][:model]
+		m, a = parent[myself, Dependency][:model]
 		if m.kind_of?(Roby::TaskModelTag)
 		    tags << m
 		elsif m.has_ancestor?(model)
