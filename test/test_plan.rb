@@ -207,18 +207,22 @@ module TC_PlanStatic
 	FlexMock.use do |mock|
 	    p.singleton_class.class_eval do
 		define_method('removed_child_object') do |child, relations|
-		    mock.removed_hook(p, child, relations)
+		    mock.removed_hook(self, child, relations)
 		end
 	    end
 	    c1.singleton_class.class_eval do
 		define_method('removed_parent_object') do |parent, relations|
-		    mock.removed_hook(c1, parent, relations)
+		    mock.removed_hook(self, parent, relations)
 		end
 	    end
 
 	    mock.should_receive(:removed_hook).with(p, c1, [TaskStructure::Hierarchy]).once
 	    mock.should_receive(:removed_hook).with(c1, p, [TaskStructure::Hierarchy]).once
-	    assert_nothing_raised { plan.replace_task(c1, c3) }
+	    mock.should_receive(:removed_hook).with(p, c2, [TaskStructure::Hierarchy])
+	    mock.should_receive(:removed_hook).with(c2, p, [TaskStructure::Hierarchy])
+	    mock.should_receive(:removed_hook).with(p, c3, [TaskStructure::Hierarchy])
+	    mock.should_receive(:removed_hook).with(c3, p, [TaskStructure::Hierarchy])
+	    plan.replace_task(c1, c3)
 	end
 
 	# Check that the external task and event structures have been
@@ -264,18 +268,22 @@ module TC_PlanStatic
 	FlexMock.use do |mock|
 	    p.singleton_class.class_eval do
 		define_method('removed_child_object') do |child, relations|
-		    mock.removed_hook(p, child, relations)
+		    mock.removed_hook(self, child, relations)
 		end
 	    end
 	    c1.singleton_class.class_eval do
 		define_method('removed_parent_object') do |parent, relations|
-		    mock.removed_hook(c1, parent, relations)
+		    mock.removed_hook(self, parent, relations)
 		end
 	    end
 
 	    mock.should_receive(:removed_hook).with(p, c1, [TaskStructure::Hierarchy]).once
 	    mock.should_receive(:removed_hook).with(c1, p, [TaskStructure::Hierarchy]).once
-	    assert_nothing_raised { plan.replace(c1, c3) }
+	    mock.should_receive(:removed_hook).with(p, c2, [TaskStructure::Hierarchy])
+	    mock.should_receive(:removed_hook).with(c2, p, [TaskStructure::Hierarchy])
+	    mock.should_receive(:removed_hook).with(p, c3, [TaskStructure::Hierarchy])
+	    mock.should_receive(:removed_hook).with(c3, p, [TaskStructure::Hierarchy])
+	    plan.replace(c1, c3)
 	end
 
 	# Check that the external task and event structures have been
