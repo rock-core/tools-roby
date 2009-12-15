@@ -264,18 +264,18 @@ module Roby
 	    if proxy = self[t, false]
 		discarded_tasks.delete(may_unwrap(proxy))
 	    end
-	    super(self[t, true]) 
+	    super(t)
 	end
 	def add_permanent(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if proxy = self[t, false]
 		auto_tasks.delete(may_unwrap(proxy))
 	    end
-	    super(self[t, true]) 
+	    super(t)
 	end
 	def add(objects)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
-	    super(self[objects, true])
+	    super(objects)
 	    self
 	end
 

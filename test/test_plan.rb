@@ -46,6 +46,9 @@ module TC_PlanStatic
     def test_add_task
 	plan.add(t = Task.new)
         assert_task_state(t, :normal)
+
+        other_plan = Plan.new
+        assert_raises(ModelViolation) { other_plan.add(t) }
     end
     def test_add_task_deprecated_discover
         t = Task.new
