@@ -214,7 +214,6 @@ class TC_RealizedBy < Test::Unit::TestCase
 
         child = SimpleTask.new
         parent.depends_on child, :role => 'child1'
-        puts parent.roles_of(child).to_a.inspect
         assert_equal(['child1'].to_set, parent.roles_of(child))
 
         child = SimpleTask.new
@@ -262,7 +261,7 @@ class TC_RealizedBy < Test::Unit::TestCase
     def test_merging_remove_when_done_cannot_change
         parent, child, info, _ = setup_merging_test
         assert_raises(ModelViolation) { parent.depends_on child, :remove_when_done => false }
-        parent.depends_on child, :model => info[:model], :remove_when_done => true
+        parent.depends_on child, :model => info[:model], :remove_when_done => true, :success => []
         assert_equal info, parent[child, Dependency]
     end
 
@@ -270,14 +269,14 @@ class TC_RealizedBy < Test::Unit::TestCase
         parent, child, info, child_model, tag = setup_merging_test
 
         # Test that models are "upgraded"
-        parent.depends_on child, :model => SimpleTask
+        parent.depends_on child, :model => SimpleTask, :success => []
         info[:model][0] = SimpleTask
         assert_equal info, parent[child, Dependency]
-        parent.depends_on child, :model => Roby::Task, :remove_when_done => true
+        parent.depends_on child, :model => Roby::Task, :remove_when_done => true, :success => []
         assert_equal info, parent[child, Dependency]
 
         # Test that arguments are merged
-        parent.depends_on child, :model => [SimpleTask, {:id => 'child'}]
+        parent.depends_on child, :model => [SimpleTask, {:id => 'child'}], :success => []
         info[:model][1] = {:id => 'child'}
         assert_equal info, parent[child, Dependency]
         # note: arguments can't be changed on the task *and* #depends_on
@@ -285,7 +284,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 
         # Test model/tag handling: #depends_on should find the most generic
         # model matching +task+ that includes all required models
-        parent.depends_on child, :model => tag
+        parent.depends_on child, :model => tag, :success => []
         info[:model][0] = child_model.superclass
         assert_equal info, parent[child, Dependency]
     end
@@ -293,7 +292,7 @@ class TC_RealizedBy < Test::Unit::TestCase
     def test_merging_roles
         parent, child, info, _ = setup_merging_test
 
-        parent.depends_on child, :model => Roby::Task, :role => 'child2'
+        parent.depends_on child, :model => Roby::Task, :role => 'child2', :success => []
         info[:roles] << 'child2'
         assert_equal info, parent[child, Dependency]
     end
