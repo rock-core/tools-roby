@@ -247,15 +247,24 @@ class TC_Query < Test::Unit::TestCase
     def test_child_match
         plan.add(t1 = SimpleTask.new(:id => 1))
         t2 = Class.new(SimpleTask).new(:id => '2')
-        tag = TaskModelTag.new
+        tag = TaskModelTag.new do
+            argument :tag_id
+        end
         t3_model = Class.new(SimpleTask)
         t3_model.include tag
-        t3 = t3_model.new(:id => 3)
+        t3 = t3_model.new(:id => 3, :tag_id => 3)
         t1.depends_on t2
         t2.depends_on t3
         t1.depends_on t3
 
+        # t1    SimpleTask                   :id => 1
+        # t2    t2_model < SimpleTask        :id => '2'
+        # t3    t3_model < tag < SimpleTask  :id => 3
+        # t1 -> t2 -> t3
+        # t1 -> t3
+
         assert_equal(3, plan.find_tasks(t1.model).to_a.size)
+
         child_match = TaskMatcher.which_fullfills(SimpleTask, :id => 1)
         assert_equal([], plan.find_tasks(t1.model).
             with_child(child_match).to_a)
@@ -270,10 +279,15 @@ class TC_Query < Test::Unit::TestCase
             with_child(t3.model).to_set)
         assert_equal([t1, t2].to_set, plan.find_tasks(SimpleTask).
             with_child(tag, :id => 3).to_set)
-        assert_equal([].to_set, plan.find_tasks(SimpleTask).
+        # :id is not an argument of +tag+, so the following should match, but
+        # the next one not.
+        assert_equal([t1, t2].to_set, plan.find_tasks(SimpleTask).
             with_child(tag, :id => 2).to_set)
+        assert_equal([].to_set, plan.find_tasks(SimpleTask).
+            with_child(tag, :tag_id => 2).to_set)
         assert_equal([], plan.find_tasks(t1.model).
             with_child(SimpleTask, TaskStructure::PlannedBy).to_a)
+
         t1.planned_by t2
         assert_equal([t1], plan.find_tasks(t1.model).
             with_child(SimpleTask, TaskStructure::PlannedBy).to_a)
