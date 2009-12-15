@@ -647,6 +647,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	attr_reader :last_stats
 	def splat?; true end
         def logs_message?(m); m == :cycle_end end
+        def close; end
 	def cycle_end(time, stats)
 	    @last_stats = stats
 	end
@@ -704,6 +705,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    tasks.clear
 	    events.clear
 	end
+        def close; end
 	def splat?; true end
     end
 

@@ -17,6 +17,7 @@ class TC_Log < Test::Unit::TestCase
 
     def test_start_stop_logger
 	FlexMock.use do |mock|
+	    mock.should_receive(:close).once
 	    Log.add_logger mock
 	    assert(Log.logging?)
 	    assert_nothing_raised { Log.start_logging }
@@ -34,6 +35,7 @@ class TC_Log < Test::Unit::TestCase
 	    mock.should_receive(:splat?).and_return(true)
 	    mock.should_receive(:event).with(1, 2)
 	    mock.should_receive(:flush)
+	    mock.should_receive(:close).once
 	    Log.add_logger mock
 
 	    assert(!Log.has_logger?(:flush))
@@ -51,10 +53,11 @@ class TC_Log < Test::Unit::TestCase
 	    mock.should_receive(:splat?).and_return(true).twice
 	    mock.should_receive(:splat_event).with(FlexMock.any, 1, 2).once
 	    mock.should_receive(:flush).once
+	    mock.should_receive(:close).once
 	    Log.add_logger mock
 
 	    Log.log(:splat_event) { [1, 2] }
-	    Log.flush
+            Log.remove_logger mock
 	end
     end
 
@@ -64,10 +67,11 @@ class TC_Log < Test::Unit::TestCase
 	    mock.should_receive(:splat?).and_return(false).twice
 	    mock.should_receive(:nonsplat_event).with(FlexMock.any, [1, 2]).once
 	    mock.should_receive(:flush).once
+	    mock.should_receive(:close).once
 	    Log.add_logger mock
 
 	    Log.log(:nonsplat_event) { [1, 2] }
-	    Log.flush
+            Log.remove_logger mock
 	end
     end
 
@@ -98,6 +102,7 @@ class TC_Log < Test::Unit::TestCase
 	    mock.should_receive(:finalized_task).
 		with(FlexMock.any, FlexMock.any, t1.remote_id).
 		once
+            mock.should_receive(:close).once
 
 	    Log.add_logger mock
 	    begin
