@@ -447,13 +447,11 @@ module TC_TransactionBehaviour
 	end
 
 	t1 = prepare_plan :add => 1
-	assert_nothing_raised do
-	    transaction_commit(plan, t1) do |trsc, p1|
-		trsc.remove_object(p1)
-		plan.remove_object(t1)
-		assert(!trsc.invalid?)
-	    end
-	end
+        transaction_commit(plan, t1) do |trsc, p1|
+            trsc.remove_object(p1)
+            plan.remove_object(t1)
+            assert(!trsc.invalid?)
+        end
     end
 
     def test_plan_relation_update_invalidate
@@ -469,13 +467,11 @@ module TC_TransactionBehaviour
 	end
 
 	t1.depends_on t2
-	assert_nothing_raised do
-	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		p1.remove_child p2
-		t1.remove_child t2
-		assert(!trsc.invalid?)
-	    end
-	end
+        transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+            p1.remove_child p2
+            t1.remove_child t2
+            assert(!trsc.invalid?)
+        end
 
 	t1.remove_child t2
 	assert_raises(Roby::InvalidTransaction) do
@@ -486,13 +482,11 @@ module TC_TransactionBehaviour
 	end
 
 	t1.remove_child t2
-	assert_nothing_raised do
-	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		p1.depends_on p2
-		t1.depends_on t2
-		assert(!trsc.invalid?)
-	    end
-	end
+        transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+            p1.depends_on p2
+            t1.depends_on t2
+            assert(!trsc.invalid?)
+        end
     end
 end
 
@@ -526,7 +520,7 @@ class TC_Transactions < Test::Unit::TestCase
 
 	t1.start!
 	assert(t3.running?)
-	assert_nothing_raised { t2.start! }
+	t2.start!
     end
 
     def test_commit_event_handlers
