@@ -313,7 +313,7 @@ module Roby
 
 	    # Check that +to+ is valid in all hierarchy relations where +from+ is a child
 	    if !to.fullfills?(*from.fullfilled_model)
-		raise InvalidReplace.new(from, to), "task #{to} does not fullfills #{from.fullfilled_model}"
+		raise InvalidReplace.new(from, to), "task #{to} does not fullfill #{from.fullfilled_model}"
 	    end
 
 	    # Check that +to+ is in the same execution state than +from+
