@@ -161,6 +161,15 @@ module Roby
 	    ret
 	end
 
+        # Returns the set of stacked transaction, starting at +self+
+        def transaction_stack
+            plan_chain = [self]
+            while plan_chain.last.respond_to?(:plan)
+                plan_chain << plan_chain.last.plan
+            end
+            plan_chain
+        end
+
 	# Inserts a new mission in the plan.
         #
         # In the plan manager, missions are the tasks which constitute the

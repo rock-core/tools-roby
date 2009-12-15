@@ -407,5 +407,9 @@ end
 
 class TC_Plan < Test::Unit::TestCase
     include TC_PlanStatic
+
+    def test_transaction_stack
+        assert_equal [plan], plan.transaction_stack
+    end
 end
 

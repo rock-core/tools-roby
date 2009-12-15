@@ -74,8 +74,15 @@ module TC_TransactionBehaviour
         t2.depends_on t3
 
         transaction_commit(plan, t2) do |trsc, p2|
-            assert_equal [t1], p2.merged_relations(:each_parent_task).map(&:__getobj__)
-            assert_equal [t3], p2.merged_relations(:each_child).map(&:__getobj__)
+            assert_equal [t1], p2.merged_relations(:each_parent_task, true).map(&:__getobj__)
+            assert_equal [t3], p2.merged_relations(:each_child, true).map(&:__getobj__)
+        end
+
+        transaction_commit(plan, t2) do |trsc, p2|
+            assert_equal [[t2, t1]], p2.merged_relations(:each_parent_task, false).to_a
+            assert_equal [[t2, t3]], p2.merged_relations(:each_child, false).to_a
+            assert !trsc[t1, false]
+            assert !trsc[t3, false]
         end
     end
 
@@ -494,6 +501,12 @@ class TC_Transactions < Test::Unit::TestCase
     include TC_TransactionBehaviour
     include Roby::Test
 
+    def test_real_plan
+        transaction_commit(plan) do |trsc|
+            assert_equal(plan, trsc.real_plan)
+        end
+    end
+
     def test_and_event_aggregator
 	t1, t2, t3 = (1..3).map { SimpleTask.new }
 	transaction_commit(plan, t1) do |trsc, p1|
@@ -572,9 +585,21 @@ class TC_RecursiveTransaction < Test::Unit::TestCase
 	@plan = Roby::Transaction.new(real_plan)
     end
     def teardown
-	plan.discard_transaction
-	real_plan.clear
+        plan.discard_transaction
+        real_plan.clear
 	super
+    end
+
+    def test_real_plan
+        transaction_commit(plan) do |trsc|
+            assert_equal(real_plan, trsc.real_plan)
+        end
+    end
+
+    def test_transaction_stack
+        transaction_commit(plan) do |trsc|
+            assert_equal([trsc, plan, real_plan], trsc.transaction_stack)
+        end
     end
 end
  
