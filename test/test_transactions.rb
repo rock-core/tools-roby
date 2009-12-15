@@ -210,8 +210,6 @@ module TC_TransactionBehaviour
 	    assert(trsc.include?(p3))
 	    trsc.remove_object(p3) 
 	    assert(!trsc.include?(p3))
-	    assert(!trsc.wrap(t3, false))
-	    assert(!trsc.include?(t3))
 	    assert(plan.include?(t3))
 	end
 	assert(!plan.include?(t3))
@@ -446,6 +444,8 @@ module TC_TransactionBehaviour
 	    end
 	end
 
+        # Test for a special case: the task is removed from the transaction and
+        # then removed from the plan. We should not invalidate in that case
 	t1 = prepare_plan :add => 1
         transaction_commit(plan, t1) do |trsc, p1|
             trsc.remove_object(p1)

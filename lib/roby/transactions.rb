@@ -136,22 +136,24 @@ module Roby
 	    proxy.do_discover(relation, false)
 	end
 
-	alias :remove_plan_object :remove_object
 	def remove_object(object)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 
+            # object is either in self.plan or in the transaction itself. Take
+            # both cases into account
 	    object = may_unwrap(object)
-	    proxy = proxy_objects[object] || object
+	    proxy  = proxy_objects[object] || object
 
 	    # removing the proxy may trigger some discovery (event relations
 	    # for instance, if proxy is a task). Do it first, or #discover
 	    # will be called and the modifications of internal structures
 	    # nulled (like #removed_objects) ...
-	    remove_plan_object(proxy)
-	    proxy_objects.delete(object)
+	    super(proxy)
 
+            # if +object+ is a proxy, add the underlying object to the
+            # removed_objects set so that it gets removed from self.plan at
+            # commit time
 	    if object.plan == self.plan
-		# +object+ is new in the transaction
 		removed_objects.insert(object)
 	    end
 	end
@@ -459,12 +461,24 @@ module Roby
 	end
 
 	def finalized_plan_task(task)
+            proxied_task = task.__getobj__
+            if removed_objects.include?(proxied_task)
+                removed_objects.delete(proxied_task)
+                return
+            end
+
 	    invalidate("task #{task} has been removed from the plan")
             discard_modifications(task)
 	    control.finalized_plan_task(self, task)
 	end
 
 	def finalized_plan_event(event)
+            proxied_event = event.__getobj__
+            if removed_objects.include?(proxied_event)
+                removed_objects.delete(proxied_event)
+                return
+            end
+
 	    invalidate("event #{event} has been removed from the plan")
             discard_modifications(event)
 	    control.finalized_plan_event(self, event)
