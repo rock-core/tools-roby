@@ -1658,17 +1658,22 @@ module Roby
 	    s
 	end
 
-	def pretty_print(pp) # :nodoc:
+	def pretty_print(pp, with_owners = true) # :nodoc:
 	    pp.text "#{self.class.name}:0x#{self.address.to_s(16)}"
-            pp.breakable
-	    pp.nest(2) do
-		pp.text "  owners: "
-		pp.seplist(owners) { |r| pp.text r.to_s }
+            if with_owners
+                pp.breakable
+                pp.nest(2) do
+                    pp.text "  owners: "
+                    pp.seplist(owners) { |r| pp.text r.to_s }
+                    pp.breakable
 
-		pp.breakable
-		pp.text "arguments: "
-		arguments.pretty_print(pp)
-	    end
+                    pp.text "arguments: "
+                    arguments.pretty_print(pp)
+                end
+            else
+                pp.text " "
+                arguments.pretty_print(pp)
+            end
 	end
 
         # True if this task is a null task. See NullTask.
