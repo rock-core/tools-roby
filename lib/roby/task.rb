@@ -984,6 +984,7 @@ module Roby
 	def clear_relations
 	    each_event { |ev| ev.clear_relations }
 	    super
+            self
 	end
 
         # Update the terminal flag for the event models that are defined in
@@ -1487,6 +1488,7 @@ module Roby
 	    for _, ev in bound_events
 		yield(ev)
 	    end
+            self
         end
 	alias :each_plan_child :each_event
 
