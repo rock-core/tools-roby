@@ -195,7 +195,7 @@ module TC_PlanStatic
 
     def test_replace_task
 	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Test::SimpleTask
-	p.depends_on c1
+	p.depends_on c1, :model => [Roby::Test::SimpleTask, {}]
 	c1.depends_on c11
 	c1.depends_on c12
 	p.depends_on c2
@@ -247,7 +247,9 @@ module TC_PlanStatic
 	assert( plan.include?(c1) )
 
 	# Check that #replace_task keeps the permanent flag too
-	p, t = prepare_plan :permanent => 1, :tasks => 1, :model => Roby::Test::SimpleTask
+	(root, p), t = prepare_plan :permanent => 2, :tasks => 1, :model => Roby::Test::SimpleTask
+        root.depends_on p, :model => Roby::Test::SimpleTask
+
 	plan.add_permanent(p)
 	plan.replace_task(p, t)
 	assert(!plan.permanent?(p))
@@ -256,7 +258,7 @@ module TC_PlanStatic
 
     def test_replace
 	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Test::SimpleTask
-	p.depends_on c1
+	p.depends_on c1, :model => Roby::Test::SimpleTask
 	c1.depends_on c11
 	c1.depends_on c12
 	p.depends_on c2

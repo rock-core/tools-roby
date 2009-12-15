@@ -303,7 +303,7 @@ module TC_TransactionBehaviour
     
     def test_commit_replace
 	task, (planned, mission, child, r) = prepare_plan :missions => 1, :tasks => 4, :model => SimpleTask
-	mission.depends_on task
+	mission.depends_on task, :model => SimpleTask
 	planned.planned_by task
 	task.depends_on child
 	task.signals(:stop, mission, :stop)
