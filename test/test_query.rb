@@ -380,14 +380,14 @@ class TC_Query < Test::Unit::TestCase
 
 	trsc = Transaction.new(plan)
 	assert(trsc.find_tasks.which_fullfills(SimpleTask).to_a.empty?)
-	assert(!trsc[t1, false])
-	assert(!trsc[t2, false])
-	assert(!trsc[t3, false])
+	assert(!trsc.include?(t1))
+	assert(!trsc.include?(t2))
+	assert(!trsc.include?(t3))
 
 	result = trsc.find_tasks.which_fullfills(model, :id => 1).to_a
 	assert_equal([trsc[t1]], result)
-	assert(!trsc[t2, false])
-	assert(!trsc[t3, false])
+	assert(!trsc.include?(t2))
+	assert(!trsc.include?(t3))
 
 	# Now that the proxy is in the transaction, check that it is still
 	# found by the query

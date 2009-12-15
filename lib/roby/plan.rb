@@ -713,11 +713,13 @@ module Roby
 	# Otherwise, raises ArgumentError.
 	#
 	# This method is provided for consistency with Transaction#[]
-	def [](object)
-	    if object.plan != self
-		raise ArgumentError, "#{object} is not from #{plan}"
-	    elsif !object.plan
+	def [](object, create = true)
+            if !object.plan && !object.finalized?
 		add(object)
+            elsif object.finalized? && create
+		raise ArgumentError, "#{object} is has been finalized, and can't be reused"
+	    elsif object.plan != self
+		raise ArgumentError, "#{object} is not from #{self}"
 	    end
 	    object
 	end

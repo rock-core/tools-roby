@@ -59,12 +59,14 @@ module Roby
 		elsif proxy = proxy_objects[object] then return proxy
 		end
 
+                if !object.plan && !object.finalized?
+                    object.plan = self
+                    add(object)
+                    return object
+                end
+
 		if create
-		    if !object.plan
-			object.plan = self
-			add(object)
-			return object
-		    elsif object.plan == self.plan
+		    if object.plan == self.plan
 			wrapped = do_wrap(object, true)
 			if plan.mission?(object)
 			    add_mission(wrapped)

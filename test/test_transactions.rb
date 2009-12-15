@@ -36,6 +36,49 @@ module TC_TransactionBehaviour
 
     SimpleTask = Roby::Test::SimpleTask
 
+    def test_proxy_creation
+        plan.add(t = SimpleTask.new)
+        transaction_commit(plan) do |trsc|
+            assert !trsc[t, false]
+            assert trsc.known_tasks.empty?
+
+            assert(proxy = trsc[t, true])
+            assert(trsc.include?(proxy))
+            assert_same(proxy, trsc[t, false])
+
+            trsc.remove_object(proxy)
+            assert_same(proxy, trsc[t, false])
+        end
+    end
+
+    def test_add_tasks_from_plan
+        plan.add(t = SimpleTask.new)
+        transaction_commit(plan) do |trsc|
+            assert_raises(Roby::ModelViolation) { trsc.add(t) }
+        end
+    end
+
+    def test_object_transaction_stack
+        plan.add(t = SimpleTask.new)
+        transaction_commit(plan, t) do |trsc1, p1|
+            assert_equal([trsc1, plan], p1.transaction_stack)
+            transaction_commit(trsc1, p1) do |trsc2, p2|
+                assert_equal([trsc2, trsc1, plan], p2.transaction_stack)
+            end
+        end
+    end
+
+    def test_merged_relations
+        t1, t2, t3 = prepare_plan :add => 3
+        t1.depends_on t2
+        t2.depends_on t3
+
+        transaction_commit(plan, t2) do |trsc, p2|
+            assert_equal [t1], p2.merged_relations(:each_parent_task).map(&:__getobj__)
+            assert_equal [t3], p2.merged_relations(:each_child).map(&:__getobj__)
+        end
+    end
+
     def transaction_op(plan, op, *needed_proxies)
 	trsc = Roby::Transaction.new(plan)
 	proxies = needed_proxies.map do |o|

@@ -392,6 +392,17 @@ module TC_PlanStatic
 	assert_raises(ArgumentError) { plan.add(t) }
 	assert_raises(ArgumentError) { plan.add(e) }
     end
+
+    def test_proxy_operator
+        t = SimpleTask.new
+        assert_same t, plan[t, false]
+
+        assert plan.include?(t)
+        assert_same t, plan[t, true]
+
+        plan.remove_object(t)
+        assert_raises(ArgumentError) { plan[t] }
+    end
 end
 
 class TC_Plan < Test::Unit::TestCase
