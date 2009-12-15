@@ -93,7 +93,7 @@ module Roby::TaskStructure
             if !required_args.respond_to?(:to_hash)
                 raise ArgumentError, "argument specification must be a hash, got #{required_args} (#{required_args.class})"
 	    elsif !task.fullfills?(required_model, required_args)
-		raise ArgumentError, "task #{task} does not fullfills the provided model #{options[:model]}"
+		raise ArgumentError, "task #{task} does not fullfill the provided model #{options[:model]}"
 	    end
 
             # Check if there is already a dependency link. If it is the case,
