@@ -154,7 +154,7 @@ module Roby
 	    planned.forward_to(:start,   self, :loop_start)
 	    planned.forward_to(:success, self, :loop_success)
 	    planned.forward_to(:stop,    self, :loop_end)
-	    main_task.depends_on planned
+	    main_task.depends_on planned, :model => planned.model
 	    
 	    # Schedule it. We start the new pattern when these three conditions are met:
 	    # * it has been planned (planning has finished)
