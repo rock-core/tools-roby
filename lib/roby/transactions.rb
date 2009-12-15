@@ -79,8 +79,10 @@ module Roby
 		    end
 		end
 		nil
-	    elsif object.respond_to?(:each) 
+	    elsif object.respond_to?(:to_ary) 
 		object.map { |o| wrap(o, create) }
+            elsif object.respond_to?(:each)
+                raise ArgumentError, "don't know how to wrap containers of class #{objects.class}"
 	    else
 		raise TypeError, "don't know how to wrap #{object || 'nil'} of type #{object.class.ancestors}"
 	    end
@@ -158,8 +160,16 @@ module Roby
 	    end
 	end
 
-	def may_wrap(object, create = true)
-	    (wrap(object, create) || object) rescue object 
+	def may_wrap(objects, create = true)
+            if objects.respond_to?(:to_ary)
+                objects.map { |obj| may_wrap(obj, create) }
+            elsif objects.respond_to?(:each)
+                raise ArgumentError, "don't know how to wrap containers of class #{objects.class}"
+            elsif objects.kind_of?(PlanObject)
+                wrap(objects, create)
+            else
+                objects
+            end
 	end
 	
 	# If +object+ is in this transaction, may_unwrap will return the

@@ -220,7 +220,6 @@ module Roby::Transactions
 	proxy :event
 	proxy :each_event
 	alias :each_plan_child :each_event
-	proxy :fullfills?
 	proxy :same_state?
 
         def kind_of?(klass)
