@@ -8,6 +8,7 @@ require 'roby/test/tasks/simple_task'
 class TC_PlanningLoop < Test::Unit::TestCase
     include Roby::Planning
     include Roby::Test
+    include Roby::Test::Assertions
 
     # The planner model
     attr_reader :planner_model
@@ -52,6 +53,11 @@ class TC_PlanningLoop < Test::Unit::TestCase
 	main_task.planned_by loop_planner
 
         return main_task, loop_planner
+    end
+
+    def wait_for_planning_end(planning_task)
+        planning_task.thread.join
+        process_events
     end
 
     # Waits for +planning_task+ to finish and returns the planned result
@@ -236,26 +242,30 @@ class TC_PlanningLoop < Test::Unit::TestCase
 	    # Check the normal behaviour: a new pattern is to be added only when
 	    # the first pattern has finished AND the period has occured.
 	    assert(first_task.running?)
-	    assert_equal(1, main_task.children.to_a.size)
+	    assert_equal([first_task], main_task.children.to_a)
 	    first_task.success!
-	    assert_equal(1, main_task.children.to_a.size)
+	    assert_equal([first_task], main_task.children.to_a)
 	    current_time += 0.6
 	    process_events
-	    assert_equal(2, main_task.children.to_a.size)
+            second_proxy_task = main_task.children.to_a.first
+            assert(second_proxy_task != first_task)
+	    assert_equal(1, main_task.children.to_a.size)
 	    assert(second_planner = loop_planner.last_planning_task)
 	    assert(second_planner.running?)
 	    second_task = planning_task_result(second_planner)
 	    assert(second_task.running?)
-	    assert_equal(1, main_task.children.to_a.size)
+	    assert_equal([second_task], main_task.children.to_a)
 
 	    # And queue one other. The second call to #loop_start! should be
 	    # completely ignored because there is already one pending pattern.
 	    loop_planner.loop_start!(:id => 3)
 	    loop_planner.loop_start!(:id => 4)
 	    assert_equal(2, main_task.children.to_a.size)
+	    assert(main_task.children.to_a.include?(second_task))
 	    third_planner = loop_planner.last_planning_task
 	    third_task  = planning_task_result(third_planner)
 	    assert_equal(3, third_task.arguments[:id])
+            assert_equal([second_task, third_task].to_value_set, main_task.children.to_value_set)
 
 	    # Check the dynamic behaviour
 	    # - the 3rd task should start as soon as the 2nd has: the call to
@@ -264,6 +274,8 @@ class TC_PlanningLoop < Test::Unit::TestCase
 	    assert(third_task.pending?)
 	    second_task.success!
 	    assert(second_task.success?)
+            process_events
+            assert_equal([third_task], main_task.children.to_a)
 	    assert(third_task.running?)
 	    third_task.success!
 	    assert(third_task.success?)
@@ -271,42 +283,65 @@ class TC_PlanningLoop < Test::Unit::TestCase
     end
 
     def test_reinit_periodic
+        Roby.app.abort_on_exception = false
         main_task, loop_planner = prepare_plan :period => 0.5, :lookahead => 3
 
-	FlexMock.use do |mock|
-	    mock.should_receive(:started).twice
-	    task_model.on(:start) { mock.started }
+	FlexMock.use(Time) do |time_proxy|
+	    current_time = Time.now + 5
+	    time_proxy.should_receive(:now).and_return { current_time }
+            FlexMock.use do |mock|
+                mock.should_receive(:started).twice
+                task_model.on(:start) { mock.started }
 
-	    loop_planner.start!
-            planners = loop_planner.patterns.reverse.map { |t, _| t }
-            tasks    = planners.map { |p| planning_task_result(p) }
+                loop_planner.start!
+                planners = loop_planner.patterns.reverse.map { |t, _| t }
+                tasks    = planners.map { |p| planning_task_result(p) }
+                assert_equal 3, tasks.size
+                assert_equal tasks.to_value_set, main_task.children.to_value_set
 
-	    loop_planner.loop_start!
-	    assert(tasks[0].running?)
-            planning_task_result(loop_planner.patterns[0].first)
+                loop_planner.loop_start!
+                assert(tasks[0].running?)
+                # First task is started, one pattern should be planning for the
+                # sake of the lookahead
+                assert_equal 1, (main_task.children.to_value_set - tasks.to_value_set).size
+                assert_equal 4, loop_planner.patterns.size
 
-	    loop_planner.reinit!
-            process_events
-            process_events
-            
-            # reinit should keep the first pattern because it is running, but
-            # the other ones should be new (and the second pattern should be
-            # being planned)
-            assert(loop_planner.event(:reinit).happened?)
-            assert_equal(3, loop_planner.patterns.size)
+                current_planning_task = loop_planner.patterns.first.first
+                original_patterns = loop_planner.patterns.dup
 
-            new_planners = loop_planner.patterns.reverse.map { |t, _| t }
-            new_tasks    = new_planners.map { |p| planning_task_result(p) }
+                # reinit should remove all children and recreate the structure
+                # for three patterns
+                loop_planner.reinit!
+                process_events
+                assert(!loop_planner.event(:reinit).happened?)
+                assert(tasks[0].running?)
+                process_events
+                assert(!tasks[0].running?)
+                # if we're lucky, the planning task is not finished yet and
+                # therefore the loop planner should not have emitted :reinit yet
+                # either
+                if current_planning_task.running?
+                    wait_for_planning_end current_planning_task
+                    assert(loop_planner.reinit_event.last.time >= current_planning_task.stop_event.last.time)
+                end
+                # Wait for the planning task to finish if it is not yet finished
+                assert_equal 3, (loop_planner.patterns - original_patterns).size
+                assert_equal 3, loop_planner.patterns.size
+                assert_equal 3, main_task.children.to_a.size
+                assert_equal 3, (main_task.children.to_value_set - tasks.to_value_set).size
 
-            new_tasks.each do |t|
-                assert(!tasks.include?(t))
+                new_planners = loop_planner.patterns.reverse.map { |t, _| t }
+                new_tasks    = new_planners.map { |p| planning_task_result(p) }
+
+                new_tasks.each do |t|
+                    assert(!tasks.include?(t))
+                end
+                # ... but the first pattern should be GCed right now, and the next
+                # pattern started
+                process_events
+                assert(new_tasks[0].running?)
             end
-            # assert_equal([1, 5, 6, 7], new_tasks.map { |t| t.arguments[:id] })
-            # ... but the first pattern should be GCed right now, and the next
-            # pattern started
-	    process_events
-	    assert(new_tasks[0].running?)
-	end
+        end
     end
 
     #def test_planning_loop_reinit_zero_lookahead
