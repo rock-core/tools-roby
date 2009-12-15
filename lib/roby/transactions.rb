@@ -158,7 +158,8 @@ module Roby
 	    (wrap(object, create) || object) rescue object 
 	end
 	
-	# may_unwrap may return objects from transaction
+	# If +object+ is in this transaction, may_unwrap will return the
+        # underlying plan object. In all other cases, returns object.
 	def may_unwrap(object)
 	    if object.respond_to?(:plan) 
 		if object.plan == self && object.respond_to?(:__getobj__)
