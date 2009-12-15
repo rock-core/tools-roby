@@ -78,7 +78,11 @@ module Roby::Transactions
 	alias :== :eql?
 
 	def pretty_print(pp)
-	    plan.disable_proxying { super }
+            if plan
+                plan.disable_proxying { super }
+            else
+                super
+            end
 	end
 	def proxying?; plan && plan.proxying? end
 
