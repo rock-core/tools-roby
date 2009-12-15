@@ -631,7 +631,7 @@ module Roby
 
 	# The task name
 	def name
-	    @name ||= "#{model.name || self.class.name}#{arguments.to_s}:0x#{address.to_s(16)}"
+	    @name ||= "#{model.name || self.class.name}:0x#{address.to_s(16)}"
 	end
 	
 	# This predicate is true if this task is a mission for its owners. If
@@ -1646,7 +1646,7 @@ module Roby
 	end
 
         def to_s # :nodoc:
-	    s = name.dup
+	    s = name.dup + arguments.to_s
 	    id = owners.map do |owner|
 		next if owner == Roby::Distributed
 		sibling = remote_siblings[owner]

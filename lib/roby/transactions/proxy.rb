@@ -203,6 +203,8 @@ module Roby::Transactions
 	include Proxy
 	proxy_for Roby::Task
 
+	def to_s; "tProxy(#{__getobj__.name})#{arguments}" end
+
 	def_delegator :@__getobj__, :running?
 	def_delegator :@__getobj__, :finished?
 	def_delegator :@__getobj__, :pending?
