@@ -222,23 +222,31 @@ module Roby
         end
 
 	def discover_neighborhood(object)
-	    self[object]
-	    object.each_relation do |rel|
-		object.each_parent_object(rel) { |obj| self[obj] }
-		object.each_child_object(rel)  { |obj| self[obj] }
-	    end
+            stack  = object.transaction_stack
+            object = object.real_object
+            while stack.size > 1
+                plan = stack.pop
+                next_plan = stack.last
+
+                next_plan[object]
+                object.each_relation do |rel|
+                    object.each_parent_object(rel) { |obj| next_plan[obj] }
+                    object.each_child_object(rel)  { |obj| next_plan[obj] }
+                end
+                object = next_plan[object]
+            end
+            nil
 	end
 
 	def replace(from, to)
 	    # Make sure +from+, its events and all the related tasks and events
 	    # are in the transaction
-	    from = may_unwrap(from)
 	    discover_neighborhood(from)
 	    from.each_event do |ev|
 		discover_neighborhood(ev)
 	    end
 
-	    super(self[from], self[to])
+	    super(from, to)
 	end
 
 	def add_mission(t)
