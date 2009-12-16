@@ -230,7 +230,13 @@ module Roby
         # include tasks which do not match #===
 	def filter(initial_set, task_index)
 	    if model
-		initial_set &= task_index.by_model[model]
+                if model.respond_to?(:to_ary)
+                    for m in model
+                        initial_set &= task_index.by_model[m]
+                    end
+                else
+                    initial_set &= task_index.by_model[model]
+                end
 	    end
 
 	    if !owners.empty?
