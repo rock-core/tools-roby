@@ -78,7 +78,11 @@ module Roby::Transactions
 	alias :== :eql?
 
 	def pretty_print(pp)
-	    plan.disable_proxying { super }
+            if plan
+                plan.disable_proxying { super }
+            else
+                super
+            end
 	end
 	def proxying?; plan && plan.proxying? end
 
@@ -199,6 +203,8 @@ module Roby::Transactions
 	include Proxy
 	proxy_for Roby::Task
 
+	def to_s; "tProxy(#{__getobj__.name})#{arguments}" end
+
 	def_delegator :@__getobj__, :running?
 	def_delegator :@__getobj__, :finished?
 	def_delegator :@__getobj__, :pending?
@@ -214,7 +220,6 @@ module Roby::Transactions
 	proxy :event
 	proxy :each_event
 	alias :each_plan_child :each_event
-	proxy :fullfills?
 	proxy :same_state?
 
         def kind_of?(klass)

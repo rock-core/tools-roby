@@ -161,6 +161,15 @@ module Roby
 	    ret
 	end
 
+        # Returns the set of stacked transaction, starting at +self+
+        def transaction_stack
+            plan_chain = [self]
+            while plan_chain.last.respond_to?(:plan)
+                plan_chain << plan_chain.last.plan
+            end
+            plan_chain
+        end
+
 	# Inserts a new mission in the plan.
         #
         # In the plan manager, missions are the tasks which constitute the
@@ -304,7 +313,7 @@ module Roby
 
 	    # Check that +to+ is valid in all hierarchy relations where +from+ is a child
 	    if !to.fullfills?(*from.fullfilled_model)
-		raise InvalidReplace.new(from, to), "task #{to} does not fullfills #{from.fullfilled_model}"
+		raise InvalidReplace.new(from, to), "task #{to} does not fullfill #{from.fullfilled_model}"
 	    end
 
 	    # Check that +to+ is in the same execution state than +from+
@@ -713,11 +722,13 @@ module Roby
 	# Otherwise, raises ArgumentError.
 	#
 	# This method is provided for consistency with Transaction#[]
-	def [](object)
-	    if object.plan != self
-		raise ArgumentError, "#{object} is not from #{plan}"
-	    elsif !object.plan
+	def [](object, create = true)
+            if !object.plan && !object.finalized?
 		add(object)
+            elsif object.finalized? && create
+		raise ArgumentError, "#{object} is has been finalized, and can't be reused"
+	    elsif object.plan != self
+		raise ArgumentError, "#{object} is not from #{self}"
 	    end
 	    object
 	end

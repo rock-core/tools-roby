@@ -140,10 +140,28 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     end
 
     def test_proxy_fullfills
-	t1, t2 = (1..2).map { Roby::Task.new }
-	p1, p2 = transaction[t1], transaction[t2]
-	assert(p1.fullfills?(t1))
-	assert(p1.fullfills?(p2))
+        model = Class.new(Roby::Task)
+        other_model = Class.new(model)
+        tag   = Roby::TaskModelTag.new do
+            argument :id, :other
+        end
+        model.include(tag)
+
+        t = model.new :id => 10
+        p = transaction[t]
+
+        assert(p.fullfills?(model))
+        assert(p.fullfills?(tag))
+        assert(p.fullfills?(model, :id => 10))
+        assert(p.fullfills?(tag, :id => 10))
+        assert(!p.fullfills?(other_model))
+        assert(!p.fullfills?(model, :id => 5))
+        assert(!p.fullfills?(tag, :id => 5))
+
+        assert(!p.fullfills?(model, :id => 10, :other => 20))
+        p.arguments[:other] = 20
+        assert(p.fullfills?(model, :id => 10, :other => 20))
+
     end
 
     # Tests that the graph of proxys is separated from

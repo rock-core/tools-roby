@@ -36,6 +36,56 @@ module TC_TransactionBehaviour
 
     SimpleTask = Roby::Test::SimpleTask
 
+    def test_proxy_creation
+        plan.add(t = SimpleTask.new)
+        transaction_commit(plan) do |trsc|
+            assert !trsc[t, false]
+            assert trsc.known_tasks.empty?
+
+            assert(proxy = trsc[t, true])
+            assert(trsc.include?(proxy))
+            assert_same(proxy, trsc[t, false])
+
+            trsc.remove_object(proxy)
+            assert_same(proxy, trsc[t, false])
+        end
+    end
+
+    def test_add_tasks_from_plan
+        plan.add(t = SimpleTask.new)
+        transaction_commit(plan) do |trsc|
+            assert_raises(Roby::ModelViolation) { trsc.add(t) }
+        end
+    end
+
+    def test_object_transaction_stack
+        plan.add(t = SimpleTask.new)
+        transaction_commit(plan, t) do |trsc1, p1|
+            assert_equal([trsc1, plan], p1.transaction_stack)
+            transaction_commit(trsc1, p1) do |trsc2, p2|
+                assert_equal([trsc2, trsc1, plan], p2.transaction_stack)
+            end
+        end
+    end
+
+    def test_merged_relations
+        t1, t2, t3 = prepare_plan :add => 3
+        t1.depends_on t2
+        t2.depends_on t3
+
+        transaction_commit(plan, t2) do |trsc, p2|
+            assert_equal [t1], p2.merged_relations(:each_parent_task, true).map(&:__getobj__)
+            assert_equal [t3], p2.merged_relations(:each_child, true).map(&:__getobj__)
+        end
+
+        transaction_commit(plan, t2) do |trsc, p2|
+            assert_equal [[t2, t1]], p2.merged_relations(:each_parent_task, false).to_a
+            assert_equal [[t2, t3]], p2.merged_relations(:each_child, false).to_a
+            assert !trsc[t1, false]
+            assert !trsc[t3, false]
+        end
+    end
+
     def transaction_op(plan, op, *needed_proxies)
 	trsc = Roby::Transaction.new(plan)
 	proxies = needed_proxies.map do |o|
@@ -167,8 +217,6 @@ module TC_TransactionBehaviour
 	    assert(trsc.include?(p3))
 	    trsc.remove_object(p3) 
 	    assert(!trsc.include?(p3))
-	    assert(!trsc.wrap(t3, false))
-	    assert(!trsc.include?(t3))
 	    assert(plan.include?(t3))
 	end
 	assert(!plan.include?(t3))
@@ -303,7 +351,7 @@ module TC_TransactionBehaviour
     
     def test_commit_replace
 	task, (planned, mission, child, r) = prepare_plan :missions => 1, :tasks => 4, :model => SimpleTask
-	mission.depends_on task
+	mission.depends_on task, :model => SimpleTask
 	planned.planned_by task
 	task.depends_on child
 	task.signals(:stop, mission, :stop)
@@ -403,14 +451,14 @@ module TC_TransactionBehaviour
 	    end
 	end
 
+        # Test for a special case: the task is removed from the transaction and
+        # then removed from the plan. We should not invalidate in that case
 	t1 = prepare_plan :add => 1
-	assert_nothing_raised do
-	    transaction_commit(plan, t1) do |trsc, p1|
-		trsc.remove_object(p1)
-		plan.remove_object(t1)
-		assert(!trsc.invalid?)
-	    end
-	end
+        transaction_commit(plan, t1) do |trsc, p1|
+            trsc.remove_object(p1)
+            plan.remove_object(t1)
+            assert(!trsc.invalid?)
+        end
     end
 
     def test_plan_relation_update_invalidate
@@ -426,13 +474,11 @@ module TC_TransactionBehaviour
 	end
 
 	t1.depends_on t2
-	assert_nothing_raised do
-	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		p1.remove_child p2
-		t1.remove_child t2
-		assert(!trsc.invalid?)
-	    end
-	end
+        transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+            p1.remove_child p2
+            t1.remove_child t2
+            assert(!trsc.invalid?)
+        end
 
 	t1.remove_child t2
 	assert_raises(Roby::InvalidTransaction) do
@@ -443,19 +489,23 @@ module TC_TransactionBehaviour
 	end
 
 	t1.remove_child t2
-	assert_nothing_raised do
-	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-		p1.depends_on p2
-		t1.depends_on t2
-		assert(!trsc.invalid?)
-	    end
-	end
+        transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+            p1.depends_on p2
+            t1.depends_on t2
+            assert(!trsc.invalid?)
+        end
     end
 end
 
 class TC_Transactions < Test::Unit::TestCase
     include TC_TransactionBehaviour
     include Roby::Test
+
+    def test_real_plan
+        transaction_commit(plan) do |trsc|
+            assert_equal(plan, trsc.real_plan)
+        end
+    end
 
     def test_and_event_aggregator
 	t1, t2, t3 = (1..3).map { SimpleTask.new }
@@ -483,7 +533,7 @@ class TC_Transactions < Test::Unit::TestCase
 
 	t1.start!
 	assert(t3.running?)
-	assert_nothing_raised { t2.start! }
+	t2.start!
     end
 
     def test_commit_event_handlers
@@ -535,9 +585,21 @@ class TC_RecursiveTransaction < Test::Unit::TestCase
 	@plan = Roby::Transaction.new(real_plan)
     end
     def teardown
-	plan.discard_transaction
-	real_plan.clear
+        plan.discard_transaction
+        real_plan.clear
 	super
+    end
+
+    def test_real_plan
+        transaction_commit(plan) do |trsc|
+            assert_equal(real_plan, trsc.real_plan)
+        end
+    end
+
+    def test_transaction_stack
+        transaction_commit(plan) do |trsc|
+            assert_equal([trsc, plan, real_plan], trsc.transaction_stack)
+        end
     end
 end
  

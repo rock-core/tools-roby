@@ -34,6 +34,103 @@ module Roby
             plan
         end
 
+        # If +self+ is a transaction proxy, returns the underlying plan object,
+        # regardless of how many transactions there is on the stack. Otherwise,
+        # return self.
+        def real_object
+            result = self
+            while result.respond_to?(:__getobj__)
+                result = result.__getobj__
+            end
+            result
+        end
+
+        # Returns the stack of transactions/plans this object is part of,
+        # starting with self.plan.
+        def transaction_stack
+            result = [plan]
+            obj    = self
+            while obj.respond_to?(:__getobj__)
+                obj = obj.__getobj__
+                result << obj.plan
+            end
+            result
+        end
+
+        # call-seq:
+        #   merged_relation(:each_child_object, false, Dependency) do |parent, child|
+        #   end
+        #   merged_relation(:each_child_object, true, Dependency) do |child|
+        #   end
+        #
+        # Behaves like +enumerator+, but merges all the changes that underlying
+        # transactions may have applied. I.e. it is equivalent to applying
+        # +enumerator+ on the plan that would be the result of the application
+        # of the whole transaction stack
+        #
+        # If +instrusive+ is false, the edges are yielded at the level they
+        # appear. I.e. both the parent and the child are given, and [parent,
+        # child] may be part of a parent plan of self.plan.
+        #
+        # If +instrusive+ is true, the related objects are recursively added to
+        # all transactions in the transaction stack, and are given at the end.
+        # I.e. only the related object is yield, and it is guaranteed to be
+        # included in self.plan.
+        def merged_relations(enumerator, intrusive, *args, &block)
+            if !block_given?
+                return enum_for(:merged_relations, enumerator, intrusive, *args)
+            end
+
+            plan_chain = self.transaction_stack
+            object     = self.real_object
+
+            pending = Array.new
+            while plan_chain.size > 1
+                plan      = plan_chain.pop
+                next_plan = plan_chain.last
+
+                # Objects that are in +plan+ but not in +next_plan+ are
+                # automatically added, as +next_plan+ is not able to change
+                # them. Those that are included in +next_plan+ are handled
+                # later.
+                new_objects = Array.new
+                object.send(enumerator, *args) do |related_object, _|
+                    next if next_plan[related_object, false]
+
+                    if !intrusive
+                        yield(object, related_object)
+                    else
+                        new_objects   << related_object
+                    end
+                end
+
+                # Here, pending contains objects from the previous plan (i.e. in
+                # plan.plan). Proxy them in +plan+.
+                #
+                # It is important to do that *after* we enumerated the relations
+                # that exist in +plan+ (above), as it reduces the number of
+                # relations at each level.
+                pending.map! { |t| plan[t] }
+                # And add the new objects that we just discovered
+                pending.concat(new_objects)
+
+                if next_plan
+                    object = next_plan[object]
+                end
+            end
+
+            if intrusive
+                send(enumerator, *args, &block)
+                for related_object in pending
+                    yield(self.plan[related_object])
+                end
+            else
+                send(enumerator, *args) do |related_object, _|
+                    yield(self, related_object)
+                end
+            end
+        end
+
 	# A three-state flag with the following values:
 	# nil:: the object is executable if its plan is
 	# true:: the object is executable

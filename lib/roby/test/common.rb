@@ -118,14 +118,12 @@ module Roby
 
             engine.at_cycle_end(&Test.method(:check_event_assertions))
             engine.finalizers << Test.method(:finalize_event_assertions)
-            engine.waiting_threads << Thread.current
 	end
 
 
 	def teardown_plan
             engine.at_cycle_end_handlers.delete(Test.method(:check_event_assertions))
             engine.finalizers.delete(Test.method(:finalize_event_assertions))
-            engine.waiting_threads.delete(Thread.current)
 
 	    old_gc_roby_logger_level = Roby.logger.level
 	    if debug_gc?
@@ -522,6 +520,7 @@ module Roby
 	    #
 	    def assert_any_event(positive, negative = [], msg = nil, &block)
 		control_priority do
+                    engine.waiting_threads << Thread.current
 		    Roby.condition_variable(false) do |cv|
 			positive = Array[*positive].to_value_set
 			negative = Array[*negative].to_value_set
@@ -575,6 +574,8 @@ module Roby
 			end
 		    end
 		end
+            ensure
+                engine.waiting_threads.delete(Thread.current)
 	    end
 
 	    # Starts +task+ and checks it succeeds

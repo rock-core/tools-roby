@@ -938,6 +938,8 @@ class TC_Task < Test::Unit::TestCase
 	plan.add(t3 = task_model.new(:universe => 42))
 	assert(t3.fullfills?(t1))
 	assert(!t1.fullfills?(t3))
+	plan.add(t3 = task_model.new(:universe => 42, :index => 21))
+	assert(t3.fullfills?(task_model, :universe => 42))
 
 	plan.add(t3 = Class.new(Task).new)
 	assert(!t1.fullfills?(t3))

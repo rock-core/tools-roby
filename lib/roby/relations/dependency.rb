@@ -93,7 +93,7 @@ module Roby::TaskStructure
             if !required_args.respond_to?(:to_hash)
                 raise ArgumentError, "argument specification must be a hash, got #{required_args} (#{required_args.class})"
 	    elsif !task.fullfills?(required_model, required_args)
-		raise ArgumentError, "task #{task} does not fullfills the provided model #{options[:model]}"
+		raise ArgumentError, "task #{task} does not fullfill the provided model #{options[:model]}"
 	    end
 
             # Check if there is already a dependency link. If it is the case,
@@ -139,8 +139,8 @@ module Roby::TaskStructure
 	# The set of events that are needed by the parent tasks
 	def fullfilled_events
 	    needed = ValueSet.new
-	    each_parent_task do |parent|
-		needed.merge(parent[self, Dependency][:success])
+	    merged_relations(:each_parent_task, false) do |myself, parent|
+		needed.merge(parent[myself, Dependency][:success])
 	    end
 	    needed
 	end
@@ -155,10 +155,10 @@ module Roby::TaskStructure
 	    model, tags, arguments = Roby::Task, [], {}
 
             has_parent = false
-	    each_parent_task do |parent|
+	    merged_relations(:each_parent_task, false) do |myself, parent|
                 has_parent = true
 
-		m, a = parent[self, Dependency][:model]
+		m, a = parent[myself, Dependency][:model]
 		if m.kind_of?(Roby::TaskModelTag)
 		    tags << m
 		elsif m.has_ancestor?(model)
