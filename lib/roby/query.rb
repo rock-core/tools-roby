@@ -35,7 +35,11 @@ module Roby
 
 	# Shortcut to set both model and argument 
 	def which_fullfills(model, arguments = nil)
-	    with_model(model).with_model_arguments(arguments || {})
+	    with_model(model)
+            if arguments
+                with_model_arguments(arguments)
+            end
+            self
 	end
 
 	# Find by model
@@ -49,6 +53,11 @@ module Roby
 	    if !model
 		raise ArgumentError, "set model first"
 	    end
+            if model.respond_to?(:to_ary)
+                valid_arguments = model.inject(Set.new) { |args, m| args | m.arguments.to_set }
+            else
+                valid_arguments = model.arguments
+            end
 	    with_arguments(arguments.slice(*model.arguments))
 	    self
 	end
