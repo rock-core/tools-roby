@@ -295,14 +295,29 @@ module Roby
     class Query < TaskMatcher
         # The plan this query acts on
 	attr_reader :plan
+        # Search scope for queries on transactions. If equal to :local, the
+        # query will apply only on the scope of the searched transaction,
+        # otherwise it applies on a virtual plan that is the result of the
+        # transaction stack being applied.
+        #
+        # The default is :global.
+        #
+        # See #local_scope and #global_scope
+        attr_reader :scope
 
         # Create a query object on the given plan
 	def initialize(plan)
+            @scope = :global
 	    @plan = plan
 	    super()
 	    @plan_predicates = Array.new
 	    @neg_plan_predicates = Array.new
 	end
+
+        # Changes the scope of this query. See #scope.
+        def local_scope; @scope = :local end
+        # Changes the scope of this query. See #scope.
+        def global_scope; @scope = :global end
 
         # Changes the plan this query works on
         def plan=(new_plan)
@@ -480,6 +495,15 @@ module Roby
 	    q
 	end
 
+        # Starts a local query on this plan
+        #
+        # See Query#scope
+        def find_local_tasks(*args, &block)
+            query = find_tasks(*args, &block)
+            query.local_scope
+            query
+        end
+
 	# Called by TaskMatcher#result_set and Query#result_set to get the set
 	# of tasks matching +matcher+
 	def query_result_set(matcher)
@@ -571,9 +595,11 @@ module Roby
 	# tasks matching it. The two sets are disjoint.
 	def query_result_set(matcher)
 	    plan_set = ValueSet.new
-	    for task in plan.query_result_set(matcher)
-		plan_set << task unless self[task, false]
-	    end
+            if matcher.scope == :global
+                for task in plan.query_result_set(matcher)
+                    plan_set << task unless self[task, false]
+                end
+            end
 	    
 	    transaction_set = super
 	    [plan_set, transaction_set]

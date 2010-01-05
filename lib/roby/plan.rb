@@ -741,6 +741,10 @@ module Roby
 	    end
 	end
 
+        def discard_modifications(object)
+            remove_object(object)
+        end
+
         # Remove +object+ from this plan. You usually don't have to do that
         # manually. Object removal is handled by the plan's garbage collection
         # mechanism.
