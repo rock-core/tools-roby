@@ -50,6 +50,8 @@ module Roby
         # The task which fired this event
         attr_reader :task
         
+        def model; self.class end
+
         def initialize(task, generator, propagation_id, context, time = Time.now)
             @task = task
 	    @terminal_flag = generator.terminal_flag
@@ -92,7 +94,7 @@ module Roby
         # responds to #call
         def self.controlable?; respond_to?(:call) end
         # If the event is controlable
-        def controlable?; self.class.controlable? end
+        def controlable?; model.controlable? end
 	class << self
 	    # Called by Task.update_terminal_flag to update the flag
 	    attr_writer :terminal
@@ -108,7 +110,7 @@ module Roby
         # The event symbol
         def self.symbol; @symbol end
         # The event symbol
-        def symbol; self.class.symbol end
+        def symbol; model.symbol end
     end
 
     # A task event model bound to a particular task instance
@@ -921,7 +923,7 @@ module Roby
         # case, the task is not executable.
         #
         # See Task::abstract for more details.
-	def abstract?; self.class.abstract? end
+	def abstract?; model.abstract? end
 	# True if this task is executable. A task is not executable if it is
         # abstract or partially instanciated.
         #
@@ -954,7 +956,7 @@ module Roby
         # can either be a event class or an event name.
         def has_event?(event_model)
 	    bound_events.has_key?(event_model) ||
-		self.class.has_event?(event_model)
+		model.has_event?(event_model)
 	end
         
         # True if this task is starting, i.e. if its start event is pending
@@ -1661,7 +1663,7 @@ module Roby
 	end
 
 	def pretty_print(pp, with_owners = true) # :nodoc:
-	    pp.text "#{self.class.name}:0x#{self.address.to_s(16)}"
+	    pp.text "#{model.name}:0x#{self.address.to_s(16)}"
             if with_owners
                 pp.breakable
                 pp.nest(2) do
