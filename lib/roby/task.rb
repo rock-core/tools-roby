@@ -23,6 +23,20 @@ module Roby
                     !self_arguments.include?(key)
                 end
             end
+
+            # Checks if this model fullfills everything in +models+
+            def fullfills?(models)
+                if !models.respond_to?(:each)
+                    models = [models]
+                end
+
+                for tag in models
+                    if !has_ancestor?(tag)
+                        return false
+                    end
+                end
+                true
+            end
 	end
 	include TaskModelTag::ClassExtension
 
@@ -1735,15 +1749,6 @@ module Roby
 	def self.tags
 	    ancestors.find_all { |m| m.instance_of?(TaskModelTag) }
 	end
-
-        # Checks if this 
-        def self.fullfills?(*models)
-	    for tag in models
-		if !has_ancestor?(tag)
-		    return false
-		end
-            end
-        end
 
 	# The fullfills? predicate checks if this task can be used
 	# to fullfill the need of the given +model+ and +arguments+
