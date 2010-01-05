@@ -45,10 +45,34 @@ module TC_TransactionBehaviour
             assert(proxy = trsc[t, true])
             assert(trsc.include?(proxy))
             assert_same(proxy, trsc[t, false])
-
-            trsc.remove_object(proxy)
-            assert_same(proxy, trsc[t, false])
         end
+    end
+
+    def test_remove_object
+        plan.add(t = SimpleTask.new)
+        transaction_commit(plan, t) do |trsc, p|
+            trsc.remove_object(p)
+            assert_same(nil, trsc[t, false])
+            assert(!trsc.include?(p))
+        end
+
+	t1, t2, t3 = prepare_plan :missions => 1, :add => 1, :tasks => 1
+	t1.depends_on t2
+	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+	    p1.depends_on(t3)
+	    trsc.remove_object(p1)
+	end
+	assert(plan.include?(t1))
+	assert_equal([t2], t1.children.to_a)
+ 
+ 	t3 = SimpleTask.new
+ 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+ 	    p1.depends_on t3
+ 	    p1.remove_child p2
+	    trsc.remove_object(p1)
+ 	end
+ 	assert(plan.include?(t1))
+ 	assert_equal([t2], t1.children.to_a)
     end
 
     def test_add_tasks_from_plan
@@ -213,14 +237,15 @@ module TC_TransactionBehaviour
 	assert(plan.include?(t2))
 	assert(!plan.mission?(t2))
 
+        plan.add_mission(t3)
 	transaction_commit(plan, t3) do |trsc, p3|
 	    assert(trsc.include?(p3))
 	    trsc.remove_object(p3) 
 	    assert(!trsc.include?(p3))
 	    assert(plan.include?(t3))
 	end
-	assert(!plan.include?(t3))
-	assert(!plan.mission?(t3))
+	assert(plan.include?(t3))
+	assert(plan.mission?(t3))
 
 	plan.add_permanent(t3 = Roby::Task.new)
 	transaction_commit(plan, t3) do |trsc, p3|
@@ -311,7 +336,7 @@ module TC_TransactionBehaviour
 	    assert(!PlannedBy.linked?(p3, p4))
 	    assert(PlannedBy.linked?(t3, t4))
 	end
-	assert(!PlannedBy.linked?(t3, t4))
+	assert(PlannedBy.linked?(t3, t4))
     end
 
     def test_commit_event_relations
@@ -405,27 +430,6 @@ module TC_TransactionBehaviour
 	end
     end
 
-    def test_discard_modifications
-	t1, t2, t3 = prepare_plan :missions => 1, :add => 1, :tasks => 1
-	t1.depends_on t2
-	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
-	    p1.depends_on(t3)
-	    trsc.remove_object(p1)
-	    trsc.discard_modifications(t1)
-	end
-	assert(plan.include?(t1))
-	assert_equal([t2], t1.children.to_a)
- 
- 	t3 = SimpleTask.new
- 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
- 	    p1.depends_on t3
- 	    p1.remove_child p2
- 	    trsc.discard_modifications(t1)
- 	end
- 	assert(plan.include?(t1))
- 	assert_equal([t2], t1.children.to_a)
-     end
-
     def test_plan_finalized_task
 	t1, t2, t3 = prepare_plan :missions => 1, :add => 1
 	t1.depends_on t2
@@ -447,6 +451,7 @@ module TC_TransactionBehaviour
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1) do |trsc, p1|
 		plan.remove_object(t1)
+                assert(!plan.include?(t1))
 		assert(trsc.invalid?)
 	    end
 	end

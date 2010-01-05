@@ -89,29 +89,6 @@ module Roby
 	end
 	alias :[] :wrap
 
-	# Remove +proxy+ from this transaction. While #remove_object is also
-	# removing the object from the plan itself, this method only removes it
-	# from the transaction, forgetting all modifications that have been
-	# done on +object+ in the transaction
-	def discard_modifications(object)
-	    object = may_unwrap(object)
-	    if object.respond_to?(:each_plan_child)
-		object.each_plan_child do |child|
-		    discard_modifications(child)
-		end
-	    end
-	    removed_objects.delete(object)
-	    discarded_tasks.delete(object)
-	    auto_tasks.delete(object)
-
-	    return unless proxy = proxy_objects.delete(object)
-	    proxy.clear_vertex
-
-	    missions.delete(proxy)
-	    known_tasks.delete(proxy)
-	    free_events.delete(proxy)
-	end
-
 	def restore_relation(proxy, relation)
 	    object = proxy.__getobj__
 
@@ -138,26 +115,35 @@ module Roby
 	    proxy.do_discover(relation, false)
 	end
 
+        # Removes an object from this transaction
+        #
+        # This does *not* remove the object from the underlying plan. Removing
+        # objects directly is (at best) dangerous, and should be handled by
+        # garbage collection.
 	def remove_object(object)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 
-            # object is either in self.plan or in the transaction itself. Take
-            # both cases into account
 	    object = may_unwrap(object)
-	    proxy  = proxy_objects[object] || object
+            proxy  = proxy_objects.delete(object)
+            if (proxy || object).plan != self
+                raise InternalError, "inconsistency"
+            end
 
-	    # removing the proxy may trigger some discovery (event relations
-	    # for instance, if proxy is a task). Do it first, or #discover
-	    # will be called and the modifications of internal structures
-	    # nulled (like #removed_objects) ...
-	    super(proxy)
+            if proxy
+                discarded_tasks.delete(object)
+                auto_tasks.delete(object)
+                if proxy.respond_to?(:each_plan_child)
+                    proxy.each_plan_child(true) do |child_proxy|
+                        auto_tasks.delete(child_proxy)
+                    end
+                end
+            end
 
-            # if +object+ is a proxy, add the underlying object to the
-            # removed_objects set so that it gets removed from self.plan at
-            # commit time
-	    if object.plan == self.plan
-		removed_objects.insert(object)
-	    end
+            proxy ||= object
+            if proxy.root_object?
+                super(proxy)
+            end
+            self
 	end
 
 	def may_wrap(objects, create = true)
@@ -189,8 +175,6 @@ module Roby
 
 	# The list of discarded
 	attr_reader :discarded_tasks
-	# The list of removed tasks and events
-	attr_reader :removed_objects
 	# The list of permanent tasks that have been auto'ed
 	attr_reader :auto_tasks
 	# The plan this transaction applies on
@@ -212,7 +196,6 @@ module Roby
 	    @plan   = plan
 
 	    @proxy_objects      = Hash.new
-	    @removed_objects    = ValueSet.new
 	    @discarded_tasks    = ValueSet.new
 	    @auto_tasks	        = ValueSet.new
 
@@ -346,9 +329,6 @@ module Roby
 	    plan.execute do
 		auto_tasks.each      { |t| plan.unmark_permanent(t) }
 		discarded_tasks.each { |t| plan.unmark_mission(t) }
-		removed_objects.each do |obj| 
-		    plan.remove_object(obj) if plan.include?(obj)
-		end
 
 		discover_tasks  = ValueSet.new
 		discover_events  = ValueSet.new
@@ -471,7 +451,6 @@ module Roby
 	end
 
 	def clear
-	    removed_objects.clear
 	    discarded_tasks.clear
 	    proxy_objects.each_value { |proxy| proxy.clear_relations }
 	    proxy_objects.clear
@@ -480,25 +459,17 @@ module Roby
 
 	def finalized_plan_task(task)
             proxied_task = task.__getobj__
-            if removed_objects.include?(proxied_task)
-                removed_objects.delete(proxied_task)
-                return
-            end
 
 	    invalidate("task #{task} has been removed from the plan")
-            discard_modifications(task)
+            discard_modifications(proxied_task)
 	    control.finalized_plan_task(self, task)
 	end
 
 	def finalized_plan_event(event)
             proxied_event = event.__getobj__
-            if removed_objects.include?(proxied_event)
-                removed_objects.delete(proxied_event)
-                return
-            end
 
 	    invalidate("event #{event} has been removed from the plan")
-            discard_modifications(event)
+            discard_modifications(proxied_event)
 	    control.finalized_plan_event(self, event)
 	end
 

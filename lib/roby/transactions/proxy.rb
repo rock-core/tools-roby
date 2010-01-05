@@ -218,13 +218,33 @@ module Roby::Transactions
 	def_delegator :@__getobj__, :finished?
 
 	proxy :event
-	proxy :each_event
-	alias :each_plan_child :each_event
 	proxy :same_state?
+
+        def each_plan_child(only_wrapped = false, &block)
+            each_event(only_wrapped, &block)
+        end
+
+        def each_event(only_wrapped = false)
+            __getobj__.each_event(only_wrapped) do |ev|
+                if proxy = plan[ev, !only_wrapped]
+                    yield(proxy)
+                end
+            end
+            self
+        end
 
         def kind_of?(klass)
             super || __getobj__.kind_of?(klass)
         end
+
+	# Remove all relations in which +self+ or its event are involved
+	def clear_relations
+            each_event(true) do |ev|
+                ev.clear_relations
+            end
+            super(false)
+            self
+	end
 
         # Create a new proxy representing +object+ in +transaction+
 	def initialize(object, transaction)

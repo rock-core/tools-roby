@@ -982,10 +982,18 @@ module Roby
         # True if the +failed+ event of this task has been fired
 	def failed?; finished? && @success == false end
 
-	# Remove all relations in which +self+ or its event are involved
-	def clear_relations
-	    each_event { |ev| ev.clear_relations }
-	    super
+	# call-seq:
+        #   task.clear_relations => task
+        #
+        # Remove all relations in which +self+ or its event are involved
+        #--
+        # The including_events flag is here for the benefit of
+        # Transactions::Proxy::Task only
+	def clear_relations(including_events = true)
+            if including_events
+                each_event { |ev| ev.clear_relations }
+            end
+	    super()
             self
 	end
 
@@ -1485,8 +1493,14 @@ module Roby
 	    @__enum_events__ ||= enum_for(:each_event)
 	end
 
+        # call-seq:
+        #   task.each_event { |event_object| ... } => task
+        #
         # Iterates on all the events defined for this task
-        def each_event # :yield:bound_event
+        #--
+        # The +only_wrapped+ flag is here for consistency with transaction
+        # proxies, and should probably not be used in user code.
+        def each_event(only_wrapped = true) # :yield:bound_event
 	    for _, ev in bound_events
 		yield(ev)
 	    end
