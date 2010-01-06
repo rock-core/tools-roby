@@ -158,15 +158,20 @@ module Roby::TaskStructure
 	    merged_relations(:each_parent_task, false) do |myself, parent|
                 has_parent = true
 
-		m, a = parent[myself, Dependency][:model]
-		if m.kind_of?(Roby::TaskModelTag)
-		    tags << m
-		elsif m.has_ancestor?(model)
-		    model = m
-		elsif !model.has_ancestor?(m)
-		    raise Roby::ModelViolation, "inconsistency in fullfilled models: #{model} and #{m} are incompatible"
-		end
-		arguments.merge!(a) do |name, old, new| 
+		required_models, required_arguments = parent[myself, Dependency][:model]
+                required_models = [required_models] if !required_models.respond_to?(:to_ary)
+
+                for m in required_models
+                    if m.kind_of?(Roby::TaskModelTag)
+                        tags << m
+                    elsif m.has_ancestor?(model)
+                        model = m
+                    elsif !model.has_ancestor?(m)
+                        raise Roby::ModelViolation, "inconsistency in fullfilled models: #{model} and #{m} are incompatible"
+                    end
+                end
+
+		arguments.merge!(required_arguments) do |name, old, new| 
 		    if old != new
 			raise Roby::ModelViolation, "inconsistency in fullfilled models: #{old} and #{new}"
 		    end
