@@ -389,22 +389,17 @@ module Roby
 	def require_models
 	    # Require all common task models and the task models specific to
 	    # this robot
-	    require_dir(File.join(APP_DIR, 'tasks'))
-	    require_robotdir(File.join(APP_DIR, 'tasks', 'ROBOT'))
+            list_dir('tasks') { |p| require(p) }
+            list_robotdir('tasks', 'ROBOT') { |p| require(p) }
 
 	    # Load robot-specific configuration
-	    planner_dir = File.join(APP_DIR, 'planners')
-	    models_search = [planner_dir]
+	    models_search = ['planners']
 	    if robot_name
-		load_robotfile(File.join(APP_DIR, 'config', "ROBOT.rb"))
-
-		models_search << File.join(planner_dir, robot_name) << File.join(planner_dir, robot_type)
-		if !require_robotfile(File.join(APP_DIR, 'planners', 'ROBOT', 'main.rb'))
-		    require File.join(APP_DIR, "planners", "main")
-		end
-	    else
-		require File.join(APP_DIR, "planners", "main")
-	    end
+		models_search << File.join('planners', robot_name) << File.join('planners', robot_type)
+                file = robotfile('planners', 'ROBOT', 'main.rb')
+            end
+            file ||= File.join("planners", "main")
+            require file if File.file?(file)
 
 	    # Load the other planners
 	    models_search.each do |base_dir|
@@ -415,6 +410,9 @@ module Roby
 		    end
 		end
 	    end
+
+	    # Set up the loaded plugins
+	    call_plugins(:require_models, self)
 	end
 
 	def setup
@@ -446,14 +444,21 @@ module Roby
 		Object.const_set(:State, Roby::State)
 	    end
 
-	    require_models
-
-	    # MainPlanner is always included in the planner list
-	    self.planners << MainPlanner
-	   
 	    # Set up the loaded plugins
 	    call_plugins(:setup, self)
 
+	    require_models
+
+            if file = robotfile(APP_DIR, 'config', "ROBOT.rb")
+                load file
+            end
+
+
+	    # MainPlanner is always included in the planner list
+            if defined? MainPlanner
+                self.planners << MainPlanner
+            end
+	   
 	    # If we are in test mode, import the test extensions from plugins
 	    if testing?
 		require 'roby/test/testcase'
@@ -654,52 +659,49 @@ module Roby
 	    call_plugins(:stop_server, self)
 	end
 
-	# Require all files in +dirname+
-	def require_dir(dirname)
+        def list_dir(*path)
+            if !block_given?
+                return enum_for(:list_dir, *path)
+            end
+
+            dirname = File.join(*path)
 	    Dir.new(dirname).each do |file|
 		file = File.join(dirname, file)
-		file = file.gsub(/^#{Regexp.quote(APP_DIR)}\//, '')
-		require file if file =~ /\.rb$/ && File.file?(file)
+                if file =~ /\.rb$/ && File.file?(file)
+                    file = file.gsub(/^#{Regexp.quote(APP_DIR)}\//, '')
+                    yield(file) 
+                end
 	    end
-	end
+        end
 
 	# Require all files in the directories matching +pattern+. If +pattern+
 	# contains the word ROBOT, it is replaced by -- in order -- the robot
 	# name and then the robot type
-	def require_robotdir(pattern)
+	def list_robotdir(*path, &block)
+            if !block_given?
+                return enum_for(:list_robotdir, *path)
+            end
+
 	    return unless robot_name && robot_type
 
-	    [robot_name, robot_type].each do |name|
+            pattern = File.expand_path(File.join(*path), APP_DIR)
+	    [robot_name, robot_type].uniq.each do |name|
 		dirname = pattern.gsub(/ROBOT/, name)
-		require_dir(dirname) if File.directory?(dirname)
+		list_dir(dirname, &block) if File.directory?(dirname)
 	    end
 	end
 
-	# Loads the first file found matching +pattern+
-	#
-	# See #require_robotfile
-	def load_robotfile(pattern)
-	    require_robotfile(pattern, :load)
-	end
-
-	# Requires or loads (according to the value of +method+) the first file
-	# found matching +pattern+. +pattern+ can contain the word ROBOT, in
-	# which case the file is first checked against the robot name and then
-	# against the robot type
-	def require_robotfile(pattern, method = :require)
+	def robotfile(*path) # :nodoc
 	    return unless robot_name && robot_type
 
+            pattern = File.join(*path)
 	    robot_config = pattern.gsub(/ROBOT/, robot_name)
 	    if File.file?(robot_config)
-		Kernel.send(method, robot_config)
-		true
+		robot_config
 	    else
 		robot_config = pattern.gsub(/ROBOT/, robot_type)
 		if File.file?(robot_config)
-		    Kernel.send(method, robot_config)
-		    true
-		else
-		    false
+		    robot_config
 		end
 	    end
 	end
