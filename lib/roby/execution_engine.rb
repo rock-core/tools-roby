@@ -839,6 +839,11 @@ module Roby
                 exceptions = new_exceptions
             end
 
+            if !fatal.empty?
+                Roby::ExecutionEngine.debug do
+                    "remaining fatal exceptions: #{fatal.map(&:exception).map(&:to_s).join(", ")}"
+                end
+            end
             # Call global exception handlers for exceptions in +fatal+. Return the
             # set of still unhandled exceptions
             fatal.
@@ -913,16 +918,28 @@ module Roby
             # Get the remaining problems in the plan structure, and act on it
             fatal_structure_errors = remove_inhibited_exceptions(plan.check_structure)
             fatal_errors = fatal_structure_errors.to_a + events_errors
-            kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
-                tasks ||= [*error.task]
-                for parent in [*tasks]
-                    new_tasks = parent.reverse_generated_subgraph(Roby::TaskStructure::Hierarchy) - plan.force_gc
-                    if !new_tasks.empty?
-                        fatal_exception(error, new_tasks)
+            if !fatal_errors.empty?
+                Roby::ExecutionEngine.info "EE: #{fatal_errors.size} fatal exceptions remaining"
+                kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
+                    tasks ||= [*error.origin]
+                    for parent in [*tasks]
+                        new_tasks = parent.reverse_generated_subgraph(Roby::TaskStructure::Hierarchy) - plan.force_gc
+                        if !new_tasks.empty?
+                            fatal_exception(error, new_tasks)
+                        end
+                        kill_tasks.merge(new_tasks)
                     end
-                    kill_tasks.merge(new_tasks)
+                    kill_tasks
                 end
-                kill_tasks
+                if !kill_tasks.empty?
+                    Roby::ExecutionEngine.info do
+                        Roby::ExecutionEngine.info "EE: will kill the following tasks because of unhandled exceptions:"
+                        kill_tasks.each do |task|
+                            Roby::ExecutionEngine.info "  " + task.to_s
+                        end
+                        ""
+                    end
+                end
             end
             add_timepoint(stats, :exceptions_fatal)
 
@@ -960,6 +977,7 @@ module Roby
         # tasks for which errors have been detected.
         def garbage_collect(force_on = nil)
             if force_on && !force_on.empty?
+                ExecutionEngine.info "GC: adding #{force_on.size} tasks in the force_gc set"
                 plan.force_gc.merge(force_on.to_value_set)
             end
 
