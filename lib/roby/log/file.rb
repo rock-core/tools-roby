@@ -32,6 +32,14 @@ module Roby::Log
 		FileLogger.check_format(@event_io)
 	    end
 
+            @event_io.rewind
+            file_header = Marshal.load(@event_io)
+            if file_header[:plugins]
+                file_header[:plugins].each do |plugin_name|
+                    Roby.app.using plugin_name
+                end
+            end
+
 	    index_path = "#{basename}-index.log"
 	    if force_rebuild_index || !File.file?(index_path)
 		rebuild_index
@@ -158,13 +166,13 @@ module Roby::Log
 	# StringIO object on which we dump the data
 	attr_reader :dump_io
 
-	def initialize(basename)
+	def initialize(basename, options)
 	    @current_pos   = 0
 	    @dump_io	   = StringIO.new('', 'w')
 	    @current_cycle = Array.new
 	    @event_log = File.open("#{basename}-events.log", 'w')
 	    event_log.sync = true
-	    FileLogger.write_header(@event_log)
+	    FileLogger.write_header(@event_log, options)
 	    @index_log = File.open("#{basename}-index.log", 'w')
 	    index_log.sync = true
 	end
@@ -279,8 +287,8 @@ module Roby::Log
 	    end
 	end
 
-	def self.write_header(io)
-	    header = { :log_format => FORMAT_VERSION }
+	def self.write_header(io, options = Hash.new)
+	    header = { :log_format => FORMAT_VERSION }.merge(options)
 	    Marshal.dump(header, io)
 	end
 
