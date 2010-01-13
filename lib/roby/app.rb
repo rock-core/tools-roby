@@ -360,14 +360,13 @@ module Roby
 		new_logger.level     = level
 		new_logger.formatter = Roby.logger.formatter
 
-		if (mod = name.constantize rescue nil)
-		    if robot_name
-			new_logger.progname = "#{name} #{robot_name}"
-		    else
-			new_logger.progname = name
-		    end
-		    mod.logger = new_logger
-		end
+                mod = Kernel.constant(name)
+                if robot_name
+                    new_logger.progname = "#{name} #{robot_name}"
+                else
+                    new_logger.progname = name
+                end
+                mod.logger = new_logger
 	    end
 	end
 
