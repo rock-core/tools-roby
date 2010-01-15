@@ -274,7 +274,7 @@ module Roby
             # if +self+ has the noinfo flag set.
             if linked?(from, to)
                 if !(old_info = from[to, self]).nil?
-                    if old_info != info
+                    if old_info != info && !(info = merge_info(from, to, old_info, info))
                         raise ArgumentError, "trying to change edge information in #{self} for #{from} => #{to}: old was #{old_info} and new is #{info}"
                     end
                 end
@@ -302,18 +302,27 @@ module Roby
 	    end
 	end
 
+        def merge_info(from, to, old, new)
+        end
+
 	alias :__bgl_link :link
 	# Reimplemented from BGL::Graph. Unlike this implementation, it is
 	# possible to add an already existing edge if the +info+ parameter
 	# matches.
 	def link(from, to, info)
 	    if linked?(from, to)
-		if info != from[to, self]
-		    raise ArgumentError, "trying to change edge information"
+                old_info = from[to, self]
+		if info != old_info
+                    if info = merge_info(from, to, old_info, info)
+                        from[to, self] = info
+                        return
+                    else
+                        raise ArgumentError, "trying to change edge information"
+                    end
 		end
 		return
 	    end
-	    super
+	    super(from, to, info)
 	end
 
         # Remove the relation between +from+ and +to+, in this graph and in its

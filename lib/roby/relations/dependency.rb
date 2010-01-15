@@ -98,13 +98,7 @@ module Roby::TaskStructure
 
             # Check if there is already a dependency link. If it is the case,
             # merge the options. Otherwise, just add.
-            if child_object?(task, Dependency)
-                options = Dependency.merge_options(task, self[task, Dependency], options)
-                self[task, Dependency] = options
-            else
-                add_child(task, options)
-            end
-
+            add_child(task, options)
             self
         end
 
@@ -203,7 +197,7 @@ module Roby::TaskStructure
     end
     Hierarchy = Dependency
 
-    def Dependency.merge_options(task, opt1, opt2)
+    def Dependency.merge_info(parent, child, opt1, opt2)
         if opt1[:remove_when_done] != opt2[:remove_when_done]
             raise Roby::ModelViolation, "incompatible dependency specification: trying to change the value of +remove_when_done+"
         end
@@ -229,7 +223,7 @@ module Roby::TaskStructure
         else
             # Find the most generic model that +task+ fullfills and that
             # includes both +model1+ and +model2+
-            klass = task.model
+            klass = child.model
             while klass != Roby::Task && (klass <= model1 && klass <= model2)
                 candidate = klass
                 klass = klass.superclass

@@ -46,6 +46,13 @@ class TC_Relations < Test::Unit::TestCase
         assert_equal(false, n1[n2, r2])
         # But changing a non-nil value is not allowed
         assert_raises(ArgumentError) { n1.add_child_object(n2, r2, true) }
+
+        def r2.merge_info(from, to, old, new)
+            2
+        end
+        # Changing a non-nil value should yield the return value of merge_info
+        n1.add_child_object(n2, r2, true)
+        assert_equal 2, n1[n2, r2]
     end
 
     def test_relation_info_in_subgraphs
