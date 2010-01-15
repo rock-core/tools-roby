@@ -144,7 +144,15 @@ module Roby
     end
 
     RX_IN_FRAMEWORK = /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
-    def self.filter_backtrace(original_backtrace)
+    def self.filter_backtrace(original_backtrace = nil)
+        if !original_backtrace && block_given?
+            begin
+                return yield
+            rescue Exception => e
+                raise e, e.message, filter_backtrace(e.backtrace)
+            end
+        end
+
 	if Roby.app.filter_backtraces? && original_backtrace
             app_dir = if defined? APP_DIR then Regexp.quote(APP_DIR) end
 
