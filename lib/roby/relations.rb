@@ -199,12 +199,12 @@ module Roby
 	# +distributed+:: 
         #   if this relation graph should be seen by remote hosts
 	def initialize(name, options = {})
-	    @name = name
+	    @name    = name
 	    @options = options
 	    @subsets = ValueSet.new
 	    @distribute = options[:distribute]
-	    @dag = options[:dag]
-	    @weak = options[:weak]
+	    @dag     = options[:dag]
+	    @weak    = options[:weak]
             @embeds_info = !options[:noinfo]
 
 	    if options[:subsets]
