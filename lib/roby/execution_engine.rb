@@ -655,9 +655,9 @@ module Roby
                                 begin
                                     signalled.call_without_propagation(context) 
                                 rescue Roby::LocalizedError => e
-                                    add_error(e)
+                                    signalled.emit_failed(e)
                                 rescue Exception => e
-                                    add_error(Roby::CommandFailed.new(e, signalled))
+                                    signalled.emit_failed(Roby::CommandFailed.new(e, signalled))
                                 end
                             end
                         end

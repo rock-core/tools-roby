@@ -45,15 +45,15 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	end
 
 	Roby.logger.level = Logger::FATAL
+        Robot.logger.level = Logger::FATAL
 	engine.run
-	plan.add_mission(t = SimpleTask.new)
+	plan.add_permanent(t = SimpleTask.new)
 	assert_any_event(t.event(:success)) do 
 	    t.start!
 	    t.success!
 	end
 
-	# Make control quit and check that we get ControlQuitError
-	plan.add_mission(t = SimpleTask.new)
+	plan.add_permanent(t = SimpleTask.new)
 	assert_raises(Test::Unit::AssertionFailedError) do
 	    assert_any_event(t.event(:success)) do
 		t.start!
@@ -63,8 +63,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 
 	## Same test, but check that the assertion succeeds since we *are*
 	## checking that +failed+ happens
-	engine.run
-	plan.add_mission(t = SimpleTask.new)
+	plan.add_permanent(t = SimpleTask.new)
 	assert_nothing_raised do
 	    assert_any_event(t.event(:failed)) do
 		t.start!

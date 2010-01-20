@@ -494,19 +494,23 @@ module Roby
 	    what, message = *what
 	    what ||= EmissionFailed
 
-	    if !message && what.respond_to?(:to_str)
+	    if !message && !(what.kind_of?(Class) || what.kind_of?(Exception))
 		message = what.to_str
 		what = EmissionFailed
 	    end
 
-	    failure_message = "failed to emit #{self}: #{message}"
+	    failure_message =
+                if message then "failed to emit #{self}: #{message}"
+                elsif what.respond_to?(:message) then "failed to emit #{self}: #{what.message}"
+                else "failed to emit #{self}: #{message}"
+                end
+
 	    error = if Class === what then what.new(nil, self)
 		    else what
 		    end
 	    error = error.exception failure_message
 
 	    plan.engine.add_error(error)
-
 	ensure
 	    @pending = false
 	end

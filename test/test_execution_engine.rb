@@ -385,7 +385,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 		raise SpecificException, "bla"
             end
 	end
-	plan.add_mission(t = model.new)
+	plan.add_permanent(t = model.new)
 
 	assert_original_error(SpecificException, CommandFailed) { t.start! }
 	assert(!t.event(:start).pending?)
@@ -401,7 +401,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
                 end
 		on(:start) { |ev| mock.handler_called }
 	    end.new
-	    plan.add_mission(t)
+	    plan.add_permanent(t)
 
 	    mock.should_receive(:command_called).once
 	    mock.should_receive(:handler_called).never
