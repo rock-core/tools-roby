@@ -508,10 +508,14 @@ module Roby
 	    error = if Class === what then what.new(nil, self)
 		    else what
 		    end
+
+	    new_error = error.exception failure_message
+            new_error.set_backtrace error.backtrace
+            error = new_error
+
             if !error.kind_of?(LocalizedError)
                 error = EmissionFailed.new(error, self)
             end
-	    error = error.exception failure_message
 
 	    plan.engine.add_error(error)
 	ensure
