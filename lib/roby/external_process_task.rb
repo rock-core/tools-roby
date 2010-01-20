@@ -1,8 +1,9 @@
 module Roby
     trap 'SIGCHLD' do
         begin
-            pid = Process.waitpid
-            ExternalProcessTask.dead! pid, $?.dup
+            while pid = ::Process.wait(-1, ::Process::WNOHANG)
+                ExternalProcessTask.dead! pid, $?.dup
+            end
         rescue Errno::ECHILD
         end
     end
@@ -51,18 +52,25 @@ module Roby
         @processes = Hash.new
 
         # Called by the SIGCHLD handler to announce that a particular process
-        # has finished. It emits the right events on the corresponding task.
+        # has finished. It calls #dead!(result) in the context of the execution
+        # thread, on the corresponding task
         def self.dead!(pid, result) # :nodoc:
             task = processes[pid]
             return if !task
+            if engine = task.plan.engine
+                engine.once { task.dead!(result) }
+            end
+        end
 
-            engine = task.plan.engine
+        # Called to announce that this task has been killed. +result+ is the
+        # corresponding Process::Status object.
+        def dead!(result)
             if result.success?
-                engine.once { task.emit :success }
+                emit :success
             elsif result.signaled?
-                engine.once { task.emit :signaled, result }
+                emit :signaled, result
             else
-                engine.once { task.emit :failed, result }
+                emit :failed, result
             end
         end
 
