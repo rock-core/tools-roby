@@ -862,7 +862,7 @@ module Roby
         # corresponding one is created, but this time involving the newly
         # created task.
         def recreate(task)
-	    new_task = task.class.new(task.arguments.dup)
+	    new_task = task.create_fresh_copy
 	    replace_task(task, new_task)
             new_task
         end
