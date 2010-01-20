@@ -334,7 +334,8 @@ module Roby
 	    assert_nothing_raised do
 		begin
 		    yield
-		rescue localized_error_type => e
+		rescue Exception => e
+                    assert_kind_of(localized_error_type, e)
 		    assert_respond_to(e, :error)
 		    assert_kind_of(klass, e.error)
 		end
