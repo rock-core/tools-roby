@@ -475,8 +475,7 @@ module Roby
 
             if positive.all? { |ev| ev.unreachable? }
                 positive.each do |ev|
-                    Robot.info "#{ev} is unreachable because of"
-                    Roby.log_exception(ev, Robot.logger, :info)
+                    Robot.info "#{ev} is unreachable because of the following emission:"
                     Roby.log_exception(ev.unreachability_reason, Robot.logger, :info)
                 end
                 return true, "all positive events are unreachable"
