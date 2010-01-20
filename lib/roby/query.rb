@@ -271,7 +271,9 @@ module Roby
 
         # Enumerates all tasks of +plan+ which match this TaskMatcher object
 	def each(plan, &block)
-	    plan.query_each(plan.query_result_set(self), &block)
+            plan.each_task do |t|
+                yield(t) if self === t
+            end
 	    self
 	end
 
