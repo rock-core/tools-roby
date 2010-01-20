@@ -1272,10 +1272,10 @@ module Roby
 		if last_stop_count != remaining.size
 		    if last_stop_count == 0
 			ExecutionEngine.info "control quitting. Waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan)"
-			ExecutionEngine.debug "  " + remaining.to_a.join("\n  ")
+			ExecutionEngine.info "  " + remaining.to_a.join("\n  ")
 		    else
 			ExecutionEngine.info "waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan)"
-			ExecutionEngine.debug "  #{remaining.to_a.join("\n  ")}"
+			ExecutionEngine.info "  #{remaining.to_a.join("\n  ")}"
 		    end
 		    if plan.gc_quarantine.size != 0
 			ExecutionEngine.info "#{plan.gc_quarantine.size} tasks in quarantine"
