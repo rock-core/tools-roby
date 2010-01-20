@@ -1056,7 +1056,7 @@ module Roby
                             else
                                 finishing << local_task
                                 once do
-                                    ExecutionEngine.debug { "GC: stopping #{local_task}" }
+                                    ExecutionEngine.info { "GC: stopping #{local_task}" }
                                     local_task.stop!(nil)
                                 end
                             end
