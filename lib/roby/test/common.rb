@@ -81,6 +81,8 @@ module Roby
 	    Thread.abort_on_exception = false
 	    @remote_processes = []
 
+            Roby.app.setup_loggers
+
 	    if Test.check_allocation_count
 		GC.start
 		GC.disable
