@@ -1043,7 +1043,7 @@ module Roby
                     elsif local_task.starting?
                         # wait for task to be started before killing it
                         ExecutionEngine.debug { "GC: #{local_task} is starting" }
-                    elsif local_task.finished?
+                    elsif !local_task.running?
                         ExecutionEngine.debug { "GC: #{local_task} is not running, removed" }
                         plan.remove_object(local_task)
                         did_something = true

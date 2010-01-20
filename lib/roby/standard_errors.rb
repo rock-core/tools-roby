@@ -204,7 +204,7 @@ module Roby
     class MissionFailedError < LocalizedError
         # Create a new MissionFailedError for the given mission
 	def initialize(task)
-	    super(task.failure_event)
+	    super(task.failure_event || task)
 	end
 
         def pretty_print(pp)

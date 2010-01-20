@@ -171,6 +171,14 @@ module Roby
             super if defined? super
         end
 
+        def emit_failed(*reason)
+            if symbol == :start
+                task.failed_to_start = true
+                task.plan.task_index.set_state(task, :failed?)
+            end
+            super
+        end
+
 	# See EventGenerator#calling
 	#
 	# In TaskEventGenerator, this hook checks that the task is running
@@ -656,6 +664,7 @@ module Roby
 
 	def inspect
 	    state = if pending? then 'pending'
+		    elsif failed_to_start? then 'failed to start'
 		    elsif starting? then 'starting'
 		    elsif running? then 'running'
 		    elsif finishing? then 'finishing'
@@ -977,7 +986,7 @@ module Roby
         # (has been called, but is not emitted yet)
 	def starting?; event(:start).pending? end
 	# True if this task has never been started
-	def pending?; !starting? && !started? end
+	def pending?; !failed_to_start? && !starting? && !started? end
         # True if this task is currently running (i.e. is has already started,
         # and is not finished)
         def running?; started? && !finished? end
@@ -992,9 +1001,10 @@ module Roby
 	attr_predicate :started?, true
 	attr_predicate :finished?, true
 	attr_predicate :success?, true
+	attr_predicate :failed_to_start?, true
 
         # True if the +failed+ event of this task has been fired
-	def failed?; finished? && @success == false end
+	def failed?; failed_to_start? || (finished? && @success == false) end
 
 	# call-seq:
         #   task.clear_relations => task

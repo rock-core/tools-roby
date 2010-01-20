@@ -1162,5 +1162,20 @@ class TC_Task < Test::Unit::TestCase
 	new.event(:stop).call
 	assert(new.finished?, new.history)
     end
+
+    def test_failed_to_start
+	plan.add(task = Roby::Test::SimpleTask.new)
+        begin
+            task.event(:start).emit_failed
+        rescue Exception
+        end
+        assert task.failed_to_start?
+        assert task.failed?
+        assert !task.pending?
+        assert !task.running?
+        assert [], plan.find_tasks.pending.to_a
+        assert [], plan.find_tasks.running.to_a
+        assert [task], plan.find_tasks.failed.to_a
+    end
 end
 
