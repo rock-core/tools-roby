@@ -761,7 +761,6 @@ module Roby
 	    arguments.instance_variable_set(:@task, self)
 
 	    initialize_events
-	    plan.add(self)
 	end
 
 	def instantiate_model_event_relations
@@ -841,11 +840,21 @@ module Roby
 
 	def plan=(new_plan) # :nodoc:
 	    if plan != new_plan
-		if plan && plan.include?(self)
-		    raise ModelViolation.new, "still included in #{plan}, cannot change the plan"
-		elsif self_owned? && running?
-		    raise ModelViolation.new, "cannot change the plan of a running task"
-		end
+                # Event though I don't like it, there is a special case here.
+                #
+                # Namely, if plan is nil and we are running, it most likely
+                # means that we have been dup'ed. As it is a legal use, we have
+                # to admit it.
+                #
+                # Note that PlanObject#plan= will catch the case of a removed
+                # object that is being re-added in a plan.
+		if plan 
+                    if plan.include?(self)
+                        raise ModelViolation.new, "still included in #{plan}, cannot change the plan to #{new_plan}"
+                    elsif self_owned? && running?
+                        raise ModelViolation.new, "cannot change the plan of a running task"
+                    end
+                end
 	    end
 
 	    super

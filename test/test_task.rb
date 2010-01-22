@@ -1149,10 +1149,11 @@ class TC_Task < Test::Unit::TestCase
 	new = task.dup
 	assert_not_same(new.event(:stop), task.event(:stop))
 	assert_same(new, new.event(:stop).task)
-	assert(plan.include?(new))
+	assert(!plan.include?(new))
+        assert_equal(nil, new.plan)
 	assert_kind_of(Roby::TaskArguments, new.arguments)
 	assert_equal(task.arguments.to_hash, new.arguments.to_hash)
-	assert_same(plan, new.plan)
+        plan.add(new)
 	assert(new.event(:failed).child_object?(new.event(:stop), Roby::EventStructure::Forwarding))
 
 	task.stop!

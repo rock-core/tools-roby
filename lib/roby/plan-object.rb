@@ -153,6 +153,12 @@ module Roby
 	    end
 	end
 
+        def initialize_copy(other)
+            super if defined? super
+
+            @plan = nil
+        end
+
         # True if we should send updates about this object to +peer+
 	def update_on?(peer); (plan && plan.update_on?(peer)) || super end
         # True if we receive updates for this object from +peer+

@@ -121,7 +121,10 @@ module Roby
 	def initialize_copy(old) # :nodoc:
 	    super
 
-	    @history = old.history.dup
+	    @history  = old.history.dup
+            @handlers = old.handlers.dup
+            @unreachable_handlers = old.unreachable_handlers.dup
+            @preconditions = old.instance_variable_get(:@preconditions).dup
 	end
 
 	def model; self.class end
