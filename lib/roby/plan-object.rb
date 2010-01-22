@@ -153,6 +153,7 @@ module Roby
 	    end
 	end
 
+        alias :__freeze__ :freeze
         def initialize_copy(other)
             super if defined? super
 

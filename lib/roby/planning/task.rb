@@ -167,14 +167,6 @@ module Roby
 	    @planner = nil
 	    @thread = nil
 	end
-
-	class TransactionProxy < Roby::Transactions::Task
-	    proxy_for PlanningTask
-	    def_delegator :@__getobj__, :planner
-	    def_delegator :@__getobj__, :planning_method
-	    def_delegator :@__getobj__, :method_name
-	    def_delegator :@__getobj__, :method_options
-	end
     end
 end
 

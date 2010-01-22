@@ -27,8 +27,6 @@ class TC_TransactionAsPlan < Test::Unit::TestCase
 end
 
 module TC_TransactionBehaviour
-    include Roby::Transactions
-
     Hierarchy = Roby::TaskStructure::Hierarchy
     PlannedBy = Roby::TaskStructure::PlannedBy
     Signal = Roby::EventStructure::Signal
@@ -36,8 +34,12 @@ module TC_TransactionBehaviour
 
     SimpleTask = Roby::Test::SimpleTask
 
-    def test_proxy_creation
+    def test_wrap_task
         plan.add(t = SimpleTask.new)
+        plan.add(t_child = SimpleTask.new)
+        plan.add(t_parent = SimpleTask.new)
+        t.depends_on t_child
+        t_parent.depends_on t
         transaction_commit(plan) do |trsc|
             assert !trsc[t, false]
             assert trsc.known_tasks.empty?
@@ -45,6 +47,40 @@ module TC_TransactionBehaviour
             assert(proxy = trsc[t, true])
             assert(trsc.include?(proxy))
             assert_same(proxy, trsc[t, false])
+
+            assert_equal [], proxy.parent_objects(Hierarchy).to_a
+            assert_equal [], proxy.child_objects(Hierarchy).to_a
+        end
+    end
+
+    def test_wrap_task_event
+        plan.add(t1 = SimpleTask.new)
+        plan.add(t2 = SimpleTask.new)
+        old_start = t1.start_event
+        transaction_commit(plan) do |trsc|
+            t_proxy = trsc[t2]
+            proxy   = t_proxy.event(:start)
+            assert_same(proxy, trsc[t2.event(:start), false])
+            assert_equal(trsc, proxy.plan)
+
+            assert(proxy = trsc[t1.event(:start)])
+            assert_equal(proxy, trsc[t1].event(:start))
+            assert_same(proxy, trsc[t1.event(:start)])
+            assert_equal(trsc, proxy.plan)
+        end
+
+        assert_equal [t1, t2].to_value_set, plan.known_tasks
+        assert_same old_start, t1.start_event
+    end
+
+    def test_may_unwrap
+        plan.add(t = SimpleTask.new)
+        transaction_commit(plan, t) do |trsc, p|
+            assert_equal t, trsc.may_unwrap(p)
+            assert_equal t.event(:start), trsc.may_unwrap(p.event(:start))
+
+            t = SimpleTask.new
+            assert_equal t, trsc.may_unwrap(t)
         end
     end
 
@@ -295,7 +331,6 @@ module TC_TransactionBehaviour
         assert(!plan.permanent?(e4))
     end
 
-
     def test_commit_task_relations
 	(t1, t2), (t3, t4) = prepare_plan(:missions => 2, :tasks => 2)
 	t1.depends_on t2
@@ -308,19 +343,25 @@ module TC_TransactionBehaviour
 	assert(PlannedBy.linked?(t3, t4))
 
 	t = Roby::Task.new
-	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+	transaction_commit(plan, t1) do |trsc, p1|
+            assert_equal([], p1.parent_objects(Hierarchy).to_a)
+            assert_equal([], p1.child_objects(Hierarchy).to_a)
 	    t.depends_on p1
 	    assert(Hierarchy.linked?(t, p1))
 	    assert(!Hierarchy.linked?(t, t1))
 	end
+	assert(Hierarchy.linked?(t1, t2))
 	assert(Hierarchy.linked?(t, t1))
 
 	t = Roby::Task.new
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    p2.depends_on t
 	    assert(Hierarchy.linked?(p2, t))
+            assert_equal trsc, p2.plan
+            assert_equal trsc, t.plan
 	    assert(!Hierarchy.linked?(t2, t))
 	end
+        assert_equal plan, t.plan
 	assert(Hierarchy.linked?(t2, t))
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
@@ -542,10 +583,13 @@ class TC_Transactions < Test::Unit::TestCase
     end
 
     def test_commit_event_handlers
-	plan.add(e = Roby::EventGenerator.new(true))
-	def e.called_by_handler(mock)
-	    mock.called_by_handler
-	end
+        model = Class.new(Roby::EventGenerator) do
+            def called_by_handler(mock)
+                mock.called_by_handler
+            end
+        end
+
+	plan.add(e = model.new(true))
 
 	FlexMock.use do |mock|
 	    transaction_commit(plan, e) do |trsc, pe|
@@ -555,7 +599,12 @@ class TC_Transactions < Test::Unit::TestCase
 
 	    mock.should_receive(:handler_called).once
 	    mock.should_receive(:called_by_handler).once
-	    e.call(nil)
+            begin
+                e.call(nil)
+            rescue Exception => e
+                pp e
+                raise
+            end
 	end
     end
 

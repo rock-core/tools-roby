@@ -303,7 +303,7 @@ module Roby
 	    # Call the block with the objects in +objects+ added to the
 	    # updated_objects set
 	    def update(object)
-		if object.respond_to?(:__getobj__) && !object.kind_of?(Roby::Transactions::Proxy)
+		if object.respond_to?(:__getobj__) && !object.kind_of?(Roby::Transaction::Proxying)
 		    object = object.__getobj__
 		end
 

@@ -3,7 +3,6 @@ require 'roby/test/common'
 require 'roby/test/tasks/simple_task'
 
 class TC_TransactionsProxy < Test::Unit::TestCase
-    include Roby::Transactions
     include Roby::Test
 
     attr_reader :transaction
@@ -28,11 +27,18 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     def test_task_proxy
 	plan.add_mission(t = Roby::Task.new)
 	p = transaction[t]
+
 	assert_equal(p, p.root_object)
 	assert(p.root_object?)
+        assert_equal(transaction, p.plan)
+        p.each_event do |ev|
+            assert_equal(transaction, ev.plan)
+        end
 
 	wrapped_start = transaction[t.event(:start)]
-	assert_kind_of(Roby::Transactions::TaskEventGenerator, wrapped_start)
+	assert_kind_of(Roby::TaskEventGenerator::Proxying, wrapped_start)
+        assert_equal(wrapped_start, p.event(:start))
+
 	assert_equal(p, wrapped_start.root_object)
 	assert(!wrapped_start.root_object?)
 	assert_equal(wrapped_start, p.event(:start))
@@ -44,14 +50,14 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     def test_event_proxy
 	plan.add(ev = EventGenerator.new)
 	wrapped = transaction[ev]
-	assert_kind_of(Roby::Transactions::EventGenerator, wrapped)
+	assert_kind_of(EventGenerator::Proxying, wrapped)
 	assert_equal(plan, ev.plan)
 	assert_equal(transaction, wrapped.plan)
 	assert(wrapped.root_object?)
     end
 
     def assert_is_proxy_of(object, wrapper, klass)
-	assert(wrapper.model.has_ancestor?(klass))
+	assert(wrapper.kind_of?(klass))
 	assert_equal(object, wrapper.__getobj__)
     end
 
@@ -60,9 +66,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	    define_method("forbidden") {}
 	end
 
-	proxy_klass = Class.new(Roby::EventGenerator) do
-	    include Proxy
-
+	proxy_klass = Module.new do
 	    proxy_for real_klass
 	    def clear_vertex; end
 	end
@@ -81,18 +85,15 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     def test_proxy_derived
 	base_klass = Class.new(Roby::EventGenerator)
 	derv_klass = Class.new(base_klass)
-	proxy_base_klass = Class.new(Roby::EventGenerator) do
-	    include Proxy
+	proxy_base_klass = Module.new do
 	    proxy_for base_klass
 	    def clear_vertex; end
 	end
 
-	proxy_derv_klass = Class.new(Roby::EventGenerator) do
-	    include Proxy
+	proxy_derv_klass = Module.new do
 	    proxy_for derv_klass
 	    def clear_vertex; end
 	end
-
 
 	base_obj = base_klass.new
 	base_obj.plan = plan

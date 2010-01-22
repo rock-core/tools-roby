@@ -6,17 +6,18 @@ module Roby
     # sandbox, and then to apply the modifications to the real plan (using #commit_transaction), or
     # to discard all modifications (using #discard)
     class Transaction < Plan
-	Proxy = Transactions::Proxy
-	
 	# A transaction is not an executable plan
 	def executable?; false end
         attr_predicate :freezed
         attr_predicate :committed
 
-	def do_wrap(object, do_include = false) # :nodoc:
+        def register_proxy(proxy, object, do_include = false)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 
-	    proxy = proxy_objects[object] = Proxy.proxy_class(object).new(object, self)
+            proxy.extend Transaction::Proxying.proxying_module_for(object.model)
+            proxy.setup_proxy(object, self)
+            proxy_objects[object] = proxy
+
 	    if do_include && object.root_object?
 		proxy.plan = self
 		add(proxy)
@@ -24,6 +25,22 @@ module Roby
 
 	    copy_object_relations(object, proxy)
 	    proxy
+        end
+
+	def do_wrap(object, do_include = false) # :nodoc:
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+
+	    if proxy = proxy_objects[object]
+                return proxy
+            elsif !object.root_object?
+                do_wrap(object.root_object, do_include)
+                if !(proxy = proxy_objects[object])
+                    raise InternalError, "#{object} should have been wrapped but is not"
+                end
+                register_proxy(proxy, object, do_include)
+            else
+                register_proxy(object.dup, object, do_include)
+            end
 	end
 
 	def propose; end
@@ -66,17 +83,17 @@ module Roby
                 end
 
 		if create
-		    if object.plan == self.plan
-			wrapped = do_wrap(object, true)
-			if plan.mission?(object)
-			    add_mission(wrapped)
-			elsif plan.permanent?(object)
-			    add_permanent(wrapped)
-			end
-			return wrapped
-		    else
+		    if object.plan != self.plan
 			raise ArgumentError, "#{object} is in #{object.plan}, this transaction #{self} applies on #{self.plan}"
-		    end
+                    end
+
+                    wrapped = do_wrap(object, true)
+                    if plan.mission?(object)
+                        add_mission(wrapped)
+                    elsif plan.permanent?(object)
+                        add_permanent(wrapped)
+                    end
+                    return wrapped
 		end
 		nil
 	    elsif object.respond_to?(:to_ary) 
@@ -87,7 +104,9 @@ module Roby
 		raise TypeError, "don't know how to wrap #{object || 'nil'} of type #{object.class.ancestors}"
 	    end
 	end
-	alias :[] :wrap
+        def [](*args)
+            wrap(*args)
+        end
 
 	def restore_relation(proxy, relation)
 	    object = proxy.__getobj__
@@ -335,7 +354,7 @@ module Roby
 		insert    = ValueSet.new
 		permanent = ValueSet.new
 		known_tasks.dup.each do |t|
-		    unwrapped = if t.kind_of?(Transactions::Proxy)
+		    unwrapped = if t.kind_of?(Transaction::Proxying)
 				    finalized_task(t)
 				    t.__getobj__
 				else
@@ -355,13 +374,14 @@ module Roby
 		end
 
 		free_events.dup.each do |ev|
-		    unwrapped = if ev.kind_of?(Transactions::Proxy)
+		    unwrapped = if ev.kind_of?(Transaction::Proxying)
 				    finalized_event(ev)
 				    ev.__getobj__
 				else
 				    free_events.delete(ev)
 				    ev
 				end
+
                     if permanent_events.include?(ev) && ev.self_owned?
                         permanent_events.delete(ev)
                         permanent << unwrapped
@@ -396,9 +416,9 @@ module Roby
 		clear
 		# Replace proxies by forwarder objects
 		proxies.each do |object, proxy|
-		    forwarder = Proxy.forwarder(object)
-		    forwarder.freeze
-		    Kernel.swap! proxy, forwarder
+		    forwarder_module = Transaction::Proxying.forwarder_module_for(object.model)
+                    proxy.extend forwarder_module
+                    proxy.__freeze__
 		end
 
                 @committed = true

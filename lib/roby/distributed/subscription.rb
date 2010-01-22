@@ -31,7 +31,7 @@ module Roby
 	    # method will thus subscribe to both at the same time. Peer#subscribe
 	    # is supposed to do the same
 	    def subscribe_plan_object(object)
-		if Transactions::Proxy === object && object.__getobj__.self_owned?
+		if object.kind_of?(Transaction::Proxying) && object.__getobj__.self_owned?
 		    subscribe_plan_object(object.__getobj__)
 		end
 		set_relations_commands(object)

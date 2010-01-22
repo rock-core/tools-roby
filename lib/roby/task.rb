@@ -1023,10 +1023,7 @@ module Roby
         #   task.clear_relations => task
         #
         # Remove all relations in which +self+ or its event are involved
-        #--
-        # The including_events flag is here for the benefit of
-        # Transactions::Proxy::Task only
-	def clear_relations(including_events = true)
+	def clear_relations
             if including_events
                 each_event { |ev| ev.clear_relations }
             end
@@ -1877,7 +1874,7 @@ module Roby
 	    super if defined? super
 
 	    arguments.dup.each do |key, value|
-		if value.kind_of?(Roby::Transactions::Proxy)
+		if value.kind_of?(Roby::Transaction::Proxying)
 		    arguments.update!(key, value.__getobj__)
 		end
 	    end
