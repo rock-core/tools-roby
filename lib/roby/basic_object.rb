@@ -25,7 +25,7 @@ module Roby
 	end
 
 	# True if instances of this class should be seen by remote hosts
-	def self.distribute?; !(@distribute == false) end
+	def self.distribute?; !(instance_variable_defined?(:@distribute) && @distribute == false) end
 	# Call to make the object of this class never seen by remote hosts
 	def self.local_only; @distribute = false end
 
