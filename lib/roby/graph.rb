@@ -4,7 +4,7 @@ end
 
 module BGL
     module Vertex
-        def initialize
+        def initialize(*args, &block)
             super
 	    @__bgl_graphs__ = nil
         end
