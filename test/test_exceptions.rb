@@ -9,6 +9,8 @@ class TC_Exceptions < Test::Unit::TestCase
     include Roby::Test
     class SpecializedError < LocalizedError; end
 
+    DO_PRETTY_PRINT = false
+
     def test_execution_exception_initialize
 	plan.add(task = Task.new)
 	error = ExecutionException.new(LocalizedError.new(task))
@@ -519,9 +521,7 @@ class TC_Exceptions < Test::Unit::TestCase
                 rescue Exception => e; e
                 end
         assert_kind_of CodeError, e
-        assert_nothing_raised do
-            Roby.format_exception e
-        end
+        check_exception_formatting(e)
 
         trace = e.error.backtrace
         filtered = Roby.filter_backtrace(trace)
@@ -529,21 +529,29 @@ class TC_Exceptions < Test::Unit::TestCase
         assert(filtered[1] =~ /test_filter_command_errors/,   filtered[1])
     end
 
-    def test_filter_handler_errors
-        task = prepare_plan :permanent => 1, :model => SimpleTask
-        task.on(:start) { raise ArgumentError }
+    def test_code_error_formatting
+        model = Class.new(SimpleTask) do
+            event :start do
+                raise ArgumentError
+            end
+        end
+        task = prepare_plan :permanent => 1, :model => model
         error = begin task.start!
                 rescue Exception => e; e
                 end
-        assert_kind_of CodeError, e
-        assert_nothing_raised do
-            Roby.format_exception e
-        end
+        check_exception_formatting(e)
 
-        trace = e.error.backtrace
-        filtered = Roby.filter_backtrace(trace)
-        assert(filtered[0] =~ /event handler/, filtered.join("\n"))
-        assert(filtered[1] =~ /test_filter_handler_errors/, filtered.join("\n"))
+
+        model = Class.new(SimpleTask) do
+            event :start do
+                start_event.emit_failed
+            end
+        end
+        task = prepare_plan :permanent => 1, :model => model
+        error = begin task.start!
+                rescue Exception => e; e
+                end
+        check_exception_formatting(e)
 
         model = Class.new(SimpleTask) do
             on :start do
@@ -554,38 +562,18 @@ class TC_Exceptions < Test::Unit::TestCase
         error = begin task.start!
                 rescue Exception => e; e
                 end
-        assert_kind_of CodeError, e
-        assert_nothing_raised do
-            Roby.format_exception e
-        end
-
-        trace = e.error.backtrace
-        filtered = Roby.filter_backtrace(trace)
-        assert(filtered[0] =~ /event handler for 'start'$/, filtered.join("\n"))
-        assert(filtered[1] =~ /test_filter_handler_errors/, filtered.join("\n"))
+        check_exception_formatting(e)
     end
 
-    def test_filter_polling_errors
-        model = Class.new(SimpleTask) do
-            poll do
-                raise ArgumentError, "bla"
+    def check_exception_formatting(error)
+        if DO_PRETTY_PRINT
+            STDERR.puts "---- #{error.class}"
+            Roby.format_exception(error).each do |line|
+                STDERR.puts line
             end
-        end
-
-        parent = prepare_plan :permanent => 1, :model => SimpleTask
-        child = prepare_plan :permanent => 1, :model => model
-        parent.depends_on child
-        parent.start!
-        child.start!
-        child.failed!
-
-	error = TaskStructure::Hierarchy.check_structure(plan).first.exception
-	assert_kind_of(ChildFailedError, error)
-        assert_nothing_raised do
+        else
             Roby.format_exception(error)
         end
-        # To silently finish the test ...
-        parent.stop!
     end
 end
 
