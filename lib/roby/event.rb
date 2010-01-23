@@ -511,9 +511,12 @@ module Roby
                 else "failed to emit #{self}: #{message}"
                 end
 
-	    error = if Class === what then what.new(nil, self)
-		    else what
-		    end
+            if Class === what 
+                error = what.new(nil, self)
+                error.set_backtrace caller(1)
+            else
+                error = what
+            end
 
 	    new_error = error.exception failure_message
             new_error.set_backtrace error.backtrace
