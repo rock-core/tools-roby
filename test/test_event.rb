@@ -965,5 +965,31 @@ class TC_Event < Test::Unit::TestCase
 	    assert(delayed.happened?)
 	end
     end
+
+    def test_exception_in_once_handler
+        plan.add(ev = EventGenerator.new(true))
+        FlexMock.use do |mock|
+            ev.on { mock.called_other_handler }
+            ev.once { raise ArgumentError }
+            ev.once { mock.called_other_once_handler }
+
+            mock.should_receive(:called_other_handler).once
+            mock.should_receive(:called_other_once_handler).once
+            assert_raises(EventHandlerError) { ev.call }
+        end
+    end
+
+    def test_exception_in_handler
+        plan.add(ev = EventGenerator.new(true))
+        FlexMock.use do |mock|
+            ev.on { mock.called_other_handler }
+            ev.on { raise ArgumentError }
+            ev.once { mock.called_other_once_handler }
+
+            mock.should_receive(:called_other_handler).once
+            mock.should_receive(:called_other_once_handler).once
+            assert_raises(EventHandlerError) { ev.call }
+        end
+    end
 end
 

@@ -488,7 +488,7 @@ module Roby
                 begin
                     h.call(event)
                 rescue Exception => e
-                    plan.engine_add_error( EventHandlerError.new(e, event) )
+                    plan.engine.add_error( EventHandlerError.new(e, event) )
                 end
             end
             once_handlers.clear
