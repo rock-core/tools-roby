@@ -49,6 +49,7 @@ class TC_Task < Test::Unit::TestCase
 	model = Class.new(Task) do
             arguments :arg, :to
 
+            undef_method :arg=
             def arg=(value)
                 arguments[:assigned] = true
                 arguments[:arg] = value

@@ -11,6 +11,7 @@ require 'roby/distributed/protocol'
 
 module Rinda
     class NotifyTemplateEntry
+        undef_method :pop
 	def pop(nonblock = false)
 	    raise RequestExpiredError if @done
 	    it = @queue.pop(nonblock) rescue nil
