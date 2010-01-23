@@ -105,8 +105,7 @@ module Roby
 
 	def pretty_print(pp) # :nodoc:
 	    if error
-                pp.text "#{self.class.name}: user code raised an exception "
-                failure_point.pretty_print(pp)
+                pp_failure_point(pp)
                 pp.breakable
                 pp.breakable
                 error.pretty_print(pp)
@@ -114,10 +113,20 @@ module Roby
 		super
 	    end
 	end
+
+        def pp_failure_point(pp)
+            pp.text "#{self.class.name}: user code raised an exception "
+            failure_point.pretty_print(pp)
+        end
     end
 
     # Raised if a command block has raised an exception
-    class CommandFailed < CodeError; end
+    class CommandFailed < CodeError
+        def pp_failure_point(pp)
+            pp.text "uncaught exception in the command of the "
+            failed_generator.pretty_print(pp)
+        end
+    end
     # Raised when the call of an event has been canceled.
     # See EventGenerator#cancel.
     class EventCanceled < LocalizedError; end
@@ -126,9 +135,38 @@ module Roby
     class EventPreconditionFailed < LocalizedError; end
     # Raised when the emission of an event has failed.
     # See EventGenerator#emit_failed.
-    class EmissionFailed < CodeError; end
+    class EmissionFailed < CodeError
+	def pretty_print(pp) # :nodoc:
+            pp.text "failed emission of "
+            failed_generator.pretty_print(pp)
+            pp.breakable
+            if error
+                pp.text "because of the following uncaught exception "
+                if error.respond_to?(:pp_failure_point)
+                    error.pp_failure_point(pp)
+                else
+                    pp.text error.message
+                end
+            else
+                if backtrace && !backtrace.empty?
+                    Roby.pretty_print_backtrace(pp, backtrace)
+                end
+            end
+	end
+
+        def pp_failure_point(pp)
+        end
+    end
     # Raised when an event handler has raised.
-    class EventHandlerError < CodeError; end
+    class EventHandlerError < CodeError
+        def pp_failure_point(pp)
+            pp.text "uncaught exception in an event handler of the "
+            failed_generator.pretty_print(pp)
+            pp.breakable
+            pp.text "called during the propagation of "
+            failed_event.pretty_print(pp)
+        end
+    end
 
     # Raised when an exception handler has raised.
     class FailedExceptionHandler < CodeError
@@ -153,7 +191,7 @@ module Roby
 	end
 
 	def pretty_print(pp) # :nodoc:
-            pp.text "#{generator} has become unreachable"
+            pp.text "#{generator} has become unreachable "
 	    if failure_point
 		pp.breakable ':'
                 failure_point.pretty_print(pp)

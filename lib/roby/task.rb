@@ -94,15 +94,6 @@ module Roby
 	    "#{generator.to_s}@#{propagation_id} [#{time.to_hms}]: #{context}"
 	end
 
-        def pretty_print(pp)
-            pp.text "at [#{time.to_hms}/#{propagation_id}] in the "
-            generator.pretty_print(pp)
-            pp.breakable
-            pp.group(2) do
-                pp.seplist(context || []) { |v| v.pretty_print pp }
-            end
-        end
-
         # If the event model defines a controlable event
         # By default, an event is controlable if the model
         # responds to #call
