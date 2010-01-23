@@ -67,7 +67,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_agent_start_failed
-	plan.add_mission(task = SimpleTask.new)
+	plan.add_permanent(task = SimpleTask.new)
 	exec = Class.new(SimpleTask) do
 	    event :ready
 	    signal :start => :failed
@@ -75,8 +75,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	task.executed_by exec
 
 	assert_original_error(NilClass, EmissionFailed) { task.start! }
-	assert(!task.running?)
-	assert(!exec.running?)
+	assert(task.failed?)
 	assert(exec.finished?)
     end
 
@@ -141,27 +140,30 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	task_model = Class.new(SimpleTask)
 	task_model.executed_by ExecutionAgentModel, :id => 2
 
-	plan.add_mission(task = task_model.new)
-
         # Wrong agent type
+	plan.add_permanent(task = task_model.new)
         plan.remove_object(task.execution_agent)
         task.executed_by SecondExecutionModel.new(:id => 2)
         assert_raises(Roby::CommandFailed) { task.start! }
+        assert task.failed?
 
         # Wrong agent arguments
+	plan.add_permanent(task = task_model.new)
         plan.remove_object(task.execution_agent)
         task.executed_by ExecutionAgentModel.new(:id => 3)
         assert_raises(Roby::CommandFailed) { task.start! }
+        assert task.failed?
     end
 
     def test_model_requires_agent_but_none_exists
 	task_model = Class.new(SimpleTask)
 	task_model.executed_by ExecutionAgentModel, :id => 2
 
-	plan.add_mission(task = task_model.new)
+	plan.add_permanent(task = task_model.new)
         plan.remove_object(task.execution_agent)
 
         assert_raises(Roby::CommandFailed) { task.start! }
+        assert task.failed?
     end
 
     def test_respawn
@@ -190,12 +192,13 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_cannot_respawn
-	plan.add_mission(task  = Class.new(SimpleTask).new)
+	plan.add_permanent(task  = Class.new(SimpleTask).new)
 	task.executed_by(agent = ExecutionAgentModel.new)
 
 	agent.start!
 	agent.stop!
 	assert_raises(CommandFailed) { task.start! }
+        assert(task.failed?)
     end
 
     def test_initialization
