@@ -100,7 +100,7 @@ module Roby
                 rect[2] *= 1.2
                 rect[3] *= 1.2
 		item.z_value = Log::PLAN_LAYER + depth - max_depth
-		item.set_rect *rect
+		item.set_rect(*rect)
 	    else
 		Roby::Log.warn "no bounding rectangle for #{self} (#{dot_id})"
 	    end

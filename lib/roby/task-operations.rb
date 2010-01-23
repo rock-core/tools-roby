@@ -27,11 +27,16 @@ module Roby
     end
 
     class TaskAggregator < Roby::Task
+        def initialize(arguments = Hash.new)
+            @tasks = Array.new
+            @name = nil
+            super
+        end
+
 	terminates
 	event(:start, :command => true)
 
 	attr_reader :tasks
-	def initialize(arguments = {}); @tasks = Array.new; super end
 	def each_task(&iterator)
 	    yield(self)
 	    tasks.each(&iterator) 

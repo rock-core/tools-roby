@@ -14,6 +14,8 @@ module Roby
         # Create a LocalizedError object with the given failure point
         def initialize(failure_point)
 	    @failure_point = failure_point
+
+            @failed_task, @failed_event, @failed_generator = nil
 	    if failure_point.kind_of?(Event)
 		@failed_event = failure_point
 		@failed_generator = failure_point.generator

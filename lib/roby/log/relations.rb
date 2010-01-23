@@ -138,7 +138,7 @@ module Roby
 
 	    if @width != width || @height != height
 		@width, @height = width, height
-		coords = Qt::RectF.new -(width / 2), -(height / 2), width, height
+		coords = Qt::RectF.new( -(width / 2), -(height / 2), width, height )
 		graphics_item.rect = coords
 	    end
 
@@ -587,7 +587,7 @@ module Roby
 			bb
 		    end
 		end
-		bb.adjust -FIND_MARGIN, -FIND_MARGIN, FIND_MARGIN, FIND_MARGIN
+		bb.adjust(-FIND_MARGIN, -FIND_MARGIN, FIND_MARGIN, FIND_MARGIN)
 		ui.graphics.fit_in_view bb, Qt::KeepAspectRatio
 		scale = ui.graphics.matrix.m11
 		if scale > 1

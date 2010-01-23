@@ -2,6 +2,10 @@ module Roby
     class BasicObject
 	include DRbUndumped
 
+        def initialize
+            @distribute = nil
+        end
+
 	def initialize_copy(old) # :nodoc:
 	    super
 

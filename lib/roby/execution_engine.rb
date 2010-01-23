@@ -135,7 +135,10 @@ module Roby
             plan.engine = self
             @control = control
 
+            @propagation = nil
             @propagation_id = 0
+            @propagation_exceptions = nil
+            @application_exceptions = nil
             @delayed_events = []
             @process_once = Queue.new
             @event_ordering = Array.new

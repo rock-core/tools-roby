@@ -241,7 +241,7 @@ module Roby
 			dirname = Roby::Application.unique_dirname(basedir, dataset_prefix)
 
 			if Roby.app.testing_overwrites_logs?
-			    dirname.gsub! /\.\d+$/, ''
+			    dirname.gsub!(/\.\d+$/, '')
 			    FileUtils.rm_rf dirname
 			end
 

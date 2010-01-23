@@ -4,6 +4,11 @@ end
 
 module BGL
     module Vertex
+        def initialize
+            super
+	    @__bgl_graphs__ = nil
+        end
+
 	def initialize_copy(old)
 	    super
 	    @__bgl_graphs__ = nil

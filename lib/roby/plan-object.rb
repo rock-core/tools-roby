@@ -3,6 +3,19 @@ module Roby
     class PlanObject < BasicObject
 	include DirectedRelationSupport
 
+        def initialize
+            super
+            @plan       = nil
+            @removed_at = nil
+            @executable = nil
+        end
+
+        def initialize_copy(other)
+            super if defined? super
+
+            @plan = nil
+        end
+
 	# The plan this object belongs to
 	attr_reader :plan
 
@@ -154,11 +167,6 @@ module Roby
 	end
 
         alias :__freeze__ :freeze
-        def initialize_copy(other)
-            super if defined? super
-
-            @plan = nil
-        end
 
         # True if we should send updates about this object to +peer+
 	def update_on?(peer); (plan && plan.update_on?(peer)) || super end

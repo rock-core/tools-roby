@@ -210,6 +210,10 @@ module Roby
 	# Creates a new transaction which applies on +plan+
 	def initialize(plan, options = {})
 	    @options = options
+            @freezed = false
+            @disable_proxying = false
+            @invalid = false
+
 	    super()
 
 	    @plan   = plan

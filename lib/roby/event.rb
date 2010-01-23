@@ -151,6 +151,7 @@ module Roby
 	    @handlers = []
 	    @pending  = false
 	    @unreachable = false
+            @unreachable_event = nil
 	    @unreachable_handlers = []
 
 	    if command_object || command_block
@@ -161,6 +162,8 @@ module Roby
 			       else
 				   method(:default_command)
 			       end
+            else
+                @command = nil
 	    end
 	    super() if defined? super
 

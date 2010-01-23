@@ -32,10 +32,7 @@ module Roby::Distributed
 	local_only
 
 	argument :peer
-	def peer; arguments[:peer] end
-
 	event :ready
-	def ready?; event(:ready).happened? end
 
 	event :aborted, :terminal => true do |context|
 	    peer.disconnected!

@@ -692,7 +692,8 @@ module Roby
                 end
             end
 
-	    @model = self.class
+            @success = nil
+	    @model   = self.class
 
             yield(self) if block_given?
             # Create the EventGenerator instances that represent this task's
