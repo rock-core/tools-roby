@@ -227,6 +227,9 @@ class TC_Planner < Test::Unit::TestCase
 	    method(:root, :returns => tm1)
 	    method(:root, :id => 'nil') { }
 	    method(:root, :id => 'tm2', :returns => tm2) { }
+
+            method :single_planning_method, :returns => tm1 do
+            end
 	end
 	derived = Class.new(base) do
 	    method(:root, :id => 'derived', :returns => tm2) { }
@@ -239,6 +242,8 @@ class TC_Planner < Test::Unit::TestCase
 	assert_equal(tm1, derived.model_of(:root, :id => 'nil').returns)
 	assert_equal(tm2, derived.model_of(:root, :id => 'tm2').returns)
 	assert_equal(tm2, derived.model_of(:root, :id => 'derived').returns)
+
+        assert_equal(tm1, base.model_of(:single_planning_method).returns)
     end
 
     def test_returns_validation

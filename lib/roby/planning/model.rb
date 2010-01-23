@@ -643,7 +643,7 @@ module Roby
 		send("#{name}_filters") << filter
 	    end
 
-	    def self.each_method(name, id, &iterator)
+	    def self.each_method(name, id = nil, &iterator)
 		send("each_#{name}_method", id, &iterator)
 	    end
 
@@ -700,6 +700,14 @@ module Roby
 			    enum_for("each_method", name, options[:id]).find { true }
 			end
 		model ||= method_model(name)
+                if !model
+                    # If there is only one method with that name, use it
+                    methods = enum_for("each_method", name).to_a
+                    if methods.size == 1
+                        model = methods[0][1]
+                    end
+                end
+
 		model || default_method_model(name)
 	    end
 
