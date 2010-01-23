@@ -205,7 +205,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	t_p2.depends_on t_child, :model => klass
         assert_equal([[klass], { :id => 'discover-3' }], t_child.fullfilled_model)
         trsc.remove_object(t_p2)
-        assert_equal([[SimpleTask], { :id => 'discover-3' }], t_child.fullfilled_model)
+        assert_equal([[klass], { :id => 'discover-3' }], t_child.fullfilled_model)
     end
 
     def test_first_children
