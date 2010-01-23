@@ -423,15 +423,6 @@ class TC_Task < Test::Unit::TestCase
         klass.new
     end
 
-    def test_should_not_establish_signal_from_terminal_to_non_terminal
-	klass = Class.new(Task) do
-	    event :terminal, :terminal => true
-            event :intermediate, :command => true
-	end
-        assert_raises(ArgumentError) { klass.signal :terminal => :intermediate }
-        klass.new
-    end
-
     # Tests Task::event
     def test_event_declaration
 	klass = Class.new(Task) do

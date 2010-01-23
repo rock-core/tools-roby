@@ -56,16 +56,27 @@ module TC_PlanStatic
         assert_task_state(t, :normal)
     end
     def test_remove_task
-	plan.remove_object(t)
-        assert_task_state(t, :removed)
+	t1, t2, t3 = (1..3).map { Roby::Task.new }
+	t1.depends_on t2
+	t1.signals(:stop, t3, :start)
+
+	plan.add_mission(t1)
+	plan.add_mission(t3)
+
+	assert(!t1.leaf?)
+	plan.remove_object(t2)
+        assert_task_state(t2, :removed)
+	assert(t1.leaf?)
+	assert(!plan.include?(t2))
+
+	assert(!t1.event(:stop).leaf?(EventStructure::Signal))
+	plan.remove_object(t3)
+        assert_task_state(t3, :removed)
+	assert(t1.event(:stop).leaf?(EventStructure::Signal))
     end
 
     def test_add_mission
 	plan.add_mission(t = Task.new)
-        assert_task_state(t, :mission)
-    end
-    def test_add_mission_deprecated_insert
-	plan.insert(t = Task.new)
         assert_task_state(t, :mission)
     end
     def test_unmark_mission
@@ -311,25 +322,6 @@ module TC_PlanStatic
 	assert(! plan.mission?(c1) )
 	assert( plan.mission?(c3) )
 	assert( plan.include?(c1) )
-    end
-
-    def test_remove_task
-	t1, t2, t3 = (1..3).map { Roby::Task.new }
-	t1.depends_on t2
-	t1.signals(:stop, t3, :start)
-
-	plan.add_mission(t1)
-	plan.add_mission(t3)
-
-	assert(!t1.leaf?)
-	plan.remove_object(t2)
-	assert(t1.leaf?)
-	assert(!plan.include?(t2))
-
-	assert(!t1.event(:stop).leaf?(EventStructure::Signal))
-	plan.remove_object(t3)
-	assert(t1.event(:stop).leaf?(EventStructure::Signal))
-	assert(!plan.include?(t3))
     end
 
     def test_free_events
