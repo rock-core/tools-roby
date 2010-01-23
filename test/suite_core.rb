@@ -16,6 +16,7 @@ require 'test_transactions'
 require 'test_transactions_proxy'
 
 require 'tasks/test_thread_task'
+require 'tasks/test_external_process'
 
 require 'test_testcase'
 
