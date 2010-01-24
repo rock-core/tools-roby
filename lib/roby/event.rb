@@ -631,11 +631,7 @@ module Roby
 	    end
 
 	    ev.if_unreachable(true) do |reason|
-		msg = "#{ev} is unreachable#{ " (#{reason})" if reason }, in #{stack.first}"
-		if ev.respond_to?(:task)
-		    msg << "\n  " << ev.task.history.map { |ev| "#{ev.time.to_hms} #{ev.symbol}: #{ev.context}" }.join("\n  ")
-		end
-		emit_failed(UnreachableEvent.new(self, reason), msg)
+		emit_failed(UnreachableEvent.new(self, reason))
 	    end
 	end
 	# For backwards compatibility. Use #achieve_with.
@@ -821,6 +817,8 @@ module Roby
 	    unreachable_handlers.each do |_, block|
 		begin
 		    block.call(reason)
+                rescue LocalizedError => e
+		    plan.engine.add_error(e)
 		rescue Exception => e
 		    plan.engine.add_error(EventHandlerError.new(e, self))
 		end

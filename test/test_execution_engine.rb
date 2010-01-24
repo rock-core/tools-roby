@@ -637,7 +637,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 
 	result = t.value
 	assert_kind_of(UnreachableEvent, result)
-	assert_equal(task.event(:success), result.generator)
+	assert_equal(task.event(:success), result.failed_generator)
 
     ensure
 	engine.thread = nil

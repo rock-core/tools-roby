@@ -7,3 +7,6 @@
 # Roby.app.using 'distributed'
 # Roby.app.using 'genom'
 
+require 'roby/schedulers/basic'
+Roby.scheduler = Roby::Schedulers::Basic.new
+

@@ -179,21 +179,25 @@ module Roby
     # Raised when an event has become unreachable while other parts of the plan
     # where waiting for its emission.
     class UnreachableEvent < LocalizedError
-        # The generator which has become unreachable
-	attr_reader :generator
+        # Why did the generator become unreachable
+        attr_reader :reason
+
         # Create an UnreachableEvent error for the given +generator+. +reason+
         # is supposed to be either nil or a plan object which is the reason why
         # +generator+ has become unreachable.
 	def initialize(generator, reason)
-	    @generator = generator
-	    super(reason || generator)
+            @reason    = reason
+	    super(generator)
 	end
 
 	def pretty_print(pp) # :nodoc:
-            pp.text "#{generator} has become unreachable "
-	    if failure_point
-		pp.breakable ':'
-                failure_point.pretty_print(pp)
+            pp.text "#{failed_generator} has become unreachable"
+	    if reason
+                reason = [*reason]
+                reason.each do |e|
+                    pp.breakable
+                    e.pretty_print(pp)
+                end
             end
 	end
     end
