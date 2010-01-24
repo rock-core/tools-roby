@@ -6,6 +6,7 @@ require 'roby/test/tasks/empty_task'
 
 class TC_ThreadTask < Test::Unit::TestCase 
     include Roby::Test
+    include Roby::Test::Assertions
 
     MOCKUP = File.expand_path(
         File.join("..", "mockups", "external_process"),
@@ -38,26 +39,23 @@ class TC_ThreadTask < Test::Unit::TestCase
     def test_nominal_array_with_one_element
         plan.add_permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP]))
         engine.run
-        engine.once { task.start! }
-
-        assert_polling_successful(5) { task.success? }
+        assert_succeeds(task)
     end
 
     def test_nominal_no_array
         plan.add_permanent(task = ExternalProcessTask.new(:command_line => MOCKUP))
         engine.run
-        engine.once { task.start! }
-
-        assert_polling_successful(5) { task.success? }
+        assert_succeeds(task)
     end
 
     def test_inexistent_program
         plan.add_permanent(task = ExternalProcessTask.new(:command_line => ['does_not_exist', "--error"]))
         engine.run
-        engine.once { task.start! }
+        assert_becomes_unreachable(task.start_event) do
+            task.start!
+        end
 
-        assert_polling_successful(5) { task.failed? }
-        assert_equal 1, task.event(:failed).last.context.first.exitstatus
+        assert task.failed?
     end
 
     def test_failure
@@ -72,12 +70,14 @@ class TC_ThreadTask < Test::Unit::TestCase
     def test_signaling
         plan.add_permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP, "--block"]))
         engine.run
-        engine.once { task.start! }
-        assert_polling_successful(5) { task.running? }
+        assert_any_event(task.start_event) do
+            task.start!
+        end
 
-        Process.kill 'KILL', task.pid
-        assert_polling_successful(5) { task.failed? }
-        assert task.event(:signaled).happened?
+        assert_any_event(task.failed_event) do
+            Process.kill 'KILL', task.pid
+        end
+        assert task.signaled?
 
         ev = task.event(:signaled).last
         assert_equal 9, ev.context.first.termsig
@@ -87,9 +87,8 @@ class TC_ThreadTask < Test::Unit::TestCase
         plan.add_permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP]))
         yield(task)
         engine.run
-        engine.once { task.start! }
 
-        assert_polling_successful(5) { task.success? }
+        assert_succeeds(task)
 
         assert File.exists?("mockup-#{task.pid}.log")
         File.read("mockup-#{task.pid}.log")

@@ -523,7 +523,11 @@ module Roby
                 error = EmissionFailed.new(error, self)
             end
 
-	    plan.engine.add_error(error)
+            if block_given?
+                yield(error) 
+            else
+                plan.engine.add_error(error)
+            end
 	ensure
 	    @pending = false
 	end

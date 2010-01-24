@@ -273,7 +273,6 @@ module Roby::TaskStructure
 	    # Check if the task has been removed from the plan
 	    next unless child.plan
 
-	    has_error = false
 	    child.each_parent_task do |parent|
 		next unless parent.self_owned?
 		next if parent.finished? || parent.finishing?
@@ -291,11 +290,13 @@ module Roby::TaskStructure
 		    failing_tasks << child
 		elsif success.all? { |e| child.event(e).unreachable? }
                     failing_event = success.find { |e| child.event(e).unreachability_reason }
-                    failing_event = child.event(failing_event).unreachability_reason
-                    if !failing_event
-                        failing_event = child.event(success.find { |e| child.event(e) })
+                    failing_event = child.event(failing_event || success.first)
+
+                    reason = failing_event.unreachability_reason
+                    if reason.kind_of?(Roby::Event)
+                        failing_event, reason = reason, nil
                     end
-		    result << Roby::ChildFailedError.new(parent, failing_event)
+		    result << Roby::ChildFailedError.new(parent, failing_event, reason)
 		    failing_tasks << child
 		end
 	    end
@@ -321,21 +322,33 @@ module Roby
 	attr_reader :parent
 	# The child in the relation
 	def child; failed_task end
+        # If the reason of this failure is that the positive events have become
+        # unreachable, +unreachability_reason+ stores the corresponding
+        # unreachability reason.
+        attr_reader :unreachability_reason
 	# The relation parameters (i.e. the hash given to #depends_on)
 	attr_reader :relation
 
 	# The event which is the cause of this error. This is either the task
 	# source of a failure event, or the reason why a positive event has
 	# become unreachable (if there is one)
-	def initialize(parent, event)
-            super(event)
-	    @parent = parent
+	def initialize(parent, failure_point, unreachability_reason = nil)
+            super(failure_point)
+            @unreachability_reason = failed_generator.unreachability_reason
+	    @parent   = parent
 	    @relation = parent[child, TaskStructure::Dependency]
 	end
 
 	def pretty_print(pp) # :nodoc:
-            super
-            pp.breakable
+            pp.text "#{self.class.name}: "
+            if unreachability_reason
+                pp.text "#{failed_generator} is unreachable"
+            else
+                pp.text "#{failed_generator} emitted the following event"
+                pp.breakable
+                failure_event.pretty_print(pp)
+            end
+
             pp.breakable
             pp.text "The failed relation is"
             pp.breakable
@@ -345,6 +358,14 @@ module Roby
                 pp.breakable
                 pp.text "depends_on "
                 child.pretty_print pp
+            end
+            pp.breakable
+
+            if unreachability_reason
+                pp.breakable
+                pp.text "it is unreachable for the following reason:"
+                pp.breakable
+                unreachability_reason.pretty_print(pp)
             end
 	end
 	def backtrace; [] end

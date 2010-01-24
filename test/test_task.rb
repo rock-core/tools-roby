@@ -6,6 +6,7 @@ require 'flexmock'
 
 class TC_Task < Test::Unit::TestCase 
     include Roby::Test
+    include Roby::Test::Assertions
     def setup
         super
         Roby.app.filter_backtraces = false
@@ -165,11 +166,11 @@ class TC_Task < Test::Unit::TestCase
         assert_task_relation_set task, relation, expected_links.merge(additional_links)
     end
     def test_instantiate_model_signals
-        do_test_instantiate_model_relations(:signal, EventStructure::Signal)
+        do_test_instantiate_model_relations(:signal, EventStructure::Signal, :internal_error => :stop)
     end
     def test_instantiate_deprecated_model_on
         deprecated_feature do
-            do_test_instantiate_model_relations(:on, EventStructure::Signal)
+            do_test_instantiate_model_relations(:on, EventStructure::Signal, :internal_error => :stop)
         end
     end
     def test_instantiate_model_forward
@@ -178,7 +179,7 @@ class TC_Task < Test::Unit::TestCase
     end
     def test_instantiate_model_causal_links
         do_test_instantiate_model_relations(:causal_link, EventStructure::CausalLink,
-                           :success => :stop, :aborted => :failed, :failed => :stop)
+                           :internal_error => :stop, :success => :stop, :aborted => :failed, :failed => :stop)
     end
 
     
@@ -200,11 +201,11 @@ class TC_Task < Test::Unit::TestCase
             Hash[:e1 => [:e2, :e3], :e4 => :stop].merge(additional_links)
     end
     def test_inherit_model_signals
-        do_test_inherit_model_relations(:signal, EventStructure::Signal)
+        do_test_inherit_model_relations(:signal, EventStructure::Signal, :internal_error => :stop)
     end
     def test_inherit_deprecated_model_on
         deprecated_feature do
-            do_test_inherit_model_relations(:on, EventStructure::Signal)
+            do_test_inherit_model_relations(:on, EventStructure::Signal, :internal_error => :stop)
         end
     end
     def test_inherit_model_forward
@@ -213,7 +214,7 @@ class TC_Task < Test::Unit::TestCase
     end
     def test_inherit_model_causal_links
         do_test_inherit_model_relations(:causal_link, EventStructure::CausalLink,
-                           :success => :stop, :aborted => :failed, :failed => :stop)
+                           :internal_error => :stop, :success => :stop, :aborted => :failed, :failed => :stop)
     end
 
     # Test the behaviour of Task#on, and event propagation inside a task
@@ -616,11 +617,11 @@ class TC_Task < Test::Unit::TestCase
 	end
 
 	ev_models = Hash[*model.enum_for(:each_event).to_a.flatten]
-	assert_equal([:start, :success, :aborted, :updated_data, :stop, :failed, :inter].to_set, ev_models.keys.to_set)
+	assert_equal([:start, :success, :aborted, :internal_error, :updated_data, :stop, :failed, :inter].to_set, ev_models.keys.to_set)
 
 	plan.add(task = model.new)
 	ev_models = Hash[*task.model.enum_for(:each_event).to_a.flatten]
-	assert_equal([:start, :success, :aborted, :updated_data, :stop, :failed, :inter].to_set, ev_models.keys.to_set)
+	assert_equal([:start, :success, :aborted, :internal_error, :updated_data, :stop, :failed, :inter].to_set, ev_models.keys.to_set)
 	assert( ev_models[:start].symbol )
 	assert( ev_models[:start].name || ev_models[:start].name.length > 0 )
     end
@@ -756,7 +757,7 @@ class TC_Task < Test::Unit::TestCase
 	first_task.start!
     end
     
-    def check_direct_start(substring, check_signaling)
+    def assert_direct_call_validity_check(substring, check_signaling)
         error = yield
 	assert_exception_message(EventNotExecutable, substring) { error.start! }
         error = yield
@@ -775,37 +776,68 @@ class TC_Task < Test::Unit::TestCase
 	    end
 	end
     end
+
+    def assert_failure_reason(task, exception, message = nil)
+        assert(task.failed?)
+        assert_kind_of(exception, task.failure_reason)
+        assert(task.failure_reason.message =~ message) if message
+    end
+    
+    def assert_emission_fails(message_match, check_signaling)
+        error = yield
+        error.start!
+	assert_failure_reason(error, EventNotExecutable, message_match)
+        error = yield
+        error.event(:start).call(nil)
+	assert_failure_reason(error, EventNotExecutable, message_match)
+
+        error = yield
+        assert_exception_message(EventNotExecutable, message_match) do
+            error.event(:start).emit(nil)
+        end
+	
+	if check_signaling then
+	    error = yield
+	    assert_exception_message(EventNotExecutable, message_match) do
+                exception_propagator(error, :forward_to)
+            end
+
+	    error = yield
+            exception_propagator(error, :signals)
+	    assert_failure_reason(error, EventNotExecutable, message_match)
+	end
+    end
         
     def test_exception_refinement
-	# test for partially instanciation
-	check_direct_start(/partially instanciated/,true) do
-	   plan.add(task = ParameterizedTask.new)
-	   task
-	end
-
-        #test for a task that is in no plan
-        check_direct_start(/no plan/,false) do
+        # test for a task that is in no plan
+        assert_direct_call_validity_check(/no plan/,false) do
             SimpleTask.new
 	end
-        
-        #test for an abstract task
-        check_direct_start(/abstract/,true) do
-            plan.add(task = AbstractTask.new)
-            task
-	end
-	
-	#test for a not executable plan
+
+	# test for a not executable plan
 	erroneous_plan = NotExecutablePlan.new	
-	check_direct_start(/plan is not executable/,false) do
+	assert_direct_call_validity_check(/plan is not executable/,false) do
 	   erroneous_plan.add(task = SimpleTask.new)
 	   task
 	end
         erroneous_plan.clear
-        
-        #test for a not executable task
-        check_direct_start(/is not executable/,true) do
+
+        # test for a not executable task
+        assert_emission_fails(/is not executable/,true) do
             plan.add(task = SimpleTask.new)
             task.executable = false
+            task
+	end
+        
+	# test for partially instanciation
+	assert_emission_fails(/partially instanciated/,true) do
+	   plan.add(task = ParameterizedTask.new)
+	   task
+	end
+
+        # test for an abstract task
+        assert_emission_fails(/abstract/,true) do
+            plan.add(task = AbstractTask.new)
             task
 	end
     end
@@ -1030,7 +1062,9 @@ class TC_Task < Test::Unit::TestCase
 
 	master.start!
 	assert(master.starting?)
-	assert_raises(UnreachableEvent) { plan.remove_object(slave) }
+	plan.remove_object(slave)
+        assert master.failed?
+        assert_kind_of UnreachableEvent, master.failure_reason
     end
 
     def test_task_group
@@ -1068,7 +1102,9 @@ class TC_Task < Test::Unit::TestCase
 		t.stop!
 	    end
 	end
+    end
 
+    def test_error_in_polling
 	FlexMock.use do |mock|
 	    mock.should_receive(:polled).at_least.once
 	    t = Class.new(SimpleTask) do
@@ -1078,12 +1114,11 @@ class TC_Task < Test::Unit::TestCase
 		end
 	    end.new
 
-	    engine.execute do
-		plan.add_permanent(t)
-		t.start!
-	    end
-	    engine.wait_one_cycle
-	    assert(t.failed?)
+            engine.run
+            plan.add_permanent(t)
+            assert_event_emission(t.failed_event) do
+                t.start!
+            end
 	end
     end
 
@@ -1163,12 +1198,27 @@ class TC_Task < Test::Unit::TestCase
         rescue Exception
         end
         assert task.failed_to_start?
+        assert_kind_of EmissionFailed, task.failure_reason
         assert task.failed?
         assert !task.pending?
         assert !task.running?
         assert [], plan.find_tasks.pending.to_a
         assert [], plan.find_tasks.running.to_a
         assert [task], plan.find_tasks.failed.to_a
+    end
+
+    def test_intermediate_emit_failed
+        model = Class.new(SimpleTask) do
+            event :intermediate
+        end
+	plan.add(task = model.new)
+        task.start!
+
+        task.event(:intermediate).emit_failed
+        assert(task.internal_error?)
+        assert(task.failed?)
+        assert_kind_of EmissionFailed, task.failure_reason
+        assert_equal(task.event(:intermediate), task.failure_reason.failed_generator)
     end
 end
 

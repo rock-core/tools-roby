@@ -20,7 +20,7 @@ module Roby
 	attr_reader :plan
 
         # The engine which acts on +plan+ (if there is one)
-        def engine; plan.engine end
+        def engine; plan.engine if plan end
 
         # The place where this object has been removed from its plan. Once an
         # object is removed from its plan, it cannot be added back again.

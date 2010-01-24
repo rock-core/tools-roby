@@ -89,10 +89,14 @@ class TC_RealizedBy < Test::Unit::TestCase
 
     def assert_child_failed(child, reason, plan)
 	result = plan.check_structure
-	assert_equal([child].to_set, result.map { |e, _| e.exception.failed_task }.to_set)
-	assert_equal([reason].to_set, result.map { |e, _| e.exception.failed_event }.to_set)
+        if result.size != 1
+            flunk("error set expected to be of size 1, is #{errors.size}")
+        end
+        error = result.find { true }[0].exception
+	assert_equal(child, error.failed_task)
+	assert_equal(reason, error.failure_point)
+        error
     end
-
 
     def test_success
         parent, child = create_pair :success => [:first], 
@@ -138,6 +142,22 @@ class TC_RealizedBy < Test::Unit::TestCase
 
         child.stop!
 	assert_child_failed(child, child.event(:stop).last, plan)
+        plan.clear
+    end
+
+    def test_failure_on_failed_start
+        plan.add(parent = SimpleTask.new)
+        model = Class.new(SimpleTask) do
+            event :start do
+                raise ArgumentError
+            end
+        end
+        plan.add(child = model.new(:id => 10))
+        parent.depends_on child
+        parent.start!
+        child.start!
+
+	exception = assert_child_failed(child, child.event(:success), plan)
         plan.clear
     end
 

@@ -103,42 +103,6 @@ class TC_Exceptions < Test::Unit::TestCase
 	end
     end
 
-    def test_exception_in_handler
-	Roby.logger.level = Logger::FATAL
-
-	Roby.app.abort_on_exception = true
-	Roby.app.abort_on_application_exception = false
-	FlexMock.use do |mock|
-	    klass = Class.new(SimpleTask) do
-		define_method(:mock) { mock }
-		event :start do |context|
-		    mock.event_called
-		    raise SpecializedError.new(self)
-                end
-
-		on_exception(RuntimeError) do |exception|
-		    mock.task_handler_called
-		    raise 
-		end
-	    end
-
-	    plan.on_exception(RuntimeError) do |task, exception|
-		mock.global_handler_called
-		raise
-	    end
-
-	    t1, t2 = klass.new, klass.new
-	    t1.depends_on t2
-	    plan.add_mission(t1)
-
-	    mock.should_receive(:event_called).once.ordered
-	    mock.should_receive(:task_handler_called).once.ordered
-	    mock.should_receive(:global_handler_called).once.ordered
-	    engine.once { t2.start! }
-	    assert_raises(SpecializedError) { process_events }
-	end
-    end
-
     def test_linear_propagation
 	FlexMock.use do |mock|
 	    t1, t2 = Task.new, Task.new
@@ -318,8 +282,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    begin
 		process_events
 		flunk("should have raised")
-	    rescue Roby::CommandFailed => e
-		assert_kind_of(RuntimeError, e.error)
+	    rescue Roby::ChildFailedError
 	    end
 	end
 	assert(task.event(:start).happened?)
@@ -517,13 +480,12 @@ class TC_Exceptions < Test::Unit::TestCase
         end
 
         task = prepare_plan :permanent => 1, :model => model
-        error = begin task.start!
-                rescue Exception => e; e
-                end
-        assert_kind_of CodeError, e
-        check_exception_formatting(e)
+        task.start!
+        error = task.failure_reason
+        assert_kind_of CodeError, error
+        check_exception_formatting(error)
 
-        trace = e.error.backtrace
+        trace = error.error.backtrace
         filtered = Roby.filter_backtrace(trace)
         assert(filtered[0] =~ /command for 'start'/, filtered[0])
         assert(filtered[1] =~ /test_filter_command_errors/,   filtered[1])

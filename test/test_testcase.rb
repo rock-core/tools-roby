@@ -11,16 +11,9 @@ class TC_Test_TestCase < Test::Unit::TestCase
     def setup
         Roby.app.setup_global_singletons
 
-        Roby.engine.at_cycle_end(&Test.method(:check_event_assertions))
-        Roby.engine.finalizers << Test.method(:finalize_event_assertions)
         @plan    = Roby.plan
         @control = Roby.control
         @engine  = Roby.engine
-        super
-    end
-    def teardown
-        Roby.engine.at_cycle_end_handlers.delete(Test.method(:check_event_assertions))
-        Roby.engine.finalizers.delete(Test.method(:finalize_event_assertions))
         super
     end
 

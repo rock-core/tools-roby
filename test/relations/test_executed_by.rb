@@ -144,15 +144,17 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	plan.add_permanent(task = task_model.new)
         plan.remove_object(task.execution_agent)
         task.executed_by SecondExecutionModel.new(:id => 2)
-        assert_raises(Roby::CommandFailed) { task.start! }
+        task.start!
         assert task.failed?
+        assert_kind_of CommandFailed, task.failure_reason
 
         # Wrong agent arguments
 	plan.add_permanent(task = task_model.new)
         plan.remove_object(task.execution_agent)
         task.executed_by ExecutionAgentModel.new(:id => 3)
-        assert_raises(Roby::CommandFailed) { task.start! }
+        task.start!
         assert task.failed?
+        assert_kind_of CommandFailed, task.failure_reason
     end
 
     def test_model_requires_agent_but_none_exists
@@ -162,8 +164,9 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	plan.add_permanent(task = task_model.new)
         plan.remove_object(task.execution_agent)
 
-        assert_raises(Roby::CommandFailed) { task.start! }
+        task.start!
         assert task.failed?
+        assert_kind_of CommandFailed, task.failure_reason
     end
 
     def test_respawn
@@ -197,8 +200,9 @@ class TC_ExecutedBy < Test::Unit::TestCase
 
 	agent.start!
 	agent.stop!
-	assert_raises(CommandFailed) { task.start! }
+	task.start!
         assert(task.failed?)
+        assert_kind_of CommandFailed, task.failure_reason
     end
 
     def test_initialization

@@ -93,6 +93,16 @@ module Roby
 	def to_s
 	    "#{generator.to_s}@#{propagation_id} [#{time.to_hms}]: #{context}"
 	end
+        def pretty_print(pp) # :nodoc:
+            pp.text "[#{time.to_hms} @#{propagation_id}] #{task}/#{symbol}"
+            if context
+                pp.breakable
+                pp.nest(2) do
+                    pp.text "  "
+                    pp.seplist(context) { |v| v.pretty_print(pp) }
+                end
+            end
+        end
 
         # If the event model defines a controlable event
         # By default, an event is controlable if the model
@@ -163,11 +173,24 @@ module Roby
         end
 
         def emit_failed(error = nil, message = nil)
-            if symbol == :start
-                task.failed_to_start = true
-                task.plan.task_index.set_state(task, :failed?)
+            super do |error|
+                if symbol == :start
+                    task.failed_to_start!(error)
+                elsif !task.event(:internal_error).happened?
+                    task.emit :internal_error, error
+                    if !task.event(:stop).controlable?
+                        # In this case, we can't "just" stop the task. We have
+                        # to inject +error+ in the exception handling and kill
+                        # everything that depends on it.
+                        plan.engine.add_error(error)
+                    end
+                else
+                    # No nice way to isolate this error through the task
+                    # interface. Inject it in the normal exception propagation
+                    # mechanisms.
+                    plan.engine.add_error(error)
+                end
             end
-            super
         end
 
 	# See EventGenerator#fired
@@ -793,6 +816,11 @@ module Roby
 	            left_border.delete(signalled)
 	        end
 	    end
+            
+            # Add a link from internal_event to stop if stop is controllable
+            if event(:stop).controlable?
+                event(:internal_error).signals event(:stop)
+            end
 
 	    update_terminal_flag
 
@@ -907,8 +935,10 @@ module Roby
 		    return unless self_owned?
 		    begin
 			poll_handler
-		    rescue Exception => e
-			emit :failed, e
+		    rescue LocalizedError => e
+			emit :internal_error, e
+                    rescue Exception => e
+			emit :internal_error, CodeError.new(e, self)
 		    end
 		end
 
@@ -1000,7 +1030,17 @@ module Roby
 	attr_predicate :started?, true
 	attr_predicate :finished?, true
 	attr_predicate :success?, true
-	attr_predicate :failed_to_start?, true
+
+        def failed_to_start?; !!@failed_to_start end
+
+        def failed_to_start!(reason)
+            @failed_to_start = true
+            @failure_reason = reason
+            plan.task_index.set_state(self, :failed?)
+            each_event do |ev|
+                ev.unreachable!(reason)
+            end
+        end
 
         # True if the +failed+ event of this task has been fired
 	def failed?; failed_to_start? || (finished? && @success == false) end
@@ -1161,9 +1201,20 @@ module Roby
 	    update_task_status(event)
 	    super if defined? super
         end
-
-	# The event which has finished the task (if there is one)
+    
+        # The most specialized event that caused this task to end
 	attr_reader :terminal_event
+
+        # The reason for which this task failed.
+        #
+        # It can either be an event or a LocalizedError object.
+        #
+        # If it is an event, it is the most specialized event whose emission
+        # has been forwarded to :failed
+        #
+        # If it is a LocalizedError object, it is the exception that caused the
+        # task failure.
+        attr_reader :failure_reason
 
         # The event that caused this task to fail. This is equivalent to taking
         # the first emitted element of
@@ -1184,6 +1235,7 @@ module Roby
 		self.success = false
 		self.finished = true
 		@terminal_event ||= event
+                @failure_reason ||= event
                 @failure_event  ||= event
 	    elsif event.terminal? && !finished?
 		plan.task_index.set_state(self, :finished?)
@@ -1726,6 +1778,11 @@ module Roby
 
 	event :aborted
 	forward :aborted => :failed
+
+        event :internal_error
+        on :internal_error do |error|
+            @failure_reason = error.context.first
+        end
 
         # The internal data for this task
 	attr_reader :data
