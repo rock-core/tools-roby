@@ -133,7 +133,7 @@ module Roby
 	# The count of command calls that have not a corresponding emission
 	attr_reader :pending
 	# True if this event has been called but is not emitted yet
-	def pending?; pending end
+	def pending?; pending || (engine && engine.has_propagation_for?(self)) end
 
 	# call-seq:
 	#   EventGenerator.new

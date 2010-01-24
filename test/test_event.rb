@@ -6,6 +6,8 @@ require 'roby/test/tasks/simple_task'
 require 'roby'
 class TC_Event < Test::Unit::TestCase
     include Roby::Test
+    include Roby::Test::Assertions
+
     def setup
         super
         Roby.app.filter_backtraces = false
@@ -95,6 +97,16 @@ class TC_Event < Test::Unit::TestCase
 	    assert_equal(event, e.failed_generator)
 	    assert( e.message =~ /: test$/ )
 	end
+    end
+
+    def test_pending_includes_queued_events
+        engine.run
+        engine.execute do
+            plan.add_permanent(e = EventGenerator.new { })
+            e.call
+            assert e.pending?
+            assert !e.happened?
+        end
     end
 
     def test_emit_failed_removes_pending

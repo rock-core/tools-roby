@@ -433,6 +433,10 @@ module Roby
             @propagation_sources = sources
         end
 
+        def has_propagation_for?(target)
+            @propagation && @propagation.has_key?(target)
+        end
+
         # Adds a propagation to the next propagation step: it registers a
         # propagation step to be performed between +source+ and +target+ with
         # the given +context+. If +is_forward+ is true, the propagation will be
