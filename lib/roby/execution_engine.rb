@@ -1532,7 +1532,7 @@ module Roby
                         ev.on do
                             mt.synchronize { cv.broadcast }
                         end
-                        yield
+                        yield if block_given?
                     end
                     cv.wait(mt)
                 end
@@ -1598,7 +1598,7 @@ module Roby
     # becomes unreachable, an UnreachableEvent exception is raised.
     #
     # See ExecutionEngine#wait_until
-    def self.wait_until(ev); engine.wait_until(ev) end
+    def self.wait_until(ev, &block); engine.wait_until(ev, &block) end
 end
 
 
