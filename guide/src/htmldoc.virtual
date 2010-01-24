@@ -1,10 +1,18 @@
 \--- !omap
-- /api/:
+- /api-core.html:
+    title: Core API
     in_menu: true
-
-- /api/index.html:
-    routed_title: API
-    in_menu: false
-    sort_info: 99999
+    sort_info: 900
     url: ../../api/Roby.html
+
+#- /plugins/subsystems.html:
+#    routed_title: Subsystems
+#    in_menu: false
+#    sort_info: 99999
+#
+#- /plugins/fault_injection.html:
+#    routed_title: fault_injection
+#    in_menu: false
+#    sort_info: 99999
+#    url: ../../plugins/fault_injection/index.html
    
