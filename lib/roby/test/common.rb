@@ -118,14 +118,14 @@ module Roby
 	    save_collection plan.exception_handlers
 	    timings[:setup] = Time.now
 
-            engine.at_cycle_end(&Test.method(:check_event_assertions))
-            engine.finalizers << Test.method(:finalize_event_assertions)
+            engine.at_cycle_end(&Test.method(:verify_watched_events))
+            engine.finalizers << Test.method(:finalize_watched_events)
 	end
 
 
 	def teardown_plan
-            engine.at_cycle_end_handlers.delete(Test.method(:check_event_assertions))
-            engine.finalizers.delete(Test.method(:finalize_event_assertions))
+            engine.at_cycle_end_handlers.delete(Test.method(:verify_watched_events))
+            engine.finalizers.delete(Test.method(:finalize_watched_events))
 
 	    old_gc_roby_logger_level = Roby.logger.level
 	    if debug_gc?
@@ -450,21 +450,25 @@ module Roby
 	    result
 	end
 
-	@event_assertions = []
+	@watched_events = []
 	@waiting_threads  = []
 
-	ASSERT_ANY_EVENTS_TLS = :assert_any_events
+	EVENT_WATCH_TLS = :test_watched_events
 
         class << self
             # A [thread, cv, positive, negative] list of event assertions
-            attr_reader :event_assertions
+            attr_reader :watched_events
         end
 
         # Tests for events in +positive+ and +negative+ and returns
         # the set of failing events if the assertion has finished.
         # If the set is empty, it means that the assertion finished
         # successfully
-        def self.assert_any_event_result(positive, negative)
+        def self.event_watch_result(positive, negative, deadline = nil)
+            if deadline && deadline < Time.now
+                return true, "timeout"
+            end
+
             if positive_ev = positive.find { |ev| ev.happened? }
                 return false, "#{positive_ev} happened"
             end
@@ -474,10 +478,6 @@ module Roby
             end
 
             if positive.all? { |ev| ev.unreachable? }
-                positive.each do |ev|
-                    Robot.info "#{ev} is unreachable because of the following emission:"
-                    Roby.log_exception(ev.unreachability_reason, Robot.logger, :info)
-                end
                 return true, "all positive events are unreachable"
             end
 
@@ -486,20 +486,20 @@ module Roby
 
         # This method is inserted in the control thread to implement
         # Assertions#assert_events
-        def self.check_event_assertions
-            event_assertions.delete_if do |thread, cv, positive, negative|
-                error, result = Test.assert_any_event_result(positive, negative)
+        def self.verify_watched_events
+            watched_events.delete_if do |thread, cv, positive, negative, deadline|
+                error, result = Test.event_watch_result(positive, negative, deadline)
                 if !error.nil?
-                    thread[ASSERT_ANY_EVENTS_TLS] = [error, result]
+                    thread[EVENT_WATCH_TLS] = [error, result]
                     cv.broadcast
                     true
                 end
             end
         end
 
-        def self.finalize_event_assertions
-            check_event_assertions
-            event_assertions.dup.each do |thread, *_|
+        def self.finalize_watched_events
+            verify_watched_events
+            watched_events.dup.each do |thread, *_|
                 thread.raise ControlQuitError
             end
         end
@@ -516,11 +516,26 @@ module Roby
 	    #
 	    # So, to check that a task fails, do
 	    #
-	    #	assert_events(task.event(:fail)) do
+	    #	assert_event_emission(task.event(:fail)) do
 	    #	    task.start!
 	    #	end
 	    #
-	    def assert_any_event(positive, negative = [], msg = nil, &block)
+            def assert_event_emission(positive, negative = [], msg = nil, timeout = 5, &block)
+                error, result, unreachability_reason = watch_events(positive, negative, timeout, &block)
+
+                if error
+                    if !unreachability_reason.empty?
+                        msg = format_unreachability_message(unreachability_reason)
+                        flunk("#{msg} all positive events are unreachable for the following reason:\n  #{msg}")
+                    elsif msg
+                        flunk("#{msg} failed: #{result}")
+                    else
+                        flunk(result)
+                    end
+                end
+            end
+
+            def watch_events(positive, negative, timeout, &block)
 		control_priority do
                     engine.waiting_threads << Thread.current
 		    Roby.condition_variable(false) do |cv|
@@ -531,54 +546,74 @@ module Roby
 			Roby.synchronize do
 			    positive.each do |ev|
 				ev.if_unreachable(true) do |reason|
-				    unreachability_reason << reason if reason
+				    unreachability_reason << [ev, reason]
 				end
 			    end
 
-			    error, result = Test.assert_any_event_result(positive, negative)
+			    error, result = Test.event_watch_result(positive, negative)
 			    if error.nil?
 				this_thread = Thread.current
 
-				Test.event_assertions << [this_thread, cv, positive, negative]
+				Test.watched_events << [this_thread, cv, positive, negative, Time.now + timeout]
 				engine.once(&block) if block_given?
 				begin
 				    cv.wait(Roby.global_lock)
 				ensure
-				    Test.event_assertions.delete_if { |thread, _| thread == this_thread }
+				    Test.watched_events.delete_if { |thread, _| thread == this_thread }
 				end
 
-				error, result = this_thread[ASSERT_ANY_EVENTS_TLS]
+				error, result = this_thread[EVENT_WATCH_TLS]
 			    end
-
-			    if error
-				if !unreachability_reason.empty?
-				    msg = unreachability_reason.map do |reason|
-					if reason.respond_to?(:context)
-					    context = (reason.context || []).map do |obj|
-						if obj.kind_of?(Exception)
-						    obj.full_message
-						else
-						    obj.to_s
-						end
-					    end
-					    reason.to_s + context.join("\n  ")
-					end
-				    end
-				    msg.join("\n  ")
-
-				    flunk("#{msg} all positive events are unreachable for the following reason:\n  #{msg}")
-				elsif msg
-				    flunk("#{msg} failed: #{result}")
-				else
-				    flunk(result)
-				end
-			    end
+                            return error, result, unreachability_reason
 			end
 		    end
 		end
             ensure
                 engine.waiting_threads.delete(Thread.current)
+            end
+
+            def format_unreachability_message(unreachability_reason)
+                msg = unreachability_reason.map do |ev, reason|
+                    if reason.respond_to?(:context)
+                        context = (reason.context || []).map do |obj|
+                            if obj.kind_of?(Exception)
+                                obj.full_message
+                            else
+                                obj.to_s
+                            end
+                        end
+                        reason.to_s + context.join("\n  ")
+                    end
+                end
+                msg.join("\n  ")
+            end
+
+
+            # DEPRECATED. Use #assert_event_emission instead
+	    def assert_any_event(positive, negative = [], msg = nil, timeout = 5, &block)
+                assert_event_emission(positive, negative, msg, timeout, &block)
 	    end
+
+            def assert_becomes_unreachable(event, timeout = 5, &block)
+                old_level = Roby.logger.level
+                Roby.logger.level = Logger::FATAL
+                error, message, unreachability_reason = watch_events(event, [], timeout, &block)
+                if error = unreachability_reason.find { |ev, _| ev == event }
+                    return
+                end
+                if !error
+                    flunk("event has been emitted")
+                else
+                    msg = if !unreachability_reason.empty?
+                              format_unreachability_message(unreachability_reason)
+                          else
+                              message
+                          end
+                    flunk("the following error happened before #{event} became unreachable:\n #{msg}")
+                end
+            ensure
+                Roby.logger.level = old_level
+            end
 
 	    # Starts +task+ and checks it succeeds
 	    def assert_succeeds(task, *args)
@@ -589,7 +624,7 @@ module Roby
 			end
 		    end
 
-		    assert_any_event([task.event(:success)], [], nil) do
+		    assert_event_emission([task.event(:success)], [], nil) do
 			plan.add_permanent(task)
 			task.start! if task.pending?
 			yield if block_given?
