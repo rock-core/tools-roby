@@ -41,6 +41,16 @@ informations, including links to tutorials and demonstration videos"
             '--main' << 'README.txt' <<
             "--accessor" << "attribute" << 
             "--accessor" << "attr_predicate"
+
+        Rake.clear_tasks(/dist:publish_docs/)
+        Rake.clear_tasks(/dist:(re|clobber_|)docs/)
+
+        desc 'update the pages that are displayed on doudou.github.com/roby'
+        task "publish_docs" => ["doc:guide", "doc:api"] do
+            if !system( File.join("doc", "misc", "update_github") )
+                raise "cannot update the gh-pages branch"
+            end
+        end
     end
 rescue Exception => e
     puts "cannot setup Hoe, distribution is disabled"
@@ -125,46 +135,60 @@ end
 # generation is not flexible enough for us
 
 # This is for the user's guide
-require 'webgen/webgentask'
-require 'rdoc/task'
-namespace 'doc' do
-    require 'roby/app/rake'
-    RDoc::Task.new("api") do |rdoc|
-      rdoc.rdoc_dir = 'doc/html/api'
-      rdoc.title    = "Roby Core"
-      rdoc.options << '--show-hash'
-      rdoc.rdoc_files.include('lib/**/*.rb', 'ext/**/*.cc')
-      rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
-    end
-
-    Webgen::WebgenTask.new('guide') do |website|
-        website.clobber_outdir = true
-        website.directory = File.join(Dir.pwd, 'doc', 'guide')
-        website.config_block = lambda do |config|
-            config['output'] = ['Webgen::Output::FileSystem', File.join(Dir.pwd, 'doc', 'html')]
-        end
-    end
-
-    def plugins_documentation_generation(target_prefix)
-        task "plugins_#{target_prefix}docs" do
-            Roby::Rake.invoke_plugin_target("#{target_prefix}docs")
-        end
-    end
-    desc 'generate the documentation for all installed plugins'
-    plugins_documentation_generation ''
-    desc 'remove the documentation for all installed plugins'
-    plugins_documentation_generation 'clobber_'
-    desc 'regenerate the documentation for all installed plugins'
-    plugins_documentation_generation 're'
-
-    desc 'update the pages that are displayed on doudou.github.com/roby'
-    task "github" => ["doc:guide", "doc:api"] do
-        if !system( File.join("doc", "misc", "update_github") )
-            raise "cannot update the gh-pages branch"
-        end
-    end
+begin
+    require 'webgen/webgentask'
+    require 'rdoc/task'
+    do_doc = true
+rescue LoadError => e
+    STDERR.puts "webgen and/or the rdoc Gem are not available, documentation generation disabled"
+    STDERR.puts "  Ruby reported the following load error: #{e.message}"
 end
 
-task 'docs' => ['doc:guide', 'doc:api', 'doc:plugins_docs']
-task 'clobber_docs' => ['doc:clobber_guide', 'doc:clobber_api', 'doc:plugins_clobber_docs']
-task 'redocs' => ['doc:reapi', 'doc:replugins_docs']
+if do_doc
+    namespace 'doc' do
+        require 'roby/app/rake'
+        RDoc::Task.new("api") do |rdoc|
+          rdoc.rdoc_dir = 'doc/html/api'
+          rdoc.title    = "Roby Core"
+          rdoc.options << '--show-hash'
+          rdoc.rdoc_files.include('lib/**/*.rb', 'ext/**/*.cc')
+          rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
+        end
+
+        Webgen::WebgenTask.new('guide') do |website|
+            website.clobber_outdir = true
+            website.directory = File.join(Dir.pwd, 'doc', 'guide')
+            website.config_block = lambda do |config|
+                config['output'] = ['Webgen::Output::FileSystem', File.join(Dir.pwd, 'doc', 'html')]
+            end
+        end
+
+        def plugins_documentation_generation(target_prefix)
+            task "plugins_#{target_prefix}docs" do
+                Roby::Rake.invoke_plugin_target("#{target_prefix}docs")
+            end
+        end
+        desc 'generate the documentation for all installed plugins'
+        plugins_documentation_generation ''
+        desc 'remove the documentation for all installed plugins'
+        plugins_documentation_generation 'clobber_'
+        desc 'regenerate the documentation for all installed plugins'
+        plugins_documentation_generation 're'
+
+        desc 'generate all documentation'
+        task 'all' => ['doc:guide', 'doc:api', 'doc:plugins_docs']
+
+        desc 'regenerate all documentation'
+        task 'redocs' do
+            Rake::Task['clobber_docs'].invoke
+            if !system('rake', 'doc:all')
+                raise "failed to regenerate documentation"
+            end
+        end
+    end
+
+    task 'docs' => 'doc:all'
+    task 'clobber_docs' => ['doc:clobber_guide', 'doc:clobber_api', 'doc:plugins_clobber_docs']
+    task 'redocs' => 'doc:redocs'
+end
+
