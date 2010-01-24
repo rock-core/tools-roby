@@ -13,8 +13,8 @@ begin
             self.url         = paragraphs_of('README.txt', 1).join("\n\n")
             self.description = paragraphs_of('README.txt', 3..5).join("\n\n")
             self.description +=
-"\n\nSee the README.txt file at http://roby.rubyforge.org for more
-informations, including links to tutorials and demonstration videos"
+"\n\nSee doudou.github.com/roby for more informations, including links to
+tutorials and demonstration videos"
             self.changes     = paragraphs_of('History.txt', 0..1).join("\n\n")
             self.post_install_message = paragraphs_of('README.txt', 2).join("\n\n")
 
