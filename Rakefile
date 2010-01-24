@@ -190,4 +190,4 @@ if do_doc
         end
     end
 end
-
+task 'clobber_docs' => 'doc:clobber'
