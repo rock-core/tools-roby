@@ -807,6 +807,8 @@ module Roby
 	    unreachable_handlers.each do |_, block|
 		begin
 		    block.call(reason)
+                rescue LocalizedError => e
+		    plan.engine.add_error(e)
 		rescue Exception => e
 		    plan.engine.add_error(EventHandlerError.new(e, self))
 		end
