@@ -13,7 +13,7 @@ class MainPlanner < Roby::Planning::Planner
 
     method(:navigation, :id => 'test') do
 	root = Services::Navigation.new
-	root.realized_by(loc = localization)
+	root.depends_on(loc = localization)
 	root
     end
 end
