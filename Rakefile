@@ -42,11 +42,10 @@ informations, including links to tutorials and demonstration videos"
             "--accessor" << "attribute" << 
             "--accessor" << "attr_predicate"
 
-        Rake.clear_tasks(/dist:publish_docs/)
-        Rake.clear_tasks(/dist:(re|clobber_|)docs/)
+        Rake.clear_tasks(/doc/)
 
         desc 'update the pages that are displayed on doudou.github.com/roby'
-        task "publish_docs" => ["doc:guide", "doc:api"] do
+        task "publish_docs" => "doc:all" do
             if !system( File.join("doc", "misc", "update_github") )
                 raise "cannot update the gh-pages branch"
             end
@@ -177,18 +176,18 @@ if do_doc
 
         desc 'generate all documentation'
         task 'all' => ['doc:guide', 'doc:api', 'doc:plugins_docs']
+        desc 'removes all documentation'
+        task 'clobber' do
+            FileUtils.rm_rf File.join('doc', 'html')
+        end
 
         desc 'regenerate all documentation'
         task 'redocs' do
-            Rake::Task['clobber_docs'].invoke
+            FileUtils.rm_rf File.join('doc', 'html')
             if !system('rake', 'doc:all')
                 raise "failed to regenerate documentation"
             end
         end
     end
-
-    task 'docs' => 'doc:all'
-    task 'clobber_docs' => ['doc:clobber_guide', 'doc:clobber_api', 'doc:plugins_clobber_docs']
-    task 'redocs' => 'doc:redocs'
 end
 
