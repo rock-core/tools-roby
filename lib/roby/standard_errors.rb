@@ -107,7 +107,6 @@ module Roby
 	    if error
                 pp_failure_point(pp)
                 pp.breakable
-                pp.breakable
                 error.pretty_print(pp)
 	    else
 		super
@@ -137,7 +136,7 @@ module Roby
     # See EventGenerator#emit_failed.
     class EmissionFailed < CodeError
 	def pretty_print(pp) # :nodoc:
-            pp.text "failed emission of "
+            pp.text "failed emission of the "
             failed_generator.pretty_print(pp)
             pp.breakable
             if error
