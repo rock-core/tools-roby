@@ -496,26 +496,23 @@ module Roby
 
 	# Raises an exception object when an event whose command has been
 	# called won't be emitted (ever)
-	def emit_failed(*what)
-	    what, message = *what
-	    what ||= EmissionFailed
+	def emit_failed(error = nil, message = nil)
+	    error ||= EmissionFailed
 
-	    if !message && !(what.kind_of?(Class) || what.kind_of?(Exception))
-		message = what.to_str
-		what = EmissionFailed
+	    if !message && !(error.kind_of?(Class) || error.kind_of?(Exception))
+		message = error.to_str
+		error = EmissionFailed
 	    end
 
 	    failure_message =
                 if message then "failed to emit #{self}: #{message}"
-                elsif what.respond_to?(:message) then "failed to emit #{self}: #{what.message}"
+                elsif error.respond_to?(:message) then "failed to emit #{self}: #{error.message}"
                 else "failed to emit #{self}: #{message}"
                 end
 
-            if Class === what 
-                error = what.new(nil, self)
+            if Class === error 
+                error = error.new(nil, self)
                 error.set_backtrace caller(1)
-            else
-                error = what
             end
 
 	    new_error = error.exception failure_message

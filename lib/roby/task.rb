@@ -162,7 +162,7 @@ module Roby
             super if defined? super
         end
 
-        def emit_failed(*reason)
+        def emit_failed(error = nil, message = nil)
             if symbol == :start
                 task.failed_to_start = true
                 task.plan.task_index.set_state(task, :failed?)
