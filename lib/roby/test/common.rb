@@ -574,15 +574,10 @@ module Roby
 
             def format_unreachability_message(unreachability_reason)
                 msg = unreachability_reason.map do |ev, reason|
-                    if reason.respond_to?(:context)
-                        context = (reason.context || []).map do |obj|
-                            if obj.kind_of?(Exception)
-                                obj.full_message
-                            else
-                                obj.to_s
-                            end
-                        end
-                        reason.to_s + context.join("\n  ")
+                    if reason.kind_of?(Exception)
+                        Roby.format_exception(reason).join("\n")
+                    else
+                        reason.to_s
                     end
                 end
                 msg.join("\n  ")
