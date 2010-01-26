@@ -923,6 +923,18 @@ module Roby
 	    exceptions
 	end
 
+        # Run a garbage collection pass. This is 'static', as it does not care
+        # about the task's state: it will simply remove *from the plan* any task
+        # that is not useful *in the context of the plan*.
+        #
+        # This is mainly useful for static tests, and for transactions
+        #
+        # Do *not* use it on executed plans.
+        def static_garbage_collect
+            for t in unneeded_tasks
+                remove_object(t)
+            end
+        end
 
         include Roby::ExceptionHandlingObject
 

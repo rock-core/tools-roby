@@ -516,16 +516,6 @@ module Roby
 		control.removing_plan_relation(self, parent, child, relations)
 	    end
 	end
-
-        # Run a garbage collection pass in the transaction. This is 'static', as
-        # it does not care about the task's state: it will simply remove *from
-        # the transaction* any task that is not useful *in the context of the
-        # transaction*.
-        def static_garbage_collect
-            for t in unneeded_tasks
-                remove_object(t)
-            end
-        end
     end
 end
 
