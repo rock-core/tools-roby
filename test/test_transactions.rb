@@ -38,7 +38,7 @@ module TC_TransactionBehaviour
         plan.add(t = SimpleTask.new)
         plan.add(t_child = SimpleTask.new)
         plan.add(t_parent = SimpleTask.new)
-        t.depends_on t_child
+        t.depends_on t_child, :model => Roby::Task
         t_parent.depends_on t
         transaction_commit(plan) do |trsc|
             assert !trsc[t, false]
@@ -50,6 +50,9 @@ module TC_TransactionBehaviour
 
             assert_equal [], proxy.parent_objects(Hierarchy).to_a
             assert_equal [], proxy.child_objects(Hierarchy).to_a
+
+            child_proxy = trsc[t_child]
+            assert_equal t[t_child, Hierarchy], proxy[child_proxy, Hierarchy]
         end
     end
 
