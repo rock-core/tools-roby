@@ -9,7 +9,9 @@ module Roby
 	def initialize_copy(old) # :nodoc:
 	    super
 
-	    @remote_siblings = Hash[Distributed, Roby::Distributed::RemoteID.from_object(self)]
+            if old.instance_variable_defined?(:@remote_siblings)
+                @remote_siblings = Hash[Distributed, remote_id]
+            end
 	end
 
 	# The set of Peer objects which own this object
