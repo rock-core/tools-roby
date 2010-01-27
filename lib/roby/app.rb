@@ -1,3 +1,4 @@
+require 'roby/robot'
 require 'singleton'
 module Roby
     # = Roby Applications
@@ -278,6 +279,53 @@ module Roby
 	    File.expand_path(log['dir'] || 'log', APP_DIR)
 	end
 
+        def log_autosave?
+            if log.has_key?('autosave')
+                log['autosave']
+            else true
+            end
+        end
+
+        def log_autosave_dir
+            dir = log['autosave']
+            if dir.respond_to?(:to_str)
+                return File.expand_path(dir.to_str, results_dir)
+            end
+            results_dir
+        end
+
+        # Returns true if the log directory is empty
+        def log_dir_empty?
+            Dir.enum_for(:glob, File.join(log_dir, "*")).
+                find_all { |f| File.file?(f) }.
+                delete_if { |f| f == "time_tag" }.
+                empty?
+        end
+
+        def log_save_time_tag
+	    tag = Time.now.strftime('%Y%%m%d-%H%%M')
+            File.open(File.join(log_dir, 'time_tag'), 'w') do |io|
+                io.write tag
+            end
+        end
+
+        def log_read_time_tag
+            if File.exists?(File.join(log_dir, 'time_tag'))
+                date_tag = File.read(File.join(log_dir, 'time_tag')).strip
+            end
+        end
+
+        # Saves the log directory to results_dir
+        def log_save(directory, name = nil)
+            # Look for a time_tag file in the log directory. If there is one,
+            # it should contain the date tag to be used for the target folder
+            time_tag = log_read_time_tag
+
+            final_path = Roby::Application.unique_dirname(directory, name || '', time_tag)
+            Robot.info "moving #{log_dir} to #{final_path}"
+            FileUtils.mv log_dir, final_path
+        end
+
 	# A path => File hash, to re-use the same file object for different
 	# logs
 	attribute(:log_files) { Hash.new }
@@ -291,10 +339,10 @@ module Roby
         # Returns a unique directory name as a subdirectory of
         # +base_dir+, based on +path_spec+. The generated name
         # is of the form
-        #   <base_dir>/a/b/c/YYYYMMDD-basename
+        #   <base_dir>/a/b/c/YYYYMMDD-HHMM-basename
         # if <tt>path_spec = "a/b/c/basename"</tt>. A .<number> suffix
         # is appended if the path already exists.
-	def self.unique_dirname(base_dir, path_spec)
+	def self.unique_dirname(base_dir, path_spec, date_tag = nil)
 	    if path_spec =~ /\/$/
 		basename = ""
 		dirname = path_spec
@@ -303,12 +351,11 @@ module Roby
 		dirname  = File.dirname(path_spec)
 	    end
 
-	    date = Date.today
-	    date = "%i%02i%02i" % [date.year, date.month, date.mday]
+	    date_tag ||= Time.now.strftime('%Y%m%d-%H%M')
 	    if basename && !basename.empty?
-		basename = date + "-" + basename
+		basename = date_tag + "-" + basename
 	    else
-		basename = date
+		basename = date_tag
 	    end
 
 	    # Check if +basename+ already exists, and if it is the case add a
@@ -333,12 +380,7 @@ module Roby
         # module (accessible through Robot.logger), and sets up log levels as
         # specified in the <tt>config/app.yml</tt> file.
 	def setup_loggers
-	    # Create the robot namespace
-	    STDOUT.sync = true
-	    Robot.logger = Logger.new(STDOUT)
-	    Robot.logger.level = Logger::INFO
-	    Robot.logger.formatter = Roby.logger.formatter
-	    Robot.logger.progname = robot_name
+            Robot.logger.progname = robot_name || 'Robot'
 
 	    # Set up log levels
 	    log['levels'].each do |name, value|
@@ -371,7 +413,16 @@ module Roby
 	end
 
 	def setup_dirs
-	    FileUtils.mkdir_p(log_dir) unless File.exists?(log_dir)
+            if File.directory?(log_dir)
+                if !log_dir_empty? && log_autosave?
+                    log_save(log_autosave_dir)
+                end
+            end
+
+            if !File.directory?(log_dir)
+                FileUtils.mkdir_p(log_dir)
+            end
+
 	    if File.directory?(libdir = File.join(APP_DIR, 'lib'))
 		if !$LOAD_PATH.include?(libdir)
 		    $LOAD_PATH.unshift File.join(APP_DIR, 'lib')
@@ -415,7 +466,7 @@ module Roby
 	    call_plugins(:require_models, self)
 	end
 
-	def setup
+        def load_base_config
             if !Roby.plan
                 Roby.instance_variable_set :@plan, Plan.new
             end
@@ -433,7 +484,13 @@ module Roby
 	    if File.exists?(initfile = File.join(APP_DIR, 'config', 'init.rb'))
 		load initfile
 	    end
+        end
 
+	def setup
+            load_base_config
+
+	    # Create the robot namespace
+	    STDOUT.sync = true
 	    setup_dirs
 	    setup_loggers
 
@@ -453,7 +510,6 @@ module Roby
                 load file
             end
 
-
 	    # MainPlanner is always included in the planner list
             if defined? MainPlanner
                 self.planners << MainPlanner
@@ -472,6 +528,9 @@ module Roby
 
 	def run(&block)
             setup_global_singletons
+
+            # Save the date-time tag in the log directory
+            log_save_time_tag
 
 	    # Set up dRoby, setting an Interface object as front server, for shell access
 	    host = droby['host'] || ""

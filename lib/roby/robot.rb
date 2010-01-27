@@ -4,6 +4,11 @@ module Robot
     end
     extend Logger::Forward
 
+    @logger = Logger.new(STDOUT)
+    @logger.level = Logger::INFO
+    @logger.formatter = Roby.logger.formatter
+    @logger.progname = "Robot"
+
     def self.prepare_action(name, arguments)
 	# Check if +name+ is a planner method, and in that case
 	# add a planning method for it and plan it
