@@ -121,10 +121,16 @@ module Roby
 	def initialize_copy(old) # :nodoc:
 	    super
 
-	    @history  = old.history.dup
-            @handlers = old.handlers.dup
-            @unreachable_handlers = old.unreachable_handlers.dup
             @preconditions = old.instance_variable_get(:@preconditions).dup
+            @handlers = old.handlers.dup
+            @happened = old.happened?
+	    @history  = old.history.dup
+            @pending  = false
+            if old.command.kind_of?(Method)
+                @command = method(old.command.name)
+            end
+            @unreachable = old.unreachable?
+            @unreachable_handlers = old.unreachable_handlers.dup
 	end
 
 	def model; self.class end
@@ -148,11 +154,12 @@ module Roby
 	# +false+ argument), then it is not controlable
 	def initialize(command_object = nil, &command_block)
 	    @preconditions = []
-	    @handlers = []
-	    @pending  = false
-	    @unreachable = false
-            @unreachable_event = nil
+	    @handlers      = []
+	    @pending       = false
+	    @unreachable   = false
+            @unreachable_event    = nil
 	    @unreachable_handlers = []
+	    @history       = Array.new
 
 	    if command_object || command_block
 		self.command = if command_object.respond_to?(:call)
@@ -166,7 +173,6 @@ module Roby
                 @command = nil
 	    end
 	    super() if defined? super
-
 	end
 
 	def default_command(context)
@@ -638,7 +644,7 @@ module Roby
 	def realize_with(task); achieve_with(task) end
 
 	# A [time, event] array of past event emitted by this object
-	attribute(:history) { Array.new }
+	attr_reader :history
 	# True if this event has been emitted once.
 	attr_predicate :happened
 	# Last event to have been emitted by this generator

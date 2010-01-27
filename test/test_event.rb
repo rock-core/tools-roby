@@ -953,12 +953,25 @@ class TC_Event < Test::Unit::TestCase
 
     def test_dup
 	plan.add(e = EventGenerator.new(true))
+	plan.add(new = e.dup)
 
 	e.call
-	new = e.dup
-	e.call
-	assert_equal(2, e.history.size)
+	assert_equal(1, e.history.size)
+        assert(e.happened?)
+	assert_equal(0, new.history.size)
+	assert(!new.happened?)
+
+        plan.add(new = e.dup)
+	assert_equal(1, e.history.size)
+        assert(e.happened?)
 	assert_equal(1, new.history.size)
+	assert(new.happened?)
+
+        new.call
+	assert_equal(1, e.history.size)
+        assert(e.happened?)
+	assert_equal(2, new.history.size)
+	assert(new.happened?)
     end
 
     def test_event_after

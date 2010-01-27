@@ -762,14 +762,23 @@ module Roby
 	def initialize_copy(old) # :nodoc:
 	    super
 
-	    @name = nil
+	    @name    = nil
 	    @history = old.history.dup
 
 	    @arguments = TaskArguments.new(self)
 	    arguments.do_merge! old.arguments
 	    arguments.instance_variable_set(:@task, self)
 
-	    initialize_events
+	    @instantiated_model_events = false
+
+	    # Create all event generators
+	    bound_events = Hash.new
+	    model.each_event do |ev_symbol, ev_model|
+                ev = old.event(ev_symbol).dup
+                ev.instance_variable_set(:@task, self)
+		bound_events[ev_symbol.to_sym] = ev
+	    end
+	    @bound_events = bound_events
 	end
 
 	def instantiate_model_event_relations
@@ -777,7 +786,7 @@ module Roby
 	    # Add the model-level signals to this instance
 	    @instantiated_model_events = true
 	    
-	    left_border = bound_events.values.to_value_set
+	    left_border  = bound_events.values.to_value_set
 	    right_border = bound_events.values.to_value_set
 
 	    model.each_signal_set do |generator, signalled_events|

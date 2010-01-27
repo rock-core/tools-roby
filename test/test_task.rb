@@ -1170,24 +1170,37 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_dup
-	plan.add(task = Roby::Test::SimpleTask.new)
+        model = Class.new(Roby::Test::SimpleTask) do
+            event :intermediate
+        end
+	plan.add(task = model.new)
 	task.start!
+        task.emit :intermediate
 
 	new = task.dup
 	assert_not_same(new.event(:stop), task.event(:stop))
 	assert_same(new, new.event(:stop).task)
+
 	assert(!plan.include?(new))
         assert_equal(nil, new.plan)
+
 	assert_kind_of(Roby::TaskArguments, new.arguments)
 	assert_equal(task.arguments.to_hash, new.arguments.to_hash)
+
         plan.add(new)
-	assert(new.event(:failed).child_object?(new.event(:stop), Roby::EventStructure::Forwarding))
+	assert(new.event(:stop), new.event(:failed).child_objects(Roby::EventStructure::Forwarding).to_a)
+
+        assert(task.running?)
+        assert(new.running?)
+        assert(task.intermediate?)
+        assert(new.intermediate?)
 
 	task.stop!
 	assert(!task.running?)
 	assert(new.running?)
 
 	new.event(:stop).call
+	assert(new.stop?, new.history)
 	assert(new.finished?, new.history)
     end
 
