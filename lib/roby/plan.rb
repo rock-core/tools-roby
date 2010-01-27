@@ -317,7 +317,7 @@ module Roby
 	    end
 
 	    # Check that +to+ is in the same execution state than +from+
-	    if !to.compatible_state?(from)
+	    if executable? && !to.compatible_state?(from)
 		raise InvalidReplace.new(from, to), "cannot replace #{from} by #{to} as their state is incompatible: from is #{from.running?} and to is #{to.running?}"
 	    end
 
