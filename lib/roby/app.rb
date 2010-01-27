@@ -303,7 +303,7 @@ module Roby
         end
 
         def log_save_time_tag
-	    tag = Time.now.strftime('%Y%%m%d-%H%%M')
+	    tag = Time.now.strftime('%Y%m%d-%H%M')
             File.open(File.join(log_dir, 'time_tag'), 'w') do |io|
                 io.write tag
             end
