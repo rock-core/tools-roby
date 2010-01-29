@@ -79,8 +79,7 @@ returns true if t1 directly depends on t2: t1 is a direct parent of t2.
 
 The two types of errors that can occur in the context of a dependency relation
 are:
-* no success event will ever be emitted (see event
-  unreachability:"/objects/events")
+* no success event will ever be emitted
 * one of the failure events is emitted
 
 In both cases, a {rdoc_class: ChildFailedError} exception is generated. In the
