@@ -75,6 +75,26 @@ module Roby
 	# failed
 	attr_reader :gc_quarantine
 
+        # Put the given task in quarantine. In practice, it means that all the
+        # event relations of that task's events are removed, as well as its
+        # children. Then, the task is added to gc_quarantine (the task will not
+        # be GCed anymore).
+        #
+        # This is used as a last resort, when the task cannot be stopped/GCed by
+        # normal means.
+        def quarantine(task)
+            task.each_event do |ev|
+                ev.clear_relations
+            end
+            task.each_relation do |rel|
+                task.child_objects(rel).to_value_set.each do |child|
+                    task.remove_child_object(child, rel)
+                end
+            end
+            gc_quarantine << task
+            self
+        end
+
 	# The set of transactions which are built on top of this plan
 	attr_reader :transactions
 

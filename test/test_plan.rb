@@ -406,5 +406,20 @@ class TC_Plan < Test::Unit::TestCase
     def test_transaction_stack
         assert_equal [plan], plan.transaction_stack
     end
+
+    def test_quarantine
+        t1, t2, t3, p = prepare_plan :add => 4
+        t1.depends_on t2
+        t2.depends_on t3
+        t2.planned_by p
+
+        t1.signals :start, p, :start
+        t2.signals :success, p, :start
+
+        plan.quarantine(t2)
+        assert_equal([t2], plan.gc_quarantine.to_a)
+        assert(t2.leaf?)
+        assert(t2.success_event.leaf?)
+    end
 end
 

@@ -182,13 +182,15 @@ module Roby
                         # In this case, we can't "just" stop the task. We have
                         # to inject +error+ in the exception handling and kill
                         # everything that depends on it.
-                        plan.engine.add_error(error)
+                        plan.engine.add_error(TaskEmergencyTermination.new(task, error))
                     end
                 else
                     # No nice way to isolate this error through the task
-                    # interface. Inject it in the normal exception propagation
+                    # interface, as we can't emergency stop it. Quarantine it
+                    # and inject it in the normal exception propagation
                     # mechanisms.
-                    plan.engine.add_error(error)
+                    plan.quarantine(task)
+                    plan.engine.add_error(TaskEmergencyTermination.new(task, error))
                 end
             end
         end
@@ -1789,6 +1791,9 @@ module Roby
 	forward :aborted => :failed
 
         event :internal_error
+        # Forcefully mark internal_error as a failure event, even though it does
+        # not forwards to failed
+        class Task::InternalError; def failure?; true end end
         on :internal_error do |error|
             @failure_reason = error.context.first
         end

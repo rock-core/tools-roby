@@ -66,6 +66,14 @@ module Roby
     # Raised during event propagation if an event is called, while this event
     # is not controlable.
     class EventNotControlable < LocalizedError; end
+    # Raised when an error occurs on a task while we were terminating it
+    class TaskEmergencyTermination < LocalizedError
+        attr_reader :reason
+        def initialize(task, reason)
+            @reason = reason
+            super(task)
+        end
+    end
 
     # Raised when an operation is attempted while the ownership does not allow
     # it.
