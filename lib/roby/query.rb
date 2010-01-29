@@ -233,6 +233,16 @@ module Roby
 	    true
 	end
 
+        # Returns true if filtering with this TaskMatcher using #=== is
+        # equivalent to calling #filter() using a TaskIndex. This is used to
+        # avoid an explicit O(N) filtering step after filter() has been called
+        def indexed_query?
+            improved_information.empty? && needed_information.empty? &&
+                (!arguments || arguments.empty?) && @children.empty? && @parents.empty? &&
+                TaskIndex::STATE_PREDICATES.include_all?(predicates) &&
+                TaskIndex::STATE_PREDICATES.include_all?(neg_predicates)
+        end
+
         # Filters the tasks in +initial_set+ by using the information in
         # +task_index+, and returns the result. The resulting set must
         # include all tasks in +initial_set+ which match with #===, but can
@@ -332,6 +342,24 @@ module Roby
 	def result_set
 	    @result_set ||= plan.query_result_set(self)
 	end
+
+	def filter(initial_set, task_index)
+            result = super
+
+            if plan_predicates.include?(:mission?)
+                result &= plan.missions
+            elsif neg_plan_predicates.include?(:mission?)
+                result -= plan.missions
+            end
+
+            if plan_predicates.include?(:permanent?)
+                result &= plan.permanent_tasks
+            elsif neg_plan_predicates.include?(:permanent?)
+                result -= plan.permanent_tasks
+            end
+
+            result
+        end
 
         # #result_set is a cached value. Call this method to reinitialize,
         # making sure the result set is recomputed next time #result_set is
@@ -509,11 +537,17 @@ module Roby
 	# Called by TaskMatcher#result_set and Query#result_set to get the set
 	# of tasks matching +matcher+
 	def query_result_set(matcher)
-	    result = ValueSet.new
-	    for task in matcher.filter(known_tasks, task_index)
-		result << task if matcher === task
-	    end
-	    result
+            filtered = matcher.filter(known_tasks, task_index)
+
+            if matcher.indexed_query?
+                filtered
+            else
+                result = ValueSet.new
+                for task in filtered
+                    result << task if matcher === task
+                end
+                result
+            end
 	end
 
 	# Called by TaskMatcher#each and Query#each to return the result of
