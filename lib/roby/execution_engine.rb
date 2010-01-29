@@ -1059,7 +1059,7 @@ module Roby
                             ExecutionEngine.debug { "GC: queueing #{local_task}/stop" }
                             if !local_task.respond_to?(:stop!)
                                 ExecutionEngine.fatal "something fishy: #{local_task}/stop is controlable but there is no #stop! method"
-                                plan.gc_quarantine << local_task
+                                plan.quarantine(local_task)
                             else
                                 finishing << local_task
                                 once do
@@ -1069,6 +1069,8 @@ module Roby
                             end
                         else
                             ExecutionEngine.warn "GC: ignored #{local_task}, it cannot be stopped"
+                            # We don't use Plan#quarantine as it is normal that
+                            # this task does not get GCed
                             plan.gc_quarantine << local_task
                         end
                     elsif local_task.finishing?
