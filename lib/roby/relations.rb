@@ -572,6 +572,8 @@ module Roby
         #   then the following method is additionally defined
         #     each_parent { |v| ... }
         #
+        # Finally, if a block is given, it gets included in the target class
+        # (i.e. for a TaskStructure relation, Roby::Task)
 	def relation(relation_name, options = {}, &block)
 	    options = validate_options options,
 			:child_name  => relation_name.to_s.snakecase,
