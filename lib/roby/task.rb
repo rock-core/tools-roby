@@ -227,10 +227,17 @@ module Roby
 	end
 
         def controlable?; event_model.controlable? end
-	attr_accessor :terminal_flag
-	def terminal?; !!@terminal_flag end
-	def success?; @terminal_flag == :success end
-	def failure?; @terminal_flag == :failure end
+
+	attr_writer :terminal_flag
+
+        def terminal_flag
+            task.update_terminal_flag
+            return @terminal_flag
+        end
+
+	def terminal?; !!terminal_flag end
+	def success?; terminal_flag == :success end
+	def failure?; terminal_flag == :failure end
 	def added_child_object(child, relations, info)
 	    super if defined? super
 
@@ -238,7 +245,7 @@ module Roby
 		child.respond_to?(:task) && child.task == task &&
 		    child.terminal_flag != terminal_flag
 
-		task.update_terminal_flag
+		task.invalidate_terminal_flag
 	    end
 	end
 	def removed_child_object(child, relations)
@@ -248,7 +255,7 @@ module Roby
 		child.respond_to?(:task) && child.task == task &&
 		    terminal_flag
 
-		task.update_terminal_flag
+		task.invalidate_terminal_flag
 	    end
 	end
         def new(context); event_model.new(task, self, plan.engine.propagation_id, context) end
@@ -706,6 +713,9 @@ module Roby
 	    @model   = self.class
 
             yield(self) if block_given?
+
+            @terminal_flag_invalid = true
+
             # Create the EventGenerator instances that represent this task's
             # events. Note that the event relations are instanciated by
             # Plan#discover when this task is included in a plan, thus avoiding
@@ -1099,10 +1109,15 @@ module Roby
 	    end
 	end
 
+        def invalidate_terminal_flag
+            @terminal_flag_invalid = true
+        end
+
 	# Updates the terminal flag for all events in the task. An event is
 	# terminal if the +stop+ event of the task will be called because this
 	# event is.
 	def update_terminal_flag # :nodoc:
+            return if !@terminal_flag_invalid
 	    return unless @instantiated_model_events
 
 	    for _, ev in bound_events
@@ -1150,6 +1165,7 @@ module Roby
 	    for ev in (terminal_events - success_events - failure_events)
 		ev.terminal_flag = true if ev.respond_to?(:task) && ev.task == self
 	    end
+            @terminal_flag_invalid = false
 	end
 
         # Returns a list of Event objects, for all events that have been fired
