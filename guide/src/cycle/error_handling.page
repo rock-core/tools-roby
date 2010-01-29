@@ -3,83 +3,6 @@ title: Error Handling
 sort_info: 200
 --- name:content pipeline:tags,markdown,blocks
 
-Where do errors come from ?
----------------------------
-
-In a robotic system, errors can come from multiple sources:
-
- * the most obvious one is the _environment_. In this case, an "error" is the
-   inability for the system to cope with its current environment. This usually
-   translates into the failure to reach a goal, or an algorithm malfunction.
-   A great example of this is the hesitation that some local obstacle avoidance
-   have: the algorithm goes into an endless (or at least very long) loop because
-   it hesitates between two solutions.
- * failing hardware. Hardware can fail and in this case the supervision system
-   has to cope with a "crippled" robot.
- * the other source is the programmer itself: the robotic system mainly runs on
-   software, which - as all software - has bugs. Even the supervision system's
-   code can have bugs. As we will see later on, even this latter case is at
-   least partially taken into account.
-
-In Roby terms, these three sources of errors take essentially two forms:
-
- * the plan is inconsistent. Task and event relations may define _constraints_,
-   and the plan is said to be inconsistent if one of those constraints are not
-   met. Example: the hierarchy relation lists some events that should be emitted
-   and some that should not. A failure to meet one of these constraints is
-   interpreted by the Roby kernel as an error that must be dealt with. This can
-   be used to represent problems with the environment (failure to complete
-   a task).
- * the Ruby code raises an exception. Most of the time, it will be caused by
-   a bug in the code, but also may be a way to represent a problem with
-   a particular process (the "bug in external software supervised by Roby"
-   case).
-
-When using Roby to control a complex robotic systems, one will usually have two
-different kind of tasks in the plan. On one side, some tasks are mapped
-one-to-one with actual external processes as for instance a task that is running
-in a module of the robot's functional layer. For these, the task's implementation
-has two roles:
-
- * use the means of communication it has with the external process. In the
-   functional layer case, the modules usually have ways to report their state
-   and, if needs be, the occurrence of errors.
- * _diagnostics_. In this case, the task does not assume that what the external
-   process is reporting is true, but instead tries to assess the external
-   process states by indirect means. A simple example is to verify that the
-   output values of the module is within specified boundaries.
-
-The most useful strategy is to actually do _both_. Simple diagnostics can be
-implemented using the task's __poll__ block. More complex ones can use two
-different tasks (one task for the process, one task for the monitoring), and
-according task relations.
-
-On the other side, the hierarchy relation allows to create more abstract views
-of the plan: an abstract action (e.g. MoveTo) is decomposed into actual external
-processes (e.g. Localization, Control, PathPlanning). Nonetheless, it is
-still possible at the abstract level to monitor the good progress of the task.
-It is actually possible, at this level, to spot problems that the lower levels
-where missing, as for instance a recurring hesitation of the robot in a movement
-task, that forbids him to reach its goal.
-
-In any case, Roby offers a unique way to represent __fault modes__. Instead of
-having a binary success/failure outcome, it is possible to define an arbitrary
-set of terminal events. Then, by forwarding these events to either _success_ or
-_failed_, the events become either a nominal outcome or a fault mode. As we will
-see later on, it has an interesting impact on the fault handling possibilities.
-
-Taking the example of the hesitation problem, one would write:
-
-{coderay:: ruby}
-class MoveTo < Roby::Task
-   event :hesitates
-   forward :hesitates => :failed
-end
-{coderay}
-
-and then {coderay:: {lang: ruby, wrap: span}}emit :hesitates{coderay} when
-applicable.
-
 Integration in the execution cycle
 ----------------------------------
 As was just explained, errors take two forms in Roby:
@@ -97,12 +20,15 @@ links (a task's failure impacts the tasks that depend on it, i.e. its parents in
 the hierarchy relation). Therefore, Roby is only able to handle these errors
 that can be associated with a task (this error impacts that task), namely: the
 exceptions that come from task/event code and the constraint violations. The
-other exceptions (that come from Roby code) are not handled automatically by
-Roby and they lead by default to a shutdown of the whole system.
+other exceptions (that come from Roby code that is not assigned to a task/event)
+are not handled automatically by Roby. They lead by default to a shutdown of the
+whole system.
 
-In the execution cycle, a constraint analysis is ran on the whole plan _after
+In the execution cycle, Roby runs a constraint analysis on the whole plan _after
 the event propagation phase_. This is because that pass has to see the "big
 picture", i.e. the result of all the event propagation in the current cycle.
+See [this page](../relations/new_relations.html) for details on how to integrate
+a constraint analysis routine from a task/event relation.
 
 We will now see the three means of error handling that Roby offers, and then
 conclude with an overview of the whole error handling phase.
@@ -153,14 +79,18 @@ and the plan after the error on the right.
 
 ![](error_instantaneous_repair.png)
 
-Roby's exception system: synchronous reparations
-------------------------------------------------
-
 Plan repairs: asynchronous reparations
 --------------------------------------
 
+Roby's exception system: synchronous reparations
+------------------------------------------------
+
 What to do with non-repaired tasks ?
 ------------------------------------
+
+Well, that's actually the subject of the next page. In summary: since they're
+not repaired, they count as being potentially harmful to the system and
+therefore are stopped automatically by the garbage collection mechanism.
 
 Summary
 -------
