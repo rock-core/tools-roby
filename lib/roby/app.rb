@@ -381,6 +381,7 @@ module Roby
         # specified in the <tt>config/app.yml</tt> file.
 	def setup_loggers
             Robot.logger.progname = robot_name || 'Robot'
+            return if !log['levels']
 
 	    # Set up log levels
 	    log['levels'].each do |name, value|
