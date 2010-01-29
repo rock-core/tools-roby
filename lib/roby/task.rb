@@ -1471,10 +1471,14 @@ module Roby
         # Roby::TaskEvent, but it is possible to override that by using the +model+
         # option.
         def self.event(ev, options = Hash.new, &block)
-            options = validate_options(options, :command => nil, :terminal => nil, :model => TaskEvent)
+            options = validate_options(options, :controlable => nil, :command => nil, :terminal => nil, :model => TaskEvent)
 
             ev_s = ev.to_s
             ev = ev.to_sym
+
+            if options.has_key?(:controlable)
+                options[:command] = options[:controlable]
+            end
 
             if !options.has_key?(:command)
 		if block
