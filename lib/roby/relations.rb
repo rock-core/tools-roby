@@ -94,9 +94,10 @@ module Roby
         # is given, it removes only the edges in that relation graph.
 	def remove_children(relation = nil)
 	    apply_selection(relation, (relation || enum_relations)) do |relation|
-		self.each_child_object(relation) do |child|
-		    remove_child_object(child, relation)
-		end
+                children = child_objects(relation).to_a
+                for child in children
+                    remove_child_object(child, relation)
+                end
 	    end
 	end
 
@@ -112,7 +113,8 @@ module Roby
 	def remove_parents(relation = nil)
 	    check_is_relation(relation)
 	    apply_selection(relation, (relation || enum_relations)) do |relation|
-		relation.each_parent_object(self) do |parent|
+		parents = parent_objects(relation).to_a
+                for parent in parents
 		    remove_parent_object(relation, parent)
 		end
 	    end
@@ -122,17 +124,19 @@ module Roby
 	# it removes all edges in which +self+ is involved.
         #
         # If +relation+ is not nil, only edges of that relation graph are removed.
-	def remove_relations(to = nil, relation = nil)
+	def remove_relations(relation = nil)
 	    check_is_relation(relation)
-	    if to
-		remove_parent_object(to, relation)
-		remove_child_object(to, relation)
-	    else
-		apply_selection(relation, (relation || enum_relations)) do |relation|
-		    each_parent_object(relation) { |parent| remove_parent_object(parent, relation) }
-		    each_child_object(relation) { |child| remove_child_object(child, relation) }
-		end
-	    end
+            apply_selection(relation, (relation || enum_relations)) do |relation|
+                parents = parent_objects(relation).to_a
+                for parent in parents
+                    relation.remove_relation(parent, self)
+                end
+
+                children = child_objects(relation).to_a
+                for child in children
+                    relation.remove_relation(self, child)
+                end
+            end
 	end
 
 	# Raises if +type+ does not look like a relation
@@ -232,7 +236,7 @@ module Roby
         # Remove +vertex+ from this graph. It removes all relations that
         # +vertex+ is part of, and calls the corresponding hooks
         def remove(vertex)
-            vertex.remove_relations(nil, self)
+            vertex.remove_relations(self)
             super
         end
 
@@ -668,12 +672,21 @@ module Roby
 
 	    if options[:single_child]
 		mod.class_eval <<-EOD
-		def #{options[:child_name]}
-		    each_child_object(@@__r_#{relation_name}__) do |child_task|
-			return child_task
-		    end
-		    nil
-		end
+		attr_reader :#{options[:child_name]}
+
+                def added_child_object(child, relations, info)
+                    super if defined? super
+                    if relations.include?(@@__r_#{relation_name}__)
+                        instance_variable_set :@#{options[:child_name]}, child
+                    end
+                end
+
+                def removed_child_object(child, relations)
+                    super if defined? super
+                    if relations.include?(@@__r_#{relation_name}__)
+                        instance_variable_set :@#{options[:child_name]}, nil
+                    end
+                end
 		EOD
 	    end
 

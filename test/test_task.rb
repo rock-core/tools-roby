@@ -370,51 +370,152 @@ class TC_Task < Test::Unit::TestCase
         assert task.event(:terminal).child_object?(task.event(:stop), EventStructure::Forwarding)
     end
 
-    def test_terminal_direct_forward_in_model
-	klass = Class.new(Task) do
-	    event :terminal
-	    forward :terminal => :stop
-	end
-        assert klass.event_model(:terminal).terminal?
-        plan.add(task = klass.new)
-        assert task.event(:terminal).terminal?
+    ASSERT_EVENT_ALL_PREDICATES = [:terminal?, :failure?, :success?]
+    ASSERT_EVENT_PREDICATES = {
+        :normal   => [],
+        :stop     => [:terminal?],
+        :failed   => [:terminal?, :failure?],
+        :success  => [:terminal?, :success?]
+    }
+
+    def assert_model_event_flag(model, event_name, model_flag)
+        if model_flag != :normal
+            assert model.event_model(event_name).terminal?, "#{model}.#{event_name}.terminal? returned false"
+        else
+            assert !model.event_model(event_name).terminal?, "#{model}.#{event_name}.terminal? returned true"
+        end
     end
 
-    def test_terminal_indirect_forward_in_model
+    def assert_event_flag(task, event_name, instance_flag, model_flag)
+        ASSERT_EVENT_PREDICATES[instance_flag].each do |pred|
+            assert task.event(event_name).send(pred), "#{task}.#{event_name}.#{pred} returned false"
+        end
+        (ASSERT_EVENT_ALL_PREDICATES - ASSERT_EVENT_PREDICATES[instance_flag]).each do |pred|
+            assert !task.event(event_name).send(pred), "#{task}.#{event_name}.#{pred} returned true"
+        end
+        assert_model_event_flag(task, event_name, model_flag)
+    end
+
+    def test_terminal_forward_stop(target_event = :stop)
 	klass = Class.new(Task) do
-	    event :terminal
+	    event :direct
+
+            event :indirect
             event :intermediate
-
-            forward :intermediate => :failed
-	    forward :terminal => :intermediate
 	end
-        assert klass.event_model(:terminal).terminal?
         plan.add(task = klass.new)
-        assert task.event(:terminal).terminal?
+        task.forward_to :direct, task, target_event
+        task.forward_to :indirect, task, :intermediate
+        task.forward_to :intermediate, task, target_event
+        assert_event_flag(task, :direct, target_event, :normal)
+        assert_event_flag(task, :indirect, target_event, :normal)
     end
+    def test_terminal_forward_success; test_terminal_forward_stop(:success) end
+    def test_terminal_forward_failed; test_terminal_forward_stop(:failed) end
 
-    def test_terminal_direct_signal_in_model
-	klass = Class.new(SimpleTask) do
-	    event :terminal
-	    signal :terminal => :stop
-	end
-        assert klass.event_model(:terminal).terminal?
-        plan.add(task = klass.new)
-        assert task.event(:terminal).terminal?
-    end
-
-    def test_terminal_indirect_signal_in_model
+    def test_terminal_forward_stop_in_model(target_event = :stop)
 	klass = Class.new(Task) do
-	    event :terminal
-            event :intermediate, :command => true
+	    event :direct
+            forward :direct => target_event
 
-	    signal :terminal => :intermediate
-            forward :intermediate => :failed
+            event :indirect
+            event :intermediate
+            forward :indirect => :intermediate
+            forward :intermediate => target_event
 	end
-        assert klass.event_model(:terminal).terminal?
+        assert_model_event_flag(klass, :direct, target_event)
+        assert_model_event_flag(klass, :indirect, target_event)
         plan.add(task = klass.new)
-        assert task.event(:terminal).terminal?
+        assert_event_flag(task, :direct, target_event, target_event)
+        assert_event_flag(task, :indirect, target_event, target_event)
     end
+    def test_terminal_forward_success_in_model; test_terminal_forward_stop_in_model(:success) end
+    def test_terminal_forward_failed_in_model; test_terminal_forward_stop_in_model(:failed) end
+
+    def test_terminal_signal_stop(target_event = :stop)
+	klass = Class.new(Task) do
+	    event :direct
+
+            event :indirect
+            event :intermediate, :controlable => true
+            event target_event, :controlable => true, :terminal => true
+	end
+        plan.add(task = klass.new)
+        task.signals :direct, task, target_event
+        task.signals :indirect, task, :intermediate
+        task.signals :intermediate, task, target_event
+        assert_event_flag(task, :direct, target_event, :normal)
+        assert_event_flag(task, :indirect, target_event, :normal)
+    end
+    def test_terminal_signal_success; test_terminal_signal_stop(:success) end
+    def test_terminal_signal_failed; test_terminal_signal_stop(:failed) end
+
+    def test_terminal_signal_stop_in_model(target_event = :stop)
+	klass = Class.new(Task) do
+	    event :direct
+
+            event :indirect
+            event :intermediate, :controlable => true
+            event target_event, :controlable => true, :terminal => true
+
+            signal :direct => target_event
+            signal :indirect => :intermediate
+            signal :intermediate => target_event
+	end
+        assert_model_event_flag(klass, :direct, target_event)
+        assert_model_event_flag(klass, :indirect, target_event)
+        plan.add(task = klass.new)
+        assert_event_flag(task, :direct, target_event, target_event)
+        assert_event_flag(task, :indirect, target_event, target_event)
+    end
+    def test_terminal_signal_success_in_model; test_terminal_signal_stop_in_model(:success) end
+    def test_terminal_signal_failed_in_model; test_terminal_signal_stop_in_model(:failed) end
+
+    def test_terminal_alternate_stop(target_event = :stop)
+	klass = Class.new(Task) do
+            event :forward_first
+            event :intermediate_signal
+            event target_event, :controlable => true, :terminal => true
+
+            event :signal_first
+            event :intermediate_forward, :controlable => true
+	end
+        assert_model_event_flag(klass, :signal_first, :normal)
+        assert_model_event_flag(klass, :forward_first, :normal)
+        plan.add(task = klass.new)
+
+        task.forward_to :forward_first, task, :intermediate_signal
+        task.signals :intermediate_signal, task, target_event
+        task.signals :signal_first, task, :intermediate_forward
+        task.forward_to :intermediate_forward, task, target_event
+        assert_event_flag(task, :signal_first, target_event, :normal)
+        assert_event_flag(task, :forward_first, target_event, :normal)
+    end
+    def test_terminal_alternate_success; test_terminal_signal_stop(:success) end
+    def test_terminal_alternate_failed; test_terminal_signal_stop(:failed) end
+
+    def test_terminal_alternate_stop_in_model(target_event = :stop)
+	klass = Class.new(Task) do
+            event :forward_first
+            event :intermediate_signal
+            event target_event, :controlable => true, :terminal => true
+
+            event :signal_first
+            event :intermediate_forward, :controlable => true
+
+            forward :forward_first => :intermediate_signal
+            signal  :intermediate_signal => target_event
+            signal :signal_first => :intermediate_forward
+            forward :intermediate_forward => target_event
+	end
+        assert_model_event_flag(klass, :signal_first, target_event)
+        assert_model_event_flag(klass, :forward_first, target_event)
+        plan.add(task = klass.new)
+        assert_event_flag(task, :signal_first, target_event, target_event)
+        assert_event_flag(task, :forward_first, target_event, target_event)
+    end
+    def test_terminal_alternate_success_in_model; test_terminal_signal_stop_in_model(:success) end
+    def test_terminal_alternate_failed_in_model; test_terminal_signal_stop_in_model(:failed) end
 
     def test_should_not_establish_signal_from_terminal_to_non_terminal
 	klass = Class.new(Task) do

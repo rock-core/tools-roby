@@ -231,7 +231,9 @@ module Roby
 	attr_writer :terminal_flag
 
         def terminal_flag
-            task.update_terminal_flag
+            if task.invalidated_terminal_flag?
+                task.update_terminal_flag
+            end
             return @terminal_flag
         end
 
@@ -241,22 +243,26 @@ module Roby
 	def added_child_object(child, relations, info)
 	    super if defined? super
 
-	    if relations.include?(EventStructure::CausalLink) && 
-		child.respond_to?(:task) && child.task == task &&
-		    child.terminal_flag != terminal_flag
+            if !task.invalidated_terminal_flag?
+                if (relations.include?(EventStructure::Forwarding) || relations.include?(EventStructure::Signal)) && 
+                    child.respond_to?(:task) && child.task == task &&
+                        child.terminal_flag != terminal_flag
 
-		task.invalidate_terminal_flag
-	    end
+                    task.invalidate_terminal_flag
+                end
+            end
 	end
 	def removed_child_object(child, relations)
 	    super if defined? super
 
-	    if relations.include?(EventStructure::CausalLink) &&
-		child.respond_to?(:task) && child.task == task &&
-		    terminal_flag
+            if !task.invalidated_terminal_flag?
+                if (relations.include?(EventStructure::Forwarding) || relations.include?(EventStructure::Signal)) && 
+                    child.respond_to?(:task) && child.task == task &&
+                        terminal_flag
 
-		task.invalidate_terminal_flag
-	    end
+                    task.invalidate_terminal_flag
+                end
+            end
 	end
         def new(context); event_model.new(task, self, plan.engine.propagation_id, context) end
 
@@ -798,31 +804,31 @@ module Roby
 	    # Add the model-level signals to this instance
 	    @instantiated_model_events = true
 	    
-	    left_border  = bound_events.values.to_value_set
+            right_side   = ValueSet.new
 	    right_border = bound_events.values.to_value_set
+            left_border  = right_border.dup
 
 	    model.each_signal_set do |generator, signalled_events|
 		next if signalled_events.empty?
 	        generator = bound_events[generator]
 	        right_border.delete(generator)
 
+                right_side.merge(signalled_events)
 	        for signalled in signalled_events
 	            signalled = bound_events[signalled]
 	            generator.signals signalled
-	            left_border.delete(signalled)
 	        end
 	    end
-
 
 	    model.each_forwarding_set do |generator, signalled_events|
 		next if signalled_events.empty?
 	        generator = bound_events[generator]
 	        right_border.delete(generator)
 
+                right_side.merge(signalled_events)
 	        for signalled in signalled_events
 	            signalled = bound_events[signalled]
 	            generator.forward_to signalled
-	            left_border.delete(signalled)
 	        end
 	    end
 
@@ -831,19 +837,21 @@ module Roby
 	        generator = bound_events[generator]
 	        right_border.delete(generator)
 
+                right_side.merge(signalled_events)
 	        for signalled in signalled_events
 	            signalled = bound_events[signalled]
 	            generator.add_causal_link signalled
-	            left_border.delete(signalled)
 	        end
 	    end
+
+            left_border -= right_side
             
             # Add a link from internal_event to stop if stop is controllable
             if event(:stop).controlable?
                 event(:internal_error).signals event(:stop)
             end
 
-	    update_terminal_flag
+	    terminal_events, success_events, failure_events = update_terminal_flag
 
 	    # WARNING: this works only because:
 	    #   * there is always at least updated_data as an intermediate event
@@ -855,20 +863,16 @@ module Roby
 	    left_border.delete(stop_event)
 	    right_border.delete(stop_event)
 
-	    for generator in left_border
-		start_event.add_precedence(generator) unless generator.terminal?
-	    end
-
 	    # WARN: the start event CAN be terminal: it can be a signal from
 	    # :start to a terminal event
 	    #
 	    # Create the precedence relations between 'normal' events and the terminal events
+            left_border   -= terminal_events
+            right_border  &= terminal_events
 	    for terminal in left_border
-		next unless terminal.terminal?
+		start_event.add_precedence(terminal)
 	        for generator in right_border
-	            unless generator.terminal?
-	        	generator.add_precedence(terminal)
-	            end
+                    generator.add_precedence(terminal)
 	        end
 	    end
 	end
@@ -1109,8 +1113,27 @@ module Roby
 	    end
 	end
 
-        def invalidate_terminal_flag
-            @terminal_flag_invalid = true
+        def invalidated_terminal_flag?; !!@terminal_flag_invalid end
+        def invalidate_terminal_flag; @terminal_flag_invalid = true end
+
+
+        def do_terminal_flag_update(terminal_set, set, root)
+            stack = [root]
+            while !stack.empty?
+                vertex = stack.shift
+                for relation in [EventStructure::Signal, EventStructure::Forwarding]
+                    for parent in vertex.parent_objects(relation)
+                        next if !parent.respond_to?(:task) || parent.task != self
+                        next if parent[vertex, relation]
+
+                        if !terminal_set.include?(parent)
+                            terminal_set  << parent
+                            set   << parent if set
+                            stack << parent
+                        end
+                    end
+                end
+            end
         end
 
 	# Updates the terminal flag for all events in the task. An event is
@@ -1129,43 +1152,22 @@ module Roby
                 [event(:failed)].to_value_set,
                 [event(:stop), event(:success), event(:failed)].to_value_set
 
-	    loop do
-		old_size = terminal_events.size
-		for _, ev in bound_events
-                    for relation in [EventStructure::Signal, EventStructure::Forwarding]
-                        for target in ev.child_objects(relation)
-                            next if !target.respond_to?(:task) || target.task != self
-                            next if ev[target, relation]
-
-                            if success_events.include?(target)
-                                success_events << ev
-                                terminal_events << ev
-                                break
-                            elsif failure_events.include?(target)
-                                failure_events << ev
-                                terminal_events << ev
-                                break
-                            elsif terminal_events.include?(target)
-                                terminal_events << ev
-                            end
-                        end
-                    end
-
-                    success_events.include?(ev) || failure_events.include?(ev) || terminal_events.include?(ev)
-		end
-		break if old_size == terminal_events.size
-	    end
+            do_terminal_flag_update(terminal_events, success_events, event(:success))
+            do_terminal_flag_update(terminal_events, failure_events, event(:failed))
+            do_terminal_flag_update(terminal_events, nil, event(:stop))
 
 	    for ev in success_events
-		ev.terminal_flag = :success if ev.respond_to?(:task) && ev.task == self
+		ev.terminal_flag = :success
 	    end
 	    for ev in failure_events
-		ev.terminal_flag = :failure if ev.respond_to?(:task) && ev.task == self
+		ev.terminal_flag = :failure
 	    end
 	    for ev in (terminal_events - success_events - failure_events)
-		ev.terminal_flag = true if ev.respond_to?(:task) && ev.task == self
+		ev.terminal_flag = true
 	    end
             @terminal_flag_invalid = false
+
+            return terminal_events, success_events, failure_events
 	end
 
         # Returns a list of Event objects, for all events that have been fired
