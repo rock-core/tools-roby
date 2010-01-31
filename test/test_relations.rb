@@ -60,6 +60,18 @@ class TC_Relations < Test::Unit::TestCase
         assert_equal 2, n1[n2, r2]
     end
 
+    def test_relation_each_edge
+	klass = Class.new { include Roby::DirectedRelationSupport }
+	space = Roby::RelationSpace(klass)
+
+        r1 = space.relation :R1
+
+	n1, n2 = 2.enum_for(:times).map { klass.new }
+	n1.add_child_object(n2, r1)
+
+        assert_equal([ [n1, n2, nil] ], r1.enum_for(:each_edge).to_a )
+    end
+
     def test_relation_info_in_subgraphs
 	klass = Class.new { include Roby::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
