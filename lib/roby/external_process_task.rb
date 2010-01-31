@@ -181,15 +181,17 @@ module Roby
             end
 
             w.close
-            control = Integer(r.read(1))
-            if control == KO_REDIRECTION
-                raise "could not start #{command_line.first}: cannot establish output redirections"
-            elsif control == KO_NO_SUCH_FILE
-                raise "could not start #{command_line.first}: provided command does not exist"
-            elsif control == KO_EXEC
-                raise "could not start #{command_line.first}: exec() call failed"
+            control = r.read(1)
+            if control
+                case Integer(control)
+                when KO_REDIRECTION
+                    raise "could not start #{command_line.first}: cannot establish output redirections"
+                when KO_NO_SUCH_FILE
+                    raise "could not start #{command_line.first}: provided command does not exist"
+                when KO_EXEC
+                    raise "could not start #{command_line.first}: exec() call failed"
+                end
             end
-
 
         rescue Exception => e
             ExternalProcessTask.processes.delete(pid)

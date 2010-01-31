@@ -493,7 +493,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
     def test_code_error_formatting
         model = Class.new(SimpleTask) do
-            event :start do
+            event :start do |context|
                 raise ArgumentError
             end
         end
@@ -505,7 +505,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 
         model = Class.new(SimpleTask) do
-            event :start do
+            event :start do |context|
                 start_event.emit_failed
             end
         end
@@ -516,7 +516,7 @@ class TC_Exceptions < Test::Unit::TestCase
         check_exception_formatting(e)
 
         model = Class.new(SimpleTask) do
-            on :start do
+            on :start do |ev|
                 raise ArgumentError
             end
         end

@@ -963,7 +963,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
             stop_called = false
             source = SimpleTask.new(:id => 'source')
             target = Class.new(SimpleTask) do
-                event :start do
+                event :start do |context|
                     if !stop_called
                         raise ArgumentError, "ordering failed"
                     end
@@ -974,7 +974,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
             plan.add_permanent(target)
 
             source.signals :success, target, :start
-            source.on :stop do
+            source.on :stop do |ev|
                 stop_called = true
             end
             source.start!

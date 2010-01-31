@@ -47,7 +47,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	end
 
 	plan.add_permanent(t = SimpleTask.new)
-	assert_raises(Test::Unit::AssertionFailedError) do
+	assert_raises(MiniTest::Assertion) do
 	    assert_any_event(t.event(:success)) do
 		t.start!
 		t.failed!

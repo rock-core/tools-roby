@@ -994,7 +994,7 @@ class TC_Event < Test::Unit::TestCase
     def test_exception_in_once_handler
         plan.add(ev = EventGenerator.new(true))
         FlexMock.use do |mock|
-            ev.on { mock.called_other_handler }
+            ev.on { |ev| mock.called_other_handler }
             ev.once { raise ArgumentError }
             ev.once { mock.called_other_once_handler }
 
@@ -1007,8 +1007,8 @@ class TC_Event < Test::Unit::TestCase
     def test_exception_in_handler
         plan.add(ev = EventGenerator.new(true))
         FlexMock.use do |mock|
-            ev.on { mock.called_other_handler }
-            ev.on { raise ArgumentError }
+            ev.on { |ev| mock.called_other_handler }
+            ev.on { |ev| raise ArgumentError }
             ev.once { mock.called_other_once_handler }
 
             mock.should_receive(:called_other_handler).once
