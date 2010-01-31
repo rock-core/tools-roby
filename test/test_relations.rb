@@ -5,12 +5,16 @@ require 'flexmock'
 class TC_Relations < Test::Unit::TestCase
     include Roby::Test
 
+
     def test_definition
 	klass = Class.new
 
 	r1, r2 = nil
 	space = Roby::RelationSpace(klass)
-        r1 = space.relation :R1
+        r1 = space.relation :R1 do
+            def specific_relation_method
+            end
+        end
         r2 = space.relation :R2s, :child_name => :child, :parent_name => :parent
 	assert(Module === space)
 
@@ -23,10 +27,11 @@ class TC_Relations < Test::Unit::TestCase
 	assert( n.respond_to?(:each_parent) )
 	assert( n.respond_to?(:add_r1) )
 	assert( n.respond_to?(:add_child) )
+	assert( n.respond_to?(:specific_relation_method) )
     end
 
     def test_relation_info
-	klass = Class.new { include DirectedRelationSupport }
+	klass = Class.new { include Roby::DirectedRelationSupport }
 
 	space = Roby::RelationSpace(klass)
         r2 = space.relation :R2
@@ -55,8 +60,20 @@ class TC_Relations < Test::Unit::TestCase
         assert_equal 2, n1[n2, r2]
     end
 
+    def test_relation_each_edge
+	klass = Class.new { include Roby::DirectedRelationSupport }
+	space = Roby::RelationSpace(klass)
+
+        r1 = space.relation :R1
+
+	n1, n2 = 2.enum_for(:times).map { klass.new }
+	n1.add_child_object(n2, r1)
+
+        assert_equal([ [n1, n2, nil] ], r1.enum_for(:each_edge).to_a )
+    end
+
     def test_relation_info_in_subgraphs
-	klass = Class.new { include DirectedRelationSupport }
+	klass = Class.new { include Roby::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
         r2 = space.relation :R2
         r1 = space.relation :R1, :subsets => [r2]
@@ -82,7 +99,7 @@ class TC_Relations < Test::Unit::TestCase
     end
 
     def test_add_remove_relations
-	klass = Class.new { include DirectedRelationSupport }
+	klass = Class.new { include Roby::DirectedRelationSupport }
 
 	r1, r2 = nil
 	space = Roby::RelationSpace(klass)
@@ -141,7 +158,7 @@ class TC_Relations < Test::Unit::TestCase
 	    end
 
 	    klass = Class.new do
-		include DirectedRelationSupport 
+		include Roby::DirectedRelationSupport 
 		include hooks
 	    end
 		
@@ -162,7 +179,7 @@ class TC_Relations < Test::Unit::TestCase
 	    klass = Class.new do
 		def initialize(index); @index = index end
 		def to_s; "v#{@index.to_s}" end
-		include DirectedRelationSupport
+		include Roby::DirectedRelationSupport
 		define_method(:added_child_object) do |child, relations, info|
 		    super if defined? super
 		    mock.hooked_addition(child, relations)
@@ -205,7 +222,7 @@ class TC_Relations < Test::Unit::TestCase
     end
 
     def test_dag_checking
-	klass = Class.new { include DirectedRelationSupport }
+	klass = Class.new { include Roby::DirectedRelationSupport }
 	graph = RelationGraph.new("test", :dag => true)
 
 	v1, v2, v3 = (1..3).map { v = klass.new; graph.insert(v); v }
@@ -215,7 +232,7 @@ class TC_Relations < Test::Unit::TestCase
     end
 
     def test_single_child
-	klass = Class.new { include DirectedRelationSupport }
+	klass = Class.new { include Roby::DirectedRelationSupport }
 
 	r1 = nil
 	space = Roby::RelationSpace(klass)
@@ -230,14 +247,14 @@ class TC_Relations < Test::Unit::TestCase
     end
 
     def test_relations
-	klass = Class.new { include DirectedRelationSupport }
+	klass = Class.new { include Roby::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
         r1 = space.relation :R1
         assert_equal [r1], space.relations
     end
 
     def test_child_enumeration_without_info
-	klass = Class.new { include DirectedRelationSupport }
+	klass = Class.new { include Roby::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
         r1 = space.relation :R1, :child_name => 'child', :noinfo => true
 
@@ -247,7 +264,7 @@ class TC_Relations < Test::Unit::TestCase
         assert_equal([v2], v1.each_child.to_a)
     end
     def test_child_enumeration_with_info
-	klass = Class.new { include DirectedRelationSupport }
+	klass = Class.new { include Roby::DirectedRelationSupport }
 	space = Roby::RelationSpace(klass)
         r1 = space.relation :R1, :child_name => 'child'
 

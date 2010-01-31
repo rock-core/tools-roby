@@ -10,8 +10,8 @@ class TC_EnsuredEvent < Test::Unit::TestCase
 	    e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
 	    plan.add [e1, e2]
 	    e1.ensure e2
-	    e1.on { mock.e1 }
-	    e2.on { mock.e2 }
+	    e1.on { |ev| mock.e1 }
+	    e2.on { |ev| mock.e2 }
 	    [e1, e2]
 	end
 	FlexMock.use do |mock|

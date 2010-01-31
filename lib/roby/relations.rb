@@ -1,3 +1,4 @@
+require 'utilrb/object/scoped_eval'
 module Roby
     # This exception is raised when an edge is being added in a DAG, while this
     # edge would create a cycle.
@@ -589,11 +590,7 @@ module Roby
 
 	    # Check if this relation is already defined. If it is the case, reuse it.
 	    # This is needed mostly by the reloading code
-	    if const_defined?(options[:const_name])
-		graph = const_get(options[:const_name])
-		mod   = graph.support
-
-	    else
+            graph = define_or_reuse(options[:const_name]) do
 		graph = options[:graph].new "#{self.name}::#{options[:const_name]}", options
 		mod = Module.new do
 		    singleton_class.class_eval do
@@ -601,11 +598,13 @@ module Roby
 		    end
 		    class_eval "@@__r_#{relation_name}__ = __r_#{relation_name}__"
 		end
-		const_set(options[:const_name], graph)
+                const_set("#{options[:const_name]}SupportModule", mod)
 		relations << graph
+                graph.support = mod
+                graph
 	    end
-
-	    mod.class_eval(&block) if block_given?
+            mod = graph.support
+            mod.scoped_eval(:module_eval, &block) if block
 
 	    if parent_enumerator = options[:parent_name]
 		mod.class_eval <<-EOD

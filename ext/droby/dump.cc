@@ -1,6 +1,6 @@
 #include <ruby.h>
-#include <intern.h>
-#include <st.h>
+#include <ruby/intern.h>
+#include <ruby/st.h>
 #include <set>
 
 static VALUE mRoby;
@@ -47,9 +47,9 @@ static VALUE droby_format(int argc, VALUE* argv, VALUE self)
 
     VALUE remote_access = rb_iv_get(self, "@allowed_remote_access");
     int i;
-    for (i = 0; i < RARRAY(remote_access)->len; ++i)
+    for (i = 0; i < RARRAY_LEN(remote_access); ++i)
     {
-	if (rb_obj_is_kind_of(object, RARRAY(remote_access)->ptr[i]))
+	if (rb_obj_is_kind_of(object, RARRAY_PTR(remote_access)[i]))
 	    return rb_class_new_instance(1, &object, cDRbObject);
     }
 
@@ -81,9 +81,9 @@ static VALUE array_droby_dump(VALUE self, VALUE dest)
     int i;
 
     VALUE el[2] = { Qnil, dest };
-    for (i = 0; i < array->len; ++i)
+    for (i = 0; i < RARRAY_LEN(array); ++i)
     {
-	el[0] = array->ptr[i];
+	el[0] = RARRAY_PTR(array)[i];
 	rb_ary_push(result, droby_format(2, el, mRobyDistributed));
     }
 

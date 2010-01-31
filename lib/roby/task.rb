@@ -43,9 +43,7 @@ module Roby
 	def initialize(&block)
 	    super do
 		inherited_enumerable("argument_set", "argument_set") { ValueSet.new }
-		unless const_defined? :ClassExtension
-		    const_set(:ClassExtension, Module.new)
-		end
+                define_or_reuse(:ClassExtension, Module.new)
 
 		self::ClassExtension.include TaskModelTag::ClassExtension
 	    end
@@ -278,8 +276,8 @@ module Roby
 
 	def achieve_with(obj)
 	    child_task, child_event = case obj
-				      when Roby::Task: [obj, obj.event(:success)]
-				      when Roby::TaskEventGenerator: [obj.task, obj]
+				      when Roby::Task then [obj, obj.event(:success)]
+				      when Roby::TaskEventGenerator then [obj.task, obj]
 				      end
 
 	    if child_task
@@ -1354,7 +1352,7 @@ module Roby
 			    else
 				to_task_events.map { |ev_model| to.event(ev_model) }
 			    end
-			when EventGenerator: [to]
+			when EventGenerator then [to]
 			else []
 			end
 
@@ -2071,11 +2069,11 @@ module Roby
 	    @start_event = ev
 	end
 
-	event :start do
+	event :start do |context|
 	    event(:start).achieve_with(start_event)
 	    start_event.call
 	end
-	on :start do
+	on :start do |context|
 	    success_event.forward_to_once event(:success)
 	    success_event.if_unreachable(true) do
 		emit :failed if executable?

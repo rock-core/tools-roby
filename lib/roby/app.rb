@@ -497,10 +497,8 @@ module Roby
 
 	    # Import some constants directly at toplevel before loading the
 	    # user-defined models
-	    unless Object.const_defined?(:Application)
-		Object.const_set(:Application, Roby::Application)
-		Object.const_set(:State, Roby::State)
-	    end
+            Object.define_or_reuse :Application, Roby::Application
+            Object.define_or_reuse :State, Roby::State
 
 	    # Set up the loaded plugins
 	    call_plugins(:setup, self)
@@ -520,7 +518,7 @@ module Roby
 	    if testing?
 		require 'roby/test/testcase'
 		each_plugin do |mod|
-		    if mod.const_defined?(:Test)
+		    if mod.const_defined?(:Test, false)
 			Roby::Test::TestCase.include mod.const_get(:Test)
 		    end
 		end

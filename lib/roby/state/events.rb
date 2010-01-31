@@ -39,7 +39,7 @@ module Roby
 			 else AndGenerator.new
 			 end
 
-		result.on { result.reset }
+		result.on { |ev| result.reset }
 		def result.or(spec); DeltaEvent.or(spec, self) end
 		events.each { |ev| result << ev }
 		result
@@ -162,7 +162,7 @@ module Roby
 	    result = OrGenerator.new
 	    result << base_event
 	    result << new
-	    result.on { result.reset }
+	    result.on { |ev| result.reset }
 	    def result.or(spec); DeltaEvent.or(spec, self) end
 	    result
 	end

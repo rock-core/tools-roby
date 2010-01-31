@@ -32,7 +32,6 @@ class TC_State < Test::Unit::TestCase
     end
 
     def test_to_hash
-
 	s = ExtendedStruct.new
 	s.a = 10
 	s.b.a = 10
@@ -41,13 +40,9 @@ class TC_State < Test::Unit::TestCase
 	assert_equal({:a => 10, :b => s.b}, s.to_hash(false))
     end
 
-    # Somebody defines Kernel#y, one thing I try to manage
-    module ::Kernel
-	def y(i)
-	end
-    end
     def test_does_not_override
 	s = ExtendedStruct.new
+        def s.y(i); end
 	assert_raises(ArgumentError) { s.y }
 	s.y = 10
 	assert_equal(10, s.y)

@@ -277,9 +277,17 @@ module Roby
 		    result << set
 		end
 	    end
-	    if result.size == 1 then result.first
-	    else result
-	    end
+
+            result = result.map do |set|
+                if set.size == 1 then set.first
+                else set
+                end
+            end
+
+            if result.size == 1
+                return result.first
+            end
+            return *result
 	end
 
 	# Start a new process and saves its PID in #remote_processes. If a block is

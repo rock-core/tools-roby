@@ -33,7 +33,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	plan.add(t = SimpleTask.new)
 	t.start!
 	t.failed!
-	assert_raises(Test::Unit::AssertionFailedError) do
+	assert_raises(MiniTest::Assertion) do
 	    assert_any_event([t.event(:success)], [t.event(:stop)])
 	end
 
@@ -47,7 +47,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	end
 
 	plan.add_permanent(t = SimpleTask.new)
-	assert_raises(Test::Unit::AssertionFailedError) do
+	assert_raises(MiniTest::Assertion) do
 	    assert_any_event(t.event(:success)) do
 		t.start!
 		t.failed!
@@ -78,7 +78,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	task = Class.new(SimpleTask) do
 	    forward :start => :failed
 	end.new
-	assert_raises(Test::Unit::AssertionFailedError) do
+	assert_raises(MiniTest::Assertion) do
 	    assert_succeeds(task)
 	end
     end

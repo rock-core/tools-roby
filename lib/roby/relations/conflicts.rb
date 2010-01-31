@@ -23,10 +23,10 @@ module Roby
 	    end
 
 	    def self.included(klass) # :nodoc:
-		klass.extend ModelConflicts
+		klass.extend TaskStructure::ModelConflicts
 		super
 	    end
-	end
+        end
     end
 
     module ConflictEventHandling

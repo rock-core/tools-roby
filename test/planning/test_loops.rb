@@ -291,7 +291,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
 	    time_proxy.should_receive(:now).and_return { current_time }
             FlexMock.use do |mock|
                 mock.should_receive(:started).twice
-                task_model.on(:start) { mock.started }
+                task_model.on(:start) { |ev| mock.started }
 
                 loop_planner.start!
                 planners = loop_planner.patterns.reverse.map { |t, _| t }
@@ -390,7 +390,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
 
             @result_task = nil
             attr_reader :result_task
-            method(:task) {  @result_task = SimpleTask.new(:id => arguments[:task_id])}
+            method(:task) {  @result_task = Roby::Test::SimpleTask.new(:id => arguments[:task_id])}
             method(:looping_tasks) do
         	t1 = make_loop(:period => 0, :child_argument => 2) do
         	    # arguments of 'my_looping_task' shall be forwarded

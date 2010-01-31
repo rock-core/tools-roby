@@ -73,7 +73,7 @@ class TC_Event < Test::Unit::TestCase
 
 	event.remove_forwarding(other)
 	assert_nothing_raised { event.emit(nil) }
-	event.on { other.emit(nil) }
+	event.on { |ev| other.emit(nil) }
 	assert_original_error(EventNotExecutable, EventHandlerError) { event.call(nil) }
     end
 
@@ -210,12 +210,12 @@ class TC_Event < Test::Unit::TestCase
     def test_handlers
 	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
 	plan.add([e1, e2])
-	e1.on { e2.call(nil) }
+	e1.on { |ev| e2.call(nil) }
 
 	FlexMock.use do |mock|
-	    e1.on { mock.e1 }
-	    e2.on { mock.e2 }
-	    e1.on { mock.happened?(e1.happened?) }
+	    e1.on { |ev| mock.e1 }
+	    e2.on { |ev| mock.e2 }
+	    e1.on { |ev| mock.happened?(e1.happened?) }
 	    mock.should_receive(:happened?).once.with(true)
 	    mock.should_receive(:e1).once.ordered
 	    mock.should_receive(:e2).once.ordered
@@ -241,7 +241,7 @@ class TC_Event < Test::Unit::TestCase
         common_test_source_setup(true) { |e, target| e.forward_to target }
     end
     def test_forward_in_handler_source
-        common_test_source_setup(true) { |e, target| e.on { target.emit } }
+        common_test_source_setup(true) { |e, target| e.on { |ev| target.emit } }
     end
     def test_forward_in_command_source
         common_test_source_setup(false) { |e, target| e.command = lambda { |_| target.emit; e.emit } }
@@ -250,7 +250,7 @@ class TC_Event < Test::Unit::TestCase
         common_test_source_setup(false) { |e, target| e.signals target }
     end
     def test_signal_in_handler_source
-        common_test_source_setup(false) { |e, target| e.on { target.call } }
+        common_test_source_setup(false) { |e, target| e.on { |ev| target.call } }
     end
     def test_signal_in_command_source
         common_test_source_setup(false) { |e, target| e.command = lambda { |_| target.call; e.emit } }
@@ -260,7 +260,7 @@ class TC_Event < Test::Unit::TestCase
 	e1, e2, e3 = (1..3).map { EventGenerator.new(true) }.
 	    each { |e| plan.add(e) }
 	e1.signals(e2)
-	e1.on { e2.remove_signal(e3) }
+	e1.on { |ev| e2.remove_signal(e3) }
 	e2.signals(e3)
 
 	e1.call(nil)
@@ -297,7 +297,7 @@ class TC_Event < Test::Unit::TestCase
 	plan.add([wait_for, event])
 	event.singleton_class.class_eval do
 	    define_method(:calling) do |context|
-		super if defined? super
+		super(context) if defined? super
 		unless wait_for.happened?
 		    postpone(wait_for, "bla") {}
 		end
@@ -319,7 +319,7 @@ class TC_Event < Test::Unit::TestCase
 	    plan.add([wait_for, event])
 	    event.singleton_class.class_eval do
 		define_method(:calling) do |context|
-		    super if defined? super
+		    super(context) if defined? super
 		    if !wait_for.happened?
 			postpone(wait_for, "bla") do
 			    wait_for.call(nil)
@@ -328,8 +328,8 @@ class TC_Event < Test::Unit::TestCase
 		end
 	    end
 
-	    wait_for.on { mock.wait_for }
-	    event.on { mock.event }
+	    wait_for.on { |ev| mock.wait_for }
+	    event.on { |ev| mock.event }
 	    
 	    mock.should_receive(:wait_for).once.ordered
 	    mock.should_receive(:event).once.ordered
@@ -354,7 +354,7 @@ class TC_Event < Test::Unit::TestCase
     def test_and_generator
 	and_event = AndGenerator.new
 	FlexMock.use do |mock|
-	    and_event.on { mock.called }
+	    and_event.on { |ev| mock.called }
 	    mock.should_receive(:called).once
 
 	    events = 5.enum_for(:times).map { EventGenerator.new(true) }
@@ -469,7 +469,7 @@ class TC_Event < Test::Unit::TestCase
 	b.emit(nil)
 	assert_equal(2, and_event.history.size)
 
-	and_event.on { and_event.reset }
+	and_event.on { |ev| and_event.reset }
 	and_event.reset
 	a.emit(nil)
 	b.emit(nil)
@@ -486,11 +486,11 @@ class TC_Event < Test::Unit::TestCase
 	m1.signals m2
 	m2.signals m3
 
-        (e1 & e2 & m2).on { mock.and }
-        (e2 | m1).on { mock.or }
-        ((e2 & m1) | m2).on { mock.and_or }
+        (e1 & e2 & m2).on { |ev| mock.and }
+        (e2 | m1).on { |ev| mock.or }
+        ((e2 & m1) | m2).on { |ev| mock.and_or }
 
-        ((e2 | m1) & m2).on { mock.or_and }
+        ((e2 | m1) & m2).on { |ev| mock.or_and }
         [e1, e2, m1, m2, m3]
     end
 
@@ -548,7 +548,7 @@ class TC_Event < Test::Unit::TestCase
 	    each { |e| or_event << e }
 
 	FlexMock.use do |mock|
-	    or_event.on { mock.called }
+	    or_event.on { |ev| mock.called }
 	    mock.should_receive(:called).once
 	    events.each_with_index do |ev, i|
 		ev.call(nil)
@@ -607,7 +607,7 @@ class TC_Event < Test::Unit::TestCase
 	filter.until(limit).signals(sink)
 
 	FlexMock.use do |mock|
-	    sink.on { mock.passed }
+	    sink.on { |ev| mock.passed }
 	    mock.should_receive(:passed).once
 
 	    source.call(nil)
@@ -744,12 +744,12 @@ class TC_Event < Test::Unit::TestCase
 	    plan.add(ev)
 	    assert(!ev.controlable?)
 
-	    ev.command = lambda { mock.first }
+	    ev.command = lambda { |ev| mock.first }
 	    mock.should_receive(:first).once.ordered
 	    assert(ev.controlable?)
 	    ev.call(nil)
 
-	    ev.command = lambda { mock.second }
+	    ev.command = lambda { |ev| mock.second }
 	    mock.should_receive(:second).once.ordered
 	    assert(ev.controlable?)
 	    ev.call(nil)
@@ -776,7 +776,7 @@ class TC_Event < Test::Unit::TestCase
 
 	FlexMock.use do |mock|
 	    ev1.signals_once(ev2)
-	    ev2.on { mock.called }
+	    ev2.on { |ev| mock.called }
 
 	    mock.should_receive(:called).once
 
@@ -791,7 +791,7 @@ class TC_Event < Test::Unit::TestCase
 
 	FlexMock.use do |mock|
 	    ev1.forward_to_once(ev2)
-	    ev2.on { mock.called }
+	    ev2.on { |ev| mock.called }
 
 	    mock.should_receive(:called).once
 
@@ -994,7 +994,7 @@ class TC_Event < Test::Unit::TestCase
     def test_exception_in_once_handler
         plan.add(ev = EventGenerator.new(true))
         FlexMock.use do |mock|
-            ev.on { mock.called_other_handler }
+            ev.on { |ev| mock.called_other_handler }
             ev.once { raise ArgumentError }
             ev.once { mock.called_other_once_handler }
 
@@ -1007,8 +1007,8 @@ class TC_Event < Test::Unit::TestCase
     def test_exception_in_handler
         plan.add(ev = EventGenerator.new(true))
         FlexMock.use do |mock|
-            ev.on { mock.called_other_handler }
-            ev.on { raise ArgumentError }
+            ev.on { |ev| mock.called_other_handler }
+            ev.on { |ev| raise ArgumentError }
             ev.once { mock.called_other_once_handler }
 
             mock.should_receive(:called_other_handler).once

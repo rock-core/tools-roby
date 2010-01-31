@@ -35,7 +35,6 @@ module Roby::TaskStructure
     # so that the specific agents are managed externally (load-balancing, ...)
     relation :ExecutionAgent, :parent_name => :executed_task, :child_name => :execution_agent, 
 	:noinfo => true, :distribute => false, :single_child => true do
-	
 	# When ExecutionAgent support is included in a model (for instance Roby::Task), add
 	# the model-level classes  
         def self.included(klass) # :nodoc:
@@ -68,7 +67,7 @@ module Roby::TaskStructure
 			agent.forward_to(:stop, self, :aborted)
 		    end
 		else
-		    on(:start) do
+		    on(:start) do |ev|
 			# The event handler will be called even if the
 			# execution agent has been removed. Check that there is
 			# actually an execution agent 
@@ -80,7 +79,7 @@ module Roby::TaskStructure
 		    end
 		end
 
-		on(:stop) do 
+		on(:stop) do  |ev|
 		    if execution_agent
 			Roby::Distributed.update(self) do
 			    execution_agent.event(:stop).remove_forwarding event(:aborted)
@@ -119,7 +118,7 @@ module Roby::TaskStructure
 	if candidates.empty?
 	    begin
 		agent = agent_model.new(arguments)
-		agent.on(:stop) do
+		agent.on(:stop) do |ev|
 		    agent.each_executed_task do |task|
 			if task.running?
 			    task.emit(:aborted, "execution agent #{self} failed") 

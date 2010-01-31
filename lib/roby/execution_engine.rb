@@ -1538,7 +1538,7 @@ module Roby
                         ev.if_unreachable(true) do |reason|
                             caller_thread.raise UnreachableEvent.new(ev, reason)
                         end
-                        ev.on do
+                        ev.on do |ev|
                             mt.synchronize { cv.broadcast }
                         end
                         yield if block_given?

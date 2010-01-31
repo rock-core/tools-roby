@@ -177,7 +177,7 @@ module Roby
 	    success.forward_to event(:success)
 	end
 
-	event :start do
+	event :start do |context|
 	    children.each do |child|
 		if child.pending? && child.event(:start).root?
 		    child.start!

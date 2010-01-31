@@ -148,7 +148,7 @@ class TC_RealizedBy < Test::Unit::TestCase
     def test_failure_on_failed_start
         plan.add(parent = SimpleTask.new)
         model = Class.new(SimpleTask) do
-            event :start do
+            event :start do |context|
                 raise ArgumentError
             end
         end

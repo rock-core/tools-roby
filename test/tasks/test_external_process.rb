@@ -13,7 +13,7 @@ class TC_ThreadTask < Test::Unit::TestCase
         File.dirname(__FILE__))
 
     class MockupTask < Roby::ExternalProcessTask
-        event :stop do
+        event :stop do |context|
             FileUtils.touch "/tmp/external_process_mockup_stop"
         end
     end

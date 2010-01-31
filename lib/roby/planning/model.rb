@@ -520,7 +520,7 @@ module Roby
 		if send("#{name}_methods")[method_id]
 		    raise ArgumentError, "method #{name}:#{method_id} is already defined on this planning model"
                 elsif old_method = find_methods(name, :id => method_id)
-                    old_method = *old_method
+                    old_method = old_method.first
                     options = old_method.validate(options)
                     Planning.debug { "overloading #{name}:#{method_id}" } 
                 end

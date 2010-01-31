@@ -24,7 +24,7 @@ module Roby
     # you will want YAML#y to *not* get in the way. The exceptions are the methods
     # listed in NOT_OVERRIDABLE
     #
-    class ExtendedStruct
+    class ExtendedStruct < BasicObject
 	include DRbUndumped
 
 	# +attach_to+ and +attach_name+
@@ -217,6 +217,11 @@ module Roby
 	# Returns true if this object has no member
 	def empty?; @members.empty? end
 
+        # has_method? will be used to know if a given method is already defined
+        # on the ExtendedStruct object, without taking into account the members
+        # and aliases.
+        alias :has_method? :respond_to?
+
         if RUBY_VERSION >= "1.8.7"
             def respond_to?(name, include_private = false) # :nodoc:
                 return true  if super
@@ -235,16 +240,16 @@ module Roby
         # above)
         def __respond_to__(name) # :nodoc:
             name = name.to_s
-	    return false if name =~ FORBIDDEN_NAMES_RX
+            return false if name =~ FORBIDDEN_NAMES_RX
 
             if name =~ /=$/
-		!@stable
+                !@stable
             else
                 if @members.has_key?(name)
-		    true
-		else
-		    (alias_to = @aliases[name]) && respond_to?(alias_to)
-		end
+                    true
+                else
+                    (alias_to = @aliases[name]) && respond_to?(alias_to)
+                end
             end
         end
 
@@ -270,12 +275,13 @@ module Roby
 		# Setter
 		name = $1
 
-		value = *args
+		value = args.first
+
                 if stable?
                     raise NoMethodError, "#{self} is stable"
 		elsif @filters.has_key?(name) && !@filters[name].call(value)
 		    raise ArgumentError, "value #{value} is not valid for #{name}"
-		elsif !@members.has_key?(name) && !@aliases.has_key?(name) && respond_to?(name)
+		elsif has_method?(name)
 		    if NOT_OVERRIDABLE_RX =~ name
 			raise ArgumentError, "#{name} is already defined an cannot be overriden"
 		    end

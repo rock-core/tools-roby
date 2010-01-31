@@ -4,7 +4,8 @@ module Roby
 	    def influenced_by(task)
 		add_influenced_task(task)
 	    end
-	end
+        end
+
     end
 end
 

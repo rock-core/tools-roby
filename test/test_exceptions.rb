@@ -144,7 +144,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    t1, t2, t3 = prepare_plan :add => 3
 	    t0 = Class.new(Task) do 
 		attr_accessor :handled_exception
-		on_exception(CodeError) do |exception|
+		on_exception(Roby::CodeError) do |exception|
 		    self.handled_exception = exception
 		    mock.handler(exception, exception.task, self)
 		end
@@ -172,7 +172,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    error = ExecutionException.new(LocalizedError.new(t2))
 	    assert(fatal = engine.propagate_exceptions([error]))
 	    assert_equal(1, fatal.size)
-	    e = *fatal
+	    e = fatal.first
 	    assert_equal(t2, e.origin)
 	    assert_equal([t3, t0], e.task)
 	end
@@ -187,7 +187,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    found_exception = nil
 	    t0 = Class.new(Task) do 
-		on_exception(LocalizedError) do |exception|
+		on_exception(Roby::LocalizedError) do |exception|
 		    found_exception = exception
 		    mock.handler(exception, exception.task.to_set, self)
 		end
@@ -241,8 +241,8 @@ class TC_Exceptions < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    ev = EventGenerator.new(true)
 	    plan.add(ev)
-	    ev.on { mock.handler ; raise RuntimeError }
-	    ev.on { mock.handler }
+	    ev.on { |ev| mock.handler ; raise RuntimeError }
+	    ev.on { |ev| mock.handler }
 	    mock.should_receive(:handler).twice
 	    assert_original_error(RuntimeError, EventHandlerError) { ev.call }
 	end
@@ -262,7 +262,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	FlexMock.use do |mock|
 	    parent = Class.new(Task) do
-		on_exception RuntimeError do
+		on_exception RuntimeError do |exception|
 		    mock.exception
 		    task.pass_exception
 		end
@@ -474,7 +474,7 @@ class TC_Exceptions < Test::Unit::TestCase
     def test_filter_command_errors
         Roby.app.filter_backtraces = true
         model = Class.new(SimpleTask) do
-            event :start do
+            event :start do |ev|
                 raise ArgumentError
             end
         end
@@ -493,7 +493,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
     def test_code_error_formatting
         model = Class.new(SimpleTask) do
-            event :start do
+            event :start do |context|
                 raise ArgumentError
             end
         end
@@ -505,7 +505,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 
         model = Class.new(SimpleTask) do
-            event :start do
+            event :start do |context|
                 start_event.emit_failed
             end
         end
@@ -516,7 +516,7 @@ class TC_Exceptions < Test::Unit::TestCase
         check_exception_formatting(e)
 
         model = Class.new(SimpleTask) do
-            on :start do
+            on :start do |ev|
                 raise ArgumentError
             end
         end

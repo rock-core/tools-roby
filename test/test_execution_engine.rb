@@ -43,7 +43,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
         plan.add_permanent(task = SimpleTask.new)
 
         error = nil
-        failure = lambda do
+        failure = lambda do |_|
             begin
                 task.emit(:start)
             rescue Exception => e
@@ -212,7 +212,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	b.forward_to(:stop, a, :child_stop)
 
 	FlexMock.use do |mock|
-	    a.on(:child_stop) { mock.stopped }
+	    a.on(:child_stop) { |ev| mock.stopped }
 	    mock.should_receive(:stopped).once.ordered
 	    a.start!
 	    b.start!
@@ -308,8 +308,8 @@ class TC_ExecutionEngine < Test::Unit::TestCase
         plan.add_mission(start_node = EmptyTask.new)
         next_event = [ start_node, :start ]
         plan.add_mission(if_node    = ChoiceTask.new)
-        start_node.on(:stop) { next_event = [if_node, :start] }
-	if_node.on(:stop) {  }
+        start_node.on(:stop) { |ev| next_event = [if_node, :start] }
+	if_node.on(:stop) { |ev| }
             
         engine.propagation_handlers << lambda do |plan|
             next unless next_event
@@ -816,7 +816,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    task_model = Class.new(Task) do
 		event :start, :command => true
-		event :stop do
+		event :stop do |context|
 		    mock.stop(self)
 		end
 	    end
@@ -963,7 +963,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
             stop_called = false
             source = SimpleTask.new(:id => 'source')
             target = Class.new(SimpleTask) do
-                event :start do
+                event :start do |context|
                     if !stop_called
                         raise ArgumentError, "ordering failed"
                     end
@@ -974,7 +974,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
             plan.add_permanent(target)
 
             source.signals :success, target, :start
-            source.on :stop do
+            source.on :stop do |ev|
                 stop_called = true
             end
             source.start!
