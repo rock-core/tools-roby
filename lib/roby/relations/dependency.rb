@@ -15,25 +15,25 @@ module Roby::TaskStructure
 
 	# True if +obj+ is a parent of this object in the hierarchy relation
 	# (+obj+ is realized by +self+)
-	def depended_upon_by?(obj);	parent_object?(obj, TaskStructure::Dependency) end
+	def depended_upon_by?(obj);	parent_object?(obj, Dependency) end
 
 	# True if +obj+ is a child of this object in the hierarchy relation.
         # If +recursive+ is true, take into account the whole subgraph.
         # Otherwise, only direct children are checked.
         def depends_on?(obj, recursive = true)
             if recursive
-                generated_subgraph(TaskStructure::Dependency).include?(obj)
+                generated_subgraph(Dependency).include?(obj)
             else
-                child_object?(obj, TaskStructure::Dependency)
+                child_object?(obj, Dependency)
             end
 	end
 	# The set of parent objects in the Dependency relation
-	def parents; parent_objects(TaskStructure::Dependency) end
+	def parents; parent_objects(Dependency) end
 	# The set of child objects in the Dependency relation
-	def children; child_objects(TaskStructure::Dependency) end
+	def children; child_objects(Dependency) end
 
         def roles_of(child)
-            info = self[child, TaskStructure::Dependency]
+            info = self[child, Dependency]
             info[:roles]
         end
 
@@ -105,14 +105,14 @@ module Roby::TaskStructure
 	# Set up the event gathering needed by Dependency.check_structure
 	def added_child_object(child, relations, info) # :nodoc:
 	    super if defined? super
-	    if relations.include?(TaskStructure::Dependency) && !respond_to?(:__getobj__) && !child.respond_to?(:__getobj__)
+	    if relations.include?(Dependency) && !respond_to?(:__getobj__) && !child.respond_to?(:__getobj__)
 		events = info[:success].map do |ev|
                     ev = child.event(ev)
-                    ev.if_unreachable { TaskStructure::Dependency.interesting_events << ev }
+                    ev.if_unreachable { Dependency.interesting_events << ev }
                     ev
                 end
 		events.concat info[:failure].map { |ev| child.event(ev) }
-		Roby::EventGenerator.gather_events(TaskStructure::Dependency.interesting_events, events)
+		Roby::EventGenerator.gather_events(Dependency.interesting_events, events)
 	    end
 	end
 
@@ -121,7 +121,7 @@ module Roby::TaskStructure
         def first_children
 	    result = ValueSet.new
 
-	    generated_subgraph(TaskStructure::Dependency).each do |task|
+	    generated_subgraph(Dependency).each do |task|
 		next if task == self
 		if task.event(:start).root?(Roby::EventStructure::CausalLink)
 		    result << task
@@ -134,7 +134,7 @@ module Roby::TaskStructure
 	def fullfilled_events
 	    needed = ValueSet.new
 	    merged_relations(:each_parent_task, false) do |myself, parent|
-		needed.merge(parent[myself, TaskStructure::Dependency][:success])
+		needed.merge(parent[myself, Dependency][:success])
 	    end
 	    needed
 	end
@@ -152,7 +152,7 @@ module Roby::TaskStructure
 	    merged_relations(:each_parent_task, false) do |myself, parent|
                 has_parent = true
 
-		required_models, required_arguments = parent[myself, TaskStructure::Dependency][:model]
+		required_models, required_arguments = parent[myself, Dependency][:model]
                 required_models = [required_models] if !required_models.respond_to?(:to_ary)
 
                 for m in required_models
@@ -188,7 +188,7 @@ module Roby::TaskStructure
 	    # since #children is a relation enumerator (not the relation list
 	    # itself)
 	    children.to_a.each do |child|
-		success_events = self[child, TaskStructure::Dependency][:success]
+		success_events = self[child, Dependency][:success]
 		if success_events.any? { |ev| child.event(ev).happened? }
 		    remove_child(child)
 		end

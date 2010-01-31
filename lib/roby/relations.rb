@@ -1,3 +1,4 @@
+require 'utilrb/object/scoped_eval'
 module Roby
     # This exception is raised when an edge is being added in a DAG, while this
     # edge would create a cycle.
@@ -591,12 +592,13 @@ module Roby
 		    end
 		    class_eval "@@__r_#{relation_name}__ = __r_#{relation_name}__"
 		end
+                const_set("#{options[:const_name]}SupportModule", mod)
 		relations << graph
                 graph.support = mod
                 graph
 	    end
             mod = graph.support
-            mod.class_eval(&block) if block
+            mod.scoped_eval(:module_eval, &block) if block
 
 	    if parent_enumerator = options[:parent_name]
 		mod.class_eval <<-EOD
