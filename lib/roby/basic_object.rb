@@ -2,10 +2,16 @@ module Roby
     class BasicObject
 	include DRbUndumped
 
+        def initialize
+            @distribute = nil
+        end
+
 	def initialize_copy(old) # :nodoc:
 	    super
 
-	    @remote_siblings = Hash[Distributed, Roby::Distributed::RemoteID.from_object(self)]
+            if old.instance_variable_defined?(:@remote_siblings)
+                @remote_siblings = Hash[Distributed, remote_id]
+            end
 	end
 
 	# The set of Peer objects which own this object
@@ -21,7 +27,7 @@ module Roby
 	end
 
 	# True if instances of this class should be seen by remote hosts
-	def self.distribute?; !(@distribute == false) end
+	def self.distribute?; !(instance_variable_defined?(:@distribute) && @distribute == false) end
 	# Call to make the object of this class never seen by remote hosts
 	def self.local_only; @distribute = false end
 

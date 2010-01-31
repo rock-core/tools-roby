@@ -75,6 +75,11 @@ module Roby
     # A state event is an event which emits when some parameters over the state
     # are reached. See DeltaEvent and TimePointEvent.
     class StateEvent < EventGenerator
+        def initialize(*args, &block)
+            @disabled = nil
+            super
+        end
+
         # True if this event is currently active
         def enabled?; !@disabled end
         # True if this event is currently disabled

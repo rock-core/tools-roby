@@ -11,16 +11,9 @@ class TC_Test_TestCase < Test::Unit::TestCase
     def setup
         Roby.app.setup_global_singletons
 
-        Roby.engine.at_cycle_end(&Test.method(:check_event_assertions))
-        Roby.engine.finalizers << Test.method(:finalize_event_assertions)
         @plan    = Roby.plan
         @control = Roby.control
         @engine  = Roby.engine
-        super
-    end
-    def teardown
-        Roby.engine.at_cycle_end_handlers.delete(Test.method(:check_event_assertions))
-        Roby.engine.finalizers.delete(Test.method(:finalize_event_assertions))
         super
     end
 
@@ -45,16 +38,16 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	end
 
 	Roby.logger.level = Logger::FATAL
+        Robot.logger.level = Logger::FATAL
 	engine.run
-	plan.add_mission(t = SimpleTask.new)
+	plan.add_permanent(t = SimpleTask.new)
 	assert_any_event(t.event(:success)) do 
 	    t.start!
 	    t.success!
 	end
 
-	# Make control quit and check that we get ControlQuitError
-	plan.add_mission(t = SimpleTask.new)
-	assert_raises(MiniTest::Assertion) do
+	plan.add_permanent(t = SimpleTask.new)
+	assert_raises(Test::Unit::AssertionFailedError) do
 	    assert_any_event(t.event(:success)) do
 		t.start!
 		t.failed!
@@ -63,8 +56,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 
 	## Same test, but check that the assertion succeeds since we *are*
 	## checking that +failed+ happens
-	engine.run
-	plan.add_mission(t = SimpleTask.new)
+	plan.add_permanent(t = SimpleTask.new)
 	assert_nothing_raised do
 	    assert_any_event(t.event(:failed)) do
 		t.start!

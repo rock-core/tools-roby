@@ -7,10 +7,6 @@ require 'roby/test/tasks/simple_task'
 APP_DIR = File.expand_path('app', File.dirname(__FILE__))
 require "#{APP_DIR}/tasks/services"
 require "#{APP_DIR}/planners/main"
-Roby.app.using :subsystems
-
-State = Roby::State
-Robot = Roby
 
 class TC_Subsystems < Test::Unit::TestCase
     include Roby::Test
@@ -18,12 +14,18 @@ class TC_Subsystems < Test::Unit::TestCase
 
     def setup
 	super
+
+        Roby.app.setup_global_singletons
+        Roby.app.using :subsystems
 	DRb.start_service
-	State.pos = 0
-	State.services do |s|
+	Roby::State.pos = 0
+	Roby::State.services do |s|
 	    s.localization = 'test'
 	    s.navigation   = 'test'
 	end
+
+        @plan = Roby.plan
+        @engine = Roby.engine
     end
 
     def nav_loc
@@ -36,17 +38,19 @@ class TC_Subsystems < Test::Unit::TestCase
     end
 
     def test_initialize_plan
-	start_with, ready = Application.initialize_plan
+	start_with, ready = Application.initialize_plan(plan)
 
 	nav, loc = nav_loc
 	assert(plan.permanent?(nav))
 	assert(plan.permanent?(loc))
-	assert(nav.realized_by?(loc))
+	assert(nav.depends_on?(loc))
 
 	assert_equal([loc.event(:start)], start_with.child_objects(EventStructure::Signal).to_a)
 
-	and_gen = loc.event(:ready).child_objects(EventStructure::Signal).to_a.first
-	assert_equal([nav.event(:start)], and_gen.child_objects(EventStructure::Signal).to_a)
+	signalled_events = loc.event(:ready).child_objects(EventStructure::Signal).to_value_set
+        assert_equal 2, signalled_events.size
+        assert_equal([nav.start_event, ready].to_value_set,
+            loc.event(:ready).child_objects(EventStructure::Signal).to_value_set)
 
 	assert_equal([nav.event(:start), loc.event(:ready)].to_set, ready.parent_objects(EventStructure::Signal).to_set)
 
@@ -57,15 +61,18 @@ class TC_Subsystems < Test::Unit::TestCase
 
     def test_start_subsystems
 	Roby.logger.level = Logger::FATAL
-	Roby.control.run :detach => true
+        Robot.logger.level = Logger::FATAL
+        engine.run
+        Subsystems::Application.run(Roby.app)
 
-	Application.run(Roby.app) { }
-	nav, loc = nav_loc
-	assert(nav.running?)
-	assert(loc.running?)
+        Roby.execute do
+            nav, loc = nav_loc
+            assert(nav.running?)
+            assert(loc.running?)
+        end
 
 	sleep(0.5)
-	assert(State.pos > 0)
+	assert(Roby::State.pos > 0)
     end
 end
 

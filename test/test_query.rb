@@ -51,6 +51,23 @@ class TC_Query < Test::Unit::TestCase
 	check_matches_fullfill(task_model, plan, t0, t1, t2)
     end
 
+    def test_match_tag
+        tag = TaskModelTag.new
+        tag.argument :id
+	task_model = Class.new(SimpleTask)
+        task_model.include tag
+
+        plan.add(task = task_model.new(:id => 3))
+        assert(Task.match(tag)              === task)
+        assert(Task.match(tag, :id => 3)    === task)
+        assert(! (Task.match(tag, :id => 2) === task))
+
+        plan.add(task = SimpleTask.new)
+        assert(! (Task.match(tag)           === task))
+        assert(! (Task.match(tag, :id => 3) === task))
+        assert(! (Task.match(tag, :id => 2) === task))
+    end
+
     def test_match_proxy_fullfills
 	task_model = Class.new(Task) do
 	    argument :value
@@ -227,6 +244,146 @@ class TC_Query < Test::Unit::TestCase
 	assert_equal([trsc[t1], trsc[t3], tr1].to_value_set, trsc.find_tasks.roots(TaskStructure::Hierarchy).to_value_set)
     end
 
+    def test_child_match
+        plan.add(t1 = SimpleTask.new(:id => 1))
+        t2 = Class.new(SimpleTask).new(:id => '2')
+        tag = TaskModelTag.new do
+            argument :tag_id
+        end
+        t3_model = Class.new(SimpleTask)
+        t3_model.include tag
+        t3 = t3_model.new(:id => 3, :tag_id => 3)
+        t1.depends_on t2
+        t2.depends_on t3
+        t1.depends_on t3
+
+        # t1    SimpleTask                   :id => 1
+        # t2    t2_model < SimpleTask        :id => '2'
+        # t3    t3_model < tag < SimpleTask  :id => 3
+        # t1 -> t2 -> t3
+        # t1 -> t3
+
+        assert_equal(3, plan.find_tasks(t1.model).to_a.size)
+
+        child_match = TaskMatcher.which_fullfills(SimpleTask, :id => 1)
+        assert_equal([], plan.find_tasks(t1.model).
+            with_child(child_match).to_a)
+
+        assert_equal([t1, t2].to_set, plan.find_tasks(SimpleTask).
+            with_child(SimpleTask).to_set)
+        assert_equal([t1].to_set, plan.find_tasks(SimpleTask).
+            with_child(SimpleTask, :id => '2').to_set)
+        assert_equal([t1].to_set, plan.find_tasks(SimpleTask).
+            with_child(t2.model).with_child(t3.model).to_set)
+        assert_equal([t1, t2].to_set, plan.find_tasks(SimpleTask).
+            with_child(t3.model).to_set)
+        assert_equal([t1, t2].to_set, plan.find_tasks(SimpleTask).
+            with_child(tag, :id => 3).to_set)
+        # :id is not an argument of +tag+, so the following should match, but
+        # the next one not.
+        assert_equal([t1, t2].to_set, plan.find_tasks(SimpleTask).
+            with_child(tag, :id => 2).to_set)
+        assert_equal([].to_set, plan.find_tasks(SimpleTask).
+            with_child(tag, :tag_id => 2).to_set)
+        assert_equal([], plan.find_tasks(t1.model).
+            with_child(SimpleTask, TaskStructure::PlannedBy).to_a)
+
+        t1.planned_by t2
+        assert_equal([t1], plan.find_tasks(t1.model).
+            with_child(SimpleTask, TaskStructure::PlannedBy).to_a)
+        assert_equal([t1], plan.find_tasks(t1.model).
+            with_child(SimpleTask, :relation => TaskStructure::PlannedBy).to_a)
+        assert_equal([], plan.find_tasks(t1.model).
+            with_child(SimpleTask, :id => 42, :relation => TaskStructure::PlannedBy).to_a)
+        assert_equal([], plan.find_tasks(t1.model).
+            with_child(SimpleTask, TaskStructure::PlannedBy, :an_argument => :which_is_set).to_a)
+        t1.remove_child_object(t2, TaskStructure::PlannedBy)
+
+        child_match = TaskMatcher.which_fullfills(SimpleTask, :id => t2.arguments[:id])
+        assert_equal([t1].to_set, plan.find_tasks(t1.model).
+            with_child(child_match).to_set)
+        assert_equal([], plan.find_tasks(t1.model).
+            with_child(SimpleTask, TaskStructure::PlannedBy).to_a)
+    end
+
+    def test_child_in_transactions
+	(t1, t2), t3 = prepare_plan :add => 2, :tasks => 1, :model => SimpleTask
+        t1.depends_on t2
+	trsc = Transaction.new(plan)
+        trsc[t2].depends_on t3
+
+        assert_equal(3, trsc.find_tasks(t1.model).to_a.size)
+        child_match = TaskMatcher.which_fullfills(SimpleTask, :id => 1)
+        assert_equal([], trsc.find_tasks(t1.model).
+            with_child(child_match).to_a)
+
+        child_match = TaskMatcher.which_fullfills(SimpleTask)
+        assert_equal([trsc[t1], trsc[t2]].to_set, trsc.find_tasks(t1.model).
+            with_child(child_match).to_set)
+
+        child_match = TaskMatcher.which_fullfills(SimpleTask, :id => t2.arguments[:id])
+        assert_equal([trsc[t1]].to_set, trsc.find_tasks(t1.model).
+            with_child(child_match).to_set)
+    end
+
+    def test_parent_match
+        plan.add(t1 = SimpleTask.new(:id => 1))
+        t2 = Class.new(SimpleTask).new(:id => 2)
+        t3 = Class.new(SimpleTask).new(:id => 3)
+        t3.depends_on t2
+        t3.depends_on t1
+        t2.depends_on t1
+
+        assert_equal(3, plan.find_tasks(SimpleTask).to_a.size)
+
+        parent_match = TaskMatcher.which_fullfills(SimpleTask, :id => 1)
+        assert_equal([], plan.find_tasks(SimpleTask).
+            with_parent(parent_match).to_a)
+
+        assert_equal([t1, t2].to_set, plan.find_tasks(SimpleTask).
+            with_parent(SimpleTask).to_set)
+        assert_equal([t1].to_set, plan.find_tasks(SimpleTask).
+            with_parent(t3.model).with_parent(t2.model).to_set)
+        assert_equal([], plan.find_tasks(SimpleTask).
+            with_parent(SimpleTask, TaskStructure::PlannedBy).to_a)
+        t2.planned_by t1
+        assert_equal([t1], plan.find_tasks(t1.model).
+            with_parent(SimpleTask, TaskStructure::PlannedBy).to_a)
+        assert_equal([t1], plan.find_tasks(t1.model).
+            with_parent(SimpleTask, :relation => TaskStructure::PlannedBy).to_a)
+        assert_equal([], plan.find_tasks(t1.model).
+            with_parent(SimpleTask, :id => 42, :relation => TaskStructure::PlannedBy).to_a)
+        assert_equal([], plan.find_tasks(t1.model).
+            with_parent(SimpleTask, TaskStructure::PlannedBy, :an_argument => :which_is_set).to_a)
+        t2.remove_child_object(t1, TaskStructure::PlannedBy)
+
+        assert_equal([t1].to_set, plan.find_tasks(SimpleTask).
+            with_parent(SimpleTask, :id => t2.arguments[:id]).to_set)
+        assert_equal([], plan.find_tasks(SimpleTask).
+            with_parent(SimpleTask, :id => t2.arguments[:id], :relation => TaskStructure::PlannedBy).to_a)
+    end
+
+    def test_parent_in_transaction
+	(t1, t2), t3 = prepare_plan :add => 2, :tasks => 1, :model => SimpleTask
+        t1.depends_on t2
+	trsc = Transaction.new(plan)
+        trsc[t2].depends_on t3
+
+        assert_equal(3, trsc.find_tasks(SimpleTask).to_a.size)
+
+        parent_match = TaskMatcher.which_fullfills(SimpleTask, :id => 1)
+        assert_equal([], trsc.find_tasks(SimpleTask).
+            with_parent(parent_match).to_a)
+
+        parent_match = TaskMatcher.which_fullfills(SimpleTask)
+        assert_equal([trsc[t2], t3].to_set, trsc.find_tasks(SimpleTask).
+            with_parent(parent_match).to_set)
+
+        parent_match = TaskMatcher.which_fullfills(SimpleTask, :id => t2.arguments[:id])
+        assert_equal([t3].to_set, trsc.find_tasks(SimpleTask).
+            with_parent(parent_match).to_set)
+    end
+
     def test_transactions_simple
 	model = Class.new(Roby::Task) do
 	    argument :id
@@ -237,14 +394,14 @@ class TC_Query < Test::Unit::TestCase
 
 	trsc = Transaction.new(plan)
 	assert(trsc.find_tasks.which_fullfills(SimpleTask).to_a.empty?)
-	assert(!trsc[t1, false])
-	assert(!trsc[t2, false])
-	assert(!trsc[t3, false])
+	assert(!trsc.include?(t1))
+	assert(!trsc.include?(t2))
+	assert(!trsc.include?(t3))
 
 	result = trsc.find_tasks.which_fullfills(model, :id => 1).to_a
 	assert_equal([trsc[t1]], result)
-	assert(!trsc[t2, false])
-	assert(!trsc[t3, false])
+	assert(!trsc.include?(t2))
+	assert(!trsc.include?(t3))
 
 	# Now that the proxy is in the transaction, check that it is still
 	# found by the query

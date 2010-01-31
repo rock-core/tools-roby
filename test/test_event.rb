@@ -6,6 +6,8 @@ require 'roby/test/tasks/simple_task'
 require 'roby'
 class TC_Event < Test::Unit::TestCase
     include Roby::Test
+    include Roby::Test::Assertions
+
     def setup
         super
         Roby.app.filter_backtraces = false
@@ -95,6 +97,16 @@ class TC_Event < Test::Unit::TestCase
 	    assert_equal(event, e.failed_generator)
 	    assert( e.message =~ /: test$/ )
 	end
+    end
+
+    def test_pending_includes_queued_events
+        engine.run
+        engine.execute do
+            plan.add_permanent(e = EventGenerator.new { })
+            e.call
+            assert e.pending?
+            assert !e.happened?
+        end
     end
 
     def test_emit_failed_removes_pending
@@ -941,12 +953,25 @@ class TC_Event < Test::Unit::TestCase
 
     def test_dup
 	plan.add(e = EventGenerator.new(true))
+	plan.add(new = e.dup)
 
 	e.call
-	new = e.dup
-	e.call
-	assert_equal(2, e.history.size)
+	assert_equal(1, e.history.size)
+        assert(e.happened?)
+	assert_equal(0, new.history.size)
+	assert(!new.happened?)
+
+        plan.add(new = e.dup)
+	assert_equal(1, e.history.size)
+        assert(e.happened?)
 	assert_equal(1, new.history.size)
+	assert(new.happened?)
+
+        new.call
+	assert_equal(1, e.history.size)
+        assert(e.happened?)
+	assert_equal(2, new.history.size)
+	assert(new.happened?)
     end
 
     def test_event_after
@@ -964,6 +989,32 @@ class TC_Event < Test::Unit::TestCase
 	    delayed.poll
 	    assert(delayed.happened?)
 	end
+    end
+
+    def test_exception_in_once_handler
+        plan.add(ev = EventGenerator.new(true))
+        FlexMock.use do |mock|
+            ev.on { mock.called_other_handler }
+            ev.once { raise ArgumentError }
+            ev.once { mock.called_other_once_handler }
+
+            mock.should_receive(:called_other_handler).once
+            mock.should_receive(:called_other_once_handler).once
+            assert_raises(EventHandlerError) { ev.call }
+        end
+    end
+
+    def test_exception_in_handler
+        plan.add(ev = EventGenerator.new(true))
+        FlexMock.use do |mock|
+            ev.on { mock.called_other_handler }
+            ev.on { raise ArgumentError }
+            ev.once { mock.called_other_once_handler }
+
+            mock.should_receive(:called_other_handler).once
+            mock.should_receive(:called_other_once_handler).once
+            assert_raises(EventHandlerError) { ev.call }
+        end
     end
 end
 

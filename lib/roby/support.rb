@@ -1,9 +1,6 @@
-require 'active_support/inflector'
-class String # :nodoc: all
-    include ActiveSupport::CoreExtensions::String::Inflections
-end
-
 require 'roby/config'
+require 'facets/string/camelcase'
+require 'facets/string/snakecase'
 require 'facets/kernel/constant'
 require 'utilrb/enumerable'
 require 'utilrb/time/to_hms'

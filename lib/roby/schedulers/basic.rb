@@ -11,18 +11,19 @@ module Roby
 		    self_owned
 	    end
 	    def initial_events
-		query.reset.each do |task|
-		    next unless task.event(:start).root? && task.event(:start).controlable?
-		    root_task = task.enum_for(:each_relation).all? do |rel|
-			if task.root?(rel)
+		for task in query.reset
+		    if !(task.event(:start).root? && task.event(:start).controlable?)
+                        next
+                    end
+
+		    root_task =
+                        if task.root?(TaskStructure::Dependency)
 			    true
-			elsif rel == TaskStructure::PlannedBy 
+                        else
 			    task.planned_tasks.all? { |t| !t.executable? }
 			end
-		    end
 
 		    if root_task || (include_children && task.parents.any? { |t| t.running? })
-                        Robot.info "scheduler starts #{task}"
 			task.start!
 		    end
 		end

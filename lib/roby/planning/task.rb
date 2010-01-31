@@ -28,7 +28,7 @@ module Roby
                     raise ArgumentError, "the planning_method argument is neither a method object nor a name"
                 end
 	    end
-	    options[:planned_model] ||= nil
+            options[:planned_model] ||= nil
 	    options[:planning_owners] ||= nil
             options
         end
@@ -43,6 +43,14 @@ module Roby
 		:planning_owners => nil
 
             task_options = validate_planning_options(task_options)
+	    task_options[:planned_model] ||= 
+                if task_options[:planning_method].kind_of?(Roby::Planning::MethodDefinition)
+                    task_options[:planning_method].returns
+                elsif task_options[:method_name]
+                    task_options[:planner_model].model_of(task_options[:method_name], method_options).returns
+                end
+            task_options[:planned_model] ||= Roby::Task
+
 	    task_options[:method_options] ||= Hash.new
 	    task_options[:method_options].merge! method_options
 	    task_options
@@ -51,21 +59,10 @@ module Roby
         def initialize(options)
 	    task_options = PlanningTask.filter_options(options)
             super(task_options)
-        end
-
-	def planned_model
-	    arguments[:planned_model] ||= if method_name
-                                              planner_model.model_of(method_name, method_options).returns
-                                          else
-                                              planning_method.returns
-                                          end
-
-            arguments[:planned_model] ||= Roby::Task
 	end
 
-
 	def to_s
-	    "#{super}[#{planning_method}:#{method_options}] -> #{@planned_task || "nil"}"
+	    "#{super}[#{planning_method}:#{method_options}] -> #{planned_task || "nil"}"
 	end
 
 	def planned_task
@@ -166,14 +163,6 @@ module Roby
 	    @transaction = nil
 	    @planner = nil
 	    @thread = nil
-	end
-
-	class TransactionProxy < Roby::Transactions::Task
-	    proxy_for PlanningTask
-	    def_delegator :@__getobj__, :planner
-	    def_delegator :@__getobj__, :planning_method
-	    def_delegator :@__getobj__, :method_name
-	    def_delegator :@__getobj__, :method_options
 	end
     end
 end

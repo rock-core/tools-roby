@@ -51,9 +51,9 @@ module Roby
 
 	    # This method generates the initial plan built upon the set of
 	    # required subsystems.
-	    def self.initialize_plan
+	    def self.initialize_plan(plan)
 		setup_main_planner
-		plan = Transaction.new(Roby.plan)
+		trsc = Transaction.new(plan)
 
 		# Event which is emitted when all subsystems are properly
 		# initialized
@@ -61,7 +61,7 @@ module Roby
 
 		# Create the one task for each subsystem. +ready+ is an event
 		# which is fired when all subsystems are properly initialized
-		planner = MainPlanner.new(plan)
+		planner = MainPlanner.new(trsc)
 
 		tasks = Array.new
 		task_objects = ValueSet.new
@@ -75,7 +75,7 @@ module Roby
 
 		    State.services.tasks.send("#{name}=", new_task)
 
-		    plan.permanent(new_task)
+		    trsc.add_permanent(new_task)
 		    started_with = if new_task.has_event?(:ready) then :ready
 				   else :start
 				   end
@@ -104,6 +104,11 @@ module Roby
 
 		    ev = if children.empty?
 			     starting_point
+                         elsif children.size == 1
+                             child = children.first
+                             if child.has_event?(:ready) then child.event(:ready)
+                             else child.event(:start)
+                             end
 			 else
 			     children.inject(AndGenerator.new) do |ev, child|
 				 started_with = if child.has_event?(:ready) then :ready
@@ -114,18 +119,18 @@ module Roby
 			 end
 
 		    ev.on { Robot.info "starting subsystem #{name} (#{type})" }
-		    ev.on task.event(:start)
+		    ev.signals task.event(:start)
 		end
 
-		Roby.execute do
-		    plan.commit_transaction
+		plan.execute do
+		    trsc.commit_transaction
 		end
 		[starting_point, ready]
 	    end
 
 	    # Hook to generate the initial plan and start subsystems when the
 	    # application starts.
-	    def self.run(config, &block)
+	    def self.run(app, &block)
 		unless Roby::State.services? && !Roby::State.services.empty?
 		    Robot.info "No subsystems defined"
 		    return yield
@@ -133,16 +138,22 @@ module Roby
 
 		Robot.info "Starting subsystems ..."
 
-		starting_point, ready = initialize_plan
+		starting_point, ready = initialize_plan(Roby.plan)
 		# Start the deepest tasks. The signalling order will do the rest.
 		# The 'ready' event is emitted when all the subsystem tasks are
-		Roby.wait_until(ready) do
-		    Roby.execute do
-			starting_point.call
-		    end
-		end
+                begin
+                    Roby.wait_until(ready) do
+                        Roby.execute do
+                            starting_point.call
+                        end
+                    end
+                rescue Exception => e
+                    Robot.fatal "failed to start subsystems"
+                    Roby.log_exception(e, Robot, :fatal)
+                    raise
+                end
 
-		yield
+		yield if block_given?
 	    end
 	end
     end

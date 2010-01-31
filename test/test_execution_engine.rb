@@ -385,7 +385,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 		raise SpecificException, "bla"
             end
 	end
-	plan.add_mission(t = model.new)
+	plan.add_permanent(t = model.new)
 
 	assert_original_error(SpecificException, CommandFailed) { t.start! }
 	assert(!t.event(:start).pending?)
@@ -401,7 +401,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
                 end
 		on(:start) { |ev| mock.handler_called }
 	    end.new
-	    plan.add_mission(t)
+	    plan.add_permanent(t)
 
 	    mock.should_receive(:command_called).once
 	    mock.should_receive(:handler_called).never
@@ -637,7 +637,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 
 	result = t.value
 	assert_kind_of(UnreachableEvent, result)
-	assert_equal(task.event(:success), result.generator)
+	assert_equal(task.event(:success), result.failed_generator)
 
     ensure
 	engine.thread = nil
@@ -647,6 +647,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	attr_reader :last_stats
 	def splat?; true end
         def logs_message?(m); m == :cycle_end end
+        def close; end
 	def cycle_end(time, stats)
 	    @last_stats = stats
 	end
@@ -704,6 +705,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    tasks.clear
 	    events.clear
 	end
+        def close; end
 	def splat?; true end
     end
 
@@ -954,6 +956,32 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     ensure
         TaskStructure.remove_relation r_t if r_t
         EventStructure.remove_relation r_e if r_e
+    end
+
+    def test_forward_signal_ordering
+        100.times do
+            stop_called = false
+            source = SimpleTask.new(:id => 'source')
+            target = Class.new(SimpleTask) do
+                event :start do
+                    if !stop_called
+                        raise ArgumentError, "ordering failed"
+                    end
+                    emit :start
+                end
+            end.new(:id => 'target')
+            plan.add_permanent(source)
+            plan.add_permanent(target)
+
+            source.signals :success, target, :start
+            source.on :stop do
+                stop_called = true
+            end
+            source.start!
+            source.emit :success
+            assert(target.running?)
+            target.stop!
+        end
     end
 end
 

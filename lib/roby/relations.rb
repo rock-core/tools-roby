@@ -199,12 +199,12 @@ module Roby
 	# +distributed+:: 
         #   if this relation graph should be seen by remote hosts
 	def initialize(name, options = {})
-	    @name = name
+	    @name    = name
 	    @options = options
 	    @subsets = ValueSet.new
 	    @distribute = options[:distribute]
-	    @dag = options[:dag]
-	    @weak = options[:weak]
+	    @dag     = options[:dag]
+	    @weak    = options[:weak]
             @embeds_info = !options[:noinfo]
 
 	    if options[:subsets]
@@ -228,6 +228,13 @@ module Roby
 
 	# True if this relation does not have a parent
 	def root_relation?; !parent end
+
+        # Remove +vertex+ from this graph. It removes all relations that
+        # +vertex+ is part of, and calls the corresponding hooks
+        def remove(vertex)
+            vertex.remove_relations(nil, self)
+            super
+        end
 
         # Add an edge between +from+ and +to+. The relation is added on all
         # parent relation graphs as well. If #dag? is true on +self+ or on one
@@ -267,7 +274,7 @@ module Roby
             # if +self+ has the noinfo flag set.
             if linked?(from, to)
                 if !(old_info = from[to, self]).nil?
-                    if old_info != info
+                    if old_info != info && !(info = merge_info(from, to, old_info, info))
                         raise ArgumentError, "trying to change edge information in #{self} for #{from} => #{to}: old was #{old_info} and new is #{info}"
                     end
                 end
@@ -295,18 +302,27 @@ module Roby
 	    end
 	end
 
+        def merge_info(from, to, old, new)
+        end
+
 	alias :__bgl_link :link
 	# Reimplemented from BGL::Graph. Unlike this implementation, it is
 	# possible to add an already existing edge if the +info+ parameter
 	# matches.
 	def link(from, to, info)
 	    if linked?(from, to)
-		if info != from[to, self]
-		    raise ArgumentError, "trying to change edge information"
+                old_info = from[to, self]
+		if info != old_info
+                    if info = merge_info(from, to, old_info, info)
+                        from[to, self] = info
+                        return
+                    else
+                        raise ArgumentError, "trying to change edge information"
+                    end
 		end
 		return
 	    end
-	    super
+	    super(from, to, info)
 	end
 
         # Remove the relation between +from+ and +to+, in this graph and in its
@@ -554,7 +570,7 @@ module Roby
         #
 	def relation(relation_name, options = {}, &block)
 	    options = validate_options options,
-			:child_name  => relation_name.to_s.underscore,
+			:child_name  => relation_name.to_s.snakecase,
 			:const_name  => relation_name,
 			:parent_name => nil,
 			:subsets     => ValueSet.new,
@@ -585,6 +601,10 @@ module Roby
 	    if parent_enumerator = options[:parent_name]
 		mod.class_eval <<-EOD
 		def each_#{parent_enumerator}(&iterator)
+                    if !block_given?
+                        return enum_parent_objects(@@__r_#{relation_name}__)
+                    end
+
 		    self.each_parent_object(@@__r_#{relation_name}__, &iterator)
 		end
 		EOD
@@ -593,6 +613,10 @@ module Roby
 	    if options[:noinfo]
 		mod.class_eval <<-EOD
 		def each_#{options[:child_name]}
+                    if !block_given?
+                        return enum_child_objects(@@__r_#{relation_name}__)
+                    end
+
 		    each_child_object(@@__r_#{relation_name}__) { |child| yield(child) }
 		end
 		def find_#{options[:child_name]}
@@ -604,10 +628,21 @@ module Roby
 		EOD
 	    else
 		mod.class_eval <<-EOD
-		def each_#{options[:child_name]}
-		    each_child_object(@@__r_#{relation_name}__) do |child|
-			yield(child, self[child, @@__r_#{relation_name}__])
-		    end
+                cached_enum("#{options[:child_name]}", "#{options[:child_name]}", true)
+		def each_#{options[:child_name]}(with_info = true)
+                    if !block_given?
+                        return enum_#{options[:child_name]}(with_info)
+                    end
+
+                    if with_info
+                        each_child_object(@@__r_#{relation_name}__) do |child|
+                            yield(child, self[child, @@__r_#{relation_name}__])
+                        end
+                    else
+                        each_child_object(@@__r_#{relation_name}__) do |child|
+                            yield(child)
+                        end
+                    end
 		end
 		def find_#{options[:child_name]}
 		    each_child_object(@@__r_#{relation_name}__) do |child|

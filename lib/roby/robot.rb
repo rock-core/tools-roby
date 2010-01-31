@@ -4,6 +4,11 @@ module Robot
     end
     extend Logger::Forward
 
+    @logger = Logger.new(STDOUT)
+    @logger.level = Logger::INFO
+    @logger.formatter = Roby.logger.formatter
+    @logger.progname = "Robot"
+
     def self.prepare_action(name, arguments)
 	# Check if +name+ is a planner method, and in that case
 	# add a planning method for it and plan it
@@ -15,9 +20,7 @@ module Robot
 	end
 
 	m = planner_model.model_of(name, arguments)
-
-	# HACK: m.returns should not be nil, but it sometimes happen
-	returns_model = (m.returns if m && m.returns) || Task
+	returns_model = (m.returns if m && m.returns) || Roby::Task
 
 	if returns_model.kind_of?(Roby::TaskModelTag)
 	    task = Roby::Task.new

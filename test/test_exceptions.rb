@@ -9,6 +9,8 @@ class TC_Exceptions < Test::Unit::TestCase
     include Roby::Test
     class SpecializedError < LocalizedError; end
 
+    DO_PRETTY_PRINT = false
+
     def test_execution_exception_initialize
 	plan.add(task = Task.new)
 	error = ExecutionException.new(LocalizedError.new(task))
@@ -98,42 +100,6 @@ class TC_Exceptions < Test::Unit::TestCase
 	    assert(! task.handle_exception(error))
 	    error = ExecutionException.new(SignallingHandler.new(task))
 	    assert(! task.handle_exception(error))
-	end
-    end
-
-    def test_exception_in_handler
-	Roby.logger.level = Logger::FATAL
-
-	Roby.app.abort_on_exception = true
-	Roby.app.abort_on_application_exception = false
-	FlexMock.use do |mock|
-	    klass = Class.new(SimpleTask) do
-		define_method(:mock) { mock }
-		event :start do |context|
-		    mock.event_called
-		    raise SpecializedError.new(self)
-                end
-
-		on_exception(RuntimeError) do |exception|
-		    mock.task_handler_called
-		    raise 
-		end
-	    end
-
-	    plan.on_exception(RuntimeError) do |task, exception|
-		mock.global_handler_called
-		raise
-	    end
-
-	    t1, t2 = klass.new, klass.new
-	    t1.depends_on t2
-	    plan.add_mission(t1)
-
-	    mock.should_receive(:event_called).once.ordered
-	    mock.should_receive(:task_handler_called).once.ordered
-	    mock.should_receive(:global_handler_called).once.ordered
-	    engine.once { t2.start! }
-	    assert_raises(SpecializedError) { process_events }
 	end
     end
 
@@ -316,8 +282,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    begin
 		process_events
 		flunk("should have raised")
-	    rescue Roby::CommandFailed => e
-		assert_kind_of(RuntimeError, e.error)
+	    rescue Roby::ChildFailedError
 	    end
 	end
 	assert(task.event(:start).happened?)
@@ -515,38 +480,20 @@ class TC_Exceptions < Test::Unit::TestCase
         end
 
         task = prepare_plan :permanent => 1, :model => model
-        error = begin task.start!
-                rescue Exception => e; e
-                end
-        assert_kind_of CodeError, e
-        assert_nothing_raised do
-            Roby.format_exception e
-        end
+        task.start!
+        error = task.failure_reason
+        assert_kind_of CodeError, error
+        check_exception_formatting(error)
 
-        #trace = e.error.backtrace
-        #filtered = Roby.filter_backtrace(trace)
-        #assert(filtered[0] =~ /command block `test_filter_command_errors'/, filtered[0])
-        #assert(filtered[1] =~ /test_filter_command_errors/,   filtered[1])
+        trace = error.error.backtrace
+        filtered = Roby.filter_backtrace(trace)
+        assert(filtered[0] =~ /command for 'start'/, filtered[0])
+        assert(filtered[1] =~ /test_filter_command_errors/,   filtered[1])
     end
 
-    def test_filter_handler_errors
-        task = prepare_plan :permanent => 1, :model => SimpleTask
-        task.on(:start) { |ev| raise ArgumentError }
-        error = begin task.start!
-                rescue Exception => e; e
-                end
-        assert_kind_of CodeError, e
-        assert_nothing_raised do
-            Roby.format_exception e
-        end
-
-        #trace = e.error.backtrace
-        #filtered = Roby.filter_backtrace(trace)
-        #assert(filtered[0] =~ /event handler `test_filter_handler_errors'/, filtered.join("\n"))
-        #assert(filtered[1] =~ /test_filter_handler_errors/, filtered.join("\n"))
-
+    def test_code_error_formatting
         model = Class.new(SimpleTask) do
-            on :start do |ev|
+            event :start do
                 raise ArgumentError
             end
         end
@@ -554,38 +501,41 @@ class TC_Exceptions < Test::Unit::TestCase
         error = begin task.start!
                 rescue Exception => e; e
                 end
-        assert_kind_of CodeError, e
-        assert_nothing_raised do
-            Roby.format_exception e
-        end
+        check_exception_formatting(e)
 
-        #trace = e.error.backtrace
-        #filtered = Roby.filter_backtrace(trace)
-        #assert(filtered[0] =~ /event handler for 'start'$/, filtered.join("\n"))
-        #assert(filtered[1] =~ /test_filter_handler_errors/, filtered.join("\n"))
-    end
 
-    def test_filter_polling_errors
         model = Class.new(SimpleTask) do
-            poll do
-                raise ArgumentError, "bla"
+            event :start do
+                start_event.emit_failed
             end
         end
+        task = prepare_plan :permanent => 1, :model => model
+        error = begin task.start!
+                rescue Exception => e; e
+                end
+        check_exception_formatting(e)
 
-        parent = prepare_plan :permanent => 1, :model => SimpleTask
-        child = prepare_plan :permanent => 1, :model => model
-        parent.depends_on child
-        parent.start!
-        child.start!
-        child.failed!
+        model = Class.new(SimpleTask) do
+            on :start do
+                raise ArgumentError
+            end
+        end
+        task = prepare_plan :permanent => 1, :model => model
+        error = begin task.start!
+                rescue Exception => e; e
+                end
+        check_exception_formatting(e)
+    end
 
-	error = TaskStructure::Hierarchy.check_structure(plan).first.exception
-	assert_kind_of(ChildFailedError, error)
-        assert_nothing_raised do
+    def check_exception_formatting(error)
+        if DO_PRETTY_PRINT
+            STDERR.puts "---- #{error.class}"
+            Roby.format_exception(error).each do |line|
+                STDERR.puts line
+            end
+        else
             Roby.format_exception(error)
         end
-        # To silently finish the test ...
-        parent.stop!
     end
 end
 

@@ -8,6 +8,9 @@ require 'roby/test/tasks/simple_task'
 class TC_PlanningTask < Test::Unit::TestCase
     include Roby::Planning
     include Roby::Test
+    include Roby::Test::Assertions
+
+    PlannedBy = TaskStructure::PlannedBy
 
     SimpleTask = Roby::Test::SimpleTask
 
@@ -19,6 +22,47 @@ class TC_PlanningTask < Test::Unit::TestCase
 	process_events
 	assert(planning_task.success?, planning_task.terminal_event.context)
 	planning_task.planned_task
+    end
+
+    def test_planned_model
+	planner = Class.new(Planning::Planner)
+
+        planner.method :task
+	planning_task = PlanningTask.new(:planner_model => planner, :method_name => :task)
+        assert_equal Roby::Task, planning_task.planned_model
+
+        planner.method :task2, :returns => SimpleTask
+	planning_task = PlanningTask.new(:planner_model => planner, :method_name => :task2)
+        assert_equal SimpleTask, planning_task.planned_model
+    end
+
+    def test_planned_task
+	planner = Class.new(Planning::Planner)
+        task_model = Class.new(Task)
+
+        result = task_model.new
+
+        planner.method :task, :returns => task_model do
+            result
+        end
+
+	planning_task = PlanningTask.new(:planner_model => planner, :method_name => :task)
+        plan.add_permanent(planning_task)
+        planned_task = planning_task.planned_task
+        assert_kind_of task_model, planned_task
+        assert planned_task.child_object?(planning_task, PlannedBy)
+
+        other_task = task_model.new
+        plan.replace_task(planned_task, other_task)
+        assert_equal other_task, planning_task.planned_task
+
+        engine.run
+        assert_any_event(planning_task.success_event) do
+            planning_task.start!
+        end
+        assert_equal result, planning_task.planned_task
+        result.remove_planning_task(planning_task)
+        assert_equal result, planning_task.planned_task
     end
 
     def test_planning_task_one_shot

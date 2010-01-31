@@ -427,7 +427,7 @@ module Roby
 	    end
 	end
 
-	class Roby::Transactions::TaskEventGenerator
+	module Roby::TaskEventGenerator::Proxying
             # A task event generator has no remote sibling. It is always
             # referenced through its own task.
 	    def has_sibling?(peer); false end

@@ -17,7 +17,11 @@ module Roby
             attr_reader :start_cycle
 	    # A [min, max] array of the minimum and maximum times for this
 	    # stream
-	    def range; [start_time, logfile.range.last] end
+	    def range
+                if range = logfile.range
+                    [start_time, logfile.range.last]
+                end
+            end
 
 	    def initialize(basename, file = nil)
 		super(basename, "roby-events")
@@ -103,6 +107,10 @@ module Roby
 		if reinit?
 		    reinit!
 		end
+
+                if current_cycle >= index_data.size
+                    return
+                end
 
 		start_pos = index_data[current_cycle][:pos]
 		end_pos   = if index_data.size > current_cycle + 1

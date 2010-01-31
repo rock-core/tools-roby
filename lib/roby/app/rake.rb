@@ -22,8 +22,6 @@ module Roby
                     Roby::Rake.info "using the #{ENV['ROBY_RDOC_TEMPLATE']} template"
                     ENV['ROBY_RDOC_TEMPLATE']
                 end
-            else
-                File.expand_path('doc/styles/jamis', ROBY_ROOT_DIR)
             end
         end
 

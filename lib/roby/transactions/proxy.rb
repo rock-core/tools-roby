@@ -3,84 +3,119 @@ require 'roby/event'
 require 'delegate'
 require 'forwardable'
 require 'utilrb/module/ancestor_p'
+require 'roby/transactions'
 
-# The Transactions module define all tools needed to implement
-# the Transaction class
-module Roby::Transactions
+class Module
+    # Declare that +proxy_klass+ should be used to wrap objects of +real_klass+.
+    # Order matters: if more than one wrapping matches, we will use the one
+    # defined last.
+    def proxy_for(real_klass)
+        Roby::Transaction::Proxying.define_proxying_module(self, real_klass)
+    end
+end
+
+
+module Roby
     # In transactions, we do not manipulate plan objects like Task and EventGenerator directly,
     # but through proxies which make sure that nothing forbidden is done
     #
     # The Proxy module define base functionalities for these proxy objects
-    module Proxy
-	@@proxy_klass = []
-	@@forwarders  = Hash.new
+    module Transaction::Proxying
+        @@proxying_modules  = Hash.new
+        @@forwarder_modules = Hash.new
 
 	def to_s; "tProxy(#{__getobj__.to_s})" end
 
-	# Returns the proxy for +object+. Raises ArgumentError if +object+ is
-	# not an object which should be wrapped
-	def self.proxy_class(object)
-	    proxy_class = @@proxy_klass.find { |_, real_klass| object.kind_of?(real_klass) }
-	    unless proxy_class
-		raise ArgumentError, "no proxy for #{object.class}"
-	    end
-	    proxy_class[0]
+        def self.define_proxying_module(proxying_module, mod)
+            @@proxying_modules[mod] = [proxying_module, false]
+            nil
+        end
+
+        # Returns the proxying module for +object+. Raises ArgumentError if
+        # +object+ is not an object which should be wrapped
+	def self.proxying_module_for(klass)
+	    proxying_module = @@proxying_modules[klass]
+            if !proxying_module
+                proxying_module = [Module.new, false]
+                @@proxying_modules[klass] = proxying_module
+            end
+
+            if !proxying_module[1]
+                result = proxying_module[0]
+                result.include Transaction::Proxying
+                klass.ancestors.each do |ancestor|
+                    if ancestor != klass
+                        if mod_proxy = @@proxying_modules[ancestor]
+                            result.include mod_proxy[0]
+                        end
+                    end
+                end
+                proxying_module[2] = true
+            end
+
+	    proxying_module[0]
 	end
 
-	# Declare that +proxy_klass+ should be used to wrap objects of +real_klass+.
-	# Order matters: if more than one wrapping matches, we will use the one
-	# defined last.
-	def self.proxy_for(proxy_klass, real_klass)
-	    @@proxy_klass.unshift [proxy_klass, real_klass]
-	    proxy_klass.extend Forwardable
+        def self.create_forwarder_module(mod)
+            result = Module.new do
+                attr_accessor :__getobj__
+                for name in mod.instance_methods(false)
+                    next if name =~ /^__.*__$/
+                    class_eval <<-EOD
+                    def #{name}(*args, &block)
+                        __getobj__.send("#{name}", *args, &block)
+                    end
+                    EOD
+                end 
+            end
+
+            @@forwarder_modules[mod] = result
+        end
+
+        # Returns a module that, when used to extend an object, will forward all
+        # the calls to the object's @__getobj__
+	def self.forwarder_module_for(klass)
+            if forwarder_module = @@forwarder_modules[klass]
+                return forwarder_module
+            end
+
+            result = create_forwarder_module(klass)
+            klass.ancestors.each do |ancestor|
+                next if ancestor == klass
+                if forwarder_module = @@forwarder_modules[ancestor]
+                    result.include forwarder_module
+                else
+                    result.include(create_forwarder_module(ancestor))
+                end
+            end
+            result
 	end
 
-	# Returns a class that forwards every calls to +proxy.__getobj__+
-	def self.forwarder(object)
-	    klass = object.class
-	    @@forwarders[klass] ||= DelegateClass(klass)
-	    @@forwarders[klass].new(object)
-	end
+	attr_reader :__getobj__
 
-	def initialize(object, transaction)
-	    @distribute  = nil
-	    @transaction = transaction
+	def setup_proxy(object, plan)
 	    @__getobj__  = object
 	end
-
-	module ClassExtension
-	    def proxy_for(klass); Proxy.proxy_for(self, klass) end
-
-	    def proxy_code(m)
-		"return unless proxying?
-		args = args.map(&plan.method(:may_unwrap))
-		result = if block_given?
-			     __getobj__.#{m}(*args) do |*objects| 
-				objects.map! { |o| transaction.may_wrap(o) }
-				yield(*objects)
-			     end
-			 else
-			     __getobj__.#{m}(*args)
-			 end
-		transaction.may_wrap(result)"
-	    end
-
-	    def proxy(*methods)
-		methods.each do |m|
-		    class_eval "def #{m}(*args); #{proxy_code(m)} end"
-		end
-	    end
-	end
-
-	attr_reader :transaction
-	attr_reader :__getobj__
 
 	alias :== :eql?
 
 	def pretty_print(pp)
-	    plan.disable_proxying { super }
+            if plan
+                plan.disable_proxying { super }
+            else
+                super
+            end
 	end
+
 	def proxying?; plan && plan.proxying? end
+
+        # True if +peer+ has a representation of this object
+        #
+        # In the case of transaction proxies, we know they have siblings if the
+        # transaction is present on the other peer.
+	def has_sibling?(peer)
+	    plan.has_sibling?(peer)
+	end
 
 	# Uses the +enum+ method on this proxy and on the proxied object to get
 	# a set of objects related to this one in both the plan and the
@@ -144,17 +179,11 @@ module Roby::Transactions
 	end
     end
 
-    # Proxy for Roby::EventGenerator
-    class EventGenerator < Roby::EventGenerator
-	include Proxy
-	proxy_for Roby::EventGenerator
+    module EventGenerator::Proxying
+	proxy_for EventGenerator
 	
-	def_delegator :@__getobj__, :symbol
-	def_delegator :@__getobj__, :model
-	proxy :can_signal?
-
-	def initialize(object, transaction)
-	    super(object, transaction)
+	def setup_proxy(object, plan)
+	    super(object, plan)
 	    @unreachable_handlers = []
 	    if object.controlable?
 		self.command = method(:emit)
@@ -165,29 +194,11 @@ module Roby::Transactions
 	    super
 	    handlers.each { |h| __getobj__.on(&h) }
 	end
-
-	def_delegator :@__getobj__, :owners
-	def_delegator :@__getobj__, :distribute?
-	def has_sibling?(peer); plan.has_sibling?(peer) end
-
-	def executable?; false end
-	def unreachable!; end
     end
 
     # Transaction proxy for Roby::TaskEventGenerator
-    class TaskEventGenerator < Roby::Transactions::EventGenerator
-	proxy_for Roby::TaskEventGenerator
-
-        # The transaction proxy which represents the event generator's real
-        # task
-	attr_reader :task
-	child_plan_object :task
-
-        # Create a new proxy representing +object+ in +transaction+
-	def initialize(object, transaction)
-	    super(object, transaction)
-	    @task = transaction.wrap(object.task)
-	end
+    module TaskEventGenerator::Proxying
+	proxy_for TaskEventGenerator
 
         # Task event generators do not have siblings on remote plan managers.
         # They are always referenced by their name and task.
@@ -195,30 +206,13 @@ module Roby::Transactions
     end
 
     # Transaction proxy for Roby::Task
-    class Task < Roby::Task
-	include Proxy
-	proxy_for Roby::Task
+    module Task::Proxying
+	proxy_for Task
 
-	def_delegator :@__getobj__, :running?
-	def_delegator :@__getobj__, :finished?
-	def_delegator :@__getobj__, :pending?
-	def_delegator :@__getobj__, :model
-	def_delegator :@__getobj__, :has_event?
-
-	def_delegator :@__getobj__, :pending?
-	def_delegator :@__getobj__, :running?
-	def_delegator :@__getobj__, :success?
-	def_delegator :@__getobj__, :failed?
-	def_delegator :@__getobj__, :finished?
-
-	proxy :event
-	proxy :each_event
-	alias :each_plan_child :each_event
-	proxy :fullfills?
-	proxy :same_state?
+	def to_s; "tProxy(#{__getobj__.name})#{arguments}" end
 
         # Create a new proxy representing +object+ in +transaction+
-	def initialize(object, transaction)
+	def setup_proxy(object, transaction)
 	    super(object, transaction)
 
 	    @arguments = Roby::TaskArguments.new(self)
@@ -229,31 +223,10 @@ module Roby::Transactions
 		    arguments.update!(key, value)
 		end
 	    end
-	end
 
-        # There is no bound_events map in task proxies. The proxy instead
-        # enumerates the real task's events and create proxies when needed.
-        #
-        # #bound_events is not part of the public API anyways
-	def bound_events; {} end
-
-	def instantiate_model_event_relations # :nodoc:
-	end
-       
-        # Transaction proxies are never executable
-	def executable?; false end
-
-        # Transaction proxies do not have history
-	def history; "" end
-	def plan=(new_plan) # :nodoc:
-	    if new_plan 
-                if new_plan.plan != __getobj__.plan
-                    raise "invalid plan #{new_plan}"
-                elsif !new_plan.kind_of?(Roby::Transaction)
-                    raise "trying to insert a transaction proxy in something else than a transaction (#{new_plan})"
-                end
+            each_event do |ev|
+                transaction.register_proxy(ev, object.event(ev.symbol))
             end
-	    @plan = new_plan
 	end
 
         # Perform the operations needed for the commit to be successful.  In
@@ -272,24 +245,6 @@ module Roby::Transactions
         # Perform the operations needed for the transaction to be discarded.
 	def discard_transaction
 	    clear_relations
-	end
-
-	def method_missing(m, *args, &block) # :nodoc:
-	    if m.to_s =~ /^(\w+)!$/ && has_event?($1.to_sym)
-		event($1.to_sym).call(*args)
-	    elsif !Roby::Task.method_defined?(m)
-		__getobj__.send(m, *args, &block)
-	    else
-		super
-	    end
-	end
-
-	def_delegator :@__getobj__, :owners
-	def_delegator :@__getobj__, :distribute?
-
-        # True if +peer+ has a representation of this object
-	def has_sibling?(peer)
-	    plan.has_sibling?(peer)
 	end
     end
 end

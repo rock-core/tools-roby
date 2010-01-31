@@ -33,11 +33,14 @@ end
 DRb.start_service
 
 require 'irb'
+require 'irb/ext/save-history'
 IRB.setup(remote_url)
 IRB.conf[:INSPECT_MODE] = false
 IRB.conf[:IRB_NAME]     = remote_url
 IRB.conf[:PROMPT_MODE]  = :ROBY
 IRB.conf[:AUTO_INDENT] = true
+IRB.conf[:HISTORY_FILE] = File.join(APP_DIR, 'config', 'shell_history')
+IRB.conf[:SAVE_HISTORY] = 1000
 IRB.conf[:PROMPT][:ROBY] = {
     :PROMPT_I => "%N > ",
     :PROMPT_N => "%N > ",
@@ -60,6 +63,7 @@ begin
     irb = IRB::Irb.new(ws)
 
     context = irb.context
+    context.save_history = 100
     IRB.conf[:MAIN_CONTEXT] = irb.context
 
     trap("SIGINT") do

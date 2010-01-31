@@ -135,7 +135,10 @@ module Roby
             plan.engine = self
             @control = control
 
+            @propagation = nil
             @propagation_id = 0
+            @propagation_exceptions = nil
+            @application_exceptions = nil
             @delayed_events = []
             @process_once = Queue.new
             @event_ordering = Array.new
@@ -171,6 +174,9 @@ module Roby
             # #add_propagation_handler
             attr_reader :propagation_handlers
 
+            # call-seq:
+            #   ExecutionEngine.add_propagation_handler { |plan| ... }
+            #
             # The propagation handlers are a set of block objects that have to be
             # called at the beginning of every propagation phase for all plans.
             # These objects are called in propagation context, which means that the
@@ -180,13 +186,15 @@ module Roby
             # This method adds a new propagation handler. In its first form, the
             # argument is the proc object to be added. In the second form, the
             # block is taken the handler. In both cases, the method returns a value
-            # which can be used to remove the propagation handler later.
+            # which can be used to remove the propagation handler later. In both
+            # cases, the block or proc is called with the plan to propagate on
+            # as argument.
             #
             # This method sets up global propagation handlers (i.e. to be used for
-            # all propagation on any plan). For per-plan propagation handlers, see
-            # #add_propagation_handler.
+            # all propagation on all plans). For per-plan propagation handlers, see
+            # ExecutionEngine#add_propagation_handler.
             #
-            # See also #remove_propagation_handler
+            # See also ExecutionEngine.remove_propagation_handler
             def add_propagation_handler(proc_obj = nil, &block)
                 proc_obj ||= block
                 check_arity proc_obj, 1
@@ -195,13 +203,8 @@ module Roby
             end
             
             # This method removes a propagation handler which has been added by
-            # #add_propagation_handler.  THe +id+ value is the value returned by
-            # #add_propagation_handler. In its first form, the argument is the proc
-            # object to be added. In the second form, the block is taken the
-            # handler. In both cases, the method returns a value which can be used
-            # to remove the propagation handler later.
-            #
-            # See also #add_propagation_handler
+            # ExecutionEngine.add_propagation_handler.  THe +id+ value is the
+            # value returned by ExecutionEngine.add_propagation_handler.
             def remove_propagation_handler(id)
                 propagation_handlers.delete_if { |p| p.object_id == id }
                 nil
@@ -214,6 +217,9 @@ module Roby
         # propagation process itself.
         attr_reader :propagation_handlers
         
+        # call-seq:
+        #   engine.add_propagation_handler { |plan| ... }
+        #
         # The propagation handlers are a set of block objects that have to be
         # called at the beginning of every propagation phase for all plans.
         # These objects are called in propagation context, which means that the
@@ -246,6 +252,9 @@ module Roby
             nil
         end
 
+        # call-seq:
+        #   Roby.each_cycle { |plan| ... }
+        #
         # Execute the given block at the beginning of each cycle, in propagation
         # context.
         #
@@ -424,6 +433,10 @@ module Roby
             @propagation_sources = sources
         end
 
+        def has_propagation_for?(target)
+            @propagation && @propagation.has_key?(target)
+        end
+
         # Adds a propagation to the next propagation step: it registers a
         # propagation step to be performed between +source+ and +target+ with
         # the given +context+. If +is_forward+ is true, the propagation will be
@@ -541,30 +554,35 @@ module Roby
         #
         # See #gather_propagation for the format of the returned # +propagation_info+
         def next_event(pending)
-            if event_ordering.empty?
-                Roby::EventStructure::Precedence.topological_sort(event_ordering)
-                event_priorities.clear
-                i = 0
-                for ev in event_ordering
-                    event_priorities[ev] = i
-                    i += 1
-                end
-            end
-
-            signalled, min = nil, event_ordering.size
+            # this variable is 2 if selected_event is being forwarded, 1 if it
+            # is both forwarded and signalled and 0 if it is only signalled
+            priority, selected_event = nil
             for propagation_step in pending
-                event = propagation_step[0]
-                if priority = event_priorities[event]
-                    if priority < min
-                        signalled = event
-                        min = priority
-                    end
-                else
-                    signalled = event
-                    break
+                target_event = propagation_step[0]
+                forwards, signals = *propagation_step[1]
+                target_priority = if forwards && signals then 1
+                                  elsif signals then 0
+                                  else 2
+                                  end
+
+                do_select = if selected_event
+                                if EventStructure::Precedence.reachable?(selected_event, target_event)
+                                    false
+                                elsif EventStructure::Precedence.reachable?(target_event, selected_event)
+                                    true
+                                else
+                                    priority < target_priority
+                                end
+                            else
+                                true
+                            end
+
+                if do_select
+                    selected_event = target_event
+                    priority       = target_priority
                 end
             end
-            [signalled, *pending.delete(signalled)]
+            [selected_event, *pending.delete(selected_event)]
         end
 
         # call-seq:
@@ -644,9 +662,9 @@ module Roby
                                 begin
                                     signalled.call_without_propagation(context) 
                                 rescue Roby::LocalizedError => e
-                                    add_error(e)
+                                    signalled.emit_failed(e)
                                 rescue Exception => e
-                                    add_error(Roby::CommandFailed.new(e, signalled))
+                                    signalled.emit_failed(Roby::CommandFailed.new(e, signalled))
                                 end
                             end
                         end
@@ -828,6 +846,11 @@ module Roby
                 exceptions = new_exceptions
             end
 
+            if !fatal.empty?
+                Roby::ExecutionEngine.debug do
+                    "remaining fatal exceptions: #{fatal.map(&:exception).map(&:to_s).join(", ")}"
+                end
+            end
             # Call global exception handlers for exceptions in +fatal+. Return the
             # set of still unhandled exceptions
             fatal.
@@ -902,16 +925,28 @@ module Roby
             # Get the remaining problems in the plan structure, and act on it
             fatal_structure_errors = remove_inhibited_exceptions(plan.check_structure)
             fatal_errors = fatal_structure_errors.to_a + events_errors
-            kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
-                tasks ||= [*error.task]
-                for parent in [*tasks]
-                    new_tasks = parent.reverse_generated_subgraph(Roby::TaskStructure::Hierarchy) - plan.force_gc
-                    if !new_tasks.empty?
-                        fatal_exception(error, new_tasks)
+            if !fatal_errors.empty?
+                Roby::ExecutionEngine.info "EE: #{fatal_errors.size} fatal exceptions remaining"
+                kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
+                    tasks ||= [*error.origin]
+                    for parent in [*tasks]
+                        new_tasks = parent.reverse_generated_subgraph(Roby::TaskStructure::Hierarchy) - plan.force_gc
+                        if !new_tasks.empty?
+                            fatal_exception(error, new_tasks)
+                        end
+                        kill_tasks.merge(new_tasks)
                     end
-                    kill_tasks.merge(new_tasks)
+                    kill_tasks
                 end
-                kill_tasks
+                if !kill_tasks.empty?
+                    Roby::ExecutionEngine.info do
+                        Roby::ExecutionEngine.info "EE: will kill the following tasks because of unhandled exceptions:"
+                        kill_tasks.each do |task|
+                            Roby::ExecutionEngine.info "  " + task.to_s
+                        end
+                        ""
+                    end
+                end
             end
             add_timepoint(stats, :exceptions_fatal)
 
@@ -949,6 +984,7 @@ module Roby
         # tasks for which errors have been detected.
         def garbage_collect(force_on = nil)
             if force_on && !force_on.empty?
+                ExecutionEngine.info "GC: adding #{force_on.size} tasks in the force_gc set"
                 plan.force_gc.merge(force_on.to_value_set)
             end
 
@@ -1014,7 +1050,7 @@ module Roby
                     elsif local_task.starting?
                         # wait for task to be started before killing it
                         ExecutionEngine.debug { "GC: #{local_task} is starting" }
-                    elsif local_task.finished?
+                    elsif !local_task.running?
                         ExecutionEngine.debug { "GC: #{local_task} is not running, removed" }
                         plan.remove_object(local_task)
                         did_something = true
@@ -1027,7 +1063,7 @@ module Roby
                             else
                                 finishing << local_task
                                 once do
-                                    ExecutionEngine.debug { "GC: stopping #{local_task}" }
+                                    ExecutionEngine.info { "GC: stopping #{local_task}" }
                                     local_task.stop!(nil)
                                 end
                             end
@@ -1243,10 +1279,10 @@ module Roby
 		if last_stop_count != remaining.size
 		    if last_stop_count == 0
 			ExecutionEngine.info "control quitting. Waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan)"
-			ExecutionEngine.debug "  " + remaining.to_a.join("\n  ")
+			ExecutionEngine.info "  " + remaining.to_a.join("\n  ")
 		    else
 			ExecutionEngine.info "waiting for #{remaining.size} tasks to finish (#{plan.size} tasks still in plan)"
-			ExecutionEngine.debug "  #{remaining.to_a.join("\n  ")}"
+			ExecutionEngine.info "  #{remaining.to_a.join("\n  ")}"
 		    end
 		    if plan.gc_quarantine.size != 0
 			ExecutionEngine.info "#{plan.gc_quarantine.size} tasks in quarantine"
@@ -1369,7 +1405,8 @@ module Roby
                         stats[:heap_slots] = ObjectSpace.heap_slots
                     end
 
-		    stats[:start]       = [cycle_start.tv_sec, cycle_start.tv_usec]
+		    stats[:start] = [cycle_start.tv_sec, cycle_start.tv_usec]
+                    stats[:state] = Roby::State
 		    cycle_end(stats)
                     stats = Hash.new
 
@@ -1502,7 +1539,7 @@ module Roby
                         ev.on do |ev|
                             mt.synchronize { cv.broadcast }
                         end
-                        yield
+                        yield if block_given?
                     end
                     cv.wait(mt)
                 end
@@ -1568,7 +1605,7 @@ module Roby
     # becomes unreachable, an UnreachableEvent exception is raised.
     #
     # See ExecutionEngine#wait_until
-    def self.wait_until(ev); engine.wait_until(ev) end
+    def self.wait_until(ev, &block); engine.wait_until(ev, &block) end
 end
 
 

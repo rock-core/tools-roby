@@ -1,8 +1,8 @@
 = Roby: a plan manager for robot control in Ruby
 
-  http://roby.rubyforge.org
-  http://www.rubyforge.org/projects/roby
-  http://github.com/doudou/roby (dev. repository)
+http://sites.google.com/sites/rubyinmotion
+http://doudou.github.com/roby
+http://github.com/doudou/roby
 
 <b>Note for Gem users</b> While using the normal RDoc generator, the
 documentation generation process of Roby is a bit modified. In particular, the

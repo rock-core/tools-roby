@@ -14,6 +14,8 @@ module Roby
         # Create a LocalizedError object with the given failure point
         def initialize(failure_point)
 	    @failure_point = failure_point
+
+            @failed_task, @failed_event, @failed_generator = nil
 	    if failure_point.kind_of?(Event)
 		@failed_event = failure_point
 		@failed_generator = failure_point.generator
@@ -103,19 +105,27 @@ module Roby
 
 	def pretty_print(pp) # :nodoc:
 	    if error
-                pp.text "#{self.class.name}: user code raised an exception "
-                failure_point.pretty_print(pp)
-                pp.breakable
+                pp_failure_point(pp)
                 pp.breakable
                 error.pretty_print(pp)
 	    else
 		super
 	    end
 	end
+
+        def pp_failure_point(pp)
+            pp.text "#{self.class.name}: user code raised an exception "
+            failure_point.pretty_print(pp)
+        end
     end
 
     # Raised if a command block has raised an exception
-    class CommandFailed < CodeError; end
+    class CommandFailed < CodeError
+        def pp_failure_point(pp)
+            pp.text "uncaught exception in the command of the "
+            failed_generator.pretty_print(pp)
+        end
+    end
     # Raised when the call of an event has been canceled.
     # See EventGenerator#cancel.
     class EventCanceled < LocalizedError; end
@@ -124,9 +134,38 @@ module Roby
     class EventPreconditionFailed < LocalizedError; end
     # Raised when the emission of an event has failed.
     # See EventGenerator#emit_failed.
-    class EmissionFailed < CodeError; end
+    class EmissionFailed < CodeError
+	def pretty_print(pp) # :nodoc:
+            pp.text "failed emission of the "
+            failed_generator.pretty_print(pp)
+            pp.breakable
+            if error
+                pp.text "because of the following uncaught exception "
+                if error.respond_to?(:pp_failure_point)
+                    error.pp_failure_point(pp)
+                else
+                    pp.text error.message
+                end
+            else
+                if backtrace && !backtrace.empty?
+                    Roby.pretty_print_backtrace(pp, backtrace)
+                end
+            end
+	end
+
+        def pp_failure_point(pp)
+        end
+    end
     # Raised when an event handler has raised.
-    class EventHandlerError < CodeError; end
+    class EventHandlerError < CodeError
+        def pp_failure_point(pp)
+            pp.text "uncaught exception in an event handler of the "
+            failed_generator.pretty_print(pp)
+            pp.breakable
+            pp.text "called during the propagation of "
+            failed_event.pretty_print(pp)
+        end
+    end
 
     # Raised when an exception handler has raised.
     class FailedExceptionHandler < CodeError
@@ -140,21 +179,25 @@ module Roby
     # Raised when an event has become unreachable while other parts of the plan
     # where waiting for its emission.
     class UnreachableEvent < LocalizedError
-        # The generator which has become unreachable
-	attr_reader :generator
+        # Why did the generator become unreachable
+        attr_reader :reason
+
         # Create an UnreachableEvent error for the given +generator+. +reason+
         # is supposed to be either nil or a plan object which is the reason why
         # +generator+ has become unreachable.
 	def initialize(generator, reason)
-	    @generator = generator
-	    super(reason || generator)
+            @reason    = reason
+	    super(generator)
 	end
 
 	def pretty_print(pp) # :nodoc:
-            pp.text "#{generator} has become unreachable"
-	    if failure_point
-		pp.breakable ':'
-                failure_point.pretty_print(pp)
+            pp.text "#{failed_generator} has become unreachable"
+	    if reason
+                reason = [*reason]
+                reason.each do |e|
+                    pp.breakable
+                    e.pretty_print(pp)
+                end
             end
 	end
     end
@@ -184,12 +227,10 @@ module Roby
 	attr_reader :from
         # The task which should have replaced #from
         attr_reader :to
-        # A description of the replacement failure
-        attr_reader :error
 
         # Create a new InvalidReplace object
-	def initialize(from, to, error)
-	    @from, @to, @error = from, to, error
+	def initialize(from, to)
+	    @from, @to = from, to
 	end
         def pretty_print(pp) # :nodoc:
             pp.text "invalid replacement: #{message}"
@@ -206,7 +247,7 @@ module Roby
     class MissionFailedError < LocalizedError
         # Create a new MissionFailedError for the given mission
 	def initialize(task)
-	    super(task.failure_event)
+	    super(task.failure_event || task)
 	end
 
         def pretty_print(pp)

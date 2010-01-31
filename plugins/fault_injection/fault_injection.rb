@@ -34,12 +34,12 @@ module Roby
 	end
 
 	# Apply the given fault models to the main Roby plan
-	def self.apply(fault_models)
+	def self.apply(fault_models, plan)
 	    injected_faults = Array.new
 
 	    for model, faults in fault_models
 		for ev, p in faults
-		    Roby.plan.find_tasks(model).
+		    plan.find_tasks(model).
 			running.not_finishing.
 			interruptible.each do |task|
 			    if p.fault?(task)
@@ -80,7 +80,7 @@ module Roby
 	    old_task = self
 
 	    plan.replace_task(old_task, new_task)
-	    old_task.event(:stop).filter(context).forward new_task.event(event)
+	    old_task.event(:stop).filter(context).forward_to new_task.event(event)
 
 	    new_task
 	end

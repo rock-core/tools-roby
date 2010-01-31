@@ -138,7 +138,7 @@ module Roby
 
 	    if @width != width || @height != height
 		@width, @height = width, height
-		coords = Qt::RectF.new -(width / 2), -(height / 2), width, height
+		coords = Qt::RectF.new( -(width / 2), -(height / 2), width, height )
 		graphics_item.rect = coords
 	    end
 
@@ -419,6 +419,18 @@ module Roby
 
 	    include TaskDisplaySupport
 
+            def self.all_task_relations
+                if @all_task_relations
+                    @all_task_relations
+                else
+                    result = []
+                    ObjectSpace.each_object(Roby::RelationSpace) do |space|
+                        result.concat(space.relations) if space.applied.find { |t| t <= Roby::Task }
+                    end
+                    @all_task_relations = result
+                end
+            end
+
 	    attr_reader :ui, :scene
 
 	    # A [DRbObject, DRbObject] => GraphicsItem mapping of arrows
@@ -575,7 +587,7 @@ module Roby
 			bb
 		    end
 		end
-		bb.adjust -FIND_MARGIN, -FIND_MARGIN, FIND_MARGIN, FIND_MARGIN
+		bb.adjust(-FIND_MARGIN, -FIND_MARGIN, FIND_MARGIN, FIND_MARGIN)
 		ui.graphics.fit_in_view bb, Qt::KeepAspectRatio
 		scale = ui.graphics.matrix.m11
 		if scale > 1

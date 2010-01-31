@@ -46,6 +46,9 @@ module TC_PlanStatic
     def test_add_task
 	plan.add(t = Task.new)
         assert_task_state(t, :normal)
+
+        other_plan = Plan.new
+        assert_raises(ModelViolation) { other_plan.add(t) }
     end
     def test_add_task_deprecated_discover
         t = Task.new
@@ -53,16 +56,27 @@ module TC_PlanStatic
         assert_task_state(t, :normal)
     end
     def test_remove_task
-	plan.remove_object(t)
-        assert_task_state(t, :removed)
+	t1, t2, t3 = (1..3).map { Roby::Task.new }
+	t1.depends_on t2
+	t1.signals(:stop, t3, :start)
+
+	plan.add_mission(t1)
+	plan.add_mission(t3)
+
+	assert(!t1.leaf?)
+	plan.remove_object(t2)
+        assert_task_state(t2, :removed)
+	assert(t1.leaf?)
+	assert(!plan.include?(t2))
+
+	assert(!t1.event(:stop).leaf?(EventStructure::Signal))
+	plan.remove_object(t3)
+        assert_task_state(t3, :removed)
+	assert(t1.event(:stop).leaf?(EventStructure::Signal))
     end
 
     def test_add_mission
 	plan.add_mission(t = Task.new)
-        assert_task_state(t, :mission)
-    end
-    def test_add_mission_deprecated_insert
-	plan.insert(t = Task.new)
         assert_task_state(t, :mission)
     end
     def test_unmark_mission
@@ -195,7 +209,7 @@ module TC_PlanStatic
 
     def test_replace_task
 	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Test::SimpleTask
-	p.depends_on c1
+	p.depends_on c1, :model => [Roby::Test::SimpleTask, {}]
 	c1.depends_on c11
 	c1.depends_on c12
 	p.depends_on c2
@@ -207,18 +221,22 @@ module TC_PlanStatic
 	FlexMock.use do |mock|
 	    p.singleton_class.class_eval do
 		define_method('removed_child_object') do |child, relations|
-		    mock.removed_hook(p, child, relations)
+		    mock.removed_hook(self, child, relations)
 		end
 	    end
 	    c1.singleton_class.class_eval do
 		define_method('removed_parent_object') do |parent, relations|
-		    mock.removed_hook(c1, parent, relations)
+		    mock.removed_hook(self, parent, relations)
 		end
 	    end
 
 	    mock.should_receive(:removed_hook).with(p, c1, [TaskStructure::Hierarchy]).once
 	    mock.should_receive(:removed_hook).with(c1, p, [TaskStructure::Hierarchy]).once
-	    assert_nothing_raised { plan.replace_task(c1, c3) }
+	    mock.should_receive(:removed_hook).with(p, c2, [TaskStructure::Hierarchy])
+	    mock.should_receive(:removed_hook).with(c2, p, [TaskStructure::Hierarchy])
+	    mock.should_receive(:removed_hook).with(p, c3, [TaskStructure::Hierarchy])
+	    mock.should_receive(:removed_hook).with(c3, p, [TaskStructure::Hierarchy])
+	    plan.replace_task(c1, c3)
 	end
 
 	# Check that the external task and event structures have been
@@ -243,7 +261,9 @@ module TC_PlanStatic
 	assert( plan.include?(c1) )
 
 	# Check that #replace_task keeps the permanent flag too
-	p, t = prepare_plan :permanent => 1, :tasks => 1, :model => Roby::Test::SimpleTask
+	(root, p), t = prepare_plan :permanent => 2, :tasks => 1, :model => Roby::Test::SimpleTask
+        root.depends_on p, :model => Roby::Test::SimpleTask
+
 	plan.add_permanent(p)
 	plan.replace_task(p, t)
 	assert(!plan.permanent?(p))
@@ -252,7 +272,7 @@ module TC_PlanStatic
 
     def test_replace
 	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Test::SimpleTask
-	p.depends_on c1
+	p.depends_on c1, :model => Roby::Test::SimpleTask
 	c1.depends_on c11
 	c1.depends_on c12
 	p.depends_on c2
@@ -264,18 +284,22 @@ module TC_PlanStatic
 	FlexMock.use do |mock|
 	    p.singleton_class.class_eval do
 		define_method('removed_child_object') do |child, relations|
-		    mock.removed_hook(p, child, relations)
+		    mock.removed_hook(self, child, relations)
 		end
 	    end
 	    c1.singleton_class.class_eval do
 		define_method('removed_parent_object') do |parent, relations|
-		    mock.removed_hook(c1, parent, relations)
+		    mock.removed_hook(self, parent, relations)
 		end
 	    end
 
 	    mock.should_receive(:removed_hook).with(p, c1, [TaskStructure::Hierarchy]).once
 	    mock.should_receive(:removed_hook).with(c1, p, [TaskStructure::Hierarchy]).once
-	    assert_nothing_raised { plan.replace(c1, c3) }
+	    mock.should_receive(:removed_hook).with(p, c2, [TaskStructure::Hierarchy])
+	    mock.should_receive(:removed_hook).with(c2, p, [TaskStructure::Hierarchy])
+	    mock.should_receive(:removed_hook).with(p, c3, [TaskStructure::Hierarchy])
+	    mock.should_receive(:removed_hook).with(c3, p, [TaskStructure::Hierarchy])
+	    plan.replace(c1, c3)
 	end
 
 	# Check that the external task and event structures have been
@@ -298,25 +322,6 @@ module TC_PlanStatic
 	assert(! plan.mission?(c1) )
 	assert( plan.mission?(c3) )
 	assert( plan.include?(c1) )
-    end
-
-    def test_remove_task
-	t1, t2, t3 = (1..3).map { Roby::Task.new }
-	t1.depends_on t2
-	t1.signals(:stop, t3, :start)
-
-	plan.add_mission(t1)
-	plan.add_mission(t3)
-
-	assert(!t1.leaf?)
-	plan.remove_object(t2)
-	assert(t1.leaf?)
-	assert(!plan.include?(t2))
-
-	assert(!t1.event(:stop).leaf?(EventStructure::Signal))
-	plan.remove_object(t3)
-	assert(t1.event(:stop).leaf?(EventStructure::Signal))
-	assert(!plan.include?(t3))
     end
 
     def test_free_events
@@ -382,9 +387,24 @@ module TC_PlanStatic
 	assert_raises(ArgumentError) { plan.add(t) }
 	assert_raises(ArgumentError) { plan.add(e) }
     end
+
+    def test_proxy_operator
+        t = SimpleTask.new
+        assert_same t, plan[t, false]
+
+        assert plan.include?(t)
+        assert_same t, plan[t, true]
+
+        plan.remove_object(t)
+        assert_raises(ArgumentError) { plan[t] }
+    end
 end
 
 class TC_Plan < Test::Unit::TestCase
     include TC_PlanStatic
+
+    def test_transaction_stack
+        assert_equal [plan], plan.transaction_stack
+    end
 end
 

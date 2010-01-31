@@ -1,3 +1,11 @@
+=== 0.8.0
+* major refactoring of the core code, to make it easier to reuse parts of the
+  framework
+* some major usability improvements in the shell. In particular, planning
+  methods can now be properly documented.
+* a lot of small changes
+* tested during the Sauc-E competition in 2009 ... and working well !
+
 === 0.7.2
 
 * fixed a memory leak regarding the event propagation histories. Until now,

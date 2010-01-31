@@ -6,42 +6,100 @@ require 'flexmock'
 
 class TC_Task < Test::Unit::TestCase 
     include Roby::Test
+    include Roby::Test::Assertions
     def setup
         super
         Roby.app.filter_backtraces = false
     end
 
     def test_model_tag
-	my_tag = TaskModelTag.new do
-	    argument :model_tag
-	end
-	assert(my_tag.const_defined?(:ClassExtension))
-	assert(my_tag::ClassExtension.method_defined?(:argument))
+        tag1 = TaskModelTag.new { argument :model_tag_1 }
+	assert(tag1.const_defined?(:ClassExtension))
+	assert(tag1::ClassExtension.method_defined?(:argument))
+
+	tag2 = TaskModelTag.new do
+            include tag1
+            argument :model_tag_2
+        end
+	assert(tag2 < tag1)
+	assert(tag2.const_defined?(:ClassExtension))
+	assert(tag2::ClassExtension.method_defined?(:argument))
+
 	task = Class.new(Task) do
-	    include my_tag
+	    include tag2
 	    argument :task_tag
 	end
-	assert_equal([:task_tag, :model_tag].to_set, task.arguments.to_set)
+	assert_equal([:task_tag, :model_tag_2, :model_tag_1].to_set, task.arguments.to_set)
     end
 
-    def test_arguments
-	model = Class.new(Task) do
-	    arguments :from, :to
-	end
-	plan.add(task = model.new(:from => 'B', :useless => 'bla'))
+    def test_arguments_declaration
+	model = Class.new(Task) { arguments :from, :to }
 	assert_equal([], Task.arguments.to_a)
-	assert_equal([:from, :to].to_value_set, task.model.arguments.to_value_set)
-	assert_equal({:from => 'B', :useless => 'bla'}, task.arguments)
-	assert_equal({:from => 'B'}, task.meaningful_arguments)
+	assert_equal([:from, :to].to_value_set, model.arguments.to_value_set)
+    end
 
-	assert(task.partially_instanciated?)
-	task.arguments[:to] = 'A'
-	assert_equal('A', task.arguments[:to])
-	assert(!task.partially_instanciated?)
-	assert_raises(ArgumentError) { task.arguments[:to] = 10 }
+    def test_arguments_initialization
+	model = Class.new(Task) { arguments :arg, :to }
+	plan.add(task = model.new(:arg => 'B'))
+	assert_equal({:arg => 'B'}, task.arguments)
+        assert_equal('B', task.arg)
+        assert_equal(nil, task.to)
+    end
 
+    def test_arguments_initialization_uses_assignation_operator
+	model = Class.new(Task) do
+            arguments :arg, :to
+
+            undef_method :arg=
+            def arg=(value)
+                arguments[:assigned] = true
+                arguments[:arg] = value
+            end
+        end
+
+	plan.add(task = model.new(:arg => 'B'))
+	assert_equal({:arg => 'B', :assigned => true}, task.arguments)
+    end
+
+    def test_arguments_assignation
+	model = Class.new(Task) { arguments :arg }
+	plan.add(task = model.new)
+	task.arguments[:arg] = 'A'
+        assert_equal('A', task.arg)
+        assert_equal({ :arg => 'A' }, task.arguments)
+    end
+    
+    def test_arguments_assignation_operator
+	model = Class.new(Task) { arguments :arg }
+	plan.add(task = model.new)
+        task.arg = 'B'
+        assert_equal('B', task.arg)
+        assert_equal({ :arg => 'B' }, task.arguments)
+    end
+
+    def test_meaningful_arguments
+	model = Class.new(Task) { arguments :arg }
+	plan.add(task = model.new(:arg => 'B', :useless => 'bla'))
+	assert_equal({:arg => 'B', :useless => 'bla'}, task.arguments)
+	assert_equal({:arg => 'B'}, task.meaningful_arguments)
+    end
+
+    def test_arguments_cannot_override
+	model = Class.new(Task) { arguments :arg }
+	plan.add(task = model.new(:arg => 'B', :useless => 'bla'))
+	assert_raises(ArgumentError) { task.arg = 10 }
+
+        # But we can override non-meaningful arguments
 	task.arguments[:bar] = 42
 	assert_nothing_raised { task.arguments[:bar] = 43 }
+    end
+
+    def test_arguments_partially_instanciated
+	model = Class.new(Task) { arguments :arg0, :arg1 }
+	plan.add(task = model.new(:arg0 => 'B', :useless => 'bla'))
+	assert(task.partially_instanciated?)
+        task.arg1 = 'C'
+	assert(!task.partially_instanciated?)
     end
 
     def test_command_block
@@ -108,11 +166,11 @@ class TC_Task < Test::Unit::TestCase
         assert_task_relation_set task, relation, expected_links.merge(additional_links)
     end
     def test_instantiate_model_signals
-        do_test_instantiate_model_relations(:signal, EventStructure::Signal)
+        do_test_instantiate_model_relations(:signal, EventStructure::Signal, :internal_error => :stop)
     end
     def test_instantiate_deprecated_model_on
         deprecated_feature do
-            do_test_instantiate_model_relations(:on, EventStructure::Signal)
+            do_test_instantiate_model_relations(:on, EventStructure::Signal, :internal_error => :stop)
         end
     end
     def test_instantiate_model_forward
@@ -121,7 +179,7 @@ class TC_Task < Test::Unit::TestCase
     end
     def test_instantiate_model_causal_links
         do_test_instantiate_model_relations(:causal_link, EventStructure::CausalLink,
-                           :success => :stop, :aborted => :failed, :failed => :stop)
+                           :internal_error => :stop, :success => :stop, :aborted => :failed, :failed => :stop)
     end
 
     
@@ -143,11 +201,11 @@ class TC_Task < Test::Unit::TestCase
             Hash[:e1 => [:e2, :e3], :e4 => :stop].merge(additional_links)
     end
     def test_inherit_model_signals
-        do_test_inherit_model_relations(:signal, EventStructure::Signal)
+        do_test_inherit_model_relations(:signal, EventStructure::Signal, :internal_error => :stop)
     end
     def test_inherit_deprecated_model_on
         deprecated_feature do
-            do_test_inherit_model_relations(:on, EventStructure::Signal)
+            do_test_inherit_model_relations(:on, EventStructure::Signal, :internal_error => :stop)
         end
     end
     def test_inherit_model_forward
@@ -156,7 +214,7 @@ class TC_Task < Test::Unit::TestCase
     end
     def test_inherit_model_causal_links
         do_test_inherit_model_relations(:causal_link, EventStructure::CausalLink,
-                           :success => :stop, :aborted => :failed, :failed => :stop)
+                           :internal_error => :stop, :success => :stop, :aborted => :failed, :failed => :stop)
     end
 
     # Test the behaviour of Task#on, and event propagation inside a task
@@ -327,8 +385,8 @@ class TC_Task < Test::Unit::TestCase
 	    event :terminal
             event :intermediate
 
-	    forward :terminal => :intermediate
             forward :intermediate => :failed
+	    forward :terminal => :intermediate
 	end
         assert klass.event_model(:terminal).terminal?
         plan.add(task = klass.new)
@@ -367,15 +425,6 @@ class TC_Task < Test::Unit::TestCase
         klass.new
     end
 
-    def test_should_not_establish_signal_from_terminal_to_non_terminal
-	klass = Class.new(Task) do
-	    event :terminal, :terminal => true
-            event :intermediate, :command => true
-	end
-        assert_raises(ArgumentError) { klass.signal :terminal => :intermediate }
-        klass.new
-    end
-
     # Tests Task::event
     def test_event_declaration
 	klass = Class.new(Task) do
@@ -395,6 +444,7 @@ class TC_Task < Test::Unit::TestCase
 
 	plan.add(task = klass.new)
 	assert_respond_to(task, :start!)
+        assert_respond_to(task, :start?)
 
         # Test modifications to the class hierarchy
         my_event = nil
@@ -567,11 +617,11 @@ class TC_Task < Test::Unit::TestCase
 	end
 
 	ev_models = Hash[*model.enum_for(:each_event).to_a.flatten]
-	assert_equal([:start, :success, :aborted, :updated_data, :stop, :failed, :inter].to_set, ev_models.keys.to_set)
+	assert_equal([:start, :success, :aborted, :internal_error, :updated_data, :stop, :failed, :inter].to_set, ev_models.keys.to_set)
 
 	plan.add(task = model.new)
 	ev_models = Hash[*task.model.enum_for(:each_event).to_a.flatten]
-	assert_equal([:start, :success, :aborted, :updated_data, :stop, :failed, :inter].to_set, ev_models.keys.to_set)
+	assert_equal([:start, :success, :aborted, :internal_error, :updated_data, :stop, :failed, :inter].to_set, ev_models.keys.to_set)
 	assert( ev_models[:start].symbol )
 	assert( ev_models[:start].name || ev_models[:start].name.length > 0 )
     end
@@ -646,7 +696,7 @@ class TC_Task < Test::Unit::TestCase
         flunk 'no exception raised'
     rescue klass => e
         unless msg === e.message
-            flunk "exception message '#{e.message}' does not match the expected pattern"
+            flunk "exception message '#{e.message}' does not match the expected pattern #{msg}"
         end
     rescue Exception => e
         flunk "expected an exception of class #{klass} but got #{e.full_message}"
@@ -661,8 +711,6 @@ class TC_Task < Test::Unit::TestCase
 	assert(!task.executable?)
 	assert_raises(EventNotExecutable) { task.start! }
 	assert_raises(EventNotExecutable) { task.event(:start).call }
-
-
 
 	plan.add(task)
 	assert(task.executable?)
@@ -709,7 +757,7 @@ class TC_Task < Test::Unit::TestCase
 	first_task.start!
     end
     
-    def check_direct_start(substring, check_signaling)
+    def assert_direct_call_validity_check(substring, check_signaling)
         error = yield
 	assert_exception_message(EventNotExecutable, substring) { error.start! }
         error = yield
@@ -728,37 +776,68 @@ class TC_Task < Test::Unit::TestCase
 	    end
 	end
     end
+
+    def assert_failure_reason(task, exception, message = nil)
+        assert(task.failed?)
+        assert_kind_of(exception, task.failure_reason)
+        assert(task.failure_reason.message =~ message) if message
+    end
+    
+    def assert_emission_fails(message_match, check_signaling)
+        error = yield
+        error.start!
+	assert_failure_reason(error, EventNotExecutable, message_match)
+        error = yield
+        error.event(:start).call(nil)
+	assert_failure_reason(error, EventNotExecutable, message_match)
+
+        error = yield
+        assert_exception_message(EventNotExecutable, message_match) do
+            error.event(:start).emit(nil)
+        end
+	
+	if check_signaling then
+	    error = yield
+	    assert_exception_message(EventNotExecutable, message_match) do
+                exception_propagator(error, :forward_to)
+            end
+
+	    error = yield
+            exception_propagator(error, :signals)
+	    assert_failure_reason(error, EventNotExecutable, message_match)
+	end
+    end
         
     def test_exception_refinement
-	# test for partially instanciation
-	check_direct_start(/partially instanciated/,true) do
-	   plan.add(task = ParameterizedTask.new)
-	   task
-	end
-
-        #test for a task that is in no plan
-        check_direct_start(/no plan/,false) do
+        # test for a task that is in no plan
+        assert_direct_call_validity_check(/no plan/,false) do
             SimpleTask.new
 	end
-        
-        #test for an abstract task
-        check_direct_start(/abstract/,true) do
-            plan.add(task = AbstractTask.new)
-            task
-	end
-	
-	#test for a not executable plan
+
+	# test for a not executable plan
 	erroneous_plan = NotExecutablePlan.new	
-	check_direct_start(/plan is not executable/,false) do
+	assert_direct_call_validity_check(/plan is not executable/,false) do
 	   erroneous_plan.add(task = SimpleTask.new)
 	   task
 	end
         erroneous_plan.clear
-        
-        #test for a not executable task
-        check_direct_start(/is not executable/,true) do
+
+        # test for a not executable task
+        assert_emission_fails(/is not executable/,true) do
             plan.add(task = SimpleTask.new)
             task.executable = false
+            task
+	end
+        
+	# test for partially instanciation
+	assert_emission_fails(/partially instanciated/,true) do
+	   plan.add(task = ParameterizedTask.new)
+	   task
+	end
+
+        # test for an abstract task
+        assert_emission_fails(/abstract/,true) do
+            plan.add(task = AbstractTask.new)
             task
 	end
     end
@@ -883,6 +962,8 @@ class TC_Task < Test::Unit::TestCase
 	plan.add(t3 = task_model.new(:universe => 42))
 	assert(t3.fullfills?(t1))
 	assert(!t1.fullfills?(t3))
+	plan.add(t3 = task_model.new(:universe => 42, :index => 21))
+	assert(t3.fullfills?(task_model, :universe => 42))
 
 	plan.add(t3 = Class.new(Task).new)
 	assert(!t1.fullfills?(t3))
@@ -981,7 +1062,9 @@ class TC_Task < Test::Unit::TestCase
 
 	master.start!
 	assert(master.starting?)
-	assert_raises(UnreachableEvent) { plan.remove_object(slave) }
+	plan.remove_object(slave)
+        assert master.failed?
+        assert_kind_of UnreachableEvent, master.failure_reason
     end
 
     def test_task_group
@@ -1019,7 +1102,9 @@ class TC_Task < Test::Unit::TestCase
 		t.stop!
 	    end
 	end
+    end
 
+    def test_error_in_polling
 	FlexMock.use do |mock|
 	    mock.should_receive(:polled).at_least.once
 	    t = Class.new(SimpleTask) do
@@ -1029,12 +1114,11 @@ class TC_Task < Test::Unit::TestCase
 		end
 	    end.new
 
-	    engine.execute do
-		plan.add_permanent(t)
-		t.start!
-	    end
-	    engine.wait_one_cycle
-	    assert(t.failed?)
+            engine.run
+            plan.add_permanent(t)
+            assert_event_emission(t.failed_event) do
+                t.start!
+            end
 	end
     end
 
@@ -1086,24 +1170,68 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_dup
-	plan.add(task = Roby::Test::SimpleTask.new)
+        model = Class.new(Roby::Test::SimpleTask) do
+            event :intermediate
+        end
+	plan.add(task = model.new)
 	task.start!
+        task.emit :intermediate
 
 	new = task.dup
 	assert_not_same(new.event(:stop), task.event(:stop))
 	assert_same(new, new.event(:stop).task)
-	assert(plan.include?(new))
+
+	assert(!plan.include?(new))
+        assert_equal(nil, new.plan)
+
 	assert_kind_of(Roby::TaskArguments, new.arguments)
 	assert_equal(task.arguments.to_hash, new.arguments.to_hash)
-	assert_same(plan, new.plan)
-	assert(new.event(:failed).child_object?(new.event(:stop), Roby::EventStructure::Forwarding))
+
+        plan.add(new)
+	assert(new.event(:stop), new.event(:failed).child_objects(Roby::EventStructure::Forwarding).to_a)
+
+        assert(task.running?)
+        assert(new.running?)
+        assert(task.intermediate?)
+        assert(new.intermediate?)
 
 	task.stop!
 	assert(!task.running?)
 	assert(new.running?)
 
 	new.event(:stop).call
+	assert(new.stop?, new.history)
 	assert(new.finished?, new.history)
+    end
+
+    def test_failed_to_start
+	plan.add(task = Roby::Test::SimpleTask.new)
+        begin
+            task.event(:start).emit_failed
+        rescue Exception
+        end
+        assert task.failed_to_start?
+        assert_kind_of EmissionFailed, task.failure_reason
+        assert task.failed?
+        assert !task.pending?
+        assert !task.running?
+        assert [], plan.find_tasks.pending.to_a
+        assert [], plan.find_tasks.running.to_a
+        assert [task], plan.find_tasks.failed.to_a
+    end
+
+    def test_intermediate_emit_failed
+        model = Class.new(SimpleTask) do
+            event :intermediate
+        end
+	plan.add(task = model.new)
+        task.start!
+
+        task.event(:intermediate).emit_failed
+        assert(task.internal_error?)
+        assert(task.failed?)
+        assert_kind_of EmissionFailed, task.failure_reason
+        assert_equal(task.event(:intermediate), task.failure_reason.failed_generator)
     end
 end
 

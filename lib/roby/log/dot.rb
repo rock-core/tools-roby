@@ -33,11 +33,11 @@ module Roby
 		trsc.to_dot(display, io, level + 1)
 	    end
 
-	    relations_to_dot(display, io, TaskStructure, known_tasks)
+	    relations_to_dot(display, io, Roby::Log::RelationsDisplay.all_task_relations, known_tasks)
 	end
 
-	def each_displayed_relation(display, space, objects)
-	    space.relations.each do |rel|
+	def each_displayed_relation(display, relations, objects)
+	    relations.each do |rel|
 		next unless display.relation_enabled?(rel)
 
 		objects.each do |from|
@@ -60,8 +60,8 @@ module Roby
 	    end
 	end
 
-	def relations_to_dot(display, io, space, objects)
-	    each_displayed_relation(display, space, objects) do |rel, from, to|
+	def relations_to_dot(display, io, all_relations, objects)
+	    each_displayed_relation(display, all_relations, objects) do |rel, from, to|
 		from_id, to_id = from.dot_id, to.dot_id
 		if from_id && to_id
 		    io << "  #{from_id} -> #{to_id}\n"
@@ -71,8 +71,8 @@ module Roby
 	    end
 	end
 
-	def layout_relations(positions, display, space, objects)
-	    each_displayed_relation(display, space, objects) do |rel, from, to|
+	def layout_relations(positions, display, all_relations, objects)
+	    each_displayed_relation(display, all_relations, objects) do |rel, from, to|
 		display.task_relation(from, to, rel, from[to, rel])
 	    end
 	end
@@ -100,7 +100,7 @@ module Roby
                 rect[2] *= 1.2
                 rect[3] *= 1.2
 		item.z_value = Log::PLAN_LAYER + depth - max_depth
-		item.set_rect *rect
+		item.set_rect(*rect)
 	    else
 		Roby::Log.warn "no bounding rectangle for #{self} (#{dot_id})"
 	    end
@@ -114,7 +114,7 @@ module Roby
 	    transactions.each do |trsc|
 		trsc.apply_layout(bounding_rects, positions, display, max_depth)
 	    end
-	    layout_relations(positions, display, TaskStructure, known_tasks)
+	    layout_relations(positions, display, Roby::Log::RelationsDisplay.all_task_relations, known_tasks)
 	end
     end
 

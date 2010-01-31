@@ -145,7 +145,15 @@ module Roby
     end
 
     RX_IN_FRAMEWORK = /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
-    def self.filter_backtrace(original_backtrace)
+    def self.filter_backtrace(original_backtrace = nil)
+        if !original_backtrace && block_given?
+            begin
+                return yield
+            rescue Exception => e
+                raise e, e.message, filter_backtrace(e.backtrace)
+            end
+        end
+
 	if Roby.app.filter_backtraces? && original_backtrace
             app_dir = if defined? APP_DIR then Regexp.quote(APP_DIR) end
 
@@ -158,11 +166,11 @@ module Roby
             backtrace = original_backtrace.enum_for(:each_with_index).map do |line, idx|
                 case line
                 when /in `poll_handler'$/
-                    line.gsub /:in.*/, ':in the polling handler'
+                    line.gsub(/:in.*/, ':in the polling handler')
                 when /in `event_command_(\w+)'$/
-                    line.gsub /:in.*/, ":in command for '#{$1}'"
+                    line.gsub(/:in.*/, ":in command for '#{$1}'")
                 when /in `event_handler_(\w+)_(?:[a-f0-9]+)'$/
-                    line.gsub /:in.*/, ":in event handler for '#{$1}'"
+                    line.gsub(/:in.*/, ":in event handler for '#{$1}'")
                 else
                     if original_backtrace.size > idx + 4 &&
                         original_backtrace[idx + 1] =~ /in `call'$/ &&
@@ -170,7 +178,7 @@ module Roby
                         original_backtrace[idx + 3] =~ /`each'$/ &&
                         original_backtrace[idx + 4] =~ /`each_handler'$/
 
-                        line.gsub /:in /, ":in event handler, "
+                        line.gsub(/:in /, ":in event handler, ")
                     else
                         case line
                         when /in `(gem_original_)?require'$/
@@ -193,7 +201,7 @@ module Roby
 
             if app_dir
                 backtrace = backtrace.map do |line|
-                    line.gsub /^#{app_dir}\/?/, './'
+                    line.gsub(/^#{app_dir}\/?/, './')
                 end
             end
             backtrace.concat backtrace_bottom

@@ -10,8 +10,10 @@ module Roby::Log
 	attr_reader :index_data
 	attr_reader :basename
 	def range
-	    [Time.at(*index_data.first[:start]), 
-		Time.at(*index_data.last[:start]) + index_data.last[:end]]
+            if !index_data.empty?
+                [Time.at(*index_data.first[:start]), 
+                    Time.at(*index_data.last[:start]) + index_data.last[:end]]
+            end
 	end
 
 	def initialize(file, allow_old_format = false, force_rebuild_index = false)
@@ -29,6 +31,14 @@ module Roby::Log
 	    if !allow_old_format
 		FileLogger.check_format(@event_io)
 	    end
+
+            @event_io.rewind
+            file_header = Marshal.load(@event_io)
+            if file_header[:plugins]
+                file_header[:plugins].each do |plugin_name|
+                    Roby.app.using plugin_name
+                end
+            end
 
 	    index_path = "#{basename}-index.log"
 	    if force_rebuild_index || !File.file?(index_path)
@@ -88,8 +98,13 @@ module Roby::Log
                     return false
                 end
 
-                if cycle[-4] != :cycle_end ||
-                    cycle[-1].first != index
+                stats = cycle.last[0].dup
+                stats.delete(:state)
+                index = index.dup
+                index.delete(:state)
+                if stats != index
+                    STDERR.puts stats.inspect
+                    STDERR.puts index.inspect
                     return false
                 end
             end
@@ -151,13 +166,13 @@ module Roby::Log
 	# StringIO object on which we dump the data
 	attr_reader :dump_io
 
-	def initialize(basename)
+	def initialize(basename, options)
 	    @current_pos   = 0
 	    @dump_io	   = StringIO.new('', 'w')
 	    @current_cycle = Array.new
 	    @event_log = File.open("#{basename}-events.log", 'w')
 	    event_log.sync = true
-	    FileLogger.write_header(@event_log)
+	    FileLogger.write_header(@event_log, options)
 	    @index_log = File.open("#{basename}-index.log", 'w')
 	    index_log.sync = true
 	end
@@ -166,6 +181,12 @@ module Roby::Log
 	def splat?; false end
         def logs_message?(m)
 	    m == :cycle_end || !stats_mode
+        end
+
+        def close
+            dump_method(:cycle_end, Time.now, [])
+            @event_log.close
+            @index_log.close
         end
 
 	def dump_method(m, time, args)
@@ -215,8 +236,6 @@ module Roby::Log
 	    loop do
 		cycle = Marshal.load(event_log)
 		info               = cycle.last.last
-		info[:pos]         = current_pos
-		info[:event_count] = cycle.size
 
 		dump_io.truncate(0)
 		dump_io.seek(0)
@@ -268,8 +287,8 @@ module Roby::Log
 	    end
 	end
 
-	def self.write_header(io)
-	    header = { :log_format => FORMAT_VERSION }
+	def self.write_header(io, options = Hash.new)
+	    header = { :log_format => FORMAT_VERSION }.merge(options)
 	    Marshal.dump(header, io)
 	end
 

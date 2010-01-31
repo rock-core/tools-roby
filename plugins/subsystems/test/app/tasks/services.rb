@@ -5,7 +5,7 @@ module Services
     class Navigation < SimpleTask; end
     class Localization < SimpleTask
 	event :ready, :command => true
-	on :start => :ready
+	signal :start => :ready
 
 	def update_localization(state)
 	    state.pos += 1

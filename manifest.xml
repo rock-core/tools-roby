@@ -1,0 +1,20 @@
+<package>
+  <description brief="advanced supervision framework">
+  </description>
+  <author>Sylvain Joyeux/sylvain.joyeux@m4x.org</author>
+  <copyright>
+      LAAS-CNRS/openrobots@laas.fr
+      DFKI/robotik@dfki.de
+      Sylvain Joyeux/sylvain.joyeux@m4x.org
+  </copyright>
+  <license>CeCILL-B (BSD-like)</license>
+
+  <depend package="utilmm" />
+  <depend package="utilrb" />
+  <rosdep name="flexmock" />
+  <rosdep name="activesupport" />
+  <rosdep name="qtruby" />
+  <rosdep name="boost" />
+  <rosdep name="graphviz" />
+</package>
+

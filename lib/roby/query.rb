@@ -1,8 +1,12 @@
 module Roby
     class Task
         # Returns a TaskMatcher object
-	def self.match
-	    TaskMatcher.new
+	def self.match(*args)
+	    matcher = TaskMatcher.new
+            if !args.empty?
+                matcher.which_fullfills(*args)
+            end
+            matcher
 	end
     end
 
@@ -25,11 +29,17 @@ module Roby
 	    @improved_information = ValueSet.new
 	    @needed_information   = ValueSet.new
 	    @interruptible	  = nil
+            @parents              = Hash.new { |h, k| h[k] = Array.new }
+            @children             = Hash.new { |h, k| h[k] = Array.new }
 	end
 
 	# Shortcut to set both model and argument 
 	def which_fullfills(model, arguments = nil)
-	    with_model(model).with_model_arguments(arguments || {})
+	    with_model(model)
+            if arguments
+                with_model_arguments(arguments)
+            end
+            self
 	end
 
 	# Find by model
@@ -43,6 +53,11 @@ module Roby
 	    if !model
 		raise ArgumentError, "set model first"
 	    end
+            if model.respond_to?(:to_ary)
+                valid_arguments = model.inject(Set.new) { |args, m| args | m.arguments.to_set }
+            else
+                valid_arguments = model.arguments
+            end
 	    with_arguments(arguments.slice(*model.arguments))
 	    self
 	end
@@ -128,6 +143,53 @@ module Roby
 	match_predicates :executable, :abstract, :partially_instanciated, :fully_instanciated,
 	    :pending, :running, :finished, :success, :failed, :interruptible, :finishing
 
+        # Helper method for #with_child and #with_parent
+        def handle_parent_child_arguments(other_query, relation, relation_options) # :nodoc:
+            if !other_query.kind_of?(TaskMatcher) && !other_query.kind_of?(Task)
+                if relation.kind_of?(Hash)
+                    arguments = relation
+                    relation         = (arguments.delete(:relation) || arguments.delete('relation'))
+                    relation_options = (arguments.delete(:relation_options) || arguments.delete('relation_options'))
+                else
+                    arguments = Hash.new
+                end
+                other_query = TaskMatcher.which_fullfills(other_query, arguments)
+            end
+            return relation, [other_query, relation_options]
+        end
+
+        def with_child(other_query, relation = nil, relation_options = nil)
+            relation, spec = handle_parent_child_arguments(other_query, relation, relation_options)
+            @children[relation] << spec
+            self
+        end
+
+        def with_parent(other_query, relation = nil, relation_options = nil)
+            relation, spec = handle_parent_child_arguments(other_query, relation, relation_options)
+            @parents[relation] << spec
+            self
+        end
+
+        # Helper method for handling parent/child matches in #===
+        def handle_parent_child_match(task, match_spec) # :nodoc:
+            relation, matchers = *match_spec
+            return false if !relation && task.relations.empty?
+            for match_spec in matchers
+                m, relation_options = *match_spec
+                if relation
+                    if !yield(relation, m, relation_options)
+                        return false 
+                    end
+                else
+                    result = task.relations.any? do |rel|
+                        yield(rel, m, relation_options)
+                    end
+                    return false if !result
+                end
+            end
+            true
+        end
+
         # True if +task+ matches all the criteria defined on this object.
 	def ===(task)
 	    return unless task.kind_of?(Roby::Task)
@@ -137,6 +199,22 @@ module Roby
 	    if arguments
 		return unless task.arguments.slice(*arguments.keys) == arguments
 	    end
+
+            for parent_spec in @parents
+                result = handle_parent_child_match(task, parent_spec) do |relation, m, relation_options|
+                    task.enum_parent_objects(relation).
+                        any? { |parent| m === parent && (!relation_options || relation_options === parent[task, relation]) }
+                end
+                return false if !result
+            end
+
+            for child_spec in @children
+                result = handle_parent_child_match(task, child_spec) do |relation, m, relation_options|
+                    task.enum_child_objects(relation).
+                        any? { |child| m === child && (!relation_options || relation_options === task[child, relation]) }
+                end
+                return false if !result
+            end
 
 	    for info in improved_information
 		return false if !task.improves?(info)
@@ -161,7 +239,13 @@ module Roby
         # include tasks which do not match #===
 	def filter(initial_set, task_index)
 	    if model
-		initial_set &= task_index.by_model[model]
+                if model.respond_to?(:to_ary)
+                    for m in model
+                        initial_set &= task_index.by_model[m]
+                    end
+                else
+                    initial_set &= task_index.by_model[model]
+                end
 	    end
 
 	    if !owners.empty?
@@ -187,7 +271,9 @@ module Roby
 
         # Enumerates all tasks of +plan+ which match this TaskMatcher object
 	def each(plan, &block)
-	    plan.query_each(plan.query_result_set(self), &block)
+            plan.each_task do |t|
+                yield(t) if self === t
+            end
 	    self
 	end
 
@@ -211,14 +297,35 @@ module Roby
     class Query < TaskMatcher
         # The plan this query acts on
 	attr_reader :plan
+        # Search scope for queries on transactions. If equal to :local, the
+        # query will apply only on the scope of the searched transaction,
+        # otherwise it applies on a virtual plan that is the result of the
+        # transaction stack being applied.
+        #
+        # The default is :global.
+        #
+        # See #local_scope and #global_scope
+        attr_reader :scope
 
         # Create a query object on the given plan
 	def initialize(plan)
+            @scope = :global
 	    @plan = plan
 	    super()
 	    @plan_predicates = Array.new
 	    @neg_plan_predicates = Array.new
 	end
+
+        # Changes the scope of this query. See #scope.
+        def local_scope; @scope = :local end
+        # Changes the scope of this query. See #scope.
+        def global_scope; @scope = :global end
+
+        # Changes the plan this query works on
+        def plan=(new_plan)
+            reset
+            @plan = new_plan
+        end
 
         # The set of tasks which match in plan. This is a cached value, so use
         # #reset to actually recompute this set.
@@ -390,6 +497,15 @@ module Roby
 	    q
 	end
 
+        # Starts a local query on this plan
+        #
+        # See Query#scope
+        def find_local_tasks(*args, &block)
+            query = find_tasks(*args, &block)
+            query.local_scope
+            query
+        end
+
 	# Called by TaskMatcher#result_set and Query#result_set to get the set
 	# of tasks matching +matcher+
 	def query_result_set(matcher)
@@ -481,9 +597,11 @@ module Roby
 	# tasks matching it. The two sets are disjoint.
 	def query_result_set(matcher)
 	    plan_set = ValueSet.new
-	    for task in plan.query_result_set(matcher)
-		plan_set << task unless self[task, false]
-	    end
+            if matcher.scope == :global
+                for task in plan.query_result_set(matcher)
+                    plan_set << task unless self[task, false]
+                end
+            end
 	    
 	    transaction_set = super
 	    [plan_set, transaction_set]

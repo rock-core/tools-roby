@@ -6,17 +6,18 @@ module Roby
     # sandbox, and then to apply the modifications to the real plan (using #commit_transaction), or
     # to discard all modifications (using #discard)
     class Transaction < Plan
-	Proxy = Transactions::Proxy
-	
 	# A transaction is not an executable plan
 	def executable?; false end
         attr_predicate :freezed
         attr_predicate :committed
 
-	def do_wrap(object, do_include = false) # :nodoc:
+        def register_proxy(proxy, object, do_include = false)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 
-	    proxy = proxy_objects[object] = Proxy.proxy_class(object).new(object, self)
+            proxy.extend Transaction::Proxying.proxying_module_for(object.model)
+            proxy.setup_proxy(object, self)
+            proxy_objects[object] = proxy
+
 	    if do_include && object.root_object?
 		proxy.plan = self
 		add(proxy)
@@ -24,6 +25,22 @@ module Roby
 
 	    copy_object_relations(object, proxy)
 	    proxy
+        end
+
+	def do_wrap(object, do_include = false) # :nodoc:
+	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+
+	    if proxy = proxy_objects[object]
+                return proxy
+            elsif !object.root_object?
+                do_wrap(object.root_object, do_include)
+                if !(proxy = proxy_objects[object])
+                    raise InternalError, "#{object} should have been wrapped but is not"
+                end
+                register_proxy(proxy, object, do_include)
+            else
+                register_proxy(object.dup, object, do_include)
+            end
 	end
 
 	def propose; end
@@ -59,54 +76,37 @@ module Roby
 		elsif proxy = proxy_objects[object] then return proxy
 		end
 
+                if !object.plan && !object.finalized?
+                    object.plan = self
+                    add(object)
+                    return object
+                end
+
 		if create
-		    if !object.plan
-			object.plan = self
-			add(object)
-			return object
-		    elsif object.plan == self.plan
-			wrapped = do_wrap(object, true)
-			if plan.mission?(object)
-			    add_mission(wrapped)
-			elsif plan.permanent?(object)
-			    add_permanent(wrapped)
-			end
-			return wrapped
-		    else
+		    if object.plan != self.plan
 			raise ArgumentError, "#{object} is in #{object.plan}, this transaction #{self} applies on #{self.plan}"
-		    end
+                    end
+
+                    wrapped = do_wrap(object, true)
+                    if plan.mission?(object)
+                        add_mission(wrapped)
+                    elsif plan.permanent?(object)
+                        add_permanent(wrapped)
+                    end
+                    return wrapped
 		end
 		nil
-	    elsif object.respond_to?(:each) 
+	    elsif object.respond_to?(:to_ary) 
 		object.map { |o| wrap(o, create) }
+            elsif object.respond_to?(:each)
+                raise ArgumentError, "don't know how to wrap containers of class #{objects.class}"
 	    else
 		raise TypeError, "don't know how to wrap #{object || 'nil'} of type #{object.class.ancestors}"
 	    end
 	end
-	alias :[] :wrap
-
-	# Remove +proxy+ from this transaction. While #remove_object is also
-	# removing the object from the plan itself, this method only removes it
-	# from the transaction, forgetting all modifications that have been
-	# done on +object+ in the transaction
-	def discard_modifications(object)
-	    object = may_unwrap(object)
-	    if object.respond_to?(:each_plan_child)
-		object.each_plan_child do |child|
-		    discard_modifications(child)
-		end
-	    end
-	    removed_objects.delete(object)
-	    discarded_tasks.delete(object)
-	    auto_tasks.delete(object)
-
-	    return unless proxy = proxy_objects.delete(object)
-	    proxy.clear_vertex
-
-	    missions.delete(proxy)
-	    known_tasks.delete(proxy)
-	    free_events.delete(proxy)
-	end
+        def [](*args)
+            wrap(*args)
+        end
 
 	def restore_relation(proxy, relation)
 	    object = proxy.__getobj__
@@ -134,31 +134,51 @@ module Roby
 	    proxy.do_discover(relation, false)
 	end
 
-	alias :remove_plan_object :remove_object
+        # Removes an object from this transaction
+        #
+        # This does *not* remove the object from the underlying plan. Removing
+        # objects directly is (at best) dangerous, and should be handled by
+        # garbage collection.
 	def remove_object(object)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 
 	    object = may_unwrap(object)
-	    proxy = proxy_objects[object] || object
+            proxy  = proxy_objects.delete(object)
+            if (proxy || object).plan != self
+                raise InternalError, "inconsistency"
+            end
 
-	    # removing the proxy may trigger some discovery (event relations
-	    # for instance, if proxy is a task). Do it first, or #discover
-	    # will be called and the modifications of internal structures
-	    # nulled (like #removed_objects) ...
-	    remove_plan_object(proxy)
-	    proxy_objects.delete(object)
+            if proxy
+                discarded_tasks.delete(object)
+                auto_tasks.delete(object)
+                if proxy.respond_to?(:each_plan_child)
+                    proxy.each_plan_child(true) do |child_proxy|
+                        auto_tasks.delete(child_proxy)
+                    end
+                end
+            end
 
-	    if object.plan == self.plan
-		# +object+ is new in the transaction
-		removed_objects.insert(object)
-	    end
+            proxy ||= object
+            if proxy.root_object?
+                super(proxy)
+            end
+            self
 	end
 
-	def may_wrap(object, create = true)
-	    (wrap(object, create) || object) rescue object 
+	def may_wrap(objects, create = true)
+            if objects.respond_to?(:to_ary)
+                objects.map { |obj| may_wrap(obj, create) }
+            elsif objects.respond_to?(:each)
+                raise ArgumentError, "don't know how to wrap containers of class #{objects.class}"
+            elsif objects.kind_of?(PlanObject)
+                wrap(objects, create)
+            else
+                objects
+            end
 	end
 	
-	# may_unwrap may return objects from transaction
+	# If +object+ is in this transaction, may_unwrap will return the
+        # underlying plan object. In all other cases, returns object.
 	def may_unwrap(object)
 	    if object.respond_to?(:plan) 
 		if object.plan == self && object.respond_to?(:__getobj__)
@@ -174,8 +194,6 @@ module Roby
 
 	# The list of discarded
 	attr_reader :discarded_tasks
-	# The list of removed tasks and events
-	attr_reader :removed_objects
 	# The list of permanent tasks that have been auto'ed
 	attr_reader :auto_tasks
 	# The plan this transaction applies on
@@ -192,12 +210,15 @@ module Roby
 	# Creates a new transaction which applies on +plan+
 	def initialize(plan, options = {})
 	    @options = options
+            @freezed = false
+            @disable_proxying = false
+            @invalid = false
+
 	    super()
 
 	    @plan   = plan
 
 	    @proxy_objects      = Hash.new
-	    @removed_objects    = ValueSet.new
 	    @discarded_tasks    = ValueSet.new
 	    @auto_tasks	        = ValueSet.new
 
@@ -217,23 +238,31 @@ module Roby
         end
 
 	def discover_neighborhood(object)
-	    self[object]
-	    object.each_relation do |rel|
-		object.each_parent_object(rel) { |obj| self[obj] }
-		object.each_child_object(rel)  { |obj| self[obj] }
-	    end
+            stack  = object.transaction_stack
+            object = object.real_object
+            while stack.size > 1
+                plan = stack.pop
+                next_plan = stack.last
+
+                next_plan[object]
+                object.each_relation do |rel|
+                    object.each_parent_object(rel) { |obj| next_plan[obj] }
+                    object.each_child_object(rel)  { |obj| next_plan[obj] }
+                end
+                object = next_plan[object]
+            end
+            nil
 	end
 
 	def replace(from, to)
 	    # Make sure +from+, its events and all the related tasks and events
 	    # are in the transaction
-	    from = may_unwrap(from)
 	    discover_neighborhood(from)
 	    from.each_event do |ev|
 		discover_neighborhood(ev)
 	    end
 
-	    super(self[from], self[to])
+	    super(from, to)
 	end
 
 	def add_mission(t)
@@ -241,18 +270,18 @@ module Roby
 	    if proxy = self[t, false]
 		discarded_tasks.delete(may_unwrap(proxy))
 	    end
-	    super(self[t, true]) 
+	    super(t)
 	end
 	def add_permanent(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 	    if proxy = self[t, false]
 		auto_tasks.delete(may_unwrap(proxy))
 	    end
-	    super(self[t, true]) 
+	    super(t)
 	end
 	def add(objects)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
-	    super(self[objects, true])
+	    super(objects)
 	    self
 	end
 
@@ -323,16 +352,13 @@ module Roby
 	    plan.execute do
 		auto_tasks.each      { |t| plan.unmark_permanent(t) }
 		discarded_tasks.each { |t| plan.unmark_mission(t) }
-		removed_objects.each do |obj| 
-		    plan.remove_object(obj) if plan.include?(obj)
-		end
 
 		discover_tasks  = ValueSet.new
 		discover_events  = ValueSet.new
 		insert    = ValueSet.new
 		permanent = ValueSet.new
 		known_tasks.dup.each do |t|
-		    unwrapped = if t.kind_of?(Transactions::Proxy)
+		    unwrapped = if t.kind_of?(Transaction::Proxying)
 				    finalized_task(t)
 				    t.__getobj__
 				else
@@ -352,13 +378,14 @@ module Roby
 		end
 
 		free_events.dup.each do |ev|
-		    unwrapped = if ev.kind_of?(Transactions::Proxy)
+		    unwrapped = if ev.kind_of?(Transaction::Proxying)
 				    finalized_event(ev)
 				    ev.__getobj__
 				else
 				    free_events.delete(ev)
 				    ev
 				end
+
                     if permanent_events.include?(ev) && ev.self_owned?
                         permanent_events.delete(ev)
                         permanent << unwrapped
@@ -393,8 +420,9 @@ module Roby
 		clear
 		# Replace proxies by forwarder objects
 		proxies.each do |object, proxy|
-		    forwarder = Proxy.forwarder(object)
-		    Kernel.swap! proxy, forwarder
+		    forwarder_module = Transaction::Proxying.forwarder_module_for(object.model)
+                    proxy.extend forwarder_module
+                    proxy.__freeze__
 		end
 
                 @committed = true
@@ -447,7 +475,6 @@ module Roby
 	end
 
 	def clear
-	    removed_objects.clear
 	    discarded_tasks.clear
 	    proxy_objects.each_value { |proxy| proxy.clear_relations }
 	    proxy_objects.clear
@@ -455,14 +482,18 @@ module Roby
 	end
 
 	def finalized_plan_task(task)
+            proxied_task = task.__getobj__
+
 	    invalidate("task #{task} has been removed from the plan")
-            discard_modifications(task)
+            discard_modifications(proxied_task)
 	    control.finalized_plan_task(self, task)
 	end
 
 	def finalized_plan_event(event)
+            proxied_event = event.__getobj__
+
 	    invalidate("event #{event} has been removed from the plan")
-            discard_modifications(event)
+            discard_modifications(proxied_event)
 	    control.finalized_plan_event(self, event)
 	end
 

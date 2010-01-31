@@ -161,6 +161,15 @@ module Roby
 	    ret
 	end
 
+        # Returns the set of stacked transaction, starting at +self+
+        def transaction_stack
+            plan_chain = [self]
+            while plan_chain.last.respond_to?(:plan)
+                plan_chain << plan_chain.last.plan
+            end
+            plan_chain
+        end
+
 	# Inserts a new mission in the plan.
         #
         # In the plan manager, missions are the tasks which constitute the
@@ -304,12 +313,12 @@ module Roby
 
 	    # Check that +to+ is valid in all hierarchy relations where +from+ is a child
 	    if !to.fullfills?(*from.fullfilled_model)
-		raise InvalidReplace.new(from, to, "to does not fullfills #{from.fullfilled_model}")
+		raise InvalidReplace.new(from, to), "task #{to} does not fullfill #{from.fullfilled_model}"
 	    end
 
 	    # Check that +to+ is in the same execution state than +from+
-	    if !to.compatible_state?(from)
-		raise InvalidReplace.new(from, to, "state. #{from.running?}, #{to.running?}")
+	    if executable? && !to.compatible_state?(from)
+		raise InvalidReplace.new(from, to), "cannot replace #{from} by #{to} as their state is incompatible: from is #{from.running?} and to is #{to.running?}"
 	    end
 
 	    # Swap the subplans of +from+ and +to+
@@ -479,6 +488,16 @@ module Roby
 	    super if defined? super
 	end
 
+        # Creates a new transaction and yields it. Ensures that the transaction
+        # is discarded if the block returns without having committed it.
+        def in_transaction
+            yield(trsc = Transaction.new(self))
+
+        ensure
+            if trsc && !trsc.finalized?
+                trsc.discard_transaction
+            end
+        end
 	# Hook called when a new transaction has been built on top of this plan
 	def added_transaction(trsc); super if defined? super end
 	# Removes the transaction +trsc+ from the list of known transactions
@@ -495,7 +514,7 @@ module Roby
 	def useful_task_component(complete_set, useful_set, seeds)
 	    old_useful_set = useful_set.dup
 	    for rel in TaskStructure.relations
-		next unless rel.root_relation?
+		next if !rel.root_relation?
 		for subgraph in rel.generated_subgraphs(seeds, false)
 		    useful_set.merge(subgraph)
 		end
@@ -703,11 +722,13 @@ module Roby
 	# Otherwise, raises ArgumentError.
 	#
 	# This method is provided for consistency with Transaction#[]
-	def [](object)
-	    if object.plan != self
-		raise ArgumentError, "#{object} is not from #{plan}"
-	    elsif !object.plan
+	def [](object, create = true)
+            if !object.plan && !object.finalized?
 		add(object)
+            elsif object.finalized? && create
+		raise ArgumentError, "#{object} is has been finalized, and can't be reused"
+	    elsif object.plan != self
+		raise ArgumentError, "#{object} is not from #{self}"
 	    end
 	    object
 	end
@@ -719,6 +740,10 @@ module Roby
 	    else true
 	    end
 	end
+
+        def discard_modifications(object)
+            remove_object(object)
+        end
 
         # Remove +object+ from this plan. You usually don't have to do that
         # manually. Object removal is handled by the plan's garbage collection
@@ -837,7 +862,7 @@ module Roby
         # corresponding one is created, but this time involving the newly
         # created task.
         def recreate(task)
-	    new_task = task.class.new(task.arguments.dup)
+	    new_task = task.create_fresh_copy
 	    replace_task(task, new_task)
             new_task
         end
@@ -898,6 +923,18 @@ module Roby
 	    exceptions
 	end
 
+        # Run a garbage collection pass. This is 'static', as it does not care
+        # about the task's state: it will simply remove *from the plan* any task
+        # that is not useful *in the context of the plan*.
+        #
+        # This is mainly useful for static tests, and for transactions
+        #
+        # Do *not* use it on executed plans.
+        def static_garbage_collect
+            for t in unneeded_tasks
+                remove_object(t)
+            end
+        end
 
         include Roby::ExceptionHandlingObject
 

@@ -1,5 +1,5 @@
 /introduction:
-    sort_info: 0
+    sort_info: 50
 /basics:
     sort_info: 100
 /cycle:
@@ -9,16 +9,12 @@
     sort_info: 300
 /relations:
     sort_info: 400
+/plugins:
+    sort_info: 950
 
 /introduction/index.page:
     in_menu: false
 
 /*/index.page:
-    in_menu: false
-
-/cycle/garbage_collection.page:
-    in_menu: false
-
-/abstraction/*:
     in_menu: false
 

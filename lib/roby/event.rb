@@ -116,11 +116,21 @@ module Roby
 	end
 
 	attr_enumerable(:handler, :handlers) { Array.new }
+	attr_enumerable(:once_handler, :once_handlers) { Array.new }
 
 	def initialize_copy(old) # :nodoc:
 	    super
 
-	    @history = old.history.dup
+            @preconditions = old.instance_variable_get(:@preconditions).dup
+            @handlers = old.handlers.dup
+            @happened = old.happened?
+	    @history  = old.history.dup
+            @pending  = false
+            if old.command.kind_of?(Method)
+                @command = method(old.command.name)
+            end
+            @unreachable = old.unreachable?
+            @unreachable_handlers = old.unreachable_handlers.dup
 	end
 
 	def model; self.class end
@@ -129,7 +139,7 @@ module Roby
 	# The count of command calls that have not a corresponding emission
 	attr_reader :pending
 	# True if this event has been called but is not emitted yet
-	def pending?; pending end
+	def pending?; pending || (engine && engine.has_propagation_for?(self)) end
 
 	# call-seq:
 	#   EventGenerator.new
@@ -144,10 +154,12 @@ module Roby
 	# +false+ argument), then it is not controlable
 	def initialize(command_object = nil, &command_block)
 	    @preconditions = []
-	    @handlers = []
-	    @pending  = false
-	    @unreachable = false
+	    @handlers      = []
+	    @pending       = false
+	    @unreachable   = false
+            @unreachable_event    = nil
 	    @unreachable_handlers = []
+	    @history       = Array.new
 
 	    if command_object || command_block
 		self.command = if command_object.respond_to?(:call)
@@ -157,9 +169,10 @@ module Roby
 			       else
 				   method(:default_command)
 			       end
+            else
+                @command = nil
 	    end
 	    super() if defined? super
-
 	end
 
 	def default_command(context)
@@ -175,8 +188,10 @@ module Roby
 	# Checks that the event can be called. Raises various exception
 	# when it is not the case.
 	def check_call_validity
-	    if !executable?
-		raise EventNotExecutable.new(self), "#call called on #{self} which is a non-executable event"
+            if !plan
+		raise EventNotExecutable.new(self), "#emit called on #{self} which is in no plan"
+            elsif !engine
+		raise EventNotExecutable.new(self), "#emit called on #{self} which is has no associated execution engine"
             elsif !engine.allow_propagation?
                 raise PhaseMismatch, "call to #emit is not allowed in this context"
 	    elsif !controlable?
@@ -213,6 +228,10 @@ module Roby
 	    postponed = catch :postponed do 
 		calling(context)
 		@pending = true
+
+                if !executable?
+                    raise EventNotExecutable.new(self), "#call called on #{self} which is a non-executable event"
+                end
 
 		plan.engine.propagation_context([self]) do
 		    command[context]
@@ -383,18 +402,13 @@ module Roby
         #   once { |context| ... }
         #
         # Calls the provided event handler only once
-	def once(signal = nil, time = nil)
+	def once(signal = nil, time = nil, &block)
             if signal
                 Roby.warn_deprecated "the once(event_name) form has been replaced by #signal_once"
                 signal_once(signal, time)
             end
 
-	    handler = nil
-	    on do |context|
-		yield(context) if block_given?
-		self.handlers.delete(handler)
-	    end
-	    handler = self.handlers.last
+            once_handlers << block
             self
 	end
 
@@ -476,27 +490,50 @@ module Roby
 		    plan.engine.add_error( EventHandlerError.new(e, event) )
 		end
 	    end
+            each_once_handler do |h|
+                begin
+                    h.call(event)
+                rescue Exception => e
+                    plan.engine.add_error( EventHandlerError.new(e, event) )
+                end
+            end
+            once_handlers.clear
 	end
 
 	# Raises an exception object when an event whose command has been
 	# called won't be emitted (ever)
-	def emit_failed(*what)
-	    what, message = *what
-	    what ||= EmissionFailed
+	def emit_failed(error = nil, message = nil)
+	    error ||= EmissionFailed
 
-	    if !message && what.respond_to?(:to_str)
-		message = what.to_str
-		what = EmissionFailed
+	    if !message && !(error.kind_of?(Class) || error.kind_of?(Exception))
+		message = error.to_str
+		error = EmissionFailed
 	    end
 
-	    failure_message = "failed to emit #{self}: #{message}"
-	    error = if Class === what then what.new(nil, self)
-		    else what
-		    end
-	    error = error.exception failure_message
+	    failure_message =
+                if message then "failed to emit #{self}: #{message}"
+                elsif error.respond_to?(:message) then "failed to emit #{self}: #{error.message}"
+                else "failed to emit #{self}: #{message}"
+                end
 
-	    plan.engine.add_error(error)
+            if Class === error 
+                error = error.new(nil, self)
+                error.set_backtrace caller(1)
+            end
 
+	    new_error = error.exception failure_message
+            new_error.set_backtrace error.backtrace
+            error = new_error
+
+            if !error.kind_of?(LocalizedError)
+                error = EmissionFailed.new(error, self)
+            end
+
+            if block_given?
+                yield(error) 
+            else
+                plan.engine.add_error(error)
+            end
 	ensure
 	    @pending = false
 	end
@@ -600,18 +637,14 @@ module Roby
 	    end
 
 	    ev.if_unreachable(true) do |reason|
-		msg = "#{ev} is unreachable#{ " (#{reason})" if reason }, in #{stack.first}"
-		if ev.respond_to?(:task)
-		    msg << "\n  " << ev.task.history.map { |ev| "#{ev.time.to_hms} #{ev.symbol}: #{ev.context}" }.join("\n  ")
-		end
-		emit_failed(UnreachableEvent.new(self, reason), msg)
+		emit_failed(UnreachableEvent.new(self, reason))
 	    end
 	end
 	# For backwards compatibility. Use #achieve_with.
 	def realize_with(task); achieve_with(task) end
 
 	# A [time, event] array of past event emitted by this object
-	attribute(:history) { Array.new }
+	attr_reader :history
 	# True if this event has been emitted once.
 	attr_predicate :happened
 	# Last event to have been emitted by this generator
@@ -790,6 +823,8 @@ module Roby
 	    unreachable_handlers.each do |_, block|
 		begin
 		    block.call(reason)
+                rescue LocalizedError => e
+		    plan.engine.add_error(e)
 		rescue Exception => e
 		    plan.engine.add_error(EventHandlerError.new(e, self))
 		end

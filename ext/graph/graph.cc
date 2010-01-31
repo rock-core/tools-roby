@@ -143,6 +143,30 @@ VALUE graph_remove(VALUE self, VALUE vertex)
 }
 
 /*
+ * call-seq: graph.clear => graph
+ *
+ * Removes from graph all vertices that are in graph
+ */
+static
+VALUE graph_clear(VALUE self)
+{
+    RubyGraph&	graph = graph_wrapped(self);
+
+    vertex_iterator begin, end;
+    tie(begin, end) = vertices(graph);
+    for (vertex_iterator it = begin; it != end; ++it)
+    {
+        VALUE vertex_value = graph[*it];
+        graph_map&  vertex_graphs = vertex_descriptor_map(vertex_value);
+
+        graph_map::iterator it = vertex_graphs.find(self);
+        vertex_graphs.erase(it);
+    }
+    graph.clear();
+    return self;
+}
+
+/*
  * call-seq:
  *  graph.include?(vertex)		    => true of false
  *
@@ -529,6 +553,7 @@ extern "C" void Init_roby_bgl()
     rb_define_method(bglGraph, "linked?",   RUBY_METHOD_FUNC(graph_linked_p), 2);
     rb_define_method(bglGraph, "each_vertex",	RUBY_METHOD_FUNC(graph_each_vertex), 0);
     rb_define_method(bglGraph, "each_edge",	RUBY_METHOD_FUNC(graph_each_edge), 0);
+    rb_define_method(bglGraph, "clear",	RUBY_METHOD_FUNC(graph_clear), 0);
 
     bglVertex = rb_define_module_under(bglModule, "Vertex");
     rb_define_method(bglVertex, "related_vertex?",	RUBY_METHOD_FUNC(vertex_related_p), -1);

@@ -13,7 +13,6 @@ begin
         end
 
 	# Load the controller
-	include Roby
 	Roby.execute do
 	    begin
 		controller_file = File.join(APP_DIR, "controllers", "#{app.robot_name}.rb")
