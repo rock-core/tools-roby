@@ -1338,7 +1338,7 @@ class TC_Task < Test::Unit::TestCase
     def test_emergency_termination_fails
         model = Class.new(SimpleTask) do
             event :intermediate
-            event :stop do
+            event :stop do |context|
                 raise ArgumentError
             end
         end
