@@ -946,7 +946,7 @@ module Roby
 		end
 		event(:stop) do |context| 
 		    if starting?
-			on :start, self, :stop
+			signals :start, self, :stop
 			return
 		    end
 		    failed!(context)

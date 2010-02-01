@@ -744,12 +744,12 @@ class TC_Event < Test::Unit::TestCase
 	    plan.add(ev)
 	    assert(!ev.controlable?)
 
-	    ev.command = lambda { |ev| mock.first }
+	    ev.command = lambda { |_| mock.first }
 	    mock.should_receive(:first).once.ordered
 	    assert(ev.controlable?)
 	    ev.call(nil)
 
-	    ev.command = lambda { |ev| mock.second }
+	    ev.command = lambda { |_| mock.second }
 	    mock.should_receive(:second).once.ordered
 	    assert(ev.controlable?)
 	    ev.call(nil)

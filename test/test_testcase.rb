@@ -7,6 +7,12 @@ require 'flexmock'
 class TC_Test_TestCase < Test::Unit::TestCase 
     include Roby::Test
     include Roby::Test::Assertions
+
+    Assertion = if defined?(MiniTest::Assertion)
+                    MiniTest::Assertion
+                else
+                    Test::Unit::AssertionFailedError
+                end
     
     def setup
         Roby.app.setup_global_singletons
@@ -33,7 +39,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	plan.add(t = SimpleTask.new)
 	t.start!
 	t.failed!
-	assert_raises(MiniTest::Assertion) do
+	assert_raises(Assertion) do
 	    assert_any_event([t.event(:success)], [t.event(:stop)])
 	end
 
@@ -47,7 +53,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	end
 
 	plan.add_permanent(t = SimpleTask.new)
-	assert_raises(MiniTest::Assertion) do
+	assert_raises(Assertion) do
 	    assert_any_event(t.event(:success)) do
 		t.start!
 		t.failed!
@@ -78,7 +84,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	task = Class.new(SimpleTask) do
 	    forward :start => :failed
 	end.new
-	assert_raises(MiniTest::Assertion) do
+	assert_raises(Assertion) do
 	    assert_succeeds(task)
 	end
     end

@@ -273,7 +273,6 @@ module Roby
 	    result = []
 	    [missions, permanent, added, tasks].each do |set|
 		unless set.empty?
-		    set = *set
 		    result << set
 		end
 	    end
