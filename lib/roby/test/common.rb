@@ -561,8 +561,11 @@ module Roby
 			    if error.nil?
 				this_thread = Thread.current
 
-				Test.watched_events << [this_thread, cv, positive, negative, Time.now + timeout]
-				engine.once(&block) if block_given?
+                                engine.once do
+                                    Test.watched_events << [this_thread, cv, positive, negative, Time.now + timeout]
+                                    yield if block_given?
+                                end
+
 				begin
 				    cv.wait(Roby.global_lock)
 				ensure
