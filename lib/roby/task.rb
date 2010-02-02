@@ -62,11 +62,12 @@ module Roby
         # The task which fired this event
         attr_reader :task
         
-        def model; self.class end
+        attr_reader :model
 
         def initialize(task, generator, propagation_id, context, time = Time.now)
             @task = task
 	    @terminal_flag = generator.terminal_flag
+            @model = self.class
             super(generator, propagation_id, context, time)
         end
 
@@ -754,7 +755,7 @@ module Roby
 	    @bound_events = bound_events
         end
 
-	def model; self.class end
+	attr_reader :model
 
 	# Returns for how many seconds this task is running.  Returns nil if
 	# the task is not running.
