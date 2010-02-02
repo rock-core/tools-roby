@@ -539,6 +539,19 @@ module Roby
 		    result
 		end
 		def each_#{name}(model); self.model.each_#{name}(model) { |o| yield(o) } end
+
+                def self.all_#{name}s
+                    if @all_#{name}s
+                        @all_#{name}s
+                    else
+                        result = Hash.new
+                        each_#{name}_set do |from, targets|
+                            result[from] ||= ValueSet.new
+                            result[from].merge(targets)
+                        end
+                        @all_#{name}s = result
+                    end
+                end
 	    EOD
 	end
 
@@ -807,8 +820,8 @@ module Roby
 	    right_border = bound_events.values.to_value_set
             left_border  = right_border.dup
 
-	    model.each_signal_set do |generator, signalled_events|
-		next if signalled_events.empty?
+	    model.all_signals.each do |generator, signalled_events|
+	        next if signalled_events.empty?
 	        generator = bound_events[generator]
 	        right_border.delete(generator)
 
@@ -819,7 +832,7 @@ module Roby
 	        end
 	    end
 
-	    model.each_forwarding_set do |generator, signalled_events|
+	    model.all_forwardings.each do |generator, signalled_events|
 		next if signalled_events.empty?
 	        generator = bound_events[generator]
 	        right_border.delete(generator)
@@ -831,8 +844,8 @@ module Roby
 	        end
 	    end
 
-	    model.each_causal_link_set do |generator, signalled_events|
-		next if signalled_events.empty?
+	    model.all_causal_links.each do |generator, signalled_events|
+	        next if signalled_events.empty?
 	        generator = bound_events[generator]
 	        right_border.delete(generator)
 
