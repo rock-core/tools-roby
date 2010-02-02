@@ -68,7 +68,6 @@ module Roby
 	# * #added_child_object on +self+ and #added_parent_object on +child+
 	#   just after
 	def add_child_object(child, relation, info = nil)
-	    check_is_relation(relation)
 	    relation.add_relation(self, child, info)
 	end
 
@@ -85,21 +84,27 @@ module Roby
         # target. If +relation+ is given, it removes only the edge in that
         # relation graph.
 	def remove_child_object(child, relation = nil)
-	    check_is_relation(relation)
-	    apply_selection(relation, (relation || enum_relations)) do |relation|
-		relation.remove_relation(self, child)
-	    end
+            if !relation
+                each_relation_sorted do |rel|
+                    rel.remove_relation(self, child)
+                end
+            else
+                relation.remove_relation(self, child)
+            end
 	end
 
         # Remove all edges in which +self+ is the source. If +relation+
         # is given, it removes only the edges in that relation graph.
 	def remove_children(relation = nil)
-	    apply_selection(relation, (relation || enum_relations)) do |relation|
-                children = child_objects(relation).to_a
-                for child in children
-                    remove_child_object(child, relation)
-                end
-	    end
+            if !relation
+                each_relation_sorted { |rel| remove_children(rel) }
+                return
+            end
+
+            children = child_objects(relation).to_a
+            for child in children
+                remove_child_object(child, relation)
+            end
 	end
 
         # Remove all edges in which +child+ is the source and +self+ the
@@ -112,13 +117,15 @@ module Roby
         # Remove all edges in which +self+ is the target. If +relation+
         # is given, it removes only the edges in that relation graph.
 	def remove_parents(relation = nil)
-	    check_is_relation(relation)
-	    apply_selection(relation, (relation || enum_relations)) do |relation|
-		parents = parent_objects(relation).to_a
-                for parent in parents
-		    remove_parent_object(relation, parent)
-		end
-	    end
+            if !relation
+                each_relation_sorted { |rel| remove_parents(rel) }
+                return
+            end
+
+            parents = parent_objects(relation).to_a
+            for parent in parents
+                remove_parent_object(relation, parent)
+            end
 	end
 
 	# Remove all relations that point to or come from +to+ If +to+ is nil,
@@ -126,42 +133,37 @@ module Roby
         #
         # If +relation+ is not nil, only edges of that relation graph are removed.
 	def remove_relations(relation = nil)
-	    check_is_relation(relation)
-            apply_selection(relation, (relation || enum_relations)) do |relation|
-                parents = parent_objects(relation).to_a
-                for parent in parents
-                    relation.remove_relation(parent, self)
-                end
+            if !relation
+                each_relation_sorted { |rel| remove_relations(rel) }
+                return
+            end
 
-                children = child_objects(relation).to_a
-                for child in children
-                    relation.remove_relation(self, child)
-                end
+            parents = parent_objects(relation).to_a
+            for parent in parents
+                relation.remove_relation(parent, self)
+            end
+
+            children = child_objects(relation).to_a
+            for child in children
+                relation.remove_relation(self, child)
             end
 	end
 
-	# Raises if +type+ does not look like a relation
-	def check_is_relation(type) # :nodoc:
-	    if type && !(RelationGraph === type)
-		raise ArgumentError, "#{type} (of class #{type.class}) is not a relation type"
-	    end
-	end
+        # Yields each relation this vertex is part of, starting with the most
+        # specialized relations
+        def each_relation_sorted
+            # Remove from the set of relations the ones that are not leafs
+            all   = enum_relations.to_value_set
 
-	# If +object+ is given, yields object or returns +object+ (if a block
-	# is given or not).  If +object+ is nil, either yields the elements of
-	# +enumerator+ or returns enumerator.
-	def apply_selection(object, enumerator) # :nodoc:
-	    if block_given?
-		if object; yield(object)
-		else enumerator.each { |o| yield(o) }
-		end
-	    else
-		if object; [object]
-		else; enumerator
-		end
-	    end
-	end
-	private :apply_selection
+            queue = all.find_all { |g| !g.subsets.intersects?(all) }
+            while !queue.empty?
+                g = queue.shift
+                yield(g)
+                if all.include?(g.parent)
+                    queue.push g.parent
+                end
+            end
+        end
     end
 
     # This class manages the graph defined by an object relation in Roby.
