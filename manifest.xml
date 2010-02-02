@@ -12,7 +12,6 @@
   <depend package="utilmm" />
   <depend package="utilrb" />
   <rosdep name="flexmock" />
-  <rosdep name="activesupport" />
   <rosdep name="qtruby" />
   <rosdep name="boost" />
   <rosdep name="graphviz" />
