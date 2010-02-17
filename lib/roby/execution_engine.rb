@@ -661,6 +661,8 @@ module Roby
                             propagation_context(source_events | source_generators) do |result|
                                 begin
                                     signalled.call_without_propagation(context) 
+                                rescue Roby::EventNotExecutable => e
+                                    add_error(e)
                                 rescue Roby::LocalizedError => e
                                     signalled.emit_failed(e)
                                 rescue Exception => e

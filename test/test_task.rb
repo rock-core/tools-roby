@@ -803,6 +803,27 @@ class TC_Task < Test::Unit::TestCase
         flunk "expected an exception of class #{klass} but got #{e.full_message}"
     end
 
+    def test_cannot_start_if_not_executable
+	model = Class.new(SimpleTask) do 
+	    event(:inter, :command => true)
+            def executable?; false end
+	end
+
+        plan.add(task = model.new)
+        assert_raises(EventNotExecutable) { task.event(:start).call }
+
+        plan.add(task = model.new)
+        assert_raises(EventNotExecutable) { task.start! }
+    end
+
+    def test_cannot_leave_pending_if_not_executable
+        model = Class.new(SimpleTask) do
+            def executable?; !pending?  end
+        end
+	plan.add(task = model.new)
+        assert_raises(EventNotExecutable) { task.start! }
+    end
+
     def test_executable
 	model = Class.new(SimpleTask) do 
 	    event(:inter, :command => true)
@@ -810,31 +831,28 @@ class TC_Task < Test::Unit::TestCase
 	task = model.new
 
 	assert(!task.executable?)
-	assert_raises(EventNotExecutable) { task.start! }
-	assert_raises(EventNotExecutable) { task.event(:start).call }
+	assert(!task.event(:start).executable?)
+        task.executable = true
+	assert(task.executable?)
+	assert(task.event(:start).executable?)
+        task.executable = nil
+	assert(!task.executable?)
+	assert(!task.event(:start).executable?)
 
 	plan.add(task)
 	assert(task.executable?)
-	assert_nothing_raised { task.event(:start).call(nil) }
+	assert(task.event(:start).executable?)
+        task.executable = false
+	assert(!task.executable?)
+	assert(!task.event(:start).executable?)
+        task.executable = nil
+	assert(task.executable?)
+	assert(task.event(:start).executable?)
 
-	# The task is running, cannot change the executable flag
+	# Cannot change the flag if the task is running
+        task.executable = nil
+        task.start!
 	assert_raises(ModelViolation) { task.executable = false }
-
-	task = SimpleTask.new
-	plan.add_mission(task)
-	assert(task.executable?)
-	task.executable = false
-	assert(!task.executable?)
-	task.executable = nil
-	assert(task.executable?)
-
-	task = SimpleTask.new
-	plan.add_permanent(task)
-	assert(task.executable?)
-	task.executable = false
-	assert(!task.executable?)
-	task.executable = nil
-	assert(task.executable?)
     end
 	
     class ParameterizedTask < Roby::Task
