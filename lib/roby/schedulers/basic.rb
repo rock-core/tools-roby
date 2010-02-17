@@ -5,9 +5,9 @@ module Roby
 	    attr_reader :query
             attr_reader :include_children
 	    def initialize(include_children = false, plan = nil)
-                @plan ||= Roby.plan
+                @plan = plan || Roby.plan
                 @include_children = include_children
-		@query = plan.find_tasks.
+		@query = self.plan.find_tasks.
 		    executable.
 		    pending.
 		    self_owned
