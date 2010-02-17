@@ -544,6 +544,17 @@ module TC_TransactionBehaviour
             assert(!trsc.invalid?)
         end
     end
+
+    def test_proxy_clear_vertex
+        t1, t2 = prepare_plan :add => 2
+        t1.depends_on t2
+        transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+            p1.clear_vertex
+            assert(! p1.depends_on?(p2, false))
+            assert(t1.depends_on?(t2, false))
+        end
+        assert(!t1.depends_on?(t2, false))
+    end
 end
 
 class TC_Transactions < Test::Unit::TestCase
