@@ -152,8 +152,8 @@ module Roby
                 discarded_tasks.delete(object)
                 auto_tasks.delete(object)
                 if proxy.respond_to?(:each_plan_child)
-                    proxy.each_plan_child(true) do |child_proxy|
-                        auto_tasks.delete(child_proxy)
+                    proxy.each_plan_child do |child_proxy|
+                        remove_object(child_proxy)
                     end
                 end
             end

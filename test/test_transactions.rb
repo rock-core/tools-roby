@@ -100,6 +100,7 @@ module TC_TransactionBehaviour
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 	    p1.depends_on(t3)
 	    trsc.remove_object(p1)
+            assert_not_same p1, trsc[t1]
 	end
 	assert(plan.include?(t1))
 	assert_equal([t2], t1.children.to_a)
