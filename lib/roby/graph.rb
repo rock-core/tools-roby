@@ -16,7 +16,7 @@ module BGL
 
 	# Removes +self+ from all the graphs it is included in.
 	def clear_vertex
-            each_relation_sorted do |rel|
+            each_graph do |rel|
                 rel.remove(self)
             end
 	end

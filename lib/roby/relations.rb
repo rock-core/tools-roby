@@ -20,8 +20,20 @@ module Roby
 	alias :related_object?	    :related_vertex?
 	alias :each_child_object    :each_child_vertex
 	alias :each_parent_object   :each_parent_vertex
-	alias :each_relation	    :each_graph
 	alias :clear_relations	    :clear_vertex
+
+        def each_relation
+            each_graph do |g|
+                yield(g) if g.kind_of?(RelationGraph)
+            end
+        end
+
+	# Removes +self+ from all the graphs it is included in.
+	def clear_vertex
+            each_relation_sorted do |rel|
+                rel.remove(self)
+            end
+	end
 
         ##
         # :method: enum_relations => enumerator
