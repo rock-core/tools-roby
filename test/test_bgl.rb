@@ -524,5 +524,31 @@ class TC_BGL < Test::Unit::TestCase
 	assert(g.reachable?(v2, v1))
 	assert(g.reachable?(v3, v1))
     end
+
+    def test_difference
+        v_a = (1..3).map { Vertex.new }
+        v_b = (1..3).map { Vertex.new }
+        mapping = Hash.new
+        v_a.each_with_index do |v, i|
+            mapping[v] = v_b[i]
+        end
+	a = Graph.new
+	b = Graph.new
+
+        assert_equal([Set.new, Set.new, Set.new], a.difference(b, v_a, &mapping.method(:[])))
+
+        a.link(v_a[0], v_a[1], nil)
+        assert_equal([[[v_a[0], v_a[1]]].to_set, Set.new, Set.new], a.difference(b, v_a, &mapping.method(:[])))
+
+        b.link(v_b[0], v_b[1], nil)
+        assert_equal([Set.new, Set.new, Set.new], a.difference(b, v_a, &mapping.method(:[])))
+
+        b.link(v_b[0], v_b[2], nil)
+        b.link(v_b[2], v_b[1], nil)
+        assert_equal([Set.new, [[v_b[0], v_b[2]], [v_b[2], v_b[1]]].to_set, Set.new], a.difference(b, v_a, &mapping.method(:[])))
+
+        a.link(v_a[2], v_a[1], [])
+        assert_equal([Set.new, [[v_b[0], v_b[2]]].to_set, [[v_a[2], v_a[1]]].to_set], a.difference(b, v_a, &mapping.method(:[])))
+    end
 end
 

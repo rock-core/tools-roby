@@ -162,6 +162,104 @@ module BGL
 	    (other.enum_for(:each_vertex).to_value_set == enum_for(:each_vertex).to_value_set) && 
 		(other.enum_for(:each_edge).to_set == enum_for(:each_edge).to_set)
 	end
+
+        # Returns a set of removed edges and a set of new edges between elements
+        # of +vertices+ in +self+ and +other_graph+.
+        #
+        # If a block is given, +vertices+ are vertices in +graph+ and this block
+        # is used to translate them into vertices in +other_graph+. Otherwise,
+        # we assume that both graphs include the same vertices. +other_graph+
+        # can only be +self+ itself in the first case, and if the set of
+        # vertices in +self+ have no intersection with the set of vertices in
+        # +other_graph+)
+        #
+        # The method returns [new, removed, updated], where +new+ is the set of
+        # edges that are in +self+ and not in +other_graph+, +removed+ the set
+        # of edges that are in +other_graph+ but not in +self+ and +updated+ the
+        # set of edges for which the +info+ parameter changed between the two
+        # graphs.
+        #
+        # Each set is a Set of pairs
+        #  
+        #   [source_vertex, sink_vertex]
+        #
+        # The vertices are vertices of +self+ for +new+ and +updated+, and
+        # vertices of +other_graph+ for +removed+
+        def difference(other_graph, self_vertices)
+            mapping =
+                if block_given?
+                    self_vertices.inject(Hash.new) do |h, v|
+                        h[v] = yield(v)
+                        h
+                    end
+                else lambda { |v| v }
+                end
+            other_vertices = ValueSet.new
+
+            new, removed, updated = Set.new, Set.new, Set.new
+
+            seen_vertices    = ValueSet.new
+            seen_connections = Set.new
+            for self_v in self_vertices
+                other_v = mapping[self_v]
+                other_vertices << other_v
+
+                self_v.each_parent_vertex(self) do |self_parent|
+                    # If we already worked on +self_parent+, this connection has
+                    # already been taken into account
+                    next if seen_vertices.include?(self_parent)
+
+                    other_parent = mapping[self_parent]
+                    if other_graph.linked?(other_parent, other_v)
+                        if other_parent[other_v, other_graph] != self_parent[self_v, self]
+                            updated << [self_parent, self_v]
+                        end
+                        seen_connections << [other_parent, other_v]
+                    else
+                        new << [self_parent, self_v]
+                    end
+                end
+
+                self_v.each_child_vertex(self) do |self_child|
+                    # If we already worked on +self_child+, this connection has
+                    # already been taken into account
+                    next if seen_vertices.include?(self_child)
+
+                    other_child = mapping[self_child]
+                    if other_graph.linked?(other_v, other_child)
+                        if other_v[other_child, other_graph] != self_v[self_child, self]
+                            updated << [self_v, self_child]
+                        end
+                        seen_connections << [other_v, other_child]
+                    else
+                        new << [self_v, self_child]
+                    end
+                end
+
+                seen_vertices << self_v
+            end
+
+            seen_vertices.clear
+            for other_v in other_vertices
+                other_v.each_parent_vertex(other_graph) do |other_parent|
+                    next if seen_vertices.include?(other_parent)
+                    pair = [other_parent, other_v]
+                    if !seen_connections.include?(pair)
+                        removed << pair
+                    end
+                end
+                other_v.each_child_vertex(other_graph) do |other_child|
+                    next if seen_vertices.include?(other_child)
+                    pair = [other_v, other_child]
+                    if !seen_connections.include?(pair)
+                        removed << pair
+                    end
+                end
+                seen_vertices << other_v
+            end
+        
+            return new, removed, updated
+        end
     end
 end
 
