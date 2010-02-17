@@ -227,12 +227,11 @@ module Roby
 
 	    postponed = catch :postponed do 
 		calling(context)
-		@pending = true
-
                 if !executable?
                     raise EventNotExecutable.new(self), "#call called on #{self} which is a non-executable event"
                 end
 
+		@pending = true
 		plan.engine.propagation_context([self]) do
 		    command[context]
 		end

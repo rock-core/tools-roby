@@ -1016,5 +1016,17 @@ class TC_Event < Test::Unit::TestCase
             assert_raises(EventHandlerError) { ev.call }
         end
     end
+
+    def test_cannot_be_pending_if_not_executable
+        model = Class.new(EventGenerator) do
+            def executable?
+                pending?
+            end
+        end
+	plan.add(ev = model.new(true))
+        assert_raises(Roby::EventNotExecutable) { ev.call }
+	plan.add(ev = model.new(true))
+        assert_raises(Roby::EventNotExecutable) { ev.emit }
+    end
 end
 
