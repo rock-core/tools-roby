@@ -20,7 +20,6 @@ module Roby
 	alias :related_object?	    :related_vertex?
 	alias :each_child_object    :each_child_vertex
 	alias :each_parent_object   :each_parent_vertex
-	alias :clear_relations	    :clear_vertex
 
         def each_relation
             each_graph do |g|
@@ -34,6 +33,7 @@ module Roby
                 rel.remove(self)
             end
 	end
+        alias :clear_relations :clear_vertex
 
         ##
         # :method: enum_relations => enumerator
