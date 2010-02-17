@@ -1,11 +1,13 @@
 module Roby
     module Schedulers
 	class Basic
+            attr_reader :plan
 	    attr_reader :query
             attr_reader :include_children
-	    def initialize(include_children = false)
+	    def initialize(include_children = false, plan = nil)
+                @plan ||= Roby.plan
                 @include_children = include_children
-		@query = Roby.plan.find_tasks.
+		@query = plan.find_tasks.
 		    executable.
 		    pending.
 		    self_owned
