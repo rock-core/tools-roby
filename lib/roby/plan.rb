@@ -951,8 +951,14 @@ module Roby
         #
         # Do *not* use it on executed plans.
         def static_garbage_collect
-            for t in unneeded_tasks
-                remove_object(t)
+            if block_given?
+                for t in unneeded_tasks
+                    yield(t)
+                end
+            else
+                for t in unneeded_tasks
+                    remove_object(t)
+                end
             end
         end
 
