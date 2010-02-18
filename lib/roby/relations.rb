@@ -39,7 +39,7 @@ module Roby
         # :method: enum_relations => enumerator
         # Returns an Enumerator object for the set of relations this object is
         # included in. The same enumerator instance is always returned.
-	cached_enum("graph", "relations", false)
+	cached_enum("relation", "relations", false)
         ##
         # :method: enum_parent_objects(relation) => enumerator
         # Returns an Enumerator object for the set of parents this object has
