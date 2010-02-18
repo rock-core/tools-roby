@@ -185,15 +185,8 @@ module BGL
         #
         # The vertices are vertices of +self+ for +new+ and +updated+, and
         # vertices of +other_graph+ for +removed+
-        def difference(other_graph, self_vertices)
-            mapping =
-                if block_given?
-                    self_vertices.inject(Hash.new) do |h, v|
-                        h[v] = yield(v)
-                        h
-                    end
-                else lambda { |v| v }
-                end
+        def difference(other_graph, self_vertices, &mapping)
+            mapping ||= lambda { |v| v }
             other_vertices = ValueSet.new
 
             new, removed, updated = Set.new, Set.new, Set.new
