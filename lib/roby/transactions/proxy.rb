@@ -59,6 +59,7 @@ module Roby
         def self.create_forwarder_module(mod)
             result = Module.new do
                 attr_accessor :__getobj__
+                def transaction_proxy?; true end
                 for name in mod.instance_methods(false)
                     next if name =~ /^__.*__$/
                     next if name == :object_id
@@ -93,6 +94,8 @@ module Roby
 	end
 
 	attr_reader :__getobj__
+
+        def transaction_proxy?; true end
 
 	def setup_proxy(object, plan)
 	    @__getobj__  = object

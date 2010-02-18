@@ -22,6 +22,9 @@ module Roby
         # The engine which acts on +plan+ (if there is one)
         def engine; plan.engine if plan end
 
+        # True if this object is a transaction proxy, false otherwise
+        def transaction_proxy?; false end
+
         # The place where this object has been removed from its plan. Once an
         # object is removed from its plan, it cannot be added back again.
 	attr_accessor :removed_at

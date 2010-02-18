@@ -26,7 +26,9 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 
     def test_task_proxy
 	plan.add_mission(t = Roby::Task.new)
+        assert(!t.transaction_proxy?)
 	p = transaction[t]
+        assert(p.transaction_proxy?)
 
 	assert_equal(p, p.root_object)
 	assert(p.root_object?)
