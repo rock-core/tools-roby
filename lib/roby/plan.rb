@@ -336,11 +336,6 @@ module Roby
 		raise InvalidReplace.new(from, to), "task #{to} does not fullfill #{from.fullfilled_model}"
 	    end
 
-	    # Check that +to+ is in the same execution state than +from+
-	    if executable? && !to.compatible_state?(from)
-		raise InvalidReplace.new(from, to), "cannot replace #{from} by #{to} as their state is incompatible: from is #{from.running?} and to is #{to.running?}"
-	    end
-
 	    # Swap the subplans of +from+ and +to+
 	    yield(from, to)
 
