@@ -1,5 +1,7 @@
 require 'roby/robot'
+require 'roby/interface'
 require 'singleton'
+
 module Roby
     # = Roby Applications
     #
@@ -525,12 +527,7 @@ module Roby
 	    end
 	end
 
-	def run(&block)
-            setup_global_singletons
-
-            # Save the date-time tag in the log directory
-            log_save_time_tag
-
+        def setup_drb_server
 	    # Set up dRoby, setting an Interface object as front server, for shell access
 	    host = droby['host'] || ""
 	    if host !~ /:\d+$/
@@ -542,6 +539,15 @@ module Roby
 		DRb.start_service "druby://:#{$1 || '0'}", Interface.new(Roby.engine)
 	    else
 		DRb.start_service "druby://#{host}", Interface.new(Roby.engine)
+            end
+        end
+
+	def run(&block)
+            setup_global_singletons
+            log_save_time_tag
+            setup_drb_server
+
+	    if !single? && robot_name
 		droby_config = { :ring_discovery => !!discovery['ring'],
 		    :name => robot_name, 
 		    :plan => Roby.plan, 
