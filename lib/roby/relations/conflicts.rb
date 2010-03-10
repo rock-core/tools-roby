@@ -41,6 +41,15 @@ module Roby
 		result << conflicting_task
 	    end
 
+	    models = task.class.conflicting_models
+            for model in models
+		for t in plan.find_tasks(model)
+                    if t.running? && t != task
+                        result << t
+                    end
+		end
+	    end
+
 	    if result
 		plan.control.conflict(task, result)
 	    end
