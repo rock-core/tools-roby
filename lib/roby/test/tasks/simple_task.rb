@@ -1,23 +1,7 @@
-require 'roby/task'
-
 module Roby
     module Test
-        # This task model is a simple task where +start+, +success+ and
-        # +failed+ are pass-through controlable events. They have an +id+
-        # argument which is automatically set to the object's #object_id if not
-        # explicitely given at initialization.
-	class SimpleTask < Roby::Task
-	    argument :id
-
-	    def initialize(arguments = {}) # :nodoc:
-		arguments = { :id => object_id.to_s }.merge(arguments)
-		super(arguments)
-	    end
-
-	    event :start, :command => true
-	    event :success, :command => true, :terminal => true
-	    terminates
-	end
+        Roby.warn "Roby::Test::SimpleTask is deprecated, use Roby::Tasks::Simple instead"
+        SimpleTask = Roby::Tasks::Simple
     end
 end
 
