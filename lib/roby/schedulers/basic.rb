@@ -18,6 +18,9 @@ module Roby
                         next
                     end
 
+                    schedulable = task.root?(TaskStructure::ErrorHandling)
+                    next if !schedulable
+
 		    root_task =
                         if task.root?(TaskStructure::Dependency)
 			    true
