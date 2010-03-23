@@ -411,8 +411,9 @@ class TC_Exceptions < Test::Unit::TestCase
 	parent, child = prepare_plan :tasks => 2, :model => task_model
 	plan.add_mission(parent)
 	parent.depends_on child
-	repairing_task = SimpleTask.new
-	child.event(:failed).handle_with repairing_task
+        repair_tasks = [SimpleTask.new, SimpleTask.new]
+	child.event(:failed).handle_with repair_tasks[0]
+	child.event(:failed).handle_with repair_tasks[1]
 
 	parent.start!
 	child.start!
@@ -421,16 +422,20 @@ class TC_Exceptions < Test::Unit::TestCase
 	exceptions = plan.check_structure
 
 	assert_equal([], engine.propagate_exceptions(exceptions))
-	assert_equal({ child.terminal_event => repairing_task },
-		     plan.repairs_for(child.terminal_event), [plan.repairs, child.terminal_event])
+
+        repairs = plan.repairs_for(child.terminal_event)
+        repair_task = repair_tasks.find { |t| repairs[child.terminal_event] == t }
+        assert(repair_task)
 
 	Roby.app.abort_on_exception = false
 	process_events
-	assert(repairing_task.running?)
+	assert(repair_task.running?)
+	process_events
+	assert(repair_task.running?)
 
 	# Make the "repair task" finish, but do not repair the plan.
 	# propagate_exceptions must not add a new repair
-	repairing_task.success!
+	repair_task.success!
 	assert_equal(exceptions.keys, engine.propagate_exceptions(exceptions))
 
     ensure
