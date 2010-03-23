@@ -224,6 +224,7 @@ module Roby
 	    @distribute = options[:distribute]
 	    @dag     = options[:dag]
 	    @weak    = options[:weak]
+            @strong  = options[:strong]
             @embeds_info = !options[:noinfo]
 
 	    if options[:subsets]
@@ -240,6 +241,10 @@ module Roby
         # break cross-relations cycles (cycles which exist in the graph union
         # of all the relation graphs).
 	attr_predicate :weak
+        # If this relation is strong. Strong relations mark parts of the plan
+        # that can't be exchanged bit-by-bit. I.e. plan.replace_task will ignore
+        # those relations.
+        attr_predicate :strong
         # If this relation embeds some additional information
         attr_predicate :embeds_info?
 
@@ -600,7 +605,12 @@ module Roby
 			:distribute  => true,
 			:dag         => true,
 			:single_child => false,
-			:weak        => false
+			:weak        => false,
+                        :strong      => false
+
+            if options[:strong] && options[:weak]
+                raise ArgumentError, "a relation cannot be both strong and weak"
+            end
 
 	    # Check if this relation is already defined. If it is the case, reuse it.
 	    # This is needed mostly by the reloading code

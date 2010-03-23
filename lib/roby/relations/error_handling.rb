@@ -10,7 +10,7 @@ module Roby::TaskStructure
 	end
     end
 
-    relation :ErrorHandling, :child_name => :error_handler do
+    relation :ErrorHandling, :child_name => :error_handler, :strong => true do
 	def failed_task
 	    each_parent_object(ErrorHandling) do |task|
 		return task

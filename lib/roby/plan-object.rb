@@ -320,9 +320,15 @@ module Roby
         # Replaces +self+ by +object+ in all graphs +self+ is part of. Unlike
         # BGL::Vertex#replace_by, this calls the various add/remove hooks
         # defined in DirectedRelationSupport
-	def replace_by(object)
+	def replace_by(object, options = Hash.new)
+            options = Kernel.validate_options options, :exclude => Array.new
+            exclusions = options[:exclude]
+
 	    changes = []
-	    each_relation do |rel|
+	    each_relation_sorted do |rel|
+                next if exclusions.include?(rel)
+                next if rel.strong?
+
 		parents = []
 		each_parent_object(rel) do |parent|
 		    unless parent.root_object == root_object
