@@ -758,16 +758,27 @@ module Roby
 
                 failed_generator = error.failed_generator
 
-                repair = failed_task.find_error_handler do |repairing_task, event_set|
-                    event_set.find do |repaired_generator|
-                        repaired_generator = failed_task.event(repaired_generator)
+                all_repairs = failed_task.each_error_handler.
+                    find_all do |repairing_task, event_set|
+                        next if repairing_task.finished?
 
-                        !repairing_task.finished? &&
-                            (repaired_generator == failed_generator ||
-                            Roby::EventStructure::Forwarding.reachable?(failed_generator, repaired_generator))
+                        event_set.any? do |repaired_generator|
+                            repaired_generator = failed_task.event(repaired_generator)
+
+                            !repairing_task.finished? &&
+                                (repaired_generator == failed_generator ||
+                                Roby::EventStructure::Forwarding.reachable?(failed_generator, repaired_generator))
+                        end
+                    end.
+                    map { |task, _| task }
+
+                if all_repairs.size > 1
+                    if running_repair = all_repairs.find { |t| t.running? }
+                        all_repairs = [running_repair]
                     end
                 end
 
+                repair = all_repairs.first
                 if repair
                     plan.add_repair(failed_event, repair)
                     if repair.pending?
