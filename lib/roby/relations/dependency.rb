@@ -366,7 +366,7 @@ module Roby
             else
                 pp.text "#{failed_generator} emitted the following event"
                 pp.breakable
-                failure_event.pretty_print(pp)
+                failed_event.pretty_print(pp)
             end
 
             pp.breakable
