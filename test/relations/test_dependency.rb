@@ -1,6 +1,7 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/test/tasks/simple_task'
+require 'flexmock'
 
 class TC_RealizedBy < Test::Unit::TestCase
     include Roby::Test
@@ -278,7 +279,8 @@ class TC_RealizedBy < Test::Unit::TestCase
             :model => [Roby::Task, {}],
             :roles => ['child1'].to_set,
             :success=>[],
-            :failure=>[] }
+            :failure=>[],
+            :since => Time.at(0) }
         assert_equal expected_info, parent[child, Dependency]
 
         return parent, child, expected_info, child_model, tag
@@ -339,6 +341,43 @@ class TC_RealizedBy < Test::Unit::TestCase
         parent.depends_on child, :model => Roby::Task, :role => 'child2', :success => []
         info[:roles] << 'child2'
         assert_equal info, parent[child, Dependency]
+    end
+
+    def test_since_success
+        FlexMock.use(Time) do |time_proxy|
+            current_time = Time.now
+            parent, child = create_pair :success => [:first], 
+                :failure => [:stop],
+                :remove_when_done => true,
+                :since => current_time + 100
+
+            child.first!
+            process_events
+            assert(parent.depends_on?(child))
+
+	    time_proxy.should_receive(:now).and_return { current_time + 200 }
+            child.first!
+            process_events
+            assert(!parent.depends_on?(child))
+        end
+    end
+
+    def test_since_failure
+        Roby.logger.level = Logger::FATAL
+        FlexMock.use(Time) do |time_proxy|
+            current_time = Time.now
+            parent, child = create_pair :success => [], 
+                :failure => [:first],
+                :remove_when_done => true,
+                :since => current_time + 100
+
+            child.first!
+            assert_equal({}, plan.check_structure)
+
+	    time_proxy.should_receive(:now).and_return { current_time + 200 }
+            child.first!
+            assert_child_failed(child, child.event(:first).last, plan)
+        end
     end
 end
 

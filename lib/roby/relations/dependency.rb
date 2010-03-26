@@ -71,7 +71,8 @@ module Roby::TaskStructure
 		:failure => [],
 		:remove_when_done => true,
                 :roles => nil,
-                :role => nil
+                :role => nil,
+                :since => Time.at(0)
 
             roles = options[:roles] || ValueSet.new
             if role = options.delete(:role)
@@ -200,6 +201,8 @@ module Roby::TaskStructure
     def Dependency.merge_info(parent, child, opt1, opt2)
         if opt1[:remove_when_done] != opt2[:remove_when_done]
             raise Roby::ModelViolation, "incompatible dependency specification: trying to change the value of +remove_when_done+"
+        elsif opt1[:since] != Time.at(0) || opt2[:since] != Time.at(0)
+            raise Roby::ModelViolation, "cannot merge dependency relations that have a 'since' specification"
         end
 
         result = { :remove_when_done => opt1[:remove_when_done] }
@@ -243,6 +246,8 @@ module Roby::TaskStructure
         # Finally, merge the roles (the easy part ;-))
         result[:roles] = opt1[:roles] | opt2[:roles]
 
+        result[:since] = Time.at(0)
+
         result
     end
 
@@ -280,12 +285,27 @@ module Roby::TaskStructure
 		options = parent[child, Hierarchy]
 		success = options[:success]
 		failure = options[:failure]
+                since   = options[:since]
 
-		if success.any? { |e| child.event(e).happened? }
+                has_success = success.any? do |e|
+                    if ev = child.event(e).last
+                        ev.time > since
+                    end
+                end
+                if !has_success
+                    failing_event = failure.find do |e|
+                        if ev = child.event(e).last
+                            ev.time > since
+                        end
+                    end
+                end
+
+
+		if has_success
 		    if options[:remove_when_done]
 			parent.remove_child child
 		    end
-		elsif failing_event = failure.find { |e| child.event(e).happened? }
+                elsif failing_event
 		    result << Roby::ChildFailedError.new(parent, child.event(failing_event).last)
 		    failing_tasks << child
 		elsif success.all? { |e| child.event(e).unreachable? }
