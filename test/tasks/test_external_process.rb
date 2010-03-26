@@ -1,10 +1,10 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
-require 'roby/external_process_task'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/external_process'
+require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
 
-class TC_ThreadTask < Test::Unit::TestCase 
+class TC_Tasks_ExternalProcess < Test::Unit::TestCase 
     include Roby::Test
     include Roby::Test::Assertions
 
@@ -12,7 +12,7 @@ class TC_ThreadTask < Test::Unit::TestCase
         File.join("..", "mockups", "external_process"),
         File.dirname(__FILE__))
 
-    class MockupTask < Roby::ExternalProcessTask
+    class MockupTask < Roby::Tasks::ExternalProcess
         event :stop do |context|
             FileUtils.touch "/tmp/external_process_mockup_stop"
         end
@@ -29,7 +29,7 @@ class TC_ThreadTask < Test::Unit::TestCase
     end
 
     def test_nominal
-        plan.add_permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP, "--no-output"]))
+        plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => [MOCKUP, "--no-output"]))
         engine.run
         engine.once { task.start! }
 
@@ -37,19 +37,19 @@ class TC_ThreadTask < Test::Unit::TestCase
     end
 
     def test_nominal_array_with_one_element
-        plan.add_permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP]))
+        plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => [MOCKUP]))
         engine.run
         assert_succeeds(task)
     end
 
     def test_nominal_no_array
-        plan.add_permanent(task = ExternalProcessTask.new(:command_line => MOCKUP))
+        plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => MOCKUP))
         engine.run
         assert_succeeds(task)
     end
 
     def test_inexistent_program
-        plan.add_permanent(task = ExternalProcessTask.new(:command_line => ['does_not_exist', "--error"]))
+        plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => ['does_not_exist', "--error"]))
         engine.run
         assert_becomes_unreachable(task.start_event) do
             task.start!
@@ -59,7 +59,7 @@ class TC_ThreadTask < Test::Unit::TestCase
     end
 
     def test_failure
-        plan.add_permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP, "--error"]))
+        plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => [MOCKUP, "--error"]))
         engine.run
         engine.once { task.start! }
 
@@ -68,7 +68,7 @@ class TC_ThreadTask < Test::Unit::TestCase
     end
 
     def test_signaling
-        plan.add_permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP, "--block"]))
+        plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => [MOCKUP, "--block"]))
         engine.run
         assert_any_event(task.start_event) do
             task.start!
@@ -84,7 +84,7 @@ class TC_ThreadTask < Test::Unit::TestCase
     end
 
     def do_redirection(expected)
-        plan.add_permanent(task = ExternalProcessTask.new(:command_line => [MOCKUP]))
+        plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => [MOCKUP]))
         yield(task)
         engine.run
 
@@ -120,6 +120,31 @@ class TC_ThreadTask < Test::Unit::TestCase
         expected = `#{MOCKUP} --common 2>&1`
         assert_equal expected, output
     end
+
+    #def test_stress_test
+    #    engine.run
+    #    GC.stress = false
+
+    #    count = 0
+    #    tasks = []
+    #    while true
+    #        while !tasks.empty?
+    #            engine.execute do
+    #                tasks.delete_if { |t| t.finished? }
+    #            end
+    #        end
+
+    #        engine.execute do
+    #            50.times do
+    #                plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => [MOCKUP, "--no-output"]))
+    #                task.start!
+    #                tasks << task
+    #                count += 1
+    #            end
+    #            STDERR.puts(count)
+    #        end
+    #    end
+    #end
 end
 
 

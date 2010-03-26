@@ -2,7 +2,10 @@ module Roby
     trap 'SIGCHLD' do
         begin
             while pid = ::Process.wait(-1, ::Process::WNOHANG)
-                ExternalProcessTask.dead! pid, $?.dup
+                if exit_status = $?
+                    exit_status = exit_status.dup
+                end
+                Tasks::ExternalProcess.dead! pid, exit_status
             end
         rescue Errno::ECHILD
         end
@@ -47,7 +50,7 @@ module Roby
         end
 
         class << self
-            # The set of running ExternalProcessTask instances. It is a mapping
+            # The set of running ExternalProcess instances. It is a mapping
             # from the PID value to the instances.
             attr_reader :processes
         end
@@ -67,7 +70,11 @@ module Roby
         # Called to announce that this task has been killed. +result+ is the
         # corresponding Process::Status object.
         def dead!(result)
-            if result.success?
+            if starting?
+                event(:start).emit_failed(:start)
+            elsif !result
+                emit :failed
+            elsif result.success?
                 emit :success
             elsif result.signaled?
                 emit :signaled, result
@@ -171,20 +178,17 @@ module Roby
                 end
             end
 
-            ExternalProcessTask.processes[pid] = self
-
-            is_running = begin
-                             !Process.waitpid(pid, Process::WNOHANG)
-                         rescue Errno::ECHILD
-                             false
-                         end
-            if !is_running
-                raise "child #{command_line.first} died unexpectedly during its startup"
-            end
+            ExternalProcess.processes[pid] = self
 
             w.close
-            control = r.read(1)
-            if control
+            begin
+                read, _ = select([r], nil, nil, 5)
+            rescue IOError
+                Process.kill("SIGKILL", pid)
+                retry
+            end
+
+            if read && (control = r.read(1))
                 case Integer(control)
                 when KO_REDIRECTION
                     raise "could not start #{command_line.first}: cannot establish output redirections"
@@ -196,7 +200,7 @@ module Roby
             end
 
         rescue Exception => e
-            ExternalProcessTask.processes.delete(pid)
+            ExternalProcess.processes.delete(pid)
             raise e
         end
 
@@ -222,7 +226,7 @@ module Roby
         end
 
         on :stop do |event|
-            ExternalProcessTask.processes.delete(pid)
+            ExternalProcess.processes.delete(pid)
         end
     end
 
