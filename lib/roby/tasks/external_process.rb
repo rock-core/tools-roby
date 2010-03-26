@@ -70,9 +70,7 @@ module Roby
         # Called to announce that this task has been killed. +result+ is the
         # corresponding Process::Status object.
         def dead!(result)
-            if starting?
-                event(:start).emit_failed(:start)
-            elsif !result
+            if !result
                 emit :failed
             elsif result.success?
                 emit :success
