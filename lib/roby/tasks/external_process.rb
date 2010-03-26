@@ -199,6 +199,20 @@ module Roby
                 end
             end
 
+            # This block is needed as there is a race condition between the fork
+            # and the assignation to ExternalProcess.processes (which is
+            # required for the SIGCHLD handler to work).
+            begin
+                if Process.waitpid(pid, ::Process::WNOHANG)
+                    if exit_status = $?
+                        exit_status = exit_status.dup
+                    end
+                    engine.once { dead!(pid, exit_status) }
+                    return
+                end
+            rescue Errno::ECHILD
+            end
+
         rescue Exception => e
             ExternalProcess.processes.delete(pid)
             raise e
