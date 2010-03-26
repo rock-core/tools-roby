@@ -158,7 +158,10 @@ module Roby
                 yield
             ensure
                 Thread.current[:global_lock_taken] = false
-                global_lock.unlock
+                begin
+                    global_lock.unlock
+                rescue ThreadError
+                end
             end
         end
     end
