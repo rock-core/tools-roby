@@ -30,37 +30,41 @@ end
         # events of a single task. As the events are represented by their name,
         # the predicate can be reused to be applied on different tasks.
         class UnboundTaskPredicate
-            attr_reader :required_events
-            attr_reader :code
-
-            def initialize(required_events, code)
-                @required_events = required_events
-                @code = code
-            end
+            # An explanation for a given predicate value. +predicate+ is the
+            # predicate, +events+ the involved events as a set of
+            # Event and EventGenerator instances. 
+            #
+            # In the first case, the value of +predicate+ has to be explained by
+            # the event emission. In the second case, the value of +predicate+
+            # has to be explained because the event generator did not emit an
+            # event.
+            Explanation = Struct.new :value, :predicate, :events
 
             def to_unbound_task_predicate
                 self
             end
 
             def and(other_predicate)
-                code = "(#{self.code}) && (#{other_predicate.code})"
-                UnboundTaskPredicate.new(self.required_events | other_predicate.required_events, code)
+                And.new(self, other_predicate)
             end
 
             def or(other_predicate)
-                code = "(#{self.code}) || (#{other_predicate.code})"
-                UnboundTaskPredicate.new(self.required_events | other_predicate.required_events, code)
+                Or.new(self, other_predicate)
             end
 
             def negate
-                code = "!(#{self.code})"
-                UnboundTaskPredicate.new(self.required_events, code)
+                Negate.new(self)
             end
+
+            def explain_true(task); nil end
+
+            def explain_false(task); nil end
 
             def compile
                 prelude = required_events.map do |event_name|
                     "    task_#{event_name} = task.event(:#{event_name}).last"
                 end.join("\n")
+
                 eval <<-END
 def self.evaluate(task)
 #{prelude}
@@ -75,38 +79,152 @@ end
             end
         end
 
+        class UnboundTaskPredicate::Negate < UnboundTaskPredicate
+            attr_reader :predicate
+            def initialize(pred)
+                @predicate = pred
+            end
+
+            def explain_true(task);  predicate.explain_false(task) end
+            def explain_false(task); predicate.explain_true(task)  end
+
+            def required_events; predicate.required_events end
+            def code
+                "!(#{predicate.code})"
+            end
+        end
+
+        class UnboundTaskPredicate::BinaryPredicate < UnboundTaskPredicate
+            attr_reader :predicates
+            def initialize(left, right)
+                @predicates = [left, right]
+            end
+            def required_events; predicates[0].required_events | predicates[1].required_events end
+        end
+
+        class UnboundTaskPredicate::And < UnboundTaskPredicate::BinaryPredicate
+            def code
+                "(#{predicates[0].code}) && (#{predicates[1].code})"
+            end
+            def explain_true(task)
+                reason0 = predicates[0].explain_true(task)
+                reason1 = predicates[1].explain_true(task)
+                reason0.merge(reason1)
+            end
+            def explain_false(task)
+                reason0 = predicates[0].explain_false(task)
+                reason1 = predicates[1].explain_false(task)
+                reason0.merge(reason1)
+            end
+        end
+
+        class UnboundTaskPredicate::Or < UnboundTaskPredicate::BinaryPredicate
+            def explain_true(task)
+                reason0 = predicates[0].explain_true(task)
+                reason1 = predicates[1].explain_true(task)
+                reason0.merge(reason1)
+            end
+            def explain_false(task)
+                reason0 = predicates[0].explain_false(task)
+                reason1 = predicates[1].explain_false(task)
+                reason0.merge(reason1)
+            end
+            def code
+                "(#{predicates[0].code}) || (#{predicates[1].code})"
+            end
+        end
+
+        class UnboundTaskPredicate::FollowedBy < UnboundTaskPredicate::BinaryPredicate
+            def explain_true(task)
+                if evaluate(task)
+                    this_event  = task.event(predicates[0].event_name).last
+                    other_event = task.event(predicates[1].event_name).last
+                    Hash[self => Explanation.new(true, self, [this_event, other_event])]
+                else Hash.new
+                end
+            end
+            def explain_false(task)
+                if !evaluate(task)
+                    this_generator  = task.event(predicates[0].event_name)
+                    other_generator = task.event(predicates[1].event_name)
+                    if !this_generator.last
+                        Hash[self => Explanation.new(false, self, [this_generator])]
+                    else
+                        Hash[self => Explanation.new(false, self, [other_generator])]
+                    end
+                else Hash.new
+                end
+            end
+
+            def code
+                this_event  = predicates[0].event_name
+                other_event = predicates[1].event_name
+                "(task_#{this_event} && task_#{other_event} && task_#{other_event}.time > task_#{this_event}.time)"
+            end
+        end
+
+
+        class UnboundTaskPredicate::NotFollowedBy < UnboundTaskPredicate::BinaryPredicate
+            def explain_true(task)
+                if evaluate(task)
+                    this_event  = task.event(predicates[0].event_name).last
+                    other_generator = task.event(predicates[1].event_name)
+                    Hash[self => Explanation.new(true, self, [this_event, other_generator])]
+                else Hash.new
+                end
+            end
+            def explain_false(task)
+                if !evaluate(task)
+                    this_generator  = task.event(predicates[0].event_name)
+                    other_generator = task.event(predicates[1].event_name)
+                    if !this_generator.last
+                        Hash[self => Explanation.new(false, self, [this_generator])]
+                    else
+                        Hash[self => Explanation.new(false, self, [other_generator.last])]
+                    end
+                else Hash.new
+                end
+            end
+            def code
+                this_event  = predicates[0].event_name
+                other_event = predicates[1].event_name
+                "(task_#{this_event} && (!task_#{other_event} || task_#{other_event}.time < task_#{this_event}.time))"
+            end
+        end
+
         class UnboundTaskPredicate::SingleEvent < UnboundTaskPredicate
             attr_reader :event_name
+            def required_events; [event_name].to_set end
 
             def initialize(event_name)
                 @event_name = event_name
-                super([event_name].to_set, "")
+                super()
             end
 
             def code
                 "!!task_#{event_name}"
             end
 
-            def not_followed_by(event)
-                other_event =
-                    if event.respond_to?(:event_name)
-                        event.event_name
-                    else event
-                    end
+            def explain_true(task)
+                if event = task.event(event_name).last
+                    Hash[self => Explanation.new(true, self, [event])]
+                else Hash.new
+                end
+            end
+            def explain_false(task)
+                generator = task.event(event_name)
+                if !generator.happened?
+                    Hash[self => Explanation.new(false, self, [generator])]
+                else Hash.new
+                end
+            end
 
-                code = "(task_#{event_name} && (!task_#{other_event} || task_#{other_event}.time < task_#{event_name}.time))"
-                UnboundTaskPredicate.new([event_name, other_event].to_set | self.required_events, code)
+            def not_followed_by(event)
+                NotFollowedBy.new(self, event.to_unbound_task_predicate)
             end
 
             def followed_by(event)
-                other_event =
-                    if event.respond_to?(:event_name)
-                        event.event_name
-                    else event.to_sym
-                    end
-
-                code = "(task_#{event_name} && task_#{other_event} && task_#{other_event}.time > task_#{event_name}.time)"
-                UnboundTaskPredicate.new([event_name, other_event].to_set | self.required_events, code)
+                FollowedBy.new(self, event.to_unbound_task_predicate)
             end
         end
     end
