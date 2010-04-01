@@ -121,30 +121,38 @@ class TC_Tasks_ExternalProcess < Test::Unit::TestCase
         assert_equal expected, output
     end
 
-    #def test_stress_test
-    #    engine.run
-    #    GC.stress = false
+    # Continuously start external processes in parallel. This is to stress test
+    # the implementation against deadlocks and against bugs in the Ruby
+    # interpreter (which led to the forked ruby to freeze completely).
+    # def test_stress_test
+    #     engine.run
+    #     GC.stress = false
 
-    #    count = 0
-    #    tasks = []
-    #    while true
-    #        while !tasks.empty?
-    #            engine.execute do
-    #                tasks.delete_if { |t| t.finished? }
-    #            end
-    #        end
+    #     count = 0
+    #     tasks = []
+    #     while true
+    #         start_time = Time.now
+    #         while !tasks.empty?
+    #             engine.execute do
+    #                 tasks.delete_if(&:finished?)
+    #                 STDERR.puts "remaining tasks: #{tasks.size}"
+    #                 if (Time.now - start_time) > 5
+    #                     STDERR.puts "remaining tasks: #{tasks.map(&:pid)}"
+    #                 end
+    #             end
+    #         end
 
-    #        engine.execute do
-    #            50.times do
-    #                plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => [MOCKUP, "--no-output"]))
-    #                task.start!
-    #                tasks << task
-    #                count += 1
-    #            end
-    #            STDERR.puts(count)
-    #        end
-    #    end
-    #end
+    #         engine.execute do
+    #             50.times do
+    #                 plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => [MOCKUP, "--no-output"]))
+    #                 task.start!
+    #                 tasks << task
+    #                 count += 1
+    #             end
+    #             STDERR.puts(count)
+    #         end
+    #     end
+    # end
 end
 
 
