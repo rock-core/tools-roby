@@ -90,7 +90,11 @@ module Roby
 	end
 
 	def to_s
-	    "#{generator.to_s}@#{propagation_id} [#{time.to_hms}]: #{context}"
+	    result = "[#{time.to_hms} @#{propagation_id}] #{task}/#{symbol}"
+            if context
+                result += ": #{context}"
+            end
+            result
 	end
         def pretty_print(pp) # :nodoc:
             pp.text "[#{time.to_hms} @#{propagation_id}] #{task}/#{symbol}"
