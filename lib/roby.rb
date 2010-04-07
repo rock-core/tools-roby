@@ -50,6 +50,7 @@ require 'roby/plan-object.rb'
 require 'roby/event.rb'
 require 'roby/task.rb'
 require 'roby/task-operations.rb'
+require 'roby/event_constraints.rb'
 
 require 'roby/relations/conflicts.rb'
 require 'roby/relations/ensured.rb'

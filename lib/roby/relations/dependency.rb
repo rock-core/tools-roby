@@ -67,12 +67,11 @@ module Roby::TaskStructure
         def depends_on(task, options = {})
             options = validate_options options, 
 		:model => [task.model, task.meaningful_arguments], 
-		:success => [:success], 
-		:failure => [],
+		:success => :success.to_unbound_task_predicate, 
+		:failure => false.to_unbound_task_predicate,
 		:remove_when_done => true,
                 :roles => nil,
-                :role => nil,
-                :since => Time.at(0)
+                :role => nil
 
             roles = options[:roles] || ValueSet.new
             if role = options.delete(:role)
@@ -81,13 +80,28 @@ module Roby::TaskStructure
             roles = roles.map { |r| r.to_str }
             options[:roles] = roles.to_set
 
-	    options[:success] = Array[*options[:success]]
-	    options[:failure] = Array[*options[:failure]]
-            options[:success] -= options[:failure]
+	    options[:success] = Array[*options[:success]].
+                map { |predicate| predicate.to_unbound_task_predicate }.
+                inject(&:or)
 
-	    # Validate failure and success event names
-	    options[:success].each { |ev| task.event(ev) }
-	    options[:failure].each { |ev| task.event(ev) }
+	    options[:failure] = Array[*options[:failure]].
+                map { |predicate| predicate.to_unbound_task_predicate }.
+                inject(&:or)
+
+            options[:success] ||= false.to_unbound_task_predicate
+            options[:failure] ||= false.to_unbound_task_predicate
+
+            # Validate failure and success event names
+            not_there = options[:success].required_events.
+                find_all { |name| !task.has_event?(name) }
+	    if !not_there.empty?
+                raise ArgumentError, "#{task} does not have the following events: #{not_there.join(", ")}"
+            end
+            not_there = options[:failure].required_events.
+                find_all { |name| !task.has_event?(name) }
+            if !not_there.empty?
+                raise ArgumentError, "#{task} does not have the following events: #{not_there.join(", ")}"
+            end
 
 	    options[:model] = [options[:model], {}] unless Array === options[:model]
 	    required_model, required_args = *options[:model]
@@ -107,12 +121,16 @@ module Roby::TaskStructure
 	def added_child_object(child, relations, info) # :nodoc:
 	    super if defined? super
 	    if relations.include?(Dependency) && !respond_to?(:__getobj__) && !child.respond_to?(:__getobj__)
-		events = info[:success].map do |ev|
-                    ev = child.event(ev)
+		events = info[:success].required_events.
+                    map { |event_name| child.event(event_name) }.
+                    to_value_set
+
+                events.each do |ev|
                     ev.if_unreachable { Dependency.interesting_events << ev }
-                    ev
                 end
-		events.concat info[:failure].map { |ev| child.event(ev) }
+
+		info[:failure].required_events.
+                    each { |event_name| events << child.event(event_name) }
 		Roby::EventGenerator.gather_events(Dependency.interesting_events, events)
 	    end
 	end
@@ -130,15 +148,6 @@ module Roby::TaskStructure
 	    end
 	    result
         end
-
-	# The set of events that are needed by the parent tasks
-	def fullfilled_events
-	    needed = ValueSet.new
-	    merged_relations(:each_parent_task, false) do |myself, parent|
-		needed.merge(parent[myself, Dependency][:success])
-	    end
-	    needed
-	end
 
 	# Return [tags, arguments] where +tags+ is a list of task models which
 	# are required by the parent tasks of this task, and arguments the
@@ -188,9 +197,8 @@ module Roby::TaskStructure
 	    # children in the block. Note that we can't use #delete_if here
 	    # since #children is a relation enumerator (not the relation list
 	    # itself)
-	    children.to_a.each do |child|
-		success_events = self[child, Dependency][:success]
-		if success_events.any? { |ev| child.event(ev).happened? }
+            each_child do |child, info|
+                if info[:success].evaluate(child)
 		    remove_child(child)
 		end
 	    end
@@ -201,20 +209,12 @@ module Roby::TaskStructure
     def Dependency.merge_info(parent, child, opt1, opt2)
         if opt1[:remove_when_done] != opt2[:remove_when_done]
             raise Roby::ModelViolation, "incompatible dependency specification: trying to change the value of +remove_when_done+"
-        elsif opt1[:since] != Time.at(0) || opt2[:since] != Time.at(0)
-            raise Roby::ModelViolation, "cannot merge dependency relations that have a 'since' specification"
         end
 
         result = { :remove_when_done => opt1[:remove_when_done] }
 
-        # Remove from :success the events listed in :failure. We can't remove
-        # the events in opt1[:success] that would lead to having opt2[:success]
-        # unreachable though ...
-        result[:success] = (opt1[:success] - opt2[:failure]) | (opt2[:success] - opt1[:failure])
-        result[:failure] = opt1[:failure] | opt2[:failure]
-        if result[:success].empty? && (!opt1[:success].empty? || !opt2[:success].empty?)
-            raise Roby::ModelViolation, "incompatibility between the :success and :failure sets of #{opt1} and #{opt2}"
-        end
+        result[:success] = opt1[:success].and(opt2[:success])
+        result[:failure] = opt1[:failure].or(opt2[:failure])
 
         # Check model compatibility
         model1, arguments1 = opt1[:model]
@@ -245,8 +245,6 @@ module Roby::TaskStructure
 
         # Finally, merge the roles (the easy part ;-))
         result[:roles] = opt1[:roles] | opt2[:roles]
-
-        result[:since] = Time.at(0)
 
         result
     end
@@ -285,19 +283,10 @@ module Roby::TaskStructure
 		options = parent[child, Hierarchy]
 		success = options[:success]
 		failure = options[:failure]
-                since   = options[:since]
 
-                has_success = success.any? do |e|
-                    if ev = child.event(e).last
-                        ev.time > since
-                    end
-                end
+                has_success = success.evaluate(child)
                 if !has_success
-                    failing_event = failure.find do |e|
-                        if ev = child.event(e).last
-                            ev.time > since
-                        end
-                    end
+                    has_failure = failure.evaluate(child)
                 end
 
 
@@ -305,18 +294,13 @@ module Roby::TaskStructure
 		    if options[:remove_when_done]
 			parent.remove_child child
 		    end
-                elsif failing_event
-		    result << Roby::ChildFailedError.new(parent, child.event(failing_event).last)
+                elsif has_failure
+                    explanation = failure.explain_true(child)
+		    result << Roby::ChildFailedError.new(parent, child, explanation)
 		    failing_tasks << child
-		elsif !success.empty? && success.all? { |e| child.event(e).unreachable? }
-                    failing_event = success.find { |e| child.event(e).unreachability_reason }
-                    failing_event = child.event(failing_event || success.first)
-
-                    reason = failing_event.unreachability_reason
-                    if reason.kind_of?(Roby::Event)
-                        failing_event, reason = reason, nil
-                    end
-		    result << Roby::ChildFailedError.new(parent, failing_event, reason)
+		elsif success.static?(child)
+                    explanation = success.explain_static(child)
+		    result << Roby::ChildFailedError.new(parent, child, explanation)
 		    failing_tasks << child
 		end
 	    end
@@ -342,32 +326,41 @@ module Roby
 	attr_reader :parent
 	# The child in the relation
 	def child; failed_task end
-        # If the reason of this failure is that the positive events have become
-        # unreachable, +unreachability_reason+ stores the corresponding
-        # unreachability reason.
-        attr_reader :unreachability_reason
 	# The relation parameters (i.e. the hash given to #depends_on)
 	attr_reader :relation
+        # The Explanation object that describes why the relation failed
+        attr_reader :explanation
 
 	# The event which is the cause of this error. This is either the task
 	# source of a failure event, or the reason why a positive event has
 	# become unreachable (if there is one)
-	def initialize(parent, failure_point, unreachability_reason = nil)
+	def initialize(parent, child, explanation)
+            @explanation = explanation
+
+            failure_point =
+                if !explanation.simple?
+                    child
+                elsif explanation.value.nil? # unreachability
+                    base_event = explanation.elements.first
+                    reason = base_event.unreachability_reason
+                    if reason.kind_of?(Event)
+                        reason
+                    else
+                        base_event
+                    end
+                else
+                    explanation.elements.first
+                end
+
             super(failure_point)
-            @unreachability_reason = failed_generator.unreachability_reason
+
 	    @parent   = parent
 	    @relation = parent[child, TaskStructure::Dependency]
 	end
 
 	def pretty_print(pp) # :nodoc:
             pp.text "#{self.class.name}: "
-            if unreachability_reason
-                pp.text "#{failed_generator} is unreachable"
-            else
-                pp.text "#{failed_generator} emitted the following event"
-                pp.breakable
-                failed_event.pretty_print(pp)
-            end
+            explanation.pretty_print(pp)
 
             pp.breakable
             pp.text "The failed relation is"
@@ -380,13 +373,6 @@ module Roby
                 child.pretty_print pp
             end
             pp.breakable
-
-            if unreachability_reason
-                pp.breakable
-                pp.text "it is unreachable for the following reason:"
-                pp.breakable
-                unreachability_reason.pretty_print(pp)
-            end
 	end
 	def backtrace; [] end
 

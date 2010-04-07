@@ -1,38 +1,48 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 require 'flexmock'
 
 class TC_RealizedBy < Test::Unit::TestCase
     include Roby::Test
 
+    # Set to true to have the tests display the pretty-printed errors.
+    DISPLAY_FORMATTED_ERRORS = false
+
     def test_check_structure_registration
         assert plan.structure_checks.include?(Dependency.method(:check_structure))
     end
 
+    def assert_formatting_succeeds(object)
+        message = Roby.format_exception(object)
+        if DISPLAY_FORMATTED_ERRORS
+            puts message.join("\n")
+        end
+    end
+
     def test_definition
 	tag   = TaskModelTag.new
-	klass = Class.new(SimpleTask) do
+	klass = Class.new(Tasks::Simple) do
 	    argument :id
 	    include tag
 	end
-	plan.add(t1 = SimpleTask.new)
+	plan.add(t1 = Tasks::Simple.new)
 
 	# Check validation of the model
 	child = nil
-	assert_nothing_raised { t1.depends_on((child = klass.new), :model => SimpleTask) }
-	assert_equal([SimpleTask, {}], t1[child, Dependency][:model])
+	t1.depends_on((child = klass.new), :model => Tasks::Simple)
+	assert_equal([Tasks::Simple, {}], t1[child, Dependency][:model])
 
-	assert_nothing_raised { t1.depends_on klass.new, :model => [Roby::Task, {}] }
-	assert_nothing_raised { t1.depends_on klass.new, :model => tag }
+	t1.depends_on klass.new, :model => [Roby::Task, {}]
+	t1.depends_on klass.new, :model => tag
 
-	plan.add(simple_task = SimpleTask.new)
+	plan.add(simple_task = Tasks::Simple.new)
 	assert_raises(ArgumentError) { t1.depends_on simple_task, :model => [Class.new(Roby::Task), {}] }
 	assert_raises(ArgumentError) { t1.depends_on simple_task, :model => TaskModelTag.new }
 	
 	# Check validation of the arguments
 	plan.add(model_task = klass.new)
-	assert_raises(ArgumentError) { t1.depends_on model_task, :model => [SimpleTask, {:id => 'bad'}] }
+	assert_raises(ArgumentError) { t1.depends_on model_task, :model => [Tasks::Simple, {:id => 'bad'}] }
 
 	plan.add(child = klass.new(:id => 'good'))
 	assert_raises(ArgumentError) { t1.depends_on child, :model => [klass, {:id => 'bad'}] }
@@ -40,9 +50,9 @@ class TC_RealizedBy < Test::Unit::TestCase
 	assert_equal([klass, { :id => 'good' }], t1[child, TaskStructure::Dependency][:model])
 
 	# Check edge annotation
-	t2 = SimpleTask.new
-	t1.depends_on t2, :model => SimpleTask
-	assert_equal([SimpleTask, {}], t1[t2, TaskStructure::Dependency][:model])
+	t2 = Tasks::Simple.new
+	t1.depends_on t2, :model => Tasks::Simple
+	assert_equal([Tasks::Simple, {}], t1[t2, TaskStructure::Dependency][:model])
 	t2 = klass.new(:id => 10)
 	t1.depends_on t2, :model => [klass, { :id => 10 }]
     end
@@ -50,7 +60,7 @@ class TC_RealizedBy < Test::Unit::TestCase
     Dependency = TaskStructure::Dependency
 
     def test_exception_printing
-        parent, child = prepare_plan :add => 2, :model => SimpleTask
+        parent, child = prepare_plan :add => 2, :model => Tasks::Simple
         parent.depends_on child
         parent.start!
         child.start!
@@ -58,27 +68,25 @@ class TC_RealizedBy < Test::Unit::TestCase
 
 	error = plan.check_structure.find { true }[0].exception
 	assert_kind_of(ChildFailedError, error)
-        assert_nothing_raised do
-            Roby.format_exception(error)
-        end
+        assert_formatting_succeeds(error)
 
         parent.stop!
     end
 
     # This method is a common method used in the various error/nominal tests
     # below. It creates two tasks:
-    #  p1 which is an instance of SimpleTask
+    #  p1 which is an instance of Tasks::Simple
     #  child which is an instance of a task model with two controllable events
     #  'first' and 'second'
     #
     # p1 is a parent of child. Both tasks are started and returned.
     def create_pair(options)
-	child_model = Class.new(SimpleTask) do
+	child_model = Class.new(Tasks::Simple) do
 	    event :first, :command => true
 	    event :second, :command => true
 	end
 
-	p1 = SimpleTask.new
+	p1 = Tasks::Simple.new
 	child = child_model.new
 	plan.add([p1, child])
 	p1.depends_on child, options
@@ -96,6 +104,7 @@ class TC_RealizedBy < Test::Unit::TestCase
         error = result.find { true }[0].exception
 	assert_equal(child, error.failed_task)
 	assert_equal(reason, error.failure_point)
+        assert_formatting_succeeds(error)
         error
     end
 
@@ -147,8 +156,8 @@ class TC_RealizedBy < Test::Unit::TestCase
     end
 
     def test_failure_on_failed_start
-        plan.add(parent = SimpleTask.new)
-        model = Class.new(SimpleTask) do
+        plan.add(parent = Tasks::Simple.new)
+        model = Class.new(Tasks::Simple) do
             event :start do |context|
                 raise ArgumentError
             end
@@ -166,7 +175,8 @@ class TC_RealizedBy < Test::Unit::TestCase
         parent, child = create_pair :success => [:first]
 
         child.stop!
-	assert_child_failed(child, child.event(:failed).last, plan)
+	error = assert_child_failed(child, child.failed_event.last, plan)
+        assert_equal(nil, error.explanation.value)
         plan.clear
     end
 
@@ -174,9 +184,9 @@ class TC_RealizedBy < Test::Unit::TestCase
 	tag = TaskModelTag.new
 	klass = Class.new(Roby::Task)
 
-	p1, p2, child = prepare_plan :add => 3, :model => SimpleTask
-	p1.depends_on child, :model => [SimpleTask, { :id => "discover-3" }]
-        p2.depends_on child, :model => [SimpleTask, { :id => 'discover-3' }]
+	p1, p2, child = prepare_plan :add => 3, :model => Tasks::Simple
+	p1.depends_on child, :model => [Tasks::Simple, { :id => "discover-3" }]
+        p2.depends_on child, :model => [Tasks::Simple, { :id => 'discover-3' }]
 
         # Mess with the relation definition
         p1[child, Dependency][:model].last[:id] = 'discover-10'
@@ -187,15 +197,15 @@ class TC_RealizedBy < Test::Unit::TestCase
 
     def test_fullfilled_model
 	tag = TaskModelTag.new
-	klass = Class.new(SimpleTask) do
+	klass = Class.new(Tasks::Simple) do
 	    include tag
 	end
 
 	p1, p2, child = prepare_plan :add => 3, :model => klass
 
-	p1.depends_on child, :model => [SimpleTask, { :id => "discover-3" }]
+	p1.depends_on child, :model => [Tasks::Simple, { :id => "discover-3" }]
 	p2.depends_on child, :model => Roby::Task
-	assert_equal([[SimpleTask], {:id => 'discover-3'}], child.fullfilled_model)
+	assert_equal([[Tasks::Simple], {:id => 'discover-3'}], child.fullfilled_model)
 	p1.remove_child(child)
 	assert_equal([[Roby::Task], {}], child.fullfilled_model)
 	p1.depends_on child, :model => tag
@@ -207,14 +217,14 @@ class TC_RealizedBy < Test::Unit::TestCase
 
     def test_fullfilled_model_transaction
 	tag = TaskModelTag.new
-	klass = Class.new(SimpleTask) do
+	klass = Class.new(Tasks::Simple) do
 	    include tag
 	end
 
 	p1, p2, child = prepare_plan :add => 3, :model => Class.new(klass)
         trsc = Transaction.new(plan)
 
-	p1.depends_on child, :model => [SimpleTask, { :id => "discover-3" }]
+	p1.depends_on child, :model => [Tasks::Simple, { :id => "discover-3" }]
 	p2.depends_on child, :model => klass
 
         t_child = trsc[child]
@@ -222,7 +232,7 @@ class TC_RealizedBy < Test::Unit::TestCase
         t_p2 = trsc[p2]
         assert_equal([[klass], {:id => "discover-3"}], t_child.fullfilled_model)
         t_p2.remove_child(t_child)
-        assert_equal([[SimpleTask], { :id => 'discover-3' }], t_child.fullfilled_model)
+        assert_equal([[Tasks::Simple], { :id => 'discover-3' }], t_child.fullfilled_model)
 	t_p2.depends_on t_child, :model => klass
         assert_equal([[klass], { :id => 'discover-3' }], t_child.fullfilled_model)
         trsc.remove_object(t_p2)
@@ -230,7 +240,7 @@ class TC_RealizedBy < Test::Unit::TestCase
     end
 
     def test_first_children
-	p, c1, c2 = prepare_plan :add => 3, :model => SimpleTask
+	p, c1, c2 = prepare_plan :add => 3, :model => Tasks::Simple
 	p.depends_on c1
 	p.depends_on c2
 	assert_equal([c1, c2].to_value_set, p.first_children)
@@ -240,7 +250,7 @@ class TC_RealizedBy < Test::Unit::TestCase
     end
 
     def test_remove_finished_children
-	p, c1, c2 = prepare_plan :add => 3, :model => SimpleTask
+	p, c1, c2 = prepare_plan :add => 3, :model => Tasks::Simple
         plan.add_permanent(p)
 	p.depends_on c1
 	p.depends_on c2
@@ -255,52 +265,52 @@ class TC_RealizedBy < Test::Unit::TestCase
     end
 
     def test_role_definition
-        plan.add(parent = SimpleTask.new)
+        plan.add(parent = Tasks::Simple.new)
 
-        child = SimpleTask.new
+        child = Tasks::Simple.new
         parent.depends_on child, :role => 'child1'
         assert_equal(['child1'].to_set, parent.roles_of(child))
 
-        child = SimpleTask.new
+        child = Tasks::Simple.new
         parent.depends_on child, :roles => ['child1', 'child2']
         assert_equal(['child1', 'child2'].to_set, parent.roles_of(child))
     end
 
-    def setup_merging_test
-        plan.add(parent = SimpleTask.new)
+    def setup_merging_test(special_options = Hash.new)
+        plan.add(parent = Tasks::Simple.new)
         tag = TaskModelTag.new
-        intermediate = Class.new(SimpleTask)
+        intermediate = Class.new(Tasks::Simple)
         intermediate.include tag
         child_model = Class.new(intermediate)
         child = child_model.new(:id => 'child')
-        parent.depends_on child, :role => 'child1', :model => Task, :success => [], :failure => []
+
+        options = { :role => 'child1', :model => Task, :success => [], :failure => [] }.
+            merge(special_options)
+        parent.depends_on child, options
 
         expected_info = { :remove_when_done=>true,
             :model => [Roby::Task, {}],
             :roles => ['child1'].to_set,
-            :success=>[],
-            :failure=>[],
-            :since => Time.at(0) }
+            :success=>false.to_unbound_task_predicate,
+            :failure=>false.to_unbound_task_predicate }.merge(special_options)
         assert_equal expected_info, parent[child, Dependency]
 
         return parent, child, expected_info, child_model, tag
     end
 
     def test_merging_events
-        parent, child, info, child_model, _ = setup_merging_test
-        parent.depends_on child, :success => []
-        info[:model] = [child_model, {:id => 'child'}]
-        assert_equal info, parent[child, Dependency]
-
+        parent, child, info, child_model, _ = setup_merging_test(:success => :success.to_unbound_task_predicate)
         parent.depends_on child, :success => [:success]
-        info[:success] = [:success]
+        info[:model] = [child_model, {:id => 'child'}]
+        info[:success] = :success.to_unbound_task_predicate
         assert_equal info, parent[child, Dependency]
 
-        assert_raises(ModelViolation) { parent.depends_on child, :failure => [:success] }
+        parent.depends_on child, :success => [:stop]
+        info[:success] = info[:success].and(:stop.to_unbound_task_predicate)
         assert_equal info, parent[child, Dependency]
 
         parent.depends_on child, :failure => [:stop]
-        info[:failure] = [:stop]
+        info[:failure] = :stop.to_unbound_task_predicate
         assert_equal info, parent[child, Dependency]
     end
     
@@ -315,14 +325,14 @@ class TC_RealizedBy < Test::Unit::TestCase
         parent, child, info, child_model, tag = setup_merging_test
 
         # Test that models are "upgraded"
-        parent.depends_on child, :model => SimpleTask, :success => []
-        info[:model][0] = SimpleTask
+        parent.depends_on child, :model => Tasks::Simple, :success => []
+        info[:model][0] = Tasks::Simple
         assert_equal info, parent[child, Dependency]
         parent.depends_on child, :model => Roby::Task, :remove_when_done => true, :success => []
         assert_equal info, parent[child, Dependency]
 
         # Test that arguments are merged
-        parent.depends_on child, :model => [SimpleTask, {:id => 'child'}], :success => []
+        parent.depends_on child, :model => [Tasks::Simple, {:id => 'child'}], :success => []
         info[:model][1] = {:id => 'child'}
         assert_equal info, parent[child, Dependency]
         # note: arguments can't be changed on the task *and* #depends_on
@@ -341,43 +351,6 @@ class TC_RealizedBy < Test::Unit::TestCase
         parent.depends_on child, :model => Roby::Task, :role => 'child2', :success => []
         info[:roles] << 'child2'
         assert_equal info, parent[child, Dependency]
-    end
-
-    def test_since_success
-        FlexMock.use(Time) do |time_proxy|
-            current_time = Time.now
-            parent, child = create_pair :success => [:first], 
-                :failure => [:stop],
-                :remove_when_done => true,
-                :since => current_time + 100
-
-            child.first!
-            process_events
-            assert(parent.depends_on?(child))
-
-	    time_proxy.should_receive(:now).and_return { current_time + 200 }
-            child.first!
-            process_events
-            assert(!parent.depends_on?(child))
-        end
-    end
-
-    def test_since_failure
-        Roby.logger.level = Logger::FATAL
-        FlexMock.use(Time) do |time_proxy|
-            current_time = Time.now
-            parent, child = create_pair :success => [], 
-                :failure => [:first],
-                :remove_when_done => true,
-                :since => current_time + 100
-
-            child.first!
-            assert_equal({}, plan.check_structure)
-
-	    time_proxy.should_receive(:now).and_return { current_time + 200 }
-            child.first!
-            assert_child_failed(child, child.event(:first).last, plan)
-        end
     end
 end
 
