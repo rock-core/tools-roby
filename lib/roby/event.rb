@@ -804,7 +804,10 @@ module Roby
 	# event generators +collection+ is listening for.
 	def self.event_gathering; @@event_gathering end
 
+        # True if this event is unreachable, i.e. if it will never be emitted
+        # anymore
 	attr_predicate :unreachable?
+
         # If the event became unreachable, this holds the reason for its
         # unreachability, if that reason is known. This reason is always an
         # Event instance which represents the emission that triggered this
