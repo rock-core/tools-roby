@@ -14,6 +14,18 @@ module Roby
     # filter plan-related properties, use Query.
     #
     # A TaskMatcher object is a AND combination of various tests against tasks.
+    #
+    # For instance, if one does
+    #
+    #   matcher = TaskMatcher.new.which_fullfills(Tasks::Simple).pending
+    #
+    # Then
+    #  
+    #   matcher === task
+    #
+    # will return true if +task+ is an instance of the Tasks::Simple model and
+    # is pending (not started yet), and false if one of these two
+    # characteristics is not true.
     class TaskMatcher
 	attr_reader :model, :arguments
 	attr_reader :predicates, :neg_predicates, :owners
@@ -33,7 +45,11 @@ module Roby
             @children             = Hash.new { |h, k| h[k] = Array.new }
 	end
 
-	# Shortcut to set both model and argument 
+	# Filters on task model and arguments
+        #
+        # Will match if the task is an instance of +model+ or one of its
+        # subclasses, and if parts of its arguments are the ones provided. Set
+        # +arguments+ to nil if you don't want to filter on arguments.
 	def which_fullfills(model, arguments = nil)
 	    with_model(model)
             if arguments
@@ -42,13 +58,46 @@ module Roby
             self
 	end
 
-	# Find by model
+	# Filters on the task model
+        #
+        # Will match if the task is an instance of +model+ or one of its
+        # subclasses.
 	def with_model(model)
 	    @model = model
 	    self
 	end
 	
-	# Find by arguments defined by the model
+	# Filters on the arguments that are declared in the model
+        #
+        # Will match if the task arguments for which there is a value in
+        # +arguments+ are set to that very value, only looking at arguments that
+        # are defined in the model set by #with_model.
+        #
+        # See also #with_arguments
+        #
+        # Example:
+        #
+        #   class TaskModel < Roby::Task
+        #     argument :a
+        #     argument :b
+        #   end
+        #   task = TaskModel.new(:a => 10, :b => 20)
+        #
+        #   # Matches on :a, :b is ignored altogether
+        #   TaskMatcher.new.
+        #       with_model(TaskModel).
+        #       with_model_arguments(:a => 10) === task # => true
+        #   # Looks for both :a and :b
+        #   TaskMatcher.new.
+        #       with_model(TaskModel).
+        #       with_model_arguments(:a => 10, :b => 30) === task # => false
+        #   # Matches on :a, :c is ignored as it is not an argument of +TaskModel+
+        #   TaskMatcher.new.
+        #       with_model(TaskModel).
+        #       with_model_arguments(:a => 10, :c => 30) === task # => true
+        #
+        # In general, one would use #which_fullfills, which sets both the model
+        # and the model arguments
 	def with_model_arguments(arguments)
 	    if !model
 		raise ArgumentError, "set model first"
@@ -62,7 +111,31 @@ module Roby
 	    self
 	end
 
-	# Find by argument (exact matching)
+	# Filters on the arguments that are declared in the model
+        #
+        # Will match if the task arguments for which there is a value in
+        # +arguments+ are set to that very value. Unlike #with_model_arguments,
+        # all values set in +arguments+ are considered.
+        #
+        # See also #with_model_arguments
+        #
+        # Example:
+        #
+        #   class TaskModel < Roby::Task
+        #     argument :a
+        #     argument :b
+        #   end
+        #   task = TaskModel.new(:a => 10, :b => 20)
+        #
+        #   # Matches on :a, :b is ignored altogether
+        #   TaskMatcher.new.
+        #       with_arguments(:a => 10) === task # => true
+        #   # Looks for both :a and :b
+        #   TaskMatcher.new.
+        #       with_arguments(:a => 10, :b => 30) === task # => false
+        #   # Looks for both :a and :c, even though :c is not declared in TaskModel
+        #   TaskMatcher.new.
+        #       with_arguments(:a => 10, :c => 30) === task # => false
 	def with_arguments(arguments)
 	    @arguments ||= Hash.new
 	    self.arguments.merge!(arguments) do |k, old, new| 
@@ -74,30 +147,19 @@ module Roby
 	    self
 	end
 
-	# Find tasks which improves information contained in +info+
-	def which_improves(*info)
-	    improved_information.merge(info.to_value_set)
-	    self
-	end
-
-	# Find tasks which need information contained in +info+
-	def which_needs(*info)
-	    needed_information.merge(info.to_value_set)
-	    self
-	end
-
-        # Finds by owners. The set of owner is added to any owner already
-        # added. Do
+        # Filters on ownership
         #
-        #   matcher.owners.clear
+        # Matches if the task is owned by the listed peers.
         #
-        # to remove all owners
+        # Use #self_owned to match if it is owned by the local plan manager.
 	def owned_by(*ids)
 	    @owners |= ids
 	    self
 	end
 
-        # Finds tasks which we own ourselves.
+        # Filters locally-owned tasks
+        #
+        # Matches if the task is owned by the local plan manager.
 	def self_owned
 	    owned_by(Roby::Distributed)
 	    self
@@ -140,6 +202,154 @@ module Roby
 		declare_class_methods(*names.map { |n| "not_#{n}" })
 	    end
 	end
+
+        ##
+        # :method: fully_instanciated
+        #
+        # Matches if the task is fully instanciated
+        #
+        # See also #partially_instanciated, Task#fully_instanciated?
+
+        ##
+        # :method: partially_instanciated
+        #
+        # Matches if the task is partially instanciated
+        #
+        # See also #fully_instanciated, Task#partially_instanciated?
+
+        ##
+        # :method: not_abstract
+        #
+        # Matches if the task is not abstract
+        #
+        # See also #abstract, Task#abstract?
+
+        ##
+        # :method: abstract
+        #
+        # Matches if the task is abstract
+        #
+        # See also #not_abstract, Task#abstract?
+
+        ##
+        # :method: not_abstract
+        #
+        # Matches if the task is not abstract
+        #
+        # See also #abstract, Task#abstract?
+
+        ##
+        # :method: executable
+        #
+        # Matches if the task is executable
+        #
+        # See also #not_executable, Task#executable?
+
+        ##
+        # :method: not_executable
+        #
+        # Matches if the task is not executable
+        #
+        # See also #executable, Task#executable?
+
+        ##
+        # :method: pending
+        #
+        # Matches if the task is pending
+        #
+        # See also #not_pending, Task#pending?
+
+        ##
+        # :method: not_pending
+        #
+        # Matches if the task is not pending
+        #
+        # See also #pending, Task#pending?
+
+        ##
+        # :method: running
+        #
+        # Matches if the task is running
+        #
+        # See also #not_running, Task#running?
+
+        ##
+        # :method: not_running
+        #
+        # Matches if the task is not running
+        #
+        # See also #running, Task#running?
+
+        ##
+        # :method: finished
+        #
+        # Matches if the task is finished
+        #
+        # See also #not_finished, Task#finished?
+
+        ##
+        # :method: not_finished
+        #
+        # Matches if the task is not finished
+        #
+        # See also #finished, Task#finished?
+
+        ##
+        # :method: success
+        #
+        # Matches if the task is success
+        #
+        # See also #not_success, Task#success?
+
+        ##
+        # :method: not_success
+        #
+        # Matches if the task is not success
+        #
+        # See also #success, Task#success?
+
+        ##
+        # :method: failed
+        #
+        # Matches if the task is failed
+        #
+        # See also #not_failed, Task#failed?
+
+        ##
+        # :method: not_failed
+        #
+        # Matches if the task is not failed
+        #
+        # See also #failed, Task#failed?
+
+        ##
+        # :method: interruptible
+        #
+        # Matches if the task is interruptible
+        #
+        # See also #not_interruptible, Task#interruptible?
+
+        ##
+        # :method: not_interruptible
+        #
+        # Matches if the task is not interruptible
+        #
+        # See also #interruptible, Task#interruptible?
+
+        ##
+        # :method: finishing
+        #
+        # Matches if the task is finishing
+        #
+        # See also #not_finishing, Task#finishing?
+
+        ##
+        # :method: not_finishing
+        #
+        # Matches if the task is not finishing
+        #
+        # See also #finishing, Task#finishing?
+
 	match_predicates :executable, :abstract, :partially_instanciated, :fully_instanciated,
 	    :pending, :running, :finished, :success, :failed, :interruptible, :finishing
 
@@ -158,12 +368,49 @@ module Roby
             return relation, [other_query, relation_options]
         end
 
+        # Filters based on the task's children
+        #
+        # Matches if this task has at least one child which matches +query+.
+        #
+        # If +relation+ is given, then only the children in this relation are
+        # considered. Moreover, relation options can be used to restrict the
+        # search even more.
+        #
+        # Examples:
+        #
+        #   parent.depends_on(child)
+        #   TaskMatcher.new.
+        #       with_child(TaskMatcher.new.pending) === parent # => true
+        #   TaskMatcher.new.
+        #       with_child(TaskMatcher.new.pending, Roby::TaskStructure::Dependency) === parent # => true
+        #   TaskMatcher.new.
+        #       with_child(TaskMatcher.new.pending, Roby::TaskStructure::PlannedBy) === parent # => false
+        #
+        #   TaskMatcher.new.
+        #       with_child(TaskMatcher.new.pending,
+        #                  Roby::TaskStructure::Dependency,
+        #                  :roles => ["trajectory_following"]) === parent # => false
+        #   parent.depends_on child, :role => "trajectory_following"
+        #   TaskMatcher.new.
+        #       with_child(TaskMatcher.new.pending,
+        #                  Roby::TaskStructure::Dependency,
+        #                  :roles => ["trajectory_following"]) === parent # => true
+        #
         def with_child(other_query, relation = nil, relation_options = nil)
             relation, spec = handle_parent_child_arguments(other_query, relation, relation_options)
             @children[relation] << spec
             self
         end
 
+        # Filters based on the task's parents
+        #
+        # Matches if this task has at least one parent which matches +query+.
+        #
+        # If +relation+ is given, then only the parents in this relation are
+        # considered. Moreover, relation options can be used to restrict the
+        # search even more.
+        #
+        # See examples for #with_child
         def with_parent(other_query, relation = nil, relation_options = nil)
             relation, spec = handle_parent_child_arguments(other_query, relation, relation_options)
             @parents[relation] << spec
@@ -280,6 +527,9 @@ module Roby
 	end
 
         # Enumerates all tasks of +plan+ which match this TaskMatcher object
+        #
+        # It is O(N). You should prefer use Query which uses the plan's task
+        # indexes, thus leading to O(1) in simple cases.
 	def each(plan, &block)
             plan.each_task do |t|
                 yield(t) if self === t
@@ -294,28 +544,32 @@ module Roby
 	    :which_needs, :which_improves, 
 	    :owned_by, :self_owned
 
-        # Returns the negation of this predicate
+        # Negates this predicate
+        #
+        # The returned task matcher will yield tasks that are *not* matched by
+        # +self+
 	def negate; NegateTaskMatcher.new(self) end
-        # Combines this predicate with another using a AND logical operation
+        # AND-combination of two predicates 
+        #
+        # The returned task matcher will yield tasks that are matched by both
+        # predicates.
 	def &(other); AndTaskMatcher.new(self, other) end
-        # Combines this predicate with another using an OR logical operation
+        # OR-combination of two predicates 
+        #
+        # The returned task matcher will yield tasks that match either one
+        # predicate or the other.
 	def |(other); OrTaskMatcher.new(self, other) end
     end
 
-    # A query is a predicate on both the task internal properties, and their
-    # plan-related properties as well.
+    # A query is a TaskMatcher that applies on a plan. It should, in general, be
+    # preferred to TaskMatcher as it uses task indexes to be more efficient.
+    #
+    # Queries cache their result. I.e. once #each has been called to get the
+    # query results, the query will always return the same results until #reset
+    # has been called.
     class Query < TaskMatcher
         # The plan this query acts on
 	attr_reader :plan
-        # Search scope for queries on transactions. If equal to :local, the
-        # query will apply only on the scope of the searched transaction,
-        # otherwise it applies on a virtual plan that is the result of the
-        # transaction stack being applied.
-        #
-        # The default is :global.
-        #
-        # See #local_scope and #global_scope
-        attr_reader :scope
 
         # Create a query object on the given plan
 	def initialize(plan)
@@ -326,12 +580,22 @@ module Roby
 	    @neg_plan_predicates = Array.new
 	end
 
+        # Search scope for queries on transactions. If equal to :local, the
+        # query will apply only on the scope of the searched transaction,
+        # otherwise it applies on a virtual plan that is the result of the
+        # transaction stack being applied.
+        #
+        # The default is :global.
+        #
+        # See #local_scope and #global_scope
+        attr_reader :scope
+
         # Changes the scope of this query. See #scope.
         def local_scope; @scope = :local end
         # Changes the scope of this query. See #scope.
         def global_scope; @scope = :global end
 
-        # Changes the plan this query works on
+        # Changes the plan this query works on. This calls #reset (obviously)
         def plan=(new_plan)
             reset
             @plan = new_plan
@@ -343,6 +607,7 @@ module Roby
 	    @result_set ||= plan.query_result_set(self)
 	end
 
+        # Overload of TaskMatcher#filter
 	def filter(initial_set, task_index)
             result = super
 
@@ -361,9 +626,11 @@ module Roby
             result
         end
 
-        # #result_set is a cached value. Call this method to reinitialize,
-        # making sure the result set is recomputed next time #result_set is
-        # called.
+        # Reinitializes the cached query result.
+        #
+        # Queries cache their result, i.e. #each will always return the same
+        # task set. #reset makes sure that the next call to #each will return
+        # the same value.
 	def reset
 	    @result_set = nil
 	    self
@@ -402,10 +669,45 @@ module Roby
 		end
 	    end
 	end
+
+        ##
+        # :method: mission
+        #
+        # Filters missions
+        #
+        # Matches tasks in plan that are missions
+
+        ##
+        # :method: not_mission
+        #
+        # Filters out missions
+        #
+        # Matches tasks in plan that are not missions
+
+        ##
+        # :method: permanent
+        #
+        # Filters permanent tasks
+        #
+        # Matches tasks in plan that are declared as permanent tasks.
+        #
+        # See Plan#add_permanent
+
+        ##
+        # :method: not_permanent
+        #
+        # Filters out permanent tasks
+        #
+        # Matches tasks in plan that are not declared as permanent tasks
+        #
+        # See Plan#add_permanent
+
 	match_plan_predicates :mission, :permanent
 	
-        # Returns the set of tasks from the query for which no parent in
-        # +relation+ can be found in the query itself
+        # Filters tasks which have no parents in the query itself.
+        #
+        # Will filter out tasks which have parents in +relation+ that are
+        # included in the query result.
 	def roots(relation)
 	    @result_set = plan.query_roots(result_set, relation)
 	    self
@@ -426,6 +728,9 @@ module Roby
 	end
 
         # Iterates on all the tasks in the given plan which match the query
+        #
+        # This set is cached, i.e. #each will yield the same task set until
+        # #reset is called.
 	def each(&block)
 	    plan.query_each(result_set, &block)
 	    self
@@ -434,7 +739,7 @@ module Roby
     end
 
     # This task combines multiple task matching predicates through a OR boolean
-    # operator.
+    # operator. I.e. it will match if any of the underlying predicates match.
     class OrTaskMatcher < TaskMatcher
         # Create a new OrTaskMatcher object combining the given predicates.
 	def initialize(*ops)
@@ -442,8 +747,7 @@ module Roby
 	    super()
 	end
 
-        # Filters as much as non-matching tasks as possible out of +task_set+,
-        # based on the information in +task_index+
+        # Overload of TaskMatcher#filter
 	def filter(task_set, task_index)
 	    result = ValueSet.new
 	    for child in @ops
@@ -454,7 +758,8 @@ module Roby
 
         # Add a new predicate to the combination
 	def <<(op); @ops << op end
-        # True if the task matches at least one of the underlying predicates
+
+        # Overload of TaskMatcher#===
 	def ===(task)
 	    return unless @ops.any? { |op| op === task }
 	    super
@@ -462,6 +767,8 @@ module Roby
     end
 
     # Negate a given task-matching predicate
+    #
+    # This matcher will match if the underlying predicate does not match.
     class NegateTaskMatcher < TaskMatcher
         # Create a new TaskMatcher which matches if and only if +op+ does not
 	def initialize(op)
@@ -488,7 +795,7 @@ module Roby
     end
 
     # This task combines multiple task matching predicates through a AND boolean
-    # operator.
+    # operator. I.e. it will match if none of the underlying predicates match.
     class AndTaskMatcher < TaskMatcher
         # Create a new AndTaskMatcher object combining the given predicates.
 	def initialize(*ops)
@@ -516,7 +823,27 @@ module Roby
     end
 
     class Plan
-	# Returns a Query object on this plan
+        # Returns a Query object that applies on this plan.
+        #
+        # This is equivalent to
+        #
+        #   Roby::Query.new(self)
+        #
+        # Additionally, the +model+ and +args+ options are passed to
+        # Query#which_fullfills. For example:
+        #
+        #   plan.find_tasks(Tasks::SimpleTask, :id => 20)
+        #
+        # is equivalent to
+        #
+        #   Roby::Query.new(self).which_fullfills(Tasks::SimpleTask, :id => 20)
+        #
+        # The returned query is applied on the global scope by default. This
+        # means that, if it is applied on a transaction, it will match tasks
+        # that are in the underlying plans but not yet in the transaction,
+        # import the matches in the transaction and return the new proxies.
+        #
+        # See #find_local_tasks for a local query.
 	def find_tasks(model = nil, args = nil)
 	    q = Query.new(self)
 	    if model || args
@@ -525,9 +852,12 @@ module Roby
 	    q
 	end
 
-        # Starts a local query on this plan
+        # Starts a local query on this plan.
         #
-        # See Query#scope
+        # Unlike #find_tasks, when applied on a transaction, it will only match
+        # tasks that are already in the transaction.
+        #
+        # See #find_global_tasks for a local query.
         def find_local_tasks(*args, &block)
             query = find_tasks(*args, &block)
             query.local_scope
@@ -536,7 +866,7 @@ module Roby
 
 	# Called by TaskMatcher#result_set and Query#result_set to get the set
 	# of tasks matching +matcher+
-	def query_result_set(matcher)
+	def query_result_set(matcher) # :nodoc:
             filtered = matcher.filter(known_tasks, task_index)
 
             if matcher.indexed_query?
@@ -552,7 +882,7 @@ module Roby
 
 	# Called by TaskMatcher#each and Query#each to return the result of
 	# this query on +self+
-	def query_each(result_set, &block)
+	def query_each(result_set, &block) # :nodoc:
 	    for task in result_set
 		yield(task)
 	    end
@@ -560,7 +890,7 @@ module Roby
 
 	# Given the result set of +query+, returns the subset of tasks which
 	# have no parent in +query+
-	def query_roots(result_set, relation)
+	def query_roots(result_set, relation) # :nodoc:
 	    children = ValueSet.new
 	    found    = ValueSet.new
 	    for task in result_set
@@ -579,6 +909,8 @@ module Roby
 	# is the component that would be returned by
 	# +relation.generated_subgraphs(*seeds)+ if the transaction was
 	# committed
+        #
+        # This is an internal method used by queries
 	def merged_generated_subgraphs(relation, plan_seeds, transaction_seeds)
 	    plan_set        = ValueSet.new
 	    transaction_set = ValueSet.new
@@ -629,7 +961,12 @@ module Roby
 	# Returns [plan_set, transaction_set], where the first is the set of
 	# plan tasks matching +matcher+ and the second the set of transaction
 	# tasks matching it. The two sets are disjoint.
-	def query_result_set(matcher)
+        #
+        # This will be stored by the Query object as the query result. Note
+        # that, at this point, the transaction has not been modified even though
+        # it applies on the global scope. New proxies will only be created when
+        # Query#each is called.
+	def query_result_set(matcher) # :nodoc:
 	    plan_set = ValueSet.new
             if matcher.scope == :global
                 for task in plan.query_result_set(matcher)
@@ -643,7 +980,9 @@ module Roby
 
 	# Yields tasks in the result set of +query+. Unlike Query#result_set,
 	# all the tasks are included in the transaction
-	def query_each(result_set)
+        #
+        # +result_set+ is the value returned by #query_result_set.
+	def query_each(result_set) # :nodoc:
 	    plan_set, trsc_set = result_set
 	    plan_set.each { |task| yield(self[task]) }
 	    trsc_set.each { |task| yield(task) }
@@ -651,7 +990,7 @@ module Roby
 
 	# Given the result set of +query+, returns the subset of tasks which
 	# have no parent in +query+
-	def query_roots(result_set, relation)
+	def query_roots(result_set, relation) # :nodoc:
 	    plan_set      , trsc_set      = *result_set
 	    plan_result   , trsc_result   = ValueSet.new     , ValueSet.new
 	    plan_children , trsc_children = ValueSet.new     , ValueSet.new
