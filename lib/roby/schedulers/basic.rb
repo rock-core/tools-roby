@@ -1,9 +1,49 @@
 module Roby
     module Schedulers
+        # The basic schedulers uses the Roby's "core" plan model to decide which
+        # tasks can be started.
+        #
+        # The Roby engine may have one scheduler. This scheduler is set at
+        # initialization time with
+        #
+        #   Roby.engine.scheduler = <scheduler object>.
+        #
+        # For instance
+        #
+        #   Roby.engine.scheduler = Roby::Schedulers::Basic.new
+        #
+        # Then, the scheduler's #initial_events method is called at the
+        # beginning of each execution cycle. This method is supposed to call
+        # whatever event is reasonable to call with respect to the system's
+        # state (i.e. execution situation).
+        #
+        # The basic scheduler starts the tasks for which:
+        #  * the task is pending, executable and owned by the local robot
+        #  * the start event is root in all event relations (i.e. there is
+        #    neither signals and forwards pointing to it).
+        #  * it is root in the dependency relationship
+        #  * if the +include_children+ option of Basic.new is set to true, it
+        #    may be non-root in the dependency relation, in which case it is
+        #    started if and only if it has at least one parent that is running
+        #    (i.e. children are started after their parents).
+        #
 	class Basic
+            # The plan on which the scheduler applies
             attr_reader :plan
+            # The Roby::Query which is used to get the set of tasks that might
+            # be startable
 	    attr_reader :query
+            # If true, the scheduler will start tasks which are non-root in the
+            # dependency relation, if they have parents that are already
+            # running. 
             attr_reader :include_children
+
+            # Create a new Basic schedulers that work on the given plan, and
+            # with the provided +include_children+ option.
+            #
+            # See Basic for a description of the +include_children+ option.
+            #
+            # If +plan+ is set to nil, the scheduler will use Roby.plan
 	    def initialize(include_children = false, plan = nil)
                 @plan = plan || Roby.plan
                 @include_children = include_children
@@ -12,6 +52,9 @@ module Roby
 		    pending.
 		    self_owned
 	    end
+
+            # Starts all tasks that are eligible. See the documentation of the
+            # Basic class for an in-depth description
 	    def initial_events
 		for task in query.reset
 		    if !(task.event(:start).root? && task.event(:start).controlable?)
