@@ -32,10 +32,22 @@ module Roby::TaskStructure
 	# The set of child objects in the Dependency relation
 	def children; child_objects(Dependency) end
 
+        # Returns the set of roles that +child+ has
         def roles_of(child)
             info = self[child, Dependency]
             info[:roles]
         end
+
+        # Returns the child whose role is +role_name+, or nil if there is none
+        def child_from_role(role_name)
+            each_child do |child_task, info|
+                if info[:roles].include?(role_name)
+                    return child_task
+                end
+            end
+            nil
+        end
+
 
         def realized_by(task, options = {})
             Roby.warn_deprecated "#realized_by is deprecated. Use #depends_on instead"
