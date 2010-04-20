@@ -30,16 +30,11 @@ module Roby
 	attr_reader :model, :arguments
 	attr_reader :predicates, :neg_predicates, :owners
 
-	attr_reader :improved_information
-	attr_reader :needed_information
-
         # Initializes an empty TaskMatcher object
 	def initialize
 	    @predicates           = ValueSet.new
 	    @neg_predicates       = ValueSet.new
 	    @owners               = Array.new
-	    @improved_information = ValueSet.new
-	    @needed_information   = ValueSet.new
 	    @interruptible	  = nil
             @parents              = Hash.new { |h, k| h[k] = Array.new }
             @children             = Hash.new { |h, k| h[k] = Array.new }
@@ -463,12 +458,6 @@ module Roby
                 return false if !result
             end
 
-	    for info in improved_information
-		return false if !task.improves?(info)
-	    end
-	    for info in needed_information
-		return false if !task.needs?(info)
-	    end
 	    for pred in predicates
 		return false if !task.send(pred)
 	    end
@@ -484,8 +473,7 @@ module Roby
         # equivalent to calling #filter() using a TaskIndex. This is used to
         # avoid an explicit O(N) filtering step after filter() has been called
         def indexed_query?
-            improved_information.empty? && needed_information.empty? &&
-                (!arguments || arguments.empty?) && @children.empty? && @parents.empty? &&
+            (!arguments || arguments.empty?) && @children.empty? && @parents.empty? &&
                 TaskIndex::STATE_PREDICATES.include_all?(predicates) &&
                 TaskIndex::STATE_PREDICATES.include_all?(neg_predicates)
         end
@@ -541,7 +529,6 @@ module Roby
 	# to TaskMatcher.new.which_fullfills
 	declare_class_methods :which_fullfills, 
 	    :with_model, :with_arguments, 
-	    :which_needs, :which_improves, 
 	    :owned_by, :self_owned
 
         # Negates this predicate
