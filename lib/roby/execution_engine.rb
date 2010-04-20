@@ -1029,11 +1029,11 @@ module Roby
                     break
                 end
 
-                # Mark all root local_tasks as garbage
+                # Mark all root local_tasks as garbage.
                 roots = nil
                 2.times do |i|
                     roots = local_tasks.find_all do |t|
-                        if t.root?
+                        if t.root?(TaskStructure.relations)
                             plan.garbage(t)
                             true
                         else
