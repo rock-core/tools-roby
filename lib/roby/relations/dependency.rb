@@ -349,19 +349,30 @@ module Roby
 	def initialize(parent, child, explanation)
             @explanation = explanation
 
+            events, generators, others = [], [], []
+            explanation.elements.each do |e|
+                case e
+                when Event then events << e
+                when EventGenerator then generators << e
+                else others << e
+                end
+            end
+
             failure_point =
-                if !explanation.simple?
+                if events.size > 2 || !others.empty?
                     child
-                elsif explanation.value.nil? # unreachability
-                    base_event = explanation.elements.first
-                    reason = base_event.unreachability_reason
-                    if reason.kind_of?(Event)
-                        reason
+                else
+                    base_event = events.first || generators.first
+                    if explanation.value.nil? # unreachability
+                        reason = base_event.unreachability_reason
+                        if reason.kind_of?(Event)
+                            reason
+                        else
+                            base_event
+                        end
                     else
                         base_event
                     end
-                else
-                    explanation.elements.first
                 end
 
             super(failure_point)
