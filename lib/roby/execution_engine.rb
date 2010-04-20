@@ -1037,7 +1037,16 @@ module Roby
                             plan.garbage(t)
                             true
                         else
-                            ExecutionEngine.debug { "GC: ignoring #{t}, it is not root" }
+                            ExecutionEngine.debug do
+                                non_root_graphs = []
+                                t.each_graph do |g|
+                                    if !t.root?(g)
+                                        non_root_graphs << g
+                                    end
+                                end
+
+                                "GC: ignoring #{t}, it is not root in #{non_root_graphs.map(&:to_s).join(", ")}"
+                            end
                             false
                         end
                     end
