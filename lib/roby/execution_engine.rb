@@ -1040,23 +1040,12 @@ module Roby
                 # Mark all root local_tasks as garbage.
                 roots = nil
                 2.times do |i|
-                    roots = local_tasks.find_all do |t|
-                        if t.root?(TaskStructure.relations)
-                            plan.garbage(t)
-                            true
-                        else
-                            ExecutionEngine.debug do
-                                non_root_graphs = []
-                                t.each_graph do |g|
-                                    if !t.root?(g)
-                                        non_root_graphs << g
-                                    end
-                                end
-
-                                "GC: ignoring #{t}, it is not root in #{non_root_graphs.map(&:to_s).join(", ")}"
-                            end
-                            false
+                    roots = local_tasks.dup
+                    for rel in TaskStructure.relations
+                        roots.delete_if do |t|
+                            !t.root?(rel)
                         end
+                        break if roots.empty?
                     end
 
                     break if i == 1 || !roots.empty?
