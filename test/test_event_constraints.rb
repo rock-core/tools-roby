@@ -437,7 +437,7 @@ class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
     end
 
     def test_and_reduction
-        assert_equal :start.and(:stop), :start.and(:stop).and(:start).or(:stop)
+        assert_equal :start.and(:stop), :start.and(:stop).and(:start).and(:stop)
     end
 
     def test_or_reduction
