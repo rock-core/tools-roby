@@ -1355,23 +1355,23 @@ class TC_Task < Test::Unit::TestCase
 
     def test_emergency_termination_fails
         model = Class.new(SimpleTask) do
-            event :intermediate
-            event :stop do |context|
+            event :command_fails do |context|
                 raise ArgumentError
             end
+            event :emission_fails
         end
 	plan.add(task = model.new)
         task.start!
 
-        assert_raises(TaskEmergencyTermination) { task.stop! }
+        assert_raises(TaskEmergencyTermination) { task.command_fails! }
         assert(task.internal_error?)
         assert(task.failed?)
         assert_kind_of CommandFailed, task.failure_reason
-        assert_equal(task.event(:stop), task.failure_reason.failed_generator)
+        assert_equal(task.event(:command_fails), task.failure_reason.failed_generator)
 
         plan.add(task = model.new)
         task.start!
-        assert_raises(TaskEmergencyTermination) { task.intermediate_event.emit_failed }
+        assert_raises(TaskEmergencyTermination) { task.emission_fails.emit_failed }
         assert(task.internal_error?)
         assert(task.failed?)
         assert_kind_of EmissionFailed, task.failure_reason
