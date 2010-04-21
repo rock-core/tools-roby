@@ -72,23 +72,29 @@ end
                 pp.text to_s
             end
 
+            class CompiledPredicate
+                def marshal_dump; nil end
+                def marshal_load(obj); nil end
+            end
 
             def compile
                 prelude = required_events.map do |event_name|
                     "    task_#{event_name} = task.event(:#{event_name}).last"
                 end.join("\n")
 
+                compiled_predicate = CompiledPredicate.new
                 eval <<-END
-def self.evaluate(task)
+def compiled_predicate.evaluate(task)
 #{prelude}
     #{code}
 end
                 END
+                @compiled_predicate = compiled_predicate
             end
 
             def evaluate(task)
-                compile
-                self.evaluate(task)
+                compile if !@compiled_predicate || !@compiled_predicate.respond_to?(:evaluate)
+                @compiled_predicate.evaluate(task)
             end
         end
 
