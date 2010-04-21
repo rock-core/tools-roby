@@ -32,7 +32,10 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    e3.call(5)
 	    e3.emit(6)
 	end
-	assert_equal({ e1 => [nil, [nil, [1], nil, nil, [4], nil]], e2 => [[nil, [2], nil, nil, [3], nil], nil], e3 => [[nil, [6], nil], [nil, [5], nil]] }, set)
+	assert_equal(
+            { e1 => [1, nil, [nil, [1], nil, nil, [4], nil]],
+              e2 => [3, [nil, [2], nil, nil, [3], nil], nil],
+              e3 => [5, [nil, [6], nil], [nil, [5], nil]] }, set)
     end
 
     def test_emission_is_forbidden_outside_propagation_phase
@@ -153,15 +156,32 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     def test_next_step
 	# For the test to be valid, we need +pending+ to have a deterministic ordering
 	# Fix that here
-	e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
-	plan.add [e1, e2]
-	pending = [ [e1, [true, nil, nil, nil]], [e2, [false, nil, nil, nil]] ]
+	e1, e2, e3 = EventGenerator.new(true), EventGenerator.new(true), EventGenerator.new(true)
+	plan.add [e1, e2, e3]
+
+        pending = Array.new
 	def pending.each_key; each { |(k, v)| yield(k) } end
-	def pending.delete(ev); delete_if { |(k, v)| k == ev } end
+	def pending.delete(ev)
+            value = find { |(k, v)| k == ev }.last
+            delete_if { |(k, v)| k == ev }
+            value
+        end
+
+        # If there is no precedence, the order is determined by
+        # forwarding/signalling and/or step_id
+        pending.clear
+	pending << [e1, [0, nil, []]] << [e2, [1, [], nil]]
+	assert_equal(e2, engine.next_event(pending).first)
+        pending.clear
+	pending << [e1, [1, [], nil]] << [e2, [0, [], nil]]
+	assert_equal(e2, engine.next_event(pending).first)
+
+        # If there *is* a precedence relation, we must follow it
+        pending.clear
+	pending << [e1, [0, [], nil]] << [e2, [1, [], nil]]
 
 	e1.add_precedence e2
 	assert_equal(e1, engine.next_event(pending).first)
-
 	e1.remove_precedence e2
 	e2.add_precedence e1
 	assert_equal(e2, engine.next_event(pending).first)

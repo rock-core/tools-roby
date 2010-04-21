@@ -357,6 +357,7 @@ module Roby
         def gather_propagation(initial_set = Hash.new)
             raise InternalError, "nested call to #gather_propagation" if gathering?
             @propagation = initial_set
+            @propagation_step_id = 0
 
             propagation_context(nil) { yield }
 
@@ -451,11 +452,13 @@ module Roby
                 raise Roby::EventNotExecutable.new(target), "#{target} not in executed plan"
             end
 
-            step = (@propagation[target] ||= [nil, nil])
+            @propagation_step_id += 1
+
+            step = (@propagation[target] ||= [@propagation_step_id, nil, nil])
             from = [nil] unless from && !from.empty?
 
-            step = if is_forward then (step[0] ||= [])
-                   else (step[1] ||= [])
+            step = if is_forward then (step[1] ||= [])
+                   else (step[2] ||= [])
                    end
 
             from.each do |ev|
@@ -556,10 +559,10 @@ module Roby
         def next_event(pending)
             # this variable is 2 if selected_event is being forwarded, 1 if it
             # is both forwarded and signalled and 0 if it is only signalled
-            priority, selected_event = nil
+            priority, step_id, selected_event = nil
             for propagation_step in pending
                 target_event = propagation_step[0]
-                forwards, signals = *propagation_step[1]
+                target_step_id, forwards, signals = *propagation_step[1]
                 target_priority = if forwards && signals then 1
                                   elsif signals then 0
                                   else 2
@@ -570,8 +573,12 @@ module Roby
                                     false
                                 elsif EventStructure::Precedence.reachable?(target_event, selected_event)
                                     true
+                                elsif priority < target_priority
+                                    true
                                 else
-                                    priority < target_priority
+                                    # we try to keep the emission/call order:
+                                    # handle earlier events first
+                                    step_id > target_step_id
                                 end
                             else
                                 true
@@ -580,6 +587,7 @@ module Roby
                 if do_select
                     selected_event = target_event
                     priority       = target_priority
+                    step_id        = target_step_id
                 end
             end
             [selected_event, *pending.delete(selected_event)]
@@ -646,7 +654,7 @@ module Roby
         # the forwardings and signals that the propagation of the considered event
         # have added.
         def event_propagation_step(current_step)
-            signalled, forward_info, call_info = next_event(current_step)
+            signalled, step_id, forward_info, call_info = next_event(current_step)
 
             next_step = nil
             if call_info
@@ -675,9 +683,9 @@ module Roby
 
                 if forward_info
                     next_step ||= Hash.new
-                    next_step[signalled] ||= []
-                    next_step[signalled][0] ||= []
-                    next_step[signalled][0].concat forward_info
+                    next_step[signalled] ||= [@propagation_step_id += 1, nil, nil]
+                    next_step[signalled][1] ||= []
+                    next_step[signalled][1].concat forward_info
                 end
 
             elsif forward_info
