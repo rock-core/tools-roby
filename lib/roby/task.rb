@@ -192,6 +192,15 @@ module Roby
                     # interface, as we can't emergency stop it. Quarantine it
                     # and inject it in the normal exception propagation
                     # mechanisms.
+                    Robot.fatal "putting #{task} in quarantine: #{self} failed to emit"
+                    if message
+                        Robot.fatal "  #{message}"
+                    end
+                    if error
+                        Robot.fatal "the error is:"
+                        Roby.log_exception(error, Robot, :fatal)
+                    end
+
                     plan.quarantine(task)
                     plan.engine.add_error(TaskEmergencyTermination.new(task, error))
                 end
