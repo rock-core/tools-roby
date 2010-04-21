@@ -782,6 +782,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    t2.start!(nil)
 	    plan.unmark_mission(t2)
 	end
+
 	assert_finalizes(plan, [t5, t4, p1, t6], []) do
 	    t5.delays = true
 	    t5.start!(nil)
@@ -791,6 +792,8 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	assert_finalizes(plan, [t5, t4, p1, t6]) do
 	    t5.event(:stop).emit(nil)
 	end
+    ensure
+        t5.stop_event.emit if t5.delays && t5.running?
     end
     
     def test_force_garbage_collect_tasks
