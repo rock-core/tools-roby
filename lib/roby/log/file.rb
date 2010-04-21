@@ -212,13 +212,43 @@ module Roby::Log
 		unless (Marshal.dump(args) rescue nil)
                     args.each do |obj|
                         unless (Marshal.dump(obj) rescue nil)
-                            puts "cannot dump the following object in #{m}(#{args.join(", ")}):"
-                            pp obj
+                            Roby::Log.fatal "cannot dump the following object in #{m}(#{args.join(", ")}):"
+                            obj, exception = find_invalid_marshalling_object(obj)
+                            if obj
+                                Roby::Log.fatal "it seems that #{obj.inspect} can't be marshalled"
+                                Roby::Log.fatal "  #{exception.class}: #{exception.message}"
+                            end
                         end
                     end
 		end
             end
 	end
+
+        def find_invalid_marshalling_object(obj)
+            case obj
+            when Enumerable
+                obj.each do |value|
+                    if invalid = find_invalid_marshalling_object(value)
+                        return invalid
+                    end
+                end
+            end
+
+            # Generic check for instance variables
+            obj.instance_variables.each do |iv|
+                value = obj.instance_variable_get(iv)
+                if invalid = find_invalid_marshalling_object(value)
+                    return invalid
+                end
+            end
+
+            begin
+                Marshal.dump(obj)
+                nil
+            rescue Exception => e
+                return obj, e
+            end
+        end
 
 	Roby::Log.each_hook do |klass, m|
 	    define_method(m) { |time, args| dump_method(m, time, args) }
