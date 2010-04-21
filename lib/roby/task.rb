@@ -179,7 +179,7 @@ module Roby
             super do |error|
                 if symbol == :start
                     task.failed_to_start!(error)
-                elsif !task.event(:internal_error).happened?
+                elsif symbol != :stop && !task.event(:internal_error).happened?
                     task.emit :internal_error, error
                     if !task.event(:stop).controlable?
                         # In this case, we can't "just" stop the task. We have
