@@ -7,6 +7,7 @@ require 'roby'
 
 class TC_Exceptions < Test::Unit::TestCase 
     include Roby::Test
+    include Roby::Test::Assertions
     class SpecializedError < LocalizedError; end
 
     DO_PRETTY_PRINT = false
