@@ -960,12 +960,13 @@ module Roby
                     kill_tasks
                 end
                 if !kill_tasks.empty?
-                    Roby::ExecutionEngine.info do
-                        Roby::ExecutionEngine.info "EE: will kill the following tasks because of unhandled exceptions:"
+                    Roby::ExecutionEngine.warn ""
+                    Roby::ExecutionEngine.warn do
+                        Roby::ExecutionEngine.warn "EE: will kill the following tasks because of unhandled exceptions:"
                         kill_tasks.each do |task|
-                            Roby::ExecutionEngine.info "  " + task.to_s
+                            Roby::ExecutionEngine.warn "  " + task.to_s
                         end
-                        ""
+                        break
                     end
                 end
             end
