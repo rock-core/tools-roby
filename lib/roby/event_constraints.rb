@@ -1,5 +1,44 @@
 module Roby
-    module TemporalLogic
+    # This namespace contains predicates that allow to specify logic ordering
+    # constraints between events. The predicate objects can then be evaluated
+    # (return true/false), and can tell whether their value may change in the
+    # future.
+    #
+    # Moreover, for all three states (true, false, and static), the predicates
+    # can explain which events and/or generators explain this state of the
+    # predicate.
+    #
+    # For instance,
+    #
+    #   pred = :intermediate.to_unbound_task_predicate
+    #
+    # is a predicate that will return true if the intermediate event of the task
+    # it represents has already been emitted, and false otherwise.
+    #
+    #   pred.evaluate(task) => true or false
+    #
+    # If task.intermediate? is true (the event has been emitted), then
+    #
+    #   pred.explain_true(task)
+    #
+    # will return an Explanation instance where +elements+ ==
+    # [pred.intermediate_event.last] (the Event instance that has been emitted).
+    #
+    # However, if the event is not yet emitted then, 
+    #
+    #   pred.explain_false(task) => #<Explanation @elements=[pred.intermediate_event]>
+    #
+    # i.e. the reason is that intermediate_event has not been emitted.
+    #
+    # Finally, if intermediate has never been emitted and the task is finished
+    # (let's say because success has been emitted), the intermediate event
+    # cannot be emitted anymore. In this case,
+    #
+    #   pred.static?(task) => true
+    #   pred.evaluate(task) => false
+    #   pred.explain_static(task) => #<Explanation @elements=[task.event(:success)]>
+    #
+    module EventConstraints
         module UnboundPredicateSupport
             def happened?
                 to_unbound_task_predicate
@@ -28,7 +67,7 @@ end
 
         class ::FalseClass
             def to_unbound_task_predicate
-                Roby::TemporalLogic::UnboundTaskPredicate::False.new
+                Roby::EventConstraints::UnboundTaskPredicate::False.new
             end
         end
 
