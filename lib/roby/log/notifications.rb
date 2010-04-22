@@ -5,8 +5,8 @@ class Roby::Task::DRoby
 end
 
 module Roby
-    module Log
-	class Notifications < Roby::Log::DataDecoder
+    module LogReplay
+	class Notifications < DataDecoder
 	    GENERATOR_CALL_LIMIT = 0.1
 
 	    attr_reader :tasks

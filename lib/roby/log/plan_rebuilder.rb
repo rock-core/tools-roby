@@ -3,206 +3,199 @@ require 'roby/log/data_stream'
 require 'stringio'
 
 module Roby
-    class ObjectIDManager
-	attr_reader :siblings
-	attr_reader :objects
-	def initialize
-	    @siblings = Hash.new
-	    @objects  = Hash.new
-	    @inserted_at = Hash.new
-	end
+    module LogReplay
+        class ObjectIDManager
+            attr_reader :siblings
+            attr_reader :objects
+            def initialize
+                @siblings = Hash.new
+                @objects  = Hash.new
+                @inserted_at = Hash.new
+            end
 
-	def clear
-	    siblings.clear
-	    objects.clear
-	end
+            def clear
+                siblings.clear
+                objects.clear
+            end
 
-	def local_object(object, allow_new = true)
-	    return unless object
+            def local_object(object, allow_new = true)
+                return unless object
 
-	    current_siblings = Set.new
-	    ids = Set.new
-	    if object.kind_of?(Distributed::RemoteID) 
-		ids << object
-		if sibling = siblings[object]
-		    current_siblings << sibling
-		end
-	    else
-		for _, id in object.remote_siblings
-		    ids << id
-		    if sibling = siblings[id]
-			current_siblings << sibling
-		    end
-		end
-	    end
+                current_siblings = Set.new
+                ids = Set.new
+                if object.kind_of?(Distributed::RemoteID) 
+                    ids << object
+                    if sibling = siblings[object]
+                        current_siblings << sibling
+                    end
+                else
+                    for _, id in object.remote_siblings
+                        ids << id
+                        if sibling = siblings[id]
+                            current_siblings << sibling
+                        end
+                    end
+                end
 
-	    if current_siblings.size > 1
-		raise "more than one object matching"
-	    elsif current_siblings.empty?
-		if object.kind_of?(Distributed::RemoteID)
-		    raise "no object for this ID"
-		elsif !allow_new
-		    raise "new object ot type #{object.class} is not allowed here"
-		end
-	    else
-		obj = current_siblings.find { true }
-		if object.kind_of?(Distributed::RemoteID)
-		    object = obj
-		end
+                if current_siblings.size > 1
+                    raise "more than one object matching"
+                elsif current_siblings.empty?
+                    if object.kind_of?(Distributed::RemoteID)
+                        raise "no object for this ID"
+                    elsif !allow_new
+                        raise "new object ot type #{object.class} is not allowed here"
+                    end
+                else
+                    obj = current_siblings.find { true }
+                    if object.kind_of?(Distributed::RemoteID)
+                        object = obj
+                    end
 
-		if obj.class != object.class
-		    # Special case: +obj+ is a PlanObject and it is in no plan.
-		    #
-		    # In this case, we just replace it silently. It handles the
-		    # corner case of having a task hanging around because it is
-		    # linked to others, but has not been included in a plan.
-		    #
-		    # Note that this is a hack and should be fixed
-		    if obj.respond_to?(:plan) && !obj.plan
-			for id in objects.delete(obj)
-			    siblings.delete(id)
-			end
-		    else
-			raise "class mismatch #{obj.class} != #{object.class}. Old object is #{obj}"
-		    end
-		elsif block_given?
-		    ids.merge objects.delete(obj)
-		    object = yield(obj)
-		else
-		    object = obj
-		end
-	    end
+                    if obj.class != object.class
+                        # Special case: +obj+ is a PlanObject and it is in no plan.
+                        #
+                        # In this case, we just replace it silently. It handles the
+                        # corner case of having a task hanging around because it is
+                        # linked to others, but has not been included in a plan.
+                        #
+                        # Note that this is a hack and should be fixed
+                        if obj.respond_to?(:plan) && !obj.plan
+                            for id in objects.delete(obj)
+                                siblings.delete(id)
+                            end
+                        else
+                            raise "class mismatch #{obj.class} != #{object.class}. Old object is #{obj}"
+                        end
+                    elsif block_given?
+                        ids.merge objects.delete(obj)
+                        object = yield(obj)
+                    else
+                        object = obj
+                    end
+                end
 
-	    objects[object] ||= Set.new
-	    objects[object].merge ids
-	    for i in ids
-		siblings[i] = object
-	    end
+                objects[object] ||= Set.new
+                objects[object].merge ids
+                for i in ids
+                    siblings[i] = object
+                end
 
-	    object
-	end
+                object
+            end
 
-	def add_id(object, id)
-	    if siblings[id]
-		raise "there is already an object for this ID"
-	    elsif !id.kind_of(Distributed::RemoteID)
-		raise "#{id} is not a valid RemoteID"
-	    end
+            def add_id(object, id)
+                if siblings[id]
+                    raise "there is already an object for this ID"
+                elsif !id.kind_of(Distributed::RemoteID)
+                    raise "#{id} is not a valid RemoteID"
+                end
 
-	    siblings[id] = object
-	    objects[object] << id
-	end
+                siblings[id] = object
+                objects[object] << id
+            end
 
-	def remove_id(id)
-	    if !(object = siblings.delete(id))
-		raise "#{id} does not reference anything"
-	    end
-	    objects[object].delete(id)
-	end
+            def remove_id(id)
+                if !(object = siblings.delete(id))
+                    raise "#{id} does not reference anything"
+                end
+                objects[object].delete(id)
+            end
 
-	def remove(object)
-	    object = local_object(object)
+            def remove(object)
+                object = local_object(object)
 
-	    ids = objects.delete(object)
-	    for i in ids
-		siblings.delete(i)
-	    end
-	end
-    end
+                ids = objects.delete(object)
+                for i in ids
+                    siblings.delete(i)
+                end
+            end
+        end
 
-    class PlanObject::DRoby
-	include DirectedRelationSupport
-	attr_writer :plan
+        module ReplayPlanObject
+            include DirectedRelationSupport
+            attr_writer :plan
+            def update_from(new)
+                super if defined? super
+            end
+        end
 
-	def update_from(new)
-	    super if defined? super
-       	end
-    end
-    class TaskEventGenerator::DRoby
-	include DirectedRelationSupport
-	attr_writer :plan
-	attr_writer :task
+        module ReplayTaskEventGenerator
+            include ReplayPlanObject
+            attr_writer :task
+        end
 
-	def update_from(new)
-	    super if defined? super
-       	end
-    end
-    class Task::DRoby
-	attr_writer :plan
-	attribute(:events) { Hash.new }
+        module ReplayTask
+            include ReplayPlanObject
+            attribute(:events) { Hash.new }
 
-	def update_from(new)
-	    super if defined? super
-	    self.flags.merge! new.flags
-	    self.plan  = new.plan
-	end
-    end
+            def update_from(new)
+                super if defined? super
+                self.flags.merge! new.flags
+                self.plan  = new.plan
+            end
+        end
 
-    class Transaction::Proxy::DRoby
-	include DirectedRelationSupport
-	attr_writer :transaction
-	attr_accessor :plan
+        module ReplayTaskProxy
+            include ReplayPlanObject
+            attr_writer :transaction
 
-	def events; Hash.new end
-	def update_from(new)
-	    super if defined? super
-       	end
-    end
+            def events; Hash.new end
+            def update_from(new)
+                super if defined? super
+            end
+        end
 
-    module LoggedPlan
-	attribute(:missions)	 { ValueSet.new }
-	attribute(:known_tasks)  { ValueSet.new }
-	attribute(:free_events)  { ValueSet.new }
-	attribute(:transactions) { ValueSet.new }
-	attribute(:finalized_tasks)  { ValueSet.new }
-	attribute(:finalized_events) { ValueSet.new }
-	attribute(:proxies) { ValueSet.new }
-	attr_accessor :parent_plan
+        module ReplayPlan
+            attribute(:missions)	 { ValueSet.new }
+            attribute(:known_tasks)  { ValueSet.new }
+            attribute(:free_events)  { ValueSet.new }
+            attribute(:transactions) { ValueSet.new }
+            attribute(:finalized_tasks)  { ValueSet.new }
+            attribute(:finalized_events) { ValueSet.new }
+            attribute(:proxies) { ValueSet.new }
+            attr_accessor :parent_plan
 
-	def root_plan?; !parent_plan end
-	def update_from(new); end
-	def clear
-	    transactions.dup.each do |trsc|
-		trsc.clear
-		removed_transaction(trsc)
-	    end
-	    known_tasks.dup.each { |t| finalized_task(t) }
-	    free_events.dup.each { |e| finalized_event(e) }
-	    clear_finalized(finalized_tasks, finalized_events)
-	end
+            def root_plan?; !parent_plan end
+            def update_from(new); end
+            def clear
+                transactions.dup.each do |trsc|
+                    trsc.clear
+                    removed_transaction(trsc)
+                end
+                known_tasks.dup.each { |t| finalized_task(t) }
+                free_events.dup.each { |e| finalized_event(e) }
+                clear_finalized(finalized_tasks, finalized_events)
+            end
 
-	def finalized_task(task)
-	    missions.delete(task)
-	    known_tasks.delete(task)
-	    proxies.delete(task)
-	    finalized_tasks << task
-	end
-	def finalized_event(event)
-	    free_events.delete(event)
-	    proxies.delete(event)
-	    finalized_events << event unless event.respond_to?(:task)
-	end
-	def clear_finalized(tasks, events)
-	    tasks.each { |task| task.clear_vertex }
-	    @finalized_tasks = finalized_tasks - tasks
-	    events.each { |event| event.clear_vertex }
-	    @finalized_events = finalized_events - events
-	end
-	def removed_transaction(trsc)
-	    transactions.delete(trsc)
-	end
-    end
+            def finalized_task(task)
+                missions.delete(task)
+                known_tasks.delete(task)
+                proxies.delete(task)
+                finalized_tasks << task
+            end
+            def finalized_event(event)
+                free_events.delete(event)
+                proxies.delete(event)
+                finalized_events << event unless event.respond_to?(:task)
+            end
+            def clear_finalized(tasks, events)
+                tasks.each { |task| task.clear_vertex }
+                @finalized_tasks = finalized_tasks - tasks
+                events.each { |event| event.clear_vertex }
+                @finalized_events = finalized_events - events
+            end
+            def removed_transaction(trsc)
+                transactions.delete(trsc)
+            end
+        end
 
-    class Plan::DRoby
-	include LoggedPlan
-    end
+        Roby::PlanObject::DRoby.include ReplayPlanObject
+        Roby::TaskEventGenerator::DRoby.include ReplayTaskEventGenerator
+        Roby::Task::DRoby.include ReplayTask
+        Roby::Task::Proxying::DRoby.include ReplayTaskProxy
+        Roby::Plan::DRoby.include ReplayPlan
+        Roby::Distributed::Transaction::DRoby.include ReplayPlan
 
-    class Distributed::Transaction::DRoby
-	include LoggedPlan
-	attr_writer :plan
-    end
-
-    module Log
 	# This class rebuilds a plan-like structure from events saved by a
 	# FileLogger object This is compatible with the EventStream data source
 	class PlanRebuilder < DataDecoder
@@ -461,6 +454,38 @@ module Roby
 		object = local_object(object)
 		object.owners.delete(peer)
 	    end
+	end
+
+	module TaskDisplaySupport
+	    # A regex => boolean map of prefixes that should be removed from
+	    # the task names
+	    attribute :removed_prefixes do
+		{ "Roby::" => false, 
+		    "Roby::Genom::" => false }
+	    end
+
+	    # Compute the prefixes to remove from in filter_prefixes:
+	    # enable only the ones that are flagged, and sort them by
+	    # prefix length
+	    def update_prefixes_removal
+		@prefixes_removal = removed_prefixes.find_all { |p, b| b }.
+		    map { |p, b| p }.
+		    sort_by { |p| p.length }.
+		    reverse
+	    end
+
+	    def filter_prefixes(string)
+		# @prefixes_removal is computed in RelationsCanvas#update
+		for prefix in @prefixes_removal
+		    string = string.gsub(prefix, '')
+		end
+		string
+	    end
+
+	    # If true, show the ownership in the task descriptions
+	    attribute(:show_ownership) { true }
+	    # If true, show the arguments in the task descriptions
+	    attribute(:show_arguments) { false }
 	end
 
     end

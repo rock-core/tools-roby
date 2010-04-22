@@ -6,254 +6,268 @@ require 'roby/log/plan_rebuilder'
 require 'roby/log/gui/relations_view'
 
 module Roby
-    class PlanObject::DRoby
-	def display_parent; end
-	def display_create(display); end
-	def display_events; ValueSet.new end
-	def display_name(display); remote_name end
-	def display(display, graphics_item)
-	end
-    end
+    module LogReplay
+    module RelationsDisplay
+        def self.all_task_relations
+            if @all_task_relations
+                @all_task_relations
+            else
+                result = []
+                ObjectSpace.each_object(Roby::RelationSpace) do |space|
+                    result.concat(space.relations) if space.applied.find { |t| t <= Roby::Task }
+                end
+                @all_task_relations = result
+            end
+        end
 
-    module EventGeneratorDisplay
-	def self.style(object, flags)
-	    # This is for backward compatibility only. All events are now marshalled
-	    # with their controllability.
-	    if !object.controlable.nil?
-		flags |= (object.controlable ? Log::EVENT_CONTROLABLE : Log::EVENT_CONTINGENT)
-	    elsif (flags & Log::EVENT_CALLED) != 0
-		flags |= Log::EVENT_CONTROLABLE
-	    end
+        module DisplayPlanObject
+            def display_parent; end
+            def display_create(display); end
+            def display_events; ValueSet.new end
+            def display_name(display); remote_name end
+            def display(display, graphics_item)
+            end
+        end
 
-	    if !styles.has_key?(flags)
-		raise ArgumentError, "event flags #{flags} have not style"
-	    end
+        module DisplayEventGenerator
+            include DisplayPlanObject
+            def self.style(object, flags)
+                # This is for backward compatibility only. All events are now marshalled
+                # with their controllability.
+                if !object.controlable.nil?
+                    flags |= (object.controlable ? EVENT_CONTROLABLE : EVENT_CONTINGENT)
+                elsif (flags & EVENT_CALLED) != 0
+                    flags |= EVENT_CONTROLABLE
+                end
 
-	    styles[flags]
-	end
+                if !styles.has_key?(flags)
+                    raise ArgumentError, "event flags #{flags} have not style"
+                end
 
-	def self.styles
-	    if defined? @@event_styles
-		return @@event_styles
-	    end
+                styles[flags]
+            end
 
-	    @@event_styles = Hash.new
-	    @@event_styles[Log::EVENT_CONTROLABLE | Log::EVENT_CALLED] =
-		[Qt::Brush.new(Qt::Color.new(Log::PENDING_EVENT_COLOR)),
-		    Qt::Pen.new(Qt::Color.new(Log::PENDING_EVENT_COLOR))]
-	    @@event_styles[Log::EVENT_CONTROLABLE | Log::EVENT_EMITTED] =
-		[Qt::Brush.new(Qt::Color.new(Log::FIRED_EVENT_COLOR)),
-		    Qt::Pen.new(Qt::Color.new(Log::FIRED_EVENT_COLOR))]
-	    @@event_styles[Log::EVENT_CONTROLABLE | Log::EVENT_CALLED_AND_EMITTED] =
-		[Qt::Brush.new(Qt::Color.new(Log::FIRED_EVENT_COLOR)),
-		    Qt::Pen.new(Qt::Color.new(Log::PENDING_EVENT_COLOR))]
-	    @@event_styles[Log::EVENT_CONTINGENT | Log::EVENT_EMITTED] =
-		[Qt::Brush.new(Qt::Color.new('white')), Qt::Pen.new(Qt::Color.new(Log::FIRED_EVENT_COLOR))]
-	    @@event_styles
-	end
+            def self.styles
+                if defined? @@event_styles
+                    return @@event_styles
+                end
 
-	def self.priorities
-	    @@priorities ||= Hash.new
-	end
+                @@event_styles = Hash.new
+                @@event_styles[EVENT_CONTROLABLE | EVENT_CALLED] =
+                    [Qt::Brush.new(Qt::Color.new(PENDING_EVENT_COLOR)),
+                        Qt::Pen.new(Qt::Color.new(PENDING_EVENT_COLOR))]
+                @@event_styles[EVENT_CONTROLABLE | EVENT_EMITTED] =
+                    [Qt::Brush.new(Qt::Color.new(FIRED_EVENT_COLOR)),
+                        Qt::Pen.new(Qt::Color.new(FIRED_EVENT_COLOR))]
+                @@event_styles[EVENT_CONTROLABLE | EVENT_CALLED_AND_EMITTED] =
+                    [Qt::Brush.new(Qt::Color.new(FIRED_EVENT_COLOR)),
+                        Qt::Pen.new(Qt::Color.new(PENDING_EVENT_COLOR))]
+                @@event_styles[EVENT_CONTINGENT | EVENT_EMITTED] =
+                    [Qt::Brush.new(Qt::Color.new('white')), Qt::Pen.new(Qt::Color.new(FIRED_EVENT_COLOR))]
+                @@event_styles
+            end
 
-	def display_create(display)
-	    scene = display.scene
-	    circle = scene.add_ellipse(-Log::EVENT_CIRCLE_RADIUS, -Log::EVENT_CIRCLE_RADIUS, Log::EVENT_CIRCLE_RADIUS * 2, Log::EVENT_CIRCLE_RADIUS * 2)
-	    text   = scene.add_text(display_name(display))
-	    circle.singleton_class.class_eval { attr_accessor :text }
-	    circle.z_value = Log::EVENT_LAYER
+            def self.priorities
+                @@priorities ||= Hash.new
+            end
 
-	    text.parent_item = circle
-	    text_width   = text.bounding_rect.width
-	    text.set_pos(-text_width / 2, 0)
-	    circle.text = text
-	    circle
-	end
+            def display_create(display)
+                scene = display.scene
+                circle = scene.add_ellipse(-EVENT_CIRCLE_RADIUS, -EVENT_CIRCLE_RADIUS, EVENT_CIRCLE_RADIUS * 2, EVENT_CIRCLE_RADIUS * 2)
+                text   = scene.add_text(display_name(display))
+                circle.singleton_class.class_eval { attr_accessor :text }
+                circle.z_value = EVENT_LAYER
 
-	def display_time_start(circle, pos); circle.translate(pos) end
-	def display_time_end(circle, pos); end
-    end
+                text.parent_item = circle
+                text_width   = text.bounding_rect.width
+                text.set_pos(-text_width / 2, 0)
+                circle.text = text
+                circle
+            end
 
-    class EventGenerator::DRoby
-	include EventGeneratorDisplay
+            def display_time_start(circle, pos); circle.translate(pos) end
+            def display_time_end(circle, pos); end
 
-	def display_name(display)
-	    name = if model.ancestors[0][0] != 'Roby::EventGenerator'
-		       [display.filter_prefixes(model.ancestors[0][0].dup)]
-		   else
-		       []
-		   end
+            def display_name(display)
+                name = if model.ancestors[0][0] != 'Roby::EventGenerator'
+                           [display.filter_prefixes(model.ancestors[0][0].dup)]
+                       else
+                           []
+                       end
 
-	    if display.show_ownership
-		name << owners_to_s
-	    end
-	    name.join("\n")
-	end
+                if display.show_ownership
+                    name << owners_to_s
+                end
+                name.join("\n")
+            end
 
-	def display(display, graphics_item)
-	    graphics_item.text.plain_text = display_name(display).to_s
-	end
-    end
+            def display(display, graphics_item)
+                graphics_item.text.plain_text = display_name(display).to_s
+            end
+        end
 
-    class TaskEventGenerator::DRoby
-	include EventGeneratorDisplay
-	def display_parent; task end
-	def display_name(display); symbol.to_s end
+        module DisplayTaskEventGenerator
+            include DisplayEventGenerator
+            def display_parent; task end
+            def display_name(display); symbol.to_s end
+            def display(display, graphics_item)
+            end
+        end
 
-	def display(display, graphics_item)
-	end
-    end
+        module DisplayTask
+            include DisplayPlanObject
+            def layout_events(display)
+                graphics_item = display[self]
 
-    module LoggedTask
-	def layout_events(display)
-	    graphics_item = display[self]
+                width, height = 0, 0
+                events = self.events.map do |_, e| 
+                    next unless display.displayed?(e)
+                    next unless circle = display[e]
+                    br = (circle.bounding_rect | circle.children_bounding_rect)
+                    [e, circle, br]
+                end
+                events.compact!
+                events = events.sort_by { |ev, _| DisplayEventGenerator.priorities[ev] }
 
-	    width, height = 0, 0
-	    events = self.events.map do |_, e| 
-		next unless display.displayed?(e)
-		next unless circle = display[e]
-		br = (circle.bounding_rect | circle.children_bounding_rect)
-		[e, circle, br]
-	    end
-	    events.compact!
-	    events = events.sort_by { |ev, _| EventGeneratorDisplay.priorities[ev] }
+                events.each do |_, circle, br|
+                    w, h = br.width, br.height
+                    height = h if h > height
+                    width += w
+                end
+                width  += TASK_EVENT_SPACING * (events.size + 1)
+                height += TASK_EVENT_SPACING
 
-	    events.each do |_, circle, br|
-		w, h = br.width, br.height
-		height = h if h > height
-		width += w
-	    end
-	    width  += Log::TASK_EVENT_SPACING * (events.size + 1)
-	    height += Log::TASK_EVENT_SPACING
+                x = -width  / 2 + TASK_EVENT_SPACING
+                events.each do |e, circle, br|
+                    w  = br.width
+                    circle.set_pos(x + w / 2, -br.height / 2 + EVENT_CIRCLE_RADIUS + TASK_EVENT_SPACING)
+                    x += w + TASK_EVENT_SPACING
+                end
 
-	    x = -width  / 2 + Log::TASK_EVENT_SPACING
-	    events.each do |e, circle, br|
-		w  = br.width
-		circle.set_pos(x + w / 2, -br.height / 2 + Log::EVENT_CIRCLE_RADIUS + Log::TASK_EVENT_SPACING)
-		x += w + Log::TASK_EVENT_SPACING
-	    end
+                width = DEFAULT_TASK_WIDTH unless width > DEFAULT_TASK_WIDTH
+                height = DEFAULT_TASK_HEIGHT unless height > DEFAULT_TASK_HEIGHT
 
-	    width = Log::DEFAULT_TASK_WIDTH unless width > Log::DEFAULT_TASK_WIDTH
-	    height = Log::DEFAULT_TASK_HEIGHT unless height > Log::DEFAULT_TASK_HEIGHT
+                if @width != width || @height != height
+                    @width, @height = width, height
+                    coords = Qt::RectF.new( -(width / 2), -(height / 2), width, height )
+                    graphics_item.rect = coords
+                end
 
-	    if @width != width || @height != height
-		@width, @height = width, height
-		coords = Qt::RectF.new( -(width / 2), -(height / 2), width, height )
-		graphics_item.rect = coords
-	    end
+                text = graphics_item.text
+                text.set_pos(- text.bounding_rect.width / 2, height / 2 + TASK_EVENT_SPACING)
+            end
 
-	    text = graphics_item.text
-	    text.set_pos(- text.bounding_rect.width / 2, height / 2 + Log::TASK_EVENT_SPACING)
-	end
+            def display_create(display)
+                scene = display.scene
+                rect = scene.add_rect Qt::RectF.new(0, 0, 0, 0)
+                text = scene.add_text display_name(display)
+                rect.brush = Qt::Brush.new(TASK_BRUSH_COLORS[:pending])
+                rect.pen   = Qt::Pen.new(TASK_PEN_COLORS[:pending])
+                @displayed_state = :pending
+                text.parent_item = rect
+                rect.singleton_class.class_eval { attr_accessor :text }
+                rect.text = text
+                rect.z_value = TASK_LAYER
 
-	def display_create(display)
-	    scene = display.scene
-	    rect = scene.add_rect Qt::RectF.new(0, 0, 0, 0)
-	    text = scene.add_text display_name(display)
-	    rect.brush = Qt::Brush.new(Log::TASK_BRUSH_COLORS[:pending])
-	    rect.pen   = Qt::Pen.new(Log::TASK_PEN_COLORS[:pending])
-	    @displayed_state = :pending
-	    text.parent_item = rect
-	    rect.singleton_class.class_eval { attr_accessor :text }
-	    rect.text = text
-	    rect.z_value = Log::TASK_LAYER
+                rect.set_data(0, Qt::Variant.new(self.object_id.to_s))
+                rect
+            end
 
-	    rect.set_data(0, Qt::Variant.new(self.object_id.to_s))
-	    rect
-	end
+            def display_time_start(rect, pos); rect.left = pos end
+            def display_time_end(rect, pos);   rect.right = pos end
 
-	def display_time_start(rect, pos); rect.left = pos end
-	def display_time_end(rect, pos);   rect.right = pos end
-    end
+            attr_accessor :last_event
 
-    class Task::DRoby
-	include LoggedTask
-	attr_accessor :last_event
+            def display_name(display)
+                name = display.filter_prefixes(model.ancestors[0][0].dup)
+                if display.show_ownership
+                    name << "\n#{owners_to_s}"
+                end
+                name
+            end
 
-	def display_name(display)
-	    name = display.filter_prefixes(model.ancestors[0][0].dup)
-	    if display.show_ownership
-		name << "\n#{owners_to_s}"
-	    end
-	    name
-	end
+            def current_state
+                new_state = if plan && plan.finalized_tasks.include?(self)
+                                :finalized
+                            else
+                                [:success, :finished, :started, :pending].
+                                    find { |flag| flags[flag] } 
+                            end
+                new_state || :pending
+            end
 
-	def current_state
-	    new_state = if plan && plan.finalized_tasks.include?(self)
-			    :finalized
-			else
-			    [:success, :finished, :started, :pending].
-				find { |flag| flags[flag] } 
-			end
-	    new_state || :pending
-	end
+            attr_reader :displayed_state
+            def update_graphics(display, graphics_item)
+                new_state = current_state
+                if displayed_state != new_state
+                    graphics_item.brush = Qt::Brush.new(TASK_BRUSH_COLORS[new_state])
+                    graphics_item.pen   = Qt::Pen.new(TASK_PEN_COLORS[new_state])
+                    displayed_state = new_state
+                end
 
-	attr_reader :displayed_state
-	def update_graphics(display, graphics_item)
-	    new_state = current_state
-	    if displayed_state != new_state
-		graphics_item.brush = Qt::Brush.new(Log::TASK_BRUSH_COLORS[new_state])
-		graphics_item.pen   = Qt::Pen.new(Log::TASK_PEN_COLORS[new_state])
-		displayed_state = new_state
-	    end
+                graphics_item.text.plain_text = display_name(display).to_s
 
-	    graphics_item.text.plain_text = display_name(display).to_s
+            end
 
-	end
+            def display(display, graphics_item)
+                update_graphics(display, graphics_item)
+                super
+                layout_events(display)
+            end
+        end
 
-	def display(display, graphics_item)
-	    update_graphics(display, graphics_item)
-	    super
-	    layout_events(display)
-	end
-    end
+        module DisplayTaskProxy
+            include DisplayTask
 
-    class Transaction::Proxy::DRoby
-	include LoggedTask
+            attr_writer :real_object
+            def flags; real_object.flags end
 
-	attr_writer :real_object
-	def flags; real_object.flags end
+            def display_parent; end
+            def display_name(display); real_object.display_name(display) end
+            def display_create(display)
+                scene = display.scene
+                item = super
 
-	def display_parent; end
-	def display_name(display); real_object.display_name(display) end
-	def display_create(display)
-	    scene = display.scene
-	    item = super
+                brush = item.brush
+                brush.style = Qt::BDiagPattern
+                item.brush = brush
+                item
+            end
+            def display(display, graphics_item)
+                graphics_item.text.plain_text = display_name(display).to_s
+                layout_events(display)
+            end
+        end
 
-	    brush = item.brush
-	    brush.style = Qt::BDiagPattern
-	    item.brush = brush
-	    item
-	end
-	def display(display, graphics_item)
-	    graphics_item.text.plain_text = display_name(display).to_s
-	    layout_events(display)
-	end
-    end
+        module DisplayPlan
+            PLAN_STROKE_WIDTH = 5
+            # The plan depth, i.e. its distance from the root plan
+            attr_reader :depth
+            # The max depth of the plan tree in this branch
+            attr_reader :max_depth
 
-    module LoggedPlan
-	PLAN_STROKE_WIDTH = 5
-	# The plan depth, i.e. its distance from the root plan
-	attr_reader :depth
-	# The max depth of the plan tree in this branch
-	attr_reader :max_depth
+            def display_create(display)
+                scene = display.scene
+                pen            = Qt::Pen.new
+                pen.width      = PLAN_STROKE_WIDTH
+                pen.style      = Qt::SolidLine
+                pen.cap_style  = Qt::SquareCap
+                pen.join_style = Qt::RoundJoin
+                scene.add_rect Qt::RectF.new(0, 0, 0, 0), pen
+            end
+            def display_parent; parent_plan end
+            def display(display, item)
+                #STDERR.puts "DISPLAYING PLAN\n  #{caller.join("\n  ")}"
+            end
+        end
 
-	def display_create(display)
-	    scene = display.scene
-	    pen            = Qt::Pen.new
-	    pen.width      = PLAN_STROKE_WIDTH
-	    pen.style      = Qt::SolidLine
-	    pen.cap_style  = Qt::SquareCap
-	    pen.join_style = Qt::RoundJoin
-	    scene.add_rect Qt::RectF.new(0, 0, 0, 0), pen
-	end
-	def display_parent; parent_plan end
-	def display(display, item)
-	    #STDERR.puts "DISPLAYING PLAN\n  #{caller.join("\n  ")}"
-	end
-    end
+        Roby::PlanObject::DRoby.include DisplayPlanObject
+        Roby::EventGenerator::DRoby.include DisplayEventGenerator
+        Roby::TaskEventGenerator::DRoby.include DisplayTaskEventGenerator
+        Roby::Task::DRoby.include DisplayTask
+        Roby::Task::Proxying::DRoby.include DisplayTaskProxy
+        Roby::Plan::DRoby.include DisplayPlan
 
-    module Log
 	EVENT_CIRCLE_RADIUS = 3
 	TASK_EVENT_SPACING  = 5
 	DEFAULT_TASK_WIDTH = 20
@@ -381,55 +395,11 @@ module Roby
 	    arrow.rotate(alpha * 180 / Math::PI)
 	end
 
-	module TaskDisplaySupport
-	    # A regex => boolean map of prefixes that should be removed from
-	    # the task names
-	    attribute :removed_prefixes do
-		{ "Roby::" => false, 
-		    "Roby::Genom::" => false }
-	    end
+	class RelationsCanvas < Qt::Object
+	    include LogReplay::DataDisplay
+	    decoder LogReplay::PlanRebuilder
 
-	    # Compute the prefixes to remove from in filter_prefixes:
-	    # enable only the ones that are flagged, and sort them by
-	    # prefix length
-	    def update_prefixes_removal
-		@prefixes_removal = removed_prefixes.find_all { |p, b| b }.
-		    map { |p, b| p }.
-		    sort_by { |p| p.length }.
-		    reverse
-	    end
-
-	    def filter_prefixes(string)
-		# @prefixes_removal is computed in RelationsDisplay#update
-		for prefix in @prefixes_removal
-		    string = string.gsub(prefix, '')
-		end
-		string
-	    end
-
-	    # If true, show the ownership in the task descriptions
-	    attribute(:show_ownership) { true }
-	    # If true, show the arguments in the task descriptions
-	    attribute(:show_arguments) { false }
-	end
-
-	class RelationsDisplay < Qt::Object
-	    include DataDisplay
-	    decoder PlanRebuilder
-
-	    include TaskDisplaySupport
-
-            def self.all_task_relations
-                if @all_task_relations
-                    @all_task_relations
-                else
-                    result = []
-                    ObjectSpace.each_object(Roby::RelationSpace) do |space|
-                        result.concat(space.relations) if space.applied.find { |t| t <= Roby::Task }
-                    end
-                    @all_task_relations = result
-                end
-            end
+	    include LogReplay::TaskDisplaySupport
 
 	    attr_reader :ui, :scene
 
@@ -555,7 +525,7 @@ module Roby
 		    item.pen   = item.line.pen = relation_pens[rel]
 		    item.brush = relation_brushes[rel]
 		end
-		Log.arrow_set item, self[from], self[to]
+		RelationsDisplay.arrow_set item, self[from], self[to]
 	    end
 
 	    # Centers the view on the set of object found which matches
@@ -635,6 +605,7 @@ module Roby
 		disable_relation(relation)
 		@layout_relations << relation
 	    end
+
             # Don't use this relation at all
 	    def ignore_relation(relation)
 		disable_relation(relation)
@@ -850,10 +821,10 @@ module Roby
 		    end
 		end
 
-		EventGeneratorDisplay.priorities.clear
+		DisplayEventGenerator.priorities.clear
 		event_priority = 0
 		execution_events.each_with_index do |(flags, object), event_priority|
-		    EventGeneratorDisplay.priorities[object] = event_priority
+		    DisplayEventGenerator.priorities[object] = event_priority
 		    next if object.respond_to?(:task) && !displayed?(object.task)
 
 		    graphics = if flashing_objects.has_key?(object)
@@ -862,16 +833,16 @@ module Roby
 				   add_flashing_object(object)
 			       end
 
-		    graphics.brush, graphics.pen = EventGeneratorDisplay.style(object, flags)
+		    graphics.brush, graphics.pen = DisplayEventGenerator.style(object, flags)
 		end
 		
 		propagated_events.each do |_, sources, to, _|
 		    sources.each do |from|
-			if !EventGeneratorDisplay.priorities.has_key?(from)
-			    EventGeneratorDisplay.priorities[from] = (event_priority += 1)
+			if !DisplayEventGenerator.priorities.has_key?(from)
+			    DisplayEventGenerator.priorities[from] = (event_priority += 1)
 			end
-			if !EventGeneratorDisplay.priorities.has_key?(to)
-			    EventGeneratorDisplay.priorities[to] = (event_priority += 1)
+			if !DisplayEventGenerator.priorities.has_key?(to)
+			    DisplayEventGenerator.priorities[to] = (event_priority += 1)
 			end
 
 			if from.respond_to?(:task) 
@@ -900,6 +871,7 @@ module Roby
 
 		# Update arrow visibility
 		arrows.each do |(from, to, rel), item|
+                    next if !@enabled_relations.include?(rel)
 		    item.visible = (displayed?(from) && displayed?(to))
 		end
 
@@ -934,7 +906,7 @@ module Roby
 
 			arrow.visible = true
 			propagation_style(arrow, flag)
-			Log.arrow_set(arrow, self[from], self[to])
+			RelationsDisplay.arrow_set(arrow, self[from], self[to])
 		    end
 		end
 		# ... and hide the remaining arrows that are not used anymore
@@ -945,6 +917,8 @@ module Roby
 		end
 
                 true
+            rescue Exception => e
+                Qt::MessageBox.new(Qt::MessageBox::Critical, "roby-log", "Cannot update display: #{e.message}").exec
 	    end
 
 	    def remove_graphics(item, scene = nil)
@@ -1065,6 +1039,7 @@ module Roby
 	    end
 	end
     end
+    end
 end
 
 
@@ -1073,7 +1048,7 @@ if $0 == __FILE__
     include Roby::Log
     app     = Qt::Application.new(ARGV)
     builder = PlanRebuild.new
-    rel     = RelationsDisplay.new(builder)
+    rel     = RelationsCanvas.new(builder)
     rel.main_widget.show
     Roby::Log.replay(ARGV[0]) do |method_name, method_args|
 	builder.send(method_name, *method_args) if builder.respond_to?(method_name)

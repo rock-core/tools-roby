@@ -1,7 +1,7 @@
 require 'roby/log/data_stream'
 
 module Roby
-    module Log
+    module LogReplay
 	# This class is a logger-compatible interface which read event and index logs,
 	# and may rebuild the task and event graphs from the marshalled events
 	# that are saved using for instance FileLogger

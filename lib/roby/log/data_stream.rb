@@ -1,5 +1,5 @@
 require 'roby/log'
-module Roby::Log
+module Roby::LogReplay
     # == Displaying log data
     #
     # Data display is done in three objects:

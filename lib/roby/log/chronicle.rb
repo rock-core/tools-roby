@@ -3,7 +3,7 @@ require 'roby/log/relations'
 require 'roby/log/gui/chronicle_view'
 
 module Roby
-    module Log
+    module LogReplay
 	class ChronicleDisplay < Qt::Object
 
 	    # y:: the Y of this line in the graphics scene

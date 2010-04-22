@@ -4,181 +4,201 @@ require 'tempfile'
 require 'fileutils'
 
 module Roby
-    module LoggedPlan
-	attr_accessor :layout_level
-	def all_events(display)
-	    known_tasks.inject(free_events.dup) do |events, task|
-		if display.displayed?(task)
-		    events.merge(task.events.values.to_value_set)
-		else
-		    events
-		end
-	    end
-	end
+    module LogReplay::RelationsDisplay
+        module GraphvizPlan
+            attr_accessor :layout_level
+            def all_events(display)
+                known_tasks.inject(free_events.dup) do |events, task|
+                    if display.displayed?(task)
+                        events.merge(task.events.values.to_value_set)
+                    else
+                        events
+                    end
+                end
+            end
 
-	attr_reader :dot_id
-	def to_dot(display, io, level)
-	    @layout_level = level
-	    id = io.layout_id(self)
-	    @dot_id = "plan_#{id}"
-	    io << "subgraph cluster_#{dot_id} {\n"
-	    (known_tasks | finalized_tasks | free_events | finalized_events).
-		each do |obj|
-		    obj.to_dot(display, io) if display.displayed?(obj)
-		end
+            attr_reader :dot_id
+            def to_dot(display, io, level)
+                @layout_level = level
+                id = io.layout_id(self)
+                @dot_id = "plan_#{id}"
+                io << "subgraph cluster_#{dot_id} {\n"
+                (known_tasks | finalized_tasks | free_events | finalized_events).
+                    each do |obj|
+                        obj.to_dot(display, io) if display.displayed?(obj)
+                    end
 
-	    io << "};\n"
+                io << "};\n"
 
-	    transactions.each do |trsc|
-		trsc.to_dot(display, io, level + 1)
-	    end
+                transactions.each do |trsc|
+                    trsc.to_dot(display, io, level + 1)
+                end
 
-	    relations_to_dot(display, io, Roby::Log::RelationsDisplay.all_task_relations, known_tasks)
-	end
+                relations_to_dot(display, io, LogReplay::RelationsDisplay.all_task_relations, known_tasks)
+            end
 
-	def each_displayed_relation(display, relations, objects)
-	    relations.each do |rel|
-		next unless display.relation_enabled?(rel)
+            def each_edge(rel, display, relations, objects)
+                objects.each do |from|
+                    next unless display.displayed?(from)
+                    unless display[from]
+                        Roby::Log.warn "no display item for #{from} in #each_displayed_relation"
+                        next
+                    end
 
-		objects.each do |from|
-		    next unless display.displayed?(from)
-		    unless display[from]
-			Roby::Log.warn "no display item for #{from} in #each_displayed_relation"
-			next
-		    end
+                    from.each_child_object(rel) do |to|
+                        next unless display.displayed?(to)
+                        unless display[to]
+                            Roby::Log.warn "no display item for child in #{from} <#{rel}> #{to} in #each_displayed_relation"
+                            next
+                        end
 
-		    from.each_child_object(rel) do |to|
-			next unless display.displayed?(to)
-			unless display[to]
-			    Roby::Log.warn "no display item for child in #{from} <#{rel}> #{to} in #each_displayed_relation"
-			    next
-			end
+                        yield(rel, from, to)
+                    end
+                end
+            end
 
-			yield(rel, from, to)
-		    end
-		end
-	    end
-	end
+            def each_layout_relation(display, relations, object, &block)
+                relations.each do |rel|
+                    next unless display.layout_relation?(rel)
+                    each_edge(rel, display, relations, object, &block)
+                end
+            end
 
-	def relations_to_dot(display, io, all_relations, objects)
-	    each_displayed_relation(display, all_relations, objects) do |rel, from, to|
-		from_id, to_id = from.dot_id, to.dot_id
-		if from_id && to_id
-		    io << "  #{from_id} -> #{to_id}\n"
-		else
-		    Roby::Log.warn "ignoring #{from}(#{from.object_id} #{from_id}) -> #{to}(#{to.object_id} #{to_id}) in #{rel} in #{caller(1).join("\n  ")}"
-		end
-	    end
-	end
+            def each_displayed_relation(display, relations, object, &block)
+                relations.each do |rel|
+                    next unless display.relation_enabled?(rel)
+                    each_edge(rel, display, relations, object, &block)
+                end
+            end
 
-	def layout_relations(positions, display, all_relations, objects)
-	    each_displayed_relation(display, all_relations, objects) do |rel, from, to|
-		display.task_relation(from, to, rel, from[to, rel])
-	    end
-	end
+            def relations_to_dot(display, io, all_relations, objects)
+                each_layout_relation(display, all_relations, objects) do |rel, from, to|
+                    from_id, to_id = from.dot_id, to.dot_id
+                    if from_id && to_id
+                        io << "  #{from_id} -> #{to_id}\n"
+                    else
+                        Roby::Log.warn "ignoring #{from}(#{from.object_id} #{from_id}) -> #{to}(#{to.object_id} #{to_id}) in #{rel} in #{caller(1).join("\n  ")}"
+                    end
+                end
+            end
 
-	# The distance from the root plan
-	attr_reader :depth
+            def layout_relations(positions, display, all_relations, objects)
+                each_displayed_relation(display, all_relations, objects) do |rel, from, to|
+                    display.task_relation(from, to, rel, from[to, rel])
+                end
+            end
 
-	# Computes the plan depths and max_depth for this plan and all its
-	# children. +depth+ is this plan depth
-	#
-	# Returns max_depth
-	def compute_depth(depth)
-	    @depth = depth
-	    child_depth = transactions.
-		map { |trsc| trsc.compute_depth(depth + 1) }.
-		max
-	    child_depth || depth
-	end
-	
-	def apply_layout(bounding_rects, positions, display, max_depth = nil)
-	    max_depth ||= compute_depth(0)
+            # The distance from the root plan
+            attr_reader :depth
 
-	    if rect = bounding_rects[dot_id]
-		item = display[self]
-                rect[2] *= 1.2
-                rect[3] *= 1.2
-		item.z_value = Log::PLAN_LAYER + depth - max_depth
-		item.set_rect(*rect)
-	    else
-		Roby::Log.warn "no bounding rectangle for #{self} (#{dot_id})"
-	    end
+            # Computes the plan depths and max_depth for this plan and all its
+            # children. +depth+ is this plan depth
+            #
+            # Returns max_depth
+            def compute_depth(depth)
+                @depth = depth
+                child_depth = transactions.
+                    map { |trsc| trsc.compute_depth(depth + 1) }.
+                    max
+                child_depth || depth
+            end
+            
+            def apply_layout(bounding_rects, positions, display, max_depth = nil)
+                max_depth ||= compute_depth(0)
+
+                if rect = bounding_rects[dot_id]
+                    item = display[self]
+                    rect[2] *= 1.2
+                    rect[3] *= 1.2
+                    item.z_value = PLAN_LAYER + depth - max_depth
+                    item.set_rect(*rect)
+                else
+                    Roby::Log.warn "no bounding rectangle for #{self} (#{dot_id})"
+                end
 
 
-	    (known_tasks | finalized_tasks | free_events | finalized_events).
-		each do |obj|
-		    obj.apply_layout(positions, display)
-		end
+                (known_tasks | finalized_tasks | free_events | finalized_events).
+                    each do |obj|
+                        obj.apply_layout(positions, display)
+                    end
 
-	    transactions.each do |trsc|
-		trsc.apply_layout(bounding_rects, positions, display, max_depth)
-	    end
-	    layout_relations(positions, display, Roby::Log::RelationsDisplay.all_task_relations, known_tasks)
-	end
-    end
+                transactions.each do |trsc|
+                    trsc.apply_layout(bounding_rects, positions, display, max_depth)
+                end
+                layout_relations(positions, display, LogReplay::RelationsDisplay.all_task_relations, known_tasks)
+            end
+        end
 
-    module LoggedPlanObject
-	attr_reader :dot_id
+        module GraphvizPlanObject
+            attr_reader :dot_id
 
-	def dot_label(display); display_name(display) end
+            def dot_label(display); display_name(display) end
 
-	# Adds the dot definition for this object in +io+
-	def to_dot(display, io)
-	    return unless display.displayed?(self)
-	    @dot_id ||= "plan_object_#{io.layout_id(self)}"
-	    io << "  #{dot_id}[label=\"#{dot_label(display).split("\n").join('\n')}\"];\n"
-	end
+            # Adds the dot definition for this object in +io+
+            def to_dot(display, io)
+                return unless display.displayed?(self)
+                @dot_id ||= "plan_object_#{io.layout_id(self)}"
+                io << "  #{dot_id}[label=\"#{dot_label(display).split("\n").join('\n')}\"];\n"
+            end
 
-	# Applys the layout in +positions+ to this particular object
-	def apply_layout(positions, display)
-	    return unless display.displayed?(self)
-	    if p = positions[dot_id]
-		raise "no graphics for #{self}" unless graphics_item = display[self]
-		graphics_item.pos = p
-	    else
-		STDERR.puts "WARN: #{self} has not been layouted"
-	    end
-	end
-    end
+            # Applys the layout in +positions+ to this particular object
+            def apply_layout(positions, display)
+                return unless display.displayed?(self)
+                if p = positions[dot_id]
+                    raise "no graphics for #{self}" unless graphics_item = display[self]
+                    graphics_item.pos = p
+                else
+                    STDERR.puts "WARN: #{self} has not been layouted"
+                end
+            end
+        end
+        
+        module GraphvizTaskEventGenerator
+            include GraphvizPlanObject
+            def dot_label(display); symbol.to_s end
+            def dot_id; task.dot_id end
+        end
 
-    class PlanObject::DRoby
-	include LoggedPlanObject
-    end
+        module GraphvizTask
+            include GraphvizPlanObject
+            def dot_label(display)
+                event_names = events.values.find_all { |ev| display.displayed?(ev) }.
+                    map { |ev| ev.dot_label(display) }.
+                    join(" ")
 
-    class TaskEventGenerator::DRoby
-	def dot_label(display); symbol.to_s end
-	def dot_id; task.dot_id end
-    end
+                own = super
+                if own.size > event_names.size then own
+                else event_names
+                end
+            end
+        end
 
-    module LoggedTask
-	include LoggedPlanObject
-	def dot_label(display)
-	    event_names = events.values.find_all { |ev| display.displayed?(ev) }.
-		map { |ev| ev.dot_label(display) }.
-		join(" ")
+        Roby::Plan::DRoby.include GraphvizPlan
+        Roby::PlanObject::DRoby.include GraphvizPlanObject
+        Roby::TaskEventGenerator::DRoby.include GraphvizTaskEventGenerator
+        Roby::Task::Roby.include GraphvizTask
 
-	    own = super
-	    if own.size > event_names.size then own
-	    else event_names
-	    end
-	end
-    end
-
-    module Log
+        # This class uses Graphviz (i.e. the "dot" tool) to compute a layout for
+        # a given plan
 	class Layout
-	    @@bkpindex = 0
-
+            # Returns the dot ID for the given object
 	    def layout_id(object)
 		id = Object.address_from_id(object.object_id).to_s
 		object_ids[id] = object
 		id
 	    end
 
+            # The set of IDs for the objects in the plan
 	    attribute(:object_ids) { Hash.new }
+
 	    attr_reader :dot_input
 
+            # Add a string to the resulting Dot input file
 	    def <<(string); dot_input << string end
+
+            # Generates a layout for +plan+ to be displayed on +display+.
+            #
+            # +display+ should be a 
 	    def layout(display, plan)
 		@@index ||= 0
 		@@index += 1
@@ -251,6 +271,9 @@ module Roby
 		end
 
 		graph_bb = bounding_rects.delete(nil)
+                if !graph_bb
+                    raise "Graphviz failed to generate a layout for this plan"
+                end
 		bounding_rects.each_value do |coords|
 		    coords[0] -= graph_bb[0]
 		    coords[1] = graph_bb[1] - coords[1] - coords[3]

@@ -819,7 +819,7 @@ module Roby
 			   path
 		       end
 		if path
-		    return [Roby::Log::EventStream.new(path)]
+		    return [Roby::LogReplay::EventStream.new(path)]
 		end
 	    end
 
@@ -838,7 +838,7 @@ module Roby
 	    streams = []
 	    Dir.glob(File.join(log_dir, '*-events.log*')).each do |file|
 		next unless file =~ /-events\.log$/
-		streams << Roby::Log::EventStream.new($`)
+		streams << Roby::LogReplay::EventStream.new($`)
 	    end
 	    each_responding_plugin(:data_streams, true) do |config|
 		if s = config.data_streams(log_dir)

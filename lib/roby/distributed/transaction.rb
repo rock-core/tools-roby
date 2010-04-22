@@ -385,7 +385,7 @@ module Roby
 	    end
 	end
 
-	module Roby::Transaction::Proxy
+	module Roby::Task::Proxying
 	    def droby_dump(dest) # :nodoc:
 		DRoby.new(remote_siblings.droby_dump(dest), owners.droby_dump(dest),
 			 Distributed.format(@__getobj__, dest), Distributed.format(transaction, dest))

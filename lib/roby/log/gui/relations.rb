@@ -29,7 +29,7 @@ module Ui
 	    @display   = display
 	    @relations = []
 
-	    relations[TASK_ROOT_INDEX]  = Roby::Log::RelationsDisplay.all_task_relations
+	    relations[TASK_ROOT_INDEX]  = Roby::LogReplay::RelationsDisplay.all_task_relations
 
             RelationConfigModel.detect_qtruby_behaviour(createIndex(0, 0, 0))
 	end
@@ -186,6 +186,7 @@ module Ui
 	    display.layout_method = if index == 0 then nil
 				    else METHODS[index]
 				    end
+            display.update
 	end
 	slots 'selected()'
     end
@@ -207,7 +208,7 @@ module Ui
 	def setupUi(streams_model, widget)
 	    super(widget)
 
-	    display   = Roby::Log::RelationsDisplay.new
+	    display   = Roby::LogReplay::RelationsDisplay::RelationsCanvas.new
 	    @model    = RelationConfigModel.new(display)
 	    @delegate = RelationDelegate.new
 	    relations.set_item_delegate @delegate
@@ -231,7 +232,7 @@ module Ui
 	def self.setup_optparse(opt, replay)
 	    opt.on("--relations=REL1,REL2", Array, "create a relation display with the given relations") do |relations|
 		replay.initial_setup << lambda do |gui|
-                    all_relations = Roby::Log::RelationsDisplay.all_task_relations
+                    all_relations = Roby::LogReplay::RelationsDisplay.all_task_relations
                     if relations.include?("all")
                         relations = all_relations
                     else
