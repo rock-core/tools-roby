@@ -227,6 +227,32 @@ module Roby
 	# The list of children started using #remote_process
 	attr_reader :remote_processes
 
+        def gather_log_messages(message_name)
+            logger_class = Class.new do
+                attr_reader :messages
+                def initialize
+                    @messages = Array.new
+                end
+
+                define_method(message_name) do |time, args|
+                    messages << [message_name, time, args]
+                end
+                def splat?; false end
+                define_method(:logs_message?) do |m|
+                    m == message_name
+                end
+                def close; end
+            end
+
+            logger = logger_class.new
+            Log.add_logger(logger)
+
+            yield
+
+            Log.remove_logger(logger)
+            logger.messages
+        end
+
 	# Creates a set of tasks and returns them. Each task is given an unique
 	# 'id' which allows to recognize it in a failed assertion.
 	#

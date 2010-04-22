@@ -253,7 +253,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	Roby.app.abort_on_exception = true
 	Roby.logger.level = Logger::FATAL
 
-	task = Class.new(Tasks::Simple) do
+	task = Class.new(SimpleTask) do
 	    event :start do |context|
 		emit(:start)
 		raise RuntimeError, "failed"
@@ -347,14 +347,14 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_plan_repairs
-	model = Class.new(Tasks::Simple) do
+	model = Class.new(SimpleTask) do
 	    event :blocked
 	    forward :blocked => :failed
 	end
 
 	# First, check methods located in Plan
 	plan.add(task = model.new)
-	r1, r2 = Tasks::Simple.new, Tasks::Simple.new
+	r1, r2 = SimpleTask.new, SimpleTask.new
 
 	task.start!
 	task.emit :blocked
@@ -380,7 +380,7 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_exception_inhibition
-	parent, child = prepare_plan :tasks => 2, :model => Tasks::Simple
+	parent, child = prepare_plan :tasks => 2, :model => SimpleTask
 	plan.add_mission(parent)
 	parent.depends_on child
 	parent.signals :start, child, :start
@@ -389,7 +389,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	exceptions = plan.check_structure
 
-	plan.add(repairing_task = Tasks::Simple.new)
+	plan.add(repairing_task = SimpleTask.new)
 	repairing_task.start!
 	assert_equal(exceptions.to_a, engine.remove_inhibited_exceptions(exceptions))
 	assert_equal(exceptions.keys, engine.propagate_exceptions(exceptions))
@@ -403,7 +403,7 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_error_handling_relation(error_event = :failed)
-	task_model = Class.new(Tasks::Simple) do
+	task_model = Class.new(SimpleTask) do
 	    event :blocked
 	    forward :blocked => :failed
 	end
@@ -411,7 +411,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	parent, child = prepare_plan :tasks => 2, :model => task_model
 	plan.add_mission(parent)
 	parent.depends_on child
-        repair_tasks = [Tasks::Simple.new, Tasks::Simple.new]
+        repair_tasks = [SimpleTask.new, SimpleTask.new]
 	child.event(:failed).handle_with repair_tasks[0]
 	child.event(:failed).handle_with repair_tasks[1]
 
@@ -447,8 +447,8 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_mission_exceptions
-	mission = prepare_plan :missions => 1, :model => Tasks::Simple
-	repairing_task = Tasks::Simple.new
+	mission = prepare_plan :missions => 1, :model => SimpleTask
+	repairing_task = SimpleTask.new
 	mission.event(:failed).handle_with repairing_task
 
 	mission.start!
@@ -478,7 +478,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
     def test_filter_command_errors
         Roby.app.filter_backtraces = true
-        model = Class.new(Tasks::Simple) do
+        model = Class.new(SimpleTask) do
             event :start do |ev|
                 raise ArgumentError
             end
@@ -497,7 +497,7 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_code_error_formatting
-        model = Class.new(Tasks::Simple) do
+        model = Class.new(SimpleTask) do
             event :start do |context|
                 raise ArgumentError
             end
@@ -509,7 +509,7 @@ class TC_Exceptions < Test::Unit::TestCase
         check_exception_formatting(e)
 
 
-        model = Class.new(Tasks::Simple) do
+        model = Class.new(SimpleTask) do
             event :start do |context|
                 start_event.emit_failed
             end
@@ -520,7 +520,7 @@ class TC_Exceptions < Test::Unit::TestCase
                 end
         check_exception_formatting(e)
 
-        model = Class.new(Tasks::Simple) do
+        model = Class.new(SimpleTask) do
             on :start do |ev|
                 raise ArgumentError
             end
