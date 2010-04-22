@@ -542,5 +542,47 @@ class TC_Exceptions < Test::Unit::TestCase
             Roby.format_exception(error)
         end
     end
+
+    def test_fatal_exception_handling
+        Roby.logger.level = Logger::FATAL
+        def engine.fatal_exception(error, tasks)
+            super if defined? super
+            tasks.each { |t| @fatal << t }
+        end
+        def engine.fatal; @fatal ||= [] end
+        engine.fatal
+
+        task_model = Class.new(Tasks::Simple) do
+            event :intermediate do
+                emit :intermediate
+            end
+        end
+        
+        t1, t2, t3 = prepare_plan :add => 3, :model => task_model
+        t1.depends_on t2
+        t2.depends_on t3, :failure => [:intermediate]
+
+        plan.add_permanent(t1)
+        t1.start!
+        t2.start!
+        plan.add_permanent(t3)
+        t3.start!
+
+        engine.run
+        messages = gather_log_messages :fatal_exception do
+            assert_event_emission(t3.intermediate_event) do
+                assert(engine.fatal.empty?)
+                t3.intermediate!
+            end
+
+            engine.execute do
+                assert_equal [t1, t2].to_set, engine.fatal.to_set
+            end
+        end
+        assert_equal(1, messages.size)
+        name, time, (error, tasks) = *messages.first
+        assert_equal(:fatal_exception, name)
+        assert_equal([t1.remote_id, t2.remote_id].to_set, tasks.to_set)
+    end
 end
 
