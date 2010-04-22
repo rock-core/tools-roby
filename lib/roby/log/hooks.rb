@@ -151,32 +151,27 @@ module Roby::Log
     Roby::EventGenerator.include EventGeneratorHooks
 
     module ExecutionHooks
-	HOOKS = %w{cycle_end}
+	HOOKS = %w{cycle_end fatal_exception handled_exception}
 
 	def cycle_end(timings)
 	    super if defined? super
 	    Roby::Log.log(:cycle_end) { [timings] }
 	end
 
-	module ClassExtension
-	    HOOKS = %w{fatal_exception handled_exception}
-
-	    def fatal_exception(error, tasks)
-		super if defined? super
-		Roby::Log.log(:fatal_exception) { [error.exception, tasks] }
-	    end
-	    def handled_exception(error, task)
-		super if defined? super
-		Roby::Log.log(:handled_exception) { [error.exception, task] }
-	    end
-	end
+        def fatal_exception(error, tasks)
+            super if defined? super
+            Roby::Log.log(:fatal_exception) { [error.exception, tasks] }
+        end
+        def handled_exception(error, task)
+            super if defined? super
+            Roby::Log.log(:handled_exception) { [error.exception, task] }
+        end
     end
     Roby::ExecutionEngine.include ExecutionHooks
 
     def self.each_hook
 	[TransactionHooks, BasicObjectHooks, TaskHooks,
-	    PlanHooks, EventGeneratorHooks, ExecutionHooks,
-	    ExecutionHooks::ClassExtension].each do |klass|
+	    PlanHooks, EventGeneratorHooks, ExecutionHooks].each do |klass|
 		klass::HOOKS.each do |m|
 		    yield(klass, m.to_sym)
 		end
