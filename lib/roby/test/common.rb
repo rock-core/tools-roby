@@ -251,7 +251,10 @@ module Roby
 
             Log.remove_logger(logger)
 
+            # Data formatted for logging should be directly marshallable. Verify
+            # that.
             Marshal.dump(logger.messages)
+
             logger.messages
         end
 
