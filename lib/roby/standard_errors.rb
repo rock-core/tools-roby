@@ -57,6 +57,11 @@ module Roby
         end
     end
 
+    class RelationFailedError < LocalizedError
+        # The parent in the failed relation
+        attr_reader :parent
+    end
+
     # Raised during event propagation if a task event is called or emitted,
     # while this task is not executable.
     class TaskNotExecutable < LocalizedError; end

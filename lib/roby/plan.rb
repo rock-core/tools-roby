@@ -930,9 +930,16 @@ module Roby
 		end
 		next unless new_exceptions
 
-		[*new_exceptions].each do |e, tasks|
-		    e = ExecutionEngine.to_execution_exception(e)
-		    exceptions[e] = tasks
+		[*new_exceptions].each do |error, tasks|
+		    roby_exception = ExecutionEngine.to_execution_exception(error)
+                    if !tasks
+                        if error.kind_of?(RelationFailedError)
+                            tasks = [error.parent]
+                        else
+                            tasks = [roby_exception.origin]
+                        end
+                    end
+		    exceptions[roby_exception] = tasks
 		end
 	    end
 	    exceptions

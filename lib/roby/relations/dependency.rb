@@ -333,9 +333,7 @@ end
 
 module Roby
     # This exception is raised when a {hierarchy relation}[classes/Roby/TaskStructure/Hierarchy.html] fails
-    class ChildFailedError < LocalizedError
-	# The parent in the relation
-	attr_reader :parent
+    class ChildFailedError < RelationFailedError
 	# The child in the relation
 	def child; failed_task end
 	# The relation parameters (i.e. the hash given to #depends_on)
