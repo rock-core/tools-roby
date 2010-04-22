@@ -250,6 +250,8 @@ module Roby
             yield
 
             Log.remove_logger(logger)
+
+            Marshal.dump(logger.messages)
             logger.messages
         end
 
