@@ -1,5 +1,36 @@
 module Roby
+    # Ruby (the language) has no support for multiple inheritance. Instead, it
+    # uses module to extend classes outside of the class hierarchy.
+    #
+    # TaskModelTag are the equivalent concept in the world of task models. They
+    # are a limited for of task models, which can be used to represent that
+    # certain task models have multiple functions.
+    #
+    # For instance,
+    #   
+    #   CameraDriver = TaskModelTag.new
+    #   # CameraDriver is an abstract model used to represent that some tasks
+    #   # are providing the services of cameras. They can be used to tag tasks
+    #   # that belong to different class hirerachies.
+    #   # 
+    #   # One can set up arguments on TaskModelTag the same way than class models:
+    #   CameraDriver.arguments :camera_name
+    #   CameraDriver.arguments :aperture
+    #   CameraDriver.arguments :aperture
+    #
+    #   FirewireDriver.include CameraDriver
+    #   # FirewireDriver can now be used in relationships where CameraDriver was
+    #   # needed
     class TaskModelTag < Module
+        # Module which contains the extension for the task models themselves.
+        # When one does
+        #
+        #   tag = TaskModelTag.new
+        #   <setup the tag>
+        #   task_model.include tag
+        #
+        # Then the methods defined on this ClassExtension module become
+        # methods of +task_model+
 	module ClassExtension
 	    # Returns the list of static arguments required by this task model
 	    def arguments(*new_arguments)
@@ -55,13 +86,29 @@ module Roby
 	end
     end
 
-    # Base class for task events
-    # When events are emitted, then the created object is 
-    # an instance of a class derived from this one
+    # Base class for events emitted by tasks.
+    #
+    # When one creates a new event on a task, Roby creates a corresponding
+    # subclass of TaskEvent. The emitted event objects are then instances of
+    # that class.
+    #
+    # For instance, there is a Roby::Task::StopEvent class which is used to
+    # represent the emitted :stop events of Roby::Task. However, if one
+    # overloads the stop command with
+    #
+    #   class TModel < Roby::Task
+    #     event :stop, :controlable => true
+    #   end
+    #
+    # Then TModel::StopEvent will be a subclass of StopEvent.
+    #
+    # These models are meant to be extended when the emission carry
+    # information, i.e. to provide a robust access to the information contained
+    # in Event#context
     class TaskEvent < Event
         # The task which fired this event
         attr_reader :task
-        
+        # The event model, usually its class
         attr_reader :model
 
         def initialize(task, generator, propagation_id, context, time = Time.now)
@@ -71,8 +118,28 @@ module Roby
             super(generator, propagation_id, context, time)
         end
 
-	# Returns the set of events from the task that are the cause of this
-	# event
+	# Returns the events that are the cause of this event, limiting itself
+        # to the task's events. The return value is a ValueSet of TaskEvent
+        # instances.
+        #
+        # For instance, for an interruptible task:
+        #
+        #   task.start!
+        #   task.stop!
+        #
+        # Then task.stop_event.last.task_sources will return a ValueSet instance
+        # which contains the failed event. I.e. in this particular situation, it
+        # behaves in the same way than Event#event_sources
+        #
+        # However, with
+        #
+        #   event.add_signal task.failed_event
+        #   task.start!
+        #   event.call
+        #
+        # Event#event_sources will return both event.last and
+        # task.failed_event.last while TaskEvent will only return
+        # task.failed_event.last.
 	def task_sources
 	    result = ValueSet.new
 	    event_sources = sources
@@ -89,13 +156,14 @@ module Roby
 	    result
 	end
 
-	def to_s
+	def to_s # :nodoc:
 	    result = "[#{time.to_hms} @#{propagation_id}] #{task}/#{symbol}"
             if context
                 result += ": #{context}"
             end
             result
 	end
+
         def pretty_print(pp) # :nodoc:
             pp.text "[#{time.to_hms} @#{propagation_id}] #{task}/#{symbol}"
             if context
@@ -131,15 +199,7 @@ module Roby
         def symbol; model.symbol end
     end
 
-    # A task event model bound to a particular task instance
-    # The Task/TaskEvent/TaskEventGenerator relationship is 
-    # comparable to the Class/UnboundMethod/Method one:
-    # * a Task object is a model for a task, a Class in a model for an object
-    # * a TaskEvent object is a model for an event instance (the instance being unspecified), 
-    #   an UnboundMethod is a model for an instance method
-    # * a TaskEventGenerator object represents a particular event model 
-    #   *bound* to a particular task instance, a Method object represents a particular method 
-    #   bound to a particular object
+
     class TaskEventGenerator < EventGenerator
 	# The task we are part of
         attr_reader :task
@@ -147,12 +207,15 @@ module Roby
 	attr_reader :symbol
 	# The event class
 	attr_reader :event_model
+
         def initialize(task, model)
             @task, @event_model = task, model
 	    @symbol = model.symbol
 	    super(model.respond_to?(:call))
         end
 
+        # The default command if the event is created with :controlable => true.
+        # It emits the event on the task.
 	def default_command(context)
 	    event_model.call(task, context)
 	end
@@ -164,18 +227,25 @@ module Roby
 	# by task.plan=. It is redefined here for performance reasons.
 	attr_accessor :plan
 
-	# Check that the event can be emitted
-        def emitting(context)
+	# Hook called just before the event is emitted. If it raises, the event
+        # will not be emitted at all.
+        #
+        # This forwards the call to Task#emitting_event
+        def emitting(context) # :nodoc:
             task.emitting_event(self, context)
             super if defined? super
         end
 
-        def fire(event)
+        # Actually emits the event. This should not be used directly.
+        #
+        # It forwards the call to Task#fire
+        def fire(event) # :nodoc:
             task.fire_event(event)
             super if defined? super
         end
 
-        def emit_failed(error = nil, message = nil)
+        # See EventGenerator#emit_failed
+        def emit_failed(error = nil, message = nil) # :nodoc:
             super do |error|
                 if symbol == :start
                     task.failed_to_start!(error)
@@ -212,7 +282,7 @@ module Roby
 	# In TaskEventGenerator, this hook calls the unreachable handlers added
 	# by EventGenerator#if_unreachable when the task has finished, not
 	# before
-	def fired(event)
+	def fired(event) # :nodoc:
 	    super if defined? super
 	    
 	    if symbol == :stop
@@ -220,39 +290,54 @@ module Roby
 	    end
 	end
 
-	def related_tasks(result = nil)
+        # See EventGenerator#related_tasks
+	def related_tasks(result = nil) # :nodoc:
 	    tasks = super
 	    tasks.delete(task)
 	    tasks
 	end
 
-	def each_handler
+        # See EventGenerator#each_handler
+	def each_handler # :nodoc:
 	    super
 
 	    if self_owned?
 		task.each_handler(event_model.symbol) { |o| yield(o) }
 	    end
 	end
-	def each_precondition
+
+        # See EventGenerator#each_precondition
+	def each_precondition # :nodoc:
 	    super
 	    task.each_precondition(event_model.symbol) { |o| yield(o) }
 	end
 
-        def controlable?; event_model.controlable? end
+        # See EventGenerator#controlable?
+        def controlable? # :nodoc:
+            event_model.controlable?
+        end
 
-	attr_writer :terminal_flag
+        # Cached value for #terminal?
+	attr_writer :terminal_flag # :nodoc:
 
-        def terminal_flag
+        # Returns the value for #terminal_flag, updating it if needed
+        def terminal_flag # :nodoc:
             if task.invalidated_terminal_flag?
                 task.update_terminal_flag
             end
             return @terminal_flag
         end
 
+        # True if this event is either forwarded to or signals the task's :stop event
 	def terminal?; !!terminal_flag end
+        # True if this event is either forwarded to or signals the task's :success event
 	def success?; terminal_flag == :success end
+        # True if this event is either forwarded to or signals the task's :failed event
 	def failure?; terminal_flag == :failure end
-	def added_child_object(child, relations, info)
+
+        # Invalidates the task's terminal flag when the Forwarding and/or the
+        # Signal relation gets modified.
+	def added_child_object(child, relations, info) # :nodoc:
 	    super if defined? super
 
             if !task.invalidated_terminal_flag?
@@ -264,6 +349,9 @@ module Roby
                 end
             end
 	end
+
+        # Invalidates the task's terminal flag when the Forwarding and/or the
+        # Signal relation gets modified.
 	def removed_child_object(child, relations)
 	    super if defined? super
 
@@ -276,19 +364,24 @@ module Roby
                 end
             end
 	end
-        def new(context); event_model.new(task, self, plan.engine.propagation_id, context) end
 
-	def to_s
+        # See EventGenerator#new
+        def new(context) # :nodoc:
+            event_model.new(task, self, plan.engine.propagation_id, context)
+        end
+
+	def to_s # :nodoc:
 	    "#{task}/#{symbol}"
 	end
-	def inspect
+	def inspect # :nodoc:
 	    "#{task.inspect}/#{symbol}: #{history.to_s}"
 	end
-        def pretty_print(pp)
+        def pretty_print(pp) # :nodoc:
             pp.text "#{symbol} event of #{task.class}:0x#{task.address.to_s(16)}"
         end
 
-	def achieve_with(obj)
+        # See EventGenerator#achieve_with
+	def achieve_with(obj) # :nodoc:
 	    child_task, child_event = case obj
 				      when Roby::Task then [obj, obj.event(:success)]
 				      when Roby::TaskEventGenerator then [obj.task, obj]
@@ -307,7 +400,7 @@ module Roby
 	end
 
 	# Refines exceptions that may be thrown by #call_without_propagation
-        def call_without_propagation(context)
+        def call_without_propagation(context) # :nodoc:
             super
     	rescue EventNotExecutable => e
 	    refine_exception(e)
@@ -315,7 +408,7 @@ module Roby
 
 	# Checks that the event can be called. Raises various exception
 	# when it is not the case.
-	def check_call_validity
+	def check_call_validity # :nodoc:
   	    super
 
             if task.finished? && !terminal?
@@ -334,14 +427,16 @@ module Roby
 
 	# Checks that the event can be emitted. Raises various exception
 	# when it is not the case.
-	def check_emission_validity
+	def check_emission_validity # :nodoc:
   	    super
     	rescue EventNotExecutable => e
 	    refine_exception(e)
     	end
 
-
-	def refine_exception (e)
+        # When an emissio and/or call exception is raised by the base
+        # EventGenerator methods, this method is used to transform it to the
+        # relevant task-related error.
+	def refine_exception (e) # :nodoc:
 	    if task.partially_instanciated?
 		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} which is partially instanciated\n" + 
 			"The following arguments were not set: \n" +
@@ -357,7 +452,6 @@ module Roby
 		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} which is not executable: #{e.message}"
 	    end
 	end
-
     end
 
     # Class that handles task arguments. They are handled specially as the

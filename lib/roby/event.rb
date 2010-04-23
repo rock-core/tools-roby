@@ -105,12 +105,38 @@ module Roby
     class EventGenerator < PlanObject
 	# Creates a new Event generator which is emitted as soon as one of this
 	# object and +generator+ is emitted
+        #
+        # See OrGenerator for a complete description.
+        #
+        # Note that this operator always creates a new generator, thus
+        #
+        #  a | b | c | d
+        #
+        # will create 3 OrGenerator instances. It is in general better to use |
+        # for event pairs, and use OrGenerator#<< when multiple events have to be
+        # aggregated:
+        #
+        #  OrGenerator.new << a << b << c << d
+        #
 	def |(generator)
 	    OrGenerator.new << self << generator
 	end
 
 	# Creates a AndGenerator object which is emitted when both this object
 	# and +generator+ are emitted
+        #
+        # See AndGenerator for a complete description.
+        #
+        # Note that this operator always creates a new generator, thus
+        #
+        #  a & b & c & d
+        #
+        # will create 3 AndGenerator instances. It is in general better to use &
+        # for event pairs, and use AndGenerator#<< when multiple events have to
+        # be aggregated:
+        #
+        #  AndGenerator.new << a << b << c << d
+        #
 	def &(generator)
 	    AndGenerator.new << self << generator
 	end
@@ -133,6 +159,8 @@ module Roby
             @unreachable_handlers = old.unreachable_handlers.dup
 	end
 
+        # Returns the model object for this particular event generator. It is in
+        # general the generator class.
 	def model; self.class end
 	# The model name
 	def name; model.name end
@@ -175,7 +203,8 @@ module Roby
 	    super() if defined? super
 	end
 
-	def default_command(context)
+        # The default command of emitted the event
+	def default_command(context) # :nodoc:
 	    emit(*context)
 	end
 
@@ -429,7 +458,15 @@ module Roby
 
 	# Returns the set of events directly related to this one
 	def related_events(result = nil); related_objects(nil, result) end
-	# Returns the set of tasks directly related to this event
+        # Returns the set of tasks that are directly linked to this events.
+        #
+        # I.e. it returns the tasks that have events which are directly related
+        # to this event, self.task excluded:
+        #
+        #   ev = task.intermediate_event
+        #   ev.related_tasks # => #<ValueSet: {}>
+        #   ev.add_signal task2.intermediate_event
+        #   ev.related_tasks # => #<ValueSet: {task2}>
 	def related_tasks(result = nil)
 	    result ||= ValueSet.new
 	    for ev in related_events
@@ -741,6 +778,21 @@ module Roby
 	# one, but by changing the context. In the first form, the new context
 	# is set to +new_context+.  In the second form, to the value returned
 	# by the given block
+        #
+        # Example:
+        #
+        #   base = task1.intermediate_event
+        #   filtered = base.filter(10)
+        #
+        #   base.on { |base_ev| ... }
+        #   filtered.on { |filtered_ev| ... }
+        #
+        #   base.emit(20)
+        #   # base_ev.context is [20]
+        #   # filtered_ev.context is [10]
+        #
+        # The returned value is a FilterGenerator instance which is the child of
+        # +self+ in the signalling relation
 	def filter(*new_context, &block)
 	    filter = FilterGenerator.new(new_context, &block)
 	    self.signals(filter)
@@ -750,17 +802,26 @@ module Roby
 	# Returns a new event generator which emits until the +limit+ event is
 	# sent
 	#
-	#   source, ev, limit = (1..3).map { EventGenerator.new(true) }
-	#   ev.until(limit).on { STDERR.puts "FIRED !!!" }
-	#   source.signals ev
+	#   source, target, limit = (1..3).map { EventGenerator.new(true) }
+	#   until = target.until(limit).on { |ev| STDERR.puts "FIRED !!!" }
+	#   source.signals target
 	#
 	# Will do
 	#
-	#   source.call # => FIRED !!!
+	#   source.call # => target is emitted
 	#   limit.emit
-	#   source.call # => 
+	#   source.call # => target is not emitted anymore
 	#
-	# See also UntilGenerator
+	# It returns an instance of UntilGenerator with +self+ as parent in the
+        # forwarding relation and +limit+ as parent in the signalling relation.
+        #
+        # Alternatively, the limitation can be triggered by calling the event's
+        # command explicitely:
+        #
+	#   source.call # => target is emitted
+	#   until.call
+	#   source.call # => target is not emitted anymore
+        #   
 	def until(limit); UntilGenerator.new(self, limit) end
 	
 	# Checks that ownership allows to add the self => child relation
@@ -849,8 +910,9 @@ module Roby
     end
 
 
-    # This generator reemits an event after having changed its context. See
-    # EventGenerator#filter for a more complete explanation
+    # Modifies an event context
+    #
+    # See EventGenerator#filter for details
     class FilterGenerator < EventGenerator
 	def initialize(user_context, &block)
 	    if block && !user_context.empty?
@@ -872,8 +934,39 @@ module Roby
 	end
     end
 
-    # Event generator which fires when all its source events have fired
-    # See EventGenerator#& for a more complete description
+    # Combine event generators using an AND. The generator will emit once all
+    # its source events have emitted, and become unreachable if any of its
+    # source events have become unreachable.
+    #
+    # For instance,
+    #
+    #    a = task1.start_event
+    #    b = task2.start_event
+    #    (a & b) # will emit when both tasks have started
+    #
+    # And events will emit only once, unless #reset is called:
+    #
+    #    a = task1.intermediate_event
+    #    b = task2.intermediate_event
+    #    and_ev = (a & b)
+    #
+    #    a.intermediate_event!
+    #    b.intermediate_event! # and_ev emits here
+    #    a.intermediate_event!
+    #    b.intermediate_event! # and_ev does *not* emit
+    #
+    #    and_ev.reset
+    #    a.intermediate_event!
+    #    b.intermediate_event! # and_ev emits here
+    #
+    # The AndGenerator tracks its sources via the signalling relations, so
+    #
+    #    and_ev << c.intermediate_event
+    #
+    # is equivalent to
+    #
+    #    c.intermediate_event.add_signal and_ev
+    #
     class AndGenerator < EventGenerator
 	def initialize
 	    super do |context|
@@ -891,8 +984,22 @@ module Roby
 	    @active = true
 	end
 
-	# Resets the waiting. If the event has already been emitted, it re-arms
-	# it.
+	# After this call, the AndGenerator will emit as soon as all its source
+        # events have been emitted again.
+        #
+        # Example:
+        #    a = task1.intermediate_event
+        #    b = task2.intermediate_event
+        #    and_ev = (a & b)
+        #
+        #    a.intermediate_event!
+        #    b.intermediate_event! # and_ev emits here
+        #    a.intermediate_event!
+        #    b.intermediate_event! # and_ev does *not* emit
+        #
+        #    and_ev.reset
+        #    a.intermediate_event!
+        #    b.intermediate_event! # and_ev emits here
 	def reset
 	    @active = true
 	    each_parent_object(EventStructure::Signal) do |source|
@@ -903,6 +1010,7 @@ module Roby
 	    end
 	end
 
+        # Helper method that will emit the event if all the sources are emitted.
 	def emit_if_achieved(context) # :nodoc:
 	    return unless @active
 	    each_parent_object(EventStructure::Signal) do |source|
@@ -912,6 +1020,7 @@ module Roby
 	    emit(nil)
 	end
 
+        # True if the generator has no sources
 	def empty?; events.empty? end
 	
 	# Adds a new source to +events+ when a source event is added
@@ -938,7 +1047,7 @@ module Roby
 
 	# The set of source events
 	def events;  parent_objects(EventStructure::Signal) end
-	# The set of events which we are waiting for
+        # The set of generators that have not been emitted yet.
 	def waiting; parent_objects(EventStructure::Signal).find_all { |ev| @events[ev] == ev.last } end
 	
 	# Add a new source to this generator
@@ -948,10 +1057,38 @@ module Roby
 	end
     end
 
-    # Event generator which fires when the first of its source events fires.
-    # All event generators which signal this one are considered as sources.
+    # Fires when the first of its source events fires.
     #
-    # See also EventGenerator#| and #<<
+    # For instance,
+    #
+    #    a = task1.start_event
+    #    b = task2.start_event
+    #    (a | b) # will emit as soon as one of task1 and task2 are started
+    #
+    # Or events will emit only once, unless #reset is called:
+    #
+    #    a = task1.intermediate_event
+    #    b = task2.intermediate_event
+    #    or_ev = (a | b)
+    #
+    #    a.intermediate_event! # or_ev emits here
+    #    b.intermediate_event! # or_ev does *not* emit 
+    #    a.intermediate_event! # or_ev does *not* emit
+    #    b.intermediate_event! # or_ev does *not* emit
+    #
+    #    or_ev.reset
+    #    b.intermediate_event! # or_ev emits here
+    #    a.intermediate_event! # or_ev does *not* emit
+    #    b.intermediate_event! # or_ev does *not* emit
+    #
+    # The OrGenerator tracks its sources via the signalling relations, so
+    #
+    #    or_ev << c.intermediate_event
+    #
+    # is equivalent to
+    #
+    #    c.intermediate_event.add_signal or_ev
+    #
     class OrGenerator < EventGenerator
         # Creates a new OrGenerator without any sources.
 	def initialize
@@ -961,11 +1098,11 @@ module Roby
 	    @active = true
 	end
 
-        # True if there is no source event for this combinator.
+        # True if there is no source events
 	def empty?; parent_objects(EventStructure::Signal).empty? end
 
-        # Reset its state, so as to behave as if no source has ever
-        # been emitted.
+        # Or generators will emit only once, unless this method is called. See
+        # the documentation of OrGenerator for an example.
 	def reset
 	    @active = true
 	    each_parent_object(EventStructure::Signal) do |source|
@@ -975,12 +1112,14 @@ module Roby
 	    end
 	end
 
+        # Helper method called to emit the event when it is required
 	def emit_if_first(context) # :nodoc:
 	    return unless @active
 	    @active = false
 	    emit(context)
 	end
 
+        # Tracks the event's parents in the signalling relation
 	def added_parent_object(parent, relations, info) # :nodoc:
 	    super if defined? super
 	    return unless relations.include?(EventStructure::Signal)
