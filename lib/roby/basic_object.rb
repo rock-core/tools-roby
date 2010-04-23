@@ -43,7 +43,7 @@ module Roby
 
 	# True if this object can be seen by remote hosts
 	def distribute?
-	    @distribute || (@distribute.nil? && self.class.distrib
+	    @distribute || (@distribute.nil? && self.class.distribute?)
 	end
 
         # True if instances of this class can be transmitted to remote hosts. It
