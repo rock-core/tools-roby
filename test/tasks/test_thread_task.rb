@@ -1,6 +1,6 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
-require 'roby/thread_task'
+require 'roby/tasks/thread'
 require 'roby/test/tasks/simple_task'
 require 'roby/test/tasks/empty_task'
 
@@ -17,7 +17,7 @@ class TC_ThreadTask < Test::Unit::TestCase
     end
 
     def test_normal
-        model = Class.new(Roby::ThreadTask) do
+        model = Class.new(Roby::Tasks::Thread) do
             implementation do
                 1
             end
@@ -33,7 +33,7 @@ class TC_ThreadTask < Test::Unit::TestCase
     def test_implementation_fails
         Thread.abort_on_exception = false
         Roby.app.abort_on_exception = false
-        model = Class.new(Roby::ThreadTask) do
+        model = Class.new(Roby::Tasks::Thread) do
             implementation do
                 raise ArgumentError, "blaaaaaaaaah"
             end
@@ -49,7 +49,7 @@ class TC_ThreadTask < Test::Unit::TestCase
 
     def test_interruptible
         Thread.abort_on_exception = false
-        model = Class.new(Roby::ThreadTask) do
+        model = Class.new(Roby::Tasks::Thread) do
             interruptible
             implementation do
                 loop do
