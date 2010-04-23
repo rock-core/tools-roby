@@ -98,8 +98,10 @@ class TC_RealizedBy < Test::Unit::TestCase
 
     def assert_child_failed(child, reason, plan)
 	result = plan.check_structure
-        if result.size != 1
-            flunk("error set expected to be of size 1, is #{errors.size}")
+        if result.empty?
+            flunk("no error detected")
+        elsif result.size > 1
+            flunk("expected one error, got #{result.size}")
         end
         error = result.find { true }[0].exception
 	assert_equal(child, error.failed_task)
@@ -362,6 +364,17 @@ class TC_RealizedBy < Test::Unit::TestCase
         assert_equal 2, messages.size
         assert_equal 'added_task_child', messages[0].first
         assert_equal 'removed_task_child', messages[1].first
+    end
+
+    def test_depending_on_already_running_task
+        Roby::ExecutionEngine.logger.level = Logger::FATAL
+        parent, child = prepare_plan :add => 2, :model => Tasks::Simple
+        plan.add_permanent(parent)
+        parent.start!
+        child.start!
+
+        parent.depends_on child, :failure => :start
+        assert_child_failed(child, child.start_event.last, plan)
     end
 end
 

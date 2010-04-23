@@ -144,6 +144,15 @@ module Roby::TaskStructure
 		info[:failure].required_events.
                     each { |event_name| events << child.event(event_name) }
 		Roby::EventGenerator.gather_events(Dependency.interesting_events, events)
+
+                # Initial triggers
+                if running?
+                    Dependency.failing_tasks << child
+                else
+                    on :start do |context|
+                        Dependency.failing_tasks << child
+                    end
+                end
 	    end
 	end
 
@@ -290,7 +299,7 @@ module Roby::TaskStructure
 
 	    child.each_parent_task do |parent|
 		next unless parent.self_owned?
-		next if parent.finished? || parent.finishing?
+		next if !parent.running?
 
 		options = parent[child, Hierarchy]
 		success = options[:success]
