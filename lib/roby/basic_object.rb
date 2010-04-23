@@ -1,8 +1,13 @@
 module Roby
+    # Base class for most plan-related objects (Plan, PlanObject, ...)
+    #
+    # This class contains the information and manipulation attributes that are
+    # at the core of Roby object management. In particular, it maintains the
+    # distributed object information (needed in multi-Roby setups).
     class BasicObject
 	include DRbUndumped
 
-        def initialize
+        def initialize # :nodoc:
             @distribute = nil
         end
 
@@ -19,16 +24,39 @@ module Roby
 	# True if we own this object
 	def self_owned?; owners.include?(Distributed) end
 
-	# Attribute which overrides the #distribute attribute on object classes
+	# If set, this attribute will overrides the model-specified distribute?
+        # predicate. I.e.:
+        #
+        #   class MyTask < Roby::Task
+        #       local_only # sets distribute? to false
+        #   end
+        #
+        #   task   = MyTask.new
+        #   task2  = MyTask.new
+        #   task.distribute? # false, as MyTask.distribute? is false
+        #   task2.distribute? # false, as MyTask.distribute? is false
+        #   task.distribute = true
+        #   task.distribute? # true
+        #   task2.distribute? # false
+        #
 	attr_writer :distribute
+
 	# True if this object can be seen by remote hosts
 	def distribute?
-	    @distribute || (@distribute.nil? && self.class.distribute?)
+	    @distribute || (@distribute.nil? && self.class.distrib
 	end
 
-	# True if instances of this class should be seen by remote hosts
+        # True if instances of this class can be transmitted to remote hosts. It
+        # is true by default and can be changed with BasicObject.local_only?
+        #
+        # This can also be overriden on a per-instance basis by using
+        # BasicObject#distribute=
 	def self.distribute?; !(instance_variable_defined?(:@distribute) && @distribute == false) end
-	# Call to make the object of this class never seen by remote hosts
+	# Specifies that instances of this class must not be transmitted to
+        # remote hosts. By default, it can.
+        #
+        # This can be overriden on a per-instance basis by using
+        # BasicObject#distribute=
 	def self.local_only; @distribute = false end
 
 	def finalized?; !remote_siblings[Distributed] end
@@ -36,6 +64,8 @@ module Roby
 	# The peer => remote_object hash of known siblings for this peer: if
 	# there is a representation of this object on a peer, then
 	# +remote_siblings+ includes it
+        #
+        # It is a mapping from a Peer instance to a RemoteID object
 	attribute(:remote_siblings) { Hash[Distributed, remote_id] }
 
 	# True if we know about a sibling on +peer+
@@ -43,9 +73,10 @@ module Roby
 	    peer == Roby::Distributed || remote_siblings.include?(peer)
 	end
 
-	# Returns the object representation of +self+ on +peer+. The returned
-	# value is either a remote sibling (the DRbObject of the representation 
-	# of +self+ on +peer+), or self if peer is Roby::Distributed
+        # Returns the object representation of +self+ on +peer+. The returned
+        # value is either a remote sibling (the RemoteID of the representation
+        # of +self+ on +peer+), or self if peer is Roby::Distributed (i.e. the
+        # local peer)
 	def sibling_on(peer)
 	    if sibling = remote_siblings[peer] then sibling
 	    elsif Roby::Distributed == peer then self
@@ -148,7 +179,10 @@ module Roby
 	# True if this object is useful for our peers
 	def remotely_useful?; self_owned? && remote_siblings.size > 1  end
 	
-	# True if this object can be modified in the current context
+	# True if this object can be modified in the current context. It can be
+        # modified if it is owned by us or if we are being called by the dRoby
+        # layer to update the object because of information coming from our
+        # peers.
 	def read_write?
 	    owners.include?(Distributed) || Distributed.updating?(self)
 	end
