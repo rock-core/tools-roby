@@ -283,16 +283,15 @@ module Roby::TaskStructure
 	# registered The tasks that are failing the hierarchy requirements
 	# are registered in Hierarchy.failing_tasks. The interesting_events
 	# set is cleared at cycle end (see below)
-	tasks = events.inject(failing_tasks) do |set, event|
+        tasks, @failing_tasks = @failing_tasks, ValueSet.new
+	events.each do |event|
             if event.respond_to?(:generator)
-                set << event.generator.task
+                tasks << event.generator.task
             else
-                set << event.task
+                tasks << event.task
             end
-            set
         end
 
-	@failing_tasks = ValueSet.new
 	tasks.each do |child|
 	    # Check if the task has been removed from the plan
 	    next unless child.plan
