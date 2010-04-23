@@ -352,5 +352,16 @@ class TC_RealizedBy < Test::Unit::TestCase
         info[:roles] << 'child2'
         assert_equal info, parent[child, Dependency]
     end
+    def test_logging
+        messages = gather_log_messages('added_task_child', 'removed_task_child') do
+            parent, child = prepare_plan :add => 2
+            parent.depends_on child, :success => :success.not_followed_by(:failed), :role => 'Task'
+            parent.remove_child child
+        end
+
+        assert_equal 2, messages.size
+        assert_equal 'added_task_child', messages[0].first
+        assert_equal 'removed_task_child', messages[1].first
+    end
 end
 
