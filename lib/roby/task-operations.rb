@@ -1,5 +1,18 @@
 module Roby
-    module TaskOperations
+    class Task
+        # Creates a sequence where +self+ will be started first, and +task+ is
+        # started if +self+ finished successfully. The returned value is an
+        # instance of Sequence.
+        #
+        # Note that this operator always creates a new Sequence object, so
+        #
+        #   a + b + c + d
+        #
+        # will create 3 Sequence instances. If more than two tasks should be
+        # organized in a sequence, one should instead use Sequence#<<:
+        #   
+        #   Sequence.new << a << b << c << d
+        #  
         def +(task)
             # !!!! + is NOT commutative
             if task.null?
@@ -10,6 +23,21 @@ module Roby
                 Sequence.new << self << task
             end
         end
+
+        # Creates a parallel aggregation between +self+ and +task+. Both tasks
+        # are started at the same time, and the returned instance finishes when
+        # both tasks are finished. The returned value is an instance of
+        # Parallel.
+        #
+        # Note that this operator always creates a new Parallel object, so
+        #
+        #   a | b | c | d
+        #
+        # will create three instances of Parallel. If more than two tasks should
+        # be organized that way, one should instead use Parallel#<<:
+        #   
+        #   Parallel.new << a << b << c << d
+        #  
         def |(task)
             if self.null?
                 task
@@ -19,13 +47,9 @@ module Roby
                 Parallel.new << self << task
             end
         end
-            
     end
 
-    class Task
-        include TaskOperations
-    end
-
+    # Base functionality for the Sequence and Parallel aggregators
     class TaskAggregator < Roby::Task
         def initialize(arguments = Hash.new)
             @tasks = Array.new
@@ -34,15 +58,21 @@ module Roby
         end
 
 	terminates
-	event(:start, :command => true)
+	event(:start, :controlable => true)
 
+        # The array of tasks that are aggregated by this object
 	attr_reader :tasks
+
+        # TODO: is this really necessary
 	def each_task(&iterator)
 	    yield(self)
 	    tasks.each(&iterator) 
 	end
+
+        # True if this aggregator has no tasks
 	def empty?; tasks.empty? end
 
+        # Removes this aggregator from the plan
 	def delete
 	    @name  = self.name
 	    @tasks = nil
@@ -55,12 +85,18 @@ module Roby
 	end
     end
 
+    # Creates an ordered sequence of tasks.
+    #
+    # Tasks added to this aggregator are started one after the other. Task(i+1)
+    # is started when Task(i) has finished successfully. The Sequence finishes
+    # successfully when the last task finished.
     class Sequence < TaskAggregator
-	def name
+	def name # :nodoc:
 	    @name || @tasks.map { |t| t.name }.join("+")
 	end
 
-	def to_task(task = nil)
+        # Deprecated version of #child_of
+	def to_task(task = nil) # :nodoc:
 	    return super() unless task
 	    task = task.new unless task.kind_of?(Roby::Task)
 	    @tasks.each { |t| task.depends_on t }
@@ -72,11 +108,31 @@ module Roby
 
 	    task
 	end
+
+        # Quite often, a sequence is meant to implement a higher-level
+        # functionality. In this case, it is better to not use a Sequence task
+        # at all, but instead create the sequence as dependency of a high-level
+        # task instance.
+        #
+        # #to_task transfers the underlying sequence to the task given as
+        # argument. If +task+ is a task model instead of a task instance, it
+        # first creates a new instance of this model and returns it.
+        #
+        # For instance:
+        #   
+        #   seq = (Sequence.new <<
+        #       GoTo.new(:target => a) <<
+        #       Pickup.new(:object => b) <<
+        #       GoTo.new(:target => c)
+        #
+        #   mission = GetObject.new(:object => b)
+        #   seq.child_of(mission)
+        #
         def child_of(task = nil)
             to_task(task)
         end
 
-	def connect_start(task)
+	def connect_start(task) # :nodoc:
 	    if old = @tasks.first
 		event(:start).remove_signal old.event(:start)
 		task.signals(:success, old, :start)
@@ -85,7 +141,7 @@ module Roby
 	    event(:start).signals task.event(:start)
 	end
 
-	def connect_stop(task)
+	def connect_stop(task) # :nodoc:
 	    if old = @tasks.last
 		old.signals(:success, task, :start)
 		old.event(:success).remove_forwarding event(:success)
@@ -94,6 +150,7 @@ module Roby
 	end
 	private :connect_stop, :connect_start
 
+        # Adds +task+ at the beginning of the sequence
         def unshift(task)
             raise "trying to do Sequence#unshift on a running or finished sequence" if (running? || finished?)
 	    connect_start(task)
@@ -104,6 +161,7 @@ module Roby
 	    self
         end
 
+        # Adds +task+ at the end of the sequence
         def <<(task)
 	    raise "trying to do Sequence#<< on a finished sequence" if finished?
 	    connect_start(task) if @tasks.empty?
@@ -114,7 +172,9 @@ module Roby
 	    self
         end
 
-        def to_sequence; self end
+        def to_sequence # :nodoc:
+            self
+        end
     end
 
     class Parallel < TaskAggregator
