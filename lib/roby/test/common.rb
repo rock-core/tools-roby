@@ -227,19 +227,23 @@ module Roby
 	# The list of children started using #remote_process
 	attr_reader :remote_processes
 
-        def gather_log_messages(message_name)
+        def gather_log_messages(*message_names)
+            message_names = message_names.map(&:to_s)
             logger_class = Class.new do
                 attr_reader :messages
                 def initialize
                     @messages = Array.new
                 end
 
-                define_method(message_name) do |time, args|
-                    messages << [message_name, time, args]
+                message_names.each do |name|
+                    define_method(name) do |time, args|
+                        messages << [name, time, args]
+                    end
                 end
+
                 def splat?; false end
                 define_method(:logs_message?) do |m|
-                    m == message_name
+                    message_names.include?(m.to_s)
                 end
                 def close; end
             end
@@ -249,6 +253,7 @@ module Roby
 
             yield
 
+            Log.flush
             Log.remove_logger(logger)
 
             # Data formatted for logging should be directly marshallable. Verify
