@@ -11,6 +11,8 @@
     sort_info: 400
 /plugins:
     sort_info: 950
+/plugins/standard_plugins/index.page:
+    in_menu: false
 
 /introduction/index.page:
     in_menu: false
