@@ -149,7 +149,7 @@ module Roby
                     raise "no graphics for #{self}" unless graphics_item = display[self]
                     graphics_item.pos = p
                 else
-                    STDERR.puts "WARN: #{self} has not been layouted"
+                    STDERR.puts "WARN: #{self} has not been layouted (#{dot_id.inspect})"
                 end
             end
         end
@@ -196,6 +196,49 @@ module Roby
 
             # Add a string to the resulting Dot input file
 	    def <<(string); dot_input << string end
+
+            def self.parse_dot_layout(dot_layout)
+		current_graph_id = nil
+		bounding_rects = Hash.new
+		object_pos     = Hash.new
+		full_line = ""
+		dot_layout.each do |line|
+		    line.chomp!
+		    full_line << line
+		    if line[-1] == ?\\
+			full_line.chop!
+			next
+		    end
+
+		    case full_line
+		    when /(\w+) \[.*pos="(\d+),(\d+)"/
+			object_pos[$1] = Qt::PointF.new(Integer($2), Integer($3))
+		    when /subgraph cluster_(\w+)/
+			current_graph_id = $1
+		    when /graph \[bb="(\d+),(\d+),(\d+),(\d+)"\]/
+			bb = [$1, $2, $3, $4].map do |c|
+			    c = Integer(c)
+			end
+			bounding_rects[current_graph_id] = [bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1]]
+		    end
+		    full_line = ""
+		end
+
+		graph_bb = bounding_rects.delete(nil)
+                if !graph_bb
+                    raise "Graphviz failed to generate a layout for this plan"
+                end
+		bounding_rects.each_value do |coords|
+		    coords[0] -= graph_bb[0]
+		    coords[1] = graph_bb[1] - coords[1] - coords[3]
+		end
+		object_pos.each do |id, pos|
+		    pos.x -= graph_bb[0]
+		    pos.y = graph_bb[1] - pos.y
+		end
+
+                return bounding_rects, object_pos
+            end
 
             # Generates a layout for +plan+ to be displayed on +display+.
             #
@@ -244,50 +287,11 @@ module Roby
 		FileUtils.cp dot_output.path, "/tmp/dot-output-#{@@index}.dot"
 
 		# Load only task bounding boxes from dot, update arrows later
-		current_graph_id = nil
-		bounding_rects = Hash.new
-		object_pos     = Hash.new
 		lines = File.open(dot_output.path) { |io| io.readlines  }
-		full_line = ""
-		lines.each do |line|
-		    line.chomp!
-		    full_line << line
-		    if line[-1] == ?\\
-			full_line.chop!
-			next
-		    end
-
-		    case full_line
-		    when /((?:\w+_)+\d+) \[.*pos="(\d+),(\d+)"/
-			object_pos[$1] = Qt::PointF.new(Integer($2), Integer($3))
-		    when /subgraph cluster_(plan_\d+)/
-			current_graph_id = $1
-		    when /graph \[bb="(\d+),(\d+),(\d+),(\d+)"\]/
-			bb = [$1, $2, $3, $4].map do |c|
-			    c = Integer(c)
-			end
-			bounding_rects[current_graph_id] = [bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1]]
-		    end
-		    full_line = ""
-		end
-
-		graph_bb = bounding_rects.delete(nil)
-                if !graph_bb
-                    raise "Graphviz failed to generate a layout for this plan"
-                end
-		bounding_rects.each_value do |coords|
-		    coords[0] -= graph_bb[0]
-		    coords[1] = graph_bb[1] - coords[1] - coords[3]
-		end
-		object_pos.each do |id, pos|
-		    pos.x -= graph_bb[0]
-		    pos.y = graph_bb[1] - pos.y
-		end
+                @bounding_rects, @object_pos = Layout.parse_dot_layout(lines)
 
 		@display         = display
 		@plan            = plan
-		@object_pos      = object_pos
-		@bounding_rects  = bounding_rects
 
 	    ensure
 		dot_input.close!  if dot_input
