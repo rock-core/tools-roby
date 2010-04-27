@@ -3,8 +3,6 @@ require 'roby/interface'
 require 'singleton'
 
 module Roby
-    # = Roby Applications
-    #
     # There is one and only one Application object, which holds mainly the
     # system-wide configuration and takes care of file loading and system-wide
     # setup (#setup). A Roby application can be started in multiple modes. The
