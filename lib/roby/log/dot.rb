@@ -4,7 +4,8 @@ require 'tempfile'
 require 'fileutils'
 
 module Roby
-    module LogReplay::RelationsDisplay
+    module LogReplay
+    module RelationsDisplay
         module GraphvizPlan
             attr_accessor :layout_level
             def all_events(display)
@@ -298,5 +299,6 @@ module Roby
 		plan.apply_layout(bounding_rects, object_pos, display)
 	    end
 	end
+    end
     end
 end
