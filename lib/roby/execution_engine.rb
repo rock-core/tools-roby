@@ -253,13 +253,17 @@ module Roby
         end
 
         # call-seq:
-        #   Roby.each_cycle { |plan| ... }
+        #   engine.each_cycle { |plan| ... }
         #
         # Execute the given block at the beginning of each cycle, in propagation
         # context.
         #
         # The returned value is an ID that can be used to remove the handler using
         # #remove_propagation_handler
+        #
+        # System-wide handlers, which should be executed in all engines, can be
+        # defined with ExecutionEngine.add_propagation_handler and removed by
+        # ExecutionEngine.remove_propagation_handler
         def each_cycle(&block)
             add_propagation_handler(block)
         end
