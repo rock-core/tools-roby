@@ -582,7 +582,7 @@ class TC_Exceptions < Test::Unit::TestCase
         end
         assert_equal(1, messages.size)
         name, time, (error, tasks) = *messages.first
-        assert_equal(:fatal_exception, name)
+        assert_equal('fatal_exception', name)
         assert_equal([t1.remote_id, t2.remote_id].to_set, tasks.to_set)
     end
 end

@@ -897,18 +897,27 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def assert_failure_reason(task, exception, message = nil)
-        assert(task.failed?)
-        assert_kind_of(exception, task.failure_reason)
-        assert(task.failure_reason.message =~ message) if message
+        if block_given?
+            begin
+                yield
+            rescue exception
+            end
+        end
+
+        assert(task.failed?, "#{task} did not fail")
+        assert_kind_of(exception, task.failure_reason, "wrong error type for #{task}: expected #{exception}, got #{task.failure_reason}")
+        assert(task.failure_reason.message =~ message, "error message '#{task.failure_reason.message}' was expected to match #{message}") if message
     end
     
     def assert_emission_fails(message_match, check_signaling)
         error = yield
-        error.start!
-	assert_failure_reason(error, EventNotExecutable, message_match)
+	assert_failure_reason(error, EventNotExecutable, message_match) do
+            error.start!
+        end
         error = yield
-        error.event(:start).call(nil)
-	assert_failure_reason(error, EventNotExecutable, message_match)
+	assert_failure_reason(error, EventNotExecutable, message_match) do
+            error.event(:start).call(nil)
+        end
 
         error = yield
         assert_exception_message(EventNotExecutable, message_match) do
@@ -942,20 +951,20 @@ class TC_Task < Test::Unit::TestCase
         erroneous_plan.clear
 
         # test for a not executable task
-        assert_emission_fails(/is not executable/,true) do
+        assert_direct_call_validity_check(/is not executable/,true) do
             plan.add(task = SimpleTask.new)
             task.executable = false
             task
 	end
         
 	# test for partially instanciation
-	assert_emission_fails(/partially instanciated/,true) do
+	assert_direct_call_validity_check(/partially instanciated/,true) do
 	   plan.add(task = ParameterizedTask.new)
 	   task
 	end
 
         # test for an abstract task
-        assert_emission_fails(/abstract/,true) do
+        assert_direct_call_validity_check(/abstract/,true) do
             plan.add(task = AbstractTask.new)
             task
 	end
@@ -1363,7 +1372,7 @@ class TC_Task < Test::Unit::TestCase
 	plan.add(task = model.new)
         task.start!
 
-        assert_raises(TaskEmergencyTermination) { task.command_fails! }
+        task.command_fails!
         assert(task.internal_error?)
         assert(task.failed?)
         assert_kind_of CommandFailed, task.failure_reason
@@ -1371,7 +1380,7 @@ class TC_Task < Test::Unit::TestCase
 
         plan.add(task = model.new)
         task.start!
-        assert_raises(TaskEmergencyTermination) { task.emission_fails.emit_failed }
+        task.emission_fails_event.emit_failed
         assert(task.internal_error?)
         assert(task.failed?)
         assert_kind_of EmissionFailed, task.failure_reason

@@ -18,22 +18,10 @@ class TC_Tasks_ExternalProcess < Test::Unit::TestCase
         end
     end
 
-    def assert_polling_successful(timeout, sleep = 0.05)
-        now = Time.now
-        while (Time.now - now) < timeout
-            if yield
-                return
-            end
-        end
-        flunk "reached timeout"
-    end
-
     def test_nominal
         plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => [MOCKUP, "--no-output"]))
         engine.run
-        engine.once { task.start! }
-
-        assert_polling_successful(5) { task.success? }
+        assert_succeeds(task)
     end
 
     def test_nominal_array_with_one_element
@@ -61,9 +49,9 @@ class TC_Tasks_ExternalProcess < Test::Unit::TestCase
     def test_failure
         plan.add_permanent(task = Tasks::ExternalProcess.new(:command_line => [MOCKUP, "--error"]))
         engine.run
-        engine.once { task.start! }
-
-        assert_polling_successful(5) { task.failed? }
+        assert_event_emission(task.failed_event) do
+            task.start!
+        end
         assert_equal 1, task.event(:failed).last.context.first.exitstatus
     end
 
