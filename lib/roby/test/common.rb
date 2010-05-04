@@ -596,19 +596,20 @@ module Roby
 			    error, result = Test.event_watch_result(positive, negative)
 			    if error.nil?
 				this_thread = Thread.current
-
                                 engine.once do
                                     Test.watched_events << [this_thread, cv, positive, negative, Time.now + timeout]
                                     yield if block_given?
                                 end
 
 				begin
-				    cv.wait(Roby.global_lock)
+                                    while error.nil?
+                                        cv.wait(Roby.global_lock)
+                                        error, result = this_thread[EVENT_WATCH_TLS]
+                                        this_thread[EVENT_WATCH_TLS] = nil
+                                    end
 				ensure
 				    Test.watched_events.delete_if { |thread, _| thread == this_thread }
 				end
-
-				error, result = this_thread[EVENT_WATCH_TLS]
 			    end
                             return error, result, unreachability_reason
 			end

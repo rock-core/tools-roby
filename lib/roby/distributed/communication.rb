@@ -760,16 +760,20 @@ module Roby
 			    "calling #{remote_name}.#{m}"
 			end
 
+                        called = false
 			callback = Proc.new do |return_value|
 			    mt.synchronize do
 				result = return_value
 				block.call(return_value) if block
+                                called = true
 				cv.broadcast
 			    end
 			end
 
 			queue_call false, m, args, callback, Thread.current
-			cv.wait(mt)
+                        until called
+                            cv.wait(mt)
+                        end
 		    end
 		end
 

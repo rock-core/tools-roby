@@ -1246,8 +1246,8 @@ module Roby
                         @thread.priority = THREAD_PRIORITY
 
                         begin
-                            mt.synchronize { cv.signal }
                             @cycle_length = options[:cycle]
+                            mt.synchronize { cv.signal }
                             event_loop
 
                         ensure
@@ -1263,7 +1263,9 @@ module Roby
                             end
                         end
                     end
-                    cv.wait(mt)
+                    while !cycle_length
+                        cv.wait(mt)
+                    end
                 end
             end
 	end
@@ -1523,16 +1525,21 @@ module Roby
 		caller_thread = Thread.current
 		waiting_threads << caller_thread
 
+                done = false
 		once do
 		    begin
 			return_value = yield
+                        done = true
 			cv.broadcast
 		    rescue Exception => e
 			caller_thread.raise e, e.message, e.backtrace
 		    end
                     waiting_threads.delete(caller_thread)
 		end
-		cv.wait(Roby.global_lock)
+
+                while !done
+                    cv.wait(Roby.global_lock)
+                end
 	    end
 	    return_value
 
@@ -1554,16 +1561,26 @@ module Roby
                 # thread quits
 
                 mt.synchronize do
+                    done = false
                     once do
                         ev.if_unreachable(true) do |reason|
-                            caller_thread.raise UnreachableEvent.new(ev, reason)
+                            mt.synchronize do
+                                done = true
+                                caller_thread.raise UnreachableEvent.new(ev, reason)
+                            end
                         end
                         ev.on do |ev|
-                            mt.synchronize { cv.broadcast }
+                            mt.synchronize do
+                                done = true
+                                cv.broadcast
+                            end
                         end
                         yield if block_given?
                     end
-                    cv.wait(mt)
+
+                    while !done
+                        cv.wait(mt)
+                    end
                 end
             end
         end

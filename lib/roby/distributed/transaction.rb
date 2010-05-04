@@ -274,7 +274,7 @@ module Roby
 		end
 
 		token_lock.synchronize do
-		    if !editor? # not the current editor
+		    while !editor? # not the current editor
 			token_lock_signal.wait(token_lock)
 		    end
 		end

@@ -520,6 +520,7 @@ module Roby::Distributed
 	    objects = ValueSet.new
 	    Roby.condition_variable(true) do |synchro, mutex|
 		mutex.synchronize do
+                    done = false
 		    transmit(:discover_neighborhood, object, distance) do |edges|
 			edges = local_object(edges)
 			edges.each do |rel, from, to, info|
@@ -533,9 +534,12 @@ module Roby::Distributed
 
 			objects.each { |obj| Roby::Distributed.keep.ref(obj) }
 			
+                        done = true
 			synchro.broadcast
 		    end
-		    synchro.wait(mutex)
+                    while !done
+                        synchro.wait(mutex)
+                    end
 		end
 	    end
 

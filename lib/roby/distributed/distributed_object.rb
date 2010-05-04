@@ -124,7 +124,7 @@ module Roby
 		    peer.queue_call false, m, args, callback, Thread.current
 		end
 
-		unless waiting_for == 0
+		while waiting_for != 0
 		    Distributed.debug "waiting for our peers to complete the call"
 		    synchro.wait(mutex) 
 		end

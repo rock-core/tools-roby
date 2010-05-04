@@ -21,6 +21,7 @@ module Roby
 		Roby.condition_variable(true) do |cv, mt|
 		    first_sample = nil
 		    mt.synchronize do
+                        timeout = false
 			id = Roby.every(period) do
 			    result = yield
 			    if result
@@ -36,13 +37,16 @@ module Roby
 
 				if samples.last.t - samples.first.t > duration
 				    mt.synchronize do
+                                        timeout = true
 					cv.broadcast
 				    end
 				end
 			    end
 			end
 
-			cv.wait(mt)
+                        while !timeout
+                            cv.wait(mt)
+                        end
 			Roby.engine.remove_periodic_handler(id)
 		    end
 		end

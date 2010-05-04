@@ -221,7 +221,9 @@ module Roby
 		synchronize do
 		    # Start the discovery thread and wait for it to be initialized
 		    @discovery_thread = Thread.new(&method(:neighbour_discovery))
-		    finished_discovery.wait(mutex)
+                    until last_discovery
+                        finished_discovery.wait(mutex)
+                    end
 		end
 		start_neighbour_discovery(true)
 
@@ -339,10 +341,7 @@ module Roby
 
 	    def discovering?
 	       	synchronize do 
-		    if @last_discovery != @discovery_start
-			yield if block_given?
-			true
-		    end
+                    @last_discovery != @discovery_start
 		end
 	    end
 
@@ -390,7 +389,7 @@ module Roby
 			@last_discovery = discovery_start
 			finished_discovery.broadcast
 
-			if @discovery_start == @last_discovery
+			while @discovery_start == @last_discovery
 			    start_discovery.wait(mutex)
 			end
 			return if @quit_neighbour_thread
@@ -459,16 +458,22 @@ module Roby
 	    end
 
 	    def wait_discovery
-		discovering? do
-		    finished_discovery.wait(mutex)
+                synchronize do 
+                    while last_discovery != discovery_start
+                        finished_discovery.wait(mutex)
+                    end
 		end
-	    end
+            end
+
 	    def wait_next_discovery
 		synchronize do
 		    unless discovery_thread && discovery_thread.alive?
 			raise "no discovery thread"
 		    end
-		    finished_discovery.wait(mutex)
+                    current_discovery = @last_discovery
+                    while @last_discovery == current_discovery
+                        finished_discovery.wait(mutex)
+                    end
 		end
 	    end
 
