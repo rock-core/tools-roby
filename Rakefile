@@ -3,6 +3,7 @@ require 'enumerator'
 require 'hoe'
 require 'roby/config'
 
+task :default => :setup
 begin
     require 'hoe'
     namespace 'dist' do
