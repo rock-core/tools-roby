@@ -1435,7 +1435,9 @@ module Roby
 
 		    stats[:start] = [cycle_start.tv_sec, cycle_start.tv_usec]
                     stats[:state] = Roby::State
-		    cycle_end(stats)
+                    Roby.synchronize do
+                        cycle_end(stats)
+                    end
                     stats = Hash.new
 
 		    @cycle_start += cycle_length
