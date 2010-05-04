@@ -1,16 +1,4 @@
 module Roby
-    trap 'SIGCHLD' do
-        begin
-            while pid = ::Process.wait(-1, ::Process::WNOHANG)
-                if exit_status = $?
-                    exit_status = exit_status.dup
-                end
-                Tasks::ExternalProcess.dead! pid, exit_status
-            end
-        rescue Errno::ECHILD
-        end
-    end
-
     module Tasks
 
     # This task class can be used to monitor the execution of an external
@@ -241,6 +229,20 @@ module Roby
             ExternalProcess.processes.delete(pid)
         end
     end
+
+    def ExternalProcess.handle_terminated_children(plan)
+        begin
+            while pid = ::Process.wait(-1, ::Process::WNOHANG)
+                if exit_status = $?
+                    exit_status = exit_status.dup
+                end
+                Roby.debug { "external process #{pid} terminated" }
+                Tasks::ExternalProcess.dead! pid, exit_status
+            end
+        rescue Errno::ECHILD
+        end
+    end
+    Roby::ExecutionEngine.add_propagation_handler(&ExternalProcess.method(:handle_terminated_children))
 
     end
 end
