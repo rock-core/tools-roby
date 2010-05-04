@@ -416,7 +416,7 @@ static VALUE vertex_each_related(int argc, VALUE* argv, VALUE self)
 	    return self;
 
 	RubyGraph& g = graph_wrapped(graph);
-	for_each_value(details::vertex_range<RubyGraph, directed>::get(v, g), g, rb_yield);
+	for_each_value(::details::vertex_range<RubyGraph, directed>::get(v, g), g, rb_yield);
     }
     return self;
 }
