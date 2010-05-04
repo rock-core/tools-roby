@@ -554,7 +554,7 @@ class TC_Exceptions < Test::Unit::TestCase
         engine.fatal
 
         task_model = Class.new(Tasks::Simple) do
-            event :intermediate do
+            event :intermediate do |context|
                 emit :intermediate
             end
         end
