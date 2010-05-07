@@ -145,7 +145,11 @@ module Roby
     end
 
     RX_IN_FRAMEWORK = /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
-    def self.filter_backtrace(original_backtrace = nil)
+    RX_REQUIRE = /in `(gem_original_)?require'$/
+
+    def self.filter_backtrace(original_backtrace = nil, options = Hash.new)
+        filter_out = Roby.app.filter_out_patterns
+
         if !original_backtrace && block_given?
             begin
                 return yield
@@ -159,7 +163,7 @@ module Roby
 
             original_backtrace = original_backtrace.dup
             backtrace_bottom   = []
-            while !original_backtrace.empty? && original_backtrace.last !~ RX_IN_FRAMEWORK
+            while !original_backtrace.empty? && !filter_out.any? { |rx| rx =~ original_backtrace.last }
                 backtrace_bottom.unshift original_backtrace.pop
             end
 
@@ -180,13 +184,13 @@ module Roby
 
                         line.gsub(/:in /, ":in event handler, ")
                     else
-                        case line
-                        when /in `(gem_original_)?require'$/
-                        when /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
-                        when /^(#{app_dir}\/)?scripts\//
-                        when /^\(eval\):\d+:in `each(?:_handler)?'/
-                        else
-                            line
+                        if !filter_out.any? { |rx| rx =~ line }
+                            case line
+                            when /^(#{app_dir}\/)?scripts\//
+                            when /^\(eval\):\d+:in `each(?:_handler)?'/
+                            else
+                                line
+                            end
                         end
                     end
                 end

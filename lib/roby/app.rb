@@ -116,6 +116,9 @@ module Roby
 	    @automatic_testing = true
 	    @testing_keep_logs = false
 
+            @filter_out_patterns = [Roby::RX_IN_FRAMEWORK, Roby::RX_REQUIRE]
+            self.abort_on_application_exception = true
+
 	    @plugin_dirs = []
             @planners    = []
 	end
@@ -213,6 +216,9 @@ module Roby
 	    end
 	end
 
+        # Array of regular expressions used to filter out backtraces
+        attr_reader :filter_out_patterns
+
 	# Loads the plugins whose name are listed in +names+
 	def using(*names)
 	    names.each do |name|
@@ -224,6 +230,10 @@ module Roby
 		if plugins.find { |n, m| n == name && m == mod }
 		    next
 		end
+
+                if dir
+                    filter_out_patterns.push(/#{Regexp.quote(dir)}/)
+                end
 
 		if init
 		    begin
