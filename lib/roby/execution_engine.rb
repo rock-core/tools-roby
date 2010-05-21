@@ -1444,11 +1444,14 @@ module Roby
 		    @cycle_index += 1
 
 		rescue Exception => e
-		    ExecutionEngine.warn "Execution thread quitting because of unhandled exception"
-                    Roby.format_exception(e).each do |line|
-                        ExecutionEngine.warn line
+                    if !quitting?
+                        quit
+
+                        ExecutionEngine.fatal "Execution thread #{mode} because of unhandled exception"
+                        Roby.format_exception(e).each do |line|
+                            ExecutionEngine.warn line
+                        end
                     end
-		    quit
 		end
 	    end
 
@@ -1471,8 +1474,10 @@ module Roby
 	def quitting?; @quit > 0 end
 	# True if the control thread is currently quitting
 	def forced_exit?; @quit > 1 end
-	# Make control quit
-	def quit; @quit += 1 end
+	# Make control quit properly
+	def quit; @quit = 1 end
+        # Force quitting, without cleaning up
+        def force_quit; @quit = 2 end
 
 	# Called at each cycle end
 	def cycle_end(stats)
@@ -1498,10 +1503,12 @@ module Roby
 
 		ExecutionEngine.logger.level = Logger::INFO
 		ExecutionEngine.warn "received interruption request"
-		quit
-		if @quit > 2
-		    thread.raise Interrupt, "interrupting control thread at user request"
-		end
+                if quitting?
+                    force_quit
+                    thread.raise Interrupt, "interrupting control thread at user request"
+                else
+                    quit
+                end
 	    end
 
 	    retry
