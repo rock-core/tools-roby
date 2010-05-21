@@ -239,7 +239,11 @@ module Roby
     end
 
     def self.log_exception(e, logger, level)
-        format_exception(e).each do |line|
+        log_pp(e, logger, level)
+    end
+
+    def self.log_pp(obj, logger, level)
+        format_exception(obj).each do |line|
             logger.send(level, line)
         end
     end
