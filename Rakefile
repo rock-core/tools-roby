@@ -52,9 +52,12 @@ tutorials and demonstration videos"
             end
         end
     end
+
 rescue Exception => e
-    puts "cannot setup Hoe, distribution is disabled"
-    puts "error is: #{e.message}"
+    if e.message !~ /\.rubyforge/
+        STDERR.puts "cannot load the Hoe gem, or Hoe fails. Distribution is disabled"
+        STDERR.puts "error message is: #{e.message}"
+    end
 end
 
 def build_extension(name, soname = name)
