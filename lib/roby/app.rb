@@ -219,6 +219,10 @@ module Roby
         # Array of regular expressions used to filter out backtraces
         attr_reader :filter_out_patterns
 
+        def using_plugins(*names)
+            using(*names)
+        end
+
 	# Loads the plugins whose name are listed in +names+
 	def using(*names)
 	    names.each do |name|
