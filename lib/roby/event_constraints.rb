@@ -500,10 +500,11 @@ end
 
         class UnboundTaskPredicate::SingleEvent < UnboundTaskPredicate
             attr_reader :event_name
-            def required_events; [event_name].to_set end
+            attr_reader :required_events
 
             def initialize(event_name)
                 @event_name = event_name
+                @required_events = [event_name].to_set
                 super()
             end
 

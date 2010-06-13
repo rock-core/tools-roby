@@ -963,7 +963,7 @@ module Roby
 	        end
 	    end
 
-            left_border -= right_side
+            left_border.difference!(right_side)
             
             # Add a link from internal_event to stop if stop is controllable
             if event(:stop).controlable?
@@ -986,8 +986,8 @@ module Roby
 	    # :start to a terminal event
 	    #
 	    # Create the precedence relations between 'normal' events and the terminal events
-            left_border   -= terminal_events
-            right_border  &= terminal_events
+            left_border.difference!(terminal_events)
+            right_border.intersection!(terminal_events)
 	    for terminal in left_border
 		start_event.add_precedence(terminal)
 	        for generator in right_border
@@ -1275,14 +1275,14 @@ module Roby
             do_terminal_flag_update(terminal_events, failure_events, event(:failed))
             do_terminal_flag_update(terminal_events, nil, event(:stop))
 
-	    for ev in success_events
-		ev.terminal_flag = :success
-	    end
-	    for ev in failure_events
-		ev.terminal_flag = :failure
-	    end
-	    for ev in (terminal_events - success_events - failure_events)
-		ev.terminal_flag = true
+	    for ev in terminal_events
+                if success_events.include?(ev)
+                    ev.terminal_flag = :success
+                elsif failure_events.include?(ev)
+                    ev.terminal_flag = :failure
+                else
+                    ev.terminal_flag = true
+                end
 	    end
             @terminal_flag_invalid = false
 
@@ -2098,7 +2098,7 @@ module Roby
 	    own_subtree = ValueSet.new
 	    TaskStructure.each_root_relation do |rel|
 		own_subtree.merge generated_subgraph(rel)
-		own_subtree -= object.generated_subgraph(rel)
+		own_subtree.difference!(object.generated_subgraph(rel))
 	    end
 
 	    changes = []
