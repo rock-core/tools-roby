@@ -165,14 +165,9 @@ module Roby
         # specialized relations
         def each_relation_sorted
             # Remove from the set of relations the ones that are not leafs
-            all   = enum_relations.to_value_set
-
-            queue = all.find_all { |g| !g.subsets.intersects?(all) }
-            while !queue.empty?
-                g = queue.shift
-                yield(g)
-                if all.include?(g.parent)
-                    queue.push g.parent
+            Roby.all_relations.each do |rel|
+                if rel.include?(self)
+                    yield(rel)
                 end
             end
         end
@@ -718,13 +713,44 @@ module Roby
 	    graph.support = mod
 	    applied.each { |klass| klass.include mod }
 
+            Roby.add_relation(graph)
+
 	    graph
 	end
 
         # Remove +rel+ from the set of relations managed in this space
         def remove_relation(rel)
             relations.delete(rel)
+            Roby.remove_relation(rel)
         end
+    end
+
+    class << self
+        attr_reader :all_relations
+    end
+    @all_relations = Array.new
+
+    def self.add_relation(rel)
+        sorted_relations = Array.new
+
+        # Remove from the set of relations the ones that are not leafs
+        all   = self.all_relations.to_value_set
+        all << rel
+        queue = all.find_all { |g| !g.subsets.intersects?(all) }
+        while !queue.empty?
+            g = queue.shift
+
+            sorted_relations << g
+            if all.include?(g.parent)
+                queue.push g.parent
+            end
+        end
+
+        @all_relations = sorted_relations
+    end
+
+    def self.remove_relation(rel)
+        all_relations.delete(rel)
     end
 
     # Creates a new relation space which applies on +klass+. If a block is
