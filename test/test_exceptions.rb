@@ -272,8 +272,8 @@ class TC_Exceptions < Test::Unit::TestCase
 
 	    parent.depends_on task
 	    plan.add_mission(parent)
-
-	    engine.once { task.start! }
+            
+	    engine.once { parent.start!; task.start! }
 
 	    mock.should_receive(:other_once_handler).once
 	    mock.should_receive(:other_event_processing).once
