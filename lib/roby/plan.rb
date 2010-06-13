@@ -86,8 +86,8 @@ module Roby
             task.each_event do |ev|
                 ev.clear_relations
             end
-            task.each_relation do |rel|
-                task.child_objects(rel).to_value_set.each do |child|
+            for rel in task.sorted_relations
+                for child in task.child_objects(rel).to_a
                     task.remove_child_object(child, rel)
                 end
             end
@@ -826,7 +826,7 @@ module Roby
 	    # forwarded, the signals that go to the task are to be ignored
 	    if task.self_owned?
 		task.each_event do |ev|
-		    ev.parent_objects(EventStructure::Signal).each do |signalling_event|
+		    for signalling_event in ev.parent_objects(EventStructure::Signal).to_a
 			signalling_event.remove_signal ev
 		    end
 		end

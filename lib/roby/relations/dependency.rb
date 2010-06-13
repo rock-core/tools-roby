@@ -218,11 +218,13 @@ module Roby::TaskStructure
 	    # children in the block. Note that we can't use #delete_if here
 	    # since #children is a relation enumerator (not the relation list
 	    # itself)
-            each_child do |child, info|
+            children = each_child.to_a
+            for child in children
+                child, info = child
                 if info[:success].evaluate(child)
-		    remove_child(child)
-		end
-	    end
+                    remove_child(child)
+                end
+            end
 	end
     end
     Hierarchy = Dependency
@@ -292,10 +294,11 @@ module Roby::TaskStructure
             end
         end
 
-	tasks.each do |child|
+	for child in tasks
 	    # Check if the task has been removed from the plan
 	    next unless child.plan
 
+            removed_parents = []
 	    child.each_parent_task do |parent|
 		next unless parent.self_owned?
 		next if !parent.running?
@@ -312,7 +315,9 @@ module Roby::TaskStructure
 
 		if has_success
 		    if options[:remove_when_done]
-			parent.remove_child child
+                        # Must not delete it here as we are iterating over the
+                        # parents
+			removed_parents << parent
 		    end
                 elsif has_failure
                     explanation = failure.explain_true(child)
@@ -324,6 +329,9 @@ module Roby::TaskStructure
 		    failing_tasks << child
 		end
 	    end
+            for parent in removed_parents
+                parent.remove_child child
+            end
 	end
 
 	events.clear

@@ -273,5 +273,19 @@ class TC_Relations < Test::Unit::TestCase
 
         assert_equal([[v2, {:test => true}]], v1.each_child.to_a)
     end
+
+    def test_clear_relations
+	klass = Class.new { include Roby::DirectedRelationSupport }
+	space = Roby::RelationSpace(klass)
+        r1 = space.relation :R1, :child_name => 'child', :noinfo => true
+        r2 = space.relation :R2, :child_name => 'child2', :noinfo => true
+
+        v = klass.new
+        r1.insert(v)
+        r2.insert(v)
+        assert_equal [r1, r2].to_value_set, v.relations.to_value_set
+        v.clear_relations
+        assert_equal [], v.relations
+    end
 end
 

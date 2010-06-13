@@ -16,8 +16,10 @@ module BGL
 
 	# Removes +self+ from all the graphs it is included in.
 	def clear_vertex
-            each_graph do |rel|
-                rel.remove(self)
+            graphs = []
+            each_graph { |rel| graphs << rel }
+            for g in graphs
+                g.remove(self)
             end
 	end
 

@@ -119,14 +119,18 @@ module Roby::TaskStructure
 	    begin
 		agent = agent_model.new(arguments)
 		agent.on(:stop) do |ev|
+                    respawn = []
 		    agent.each_executed_task do |task|
 			if task.running?
 			    task.emit(:aborted, "execution agent #{self} failed") 
 			elsif task.pending?
-			    task.remove_execution_agent agent
-			    spawn(task)
+                            respawn << task
 			end
 		    end
+                    for task in respawn
+                        task.remove_execution_agent agent
+                        spawn(task)
+                    end
 		end
 	    rescue Exception => e
 		task.plan.engine.add_error(ExecutionAgentSpawningFailed.new(task, agent_model, e))

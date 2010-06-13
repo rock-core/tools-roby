@@ -29,7 +29,7 @@ module Roby
 
 	# Removes +self+ from all the graphs it is included in.
 	def clear_vertex
-            each_relation_sorted do |rel|
+            for rel in sorted_relations
                 rel.remove(self)
             end
 	end
@@ -97,7 +97,7 @@ module Roby
         # relation graph.
 	def remove_child_object(child, relation = nil)
             if !relation
-                each_relation_sorted do |rel|
+                for rel in sorted_relations
                     rel.remove_relation(self, child)
                 end
             else
@@ -109,7 +109,9 @@ module Roby
         # is given, it removes only the edges in that relation graph.
 	def remove_children(relation = nil)
             if !relation
-                each_relation_sorted { |rel| remove_children(rel) }
+                for rel in sorted_relations
+                    remove_children(rel)
+                end
                 return
             end
 
@@ -130,7 +132,9 @@ module Roby
         # is given, it removes only the edges in that relation graph.
 	def remove_parents(relation = nil)
             if !relation
-                each_relation_sorted { |rel| remove_parents(rel) }
+                for rel in sorted_relations
+                    remove_parents(rel)
+                end
                 return
             end
 
@@ -146,7 +150,9 @@ module Roby
         # If +relation+ is not nil, only edges of that relation graph are removed.
 	def remove_relations(relation = nil)
             if !relation
-                each_relation_sorted { |rel| remove_relations(rel) }
+                for rel in sorted_relations
+                    remove_relations(rel)
+                end
                 return
             end
 
@@ -160,6 +166,11 @@ module Roby
                 relation.remove_relation(self, child)
             end
 	end
+
+        def sorted_relations
+            Roby.all_relations.
+                find_all { |rel| rel.include?(self) }
+        end
 
         # Yields each relation this vertex is part of, starting with the most
         # specialized relations

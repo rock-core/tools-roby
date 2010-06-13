@@ -1060,7 +1060,7 @@ module Roby
                     ExecutionEngine.debug "cycle found, removing weak relations"
 
                     local_tasks.each do |t|
-                        t.each_relation do |rel|
+                        for rel in t.sorted_relations
                             rel.remove(t) if rel.weak?
                         end
                     end
