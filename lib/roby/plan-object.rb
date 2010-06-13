@@ -14,7 +14,6 @@ module Roby
             super if defined? super
 
             @plan = nil
-            @iterating = []
         end
 
 	# The plan this object belongs to
