@@ -130,7 +130,7 @@ module Roby
 	    def replaced(from, to)
 		super if defined? super
 		if (from.distribute? && to.distribute?) && (to.self_owned? || from.self_owned?)
-		    unless Distributed.updating?(self) || Distributed.updating_all?([from, to])
+		    unless Distributed.updating?(self) || (Distributed.updating?(from) && Distributed.updating?(to))
 			Distributed.each_updated_peer(from) do |peer|
 			    peer.transmit(:plan_replace, self, from, to)
 			end
@@ -299,9 +299,9 @@ module Roby
 	    def added_child_object(child, relations, info)
 		super if defined? super
 
+		return if !Distributed.state
 		return if Distributed.updating?(plan)
-		return if Distributed.updating_all?([self.root_object, child.root_object])
-		return unless Distributed.state
+		return if Distributed.updating?(self.root_object) && Distributed.updating?(child.root_object)
 
 		# Remove all relations that should not be distributed, and if
 		# there is a relation remaining, notify our peer only of the
@@ -318,13 +318,13 @@ module Roby
             # PeerServer#update_relation message.
 	    def removed_child_object(child, relations)
 		super if defined? super
-		return unless Distributed.state
+		return if !Distributed.state
 
 		# If our peer is pushing a distributed transaction, children
 		# can be removed Avoid sending unneeded updates by testing on
 		# plan update
 		return if Distributed.updating?(plan)
-		return if Distributed.updating_all?([self.root_object, child.root_object])
+		return if Distributed.updating?(self.root_object) && Distributed.updating?(child.root_object)
 
 		# Remove all relations that should not be distributed, and if
 		# there is a relation remaining, notify our peer only of the
