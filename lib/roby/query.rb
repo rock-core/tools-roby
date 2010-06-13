@@ -30,10 +30,14 @@ module Roby
 	attr_reader :model, :arguments
 	attr_reader :predicates, :neg_predicates, :owners
 
+        attr_reader :indexed_predicates, :indexed_neg_predicates
+
         # Initializes an empty TaskMatcher object
 	def initialize
 	    @predicates           = ValueSet.new
 	    @neg_predicates       = ValueSet.new
+	    @indexed_predicates     = ValueSet.new
+	    @indexed_neg_predicates = ValueSet.new
 	    @owners               = Array.new
 	    @interruptible	  = nil
             @parents              = Hash.new { |h, k| h[k] = Array.new }
@@ -182,6 +186,9 @@ module Roby
 			    raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
 		        end
 			predicates << :#{name}?
+                        if TaskIndex::STATE_PREDICATES.include?(:#{name}?)
+                            indexed_predicates << :#{name}?
+                        end
 			self
 		    end
 		    def not_#{name}
@@ -189,6 +196,9 @@ module Roby
 			    raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
 		        end
 			neg_predicates << :#{name}?
+                        if TaskIndex::STATE_PREDICATES.include?(:#{name}?)
+                            indexed_neg_predicates << :#{name}?
+                        end
 			self
 		    end
 		    EOD
@@ -486,29 +496,29 @@ module Roby
 	    if model
                 if model.respond_to?(:to_ary)
                     for m in model
-                        initial_set &= task_index.by_model[m]
+                        initial_set.intersection!(task_index.by_model[m])
                     end
                 else
-                    initial_set &= task_index.by_model[model]
+                    initial_set.intersection!(task_index.by_model[model])
                 end
 	    end
 
 	    if !owners.empty?
 		for o in owners
 		    if candidates = task_index.by_owner[o]
-			initial_set &= candidates
+			initial_set.intersection!(candidates)
 		    else
 			return ValueSet.new
 		    end
 		end
 	    end
 
-	    for pred in (predicates & TaskIndex::STATE_PREDICATES)
-		initial_set &= task_index.by_state[pred]
+	    for pred in indexed_predicates
+		initial_set.intersection!(task_index.by_state[pred])
 	    end
 
-	    for pred in (neg_predicates & TaskIndex::STATE_PREDICATES)
-		initial_set -= task_index.by_state[pred]
+	    for pred in indexed_neg_predicates
+		initial_set.difference!(task_index.by_state[pred])
 	    end
 
 	    initial_set
@@ -599,15 +609,15 @@ module Roby
             result = super
 
             if plan_predicates.include?(:mission?)
-                result &= plan.missions
+                result.intersection!(plan.missions)
             elsif neg_plan_predicates.include?(:mission?)
-                result -= plan.missions
+                result.difference!(plan.missions)
             end
 
             if plan_predicates.include?(:permanent?)
-                result &= plan.permanent_tasks
+                result.intersection!(plan.permanent_tasks)
             elsif neg_plan_predicates.include?(:permanent?)
-                result -= plan.permanent_tasks
+                result.difference!(plan.permanent_tasks)
             end
 
             result
@@ -854,7 +864,7 @@ module Roby
 	# Called by TaskMatcher#result_set and Query#result_set to get the set
 	# of tasks matching +matcher+
 	def query_result_set(matcher) # :nodoc:
-            filtered = matcher.filter(known_tasks, task_index)
+            filtered = matcher.filter(known_tasks.dup, task_index)
 
             if matcher.indexed_query?
                 filtered
