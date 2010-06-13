@@ -37,9 +37,24 @@ module BGL
 	    graph.reverse.generated_subgraphs(singleton_set, false).first || singleton_set
 	end
 
+        attribute(:iterating) { Array.new }
+
+        def must_not_iterate
+            if iterating.last
+                raise "should not be iterating"
+            end
+        end
+
 	# Replace this vertex by +to+ in all graphs. See Graph#replace_vertex.
 	def replace_vertex_by(to)
-	    each_graph { |g| g.replace_vertex(self, to) }
+            must_not_iterate
+            to.must_not_iterate
+
+            graphs = []
+            each_graph { |rel| graphs << rel }
+	    for g in graphs
+                g.replace_vertex(self, to)
+            end
 	end
 
 	# Returns an array of [graph, [parent, child, info], [parent, child,
@@ -109,6 +124,12 @@ module BGL
 	    source.each_vertex { |v| insert(v) }
 	    source.each_edge { |s, t, i| link(s, t, i) }
 	end
+
+        alias :__insert__ :insert
+        def insert(obj)
+            obj.must_not_iterate
+            __insert__(obj)
+        end
 
 	# Replaces +from+ by +to+. This means +to+ takes the role of +from+ in
 	# all edges +from+ is involved in. +from+ is removed from the graph.

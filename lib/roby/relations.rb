@@ -21,10 +21,23 @@ module Roby
 	alias :each_child_object    :each_child_vertex
 	alias :each_parent_object   :each_parent_vertex
 
+        def each_child_object(*args, &block)
+            iterating.push true
+            each_child_vertex(*args, &block)
+        ensure iterating.pop
+        end
+        def each_parent_object(*args, &block)
+            iterating.push true
+            each_parent_vertex(*args, &block)
+        ensure iterating.pop
+        end
+
         def each_relation
+            iterating.push true
             each_graph do |g|
                 yield(g) if g.kind_of?(RelationGraph)
             end
+        ensure iterating.pop
         end
 
 	# Removes +self+ from all the graphs it is included in.
@@ -59,6 +72,7 @@ module Roby
 	# otherwise enumerate for all relations.  If +result+ is given, it is a
 	# ValueSet in which the related objects are added
 	def related_objects(relation = nil, result = nil)
+            iterating.push true
 	    result ||= ValueSet.new
 	    if relation
 		result.merge(parent_objects(relation).to_value_set)
@@ -67,6 +81,7 @@ module Roby
 		each_relation { |rel| related_objects(rel, result) }
 	    end
 	    result
+        ensure iterating.pop
 	end
 
 	# Set of all parent objects in +relation+
@@ -80,6 +95,7 @@ module Roby
 	# * #added_child_object on +self+ and #added_parent_object on +child+
 	#   just after
 	def add_child_object(child, relation, info = nil)
+            must_not_iterate
 	    relation.add_relation(self, child, info)
 	end
 
@@ -89,6 +105,7 @@ module Roby
 	# * #added_child_object on +parent+ and #added_child_object on +self+
 	#   just after
 	def add_parent_object(parent, relation, info = nil)
+            must_not_iterate
 	    parent.add_child_object(self, relation, info)
 	end
 
@@ -96,6 +113,7 @@ module Roby
         # target. If +relation+ is given, it removes only the edge in that
         # relation graph.
 	def remove_child_object(child, relation = nil)
+            must_not_iterate
             if !relation
                 for rel in sorted_relations
                     rel.remove_relation(self, child)
@@ -108,6 +126,7 @@ module Roby
         # Remove all edges in which +self+ is the source. If +relation+
         # is given, it removes only the edges in that relation graph.
 	def remove_children(relation = nil)
+            must_not_iterate
             if !relation
                 for rel in sorted_relations
                     remove_children(rel)
@@ -125,12 +144,14 @@ module Roby
         # target. If +relation+ is given, it removes only the edge in that
         # relation graph.
 	def remove_parent_object(parent, relation = nil)
+            must_not_iterate
 	    parent.remove_child_object(self, relation)
 	end
 
         # Remove all edges in which +self+ is the target. If +relation+
         # is given, it removes only the edges in that relation graph.
 	def remove_parents(relation = nil)
+            must_not_iterate
             if !relation
                 for rel in sorted_relations
                     remove_parents(rel)
@@ -149,6 +170,7 @@ module Roby
         #
         # If +relation+ is not nil, only edges of that relation graph are removed.
 	def remove_relations(relation = nil)
+            must_not_iterate
             if !relation
                 for rel in sorted_relations
                     remove_relations(rel)
@@ -175,12 +197,14 @@ module Roby
         # Yields each relation this vertex is part of, starting with the most
         # specialized relations
         def each_relation_sorted
+            iterating.push true
             # Remove from the set of relations the ones that are not leafs
             Roby.all_relations.each do |rel|
                 if rel.include?(self)
                     yield(rel)
                 end
             end
+        ensure iterating.pop
         end
     end
 
@@ -262,6 +286,7 @@ module Roby
         # Remove +vertex+ from this graph. It removes all relations that
         # +vertex+ is part of, and calls the corresponding hooks
         def remove(vertex)
+            vertex.must_not_iterate
             vertex.remove_relations(self)
             super
         end
@@ -284,6 +309,9 @@ module Roby
         # <tt>parent.parent</tt>, ...] if the parent, grandparent, ... graphs
         # do not include the edge either.
 	def add_relation(from, to, info = nil)
+            from.must_not_iterate
+            to.must_not_iterate
+
 	    # Get the toplevel DAG in our relation hierarchy. We only test for the
 	    # DAG property on this one, as it is the union of all its children
 	    top_dag = nil
@@ -340,6 +368,8 @@ module Roby
 	# possible to add an already existing edge if the +info+ parameter
 	# matches.
 	def link(from, to, info)
+            from.must_not_iterate
+            to.must_not_iterate
 	    if linked?(from, to)
                 old_info = from[to, self]
 		if info != old_info
@@ -354,6 +384,12 @@ module Roby
 	    end
 	    super(from, to, info)
 	end
+
+        def unlink(from, to)
+            from.must_not_iterate
+            to.must_not_iterate
+            super
+        end
 
         # Remove the relation between +from+ and +to+, in this graph and in its
         # parent graphs as well.
@@ -370,6 +406,8 @@ module Roby
         # <tt>[self, parent, parent.parent, ...]</tt> up to the root relation
         # which is a superset of +self+.
 	def remove_relation(from, to)
+            from.must_not_iterate
+            to.must_not_iterate
 	    rel = self
 	    relations = []
 	    while rel
