@@ -85,32 +85,6 @@ class TC_Query < Test::Unit::TestCase
 	check_matches_fullfill(task_model, trsc, trsc[t0], trsc[t1], trsc[t2])
     end
 
-    def test_query_information
-	t1 = Class.new(Task) do
-	    needs :source_info
-	    improves :other_info
-	end.new
-	t2 = Class.new(Task) do
-	    needs :source_info
-	    improves :yet_another_info
-	end.new
-
-	plan.add [t1, t2]
-	result = TaskMatcher.which_needs(:source_info).enum_for(:each, plan).to_set
-	assert_equal([t1, t2].to_set, result)
-	result = TaskMatcher.which_needs(:foo_bar).enum_for(:each, plan).to_set
-	assert_equal(Set.new, result)
-	result = TaskMatcher.which_improves(:foo_bar).enum_for(:each, plan).to_set
-	assert_equal(Set.new, result)
-	result = TaskMatcher.which_improves(:other_info).enum_for(:each, plan).to_set
-	assert_equal([t1].to_set, result)
-	result = TaskMatcher.which_needs(:source_info).
-	    which_improves(:yet_another_info).
-	    enum_for(:each, plan).to_set
-
-	assert_equal([t2].to_set, result)
-    end
-
     def assert_query_finds_tasks(task_set)
 	assert_equal(task_set.to_set, yield.enum_for(:each).to_set)
     end
