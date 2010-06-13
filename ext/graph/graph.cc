@@ -58,6 +58,26 @@ static VALUE graph_alloc(VALUE klass)
 
 /*
  * call-seq:
+ *    graph.vertices => all_vertices
+ *
+ * Returns all vertices contained in +graph+
+ */
+static
+VALUE graph_vertices(VALUE self)
+{
+    RubyGraph& graph = graph_wrapped(self);
+
+    vertex_iterator begin, end;
+    tie(begin, end) = vertices(graph);
+
+    VALUE result = rb_ary_new();
+    for (vertex_iterator it = begin; it != end; ++it)
+        rb_ary_push(result, graph[*it]);
+    return result;
+}
+
+/*
+ * call-seq:
  *    graph.each_vertex { |vertex| ... }     => graph
  *
  * Iterates on all vertices in +graph+.
@@ -551,6 +571,7 @@ extern "C" void Init_roby_bgl()
     rb_define_method(bglGraph, "link",	    RUBY_METHOD_FUNC(graph_link), 3);
     rb_define_method(bglGraph, "unlink",    RUBY_METHOD_FUNC(graph_unlink), 2);
     rb_define_method(bglGraph, "linked?",   RUBY_METHOD_FUNC(graph_linked_p), 2);
+    rb_define_method(bglGraph, "vertices",	RUBY_METHOD_FUNC(graph_vertices), 0);
     rb_define_method(bglGraph, "each_vertex",	RUBY_METHOD_FUNC(graph_each_vertex), 0);
     rb_define_method(bglGraph, "each_edge",	RUBY_METHOD_FUNC(graph_each_edge), 0);
     rb_define_method(bglGraph, "clear",	RUBY_METHOD_FUNC(graph_clear), 0);
