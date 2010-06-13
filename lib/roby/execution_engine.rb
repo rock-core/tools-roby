@@ -1447,7 +1447,7 @@ module Roby
                     if !quitting?
                         quit
 
-                        ExecutionEngine.fatal "Execution thread #{mode} because of unhandled exception"
+                        ExecutionEngine.fatal "Execution thread quitting because of unhandled exception"
                         Roby.format_exception(e).each do |line|
                             ExecutionEngine.warn line
                         end
