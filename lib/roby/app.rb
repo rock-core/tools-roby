@@ -464,7 +464,7 @@ module Roby
 		models_search << File.join('planners', robot_name) << File.join('planners', robot_type)
                 file = robotfile('planners', 'ROBOT', 'main.rb')
             end
-            file ||= File.join("planners", "main")
+            file ||= File.join("planners", "main.rb")
             require file if File.file?(file)
 
 	    # Load the other planners
