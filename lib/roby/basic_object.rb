@@ -1,4 +1,25 @@
 module Roby
+    class ::Class
+        # If true, this model will never get sent to remote peers.
+        def private_model?
+            if !@private_model.nil?
+                @private_model
+            else
+                klass = superclass
+                if superclass.respond_to?(:private_model?)
+                    superclass.private_model?
+                end
+            end
+        end
+
+        # Declares that neither this model nor its subclasses should be sent to
+        # remote peers.
+        #
+        # I.e., from the point of view of our peers, instances of this model are
+        # actually instances of its superclass.
+        def private_model; @private_model = true end
+    end
+
     # Base class for most plan-related objects (Plan, PlanObject, ...)
     #
     # This class contains the information and manipulation attributes that are

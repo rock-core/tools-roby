@@ -355,7 +355,7 @@ module Roby
 		def droby_dump(dest)
 		    unless @__droby_marshalled__
 			formatted = ancestors.map do |klass| 
-			    if klass.instance_of?(Class) && !klass.is_singleton? 
+			    if klass.instance_of?(Class) && !klass.is_singleton? && !klass.private_model?
 				if result = DRobyModel.local_to_remote[klass]
 				    result
 				else
