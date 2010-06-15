@@ -1,7 +1,7 @@
 $LOAD_PATH.unshift File.expand_path('.', File.dirname(__FILE__))
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 require 'flexmock'
 
 require 'test_plan'
@@ -32,7 +32,7 @@ module TC_TransactionBehaviour
     Signal = Roby::EventStructure::Signal
     Forwarding = Roby::EventStructure::Forwarding
 
-    SimpleTask = Roby::Test::SimpleTask
+    SimpleTask = Roby::Tasks::Simple
 
     def test_wrap_task
         plan.add(t = SimpleTask.new)

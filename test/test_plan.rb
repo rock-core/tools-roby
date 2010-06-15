@@ -1,6 +1,6 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 
 require 'flexmock'
 
@@ -165,7 +165,7 @@ module TC_PlanStatic
     # TODO: test that #add adds related objects
 
     #def test_discover
-    #    t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => Roby::Test::SimpleTask
+    #    t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => Roby::Tasks::Simple
     #    t1.depends_on t2
     #    or_ev = OrGenerator.new
     #    t2.event(:start).signals or_ev
@@ -192,7 +192,7 @@ module TC_PlanStatic
     #end
 
     def test_useful_task_components
-	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => Roby::Test::SimpleTask
+	t1, t2, t3, t4 = prepare_plan :tasks => 4, :model => Roby::Tasks::Simple
 	t1.depends_on t2
 	t2.signals(:start, t3, :stop)
 	t2.planned_by t4
@@ -208,8 +208,8 @@ module TC_PlanStatic
     end
 
     def test_replace_task
-	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Test::SimpleTask
-	p.depends_on c1, :model => [Roby::Test::SimpleTask, {}]
+	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Tasks::Simple
+	p.depends_on c1, :model => [Roby::Tasks::Simple, {}]
 	c1.depends_on c11
 	c1.depends_on c12
 	p.depends_on c2
@@ -261,8 +261,8 @@ module TC_PlanStatic
 	assert( plan.include?(c1) )
 
 	# Check that #replace_task keeps the permanent flag too
-	(root, p), t = prepare_plan :permanent => 2, :tasks => 1, :model => Roby::Test::SimpleTask
-        root.depends_on p, :model => Roby::Test::SimpleTask
+	(root, p), t = prepare_plan :permanent => 2, :tasks => 1, :model => Roby::Tasks::Simple
+        root.depends_on p, :model => Roby::Tasks::Simple
 
 	plan.add_permanent(p)
 	plan.replace_task(p, t)
@@ -271,8 +271,8 @@ module TC_PlanStatic
     end
 
     def test_replace
-	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Test::SimpleTask
-	p.depends_on c1, :model => Roby::Test::SimpleTask
+	(p, c1), (c11, c12, c2, c3) = prepare_plan :missions => 2, :tasks => 4, :model => Roby::Tasks::Simple
+	p.depends_on c1, :model => Roby::Tasks::Simple
 	c1.depends_on c11
 	c1.depends_on c12
 	p.depends_on c2
@@ -380,7 +380,7 @@ module TC_PlanStatic
 
     # Checks that a garbage collected object (event or task) cannot be added back into the plan
     def test_garbage_collection_final
-	t = SimpleTask.new
+	t = Roby::Tasks::Simple.new
 	e = EventGenerator.new(true)
 	plan.real_plan.add [t, e]
 	engine.garbage_collect
@@ -389,7 +389,7 @@ module TC_PlanStatic
     end
 
     def test_proxy_operator
-        t = SimpleTask.new
+        t = Roby::Tasks::Simple.new
         assert_same t, plan[t, false]
 
         assert plan.include?(t)
