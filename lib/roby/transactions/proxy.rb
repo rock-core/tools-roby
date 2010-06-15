@@ -183,6 +183,17 @@ module Roby
 	end
     end
 
+    module PlanObject::Proxying
+        proxy_for PlanObject
+
+        def commit_transaction
+            super
+            if @executable != __getobj__.instance_variable_get(:@executable)
+                __getobj__.executable = @executable
+            end
+        end
+    end
+
     module EventGenerator::Proxying
 	proxy_for EventGenerator
 	
