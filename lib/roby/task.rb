@@ -403,7 +403,7 @@ module Roby
         def call_without_propagation(context) # :nodoc:
             super
     	rescue EventNotExecutable => e
-	    refine_exception(e)
+	    refine_call_exception(e)
         end
 
 	# Checks that the event can be called. Raises various exception
@@ -422,7 +422,7 @@ module Roby
 		    "#{symbol}! called by #{plan.engine.propagation_sources.to_a} but the task is already running. Task has been started by #{task.event(:start).history.first.sources}."
             end
     	rescue EventNotExecutable => e
-	    refine_exception(e)
+	    refine_call_exception(e)
 	end
 
 	# Checks that the event can be emitted. Raises various exception
@@ -430,13 +430,13 @@ module Roby
 	def check_emission_validity # :nodoc:
   	    super
     	rescue EventNotExecutable => e
-	    refine_exception(e)
+	    refine_emit_exception(e)
     	end
 
         # When an emissio and/or call exception is raised by the base
         # EventGenerator methods, this method is used to transform it to the
         # relevant task-related error.
-	def refine_exception (e) # :nodoc:
+	def refine_call_exception (e) # :nodoc:
 	    if task.partially_instanciated?
 		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} which is partially instanciated\n" + 
 			"The following arguments were not set: \n" +
@@ -450,6 +450,26 @@ module Roby
 		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} but the task is abstract"
 	    else
 		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} which is not executable: #{e.message}"
+	    end
+	end
+
+        # When an emissio and/or call exception is raised by the base
+        # EventGenerator methods, this method is used to transform it to the
+        # relevant task-related error.
+	def refine_emit_exception (e) # :nodoc:
+	    if task.partially_instanciated?
+		raise EventNotExecutable.new(self), "emit(#{symbol}) called on #{task} which is partially instanciated\n" + 
+			"The following arguments were not set: \n" +
+			task.list_unset_arguments.map {|n| "\t#{n}"}.join("\n")+"\n"
+# 						
+	    elsif !plan
+		raise EventNotExecutable.new(self), "emit(#{symbol}) called on #{task} but the task is in no plan"
+	    elsif !plan.executable?
+		raise EventNotExecutable.new(self), "emit(#{symbol}) called on #{task} but the plan is not executable"
+	    elsif task.abstract?
+		raise EventNotExecutable.new(self), "emit(#{symbol}) called on #{task} but the task is abstract"
+	    else
+		raise EventNotExecutable.new(self), "emit(#{symbol}) called on #{task} which is not executable: #{e.message}"
 	    end
 	end
     end
