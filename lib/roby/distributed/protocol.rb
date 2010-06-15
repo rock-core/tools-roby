@@ -405,7 +405,7 @@ module Roby
 		if !id.kind_of?(Distributed::RemoteID)
 		    # this is a local task model
 		    id
-		elsif !name.empty? && model = (constant(name) rescue nil)
+		elsif name && !name.empty? && model = (constant(name) rescue nil)
 		    model
 		elsif model = @@remote_to_local[id]
 		    model

@@ -40,7 +40,7 @@ module Roby
             remote_models.map do |klass|
                 klass = klass.proxy(nil)
 
-                if klass.respond_to?(:remote_name)
+                if klass.respond_to?(:remote_name) && klass.remote_name
                     # This is a local proxy for a remote model. Add it in our
                     # namespace as well.
                     path  = klass.remote_name.split '::'
