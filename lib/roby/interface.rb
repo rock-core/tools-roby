@@ -54,7 +54,11 @@ module Roby
                                   mod.const_set(name, Module.new)
                               end
                     end
-                    mod.const_set(klass_name, klass)
+                    begin
+                        mod.const_set(klass_name, klass)
+                    rescue NameError => e
+                        STDERR.puts "cannot map remove model #{klass_name} (#{klass}): #{e.message}"
+                    end
                 end
             end
         end
