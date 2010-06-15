@@ -45,6 +45,9 @@ module Roby
     # This mode is used to run test suites in the +test+ directory. See
     # Roby::Test::TestCase for a description of Roby-specific tests.
     class Application
+        extend Logger::Hierarchy
+        extend Logger::Forward
+
 	include Singleton
         
 	# A set of planners declared in this application
@@ -450,6 +453,11 @@ module Roby
 		Roby::State.datadirs << datadir
 	    end
 	end
+
+        def require(file)
+            Roby::Application.info "loading #{file}"
+            Kernel.require(file)
+        end
 
         # Loads the models, based on the given robot name and robot type
 	def require_models
