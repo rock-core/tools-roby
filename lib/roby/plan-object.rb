@@ -8,6 +8,7 @@ module Roby
             @plan       = nil
             @removed_at = nil
             @executable = nil
+            @finalization_handlers = Array.new
         end
 
         def initialize_copy(other)
@@ -389,6 +390,48 @@ module Roby
                     trsc.removing_plan_relation(parent_proxy, child_proxy, relations) 
                 end
             end
+        end
+
+        attr_reader :finalization_handlers
+
+        inherited_enumerable(:finalization_handler, :finalization_handlers) { Array.new }
+
+        # Adds a model-level finalization handler, i.e. a handler that will be
+        # called on every instance of the class
+        def self.when_finalized(&block)
+            method_name = "finalization_handler_#{block.object_id}"
+            define_method(method_name, &block)
+            finalization_handlers << instance_method(method_name)
+        end
+
+        # Enumerates the finalization handlers that should be applied in
+        # finalized!
+        def each_finalization_handler(&block)
+            finalization_handlers.each(&block)
+            self.class.each_finalization_handler do |model_handler|
+                model_handler.bind(self).call(&block)
+            end
+        end
+
+        # Called when a particular object has been removed from its plan
+        def finalized!
+            if self.plan.executable?
+                # call finalization handlers
+                each_finalization_handler do |handler|
+                    handler.call
+                end
+            end
+
+	    self.plan = nil
+	    self.removed_at = caller
+        end
+
+        # call-seq:
+        #   when_finalized { }
+        #
+        # Called when the task gets finalized, i.e. removed from the main plan
+        def when_finalized(&block)
+            finalization_handlers << block
         end
     end
 end

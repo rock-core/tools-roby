@@ -188,8 +188,15 @@ module Roby
 
         def commit_transaction
             super
+
             if @executable != __getobj__.instance_variable_get(:@executable)
                 __getobj__.executable = @executable
+            end
+
+            finalization_handlers.each do |handler|
+                if !__getobj__.finalization_handlers.include?(handler)
+                    __getobj__.when_finalized(&handler)
+                end
             end
         end
     end

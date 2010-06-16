@@ -248,6 +248,18 @@ module TC_TransactionBehaviour
 	assert_equal(t2, t1.arguments[:second])
     end
 
+    def test_commit_finalization_handlers
+	t = prepare_plan :add => 1
+        FlexMock.use do |mock|
+            finalization = lambda { mock.finalized }
+            transaction_commit(plan, t) do |trsc, p|
+                p.when_finalized(&finalization)
+            end
+            assert(t.finalization_handlers.include?(finalization))
+            mock.should_receive(:finalized).never
+        end
+    end
+
     # Tests insertion and removal of tasks
     def test_commit_plan_tasks
 	t1, (t2, t3) = prepare_plan(:missions => 1, :tasks => 2)

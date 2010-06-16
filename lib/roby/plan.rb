@@ -794,8 +794,7 @@ module Roby
 	    @permanent_events.delete(object)
 	    force_gc.delete(object)
 
-	    object.plan = nil
-	    object.removed_at = caller
+            object.finalized!
 
 	    case object
 	    when EventGenerator
