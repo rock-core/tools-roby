@@ -3,6 +3,10 @@ require 'utilrb/time/to_hms'
 require 'roby'
 require 'utilrb/module/attr_predicate'
 
+if !defined?(Test::Unit::AssertionFailedError)
+Test::Unit::AssertionFailedError = MiniTest::Assertion
+end
+
 module Roby
     module Test
 	include Roby
