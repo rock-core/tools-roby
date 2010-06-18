@@ -136,13 +136,12 @@ module Roby
             # argument set. This is to be used by DRoby-dumped versions of
             # subclasses of TaskMatcher.
 	    def self.setup_matcher(matcher, args)
-		model, args, improves, needs, predicates, neg_predicates, owners = *args
+		model, args, predicates, neg_predicates, owners = *args
 		model  = model.proxy(nil) if model
 		owners = owners.map { |peer| peer.proxy(nil) } if owners
 		args   = args
 
-		matcher = matcher.with_model(model).with_arguments(args || {}).
-		    which_improves(*improves).which_needs(*needs)
+		matcher = matcher.with_model(model).with_arguments(args || {})
 		matcher.predicates.merge(predicates)
 		matcher.owners.concat(owners)
 		matcher
@@ -154,7 +153,7 @@ module Roby
         # representation. It is used for code reuse by subclasses of
         # TaskMatcher.
 	def droby_dump(dest, klass = DRoby)
-	    args = [model, arguments, improved_information, needed_information, predicates, neg_predicates, owners]
+	    args = [model, arguments, predicates, neg_predicates, owners]
 	    klass.new args.droby_dump(dest)
 	end
     end
