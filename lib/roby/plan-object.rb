@@ -15,6 +15,7 @@ module Roby
             super if defined? super
 
             @plan = nil
+            @finalization_handlers = other.finalization_handlers.dup
         end
 
 	# The plan this object belongs to
