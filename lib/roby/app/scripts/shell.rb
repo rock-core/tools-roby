@@ -18,6 +18,7 @@ app.single
 
 robot_name = ARGV.shift
 app.robot robot_name, (ARGV.shift || robot_name)
+app.log_autosave = false
 app.setup
 
 remote_url ||= app.droby['host']

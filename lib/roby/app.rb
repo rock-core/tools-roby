@@ -296,8 +296,16 @@ module Roby
 	    File.expand_path(log['dir'] || 'log', APP_DIR)
 	end
 
+        # Allows to override the 'log/autosave' configuration option
+        #
+        # If set to true, the log/ directory will be moved to results/
+        # automatically. Otherwise, it will stay where it is.
+        attr_writer :log_autosave
+
         def log_autosave?
-            if log.has_key?('autosave')
+            if !@log_autosave.nil?
+                @log_autosave
+            elsif log.has_key?('autosave')
                 log['autosave']
             else true
             end
@@ -320,9 +328,12 @@ module Roby
         end
 
         def log_save_time_tag
-	    tag = Time.now.strftime('%Y%m%d-%H%M')
-            File.open(File.join(log_dir, 'time_tag'), 'w') do |io|
-                io.write tag
+            path = File.join(log_dir, 'time_tag')
+            if !File.file?(path)
+                tag = Time.now.strftime('%Y%m%d-%H%M')
+                File.open(path, 'w') do |io|
+                    io.write tag
+                end
             end
         end
 
