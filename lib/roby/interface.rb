@@ -178,6 +178,13 @@ module Roby
             task_set_to_s(missions)
             nil
         end
+        
+        # Displays information about the plan's missions
+        def permanent_tasks
+            permanent = find_tasks.permanent.to_a
+            task_set_to_s(permanent)
+            nil
+        end
 
         # Displays information about the running tasks
         def running_tasks
