@@ -36,6 +36,10 @@ module Roby
         end
 
         def reconnect
+            # Verify that passing objects around works fine
+            obj = @interface.connection_test_object
+            @interface.connection_test(obj)
+
             remote_models = @interface.task_models
             remote_models.map do |klass|
                 klass = klass.proxy(nil)
@@ -472,6 +476,15 @@ help                              | this help message                           
                 RemoteObjectProxy.new(result)
             end
 	end
+
+        def connection_test_object
+            DRbObject.new(Object.new)
+        end
+        def connection_test(obj)
+            if obj.kind_of?(DRbObject)
+                raise "cannot pass remote objects in connection (#{obj.__drburi} != #{DRb.current_server.uri})"
+            end
+        end
     end
 end
 

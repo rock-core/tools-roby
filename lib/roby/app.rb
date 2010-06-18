@@ -560,6 +560,12 @@ module Roby
 	    else
 		DRb.start_service "druby://#{host}", Interface.new(Roby.engine)
             end
+
+            # Consistency check: DRb.here?(DRbObject.new(obj).__drburi) should
+            # be true
+            if DRb.uri != DRb.current_server.uri
+                raise RuntimeError, "problem in DRb configuration: DRb.uri != DRb.current_server.uri (#{DRb.uri} != #{DRb.current_server.uri})"
+            end
         end
 
 	def run(&block)
