@@ -303,7 +303,7 @@ help                              | this help message                           
         # GC
         def unmark(task)
             @interface.unmark(task)
-            self
+            nil
         end
 
 	def method_missing(m, *args) # :nodoc:
