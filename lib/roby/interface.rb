@@ -149,9 +149,16 @@ module Roby
 		    task.send("#{state_name}?")
 		end
 
+                kind =
+                    if task.mission? then 'mission'
+                    elsif plan.permanent?(task) then 'permanent'
+                    else ''
+                    end
+
                 since      = task.start_time
                 lifetime   = task.lifetime
 		Hash['Task' => task.to_s,
+                     'Kind' => kind,
                     'State' => state_name,
                     'Since' => (since.asctime if since),
                     'Lifetime' => (Time.at(lifetime).to_hms if lifetime)
