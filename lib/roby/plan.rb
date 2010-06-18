@@ -232,7 +232,6 @@ module Roby
 	# Removes the task in +tasks+ from the list of missions
 	def unmark_mission(task)
 	    @missions.delete(task)
-	    add(task)
 	    task.mission = false if task.self_owned?
 
 	    unmarked_mission(task)
