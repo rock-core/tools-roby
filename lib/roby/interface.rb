@@ -1,15 +1,18 @@
 require 'utilrb/column_formatter'
 
 module Roby
+    # Used in the shell as a local representation of a task in the main plan
+    #
     # An augmented DRbObject which allow to properly interface with remotely
     # running plan objects.
     class RemoteObjectProxy < DRbObject
+        # The RemoteInterface instance we are associated with
 	attr_accessor :remote_interface
 
-	def to_s
+	def to_s # :nodoc:
             __method_missing__(:to_s) 
         end
-	def pretty_print(pp)
+	def pretty_print(pp) # :nodoc:
 	    pp.text to_s
 	end
 
