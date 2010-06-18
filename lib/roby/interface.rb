@@ -106,6 +106,9 @@ module Roby
 		actions.map { |name| "#{name}!" }
 	end
 
+        # Displays a summary of the available actions
+        #
+        # See #actions for details
         def actions_summary(with_advanced = false)
             methods = @interface.actions
             if !with_advanced
@@ -129,6 +132,20 @@ module Roby
             nil
         end
 
+        # Displays a detailed description of available actions. If +advanced+ is
+        # true (false by default), advanced actions are displayed as well.
+        #
+        # Actions are planning methods defined on a registered Planner class.
+        # For instance:
+        #
+        #   class MainPlanner < Roby::Planning::Planner
+        #
+        #       describe("grasps the given object").
+        #           arg("object", "the object name ('GLASS' or 'PLATE')")
+        #       method :grasp do
+        #           Grasp.new(:object => arguments[:object])
+        #       end
+        #   end
         def actions(with_advanced = false)
             @interface.actions.each do |m|
                 next if m.description.advanced? if !with_advanced
