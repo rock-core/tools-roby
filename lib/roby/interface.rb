@@ -238,6 +238,7 @@ actions(advanced = false)         | displays details for each available actions 
 describe(regex)                   | displays details about the actions matching 'regex'     |
 missions                          | displays the set of running missions with their status  |
 running_tasks                     | displays the set of running tasks with their status     |
+unmark(task)                      | remove permanent or mission mark on +task+              |
                                   |                                                         |
 help                              | this help message                                       |
 
@@ -280,7 +281,13 @@ help                              | this help message                           
                                             :order => %w{Argument Description})
             end
         end
-	    
+    
+        # Removes any permanent/mission mark on +task+, making it eligible for
+        # GC
+        def unmark(task)
+            @interface.unmark(task)
+            self
+        end
 
 	def method_missing(m, *args) # :nodoc:
 	    result = @interface.send(m, *args)
@@ -365,6 +372,14 @@ help                              | this help message                           
 		plan.permanent_events.dup.each { |t| plan.auto(t) }
 	    end
 	end
+
+        # Unmarks the given task
+        def unmark(task)
+            engine.execute do
+                engine.plan.unmark_mission(task)
+                engine.plan.unmark_permanent(task)
+            end
+        end
 
 	# Make the Roby event loop quit
 	def stop; engine.quit; nil end
