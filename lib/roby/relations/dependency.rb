@@ -205,7 +205,7 @@ module Roby::TaskStructure
 	    end
 
             if !has_parent
-                [[self.model], self.arguments]
+                [[self.model], self.meaningful_arguments]
             else
                 tags.unshift(model)
                 [tags, arguments]
