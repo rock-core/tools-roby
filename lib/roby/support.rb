@@ -61,6 +61,15 @@ class Thread
     end
 end
 
+module DRb
+    # Workaround for 1.9.1 bug
+    if respond_to?(:uri)
+        def self.here?(uri)
+            (DRb.uri rescue nil) == uri
+        end
+    end
+end
+
 module Roby
     @logger = Logger.new(STDERR)
     @logger.level = Logger::WARN
