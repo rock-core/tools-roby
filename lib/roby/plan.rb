@@ -373,8 +373,8 @@ module Roby
 	    end
 	end
 
-	# Hook called when +to+ has replaced +from+ in this plan
-	def replaced(from, to); super if defined? super end
+	# Hook called when +replacing_task+ has replaced +replaced_task+ in this plan
+	def replaced(replaced_task, replacing_task); super if defined? super end
 
 	# Check that this is an executable plan. This is always true for
 	# plain Plan objects and false for transcations
