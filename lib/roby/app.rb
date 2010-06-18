@@ -328,7 +328,7 @@ module Roby
 
         def log_read_time_tag
             if File.exists?(File.join(log_dir, 'time_tag'))
-                date_tag = File.read(File.join(log_dir, 'time_tag')).strip
+                File.read(File.join(log_dir, 'time_tag')).strip
             end
         end
 
