@@ -49,16 +49,17 @@ IRB.conf[:PROMPT][:ROBY] = {
     :RETURN => "=> %s\n"
 }
 
-control = begin
-              Roby::RemoteInterface.new(DRbObject.new_with_uri("druby://#{remote_url}"))
-          rescue DRb::DRbConnError
-              STDERR.puts "cannot connect to a Roby controller at #{remote_url}, is the controller started ?"
-              exit(1)
-          end
+__main_remote_interface__ = 
+    begin
+        Roby::RemoteInterface.new(DRbObject.new_with_uri("druby://#{remote_url}"))
+    rescue DRb::DRbConnError
+        STDERR.puts "cannot connect to a Roby controller at #{remote_url}, is the controller started ?"
+        exit(1)
+    end
 
 begin
-    # Make control the top-level object
-    bind = control.instance_eval { binding }
+    # Make __main_remote_interface__ the top-level object
+    bind = __main_remote_interface__.instance_eval { binding }
     ws  = IRB::WorkSpace.new(bind)
     irb = IRB::Irb.new(ws)
 
@@ -77,7 +78,7 @@ begin
 		sleep(1)
 		
 		msg = begin
-			  control.poll_messages
+			  __main_remote_interface__.poll_messages
 		      rescue DRb::DRbConnError
 			  []
 		      end
