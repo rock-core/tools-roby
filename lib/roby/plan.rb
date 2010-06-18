@@ -332,7 +332,13 @@ module Roby
 	end
 
 	def handle_replace(from, to) # :nodoc:
-	    return if from == to
+            if from.plan != self
+                raise ArgumentError, "trying to replace #{from} but its plan is #{from.plan}, expected #{self}"
+            elsif to.plan && to.plan != self
+                raise ArgumentError, "trying to replace #{to} but its plan is #{to.plan}, expected #{self}"
+            elsif from == to
+                return 
+            end
 
 	    # Check that +to+ is valid in all hierarchy relations where +from+ is a child
 	    if !to.fullfills?(*from.fullfilled_model)
