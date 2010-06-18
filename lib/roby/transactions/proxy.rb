@@ -50,7 +50,7 @@ module Roby
                         end
                     end
                 end
-                proxying_module[2] = true
+                proxying_module[1] = true
             end
 
 	    proxying_module[0]
