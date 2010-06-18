@@ -9,7 +9,7 @@ module Robot
     @logger.formatter = Roby.logger.formatter
     @logger.progname = "Robot"
 
-    def self.prepare_action(name, arguments)
+    def self.prepare_action(plan, name, arguments)
 	# Check if +name+ is a planner method, and in that case
 	# add a planning method for it and plan it
 	planner_model = Roby.app.planners.find do |planner_model|
@@ -31,6 +31,7 @@ module Robot
 	end
 
 	planner = Roby::PlanningTask.new(:planner_model => planner_model, :method_name => name, :method_options => arguments)
+        plan.add([task, planner])
 	task.planned_by planner
 	return task, planner
     end
@@ -47,7 +48,7 @@ module Robot
 	end
 
 	options = args.first || {}
-	task, planner = Robot.prepare_action(name, options)
+	task, planner = Robot.prepare_action(Roby.plan, name, options)
 	Roby.plan.add_mission(task)
 
 	return task, planner

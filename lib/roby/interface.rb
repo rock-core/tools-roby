@@ -393,8 +393,8 @@ help                              | this help message                           
         # Unmarks the given task
         def unmark(task)
             engine.execute do
-                engine.plan.unmark_mission(task)
-                engine.plan.unmark_permanent(task)
+                engine.plan.unmark_mission(task.to_task)
+                engine.plan.unmark_permanent(task.to_task)
             end
         end
 
@@ -491,6 +491,20 @@ help                              | this help message                           
 	    result
 	end
 
+        module PlanServiceUI
+            attr_accessor :shell
+            attr_accessor :id
+            attr_accessor :name
+
+            def self.allocate_id; @@id += 1 end
+            @@id = 0
+
+            def task=(new_task)
+                shell.pending_messages << "[#{id}] #{name}!: #{self.task} has been replaced by #{new_task}"
+                super
+            end
+        end
+
 	# Tries to find a planner method which matches +name+ with +args+. If it finds
 	# one, creates a task planned by a planning task and yields both
 	def method_missing(name, *args)
@@ -505,21 +519,35 @@ help                              | this help message                           
 	    end
 
 	    options = args.first || {}
-	    task, planner = Robot.prepare_action(name, options)
-	    begin
-		engine.wait_until(planner.event(:success)) do
-		    plan.add_mission(task)
-		    yield(task, planner) if block_given?
-		end
-	    rescue Roby::UnreachableEvent
-		raise RuntimeError, "cannot start #{name}: #{planner.terminal_event.context.first}"
-	    end
-
+            shell = self
             engine.execute do
-                result = planner.result
-                result.on(:failed) { |ev| pending_messages << "task #{ev.task} failed" }
-                result.on(:success) { |ev| pending_messages << "task #{ev.task} finished successfully" }
-                RemoteObjectProxy.new(result)
+                task, planner = Robot.prepare_action(plan, name, options)
+
+                service = PlanService.new(task)
+                service.extend PlanServiceUI
+                service.shell = shell
+                service.id    = PlanServiceUI.allocate_id
+                service.name  = name
+
+                planner.on(:failed) do |ev|
+                    exception = ev.context.first
+                    shell.pending_messages << "planning #{name} failed with"
+                    Roby.format_exception(exception).each do |line|
+                        shell.pending_messages << "  #{line}"
+                    end
+                end
+
+                planner.on(:success) do |ev|
+                    result = planner.result
+                    service.when_finalized  { shell.pending_messages << "[#{service.id}] #{name}!: task #{service.task} has been removed" }
+                    service.on(:failed)  { |ev| shell.pending_messages << "[#{service.id}] #{name}!: task #{ev.task} failed" }
+                    service.on(:success) { |ev| shell.pending_messages << "[#{service.id}] #{name}!: task #{ev.task} finished successfully" }
+                end
+
+                shell.pending_messages << "[#{service.id}] #{name}! started"
+
+                plan.add_mission(task)
+                RemoteObjectProxy.new(service)
             end
 	end
 
