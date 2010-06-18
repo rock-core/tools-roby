@@ -210,6 +210,7 @@ module Roby
 	
 	def setup_proxy(object, plan)
 	    super(object, plan)
+            @handlers.clear
 	    @unreachable_handlers = []
 	    if object.controlable?
 		self.command = method(:emit)

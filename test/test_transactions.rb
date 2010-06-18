@@ -694,12 +694,14 @@ class TC_Transactions < Test::Unit::TestCase
 	plan.add(e = model.new(true))
 
 	FlexMock.use do |mock|
+            e.on { |ev| mock.old_handler_called }
 	    transaction_commit(plan, e) do |trsc, pe|
-		pe.on { |ev| mock.handler_called }
+		pe.on { |ev| mock.new_handler_called }
 		pe.on { |ev| pe.called_by_handler(mock) }
 	    end
 
-	    mock.should_receive(:handler_called).once
+	    mock.should_receive(:old_handler_called).once
+	    mock.should_receive(:new_handler_called).once
 	    mock.should_receive(:called_by_handler).once
             begin
                 e.call(nil)
