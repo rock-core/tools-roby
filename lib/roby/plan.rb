@@ -128,7 +128,7 @@ module Roby
 	    @transactions = ValueSet.new
 	    @repairs     = Hash.new
             @exception_handlers = Array.new
-            @plan_services = Hash.new { |h, k| h[k] = ValueSet.new }
+            @plan_services = Hash.new
 
             @relations = TaskStructure.relations + EventStructure.relations
             @structure_checks = relations.
@@ -389,7 +389,7 @@ module Roby
                 raise "trying to register a plan service on #{self} for #{service.task}, which is included in #{service.task.plan}"
             end
 
-            set = plan_services[service.task]
+            set = (plan_services[service.task] ||= ValueSet.new)
             if !set.include?(service)
                 set << service
             end
@@ -398,10 +398,11 @@ module Roby
 
         # Deregisters a plan service from this plan
         def remove_plan_service(service)
-            set = plan_services[service.task]
-            set.delete(service)
-            if set.empty?
-                plan_services.delete(service.task)
+            if set = plan_services[service.task]
+                set.delete(service)
+                if set.empty?
+                    plan_services.delete(service.task)
+                end
             end
         end
 
@@ -428,7 +429,7 @@ module Roby
             if services = plan_services.delete(replaced_task)
                 services.each do |srv|
                     srv.task = replacing_task
-                    plan_services[replacing_task] << srv
+                    (plan_services[replacing_task] ||= ValueSet.new) << srv
                 end
             end
             super if defined? super
@@ -836,7 +837,9 @@ module Roby
 		raise ArgumentError, "#{object} is not in #{self}: #plan == #{object.plan}"
 	    end
 
-            plan_services.delete(object)
+            if services = plan_services.delete(object)
+                services.each(&:finalized!)
+            end
 
 	    # Remove relations first. This is needed by transaction since
 	    # removing relations may need wrapping some new objects, and in

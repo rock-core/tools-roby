@@ -111,6 +111,10 @@ module Roby
             end
 	end
 
+        def commit_transaction
+            super if defined? super
+        end
+
 	def proxying?; plan && plan.proxying? end
 
         # True if +peer+ has a representation of this object
@@ -120,6 +124,43 @@ module Roby
 	def has_sibling?(peer)
 	    plan.has_sibling?(peer)
 	end
+    end
+
+    module PlanService::Proxying
+        proxy_for PlanService
+
+        def task=(new_task)
+            @task = new_task
+        end
+
+        def setup_proxy(object, plan)
+            super
+            finalization_handlers.clear
+            event_handlers.clear
+        end
+
+        def commit_transaction
+            super
+
+            STDERR.puts "COMMITTING"
+            event_handlers.each do |event, handlers|
+                handlers.each do |h|
+                    __getobj__.on(event, &h)
+                end
+            end
+            finalization_handlers.each do |h|
+                __getobj__.when_finalized(&h)
+            end
+        end
+    end
+
+    module PlanObject::Proxying
+        proxy_for PlanObject
+
+        def setup_proxy(object, plan)
+            super(object, plan)
+            @finalization_handlers.clear
+        end
 
 	# Uses the +enum+ method on this proxy and on the proxied object to get
 	# a set of objects related to this one in both the plan and the
@@ -151,9 +192,15 @@ module Roby
 	    end
 	end
 
+	# Discards the transaction by clearing this proxy
+	def discard_transaction
+	    clear_vertex
+	    super if defined? super
+	end
+
 	# Commits the modifications of this proxy. It copies the relations of
 	# the proxy on the proxied object
-	def commit_transaction
+        def commit_transaction
 	    real_object = __getobj__
 	    partition_new_old_relations(:parent_objects) do |trsc_objects, rel, new, del|
 		for other in new
@@ -173,24 +220,6 @@ module Roby
 		end
 	    end
 
-	    super if defined? super
-	end
-
-	# Discards the transaction by clearing this proxy
-	def discard_transaction
-	    clear_vertex
-	    super if defined? super
-	end
-    end
-
-    module PlanService::Proxying
-        proxy_for PlanService
-    end
-
-    module PlanObject::Proxying
-        proxy_for PlanObject
-
-        def commit_transaction
             super
 
             if @executable != __getobj__.instance_variable_get(:@executable)
@@ -198,9 +227,7 @@ module Roby
             end
 
             finalization_handlers.each do |handler|
-                if !__getobj__.finalization_handlers.include?(handler)
-                    __getobj__.when_finalized(&handler)
-                end
+                __getobj__.when_finalized(&handler)
             end
         end
     end
@@ -211,7 +238,7 @@ module Roby
 	def setup_proxy(object, plan)
 	    super(object, plan)
             @handlers.clear
-	    @unreachable_handlers = []
+	    @unreachable_handlers.clear
 	    if object.controlable?
 		self.command = method(:emit)
 	    end

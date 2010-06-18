@@ -248,15 +248,19 @@ module TC_TransactionBehaviour
 	assert_equal(t2, t1.arguments[:second])
     end
 
-    def test_commit_finalization_handlers
+    def test_finalization_handlers_are_not_called_at_commit
 	t = prepare_plan :add => 1
         FlexMock.use do |mock|
-            finalization = lambda { mock.finalized }
-            transaction_commit(plan, t) do |trsc, p|
-                p.when_finalized(&finalization)
+            t.when_finalized do
+                mock.old_handler
             end
-            assert(t.finalization_handlers.include?(finalization))
-            mock.should_receive(:finalized).never
+            transaction_commit(plan, t) do |trsc, p|
+                p.when_finalized do
+                    mock.new_handler
+                end
+            end
+            mock.should_receive(:old_handler).never
+            mock.should_receive(:new_handler).never
         end
     end
 
@@ -276,6 +280,9 @@ module TC_TransactionBehaviour
         service = nil
         transaction_commit(plan, t) do |trsc, p|
             service = Roby::PlanService.get(p)
+            assert_equal(service, trsc.find_plan_service(p))
+            assert_equal(p, service.task)
+            assert(!service.transaction_proxy?)
         end
         assert_equal(service, plan.find_plan_service(t))
     end
@@ -652,6 +659,64 @@ class TC_Transactions < Test::Unit::TestCase
     def test_real_plan
         transaction_commit(plan) do |trsc|
             assert_equal(plan, trsc.real_plan)
+        end
+    end
+
+    def test_commit_finalization_handlers
+	t = prepare_plan :add => 1
+        FlexMock.use do |mock|
+            t.when_finalized do
+                mock.old_handler
+            end
+            transaction_commit(plan, t) do |trsc, p|
+                p.when_finalized do
+                    mock.new_handler
+                end
+            end
+            mock.should_receive(:old_handler).once
+            mock.should_receive(:new_handler).once
+            plan.remove_object(t)
+        end
+    end
+
+    def test_commits_plan_services_event_handlers
+	root, t1, t2 = prepare_plan :add => 3, :model => Tasks::Simple
+        root.depends_on t1, :model => Tasks::Simple
+        root.depends_on t2, :model => Tasks::Simple
+        service = Roby::PlanService.get(t1)
+
+        FlexMock.use do |mock|
+            transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+                service_proxy = trsc.find_plan_service(p1)
+                service_proxy.on :success do |event|
+                    mock.call(event.task)
+                end
+                trsc.replace(p1, p2)
+            end
+            mock.should_receive(:call).with(t2).once
+            t1.start!
+            t1.success!
+            t2.start!
+            t2.success!
+        end
+    end
+
+    def test_commits_plan_services_finalization_handlers
+	root, t1, t2 = prepare_plan :add => 3, :model => Tasks::Simple
+        root.depends_on t1, :model => Tasks::Simple
+        root.depends_on t2, :model => Tasks::Simple
+        service = Roby::PlanService.get(t1)
+
+        FlexMock.use do |mock|
+            transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+                service_proxy = trsc.find_plan_service(p1)
+                service_proxy.when_finalized do
+                    mock.call
+                end
+                trsc.replace(p1, p2)
+            end
+            mock.should_receive(:call).once
+            plan.remove_object(t2)
         end
     end
 

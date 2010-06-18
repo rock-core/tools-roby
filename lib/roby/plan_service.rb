@@ -7,11 +7,110 @@ module Roby
     # It forwards method calls to the underlying task
     class PlanService
         # The underlying task
-        attr_accessor :task
+        attr_reader :task
 
         def initialize(task)
-            @task = task
+            @event_handlers = Hash.new
+            @finalization_handlers = Array.new
+            self.task = task
             task.plan.add_plan_service(self)
+        end
+
+        def initialize_copy(source)
+            super
+
+            @finalization_handlers = source.finalization_handlers.dup
+            @event_handlers = source.event_handlers.dup
+        end
+
+        # True if this plan service instance is a transaction proxy, i.e.
+        # modifies an already existing service in the frame of a transaction
+        def transaction_proxy?
+            false
+        end
+
+        alias __to_s__ to_s
+        def to_s # :nodoc:
+            task.to_s
+        end
+
+        # The set of event handlers that have been defined for this service
+        #
+        # It is a mapping from a symbol (that represents the event name) to a
+        # set of procs that represent the handlers themselves
+        #
+        # See #on
+        attr_reader :event_handlers
+
+        # Change the underlying task
+        def task=(new_task)
+            @task = new_task
+
+            # Register event handlers for all events that have a definition
+            event_handlers.each_key do |event|
+                new_task.on(event, &method(:__handle_event__))
+            end
+        end
+
+        # Event handler that is actually added to the tasks, to implement the
+        # event handlers
+        def __handle_event__(event) # :nodoc:
+            # Only proceeed if the event's origin is the task that currently
+            # represents that service
+            return if event.task != task
+
+            # And call the handlers
+            event_handlers[event.generator.symbol].each do |handler|
+                handler.call(event)
+            end
+        end
+
+        # Called by the plan when the service is finalized
+        def finalized!
+            if task.plan.executable?
+                finalization_handlers.each do |h|
+                    h.call
+                end
+            end
+        end
+
+        # Set of blocks that will be called when the service itself is finalized
+        #
+        # See #when_finalized
+        attr_reader :finalization_handlers
+
+        # Defines a finalization handler for this service
+        #
+        # This handler will be called when the service itself is finalized
+        def when_finalized(&block)
+            finalization_handlers << block
+        end
+
+        # Defines an event handler for this service
+        #
+        # This event handler will only be called if +symbol+ is emitted by the
+        # task that currently provides this service.
+        #
+        # For instance, if you do
+        #
+        #   service = PlanService.get(t)
+        #   service.on(:success) do
+        #       STDERR.puts "message"
+        #   end
+        #   plan.replace(t, t2)
+        #
+        # Then, before the replacement, 'message' is displayed if t emits
+        # :success. After the replacement, it will be displayed if t2 emits
+        # :success, and will not be displayed if t does.
+        def on(event, &block)
+            check_arity(block, 1)
+            event = event.to_sym
+            if event_handlers.has_key?(event)
+                event_handlers[event] << block
+            else
+                task.on(event, &method(:__handle_event__))
+                (event_handlers[event] = Array.new) << block
+            end
         end
 
         # Returns a plan service for +task+. If a service is already defined for
@@ -24,9 +123,12 @@ module Roby
             end
         end
 
-        def method_missing(*args, &block)
-            return
+        def method_missing(*args, &block) # :nodoc:
             task.send(*args, &block)
+        end
+
+        def to_task # :nodoc:
+            task
         end
     end
 end

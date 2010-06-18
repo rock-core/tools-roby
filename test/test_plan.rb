@@ -433,6 +433,53 @@ class TC_Plan < Test::Unit::TestCase
         assert_equal [plan], plan.transaction_stack
     end
 
+    def test_plan_service_event_handling
+        root, t1, t2 = prepare_plan :add => 3, :model => Tasks::Simple
+        root.depends_on t1, :model => Tasks::Simple
+        root.depends_on t2, :model => Tasks::Simple
+
+        FlexMock.use do |mock|
+            service = PlanService.get(t1)
+            service.on :success do |event|
+                mock.called_on(event.task)
+            end
+
+            t1.start!
+            t2.start!
+
+            mock.should_receive(:called_on).with(t2).once
+
+            plan.replace(t1, t2)
+            t1.success!
+            t2.success!
+        end
+    end
+
+    def test_plan_service_finalization_handlers
+        root, t1, t2 = prepare_plan :add => 3, :model => Tasks::Simple
+        root.depends_on t1, :model => Tasks::Simple
+        root.depends_on t2, :model => Tasks::Simple
+
+        service = PlanService.get(t1)
+        FlexMock.use do |mock1|
+            service.when_finalized do
+                mock1.called
+            end
+            FlexMock.use do |mock2|
+                service.when_finalized do
+                    mock2.called
+                end
+
+                mock2.should_receive(:called).never
+
+                plan.replace(t1, t2)
+                plan.remove_object(t1)
+            end
+            mock1.should_receive(:called).once
+            plan.remove_object(t2)
+        end
+    end
+
     def test_quarantine
         t1, t2, t3, p = prepare_plan :add => 4
         t1.depends_on t2

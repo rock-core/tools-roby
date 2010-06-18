@@ -34,8 +34,8 @@ module Roby
 
             if services = plan.plan_services[object]
                 services.each do |original_srv|
-                    srv = Roby::PlanService.get(proxy)
-                    srv = create_proxy(srv, original_srv, Roby::PlanService)
+                    srv = create_proxy(nil, original_srv)
+                    srv.task = proxy
                     add_plan_service(srv)
                 end
             end
@@ -435,12 +435,13 @@ module Roby
                 plan_services.each do |task, services|
                     services.each do |srv|
                         if srv.transaction_proxy?
-                            # Modified srv
+                            # Modified service. Might be moved to a new task
                             original = srv.__getobj__
                             task     = may_unwrap(task)
                             if original.task != task
                                 plan.move_plan_service(original, task)
                             end
+                            srv.commit_transaction
                         elsif task.transaction_proxy?
                             # New service on an already existing task
                             srv.task = task.__getobj__
