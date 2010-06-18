@@ -113,6 +113,9 @@ module Roby
         # propagation engine is available) or self.
         attr_reader :propagation_engine
 
+        # The set of PlanService instances that are defined on this plan
+        attr_reader :plan_services
+
 	def initialize
 	    @missions	 = ValueSet.new
 	    @permanent_tasks   = ValueSet.new
@@ -125,6 +128,7 @@ module Roby
 	    @transactions = ValueSet.new
 	    @repairs     = Hash.new
             @exception_handlers = Array.new
+            @plan_services = Hash.new { |h, k| h[k] = ValueSet.new }
 
             @relations = TaskStructure.relations + EventStructure.relations
             @structure_checks = relations.
@@ -373,8 +377,56 @@ module Roby
 	    end
 	end
 
+        # Register a new plan service on this plan
+        def add_plan_service(service)
+            if service.task.plan != self
+                raise "trying to register a plan service on #{self} for #{service.task}, which is included in #{service.task.plan}"
+            end
+
+            set = plan_services[service.task]
+            if !set.include?(service)
+                set << service
+            end
+            self
+        end
+
+        # Deregisters a plan service from this plan
+        def remove_plan_service(service)
+            set = plan_services[service.task]
+            set.delete(service)
+            if set.empty?
+                plan_services.delete(service.task)
+            end
+        end
+
+        # Change the actual task a given plan service is representing
+        def move_plan_service(service, new_task)
+            return if new_task == service.task
+
+            remove_plan_service(service)
+            service.task = new_task
+            add_plan_service(service)
+        end
+
+        # If at least one plan service is defined for +task+, returns one of
+        # them. Otherwise, returns nil.
+        def find_plan_service(task)
+            if set = plan_services[task]
+                set.find { true }
+            end
+        end
+
 	# Hook called when +replacing_task+ has replaced +replaced_task+ in this plan
-	def replaced(replaced_task, replacing_task); super if defined? super end
+	def replaced(replaced_task, replacing_task)
+            # Make the PlanService object follow the replacement
+            if services = plan_services.delete(replaced_task)
+                services.each do |srv|
+                    srv.task = replacing_task
+                    plan_services[replacing_task] << srv
+                end
+            end
+            super if defined? super
+        end
 
 	# Check that this is an executable plan. This is always true for
 	# plain Plan objects and false for transcations
@@ -777,6 +829,8 @@ module Roby
 		end
 		raise ArgumentError, "#{object} is not in #{self}: #plan == #{object.plan}"
 	    end
+
+            plan_services.delete(object)
 
 	    # Remove relations first. This is needed by transaction since
 	    # removing relations may need wrapping some new objects, and in

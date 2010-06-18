@@ -183,6 +183,10 @@ module Roby
 	end
     end
 
+    module PlanService::Proxying
+        proxy_for PlanService
+    end
+
     module PlanObject::Proxying
         proxy_for PlanObject
 

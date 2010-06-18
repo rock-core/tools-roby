@@ -11,19 +11,35 @@ module Roby
         attr_predicate :freezed
         attr_predicate :committed
 
+        def create_proxy(proxy, object, klass = nil)
+            proxy ||= object.dup
+            klass ||= object.class
+            proxy.extend Roby::Transaction::Proxying.proxying_module_for(klass)
+            proxy.setup_proxy(object, self)
+            proxy
+        end
+
+
         def register_proxy(proxy, object, do_include = false)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
 
-            proxy.extend Transaction::Proxying.proxying_module_for(object.model)
-            proxy.setup_proxy(object, self)
+            proxy = create_proxy(proxy, object)
             proxy_objects[object] = proxy
 
 	    if do_include && object.root_object?
 		proxy.plan = self
 		add(proxy)
 	    end
-
 	    copy_object_relations(object, proxy)
+
+            if services = plan.plan_services[object]
+                services.each do |original_srv|
+                    srv = Roby::PlanService.get(proxy)
+                    srv = create_proxy(srv, original_srv, Roby::PlanService)
+                    add_plan_service(srv)
+                end
+            end
+
 	    proxy
         end
 
@@ -412,6 +428,29 @@ module Roby
 		# #plan to raise an exception
 		proxy_objects.each_value { |proxy| proxy.commit_transaction }
 		proxy_objects.each_value { |proxy| proxy.clear_relations  }
+
+                # Update the plan services on the underlying plan. The only
+                # thing we need to take care of is replacements and new
+                # services. Other modifications will be applied automatically
+                plan_services.each do |task, services|
+                    services.each do |srv|
+                        if srv.transaction_proxy?
+                            # Modified srv
+                            original = srv.__getobj__
+                            task     = may_unwrap(task)
+                            if original.task != task
+                                plan.move_plan_service(original, task)
+                            end
+                        elsif task.transaction_proxy?
+                            # New service on an already existing task
+                            srv.task = task.__getobj__
+                            plan.add_plan_service(srv)
+                        else
+                            # New service on a new task
+                            plan.add_plan_service(srv)
+                        end
+                    end
+                end
 
 		insert.each    { |t| plan.add_mission(t) }
 		permanent.each { |t| plan.add_permanent(t) }

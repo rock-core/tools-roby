@@ -398,6 +398,32 @@ module TC_PlanStatic
         plan.remove_object(t)
         assert_raises(ArgumentError) { plan[t] }
     end
+
+    def test_plan_service_finalization
+        t1 = prepare_plan :add => 1
+        service = PlanService.get(t1)
+        assert_equal(service, plan.find_plan_service(t1))
+        plan.remove_object(t1)
+        assert(!plan.find_plan_service(t1))
+    end
+
+    def test_plan_service_replacement
+        t1, t2, t3 = prepare_plan :add => 3
+
+        service1 = PlanService.get(t1)
+        assert_equal(t1, service1.task)
+        assert_same(service1, PlanService.get(t1))
+
+        service2 = PlanService.get(t2)
+        assert_not_same(service1, service2)
+
+        plan.replace(t1, t2)
+        assert_equal(t2, service1.task)
+
+        plan.replace(t2, t3)
+        assert_equal(t3, service1.task)
+        assert_equal(t3, service2.task)
+    end
 end
 
 class TC_Plan < Test::Unit::TestCase

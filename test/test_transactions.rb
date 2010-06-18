@@ -260,6 +260,68 @@ module TC_TransactionBehaviour
         end
     end
 
+    def test_wraps_plan_service
+	t = prepare_plan :add => 1
+        service = Roby::PlanService.get(t)
+        transaction_commit(plan, t) do |trsc, p|
+            assert(service_proxy = trsc.find_plan_service(p))
+            assert_equal(p, service_proxy.task)
+            assert(service_proxy.transaction_proxy?)
+            assert_equal(service, service_proxy.__getobj__)
+        end
+    end
+
+    def test_create_plan_service
+	t = prepare_plan :add => 1
+        service = nil
+        transaction_commit(plan, t) do |trsc, p|
+            service = Roby::PlanService.get(p)
+        end
+        assert_equal(service, plan.find_plan_service(t))
+    end
+
+    def test_moves_plan_services_to_new_task
+	t = prepare_plan :add => 1
+        service = Roby::PlanService.get(t)
+        t2 = nil
+        transaction_commit(plan, t) do |trsc, p|
+            trsc.add(t2 = Roby::Task.new)
+            trsc.replace(p, t2)
+        end
+
+        assert(! plan.find_plan_service(t))
+        assert_equal(service, plan.find_plan_service(t2))
+        assert_equal(t2, service.task)
+    end
+
+    def test_moves_plan_services_from_new_task
+	t = prepare_plan :add => 1
+        service, t2 = nil
+        transaction_commit(plan, t) do |trsc, p|
+            trsc.add(t2 = Roby::Task.new)
+            service = Roby::PlanService.get(t2)
+            assert(trsc.find_plan_service(t2))
+            trsc.replace(t2, p)
+        end
+
+        assert_equal(service, plan.find_plan_service(t))
+        assert(!plan.find_plan_service(t2))
+        assert_equal(t, service.task)
+    end
+
+    def test_moves_plan_services_between_tasks
+	t1, t2 = prepare_plan :add => 2
+        service = Roby::PlanService.get(t1)
+
+        transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+            trsc.replace(p1, p2)
+        end
+
+        assert(!plan.find_plan_service(t1))
+        assert_equal(service, plan.find_plan_service(t2))
+        assert_equal(t2, service.task)
+    end
+
     # Tests insertion and removal of tasks
     def test_commit_plan_tasks
 	t1, (t2, t3) = prepare_plan(:missions => 1, :tasks => 2)
