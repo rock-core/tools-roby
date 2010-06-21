@@ -184,6 +184,7 @@ module Roby
                     'Lifetime' => (Time.at(lifetime).to_hms if lifetime)
                 ]
 	    end
+            task.sort_by { |t| t['Task'] }
 
             io = StringIO.new
 	    ColumnFormatter.from_hashes(task, STDOUT,
