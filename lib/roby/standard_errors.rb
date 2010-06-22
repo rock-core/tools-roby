@@ -268,8 +268,10 @@ module Roby
 	end
 
         def pretty_print(pp)
-            pp.text "mission failed: "
-            super
+            pp.text "mission failed: #{failed_task}"
+
+            :success.to_unbound_task_predicate.explain_static(failed_task).
+                pretty_print(pp)
         end
     end
 
