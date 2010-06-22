@@ -178,6 +178,7 @@ module Roby
         Roby::PlanObject::DRoby.include GraphvizPlanObject
         Roby::TaskEventGenerator::DRoby.include GraphvizTaskEventGenerator
         Roby::Task::DRoby.include GraphvizTask
+        Roby::Task::Proxying::DRoby.include GraphvizTask
 
         # This class uses Graphviz (i.e. the "dot" tool) to compute a layout for
         # a given plan

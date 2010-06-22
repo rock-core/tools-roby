@@ -43,7 +43,7 @@ module Roby
                     if object.kind_of?(Distributed::RemoteID)
                         raise "no object for this ID"
                     elsif !allow_new
-                        raise "new object ot type #{object.class} is not allowed here"
+                        raise "new object #{object} of type #{object.class} is not allowed here (siblings: #{object.remote_siblings})"
                     end
                 else
                     obj = current_siblings.find { true }
@@ -137,6 +137,7 @@ module Roby
 
         module ReplayTaskProxy
             include ReplayPlanObject
+            def plan; transaction end
             attr_writer :transaction
 
             def events; Hash.new end
@@ -171,11 +172,17 @@ module Roby
                 missions.delete(task)
                 known_tasks.delete(task)
                 proxies.delete(task)
+                if task.kind_of?(Roby::Distributed::RemoteID)
+                    raise "#{task} is not a valid task representation"
+                end
                 finalized_tasks << task
             end
             def finalized_event(event)
                 free_events.delete(event)
                 proxies.delete(event)
+                if task.kind_of?(Roby::Distributed::RemoteID)
+                    raise "#{event} is not a valid task representation"
+                end
                 finalized_events << event unless event.respond_to?(:task)
             end
             def clear_finalized(tasks, events)
@@ -313,11 +320,22 @@ module Roby
 
 	    def local_plan(plan, allow_new = false)
 	       	plan = manager.local_object(plan, plans.empty? || allow_new)
+                if plan.kind_of?(Roby::Distributed::RemoteID)
+                    raise "cannot find tracked object for #{plan}"
+                end
 		plans << plan if plan
 		plan
 	    end
 	    def local_task(task, &block)
-		local_object(task, &block)
+		result = local_object(task, &block)
+                if result.respond_to?(:real_object)
+                    if result.plan
+                        result.real_object = local_task(result.real_object) { result.plan.parent_plan }
+                    else
+                        result.real_object = local_task(result.real_object)
+                    end
+                end
+                result
 	    end
 	    def local_event(event, &block)
 		if event.respond_to?(:task)
@@ -330,7 +348,14 @@ module Roby
 			task.events[event.symbol] = event 
 		    end
 		else
-		    local_object(event, &block) 
+		    result = local_object(event, &block) 
+                    if result.respond_to?(:real_object)
+                        if result.plan
+                            result.real_object = local_event(result.real_object) { result.plan.parent_plan }
+                        else
+                            result.real_object = local_event(result.real_object)
+                        end
+                    end
 		end
 	    end
 
@@ -348,6 +373,12 @@ module Roby
 		plan = local_plan(plan)
 		events.each do |ev| 
 		    ev = local_event(ev) { plan }
+                    if ev.kind_of?(Roby::Distributed::RemoteID)
+                        raise "cannot find tracked object for #{ev}"
+                    end
+                    # Update the plan in case +ev+ was an event in a transaction
+                    # that got committed
+                    ev.plan = plan
 		    plan.free_events << ev
 		end
 	    end
@@ -355,6 +386,12 @@ module Roby
 		plan = local_plan(plan)
 		tasks.each do |t| 
 		    t = local_task(t) { plan }
+                    if t.kind_of?(Roby::Distributed::RemoteID)
+                        raise "cannot find tracked object for #{t}"
+                    end
+                    # Update the plan in case +t+ was a task in a transaction
+                    # that got committed
+                    t.plan = plan
 		    plan.known_tasks << t
 		end
 	    end

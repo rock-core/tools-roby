@@ -918,7 +918,8 @@ module Roby
 
                 true
             rescue Exception => e
-                Qt::MessageBox.new(Qt::MessageBox::Critical, "roby-log", "Cannot update display: #{e.message}").exec
+                message = "<html>#{e.message.gsub('<', '&lt;').gsub('>', '&gt;')}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"
+                Qt::MessageBox.critical nil, "Display failure", message
 	    end
 
 	    def remove_graphics(item, scene = nil)

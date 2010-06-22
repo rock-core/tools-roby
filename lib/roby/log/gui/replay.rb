@@ -277,7 +277,7 @@ class Replay < Qt::MainWindow
         !updated_streams.empty?
 
     rescue Exception => e
-	message = "<html>#{Qt.escape(e.message)}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"
+	message = "<html>#{e.message.gsub('<', '&lt;').gsub('>', '&gt;')}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"
 	Qt::MessageBox.critical self, "Replay failure", message
 	stop
     end
