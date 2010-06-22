@@ -200,6 +200,10 @@ module Roby
     end
 
 
+    # Specialization of EventGenerator to represent task events
+    #
+    # It gives access to the task-specific information (associated task, event
+    # name, ...)
     class TaskEventGenerator < EventGenerator
 	# The task we are part of
         attr_reader :task
