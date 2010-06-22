@@ -966,7 +966,8 @@ module Roby
 	def query_result_set(matcher) # :nodoc:
 	    plan_set = ValueSet.new
             if matcher.scope == :global
-                for task in plan.query_result_set(matcher)
+                plan_result_set = plan.query_result_set(matcher)
+                plan.query_each(plan_result_set) do |task|
                     plan_set << task unless self[task, false]
                 end
             end
