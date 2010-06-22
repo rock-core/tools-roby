@@ -142,7 +142,6 @@ module Roby
         def commit_transaction
             super
 
-            STDERR.puts "COMMITTING"
             event_handlers.each do |event, handlers|
                 handlers.each do |h|
                     __getobj__.on(event, &h)
