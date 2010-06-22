@@ -532,6 +532,10 @@ help                              | this help message                           
                 service.shell = shell
                 service.id    = PlanServiceUI.allocate_id
                 service.name  = name
+                service.when_finalized  { shell.pending_messages << "[#{service.id}] #{name}!: task #{service.task} has been removed" }
+                service.on(:start)   { |ev| shell.pending_messages << "[#{service.id}] #{name}!: task #{ev.task} started" }
+                service.on(:failed)  { |ev| shell.pending_messages << "[#{service.id}] #{name}!: task #{ev.task} failed" }
+                service.on(:success) { |ev| shell.pending_messages << "[#{service.id}] #{name}!: task #{ev.task} finished successfully" }
 
                 planner.on(:failed) do |ev|
                     exception = ev.context.first
@@ -541,14 +545,7 @@ help                              | this help message                           
                     end
                 end
 
-                planner.on(:success) do |ev|
-                    result = planner.result
-                    service.when_finalized  { shell.pending_messages << "[#{service.id}] #{name}!: task #{service.task} has been removed" }
-                    service.on(:failed)  { |ev| shell.pending_messages << "[#{service.id}] #{name}!: task #{ev.task} failed" }
-                    service.on(:success) { |ev| shell.pending_messages << "[#{service.id}] #{name}!: task #{ev.task} finished successfully" }
-                end
-
-                shell.pending_messages << "[#{service.id}] #{name}! started"
+                shell.pending_messages << "[#{service.id}] #{name}! started to plan"
 
                 plan.add_mission(task)
                 RemoteObjectProxy.new(service)
