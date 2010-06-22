@@ -115,7 +115,7 @@ module Roby
 	    elsif object.respond_to?(:to_ary) 
 		object.map { |o| wrap(o, create) }
             elsif object.respond_to?(:each)
-                raise ArgumentError, "don't know how to wrap containers of class #{objects.class}"
+                raise ArgumentError, "don't know how to wrap containers of class #{object.class}"
 	    else
 		raise TypeError, "don't know how to wrap #{object || 'nil'} of type #{object.class.ancestors}"
 	    end
