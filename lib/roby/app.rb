@@ -516,7 +516,7 @@ module Roby
 	    file = YAML.load(File.open(file))
 	    load_yaml(file)
 	    if File.exists?(initfile = File.join(APP_DIR, 'config', 'init.rb'))
-		load initfile
+		require initfile
 	    end
         end
 
@@ -539,7 +539,7 @@ module Roby
 	    require_models
 
             if file = robotfile(APP_DIR, 'config', "ROBOT.rb")
-                load file
+                require file
             end
 
 	    # MainPlanner is always included in the planner list
