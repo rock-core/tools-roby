@@ -327,10 +327,14 @@ module Roby
                 empty?
         end
 
+	def time_tag
+	    @time_tag ||= Time.now.strftime('%Y%m%d-%H%M')
+	end
+
         def log_save_time_tag
             path = File.join(log_dir, 'time_tag')
             if !File.file?(path)
-                tag = Time.now.strftime('%Y%m%d-%H%M')
+	        tag = time_tag
                 File.open(path, 'w') do |io|
                     io.write tag
                 end
