@@ -325,6 +325,8 @@ help                              | this help message                           
     # This class is used to interface with the Roby event loop and plan. It is the
     # main front object when accessing a Roby core remotely
     class Interface
+        include Robot
+
         # This module defines the hooks needed to plug Interface objects onto
         # ExecutionEngine
 	module GatherExceptions
