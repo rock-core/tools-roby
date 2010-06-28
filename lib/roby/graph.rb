@@ -114,10 +114,14 @@ module BGL
 	# all edges +from+ is involved in. +from+ is removed from the graph.
 	def replace_vertex(from, to)
 	    from.each_parent_vertex(self) do |parent|
-		link(parent, to, parent[from, self])
+                if !linked?(parent, to)
+                    link(parent, to, parent[from, self])
+                end
 	    end
 	    from.each_child_vertex(self) do |child|
-		link(to, child, from[child, self])
+                if !linked?(to, child)
+                    link(to, child, from[child, self])
+                end
 	    end
 	    remove(from)
 	end
