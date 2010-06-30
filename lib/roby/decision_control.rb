@@ -58,6 +58,27 @@ module Roby
 	def removing_plan_relation(transaction, parent, child, relations)
         end
 
+        # Called when a child failed a dependency relation, but the parent is
+        # not running
+        #
+        # It must return true if the dependency failure is considered an error,
+        # and false otherwise.
+        #
+        # The default policy is to mark the parent as failed to start
+        def pending_dependency_failed(parent, child, reason)
+            parent.failed_to_start!(reason)
+            true
+        end
+
+        # Called when an execution agent fails to start.
+        #
+        # The default policy is to mark all executed tasks as failed to start
+        def pending_executed_by_failed(agent, tasks)
+            tasks.each do |t|
+                t.failed_to_start!(agent.terminal_event)
+            end
+        end
+
         # Called when an execution agent fails to start.
         #
         # The default policy is to mark all executed tasks as failed to start

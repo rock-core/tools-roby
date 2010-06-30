@@ -42,6 +42,8 @@ module Roby::TaskStructure
             super
         end
 
+        attr_predicate :used_as_execution_agent?, true
+
 	# Defines a new execution agent for this task.
         def executed_by(agent)
 	    return if execution_agent == agent
@@ -59,13 +61,29 @@ module Roby::TaskStructure
 		remove_execution_agent old_agent
 	    end
 
-            executed_task = self
-            agent.ready_event.when_unreachable do
-                tasks = []
-                each_executed_task do |task|
-                    tasks << task
+            if !agent.used_as_execution_agent?
+                executed_task = self
+                agent.ready_event.when_unreachable do
+                    tasks = []
+                    each_executed_task do |task|
+                        tasks << task
+                    end
+                    if !tasks.empty?
+                        plan.control.execution_agent_failed_to_start(agent, tasks)
+                    end
                 end
-                plan.control.execution_agent_failed_to_start(agent, tasks)
+                agent.on :stop do |event|
+                    if agent.ready?
+                        tasks = []
+                        agent.each_executed_task do |task|
+                            tasks << task if task.pending?
+                        end
+                        if !tasks.empty?
+                            plan.control.pending_executed_by_failed(agent, tasks)
+                        end
+                    end
+                end
+                agent.used_as_execution_agent = true
             end
 	    
 	    unless old_agent

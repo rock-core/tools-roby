@@ -146,13 +146,7 @@ module Roby::TaskStructure
 		Roby::EventGenerator.gather_events(Dependency.interesting_events, events)
 
                 # Initial triggers
-                if running?
-                    Dependency.failing_tasks << child
-                else
-                    on :start do |context|
-                        Dependency.failing_tasks << child
-                    end
-                end
+                Dependency.failing_tasks << child
 	    end
 	end
 
@@ -301,7 +295,6 @@ module Roby::TaskStructure
             removed_parents = []
 	    child.each_parent_task do |parent|
 		next unless parent.self_owned?
-		next if !parent.running?
 
 		options = parent[child, Hierarchy]
 		success = options[:success]
@@ -313,6 +306,7 @@ module Roby::TaskStructure
                 end
 
 
+                error = nil
 		if has_success
 		    if options[:remove_when_done]
                         # Must not delete it here as we are iterating over the
@@ -321,13 +315,21 @@ module Roby::TaskStructure
 		    end
                 elsif has_failure
                     explanation = failure.explain_true(child)
-		    result << Roby::ChildFailedError.new(parent, child, explanation)
-		    failing_tasks << child
+		    error = Roby::ChildFailedError.new(parent, child, explanation)
 		elsif success.static?(child)
                     explanation = success.explain_static(child)
-		    result << Roby::ChildFailedError.new(parent, child, explanation)
-		    failing_tasks << child
+		    error = Roby::ChildFailedError.new(parent, child, explanation)
 		end
+
+                if error
+                    if parent.running?
+                        result << error
+                        failing_tasks << child
+                    elsif plan.control.pending_dependency_failed(parent, child, error)
+                        result << error
+                        failing_tasks << child
+                    end
+                end
 	    end
             for parent in removed_parents
                 parent.remove_child child
