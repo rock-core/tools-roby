@@ -952,7 +952,7 @@ module Roby
             10.times do
                 break if additional_errors.empty?
                 errors, @additional_errors = additional_errors, Array.new
-                propagate_exceptions(errors)
+                propagate_exceptions(plan.format_exception_set(Hash.new, errors))
             end
 
             add_timepoint(stats, :exception_propagation)

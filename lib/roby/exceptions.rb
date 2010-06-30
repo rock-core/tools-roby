@@ -122,7 +122,7 @@ module Roby
 	end
 
         def add_error(error)
-            plan.engine.additional_errors << error
+            engine.additional_errors << error
         end
 
 	# Calls the exception handlers defined in this task for +exception_object.exception+

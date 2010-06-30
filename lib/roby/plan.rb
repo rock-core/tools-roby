@@ -129,7 +129,7 @@ module Roby
 	    @repairs     = Hash.new
             @exception_handlers = Array.new
             on_exception LocalizedError do |plan, error|
-                if plan.mission?(error.task)
+                if plan.mission?(task = error.task)
                     plan.add_error(MissionFailedError.new(task, error.exception))
                 else
                 end
@@ -979,6 +979,21 @@ module Roby
         end
         structure_checks << method(:check_failed_missions)
         
+        def format_exception_set(result, new)
+            [*new].each do |error, tasks|
+                roby_exception = ExecutionEngine.to_execution_exception(error)
+                if !tasks
+                    if error.kind_of?(RelationFailedError)
+                        tasks = [error.parent]
+                    else
+                        tasks = [roby_exception.origin]
+                    end
+                end
+                result[roby_exception] = tasks
+            end
+            result
+        end
+
         # Perform the structure checking step by calling the procs registered
         # in #structure_checks and Plan.structure_checks. These procs are
         # supposed to return a collection of exception objects, or nil if no
@@ -998,17 +1013,7 @@ module Roby
 		end
 		next unless new_exceptions
 
-		[*new_exceptions].each do |error, tasks|
-		    roby_exception = ExecutionEngine.to_execution_exception(error)
-                    if !tasks
-                        if error.kind_of?(RelationFailedError)
-                            tasks = [error.parent]
-                        else
-                            tasks = [roby_exception.origin]
-                        end
-                    end
-		    exceptions[roby_exception] = tasks
-		end
+                format_exception_set(exceptions, new_exceptions)
 	    end
 	    exceptions
 	end
