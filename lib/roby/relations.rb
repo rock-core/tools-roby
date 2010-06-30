@@ -716,6 +716,10 @@ module Roby
                     super if defined? super
                     if relations.include?(@@__r_#{relation_name}__)
                         instance_variable_set :@#{options[:child_name]}, nil
+		    	each_child_object(@@__r_#{relation_name}__) do |child|
+                            instance_variable_set :@#{options[:child_name]}, child
+			    break
+			end
                     end
                 end
 		EOD
