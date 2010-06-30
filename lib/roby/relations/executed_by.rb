@@ -52,13 +52,22 @@ module Roby::TaskStructure
 	    if !agent.has_event?(:ready)
 		raise ArgumentError, "execution agent tasks should define the :ready event"
 	    end
-	    
+
 	    old_agent = execution_agent
 	    if old_agent && old_agent != agent
 		Roby.debug "an agent is already defined for this task"
 		remove_execution_agent old_agent
 	    end
 
+            executed_task = self
+            agent.ready_event.when_unreachable do
+                tasks = []
+                each_executed_task do |task|
+                    tasks << task
+                end
+                plan.control.execution_agent_failed_to_start(agent, tasks)
+            end
+	    
 	    unless old_agent
 		# If the task did have an agent already, these event handlers
 		# are already set up

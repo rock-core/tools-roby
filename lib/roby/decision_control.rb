@@ -57,6 +57,15 @@ module Roby
         # The default action is to do nothing
 	def removing_plan_relation(transaction, parent, child, relations)
         end
+
+        # Called when an execution agent fails to start.
+        #
+        # The default policy is to mark all executed tasks as failed to start
+        def execution_agent_failed_to_start(agent, tasks)
+            tasks.each do |t|
+                t.failed_to_start!(agent.terminal_event)
+            end
+        end
     end
 
     class << self
