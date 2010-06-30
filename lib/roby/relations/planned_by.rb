@@ -41,22 +41,18 @@ module Roby
 
 	def initialize(planned_task, planning_task)
 	    @planned_task = planned_task
-	    super(planning_task.failure_event)
+	    super(planning_task.failure_event || planning_task)
 	end
         def pretty_print(pp)
             pp.text "failed to plan "
             planned_task.pretty_print(pp)
             pp.breakable
             pp.breakable
-            pp.text "the following planning task failed with the #{failure_point.symbol} event"
-            pp.breakable
-            failed_task.pretty_print(pp)
-            pp.breakable
 
-	    if failure_point.context
-                pp.breakable
-                failure_point.context.first.pretty_print(pp)
-	    end
+            failed_task.pretty_print(pp)
+            pp.text " failed with "
+            failed_task.failure_reason.pretty_print(pp)
+            pp.breakable
         end
     end
 end
