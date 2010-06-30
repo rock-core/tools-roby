@@ -262,16 +262,24 @@ module Roby
     
     # Exception raised when a mission has failed
     class MissionFailedError < LocalizedError
+        attr_reader :reason
+
         # Create a new MissionFailedError for the given mission
-	def initialize(task)
+	def initialize(task, reason = nil)
 	    super(task.failure_event || task)
+            @reason = reason
 	end
 
         def pretty_print(pp)
             pp.text "mission failed: #{failed_task}"
+            pp.breakable
 
-            :success.to_unbound_task_predicate.explain_static(failed_task).
-                pretty_print(pp)
+            if reason
+                reason.pretty_print(pp)
+            else
+                :success.to_unbound_task_predicate.explain_static(failed_task).
+                    pretty_print(pp)
+            end
         end
     end
 

@@ -121,6 +121,10 @@ module Roby
 	    throw :next_exception_handler
 	end
 
+        def add_error(error)
+            plan.engine.additional_errors << error
+        end
+
 	# Calls the exception handlers defined in this task for +exception_object.exception+
 	# Returns true if the exception has been handled, false otherwise
 	def handle_exception(exception_object)

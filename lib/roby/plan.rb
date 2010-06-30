@@ -128,6 +128,13 @@ module Roby
 	    @transactions = ValueSet.new
 	    @repairs     = Hash.new
             @exception_handlers = Array.new
+            on_exception LocalizedError do |plan, error|
+                if plan.mission?(error.task)
+                    plan.add_error(MissionFailedError.new(task, error.exception))
+                else
+                end
+            end
+
             @plan_services = Hash.new
 
             @relations = TaskStructure.relations + EventStructure.relations

@@ -914,6 +914,8 @@ module Roby
                 raise Aborting.new(exceptions)
             end
         end
+
+        attr_reader :additional_errors
         
         # Process the pending events. The time at each event loop step
         # is saved into +stats+.
@@ -937,6 +939,8 @@ module Roby
             structure_errors = plan.check_structure
             add_timepoint(stats, :structure_check)
 
+            @additional_errors = Array.new
+
             # Propagate the errors. Note that the plan repairs are taken into
             # account in ExecutionEngine.propagate_exceptions drectly.  We keep
             # event and structure errors separate since in the first case there
@@ -945,6 +949,12 @@ module Roby
             # again to get the remaining errors
             events_errors    = propagate_exceptions(events_errors)
             propagate_exceptions(structure_errors)
+            10.times do
+                break if additional_errors.empty?
+                errors, @additional_errors = additional_errors, Array.new
+                propagate_exceptions(errors)
+            end
+
             add_timepoint(stats, :exception_propagation)
 
             # Get the remaining problems in the plan structure, and act on it
