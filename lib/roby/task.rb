@@ -1148,7 +1148,7 @@ module Roby
         # abstract or partially instanciated.
         #
         # See #abstract? and #partially_instanciated?
-	def executable?; !abstract? && !partially_instanciated? && super end
+	def executable?; forced_executable? || (!abstract? && !partially_instanciated? && super) end
 	# Returns true if this task's stop event is controlable
 	def interruptible?; event(:stop).controlable? end
 	# Set the executable flag. executable cannot be set to +false+ if the 
@@ -1198,6 +1198,7 @@ module Roby
 	attr_predicate :started?, true
 	attr_predicate :finished?, true
 	attr_predicate :success?, true
+	attr_predicate :forced_executable?, true
 
         def failed_to_start?; !!@failed_to_start end
 
@@ -1418,6 +1419,9 @@ module Roby
 	    if event.symbol == :start
 		plan.task_index.set_state(self, :running?)
 		self.started = true
+		self.forced_executable = true
+	    elsif event.symbol == :stop
+	        self.forced_executable = false
 	    end
 	end
         
