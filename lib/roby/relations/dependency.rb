@@ -294,6 +294,7 @@ module Roby::TaskStructure
 
             removed_parents = []
 	    child.each_parent_task do |parent|
+	        next if parent.finished?
 		next unless parent.self_owned?
 
 		options = parent[child, Hierarchy]
