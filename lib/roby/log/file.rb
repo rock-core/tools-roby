@@ -215,7 +215,7 @@ module Roby::Log
                             Roby::Log.fatal "cannot dump the following object in #{m}(#{args.join(", ")}):"
                             obj, exception = find_invalid_marshalling_object(obj)
                             if obj
-                                Roby::Log.fatal "it seems that #{obj.inspect} can't be marshalled"
+                                Roby::Log.fatal "it seems that #{obj.inspect} (#{obj.class}) can't be marshalled"
                                 Roby::Log.fatal "  #{exception.class}: #{exception.message}"
                             end
                         end
@@ -229,7 +229,7 @@ module Roby::Log
             when Enumerable
                 obj.each do |value|
                     if invalid = find_invalid_marshalling_object(value)
-                        return invalid
+                        return "#{invalid}, included in #{obj}"
                     end
                 end
             end
@@ -238,7 +238,7 @@ module Roby::Log
             obj.instance_variables.each do |iv|
                 value = obj.instance_variable_get(iv)
                 if invalid = find_invalid_marshalling_object(value)
-                    return invalid
+                    return "#{invalid}, instance variable #{obj}.#{iv}"
                 end
             end
 
