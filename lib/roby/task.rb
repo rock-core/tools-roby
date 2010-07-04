@@ -2185,6 +2185,36 @@ module Roby
             on(:start) { |ev| @poll_handler_id = plan.engine.add_propagation_handler(method(:poll)) }
             on(:stop)  { |ev| plan.engine.remove_propagation_handler(@poll_handler_id) }
 	end
+
+        def self.simulation_model
+            if @simulation_model
+                return @simulation_model
+            end
+
+            base  = self
+            model = Class.new(Roby::Task)
+            model.class_eval do
+                attr_reader :name
+                define_method(:name) { "Simulate#{base.name}" }
+            end
+
+            arguments.each do |name|
+                model.argument name
+            end
+            each_event do |name, event_model|
+                if !model.has_event?(name) || (model.find_event_model(name).controlable? != event_model.controlable?)
+                    model.event name, :controlable => event_model.controlable?
+                end
+            end
+            @simulation_model ||= model
+        end
+
+        # Simulate that the given event is emitted
+        def simulate
+            simulation_task = self.model.simulation_model.new(arguments.to_hash)
+            plan.force_replace(self, simulation_task)
+            simulation_task
+        end
     end
 
     # A special task model which does nothing and emits +success+

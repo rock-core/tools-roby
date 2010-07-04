@@ -338,7 +338,19 @@ module Roby
 	    @permanent_events.clear
 	end
 
-	def handle_replace(from, to) # :nodoc:
+        def force_replace_task(from, to)
+            handle_force_replace(from, to) do
+		from.replace_by(to)
+            end
+        end
+
+        def force_replace(from, to)
+            handle_force_replace(from, to) do
+		from.replace_subplan_by(to)
+            end
+        end
+
+        def handle_force_replace(from, to)
             if from.plan != self
                 raise ArgumentError, "trying to replace #{from} but its plan is #{from.plan}, expected #{self}"
             elsif to.plan && to.plan != self
@@ -346,11 +358,6 @@ module Roby
             elsif from == to
                 return 
             end
-
-	    # Check that +to+ is valid in all hierarchy relations where +from+ is a child
-	    if !to.fullfills?(*from.fullfilled_model)
-		raise InvalidReplace.new(from, to), "task #{to} does not fullfill #{from.fullfilled_model}"
-	    end
 
 	    # Swap the subplans of +from+ and +to+
 	    yield(from, to)
@@ -365,6 +372,18 @@ module Roby
 		add(to)
 	    end
 	    replaced(from, to)
+        end
+
+	def handle_replace(from, to) # :nodoc:
+            handle_force_replace(from, to) do
+                # Check that +to+ is valid in all hierarchy relations where +from+ is a child
+                if !to.fullfills?(*from.fullfilled_model)
+                    raise InvalidReplace.new(from, to), "task #{to} does not fullfill #{from.fullfilled_model}"
+                end
+
+                # Swap the subplans of +from+ and +to+
+                yield(from, to)
+            end
 	end
 
         # Replace the task +from+ by +to+ in all relations +from+ is part of
