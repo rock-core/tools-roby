@@ -100,19 +100,24 @@ module Roby::TaskStructure
                 map { |predicate| predicate.to_unbound_task_predicate }.
                 inject(&:or)
 
-            options[:success] ||= false.to_unbound_task_predicate
-            options[:failure] ||= false.to_unbound_task_predicate
+            #options[:success] ||= false.to_unbound_task_predicate
+            #options[:failure] ||= false.to_unbound_task_predicate
 
             # Validate failure and success event names
-            not_there = options[:success].required_events.
-                find_all { |name| !task.has_event?(name) }
-	    if !not_there.empty?
-                raise ArgumentError, "#{task} does not have the following events: #{not_there.join(", ")}"
+            if options[:success]
+                not_there = options[:success].required_events.
+                    find_all { |name| !task.has_event?(name) }
+                if !not_there.empty?
+                    raise ArgumentError, "#{task} does not have the following events: #{not_there.join(", ")}"
+                end
             end
-            not_there = options[:failure].required_events.
-                find_all { |name| !task.has_event?(name) }
-            if !not_there.empty?
-                raise ArgumentError, "#{task} does not have the following events: #{not_there.join(", ")}"
+
+            if options[:failure]
+                not_there = options[:failure].required_events.
+                    find_all { |name| !task.has_event?(name) }
+                if !not_there.empty?
+                    raise ArgumentError, "#{task} does not have the following events: #{not_there.join(", ")}"
+                end
             end
 
 	    options[:model] = [options[:model], {}] unless Array === options[:model]
@@ -133,17 +138,22 @@ module Roby::TaskStructure
 	def added_child_object(child, relations, info) # :nodoc:
 	    super if defined? super
 	    if relations.include?(Dependency) && !respond_to?(:__getobj__) && !child.respond_to?(:__getobj__)
-		events = info[:success].required_events.
-                    map { |event_name| child.event(event_name) }.
-                    to_value_set
+                events = ValueSet.new
+                if info[:success]
+                    events = info[:success].required_events.
+                        map { |event_name| child.event(event_name) }.
+                        to_value_set
 
-                events.each do |ev|
-                    ev.if_unreachable { Dependency.interesting_events << ev }
+                    events.each do |ev|
+                        ev.if_unreachable { Dependency.interesting_events << ev }
+                    end
                 end
 
-		info[:failure].required_events.
-                    each { |event_name| events << child.event(event_name) }
-		Roby::EventGenerator.gather_events(Dependency.interesting_events, events)
+                if info[:failure]
+                    info[:failure].required_events.
+                        each { |event_name| events << child.event(event_name) }
+                    Roby::EventGenerator.gather_events(Dependency.interesting_events, events)
+                end
 
                 # Initial triggers
                 Dependency.failing_tasks << child
@@ -230,8 +240,19 @@ module Roby::TaskStructure
 
         result = { :remove_when_done => opt1[:remove_when_done] }
 
-        result[:success] = opt1[:success].and(opt2[:success])
-        result[:failure] = opt1[:failure].or(opt2[:failure])
+        result[:success] =
+            if !opt1[:success] then opt2[:success]
+            elsif !opt2[:success] then opt1[:success]
+            else
+                opt1[:success].and(opt2[:success])
+            end
+
+        result[:failure] =
+            if !opt1[:failure] then opt2[:failure]
+            elsif !opt2[:failure] then opt1[:failure]
+            else
+                opt1[:failure].and(opt2[:failure])
+            end
 
         # Check model compatibility
         model1, arguments1 = opt1[:model]
@@ -301,9 +322,9 @@ module Roby::TaskStructure
 		success = options[:success]
 		failure = options[:failure]
 
-                has_success = success.evaluate(child)
+                has_success = success && success.evaluate(child)
                 if !has_success
-                    has_failure = failure.evaluate(child)
+                    has_failure = failure && failure.evaluate(child)
                 end
 
 
@@ -317,7 +338,7 @@ module Roby::TaskStructure
                 elsif has_failure
                     explanation = failure.explain_true(child)
 		    error = Roby::ChildFailedError.new(parent, child, explanation)
-		elsif success.static?(child)
+		elsif success && success.static?(child)
                     explanation = success.explain_static(child)
 		    error = Roby::ChildFailedError.new(parent, child, explanation)
 		end
