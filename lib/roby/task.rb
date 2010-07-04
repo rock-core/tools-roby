@@ -1157,9 +1157,9 @@ module Roby
 	    return if flag == @executable
 	    return unless self_owned?
 	    if flag && !pending? 
-		raise ModelViolation, "cannot set the executable flag on a task which is not pending"
+		raise ModelViolation, "cannot set the executable flag of #{self} since it is not pending"
 	    elsif !flag && running?
-		raise ModelViolation, "cannot unset the executable flag on a task which is running"
+		raise ModelViolation, "cannot unset the executable flag of #{self} since it is running"
 	    end
 	    super
 	end
