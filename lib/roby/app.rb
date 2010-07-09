@@ -517,11 +517,13 @@ module Roby
 
 	    # Get the application-wide configuration
 	    file = File.join(APP_DIR, 'config', 'app.yml')
-	    file = YAML.load(File.open(file))
-	    load_yaml(file)
-	    if File.exists?(initfile = File.join(APP_DIR, 'config', 'init.rb'))
-		require initfile
-	    end
+            if File.file?(file)
+                file = YAML.load(File.open(file))
+                load_yaml(file)
+            end
+            if File.exists?(initfile = File.join(APP_DIR, 'config', 'init.rb'))
+                require initfile
+            end
         end
 
 	def setup
@@ -770,6 +772,8 @@ module Roby
             end
 
             dirname = File.join(*path)
+            return if !File.directory?(dirname)
+
 	    Dir.new(dirname).each do |file|
 		file = File.join(dirname, file)
                 if file =~ /\.rb$/ && File.file?(file)
