@@ -1,3 +1,5 @@
+require 'highline'
+
 class Exception
     def pretty_print(pp)
         pp.text "#{message} (#{self.class.name})"
@@ -14,6 +16,14 @@ end
 module Roby
     class ConfigError < RuntimeError; end
     class ModelViolation < RuntimeError; end
+
+    class << self
+        attr_reader :console
+    end
+    @console = HighLine.new
+    def self.color(*args)
+        console.color(*args)
+    end
 
     # ExecutionException objects are used during the exception handling stage
     # to keep information about the propagation. 
@@ -247,9 +257,34 @@ module Roby
     end
 
     def self.log_pp(obj, logger, level)
+        first_line = true
         format_exception(obj).each do |line|
+            if first_line
+                line = color(line, :bold, :red)
+                first_line = false
+            end
             logger.send(level, line)
         end
+    end
+    def self.display_exception(io = STDOUT)
+        yield
+        false
+
+    rescue Exception => e
+        first_line = true
+        puts
+        format_exception(e).each do |line|
+            if first_line
+                io.print color("= ", :bold, :red)
+                io.puts color(line, :bold, :red)
+                first_line = false
+            else
+                io.print color("| ", :bold, :red)
+                io.puts line
+            end
+        end
+        io.puts color("= ", :bold, :red)
+        true
     end
 end
 
