@@ -308,12 +308,22 @@ module Roby::Log
 	    input.rewind
 	end
 
+        class Invalid < Exception; end
+        def self.valid_file?(file_name)
+            File.open(file_name) do |io|
+                check_format(io)
+            end
+            true
+        rescue Invalid
+            false
+        end
+
 	def self.check_format(input)
 	    format = log_format(input)
 	    if format < FORMAT_VERSION
-		raise "this is an outdated format. Please run roby-log upgrade-format"
+		raise Invalid, "this is an outdated format. Please run roby-log upgrade-format"
 	    elsif format > FORMAT_VERSION
-		raise "this is an unknown format version #{format}: expected #{FORMAT_VERSION}. This file can be read only by newest version of Roby"
+		raise Invalid, "this is an unknown format version #{format}: expected #{FORMAT_VERSION}. This file can be read only by newest version of Roby"
 	    end
 	end
 
