@@ -62,7 +62,9 @@ module Roby
 		if col.kind_of?(Hash)
 		    col.merge! backup
 		else
-		    backup.each(&col.method(:<<))
+                    backup.each do |obj|
+                        col << obj
+                    end
 		end
 	    end
 	end
