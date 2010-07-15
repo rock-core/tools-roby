@@ -376,5 +376,38 @@ class TC_RealizedBy < Test::Unit::TestCase
         parent.depends_on child, :failure => :start
         assert_child_failed(child, child.start_event.last, plan)
     end
+
+    def test_role_paths
+        t1, t2, t3, t4 = prepare_plan :add => 4, :model => Tasks::Simple
+
+        t1.depends_on t2, :role => '1'
+        t2.depends_on t3, :role => '2'
+
+        assert_raises(ArgumentError) { t3.role_paths(t1) }
+        assert_same nil, t3.role_paths(t1, false)
+
+        assert_equal [['1', '2']], t1.role_paths(t3)
+
+        t4.depends_on t3, :role => '4'
+        assert_equal [['1', '2']], t1.role_paths(t3)
+
+        t1.depends_on t4, :role => '3'
+        assert_equal [['1', '2'], ['3', '4']].to_set, t1.role_paths(t3).to_set
+    end
+
+    def test_resolve_role_path
+        t1, t2, t3, t4 = prepare_plan :add => 4, :model => Tasks::Simple
+
+        t1.depends_on t2, :role => '1'
+        t2.depends_on t3, :role => '2'
+
+        assert_raises(ArgumentError) { t1.resolve_role_path(['1', '4']) }
+        assert_raises(ArgumentError) { t3.resolve_role_path(['1', '4']) }
+
+        assert_same t2, t1.resolve_role_path(['1'])
+        assert_same t3, t1.resolve_role_path(['1', '2'])
+    rescue Exception => e
+        STDERR.puts e
+    end
 end
 

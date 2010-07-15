@@ -38,20 +38,97 @@ module Roby::TaskStructure
             info[:roles]
         end
 
-        # Returns the child whose role is +role_name+, or nil if there is none
-        def child_from_role(role_name)
+        # Enumerates all the roles this task has
+        def each_role(&block)
+            if !block_given?
+                return enum_for(:each_role, &block)
+            end
+            each_parent_object(Dependency) do |parent|
+                yield(parent, parent.roles_of(self))
+            end
+        end
+
+        # Returns the child whose role is +role_name+
+        #
+        # If +validate+ is true (the default), raises ArgumentError if there is
+        # none. Otherwise, returns nil. This argument is meant only to avoid the
+        # costly operation of raising an exception in cases it is expected that
+        # the role may not exist.
+        def child_from_role(role_name, validate = true)
             each_child do |child_task, info|
                 if info[:roles].include?(role_name)
                     return child_task
                 end
             end
-            nil
+            if validate
+                raise ArgumentError, "#{self} has no child with the role '#{role_name}'"
+            end
         end
 
-
-        def realized_by(task, options = {})
+        # DEPRECATED. Use #depends_on instead 
+        def realized_by(task, options = {}) # :nodoc:
             Roby.warn_deprecated "#realized_by is deprecated. Use #depends_on instead"
             depends_on(task, options)
+        end
+
+        # Returns a task in the dependency hierarchy of this task by following
+        # the roles. +path+ is an array of role names, and the method will
+        # follow the trail until the desired task
+        #
+        # Raises ArgumentError if the child does not exist
+        #
+        # See #role_path to get a role path for a specific task
+        def resolve_role_path(path)
+            up_until_now = []
+            path.inject(self) do |task, role|
+                up_until_now << role
+                if !(next_task = task.child_from_role(role, false))
+                    raise ArgumentError, "the child #{up_until_now.join(".")} of #{task} does not exist"
+                end
+                next_task
+            end
+        end
+
+        # Returns a set role paths that lead to +task+ when starting from +self+
+        #
+        # A role path is an array of roles that lead to +task+ when starting by
+        # +self+.
+        #
+        # I.e. if ['role1', 'role2', 'role3'] is a role path from +self+ to
+        # +task, it means that 
+        #
+        #    task1 = self.child_from_role('role1')
+        #    task2 = task1.child_from_role('role2')
+        #    task  = task2.child_from_role('role3')
+        #
+        # The method returns a set of role paths, as there may be multiple paths
+        # leading from +self+ to +task+
+        #
+        # See #resolve_role_path to get a task from its role path
+        def role_paths(task, validate = true)
+            result = []
+            task.each_role do |parent, roles|
+                if parent == self
+                    new_paths = roles.map { |r| [r] }
+                elsif heads = role_paths(parent, false)
+                    heads.each do |h|
+                        roles.each do |t|
+                            result << (h.dup << t)
+                        end
+                    end
+                end
+                if new_paths
+                    result.concat(new_paths)
+                end
+            end
+
+            if result.empty?
+                if validate
+                    raise ArgumentError, "#{task} can not be reached from #{self}"
+                end
+                return
+            end
+            result
         end
 
 	# Adds +task+ as a child of +self+ in the Dependency relation. The
