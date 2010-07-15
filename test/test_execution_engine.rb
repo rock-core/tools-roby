@@ -10,6 +10,7 @@ require 'roby/log'
 
 class TC_ExecutionEngine < Test::Unit::TestCase
     include Roby::Test
+    include Roby::Test::Assertions
 
     def setup
 	super
@@ -396,7 +397,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     end
 
     class SpecificException < RuntimeError; end
-    def test_unhandled_event_exceptions
+    def test_unhandled_event_command_exception
 	Roby.app.abort_on_exception = true
 
 	# Test that the event is not pending if the command raises
@@ -434,6 +435,29 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	# Check that the task has been garbage collected in the process
 	assert(! plan.include?(t))
     end
+
+    def test_unhandled_event_handler_exception
+        # To stop the error message
+	Roby.logger.level = Logger::FATAL
+
+	model = Class.new(Tasks::Simple) do
+	    on :start do |event|
+		raise SpecificException, "bla"
+            end
+	end
+
+        plan.add_permanent(t = model.new)
+        engine.run
+
+        assert_event_emission(t.failed_event) do
+            t.start!
+        end
+
+	# Check that the task has been garbage collected in the process
+	assert(! plan.include?(t))
+	assert(t.failed?)
+    end
+
 
     def apply_check_structure(&block)
 	Plan.structure_checks.clear
