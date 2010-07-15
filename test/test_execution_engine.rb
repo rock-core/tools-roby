@@ -1,7 +1,7 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'flexmock'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
 require 'mockups/tasks'
 require 'flexmock'
@@ -43,7 +43,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
         # ..
         Roby.logger.level = Logger::FATAL
 
-        plan.add_permanent(task = SimpleTask.new)
+        plan.add_permanent(task = Tasks::Simple.new)
 
         error = nil
         failure = lambda do |_|
@@ -192,7 +192,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    current_time = Time.now + 5
 	    time_proxy.should_receive(:now).and_return { current_time }
 
-	    plan.add_mission(t = SimpleTask.new)
+	    plan.add_mission(t = Tasks::Simple.new)
 	    e = EventGenerator.new(true)
 	    t.event(:start).signals e, :delay => 0.1
 	    engine.once { t.start! }
@@ -205,7 +205,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     end
 
     def test_duplicate_signals
-	plan.add_mission(t = SimpleTask.new)
+	plan.add_mission(t = Tasks::Simple.new)
 	
 	FlexMock.use do |mock|
 	    t.on(:start)   { |event| t.emit(:success, *event.context) }
@@ -219,14 +219,14 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	end
     end
     def test_diamond_structure
-	a = Class.new(SimpleTask) do
+	a = Class.new(Tasks::Simple) do
 	    event :child_success
 	    event :child_stop
 	    forward :child_success => :child_stop
 	end.new(:id => 'a')
 
 	plan.add_mission(a)
-	a.depends_on(b = SimpleTask.new(:id => 'b'))
+	a.depends_on(b = Tasks::Simple.new(:id => 'b'))
 
 	b.forward_to(:success, a, :child_success)
 	b.forward_to(:stop, a, :child_stop)
@@ -400,7 +400,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	Roby.app.abort_on_exception = true
 
 	# Test that the event is not pending if the command raises
-	model = Class.new(SimpleTask) do
+	model = Class.new(Tasks::Simple) do
 	    event :start do |context|
 		raise SpecificException, "bla"
             end
@@ -413,7 +413,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	# Check that the propagation is pruned if the command raises
 	t = nil
 	FlexMock.use do |mock|
-	    t = Class.new(SimpleTask) do
+	    t = Class.new(Tasks::Simple) do
 		event :start do |context|
 		    mock.command_called
 		    raise SpecificException, "bla"
@@ -448,12 +448,12 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	Roby.app.abort_on_exception = false
 
 	# Check on a single task
-	plan.add_mission(t = SimpleTask.new)
+	plan.add_mission(t = Tasks::Simple.new)
 	apply_check_structure { LocalizedError.new(t) }
 	assert(! plan.include?(t))
 
 	# Make sure that a task which has been repaired will not be killed
-	plan.add_mission(t = SimpleTask.new)
+	plan.add_mission(t = Tasks::Simple.new)
 	did_once = false
 	apply_check_structure do
 	    unless did_once
@@ -621,7 +621,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	# Set a fake control thread
 	engine.thread = Thread.main
 
-	plan.add_permanent(task = SimpleTask.new)
+	plan.add_permanent(task = Tasks::Simple.new)
 	t = Thread.new do
 	    engine.wait_until(task.event(:start)) do
 		task.start!
@@ -640,7 +640,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	# Set a fake control thread
 	engine.thread = Thread.main
 
-	plan.add_permanent(task = SimpleTask.new)
+	plan.add_permanent(task = Tasks::Simple.new)
 	t = Thread.new do
 	    begin
 		engine.wait_until(task.event(:success)) do
@@ -818,7 +818,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 
     def test_gc_ignores_incoming_events
 	Roby::Plan.logger.level = Logger::WARN
-	a, b = prepare_plan :discover => 2, :model => SimpleTask
+	a, b = prepare_plan :discover => 2, :model => Tasks::Simple
 	a.signals(:stop, b, :start)
 	a.start!
 
@@ -879,7 +879,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     end
 
     def test_garbage_collect_events
-	t  = SimpleTask.new
+	t  = Tasks::Simple.new
 	e1 = EventGenerator.new(true)
 
 	plan.add_mission(t)
@@ -911,7 +911,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	engine.run
 
 	engine.execute do
-	    planning, planned, influencing = prepare_plan :discover => 3, :model => SimpleTask
+	    planning, planned, influencing = prepare_plan :discover => 3, :model => Tasks::Simple
 
 	    planned.planned_by planning
 	    influencing.depends_on planned
@@ -930,7 +930,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     end
 
     def test_mission_failed
-	model = Class.new(SimpleTask) do
+	model = Class.new(Tasks::Simple) do
 	    event :specialized_failure, :command => true
 	    forward :specialized_failure => :failed
 	end
@@ -984,8 +984,8 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     def test_forward_signal_ordering
         100.times do
             stop_called = false
-            source = SimpleTask.new(:id => 'source')
-            target = Class.new(SimpleTask) do
+            source = Tasks::Simple.new(:id => 'source')
+            target = Class.new(Tasks::Simple) do
                 event :start do |context|
                     if !stop_called
                         raise ArgumentError, "ordering failed"
