@@ -318,7 +318,7 @@ help                              | this help message                           
 	    result
 
 	rescue Exception => e
-	    raise e, e.message, Roby.filter_backtrace(e.backtrace)
+	    raise e, e.message, e.backtrace
 	end
     end
 

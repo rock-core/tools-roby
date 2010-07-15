@@ -307,7 +307,7 @@ module Roby
 		    end
 		    if errors.size == 1
 			e = errors.first.exception
-			raise e.dup, e.message, Roby.filter_backtrace(e.backtrace)
+			raise e.dup, e.message, e.backtrace
 		    elsif !errors.empty?
 			for e in errors
 			    pp e.exception
@@ -624,7 +624,7 @@ module Roby
 		    end
 		    if errors.size == 1
 			e = errors.first.exception
-			raise e.dup, e.message, Roby.filter_backtrace(e.backtrace)
+			raise e.dup, e.message, e.backtrace
 		    elsif !errors.empty?
                         for e in errors
                             pp e.exception
