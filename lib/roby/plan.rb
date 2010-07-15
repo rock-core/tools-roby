@@ -132,6 +132,7 @@ module Roby
                 if plan.mission?(task = error.task)
                     plan.add_error(MissionFailedError.new(task, error.exception))
                 else
+                    pass_exception
                 end
             end
 
