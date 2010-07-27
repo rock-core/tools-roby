@@ -169,10 +169,16 @@ module Roby::TaskStructure
             roles = roles.map { |r| r.to_str }
             options[:roles] = roles.to_set
 
+            if options[:success].nil?
+                options[:success] = []
+            end
 	    options[:success] = Array[*options[:success]].
                 map { |predicate| predicate.to_unbound_task_predicate }.
                 inject(&:or)
 
+            if options[:failure].nil?
+                options[:failure] = []
+            end
 	    options[:failure] = Array[*options[:failure]].
                 map { |predicate| predicate.to_unbound_task_predicate }.
                 inject(&:or)
