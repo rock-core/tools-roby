@@ -385,6 +385,7 @@ end
                         result = result.or(predicate)
                     end
                 elsif has_atomic_predicate?(pred)
+                    # Do not add +pred+ if it is already included in +self+
                     self
                 else
                     super
