@@ -57,6 +57,10 @@ end
                 END
             end
 
+            def never
+                to_unbound_task_predicate.never
+            end
+
             unbound_temporal_binary_predicate :and
             unbound_temporal_binary_predicate :or
             unbound_temporal_binary_predicate :followed_by
@@ -118,7 +122,8 @@ end
 
             def compile
                 prelude = required_events.map do |event_name|
-                    "    task_#{event_name} = task.event(:#{event_name}).last"
+                    "    task_event_#{event_name} = task.event(:#{event_name})\n" +
+                    "    task_#{event_name} = task_event_#{event_name}.last"
                 end.join("\n")
 
                 compiled_predicate = CompiledPredicate.new
@@ -230,6 +235,30 @@ end
             end
             def static?(task); predicate.static?(task) end
             def to_s; "!#{predicate}" end
+        end
+
+        class UnboundTaskPredicate::Never < UnboundTaskPredicate
+            attr_reader :predicate
+            def initialize(pred)
+                if !pred.kind_of?(UnboundTaskPredicate::SingleEvent)
+                    raise ArgumentError, "can only create a Never predicate on top of a SingleEvent"
+                end
+
+                @predicate = pred
+            end
+
+            def ==(pred); pred.kind_of?(Never) && pred.predicate == predicate end
+
+            def explain_true(task);  predicate.explain_static(task) end
+            def explain_false(task); predicate.explain_true(task)  end
+            def explain_static(task); predicate.explain_static(task) end
+
+            def required_events; predicate.required_events end
+            def code
+                "(!task_#{predicate.event_name} && task_event_#{predicate.event_name}.unreachable?)"
+            end
+            def static?(task); predicate.static?(task) end
+            def to_s; "never(#{predicate})" end
         end
 
         class UnboundTaskPredicate::BinaryCommutativePredicate < UnboundTaskPredicate
@@ -536,6 +565,10 @@ end
             def static?(task)
                 event = task.event(event_name)
                 event.happened? || event.unreachable?
+            end
+
+            def never
+                Never.new(self)
             end
 
             def not_followed_by(event)
