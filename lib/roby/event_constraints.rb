@@ -392,6 +392,7 @@ end
                     pred.each_atomic_predicate do |predicate|
                         result = result.or(predicate)
                     end
+                    result
                 elsif has_atomic_predicate?(pred)
                     # Do not add +pred+ if it is already included in +self+
                     self
