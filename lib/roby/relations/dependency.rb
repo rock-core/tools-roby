@@ -334,7 +334,7 @@ module Roby::TaskStructure
             if !opt1[:failure] then opt2[:failure]
             elsif !opt2[:failure] then opt1[:failure]
             else
-                opt1[:failure].and(opt2[:failure])
+                opt1[:failure].or(opt2[:failure])
             end
 
         # Check model compatibility
