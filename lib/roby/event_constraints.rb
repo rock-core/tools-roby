@@ -215,6 +215,10 @@ end
 
             def ==(pred); pred.kind_of?(False) end
 
+            def code
+                "false"
+            end
+
             def or(pred); pred end
             def and(pred); self end
         end
