@@ -81,6 +81,11 @@ class TC_RealizedBy < Test::Unit::TestCase
     #
     # p1 is a parent of child. Both tasks are started and returned.
     def create_pair(options)
+        do_start = options.delete(:start)
+        if do_start.nil?
+            do_start = true
+        end
+
 	child_model = Class.new(Tasks::Simple) do
 	    event :first, :command => true
 	    event :second, :command => true
@@ -92,7 +97,9 @@ class TC_RealizedBy < Test::Unit::TestCase
 	p1.depends_on child, options
 	plan.add_mission(p1)
 
-	child.start!; p1.start!
+        if do_start
+            child.start!; p1.start!
+        end
         return p1, child
     end
 
@@ -155,6 +162,71 @@ class TC_RealizedBy < Test::Unit::TestCase
         child.stop!
 	assert_child_failed(child, child.event(:stop).last, plan)
         plan.clear
+    end
+
+    def test_failure_on_pending_relation
+        Roby::ExecutionEngine.logger.level = Logger::FATAL
+        FlexMock.use do |mock|
+            decision_control = Roby::DecisionControl.new
+            decision_control.singleton_class.class_eval do
+                define_method(:pending_dependency_failed) do |parent, child, reason|
+                    mock.decision_control_called
+                    true
+                end
+            end
+
+            plan.engine.control = decision_control
+            parent, child = create_pair :success => [], :failure => [:stop], :start => false
+            child.start!
+
+            mock.should_receive(:decision_control_called).once
+
+            child.stop!
+            assert_child_failed(child, child, plan)
+        end
+    end
+
+    def test_decision_control_can_ignore_failure_on_pending_relation
+        FlexMock.use do |mock|
+            decision_control = Roby::DecisionControl.new
+            decision_control.singleton_class.class_eval do
+                define_method(:pending_dependency_failed) do |parent, child, reason|
+                    mock.decision_control_called
+                    false
+                end
+            end
+
+            plan.engine.control = decision_control
+            parent, child = create_pair :success => [], :failure => [:stop], :start => false
+            child.start!
+
+            mock.should_receive(:decision_control_called).once
+
+            child.stop!
+            result = plan.check_structure
+            assert(result.empty?)
+        end
+    end
+
+    def test_failure_on_pending_child_failed_to_start
+        Roby::ExecutionEngine.logger.level = Logger::FATAL
+        FlexMock.use do |mock|
+            decision_control = Roby::DecisionControl.new
+            decision_control.singleton_class.class_eval do
+                define_method(:pending_dependency_failed) do |parent, child, reason|
+                    mock.decision_control_called
+                    true
+                end
+            end
+
+            plan.engine.control = decision_control
+            parent, child = create_pair :success => [], :failure => [:stop], :start => false
+
+            mock.should_receive(:decision_control_called).once
+
+            child.failed_to_start!(nil)
+            assert_child_failed(child, child.start_event, plan)
+        end
     end
 
     def test_failure_on_failed_start
@@ -293,15 +365,17 @@ class TC_RealizedBy < Test::Unit::TestCase
         expected_info = { :remove_when_done=>true,
             :model => [Roby::Task, {}],
             :roles => ['child1'].to_set,
-            :success=>false.to_unbound_task_predicate,
-            :failure=>false.to_unbound_task_predicate }.merge(special_options)
+            :success => nil,
+            :failure => :start.never }.merge(special_options)
         assert_equal expected_info, parent[child, Dependency]
 
         return parent, child, expected_info, child_model, tag
     end
 
     def test_merging_events
-        parent, child, info, child_model, _ = setup_merging_test(:success => :success.to_unbound_task_predicate)
+        parent, child, info, child_model, _ =
+            setup_merging_test(:success => :success.to_unbound_task_predicate, :failure => false.to_unbound_task_predicate)
+
         parent.depends_on child, :success => [:success]
         info[:model] = [child_model, {:id => 'child'}]
         info[:success] = :success.to_unbound_task_predicate

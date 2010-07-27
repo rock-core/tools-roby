@@ -203,6 +203,20 @@ module Roby::TaskStructure
                 end
             end
 
+            # There is no positive events in success. Behind the scenes, it
+            # actually means that the task does not have to start (since nothing
+            # in :success would become unreachable)
+            #
+            # Add !:start in failure
+            if !options[:success]
+                not_started = :start.to_unbound_task_predicate.never
+                if options[:failure]
+                    options[:failure] = not_started.or(options[:failure])
+                else
+                    options[:failure] = not_started
+                end
+            end
+
 	    options[:model] = [options[:model], {}] unless Array === options[:model]
 	    required_model, required_args = *options[:model]
             if !required_args.respond_to?(:to_hash)
