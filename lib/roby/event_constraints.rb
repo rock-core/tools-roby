@@ -85,6 +85,8 @@ end
 
             def and(other_predicate)
                 if self == other_predicate then self
+                elsif other_predicate.kind_of?(UnboundTaskPredicate::False)
+                    other_predicate
                 else
                     And.new(self, other_predicate)
                 end
