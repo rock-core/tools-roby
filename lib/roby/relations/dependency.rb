@@ -237,18 +237,21 @@ module Roby::TaskStructure
 	    if relations.include?(Dependency) && !respond_to?(:__getobj__) && !child.respond_to?(:__getobj__)
                 events = ValueSet.new
                 if info[:success]
-                    events = info[:success].required_events.
-                        map { |event_name| child.event(event_name) }.
-                        to_value_set
-
-                    events.each do |ev|
-                        ev.if_unreachable { Dependency.interesting_events << ev }
+                    for event_name in info[:success].required_events
+                        events << child.event(event_name)
                     end
                 end
 
                 if info[:failure]
-                    info[:failure].required_events.
-                        each { |event_name| events << child.event(event_name) }
+                    for event_name in info[:failure].required_events
+                        events << child.event(event_name)
+                    end
+                end
+
+                if !events.empty?
+                    for ev in events
+                        ev.if_unreachable { Dependency.interesting_events << ev }
+                    end
                     Roby::EventGenerator.gather_events(Dependency.interesting_events, events)
                 end
 
