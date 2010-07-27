@@ -92,6 +92,8 @@ end
 
             def or(other_predicate)
                 if self == other_predicate then self
+                elsif other_predicate.kind_of?(UnboundTaskPredicate::False)
+                    self
                 else
                     Or.new(self, other_predicate)
                 end
