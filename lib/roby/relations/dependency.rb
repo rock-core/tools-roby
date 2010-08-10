@@ -159,6 +159,7 @@ module Roby::TaskStructure
 		:success => :success.to_unbound_task_predicate, 
 		:failure => false.to_unbound_task_predicate,
 		:remove_when_done => true,
+                :consider_in_pending => true,
                 :roles => nil,
                 :role => nil
 
@@ -447,7 +448,7 @@ module Roby::TaskStructure
                     if parent.running?
                         result << error
                         failing_tasks << child
-                    elsif plan.control.pending_dependency_failed(parent, child, error)
+                    elsif options[:consider_in_pending] && plan.control.pending_dependency_failed(parent, child, error)
                         result << error
                         failing_tasks << child
                     end
