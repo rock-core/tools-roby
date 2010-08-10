@@ -875,6 +875,26 @@ module Roby
         # unreachability.
         attr_reader :unreachability_reason
 
+        # Internal helper for unreachable!
+        def call_unreachable_handlers(reason) # :nodoc:
+	    unreachable_handlers.each do |_, block|
+		begin
+		    block.call(reason)
+                rescue LocalizedError => e
+                    if engine
+                        engine.add_error(e)
+                    else raise
+                    end
+		rescue Exception => e
+                    if engine
+                        engine.add_error(EventHandlerError.new(e, self))
+                    else raise
+                    end
+		end
+	    end
+	    unreachable_handlers.clear
+        end
+
 	# Called internally when the event becomes unreachable
 	def unreachable!(reason = nil, plan = self.plan)
 	    return if @unreachable
@@ -883,16 +903,15 @@ module Roby
 
             EventGenerator.event_gathering.delete(self)
 
-	    unreachable_handlers.each do |_, block|
-		begin
-		    block.call(reason)
-                rescue LocalizedError => e
-		    plan.engine.add_error(e)
-		rescue Exception => e
-		    plan.engine.add_error(EventHandlerError.new(e, self))
-		end
-	    end
-	    unreachable_handlers.clear
+            if engine && !engine.allow_propagation?
+                # Not in propagation phase. Just queue the handlers for the next
+                # phase
+                engine.once do
+                    call_unreachable_handlers(reason)
+                end
+            else
+                call_unreachable_handlers(reason)
+            end
 	end
 
 	def pretty_print(pp) # :nodoc:
