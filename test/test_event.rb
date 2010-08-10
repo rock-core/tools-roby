@@ -887,11 +887,11 @@ class TC_Event < Test::Unit::TestCase
 	assert_equal([[21, 42]], master.history[0].context)
     end
 
-    def test_if_unreachable
+    def test_when_unreachable_block
 	FlexMock.use do |mock|
 	    plan.add(ev = EventGenerator.new(true))
-	    ev.if_unreachable(false) { mock.called }
-	    ev.if_unreachable(true) { mock.canceled_called }
+            ev.when_unreachable(false) { mock.called }
+            ev.when_unreachable(true) { mock.canceled_called }
 	    ev.call
 
 	    mock.should_receive(:called).once
@@ -900,7 +900,7 @@ class TC_Event < Test::Unit::TestCase
 	end
     end
 
-    def test_when_unreachable
+    def test_when_unreachable_event
         plan.add(ev = EventGenerator.new(true))
         ev.when_unreachable.on { |ev| mock.unreachable_fired }
         ev.call
