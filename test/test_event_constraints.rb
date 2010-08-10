@@ -15,6 +15,33 @@ class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
         event :second, :controlable => true
     end
 
+    def assert_is_true(predicate, task)
+        assert(predicate.evaluate(task))
+        assert(predicate.explain_true(task))
+        assert(!predicate.explain_false(task))
+        assert(!predicate.explain_static(task))
+    end
+
+    def assert_is_false(predicate, task)
+        assert(!predicate.evaluate(task))
+        assert(!predicate.explain_true(task))
+        assert(predicate.explain_false(task), "#{predicate} is false but has no explanation for it")
+        assert(!predicate.explain_static(task))
+    end
+
+    def assert_is_static(value, predicate, task)
+        if value
+            assert(predicate.evaluate(task))
+            assert(predicate.explain_true(task))
+            assert(!predicate.explain_false(task), "#{predicate} is true but explain_false returned something")
+        else
+            assert(!predicate.evaluate(task))
+            assert(!predicate.explain_true(task))
+            assert(predicate.explain_false(task))
+        end
+        assert(predicate.explain_static(task))
+    end
+
     def assert_not_static(predicate, task)
         assert(!predicate.static?(task), "#{predicate} is static but should not be")
         assert_equal(nil, predicate.explain_static(task))
@@ -392,9 +419,8 @@ class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
 
         task.stop!
         assert(pred.evaluate(task))
+        pp pred.explain_true(task)
         assert_explained_by(true, first_pred,  [task.start_event.last, task.failed_event.last], pred.explain_true(task))
-
-
 
         plan.add(task = TaskModel.new)
         assert(!pred.evaluate(task))
@@ -442,6 +468,25 @@ class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
 
     def test_or_reduction
         assert_equal :start.or(:stop), :start.or(:stop).or(:start).or(:stop)
+    end
+
+    def test_never
+        pred = :first.never
+
+        plan.add(task = TaskModel.new)
+        task.start!
+        assert_is_false(pred, task)
+        task.stop!
+        assert_is_static(true, pred, task)
+
+        plan.add(task = TaskModel.new)
+        task.failed_to_start!("test")
+        assert_is_static(true, pred, task)
+
+        plan.add(task = TaskModel.new)
+        task.start!
+        task.first!
+        assert_is_static(false, pred, task)
     end
 end
 

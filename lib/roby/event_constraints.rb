@@ -155,7 +155,7 @@ end
         # has to be explained because the event generator did not emit an
         # event.
         class Explanation
-            attr_reader :value
+            attr_accessor :value
             attr_reader :predicate
             attr_reader :elements
 
@@ -194,6 +194,8 @@ end
                                 else
                                     pp.text " is unreachable"
                                 end
+                            elsif value == true
+                                pp.text " is reachable"
                             else
                                 pp.text " has not been emitted"
                             end
@@ -257,15 +259,35 @@ end
 
             def ==(pred); pred.kind_of?(Never) && pred.predicate == predicate end
 
-            def explain_true(task);  predicate.explain_static(task) end
-            def explain_false(task); predicate.explain_true(task)  end
-            def explain_static(task); predicate.explain_static(task) end
+            def explain_true(task)
+                return if !evaluate(task)
+                predicate.explain_static(task)
+            end
+            def explain_false(task)
+                return if evaluate(task)
+                if predicate.evaluate(task)
+                    predicate.explain_true(task)
+                elsif !predicate.static?(task)
+                    explanation = predicate.explain_false(task)
+                    explanation.value = true
+                    explanation
+                end
+            end
+            def explain_static(task)
+                if predicate.evaluate(task)
+                    predicate.explain_true(task)
+                else
+                    predicate.explain_static(task)
+                end
+            end
 
             def required_events; predicate.required_events end
             def code
                 "(!task_#{predicate.event_name} && task_event_#{predicate.event_name}.unreachable?)"
             end
-            def static?(task); predicate.static?(task) end
+            def static?(task)
+                evaluate(task) || predicate.static?(task)
+            end
             def to_s; "never(#{predicate})" end
         end
 
