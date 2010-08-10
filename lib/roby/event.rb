@@ -185,7 +185,7 @@ module Roby
 	    @handlers      = []
 	    @pending       = false
 	    @unreachable   = false
-            @unreachable_event    = nil
+            @unreachable_events   = Hash.new
 	    @unreachable_handlers = []
 	    @history       = Array.new
 
@@ -369,24 +369,36 @@ module Roby
 	    block.object_id
 	end
 
-        # Returns an event which will be emitted when this event becones
-        # unreachable
-        def when_unreachable
+        # React to this event being unreachable
+        #
+        # If a block is given, that block will be called when the event becomes
+        # unreachable. Otherwise, the method returns an EventGenerator instance
+        # which will be emitted when it happens.
+        #
+        # The +cancel_at_emission+ flag controls if the block (resp. event)
+        # should still be called (resp. emitted) after +self+ has been emitted.
+        # If true, the handler will be removed if +self+ emits. If false, the
+        # handler will be kept.
+        def when_unreachable(cancel_at_emission = false, &block)
+            if block_given?
+                return if_unreachable(cancel_at_emission, &block)
+            end
+
             # NOTE: the unreachable event is not directly tied to this one from
             # a GC point of view (being able to do this would be useful, but
             # anyway). So, it is possible that it is GCed because the event
             # user did not take care to use it.
-            if !@unreachable_event || !@unreachable_event.plan
+            if !@unreachable_events[cancel_at_emission] || !@unreachable_events[cancel_at_emission].plan
                 result = EventGenerator.new(true)
-                if_unreachable(false) do
+                if_unreachable(cancel_at_emission) do
                     if result.plan
                         result.emit
                     end
                 end
                 add_causal_link result
-                @unreachable_event = result
+                @unreachable_events[cancel_at_emission] = result
             end
-            @unreachable_event
+            @unreachable_events[cancel_at_emission]
         end
 
 	def forward(generator, timespec = nil)
