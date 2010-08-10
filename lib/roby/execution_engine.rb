@@ -341,10 +341,17 @@ module Roby
             end
         end
 
+        # Called by #plan when an event became unreachable
+        def unreachable_event(event)
+            delayed_events.delete_if { |_, _, _, signalled, _| signalled == event }
+            super if defined? super
+        end
+
         # Called by #plan when an event has been finalized
         def finalized_event(event)
             event.unreachable!(nil, plan)
-            delayed_events.delete_if { |_, _, _, signalled, _| signalled == event }
+            # since the event is already finalized, 
+            super if defined? super
         end
 
         # Sets up a propagation context, yielding the block in it. During this

@@ -205,6 +205,35 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	end
     end
 
+    def test_delay_with_unreachability
+	FlexMock.use(Time) do |time_proxy|
+	    current_time = Time.now + 5
+	    time_proxy.should_receive(:now).and_return { current_time }
+
+	    plan.add_permanent(source = Tasks::Simple.new)
+	    plan.add_permanent(sink0 = Tasks::Simple.new)
+	    plan.add_permanent(sink1 = Tasks::Simple.new)
+	    source.start_event.signals sink0.start_event, :delay => 0.1
+	    source.start_event.signals sink1.start_event, :delay => 0.1
+	    engine.once { source.start! }
+	    process_events
+	    assert(!sink0.start_event.happened?)
+	    assert(!sink1.start_event.happened?)
+
+            plan.remove_object(sink0)
+            sink1.failed_to_start!("test")
+            assert(sink0.start_event.unreachable?)
+            assert(sink1.start_event.unreachable?)
+            assert(! engine.delayed_events.
+                   find { |_, _, _, target, _| target == sink0.start_event })
+            assert(! engine.delayed_events.
+                   find { |_, _, _, target, _| target == sink1.start_event })
+
+	    current_time += 0.1
+	    process_events
+	end
+    end
+
     def test_duplicate_signals
 	plan.add_mission(t = Tasks::Simple.new)
 	

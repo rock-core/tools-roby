@@ -914,12 +914,21 @@ module Roby
             @unreachability_reason = reason
 
             EventGenerator.event_gathering.delete(self)
+            engine =
+                if plan
+                    plan.engine
+                end
 
-            if engine && !engine.allow_propagation?
-                # Not in propagation phase. Just queue the handlers for the next
-                # phase
-                engine.once do
-                    call_unreachable_handlers(reason)
+            if engine
+                # Announce that the event became unreachable to the engine
+                engine.unreachable_event(self)
+
+                # If we are not in a propagation phase. Just queue the handlers
+                # for the next cycle
+                if !engine.allow_propagation?
+                    engine.once do
+                        call_unreachable_handlers(reason)
+                    end
                 end
             else
                 call_unreachable_handlers(reason)
