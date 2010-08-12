@@ -558,12 +558,14 @@ help                              | this help message                           
 	end
 
         def connection_test_object
-            DRbObject.new(Object.new)
+            @test_object = Object.new
+            DRbObject.new(@test_object)
         end
         def connection_test(obj)
             if obj.kind_of?(DRbObject)
                 raise "cannot pass remote objects in connection (#{obj.__drburi} != #{DRb.current_server.uri})"
             end
+            @test_object = nil
         end
     end
 end
