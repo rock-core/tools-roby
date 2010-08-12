@@ -471,11 +471,11 @@ help                              | this help message                           
 	def task_models
 	    task_models = []
 	    engine.execute do
-		ObjectSpace.each_object(Class) do |obj|
-                    if obj <= Roby::Task && obj.name !~ /^Roby::/
-                        task_models << obj
+                Task.all_models.each do |klass|
+                    if klass.name !~ /^Roby::/
+                        task_models << klass
                     end
-		end
+                end
 	    end
             task_models.map { |t| t.droby_dump(nil) }
 	end

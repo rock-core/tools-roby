@@ -626,6 +626,18 @@ module Roby
 	    include RootTaskTag
 	end
 
+        class << self
+            attr_reader :all_models
+        end
+        @all_models = ValueSet.new
+
+        def self.inherited(klass)
+            Task.all_models << klass
+        end
+        def self.deregister(klass)
+            Task.all_models.delete(klass)
+        end
+
         # Clears all definitions saved in this model. This is to be used by the
         # reloading code
 	def self.clear_model
