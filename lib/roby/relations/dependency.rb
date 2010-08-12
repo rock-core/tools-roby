@@ -1,5 +1,20 @@
 module Roby::TaskStructure
+    module ModelLevelDependency
+        # Specify the base model that will be used as the model for which
+        # this task is used.
+        #
+        # See #fullfilled_model= and #fullfilled_model on the task instances
+        attr_accessor :fullfilled_model
+    end
+
     relation :Dependency, :child_name => :child, :parent_name => :parent_task do
+        # When Dependency support is included in a model (for instance
+        # Roby::Task), add the model-level classes  
+        def self.included(klass) # :nodoc:
+	    klass.extend Roby::TaskStructure::ModelLevelDependency
+            super
+        end
+
         ##
         # :method: add_child(v, info)
         # Adds a new child to +v+. You should use #realized_by instead.
@@ -275,6 +290,27 @@ module Roby::TaskStructure
 	    result
         end
 
+        # In normal operations, the fullfilled model returned by
+        # #fullfilled_model is computed from the dependency relations in which
+        # +self+ is a child.
+        #
+        # However, this fails in case +self+ is a root task in the dependency
+        # relation. Moreover, it might be handy to over-constrain the model
+        # computed through the dependency relation.
+        # 
+        # In both cases, a model can be specified explicitely by setting the
+        # fullfilled_model attribute. The value has to be
+        #
+        #   [task_model, [tag1, tag2, ...], task_arguments]
+        #
+        # For instance, a completely non-constrained model would be
+        #
+        #   [Roby::Task, [], {}]
+        #
+        # This parameter can be set model-wide by using #fullfilled_model= on
+        # the class object
+        attr_writer :fullfilled_model
+
 	# Return [tags, arguments] where +tags+ is a list of task models which
 	# are required by the parent tasks of this task, and arguments the
 	# required arguments
@@ -282,11 +318,17 @@ module Roby::TaskStructure
 	# If there is a task class in the required models, it is always the
 	# first element of +tags+
 	def fullfilled_model
-	    model, tags, arguments = Roby::Task, [], {}
+	    model, tags, arguments =
+                if explicit = (@fullfilled_model || self.model.fullfilled_model)
+                    has_value = true
+                    explicit
+                else
+                    has_value = false
+                    [Roby::Task, [], {}]
+                end
 
-            has_parent = false
 	    merged_relations(:each_parent_task, false) do |myself, parent|
-                has_parent = true
+                has_value = true
 
 		required_models, required_arguments = parent[myself, Dependency][:model]
                 required_models = [required_models] if !required_models.respond_to?(:to_ary)
@@ -309,7 +351,7 @@ module Roby::TaskStructure
 		end
 	    end
 
-            if !has_parent
+            if !has_value
                 [[self.model], self.meaningful_arguments]
             else
                 tags.unshift(model)
