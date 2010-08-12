@@ -62,9 +62,12 @@ module Roby
                               end
                     end
                     begin
+                        # Given how constants are resolved in dRoby, the
+                        # value returned by mod.const_get is guaranteed to be
+                        # +klass+
+                        mod.const_get(klass_name)
+                    rescue NameError
                         mod.const_set(klass_name, klass)
-                    rescue NameError => e
-                        STDERR.puts "cannot map remove model #{klass_name} (#{klass}): #{e.message}"
                     end
                 end
             end
