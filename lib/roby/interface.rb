@@ -44,7 +44,7 @@ module Roby
             @interface.connection_test(obj)
 
             remote_models = @interface.task_models
-            remote_models.map do |klass|
+            remote_models.each do |klass|
                 klass = klass.proxy(nil)
 
                 if klass.respond_to?(:remote_name) && klass.remote_name
