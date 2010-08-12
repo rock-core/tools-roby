@@ -381,7 +381,7 @@ module Roby::TaskStructure
             raise Roby::ModelViolation, "incompatible dependency specification: trying to change the value of +remove_when_done+"
         end
 
-        result = { :remove_when_done => opt1[:remove_when_done] }
+        result = { :remove_when_done => opt1[:remove_when_done], :consider_in_pending => opt1[:consider_in_pending] }
 
         result[:success] =
             if !opt1[:success] then opt2[:success]

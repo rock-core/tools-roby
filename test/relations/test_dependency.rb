@@ -362,7 +362,8 @@ class TC_RealizedBy < Test::Unit::TestCase
             merge(special_options)
         parent.depends_on child, options
 
-        expected_info = { :remove_when_done=>true,
+        expected_info = { :consider_in_pending => true,
+            :remove_when_done=>true,
             :model => [Roby::Task, {}],
             :roles => ['child1'].to_set,
             :success => nil,
