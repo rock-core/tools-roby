@@ -181,6 +181,7 @@ module Roby
                 backtrace_bottom.unshift original_backtrace.pop
             end
 
+            got_user_line = false
             backtrace = original_backtrace.enum_for(:each_with_index).map do |line, idx|
                 case line
                 when /in `poll_handler'$/
@@ -198,7 +199,9 @@ module Roby
 
                         line.gsub(/:in /, ":in event handler, ")
                     else
-                        if !filter_out.any? { |rx| rx =~ line }
+                        is_user = !filter_out.any? { |rx| rx =~ line }
+                        got_user_line ||= is_user
+                        if !got_user_line || is_user
                             case line
                             when /^(#{app_dir}\/)?scripts\//
                             when /^\(eval\):\d+:in `each(?:_handler)?'/
@@ -210,12 +213,7 @@ module Roby
                 end
             end
 
-            while !backtrace.empty? && !backtrace.last
-                backtrace.pop
-            end
-            backtrace.each_with_index do |line, i|
-                backtrace[i] = line || original_backtrace[i]
-            end
+            backtrace.compact!
 
             if app_dir
                 backtrace = backtrace.map do |line|
@@ -249,6 +247,7 @@ module Roby
                               formatting_error.full_message
                       end
                   end
+
         message.split("\n")
     end
 
