@@ -300,7 +300,7 @@ module Roby::Log
 		     end
 
 	    unless format
-		raise "#{input.path} does not look like a Roby event log file"
+		raise Invalid, "#{input.path} does not look like a Roby event log file"
 	    end
 	    format
 
