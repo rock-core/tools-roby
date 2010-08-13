@@ -121,6 +121,10 @@ module Roby::TaskStructure
         #
         # See #resolve_role_path to get a task from its role path
         def role_paths(task, validate = true)
+            if task == self
+                return []
+            end
+
             result = []
             task.each_role do |parent, roles|
                 if parent == self
