@@ -104,9 +104,30 @@ module Roby
 	# True if all logs should be kept after testing
 	attr_predicate :testing_overwrites_logs?, true
 
-	# True if we should remove the framework code from the error backtraces
-	def filter_backtraces?; log['filter_backtraces'] end
-	def filter_backtraces=(value); log['filter_backtraces'] = value end
+        def self.overridable_configuration(config_set, config_key)
+            define_method("#{config_key}?") do
+                if instance_variable_defined?("@#{config_key}")
+                    instance_variable_get "@#{config_key}"
+                else
+                    send(config_set)[config_key]
+                end
+            end
+            define_method("#{config_key}=") do |new_value|
+                instance_variable_set("@#{config_key}", new_value)
+            end
+        end
+
+	##
+        # :method: filter_backtraces?
+        #
+        # True if we should remove the framework code from the error backtraces
+
+        ##
+        # :method: filter_backtraces=
+        #
+        # Override the value stored in configuration files for filter_backtraces?
+
+        overridable_configuration 'log', 'filter_backtraces'
 
 	def initialize
 	    @plugins = Array.new
