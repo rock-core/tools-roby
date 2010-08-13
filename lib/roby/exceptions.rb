@@ -265,6 +265,16 @@ module Roby
             logger.send(level, line)
         end
     end
+
+    class BacktraceFormatter
+        def initialize(exception)
+            @exception = exception
+        end
+        def pretty_print(pp)
+            Roby.pretty_print_backtrace(pp, @exception.backtrace)
+        end
+    end
+
     def self.display_exception(io = STDOUT)
         yield
         false
@@ -281,6 +291,11 @@ module Roby
                 io.print color("| ", :bold, :red)
                 io.puts line
             end
+        end
+        io.puts color("= Backtrace", :bold, :red)
+        format_exception(BacktraceFormatter.new(e)).each do |line|
+            io.print color("| ", :bold, :red)
+            io.puts line
         end
         io.puts color("= ", :bold, :red)
         true
