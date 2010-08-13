@@ -494,7 +494,8 @@ module Roby
 	    end
 
 	    def object_of(item)
-                id = item.data(0).to_int
+                id = item.data(0).to_string
+                id = Integer(id)
 
 		obj, _ = graphics.find do |obj, obj_item| 
 		    obj.object_id == id

@@ -100,7 +100,7 @@ class Ui::RelationsView
 		    end
 		end
 
-		return unless obj.kind_of?(Roby::LoggedTask)
+		return unless obj.kind_of?(Roby::LogReplay::RelationsDisplay::DisplayTask)
 
 		menu = Qt::Menu.new
 		hide_this     = menu.add_action("Hide")
