@@ -330,8 +330,13 @@ module Roby
 
 	# Remove all tasks
 	def clear
-	    @known_tasks.dup.each { |t| remove_object(t) }
-	    @free_events.dup.each { |e| remove_object(e) }
+	    @known_tasks.each { |t| t.clear_relations }
+	    @known_tasks.clear
+	    @free_events.each { |e| e.clear_relations }
+	    @free_events.clear
+	    @missions.clear
+	    @permanent_tasks.clear
+	    @permanent_events.clear
 	end
 
         def force_replace_task(from, to)
