@@ -929,6 +929,8 @@ module Roby
                     engine.once do
                         call_unreachable_handlers(reason)
                     end
+                else
+                    call_unreachable_handlers(reason)
                 end
             else
                 call_unreachable_handlers(reason)
