@@ -2,7 +2,7 @@ module Roby::TaskStructure
     class Roby::TaskEventGenerator
 	# Mark this event as being handled by the task +task+
 	def handle_with(repairing_task, options = Hash.new)
-            options = Kernel.validate_options options,,
+            options = Kernel.validate_options options,
                 :remove_when_done => true
 
 	    if !task.child_object?(repairing_task, ErrorHandling)
