@@ -731,6 +731,10 @@ module Roby
         # Checks if +error+ is being repaired in the corresponding plan. Note that
         # +error+ is supposed to be the original exception, not the corresponding
         # ExecutionException object
+        #
+        # The returned value is a mapping from exception objects to the plan
+        # branches that are affected by this exception (i.e. for a failed
+        # relation, the tasks are the affected parents).
         def remove_inhibited_exceptions(exceptions)
             exceptions.find_all do |e, _|
                 error = e.exception
@@ -923,6 +927,44 @@ module Roby
         end
 
         attr_reader :additional_errors
+
+        def compute_fatal_errors(stats, events_errors)
+            # Generate exceptions from task structure
+            structure_errors = plan.check_structure
+            add_timepoint(stats, :structure_check)
+
+            @additional_errors = Array.new
+
+            # Propagate the errors. Note that the plan repairs are taken into
+            # account in ExecutionEngine.propagate_exceptions drectly.  We keep
+            # event and structure errors separate since in the first case there
+            # is not two-stage handling (all errors that have not been handled
+            # are fatal), and in the second case we call #check_structure
+            # again to get the remaining errors
+            events_errors    = propagate_exceptions(events_errors)
+            propagate_exceptions(structure_errors)
+
+            unhandled_additional_errors = Array.new
+            10.times do
+                break if additional_errors.empty?
+                errors, @additional_errors = additional_errors, Array.new
+                unhandled_additional_errors.concat(propagate_exceptions(plan.format_exception_set(Hash.new, errors)).to_a)
+            end
+
+            add_timepoint(stats, :exception_propagation)
+
+            # Get the remaining problems in the plan structure, and act on it
+            fatal_errors = remove_inhibited_exceptions(plan.check_structure)
+            # Reformat events_errors and unhandled_additional_errors to match
+            # the exception => tasks mapping of fatal_errors
+            for e in events_errors
+                fatal_errors << [e]
+            end
+            for e in unhandled_additional_errors
+                fatal_errors << [e]
+            end
+            fatal_errors
+        end
         
         # Process the pending events. The time at each event loop step
         # is saved into +stats+.
@@ -939,34 +981,13 @@ module Roby
                             end
             add_timepoint(stats, :events)
 
+
             # HACK: events_errors is sometime nil here. It shouldn't
             events_errors ||= []
 
-            # Generate exceptions from task structure
-            structure_errors = plan.check_structure
-            add_timepoint(stats, :structure_check)
+            # Do the exception handling phase
+            fatal_errors = compute_fatal_errors(stats, events_errors)
 
-            @additional_errors = Array.new
-
-            # Propagate the errors. Note that the plan repairs are taken into
-            # account in ExecutionEngine.propagate_exceptions drectly.  We keep
-            # event and structure errors separate since in the first case there
-            # is not two-stage handling (all errors that have not been handled
-            # are fatal), and in the second case we call #check_structure
-            # again to get the remaining errors
-            events_errors    = propagate_exceptions(events_errors)
-            propagate_exceptions(structure_errors)
-            10.times do
-                break if additional_errors.empty?
-                errors, @additional_errors = additional_errors, Array.new
-                propagate_exceptions(plan.format_exception_set(Hash.new, errors))
-            end
-
-            add_timepoint(stats, :exception_propagation)
-
-            # Get the remaining problems in the plan structure, and act on it
-            fatal_structure_errors = remove_inhibited_exceptions(plan.check_structure)
-            fatal_errors = fatal_structure_errors.to_a + events_errors
             if !fatal_errors.empty?
                 Roby::ExecutionEngine.info "EE: #{fatal_errors.size} fatal exceptions remaining"
                 kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
