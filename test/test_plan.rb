@@ -494,5 +494,33 @@ class TC_Plan < Test::Unit::TestCase
         assert(t2.leaf?)
         assert(t2.success_event.leaf?)
     end
+    
+    def test_failed_mission
+        # The Plan object should emit a MissionFailed error if an exception
+        # involves a mission ...
+        Roby::ExecutionEngine.logger.level = Logger::FATAL
+
+        t1, t2, t3, t4 = prepare_plan :add => 4, :model => Tasks::Simple
+        t1.depends_on t2
+        t2.depends_on t3
+        t3.depends_on t4
+
+        plan.add_mission(t2)
+        t1.start!
+        t2.start!
+        t3.start!
+        t4.start!
+        t4.stop!
+        errors = engine.compute_fatal_errors({:start => Time.now}, [])
+        assert_equal 2, errors.size
+
+        child_failed   = errors.find { |e, _| e.exception.kind_of?(ChildFailedError) }
+        mission_failed = errors.find { |e, _| e.exception.kind_of?(MissionFailedError) }
+
+        assert child_failed
+        assert_equal t4, child_failed.first.origin
+        assert mission_failed
+        assert_equal t2, mission_failed.first.origin
+    end
 end
 

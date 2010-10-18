@@ -128,12 +128,15 @@ module Roby
 	    @transactions = ValueSet.new
 	    @repairs     = Hash.new
             @exception_handlers = Array.new
+
             on_exception LocalizedError do |plan, error|
-                if plan.mission?(task = error.task)
-                    plan.add_error(MissionFailedError.new(task, error.exception))
-                else
-                    pass_exception
-                end
+                error.trace.
+                    find_all { |t| plan.mission?(t) && t != error.origin }.
+                    each do |m|
+                        plan.add_error(MissionFailedError.new(m, error.exception))
+                    end
+
+                pass_exception
             end
 
             @plan_services = Hash.new
