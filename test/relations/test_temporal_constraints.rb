@@ -1,0 +1,169 @@
+$LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
+require 'roby/test/common'
+require 'roby/tasks/simple'
+require 'roby/relations/temporal_constraints'
+require 'flexmock'
+
+class TC_RealizedBy < Test::Unit::TestCase
+    include Roby::Test
+    TemporalConstraints = EventStructure::TemporalConstraints
+
+    def test_disjoint_intervals_add
+        set = EventStructure::DisjointIntervalSet.new
+        set.add(0, 10)
+        set.add(11, 12)
+        assert_equal [[0, 10], [11, 12]], set.intervals
+
+        set.add(-5, -3)
+        assert_equal [[-5, -3], [0, 10], [11, 12]], set.intervals
+
+        set.add(-2, -1)
+        assert_equal [[-5, -3], [-2, -1], [0, 10], [11, 12]], set.intervals
+
+        set.add(13, 14)
+        set.add(-1.5, 11.5)
+        assert_equal [[-5, -3], [-2, 12], [13, 14]], set.intervals
+    end
+
+    def test_disjoint_intervals_included_p
+        set = EventStructure::DisjointIntervalSet.new
+        set.add(0, 10)
+        set.add(11, 12)
+        set.add(-5, -3)
+        set.add(-2, -1)
+        assert_equal [[-5, -3], [-2, -1], [0, 10], [11, 12]], set.intervals
+
+        assert !set.include?(-6)
+        assert set.include?(-4)
+        assert !set.include?(-2.5)
+        assert !set.include?(-0.5)
+        assert set.include?(1)
+        assert !set.include?(13)
+    end
+
+    def test_add_temporal_constraints
+        t1, t2 = prepare_plan :add => 2
+        e1 = t1.start_event
+        e2 = t2.start_event
+
+        e1.add_temporal_constraint(e2, -5, 10)
+
+        assert_raises(ArgumentError) { e1.add_temporal_constraint(e2, 5, 0) }
+
+        assert TemporalConstraints.linked?(e1, e2)
+        assert_equal [[-5, 10]], e1[e2, TemporalConstraints].intervals
+        assert TemporalConstraints.linked?(e2, e1)
+        assert_equal [[-10, 5]],  e2[e1, TemporalConstraints].intervals
+
+        t1.start_event.add_temporal_constraint(t2.start_event, 12, 13)
+        assert_equal [[-5, 10], [12, 13]], e1[e2, TemporalConstraints].intervals
+        assert_equal [[-10, 5]],  e2[e1, TemporalConstraints].intervals
+
+        t1.start_event.add_temporal_constraint(t2.start_event, -7, -6)
+        assert_equal [[-5, 10], [12, 13]], e1[e2, TemporalConstraints].intervals
+        assert_equal [[-10, 5], [6, 7]],  e2[e1, TemporalConstraints].intervals
+    end
+
+    def test_missed_deadline
+        t1, t2 = prepare_plan :add => 2, :model => Tasks::Simple
+        e1 = t1.start_event
+        e2 = t2.start_event
+
+        e1.add_temporal_constraint(e2, 0, 10)
+        
+        FlexMock.use(Time) do |time|
+            current_time = Time.now
+            time.should_receive(:now).and_return { current_time }
+
+            e1.emit
+            assert_equal [], TemporalConstraints.check_structure(plan)
+            current_time += 11
+            errors = TemporalConstraints.check_structure(plan)
+            assert_equal 1, errors.size
+
+            err = errors.first
+            assert_kind_of EventStructure::MissedDeadlineError, err
+            assert_equal e1.last, err.constraining_event
+        end
+    end
+
+    def test_deadline_updates_on_emission
+        t1, t2 = prepare_plan :add => 2, :model => Tasks::Simple
+        e1 = t1.start_event
+        e2 = t2.start_event
+
+        e1.add_temporal_constraint(e2, 0, 10)
+        
+        FlexMock.use(Time) do |time|
+            current_time = Time.now
+            time.should_receive(:now).and_return { current_time }
+
+            e1.emit
+            assert_equal [], TemporalConstraints.check_structure(plan)
+            current_time += 2
+            assert_equal [], TemporalConstraints.check_structure(plan)
+            e2.emit
+            assert plan.emission_deadlines.deadlines.empty?
+            current_time += 10
+            assert_equal [], TemporalConstraints.check_structure(plan)
+        end
+    end
+
+    def test_deadlines_consider_history
+        t1, t2, t3 = prepare_plan :add => 3, :model => Tasks::Simple
+        e1 = t1.start_event
+        e2 = t2.start_event
+        e3 = t3.start_event
+
+        # Add a cross-constraint. What will happen is that the emission of e1
+        # followed by the one of e2 could create a constraint on e1 again,
+        # depending on when e2 has been emitted
+        e1.add_temporal_constraint(e2, -5, 10)
+        e1.add_temporal_constraint(e3, -5, 10)
+        
+        FlexMock.use(Time) do |time|
+            current_time = Time.now
+            time.should_receive(:now).and_return { current_time }
+
+            e1.emit
+            assert_equal [], TemporalConstraints.check_structure(plan)
+            current_time += 2
+            assert_equal [], TemporalConstraints.check_structure(plan)
+            assert_equal 2, plan.emission_deadlines.size
+            e2.emit
+            assert_equal 1, plan.emission_deadlines.size
+            current_time += 4
+            e3.emit
+            assert_equal 1, plan.emission_deadlines.size
+            current_time += 6
+
+            errors = TemporalConstraints.check_structure(plan)
+            assert_equal 1, errors.size
+            err = errors.first
+            # Try formatting it to check that there are no hard errors (does not
+            # check the formatting, obviously)
+            Roby.format_exception(err)
+            assert_kind_of EventStructure::MissedDeadlineError, err
+            assert_equal e3.last, err.constraining_event
+        end
+    end
+
+    def test_temporal_constraint_violation
+        t1, t2, t3 = prepare_plan :add => 3, :model => Tasks::Simple
+        e1 = t1.start_event
+        e2 = t2.start_event
+
+        e1.add_temporal_constraint(e2, 0, 10)
+        e1.add_temporal_constraint(e2, 15, 20)
+
+        FlexMock.use(Time) do |time|
+            current_time = Time.now
+            time.should_receive(:now).and_return { current_time }
+
+            e1.emit
+            current_time += 12
+            assert_raises(EventStructure::TemporalConstraintViolation) { e2.emit }
+        end
+    end
+end
+
