@@ -606,8 +606,7 @@ module Roby
 	    end
 	    event.sources = plan.engine.propagation_source_events
 	    fire(event)
-
-	    true
+            event
 
 	ensure
 	    @pending = false
