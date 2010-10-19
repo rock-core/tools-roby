@@ -3,7 +3,7 @@ require 'roby/test/common'
 require 'roby/planning'
 
 require 'flexmock'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 
 class TC_PlanningLoop < Test::Unit::TestCase
     include Roby::Planning
@@ -22,7 +22,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
         super
 	Roby.app.filter_backtraces = false
 
-	task_model = @task_model = Class.new(SimpleTask)
+	task_model = @task_model = Class.new(Tasks::Simple)
         pattern_id = 0
 	@planner_model = Class.new(Planning::Planner) do
 	    method(:task) do
@@ -34,7 +34,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
 	@planning_task_options = {
 	    :planning_owners => nil,
 	    :planner_model => planner_model, 
-	    :planned_model => SimpleTask, 
+	    :planned_model => Tasks::Simple, 
 	    :planning_method => "task", 
 	    :method_name => 'task', 
 	    :method_options => {} }
@@ -78,7 +78,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
 	loop_planner.append_pattern
 	assert_equal(1, main_task.children.to_a.size)
 	first_task = main_task.children.find { true }
-	assert_equal(SimpleTask, first_task.class)
+	assert_equal(Tasks::Simple, first_task.class)
 	first_planner = first_task.planning_task
 	assert_equal(0, first_planner.arguments[:method_options][:pattern_id])
 	assert_equal(planning_task_options.merge(:method_options => { :pattern_id => 0 }), 
@@ -88,7 +88,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
 	loop_planner.append_pattern
 	assert_equal(2, main_task.children.to_a.size)
 	second_task = main_task.children.find { |t| t != first_task }
-	assert_equal(SimpleTask, second_task.class)
+	assert_equal(Tasks::Simple, second_task.class)
 	second_planner = second_task.planning_task
 	assert_equal(planning_task_options.merge(:method_options => { :pattern_id => 1 }), 
 		     second_planner.arguments)
@@ -345,7 +345,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
     end
 
     #def test_planning_loop_reinit_zero_lookahead
-    #    task_model = Class.new(SimpleTask)
+    #    task_model = Class.new(Tasks::Simple)
     #    planner_model = Class.new(Planning::Planner) do 
     #        @@id = 0
     #        method(:task) do 
@@ -390,7 +390,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
 
             @result_task = nil
             attr_reader :result_task
-            method(:task) {  @result_task = Roby::Test::SimpleTask.new(:id => arguments[:task_id])}
+            method(:task) {  @result_task = Roby::Test::Tasks::Simple.new(:id => arguments[:task_id])}
             method(:looping_tasks) do
         	t1 = make_loop(:period => 0, :child_argument => 2) do
         	    # arguments of 'my_looping_task' shall be forwarded

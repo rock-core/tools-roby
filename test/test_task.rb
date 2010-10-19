@@ -1,6 +1,6 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
 require 'flexmock'
 
@@ -104,7 +104,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_command_block
 	FlexMock.use do |mock|
-	    model = Class.new(SimpleTask) do 
+	    model = Class.new(Tasks::Simple) do 
 		event :start do |context|
 		    mock.start(self, context)
 		    emit :start
@@ -118,7 +118,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_command_inheritance
         FlexMock.use do |mock|
-            parent_m = Class.new(SimpleTask) do
+            parent_m = Class.new(Tasks::Simple) do
                 event :start do |context|
                     mock.parent_started(self, context)
                     emit :start
@@ -155,7 +155,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def do_test_instantiate_model_relations(method, relation, additional_links = Hash.new)
-	klass = Class.new(Roby::Test::SimpleTask) do
+	klass = Class.new(Roby::Test::Tasks::Simple) do
             4.times { |i| event "e#{i + 1}", :command => true }
             send(method, :e1 => [:e2, :e3], :e4 => :stop)
 	end
@@ -184,7 +184,7 @@ class TC_Task < Test::Unit::TestCase
 
     
     def do_test_inherit_model_relations(method, relation, additional_links = Hash.new)
-	base = Class.new(Roby::Test::SimpleTask) do
+	base = Class.new(Roby::Test::Tasks::Simple) do
             4.times { |i| event "e#{i + 1}", :command => true }
             send(method, :e1 => [:e2, :e3])
 	end
@@ -219,10 +219,10 @@ class TC_Task < Test::Unit::TestCase
 
     # Test the behaviour of Task#on, and event propagation inside a task
     def test_instance_event_handlers
-	plan.add(t1 = SimpleTask.new)
+	plan.add(t1 = Tasks::Simple.new)
 	assert_raises(ArgumentError) { t1.on(:start) }
 	
-	plan.add(task = SimpleTask.new)
+	plan.add(task = Tasks::Simple.new)
 	FlexMock.use do |mock|
 	    task.on(:start)   { |event| mock.started(event.context) }
 	    task.on(:start)   { |event| task.emit(:success, *event.context) }
@@ -240,7 +240,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_instance_signals
 	FlexMock.use do |mock|
-	    t1, t2 = prepare_plan :add => 3, :model => SimpleTask
+	    t1, t2 = prepare_plan :add => 3, :model => Tasks::Simple
             t1.signals(:start, t2, :start)
 
 	    t2.on(:start) { |ev| mock.start }
@@ -251,7 +251,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_instance_signals_deprecated_default_event_name
 	FlexMock.use do |mock|
-	    t1, t2 = prepare_plan :add => 3, :model => SimpleTask
+	    t1, t2 = prepare_plan :add => 3, :model => Tasks::Simple
             deprecated_feature do
                 t1.on(:start, t2)
             end
@@ -264,7 +264,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_instance_signals_deprecated_on_usage
 	FlexMock.use do |mock|
-	    t1, t2 = prepare_plan :add => 3, :model => SimpleTask
+	    t1, t2 = prepare_plan :add => 3, :model => Tasks::Simple
             deprecated_feature do
                 t1.on(:start, t2, :start)
             end
@@ -276,7 +276,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_instance_signals_plain_events
-	t = prepare_plan :missions => 1, :model => SimpleTask
+	t = prepare_plan :missions => 1, :model => Tasks::Simple
 	e = EventGenerator.new(true)
 	t.signals(:start, e)
 	t.start!
@@ -284,7 +284,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_instance_signals_plain_events_deprecated_on_usage
-	t = prepare_plan :missions => 1, :model => SimpleTask
+	t = prepare_plan :missions => 1, :model => Tasks::Simple
 	e = EventGenerator.new(true)
         deprecated_feature do
             t.on(:start, e)
@@ -294,11 +294,11 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_model_forwardings
-	model = Class.new(SimpleTask) do
+	model = Class.new(Tasks::Simple) do
 	    forward :start => :failed
 	end
 	assert_equal({ :start => [:failed, :stop].to_value_set }, model.forwarding_sets)
-	assert_equal({}, SimpleTask.signal_sets)
+	assert_equal({}, Tasks::Simple.signal_sets)
 
 	assert_equal([:failed, :stop].to_value_set, model.forwardings(:start))
 	assert_equal([:stop].to_value_set,          model.forwardings(:failed))
@@ -308,13 +308,13 @@ class TC_Task < Test::Unit::TestCase
         task.start!
 
 	# Make sure the model-level relation is not applied to parent models
-	plan.add(task = SimpleTask.new)
+	plan.add(task = Tasks::Simple.new)
 	task.start!
 	assert(!task.failed?)
     end
 
     def test_model_event_handlers
-	model = Class.new(SimpleTask)
+	model = Class.new(Tasks::Simple)
         assert_raises(ArgumentError) { model.on(:start) { || } }
         assert_raises(ArgumentError) { model.on(:start) { |a, b| } }
 
@@ -327,7 +327,7 @@ class TC_Task < Test::Unit::TestCase
 	    task.start!
 
             # Make sure the model-level handler is not applied to parent models
-            plan.add(task = SimpleTask.new)
+            plan.add(task = Tasks::Simple.new)
             task.start!
             assert(!task.failed?)
 	end
@@ -335,7 +335,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_instance_forward_to
 	FlexMock.use do |mock|
-	    t1, t2 = prepare_plan :missions => 2, :model => SimpleTask
+	    t1, t2 = prepare_plan :missions => 2, :model => Tasks::Simple
 	    t1.forward_to(:start, t2, :start)
 	    t2.on(:start) { |context| mock.start }
 
@@ -346,7 +346,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_instance_forward_to_plain_events
 	FlexMock.use do |mock|
-	    t1 = prepare_plan :missions => 1, :model => SimpleTask
+	    t1 = prepare_plan :missions => 1, :model => Tasks::Simple
 	    ev = EventGenerator.new do 
 		mock.called
 		ev.emit
@@ -652,7 +652,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_context_propagation
 	FlexMock.use do |mock|
-	    model = Class.new(SimpleTask) do
+	    model = Class.new(Tasks::Simple) do
 		event :start do |context|
 		    mock.starting(context)
 		    event(:start).emit(*context)
@@ -728,7 +728,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_check_running
-	model = Class.new(SimpleTask) do
+	model = Class.new(Tasks::Simple) do
 	    event(:inter, :command => true)
 	end
 	plan.add(task = model.new)
@@ -745,7 +745,7 @@ class TC_Task < Test::Unit::TestCase
 	assert_raises(CommandFailed) { task.inter! }
 	assert(!task.event(:inter).pending)
 
-	model = Class.new(SimpleTask) do
+	model = Class.new(Tasks::Simple) do
 	    event :start do |context|
 		emit :inter
 		emit :start
@@ -804,7 +804,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_cannot_start_if_not_executable
-	model = Class.new(SimpleTask) do 
+	model = Class.new(Tasks::Simple) do 
 	    event(:inter, :command => true)
             def executable?; false end
 	end
@@ -817,7 +817,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_cannot_leave_pending_if_not_executable
-        model = Class.new(SimpleTask) do
+        model = Class.new(Tasks::Simple) do
             def executable?; !pending?  end
         end
 	plan.add(task = model.new)
@@ -825,7 +825,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_executable
-	model = Class.new(SimpleTask) do 
+	model = Class.new(Tasks::Simple) do 
 	    event(:inter, :command => true)
 	end
 	task = model.new
@@ -870,7 +870,7 @@ class TC_Task < Test::Unit::TestCase
     end
     
     def exception_propagator(task, relation)
-	first_task  = SimpleTask.new
+	first_task  = Tasks::Simple.new
 	second_task = task
 	first_task.send(relation, :start, second_task, :start)
 	first_task.start!
@@ -939,20 +939,20 @@ class TC_Task < Test::Unit::TestCase
     def test_exception_refinement
         # test for a task that is in no plan
         assert_direct_call_validity_check(/no plan/,false) do
-            SimpleTask.new
+            Tasks::Simple.new
 	end
 
 	# test for a not executable plan
 	erroneous_plan = NotExecutablePlan.new	
 	assert_direct_call_validity_check(/plan is not executable/,false) do
-	   erroneous_plan.add(task = SimpleTask.new)
+	   erroneous_plan.add(task = Tasks::Simple.new)
 	   task
 	end
         erroneous_plan.clear
 
         # test for a not executable task
         assert_direct_call_validity_check(/is not executable/,true) do
-            plan.add(task = SimpleTask.new)
+            plan.add(task = Tasks::Simple.new)
             task.executable = false
             task
 	end
@@ -1034,8 +1034,8 @@ class TC_Task < Test::Unit::TestCase
 	end
     end
     def test_sequence_to_task
-	model = Class.new(SimpleTask)
-	t1, t2 = prepare_plan :tasks => 2, :model => SimpleTask
+	model = Class.new(Tasks::Simple)
+	t1, t2 = prepare_plan :tasks => 2, :model => Tasks::Simple
 
 	seq = (t1 + t2)
 	assert(seq.child_object?(t1, TaskStructure::Hierarchy))
@@ -1057,13 +1057,13 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_compatible_state
-	t1, t2 = prepare_plan :add => 2, :model => SimpleTask
+	t1, t2 = prepare_plan :add => 2, :model => Tasks::Simple
 
 	assert(t1.compatible_state?(t2))
 	t1.start!; assert(! t1.compatible_state?(t2) && !t2.compatible_state?(t1))
 	t1.stop!; assert(t1.compatible_state?(t2) && t2.compatible_state?(t1))
 
-	plan.add(t1 = SimpleTask.new)
+	plan.add(t1 = Tasks::Simple.new)
 	t1.start!
 	t2.start!; assert(t1.compatible_state?(t2) && t2.compatible_state?(t1))
 	t1.stop!; assert(t1.compatible_state?(t2) && !t2.compatible_state?(t1))
@@ -1102,7 +1102,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_related_tasks
-	t1, t2, t3 = (1..3).map { SimpleTask.new }.
+	t1, t2, t3 = (1..3).map { Tasks::Simple.new }.
 	    each { |t| plan.add(t) }
 	t1.depends_on t2
 	t1.event(:start).signals t3.event(:start)
@@ -1112,7 +1112,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_related_events
-	t1, t2, t3 = (1..3).map { SimpleTask.new }.
+	t1, t2, t3 = (1..3).map { Tasks::Simple.new }.
 	    each { |t| plan.add(t) }
 	t1.depends_on t2
 	t1.event(:start).signals t3.event(:start)
@@ -1120,7 +1120,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_if_unreachable
-	model = Class.new(SimpleTask) do
+	model = Class.new(Tasks::Simple) do
 	    event :ready
 	end
 
@@ -1164,7 +1164,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_achieve_with
-	slave  = SimpleTask.new
+	slave  = Tasks::Simple.new
 	master = Class.new(Task) do
 	    terminates
 	    event :start do |context|
@@ -1180,7 +1180,7 @@ class TC_Task < Test::Unit::TestCase
 	slave.success!
 	assert(master.started?)
 
-	slave  = SimpleTask.new
+	slave  = Tasks::Simple.new
 	master = Class.new(Task) do
 	    event :start do |context|
 		event(:start).achieve_with slave.event(:start)
@@ -1196,7 +1196,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_task_group
-	t1, t2 = SimpleTask.new, SimpleTask.new
+	t1, t2 = Tasks::Simple.new, Tasks::Simple.new
 	plan.add(g = Group.new(t1, t2))
 
 	g.start!
@@ -1213,7 +1213,7 @@ class TC_Task < Test::Unit::TestCase
 	engine.run
 
 	FlexMock.use do |mock|
-	    t = Class.new(SimpleTask) do
+	    t = Class.new(Tasks::Simple) do
 		poll do
 		    mock.polled(self)
 		end
@@ -1235,7 +1235,7 @@ class TC_Task < Test::Unit::TestCase
     def test_error_in_polling
 	FlexMock.use do |mock|
 	    mock.should_receive(:polled).at_least.once
-	    t = Class.new(SimpleTask) do
+	    t = Class.new(Tasks::Simple) do
 		poll do
 		    mock.polled(self)
 		    raise ArgumentError
@@ -1251,7 +1251,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_event_task_sources
-	task = Class.new(SimpleTask) do
+	task = Class.new(Tasks::Simple) do
 	    event :specialized_failure, :command => true
 	    forward :specialized_failure => :failed
 	end.new
@@ -1298,7 +1298,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_dup
-        model = Class.new(Roby::Test::SimpleTask) do
+        model = Class.new(Roby::Test::Tasks::Simple) do
             event :intermediate
         end
 	plan.add(task = model.new)
@@ -1333,7 +1333,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_failed_to_start
-	plan.add(task = Roby::Test::SimpleTask.new)
+	plan.add(task = Roby::Test::Tasks::Simple.new)
         begin
             task.event(:start).emit_failed
         rescue Exception
@@ -1349,7 +1349,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_intermediate_emit_failed
-        model = Class.new(SimpleTask) do
+        model = Class.new(Tasks::Simple) do
             event :intermediate
         end
 	plan.add(task = model.new)
@@ -1363,7 +1363,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_emergency_termination_fails
-        model = Class.new(SimpleTask) do
+        model = Class.new(Tasks::Simple) do
             event :command_fails do |context|
                 raise ArgumentError
             end

@@ -32,12 +32,12 @@ module TC_TransactionBehaviour
     Signal = Roby::EventStructure::Signal
     Forwarding = Roby::EventStructure::Forwarding
 
-    SimpleTask = Roby::Tasks::Simple
+    Tasks = Roby::Tasks
 
     def test_wrap_task
-        plan.add(t = SimpleTask.new)
-        plan.add(t_child = SimpleTask.new)
-        plan.add(t_parent = SimpleTask.new)
+        plan.add(t = Tasks::Simple.new)
+        plan.add(t_child = Tasks::Simple.new)
+        plan.add(t_parent = Tasks::Simple.new)
         t.depends_on t_child, :model => Roby::Task
         t_parent.depends_on t
         transaction_commit(plan) do |trsc|
@@ -57,8 +57,8 @@ module TC_TransactionBehaviour
     end
 
     def test_wrap_task_event
-        plan.add(t1 = SimpleTask.new)
-        plan.add(t2 = SimpleTask.new)
+        plan.add(t1 = Tasks::Simple.new)
+        plan.add(t2 = Tasks::Simple.new)
         old_start = t1.start_event
         transaction_commit(plan) do |trsc|
             t_proxy = trsc[t2]
@@ -77,18 +77,18 @@ module TC_TransactionBehaviour
     end
 
     def test_may_unwrap
-        plan.add(t = SimpleTask.new)
+        plan.add(t = Tasks::Simple.new)
         transaction_commit(plan, t) do |trsc, p|
             assert_equal t, trsc.may_unwrap(p)
             assert_equal t.event(:start), trsc.may_unwrap(p.event(:start))
 
-            t = SimpleTask.new
+            t = Tasks::Simple.new
             assert_equal t, trsc.may_unwrap(t)
         end
     end
 
     def test_remove_object
-        plan.add(t = SimpleTask.new)
+        plan.add(t = Tasks::Simple.new)
         transaction_commit(plan, t) do |trsc, p|
             trsc.remove_object(p)
             assert_same(nil, trsc[t, false])
@@ -105,7 +105,7 @@ module TC_TransactionBehaviour
 	assert(plan.include?(t1))
 	assert_equal([t2], t1.children.to_a)
  
- 	t3 = SimpleTask.new
+ 	t3 = Tasks::Simple.new
  	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
  	    p1.depends_on t3
  	    p1.remove_child p2
@@ -116,14 +116,14 @@ module TC_TransactionBehaviour
     end
 
     def test_add_tasks_from_plan
-        plan.add(t = SimpleTask.new)
+        plan.add(t = Tasks::Simple.new)
         transaction_commit(plan) do |trsc|
             assert_raises(Roby::ModelViolation) { trsc.add(t) }
         end
     end
 
     def test_object_transaction_stack
-        plan.add(t = SimpleTask.new)
+        plan.add(t = Tasks::Simple.new)
         transaction_commit(plan, t) do |trsc1, p1|
             assert_equal([trsc1, plan], p1.transaction_stack)
             transaction_commit(trsc1, p1) do |trsc2, p2|
@@ -480,7 +480,7 @@ module TC_TransactionBehaviour
 
     def test_commit_event_relations
 	(t1, t2), (t3, t4) = prepare_plan :missions => 2, :tasks => 2,
-	    :model => SimpleTask
+	    :model => Tasks::Simple
 	t1.signals(:start, t2, :success)
 
 	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
@@ -514,8 +514,8 @@ module TC_TransactionBehaviour
     end
     
     def test_commit_replace
-	task, (planned, mission, child, r) = prepare_plan :missions => 1, :tasks => 4, :model => SimpleTask
-	mission.depends_on task, :model => SimpleTask
+	task, (planned, mission, child, r) = prepare_plan :missions => 1, :tasks => 4, :model => Tasks::Simple
+	mission.depends_on task, :model => Tasks::Simple
 	planned.planned_by task
 	task.depends_on child
 	task.signals(:stop, mission, :stop)
@@ -573,7 +573,7 @@ module TC_TransactionBehaviour
 	t1, t2, t3 = prepare_plan :missions => 1, :add => 1
 	t1.depends_on t2
 
-	t3 = SimpleTask.new
+	t3 = Tasks::Simple.new
 	assert_raises(Roby::InvalidTransaction) do
 	    transaction_commit(plan, t1, t2) do |trsc, p1, p2|
 		p1.depends_on(t3)
@@ -721,7 +721,7 @@ class TC_Transactions < Test::Unit::TestCase
     end
 
     def test_and_event_aggregator
-	t1, t2, t3 = (1..3).map { SimpleTask.new }
+	t1, t2, t3 = (1..3).map { Tasks::Simple.new }
 	transaction_commit(plan, t1) do |trsc, p1|
 	    trsc.add_mission(t2)
 	    trsc.add_mission(t3)
@@ -737,7 +737,7 @@ class TC_Transactions < Test::Unit::TestCase
     end
 
     def test_or_event_aggregator
-	t1, t2, t3 = (1..3).map { SimpleTask.new }
+	t1, t2, t3 = (1..3).map { Tasks::Simple.new }
 	transaction_commit(plan, t1) do |trsc, p1|
 	    trsc.add_mission(t2)
 	    trsc.add_mission(t3)
@@ -778,7 +778,7 @@ class TC_Transactions < Test::Unit::TestCase
     end
 
     def test_forwarder_behaviour
-	t1, t2, t3 = (1..3).map { SimpleTask.new }
+	t1, t2, t3 = (1..3).map { Tasks::Simple.new }
 
 	ev = nil
 	transaction_commit(plan, t1) do |trsc, p1|

@@ -1,22 +1,22 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 require 'flexmock'
 
 class TC_ExecutedBy < Test::Unit::TestCase
     include Roby::Test
 
-    class ExecutionAgentModel < SimpleTask
+    class ExecutionAgentModel < Tasks::Simple
 	event :ready
 	forward :start => :ready
     end
-    class SecondExecutionModel < SimpleTask
+    class SecondExecutionModel < Tasks::Simple
 	event :ready
 	forward :start => :ready
     end
 
     def test_relationships
-	plan.add(task = SimpleTask.new)
+	plan.add(task = Tasks::Simple.new)
 	exec_task = ExecutionAgentModel.new
 
 	task.executed_by exec_task
@@ -33,7 +33,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_nominal
-	plan.add(task = SimpleTask.new)
+	plan.add(task = Tasks::Simple.new)
 	task.executed_by(ExecutionAgentModel.new)
 	task.executed_by(exec = ExecutionAgentModel.new)
 
@@ -53,7 +53,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_agent_fails
-	plan.add(task = SimpleTask.new)
+	plan.add(task = Tasks::Simple.new)
 	exec = ExecutionAgentModel.new
 	task.executed_by exec
 	task.start!
@@ -67,8 +67,8 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_agent_start_failed
-	plan.add_permanent(task = SimpleTask.new)
-	exec = Class.new(SimpleTask) do
+	plan.add_permanent(task = Tasks::Simple.new)
+	exec = Class.new(Tasks::Simple) do
 	    event :ready
 	    signal :start => :failed
 	end.new
@@ -80,7 +80,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_agent_model_spawns
-	task_model = Class.new(SimpleTask)
+	task_model = Class.new(Tasks::Simple)
 
 	task_model.executed_by ExecutionAgentModel, :id => 10
 	plan.add_mission(task = task_model.new)
@@ -96,7 +96,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     def test_agent_model_reuses
         plan.add_permanent(agent = ExecutionAgentModel.new)
 
-	task_model = Class.new(SimpleTask)
+	task_model = Class.new(Tasks::Simple)
 	task_model.executed_by ExecutionAgentModel
 
 	plan.add_mission(task = task_model.new)
@@ -111,7 +111,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
         plan.add_permanent(agent = ExecutionAgentModel.new)
         agent.start!
 
-	task_model = Class.new(SimpleTask)
+	task_model = Class.new(Tasks::Simple)
 	task_model.executed_by ExecutionAgentModel
 
 	plan.add_mission(task = task_model.new)
@@ -125,7 +125,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
         plan.add_permanent(agent1 = ExecutionAgentModel.new(:id => 1))
         plan.add_permanent(agent2 = ExecutionAgentModel.new(:id => 2))
 
-	task_model = Class.new(SimpleTask)
+	task_model = Class.new(Tasks::Simple)
 	task_model.executed_by ExecutionAgentModel, :id => 2
 
 	plan.add_mission(task = task_model.new)
@@ -137,7 +137,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_task_has_wrong_agent
-	task_model = Class.new(SimpleTask)
+	task_model = Class.new(Tasks::Simple)
 	task_model.executed_by ExecutionAgentModel, :id => 2
 
         # Wrong agent type
@@ -158,7 +158,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_model_requires_agent_but_none_exists
-	task_model = Class.new(SimpleTask)
+	task_model = Class.new(Tasks::Simple)
 	task_model.executed_by ExecutionAgentModel, :id => 2
 
 	plan.add_permanent(task = task_model.new)
@@ -170,7 +170,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_respawn
-	task_model = Class.new(SimpleTask)
+	task_model = Class.new(Tasks::Simple)
 	task_model.executed_by ExecutionAgentModel
 	first, second = prepare_plan :add => 2, :model => task_model
 	assert(first.execution_agent)
@@ -195,7 +195,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_cannot_respawn
-	plan.add_permanent(task  = Class.new(SimpleTask).new)
+	plan.add_permanent(task  = Class.new(Tasks::Simple).new)
 	task.executed_by(agent = ExecutionAgentModel.new)
 
 	agent.start!
@@ -206,10 +206,10 @@ class TC_ExecutedBy < Test::Unit::TestCase
     end
 
     def test_initialization
-	agent = Class.new(SimpleTask) do
+	agent = Class.new(Tasks::Simple) do
 	    event :ready, :command => true
 	end.new
-	task, (init1, init2) = prepare_plan :missions => 1, :add => 2, :model => SimpleTask
+	task, (init1, init2) = prepare_plan :missions => 1, :add => 2, :model => Tasks::Simple
 	task.executed_by agent
 	init1.executed_by agent
 	init2.executed_by agent

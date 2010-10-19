@@ -1,6 +1,6 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 require 'flexmock'
 
 class TC_DistributedConnection < Test::Unit::TestCase

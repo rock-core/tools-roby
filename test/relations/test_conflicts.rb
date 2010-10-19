@@ -1,7 +1,7 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 
 require 'roby/test/common'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 require 'roby/relations/conflicts'
 require 'flexmock'
 
@@ -10,7 +10,7 @@ class TC_Conflicts < Test::Unit::TestCase
 
     def test_model_relations
 	m1, m2 = (1..2).map do
-	    Class.new(SimpleTask)
+	    Class.new(Tasks::Simple)
 	end
 
 	m1.conflicts_with m2

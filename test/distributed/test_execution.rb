@@ -1,11 +1,11 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 require 'flexmock'
 
 class TC_DistributedExecution < Test::Unit::TestCase
     include Roby::Distributed::Test
-    SimpleTask = Roby::Test::SimpleTask
+    Tasks::Simple = Roby::Test::Tasks::Simple
 
     def setup
         super
@@ -19,7 +19,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		attr_reader :contingent
 		def create
 		    # Put the task to avoir having GC clearing the events
-		    plan.add_mission(t = SimpleTask.new(:id => 'task'))
+		    plan.add_mission(t = Tasks::Simple.new(:id => 'task'))
 		    plan.add(@controlable = Roby::EventGenerator.new(true))
 		    plan.add(@contingent = Roby::EventGenerator.new(false))
 		    t.signals(:start, controlable, :start)
@@ -63,8 +63,8 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	peer2peer do |remote|
 	    Roby::Distributed.on_transaction do |trsc|
 		trsc.edit do
-		    local_task = trsc.find_tasks.which_fullfills(Roby::Test::SimpleTask).to_a.first
-		    t = trsc[SimpleTask.new(:id => 'remote_task')]
+		    local_task = trsc.find_tasks.which_fullfills(Roby::Test::Tasks::Simple).to_a.first
+		    t = trsc[Tasks::Simple.new(:id => 'remote_task')]
 		    local_task.depends_on t
 		    local_task.signals :start, t, :start
 		    nil
@@ -76,7 +76,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 	trsc.add_owner remote_peer
 	trsc.propose(remote_peer)
 
-	plan.add_mission(local_task = Roby::Test::SimpleTask.new)
+	plan.add_mission(local_task = Roby::Test::Tasks::Simple.new)
 	trsc[local_task]
 	trsc.release
 	trsc.edit
@@ -102,7 +102,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		attr_reader :task
 		def create
 		    # Put the task to avoir having GC clearing the events
-		    plan.add_mission(@task = SimpleTask.new(:id => 'task'))
+		    plan.add_mission(@task = Tasks::Simple.new(:id => 'task'))
 		    plan.add(@event = Roby::EventGenerator.new(true))
 		    event.signals task.event(:start)
 		    nil
@@ -147,7 +147,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 		attr_reader :task
 		def create_task
 		    plan.clear
-		    plan.add_mission(@task = SimpleTask.new(:id => 1))
+		    plan.add_mission(@task = Tasks::Simple.new(:id => 1))
 		end
 		def start_task; engine.once { task.start! }; nil end
 		def stop_task
@@ -186,7 +186,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 
     def test_signalling
 	peer2peer do |remote|
-	    remote.plan.add_mission(task = SimpleTask.new(:id => 1))
+	    remote.plan.add_mission(task = Tasks::Simple.new(:id => 1))
 	    remote.class.class_eval do
 		include Test::Unit::Assertions
 		define_method(:start_task) do
@@ -232,7 +232,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
 
     def test_event_handlers
 	peer2peer do |remote|
-	    remote.plan.add_mission(task = SimpleTask.new(:id => 1))
+	    remote.plan.add_mission(task = Tasks::Simple.new(:id => 1))
 	    def remote.start(task)
 		task = local_peer.local_object(task)
 		engine.once { task.start! }
@@ -256,8 +256,8 @@ class TC_DistributedExecution < Test::Unit::TestCase
     def test_forgetting
 	peer2peer do |remote|
 	    parent, child =
-		SimpleTask.new(:id => 'parent'), 
-		SimpleTask.new(:id => 'child')
+		Tasks::Simple.new(:id => 'parent'), 
+		Tasks::Simple.new(:id => 'child')
 	    parent.depends_on child
 
 	    remote.plan.add_mission(parent)
@@ -283,7 +283,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
     # connection is killed
     def test_disconnect_kills_tasks
 	peer2peer do |remote|
-	    remote.plan.add_mission(task = SimpleTask.new(:id => 'remote-1'))
+	    remote.plan.add_mission(task = Tasks::Simple.new(:id => 'remote-1'))
 	    def remote.start(task)
 		task = local_peer.local_object(task)
 		engine.execute do
@@ -311,7 +311,7 @@ class TC_DistributedExecution < Test::Unit::TestCase
     end
 
     # Checks that the code blocks are called only in owning controllers
-    class CodeBlocksOwnersMockup < Roby::Test::SimpleTask
+    class CodeBlocksOwnersMockup < Roby::Test::Tasks::Simple
 	attr_reader :command_called
 	event :start do
 	    @command_called = true
@@ -354,13 +354,13 @@ class TC_DistributedExecution < Test::Unit::TestCase
     # received in the same cycle
     def test_joint_fired_signalled
 	peer2peer do |remote|
-	    remote.plan.add_mission(task = SimpleTask.new(:id => 'remote-1'))
+	    remote.plan.add_mission(task = Tasks::Simple.new(:id => 'remote-1'))
 	    engine.once { task.start! }
 	end
 	    
 	event_time = Time.now
 	remote = subscribe_task(:id => 'remote-1')
-	plan.add_mission(local = SimpleTask.new(:id => 'local'))
+	plan.add_mission(local = Tasks::Simple.new(:id => 'local'))
 	remote_peer.synchro_point
 
 	engine.execute do

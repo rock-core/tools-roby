@@ -1,6 +1,6 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 require 'flexmock'
 
 class TC_DistributedPlanNotifications < Test::Unit::TestCase
@@ -19,7 +19,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 	end
 
 	notification = TaskMatcher.new.
-	    with_model(SimpleTask).
+	    with_model(Tasks::Simple).
 	    with_arguments(:id => 2)
 
 	FlexMock.use do |mock|
@@ -30,7 +30,7 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 		nil
 	    end
 
-	    simple_task = Distributed.format(SimpleTask)
+	    simple_task = Distributed.format(Tasks::Simple)
 	    roby_task   = Distributed.format(Roby::Task)
 
 	    remote.new_task(simple_task, :id => 3)
@@ -54,13 +54,13 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
     def test_trigger_subscribe
 	peer2peer do |remote|
 	    def remote.new_task
-		plan.add_mission(SimpleTask.new(:id => 1))
+		plan.add_mission(Tasks::Simple.new(:id => 1))
 		nil
 	    end
 	end
 
 	notification = TaskMatcher.new.
-	    with_model(SimpleTask).
+	    with_model(Tasks::Simple).
 	    with_arguments(:id => 1)
 
 	task = nil
@@ -79,9 +79,9 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 
     def test_subscribe_plan
 	peer2peer do |remote|
-	    plan.add_mission(mission = SimpleTask.new(:id => 'mission'))
-	    subtask = SimpleTask.new :id => 'subtask'
-	    plan.add_mission(next_mission = SimpleTask.new(:id => 'next_mission'))
+	    plan.add_mission(mission = Tasks::Simple.new(:id => 'mission'))
+	    subtask = Tasks::Simple.new :id => 'subtask'
+	    plan.add_mission(next_mission = Tasks::Simple.new(:id => 'next_mission'))
 	    mission.depends_on subtask
 	    mission.signals(:start, next_mission, :start)
 	end
@@ -207,11 +207,11 @@ class TC_DistributedPlanNotifications < Test::Unit::TestCase
 
     def test_unsubscribe_plan
 	peer2peer do |remote|
-	    remote.plan.add_mission(SimpleTask.new(:id => 'remote-1'))
-	    remote.plan.add_mission(SimpleTask.new(:id => 'remote-2'))
+	    remote.plan.add_mission(Tasks::Simple.new(:id => 'remote-1'))
+	    remote.plan.add_mission(Tasks::Simple.new(:id => 'remote-2'))
 
 	    def remote.new_task
-		plan.add_mission(SimpleTask.new(:id => 'remote-3'))
+		plan.add_mission(Tasks::Simple.new(:id => 'remote-3'))
 	    end
 	end
 

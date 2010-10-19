@@ -1,6 +1,6 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 
 class TC_TransactionsProxy < Test::Unit::TestCase
     include Roby::Test
@@ -16,7 +16,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     end
 
     def test_wrapping_free_objects
-	task = SimpleTask.new
+	task = Tasks::Simple.new
 	assert_same(task, transaction[task])
 	assert_equal(transaction, task.plan)
 	ev   = EventGenerator.new
@@ -123,7 +123,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
     end
 
     def test_proxy_not_executable
-	task  = Class.new(SimpleTask) do
+	task  = Class.new(Tasks::Simple) do
 	    event :intermediate, :command => true
 	end.new
 	plan.add(task)

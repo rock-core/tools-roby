@@ -1,6 +1,6 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 
 class TC_DistributedTransaction < Test::Unit::TestCase
     include Roby::Distributed::Test
@@ -105,10 +105,10 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 		trsc = local_peer.local_object(trsc)
 
 		trsc.edit do
-		    t1 = SimpleTask.new :id => 'root'
-		    t1.depends_on(t2 = SimpleTask.new(:id => 'child'))
+		    t1 = Tasks::Simple.new :id => 'root'
+		    t1.depends_on(t2 = Tasks::Simple.new(:id => 'child'))
 		    t1.signals(:start, t2, :start)
-		    t2.depends_on(t3 = SimpleTask.new(:id => 'grandchild'))
+		    t2.depends_on(t3 = Tasks::Simple.new(:id => 'grandchild'))
 		    t3.signals(:failed, t2, :failed)
 
 		    trsc.add_mission(t1)
@@ -301,7 +301,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     def build_transaction(trsc)
 
 	# Now, add a task of our own and link the remote and the local
-	task = SimpleTask.new :id => 'local'
+	task = Tasks::Simple.new :id => 'local'
 	trsc.add(task)
 
 	parent = subscribe_task(:id => 'remote-1')
@@ -351,8 +351,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     def test_propose_commit
 	peer2peer do |remote|
 	    testcase = self
-	    remote.plan.add_mission(root = SimpleTask.new(:id => 'remote-1'))
-	    root.depends_on(child = SimpleTask.new(:id => 'remote-2'))
+	    remote.plan.add_mission(root = Tasks::Simple.new(:id => 'remote-1'))
+	    root.depends_on(child = Tasks::Simple.new(:id => 'remote-2'))
 
 	    PeerServer.class_eval do
 		include Test::Unit::Assertions
@@ -383,8 +383,8 @@ class TC_DistributedTransaction < Test::Unit::TestCase
     def test_synchronization
 	peer2peer do |remote|
 	    testcase = self
-	    remote.plan.add_mission(root = SimpleTask.new(:id => 'remote-1'))
-	    root.depends_on SimpleTask.new(:id => 'remote-2')
+	    remote.plan.add_mission(root = Tasks::Simple.new(:id => 'remote-1'))
+	    root.depends_on Tasks::Simple.new(:id => 'remote-2')
 
 	    PeerServer.class_eval do
 		define_method(:check_transaction) do |trsc|
@@ -410,7 +410,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	check_transaction_commit(trsc)
     end
 
-    class RemoteTaskModel < SimpleTask
+    class RemoteTaskModel < Tasks::Simple
         argument :arg
     end
 
@@ -436,7 +436,7 @@ class TC_DistributedTransaction < Test::Unit::TestCase
 	trsc.add_owner remote_peer
 	trsc.propose(remote_peer)
 
-	local_task = SimpleTask.new(:id => 'local')
+	local_task = Tasks::Simple.new(:id => 'local')
 	trsc.add_mission(local_task)
 
 	t = RemoteTaskModel.new(:arg => 10, :id => 0)

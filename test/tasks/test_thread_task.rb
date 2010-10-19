@@ -1,7 +1,7 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/tasks/thread'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
 
 class TC_ThreadTask < Test::Unit::TestCase 

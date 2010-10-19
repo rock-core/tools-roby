@@ -1,7 +1,7 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/test/distributed'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 
 require 'roby'
 require 'roby/log'
@@ -81,7 +81,7 @@ class TC_Log < Test::Unit::TestCase
 	end
     end
     def test_known_objects_management
-	t1, t2 = SimpleTask.new, SimpleTask.new
+	t1, t2 = Tasks::Simple.new, Tasks::Simple.new
 	FlexMock.use do |mock|
             mock.should_receive(:logs_message?).and_return(true)
 	    mock.should_receive(:splat?).and_return(true)

@@ -1,7 +1,7 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'flexmock'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 
 require 'roby'
 class TC_Event < Test::Unit::TestCase
@@ -714,7 +714,7 @@ class TC_Event < Test::Unit::TestCase
     def test_related_tasks
 	e1, e2 = (1..2).map { EventGenerator.new(true) }.
 	    each { |ev| plan.add(ev) }
-	t1 = SimpleTask.new
+	t1 = Tasks::Simple.new
 
 	assert_equal([].to_value_set, e1.related_tasks)
 	e1.signals t1.event(:start)

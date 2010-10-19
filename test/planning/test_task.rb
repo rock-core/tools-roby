@@ -3,7 +3,7 @@ require 'roby/test/common'
 require 'roby/planning'
 
 require 'flexmock'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 
 class TC_PlanningTask < Test::Unit::TestCase
     include Roby::Planning
@@ -11,8 +11,6 @@ class TC_PlanningTask < Test::Unit::TestCase
     include Roby::Test::Assertions
 
     PlannedBy = TaskStructure::PlannedBy
-
-    SimpleTask = Roby::Test::SimpleTask
 
     def planning_task_result(planning_task)
         assert(planning_task)
@@ -31,9 +29,9 @@ class TC_PlanningTask < Test::Unit::TestCase
 	planning_task = PlanningTask.new(:planner_model => planner, :method_name => :task)
         assert_equal Roby::Task, planning_task.planned_model
 
-        planner.method :task2, :returns => SimpleTask
+        planner.method :task2, :returns => Tasks::Simple
 	planning_task = PlanningTask.new(:planner_model => planner, :method_name => :task2)
-        assert_equal SimpleTask, planning_task.planned_model
+        assert_equal Tasks::Simple, planning_task.planned_model
     end
 
     def test_planned_task
@@ -66,7 +64,7 @@ class TC_PlanningTask < Test::Unit::TestCase
     end
 
     def test_planning_task_one_shot
-	result_task = SimpleTask.new
+	result_task = Tasks::Simple.new
 	planner = Class.new(Planning::Planner) do
 	    method(:task) do
 		raise arguments.to_s unless arguments[:bla] == 42
@@ -130,7 +128,7 @@ class TC_PlanningTask < Test::Unit::TestCase
     def test_replan_task
 	planner = Class.new(Planning::Planner) do
 	    method(:test_task) do
-	       	result_task = SimpleTask.new(:id => arguments[:task_id])
+	       	result_task = Tasks::Simple.new(:id => arguments[:task_id])
 		result_task.depends_on replan_task(:task_id => arguments[:task_id] + 1)
 		plan.add_permanent(result_task)
 		result_task
@@ -138,7 +136,7 @@ class TC_PlanningTask < Test::Unit::TestCase
 	end.new(plan)
 
 	plan.add_permanent(task = planner.test_task(:task_id => 100))
-	assert_kind_of(SimpleTask, task)
+	assert_kind_of(Tasks::Simple, task)
 	assert_equal(100, task.arguments[:id])
 
 	assert(planning_task = task.enum_child_objects(Roby::TaskStructure::Hierarchy).to_a.first)
@@ -146,7 +144,7 @@ class TC_PlanningTask < Test::Unit::TestCase
 	assert(planning_task.pending?)
 
 	new_task = planning_task_result(planning_task)
-	assert_kind_of(SimpleTask, new_task, planning_task)
+	assert_kind_of(Tasks::Simple, new_task, planning_task)
 	assert_equal(101, new_task.arguments[:id])
     end
 

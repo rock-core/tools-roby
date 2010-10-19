@@ -1,12 +1,12 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 
 class TC_PlannedBy < Test::Unit::TestCase
     include Roby::Test
 
     PlannedBy = Roby::TaskStructure::PlannedBy
-    SimpleTask = Roby::Test::SimpleTask
+    Tasks::Simple = Roby::Test::Tasks::Simple
     def test_replace
 	task, p1, p2 = prepare_plan :add => 3
 	task.planned_by p1
@@ -22,7 +22,7 @@ class TC_PlannedBy < Test::Unit::TestCase
 
     def test_check
 	task = Roby::Task.new
-	planner = Roby::Test::SimpleTask.new
+	planner = Roby::Test::Tasks::Simple.new
 	task.planned_by planner
 	plan.add_permanent(task)
 
@@ -33,7 +33,7 @@ class TC_PlannedBy < Test::Unit::TestCase
 	assert_equal([], plan.check_structure.to_a)
 
 	task.remove_planning_task planner
-	planner = Roby::Test::SimpleTask.new
+	planner = Roby::Test::Tasks::Simple.new
 	task.planned_by planner
 
 	assert_equal([], plan.check_structure.to_a)

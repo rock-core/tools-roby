@@ -3,7 +3,7 @@ require 'roby/test/common'
 require 'roby/planning'
 
 require 'flexmock'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 
 class TC_Planner < Test::Unit::TestCase
     include Roby::Planning
@@ -344,7 +344,7 @@ class TC_Planner < Test::Unit::TestCase
 
 	e = Module.new do
 	    planning_library(:id => "e")
-	    method(:test) { Roby::Test::SimpleTask.new }
+	    method(:test) { Roby::Test::Tasks::Simple.new }
 	end
 	planner = Class.new(Planner) do
 	    using e

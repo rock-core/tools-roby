@@ -1,6 +1,6 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 require 'flexmock'
 
 class TC_DistributedQuery < Test::Unit::TestCase
@@ -47,7 +47,7 @@ class TC_DistributedQuery < Test::Unit::TestCase
     # Check that we can query the remote plan database
     def test_query
 	peer2peer do |remote|
-	    local_model = Class.new(SimpleTask)
+	    local_model = Class.new(Tasks::Simple)
 
 	    mission, subtask = QueryTaskModel.new(:id => 1), local_model.new(:id => 2)
 	    mission.depends_on subtask
@@ -75,7 +75,7 @@ class TC_DistributedQuery < Test::Unit::TestCase
 	result = (TaskMatcher.with_arguments(:id => 1) | TaskMatcher.with_arguments(:id => 2)).enum_for(:each, remote_peer).to_a
 	assert_equal(2, result.size)
 
-	result = (TaskMatcher.with_arguments(:id => 1) & TaskMatcher.with_model(SimpleTask)).enum_for(:each, remote_peer).to_a
+	result = (TaskMatcher.with_arguments(:id => 1) & TaskMatcher.with_model(Tasks::Simple)).enum_for(:each, remote_peer).to_a
 	assert_equal(0, result.size)
 
 	result = TaskMatcher.with_arguments(:id => 1).negate.enum_for(:each, remote_peer).to_a
@@ -86,7 +86,7 @@ class TC_DistributedQuery < Test::Unit::TestCase
 	assert_equal(2, result.size)
 
 	result = remote_peer.find_tasks.
-	    with_model(SimpleTask).to_a
+	    with_model(Tasks::Simple).to_a
 	assert_equal(1, result.size)
 	assert(2, result[0].arguments[:id])
 

@@ -1,13 +1,13 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 
 # This testcase tests local views of remote plans
 class TC_DistributedRemotePlan < Test::Unit::TestCase
     include Roby::Distributed::Test
 
     def test_distributed_update
-	objects = (1..10).map { |i| SimpleTask.new(:id => i) }
+	objects = (1..10).map { |i| Tasks::Simple.new(:id => i) }
 	obj = Object.new
 
 	Distributed.update(obj) do
@@ -67,16 +67,16 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
     def test_remote_proxy_update
 	peer2peer do |remote|
-	    remote.plan.add_mission(SimpleTask.new(:id => 'simple_task'))
-	    remote.plan.add_permanent(SimpleTask.new(:id => 'task'))
-	    remote.plan.add_permanent(SimpleTask.new(:id => 'other_task'))
+	    remote.plan.add_mission(Tasks::Simple.new(:id => 'simple_task'))
+	    remote.plan.add_permanent(Tasks::Simple.new(:id => 'task'))
+	    remote.plan.add_permanent(Tasks::Simple.new(:id => 'other_task'))
 	end
 
 	r_simple_task = remote_task(:id => 'simple_task', :permanent => true)
 	r_task        = remote_task(:id => 'task', :permanent => true)
 	r_other_task  = remote_task(:id => 'other_task', :permanent => true)
 
-	task = SimpleTask.new
+	task = Tasks::Simple.new
 	assert(!r_simple_task.read_write?, r_simple_task.plan)
 	Distributed.update(r_simple_task) do
 	    assert(r_simple_task.read_write?)
@@ -119,9 +119,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     def test_discover_neighborhood
 	peer2peer do |remote|
 	    mission, subtask, next_mission =
-		SimpleTask.new(:id => 'mission'), 
-		SimpleTask.new(:id => 'subtask'),
-		SimpleTask.new(:id => 'next_mission')
+		Tasks::Simple.new(:id => 'mission'), 
+		Tasks::Simple.new(:id => 'subtask'),
+		Tasks::Simple.new(:id => 'next_mission')
 	    mission.depends_on subtask
 	    mission.signals(:stop, next_mission, :start)
 
@@ -155,7 +155,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
     def test_subscribing_old_objects
 	peer2peer do |remote|
-	    plan.add_mission(@task = SimpleTask.new(:id => 1))
+	    plan.add_mission(@task = Tasks::Simple.new(:id => 1))
 	end
 
 	r_task, r_task_id = nil
@@ -172,10 +172,10 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     def test_subscription
 	peer2peer do |remote|
 	    root, mission, subtask, next_mission =
-		SimpleTask.new(:id => 'root'), 
-		SimpleTask.new(:id => 'mission'), 
-		SimpleTask.new(:id => 'subtask'),
-		SimpleTask.new(:id => 'next_mission')
+		Tasks::Simple.new(:id => 'root'), 
+		Tasks::Simple.new(:id => 'mission'), 
+		Tasks::Simple.new(:id => 'subtask'),
+		Tasks::Simple.new(:id => 'next_mission')
 	    root.depends_on mission
 	    mission.depends_on subtask
 	    mission.signals(:stop, next_mission, :start)
@@ -310,9 +310,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     def test_remove_not_needed
 	peer2peer do |remote|
 	    left, right, middle =
-		SimpleTask.new(:id => 'left'), 
-		SimpleTask.new(:id => 'right'), 
-		SimpleTask.new(:id => 'middle')
+		Tasks::Simple.new(:id => 'left'), 
+		Tasks::Simple.new(:id => 'right'), 
+		Tasks::Simple.new(:id => 'middle')
 	    remote.plan.add_mission(left)
 	    remote.plan.add_mission(right)
 
@@ -358,7 +358,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
     def test_data_update
 	peer2peer do |remote|
-	    task = SimpleTask.new(:id => 'task')
+	    task = Tasks::Simple.new(:id => 'task')
 	    task.data = [4, 2]
 	    remote.plan.add_mission(task)
 
@@ -376,7 +376,7 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
 
     def test_mission_notifications
 	peer2peer do |remote|
-	    plan.add_mission(mission = SimpleTask.new(:id => 'mission'))
+	    plan.add_mission(mission = Tasks::Simple.new(:id => 'mission'))
 
 	    remote.class.class_eval do
 		define_method(:discard_mission) do
@@ -411,9 +411,9 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     def test_relation_updates
 	peer2peer do |remote|
 	    mission, subtask, next_mission =
-		SimpleTask.new(:id => 'mission'), 
-		SimpleTask.new(:id => 'subtask'),
-		SimpleTask.new(:id => 'next_mission')
+		Tasks::Simple.new(:id => 'mission'), 
+		Tasks::Simple.new(:id => 'subtask'),
+		Tasks::Simple.new(:id => 'next_mission')
 
 	    remote.plan.add_mission(mission)
 	    remote.plan.add_mission(next_mission)
@@ -459,11 +459,11 @@ class TC_DistributedRemotePlan < Test::Unit::TestCase
     # Check that remote events that are unknown locally are properly ignored
     def test_ignored_events
 	peer2peer do |remote|
-	    model = Class.new(SimpleTask) do
+	    model = Class.new(Tasks::Simple) do
 		event :unknown, :command => true
 	    end
-	    remote.plan.add_mission(t1 = SimpleTask.new(:id => 1))
-	    remote.plan.add_mission(t2 = SimpleTask.new(:id => 2))
+	    remote.plan.add_mission(t1 = Tasks::Simple.new(:id => 1))
+	    remote.plan.add_mission(t2 = Tasks::Simple.new(:id => 2))
 	    remote.plan.add_mission(u = model.new(:id => 0))
 
 	    t1.signals(:start, u, :unknown)

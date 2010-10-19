@@ -1,7 +1,7 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/common'
 require 'roby/test/testcase'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 require 'flexmock'
 
 class TC_Test_TestCase < Test::Unit::TestCase 
@@ -24,7 +24,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
     end
 
     def test_assert_any_event
-	plan.add(t = SimpleTask.new)
+	plan.add(t = Tasks::Simple.new)
 	t.start!
 	assert_nothing_raised do
 	    assert_any_event(t.event(:start))
@@ -36,7 +36,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	    assert_any_event([t.event(:success)], [t.event(:stop)])
 	end
 
-	plan.add(t = SimpleTask.new)
+	plan.add(t = Tasks::Simple.new)
 	t.start!
 	t.failed!
 	assert_raises(Assertion) do
@@ -46,13 +46,13 @@ class TC_Test_TestCase < Test::Unit::TestCase
 	Roby.logger.level = Logger::FATAL
         Robot.logger.level = Logger::FATAL
 	engine.run
-	plan.add_permanent(t = SimpleTask.new)
+	plan.add_permanent(t = Tasks::Simple.new)
 	assert_any_event(t.event(:success)) do 
 	    t.start!
 	    t.success!
 	end
 
-	plan.add_permanent(t = SimpleTask.new)
+	plan.add_permanent(t = Tasks::Simple.new)
 	assert_raises(Assertion) do
 	    assert_any_event(t.event(:success)) do
 		t.start!
@@ -62,7 +62,7 @@ class TC_Test_TestCase < Test::Unit::TestCase
 
 	## Same test, but check that the assertion succeeds since we *are*
 	## checking that +failed+ happens
-	plan.add_permanent(t = SimpleTask.new)
+	plan.add_permanent(t = Tasks::Simple.new)
 	assert_nothing_raised do
 	    assert_any_event(t.event(:failed)) do
 		t.start!
@@ -74,14 +74,14 @@ class TC_Test_TestCase < Test::Unit::TestCase
     def test_assert_succeeds
 	engine.run
     
-	task = Class.new(SimpleTask) do
+	task = Class.new(Tasks::Simple) do
 	    forward :start => :success
 	end.new
 	assert_nothing_raised do
 	    assert_succeeds(task)
 	end
 
-	task = Class.new(SimpleTask) do
+	task = Class.new(Tasks::Simple) do
 	    forward :start => :failed
 	end.new
 	assert_raises(Assertion) do

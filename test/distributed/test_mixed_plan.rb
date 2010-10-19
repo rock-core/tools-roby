@@ -1,6 +1,6 @@
 $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(__FILE__))
 require 'roby/test/distributed'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 
 # This testcase tests buildings plans where local tasks are interacting with remote tasks
 #
@@ -23,7 +23,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
     #
     # Returns [-1, -2, -3]
     def add_tasks(plan, name)
-	t1, t2, t3 = (1..3).map { |i| SimpleTask.new(:id => "#{name}-#{i}") }
+	t1, t2, t3 = (1..3).map { |i| Tasks::Simple.new(:id => "#{name}-#{i}") }
 	t1.depends_on t2
 	t2.planned_by t3
 	plan.add_mission(t1)
@@ -240,14 +240,14 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 
     def test_garbage_collect
 	peer2peer do |remote|
-	    remote.plan.add_mission(SimpleTask.new(:id => 'remote-1'))
+	    remote.plan.add_mission(Tasks::Simple.new(:id => 'remote-1'))
 	    def remote.insert_children(trsc, root_task)
 		trsc = local_peer.local_object(trsc)
 		root_task = local_peer.local_object(root_task)
 		trsc.edit
 
-		root_task.depends_on(r2 = SimpleTask.new(:id => 'remote-2'))
-		r2.depends_on(r3 = SimpleTask.new(:id => 'remote-3'))
+		root_task.depends_on(r2 = Tasks::Simple.new(:id => 'remote-2'))
+		r2.depends_on(r3 = Tasks::Simple.new(:id => 'remote-3'))
 		trsc.release(false)
 	    end
 	end
@@ -255,7 +255,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	r1 = subscribe_task(:id => 'remote-1')
 	assert(!plan.unneeded_tasks.include?(r1))
 
-	t1 = SimpleTask.new
+	t1 = Tasks::Simple.new
 
 	# Add a local child to r1. This local child, and r1, must be kept event
 	# we are not subscribed to r1 anymore
@@ -276,9 +276,9 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	#   * t2 and t3 are kept because they are useful for r1
 	t2, t3 = nil
 	Roby.synchronize do
-	    t1.depends_on(t2 = SimpleTask.new)
+	    t1.depends_on(t2 = Tasks::Simple.new)
 	    assert(!plan.unneeded_tasks.include?(t2))
-	    t2.depends_on(t3 = SimpleTask.new)
+	    t2.depends_on(t3 = Tasks::Simple.new)
 	    assert(!plan.unneeded_tasks.include?(t3))
 	end
 
@@ -315,7 +315,7 @@ class TC_DistributedMixedPlan < Test::Unit::TestCase
 	    def remote.add_task(trsc)
 		trsc = local_peer.local_object(trsc)
 		trsc.edit
-		trsc.add(SimpleTask.new(:id => 'remote'))
+		trsc.add(Tasks::Simple.new(:id => 'remote'))
 		trsc.release(false)
 	    end
 	end
