@@ -938,7 +938,7 @@ module Roby
             @additional_errors = Array.new
 
             # Propagate the errors. Note that the plan repairs are taken into
-            # account in ExecutionEngine.propagate_exceptions drectly.  We keep
+            # account in ExecutionEngine.propagate_exceptions directly.  We keep
             # event and structure errors separate since in the first case there
             # is not two-stage handling (all errors that have not been handled
             # are fatal), and in the second case we call #check_structure
