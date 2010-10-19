@@ -586,10 +586,12 @@ module Roby
                                     true
                                 elsif priority < target_priority
                                     true
-                                else
-                                    # we try to keep the emission/call order:
-                                    # handle earlier events first
+                                elsif priority == target_priority
+                                    # If they are of the same priority, handle
+                                    # earlier events first
                                     step_id > target_step_id
+                                else
+                                    false
                                 end
                             else
                                 true
