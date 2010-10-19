@@ -575,7 +575,7 @@ module Roby
                 return instance_variable_get("@#{name}_description") || MethodDescription.new
             end
             def planning_method_description(name)
-                self.class.planning_method_description(name)
+                model.planning_method_description(name)
             end
 
 	    def self.clear_model
@@ -685,8 +685,11 @@ module Roby
 		end
             end
 
+            # The model object for this instance. Usually self.class.
+            def model; self.class end
+
 	    # If there is method definitions for +name+
-	    def has_method?(name); singleton_class.has_method?(name) end
+	    def has_method?(name); model.has_method?(name) end
 	    def self.has_method?(name); respond_to?("#{name}_methods") end
 
 	    # Returns the method model that should be considered when using
@@ -742,7 +745,7 @@ module Roby
 		    method_options.merge!(options)
 		end
 
-		Roby::PlanningTask.new :planner_model => self.class,
+		Roby::PlanningTask.new :planner_model => model,
 		    :method_name => @stack.last[0], 
 		    :method_options => method_options
 	    end
@@ -777,7 +780,7 @@ module Roby
 
 		# Get all valid methods. If no candidate are found, still try 
 		# to get a task to re-use
-                methods = singleton_class.find_methods(name, options)
+                methods = model.find_methods(name, options)
 		
 		# Check if we can reuse a task already in the plan
 		if !options.has_key?(:reuse) || options[:reuse]
@@ -785,8 +788,8 @@ module Roby
 				      methods.map { |m| m.returns if m.reuse? }
 				  else []
 				  end
-		    if (model = singleton_class.method_model(name)) && !options[:id]
 			all_returns << model.returns if model.reuse?
+		    if (model = self.model.method_model(name)) && !options[:id]
 		    end
 		    all_returns.compact!
 				      
@@ -900,7 +903,7 @@ module Roby
                 end
                 loop_method = FreeMethod.new 'loops', {}, lambda(&block)
 
-                options[:planner_model] = self.class
+                options[:planner_model] = model
                 options[:planning_method] = loop_method
 		_, planning_options = PlanningLoop.filter_options(options)
                 planning_options[:id] = loop_id
