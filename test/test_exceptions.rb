@@ -382,7 +382,7 @@ class TC_Exceptions < Test::Unit::TestCase
 
     def test_exception_inhibition
 	parent, child = prepare_plan :tasks => 2, :model => Tasks::Simple
-	plan.add_mission(parent)
+	plan.add_permanent(parent)
 	parent.depends_on child
 	parent.signals :start, child, :start
 	parent.start!
