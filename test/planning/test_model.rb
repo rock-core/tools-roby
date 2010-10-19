@@ -119,7 +119,7 @@ class TC_Planner < Test::Unit::TestCase
 
 	plan.add_mission(task = task_model.new)
 	found_task = nil
-	assert_nothing_raised { found_task = planner.empty_set }
+	found_task = planner.empty_set(:reuse => true)
 	assert_equal(found_task, task)
 	assert_raises(NotFound) { planner.empty_set :reuse => false }
     end

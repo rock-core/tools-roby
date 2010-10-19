@@ -784,15 +784,17 @@ module Roby
 		
 		# Check if we can reuse a task already in the plan
 		if !options.has_key?(:reuse) || options[:reuse]
-		    all_returns = if methods
-				      methods.map { |m| m.returns if m.reuse? }
-				  else []
-				  end
-			all_returns << model.returns if model.reuse?
+		    all_returns =
+                        if methods
+                            methods.map { |m| m.returns if (m.reuse? || options[:reuse]) }
+                        else []
+                        end
+
 		    if (model = self.model.method_model(name)) && !options[:id]
+			all_returns << model.returns if (model.reuse? || options[:reuse])
 		    end
 		    all_returns.compact!
-				      
+
 		    for return_type in all_returns
 			if task = find_reusable_task(return_type, method_options)
 			    return task
