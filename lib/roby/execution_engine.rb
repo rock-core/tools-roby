@@ -147,6 +147,7 @@ module Roby
             @at_cycle_end_handlers = Array.new
             @process_every   = Array.new
             @waiting_threads = Array.new
+            @emitted_events  = Array.new
 
 	    each_cycle(&ExecutionEngine.method(:call_every))
 
@@ -167,6 +168,10 @@ module Roby
         attr_accessor :control
         # A numeric ID giving the count of the current propagation cycle
         attr_reader :propagation_id
+
+        # The set of events that have been emitted in the current execution
+        # cycle
+        attr_reader :emitted_events
         
         @propagation_handlers = []
         class << self
@@ -714,7 +719,8 @@ module Roby
                         next_step = gather_propagation(current_step) do
                             propagation_context(source_events | source_generators) do |result|
                                 begin
-                                    signalled.emit_without_propagation(context)
+                                    event = signalled.emit_without_propagation(context)
+                                    emitted_events << event
                                 rescue Roby::LocalizedError => e
                                     add_error(e)
                                 rescue Exception => e
@@ -1432,6 +1438,7 @@ module Roby
 		    stats[:cycle_index] = cycle_index
 
                     Roby.synchronize do
+                        @emitted_events.clear
                         process_events(stats) 
                     end
 
