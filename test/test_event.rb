@@ -622,13 +622,12 @@ class TC_Event < Test::Unit::TestCase
 	    def new(context); [] end
 	end.new(true)
 	plan.add(generator)
-
 	assert_raises(EmissionFailed) { generator.emit(nil) }
 
 	generator = Class.new(EventGenerator) do
 	    def new(context); 
-		event_klass = Struct.new :propagation_id, :context, :generator, :sources
-		event_klass.new(plan.engine.propagation_id, context, self)
+		event_klass = Struct.new :propagation_id, :context, :generator, :sources, :time
+		event_klass.new(plan.engine.propagation_id, context, self, Time.now)
 	    end
 	end.new(true)
 	plan.add(generator)
