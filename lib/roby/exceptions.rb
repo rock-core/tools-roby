@@ -176,6 +176,8 @@ module Roby
             app_dir = if defined? APP_DIR then Regexp.quote(APP_DIR) end
 
             original_backtrace = original_backtrace.dup
+            # First, read out the "bottom" of the backtrace: search for the
+            # first backtrace line that is within the framework
             backtrace_bottom   = []
             while !original_backtrace.empty? && !filter_out.any? { |rx| rx =~ original_backtrace.last }
                 backtrace_bottom.unshift original_backtrace.pop
@@ -185,10 +187,13 @@ module Roby
             backtrace = original_backtrace.enum_for(:each_with_index).map do |line, idx|
                 case line
                 when /in `poll_handler'$/
+                    got_user_line = true
                     line.gsub(/:in.*/, ':in the polling handler')
                 when /in `event_command_(\w+)'$/
+                    got_user_line = true
                     line.gsub(/:in.*/, ":in command for '#{$1}'")
                 when /in `event_handler_(\w+)_(?:[a-f0-9]+)'$/
+                    got_user_line = true
                     line.gsub(/:in.*/, ":in event handler for '#{$1}'")
                 else
                     if original_backtrace.size > idx + 4 &&
@@ -198,6 +203,7 @@ module Roby
                         original_backtrace[idx + 4] =~ /`each_handler'$/
 
                         line.gsub(/:in /, ":in event handler, ")
+                        got_user_line = true
                     else
                         is_user = !filter_out.any? { |rx| rx =~ line }
                         got_user_line ||= is_user
