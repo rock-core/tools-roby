@@ -4,7 +4,7 @@ require 'roby/tasks/simple'
 require 'roby/relations/temporal_constraints'
 require 'flexmock'
 
-class TC_RealizedBy < Test::Unit::TestCase
+class TC_TemporalConstraints < Test::Unit::TestCase
     include Roby::Test
     TemporalConstraints = EventStructure::TemporalConstraints
 
