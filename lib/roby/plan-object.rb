@@ -306,7 +306,7 @@ module Roby
         # DirectedRelationSupport.
 	def replace_subplan_by(object)
 	    changes = []
-	    each_relation do |rel|
+	    each_relation_sorted do |rel|
 		parents = []
 		each_parent_object(rel) do |parent|
 		    unless parent.root_object == root_object
