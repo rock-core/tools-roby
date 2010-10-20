@@ -25,19 +25,21 @@ class TC_Interface < Test::Unit::TestCase
         Roby.app.planners << planner
 
 	engine.run
-	returned_task = iface.null_task! do |_, planner|
-	    planner.start!
-	end
+	returned_task = iface.null_task!
+        engine.wait_until(returned_task.planning_task.stop_event) do
+            returned_task.planning_task.start!
+        end
+        assert result_task
 
 	assert_kind_of(Roby::RemoteObjectProxy, returned_task)
 	marshalled = nil
 	assert_nothing_raised { marshalled = Marshal.dump(returned_task) }
 	unmarshalled = Marshal.load(marshalled)
 
-	assert_kind_of(Roby::Task, unmarshalled)
-	assert_equal(result_task, unmarshalled)
+	assert_kind_of(Roby::PlanService, unmarshalled)
+	assert_equal(result_task, unmarshalled.task)
 	plan_task = plan.missions.find { true }
-	assert_equal(plan_task, unmarshalled)
+	assert_equal(plan_task, unmarshalled.task)
     end
 end
 
