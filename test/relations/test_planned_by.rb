@@ -6,7 +6,6 @@ class TC_PlannedBy < Test::Unit::TestCase
     include Roby::Test
 
     PlannedBy = Roby::TaskStructure::PlannedBy
-    Tasks::Simple = Roby::Test::Tasks::Simple
     def test_replace
 	task, p1, p2 = prepare_plan :add => 3
 	task.planned_by p1

@@ -5,7 +5,6 @@ require 'flexmock'
 
 class TC_DistributedExecution < Test::Unit::TestCase
     include Roby::Distributed::Test
-    Tasks::Simple = Roby::Test::Tasks::Simple
 
     def setup
         super
