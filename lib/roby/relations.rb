@@ -565,6 +565,16 @@ module Roby
         # dag::
         #   if true, CycleFoundError will be raised if a new vertex would
         #   create a cycle in this relation [true by default]
+        # weak::
+        #   marks that this relation might be broken by the plan manager if
+        #   needs be. This is currently only used in the garbage collection
+        #   phase to decide in which order to GC the tasks. I.e. if a cycle is
+        #   found, the weak relations will be broken to resolve it.
+        # strong::
+        #   marks that the tasks that are linked by this relation should not be
+        #   torn apart. This is for instance used in the replacement operation,
+        #   which will never "move" a relation from the original task to the
+        #   replaced one.
         #
         # For instance,
         #   relation :Children
