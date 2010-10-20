@@ -17,6 +17,9 @@ require 'test_transactions_proxy'
 require 'tasks/test_thread_task'
 require 'tasks/test_external_process'
 
+require 'schedulers/test_basic'
+require 'schedulers/test_temporal'
+
 require 'test_testcase'
 
 require 'suite_planning'

@@ -5,4 +5,5 @@ require 'relations/test_executed_by'
 require 'relations/test_planned_by'
 require 'relations/test_conflicts'
 require 'relations/test_ensured'
+require 'relations/test_temporal_constraints'
 
