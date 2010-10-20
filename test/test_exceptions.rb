@@ -271,7 +271,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    mock.should_receive(:exception).once
 
 	    parent.depends_on task
-	    plan.add_mission(parent)
+	    plan.add_permanent(parent)
             
 	    engine.once { parent.start!; task.start! }
 
