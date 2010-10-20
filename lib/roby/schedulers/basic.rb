@@ -1,21 +1,26 @@
 module Roby
+    # The namespace in which Roby's default schedulers are defined
+    #
+    # In Roby, the scheduler is an object that decides which tasks to start at
+    # any given time. There can be only one scheduler, which is set at
+    # initialization time with
+    #
+    #   Roby.engine.scheduler = <scheduler object>.
+    #
+    # For instance
+    #
+    #   Roby.engine.scheduler = Roby::Schedulers::Basic.new
+    #
+    # Then, the scheduler's #initial_events method is called at the
+    # beginning of each execution cycle. This method is supposed to call
+    # whatever event is reasonable to call with respect to the system's
+    # state (i.e. execution situation).
+    #
     module Schedulers
         # The basic schedulers uses the Roby's "core" plan model to decide which
         # tasks can be started.
         #
-        # The Roby engine may have one scheduler. This scheduler is set at
-        # initialization time with
-        #
-        #   Roby.engine.scheduler = <scheduler object>.
-        #
-        # For instance
-        #
-        #   Roby.engine.scheduler = Roby::Schedulers::Basic.new
-        #
-        # Then, the scheduler's #initial_events method is called at the
-        # beginning of each execution cycle. This method is supposed to call
-        # whatever event is reasonable to call with respect to the system's
-        # state (i.e. execution situation).
+        # See the documentation of Roby::Schedulers for more information
         #
         # The basic scheduler starts the tasks for which:
         #  * the task is pending, executable and owned by the local robot
