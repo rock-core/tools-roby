@@ -158,6 +158,7 @@ module Roby
                     error.pp_failure_point(pp)
                 else
                     pp.text error.message
+                    pp.breakable
                     backtrace = error.backtrace
                     if backtrace && !backtrace.empty?
                         Roby.pretty_print_backtrace(pp, backtrace)
