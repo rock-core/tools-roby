@@ -172,10 +172,11 @@ module Roby
             end
         end
 
-	if Roby.app.filter_backtraces? && original_backtrace
+	if (Roby.app.filter_backtraces? || options[:force]) && original_backtrace
             app_dir = if defined? APP_DIR then Regexp.quote(APP_DIR) end
 
             original_backtrace = original_backtrace.dup
+
             # First, read out the "bottom" of the backtrace: search for the
             # first backtrace line that is within the framework
             backtrace_bottom   = []

@@ -478,7 +478,6 @@ class TC_Exceptions < Test::Unit::TestCase
     end
 
     def test_filter_command_errors
-        Roby.app.filter_backtraces = true
         model = Class.new(Tasks::Simple) do
             event :start do |ev|
                 raise ArgumentError
@@ -492,7 +491,7 @@ class TC_Exceptions < Test::Unit::TestCase
         check_exception_formatting(error)
 
         trace = error.error.backtrace
-        filtered = Roby.filter_backtrace(trace)
+        filtered = Roby.filter_backtrace(trace, :force => true)
         assert(filtered[0] =~ /command for 'start'/, filtered[0])
         assert(filtered[1] =~ /test_filter_command_errors/,   filtered[1])
     end
