@@ -186,6 +186,43 @@ module Roby
             :parent_name => :backward_temporal_constraint,
             :dag => false do
 
+            # True if this event is constrained by the TemporalConstraints
+            # relation in any way
+            def is_temporally_constrained?
+                each_backward_temporal_constraint do |parent|
+                    return true
+                end
+                false
+            end
+
+            # Returns a [parent, intervals] pair that represents a temporal
+            # constraint the given time fails to meet
+            def find_failed_temporal_constraint(time)
+                each_backward_temporal_constraint do |parent|
+                    disjoint_set = parent[self, TemporalConstraints]
+                    if disjoint_set.boundaries[0] < 0
+                        # It might be fullfilled in the future
+                        next
+                    end
+
+                    max_diff = disjoint_set.boundaries[1]
+                    is_fullfilled = parent.history.any? do |parent_event|
+                        diff = time - parent_event.time
+                        break if diff > max_diff
+                        disjoint_set.include?(diff)
+                    end
+                    if !is_fullfilled
+                        return parent, disjoint_set
+                    end
+                end
+                nil
+            end
+
+            # Returns true if this event meets its temporal constraints
+            def meets_temporal_constraints?(time)
+                !find_failed_temporal_constraint(time)
+            end
+
             # Creates a temporal constraint between +self+ and +other_event+.
             # +min+ is the minimum time 
             def add_temporal_constraint(other_event, min, max)
@@ -219,22 +256,9 @@ module Roby
                 super if defined? super
 
                 # Verify that the event matches any running constraint
-                each_backward_temporal_constraint do |parent|
-                    disjoint_set = parent[self, TemporalConstraints]
-                    if disjoint_set.boundaries[0] < 0
-                        # It might be fullfilled in the future
-                        next
-                    end
-
-                    max_diff = disjoint_set.boundaries[1]
-                    is_fullfilled = parent.history.any? do |parent_event|
-                        diff = event.time - parent_event.time
-                        break if diff > max_diff
-                        disjoint_set.include?(diff)
-                    end
-                    if !is_fullfilled
-                        raise TemporalConstraintViolation.new(event, parent, disjoint_set.intervals)
-                    end
+                parent, intervals = find_failed_temporal_constraint(event.time)
+                if parent
+                    raise TemporalConstraintViolation.new(event, parent, intervals.intervals)
                 end
 
                 deadlines = plan.emission_deadlines

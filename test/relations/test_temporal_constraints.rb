@@ -2,11 +2,29 @@ $LOAD_PATH.unshift File.expand_path(File.join('..', '..', 'lib'), File.dirname(_
 require 'roby/test/common'
 require 'roby/tasks/simple'
 require 'roby/relations/temporal_constraints'
+require 'roby/schedulers/temporal'
 require 'flexmock'
 
 class TC_TemporalConstraints < Test::Unit::TestCase
     include Roby::Test
     TemporalConstraints = EventStructure::TemporalConstraints
+
+    def test_is_temporally_constrained
+        t1, t2 = prepare_plan :add => 2
+        e1 = t1.start_event
+        e2 = t2.start_event
+
+        assert !e1.is_temporally_constrained?
+        assert !e2.is_temporally_constrained?
+
+        e1.add_temporal_constraint(e2, 5, 10)
+        assert !e1.is_temporally_constrained?
+        assert e2.is_temporally_constrained?
+
+        e1.add_temporal_constraint(e2, -5, 10)
+        assert e1.is_temporally_constrained?
+        assert e2.is_temporally_constrained?
+    end
 
     def test_disjoint_intervals_add
         set = EventStructure::DisjointIntervalSet.new
