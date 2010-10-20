@@ -924,7 +924,7 @@ module Roby
                 end
                 raise e, e.message, e.backtrace
             else
-                raise Aborting.new(exceptions)
+                raise Aborting.new(exceptions.map(&:exception))
             end
         end
 
