@@ -61,6 +61,7 @@ require 'roby/relations/executed_by.rb'
 require 'roby/relations/dependency.rb'
 require 'roby/relations/influence.rb'
 require 'roby/relations/planned_by.rb'
+require 'roby/relations/temporal_constraints'
 
 require 'roby/task_index.rb'
 require 'roby/plan.rb'
