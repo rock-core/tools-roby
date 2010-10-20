@@ -69,12 +69,14 @@ module Roby
                     schedulable = task.root?(TaskStructure::ErrorHandling)
                     next if !schedulable
 
-		    root_task =
+                    root_task =
                         if task.root?(TaskStructure::Dependency)
-			    true
+                            true
                         else
-			    task.planned_tasks.all? { |t| !t.executable? }
-			end
+                            planned_tasks = task.planned_tasks
+                            !planned_tasks.empty? &&
+                                planned_tasks.all? { |t| !t.executable? }
+                        end
 
 		    if root_task || (include_children && task.parents.any? { |t| t.running? })
 			task.start!
