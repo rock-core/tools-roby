@@ -179,11 +179,7 @@ module Roby
             attr_accessor :last_event
 
             def display_name(display)
-                if !model.ancestors[0][0]
-                    name = "[unknown]"
-                else
-                    name = display.filter_prefixes(model.ancestors[0][0].dup)
-                end
+                name = display.filter_prefixes(model.ancestors[0][0].dup)
                 if display.show_ownership
                     name << "\n#{owners_to_s}"
                 end
@@ -400,7 +396,7 @@ module Roby
 	end
 
 	class RelationsCanvas < Qt::Object
-	    include LogTools::DataDisplay
+	    include LogReplay::DataDisplay
 	    decoder LogReplay::PlanRebuilder
 
 	    include LogReplay::TaskDisplaySupport
@@ -441,13 +437,6 @@ module Roby
 
 	    # True if the finalized tasks should not be displayed
 	    attr_accessor :hide_finalized
-
-            def self.display_name
-                "Relations"
-            end
-            def self.config_ui
-                Ui::RelationsConfig
-            end
 
 	    def initialize
 		@scene  = Qt::GraphicsScene.new
@@ -781,9 +770,7 @@ module Roby
             # It would be too complex at this stage to know if the plan has been
             # updated, so the method always returns true
 	    def update
-                STDERR.puts "updating #{self}"
 		return unless decoder
-                STDERR.puts "really updating #{self}"
 
 		update_prefixes_removal
 		clear_flashing_objects

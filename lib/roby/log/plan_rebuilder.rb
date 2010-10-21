@@ -1,5 +1,5 @@
 require 'roby/distributed/protocol'
-require 'logtools/data_stream'
+require 'roby/log/data_stream'
 require 'stringio'
 
 module Roby
@@ -205,7 +205,7 @@ module Roby
 
 	# This class rebuilds a plan-like structure from events saved by a
 	# FileLogger object This is compatible with the EventStream data source
-	class PlanRebuilder < LogTools::DataDecoder
+	class PlanRebuilder < DataDecoder
 	    attr_reader :plans
 	    attr_reader :tasks
 	    attr_reader :events
@@ -264,16 +264,16 @@ module Roby
                                 end
                             end
 			rescue Exception => e
-			    #display_args = args.map do |obj|
-			    #    case obj
-			    #    when NilClass: 'nil'
-			    #    when Time: obj.to_hms
-			    #    when DRbObject: obj.inspect
-			    #    else (obj.to_s rescue "failed_to_s")
-			    #    end
-			    #end
+			    display_args = args.map do |obj|
+				case obj
+				when NilClass: 'nil'
+				when Time: obj.to_hms
+				when DRbObject: obj.inspect
+				else (obj.to_s rescue "failed_to_s")
+				end
+			    end
 
-			    #raise e, "#{e.message} while serving #{m}(#{display_args.join(", ")})", e.backtrace
+			    raise e, "#{e.message} while serving #{m}(#{display_args.join(", ")})", e.backtrace
 			end
 			nil
 		    end

@@ -24,7 +24,7 @@ module Roby
 		end
 	    end
 
-	    include LogTools::DataDisplay
+	    include DataDisplay
 	    decoder PlanRebuilder
 
 	    include TaskDisplaySupport

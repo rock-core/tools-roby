@@ -1,29 +1,15 @@
-require 'logtools/data_stream'
+require 'roby/log/data_stream'
 
 module Roby
     module LogReplay
 	# This class is a logger-compatible interface which read event and index logs,
 	# and may rebuild the task and event graphs from the marshalled events
 	# that are saved using for instance FileLogger
-	class EventStream < LogTools::DataStream
+	class EventStream < DataStream
 	    def splat?; true end
-
-            def self.data_streams_of(file_name)
-                result = []
-                STDERR.puts file_name
-                if Roby::Log::FileLogger.valid_file?(file_name)
-                    result << EventStream.new(file_name.gsub('-events.log', ''), file_name)
-                end
-                result.concat(super(file_name))
-            end
-            def self.data_type_name
-                'roby-events'
-            end
 
 	    # The event log
 	    attr_reader :logfile
-            # The path to the file
-            attr_reader :file_name
 
 	    # The index of the currently displayed cycle in +index_data+
 	    attr_reader :current_cycle
@@ -37,12 +23,15 @@ module Roby
                 end
             end
 
-	    def initialize(basename, file_name)
+	    def initialize(basename, file = nil)
 		super(basename, "roby-events")
-                @file_name = file_name
+		if file
+		    @logfile = file
+		    reinit!
+		end
 	    end
 	    def open
-		@logfile = Roby::Log.open(file_name)
+		@logfile = Roby::Log.open(name)
 		reinit!
 		self
 	    end
