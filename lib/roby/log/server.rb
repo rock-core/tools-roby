@@ -304,7 +304,7 @@ module Roby
 
 	# This class manages a data stream which is present remotely. Data is sent
 	# as-is over the network from a Server object to a Client object.
-	class RemoteStream < DataStream
+	class RemoteStream < Roby::LogReplay::DataStream
 	    def initialize(stream_model, id, name, type)
 		super(name, type)
 		@id = id
