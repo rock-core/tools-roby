@@ -312,13 +312,13 @@ class TC_DistributedExecution < Test::Unit::TestCase
     # Checks that the code blocks are called only in owning controllers
     class CodeBlocksOwnersMockup < Roby::Test::Tasks::Simple
 	attr_reader :command_called
-	event :start do
+	event :start do |context|
 	    @command_called = true
 	    emit :start
 	end
 
 	attr_reader :handler_called
-	on(:start) { @handler_called = true }
+	on(:start) { |event| @handler_called = true }
 
 	attr_reader :poller_called
 	poll { @poller_called = true }
