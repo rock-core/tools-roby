@@ -200,9 +200,9 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	t1.depends_on t2
 
 	p1 = transaction[t1]
-	assert(p1.leaf?, p1.children)
+	assert(p1.leaf?, "#{p1} should have been a leaf, but has the following chilren: #{p1.children.map(&:to_s).join(", ")}")
 	p2 = transaction[t2]
-	assert([p2], p1.children.to_a)
+	assert_equal([p2], p1.children.to_a)
     end
 
     def test_task_events
@@ -213,7 +213,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	assert(p1.event(:success).leaf?(EventStructure::Signal))
 
 	p2 = transaction[t2]
-	assert([p2.event(:start)], p1.event(:success).child_objects(EventStructure::Signal).to_a)
+	assert_equal([p2.event(:start)], p1.event(:success).child_objects(EventStructure::Signal).to_a)
     end
 end
 

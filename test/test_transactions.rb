@@ -162,7 +162,7 @@ module TC_TransactionBehaviour
 	yield(trsc, *proxies)
 
 	# Check that no task in trsc are in plan, and that no task of plan are in trsc
-	assert( (trsc.known_tasks & plan.known_tasks).empty?, (trsc.known_tasks & plan.known_tasks))
+	assert( (trsc.known_tasks & plan.known_tasks).empty?, (trsc.known_tasks & plan.known_tasks).to_a.map(&:to_s).join("\n  "))
 
 	plan = trsc.plan
 	trsc.send(op)
@@ -525,7 +525,7 @@ module TC_TransactionBehaviour
 	transaction_commit(plan, mission, planned, task, child) do |trsc, pm, pp, pt, pc|
 	    trsc.replace(pt, r)
 
-	    assert([r], trsc.missions.to_a)
+	    assert([r], trsc.missions.map(&:to_s).join(", "))
 	    assert(Hierarchy.linked?(pm, r))
 	    assert(!Hierarchy.linked?(mission, r))
 	    assert(!Hierarchy.linked?(r, pc))

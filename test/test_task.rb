@@ -576,7 +576,7 @@ class TC_Task < Test::Unit::TestCase
         assert( klass::EvRedirected.controlable? )
         
         # Check that :command => false disables controlable?
-        assert( :ev_not_controlable, !klass::EvNotControlable.controlable? )
+        assert( !klass::EvNotControlable.controlable? )
 
         # Check validation of options[:command]
         assert_raise(ArgumentError) { klass.event :try_event, :command => "bla" }
@@ -1316,7 +1316,7 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal(task.arguments.to_hash, new.arguments.to_hash)
 
         plan.add(new)
-	assert(new.event(:stop), new.event(:failed).child_objects(Roby::EventStructure::Forwarding).to_a)
+	assert_equal([new.event(:stop)], new.event(:failed).child_objects(Roby::EventStructure::Forwarding).to_a)
 
         assert(task.running?)
         assert(new.running?)
@@ -1328,8 +1328,8 @@ class TC_Task < Test::Unit::TestCase
 	assert(new.running?)
 
 	new.event(:stop).call
-	assert(new.stop?, new.history)
-	assert(new.finished?, new.history)
+	assert(new.stop?, "#{new} should have emitted stop but did not, history: #{new.history.map(&:to_s).join(", ")}")
+	assert(new.finished?, "#{new} should have finished but did not, history: #{new.history.map(&:to_s).join(", ")}")
     end
 
     def test_failed_to_start
@@ -1343,9 +1343,9 @@ class TC_Task < Test::Unit::TestCase
         assert task.failed?
         assert !task.pending?
         assert !task.running?
-        assert [], plan.find_tasks.pending.to_a
-        assert [], plan.find_tasks.running.to_a
-        assert [task], plan.find_tasks.failed.to_a
+        assert_equal [], plan.find_tasks.pending.to_a
+        assert_equal [], plan.find_tasks.running.to_a
+        assert_equal [task], plan.find_tasks.failed.to_a
     end
 
     def test_intermediate_emit_failed

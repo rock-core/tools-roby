@@ -385,7 +385,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	sleep(1)
 	engine.remove_periodic_handler(id)
 	size = samples.size
-	assert(size > 2, samples.map { |t| t.to_hms })
+	assert(size > 2, "expected 2 samples, got #{samples.map { |t| t.to_hms }.join(", ")}")
 
 	samples.each_cons(2) do |a, b|
 	    assert_in_delta(0.1, b - a, 0.001)

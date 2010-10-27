@@ -264,7 +264,7 @@ class TC_BGL < Test::Unit::TestCase
 	assert(copy.same_graph?(graph))
 
 	vertices.each do |v|
-	    assert( [graph, copy].to_set, v.enum_for(:each_graph).to_set )
+	    assert( [graph, copy].to_set, v.enum_for(:each_graph).map(&:to_s).join(", ") )
 	end
     end
 

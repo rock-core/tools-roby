@@ -290,14 +290,14 @@ class TC_State < Test::Unit::TestCase
 
 	State.pos.x = 10
 	d.poll
-	assert(1, d.history.size)
+	assert_equal(1, d.history.size)
 
 	d.poll
-	assert(1, d.history.size)
+	assert_equal(1, d.history.size)
 
 	State.pos.x = 0
 	d.poll
-	assert(2, d.history.size)
+	assert_equal(2, d.history.size)
     end
 
     def test_yaw_delta_event
@@ -314,11 +314,11 @@ class TC_State < Test::Unit::TestCase
 	assert(y.happened?)
 
 	y.poll
-	assert(1, y.history.size)
+	assert_equal(1, y.history.size)
 
 	State.pos.yaw = 0
 	y.poll
-	assert(2, y.history.size)
+	assert_equal(2, y.history.size)
     end
 
     def test_time_delta_event
@@ -337,15 +337,15 @@ class TC_State < Test::Unit::TestCase
 
 	    current_time += 0.5
 	    t.poll
-	    assert(1, t.history.size)
+	    assert_equal(1, t.history.size)
 
 	    current_time += 0.5
 	    t.poll
-	    assert(1, t.history.size)
+	    assert_equal(1, t.history.size)
 
 	    current_time += 0.5
 	    t.poll
-	    assert(2, t.history.size)
+	    assert_equal(2, t.history.size)
 	end
     end
 

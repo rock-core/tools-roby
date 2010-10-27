@@ -63,12 +63,12 @@ class TC_PlanningLoop < Test::Unit::TestCase
     # Waits for +planning_task+ to finish and returns the planned result
     def planning_task_result(planning_task)
         assert(planning_task)
-        assert(planning_task.running? || planning_task.success?, planning_task)
+        assert(planning_task.running? || planning_task.success?, "#{planning_task} is neither running nor stopped")
         if planning_task.running?
             planning_task.thread.join
             process_events
         end
-	assert(planning_task.success?, planning_task.terminal_event.context)
+	assert(planning_task.success?, "#{planning_task} was supposed to finished successfully, but finished with #{planning_task.terminal_event.context}")
 	planning_task.planned_task
     end
 
@@ -207,7 +207,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
 
 	    current_time += 0.8
 	    process_events
-	    assert(second_task.running?, loop_planner.arguments)
+	    assert(second_task.running?)
 
 	    # Use the third task to check that the timeout can be overriden by
 	    # calling loop_start! on the PlanningLoop task
@@ -409,7 +409,7 @@ class TC_PlanningLoop < Test::Unit::TestCase
 
         planner = planner_model.new(plan)
         t1, t2 = planner.looping_tasks(:parent_argument => 1)
-        assert(t1.fully_instanciated?, t1.arguments.keys - t1.class.arguments.to_a)
+        assert(t1.fully_instanciated?, "#{t1} should be fully instanciated, but is missing the following arguments: #{(t1.arguments.keys - t1.class.arguments.to_a).map(&:to_s).join(", ")}")
         assert(t2.fully_instanciated?)
         plan.add_mission(t1)
         plan.add_mission(t2)

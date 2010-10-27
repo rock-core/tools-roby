@@ -174,9 +174,9 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	task_model.executed_by ExecutionAgentModel
 	first, second = prepare_plan :add => 2, :model => task_model
 	assert(first.execution_agent)
-	assert(ExecutionAgentModel, first.execution_agent.class)
+	assert_kind_of(ExecutionAgentModel, first.execution_agent)
 	assert(second.execution_agent)
-	assert(ExecutionAgentModel, second.execution_agent.class)
+	assert_kind_of(ExecutionAgentModel, second.execution_agent)
 	assert_same(first.execution_agent, second.execution_agent)
 
 	first.start!

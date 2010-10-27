@@ -18,7 +18,7 @@ class TC_PlanningTask < Test::Unit::TestCase
 	planning_task.start! if planning_task.pending?
 	planning_task.thread.join
 	process_events
-	assert(planning_task.success?, planning_task.terminal_event.context)
+	assert(planning_task.success?, "#{planning_task} did not finish successfully: #{planning_task.terminal_event.context}")
 	planning_task.planned_task
     end
 
