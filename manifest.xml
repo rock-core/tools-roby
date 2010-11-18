@@ -11,6 +11,7 @@
 
   <depend package="utilmm" />
   <depend package="utilrb" />
+  <rosdep name="facets" />
   <rosdep name="flexmock" />
   <rosdep name="qtruby" />
   <rosdep name="boost" />
