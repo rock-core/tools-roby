@@ -438,7 +438,7 @@ module Roby
 
 	    # Set up log levels
 	    log['levels'].each do |name, value|
-		name = name.camelcase(true)
+		name = name.camelcase(:upper)
 		if value =~ /^(\w+):(.+)$/
 		    level, file = $1, $2
 		    level = Logger.const_get(level)
