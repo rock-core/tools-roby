@@ -281,19 +281,6 @@ module Roby
             end
         end
 
-	# See EventGenerator#fired
-	#
-	# In TaskEventGenerator, this hook calls the unreachable handlers added
-	# by EventGenerator#if_unreachable when the task has finished, not
-	# before
-	def fired(event) # :nodoc:
-	    super if defined? super
-	    
-	    if symbol == :stop
-		task.each_event { |ev| ev.unreachable!(task.terminal_event) }
-	    end
-	end
-
         # See EventGenerator#related_tasks
 	def related_tasks(result = nil) # :nodoc:
 	    tasks = super
@@ -1413,18 +1400,15 @@ module Roby
 	    if event.success?
 		plan.task_index.set_state(self, :success?)
 		self.success = true
-		self.finished = true
 		@terminal_event ||= event
 	    elsif event.failure?
 		plan.task_index.set_state(self, :failed?)
 		self.success = false
-		self.finished = true
 		@terminal_event ||= event
                 @failure_reason ||= event
                 @failure_event  ||= event
 	    elsif event.terminal? && !finished?
 		plan.task_index.set_state(self, :finished?)
-		self.finished = true
 		@terminal_event ||= event
 	    end
 	    
@@ -1433,7 +1417,12 @@ module Roby
 		self.started = true
 		self.forced_executable = true
 	    elsif event.symbol == :stop
+		self.finished = true
 	        self.forced_executable = false
+
+		each_event do |ev|
+                    ev.unreachable!(terminal_event)
+                end
 	    end
 	end
         

@@ -629,8 +629,8 @@ module Roby
                 msg = unreachability_reason.map do |ev, reason|
                     if reason.kind_of?(Exception)
                         Roby.format_exception(reason).join("\n")
-                    else
-                        reason.to_s
+                    elsif reason.respond_to?(:context)
+                        "the emission of #{reason}" + Roby.format_exception(reason.context).join("\n")
                     end
                 end
                 msg.join("\n  ")
