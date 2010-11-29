@@ -193,5 +193,6 @@ if do_doc
             end
         end
     end
+    task 'redocs' => 'doc:redocs'
+    task 'clobber_docs' => 'doc:clobber'
 end
-task 'clobber_docs' => 'doc:clobber'
