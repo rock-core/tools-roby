@@ -275,6 +275,10 @@ module Roby
         def initialize(exception)
             @exception = exception
         end
+        def full_message
+            @exception.full_message
+        end
+
         def pretty_print(pp)
             Roby.pretty_print_backtrace(pp, @exception.backtrace)
         end
