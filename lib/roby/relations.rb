@@ -370,6 +370,10 @@ module Roby
         # <tt>[self, parent, parent.parent, ...]</tt> up to the root relation
         # which is a superset of +self+.
 	def remove_relation(from, to)
+            if !linked?(from, to)
+                return
+            end
+
 	    rel = self
 	    relations = []
 	    while rel
