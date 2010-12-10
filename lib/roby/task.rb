@@ -1130,8 +1130,8 @@ module Roby
 
 		setup_poll_method(block)
 
-		on(:start) { |ev| ev.task.plan.engine.propagation_handlers << method(:poll) }
-		on(:stop)  { |ev| ev.task.plan.engine.propagation_handlers.delete(method(:poll)) }
+		on(:start) { |ev| ev.task.plan.engine.add_propagation_handler(method(:poll)) }
+		on(:stop)  { |ev| ev.task.plan.engine.remove_propagation_handler(method(:poll)) }
 	    end
 	end
 

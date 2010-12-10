@@ -203,7 +203,7 @@ module Roby
             def add_propagation_handler(proc_obj = nil, &block)
                 proc_obj ||= block
                 check_arity proc_obj, 1
-                propagation_handlers << proc_obj
+                propagation_handlers << ["propagation handler #{proc_obj}", proc_obj]
                 proc_obj.object_id
             end
             
@@ -211,7 +211,7 @@ module Roby
             # ExecutionEngine.add_propagation_handler.  THe +id+ value is the
             # value returned by ExecutionEngine.add_propagation_handler.
             def remove_propagation_handler(id)
-                propagation_handlers.delete_if { |p| p.object_id == id }
+                propagation_handlers.delete_if { |name, p| p.object_id == id }
                 nil
             end
         end
@@ -240,7 +240,7 @@ module Roby
         def add_propagation_handler(proc_obj = nil, &block)
             proc_obj ||= block
             check_arity proc_obj, 1
-            propagation_handlers << proc_obj
+            propagation_handlers << ["propagation handler #{proc_obj}", proc_obj]
             proc_obj.object_id
         end
 
@@ -253,7 +253,7 @@ module Roby
         #
         # See also #add_propagation_handler
         def remove_propagation_handler(id)
-            propagation_handlers.delete_if { |p| p.object_id == id }
+            propagation_handlers.delete_if { |name, p| p.object_id == id }
             nil
         end
 
@@ -514,11 +514,11 @@ module Roby
                 if scheduler
                     gather_framework_errors('scheduler')          { scheduler.initial_events }
                 end
-                for h in self.class.propagation_handlers
-                    gather_framework_errors("propagation handler #{h}") { h.call(plan) }
+                for handler in self.class.propagation_handlers
+                    gather_framework_errors(handler[0]) { handler[1].call(plan) }
                 end
-                for h in propagation_handlers
-                    gather_framework_errors("propagation handler #{h}") { h.call(plan) }
+                for handler in propagation_handlers
+                    gather_framework_errors(handler[0]) { handler[1].call(plan) }
                 end
             end
 
