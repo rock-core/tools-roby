@@ -152,7 +152,7 @@ module Roby
 
 	    remote_siblings[peer] = remote_object
 	    peer.proxies[remote_object] = self
-	    Roby::Distributed.debug "added sibling #{remote_object.inspect} for #{self} on #{peer} (#{remote_siblings})"
+	    Roby::Distributed.debug { "added sibling #{remote_object} for #{self} on #{peer} (#{remote_siblings})" }
 	end
 
 	# Remove references about the sibling registered for +peer+ and returns it
@@ -164,7 +164,7 @@ module Roby
 	    if remote_object = remote_siblings.delete(peer)
 		peer.proxies.delete(remote_object)
 		peer.subscriptions.delete(remote_object)
-		Roby::Distributed.debug "removed sibling #{remote_object.inspect} for #{self} on #{peer}"
+		Roby::Distributed.debug { "removed sibling #{remote_object} for #{self} on #{peer}" }
 		remote_object
 	    end
 	end
