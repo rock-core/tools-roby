@@ -716,18 +716,24 @@ module Roby
 	    EOD
 
 	    if options[:single_child]
+                has_add_child_hook = mod.instance_methods(false).include?(:added_child_object)
+                has_remove_child_hook = mod.instance_methods(false).include?(:removed_child_object)
+
 		mod.class_eval <<-EOD
 		attr_reader :#{options[:child_name]}
 
+                #{"alias __added_child_object__ added_child_object" if has_add_child_hook}
                 def added_child_object(child, relations, info)
-                    super if defined? super
                     if relations.include?(@@__r_#{relation_name}__)
                         instance_variable_set :@#{options[:child_name]}, child
                     end
+
+                    super if defined? super
+                    #{"__added_child_object__(child, relations, info)" if has_add_child_hook}
                 end
 
+                #{"alias __removed_child_object__ removed_child_object" if has_remove_child_hook}
                 def removed_child_object(child, relations)
-                    super if defined? super
                     if relations.include?(@@__r_#{relation_name}__)
                         instance_variable_set :@#{options[:child_name]}, nil
 		    	each_child_object(@@__r_#{relation_name}__) do |child|
@@ -735,6 +741,9 @@ module Roby
 			    break
 			end
                     end
+                    super if defined? super
+
+                    #{"__removed_child_object__(child, relations)" if has_remove_child_hook}
                 end
 		EOD
 	    end

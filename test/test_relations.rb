@@ -236,7 +236,13 @@ class TC_Relations < Test::Unit::TestCase
 
 	r1 = nil
 	space = Roby::RelationSpace(klass)
-        r1 = space.relation :R1, :single_child => true
+        add_child_called = false
+        remove_child_called = false
+        r1 = space.relation :R1, :single_child => true do
+            define_method(:added_child_object) { |*args| add_child_called = true }
+            define_method(:removed_child_object) { |*args| remove_child_called = true }
+        end
+
 	parent = klass.new 
 	child  = klass.new
 	assert_equal(nil, parent.r1)
@@ -244,6 +250,9 @@ class TC_Relations < Test::Unit::TestCase
 	assert_equal(child, parent.r1)
 	parent.remove_r1(child)
 	assert_equal(nil, parent.r1)
+
+        assert(add_child_called)
+        assert(remove_child_called)
     end
 
     def test_relations
