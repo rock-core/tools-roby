@@ -35,6 +35,7 @@ module Roby::TaskStructure
     # so that the specific agents are managed externally (load-balancing, ...)
     relation :ExecutionAgent, :parent_name => :executed_task, :child_name => :execution_agent, 
 	:noinfo => true, :distribute => false, :single_child => true do
+
 	# When ExecutionAgent support is included in a model (for instance Roby::Task), add
 	# the model-level classes  
         def self.included(klass) # :nodoc:
@@ -42,11 +43,24 @@ module Roby::TaskStructure
             super
         end
 
+        # In order to handle faults, it is needed that some event handlers are
+        # defined on the task that has an execution agent
+        #
+        # However, we only want to define them once. Therefore, this flag is set
+        # to true as soon as the handlers have been added on +self+
+        attr_predicate :used_with_an_execution_agent?, true
+
+        # In order to handle faults, it is needed that some event handlers are
+        # defined on the agent's task
+        #
+        # However, we only want to define them once. Therefore, this flag is set
+        # to true as soon as the handlers have been added on +self+
         attr_predicate :used_as_execution_agent?, true
 
 	# Defines a new execution agent for this task.
         def executed_by(agent)
 	    return if execution_agent == agent
+
 	    if !agent.event(:start).controlable? && !agent.running?
 		raise ArgumentError, "the start event of #{self}'s execution agent #{agent} is not controlable"
 	    end
@@ -61,64 +75,90 @@ module Roby::TaskStructure
 		remove_execution_agent old_agent
 	    end
 
-            if !agent.used_as_execution_agent?
-                executed_task = self
-                agent.ready_event.when_unreachable do
-                    tasks = []
-                    each_executed_task do |task|
-                        tasks << task
-                    end
-                    if !tasks.empty?
-                        plan.control.execution_agent_failed_to_start(agent, tasks)
-                    end
-                end
-                agent.on :stop do |event|
-                    if agent.ready?
-                        tasks = []
-                        agent.each_executed_task do |task|
-                            tasks << task if task.pending?
-                        end
-                        if !tasks.empty?
-                            plan.control.pending_executed_by_failed(agent, tasks)
-                        end
-                    end
-                end
-                agent.used_as_execution_agent = true
-            end
-	    
-	    unless old_agent
-		# If the task did have an agent already, these event handlers
-		# are already set up
-		if running?
-		    Roby::Distributed.update(self) do
-			agent.forward_to(:stop, self, :aborted)
-		    end
-		else
-		    on(:start) do |ev|
-			# The event handler will be called even if the
-			# execution agent has been removed. Check that there is
-			# actually an execution agent 
-			if execution_agent
-			    Roby::Distributed.update(self) do
-				execution_agent.forward_to(:stop, self, :aborted)
-			    end
-			end
-		    end
-		end
-
-		on(:stop) do  |ev|
-		    if execution_agent
-			Roby::Distributed.update(self) do
-			    execution_agent.event(:stop).remove_forwarding event(:aborted)
-			    remove_execution_agent execution_agent
-			end
-		    end
-		end
-	    end
-
 	    add_execution_agent(agent)
         end
 
+        # Installs the handlers needed for fault handling
+        #
+        # See the documentation of #used_with_an_execution_agent?
+        def added_parent_object(parent, relations, info)
+            super if defined? super
+            return if !relations.include?(ExecutionAgent)
+            return if used_as_execution_agent?
+
+            ready_event.when_unreachable do
+                tasks = []
+                each_executed_task do |task|
+                    tasks << task
+                end
+                if !tasks.empty?
+                    plan.control.execution_agent_failed_to_start(self, tasks)
+                end
+            end
+
+            on :stop do |event|
+                if ready?
+                    tasks = []
+                    each_executed_task do |task|
+                        tasks << task if task.pending?
+                    end
+                    if !tasks.empty?
+                        plan.control.pending_executed_by_failed(self, tasks)
+                    end
+                end
+            end
+
+            self.used_as_execution_agent = true
+        end
+
+
+
+        # Installs the handlers needed for fault handling
+        #
+        # See the documentation of #used_with_an_execution_agent?
+	def added_child_object(child, relations, info)
+            super if defined? super
+            return if !relations.include?(ExecutionAgent)
+            return if used_with_an_execution_agent?
+
+            if running?
+                # Relations related to execution agents are not distributed.
+                # Make Roby::Distributed ignore the following changes
+                Roby::Distributed.update(self) do
+                    execution_agent.forward_to(:stop, self, :aborted)
+                end
+            end
+
+            on :start do |ev|
+                # The event handler will be called even if the
+                # execution agent has been removed. Check that there is
+                # actually an execution agent 
+                if execution_agent
+                    # Relations related to execution agents are not
+                    # distributed.  Make Roby::Distributed ignore the
+                    # following changes
+                    Roby::Distributed.update(self) do
+                        execution_agent.forward_to(:stop, self, :aborted)
+                    end
+                end
+            end
+
+            on :stop do |ev|
+                # The event handler will be called even if the
+                # execution agent has been removed. Check that there is
+                # actually an execution agent 
+                if execution_agent
+                    # Relations related to execution agents are not distributed.
+                    # Make Roby::Distributed ignore the following changes
+                    Roby::Distributed.update(self) do
+                        execution_agent.event(:stop).remove_forwarding event(:aborted)
+                        remove_execution_agent execution_agent
+                    end
+                end
+            end
+
+            self.used_with_an_execution_agent = true
+        end
     end
 
     class ExecutionAgentSpawningFailed < Roby::LocalizedError
