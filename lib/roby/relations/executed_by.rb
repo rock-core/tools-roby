@@ -121,6 +121,8 @@ module Roby::TaskStructure
             return if !relations.include?(ExecutionAgent)
             return if used_with_an_execution_agent?
 
+            start_event.extend ExecutionAgentStart
+
             if running?
                 # Relations related to execution agents are not distributed.
                 # Make Roby::Distributed ignore the following changes
@@ -218,7 +220,7 @@ module Roby::TaskStructure
     module ExecutionAgentStart
 	def calling(context)
 	    super if defined? super
-	    return unless symbol == :start
+
 
             agent = task.execution_agent
             if !agent
@@ -251,7 +253,6 @@ module Roby::TaskStructure
 	    end
 	end
     end
-    Roby::TaskEventGenerator.include ExecutionAgentStart
 
     # This module is included in Roby::Plan to automatically add execution agents
     # to tasks that require it and are discovered in the executable plan.
