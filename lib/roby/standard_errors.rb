@@ -42,10 +42,12 @@ module Roby
             end
             pp.breakable
             failure_point.pretty_print(pp)
+        end
 
-            if backtrace && !backtrace.empty?
-                Roby.pretty_print_backtrace(pp, backtrace)
-            end
+        def pp_exception(pp, e)
+            pp.text e.message
+            pp.breakable
+            Roby.pretty_print_backtrace(pp, e.backtrace)
         end
 
         # True if +obj+ is involved in this error
@@ -120,7 +122,7 @@ module Roby
 	    if error
                 pp_failure_point(pp)
                 pp.breakable
-                error.pretty_print(pp)
+                pp_exception(pp, error)
 	    else
 		super
 	    end
@@ -157,16 +159,7 @@ module Roby
                 if error.respond_to?(:pp_failure_point)
                     error.pp_failure_point(pp)
                 else
-                    pp.text error.message
-                    pp.breakable
-                    backtrace = error.backtrace
-                    if backtrace && !backtrace.empty?
-                        Roby.pretty_print_backtrace(pp, backtrace)
-                    end
-                end
-            else
-                if backtrace && !backtrace.empty?
-                    Roby.pretty_print_backtrace(pp, backtrace)
+                    pp_exception(pp, error)
                 end
             end
 	end

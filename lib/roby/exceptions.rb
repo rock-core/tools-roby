@@ -283,12 +283,7 @@ module Roby
             Roby.pretty_print_backtrace(pp, @exception.backtrace)
         end
     end
-
-    def self.display_exception(io = STDOUT)
-        yield
-        false
-
-    rescue Exception => e
+    def self.do_display_exception(io, e)
         first_line = true
         puts
         format_exception(e).each do |line|
@@ -307,6 +302,24 @@ module Roby
             io.puts line
         end
         io.puts color("= ", :bold, :red)
+        true
+    end
+
+
+    def self.display_exception(io = STDOUT, e = nil)
+        if !block_given?
+            if !e
+                raise ArgumentError, "expected an exception object as no block was given"
+            end
+            do_display_exception(io, e)
+            true
+        else
+            yield
+            false
+        end
+
+    rescue Exception => e
+        do_display_exception(io, e)
         true
     end
 end

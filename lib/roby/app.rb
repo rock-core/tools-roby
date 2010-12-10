@@ -650,12 +650,9 @@ module Roby
 	    run_plugins(plugins, &block)
 
         rescue Exception => e
-            if e.respond_to?(:pretty_print)
-                pp e
-            else
-                pp e.full_message
-            end
+            Roby.display_exception(STDERR, e)
 	end
+
 	def run_plugins(mods, &block)
 	    engine = Roby.engine
 
