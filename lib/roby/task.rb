@@ -1574,10 +1574,6 @@ module Roby
 	    else
 		super
 	    end
-	rescue NameError => e
-	    raise e, e.message, caller(1)
-	rescue NoMethodError => e
-	    raise e, e.message, caller(1)
 	end
 
         # Declares that this task model provides the given interface. +model+
