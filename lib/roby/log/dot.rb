@@ -211,14 +211,17 @@ module Roby
 			next
 		    end
 
+                    puts line
+
 		    case full_line
-		    when /(\w+) \[.*pos="(\d+),(\d+)"/
-			object_pos[$1] = Qt::PointF.new(Integer($2), Integer($3))
+		    when /(\w+) \[.*pos="([\d\.]+),([\d\.]+)"/
+			object_pos[$1] = Qt::PointF.new(Float($2), Float($3))
 		    when /subgraph cluster_(\w+)/
 			current_graph_id = $1
-		    when /graph \[bb="(\d+),(\d+),(\d+),(\d+)"\]/
+		    when /graph \[bb="([\.\d]+),([\d\.]+),([\d\.]+),([\d\.]+)"\]/
+                        puts "BB"
 			bb = [$1, $2, $3, $4].map do |c|
-			    c = Integer(c)
+			    c = Float(c)
 			end
 			bounding_rects[current_graph_id] = [bb[0], bb[1], bb[2] - bb[0], bb[3] - bb[1]]
 		    end
