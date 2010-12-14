@@ -772,16 +772,13 @@ module Roby
         sorted_relations = Array.new
 
         # Remove from the set of relations the ones that are not leafs
-        all   = self.all_relations.to_value_set
-        all << rel
-        queue = all.find_all { |g| !g.subsets.intersects?(all) }
-        while !queue.empty?
-            g = queue.shift
+        remaining = self.all_relations.to_value_set
+        remaining << rel
+        target_size = remaining.size
 
-            sorted_relations << g
-            if all.include?(g.parent)
-                queue.push g.parent
-            end
+        while sorted_relations.size != target_size
+            queue, remaining = remaining.partition { |g| !g.subsets.intersects?(remaining.to_value_set) }
+            sorted_relations.concat(queue)
         end
 
         @all_relations = sorted_relations
