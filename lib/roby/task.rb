@@ -1138,10 +1138,17 @@ module Roby
 		    raise "no block given"
 		end
 
-		setup_poll_method(block)
+                if !instance_methods.include?(:poll)
+                    handler_id = nil
+                    on(:start) do |ev|
+                        handler_id = ev.task.plan.engine.add_propagation_handler(method(:poll))
+                    end
+                    on(:stop)  do |ev|
+                        ev.task.plan.engine.remove_propagation_handler(handler_id)
+                    end
+                end
 
-		on(:start) { |ev| ev.task.plan.engine.add_propagation_handler(method(:poll)) }
-		on(:stop)  { |ev| ev.task.plan.engine.remove_propagation_handler(method(:poll)) }
+		setup_poll_method(block)
 	    end
 	end
 
@@ -2175,26 +2182,6 @@ module Roby
 		end
 	    end
 	    super
-	end
-
-        # Define a polling block for this task. The polling block is called at
-        # each execution cycle while the task is running (i.e. in-between the
-        # emission of +start+ and the emission of +stop+.
-        #
-        # Raises ArgumentError if the task is already running.
-        #
-        # See also Task::poll
-	def poll(&block)
-	    if !pending?
-		raise ArgumentError, "cannot set a polling block when the task is not pending"
-	    end
-
-	    
-	    singleton_class.class_eval do
-		setup_poll_method(block)
-	    end
-            on(:start) { |ev| @poll_handler_id = plan.engine.add_propagation_handler(method(:poll)) }
-            on(:stop)  { |ev| plan.engine.remove_propagation_handler(@poll_handler_id) }
 	end
 
         def self.simulation_model

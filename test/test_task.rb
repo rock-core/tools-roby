@@ -1215,10 +1215,10 @@ class TC_Task < Test::Unit::TestCase
 	FlexMock.use do |mock|
 	    t = Class.new(Tasks::Simple) do
 		poll do
-		    mock.polled(self)
+		    mock.polled(running?, self)
 		end
 	    end.new
-	    mock.should_receive(:polled).at_least.once.with(t)
+	    mock.should_receive(:polled).at_least.once.with(true, t)
 
 	    engine.execute do
 		plan.add_permanent(t)
@@ -1229,22 +1229,28 @@ class TC_Task < Test::Unit::TestCase
 		assert(t.running?, t.terminal_event.to_s)
 		t.stop!
 	    end
+	    engine.wait_one_cycle
+	    engine.wait_one_cycle
 	end
     end
 
     def test_error_in_polling
 	FlexMock.use do |mock|
-	    mock.should_receive(:polled).at_least.once
-	    t = Class.new(Tasks::Simple) do
+	    mock.should_receive(:polled).once
+	    klass = Class.new(Tasks::Simple) do
 		poll do
 		    mock.polled(self)
 		    raise ArgumentError
 		end
-	    end.new
+	    end
 
             engine.run
-            plan.add_permanent(t)
-            assert_event_emission(t.failed_event) do
+
+            t = nil
+            engine.execute do
+                plan.add_permanent(t = klass.new)
+            end
+            assert_event_emission(t.internal_error_event) do
                 t.start!
             end
 	end
