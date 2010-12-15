@@ -1256,6 +1256,33 @@ class TC_Task < Test::Unit::TestCase
 	end
     end
 
+    def test_events_emitted_multiple_times
+	FlexMock.use do |mock|
+	    mock.should_receive(:polled).once
+	    mock.should_receive(:emitted).once
+	    klass = Class.new(Tasks::Simple) do
+		poll do
+		    mock.polled(self)
+                    emit :internal_error
+                    emit :internal_error
+		end
+                on :internal_error do |ev|
+                    mock.emitted
+                end
+	    end
+
+            engine.run
+
+            t = nil
+            engine.execute do
+                plan.add_permanent(t = klass.new)
+            end
+            assert_event_emission(t.stop_event) do
+                t.start!
+            end
+	end
+    end
+
     def test_event_task_sources
 	task = Class.new(Tasks::Simple) do
 	    event :specialized_failure, :command => true
