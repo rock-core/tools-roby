@@ -308,7 +308,7 @@ module Roby
             else
 		Roby.synchronize do
 		    errors = engine.propagate_events do |initial_set|
-			engine.add_event_propagation(false, nil, self, (context unless context.empty?), nil)
+			engine.add_event_propagation(false, engine.propagation_sources, self, (context unless context.empty?), nil)
 		    end
 		    if errors.size == 1
 			e = errors.first.exception
