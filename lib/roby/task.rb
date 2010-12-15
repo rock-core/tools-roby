@@ -1107,6 +1107,9 @@ module Roby
 	    def setup_poll_method(block) # :nodoc:
 		define_method(:poll) do |plan|
 		    return unless self_owned?
+                    # Don't call if we are terminating
+                    return if finishing?
+
 		    begin
 			poll_handler
 		    rescue LocalizedError => e
