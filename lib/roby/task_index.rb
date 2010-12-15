@@ -57,11 +57,16 @@ module Roby
 	    for state_set in by_state
 		state_set.last.delete(task)
 	    end
-	    by_state[new_state] << task
-	    if new_state == :success? || new_state == :failed?
-		by_state[:finished?] << task
-	    end
+            add_state(task, new_state)
 	end
+
+        def add_state(task, new_state)
+	    by_state[new_state] << task
+        end
+
+        def remove_state(task, new_state)
+	    by_state[new_state].delete(task)
+        end
 
         # Remove all references of +task+ from the index.
 	def remove(task)

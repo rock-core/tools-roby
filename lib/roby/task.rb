@@ -240,6 +240,13 @@ module Roby
             super if defined? super
         end
 
+        def called(context)
+            super if defined? super
+            if terminal? && pending?
+                task.finishing = true
+            end
+        end
+
         # Actually emits the event. This should not be used directly.
         #
         # It forwards the call to Task#fire
@@ -1193,17 +1200,12 @@ module Roby
         # True if this task is currently running (i.e. is has already started,
         # and is not finished)
         def running?; started? && !finished? end
-        # True if the task is finishing, i.e. if a terminal event is pending.
-	def finishing?
-	    if running?
-		each_event { |ev| return true if ev.terminal? && ev.pending? }
-	    end
-	    false
-	end
 
 	attr_predicate :started?, true
 	attr_predicate :finished?, true
 	attr_predicate :success?, true
+        # True if the task is finishing, i.e. if a terminal event is pending.
+        attr_predicate :finishing?, true
 
         def failed_to_start?; !!@failed_to_start end
 
@@ -1211,6 +1213,7 @@ module Roby
             @failed_to_start = true
             @failure_reason = reason
             plan.task_index.set_state(self, :failed?)
+
             each_event do |ev|
                 ev.unreachable!(reason)
             end
@@ -1404,17 +1407,16 @@ module Roby
 	# Call to update the task status because of +event+
 	def update_task_status(event) # :nodoc:
 	    if event.success?
-		plan.task_index.set_state(self, :success?)
+		plan.task_index.add_state(self, :success?)
 		self.success = true
-		@terminal_event ||= event
 	    elsif event.failure?
-		plan.task_index.set_state(self, :failed?)
+		plan.task_index.add_state(self, :failed?)
 		self.success = false
-		@terminal_event ||= event
                 @failure_reason ||= event
                 @failure_event  ||= event
-	    elsif event.terminal? && !finished?
-		plan.task_index.set_state(self, :finished?)
+            end
+
+	    if event.terminal?
 		@terminal_event ||= event
 	    end
 	    
@@ -1423,7 +1425,10 @@ module Roby
 		self.started = true
 		@executable = true
 	    elsif event.symbol == :stop
+		plan.task_index.remove_state(self, :running?)
+                plan.task_index.add_state(self, :finished?)
 		self.finished = true
+                self.finishing = false
 	        @executable = false
 
 		each_event do |ev|
