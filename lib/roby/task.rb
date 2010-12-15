@@ -1982,7 +1982,9 @@ module Roby
         # not forwards to failed
         class Task::InternalError; def failure?; true end end
         on :internal_error do |error|
-            @failure_reason = error.context.first
+            if error.context
+                @failure_reason = error.context.first
+            end
         end
 
         # The internal data for this task
