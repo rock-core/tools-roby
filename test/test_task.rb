@@ -741,7 +741,7 @@ class TC_Task < Test::Unit::TestCase
 	assert_nothing_raised { task.inter! }
 	task.stop!
 
-	assert_raises(EmissionFailed) { task.emit(:inter) }
+	assert_raises(EventNotExecutable) { task.emit(:inter) }
 	assert_raises(CommandFailed) { task.inter! }
 	assert(!task.event(:inter).pending)
 
