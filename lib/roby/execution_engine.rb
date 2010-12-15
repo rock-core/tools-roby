@@ -438,7 +438,7 @@ module Roby
             raise InternalError, "not in a gathering context in #fire" unless gathering?
 
             if sources
-                current_sources = sources
+                current_sources = @propagation_sources
                 @propagation_sources = sources
             else
                 @propagation_sources = []
@@ -447,7 +447,7 @@ module Roby
             yield @propagation
 
         ensure
-            @propagation_sources = sources
+            @propagation_sources = current_sources
         end
 
         def has_propagation_for?(target)
