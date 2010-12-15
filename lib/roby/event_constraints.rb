@@ -184,6 +184,11 @@ end
                         case explanation
                         when Event
                             pp.text " has been emitted"
+                            explanation.sources.each do |ev|
+                                pp.breakable
+                                ev.pretty_print(pp)
+                                pp.text " has been emitted"
+                            end
                         when EventGenerator
                             if value == nil
                                 if explanation.unreachability_reason
