@@ -1496,6 +1496,10 @@ module Roby
 
                         ExecutionEngine.fatal "Execution thread quitting because of unhandled exception"
                         Roby.display_exception(STDERR, e)
+                    elsif !e.kind_of?(Interrupt)
+                        ExecutionEngine.fatal "Execution thread FORCEFULLY quitting because of unhandled exception"
+                        Roby.display_exception(STDERR, e)
+                        raise
                     end
 		end
 	    end
