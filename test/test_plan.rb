@@ -340,6 +340,25 @@ module TC_PlanStatic
         assert !t3.child_object?(t2, TaskStructure::ErrorHandling)
     end
 
+    def test_replace_task_and_copy_relations_on_replace
+        agent_t = Class.new(Roby::Task) do
+            event :ready, :controlable => true
+        end
+
+        t0, t1, t3 = prepare_plan :add => 3, :model => Roby::Tasks::Simple
+        plan.add(t2 = agent_t.new)
+
+        t0.depends_on t1, :model => Roby::Tasks::Simple
+        t1.executed_by t2
+
+        # The error handling relation is marked as copy_on_replace, so the t1 =>
+        # t2 relation should not be removed, but only copied
+        plan.replace_task(t1, t3)
+
+        assert t1.child_object?(t2, TaskStructure::ExecutionAgent)
+        assert t3.child_object?(t2, TaskStructure::ExecutionAgent)
+    end
+
     def test_free_events
 	t1, t2, t3 = (1..3).map { Roby::Task.new }
 	plan.add_mission(t1)

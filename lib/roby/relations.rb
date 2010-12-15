@@ -231,6 +231,7 @@ module Roby
 	    @dag     = options[:dag]
 	    @weak    = options[:weak]
             @strong  = options[:strong]
+            @copy_on_replace = options[:copy_on_replace]
             @embeds_info = !options[:noinfo]
 
 	    if options[:subsets]
@@ -253,6 +254,10 @@ module Roby
         attr_predicate :strong
         # If this relation embeds some additional information
         attr_predicate :embeds_info?
+        # If true, a task A that is being replaced by a task B will *not* have
+        # the links in this relation graph removed. Instead, they simply get
+        # copied to A
+        attr_predicate :copy_on_replace
 
 	def to_s; name end
 
@@ -626,7 +631,8 @@ module Roby
 			:dag         => true,
 			:single_child => false,
 			:weak        => false,
-                        :strong      => false
+                        :strong      => false,
+                        :copy_on_replace => false
 
             if options[:strong] && options[:weak]
                 raise ArgumentError, "a relation cannot be both strong and weak"

@@ -281,6 +281,8 @@ module Roby
             # creating cycles in the graph: first we remove the old edges, then
             # we add the new ones.
 	    changes.each_slice(3) do |rel, parents, children|
+                next if rel.copy_on_replace?
+
 		parents.each_slice(2) do |parent, info|
 		    parent.remove_child_object(self, rel)
 		end

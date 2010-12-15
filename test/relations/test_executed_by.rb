@@ -227,5 +227,25 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	init2.success!
 	assert(agent.event(:ready).happened?)
     end
+
+    def test_replacement
+	agent = Class.new(Tasks::Simple) do
+	    event :ready, :command => true
+	end.new
+	root, (task, replacement) = prepare_plan :missions => 1, :add => 2, :model => Tasks::Simple
+
+        root.depends_on task, :model => Tasks::Simple
+	task.executed_by agent
+        plan.replace_task(task, replacement)
+
+        assert_equal agent, replacement.execution_agent
+        assert replacement.used_with_an_execution_agent?
+
+        agent.start!
+        agent.ready!
+        replacement.start!
+        agent.stop!
+        assert replacement.aborted?
+    end
 end
 

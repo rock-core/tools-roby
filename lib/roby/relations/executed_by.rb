@@ -34,7 +34,7 @@ module Roby::TaskStructure
     # task is executed by. It allows to define a class of these execution agent,
     # so that the specific agents are managed externally (load-balancing, ...)
     relation :ExecutionAgent, :parent_name => :executed_task, :child_name => :execution_agent, 
-	:noinfo => true, :distribute => false, :single_child => true do
+	:noinfo => true, :distribute => false, :single_child => true, :copy_on_replace => true do
 
 	# When ExecutionAgent support is included in a model (for instance Roby::Task), add
 	# the model-level classes  
