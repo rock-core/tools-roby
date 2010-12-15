@@ -69,7 +69,22 @@ module Roby
     class TaskNotExecutable < LocalizedError; end
     # Raised during event propagation if an event is called or emitted,
     # while this event is not executable.
-    class EventNotExecutable < LocalizedError; end
+    class EventNotExecutable < LocalizedError
+        def pretty_print(pp)
+            super
+            if failed_generator.task.plan
+                pp.text "the task has NOT been garbage collected"
+            elsif removed_at = failed_generator.task.removed_at
+                pp.text "#{failed_generator.task} has been removed from its plan at"
+                removed_at.each do |line|
+                    pp.breakable
+                    pp.text "  #{line}"
+                end
+            else
+                pp.text "the task has never been included in a plan"
+            end
+        end
+    end
     # Raised during event propagation if an event is called, while this event
     # is not controlable.
     class EventNotControlable < LocalizedError; end
