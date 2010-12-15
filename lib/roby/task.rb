@@ -1230,7 +1230,7 @@ module Roby
         end
 
         # True if the +failed+ event of this task has been fired
-	def failed?; failed_to_start? || (finished? && @success == false) end
+	def failed?; failed_to_start? || (@success == false) end
 
 	# call-seq:
         #   task.clear_relations => task

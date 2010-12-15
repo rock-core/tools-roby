@@ -1253,7 +1253,47 @@ class TC_Task < Test::Unit::TestCase
             assert_event_emission(t.internal_error_event) do
                 t.start!
             end
+            assert(t.stop?)
 	end
+    end
+
+    def test_error_in_polling_with_delayed_stop
+        t = nil
+	FlexMock.use do |mock|
+	    mock.should_receive(:polled).once
+	    klass = Class.new(Tasks::Simple) do
+		poll do
+		    mock.polled(self)
+		    raise ArgumentError
+		end
+
+                event :stop do |ev|
+                end
+	    end
+
+            engine.run
+
+            engine.execute do
+                plan.add_permanent(t = klass.new)
+            end
+            assert_event_emission(t.internal_error_event) do
+                t.start!
+            end
+            assert(t.failed?)
+            assert(t.running?)
+            assert(t.finishing?)
+            engine.execute do
+                t.emit :stop
+            end
+            assert(t.failed?)
+            assert(!t.running?)
+            assert(t.finished?)
+	end
+
+    ensure
+        if t.running?
+            engine.execute { t.emit :stop }
+        end
     end
 
     def test_events_emitted_multiple_times
