@@ -36,10 +36,14 @@ module Roby
         end
 
         # Sets the sources. See #sources
-        def sources=(sources) # :nodoc:
+        def sources=(new_sources) # :nodoc:
             @sources = ValueSet.new
-            for s in sources
-                @sources << Utilrb::WeakRef.new(s)
+            add_sources(new_sources)
+        end
+
+        def add_sources(new_sources)
+            for new_s in new_sources
+                @sources << Utilrb::WeakRef.new(new_s)
             end
         end
 
@@ -261,6 +265,7 @@ module Roby
                 end
 
 		@pending = true
+                @pending_sources = plan.engine.propagation_source_events
 		plan.engine.propagation_context([self]) do
 		    command[context]
 		end
@@ -606,6 +611,10 @@ module Roby
 	    end
 	    event.sources = plan.engine.propagation_source_events
 	    fire(event)
+            if @pending_sources
+                event.add_sources(@pending_sources)
+                @pending_sources = nil
+            end
             event
 
 	ensure

@@ -1027,5 +1027,45 @@ class TC_Event < Test::Unit::TestCase
 	plan.add(ev = model.new(true))
         assert_raises(Roby::EventNotExecutable) { ev.emit }
     end
+
+    def test_forward_source_is_event_source
+        GC.disable
+        plan.add(target = Roby::EventGenerator.new(true))
+        plan.add(source = Roby::EventGenerator.new(true))
+
+        source.forward_to target
+        source.call
+        assert_equal [source.last], target.last.sources
+
+    ensure
+        GC.enable
+    end
+
+    def test_command_source_is_event_source
+        GC.disable
+        plan.add(target = Roby::EventGenerator.new(true))
+        plan.add(source = Roby::EventGenerator.new(true))
+
+        source.signals target
+        source.call
+        assert_equal [source.last], target.last.sources
+
+    ensure
+        GC.enable
+    end
+
+    def test_pending_command_source_is_event_source
+        target = Roby::EventGenerator.new do
+        end
+        plan.add(target)
+        plan.add(source = Roby::EventGenerator.new(true))
+
+        source.signals target
+        source.call
+        assert(target.pending?)
+
+        target.emit
+        assert_equal [source.last], target.last.sources
+    end
 end
 
