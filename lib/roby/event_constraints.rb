@@ -180,14 +180,15 @@ end
 
                 pp.nest(2) do
                     elements.each do |explanation|
+                        pp.breakable
                         explanation.pretty_print(pp)
                         case explanation
                         when Event
-                            pp.text " has been emitted"
-                            explanation.sources.each do |ev|
+                            pp.text " has been emitted because of the following events"
+                            explanation.all_sources.each do |ev|
                                 pp.breakable
+                                pp.text "< "
                                 ev.pretty_print(pp)
-                                pp.text " has been emitted"
                             end
                         when EventGenerator
                             if value == nil
