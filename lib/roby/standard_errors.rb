@@ -32,6 +32,10 @@ module Roby
 		raise ArgumentError, "cannot deduce a task and/or a generator from #{failure_point}"
 	    end
 
+            if failed_event
+                failed_event.protect_all_sources
+            end
+
             super("")
 	end
 

@@ -45,6 +45,19 @@ module Roby
             result
         end
 
+        # Call to protect this event's source from Ruby's garbage collection.
+        # Call this if you want to store the propagation history for this event
+        def protect_sources
+            @protected_sources = sources
+        end
+
+        # Call to recursively protect this event's sources from Ruby's garbage
+        # collection. Call this if you want to store the propagation history for
+        # this event
+        def protect_all_sources
+            @protected_all_sources = all_sources
+        end
+
         # Sets the sources. See #sources
         def sources=(new_sources) # :nodoc:
             @sources = ValueSet.new
