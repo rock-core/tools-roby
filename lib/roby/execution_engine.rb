@@ -1175,8 +1175,12 @@ module Roby
                 end
 
                 (roots.to_value_set - finishing - plan.gc_quarantine).each do |local_task|
-                    if local_task.pending? 
+                    if local_task.pending?
                         ExecutionEngine.info "GC: removing pending task #{local_task}"
+                        plan.remove_object(local_task)
+                        did_something = true
+                    elsif local_task.failed_to_start?
+                        ExecutionEngine.info "GC: removing task that failed to start #{local_task}"
                         plan.remove_object(local_task)
                         did_something = true
                     elsif local_task.starting?
