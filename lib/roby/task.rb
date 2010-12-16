@@ -142,19 +142,24 @@ module Roby
         # task.failed_event.last.
 	def task_sources
 	    result = ValueSet.new
-	    event_sources = sources
-            for ev in event_sources
+            for ev in sources
                 gen = ev.generator
                 if gen.respond_to?(:task) && gen.task == task
-                    result.merge ev.task_sources
+                    result << ev
                 end
             end
-	    if result.empty?
-		result << self
-	    end
-
 	    result
 	end
+
+        # Recursively browses in the event sources, returning only those that
+        # come from this event's task
+        def all_task_sources
+            result = ValueSet.new
+            for ev in task_sources
+                result.merge(ev.generator.task_sources)
+            end
+            result
+        end
 
 	def to_s # :nodoc:
 	    result = "[#{time.to_hms} @#{propagation_id}] #{task}/#{symbol}"

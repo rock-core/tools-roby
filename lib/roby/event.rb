@@ -23,7 +23,7 @@ module Roby
         # collected (i.e. if all references to the associated task/event
         # generator are removed), it will be removed from this set as well.
         def sources
-            result = []
+            result = ValueSet.new
             @sources.delete_if do |ref|
                 begin 
                     result << ref.get
@@ -31,6 +31,16 @@ module Roby
                 rescue Utilrb::WeakRef::RefError
                     true
                 end
+            end
+            result
+        end
+
+        # Recursively computes the source event that led to the emission of
+        # +self+
+        def all_sources
+            result = ValueSet.new
+            sources.each do |ev|
+                result.merge(ev.sources)
             end
             result
         end
