@@ -31,6 +31,15 @@ class TC_State < Test::Unit::TestCase
 	assert_equal(10, s.send(:x))
     end
 
+    def test_get
+	s = ExtendedStruct.new
+        assert_equal nil, s.get(:x)
+        s.x
+        assert_equal nil, s.get(:x)
+        s.x = 20
+        assert_equal 20, s.get(:x)
+    end
+
     def test_to_hash
 	s = ExtendedStruct.new
 	s.a = 10
@@ -422,6 +431,68 @@ class TC_State < Test::Unit::TestCase
 	time_event.instance_variable_set(:@last_value, Time.now - 3600)
 	engine.process_events
 	assert_equal(1, ev.history.size)
+    end
+
+    def test_condition_event
+        FlexMock.use do |mock|
+            event = State.trigger_when(:x) do |x|
+                mock.condition(x)
+                x > 10
+            end
+            plan.add_permanent(event)
+            mock.should_receive(:condition).once.with(2)
+            mock.should_receive(:condition).once.with(20)
+            mock.should_receive(:condition).once.with(30)
+
+            engine.process_events
+            assert(!event.happened?)
+
+            State.x = 2
+            engine.process_events
+            assert(!event.happened?)
+
+            State.x = 20
+            assert(event.armed?)
+            engine.process_events
+            assert(event.happened?)
+
+            event.reset
+
+            State.x = 30
+            engine.process_events
+        end
+    end
+
+    def test_reset_when
+        FlexMock.use do |mock|
+            event = State.trigger_when(:x) do |x|
+                mock.condition(x)
+                x > 10
+            end
+            State.reset_when(event, :x) do |x|
+                mock.reset_condition(x)
+                x < 5
+            end
+            plan.add_permanent(event)
+            mock.should_receive(:condition).at_least.once.with(2)
+            mock.should_receive(:condition).once.with(20)
+            mock.should_receive(:condition).once.with(30)
+
+            mock.should_receive(:reset_condition).with(20)
+            mock.should_receive(:reset_condition).once.with(30)
+            mock.should_receive(:reset_condition).once.with(2)
+
+            State.x = 2
+            engine.process_events
+            State.x = 20
+            engine.process_events
+            State.x = 30
+            engine.process_events
+            State.x = 2
+            engine.process_events
+            State.x = 30
+            engine.process_events
+        end
     end
 end
 

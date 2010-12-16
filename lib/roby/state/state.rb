@@ -267,6 +267,20 @@ module Roby
 	NOT_OVERRIDABLE = %w{class} + instance_methods(false)
 	NOT_OVERRIDABLE_RX = /(?:#{NOT_OVERRIDABLE.join("|")})/
 
+        # Returns the value of the given field
+        #
+        # Unlike #method_missing, it will return nil if the field is not set
+        def get(name)
+            name = name.to_s
+            if @members.has_key?(name)
+                @members[name]
+            else
+                if alias_to = @aliases[name]
+                    get(alias_to)
+                end
+            end
+        end
+
         def method_missing(name, *args, &update) # :nodoc:
 	    name = name.to_s
 

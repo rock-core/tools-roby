@@ -1,6 +1,6 @@
 
 module Roby
-    class StateSpace
+    class ExtendedStruct
         # Create an event which will be emitted everytime some state parameters
         # vary more than the given deltas. The following state parameters are
         # available:
@@ -48,6 +48,41 @@ module Roby
 	    end
 	end
 
+        # Returns a state event that emits the first time the block returns true
+        #
+        # The block is given the value of the specified state value
+        # +state_name+. For instance, with
+        #
+        #   event = State.position.trigger_when(:x) do |value|
+        #       value > 23
+        #   end
+        #
+        # +event+ will be emitted *once* if the X value of the position gets
+        # greater than 23. One can also specify a reset condition with
+        #
+        #   State.position.reset_when(event, :x) do |value|
+        #       value < 20
+        #   end
+        #
+        def trigger_when(state_name = nil, &block)
+            if !block_given?
+                raise ArgumentError, "#trigger_when expects a block"
+            end
+
+            state_name = state_name.to_s if state_name
+            StateConditionEvent.new(self, state_name, block)
+        end
+
+        # Installs a condition at which the event should be reset
+        def reset_when(event, state_name = nil, &block)
+            reset_event = trigger_when(state_name, &block)
+            reset_event.add_causal_link event
+            reset_event.armed = !event.armed?
+            event.on { |ev| reset_event.reset }
+            reset_event.on { |ev| event.reset }
+            nil
+        end
+
         # Returns an event which emits when the given state is reached.
         # For now, the following state variables are available:
         # +t+:: time as a Time object
@@ -56,7 +91,7 @@ module Roby
         def at(options)
             options = validate_options options, :t => nil
             if time = options[:t]
-                TimePointEvent.new(time)
+                trigger_when { Time.now >= time }
             end
         end
     end
@@ -77,7 +112,23 @@ module Roby
     class StateEvent < EventGenerator
         def initialize(*args, &block)
             @disabled = nil
+            @armed = true
             super
+        end
+
+        # If true, this event will be emitted the next time its condition is
+        # met, regardless of the fact that it has already been emitted or not
+        #
+        # Call #reset to set to true after an emission
+        attr_predicate :armed?, true
+
+        # After this call, the event will be emitted the next time its state
+        # condition is met, regardless of the fact that it has already been
+        # emitted or not
+        #
+        # See also #armed?
+        def reset
+            @armed = true
         end
 
         # True if this event is currently active
@@ -93,22 +144,37 @@ module Roby
         # Call to disable this event. When the state events are disabled, they
         # will no more emit.
         def disable; @disabled = true end
+
+        # Emit only if the event is armed
+        def emit(*context) # :nodoc:
+            if armed?
+                @armed = false
+                super
+            end
+        end
     end
 
-    # This event emits itself when the specified time is reached
-    class TimePointEvent < StateEvent
-        # Time at which this event should emit himself
-        attr_reader :time
+    # Implementation of StateSpace#trigger_when
+    class StateConditionEvent < StateEvent
+        attr_reader :state_space
+        attr_reader :variable
+        attr_reader :condition
 
-        # Creates an event which will emit when +time+ is reached
-        def initialize(time)
-            @time = time
-            super
+        def initialize(state_space, variable, condition)
+            @state_space, @variable, @condition =
+                state_space, variable, condition
+            super(false)
         end
 
-        # Called at each cycle by Roby.poll_state_events
-        def poll # :nodoc:
-            if !happened? && Time.now >= time
+        def poll
+            return if !armed?
+
+            if variable
+                value = state_space.get(variable)
+                if value && condition.call(value)
+                    emit
+                end
+            elsif condition.call
                 emit
             end
         end
@@ -155,6 +221,7 @@ module Roby
         # making the event emit at current_value + threshold
 	def reset
 	    @last_value = read
+            super
 	end
 
 	def self.or(spec, base_event)
