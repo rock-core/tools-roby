@@ -101,6 +101,41 @@ class TC_ExecutionEngine < Test::Unit::TestCase
         assert_nothing_raised { process_events }
     end
 
+    def test_propagation_handlers_raises_on_error
+        FlexMock.use do |mock|
+            id = engine.add_propagation_handler do |plan|
+                mock.called
+                raise SpecificException
+            end
+            mock.should_receive(:called).once
+            assert_raises(SpecificException) { process_events }
+        end
+    end
+
+    def test_propagation_handlers_disabled_on_error
+        FlexMock.use do |mock|
+            id = engine.add_propagation_handler :on_error => :disable do |plan|
+                mock.called
+                raise
+            end
+            mock.should_receive(:called).once
+            process_events
+            process_events
+        end
+    end
+
+    def test_propagation_handlers_ignore_on_error
+        FlexMock.use do |mock|
+            id = engine.add_propagation_handler :on_error => :ignore do |plan|
+                mock.called
+                raise
+            end
+            mock.should_receive(:called).twice
+            process_events
+            process_events
+        end
+    end
+
     def test_prepare_propagation
 	g1, g2 = EventGenerator.new(true), EventGenerator.new(true)
 	ev = Event.new(g2, 0, nil)

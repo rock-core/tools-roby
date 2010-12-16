@@ -148,6 +148,7 @@ module Roby
             @process_every   = Array.new
             @waiting_threads = Array.new
             @emitted_events  = Array.new
+            @disabled_handlers = ValueSet.new
 
 	    each_cycle(&ExecutionEngine.method(:call_every))
 
@@ -172,6 +173,47 @@ module Roby
         # The set of events that have been emitted in the current execution
         # cycle
         attr_reader :emitted_events
+
+        # Internal structure used to store a poll block definition provided to
+        # #every or #add_propagation_handler
+        class PollBlockDefinition
+            ON_ERROR = [:raise, :ignore, :disable]
+
+            attr_reader :description
+            attr_reader :handler
+            attr_reader :on_error
+
+            def id; handler.object_id end
+
+            def initialize(description, handler, options)
+                options = Kernel.validate_options options,
+                    :on_error => :raise
+
+                if !PollBlockDefinition::ON_ERROR.include?(options[:on_error].to_sym)
+                    raise ArgumentError, "invalid value '#{options[:on_error]} for the :on_error option. Accepted values are #{ON_ERROR.map(&:to_s).join(", ")}"
+                end
+
+                @description, @handler, @on_error =
+                    description, handler, options[:on_error]
+            end
+
+            def call(engine)
+                handler.call(engine.plan)
+                true
+
+            rescue Exception => e
+                if on_error == :raise
+                    engine.add_framework_error(e, description)
+                    return false
+                elsif on_error == :disable
+                    ExecutionEngine.warn "propagation handler #{description} disabled because of the following error"
+                    Roby.display_exception(ExecutionEngine.logger.io(:warn), e)
+                    return false
+                elsif on_error == :ignore
+                    return true
+                end
+            end
+        end
         
         @propagation_handlers = []
         class << self
@@ -200,18 +242,22 @@ module Roby
             # ExecutionEngine#add_propagation_handler.
             #
             # See also ExecutionEngine.remove_propagation_handler
-            def add_propagation_handler(proc_obj = nil, &block)
-                proc_obj ||= block
-                check_arity proc_obj, 1
-                propagation_handlers << ["propagation handler #{proc_obj}", proc_obj]
-                proc_obj.object_id
+            def add_propagation_handler(options = Hash.new, &block)
+                if options.respond_to?(:call) # for backward compatibility
+                    block, options = options, Hash.new
+                end
+
+                check_arity block, 1
+                new_handler = PollBlockDefinition.new("propagation handler #{block}", block, options)
+                propagation_handlers << new_handler
+                new_handler.id
             end
             
             # This method removes a propagation handler which has been added by
             # ExecutionEngine.add_propagation_handler.  THe +id+ value is the
             # value returned by ExecutionEngine.add_propagation_handler.
             def remove_propagation_handler(id)
-                propagation_handlers.delete_if { |name, p| p.object_id == id }
+                propagation_handlers.delete_if { |p| p.id == id }
                 nil
             end
         end
@@ -237,11 +283,15 @@ module Roby
         # which can be used to remove the propagation handler later.
         #
         # See also #remove_propagation_handler
-        def add_propagation_handler(proc_obj = nil, &block)
-            proc_obj ||= block
-            check_arity proc_obj, 1
-            propagation_handlers << ["propagation handler #{proc_obj}", proc_obj]
-            proc_obj.object_id
+        def add_propagation_handler(options = Hash.new, &block)
+            if options.respond_to?(:call) # for backward compatibility
+                block, options = options, Hash.new
+            end
+
+            check_arity block, 1
+            new_handler = PollBlockDefinition.new("propagation handler #{block}", block, options)
+            propagation_handlers << new_handler
+            new_handler.id
         end
 
         # This method removes a propagation handler which has been added by
@@ -253,7 +303,7 @@ module Roby
         #
         # See also #add_propagation_handler
         def remove_propagation_handler(id)
-            propagation_handlers.delete_if { |name, p| p.object_id == id }
+            propagation_handlers.delete_if { |p| p.id == id }
             nil
         end
 
@@ -482,6 +532,22 @@ module Roby
             end
         end
 
+        # The set of handlers that have been disabled because they raised an
+        # exception
+        attr_reader :disabled_handlers
+
+        # Helper that calls the propagation handlers in +propagation_handlers+
+        # (which are expected to be instances of PollBlockDefinition) and
+        # handles the errors according of each handler's policy
+        def call_propagation_handlers(propagation_handlers)
+            for handler in propagation_handlers
+                next if disabled_handlers.include?(handler)
+                if !handler.call(self)
+                    disabled_handlers << handler
+                end
+            end
+        end
+
         # Calls its block in a #gather_propagation context and propagate events
         # that have been called and/or emitted by the block
         #
@@ -514,12 +580,8 @@ module Roby
                 if scheduler
                     gather_framework_errors('scheduler')          { scheduler.initial_events }
                 end
-                for handler in self.class.propagation_handlers
-                    gather_framework_errors(handler[0]) { handler[1].call(plan) }
-                end
-                for handler in propagation_handlers
-                    gather_framework_errors(handler[0]) { handler[1].call(plan) }
-                end
+                call_propagation_handlers(self.class.propagation_handlers)
+                call_propagation_handlers(self.propagation_handlers)
             end
 
             while !next_step.empty?
@@ -1178,18 +1240,17 @@ module Roby
             now        = engine.cycle_start
             length     = engine.cycle_length
             engine.process_every.map! do |block, last_call, duration|
-                begin
-                    # Check if the nearest timepoint is the beginning of
-                    # this cycle or of the next cycle
-                    if !last_call || (duration - (now - last_call)) < length / 2
-                        block.call
-                        last_call = now
+                # Check if the nearest timepoint is the beginning of
+                # this cycle or of the next cycle
+                if !last_call || (duration - (now - last_call)) < length / 2
+                    if !block.call(engine)
+                        next
                     end
-                rescue Exception => e
-                    engine.add_framework_error(e, "#call_every, in #{block}")
+
+                    last_call = now
                 end
                 [block, last_call, duration]
-            end
+            end.compact!
         end
 
         # A list of threads which are currently waitiing for the control thread
@@ -1215,19 +1276,22 @@ module Roby
         #
         # The returned value is the periodic handler ID. It can be passed to
         # #remove_periodic_handler to undefine it.
-        def every(duration, &block)
+        def every(duration, options = Hash.new, &block)
+            handler = PollBlockDefinition.new("periodic handler #{block}", block, options)
+
             once do
-                block.call
-                process_every << [block, cycle_start, duration]
+                if handler.call(self)
+                    process_every << [handler, cycle_start, duration]
+                end
             end
-            block.object_id
+            handler.id
         end
 
         # Removes a periodic handler defined by #every. +id+ is the value
         # returned by #every.
         def remove_periodic_handler(id)
             execute do
-                process_every.delete_if { |spec| spec[0].object_id == id }
+                process_every.delete_if { |spec| spec[0].id == id }
             end
         end
 
@@ -1678,7 +1742,7 @@ module Roby
     def self.each_cycle(&block); engine.each_cycle(&block) end
 
     # Install a periodic handler on the main engine
-    def self.every(duration, &block); engine.every(duration, &block) end
+    def self.every(duration, options = Hash.new, &block); engine.every(duration, options, &block) end
 
     # True if the current thread is the execution thread of the main engine
     #
