@@ -2220,6 +2220,11 @@ module Roby
             plan.force_replace(self, simulation_task)
             simulation_task
         end
+
+        # Returns a PlanService object for this task
+        def as_service
+            @service ||= (plan.find_plan_service(self) || PlanService.new(self))
+        end
     end
 
     # A special task model which does nothing and emits +success+
