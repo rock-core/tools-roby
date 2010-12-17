@@ -465,7 +465,7 @@ module Roby::TaskStructure
 	        next if parent.finished?
 		next unless parent.self_owned?
 
-		options = parent[child, Hierarchy]
+		options = parent[child, Dependency]
 		success = options[:success]
 		failure = options[:failure]
 
@@ -473,7 +473,6 @@ module Roby::TaskStructure
                 if !has_success
                     has_failure = failure && failure.evaluate(child)
                 end
-
 
                 error = nil
 		if has_success
