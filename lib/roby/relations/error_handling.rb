@@ -11,10 +11,12 @@ module Roby::TaskStructure
 
             if options[:remove_when_done]
                 repairing_task.on :stop do |event|
-                    symbol_set = task[repairing_task, ErrorHandling]
-                    symbol_set.delete(symbol)
-                    if symbol_set.empty?
-                        task.remove_error_handler(repairing_task)
+                    if task.child_object?(repairing_task, ErrorHandling)
+                        symbol_set = task[repairing_task, ErrorHandling]
+                        symbol_set.delete(symbol)
+                        if symbol_set.empty?
+                            task.remove_error_handler(repairing_task)
+                        end
                     end
                 end
             end
