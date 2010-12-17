@@ -40,7 +40,8 @@ module Roby
         def all_sources
             result = ValueSet.new
             sources.each do |ev|
-                result.merge(ev.sources)
+                result << ev
+                result.merge(ev.all_sources)
             end
             result
         end
