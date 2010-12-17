@@ -184,12 +184,18 @@ end
                         explanation.pretty_print(pp)
                         case explanation
                         when Event
-                            pp.text " has been emitted because of the following events"
-                            explanation.all_sources.each do |ev|
-                                pp.breakable
-                                pp.text "< "
-                                ev.pretty_print(pp)
+                            sources = explanation.all_sources
+                            if sources.empty?
+                                pp.text " has been emitted"
+                            else
+                                pp.text " has been emitted because of the following events"
+                                sources.each do |ev|
+                                    pp.breakable
+                                    pp.text "< "
+                                    ev.pretty_print(pp)
+                                end
                             end
+
                         when EventGenerator
                             if value == nil
                                 if explanation.unreachability_reason
