@@ -201,8 +201,8 @@ module Roby
                         original_backtrace[idx + 3] =~ /`each'$/ &&
                         original_backtrace[idx + 4] =~ /`each_handler'$/
 
-                        line.gsub(/:in /, ":in event handler, ")
                         got_user_line = true
+                        line.gsub(/:in /, ":in event handler, ")
                     else
                         is_user = !filter_out.any? { |rx| rx =~ line }
                         got_user_line ||= is_user
