@@ -229,7 +229,6 @@ module Roby
 	    @options = options
 
 	    load_option_hashes(options, %w{log engine discovery droby})
-	    call_plugins(:load, self, options)
 	end
 
 	def load_option_hashes(options, names)
@@ -542,6 +541,7 @@ module Roby
                 file = YAML.load(File.open(file))
                 load_yaml(file)
             end
+            call_plugins(:load, self, options)
             if File.exists?(initfile = File.join(APP_DIR, 'config', 'init.rb'))
                 require initfile
             end
