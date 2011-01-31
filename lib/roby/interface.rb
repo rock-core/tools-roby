@@ -112,6 +112,16 @@ module Roby
 		actions.map { |name| "#{name}!" }
 	end
 
+        # Returns the available actions of this Planner class
+        # and allows access to the actions' signature 
+        def actions_with_signature(with_advanced = false)
+            methods = @interface.actions
+            if !with_advanced
+                methods = methods.find_all {|m| !m.description.advanced? }            
+            end
+            methods
+        end
+
         # Displays a summary of the available actions
         #
         # See #actions for details
