@@ -92,6 +92,34 @@ module Roby
             end
         end
 
+        # Exception raised when an event gets emitted outside its specified
+        # temporal constraints
+        class OccurenceConstraintViolation < LocalizedError
+            attr_reader :parent_generator
+            attr_reader :count
+            attr_reader :allowed_interval
+            attr_reader :since
+
+            def initialize(event, parent_generator, count, allowed_interval, since)
+                super(event)
+                @parent_generator = parent_generator
+                @count = count
+                @allowed_interval = allowed_interval
+                @since = since
+            end
+
+            def pretty_print(pp)
+                pp.text "#{failed_event} has been emitted outside specified constraints"
+                pp.breakable
+                pp.text "  #{parent_generator} has been emitted #{count} times"
+                if since
+                    pp.text " since #{since}"
+                end
+                pp.breakable
+                pp.text "  the constraints on #{failed_generator} specify that it can emit only in the [#{allowed_interval.map(&:to_s).join(", ")}] range"
+            end
+        end
+
         # A representation of a set of disjoint intervals, sorted in increasing
         # order
         class DisjointIntervalSet
@@ -173,6 +201,28 @@ module Roby
             end
         end
 
+        class TemporalConstraintSet < DisjointIntervalSet
+            attr_reader :occurence_constraints
+
+            def initialize
+                super
+
+                @occurence_constraints = {
+                    true  => [0, Infinity],
+                    false => [0, Infinity] }
+            end
+
+            def add_occurence_constraint(min, max, recurrent)
+                existing = occurence_constraints[recurrent]
+                if existing[0] < min
+                    existing[0] = min
+                end
+                if existing[1] > max
+                    existing[1] = max
+                end
+            end
+        end
+
         # This relation maintains a network of temporal constraints between
         # events.
         #
@@ -200,6 +250,8 @@ module Roby
             def find_failed_temporal_constraint(time)
                 each_backward_temporal_constraint do |parent|
                     disjoint_set = parent[self, TemporalConstraints]
+                    next if disjoint_set.intervals.empty?
+
                     if disjoint_set.boundaries[0] < 0
                         # It might be fullfilled in the future
                         next
@@ -233,21 +285,60 @@ module Roby
                 if max < 0
                     return other_event.add_temporal_constraint(self, -max, -min)
                 elsif min < 0
-                    other_event.do_add_temporal_constraint(self, -max, -min)
+                    set = TemporalConstraintSet.new
+                    set.add(-max, -min)
+                    other_event.add_forward_temporal_constraint(self, set)
                 end
-                do_add_temporal_constraint(other_event, min, max)
+
+                set = TemporalConstraintSet.new
+                set.add(min, max)
+                add_forward_temporal_constraint(other_event, set)
             end
 
-            def do_add_temporal_constraint(other_event, min, max)
-                # Check if there are already constraints from self to
-                # other_event. If it is the case, simply update the disjoint set
-                if TemporalConstraints.linked?(self, other_event)
-                    self[other_event, EventStructure::TemporalConstraints].add(min, max)
-                else
-                    set = DisjointIntervalSet.new
-                    set.add(min, max)
-                    add_forward_temporal_constraint(other_event, set)
+            # Adds a constraint on the allowed emission of +other_event+ based
+            # on the existing emissions of +self+
+            #
+            # +min+ and +max+ specify the minimum (resp. maximum) of times
+            # +self+ should be emitted before +other_event+ has the right to be
+            # emitted.
+            #
+            # If +recurrent+ is true, then the min/max values are computed using
+            # the emissions of +self+ since the last emission of +other_event+.
+            # Otherwise, all emissions since the creation of +self+ are taken
+            # into account.
+            def add_occurence_constraint(other_event, min, max = Infinity, recurrent = false)
+                set = TemporalConstraintSet.new
+                set.add_occurence_constraint(min, max, recurrent)
+                add_forward_temporal_constraint(other_event, set)
+            end
+
+            def find_failed_occurence_constraint
+                if history.size > 1
+                    # We are getting called from #fired(event), so we need to
+                    # get the time from the one-before-last event
+                    last_emission = history[-2].time
                 end
+
+                each_backward_temporal_constraint do |parent|
+                    constraints = parent[self, TemporalConstraints]
+                    counts = { false => parent.history.size }
+                    negative_count = parent.history.inject(0) do |count, ev|
+                        break(count) if ev.time > last_emission
+                        count + 1
+                    end
+                    counts[true] = counts[false] - negative_count
+                    counts.each do |recurrent, count|
+                        min_count, max_count = constraints.occurence_constraints[recurrent]
+                        if count < min_count || count > max_count
+                            if recurrent
+                                return [parent, parent.history.size, [min_count, max_count], last_emission]
+                            else
+                                return [parent, parent.history.size, [min_count, max_count]]
+                            end
+                        end
+                    end
+                end
+                nil
             end
 
             # Overloaded to register deadlines that this event's emissions
@@ -260,12 +351,18 @@ module Roby
                 if parent
                     raise TemporalConstraintViolation.new(event, parent, intervals.intervals)
                 end
+                parent, count, allowed_interval, since = find_failed_occurence_constraint
+                if parent
+                    raise OccurenceConstraintViolation.new(event, parent, count, allowed_interval, since)
+                end
 
                 deadlines = plan.emission_deadlines
                 # Remove the deadline that this emission fullfills (if any)
                 deadlines.remove_deadline_for(self, event.time)
                 # Add new deadlines
                 each_forward_temporal_constraint do |target, disjoint_set|
+                    next if disjoint_set.intervals.empty?
+
                     max_diff = disjoint_set.boundaries[1]
                     is_fullfilled = target.history.any? do |target_event|
                         diff = event.time - target_event.time
@@ -283,7 +380,7 @@ module Roby
         # Returns the DisjointIntervalSet that represent the merge of the
         # deadlines represented by +opt1+ and +opt2+
         def TemporalConstraints.merge_info(parent, child, opt1, opt2)
-            result = DisjointIntervalSet.new
+            result = TemporalConstraintSet.new
             if opt1.intervals.size > opt2.intervals.size
                 result.intervals.concat(opt1.intervals)
                 for i in opt2.intervals
@@ -295,6 +392,12 @@ module Roby
                     result.add(*i)
                 end
             end
+
+            result.occurence_constraints.merge!(opt1.occurence_constraints)
+            opt2.occurence_constraints.each do |recurrent, spec|
+                result.add_occurence_constraint(spec[0], spec[1], recurrent)
+            end
+
             result
         end
 

@@ -9,6 +9,55 @@ class TC_TemporalConstraints < Test::Unit::TestCase
     include Roby::Test
     TemporalConstraints = EventStructure::TemporalConstraints
 
+    def test_empty_constraints
+        t1, t2 = prepare_plan :add => 2, :model => Tasks::Simple
+        e1 = t1.start_event
+        e2 = t2.start_event
+
+        set = EventStructure::TemporalConstraintSet.new
+        e1.add_forward_temporal_constraint(e2, set)
+
+        assert !e1.is_temporally_constrained?
+        assert e2.is_temporally_constrained?
+
+        e1.emit
+        assert !e2.find_failed_temporal_constraint(Time.now)
+    end
+
+    def test_occurence_constraint_minmax
+        e1 = Roby::EventGenerator.new(true)
+        e2 = Roby::EventGenerator.new(true)
+        plan.add(e1)
+        plan.add(e2)
+
+        e1.add_occurence_constraint(e2, 1, 2)
+        assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+        e1.emit
+        e2.emit
+        e1.emit
+        e2.emit
+        e1.emit
+        assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+    end
+
+    def test_occurence_constraint_minmax_recurrent
+        e1 = Roby::EventGenerator.new(true)
+        e2 = Roby::EventGenerator.new(true)
+        plan.add(e1)
+        plan.add(e2)
+
+        e1.add_occurence_constraint(e2, 1, 2, true)
+        assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+        e1.emit
+        e2.emit
+        # Counts are reset
+        assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+        e1.emit
+        e1.emit
+        e1.emit
+        assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
+    end
+
     def test_is_temporally_constrained
         t1, t2 = prepare_plan :add => 2
         e1 = t1.start_event
@@ -41,6 +90,16 @@ class TC_TemporalConstraints < Test::Unit::TestCase
         set.add(13, 14)
         set.add(-1.5, 11.5)
         assert_equal [[-5, -3], [-2, 12], [13, 14]], set.intervals
+    end
+
+    def test_empty_disjoint_intervals_included_p
+        set = EventStructure::DisjointIntervalSet.new
+        assert !set.include?(-6)
+        assert !set.include?(-4)
+        assert !set.include?(-2.5)
+        assert !set.include?(-0.5)
+        assert !set.include?(1)
+        assert !set.include?(13)
     end
 
     def test_disjoint_intervals_included_p
