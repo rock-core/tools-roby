@@ -1114,7 +1114,9 @@ module Roby
 		define_method(:poll) do |plan|
 		    return unless self_owned?
                     # Don't call if we are terminating
-                    return if finishing?
+                    return if finished?
+                    # Don't call if we already had an error in the poll block
+                    return if event(:internal_error).happened?
 
 		    begin
 			poll_handler
