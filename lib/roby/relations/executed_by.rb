@@ -259,6 +259,7 @@ module Roby::TaskStructure
 	# Hook into plan discovery to add execution agents to new tasks. 
 	# See ExecutionAgentSpawn.spawn
 	def added_tasks(tasks)
+            super if defined? super
 	    # For now, settle on adding the execution agents only in the
 	    # main plan. Otherwise, it is possible that two transactions
 	    # will try to add two different agents
