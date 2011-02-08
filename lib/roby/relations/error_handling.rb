@@ -33,5 +33,6 @@ module Roby::TaskStructure
 	    nil
 	end
     end
+    ErrorHandling.scheduling = false
 end
 

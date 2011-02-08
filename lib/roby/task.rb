@@ -2291,6 +2291,7 @@ module Roby
 
     unless defined? TaskStructure
 	TaskStructure   = RelationSpace(Task)
+        TaskStructure.default_graph_class = TaskRelationGraph
     end
 
 end

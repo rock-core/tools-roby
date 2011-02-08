@@ -8,8 +8,8 @@ require 'flexmock'
 class TC_Schedulers_Temporal < Test::Unit::TestCase
     include Roby::Test
 
-    def test_scheduling
-        scheduler = Roby::Schedulers::Temporal.new(plan)
+    def test_scheduling_time
+        scheduler = Roby::Schedulers::Temporal.new(true, plan)
 
         t1, t2, t3 = prepare_plan :add => 3, :model => Tasks::Simple
         e1 = t1.start_event
@@ -17,7 +17,7 @@ class TC_Schedulers_Temporal < Test::Unit::TestCase
         e3 = t3.start_event
         t1.executable = false
 
-        e1.add_temporal_constraint(e2, 5, 10)
+        e2.should_emit_after(e1, :min_t => 5, :max_t => 10)
         t2.depends_on t3
 
         FlexMock.use(Time) do |time|

@@ -501,6 +501,24 @@ module Roby
         end
     end
 
+    # Subclass of RelationSpace for tasks.
+    #
+    # It adds attributes that are specific to tasks
+    class TaskRelationGraph < RelationGraph
+        # If true, the tasks that have a parent in this relation will still be
+        # available for scheduling. Otherwise, they won't get scheduled
+        attr_predicate :scheduling?, true
+
+        def initialize(*args)
+            super
+            if options.has_key?(:scheduling)
+                @scheduling = options[:scheduling]
+            else
+                @scheduling = true
+            end
+        end
+    end
+
     # A relation space is a module which handles a list of relations
     # (RelationGraph instances) and applies them to a set of classes.
     # For instance, the TaskStructure relation space is defined by

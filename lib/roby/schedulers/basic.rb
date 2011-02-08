@@ -58,29 +58,42 @@ module Roby
 		    self_owned
 	    end
 
+            def can_start?(task)
+                start_event = task.start_event
+                return if !start_event.controlable?
+                return if !start_event.root?(EventStructure::CausalLink)
+
+                task.each_relation do |r|
+                    return false if !r.scheduling? && !task.root?(r)
+                end
+                true
+            end
+
+            def can_schedule?(task)
+                if !can_start?(task)
+                    return false
+                end
+
+                root_task =
+                    if task.root?(TaskStructure::Dependency)
+                        true
+                    else
+                        planned_tasks = task.planned_tasks
+                        !planned_tasks.empty? &&
+                            planned_tasks.all? { |t| !t.executable? }
+                    end
+
+                root_task ||
+                    (include_children && task.parents.any? { |t| t.running? })
+            end
+
             # Starts all tasks that are eligible. See the documentation of the
             # Basic class for an in-depth description
 	    def initial_events
 		for task in query.reset
-		    if !(task.event(:start).root? && task.event(:start).controlable?)
-                        next
+                    if can_schedule?(task)
+                        task.start!
                     end
-
-                    schedulable = task.root?(TaskStructure::ErrorHandling)
-                    next if !schedulable
-
-                    root_task =
-                        if task.root?(TaskStructure::Dependency)
-                            true
-                        else
-                            planned_tasks = task.planned_tasks
-                            !planned_tasks.empty? &&
-                                planned_tasks.all? { |t| !t.executable? }
-                        end
-
-		    if root_task || (include_children && task.parents.any? { |t| t.running? })
-			task.start!
-		    end
 		end
 	    end
 	end

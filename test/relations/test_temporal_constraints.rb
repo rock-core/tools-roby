@@ -17,8 +17,8 @@ class TC_TemporalConstraints < Test::Unit::TestCase
         set = EventStructure::TemporalConstraintSet.new
         e1.add_forward_temporal_constraint(e2, set)
 
-        assert !e1.is_temporally_constrained?
-        assert e2.is_temporally_constrained?
+        assert !e1.has_temporal_constraints?
+        assert e2.has_temporal_constraints?
 
         e1.emit
         assert !e2.find_failed_temporal_constraint(Time.now)
@@ -31,12 +31,16 @@ class TC_TemporalConstraints < Test::Unit::TestCase
         plan.add(e2)
 
         e1.add_occurence_constraint(e2, 1, 2)
+        assert !e2.meets_temporal_constraints?(Time.now)
         assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
         e1.emit
+        assert e2.meets_temporal_constraints?(Time.now)
         e2.emit
         e1.emit
+        assert e2.meets_temporal_constraints?(Time.now)
         e2.emit
         e1.emit
+        assert !e2.meets_temporal_constraints?(Time.now)
         assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
     end
 
@@ -47,32 +51,38 @@ class TC_TemporalConstraints < Test::Unit::TestCase
         plan.add(e2)
 
         e1.add_occurence_constraint(e2, 1, 2, true)
+        assert !e2.meets_temporal_constraints?(Time.now)
         assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
         e1.emit
+        assert e2.meets_temporal_constraints?(Time.now)
         e2.emit
         # Counts are reset
+        assert !e2.meets_temporal_constraints?(Time.now)
         assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
         e1.emit
+        assert e2.meets_temporal_constraints?(Time.now)
         e1.emit
+        assert e2.meets_temporal_constraints?(Time.now)
         e1.emit
+        assert !e2.meets_temporal_constraints?(Time.now)
         assert_raises(EventStructure::OccurenceConstraintViolation) { e2.emit }
     end
 
-    def test_is_temporally_constrained
+    def test_has_temporal_constraints
         t1, t2 = prepare_plan :add => 2
         e1 = t1.start_event
         e2 = t2.start_event
 
-        assert !e1.is_temporally_constrained?
-        assert !e2.is_temporally_constrained?
+        assert !e1.has_temporal_constraints?
+        assert !e2.has_temporal_constraints?
 
         e1.add_temporal_constraint(e2, 5, 10)
-        assert !e1.is_temporally_constrained?
-        assert e2.is_temporally_constrained?
+        assert !e1.has_temporal_constraints?
+        assert e2.has_temporal_constraints?
 
         e1.add_temporal_constraint(e2, -5, 10)
-        assert e1.is_temporally_constrained?
-        assert e2.is_temporally_constrained?
+        assert e1.has_temporal_constraints?
+        assert e2.has_temporal_constraints?
     end
 
     def test_disjoint_intervals_add
@@ -239,6 +249,27 @@ class TC_TemporalConstraints < Test::Unit::TestCase
 
             e1.emit
             current_time += 12
+            assert_raises(EventStructure::TemporalConstraintViolation) { e2.emit }
+        end
+    end
+
+    def test_temporal_constraint_when_source_did_not_emit_yet
+        e1, e2 = EventGenerator.new(true), EventGenerator.new(true)
+        plan.add(e1)
+        plan.add(e2)
+
+        e1.add_temporal_constraint(e2, 0, 10)
+
+        FlexMock.use(Time) do |time|
+            current_time = Time.now
+            time.should_receive(:now).and_return { current_time }
+
+            e2.emit
+            current_time += 6
+            e1.emit
+            current_time += 6
+            e2.emit
+            current_time += 6
             assert_raises(EventStructure::TemporalConstraintViolation) { e2.emit }
         end
     end

@@ -224,6 +224,65 @@ module Roby
         end
 
         # This relation maintains a network of temporal constraints between
+        # events, that apply on the scheduling of these events
+        #
+        # If the a -> b edge exists in this graph, it specifies that
+        # \c b can be scheduled if and only if \c a can be scheduled *regardless
+        # of the existing temporal constraints that are due to \c b.
+        #
+        # As an example, let's set up a graph in which
+        # * a task ta will be started after a task tb has started *but*
+        # * all temporal constraints that apply on ta also apply on tb.
+        #
+        # The required edges are 
+        #
+        #   tb.success -> ta.start t=[0, Infinity], o=[1, Infinity] in TemporalConstraints
+        #   ta.start -> tb.start in SchedulingConstraints
+        #
+        # The relation code takes care of maintaining the symmetric relationship
+        relation :SchedulingConstraints,
+            :child_name => :forward_scheduling_constraint,
+            :parent_name => :backward_scheduling_constraint,
+            :dag => false do
+
+
+            # True if this event is constrained by the TemporalConstraints
+            # relation in any way
+            def has_scheduling_constraints?
+                return true if has_temporal_constraints? 
+                each_backward_scheduling_constraint do |parent|
+                    return true
+                end
+                false
+            end
+
+            def can_be_scheduled?(time)
+                # We check all scheduling constraints. However, we don't
+                # consider temporal constraints from tasks that also have a
+                # scheduling constraint with us
+
+                # First, check our own temporal constraints
+                if !meets_temporal_constraints?(time)
+                    return false
+                end
+
+                # Now check the temporal constraints of our parents in
+                # SchedulingConstraints. Don't use temporal constraints that
+                # originate from ourselves
+                each_backward_scheduling_constraint do |parent|
+                    can_schedule = parent.meets_temporal_constraints?(time) do |parent|
+                        !SchedulingConstraints.linked?(parent, self)
+                    end
+                    if !can_schedule
+                        return false
+                    end
+                end
+                true
+            end
+
+        end
+
+        # This relation maintains a network of temporal constraints between
         # events.
         #
         # A relation A => B [min, max] specifies that, once the event A is
@@ -236,9 +295,24 @@ module Roby
             :parent_name => :backward_temporal_constraint,
             :dag => false do
 
+            # Shortcut to specify that +self+ should be emitted after
+            # +other_event+
+            def should_emit_after(other_event, options = nil)
+                if options
+                    options = Kernel.validate_options options,
+                        :min_t => nil, :max_t => nil, :recurrent => false
+                    recurrent = options[:recurrent]
+                end
+                other_event.add_occurence_constraint(self, 1, Infinity, recurrent)
+                if options && (options[:min_t] || options[:max_t])
+                    other_event.add_temporal_constraint(self,
+                            options[:min_t] || 0, options[:max_t] || Infinity)
+                end
+            end
+
             # True if this event is constrained by the TemporalConstraints
             # relation in any way
-            def is_temporally_constrained?
+            def has_temporal_constraints?
                 each_backward_temporal_constraint do |parent|
                     return true
                 end
@@ -249,6 +323,10 @@ module Roby
             # constraint the given time fails to meet
             def find_failed_temporal_constraint(time)
                 each_backward_temporal_constraint do |parent|
+                    if block_given?
+                        next if !yield(parent)
+                    end
+
                     disjoint_set = parent[self, TemporalConstraints]
                     next if disjoint_set.intervals.empty?
 
@@ -258,21 +336,21 @@ module Roby
                     end
 
                     max_diff = disjoint_set.boundaries[1]
-                    is_fullfilled = parent.history.any? do |parent_event|
+                    parent.history.each do |parent_event|
                         diff = time - parent_event.time
-                        break if diff > max_diff
+                        if diff > max_diff || !disjoint_set.include?(diff)
+                            return parent, disjoint_set
+                        end
                         disjoint_set.include?(diff)
-                    end
-                    if !is_fullfilled
-                        return parent, disjoint_set
                     end
                 end
                 nil
             end
 
             # Returns true if this event meets its temporal constraints
-            def meets_temporal_constraints?(time)
-                !find_failed_temporal_constraint(time)
+            def meets_temporal_constraints?(time, &block)
+                !find_failed_temporal_constraint(time, &block) &&
+                    !find_failed_occurence_constraint(true, &block)
             end
 
             # Creates a temporal constraint between +self+ and +other_event+.
@@ -293,6 +371,7 @@ module Roby
                 set = TemporalConstraintSet.new
                 set.add(min, max)
                 add_forward_temporal_constraint(other_event, set)
+                set
             end
 
             # Adds a constraint on the allowed emission of +other_event+ based
@@ -312,26 +391,34 @@ module Roby
                 add_forward_temporal_constraint(other_event, set)
             end
 
-            def find_failed_occurence_constraint
-                if history.size > 1
-                    # We are getting called from #fired(event), so we need to
-                    # get the time from the one-before-last event
-                    last_emission = history[-2].time
+            def find_failed_occurence_constraint(next_event)
+                base_event = if next_event then last
+                             else history[-2]
+                             end
+                if base_event
+                    base_time = base_event.time
                 end
-
                 each_backward_temporal_constraint do |parent|
+                    if block_given?
+                        next if !yield(parent)
+                    end
+
                     constraints = parent[self, TemporalConstraints]
                     counts = { false => parent.history.size }
-                    negative_count = parent.history.inject(0) do |count, ev|
-                        break(count) if ev.time > last_emission
-                        count + 1
+                    if base_time
+                        negative_count = parent.history.inject(0) do |count, ev|
+                            break(count) if ev.time > base_time
+                            count + 1
+                        end
+                    else
+                        negative_count = 0
                     end
                     counts[true] = counts[false] - negative_count
                     counts.each do |recurrent, count|
                         min_count, max_count = constraints.occurence_constraints[recurrent]
                         if count < min_count || count > max_count
-                            if recurrent
-                                return [parent, parent.history.size, [min_count, max_count], last_emission]
+                            if recurrent && base_time
+                                return [parent, parent.history.size, [min_count, max_count], base_time]
                             else
                                 return [parent, parent.history.size, [min_count, max_count]]
                             end
@@ -351,7 +438,7 @@ module Roby
                 if parent
                     raise TemporalConstraintViolation.new(event, parent, intervals.intervals)
                 end
-                parent, count, allowed_interval, since = find_failed_occurence_constraint
+                parent, count, allowed_interval, since = find_failed_occurence_constraint(false)
                 if parent
                     raise OccurenceConstraintViolation.new(event, parent, count, allowed_interval, since)
                 end
