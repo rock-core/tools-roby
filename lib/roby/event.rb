@@ -1240,6 +1240,7 @@ module Roby
 
     unless defined? EventStructure
 	EventStructure = RelationSpace(EventGenerator)
+        EventStructure.default_graph_class = EventRelationGraph
     end
 end
 

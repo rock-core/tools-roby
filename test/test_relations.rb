@@ -296,5 +296,31 @@ class TC_Relations < Test::Unit::TestCase
         v.clear_relations
         assert_equal [], v.relations
     end
+
+    def test_event_relation_graph
+	klass = Class.new do
+            attr_accessor :task
+            def initialize(task)
+                @task = task
+            end
+            include Roby::DirectedRelationSupport
+        end
+	space = Roby::RelationSpace(klass)
+        space.default_graph_class = EventRelationGraph
+        r = space.relation :R, :child_name => 'child', :noinfo => true
+
+        ta = Object.new
+        ea = klass.new(ta)
+        tb = Object.new
+        eb = klass.new(tb)
+
+        assert(!r.related_tasks?(ta, tb))
+
+        ea.add_child(eb)
+        assert(r.related_tasks?(ta, tb))
+
+        ea.remove_child(eb)
+        assert(!r.related_tasks?(ta, tb))
+    end
 end
 

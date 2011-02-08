@@ -452,6 +452,50 @@ module Roby
 	attr_accessor :support
     end
 
+    # Subclass of RelationSpace for events. Its main usage is to keep track of
+    # which tasks are related in a given relation through their events.
+    #
+    # I.e. if events 'a' and 'b' are parts of the tasks ta and tb, and 
+    #
+    #   a -> b
+    #
+    # in this relation graph, then 
+    #
+    #   relation.related_tasks?(ta, tb)
+    #
+    # will return true
+    class EventRelationGraph < RelationGraph
+        # The graph of tasks related to each other by their events
+        attr_reader :task_graph
+
+        def initialize(*args)
+            super
+            @task_graph = BGL::Graph.new
+        end
+
+        def __bgl_link(from, to, info)
+            super
+
+            if from.respond_to?(:task) && to.respond_to?(:task)
+                from_task, to_task = from.task, to.task
+                if !task_graph.linked?(from_task, to_task)
+                    task_graph.link(from_task, to_task, nil)
+                end
+            end
+        end
+
+        def unlink(from, to)
+            super
+            if from.respond_to?(:task) && to.respond_to?(:task)
+                task_graph.unlink(from.task, to.task)
+            end
+        end
+
+        def related_tasks?(ta, tb)
+            task_graph.linked?(ta, tb)
+        end
+    end
+
     # A relation space is a module which handles a list of relations
     # (RelationGraph instances) and applies them to a set of classes.
     # For instance, the TaskStructure relation space is defined by
@@ -478,10 +522,14 @@ module Roby
 	attr_reader :relations
 	# The set of classes on which the relations have been applied
 	attr_reader :applied
+        # The default graph class to be used for new relations. Defaults to
+        # RelationGraph
+        attr_accessor :default_graph_class
 
 	def initialize # :nodoc:
 	    @relations = Array.new
 	    @applied   = Array.new
+            @default_graph_class = RelationGraph
 	    super
 	end
 
@@ -626,7 +674,7 @@ module Roby
 			:parent_name => nil,
 			:subsets     => ValueSet.new,
 			:noinfo      => false,
-			:graph       => RelationGraph,
+			:graph       => default_graph_class,
 			:distribute  => true,
 			:dag         => true,
 			:single_child => false,
