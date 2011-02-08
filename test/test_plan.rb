@@ -66,7 +66,7 @@ module TC_PlanStatic
 	assert(!t1.leaf?)
 	plan.remove_object(t2)
         assert_task_state(t2, :removed)
-	assert(t1.leaf?)
+	assert(t1.leaf?(TaskStructure::Dependency))
 	assert(!plan.include?(t2))
 
 	assert(!t1.event(:stop).leaf?(EventStructure::Signal))

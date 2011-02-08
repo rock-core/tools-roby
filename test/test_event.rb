@@ -616,6 +616,12 @@ class TC_Event < Test::Unit::TestCase
 	end
     end
 
+    FakeEvent = Struct.new :propagation_id, :context, :generator, :sources, :time
+    class FakeEvent
+        def add_sources(*args)
+        end
+    end
+
     def test_event_creation
 	# Test for validation of the return value of #event
 	generator = Class.new(EventGenerator) do
@@ -626,12 +632,11 @@ class TC_Event < Test::Unit::TestCase
 
 	generator = Class.new(EventGenerator) do
 	    def new(context); 
-		event_klass = Struct.new :propagation_id, :context, :generator, :sources, :time
-		event_klass.new(plan.engine.propagation_id, context, self, Time.now)
+		FakeEvent.new(plan.engine.propagation_id, context, self, Time.now)
 	    end
 	end.new(true)
 	plan.add(generator)
-	assert_nothing_raised { generator.call(nil) }
+	generator.call(nil)
     end
 
     def test_context_propagation
@@ -1035,7 +1040,7 @@ class TC_Event < Test::Unit::TestCase
 
         source.forward_to target
         source.call
-        assert_equal [source.last], target.last.sources
+        assert_equal [source.last], target.last.sources.to_a
 
     ensure
         GC.enable
@@ -1048,7 +1053,7 @@ class TC_Event < Test::Unit::TestCase
 
         source.signals target
         source.call
-        assert_equal [source.last], target.last.sources
+        assert_equal [source.last], target.last.sources.to_a
 
     ensure
         GC.enable
@@ -1065,7 +1070,7 @@ class TC_Event < Test::Unit::TestCase
         assert(target.pending?)
 
         target.emit
-        assert_equal [source.last], target.last.sources
+        assert_equal [source.last], target.last.sources.to_a
     end
 end
 

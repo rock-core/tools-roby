@@ -200,7 +200,7 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	t1.depends_on t2
 
 	p1 = transaction[t1]
-	assert(p1.leaf?, "#{p1} should have been a leaf, but has the following chilren: #{p1.children.map(&:to_s).join(", ")}")
+	assert(p1.leaf?(TaskStructure::Dependency), "#{p1} should have been a leaf, but has the following chilren: #{p1.children.map(&:to_s).join(", ")}")
 	p2 = transaction[t2]
 	assert_equal([p2], p1.children.to_a)
     end
