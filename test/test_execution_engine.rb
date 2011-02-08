@@ -470,7 +470,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 		raise SpecificException, "bla"
             end
 	end
-	plan.add_permanent(t = model.new)
+	plan.add_permanent(t = model.new(:id => 1))
 
 	assert_original_error(SpecificException, CommandFailed) { t.start! }
 	assert(!t.event(:start).pending?)
@@ -485,7 +485,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 		    emit :start
                 end
 		on(:start) { |ev| mock.handler_called }
-	    end.new
+	    end.new(:id => 2)
 	    plan.add_permanent(t)
 
 	    mock.should_receive(:command_called).once
@@ -494,9 +494,10 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    engine.once { t.start!(nil) }
 	    assert_original_error(SpecificException, CommandFailed) { process_events }
 	    assert(!t.event(:start).pending)
+            assert(t.failed_to_start?)
 	end
 
-	# Check that the task has been garbage collected in the process
+	# Check that the task gets garbage collected in the process
 	assert(! plan.include?(t))
     end
 

@@ -636,13 +636,15 @@ module Roby
 
 	# Returns the set of useful tasks in this plan
 	def locally_useful_tasks
+            to_unmark = task_index.by_state[:finished?] | task_index.by_state[:failed?]
+
 	    # Remove all missions that are finished
-	    for finished_mission in (@missions & task_index.by_state[:finished?])
+	    for finished_mission in (@missions & to_unmark)
 		if !task_index.repaired_tasks.include?(finished_mission)
 		    unmark_mission(finished_mission)
 		end
 	    end
-	    for finished_permanent in (@permanent_tasks & task_index.by_state[:finished?])
+	    for finished_permanent in (@permanent_tasks & to_unmark)
 		if !task_index.repaired_tasks.include?(finished_permanent)
 		    unmark_permanent(finished_permanent)
 		end
