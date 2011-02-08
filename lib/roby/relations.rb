@@ -341,9 +341,14 @@ module Roby
         end
 
 	alias :__bgl_link :link
-	# Reimplemented from BGL::Graph. Unlike this implementation, it is
-	# possible to add an already existing edge if the +info+ parameter
-	# matches.
+
+	# Unlike BGL::Graph#link, it is possible to "add" a link between two
+        # objects that are already linked. Two cases
+        #
+        # * the 'info' parameter is identical, in which case nothing is done
+        # * the 'info' parameter is different. #merge_info is called on the
+        #   relation object. If it returns a non-nil object, then it is used
+        #   as an updated info, otherwise, an error is generated.
 	def link(from, to, info)
 	    if linked?(from, to)
                 old_info = from[to, self]
