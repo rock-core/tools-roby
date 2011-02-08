@@ -793,8 +793,9 @@ module Roby
 	    EOD
 
 	    if options[:single_child]
-                has_add_child_hook = mod.instance_methods(false).include?(:added_child_object)
-                has_remove_child_hook = mod.instance_methods(false).include?(:removed_child_object)
+                existing_methods = mod.instance_methods(false).map(&:to_sym)
+                has_add_child_hook    = existing_methods.include?(:added_child_object)
+                has_remove_child_hook = existing_methods.include?(:removed_child_object)
 
 		mod.class_eval <<-EOD
 		attr_reader :#{options[:child_name]}
