@@ -316,7 +316,7 @@ module Roby
                 from[to, self] = info
             end
 
-	    unless new_relations.empty?
+	    if !new_relations.empty?
 		if from.respond_to?(:adding_child_object)
 		    from.adding_child_object(to, new_relations, info)
 		end
