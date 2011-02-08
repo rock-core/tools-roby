@@ -59,7 +59,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
         plan.structure_checks << failure
 
         engine.run
-        engine.join
+        assert_raises(PhaseMismatch) { engine.join }
         assert_kind_of(PhaseMismatch, error)
 
     ensure
