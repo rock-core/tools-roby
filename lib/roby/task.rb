@@ -156,7 +156,8 @@ module Roby
         def all_task_sources
             result = ValueSet.new
             for ev in task_sources
-                result.merge(ev.generator.task_sources)
+                result << ev
+                result.merge(ev.all_task_sources)
             end
             result
         end

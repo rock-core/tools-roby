@@ -1331,12 +1331,13 @@ class TC_Task < Test::Unit::TestCase
 	plan.add(task)
 
 	task.start!
-	assert_equal([task.event(:start).last], task.event(:start).last.task_sources.to_a)
+	assert_equal([], task.event(:start).last.task_sources.to_a)
 
 	ev = EventGenerator.new(true)
 	ev.forward_to task.event(:specialized_failure)
 	ev.call
-	assert_equal([task.event(:specialized_failure).last], task.event(:stop).last.task_sources.to_a)
+	assert_equal([task.event(:failed).last], task.event(:stop).last.task_sources.to_a)
+	assert_equal([task.event(:specialized_failure).last, task.event(:failed).last].to_value_set, task.event(:stop).last.all_task_sources.to_value_set)
     end
 
     def test_virtual_task
