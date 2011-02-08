@@ -42,7 +42,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     def test_emission_is_forbidden_outside_propagation_phase
         # Temporarily disable logging as we are going to generate a fatal error
         # ..
-        Roby.logger.level = Logger::FATAL
+        Roby.logger.level = Logger::FATAL + 1
 
         plan.add_permanent(task = Tasks::Simple.new)
 
@@ -113,6 +113,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     end
 
     def test_propagation_handlers_disabled_on_error
+        Roby.logger.level = Logger::FATAL
         FlexMock.use do |mock|
             id = engine.add_propagation_handler :on_error => :disable do |plan|
                 mock.called
@@ -445,7 +446,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
     end
 
     def test_failing_once
-	Roby.logger.level = Logger::FATAL
+	Roby.logger.level = Logger::FATAL + 1
 	Roby.app.abort_on_exception = true
 	engine.run
 
