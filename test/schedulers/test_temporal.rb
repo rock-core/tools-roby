@@ -9,7 +9,7 @@ class TC_Schedulers_Temporal < Test::Unit::TestCase
     include Roby::Test
 
     def test_scheduling_time
-        scheduler = Roby::Schedulers::Temporal.new(true, plan)
+        scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
 
         t1, t2, t3 = prepare_plan :add => 3, :model => Tasks::Simple
         e1 = t1.start_event
