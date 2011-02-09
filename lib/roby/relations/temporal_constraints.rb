@@ -246,6 +246,9 @@ module Roby
             :dag => false,
             :noinfo => true do
 
+            def is_scheduled_as(event)
+                event.add_forward_scheduling_constraint(self)
+            end
 
             # True if this event is constrained by the TemporalConstraints
             # relation in any way
@@ -280,8 +283,18 @@ module Roby
                 end
                 true
             end
-
         end
+
+        # Module that implements shortcuts on tasks to use the scheduling
+        # constraints
+        module TaskSchedulingConstraints
+            # Adds a constraint that ensures that the start event of +self+ is
+            # scheduled as the start event of +task+
+            def is_scheduled_as(task)
+                start_event.is_scheduled_as(task.start_event)
+            end
+        end
+        Roby::Task.include TaskSchedulingConstraints
 
         # This relation maintains a network of temporal constraints between
         # events.
@@ -464,6 +477,24 @@ module Roby
                 end
             end
         end
+
+        # Module defining shortcuts on tasks to use the temporal constraints
+        module TaskTemporalConstraints
+            # Ensures that this task is started after +task_or_event+ has
+            # finished (if it is a task) or +task_or_event+ is emitted (if it is
+            # an event)
+            def should_start_after(task_or_event)
+                case task_or_event
+                when Roby::Task
+                    start_event.should_emit_after(task_or_event.stop_event)
+                when Roby::EventGenerator
+                    start_event.should_emit_after(task_or_event)
+                else
+                    raise ArgumentError, "expected a task or an event generator, got #{task_or_event} of class #{task_or_event.class}"
+                end
+            end
+        end
+        Roby::Task.include TaskTemporalConstraints
 
         # Returns the DisjointIntervalSet that represent the merge of the
         # deadlines represented by +opt1+ and +opt2+
