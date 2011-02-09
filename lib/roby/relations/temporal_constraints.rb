@@ -243,7 +243,8 @@ module Roby
         relation :SchedulingConstraints,
             :child_name => :forward_scheduling_constraint,
             :parent_name => :backward_scheduling_constraint,
-            :dag => false do
+            :dag => false,
+            :noinfo => true do
 
 
             # True if this event is constrained by the TemporalConstraints
