@@ -583,6 +583,10 @@ module Roby
 		    end
 		end
 	    end
+
+        rescue Exception
+            cleanup
+            raise
 	end
 
         def setup_drb_server
@@ -650,6 +654,7 @@ module Roby
 	    run_plugins(plugins, &block)
 
         rescue Exception => e
+            cleanup
             Roby.display_exception(STDERR, e)
 	end
 
@@ -675,6 +680,12 @@ module Roby
 		raise
 	    end
 	end
+
+        # The inverse of #setup
+        def cleanup
+            call_plugins(:cleanup, self)
+        end
+
 
 	def stop; call_plugins(:stop, self) end
 
