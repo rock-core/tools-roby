@@ -31,7 +31,7 @@ module Roby
 
         alias __to_s__ to_s
         def to_s # :nodoc:
-            task.to_s
+            "#<service #{task.to_s}>"
         end
 
         # The set of event handlers that have been defined for this service
