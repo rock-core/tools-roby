@@ -257,8 +257,8 @@ module Roby
         #
         # It forwards the call to Task#fire
         def fire(event) # :nodoc:
-            task.fire_event(event)
             super if defined? super
+            task.fired_event(event)
         end
 
         # See EventGenerator#emit_failed
@@ -1395,8 +1395,8 @@ module Roby
         end
 
         # Hook called by TaskEventGenerator#fired when one of this task's events
-        # is fired.
-        def fire_event(event)
+        # has been fired.
+        def fired_event(event)
 	    update_task_status(event)
 	    super if defined? super
         end
