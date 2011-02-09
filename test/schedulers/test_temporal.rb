@@ -46,6 +46,41 @@ class TC_Schedulers_Temporal < Test::Unit::TestCase
             assert t3.running?
         end
     end
+
+    def test_scheduling_constraint
+        scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
+
+        t1, t2, t3 = prepare_plan :add => 3, :model => Tasks::Simple
+        t2.planned_by t3
+        t2.should_start_after(t3)
+        t3.is_scheduled_as(t2)
+
+        t2.should_start_after(t1)
+        t2.executable = false
+
+        2.times do
+            scheduler.initial_events
+            assert(t1.running?)
+            assert(!t2.running?)
+            assert(!t3.running?)
+        end
+
+        t1.success!
+        assert(!t1.running?)
+        2.times do
+            scheduler.initial_events
+            assert(!t2.running?)
+            assert(t3.running?)
+        end
+
+        t2.executable = true
+        t3.success!
+        assert(!t3.running?)
+        2.times do
+            scheduler.initial_events
+            assert(t2.running?)
+        end
+    end
 end
 
 

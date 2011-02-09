@@ -274,9 +274,13 @@ module Roby
                 # SchedulingConstraints. Don't use temporal constraints that
                 # originate from ourselves
                 each_backward_scheduling_constraint do |parent|
-                    can_schedule = parent.meets_temporal_constraints?(time) do |parent|
-                        !SchedulingConstraints.linked?(parent, self)
+                    can_schedule = parent.meets_temporal_constraints?(time) do |ev|
+                        if ev.respond_to?(:task)
+                            ev.task != task &&
+                                !SchedulingConstraints.related_tasks?(ev.task, task)
+                        end
                     end
+
                     if !can_schedule
                         return false
                     end
