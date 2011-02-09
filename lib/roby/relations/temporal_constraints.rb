@@ -213,7 +213,7 @@ module Roby
             end
 
             def add_occurence_constraint(min, max, recurrent)
-                existing = occurence_constraints[recurrent]
+                existing = occurence_constraints[!!recurrent]
                 if existing[0] < min
                     existing[0] = min
                 end
