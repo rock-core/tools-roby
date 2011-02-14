@@ -64,7 +64,7 @@ module Roby
                 return if !start_event.root?(EventStructure::CausalLink)
 
                 task.each_relation do |r|
-                    if !r.scheduling? && !task.root?(r)
+                    if r.respond_to?(:scheduling?) && !r.scheduling? && !task.root?(r)
                         Roby::ExecutionEngine.debug { "#{self}: not scheduling #{task} as it is not root in #{r}, which forbids scheduling" }
                         return false 
                     end
