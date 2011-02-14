@@ -3,8 +3,8 @@ app = Roby.app
 
 robot_name = ARGV.shift
 app.robot robot_name, (ARGV.shift || robot_name)
-app.setup
-begin
+Roby.display_exception do
+    app.setup
     app.run do
         if defined? RUBY_DESCRIPTION
             Robot.info "loaded Roby #{Roby::VERSION} on #{RUBY_DESCRIPTION}"
@@ -25,7 +25,5 @@ begin
 	    end
 	end
     end
-rescue Interrupt
-    Roby.fatal "interrupted"
 end
 

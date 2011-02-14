@@ -584,7 +584,7 @@ module Roby
 		end
 	    end
 
-        rescue Exception
+        rescue Exception => e
             cleanup
             raise
 	end
@@ -653,9 +653,8 @@ module Roby
 	    plugins = self.plugins.map { |_, mod| mod if mod.respond_to?(:run) }.compact
 	    run_plugins(plugins, &block)
 
-        rescue Exception => e
+        ensure
             cleanup
-            Roby.display_exception(STDERR, e)
 	end
 
 	def run_plugins(mods, &block)
@@ -681,11 +680,11 @@ module Roby
 	    end
 	end
 
-        # The inverse of #setup
+        # The inverse of #setup. It gets called either at the end of #run or at
+        # the end of #setup if there is an error during loading
         def cleanup
             call_plugins(:cleanup, self)
         end
-
 
 	def stop; call_plugins(:stop, self) end
 

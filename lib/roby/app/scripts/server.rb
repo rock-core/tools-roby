@@ -1,7 +1,11 @@
 require 'roby/log/server'
 
 app = Roby.app
-app.setup
+
+if Roby.display_exception { app.setup }
+    exit(1)
+end
+
 DRb.start_service "druby://:0"
 
 begin

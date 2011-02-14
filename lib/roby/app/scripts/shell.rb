@@ -19,19 +19,24 @@ app.single
 robot_name = ARGV.shift
 app.robot robot_name, (ARGV.shift || robot_name)
 app.log_autosave = false
-app.setup
+error = Roby.display_exception do
+    app.setup
 
-remote_url ||= app.droby['host']
-remote_url ||= 'localhost'
-if remote_url !~ /:\d+$/
-    if app.droby['host'] && app.droby['host'] =~ /(:\d+)$/
-	remote_url << $1
-    else
-	remote_url << ":#{Roby::Distributed::DEFAULT_DROBY_PORT}"
+    remote_url ||= app.droby['host']
+    remote_url ||= 'localhost'
+    if remote_url !~ /:\d+$/
+        if app.droby['host'] && app.droby['host'] =~ /(:\d+)$/
+            remote_url << $1
+        else
+            remote_url << ":#{Roby::Distributed::DEFAULT_DROBY_PORT}"
+        end
     end
-end
 
-DRb.start_service
+    DRb.start_service
+end
+if error
+    exit(1)
+end
 
 require 'irb'
 require 'irb/ext/save-history'
