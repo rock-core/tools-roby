@@ -630,6 +630,66 @@ module Roby
         end
     end
 
+    # Placeholder that can be used to assign an argument from an object's
+    # attribute, reading the attribute only when the task is started
+    #
+    # This will usually not be used directly. One should use Task.from instead
+    class DelayedArgumentFromObject < BasicObject
+        def initialize(object)
+            @object = object
+            @methods = []
+            @expected_class = Object
+        end
+
+        def of_type(expected_class)
+            @expected_class = expected_class
+            self
+        end
+
+        def evaluate_delayed_argument
+            result = @methods.inject(@object) do |v, m|
+                v.send(m)
+            end
+
+            if !result.kind_of?(@expected_class)
+                throw :no_value
+            end
+            result
+        end
+
+        def method_missing(m, *args, &block)
+            if args.empty? && !block_given?
+                @methods << m
+                self
+            else
+                super
+            end
+        end
+    end
+
+    # Use to specify that a task argument should be initialized from an
+    # object's attribute.
+    #
+    # For instance,
+    #
+    #   task.new(:goal => Roby.from(State).pose.position))
+    #
+    # will set the task's 'goal' argument from State.pose.position *at the
+    # time the task is started*
+    #
+    # It can also be used as default argument values (in which case
+    # Task.from can be used instead of Roby.from):
+    #
+    #   class MyTask < Roby::Task
+    #     argument :goal
+    #
+    #
+    # If expected_class is given, the argument will be initialized only if
+    # the value matches the given class
+    def self.from(object)
+        DelayedArgumentFromObject.new(object)
+    end
+
     # In a plan, Task objects represent the activities of the robot. 
     # 
     # === Task models
@@ -934,6 +994,10 @@ module Roby
                     end
                 end
             end
+        end
+
+        def self.from(object)
+            Roby.from(object)
         end
 
 	# The task name
