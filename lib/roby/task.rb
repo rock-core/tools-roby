@@ -14,9 +14,9 @@ module Roby
     #   # that belong to different class hirerachies.
     #   # 
     #   # One can set up arguments on TaskModelTag the same way than class models:
-    #   CameraDriver.arguments :camera_name
-    #   CameraDriver.arguments :aperture
-    #   CameraDriver.arguments :aperture
+    #   CameraDriver.argument :camera_name
+    #   CameraDriver.argument :aperture
+    #   CameraDriver.argument :aperture
     #
     #   FirewireDriver.include CameraDriver
     #   # FirewireDriver can now be used in relationships where CameraDriver was
@@ -34,19 +34,50 @@ module Roby
 	module ClassExtension
 	    # Returns the list of static arguments required by this task model
 	    def arguments(*new_arguments)
-		new_arguments.each do |arg_name|
-                    arg_name = arg_name.to_sym
-		    argument_set << arg_name.to_sym
-		    unless method_defined?(arg_name)
-			define_method(arg_name) { arguments[arg_name] }
-			define_method("#{arg_name}=") { |value| arguments[arg_name] = value }
-		    end
-		end
+                if new_arguments.empty?
+                    return(@argument_enumerator ||= enum_for(:each_argument_set))
+                end
 
-	       	@argument_enumerator ||= enum_for(:each_argument_set)
+                Roby.warn_deprecated "Roby::Task.arguments(:arg1, :arg2) is deprecated. Use argument(:arg1); argument(:arg2) instead.", 2
+                new_arguments.each do |arg_name|
+                    argument(arg_name)
+                end
+            end
+
+            # Declare one argument
+	    def argument(*new_arguments)
+                if new_arguments.last.kind_of?(Hash)
+                    options = new_arguments.pop
+                end
+                if (new_arguments.size == 2 && !options) || new_arguments.size > 2
+                    Roby.warn_deprecated "Roby::Task.argument(:arg1, :arg2) is deprecated. Use argument(:arg1); argument(:arg2) instead."
+                end
+
+                options = Kernel.validate_options(options || Hash.new, :default => nil)
+
+                new_arguments.each do |arg_name|
+                    arg_name = arg_name.to_sym
+                    argument_set << arg_name
+                    unless method_defined?(arg_name)
+                        define_method(arg_name) { arguments[arg_name] }
+                        define_method("#{arg_name}=") { |value| arguments[arg_name] = value }
+                    end
+
+                    if options.has_key?(:default)
+                        argument_defaults[arg_name] = options[:default]
+                    end
+                end
 	    end
-	    # Declares a set of arguments required by this task model
-	    def argument(*args); arguments(*args) end
+
+            # Returns whether there is a default value for this argument, and
+            # the actual default value
+            def default_argument(argname)
+                each_argument_default(argname.to_sym) do |value|
+                    return true, value
+                end
+                nil
+            end
+
             # The part of +arguments+ that is meaningful for this task model
             def meaningful_arguments(arguments)
                 self_arguments = self.arguments.to_set
@@ -74,6 +105,7 @@ module Roby
 	def initialize(&block)
 	    super do
 		inherited_enumerable("argument_set", "argument_set") { ValueSet.new }
+		inherited_enumerable("argument_default", "argument_defaults", :map => true) { Hash.new }
                 define_or_reuse(:ClassExtension, Module.new)
 
 		self::ClassExtension.include TaskModelTag::ClassExtension
@@ -83,6 +115,7 @@ module Roby
 
 	def clear_model
 	    @argument_set.clear if @argument_set
+	    @argument_defaults.clear if @argument_defaults
 	end
     end
 
@@ -244,6 +277,13 @@ module Roby
         def emitting(context) # :nodoc:
             task.emitting_event(self, context)
             super if defined? super
+        end
+
+        def calling(context)
+            super if defined? super
+            if symbol == :start
+                task.freeze_delayed_arguments
+            end
         end
 
         def called(context)
@@ -489,12 +529,22 @@ module Roby
 
 	attr_reader :task
 	def initialize(task)
-	    @task = task
+	    @task   = task
+            @static = true
 	    super()
 	end
 
-	def writable?(key)
-	    !(has_key?(key) && task.model.arguments.include?(key))
+        def static?
+            @static
+        end
+
+	def writable?(key, value)
+            if has_key?(key)
+                !task.model.arguments.include?(key) ||
+                    fetch(key).respond_to?(:evaluate_delayed_argument) && !value.respond_to?(:evaluate_delayed_argument)
+            else
+                true
+            end
 	end
 
 	def dup; self.to_hash end
@@ -505,14 +555,25 @@ module Roby
 	alias :update! :[]=
 	def []=(key, value)
             key = key.to_sym if key.respond_to?(:to_str)
-	    if writable?(key)
+	    if writable?(key, value)
 		if !task.read_write?
 		    raise OwnershipError, "cannot change the argument set of a task which is not owned #{task} is owned by #{task.owners} and #{task.plan} by #{task.plan.owners}"
 		end
 
+                if value.respond_to?(:evaluate_delayed_argument)
+                    @static = false
+                elsif has_key?(key) && fetch(key).respond_to?(:evaluate_delayed_argument)
+                    update_static = true
+                end
+
 		updating
 		super
 		updated
+
+                if update_static
+                    @static = all? { |k, v| !v.respond_to?(:evaluate_delayed_argument) }
+                end
+                value
 	    else
 		raise ArgumentError, "cannot override task arguments"
 	    end
@@ -522,19 +583,51 @@ module Roby
 
         def [](key)
             key = key.to_sym if key.respond_to?(:to_str)
-            super(key)
+            value = super(key)
+            if !value.respond_to?(:evaluate_delayed_argument)
+                value
+            end
+        end
+
+        # Returns this argument set, but with the delayed arguments evaluated
+        def evaluate_delayed_arguments
+            result = Hash.new
+            each do |key, val|
+                if val.respond_to?(:evaluate_delayed_argument)
+                    catch(:no_value) do
+                        result[key] = val.evaluate_delayed_argument
+                    end
+                else
+                    result[key] = val
+                end
+            end
+            result
         end
 
 	alias :do_merge! :merge!
 	def merge!(hash)
 	    super do |key, old, new|
 		if old == new then old
-		elsif writable?(key) then new
+		elsif writable?(key, new) then new
 		else
 		    raise ArgumentError, "cannot override task argument #{key}: trying to replace #{old} by #{new}"
 		end
 	    end
 	end
+    end
+
+    # Placeholder that can be used as an argument, to delay the assignation
+    # until the task is started
+    #
+    # This will usually not be used directly. One should use Task.from instead
+    class DelayedTaskArgument
+        def initialize(&block)
+            @block = block
+        end
+
+        def evaluate_delayed_argument
+            @block.call
+        end
     end
 
     # In a plan, Task objects represent the activities of the robot. 
@@ -831,6 +924,18 @@ module Roby
 	    arguments.slice(*task_model.arguments)
 	end
 
+        # Called when the start event get called, to resolve the delayed
+        # arguments (if there is any)
+        def freeze_delayed_arguments
+            if !arguments.static?
+                arguments.dup.each do |key, value|
+                    if value.respond_to?(:evaluate_delayed_argument)
+                        __assign_argument__(key, value.evaluate_delayed_argument)
+                    end
+                end
+            end
+        end
+
 	# The task name
 	def name
 	    @name ||= "#{model.name || self.class.name}:0x#{address.to_s(16)}"
@@ -850,6 +955,18 @@ module Roby
 		    end
 	    "#<#{to_s} executable=#{executable?} state=#{state} plan=#{plan.to_s}>"
 	end
+
+        # Internal helper to set arguments by either using the argname= accessor
+        # if there is one, or direct access to the @arguments instance variable
+        def __assign_argument__(key, value) # :nodoc:
+            key = key.to_sym
+            if self.respond_to?("#{key}=")
+                self.send("#{key}=", value)
+            else
+                @arguments[key] = value
+            end
+        end
+
 	
         # Builds a task object using this task model
 	#
@@ -860,18 +977,25 @@ module Roby
         #   is defined, then all terminal events are aliased to +stop+
         def initialize(arguments = Hash.new) #:yields: task_object
 	    super() if defined? super
+	    @model   = self.class
 
 	    @arguments = TaskArguments.new(self)
+            # First assign normal values
             arguments.each do |key, value|
-                if self.respond_to?("#{key}=")
-                    self.send("#{key}=", value)
-                else
-                    @arguments[key] = value
+                __assign_argument__(key, value)
+            end
+            # Now assign default values for the arguments that have not yet been
+            # set
+            model.arguments.each do |argname|
+                next if @arguments.has_key?(argname)
+
+                has_default, default = model.default_argument(argname)
+                if has_default
+                    __assign_argument__(argname, default)
                 end
             end
 
             @success = nil
-	    @model   = self.class
 
             yield(self) if block_given?
 
@@ -1198,8 +1322,18 @@ module Roby
 	
 	# True if all arguments defined by Task.argument on the task model are set.
 	def fully_instanciated?
-	    @fully_instanciated ||= model.arguments.all? { |name| arguments.has_key?(name) }
+            if arguments.static?
+                @fully_instanciated ||= model.arguments.all? do |name|
+                    arguments.has_key?(name)
+                end
+            else
+                actual_arguments = arguments.evaluate_delayed_arguments
+                model.arguments.all? do |name|
+                    actual_arguments.has_key?(name)
+                end
+            end
 	end
+
         # True if at least one argument required by the task model is not set.
         # See Task.argument.
 	def partially_instanciated?; !fully_instanciated? end

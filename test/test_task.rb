@@ -33,13 +33,13 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_arguments_declaration
-	model = Class.new(Task) { arguments :from, :to }
+	model = Class.new(Task) { argument :from; argument :to }
 	assert_equal([], Task.arguments.to_a)
 	assert_equal([:from, :to].to_value_set, model.arguments.to_value_set)
     end
 
     def test_arguments_initialization
-	model = Class.new(Task) { arguments :arg, :to }
+	model = Class.new(Task) { argument :arg; argument :to }
 	plan.add(task = model.new(:arg => 'B'))
 	assert_equal({:arg => 'B'}, task.arguments)
         assert_equal('B', task.arg)
@@ -48,7 +48,7 @@ class TC_Task < Test::Unit::TestCase
 
     def test_arguments_initialization_uses_assignation_operator
 	model = Class.new(Task) do
-            arguments :arg, :to
+            argument :arg; argument :to
 
             undef_method :arg=
             def arg=(value)
@@ -62,7 +62,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_arguments_assignation
-	model = Class.new(Task) { arguments :arg }
+	model = Class.new(Task) { argument :arg }
 	plan.add(task = model.new)
 	task.arguments[:arg] = 'A'
         assert_equal('A', task.arg)
@@ -70,7 +70,7 @@ class TC_Task < Test::Unit::TestCase
     end
     
     def test_arguments_assignation_operator
-	model = Class.new(Task) { arguments :arg }
+	model = Class.new(Task) { argument :arg }
 	plan.add(task = model.new)
         task.arg = 'B'
         assert_equal('B', task.arg)
@@ -78,14 +78,14 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_meaningful_arguments
-	model = Class.new(Task) { arguments :arg }
+	model = Class.new(Task) { argument :arg }
 	plan.add(task = model.new(:arg => 'B', :useless => 'bla'))
 	assert_equal({:arg => 'B', :useless => 'bla'}, task.arguments)
 	assert_equal({:arg => 'B'}, task.meaningful_arguments)
     end
 
     def test_arguments_cannot_override
-	model = Class.new(Task) { arguments :arg }
+	model = Class.new(Task) { argument :arg }
 	plan.add(task = model.new(:arg => 'B', :useless => 'bla'))
 	assert_raises(ArgumentError) { task.arg = 10 }
 
@@ -95,7 +95,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_arguments_partially_instanciated
-	model = Class.new(Task) { arguments :arg0, :arg1 }
+	model = Class.new(Task) { argument :arg0; argument :arg1 }
 	plan.add(task = model.new(:arg0 => 'B', :useless => 'bla'))
 	assert(task.partially_instanciated?)
         task.arg1 = 'C'
@@ -856,7 +856,7 @@ class TC_Task < Test::Unit::TestCase
     end
 	
     class ParameterizedTask < Roby::Task
-        arguments :arg
+        argument :arg
     end
     
     class AbstractTask < Roby::Task
@@ -1075,7 +1075,7 @@ class TC_Task < Test::Unit::TestCase
 	end
 	task_model = Class.new(Task) do
 	    include abstract_task_model
-	    argument :index, :universe
+	    argument :index; argument :universe
 	end
 
 	t1, t2 = task_model.new, task_model.new
@@ -1458,6 +1458,67 @@ class TC_Task < Test::Unit::TestCase
         assert(task.internal_error?)
         assert(task.failed?)
         assert_kind_of EmissionFailed, task.failure_reason
+    end
+
+    def test_argument_static
+        model = Class.new(Roby::Task) do
+            argument 'value', :default => 10
+        end
+        task = model.new
+        assert task.arguments.static?
+    end
+
+    def test_plain_default_argument
+        model = Class.new(Roby::Task) do
+            argument 'value', :default => 10
+        end
+        task = model.new
+        assert_equal 10, task.value
+        assert task.fully_instanciated?
+    end
+    def test_nil_default_argument
+        model = Class.new(Roby::Task) do
+            argument 'value', :default => nil
+        end
+        task = model.new
+        assert_equal nil, task.value
+        assert task.fully_instanciated?
+    end
+    def test_delayed_default_argument
+        has_value = false
+        value = nil
+        block = lambda do
+            if has_value
+                value
+            else
+                throw :no_value
+            end
+        end
+
+        model = Class.new(Roby::Task) do
+            terminates
+            argument 'value', :default => (Roby::DelayedTaskArgument.new(&block))
+        end
+        task = model.new
+        assert !task.arguments.static?
+
+        assert_equal nil, task.value
+        assert !task.fully_instanciated?
+        has_value = true
+        assert_equal nil, task.value
+        assert task.fully_instanciated?
+
+        value = 10
+        assert task.fully_instanciated?
+        has_value = false
+        assert_equal nil, task.value
+        assert !task.fully_instanciated?
+
+        has_value = true
+        plan.add(task)
+        task.start!
+        assert_equal 10, task.arguments[:value]
+        assert_equal 10, task.value
     end
 end
 

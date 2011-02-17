@@ -3,11 +3,12 @@ module Roby
     class PlanningTask < Roby::Task
 	attr_reader :planner, :transaction
 
-	arguments :planner_model, :method_options, :method_name, :planned_model, :planning_owners
-
-        def planning_method
-            arguments[:planning_method]
-        end
+	argument :planner_model
+        argument :method_options
+        argument :method_name
+        argument :planned_model
+        argument :planning_owners
+        argument :planning_method, :default => nil
 
         def self.validate_planning_options(options)
             options = options.dup

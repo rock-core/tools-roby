@@ -146,7 +146,8 @@ class TC_TransactionsProxy < Test::Unit::TestCase
         model = Class.new(Roby::Task)
         other_model = Class.new(model)
         tag   = Roby::TaskModelTag.new do
-            argument :id, :other
+            argument :id
+            argument :other
         end
         model.include(tag)
 

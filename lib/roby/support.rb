@@ -180,9 +180,9 @@ module Roby
     end
     @enable_deprecation_warnings = true
 
-    def self.warn_deprecated(msg)
+    def self.warn_deprecated(msg, caller_depth = 1)
         if enable_deprecation_warnings
-            Roby.warn "Deprecation Warning: #{msg} at #{caller[1]}"
+            Roby.warn "Deprecation Warning: #{msg} at #{caller[1, caller_depth].join("\n")}"
         end
     end
 end
