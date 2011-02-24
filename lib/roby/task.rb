@@ -1147,11 +1147,12 @@ module Roby
 		end
 
                 if !instance_methods.include?(:poll)
-                    handler_id = nil
                     on(:start) do |ev|
                         handler_id = ev.task.plan.engine.add_propagation_handler(method(:poll))
+                        ev.task.instance_variable_set(:@poll_handler_id, handler_id)
                     end
                     on(:stop)  do |ev|
+                        handler_id = ev.task.instance_variable_get(:@poll_handler_id)
                         ev.task.plan.engine.remove_propagation_handler(handler_id)
                     end
                 end
