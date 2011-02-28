@@ -595,7 +595,7 @@ module Roby
             each do |key, val|
                 if val.respond_to?(:evaluate_delayed_argument)
                     catch(:no_value) do
-                        result[key] = val.evaluate_delayed_argument
+                        result[key] = val.evaluate_delayed_argument(task)
                     end
                 else
                     result[key] = val
@@ -625,8 +625,12 @@ module Roby
             @block = block
         end
 
-        def evaluate_delayed_argument
-            @block.call
+        def evaluate_delayed_argument(task)
+            @block.call(task)
+        end
+
+        def pretty_print(pp)
+            pp.text "delayed_argument_from(#{block})"
         end
     end
 
@@ -635,10 +639,11 @@ module Roby
     #
     # This will usually not be used directly. One should use Task.from instead
     class DelayedArgumentFromObject < BasicObject
-        def initialize(object)
+        def initialize(object, weak = false)
             @object = object
             @methods = []
             @expected_class = Object
+            @weak = weak
         end
 
         def of_type(expected_class)
@@ -646,9 +651,16 @@ module Roby
             self
         end
 
-        def evaluate_delayed_argument
-            result = @methods.inject(@object) do |v, m|
-                v.send(m)
+        def evaluate_delayed_argument(task)
+            result = @methods.inject(@object || task) do |v, m|
+                if v.respond_to?(m)
+                    v.send(m)
+                elsif @weak
+                    throw :no_value
+                else
+                    task.failed_to_start!("#{v} has no method called #{m}")
+                    throw :no_value
+                end
             end
 
             if !result.kind_of?(@expected_class)
@@ -664,6 +676,37 @@ module Roby
             else
                 super
             end
+        end
+
+        def ==(other)
+            other.kind_of?(DelayedArgumentFromObject) &&
+                @object.object_id == other.instance_variable_get(:@object).object_id &&
+                @methods == other.instance_variable_get(:@methods)
+        end
+
+        def pretty_print(pp)
+            pp.text "delayed_argument_from(#{@object || 'task'}.#{@methods.map(&:to_s).join(".")})"
+        end
+    end
+
+    # Placeholder that can be used to assign an argument from a state value,
+    # reading the attribute only when the task is started
+    #
+    # This will usually not be used directly. One should use Task.from_state instead
+    #
+    # It differs from DelayedArgumentFromObject as it always filters out
+    # unassigned state values
+    class DelayedArgumentFromState < DelayedArgumentFromObject
+        def initialize(state_object = State, weak = true)
+            super(state_object, weak)
+        end
+
+        def evaluate_delayed_argument(task)
+            result = super
+            if result.kind_of?(ExtendedStruct)
+                throw :no_value
+            end
+            result
         end
     end
 
@@ -681,13 +724,22 @@ module Roby
     # Task.from can be used instead of Roby.from):
     #
     #   class MyTask < Roby::Task
-    #     argument :goal
+    #     argument :goal, :default => from(State).pose.position
+    #   end
     #
-    #
-    # If expected_class is given, the argument will be initialized only if
-    # the value matches the given class
     def self.from(object)
         DelayedArgumentFromObject.new(object)
+    end
+
+    # Use to specify that a task argument should be initialized from a value in
+    # the State
+    #
+    # For instance:
+    #
+    #   task.new(:goal => Roby.from_state.pose.position))
+    #
+    def self.from_state(state_object = State)
+        DelayedArgumentFromState.new(state_object)
     end
 
     # In a plan, Task objects represent the activities of the robot. 
@@ -990,14 +1042,22 @@ module Roby
             if !arguments.static?
                 arguments.dup.each do |key, value|
                     if value.respond_to?(:evaluate_delayed_argument)
-                        __assign_argument__(key, value.evaluate_delayed_argument)
+                        __assign_argument__(key, value.evaluate_delayed_argument(self))
                     end
                 end
             end
         end
 
         def self.from(object)
-            Roby.from(object)
+            if object.kind_of?(Symbol)
+                Roby.from(nil).send(object)
+            else
+                Roby.from(object)
+            end
+        end
+
+        def self.from_state(state_object = State)
+            Roby.from_state(state_object)
         end
 
 	# The task name
@@ -1072,19 +1132,6 @@ module Roby
 	    initialize_events
 	end
 
-
-        # Lists all arguments, that are set to be needed via the :argument 
-        # syntax but are not set.
-        #
-        # This is needed for debugging purposes.
-        def list_unset_arguments # :nodoc:
-            ret = Array.new
-            model.arguments.each { |name| 
-                  if !arguments.has_key?(name) then 
-                     ret << name
-                  end }
-            ret
-        end
 
         # Helper methods which creates all the necessary TaskEventGenerator
         # objects and stores them in the #bound_events map
@@ -1383,18 +1430,30 @@ module Roby
 	    end
 	    super
 	end
+
+        # Lists all arguments, that are set to be needed via the :argument 
+        # syntax but are not set.
+        #
+        # This is needed for debugging purposes.
+        def list_unset_arguments # :nodoc:
+            actual_arguments =
+                if arguments.static?
+                    arguments
+                else
+                    arguments.evaluate_delayed_arguments
+                end
+
+            model.arguments.find_all do |name|
+                !actual_arguments.has_key?(name)
+            end
+        end
 	
 	# True if all arguments defined by Task.argument on the task model are set.
 	def fully_instanciated?
             if arguments.static?
-                @fully_instanciated ||= model.arguments.all? do |name|
-                    arguments.has_key?(name)
-                end
+                @fully_instanciated ||= list_unset_arguments.empty?
             else
-                actual_arguments = arguments.evaluate_delayed_arguments
-                model.arguments.all? do |name|
-                    actual_arguments.has_key?(name)
-                end
+                list_unset_arguments.empty?
             end
 	end
 

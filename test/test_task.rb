@@ -1521,6 +1521,32 @@ class TC_Task < Test::Unit::TestCase
         assert_equal 10, task.value
     end
 
+    def test_delayed_argument_from_task
+        value_obj = Class.new do
+            attr_accessor :value
+        end.new
+
+        klass = Class.new(Roby::Task) do
+            terminates
+            argument :arg, :default => from(:planned_task).arg.of_type(Numeric)
+        end
+
+        planning_task = klass.new
+        planned_task  = klass.new
+        planned_task.planned_by planning_task
+        plan.add(planned_task)
+
+        assert !planning_task.arguments.static?
+        assert !planning_task.fully_instanciated?
+        planned_task.arg = Object.new
+        assert !planning_task.fully_instanciated?
+        plan.force_replace_task(planned_task, (planned_task = klass.new))
+        planned_task.arg = 10
+        assert planning_task.fully_instanciated?
+        planning_task.start!
+        assert_equal 10, planning_task.arg
+    end
+
     def test_delayed_argument_from_object
         value_obj = Class.new do
             attr_accessor :value
