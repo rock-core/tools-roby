@@ -76,8 +76,10 @@ module Roby
             @event_logger   ||= false
 	    if !defined? Roby::State
                 Roby.const_set(:State, StateSpace.new)
+                Roby.const_set(:Conf, StateSpace.new)
             else
                 Roby::State.clear
+                Roby::Conf.clear
 	    end
 
 	    @original_roby_logger_level = Roby.logger.level
