@@ -485,7 +485,6 @@ module Roby
 		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} which is partially instanciated\n" + 
 			"The following arguments were not set: \n" +
 			task.list_unset_arguments.map {|n| "\t#{n}"}.join("\n")+"\n"
-# 						
 	    elsif !plan
 		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} but the task is in no plan"
 	    elsif !plan.executable?
@@ -505,7 +504,6 @@ module Roby
 		raise EventNotExecutable.new(self), "emit(#{symbol}) called on #{task} which is partially instanciated\n" + 
 			"The following arguments were not set: \n" +
 			task.list_unset_arguments.map {|n| "\t#{n}"}.join("\n")+"\n"
-# 						
 	    elsif !plan
 		raise EventNotExecutable.new(self), "emit(#{symbol}) called on #{task} but the task is in no plan"
 	    elsif !plan.executable?
