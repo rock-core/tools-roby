@@ -524,6 +524,19 @@ help                              | this help message                           
             end
         end
 
+        def verify_no_drbobject(object)
+            if object.kind_of?(DRbObject)
+                raise ArgumentError, "found a DRbObject"
+            elsif object.respond_to?(:each)
+                object.each do |*values|
+                    values.each do |v|
+                        verify_no_drbobject(v)
+                    end
+                end
+            end
+        end
+
+
 	# Tries to find a planner method which matches +name+ with +args+. If it finds
 	# one, creates a task planned by a planning task and yields both
 	def method_missing(name, *args)
@@ -538,6 +551,10 @@ help                              | this help message                           
 	    end
 
 	    options = args.first || {}
+            # Verify that all options are properly resolved (i.e. no DrbObject
+            # are lying around)
+            verify_no_drbobject(options)
+
             shell = self
             engine.execute do
                 task, planner = Robot.prepare_action(plan, name, options)
