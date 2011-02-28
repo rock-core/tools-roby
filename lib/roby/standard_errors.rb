@@ -49,7 +49,11 @@ module Roby
         end
 
         def pp_exception(pp, e)
-            pp.text e.message
+            if e.respond_to?(:pretty_print)
+                e.pretty_print(pp)
+            else
+                pp.text e.message
+            end
             pp.breakable
             Roby.pretty_print_backtrace(pp, e.backtrace)
         end
