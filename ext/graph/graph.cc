@@ -78,6 +78,22 @@ VALUE graph_vertices(VALUE self)
 
 /*
  * call-seq:
+ *    graph.empty? => true or false
+ *
+ * Returns whether this graph contains vertices or not
+ */
+static
+VALUE graph_empty_p(VALUE self)
+{
+    RubyGraph& graph = graph_wrapped(self);
+
+    vertex_iterator begin, end;
+    tie(begin, end) = vertices(graph);
+    return (begin == end) ? Qtrue : Qfalse;
+}
+
+/*
+ * call-seq:
  *    graph.each_vertex { |vertex| ... }     => graph
  *
  * Iterates on all vertices in +graph+.
@@ -572,6 +588,7 @@ extern "C" void Init_roby_bgl()
     rb_define_method(bglGraph, "unlink",    RUBY_METHOD_FUNC(graph_unlink), 2);
     rb_define_method(bglGraph, "linked?",   RUBY_METHOD_FUNC(graph_linked_p), 2);
     rb_define_method(bglGraph, "vertices",	RUBY_METHOD_FUNC(graph_vertices), 0);
+    rb_define_method(bglGraph, "empty?",	RUBY_METHOD_FUNC(graph_empty_p), 0);
     rb_define_method(bglGraph, "each_vertex",	RUBY_METHOD_FUNC(graph_each_vertex), 0);
     rb_define_method(bglGraph, "each_edge",	RUBY_METHOD_FUNC(graph_each_edge), 0);
     rb_define_method(bglGraph, "clear",	RUBY_METHOD_FUNC(graph_clear), 0);
