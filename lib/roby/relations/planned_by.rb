@@ -6,14 +6,18 @@ module Roby::TaskStructure
 	def planned_tasks; parent_objects(PlannedBy) end
 	# Set +task+ as the planning task of +self+
         def planned_by(task, options = {})
+            options = Kernel.validate_options options,
+                :replace => false, :optional => false
+
+            allow_replace = options.delete(:replace)
 	    if old = planning_task
-		if options[:replace]
+		if allow_replace
 		    remove_planning_task(old)
 		else
 		    raise ArgumentError, "this task already has a planner"
 		end
 	    end
-	    add_planning_task(task)
+	    add_planning_task(task, options)
         end
     end
 
@@ -21,10 +25,14 @@ module Roby::TaskStructure
     # for which planning has failed
     def PlannedBy.check_structure(plan)
 	result = []
-	PlannedBy.each_edge do |planned_task, planning_task, _|
-	    next unless plan == planning_task.plan && planning_task.failed?
-	    next unless planned_task.pending? && !planned_task.executable? && planned_task.self_owned?
-	    result << Roby::PlanningFailedError.new(planned_task, planning_task)
+	PlannedBy.each_edge do |planned_task, planning_task, options|
+	    next if plan != planning_task.plan
+            next if !planning_task.failed?
+            next if !planned_task.self_owned?
+
+	    if (planned_task.pending? && !planned_task.executable?) || !options[:optional]
+                result << Roby::PlanningFailedError.new(planned_task, planning_task)
+            end
 	end
 
 	result
