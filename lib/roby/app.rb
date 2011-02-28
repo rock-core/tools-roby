@@ -924,7 +924,12 @@ module Roby
 	    streams
 	end
 
-	def self.find_data(name)
+        def find_data(*name)
+            Application.find_data(*name)
+        end
+
+	def self.find_data(*name)
+            name = File.join(*name)
 	    Roby::Conf.datadirs.each do |dir|
 		path = File.join(dir, name)
 		return path if File.exists?(path)
