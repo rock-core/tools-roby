@@ -287,8 +287,10 @@ module Roby
 	def reset
 	    if defined? State
 		State.clear
+                Conf.clear
 	    else
-		Roby.const_set(:State, StateSpace.new)
+		Roby.const_set(:State,  StateSpace.new)
+		Roby.const_set(:Conf, StateSpace.new)
 	    end
 	    call_plugins(:reset, self)
 	end
@@ -482,10 +484,10 @@ module Roby
 		end
 	    end
 
-	    Roby::State.datadirs = []
+	    Roby::Conf.datadirs = []
 	    datadir = File.join(APP_DIR, "data")
 	    if File.directory?(datadir)
-		Roby::State.datadirs << datadir
+		Roby::Conf.datadirs << datadir
 	    end
 	end
 
@@ -559,6 +561,7 @@ module Roby
 	    # user-defined models
             Object.define_or_reuse :Application, Roby::Application
             Object.define_or_reuse :State, Roby::State
+            Object.define_or_reuse :Conf, Roby::Conf
 
 	    # Set up the loaded plugins
 	    call_plugins(:setup, self)
@@ -922,11 +925,11 @@ module Roby
 	end
 
 	def self.find_data(name)
-	    Roby::State.datadirs.each do |dir|
+	    Roby::Conf.datadirs.each do |dir|
 		path = File.join(dir, name)
 		return path if File.exists?(path)
 	    end
-	    raise Errno::ENOENT, "no file #{name} found in #{Roby::State.datadirs.join(":")}"
+	    raise Errno::ENOENT, "no file #{name} found in #{Roby::Conf.datadirs.join(":")}"
 	end
 
 	def self.register_plugin(name, mod, &init)
