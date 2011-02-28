@@ -2,6 +2,10 @@ module Roby::TaskStructure
     relation :PlannedBy, :child_name => :planning_task, 
 	:parent_name => :planned_task, :noinfo => true, :single_child => true do
 
+        # Returns the first child enumerated by planned_tasks. This is a
+        # convenience method that can be used if it is known that the planning
+        # task is only planning for one single task (a pretty common case)
+        def planned_task; planned_tasks.find { true } end
 	# The set of tasks which are planned by this one
 	def planned_tasks; parent_objects(PlannedBy) end
 	# Set +task+ as the planning task of +self+
