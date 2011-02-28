@@ -482,7 +482,7 @@ help                              | this help message                           
 	    task_models = []
 	    engine.execute do
                 Task.all_models.each do |klass|
-                    if klass.name !~ /^Roby::/
+                    if !klass.private_model? && klass.name !~ /^Roby::/
                         task_models << klass
                     end
                 end
