@@ -131,7 +131,7 @@ module Roby
 	    def self.init(data)
 		io = StringIO.new(data)
 		while !io.eof?
-		    yield(Marshal.load(io))
+		    yield(Marshal.load_with_missing_constants(io))
 		end
 	    rescue EOFError
 	    end
@@ -141,8 +141,8 @@ module Roby
             # In the case of the event stream, this is one array dumped with
             # Marshal.dump
 	    def self.decode(data)
-		Marshal.load(data)
-	    end
+                Marshal.load_with_missing_constants(data)
+            end
 
 	    # Read all data read so far in a format suitable to feed to
 	    # #init_stream on the decoding side

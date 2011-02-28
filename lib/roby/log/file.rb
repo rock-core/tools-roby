@@ -264,7 +264,7 @@ module Roby::Log
 	    dump_io	   = StringIO.new("", 'w')
 
 	    loop do
-		cycle = Marshal.load(event_log)
+		cycle = Marshal.load_with_missing_constants(event_log)
 		info               = cycle.last.last
 
 		dump_io.truncate(0)
