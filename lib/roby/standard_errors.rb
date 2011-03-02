@@ -293,9 +293,11 @@ module Roby
 
             if reason
                 reason.pretty_print(pp)
+            elsif failed_event
+                failed_event.pretty_print(pp)
             else
-                :success.to_unbound_task_predicate.explain_static(failed_task).
-                    pretty_print(pp)
+                explanation = :success.to_unbound_task_predicate.explain_static(failed_task)
+                explanation.pretty_print(pp)
             end
         end
     end
