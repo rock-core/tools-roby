@@ -1481,6 +1481,11 @@ module Roby
         # True if the task is finishing, i.e. if a terminal event is pending.
         attr_predicate :finishing?, true
 
+        # True if this task can be reused by some other parts in the plan
+        def reusable?
+            !finished? && !finishing?
+        end
+
         def failed_to_start?; !!@failed_to_start end
 
         def failed_to_start!(reason)
