@@ -76,24 +76,45 @@ module Roby
         end
 
         # call-seq:
-        #   merged_relation(:each_child_object, false, Dependency) do |parent, child|
+        #   merged_relation(enumeration_method, false[, arg1, arg2]) do |self_t, related_t|
         #   end
-        #   merged_relation(:each_child_object, true, Dependency) do |child|
+        #   merged_relation(enumeration_method, true[, arg1, arg2]) do |related_t|
         #   end
         #
-        # Behaves like +enumerator+, but merges all the changes that underlying
-        # transactions may have applied. I.e. it is equivalent to applying
-        # +enumerator+ on the plan that would be the result of the application
-        # of the whole transaction stack
+        # It is assumed that +enumeration_method+ is the name of a method on
+        # +self+ that will yield an object related to +self+.
+        #
+        # This method computes the same set of related objects, but does so
+        # while merging all the changes that underlying transactions may have
+        # applied. I.e. it is equivalent to calling +enumeration_method+ on the
+        # plan that would be the result of the application of the whole
+        # transaction stack
         #
         # If +instrusive+ is false, the edges are yielded at the level they
-        # appear. I.e. both the parent and the child are given, and [parent,
-        # child] may be part of a parent plan of self.plan.
+        # appear. I.e. both +self+ and the related object are given, and
+        # [self_t, related_t] may be part of a parent plan of self.plan. I.e.
+        # +self_t+ is either +self+ itself, or the task that +self+ represents
+        # in a parent plan / transaction.
         #
         # If +instrusive+ is true, the related objects are recursively added to
         # all transactions in the transaction stack, and are given at the end.
         # I.e. only the related object is yield, and it is guaranteed to be
         # included in self.plan.
+        #
+        # For instance,
+        #
+        #   merged_relations(:each_child_object, false) do |parent, child|
+        #      ...
+        #   end
+        #
+        # yields the children of +self+ according to the modifications that the
+        # transactions apply, but may do so in the transaction's parent plans.
+        #
+        #   merged_relations(:each_child_object, true) do |child|
+        #      ...
+        #   end
+        #
+        # Will yield the same set of tasks, but included in +self.plan+.
         def merged_relations(enumerator, intrusive, *args, &block)
             if !block_given?
                 return enum_for(:merged_relations, enumerator, intrusive, *args)
