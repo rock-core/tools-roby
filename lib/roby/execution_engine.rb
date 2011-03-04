@@ -565,6 +565,14 @@ module Roby
 
             initial_set = []
             next_step = gather_propagation do
+                gather_framework_errors('garbage collected tasks') do
+                    for task in @gc_task_stop_set
+                        ExecutionEngine.info { "GC: stopping #{task}" }
+                        task.stop!(nil)
+                    end
+                    @gc_task_stop_set.clear
+                end
+
                 gather_framework_errors('initial set setup')  { yield(initial_set) } if block_given?
                 gather_framework_errors('distributed events') { Roby::Distributed.process_pending }
                 gather_framework_errors('delayed events')     { execute_delayed_events }
@@ -1198,10 +1206,6 @@ module Roby
                                 plan.quarantine(local_task)
                             else
                                 finishing << local_task
-                                once do
-                                    ExecutionEngine.info { "GC: stopping #{local_task}" }
-                                    local_task.stop!(nil)
-                                end
                             end
                         else
                             ExecutionEngine.warn "GC: ignored #{local_task}, it cannot be stopped"
@@ -1216,6 +1220,8 @@ module Roby
                     end
                 end
             end
+
+            @gc_task_stop_set = finishing
 
             plan.unneeded_events.each do |event|
                 plan.remove_object(event)
@@ -1462,6 +1468,7 @@ module Roby
 	    @last_stop_count = 0
 	    @cycle_start  = Time.now
 	    @cycle_index  = 0
+            @gc_task_stop_set = ValueSet.new
 
 	    gc_enable_has_argument = begin
 					 GC.enable(true)
