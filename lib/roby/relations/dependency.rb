@@ -174,7 +174,7 @@ module Roby::TaskStructure
         # In both error cases, a +ChildFailedError+ exception is raised.
         def depends_on(task, options = {})
             options = validate_options options, 
-		:model => [task.model, task.meaningful_arguments], 
+		:model => [task.provided_services, task.meaningful_arguments], 
 		:success => :success.to_unbound_task_predicate, 
 		:failure => false.to_unbound_task_predicate,
 		:remove_when_done => true,

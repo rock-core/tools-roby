@@ -2283,18 +2283,54 @@ module Roby
 	    ancestors.find_all { |m| m.instance_of?(TaskModelTag) }
 	end
 
+        # The list of Task and/or tag classes that represent the services this
+        # task provides
+        #
+        # By default, it is [model], i.e. the task's class itself
+        def provided_services
+            self.class.provided_services
+        end
+
+        # The list of Task and/or tag classes that represent the services this
+        # task model
+        #
+        # By default, it is [self], i.e. the task model itself
+        def self.provided_services
+            [self]
+        end
+
 	# The fullfills? predicate checks if this task can be used
 	# to fullfill the need of the given +model+ and +arguments+
 	# The default is to check if
 	#   * the needed task model is an ancestor of this task
 	#   * the task 
 	#   * +args+ is included in the task arguments
-	def fullfills?(models, args = {})
+	def fullfills?(models, args = nil)
+            if !models.respond_to?(:each)
+                models = [*models]
+            elsif !models.respond_to?(:to_ary)
+                models = models.to_a
+            end
+
+            models.map! do |m|
+                if m.kind_of?(Task)
+                    if !args
+                        args = m.meaningful_arguments
+                    end
+                    m = m.provided_services
+                elsif m.respond_to?(:provided_services)
+                    m.provided_services
+                else
+                    m
+                end
+            end.flatten!
+
+            args ||= Hash.new
+
 	    if models.kind_of?(Task)
-		klass, args = 
-		    models.model, 
+		models, args = 
+		    models.provided_services, 
 		    models.meaningful_arguments
-		models = [klass]
 	    else
 		models = [*models]
 	    end

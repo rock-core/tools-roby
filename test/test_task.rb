@@ -1101,6 +1101,28 @@ class TC_Task < Test::Unit::TestCase
 	assert(t3.fullfills?(t1))
     end
 
+    def test_fullfill_using_provided_services
+        tag = TaskModelTag.new
+        proxy_model = Class.new(Task) do
+            include tag
+
+            @tag = tag
+            class << self
+                define_method(:provided_services) do
+                    [@tag]
+                end
+            end
+        end
+        real_model = Class.new(Task) do
+            include tag
+        end
+
+        t1, t2  = real_model.new, proxy_model.new
+        assert(t1.fullfills?(t2))
+        assert(t1.fullfills?([t2]))
+        assert(t1.fullfills?(tag))
+    end
+
     def test_related_tasks
 	t1, t2, t3 = (1..3).map { Tasks::Simple.new }.
 	    each { |t| plan.add(t) }
