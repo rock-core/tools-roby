@@ -794,6 +794,22 @@ class TC_Transactions < Test::Unit::TestCase
 	assert(t1.event(:start).child_object?(t2.event(:start), Roby::EventStructure::Forwarding))
 	assert(t1.event(:start).child_object?(t3.event(:start), Roby::EventStructure::Signal))
     end
+
+    def test_state_index
+	t1, t2, t3 = (1..3).map { Tasks::Simple.new }
+
+        plan.add(t1)
+        plan.add(t2)
+        plan.add(t3)
+        t2.start!
+        t3.start!
+        t3.stop!
+	transaction_commit(plan, t1, t2, t3) do |trsc, p1, p2, p3|
+            assert(trsc.task_index.by_state[:pending?].include?(p1))
+            assert(trsc.task_index.by_state[:running?].include?(p2))
+            assert(trsc.task_index.by_state[:finished?].include?(p3))
+	end
+    end
 end
 
 class TC_RecursiveTransaction < Test::Unit::TestCase

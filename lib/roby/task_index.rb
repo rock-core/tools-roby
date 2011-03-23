@@ -31,7 +31,11 @@ module Roby
 	    for klass in task.model.ancestors
 		by_model[klass] << task
 	    end
-	    by_state[:pending?] << task
+            for pred in STATE_PREDICATES
+                if task.send(pred)
+                    by_state[pred] << task
+                end
+            end
 	    for owner in task.owners
 		add_owner(task, owner)
 	    end
