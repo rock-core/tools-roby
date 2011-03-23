@@ -134,6 +134,7 @@ module Roby
             @plan = plan
             plan.engine = self
             @control = control
+            @gc_task_stop_set = ValueSet.new
 
             @propagation = nil
             @propagation_id = 0
@@ -1468,7 +1469,7 @@ module Roby
 	    @last_stop_count = 0
 	    @cycle_start  = Time.now
 	    @cycle_index  = 0
-            @gc_task_stop_set = ValueSet.new
+            @gc_task_stop_set.clear
 
 	    gc_enable_has_argument = begin
 					 GC.enable(true)
