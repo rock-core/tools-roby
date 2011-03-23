@@ -382,7 +382,15 @@ module Roby
             handle_force_replace(from, to) do
                 # Check that +to+ is valid in all hierarchy relations where +from+ is a child
                 if !to.fullfills?(*from.fullfilled_model)
-                    raise InvalidReplace.new(from, to), "task #{to} does not fullfill #{from.fullfilled_model}"
+                    models = from.fullfilled_model.first
+                    missing = models.find_all do |m|
+                        !to.fullfills?(m)
+                    end
+                    if missing.empty?
+                        raise InvalidReplace.new(from, to), "argument mismatch from #{from.fullfilled_model.last} to #{to.arguments}"
+                    else
+                        raise InvalidReplace.new(from, to), "missing provided models #{missing.map(&:name).join(", ")}"
+                    end
                 end
 
                 # Swap the subplans of +from+ and +to+
