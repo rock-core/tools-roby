@@ -2330,6 +2330,10 @@ module Roby
         end
 
 	def can_merge?(target)
+            if finished? || target.finished?
+                return false
+            end
+
 	    target_model = target.fullfilled_model
 	    if !fullfills?(target_model.first)
 		return false
