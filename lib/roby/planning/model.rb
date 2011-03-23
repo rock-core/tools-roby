@@ -12,12 +12,37 @@ module Roby
             end
         end
 
+        # Structure that stores the information about planning method arguments
+        #
+        # See MethodDescription
         MethodArgDescription = Struct.new :name, :doc, :required
+
+        # Description of a single planning method
+        #
+        # This is usually not created manually, but created in a planner model
+        # using #description:
+        #
+        #   class MyPlanner < Roby::Planning::Planner
+        #     description('the following method does this and that').
+        #       required_arg('arg1', 'this argument is required').
+        #       optional_arg('arg2', 'but this one can be omitted')
+        #     method('the_planning_method') do
+        #       Roby::Task.new
+        #     end
+        #   end
+        #
         class MethodDescription
+            # The method description
             attr_reader :doc
-
+            # The description of the method arguments, as an array of
+            # MethodArgDescription instances
             attr_reader :arguments
-
+            ##
+            # :method:advanced?
+            #
+            # If true, the method is flagged as advanced. I.e., it won't be
+            # listed by default in the shell when the 'actions' command is
+            # called
             attr_predicate :advanced?
 
             def initialize(doc = nil)
@@ -25,14 +50,17 @@ module Roby
                 @arguments = []
             end
 
+            # Documents a new required argument to the method
             def required_arg(name, doc)
                 arguments << MethodArgDescription.new(name, doc, true)
                 self
             end
+            # Documents a new optional argument to the method
             def optional_arg(name, doc)
                 arguments << MethodArgDescription.new(name, doc, false)
                 self
             end
+            # Sets the advanced flag to true. See #advanced?
             def advanced
                 @advanced = true 
                 self
@@ -137,6 +165,14 @@ module Roby
         end
 
         # An implementation of a planning method.
+        #
+        # This is usually not created manually, but by calling Planner.method
+        #
+        #  class MyPlanner < Roby::Planning::Planner
+        #    method(:my_planning_method) do
+        #    end
+        #  end
+        #
         class MethodDefinition
             include MethodInheritance
 
