@@ -96,7 +96,11 @@ module Roby
                        end
 
                 if display.show_ownership
-                    name << Roby::BasicObject::DRoby.owners_to_s
+                    owners = self.owners.dup
+                    owners.delete_if { |o| o.remote_name == "log_replay" }
+                    if !owners.empty?
+                        name << "[#{owners.map(&:name).join(", ")}]"
+                    end
                 end
                 name.join("\n")
             end
@@ -181,7 +185,11 @@ module Roby
             def display_name(display)
                 name = display.filter_prefixes(model.ancestors[0].name.dup)
                 if display.show_ownership
-                    name << "\n#{Roby::BasicObject::DRoby.owners_to_s(self)}"
+                    owners = self.owners.dup
+                    owners.delete_if { |o| o.remote_name == "log_replay" }
+                    if !owners.empty?
+                        name << "\n[#{owners.map(&:name).join(", ")}]"
+                    end
                 end
                 name
             end
