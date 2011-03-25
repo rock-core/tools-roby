@@ -49,7 +49,7 @@ module Roby
             end
 
             def local_model(parent_model, name, &block)
-                new_model = super
+                new_model = Roby::Distributed::DRobyModel.anon_model_factory(parent_model, name, false)
                 if new_model <= Roby::Task && !new_model.has_ancestor?(PlanReplayTaskModel)
                     new_model.include(PlanReplayTaskModel)
                 end

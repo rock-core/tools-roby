@@ -403,11 +403,15 @@ module Roby
 		    ancestors == other.ancestors
 	    end
 
-            def self.anon_model_factory(parent_model, name)
+            def self.anon_model_factory(parent_model, name, add_anonmodel = true)
                 Class.new(parent_model) do
                     singleton_class.class_eval do
                         define_method(:remote_name) { name }
-                        define_method(:name) { "AnonModel(#{remote_name})" }
+                        if add_anonmodel
+                            define_method(:name) { "AnonModel(#{remote_name})" }
+                        else
+                            define_method(:name) { remote_name }
+                        end
                     end
                 end
             end
