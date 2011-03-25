@@ -2,13 +2,6 @@ require 'set'
 require 'utilrb/array/to_s'
 require 'utilrb/socket/tcp_socket'
 
-require 'roby'
-require 'roby/state'
-require 'roby/planning'
-require 'roby/distributed/notifications'
-require 'roby/distributed/proxy'
-require 'roby/distributed/communication'
-
 module Roby
     class ExecutionEngine; include DRbUndumped end
 end

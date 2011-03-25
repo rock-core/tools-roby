@@ -1,5 +1,3 @@
-require 'roby'
-require 'roby/distributed/protocol'
 module Roby
     class BasicObject::DRoby
         # The set of remote siblings for that object, as known by the peer who

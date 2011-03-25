@@ -1,7 +1,3 @@
-require 'roby'
-require 'roby/distributed/distributed_object'
-require 'roby/distributed/proxy'
-
 module Roby
     module Distributed
 	class << self

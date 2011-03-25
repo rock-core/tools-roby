@@ -1,5 +1,3 @@
-require 'roby/log/logger'
-require 'roby/distributed'
 require 'tempfile'
 require 'fileutils'
 

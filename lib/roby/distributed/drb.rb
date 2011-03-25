@@ -1,7 +1,6 @@
 require 'rinda/rinda'
 require 'rinda/ring'
-
-require 'roby/distributed/protocol'
+require 'rinda/tuplespace'
 
 #  This file contains extension to dRuby and Rinda classes which are needed to 
 # make Distributed Roby work

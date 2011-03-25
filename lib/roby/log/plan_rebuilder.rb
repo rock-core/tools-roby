@@ -1,4 +1,4 @@
-require 'roby/distributed/protocol'
+require 'roby/distributed'
 require 'roby/log/data_stream'
 require 'stringio'
 

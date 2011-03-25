@@ -2,6 +2,7 @@ require 'roby'
 require 'stringio'
 require 'roby/planning'
 require 'roby_marshalling'
+require 'roby/distributed/peer'
 require 'roby/distributed/drb'
 require 'roby/distributed/protocol'
 require 'roby/distributed/base'
@@ -9,8 +10,9 @@ require 'roby/distributed/base'
 require 'roby/distributed/proxy'
 require 'roby/distributed/connection_space'
 require 'roby/distributed/notifications'
-require 'roby/distributed/peer'
+require 'roby/distributed/distributed_object'
 require 'roby/distributed/transaction'
+require 'roby/distributed/communication'
 
 # == Communication protocol (and code namespace structure)
 # == Getting remote objects

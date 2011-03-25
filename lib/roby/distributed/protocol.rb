@@ -1,10 +1,7 @@
 require 'drb'
 require 'set'
-require 'rinda/tuplespace'
 require 'utilrb/value_set'
 require 'roby_marshalling'
-
-require 'roby'
 
 class NilClass
     def droby_dump(dest); nil end

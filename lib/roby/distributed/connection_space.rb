@@ -4,9 +4,6 @@ require 'utilrb/time/to_hms'
 require 'utilrb/kernel/options'
 require 'utilrb/socket/tcp_server'
 
-require 'roby/distributed/drb'
-require 'roby/distributed/peer'
-
 module Roby
     module Distributed
         # A neighbour is a [name, remote_id] tuple, where +name+ is the name of
