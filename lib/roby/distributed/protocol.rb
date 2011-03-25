@@ -9,14 +9,14 @@ end
 class Array
     def proxy(peer) # :nodoc:
 	map do |element| 
-	    catch(:ignore_this_call) { peer.proxy(element) }
+	    catch(:ignore_this_call) { peer.local_object(element) }
 	end
     end
 end
 class Hash
     def proxy(peer) # :nodoc:
 	inject({}) do |h, (k, v)| 
-	    h[peer.proxy(k)] = catch(:ignore_this_call) { peer.proxy(v) }
+	    h[peer.local_object(k)] = catch(:ignore_this_call) { peer.local_object(v) }
 	    h
 	end
     end
@@ -24,14 +24,14 @@ end
 class Set
     def proxy(peer) # :nodoc:
 	map do |element| 
-	    catch(:ignore_this_call) { peer.proxy(element) }
+	    catch(:ignore_this_call) { peer.local_object(element) }
 	end.to_set
     end
 end
 class ValueSet
     def proxy(peer) # :nodoc:
 	map do |element| 
-	    catch(:ignore_this_call) { peer.proxy(element) }
+	    catch(:ignore_this_call) { peer.local_object(element) }
 	end.to_value_set
     end
 end
@@ -135,7 +135,7 @@ module Roby
 	    def self.setup_matcher(matcher, args)
 		model, args, predicates, neg_predicates, owners = *args
 		model  = model.proxy(nil) if model
-		owners = owners.map { |peer| peer.proxy(nil) } if owners
+		owners = owners.map { |peer| peer.local_object(nil) } if owners
 		args   = args
 
 		matcher = matcher.with_model(model).with_arguments(args || {})
