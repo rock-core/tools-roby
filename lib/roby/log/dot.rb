@@ -209,15 +209,12 @@ module Roby
 			next
 		    end
 
-                    puts line
-
 		    case full_line
 		    when /(\w+) \[.*pos="([\d\.]+),([\d\.]+)"/
 			object_pos[$1] = Qt::PointF.new(Float($2), Float($3))
 		    when /subgraph cluster_(\w+)/
 			current_graph_id = $1
 		    when /graph \[bb="([\.\d]+),([\d\.]+),([\d\.]+),([\d\.]+)"\]/
-                        puts "BB"
 			bb = [$1, $2, $3, $4].map do |c|
 			    c = Float(c)
 			end
