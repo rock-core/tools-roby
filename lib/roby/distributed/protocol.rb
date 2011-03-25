@@ -422,12 +422,31 @@ module Roby
 		name, id = ancestors.shift
 		if !id.kind_of?(Distributed::RemoteID)
 		    # this is a local task model
-		    id
-		elsif name && !name.empty? && model = (constant(name) rescue nil)
-		    model
-		elsif model = @@remote_to_local[id]
-		    model
-		elsif !ancestors.empty?
+		    return id
+                elsif model = @@remote_to_local[id]
+		    return model
+                end
+
+		if name && !name.empty?
+                    names = name.split('::')
+                    # Look locally for the constant listed in the name
+                    obj = Object
+                    while subname = names.shift
+                        if obj.const_defined_here?(subname)
+                            obj = obj.const_get(subname)
+                        else
+                            obj = nil
+                            break
+                        end
+                    end
+                    if obj
+                        @@remote_to_local[id] = obj
+                        @@local_to_remote[model] = [name, id]
+                        return obj
+                    end
+                end
+
+		if !ancestors.empty?
 		    parent_model = local_model(ancestors)
 		    model = unknown_model_factory[parent_model, name]
 		    @@remote_to_local[id] = model
