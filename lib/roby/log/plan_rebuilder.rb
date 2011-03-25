@@ -151,7 +151,18 @@ module Roby
 
 	    def local_object(object, create = true)
 		return nil unless object
-		manager.local_object(object, create)
+
+                if object.kind_of?(Roby::Task::Proxying::DRoby)
+                    throw :ignored
+                end
+                if object.kind_of?(Roby::TaskEventGenerator::DRoby) && object.task.kind_of?(Roby::Task::Proxying::DRoby)
+                    throw :ignored
+                end
+                manager.local_object(object, create)
+
+            rescue Roby::Distributed::MissingProxyError
+                puts "WARN: ignoring missing proxy error, probably due to the fact that we ignore transactions completely"
+                throw :ignored
 	    end
 
 	    def clear_integrated
@@ -210,15 +221,15 @@ module Roby
 		plan.remove_object(task)
 	    end
 	    def added_transaction(time, plan, trsc)
-		plan = local_object(plan)
-		trsc = local_object(trsc, true)
-                plans << trsc
+		# plan = local_object(plan)
+		# trsc = local_object(trsc, true)
+                # plans << trsc
 	    end
 	    def removed_transaction(time, plan, trsc)
-		plan = local_object(plan)
-		trsc = local_object(trsc)
-		trsc.clear_finalized(trsc.finalized_tasks, trsc.finalized_events)
-		plans.delete(trsc)
+		# plan = local_object(plan)
+		# trsc = local_object(trsc)
+		# trsc.clear_finalized(trsc.finalized_tasks, trsc.finalized_events)
+		# plans.delete(trsc)
 	    end
 
 	    GENERATOR_TO_STATE = { :start => :started,
