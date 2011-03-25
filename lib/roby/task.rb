@@ -2038,6 +2038,10 @@ module Roby
         # The +only_wrapped+ flag is here for consistency with transaction
         # proxies, and should probably not be used in user code.
         def each_event(only_wrapped = true) # :yield:bound_event
+            if !block_given?
+                return enum_for(:each_event, only_wrapped)
+            end
+
 	    for _, ev in bound_events
 		yield(ev)
 	    end
