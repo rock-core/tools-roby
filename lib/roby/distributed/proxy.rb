@@ -261,7 +261,7 @@ module Roby
 
             # Updates an already existing proxy using the information contained
             # in this object.
-	    def update(peer, task)
+	    def update(object_manager, task)
 		super
 
 		task.started  = flags[:started]
@@ -269,7 +269,7 @@ module Roby
 		task.success  = flags[:success]
 
 		if task.mission? != flags[:mission]
-		    plan = peer.local_object(self.plan) || peer.connection_space.plan
+		    plan = object_manager.local_object(self.plan) || object_manager.plan
 		    if plan.owns?(task)
 			if flags[:mission]
 			    plan.add_mission(task)
@@ -281,8 +281,8 @@ module Roby
 		    end
 		end
 
-		task.arguments.merge!(peer.proxy(arguments))
-		task.instance_variable_set("@data", peer.proxy(data))
+		task.arguments.merge!(object_manager.local_object(arguments))
+		task.instance_variable_set("@data", object_manager.local_object(data))
 	    end
 	end
     end
@@ -309,7 +309,7 @@ module Roby
 	    def initialize(peer, id); @peer, @id = peer, id end
             # Create a new proxy which maps the object of +peer+ represented by
             # this communication intermediate.
-	    def proxy(peer); peer.connection_space.plan end
+	    def proxy(object_manager); object_manager.plan end
 	    def to_s # :nodoc:
                 "#<dRoby:Plan #{id.to_s(peer)}>" 
             end
