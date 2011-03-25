@@ -160,7 +160,7 @@ module Roby
 
 			return object
 		    end
-		    raise ArgumentError, "#{self} has no proxy"
+		    raise MissingProxyError.new(self), "#{self} has no proxy"
 		else
 		    object
 		end

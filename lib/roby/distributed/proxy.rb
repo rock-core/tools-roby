@@ -47,7 +47,7 @@ module Roby
 
 		if current = proxy.remote_siblings[peer_sibling]
 		    if current != remote_id && peer_sibling != Roby::Distributed
-			raise "inconsistency for sibling on #{peer_sibling}: #{proxy} has #{current} while #{self} has #{remote_id}"
+			raise Roby::Distributed::SiblingMismatch.new(proxy, peer_sibling, remote_id), "inconsistency for sibling on #{peer_sibling}: #{proxy} has #{current} while #{self} has #{remote_id}"
 		    end
 		else
 		    proxy.sibling_of(remote_id, peer_sibling)

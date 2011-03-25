@@ -6,6 +6,7 @@ require 'roby/distributed/peer'
 require 'roby/distributed/drb'
 require 'roby/distributed/protocol'
 require 'roby/distributed/base'
+require 'roby/distributed/exceptions'
 
 require 'roby/distributed/proxy'
 require 'roby/distributed/connection_space'
