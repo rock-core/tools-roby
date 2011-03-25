@@ -196,6 +196,11 @@ module Roby
 	    ret
 	end
 
+        # True if this plan is root in the plan hierarchy
+        def root_plan?
+            !respond_to?(:plan)
+        end
+
         # Returns the set of stacked transaction, starting at +self+
         def transaction_stack
             plan_chain = [self]

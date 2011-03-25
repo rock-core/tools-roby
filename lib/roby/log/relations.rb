@@ -34,8 +34,8 @@ module Roby
             def self.style(object, flags)
                 # This is for backward compatibility only. All events are now marshalled
                 # with their controllability.
-                if !object.controlable.nil?
-                    flags |= (object.controlable ? EVENT_CONTROLABLE : EVENT_CONTINGENT)
+                if !object.controlable?
+                    flags |= (object.controlable? ? EVENT_CONTROLABLE : EVENT_CONTINGENT)
                 elsif (flags & EVENT_CALLED) != 0
                     flags |= EVENT_CONTROLABLE
                 end
@@ -96,7 +96,7 @@ module Roby
                        end
 
                 if display.show_ownership
-                    name << owners_to_s
+                    name << Roby::BasicObject::DRoby.owners_to_s
                 end
                 name.join("\n")
             end
@@ -120,7 +120,7 @@ module Roby
                 graphics_item = display[self]
 
                 width, height = 0, 0
-                events = self.events.map do |_, e| 
+                events = self.each_event.map do |e| 
                     next unless display.displayed?(e)
                     next unless circle = display[e]
                     br = (circle.bounding_rect | circle.children_bounding_rect)
@@ -179,9 +179,9 @@ module Roby
             attr_accessor :last_event
 
             def display_name(display)
-                name = display.filter_prefixes(model.ancestors[0][0].dup)
+                name = display.filter_prefixes(model.ancestors[0].name.dup)
                 if display.show_ownership
-                    name << "\n#{owners_to_s}"
+                    name << "\n#{Roby::BasicObject::DRoby.owners_to_s(self)}"
                 end
                 name
             end
@@ -190,8 +190,8 @@ module Roby
                 new_state = if plan && plan.finalized_tasks.include?(self)
                                 :finalized
                             else
-                                [:success, :finished, :started, :pending].
-                                    find { |flag| flags[flag] } 
+                                [:success, :finished, :running, :pending].
+                                    find { |flag| send("#{flag}?") } 
                             end
                 new_state || :pending
             end
@@ -255,18 +255,21 @@ module Roby
                 pen.join_style = Qt::RoundJoin
                 scene.add_rect Qt::RectF.new(0, 0, 0, 0), pen
             end
-            def display_parent; parent_plan end
+            def display_parent
+                if respond_to?(:plan) then plan
+                end
+            end
             def display(display, item)
                 #STDERR.puts "DISPLAYING PLAN\n  #{caller.join("\n  ")}"
             end
         end
 
-        Roby::PlanObject::DRoby.include DisplayPlanObject
-        Roby::EventGenerator::DRoby.include DisplayEventGenerator
-        Roby::TaskEventGenerator::DRoby.include DisplayTaskEventGenerator
-        Roby::Task::DRoby.include DisplayTask
-        Roby::Task::Proxying::DRoby.include DisplayTaskProxy
-        Roby::Plan::DRoby.include DisplayPlan
+        Roby::PlanObject.include DisplayPlanObject
+        Roby::EventGenerator.include DisplayEventGenerator
+        Roby::TaskEventGenerator.include DisplayTaskEventGenerator
+        Roby::Task.include DisplayTask
+        Roby::Task::Proxying.include DisplayTaskProxy
+        Roby::Plan.include DisplayPlan
 
 	EVENT_CIRCLE_RADIUS = 3
 	TASK_EVENT_SPACING  = 5
@@ -289,14 +292,14 @@ module Roby
 
 	TASK_BRUSH_COLORS = {
 	    :pending  => Qt::Color.new('#6DF3FF'),
-	    :started  => Qt::Color.new('#B0FFA6'),
+	    :running  => Qt::Color.new('#B0FFA6'),
 	    :success  => Qt::Color.new('#E2E2E2'),
 	    :finished => Qt::Color.new('#E2A8A8'),
 	    :finalized => Qt::Color.new('#555555')
 	}
 	TASK_PEN_COLORS = {
 	    :pending  => Qt::Color.new('#6DF3FF'),
-	    :started  => Qt::Color.new('#B0FFA6'),
+	    :running  => Qt::Color.new('#B0FFA6'),
 	    :success  => Qt::Color.new('#E2E2E2'),
 	    :finished => Qt::Color.new('#E2A8A8'),
 	    :finalized => Qt::Color.new('#555555')
@@ -403,7 +406,7 @@ module Roby
 
 	    attr_reader :ui, :scene
 
-	    # A [DRbObject, DRbObject] => GraphicsItem mapping of arrows
+	    # A [object, object, relation] => GraphicsItem mapping of arrows
 	    attr_reader :arrows
 
 	    # A DRbObject => GraphicsItem mapping
@@ -917,9 +920,9 @@ module Roby
 		end
 
                 true
-            rescue Exception => e
-                message = "<html>#{e.message.gsub('<', '&lt;').gsub('>', '&gt;')}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"
-                Qt::MessageBox.critical nil, "Display failure", message
+            #rescue Exception => e
+            #    message = "<html>#{e.message.gsub('<', '&lt;').gsub('>', '&gt;')}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"
+            #    Qt::MessageBox.critical nil, "Display failure", message
 	    end
 
 	    def remove_graphics(item, scene = nil)
@@ -928,15 +931,12 @@ module Roby
 		scene.remove_item(item) if scene
 	    end
 
-	    def local_task(obj); decoder.local_task(obj) end
-	    def local_event(obj); decoder.local_event(obj) end
-	    def local_plan(obj); decoder.local_plan(obj) end
 	    def local_object(obj); decoder.local_object(obj) end
 
 	    def add_internal_propagation(flag, generator, source_generators)
-		generator = local_event(generator)
+		generator = local_object(generator)
 		if source_generators && !source_generators.empty?
-		    source_generators = source_generators.map { |source_generator| local_event(source_generator) }
+		    source_generators = source_generators.map { |source_generator| local_object(source_generator) }
 		    source_generators.delete_if do |ev|
 			ev == generator ||
 			    propagated_events.find { |_, from, to| to == generator && from.include?(ev) }
@@ -967,17 +967,17 @@ module Roby
 		add_internal_propagation(PROPAG_EMITTING, generator, source_generators)
 	    end
 	    def generator_signalling(time, flag, from, to, event_id, event_time, event_context)
-		propagated_events << [PROPAG_SIGNAL, [local_event(from)], local_event(to)]
+		propagated_events << [PROPAG_SIGNAL, [local_object(from)], local_object(to)]
 	    end
 	    def generator_forwarding(time, flag, from, to, event_id, event_time, event_context)
-		propagated_events << [PROPAG_FORWARD, [local_event(from)], local_event(to)]
+		propagated_events << [PROPAG_FORWARD, [local_object(from)], local_object(to)]
 	    end
 
 	    def generator_called(time, generator, context)
-		execution_events << [EVENT_CALLED, local_event(generator)]
+		execution_events << [EVENT_CALLED, local_object(generator)]
 	    end
 	    def generator_fired(time, generator, event_id, event_time, event_context)
-		generator = local_event(generator)
+		generator = local_object(generator)
 
 		found_pending = false
 		execution_events.delete_if do |flags, ev| 
@@ -988,29 +988,31 @@ module Roby
 		execution_events << [(found_pending ? EVENT_CALLED_AND_EMITTED : EVENT_EMITTED), generator]
 	    end
 	    def generator_postponed(time, generator, context, until_generator, reason)
-		postponed_events << [local_event(generator), local_event(until_generator)]
+		postponed_events << [local_object(generator), local_object(until_generator)]
 	    end
 
 
 	    def removed_task_child(time, parent, rel, child)
-		remove_graphics(arrows.delete([local_task(parent), local_task(child), rel]))
+		remove_graphics(arrows.delete([local_object(parent), local_object(child), rel]))
 	    end
 	    def removed_event_child(time, parent, rel, child)
-		remove_graphics(arrows.delete([local_event(parent), local_event(child), rel]))
+		remove_graphics(arrows.delete([local_object(parent), local_object(child), rel]))
 	    end
 	    def added_tasks(time, plan, tasks)
 		tasks.each do |obj| 
 		    obj.flags[:pending] = true if obj.respond_to?(:flags)
-		    task = local_task(obj)
+		    task = local_object(obj)
 
 		    set_visibility(task, true)
-		    task.events.each_value do |ev|
+		    task.each_event do |ev|
 			if item = self[ev]
 			    item.visible = false
 			end
 		    end
 		end
 	    end
+            def added_events(*args)
+            end
 	    def clear_arrows(object)
 		arrows.delete_if do |(from, to, _), arrow|
 		    if from == object || to == object

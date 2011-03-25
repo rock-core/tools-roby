@@ -62,8 +62,13 @@ module Roby
 
 	    def proxy(peer)
 		including = []
+                factory = if peer then peer.method(:local_task_tag)
+                          else
+                              DRoby.method(:anon_tag_factory)
+                          end
+
 		tagdef.each do |name, remote_tag|
-		    tag = DRoby.local_tag(name, remote_tag) do |tag|
+		    tag = DRoby.local_tag(name, remote_tag, factory) do |tag|
 			including.each { |mod| tag.include mod }
 		    end
 		    including << tag
@@ -71,7 +76,13 @@ module Roby
 		including.last
 	    end
 
-	    def self.local_tag(name, remote_tag)
+            def self.anon_tag_factory(tag_name)
+                Roby::TaskModelTag.new do
+                    define_method(:name) { tag_name }
+                end
+            end
+
+	    def self.local_tag(name, remote_tag, unknown_model_factory = method(:anon_tag_factory))
 		if !remote_tag.kind_of?(Distributed::RemoteID)
 		    remote_tag
 		elsif local_model = TaskModelTag.remote_to_local[remote_tag]
@@ -81,9 +92,7 @@ module Roby
 			local_model = constant(name) rescue nil
 		    end
 		    unless local_model
-			local_model = Roby::TaskModelTag.new do
-			    define_method(:name) { name }
-			end
+			local_model = unknown_model_factory[name]
 			TaskModelTag.remote_to_local[remote_tag] = local_model
 			TaskModelTag.local_to_remote[local_model] = [name, remote_tag]
 			yield(local_model) if block_given?
@@ -381,7 +390,11 @@ module Roby
             #
             # See DRobyModel.local_model
 	    def proxy(peer)
-	       	DRobyModel.local_model(ancestors.map { |name, id| [name, id.local_object] }) 
+                factory = if peer then peer.method(:local_model)
+                          else DRobyModel.method(:anon_model_factory)
+                          end
+
+	       	DRobyModel.local_model(ancestors.map { |name, id| [name, id.local_object] }, factory) 
 	    end
 
             # True if the two objects reference the same model
@@ -389,6 +402,15 @@ module Roby
 		other.kind_of?(DRobyModel) &&
 		    ancestors == other.ancestors
 	    end
+
+            def self.anon_model_factory(parent_model, name)
+                Class.new(parent_model) do
+                    singleton_class.class_eval do
+                        define_method(:remote_name) { name }
+                        define_method(:name) { "AnonModel(#{remote_name})" }
+                    end
+                end
+            end
 	    
             # Returns a local representation of the given model. If the model
             # itself is known to us (i.e. there is a constant with the same
@@ -396,7 +418,7 @@ module Roby
             # re-created using anonymous classes, branching the inheritance
             # chain at a point commonly known between the local plan manager
             # and the remote one.
-	    def self.local_model(ancestors)
+	    def self.local_model(ancestors, unknown_model_factory = method(:anon_model_factory))
 		name, id = ancestors.shift
 		if !id.kind_of?(Distributed::RemoteID)
 		    # this is a local task model
@@ -407,12 +429,7 @@ module Roby
 		    model
 		elsif !ancestors.empty?
 		    parent_model = local_model(ancestors)
-		    model = Class.new(parent_model) do
-			singleton_class.class_eval do
-			    define_method(:remote_name) { name }
-			    define_method(:name) { "AnonModel(#{remote_name})" }
-			end
-		    end
+		    model = unknown_model_factory[parent_model, name]
 		    @@remote_to_local[id] = model
 		    @@local_to_remote[model] = [name, id]
 

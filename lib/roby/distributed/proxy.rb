@@ -15,8 +15,11 @@ module Roby
 	    "{ " << remote_siblings.map { |peer, id| id.to_s(peer) }.join(", ") << " }"
 	end
 	def owners_to_s # :nodoc:
-	    "[ " << owners.map { |peer| peer.name }.join(", ") << " ]"
+	    BasicObject::DRoby.owners_to_s(self)
 	end
+        def self.owners_to_s(object)
+	    "[ " << object.owners.map(&:name).join(", ") << " ]"
+        end
 	def to_s # :nodoc:
             "#<dRoby:BasicObject#{remote_siblings_to_s} owners=#{owners_to_s}>" 
         end
@@ -120,14 +123,21 @@ module Roby
 		@controlable, @happened = controlable, happened
 	    end
 
+            # Common code used for both EventGenerator::DRoby and
+            # TaskEventGenerator::DRoby
+            def self.setup_event_proxy(peer, marshalled)
+		if marshalled.controlable
+		    local_object.command = lambda { } 
+		end
+		local_object
+            end
+
             # Create a new proxy which maps the object of +peer+ represented by
             # this communication intermediate.
 	    def proxy(peer)
 		local_object = peer.local_object(model).new
-		if controlable
-		    local_object.command = lambda { } 
-		end
-		local_object
+                DRoby.setup_event_proxy(peer, self)
+                local_object
 	    end
 
             # Updates an already existing proxy using the information contained
@@ -189,9 +199,13 @@ module Roby
             # this communication intermediate.
 	    def proxy(peer)
 		task = peer.local_object(self.task)
-		unless task.has_event?(symbol)
-		    Roby::Distributed.debug { "ignoring #{self}: #{symbol} is not known on #{task}" }
-		    Roby::Distributed.ignore!
+		if !task.has_event?(symbol)
+                    if task.respond_to?(:create_remote_event)
+                        task.create_remote_event(symbol, peer, self)
+                    else
+                        Roby::Distributed.debug { "ignoring #{self}: #{symbol} is not known on #{task}" }
+                        Roby::Distributed.ignore!
+                    end
 		end
 		event = task.event(symbol)
 		
@@ -249,14 +263,9 @@ module Roby
 
             # Create a new proxy which maps the object of +peer+ represented by
             # this communication intermediate.
-	    def proxy(peer)
-		arguments = peer.local_object(self.arguments)
-		peer.local_object(model).new(arguments) do
-		    Roby::Distributed.updated_objects << self
-		end
-
-	    ensure
-		Roby::Distributed.updated_objects.delete(self)
+	    def proxy(object_manager)
+		arguments = object_manager.local_object(self.arguments)
+		object_manager.local_object(model).new(arguments)
 	    end
 
             # Updates an already existing proxy using the information contained

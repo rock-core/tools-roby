@@ -410,8 +410,12 @@ module Roby
 	end
 
         # See EventGenerator#new
-        def new(context) # :nodoc:
-            event_model.new(task, self, plan.engine.propagation_id, context)
+        def new(context, propagation_id = nil, time = nil) # :nodoc:
+            event = event_model.new(task, self, propagation_id || plan.engine.propagation_id, context)
+            if time
+                event.send(:time=, time)
+            end
+            event
         end
 
 	def to_s # :nodoc:

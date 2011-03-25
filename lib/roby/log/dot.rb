@@ -161,7 +161,7 @@ module Roby
         module GraphvizTask
             include GraphvizPlanObject
             def dot_label(display)
-                event_names = events.values.find_all { |ev| display.displayed?(ev) }.
+                event_names = each_event.find_all { |ev| display.displayed?(ev) }.
                     map { |ev| ev.dot_label(display) }.
                     join(" ")
 
@@ -172,11 +172,11 @@ module Roby
             end
         end
 
-        Roby::Plan::DRoby.include GraphvizPlan
-        Roby::PlanObject::DRoby.include GraphvizPlanObject
-        Roby::TaskEventGenerator::DRoby.include GraphvizTaskEventGenerator
-        Roby::Task::DRoby.include GraphvizTask
-        Roby::Task::Proxying::DRoby.include GraphvizTask
+        Roby::Plan.include GraphvizPlan
+        Roby::PlanObject.include GraphvizPlanObject
+        Roby::TaskEventGenerator.include GraphvizTaskEventGenerator
+        Roby::Task.include GraphvizTask
+        Roby::Task::Proxying.include GraphvizTask
 
         # This class uses Graphviz (i.e. the "dot" tool) to compute a layout for
         # a given plan
