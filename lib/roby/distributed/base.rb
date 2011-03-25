@@ -326,7 +326,7 @@ module Roby
 	    # The list of known peers. See ConnectionSpace#peers
 	    def peers
 		if state then state.peers 
-		else {}
+		else (@peers ||= Hash.new)
 		end
 	    end
 
