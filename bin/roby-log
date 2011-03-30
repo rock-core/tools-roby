@@ -10,8 +10,6 @@ where the following modes are accepted:
     upgrade-format  upgrades an event log from an old format to the current one
     rebuild-index   rebuilds the index file for the given event log
     stats	    displays statistics about the given event log
-    replay	    displays data saved in logged files
-    display	    displays live data received from log servers
     help	    this help message
 
 Call roby-log mode --help for more information about each mode
@@ -113,57 +111,6 @@ when "stats"
     else
 	timings.stats
     end
-    exit(0)
-
-when "replay"
-    require 'roby/log/gui/replay'
-    app  = Qt::Application.new(ARGV)
-
-    main = Replay.setup(ARGV) do |main, parser, remaining|
-	if remaining.empty?
-	    if main.log_dir
-		streams = Roby.app.data_streams(main.log_dir)
-		streams.each do |stream|
-		    stream.open
-		    main.add_stream(stream)
-		end
-	    end
-	else
-	    remaining.each do |file|
-                if !File.exists?(file)
-		    STDERR.puts "WARN: #{file} does not exist"
-		elsif streams = Roby.app.data_streams_of([file])
-		    streams.each do |s|
-			s.open
-			main.add_stream(s)
-		    end
-		else
-		    STDERR.puts "WARN: unknown file type for #{file}"
-		end
-	    end
-	end
-    end
-
-    main.setup
-    begin
-	app.exec
-    rescue
-	STDERR.puts $!.full_message
-    end
-
-when "display"
-    require 'roby/log/gui/runtime'
-    DRb.start_service "druby://:0"
-    Roby::Log::Server.logger.level = Logger::DEBUG
-
-    broadcast = if ARGV.empty? then ['localhost']
-		else ARGV
-		end
-
-    a = Qt::Application.new([])
-    w = RuntimeDisplay.new(broadcast, Roby::Log::Server::RING_PORT, 5)
-    w.show
-    a.exec
     exit(0)
 
 when "help"

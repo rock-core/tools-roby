@@ -1,0 +1,26 @@
+#! /usr/bin/env ruby
+
+require 'roby'
+require 'roby/log'
+
+require 'Qt'
+require 'roby/log/event_stream'
+require 'roby/log/plan_rebuilder'
+require 'roby/log/relations_view/relations_canvas'
+
+Roby.app.setup_drb_server
+
+filename = ARGV.shift
+app = Qt::Application.new(ARGV)
+
+stream    = Roby::LogReplay::EventFileStream.open(filename)
+rebuilder = Roby::LogReplay::PlanRebuilder.new(stream)
+display = Roby::LogReplay::RelationsDisplay::RelationsCanvas.new(rebuilder.plans)
+display.show
+
+history = Roby::LogReplay::PlanRebuilderWidget.new(rebuilder, [display])
+history.analyze
+history.show
+
+app.exec
+

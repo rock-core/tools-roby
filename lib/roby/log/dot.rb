@@ -258,14 +258,16 @@ module Roby
 		plan.to_dot(display, self, 0)
 
 		# Take the signalling into account for the layout
-		display.propagated_events.each do |_, sources, to, _|
-		    sources.each do |from|
-			from_id, to_id = from.dot_id, to.dot_id
-			if from_id && to_id
-			    dot_input << "  #{from.dot_id} -> #{to.dot_id}\n"
-			end
-		    end
-		end
+		display.plans.each do |p|
+                    p.propagated_events.each do |_, sources, to, _|
+                        sources.each do |from|
+                            from_id, to_id = from.dot_id, to.dot_id
+                            if from_id && to_id
+                                dot_input << "  #{from.dot_id} -> #{to.dot_id}\n"
+                            end
+                        end
+                    end
+                end
 
 		dot_input << "\n};"
 		dot_input.flush

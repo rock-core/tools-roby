@@ -314,6 +314,18 @@ module Roby::Distributed
 	end
 	alias proxy local_object
 
+        # Copies the state of this object manager, using +mappings+ to convert
+        # the local objects
+        #
+        # If mappings is not given, an identity is used
+        def copy_to(other_manager, mappings = nil)
+            mappings ||= Hash.new { |h, k| k }
+            proxies.each do |sibling, local_object|
+                if mappings.has_key?(local_object)
+                    other_manager.proxies[sibling] = mappings[local_object]
+                end
+            end
+        end
 
         # Returns a new local model named +name+ created by this remote object
         # manager
@@ -338,6 +350,11 @@ module Roby::Distributed
         # It is usually called by Roby::BasicObject#remove_sibling_for
         def removed_sibling(remote_object)
             proxies.delete(remote_object)
+        end
+
+        def clear
+            proxies.clear
+            removing_proxies.clear
         end
     end
 

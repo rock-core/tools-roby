@@ -1,16 +1,11 @@
-require 'roby/log/data_stream'
-
 module Roby
     module LogReplay
 	# This class is a logger-compatible interface which read event and index logs,
 	# and may rebuild the task and event graphs from the marshalled events
 	# that are saved using for instance FileLogger
-	class EventStream < DataStream
-	    def splat?; true end
-
-	    # The event log
+	class EventFileStream
+	    # The event log file
 	    attr_reader :logfile
-
 	    # The index of the currently displayed cycle in +index_data+
 	    attr_reader :current_cycle
             # The index of the first non-empty cycle
@@ -23,18 +18,18 @@ module Roby
                 end
             end
 
-	    def initialize(basename, file = nil)
-		super(basename, "roby-events")
-		if file
-		    @logfile = file
-		    reinit!
-		end
-	    end
-	    def open
-		@logfile = Roby::Log.open(name)
+            def self.open(filename)
+                stream = EventFileStream.new
+                stream.open(filename)
+                stream
+            end
+
+	    def open(filename)
+                @logfile = Roby::Log.open(filename)
 		reinit!
 		self
 	    end
+
 	    def close; @logfile.close end
 
 	    def index_data; logfile.index_data end
@@ -46,9 +41,7 @@ module Roby
 
 	    # Reinitializes the stream
 	    def reinit!
-		prepare_seek(nil)
-
-		super
+		rewind
 
                 start_cycle = 0
                 while start_cycle < index_data.size && index_data[start_cycle][:event_count] == 4
@@ -64,23 +57,31 @@ module Roby
 		!index_data.empty? && (index_data.last[:pos] > logfile.tell)
 	    end
 
-	    # Seek the data stream to the specified time.
+            # Returns at the beginning of the stream (if the stream is seekable)
+            def rewind
+                @current_time  = nil
+                @current_cycle = start_cycle
+                logfile.rewind
+            end
+
+	    # Called before seeking to a specific time
 	    def prepare_seek(time)
 		if !time || !current_time || time < current_time
-		    clear
-
-		    @current_time  = nil
-		    @current_cycle = start_cycle
-		    logfile.rewind
+                    rewind
 		end
 	    end
 
+            def seek_to_cycle(cycle)
+                @current_cycle = cycle
+            end
+
+            # The time of the earliest sample in the stream
 	    def start_time
 		return if start_cycle == index_data.size
 		Time.at(*index_data[start_cycle][:start])
 	    end
 	    
-	    # The current time
+	    # The time of the last returned sample
 	    def current_time
 		return if index_data.empty?
 		time = Time.at(*index_data[current_cycle][:start])
@@ -98,11 +99,15 @@ module Roby
 		end
 	    end
 
-	    # Reads a sample of data and returns it. It will be fed to
-	    # decoders' #decode method.
-	    #
-	    # In this stream, this is the chunk of the marshalled file which
-	    # corresponds to a cycle
+            # Returns true if there is no more data available
+            def eof?
+                index_data.size == current_cycle + 1
+            end
+
+	    # Reads a sample of data and returns it
+            #
+            # In Roby, the returned sample is an array which contains all the
+            # logged information for one cycle.
 	    def read
 		if reinit?
 		    reinit!
@@ -120,40 +125,10 @@ module Roby
 			    end
 
 		logfile.seek(start_pos)
-		logfile.read(end_pos - start_pos)
+		Marshal.load_with_missing_constants(logfile.read(end_pos - start_pos))
 
 	    ensure
 		@current_cycle += 1
-	    end
-
-	    # Unmarshalls a set of data returned by #read_all and yield
-	    # each sample that should be fed to the decoders
-	    def self.init(data)
-		io = StringIO.new(data)
-		while !io.eof?
-		    yield(Marshal.load_with_missing_constants(io))
-		end
-	    rescue EOFError
-	    end
-
-	    # Unmarshalls one cycle of data returned by #read
-            #
-            # In the case of the event stream, this is one array dumped with
-            # Marshal.dump
-	    def self.decode(data)
-                Marshal.load_with_missing_constants(data)
-            end
-
-	    # Read all data read so far in a format suitable to feed to
-	    # #init_stream on the decoding side
-	    def read_all
-		end_pos   = if index_data.size > current_cycle + 1
-				index_data[current_cycle + 1][:pos]
-			    else
-				logfile.stat.size
-			    end
-		logfile.rewind
-		logfile.read(end_pos)
 	    end
 	end
     end

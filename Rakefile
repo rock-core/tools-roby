@@ -115,7 +115,7 @@ task :clean => 'dist:clean' do
     clean_extension 'graph', 'bgl'
 end
 
-UIFILES = %w{relations.ui relations_view.ui data_displays.ui replay_controls.ui basic_display.ui chronicle_view.ui}
+UIFILES = %w{relations_view/relations.ui relations_view/relations_view.ui}
 desc 'generate all Qt UI files using rbuic4'
 task :uic do
     rbuic = 'rbuic4'
@@ -124,7 +124,7 @@ task :uic do
     end
 
     UIFILES.each do |file|
-	file = 'lib/roby/log/gui/' + file
+	file = 'lib/roby/log/' + file
 	if !system(rbuic, '-o', file.gsub(/\.ui$/, '_ui.rb'), file)
 	    STDERR.puts "Failed to generate #{file}"
 	end

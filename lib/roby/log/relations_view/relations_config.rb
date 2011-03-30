@@ -1,7 +1,5 @@
-require 'Qt4'
-require 'roby'
-require 'roby/log/relations'
-require 'roby/log/gui/relations_ui'
+require 'roby/log/relations_view/relations_canvas'
+require 'roby/log/relations_view/relations_ui'
 
 module Ui
     # Manage relations using a two-level tree structure. The relation
@@ -197,18 +195,21 @@ module Ui
 	attr_reader :relation_item
 	attr_reader :model
 	attr_reader :delegate
+        attr_reader :display
 
-        def initialize(*args)
+        def initialize(widget, display)
             super()
             if !system("dot", "-V")
                 raise "the 'dot' tool is unavailable"
             end
+
+            setupUi(widget, display)
         end
 
-	def setupUi(streams_model, widget)
+	def setupUi(widget, display)
 	    super(widget)
 
-	    display   = Roby::LogReplay::RelationsDisplay::RelationsCanvas.new
+            @display = display
 	    @model    = RelationConfigModel.new(display)
 	    @delegate = RelationDelegate.new
 	    relations.set_item_delegate @delegate
@@ -217,45 +218,29 @@ module Ui
 	    relations.set_expanded model.task_root_index, true
 	    relations.set_expanded model.event_root_index, true
 
-	    @streams_model = FilteredDataStreamListModel.new(stream, display, 'roby-events', streams_model.streams)
-	    Qt::Object.connect(stream, SIGNAL("currentIndexChanged(int)"), @streams_model, SLOT("selectedStream()"))
-	    @streams_model.source_model = streams_model
-	    stream.model		= @streams_model
-
 	    @layout_model = LayoutMethodModel.new(display, layout_method)
 	    Qt::Object.connect(layout_method, SIGNAL("currentIndexChanged(int)"), @layout_model, SLOT("selected()"))
 	    layout_method.model = @layout_model
-
-	    display
 	end
 
-	def self.setup_optparse(opt, replay)
-	    opt.on("--relations=REL1,REL2", Array, "create a relation display with the given relations") do |relations|
-		replay.initial_setup << lambda do |gui|
-                    all_relations = Roby::LogReplay::RelationsDisplay.all_task_relations
-                    if relations.include?("all")
-                        relations = all_relations
-                    else
-                        relations.map! do |relname|
-                            rel = all_relations.find { |rel| rel.name =~ /#{relname}/ }
-                            unless rel
-                                STDERR.puts "Unknown relation #{relname}. Available relations are:"
-                                STDERR.puts "  Tasks: " + all_relations.map { |r| r.name.gsub(/.*Structure::/, '') }.join(", ")
-                                exit(1)
-                            end
+        def save_config
+            config = Hash.new
+            config['enabled_relations'] = display.enabled_relations.map(&:name)
+            config.merge!(display.ui.save_config)
+            return config
+        end
 
-                            rel
-                        end
-                    end
+        def load_config(this_config)
+            if enabled_relations = this_config['enabled_relations']
+                all_relations = Roby::LogReplay::RelationsDisplay.all_task_relations
+                enabled_relations.each do |relname|
+                    rel = all_relations.find { |rel| rel.name =~ /#{relname}/ }
+                    display.enable_relation(rel)
+                end
+            end
 
-		    if relation_display = gui.add_display('Relations')
-                        relations.each do |rel|
-                            relation_display.enable_relation(rel)
-                        end
-                    end
-		end
-	    end
-	end
+            display.ui.load_config(this_config)
+        end
     end
 end
 

@@ -91,6 +91,21 @@ class Replay < Qt::MainWindow
 	layout.add_widget controls_holder
     end
 
+    def load_config(path)
+        config = YAML.load(File.read(path))
+        config.each do |display_config|
+        end
+    end
+
+    def save_config(path)
+        config = Array.new
+        ui_displays.displays.each do |config_ui, view|
+            config << config_ui.save_config
+        end
+
+        YAML.dump(config, File.open(path, 'w'))
+    end
+
     def play_speed=(value)
 	ui_controls.speed.text = value.to_s
 	@play_speed = value
@@ -276,10 +291,10 @@ class Replay < Qt::MainWindow
 	update_time_display
         !updated_streams.empty?
 
-    rescue Exception => e
-	message = "<html>#{e.message.gsub('<', '&lt;').gsub('>', '&gt;')}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"
-	Qt::MessageBox.critical self, "Replay failure", message
-	stop
+#    rescue Exception => e
+#	message = "<html>#{e.message.gsub('<', '&lt;').gsub('>', '&gt;')}<ul><li>#{e.backtrace.join("</li><li>")}</li></ul></html>"
+#	Qt::MessageBox.critical self, "Replay failure", message
+#	stop
     end
 
     def add_stream(stream = nil)

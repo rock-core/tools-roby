@@ -1,13 +1,26 @@
-require 'Qt4'
 require 'utilrb/module/attr_predicate'
 require 'roby/distributed/protocol'
+
 require 'roby/log/dot'
 require 'roby/log/plan_rebuilder'
-require 'roby/log/gui/relations_view'
+
+require 'roby/log/relations_view/relations_config'
+require 'roby/log/relations_view/relations_view'
 
 module Roby
     module LogReplay
     module RelationsDisplay
+        EVENT_CONTINGENT  = PlanRebuilder::EVENT_CONTINGENT
+        EVENT_CONTROLABLE = PlanRebuilder::EVENT_CONTROLABLE
+        EVENT_CALLED      = PlanRebuilder::EVENT_CALLED
+        EVENT_EMITTED     = PlanRebuilder::EVENT_EMITTED
+        EVENT_CALLED_AND_EMITTED = EVENT_CALLED | EVENT_EMITTED
+
+        PROPAG_SIGNAL   = PlanRebuilder::PROPAG_SIGNAL
+        PROPAG_FORWARD  = PlanRebuilder::PROPAG_FORWARD
+        PROPAG_CALLING  = PlanRebuilder::PROPAG_CALLING
+        PROPAG_EMITTING = PlanRebuilder::PROPAG_EMITTING
+
         def self.all_task_relations
             if @all_task_relations
                 @all_task_relations
@@ -210,11 +223,10 @@ module Roby
                 if displayed_state != new_state
                     graphics_item.brush = Qt::Brush.new(TASK_BRUSH_COLORS[new_state])
                     graphics_item.pen   = Qt::Pen.new(TASK_PEN_COLORS[new_state])
-                    displayed_state = new_state
+                    @displayed_state = new_state
                 end
 
                 graphics_item.text.plain_text = display_name(display).to_s
-
             end
 
             def display(display, graphics_item)
@@ -268,7 +280,6 @@ module Roby
                 end
             end
             def display(display, item)
-                #STDERR.puts "DISPLAYING PLAN\n  #{caller.join("\n  ")}"
             end
         end
 
@@ -286,17 +297,6 @@ module Roby
 	ARROW_COLOR   = Qt::Color.new('black')
 	ARROW_OPENING = 30
 	ARROW_SIZE    = 10
-
-	PROPAG_SIGNAL   = 1
-	PROPAG_FORWARD  = 2
-	PROPAG_CALLING  = 3
-	PROPAG_EMITTING = 4
-
-	EVENT_CONTINGENT  = 0
-	EVENT_CONTROLABLE = 1
-	EVENT_CALLED      = 2
-	EVENT_EMITTED     = 4
-	EVENT_CALLED_AND_EMITTED = EVENT_CALLED | EVENT_EMITTED
 
 	TASK_BRUSH_COLORS = {
 	    :pending  => Qt::Color.new('#6DF3FF'),
@@ -407,12 +407,18 @@ module Roby
 	end
 
 	class RelationsCanvas < Qt::Object
-	    include LogReplay::DataDisplay
-	    decoder LogReplay::PlanRebuilder
+            # Common configuration options for displays that represent tasks
+	    include LogReplay::TaskDisplayConfiguration
 
-	    include LogReplay::TaskDisplaySupport
+            # The Qt::MainWindow in which we are embedded
+            attr_reader :main
+            # The UI setup class
+	    attr_reader :ui
+            # The Qt::GraphicsScene we are manipulating
+            attr_reader :scene
 
-	    attr_reader :ui, :scene
+            # The set of plans that should be displayed
+            attr_reader :plans
 
 	    # A [object, object, relation] => GraphicsItem mapping of arrows
 	    attr_reader :arrows
@@ -426,35 +432,19 @@ module Roby
 	    # A set of events that are shown during only two calls of #update
 	    attr_reader :flashing_objects
 
-	    # The set of signals since the last call to #update
-	    # Each element is [flag, from, to, event_id]
-	    attr_reader :propagated_events
-
-	    # The array of events for which a command has been called, or which
-	    # have been emitted. The order in this array is the arrival order
-	    # of the corresponding events.
-	    #
-	    # An array element is [fired, event], when fired is true if the
-	    # event has been fired, and false if it is pending
-	    attr_reader :execution_events
-
-	    # The set of postponed events that have occured since the last call
-	    # to #update. Each element is [postponed_generator,
-	    # until_generator]
-	    attr_reader :postponed_events
-
 	    # A pool of arrows items used to display the event signalling
 	    attr_reader :signal_arrows
 
 	    # True if the finalized tasks should not be displayed
 	    attr_accessor :hide_finalized
 
-	    def initialize
+	    def initialize(plans)
 		@scene  = Qt::GraphicsScene.new
 		super()
 
 		@main   = Qt::MainWindow.new
 		@ui     = Ui::RelationsView.new
+                @plans  = plans.dup
 
 		@graphics          = Hash.new
 		@visible_objects   = ValueSet.new
@@ -467,9 +457,6 @@ module Roby
 		@relation_brushes  = Hash.new(Qt::Brush.new(Qt::Color.new(ARROW_COLOR)))
 		@current_color     = 0
 
-		@propagated_events  = []
-		@execution_events  = []
-		@postponed_events  = ValueSet.new
 		@signal_arrows     = []
 		@hide_finalized	   = true
 
@@ -493,6 +480,14 @@ module Roby
 		main.resize 500, 500
 	    end
 
+            def show
+                main.show
+            end
+
+            def hide
+                main.hide
+            end
+
 	    def object_of(item)
                 id = item.data(0).to_string
                 id = Integer(id)
@@ -501,19 +496,6 @@ module Roby
 		    obj.object_id == id
 		end
 		obj
-	    end
-
-            # Initializes the display with the data already decoded from the
-            # given data stream, and binds this display to the stream.
-	    def stream=(data_stream)
-		super
-
-		# Initialize the display ...
-		decoder.plans.each do |plan|
-		    added_tasks(Time.now, plan, plan.known_tasks)
-		    added_events(Time.now, plan, plan.free_events)
-		end
-		display
 	    end
 
 	    def [](item); graphics[item] end
@@ -550,7 +532,7 @@ module Roby
 
 		# Get the tasks and events matching the string
 		objects = []
-		for p in decoder.plans
+		for p in plans
 		    objects.concat p.known_tasks.
 			find_all { |object| displayed?(object) && regex === object.display_name(self) }
 		    objects.concat p.free_events.
@@ -734,6 +716,9 @@ module Roby
 
 		create_or_get_item(object)
 	    end
+
+            # Removes the objects added with #add_flashing_object when they
+            # should be removed
 	    def clear_flashing_objects
 		(flashing_objects.keys.to_value_set - visible_objects).each do |object|
 		    if blocks = flashing_objects[object]
@@ -748,6 +733,11 @@ module Roby
 		end
 	    end
 
+            # Sets the style on +arrow+ according to the event propagation type
+            # provided in +flag+
+            # 
+            # +arrow+ is the graphics item representing the relation and +flag+
+            # is one of the PROPAG_ constant
 	    def propagation_style(arrow, flag)
 		unless defined? @@propagation_styles
 		    @@propagation_styles = Hash.new
@@ -766,32 +756,21 @@ module Roby
 		arrow.pen = arrow.line.pen = pen
 	    end
 
-	    def clear_integrated
-                unless keep_signals
-                    last_propagated_events, @propagated_events = propagated_events, Array.new
-                    last_execution_events, @execution_events = 
-                        execution_events.partition { |fired, ev| fired }
-                end
-                !(last_propagated_events.empty? && last_execution_events.empty?)
-	    end
-
             # Update the display with new data that has come from the data
             # stream. 
             #
             # It would be too complex at this stage to know if the plan has been
             # updated, so the method always returns true
 	    def update
-		return unless decoder
-
 		update_prefixes_removal
 		clear_flashing_objects
 
 		# The sets of tasks and events know to the data stream
-		all_tasks  = decoder.plans.inject(ValueSet.new) do |all_tasks, plan|
+		all_tasks  = plans.inject(ValueSet.new) do |all_tasks, plan|
 		    all_tasks.merge plan.known_tasks
 		    all_tasks.merge plan.finalized_tasks
 		end
-		all_events = decoder.plans.inject(ValueSet.new) do |all_events, plan|
+		all_events = plans.inject(ValueSet.new) do |all_events, plan|
 		    all_events.merge plan.free_events
 		    all_events.merge plan.finalized_events
 		end
@@ -803,9 +782,18 @@ module Roby
 		    clear_arrows(obj)
 		end
 
-		visible_objects.merge(decoder.plans)
+                (all_tasks - graphics.keys.to_value_set).each do |new_task|
+		    set_visibility(new_task, true)
+		    new_task.each_event do |ev|
+			if item = self[ev]
+			    item.visible = false
+			end
+		    end
+		end
 
-		decoder.plans.each do |plan|
+		visible_objects.merge(plans.to_value_set)
+
+		plans.each do |plan|
 		    if hide_finalized
 			@visible_objects = visible_objects - plan.finalized_tasks
 			@visible_objects = visible_objects - plan.finalized_events
@@ -820,7 +808,7 @@ module Roby
 
 		# Create graphics items for tasks and events if necessary, and
 		# update their visibility according to the visible_objects set
-		[all_tasks, all_events, decoder.plans].each do |object_set|
+		[all_tasks, all_events, plans].each do |object_set|
 		    object_set.each do |object|
 			if displayed?(object)
 			    create_or_get_item(object)
@@ -834,48 +822,52 @@ module Roby
 
 		DisplayEventGenerator.priorities.clear
 		event_priority = 0
-		execution_events.each_with_index do |(flags, object), event_priority|
-		    DisplayEventGenerator.priorities[object] = event_priority
-		    next if object.respond_to?(:task) && !displayed?(object.task)
+                plans.each do |p|
+                    p.emitted_events.each_with_index do |(flags, object), event_priority|
+                        DisplayEventGenerator.priorities[object] = event_priority
+                        next if object.respond_to?(:task) && !displayed?(object.task)
 
-		    graphics = if flashing_objects.has_key?(object)
-				   self.graphics[object]
-			       else
-				   add_flashing_object(object)
-			       end
+                        graphics = if flashing_objects.has_key?(object)
+                                       self.graphics[object]
+                                   else
+                                       add_flashing_object(object)
+                                   end
 
-		    graphics.brush, graphics.pen = DisplayEventGenerator.style(object, flags)
-		end
+                        graphics.brush, graphics.pen = DisplayEventGenerator.style(object, flags)
+                    end
+                end
 		
-		propagated_events.each do |_, sources, to, _|
-		    sources.each do |from|
-			if !DisplayEventGenerator.priorities.has_key?(from)
-			    DisplayEventGenerator.priorities[from] = (event_priority += 1)
-			end
-			if !DisplayEventGenerator.priorities.has_key?(to)
-			    DisplayEventGenerator.priorities[to] = (event_priority += 1)
-			end
+                plans.each do |p|
+                    p.propagated_events.each do |_, sources, to, _|
+                        sources.each do |from|
+                            if !DisplayEventGenerator.priorities.has_key?(from)
+                                DisplayEventGenerator.priorities[from] = (event_priority += 1)
+                            end
+                            if !DisplayEventGenerator.priorities.has_key?(to)
+                                DisplayEventGenerator.priorities[to] = (event_priority += 1)
+                            end
 
-			if from.respond_to?(:task) 
-			    next if !displayed?(from.task)
-			else
-			    next if !all_events.include?(from)
-			end
-			if to.respond_to?(:task) 
-			    next if !displayed?(to.task)
-			else
-			    next if !all_events.include?(to)
-			end
+                            if from.respond_to?(:task) 
+                                next if !displayed?(from.task)
+                            else
+                                next if !all_events.include?(from)
+                            end
+                            if to.respond_to?(:task) 
+                                next if !displayed?(to.task)
+                            else
+                                next if !all_events.include?(to)
+                            end
 
-			add_flashing_object from
-			add_flashing_object to
-		    end
-		end
+                            add_flashing_object from
+                            add_flashing_object to
+                        end
+                    end
+                end
 
 
-		[all_tasks, all_events, decoder.plans].each do |object_set|
+		[all_tasks, all_events, plans].each do |object_set|
 		    object_set.each do |object|
-			next unless displayed?(object)
+			next if !displayed?(object)
 			object.display(self, graphics[object])
 		    end
 		end
@@ -887,7 +879,7 @@ module Roby
 		end
 
 		# Layout the graph
-		layouts = decoder.plans.find_all { |p| p.root_plan? }.
+		layouts = plans.find_all { |p| p.root_plan? }.
 		    map do |p| 
 			dot = Layout.new
 			dot.layout(self, p)
@@ -897,29 +889,29 @@ module Roby
 
 		# Display the signals
 		signal_arrow_idx = -1
-		propagated_events.each_with_index do |(flag, sources, to), signal_arrow_idx|
-		    sources.each do |from|
-			unless arrow = signal_arrows[signal_arrow_idx]
-			    arrow = signal_arrows[signal_arrow_idx] = scene.add_arrow(ARROW_SIZE)
-			    arrow.z_value      = EVENT_LAYER + 1
-			    arrow.line.z_value = EVENT_LAYER - 1
-			end
+                plans.each do |p|
+                    p.propagated_events.each_with_index do |(flag, sources, to), signal_arrow_idx|
+                        sources.each do |from|
+                            unless arrow = signal_arrows[signal_arrow_idx]
+                                arrow = signal_arrows[signal_arrow_idx] = scene.add_arrow(ARROW_SIZE)
+                                arrow.z_value      = EVENT_LAYER + 1
+                                arrow.line.z_value = EVENT_LAYER - 1
+                            end
 
-			# It is possible that the objects have been removed in the
-			# same display cycle than they have been signalled. Do not
-			# display them if it is the case
-			unless displayed?(from) && displayed?(to)
-			    arrow.visible = false
-			    next
-			end
-			puts from if !self[from]
-			puts to   if !self[to]
+                            # It is possible that the objects have been removed in the
+                            # same display cycle than they have been signalled. Do not
+                            # display them if it is the case
+                            unless displayed?(from) && displayed?(to)
+                                arrow.visible = false
+                                next
+                            end
 
-			arrow.visible = true
-			propagation_style(arrow, flag)
-			RelationsDisplay.arrow_set(arrow, self[from], self[to])
-		    end
-		end
+                            arrow.visible = true
+                            propagation_style(arrow, flag)
+                            RelationsDisplay.arrow_set(arrow, self[from], self[to])
+                        end
+                    end
+                end
 		# ... and hide the remaining arrows that are not used anymore
 		if signal_arrow_idx + 1 < signal_arrows.size
 		    signal_arrows[(signal_arrow_idx + 1)..-1].each do |arrow| 
@@ -939,88 +931,6 @@ module Roby
 		scene.remove_item(item) if scene
 	    end
 
-	    def local_object(obj); decoder.local_object(obj) end
-
-	    def add_internal_propagation(flag, generator, source_generators)
-		generator = local_object(generator)
-		if source_generators && !source_generators.empty?
-		    source_generators = source_generators.map { |source_generator| local_object(source_generator) }
-		    source_generators.delete_if do |ev|
-			ev == generator ||
-			    propagated_events.find { |_, from, to| to == generator && from.include?(ev) }
-		    end
-		    unless source_generators.empty?
-			propagated_events << [flag, source_generators, generator]
-		    end
-		end
-	    end
-	    def generator_calling(*args)
-		if args.size == 3
-		    time, generator, context = *args
-		    source_generators = []
-		else
-		    time, generator, source_generators, context = *args
-		end
-
-		add_internal_propagation(PROPAG_CALLING, generator, source_generators)
-	    end
-	    def generator_emitting(*args)
-		if args.size == 3
-		    time, generator, context = *args
-		    source_generators = []
-		else
-		    time, generator, source_generators, context = *args
-		end
-
-		add_internal_propagation(PROPAG_EMITTING, generator, source_generators)
-	    end
-	    def generator_signalling(time, flag, from, to, event_id, event_time, event_context)
-		propagated_events << [PROPAG_SIGNAL, [local_object(from)], local_object(to)]
-	    end
-	    def generator_forwarding(time, flag, from, to, event_id, event_time, event_context)
-		propagated_events << [PROPAG_FORWARD, [local_object(from)], local_object(to)]
-	    end
-
-	    def generator_called(time, generator, context)
-		execution_events << [EVENT_CALLED, local_object(generator)]
-	    end
-	    def generator_fired(time, generator, event_id, event_time, event_context)
-		generator = local_object(generator)
-
-		found_pending = false
-		execution_events.delete_if do |flags, ev| 
-		    if flags == EVENT_CALLED && generator == ev
-			found_pending = true
-		    end
-		end
-		execution_events << [(found_pending ? EVENT_CALLED_AND_EMITTED : EVENT_EMITTED), generator]
-	    end
-	    def generator_postponed(time, generator, context, until_generator, reason)
-		postponed_events << [local_object(generator), local_object(until_generator)]
-	    end
-
-
-	    def removed_task_child(time, parent, rel, child)
-		remove_graphics(arrows.delete([local_object(parent), local_object(child), rel]))
-	    end
-	    def removed_event_child(time, parent, rel, child)
-		remove_graphics(arrows.delete([local_object(parent), local_object(child), rel]))
-	    end
-	    def added_tasks(time, plan, tasks)
-		tasks.each do |obj| 
-		    obj.flags[:pending] = true if obj.respond_to?(:flags)
-		    task = local_object(obj)
-
-		    set_visibility(task, true)
-		    task.each_event do |ev|
-			if item = self[ev]
-			    item.visible = false
-			end
-		    end
-		end
-	    end
-            def added_events(*args)
-            end
 	    def clear_arrows(object)
 		arrows.delete_if do |(from, to, _), arrow|
 		    if from == object || to == object
@@ -1042,10 +952,6 @@ module Roby
 
 		visible_objects.clear
 		flashing_objects.clear
-		propagated_events.clear
-		execution_events.clear
-		postponed_events.clear
-
 		scene.update(scene.scene_rect)
 	    end
 	end

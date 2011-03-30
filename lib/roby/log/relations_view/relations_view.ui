@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>RelationsView</class>
+ <widget class="QMainWindow" name="RelationsView">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout">
+    <item>
+     <widget class="QGraphicsView" name="graphics">
+      <property name="renderHints">
+       <set>QPainter::Antialiasing|QPainter::TextAntialiasing</set>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>800</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <addaction name="actionKeepSignals"/>
+    <addaction name="actionHideFinalized"/>
+    <addaction name="actionShowAll"/>
+    <addaction name="actionRedraw"/>
+    <addaction name="separator"/>
+    <addaction name="actionZoom"/>
+    <addaction name="actionUnzoom"/>
+    <addaction name="actionFit"/>
+    <addaction name="separator"/>
+    <addaction name="actionSVGExport"/>
+    <addaction name="actionPrint"/>
+    <addaction name="actionConfigure"/>
+   </widget>
+   <widget class="QMenu" name="menuTask_labels">
+    <property name="title">
+     <string>Task labels</string>
+    </property>
+    <widget class="QMenu" name="menuRemovedPrefixes">
+     <property name="title">
+      <string>Removed prefixes</string>
+     </property>
+     <addaction name="actionPrefixAdd"/>
+     <addaction name="separator"/>
+    </widget>
+    <addaction name="actionOwnership"/>
+    <addaction name="menuRemovedPrefixes"/>
+   </widget>
+   <addaction name="menuView"/>
+   <addaction name="menuTask_labels"/>
+  </widget>
+  <action name="actionShowAll">
+   <property name="text">
+    <string>Show All</string>
+   </property>
+  </action>
+  <action name="actionRedraw">
+   <property name="text">
+    <string>Redraw</string>
+   </property>
+  </action>
+  <action name="actionZoom">
+   <property name="text">
+    <string>Zoom +</string>
+   </property>
+  </action>
+  <action name="actionUnzoom">
+   <property name="text">
+    <string>Zoom -</string>
+   </property>
+  </action>
+  <action name="actionFit">
+   <property name="text">
+    <string>Fit</string>
+   </property>
+  </action>
+  <action name="actionOwnership">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Ownership</string>
+   </property>
+  </action>
+  <action name="actionPrefixAdd">
+   <property name="text">
+    <string>Add...</string>
+   </property>
+  </action>
+  <action name="actionSVGExport">
+   <property name="text">
+    <string>SVG Export</string>
+   </property>
+  </action>
+  <action name="actionPrint">
+   <property name="text">
+    <string>Print</string>
+   </property>
+  </action>
+  <action name="actionKeepSignals">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Keep signals</string>
+   </property>
+  </action>
+  <action name="actionBookmarksAdd">
+   <property name="text">
+    <string>Add ...</string>
+   </property>
+  </action>
+  <action name="actionHideFinalized">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Hide Finalized</string>
+   </property>
+  </action>
+  <action name="actionConfigure">
+   <property name="text">
+    <string>Configure</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

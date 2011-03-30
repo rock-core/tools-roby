@@ -1,33 +1,19 @@
-require 'roby/log/gui/relations_view_ui'
+require 'roby/log/relations_view/relations_view_ui'
 
 class Ui::RelationsView
     def scene; graphics.scene end
     attr_reader :display
     attr_reader :prefixActions
 
-    def config_path
-	"#{display.decoder.name}-events.yml"
-    end
-
-    def load_config
-	if File.readable?(config_path)
-	    STDERR.puts "Loading config from #{config_path}"
-	    config_data = File.open(config_path) do |io|
-		YAML.load(io)
-	    end
-
-	    display.removed_prefixes.clear
-	    if removed_prefixes_config = config_data['prefixes']
-		removed_prefixes_config.each do |name, enabled|
-		    display.removed_prefixes[name] = enabled
-		end
-	    end
-	else
-	    STDERR.puts "No such config file #{config_path}"
-	end
+    def load_config(config_data)
+        display.removed_prefixes.clear
+        if removed_prefixes_config = config_data['prefixes']
+            removed_prefixes_config.each do |name, enabled|
+                display.removed_prefixes[name] = enabled
+            end
+        end
     end
     def save_config
-	STDERR.puts "Saving config into #{display.decoder.name}-events.yml"
 	config = { 'prefixes' => Hash.new }
 	display.removed_prefixes.each do |name, enabled|
 	    config['prefixes'][name] = enabled
@@ -35,10 +21,7 @@ class Ui::RelationsView
 	config['show_ownership'] = display.show_ownership
 	config['show_arguments'] = display.show_arguments
 	config['hide_finalized'] = display.hide_finalized
-
-	File.open(config_path, 'w') do |io|
-	    YAML.dump(config, io)
-	end
+        return config
     end
 
     def update_prefix_menu
@@ -65,6 +48,14 @@ class Ui::RelationsView
     def setupUi(relations_display)
 	@display   = relations_display
 	super(relations_display.main)
+
+        actionConfigure.connect(SIGNAL(:triggered)) do
+            if !@configuration_widget
+                @configuration_widget = Qt::Widget.new
+                @configuration_widget_ui = Ui::RelationsConfig.new(@configuration_widget, display)
+            end
+            @configuration_widget.show
+        end
 
 	actionOwnership.connect(SIGNAL(:triggered)) do
 	    display.show_ownership = actionOwnership.checked?
