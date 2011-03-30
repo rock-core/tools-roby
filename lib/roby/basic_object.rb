@@ -162,8 +162,7 @@ module Roby
 	    end
 
 	    if remote_object = remote_siblings.delete(peer)
-		peer.proxies.delete(remote_object)
-		peer.subscriptions.delete(remote_object)
+                peer.removed_sibling(remote_object)
 		Roby::Distributed.debug { "removed sibling #{remote_object} for #{self} on #{peer}" }
 		remote_object
 	    end

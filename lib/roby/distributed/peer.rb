@@ -321,6 +321,13 @@ module Roby::Distributed
         def local_task_tag(name)
             Roby::TaskModelTag.anon_tag_factory(name)
         end
+
+        # Called when +remote_object+ is a sibling that should be "forgotten"
+        #
+        # It is usually called by Roby::BasicObject#remove_sibling_for
+        def removed_sibling(remote_object)
+            proxies.delete(remote_object)
+        end
     end
 
     # A Peer object is the client part of a connection with a remote plan
@@ -454,6 +461,11 @@ module Roby::Distributed
 	def find_tasks
 	    Roby::Query.new(self)
 	end
+
+        def removed_sibling(remote_object)
+            super
+            subscriptions.delete(remote_object)
+        end
 
         # Returns a set of remote tasks for +query+ applied on the remote plan
         # This is not to be accessed directly. It is part of the Query
