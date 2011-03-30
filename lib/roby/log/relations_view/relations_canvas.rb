@@ -449,6 +449,7 @@ module Roby
 		@ui     = Ui::RelationsView.new
                 @plans  = plans.dup
 
+                @display_policy    = :explicit
 		@graphics          = Hash.new
 		@visible_objects   = ValueSet.new
 		@flashing_objects  = Hash.new
@@ -667,15 +668,26 @@ module Roby
 		"dot"
 	    end
 
+            DISPLAY_POLICIES = [:explicit, :emitters]
+            attr_reader :display_policy
+            def display_policy=(policy)
+                if !DISPLAY_POLICIES.include?(policy)
+                    raise ArgumentError, "got #{policy.inspect} as a display policy, accepted values are #{DISPLAY_POLICIES.map(&:inspect).join(", ")}"
+                end
+                @display_policy = policy
+            end
+
 	    def displayed?(object)
                 if (parent = object.display_parent) && !displayed?(parent)
                     return false
                 end
-                    
-	       	(visible_objects.include?(object) || 
-		    flashing_objects.has_key?(object)) &&
-                    !filtered_out_label?(object.display_name(self))
+	       	
+                (
+                    (display_policy == :explicit && visible_objects.include?(object)) || 
+		    flashing_objects.has_key?(object)
+                ) && !filtered_out_label?(object.display_name(self))
 	    end
+
 	    def set_visibility(object, flag)
 		return if visible_objects.include?(object) == flag
 
@@ -723,6 +735,9 @@ module Roby
 		else
 		    flashing_objects[object] ||= nil
 		end
+                if object.display_parent
+                    add_flashing_object(object.display_parent, &block)
+                end
 
 		create_or_get_item(object)
 	    end
@@ -823,13 +838,16 @@ module Roby
                 plans.each do |p|
                     p.emitted_events.each_with_index do |(flags, object), event_priority|
                         DisplayEventGenerator.priorities[object] = event_priority
-                        next if object.respond_to?(:task) && !displayed?(object.task)
+                        if display_policy == :explicit && !displayed?(object.task)
+                            next
+                        end
 
-                        graphics = if flashing_objects.has_key?(object)
-                                       self.graphics[object]
-                                   else
-                                       add_flashing_object(object)
-                                   end
+                        graphics =
+                            if flashing_objects.has_key?(object)
+                                self.graphics[object]
+                            else
+                                add_flashing_object(object)
+                            end
 
                         graphics.brush, graphics.pen = DisplayEventGenerator.style(object, flags)
                     end
@@ -845,15 +863,8 @@ module Roby
                                 DisplayEventGenerator.priorities[to] = (event_priority += 1)
                             end
 
-                            if from.respond_to?(:task) 
-                                next if !displayed?(from.task)
-                            else
-                                next if !all_events.include?(from)
-                            end
-                            if to.respond_to?(:task) 
-                                next if !displayed?(to.task)
-                            else
-                                next if !all_events.include?(to)
+                            if display_policy == :explicit && (!displayed?(from) || !displayed?(to))
+                                next
                             end
 
                             add_flashing_object from
@@ -861,7 +872,6 @@ module Roby
                         end
                     end
                 end
-
 
 		[all_tasks, all_events, plans].each do |object_set|
 		    object_set.each do |object|

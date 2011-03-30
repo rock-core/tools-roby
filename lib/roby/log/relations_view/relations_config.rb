@@ -240,6 +240,16 @@ module Ui
                 display.hidden_labels = labels
                 delayed_update
             end
+            displayExplicit.connect(SIGNAL('clicked()')) do
+                display.display_policy = :explicit
+                delayed_update
+            end
+            displayEmitters.connect(SIGNAL('clicked()')) do
+                display.display_policy = :emitters
+                delayed_update
+            end
+            displayEmittersAndParents.connect(SIGNAL('clicked()')) do
+            end
 
             @delayed_update_timer = Qt::Timer.new(display)
             @delayed_update_timer.setSingleShot(true)
