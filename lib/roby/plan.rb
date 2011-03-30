@@ -167,6 +167,69 @@ module Roby
             end
         end
 
+        # Copies this plan's state (tasks, events and their relations) into the
+        # provided plan
+        #
+        # It returns the mapping from the plan objects in +self+ to the plan
+        # objects in +copy+. For instance, if +t+ is a task in +plan+, then
+        #
+        #   mapping = plan.copy_to(copy)
+        #   mapping[t] => corresponding task in +copy+
+        def copy_to(copy)
+            mappings = Hash.new { |h, k| raise "found object with no mapping" }
+
+            # First create a copy of all the tasks
+            known_tasks.each do |t|
+                new_t = t.dup
+                mappings[t] = new_t
+
+                t.each_event do |ev|
+                    mappings[ev] = new_t.event(ev.symbol)
+                end
+                copy.add(new_t)
+            end
+            free_events.each do |e|
+                new_e = e.dup
+                mappings[e] = new_e
+                copy.add(new_e)
+            end
+
+            # We now have to copy the relations
+            known_tasks.each do |parent|
+                parent.each_relation do |rel|
+                    m_parent = mappings[parent]
+                    parent.each_child_object(rel) do |child|
+                        info = parent[child, rel]
+                        rel.add_relation(m_parent, mappings[child], info)
+                    end
+                end
+
+                parent.each_event do |parent_ev|
+                    m_parent_ev = mappings[parent_ev]
+                    parent_ev.each_relation do |rel|
+                        parent_ev.each_child_object(rel) do |child_ev, info|
+                            m_child_ev = mappings[child_ev]
+                            if !rel.linked?(m_parent_ev, m_child_ev)
+                                rel.add_relation(m_parent_ev, m_child_ev, info)
+                            end
+                        end
+                    end
+                end
+            end
+
+            free_events.each do |parent_ev|
+                m_parent_ev = mappings[parent_ev]
+                parent_ev.each_relation do |rel|
+                    parent_ev.each_child_object(rel) do |child_ev, info|
+                        m_child_ev = mappings[child_ev]
+                        rel.add_relation(m_parent_ev, m_child_ev, info)
+                    end
+                end
+            end
+
+            mappings
+        end
+
 	# call-seq:
 	#   plan.partition_event_task(objects) => events, tasks
 	#
