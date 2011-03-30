@@ -5,45 +5,6 @@ class Ui::RelationsView
     attr_reader :display
     attr_reader :prefixActions
 
-    def load_config(config_data)
-        display.removed_prefixes.clear
-        if removed_prefixes_config = config_data['prefixes']
-            removed_prefixes_config.each do |name, enabled|
-                display.removed_prefixes[name] = enabled
-            end
-        end
-    end
-    def save_config
-	config = { 'prefixes' => Hash.new }
-	display.removed_prefixes.each do |name, enabled|
-	    config['prefixes'][name] = enabled
-	end
-	config['show_ownership'] = display.show_ownership
-	config['show_arguments'] = display.show_arguments
-	config['hide_finalized'] = display.hide_finalized
-        return config
-    end
-
-    def update_prefix_menu
-	@prefixActions ||= []
-	prefixActions.each do |action|
-	    menuRemovedPrefixes.remove_action(action)
-	end
-
-	prefixActions.clear
-	display.removed_prefixes.each do |prefix, bool|
-	    action = Qt::Action.new prefix, menuRemovedPrefixes
-	    prefixActions << action
-	    action.checkable = true
-	    action.checked = bool
-	    action.connect(SIGNAL(:triggered)) do 
-		display.removed_prefixes[prefix] = action.checked?
-		display.update
-	    end
-	    menuRemovedPrefixes.add_action action
-	end
-    end
-
     ZOOM_STEP = 0.25
     def setupUi(relations_display)
 	@display   = relations_display
@@ -56,29 +17,6 @@ class Ui::RelationsView
             end
             @configuration_widget.show
         end
-
-	actionOwnership.connect(SIGNAL(:triggered)) do
-	    display.show_ownership = actionOwnership.checked?
-	    display.update
-	end
-
-	actionHideFinalized.connect(SIGNAL(:triggered)) do
-	    display.hide_finalized = actionHideFinalized.checked?
-	    display.update
-	end
-
-	#############################################################
-	# Build the removed_prefixes menu
-	actionPrefixAdd.connect(SIGNAL(:triggered)) do
-	    new_prefix = Qt::InputDialog.get_text display.main, "New prefix", "New prefix to remove"
-	    if !new_prefix.nil?
-		display.removed_prefixes[new_prefix] = true
-		save_config
-		update_prefix_menu
-		display.update
-	    end
-	end
-	update_prefix_menu
 	
 	#############################################################
 	# Handle the other toolbar's buttons
@@ -120,9 +58,6 @@ class Ui::RelationsView
 	    display.graphics.keys.each do |obj|
 		display.set_visibility(obj, true) if obj.kind_of?(Roby::Task::DRoby) || (obj.kind_of?(Roby::EventGenerator::DRoby) && !obj.respond_to?(:task))
 	    end
-	    display.update
-	end
-	actionRedraw.connect(SIGNAL(:triggered)) do
 	    display.update
 	end
 

@@ -13,45 +13,121 @@
   <property name="windowTitle">
    <string>RelationsConfig</string>
   </property>
-  <layout class="QVBoxLayout">
-   <property name="spacing">
-    <number>6</number>
-   </property>
-   <property name="margin">
-    <number>9</number>
-   </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <layout class="QGridLayout">
-     <property name="margin">
-      <number>0</number>
+    <widget class="QGroupBox" name="taskLabelsGroup">
+     <property name="title">
+      <string>Task Labels</string>
      </property>
-     <property name="spacing">
-      <number>6</number>
+     <layout class="QGridLayout" name="gridLayout">
+      <item row="0" column="0">
+       <widget class="QCheckBox" name="showOwnership">
+        <property name="text">
+         <string>Show ownership</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="lblRemovedPrefixes">
+        <property name="text">
+         <string>Remove the following prefixes (comma-separated)</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLineEdit" name="removedPrefixes">
+        <property name="text">
+         <string>Roby::</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="displayOptionsGroup">
+     <property name="title">
+      <string>Display Options</string>
      </property>
-     <item row="0" column="2">
-      <widget class="QComboBox" name="layout_method">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0" colspan="2">
-      <widget class="QLabel" name="label_2">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="text">
-        <string>Layout method</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
+     <layout class="QGridLayout" name="gridLayout_2">
+      <item row="0" column="0" colspan="2">
+       <widget class="QRadioButton" name="displayExplicit">
+        <property name="text">
+         <string>Explicit hide/show management</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0" colspan="2">
+       <widget class="QRadioButton" name="displayEmitters">
+        <property name="text">
+         <string>Only show tasks that emit events</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0" colspan="2">
+       <widget class="QRadioButton" name="displayEmittersAndParents">
+        <property name="text">
+         <string>Only show tasks that emit events and their parents</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0" colspan="2">
+       <widget class="QLabel" name="lblHiddenLabels">
+        <property name="text">
+         <string>Hide tasks whose label matches (comma-separated)</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0" colspan="2">
+       <widget class="QLineEdit" name="hiddenLabels"/>
+      </item>
+      <item row="5" column="0" colspan="2">
+       <widget class="QCheckBox" name="showFinalized">
+        <property name="text">
+         <string>Show finalized objects</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0">
+       <widget class="QLabel" name="lblLayoutMethod">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Layout method</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="1">
+       <widget class="QComboBox" name="layoutMethod">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
    </item>
    <item>
     <widget class="QTreeView" name="relations"/>

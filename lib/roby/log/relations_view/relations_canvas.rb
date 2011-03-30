@@ -281,6 +281,9 @@ module Roby
             end
             def display(display, item)
             end
+            def display_name(display)
+                ""
+            end
         end
 
         Roby::PlanObject.include DisplayPlanObject
@@ -665,8 +668,13 @@ module Roby
 	    end
 
 	    def displayed?(object)
-	       	visible_objects.include?(object) || 
-		    flashing_objects.has_key?(object) 
+                if (parent = object.display_parent) && !displayed?(parent)
+                    return false
+                end
+                    
+	       	(visible_objects.include?(object) || 
+		    flashing_objects.has_key?(object)) &&
+                    !filtered_out_label?(object.display_name(self))
 	    end
 	    def set_visibility(object, flag)
 		return if visible_objects.include?(object) == flag
@@ -682,20 +690,22 @@ module Roby
 		end
 	    end
 
-	    def create_or_get_item(object)
-		unless item = graphics[object]
+	    def create_or_get_item(object, initial_visibility = true)
+		if !(item = graphics[object])
 		    item = graphics[object] = object.display_create(self)
 		    if item
-			item.parent_item = self[object.display_parent] if object.display_parent
+                        if object.display_parent
+                            item.parent_item = self[object.display_parent]
+                        end
+
 			yield(item) if block_given?
 
-			if !displayed?(object) 
-			    item.visible = false
-			end
+                        if initial_visibility
+                            visible_objects << object
+                        end
 		    end
-		end
-
-		item.visible = displayed?(object)
+                end
+                item.visible = displayed?(object)
 		item
 	    end
 
@@ -782,15 +792,6 @@ module Roby
 		    clear_arrows(obj)
 		end
 
-                (all_tasks - graphics.keys.to_value_set).each do |new_task|
-		    set_visibility(new_task, true)
-		    new_task.each_event do |ev|
-			if item = self[ev]
-			    item.visible = false
-			end
-		    end
-		end
-
 		visible_objects.merge(plans.to_value_set)
 
 		plans.each do |plan|
@@ -808,17 +809,14 @@ module Roby
 
 		# Create graphics items for tasks and events if necessary, and
 		# update their visibility according to the visible_objects set
-		[all_tasks, all_events, plans].each do |object_set|
-		    object_set.each do |object|
-			if displayed?(object)
-			    create_or_get_item(object)
-			elsif !object.display_parent
-			    if item = graphics[object]
-				item.visible = false
-			    end
-			end
+                all_tasks.each do |object|
+                    create_or_get_item(object)
+		    object.each_event do |ev|
+                        create_or_get_item(ev, false)
 		    end
 		end
+                all_events.each { |ev| create_or_get_item(ev) }
+                plans.each { |p| create_or_get_item(p) }
 
 		DisplayEventGenerator.priorities.clear
 		event_priority = 0

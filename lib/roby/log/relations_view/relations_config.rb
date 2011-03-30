@@ -181,9 +181,10 @@ module Ui
 
 	def selected
 	    index = combo.current_index
-	    display.layout_method = if index == 0 then nil
-				    else METHODS[index]
-				    end
+	    display.layout_method =
+                if index == 0 then nil
+                else METHODS[index]
+                end
             display.update
 	end
 	slots 'selected()'
@@ -218,10 +219,43 @@ module Ui
 	    relations.set_expanded model.task_root_index, true
 	    relations.set_expanded model.event_root_index, true
 
-	    @layout_model = LayoutMethodModel.new(display, layout_method)
-	    Qt::Object.connect(layout_method, SIGNAL("currentIndexChanged(int)"), @layout_model, SLOT("selected()"))
-	    layout_method.model = @layout_model
+            @layout_model = LayoutMethodModel.new(display, layoutMethod)
+            Qt::Object.connect(layoutMethod, SIGNAL("currentIndexChanged(int)"), @layout_model, SLOT("selected()"))
+	    layoutMethod.model = @layout_model
+
+            showOwnership.connect(SIGNAL('clicked(bool)')) do |state|
+                display.show_ownership = state
+                display.update
+            end
+            showFinalized.connect(SIGNAL('clicked(bool)')) do |state|
+                display.hide_finalized = !state
+                display.update
+            end
+            removedPrefixes.connect(SIGNAL('textChanged(QString)')) do |removed_prefixes|
+                display.removed_prefixes = removed_prefixes.split(',')
+                delayed_update
+            end
+            hiddenLabels.connect(SIGNAL('textChanged(QString)')) do |hidden_labels|
+                labels = hidden_labels.split(',').map { |s| Regexp.new(Regexp.quote(s)) }
+                display.hidden_labels = labels
+                delayed_update
+            end
+
+            @delayed_update_timer = Qt::Timer.new(display)
+            @delayed_update_timer.setSingleShot(true)
+            @delayed_update_timer.connect(SIGNAL('timeout()')) do
+                display.update
+            end
 	end
+
+        # The amount of time we wait before triggering an update on the display.
+        # This is meant to avoid unnecessary updates (for instance for
+        # configuration parameters in textboxes)
+        DELAYED_UPDATE_TIMEOUT = 500
+
+        def delayed_update
+            @delayed_update_timer.start(DELAYED_UPDATE_TIMEOUT)
+        end
 
         def save_config
             config = Hash.new
