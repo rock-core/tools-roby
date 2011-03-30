@@ -314,10 +314,21 @@ module Roby::Distributed
 	end
 	alias proxy local_object
 
+
+        # Returns a new local model named +name+ created by this remote object
+        # manager
+        #
+        # This is used to customize the anonymous model building process based
+        # on the RemoteObjectManager instance that is being provided
         def local_model(parent_model, name)
             Roby::Distributed::DRobyModel.anon_model_factory(parent_model, name)
         end
 
+        # Returns a new local task tag named +name+ created by this remote
+        # object manager
+        #
+        # This is used to customize the anonymous task tag building process
+        # based on the RemoteObjectManager instance that is being provided
         def local_task_tag(name)
             Roby::TaskModelTag.anon_tag_factory(name)
         end
