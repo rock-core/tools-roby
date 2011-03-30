@@ -386,7 +386,9 @@ module Roby
                 def finalized_event(generator)
                     super if defined? super
                     Distributed.peers.each_value do |peer|
-                        peer.local_server.pending_events.delete(generator)
+                        if peer.local_server
+                            peer.local_server.pending_events.delete(generator)
+                        end
                     end
                 end
             end
