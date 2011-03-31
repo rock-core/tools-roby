@@ -478,7 +478,7 @@ module Roby
 
             def append_to_history(cycle, time, snapshot)
                 item = Qt::ListWidgetItem.new(list)
-                item.text = "@#{cycle} - #{time.to_s}"
+                item.text = "@#{cycle} - #{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec % 1000]}"
                 item.setData(Qt::UserRole, Qt::Variant.new(cycle))
                 history[cycle] = [time, snapshot, item]
             end
