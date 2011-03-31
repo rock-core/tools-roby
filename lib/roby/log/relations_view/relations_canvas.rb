@@ -490,6 +490,10 @@ module Roby
 		connect(shortcut, SIGNAL('activated()'), self, SLOT('find()'))
 		@shortcuts << shortcut
 		main.resize 500, 500
+
+                enable_relation(Roby::TaskStructure::Dependency)
+                enable_relation(Roby::TaskStructure::ExecutionAgent)
+                enable_relation(Roby::TaskStructure::PlannedBy)
 	    end
 
             def show
