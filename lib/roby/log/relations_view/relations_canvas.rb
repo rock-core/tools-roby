@@ -496,6 +496,40 @@ module Roby
                 enable_relation(Roby::TaskStructure::PlannedBy)
 	    end
 
+            def options(new_options = Hash.new)
+                apply_options(new_options)
+
+                options = Hash.new
+                options['enabled_relations'] = @enabled_relations.map(&:name)
+                options['show_ownership'] = show_ownership
+                options['hide_finalized'] = hide_finalized
+                options['removed_prefixes'] = removed_prefixes.dup
+                options['hidden_labels'] = hidden_labels.dup
+                options['display_policy'] = display_policy
+                options
+            end
+
+            def apply_options(options)
+                if enabled_relations = options['enabled_relations']
+                    enabled_relations.each do |name|
+                        rel = constant(name)
+                        enable_relation(rel)
+                    end
+                end
+                apply_simple_option('show_ownership', options)
+                apply_simple_option('removed_prefixes', options)
+                apply_simple_option('hide_finalized', options)
+                apply_simple_option('removed_prefixes', options)
+                apply_simple_option('hidden_labels', options)
+                apply_simple_option('display_policy', options)
+            end
+
+            def apply_simple_option(option_name, options)
+                if options.has_key?(option_name)
+                    self.send("#{option_name}=", options[option_name])
+                end
+            end
+
             def show
                 main.show
             end

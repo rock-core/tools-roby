@@ -223,23 +223,32 @@ module Ui
             Qt::Object.connect(layoutMethod, SIGNAL("currentIndexChanged(int)"), @layout_model, SLOT("selected()"))
 	    layoutMethod.model = @layout_model
 
+            showOwnership.checked = display.show_ownership
             showOwnership.connect(SIGNAL('clicked(bool)')) do |state|
                 display.show_ownership = state
                 display.update
             end
+            showFinalized.checked = !display.hide_finalized
             showFinalized.connect(SIGNAL('clicked(bool)')) do |state|
                 display.hide_finalized = !state
                 display.update
             end
+            removedPrefixes.setText(display.removed_prefixes.to_a.join(","))
             removedPrefixes.connect(SIGNAL('textChanged(QString)')) do |removed_prefixes|
                 display.removed_prefixes = removed_prefixes.split(',')
                 delayed_update
             end
+            hiddenLabels.setText(display.hidden_labels.to_a.join(","))
             hiddenLabels.connect(SIGNAL('textChanged(QString)')) do |hidden_labels|
-                labels = hidden_labels.split(',').map { |s| Regexp.new(Regexp.quote(s)) }
-                display.hidden_labels = labels
+                display.hidden_labels = hidden_labels.split(',')
                 delayed_update
             end
+            if display.display_policy == :explicit
+                displayExplicit.checked = true
+            elsif display.display_policy == :emitters
+                displayEmitters.checked = true
+            end
+
             displayExplicit.connect(SIGNAL('clicked()')) do
                 display.display_policy = :explicit
                 delayed_update
@@ -265,25 +274,6 @@ module Ui
 
         def delayed_update
             @delayed_update_timer.start(DELAYED_UPDATE_TIMEOUT)
-        end
-
-        def save_config
-            config = Hash.new
-            config['enabled_relations'] = display.enabled_relations.map(&:name)
-            config.merge!(display.ui.save_config)
-            return config
-        end
-
-        def load_config(this_config)
-            if enabled_relations = this_config['enabled_relations']
-                all_relations = Roby::LogReplay::RelationsDisplay.all_task_relations
-                enabled_relations.each do |relname|
-                    rel = all_relations.find { |rel| rel.name =~ /#{relname}/ }
-                    display.enable_relation(rel)
-                end
-            end
-
-            display.ui.load_config(this_config)
         end
     end
 end

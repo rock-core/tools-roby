@@ -534,7 +534,7 @@ module Roby
 	    end
 
             def filtered_out_label?(label)
-                (!hidden_labels.empty? && hidden_labels.any? { |rx| rx.match(label) })
+                (!hidden_labels.empty? && hidden_labels.any? { |match| label.include?(match) })
             end
 
 	    def filter_prefixes(string)

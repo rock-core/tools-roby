@@ -16,7 +16,15 @@ app = Qt::Application.new(ARGV)
 stream    = Roby::LogReplay::EventFileStream.open(filename)
 rebuilder = Roby::LogReplay::PlanRebuilder.new(stream)
 display = Roby::LogReplay::RelationsDisplay::RelationsCanvas.new(rebuilder, rebuilder.plans)
+if File.file?('roby-display.yml')
+    display.options(YAML.load(File.read('roby-display.yml')))
+end
 display.show
 
 app.exec
+
+File.open('roby-display.yml', 'w') do |io|
+    YAML.dump(display.options, io)
+end
+
 
