@@ -47,14 +47,17 @@ module Roby
             def self.style(object, flags)
                 # This is for backward compatibility only. All events are now marshalled
                 # with their controllability.
-                if !object.controlable?
-                    flags |= (object.controlable? ? EVENT_CONTROLABLE : EVENT_CONTINGENT)
-                elsif (flags & EVENT_CALLED) != 0
+                flags |= (object.controlable? ? EVENT_CONTROLABLE : EVENT_CONTINGENT)
+
+                if (flags & EVENT_CALLED) != EVENT_CALLED
+                    if (flags & EVENT_CONTROLABLE) != EVENT_CONTROLABLE
+                        STDERR.puts "WARN: inconsistency in replayed logs. Found event call on #{object} #{object.object_id} which is marked as contingent (#{object.controlable?}"
+                    end
                     flags |= EVENT_CONTROLABLE
                 end
 
                 if !styles.has_key?(flags)
-                    raise ArgumentError, "event flags #{flags} have not style"
+                    raise ArgumentError, "event #{object} has flags #{flags}, which has no defined style (controlable=#{object.controlable?})"
                 end
 
                 styles[flags]
