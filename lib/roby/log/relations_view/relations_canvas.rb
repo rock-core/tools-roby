@@ -2,9 +2,7 @@ require 'utilrb/module/attr_predicate'
 require 'roby/distributed/protocol'
 
 require 'roby/log/dot'
-require 'roby/log/plan_rebuilder'
 
-require 'roby/log/relations_view/relations_config'
 require 'roby/log/relations_view/relations_view'
 
 module Roby
@@ -416,10 +414,6 @@ module Roby
             # Common configuration options for displays that represent tasks
 	    include LogReplay::TaskDisplayConfiguration
 
-            # The Qt::MainWindow in which we are embedded
-            attr_reader :main
-            # The UI setup class
-	    attr_reader :ui
             # The Qt::GraphicsScene we are manipulating
             attr_reader :scene
 
@@ -444,12 +438,10 @@ module Roby
 	    # True if the finalized tasks should not be displayed
 	    attr_accessor :hide_finalized
 
-	    def initialize(plan_rebuilder, plans)
+	    def initialize(plans)
 		@scene  = Qt::GraphicsScene.new
 		super()
 
-		@main   = Qt::MainWindow.new
-		@ui     = Ui::RelationsView.new
                 @plans  = plans.dup
 
                 @display_policy    = :explicit
@@ -467,17 +459,6 @@ module Roby
 		@signal_arrows     = []
 		@hide_finalized	   = true
 
-		ui.setupUi(self)
-                ui.history.setContentsMargins(0, 0, 0, 0)
-                @history_widget_layout = Qt::VBoxLayout.new(ui.history)
-                @history_widget_layout.setContentsMargins(0, 0, 0, 0)
-                @history_widget = PlanRebuilderWidget.new(main, plan_rebuilder, [self])
-                @history_widget.setContentsMargins(0, 0, 0, 0)
-                @history_widget_layout.add_widget(@history_widget)
-                @history_widget.analyze
-
-		ui.graphics.scene = scene
-
 		default_colors = {
 		    Roby::TaskStructure::Hierarchy => 'grey',
 		    Roby::TaskStructure::PlannedBy => '#32ba21',
@@ -487,12 +468,6 @@ module Roby
 		default_colors.each do |rel, color|
 		    update_relation_color(rel, color)
 		end
-
-		@shortcuts = []
-		shortcut = Qt::Shortcut.new(Qt::KeySequence.new('f'), main)
-		connect(shortcut, SIGNAL('activated()'), self, SLOT('find()'))
-		@shortcuts << shortcut
-		main.resize 500, 500
 
                 enable_relation(Roby::TaskStructure::Dependency)
                 enable_relation(Roby::TaskStructure::ExecutionAgent)
@@ -531,14 +506,6 @@ module Roby
                 if options.has_key?(option_name)
                     self.send("#{option_name}=", options[option_name])
                 end
-            end
-
-            def show
-                main.show
-            end
-
-            def hide
-                main.hide
             end
 
 	    def object_of(item)

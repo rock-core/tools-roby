@@ -1,4 +1,43 @@
 require 'roby/log/relations_view/relations_view_ui'
+require 'roby/log/relations_view/relations_config'
+require 'roby/log/plan_rebuilder'
+
+module Roby
+    module LogReplay
+        module RelationsDisplay
+            class RelationsView < Qt::MainWindow
+                attr_reader :ui
+
+                attr_reader :history
+                attr_reader :canvas
+
+                def initialize(plan_rebuilder)
+                    super()
+                    @ui = Ui::RelationsView.new
+                    @canvas = RelationsCanvas.new(plan_rebuilder.plans)
+                    ui.setupUi(self)
+
+                    ui.history.setContentsMargins(0, 0, 0, 0)
+                    @history_widget_layout = Qt::VBoxLayout.new(ui.history)
+                    @history_widget_layout.setContentsMargins(0, 0, 0, 0)
+                    @history_widget = PlanRebuilderWidget.new(self, plan_rebuilder, [canvas])
+                    @history_widget.setContentsMargins(0, 0, 0, 0)
+                    @history_widget_layout.add_widget(@history_widget)
+                    @history_widget.analyze
+
+                    ui.graphics.scene = canvas.scene
+
+                    resize 500, 500
+                end
+
+                def options(new_options = Hash.new)
+                    canvas.options(new_options)
+                end
+            end
+        end
+    end
+end
+
 
 class Ui::RelationsView
     def scene; graphics.scene end
@@ -6,9 +45,9 @@ class Ui::RelationsView
     attr_reader :prefixActions
 
     ZOOM_STEP = 0.25
-    def setupUi(relations_display)
-	@display   = relations_display
-	super(relations_display.main)
+    def setupUi(view)
+	@display   = view.canvas
+	super(view)
 
         actionConfigure.connect(SIGNAL(:triggered)) do
             if !@configuration_widget
@@ -24,7 +63,7 @@ class Ui::RelationsView
 	    define_method(:contextMenuEvent) do |event|
 		item = itemAt(event.pos)
 		if item
-		    unless obj = relations_display.object_of(item)
+		    unless obj = display.object_of(item)
 			return super(event)
 		    end
 		end
@@ -39,18 +78,18 @@ class Ui::RelationsView
 
 		case action.text
 		when "Hide"
-		    relations_display.set_visibility(obj, false)
+		    display.set_visibility(obj, false)
 		when "Hide children"
-		    for child in Roby::TaskStructure.children_of(obj, relations_display.enabled_relations)
-			relations_display.set_visibility(child, false)
+		    for child in Roby::TaskStructure.children_of(obj, display.enabled_relations)
+			display.set_visibility(child, false)
 		    end
 		when "Show children"
-		    for child in Roby::TaskStructure.children_of(obj, relations_display.enabled_relations)
-			relations_display.set_visibility(child, true)
+		    for child in Roby::TaskStructure.children_of(obj, display.enabled_relations)
+			display.set_visibility(child, true)
 		    end
 		end
 
-		relations_display.update
+		display.update
 	    end
 	end
 

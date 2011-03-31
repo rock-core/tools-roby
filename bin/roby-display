@@ -6,7 +6,7 @@ require 'roby/log'
 require 'Qt'
 require 'roby/log/event_stream'
 require 'roby/log/plan_rebuilder'
-require 'roby/log/relations_view/relations_canvas'
+require 'roby/log/relations_view/relations_view'
 
 Roby.app.setup_drb_server
 
@@ -15,7 +15,7 @@ app = Qt::Application.new(ARGV)
 
 stream    = Roby::LogReplay::EventFileStream.open(filename)
 rebuilder = Roby::LogReplay::PlanRebuilder.new(stream)
-display = Roby::LogReplay::RelationsDisplay::RelationsCanvas.new(rebuilder, rebuilder.plans)
+display = Roby::LogReplay::RelationsDisplay::RelationsView.new(rebuilder)
 if File.file?('roby-display.yml')
     display.options(YAML.load(File.read('roby-display.yml')))
 end
