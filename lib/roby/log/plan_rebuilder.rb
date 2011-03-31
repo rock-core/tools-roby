@@ -463,8 +463,8 @@ module Roby
             attr_reader :plan_rebuilder
             attr_reader :displays
 
-            def initialize(plan_rebuilder, displays)
-                super()
+            def initialize(parent, plan_rebuilder, displays)
+                super(parent)
                 @list    = Qt::ListWidget.new(self)
                 @layout  = Qt::VBoxLayout.new(self)
                 @history = Hash.new

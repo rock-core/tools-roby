@@ -441,7 +441,7 @@ module Roby
 	    # True if the finalized tasks should not be displayed
 	    attr_accessor :hide_finalized
 
-	    def initialize(plans)
+	    def initialize(plan_rebuilder, plans)
 		@scene  = Qt::GraphicsScene.new
 		super()
 
@@ -465,6 +465,14 @@ module Roby
 		@hide_finalized	   = true
 
 		ui.setupUi(self)
+                ui.history.setContentsMargins(0, 0, 0, 0)
+                @history_widget_layout = Qt::VBoxLayout.new(ui.history)
+                @history_widget_layout.setContentsMargins(0, 0, 0, 0)
+                @history_widget = PlanRebuilderWidget.new(main, plan_rebuilder, [self])
+                @history_widget.setContentsMargins(0, 0, 0, 0)
+                @history_widget_layout.add_widget(@history_widget)
+                @history_widget.analyze
+
 		ui.graphics.scene = scene
 
 		default_colors = {

@@ -15,12 +15,8 @@ app = Qt::Application.new(ARGV)
 
 stream    = Roby::LogReplay::EventFileStream.open(filename)
 rebuilder = Roby::LogReplay::PlanRebuilder.new(stream)
-display = Roby::LogReplay::RelationsDisplay::RelationsCanvas.new(rebuilder.plans)
+display = Roby::LogReplay::RelationsDisplay::RelationsCanvas.new(rebuilder, rebuilder.plans)
 display.show
-
-history = Roby::LogReplay::PlanRebuilderWidget.new(rebuilder, [display])
-history.analyze
-history.show
 
 app.exec
 
