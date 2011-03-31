@@ -207,7 +207,17 @@ module Roby
                         Roby::Distributed.ignore!
                     end
 		end
+
 		event = task.event(symbol)
+                if !event.controlable? && controlable
+                    if task.respond_to?(:override_remote_event)
+                        task.override_remote_event(symbol, peer, self)
+                        event = task.event(symbol)
+                    else
+                        Roby::Distributed.warn { "ignoring #{self}(local=#{task}): #{symbol} is contingent locally and controlable remotely" }
+                        Roby::Distributed.ignore!
+                    end
+                end
 		
 		if happened && !event.happened?
 		    event.instance_eval { @happened = true }

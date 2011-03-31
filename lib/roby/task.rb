@@ -250,6 +250,10 @@ module Roby
 	attr_reader :symbol
 	# The event class
 	attr_reader :event_model
+        # Changes the underlying model
+        def override_model(model)
+            @event_model = model
+        end
 
         def initialize(task, model)
             @task, @event_model = task, model
@@ -262,6 +266,12 @@ module Roby
 	def default_command(context)
 	    event_model.call(task, context)
 	end
+
+        def command=(block)
+            event_model.singleton_class.class_eval do
+                define_method(:call, &block)
+            end
+        end
 
 	# See PlanObject::child_plan_object. 
 	child_plan_object :task

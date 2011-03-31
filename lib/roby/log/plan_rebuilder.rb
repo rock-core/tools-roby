@@ -76,10 +76,24 @@ module Roby
             def create_remote_event(symbol, peer, marshalled_event)
                 event_model = self.model.
                     event(symbol, :controlable => marshalled_event.controlable)
+
                 generator = Roby::TaskEventGenerator.new(self, event_model)
                 @bound_events[symbol] = generator
                 generator.plan = plan
                 generator
+            end
+            def override_remote_event(symbol, peer, marshalled_event)
+                terminal = event(symbol).terminal?
+                event_model = self.model.
+                    event(symbol, :controlable => marshalled_event.controlable, :terminal => terminal)
+
+                if @bound_events[symbol]
+                    @bound_events[symbol].override_model(event_model)
+                    @bound_events[symbol]
+                else
+                    generator = Roby::TaskEventGenerator.new(self, event_model)
+                    @bound_events[symbol] = generator
+                end
             end
         end
 
