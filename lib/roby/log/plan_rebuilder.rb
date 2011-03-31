@@ -542,6 +542,9 @@ module Roby
 		for prefix in @prefixes_removal
 		    string = string.gsub(prefix, '')
 		end
+                if string =~ /^::/
+                    string = string[2..-1]
+                end
 		string
 	    end
 
