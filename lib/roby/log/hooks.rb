@@ -20,6 +20,11 @@ module Roby::Log
     module TaskHooks
 	HOOKS = %w{added_task_child removed_task_child}
 
+	def updated_edge_info(child, relation, info)
+	    super if defined? super
+	    Roby::Log.log(:updated_task_relation) { [self, relation, child, info] }
+	end
+
 	def added_child_object(child, relations, info)
 	    super if defined? super
 	    Roby::Log.log(:added_task_child) { [self, relations, child, info] }
@@ -111,6 +116,11 @@ module Roby::Log
 	def removed_child_object(to, relations)
 	    super if defined? super
 	    Roby::Log.log(:removed_event_child) { [self, relations, to] }
+	end
+
+	def updated_edge_info(child, relation, info)
+	    super if defined? super
+	    Roby::Log.log(:updated_event_relation) { [self, relation, child, info] }
 	end
 
 	def calling(context)

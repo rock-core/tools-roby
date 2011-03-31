@@ -314,6 +314,10 @@ module Roby
                     end
                 end
                 from[to, self] = info
+                if from.respond_to?(:updated_edge_info)
+                    from.updated_edge_info(to, self, info)
+                end
+                return
             end
 
 	    if !new_relations.empty?
