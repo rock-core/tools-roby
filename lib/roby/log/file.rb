@@ -14,6 +14,14 @@ module Roby::Log
             end
 	end
 
+        def self.process_header(file_header)
+            if file_header[:plugins]
+                file_header[:plugins].each do |plugin_name|
+                    Roby.app.using plugin_name
+                end
+            end
+        end
+
 	def initialize(file, allow_old_format = false, force_rebuild_index = false)
 	    @event_io = if file.respond_to?(:to_str)
 			    @basename = if file =~ /-events\.log$/ then $`
@@ -32,11 +40,7 @@ module Roby::Log
 
             @event_io.rewind
             file_header = Marshal.load(@event_io)
-            if file_header[:plugins]
-                file_header[:plugins].each do |plugin_name|
-                    Roby.app.using plugin_name
-                end
-            end
+            Logfile.process_header(file_header)
 
 	    index_path = "#{basename}-index.log"
 	    if force_rebuild_index || !File.file?(index_path)

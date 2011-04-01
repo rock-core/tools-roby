@@ -8,12 +8,22 @@ module Roby
             class RelationsView < Qt::MainWindow
                 attr_reader :ui
 
+                attr_reader :plan_rebuilder
                 attr_reader :history
                 attr_reader :canvas
+                attr_reader :history_widget
 
-                def initialize(plan_rebuilder)
+                # In remote connections, this is he period between checking if
+                # there is data on the socket, in seconds
+                #
+                # See #connect
+                DEFAULT_REMOTE_POLL_PERIOD = 0.05
+
+                def initialize(plan_rebuilder = nil)
                     super()
                     @ui = Ui::RelationsView.new
+                    plan_rebuilder ||= Roby::LogReplay::PlanRebuilder.new
+                    @plan_rebuilder = plan_rebuilder
                     @canvas = RelationsCanvas.new(plan_rebuilder.plans)
                     ui.setupUi(self)
 
@@ -23,11 +33,44 @@ module Roby
                     @history_widget = PlanRebuilderWidget.new(self, plan_rebuilder, [canvas])
                     @history_widget.setContentsMargins(0, 0, 0, 0)
                     @history_widget_layout.add_widget(@history_widget)
-                    @history_widget.analyze
 
                     ui.graphics.scene = canvas.scene
 
                     resize 500, 500
+                end
+
+                # Opens +filename+ and reads the data from there
+                def open(filename)
+                    stream = Roby::LogReplay::EventFileStream.open(filename)
+                    history_widget.analyze(stream)
+                end
+
+                # Displays the data incoming from +client+
+                #
+                # +client+ is assumed to be a Roby::Log::Client instance
+                #
+                # +update_period+ is, in seconds, the period at which the
+                # display will check whether there is new data on the port.
+                def connect(client, update_period = DEFAULT_REMOTE_POLL_PERIOD)
+                    client.add_listener do |data|
+                        history_widget.push_data(data)
+                    end
+                    @connection_pull = timer = Qt::Timer.new
+                    timer.connect(SIGNAL('timeout()')) do
+                        client.read_and_process_pending
+                    end
+                    timer.start(Integer(update_period * 1000))
+                end
+
+                # Creates a new display that will display the information
+                # present in +filename+
+                #
+                # +plan_rebuilder+, if given, will be used to rebuild a complete
+                # data structure based on the information in +filename+
+                def self.from_file(filename, plan_rebuilder = nil)
+                    view = new(plan_rebuilder)
+                    view.open(filename)
+                    view
                 end
 
                 def options(new_options = Hash.new)

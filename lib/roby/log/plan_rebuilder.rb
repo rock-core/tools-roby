@@ -122,42 +122,75 @@ module Roby
         end
 
 	# This class rebuilds a plan-like structure from events saved by a
-	# FileLogger object This is compatible with the EventStream data source
+	# FileLogger object.
+        #
+        # The data can be fed in two ways. From an EventFileStream object
+        # reading a file, passed to #analyze_stream, or on a per-cycle basis,
+        # which cycle being passed to #push_data
 	class PlanRebuilder
+            # The PlanReplayPeer that is being used to do RemoteID-to-local
+            # object mapping
 	    attr_reader :manager
-
+            # The Plan object into which we rebuild information
             attr_reader :plan
+            # For future use, right now it is [plan]
             attr_reader :plans
-            attr_reader :event_stream
+            # A list of snapshots that represent cycles where something happened
+            attr_reader :history
+            # A hash representing the statistics for this execution cycle
+            attr_reader :stats
+            # A representation of the state for this execution cycle
+            attr_reader :state
+            # A hash that stores (at a high level) what changed since the last
+            # call to #clear_integrated
+            #
+            # Don't manipulate directly, but use the announce_* and
+            # has_*_changes? methods
+            attr_reader :changes
 
-	    attr_reader :start_time
-	    attr_reader :time
-	    def initialize(event_stream, main_manager = true)
+	    def initialize(main_manager = true)
                 @plan = Roby::Plan.new
                 @plan.extend ReplayPlan
                 @plans = [@plan]
-                @event_stream = event_stream
                 @manager = create_remote_object_manager
                 if main_manager
                     Distributed.setup_log_replay(manager)
                 end
+                @history = Array.new
+                @changes = Hash.new
 	    end
 
-            def analyze
-                result = []
+            def analyze_stream(event_stream)
                 event_stream.rewind
                 while !event_stream.eof?
                     data = event_stream.read
                     if process(data)
-                        result << [event_stream.current_time, snapshot]
+                        history << snapshot
                     end
                     clear_integrated
                 end
                 event_stream.rewind
+            end
+
+            # The starting time of the last processed cycle
+            def time
+                Time.at(*stats[:start])
+            end
+
+
+            # Push one cycle worth of data
+            def push_data(data)
+                result =
+                    if process(data)
+                        history << snapshot
+                        true
+                    end
+
+                clear_integrated
                 result
             end
 
-            PlanRebuilderSnapshot = Struct.new :cycle, :plan, :manager
+            PlanRebuilderSnapshot = Struct.new :stats, :state, :plan, :manager
 
             # Returns a copy of this plan rebuilder's state (including the plan
             # itself and the remote object manager).
@@ -171,11 +204,10 @@ module Roby
 
                 manager = PlanReplayPeer.new(plan)
                 self.manager.copy_to(manager, mappings)
-                return PlanRebuilderSnapshot.new(event_stream.current_cycle, plan, manager)
+                return PlanRebuilderSnapshot.new(stats, state, plan, manager)
             end
 
             def apply_snapshot(snapshot)
-                event_stream.seek_to_cycle(snapshot.cycle)
                 plan.clear
                 mappings = snapshot.plan.copy_to(plan)
 
@@ -194,9 +226,7 @@ module Roby
 	    def clear
                 plans.each(&:clear)
                 manager.clear
-
-		@start_time = nil
-		@time = nil
+                history.clear
 	    end
 
 	    def rewind
@@ -218,17 +248,12 @@ module Roby
             # It returns true if there was something noteworthy in there, and
             # false otherwise.
 	    def process(data)
-		@time = data.last[0][:start]
-	        @start_time ||= @time
-
-                done_something = false
 		data.each_slice(4) do |m, sec, usec, args|
 		    time = Time.at(sec, usec)
 		    reason = catch :ignored do
 			begin
 			    if respond_to?(m)
 				send(m, time, *args)
-                                done_something = true
 			    end
 			rescue Exception => e
 			    display_args = args.map do |obj|
@@ -248,7 +273,7 @@ module Roby
 			Roby.warn "Ignored #{m}(#{args.join(", ")}): #{reason}"
 		    end
 		end
-                done_something
+                has_event_propagation_updates? || has_structure_updates?
 	    end
 
 	    def local_object(object, create = true)
@@ -269,38 +294,36 @@ module Roby
 	    end
 
 	    def clear_integrated
-                updated = !plans.all? do |p|
-                    p.emitted_events.empty? &&
-                    p.finalized_tasks.empty? &&
-                    p.finalized_events.empty? &&
-                    p.propagated_events.empty? &&
-                    p.postponed_events.empty?
-                end
                 plans.each(&:clear_integrated)
-                updated
+                @changes.clear
 	    end
 
 	    def inserted_tasks(time, plan, task)
 		plan = local_object(plan)
 		plan.add_mission( local_object(task) )
+                announce_structure_update
 	    end
 	    def discarded_tasks(time, plan, task)
 		plan = local_object(plan)
 		plan.remove_mission(local_object(task))
+                announce_structure_update
 	    end
 	    def replaced_tasks(time, plan, from, to)
+                announce_structure_update
 	    end
 	    def added_events(time, plan, events)
 		plan = local_object(plan)
 		events.each do |ev| 
 		    plan.add(local_object(ev))
 		end
+                announce_structure_update
 	    end
 	    def added_tasks(time, plan, tasks)
 		plan = local_object(plan)
 		tasks.each do |t| 
 		    plan.add(local_object(t))
 		end
+                announce_structure_update
 	    end
 	    def garbage_task(time, plan, task)
 	    end
@@ -311,12 +334,14 @@ module Roby
                     plan.finalized_events << event
 		    plan.remove_object(event)
 		end
+                announce_structure_update
 	    end
 	    def finalized_task(time, plan, task)
 		task = local_object(task)
 		plan = local_object(plan)
                 plan.finalized_tasks << task
 		plan.remove_object(task)
+                announce_structure_update
 	    end
 	    def added_transaction(time, plan, trsc)
 		# plan = local_object(plan)
@@ -344,6 +369,7 @@ module Roby
 		rel    = rel.first if rel.kind_of?(Array)
 		rel    = local_object(rel)
 		parent.add_child_object(child, rel, info)
+                announce_structure_update
                 return parent, rel, child
 	    end
 
@@ -353,6 +379,7 @@ module Roby
 		rel    = rel.first if rel.kind_of?(Array)
 		rel    = local_object(rel)
 		parent.remove_child_object(child, rel)
+                announce_structure_update
                 return parent, rel, child
 	    end
 	    def added_event_child(time, parent, rel, child, info)
@@ -360,12 +387,14 @@ module Roby
 		child  = local_object(child)
                 rel    = local_object(rel)
 		parent.add_child_object(child, rel.first, info)
+                announce_structure_update
 	    end
 	    def removed_event_child(time, parent, rel, child)
 		parent = local_object(parent)
 		child  = local_object(child)
                 rel    = local_object(rel)
 		parent.remove_child_object(child, rel.first)
+                announce_structure_update
 	    end
 	    def added_owner(time, object, peer)
 		object = local_object(object)
@@ -375,6 +404,47 @@ module Roby
 		object = local_object(object)
 		object.owners.delete(peer)
 	    end
+
+            def cycle_end(time, timings)
+                @state = timings.delete(:state)
+                @stats = timings
+                announce_state_update
+            end
+
+            def self.update_type(type)
+                define_method("announce_#{type}_update") do
+                    @changes[type] = true
+                end
+                define_method("has_#{type}_updates?") do
+                    !!@changes[type]
+                end
+            end
+            ##
+            # :method: announce_structure_update
+            ##
+            # :method: has_structure_updates?
+            update_type :structure
+            ##
+            # :method: announce_state_update
+            ##
+            # :method: has_state_updates?
+            update_type :state
+            ##
+            # :method: announce_event_propagation_update
+            ##
+            # :method: has_event_propagation_updates?
+            update_type :event_propagation
+
+
+            def announce_structure_update
+                @changes[:structure] = true
+            end
+            def announce_state_update
+                @changes[:state] = true
+            end
+            def announce_event_propagation_update
+                @changes[:event_propagation] = true
+            end
 
             PROPAG_SIGNAL   = 1
             PROPAG_FORWARD  = 2
@@ -409,6 +479,7 @@ module Roby
 		end
 
 		add_internal_propagation(PROPAG_CALLING, generator, source_generators)
+                announce_event_propagation_update
 	    end
 	    def generator_emitting(*args)
 		if args.size == 3
@@ -419,19 +490,23 @@ module Roby
 		end
 
 		add_internal_propagation(PROPAG_EMITTING, generator, source_generators)
+                announce_event_propagation_update
 	    end
 	    def generator_signalling(time, flag, from, to, event_id, event_time, event_context)
                 from = local_object(from)
 		from.plan.propagated_events << [PROPAG_SIGNAL, [from], local_object(to)]
+                announce_event_propagation_update
 	    end
 	    def generator_forwarding(time, flag, from, to, event_id, event_time, event_context)
                 from = local_object(from)
 		from.plan.propagated_events << [PROPAG_FORWARD, [from], local_object(to)]
+                announce_event_propagation_update
 	    end
 
 	    def generator_called(time, generator, context)
                 generator = local_object(generator)
 		generator.plan.emitted_events << [EVENT_CALLED, generator]
+                announce_event_propagation_update
 	    end
 	    def generator_fired(time, generator, event_id, event_time, event_context)
 		generator = local_object(generator)
@@ -447,10 +522,12 @@ module Roby
                     generator.task.update_task_status(event)
                 end
 		generator.plan.emitted_events << [(found_pending ? EVENT_CALLED_AND_EMITTED : EVENT_EMITTED), generator]
+                announce_event_propagation_update
 	    end
 	    def generator_postponed(time, generator, context, until_generator, reason)
                 generator = local_object(generator)
 		generator.plan.postponed_events << [generator, local_object(until_generator)]
+                announce_event_propagation_update
 	    end
 	end
 
@@ -476,9 +553,19 @@ module Roby
                            self, SLOT('currentItemChanged(QListWidgetItem*,QListWidgetItem*)'))
             end
 
-            def append_to_history(cycle, time, snapshot)
+            def add_missing_cycles(count)
                 item = Qt::ListWidgetItem.new(list)
-                item.text = "@#{cycle} - #{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec % 1000]}"
+                item.setBackground(Qt::Brush.new(Qt::Color::fromHsv(33, 111, 255)))
+                item.flags = Qt::NoItemFlags
+                item.text = "[#{count} cycles missing]"
+            end
+
+            def append_to_history(snapshot)
+                cycle = snapshot.stats[:cycle_index]
+                time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:real_start]
+
+                item = Qt::ListWidgetItem.new(list)
+                item.text = "@#{cycle} - #{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
                 item.setData(Qt::UserRole, Qt::Variant.new(cycle))
                 history[cycle] = [time, snapshot, item]
             end
@@ -490,29 +577,38 @@ module Roby
                 displays.each(&:update)
             end
 
-            def analyze
-                stream = plan_rebuilder.event_stream
-                stream.rewind
-                while !plan_rebuilder.eof?
-                    data = stream.read
-                    if plan_rebuilder.process(data)
-                        cycle = stream.current_cycle
-                        append_to_history(cycle, stream.current_time, plan_rebuilder.snapshot)
-                    end
-                    plan_rebuilder.clear_integrated
+            attr_reader :last_cycle
+
+            def push_data(data)
+                needs_snapshot = plan_rebuilder.push_data(data)
+                cycle = plan_rebuilder.stats[:cycle_index]
+                if last_cycle && (cycle != last_cycle + 1)
+                    add_missing_cycles(cycle - last_cycle - 1)
                 end
+                if needs_snapshot
+                    append_to_history(plan_rebuilder.history.last)
+                end
+                @last_cycle = cycle
             end
 
-            def step
-                plan_rebuilder.clear_integrated
-                if plan_rebuilder.step
-                    stream = plan_rebuilder.event_stream
-                    cycle = stream.cycle
-                    if !history[cycle]
-                        append_to_history(cycle, stream.current_time, plan_rebuilder.snapshot)
+            def analyze(stream, display_progress = true)
+                stream.rewind
+                start_time, end_time = stream.range
+
+                dialog = Qt::ProgressDialog.new("Analyzing log file", "Quit", 0, (end_time - start_time))
+                dialog.setWindowModality(Qt::WindowModal)
+                dialog.show
+
+                @last_cycle = nil
+                while !stream.eof?
+                    data = stream.read
+                    push_data(data)
+                    dialog.setValue(plan_rebuilder.time - start_time)
+                    if dialog.wasCanceled
+                        raise Interrupt
                     end
                 end
-                displays.each(&:update)
+                dialog.dispose
             end
         end
 
