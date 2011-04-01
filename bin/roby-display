@@ -8,7 +8,7 @@ require 'roby/log/event_stream'
 require 'roby/log/plan_rebuilder'
 require 'roby/log/relations_view/relations_view'
 
-Roby.app.setup_drb_server
+DRb.start_service "druby://localhost:0"
 
 filename = ARGV.shift
 app = Qt::Application.new(ARGV)
