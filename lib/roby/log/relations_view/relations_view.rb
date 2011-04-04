@@ -78,7 +78,14 @@ module Roby
                 end
 
                 def options(new_options = Hash.new)
-                    canvas.options(new_options)
+                    filters = new_options.delete('plan_rebuilder') || Hash.new
+                    plan_rebuilder_options = plan_rebuilder.options(filters)
+
+                    options = canvas.options(new_options)
+                    if plan_rebuilder_options
+                        options['plan_rebuilder'] = plan_rebuilder_options
+                    end
+                    options
                 end
             end
         end

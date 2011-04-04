@@ -147,6 +147,9 @@ module Roby
             # Don't manipulate directly, but use the announce_* and
             # has_*_changes? methods
             attr_reader :changes
+            # A set of EventFilter objects that list the labelling objects /
+            # filters applied on the event stream
+            attr_reader :event_filters
 
 	    def initialize(main_manager = true)
                 @plan = Roby::Plan.new
@@ -158,6 +161,7 @@ module Roby
                 end
                 @history = Array.new
                 @changes = Hash.new
+                @event_filters = Array.new
 	    end
 
             def analyze_stream(event_stream)
@@ -182,12 +186,18 @@ module Roby
                 stats[:cycle_index]
             end
 
+            # True if there are stuff recorded in the last played cycles that
+            # demand a snapshot to be created
+            def has_interesting_events?
+                has_structure_updates? || has_event_propagation_updates?
+            end
+
             # Push one cycle worth of data
             def push_data(data)
                 process(data)
-                result = (has_structure_updates? || has_event_propagation_updates?)
-                if result
+                if has_interesting_events?
                     history << snapshot
+                    result = true
                 end
 
                 clear_integrated
@@ -465,14 +475,11 @@ module Roby
 		generator = local_object(generator)
 		if source_generators && !source_generators.empty?
 		    source_generators = source_generators.map { |source_generator| local_object(source_generator) }
-		    source_generators.delete_if do |ev|
-			ev == generator ||
-			    generator.plan.propagated_events.find { |_, from, to| to == generator && from.include?(ev) }
-		    end
-		    unless source_generators.empty?
-			generator.plan.propagated_events << [flag, source_generators, generator]
-		    end
+                    if !source_generators.empty?
+                        generator.plan.propagated_events << [flag, source_generators, generator]
+                    end
 		end
+                return generator, source_generators
 	    end
 	    def generator_calling(*args)
 		if args.size == 3
@@ -482,8 +489,11 @@ module Roby
 		    time, generator, source_generators, context = *args
 		end
 
-		add_internal_propagation(PROPAG_CALLING, generator, source_generators)
-                announce_event_propagation_update
+		generator, source_generators =
+                    add_internal_propagation(PROPAG_CALLING, generator, source_generators)
+                if !filtered_out_event?(generator) && !source_generators.any? { |ev| filtered_out_event?(ev) }
+                    announce_event_propagation_update
+                end
 	    end
 	    def generator_emitting(*args)
 		if args.size == 3
@@ -493,24 +503,35 @@ module Roby
 		    time, generator, source_generators, context = *args
 		end
 
-		add_internal_propagation(PROPAG_EMITTING, generator, source_generators)
-                announce_event_propagation_update
+		generator, source_generators =
+                    add_internal_propagation(PROPAG_EMITTING, generator, source_generators)
+                if !filtered_out_event?(generator) && !source_generators.any? { |ev| filtered_out_event?(ev) }
+                    announce_event_propagation_update
+                end
 	    end
 	    def generator_signalling(time, flag, from, to, event_id, event_time, event_context)
                 from = local_object(from)
-		from.plan.propagated_events << [PROPAG_SIGNAL, [from], local_object(to)]
-                announce_event_propagation_update
+                to   = local_object(to)
+		from.plan.propagated_events << [PROPAG_SIGNAL, [from], to]
+                if !filtered_out_event?(from) && !filtered_out_event?(to)
+                    announce_event_propagation_update
+                end
 	    end
 	    def generator_forwarding(time, flag, from, to, event_id, event_time, event_context)
                 from = local_object(from)
-		from.plan.propagated_events << [PROPAG_FORWARD, [from], local_object(to)]
-                announce_event_propagation_update
+                to   = local_object(to)
+		from.plan.propagated_events << [PROPAG_FORWARD, [from], to]
+                if !filtered_out_event?(from) && !filtered_out_event?(to)
+                    announce_event_propagation_update
+                end
 	    end
 
 	    def generator_called(time, generator, context)
                 generator = local_object(generator)
 		generator.plan.emitted_events << [EVENT_CALLED, generator]
-                announce_event_propagation_update
+                if !filtered_out_event?(generator)
+                    announce_event_propagation_update
+                end
 	    end
 	    def generator_fired(time, generator, event_id, event_time, event_context)
 		generator = local_object(generator)
@@ -526,13 +547,216 @@ module Roby
                     generator.task.update_task_status(event)
                 end
 		generator.plan.emitted_events << [(found_pending ? EVENT_CALLED_AND_EMITTED : EVENT_EMITTED), generator]
-                announce_event_propagation_update
 	    end
 	    def generator_postponed(time, generator, context, until_generator, reason)
                 generator = local_object(generator)
 		generator.plan.postponed_events << [generator, local_object(until_generator)]
-                announce_event_propagation_update
+                if !filtered_out_event?(generator)
+                    announce_event_propagation_update
+                end
 	    end
+
+            class FilterLabel
+                attr_accessor :text
+                attr_accessor :color
+
+                def load_options(options)
+                    if text = options['text']
+                        @text = text
+                    end
+                    if color = options['color']
+                        @color = color
+                    end
+                end
+
+                def dump_options
+                    result = Hash.new
+                    if @text
+                        result['text'] = @text
+                    end
+                    if @color
+                        result['color'] = @color
+                    end
+                    result
+                end
+            end
+
+            class EventFilter
+                def initialize(block = nil)
+                    if block
+                        @block = block
+                        singleton_class.class_eval do
+                            define_method(:custom_match, &block)
+                        end
+                    end
+                    @label = FilterLabel.new
+                end
+
+                def from_task(name)
+                    @task_model_name = name
+                    self
+                end
+
+                def with_name(name)
+                    @generator_name = name
+                    self
+                end
+
+                def name(string)
+                    @name = string
+                    self
+                end
+
+                def label(string)
+                    @label.text = string
+                    self
+                end
+
+                def color(color)
+                    @label.color = color
+                    self
+                end
+
+                def match(generator)
+                    if @task_model_name
+                        if !generator.respond_to?(:task)
+                            return false
+                        elsif generator.task.model.ancestors.none? { |m| m.name == @task_model_name }
+                            return false
+                        end
+                    end
+
+                    if @generator_name
+                        if !generator.respond_to?(:symbol)
+                            return false
+                        elsif generator.symbol != @generator_name.to_sym
+                            return false
+                        end
+                    end
+
+                    if respond_to?(:custom_match)
+                        if !custom_match(generator)
+                            return false
+                        end
+                    end
+                    if @ignore
+                        throw :ignore
+                    else
+                        return @label
+                    end
+                end
+
+                # If called, the filter will *reject* matching events instead of
+                # labelling them
+                def ignore
+                    @ignore = true
+                end
+
+                def to_s
+                    desc = []
+                    if @task_model_name && @generator_name
+                        desc << "#{@task_model_name}/#{@generator_name}"
+                    elsif @task_model_name
+                        desc << "#{@task_model_name}/*"
+                    elsif @generator_name
+                        desc << "*/#{@generator_name}"
+                    end
+                    if respond_to?(:custom_match)
+                        desc << block.to_s
+                    end
+                    "#<EventFilter #{desc.join(" ")}>"
+                end
+
+                def load_options(options)
+                    options = options.dup
+                    if options.delete('ignore')
+                        self.ignore
+                    end
+
+                    if label_config = options.delete('label')
+                        @label.load_options(options)
+                    end
+
+                    options.each do |key, value|
+                        self.send(key, value)
+                    end
+                end
+
+                def dump_options
+                    result = Hash.new
+                    result['type']   = 'event'
+                    result['ignore'] = @ignore
+                    if @block
+                        raise ArgumentError, "cannot dump a filter with custom block"
+                    end
+
+                    if @task_model_name
+                        result['from_task'] = @task_model_name
+                    end
+                    if @generator_name
+                        result['with_name'] = @generator_name
+                    end
+                    result['label'] = @label.dump_options
+                    result
+                end
+            end
+
+            # Adds a filter to this plan rebuilder
+            def event_filter(&block)
+                filter = EventFilter.new(block)
+                @event_filters << filter
+                filter
+            end
+
+            # True if this generator is filtered out by one of the custom
+            # filters
+            def filtered_out_event?(generator)
+                event_filters.each do |filter|
+                    result = catch(:ignore) do
+                        filter.match(generator)
+                        true
+                    end
+                    if !result
+                        Log.info "generator #{generator.to_s} rejected by filter #{filter}"
+                        return true
+                    end
+                end
+                false
+            end
+
+
+            def load_options(options)
+                filters = options['filters']
+                if filters
+                    filters.each do |filter_config|
+                        filter_config = filter_config.dup
+                        if filter_config.delete('type') == 'event'
+                            new_filter = event_filter
+                            new_filter.load_options(filter_config)
+                        else
+                            raise ArgumentError, "unknown filter type #{filter_config['type']}"
+                        end
+                    end
+                end
+            end
+
+            def dump_options
+                result = Hash.new
+
+                filters = Array.new
+                event_filters.each do |filter|
+                    filters << filter.dump_options
+                end
+                result['filters'] = filters
+                result
+            end
+
+            def options(options = Hash.new)
+                if !options.empty?
+                    load_options(options)
+                end
+                dump_options
+            end
 	end
 
         # This widget displays information about the event history in a list,
