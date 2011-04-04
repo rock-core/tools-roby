@@ -54,6 +54,10 @@ module Roby
                 def connect(client, update_period = DEFAULT_REMOTE_POLL_PERIOD)
                     client.add_listener do |data|
                         history_widget.push_data(data)
+
+                        cycle = plan_rebuilder.cycle_index
+                        time = plan_rebuilder.time
+                        ui.info.text = "@#{cycle} - #{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
                     end
                     @connection_pull = timer = Qt::Timer.new
                     timer.connect(SIGNAL('timeout()')) do

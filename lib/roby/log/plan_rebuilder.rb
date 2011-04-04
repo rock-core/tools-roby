@@ -177,6 +177,10 @@ module Roby
                 Time.at(*stats[:start])
             end
 
+            # The cycle index of the last processed cycle
+            def cycle_index
+                stats[:cycle_index]
+            end
 
             # Push one cycle worth of data
             def push_data(data)
