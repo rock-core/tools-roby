@@ -474,7 +474,8 @@ module Roby
 	    def add_internal_propagation(flag, generator, source_generators)
 		generator = local_object(generator)
 		if source_generators && !source_generators.empty?
-		    source_generators = source_generators.map { |source_generator| local_object(source_generator) }
+		    source_generators = source_generators.map { |source_generator| local_object(source_generator) }.
+                        delete_if { |gen| gen == generator }
                     if !source_generators.empty?
                         generator.plan.propagated_events << [flag, source_generators, generator]
                     end
