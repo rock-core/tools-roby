@@ -184,11 +184,11 @@ module Roby
 
             # Push one cycle worth of data
             def push_data(data)
-                result =
-                    if process(data)
-                        history << snapshot
-                        true
-                    end
+                process(data)
+                result = (has_structure_updates? || has_event_propagation_updates?)
+                if result
+                    history << snapshot
+                end
 
                 clear_integrated
                 result
