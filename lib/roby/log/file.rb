@@ -251,8 +251,6 @@ module Roby::Log
                 index = index.dup
                 index.delete(:state)
                 if stats != index
-                    STDERR.puts stats.inspect
-                    STDERR.puts index.inspect
                     return false
                 end
             end
