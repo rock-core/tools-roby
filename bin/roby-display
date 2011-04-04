@@ -35,6 +35,7 @@ options = OptionParser.new do |opt|
     end
     opt.on('--debug', 'turn on debugging messages') do
         Roby::Log::Server.logger.level = Logger::DEBUG
+        Roby::Log.logger.level = Logger::DEBUG
     end
 end
 
