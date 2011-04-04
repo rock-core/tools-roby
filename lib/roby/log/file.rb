@@ -125,7 +125,7 @@ module Roby::Log
 
             data_size = *data_size.unpack("I")
             buffer = io.read(data_size)
-            if !buffer
+            if !buffer || buffer.size < data_size
                 raise TruncatedFileError
             end
             Marshal.load_with_missing_constants(buffer)
