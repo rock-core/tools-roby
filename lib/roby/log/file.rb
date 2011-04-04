@@ -147,15 +147,15 @@ module Roby::Log
 	# Creates an index file for +event_log+ in +index_log+
 	def self.rebuild_index(event_log, index_log)
 	    event_log.rewind
-	    # Skip the file header
-	    Marshal.load(event_log)
+            read_header(event_log)
 
 	    current_pos = event_log.tell
-	    dump_io	   = StringIO.new("", 'w')
+	    dump_io	= StringIO.new("", 'w')
 
 	    loop do
-		cycle = Marshal.load_with_missing_constants(event_log)
-		info               = cycle.last.last
+		cycle = self.load(event_log)
+		info  = cycle.last.last
+                info[:pos] = current_pos
 
 		dump(info, index_log, dump_io)
 		current_pos = event_log.tell
@@ -468,7 +468,7 @@ module Roby::Log
         def self.from_format_3(input, output)
             # Header format changed. Read the old one and add the new one
             header = Marshal.load(input)
-            dump_hea
+            Logfile.dump(header, output)
 
             # In format 4, every marshal'ed structure is prefixed with the size
             # of the block
@@ -488,7 +488,10 @@ module Roby::Log
 
 	def self.to_new_format(file, into = file)
 	    input = File.open(file)
-	    log_format = self.log_format(input)
+	    log_format = Logfile.guess_log_format(input)
+            if !log_format
+                raise InvalidFileError, "#{file} does not seem to be a Roby log file"
+            end
 
 	    if log_format == Logfile::FORMAT_VERSION
 		STDERR.puts "#{file} is already at format #{log_format}"
@@ -500,7 +503,7 @@ module Roby::Log
 
 		input.rewind
 		Tempfile.open('roby_to_new_format') do |output|
-		    write_header(output)
+		    Logfile.write_prologue(output)
 		    send("from_format_#{log_format}", input, output)
 		    output.flush
 
@@ -511,7 +514,7 @@ module Roby::Log
 		File.open("#{into}-events.log") do |event_log|
 		    File.open("#{into}-index.log", 'w') do |index_log|
 			puts "rebuilding index file for #{into}"
-			rebuild_index(event_log, index_log)
+			Logfile.rebuild_index(event_log, index_log)
 		    end
 		end
 	    end
