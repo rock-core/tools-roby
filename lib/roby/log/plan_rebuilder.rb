@@ -833,7 +833,7 @@ module Roby
                     push_data(data)
                     dialog.setValue(plan_rebuilder.time - start_time)
                     if dialog.wasCanceled
-                        raise Interrupt
+                        Kernel.raise Interrupt
                     end
                 end
                 dialog.dispose
