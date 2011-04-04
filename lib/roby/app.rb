@@ -651,6 +651,7 @@ module Roby
 		logger.stats_mode = log['events'] == 'stats'
 		Roby::Log.add_logger logger
 	    end
+            start_log_server(logfile)
 	    engine.run options
 
 	    plugins = self.plugins.map { |_, mod| mod if mod.respond_to?(:run) }.compact
@@ -686,6 +687,7 @@ module Roby
         # The inverse of #setup. It gets called either at the end of #run or at
         # the end of #setup if there is an error during loading
         def cleanup
+            stop_log_server
             call_plugins(:cleanup, self)
         end
 
@@ -753,32 +755,6 @@ module Roby
 
 		@log_server  = Log::Server.new(port ||= Log::Server::RING_PORT)
 		Roby::Log::Server.info "log server published on port #{port}"
-		@log_streams = []
-		@log_streams_poll = Thread.new do
-		    begin
-			loop do
-			    Thread.exclusive do
-				known_streams = @log_server.streams
-				streams	  = data_streams
-
-				(streams - known_streams).each do |s|
-				    Roby::Log::Server.info "new stream found #{s.name} [#{s.type}]"
-				    s.open
-				    @log_server.added_stream(s)
-				end
-				(known_streams - streams).each do |s|
-				    Roby::Log::Server.info "end of stream #{s.name} [#{s.type}]"
-				    s.close
-				    @log_server.removed_stream(s)
-				end
-			    end
-			    sleep(5)
-			end
-		    rescue Interrupt
-		    rescue
-			Roby::Log::Server.fatal $!.full_message
-		    end
-		end
 	    end
 
 	    call_plugins(:start_server, self)
@@ -796,6 +772,34 @@ module Roby
 
 	    call_plugins(:stop_server, self)
 	end
+
+        def start_log_server(logfile)
+	    # Start a log server if needed, and poll the log directory for new
+	    # data sources
+	    if log_server = (log.has_key?('server') ? log['server'] : true)
+		require 'roby/log/server'
+
+                port = Log::Server::DEFAULT_PORT
+                sampling_period = Log::Server::DEFAULT_SAMPLING_PERIOD
+                if log_server.kind_of?(Hash)
+                    port = Integer(log_server['port'] || port)
+                    sampling_period = Float(log_server['sampling_period'] || sampling_period)
+                    debug = log_server['debug']
+                end
+
+                puts sampling_period
+                @log_server = fork do
+                    exec("roby-display#{" --debug" if debug} --server=#{port} --sampling=#{sampling_period} #{logfile}-events.log")
+                end
+	    end
+        end
+
+        def stop_log_server
+            if @log_server
+                Process.kill('INT', @log_server)
+                @log_server = nil
+            end
+        end
 
         def list_dir(*path)
             if !block_given?
