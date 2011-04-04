@@ -100,7 +100,7 @@ class Ui::RelationsView
 
     ZOOM_STEP = 0.25
     def setupUi(view)
-	@display   = view.canvas
+	@display   = display = view.canvas
 	super(view)
 
         actionConfigure.connect(SIGNAL(:triggered)) do

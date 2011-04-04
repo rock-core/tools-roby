@@ -247,6 +247,8 @@ module Ui
                 displayExplicit.checked = true
             elsif display.display_policy == :emitters
                 displayEmitters.checked = true
+            elsif display.display_policy == :emitters_and_parents
+                displayEmittersAndParents.checked = true
             end
 
             displayExplicit.connect(SIGNAL('clicked()')) do
@@ -258,6 +260,8 @@ module Ui
                 delayed_update
             end
             displayEmittersAndParents.connect(SIGNAL('clicked()')) do
+                display.display_policy = :emitters_and_parents
+                delayed_update
             end
 
             @delayed_update_timer = Qt::Timer.new(display)

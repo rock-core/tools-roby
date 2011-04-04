@@ -426,8 +426,12 @@ module Roby
 	    # A DRbObject => GraphicsItem mapping
 	    attr_reader :graphics
 
-	    # The set of objects that are to be shown permanently
+	    # The set of objects that are to be shown at the last update
 	    attr_reader :visible_objects
+
+	    # The set of objects that are selected for display in the :explicit
+            # display mode
+	    attr_reader :selected_objects
 
 	    # A set of events that are shown during only two calls of #update
 	    attr_reader :flashing_objects
@@ -446,6 +450,7 @@ module Roby
 
                 @display_policy    = :explicit
 		@graphics          = Hash.new
+		@selected_objects   = ValueSet.new
 		@visible_objects   = ValueSet.new
 		@flashing_objects  = Hash.new
 		@arrows            = Hash.new
@@ -684,7 +689,7 @@ module Roby
 		"dot"
 	    end
 
-            DISPLAY_POLICIES = [:explicit, :emitters]
+            DISPLAY_POLICIES = [:explicit, :emitters, :emitters_and_parents]
             attr_reader :display_policy
             def display_policy=(policy)
                 if !DISPLAY_POLICIES.include?(policy)
@@ -697,28 +702,10 @@ module Roby
                 if (parent = object.display_parent) && !displayed?(parent)
                     return false
                 end
-	       	
-                (
-                    (display_policy == :explicit && visible_objects.include?(object)) || 
-		    flashing_objects.has_key?(object)
-                ) && !filtered_out_label?(object.display_name(self))
+                return visible_objects.include?(object)
 	    end
 
-	    def set_visibility(object, flag)
-		return if visible_objects.include?(object) == flag
-
-		if item = graphics[object]
-		    item.visible = flag
-		end
-
-		if flag
-		    visible_objects << object
-		else
-		    visible_objects.delete(object)
-		end
-	    end
-
-	    def create_or_get_item(object, initial_visibility = true)
+	    def create_or_get_item(object, initial_selection)
 		if !(item = graphics[object])
 		    item = graphics[object] = object.display_create(self)
 		    if item
@@ -728,12 +715,11 @@ module Roby
 
 			yield(item) if block_given?
 
-                        if initial_visibility
-                            visible_objects << object
+                        if initial_selection
+                            selected_objects << object
                         end
 		    end
                 end
-                item.visible = displayed?(object)
 		item
 	    end
 
@@ -755,24 +741,27 @@ module Roby
                     add_flashing_object(object.display_parent, &block)
                 end
 
-		create_or_get_item(object)
+		create_or_get_item(object, false)
 	    end
 
             # Removes the objects added with #add_flashing_object when they
             # should be removed
 	    def clear_flashing_objects
-		(flashing_objects.keys.to_value_set - visible_objects).each do |object|
-		    if blocks = flashing_objects[object]
-			blocks.delete_if { |block| !block.call }
-			next unless blocks.empty?
-		    end
+                removed_objects = []
+                flashing_objects.delete_if do |object, blocks|
+                    blocks.delete_if { |block| !block.call }
+                    if !blocks.empty?
+                        next
+                    end
+                    removed_objects << object
+                end
 
+                removed_objects.each do |object|
 		    if item = graphics[object]
-			item.visible = false
+			item.visible = displayed?(object)
 		    end
-		    flashing_objects.delete(object)
-		end
-	    end
+                end
+            end
 
             # Sets the style on +arrow+ according to the event propagation type
             # provided in +flag+
@@ -797,6 +786,76 @@ module Roby
 		arrow.pen = arrow.line.pen = pen
 	    end
 
+            def update_visible_objects
+                @visible_objects = ValueSet.new
+
+                # NOTE: we unconditionally add events that are propagated, as
+                # #displayed?(obj) will filter out the ones whose task is hidden
+                plans.each do |p|
+                    p.emitted_events.each do |flags, object|
+                        visible_objects << object
+                    end
+                    p.propagated_events.each do |_, sources, to, _|
+                        sources.each do |src|
+                            visible_objects << src
+                        end
+                        visible_objects << to
+                    end
+                end
+
+                if display_policy == :explicit
+                    visible_objects.merge(selected_objects)
+
+                elsif display_policy == :emitters || display_policy == :emitters_and_parents
+                    # Make sure that the event's tasks are added to
+                    # visible_objects as well
+                    visible_objects.dup.each do |obj|
+                        if parent = obj.display_parent
+                            visible_objects << parent
+                        end
+                    end
+                end
+
+                if display_policy == :emitters_and_parents
+                    while true
+                        new_visible_objects = ValueSet.new
+                        Roby::TaskStructure.each_relation do |rel|
+                            components = rel.reverse.generated_subgraphs(visible_objects, false)
+                            components.each do |c|
+                                new_visible_objects.merge(c.to_value_set - visible_objects)
+                            end
+                        end
+                        if new_visible_objects.empty?
+                            break
+                        end
+                        visible_objects.merge(new_visible_objects)
+                    end
+                    visible_objects.dup.each do |obj|
+                        if obj.kind_of?(Roby::Task)
+                            obj.each_relation do |rel|
+                                visible_objects.merge(obj.child_objects(rel).to_value_set)
+                            end
+                        end
+                    end
+                end
+
+                if hide_finalized
+                    plans.each do |plan|
+                        all_finalized = plan.finalized_tasks | plan.finalized_events
+                        @visible_objects = visible_objects - all_finalized
+                    end
+                end
+                visible_objects.delete_if do |obj|
+                    filtered_out_label?(obj.display_name(self))
+                end
+            end
+
+            def make_graphics_visible(object)
+                object = create_or_get_item(object, false)
+                object.visible = true
+                object
+            end
+
             # Update the display with new data that has come from the data
             # stream. 
             #
@@ -818,54 +877,39 @@ module Roby
 
 		# Remove the items for objects that don't exist anymore
 		(graphics.keys.to_value_set - all_tasks - all_events).each do |obj|
-		    visible_objects.delete(obj)
+		    selected_objects.delete(obj)
 		    remove_graphics(graphics.delete(obj))
 		    clear_arrows(obj)
 		end
 
-		visible_objects.merge(plans.to_value_set)
+		selected_objects.merge(plans.to_value_set)
 
-		plans.each do |plan|
-		    if hide_finalized
-			@visible_objects = visible_objects - plan.finalized_tasks
-			@visible_objects = visible_objects - plan.finalized_events
-
-			all_finalized = plan.finalized_tasks | plan.finalized_events
-			flashing_objects.delete_if { |obj, _| all_finalized.include?(obj) }
-		    else
-			visible_objects.merge(plan.finalized_tasks)
-			visible_objects.merge(plan.finalized_events)
-		    end
-		end
-
-		# Create graphics items for tasks and events if necessary, and
-		# update their visibility according to the visible_objects set
+		# Create graphics items for all objects that may get displayed
+                # on the canvas
                 all_tasks.each do |object|
-                    create_or_get_item(object)
+                    create_or_get_item(object, true)
 		    object.each_event do |ev|
                         create_or_get_item(ev, false)
 		    end
 		end
-                all_events.each { |ev| create_or_get_item(ev) }
-                plans.each { |p| create_or_get_item(p) }
+                all_events.each { |ev| create_or_get_item(ev, true) }
+                plans.each { |p| create_or_get_item(p, true) }
+
+                update_visible_objects
+
+                graphics.each do |object, item|
+                    item.visible = displayed?(object)
+                end
 
 		DisplayEventGenerator.priorities.clear
 		event_priority = 0
                 plans.each do |p|
                     p.emitted_events.each_with_index do |(flags, object), event_priority|
                         DisplayEventGenerator.priorities[object] = event_priority
-                        if display_policy == :explicit && !displayed?(object.task)
-                            next
+                        if displayed?(object)
+                            item = graphics[object]
+                            item.brush, item.pen = DisplayEventGenerator.style(object, flags)
                         end
-
-                        graphics =
-                            if flashing_objects.has_key?(object)
-                                self.graphics[object]
-                            else
-                                add_flashing_object(object)
-                            end
-
-                        graphics.brush, graphics.pen = DisplayEventGenerator.style(object, flags)
                     end
                 end
 		
@@ -878,21 +922,16 @@ module Roby
                             if !DisplayEventGenerator.priorities.has_key?(to)
                                 DisplayEventGenerator.priorities[to] = (event_priority += 1)
                             end
-
-                            if display_policy == :explicit && (!displayed?(from) || !displayed?(to))
-                                next
-                            end
-
-                            add_flashing_object from
-                            add_flashing_object to
                         end
                     end
                 end
 
 		[all_tasks, all_events, plans].each do |object_set|
 		    object_set.each do |object|
-			next if !displayed?(object)
-			object.display(self, graphics[object])
+                        graphics = self.graphics[object]
+                        if graphics.visible?
+                            object.display(self, graphics)
+                        end
 		    end
 		end
 
@@ -925,7 +964,7 @@ module Roby
                             # It is possible that the objects have been removed in the
                             # same display cycle than they have been signalled. Do not
                             # display them if it is the case
-                            unless displayed?(from) && displayed?(to)
+                            if !(displayed?(from) && displayed?(to))
                                 arrow.visible = false
                                 next
                             end
@@ -974,6 +1013,7 @@ module Roby
 		    arrow.visible = false
 		end
 
+		selected_objects.clear
 		visible_objects.clear
 		flashing_objects.clear
 		scene.update(scene.scene_rect)
