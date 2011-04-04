@@ -118,14 +118,9 @@ module Roby
                 end
 
 		start_pos = index_data[current_cycle][:pos]
-		end_pos   = if index_data.size > current_cycle + 1
-				index_data[current_cycle + 1][:pos]
-			    else
-				logfile.stat.size
-			    end
-
 		logfile.seek(start_pos)
-		Marshal.load_with_missing_constants(logfile.read(end_pos - start_pos))
+                data_size = *logfile.read(4).unpack("I")
+		Marshal.load_with_missing_constants(logfile.read(data_size))
 
 	    ensure
 		@current_cycle += 1

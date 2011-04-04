@@ -49,6 +49,10 @@ module Roby
                 @event_file = File.open(event_file_path)
             end
 
+            def found_header?
+                @found_header
+            end
+
             def exec
                 Server.info "starting Roby log server on port #{port}"
 
@@ -73,8 +77,17 @@ module Roby
                         socket = server.accept
                         socket.setsockopt(Socket::IPPROTO_TCP, Socket::TCP_NODELAY, true)
                         socket.fcntl(Fcntl::FD_CLOEXEC, 1)
+
                         Server.debug "new connection: #{socket}"
-                        @pending_data[socket] = split_in_chunks(File.read(event_file_path))
+                        if found_header?
+                            all_data = File.read(event_file_path, 
+                                event_file.tell - Logfile::PROLOGUE_SIZE,
+                                Logfile::PROLOGUE_SIZE)
+                            Server.debug "  queueing #{all_data.size} bytes of data"
+                            @pending_data[socket] = split_in_chunks(all_data)
+                        else
+                            Server.debug "  log file is empty, not queueing any data"
+                        end
                     end
 
                     # Read new data
@@ -111,13 +124,25 @@ module Roby
                 new_data = event_file.read
                 return if new_data.empty?
 
-                Server.debug "#{new_data.size} bytes of new data"
+                if !found_header?
+                    if new_data.size >= Logfile::PROLOGUE_SIZE
+                        # This will read and validate the prologue
+                        Logfile.read_prologue(event_file)
+                        new_data = new_data[Logfile::PROLOGUE_SIZE..-1]
+                        @found_header = true
+                    else
+                        # Go back to the beginning of the file so that, next
+                        # time, we read the complete prologue again
+                        event_file.rewind
+                        return
+                    end
+                end
 
                 # Split the data in chunks of DATA_CHUNK_SIZE, and add the
                 # chunks in the pending_data hash
-                chunks = split_in_chunks(new_data)
+                new_chunks = split_in_chunks(new_data)
                 pending_data.each_value do |chunks|
-                    chunks.concat(chunks)
+                    chunks.concat(new_chunks)
                 end
             end
 
@@ -127,26 +152,44 @@ module Roby
                 while needs_looping
                     needs_looping = false
                     pending_data.delete_if do |socket, chunks|
-                        next if chunks.empty?
+                        if chunks.empty?
+                            # nothing left to send for this socket
+                            next
+                        end
+
+                        buffer = chunks.shift
+                        while !chunks.empty? && (buffer.size + chunks[0].size < DATA_CHUNK_SIZE)
+                            buffer.concat(chunks.shift)
+                        end
+                        Server.debug "sending #{buffer.size} bytes to #{socket}"
+
+
                         begin
-                            written = socket.write_nonblock(chunks[0])
-                            if written == chunks[0].size
-                                Server.debug "wrote complete chunk of #{written} bytes to #{socket}"
-                                chunks.shift
-                                # Loop if we wrote the complete chunk and there
-                                # is still stuff to write for this socket
-                                needs_looping = !chunks.empty?
-                            else
-                                Server.debug "wrote partial chunk #{written} bytes instead of #{chunks[0].size} bytes to #{socket}"
-                                chunks[0] = chunks[0][written..-1]
-                            end
-                            false
+                            written = socket.write_nonblock(buffer)
                         rescue Errno::EAGAIN
+                            Server.debug "cannot send: send buffer full"
+                            chunks.unshift(buffer)
+                            next
                         rescue Exception => e
                             Server.warn "disconnecting from #{socket}: #{e.message}"
+                            e.backtrace.each do |line|
+                                Server.warn "  #{line}"
+                            end
                             socket.close
-                            true
+                            next(true)
                         end
+
+                        remaining = buffer.size - written
+                        if remaining == 0
+                            Server.debug "wrote complete chunk of #{written} bytes to #{socket}"
+                            # Loop if we wrote the complete chunk and there
+                            # is still stuff to write for this socket
+                            needs_looping = !chunks.empty?
+                        else
+                            Server.debug "wrote partial chunk #{written} bytes instead of #{buffer.size} bytes to #{socket}"
+                            chunks.unshift(buffer[written, remaining])
+                        end
+                        false
                     end
                 end
             end
@@ -189,34 +232,31 @@ module Roby
             end
 
             def read_and_process_pending
-                has_data = select([socket], nil, nil, 0)
-                return if !has_data
-
                 buffer = @buffer + socket.read_nonblock(Server::DATA_CHUNK_SIZE)
                 Log.debug "#{buffer.size} bytes of data in buffer"
-                io = StringIO.new(buffer)
-                while !io.eof?
-                    pos = io.tell
-                    begin
-                        data = Marshal.load(io)
-                        if data.kind_of?(Hash) && data[:log_format]
-                            Roby::Log::Logfile.process_header(data)
+
+                while true
+                    if buffer.size < 4
+                        break
+                    end
+
+                    data_size = *buffer.unpack('I')
+                    if buffer.size > data_size + 4
+                        data = Marshal.load_with_missing_constants(buffer[4, data_size])
+                        if data.kind_of?(Hash)
+                            Roby::Log::Logfile.process_options_hash(data)
                         else
                             @listeners.each do |block|
                                 block.call(data)
                             end
                         end
-                        Log.debug "processed #{io.tell - pos} bytes of data"
-                    rescue Exception => e
-                        case e.message
-                        when /marshal data too short/
-                        when /end of file reached/
-                        else
-                            raise
-                        end
-                        @buffer = buffer[pos..-1]
+                        buffer = buffer[(data_size + 4)..-1]
+                    else
+                        break
                     end
                 end
+
+                @buffer = buffer
             rescue Errno::EAGAIN
             end
         end

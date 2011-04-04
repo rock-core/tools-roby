@@ -3,24 +3,176 @@ require 'fileutils'
 
 module Roby::Log
     class Logfile < DelegateClass(File)
+	# The current log format version
+	FORMAT_VERSION = 4
+
 	attr_reader :event_io
 	attr_reader :index_io
 	attr_reader :index_data
 	attr_reader :basename
+
+        MAGIC_CODE = "ROBYLOG"
+        PROLOGUE_SIZE = MAGIC_CODE.size + 4
+
+        class TruncatedFileError < EOFError; end
+        class InvalidFileError < RuntimeError; end
+
+
+        def self.write_prologue(io)
+            io.write(MAGIC_CODE)
+            io.write([FORMAT_VERSION].pack("I"))
+        end
+
+	def self.write_header(io, options = Hash.new)
+            write_prologue(io)
+	    dump(options, io)
+	end
+
+        def self.read_prologue(io)
+            magic = io.read(MAGIC_CODE.size)
+            if magic != MAGIC_CODE
+                raise InvalidFileError, "no magic code at beginning of file"
+            end
+
+            log_format = *io.read(4).unpack('I')
+            validate_format(log_format)
+
+        rescue Exception => e
+            io.rewind
+            if format = guess_log_format(io)
+                validate_format(format)
+            else
+                raise
+            end
+        end
+
+	def self.guess_log_format(input)
+	    input.rewind
+
+            begin
+                magic = input.read(Logfile::MAGIC_CODE.size)
+                if magic == Logfile::MAGIC_CODE
+                    format = *input.read(4).unpack("I")
+                else
+                    input.rewind
+                    header = Marshal.load(input)
+                    case header
+                    when Hash then format = header[:log_format]
+                    when Symbol
+                        if Marshal.load(input).kind_of?(Array)
+                            format = 0
+                        end
+                    when Array
+                        if header[-2] == :cycle_end
+                            format = 1 
+                        end
+                    end
+                end
+            rescue
+            end
+
+	    format
+
+	ensure
+	    input.rewind
+	end
+
+	def self.validate_format(format)
+	    if format < FORMAT_VERSION
+		raise "this is an outdated format. Please run roby-log upgrade-format"
+	    elsif format > FORMAT_VERSION
+		raise "this is an unknown format version #{format}: expected #{FORMAT_VERSION}. This file can be read only by newest version of Roby"
+	    end
+	end
+
+        # Reads the header from the log file and returns the logfile's option
+        # hash
+        def self.read_header(io)
+            read_prologue(io)
+            self.load(io)
+        end
+
+        def read_header
+            Logfile.read_header(@event_io)
+        end
+
+        def self.dump(object, io, buffer_io = nil)
+            if buffer_io
+		buffer_io.truncate(0)
+		buffer_io.seek(0)
+                Marshal.dump(object, buffer_io)
+                io.write([buffer_io.size].pack("I"))
+                io.write(buffer_io.string)
+            else
+                buffer = Marshal.dump(object)
+                io.write([buffer.size].pack("I"))
+                io.write(buffer)
+            end
+        end
+
+        def dump(object, buffer_io = nil)
+            Logfile.dump(object, @event_io, buffer_io)
+        end
+
+        # Load a chunk of data from an event file.  +buffer+, if given, must be
+        # a String object that will be used as intermediate buffer in the
+        # process
+        def self.load(io)
+            data_size = io.read(4)
+            if !data_size
+                raise TruncatedFileError
+            end
+
+            data_size = *data_size.unpack("I")
+            buffer = io.read(data_size)
+            if !buffer
+                raise TruncatedFileError
+            end
+            Marshal.load_with_missing_constants(buffer)
+        end
+
+        def load
+            Logfile.load(@event_io)
+        end
+
+        def self.process_options_hash(options_hash)
+            if options_hash[:plugins]
+                options_hash[:plugins].each do |plugin_name|
+                    Roby.app.using plugin_name
+                end
+            end
+        end
+
+	
+	# Creates an index file for +event_log+ in +index_log+
+	def self.rebuild_index(event_log, index_log)
+	    event_log.rewind
+	    # Skip the file header
+	    Marshal.load(event_log)
+
+	    current_pos = event_log.tell
+	    dump_io	   = StringIO.new("", 'w')
+
+	    loop do
+		cycle = Marshal.load_with_missing_constants(event_log)
+		info               = cycle.last.last
+
+		dump(info, index_log, dump_io)
+		current_pos = event_log.tell
+	    end
+
+	rescue EOFError
+	ensure
+	    event_log.rewind
+	    index_log.rewind
+	end
+
 	def range
             if !index_data.empty?
                 [Time.at(*index_data.first[:start]), 
                     Time.at(*index_data.last[:start]) + index_data.last[:end]]
             end
 	end
-
-        def self.process_header(file_header)
-            if file_header[:plugins]
-                file_header[:plugins].each do |plugin_name|
-                    Roby.app.using plugin_name
-                end
-            end
-        end
 
 	def initialize(file, allow_old_format = false, force_rebuild_index = false)
 	    @event_io = if file.respond_to?(:to_str)
@@ -34,13 +186,9 @@ module Roby::Log
 			    file
 			end
 
-	    if !allow_old_format
-		FileLogger.check_format(@event_io)
-	    end
-
             @event_io.rewind
-            file_header = Marshal.load(@event_io)
-            Logfile.process_header(file_header)
+            options_hash = read_header
+            Logfile.process_options_hash(options_hash)
 
 	    index_path = "#{basename}-index.log"
 	    if force_rebuild_index || !File.file?(index_path)
@@ -74,10 +222,8 @@ module Roby::Log
 		pos = nil
 		loop do
 		    pos = index_io.tell
-		    length = index_io.read(4)
-		    raise EOFError unless length
-		    length = length.unpack("N").first
-		    index_data << Marshal.load(index_io.read(length))
+                    cycle = Logfile.load(index_io)
+		    index_data << cycle
 		end
 	    rescue EOFError
 		index_io.seek(pos, IO::SEEK_SET)
@@ -93,7 +239,7 @@ module Roby::Log
 
                 event_io.seek(index[:pos])
                 cycle = begin
-                    Marshal.load(event_io)
+                    self.load
                 rescue EOFError
                     return false
                 rescue ArgumentError
@@ -115,7 +261,7 @@ module Roby::Log
 
 	def rewind
 	    @event_io.rewind
-	    Marshal.load(@event_io)
+            read_header
 	    @index_io.rewind
 	    @index_data.clear
 	    update_index
@@ -125,7 +271,7 @@ module Roby::Log
 	    STDOUT.puts "rebuilding index file for #{basename}"
 	    @index_io.close if @index_io
 	    @index_io = File.open("#{basename}-index.log", 'w+')
-	    FileLogger.rebuild_index(@event_io, @index_io)
+	    Logfile.rebuild_index(@event_io, @index_io)
 	end
 
 	def self.open(path)
@@ -150,9 +296,6 @@ module Roby::Log
     # You can use FileLogger.replay(io) to send the events back into the
     # logging system (using Log.log), for instance to feed an offline display
     class FileLogger
-	# The current log format version
-	FORMAT_VERSION = 3
-
 	@dumped = Hash.new
 	class << self
 	    attr_reader :dumped
@@ -174,7 +317,7 @@ module Roby::Log
 	    @current_cycle = Array.new
 	    @event_log = File.open("#{basename}-events.log", 'w')
 	    event_log.sync = true
-	    FileLogger.write_header(@event_log, options)
+	    Logfile.write_header(@event_log, options)
 	    @index_log = File.open("#{basename}-index.log", 'w')
 	    index_log.sync = true
 	end
@@ -199,13 +342,9 @@ module Roby::Log
 		info = args.first
 		info[:pos] = event_log.tell
 		info[:event_count] = current_cycle.size / 4
-		Marshal.dump(current_cycle, event_log)
 
-		dump_io.truncate(0)
-		dump_io.seek(0)
-		Marshal.dump(info, dump_io)
-		index_log.write [dump_io.size].pack("N")
-		index_log.write dump_io.string
+		Logfile.dump(current_cycle, event_log, dump_io)
+		Logfile.dump(info, index_log, dump_io)
 		current_cycle.clear
 	    end
 
@@ -255,74 +394,10 @@ module Roby::Log
 	Roby::Log.each_hook do |klass, m|
 	    define_method(m) { |time, args| dump_method(m, time, args) }
 	end
-	
-	# Creates an index file for +event_log+ in +index_log+
-	def self.rebuild_index(event_log, index_log)
-	    event_log.rewind
-	    # Skip the file header
-	    Marshal.load(event_log)
 
-	    current_pos = event_log.tell
-	    dump_io	   = StringIO.new("", 'w')
-
-	    loop do
-		cycle = Marshal.load_with_missing_constants(event_log)
-		info               = cycle.last.last
-
-		dump_io.truncate(0)
-		dump_io.seek(0)
-		Marshal.dump(info, dump_io)
-		index_log.write [dump_io.size].pack("N")
-		index_log.write dump_io.string
-
-		current_pos = event_log.tell
-	    end
-
-	rescue EOFError
-	ensure
-	    event_log.rewind
-	    index_log.rewind
-	end
-
-
-	def self.log_format(input)
-	    input.rewind
-	    format = begin
-			 header = Marshal.load(input)
-			 case header
-			 when Hash then header[:log_format]
-			 when Symbol
-			     if Marshal.load(input).kind_of?(Array)
-				 0
-			     end
-			 when Array
-			     1 if header[-2] == :cycle_end
-			 end
-		     rescue
-		     end
-
-	    unless format
-		raise Invalid, "#{input.path} does not look like a Roby event log file"
-	    end
-	    format
-
-	ensure
-	    input.rewind
-	end
-
-	def self.check_format(input)
-	    format = log_format(input)
-	    if format < FORMAT_VERSION
-		raise "this is an outdated format. Please run roby-log upgrade-format"
-	    elsif format > FORMAT_VERSION
-		raise "this is an unknown format version #{format}: expected #{FORMAT_VERSION}. This file can be read only by newest version of Roby"
-	    end
-	end
-
-	def self.write_header(io, options = Hash.new)
-	    header = { :log_format => FORMAT_VERSION }.merge(options)
-	    Marshal.dump(header, io)
-	end
+        def dump(object)
+            Logfile.dump(object, event_io)
+        end
 
 	def self.from_format_0(input, output)
 	    current_cycle = []
@@ -332,13 +407,13 @@ module Roby::Log
 
 		current_cycle << m << args
 		if m == :cycle_end
-		    Marshal.dump(current_cycle, output)
+		    dump(current_cycle, output)
 		    current_cycle.clear
 		end
 	    end
 
 	    unless current_cycle.empty?
-		Marshal.dump(current_cycle, output)
+		dump(current_cycle, output)
 	    end
 	end
 
@@ -361,7 +436,7 @@ module Roby::Log
 	    end
 
 	    new_cycle = []
-	    input_stream = EventStream.new("input", Logfile.new(input, true))
+	    input_stream = EventStream.new("input", FileLogger.new(input, true))
 	    while !input.eof?
 		new_cycle.clear
 		begin
@@ -382,7 +457,7 @@ module Roby::Log
 			new_stats
 		    end
 
-		    Marshal.dump(new_cycle, output)
+		    dump(new_cycle, output)
 		rescue Exception => e
 		    STDERR.puts "dropped cycle because of the following error:"
 		    STDERR.puts "  #{e.full_message}"
@@ -390,11 +465,32 @@ module Roby::Log
 	    end
 	end
 
+        def self.from_format_3(input, output)
+            # Header format changed. Read the old one and add the new one
+            header = Marshal.load(input)
+            dump_hea
+
+            # In format 4, every marshal'ed structure is prefixed with the size
+            # of the block
+            while !input.eof?
+                start_pos = input.tell
+                Marshal.load_with_missing_constants(input)
+                length = input.tell - start_pos
+
+                # Don't take risks by re-dumping the object. Simply copy the raw
+                # data with added size in front
+                size = [length].pack("I")
+                output.write(size)
+                input.seek(start_pos)
+                output.write(input.read(length))
+            end
+        end
+
 	def self.to_new_format(file, into = file)
 	    input = File.open(file)
 	    log_format = self.log_format(input)
 
-	    if log_format == FORMAT_VERSION
+	    if log_format == Logfile::FORMAT_VERSION
 		STDERR.puts "#{file} is already at format #{log_format}"
 	    else
 		if into =~ /-events\.log$/
