@@ -239,7 +239,7 @@ module Roby
             @handlers.clear
 	    @unreachable_handlers.clear
 	    if object.controlable?
-		self.command = method(:emit)
+		@command = method(:emit)
 	    end
 	end
 
