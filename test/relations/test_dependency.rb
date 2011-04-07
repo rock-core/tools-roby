@@ -31,7 +31,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 	# Check validation of the model
 	child = nil
 	t1.depends_on((child = klass.new), :model => Tasks::Simple)
-	assert_equal([Tasks::Simple, {}], t1[child, Dependency][:model])
+	assert_equal([[Tasks::Simple], {}], t1[child, Dependency][:model])
 
 	t1.depends_on klass.new, :model => [Roby::Task, {}]
 	t1.depends_on klass.new, :model => tag
@@ -47,14 +47,26 @@ class TC_RealizedBy < Test::Unit::TestCase
 	plan.add(child = klass.new(:id => 'good'))
 	assert_raises(ArgumentError) { t1.depends_on child, :model => [klass, {:id => 'bad'}] }
 	assert_nothing_raised { t1.depends_on child, :model => [klass, {:id => 'good'}] }
-	assert_equal([klass, { :id => 'good' }], t1[child, TaskStructure::Dependency][:model])
+	assert_equal([[klass], { :id => 'good' }], t1[child, TaskStructure::Dependency][:model])
 
 	# Check edge annotation
 	t2 = Tasks::Simple.new
 	t1.depends_on t2, :model => Tasks::Simple
-	assert_equal([Tasks::Simple, {}], t1[t2, TaskStructure::Dependency][:model])
+	assert_equal([[Tasks::Simple], {}], t1[t2, TaskStructure::Dependency][:model])
 	t2 = klass.new(:id => 10)
 	t1.depends_on t2, :model => [klass, { :id => 10 }]
+
+        # Check the various allowed forms for :model
+        expected = [[Tasks::Simple], {:id => 10}]
+	t2 = Tasks::Simple.new(:id => 10)
+	t1.depends_on t2, :model => [Tasks::Simple, { :id => 10 }]
+        assert_equal expected, t1[t2, Dependency][:model]
+	t2 = Tasks::Simple.new(:id => 10)
+	t1.depends_on t2, :model => Tasks::Simple
+        assert_equal [[Tasks::Simple], Hash.new], t1[t2, Dependency][:model]
+	t2 = Tasks::Simple.new(:id => 10)
+	t1.depends_on t2, :model => [[Tasks::Simple], {:id => 10}]
+        assert_equal expected, t1[t2, Dependency][:model]
     end
 
     Dependency = TaskStructure::Dependency
@@ -364,7 +376,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 
         expected_info = { :consider_in_pending => true,
             :remove_when_done=>true,
-            :model => [Roby::Task, {}],
+            :model => [[Roby::Task], {}],
             :roles => ['child1'].to_set,
             :success => nil,
             :failure => :start.never }.merge(special_options)
@@ -378,7 +390,7 @@ class TC_RealizedBy < Test::Unit::TestCase
             setup_merging_test(:success => :success.to_unbound_task_predicate, :failure => false.to_unbound_task_predicate)
 
         parent.depends_on child, :success => [:success]
-        info[:model] = [child_model, {:id => 'child'}]
+        info[:model] = [[child_model], {:id => 'child'}]
         info[:success] = :success.to_unbound_task_predicate
         assert_equal info, parent[child, Dependency]
 
@@ -403,7 +415,7 @@ class TC_RealizedBy < Test::Unit::TestCase
 
         # Test that models are "upgraded"
         parent.depends_on child, :model => Tasks::Simple, :success => []
-        info[:model][0] = Tasks::Simple
+        info[:model][0] = [Tasks::Simple]
         assert_equal info, parent[child, Dependency]
         parent.depends_on child, :model => Roby::Task, :remove_when_done => true, :success => []
         assert_equal info, parent[child, Dependency]
@@ -418,7 +430,7 @@ class TC_RealizedBy < Test::Unit::TestCase
         # Test model/tag handling: #depends_on should find the most generic
         # model matching +task+ that includes all required models
         parent.depends_on child, :model => tag, :success => []
-        info[:model][0] = child_model.superclass
+        info[:model][0] << tag
         assert_equal info, parent[child, Dependency]
     end
 

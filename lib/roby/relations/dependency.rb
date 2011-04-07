@@ -186,6 +186,26 @@ module Roby::TaskStructure
                 :roles => nil,
                 :role => nil
 
+            # We accept
+            #
+            #   model
+            #   [model1, model2]
+            #   [model1, arguments]
+            #   [[model1, model2], arguments]
+            if !options[:model].respond_to?(:to_ary)
+                options[:model] = [[options[:model]], Hash.new]
+            elsif options[:model].size == 2
+                if !options[:model].first.respond_to?(:to_ary)
+                    if options[:model].last.kind_of?(Hash)
+                        options[:model] = [[options[:model].first], options[:model].last]
+                    else
+                        options[:model] = [options[:model], Hash.new]
+                    end
+                end
+            elsif !options[:model].first.respond_to?(:to_ary)
+                options[:model] = [options[:model], Hash.new]
+            end
+
             roles = options[:roles] || ValueSet.new
             if role = options.delete(:role)
                 roles << role.to_str
@@ -241,7 +261,6 @@ module Roby::TaskStructure
                 end
             end
 
-	    options[:model] = [options[:model], {}] unless Array === options[:model]
 	    required_model, required_args = *options[:model]
             if !required_args.respond_to?(:to_hash)
                 raise ArgumentError, "argument specification must be a hash, got #{required_args} (#{required_args.class})"
@@ -406,24 +425,40 @@ module Roby::TaskStructure
             end
 
         # Check model compatibility
-        model1, arguments1 = opt1[:model]
-        model2, arguments2 = opt2[:model]
-        if model1 <= model2
-            result[:model] = [model1, {}]
-        elsif model2 < model1
-            result[:model] = [model2, {}]
-        else
-            # Find the most generic model that +task+ fullfills and that
-            # includes both +model1+ and +model2+
-            klass = child.model
-            while klass != Roby::Task && (klass <= model1 && klass <= model2)
-                candidate = klass
-                klass = klass.superclass
+        models1, arguments1 = opt1[:model]
+        models2, arguments2 = opt2[:model]
+
+        task_model1 = models1.find { |m| m <= Roby::Task }
+        task_model2 = models2.find { |m| m <= Roby::Task }
+
+        result_model = []
+        if task_model1 && task_model2
+            if task_model1 <= task_model2
+                result_model << task_model1
+            elsif task_model2 < task_model1
+                result_model << task_model2
+            else
+                raise ModelViolation, "incompatible models #{task_model1} and #{task_model2}"
             end
-            # We should always have a solution, as +task+ fullfills both model1 and model2
-            result[:model] = [candidate, []]
+        elsif task_model1
+            result_model << task_model1
+        elsif task_model2
+            result_model << task_model2
+        end
+        models1.each do |m|
+            next if m <= Roby::Task
+            if !models2.any? { |other_m| other_m.fullfills?(m) }
+                result_model << m
+            end
+        end
+        models2.each do |m|
+            next if m <= Roby::Task
+            if !models1.any? { |other_m| other_m.fullfills?(m) }
+                result_model << m
+            end
         end
 
+        result[:model] = [result_model]
         # Merge arguments
         result[:model][1] = arguments1.merge(arguments2) do |key, old_value, new_value|
             if old_value != new_value
