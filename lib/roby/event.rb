@@ -218,7 +218,7 @@ module Roby
 	    @history       = Array.new
 
 	    if command_object || command_block
-		self.command = if command_object.respond_to?(:call)
+		@command = if command_object.respond_to?(:call)
 				   command_object
 			       elsif command_block
 				   command_block
