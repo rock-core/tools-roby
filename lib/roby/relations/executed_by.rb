@@ -59,6 +59,10 @@ module Roby::TaskStructure
 
 	# Defines a new execution agent for this task.
         def executed_by(agent)
+            if agent.respond_to?(:as_plan)
+                agent = agent.as_plan
+            end
+
 	    return if execution_agent == agent
 
 	    if !agent.event(:start).controlable? && !agent.running?
@@ -76,6 +80,7 @@ module Roby::TaskStructure
 	    end
 
 	    add_execution_agent(agent)
+            agent
         end
 
         # Installs the handlers needed for fault handling

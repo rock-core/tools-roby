@@ -843,6 +843,50 @@ module Roby
 	    include RootTaskTag
 	end
 
+        # Proxy class used as intermediate by Task.with_arguments
+        class AsPlanProxy
+            def initialize(model, arguments)
+                @model, @arguments = model, arguments
+            end
+
+            def as_plan
+                @model.as_plan(@arguments)
+            end
+        end
+
+        # If this class model has an 'as_plan', this specifies what arguments
+        # should be passed to as_plan
+        def self.with_arguments(arguments = Hash.new)
+            if respond_to?(:as_plan)
+
+                AsPlanProxy.new(self, arguments)
+            else
+                raise NoMethodError, "#with_arguments is invalid on #self, as #self does not have an #as_plan method"
+            end
+        end
+
+        # This method is used by the relation addition methods (e.g.
+        # #depends_on) to convert a task model into a subplan that can be run.
+        #
+        # By default, it simply calls new
+        #
+        # It can be used with
+        #
+        #   class TaskModel < Roby::Task
+        #   end
+        #
+        #   root = Roby::Task.new
+        #   child = root.depends_on(TaskModel)
+        #
+        # If arguments needs to be given, the #with_arguments method should be
+        # used:
+        #
+        #   root = Roby::Task.new
+        #   child = root.depends_on(TaskModel.with_arguments(:id => 200))
+        def self.as_plan(arguments = Hash.new)
+            new(arguments)
+        end
+
         class << self
             attr_reader :all_models
         end

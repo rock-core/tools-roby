@@ -173,6 +173,10 @@ module Roby::TaskStructure
         #
         # In both error cases, a +ChildFailedError+ exception is raised.
         def depends_on(task, options = {})
+            if task.respond_to?(:as_plan)
+                task = task.as_plan
+            end
+
             options = validate_options options, 
 		:model => [task.provided_services, task.meaningful_arguments], 
 		:success => :success.to_unbound_task_predicate, 
@@ -248,7 +252,7 @@ module Roby::TaskStructure
             # Check if there is already a dependency link. If it is the case,
             # merge the options. Otherwise, just add.
             add_child(task, options)
-            self
+            task
         end
 
 	# Set up the event gathering needed by Dependency.check_structure

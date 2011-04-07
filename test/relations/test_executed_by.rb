@@ -247,5 +247,18 @@ class TC_ExecutedBy < Test::Unit::TestCase
         agent.stop!
         assert replacement.aborted?
     end
+
+    def test_as_plan
+        model = Class.new(Tasks::Simple) do
+	    event :ready, :controlable => true
+            def self.as_plan
+                new(:id => 10)
+            end
+        end
+        root = prepare_plan :add => 1, :model => Tasks::Simple
+        agent = root.executed_by(model)
+        assert_kind_of model, agent
+        assert_equal 10, agent.arguments[:id]
+    end
 end
 

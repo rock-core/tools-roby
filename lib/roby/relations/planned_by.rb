@@ -10,6 +10,10 @@ module Roby::TaskStructure
 	def planned_tasks; parent_objects(PlannedBy) end
 	# Set +task+ as the planning task of +self+
         def planned_by(task, options = {})
+            if task.respond_to?(:as_plan)
+                task = task.as_plan
+            end
+
             options = Kernel.validate_options options,
                 :replace => false, :optional => false
 
@@ -22,6 +26,7 @@ module Roby::TaskStructure
 		end
 	    end
 	    add_planning_task(task, options)
+            task
         end
     end
 

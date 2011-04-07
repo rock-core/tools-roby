@@ -51,5 +51,17 @@ class TC_PlannedBy < Test::Unit::TestCase
 	# Clear the planned task to make test teardown happy
 	plan.remove_object(task)
     end
+
+    def test_as_plan
+        model = Class.new(Tasks::Simple) do
+            def self.as_plan
+                new(:id => 10)
+            end
+        end
+        root = prepare_plan :add => 1, :model => Tasks::Simple
+        agent = root.planned_by(model)
+        assert_kind_of model, agent
+        assert_equal 10, agent.arguments[:id]
+    end
 end
 

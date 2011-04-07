@@ -484,5 +484,17 @@ class TC_RealizedBy < Test::Unit::TestCase
     rescue Exception => e
         STDERR.puts e
     end
+
+    def test_as_plan_handler
+        model = Class.new(Tasks::Simple) do
+            def self.as_plan
+                new(:id => 10)
+            end
+        end
+        task = prepare_plan :add => 1, :model => Tasks::Simple
+        child = task.depends_on(model)
+        assert_kind_of model, child
+        assert_equal 10, child.arguments[:id]
+    end
 end
 

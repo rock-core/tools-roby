@@ -2,6 +2,10 @@ module Roby::TaskStructure
     class Roby::TaskEventGenerator
 	# Mark this event as being handled by the task +task+
 	def handle_with(repairing_task, options = Hash.new)
+            if repairing_task.respond_to?(:as_plan)
+                repairing_task = repairing_task.as_plan
+            end
+
             options = Kernel.validate_options options,
                 :remove_when_done => true
 
@@ -22,6 +26,7 @@ module Roby::TaskStructure
             end
 
 	    task[repairing_task, ErrorHandling] << symbol
+            repairing_task
 	end
     end
 

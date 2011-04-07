@@ -1590,5 +1590,24 @@ class TC_Task < Test::Unit::TestCase
         task.start!
         assert_equal 20, task.arg
     end
+
+    def test_as_plan
+        plan.add(task = Tasks::Simple.new)
+        model = Class.new(Tasks::Simple)
+
+        child = task.depends_on(model)
+        assert_kind_of model, child
+        assert task.depends_on?(child)
+    end
+
+    def test_as_plan_with_arguments
+        plan.add(task = Tasks::Simple.new)
+        model = Class.new(Tasks::Simple)
+
+        child = task.depends_on(model.with_arguments(:id => 20))
+        assert_kind_of model, child
+        assert_equal 20, child.arguments[:id]
+        assert task.depends_on?(child)
+    end
 end
 

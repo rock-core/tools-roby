@@ -447,6 +447,18 @@ class TC_Exceptions < Test::Unit::TestCase
 	test_error_handling_relation(:blocked)
     end
 
+    def test_error_handling_relation_with_as_plan
+        model = Class.new(Tasks::Simple) do
+            def self.as_plan
+                new(:id => 10)
+            end
+        end
+        task = prepare_plan :add => 1, :model => Tasks::Simple
+        child = task.failed_event.handle_with(model)
+        assert_kind_of model, child
+        assert_equal 10, child.arguments[:id]
+    end
+
     def test_mission_exceptions
 	mission = prepare_plan :missions => 1, :model => Tasks::Simple
 	repairing_task = Tasks::Simple.new
