@@ -4,7 +4,6 @@ require 'roby'
 require 'roby/log'
 require 'roby/log/server'
 
-require 'Qt'
 require 'roby/log/event_stream'
 require 'roby/log/plan_rebuilder'
 require 'roby/log/relations_view/relations_view'
@@ -56,6 +55,7 @@ if mode == :server
     exit(0)
 end
 
+require 'Qt'
 DRb.start_service "druby://localhost:0"
 
 app = Qt::Application.new(ARGV)
