@@ -75,7 +75,7 @@ module Roby
         # The default policy is to mark all executed tasks as failed to start
         def pending_executed_by_failed(agent, tasks)
             tasks.each do |t|
-                t.failed_to_start!(agent.terminal_event)
+                t.failed_to_start!(agent.failure_reason || agent.terminal_event)
             end
         end
 
@@ -84,7 +84,7 @@ module Roby
         # The default policy is to mark all executed tasks as failed to start
         def execution_agent_failed_to_start(agent, tasks)
             tasks.each do |t|
-                t.failed_to_start!(agent.terminal_event)
+                t.failed_to_start!(agent.failure_reason || agent.terminal_event)
             end
         end
     end
