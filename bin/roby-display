@@ -4,10 +4,6 @@ require 'roby'
 require 'roby/log'
 require 'roby/log/server'
 
-require 'roby/log/event_stream'
-require 'roby/log/plan_rebuilder'
-require 'roby/log/relations_view/relations_view'
-
 mode = :file
 host = nil
 port = Roby::Log::Server::DEFAULT_PORT
@@ -56,6 +52,10 @@ if mode == :server
 end
 
 require 'Qt'
+require 'roby/log/event_stream'
+require 'roby/log/plan_rebuilder'
+require 'roby/log/relations_view/relations_view'
+
 DRb.start_service "druby://localhost:0"
 
 app = Qt::Application.new(ARGV)
