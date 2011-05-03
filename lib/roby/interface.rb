@@ -26,15 +26,80 @@ module Roby
 	end
     end
 
+    # Base class for representation, on the shell side, of a ShellInterface
+    # object
+    #
+    # It makes sure that RemoteObjectProxy objects are properly set up when
+    # received on this side
+    class RemoteShellInterface
+        attr_reader :interfaces
+
+        def initialize(interface)
+            @interface = interface
+            @interfaces = Hash.new
+        end
+
+	def method_missing(m, *args) # :nodoc:
+            if interfaces.has_key?(m)
+                return interfaces[m]
+            end
+
+	    result = @interface.send(m, *args)
+            if result.kind_of?(ShellInterface)
+                result = interfaces[m] = RemoteShellInterface.new(result)
+	    elsif result.kind_of?(RemoteObjectProxy)
+		result.remote_interface = @interface
+	    end
+	    result
+
+	rescue Exception => e
+	    raise e, e.message, e.backtrace
+	end
+    end
+
+    class ShellInterface
+        include DRbUndumped
+
+        attr_reader :engine
+        
+        def initialize(engine)
+            @engine = engine
+        end
+
+        # Synchronously call +m+ on +object+ with the given arguments. This,
+        # along with the implementation of RemoteInterface#method_missing,
+        # ensures that no interactive operations are performed outside the
+        # control thread.
+	def call(object, m, *args)
+	    engine.execute do
+                if object.kind_of?(Roby::Task) && m.to_s =~ /!$/
+                    event_name = $`
+                    # Check if the called event is terminal. If it is the case,
+                    # discard the task before calling it, and make sure the user
+                    # will get a message
+                    #
+                    if object.event(event_name).terminal?
+                        plan.unmark_mission(object)
+                        object.on(:stop) { |ev| pending_messages << "task #{ev.task} stopped by user request" }
+                    else
+                        object.on(event_name) { |ev| pending_messages << "done emitting #{ev.generator}" }
+                    end
+                end
+
+		object.send(m, *args)
+	    end
+	end
+    end
+
     # RemoteInterface objects are used as local representation of remote
     # interface objects.  They offer a seamless interface to a remotely running
     # Roby controller.
-    class RemoteInterface
+    class RemoteInterface < RemoteShellInterface
         # Create a RemoteInterface object for the remote object represented by
         # +interface+, where +interface+ is a DRbObject for a remote Interface
         # object.
 	def initialize(interface)
-	    @interface = interface
+	    super(interface)
             reconnect
         end
 
@@ -322,22 +387,11 @@ help                              | this help message                           
             @interface.unmark(task)
             nil
         end
-
-	def method_missing(m, *args) # :nodoc:
-	    result = @interface.send(m, *args)
-	    if result.kind_of?(RemoteObjectProxy)
-		result.remote_interface = @interface
-	    end
-	    result
-
-	rescue Exception => e
-	    raise e, e.message, e.backtrace
-	end
     end
 
     # This class is used to interface with the Roby event loop and plan. It is the
     # main front object when accessing a Roby core remotely
-    class Interface
+    class Interface < ShellInterface
         include Robot
 
         # This module defines the hooks needed to plug Interface objects onto
@@ -387,14 +441,12 @@ help                              | this help message                           
 	    end
 	end
 
-        # The engine this interface is tied to
-        attr_reader :engine
         # The set of pending messages that are to be displayed on the remote interface
 	attr_reader :pending_messages
         # Creates a local server for a remote interface, acting on +control+
 	def initialize(engine)
+            super(engine)
 	    @pending_messages = Queue.new
-            @engine = engine
 
 	    engine.extend GatherExceptions
 	    engine.register_interface self
@@ -421,30 +473,6 @@ help                              | this help message                           
 	def stop; engine.quit; nil end
 	# The Roby plan
 	def plan; engine.plan end
-
-        # Synchronously call +m+ on +tasks+ with the given arguments. This,
-        # along with the implementation of RemoteInterface#method_missing,
-        # ensures that no interactive operations are performed outside the
-        # control thread.
-	def call(task, m, *args)
-	    engine.execute do
-                if m.to_s =~ /!$/
-                    event_name = $`
-                    # Check if the called event is terminal. If it is the case,
-                    # discard the task before calling it, and make sure the user
-                    # will get a message
-                    #
-                    if task.event(event_name).terminal?
-                        plan.unmark_mission(task)
-                        task.on(:stop) { |ev| pending_messages << "task #{ev.task} stopped by user request" }
-                    else
-                        task.on(event_name) { |ev| pending_messages << "done emitting #{ev.generator}" }
-                    end
-                end
-
-		task.send(m, *args)
-	    end
-	end
 
 	def find_tasks(model = nil, args = nil)
 	    plan.find_tasks(model, args)
