@@ -34,7 +34,7 @@ module Roby::Log
                 raise InvalidFileError, "no magic code at beginning of file"
             end
 
-            log_format = *io.read(4).unpack('I')
+            log_format = io.read(4).unpack('I').first
             validate_format(log_format)
 
         rescue Exception => e
@@ -52,7 +52,7 @@ module Roby::Log
             begin
                 magic = input.read(Logfile::MAGIC_CODE.size)
                 if magic == Logfile::MAGIC_CODE
-                    format = *input.read(4).unpack("I")
+                    format = input.read(4).unpack("I").first
                 else
                     input.rewind
                     header = Marshal.load(input)
