@@ -81,7 +81,7 @@ module Roby
             # The part of +arguments+ that is meaningful for this task model
             def meaningful_arguments(arguments)
                 self_arguments = self.arguments.to_set
-                arguments.to_hash.delete_if do |key, _|
+                arguments.evaluate_delayed_arguments.delete_if do |key, _|
                     !self_arguments.include?(key)
                 end
             end
