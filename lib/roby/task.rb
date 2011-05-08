@@ -2422,6 +2422,12 @@ module Roby
 	    true
 	end
 
+        # True if this model requires an argument named +key+ and that argument
+        # is set
+        def has_argument?(key)
+            self.arguments.has_key?(key)
+        end
+
         # True if +self+ can be used to replace +target+
         def can_replace?(target)
             fullfills?(*target.fullfilled_model)
