@@ -1609,5 +1609,42 @@ class TC_Task < Test::Unit::TestCase
         assert_equal 20, child.arguments[:id]
         assert task.depends_on?(child)
     end
+
+    def test_can_merge_model
+        test_model1 = Class.new(Roby::Task)
+        test_model2 = Class.new(Roby::Task)
+        test_model3 = Class.new(test_model1)
+
+        t1 = test_model1.new
+        t2 = test_model2.new
+        t3 = test_model3.new
+
+        assert(t1.can_merge?(t1))
+        assert(t3.can_merge?(t1))
+        assert(!t1.can_merge?(t3))
+        assert(!t1.can_merge?(t2))
+
+        assert(!t3.can_merge?(t2))
+        assert(!t2.can_merge?(t3))
+    end
+
+    def test_can_merge_arguments
+        test_model = Class.new(Roby::Task) do
+            argument :id
+        end
+        t1 = test_model.new
+        t2 = test_model.new
+
+        assert(t1.can_merge?(t2))
+        assert(t2.can_merge?(t1))
+
+        t2.arguments[:id] = 10
+        assert(t1.can_merge?(t2))
+        assert(t2.can_merge?(t1))
+
+        t1.arguments[:id] = 20
+        assert(!t1.can_merge?(t2))
+        assert(!t2.can_merge?(t1))
+    end
 end
 
