@@ -63,18 +63,16 @@ module Roby
                         return
                     end
 
-                    @reconnection_timer = Qt::Timer.new
+                    @reconnection_timer = Qt::Timer.new(self)
                     @connect_client  = client.dup
                     @connect_options = options.dup
                     @reconnection_timer.connect(SIGNAL('timeout()')) do
-                        begin
-                            puts "trying to reconnect to #{@connect_client} #{@connect_options}"
-                            connect(@connect_client, @connect_options)
+                        puts "trying to reconnect to #{@connect_client} #{@connect_options}"
+                        if connect(@connect_client, @connect_options)
+                            info("Connected")
                             @reconnection_timer.stop
                             @reconnection_timer.dispose
                             @reconnection_timer = nil
-                        rescue Exception => e
-                            connection_failed(e, @hostname, @port)
                         end
                     end
                     @reconnection_timer.start(1000)
@@ -93,10 +91,11 @@ module Roby
 
                     if client.respond_to?(:to_str)
                         begin
+                            hostname = client
                             client = Roby::Log::Client.new(client, options[:port])
                         rescue Exception => e
                             connection_failed(e, client, options)
-                            return
+                            return false
                         end
                     end
 
@@ -107,11 +106,26 @@ module Roby
                         time = plan_rebuilder.time
                         ui.info.text = "@#{cycle} - #{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
                     end
-                    @connection_pull = timer = Qt::Timer.new
+                    @connection_pull = timer = Qt::Timer.new(self)
                     timer.connect(SIGNAL('timeout()')) do
-                        client.read_and_process_pending
+                        begin
+                            client.read_and_process_pending
+                        rescue Exception => e
+                            disconnect
+                            warn("Disconnected: #{e.message}")
+                            if hostname
+                                connect(hostname, options)
+                            end
+                        end
                     end
                     timer.start(Integer(options[:update_period] * 1000))
+                    return true
+                end
+
+                def disconnect
+                    @connection_pull.stop
+                    @connection_pull.dispose
+                    @connection_pull = nil
                 end
 
                 # Creates a new display that will display the information
