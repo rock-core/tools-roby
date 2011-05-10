@@ -5,7 +5,7 @@ require 'roby/log/plan_rebuilder'
 module Roby
     module LogReplay
         module RelationsDisplay
-            class RelationsView < Qt::MainWindow
+            class RelationsView < Qt::Widget
                 attr_reader :ui
 
                 attr_reader :plan_rebuilder
@@ -19,8 +19,8 @@ module Roby
                 # See #connect
                 DEFAULT_REMOTE_POLL_PERIOD = 0.05
 
-                def initialize(plan_rebuilder = nil)
-                    super()
+                def initialize(parent = nil, plan_rebuilder = nil)
+                    super(parent)
                     @ui = Ui::RelationsView.new
                     plan_rebuilder ||= Roby::LogReplay::PlanRebuilder.new
                     @plan_rebuilder = plan_rebuilder
@@ -103,7 +103,70 @@ class Ui::RelationsView
 	@display   = display = view.canvas
 	super(view)
 
-        actionConfigure.connect(SIGNAL(:triggered)) do
+        @actionShowAll = Qt::Action.new(view)
+        @actionShowAll.objectName = "actionShowAll"
+        @actionShowAll.text = "Show All"
+        @actionRedraw = Qt::Action.new(view)
+        @actionRedraw.objectName = "actionRedraw"
+        @actionRedraw.text = "Redraw"
+        @actionZoom = Qt::Action.new(view)
+        @actionZoom.objectName = "actionZoom"
+        @actionZoom.text = "Zoom +"
+        @actionUnzoom = Qt::Action.new(view)
+        @actionUnzoom.objectName = "actionUnzoom"
+        @actionUnzoom.text = "Zoom -"
+        @actionFit = Qt::Action.new(view)
+        @actionFit.objectName = "actionFit"
+        @actionFit.text = "Fit View"
+        @actionOwnership = Qt::Action.new(view)
+        @actionOwnership.objectName = "actionOwnership"
+        @actionOwnership.text = "Display Ownership"
+        @actionOwnership.checkable = true
+        @actionOwnership.checked = true
+        @actionSVGExport = Qt::Action.new(view)
+        @actionSVGExport.objectName = "actionSVGExport"
+        @actionSVGExport.text = "SVG Export"
+        @actionPrint = Qt::Action.new(view)
+        @actionPrint.objectName = "actionPrint"
+        @actionPrint.text = "Print"
+        @actionKeepSignals = Qt::Action.new(view)
+        @actionKeepSignals.objectName = "actionKeepSignals"
+        @actionKeepSignals.text = "Keep Signals"
+        @actionKeepSignals.checkable = true
+        @actionKeepSignals.checked = false
+        @actionBookmarksAdd = Qt::Action.new(view)
+        @actionBookmarksAdd.objectName = "actionBookmarksAdd"
+        @actionBookmarksAdd.text = "Add Bookmark"
+        @actionHideFinalized = Qt::Action.new(view)
+        @actionHideFinalized.objectName = "actionHideFinalized"
+        @actionHideFinalized.text = "Hide Finalized"
+        @actionHideFinalized.checkable = true
+        @actionHideFinalized.checked = true
+        @actionConfigure = Qt::Action.new(view)
+        @actionConfigure.objectName = "actionConfigure"
+        @actionConfigure.text = "Configure"
+
+        @menubar = Qt::MenuBar.new(view)
+        @menubar.objectName = "menubar"
+        @menubar.geometry = Qt::Rect.new(0, 0, 800, 21)
+        @menuView = Qt::Menu.new("View", @menubar)
+        @menuView.objectName = "menuView"
+
+        @menubar.addAction(@menuView.menuAction())
+        @menuView.addAction(@actionKeepSignals)
+        @menuView.addAction(@actionShowAll)
+        @menuView.addSeparator()
+        @menuView.addAction(@actionZoom)
+        @menuView.addAction(@actionUnzoom)
+        @menuView.addAction(@actionFit)
+        @menuView.addSeparator()
+        @menuView.addAction(@actionSVGExport)
+        @menuView.addAction(@actionPrint)
+        @menuView.addAction(@actionConfigure)
+
+        @leftLayout.setMenuBar(@menubar)
+
+        @actionConfigure.connect(SIGNAL(:triggered)) do
             if !@configuration_widget
                 @configuration_widget = Qt::Widget.new
                 @configuration_widget_ui = Ui::RelationsConfig.new(@configuration_widget, display)
@@ -147,14 +210,14 @@ class Ui::RelationsView
 	    end
 	end
 
-	actionShowAll.connect(SIGNAL(:triggered)) do
+	@actionShowAll.connect(SIGNAL(:triggered)) do
 	    display.graphics.keys.each do |obj|
 		display.set_visibility(obj, true) if obj.kind_of?(Roby::Task::DRoby) || (obj.kind_of?(Roby::EventGenerator::DRoby) && !obj.respond_to?(:task))
 	    end
 	    display.update
 	end
 
-	actionZoom.connect(SIGNAL(:triggered)) do 
+	@actionZoom.connect(SIGNAL(:triggered)) do 
 	    scale = graphics.matrix.m11
 	    if scale + ZOOM_STEP > 1
 		scale = 1 - ZOOM_STEP
@@ -162,20 +225,20 @@ class Ui::RelationsView
 	    graphics.resetMatrix
 	    graphics.scale scale + ZOOM_STEP, scale + ZOOM_STEP
 	end
-	actionUnzoom.connect(SIGNAL(:triggered)) do
+	@actionUnzoom.connect(SIGNAL(:triggered)) do
 	    scale = graphics.matrix.m11
 	    graphics.resetMatrix
 	    graphics.scale scale - ZOOM_STEP, scale - ZOOM_STEP
 	end
-	actionFit.connect(SIGNAL(:triggered)) do
+	@actionFit.connect(SIGNAL(:triggered)) do
 	    graphics.fitInView(graphics.scene.items_bounding_rect, Qt::KeepAspectRatio)
 	end
 
-	actionKeepSignals.connect(SIGNAL(:triggered)) do 
+	@actionKeepSignals.connect(SIGNAL(:triggered)) do 
 	    display.keep_signals = actionKeepSignals.checked?
 	end
 
-	actionPrint.connect(SIGNAL(:triggered)) do
+	@actionPrint.connect(SIGNAL(:triggered)) do
 	    return unless scene
 	    printer = Qt::Printer.new;
 	    if Qt::PrintDialog.new(printer).exec() == Qt::Dialog::Accepted
@@ -185,7 +248,7 @@ class Ui::RelationsView
 	    end
 	end
 
-	actionSVGExport.connect(SIGNAL(:triggered)) do
+	@actionSVGExport.connect(SIGNAL(:triggered)) do
 	    return unless scene
 
 	    if path = Qt::FileDialog.get_save_file_name(nil, "SVG Export")
@@ -198,7 +261,7 @@ class Ui::RelationsView
 		painter.end
 	    end
 	end
-	actionSVGExport.enabled = defined?(Qt::SvgGenerator)
+	@actionSVGExport.enabled = defined?(Qt::SvgGenerator)
     end
 end
 
