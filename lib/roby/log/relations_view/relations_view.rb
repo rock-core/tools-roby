@@ -45,6 +45,41 @@ module Roby
                     history_widget.analyze(stream)
                 end
 
+                def info(message)
+                    ui.info.setText(message)
+                end
+
+                def warn(message)
+                    ui.info.setText("<font color=\"red\">#{message}</font>")
+                end
+
+                # Called when the connection to the log server failed, either
+                # because it has been closed or because creating the connection
+                # failed
+                def connection_failed(e, client, options)
+                    @connection_error = e
+                    warn("connection failed: #{e.message}")
+                    if @reconnection_timer
+                        return
+                    end
+
+                    @reconnection_timer = Qt::Timer.new
+                    @connect_client  = client.dup
+                    @connect_options = options.dup
+                    @reconnection_timer.connect(SIGNAL('timeout()')) do
+                        begin
+                            puts "trying to reconnect to #{@connect_client} #{@connect_options}"
+                            connect(@connect_client, @connect_options)
+                            @reconnection_timer.stop
+                            @reconnection_timer.dispose
+                            @reconnection_timer = nil
+                        rescue Exception => e
+                            connection_failed(e, @hostname, @port)
+                        end
+                    end
+                    @reconnection_timer.start(1000)
+                end
+
                 # Displays the data incoming from +client+
                 #
                 # +client+ is assumed to be a Roby::Log::Client instance
@@ -55,6 +90,16 @@ module Roby
                     options = Kernel.validate_options options,
                         :port => Roby::Log::Server::DEFAULT_PORT,
                         :update_period => DEFAULT_REMOTE_POLL_PERIOD
+
+                    if client.respond_to?(:to_str)
+                        begin
+                            client = Roby::Log::Client.new(client, options[:port])
+                        rescue Exception => e
+                            connection_failed(e, client, options)
+                            return
+                        end
+                    end
+
                     client.add_listener do |data|
                         history_widget.push_data(data)
 
