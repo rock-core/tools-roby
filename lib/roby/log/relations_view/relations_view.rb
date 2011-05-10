@@ -51,7 +51,10 @@ module Roby
                 #
                 # +update_period+ is, in seconds, the period at which the
                 # display will check whether there is new data on the port.
-                def connect(client, update_period = DEFAULT_REMOTE_POLL_PERIOD)
+                def connect(client, options = Hash.new)
+                    options = Kernel.validate_options options,
+                        :port => Roby::Log::Server::DEFAULT_PORT,
+                        :update_period => DEFAULT_REMOTE_POLL_PERIOD
                     client.add_listener do |data|
                         history_widget.push_data(data)
 
@@ -63,7 +66,7 @@ module Roby
                     timer.connect(SIGNAL('timeout()')) do
                         client.read_and_process_pending
                     end
-                    timer.start(Integer(update_period * 1000))
+                    timer.start(Integer(options[:update_period] * 1000))
                 end
 
                 # Creates a new display that will display the information
@@ -75,6 +78,10 @@ module Roby
                     view = new(plan_rebuilder)
                     view.open(filename)
                     view
+                end
+
+                def load_options(path)
+                    options(YAML.load(File.read(path)))
                 end
 
                 def options(new_options = Hash.new)

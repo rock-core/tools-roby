@@ -62,14 +62,13 @@ app = Qt::Application.new(ARGV)
 
 display = Roby::LogReplay::RelationsDisplay::RelationsView.new
 if File.file?('roby-display.yml')
-    display.options(YAML.load(File.read('roby-display.yml')))
+    display.load_options('roby-display.yml')
 end
 
 if mode == :file
     display.open(filename)
 elsif mode == :client
-    client = Roby::Log::Client.new(host, port)
-    display.connect(client)
+    display.connect(host, :port => port)
 end
 display.show
 
