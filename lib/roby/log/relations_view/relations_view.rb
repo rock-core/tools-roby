@@ -230,7 +230,7 @@ class Ui::RelationsView
         @menuView.addAction(@actionPrint)
         @menuView.addAction(@actionConfigure)
 
-        @leftLayout.setMenuBar(@menubar)
+        @verticalLayout_2.setMenuBar(@menubar)
 
         @actionConfigure.connect(SIGNAL(:triggered)) do
             if !@configuration_widget
