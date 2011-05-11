@@ -99,6 +99,7 @@ module Roby
                         end
                     end
 
+                    @client = client
                     client.add_listener do |data|
                         history_widget.push_data(data)
 
@@ -123,6 +124,7 @@ module Roby
                 end
 
                 def disconnect
+                    @client.disconnect
                     @connection_pull.stop
                     @connection_pull.dispose
                     @connection_pull = nil

@@ -235,6 +235,10 @@ module Roby
                 @listeners = Array.new
             end
 
+            def disconnect
+                @socket.close
+            end
+
             def add_listener(&block)
                 @listeners << block
             end
