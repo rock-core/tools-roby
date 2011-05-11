@@ -46,7 +46,11 @@ module Roby
                 @pending_data = Hash.new
                 @sampling_period = sampling_period
                 @event_file_path = event_file_path
-                @event_file = File.open(event_file_path)
+                if File.respond_to?(:binread) # Ruby 1.9, need to take care about the encoding
+                    @event_file = File.open(event_file_path, 'r:BINARY')
+                else
+                    @event_file = File.open(event_file_path)
+                end
             end
 
             def found_header?
@@ -80,9 +84,17 @@ module Roby
 
                         Server.debug "new connection: #{socket}"
                         if found_header?
-                            all_data = File.read(event_file_path, 
-                                event_file.tell - Logfile::PROLOGUE_SIZE,
-                                Logfile::PROLOGUE_SIZE)
+                            all_data =
+                                if File.respond_to?(:binread)
+                                    File.binread(event_file_path, 
+                                              event_file.tell - Logfile::PROLOGUE_SIZE,
+                                              Logfile::PROLOGUE_SIZE)
+                                else
+                                    File.read(event_file_path, 
+                                              event_file.tell - Logfile::PROLOGUE_SIZE,
+                                              Logfile::PROLOGUE_SIZE)
+                                end
+
                             Server.debug "  queueing #{all_data.size} bytes of data"
                             @pending_data[socket] = split_in_chunks(all_data)
                         else
