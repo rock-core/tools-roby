@@ -2387,38 +2387,24 @@ module Roby
                 end
             end.flatten!
 
-            args ||= Hash.new
-
-	    if models.kind_of?(Task)
-		models, args = 
-		    models.provided_services, 
-		    models.meaningful_arguments
-	    else
-		models = [*models]
-	    end
 	    self_model = self.model
 	    self_args  = self.arguments
-	    args       = args.dup
 
 	    # Check the arguments that are required by the model
 	    for tag in models
 		if !self_model.has_ancestor?(tag)
 		    return false
 		end
-
-		unless args.empty?
-		    for arg_name in tag.arguments
-			if user_arg = args.delete(arg_name)
-			    return false unless user_arg == self_args[arg_name]
-			end
-			break if args.empty?
-		    end
-		end
 	    end
 
-	    if !args.empty?
-		raise ArgumentError, "the arguments '#{args.keys.join(", ")}' are unknown to the tags #{models.join(", ")}"
-	    end
+            if args
+                args.each do |key, name|
+                    if self.arguments[key] != name
+                        return false
+                    end
+                end
+            end
+
 	    true
 	end
 
