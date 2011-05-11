@@ -176,7 +176,13 @@ module Roby
         #   mapping = plan.copy_to(copy)
         #   mapping[t] => corresponding task in +copy+
         def copy_to(copy)
-            mappings = Hash.new { |h, k| raise "found object with no mapping" }
+            mappings = Hash.new do |h, k|
+                if !self.include?(k)
+                    raise InternalError, "#{k} is listed in a relation, but is not included in the corresponding plan #{self}"
+                else
+                    raise InternalError, "#{k} is an object in #{self} for which no mapping has been created in #{copy}"
+                end
+            end
 
             # First create a copy of all the tasks
             known_tasks.each do |t|

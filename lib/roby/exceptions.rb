@@ -26,6 +26,7 @@ end
 module Roby
     class ConfigError < RuntimeError; end
     class ModelViolation < RuntimeError; end
+    class InternalError < RuntimeError; end
 
     class << self
         attr_reader :console
