@@ -210,7 +210,9 @@ module Roby
 
 		event = task.event(symbol)
                 if !event.controlable? && controlable
-                    if task.respond_to?(:override_remote_event)
+                    if task.event(symbol).controlable?
+                        event = task.event(symbol)
+                    elsif task.respond_to?(:override_remote_event)
                         task.override_remote_event(symbol, peer, self)
                         event = task.event(symbol)
                     else

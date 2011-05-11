@@ -83,9 +83,16 @@ module Roby
                 generator
             end
             def override_remote_event(symbol, peer, marshalled_event)
-                terminal = event(symbol).terminal?
-                event_model = self.model.
-                    event(symbol, :controlable => marshalled_event.controlable, :terminal => terminal)
+                # Check if we need to override the model, or only the bound
+                # event
+                if !self.model.event_model(symbol).controlable? && marshalled_event.controlable
+                    terminal = event(symbol).terminal?
+                    event_model = self.model.
+                        event(symbol, :controlable => marshalled_event.controlable,
+                              :terminal => terminal)
+                else
+                    event_model = self.model.event_model(symbol)
+                end
 
                 if @bound_events[symbol]
                     @bound_events[symbol].override_model(event_model)
