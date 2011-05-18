@@ -246,6 +246,7 @@ module Roby
 	def commit_transaction
 	    super
 	    handlers.each { |h| __getobj__.on(&h) }
+            unreachable_handlers.each { |cancel, h| __getobj__.if_unreachable(cancel, &h) }
 	end
     end
 
