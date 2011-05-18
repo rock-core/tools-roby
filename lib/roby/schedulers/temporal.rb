@@ -16,27 +16,48 @@ module Roby
                 @basic_constraints = with_basic
             end
 
-            # Starts all tasks that are eligible. See the class documentation
-            # for an in-depth description
-	    def can_schedule?(task)
-                if !can_start?(task)
+            def can_schedule?(task, time = Time.now, stack = [])
+                if task.running?
+                    return true
+                elsif !can_start?(task)
+                    Schedulers.debug { "Temporal: won't schedule #{task} as it cannot be started" }
                     return false
                 end
 
                 start_event = task.start_event
-                if start_event.has_scheduling_constraints?
-                    if !start_event.can_be_scheduled?(Time.now)
-                        return false
+
+                meets_constraints = start_event.meets_temporal_constraints?(time) do |ev|
+                    if ev.respond_to?(:task)
+                        ev.task != task &&
+                            !stack.include?(ev.task) &&
+                            !Roby::EventStructure::SchedulingConstraints.related_tasks?(ev.task, task)
                     end
-                    if basic_constraints?
-                        super
-                    else
-                        return true
+                end
+
+                if !meets_constraints
+                    Schedulers.debug { "Temporal: won't schedule #{task} as its temporal constraints are not met" }
+                    return false
+                end
+
+                start_event.each_backward_scheduling_constraint do |parent|
+                    begin
+                        stack.push task
+                        if !can_schedule?(parent.task, time, stack)
+                            Schedulers.debug { "Temporal: won't schedule #{task} as #{parent} cannot be scheduled and #{task}.schedule_as(#{parent})" }
+                            return false
+                        end
+                    ensure
+                        stack.pop
                     end
-                else
+                end
+
+                if basic_constraints?
                     super
-		end
+                else
+                    return true
+                end
             end
         end
     end
 end
+

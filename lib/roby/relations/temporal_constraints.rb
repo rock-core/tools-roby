@@ -259,34 +259,6 @@ module Roby
                 end
                 false
             end
-
-            def can_be_scheduled?(time)
-                # We check all scheduling constraints. However, we don't
-                # consider temporal constraints from tasks that also have a
-                # scheduling constraint with us
-
-                # First, check our own temporal constraints
-                if !meets_temporal_constraints?(time)
-                    return false
-                end
-
-                # Now check the temporal constraints of our parents in
-                # SchedulingConstraints. Don't use temporal constraints that
-                # originate from ourselves
-                each_backward_scheduling_constraint do |parent|
-                    can_schedule = parent.meets_temporal_constraints?(time) do |ev|
-                        if ev.respond_to?(:task)
-                            ev.task != task &&
-                                !SchedulingConstraints.related_tasks?(ev.task, task)
-                        end
-                    end
-
-                    if !can_schedule
-                        return false
-                    end
-                end
-                true
-            end
         end
 
         # Module that implements shortcuts on tasks to use the scheduling

@@ -17,6 +17,9 @@ module Roby
     # state (i.e. execution situation).
     #
     module Schedulers
+        extend Logger::Hierarchy
+        extend Logger::Forward
+
         # The basic schedulers uses the Roby's "core" plan model to decide which
         # tasks can be started.
         #
@@ -56,29 +59,40 @@ module Roby
 		    executable.
 		    pending.
 		    self_owned
+
+                @can_schedule_cache = Hash.new
 	    end
 
             def can_start?(task)
                 start_event = task.start_event
-                return if !start_event.controlable?
-                return if !start_event.root?(EventStructure::CausalLink)
+                if !start_event.controlable?
+                    Roby::Schedulers.debug { "Basic: not scheduling #{task} as its start event is not controlable" }
+                    return false
+                end
+
+                if !start_event.root?(EventStructure::CausalLink)
+                    Roby::Schedulers.debug { "Basic: not scheduling #{task} as its start event is not root in the causal link relation" }
+                    return false
+                end
 
                 task.each_relation do |r|
                     if r.respond_to?(:scheduling?) && !r.scheduling? && !task.root?(r)
-                        Roby::ExecutionEngine.debug { "#{self}: not scheduling #{task} as it is not root in #{r}, which forbids scheduling" }
+                        Roby::Schedulers.debug { "#{self}: not scheduling #{task} as it is not root in #{r}, which forbids scheduling" }
                         return false 
                     end
                 end
                 true
             end
 
-            def can_schedule?(task)
+            def can_schedule?(task, time = Time.now, stack = [])
                 if !can_start?(task)
+                    Schedulers.debug { "Basic: won't schedule #{task} as it cannot be started" }
                     return false
                 end
 
                 root_task =
                     if task.root?(TaskStructure::Dependency)
+                        Schedulers.debug { "Basic: #{task} is root" }
                         true
                     else
                         planned_tasks = task.planned_tasks
@@ -86,19 +100,32 @@ module Roby
                             planned_tasks.all? { |t| !t.executable? }
                     end
 
-                root_task ||
-                    (include_children && task.parents.any? { |t| t.running? })
+                if root_task
+                    Schedulers.debug { "Basic: #{task} is root, scheduling" }
+                    true
+                elsif include_children && task.parents.any? { |t| t.running? }
+                    Schedulers.debug { "Basic: there is a parent of #{task} that is running, scheduling" }
+                    true
+                end
             end
 
             # Starts all tasks that are eligible. See the documentation of the
             # Basic class for an in-depth description
 	    def initial_events
+                @can_schedule_cache.clear
+                time = Time.now
 		for task in query.reset
-                    if can_schedule?(task)
-                        Roby::ExecutionEngine.debug { "#{self}: scheduled #{task}" }
+                    result =
+                        if @can_schedule_cache.include?(task)
+                            @can_schedule_cache[task]
+                        else @can_schedule_cache[task] = can_schedule?(task, time, [])
+                        end
+
+                    if result
+                        Schedulers.debug { "#{self}: scheduled #{task}" }
                         task.start!
                     else
-                        Roby::ExecutionEngine.debug { "#{self}: cannot schedule #{task}" }
+                        Schedulers.debug { "#{self}: cannot schedule #{task}" }
                     end
 		end
 	    end
