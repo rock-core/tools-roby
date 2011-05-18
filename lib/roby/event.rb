@@ -7,11 +7,8 @@ module Roby
         # The generator which emitted this event
 	attr_reader :generator
 
-        @@creation_places = Hash.new
 	def initialize(generator, propagation_id, context, time = Time.now)
 	    @generator, @propagation_id, @context, @time = generator, propagation_id, context.freeze, time
-
-            @@creation_places[object_id] = "#{generator.class}"
 	end
 
 	attr_accessor :propagation_id, :context, :time
