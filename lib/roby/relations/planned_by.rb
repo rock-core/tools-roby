@@ -15,7 +15,7 @@ module Roby::TaskStructure
             end
 
             options = Kernel.validate_options options,
-                :replace => false, :optional => false
+                :replace => false, :optional => false, :plan_early => true
 
             allow_replace = options.delete(:replace)
 	    if old = planning_task
@@ -26,6 +26,10 @@ module Roby::TaskStructure
 		end
 	    end
 	    add_planning_task(task, options)
+            if !options[:plan_early]
+                task.schedule_as(self)
+            end
+
             task
         end
     end
