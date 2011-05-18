@@ -570,7 +570,9 @@ help                              | this help message                           
 	def method_missing(name, *args)
 	    if name.to_s =~ /!$/
 		name = $`.to_sym
-	    else
+            elsif Robot.respond_to?(name)
+                return Robot.send(name, *args)
+            else
 		super
 	    end
 
