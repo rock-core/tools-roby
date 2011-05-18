@@ -1337,7 +1337,7 @@ module Roby
                     if plan.include?(self)
                         raise ModelViolation.new, "still included in #{plan}, cannot change the plan to #{new_plan}"
                     elsif !kind_of?(Proxying) && self_owned? && running?
-                        raise ModelViolation.new, "cannot change the plan of a running task"
+                        raise ModelViolation.new, "cannot change the plan of #{self} from #{plan} to #{new_plan} as the task is running"
                     end
                 end
 	    end
