@@ -248,17 +248,15 @@ module Roby
         attr_reader :task
 	# The event symbol (its name as a Symbol object)
 	attr_reader :symbol
-	# The event class
-	attr_reader :event_model
         # Changes the underlying model
         def override_model(model)
             @event_model = model
         end
 
         def initialize(task, model)
+	    super(model.respond_to?(:call))
             @task, @event_model = task, model
 	    @symbol = model.symbol
-	    super(model.respond_to?(:call))
         end
 
         # The default command if the event is created with :controlable => true.
@@ -421,11 +419,7 @@ module Roby
 
         # See EventGenerator#new
         def new(context, propagation_id = nil, time = nil) # :nodoc:
-            event = event_model.new(task, self, propagation_id || plan.engine.propagation_id, context)
-            if time
-                event.send(:time=, time)
-            end
-            event
+            event_model.new(task, self, propagation_id || plan.engine.propagation_id, context, time || Time.now)
         end
 
 	def to_s # :nodoc:

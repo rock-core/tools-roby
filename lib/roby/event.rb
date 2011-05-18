@@ -131,6 +131,11 @@ module Roby
     # * #forwarding
     #
     class EventGenerator < PlanObject
+        # The event class that is used to represent this generator's emissions
+        #
+        # Defaults to Event
+        attr_reader :event_model
+
 	# Creates a new Event generator which is emitted as soon as one of this
 	# object and +generator+ is emitted
         #
@@ -175,6 +180,7 @@ module Roby
 	def initialize_copy(old) # :nodoc:
 	    super
 
+            @event_model = old.event_model
             @preconditions = old.instance_variable_get(:@preconditions).dup
             @handlers = old.handlers.dup
             @happened = old.happened?
@@ -216,6 +222,7 @@ module Roby
             @unreachable_events   = Hash.new
 	    @unreachable_handlers = []
 	    @history       = Array.new
+            @event_model = Event
 
 	    if command_object || command_block
 		@command = if command_object.respond_to?(:call)
@@ -519,7 +526,9 @@ module Roby
 	end
 
 	# Create a new event object for +context+
-	def new(context); Event.new(self, plan.engine.propagation_id, context, Time.now) end
+        def new(context, propagation_id = nil, time = nil) # :nodoc:
+            event_model.new(self, propagation_id || plan.engine.propagation_id, context, time || Time.now)
+        end
 
 	# Adds a propagation originating from this event to event propagation
 	def add_propagation(only_forward, event, signalled, context, timespec) # :nodoc:

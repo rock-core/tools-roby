@@ -151,6 +151,32 @@ module Roby
 	end
     end
 
+    class Event
+        class DRoby
+            attr_reader :propagation_id
+            attr_reader :time
+            attr_reader :generator
+            attr_reader :context
+
+            def initialize(propagation_id, time, generator, context)
+                @propagation_id, @time, @generator, @context = propagation_id, time, generator, context
+            end
+
+	    def proxy(peer)
+                generator = peer.local_object(self.generator)
+
+                context = peer.local_object(context)
+                generator.new(context, propagation_id, time)
+            end
+        end
+
+        # Returns an intermediate representation of +self+ suitable to be sent
+        # to the +dest+ peer.
+	def droby_dump(dest)
+	    DRoby.new(propagation_id, time, Distributed.format(generator, dest), Distributed.format(context, dest))
+	end
+    end
+
     class TaskEventGenerator
 	def _dump(lvl) # :nodoc:
             Marshal.dump(remote_id) 
