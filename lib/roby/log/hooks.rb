@@ -18,7 +18,7 @@ module Roby::Log
     Roby::BasicObject.include BasicObjectHooks
 
     module TaskHooks
-	HOOKS = %w{added_task_child removed_task_child}
+	HOOKS = %w{added_task_child removed_task_child task_failed_to_start}
 
 	def updated_edge_info(child, relation, info)
 	    super if defined? super
@@ -34,6 +34,11 @@ module Roby::Log
 	    super if defined? super
 	    Roby::Log.log(:removed_task_child) { [self, relations, child] }
 	end
+
+        def failed_to_start(reason)
+            super if defined? super
+	    Roby::Log.log(:task_failed_to_start) { [self, reason] }
+        end
     end
     Roby::Task.include TaskHooks
 
@@ -106,7 +111,7 @@ module Roby::Log
 	HOOKS = %w{added_event_child removed_event_child 
 		   generator_calling generator_called generator_fired
 		   generator_signalling generator_forwarding generator_emitting
-		   generator_postponed}
+		   generator_postponed generator_emit_failed}
 
 	def added_child_object(to, relations, info)
 	    super if defined? super
@@ -136,6 +141,11 @@ module Roby::Log
 	def fired(event)
 	    super if defined? super
 	    Roby::Log.log(:generator_fired) { [self, event.object_id, event.time, event.context.to_s] }
+	end
+
+        def failed_to_emit(error)
+	    super if defined? super
+	    Roby::Log.log(:generator_emit_failed) { [self, error] }
 	end
 
 	def signalling(event, to)

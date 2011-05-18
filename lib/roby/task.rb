@@ -1554,7 +1554,13 @@ module Roby
             each_event do |ev|
                 ev.unreachable!(reason)
             end
+
+            failed_to_start(reason)
         end
+
+        # Hook called in failed_to_start! to announce that this task failed to
+        # start
+        def failed_to_start(reason); super if defined? super end
 
         # True if the +failed+ event of this task has been fired
 	def failed?; failed_to_start? || (@success == false) end

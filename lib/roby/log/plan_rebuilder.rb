@@ -19,6 +19,12 @@ module Roby
             # The set of events that have been postponed since the last call to
             # #clear_integrated
             attribute(:postponed_events) { Array.new }
+            # The set of events that have failed to emit since the last call to
+            # #clear_integrated
+            attribute(:failed_emissions) { Array.new }
+            # The set of tasks that failed to start since the last call to
+            # #clear_integrated
+            attribute(:failed_to_start) { Array.new }
 
             def self_owned?; true end
 
@@ -54,6 +60,16 @@ module Roby
                     [mappings[gen], mappings[until_gen]]
                 end
                 copy.postponed_events = mapped
+                
+                mapped = failed_emissions.map do |gen, error|
+                    [mappings[gen], error]
+                end
+                copy.failed_emissions = mapped
+
+                mapped = failed_to_start.map do |task, reason|
+                    [mappings[task], reason]
+                end
+                copy.failed_to_start = mapped
 
                 mappings
             end
@@ -69,6 +85,8 @@ module Roby
                 finalized_events.clear
                 propagated_events.clear
                 postponed_events.clear
+                failed_emissions.clear
+                failed_to_start.clear
             end
         end
 
@@ -380,6 +398,14 @@ module Roby
 		:success => :success,
 		:stop => :finished }
 
+            def task_failed_to_start(time, task, reason)
+                task   = local_object(task)
+                reason = local_object(reason)
+                task.plan.failed_to_start << [task, reason]
+                task.failed_to_start!(reason)
+                announce_event_propagation_update
+            end
+
 	    def added_task_child(time, parent, rel, child, info)
 		parent = local_object(parent)
 		child  = local_object(child)
@@ -478,6 +504,8 @@ module Roby
             EVENT_EMITTED     = 4
             EVENT_CALLED_AND_EMITTED = EVENT_CALLED | EVENT_EMITTED
 
+            FAILED_EMISSION   = 8
+
 	    def add_internal_propagation(flag, generator, source_generators)
 		generator = local_object(generator)
 		if source_generators && !source_generators.empty?
@@ -563,6 +591,15 @@ module Roby
                     announce_event_propagation_update
                 end
 	    end
+
+            def generator_emit_failed(time, generator, error)
+                generator = local_object(generator)
+                error = local_object(error)
+                generator.plan.failed_emissions << [generator, error]
+                if !filtered_out_event?(generator)
+                    announce_event_propagation_update
+                end
+            end
 
             class FilterLabel
                 attr_accessor :text

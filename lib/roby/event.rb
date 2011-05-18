@@ -606,6 +606,8 @@ module Roby
                 error = EmissionFailed.new(error, self)
             end
 
+            failed_to_emit(error)
+
             if block_given?
                 yield(error) 
             else
@@ -614,6 +616,9 @@ module Roby
 	ensure
 	    @pending = false
 	end
+
+        # Hook called in emit_failed to announce that the event failed to emit
+        def failed_to_emit(error); super if defined? super end
 
 	# Emits the event regardless of wether we are in a propagation context
 	# or not. Returns true to match the behavior of #call_without_propagation

@@ -13,6 +13,7 @@ module Roby
         EVENT_CALLED      = PlanRebuilder::EVENT_CALLED
         EVENT_EMITTED     = PlanRebuilder::EVENT_EMITTED
         EVENT_CALLED_AND_EMITTED = EVENT_CALLED | EVENT_EMITTED
+        FAILED_EMISSION   = PlanRebuilder::FAILED_EMISSION
 
         PROPAG_SIGNAL   = PlanRebuilder::PROPAG_SIGNAL
         PROPAG_FORWARD  = PlanRebuilder::PROPAG_FORWARD
@@ -78,6 +79,8 @@ module Roby
                         Qt::Pen.new(Qt::Color.new(PENDING_EVENT_COLOR))]
                 @@event_styles[EVENT_CONTINGENT | EVENT_EMITTED] =
                     [Qt::Brush.new(Qt::Color.new('white')), Qt::Pen.new(Qt::Color.new(FIRED_EVENT_COLOR))]
+                @@event_styles[FAILED_EMISSION] =
+                    [Qt::Brush.new(Qt::Color.new('red')), Qt::Pen.new(Qt::Color.new('red'))]
                 @@event_styles
             end
 
@@ -209,7 +212,9 @@ module Roby
             end
 
             def current_state
-                new_state = if plan && plan.finalized_tasks.include?(self)
+                new_state = if failed_to_start?
+                                :finished
+                            elsif !plan
                                 :finalized
                             else
                                 [:success, :finished, :running, :pending].
@@ -320,7 +325,7 @@ module Roby
 	TASK_FONTSIZE = 10
 
 	PENDING_EVENT_COLOR    = 'black' # default color for events
-	FIRED_EVENT_COLOR      = 'red'
+	FIRED_EVENT_COLOR      = 'green'
 	EVENT_FONTSIZE = 8
 
 	PLAN_LAYER             = 0
@@ -907,6 +912,12 @@ module Roby
                     p.emitted_events.each_with_index do |(flags, object), event_priority|
                         DisplayEventGenerator.priorities[object] = event_priority
                         if displayed?(object)
+                            item = graphics[object]
+                            item.brush, item.pen = DisplayEventGenerator.style(object, flags)
+                        end
+                    end
+                    p.failed_emissions.each do |generator, object|
+                        if displayed?(generator)
                             item = graphics[object]
                             item.brush, item.pen = DisplayEventGenerator.style(object, flags)
                         end
