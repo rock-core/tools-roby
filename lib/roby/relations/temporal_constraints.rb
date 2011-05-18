@@ -246,7 +246,7 @@ module Roby
             :dag => false,
             :noinfo => true do
 
-            def is_scheduled_as(event)
+            def schedule_as(event)
                 event.add_forward_scheduling_constraint(self)
             end
 
@@ -294,8 +294,8 @@ module Roby
         module TaskSchedulingConstraints
             # Adds a constraint that ensures that the start event of +self+ is
             # scheduled as the start event of +task+
-            def is_scheduled_as(task)
-                start_event.is_scheduled_as(task.start_event)
+            def schedule_as(task)
+                start_event.schedule_as(task.start_event)
             end
         end
         Roby::Task.include TaskSchedulingConstraints
