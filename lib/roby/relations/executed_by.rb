@@ -96,7 +96,7 @@ module Roby::TaskStructure
                 each_executed_task do |task|
                     tasks << task
                 end
-                if !tasks.empty?
+                if !tasks.empty? && plan.engine
                     plan.control.execution_agent_failed_to_start(self, tasks)
                 end
             end
@@ -107,7 +107,7 @@ module Roby::TaskStructure
                     each_executed_task do |task|
                         tasks << task if task.pending?
                     end
-                    if !tasks.empty?
+                    if !tasks.empty? && plan.engine
                         plan.control.pending_executed_by_failed(self, tasks)
                     end
                 end
