@@ -579,7 +579,7 @@ module Roby
 
         # Returns an intermediate representation of +self+ suitable to be sent to
         # the +dest+ peer.
-        def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), failure_point.droby_dump(dest), message) end
+        def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), Distributed.format(failure_point, dest), message) end
     end
 end
 
