@@ -542,7 +542,7 @@ class Exception
 	    error_model = model.proxy(peer)
 	    error_model.exception(self.message)
 
-	rescue ArgumentError
+	rescue Exception
 	    # try to get a less-specific error model which does allow a simple
 	    # message. In the worst case, we will fall back to Exception itself
 	    #
@@ -561,5 +561,25 @@ class Exception
     # Returns an intermediate representation of +self+ suitable to be sent to
     # the +dest+ peer.
     def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), message) end
+end
+
+module Roby
+    class LocalizedError
+        class DRoby
+            attr_reader :model, :failure_point, :message
+            def initialize(model, failure_point, message); @model, @failure_point, @message = model, failure_point, message end
+
+            def proxy(peer)
+                failure_point = peer.local_object(self.failure_point)
+                error = LocalizedError.new(failure_point)
+                error.exception(message)
+                error
+            end
+        end
+
+        # Returns an intermediate representation of +self+ suitable to be sent to
+        # the +dest+ peer.
+        def droby_dump(dest); DRoby.new(self.class.droby_dump(dest), failure_point.droby_dump(dest), message) end
+    end
 end
 
