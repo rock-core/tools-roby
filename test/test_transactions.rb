@@ -384,17 +384,23 @@ module TC_TransactionBehaviour
 	plan.add_permanent(t3 = Roby::Task.new)
 	transaction_commit(plan, t3) do |trsc, p3|
 	    assert(trsc.permanent?(p3))
+            assert_equal([p3], trsc.find_tasks.permanent.to_a)
 	    trsc.unmark_permanent(t3)
+            assert_equal([], trsc.find_tasks.permanent.to_a)
 	    assert(!trsc.permanent?(p3))
 	    assert(plan.permanent?(t3))
 	end
+        assert_equal([], plan.find_tasks.permanent.to_a)
 	assert(!plan.permanent?(t3))
 
 	transaction_commit(plan, t3) do |trsc, p3|
+            assert_equal([], trsc.find_tasks.permanent.to_a)
 	    trsc.add_permanent(p3)
 	    assert(trsc.permanent?(p3))
+            assert_equal([p3], trsc.find_tasks.permanent.to_a)
 	    assert(!plan.permanent?(t3))
 	end
+        assert_equal([t3], plan.find_tasks.permanent.to_a)
 	assert(plan.permanent?(t3))
     end
     

@@ -75,6 +75,39 @@ class TC_Schedulers_Temporal < Test::Unit::TestCase
         end
     end
 
+    def test_temporal_constraints
+        scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
+        t1, t1_child, t2, t2_child = prepare_plan :add => 4, :model => Tasks::Simple
+        t1.depends_on(t1_child)
+        t2.depends_on(t2_child)
+        t2_child.should_start_after(t1_child)
+
+        t1.start!
+        assert scheduler.can_schedule?(t1, Time.now)
+        assert scheduler.can_schedule?(t1_child, Time.now)
+        assert scheduler.can_schedule?(t2, Time.now)
+        assert !scheduler.can_schedule?(t2_child, Time.now)
+
+        2.times do
+            scheduler.initial_events
+            assert(t1.running?)
+            assert(t1_child.running?)
+            assert(t2.running?)
+            assert(!t2_child.running?)
+        end
+
+        t1.stop!
+        t1_child.stop!
+        assert scheduler.can_schedule?(t2_child, Time.now)
+        2.times do
+            scheduler.initial_events
+            assert(!t1.running?)
+            assert(!t1_child.running?)
+            assert(t2.running?)
+            assert(t2_child.running?)
+        end
+    end
+
     def test_mixing_scheduling_and_basic_constraints
         scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
         t0, t1, t2, t3 = prepare_plan :add => 4, :model => Tasks::Simple

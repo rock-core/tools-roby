@@ -1185,6 +1185,20 @@ class TC_Task < Test::Unit::TestCase
 
     end
 
+    def test_stop_becomes_unreachable
+	FlexMock.use do |mock|
+	    plan.add(task = Roby::Tasks::Simple.new)
+            ev = task.stop_event
+	    ev.if_unreachable(false) { mock.stop_called }
+	    ev.if_unreachable(true)  { mock.stop_cancel_called }
+
+            mock.should_receive(:stop_called).once
+            mock.should_receive(:stop_cancel_called).never
+            task.start!
+            task.stop!
+        end
+    end
+
     def test_achieve_with
 	slave  = Tasks::Simple.new
 	master = Class.new(Task) do
