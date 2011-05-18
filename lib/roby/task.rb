@@ -1467,7 +1467,7 @@ module Roby
 	def executable?
             if @executable == true
                 true
-            elsif @executable != false
+            elsif @executable.nil?
                 (!abstract? && !partially_instanciated? && super)
             end
         end
