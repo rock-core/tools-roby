@@ -1,6 +1,7 @@
 require 'roby/log/relations_view/relations_view_ui'
 require 'roby/log/relations_view/relations_config'
 require 'roby/log/plan_rebuilder'
+require 'roby/log/plan_rebuilder_widget'
 
 module Roby
     module LogReplay
