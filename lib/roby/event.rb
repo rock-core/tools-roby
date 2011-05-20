@@ -9,6 +9,7 @@ module Roby
 
 	def initialize(generator, propagation_id, context, time = Time.now)
 	    @generator, @propagation_id, @context, @time = generator, propagation_id, context.freeze, time
+            @sources = ValueSet.new
 	end
 
 	attr_accessor :propagation_id, :context, :time
