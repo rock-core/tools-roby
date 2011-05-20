@@ -115,6 +115,8 @@ module Roby
                         rescue Exception => e
                             disconnect
                             warn("Disconnected: #{e.message}")
+                            puts e.message
+                            puts "  " + e.backtrace.join("\n  ")
                             if hostname
                                 connect(hostname, options)
                             end
