@@ -62,7 +62,7 @@ end
 
 def build_extension(name, soname = name)
     Dir.chdir("ext/#{name}") do
-	extconf = "#{RUBY} extconf.rb"
+	extconf = "#{FileUtils::RUBY} extconf.rb"
 	extconf << " --with-boost-dir=#{ENV['BOOST_DIR']}" if ENV['BOOST_DIR']
 	if !system(extconf) || !system("make")
 	    raise "cannot set up #{name} extension"
