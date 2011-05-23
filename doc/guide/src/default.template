@@ -1,73 +1,102 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="{lang:}">
-  <head>
-    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-    <meta name="description" content="your description goes here" />
-    <meta name="keywords" content="your,keywords,goes,here" />
-    <meta name="author" content="Your Name  / Original design: Andreas Viklund - http://andreasviklund.com/" />
-    <meta name="generator" content="webgen - http://webgen.rubyforge.org" />
-    <link rel="stylesheet" type="text/css" href="{relocatable: default.css}" />
-    <title>{title: }</title>
-  </head>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 
-  <body>
-    <div id="thetop">
-      <a id="top"></a>
-      <p class="hide">Skip to: <a href="#sitemenu" accesskey="2">Site menu</a> | <a href="#maincontent" accesskey="3">Main content</a></p>
-    </div>
+<!-- Recommended XHTML-Editor: HTML-Kit 292 (Freeware) -->
+<!-- http://www.chami.com/html-kit/download/ -->
 
-    <div id="container">
-      <div id="main">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=iso-8859-1" />
+  <meta name="description" content="Roby: a robotics plan management system in Ruby" />
+  <meta name="keywords" content="robotics,plan management" />
+  <meta name="author" content="Sylvain Joyeux" />
+  <meta name="google-site-verification" content="xipSGJiBKGluvNX8Y3Wr4zVMDSDJz5HIutUhfQSmXl8" />
+<!--  <link rel="stylesheet" type="text/css" media="screen,projection" href="" />-->
+<!--  <link rel="stylesheet" type="text/css" media="print" href="css/style_print.css" />-->
+   <title>Roby</title>
+</head>
 
-        <div id="logo">
-          <h1>[<a href="{relocatable: /index.html}" accesskey="4">Roby</a>]</h1>
-          <span id="tagline">User's guide</span><BR />
-        </div>
+<body>
+  <div class="page-container-2">
+      <div class="nav1-container">
+          <div class="nav1">
+              <webgen:block name="navbar" notfound="ignore"/>
+          </div>
+      </div>
 
-        <div id="intro">
-          <h2><a id="maincontent"></a>Robot supervision and planning in Ruby</h2>
-          <!--
-          <p>Here could go a description of your website! Or a quick overview of the page!</p>
-          -->
-        </div>
-          <div class="clear">&nbsp;</div>
+      <div class="site-name">
+          <p class="title">Roby</p>
+          <p class="subtitle">robotic software monitoring in Ruby</p>
+      </div>
 
-          <div class="navbar">
-              {breadcrumb_trail: }
-              <div>
-                  <div class="previous">
-                      {previous:: }<b>Previous</b>: %{previous}
+      <div class="buffer"></div>
+
+      <div class="nav2">			
+          <ul>
+              <li>{breadcrumb_trail: { separator: '' }}</li>
+          </ul>
+      </div>
+    
+      <div class="buffer"></div>
+
+      <div class="leftnav">
+          <% # Get the root for this node %>
+          <% root = context.node %>
+          <% if root.parent != root.tree.root %>
+          <%   while root.parent != root.tree.root %>
+          <%     root = root.parent %>
+          <%   end %>
+          <div class="nav4">
+              <ul><li class="title"><%= root['title'] %></li>
+                  {menu: {start_level: 2, max_levels: 4, show_current_subtree_only: true, nested: true, used_nodes: files}}
+              </ul>
+          </div>
+          <% end %>
+
+          <div class="nav3">
+              <ul><li class="title">Rock</li>
+                  {menu: {max_levels: 1, show_current_subtree_only: true, nested: true, used_nodes: files, range_end: 999}}
+              </ul>
+              <ul><li class="title">Additional Core Functionality</li>
+                  {menu: {max_levels: 1, show_current_subtree_only: true, nested: true, used_nodes: files, range_start: 1000}}
+              </ul>
+          </div>
+      </div>
+
+      <div class="content2">
+          <% if context.node.node_info[:page].meta_info.has_key?('page_title') %>
+          <div class="content2-pagetitle"><%= context.node.node_info[:page].meta_info['page_title'] %></div>
+          <% else %>
+          <div class="content2-pagetitle">{title: }</div>
+          <% end %>
+          <div class="content2-container line-box">
+              <div class="content2-container-1col">
+                  <% if false %>
+                  <% if context.node.node_info[:page].blocks.has_key?('localtoc') %>
+                  <div markdown="1" class="localtoc">
+                      <webgen:block name="localtoc" />
                   </div>
-                  <div class="next">
-                      {next:: }<b>Next</b>: %{next}
+                  <% end %>
+                  <% if context.node.node_info[:page].blocks.has_key?('biglocaltoc') %>
+                  <div markdown="1" class="biglocaltoc localtoc">
+                      <webgen:block name="biglocaltoc" />
                   </div>
+                  <% end %>
+                  <% end %>
+                  <webgen:block name="content" />
               </div>
-              <webgen:block name="navbar" notfound="ignore"/>
-          </div>
-
-          <h1>{title: }</h1>
-          <div class="clear">&nbsp;</div>
-            <webgen:block name="content" />
-          <div class="navbar">
-              {breadcrumb_trail: }
-              <webgen:block name="navbar" notfound="ignore"/>
           </div>
       </div>
 
-
-      <div id="sidebar">
-
-        <h2 class="sidelink menuheader"><a id="sitemenu"></a>Main Menu</h2>
-        <div id="menu">{menu: {max_levels: 3, show_current_subtree_only: true, nested: true, used_nodes: files}}</div>
-        <br>
-        <a class="hide" href="#top" accesskey="1">Top of page</a>
-
+      <!-- FOOTER -->
+      <div class="footer">
+          <p><b>Copyright &copy; 2010 DFKI Robotics Innovation Center and contributors | All Rights Reserved</b></p>
+          <p>Design <a href="mailto:gw@actamail.com">G. Wolfgang</a> | <a href="http://validator.w3.org/check?uri=referer" title="Validate code as W3C XHTML 1.1 Strict Compliant">W3C XHTML 1.0</a> | <a href="http://jigsaw.w3.org/css-validator/" title="Validate Style Sheet as W3C CSS 2.0 Compliant">W3C CSS 2.0</a></p>
       </div>
-      <div class="clear">&nbsp;</div>
-    </div>
-
-    <div id="footer"><p>&copy; 2009 Sylvain Joyeux | Generated by <a href="http://webgen.rubyforge.org/">webgen</a> | Design by <a href="http://andreasviklund.com">Andreas Viklund</a></p></div>
-
-  </body>
+  </div>
+</body>
 </html>
+
+<!--
+vim:set ts=2:
+-->
+

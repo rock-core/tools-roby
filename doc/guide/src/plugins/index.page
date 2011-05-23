@@ -1,7 +1,7 @@
 ---
 title: Plugins
 sort_info: 0
---- name:content pipeline:tags,markdown,blocks
+---
 
 Plugins are extensions to the Roby models and engine. 
 

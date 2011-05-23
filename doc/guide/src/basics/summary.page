@@ -1,7 +1,7 @@
 ---
 title: Summary
 sort_info: 900
---- pipeline:tags,rdoc,blocks
+---
 
 
 * *events* allow you to represent the robot's situations and the commands that the

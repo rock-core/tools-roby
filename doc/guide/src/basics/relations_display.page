@@ -1,7 +1,7 @@
 ---
 title: Using Plan Display
 sort_info: 600
---- pipeline:tags,markdown
+---
 
 What we will see in this page is how to trace the execution flow (the flow of
 events), and understand a bit more how the plans you will build are actually

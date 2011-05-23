@@ -1,7 +1,7 @@
 ---
 title: Don't repeat yourself !
 sort_info: 800
---- pipeline:tags,markdown,blocks
+---
 
 Unlike most (all ?) other supervision system, Roby is *not* a domain-specific
 language (DSL). Instead, it uses the facilities offered by the Ruby programming

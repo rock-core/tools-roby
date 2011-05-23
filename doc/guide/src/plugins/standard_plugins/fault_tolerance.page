@@ -1,7 +1,7 @@
 ---
 title: Fault Injection <a href="../fault_injection/index.html">[API]</a>
 sort_info: 100
---- name:content pipeline:tags,markdown,blocks
+---
 
 This is a fault injection plugin for the Roby robotic control framework. It
 allows to test the management of rarely occuring events by simulating the

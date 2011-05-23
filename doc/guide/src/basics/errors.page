@@ -1,7 +1,7 @@
 ---
 title: Error handling
 sort_info: 700
---- pipeline:tags,markdown,blocks
+---
 
 One thing about robotics, and in particular plan execution, is that Murphy's
 rule applies quite well. This is due to a few things. Among them, the first is
