@@ -1,11 +1,10 @@
 ---
 title: Events
 sort_info: 100
---- name:content pipeline:tags,markdown,blocks
+---
 
 This page will present the basic tools that allow to define and manipulate
-events. In {link: {path: /basics/plan_objects.html, attr:
-{:link_text: the overview of plan objects}}}, we saw that
+events. In , we saw that
 events are two sided objects: one the one hand, they represent the
 situations the system is in (event _emission_). On the other hand, they
 represent the commands that the system accepts (event _commands_).

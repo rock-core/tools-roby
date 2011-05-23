@@ -2,7 +2,7 @@
 title: The Execution Cycle
 routed_title: Execution Cycle
 sort_info: 0
---- name:content pipeline:tags,markdown,blocks
+---
 
 Now that we saw [the basics](../basics/index.html), this section will present in
 greater details how execution works in Roby. First, we will see how a Roby

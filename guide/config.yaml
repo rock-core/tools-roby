@@ -15,13 +15,11 @@
 # The available configuration options can be listed using the `webgen config`
 # command, for example: `webgen config sourcehandler` will list all options starting
 # with sourcehandler.
-default_processing_pipeline:
-    Page: rdoc,tags,blocks
-
-
 default_meta_info:
     Webgen::SourceHandler::Page:
         in_menu: true
+        link:
+            css: /style_screen.css
 
 tag.menu.nested: false
 

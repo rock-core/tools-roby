@@ -1,7 +1,7 @@
 ---
 title: Interactive Shell
 sort_info: 400
---- pipeline:tags,markdown,blocks
+---
 
 As we saw earlier, the execution of Roby applications is done by an _event
 loop_. The reactivity of the supervision system obviously depend on the

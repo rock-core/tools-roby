@@ -1,7 +1,7 @@
 ---
 title: Introduction
 sort_info: 0
---- name:content pipeline:tags,markdown,blocks
+---
 This section will present the basics of plan management using Roby. You will
 learn the following things:
 * the two core objects used in Roby to represent the robot's actions

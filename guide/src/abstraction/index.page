@@ -2,7 +2,7 @@
 title: Representing Abstraction
 routed_title: Representing Abstraction
 sort_info: 0
---- name:content pipeline:tags,markdown,blocks
+---
 Being able to abstract away the little details of execution is crucial. Indeed,
 it allows to apply high-level reasoning algorithms, that are not able to take
 into account too much details.

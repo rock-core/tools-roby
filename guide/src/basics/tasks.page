@@ -1,7 +1,7 @@
 ---
 title: Tasks
 sort_info: 200
---- pipeline:tags,markdown,blocks
+---
 {include_file: {filename: src/basics_shell_header.txt, escape_html: false}}
 
 Definition of Tasks

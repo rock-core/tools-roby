@@ -2,7 +2,7 @@
 title: Subsystems <a href="../subsystems/index.html">[API]</a>
 routed_title: Subsystems
 sort_info: 0
---- name:content pipeline:tags,markdown,blocks
+---
 
 This is a plugin for the Roby robotic control framework. It allows to generate
 an initial plan in which a set of common subsystems (sensors, localization,

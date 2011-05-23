@@ -19,7 +19,7 @@ class RdocLinks
         path[-1] += ".html"
         url = "#{param('rdoclinks.base_url')}/#{path.join("/")}"
 
-        "<a href=\"#{context.ref_node.route_to(url)}\">#{param('rdoclinks.name')}</a>"
+        "<a href=\"#{context.ref_node.route_to(url)}\">#{param('rdoclinks.text') || param('rdoclinks.name')}</a>"
     end
 end
 
@@ -29,5 +29,6 @@ config.rdoclinks.base_webgen "", :mandatory => false
 config.rdoclinks.base_url    "", :mandatory => false
 config.rdoclinks.base_module nil, :mandatory => false
 config.rdoclinks.full_name   false, :mandatory => false
+config.rdoclinks.text   nil, :mandatory => false
 config['contentprocessor.tags.map']['rdoc_class'] = 'RdocLinks'
 
