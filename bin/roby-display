@@ -23,7 +23,7 @@ options = OptionParser.new do |opt|
     end
     opt.on('--server[=PORT]', Integer, "starts in server mode. If the port number is omitted, the default of #{Roby::Log::Server::DEFAULT_PORT} is used") do |server_port|
         mode = :server
-        port = Integer(port || Roby::Log::Server::DEFAULT_PORT)
+        port = Integer(server_port || Roby::Log::Server::DEFAULT_PORT)
     end
     opt.on('--sampling=PERIOD', Float, "in server mode, specifies the sampling period in seconds (defaults to #{Roby::Log::Server::DEFAULT_SAMPLING_PERIOD / 2})") do |period|
         sampling_period = period
