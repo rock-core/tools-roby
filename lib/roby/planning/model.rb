@@ -888,6 +888,10 @@ module Roby
 			raise PlanModelError.new(self), e.message, e.backtrace
 		    end
 
+                    if result && result.respond_to?(:as_plan)
+                        result = result.as_plan
+                    end
+
 		    # Check that result is a task or a task collection
 		    unless result && (result.respond_to?(:to_task) || result.respond_to?(:each) || !result.respond_to?(:each_task))
 			raise PlanModelError.new(self), "#{method} returned #{result}, which is neither a task nor a task collection"
