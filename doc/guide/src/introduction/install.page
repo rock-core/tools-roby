@@ -2,6 +2,13 @@
 title: Installation
 sort_info: 100
 --- pipeline:rdoc
+
+== Installation in Rock
+
+Roby is one of the underlying tools of the Rock robot development environment.
+It gets installed along with the rock toolchain. Check it out !
+(http://rock-robotics.org)
+
 == External dependencies
 Roby requires ruby version 1.8.6 or 1.8.7. Ruby 1.9 is a work in progress, but
 will not work with this release

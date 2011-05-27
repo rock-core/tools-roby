@@ -46,7 +46,7 @@ Adding dependencies between tasks
 The code in that section is not meant to be tried out, but to support the
 explanations. A proper controller, that uses these principles, is shown in the
 following sections.
-{.warning}
+{: .warning}
 
 Let's assume our robot's functional layer offers two services:
 * it has a way to compute a path from A to B (path planning)
