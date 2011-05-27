@@ -192,7 +192,7 @@ module Roby
             def returns;    options[:returns] end
             # If the method allows reusing tasks already in the plan
             # reuse? is always false if there is no return type defined
-            def reuse?; (!options.has_key?(:reuse) || options[:reuse]) if returns end
+            def reuse?; options[:reuse] end
             # Call the method definition
             def call(planner); body.call(planner) end
 
@@ -218,7 +218,7 @@ module Roby
             # or a task aggregation
             def returns;    options[:returns] end
             # If the model allows reusing tasks already in the plan
-            def reuse?; !options.has_key?(:reuse) || options[:reuse] end
+            def reuse?; options[:reuse] end
 
             # The model name
             attr_reader :name
