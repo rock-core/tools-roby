@@ -266,14 +266,14 @@ class Ui::RelationsView
 
 		case action.text
 		when "Hide"
-		    display.set_visibility(obj, false)
+		    display.selected_objects.delete(obj)
 		when "Hide children"
 		    for child in Roby::TaskStructure.children_of(obj, display.enabled_relations)
-			display.set_visibility(child, false)
+                        display.selected_objects.delete(child)
 		    end
 		when "Show children"
 		    for child in Roby::TaskStructure.children_of(obj, display.enabled_relations)
-			display.set_visibility(child, true)
+                        display.selected_objects << child
 		    end
 		end
 
