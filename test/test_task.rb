@@ -1523,7 +1523,7 @@ class TC_Task < Test::Unit::TestCase
     def test_delayed_default_argument
         has_value = false
         value = nil
-        block = lambda do
+        block = lambda do |task|
             if has_value
                 value
             else
