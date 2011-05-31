@@ -92,7 +92,6 @@ module Roby
 
                 root_task =
                     if task.root?(TaskStructure::Dependency)
-                        Schedulers.debug { "Basic: #{task} is root" }
                         true
                     else
                         planned_tasks = task.planned_tasks
@@ -106,6 +105,9 @@ module Roby
                 elsif include_children && task.parents.any? { |t| t.running? }
                     Schedulers.debug { "Basic: there is a parent of #{task} that is running, scheduling" }
                     true
+                else
+                    Schedulers.debug { "Basic: #{task} is both not root and has no running parent, not scheduling" }
+                    false
                 end
             end
 
