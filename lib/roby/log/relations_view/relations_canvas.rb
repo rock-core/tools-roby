@@ -79,7 +79,9 @@ module Roby
                         Qt::Pen.new(Qt::Color.new(PENDING_EVENT_COLOR))]
                 @@event_styles[EVENT_CONTINGENT | EVENT_EMITTED] =
                     [Qt::Brush.new(Qt::Color.new('white')), Qt::Pen.new(Qt::Color.new(FIRED_EVENT_COLOR))]
-                @@event_styles[FAILED_EMISSION] =
+                @@event_styles[EVENT_CONTROLABLE | FAILED_EMISSION] =
+                    [Qt::Brush.new(Qt::Color.new('red')), Qt::Pen.new(Qt::Color.new('red'))]
+                @@event_styles[EVENT_CONTINGENT | FAILED_EMISSION] =
                     [Qt::Brush.new(Qt::Color.new('red')), Qt::Pen.new(Qt::Color.new('red'))]
                 @@event_styles
             end
@@ -918,8 +920,8 @@ module Roby
                     end
                     p.failed_emissions.each do |generator, object|
                         if displayed?(generator)
-                            item = graphics[object]
-                            item.brush, item.pen = DisplayEventGenerator.style(object, flags)
+                            item = graphics[generator]
+                            item.brush, item.pen = DisplayEventGenerator.style(generator, FAILED_EMISSION)
                         end
                     end
                 end
