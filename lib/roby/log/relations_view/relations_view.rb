@@ -25,16 +25,18 @@ module Roby
                     @ui = Ui::RelationsView.new
                     plan_rebuilder ||= Roby::LogReplay::PlanRebuilder.new
                     @plan_rebuilder = plan_rebuilder
-                    @canvas = RelationsCanvas.new(plan_rebuilder.plans)
                     ui.setupUi(self)
 
                     ui.history.setContentsMargins(0, 0, 0, 0)
                     @history_widget_layout = Qt::VBoxLayout.new(ui.history)
                     @history_widget_layout.setContentsMargins(0, 0, 0, 0)
-                    @history_widget = PlanRebuilderWidget.new(self, plan_rebuilder, [canvas])
+                    @history_widget = PlanRebuilderWidget.new(self, plan_rebuilder)
+
                     @history_widget.setContentsMargins(0, 0, 0, 0)
                     @history_widget_layout.add_widget(@history_widget)
 
+                    @canvas = RelationsCanvas.new([@history_widget.current_plan])
+                    @history_widget.displays << @canvas
                     ui.graphics.scene = canvas.scene
 
                     resize 500, 500

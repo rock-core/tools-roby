@@ -7,19 +7,25 @@ module Roby
             attr_reader :layout
             attr_reader :history
             attr_reader :plan_rebuilder
+            attr_reader :current_plan
             attr_reader :displays
 
-            def initialize(parent, plan_rebuilder, displays)
+            def initialize(parent, plan_rebuilder)
                 super(parent)
                 @list    = Qt::ListWidget.new(self)
                 @layout  = Qt::VBoxLayout.new(self)
                 @history = Hash.new
                 @plan_rebuilder = plan_rebuilder
-                @displays = displays
+                @current_plan = Roby::Plan.new
+                @displays = []
                 layout.add_widget(list)
 
                 connect(list, SIGNAL('currentItemChanged(QListWidgetItem*,QListWidgetItem*)'),
                            self, SLOT('currentItemChanged(QListWidgetItem*,QListWidgetItem*)'))
+            end
+
+            def add_display(display)
+                @displays << display
             end
 
             def add_missing_cycles(count)
@@ -42,7 +48,11 @@ module Roby
             slots 'currentItemChanged(QListWidgetItem*,QListWidgetItem*)'
             def currentItemChanged(new_item, previous_item)
                 data = new_item.data(Qt::UserRole).toInt
-                plan_rebuilder.apply_snapshot(history[data][1])
+                @current_plan.owners.clear
+                Distributed.disable_ownership do
+                    @current_plan.clear
+                    history[data][1].plan.copy_to(@current_plan)
+                end
                 displays.each(&:update)
             end
 

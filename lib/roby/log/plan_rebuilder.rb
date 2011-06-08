@@ -184,6 +184,7 @@ module Roby
                 if main_manager
                     Distributed.setup_log_replay(manager)
                 end
+                Distributed.disable_ownership
                 @history = Array.new
                 @changes = Hash.new
                 @event_filters = Array.new
@@ -238,20 +239,12 @@ module Roby
             # with #apply_snapshot
             def snapshot
                 plan = Roby::Plan.new
-                plan.owners << manager
-                mappings = self.plan.copy_to(plan)
-
-                manager = PlanReplayPeer.new(plan)
-                self.manager.copy_to(manager, mappings)
+                Distributed.disable_ownership do
+                    mappings = self.plan.copy_to(plan)
+                    manager = PlanReplayPeer.new(plan)
+                    self.manager.copy_to(manager, mappings)
+                end
                 return PlanRebuilderSnapshot.new(stats, state, plan, manager)
-            end
-
-            def apply_snapshot(snapshot)
-                plan.clear
-                mappings = snapshot.plan.copy_to(plan)
-
-                manager.clear
-                snapshot.manager.copy_to(manager, mappings)
             end
 
             def create_remote_object_manager
