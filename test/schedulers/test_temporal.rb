@@ -148,6 +148,17 @@ class TC_Schedulers_Temporal < Test::Unit::TestCase
             assert(t2.running?)
         end
     end
+
+    def test_parent_waiting_for_child
+        Roby::Schedulers.logger.level = Logger::DEBUG
+        scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
+        t0, t1 = prepare_plan :add => 2, :model => Tasks::Simple
+        t0.depends_on t1
+        t0.should_start_after(t1)
+
+        assert !scheduler.can_schedule?(t0, Time.now)
+        assert scheduler.can_schedule?(t1, Time.now)
+    end
 end
 
 

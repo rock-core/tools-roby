@@ -52,7 +52,23 @@ module Roby
                 end
 
                 if basic_constraints?
-                    super
+                    if super
+                        return true
+                    else
+                        # Special case: check in Dependency if there are some
+                        # parents for which a forward constraint from +self+ to
+                        # +parent.start_event+ exists. If it is the case, start
+                        # the task
+                        task.each_parent_task do |parent|
+                            parent.start_event.each_backward_temporal_constraint do |constraint|
+                                if constraint.task == task
+                                    Schedulers.debug { "Temporal: #{task} has no running parent, but a constraint from #{constraint} to #{parent}.start exists. Scheduling." }
+                                    return true
+                                end
+                            end
+                        end
+                        return false
+                    end
                 else
                     return true
                 end
