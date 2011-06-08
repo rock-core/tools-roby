@@ -281,12 +281,12 @@ module Roby
 
 	    # True if we are updating +object+
 	    def updating?(object)
-		updated_objects.include?(object) 
+		@update_all || updated_objects.include?(object) 
 	    end
 	
 	    # True if we are updating all objects in +objects+
 	    def updating_all?(objects)
-		updated_objects.include_all?(objects.to_value_set)
+		@update_all || updated_objects.include_all?(objects.to_value_set)
 	    end
 
 	    # Call the block with the objects in +objects+ added to the
@@ -298,6 +298,22 @@ module Roby
 	    ensure
 		@updated_objects = old_updated_objects
 	    end
+
+            def disable_ownership
+                if !block_given?
+                    @update_all = true
+                    return
+                end
+
+                current, @update_all = @update_all, true
+                yield
+            ensure
+                @update_all = current
+            end
+
+            def enable_ownership
+                @update_all = false
+            end
 
 	    # Call the block with the objects in +objects+ added to the
 	    # updated_objects set
