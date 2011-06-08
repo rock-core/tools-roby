@@ -274,6 +274,14 @@ module Roby::TaskStructure
             task
         end
 
+        def remove_dependency(task_or_role)
+            if task_or_role.respond_to?(:to_str)
+                remove_child(child_from_role(task_or_role))
+            else
+                remove_child(task_or_role)
+            end
+        end
+
 	# Set up the event gathering needed by Dependency.check_structure
 	def added_child_object(child, relations, info) # :nodoc:
 	    super if defined? super
