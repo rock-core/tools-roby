@@ -63,6 +63,10 @@ module Roby::TaskStructure
             end
         end
 
+        def has_role?(role_name)
+            !!child_from_role(role_name, false)
+        end
+
         # Returns the child whose role is +role_name+
         #
         # If +validate+ is true (the default), raises ArgumentError if there is
