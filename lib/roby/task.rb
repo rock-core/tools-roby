@@ -351,17 +351,17 @@ module Roby
 
         # See EventGenerator#each_handler
 	def each_handler # :nodoc:
-	    super
-
 	    if self_owned?
 		task.each_handler(event_model.symbol) { |o| yield(o) }
 	    end
+
+	    super
 	end
 
         # See EventGenerator#each_precondition
 	def each_precondition # :nodoc:
-	    super
 	    task.each_precondition(event_model.symbol) { |o| yield(o) }
+	    super
 	end
 
         # See EventGenerator#controlable?
