@@ -493,7 +493,7 @@ help                              | this help message                           
         # remote interface to a given object, not taking into account its
         # 'marshallability'
 	def remote_constant(name)
-	    DRbObject.new(name.to_s.constantize)
+	    DRbObject.new(name.to_s.camelcase(true))
 	end
 
 	# Reload the Roby framework code
