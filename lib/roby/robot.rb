@@ -9,7 +9,7 @@ module Robot
     @logger.formatter = Roby.logger.formatter
     @logger.progname = "Robot"
 
-    def self.prepare_action(plan, name, arguments)
+    def self.prepare_action(plan, name, arguments = Hash.new)
 	# Check if +name+ is a planner method, and in that case
 	# add a planning method for it and plan it
 	planner_model = Roby.app.planners.find do |planner_model|
