@@ -709,7 +709,7 @@ module Roby
 
         def evaluate_delayed_argument(task)
             result = super
-            if result.kind_of?(ExtendedStruct)
+            if result.kind_of?(ExtendedStruct) && !result.attached?
                 throw :no_value
             end
             result

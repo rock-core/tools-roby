@@ -122,6 +122,10 @@ module Roby
 	end
 	protected :detach, :attach_as
 
+        def attached?
+            !!@__parent_struct
+        end
+
 	# Call +block+ with the new value if +name+ changes
 	def on(name = nil, &block)
 	    name = name.to_s if name
