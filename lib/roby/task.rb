@@ -645,7 +645,7 @@ module Roby
     #
     # This will usually not be used directly. One should use Task.from instead
     class DelayedArgumentFromObject < BasicObject
-        def initialize(object, weak = false)
+        def initialize(object, weak = true)
             @object = object
             @methods = []
             @expected_class = Object
