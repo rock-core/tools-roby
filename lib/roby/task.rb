@@ -669,7 +669,7 @@ module Roby
                 end
             end
 
-            if !result.kind_of?(@expected_class)
+            if @expected_class && !result.kind_of?(@expected_class)
                 throw :no_value
             end
             result
