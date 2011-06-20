@@ -97,7 +97,11 @@ module Roby::TaskStructure
         # Raises ArgumentError if the child does not exist
         #
         # See #role_path to get a role path for a specific task
-        def resolve_role_path(path)
+        def resolve_role_path(*path)
+            if path.size == 1 && path[0].respond_to?(:to_ary)
+                path = path[0]
+            end
+
             up_until_now = []
             path.inject(self) do |task, role|
                 up_until_now << role
