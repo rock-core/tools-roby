@@ -65,6 +65,15 @@ module Roby
             @aliases         = Hash.new
 	end
 
+        def pretty_print(pp)
+            pp.seplist(@members) do |child|
+                child_name, child_obj = *child
+                pp.text "#{child_name}"
+                pp.breakable
+                child_obj.pretty_print(pp)
+            end
+        end
+
 	def self._load(io)
 	    marshalled_members, aliases = Marshal.load(io)
 	    members = marshalled_members.inject({}) do |h, (n, mv)|
