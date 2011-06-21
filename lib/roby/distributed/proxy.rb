@@ -125,7 +125,7 @@ module Roby
 
             # Common code used for both EventGenerator::DRoby and
             # TaskEventGenerator::DRoby
-            def self.setup_event_proxy(peer, marshalled)
+            def self.setup_event_proxy(peer, local_object, marshalled)
 		if marshalled.controlable
 		    local_object.command = lambda { } 
 		end
@@ -136,7 +136,7 @@ module Roby
             # this communication intermediate.
 	    def proxy(peer)
 		local_object = peer.local_object(model).new
-                DRoby.setup_event_proxy(peer, self)
+                DRoby.setup_event_proxy(peer, local_object, self)
                 local_object
 	    end
 
