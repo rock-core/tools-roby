@@ -1232,9 +1232,11 @@ module Roby
 	    # Create all event generators
 	    bound_events = Hash.new
 	    model.each_event do |ev_symbol, ev_model|
-                ev = old.event(ev_symbol).dup
-                ev.instance_variable_set(:@task, self)
-		bound_events[ev_symbol.to_sym] = ev
+                if old.has_event?(ev_symbol)
+                    ev = old.event(ev_symbol).dup
+                    ev.instance_variable_set(:@task, self)
+                    bound_events[ev_symbol.to_sym] = ev
+                end
 	    end
 	    @bound_events = bound_events
 	end
@@ -1514,8 +1516,7 @@ module Roby
         # True if this task has an event of the required model. The event model
         # can either be a event class or an event name.
         def has_event?(event_model)
-	    bound_events.has_key?(event_model) ||
-		model.has_event?(event_model)
+	    bound_events.has_key?(event_model)
 	end
         
         # True if this task is starting, i.e. if its start event is pending
