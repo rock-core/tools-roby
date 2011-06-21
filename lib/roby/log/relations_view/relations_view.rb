@@ -308,7 +308,7 @@ class Ui::RelationsView
 	end
 
 	@actionKeepSignals.connect(SIGNAL(:triggered)) do 
-	    display.keep_signals = actionKeepSignals.checked?
+	    display.keep_signals = @actionKeepSignals.checked?
 	end
 
 	@actionPrint.connect(SIGNAL(:triggered)) do
