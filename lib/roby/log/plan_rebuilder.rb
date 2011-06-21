@@ -221,10 +221,11 @@ module Roby
             # Push one cycle worth of data
             def push_data(data)
                 process(data)
-                if has_interesting_events?
+                if has_interesting_events? || @last_cycle_snapshotted
                     history << snapshot
                     result = true
                 end
+                @last_cycle_snapshotted = has_interesting_events?
 
                 clear_integrated
                 result

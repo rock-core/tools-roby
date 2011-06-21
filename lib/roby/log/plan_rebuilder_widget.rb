@@ -65,9 +65,8 @@ module Roby
                 if last_cycle && (cycle != last_cycle + 1)
                     add_missing_cycles(cycle - last_cycle - 1)
                 end
-                if needs_snapshot || @last_cycle_snapshotted
+                if needs_snapshot
                     append_to_history(plan_rebuilder.history.last)
-                    @last_cycle_snapshotted = needs_snapshot
                 end
                 @last_cycle = cycle
             end
