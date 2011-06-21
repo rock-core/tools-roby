@@ -108,8 +108,8 @@ module Roby
             def display_time_end(circle, pos); end
 
             def display_name(display)
-                name = if model.ancestors[0][0] != 'Roby::EventGenerator'
-                           [display.filter_prefixes(model.ancestors[0][0].dup)]
+                name = if model.ancestors[0].name != 'Roby::EventGenerator'
+                           [display.filter_prefixes(model.ancestors[0].name.dup)]
                        else
                            []
                        end
