@@ -240,6 +240,7 @@ module Roby
             # with #apply_snapshot
             def snapshot
                 plan = Roby::Plan.new
+                plan.extend ReplayPlan
                 Distributed.disable_ownership do
                     mappings = self.plan.copy_to(plan)
                     manager = PlanReplayPeer.new(plan)

@@ -17,6 +17,7 @@ module Roby
                 @history = Hash.new
                 @plan_rebuilder = plan_rebuilder
                 @current_plan = Roby::Plan.new
+                @current_plan.extend ReplayPlan
                 @displays = []
                 layout.add_widget(list)
 
