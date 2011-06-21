@@ -37,6 +37,7 @@ module Roby
 
                     @canvas = RelationsCanvas.new([@history_widget.current_plan])
                     @history_widget.displays << @canvas
+                    ui.setupActions(self)
                     ui.graphics.scene = canvas.scene
 
                     resize 500, 500
@@ -172,9 +173,8 @@ class Ui::RelationsView
     attr_reader :prefixActions
 
     ZOOM_STEP = 0.25
-    def setupUi(view)
+    def setupActions(view)
 	@display   = display = view.canvas
-	super(view)
 
         @actionShowAll = Qt::Action.new(view)
         @actionShowAll.objectName = "actionShowAll"
