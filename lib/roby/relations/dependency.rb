@@ -417,6 +417,11 @@ module Roby::TaskStructure
             end
 	end
     end
+
+    def Dependency.validate_options(options)
+        Kernel.validate_options options, [:model, :success, :failure, :remove_when_done, :consider_in_pending, :roles, :role]
+    end
+
     Hierarchy = Dependency
 
     def Dependency.merge_info(parent, child, opt1, opt2)
