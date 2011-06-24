@@ -39,61 +39,92 @@ class TC_ExecutionEngine < Test::Unit::TestCase
               e3 => [5, [nil, [6], nil], [nil, [5], nil]] }, set)
     end
 
-    def test_emission_is_forbidden_outside_propagation_phase
-        # Temporarily disable logging as we are going to generate a fatal error
-        # ..
-        Roby.logger.level = Logger::FATAL + 1
+    class PropagationHandlerTest
+        attr_reader :event
+        attr_reader :plan
 
-        plan.add_permanent(task = Tasks::Simple.new)
-
-        error = nil
-        failure = lambda do |_|
-            begin
-                task.emit(:start)
-            rescue Exception => e
-                error = e
-                raise
-            end
-            nil
+        def initialize(plan, mockup)
+            @mockup = mockup
+            @plan = plan
+            reset_event
         end
-        plan.structure_checks << failure
 
-        engine.run
-        assert_raises(PhaseMismatch) { engine.join }
-        assert_kind_of(PhaseMismatch, error)
+        def reset_event
+            plan.add_permanent(@event = Roby::EventGenerator.new(true))
+        end
 
-    ensure
-        plan.structure_checks.delete_if { |v| v == failure }
-    end
-
-    def test_propagation_handlers
-        test_obj = Object.new
-        def test_obj.mock_handler(plan)
+        def handler(plan)
+            if @event.history.size != 2
+                @event.call
+            end
             @mockup.called(plan)
         end
+    end
 
+    def test_add_propagation_handlers_for_external_events
         FlexMock.use do |mock|
-            test_obj.instance_variable_set :@mockup, mock
-            id = engine.add_propagation_handler test_obj.method(:mock_handler)
+            handler = PropagationHandlerTest.new(plan, mock)
+            id = engine.add_propagation_handler(:type => :external_events) { |plan| handler.handler(plan) }
+
+            mock.should_receive(:called).with(plan).twice
+
+            process_events
+            assert_equal(1, handler.event.history.size)
+
+            handler.reset_event
+            process_events
+            assert_equal(1, handler.event.history.size)
+
+            engine.remove_propagation_handler id
+            handler.reset_event
+            process_events
+            assert_equal(0, handler.event.history.size)
+        end
+    end
+
+    def test_add_propagation_handlers_for_propagation_handler
+        FlexMock.use do |mock|
+            handler = PropagationHandlerTest.new(plan, mock)
+            id = engine.add_propagation_handler(:type => :propagation) { |plan| handler.handler(plan) }
+
+            # In the handler, we call the event two times
+            #
+            # The propagation handler should be called one time more (until
+            # it does not emit any event), So it will be called 6 times over the
+            # whole test
+            mock.should_receive(:called).with(plan).times(6)
+
+            process_events
+            assert_equal(2, handler.event.history.size)
+
+            handler.reset_event
+            process_events
+            assert_equal(2, handler.event.history.size)
+
+            engine.remove_propagation_handler id
+            handler.reset_event
+            process_events
+            assert_equal(0, handler.event.history.size)
+        end
+    end
+
+    def test_add_propagation_handlers_accepts_method_object
+        FlexMock.use do |mock|
+            handler = PropagationHandlerTest.new(plan, mock)
+            id = engine.add_propagation_handler(:type => :external_events, &handler.method(:handler))
 
             mock.should_receive(:called).with(plan).twice
             process_events
             process_events
             engine.remove_propagation_handler id
             process_events
+
+            assert_equal(2, handler.event.history.size)
         end
+    end
 
-        FlexMock.use do |mock|
-            test_obj.instance_variable_set :@mockup, mock
-            id = engine.add_propagation_handler { |plan| mock.called(plan) }
-
-            mock.should_receive(:called).with(plan).twice
-            process_events
-            process_events
-            engine.remove_propagation_handler id
-            process_events
-        end
-
+    def test_add_propagation_handler_validates_arity
+        # Validate the arity
         assert_raises(ArgumentError) do
             engine.add_propagation_handler { |plan, failure| mock.called(plan) }
         end
@@ -321,13 +352,13 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	    forward.forward_to sink
 	    signal.signals   sink
 
-	    seed = lambda do
+	    seeds = engine.gather_propagation do
 		forward.call(24)
 		signal.call(42)
 	    end
 	    mock.should_receive(:command_called).with([42]).once.ordered
 	    mock.should_receive(:handler_called).with([42, 24]).once.ordered
-	    engine.propagate_events([seed])
+	    engine.event_propagation_phase(seeds)
 	end
     end
 
@@ -537,7 +568,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
 	Roby.logger.level = Logger::FATAL
 	Roby.app.abort_on_exception = false
 
-	# Check on a single task
+	# Check on a single, non-running task
 	plan.add_mission(t = Tasks::Simple.new)
 	apply_check_structure { LocalizedError.new(t) }
 	assert(! plan.include?(t))

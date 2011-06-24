@@ -278,7 +278,7 @@ class TC_Exceptions < Test::Unit::TestCase
 	    mock.should_receive(:other_once_handler).once
 	    mock.should_receive(:other_event_processing).once
 	    engine.once { mock.other_once_handler }
-	    engine.add_propagation_handler { |plan| mock.other_event_processing }
+	    engine.add_propagation_handler(:type => :external_events) { |plan| mock.other_event_processing }
 
 	    begin
 		process_events

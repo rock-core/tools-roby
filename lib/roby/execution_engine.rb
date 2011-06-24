@@ -134,7 +134,6 @@ module Roby
             @plan = plan
             plan.engine = self
             @control = control
-            @gc_task_stop_set = ValueSet.new
 
             @propagation = nil
             @propagation_id = 0
@@ -145,6 +144,7 @@ module Roby
             @event_ordering = Array.new
             @event_priorities = Hash.new
             @propagation_handlers = []
+            @external_events_handlers = []
             @at_cycle_end_handlers = Array.new
             @process_every   = Array.new
             @waiting_threads = Array.new
@@ -217,9 +217,12 @@ module Roby
         end
         
         @propagation_handlers = []
+        @external_events_handlers = []
         class << self
-            # Code blocks that get called at the beginning of each cycle. See
-            # #add_propagation_handler
+            # Code blocks that get called at the beginning of each cycle
+            attr_reader :external_events_handlers
+            # Code blocks that get called during propagation to handle some
+            # internal propagation mechanism
             attr_reader :propagation_handlers
 
             # call-seq:
@@ -248,9 +251,19 @@ module Roby
                     block, options = options, Hash.new
                 end
 
+                handler_options, poll_options = Kernel.filter_options options,
+                    :type => :external_events
+
                 check_arity block, 1
-                new_handler = PollBlockDefinition.new("propagation handler #{block}", block, options)
-                propagation_handlers << new_handler
+                new_handler = PollBlockDefinition.new("propagation handler #{block}", block, poll_options)
+
+                if handler_options[:type] == :propagation
+                    propagation_handlers << new_handler
+                elsif handler_options[:type] == :external_events
+                    external_events_handlers << new_handler
+                else
+                    raise ArgumentError, "invalid value for the :type option. Expected :propagation or :external_events, got #{handler_options[:type]}"
+                end
                 new_handler.id
             end
             
@@ -259,15 +272,26 @@ module Roby
             # value returned by ExecutionEngine.add_propagation_handler.
             def remove_propagation_handler(id)
                 propagation_handlers.delete_if { |p| p.id == id }
+                external_events_handlers.delete_if { |p| p.id == id }
                 nil
             end
         end
 
-        # A set of block objects that have to be called at the beginning of every
-        # propagation phase. These objects are called in propagation context, which
-        # means that the events they would call or emit are injected in the
-        # propagation process itself.
+        # A set of block objects that are called repeatedly during the
+        # propagation phase, until no propagations are needed anymore
+        #
+        # These objects are called in propagation context, which means that the
+        # events they would call or emit are injected in the propagation process
+        # itself.
         attr_reader :propagation_handlers
+
+        # A set of block objects that are once at the beginning of each
+        # execution cycle.
+        #
+        # These objects are called in propagation context, which means that the
+        # events they would call or emit are injected in the propagation process
+        # itself.
+        attr_reader :external_events_handlers
         
         # call-seq:
         #   engine.add_propagation_handler { |plan| ... }
@@ -289,9 +313,19 @@ module Roby
                 block, options = options, Hash.new
             end
 
+            handler_options, poll_options = Kernel.filter_options options,
+                :type => :external_events
+
             check_arity block, 1
-            new_handler = PollBlockDefinition.new("propagation handler #{block}", block, options)
-            propagation_handlers << new_handler
+            new_handler = PollBlockDefinition.new("propagation handler #{block}", block, poll_options)
+
+            if handler_options[:type] == :propagation
+                propagation_handlers << new_handler
+            elsif handler_options[:type] == :external_events
+                external_events_handlers << new_handler
+            else
+                raise ArgumentError, "invalid value for the :type option. Expected :propagation or :external_events, got #{handler_options[:type]}"
+            end
             new_handler.id
         end
 
@@ -305,6 +339,7 @@ module Roby
         # See also #add_propagation_handler
         def remove_propagation_handler(id)
             propagation_handlers.delete_if { |p| p.id == id }
+            external_events_handlers.delete_if { |p| p.id == id }
             nil
         end
 
@@ -422,6 +457,8 @@ module Roby
         # current engine is in a propagation context, and #add_event_propagation
         # to add a new entry to this set.
         def gather_propagation(initial_set = Hash.new)
+            old_allow_propagation, @allow_propagation = @allow_propagation, true
+
             raise InternalError, "nested call to #gather_propagation" if gathering?
             @propagation = initial_set
             @propagation_step_id = 0
@@ -431,6 +468,7 @@ module Roby
             return @propagation
         ensure
             @propagation = nil
+            @allow_propagation = old_allow_propagation
         end
 
         # Converts the Exception object +error+ into a Roby::ExecutionException
@@ -505,6 +543,18 @@ module Roby
             @propagation && @propagation.has_key?(target)
         end
 
+        def merge_propagation_steps(steps1, steps2)
+            steps1.merge(steps2) do |target, sets1, sets2|
+                result = [nil, nil]
+                if sets1[0] || sets2[0]
+                    result[0] = (sets1[0] || []).concat(sets2[0] || [])
+                end
+                if sets1[1] || sets2[1]
+                    result[1] = (sets1[1] || []).concat(sets2[1] || [])
+                end
+            end
+        end
+
         # Adds a propagation to the next propagation step: it registers a
         # propagation step to be performed between +source+ and +target+ with
         # the given +context+. If +is_forward+ is true, the propagation will be
@@ -540,13 +590,33 @@ module Roby
         # Helper that calls the propagation handlers in +propagation_handlers+
         # (which are expected to be instances of PollBlockDefinition) and
         # handles the errors according of each handler's policy
-        def call_propagation_handlers(propagation_handlers)
-            for handler in propagation_handlers
+        def call_poll_blocks(blocks)
+            for handler in blocks
                 next if disabled_handlers.include?(handler)
                 if !handler.call(self)
                     disabled_handlers << handler
                 end
             end
+        end
+
+        # Gather the events that come out of this plan manager
+        def gather_external_events
+            gather_framework_errors('distributed events') { Roby::Distributed.process_pending }
+            gather_framework_errors('delayed events')     { execute_delayed_events }
+            while !process_once.empty?
+                p = process_once.pop
+                gather_framework_errors("'once' block #{p}") { p.call }
+            end
+            call_poll_blocks(self.class.external_events_handlers)
+            call_poll_blocks(self.external_events_handlers)
+        end
+
+        def call_propagation_handlers
+            if scheduler
+                gather_framework_errors('scheduler') { scheduler.initial_events }
+            end
+            call_poll_blocks(self.class.propagation_handlers)
+            call_poll_blocks(self.propagation_handlers)
         end
 
         # Calls its block in a #gather_propagation context and propagate events
@@ -556,50 +626,60 @@ module Roby
         # events we should consider as already emitted in the following propagation.
         # +seeds+ si a list of procs which should be called to initiate the propagation
         # (i.e. build an initial set of events)
-        def propagate_events(seeds = nil)
+        def event_propagation_phase(initial_events)
             if @propagation_exceptions
-                raise InternalError, "recursive call to propagate_events"
+                raise InternalError, "recursive call to event_propagation_phase"
             end
 
             @propagation_id = (@propagation_id += 1)
             @propagation_exceptions = []
 
-            initial_set = []
-            next_step = gather_propagation do
-                gather_framework_errors('garbage collected tasks') do
-                    for task in @gc_task_stop_set
-                        ExecutionEngine.info { "GC: stopping #{task}" }
-                        task.stop!(nil)
-                    end
-                    @gc_task_stop_set.clear
-                end
-
-                gather_framework_errors('initial set setup')  { yield(initial_set) } if block_given?
-                gather_framework_errors('distributed events') { Roby::Distributed.process_pending }
-                gather_framework_errors('delayed events')     { execute_delayed_events }
-                while !process_once.empty?
-                    p = process_once.pop
-                    gather_framework_errors("'once' block #{p}") { p.call }
-                end
-                if seeds
-                    for s in seeds
-                        gather_framework_errors("seed #{s}") { s.call }
-                    end
-                end
-                if scheduler
-                    gather_framework_errors('scheduler')          { scheduler.initial_events }
-                end
-                call_propagation_handlers(self.class.propagation_handlers)
-                call_propagation_handlers(self.propagation_handlers)
+            next_steps = initial_events
+            while !next_steps.empty?
+                while !next_steps.empty?
+                    next_steps = event_propagation_step(next_steps)
+                end        
+                next_steps = gather_propagation { call_propagation_handlers }
             end
-
-            while !next_step.empty?
-                next_step = event_propagation_step(next_step)
-            end        
             @propagation_exceptions
 
         ensure
             @propagation_exceptions = nil
+        end
+        
+        def error_handling_phase(stats, events_errors)
+            # Do the exception handling phase
+            fatal_errors = compute_fatal_errors(stats, events_errors)
+
+            return if fatal_errors.empty?
+
+            Roby::ExecutionEngine.info "EE: #{fatal_errors.size} fatal exceptions remaining"
+            kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
+                tasks ||= [*error.origin]
+                for parent in [*tasks]
+                    new_tasks = parent.reverse_generated_subgraph(Roby::TaskStructure::Hierarchy) - plan.force_gc
+                    if !new_tasks.empty?
+                        fatal_exception(error, new_tasks)
+                    end
+                    kill_tasks.merge(new_tasks)
+                end
+                kill_tasks
+            end
+
+            if !kill_tasks.empty?
+                Roby::ExecutionEngine.warn do
+                    Roby::ExecutionEngine.warn ""
+                    Roby::ExecutionEngine.warn "EE: will kill the following tasks because of unhandled exceptions:"
+                    kill_tasks.each do |task|
+                        Roby::ExecutionEngine.warn "  " + task.to_s
+                    end
+                    break
+                end
+
+                return kill_tasks, fatal_errors
+            else
+                nil
+            end
         end
 
         # Validates +timespec+ as a delay specification. A valid delay
@@ -1049,52 +1129,43 @@ module Roby
         # is saved into +stats+.
         def process_events(stats = {:start => Time.now})
             @application_exceptions = []
-
             add_timepoint(stats, :real_start)
 
             # Gather new events and propagate them
-            events_errors = begin 
-                                old_allow_propagation, @allow_propagation = @allow_propagation, true
-                                propagate_events
-                            ensure @allow_propagation = old_allow_propagation
-                            end
-            add_timepoint(stats, :events)
+            next_steps = gather_propagation do
+                gather_external_events
+                call_propagation_handlers
+            end
 
-
-            # HACK: events_errors is sometime nil here. It shouldn't
-            events_errors ||= []
-
-            # Do the exception handling phase
-            fatal_errors = compute_fatal_errors(stats, events_errors)
-
-            if !fatal_errors.empty?
-                Roby::ExecutionEngine.info "EE: #{fatal_errors.size} fatal exceptions remaining"
-                kill_tasks = fatal_errors.inject(ValueSet.new) do |kill_tasks, (error, tasks)|
-                    tasks ||= [*error.origin]
-                    for parent in [*tasks]
-                        new_tasks = parent.reverse_generated_subgraph(Roby::TaskStructure::Hierarchy) - plan.force_gc
-                        if !new_tasks.empty?
-                            fatal_exception(error, new_tasks)
-                        end
-                        kill_tasks.merge(new_tasks)
+            all_fatal_errors = Array.new
+            if next_steps.empty?
+                next_steps = gather_propagation do
+                    kill_tasks, fatal_errors = error_handling_phase(stats, [])
+                    add_timepoint(stats, :exceptions_fatal)
+                    if fatal_errors
+                        all_fatal_errors.concat(fatal_errors)
                     end
-                    kill_tasks
-                end
-                if !kill_tasks.empty?
-                    Roby::ExecutionEngine.warn ""
-                    Roby::ExecutionEngine.warn do
-                        Roby::ExecutionEngine.warn "EE: will kill the following tasks because of unhandled exceptions:"
-                        kill_tasks.each do |task|
-                            Roby::ExecutionEngine.warn "  " + task.to_s
-                        end
-                        break
-                    end
+
+                    garbage_collect(kill_tasks)
+                    add_timepoint(stats, :garbage_collect)
                 end
             end
-            add_timepoint(stats, :exceptions_fatal)
 
-            garbage_collect(kill_tasks)
-            add_timepoint(stats, :garbage_collect)
+            while !next_steps.empty?
+                events_errors = event_propagation_phase(next_steps)
+                add_timepoint(stats, :events)
+
+                next_steps = gather_propagation do
+                    kill_tasks, fatal_errors = error_handling_phase(stats, events_errors || [])
+                    add_timepoint(stats, :exceptions_fatal)
+                    if fatal_errors
+                        all_fatal_errors.concat(fatal_errors)
+                    end
+
+                    garbage_collect(kill_tasks)
+                    add_timepoint(stats, :garbage_collect)
+                end
+            end
 
             application_errors, @application_exceptions = 
                 @application_exceptions, nil
@@ -1102,8 +1173,8 @@ module Roby
                 add_framework_error(error, origin)
             end
 
-            if Roby.app.abort_on_exception? && !fatal_errors.empty?
-                reraise(fatal_errors.map { |e, _| e })
+            if Roby.app.abort_on_exception? && !all_fatal_errors.empty?
+                reraise(all_fatal_errors.map { |e, _| e })
             end
 
         ensure
@@ -1222,7 +1293,9 @@ module Roby
                 end
             end
 
-            @gc_task_stop_set = finishing
+            finishing.each do |task|
+                task.stop!
+            end
 
             plan.unneeded_events.each do |event|
                 plan.remove_object(event)
@@ -1469,7 +1542,6 @@ module Roby
 	    @last_stop_count = 0
 	    @cycle_start  = Time.now
 	    @cycle_index  = 0
-            @gc_task_stop_set.clear
 
 	    gc_enable_has_argument = begin
 					 GC.enable(true)

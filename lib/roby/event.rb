@@ -336,9 +336,10 @@ module Roby
 		engine.add_event_propagation(false, engine.propagation_sources, self, (context unless context.empty?), nil)
             else
 		Roby.synchronize do
-		    errors = engine.propagate_events do |initial_set|
+                    seeds = engine.gather_propagation do
 			engine.add_event_propagation(false, engine.propagation_sources, self, (context unless context.empty?), nil)
-		    end
+                    end
+		    errors = engine.event_propagation_phase(seeds)
 		    if errors.size == 1
 			e = errors.first.exception
 			raise e.dup, e.message, e.backtrace
@@ -675,9 +676,10 @@ module Roby
 		engine.add_event_propagation(true, engine.propagation_sources, self, (context unless context.empty?), nil)
             else
 		Roby.synchronize do
-		    errors = engine.propagate_events do |initial_set|
+                    seeds = engine.gather_propagation do
 			engine.add_event_propagation(true, engine.propagation_sources, self, (context unless context.empty?), nil)
-		    end
+                    end
+		    errors = engine.event_propagation_phase(seeds)
 		    if errors.size == 1
 			e = errors.first.exception
 			raise e.dup, e.message, e.backtrace

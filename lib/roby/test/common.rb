@@ -113,7 +113,9 @@ module Roby
 
 	    # Save and restore some arrays
 	    save_collection engine.propagation_handlers
+	    save_collection engine.external_events_handlers
 	    save_collection Roby::ExecutionEngine.propagation_handlers
+	    save_collection Roby::ExecutionEngine.external_events_handlers
 	    save_collection plan.structure_checks
 	    save_collection Roby::Plan.structure_checks
 	    save_collection engine.at_cycle_end_handlers
