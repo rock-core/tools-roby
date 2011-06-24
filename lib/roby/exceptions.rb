@@ -274,13 +274,20 @@ module Roby
     end
 
     def self.log_pp(obj, logger, level)
-        first_line = true
-        format_exception(obj).each do |line|
-            if first_line
-                line = color(line, :bold, :red)
-                first_line = false
+        if logger.respond_to?(:logger)
+            logger = logger.logger
+        end
+
+        logger.send(level) do
+            first_line = true
+            format_exception(obj).each do |line|
+                if first_line
+                    line = color(line, :bold, :red)
+                    first_line = false
+                end
+                logger.send(level, line)
             end
-            logger.send(level, line)
+            break
         end
     end
 
