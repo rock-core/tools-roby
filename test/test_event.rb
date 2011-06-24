@@ -223,7 +223,7 @@ class TC_Event < Test::Unit::TestCase
 	end
     end
 
-    def common_test_source_setup(forwarding)
+    def common_test_source_setup(keep_source)
 	src    = EventGenerator.new(true)
 	e      = EventGenerator.new(true)
         target = EventGenerator.new(true)
@@ -231,7 +231,7 @@ class TC_Event < Test::Unit::TestCase
         src.signals e
         yield(e, target)
         src.call
-        if forwarding
+        if keep_source
             assert_equal([e.last], target.last.sources.to_a)
         else
             assert_equal([], target.last.sources.to_a)
@@ -247,10 +247,10 @@ class TC_Event < Test::Unit::TestCase
         common_test_source_setup(false) { |e, target| e.command = lambda { |_| target.emit; e.emit } }
     end
     def test_signal_source
-        common_test_source_setup(false) { |e, target| e.signals target }
+        common_test_source_setup(true) { |e, target| e.signals target }
     end
     def test_signal_in_handler_source
-        common_test_source_setup(false) { |e, target| e.on { |ev| target.call } }
+        common_test_source_setup(true) { |e, target| e.on { |ev| target.call } }
     end
     def test_signal_in_command_source
         common_test_source_setup(false) { |e, target| e.command = lambda { |_| target.call; e.emit } }
