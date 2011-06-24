@@ -1245,27 +1245,35 @@ class TC_Task < Test::Unit::TestCase
 	assert(g.success?)
     end
 
-    def test_task_poll
+    def test_poll
 	engine.run
 
 	FlexMock.use do |mock|
 	    t = Class.new(Tasks::Simple) do
 		poll do
-		    mock.polled(running?, self)
+		    mock.polled_from_model(running?, self)
 		end
 	    end.new
-	    mock.should_receive(:polled).at_least.once.with(true, t)
+            t.poll do
+                mock.polled_from_instance(t.running?, t)
+            end
+	    mock.should_receive(:polled_from_model).at_least.once.with(true, t)
+	    mock.should_receive(:polled_from_instance).at_least.once.with(true, t)
 
 	    engine.execute do
 		plan.add_permanent(t)
 		t.start!
 	    end
 	    engine.wait_one_cycle
+
+            # Verify that the poll block gets deregistered when  the task is
+            # finished
 	    engine.execute do
 		assert(t.running?, t.terminal_event.to_s)
 		t.stop!
 	    end
 	    engine.wait_one_cycle
+            assert(!t.running?)
 	    engine.wait_one_cycle
 	end
     end

@@ -1169,6 +1169,8 @@ module Roby
                 end
             end
 
+            @poll_handlers = []
+
             @success = nil
 
             yield(self) if block_given?
@@ -1395,56 +1397,6 @@ module Roby
 		    end
 		    failed!(context)
 		end
-	    end
-
-	    def setup_poll_method(block) # :nodoc:
-		define_method(:poll) do |plan|
-		    return unless self_owned?
-                    # Don't call if we are terminating
-                    return if finished?
-                    # Don't call if we already had an error in the poll block
-                    return if event(:internal_error).happened?
-
-		    begin
-			poll_handler
-		    rescue LocalizedError => e
-			emit :internal_error, e
-                    rescue Exception => e
-			emit :internal_error, CodeError.new(e, self)
-		    end
-		end
-
-		define_method(:poll_handler, &block)
-	    end
-
-            # Declares that the given block should be called at each execution
-            # cycle, when the task is running. Use it that way:
-            #
-            #   class MyTask < Roby::Task
-            #     poll do
-            #       ... do something ...
-            #     end
-            #   end
-            #
-            # If the given polling block raises an exception, the task will be
-            # terminated by emitting its +failed+ event.
-	    def poll(&block)
-		if !block_given?
-		    raise "no block given"
-		end
-
-                if !instance_methods.include?(:poll)
-                    on(:start) do |ev|
-                        handler_id = ev.task.plan.engine.add_propagation_handler(method(:poll))
-                        ev.task.instance_variable_set(:@poll_handler_id, handler_id)
-                    end
-                    on(:stop)  do |ev|
-                        handler_id = ev.task.instance_variable_get(:@poll_handler_id)
-                        ev.task.plan.engine.remove_propagation_handler(handler_id)
-                    end
-                end
-
-		setup_poll_method(block)
 	    end
 	end
 
@@ -2345,6 +2297,71 @@ module Roby
 	def self.tags
 	    ancestors.find_all { |m| m.instance_of?(TaskModelTag) }
 	end
+
+        # The set of instance-level poll blocks
+        attr_reader :poll_handlers
+
+        # Adds a new poll block on this instance
+        def poll(&block)
+            @poll_handlers << block
+        end
+
+        # Internal method used to register the poll blocks in the engine
+        # execution cycle
+        def do_poll(plan) # :nodoc:
+            return unless self_owned?
+            # Don't call if we are terminating
+            return if finished?
+            # Don't call if we already had an error in the poll block
+            return if event(:internal_error).happened?
+
+            begin
+                if respond_to?(:poll_handler)
+                    poll_handler
+                end
+                @poll_handlers.each do |poll_block|
+                    poll_block.call
+                end
+            rescue LocalizedError => e
+                Roby.log_pp(e, Roby.logger, :debug)
+                emit :internal_error, e
+            rescue Exception => e
+                Roby.log_pp(e, Roby.logger, :debug)
+                emit :internal_error, CodeError.new(e, self)
+            end
+        end
+
+        # Declares that the given block should be called at each execution
+        # cycle, when the task is running. Use it that way:
+        #
+        #   class MyTask < Roby::Task
+        #     poll do
+        #       ... do something ...
+        #     end
+        #   end
+        #
+        # If the given polling block raises an exception, the task will be
+        # terminated by emitting its +failed+ event.
+        def self.poll(&block)
+            if !block_given?
+                raise "no block given"
+            end
+
+            define_method(:poll_handler, &block)
+        end
+
+        on :start do |ev|
+            engine = plan.engine
+            if respond_to?(:poll_handler) || !poll_handlers.empty?
+                @poll_handler_id = engine.add_propagation_handler(:type => :external_events, &method(:do_poll))
+            end
+        end
+
+        on :stop do |ev|
+            if @poll_handler_id
+                plan.engine.remove_propagation_handler(@poll_handler_id)
+            end
+        end
 
         # The list of Task and/or tag classes that represent the services this
         # task provides
