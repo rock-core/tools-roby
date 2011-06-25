@@ -340,6 +340,7 @@ module Roby
 	    end
 
 	    apply_relation_changes(object, changes)
+            initialize_replacement(object)
 	end
 
         # Replaces +self+ by +object+ in all graphs +self+ is part of. Unlike
@@ -370,7 +371,17 @@ module Roby
 	    end
 
 	    apply_relation_changes(object, changes)
+            initialize_replacement(object)
 	end
+
+        # Called by #replace_by and #replace_subplan_by to do object-specific
+        # initialization of +object+ when +object+ is used to replace +self+ in
+        # a plan
+        #
+        # The default implementation does nothing
+        def initialize_replacement(object)
+            super if defined? super
+        end
 
         # True if this object can be modified by the local plan manager
 	def read_write?

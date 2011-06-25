@@ -522,6 +522,16 @@ module Roby
 		raise EventNotExecutable.new(self), "emit(#{symbol}) called on #{task} which is not executable: #{e.message}"
 	    end
 	end
+
+        def on(options = Hash.new, &block)
+            if task.abstract?
+                on_replace, options = Kernel.filter_options options, :on_replace => :copy
+            else
+                on_replace, options = Kernel.filter_options options, :on_replace => :drop
+            end
+
+            super(on_replace.merge(options), &block)
+        end
     end
 
     # Class that handles task arguments. They are handled specially as the
@@ -1775,19 +1785,16 @@ module Roby
 	#   on(event) { |event| ... }
         #
         # Defines an event handler for the given event.
-        def on(event_model, to = nil, *to_task_events, &user_handler)
-            if to
-                Roby.warn_deprecated "on(event_name, task, target_events) has been replaced by #signals"
-            elsif !(to || user_handler)
-                raise ArgumentError, "you must provide either a task or an event handler (got nil for both)"
+        def on(event_model, options = Hash.new, &user_handler)
+            if !options.kind_of?(Hash)
+                Roby.error_deprecated "on(event_name, task, target_events) has been replaced by #signals"
+            elsif !user_handler
+                raise ArgumentError, "you must provide an event handler"
             end
 
-            if to
-                signals(event_model, to, *to_task_events)
-            end
             if user_handler
                 generator = event(event_model)
-                generator.on(&user_handler)
+                generator.on(options, &user_handler)
             end
             self
         end
@@ -2183,7 +2190,9 @@ module Roby
 		if user_handler 
 		    method_name = "event_handler_#{from}_#{Object.address_from_id(user_handler.object_id).to_s(16)}"
 		    define_method(method_name, &user_handler)
-		    handler_sets[from] << lambda { |event| event.task.send(method_name, event) }
+
+                    handler = lambda { |event| event.task.send(method_name, event) }
+		    handler_sets[from] << EventGenerator::EventHandler.new(handler, false, false)
 		end
             end
         end
@@ -2568,7 +2577,9 @@ module Roby
 		    changes << rel << parents << children
 		end
 
-		event.apply_relation_changes(object.event(event.symbol), changes)
+                target_event = object.event(event.symbol)
+                event.initialize_replacement(target_event)
+		event.apply_relation_changes(target_event, changes)
 	    end
 	end
 

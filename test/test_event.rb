@@ -192,21 +192,6 @@ class TC_Event < Test::Unit::TestCase
         assert(e2.happened?)
     end
 
-    def test_deprecated_on
-	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
-	plan.add([e1, e2])
-
-        deprecated_feature do
-            e1.on e2
-        end
-
-        assert( e1.child_object?( e2, EventStructure::Signal ))
-        assert( e2.parent_object?( e1, EventStructure::Signal ))
-
-        e1.call(nil)
-        assert(e2.happened?)
-    end
- 
     def test_handlers
 	e1, e2 = EventGenerator.new(true), Roby::EventGenerator.new(true)
 	plan.add([e1, e2])

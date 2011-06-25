@@ -576,6 +576,71 @@ module TC_TransactionBehaviour
 	assert_equal([r], plan.missions.to_a)
     end
 
+    def test_commit_replace_copies_event_handlers_to_new_task
+        model = Class.new(Roby::Task)
+	task = prepare_plan :add => 1, :model => model
+
+        expected = []
+        task.on(:start) { |event| }
+        task.on(:start, :on_replace => :copy) { |event| }
+        expected << task.start_event.handlers[1]
+
+        new_task = nil
+	transaction_commit(plan, task) do |trsc, p|
+            p.on(:start) { |event| }
+            p.on(:start, :on_replace => :copy) { |event| }
+            assert_equal 2, p.start_event.handlers.size
+            expected << p.start_event.handlers[1]
+
+            trsc.add(new_task = model.new)
+            trsc.replace(p, new_task)
+        end
+
+        assert_equal expected.reverse, new_task.start_event.handlers
+    end
+
+    def test_commit_replace_copies_event_handlers_to_proxy
+        model = Class.new(Roby::Task)
+	task = prepare_plan :add => 1, :model => model
+        plan.add(new_task = model.new)
+
+        expected = []
+        task.on(:start) { |event| }
+        task.on(:start, :on_replace => :copy) { |event| }
+        expected << task.start_event.handlers[1]
+
+	transaction_commit(plan, task, new_task) do |trsc, p, new_p|
+            p.on(:start) { |event| }
+            p.on(:start, :on_replace => :copy) { |event| }
+            assert_equal 2, p.start_event.handlers.size
+            expected << p.start_event.handlers[1]
+
+            trsc.replace(p, new_p)
+        end
+
+        assert_equal expected.reverse, new_task.start_event.handlers
+    end
+
+    def test_commit_replace_copies_event_handlers_from_abstract
+        model = Class.new(Roby::Task)
+	task = prepare_plan :add => 1, :model => model
+        task.abstract = true
+        plan.add(new_task = model.new)
+
+        expected = []
+        task.on(:start) { |event| }
+        expected << task.start_event.handlers[0]
+
+	transaction_commit(plan, task, new_task) do |trsc, p, new_p|
+            p.on(:start) { |event| }
+            expected << p.start_event.handlers[0]
+
+            trsc.replace(p, new_p)
+        end
+
+        assert_equal expected.reverse, new_task.start_event.handlers
+    end
+
     def test_relation_validation
 	t1, t2 = prepare_plan :tasks => 2
 	transaction_commit(plan, t1) do |trsc, p1|

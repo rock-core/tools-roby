@@ -173,7 +173,6 @@ module Roby
 	end
 
 	attr_enumerable(:handler, :handlers) { Array.new }
-	attr_enumerable(:once_handler, :once_handlers) { Array.new }
 
 	def initialize_copy(old) # :nodoc:
 	    super
@@ -353,25 +352,81 @@ module Roby
 	    end
 	end
 
+        # Class used to register event handler blocks along with their options
+        class EventHandler
+            attr_reader :block
+            
+            def initialize(block, copy_on_replace, once)
+                @block, @copy_on_replace, @once = block, copy_on_replace, once
+            end
+
+            # True if this event handler should be moved to the new task in case
+            # of replacements
+            #
+            # The default in Task#on is false for non-abstract tasks and true
+            # for abstract tasks.
+            def copy_on_replace?; !!@copy_on_replace end
+
+            # True if this event handler should be called only once
+            def once?; !!@once end
+
+            # Generates an option hash valid for EventGenerator#on
+            def as_options
+                mode = if copy_on_replace? then :copy
+                       else :drop
+                       end
+
+                { :on_replace => mode, :once => once? }
+            end
+
+            def ==(other)
+                @copy_on_replace == other.copy_on_replace? &&
+                    @once == other.once? &&
+                    block == other.block
+            end
+        end
+
 	# call-seq:
         #   on { |event| ... }
+        #   on(:on_replace => :forward) { |event| ... }
         #
         # Adds an event handler on this generator. The block gets an Event
         # object which describes the parameters of the emission (context value,
         # time, ...). See Event for details.
-	def on(signal = nil, time = nil, &handler)
-	    if signal
-                Roby.warn_deprecated "EventGenerator#on only accepts event handlers now. Use #signals to establish signalling"
-		self.signals(signal, time)
+        #
+        # The :on_replace option governs what will happen with this handler if
+        # this task is replaced by another.
+        #
+        # * if set to :drop, the handler is not passed on
+        # * if set to :forward, the handler is added to the replacing task
+        #
+	def on(options = Hash.new, &handler)
+	    if !options.kind_of?(Hash)
+                Roby.error_deprecated "EventGenerator#on only accepts event handlers now. Use #signals to establish signalling"
 	    end
+
+            options = Kernel.validate_options options, :on_replace => :drop, :once => false
+            if ![:drop, :copy].include?(options[:on_replace])
+                raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{options[:on_replace]}"
+            end
 
 	    if handler
 		check_arity(handler, 1)
-		self.handlers << handler
+		self.handlers << EventHandler.new(handler, options[:on_replace] == :copy, options[:once])
 	    end
 
 	    self
 	end
+
+        def initialize_replacement(event)
+            super
+
+            for h in handlers
+                if h.copy_on_replace?
+                    event.on(h.as_options, &h.block)
+                end
+            end
+        end
 
 	# Adds a signal from this event to +generator+. +generator+ must be
 	# controlable.
@@ -477,13 +532,8 @@ module Roby
         #   once { |context| ... }
         #
         # Calls the provided event handler only once
-	def once(signal = nil, time = nil, &block)
-            if signal
-                Roby.warn_deprecated "the once(event_name) form has been replaced by #signal_once"
-                signal_once(signal, time)
-            end
-
-            once_handlers << block
+	def once(options = Hash.new, &block)
+            on(options.merge(:once => true), &block)
             self
 	end
 
@@ -570,19 +620,12 @@ module Roby
 	    # :propagation TLS
 	    each_handler do |h| 
 		begin
-		    h.call(event)
+		    h.block.call(event)
 		rescue Exception => e
 		    plan.engine.add_error( EventHandlerError.new(e, event) )
 		end
 	    end
-            each_once_handler do |h|
-                begin
-                    h.call(event)
-                rescue Exception => e
-                    plan.engine.add_error( EventHandlerError.new(e, event) )
-                end
-            end
-            once_handlers.clear
+            handlers.delete_if { |h| h.once? }
 	end
 
 	# Raises an exception object when an event whose command has been

@@ -243,9 +243,29 @@ module Roby
 	    end
 	end
 
+        def initialize_replacement(event)
+            super
+
+            # Apply recursively all event handlers of this (proxied) event to
+            # the new event
+            #
+            # We have to look at all levels as, in transactions, the "handlers"
+            # set only contains new event handlers
+            real_object = self
+            while real_object.transaction_proxy?
+                real_object = real_object.__getobj__
+                real_object.handlers.each do |h|
+                    if h.copy_on_replace?
+                        event.on(h.as_options, &h.block)
+                    end
+                end
+            end
+        end
+
 	def commit_transaction
 	    super
-	    handlers.each { |h| __getobj__.on(&h) }
+
+	    handlers.each { |h| __getobj__.on(h.as_options, &h.block) }
             unreachable_handlers.each { |cancel, h| __getobj__.if_unreachable(cancel, &h) }
 	end
     end

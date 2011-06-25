@@ -186,5 +186,10 @@ module Roby
             Roby.warn "Deprecation Warning: #{msg} at #{caller[1, caller_depth].join("\n")}"
         end
     end
+
+    def self.error_deprecated(msg, caller_depth = 1)
+        Roby.fatal "Deprecation Error: #{msg} at #{caller[1, caller_depth].join("\n")}"
+        raise NotImplementedError
+    end
 end
 

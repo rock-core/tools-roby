@@ -275,46 +275,10 @@ class TC_Task < Test::Unit::TestCase
 	end
     end
 
-    def test_instance_signals_deprecated_default_event_name
-	FlexMock.use do |mock|
-	    t1, t2 = prepare_plan :add => 3, :model => Tasks::Simple
-            deprecated_feature do
-                t1.on(:start, t2)
-            end
-
-            t2.on(:start) { |ev| mock.start }
-            mock.should_receive(:start).once
-	    t1.start!
-	end
-    end
-
-    def test_instance_signals_deprecated_on_usage
-	FlexMock.use do |mock|
-	    t1, t2 = prepare_plan :add => 3, :model => Tasks::Simple
-            deprecated_feature do
-                t1.on(:start, t2, :start)
-            end
-
-            t2.on(:start) { |ev| mock.start }
-            mock.should_receive(:start).once
-	    t1.start!
-	end
-    end
-
     def test_instance_signals_plain_events
 	t = prepare_plan :missions => 1, :model => Tasks::Simple
 	e = EventGenerator.new(true)
 	t.signals(:start, e)
-	t.start!
-	assert(e.happened?)
-    end
-
-    def test_instance_signals_plain_events_deprecated_on_usage
-	t = prepare_plan :missions => 1, :model => Tasks::Simple
-	e = EventGenerator.new(true)
-        deprecated_feature do
-            t.on(:start, e)
-        end
 	t.start!
 	assert(e.happened?)
     end
@@ -1693,6 +1657,39 @@ class TC_Task < Test::Unit::TestCase
         t1.arguments[:id] = 20
         assert(!t1.can_merge?(t2))
         assert(!t2.can_merge?(t1))
+    end
+
+    def test_event_handlers_with_replacing
+        model = Class.new(Roby::Task)
+        old, new = prepare_plan :add => 2, :model => model
+
+        old.start_event.on { |event| mock.should_not_be_passed_on }
+        old.start_event.on(:on_replace => :copy) { |event| mock.should_be_passed_on }
+
+        plan.replace(old, new)
+
+        assert_equal(1, new.start_event.handlers.size)
+        assert_equal(new.start_event.handlers[0].block, old.start_event.handlers[1].block)
+    end
+
+    def test_abstract_tasks_automatically_mark_the_handlers_as_replaced
+        abstract_model = Class.new(Roby::Task) do
+            abstract
+
+            def fullfilled_model
+                [Roby::Task]
+            end
+        end
+        plan.add(old = abstract_model.new)
+        plan.add(new = Roby::Task.new)
+
+        old.start_event.on { |event| mock.should_not_be_passed_on }
+        old.start_event.on(:on_replace => :drop) { |event| mock.should_be_passed_on }
+
+        plan.replace(old, new)
+
+        assert_equal(1, new.start_event.handlers.size)
+        assert_equal(new.start_event.handlers[0].block, old.start_event.handlers[0].block)
     end
 end
 
