@@ -289,6 +289,8 @@ module Roby
 	def setup_proxy(object, transaction)
 	    super(object, transaction)
 
+            @poll_handlers.clear
+
 	    @arguments = Roby::TaskArguments.new(self)
 	    object.arguments.each do |key, value|
 		if value.kind_of?(Roby::PlanObject)
@@ -315,6 +317,10 @@ module Roby
 		__getobj__.arguments.update!(key, value)
 	    end
 
+            poll_handlers.each do |h|
+                __getobj__.poll(h.as_options, &h.block)
+            end
+
             __getobj__.abstract = self.abstract?
 	end
 
@@ -322,6 +328,25 @@ module Roby
 	def discard_transaction
 	    clear_relations
 	end
+
+        def initialize_replacement(task)
+            super
+
+            # Apply recursively all event handlers of this (proxied) event to
+            # the new event
+            #
+            # We have to look at all levels as, in transactions, the "handlers"
+            # set only contains new event handlers
+            real_object = self
+            while real_object.transaction_proxy?
+                real_object = real_object.__getobj__
+                real_object.poll_handlers.each do |h|
+                    if h.copy_on_replace?
+                        task.poll(h.as_options, &h.block)
+                    end
+                end
+            end
+        end
     end
 end
 

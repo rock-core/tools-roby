@@ -1252,6 +1252,7 @@ module Roby
                 end
 	    end
 	    @bound_events = bound_events
+            @poll_handlers = old.poll_handlers.dup
 	end
 
 	def instantiate_model_event_relations
@@ -2324,12 +2325,50 @@ module Roby
 	    ancestors.find_all { |m| m.instance_of?(TaskModelTag) }
 	end
 
-        # The set of instance-level poll blocks
+        # Class used to encapsulate an instance-level poll handler along with
+        # its options
+        class PollHandler
+            # The poll Proc object
+            attr_reader :block
+            ## :method:copy_on_replace?
+            #
+            # If true, this poll handler gets copied to the new task when the
+            # task holding the handler gets replaced
+            attr_predicate :copy_on_replace?, true
+
+            def initialize(block, copy_on_replace)
+                @block, @copy_on_replace =
+                    block, copy_on_replace
+            end
+
+            # Creates an option hash from this poll handler parameters that is
+            # valid for Task#poll
+            def as_options
+                on_replace = if copy_on_replace? then :copy
+                             else :drop
+                             end
+
+                { :on_replace => on_replace }
+            end
+
+            def ==(other)
+                @copy_on_replace == other.copy_on_replace? &&
+                    @block == other.block
+            end
+        end
+
+        # The set of instance-level poll blocks (PollHandler instances)
         attr_reader :poll_handlers
 
         # Adds a new poll block on this instance
-        def poll(&block)
-            @poll_handlers << block
+        def poll(options = Hash.new, &block)
+            default_poll = if abstract? then :copy else :drop end
+            options = Kernel.validate_options options, :on_replace => default_poll
+            if ![:drop, :copy].include?(options[:on_replace])
+                raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{options[:on_replace]}"
+            end
+
+            @poll_handlers << PollHandler.new(block, (options[:on_replace] == :copy))
         end
 
         # Internal method used to register the poll blocks in the engine
@@ -2346,7 +2385,7 @@ module Roby
                     poll_handler
                 end
                 @poll_handlers.each do |poll_block|
-                    poll_block.call
+                    poll_block.block.call
                 end
             rescue LocalizedError => e
                 Roby.log_pp(e, Roby.logger, :debug)
@@ -2594,6 +2633,16 @@ module Roby
 	    end
 	    super
 	end
+
+        def initialize_replacement(task)
+            super
+
+            poll_handlers.each do |handler|
+                if handler.copy_on_replace?
+                    task.poll(handler.as_options, &handler.block)
+                end
+            end
+        end
 
         def self.simulation_model
             if @simulation_model

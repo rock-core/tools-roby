@@ -1659,6 +1659,19 @@ class TC_Task < Test::Unit::TestCase
         assert(!t2.can_merge?(t1))
     end
 
+    def test_poll_handlers_with_replacing
+        model = Class.new(Roby::Task)
+        old, new = prepare_plan :add => 2, :model => model
+
+        old.poll { |event| mock.should_not_be_passed_on }
+        old.poll(:on_replace => :copy) { |event| mock.should_be_passed_on }
+
+        plan.replace(old, new)
+
+        assert_equal(1, new.poll_handlers.size)
+        assert_equal(new.poll_handlers[0].block, old.poll_handlers[1].block)
+    end
+
     def test_event_handlers_with_replacing
         model = Class.new(Roby::Task)
         old, new = prepare_plan :add => 2, :model => model
@@ -1672,7 +1685,27 @@ class TC_Task < Test::Unit::TestCase
         assert_equal(new.start_event.handlers[0].block, old.start_event.handlers[1].block)
     end
 
-    def test_abstract_tasks_automatically_mark_the_handlers_as_replaced
+    def test_abstract_tasks_automatically_mark_the_poll_handlers_as_replaced
+        abstract_model = Class.new(Roby::Task) do
+            abstract
+
+            def fullfilled_model
+                [Roby::Task]
+            end
+        end
+        plan.add(old = abstract_model.new)
+        plan.add(new = Roby::Task.new)
+
+        old.poll { |event| mock.should_not_be_passed_on }
+        old.poll(:on_replace => :drop) { |event| mock.should_be_passed_on }
+
+        plan.replace(old, new)
+
+        assert_equal(1, new.poll_handlers.size)
+        assert_equal(new.poll_handlers[0].block, old.poll_handlers[0].block)
+    end
+
+    def test_abstract_tasks_automatically_mark_the_event_handlers_as_replaced
         abstract_model = Class.new(Roby::Task) do
             abstract
 
