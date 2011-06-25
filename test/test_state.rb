@@ -469,7 +469,7 @@ class TC_State < Test::Unit::TestCase
                 mock.condition(x)
                 x > 10
             end
-            State.reset_when(event, :x) do |x|
+            reset_event = State.reset_when(event, :x) do |x|
                 mock.reset_condition(x)
                 x < 5
             end
@@ -479,19 +479,21 @@ class TC_State < Test::Unit::TestCase
             mock.should_receive(:condition).once.with(30)
 
             mock.should_receive(:reset_condition).with(20)
-            mock.should_receive(:reset_condition).once.with(30)
-            mock.should_receive(:reset_condition).once.with(2)
+            mock.should_receive(:reset_condition).at_least.once.with(30)
+            mock.should_receive(:reset_condition).at_least.once.with(2)
 
             State.x = 2
-            engine.process_events
+            engine.process_events # does not emit (low value)
             State.x = 20
-            engine.process_events
+            engine.process_events # emits
             State.x = 30
-            engine.process_events
+            engine.process_events # does not emit (not reset yet)
             State.x = 2
-            engine.process_events
+            engine.process_events # resets
             State.x = 30
-            engine.process_events
+            engine.process_events # emits
+            assert_equal 1, reset_event.history.size
+            assert_equal 2, event.history.size
         end
     end
 end

@@ -80,7 +80,7 @@ module Roby
             reset_event.armed = !event.armed?
             event.on { |ev| reset_event.reset }
             reset_event.on { |ev| event.reset }
-            nil
+            reset_event
         end
 
         # Returns an event which emits when the given state is reached.
