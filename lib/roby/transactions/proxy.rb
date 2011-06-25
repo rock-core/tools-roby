@@ -294,6 +294,8 @@ module Roby
 	    arguments.each do |key, value|
 		__getobj__.arguments.update!(key, value)
 	    end
+
+            __getobj__.abstract = self.abstract?
 	end
 
         # Perform the operations needed for the transaction to be discarded.

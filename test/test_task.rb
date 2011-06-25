@@ -32,6 +32,32 @@ class TC_Task < Test::Unit::TestCase
 	assert_equal([:task_tag, :model_tag_2, :model_tag_1].to_set, task.arguments.to_set)
     end
 
+    def test_abstract
+        assert Roby::Task.abstract?
+
+        model = Class.new(Roby::Task)
+        assert !model.abstract?
+
+        abstract_model = Class.new(model) do
+            abstract
+        end
+        assert abstract_model.abstract?
+
+        plan.add(task = model.new)
+        assert !task.abstract?
+        assert task.executable?
+        task.abstract = true
+        assert task.abstract?
+        assert !task.executable?
+
+        plan.add(task = abstract_model.new)
+        assert task.abstract?
+        assert !task.executable?
+        task.abstract = false
+        assert !task.abstract?
+        assert task.executable?
+    end
+
     def test_arguments_declaration
 	model = Class.new(Task) { argument :from; argument :to }
 	assert_equal([], Task.arguments.to_a)

@@ -1152,6 +1152,7 @@ module Roby
         def initialize(arguments = Hash.new) #:yields: task_object
 	    super() if defined? super
 	    @model   = self.class
+            @abstract = @model.abstract?
 
 	    @arguments = TaskArguments.new(self)
             # First assign normal values
@@ -1347,27 +1348,7 @@ module Roby
 	    end
 	end
 
-	class << self
-            ##
-            # :singleton-method: abstract?
-            #
-            # True if this task is an abstract task.
-            #
-            # See Task::abstract() for more information.
-            attr_predicate :abstract
-
-	    # Declare that this task model defines abstract tasks. Abstract
-            # tasks can be used to represent an action, without specifically
-            # representing how this action should be done.
-            #
-            # Instances of abstract task models are not executable, i.e. they
-            # cannot be started.
-            #
-            # See also #abstract? and #executable?
-	    def abstract
-		@abstract = true
-	    end
-
+        class << self
             # Declare that tasks of this model can finish by simply emitting
             # +stop+. Use it this way:
             #
@@ -1400,14 +1381,50 @@ module Roby
 	    end
 	end
 
+	class << self
+            ##
+            # :singleton-method: abstract?
+            #
+            # True if this task is an abstract task.
+            #
+            # See Task::abstract() for more information.
+            attr_predicate :abstract?
+        end
+
+        # Declare that this task model defines abstract tasks. Abstract
+        # tasks can be used to represent an action, without specifically
+        # representing how this action should be done.
+        #
+        # Instances of abstract task models are not executable, i.e. they
+        # cannot be started.
+        #
+        # See also #abstract? and #executable?
+        def self.abstract
+            @abstract = true
+        end
+
 	# Roby::Task is an abstract model. See Task::abstract
 	abstract
-        
-        # Returns true if this task is from an abstract model. If it is the
-        # case, the task is not executable.
+
+        ## :method:abstract?
         #
-        # See Task::abstract for more details.
-	def abstract?; model.abstract? end
+        # If true, this instance is marked as abstract, i.e. as a placeholder
+        # for future actions.
+        #
+        # By default, it takes the value of its model, i.e. through
+        # model.abstract, set by calling abstract in a task model definition as
+        # in
+        #
+        #   class MyModel < Roby::Task
+        #     abstract
+        #   end
+        #
+        # It can also be overriden on a per instance basis with
+        #
+        #   task.abstract = <value>
+        #
+        attr_predicate :abstract?, true
+        
 	# True if this task is executable. A task is not executable if it is
         # abstract or partially instanciated.
         #

@@ -212,6 +212,22 @@ module TC_TransactionBehaviour
 	assert(t.event(:failed).child_object?(t.event(:stop), Roby::EventStructure::Forwarding))
     end
 
+    def test_commit_abstract_flag
+	t = prepare_plan :add => 1
+        sequence = [true, false]
+
+	t.abstract = false
+        sequence.each do |value|
+            original = t.abstract?
+            assert_not_equal(value, original)
+            transaction_commit(plan, t) do |trsc, p|
+                assert_equal(original, p.abstract?)
+                p.abstract = value
+            end
+            assert_equal(value, t.abstract?)
+        end
+    end
+
     def test_commit_executable_flag
 	t = prepare_plan :add => 1
         sequence = [true, nil, false, nil, true, false]
