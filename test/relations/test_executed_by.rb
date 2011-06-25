@@ -191,7 +191,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	assert(first.event(:aborted).happened?)
 	assert(first_agent.finished?)
 	assert(second.execution_agent)
-	assert(second.execution_agent.pending?)
+	assert(second.execution_agent.running?)
     end
 
     def test_cannot_respawn
