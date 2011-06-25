@@ -82,7 +82,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
         end
     end
 
-    def test_add_propagation_handlers_for_propagation_handler
+    def test_add_propagation_handlers_for_propagation
         FlexMock.use do |mock|
             handler = PropagationHandlerTest.new(plan, mock)
             id = engine.add_propagation_handler(:type => :propagation) { |plan| handler.handler(plan) }
@@ -105,6 +105,44 @@ class TC_ExecutionEngine < Test::Unit::TestCase
             handler.reset_event
             process_events
             assert_equal(0, handler.event.history.size)
+        end
+    end
+
+    def test_add_propagation_handlers_for_propagation_late
+        FlexMock.use do |mock|
+            plan.add_permanent(event = Roby::EventGenerator.new(true))
+            plan.add_permanent(late_event = Roby::EventGenerator.new(true))
+
+            index = -1
+            event.on { |_| mock.event_emitted(index += 1) }
+            late_event.on { |_| mock.late_event_emitted(index += 1) }
+
+
+            id = engine.add_propagation_handler(:type => :propagation) do |plan|
+                mock.handler_called(index += 1)
+                if !event.happened?
+                    event.emit
+                end
+            end
+            late_id = engine.add_propagation_handler(:type => :propagation, :late => true) do |plan|
+                mock.late_handler_called(index += 1)
+                if !late_event.happened?
+                    late_event.emit
+                end
+            end
+
+            mock.should_receive(:handler_called).with(0).once.ordered
+            mock.should_receive(:event_emitted).with(1).once.ordered
+            mock.should_receive(:handler_called).with(2).once.ordered
+            mock.should_receive(:late_handler_called).with(3).once.ordered
+            mock.should_receive(:late_event_emitted).with(4).once.ordered
+            mock.should_receive(:handler_called).with(5).once.ordered
+            mock.should_receive(:late_handler_called).with(6).once.ordered
+
+            process_events
+            engine.remove_propagation_handler(id)
+            engine.remove_propagation_handler(late_id)
+            process_events
         end
     end
 
@@ -428,7 +466,7 @@ class TC_ExecutionEngine < Test::Unit::TestCase
         start_node.on(:stop) { |ev| next_event = [if_node, :start] }
 	if_node.on(:stop) { |ev| }
             
-        engine.propagation_handlers << lambda do |plan|
+        engine.add_propagation_handler(:type => :external_events) do |plan|
             next unless next_event
             task, event = *next_event
             next_event = nil

@@ -183,19 +183,20 @@ module Roby
             attr_reader :description
             attr_reader :handler
             attr_reader :on_error
+            attr_predicate :late?, true
 
             def id; handler.object_id end
 
             def initialize(description, handler, options)
                 options = Kernel.validate_options options,
-                    :on_error => :raise
+                    :on_error => :raise, :late => false
 
                 if !PollBlockDefinition::ON_ERROR.include?(options[:on_error].to_sym)
                     raise ArgumentError, "invalid value '#{options[:on_error]} for the :on_error option. Accepted values are #{ON_ERROR.map(&:to_s).join(", ")}"
                 end
 
-                @description, @handler, @on_error =
-                    description, handler, options[:on_error]
+                @description, @handler, @on_error, @late =
+                    description, handler, options[:on_error], options[:late]
             end
 
             def call(engine)
@@ -260,6 +261,9 @@ module Roby
                 if handler_options[:type] == :propagation
                     propagation_handlers << new_handler
                 elsif handler_options[:type] == :external_events
+                    if new_handler.late?
+                        raise ArgumentError, "only :propagation handlers can be marked as 'late', the external event handlers cannot"
+                    end
                     external_events_handlers << new_handler
                 else
                     raise ArgumentError, "invalid value for the :type option. Expected :propagation or :external_events, got #{handler_options[:type]}"
@@ -445,6 +449,11 @@ module Roby
             super if defined? super
         end
 
+        # Returns true if some events are queued
+        def has_queued_events?
+            !@propagation.empty?
+        end
+
         # Sets up a propagation context, yielding the block in it. During this
         # propagation stage, all calls to #emit and #call are stored in an
         # internal hash of the form:
@@ -590,8 +599,12 @@ module Roby
         # Helper that calls the propagation handlers in +propagation_handlers+
         # (which are expected to be instances of PollBlockDefinition) and
         # handles the errors according of each handler's policy
-        def call_poll_blocks(blocks)
+        def call_poll_blocks(blocks, late = false)
             for handler in blocks
+                if handler.late? ^ late
+                    next
+                end
+
                 next if disabled_handlers.include?(handler)
                 if !handler.call(self)
                     disabled_handlers << handler
@@ -615,8 +628,13 @@ module Roby
             if scheduler
                 gather_framework_errors('scheduler') { scheduler.initial_events }
             end
-            call_poll_blocks(self.class.propagation_handlers)
-            call_poll_blocks(self.propagation_handlers)
+            call_poll_blocks(self.class.propagation_handlers, false)
+            call_poll_blocks(self.propagation_handlers, false)
+
+            if !has_queued_events?
+                call_poll_blocks(self.class.propagation_handlers, true)
+                call_poll_blocks(self.propagation_handlers, true)
+            end
         end
 
         # Calls its block in a #gather_propagation context and propagate events
