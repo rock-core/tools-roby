@@ -316,6 +316,7 @@ module Roby
             poll do
                 script.execute
             end
+            self
         end
     end
 end
