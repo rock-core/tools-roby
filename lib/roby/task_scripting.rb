@@ -19,6 +19,15 @@ module Roby
                 end
             end
 
+            def resolve_event_request(event_spec)
+                event =
+                    if event_spec.kind_of?(Event)
+                        event_spec.resolve(@task)
+                    else
+                        @task.event(event_spec)
+                    end
+            end
+
             def execute
                 while !@elements.empty?
                     top = @elements.first
@@ -36,6 +45,48 @@ module Roby
                 @task.send(*args, &block)
             end
         end
+
+        class Event
+            def initialize(chain, event_name)
+                @chain, @event_name = chain, event_name
+            end
+
+            def resolve(task)
+                task = task.resolve_role_path(@chain)
+                task.event(@event_name)
+            end
+
+            def to_s
+                @chain.map { |name| "#{name}_child" }.join(".") + ".#{@event_name}_event"
+            end
+        end
+
+        class Child
+            def initialize(chain)
+                @chain = chain
+            end
+
+            def method_missing(m, *args, &block)
+                if args.empty? && !block
+                    case m.to_s
+                    when /^(\w+)_child$/
+                        return Child.new(@chain.dup << $1)
+                    when /^(\w+)_event$/
+                        return Event.new(@chain, $1)
+                    end
+                end
+                super
+            end
+
+            def resolve(task)
+                task.resolve_role_path(@chain)
+            end
+
+            def to_s
+                @chain.map { |name| "#{name}_child" }.join(".")
+            end
+        end
+
 
         class DSLLoader
             attr_reader :script
@@ -61,38 +112,71 @@ module Roby
                 el.end_condition = PollEndCondition.new(script, options, &block)
             end
 
+            def with_description(description)
+                element_size = script.elements.size
+                yield
+            ensure
+                script.elements[element_size..-1].each do |el|
+                    el.description = description
+                end
+            end
+
             def execute(&block)
                 script.elements << Execute.new(script, &block)
             end
 
-            def wait(event_name)
-                done = false
-                execute do
-                    event(event_name).on do |_|
-                        done = true
+            def poll_until(event_spec, &block)
+                with_description "PollUntil(#{event_spec}): #{caller(1).first}" do
+                    done = false
+                    execute do
+                        event = resolve_event_request(event_spec)
+                        event.on { |_| done = true }
                     end
-                end
-                poll do
-                end
-                poll_end_if do
-                    done
+                    poll(&block)
+                    poll_end_if { done }
                 end
             end
 
-            def emit(event_name)
-                execute do
-                    event(event_name).emit
+            def wait(event_spec)
+                with_description "Wait(#{event_spec}): #{caller(1).first}" do
+                    poll_until(event_spec) { }
                 end
+            end
+
+            def emit(event_spec)
+                with_description "Emit(#{event_spec}): #{caller(1).first}" do
+                    execute do
+                        event = resolve_event_request(event_spec)
+                        event.emit
+                    end
+                end
+            end
+
+            def method_missing(m, *args, &block)
+                if args.empty? && !block
+                    case m.to_s
+                    when /^(\w+)_child$/
+                        child_name = $1
+                        return Child.new([child_name])
+                    when /^(\w+)_event$/
+                        return $1
+                    end
+                end
+                super
             end
         end
         
         class Base
+            attr_accessor :description
+
             def initialize(script, &block)
                 @script = script
                 if block
+                    @defined_at = caller(3).first
                     singleton_class.class_eval do
                         define_method(:do_execute, &block)
                     end
+                    @description = "#{self.class.name}: #{@defined_at}"
                 end
             end
 
@@ -103,13 +187,17 @@ module Roby
             end
 
             def method_missing(m, *args, &block)
-                if m == :execute
+                if m == :execute || !@script
                     super
                 end
                 @script.send(m, *args, &block)
             end
 
             def prepare(task)
+            end
+
+            def to_s
+                description
             end
         end
 

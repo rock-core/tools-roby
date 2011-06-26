@@ -152,5 +152,32 @@ class TC_TaskScripting < Test::Unit::TestCase
         3.times { process_events }
         assert_equal 1, counter
     end
+
+    def test_wait_for_child_event
+        model = Class.new(Roby::Tasks::Simple) do
+            event :intermediate
+        end
+        parent, child = prepare_plan :missions => 1, :add => 1, :model => model
+        parent.depends_on(child, :role => 'subtask')
+
+        counter = 0
+        parent.script do
+            wait intermediate_event
+            execute { counter += 1 }
+            wait subtask_child.intermediate_event
+            execute { counter += 1 }
+        end
+        parent.start!
+        child.start!
+
+        3.times { process_events }
+        assert_equal 0, counter
+        parent.emit :intermediate
+        3.times { process_events }
+        assert_equal 1, counter
+        child.emit :intermediate
+        3.times { process_events }
+        assert_equal 2, counter
+    end
 end
 
