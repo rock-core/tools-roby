@@ -105,6 +105,10 @@ module Roby::TaskStructure
             if path.size == 1 && path[0].respond_to?(:to_ary)
                 path = path[0]
             end
+            # Special case for ease of use in algorithms
+            if path.empty?
+                return self
+            end
 
             up_until_now = []
             path.inject(self) do |task, role|
