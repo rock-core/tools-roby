@@ -139,7 +139,7 @@ module Roby
                 if !found_header?
                     if new_data.size >= Logfile::PROLOGUE_SIZE
                         # This will read and validate the prologue
-                        Logfile.read_prologue(event_file)
+                        Logfile.read_prologue(StringIO.new(new_data))
                         new_data = new_data[Logfile::PROLOGUE_SIZE..-1]
                         @found_header = true
                     else
