@@ -9,10 +9,14 @@ module Roby
             end
 
             def initialize_copy(original)
+                super
+
                 @elements = original.dup
             end
 
             def prepare(task)
+                super if defined? super
+
                 @task = task
                 @elements.map do |el|
                     el.prepare(task)
@@ -41,8 +45,17 @@ module Roby
                 loader.load(&block)
             end
 
-            def method_missing(*args, &block)
-                @task.send(*args, &block)
+            def script_extensions(name, *args, &block)
+                super if defined? super
+            end
+
+            def method_missing(m, *args, &block)
+                return super if !@task
+
+                catch(:no_match) do
+                    return script_extensions(m, *args, &block)
+                end
+                @task.send(m, *args, &block)
             end
         end
 
