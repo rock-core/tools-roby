@@ -63,6 +63,10 @@ module Roby::TaskStructure
             end
         end
 
+        def roles
+            each_role.map { |_, roles| roles.to_a }.flatten.to_set
+        end
+
         def has_role?(role_name)
             !!child_from_role(role_name, false)
         end
