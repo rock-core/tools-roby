@@ -28,6 +28,8 @@ module Roby
 
             def self_owned?; true end
 
+            def executable?; false end
+
             def copy_to(copy)
                 mappings = super
                 copy.extend ReplayPlan
