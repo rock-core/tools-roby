@@ -424,6 +424,15 @@ module Roby::TaskStructure
                 end
             end
 	end
+
+        def method_missing(m, *args, &block)
+            if args.empty? && !block
+                if m.to_s =~ /^(\w+)_child$/
+                    return child_from_role($1)
+                end
+            end
+            super
+        end
     end
 
     def Dependency.validate_options(options)
