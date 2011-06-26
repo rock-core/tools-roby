@@ -78,4 +78,5 @@ require 'roby/log'
 require 'roby/robot.rb'
 require 'roby/planning.rb'
 require 'roby/state.rb'
+require 'roby/task_scripting.rb'
 
