@@ -61,17 +61,18 @@ class TC_TaskScripting < Test::Unit::TestCase
         assert_equal 3, counter
     end
 
-    def test_poll_end_if_executed_after
+    def test_poll_end_if
         task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
         counter = 0
         FlexMock.use do |mock|
             task.script do
                 poll do
                     counter += 1
-                end
-                poll_end_if do
-                    mock.test_called
-                    counter > 2
+
+                    end_if do
+                        mock.test_called
+                        counter > 2
+                    end
                 end
                 emit :success
             end
@@ -83,38 +84,16 @@ class TC_TaskScripting < Test::Unit::TestCase
         end
     end
 
-    def test_poll_end_if_executed_before
-        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
-        counter = 0
-        FlexMock.use do |mock|
-            task.script do
-                poll do
-                    counter += 1
-                end
-                poll_end_if(:before => true) do
-                    mock.test_called
-                    counter > 2
-                end
-                emit :success
-            end
-            task.start!
-
-            mock.should_receive(:test_called).times(4)
-            6.times { process_events }
-            assert_equal 3, counter
-        end
-    end
-
     def test_poll_delayed_end_condition
         task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
         counter = 0
         task.script do
             poll do
                 counter += 1
-            end
-            poll_end_if do
-                if counter > 2
-                    wait(2)
+                end_if do
+                    if counter > 2
+                        wait(2)
+                    end
                 end
             end
             emit :success

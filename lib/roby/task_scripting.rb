@@ -100,7 +100,6 @@ module Roby
             end
         end
 
-
         class DSLLoader
             attr_reader :script
 
@@ -114,15 +113,6 @@ module Roby
 
             def poll(&block)
                 script.elements << Poll.new(script, &block)
-            end
-
-            def poll_end_if(options = Hash.new, &block)
-                el = script.elements.last
-                if !el || !el.kind_of?(Poll)
-                    raise ArgumentError, "a poll_end_if statement must follow a poll statement"
-                end
-
-                el.end_condition = PollEndCondition.new(script, options, &block)
             end
 
             def with_description(description)
@@ -145,8 +135,10 @@ module Roby
                         event = resolve_event_request(event_spec)
                         event.on { |_| done = true }
                     end
-                    poll(&block)
-                    poll_end_if { done }
+                    poll do
+                        main(&block)
+                        end_if { done }
+                    end
                 end
             end
 
@@ -222,48 +214,55 @@ module Roby
         end
 
         class Poll < Base
-            attr_accessor :end_condition
+            attr_reader :end_conditions
             
-            def check_end_condition(called_before)
-                return false if !end_condition
-                return false if end_condition.execute_before? ^ called_before
+            def initialize(script, &block)
+                super
+                @end_conditions = Hash.new
+            end
 
-                new_condition = end_condition.execute
-                if new_condition.respond_to?(:execute) # there is a delay
-                    end_condition = new_condition
-                    false
-                elsif new_condition
-                    true
-                else
-                    false
+            def main(&block)
+                instance_eval(&block)
+            end
+
+            def end_if(&block)
+                call_site = caller(1)[5]
+                cond = end_conditions[call_site]
+                if !cond
+                    cond = [block, PollEndCondition.new(@script, &block)]
+                    end_conditions[call_site] = cond
+                end
+
+                new_condition = cond[1].execute
+                result = 
+                    if new_condition.respond_to?(:execute) # there is a delay
+                        cond[1] = new_condition
+                        false
+                    elsif new_condition
+                        true
+                    else
+                        false
+                    end
+
+                if result
+                    transition!
                 end
             end
 
-            def execute
-                if check_end_condition(true)
-                    return true
-                end
+            def transition!
+                throw :transition_required, true
+            end
 
+            def execute
                 transition = catch(:transition_required) do
                     do_execute
                     nil
                 end
-                if transition
-                    return true
-                end
-                check_end_condition(false)
+                return transition
             end
         end
 
         class PollEndCondition < Base
-            attr_predicate :execute_before?
-
-            def initialize(script, options, &block)
-                super(script, &block)
-                options = Kernel.validate_options options, :before => false
-                @execute_before = options[:before]
-            end
-
             def wait(timeout)
                 @wait_start = Time.now
                 @timeout = timeout
