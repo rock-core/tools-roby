@@ -147,6 +147,10 @@ module Roby::Log
 	# Creates an index file for +event_log+ in +index_log+
 	def self.rebuild_index(event_log, index_log)
 	    event_log.rewind
+            event_log.seek(0, IO::SEEK_END)
+            end_pos = event_log.tell
+	    event_log.rewind
+
             read_header(event_log)
 
 	    current_pos = event_log.tell
@@ -156,6 +160,10 @@ module Roby::Log
 		cycle = self.load_one_chunk(event_log)
 		info  = cycle.last.last
                 info[:pos] = current_pos
+
+                if block_given?
+                    yield(Float(event_log.tell) / end_pos)
+                end
 
 		dump(info, index_log, dump_io)
 		current_pos = event_log.tell
@@ -218,10 +226,17 @@ module Roby::Log
 
 	# Reads as much index data as possible
 	def update_index
+            pos = index_io.tell
+            index_io.seek(0, IO::SEEK_END)
+            end_pos = index_io.tell
+            index_io.seek(pos, IO::SEEK_SET)
+
 	    begin
 		pos = nil
 		loop do
 		    pos = index_io.tell
+                    yield(Float(pos) / end_pos) if block_given?
+
                     cycle = Logfile.load_one_chunk(index_io)
 		    index_data << cycle
 		end
@@ -229,7 +244,8 @@ module Roby::Log
 		index_io.seek(pos, IO::SEEK_SET)
 	    end
 
-	    return if index_data.empty?
+        rescue Exception => e
+            STDOUT.puts e
 	end
 
         def valid_index?
@@ -262,14 +278,28 @@ module Roby::Log
             read_header
 	    @index_io.rewind
 	    @index_data.clear
-	    update_index
+
+            STDOUT.puts caller.join("\n  ")
+
+            STDOUT.print "loading index file"
+            STDOUT.flush
+
+	    update_index do |progress|
+                STDOUT.print "\rloading index file (#{Integer(progress * 100)}%)"
+                STDOUT.flush
+            end
+            STDOUT.puts
 	end
 
 	def rebuild_index
-	    STDOUT.puts "rebuilding index file for #{basename}"
+	    STDOUT.print "rebuilding index file for #{basename}"
+
 	    @index_io.close if @index_io
 	    @index_io = File.open("#{basename}-index.log", 'w+')
-	    Logfile.rebuild_index(@event_io, @index_io)
+	    Logfile.rebuild_index(@event_io, @index_io) do |progress|
+                STDOUT.print "\rrebuilding index file for #{basename} (#{Integer(progress * 100)}%)"
+            end
+            STDOUT.puts
 	end
 
 	def self.open(path)
