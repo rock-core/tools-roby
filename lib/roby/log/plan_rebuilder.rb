@@ -163,7 +163,7 @@ module Roby
                     data = event_stream.read
                     if process(data)
                         relations = if !has_structure_updates? && !history.empty?
-                                        history.last[1].relations
+                                        history.last.relations
                                     end
                             
                         history << snapshot(relations)
@@ -194,7 +194,7 @@ module Roby
                 process(data)
                 if has_interesting_events? || @last_cycle_snapshotted
                     relations = if !has_structure_updates? && !history.empty?
-                                    history.last[1].relations
+                                    history.last.relations
                                 end
                     history << snapshot(relations)
                     result = true
