@@ -78,7 +78,6 @@ module Roby
 
             def analyze(stream, display_progress = true)
                 start = Time.now
-                stream.rewind
                 start_time, end_time = stream.range
 
                 dialog = Qt::ProgressDialog.new("Analyzing log file", "Quit", 0, (end_time - start_time))

@@ -26,9 +26,18 @@ module Roby
 
 	    def open(filename)
                 @logfile = Roby::Log.open(filename)
-		reinit!
+		find_start_cycle
 		self
 	    end
+
+            def find_start_cycle
+                start_cycle = 0
+                while start_cycle < index_data.size && index_data[start_cycle][:event_count] == 4
+                    start_cycle += 1
+                end
+                @start_cycle   = start_cycle
+		@current_cycle = start_cycle
+            end
 
 	    def close; @logfile.close end
 
@@ -42,13 +51,7 @@ module Roby
 	    # Reinitializes the stream
 	    def reinit!
 		rewind
-
-                start_cycle = 0
-                while start_cycle < index_data.size && index_data[start_cycle][:event_count] == 4
-                    start_cycle += 1
-                end
-                @start_cycle   = start_cycle
-		@current_cycle = start_cycle
+                find_start_cycle
             end
 
 	    # True if there is at least one sample available
