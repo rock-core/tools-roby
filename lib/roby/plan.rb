@@ -151,6 +151,13 @@ module Roby
 	    super() if defined? super
 	end
 
+        def dup
+            new_plan = Plan.new
+            new_plan.send(:initialize_copy, self)
+            copy_to(new_plan)
+            new_plan
+        end
+
 	def inspect # :nodoc:
 	    "#<#{to_s}: missions=#{missions.to_s} tasks=#{known_tasks.to_s} events=#{free_events.to_s} transactions=#{transactions.to_s}>"
 	end
@@ -167,6 +174,18 @@ module Roby
             end
         end
 
+        # Shallow copy of this plan's state (lists of tasks / events and their
+        # relations, but not copying the tasks themselves)
+        def copy_to(copy)
+            known_tasks.each { |t| copy.known_tasks << t }
+            free_events.each { |e| copy.free_events << e }
+            copy.instance_variable_set :@task_index, task_index.dup
+
+            missions.each { |t| copy.missions << t }
+            permanent_tasks.each  { |t| copy.permanent_tasks << t }
+            permanent_events.each { |e| copy.permanent_events << e }
+        end
+
         # Copies this plan's state (tasks, events and their relations) into the
         # provided plan
         #
@@ -175,7 +194,7 @@ module Roby
         #
         #   mapping = plan.copy_to(copy)
         #   mapping[t] => corresponding task in +copy+
-        def copy_to(copy)
+        def deep_copy_to(copy)
             mappings = Hash.new do |h, k|
                 if !self.include?(k)
                     raise InternalError, "#{k} is listed in a relation, but is not included in the corresponding plan #{self}"
@@ -194,6 +213,9 @@ module Roby
                 end
                 copy.add(new_t)
             end
+            missions.each { |t| copy.add_mission(t) }
+            permanent_tasks.each { |t| copy.add_permanent(t) }
+            permanent_events.each { |e| copy.add_permanent(e) }
             free_events.each do |e|
                 new_e = e.dup
                 mappings[e] = new_e

@@ -52,9 +52,13 @@ module Roby
                 @current_plan.owners.clear
                 Distributed.disable_ownership do
                     @current_plan.clear
-                    history[data][1].plan.copy_to(@current_plan)
+                    snapshot = history[data][1]
+                    @current_time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:end]
+                    snapshot.apply(@current_plan)
                 end
-                displays.each(&:update)
+                displays.each do |d|
+                    d.update(@current_time)
+                end
             end
 
             attr_reader :last_cycle
@@ -73,6 +77,7 @@ module Roby
             end
 
             def analyze(stream, display_progress = true)
+                start = Time.now
                 stream.rewind
                 start_time, end_time = stream.range
 
@@ -90,6 +95,7 @@ module Roby
                     end
                 end
                 dialog.dispose
+                puts "analyzed log file in %.2fs" % [Time.now - start]
             end
         end
 

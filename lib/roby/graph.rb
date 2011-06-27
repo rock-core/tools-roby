@@ -105,10 +105,13 @@ module BGL
 
 	def initialize_copy(source) # :nodoc:
 	    super
-
-	    source.each_vertex { |v| insert(v) }
-	    source.each_edge { |s, t, i| link(s, t, i) }
+            source.copy_to(self)
 	end
+
+        def copy_to(target)
+	    each_vertex { |v| target.insert(v) }
+	    each_edge { |s, t, i| target.link(s, t, i) }
+        end
 
 	# Replaces +from+ by +to+. This means +to+ takes the role of +from+ in
 	# all edges +from+ is involved in. +from+ is removed from the graph.

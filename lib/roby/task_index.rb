@@ -26,6 +26,14 @@ module Roby
 	    @repaired_tasks = ValueSet.new
 	end
 
+        def initialize_copy(source)
+            super
+            @by_model = source.by_model.dup
+            @by_state = source.by_state.dup
+            @by_owner = source.by_owner.dup
+            @repaired_tasks = source.repaired_tasks.dup
+        end
+
         # Add a new task to this index
 	def add(task)
 	    for klass in task.model.ancestors

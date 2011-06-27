@@ -31,49 +31,14 @@ module Roby
             def executable?; false end
 
             def copy_to(copy)
-                mappings = super
                 copy.extend ReplayPlan
-
-                copy.finalized_events = finalized_events.map do |gen|
-                    new_gen = gen.dup
-                    mappings[gen] = new_gen
-                    new_gen
-                end.to_value_set
-                copy.finalized_tasks  = finalized_tasks.map do |t|
-                    new_t = t.dup
-                    mappings[t] = new_t
-                    t.each_event do |ev|
-                        mappings[ev] = new_t.event(ev.symbol)
-                    end
-                    new_t
-                end.to_value_set
-
-                mapped = emitted_events.map do |flag, generator|
-                    [flag, mappings[generator]]
+                super
+                [:finalized_events, :finalized_tasks,
+                    :emitted_events,
+                    :propagated_events, :postponed_events,
+                    :failed_emissions, :failed_to_start].each do |m|
+                    copy.send("#{m}=", send(m).dup)
                 end
-                copy.emitted_events = mapped
-
-                mapped = propagated_events.map do |flag, source_gens, target_gen|
-                    [flag, source_gens.map { |g| mappings[g] }, mappings[target_gen]]
-                end
-                copy.propagated_events = mapped
-
-                mapped = postponed_events.map do |gen, until_gen|
-                    [mappings[gen], mappings[until_gen]]
-                end
-                copy.postponed_events = mapped
-                
-                mapped = failed_emissions.map do |gen, error|
-                    [mappings[gen], error]
-                end
-                copy.failed_emissions = mapped
-
-                mapped = failed_to_start.map do |task, reason|
-                    [mappings[task], reason]
-                end
-                copy.failed_to_start = mapped
-
-                mappings
             end
 
             def clear
@@ -233,7 +198,24 @@ module Roby
                 result
             end
 
-            PlanRebuilderSnapshot = Struct.new :stats, :state, :plan, :manager
+            PlanRebuilderSnapshot = Struct.new :stats, :state, :plan, :relations
+
+            class PlanRebuilderSnapshot
+                def apply(plan)
+                    relations.each do |rel_graph, rel_data|
+                        rel_graph.clear
+                        rel_data.copy_to(rel_graph)
+                    end
+                    plan.clear
+                    self.plan.copy_to(plan)
+                    [:finalized_events, :finalized_tasks,
+                        :emitted_events,
+                        :propagated_events, :postponed_events,
+                        :failed_emissions, :failed_to_start].each do |m|
+                        plan.send("#{m}=", self.plan.send(m).dup)
+                    end
+                end
+            end
 
             # Returns a copy of this plan rebuilder's state (including the plan
             # itself and the remote object manager).
@@ -241,14 +223,18 @@ module Roby
             # This snapshot can be used to synchronize this plan rebuilder state
             # with #apply_snapshot
             def snapshot
-                plan = Roby::Plan.new
+                plan = self.plan.dup
                 plan.extend ReplayPlan
-                Distributed.disable_ownership do
-                    mappings = self.plan.copy_to(plan)
-                    manager = PlanReplayPeer.new(plan)
-                    self.manager.copy_to(manager, mappings)
+
+                relations = Hash.new
+                Roby::TaskStructure.each_relation do |rel|
+                    relations[rel] = rel.dup
                 end
-                return PlanRebuilderSnapshot.new(stats, state, plan, manager)
+                Roby::EventStructure.each_relation do |rel|
+                    relations[rel] = rel.dup
+                end
+
+                return PlanRebuilderSnapshot.new(stats, state, plan, relations)
             end
 
             def create_remote_object_manager
@@ -577,6 +563,7 @@ module Roby
 		end
                 event = generator.new(event_context, event_id, event_time)
                 if generator.respond_to?(:task)
+                    generator.history << event
                     generator.task.update_task_status(event)
                 end
 		generator.plan.emitted_events << [(found_pending ? EVENT_CALLED_AND_EMITTED : EVENT_EMITTED), generator]

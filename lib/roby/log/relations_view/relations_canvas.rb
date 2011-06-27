@@ -213,21 +213,34 @@ module Roby
                 name
             end
 
-            def current_state
-                new_state = if failed_to_start?
-                                :finished
-                            elsif !plan
-                                :finalized
-                            else
-                                [:success, :finished, :running, :pending].
-                                    find { |flag| send("#{flag}?") } 
-                            end
-                new_state || :pending
+            def current_state(current_time)
+                if failed_to_start?
+                    return :finished
+                end
+
+                last_emitted_event = nil
+                history.each do |ev|
+                    break if ev.time > current_time
+                    last_emitted_event = ev
+                end
+
+                if !last_emitted_event
+                    return :pending
+                end
+
+                gen = last_emitted_event.generator
+                if !gen
+                    return :pending
+                elsif gen.terminal?
+                    return [:success, :finished, :running].find { |flag| send("#{flag}?") } 
+                else
+                    return :running
+                end
             end
 
             attr_reader :displayed_state
             def update_graphics(display, graphics_item)
-                new_state = current_state
+                new_state = current_state(display.current_time)
                 if displayed_state != new_state
                     graphics_item.brush = Qt::Brush.new(TASK_BRUSH_COLORS[new_state])
                     graphics_item.pen   = Qt::Pen.new(TASK_PEN_COLORS[new_state])
@@ -863,12 +876,16 @@ module Roby
                 object
             end
 
+            attr_reader :current_time
+
             # Update the display with new data that has come from the data
             # stream. 
             #
             # It would be too complex at this stage to know if the plan has been
             # updated, so the method always returns true
-	    def update
+	    def update(time)
+                @current_time = time
+
 		update_prefixes_removal
 		clear_flashing_objects
 
