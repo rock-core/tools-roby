@@ -883,8 +883,10 @@ module Roby
             #
             # It would be too complex at this stage to know if the plan has been
             # updated, so the method always returns true
-	    def update(time)
-                @current_time = time
+	    def update(time = nil)
+                if time
+                    @current_time = time
+                end
 
 		update_prefixes_removal
 		clear_flashing_objects
