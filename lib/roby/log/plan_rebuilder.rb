@@ -162,7 +162,11 @@ module Roby
                 while !event_stream.eof?
                     data = event_stream.read
                     if process(data)
-                        history << snapshot
+                        relations = if !has_structure_updates? && !history.empty?
+                                        history.last[1].relations
+                                    end
+                            
+                        history << snapshot(relations)
                     end
                     clear_integrated
                 end
@@ -189,7 +193,10 @@ module Roby
             def push_data(data)
                 process(data)
                 if has_interesting_events? || @last_cycle_snapshotted
-                    history << snapshot
+                    relations = if !has_structure_updates? && !history.empty?
+                                    history.last[1].relations
+                                end
+                    history << snapshot(relations)
                     result = true
                 end
                 @last_cycle_snapshotted = has_interesting_events?
@@ -222,16 +229,20 @@ module Roby
             #
             # This snapshot can be used to synchronize this plan rebuilder state
             # with #apply_snapshot
-            def snapshot
+            def snapshot(reused_relation_graphs = nil)
                 plan = self.plan.dup
                 plan.extend ReplayPlan
 
-                relations = Hash.new
-                Roby::TaskStructure.each_relation do |rel|
-                    relations[rel] = rel.dup
-                end
-                Roby::EventStructure.each_relation do |rel|
-                    relations[rel] = rel.dup
+                if reused_relation_graphs
+                    relations = reused_relation_graphs
+                else
+                    relations = Hash.new
+                    Roby::TaskStructure.each_relation do |rel|
+                        relations[rel] = rel.dup
+                    end
+                    Roby::EventStructure.each_relation do |rel|
+                        relations[rel] = rel.dup
+                    end
                 end
 
                 return PlanRebuilderSnapshot.new(stats, state, plan, relations)
