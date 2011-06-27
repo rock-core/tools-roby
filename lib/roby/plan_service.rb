@@ -48,7 +48,7 @@ module Roby
 
             # Register event handlers for all events that have a definition
             event_handlers.each_key do |event|
-                new_task.on(event, &method(:__handle_event__))
+                new_task.on(event, :on_replace => :drop, &method(:__handle_event__))
             end
         end
 
@@ -108,7 +108,7 @@ module Roby
             if event_handlers.has_key?(event)
                 event_handlers[event] << block
             else
-                task.on(event, &method(:__handle_event__))
+                task.on(event, :on_replace => :drop, &method(:__handle_event__))
                 (event_handlers[event] = Array.new) << block
             end
         end
