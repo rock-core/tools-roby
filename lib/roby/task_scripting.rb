@@ -1,11 +1,16 @@
 module Roby
     module TaskScripting
+        extend Logger::Forward
+        extend Logger::Hierarchy
+
         class Script
             attr_reader :elements
-            attr_reader :queue
+
+            attr_reader :logger
 
             def initialize
                 @elements = []
+                @logger = Roby::TaskScripting
             end
 
             def initialize_copy(original)
@@ -13,6 +18,12 @@ module Roby
 
                 @elements = original.dup
             end
+
+            def setup_logger(logger)
+                @logger = logger
+            end
+
+            include Logger::Forward
 
             def prepare(task)
                 super if defined? super
@@ -35,6 +46,7 @@ module Roby
             def execute
                 while !@elements.empty?
                     top = @elements.first
+                    info "executing #{top}"
                     return if !top.execute
                     @elements.shift
                 end
@@ -109,6 +121,10 @@ module Roby
 
             def load(&block)
                 instance_eval(&block)
+            end
+
+            def setup_logger(logger)
+                script.setup_logger(logger)
             end
 
             def poll(&block)
