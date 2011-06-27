@@ -89,7 +89,7 @@ module Roby::Log
         # hash
         def self.read_header(io)
             read_prologue(io)
-            self.load(io)
+            self.load_one_chunk(io)
         end
 
         def read_header
@@ -117,7 +117,7 @@ module Roby::Log
         # Load a chunk of data from an event file.  +buffer+, if given, must be
         # a String object that will be used as intermediate buffer in the
         # process
-        def self.load(io)
+        def self.load_one_chunk(io)
             data_size = io.read(4)
             if !data_size
                 raise TruncatedFileError
@@ -131,8 +131,8 @@ module Roby::Log
             Marshal.load_with_missing_constants(buffer)
         end
 
-        def load
-            Logfile.load(@event_io)
+        def load_one_chunk
+            Logfile.load_one_chunk(@event_io)
         end
 
         def self.process_options_hash(options_hash)
@@ -153,7 +153,7 @@ module Roby::Log
 	    dump_io	= StringIO.new("", 'w')
 
 	    loop do
-		cycle = self.load(event_log)
+		cycle = self.load_one_chunk(event_log)
 		info  = cycle.last.last
                 info[:pos] = current_pos
 
@@ -222,7 +222,7 @@ module Roby::Log
 		pos = nil
 		loop do
 		    pos = index_io.tell
-                    cycle = Logfile.load(index_io)
+                    cycle = Logfile.load_one_chunk(index_io)
 		    index_data << cycle
 		end
 	    rescue EOFError
@@ -239,7 +239,7 @@ module Roby::Log
 
                 event_io.seek(index[:pos])
                 cycle = begin
-                    self.load
+                    self.load_one_chunk
                 rescue EOFError
                     return false
                 rescue ArgumentError
