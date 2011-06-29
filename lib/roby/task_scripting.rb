@@ -46,9 +46,9 @@ module Roby
             def execute
                 while !@elements.empty?
                     top = @elements.first
-                    info "executing #{top}"
                     return if !top.execute
-                    @elements.shift
+                    top = @elements.shift
+                    info "executing #{top}"
                 end
             end
 
