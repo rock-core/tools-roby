@@ -516,7 +516,9 @@ module Roby
 	    models_search.each do |base_dir|
 		next unless File.directory?(base_dir)
 		Dir.new(base_dir).each do |file|
-		    if File.file?(file) && file =~ /\.rb$/ && file !~ 'main\.rb$'
+                    file = File.join(base_dir, file)
+		    if File.file?(file) && file =~ /\.rb$/ && file !~ /main\.rb$/
+                        puts "REQUIRE #{file}"
 			require file
 		    end
 		end
