@@ -328,6 +328,10 @@ module Roby
                 s
             end
 
+            for s in scripts
+                s.execute
+            end
+
             poll do
                 for s in scripts
                     s.execute
@@ -340,9 +344,11 @@ module Roby
             script.load(&block)
             if running?
                 script.prepare(self)
+                script.execute
             else
                 on(:start) do |event|
                     script.prepare(event.task)
+                    script.execute
                 end
             end
             poll do
