@@ -169,8 +169,8 @@ module Roby
                         end
                     end
                 else
-                    with_description "Wait(#{event_spec}): #{caller(1).first}" do
-                        poll_until(event_spec) { }
+                    with_description "Wait(#{event_spec_or_time}): #{caller(1).first}" do
+                        poll_until(event_spec_or_time) { }
                     end
                 end
             end
