@@ -158,5 +158,28 @@ class TC_TaskScripting < Test::Unit::TestCase
         3.times { process_events }
         assert_equal 2, counter
     end
+
+    def test_wait_for_duration
+        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
+
+        FlexMock.use(Time) do |mock|
+            time = Time.now
+            mock.should_receive(:now).and_return { time }
+            task.script do
+                wait 5
+                emit :success
+            end
+
+            task.start!
+            process_events
+            assert !task.finished?
+            time = time + 3
+            process_events
+            assert !task.finished?
+            time = time + 3
+            process_events
+            assert task.finished?
+        end
+    end
 end
 

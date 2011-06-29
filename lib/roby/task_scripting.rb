@@ -158,9 +158,20 @@ module Roby
                 end
             end
 
-            def wait(event_spec)
-                with_description "Wait(#{event_spec}): #{caller(1).first}" do
-                    poll_until(event_spec) { }
+            def wait(event_spec_or_time)
+                if event_spec_or_time.kind_of?(Numeric)
+                    with_description "Wait(#{event_spec_or_time}): : #{caller(1).first}" do
+                        start_time = nil
+                        execute { start_time = Time.now }
+                        poll do
+                            main { }
+                            end_if { (Time.now - start_time) > event_spec_or_time }
+                        end
+                    end
+                else
+                    with_description "Wait(#{event_spec}): #{caller(1).first}" do
+                        poll_until(event_spec) { }
+                    end
                 end
             end
 
