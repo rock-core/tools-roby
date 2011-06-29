@@ -262,6 +262,10 @@ module Roby
 	#   plan.partition_event_task(objects) => events, tasks
 	#
 	def partition_event_task(objects)
+            if objects.respond_to?(:as_plan)
+                objects = objects.as_plan
+            end
+
 	    if objects.respond_to?(:to_task) then return nil, [objects.to_task]
 	    elsif objects.respond_to?(:to_event) then return [objects.to_event], nil
 	    elsif !objects.respond_to?(:each)
@@ -269,6 +273,10 @@ module Roby
 	    end
 
 	    evts, tasks = objects.partition do |o|
+                if o.respond_to?(:as_plan)
+                    o = o.as_plan
+                end
+
 		if o.respond_to?(:to_event) then true
 		elsif o.respond_to?(:to_task) then false
 		else raise ArgumentError, "found #{o || 'nil'} which is neither a task nor an event"
