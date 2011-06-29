@@ -131,13 +131,19 @@ module Roby
                 script.elements << Poll.new(script, &block)
             end
 
-            def with_description(description)
+            def describe(description)
+                @next_description = description
+            end
+
+            def with_description(fallback_description)
                 element_size = script.elements.size
                 yield
+
             ensure
                 script.elements[element_size..-1].each do |el|
-                    el.description = description
+                    el.description = @next_description || fallback_description
                 end
+                @next_description = nil
             end
 
             def execute(&block)
