@@ -305,7 +305,7 @@ module Roby
     end
     def self.do_display_exception(io, e)
         first_line = true
-        io.puts
+        io.puts ""
         format_exception(e).each do |line|
             if first_line
                 io.print color("= ", :bold, :red)
