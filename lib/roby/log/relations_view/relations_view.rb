@@ -250,6 +250,36 @@ class Ui::RelationsView
 	#############################################################
 	# Handle the other toolbar's buttons
 	graphics.singleton_class.class_eval do
+            define_method(:mouseDoubleClickEvent) do |event|
+		item = itemAt(event.pos)
+		if item
+		    unless obj = display.object_of(item)
+			return super(event)
+		    end
+		end
+
+		return unless obj.kind_of?(Roby::LogReplay::RelationsDisplay::DisplayTask)
+
+                text = []
+                text << "<b>History</b>"
+                if obj.failed_to_start?
+                    text << "Failed to start"
+                    text.concat(Roby.format_exception(obj.failure_reason))
+                else
+                    obj.history.each do |event| 
+                        time = event.time
+                        time = "#{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
+                        text << "  #{time}: #{event.symbol}"
+                    end
+                end
+
+                @textview ||= Qt::TextEdit.new
+                @textview.windowTitle = "Details for #{obj}"
+                @textview.readOnly = true
+                @textview.text = text.join("<br>\n")
+                @textview.show
+            end
+
 	    define_method(:contextMenuEvent) do |event|
 		item = itemAt(event.pos)
 		if item
