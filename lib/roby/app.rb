@@ -518,7 +518,6 @@ module Roby
 		Dir.new(base_dir).each do |file|
                     file = File.join(base_dir, file)
 		    if File.file?(file) && file =~ /\.rb$/ && file !~ /main\.rb$/
-                        puts "REQUIRE #{file}"
 			require file
 		    end
 		end
