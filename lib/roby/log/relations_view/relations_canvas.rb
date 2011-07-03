@@ -192,6 +192,8 @@ module Roby
                 rect.text = text
                 rect.z_value = TASK_LAYER
 
+                @width, @height = nil
+
                 rect.set_data(0, Qt::Variant.new(self.object_id.to_s))
                 rect
             end
