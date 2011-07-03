@@ -305,10 +305,12 @@ module Roby
                     return
                 end
 
-                current, @update_all = @update_all, true
-                yield
-            ensure
-                @update_all = current
+                begin
+                    current, @update_all = @update_all, true
+                    yield
+                ensure
+                    @update_all = current
+                end
             end
 
             def enable_ownership
