@@ -468,6 +468,16 @@ module Roby
                 announce_structure_update
                 return parent, rel, child
 	    end
+
+            def updated_task_relation(time, parent, rel, child, info)
+		parent = local_object(parent)
+		child  = local_object(child)
+                info   = local_object(info)
+		rel    = rel.first if rel.kind_of?(Array)
+		rel    = local_object(rel)
+                parent[child, rel] = info
+            end
+
 	    def added_event_child(time, parent, rel, child, info)
 		parent = local_object(parent)
 		child  = local_object(child)

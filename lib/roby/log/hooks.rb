@@ -18,7 +18,7 @@ module Roby::Log
     Roby::BasicObject.include BasicObjectHooks
 
     module TaskHooks
-	HOOKS = %w{added_task_child removed_task_child task_failed_to_start}
+	HOOKS = %w{added_task_child removed_task_child task_failed_to_start updated_task_relation}
 
 	def updated_edge_info(child, relation, info)
 	    super if defined? super

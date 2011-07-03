@@ -182,6 +182,15 @@ module Roby
                 end
             end
         end
+
+        def []=(object, relation, value)
+            super
+
+            if respond_to?(:updated_edge_info)
+                updated_edge_info(object, relation, value)
+            end
+            relation.updated_info(self, object, value)
+        end
     end
 
     # This class manages the graph defined by an object relation in Roby.
@@ -314,9 +323,6 @@ module Roby
                     end
                 end
                 from[to, self] = info
-                if from.respond_to?(:updated_edge_info)
-                    from.updated_edge_info(to, self, info)
-                end
                 return
             end
 
@@ -341,7 +347,12 @@ module Roby
 	    end
 	end
 
+        def updated_info(from, to, info)
+            super if defined? super
+        end
+
         def merge_info(from, to, old, new)
+            super if defined? super
         end
 
 	alias :__bgl_link :link
