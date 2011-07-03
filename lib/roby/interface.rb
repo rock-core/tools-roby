@@ -555,6 +555,8 @@ help                              | this help message                           
         def verify_no_drbobject(object)
             if object.kind_of?(DRbObject)
                 raise ArgumentError, "found a DRbObject"
+            elsif object.respond_to?(:to_str) # on ruby 1.8, strings respond to #each ...
+                return
             elsif object.respond_to?(:each)
                 object.each do |*values|
                     values.each do |v|
