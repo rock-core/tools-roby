@@ -320,6 +320,10 @@ module Roby
         #   of the mission, i.e. if there is a path in the relation graphs where
         #   the mission is the source and the task is the target.
         def add_mission(task)
+            if task.respond_to?(:as_plan)
+                task = task.as_plan
+            end
+
 	    return if @missions.include?(task)
 
 	    @missions << task
@@ -387,6 +391,10 @@ module Roby
         #
         # See also #unmark_permanent and #permanent?
 	def add_permanent(object)
+            if object.respond_to?(:as_plan)
+                object = object.as_plan
+            end
+
             if object.kind_of?(Task)
                 @permanent_tasks << object
             else
