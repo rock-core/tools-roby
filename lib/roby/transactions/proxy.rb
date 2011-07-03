@@ -184,9 +184,11 @@ module Roby
 		    find_all { |obj| plan[obj, false] }.
 		    to_value_set
 
+                new = (trsc_others - plan_others)
+                existing = (trsc_others - new)
 		del = (plan_others - trsc_others)
 
-		yield(trsc_objects, rel, trsc_others, del)
+		yield(trsc_objects, rel, new, del, existing)
 	    end
 	end
 
@@ -200,22 +202,28 @@ module Roby
 	# the proxy on the proxied object
         def commit_transaction
 	    real_object = __getobj__
-	    partition_new_old_relations(:parent_objects) do |trsc_objects, rel, new, del|
+	    partition_new_old_relations(:parent_objects) do |trsc_objects, rel, new, del, existing|
 		for other in new
 		    other.add_child_object(real_object, rel, trsc_objects[other][self, rel])
 		end
 		for other in del
 		    other.remove_child_object(real_object, rel)
 		end
+                for other in existing
+                    other[real_object, rel] = trsc_objects[other][self, rel]
+                end
 	    end
 
-	    partition_new_old_relations(:child_objects) do |trsc_objects, rel, new, del|
+	    partition_new_old_relations(:child_objects) do |trsc_objects, rel, new, del, existing|
 		for other in new
 		    real_object.add_child_object(other, rel, self[trsc_objects[other], rel])
 		end
 		for other in del
 		    real_object.remove_child_object(other, rel)
 		end
+                for other in existing
+                    real_object[other, rel] = self[trsc_objects[other], rel]
+                end
 	    end
 
             super

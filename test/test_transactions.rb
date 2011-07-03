@@ -523,6 +523,13 @@ module TC_TransactionBehaviour
             assert_equal Hash[0, 1, 2, 3], t1[t2, rel]
         end
         assert_equal Hash[0, 5, 2, 3, 4, 5], t1[t2, rel]
+
+        transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+            p1[p2, rel] = Hash[0, 5, 4, 5]
+            assert_equal Hash[0, 5, 4, 5], p1[p2, rel]
+            assert_equal Hash[0, 5, 2, 3, 4, 5], t1[t2, rel]
+        end
+        assert_equal Hash[0, 5, 4, 5], t1[t2, rel]
     end
 
     def test_commit_event_relations
