@@ -680,7 +680,7 @@ module Roby
                         end
                     end
                     if @ignore
-                        throw :ignore
+                        throw :filter_ignore_cycle
                     else
                         return @label
                     end
@@ -752,7 +752,7 @@ module Roby
             # filters
             def filtered_out_event?(generator)
                 event_filters.each do |filter|
-                    result = catch(:ignore) do
+                    result = catch(:filter_ignore_cycle) do
                         filter.match(generator)
                         true
                     end
