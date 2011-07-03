@@ -75,7 +75,7 @@ module Roby
     @logger = Logger.new(STDERR)
     @logger.level = Logger::WARN
     @logger.progname = "Roby"
-    @logger.formatter = lambda { |severity, time, progname, msg| "#{time.to_hms} (#{progname}) #{msg}\n" }
+    @logger.formatter = lambda { |severity, time, progname, msg| "#{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]} (#{progname}) #{msg}\n" }
 
     extend Logger::Hierarchy
     extend Logger::Forward
