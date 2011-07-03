@@ -498,6 +498,10 @@ module Roby
 
         # Loads the models, based on the given robot name and robot type
 	def require_models
+            if shell?
+                return
+            end
+
 	    # Require all common task models and the task models specific to
 	    # this robot
             list_dir('tasks') { |p| require(p) }
