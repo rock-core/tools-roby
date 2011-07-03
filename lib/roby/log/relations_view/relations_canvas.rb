@@ -916,9 +916,12 @@ module Roby
 		    all_events.merge plan.free_events
 		    all_events.merge plan.finalized_events
 		end
+                all_task_events = all_tasks.inject(ValueSet.new) do |all_task_events, task|
+                    all_task_events.merge(task.bound_events.values.to_value_set)
+                end
 
 		# Remove the items for objects that don't exist anymore
-		(graphics.keys.to_value_set - all_tasks - all_events).each do |obj|
+		(graphics.keys.to_value_set - all_tasks - all_events - all_task_events).each do |obj|
 		    selected_objects.delete(obj)
 		    remove_graphics(graphics.delete(obj))
 		    clear_arrows(obj)
@@ -1022,6 +1025,9 @@ module Roby
                             RelationsDisplay.arrow_set(arrow, self[from], self[to])
                         end
                     end
+                end
+                arrows.each do |_, item|
+                    item.visible = true
                 end
                 @free_arrows = last_arrows.values
                 free_arrows.each do |item|
