@@ -1239,6 +1239,14 @@ module Roby
 
                 break if local_tasks.empty?
 
+                ExecutionEngine.debug do
+                    ExecutionEngine.debug "#{local_tasks.size} tasks are unneeded in this plan"
+                    local_tasks.each do |t|
+                        ExecutionEngine.debug "  #{t} #{plan.mission?(t)} #{plan.permanent?(t)}"
+                    end
+                    break
+                end
+
                 if local_tasks.all? { |t| t.pending? || t.finished? }
                     local_tasks.each do |t|
                         ExecutionEngine.debug { "GC: #{t} is not running, removed" }
