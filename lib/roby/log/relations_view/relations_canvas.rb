@@ -443,6 +443,11 @@ module Roby
 	    # A [object, object, relation] => GraphicsItem mapping of arrows
 	    attr_reader :arrows
 
+	    # A [object, object, relation] => GraphicsItem mapping of arrows
+	    attr_reader :last_arrows
+
+            attr_reader :free_arrows
+
 	    # A DRbObject => GraphicsItem mapping
 	    attr_reader :graphics
 
@@ -474,6 +479,7 @@ module Roby
 		@visible_objects   = ValueSet.new
 		@flashing_objects  = Hash.new
 		@arrows            = Hash.new
+                @free_arrows       = Array.new
 		@enabled_relations = Set.new
 		@layout_relations  = Set.new
 		@relation_colors   = Hash.new
@@ -557,12 +563,17 @@ module Roby
             # Creates or reuses an arrow object to represent the given relation
 	    def arrow(from, to, rel, info, base_layer)
 		id = [from, to, rel]
-		unless item = arrows[id]
-		    item = (arrows[id] ||= scene.add_arrow(ARROW_SIZE))
-		    item.z_value      = base_layer - 1
-		    item.pen   = item.line.pen = relation_pens[rel]
-		    item.brush = relation_brushes[rel]
-		end
+                if !(item = arrows[id])
+                    if item = last_arrows.delete(id)
+                        arrows[id] = item
+                    else
+                        item = arrows[id] = (free_arrows.pop || scene.add_arrow(ARROW_SIZE))
+                        item.z_value      = base_layer - 1
+                        item.pen   = item.line.pen = relation_pens[rel]
+                        item.brush = relation_brushes[rel]
+                    end
+                end
+
 		RelationsDisplay.arrow_set item, self[from], self[to]
 	    end
 
@@ -888,6 +899,9 @@ module Roby
                     @current_time = time
                 end
 
+                @last_arrows, @arrows = arrows, Hash.new
+                @free_arrows ||= Array.new
+
 		update_prefixes_removal
 		clear_flashing_objects
 
@@ -1007,6 +1021,12 @@ module Roby
                         end
                     end
                 end
+                @free_arrows = last_arrows.values
+                free_arrows.each do |item|
+                    item.visible = false
+                end
+                last_arrows.clear
+
 		# ... and hide the remaining arrows that are not used anymore
 		if signal_arrow_idx + 1 < signal_arrows.size
 		    signal_arrows[(signal_arrow_idx + 1)..-1].each do |arrow| 
@@ -1039,6 +1059,8 @@ module Roby
 		arrows.dup.each_value(&method(:remove_graphics))
 		graphics.dup.each_value(&method(:remove_graphics))
 		arrows.clear
+                free_arrows.clear
+                last_arrows.clear
 		graphics.clear
 
 		signal_arrows.each do |arrow|
