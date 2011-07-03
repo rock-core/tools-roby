@@ -184,10 +184,9 @@ module Roby
 		    find_all { |obj| plan[obj, false] }.
 		    to_value_set
 
-		new = (trsc_others - plan_others)
 		del = (plan_others - trsc_others)
 
-		yield(trsc_objects, rel, new, del)
+		yield(trsc_objects, rel, trsc_others, del)
 	    end
 	end
 

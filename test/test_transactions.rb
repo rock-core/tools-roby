@@ -491,6 +491,13 @@ module TC_TransactionBehaviour
 	end
 	assert(!Hierarchy.linked?(t1, t2))
 
+	transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+	    p1.depends_on(p2)
+	    assert(Hierarchy.linked?(p1, p2))
+	    assert(!Hierarchy.linked?(t1, t2))
+	end
+	assert(Hierarchy.linked?(t1, t2))
+
 	transaction_commit(plan, t3, t4) do |trsc, p3, p4|
 	    trsc.remove_object(p3)
 	    assert(!trsc.include?(p3))
@@ -498,6 +505,24 @@ module TC_TransactionBehaviour
 	    assert(PlannedBy.linked?(t3, t4))
 	end
 	assert(PlannedBy.linked?(t3, t4))
+    end
+
+    def test_commit_modified_relations
+	space = Roby::RelationSpace(Roby::Task)
+        rel = space.relation 'TestR'
+        def rel.merge_info(from, to, old, new)
+            old.merge(new)
+        end
+
+	(t1, t2) = prepare_plan(:add => 2)
+
+        t1.add_test_r(t2, Hash[0, 1, 2, 3])
+        transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+            p1.add_test_r(p2, Hash[0, 5, 4, 5])
+            assert_equal Hash[0, 5, 2, 3, 4, 5], p1[p2, rel]
+            assert_equal Hash[0, 1, 2, 3], t1[t2, rel]
+        end
+        assert_equal Hash[0, 5, 2, 3, 4, 5], t1[t2, rel]
     end
 
     def test_commit_event_relations
