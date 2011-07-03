@@ -1521,8 +1521,9 @@ module Roby
 
         def failed_to_start?; !!@failed_to_start end
 
-        def failed_to_start!(reason)
+        def failed_to_start!(reason, time = Time.now)
             @failed_to_start = true
+            @failed_to_start_time = time
             @failure_reason = reason
             plan.task_index.set_state(self, :failed?)
 
@@ -1714,6 +1715,9 @@ module Roby
         # If it is a LocalizedError object, it is the exception that caused the
         # task failure.
         attr_reader :failure_reason
+
+        # The time at which the task failed to start
+        attr_reader :failed_to_start_time
 
         # The event that caused this task to fail. This is equivalent to taking
         # the first emitted element of

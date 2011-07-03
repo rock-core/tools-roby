@@ -41,7 +41,7 @@ module Roby
                 time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:real_start]
 
                 item = Qt::ListWidgetItem.new(list)
-                item.text = "@#{cycle} - #{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
+                item.text = "@#{cycle} - #{Roby.format_time(time)}"
                 item.setData(Qt::UserRole, Qt::Variant.new(cycle))
                 history[cycle] = [time, snapshot, item]
             end

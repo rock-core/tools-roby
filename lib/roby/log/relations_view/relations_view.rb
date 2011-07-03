@@ -263,8 +263,8 @@ class Ui::RelationsView
                 text = []
                 text << "<b>History</b>"
                 if obj.failed_to_start?
-                    text << "Failed to start"
-                    text.concat(Roby.format_exception(obj.failure_reason))
+                    text << "Failed to start at #{Roby.format_time(obj.failed_to_start_time)}"
+                    text.concat(Roby.format_exception(obj))
                 else
                     obj.history.each do |event| 
                         time = event.time

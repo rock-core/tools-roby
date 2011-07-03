@@ -217,7 +217,11 @@ module Roby
 
             def current_state(current_time)
                 if failed_to_start?
-                    return :finished
+                    if failed_to_start_time > current_time
+                        return :pending
+                    else
+                        return :finished
+                    end
                 end
 
                 last_emitted_event = nil

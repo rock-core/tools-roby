@@ -72,10 +72,14 @@ module DRb
 end
 
 module Roby
+    def self.format_time(time)
+        "#{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
+    end
+
     @logger = Logger.new(STDERR)
     @logger.level = Logger::WARN
     @logger.progname = "Roby"
-    @logger.formatter = lambda { |severity, time, progname, msg| "#{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]} (#{progname}) #{msg}\n" }
+    @logger.formatter = lambda { |severity, time, progname, msg| "#{Roby.format_time(time)} (#{progname}) #{msg}\n" }
 
     extend Logger::Hierarchy
     extend Logger::Forward
