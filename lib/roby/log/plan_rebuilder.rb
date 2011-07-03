@@ -57,6 +57,34 @@ module Roby
             end
         end
 
+        # Support to unmarshal transactions while doing log replay
+        #
+        # This is normally forbidden in dRoby. This module adds support for it
+        # in case of log replay. It gets mixed-in Transaction::DRoby instances
+        # in PlanRebuilder#local_object
+        module TransactionLogRebuilder
+            class ReplayedTransaction < Roby::Plan
+                include ReplayPlan
+            end
+            def proxy(object_manager)
+                ReplayedTransaction.new
+            end
+        end
+
+        # Support to unmarshal transactions while doing log replay
+        #
+        # Plan objects, while being unmarshalled, usually add themselves to
+        # whatever plan they are part of
+        #
+        # This is fine *unless* you want to support transactions without having
+        # to go through the normal transaction commit process. So, we disable
+        # that and make sure the plan rebuilder takes care of it
+        module PlanObjectLogRebuilder
+            def update(peer, proxy)
+                BasicObject::DRoby.instance_method(:update).bind(self).call(peer, proxy)
+            end
+        end
+
         module PlanReplayTaskModel
             def create_remote_event(symbol, peer, marshalled_event)
                 event_model = self.model.
@@ -111,6 +139,31 @@ module Roby
                 "log_replay"
             end
             def name; remote_name end
+
+	    def local_object(object, create = true)
+		return nil unless object
+
+                if object.kind_of?(Roby::Transaction::DRoby)
+                    # Cannot use the normal proxying mechanism for transactions,
+                    # as it is not supported on dRoby
+                    # Extend this DRoby object with unmarshalling support
+                    object.extend TransactionLogRebuilder
+                end
+
+                if object.kind_of?(Roby::PlanObject::DRoby)
+                    object.extend PlanObjectLogRebuilder
+                end
+                if object.kind_of?(Roby::Task::Proxying::DRoby)
+                    throw :ignored
+                end
+                if object.kind_of?(Roby::TaskEventGenerator::DRoby) && object.task.kind_of?(Roby::Task::Proxying::DRoby)
+                    throw :ignored
+                end
+                super
+
+            rescue Roby::Distributed::MissingProxyError
+                throw :ignored
+            end
         end
 
 	# This class rebuilds a plan-like structure from events saved by a
@@ -252,7 +305,6 @@ module Roby
 		manager = PlanReplayPeer.new(plan)
                 manager.use_local_sibling = false
                 manager.proxies[Distributed.remote_id] = manager
-                plan.owners << manager
                 manager
             end
 	    
@@ -310,20 +362,7 @@ module Roby
 	    end
 
 	    def local_object(object, create = true)
-		return nil unless object
-
-                if object.kind_of?(Roby::Task::Proxying::DRoby)
-                    throw :ignored
-                end
-                if object.kind_of?(Roby::TaskEventGenerator::DRoby) && object.task.kind_of?(Roby::Task::Proxying::DRoby)
-                    throw :ignored
-                end
-                object = manager.local_object(object, create)
-                object
-
-            rescue Roby::Distributed::MissingProxyError
-                #puts "WARN: ignoring missing proxy error, probably due to the fact that we ignore transactions completely"
-                throw :ignored
+                return manager.local_object(object, create)
 	    end
 
 	    def clear_integrated
@@ -353,8 +392,15 @@ module Roby
 	    end
 	    def added_tasks(time, plan, tasks)
 		plan = local_object(plan)
-		tasks.each do |t| 
-		    plan.add(local_object(t))
+		local_tasks = tasks.map do |remote_task| 
+                    task = local_object(remote_task)
+                    if task.plan
+                        task.plan.known_tasks.delete(task)
+                    end
+                    task
+                end
+                local_tasks.each do |task|
+		    plan.add(task)
 		end
                 announce_structure_update
 	    end
@@ -377,15 +423,14 @@ module Roby
                 announce_structure_update
 	    end
 	    def added_transaction(time, plan, trsc)
-		# plan = local_object(plan)
-		# trsc = local_object(trsc, true)
-                # plans << trsc
+		plan = local_object(plan)
+		trsc = local_object(trsc, true)
+                plans << trsc
 	    end
 	    def removed_transaction(time, plan, trsc)
-		# plan = local_object(plan)
-		# trsc = local_object(trsc)
-		# trsc.clear_finalized(trsc.finalized_tasks, trsc.finalized_events)
-		# plans.delete(trsc)
+		plan = local_object(plan)
+		trsc = local_object(trsc)
+		plans.delete(trsc)
 	    end
 
 	    GENERATOR_TO_STATE = { :start => :started,

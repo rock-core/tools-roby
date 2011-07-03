@@ -376,13 +376,58 @@ module Roby
     end
 
     module Distributed
+        # Exception thrown if a local transaction is being unmarshalled
+        class LocalTransactionProxyError < NotImplementedError; end
+    end
+
+    class Transaction
+        # Returns an intermediate representation of +self+ suitable to be sent
+        # to the +dest+ peer.
+	def droby_dump(dest)
+	    @__droby_marshalled__ ||= DRoby.new(Roby::Distributed.droby_dump(dest), remote_id, Roby::Distributed.format(plan, dest))
+	end
+
+        # An intermediate representation of Transaction objects suitable to be
+        # sent to our peers.
+        #
+        # Since it is meant for non-distributed transactions, it cannot be
+        # unmarshalled into the local peer plan. It is only meant as a way to
+        # convey information
+	class DRoby < BasicObject::DRoby
+            # The peer which manages this transaction
+	    attr_accessor :peer
+            # The transaction remote_id
+            attr_accessor :id
+            # The underlying plan
+            attr_accessor :plan
+            # Create a DRoby representation of a plan object with the given
+            # parameters
+	    def initialize(peer, id, plan)
+                @peer, @id, @plan = peer, id, plan
+                super({ peer => id }, [])
+            end
+            # Create a new proxy which maps the object of +peer+ represented by
+            # this communication intermediate.
+            #
+            # The 
+            def proxy(object_manager); raise Distributed::LocalTransactionProxyError, "non-distributed transactions cannot have a local proxy" end
+	    def to_s # :nodoc:
+                "#<dRoby:Transaction #{id.to_s(peer)}>" 
+            end
+
+            def update(peer, proxy)
+                super
+            end
+	end
+    end
+
+    module Distributed
 	# Builds a remote proxy model for +object_model+. +object_model+ is
 	# either a string or a class. In the first case, it is interpreted
 	# as a constant name.
 	def self.RemoteProxyModel(object_model)
 	    object_model
 	end
-
     end
 end
 
