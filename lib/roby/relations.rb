@@ -189,7 +189,9 @@ module Roby
             if respond_to?(:updated_edge_info)
                 updated_edge_info(object, relation, value)
             end
-            relation.updated_info(self, object, value)
+            if relation.respond_to?(:updated_info)
+	        relation.updated_info(self, object, value)
+	    end
         end
     end
 
