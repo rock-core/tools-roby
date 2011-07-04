@@ -623,6 +623,9 @@ module Roby
 	    # Undefines all the definitions for the planning method +name+ on
 	    # this model. Definitions available on the parent are not removed
 	    def self.remove_planning_method(name)
+                instance_variable_set("@#{name}_description", nil)
+                @next_method_description = nil
+
 		remove_method(name)
 		remove_inherited_enumerable("#{name}_method", "#{name}_methods")
 		if method_defined?("#{name}_filter")
