@@ -310,10 +310,13 @@ module Roby
                 # it is not the case.
 		def droby_dump(dest)
 		    unless DRobyConstant.valid_constants[self]
-			if const_obj = (constant(name) rescue nil)
-			    DRobyConstant.valid_constants[self] = DRobyConstant.new(name)
-			else
-			    raise ArgumentError, "invalid constant name #{obj.name}"
+                        begin
+                            constant(name)
+                            DRobyConstant.valid_constants[self] = DRobyConstant.new(name)
+                        rescue Exception => e
+                            Roby.info "could not resolve constant name for #{self}"
+                            Roby.log_pp(e, Roby, :warn)
+			    raise ArgumentError, "cannot resolve constant name for #{self}"
 			end
 		    end
 		    DRobyConstant.valid_constants[self]
