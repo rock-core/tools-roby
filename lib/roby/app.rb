@@ -958,22 +958,6 @@ module Roby
 	    Roby.app.available_plugins << [name, dir, mod, init]
 	end
 
-	@@reload_model_filter = []
-	# Add a filter to model reloading. A task or planner model is
-	# reinitialized only if all filter blocks return true for it
-	def self.filter_reloaded_models(&block)
-	    @@reload_model_filter << block
-	end
-
-	def model?(model)
-	    (model <= Roby::Task) || (model.kind_of?(Roby::TaskModelTag)) || 
-		(model <= Planning::Planner) || (model <= Planning::Library)
-	end
-
-	def reload_model?(model)
-	    @@reload_model_filter.all? { |filter| filter[model] }
-	end
-
 	def app_file?(path)
 	    (path =~ %r{(^|/)#{APP_DIR}(/|$)}) ||
 		((path[0] != ?/) && File.file?(File.join(APP_DIR, path)))
@@ -996,38 +980,6 @@ module Roby
             end
             require_planners
         end
-	def reload
-	    # Always reload this file first. This ensure that one can use #reload
-	    # to fix the reload code itself
-	    load __FILE__
-
-	    # Clear all event definitions in task models that are filtered out by
-	    # Application.filter_reloaded_models
-	    ObjectSpace.each_object(Class) do |model|
-		next unless model?(model)
-		next unless reload_model?(model)
-
-		model.clear_model
-	    end
-
-	    # Remove what we want to reload from LOADED_FEATURES and use
-	    # require. Do not use 'load' as the reload order should be the
-	    # require order.
-	    needs_reload = []
-	    $LOADED_FEATURES.delete_if do |feature|
-		if framework_file?(feature) || app_file?(feature)
-		    needs_reload << feature
-		end
-	    end
-
-	    needs_reload.each do |feature|
-		begin
-		    require feature.gsub(/\.rb$/, '')
-		rescue Exception => e
-		    STDERR.puts e.full_message
-		end
-	    end
-	end
     end
 
     @app = Application.instance
