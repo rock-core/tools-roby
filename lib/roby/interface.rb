@@ -499,8 +499,8 @@ help                              | this help message                           
 	# Reload the Roby framework code
         #
         # WARNING: does not work for now
-	def reload
-	    Roby.app.reload
+	def reload_planners
+	    Roby.app.reload_planners
 	    nil
 	end
 

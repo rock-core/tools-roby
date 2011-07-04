@@ -507,6 +507,13 @@ module Roby
             list_dir('tasks') { |p| require(p) }
             list_robotdir('tasks', 'ROBOT') { |p| require(p) }
 
+            require_planners
+
+	    # Set up the loaded plugins
+	    call_plugins(:require_models, self)
+	end
+
+        def require_planners
 	    # Load robot-specific configuration
 	    models_search = ['planners']
 	    if robot_name
@@ -526,10 +533,7 @@ module Roby
 		    end
 		end
 	    end
-
-	    # Set up the loaded plugins
-	    call_plugins(:require_models, self)
-	end
+        end
 
         def load_base_config
             if !Roby.plan
@@ -985,6 +989,13 @@ module Roby
 	    end
 	end
 
+        def reload_planners
+            $LOADED_FEATURES.delete_if { |path| path =~ /planners\/.*rb$/ }
+            planners.each do |planner_model|
+                planner_model.clear_model
+            end
+            require_planners
+        end
 	def reload
 	    # Always reload this file first. This ensure that one can use #reload
 	    # to fix the reload code itself
