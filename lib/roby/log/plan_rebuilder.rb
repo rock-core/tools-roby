@@ -475,7 +475,11 @@ module Roby
                 info   = local_object(info)
 		rel    = rel.first if rel.kind_of?(Array)
 		rel    = local_object(rel)
-                parent[child, rel] = info
+                if !rel.include?(parent) || !rel.include?(child)
+                    rel.link(parent, child, info)
+                else
+                    parent[child, rel] = info
+                end
             end
 
 	    def added_event_child(time, parent, rel, child, info)
