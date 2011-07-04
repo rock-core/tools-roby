@@ -22,7 +22,7 @@ module Roby::Log
 
 	def updated_edge_info(child, relation, info)
 	    super if defined? super
-	    # Roby::Log.log(:updated_task_relation) { [self, relation, child, info] }
+	    Roby::Log.log(:updated_task_relation) { [self, relation, child, info] }
 	end
 
 	def added_child_object(child, relations, info)
