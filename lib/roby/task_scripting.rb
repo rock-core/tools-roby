@@ -164,6 +164,21 @@ module Roby
                 end
             end
 
+            def wait_any(event_spec)
+                with_description "WaitAny(#{event_spec}): #{caller(1).first}" do
+                    event = nil
+                    execute do
+                        event = resolve_event_request(event_spec)
+                    end
+
+                    poll do
+                        if event.happened?
+                            transition!
+                        end
+                    end
+                end
+            end
+
             def wait(event_spec_or_time)
                 if event_spec_or_time.kind_of?(Numeric)
                     with_description "Wait(#{event_spec_or_time}): : #{caller(1).first}" do
