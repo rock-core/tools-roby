@@ -475,7 +475,7 @@ module Roby
                 info   = local_object(info)
 		rel    = rel.first if rel.kind_of?(Array)
 		rel    = local_object(rel)
-                if !rel.include?(parent) || !rel.include?(child)
+                if !rel.linked?(parent, child)
                     rel.link(parent, child, info)
                 else
                     parent[child, rel] = info
