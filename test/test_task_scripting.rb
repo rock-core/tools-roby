@@ -181,5 +181,28 @@ class TC_TaskScripting < Test::Unit::TestCase
             assert task.finished?
         end
     end
+
+    def test_wait_after
+        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
+
+        task.start!
+        assert task.running?
+        task.script do
+            wait start_event
+            emit :success
+        end
+        process_events
+        assert task.running?
+
+        task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
+        time = Time.now
+        task.start!
+        task.script do
+            wait start_event, :after => time
+            emit :success
+        end
+        process_events
+        assert !task.running?
+    end
 end
 

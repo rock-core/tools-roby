@@ -150,13 +150,21 @@ module Roby
                 script.elements << Execute.new(script, &block)
             end
 
-            def poll_until(event_spec, &block)
+            def poll_until(event_spec, options = Hash.new, &block)
+                options = Kernel.validate_options options, :after => nil
+
                 with_description "PollUntil(#{event_spec}): #{caller(1).first}" do
                     done = false
                     execute do
                         event = resolve_event_request(event_spec)
+                        if options[:after]
+                            if event.happened? && event.last.time > options[:after]
+                                done = true
+                            end
+                        end
                         event.on { |_| done = true }
                     end
+
                     poll do
                         main(&block)
                         end_if { done }
@@ -179,7 +187,9 @@ module Roby
                 end
             end
 
-            def wait(event_spec_or_time)
+            def wait(event_spec_or_time, options = Hash.new)
+                options = Kernel.validate_options options, :after => nil
+
                 if event_spec_or_time.kind_of?(Numeric)
                     with_description "Wait(#{event_spec_or_time}): : #{caller(1).first}" do
                         start_time = nil
@@ -191,7 +201,7 @@ module Roby
                     end
                 else
                     with_description "Wait(#{event_spec_or_time}): #{caller(1).first}" do
-                        poll_until(event_spec_or_time) { }
+                        poll_until(event_spec_or_time, :after => options[:after]) { }
                     end
                 end
             end
