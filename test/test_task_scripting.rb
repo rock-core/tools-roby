@@ -204,5 +204,33 @@ class TC_TaskScripting < Test::Unit::TestCase
         process_events
         assert !task.running?
     end
+
+    def test_wait_barrier
+        model = Class.new(Roby::Tasks::Simple) do
+            3.times do |i|
+                event "event#{i + 1}"
+                event "found_event#{i + 1}"
+            end
+        end
+        task = prepare_plan :missions => 1, :model => model
+
+        task.script do
+            wait_any event1_event
+            emit :found_event1
+            wait event2_event
+            emit :found_event2
+            wait event3_event
+            emit :found_event3
+        end
+
+        task.start!
+        task.emit :event1
+        task.emit :event2
+        task.emit :event3
+        process_events
+        assert task.found_event1?
+        assert task.found_event2?
+        assert task.found_event3?
+    end
 end
 

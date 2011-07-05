@@ -34,6 +34,8 @@ module Roby
                 end
             end
 
+            attr_accessor :time_barrier
+
             def resolve_event_request(event_spec)
                 event =
                     if event_spec.kind_of?(Event)
@@ -156,10 +158,15 @@ module Roby
                 with_description "PollUntil(#{event_spec}): #{caller(1).first}" do
                     done = false
                     execute do
+                        if !options.has_key?(:after)
+                            options[:after] = self.time_barrier
+                        end
+
                         event = resolve_event_request(event_spec)
                         if options[:after]
                             if event.happened? && event.last.time > options[:after]
                                 done = true
+                                self.time_barrier = event.last.time
                             end
                         end
                         event.on { |_| done = true }
@@ -181,6 +188,7 @@ module Roby
 
                     poll do
                         if event.happened?
+                            self.time_barrier = event.last.time
                             transition!
                         end
                     end
@@ -201,7 +209,7 @@ module Roby
                     end
                 else
                     with_description "Wait(#{event_spec_or_time}): #{caller(1).first}" do
-                        poll_until(event_spec_or_time, :after => options[:after]) { }
+                        poll_until(event_spec_or_time, options) { }
                     end
                 end
             end
