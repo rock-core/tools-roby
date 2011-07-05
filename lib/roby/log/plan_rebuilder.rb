@@ -208,13 +208,20 @@ module Roby
                 @history = Array.new
                 @changes = Hash.new
                 @event_filters = Array.new
+                @filter_matches = Array.new
+                @filter_exclusions = Array.new
 	    end
 
             def analyze_stream(event_stream)
                 event_stream.rewind
                 while !event_stream.eof?
                     data = event_stream.read
-                    if process(data)
+                    interesting = process(data)
+                    if block_given?
+                        interesting = yield
+                    end
+
+                    if interesting
                         relations = if !has_structure_updates? && !history.empty?
                                         history.last.relations
                                     end
@@ -367,6 +374,8 @@ module Roby
 
 	    def clear_integrated
                 plans.each(&:clear_integrated)
+                filter_matches.clear
+                filter_exclusions.clear
                 @changes.clear
 	    end
 
@@ -559,6 +568,9 @@ module Roby
 
             FAILED_EMISSION   = 8
 
+            attr_reader :filter_matches
+            attr_reader :filter_exclusions
+
 	    def add_internal_propagation(flag, generator, source_generators)
 		generator = local_object(generator)
 		if source_generators && !source_generators.empty?
@@ -580,8 +592,15 @@ module Roby
 
 		generator, source_generators =
                     add_internal_propagation(PROPAG_CALLING, generator, source_generators)
-                if !filtered_out_event?(generator) && !source_generators.any? { |ev| filtered_out_event?(ev) }
+
+                filtering_result = filter_event(generator)
+                source_filtering = source_generators.map { |ev| filter_event(ev) }
+                if filtering_result.any? { |res| res != :ignored } ||
+                   (filtering_result.empty? && source_filtering.any? { |res| res != :ignored })
                     announce_event_propagation_update
+                    filter_matches << [time, generator, filtering_result]
+                else
+                    filter_exclusions << generator
                 end
 	    end
 	    def generator_emitting(*args)
@@ -594,15 +613,23 @@ module Roby
 
 		generator, source_generators =
                     add_internal_propagation(PROPAG_EMITTING, generator, source_generators)
-                if !filtered_out_event?(generator) && !source_generators.any? { |ev| filtered_out_event?(ev) }
+                filtering_result = filter_event(generator)
+                source_filtering = source_generators.map { |ev| filter_event(ev) }
+
+                if filtering_result.any? { |res| res != :ignored } ||
+                   (filtering_result.empty? &&  source_filtering.any? { |res| res != :ignored })
                     announce_event_propagation_update
+                    filter_matches << [time, generator, filtering_result]
+                else
+                    filter_exclusions << generator
                 end
 	    end
 	    def generator_signalling(time, flag, from, to, event_id, event_time, event_context)
                 from = local_object(from)
                 to   = local_object(to)
 		from.plan.propagated_events << [PROPAG_SIGNAL, [from], to]
-                if !filtered_out_event?(from) && !filtered_out_event?(to)
+
+                if !filter_exclusions.include?(from) && !filter_exclusions.include?(to)
                     announce_event_propagation_update
                 end
 	    end
@@ -610,7 +637,7 @@ module Roby
                 from = local_object(from)
                 to   = local_object(to)
 		from.plan.propagated_events << [PROPAG_FORWARD, [from], to]
-                if !filtered_out_event?(from) && !filtered_out_event?(to)
+                if !filter_exclusions.include?(from) && !filter_exclusions.include?(to)
                     announce_event_propagation_update
                 end
 	    end
@@ -618,8 +645,12 @@ module Roby
 	    def generator_called(time, generator, context)
                 generator = local_object(generator)
 		generator.plan.emitted_events << [EVENT_CALLED, generator]
-                if !filtered_out_event?(generator)
+                filtering_result = filter_event(generator)
+                if filtering_result.any? { |res| res != :ignored }
                     announce_event_propagation_update
+                    filter_matches << [time, generator, filtering_result]
+                else
+                    filter_exclusions << generator
                 end
 	    end
 	    def generator_fired(time, generator, event_id, event_time, event_context)
@@ -641,18 +672,14 @@ module Roby
 	    def generator_postponed(time, generator, context, until_generator, reason)
                 generator = local_object(generator)
 		generator.plan.postponed_events << [generator, local_object(until_generator)]
-                if !filtered_out_event?(generator)
-                    announce_event_propagation_update
-                end
+                announce_event_propagation_update
 	    end
 
             def generator_emit_failed(time, generator, error)
                 generator = local_object(generator)
                 error = local_object(error)
                 generator.plan.failed_emissions << [generator, error]
-                if !filtered_out_event?(generator)
-                    announce_event_propagation_update
-                end
+                announce_event_propagation_update
             end
 
             class FilterLabel
@@ -807,22 +834,14 @@ module Roby
                 filter
             end
 
-            # True if this generator is filtered out by one of the custom
-            # filters
-            def filtered_out_event?(generator)
-                event_filters.each do |filter|
+            def filter_event(generator)
+                event_filters.map do |filter|
                     result = catch(:filter_ignore_cycle) do
                         filter.match(generator)
-                        true
                     end
-                    if !result
-                        Log.info "generator #{generator.to_s} rejected by filter #{filter}"
-                        return true
-                    end
+                    result || :ignored
                 end
-                false
             end
-
 
             def load_options(options)
                 filters = options['filters']
