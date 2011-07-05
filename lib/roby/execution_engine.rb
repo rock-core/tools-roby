@@ -891,8 +891,12 @@ module Roby
                                     event = signalled.emit_without_propagation(context)
                                     emitted_events << event
                                 rescue Roby::LocalizedError => e
+				    Roby.warn "Internal Error: #emit_without_propagation emitted a LocalizedError exception. This is unsupported and will become a fatal error in the future. You should usually replace raise with engine.add_error"
+				    Roby.log_pp(e, Roby, :warn)
                                     add_error(e)
                                 rescue Exception => e
+				    Roby.warn "Internal Error: #emit_without_propagation emitted an exception. This is unsupported and will become a fatal error in the future. You should create a proper localized error and replace raise with engine.add_error"
+				    Roby.log_pp(e, Roby, :warn)
                                     add_error(Roby::EmissionFailed.new(e, signalled))
                                 end
                             end
