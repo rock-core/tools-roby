@@ -28,3 +28,5 @@ require 'suite_relations'
 require 'test_interface'
 require 'test_log'
 
+require 'test_task_scripting'
+
