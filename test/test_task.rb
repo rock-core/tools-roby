@@ -732,7 +732,7 @@ class TC_Task < Test::Unit::TestCase
 	assert_nothing_raised { task.inter! }
 	task.stop!
 
-	assert_raises(EventNotExecutable) { task.emit(:inter) }
+	assert_raises(TaskEventNotExecutable) { task.emit(:inter) }
 	assert_raises(CommandFailed) { task.inter! }
 	assert(!task.event(:inter).pending)
 
@@ -801,10 +801,10 @@ class TC_Task < Test::Unit::TestCase
 	end
 
         plan.add(task = model.new)
-        assert_raises(EventNotExecutable) { task.event(:start).call }
+        assert_raises(TaskEventNotExecutable) { task.event(:start).call }
 
         plan.add(task = model.new)
-        assert_raises(EventNotExecutable) { task.start! }
+        assert_raises(TaskEventNotExecutable) { task.start! }
     end
 
     def test_cannot_leave_pending_if_not_executable
@@ -812,7 +812,7 @@ class TC_Task < Test::Unit::TestCase
             def executable?; !pending?  end
         end
 	plan.add(task = model.new)
-        assert_raises(EventNotExecutable) { task.start! }
+        assert_raises(TaskEventNotExecutable) { task.start! }
     end
 
     def test_executable
@@ -869,19 +869,19 @@ class TC_Task < Test::Unit::TestCase
     
     def assert_direct_call_validity_check(substring, check_signaling)
         error = yield
-	assert_exception_message(EventNotExecutable, substring) { error.start! }
+	assert_exception_message(TaskEventNotExecutable, substring) { error.start! }
         error = yield
-	assert_exception_message(EventNotExecutable, substring) {error.event(:start).call(nil)}
+	assert_exception_message(TaskEventNotExecutable, substring) {error.event(:start).call(nil)}
         error = yield
-	assert_exception_message(EventNotExecutable, substring) {error.event(:start).emit(nil)}
+	assert_exception_message(TaskEventNotExecutable, substring) {error.event(:start).emit(nil)}
 	
 	if check_signaling then
 	    error = yield
-	    assert_exception_message(EventNotExecutable, substring) do
+	    assert_exception_message(TaskEventNotExecutable, substring) do
 	       exception_propagator(error, :signals)
 	    end
 	    error = yield
-	    assert_exception_message(EventNotExecutable, substring) do
+	    assert_exception_message(TaskEventNotExecutable, substring) do
 	       exception_propagator(error, :forward_to)
 	    end
 	end
@@ -902,28 +902,28 @@ class TC_Task < Test::Unit::TestCase
     
     def assert_emission_fails(message_match, check_signaling)
         error = yield
-	assert_failure_reason(error, EventNotExecutable, message_match) do
+	assert_failure_reason(error, TaskEventNotExecutable, message_match) do
             error.start!
         end
         error = yield
-	assert_failure_reason(error, EventNotExecutable, message_match) do
+	assert_failure_reason(error, TaskEventNotExecutable, message_match) do
             error.event(:start).call(nil)
         end
 
         error = yield
-        assert_exception_message(EventNotExecutable, message_match) do
+        assert_exception_message(TaskEventNotExecutable, message_match) do
             error.event(:start).emit(nil)
         end
 	
 	if check_signaling then
 	    error = yield
-	    assert_exception_message(EventNotExecutable, message_match) do
+	    assert_exception_message(TaskEventNotExecutable, message_match) do
                 exception_propagator(error, :forward_to)
             end
 
 	    error = yield
             exception_propagator(error, :signals)
-	    assert_failure_reason(error, EventNotExecutable, message_match)
+	    assert_failure_reason(error, TaskEventNotExecutable, message_match)
 	end
     end
         

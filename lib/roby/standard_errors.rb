@@ -77,7 +77,12 @@ module Roby
     class TaskNotExecutable < LocalizedError; end
     # Raised during event propagation if an event is called or emitted,
     # while this event is not executable.
-    class EventNotExecutable < LocalizedError
+    class EventNotExecutable < LocalizedError; end
+    # Same error than EventNotExecutable, but for task events
+    #
+    # The only difference is that this method displays some task-specific
+    # information
+    class TaskEventNotExecutable < EventNotExecutable
         def pretty_print(pp)
             super
             if failed_generator.task.plan

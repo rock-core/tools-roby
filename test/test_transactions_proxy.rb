@@ -133,13 +133,13 @@ class TC_TransactionsProxy < Test::Unit::TestCase
 	assert_nothing_raised { task.intermediate!(nil) }
 	assert(!proxy.executable?)
 	assert(!proxy.event(:start).executable?)
-	assert_raises(EventNotExecutable) { proxy.event(:start).emit(nil) }
-	assert_raises(EventNotExecutable) { proxy.emit(:start) }
-	assert_raises(EventNotExecutable) { proxy.start!(nil) }
+	assert_raises(TaskEventNotExecutable) { proxy.event(:start).emit(nil) }
+	assert_raises(TaskEventNotExecutable) { proxy.emit(:start) }
+	assert_raises(TaskEventNotExecutable) { proxy.start!(nil) }
 
 	# Check that events that are only in the subclass of Task
 	# are forbidden
-	assert_raises(EventNotExecutable) { proxy.intermediate!(nil) }
+	assert_raises(TaskEventNotExecutable) { proxy.intermediate!(nil) }
     end
 
     def test_proxy_fullfills

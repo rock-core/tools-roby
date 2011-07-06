@@ -490,17 +490,17 @@ module Roby
         # relevant task-related error.
 	def refine_call_exception (e) # :nodoc:
 	    if task.partially_instanciated?
-		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} which is partially instanciated\n" + 
+		raise TaskEventNotExecutable.new(self), "#{symbol}! called on #{task} which is partially instanciated\n" + 
 			"The following arguments were not set: \n" +
 			task.list_unset_arguments.map {|n| "\t#{n}"}.join("\n")+"\n"
 	    elsif !plan
-		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} but the task is in no plan"
+		raise TaskEventNotExecutable.new(self), "#{symbol}! called on #{task} but the task is in no plan"
 	    elsif !plan.executable?
-		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} but the plan is not executable"
+		raise TaskEventNotExecutable.new(self), "#{symbol}! called on #{task} but the plan is not executable"
 	    elsif task.abstract?
-		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} but the task is abstract"
+		raise TaskEventNotExecutable.new(self), "#{symbol}! called on #{task} but the task is abstract"
 	    else
-		raise EventNotExecutable.new(self), "#{symbol}! called on #{task} which is not executable: #{e.message}"
+		raise TaskEventNotExecutable.new(self), "#{symbol}! called on #{task} which is not executable: #{e.message}"
 	    end
 	end
 
@@ -509,17 +509,17 @@ module Roby
         # relevant task-related error.
 	def refine_emit_exception (e) # :nodoc:
 	    if task.partially_instanciated?
-		raise EventNotExecutable.new(self), "emit(#{symbol}) called on #{task} which is partially instanciated\n" + 
+		raise TaskEventNotExecutable.new(self), "emit(#{symbol}) called on #{task} which is partially instanciated\n" + 
 			"The following arguments were not set: \n" +
 			task.list_unset_arguments.map {|n| "\t#{n}"}.join("\n")+"\n"
 	    elsif !plan
-		raise EventNotExecutable.new(self), "emit(#{symbol}) called on #{task} but the task is in no plan"
+		raise TaskEventNotExecutable.new(self), "emit(#{symbol}) called on #{task} but the task is in no plan"
 	    elsif !plan.executable?
-		raise EventNotExecutable.new(self), "emit(#{symbol}) called on #{task} but the plan is not executable"
+		raise TaskEventNotExecutable.new(self), "emit(#{symbol}) called on #{task} but the plan is not executable"
 	    elsif task.abstract?
-		raise EventNotExecutable.new(self), "emit(#{symbol}) called on #{task} but the task is abstract"
+		raise TaskEventNotExecutable.new(self), "emit(#{symbol}) called on #{task} but the task is abstract"
 	    else
-		raise EventNotExecutable.new(self), "emit(#{symbol}) called on #{task} which is not executable: #{e.message}"
+		raise TaskEventNotExecutable.new(self), "emit(#{symbol}) called on #{task} which is not executable: #{e.message}"
 	    end
 	end
 
