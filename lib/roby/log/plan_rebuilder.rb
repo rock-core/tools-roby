@@ -214,7 +214,7 @@ module Roby
 
             def find_model(stream, model_name, &block)
                 analyze_stream(stream) do
-                    model = Roby::Distributed::DRobyModel.local_to_remote.find { |model, (name, id)| name == model_name }
+                    model = Roby::Distributed::DRobyModel.local_to_remote.find { |model, (name, id)| name =~ model_name }
                     if model
                         return model.first
                     end
