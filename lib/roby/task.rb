@@ -2373,6 +2373,7 @@ module Roby
             end
 
             @poll_handlers << PollHandler.new(block, (options[:on_replace] == :copy))
+            check_arity(block, 1)
         end
 
         # Internal method used to register the poll blocks in the engine
@@ -2389,7 +2390,7 @@ module Roby
                     poll_handler
                 end
                 @poll_handlers.each do |poll_block|
-                    poll_block.block.call
+                    poll_block.block.call(self)
                 end
             rescue LocalizedError => e
                 Roby.log_pp(e, Roby.logger, :debug)
