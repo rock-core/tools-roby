@@ -366,7 +366,7 @@ module Roby
                     s.execute
                 end
 
-                poll do
+                poll do |task|
                     for s in scripts
                         s.execute
                     end
@@ -386,7 +386,7 @@ module Roby
                     script.execute
                 end
             end
-            poll do
+            poll do |task|
                 script.execute
             end
             self
