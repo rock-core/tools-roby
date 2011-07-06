@@ -212,24 +212,35 @@ module Roby
                 @filter_exclusions = Array.new
 	    end
 
+            def find_model(stream, model_name, &block)
+                analyze_stream(stream) do
+                    model = Roby::Distributed::DRobyModel.local_to_remote.find { |model, (name, id)| name == model_name }
+                    if model
+                        return model.first
+                    end
+                end
+            end
+
             def analyze_stream(event_stream)
                 while !event_stream.eof?
-                    data = event_stream.read
-                    interesting = process(data)
-                    if block_given?
-                        interesting = yield
-                    end
+                    begin
+                        data = event_stream.read
+                        interesting = process(data)
+                        if block_given?
+                            interesting = yield
+                        end
 
-                    if interesting
-                        relations = if !has_structure_updates? && !history.empty?
-                                        history.last.relations
-                                    end
-                            
-                        history << snapshot(relations)
+                        if interesting
+                            relations = if !has_structure_updates? && !history.empty?
+                                            history.last.relations
+                                        end
+                                
+                            history << snapshot(relations)
+                        end
+                    ensure
+                        clear_integrated
                     end
-                    clear_integrated
                 end
-                event_stream.rewind
             end
 
             # The starting time of the last processed cycle
