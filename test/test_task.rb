@@ -2,6 +2,7 @@ $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE_
 require 'roby/test/common'
 require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
+require 'roby/tasks/simple'
 require 'flexmock'
 
 class TC_Task < Test::Unit::TestCase 
@@ -1660,29 +1661,51 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_poll_handlers_with_replacing
-        model = Class.new(Roby::Task)
-        old, new = prepare_plan :add => 2, :model => model
+        model = Class.new(Roby::Task) do
+            terminates
+        end
+        old, new = prepare_plan :missions => 2, :model => model
 
-        old.poll { |event| mock.should_not_be_passed_on }
-        old.poll(:on_replace => :copy) { |event| mock.should_be_passed_on }
+        FlexMock.use do |mock|
+            old.poll { |task| mock.should_not_be_passed_on(task) }
+            old.poll(:on_replace => :copy) { |task| mock.should_be_passed_on(task) }
 
-        plan.replace(old, new)
+            plan.replace(old, new)
 
-        assert_equal(1, new.poll_handlers.size)
-        assert_equal(new.poll_handlers[0].block, old.poll_handlers[1].block)
+            assert_equal(1, new.poll_handlers.size)
+            assert_equal(new.poll_handlers[0].block, old.poll_handlers[1].block)
+
+            old.start!
+            new.start!
+            mock.should_receive(:should_not_be_passed_on).with(old).once
+            mock.should_receive(:should_be_passed_on).with(old).once
+            mock.should_receive(:should_be_passed_on).with(new).once
+
+            process_events
+        end
     end
 
     def test_event_handlers_with_replacing
-        model = Class.new(Roby::Task)
-        old, new = prepare_plan :add => 2, :model => model
+        model = Class.new(Roby::Task) do
+            terminates
+        end
+        old, new = prepare_plan :missions => 2, :model => model
 
-        old.start_event.on { |event| mock.should_not_be_passed_on }
-        old.start_event.on(:on_replace => :copy) { |event| mock.should_be_passed_on }
+        FlexMock.use do |mock|
+            old.start_event.on { |event| mock.should_not_be_passed_on(event.task) }
+            old.start_event.on(:on_replace => :copy) { |event| mock.should_be_passed_on(event.task) }
 
-        plan.replace(old, new)
+            plan.replace(old, new)
 
-        assert_equal(1, new.start_event.handlers.size)
-        assert_equal(new.start_event.handlers[0].block, old.start_event.handlers[1].block)
+            assert_equal(1, new.start_event.handlers.size)
+            assert_equal(new.start_event.handlers[0].block, old.start_event.handlers[1].block)
+
+            mock.should_receive(:should_be_passed_on).with(new).once
+            mock.should_receive(:should_be_passed_on).with(old).once
+            mock.should_receive(:should_not_be_passed_on).with(old).once
+            old.start!
+            new.start!
+        end
     end
 
     def test_abstract_tasks_automatically_mark_the_poll_handlers_as_replaced
@@ -1693,16 +1716,22 @@ class TC_Task < Test::Unit::TestCase
                 [Roby::Task]
             end
         end
-        plan.add(old = abstract_model.new)
-        plan.add(new = Roby::Task.new)
+        plan.add_permanent(old = abstract_model.new)
+        plan.add_permanent(new = Roby::Tasks::Simple.new)
 
-        old.poll { |event| mock.should_not_be_passed_on }
-        old.poll(:on_replace => :drop) { |event| mock.should_be_passed_on }
+        FlexMock.use do |mock|
+            old.poll { |task| mock.should_be_passed_on(task) }
+            old.poll(:on_replace => :drop) { |task| mock.should_not_be_passed_on(task) }
 
-        plan.replace(old, new)
+            plan.replace(old, new)
+            new.start!
 
-        assert_equal(1, new.poll_handlers.size)
-        assert_equal(new.poll_handlers[0].block, old.poll_handlers[0].block)
+            assert_equal(1, new.poll_handlers.size, new.poll_handlers.map(&:block))
+            assert_equal(new.poll_handlers[0].block, old.poll_handlers[0].block)
+
+            mock.should_receive(:should_be_passed_on).with(new).once
+            process_events
+        end
     end
 
     def test_abstract_tasks_automatically_mark_the_event_handlers_as_replaced
@@ -1713,16 +1742,24 @@ class TC_Task < Test::Unit::TestCase
                 [Roby::Task]
             end
         end
-        plan.add(old = abstract_model.new)
-        plan.add(new = Roby::Task.new)
+        plan.add_mission(old = abstract_model.new)
+        plan.add_mission(new = Roby::Tasks::Simple.new)
 
-        old.start_event.on { |event| mock.should_not_be_passed_on }
-        old.start_event.on(:on_replace => :drop) { |event| mock.should_be_passed_on }
+        FlexMock.use do |mock|
+            old.start_event.on { |event| mock.should_be_passed_on(event.task) }
+            old.start_event.on(:on_replace => :drop) { |event| mock.should_not_be_passed_on(event.task) }
 
-        plan.replace(old, new)
+            plan.replace(old, new)
+            assert_equal(1, new.start_event.handlers.size)
+            assert_equal(new.start_event.handlers[0].block, old.start_event.handlers[0].block)
 
-        assert_equal(1, new.start_event.handlers.size)
-        assert_equal(new.start_event.handlers[0].block, old.start_event.handlers[0].block)
+            mock.should_receive(:should_not_be_passed_on).never
+            mock.should_receive(:should_be_passed_on).with(new).once
+            new.start!
+        end
+
+
+
     end
 end
 
