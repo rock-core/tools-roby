@@ -279,8 +279,6 @@ module Roby::Log
 	    @index_io.rewind
 	    @index_data.clear
 
-            STDOUT.puts caller.join("\n  ")
-
             STDOUT.print "loading index file"
             STDOUT.flush
 
