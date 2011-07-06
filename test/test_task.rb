@@ -1757,9 +1757,53 @@ class TC_Task < Test::Unit::TestCase
             mock.should_receive(:should_be_passed_on).with(new).once
             new.start!
         end
+    end
 
+    def test_finalization_handlers_with_replacing
+        model = Class.new(Roby::Task) do
+            terminates
+        end
+        old, new = prepare_plan :missions => 2, :model => model
 
+        FlexMock.use do |mock|
+            mock.should_receive(:should_not_be_passed_on).with(old).once
+            mock.should_receive(:should_be_passed_on).with(old).once
+            mock.should_receive(:should_be_passed_on).with(new).once
 
+            old.when_finalized { |task| mock.should_not_be_passed_on(task) }
+            old.when_finalized(:on_replace => :copy) { |task| mock.should_be_passed_on(task) }
+
+            plan.replace(old, new)
+            assert_equal(1, new.finalization_handlers.size)
+            assert_equal(new.finalization_handlers[0].block, old.finalization_handlers[1].block)
+
+            plan.remove_object(old)
+            plan.remove_object(new)
+        end
+    end
+
+    def test_finalization_handlers_are_copied_by_default_on_abstract_tasks
+        model = Class.new(Roby::Task) do
+            terminates
+        end
+        old = prepare_plan :add => 1, :model => Roby::Task
+        new = prepare_plan :add => 1, :model => model
+
+        FlexMock.use do |mock|
+            mock.should_receive(:should_not_be_passed_on).with(old).once
+            mock.should_receive(:should_be_passed_on).with(old).once
+            mock.should_receive(:should_be_passed_on).with(new).once
+
+            old.when_finalized(:on_replace => :drop) { |task| mock.should_not_be_passed_on(task) }
+            old.when_finalized { |task| mock.should_be_passed_on(task) }
+
+            plan.replace(old, new)
+            assert_equal(1, new.finalization_handlers.size)
+            assert_equal(new.finalization_handlers[0].block, old.finalization_handlers[1].block)
+
+            plan.remove_object(old)
+            plan.remove_object(new)
+        end
     end
 end
 

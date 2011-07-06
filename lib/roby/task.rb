@@ -524,12 +524,11 @@ module Roby
 	end
 
         def on(options = Hash.new, &block)
-            if task.abstract?
-                on_replace, options = Kernel.filter_options options, :on_replace => :copy
-            else
-                on_replace, options = Kernel.filter_options options, :on_replace => :drop
-            end
-
+            default_on_replace =
+                if task.abstract? then :copy
+                else :drop
+                end
+            on_replace, options = Kernel.filter_options options, :on_replace => default_on_replace
             super(on_replace.merge(options), &block)
         end
     end
@@ -2331,49 +2330,16 @@ module Roby
 
         # Class used to encapsulate an instance-level poll handler along with
         # its options
-        class PollHandler
-            # The poll Proc object
-            attr_reader :block
-            ## :method:copy_on_replace?
-            #
-            # If true, this poll handler gets copied to the new task when the
-            # task holding the handler gets replaced
-            attr_predicate :copy_on_replace?, true
-
-            def initialize(block, copy_on_replace)
-                @block, @copy_on_replace =
-                    block, copy_on_replace
-            end
-
-            # Creates an option hash from this poll handler parameters that is
-            # valid for Task#poll
-            def as_options
-                on_replace = if copy_on_replace? then :copy
-                             else :drop
-                             end
-
-                { :on_replace => on_replace }
-            end
-
-            def ==(other)
-                @copy_on_replace == other.copy_on_replace? &&
-                    @block == other.block
-            end
-        end
-
-        # The set of instance-level poll blocks (PollHandler instances)
+        # The set of instance-level poll blocks (InstanceHandler instances)
         attr_reader :poll_handlers
 
         # Adds a new poll block on this instance
         def poll(options = Hash.new, &block)
-            default_poll = if abstract? then :copy else :drop end
-            options = Kernel.validate_options options, :on_replace => default_poll
-            if ![:drop, :copy].include?(options[:on_replace])
-                raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{options[:on_replace]}"
-            end
-
-            @poll_handlers << PollHandler.new(block, (options[:on_replace] == :copy))
+            default_on_replace = if abstract? then :copy else :drop end
+            options = InstanceHandler.validate_options(options, :on_replace => default_on_replace)
+            
             check_arity(block, 1)
+            @poll_handlers << InstanceHandler.new(block, (options[:on_replace] == :copy))
         end
 
         # Internal method used to register the poll blocks in the engine
@@ -2682,6 +2648,12 @@ module Roby
         # Returns a PlanService object for this task
         def as_service
             @service ||= (plan.find_plan_service(self) || PlanService.new(self))
+        end
+
+        def when_finalized(options = Hash.new, &block)
+            default = if abstract? then :copy else :drop end
+            options, remaining = InstanceHandler.filter_options options, :on_replace => default
+            super(options.merge(remaining), &block)
         end
     end
 

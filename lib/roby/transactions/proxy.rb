@@ -233,7 +233,26 @@ module Roby
             end
 
             finalization_handlers.each do |handler|
-                __getobj__.when_finalized(&handler)
+                __getobj__.when_finalized(handler.as_options, &handler.block)
+            end
+        end
+
+        def initialize_replacement(object)
+            super
+
+            # Apply recursively all finalization handlers of this (proxied)
+            # object to the object event
+            #
+            # We have to look at all levels as, in transactions, the "handlers"
+            # set only contains new handlers
+            real_object = self
+            while real_object.transaction_proxy?
+                real_object = real_object.__getobj__
+                real_object.finalization_handlers.each do |h|
+                    if h.copy_on_replace?
+                        object.when_finalized(h.as_options, &h.block)
+                    end
+                end
             end
         end
     end

@@ -267,11 +267,11 @@ module TC_TransactionBehaviour
     def test_finalization_handlers_are_not_called_at_commit
 	t = prepare_plan :add => 1
         FlexMock.use do |mock|
-            t.when_finalized do
-                mock.old_handler
+            t.when_finalized do |task|
+                mock.old_handler(task)
             end
             transaction_commit(plan, t) do |trsc, p|
-                p.when_finalized do
+                p.when_finalized do |task|
                     mock.new_handler
                 end
             end
@@ -849,17 +849,76 @@ class TC_Transactions < Test::Unit::TestCase
     def test_commit_finalization_handlers
 	t = prepare_plan :add => 1
         FlexMock.use do |mock|
-            t.when_finalized do
-                mock.old_handler
+            t.when_finalized do |task|
+                mock.old_handler(task)
             end
             transaction_commit(plan, t) do |trsc, p|
-                p.when_finalized do
-                    mock.new_handler
+                p.when_finalized do |task|
+                    mock.new_handler(task)
                 end
             end
-            mock.should_receive(:old_handler).once
-            mock.should_receive(:new_handler).once
+            mock.should_receive(:old_handler).with(t).once
+            mock.should_receive(:new_handler).with(t).once
             plan.remove_object(t)
+        end
+    end
+
+    def test_commit_finalization_handlers_on_replace_behaviour
+        model = Class.new(Roby::Task) do
+            terminates
+        end
+	t1, t2 = prepare_plan :add => 2, :model => model
+
+        FlexMock.use do |mock|
+            t1.when_finalized do |task|
+                mock.should_not_be_copied(task)
+            end
+            t1.when_finalized(:on_replace => :copy) do |task|
+                mock.should_be_copied(task)
+            end
+            t3 = nil
+            transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+                trsc.add(t3 = model.new)
+                trsc.replace(p1, p2)
+                trsc.replace(p1, t3)
+            end
+            mock.should_receive(:should_be_copied).with(t1).once
+            mock.should_receive(:should_be_copied).with(t2).once
+            mock.should_receive(:should_be_copied).with(t3).once
+            mock.should_receive(:should_not_be_copied).with(t1).once
+            plan.remove_object(t1)
+            plan.remove_object(t2)
+            plan.remove_object(t3)
+        end
+    end
+
+    def test_commit_finalization_handlers_on_replace_default_behaviour_for_abstract_tasks
+        model = Class.new(Roby::Task) do
+            terminates
+        end
+        plan.add(t1 = Roby::Task.new)
+        plan.add(t2 = model.new)
+
+        FlexMock.use do |mock|
+            t1.when_finalized(:on_replace => :drop) do |task|
+                mock.should_not_be_copied(task)
+            end
+            t1.when_finalized do |task|
+                mock.should_be_copied(task)
+            end
+            t3 = nil
+            transaction_commit(plan, t1, t2) do |trsc, p1, p2|
+                trsc.add(t3 = model.new)
+                trsc.replace(p1, p2)
+                trsc.replace(p1, t3)
+            end
+            mock.should_receive(:should_be_copied).with(t1).once
+            mock.should_receive(:should_be_copied).with(t2).once
+            mock.should_receive(:should_be_copied).with(t3).once
+            mock.should_receive(:should_not_be_copied).with(t1).once
+            plan.remove_object(t1)
+            plan.remove_object(t2)
+            plan.remove_object(t3)
         end
     end
 

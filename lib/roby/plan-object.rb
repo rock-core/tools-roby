@@ -1,6 +1,58 @@
 module Roby
     # Base class for all objects which are included in a plan.
     class PlanObject < BasicObject
+        class InstanceHandler
+            # The poll Proc object
+            attr_reader :block
+            ## :method:copy_on_replace?
+            #
+            # If true, this poll handler gets copied to the new task when the
+            # task holding the handler gets replaced
+            attr_predicate :copy_on_replace?, true
+
+            def self.handle_options(method, options, defaults)
+                options, other = Kernel.send("#{method}_options", options,
+                    :on_replace => (defaults[:on_replace] || :drop))
+
+                if ![:drop, :copy].include?(options[:on_replace])
+                    raise ArgumentError, "wrong value for the :on_replace option. Expecting either :drop or :copy, got #{options[:on_replace]}"
+                end
+
+                if other
+                    return options, other
+                else return options
+                end
+            end
+
+            def self.validate_options(options, defaults = Hash.new)
+                handle_options(:validate, options, defaults)
+            end
+
+            def self.filter_options(options, defaults)
+                handle_options(:filter, options, defaults)
+            end
+
+            def initialize(block, copy_on_replace)
+                @block, @copy_on_replace =
+                    block, copy_on_replace
+            end
+
+            # Creates an option hash from this poll handler parameters that is
+            # valid for Task#poll
+            def as_options
+                on_replace = if copy_on_replace? then :copy
+                             else :drop
+                             end
+
+                { :on_replace => on_replace }
+            end
+
+            def ==(other)
+                @copy_on_replace == other.copy_on_replace? &&
+                    @block == other.block
+            end
+        end
+
 	include DirectedRelationSupport
 
         def initialize
@@ -381,6 +433,12 @@ module Roby
         # The default implementation does nothing
         def initialize_replacement(object)
             super if defined? super
+
+            finalization_handlers.each do |handler|
+                if handler.copy_on_replace?
+                    object.when_finalized(handler.as_options, &handler.block)
+                end
+            end
         end
 
         # True if this object can be modified by the local plan manager
@@ -442,7 +500,9 @@ module Roby
         # Enumerates the finalization handlers that should be applied in
         # finalized!
         def each_finalization_handler(&block)
-            finalization_handlers.each(&block)
+            finalization_handlers.each do |handler|
+                yield(handler.block)
+            end
             self.class.each_finalization_handler do |model_handler|
                 model_handler.bind(self).call(&block)
             end
@@ -453,7 +513,7 @@ module Roby
             if self.plan.executable?
                 # call finalization handlers
                 each_finalization_handler do |handler|
-                    handler.call
+                    handler.call(self)
                 end
             end
 
@@ -465,8 +525,10 @@ module Roby
         #   when_finalized { }
         #
         # Called when the task gets finalized, i.e. removed from the main plan
-        def when_finalized(&block)
-            finalization_handlers << block
+        def when_finalized(options = Hash.new, &block)
+            options = InstanceHandler.validate_options options
+            check_arity(block, 1)
+            finalization_handlers << InstanceHandler.new(block, (options[:on_replace] == :copy))
         end
     end
 end
