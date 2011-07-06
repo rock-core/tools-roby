@@ -213,7 +213,6 @@ module Roby
 	    end
 
             def analyze_stream(event_stream)
-                event_stream.rewind
                 while !event_stream.eof?
                     data = event_stream.read
                     interesting = process(data)
