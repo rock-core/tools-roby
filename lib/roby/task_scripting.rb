@@ -361,13 +361,15 @@ module Roby
                 s
             end
 
-            for s in scripts
-                s.execute
-            end
-
-            poll do
+            if !scripts.empty?
                 for s in scripts
                     s.execute
+                end
+
+                poll do
+                    for s in scripts
+                        s.execute
+                    end
                 end
             end
         end
