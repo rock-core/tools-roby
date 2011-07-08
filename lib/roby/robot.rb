@@ -33,6 +33,7 @@ module Robot
 	planner = Roby::PlanningTask.new(:planner_model => planner_model, :method_name => name, :method_options => arguments)
         plan.add([task, planner])
 	task.planned_by planner
+        task.abstract = true
 	return task, planner
     end
 
