@@ -8,6 +8,10 @@ module Roby
 
             attr_reader :logger
 
+            def __task__
+                @task
+            end
+
             def initialize
                 @elements = []
                 @logger = Roby::TaskScripting
@@ -26,9 +30,9 @@ module Roby
             include Logger::Forward
 
             def prepare(task)
+                @task = task
                 super if defined? super
 
-                @task = task
                 @elements.map do |el|
                     el.prepare(task)
                 end
@@ -59,6 +63,7 @@ module Roby
                     top = @elements.shift
                     info "executed #{top}"
                 end
+                return true
             end
 
             def load(&block)
@@ -67,11 +72,17 @@ module Roby
             end
 
             def script_extensions(name, *args, &block)
-                super if defined? super
+                if defined? super
+                    super
+                else
+                    throw :no_match
+                end
             end
 
             def method_missing(m, *args, &block)
-                return super if !@task
+                if !@task
+                    return super 
+                end
 
                 catch(:no_match) do
                     return script_extensions(m, *args, &block)
@@ -121,6 +132,8 @@ module Roby
             end
         end
 
+        class Timeout < RuntimeError; end
+
         class DSLLoader
             attr_reader :script
 
@@ -157,6 +170,31 @@ module Roby
 
             def execute(&block)
                 script.elements << Execute.new(script, &block)
+            end
+            
+            def timeout(duration, options = Hash.new, &block)
+                options = Kernel.validate_options options, :emit => nil
+
+                subscript = Script.new
+                subscript.load(&block)
+
+                start_time = nil
+                script = self.script
+                execute do
+                    start_time = Time.now
+                    subscript.prepare(script.__task__)
+                end
+                poll do
+                    if subscript.execute
+                        transition!
+                    elsif Time.now - start_time > duration
+                        if options[:emit]
+                            emit options[:emit]
+                        else
+                            raise Timeout, "timed out at #{block}"
+                        end
+                    end
+                end
             end
 
             def poll_until(event_spec, options = Hash.new, &block)

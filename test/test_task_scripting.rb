@@ -232,5 +232,91 @@ class TC_TaskScripting < Test::Unit::TestCase
         assert task.found_event2?
         assert task.found_event3?
     end
+
+    def test_timeout_pass
+        model = Class.new(Roby::Tasks::Simple) do
+            event :intermediate
+            event :timeout
+        end
+        task = prepare_plan :missions => 1, :model => model
+
+        FlexMock.use(Time) do |mock|
+            time = Time.now
+            mock.should_receive(:now).and_return { time }
+
+            plan.add(task)
+            task.script do
+                timeout 5, :emit => :timeout do
+                    wait intermediate_event
+                end
+                emit :success
+            end
+            task.start!
+
+            process_events
+            assert task.running?
+            task.emit :intermediate
+            process_events
+            assert task.success?
+        end
+    end
+
+    def test_timeout_fail
+        model = Class.new(Roby::Tasks::Simple) do
+            event :intermediate
+            event :timeout
+        end
+        task = prepare_plan :missions => 1, :model => model
+
+        FlexMock.use(Time) do |mock|
+            time = Time.now
+            mock.should_receive(:now).and_return { time }
+
+            plan.add(task)
+            task.script do
+                timeout 5, :emit => :timeout do
+                    wait intermediate_event
+                end
+                emit :success
+            end
+            task.start!
+
+            process_events
+            assert task.running?
+            time += 6
+            process_events
+            assert task.timeout?
+        end
+    end
+
+    def test_parallel_scripts
+        model = Class.new(Roby::Tasks::Simple) do
+            event :start_script1
+            event :done_script1
+            event :start_script2
+            event :done_script2
+        end
+        task = prepare_plan :permanent => 1, :model => model
+
+        task.script do
+            wait start_script1_event
+            emit :done_script1
+        end
+        task.script do
+            wait done_script2_event
+            emit :done_script2
+        end
+
+        process_events
+        task.start!
+        process_events
+        task.emit :start_script1
+        process_events
+        assert task.done_script1?
+        assert !task.done_script2?
+        task.stop!
+        assert task.done_script1?
+        assert !task.done_script2?
+    end
 end
 
