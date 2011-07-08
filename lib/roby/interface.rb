@@ -259,7 +259,7 @@ module Roby
                      'Kind' => kind,
                     'State' => state_name,
                     'Since' => (since.asctime if since),
-                    'Lifetime' => (Time.at(lifetime).to_hms if lifetime)
+                    'Lifetime' => (Roby.format_time(Time.at(lifetime)) if lifetime)
                 ]
 	    end
             task.sort_by { |t| t['Task'] }

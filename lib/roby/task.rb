@@ -196,7 +196,7 @@ module Roby
         end
 
 	def to_s # :nodoc:
-	    result = "[#{time.to_hms} @#{propagation_id}] #{task}/#{symbol}"
+	    result = "[#{Roby.format_time(time)} @#{propagation_id}] #{task}/#{symbol}"
             if context
                 result += ": #{context}"
             end
@@ -204,7 +204,7 @@ module Roby
 	end
 
         def pretty_print(pp) # :nodoc:
-            pp.text "[#{time.to_hms} @#{propagation_id}] #{task}/#{symbol}"
+            pp.text "[#{Roby.format_time(time)} @#{propagation_id}] #{task}/#{symbol}"
             if context
                 pp.breakable
                 pp.nest(2) do

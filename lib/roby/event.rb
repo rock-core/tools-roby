@@ -96,11 +96,11 @@ module Roby
         end
 
 	def to_s # :nodoc:
-	    "[#{time.to_hms} @#{propagation_id}] #{self.class.to_s}: #{context}"
+	    "[#{Roby.format_time(time)} @#{propagation_id}] #{self.class.to_s}: #{context}"
 	end
 
         def pretty_print(pp) # :nodoc:
-            pp.text "[#{time.to_hms} @#{propagation_id}] #{self.class}"
+            pp.text "[#{Roby.format_time(time)} @#{propagation_id}] #{self.class}"
             if context
                 pp.breakable
                 pp.nest(2) do
