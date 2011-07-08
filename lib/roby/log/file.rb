@@ -123,7 +123,7 @@ module Roby::Log
                 raise TruncatedFileError
             end
 
-            data_size = *data_size.unpack("I")
+            data_size = data_size.unpack("I").first
             buffer = io.read(data_size)
             if !buffer || buffer.size < data_size
                 raise TruncatedFileError

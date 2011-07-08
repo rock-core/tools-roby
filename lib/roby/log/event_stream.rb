@@ -122,7 +122,7 @@ module Roby
 
 		start_pos = index_data[current_cycle][:pos]
 		logfile.seek(start_pos)
-                data_size = *logfile.read(4).unpack("I")
+                data_size = logfile.read(4).unpack("I").first
 		Marshal.load_with_missing_constants(logfile.read(data_size))
 
 	    ensure

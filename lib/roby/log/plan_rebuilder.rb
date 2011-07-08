@@ -360,9 +360,9 @@ module Roby
 			rescue Exception => e
 			    display_args = args.map do |obj|
 				case obj
-				when NilClass: 'nil'
-				when Time: obj.to_hms
-				when DRbObject: obj.inspect
+				when NilClass then 'nil'
+				when Time then obj.to_hms
+				when DRbObject then obj.inspect
 				else (obj.to_s rescue "failed_to_s")
 				end
 			    end
