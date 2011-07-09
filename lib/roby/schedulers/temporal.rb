@@ -31,6 +31,7 @@ module Roby
                         ev.task != task &&
                             !stack.include?(ev.task) &&
                             !Roby::EventStructure::SchedulingConstraints.related_tasks?(ev.task, task)
+                    else true
                     end
                 end
 
@@ -61,7 +62,7 @@ module Roby
                         # the task
                         task.each_parent_task do |parent|
                             parent.start_event.each_backward_temporal_constraint do |constraint|
-                                if constraint.task == task
+                                if constraint.respond_to?(:task) && constraint.task == task
                                     Schedulers.debug { "Temporal: #{task} has no running parent, but a constraint from #{constraint} to #{parent}.start exists. Scheduling." }
                                     return true
                                 end
