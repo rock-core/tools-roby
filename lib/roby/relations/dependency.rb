@@ -84,7 +84,11 @@ module Roby::TaskStructure
                 end
             end
             if validate
-                raise ArgumentError, "#{self} has no child with the role '#{role_name}'"
+                roles = []
+                each_child do |child_task, info|
+                    roles << "#{child_task} => #{info[:roles]}"
+                end
+                raise ArgumentError, "#{self} has no child with the role '#{role_name}'. Existing roles are #{roles.join(", ")}"
             end
         end
 
