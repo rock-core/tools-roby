@@ -226,12 +226,8 @@ module Roby
 
             def wait_any(event_spec)
                 with_description "WaitAny(#{event_spec}): #{caller(1).first}" do
-                    event = nil
-                    execute do
-                        event = resolve_event_request(event_spec)
-                    end
-
                     poll do
+                        event = resolve_event_request(event_spec)
                         if event.happened?
                             self.time_barrier = event.last.time
                             transition!
