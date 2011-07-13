@@ -840,11 +840,15 @@ module Roby
     #     execution) cannot become non-terminal. Nonetheless, a non-terminal
     #     event can become terminal.
     #
+
     class Task < PlanObject
 	unless defined? RootTaskTag
 	    RootTaskTag = TaskModelTag.new
 	    include RootTaskTag
 	end
+        
+        # Allow state machine definitions
+        #include TaskStateHelper
 
         # Proxy class used as intermediate by Task.with_arguments
         class AsPlanProxy
@@ -881,7 +885,7 @@ module Roby
         #   root = Roby::Task.new
         #   child = root.depends_on(TaskModel)
         #
-        # If arguments needs to be given, the #with_arguments method should be
+        # If arguments need to be given, the #with_arguments method should be
         # used:
         #
         #   root = Roby::Task.new
@@ -1192,8 +1196,11 @@ module Roby
             # Plan#discover when this task is included in a plan, thus avoiding
             # filling up the relation graphs with unused relations.
 	    initialize_events
-	end
 
+            if machine = TaskStateMachine.from_model(self)
+                instance_variable_set(:@state_machine, machine)
+            end
+	end
 
         # Helper methods which creates all the necessary TaskEventGenerator
         # objects and stores them in the #bound_events map
@@ -1981,7 +1988,8 @@ module Roby
 		@terminal = options[:terminal]
                 @symbol   = ev
                 @command_handler = command_handler
-
+                
+                puts "Define event #{task_klass.name}::#{ev_s.camelcase(:upper)}"
 		define_method(:name) { "#{task.name}::#{ev_s.camelcase(:upper)}" }
                 singleton_class.class_eval do
                     attr_reader :command_handler
