@@ -42,7 +42,7 @@ module Roby
     #   engine.once { ... }
     #
     # Nonetheless, note that it breaks the object-orientation of the system and
-    # therefore won't work in cases where you want multiple execution engine to
+    # therefore won't work in cases where you want multiple execution engines to
     # run in parallel.
     #
     # == Execution cycle
@@ -55,9 +55,9 @@ module Roby
     # * Signal describes the commands that must be called when an event occurs. The
     #   signalled event command is called when the signalling events are emitted. If
     #   more than one event are signalling the same event in the same execution
-    #   cycle, the command will be called only once
+    #   cycle, the command will be called only once.
     # * Forwarding describes the events that must be emitted whenever a source
-    #   event is. It is to be used as a way to define event aliases (for instance
+    #   event is emitted. It is to be used as a way to define event aliases (for instance
     #   'stop' is an alias for 'success'), because a task is stopped when it has
     #   finished with success. Unlike with signals, if more than one event is
     #   forwarded to the same event in the same cycle, the target event will be
@@ -66,7 +66,7 @@ module Roby
     #   represents a partial ordering of the events that must be maintained during
     #   the propagation stage (i.e. a notion of causality).
     #
-    # In the code, the followin procedure is followed: when a code fragment calls
+    # In the code, the following procedure applies: when a code fragment calls
     # EventGenerator#emit or EventGenerator#call, the event is not emitted right
     # away. Instead, it is queued in the set of "pending" events through the use of
     # #add_event_propagation. The execution engine will then consider
