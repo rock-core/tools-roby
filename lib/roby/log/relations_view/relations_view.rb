@@ -253,29 +253,41 @@ class Ui::RelationsView
             define_method(:mouseDoubleClickEvent) do |event|
 		item = itemAt(event.pos)
 		if item
-		    unless obj = display.object_of(item)
+                    obj = display.object_of(item) ||
+                        display.relation_of(item)
+
+		    if !obj
 			return super(event)
 		    end
 		end
 
-		return unless obj.kind_of?(Roby::LogReplay::RelationsDisplay::DisplayTask)
-
                 text = []
-                text << "<b>History</b>"
-                if obj.failed_to_start?
-                    text << "Failed to start at #{Roby.format_time(obj.failed_to_start_time)}"
-                    text.concat(Roby.format_exception(obj))
-                else
-                    obj.history.each do |event| 
-                        time = event.time
-                        time = "#{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
-                        text << "  #{time}: #{event.symbol}"
+                if obj.kind_of?(Array)
+                    from, to, rel = obj
+                    text << "<b>#{rel}</b>"
+                    text << "  from: #{from}"
+                    text << "  to: #{to}"
+                    text << "  info: #{from[to, rel]}"
+                elsif obj.kind_of?(Roby::LogReplay::RelationsDisplay::DisplayTask)
+                    text << "<b>History</b>"
+                    if obj.failed_to_start?
+                        text << "Failed to start at #{Roby.format_time(obj.failed_to_start_time)}"
+                        text.concat(Roby.format_exception(obj))
+                    else
+                        obj.history.each do |event| 
+                            time = event.time
+                            time = "#{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
+                            text << "  #{time}: #{event.symbol}"
+                        end
                     end
                 end
 
-                @textview ||= Qt::TextEdit.new
+                if !@textview
+                    @textview = Qt::TextEdit.new
+                    @textview.resize(200, 400)
+                    @textview.readOnly = true
+                end
                 @textview.windowTitle = "Details for #{obj}"
-                @textview.readOnly = true
                 @textview.text = text.join("<br>\n")
                 @textview.show
             end

@@ -373,8 +373,15 @@ module Roby
 		ending = add_polygon polygon, (pen || default_arrow_pen), (brush || default_arrow_brush)
 		line   = add_line @arrow_line
 
+                @arrow_id ||= 0
+                id = (@arrow_id += 1)
+                line.setData(0, Qt::Variant.new(id.to_s))
+                ending.setData(0, Qt::Variant.new(id.to_s))
+
 		line.parent_item = ending
-		ending.singleton_class.class_eval { attr_accessor :line }
+		ending.singleton_class.class_eval do
+                    attr_accessor :line
+                end
 		ending.line = line
 		ending
 	    end
@@ -554,6 +561,17 @@ module Roby
 		end
 		obj
 	    end
+
+            def relation_of(item)
+                id = item.data(0).to_string
+                arrows.each do |(from, to, rel), arrow|
+                    puts "#{id} #{arrow.data(0)}"
+                    if arrow.data(0).to_string == id
+                        return from, to, rel
+                    end
+                end
+                nil
+            end
 
 	    def [](item); graphics[item] end
 

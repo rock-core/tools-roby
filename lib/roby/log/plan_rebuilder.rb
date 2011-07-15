@@ -210,7 +210,10 @@ module Roby
                 @event_filters = Array.new
                 @filter_matches = Array.new
                 @filter_exclusions = Array.new
+                @all_relations = Set.new
 	    end
+
+            attr_reader :all_relations
 
             def find_model(stream, model_name, &block)
                 analyze_stream(stream) do
@@ -307,10 +310,7 @@ module Roby
                     relations = reused_relation_graphs
                 else
                     relations = Hash.new
-                    Roby::TaskStructure.each_relation do |rel|
-                        relations[rel] = rel.dup
-                    end
-                    Roby::EventStructure.each_relation do |rel|
+                    all_relations.each do |rel|
                         relations[rel] = rel.dup
                     end
                 end
@@ -474,6 +474,7 @@ module Roby
 		rel    = rel.first if rel.kind_of?(Array)
 		rel    = local_object(rel)
 		parent.add_child_object(child, rel, info)
+                all_relations << rel
                 announce_structure_update
                 return parent, rel, child
 	    end
@@ -504,8 +505,10 @@ module Roby
 	    def added_event_child(time, parent, rel, child, info)
 		parent = local_object(parent)
 		child  = local_object(child)
-                rel    = local_object(rel)
-		parent.add_child_object(child, rel.first, info)
+		rel    = rel.first if rel.kind_of?(Array)
+		rel    = local_object(rel)
+                all_relations << rel
+		parent.add_child_object(child, rel, info)
                 announce_structure_update
 	    end
 	    def removed_event_child(time, parent, rel, child)
