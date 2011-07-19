@@ -1197,9 +1197,47 @@ module Roby
             # filling up the relation graphs with unused relations.
 	    initialize_events
 
-            if machine = TaskStateMachine.from_model(self)
+            if machine = ::Roby::TaskStateMachine.from_model(self)
                 instance_variable_set(:@state_machine, machine)
             end
+	end
+        
+	# Retrieve the current state of the task 
+	# Can be one of the core states: pending, failed_to_start, starting, started, running, finishing, 
+	# succeeded or failed
+	# In order to add substates to +running+ TaskStateMachine#refine_running_state 
+	# can be used. 
+	def current_state
+	    # Started and not finished
+	    if running? 
+		if respond_to?("state_machine")
+		    return state_machine.status
+		else
+		    return :running
+		end
+	    end
+	
+	    # True, when task has never been started
+	    if pending? 
+		return :pending 
+            elsif failed_to_start? 
+		return :failed_to_start
+            elsif starting?
+	        return :starting
+	    # True, when terminal event is pending
+            elsif finishing? 
+	        return :finishing
+	    # Terminated with success or failure
+            elsif success? 
+	        return :succeeded
+            elsif failed? 
+	        return :failed 
+	    end
+	end
+
+	# Test if that current state corresponds to the provided state (symbol)
+	def current_state?(state) 
+	    return state == current_state.to_sym
 	end
 
         # Helper methods which creates all the necessary TaskEventGenerator
@@ -1989,7 +2027,6 @@ module Roby
                 @symbol   = ev
                 @command_handler = command_handler
                 
-                puts "Define event #{task_klass.name}::#{ev_s.camelcase(:upper)}"
 		define_method(:name) { "#{task.name}::#{ev_s.camelcase(:upper)}" }
                 singleton_class.class_eval do
                     attr_reader :command_handler
@@ -2363,6 +2400,11 @@ module Roby
                 if respond_to?(:poll_handler)
                     poll_handler
                 end
+	        
+                if respond_to?(:state_machine) && state_machine.poll?
+                   state_machine.poll(self)
+                end
+
                 @poll_handlers.each do |poll_block|
                     poll_block.block.call(self)
                 end
@@ -2396,7 +2438,12 @@ module Roby
 
         on :start do |ev|
             engine = plan.engine
-            if respond_to?(:poll_handler) || !poll_handlers.empty?
+
+            # Register poll:
+            #  - single class poll_handler add be class method Task#poll
+            #  - additional instance poll_handler added by instance method poll
+            #  - polling as defined in state of the state_machine, i.e. substates of running
+            if respond_to?(:poll_handler) || !poll_handlers.empty? || respond_to?(:state_machine)
                 @poll_handler_id = engine.add_propagation_handler(:type => :external_events, &method(:do_poll))
             end
         end

@@ -8,9 +8,8 @@ module TaskStateHelper
 
     # The default namespace that is added to statemachine methods, e.g. 
     # when action for transitions are defined
-
     def namespace
-        @namespace ||= nil #'machine'
+        @namespace ||= nil 
     end
 
     def namespace=(name)
@@ -18,23 +17,48 @@ module TaskStateHelper
         @namespace=name
     end
     
+    # Add functionality to StateMachine
+    # Allows us to wrap existing methods in StateMachine
+    StateMachine::Machine.class_eval do
+        # Redefine the event signature to 
+        # match Roby semantics
+        def on(event, &block)
+	    event(event, &block)
+        end
+    end
+
     # Refine the running state of the Roby::Task
     # using a state machine description. The initial
     # state of the machine is set to 'running' by default.
     #
     # Example: 
     #     refine_running_state do
-    #         event :pause do
+    #         on :pause do
     #             transition [:running] => paused
     #         end
     #         
-    #         event :resume do
+    #         on :resume do
     #             transition [:paused] => :running
     #         end
     #         
-    #         state :paused
+    #         state :paused do
+    #             def poll(task)
+    #                 sleep 4
+    #                 task.emit :resume
+    #             end
+    #         end
     #     end
     #
+    # Events are translated into roby events 
+    # and the statemachine in hooked into the
+    # on(:yourevent) {|context| ... }
+    # You can add additional event handlers as ususal
+    # using on(:yourevent) .. syntax
+    # 
+    # The current status (substate of the running state)
+    # can be retrieved via 
+    #     yourtask.state_machine.status 
+    # 
     def refine_running_state (*args, &block)
 
         if args.last.kind_of?(Hash) 
@@ -70,7 +94,6 @@ module TaskStateHelper
 
         import_events_to_roby(machine)
         task_state_machine = TaskStateMachine.new(proxy_klass, machine)
-        #task_state_machine.instance_eval(&block)
         
         # Add new state machine template
         TaskStateMachine.models[name] = task_state_machine
@@ -83,10 +106,25 @@ module TaskStateHelper
     end
 
     def import_events_to_roby(machine)
+
         # Roby requires the self to be the subclassed Roby::Task
         # Thus embed import into refine_running_state and using eval here
         machine.events.each do |e|
-            eval("#{self}.event e.name.to_sym")
+	    # When event is called emit event
+	    self.send(:event, e.name.to_sym) do 
+		send(:emit, e.name.to_sym)
+	    end
+            
+	    # when event is called transition the state_machine
+	    self.send(:on , e.name.to_sym) do |event|
+		statemachine = send(:state_machine)
+		begin
+		    statemachine.send("#{e.name.to_sym}!".to_sym)
+		rescue StateMachine::InvalidTransition => detail
+		    puts "WARNING: invalid transition to #{e.name}"
+		    puts "#{detail.backtrace}"
+		end
+	    end
         end
     end
 end
@@ -124,7 +162,9 @@ class TaskStateMachine
                 end
             end
             
-            raise "#{model_klass} is not a known TaskStateMachine model"
+	    # If the is no model returning nil 
+	    # "#{model_klass} is not a known TaskStateMachine model"
+	    nil
         end
     end
 
@@ -172,12 +212,22 @@ class TaskStateMachine
 
     def method_missing(method_name, *args, &block)
 	# If proxy provides missing method, then use the proxy
-	if proxy.respond_to?(method_name)
+	if proxy.respond_to?("#{method_name}")
 	    proxy.send(method_name, *args, &block)
 	else
 	    # otherwise pass it on
 	    super
 	end
+    end
+    
+    # Test if the current state has a poll method
+    # defined
+    def poll?
+        if proxy && proxy.respond_to?(:poll)
+	    return true
+	end
+
+	return false
     end
 
     # Identifies the current state given a list of subsequent events
@@ -197,7 +247,6 @@ class TaskStateMachine
 
         while event_list.size > 0 
             current_event = event_list.first
-            puts "#{current_event} -------------"
             # expand path
             @transitions.each do |transition|
                 # Get transitions that match event
@@ -236,6 +285,6 @@ end # module TaskStateHelper
 
 end # module Roby
 
-#Class.class_eval do
-#    include Roby::TaskStateHelper
-#end
+Class.class_eval do
+    include Roby::TaskStateHelper
+end
