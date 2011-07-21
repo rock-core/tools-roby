@@ -155,6 +155,7 @@ class TaskStateMachine
         
         # Making sure we can deal with inheritance
         def from_model(model_klass)
+            TaskStateMachine.models ||= Hash.new
             TaskStateMachine.models.each do |key_model, statemachine_model|
                 if model_klass.is_a?(key_model)
                     # Return copy of the model
