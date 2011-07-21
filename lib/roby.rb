@@ -48,6 +48,7 @@ require 'roby/relations.rb'
 
 require 'roby/plan-object.rb'
 require 'roby/event.rb'
+require 'roby/task_statemachine.rb'
 require 'roby/task.rb'
 require 'roby/plan_service.rb'
 require 'roby/task-operations.rb'

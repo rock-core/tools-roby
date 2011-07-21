@@ -16,5 +16,6 @@
   <rosdep name="qtruby" />
   <rosdep name="boost" />
   <rosdep name="graphviz" />
+  <rosdep name="state_machine" />
 </package>
 
