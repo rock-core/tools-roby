@@ -13,7 +13,6 @@ module TaskStateHelper
     end
 
     def namespace=(name)
-        puts "set namepspace for #{self} to name"
         @namespace=name
     end
     
@@ -68,15 +67,24 @@ module TaskStateHelper
 
         if options.has_key?(:namespace)
             self.namespace=options[:namespace]
-            puts "Namespace is #{self.namespace} "
         end
 
-        # Making sure we load each machine definition only once per class 
         TaskStateMachine.models ||= Hash.new
 
         name = self
+        # Making sure we load each machine definition only once per class 
         if TaskStateMachine.models.has_key?(name)
             return
+        end
+
+        # Check if a model of a class ancestor already exists
+        # If a parent_model exists, prepare the proxy class accordingly
+        # The proxy allows us to use the state_machine library even
+        # with instances 
+        if parent_model = TaskStateMachine.parent_model(name)
+            proxy_klass = Class.new(parent_model.name)
+        else
+            proxy_klass = Class.new
         end
         
         # Create the state machine instance that will serve as base model for instances of the Roby::Task (or its subclasses) this
@@ -85,7 +93,7 @@ module TaskStateHelper
         # Note cannot use :state instead of :status here for yet unknown reason
         # Changing the attribute :status also changes other method definitions, due to meta programming approach 
         # of the underlying library, e.g. status_transitions(:from => ..., :to => ...)
-        proxy_klass = Class.new
+
         if self.namespace 
             machine = StateMachine::Machine.find_or_create(proxy_klass, :status, :initial => :running, :namespace => self.namespace , &block)
         else
@@ -137,7 +145,7 @@ class TaskStateMachine
     attr_accessor :machine
 
     # Existing transitions
-    # Transition contain event, from_name, to_name
+    # Transition comes with methods: event, from_name, to_name
     attr_reader :transitions
 
     # Name of the state machine i.e. Roby::Task name it is associated with
@@ -156,9 +164,9 @@ class TaskStateMachine
         # Making sure we can deal with inheritance
         def from_model(model_klass)
             TaskStateMachine.models ||= Hash.new
+
             TaskStateMachine.models.each do |key_model, statemachine_model|
-                if model_klass.is_a?(key_model)
-                    # Return copy of the model
+                if model_klass.class == key_model
                     return statemachine_model.dup
                 end
             end
@@ -167,6 +175,20 @@ class TaskStateMachine
 	    # "#{model_klass} is not a known TaskStateMachine model"
 	    nil
         end
+
+        def parent_model(model_klass)
+            TaskStateMachine.models.each do |key_model, statemachine_model|
+	        # Check if model_klass inherits from key_model
+                if model_klass < key_model
+                    return statemachine_model.dup
+                end
+            end
+            
+	    # If the is no model returning nil 
+	    # "#{model_klass} is not a known TaskStateMachine model"
+	    nil
+	end
+
     end
 
     def initialize(name, machine)
@@ -212,23 +234,22 @@ class TaskStateMachine
     end
 
     def method_missing(method_name, *args, &block)
-	# If proxy provides missing method, then use the proxy
-	if proxy.respond_to?("#{method_name}")
-	    proxy.send(method_name, *args, &block)
-	else
-	    # otherwise pass it on
-	    super
-	end
+        # If proxy provides missing method, then use the proxy
+        if proxy.respond_to?("#{method_name}")
+            proxy.send(method_name, *args, &block)
+        else
+            # otherwise pass it on
+            super
+        end
     end
     
-    # Test if the current state has a poll method
-    # defined
-    def poll?
-        if proxy && proxy.respond_to?(:poll)
-	    return true
-	end
-
-	return false
+    # Define general poll handler
+    def do_poll(task)
+        begin 
+            proxy.poll(task)
+        rescue NoMethodError => e
+	    # poll only if the state has a poll handler defined
+        end
     end
 
     # Identifies the current state given a list of subsequent events

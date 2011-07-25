@@ -2401,8 +2401,8 @@ module Roby
                     poll_handler
                 end
 	        
-                if respond_to?(:state_machine) && state_machine.poll?
-                   state_machine.poll(self)
+                if respond_to?(:state_machine) 
+                   state_machine.do_poll(self)
                 end
 
                 @poll_handlers.each do |poll_block|
