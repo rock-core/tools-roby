@@ -10,9 +10,6 @@ parser = OptionParser.new do |opt|
     opt.on("--single", "run in mono-robot mode") do
 	app.single
     end
-    opt.on("--prefix STRING", "global prefix that is prepend to all TaskContext's names") do |arg|
-        app.prefix = arg
-    end
 end
 parser.parse!(ARGV)
 

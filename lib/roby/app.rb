@@ -95,9 +95,6 @@ module Roby
 	# An array of directories in which to search for plugins
 	attr_reader :plugin_dirs
 
-        # global prefix that will be prepended to all TaskContext's names
-        attr_accessor :prefix
-
 	# True if user interaction is disabled during tests
 	attr_predicate :automatic_testing?, true
 
