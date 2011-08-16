@@ -572,6 +572,18 @@ module Roby
 	    inject({}) { |h, (k, v)| h[k] = v ; h }
 	end
 
+	def set?(key)
+	    has_key?(key) && !fetch(key).respond_to?(:evaluate_delayed_argument)
+	end
+
+	def each_static
+	    each do |key, value|
+		if !value.respond_to?(:evaluate_delayed_argument)
+		    yield(key, value)
+		end
+	    end
+	end
+
 	alias :update! :[]=
 	def []=(key, value)
             key = key.to_sym if key.respond_to?(:to_str)
@@ -2544,7 +2556,7 @@ module Roby
 	    end
 
 	    target_model.last.each do |key, val|
-		if arguments.has_key?(key) && arguments[key] != val
+		if arguments.set?(key) && arguments[key] != val
 		    return false
 		end
 	    end
