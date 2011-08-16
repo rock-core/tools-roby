@@ -595,7 +595,7 @@ module Roby
                 end
                 value
 	    else
-		raise ArgumentError, "cannot override task arguments"
+		raise ArgumentError, "cannot override task argument #{key} as it is already set to #{fetch(key)}"
 	    end
 	end
 	def updating; super if defined? super end
