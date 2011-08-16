@@ -565,7 +565,6 @@ module Roby
             def relation_of(item)
                 id = item.data(0).to_string
                 arrows.each do |(from, to, rel), arrow|
-                    puts "#{id} #{arrow.data(0)}"
                     if arrow.data(0).to_string == id
                         return from, to, rel
                     end
