@@ -215,7 +215,7 @@ module Roby
                 name
             end
 
-            def current_state(current_time)
+            def current_display_state(current_time)
                 if failed_to_start?
                     if failed_to_start_time > current_time
                         return :pending
@@ -246,7 +246,7 @@ module Roby
 
             attr_reader :displayed_state
             def update_graphics(display, graphics_item)
-                new_state = current_state(display.current_time)
+                new_state = current_display_state(display.current_time)
                 if displayed_state != new_state
                     graphics_item.brush = Qt::Brush.new(TASK_BRUSH_COLORS[new_state])
                     graphics_item.pen   = Qt::Pen.new(TASK_PEN_COLORS[new_state])
