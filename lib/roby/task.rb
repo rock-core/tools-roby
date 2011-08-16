@@ -650,7 +650,7 @@ module Roby
         end
 
         def pretty_print(pp)
-            pp.text "delayed_argument_from(#{block})"
+            pp.text "delayed_argument_from(#{@block})"
         end
     end
 
