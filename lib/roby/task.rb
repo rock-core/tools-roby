@@ -64,7 +64,12 @@ module Roby
                     end
 
                     if options.has_key?(:default)
-                        argument_defaults[arg_name] = options[:default]
+			defval = options[:default]
+			if !defval.respond_to?(:evaluate_delayed_argument)
+			    argument_defaults[arg_name] = DelayedTaskArgument.new { |t| defval }
+			else
+			    argument_defaults[arg_name] = defval
+			end
                     end
                 end
 	    end

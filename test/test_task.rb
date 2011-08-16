@@ -1495,30 +1495,33 @@ class TC_Task < Test::Unit::TestCase
         assert_kind_of EmissionFailed, task.failure_reason
     end
 
-    def test_argument_static
-        model = Class.new(Roby::Task) do
-            argument 'value', :default => 10
-        end
-        task = model.new
-        assert task.arguments.static?
-    end
-
-    def test_plain_default_argument
-        model = Class.new(Roby::Task) do
-            argument 'value', :default => 10
-        end
-        task = model.new
-        assert_equal 10, task.value
-        assert task.fully_instanciated?
-    end
     def test_nil_default_argument
-        model = Class.new(Roby::Task) do
+        model = Class.new(Tasks::Simple) do
             argument 'value', :default => nil
         end
         task = model.new
-        assert_equal nil, task.value
         assert task.fully_instanciated?
+        assert !task.arguments.static?
+	plan.add(task)
+	assert task.executable?
+	task.start!
+	assert_equal nil, task.arguments[:value]
     end
+
+    def test_plain_default_argument
+        model = Class.new(Tasks::Simple) do
+            argument 'value', :default => 10
+        end
+        task = model.new
+        assert task.fully_instanciated?
+        assert !task.arguments.static?
+	plan.add(task)
+	assert task.executable?
+	task.start!
+	pp task.arguments
+	assert_equal 10, task.arguments['value']
+    end
+
     def test_delayed_default_argument
         has_value = false
         value = nil
