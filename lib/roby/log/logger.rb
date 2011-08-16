@@ -66,6 +66,7 @@ module Roby::Log
 
 	# Returns true if there is at least one loggr for the +m+ message
 	def has_logger?(m)
+	    return if !logging?
 	    for l in @loggers
 		return true if l.logs_message?(m)
 	    end
@@ -136,6 +137,7 @@ module Roby::Log
 		    flushed_logger_mutex.synchronize do
 			flushed_logger.broadcast
 		    end
+		    logged_events.clear
 		end
 	    end
 
