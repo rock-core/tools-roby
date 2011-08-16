@@ -64,13 +64,13 @@ module Roby
         #       value < 20
         #   end
         #
-        def trigger_when(state_name = nil, &block)
+        def trigger_when(*state_path, &block)
             if !block_given?
                 raise ArgumentError, "#trigger_when expects a block"
             end
 
-            state_name = state_name.to_s if state_name
-            StateConditionEvent.new(self, state_name, block)
+            state_path.map!(&:to_s)
+            StateConditionEvent.new(self, state_path, block)
         end
 
         # Installs a condition at which the event should be reset
@@ -157,20 +157,35 @@ module Roby
     # Implementation of StateSpace#trigger_when
     class StateConditionEvent < StateEvent
         attr_reader :state_space
-        attr_reader :variable
+        attr_reader :variable_path
         attr_reader :condition
 
-        def initialize(state_space, variable, condition)
-            @state_space, @variable, @condition =
-                state_space, variable, condition
+        def initialize(state_space, variable_path, condition)
+            @state_space, @variable_path, @condition =
+                state_space, variable_path, condition
             super(false)
         end
 
         def poll
             return if !armed?
 
-            if variable
-                value = state_space.get(variable)
+            if !variable_path.empty?
+                value = variable_path.inject(state_space) do |value, element|
+                    result =
+                        if value.respond_to?("#{element}?")
+                            if value.send("#{element}?")
+                                value.send(element)
+                            end
+                        elsif value.respond_to?(element)
+                            value.send(element)
+                        end
+
+                    if !result
+                        break
+                    end
+                    result
+                end
+
                 if value && condition.call(value)
                     emit
                 end
