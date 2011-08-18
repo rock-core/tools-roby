@@ -637,6 +637,18 @@ module Roby
             end
         end
 
+	def gather_errors
+            if @propagation_exceptions
+                raise InternalError, "recursive call to #gather_errors"
+            end
+            @propagation_exceptions = []
+	    yield
+            @propagation_exceptions
+
+        ensure
+            @propagation_exceptions = nil
+	end
+
         # Calls its block in a #gather_propagation context and propagate events
         # that have been called and/or emitted by the block
         #
@@ -645,24 +657,17 @@ module Roby
         # +seeds+ si a list of procs which should be called to initiate the propagation
         # (i.e. build an initial set of events)
         def event_propagation_phase(initial_events)
-            if @propagation_exceptions
-                raise InternalError, "recursive call to event_propagation_phase"
-            end
-
             @propagation_id = (@propagation_id += 1)
-            @propagation_exceptions = []
 
-            next_steps = initial_events
-            while !next_steps.empty?
+	    gather_errors do
+                next_steps = initial_events
                 while !next_steps.empty?
-                    next_steps = event_propagation_step(next_steps)
-                end        
-                next_steps = gather_propagation { call_propagation_handlers }
-            end
-            @propagation_exceptions
-
-        ensure
-            @propagation_exceptions = nil
+                    while !next_steps.empty?
+                        next_steps = event_propagation_step(next_steps)
+                    end        
+                    next_steps = gather_propagation { call_propagation_handlers }
+                end
+	    end
         end
         
         def error_handling_phase(stats, events_errors)
@@ -1154,15 +1159,18 @@ module Roby
             add_timepoint(stats, :real_start)
 
             # Gather new events and propagate them
+	    events_errors = nil
             next_steps = gather_propagation do
-                gather_external_events
-                call_propagation_handlers
+	        events_errors = gather_errors do
+                    gather_external_events
+                    call_propagation_handlers
+	        end
             end
 
             all_fatal_errors = Array.new
             if next_steps.empty?
                 next_steps = gather_propagation do
-                    kill_tasks, fatal_errors = error_handling_phase(stats, [])
+                    kill_tasks, fatal_errors = error_handling_phase(stats, events_errors || [])
                     add_timepoint(stats, :exceptions_fatal)
                     if fatal_errors
                         all_fatal_errors.concat(fatal_errors)
@@ -1316,7 +1324,13 @@ module Roby
                             plan.gc_quarantine << local_task
                         end
                     elsif local_task.finishing?
-                        ExecutionEngine.debug { "GC: waiting for #{local_task} to finish" }
+                        ExecutionEngine.debug do
+			    ExecutionEngine.debug "GC: waiting for #{local_task} to finish"
+			    local_task.history.each do |ev|
+			        ExecutionEngine.debug "GC:   #{ev}"
+			    end
+			    break
+			end
                     else
                         ExecutionEngine.warn "GC: ignored #{local_task}"
                     end
