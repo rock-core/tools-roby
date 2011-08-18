@@ -2418,7 +2418,7 @@ module Roby
                     poll_handler
                 end
 	        
-                if respond_to?(:state_machine) 
+                if respond_to?(:state_machine) and state_machine
                    state_machine.do_poll(self)
                 end
 
