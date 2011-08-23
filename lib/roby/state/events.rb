@@ -160,7 +160,7 @@ module Roby
         attr_reader :variable_path
         attr_reader :condition
 
-        def initialize(state_space, variable_path, condition)
+        def initialize(state_space = nil, variable_path = [], condition = nil)
             @state_space, @variable_path, @condition =
                 state_space, variable_path, condition
             super(false)

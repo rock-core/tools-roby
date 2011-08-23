@@ -87,8 +87,12 @@ module Roby
 
         module PlanReplayTaskModel
             def create_remote_event(symbol, peer, marshalled_event)
-                event_model = self.model.
-                    event(symbol, :controlable => marshalled_event.controlable)
+                if !self.model.has_event?(symbol)
+                    event_model = self.model.
+                        event(symbol, :controlable => marshalled_event.controlable)
+                else
+                    event_model = self.model.find_event_model(symbol)
+                end
 
                 generator = Roby::TaskEventGenerator.new(self, event_model)
                 @bound_events[symbol] = generator
