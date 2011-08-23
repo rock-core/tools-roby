@@ -450,8 +450,9 @@ static VALUE graph_each_dfs(VALUE self, Graph const& graph, VALUE root, VALUE mo
  *  graph.each_dfs(root, mode) { |source, dest, info, kind| ... }
  *
  * Enumerates edges of the graph following a depth-first search order.
- * +mode+ is a filter on the kind of edge which shall be enumerated (TREE,
- * FORWARD_OR_CROSS, BACK and ALL) and +root+ is the source of the search
+ * +mode+ is a filter on the kind of edge which shall be enumerated
+ * (BGL::Graph::TREE, BGL::Graph::FORWARD_OR_CROSS, BGL::Graph::BACK and
+ * BGL::Graph::ALL) and +root+ is the source of the search
  */
 static VALUE graph_direct_each_dfs(VALUE self, VALUE root, VALUE mode)
 {
@@ -605,8 +606,9 @@ static VALUE graph_each_bfs(VALUE self, Graph const& graph, VALUE root, VALUE mo
  *  graph.each_bfs(root, mode) { |source, dest, info, kind| ... }
  *
  * Enumerates edges of the graph following a breadth-first search order.
- * +mode+ is a filter on the kind of edge which shall be enumerated (TREE,
- * NON_TREE and ALL) and +root+ is the source of the search
+ * +mode+ is a filter on the kind of edge which shall be enumerated
+ * (BGL::Graph::TREE, BGL::Graph::NON_TREE and BGL::Graph::ALL) and
+ * +root+ is the source of the search
  */
 static VALUE graph_direct_each_bfs(VALUE self, VALUE root, VALUE mode)
 {
