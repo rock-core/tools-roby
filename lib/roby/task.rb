@@ -864,9 +864,6 @@ module Roby
 	    include RootTaskTag
 	end
         
-        # Allow state machine definitions
-        #include TaskStateHelper
-
         # Proxy class used as intermediate by Task.with_arguments
         class AsPlanProxy
             def initialize(model, arguments)
@@ -1213,10 +1210,11 @@ module Roby
             # Plan#discover when this task is included in a plan, thus avoiding
             # filling up the relation graphs with unused relations.
 	    initialize_events
-
-            if machine = ::Roby::TaskStateMachine.from_model(self)
+	    
+            if machine = ::Roby::TaskStateMachine.from_model(self.class)
                 instance_variable_set(:@state_machine, machine)
             end
+
 	end
         
 	# Retrieve the current state of the task 
@@ -2418,7 +2416,7 @@ module Roby
                     poll_handler
                 end
 	        
-                if respond_to?(:state_machine) and state_machine
+                if respond_to?(:state_machine)
                    state_machine.do_poll(self)
                 end
 

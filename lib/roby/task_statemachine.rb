@@ -81,7 +81,7 @@ module TaskStateHelper
         # If a parent_model exists, prepare the proxy class accordingly
         # The proxy allows us to use the state_machine library even
         # with instances 
-        if parent_model = TaskStateMachine.parent_model(name)
+        if parent_model = TaskStateMachine.from_model(name.superclass)
             proxy_klass = Class.new(parent_model.name)
         else
             proxy_klass = Class.new
@@ -163,26 +163,17 @@ class TaskStateMachine
         
         # Making sure we can deal with inheritance
         def from_model(model_klass)
-            TaskStateMachine.models ||= Hash.new
+	    obj = model_klass
 
-            TaskStateMachine.models.each do |key_model, statemachine_model|
-                if model_klass.class == key_model
-                    return statemachine_model.dup
+	    while obj
+                TaskStateMachine.models.each do |key_model, statemachine_model|
+	            # Check if model_klass inherits from key_model
+                    if obj == key_model
+                        return statemachine_model.dup
+                    end
                 end
-            end
-            
-	    # If the is no model returning nil 
-	    # "#{model_klass} is not a known TaskStateMachine model"
-	    nil
-        end
-
-        def parent_model(model_klass)
-            TaskStateMachine.models.each do |key_model, statemachine_model|
-	        # Check if model_klass inherits from key_model
-                if model_klass < key_model
-                    return statemachine_model.dup
-                end
-            end
+		obj = obj.superclass
+	    end
             
 	    # If the is no model returning nil 
 	    # "#{model_klass} is not a known TaskStateMachine model"
