@@ -373,7 +373,7 @@ module Roby::TaskStructure
 	# If there is a task class in the required models, it is always the
 	# first element of +tags+
 	def fullfilled_model
-	    model, tags, arguments =
+	    current_model =
                 if explicit = (@fullfilled_model || self.model.fullfilled_model)
                     has_value = true
                     explicit
@@ -386,30 +386,15 @@ module Roby::TaskStructure
                 has_value = true
 
 		required_models, required_arguments = parent[myself, Dependency][:model]
-                required_models = [required_models] if !required_models.respond_to?(:to_ary)
-
-                for m in required_models
-                    if m.kind_of?(Roby::TaskModelTag)
-                        tags << m
-                    elsif m.has_ancestor?(model)
-                        model = m
-                    elsif !model.has_ancestor?(m)
-                        raise Roby::ModelViolation, "inconsistency in fullfilled models: #{model} and #{m} are incompatible"
-                    end
-                end
-
-		arguments.merge!(required_arguments) do |name, old, new| 
-		    if old != new
-			raise Roby::ModelViolation, "inconsistency in fullfilled models: #{old} and #{new}"
-		    end
-                    old
-		end
+                current_model = Dependency.merge_fullfilled_model(current_model,
+                                       required_models, required_arguments)
 	    end
 
             if !has_value
                 [[self.model], self.meaningful_arguments]
             else
-                tags.unshift(model)
+                model, tags, arguments = *current_model
+                tags.unshift model
                 [tags, arguments]
             end
 	end
@@ -438,6 +423,32 @@ module Roby::TaskStructure
             super
         end
     end
+
+    def Dependency.merge_fullfilled_model(model, required_models, required_arguments)
+        model, tags, arguments = *model
+
+        required_models = [required_models] if !required_models.respond_to?(:to_ary)
+
+        for m in required_models
+            if m.kind_of?(Roby::TaskModelTag)
+                tags << m
+            elsif m.has_ancestor?(model)
+                model = m
+            elsif !model.has_ancestor?(m)
+                raise Roby::ModelViolation, "inconsistency in fullfilled models: #{model} and #{m} are incompatible"
+            end
+        end
+
+        arguments.merge!(required_arguments) do |name, old, new| 
+            if old != new
+                raise Roby::ModelViolation, "inconsistency in fullfilled models: #{old} and #{new}"
+            end
+            old
+        end
+
+        return [model, tags, arguments]
+    end
+
 
     def Dependency.validate_options(options)
         Kernel.validate_options options, [:model, :success, :failure, :remove_when_done, :consider_in_pending, :roles, :role]

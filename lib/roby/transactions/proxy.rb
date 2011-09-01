@@ -348,6 +348,9 @@ module Roby
             end
 
             __getobj__.abstract = self.abstract?
+            if @fullfilled_model
+                __getobj__.fullfilled_model = @fullfilled_model.dup
+            end
 	end
 
         # Perform the operations needed for the transaction to be discarded.

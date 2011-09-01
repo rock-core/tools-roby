@@ -1312,6 +1312,9 @@ module Roby
 	    end
 	    @bound_events = bound_events
             @poll_handlers = old.poll_handlers.dup
+            if m = old.instance_variable_get(:@fullfilled_model)
+                @fullfilled_model = m.dup
+            end
 	end
 
 	def instantiate_model_event_relations
