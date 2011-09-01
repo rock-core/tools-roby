@@ -172,6 +172,32 @@ module BGL
 		(other.enum_for(:each_edge).to_set == enum_for(:each_edge).to_set)
 	end
 
+        def pretty_print(pp)
+            pp.text "#{size} vertices in graph"
+
+            tasks = Hash.new
+            each_vertex do |from|
+                tasks[from] = from.to_s
+            end
+
+            pp.nest(4) do
+                tasks.sort_by { |_, v| v }.each do |parent, parent_name|
+                    pp.breakable
+                    pp.text parent_name
+                    pp.nest(4) do
+                        children = Array.new
+                        parent.each_child_vertex(self) do |child|
+                            children << child.to_s
+                        end
+                        children.sort.each do |child_name|
+                            pp.breakable
+                            pp.text "=> #{child_name}"
+                        end
+                    end
+                end
+            end
+        end
+
         # Returns a set of removed edges and a set of new edges between elements
         # of +vertices+ in +self+ and +other_graph+.
         #
