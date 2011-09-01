@@ -181,12 +181,12 @@ class TaskStateMachine
 	end
 
     end
+    @models = Hash.new
 
     def initialize(name, machine)
         # Required to initialize underlying state_machine
         super()
 
-        TaskStateMachine.models ||= Hash.new
         @name = name
         @proxy = name.new
         @machine = machine.dup
