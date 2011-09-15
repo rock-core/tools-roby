@@ -56,6 +56,19 @@ module Roby
 	# The plain option hash saved in config/app.yml
 	attr_reader :options
 
+        def self.attr_config(config_key)
+            attribute("#{config_key}_overrides") { Hash.new }
+            define_method(config_key) do
+                plain = instance_variable_get "@#{config_key}"
+                overrides = instance_variable_get "@#{config_key}_overrides"
+                if overrides
+                    plain.recursive_merge(overrides)
+                else
+                    plain
+                end
+            end
+        end
+
 	# Logging options.
 	# events:: save a log of all events in the system. This log can be read using scripts/replay
 	#          If this value is 'stats', only the data necessary for timing statistics is saved.
@@ -65,7 +78,7 @@ module Roby
 	#	     Roby::Distributed: INFO
 	# dir:: the log directory. Uses APP_DIR/log if not set
 	# filter_backtraces:: true if the framework code should be removed from the error backtraces
-	attr_reader :log
+	attr_config :log
 
         # ExecutionEngine setup
         attr_reader :engine
@@ -103,6 +116,15 @@ module Roby
 
 	# True if all logs should be kept after testing
 	attr_predicate :testing_overwrites_logs?, true
+
+        # Configures a logger in the system. It has to be called before #setup
+        # to have an effect.
+        #
+        # It overrides configuration from the app.yml file
+        def log_setup(mod_path, level, file = nil)
+            levels = (log_overrides['levels'] ||= Hash.new)
+            levels[mod_path] = [level, file].compact.join(":")
+        end
 
         def self.overridable_configuration(config_set, config_key)
             define_method("#{config_key}?") do
@@ -234,7 +256,7 @@ module Roby
 	def load_option_hashes(options, names)
 	    names.each do |optname|
 		if options[optname]
-		    send(optname).merge! options[optname]
+		    instance_variable_get("@#{optname}").merge! options[optname]
 		end
 	    end
 	end
