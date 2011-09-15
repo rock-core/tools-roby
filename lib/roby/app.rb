@@ -135,7 +135,7 @@ module Roby
                 Roby.app.robot(name, robot_type||robot_name)
             end
             parser.on_tail('-h', '--help', 'this help message') do
-                STDERR.puts opt
+                STDERR.puts parser
                 exit
             end
         end
