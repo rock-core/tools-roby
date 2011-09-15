@@ -251,24 +251,6 @@ module Roby
         end
     end
 
-    def self.format_exception(exception)
-        message = begin
-                      PP.pp(exception, "")
-                  rescue Exception => formatting_error
-                      begin
-                          "error formatting exception\n" +
-                              exception.full_message +
-                          "\nplease report the formatting error: \n" + 
-                              formatting_error.full_message
-                      rescue Exception => formatting_error
-                          "\nerror formatting exception\n" +
-                              formatting_error.full_message
-                      end
-                  end
-
-        message.split("\n")
-    end
-
     def self.log_exception(e, logger, level)
         log_pp(e, logger, level)
     end
@@ -278,17 +260,7 @@ module Roby
             logger = logger.logger
         end
 
-        logger.send(level) do
-            first_line = true
-            format_exception(obj).each do |line|
-                if first_line
-                    line = color(line, :bold, :red)
-                    first_line = false
-                end
-                logger.send(level, line)
-            end
-            break
-        end
+        logger.log_pp(level, obj, :bold, :red)
     end
 
     class BacktraceFormatter
@@ -306,7 +278,7 @@ module Roby
     def self.do_display_exception(io, e)
         first_line = true
         io.puts ""
-        format_exception(e).each do |line|
+        Logger.pp_to_array(e).each do |line|
             if first_line
                 io.print color("= ", :bold, :red)
                 io.puts color(line, :bold, :red)
@@ -317,7 +289,7 @@ module Roby
             end
         end
         io.puts color("= Backtrace", :bold, :red)
-        format_exception(BacktraceFormatter.new(e)).each do |line|
+        Logger.pp_to_array(BacktraceFormatter.new(e)).each do |line|
             io.print color("| ", :bold, :red)
             io.puts line
         end
