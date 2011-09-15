@@ -117,6 +117,29 @@ module Roby
 	# True if all logs should be kept after testing
 	attr_predicate :testing_overwrites_logs?, true
 
+        # Defines common configuration options valid for all Roby-oriented
+        # scripts
+        def self.common_optparse_setup(parser)
+            parser.on("--log=SPEC", String, "configuration specification for text loggers. SPEC is of the form path/to/a/module:LEVEL[:FILE][,path/to/another]") do |log_spec|
+                log_spec.split(',').each do |spec|
+                    mod, level, file = spec.split(':')
+                    mod_path = mod.split('/')
+
+                    Roby.app.log_setup(mod, level, file)
+                end
+            end
+            parser.on('-r NAME', '--robot=NAME[,TYPE]', String, 'the robot name and type') do |name|
+                robot_name, robot_type = name.split(',')
+                Scripts.robot_name = robot_name
+                Scripts.robot_type = robot_type
+                Roby.app.robot(name, robot_type||robot_name)
+            end
+            parser.on_tail('-h', '--help', 'this help message') do
+                STDERR.puts opt
+                exit
+            end
+        end
+
         # Configures a logger in the system. It has to be called before #setup
         # to have an effect.
         #
