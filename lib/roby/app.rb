@@ -559,6 +559,10 @@ module Roby
 	end
 
         def require_planners
+            if !defined?(MainPlanner)
+                Object.const_set(:MainPlanner, Class.new(Roby::Planning::Planner))
+            end
+
 	    # Load robot-specific configuration
 	    models_search = ['planners']
 	    if robot_name
