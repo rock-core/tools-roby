@@ -789,7 +789,7 @@ module Roby
 		require 'roby/log/file'
 		logfile = File.join(log_dir, robot_name)
 		logger  = Roby::Log::FileLogger.new(logfile, :plugins => plugins.map { |n, _| n })
-		logger.stats_mode = log['events'] == 'stats'
+		logger.stats_mode = (log['events'] == 'stats')
 		Roby::Log.add_logger logger
 	    end
             start_log_server(logfile)
