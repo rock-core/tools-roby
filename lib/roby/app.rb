@@ -807,6 +807,8 @@ module Roby
 
 	    if mods.empty?
 		yield
+
+                Robot.info "ready"
 		engine.join
 	    else
 		mod = mods.shift
