@@ -12,19 +12,11 @@ module Roby
         #
         # When a client connects, it will send the complete file
 	class Server
-            extend Logger::Forward
-
-            class << self
-                attr_reader :logger
-            end
-            @logger = ::Logger.new(STDERR)
-            @logger.level = Logger::WARN
-            @logger.progname = "Log Server"
-            @logger.formatter = lambda { |severity, time, progname, msg| "#{time.to_hms} (#{progname}) #{msg}\n" }
-            @logger.level = ::Logger::INFO
+            extend Logger::Hierarchy
+            make_own_logger("Log Server", Logger::WARN)
 
             DEFAULT_PORT  = 20200
-            DEFAULT_SAMPLING_PERIOD = 0.1
+            DEFAULT_SAMPLING_PERIOD = 0.05
             DATA_CHUNK_SIZE = 1024*16
 
             # The port we are listening on
@@ -58,12 +50,16 @@ module Roby
             end
 
             def exec
-                Server.info "starting Roby log server on port #{port}"
-
                 @server = TCPServer.new(nil, port)
                 server.fcntl(Fcntl::FD_CLOEXEC, 1)
 
-                Server.info "Roby log server listening on port #{port}, sampling period=#{sampling_period}"
+                raise_level = (port != DEFAULT_PORT || sampling_period != DEFAULT_SAMPLING_PERIOD)
+                level = if raise_level then
+                            :warn
+                        else :info
+                        end
+
+                Server.send(level, "Roby log server listening on port #{port}, sampling period=#{sampling_period}")
 
                 while true
                     sockets_with_pending_data = pending_data.find_all do |socket, chunks|

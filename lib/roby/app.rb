@@ -758,7 +758,7 @@ module Roby
             setup_drb_server
 
             if !single? && discovery.empty?
-                Robot.info "dRoby disabled as no dicovery configuration has been provided"
+                Application.info "dRoby disabled as no dicovery configuration has been provided"
 	    elsif !single? && robot_name
 		droby_config = { :ring_discovery => !!discovery['ring'],
 		    :name => robot_name, 

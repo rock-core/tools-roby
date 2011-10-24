@@ -1591,9 +1591,7 @@ module Roby
 					 GC.enable(true)
 					 true
 				     rescue
-                                         if gc_warning?
-                                             ExecutionEngine.warn "GC.enable does not accept an argument. GC will not be controlled by Roby"
-                                         end
+                                         Application.info "GC.enable does not accept an argument. GC will not be controlled by Roby"
                                          false
 				     end
 	    stats = Hash.new
