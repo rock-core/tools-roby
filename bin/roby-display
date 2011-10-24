@@ -5,9 +5,10 @@ require 'roby/log'
 require 'roby/log/server'
 
 mode = :file
-host = nil
+host = 'localhost'
 port = Roby::Log::Server::DEFAULT_PORT
-sampling_period = Roby::Log::Server::DEFAULT_SAMPLING_PERIOD / 2
+sampling_period = Roby::Log::Server::DEFAULT_SAMPLING_PERIOD
+config = 'roby-display.yml'
 
 options = OptionParser.new do |opt|
     opt.on('--client[=HOST[:PORT]]', String, "specifies a live roby controller to connect to. If the host is omitted, uses localhost. If the port is omitted, the default of #{Roby::Log::Server::DEFAULT_PORT} is used") do |host|
@@ -32,6 +33,9 @@ options = OptionParser.new do |opt|
         Roby::Log::Server.logger.level = Logger::DEBUG
         Roby::Log.logger.level = Logger::DEBUG
     end
+    opt.on('--config=FILE', 'in display modes (client and file), path to the configuration file. Defaults to roby-display.yml') do |config_file|
+        config = File.expand_path(config_file)
+    end
 end
 
 filename = options.parse(ARGV).shift
@@ -41,13 +45,18 @@ elsif mode == :server && !filename
     STDERR.puts "ERROR: no filename given in server mode"
     exit(1)
 elsif mode == :file && !filename
-    STDERR.puts "ERROR: no filename given"
-    exit(1)
+    mode = :client
 end
 
 if mode == :server
     server = Roby::Log::Server.new(filename, sampling_period, port)
-    server.exec
+    begin
+        server.exec
+    rescue Interrupt
+        Roby::Log::Server.info "log server interrupted"
+    rescue Exception => e
+        Roby.log_exception(e, Roby::Log::Server, :fatal)
+    end
     exit(0)
 end
 
@@ -61,8 +70,8 @@ DRb.start_service "druby://localhost:0"
 app = Qt::Application.new(ARGV)
 
 display = Roby::LogReplay::RelationsDisplay::RelationsView.new
-if File.file?('roby-display.yml')
-    display.load_options('roby-display.yml')
+if File.file?(config)
+    display.load_options(config)
 end
 
 if mode == :file
@@ -74,7 +83,8 @@ display.show
 
 app.exec
 
-File.open('roby-display.yml', 'w') do |io|
+FileUtils.mkdir_p(File.dirname(config))
+File.open(config, 'w') do |io|
     YAML.dump(display.options, io)
 end
 
