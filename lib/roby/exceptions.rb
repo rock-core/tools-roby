@@ -184,7 +184,7 @@ module Roby
         end
 
 	if (Roby.app.filter_backtraces? || options[:force]) && original_backtrace
-            app_dir = if defined? APP_DIR then Regexp.quote(APP_DIR) end
+            app_dir = Roby.app.app_dir
 
             original_backtrace = original_backtrace.dup
 
@@ -221,7 +221,6 @@ module Roby
                         got_user_line ||= is_user
                         if !got_user_line || is_user
                             case line
-                            when /^(#{app_dir}\/)?scripts\//
                             when /^\(eval\):\d+:in `each(?:_handler)?'/
                             else
                                 line

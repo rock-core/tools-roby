@@ -1,7 +1,5 @@
 #! /usr/bin/env ruby
 
-APP_DIR  = Dir.pwd
-
 require 'optparse'
 require 'ostruct'
 require 'fileutils'

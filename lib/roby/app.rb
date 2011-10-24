@@ -69,6 +69,15 @@ module Roby
             end
         end
 
+        # Returns the application base directory
+        def app_dir
+            if defined?(APP_DIR)
+                APP_DIR
+            else
+                Dir.pwd
+            end
+        end
+
 	# Logging options.
 	# events:: save a log of all events in the system. This log can be read using scripts/replay
 	#          If this value is 'stats', only the data necessary for timing statistics is saved.
@@ -430,9 +439,9 @@ module Roby
 	attribute(:log_files) { Hash.new }
 
 	# The directory in which results should be saved
-	# Defaults to APP_DIR/results
+	# Defaults to app_dir/results
 	def results_dir
-	    File.expand_path(log['results'] || 'results', APP_DIR)
+	    File.expand_path(log['results'] || 'results', app_dir)
 	end
 
         # Returns a unique directory name as a subdirectory of
@@ -523,14 +532,14 @@ module Roby
                 FileUtils.mkdir_p(log_dir)
             end
 
-	    if File.directory?(libdir = File.join(APP_DIR, 'lib'))
+	    if File.directory?(libdir = File.join(app_dir, 'lib'))
 		if !$LOAD_PATH.include?(libdir)
-		    $LOAD_PATH.unshift File.join(APP_DIR, 'lib')
+		    $LOAD_PATH.unshift File.join(app_dir, 'lib')
 		end
 	    end
 
 	    Roby::Conf.datadirs = []
-	    datadir = File.join(APP_DIR, "data")
+	    datadir = File.join(app_dir, "data")
 	    if File.directory?(datadir)
 		Roby::Conf.datadirs << datadir
 	    end
@@ -593,16 +602,16 @@ module Roby
             require 'roby/planning'
             require 'roby/interface'
 
-	    $LOAD_PATH.unshift(APP_DIR) unless $LOAD_PATH.include?(APP_DIR)
+	    $LOAD_PATH.unshift(app_dir) unless $LOAD_PATH.include?(app_dir)
 
 	    # Get the application-wide configuration
-	    file = File.join(APP_DIR, 'config', 'app.yml')
+	    file = File.join(app_dir, 'config', 'app.yml')
             if File.file?(file)
                 file = YAML.load(File.open(file))
                 load_yaml(file)
             end
             call_plugins(:load, self, options)
-            if File.exists?(initfile = File.join(APP_DIR, 'config', 'init.rb'))
+            if File.exists?(initfile = File.join(app_dir, 'config', 'init.rb'))
                 require initfile
             end
         end
@@ -626,7 +635,7 @@ module Roby
 
 	    require_models
 
-            if file = robotfile(APP_DIR, 'config', "ROBOT.rb")
+            if file = robotfile(app_dir, 'config', "ROBOT.rb")
                 require file
             end
 
@@ -872,7 +881,7 @@ module Roby
 	    Dir.new(dirname).each do |file|
 		file = File.join(dirname, file)
                 if file =~ /\.rb$/ && File.file?(file)
-                    file = file.gsub(/^#{Regexp.quote(APP_DIR)}\//, '')
+                    file = file.gsub(/^#{Regexp.quote(app_dir)}\//, '')
                     yield(file) 
                 end
 	    end
@@ -888,7 +897,7 @@ module Roby
 
 	    return unless robot_name && robot_type
 
-            pattern = File.expand_path(File.join(*path), APP_DIR)
+            pattern = File.expand_path(File.join(*path), app_dir)
 	    [robot_name, robot_type].uniq.each do |name|
 		dirname = pattern.gsub(/ROBOT/, name)
 		list_dir(dirname, &block) if File.directory?(dirname)
@@ -1008,8 +1017,8 @@ module Roby
 	end
 
 	def app_file?(path)
-	    (path =~ %r{(^|/)#{APP_DIR}(/|$)}) ||
-		((path[0] != ?/) && File.file?(File.join(APP_DIR, path)))
+	    (path =~ %r{(^|/)#{app_dir}(/|$)}) ||
+		((path[0] != ?/) && File.file?(File.join(app_dir, path)))
 	end
 	def framework_file?(path)
 	    if path =~ /roby\/.*\.rb$/
