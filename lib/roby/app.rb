@@ -928,7 +928,6 @@ module Roby
                     debug = log_server['debug']
                 end
 
-                puts sampling_period
                 @log_server = fork do
                     exec("roby-display#{" --debug" if debug} --server=#{port} --sampling=#{sampling_period} #{logfile}-events.log")
                 end
