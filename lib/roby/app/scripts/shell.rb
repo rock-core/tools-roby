@@ -18,7 +18,7 @@ app.single
 
 robot_name = ARGV.shift
 app.robot robot_name, (ARGV.shift || robot_name)
-app.log_autosave = false
+app.log_update_current = false
 error = Roby.display_exception do
     app.setup
 

@@ -1,6 +1,7 @@
 require 'roby/robot'
 require 'roby/interface'
 require 'singleton'
+require 'utilrb/hash'
 
 module Roby
     # There is one and only one Application object, which holds mainly the
@@ -251,6 +252,20 @@ module Roby
 
         overridable_configuration 'log', 'filter_backtraces', :predicate => true
 
+        ##
+        # :method: log_update_current?
+        #
+        # If true, the logs/current symbolic link will be updated to point to
+        # the log file of the currently running Roby application. Otherwise, it
+        # is left as it is.
+        #
+        # Set it with
+        #   
+        #   Roby.app.log_update_current = false
+        #
+
+        attr_predicate :log_update_current?, true
+
         DEFAULT_OPTIONS = {
 	    'log' => Hash['events' => true, 'levels' => Hash.new, 'filter_backtraces' => true],
 	    'discovery' => Hash.new,
@@ -271,6 +286,7 @@ module Roby
 
 	    @plugin_dirs = []
             @planners    = []
+            @log_update_current = true
 	end
 
 	# Adds +dir+ in the list of directories searched for plugins
@@ -428,47 +444,39 @@ module Roby
 	    @robot_type = type
 	end
 
+        # The base directory in which logs should be saved
+        #
+        # Logs are saved in log_base_dir/$time_tag by default, and a
+        # log_base_dir/current symlink gets updated to reflect the most current
+        # log directory.
+        #
+        # The path is controlled by the log/dir configuration variable. If the
+        # provided value, it is interpreted relative to the application
+        # directory. It defaults to "data".
+        def log_base_dir
+            File.expand_path(log['dir'] || 'logs', app_dir)
+        end
+
 	# The directory in which logs are to be saved
-	# Defaults to APP_DIR/log
+	# Defaults to app_dir/data/$time_tag
 	def log_dir
-	    File.expand_path(log['dir'] || 'log', APP_DIR)
+            if @log_dir
+                return @log_dir
+            else
+                base_dir = log_base_dir
+                final_path = Roby::Application.unique_dirname(base_dir, '', time_tag)
+                @log_dir = final_path
+            end
 	end
 
-        # Allows to override the 'log/autosave' configuration option
-        #
-        # If set to true, the log/ directory will be moved to results/
-        # automatically. Otherwise, it will stay where it is.
-        attr_writer :log_autosave
-
-        def log_autosave?
-            if !@log_autosave.nil?
-                @log_autosave
-            elsif log.has_key?('autosave')
-                log['autosave']
-            else true
-            end
-        end
-
-        def log_autosave_dir
-            dir = log['autosave']
-            if dir.respond_to?(:to_str)
-                return File.expand_path(dir.to_str, results_dir)
-            end
-            results_dir
-        end
-
-        # Returns true if the log directory is empty
-        def log_dir_empty?
-            Dir.enum_for(:glob, File.join(log_dir, "*")).
-                find_all { |f| File.file?(f) }.
-                delete_if { |f| f == "time_tag" }.
-                empty?
-        end
-
+        # The time tag. It is a time formatted as YYYYMMDD-HHMM used to mark log
+        # directories
 	def time_tag
 	    @time_tag ||= Time.now.strftime('%Y%m%d-%H%M')
 	end
 
+        # Save a time tag file in the current log directory. This is used in
+        # case the log directory gets renamed
         def log_save_time_tag
             path = File.join(log_dir, 'time_tag')
             if !File.file?(path)
@@ -479,21 +487,25 @@ module Roby
             end
         end
 
+        # Read the time tag from the current log directory
         def log_read_time_tag
-            if File.exists?(File.join(log_dir, 'time_tag'))
+            dir = begin
+                      log_current_dir
+                  rescue ArgumentError
+                  end
+
+            if dir && File.exists?(File.join(log_dir, 'time_tag'))
                 File.read(File.join(log_dir, 'time_tag')).strip
             end
         end
 
-        # Saves the log directory to results_dir
-        def log_save(directory, name = nil)
-            # Look for a time_tag file in the log directory. If there is one,
-            # it should contain the date tag to be used for the target folder
-            time_tag = log_read_time_tag
-
-            final_path = Roby::Application.unique_dirname(directory, name || '', time_tag)
-            Robot.info "moving #{log_dir} to #{final_path}"
-            FileUtils.mv log_dir, final_path
+        # The path to the current log directory
+        def log_current_dir
+            basedir = self.log_base_dir
+            if !File.symlink?(File.join(basedir, "current"))
+                raise ArgumentError, "no data/current symlink found, cannot guess the current log directory"
+            end
+            File.readlink(File.join(basedir, "current"))
         end
 
 	# A path => File hash, to re-use the same file object for different
@@ -584,14 +596,12 @@ module Roby
 	end
 
 	def setup_dirs
-            if File.directory?(log_dir)
-                if !log_dir_empty? && log_autosave?
-                    log_save(log_autosave_dir)
-                end
-            end
-
             if !File.directory?(log_dir)
                 FileUtils.mkdir_p(log_dir)
+                if log_update_current?
+                    FileUtils.rm_f File.join(log_base_dir, "current")
+                    FileUtils.ln_s log_dir, File.join(log_base_dir, 'current')
+                end
             end
 
 	    if File.directory?(libdir = File.join(app_dir, 'lib'))
