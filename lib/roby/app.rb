@@ -53,19 +53,85 @@ module Roby
 	# A set of planners declared in this application
 	attr_reader :planners
 
-	# The plain option hash saved in config/app.yml
+	# Applicatio configuration information is stored in a YAML file
+        # config/app.yml. The options are saved in a hash.
+        #
+        # This attribute contains the raw hash as read from the file. It is
+        # overlaid 
 	attr_reader :options
 
+        # Allows to attribute configuration keys to override configuration
+        # parameters stored in config/app.yml
+        #
+        # For instance,
+        #
+        #    attr_config 'log'
+        #
+        # creates a log_overrides attribute, which contains a hash. Any value
+        # stored in this hash will override those stored in the config file. The
+        # final value can be accessed by accessing the generated #config_key
+        # method:
+        #
+        # E.g.,
+        #
+        # in config/app.yml:
+        #
+        #   log:
+        #       dir: test
+        #
+        # in config/init.rb:
+        #
+        #   Roby.app.log_overrides['dir'] = 'bla'
+        #
+        # Then, Roby.app.log will return { 'dir' => 'bla }
+        #
+        # This override mechanism is not meant to be used directly by the user,
+        # but as a tool for the rest of the framework
         def self.attr_config(config_key)
+            config_key = config_key.to_s
+
+            # Ignore if already done
+            return if method_defined?("#{config_key}_overrides")
+
             attribute("#{config_key}_overrides") { Hash.new }
             define_method(config_key) do
-                plain = instance_variable_get "@#{config_key}"
+                plain     = self.options[config_key]
                 overrides = instance_variable_get "@#{config_key}_overrides"
                 if overrides
                     plain.recursive_merge(overrides)
                 else
                     plain
                 end
+            end
+        end
+
+        # Defines accessors for a configuration parameter stored in #options
+        #
+        # This method allows to define a getter and a setter for a parameter
+        # stored in #options that should be user-overridable. It builds upon
+        # #attr_config.
+        #
+        # For instance:
+        #
+        #   overridable_configuration 'log', 'filter_backtraces'
+        #
+        # will create a #filter_backtraces getter and a #filter_backtraces=
+        # setter which allow to respectively access the log/filter_backtraces
+        # configuration value, and override it from its value in config/app.yml
+        #
+        # The :predicate option allows to make the setter look like a predicate:
+        #
+        #   overridable_configuration 'log', 'filter_backtraces', :predicate => true
+        #
+        # will define #filter_backtraces? instead of #filter_backtraces
+        def self.overridable_configuration(config_set, config_key, options = Hash.new)
+            options = Kernel.validate_options options, :predicate => false
+            attr_config(config_set)
+            define_method("#{config_key}#{"?" if options[:predicate]}") do
+                send(config_set)[config_key]
+            end
+            define_method("#{config_key}=") do |new_value|
+                send("#{config_set}_overrides")[config_key] = new_value
             end
         end
 
@@ -85,12 +151,13 @@ module Roby
 	#	   should be displayed on the console. The levels are DEBUG, INFO, WARN and FATAL.
 	#	     Roby: FATAL
 	#	     Roby::Distributed: INFO
-	# dir:: the log directory. Uses APP_DIR/log if not set
+	# dir:: the log directory. Uses $app_dir/log if not set
+        # results:: the 
 	# filter_backtraces:: true if the framework code should be removed from the error backtraces
 	attr_config :log
 
         # ExecutionEngine setup
-        attr_reader :engine
+        attr_config :engine
 	
 	# A [name, dir, file, module] array of available plugins, where 'name'
 	# is the plugin name, 'dir' the directory in which it is installed,
@@ -102,12 +169,13 @@ module Roby
 	attr_reader :plugins
 
 	# The discovery options in multi-robot mode
-	attr_reader :discovery
+	attr_config :discovery
+
 	# The robot's dRoby options
 	# period:: the period of neighbour discovery
 	# max_errors:: disconnect from a peer if there is more than +max_errors+ consecutive errors
 	#              detected
-	attr_reader :droby
+	attr_config :droby
 	
 	# If true, abort if an unhandled exception is found
 	attr_predicate :abort_on_exception, true
@@ -149,26 +217,26 @@ module Roby
             end
         end
 
-        # Configures a logger in the system. It has to be called before #setup
-        # to have an effect.
+        # Array of regular expressions used to filter out backtraces
+        attr_reader :filter_out_patterns
+
+        # Configures a text logger in the system. It has to be called before
+        # #setup to have an effect.
         #
         # It overrides configuration from the app.yml file
+        #
+        # For instance,
+        #
+        #   log_setup 'roby/execution_engine', 'DEBUG'
+        #
+        # will be equivalent to having the following entry in config/app.yml:
+        #
+        #   log:
+        #       levels:
+        #           roby/execution_engine: DEBUG
         def log_setup(mod_path, level, file = nil)
             levels = (log_overrides['levels'] ||= Hash.new)
             levels[mod_path] = [level, file].compact.join(":")
-        end
-
-        def self.overridable_configuration(config_set, config_key)
-            define_method("#{config_key}?") do
-                if instance_variable_defined?("@#{config_key}")
-                    instance_variable_get "@#{config_key}"
-                else
-                    send(config_set)[config_key]
-                end
-            end
-            define_method("#{config_key}=") do |new_value|
-                instance_variable_set("@#{config_key}", new_value)
-            end
         end
 
 	##
@@ -181,15 +249,19 @@ module Roby
         #
         # Override the value stored in configuration files for filter_backtraces?
 
-        overridable_configuration 'log', 'filter_backtraces'
+        overridable_configuration 'log', 'filter_backtraces', :predicate => true
+
+        DEFAULT_OPTIONS = {
+	    'log' => Hash['events' => true, 'levels' => Hash.new, 'filter_backtraces' => true],
+	    'discovery' => Hash.new,
+	    'droby' => Hash['period' => 0.5, 'max_errors' => 1],
+            'engine' => Hash.new
+        }
 
 	def initialize
 	    @plugins = Array.new
 	    @available_plugins = Array.new
-	    @log = Hash['events' => 'stats', 'levels' => Hash.new, 'filter_backtraces' => true] 
-	    @discovery = Hash.new
-	    @droby     = Hash['period' => 0.5, 'max_errors' => 1] 
-            @engine    = Hash.new
+            @options = DEFAULT_OPTIONS.dup
 
 	    @automatic_testing = true
 	    @testing_keep_logs = false
@@ -238,6 +310,8 @@ module Roby
 	    available_plugins.any? { |plugname, *_| plugname == name }
 	end
 
+        # Enumerates all available plugins, yielding only the plugin module
+        # (i.e. the plugin object itself)
 	def each_plugin(on_available = false)
 	    plugins = self.plugins
 	    if on_available
@@ -248,7 +322,7 @@ module Roby
 	    end
 	end
 
-	# Yields each extension modules that respond to +method+
+	# Yields each plugin object that respond to +method+
 	def each_responding_plugin(method, on_available = false)
 	    each_plugin do |mod|
 		yield(mod) if mod.respond_to?(method)
@@ -280,22 +354,10 @@ module Roby
 		end
 	    end
 
-	    @options = options
-
-	    load_option_hashes(options, %w{log engine discovery droby})
+            @options = @options.recursive_merge(options)
 	end
 
-	def load_option_hashes(options, names)
-	    names.each do |optname|
-		if options[optname]
-		    instance_variable_get("@#{optname}").merge! options[optname]
-		end
-	    end
-	end
-
-        # Array of regular expressions used to filter out backtraces
-        attr_reader :filter_out_patterns
-
+        # DEPRECATED. Use #using instead
         def using_plugins(*names)
             using(*names)
         end
