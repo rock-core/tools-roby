@@ -108,6 +108,21 @@ module Roby
             obj = @interface.connection_test_object
             @interface.connection_test(obj)
 
+            # Check which plugins should be loaded (if any). Note that not being
+            # able to load a plugin is only a warning in this context, as the
+            # shell can work anyway (but possibly in a degraded mode)
+            @interface.loaded_plugins.each do |plugin|
+                begin
+                    mods = Roby.app.using(plugin)
+                    mods.each do |m|
+                        m.setup(Roby.app)
+                    end
+                rescue ArgumentError
+                    Robot.warn "the remote controller is using the '#{plugin}' Roby plugin, but it does not seem to be available on this machine. The shell functionality might be degraded by that"
+                end
+            end
+
+
             remote_models = @interface.task_models
             remote_models.each do |klass|
                 klass = klass.proxy(nil)
@@ -625,6 +640,11 @@ help                              | this help message                           
                 raise "cannot pass remote objects in connection (#{obj.__drburi} != #{DRb.current_server.uri})"
             end
             @test_object = nil
+        end
+
+        # Returns the set of Roby plugins currently loaded in the application
+        def loaded_plugins
+            Roby.app.plugins.map(&:first)
         end
     end
 end
