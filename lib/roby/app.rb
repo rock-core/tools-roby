@@ -56,6 +56,19 @@ module Roby
 	# The plain option hash saved in config/app.yml
 	attr_reader :options
 
+        def self.attr_config(config_key)
+            attribute("#{config_key}_overrides") { Hash.new }
+            define_method(config_key) do
+                plain = instance_variable_get "@#{config_key}"
+                overrides = instance_variable_get "@#{config_key}_overrides"
+                if overrides
+                    plain.recursive_merge(overrides)
+                else
+                    plain
+                end
+            end
+        end
+
 	# Logging options.
 	# events:: save a log of all events in the system. This log can be read using scripts/replay
 	#          If this value is 'stats', only the data necessary for timing statistics is saved.
@@ -65,7 +78,7 @@ module Roby
 	#	     Roby::Distributed: INFO
 	# dir:: the log directory. Uses APP_DIR/log if not set
 	# filter_backtraces:: true if the framework code should be removed from the error backtraces
-	attr_reader :log
+	attr_config :log
 
         # ExecutionEngine setup
         attr_reader :engine
@@ -103,6 +116,38 @@ module Roby
 
 	# True if all logs should be kept after testing
 	attr_predicate :testing_overwrites_logs?, true
+
+        # Defines common configuration options valid for all Roby-oriented
+        # scripts
+        def self.common_optparse_setup(parser)
+            parser.on("--log=SPEC", String, "configuration specification for text loggers. SPEC is of the form path/to/a/module:LEVEL[:FILE][,path/to/another]") do |log_spec|
+                log_spec.split(',').each do |spec|
+                    mod, level, file = spec.split(':')
+                    mod_path = mod.split('/')
+
+                    Roby.app.log_setup(mod, level, file)
+                end
+            end
+            parser.on('-r NAME', '--robot=NAME[,TYPE]', String, 'the robot name and type') do |name|
+                robot_name, robot_type = name.split(',')
+                Scripts.robot_name = robot_name
+                Scripts.robot_type = robot_type
+                Roby.app.robot(name, robot_type||robot_name)
+            end
+            parser.on_tail('-h', '--help', 'this help message') do
+                STDERR.puts parser
+                exit
+            end
+        end
+
+        # Configures a logger in the system. It has to be called before #setup
+        # to have an effect.
+        #
+        # It overrides configuration from the app.yml file
+        def log_setup(mod_path, level, file = nil)
+            levels = (log_overrides['levels'] ||= Hash.new)
+            levels[mod_path] = [level, file].compact.join(":")
+        end
 
         def self.overridable_configuration(config_set, config_key)
             define_method("#{config_key}?") do
@@ -234,7 +279,7 @@ module Roby
 	def load_option_hashes(options, names)
 	    names.each do |optname|
 		if options[optname]
-		    send(optname).merge! options[optname]
+		    instance_variable_get("@#{optname}").merge! options[optname]
 		end
 	    end
 	end

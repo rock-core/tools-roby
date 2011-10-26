@@ -169,7 +169,7 @@ module Roby
 	end
     end
 
-    RX_IN_FRAMEWORK = /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)/
+    RX_IN_FRAMEWORK = /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)|^\(eval\)|^\/usr\/lib\/ruby/
     RX_REQUIRE = /in `(gem_original_)?require'$/
 
     def self.filter_backtrace(original_backtrace = nil, options = Hash.new)

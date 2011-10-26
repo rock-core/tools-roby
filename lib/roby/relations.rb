@@ -154,6 +154,8 @@ module Roby
                     remove_relations(rel)
                 end
                 return
+            elsif !relation.include?(self)
+                return
             end
 
             parents = parent_objects(relation).to_a
@@ -278,6 +280,7 @@ module Roby
         # Remove +vertex+ from this graph. It removes all relations that
         # +vertex+ is part of, and calls the corresponding hooks
         def remove(vertex)
+            return if !self.include?(vertex)
             vertex.remove_relations(self)
             super
         end

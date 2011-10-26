@@ -169,8 +169,117 @@ end
 
 class Ui::RelationsView
     def scene; graphics.scene end
+
+    # The underlying Roby::LogReplay::RelationsDisplay::RelationsCanvas object
     attr_reader :display
     attr_reader :prefixActions
+
+    # Module used to extend the relation view GraphicsView object, to add
+    # double-click and context-menu events
+    module GraphicsViewBehaviour
+        attr_accessor :display
+
+        def mouseDoubleClickEvent(event)
+            item = itemAt(event.pos)
+            if item
+                obj = display.object_of(item) ||
+                    display.relation_of(item)
+
+                if !obj
+                    return super(event)
+                end
+            end
+
+            sections = []
+            if obj.kind_of?(Array)
+                from, to, rel = obj
+                section = [
+                    "#{rel}",
+                    [ "from: #{from}",
+                      "to: #{to}",
+                      "info: #{from[to, rel]}"]
+                ]
+                sections << section
+
+            elsif obj.kind_of?(Roby::LogReplay::RelationsDisplay::DisplayTask)
+                sections << ["Model", obj.class.name]
+                # Add general task information (owner, arguments, ...)
+                text = obj.arguments.map do |key, value|
+                    "#{key}: #{value}"
+                end
+                sections << ["Arguments", text]
+
+                # Add the history
+                if obj.failed_to_start?
+                    text = []
+                    text << "Failed to start at #{Roby.format_time(obj.failed_to_start_time)}"
+                    text.concat(Roby.format_exception(obj))
+                else
+                    text = obj.history.map do |event| 
+                        time = event.time
+                        time = "#{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
+                        "#{time}: #{event.symbol}"
+                    end
+                end
+                sections << ["History", text]
+                sections << ["Model Ancestry", obj.class.ancestors.map(&:name)]
+            end
+
+            if !@textview
+                @textview = Qt::ListWidget.new
+                @textview.resize(400, 400)
+            end
+            @textview.windowTitle = "Details for #{obj}"
+            @textview.clear
+            sections.each do |header, lines|
+                if header
+                    item = Qt::ListWidgetItem.new(@textview)
+                    item.text = header
+                    item.background = Qt::Brush.new(Qt::Color.new("#45C1FF"))
+                    font = item.font
+                    font.weight = Qt::Font::Bold
+                    item.font = font
+                end
+                lines.each do |l|
+                    @textview.addItem("  #{l}")
+                end
+            end
+            @textview.show
+            @textview.activateWindow
+        end
+
+        def contextMenuEvent(event)
+            item = itemAt(event.pos)
+            if item
+                unless obj = display.object_of(item)
+                    return super(event)
+                end
+            end
+
+            return unless obj.kind_of?(Roby::LogReplay::RelationsDisplay::DisplayTask)
+
+            menu = Qt::Menu.new
+            hide_this     = menu.add_action("Hide")
+            hide_children = menu.add_action("Hide children")
+            show_children = menu.add_action("Show children")
+            return unless action = menu.exec(event.globalPos)
+
+            case action.text
+            when "Hide"
+                display.selected_objects.delete(obj)
+            when "Hide children"
+                for child in Roby::TaskStructure.children_of(obj, display.enabled_relations)
+                    display.selected_objects.delete(child)
+                end
+            when "Show children"
+                for child in Roby::TaskStructure.children_of(obj, display.enabled_relations)
+                    display.selected_objects << child
+                end
+            end
+
+            display.update
+        end
+    end
 
     ZOOM_STEP = 0.25
     def setupActions(view)
@@ -249,81 +358,8 @@ class Ui::RelationsView
 	
 	#############################################################
 	# Handle the other toolbar's buttons
-	graphics.singleton_class.class_eval do
-            define_method(:mouseDoubleClickEvent) do |event|
-		item = itemAt(event.pos)
-		if item
-                    obj = display.object_of(item) ||
-                        display.relation_of(item)
-
-		    if !obj
-			return super(event)
-		    end
-		end
-
-                text = []
-                if obj.kind_of?(Array)
-                    from, to, rel = obj
-                    text << "<b>#{rel}</b>"
-                    text << "  from: #{from}"
-                    text << "  to: #{to}"
-                    text << "  info: #{from[to, rel]}"
-                elsif obj.kind_of?(Roby::LogReplay::RelationsDisplay::DisplayTask)
-                    text << "<b>History</b>"
-                    if obj.failed_to_start?
-                        text << "Failed to start at #{Roby.format_time(obj.failed_to_start_time)}"
-                        text.concat(Roby.format_exception(obj))
-                    else
-                        obj.history.each do |event| 
-                            time = event.time
-                            time = "#{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
-                            text << "  #{time}: #{event.symbol}"
-                        end
-                    end
-                end
-
-                if !@textview
-                    @textview = Qt::TextEdit.new
-                    @textview.resize(200, 400)
-                    @textview.readOnly = true
-                end
-                @textview.windowTitle = "Details for #{obj}"
-                @textview.text = text.join("<br>\n")
-                @textview.show
-            end
-
-	    define_method(:contextMenuEvent) do |event|
-		item = itemAt(event.pos)
-		if item
-		    unless obj = display.object_of(item)
-			return super(event)
-		    end
-		end
-
-		return unless obj.kind_of?(Roby::LogReplay::RelationsDisplay::DisplayTask)
-
-		menu = Qt::Menu.new
-		hide_this     = menu.add_action("Hide")
-		hide_children = menu.add_action("Hide children")
-		show_children = menu.add_action("Show children")
-		return unless action = menu.exec(event.globalPos)
-
-		case action.text
-		when "Hide"
-		    display.selected_objects.delete(obj)
-		when "Hide children"
-		    for child in Roby::TaskStructure.children_of(obj, display.enabled_relations)
-                        display.selected_objects.delete(child)
-		    end
-		when "Show children"
-		    for child in Roby::TaskStructure.children_of(obj, display.enabled_relations)
-                        display.selected_objects << child
-		    end
-		end
-
-		display.update
-	    end
-	end
+	graphics.extend GraphicsViewBehaviour
+        graphics.display = display
 
 	@actionShowAll.connect(SIGNAL(:triggered)) do
 	    display.graphics.keys.each do |obj|
