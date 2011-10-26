@@ -135,22 +135,19 @@ module Roby
                     mod = Object
                     while !path.empty?
                         name = path.shift
-                        mod = begin
-                                  mod.const_get(name)
-                              rescue NameError
-                                  mod.const_set(name, Module.new)
-                              end
+                        mod = mod.define_or_reuse(name) { Module.new }
                     end
-                    begin
-                        # Given how constants are resolved in dRoby, the
-                        # value returned by mod.const_get is guaranteed to be
-                        # +klass+
-                        mod.const_get(klass_name)
-                    rescue NameError
-                        mod.const_set(klass_name, klass)
-                    end
+                    mod.define_or_reuse(klass_name, klass)
+                    new_model(klass.remote_name, klass)
                 end
             end
+            nil
+        end
+
+        # Hook called when a new remote model gets imported locally (for use in
+        # the shell)
+        def new_model(model_name, model)
+            super if defined? super
         end
 
         # Returns a Query object which can be used to interactively query the
