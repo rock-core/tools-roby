@@ -41,10 +41,10 @@ class TC_PlannedBy < Test::Unit::TestCase
 	planner.failed!
 
 	errors = plan.check_structure.to_a
-        assert_equal 1, errors.size
-        error = errors.first.first.exception
-	assert_kind_of(Roby::PlanningFailedError, error)
-	assert_equal(planner, error.failed_task)
+        error = errors.find { |err| err.first.exception.kind_of?(Roby::PlanningFailedError) }
+        assert(error, "no PlanningFailedError generated while one was expected")
+        error = error.first.exception
+	assert_equal(planner, error.failed_task, "failed task was expected to be the planner, but was #{error.failed_task}")
 	assert_equal(task, error.planned_task)
 	assert_equal(planner.terminal_event, error.failed_event)
 
@@ -62,6 +62,22 @@ class TC_PlannedBy < Test::Unit::TestCase
         agent = root.planned_by(model)
         assert_kind_of model, agent
         assert_equal 10, agent.arguments[:id]
+    end
+
+    def test_failure_on_abstract_task_leads_to_task_removal
+	Roby::ExecutionEngine.logger.level = Logger::FATAL + 1
+	task = Roby::Task.new
+	planner = Roby::Test::Tasks::Simple.new
+        task.planned_by planner
+        plan.add_permanent(task)
+
+        planner.start!
+        engine.run
+        assert !task.finalized?
+        engine.wait_one_cycle
+        engine.execute { planner.failed! }
+        engine.wait_one_cycle
+        assert task.finalized?
     end
 end
 
