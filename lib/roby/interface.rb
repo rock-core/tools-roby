@@ -86,9 +86,9 @@ module Roby
                     #
                     if object.event(event_name).terminal?
                         plan.unmark_mission(object)
-                        object.on(:stop) { |ev| pending_messages << "task #{ev.task} stopped by user request" }
+                        object.on(:stop) { |ev| pending_messages << [:info, "task #{ev.task} stopped by user request"] }
                     else
-                        object.on(event_name) { |ev| pending_messages << "done emitting #{ev.generator}" }
+                        object.on(event_name) { |ev| pending_messages << [:info, "done emitting #{ev.generator}"] }
                     end
                 end
 
@@ -423,6 +423,10 @@ help                              | this help message                           
         # This module defines the hooks needed to plug Interface objects onto
         # ExecutionEngine
 	module GatherExceptions
+            # Each error gets its own ID so that it can be separated from the
+            # other, and matched between different shells
+            attribute(:current_exception_id) { 0 }
+
             # The set of Interface objects that have been registered to us
 	    attribute(:interfaces) { Array.new }
 
@@ -437,19 +441,24 @@ help                              | this help message                           
             # Pushes a exception message to all the already registered remote interfaces.
 	    def push_exception_message(name, error, tasks)
 		Roby.synchronize do
-                    msg = Roby.format_exception(error.exception).join("\n")
-		    msg << "\nThe following tasks have been killed:\n"
+                    msg = []
+                    exception = Roby.format_exception(error.exception)
+                    exception[0] = "Exception #{self.current_exception_id += 1}: #{exception[0]}"
+                    msg.concat(exception)
+		    msg << "The following tasks have been killed:"
+
 		    tasks.each do |t|
-                        msg << "  "
+                        task_string = ""
                         if error.exception.involved_plan_object?(t)
-                            msg << "#{t.class}:0x#{t.address.to_s(16)}\n"
+                            task_string = "#{t.class}:0x#{t.address.to_s(16)}"
                         else
-                            PP.pp(t, msg)
+                            PP.pp(t, task_string)
                         end
+                        msg.concat(task_string.split("\n"))
                     end
 
 		    interfaces.each do |iface|
-			iface.pending_messages << msg
+			iface.pending_messages << [:error, msg]
 		    end
 		end
 	    end
@@ -574,7 +583,7 @@ help                              | this help message                           
             @@id = 0
 
             def task=(new_task)
-                shell.pending_messages << "[#{id}] #{name}!: #{self.task} has been replaced by #{new_task}"
+                shell.pending_messages << [:info, "[#{id}] #{name}!: #{self.task} has been replaced by #{new_task}"]
                 super
             end
         end
@@ -626,20 +635,21 @@ help                              | this help message                           
                 service.shell = shell
                 service.id    = PlanServiceUI.allocate_id
                 service.name  = name
-                service.when_finalized  { shell.pending_messages << "[#{service.id}] #{name}!: task #{service.task} has been removed" }
-                service.on(:start)   { |ev| shell.pending_messages << "[#{service.id}] #{name}!: task #{ev.task} started" }
-                service.on(:failed)  { |ev| shell.pending_messages << "[#{service.id}] #{name}!: task #{ev.task} failed" }
-                service.on(:success) { |ev| shell.pending_messages << "[#{service.id}] #{name}!: task #{ev.task} finished successfully" }
+                service.when_finalized  { shell.pending_messages << [:info, "[#{service.id}] #{name}!: task #{service.task} has been removed"] }
+                service.on(:start)   { |ev| shell.pending_messages << [:info, "[#{service.id}] #{name}!: task #{ev.task} started"] }
+                service.on(:failed)  { |ev| shell.pending_messages << [:info, "[#{service.id}] #{name}!: task #{ev.task} failed"] }
+                service.on(:success) { |ev| shell.pending_messages << [:info, "[#{service.id}] #{name}!: task #{ev.task} finished successfully"] }
 
                 planner.on(:failed) do |ev|
                     exception = ev.context.first
-                    shell.pending_messages << "planning #{name} failed with"
+                    msg = ["planning #{name} failed with"]
                     Roby.format_exception(exception).each do |line|
-                        shell.pending_messages << "  #{line}"
+                        msg << line
                     end
+                    shell.pending_messages << [:error, msg]
                 end
 
-                shell.pending_messages << "[#{service.id}] #{name}! started to plan"
+                shell.pending_messages << [:info, "[#{service.id}] #{name}! started to plan"]
 
                 plan.add_mission(task)
                 service = RemoteService.new(service)

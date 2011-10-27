@@ -83,18 +83,40 @@ begin
 	    loop do
 		sleep(1)
 		
-		msg = begin
+		msgs = begin
 			  __main_remote_interface__.poll_messages
 		      rescue DRb::DRbConnError
 			  []
 		      end
 
-		if !msg.empty?
-		    STDERR.puts
-		    msg.each do |t| 
-			STDERR.puts "!" + t.split("\n").join("\n!")
-		    end
-		end
+                if !msgs.empty?
+                    STDERR.puts
+                end
+
+                msgs.each do |level, lines|
+                    if !lines.respond_to?(:to_ary)
+                        lines = [lines]
+                    end
+
+                    first_line = lines.shift
+                    if !lines.empty?
+                        first_line = "= #{first_line}"
+                        lines = lines.map do |str|
+                            "| #{str}"
+                        end
+                        lines << ""
+                    end
+
+                    if level == :error
+                        first_line = Roby.color(first_line, :red, :bold)
+                    elsif level == :info
+                        first_line = Roby.color(first_line, :bold)
+                    end
+                    STDERR.puts first_line
+                    lines.each do |l|
+                        STDERR.puts l
+                    end
+                end
 	    end
 	rescue Exception => e
 	    STDERR.puts $!.full_message
