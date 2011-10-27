@@ -680,7 +680,7 @@ module Roby
 	    # Get the application-wide configuration
 	    file = File.join(app_dir, 'config', 'app.yml')
             if File.file?(file)
-                file = YAML.load(File.open(file))
+                file = YAML.load(File.open(file)) || Hash.new
                 load_yaml(file)
             end
             call_plugins(:load, self, options)
