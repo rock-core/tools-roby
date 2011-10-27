@@ -513,12 +513,6 @@ module Roby
 	# logs
 	attribute(:log_files) { Hash.new }
 
-	# The directory in which results should be saved
-	# Defaults to app_dir/results
-	def results_dir
-	    File.expand_path(log['results'] || 'results', app_dir)
-	end
-
         # Returns a unique directory name as a subdirectory of
         # +base_dir+, based on +path_spec+. The generated name
         # is of the form
