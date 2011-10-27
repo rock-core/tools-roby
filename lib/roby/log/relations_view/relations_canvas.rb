@@ -247,10 +247,17 @@ module Roby
             attr_reader :displayed_state
             def update_graphics(display, graphics_item)
                 new_state = current_display_state(display.current_time)
-                if displayed_state != new_state
+                finalized = (finalization_time && finalization_time <= display.current_time)
+                if displayed_state != [new_state, finalized]
+                    if finalized
+                        pen = Qt::Pen.new(TASK_PEN_COLORS[:finalized])
+                        pen.width = 4
+                        graphics_item.pen   = pen
+                    else
+                        graphics_item.pen   = Qt::Pen.new(TASK_PEN_COLORS[new_state])
+                    end
                     graphics_item.brush = Qt::Brush.new(TASK_BRUSH_COLORS[new_state])
-                    graphics_item.pen   = Qt::Pen.new(TASK_PEN_COLORS[new_state])
-                    @displayed_state = new_state
+                    @displayed_state = [new_state, finalized]
                 end
 
                 graphics_item.text.plain_text = display_name(display).to_s

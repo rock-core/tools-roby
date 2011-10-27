@@ -47,7 +47,7 @@ module Roby::Log
             added_mission unmarked_mission
             added_permanent unmarked_permanent
             added_tasks added_events finalized_task finalized_event
-            replaced_tasks garbage_task added_transaction removed_transaction}
+            replaced_tasks garbage added_transaction removed_transaction}
 
 	def added_mission(tasks)
 	    super if defined? super
@@ -69,9 +69,9 @@ module Roby::Log
 	    super if defined? super
 	    Roby::Log.log(:added_tasks) { [self, tasks] }
 	end
-	def garbage(task)
+	def garbage(object)
 	    super if defined? super
-	    Roby::Log.log(:garbage_task) { [self, task] }
+	    Roby::Log.log(:garbage) { [self, object] }
 	end
 	def finalized_event(event)
 	    super if defined? super

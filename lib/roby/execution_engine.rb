@@ -1246,7 +1246,7 @@ module Roby
                 # Remote tasks are simply removed, regardless of other concerns
                 for t in remote_tasks
                     ExecutionEngine.debug { "GC: removing the remote task #{t}" }
-                    plan.remove_object(t)
+                    plan.garbage(t)
                 end
 
                 break if local_tasks.empty?
@@ -1263,7 +1263,6 @@ module Roby
                     local_tasks.each do |t|
                         ExecutionEngine.debug { "GC: #{t} is not running, removed" }
                         plan.garbage(t)
-                        plan.remove_object(t)
                     end
                     break
                 end
@@ -1295,18 +1294,19 @@ module Roby
                 (roots.to_value_set - finishing - plan.gc_quarantine).each do |local_task|
                     if local_task.pending?
                         ExecutionEngine.info "GC: removing pending task #{local_task}"
-                        plan.remove_object(local_task)
+
+                        plan.garbage(local_task)
                         did_something = true
                     elsif local_task.failed_to_start?
                         ExecutionEngine.info "GC: removing task that failed to start #{local_task}"
-                        plan.remove_object(local_task)
+                        plan.garbage(local_task)
                         did_something = true
                     elsif local_task.starting?
                         # wait for task to be started before killing it
                         ExecutionEngine.debug { "GC: #{local_task} is starting" }
                     elsif local_task.finished?
                         ExecutionEngine.debug { "GC: #{local_task} is not running, removed" }
-                        plan.remove_object(local_task)
+                        plan.garbage(local_task)
                         did_something = true
                     elsif !local_task.finishing?
                         if local_task.event(:stop).controlable?
@@ -1342,7 +1342,7 @@ module Roby
             end
 
             plan.unneeded_events.each do |event|
-                plan.remove_object(event)
+                plan.garbage(event)
             end
         end
 

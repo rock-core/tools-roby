@@ -509,7 +509,7 @@ module Roby
         end
 
         # Called when a particular object has been removed from its plan
-        def finalized!
+        def finalized!(timestamp = nil)
             if self.plan.executable?
                 # call finalization handlers
                 each_finalization_handler do |handler|
@@ -519,6 +519,8 @@ module Roby
 
 	    self.plan = nil
 	    self.removed_at = caller
+            self.finalization_time = timestamp || Time.now
+            self.finalized = true
         end
 
         # call-seq:
@@ -530,6 +532,14 @@ module Roby
             check_arity(block, 1)
             finalization_handlers << InstanceHandler.new(block, (options[:on_replace] == :copy))
         end
+
+        # True if this plan object has been finalized (i.e. removed from plan),
+        # or false otherwise
+        attr_predicate :finalized?, true
+
+        # The time at which this plan object has been finalized (i.e. removed
+        # from plan), or nil if it has not been (yet)
+        attr_accessor :finalization_time
     end
 end
 

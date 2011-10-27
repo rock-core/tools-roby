@@ -973,7 +973,7 @@ module Roby
         # Remove +object+ from this plan. You usually don't have to do that
         # manually. Object removal is handled by the plan's garbage collection
         # mechanism.
-	def remove_object(object)
+	def remove_object(object, timestamp = nil)
 	    if !object.root_object?
 		raise ArgumentError, "cannot remove #{object} which is a non-root object"
 	    elsif object.plan != self
@@ -1008,7 +1008,7 @@ module Roby
 	    @permanent_events.delete(object)
 	    force_gc.delete(object)
 
-            object.finalized!
+            object.finalized!(timestamp)
 
 	    case object
 	    when EventGenerator
@@ -1046,6 +1046,8 @@ module Roby
 	    end
 
 	    super if defined? super
+
+            remove_object(task)
 	end
 
 	# backward compatibility
