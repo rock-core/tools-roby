@@ -26,6 +26,12 @@ module Roby
 	end
     end
 
+    class RemoteService < RemoteObjectProxy
+        def id
+            method_missing(:id)
+        end
+    end
+
     # Base class for representation, on the shell side, of a ShellInterface
     # object
     #
@@ -399,6 +405,14 @@ help                              | this help message                           
             @interface.unmark(task)
             nil
         end
+
+        # Displays the set of running jobs
+        def jobs
+            @interface.jobs.each do |srv|
+                puts "#{srv.id} #{srv.name}! #{srv.task}"
+            end
+            nil
+        end
     end
 
     # This class is used to interface with the Roby event loop and plan. It is the
@@ -459,6 +473,7 @@ help                              | this help message                           
 	def initialize(engine)
             super(engine)
 	    @pending_messages = Queue.new
+            @jobs = Array.new
 
 	    engine.extend GatherExceptions
 	    engine.register_interface self
@@ -601,6 +616,9 @@ help                              | this help message                           
 
             shell = self
             engine.execute do
+                # Call #jobs to delete finished jobs
+                self.jobs
+
                 task, planner = Robot.prepare_action(plan, name, options)
 
                 service = PlanService.new(task)
@@ -624,9 +642,33 @@ help                              | this help message                           
                 shell.pending_messages << "[#{service.id}] #{name}! started to plan"
 
                 plan.add_mission(task)
-                RemoteObjectProxy.new(service)
+                service = RemoteService.new(service)
+                @jobs << service
+                service
             end
 	end
+
+        def jobs
+            engine.execute do
+                @jobs.delete_if { |j| j.finished? }
+                @jobs.dup
+            end
+        end
+
+        def job(id)
+            engine.execute do
+                @jobs.find { |j| j.id == id }
+            end
+        end
+
+        def kill_job(id)
+            engine.execute do
+                if j = job(id)
+                    j.stop!
+                end
+                nil
+            end
+        end
 
         def connection_test_object
             @test_object = Object.new
