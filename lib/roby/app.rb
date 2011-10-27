@@ -96,7 +96,7 @@ module Roby
 
             attribute("#{config_key}_overrides") { Hash.new }
             define_method(config_key) do
-                plain     = self.options[config_key]
+                plain     = self.options[config_key] || Hash.new
                 overrides = instance_variable_get "@#{config_key}_overrides"
                 if overrides
                     plain.recursive_merge(overrides)
