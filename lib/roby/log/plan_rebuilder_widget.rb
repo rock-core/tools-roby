@@ -9,6 +9,7 @@ module Roby
             attr_reader :plan_rebuilder
             attr_reader :current_plan
             attr_reader :displays
+            attr_accessor :ui
 
             def initialize(parent, plan_rebuilder)
                 super(parent)
@@ -20,8 +21,9 @@ module Roby
                 @current_plan.extend ReplayPlan
                 @displays = []
                 layout.add_widget(list)
+                @ui = nil
 
-                connect(list, SIGNAL('currentItemChanged(QListWidgetItem*,QListWidgetItem*)'),
+                Qt::Object.connect(list, SIGNAL('currentItemChanged(QListWidgetItem*,QListWidgetItem*)'),
                            self, SLOT('currentItemChanged(QListWidgetItem*,QListWidgetItem*)'))
             end
 
@@ -64,6 +66,19 @@ module Roby
             attr_reader :last_cycle
             attr_reader :last_cycle_snapshotted
 
+            def info(message)
+                if ui
+                    ui.info.setText(message)
+                end
+            end
+
+            def warn(message)
+                if ui
+                    ui.info.setText("<font color=\"red\">#{message}</font>")
+                end
+            end
+
+
             def push_data(data)
                 needs_snapshot = plan_rebuilder.push_data(data)
                 cycle = plan_rebuilder.stats[:cycle_index]
@@ -74,6 +89,12 @@ module Roby
                     append_to_history(plan_rebuilder.history.last)
                 end
                 @last_cycle = cycle
+            end
+
+            # Opens +filename+ and reads the data from there
+            def open(filename)
+                stream = Roby::LogReplay::EventFileStream.open(filename)
+                analyze(stream)
             end
 
             def analyze(stream, display_progress = true)
@@ -95,6 +116,95 @@ module Roby
                 end
                 dialog.dispose
                 puts "analyzed log file in %.2fs" % [Time.now - start]
+            end
+
+            # Called when the connection to the log server failed, either
+            # because it has been closed or because creating the connection
+            # failed
+            def connection_failed(e, client, options)
+                @connection_error = e
+                warn("connection failed: #{e.message}")
+                if @reconnection_timer
+                    return
+                end
+
+                @reconnection_timer = Qt::Timer.new(self)
+                @connect_client  = client.dup
+                @connect_options = options.dup
+                @reconnection_timer.connect(SIGNAL('timeout()')) do
+                    puts "trying to reconnect to #{@connect_client} #{@connect_options}"
+                    if connect(@connect_client, @connect_options)
+                        info("Connected")
+                        @reconnection_timer.stop
+                        @reconnection_timer.dispose
+                        @reconnection_timer = nil
+                    end
+                end
+                @reconnection_timer.start(1000)
+            end
+
+            DEFAULT_REMOTE_POLL_PERIOD = 0.05
+
+            # Displays the data incoming from +client+
+            #
+            # +client+ is assumed to be a Roby::Log::Client instance
+            #
+            # +update_period+ is, in seconds, the period at which the
+            # display will check whether there is new data on the port.
+            def connect(client, options = Hash.new)
+                options = Kernel.validate_options options,
+                    :port => Roby::Log::Server::DEFAULT_PORT,
+                    :update_period => DEFAULT_REMOTE_POLL_PERIOD
+
+                if client.respond_to?(:to_str)
+                    begin
+                        hostname = client
+                        client = Roby::Log::Client.new(client, options[:port])
+                    rescue Exception => e
+                        connection_failed(e, client, options)
+                        return false
+                    end
+                end
+
+                @client = client
+                client.add_listener do |data|
+                    history_widget.push_data(data)
+
+                    cycle = plan_rebuilder.cycle_index
+                    time = plan_rebuilder.time
+                    ui.info.text = "@#{cycle} - #{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
+                end
+                @connection_pull = timer = Qt::Timer.new(self)
+                timer.connect(SIGNAL('timeout()')) do
+                    begin
+                        client.read_and_process_pending
+                    rescue Exception => e
+                        disconnect
+                        warn("Disconnected: #{e.message}")
+                        puts e.message
+                        puts "  " + e.backtrace.join("\n  ")
+                        if hostname
+                            connect(hostname, options)
+                        end
+                    end
+                end
+                timer.start(Integer(options[:update_period] * 1000))
+                return true
+            end
+
+            def disconnect
+                @client.disconnect
+                @connection_pull.stop
+                @connection_pull.dispose
+                @connection_pull = nil
+            end
+
+            def time
+                plan_rebuilder.time
+            end
+
+            def start_time
+                plan_rebuilder.start_time
             end
         end
 

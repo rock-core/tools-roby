@@ -215,35 +215,6 @@ module Roby
                 name
             end
 
-            def current_display_state(current_time)
-                if failed_to_start?
-                    if failed_to_start_time > current_time
-                        return :pending
-                    else
-                        return :finished
-                    end
-                end
-
-                last_emitted_event = nil
-                history.each do |ev|
-                    break if ev.time > current_time
-                    last_emitted_event = ev
-                end
-
-                if !last_emitted_event
-                    return :pending
-                end
-
-                gen = last_emitted_event.generator
-                if !gen
-                    return :pending
-                elsif gen.terminal?
-                    return [:success, :finished, :running].find { |flag| send("#{flag}?") } 
-                else
-                    return :running
-                end
-            end
-
             attr_reader :displayed_state
             def update_graphics(display, graphics_item)
                 new_state = current_display_state(display.current_time)
@@ -349,7 +320,7 @@ module Roby
 	    :finished => Qt::Color.new('#E2A8A8'),
 	    :finalized => Qt::Color.new('#555555')
 	}
-	TASK_NAME_COLOR = 'black'
+	TASK_NAME_COLOR = Qt::Color.new('black')
 	TASK_FONTSIZE = 10
 
 	PENDING_EVENT_COLOR    = 'black' # default color for events

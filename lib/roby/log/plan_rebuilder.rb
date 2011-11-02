@@ -69,6 +69,37 @@ module Roby
             end
         end
 
+        module ReplayTask
+            def current_display_state(current_time)
+                if failed_to_start?
+                    if failed_to_start_time > current_time
+                        return :pending
+                    else
+                        return :finished
+                    end
+                end
+
+                last_emitted_event = nil
+                history.each do |ev|
+                    break if ev.time > current_time
+                    last_emitted_event = ev
+                end
+
+                if !last_emitted_event
+                    return :pending
+                end
+
+                gen = last_emitted_event.generator
+                if !gen
+                    return :pending
+                elsif gen.terminal?
+                    return [:success, :finished, :running].find { |flag| send("#{flag}?") } 
+                else
+                    return :running
+                end
+            end
+        end
+
         # Support to unmarshal transactions while doing log replay
         #
         # This is normally forbidden in dRoby. This module adds support for it
@@ -262,6 +293,11 @@ module Roby
                 end
             end
 
+            # The time of the first processed cycle
+            def start_time
+                @start_time
+            end
+
             # The starting time of the last processed cycle
             def time
                 Time.at(*stats[:start])
@@ -411,7 +447,9 @@ module Roby
 
 	    def inserted_tasks(time, plan, task)
 		plan = local_object(plan)
-		plan.add_mission( local_object(task) )
+                task = local_object(task)
+		plan.add_mission( task )
+                task.addition_time = time
                 announce_structure_update
 	    end
 	    def discarded_tasks(time, plan, task)
@@ -425,7 +463,9 @@ module Roby
 	    def added_events(time, plan, events)
 		plan = local_object(plan)
 		events.each do |ev| 
-		    plan.add(local_object(ev))
+                    ev = local_object(ev)
+		    plan.add(ev)
+                    ev.addition_time = ev
 		end
                 announce_structure_update
 	    end
@@ -440,6 +480,8 @@ module Roby
                 end
                 local_tasks.each do |task|
 		    plan.add(task)
+                    task.addition_time = time
+                    task.extend ReplayTask
 		end
                 announce_structure_update
 	    end
@@ -561,6 +603,7 @@ module Roby
             def cycle_end(time, timings)
                 @state = timings.delete(:state)
                 @stats = timings
+                @start_time ||= self.time
                 announce_state_update
             end
 

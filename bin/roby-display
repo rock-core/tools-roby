@@ -9,6 +9,7 @@ host = 'localhost'
 port = Roby::Log::Server::DEFAULT_PORT
 sampling_period = Roby::Log::Server::DEFAULT_SAMPLING_PERIOD
 config = 'roby-display.yml'
+display = 'RelationsDisplay::RelationsView'
 
 options = OptionParser.new do |opt|
     opt.on('--client[=HOST[:PORT]]', String, "specifies a live roby controller to connect to. If the host is omitted, uses localhost. If the port is omitted, the default of #{Roby::Log::Server::DEFAULT_PORT} is used") do |host|
@@ -35,6 +36,9 @@ options = OptionParser.new do |opt|
     end
     opt.on('--config=FILE', 'in display modes (client and file), path to the configuration file. Defaults to roby-display.yml') do |config_file|
         config = File.expand_path(config_file)
+    end
+    opt.on('--display=NAME', 'what to display') do |display_mode|
+        display = display_mode
     end
 end
 
@@ -64,12 +68,13 @@ require 'Qt'
 require 'roby/log/event_stream'
 require 'roby/log/plan_rebuilder'
 require 'roby/log/relations_view/relations_view'
+require 'roby/log/chronicle_view/chronicle_canvas'
 
 DRb.start_service "druby://localhost:0"
 
 app = Qt::Application.new(ARGV)
 
-display = Roby::LogReplay::RelationsDisplay::RelationsView.new
+display = eval("Roby::LogReplay::#{display}").new
 if File.file?(config)
     display.load_options(config)
 end

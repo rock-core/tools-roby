@@ -6,80 +6,25 @@ require 'roby/log/plan_rebuilder'
 module Roby
     module LogReplay
         module RelationsDisplay
-            class RelationsView < Qt::Widget
-                attr_reader :ui
-
+            class PlanView < Qt::Widget
                 attr_reader :plan_rebuilder
-                attr_reader :history
-                attr_reader :canvas
                 attr_reader :history_widget
+                attr_reader :view
 
                 # In remote connections, this is he period between checking if
                 # there is data on the socket, in seconds
                 #
                 # See #connect
-                DEFAULT_REMOTE_POLL_PERIOD = 0.05
-
                 def initialize(parent = nil, plan_rebuilder = nil)
                     super(parent)
-                    @ui = Ui::RelationsView.new
                     plan_rebuilder ||= Roby::LogReplay::PlanRebuilder.new
                     @plan_rebuilder = plan_rebuilder
-                    ui.setupUi(self)
-
-                    ui.history.setContentsMargins(0, 0, 0, 0)
-                    @history_widget_layout = Qt::VBoxLayout.new(ui.history)
-                    @history_widget_layout.setContentsMargins(0, 0, 0, 0)
-                    @history_widget = PlanRebuilderWidget.new(self, plan_rebuilder)
-
-                    @history_widget.setContentsMargins(0, 0, 0, 0)
-                    @history_widget_layout.add_widget(@history_widget)
-
-                    @canvas = RelationsCanvas.new([@history_widget.current_plan])
-                    @history_widget.displays << @canvas
-                    ui.setupActions(self)
-                    ui.graphics.scene = canvas.scene
-
-                    resize 500, 500
+                    @history_widget = PlanRebuilderWidget.new(nil, plan_rebuilder)
                 end
 
                 # Opens +filename+ and reads the data from there
                 def open(filename)
-                    stream = Roby::LogReplay::EventFileStream.open(filename)
-                    history_widget.analyze(stream)
-                end
-
-                def info(message)
-                    ui.info.setText(message)
-                end
-
-                def warn(message)
-                    ui.info.setText("<font color=\"red\">#{message}</font>")
-                end
-
-                # Called when the connection to the log server failed, either
-                # because it has been closed or because creating the connection
-                # failed
-                def connection_failed(e, client, options)
-                    @connection_error = e
-                    warn("connection failed: #{e.message}")
-                    if @reconnection_timer
-                        return
-                    end
-
-                    @reconnection_timer = Qt::Timer.new(self)
-                    @connect_client  = client.dup
-                    @connect_options = options.dup
-                    @reconnection_timer.connect(SIGNAL('timeout()')) do
-                        puts "trying to reconnect to #{@connect_client} #{@connect_options}"
-                        if connect(@connect_client, @connect_options)
-                            info("Connected")
-                            @reconnection_timer.stop
-                            @reconnection_timer.dispose
-                            @reconnection_timer = nil
-                        end
-                    end
-                    @reconnection_timer.start(1000)
+                    history_widget.open(filename)
                 end
 
                 # Displays the data incoming from +client+
@@ -89,51 +34,7 @@ module Roby
                 # +update_period+ is, in seconds, the period at which the
                 # display will check whether there is new data on the port.
                 def connect(client, options = Hash.new)
-                    options = Kernel.validate_options options,
-                        :port => Roby::Log::Server::DEFAULT_PORT,
-                        :update_period => DEFAULT_REMOTE_POLL_PERIOD
-
-                    if client.respond_to?(:to_str)
-                        begin
-                            hostname = client
-                            client = Roby::Log::Client.new(client, options[:port])
-                        rescue Exception => e
-                            connection_failed(e, client, options)
-                            return false
-                        end
-                    end
-
-                    @client = client
-                    client.add_listener do |data|
-                        history_widget.push_data(data)
-
-                        cycle = plan_rebuilder.cycle_index
-                        time = plan_rebuilder.time
-                        ui.info.text = "@#{cycle} - #{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
-                    end
-                    @connection_pull = timer = Qt::Timer.new(self)
-                    timer.connect(SIGNAL('timeout()')) do
-                        begin
-                            client.read_and_process_pending
-                        rescue Exception => e
-                            disconnect
-                            warn("Disconnected: #{e.message}")
-                            puts e.message
-                            puts "  " + e.backtrace.join("\n  ")
-                            if hostname
-                                connect(hostname, options)
-                            end
-                        end
-                    end
-                    timer.start(Integer(options[:update_period] * 1000))
-                    return true
-                end
-
-                def disconnect
-                    @client.disconnect
-                    @connection_pull.stop
-                    @connection_pull.dispose
-                    @connection_pull = nil
+                    history_widget.connect(client, options)
                 end
 
                 # Creates a new display that will display the information
@@ -148,18 +49,70 @@ module Roby
                 end
 
                 def load_options(path)
-                    options(YAML.load(File.read(path)))
+                    if new_options = YAML.load(File.read(path))
+                        options(new_options)
+                    end
                 end
 
                 def options(new_options = Hash.new)
                     filters = new_options.delete('plan_rebuilder') || Hash.new
                     plan_rebuilder_options = plan_rebuilder.options(filters)
 
-                    options = canvas.options(new_options)
+                    options = Hash.new
+                    if view.respond_to?(:options)
+                        options = view.options(new_options)
+                    end
                     if plan_rebuilder_options
                         options['plan_rebuilder'] = plan_rebuilder_options
                     end
                     options
+                end
+
+                def info(message)
+                    puts "INFO: #{message}"
+                end
+
+                def warn(message)
+                    puts "WARN: #{message}"
+                end
+            end
+
+            class RelationsView < PlanView
+                attr_reader :ui
+
+                attr_reader :plan_rebuilder
+                attr_reader :view
+
+                # In remote connections, this is he period between checking if
+                # there is data on the socket, in seconds
+                #
+                # See #connect
+                def initialize(parent = nil, plan_rebuilder = nil)
+                    super(parent)
+                    @ui = Ui::RelationsView.new
+                    ui.setupUi(self)
+
+                    ui.history.setContentsMargins(0, 0, 0, 0)
+                    history_widget.setContentsMargins(0, 0, 0, 0)
+                    history_widget.ui = ui
+                    @history_widget_layout = Qt::VBoxLayout.new(ui.history)
+                    @history_widget_layout.setContentsMargins(0, 0, 0, 0)
+                    @history_widget_layout.add_widget(@history_widget)
+
+                    @view = RelationsCanvas.new([@history_widget.current_plan])
+                    history_widget.add_display(@view)
+                    ui.setupActions(self)
+                    ui.graphics.scene = view.scene
+
+                    resize 500, 500
+                end
+
+                def info(message)
+                    ui.info.setText(message)
+                end
+
+                def warn(message)
+                    ui.info.setText("<font color=\"red\">#{message}</font>")
                 end
             end
         end
@@ -283,7 +236,7 @@ class Ui::RelationsView
 
     ZOOM_STEP = 0.25
     def setupActions(view)
-	@display   = display = view.canvas
+	@display   = display = view.view
 
         @actionShowAll = Qt::Action.new(view)
         @actionShowAll.objectName = "actionShowAll"
