@@ -60,7 +60,7 @@ module Roby
             end
 
             def wheelEvent(event)
-                if event.modifiers != Qt::NoModifier
+                if event.modifiers != Qt::ControlModifier
                     return super
                 end
 
@@ -87,7 +87,10 @@ module Roby
                 history_widget.history.each_value do |time, snapshot, _|
                     current_tasks |= snapshot.plan.known_tasks
                 end
-                @current_tasks = current_tasks.sort_by { |t| t.addition_time }
+                started_tasks, pending_tasks = current_tasks.partition { |t| t.start_time }
+                @current_tasks =
+                    started_tasks.sort_by { |t| t.start_time }.
+                    concat(pending_tasks.sort_by { |t| t.addition_time })
             end
 
             def update(time)
@@ -126,6 +129,9 @@ module Roby
                 all_tasks.each_with_index do |task, idx|
                     line_height = task_height
                     y1 = y0 + task_separation + text_height
+                    if y1 > geometry.height
+                        break
+                    end
 
                     if task.history.empty?
                         state = :pending
@@ -232,9 +238,14 @@ module Roby
                 @layout.add_widget(@view)
                 history_widget.add_display(@view)
                 history_widget.resize(200, 500)
-                history_widget.show
+                history_widget
 
                 resize(500, 500)
+            end
+
+            def show
+                super
+                history_widget.show
             end
         end
     end
