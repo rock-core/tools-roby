@@ -63,27 +63,7 @@ module Roby
             end
 
             def self.styles
-                if defined? @@event_styles
-                    return @@event_styles
-                end
-
-                @@event_styles = Hash.new
-                @@event_styles[EVENT_CONTROLABLE | EVENT_CALLED] =
-                    [Qt::Brush.new(Qt::Color.new(PENDING_EVENT_COLOR)),
-                        Qt::Pen.new(Qt::Color.new(PENDING_EVENT_COLOR))]
-                @@event_styles[EVENT_CONTROLABLE | EVENT_EMITTED] =
-                    [Qt::Brush.new(Qt::Color.new(FIRED_EVENT_COLOR)),
-                        Qt::Pen.new(Qt::Color.new(FIRED_EVENT_COLOR))]
-                @@event_styles[EVENT_CONTROLABLE | EVENT_CALLED_AND_EMITTED] =
-                    [Qt::Brush.new(Qt::Color.new(FIRED_EVENT_COLOR)),
-                        Qt::Pen.new(Qt::Color.new(PENDING_EVENT_COLOR))]
-                @@event_styles[EVENT_CONTINGENT | EVENT_EMITTED] =
-                    [Qt::Brush.new(Qt::Color.new('white')), Qt::Pen.new(Qt::Color.new(FIRED_EVENT_COLOR))]
-                @@event_styles[EVENT_CONTROLABLE | FAILED_EMISSION] =
-                    [Qt::Brush.new(Qt::Color.new('red')), Qt::Pen.new(Qt::Color.new('red'))]
-                @@event_styles[EVENT_CONTINGENT | FAILED_EMISSION] =
-                    [Qt::Brush.new(Qt::Color.new('red')), Qt::Pen.new(Qt::Color.new('red'))]
-                @@event_styles
+                return EVENT_STYLES
             end
 
             def self.priorities
@@ -321,6 +301,7 @@ module Roby
 	    :finalized => Qt::Color.new('#555555')
 	}
 	TASK_NAME_COLOR = Qt::Color.new('black')
+	EVENT_NAME_COLOR = Qt::Color.new('black')
 	TASK_FONTSIZE = 10
 
 	PENDING_EVENT_COLOR    = 'black' # default color for events
@@ -332,6 +313,23 @@ module Roby
 	EVENT_LAYER	       = PLAN_LAYER + 30
 
 	FIND_MARGIN = 10
+
+        EVENT_STYLES = Hash.new
+        EVENT_STYLES[EVENT_CONTROLABLE | EVENT_CALLED] =
+            [Qt::Brush.new(Qt::Color.new(PENDING_EVENT_COLOR)),
+                Qt::Pen.new(Qt::Color.new(PENDING_EVENT_COLOR))]
+        EVENT_STYLES[EVENT_CONTROLABLE | EVENT_EMITTED] =
+            [Qt::Brush.new(Qt::Color.new(FIRED_EVENT_COLOR)),
+                Qt::Pen.new(Qt::Color.new(FIRED_EVENT_COLOR))]
+        EVENT_STYLES[EVENT_CONTROLABLE | EVENT_CALLED_AND_EMITTED] =
+            [Qt::Brush.new(Qt::Color.new(FIRED_EVENT_COLOR)),
+                Qt::Pen.new(Qt::Color.new(PENDING_EVENT_COLOR))]
+        EVENT_STYLES[EVENT_CONTINGENT | EVENT_EMITTED] =
+            [Qt::Brush.new(Qt::Color.new('white')), Qt::Pen.new(Qt::Color.new(FIRED_EVENT_COLOR))]
+        EVENT_STYLES[EVENT_CONTROLABLE | FAILED_EMISSION] =
+            [Qt::Brush.new(Qt::Color.new('red')), Qt::Pen.new(Qt::Color.new('red'))]
+        EVENT_STYLES[EVENT_CONTINGENT | FAILED_EMISSION] =
+            [Qt::Brush.new(Qt::Color.new('red')), Qt::Pen.new(Qt::Color.new('red'))]
 
 	class Qt::GraphicsScene
 	    attr_reader :default_arrow_pen

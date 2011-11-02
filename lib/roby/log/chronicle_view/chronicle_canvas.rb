@@ -91,8 +91,8 @@ module Roby
             end
 
             def update(time)
-                horizontal_scroll_bar.value = time_to_pixel * (time - base_time)
                 update_scroll_ranges
+                horizontal_scroll_bar.value = time_to_pixel * (time - base_time)
             end
 
             def paintEvent(event)
@@ -121,9 +121,10 @@ module Roby
                     all_tasks |= snapshot.plan.known_tasks
                 end
 
+                y0 = 0
                 all_tasks = current_tasks[start_line..-1]
                 all_tasks.each_with_index do |task, idx|
-                    y0 = (text_height + task_height + task_separation) * idx
+                    line_height = task_height
                     y1 = y0 + task_separation + text_height
 
                     if task.history.empty?
@@ -143,14 +144,44 @@ module Roby
                         start_point = time_to_pixel * (task.start_time - current_time) + half_width
                     end
 
+                    # Compute the event placement. We do this before the
+                    # background, as the event display might make us resize the
+                    # line
+                    events = []
+                    event_base_y = fm.ascent
+                    event_height = [2 * RelationsDisplay::EVENT_CIRCLE_RADIUS, text_height].max
+                    event_max_x = []
+                    task.history.each do |ev|
+                        if ev.time > start_time && ev.time < end_time
+                            event_x = time_to_pixel * (ev.time - current_time) + half_width
+
+                            event_current_level = nil
+                            event_max_x.each_with_index do |x, idx|
+                                if x < event_x - RelationsDisplay::EVENT_CIRCLE_RADIUS
+                                    event_current_level = idx
+                                    break
+                                end
+                            end
+                            event_current_level ||= event_max_x.size
+
+                            event_y = event_base_y + event_current_level * event_height
+                            if event_y + event_height + fm.descent > line_height
+                                line_height = event_y + event_height + fm.descent
+                            end
+                            events << [event_x, event_y, ev.symbol.to_s]
+                            event_max_x[event_current_level] = event_x + 2 * RelationsDisplay::EVENT_CIRCLE_RADIUS + fm.width(ev.symbol.to_s)
+                        end
+                    end
+
+                    # Paint the background (i.e. the task state)
                     painter.brush = Qt::Brush.new(RelationsDisplay::TASK_BRUSH_COLORS[:pending])
                     painter.pen   = Qt::Pen.new(RelationsDisplay::TASK_PEN_COLORS[:pending])
-                    painter.drawRect(add_point, y1, (start_point || end_point) - add_point, task_height)
+                    painter.drawRect(add_point, y1, (start_point || end_point) - add_point, line_height)
                     if task.start_time
                         start_point = time_to_pixel * (task.start_time - current_time) + half_width
                         painter.brush = Qt::Brush.new(RelationsDisplay::TASK_BRUSH_COLORS[:running])
                         painter.pen   = Qt::Pen.new(RelationsDisplay::TASK_PEN_COLORS[:running])
-                        painter.drawRect(start_point, y1, end_point - start_point, task_height)
+                        painter.drawRect(start_point, y1, end_point - start_point, line_height)
                         if state && state != :running
                             painter.brush = Qt::Brush.new(RelationsDisplay::TASK_BRUSH_COLORS[state])
                             painter.pen   = Qt::Pen.new(RelationsDisplay::TASK_PEN_COLORS[state])
@@ -158,8 +189,20 @@ module Roby
                         end
                     end
 
+                    # Add the text
                     painter.pen = Qt::Pen.new(RelationsDisplay::TASK_NAME_COLOR)
                     painter.drawText(Qt::Point.new(0, y1 - fm.descent), task.to_s)
+
+                    # And finally display the emitted events
+                    events.each do |x, y, text|
+                        painter.brush, painter.pen = RelationsDisplay::EVENT_STYLES[RelationsDisplay::EVENT_CONTROLABLE | RelationsDisplay::EVENT_EMITTED]
+                        painter.drawEllipse(Qt::Point.new(x, y1 + y),
+                                            RelationsDisplay::EVENT_CIRCLE_RADIUS, RelationsDisplay::EVENT_CIRCLE_RADIUS)
+                        painter.pen = Qt::Pen.new(RelationsDisplay::EVENT_NAME_COLOR)
+                        painter.drawText(Qt::Point.new(x + 2 * RelationsDisplay::EVENT_CIRCLE_RADIUS, y1 + y), text)
+                    end
+
+                    y0 = y1 + line_height
                 end
 
             ensure
