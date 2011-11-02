@@ -95,6 +95,9 @@ module Roby
 		raise ArgumentError, "#{self} has been removed from plan, cannot add it back\n" +
 		    "Removed at\n  #{removed_at.join("\n  ")}"
 	    end
+            if !@addition_time
+                @addition_time = Time.now
+            end
 	    @plan = new_plan
 	end
 
@@ -536,6 +539,9 @@ module Roby
         # True if this plan object has been finalized (i.e. removed from plan),
         # or false otherwise
         attr_predicate :finalized?, true
+
+        # The time at which this plan object has been added into its first plan
+        attr_accessor :addition_time
 
         # The time at which this plan object has been finalized (i.e. removed
         # from plan), or nil if it has not been (yet)
