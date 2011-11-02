@@ -5,7 +5,7 @@ require 'roby/log/relations_view/relations_view'
 
 module Roby
     module LogReplay
-        class ChronicleViewport < Qt::AbstractScrollArea
+        class Chronicle < Qt::AbstractScrollArea
             attr_reader :history_widget
             attr_accessor :time_scale
             attr_accessor :current_time
@@ -25,27 +25,84 @@ module Roby
                 @start_line = 0
                 @current_tasks = Array.new
 
-                pal = Qt::Palette.new(self.palette)
+                viewport = Qt::Widget.new
+                pal = Qt::Palette.new(viewport.palette)
                 pal.setColor(Qt::Palette::Background, Qt::Color.new('white'))
-                setAutoFillBackground(true);
-                setPalette(pal)
+                viewport.setAutoFillBackground(true);
+                viewport.setPalette(pal)
+                self.viewport = viewport
+
+                horizontal_scroll_bar.connect(SIGNAL('valueChanged(int)')) do
+                    value = horizontal_scroll_bar.value
+                    time = base_time + Float(value) * pixel_to_time
+                    update_current_time(time)
+                    repaint
+                end
+                vertical_scroll_bar.connect(SIGNAL('valueChanged(int)')) do
+                    value = vertical_scroll_bar.value
+                    self.start_line = value
+                    repaint
+                end
             end
 
-            def update(time)
-                @current_time = time
+            def pixel_to_time
+                if time_scale < 0
+                    time_scale.abs
+                else 1.0 / time_scale
+                end
+            end
 
+            def time_to_pixel
+                if time_scale > 0
+                    time_scale
+                else 1.0 / time_scale.abs
+                end
+            end
+
+            def wheelEvent(event)
+                if event.modifiers != Qt::NoModifier
+                    return super
+                end
+
+                # See documentation of wheelEvent
+                degrees = event.delta / 8.0
+                num_steps = degrees / 15
+
+                old = self.time_scale
+                self.time_scale += num_steps
+                if time_scale == 0
+                    if old > 0
+                        self.time_scale = -1
+                    else
+                        self.time_scale = 1
+                    end
+                end
+                viewport.repaint
+                event.accept
+            end
+
+            def update_current_time(time)
+                @current_time = time
                 current_tasks = ValueSet.new
                 history_widget.history.each_value do |time, snapshot, _|
                     current_tasks |= snapshot.plan.known_tasks
                 end
                 @current_tasks = current_tasks.sort_by { |t| t.addition_time }
+            end
 
-                repaint
+            def update(time)
+                horizontal_scroll_bar.value = time_to_pixel * (time - base_time)
+                update_scroll_ranges
             end
 
             def paintEvent(event)
-                return if !current_time
-                painter = Qt::Painter.new(self)
+                if !current_time
+                    if history_widget.start_time
+                        update_current_time(history_widget.start_time)
+                    end
+                end
+
+                painter = Qt::Painter.new(viewport)
                 font = painter.font
                 font.point_size = 8
                 painter.font = font
@@ -54,7 +111,7 @@ module Roby
                 text_height = fm.height
 
                 half_width = self.geometry.width / 2
-                half_time_width = half_width / time_scale
+                half_time_width = half_width * pixel_to_time
                 start_time = current_time - half_time_width
                 end_time   = history_widget.time + half_time_width
 
@@ -71,26 +128,26 @@ module Roby
 
                     if task.history.empty?
                         state = :pending
-                        end_point   = time_scale * ((task.finalization_time || history_widget.time) - current_time) + half_width
+                        end_point   = time_to_pixel * ((task.finalization_time || history_widget.time) - current_time) + half_width
                     else
                         state = task.current_display_state(task.history.last.time)
                         if state == :running
-                            end_point = time_scale * (history_widget.time - current_time) + half_width
+                            end_point = time_to_pixel * (history_widget.time - current_time) + half_width
                         else
-                            end_point = time_scale * (task.history.last.time - current_time) + half_width
+                            end_point = time_to_pixel * (task.history.last.time - current_time) + half_width
                         end
                     end
 
-                    add_point = time_scale * (task.addition_time - current_time) + half_width
+                    add_point = time_to_pixel * (task.addition_time - current_time) + half_width
                     if task.start_time
-                        start_point = time_scale * (task.start_time - current_time) + half_width
+                        start_point = time_to_pixel * (task.start_time - current_time) + half_width
                     end
 
                     painter.brush = Qt::Brush.new(RelationsDisplay::TASK_BRUSH_COLORS[:pending])
                     painter.pen   = Qt::Pen.new(RelationsDisplay::TASK_PEN_COLORS[:pending])
                     painter.drawRect(add_point, y1, (start_point || end_point) - add_point, task_height)
                     if task.start_time
-                        start_point = time_scale * (task.start_time - current_time) + half_width
+                        start_point = time_to_pixel * (task.start_time - current_time) + half_width
                         painter.brush = Qt::Brush.new(RelationsDisplay::TASK_BRUSH_COLORS[:running])
                         painter.pen   = Qt::Pen.new(RelationsDisplay::TASK_PEN_COLORS[:running])
                         painter.drawRect(start_point, y1, end_point - start_point, task_height)
@@ -110,29 +167,6 @@ module Roby
                     painter.end
                 end
             end
-        end
-
-        class Chronicle < Qt::AbstractScrollArea
-            attr_reader :history_widget
-            attr_reader :chronicle
-
-            def initialize(history, parent)
-                super(parent)
-                @history_widget = history
-                @chronicle = ChronicleViewport.new(history, parent)
-                self.viewport = @chronicle
-
-                horizontal_scroll_bar.connect(SIGNAL('valueChanged(int)')) do
-                    value = horizontal_scroll_bar.value
-                    time = base_time + Float(value) / chronicle.time_scale
-                    chronicle.update(time)
-                end
-                vertical_scroll_bar.connect(SIGNAL('valueChanged(int)')) do
-                    value = vertical_scroll_bar.value
-                    chronicle.start_line = value
-                    chronicle.repaint
-                end
-            end
 
             def base_time
                 history_widget.start_time
@@ -140,22 +174,10 @@ module Roby
 
             def update_scroll_ranges
                 if base_time
-                    horizontal_scroll_bar.setRange(0, chronicle.time_scale * (history_widget.time - base_time))
+                    horizontal_scroll_bar.setRange(0, time_to_pixel * (history_widget.time - base_time))
+                    horizontal_scroll_bar.setPageStep(geometry.width / 4)
                 end
-                vertical_scroll_bar.setRange(0, chronicle.current_tasks.size)
-            end
-
-            def update(time)
-                horizontal_scroll_bar.value = chronicle.time_scale * (time - base_time)
-                update_scroll_ranges
-            end
-
-            def paintEvent(event)
-                if !chronicle.current_time # never updated, go to the beginning
-                    chronicle.update(history_widget.start_time)
-                end
-
-                viewport.paintEvent(event)
+                vertical_scroll_bar.setRange(0, current_tasks.size)
             end
         end
 
