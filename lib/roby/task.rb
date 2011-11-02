@@ -1280,7 +1280,7 @@ module Roby
 
         # Returns when this task has been started
         def start_time
-            if running?
+            if !history.empty?
                 history.first.time
             end
         end
