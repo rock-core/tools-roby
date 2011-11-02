@@ -1,5 +1,5 @@
-require 'roby/log/relations_view/relations_canvas'
-require 'roby/log/relations_view/relations_ui'
+require 'roby/log/gui/relations_view/relations_canvas'
+require 'roby/log/gui/relations_view/relations_ui'
 
 module Ui
     # Manage relations using a two-level tree structure. The relation
