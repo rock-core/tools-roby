@@ -36,6 +36,7 @@ module Roby
                     value = horizontal_scroll_bar.value
                     time = base_time + Float(value) * pixel_to_time
                     update_current_time(time)
+                    emit timeChanged(time - base_time)
                     repaint
                 end
                 vertical_scroll_bar.connect(SIGNAL('valueChanged(int)')) do
@@ -44,6 +45,8 @@ module Roby
                     repaint
                 end
             end
+
+            signals 'void timeChanged(float)'
 
             def pixel_to_time
                 if time_scale < 0
