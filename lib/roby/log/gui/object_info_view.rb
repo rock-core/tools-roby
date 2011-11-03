@@ -10,6 +10,10 @@ module Roby
             def initialize(parent = nil)
                 super
                 resize(400, 400)
+
+                connect(SIGNAL('itemDoubleClicked(QListWidgetItem*)')) do |item|
+                    emit selectedTime(item.data(Qt::UserRole).to_float)
+                end
             end
 
             # Updates the view to display the information about +obj+
@@ -36,13 +40,13 @@ module Roby
                     # Add the history
                     if obj.failed_to_start?
                         text = []
-                        text << "Failed to start at #{Roby.format_time(obj.failed_to_start_time)}"
+                        text << ["Failed to start at #{Roby.format_time(obj.failed_to_start_time)}", obj.failed_to_start_time]
                         text.concat(Roby.format_exception(obj))
                     else
                         text = obj.history.map do |event| 
                             time = event.time
-                            time = "#{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
-                            "#{time}: #{event.symbol}"
+                            time_as_text = "#{Roby.format_time(event.time)}"
+                            ["#{time_as_text}: #{event.symbol}", time]
                         end
                     end
                     sections << ["History", text]
@@ -61,11 +65,18 @@ module Roby
                         font.weight = Qt::Font::Bold
                         item.font = font
                     end
-                    lines.each do |l|
-                        addItem("  #{l}")
+                    lines.each do |txt, time|
+                        item = Qt::ListWidgetItem.new("  #{txt}")
+                        if time
+                            puts "#{txt} #{time} #{time.to_f}"
+                            item.setData(Qt::UserRole, Qt::Variant.new(time.to_f))
+                        end
+                        addItem(item)
                     end
                 end
             end
+
+            signals 'selectedTime(float)'
 
             # Shows the widget and makes it visible (i.e. toplevel)
             def activate
