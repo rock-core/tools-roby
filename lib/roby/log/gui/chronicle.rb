@@ -128,7 +128,41 @@ module Roby
                     all_tasks |= snapshot.plan.known_tasks
                 end
 
-                y0 = 0
+                # Build the timeline
+                #
+                # First, decide on the scale. We compute a "normal" text width
+                # for the time labels, and check what would be a round time-step
+                min_step_size = pixel_to_time * 1.5 * fm.width(Roby.format_time(current_time))
+                magnitude  = Integer(Math.log10(min_step_size))
+                base_value = (min_step_size / 10**magnitude).ceil
+                new_value = [1, 2, 5, 10].find { |v| v >= base_value }
+                step_size = new_value * 10**magnitude
+                # Display the current cycle time
+                central_label = Roby.format_time(current_time)
+                central_time_min = half_width - fm.width(central_label) / 2
+                central_time_max = half_width + fm.width(central_label) / 2
+                painter.pen = Qt::Pen.new(Qt::Color.new('gray'))
+                painter.drawText(central_time_min, text_height, central_label)
+                painter.drawRect(central_time_min - 2, 0, fm.width(central_label) + 4, text_height + 2)
+                # Now display. The values are rounded on step_size. If a normal
+                # ruler collides with the current time, just ignore it
+                painter.pen = Qt::Pen.new(Qt::Color.new('black'))
+                step_count = 2 * (half_time_width / min_step_size).ceil
+                ruler_base_time = (current_time.to_f / step_size).round * step_size - step_size * step_count / 2
+                ruler_base_x = (ruler_base_time - current_time.to_f) * time_to_pixel + half_width
+                step_count.times do |i|
+                    time = step_size * i + ruler_base_time
+                    pos  = step_size * i * time_to_pixel + ruler_base_x
+                    time_as_text = Roby.format_time(Time.at(time))
+                    min_x = pos - fm.width(time_as_text) / 2
+                    max_x = pos + fm.width(time_as_text) / 2
+                    if central_time_min > max_x || central_time_max < min_x
+                        painter.drawText(min_x, text_height, time_as_text)
+                    end
+                    painter.drawLine(pos, text_height + fm.descent, pos, text_height + fm.descent + TIMELINE_RULER_LINE_LENGTH)
+                end
+
+                y0 = text_height + task_separation
                 all_tasks = current_tasks[start_line..-1]
                 all_tasks.each_with_index do |task, idx|
                     line_height = task_height
@@ -214,6 +248,9 @@ module Roby
 
                     y0 = y1 + line_height
                 end
+
+                painter.pen = Qt::Pen.new(Qt::Color.new('gray'))
+                painter.drawLine(half_width, text_height + 2, half_width, geometry.height)
 
             ensure
                 if painter

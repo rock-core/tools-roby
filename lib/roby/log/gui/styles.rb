@@ -64,6 +64,8 @@ module Roby
             [Qt::Brush.new(Qt::Color.new('red')), Qt::Pen.new(Qt::Color.new('red'))]
         EVENT_STYLES[EVENT_CONTINGENT | FAILED_EMISSION] =
             [Qt::Brush.new(Qt::Color.new('red')), Qt::Pen.new(Qt::Color.new('red'))]
+
+        TIMELINE_RULER_LINE_LENGTH = 10
     end
 end
 
