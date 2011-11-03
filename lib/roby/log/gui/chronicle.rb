@@ -227,6 +227,7 @@ module Roby
 
             def update_scroll_ranges
                 if base_time
+                    horizontal_scroll_bar.value = time_to_pixel * (current_time - base_time)
                     horizontal_scroll_bar.setRange(0, time_to_pixel * (history_widget.time - base_time))
                     horizontal_scroll_bar.setPageStep(geometry.width / 4)
                 end
