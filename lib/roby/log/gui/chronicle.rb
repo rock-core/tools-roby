@@ -80,6 +80,7 @@ module Roby
                         self.time_scale = 1
                     end
                 end
+                update_scroll_ranges
                 viewport.repaint
                 event.accept
             end
