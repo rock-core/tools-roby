@@ -51,10 +51,13 @@ module Roby
             slots 'currentItemChanged(QListWidgetItem*,QListWidgetItem*)'
             def currentItemChanged(new_item, previous_item)
                 data = new_item.data(Qt::UserRole).toInt
+                apply(history[data][1])
+            end
+
+            def apply(snapshot)
                 @current_plan.owners.clear
                 Distributed.disable_ownership do
                     @current_plan.clear
-                    snapshot = history[data][1]
                     @current_time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:end]
                     snapshot.apply(@current_plan)
                 end
@@ -62,6 +65,21 @@ module Roby
                     d.update(@current_time)
                 end
             end
+
+            def seek(time)
+                result = nil
+                history.each_value do |cycle_time, snapshot, item|
+                    if cycle_time < time
+                        if !result || result[0] < cycle_time
+                            result = [cycle_time, snapshot]
+                        end
+                    end
+                end
+                if result
+                    apply(result[1])
+                end
+            end
+
 
             attr_reader :last_cycle
             attr_reader :last_cycle_snapshotted

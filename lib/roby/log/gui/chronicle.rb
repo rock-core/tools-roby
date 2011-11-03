@@ -270,7 +270,14 @@ module Roby
             def mouseDoubleClickEvent(event)
                 _, task = position_to_task.find { |pos, t| pos > event.pos.y }
                 if task
-                    @info_view ||= ObjectInfoView.new
+                    if !@info_view
+                        @info_view = ObjectInfoView.new
+                        @info_view.connect(SIGNAL('selectedTime(QDateTime)')) do |t|
+                            time = Time.at(Float(t.toMSecsSinceEpoch) / 1000)
+                            history_widget.seek(time)
+                        end
+                    end
+
                     if @info_view.display(task)
                         @info_view.activate
                     end

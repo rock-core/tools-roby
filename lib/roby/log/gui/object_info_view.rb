@@ -12,7 +12,7 @@ module Roby
                 resize(400, 400)
 
                 connect(SIGNAL('itemDoubleClicked(QListWidgetItem*)')) do |item|
-                    emit selectedTime(item.data(Qt::UserRole).to_float)
+                    emit selectedTime(item.data(Qt::UserRole).to_date_time)
                 end
             end
 
@@ -44,9 +44,8 @@ module Roby
                         text.concat(Roby.format_exception(obj))
                     else
                         text = obj.history.map do |event| 
-                            time = event.time
                             time_as_text = "#{Roby.format_time(event.time)}"
-                            ["#{time_as_text}: #{event.symbol}", time]
+                            ["#{time_as_text}: #{event.symbol}", event.time]
                         end
                     end
                     sections << ["History", text]
@@ -68,15 +67,14 @@ module Roby
                     lines.each do |txt, time|
                         item = Qt::ListWidgetItem.new("  #{txt}")
                         if time
-                            puts "#{txt} #{time} #{time.to_f}"
-                            item.setData(Qt::UserRole, Qt::Variant.new(time.to_f))
+                            item.setData(Qt::UserRole, Qt::Variant.new(Qt::DateTime.new(time)))
                         end
                         addItem(item)
                     end
                 end
             end
 
-            signals 'selectedTime(float)'
+            signals 'selectedTime(QDateTime)'
 
             # Shows the widget and makes it visible (i.e. toplevel)
             def activate
