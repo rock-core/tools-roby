@@ -14,6 +14,7 @@ module Roby
             attr_reader :plans
             attr_accessor :start_line
             attr_reader :current_tasks
+            attr_reader :position_to_task
 
             def initialize(history, parent)
                 super(parent)
@@ -24,6 +25,7 @@ module Roby
                 @task_separation = 10
                 @start_line = 0
                 @current_tasks = Array.new
+                @position_to_task = Array.new
 
                 viewport = Qt::Widget.new
                 pal = Qt::Palette.new(viewport.palette)
@@ -163,7 +165,9 @@ module Roby
                 end
 
                 y0 = text_height + task_separation
+                position_to_task << [y0]
                 all_tasks = current_tasks[start_line..-1]
+                position_to_task.clear
                 all_tasks.each_with_index do |task, idx|
                     line_height = task_height
                     y1 = y0 + task_separation + text_height
@@ -247,6 +251,7 @@ module Roby
                     end
 
                     y0 = y1 + line_height
+                    position_to_task << [y0, task]
                 end
 
                 painter.pen = Qt::Pen.new(Qt::Color.new('gray'))
@@ -260,6 +265,17 @@ module Roby
 
             def base_time
                 history_widget.start_time
+            end
+
+            def mouseDoubleClickEvent(event)
+                _, task = position_to_task.find { |pos, t| pos > event.pos.y }
+                if task
+                    @info_view ||= ObjectInfoView.new
+                    if @info_view.display(task)
+                        @info_view.activate
+                    end
+                end
+                event.accept
             end
 
             def update_scroll_ranges
