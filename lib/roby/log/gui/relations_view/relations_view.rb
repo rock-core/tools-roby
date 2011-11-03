@@ -1,5 +1,6 @@
 require 'roby/log/plan_rebuilder'
 require 'roby/log/gui/plan_rebuilder_widget'
+require 'roby/log/gui/object_info_view'
 require 'roby/log/gui/relations_view/relations_view_ui'
 require 'roby/log/gui/relations_view/relations_config'
 
@@ -72,62 +73,10 @@ class Ui::RelationsView
                 end
             end
 
-            sections = []
-            if obj.kind_of?(Array)
-                from, to, rel = obj
-                section = [
-                    "#{rel}",
-                    [ "from: #{from}",
-                      "to: #{to}",
-                      "info: #{from[to, rel]}"]
-                ]
-                sections << section
-
-            elsif obj.kind_of?(Roby::LogReplay::RelationsDisplay::DisplayTask)
-                sections << ["Model", obj.class.name]
-                # Add general task information (owner, arguments, ...)
-                text = obj.arguments.map do |key, value|
-                    "#{key}: #{value}"
-                end
-                sections << ["Arguments", text]
-
-                # Add the history
-                if obj.failed_to_start?
-                    text = []
-                    text << "Failed to start at #{Roby.format_time(obj.failed_to_start_time)}"
-                    text.concat(Roby.format_exception(obj))
-                else
-                    text = obj.history.map do |event| 
-                        time = event.time
-                        time = "#{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
-                        "#{time}: #{event.symbol}"
-                    end
-                end
-                sections << ["History", text]
-                sections << ["Model Ancestry", obj.class.ancestors.map(&:name)]
+            @object_info ||= Roby::LogReplay::ObjectInfoView.new
+            if @object_info.display(obj)
+                @object_info.activate
             end
-
-            if !@textview
-                @textview = Qt::ListWidget.new
-                @textview.resize(400, 400)
-            end
-            @textview.windowTitle = "Details for #{obj}"
-            @textview.clear
-            sections.each do |header, lines|
-                if header
-                    item = Qt::ListWidgetItem.new(@textview)
-                    item.text = header
-                    item.background = Qt::Brush.new(Qt::Color.new("#45C1FF"))
-                    font = item.font
-                    font.weight = Qt::Font::Bold
-                    item.font = font
-                end
-                lines.each do |l|
-                    @textview.addItem("  #{l}")
-                end
-            end
-            @textview.show
-            @textview.activateWindow
         end
 
         def contextMenuEvent(event)
