@@ -1,50 +1,49 @@
 require 'roby/log/plan_rebuilder'
 require 'roby/log/gui/plan_rebuilder_widget'
 require 'roby/log/gui/object_info_view'
-require 'roby/log/gui/relations_view/relations_view_ui'
 require 'roby/log/gui/relations_view/relations_config'
 
 module Roby
     module LogReplay
-        module RelationsDisplay
-            class RelationsView < PlanView
-                attr_reader :ui
+        # Plan display that shows a snapshot of the event/task structure, as
+        # well as the events emitted within the last cycle
+        class RelationsView < Qt::Widget
+            attr_reader :ui
+            attr_reader :view
+            attr_reader :history_widget
 
-                attr_reader :plan_rebuilder
-                attr_reader :view
+            # In remote connections, this is he period between checking if
+            # there is data on the socket, in seconds
+            #
+            # See #connect
+            def initialize(history_widget, parent = nil)
+                super(parent)
+                @ui = Ui::RelationsView.new
+                ui.setupUi(self)
 
-                # In remote connections, this is he period between checking if
-                # there is data on the socket, in seconds
-                #
-                # See #connect
-                def initialize(parent = nil, plan_rebuilder = nil)
-                    super(parent)
-                    @ui = Ui::RelationsView.new
-                    ui.setupUi(self)
+                @history_widget = history_widget
+                @view = RelationsDisplay::RelationsCanvas.new([history_widget.current_plan])
+                ui.setupActions(self)
+                ui.graphics.scene = view.scene
 
-                    ui.history.setContentsMargins(0, 0, 0, 0)
-                    history_widget.setContentsMargins(0, 0, 0, 0)
-                    history_widget.ui = ui
-                    @history_widget_layout = Qt::VBoxLayout.new(ui.history)
-                    @history_widget_layout.setContentsMargins(0, 0, 0, 0)
-                    @history_widget_layout.add_widget(@history_widget)
+                resize 500, 500
+            end
 
-                    @view = RelationsCanvas.new([@history_widget.current_plan])
-                    history_widget.add_display(@view)
-                    ui.setupActions(self)
-                    ui.graphics.scene = view.scene
-
-                    resize 500, 500
-                end
-
-                def info(message)
-                    ui.info.setText(message)
-                end
-
-                def warn(message)
-                    ui.info.setText("<font color=\"red\">#{message}</font>")
+            # Slot used to make the widget update its title when e.g. the
+            # underlying history widget changed its source
+            def updateWindowTitle
+                if parent_title = history_widget.window_title
+                    self.window_title = history_widget.window_title + ": Relations"
+                else
+                    self.window_title = "roby-display: Relations"
                 end
             end
+            slots 'updateWindowTitle()'
+
+            def update(time)
+                view.update(time)
+            end
+            slots 'update(QDateTime)'
         end
     end
 end
@@ -56,6 +55,8 @@ class Ui::RelationsView
     # The underlying Roby::LogReplay::RelationsDisplay::RelationsCanvas object
     attr_reader :display
     attr_reader :prefixActions
+    attr_reader :verticalLayout
+    attr_reader :graphics
 
     # Module used to extend the relation view GraphicsView object, to add
     # double-click and context-menu events
@@ -110,6 +111,12 @@ class Ui::RelationsView
 
             display.update
         end
+    end
+
+    def setupUi(view)
+        @verticalLayout = Qt::VBoxLayout.new(view)
+        @graphics = Qt::GraphicsView.new(view)
+        @verticalLayout.add_widget(@graphics)
     end
 
     ZOOM_STEP = 0.25
@@ -177,7 +184,7 @@ class Ui::RelationsView
         @menuView.addAction(@actionPrint)
         @menuView.addAction(@actionConfigure)
 
-        @verticalLayout_2.setMenuBar(@menubar)
+        @verticalLayout.setMenuBar(@menubar)
 
         @actionConfigure.connect(SIGNAL(:triggered)) do
             if !@configuration_widget

@@ -3,32 +3,39 @@ module Roby
         # This widget displays information about the event history in a list,
         # allowing to switch between the "important events" in this history
         class PlanRebuilderWidget < Qt::Widget
+            # The list used to display all the cycles in the history
             attr_reader :list
-            attr_reader :layout
+            # The history, as a mapping from the cycle index to a (time,
+            # snapshot, list_item) triple
             attr_reader :history
+            # The PlanRebuilder object we use to process the log data
             attr_reader :plan_rebuilder
+            # The current plan managed by the widget
             attr_reader :current_plan
-            attr_reader :displays
-            attr_accessor :ui
 
-            def initialize(parent, plan_rebuilder)
+            # Signal emitted when an informational message is meant to be
+            # displayed
+            signals 'info(QString)'
+            # Signal emitted when a warning message is meant to be displayed
+            signals 'warn(QString)'
+            # Signal emitted when the currently displayed cycle changed, i.e.
+            # when displays are supposed to be updated
+            signals 'update(QDateTime)'
+
+            def initialize(parent, plan_rebuilder = nil)
                 super(parent)
                 @list    = Qt::ListWidget.new(self)
                 @layout  = Qt::VBoxLayout.new(self)
+
+                @layout.add_widget(@btn_create_display)
                 @history = Hash.new
                 @plan_rebuilder = plan_rebuilder
                 @current_plan = Roby::Plan.new
                 @current_plan.extend ReplayPlan
-                @displays = []
-                layout.add_widget(list)
-                @ui = nil
+                @layout.add_widget(list)
 
                 Qt::Object.connect(list, SIGNAL('currentItemChanged(QListWidgetItem*,QListWidgetItem*)'),
                            self, SLOT('currentItemChanged(QListWidgetItem*,QListWidgetItem*)'))
-            end
-
-            def add_display(display)
-                @displays << display
             end
 
             def add_missing_cycles(count)
@@ -61,12 +68,15 @@ module Roby
                     @current_time = Time.at(*snapshot.stats[:start]) + snapshot.stats[:end]
                     snapshot.apply(@current_plan)
                 end
-                displays.each do |d|
-                    d.update(@current_time)
-                end
+                emit update(Qt::DateTime.new(@current_time))
             end
 
             def seek(time)
+                # Convert from QDateTime to allow seek() to be a slot
+                if time.kind_of?(Qt::DateTime)
+                    time = Time.at(Float(time.toMSecsSinceEpoch) / 1000)
+                end
+
                 result = nil
                 history.each_value do |cycle_time, snapshot, item|
                     if cycle_time < time
@@ -79,23 +89,19 @@ module Roby
                     apply(result[1])
                 end
             end
+            slots 'seek(QDateTime)'
 
 
             attr_reader :last_cycle
             attr_reader :last_cycle_snapshotted
 
             def info(message)
-                if ui
-                    ui.info.setText(message)
-                end
+                emit info(message)
             end
 
             def warn(message)
-                if ui
-                    ui.info.setText("<font color=\"red\">#{message}</font>")
-                end
+                emit warn(message)
             end
-
 
             def push_data(data)
                 needs_snapshot = plan_rebuilder.push_data(data)
@@ -112,8 +118,12 @@ module Roby
             # Opens +filename+ and reads the data from there
             def open(filename)
                 stream = Roby::LogReplay::EventFileStream.open(filename)
+                self.window_title = "roby-display: #{filename}"
+                emit sourceChanged
                 analyze(stream)
             end
+
+            signals 'sourceChanged()'
 
             def analyze(stream, display_progress = true)
                 start = Time.now
@@ -183,6 +193,8 @@ module Roby
                         return false
                     end
                 end
+
+                self.window_title = "roby-display: #{client}"
 
                 @client = client
                 client.add_listener do |data|

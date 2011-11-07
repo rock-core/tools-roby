@@ -1,4 +1,4 @@
-require 'roby/log/gui/plan_view'
+require 'roby/log/gui/log_display'
 require 'roby/log/gui/plan_rebuilder_widget'
 require 'roby/log/gui/styles'
 require 'roby/log/gui/chronicle'

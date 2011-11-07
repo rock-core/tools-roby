@@ -828,6 +828,12 @@ module Roby
             # It would be too complex at this stage to know if the plan has been
             # updated, so the method always returns true
 	    def update(time = nil)
+                # Allow time to be a Qt::DateTime object, so that we can make it
+                # a slot
+                if time.kind_of?(Qt::DateTime)
+                    time = Time.at(Float(time.toMSecsSinceEpoch) / 1000)
+                end
+
                 if time
                     @current_time = time
                 end

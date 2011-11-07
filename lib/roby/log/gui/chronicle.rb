@@ -5,21 +5,45 @@ require 'roby/log/gui/styles'
 
 module Roby
     module LogReplay
-        class Chronicle < Qt::AbstractScrollArea
+        # A plan display that puts events and tasks on a timeline
+        #
+        # The following interactions are available:
+        #
+        #   * CTRL + wheel: change time scale
+        #   * ALT + wheel: horizontal scroll
+        #   * wheel: vertical scroll
+        #   * double-click: task info view
+        #
+        class ChronicleView < Qt::AbstractScrollArea
+            # The PlanRebuilderWidget instance that is managing the history
             attr_reader :history_widget
+            # Internal representation of the desired time scale. Don't use it
+            # directly, but use #time_to_pixel or #pixel_to_time
             attr_accessor :time_scale
+            # The time that is currently at the middle of the view
             attr_accessor :current_time
+            # The base height of a task line
             attr_accessor :task_height
+            # The separation, in pixels, between tasks
             attr_accessor :task_separation
-            attr_reader :plans
+            # The index of the task that is currently at the top of the view. It
+            # is an index in #current_tasks
             attr_accessor :start_line
+            # The set of tasks that should currently be managed by the view.
+            #
+            # It is updated in #update(), i.e. when the view gets something to
+            # display
             attr_reader :current_tasks
+            # An ordered set of [y, task], where +y+ is the position in Y of the
+            # bottom of a task line and +task+ the corresponding task object
+            #
+            # It is updated on display
             attr_reader :position_to_task
 
-            def initialize(history, parent)
+            def initialize(history_widget, parent = nil)
                 super(parent)
-                @history_widget = history
-                @plan = history.current_plan
+
+                @history_widget = history_widget
                 @time_scale = 10
                 @task_height = 30
                 @task_separation = 10
@@ -34,6 +58,7 @@ module Roby
                 viewport.setPalette(pal)
                 self.viewport = viewport
 
+                updateWindowTitle
                 horizontal_scroll_bar.connect(SIGNAL('valueChanged(int)')) do
                     value = horizontal_scroll_bar.value
                     time = base_time + Float(value) * pixel_to_time
@@ -48,8 +73,24 @@ module Roby
                 end
             end
 
+            # Slot used to make the widget update its title when e.g. the
+            # underlying history widget changed its source
+            def updateWindowTitle
+                if parent_title = history_widget.window_title
+                    self.window_title = history_widget.window_title + ": Chronicle"
+                else
+                    self.window_title = "roby-display: Chronicle"
+                end
+            end
+            slots 'updateWindowTitle()'
+
+            # Signal emitted when the currently displayed time changed. The time
+            # is provided as an offset since base_time
             signals 'void timeChanged(float)'
 
+            # Scale factor to convert pixels to seconds
+            #
+            #   time = pixel_to_time * pixel
             def pixel_to_time
                 if time_scale < 0
                     time_scale.abs
@@ -57,6 +98,9 @@ module Roby
                 end
             end
 
+            # Scale factor to convert seconds to pixels
+            #
+            #   pixel = time_to_pixel * time
             def time_to_pixel
                 if time_scale > 0
                     time_scale
@@ -64,6 +108,7 @@ module Roby
                 end
             end
 
+            # Event handler for wheel event
             def wheelEvent(event)
                 if event.modifiers != Qt::ControlModifier
                     return super
@@ -100,14 +145,21 @@ module Roby
             end
 
             def update(time)
+                # Convert from QDateTime to allow update() to be a slot
+                if time.kind_of?(Qt::DateTime)
+                    time = Time.at(Float(time.toMSecsSinceEpoch) / 1000)
+                end
                 update_scroll_ranges
                 horizontal_scroll_bar.value = time_to_pixel * (time - base_time)
             end
+            slots 'update(QDateTime)'
 
             def paintEvent(event)
                 if !current_time
                     if history_widget.start_time
                         update_current_time(history_widget.start_time)
+                    else
+                        return
                     end
                 end
 
@@ -165,9 +217,9 @@ module Roby
                 end
 
                 y0 = text_height + task_separation
+                position_to_task.clear
                 position_to_task << [y0]
                 all_tasks = current_tasks[start_line..-1]
-                position_to_task.clear
                 all_tasks.each_with_index do |task, idx|
                     line_height = task_height
                     y1 = y0 + task_separation + text_height
@@ -263,6 +315,7 @@ module Roby
                 end
             end
 
+            # The time of the first registered cycle
             def base_time
                 history_widget.start_time
             end
@@ -272,10 +325,8 @@ module Roby
                 if task
                     if !@info_view
                         @info_view = ObjectInfoView.new
-                        @info_view.connect(SIGNAL('selectedTime(QDateTime)')) do |t|
-                            time = Time.at(Float(t.toMSecsSinceEpoch) / 1000)
-                            history_widget.seek(time)
-                        end
+                        @info_view.connect(SIGNAL('selectedTime(QDateTime)'),
+                            history_widget, SLOT('seek(QDateTime)'))
                     end
 
                     if @info_view.display(task)
@@ -292,25 +343,6 @@ module Roby
                     horizontal_scroll_bar.setPageStep(geometry.width / 4)
                 end
                 vertical_scroll_bar.setRange(0, current_tasks.size)
-            end
-        end
-
-        class ChronicleView < PlanView
-            def initialize(parent = nil, plan_rebuilder = nil)
-                super(parent)
-                @layout = Qt::VBoxLayout.new(self)
-                @view = Chronicle.new(history_widget, self)
-                @layout.add_widget(@view)
-                history_widget.add_display(@view)
-                history_widget.resize(200, 500)
-                history_widget
-
-                resize(500, 500)
-            end
-
-            def show
-                super
-                history_widget.show
             end
         end
     end
