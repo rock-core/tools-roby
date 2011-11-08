@@ -95,14 +95,6 @@ module Roby
             attr_reader :last_cycle
             attr_reader :last_cycle_snapshotted
 
-            def info(message)
-                emit info(message)
-            end
-
-            def warn(message)
-                emit warn(message)
-            end
-
             def push_data(data)
                 needs_snapshot = plan_rebuilder.push_data(data)
                 cycle = plan_rebuilder.stats[:cycle_index]
@@ -151,7 +143,7 @@ module Roby
             # failed
             def connection_failed(e, client, options)
                 @connection_error = e
-                warn("connection failed: #{e.message}")
+                emit warn("connection failed: #{e.message}")
                 if @reconnection_timer
                     return
                 end
@@ -162,7 +154,7 @@ module Roby
                 @reconnection_timer.connect(SIGNAL('timeout()')) do
                     puts "trying to reconnect to #{@connect_client} #{@connect_options}"
                     if connect(@connect_client, @connect_options)
-                        info("Connected")
+                        emit info("Connected")
                         @reconnection_timer.stop
                         @reconnection_timer.dispose
                         @reconnection_timer = nil
@@ -185,6 +177,9 @@ module Roby
                     :update_period => DEFAULT_REMOTE_POLL_PERIOD
 
                 if client.respond_to?(:to_str)
+                    self.window_title = "roby-display: #{client}"
+                    emit sourceChanged
+
                     begin
                         hostname = client
                         client = Roby::Log::Client.new(client, options[:port])
@@ -194,15 +189,14 @@ module Roby
                     end
                 end
 
-                self.window_title = "roby-display: #{client}"
 
                 @client = client
                 client.add_listener do |data|
-                    history_widget.push_data(data)
+                    push_data(data)
 
                     cycle = plan_rebuilder.cycle_index
                     time = plan_rebuilder.time
-                    ui.info.text = "@#{cycle} - #{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
+                    emit info("@#{cycle} - #{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}")
                 end
                 @connection_pull = timer = Qt::Timer.new(self)
                 timer.connect(SIGNAL('timeout()')) do
@@ -210,7 +204,7 @@ module Roby
                         client.read_and_process_pending
                     rescue Exception => e
                         disconnect
-                        warn("Disconnected: #{e.message}")
+                        emit warn("Disconnected: #{e.message}")
                         puts e.message
                         puts "  " + e.backtrace.join("\n  ")
                         if hostname
