@@ -216,6 +216,7 @@ module Roby
                 elsif !time
                     time = current_time
                 end
+                return if !time
                 update_current_time(time)
                 update_scroll_ranges
                 horizontal_scroll_bar.value = time_to_pixel * (time - base_time)
