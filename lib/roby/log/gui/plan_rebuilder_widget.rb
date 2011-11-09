@@ -113,6 +113,9 @@ module Roby
                 self.window_title = "roby-display: #{filename}"
                 emit sourceChanged
                 analyze(stream)
+                if !history.empty?
+                    apply(history[0][1])
+                end
             end
 
             signals 'sourceChanged()'

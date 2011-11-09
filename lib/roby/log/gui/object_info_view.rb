@@ -16,6 +16,10 @@ module Roby
                 end
             end
 
+            # Emitted when the user double-clicks a time field in the view (e.g.
+            # an event in a task history)
+            signals 'selectedTime(QDateTime)'
+
             # Updates the view to display the information about +obj+
             def display(obj)
                 sections = []
@@ -73,8 +77,6 @@ module Roby
                     end
                 end
             end
-
-            signals 'selectedTime(QDateTime)'
 
             # Shows the widget and makes it visible (i.e. toplevel)
             def activate

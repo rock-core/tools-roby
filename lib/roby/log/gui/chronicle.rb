@@ -14,7 +14,7 @@ module Roby
         #   * wheel: vertical scroll
         #   * double-click: task info view
         #
-        class ChronicleView < Qt::AbstractScrollArea
+        class ChronicleWidget < Qt::AbstractScrollArea
             # The PlanRebuilderWidget instance that is managing the history
             attr_reader :history_widget
             # Internal representation of the desired time scale. Don't use it
@@ -39,17 +39,59 @@ module Roby
             #
             # It is updated on display
             attr_reader :position_to_task
+            # The current sorting mode. Can be :start_time or :last_event.
+            # Defaults to :start_time
+            #
+            # In :start mode, the tasks are sorted by the time at which they
+            # started. In :last_event, by the time of the last event emitted
+            # before the current displayed time: it shows the last active tasks
+            # first)
+            attr_reader :sort_mode
+            # See #sort_mode
+            def sort_mode=(mode)
+                if ![:start_time, :last_event].include?(mode)
+                    raise ArgumentError, "sort_mode can either be :start_time or :last_event, got #{mode}"
+                end
+                @sort_mode = mode
+            end
+            # High-level filter on the list of shown tasks. Can either be :all,
+            # :running, :current. Defaults to :all
+            #
+            # In :all mode, all tasks that are included in a plan in a certain
+            # point in time are displayed.
+            #
+            # In :running mode, only the tasks that are running within the
+            # display time window are shown.
+            #
+            # In :current mode, only the tasks that have emitted events within
+            # the display time window are shown
+            attr_reader :show_mode
+            # See #show_mode
+            def show_mode=(mode)
+                if ![:all, :running, :current].include?(mode)
+                    raise ArgumentError, "sort_mode can be :all, :running or :current, got #{mode}"
+                end
+                @show_mode = mode
+            end
+
+            # Display the events "in the future", or stop at the current time.
+            # When enabled, a log replay display will look like a live display
+            # (use to generate videos for instance)
+            attr_predicate :show_future_events?, true
 
             def initialize(history_widget, parent = nil)
                 super(parent)
 
                 @history_widget = history_widget
                 @time_scale = 10
-                @task_height = 30
+                @task_height = 1
                 @task_separation = 10
                 @start_line = 0
                 @current_tasks = Array.new
                 @position_to_task = Array.new
+                @sort_mode = :start_time
+                @show_mode = :all
+                @show_future_events = true
 
                 viewport = Qt::Widget.new
                 pal = Qt::Palette.new(viewport.palette)
@@ -59,7 +101,7 @@ module Roby
                 self.viewport = viewport
 
                 updateWindowTitle
-                horizontal_scroll_bar.connect(SIGNAL('valueChanged(int)')) do
+                horizontal_scroll_bar.connect(SIGNAL('sliderMoved(int)')) do
                     value = horizontal_scroll_bar.value
                     time = base_time + Float(value) * pixel_to_time
                     update_current_time(time)
@@ -139,16 +181,42 @@ module Roby
                     current_tasks |= snapshot.plan.known_tasks
                 end
                 started_tasks, pending_tasks = current_tasks.partition { |t| t.start_time }
-                @current_tasks =
-                    started_tasks.sort_by { |t| t.start_time }.
-                    concat(pending_tasks.sort_by { |t| t.addition_time })
+
+                if sort_mode == :last_event
+                    not_yet_started, started_tasks = started_tasks.partition { |t| t.start_time > current_time }
+                    @current_tasks =
+                        started_tasks.sort_by do |t|
+                            last_event = nil
+                            t.history.each do |ev|
+                                if ev.time < current_time
+                                    last_event = ev
+                                else break
+                                end
+                            end
+                            last_event.time
+                        end
+                    @current_tasks = @current_tasks.reverse
+                    @current_tasks.concat(not_yet_started.sort_by { |t| t.start_time })
+                else
+                    @current_tasks =
+                        started_tasks.sort_by { |t| t.start_time }.
+                        concat(pending_tasks.sort_by { |t| t.addition_time })
+                end
+
+                if show_mode == :all
+                    @current_tasks.
+                        concat(pending_tasks.sort_by { |t| t.addition_time })
+                end
             end
 
-            def update(time)
+            def update(time = nil)
                 # Convert from QDateTime to allow update() to be a slot
                 if time.kind_of?(Qt::DateTime)
                     time = Time.at(Float(time.toMSecsSinceEpoch) / 1000)
+                elsif !time
+                    time = current_time
                 end
+                update_current_time(time)
                 update_scroll_ranges
                 horizontal_scroll_bar.value = time_to_pixel * (time - base_time)
             end
@@ -156,11 +224,7 @@ module Roby
 
             def paintEvent(event)
                 if !current_time
-                    if history_widget.start_time
-                        update_current_time(history_widget.start_time)
-                    else
-                        return
-                    end
+                    return
                 end
 
                 painter = Qt::Painter.new(viewport)
@@ -174,7 +238,7 @@ module Roby
                 half_width = self.geometry.width / 2
                 half_time_width = half_width * pixel_to_time
                 start_time = current_time - half_time_width
-                end_time   = history_widget.time + half_time_width
+                end_time   = current_time + half_time_width
 
                 # Find all running tasks within the display window
                 all_tasks = ValueSet.new
@@ -219,7 +283,28 @@ module Roby
                 y0 = text_height + task_separation
                 position_to_task.clear
                 position_to_task << [y0]
-                all_tasks = current_tasks[start_line..-1]
+
+                all_tasks = current_tasks
+                if show_mode == :running || show_mode == :current
+                    all_tasks = all_tasks.find_all do |t|
+                        (t.start_time && t.start_time < end_time) &&
+                            (!t.end_time || t.end_time > start_time)
+                    end
+
+                    if show_mode == :current
+                        all_tasks = all_tasks.find_all do |t|
+                            t.history.any? { |ev| ev.time > start_time && ev.time < end_time }
+                        end
+                    end
+                end
+
+                # Start at the current
+                first_index =
+                    if start_line >= all_tasks.size
+                        all_tasks.size - 1
+                    else start_line
+                    end
+                all_tasks = all_tasks[first_index..-1]
                 all_tasks.each_with_index do |task, idx|
                     line_height = task_height
                     y1 = y0 + task_separation + text_height
@@ -325,7 +410,7 @@ module Roby
                 if task
                     if !@info_view
                         @info_view = ObjectInfoView.new
-                        @info_view.connect(SIGNAL('selectedTime(QDateTime)'),
+                        Qt::Object.connect(@info_view, SIGNAL('selectedTime(QDateTime)'),
                             history_widget, SLOT('seek(QDateTime)'))
                     end
 
@@ -344,6 +429,108 @@ module Roby
                 end
                 vertical_scroll_bar.setRange(0, current_tasks.size)
             end
+        end
+
+        # The chronicle plan view, including the menu bar and status display
+        class ChronicleView < Qt::Widget
+            # The underlying ChronicleWidget instance
+            attr_reader :chronicle
+
+            def initialize(history_widget, parent = nil)
+                super(parent)
+
+                @layout = Qt::VBoxLayout.new(self)
+                @menu_layout = Qt::HBoxLayout.new
+                @layout.add_layout(@menu_layout)
+
+                @btn_play = Qt::PushButton.new("Play", self)
+                @menu_layout.add_widget(@btn_play)
+                @btn_play.connect(SIGNAL('clicked()')) do
+                    if @play_timer
+                        stop
+                        @btn_play.text = "Play"
+                    else
+                        play
+                        @btn_play.text = "Stop"
+                    end
+                end
+
+                @btn_sort = Qt::PushButton.new("Sort", self)
+                @menu_layout.add_widget(@btn_sort)
+
+                @mnu_sort = Qt::Menu.new(self)
+                @actgrp_sort = Qt::ActionGroup.new(@mnu_sort)
+                @act_sort_by_start = Qt::Action.new("Start time", self)
+                @act_sort_by_start.checkable = true
+                @act_sort_by_start.checked = true
+                @act_sort_by_start.connect(SIGNAL('toggled(bool)')) do |value|
+                    if value
+                        @chronicle.sort_mode = :start_time
+                        @chronicle.update
+                    end
+                end
+                @actgrp_sort.add_action(@act_sort_by_start)
+                @mnu_sort.add_action(@act_sort_by_start)
+                @act_sort_by_last_event = Qt::Action.new("Last event", self)
+                @act_sort_by_last_event.checkable = true
+                @act_sort_by_last_event.connect(SIGNAL('toggled(bool)')) do |value|
+                    if value
+                        @chronicle.sort_mode = :last_event
+                        @chronicle.update
+                    end
+                end
+                @actgrp_sort.add_action(@act_sort_by_last_event)
+                @mnu_sort.add_action(@act_sort_by_last_event)
+                @btn_sort.menu = @mnu_sort
+
+                @menu_layout.add_stretch(1)
+                
+                @history_widget = history_widget
+                @chronicle = ChronicleWidget.new(history_widget, self)
+                @layout.add_widget(@chronicle)
+
+                resize(500, 300)
+            end
+
+            PLAY_STEP = 0.1
+
+            def play
+                @play_timer = Qt::Timer.new(self)
+                Qt::Object.connect(@play_timer, SIGNAL('timeout()'), self, SLOT('step()'))
+                @play_timer.start(Integer(1000 * PLAY_STEP))
+            end
+            slots 'play()'
+
+            def step
+                if chronicle.current_time == chronicle.history_widget.time
+                    return
+                end
+
+                new_time = chronicle.current_time + PLAY_STEP
+                if new_time >= chronicle.history_widget.time
+                    new_time = chronicle.history_widget.time
+                end
+                puts "updating #{new_time} #{new_time.to_f}"
+                chronicle.update(new_time)
+            end
+            slots 'step()'
+
+            def stop
+                @play_timer.stop
+                @play_timer = nil
+            end
+            slots 'stop()'
+
+            def updateWindowTitle
+                @chronicle.updateWindowTitle
+                self.window_title = @chronicle.window_title
+            end
+            slots 'updateWindowTitle()'
+
+            def update(time)
+                @chronicle.update(time)
+            end
+            slots 'update(QDateTime)'
         end
     end
 end
