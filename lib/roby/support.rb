@@ -72,8 +72,14 @@ module DRb
 end
 
 module Roby
-    def self.format_time(time)
-        "#{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
+    def self.format_time(time, format = 'hms')
+        if format == 'sec'
+            time.to_f.to_s
+        elsif format == 'hms'
+            "#{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}"
+        else
+            "#{time.strftime(format)}"
+        end
     end
 
     @logger = Logger.new(STDERR)
