@@ -930,7 +930,7 @@ module Roby
                 end
             end
 
-            def load_options(options)
+            def apply_options(options)
                 filters = options['filters']
                 if filters
                     filters.each do |filter_config|
@@ -945,7 +945,7 @@ module Roby
                 end
             end
 
-            def dump_options
+            def save_options
                 result = Hash.new
 
                 filters = Array.new
@@ -954,13 +954,6 @@ module Roby
                 end
                 result['filters'] = filters
                 result
-            end
-
-            def options(options = Hash.new)
-                if !options.empty?
-                    load_options(options)
-                end
-                dump_options
             end
 	end
     end

@@ -19,7 +19,13 @@ module Roby
             attr_reader :history_widget
             # Internal representation of the desired time scale. Don't use it
             # directly, but use #time_to_pixel or #pixel_to_time
-            attr_accessor :time_scale
+            attr_reader :time_scale
+            # Change the time scale and update the view
+            def time_scale=(new_value)
+                @time_scale = new_value
+                update_scroll_ranges
+                viewport.repaint
+            end
             # The time that is currently at the middle of the view
             attr_accessor :current_time
             # The base height of a task line
@@ -161,16 +167,16 @@ module Roby
                 num_steps = degrees / 15
 
                 old = self.time_scale
-                self.time_scale += num_steps
-                if time_scale == 0
+                new = old + num_steps
+                if new == 0
                     if old > 0
                         self.time_scale = -1
                     else
                         self.time_scale = 1
                     end
+                else
+                    self.time_scale = new
                 end
-                update_scroll_ranges
-                viewport.repaint
                 event.accept
             end
 
@@ -559,6 +565,28 @@ module Roby
                 @chronicle.update(time)
             end
             slots 'update(QDateTime)'
+
+            # Save view configuration
+            def save_options
+                result = Hash.new
+                result['show_mode'] = chronicle.show_mode
+                result['sort_mode'] = chronicle.sort_mode
+                result['time_scale'] = chronicle.time_scale
+                result
+            end
+
+            # Apply saved configuration
+            def apply_options(options)
+                if scale = options['time_scale']
+                    chronicle.time_scale = scale
+                end
+                if mode = options['show_mode']
+                    @act_show[mode].checked = true
+                end
+                if mode = options['sort_mode']
+                    @act_sort[mode].checked = true
+                end
+            end
         end
     end
 end

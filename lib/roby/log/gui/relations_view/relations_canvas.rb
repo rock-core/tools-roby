@@ -428,9 +428,7 @@ module Roby
                 enable_relation(Roby::TaskStructure::PlannedBy)
 	    end
 
-            def options(new_options = Hash.new)
-                apply_options(new_options)
-
+            def save_options
                 options = Hash.new
                 options['enabled_relations'] = @enabled_relations.map(&:name)
                 options['show_ownership'] = show_ownership

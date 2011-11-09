@@ -44,6 +44,14 @@ module Roby
                 view.update(time)
             end
             slots 'update(QDateTime)'
+
+            def save_options
+                view.save_options
+            end
+
+            def apply_options(options)
+                view.apply_options(options)
+            end
         end
     end
 end

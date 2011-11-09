@@ -9,6 +9,11 @@ module Roby
             # The history widget
             attr_reader :history_widget
             # The set of displays that have been created so far
+            #
+            # It is managed as a mapping from the view class name to an array of
+            # views. The array can contain nil elements. This is used to restore
+            # configurations across software restarts (i.e. the index is used as
+            # an ID for the widget)
             attr_reader :displays
             # The Qt::PushButton object that allows to create new displays
             attr_reader :btn_create_display
@@ -35,7 +40,7 @@ module Roby
                 plan_rebuilder ||= Roby::LogReplay::PlanRebuilder.new
                 @plan_rebuilder = plan_rebuilder
 
-                @displays = []
+                @displays = Hash.new { |h, k| h[k] = Array.new }
 
                 @btn_create_display = Qt::PushButton.new("New Display", self)
                 @lbl_info = Qt::Label.new(self)
@@ -73,13 +78,26 @@ module Roby
                 end
             end
 
-            def create_display(name)
+            def allocate_id(klass_name)
+                displays[klass_name].size
+            end
+
+            def display_from_id(klass_name, id)
+                displays[klass_name][id]
+            end
+
+            def create_display(name, id = nil)
                 # Check whether +klass_name+ is not a user-visible string
                 self.class.available_displays.each do |user_name, klass_name|
                     if user_name.downcase == name.downcase
                         name = klass_name
                         break
                     end
+                end
+
+                id ||= allocate_id(name)
+                if displays[name][id]
+                    raise ArgumentError, "there is already a view of type #{name} with ID #{id}"
                 end
 
                 klass = eval(name)
@@ -90,7 +108,7 @@ module Roby
                 Qt::Object.connect(history_widget, SIGNAL('sourceChanged()'),
                                    view, SLOT('updateWindowTitle()'))
                 view.show
-                @displays << view
+                displays[name][id] = view
             end
 
             def info(message)
@@ -131,24 +149,64 @@ module Roby
 
             def load_options(path)
                 if new_options = YAML.load(File.read(path))
-                    options(new_options)
+                    apply_options(new_options)
                 end
             end
 
-            def options(new_options = Hash.new)
-                filters = new_options.delete('plan_rebuilder') || Hash.new
-                plan_rebuilder_options = plan_rebuilder.options(filters)
-
+            def save_options
                 options = Hash.new
-                displays.each do |view|
-                    if view.respond_to?(:options)
-                        options = view.options(new_options)
+                options['plan_rebuilder'] = plan_rebuilder.save_options
+                options['main'] = Hash.new
+                save_widget_state(options['main'], self)
+                options['views'] = Array.new
+                displays.each do |klass_name, views|
+                    views.each_with_index do |view, id|
+                        next if !view
+                        view_options = Hash.new
+                        view_options["class"] = view.class.name
+                        view_options['id'] = id
+                        save_widget_state(view_options, view)
+
+                        if view.respond_to?(:save_options)
+                            view_options.merge!(view.save_options)
+                        end
+                        options['views'] << view_options
                     end
                 end
-                if plan_rebuilder_options
-                    options['plan_rebuilder'] = plan_rebuilder_options
-                end
                 options
+            end
+
+            def save_widget_state(options, widget)
+                options['geometry'] =
+                    [widget.geometry.x, widget.geometry.y,
+                        widget.geometry.width, widget.geometry.height]
+            end
+
+            def apply_widget_state(options, widget)
+                if geom = options['geometry']
+                    widget.set_geometry(*geom)
+                end
+            end
+
+            def apply_options(options)
+                filters = options['plan_rebuilder'] || Hash.new
+                plan_rebuilder.apply_options(filters)
+                apply_widget_state(options['main'], self)
+                (options['views'] || Array.new).each do |view_options|
+                    id = view_options['id']
+                    klass_name = view_options["class"]
+                    if w = display_from_id(klass_name, id)
+                        if w.class.name != klass_name
+                            next
+                        end
+                    else
+                        w = create_display(klass_name, id)
+                    end
+                    apply_widget_state(view_options, w)
+                    if w.respond_to?(:apply_options)
+                        w.apply_options(view_options)
+                    end
+                end
             end
         end
     end

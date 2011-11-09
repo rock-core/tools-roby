@@ -95,6 +95,6 @@ app.exec
 
 FileUtils.mkdir_p(File.dirname(config))
 File.open(config, 'w') do |io|
-    YAML.dump(display.options, io)
+    YAML.dump(display.save_options, io)
 end
 
