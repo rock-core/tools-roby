@@ -84,7 +84,7 @@ module Roby
 
                 @history_widget = history_widget
                 @time_scale = 10
-                @task_height = 1
+                @task_height = 10
                 @task_separation = 10
                 @start_line = 0
                 @current_tasks = Array.new
