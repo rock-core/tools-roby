@@ -443,7 +443,11 @@ module Roby
                 @layout = Qt::VBoxLayout.new(self)
                 @menu_layout = Qt::HBoxLayout.new
                 @layout.add_layout(@menu_layout)
+                @history_widget = history_widget
+                @chronicle = ChronicleWidget.new(history_widget, self)
+                @layout.add_widget(@chronicle)
 
+                # Now setup the menu bar
                 @btn_play = Qt::PushButton.new("Play", self)
                 @menu_layout.add_widget(@btn_play)
                 @btn_play.connect(SIGNAL('clicked()')) do
@@ -458,39 +462,62 @@ module Roby
 
                 @btn_sort = Qt::PushButton.new("Sort", self)
                 @menu_layout.add_widget(@btn_sort)
-
-                @mnu_sort = Qt::Menu.new(self)
-                @actgrp_sort = Qt::ActionGroup.new(@mnu_sort)
-                @act_sort_by_start = Qt::Action.new("Start time", self)
-                @act_sort_by_start.checkable = true
-                @act_sort_by_start.checked = true
-                @act_sort_by_start.connect(SIGNAL('toggled(bool)')) do |value|
-                    if value
-                        @chronicle.sort_mode = :start_time
-                        @chronicle.update
-                    end
-                end
-                @actgrp_sort.add_action(@act_sort_by_start)
-                @mnu_sort.add_action(@act_sort_by_start)
-                @act_sort_by_last_event = Qt::Action.new("Last event", self)
-                @act_sort_by_last_event.checkable = true
-                @act_sort_by_last_event.connect(SIGNAL('toggled(bool)')) do |value|
-                    if value
-                        @chronicle.sort_mode = :last_event
-                        @chronicle.update
-                    end
-                end
-                @actgrp_sort.add_action(@act_sort_by_last_event)
-                @mnu_sort.add_action(@act_sort_by_last_event)
-                @btn_sort.menu = @mnu_sort
-
+                @btn_sort.menu = sort_options
+                @btn_show = Qt::PushButton.new("Show", self)
+                @menu_layout.add_widget(@btn_show)
+                @btn_show.menu = show_options
                 @menu_layout.add_stretch(1)
                 
-                @history_widget = history_widget
-                @chronicle = ChronicleWidget.new(history_widget, self)
-                @layout.add_widget(@chronicle)
 
                 resize(500, 300)
+            end
+
+            def sort_options
+                @mnu_sort = Qt::Menu.new(self)
+                @actgrp_sort = Qt::ActionGroup.new(@mnu_sort)
+
+                @act_sort = Hash.new
+                { "Start time" => :start_time, "Last event" => :last_event }.
+                    each do |text, value|
+                        act = Qt::Action.new(text, self)
+                        act.checkable = true
+                        act.connect(SIGNAL('toggled(bool)')) do |onoff|
+                            if onoff
+                                @chronicle.sort_mode = value
+                                @chronicle.update
+                            end
+                        end
+                        @actgrp_sort.add_action(act)
+                        @mnu_sort.add_action(act)
+                        @act_sort[value] = act
+                    end
+
+                @act_sort[:start_time].checked = true
+                @mnu_sort
+            end
+
+            def show_options
+                @mnu_show = Qt::Menu.new(self)
+                @actgrp_show = Qt::ActionGroup.new(@mnu_show)
+
+                @act_show = Hash.new
+                { "All" => :all, "Running" => :running, "Current" => :current }.
+                    each do |text, value|
+                        act = Qt::Action.new(text, self)
+                        act.checkable = true
+                        act.connect(SIGNAL('toggled(bool)')) do |onoff|
+                            if onoff
+                                @chronicle.show_mode = value
+                                @chronicle.update
+                            end
+                        end
+                        @actgrp_show.add_action(act)
+                        @mnu_show.add_action(act)
+                        @act_show[value] = act
+                    end
+
+                @act_show[:all].checked = true
+                @mnu_show
             end
 
             PLAY_STEP = 0.1

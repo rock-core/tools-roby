@@ -1285,6 +1285,13 @@ module Roby
             end
         end
 
+        # Returns when this task has finished
+        def end_time
+            if finished?
+                history.last.time
+            end
+        end
+
         def create_fresh_copy
 	    model.new(arguments.dup)
         end
