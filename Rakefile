@@ -1,6 +1,5 @@
 $LOAD_PATH.unshift File.expand_path('lib', File.dirname(__FILE__))
 require 'enumerator'
-require 'hoe'
 require 'roby/config'
 
 task :default => :setup
