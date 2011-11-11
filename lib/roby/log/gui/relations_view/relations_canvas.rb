@@ -2,24 +2,11 @@ require 'utilrb/module/attr_predicate'
 require 'roby/distributed/protocol'
 
 require 'roby/log/dot'
-
-require 'roby/log/relations_view/relations_view'
+require 'roby/log/gui/relations_view/relations_view'
 
 module Roby
     module LogReplay
     module RelationsDisplay
-        EVENT_CONTINGENT  = PlanRebuilder::EVENT_CONTINGENT
-        EVENT_CONTROLABLE = PlanRebuilder::EVENT_CONTROLABLE
-        EVENT_CALLED      = PlanRebuilder::EVENT_CALLED
-        EVENT_EMITTED     = PlanRebuilder::EVENT_EMITTED
-        EVENT_CALLED_AND_EMITTED = EVENT_CALLED | EVENT_EMITTED
-        FAILED_EMISSION   = PlanRebuilder::FAILED_EMISSION
-
-        PROPAG_SIGNAL   = PlanRebuilder::PROPAG_SIGNAL
-        PROPAG_FORWARD  = PlanRebuilder::PROPAG_FORWARD
-        PROPAG_CALLING  = PlanRebuilder::PROPAG_CALLING
-        PROPAG_EMITTING = PlanRebuilder::PROPAG_EMITTING
-
         def self.all_task_relations
             if @all_task_relations
                 @all_task_relations
@@ -63,27 +50,7 @@ module Roby
             end
 
             def self.styles
-                if defined? @@event_styles
-                    return @@event_styles
-                end
-
-                @@event_styles = Hash.new
-                @@event_styles[EVENT_CONTROLABLE | EVENT_CALLED] =
-                    [Qt::Brush.new(Qt::Color.new(PENDING_EVENT_COLOR)),
-                        Qt::Pen.new(Qt::Color.new(PENDING_EVENT_COLOR))]
-                @@event_styles[EVENT_CONTROLABLE | EVENT_EMITTED] =
-                    [Qt::Brush.new(Qt::Color.new(FIRED_EVENT_COLOR)),
-                        Qt::Pen.new(Qt::Color.new(FIRED_EVENT_COLOR))]
-                @@event_styles[EVENT_CONTROLABLE | EVENT_CALLED_AND_EMITTED] =
-                    [Qt::Brush.new(Qt::Color.new(FIRED_EVENT_COLOR)),
-                        Qt::Pen.new(Qt::Color.new(PENDING_EVENT_COLOR))]
-                @@event_styles[EVENT_CONTINGENT | EVENT_EMITTED] =
-                    [Qt::Brush.new(Qt::Color.new('white')), Qt::Pen.new(Qt::Color.new(FIRED_EVENT_COLOR))]
-                @@event_styles[EVENT_CONTROLABLE | FAILED_EMISSION] =
-                    [Qt::Brush.new(Qt::Color.new('red')), Qt::Pen.new(Qt::Color.new('red'))]
-                @@event_styles[EVENT_CONTINGENT | FAILED_EMISSION] =
-                    [Qt::Brush.new(Qt::Color.new('red')), Qt::Pen.new(Qt::Color.new('red'))]
-                @@event_styles
+                return EVENT_STYLES
             end
 
             def self.priorities
@@ -215,35 +182,6 @@ module Roby
                 name
             end
 
-            def current_display_state(current_time)
-                if failed_to_start?
-                    if failed_to_start_time > current_time
-                        return :pending
-                    else
-                        return :finished
-                    end
-                end
-
-                last_emitted_event = nil
-                history.each do |ev|
-                    break if ev.time > current_time
-                    last_emitted_event = ev
-                end
-
-                if !last_emitted_event
-                    return :pending
-                end
-
-                gen = last_emitted_event.generator
-                if !gen
-                    return :pending
-                elsif gen.terminal?
-                    return [:success, :finished, :running].find { |flag| send("#{flag}?") } 
-                else
-                    return :running
-                end
-            end
-
             attr_reader :displayed_state
             def update_graphics(display, graphics_item)
                 new_state = current_display_state(display.current_time)
@@ -326,41 +264,6 @@ module Roby
         Roby::Task.include DisplayTask
         Roby::Task::Proxying.include DisplayTaskProxy
         Roby::Plan.include DisplayPlan
-
-	EVENT_CIRCLE_RADIUS = 3
-	TASK_EVENT_SPACING  = 5
-	DEFAULT_TASK_WIDTH = 20
-	DEFAULT_TASK_HEIGHT = 10
-	ARROW_COLOR   = Qt::Color.new('black')
-	ARROW_OPENING = 30
-	ARROW_SIZE    = 10
-
-	TASK_BRUSH_COLORS = {
-	    :pending  => Qt::Color.new('#6DF3FF'),
-	    :running  => Qt::Color.new('#B0FFA6'),
-	    :success  => Qt::Color.new('#E2E2E2'),
-	    :finished => Qt::Color.new('#E2A8A8'),
-	    :finalized => Qt::Color.new('#555555')
-	}
-	TASK_PEN_COLORS = {
-	    :pending  => Qt::Color.new('#6DF3FF'),
-	    :running  => Qt::Color.new('#B0FFA6'),
-	    :success  => Qt::Color.new('#E2E2E2'),
-	    :finished => Qt::Color.new('#E2A8A8'),
-	    :finalized => Qt::Color.new('#555555')
-	}
-	TASK_NAME_COLOR = 'black'
-	TASK_FONTSIZE = 10
-
-	PENDING_EVENT_COLOR    = 'black' # default color for events
-	FIRED_EVENT_COLOR      = 'green'
-	EVENT_FONTSIZE = 8
-
-	PLAN_LAYER             = 0
-	TASK_LAYER	       = PLAN_LAYER + 20
-	EVENT_LAYER	       = PLAN_LAYER + 30
-
-	FIND_MARGIN = 10
 
 	class Qt::GraphicsScene
 	    attr_reader :default_arrow_pen
@@ -525,9 +428,7 @@ module Roby
                 enable_relation(Roby::TaskStructure::PlannedBy)
 	    end
 
-            def options(new_options = Hash.new)
-                apply_options(new_options)
-
+            def save_options
                 options = Hash.new
                 options['enabled_relations'] = @enabled_relations.map(&:name)
                 options['show_ownership'] = show_ownership
@@ -925,6 +826,12 @@ module Roby
             # It would be too complex at this stage to know if the plan has been
             # updated, so the method always returns true
 	    def update(time = nil)
+                # Allow time to be a Qt::DateTime object, so that we can make it
+                # a slot
+                if time.kind_of?(Qt::DateTime)
+                    time = Time.at(Float(time.toMSecsSinceEpoch) / 1000)
+                end
+
                 if time
                     @current_time = time
                 end

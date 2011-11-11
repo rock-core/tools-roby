@@ -220,7 +220,6 @@ module Roby
 		engine.join rescue nil
 	    end
 	    plan.clear
-            @plan = nil
 
 	    Roby.logger.level = @original_roby_logger_level
 	    self.console_logger = false

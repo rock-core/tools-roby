@@ -245,7 +245,7 @@ module Roby::Log
 	    end
 
         rescue Exception => e
-            STDOUT.puts e
+            STDERR.puts e
 	end
 
         def valid_index?
@@ -279,25 +279,25 @@ module Roby::Log
 	    @index_io.rewind
 	    @index_data.clear
 
-            STDOUT.print "loading index file"
-            STDOUT.flush
+            STDERR.print "loading index file"
+            STDERR.flush
 
 	    update_index do |progress|
-                STDOUT.print "\rloading index file (#{Integer(progress * 100)}%)"
-                STDOUT.flush
+                STDERR.print "\rloading index file (#{Integer(progress * 100)}%)"
+                STDERR.flush
             end
-            STDOUT.puts
+            STDERR.puts
 	end
 
 	def rebuild_index
-	    STDOUT.print "rebuilding index file for #{basename}"
+	    STDERR.print "rebuilding index file for #{basename}"
 
 	    @index_io.close if @index_io
 	    @index_io = File.open("#{basename}-index.log", 'w+')
 	    Logfile.rebuild_index(@event_io, @index_io) do |progress|
-                STDOUT.print "\rrebuilding index file for #{basename} (#{Integer(progress * 100)}%)"
+                STDERR.print "\rrebuilding index file for #{basename} (#{Integer(progress * 100)}%)"
             end
-            STDOUT.puts
+            STDERR.puts
 	end
 
 	def self.open(path)

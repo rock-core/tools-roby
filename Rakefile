@@ -114,7 +114,7 @@ task :clean => 'dist:clean' do
     clean_extension 'graph', 'bgl'
 end
 
-UIFILES = %w{relations_view/relations.ui relations_view/relations_view.ui}
+UIFILES = %w{gui/relations_view/relations.ui gui/relations_view/relations_view.ui}
 desc 'generate all Qt UI files using rbuic4'
 task :uic do
     rbuic = 'rbuic4'
