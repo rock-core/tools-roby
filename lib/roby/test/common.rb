@@ -31,6 +31,10 @@ module Roby
         attr_reader :control
         def engine; plan.engine end
 
+        def execute(&block)
+            engine.execute(&block)
+        end
+
 	# Clear the plan and return it
 	def new_plan
 	    plan.clear
@@ -89,7 +93,8 @@ module Roby
 	    Thread.abort_on_exception = false
 	    @remote_processes = []
 
-            Roby.app.setup_loggers
+            Roby.app.setup
+            Roby.app.prepare
 
 	    if Test.check_allocation_count
 		GC.start
@@ -220,7 +225,8 @@ module Roby
 		engine.quit
 		engine.join rescue nil
 	    end
-	    plan.clear
+            plan.clear
+	    Roby.app.cleanup
 
 	    Roby.logger.level = @original_roby_logger_level
 	    self.console_logger = false

@@ -752,7 +752,7 @@ module Roby
             end
         end
 
-	def run(&block)
+        def prepare
             setup_global_singletons
             log_save_time_tag
             setup_drb_server
@@ -781,10 +781,6 @@ module Roby
 	    @robot_name ||= 'common'
 	    @robot_type ||= 'common'
 
-	    engine_config = self.engine
-	    engine = Roby.engine
-	    options = { :cycle => engine_config['cycle'] || 0.1 }
-	    
 	    if log['events']
 		require 'roby/log/file'
 		logfile = File.join(log_dir, robot_name)
@@ -793,8 +789,16 @@ module Roby
 		Roby::Log.add_logger logger
 	    end
             start_log_server(logfile)
-	    engine.run options
+        end
 
+	def run(&block)
+            prepare
+
+	    engine_config = self.engine
+	    engine = Roby.engine
+	    options = { :cycle => engine_config['cycle'] || 0.1 }
+	    
+	    engine.run options
 	    plugins = self.plugins.map { |_, mod| mod if mod.respond_to?(:run) }.compact
 	    run_plugins(plugins, &block)
 
@@ -812,9 +816,14 @@ module Roby
 		engine.join
 	    else
 		mod = mods.shift
-		mod.run(self) do
-		    run_plugins(mods, &block)
-		end
+                if mod.respond_to?(:start)
+                    mod.start(self)
+                    run_plugins(mods, &block)
+                else
+                    mod.run(self) do
+                        run_plugins(mods, &block)
+                    end
+                end
 	    end
 
 	rescue Exception => e
