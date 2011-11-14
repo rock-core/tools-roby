@@ -1025,46 +1025,6 @@ module Roby
             end
         end
 
-	# Guesses the type of +filename+ if it is a source suitable for
-	# data display in this application
-	def data_streams_of(filenames)
-	    if filenames.size == 1
-		path = filenames.first
-		path = if path =~ /-(events|timings)\.log$/
-			   $`
-		       elsif File.exists?("#{path}-events.log")
-			   path
-		       end
-		if path
-		    return [Roby::LogReplay::EventStream.new(path)]
-		end
-	    end
-
-	    each_responding_plugin(:data_streams_of, true) do |config|
-		if streams = config.data_streams_of(filenames)
-		    return streams
-		end
-	    end
-	    nil
-	end
-
-	# Returns the list of data streams suitable for data display known
-	# to the application
-	def data_streams(log_dir = nil)
-	    log_dir ||= self.log_dir
-	    streams = []
-	    Dir.glob(File.join(log_dir, '*-events.log*')).each do |file|
-		next unless file =~ /-events\.log$/
-		streams << Roby::LogReplay::EventStream.new($`)
-	    end
-	    each_responding_plugin(:data_streams, true) do |config|
-		if s = config.data_streams(log_dir)
-		    streams += s
-		end
-	    end
-	    streams
-	end
-
         def find_data(*name)
             Application.find_data(*name)
         end
