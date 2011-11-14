@@ -51,6 +51,11 @@ module Roby
 
 	include Singleton
         
+        # The main plan on which this application acts
+        #
+        # It is usually, but not necessarily, the same as Roby.plan
+        attr_accessor :plan
+        
 	# A set of planners declared in this application
 	attr_reader :planners
 
@@ -661,8 +666,8 @@ module Roby
         end
 
         def load_base_config
-            if !Roby.plan
-                Roby.instance_variable_set :@plan, Plan.new
+            if !plan
+                @plan = Plan.new
             end
 
 	    reset
@@ -757,7 +762,7 @@ module Roby
 	    elsif !single? && robot_name
 		droby_config = { :ring_discovery => !!discovery['ring'],
 		    :name => robot_name, 
-		    :plan => Roby.plan, 
+		    :plan => plan, 
 		    :period => discovery['period'] || 0.5 }
 
 		if discovery['tuplespace']
@@ -999,7 +1004,8 @@ module Roby
 
         def setup_global_singletons
             if !Roby.plan
-                Roby.instance_variable_set :@plan, Plan.new
+                @plan ||= Plan.new
+                Roby.instance_variable_set :@plan, @plan
             end
 
             if !Roby.engine && Roby.plan.engine

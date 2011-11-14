@@ -106,6 +106,7 @@ module Roby
 
             @plan ||= Plan.new
             @control ||= DecisionControl.new
+            Roby.app.plan = plan
             if !plan.engine
                 ExecutionEngine.new(@plan, @control)
             end
