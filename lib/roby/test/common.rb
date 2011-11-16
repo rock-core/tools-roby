@@ -223,11 +223,13 @@ module Roby
 	    STDERR.puts "failed teardown: #{e.full_message}"
 
 	ensure
-	    while engine.running?
-		engine.quit
-		engine.join rescue nil
-	    end
-            plan.clear
+            if plan
+                while engine.running?
+                    engine.quit
+                    engine.join rescue nil
+                end
+                plan.clear
+            end
 	    Roby.app.cleanup
 
 	    Roby.logger.level = @original_roby_logger_level
