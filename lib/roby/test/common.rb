@@ -93,6 +93,8 @@ module Roby
 	    Thread.abort_on_exception = false
 	    @remote_processes = []
 
+            Roby.app.log_setup 'robot', 'DEBUG:robot.txt'
+
             Roby.app.setup
             Roby.app.prepare
 
