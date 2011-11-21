@@ -668,6 +668,10 @@ module Roby
         def load_base_config
             if !plan
                 @plan = Plan.new
+                if !Roby.plan
+                    @plan ||= Plan.new
+                    Roby.instance_variable_set :@plan, @plan
+                end
             end
 
 	    reset
@@ -1012,11 +1016,6 @@ module Roby
 	def single;  @single = true end
 
         def setup_global_singletons
-            if !Roby.plan
-                @plan ||= Plan.new
-                Roby.instance_variable_set :@plan, @plan
-            end
-
             if !Roby.engine && Roby.plan.engine
                 # This checks coherence with Roby.control, and sets it
                 # accordingly
