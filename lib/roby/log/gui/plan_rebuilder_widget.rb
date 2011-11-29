@@ -114,7 +114,7 @@ module Roby
                 emit sourceChanged
                 analyze(stream)
                 if !history.empty?
-                    apply(history[0][1])
+                    apply(history[history.keys.sort.first][1])
                 end
             end
 
