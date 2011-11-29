@@ -40,6 +40,10 @@ options = OptionParser.new do |opt|
     opt.on('--display=NAME', String, 'what to display (available: relations, chronicle and all') do |mode|
         display_mode = mode
     end
+    opt.on('--help', 'Display this help message and exit') do
+        puts opt
+        exit 0
+    end
 end
 
 filename = options.parse(ARGV).shift
