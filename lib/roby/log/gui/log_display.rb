@@ -191,7 +191,7 @@ module Roby
             def apply_options(options)
                 filters = options['plan_rebuilder'] || Hash.new
                 plan_rebuilder.apply_options(filters)
-                apply_widget_state(options['main'], self)
+                apply_widget_state(options['main'] || Hash.new, self)
                 (options['views'] || Array.new).each do |view_options|
                     id = view_options['id']
                     klass_name = view_options["class"]
