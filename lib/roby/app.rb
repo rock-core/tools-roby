@@ -855,6 +855,7 @@ module Roby
         # The inverse of #setup. It gets called either at the end of #run or at
         # the end of #setup if there is an error during loading
         def cleanup
+            DRb.stop_service
             stop_log_server
             call_plugins(:cleanup, self)
         end
