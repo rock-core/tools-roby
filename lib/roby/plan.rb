@@ -136,6 +136,13 @@ module Roby
                         plan.add_error(MissionFailedError.new(m, error.exception))
                     end
 
+                error.trace.
+                    find_all { |t| plan.permanent?(t) && t != error.origin }.
+                    each do |m|
+                        puts "adding PermanentTaskError #{m} #{error.exception}"
+                        plan.add_error(PermanentTaskError.new(m, error.exception))
+                    end
+
                 pass_exception
             end
 
@@ -1121,6 +1128,9 @@ module Roby
             result = Array.new
             for task in plan.missions
                 result << MissionFailedError.new(task) if task.failed?
+            end
+            for task in plan.permanent_tasks
+                result << PermanentTaskError.new(task) if task.failed?
             end
             result
         end

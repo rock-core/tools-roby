@@ -58,6 +58,9 @@ module Roby
 	def task; trace.last end
 	# The object from which the exception originates
 	def origin; trace.first end
+        # If true, the underlying exception is a fatal error, i.e. should cause
+        # parent tasks to be stopped if unhandled.
+        def fatal?; exception.fatal? end
     
 	# The exception siblings (the ExecutionException objects
 	# that come from the same exception object)
