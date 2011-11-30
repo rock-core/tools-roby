@@ -131,12 +131,12 @@ module Roby
         #
         # will define #filter_backtraces? instead of #filter_backtraces
         def self.overridable_configuration(config_set, config_key, options = Hash.new)
-            options = Kernel.validate_options options, :predicate => false
+            options = Kernel.validate_options options, :predicate => false, :attr_name => config_key
             attr_config(config_set)
-            define_method("#{config_key}#{"?" if options[:predicate]}") do
+            define_method("#{options[:attr_name]}#{"?" if options[:predicate]}") do
                 send(config_set)[config_key]
             end
-            define_method("#{config_key}=") do |new_value|
+            define_method("#{options[:attr_name]}=") do |new_value|
                 send("#{config_set}_overrides")[config_key] = new_value
             end
         end
@@ -256,6 +256,18 @@ module Roby
         # Override the value stored in configuration files for filter_backtraces?
 
         overridable_configuration 'log', 'filter_backtraces', :predicate => true
+
+	##
+        # :method: log_server?
+        #
+        # True if the log server should be started
+
+        ##
+        # :method: log_server=
+        #
+        # Sets whether the log server should be started
+
+        overridable_configuration 'log', 'server', :predicate => true, :attr_name => 'log_server'
 
         ##
         # :method: log_update_current?
