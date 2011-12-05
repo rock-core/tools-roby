@@ -693,6 +693,7 @@ module Roby
         end
 
 	def setup
+            setup_drb_server
             load_base_config
 
 	    # Create the robot namespace
@@ -756,10 +757,13 @@ module Roby
             end
         end
 
+        def stop_drb_server
+            DRb.stop_service
+        end
+
         def prepare
             setup_global_singletons
             log_save_time_tag
-            setup_drb_server
 
             if !single? && discovery.empty?
                 Application.info "dRoby disabled as no dicovery configuration has been provided"
@@ -844,6 +848,7 @@ module Roby
         # the end of #setup if there is an error during loading
         def cleanup
             stop_log_server
+            stop_drb_server
             call_plugins(:cleanup, self)
         end
 
