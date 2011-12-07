@@ -311,6 +311,7 @@ module Roby
                         all_tasks.size - 1
                     else start_line
                     end
+                return if all_tasks.empty?
                 all_tasks = all_tasks[first_index..-1]
                 all_tasks.each_with_index do |task, idx|
                     line_height = task_height
