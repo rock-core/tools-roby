@@ -705,8 +705,7 @@ module Roby
         end
 
 	def setup
-            load_base_config
-            setup_drb_server
+	    load_base_config
 
 	    # Create the robot namespace
 	    STDOUT.sync = true
@@ -742,6 +741,8 @@ module Roby
 		    end
 		end
 	    end
+
+	    setup_drb_server
 
         rescue Exception => e
             cleanup
