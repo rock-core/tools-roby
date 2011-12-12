@@ -742,14 +742,16 @@ module Roby
 		end
 	    end
 
-	    setup_drb_server
+            if !shell?
+                setup_shell_interface
+            end
 
         rescue Exception => e
             cleanup
             raise
 	end
 
-        def setup_drb_server
+        def setup_shell_interface
 	    # Set up dRoby, setting an Interface object as front server, for shell access
 	    host = droby['host'] || ""
 	    if host !~ /:\d+$/
@@ -770,8 +772,12 @@ module Roby
             end
         end
 
-        def stop_drb_server
-            DRb.stop_service
+        def stop_shell_interface
+            begin
+                DRb.current_server
+                DRb.stop_service
+            rescue DRb::DRbServerNotFound
+            end
         end
 
         def prepare
@@ -862,7 +868,7 @@ module Roby
         def cleanup
             DRb.stop_service
             stop_log_server
-            stop_drb_server
+            stop_shell_interface
             call_plugins(:cleanup, self)
         end
 
