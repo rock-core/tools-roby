@@ -742,6 +742,7 @@ module Roby
 		end
 	    end
 
+            setup_global_singletons
             if !shell?
                 setup_shell_interface
             end
@@ -781,7 +782,6 @@ module Roby
         end
 
         def prepare
-            setup_global_singletons
             log_save_time_tag
 
             if !single? && discovery.empty?
