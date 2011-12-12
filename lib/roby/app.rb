@@ -705,8 +705,8 @@ module Roby
         end
 
 	def setup
-            setup_drb_server
             load_base_config
+            setup_drb_server
 
 	    # Create the robot namespace
 	    STDOUT.sync = true
