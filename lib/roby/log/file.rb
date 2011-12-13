@@ -391,11 +391,16 @@ module Roby::Log
             end
 	end
 
-        def find_invalid_marshalling_object(obj)
+        def find_invalid_marshalling_object(obj, stack = Set.new)
+            if stack.include?(obj)
+                return
+            end
+            stack << obj
+
             case obj
             when Enumerable
                 obj.each do |value|
-		    invalid, exception = find_invalid_marshalling_object(value)
+		    invalid, exception = find_invalid_marshalling_object(value, stack)
                     if invalid
                         return "#{invalid}, included in #{obj}", exception
                     end
@@ -405,7 +410,7 @@ module Roby::Log
             # Generic check for instance variables
             obj.instance_variables.each do |iv|
                 value = obj.instance_variable_get(iv)
-		invalid, exception = find_invalid_marshalling_object(value)
+		invalid, exception = find_invalid_marshalling_object(value, stack)
                 if invalid
                     return "#{invalid}, instance variable #{obj}.#{iv}", exception
                 end
