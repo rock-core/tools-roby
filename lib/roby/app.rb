@@ -644,8 +644,11 @@ module Roby
 
 	    # Require all common task models and the task models specific to
 	    # this robot
-            list_dir('tasks') { |p| require(p) }
-            list_robotdir('tasks', 'ROBOT') { |p| require(p) }
+            all_files = find_files_in_dirs('models', 'tasks', 'ROBOT', :all => true, :order => :specific_last, :pattern => /\.rb$/) +
+                find_files_in_dirs('tasks', 'ROBOT', :all => true, :order => :specific_last, :pattern => /\.rb$/)
+            all_files.each do |p|
+                require(p)
+            end
 
             require_planners
 
@@ -653,32 +656,36 @@ module Roby
 	    call_plugins(:require_models, self)
 	end
 
+        # Loads the planner models
+        #
+        # This method is called at the end of require_models, before the
+        # plugins' require_models hook is called
         def require_planners
+            main_files = find_files('models', 'planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first) +
+                find_files('planners', 'ROBOT', 'main.rb', :all => true, :order => :specific_first)
+            main_files.each do |path|
+                require path
+            end
+
             if !defined?(MainPlanner)
                 Object.const_set(:MainPlanner, Class.new(Roby::Planning::Planner))
             end
 
-	    # Load robot-specific configuration
-	    models_search = ['planners']
-	    if robot_name
-		models_search << File.join('planners', robot_name) << File.join('planners', robot_type)
-                file = robotfile('planners', 'ROBOT', 'main.rb')
+            all_files = find_files_in_dirs('models', 'planners', 'ROBOT', :all => true, :order => :specific_first) ||
+                find_files_in_dirs('planners', 'ROBOT', :all => true, :order => :specific_first)
+            all_files.each do |p|
+                require(p)
             end
-            file ||= File.join("planners", "main.rb")
-            require file if File.file?(file)
-
-	    # Load the other planners
-	    models_search.each do |base_dir|
-		next unless File.directory?(base_dir)
-		Dir.new(base_dir).each do |file|
-                    file = File.join(base_dir, file)
-		    if File.file?(file) && file =~ /\.rb$/ && file !~ /main\.rb$/
-			require file
-		    end
-		end
-	    end
         end
 
+        # Loads the base configuration
+        #
+        # This method loads the two most basic configuration files:
+        #
+        #  * config/app.yml
+        #  * config/init.rb
+        #
+        # It also calls the plugin's 'load' method
         def load_base_config
             if !plan
                 @plan = Plan.new
@@ -706,6 +713,16 @@ module Roby
             end
         end
 
+        # Does basic setup of the Roby environment. It loads configuration files
+        # and sets up singleton objects.
+        #
+        # After a call to #setup, the Roby services that do not require an
+        # execution loop to run should be available
+        #
+        # Plugins that define a setup(app) method will see their method called
+        # at this point
+        #
+        # The #cleanup method is the reverse of #setup
 	def setup
 	    load_base_config
 
@@ -725,7 +742,7 @@ module Roby
 
 	    require_models
 
-            if file = robotfile(app_dir, 'config', "ROBOT.rb")
+            if file = find_files('config', "ROBOT.rb", :all => false, :order => :specific_first)
                 require file
             end
 
@@ -754,6 +771,22 @@ module Roby
             raise
 	end
 
+        # Publishes a shell interface on DRb
+        #
+        # This method publishes a Roby::Interface object as the front object of
+        # the local DRb server. The port on which this object is published can
+        # be configured through the droby/host configuration variable, i.e.:
+        #
+        #   droby:
+        #       host: ":7873"
+        #
+        # As this variable is also used by the Roby shell to automatically
+        # access a remote shell, one can provide a host part. This part will
+        # simply be ignored in #setup_shell_interface
+        #
+        # The shell interface is started in #setup and teared down in #cleanup
+        #
+        # The default port is defined in Roby::Distributed::DEFAULT_DROBY_PORT
         def setup_shell_interface
 	    # Set up dRoby, setting an Interface object as front server, for shell access
 	    host = droby['host'] || ""
@@ -775,6 +808,7 @@ module Roby
             end
         end
 
+        # Tears down the shell interface started in #setup_shell_interface
         def stop_shell_interface
             begin
                 DRb.current_server
@@ -783,6 +817,7 @@ module Roby
             end
         end
 
+        # Prepares the environment to actually run
         def prepare
             log_save_time_tag
 
@@ -836,6 +871,18 @@ module Roby
             cleanup
 	end
 
+        # Helper for Application#run to call the plugin's run or start methods
+        # while guaranteeing the system's cleanup
+        #
+        # This method recursively calls each plugin's #run method (if defined)
+        # in block forms. This guarantees that the plugins can use a
+        # begin/rescue/end mechanism to do their cleanup
+        #
+        # If no run-related cleanup is required, the plugin can define a #start(app)
+        # method instead.
+        #
+        # Note that the cleanup we talk about here is related to running.
+        # Cleanup required after #setup must be done in #cleanup
 	def run_plugins(mods, &block)
 	    engine = Roby.engine
 
@@ -984,54 +1031,164 @@ module Roby
             end
         end
 
-        def list_dir(*path)
-            if !block_given?
-                return enum_for(:list_dir, *path)
+        # call-seq:
+        #   find_dirs('p1', 'p2')
+        #   find_dirs('p1', 'p2', 'ROBOT', :all => true)
+        #
+        # Enumerates the directories matching p1/p2, following the loading rules
+        # for the current robot name and type:
+        #
+        #  * if one of the element is ROBOT, it gets replaced by the
+        #    robot name and/or the robot type
+        #  * if :all is false, the first directory matching p1/p2/ROBOT is
+        #    returned and others will be ignored.  Otherwise, all the
+        #    matching directories are returned
+        #  * if :order is :specific_first, the enumeration priority starts with the
+        #    robot-specific paths. Otherwise, it starts with the generic paths.
+        #
+        def find_dirs(*dir_path)
+            if dir_path.last.kind_of?(Hash)
+                options = dir_path.pop
+            end
+            options = Kernel.validate_options(options || Hash.new, :all, :order)
+            if !options.has_key?(:all)
+                raise ArgumentError, "no :all argument given"
+            elsif !options.has_key?(:order)
+                raise ArgumentError, "no :order argument given"
+            elsif ![:specific_first, :specific_last].include?(options[:order])
+                raise ArgumentError, "expected either :specific_first or :specific_last for the :order argument, but got #{options[:order]}"
             end
 
-            dirname = File.join(*path)
-            return if !File.directory?(dirname)
+            search_path = []
 
-	    Dir.new(dirname).each do |file|
-		file = File.join(dirname, file)
-                if file =~ /\.rb$/ && File.file?(file)
-                    file = file.gsub(/^#{Regexp.quote(app_dir)}\//, '')
-                    yield(file) 
+            base_dir_path = dir_path.dup
+            base_dir_path.delete_if { |p| p =~ /ROBOT/ }
+            search_path = [base_dir_path]
+            if dir_path.any? { |p| p =~ /ROBOT/ } && robot_name && robot_type
+                replacements = [robot_type]
+                if robot_type != robot_name
+                    replacements << robot_name
                 end
-	    end
+                replacements.each do |replacement|
+                    robot_dir_path = dir_path.map do |s|
+                        s.gsub('ROBOT', replacement)
+                    end
+                    search_path << robot_dir_path
+                end
+            end
+            if options[:order] == :specific_first
+                search_path = search_path.reverse
+            end
+            search_path.map! do |path|
+                path = File.join(*path)
+                path if File.directory?(path)
+            end.compact!
+
+            if search_path.empty?
+                return search_path
+            elsif !options[:all]
+                return [search_path.first]
+            else
+                return search_path
+            end
         end
 
-	# Require all files in the directories matching +pattern+. If +pattern+
-	# contains the word ROBOT, it is replaced by -- in order -- the robot
-	# name and then the robot type
-	def list_robotdir(*path, &block)
-            if !block_given?
-                return enum_for(:list_robotdir, *path)
+        # call-seq:
+        #   find_files_in_dirs('p1', 'p2')
+        #   find_files_in_dirs('p1', 'p2', 'ROBOT', :all => true)
+        #   find_files_in_dirs('p1', 'p2', :pattern => /\.rb$/)
+        #
+        # Enumerates the files that are present in a directory matching p1/p2,
+        # following the loading rules for the current robot name and type:
+        #
+        #  * if one of the element is ROBOT, it gets replaced by the
+        #    robot name and/or the robot type
+        #  * if :all is false, the first directory matching p1/p2/ROBOT will be
+        #    enumerated and others will be ignored.  Otherwise, all the
+        #    directories are enumerated
+        #  * if :order is :specific_first, the enumeration priority starts with the
+        #    robot-specific files. Otherwise, it starts with the generic files.
+        #  * only the files whose name matches :pattern (if given) are
+        #    enumerated
+        #
+        def find_files_in_dirs(*dir_path)
+            if dir_path.last.kind_of?(Hash)
+                options = dir_path.pop
+            end
+            options = Kernel.validate_options(options || Hash.new, :all, :order, :pattern => Regexp.new(""))
+            if options[:pattern].respond_to?(:to_str)
+                options[:pattern] = Regexp.new(Regexp.quote(options[:pattern]))
             end
 
-	    return unless robot_name && robot_type
+            dir_search = dir_path.dup
+            dir_search << options.slice(:all, :order)
+            search_path = find_dirs(*dir_search)
 
-            pattern = File.expand_path(File.join(*path), app_dir)
-	    [robot_name, robot_type].uniq.each do |name|
-		dirname = pattern.gsub(/ROBOT/, name)
-		list_dir(dirname, &block) if File.directory?(dirname)
-	    end
-	end
+            result = []
+            search_path.each do |element|
+                dirname = File.expand_path(element, app_dir)
 
-	def robotfile(*path) # :nodoc
-	    return unless robot_name && robot_type
+                Dir.new(dirname).each do |file|
+                    file = File.join(dirname, file)
+                    if File.file?(file) && file =~ options[:pattern]
+                        file = file.gsub(/^#{Regexp.quote(app_dir)}\//, '')
+                        result << file
+                    end
+                end
+            end
+            return result
+        end
 
-            pattern = File.join(*path)
-	    robot_config = pattern.gsub(/ROBOT/, robot_name)
-	    if File.file?(robot_config)
-		robot_config
-	    else
-		robot_config = pattern.gsub(/ROBOT/, robot_type)
-		if File.file?(robot_config)
-		    robot_config
-		end
-	    end
-	end
+        # call-seq:
+        #   find_files('p1', 'ROBOT', 'p2', :all => true, :order => :specific_first)
+        #
+        # Enumerates the files that match p1/ROBOT/p2, following the loading
+        # rules for the current robot name and type:
+        #
+        #  * if one of the element is ROBOT, it gets replaced by the
+        #    robot name and/or the robot type
+        #  * if :all is false, the first directory matching p1/p2/ROBOT will be
+        #    enumerated and others will be ignored.  Otherwise, all the
+        #    directories are enumerated
+        #  * if :order is :specific_first, the enumeration priority starts with the
+        #    robot-specific files. Otherwise, it starts with the generic files.
+        #
+        # If :all is false, the return value is the found file or nil. If it is
+        # true, it is an array of matches
+        #
+        def find_files(*file_path)
+            if file_path.last.kind_of?(Hash)
+                options = file_path.pop
+            end
+            options = Kernel.validate_options(options || Hash.new, :all, :order)
+            filename = file_path.pop
+
+            if filename =~ /ROBOT/ && robot_name
+                args = [file_path, options.merge(:pattern => filename.gsub('ROBOT', robot_name))]
+                robot_name_matches = find_files_in_dirs(*args)
+
+                robot_type_matches = []
+                if robot_name != robot_type
+                    args = [file_path, options.merge(:pattern => filename.gsub('ROBOT', robot_name))]
+                    robot_type_matches = find_files_in_dirs(*args)
+                end
+
+                if options[:order] == :specific_first
+                    result = robot_name_matches + robot_type_matches
+                else
+                    result = robot_type_matches + robot_name_matches
+                end
+            else
+                args = file_path
+                args << options.merge(:pattern => filename)
+                result = find_files_in_dirs(*args)
+            end
+
+            if !options[:all]
+                return result.first
+            else return result
+            end
+        end
 
 	attr_predicate :simulation?, true
 	def simulation; self.simulation = true end
