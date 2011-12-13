@@ -201,6 +201,32 @@ module Roby
                 opts.delete :id
                 "#{name}:#{id}(#{opts.to_s[1..-2]})"
             end
+
+            # Intermediate representation used during marshalling
+            class DRoby
+                attr_reader :name, :options
+                def initialize(name, options)
+                    @name, @options = name, options
+                end
+
+                def _dump(lvl) # :nodoc:
+                    Marshal.dump([name, options])
+                end
+
+                def self._load(str) # :nodoc:
+                    DRoby.new(*Marshal.load(str))
+                end
+
+                def proxy(peer)
+                    MethodDefinition.new(name, options, nil)
+                end
+            end
+
+            # Returns an intermediate representation of the method definition
+            # suitable for marshalling (distributed Roby and/or logging)
+            def droby_dump(dest)
+                DRoby.new(name, options)
+            end
         end
 
         class FreeMethod < MethodDefinition
