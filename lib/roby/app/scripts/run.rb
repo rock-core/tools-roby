@@ -15,14 +15,12 @@ Roby.display_exception do
 	# Load the controller
 	Roby.execute do
 	    begin
-		controller_files = [app.robot_name, app.robot_type]
-                controller_files.each do |name|
-                    controller_file = File.join(APP_DIR, "controllers", "#{name}.rb")
-                    if File.readable?(controller_file)
-                        Robot.info "loading controller file #{controller_file}"
-                        load controller_file
-                        break
-                    end
+                controller_file = Roby.app.find_files("scripts", "controllers", "ROBOT.rb", :all => false, :order => :specific_first) ||
+                    Roby.app.find_files("controllers", "ROBOT.rb", :all => false, :order => :specific_first)
+                if controller_file
+                    Robot.info "loading controller file #{controller_file}"
+                    load controller_file
+                    break
                 end
 		Robot.info "done initialization"
 	    rescue Interrupt

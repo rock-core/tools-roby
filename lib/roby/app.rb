@@ -629,11 +629,7 @@ module Roby
 		end
 	    end
 
-	    Roby::Conf.datadirs = []
-	    datadir = File.join(app_dir, "data")
-	    if File.directory?(datadir)
-		Roby::Conf.datadirs << datadir
-	    end
+	    Roby::Conf.datadirs = find_dirs('data', 'ROBOT', :all => true, :order => :specific_first)
 	end
 
         def require(file)
@@ -707,13 +703,13 @@ module Roby
 	    $LOAD_PATH.unshift(app_dir) unless $LOAD_PATH.include?(app_dir)
 
 	    # Get the application-wide configuration
-	    file = File.join(app_dir, 'config', 'app.yml')
-            if File.file?(file)
+	    
+            if file = find_files('config', 'app.yml', :all => false, :order => :specific_first)
                 file = YAML.load(File.open(file)) || Hash.new
                 load_yaml(file)
             end
             call_plugins(:load, self, options)
-            if File.exists?(initfile = File.join(app_dir, 'config', 'init.rb'))
+            if initfile = find_files('config', 'init.rb', :all => false, :order => :specific_first)
                 require initfile
             end
         end
