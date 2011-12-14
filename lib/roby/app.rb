@@ -155,6 +155,21 @@ module Roby
             end
         end
 
+        # A list of paths in which files should be looked for in #find_dirs,
+        # #find_files and #find_files_in_dirs
+        #
+        # If uninitialized, [app_dir] is used
+        attr_writer :search_path
+
+        # The list of paths in which the application should be looking for files
+        def search_path
+            if !@search_path
+                [app_dir]
+            else
+                @search_path
+            end
+        end
+
 	# Logging options.
 	# events:: save a log of all events in the system. This log can be read using scripts/replay
 	#          If this value is 'stats', only the data necessary for timing statistics is saved.
@@ -1060,11 +1075,11 @@ module Roby
                 raise ArgumentError, "expected either :specific_first or :specific_last for the :order argument, but got #{options[:order]}"
             end
 
-            search_path = []
+            relative_paths = []
 
             base_dir_path = dir_path.dup
             base_dir_path.delete_if { |p| p =~ /ROBOT/ }
-            search_path = [base_dir_path]
+            relative_paths = [base_dir_path]
             if dir_path.any? { |p| p =~ /ROBOT/ } && robot_name && robot_type
                 replacements = [robot_type]
                 if robot_type != robot_name
@@ -1074,23 +1089,33 @@ module Roby
                     robot_dir_path = dir_path.map do |s|
                         s.gsub('ROBOT', replacement)
                     end
-                    search_path << robot_dir_path
+                    relative_paths.concat(robot_dir_path)
                 end
             end
-            if options[:order] == :specific_first
-                search_path = search_path.reverse
-            end
-            search_path.map! do |path|
-                path = File.join(*path)
-                path if File.directory?(path)
-            end.compact!
 
-            if search_path.empty?
-                return search_path
-            elsif !options[:all]
-                return [search_path.first]
+            root_paths = search_path
+            if options[:order] == :specific_first
+                relative_paths = relative_paths.reverse
             else
-                return search_path
+                root_paths = root_paths.reverse
+            end
+
+            result = []
+            relative_paths.each do |path|
+                root_paths.each do |root_path|
+                    path = File.expand_path(File.join(*path), root_path)
+                    if File.directory?(path)
+                        result << path 
+                    end
+                end
+            end
+
+            if result.empty?
+                return result
+            elsif !options[:all]
+                return [result.first]
+            else
+                return result
             end
         end
 
