@@ -1157,7 +1157,6 @@ module Roby
                 Dir.new(dirname).each do |file|
                     file = File.join(dirname, file)
                     if File.file?(file) && file =~ options[:pattern]
-                        file = file.gsub(/^#{Regexp.quote(app_dir)}\//, '')
                         result << file
                     end
                 end
