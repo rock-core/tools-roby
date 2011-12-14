@@ -141,10 +141,15 @@ module Roby
             end
         end
 
+        # Allows to override the application base directory. See #app_dir
+        attr_writer :app_dir
+
         # Returns the application base directory
         def app_dir
             if defined?(APP_DIR)
                 APP_DIR
+            elsif @app_dir
+                @app_dir
             else
                 Dir.pwd
             end
