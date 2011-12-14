@@ -1190,12 +1190,12 @@ module Roby
             filename = file_path.pop
 
             if filename =~ /ROBOT/ && robot_name
-                args = [file_path, options.merge(:pattern => filename.gsub('ROBOT', robot_name))]
+                args = file_path + [options.merge(:pattern => filename.gsub('ROBOT', robot_name))]
                 robot_name_matches = find_files_in_dirs(*args)
 
                 robot_type_matches = []
                 if robot_name != robot_type
-                    args = [file_path, options.merge(:pattern => filename.gsub('ROBOT', robot_name))]
+                    args = file_path + [options.merge(:pattern => filename.gsub('ROBOT', robot_name))]
                     robot_type_matches = find_files_in_dirs(*args)
                 end
 
@@ -1205,9 +1205,19 @@ module Roby
                     result = robot_type_matches + robot_name_matches
                 end
             else
-                args = file_path
+                args = file_path.dup
                 args << options.merge(:pattern => filename)
                 result = find_files_in_dirs(*args)
+            end
+
+            orig_path = Pathname.new(File.join(*file_path))
+            orig_path += filename
+            if orig_path.absolute? && File.file?(orig_path.to_s)
+                if options[:order] == :specific_first
+                    result.unshift orig_path.to_s
+                else
+                    result.push orig_path.to_s
+                end
             end
 
             if !options[:all]
