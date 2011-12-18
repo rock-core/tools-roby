@@ -720,11 +720,13 @@ module Roby
 	    # Get the application-wide configuration
 	    
             if file = find_files('config', 'app.yml', :all => false, :order => :specific_first)
+                Application.info "loading config file #{file}"
                 file = YAML.load(File.open(file)) || Hash.new
                 load_yaml(file)
             end
             call_plugins(:load, self, options)
             if initfile = find_files('config', 'init.rb', :all => false, :order => :specific_first)
+                Application.info "loading init file #{initfile}"
                 require initfile
             end
         end
@@ -1138,6 +1140,7 @@ module Roby
         #    enumerated
         #
         def find_files_in_dirs(*dir_path)
+            Application.debug "find_files_in_dirs(#{dir_path.map(&:inspect).join(", ")})"
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
@@ -1154,9 +1157,12 @@ module Roby
             search_path.each do |element|
                 dirname = File.expand_path(element, app_dir)
 
+                Application.debug "  dir: #{dirname}"
                 Dir.new(dirname).each do |file|
                     file = File.join(dirname, file)
+                    Application.debug "    file: #{file}"
                     if File.file?(file) && file =~ options[:pattern]
+                        Application.debug "      added"
                         result << file
                     end
                 end
@@ -1186,6 +1192,8 @@ module Roby
                 options = file_path.pop
             end
             options = Kernel.validate_options(options || Hash.new, :all, :order)
+
+            # Remove the filename from the complete path
             filename = file_path.pop
 
             if filename =~ /ROBOT/ && robot_name
