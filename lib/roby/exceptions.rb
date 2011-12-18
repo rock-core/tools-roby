@@ -3,18 +3,6 @@ require 'highline'
 class Exception
     def pretty_print(pp)
         pp.text "#{message} (#{self.class.name})"
-        if backtrace
-            pp.nest(2) do
-                pp.breakable
-                backtrace = Roby.filter_backtrace(self.backtrace)
-                pp.seplist(backtrace) do |line|
-                    pp.text line
-                end
-            end
-        else
-             pp.breakable
-             pp.text "(no backtrace)"
-        end
     end
     
     # True if +obj+ is involved in this error
