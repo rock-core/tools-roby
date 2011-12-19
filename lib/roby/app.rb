@@ -1163,11 +1163,11 @@ module Roby
             end
             options = Kernel.validate_options(options || Hash.new, :all, :order, :pattern => Regexp.new(""))
             if options[:pattern].respond_to?(:to_str)
-                options[:pattern] = Regexp.new(Regexp.quote(options[:pattern]))
+                options[:pattern] = Regexp.new("^" + Regexp.quote(options[:pattern]) + "$")
             end
 
             dir_search = dir_path.dup
-            dir_search << options.slice(:all, :order)
+            dir_search << { :all => true, :order => options[:order] }
             search_path = find_dirs(*dir_search)
 
             result = []
@@ -1175,12 +1175,12 @@ module Roby
                 dirname = File.expand_path(element, app_dir)
 
                 Application.debug "  dir: #{dirname}"
-                Dir.new(dirname).each do |file|
-                    file = File.join(dirname, file)
-                    Application.debug "    file: #{file}"
-                    if File.file?(file) && file =~ options[:pattern]
+                Dir.new(dirname).each do |file_name|
+                    file_path = File.join(dirname, file_name)
+                    Application.debug "    file: #{file_path}"
+                    if File.file?(file_path) && file_name =~ options[:pattern]
                         Application.debug "      added"
-                        result << file
+                        result << file_path
                     end
                 end
             end
