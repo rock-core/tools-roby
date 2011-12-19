@@ -1065,6 +1065,7 @@ module Roby
         #    robot-specific paths. Otherwise, it starts with the generic paths.
         #
         def find_dirs(*dir_path)
+            Application.debug "find_dirs(#{dir_path.map(&:inspect).join(", ")})"
             if dir_path.last.kind_of?(Hash)
                 options = dir_path.pop
             end
@@ -1095,7 +1096,7 @@ module Roby
                 end
             end
 
-            root_paths = search_path
+            root_paths = self.search_path.dup
             if options[:order] == :specific_first
                 relative_paths = relative_paths.reverse
             else
@@ -1103,11 +1104,14 @@ module Roby
             end
 
             result = []
-            relative_paths.each do |path|
-                root_paths.each do |root_path|
-                    path = File.expand_path(File.join(*path), root_path)
-                    if File.directory?(path)
-                        result << path 
+            Application.debug "  relative paths: #{relative_paths.inspect}"
+            relative_paths.each do |rel_path|
+                root_paths.each do |root|
+                    abs_path = File.expand_path(File.join(*rel_path), root)
+                    Application.debug "  absolute path: #{abs_path}"
+                    if File.directory?(abs_path)
+                        Application.debug "    selected"
+                        result << abs_path 
                     end
                 end
             end
