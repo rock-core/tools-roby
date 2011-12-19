@@ -647,8 +647,21 @@ module Roby
 	    Roby::Conf.datadirs = find_dirs('data', 'ROBOT', :all => true, :order => :specific_first)
 	end
 
+        # Transforms +path+ into a path relative to an entry in +search_path+
+        # (usually the application root directory)
+        def make_path_relative(path)
+            path = path.dup
+            search_path.each do |p|
+                path.gsub!(/^#{Regexp.quote(p)}\//, '')
+            end
+            path
+        end
+
         def require(file)
             Roby::Application.info "loading #{file}"
+
+            # Make the file relative to the search path
+            file = make_path_relative(file)
             Kernel.require(file)
         end
 
