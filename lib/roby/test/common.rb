@@ -94,6 +94,7 @@ module Roby
 	    @remote_processes = []
 
             Roby.app.log_setup 'robot', 'DEBUG:robot.txt'
+            Roby.app.log_server = false
 
             Roby.app.setup
             Roby.app.prepare

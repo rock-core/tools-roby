@@ -150,6 +150,7 @@ module Roby
             @waiting_threads = Array.new
             @emitted_events  = Array.new
             @disabled_handlers = ValueSet.new
+            @additional_errors = Array.new
 
 	    each_cycle(&ExecutionEngine.method(:call_every))
 
@@ -1112,6 +1113,10 @@ module Roby
             end
         end
 
+        # Used during exception propagation to inject new errors in the process
+        #
+        # It shall not be accessed directly. Instead, Plan#add_error should be
+        # called
         attr_reader :additional_errors
 
         def compute_fatal_errors(stats, events_errors)
@@ -1148,6 +1153,9 @@ module Roby
             end
             for e in unhandled_additional_errors
                 fatal_errors << [e]
+            end
+            fatal_errors.delete_if do |e, _|
+                !e.fatal?
             end
             fatal_errors
         end

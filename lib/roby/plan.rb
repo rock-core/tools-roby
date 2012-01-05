@@ -136,6 +136,13 @@ module Roby
                         plan.add_error(MissionFailedError.new(m, error.exception))
                     end
 
+                error.trace.
+                    find_all { |t| plan.permanent?(t) && t != error.origin }.
+                    each do |m|
+                        puts "adding PermanentTaskError #{m} #{error.exception}"
+                        plan.add_error(PermanentTaskError.new(m, error.exception))
+                    end
+
                 pass_exception
             end
 
@@ -1032,13 +1039,13 @@ module Roby
 
 	# Hook called when +task+ is marked as garbage. It will be garbage
 	# collected as soon as possible
-	def garbage(task)
+	def garbage(task_or_event)
 	    # Remove all signals that go *to* the task
 	    #
 	    # While we want events which come from the task to be properly
 	    # forwarded, the signals that go to the task are to be ignored
-	    if task.self_owned?
-		task.each_event do |ev|
+	    if task_or_event.respond_to?(:each_event) && task_or_event.self_owned?
+		task_or_event.each_event do |ev|
 		    for signalling_event in ev.parent_objects(EventStructure::Signal).to_a
 			signalling_event.remove_signal ev
 		    end
@@ -1047,7 +1054,7 @@ module Roby
 
 	    super if defined? super
 
-            remove_object(task)
+            remove_object(task_or_event)
 	end
 
 	# backward compatibility
@@ -1121,6 +1128,9 @@ module Roby
             result = Array.new
             for task in plan.missions
                 result << MissionFailedError.new(task) if task.failed?
+            end
+            for task in plan.permanent_tasks
+                result << PermanentTaskError.new(task) if task.failed?
             end
             result
         end

@@ -596,5 +596,25 @@ class TC_Exceptions < Test::Unit::TestCase
         assert_equal('fatal_exception', name)
         assert_equal([t1.remote_id, t2.remote_id].to_set, tasks.to_set)
     end
+
+    def test_permanent_task_errors_are_nonfatal
+        parent, child = prepare_plan :add => 2, :model => Tasks::Simple
+        parent.depends_on(child, :success => [:start], :failure => [])
+        child.start!
+        parent.start!
+
+        plan.add_permanent(parent)
+        plan.add_permanent(child)
+        FlexMock.use do |mock|
+            plan.on_exception(PermanentTaskError) do |*_|
+                mock.called
+            end
+            mock.should_receive(:called).once
+            child.stop!
+            process_events
+            assert(parent.running?)
+            assert(!child.running?)
+        end
+    end
 end
 

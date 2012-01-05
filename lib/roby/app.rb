@@ -131,12 +131,12 @@ module Roby
         #
         # will define #filter_backtraces? instead of #filter_backtraces
         def self.overridable_configuration(config_set, config_key, options = Hash.new)
-            options = Kernel.validate_options options, :predicate => false
+            options = Kernel.validate_options options, :predicate => false, :attr_name => config_key
             attr_config(config_set)
-            define_method("#{config_key}#{"?" if options[:predicate]}") do
+            define_method("#{options[:attr_name]}#{"?" if options[:predicate]}") do
                 send(config_set)[config_key]
             end
-            define_method("#{config_key}=") do |new_value|
+            define_method("#{options[:attr_name]}=") do |new_value|
                 send("#{config_set}_overrides")[config_key] = new_value
             end
         end
@@ -256,6 +256,18 @@ module Roby
         # Override the value stored in configuration files for filter_backtraces?
 
         overridable_configuration 'log', 'filter_backtraces', :predicate => true
+
+	##
+        # :method: log_server?
+        #
+        # True if the log server should be started
+
+        ##
+        # :method: log_server=
+        #
+        # Sets whether the log server should be started
+
+        overridable_configuration 'log', 'server', :predicate => true, :attr_name => 'log_server'
 
         ##
         # :method: log_update_current?
@@ -693,8 +705,7 @@ module Roby
         end
 
 	def setup
-            setup_drb_server
-            load_base_config
+	    load_base_config
 
 	    # Create the robot namespace
 	    STDOUT.sync = true
@@ -731,12 +742,17 @@ module Roby
 		end
 	    end
 
+            setup_global_singletons
+            if !shell?
+                setup_shell_interface
+            end
+
         rescue Exception => e
             cleanup
             raise
 	end
 
-        def setup_drb_server
+        def setup_shell_interface
 	    # Set up dRoby, setting an Interface object as front server, for shell access
 	    host = droby['host'] || ""
 	    if host !~ /:\d+$/
@@ -757,12 +773,15 @@ module Roby
             end
         end
 
-        def stop_drb_server
-            DRb.stop_service
+        def stop_shell_interface
+            begin
+                DRb.current_server
+                DRb.stop_service
+            rescue DRb::DRbServerNotFound
+            end
         end
 
         def prepare
-            setup_global_singletons
             log_save_time_tag
 
             if !single? && discovery.empty?
@@ -847,8 +866,9 @@ module Roby
         # The inverse of #setup. It gets called either at the end of #run or at
         # the end of #setup if there is an error during loading
         def cleanup
+            DRb.stop_service
             stop_log_server
-            stop_drb_server
+            stop_shell_interface
             call_plugins(:cleanup, self)
         end
 

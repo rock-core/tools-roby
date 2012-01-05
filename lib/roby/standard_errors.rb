@@ -5,6 +5,9 @@ module Roby
     # #failed_task. It is guaranteed that one of #failed_generator and
     # #failed_task is non-nil.
     class LocalizedError < RuntimeError
+        # If true, such an exception causes the execution engine to stop tasks
+        # in the hierarchy. Otherwise, it only causes notification(s).
+        def fatal?; true end
         # The object describing the point of failure
 	attr_reader :failure_point
         
@@ -283,17 +286,16 @@ module Roby
     end
     
     # Exception raised when a mission has failed
-    class MissionFailedError < LocalizedError
+    class ToplevelTaskError < LocalizedError
         attr_reader :reason
 
         # Create a new MissionFailedError for the given mission
 	def initialize(task, reason = nil)
 	    super(task.failure_event || task)
-            @reason = reason
+            @reason = reason || task.failure_reason
 	end
 
         def pretty_print(pp)
-            pp.text "mission failed: #{failed_task}"
             pp.breakable
 
             if reason
@@ -304,6 +306,23 @@ module Roby
                 explanation = :success.to_unbound_task_predicate.explain_static(failed_task)
                 explanation.pretty_print(pp)
             end
+        end
+    end
+
+    # Exception raised when a mission has failed
+    class MissionFailedError < ToplevelTaskError
+        def pretty_print(pp)
+            pp.text "mission failed: #{failed_task}"
+            super(pp)
+        end
+    end
+
+    # Exception raised when a permanent task has failed
+    class PermanentTaskError < ToplevelTaskError
+        def fatal?; false end
+        def pretty_print(pp)
+            pp.text "permanent task failed: #{failed_task}"
+            super(pp)
         end
     end
 

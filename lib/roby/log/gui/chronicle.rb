@@ -80,6 +80,32 @@ module Roby
                 @show_mode = mode
             end
 
+            # Inclusion filter on task names
+            #
+            # If it contains a regular expression, only the task names that
+            # match the expression will be displayed
+            attr_reader :filter
+
+            # Sets the filter regular expression. See #filter
+            def filter=(value)
+                @filter = value
+                update
+                repaint
+            end
+
+            # Exclusion filter on task names
+            #
+            # If it contains a regular expression, the task names that match the
+            # expression will not be displayed
+            attr_reader :filter_out
+
+            # Sets the filter_out regular expression. See #filter_out
+            def filter_out=(value)
+                @filter_out = value
+                update
+                repaint
+            end
+
             # Display the events "in the future", or stop at the current time.
             # When enabled, a log replay display will look like a live display
             # (use to generate videos for instance)
@@ -185,6 +211,12 @@ module Roby
                 current_tasks = ValueSet.new
                 history_widget.history.each_value do |time, snapshot, _|
                     current_tasks |= snapshot.plan.known_tasks
+                end
+                if filter
+                    current_tasks = current_tasks.find_all { |t| t.to_s =~ filter }
+                end
+                if filter_out
+                    current_tasks.delete_if { |t| t.to_s =~ filter_out }
                 end
                 started_tasks, pending_tasks = current_tasks.partition { |t| t.start_time }
 
@@ -311,6 +343,7 @@ module Roby
                         all_tasks.size - 1
                     else start_line
                     end
+                return if all_tasks.empty?
                 all_tasks = all_tasks[first_index..-1]
                 all_tasks.each_with_index do |task, idx|
                     line_height = task_height
@@ -473,7 +506,29 @@ module Roby
                 @menu_layout.add_widget(@btn_show)
                 @btn_show.menu = show_options
                 @menu_layout.add_stretch(1)
-                
+                @filter_lbl = Qt::Label.new("Filter", self)
+                @filter_box = Qt::LineEdit.new(self)
+                @filter_box.connect(SIGNAL('textChanged(QString const&)')) do |text|
+                    if text.empty?
+                        chronicle.filter = nil
+                    else
+                        chronicle.filter = Regexp.new(text.split(' ').join("|"))
+                    end
+                end
+                @menu_layout.add_widget(@filter_lbl)
+                @menu_layout.add_widget(@filter_box)
+                @filter_out_lbl = Qt::Label.new("Filter out", self)
+                @filter_out_box = Qt::LineEdit.new(self)
+                @filter_out_box.connect(SIGNAL('textChanged(QString const&)')) do |text|
+                    if text.empty?
+                        chronicle.filter_out = nil
+                    else
+                        chronicle.filter_out = Regexp.new(text.split(' ').join("|"))
+                    end
+                end
+                @menu_layout.add_widget(@filter_out_lbl)
+                @menu_layout.add_widget(@filter_out_box)
+                @menu_layout.add_stretch(1)
 
                 resize(500, 300)
             end
