@@ -814,8 +814,9 @@ module Roby
 		logger  = Roby::Log::FileLogger.new(logfile, :plugins => plugins.map { |n, _| n })
 		logger.stats_mode = (log['events'] == 'stats')
 		Roby::Log.add_logger logger
+
+                start_log_server(logfile)
 	    end
-            start_log_server(logfile)
         end
 
 	def run(&block)
