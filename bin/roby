@@ -192,6 +192,8 @@ if !config.mode
     exit
 end
 
+APP_DIR = Dir.pwd
+
 installer = Roby::Installer.new(APP_DIR)
 if config.mode == 'init'
     installer.install(config.enabled_plugins)
