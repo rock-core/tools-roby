@@ -386,7 +386,9 @@ module Roby
 		    options.delete('robots')
 		end
 	    end
-
+            options = options.map_value do |k, val|
+                val || Hash.new
+            end
             @options = @options.recursive_merge(options)
 	end
 
