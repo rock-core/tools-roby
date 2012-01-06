@@ -20,7 +20,6 @@ Roby.display_exception do
                 if controller_file
                     Robot.info "loading controller file #{controller_file}"
                     load controller_file
-                    break
                 end
 		Robot.info "done initialization"
 	    rescue Interrupt
