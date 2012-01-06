@@ -1105,7 +1105,7 @@ module Roby
                     robot_dir_path = dir_path.map do |s|
                         s.gsub('ROBOT', replacement)
                     end
-                    relative_paths.concat(robot_dir_path)
+                    relative_paths << robot_dir_path
                 end
             end
 
