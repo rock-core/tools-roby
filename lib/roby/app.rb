@@ -700,8 +700,8 @@ module Roby
                 Object.const_set(:MainPlanner, Class.new(Roby::Planning::Planner))
             end
 
-            all_files = find_files_in_dirs('models', 'planners', 'ROBOT', :all => true, :order => :specific_first) ||
-                find_files_in_dirs('planners', 'ROBOT', :all => true, :order => :specific_first)
+            all_files = find_files_in_dirs('models', 'planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/) +
+                find_files_in_dirs('planners', 'ROBOT', :all => true, :order => :specific_first, :pattern => /\.rb$/)
             all_files.each do |p|
                 require(p)
             end
