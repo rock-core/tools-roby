@@ -1,5 +1,5 @@
 require 'roby'
-if !(config_file = Roby.app.find_files('config', 'roby-display.yml', :all => false, :order => :specific_first))
+if !(config_file = Roby.app.find_file('config', 'roby-display.yml', :order => :specific_first))
     config_file = File.join(Roby.app.app_dir, "config", "roby-display.yml")
 end
 ARGV << "--config=#{config_file}"

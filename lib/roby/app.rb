@@ -732,13 +732,13 @@ module Roby
 
 	    # Get the application-wide configuration
 	    
-            if file = find_files('config', 'app.yml', :all => false, :order => :specific_first)
+            if file = find_file('config', 'app.yml', :order => :specific_first)
                 Application.info "loading config file #{file}"
                 file = YAML.load(File.open(file)) || Hash.new
                 load_yaml(file)
             end
             call_plugins(:load, self, options)
-            if initfile = find_files('config', 'init.rb', :all => false, :order => :specific_first)
+            if initfile = find_file('config', 'init.rb', :order => :specific_first)
                 Application.info "loading init file #{initfile}"
                 require initfile
             end
@@ -773,7 +773,7 @@ module Roby
 
 	    require_models
 
-            if file = find_files('config', "ROBOT.rb", :all => false, :order => :specific_first)
+            if file = find_file('config', "ROBOT.rb", :order => :specific_first)
                 require file
             end
 
@@ -1244,10 +1244,18 @@ module Roby
                 end
             end
 
-            if !options[:all]
-                return result.first
-            else return result
+            return result
+        end
+
+        # Identical to #find_files, but with the :all option always set to
+        # false, and returning a single value or nil
+        def find_file(*args)
+            if !args.last.kind_of?(Hash)
+                args.push(Hash.new)
             end
+            args.last.delete('all')
+            args.last.merge!(:all => true)
+            find_files(*args).first
         end
 
 	attr_predicate :simulation?, true
