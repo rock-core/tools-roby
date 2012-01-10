@@ -1,6 +1,7 @@
 require 'roby/config'
 require 'facets/string/camelcase'
 require 'facets/string/snakecase'
+require 'facets/string/modulize'
 require 'facets/kernel/constant'
 require 'utilrb/enumerable'
 require 'utilrb/time/to_hms'
