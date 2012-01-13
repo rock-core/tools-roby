@@ -455,6 +455,15 @@ module Roby
 	end
 
 	def reset
+            if !plan
+                @plan = Plan.new
+                if !Roby.plan
+                    Roby.instance_variable_set :@plan, @plan
+                end
+            end
+
+            plan.clear
+
 	    if defined? State
 		State.clear
                 Conf.clear
@@ -462,6 +471,13 @@ module Roby
 		Roby.const_set(:State,  StateSpace.new)
 		Roby.const_set(:Conf, StateSpace.new)
 	    end
+
+	    # Import some constants directly at toplevel before loading the
+	    # user-defined models
+            Object.define_or_reuse :Application, Roby::Application
+            Object.define_or_reuse :State, Roby::State
+            Object.define_or_reuse :Conf, Roby::Conf
+
 	    call_plugins(:reset, self)
 	end
 
@@ -655,20 +671,15 @@ module Roby
             path
         end
 
-        def require(file)
-            Roby::Application.info "loading #{file}"
-
+        def require(absolute_path)
             # Make the file relative to the search path
-            file = make_path_relative(file)
+            file = make_path_relative(absolute_path)
+            Roby::Application.info "loading #{file} (#{absolute_path})"
             Kernel.require(file)
         end
 
         # Loads the models, based on the given robot name and robot type
 	def require_models
-            if shell?
-                return
-            end
-
 	    # Require all common task models and the task models specific to
 	    # this robot
             all_files = find_files_in_dirs('models', 'tasks', 'ROBOT', :all => true, :order => :specific_last, :pattern => /\.rb$/) +
@@ -727,6 +738,9 @@ module Roby
                 Application.info "loading init file #{initfile}"
                 require initfile
             end
+
+	    setup_dirs
+	    setup_loggers
         end
 
         # Does basic setup of the Roby environment. It loads configuration files
@@ -740,30 +754,12 @@ module Roby
         #
         # The #cleanup method is the reverse of #setup
 	def setup
-            if !plan
-                @plan = Plan.new
-                if !Roby.plan
-                    @plan ||= Plan.new
-                    Roby.instance_variable_set :@plan, @plan
-                end
-            end
+	    STDOUT.sync = true
 
 	    reset
             require 'roby/planning'
             require 'roby/interface'
-
-	    # Import some constants directly at toplevel before loading the
-	    # user-defined models
-            Object.define_or_reuse :Application, Roby::Application
-            Object.define_or_reuse :State, Roby::State
-            Object.define_or_reuse :Conf, Roby::Conf
-
 	    load_base_config
-
-	    # Create the robot namespace
-	    STDOUT.sync = true
-	    setup_dirs
-	    setup_loggers
 
 	    # Set up the loaded plugins
 	    call_plugins(:setup, self)
