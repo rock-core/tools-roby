@@ -322,7 +322,7 @@ module Roby
                 raise ArgumentError, "expected an exception object as no block was given"
             end
             do_display_exception(io, e)
-            true
+            e
         else
             yield
             false
@@ -330,7 +330,7 @@ module Roby
 
     rescue Exception => e
         do_display_exception(io, e)
-        true
+        e
     end
 end
 
