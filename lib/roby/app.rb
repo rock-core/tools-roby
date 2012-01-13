@@ -49,8 +49,6 @@ module Roby
         extend Logger::Hierarchy
         extend Logger::Forward
 
-	include Singleton
-        
         # The main plan on which this application acts
         #
         # It is usually, but not necessarily, the same as Roby.plan
@@ -1335,7 +1333,7 @@ module Roby
         end
     end
 
-    @app = Application.instance
+    @app = Application.new
     class << self
         # The one and only Application object
         attr_reader :app
