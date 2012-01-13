@@ -714,22 +714,9 @@ module Roby
         #
         # It also calls the plugin's 'load' method
         def load_base_config
-            if !plan
-                @plan = Plan.new
-                if !Roby.plan
-                    @plan ||= Plan.new
-                    Roby.instance_variable_set :@plan, @plan
-                end
-            end
-
-	    reset
-            require 'roby/planning'
-            require 'roby/interface'
-
 	    $LOAD_PATH.unshift(app_dir) unless $LOAD_PATH.include?(app_dir)
 
 	    # Get the application-wide configuration
-	    
             if file = find_file('config', 'app.yml', :order => :specific_first)
                 Application.info "loading config file #{file}"
                 file = YAML.load(File.open(file)) || Hash.new
@@ -753,12 +740,17 @@ module Roby
         #
         # The #cleanup method is the reverse of #setup
 	def setup
-	    load_base_config
+            if !plan
+                @plan = Plan.new
+                if !Roby.plan
+                    @plan ||= Plan.new
+                    Roby.instance_variable_set :@plan, @plan
+                end
+            end
 
-	    # Create the robot namespace
-	    STDOUT.sync = true
-	    setup_dirs
-	    setup_loggers
+	    reset
+            require 'roby/planning'
+            require 'roby/interface'
 
 	    # Import some constants directly at toplevel before loading the
 	    # user-defined models
@@ -766,14 +758,18 @@ module Roby
             Object.define_or_reuse :State, Roby::State
             Object.define_or_reuse :Conf, Roby::Conf
 
+	    load_base_config
+
+	    # Create the robot namespace
+	    STDOUT.sync = true
+	    setup_dirs
+	    setup_loggers
+
 	    # Set up the loaded plugins
 	    call_plugins(:setup, self)
 
 	    require_models
-
-            if file = find_file('config', "ROBOT.rb", :order => :specific_first)
-                require file
-            end
+            require_config
 
 	    # MainPlanner is always included in the planner list
             if defined? MainPlanner
@@ -799,6 +795,21 @@ module Roby
             cleanup
             raise
 	end
+
+        # Load all configuration files (i.e. files in config/) except init.rb
+        # and app.yml
+        #
+        # init.rb and app.yml are loadedd "early" in #setup by calling
+        # #load_base_config
+        #
+        # It calls the require_models method on loaded plugins as well
+        def require_config
+            if file = find_file('config', "ROBOT.rb", :order => :specific_first)
+                require file
+            end
+
+            call_plugins(:require_config, self)
+        end
 
         # Publishes a shell interface on DRb
         #
@@ -1324,8 +1335,20 @@ module Roby
 	    end
 	end
 
+        def unload_features(*pattern)
+            patterns = search_path.map { |p| Regexp.new(File.join(p, *pattern)) }
+            patterns << Regexp.new("^#{File.join(*pattern)}")
+            $LOADED_FEATURES.delete_if { |path| patterns.any? { |p| p =~ path } }
+        end
+
+        def reload_config
+            unload_features("config", ".*\.rb$")
+            call_plugins(:reload_config, self)
+            require_config
+        end
+
         def reload_planners
-            $LOADED_FEATURES.delete_if { |path| path =~ /planners\/.*rb$/ }
+            unload_features("planners", ".*\.rb$")
             planners.each do |planner_model|
                 planner_model.clear_model
             end
