@@ -220,14 +220,15 @@ module Roby
                 end
                 copy.add(new_t)
             end
-            missions.each { |t| copy.add_mission(t) }
-            permanent_tasks.each { |t| copy.add_permanent(t) }
-            permanent_events.each { |e| copy.add_permanent(e) }
             free_events.each do |e|
                 new_e = e.dup
                 mappings[e] = new_e
                 copy.add(new_e)
             end
+
+            missions.each { |t| copy.add_mission(mappings[t]) }
+            permanent_tasks.each { |t| copy.add_permanent(mappings[t]) }
+            permanent_events.each { |e| copy.add_permanent(mappings[e]) }
 
             # We now have to copy the relations
             known_tasks.each do |parent|
