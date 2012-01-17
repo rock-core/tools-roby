@@ -96,6 +96,13 @@ end
 
 time_format = 'hms'
 opts = OptionParser.new do |opt|
+    opt.banner = <<-EOD
+find-events [options] file event_spec [event_spec ...]
+Where event_spec is:
+  model_name: match the model of a fired event
+  event: match the event name
+  event(model_name): match the event of a specific task model
+    EOD
     opt.on('--time=FORMAT', String, 'the format in which to display the time: hms or sec') do |frmt|
         if ['hms', 'sec'].include?(frmt)
             time_format = frmt
@@ -111,7 +118,7 @@ end
 remaining = opts.parse(ARGV)
 event_path  = remaining.shift
 if !event_path || remaining.empty?
-    puts opt
+    puts opts
     exit 1
 end
 
