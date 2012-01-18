@@ -652,11 +652,12 @@ module Roby
                 end
             end
 
-	    if File.directory?(libdir = File.join(app_dir, 'lib'))
-		if !$LOAD_PATH.include?(libdir)
-		    $LOAD_PATH.unshift File.join(app_dir, 'lib')
-		end
-	    end
+            find_dirs('lib', 'ROBOT', :all => true, :order => :specific_last).
+                each do |libdir|
+                    if !$LOAD_PATH.include?(libdir)
+                        $LOAD_PATH.unshift File.join(app_dir, 'lib')
+                    end
+                end
 
 	    Roby::Conf.datadirs = find_dirs('data', 'ROBOT', :all => true, :order => :specific_first)
 	end
