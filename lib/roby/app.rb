@@ -1218,6 +1218,9 @@ module Roby
 
             # Remove the filename from the complete path
             filename = file_path.pop
+            filename = filename.split('/')
+            file_path.concat(filename[0..-2])
+            filename = filename[-1]
 
             if filename =~ /ROBOT/ && robot_name
                 args = file_path + [options.merge(:pattern => filename.gsub('ROBOT', robot_name))]
