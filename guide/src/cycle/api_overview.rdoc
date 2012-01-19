@@ -1,8 +1,13 @@
+---
+title: API Overview
+sort_info: 400
+---
+
 = Overview
 
 This page describes the various components that form a Roby application. It is
 meant to be an "entry point" for people to understand what classes are there
-for. This describes the software architecture of the upcoming v0.8.
+for.
 
 == Life and death of a Roby Controller
 

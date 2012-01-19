@@ -1,4 +1,7 @@
- Plan representation and modifications to plans
+---
+title: Plan representation and modifications to plans
+sort_info: 200
+---
 
 Understanding the plan model, and how to modify it, is central to the use of
 Roby. In effect, the plan *is* the information on which the controller bases
@@ -45,11 +48,10 @@ Modifying the plan therefore boils down to two things:
    or between events).
 
 The first point is done by the following methods:
-* Roby::Plan#discover: simply add tasks and events
+* Roby::Plan#add: simply add tasks and events
 * Roby::Plan#add_mission: adds special tasks, called missions. Missions are the
   tasks the robot is supposed to execute. They are not subject to the plan's
   garbage collection, and the tasks that are useful to them are not either.
-
 
 To ease the plan management process, some synthetic
 operations are defined on Roby::Plan:
