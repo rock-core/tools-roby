@@ -26,9 +26,9 @@ body {margin: 0px auto; padding: 0px; background: url(img/background_body_grey.g
 /*-----------------------------------*/
 /* 2.1 - Sitename, slogan and banner */
 /*-----------------------------------*/
-.site-name {height: 45px; top: 12px; z-index: 4; margin: 0px; padding-left: 75px; color: rgb(69,140,204);}
-.site-name p.title  {margin: 0px; padding: 0px; font-family: "trebuchet ms", arial, sans serif; font-weight: bold; font-size: 24px;}
-.site-name p.subtitle  {clear: both; width: 300px; margin: -2px 0px 0px -2em; padding: 0px; background-color: transparent; font-family: "trebuchet ms", arial, sans serif; font-size: 15px;}
+.site-name {position: absolute; height: 45px; top: 12px; z-index: 4; margin: 0px; padding-left: 75px; color: rgb(69,140,204);}
+.site-name p.title  {margin: 0px; padding: 0px; font-family: "trebuchet ms", arial, sans serif; font-weight: bold; font-size: 36px;}
+.site-name p.subtitle  {clear: both; width: 700px; margin: -2px 0px 0px -2em; padding: 0px; background-color: transparent; font-family: "trebuchet ms", arial, sans serif; font-size: 22px;}
 .site-name a {margin: 0px; padding: 0px; text-decoration: none; color: rgb(88,144,168);}
 .site-name a:hover {text-decoration: none;}
 .site-slogan-container  {width: 755px; height: 130px; top: 112px; position: absolute; z-index: 1; overflow: hidden; margin: 0px; padding-right: 15px; background-color: transparent;}
@@ -55,13 +55,14 @@ body {margin: 0px auto; padding: 0px; background: url(img/background_body_grey.g
 /*----------------------------*/
 /* 2.3 - Navigation - Level 1 */
 /*----------------------------*/
-.nav1-container {width: 770px; top: 35px; position: absolute; z-index: 3; background: transparent;}
+.nav1-container {width: 770px; top: 15px; position: absolute; z-index: 3; background: transparent;}
 .nav1 {margin: 0px; padding: 0px; font-family: verdana, arial, sans serif; font-size: 1.0em;}
 .nav1 ul {float: right; margin: 0px; padding: 0px 20px 0px 0px; border-left: solid 1px rgb(115,162,182); background-color: rgb(255,255,255); font-weight: bold;}	
 .nav1 li {display: inline; list-style: none; margin: 0px; padding: 0px;}
 .nav1 li a {display: block; float: left; margin: 0px; padding: 2px 5px 2px 5px; border-right: solid 1px rgb(115,162,182); color: rgb(115,162,182); text-decoration: none; font-size: 10px; text-decoration: none;}
 .nav1 li span {display: block; float: left; margin: 0px; padding: 2px 5px 2px 5px; border-right: solid 1px rgb(115,162,182); color: rgb(115,162,182); text-decoration: none; font-size: 10px; text-decoration: none;}
 .nav1 a:hover, .nav2 a.selected {color: rgb(50,50,50); text-decoration: none;}
+.nav1-container .search { width: 50%; float: right; margin-right: 20px;margin-top: .3em;}
 
 /*----------------------------*/
 /* 2.4 - Navigation - Level 2 */
@@ -71,7 +72,9 @@ body {margin: 0px auto; padding: 0px; background: url(img/background_body_grey.g
 .nav2 li {display: inline; list-style: none; margin: 0px; padding: 0px;}
 .nav2 li a {display: block; float: left; margin: 0px 0px 0px 0px; padding: 5px 10px 5px 10px; border-right: solid 1px rgb(54,83,151); color: rgb(255,255,255); text-transform: uppercase; text-decoration: none; font-size: 100%; text-decoration: none;}
 .nav2 li span {display: block; float: left; margin: 0px 0px 0px 0px; padding: 5px 10px 5px 10px; border-right: solid 1px rgb(54,83,151); color: rgb(255,255,255); text-transform: uppercase; text-decoration: none; font-size: 100%;}
+.nav2 li span.empty { border: none; }
 .nav2 a:hover, .nav2 a.selected {color: rgb(50,50,50); text-decoration: none;}
+.title_buffer {clear: both; width: 770px; height: 30px; margin: 0px; margin-top: 50px; padding: 0px; background-color: rgb(255,255,255);}
 .buffer {clear: both; width: 770px; height: 30px; margin: 0px; padding: 0px; background-color: rgb(255,255,255);}
 
 .nav2 .main {font-size: 130%; }
@@ -87,15 +90,31 @@ body {margin: 0px auto; padding: 0px; background: url(img/background_body_grey.g
 /*----------------------------*/
 
 .nav3 {min-height: 500px; margin: 0px; padding: 0px; color: rgb(75,75,75); font-size: 90%; font-family: arial, sans serif; }
-.nav3 ul {width: 250px; margin: 0px 0px 20px 0px; padding: 0px; border-bottom: solid 1px rgb(216,206,159); background-color: rgb(219,230,241);}	
+.nav3 ul {width: 250px; margin: 0px 0px 5px 0px; padding: 0px; border-bottom: solid 1px rgb(216,206,159); background-color: rgb(219,230,241);}	
 .nav3 li {list-style: none; margin: 0px; padding: 0px; font-size: 100%;}
-.nav3 li.title {margin: 0px 0px 0px 0px; padding: 3px 5px 2px 15px; background-color: rgb(156,186,214); color: rgb(255,255,255); text-transform: uppercase; font-weight: bold; font-size: 100%;}
-.nav3 li.webgen-menu-level1 a    {display: block; min-height: 1.7em; height: auto !important; height: 1.7em; line-height: 1.7em; margin: 0px; padding: 0px 7px 0px 5px; border-top: solid 1px rgb(200,200,200); border-left: solid 7px rgb(219,230,241); color: rgb(75,75,75); font-weight: bold; font-size: 100%; text-decoration: none; }
-.nav3 li.webgen-menu-level2 a    {display: block; min-height: 1.7em; height: auto !important; height: 1.7em; line-height: 1.7em; margin: 0px; padding: 0px 7px 0px 10px; border-left: solid 7px rgb(219,230,241); color: rgb(75,75,75); text-decoration: none; font-weight: normal; font-size: 100%; text-decoration: none;}
-.nav3 li.webgen-menu-level1 span {display: block; min-height: 1.7em; height: auto !important; height: 1.7em; line-height: 1.7em; margin: 0px; padding: 0px 7px 0px 5px; border-top: solid 1px rgb(200,200,200); border-left: solid 7px rgb(219,230,241); color: rgb(75,75,75); font-weight: bold; font-size: 100%;}
-.nav3 li.webgen-menu-level2 span {display: block; min-height: 1.7em; height: auto !important; height: 1.7em; line-height: 1.7em; margin: 0px; padding: 0px 7px 0px 10px; border-left: solid 7px rgb(219,230,241); color: rgb(75,75,75); text-decoration: none; font-size: 100%;}
-.nav3 li a:hover, .nav3 li.webgen-menu-level2.webgen-menu-submenu-inhierarchy, .nav3 li.webgen-menu-item-selected {border-left: solid 7px rgb(156,186,214);  color: rgb(100,100,100); text-decoration: none;}
+.nav3 .title {margin: 0px 0px 0px 0px; padding: 3px 5px 2px 15px; background-color: rgb(156,186,214); color: rgb(255,255,255); text-transform: uppercase; font-weight: bold; font-size: 100%;}
 
+.nav3 a, .nav3 span {display: block; min-height: 1.7em; height: auto !important; height: 1.7em; line-height: 1.7em; margin: 0px; color: rgb(75,75,75); bold; font-size: 100%; text-decoration: none; border-left: solid 7px rgb(219,230,241); padding: 0px 7px 0px 0px; }
+.nav3 li.webgen-menu-level1 a, .nav3 li.webgen-menu-level1 span {
+    padding-left: 5px; border-top: solid 1px rgb(200,200,200); font-weight: bold;
+}
+.nav3 li.webgen-menu-level2 a, .nav3 li.webgen-menu-level2 span {
+    padding-left: 10px; font-weight: normal;
+}
+.nav3 li.webgen-menu-level3 a, .nav3 li.webgen-menu-level3 span {
+    padding-left: 15px; font-weight: normal; font-size: 90%;
+}
+
+.nav3 li.webgen-menu-level1.webgen-menu-submenu-inhierarchy > span,
+.nav3 li.webgen-menu-level1.webgen-menu-submenu-inhierarchy > a {
+    padding-left: 0px;
+}
+.nav3 li.webgen-menu-level2.webgen-menu-submenu-inhierarchy > span,
+.nav3 li.webgen-menu-level2.webgen-menu-submenu-inhierarchy > a {
+    padding-left: 5px;
+}
+.nav3 li.webgen-menu-submenu-inhierarchy {border-left: solid 5px rgb(156,186,214);  color: rgb(100,100,100);}
+.nav3 li.webgen-menu-item-selected > span {font-weight: bold;}
 
 /*----------------------------*/
 /* 2.5 - Navigation - Level 4 */
@@ -160,7 +179,7 @@ body {margin: 0px auto; padding: 0px; background: url(img/background_body_grey.g
 .content1-container-3col-txtright-40px {float: right; width: 67px; margin: 0px; padding: 0px;}
 .content1-container-3col-txtright-20px {float: right; width: 87px; margin: 0px; padding: 0px;}
 .content1-container-3col-txtright-10px {float: right; width: 97px; margin: 0px; padding: 0px;}
-.content1-pagetitle {overflow: hidden; width: 408px; margin: 0px 0px 10px 0px; padding: 0px 0px 2px 0px; border-bottom: solid 3px rgb(88,144,168);); color: rgb(88,144,168); font-weight: bold; font-size: 160%;}
+.content1-pagetitle {overflow: hidden; width: 408px; margin: 0px 0px 10px 0px; padding: 0px 0px 2px 0px; border-bottom: solid 3px rgb(88,144,168); color: rgb(88,144,168); font-weight: bold; font-size: 160%;}
 
 /******************************************************/
 /* SECTION 4 - SPECIFIC CLASSES FOR LAYOUTS #2 and #3 */
@@ -291,7 +310,7 @@ ul.linklist-indent {margin: -0.3em 0px 0.5em 0px; padding: 0px 0px 0px 10px; lis
 /*--------------------*/
 /* 6.3 - Footer Area  */
 /*--------------------*/
-.footer {overflow: hidden; clear: both; width: 770px; height: 3.0em; margin: 0px; padding: 0.5em 0px 0.5em 0px; border-top: solid 1px rgb(125,125,125); background-color: rgb(128,161,202); color: rgb(255,255,255); font-size: 1.0em;}
+.footer {overflow: hidden; clear: both; width: 770px; height: 1.5em; margin: 0px; padding: 0.5em 0px 0.5em 0px; border-top: solid 1px rgb(125,125,125); background-color: rgb(128,161,202); color: rgb(255,255,255); font-size: 1.0em;}
 .footer p {margin: 0px; padding: 0px; text-align: center; line-height: 1.3em; font-size: 110%;}
 
 /*-------------------*/
@@ -312,7 +331,7 @@ ul.linklist-indent {margin: -0.3em 0px 0.5em 0px; padding: 0px 0px 0px 10px; lis
 /*----------------------------*/
 .box-on {float: left; min-width: 0.3em; margin-right: 0.2em; padding: 0px 0.2em 0px 0.3em;}
 .box-off {display: none;}
-/* html box-on {width: 1%;} /* IE6-Hack for min-width. Also compliant with IE7-Beta2 */ */
+/* html box-on {width: 1%;} *//* IE6-Hack for min-width. Also compliant with IE7-Beta2 */ 
 
 /*-----------------------------*/
 /* 7.2 - Horizontal alignments */
@@ -320,6 +339,7 @@ ul.linklist-indent {margin: -0.3em 0px 0.5em 0px; padding: 0px 0px 0px 10px; lis
 .align-left {text-align: left;}
 .align-right {text-align: right;}
 .align-center {text-align: center;}
+p.align-center {margin-left: auto; margin-right: auto;}
 
 /*------------------*/
 /* 7.3  Text colors */
@@ -517,18 +537,23 @@ padding:5px;
 background:#e4e4ff;
 color:#222;
 border:2px solid #ddd;
-margin-top: 1em;
-margin-bottom: 1em;
+margin-top: .2em;
+margin-bottom: .2em;
 margin-left: 0em;
 margin-right: 0em;
 font-family: monospace;
+font-size: 80%;
+}
+
+pre.vcs {
+    line-height: 1.2em;
 }
 
 .clear {clear: both;}
 .hide {display: none;}
 br {clear: none;}
 
-.block{
+.note, .block{
 padding:20px;
 background:#eee;
 color:#222;
@@ -554,3 +579,102 @@ font-family: monospace;
 .indent {
     margin-left: 4em;
 }
+
+a.highlight {
+    font-weight: bold;
+}
+
+a.highlight, a.highlight:hover, a.highlight:visited {
+    color: rgb(88,144,168); 
+}
+
+table.short_doc {
+    margin-top: .2em;
+    background-color: rgb(238,237,249);
+    width: 100%;
+}
+table.short_doc td.short_doc {
+    font-style: italic;
+}
+table.list_alt {
+    background-color: rgb(230,228,249);
+}
+div.tagcloud {
+    margin-top: 2em;
+    margin-bottom: 2em;
+}
+div#index-table {
+    margin-top: 1em;
+}
+.half-size {
+    width: 250px;
+}
+div.vcs_info {
+    margin-left: 2em;
+}
+div.vcs span.toggle {
+    font-size: 70%;
+    margin-left: .5em;
+    font-weight: bold;
+    font-style: italic;
+}
+span.vcs_override {
+    font-size: 90%;
+    font-weight: bold;
+    line-height: 1em;
+}
+.help_trigger {
+    margin-left: .5em;
+}
+.help {
+    background-color: rgb(238,237,249);
+    margin: .5em;
+    font-size: 80%;
+    margin: .5em 2em .5em 2em;
+    padding: .3em;
+    font-style: italic;
+    line-height: 1.2em;
+}
+ 
+
+.package_status {
+width: 100%;
+}
+.package_status .name {
+text-align: left;
+background-color: rgb(176,206,234); 
+}
+.package_status .name .error {
+text-align: left;
+background-color: rgb(244,146,146); 
+}
+.error_message td {
+padding-left: 1em;
+background-color: rgb(244,182,182);
+}
+.message td {
+padding-left: 1em;
+background-color: rgb(219,230,241);
+}
+.from_commits_header td {
+padding-left: 1em;
+background-color: rgb(219,230,241);
+}
+.to_commits_header td {
+padding-left: 1em;
+background-color: rgb(219,230,241);
+}
+.from_commits td {
+padding-left: 1em;
+background-color: rgb(219,230,241);
+}
+.to_commits td {
+padding-left: 1em;
+background-color: rgb(219,230,241);
+}
+
+.news_publication_date {
+font-size: 80%;
+font-style: italic;
+}
+
