@@ -77,7 +77,7 @@ the unit tests and/or to generate the user's guide, you will need to do
 
  gem install --development roby
 
-== Install the development code from GitHub
+== Install the development code from Gitorious
 
 To do this, you will need to install Roby's gems dependencies yourself. This is
 as simple as
@@ -85,27 +85,22 @@ as simple as
  gem install rake utilrb facets activesupport rdoc webgen maruku coderay flexmock
 
 All you have to do now is changing into your development folder and clone 
-the github repository for roby.
+the gitorious repository for roby.
 
- git clone git://github.com/doudou/roby.git roby
+ git clone git://gitorious.org/rock-toolchain/roby.git roby
 
 The last parameter (+roby+) is the folder which should be created to put
 roby's files in. You can easily adjust this to your needs.
 
 +cd+ into the newly created roby folder.
 
-To work on the development version of roby, check it out with
-
- git checkout -b next origin/next
-
-Otherwise just stay on the default master branch.
 To finally have a running copy of roby, run
 
  rake setup
 
 to compile roby on your workstation and you're done. Additionally, you can run
 
- rake docs
+ rake doc:all
 
 To generate HTML documentation of Roby and its core plugins. The documentation
 is generated in doc/html
@@ -127,7 +122,7 @@ again.
 
 To generate the documentation, you will need to install the following gems:
 
- gem install webgen maruku rdoc coderay
+ gem install webgen rdoc coderay
 
 Then, the following commands allow to generate separate parts of the
 documentation:

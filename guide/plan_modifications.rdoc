@@ -1,4 +1,4 @@
-= Plan representation and modifications to plans
+ Plan representation and modifications to plans
 
 Understanding the plan model, and how to modify it, is central to the use of
 Roby. In effect, the plan *is* the information on which the controller bases
