@@ -139,7 +139,6 @@ module Roby
                 error.trace.
                     find_all { |t| plan.permanent?(t) && t != error.origin }.
                     each do |m|
-                        puts "adding PermanentTaskError #{m} #{error.exception}"
                         plan.add_error(PermanentTaskError.new(m, error.exception))
                     end
 
