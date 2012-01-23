@@ -1154,9 +1154,22 @@ module Roby
             for e in unhandled_additional_errors
                 fatal_errors << [e]
             end
-            fatal_errors.delete_if do |e, _|
-                !e.fatal?
+
+            nonfatal = []
+            fatal_errors.delete_if do |e, tasks|
+                if !e.fatal?
+                    nonfatal << [e, tasks]
+                end
             end
+
+            # Warn about the nonfatal exception, and log them
+            if !nonfatal.empty?
+                ExecutionEngine.warn "unhandled #{nonfatal.size} non-fatal exceptions"
+                nonfatal.each do |e, tasks|
+                    nonfatal_exception(e, tasks)
+                end
+            end
+
             fatal_errors
         end
         
@@ -1217,6 +1230,14 @@ module Roby
 
         ensure
             @application_exceptions = nil
+        end
+
+        # Hook called when an unhandled nonfatal exception has been found
+        def nonfatal_exception(error, tasks)
+            super if defined? super
+            Roby.format_exception(error.exception).each do |line|
+                ExecutionEngine.warn line
+            end
         end
 
         # Hook called when a set of tasks is being killed because of an exception

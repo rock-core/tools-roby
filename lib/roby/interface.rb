@@ -463,6 +463,13 @@ help                              | this help message                           
 		end
 	    end
 
+            # Pushes information about a nonhandled, non-fatal exception on all
+            # remote interfaces connected to us
+            def nonfatal_exception(error, task)
+		super if defined? super
+		push_exception_message("non-fatal exception", error, [task])
+            end
+
             # Pushes an exception information on all remote interfaces connected to us
 	    def handled_exception(error, task)
 		super if defined? super
