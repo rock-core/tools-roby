@@ -171,12 +171,17 @@ module Roby::Log
     Roby::EventGenerator.include EventGeneratorHooks
 
     module ExecutionHooks
-	HOOKS = %w{cycle_end fatal_exception handled_exception}
+	HOOKS = %w{cycle_end fatal_exception handled_exception nonfatal_exception}
 
 	def cycle_end(timings)
 	    super if defined? super
 	    Roby::Log.log(:cycle_end) { [timings] }
 	end
+
+        def nonfatal_exception(error, tasks)
+            super if defined? super
+	    Roby::Log.log(:nonfatal_exception) { [error.exception, tasks] }
+        end
 
         def fatal_exception(error, tasks)
             super if defined? super

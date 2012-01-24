@@ -87,6 +87,7 @@ module Roby
                 ev.clear_relations
             end
             for rel in task.sorted_relations
+                next if rel == Roby::TaskStructure::ExecutionAgent
                 for child in task.child_objects(rel).to_a
                     task.remove_child_object(child, rel)
                 end
@@ -139,7 +140,6 @@ module Roby
                 error.trace.
                     find_all { |t| plan.permanent?(t) && t != error.origin }.
                     each do |m|
-                        puts "adding PermanentTaskError #{m} #{error.exception}"
                         plan.add_error(PermanentTaskError.new(m, error.exception))
                     end
 
