@@ -334,7 +334,7 @@ module Roby
 	    elsif name =~ /(.+)\?$/
 		# Test
 		name = $1
-		respond_to?(name) && send(name)
+		respond_to?(name) && @members[name] && send(name)
 
             elsif args.empty? # getter
 		attach
