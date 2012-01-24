@@ -443,7 +443,7 @@ help                              | this help message                           
 		Roby.synchronize do
                     msg = []
                     exception = Roby.format_exception(error.exception)
-                    exception[0] = "Exception #{self.current_exception_id += 1}: #{exception[0]}"
+                    exception[0] = "#{name} #{self.current_exception_id += 1}: #{exception[0]}"
                     msg.concat(exception)
 		    msg << "The following tasks have been killed:"
 
