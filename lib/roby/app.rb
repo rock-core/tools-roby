@@ -744,6 +744,20 @@ module Roby
 	    setup_loggers
         end
 
+        def base_setup
+	    STDOUT.sync = true
+
+	    reset
+            require 'roby/planning'
+            require 'roby/interface'
+	    load_base_config
+
+            setup_global_singletons
+
+	    # Set up the loaded plugins
+	    call_plugins(:base_setup, self)
+        end
+
         # Does basic setup of the Roby environment. It loads configuration files
         # and sets up singleton objects.
         #
@@ -755,12 +769,7 @@ module Roby
         #
         # The #cleanup method is the reverse of #setup
 	def setup
-	    STDOUT.sync = true
-
-	    reset
-            require 'roby/planning'
-            require 'roby/interface'
-	    load_base_config
+            base_setup
 
 	    # Set up the loaded plugins
 	    call_plugins(:setup, self)
@@ -783,10 +792,7 @@ module Roby
 		end
 	    end
 
-            setup_global_singletons
-            if !shell?
-                setup_shell_interface
-            end
+            setup_shell_interface
 
         rescue Exception => e
             cleanup

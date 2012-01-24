@@ -20,7 +20,7 @@ robot_name = ARGV.shift
 app.robot robot_name, (ARGV.shift || robot_name)
 app.log_update_current = false
 error = Roby.display_exception do
-    app.setup
+    app.base_setup
 
     remote_url ||= app.droby['host']
     remote_url ||= 'localhost'
