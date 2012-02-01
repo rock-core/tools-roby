@@ -29,7 +29,7 @@ module Roby
         attr_reader :plan
         # The decision control component used by the tests
         attr_reader :control
-        def engine; plan.engine end
+        def engine; plan.engine if plan end
 
         def execute(&block)
             engine.execute(&block)
@@ -143,6 +143,7 @@ module Roby
 
 
 	def teardown_plan
+            return if !engine
             engine.at_cycle_end_handlers.delete(Test.method(:verify_watched_events))
             engine.finalizers.delete(Test.method(:finalize_watched_events))
 
