@@ -659,7 +659,9 @@ module Roby
                     end
                 end
 
-	    Roby::Conf.datadirs = find_dirs('data', 'ROBOT', :all => true, :order => :specific_first)
+            if defined? Roby::Conf
+                Roby::Conf.datadirs = find_dirs('data', 'ROBOT', :all => true, :order => :specific_first)
+            end
 	end
 
         # Transforms +path+ into a path relative to an entry in +search_path+
