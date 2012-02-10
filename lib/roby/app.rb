@@ -1273,6 +1273,17 @@ module Roby
             find_files(*args).first
         end
 
+        # Identical to #find_files, but with the :all option always set to
+        # false, and returning a single value or nil
+        def find_dir(*args)
+            if !args.last.kind_of?(Hash)
+                args.push(Hash.new)
+            end
+            args.last.delete('all')
+            args.last.merge!(:all => true)
+            find_dirs(*args).first
+        end
+
 	attr_predicate :simulation?, true
 	def simulation; self.simulation = true end
 
