@@ -1236,7 +1236,7 @@ module Roby
 
                 robot_type_matches = []
                 if robot_name != robot_type
-                    args = file_path + [options.merge(:pattern => filename.gsub('ROBOT', robot_name))]
+                    args = file_path + [options.merge(:pattern => filename.gsub('ROBOT', robot_type))]
                     robot_type_matches = find_files_in_dirs(*args)
                 end
 
