@@ -1106,6 +1106,10 @@ module Roby
 	# The task arguments as symbol => value associative container
 	attr_reader :arguments
 
+        # Used in plan management as a way to extract a plan object from any
+        # object
+        def as_plan; self end
+
 	# The part of +arguments+ that is meaningful for this task model. I.e.
         # it returns the set of elements in the +arguments+ property that define
         # arguments listed in the task model
