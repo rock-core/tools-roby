@@ -646,10 +646,10 @@ module Roby
 	def setup_dirs
             if !File.directory?(log_dir)
                 FileUtils.mkdir_p(log_dir)
-                if log_update_current?
-                    FileUtils.rm_f File.join(log_base_dir, "current")
-                    FileUtils.ln_s log_dir, File.join(log_base_dir, 'current')
-                end
+            end
+            if log_update_current?
+                FileUtils.rm_f File.join(log_base_dir, "current")
+                FileUtils.ln_s log_dir, File.join(log_base_dir, 'current')
             end
 
             find_dirs('lib', 'ROBOT', :all => true, :order => :specific_last).
