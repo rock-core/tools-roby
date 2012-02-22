@@ -12,7 +12,7 @@
 #include <queue>
 #include <functional>
 
-#include "reverse_graph_bug_boost148_workaround.cc"
+#include "reverse_graph_bug_boost148_workaround.inl"
 
 typedef RubyGraph::vertex_iterator	vertex_iterator;
 typedef RubyGraph::vertex_descriptor	vertex_descriptor;
