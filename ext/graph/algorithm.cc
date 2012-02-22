@@ -12,6 +12,8 @@
 #include <queue>
 #include <functional>
 
+#include "reverse_graph_bug_boost148_workaround.cc"
+
 typedef RubyGraph::vertex_iterator	vertex_iterator;
 typedef RubyGraph::vertex_descriptor	vertex_descriptor;
 typedef RubyGraph::edge_iterator	edge_iterator;
@@ -403,7 +405,7 @@ struct ruby_dfs_visitor : public default_dfs_visitor
 
 	VALUE rb_source = graph[source(e, graph)];
 	VALUE rb_target = graph[target(e, graph)];
-	VALUE info = graph[e].info;
+	VALUE info = graph[reverse_graph_bug_boost148_workaround::edge_access<E>::get(e)].info;
 	rb_yield_values(4, rb_source, rb_target, info, INT2FIX(what));
     }
 };
@@ -577,7 +579,7 @@ struct ruby_bfs_visitor : public default_bfs_visitor
 
 	VALUE source_vertex = graph[source(e, graph)];
 	VALUE target_vertex = graph[target(e, graph)];
-	VALUE info = graph[e].info;
+	VALUE info = graph[reverse_graph_bug_boost148_workaround::edge_access<E>::get(e)].info;
 	rb_yield_values(4, source_vertex, target_vertex, info, INT2FIX(what));
     }
 };
