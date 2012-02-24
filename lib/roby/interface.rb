@@ -133,7 +133,8 @@ module Roby
             remote_models.each do |klass|
                 klass = klass.proxy(nil)
 
-                if klass.respond_to?(:remote_name) && klass.remote_name
+                ## The empty? test is a workaround. See ticket#113
+                if klass.respond_to?(:remote_name) && klass.remote_name && !klass.remote_name.empty?
                     # This is a local proxy for a remote model. Add it in our
                     # namespace as well.
                     path  = klass.remote_name.split '::'
