@@ -51,6 +51,14 @@ module Roby
             failure_point.pretty_print(pp)
         end
 
+        def pp_failure_reason(pp, reason)
+            reason.pretty_print(pp)
+            if reason.context.first.kind_of?(Exception)
+                pp.breakable
+                pp_exception(pp, reason.context[0])
+            end
+        end
+
         def pp_exception(pp, e)
             if e.respond_to?(:pretty_print)
                 e.pretty_print(pp)
