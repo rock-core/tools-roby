@@ -1808,5 +1808,23 @@ class TC_Task < Test::Unit::TestCase
             plan.remove_object(new)
         end
     end
+
+    def test_plain_all_and_root_sources
+        source, target = prepare_plan :add => 2, :model => Roby::Tasks::Simple
+        source.stop_event.forward_to target.aborted_event
+
+        source.start!
+        target.start!
+        source.stop!
+        event = target.stop_event.last
+
+        assert_equal [target.failed_event].map(&:last).to_value_set, event.sources.to_value_set
+        assert_equal [source.failed_event, source.stop_event, target.aborted_event, target.failed_event].map(&:last).to_value_set, event.all_sources.to_value_set
+        assert_equal [source.failed_event].map(&:last).to_value_set, event.root_sources.to_value_set
+
+        assert_equal [target.failed_event].map(&:last).to_value_set, event.task_sources.to_value_set
+        assert_equal [target.aborted_event, target.failed_event].map(&:last).to_value_set, event.all_task_sources.to_value_set
+        assert_equal [target.aborted_event].map(&:last).to_value_set, event.root_task_sources.to_value_set
+    end
 end
 

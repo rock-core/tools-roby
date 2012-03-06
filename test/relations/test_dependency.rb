@@ -172,7 +172,7 @@ class TC_RealizedBy < Test::Unit::TestCase
             :failure => [:stop]
 
         child.stop!
-	assert_child_failed(child, child.event(:stop).last, plan)
+	assert_child_failed(child, child.failed_event.last, plan)
         plan.clear
     end
 
@@ -194,7 +194,7 @@ class TC_RealizedBy < Test::Unit::TestCase
             mock.should_receive(:decision_control_called).once
 
             child.stop!
-            assert_child_failed(child, child.stop_event.last, plan)
+            assert_child_failed(child, child.failed_event.last, plan)
         end
     end
 

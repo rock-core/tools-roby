@@ -646,6 +646,13 @@ module Roby
                         else
                             base_event
                         end
+                    elsif base_event.respond_to?(:root_task_sources)
+                        sources = base_event.root_task_sources
+                        if sources.size == 1
+                            sources.first
+                        else
+                            base_event
+                        end
                     else
                         base_event
                     end

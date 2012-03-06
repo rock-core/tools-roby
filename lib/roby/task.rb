@@ -200,6 +200,13 @@ module Roby
             result
         end
 
+        def root_task_sources
+            all = all_task_sources
+            all.find_all do |event|
+                all.none? { |ev| ev.generator.child_object?(event.generator, Roby::EventStructure::Forwarding) }
+            end
+        end
+
 	def to_s # :nodoc:
 	    result = "[#{Roby.format_time(time)} @#{propagation_id}] #{task}/#{symbol}"
             if context

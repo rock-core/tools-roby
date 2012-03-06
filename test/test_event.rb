@@ -1057,5 +1057,22 @@ class TC_Event < Test::Unit::TestCase
         target.emit
         assert_equal [source.last], target.last.sources.to_a
     end
+
+    def test_plain_all_and_root_sources
+        plan.add(root = Roby::EventGenerator.new(true))
+        plan.add(i1 = Roby::EventGenerator.new)
+        plan.add(i2 = Roby::EventGenerator.new)
+        plan.add(target = Roby::EventGenerator.new)
+        root.forward_to i1
+        root.forward_to i2
+        i1.forward_to target
+        i2.forward_to target
+
+        root.emit
+        event = target.last
+        assert_equal [i1.last, i2.last].to_value_set, event.sources.to_value_set
+        assert_equal [root.last, i1.last, i2.last].to_value_set, event.all_sources.to_value_set
+        assert_equal [root.last].to_value_set, event.root_sources.to_value_set
+    end
 end
 

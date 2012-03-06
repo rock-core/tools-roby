@@ -69,6 +69,13 @@ module Roby
             end
         end
 
+        def root_sources
+            all = all_sources
+            all.find_all do |event|
+                all.none? { |ev| ev.generator.child_object?(event.generator, Roby::EventStructure::Forwarding) }
+            end
+        end
+
 	# To be used in the event generators ::new methods, when we need to reemit
 	# an event while changing its 
 	def reemit(new_id, new_context = nil)
