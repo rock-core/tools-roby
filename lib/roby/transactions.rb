@@ -283,6 +283,7 @@ module Roby
 
 	def add_mission(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+            t = t.as_plan
 	    if proxy = self[t, false]
 		discarded_tasks.delete(may_unwrap(proxy))
 	    end
@@ -290,6 +291,7 @@ module Roby
 	end
 	def add_permanent(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+            t = t.as_plan
 	    if proxy = self[t, false]
 		auto_tasks.delete(may_unwrap(proxy))
 	    end
@@ -303,6 +305,7 @@ module Roby
 
 	def unmark_permanent(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+            t = t.as_plan
 	    if proxy = self[t, false]
 		super(proxy)
 	    end
@@ -315,6 +318,7 @@ module Roby
 
 	def unmark_mission(t)
 	    raise "transaction #{self} has been either committed or discarded. No modification allowed" if freezed?
+            t = t.as_plan
 	    if proxy = self[t, false]
 		super(proxy)
 	    end

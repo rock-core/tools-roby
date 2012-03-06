@@ -3,6 +3,8 @@ app = Roby.app
 
 robot_name = ARGV.shift
 app.robot robot_name, (ARGV.shift || robot_name)
+app.public_shell_interface = true
+app.public_logs = true
 Roby.display_exception do
     app.setup
     app.run do

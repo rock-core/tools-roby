@@ -72,11 +72,7 @@ module Roby
 
             failed_task.pretty_print(pp)
             pp.text " failed with "
-            failed_task.failure_reason.pretty_print(pp)
-            pp.breakable
-            if failed_task.failure_reason.kind_of?(Exception)
-                pp_exception(pp, failed_task.failure_reason)
-            end
+            pp_failure_reason(pp, failed_task.failure_reason)
         end
     end
 end

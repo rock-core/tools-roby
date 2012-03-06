@@ -2,7 +2,11 @@ require 'highline'
 
 class Exception
     def pretty_print(pp)
-        pp.text "#{message} (#{self.class.name})"
+        if backtrace && !backtrace.empty?
+            pp.text "#{backtrace[0]}: #{message} (#{self.class.name})"
+        else
+            pp.text "#{message} (#{self.class.name})"
+        end
     end
     
     # True if +obj+ is involved in this error

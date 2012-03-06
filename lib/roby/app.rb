@@ -287,20 +287,6 @@ module Roby
 
         overridable_configuration 'log', 'server', :predicate => true, :attr_name => 'log_server'
 
-        ##
-        # :method: log_update_current?
-        #
-        # If true, the logs/current symbolic link will be updated to point to
-        # the log file of the currently running Roby application. Otherwise, it
-        # is left as it is.
-        #
-        # Set it with
-        #   
-        #   Roby.app.log_update_current = false
-        #
-
-        attr_predicate :log_update_current?, true
-
         DEFAULT_OPTIONS = {
 	    'log' => Hash['events' => true, 'levels' => Hash.new, 'filter_backtraces' => true],
 	    'discovery' => Hash.new,
@@ -321,7 +307,6 @@ module Roby
 
 	    @plugin_dirs = []
             @planners    = []
-            @log_update_current = true
 	end
 
 	# Adds +dir+ in the list of directories searched for plugins
@@ -647,7 +632,7 @@ module Roby
             if !File.directory?(log_dir)
                 FileUtils.mkdir_p(log_dir)
             end
-            if log_update_current?
+            if public_logs?
                 FileUtils.rm_f File.join(log_base_dir, "current")
                 FileUtils.ln_s log_dir, File.join(log_base_dir, 'current')
             end
@@ -794,7 +779,11 @@ module Roby
 		end
 	    end
 
-            setup_shell_interface
+            if public_shell_interface?
+                setup_shell_interface
+            else
+                DRb.start_service
+            end
 
         rescue Exception => e
             cleanup
@@ -854,7 +843,7 @@ module Roby
         end
 
         # Tears down the shell interface started in #setup_shell_interface
-        def stop_shell_interface
+        def stop_drb_service
             begin
                 DRb.current_server
                 DRb.stop_service
@@ -867,7 +856,7 @@ module Roby
             log_save_time_tag
 
             if !single? && discovery.empty?
-                Application.info "dRoby disabled as no dicovery configuration has been provided"
+                Application.info "dRoby disabled as no discovery configuration has been provided"
 	    elsif !single? && robot_name
 		droby_config = { :ring_discovery => !!discovery['ring'],
 		    :name => robot_name, 
@@ -890,7 +879,7 @@ module Roby
 	    @robot_name ||= 'common'
 	    @robot_type ||= 'common'
 
-	    if log['events']
+	    if log['events'] && public_logs?
 		require 'roby/log/file'
 		logfile = File.join(log_dir, robot_name)
 		logger  = Roby::Log::FileLogger.new(logfile, :plugins => plugins.map { |n, _| n })
@@ -961,9 +950,8 @@ module Roby
         # The inverse of #setup. It gets called either at the end of #run or at
         # the end of #setup if there is an error during loading
         def cleanup
-            DRb.stop_service
             stop_log_server
-            stop_shell_interface
+            stop_drb_service
             call_plugins(:cleanup, self)
         end
 
@@ -1285,6 +1273,21 @@ module Roby
             args.last.merge!(:all => true)
             find_dirs(*args).first
         end
+
+        # If set to true, this Roby application will publish a public shell
+        # interface. Otherwise, no shell interface is going to be published at
+        # all
+        #
+        # Only the run modes have a public shell interface
+        attr_predicate :public_shell_interface?, true
+
+        # If set to true, this Roby application will make its logs public, i.e.
+        # will save the logs in logs/ and update the logs/current symbolic link
+        # accordingly. Otherwise, the logs are saved in a temporary folder in
+        # logs/ and current is not updated
+        #
+        # Only the run modes have public logs by default
+        attr_predicate :public_logs?, true
 
 	attr_predicate :simulation?, true
 	def simulation; self.simulation = true end
