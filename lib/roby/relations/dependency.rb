@@ -662,6 +662,9 @@ module Roby
 
 	    @parent   = parent
 	    @relation = parent[child, TaskStructure::Dependency]
+            if @relation
+                @relation = @relation.dup
+            end
 	end
 
 	def pretty_print(pp) # :nodoc:
