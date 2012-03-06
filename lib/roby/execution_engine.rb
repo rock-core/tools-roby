@@ -924,13 +924,18 @@ module Roby
         # relation, the tasks are the affected parents).
         def remove_inhibited_exceptions(exceptions)
             exceptions.find_all do |e, _|
-                error = e.exception
-                if !error.respond_to?(:failed_event) ||
-                    !(failure_point = error.failed_event)
-                    true
-                else
-                    plan.repairs_for(failure_point).empty?
-                end
+                !inhibited_exception?(e)
+            end
+        end
+        
+        def inhibited_exception?(e)
+            error = e.exception
+            if !error.respond_to?(:failed_event) ||
+                !(failed_event = error.failed_event) ||
+                !(failed_generator = error.failed_generator)
+                false
+            else
+                !plan.repairs_for(failed_event).empty?
             end
         end
 
@@ -954,8 +959,6 @@ module Roby
             # as it is possible that some actions have been scheduled for the
             # beginning of the next cycle through #once
             finished_repairs = remove_useless_repairs
-            # Remove remove exceptions for which a repair exists
-            exceptions = remove_inhibited_exceptions(exceptions)
 
             # Install new repairs based on the HandledBy task relation. If a repair
             # is installed, remove the exception from the set of errors to handle
@@ -964,6 +967,7 @@ module Roby
                 error = e.exception
                 next unless (failed_event = error.failed_event)
                 next unless (failed_task = error.failed_task)
+                next(true) if inhibited_exception?(e)
                 next if finished_repairs.has_key?(failed_event)
 
                 failed_generator = error.failed_generator
