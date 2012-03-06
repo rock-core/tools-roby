@@ -1758,13 +1758,13 @@ module Roby
 	    end
 
             if finished? && !event.terminal?
-                raise EmissionFailed.new(nil, self),
+                raise EmissionFailed.new(nil, event),
 		    "emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{event(:stop).history.first.sources}."
             elsif pending? && event.symbol != :start
-                raise EmissionFailed.new(nil, self),
+                raise EmissionFailed.new(nil, event),
 		    "emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task has never been started"
             elsif running? && event.symbol == :start
-                raise EmissionFailed.new(nil, self),
+                raise EmissionFailed.new(nil, event),
 		    "emit(#{event.symbol}, #{context}) called by #{plan.engine.propagation_sources.to_a} but the task is already running. Task has been started by #{event(:start).history.first.sources}."
             end
 
