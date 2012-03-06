@@ -181,6 +181,13 @@ module Roby
     # Raised when the emission of an event has failed.
     # See EventGenerator#emit_failed.
     class EmissionFailed < CodeError
+        def initialize(*args, &block)
+            super
+            if !failed_generator
+                raise ArgumentError, "creating an EmissionFailed error without a generator"
+            end
+        end
+
 	def pretty_print(pp) # :nodoc:
             pp.text "failed emission of the "
             failed_generator.pretty_print(pp)
