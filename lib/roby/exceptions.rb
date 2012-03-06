@@ -316,7 +316,12 @@ module Roby
     end
 
 
-    def self.display_exception(io = STDOUT, e = nil)
+    def self.display_exception(io = STDOUT, e = nil, filter_backtraces = nil)
+        if !filter_backtraces.nil?
+            old_filter_backtraces = Roby.app.filter_backtraces?
+            Roby.app.filter_backtraces = filter_backtraces
+        end
+
         if !block_given?
             if !e
                 raise ArgumentError, "expected an exception object as no block was given"
@@ -331,6 +336,11 @@ module Roby
     rescue Exception => e
         do_display_exception(io, e)
         e
+
+    ensure
+        if !filter_backtraces.nil?
+            Roby.app.filter_backtraces = old_filter_backtraces
+        end
     end
 end
 
