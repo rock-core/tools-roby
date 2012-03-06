@@ -12,3 +12,5 @@ doc/cache
 
 pkg/
 
+test/logs
+test/relations/logs
