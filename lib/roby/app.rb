@@ -3,6 +3,7 @@ require 'roby/robot'
 require 'singleton'
 require 'utilrb/hash'
 require 'utilrb/module/attr_predicate'
+require 'yaml'
 
 module Roby
     # Regular expression that matches backtrace paths that are within the
