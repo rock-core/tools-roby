@@ -1,9 +1,16 @@
+require 'roby/support'
 require 'roby/robot'
-require 'roby/interface'
 require 'singleton'
 require 'utilrb/hash'
+require 'utilrb/module/attr_predicate'
 
 module Roby
+    # Regular expression that matches backtrace paths that are within the
+    # Roby framework
+    RX_IN_FRAMEWORK = /^((?:\s*\(druby:\/\/.+\)\s*)?#{Regexp.quote(ROBY_LIB_DIR)}\/)|^\(eval\)|^\/usr\/lib\/ruby/
+    # Regular expression that matches backtrace paths that are require lines
+    RX_REQUIRE = /in `(gem_original_)?require'$/
+
     # There is one and only one Application object, which holds mainly the
     # system-wide configuration and takes care of file loading and system-wide
     # setup (#setup). A Roby application can be started in multiple modes. The
@@ -399,9 +406,25 @@ module Roby
         def using_plugins(*names)
             using(*names)
         end
+        
+        def register_plugins
+            # Load the plugins 'main' files
+            plugin_dir File.join(ROBY_ROOT_DIR, 'plugins')
+            if plugin_path = ENV['ROBY_PLUGIN_PATH']
+                plugin_path.split(':').each do |dir|
+                    if File.directory?(dir)
+                        plugin_dir File.expand_path(dir)
+                    end
+                end
+            end
+        end
 
 	# Loads the plugins whose name are listed in +names+
 	def using(*names)
+            if available_plugins.empty?
+                register_plugins
+            end
+
 	    names.map do |name|
 		name = name.to_s
 		unless plugin = plugin_definition(name)
@@ -1390,16 +1413,6 @@ module Roby
         # not afterwards. It is also possible to set per-engine through
         # ExecutionEngine#scheduler=
         attr_accessor :scheduler
-    end
-
-    # Load the plugins 'main' files
-    Roby.app.plugin_dir File.join(ROBY_ROOT_DIR, 'plugins')
-    if plugin_path = ENV['ROBY_PLUGIN_PATH']
-	plugin_path.split(':').each do |dir|
-	    if File.directory?(dir)
-		Roby.app.plugin_dir File.expand_path(dir)
-	    end
-	end
     end
 end
 

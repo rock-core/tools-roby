@@ -1,3 +1,5 @@
+require 'utilrb/logger'
+
 module Robot
     class << self
 	attr_accessor :logger

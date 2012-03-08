@@ -1,3 +1,4 @@
+require 'thread'
 require 'roby/config'
 require 'facets/string/camelcase'
 require 'facets/string/snakecase'
