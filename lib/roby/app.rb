@@ -601,10 +601,6 @@ module Roby
 	    full_path = File.expand_path(File.join(dirname, basename), base_dir)
 	    base_dir  = File.dirname(full_path)
 
-	    unless File.exists?(base_dir)
-		FileUtils.mkdir_p(base_dir)
-	    end
-
 	    final_path, i = full_path, 0
 	    while File.exists?(final_path)
 		i += 1
