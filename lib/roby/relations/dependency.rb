@@ -323,6 +323,7 @@ module Roby::TaskStructure
                     for ev in events
                         ev.if_unreachable { Dependency.interesting_events << ev }
                     end
+                    Roby::EventGenerator.gather_events(Dependency.interesting_events, [event(:start)])
                     Roby::EventGenerator.gather_events(Dependency.interesting_events, events)
                 end
 
@@ -541,10 +542,18 @@ module Roby::TaskStructure
 	# set is cleared at cycle end (see below)
         tasks, @failing_tasks = failing_tasks, ValueSet.new
 	events.each do |event|
-            if event.respond_to?(:generator)
-                tasks << event.generator.task
-            else
-                tasks << event.task
+            task =
+                if event.respond_to?(:generator)
+                    event.generator.task
+                else
+                    event.task
+                end
+            tasks << task
+
+            if event.symbol == :start # also add the children
+                task.each_child do |child_task, _|
+                    tasks << child_task
+                end
             end
         end
 

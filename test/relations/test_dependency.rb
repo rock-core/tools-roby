@@ -508,5 +508,15 @@ class TC_RealizedBy < Test::Unit::TestCase
         assert_kind_of model, child
         assert_equal 10, child.arguments[:id]
     end
+
+    def test_child_fails_before_parent_starts
+        parent, child = prepare_plan :add => 2, :model => Tasks::Simple
+        parent.depends_on(child, :consider_in_pending => false)
+        child.start!
+        child.stop!
+        assert(plan.check_structure.empty?) # no failure yet
+        parent.start!
+        assert_child_failed(child, child.failed_event.last, plan)
+    end
 end
 
