@@ -241,7 +241,7 @@ module Roby
                 robot_name, robot_type = name.split(',')
                 Scripts.robot_name = robot_name
                 Scripts.robot_type = robot_type
-                Roby.app.robot(name, robot_type||robot_name)
+                Roby.app.robot(robot_name, robot_type||robot_name)
             end
             parser.on_tail('-h', '--help', 'this help message') do
                 STDERR.puts parser
