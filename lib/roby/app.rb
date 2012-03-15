@@ -802,7 +802,7 @@ module Roby
             if public_shell_interface?
                 setup_shell_interface
             else
-                DRb.start_service
+                DRb.start_service "druby://localhost:0"
             end
 
         rescue Exception => e
