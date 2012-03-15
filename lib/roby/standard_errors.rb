@@ -115,9 +115,29 @@ module Roby
     # Raised when an error occurs on a task while we were terminating it
     class TaskEmergencyTermination < LocalizedError
         attr_reader :reason
-        def initialize(task, reason)
+        def quarantined?
+            !!@quarantined
+        end
+        def initialize(task, reason, quarantined = false)
             @reason = reason
+            @quarantined = quarantined
             super(task)
+        end
+
+        def pretty_print(pp)
+            pp.text "The following task is being terminated because of an internal error"
+            pp.breakable
+            if quarantined?
+                pp.text "It has been put under quarantine"
+            else
+                pp.text "It is not yet put under quarantine"
+            end
+            pp.breakable
+
+            super
+
+            pp.breakable
+            reason.pretty_print(pp)
         end
     end
 

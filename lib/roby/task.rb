@@ -332,7 +332,7 @@ module Roby
                         # In this case, we can't "just" stop the task. We have
                         # to inject +error+ in the exception handling and kill
                         # everything that depends on it.
-                        plan.engine.add_error(TaskEmergencyTermination.new(task, error))
+                        plan.engine.add_error(TaskEmergencyTermination.new(task, error, false))
                     end
                 else
                     # No nice way to isolate this error through the task
@@ -349,7 +349,7 @@ module Roby
                     end
 
                     plan.quarantine(task)
-                    plan.engine.add_error(TaskEmergencyTermination.new(task, error))
+                    plan.engine.add_error(TaskEmergencyTermination.new(task, error, true))
                 end
             end
         end
