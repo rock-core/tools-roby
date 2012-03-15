@@ -186,6 +186,7 @@ if do_doc
 
         desc 'regenerate all documentation'
         task 'redocs' do
+            FileUtils.rm_f File.join('doc', 'guide', 'webgen.cache')
             FileUtils.rm_rf File.join('doc', 'html')
             if !system('rake', 'doc:all')
                 raise "failed to regenerate documentation"
