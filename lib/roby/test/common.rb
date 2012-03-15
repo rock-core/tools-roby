@@ -74,6 +74,8 @@ module Roby
 	end
 
 	def setup
+            @timings = Hash.new
+
             super if defined? super
 
 	    @console_logger ||= false
@@ -87,7 +89,7 @@ module Roby
 	    end
 
 	    @original_roby_logger_level = Roby.logger.level
-	    @timings = { :start => Time.now }
+	    @timings[:start] = Time.now
 
 	    @original_collections = []
 	    Thread.abort_on_exception = false
