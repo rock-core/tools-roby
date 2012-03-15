@@ -552,11 +552,10 @@ module Roby
         # This method is inserted in the control thread to implement
         # Assertions#assert_events
         def self.verify_watched_events
-            watched_events.delete_if do |thread, cv, positive, negative, deadline|
+            watched_events.delete_if do |result_queue, positive, negative, deadline|
                 error, result = Test.event_watch_result(positive, negative, deadline)
                 if !error.nil?
-                    thread[EVENT_WATCH_TLS] = [error, result]
-                    cv.broadcast
+                    result_queue.push([error, result])
                     true
                 end
             end
@@ -564,9 +563,6 @@ module Roby
 
         def self.finalize_watched_events
             verify_watched_events
-            watched_events.dup.each do |thread, *_|
-                thread.raise ControlQuitError
-            end
         end
 
 	module Assertions
@@ -585,7 +581,7 @@ module Roby
 	    #	    task.start!
 	    #	end
 	    #
-            def assert_event_emission(positive, negative = [], msg = nil, timeout = 5, &block)
+            def assert_event_emission(positive = [], negative = [], msg = nil, timeout = 5, &block)
                 error, result, unreachability_reason = watch_events(positive, negative, timeout, &block)
 
                 if error
@@ -601,41 +597,49 @@ module Roby
             end
 
             def watch_events(positive, negative, timeout, &block)
+                positive = Array[*(positive || [])].to_value_set
+                negative = Array[*(negative || [])].to_value_set
+                if positive.empty? && negative.empty? && !block
+                    raise ArgumentError, "neither a block nor a set of positive or negative events have been given"
+                end
+
 		control_priority do
                     engine.waiting_threads << Thread.current
-		    Roby.condition_variable(false) do |cv|
-			positive = Array[*positive].to_value_set
-			negative = Array[*negative].to_value_set
 
-			unreachability_reason = ValueSet.new
-			Roby.synchronize do
-			    positive.each do |ev|
-				ev.if_unreachable(true) do |reason|
-				    unreachability_reason << [ev, reason]
-				end
-			    end
+                    unreachability_reason = ValueSet.new
+                    result_queue = Queue.new
 
-			    error, result = Test.event_watch_result(positive, negative)
-			    if error.nil?
-				this_thread = Thread.current
-                                engine.once do
-                                    Test.watched_events << [this_thread, cv, positive, negative, Time.now + timeout]
-                                    yield if block_given?
+                    engine.execute do
+                        if positive.empty? && negative.empty?
+                            positive, negative = yield
+                            positive = Array[*(positive || [])].to_value_set
+                            negative = Array[*(negative || [])].to_value_set
+                            if positive.empty? && negative.empty?
+                                raise ArgumentError, "#{block} returned no events to watch"
+                            end
+                        elsif block_given?
+                            yield
+                        end
+
+                        error, result = Test.event_watch_result(positive, negative)
+                        if !error.nil?
+                            result_queue.push([error, result])
+                        else
+                            positive.each do |ev|
+                                ev.if_unreachable(true) do |reason|
+                                    unreachability_reason << [ev, reason]
                                 end
+                            end
+                            Test.watched_events << [result_queue, positive, negative, Time.now + timeout]
+                        end
+                    end
 
-				begin
-                                    while error.nil?
-                                        cv.wait(Roby.global_lock)
-                                        error, result = this_thread[EVENT_WATCH_TLS]
-                                        this_thread[EVENT_WATCH_TLS] = nil
-                                    end
-				ensure
-				    Test.watched_events.delete_if { |thread, _| thread == this_thread }
-				end
-			    end
-                            return error, result, unreachability_reason
-			end
-		    end
+                    begin
+                        error, result = result_queue.pop
+                    ensure
+                        Test.watched_events.delete_if { |_, q, _| q == result_queue }
+                    end
+                    return error, result, unreachability_reason
 		end
             ensure
                 engine.waiting_threads.delete(Thread.current)
@@ -654,7 +658,7 @@ module Roby
 
 
             # DEPRECATED. Use #assert_event_emission instead
-	    def assert_any_event(positive, negative = [], msg = nil, timeout = 5, &block)
+	    def assert_any_event(positive = [], negative = [], msg = nil, timeout = 5, &block)
                 assert_event_emission(positive, negative, msg, timeout, &block)
 	    end
 

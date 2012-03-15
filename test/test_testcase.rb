@@ -15,8 +15,6 @@ class TC_Test_TestCase < Test::Unit::TestCase
                 end
     
     def setup
-        Roby.app.setup_global_singletons
-
         @plan    = Roby.plan
         @control = Roby.control
         @engine  = Roby.engine
@@ -26,15 +24,11 @@ class TC_Test_TestCase < Test::Unit::TestCase
     def test_assert_any_event
 	plan.add(t = Tasks::Simple.new)
 	t.start!
-	assert_nothing_raised do
-	    assert_any_event(t.event(:start))
-	end
+        assert_any_event(t.event(:start))
 
 	t.success!
-	assert_nothing_raised do
-	    assert_any_event(t.event(:start))
-	    assert_any_event([t.event(:success)], [t.event(:stop)])
-	end
+        assert_any_event(t.event(:start))
+        assert_any_event([t.event(:success)], [t.event(:stop)])
 
 	plan.add(t = Tasks::Simple.new)
 	t.start!
@@ -69,6 +63,14 @@ class TC_Test_TestCase < Test::Unit::TestCase
 		t.failed!
 	    end
 	end
+    end
+
+    def test_assert_any_event_events_given_by_block
+        assert_any_event do
+            plan.add(t = Tasks::Simple.new)
+            t.start!
+            t.start_event
+        end
     end
 
     def test_assert_succeeds
