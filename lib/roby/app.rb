@@ -724,6 +724,14 @@ module Roby
             end
         end
 
+        def load_config_yaml
+            if file = find_file('config', 'app.yml', :order => :specific_first)
+                Application.info "loading config file #{file}"
+                file = YAML.load(File.open(file)) || Hash.new
+                load_yaml(file)
+            end
+        end
+
         # Loads the base configuration
         #
         # This method loads the two most basic configuration files:
@@ -735,12 +743,9 @@ module Roby
         def load_base_config
 	    $LOAD_PATH.unshift(app_dir) unless $LOAD_PATH.include?(app_dir)
 
+            load_config_yaml
+
 	    # Get the application-wide configuration
-            if file = find_file('config', 'app.yml', :order => :specific_first)
-                Application.info "loading config file #{file}"
-                file = YAML.load(File.open(file)) || Hash.new
-                load_yaml(file)
-            end
             call_plugins(:load, self, options)
             if initfile = find_file('config', 'init.rb', :order => :specific_first)
                 Application.info "loading init file #{initfile}"
