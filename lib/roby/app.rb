@@ -746,11 +746,11 @@ module Roby
             load_config_yaml
 
 	    # Get the application-wide configuration
-            call_plugins(:load, self, options)
             if initfile = find_file('config', 'init.rb', :order => :specific_first)
                 Application.info "loading init file #{initfile}"
                 require initfile
             end
+            call_plugins(:load, self, options)
 
 	    setup_dirs
 	    setup_loggers
