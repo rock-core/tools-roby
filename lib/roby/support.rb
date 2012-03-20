@@ -65,9 +65,10 @@ class Thread
     end
 end
 
-module DRb
-    # Workaround for 1.9.1 bug
-    if respond_to?(:uri)
+if DRb.respond_to?(:uri)
+    # Workaround issue on new DRb versions. The problem was that some objects
+    # were not properly recognized as being local
+    module DRb
         def self.here?(uri)
             (DRb.uri rescue nil) == uri
         end
