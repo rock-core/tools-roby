@@ -2,13 +2,15 @@
     sort_info: 50
 /basics:
     sort_info: 100
+/plans:
+    sort_info: 125
+/relations:
+    sort_info: 150
 /cycle:
     routed_title: Execution Cycle
     sort_info: 200
 /abstraction:
     sort_info: 300
-/relations:
-    sort_info: 400
 /plugins:
     sort_info: 950
 /plugins/standard_plugins/index.page:
