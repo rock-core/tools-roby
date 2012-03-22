@@ -119,8 +119,8 @@ module TaskStateHelper
         # Thus embed import into refine_running_state and using eval here
         machine.events.each do |e|
 	    # When event is called emit event
-	    self.send(:event, e.name.to_sym) do 
-		send(:emit, e.name.to_sym)
+	    self.send(:event, e.name.to_sym) do |context|
+		send(:emit, e.name.to_sym, context)
 	    end
             
 	    # when event is called transition the state_machine
