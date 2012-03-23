@@ -3,7 +3,7 @@ require 'roby/test/common'
 require 'roby/tasks/simple'
 require 'roby/test/tasks/empty_task'
 require 'roby/tasks/simple'
-require 'flexmock'
+require 'flexmock/test_unit'
 
 class TC_Task < Test::Unit::TestCase 
     include Roby::Test
@@ -724,17 +724,19 @@ class TC_Task < Test::Unit::TestCase
 	end
 	plan.add(task = model.new)
 
-	assert_raises(CommandFailed) { task.inter! }
-	assert_raises(EmissionFailed) { task.emit(:inter) }
-	assert(!task.event(:inter).pending)
-	task.start!
-	assert_raise(CommandFailed) { task.start! }
-	assert_nothing_raised { task.inter! }
-	task.stop!
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(CommandFailed) { task.inter! }
+            assert_raises(EmissionFailed) { task.emit(:inter) }
+            assert(!task.event(:inter).pending)
+            task.start!
+            assert_raise(CommandFailed) { task.start! }
+            assert_nothing_raised { task.inter! }
+            task.stop!
 
-	assert_raises(TaskEventNotExecutable) { task.emit(:inter) }
-	assert_raises(CommandFailed) { task.inter! }
-	assert(!task.event(:inter).pending)
+            assert_raises(TaskEventNotExecutable) { task.emit(:inter) }
+            assert_raises(CommandFailed) { task.inter! }
+            assert(!task.event(:inter).pending)
+        end
 
 	model = Class.new(Tasks::Simple) do
 	    event :start do |context|
@@ -795,6 +797,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_cannot_start_if_not_executable
+        Roby.logger.level = Logger::FATAL
 	model = Class.new(Tasks::Simple) do 
 	    event(:inter, :command => true)
             def executable?; false end
@@ -808,6 +811,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_cannot_leave_pending_if_not_executable
+        Roby.logger.level = Logger::FATAL
         model = Class.new(Tasks::Simple) do
             def executable?; !pending?  end
         end
@@ -868,23 +872,25 @@ class TC_Task < Test::Unit::TestCase
     end
     
     def assert_direct_call_validity_check(substring, check_signaling)
-        error = yield
-	assert_exception_message(TaskEventNotExecutable, substring) { error.start! }
-        error = yield
-	assert_exception_message(TaskEventNotExecutable, substring) {error.event(:start).call(nil)}
-        error = yield
-	assert_exception_message(TaskEventNotExecutable, substring) {error.event(:start).emit(nil)}
-	
-	if check_signaling then
-	    error = yield
-	    assert_exception_message(TaskEventNotExecutable, substring) do
-	       exception_propagator(error, :signals)
-	    end
-	    error = yield
-	    assert_exception_message(TaskEventNotExecutable, substring) do
-	       exception_propagator(error, :forward_to)
-	    end
-	end
+        with_log_level(Roby, Logger::FATAL) do
+            error = yield
+            assert_exception_message(TaskEventNotExecutable, substring) { error.start! }
+            error = yield
+            assert_exception_message(TaskEventNotExecutable, substring) {error.event(:start).call(nil)}
+            error = yield
+            assert_exception_message(TaskEventNotExecutable, substring) {error.event(:start).emit(nil)}
+            
+            if check_signaling then
+                error = yield
+                assert_exception_message(TaskEventNotExecutable, substring) do
+                   exception_propagator(error, :signals)
+                end
+                error = yield
+                assert_exception_message(TaskEventNotExecutable, substring) do
+                   exception_propagator(error, :forward_to)
+                end
+            end
+        end
     end
 
     def assert_failure_reason(task, exception, message = nil)
@@ -1261,6 +1267,7 @@ class TC_Task < Test::Unit::TestCase
             # finished
 	    engine.execute do
 		assert(t.running?, t.terminal_event.to_s)
+                plan.unmark_permanent(t) # avoid error handling
 		t.stop!
 	    end
 	    engine.wait_one_cycle
@@ -1270,6 +1277,8 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_error_in_polling
+        Roby.logger.level = Logger::FATAL
+        Roby::ExecutionEngine.logger.level = Logger::FATAL
 	FlexMock.use do |mock|
 	    mock.should_receive(:polled).once
 	    klass = Class.new(Tasks::Simple) do
@@ -1293,6 +1302,7 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_error_in_polling_with_delayed_stop
+        Roby.logger.level = Logger::FATAL
         t = nil
 	FlexMock.use do |mock|
 	    mock.should_receive(:polled).once
@@ -1332,6 +1342,10 @@ class TC_Task < Test::Unit::TestCase
     end
 
     def test_events_emitted_multiple_times
+        # We generate an error, avoid having a spurious "non-fatal error"
+        # message
+        Roby::ExecutionEngine.make_own_logger(nil, Logger::FATAL)
+
 	FlexMock.use do |mock|
 	    mock.should_receive(:polled).once
 	    mock.should_receive(:emitted).once
