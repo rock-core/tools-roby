@@ -62,7 +62,11 @@ module Roby
             def execute
                 while !@elements.empty?
                     top = @elements.first
-                    if !top.execute
+
+                    block_finished = catch(:retry_block) do
+                        top.execute
+                    end
+                    if !block_finished
                         if @last_description != top.description
                             info "executing #{top}"
                         end
@@ -104,18 +108,18 @@ module Roby
         # Proxy object returned by the *_event methods to allow access to child
         # events
         class Event
-            def initialize(chain, event_name)
-                @chain, @event_name = chain, event_name
+            def initialize(child, event_name)
+                @child, @event_name = child, event_name
             end
 
             # Returns the specified event when applied on +task+
             def resolve(task)
-                task = task.resolve_role_path(@chain)
-                task.event(@event_name)
+                child_task = @child.resolve(task)
+                child_task.event(@event_name)
             end
 
             def to_s
-                @chain.map { |name| "#{name}_child" }.join(".") + ".#{@event_name}_event"
+                @child.to_s + ".#{@event_name}_event"
             end
         end
 
@@ -132,7 +136,7 @@ module Roby
                     when /^(\w+)_child$/
                         return Child.new(@chain.dup << $1)
                     when /^(\w+)_event$/
-                        return Event.new(@chain, $1)
+                        return Event.new(self, $1)
                     end
                 end
                 super
@@ -140,7 +144,14 @@ module Roby
 
             # Returns the specified child when applied on +task+
             def resolve(task)
-                task.resolve_role_path(@chain)
+                @chain.inject(task) do |child, role|
+                    if !(next_child = child.child_from_role(role, false))
+                        if child.abstract? && child.planning_task && !child.planning_task.finished?
+                            throw :retry_block
+                        end
+                    end
+                    next_child
+                end
             end
 
             def to_s
@@ -287,11 +298,11 @@ module Roby
                 with_description "PollUntil(#{event_spec}): #{caller(1).first}" do
                     done = false
                     execute do
+                        event = resolve_event_request(event_spec)
                         if !options.has_key?(:after)
                             options[:after] = self.time_barrier
                         end
 
-                        event = resolve_event_request(event_spec)
                         if options[:after]
                             if event.happened? && event.last.time > options[:after]
                                 done = true

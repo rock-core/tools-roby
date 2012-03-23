@@ -159,6 +159,51 @@ class TC_TaskScripting < Test::Unit::TestCase
         assert_equal 2, counter
     end
 
+    def test_wait_for_child_of_child_event_with_child_being_deployed_later
+        model = Class.new(Roby::Tasks::Simple) do
+            event :intermediate
+        end
+        parent, (child, planning_task) = prepare_plan :missions => 1, :add => 2, :model => model
+        parent.depends_on(child, :role => 'subtask')
+        child.abstract = true
+        child.planned_by(planning_task)
+        planning_task.on :start do
+            child.depends_on(model.new, :role => 'subsubtask')
+            child.abstract = false
+            planning_task.emit :success
+        end
+
+        planning_task.executable = false
+
+        counter = 0
+        parent.script do
+            wait intermediate_event
+            execute { counter += 1 }
+            wait subtask_child.subsubtask_child.intermediate_event
+            execute { counter += 1 }
+        end
+        parent.start!
+
+        3.times { process_events }
+        assert_equal 0, counter
+        parent.emit :intermediate
+        3.times { process_events }
+
+        assert(planning_task.pending?)
+        assert(child.pending?)
+        assert_equal 1, counter
+
+        planning_task.executable = true
+        planning_task.start!
+        3.times { process_events }
+        assert_equal 1, counter
+
+        child.subsubtask_child.start!
+        child.subsubtask_child.emit :intermediate
+        3.times { process_events }
+        assert_equal 2, counter
+    end
+
     def test_wait_for_duration
         task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
 
