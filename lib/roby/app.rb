@@ -306,6 +306,7 @@ module Roby
 	    @plugins = Array.new
 	    @available_plugins = Array.new
             @options = DEFAULT_OPTIONS.dup
+            @created_log_dirs = []
 
 	    @automatic_testing = true
 	    @testing_keep_logs = false
@@ -650,6 +651,11 @@ module Roby
 
 	def setup_dirs
             if !File.directory?(log_dir)
+                dir = log_dir
+                while !File.directory?(dir)
+                    @created_log_dirs << dir
+                    dir = File.dirname(dir)
+                end
                 FileUtils.mkdir_p(log_dir)
             end
             if public_logs?
@@ -975,6 +981,12 @@ module Roby
         # The inverse of #setup. It gets called either at the end of #run or at
         # the end of #setup if there is an error during loading
         def cleanup
+            if !public_logs?
+                @created_log_dirs.each do |dir|
+                    FileUtils.rm_rf dir
+                end
+            end
+
             stop_log_server
             stop_drb_service
             call_plugins(:cleanup, self)

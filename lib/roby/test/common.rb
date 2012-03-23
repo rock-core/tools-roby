@@ -75,6 +75,7 @@ module Roby
 
 	def setup
             @timings = Hash.new
+            Roby.app.public_logs = false
 
             super if defined? super
 
