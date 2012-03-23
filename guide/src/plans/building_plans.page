@@ -31,10 +31,27 @@ method(:move_to) do
   # links between the tasks events, add [polling and scripting](code.html)
   task
 end
-{coderay:: ruby}
+{coderay}
 
 The task returned by the planning method will be used to represent the required
 action.
+
+In general, building plans manually like this gives you the greatest
+flexibility, but also requires you to understand a lot about Roby. The
+recommended way to do this kind of behaviour aggregation is to create a toplevel
+task, such as the MoveTo task above, and define either a task script -- if that
+is enough -- or a task state machine to represent the more complex behaviour:
+
+{coderay:: ruby}
+method(:move_to) do
+  task = MoveTo.new(arguments[:target_point])
+  task.script do
+    # Use the script to define your behaviour. The start(:planning_method_name!)
+    # or start(task_model) instructions allow you to add subtasks
+  end
+  task
+end
+{coderay}
 
 MainPlanner and defining additional planners
 --------------------------------------------
@@ -58,6 +75,15 @@ but could also be done dynamically.
 
 Dynamically querying planning methods
 -------------------------------------
+Once planning methods are defined, they can be accessed through two principal
+means:
 
+__From within the Roby controller__, one can inject a new mission in the plan
+from the planning interface using the Robot singleton object:
 
+{coderay:: ruby}
+Robot.move_to!
+{coderay}
+
+__From the Roby shell__, one does the same by using typing move_to!.
 
