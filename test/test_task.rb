@@ -1532,7 +1532,6 @@ class TC_Task < Test::Unit::TestCase
 	plan.add(task)
 	assert task.executable?
 	task.start!
-	pp task.arguments
 	assert_equal 10, task.arguments['value']
     end
 
