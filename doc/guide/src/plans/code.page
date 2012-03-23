@@ -109,5 +109,5 @@ end
 {coderay}
 
 The commands available in scripts are detailed [in the API
-documentation](../api/Roby/TaskScripting/Script)
+documentation](../../api/Roby/TaskScripting/Script)
 
