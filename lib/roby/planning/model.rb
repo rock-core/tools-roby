@@ -725,28 +725,30 @@ module Roby
 
 		if method_id = method_selection[:id]
 		    method_selection[:id] = method_id = validate_method_id(method_id)
-		    result = send("enum_#{name}_methods", method_id).find { true }
-		    result = if result && result.options.merge(method_selection) == result.options
-				 [result]
-			     end
-		else
-		    result = send("enum_#{name}_methods", nil).collect do |id, m|
-			if m.options.merge(method_selection) == m.options 
-			    m
-			end
-		    end.compact
-		end
+                    candidates = send("enum_#{name}_methods", method_id)
+                else 
+                    candidates = send("enum_#{name}_methods", nil).map { |a, b| b }
+                end
 
-		return nil if !result
+                expected_model = method_selection.delete(:returns)
+                candidates = candidates.find_all do |m|
+                    if m.options.merge(method_selection) == m.options 
+                        if !expected_model || (m.returns && m.returns.fullfills?(expected_model))
+                            m
+                        end
+                    end
+                end
+
+		return nil if candidates.empty?
 
 		filter_method = "enum_#{name}_filters"
 		if respond_to?(filter_method)
 		    # Remove results for which at least one filter returns false
-		    result.reject! { |m| send(filter_method).any? { |f| !f[options, m] } }
+		    candidates.reject! { |m| send(filter_method).any? { |f| !f[options, m] } }
 		end
 
-		if result.empty?; nil
-		else; result
+		if candidates.empty?; nil
+		else; candidates
 		end
             end
 

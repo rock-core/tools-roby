@@ -52,6 +52,27 @@ class TC_Planner < Test::Unit::TestCase
 	assert_raises(Planning::NotFound) { planner.recursive(:recursive => false) }
     end
 
+    def test_find_methods_by_return_value
+        task_t = Class.new(Roby::Task)
+        other_task_t = Class.new(Roby::Task)
+        subtask_t = Class.new(task_t)
+
+        method_model = nil
+        m = []
+        model = Class.new(Planner) do 
+	    method_model = method(:m1)
+	    m << method(:m1) { NullTask.new }
+	    m << method(:m1, :returns => task_t) { NullTask.new }
+	    m << method(:m1, :returns => other_task_t) { NullTask.new }
+	    m << method(:m1, :returns => subtask_t) { NullTask.new }
+        end
+
+        assert_equal(m.to_set, model.find_methods("m1").to_set)
+        assert_equal([m[1], m[3]].to_set, model.find_methods("m1", :returns => task_t).to_set)
+        assert_equal([m[2]], model.find_methods("m1", :returns => other_task_t))
+        assert_equal([m[3]], model.find_methods("m1", :returns => subtask_t))
+    end
+
     def test_reuse
 	task_model = Class.new(Task)
 	derived_model = Class.new(task_model)
