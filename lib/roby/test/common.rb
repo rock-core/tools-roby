@@ -167,6 +167,21 @@ module Roby
 	    Roby.logger.level = old_gc_roby_logger_level
 	end
 
+        def with_log_level(log_object, level)
+            if log_object.respond_to?(:logger)
+                log_object = log_object.logger
+            end
+            current_level = log_object.level
+            log_object.level = level
+
+            yield
+
+        ensure
+            if current_level
+                log_object.level = current_level
+            end
+        end
+
 	def teardown
 	    timings[:quit] = Time.now
 	    teardown_plan

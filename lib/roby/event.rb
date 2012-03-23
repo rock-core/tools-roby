@@ -348,7 +348,7 @@ module Roby
 		    errors = engine.event_propagation_phase(seeds)
                     if !errors.empty?
                         errors.each do |e|
-                            Roby.display_exception(STDOUT, e.exception)
+                            Roby.display_exception(Roby.logger.io(:warn), e.exception)
                         end
                         if errors.size == 1
                             e = errors.first.exception
@@ -737,7 +737,7 @@ module Roby
 		    errors = engine.event_propagation_phase(seeds)
                     if !errors.empty?
                         errors.each do |e|
-                            Roby.display_exception(STDOUT, e.exception)
+                            Roby.display_exception(Roby.logger.io(:warn), e.exception)
                         end
                         if errors.size == 1
                             e = errors.first.exception

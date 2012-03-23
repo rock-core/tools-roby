@@ -54,22 +54,28 @@ class TC_Event < Test::Unit::TestCase
 	plan.add(event = EventGenerator.new(true))
         assert(event.executable?)
 	event.executable = false
-	assert_raises(EventNotExecutable) { event.call(nil) }
-	assert_raises(EventNotExecutable) { event.emit(nil) }
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(EventNotExecutable) { event.call(nil) }
+            assert_raises(EventNotExecutable) { event.emit(nil) }
+        end
 
 	event.executable = true
-	assert_nothing_raised { event.call(nil) }
-	assert_nothing_raised { event.emit(nil) }
+	event.call(nil)
+	event.emit(nil)
 
 	plan.add(other = EventGenerator.new(true))
 	other.executable = false
 	event.signals other
-	assert_raises(EventNotExecutable) { event.call(nil) }
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(EventNotExecutable) { event.call(nil) }
+        end
 
 	event.remove_signal(other)
-	assert_nothing_raised { event.emit(nil) }
+	event.emit(nil)
 	event.forward_to other
-	assert_raises(EventNotExecutable) { event.call(nil) }
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(EventNotExecutable) { event.call(nil) }
+        end
 
 	event.remove_forwarding(other)
 	assert_nothing_raised { event.emit(nil) }
@@ -333,7 +339,9 @@ class TC_Event < Test::Unit::TestCase
 	a.signals b
 	def b.controlable?; false end
 
-	assert_raise(EmissionFailed) { a.call(nil) }
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raise(EmissionFailed) { a.call(nil) }
+        end
     end
 
     def test_and_generator
@@ -613,7 +621,10 @@ class TC_Event < Test::Unit::TestCase
 	    def new(context); [] end
 	end.new(true)
 	plan.add(generator)
-	assert_raises(EmissionFailed) { generator.emit(nil) }
+
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(EmissionFailed) { generator.emit(nil) }
+        end
 
 	generator = Class.new(EventGenerator) do
 	    def new(context); 
@@ -676,7 +687,9 @@ class TC_Event < Test::Unit::TestCase
 	    context
 	end
 
-	assert_raises(EventPreconditionFailed) { e1.call(nil) }
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(EventPreconditionFailed) { e1.call(nil) }
+        end
 	assert_nothing_raised { e1.call(true) }
     end
 
@@ -687,7 +700,9 @@ class TC_Event < Test::Unit::TestCase
 	    end
 	end.new(true)
 	plan.add(e1)
-	assert_raises(EventCanceled) { e1.call(nil) }
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(EventCanceled) { e1.call(nil) }
+        end
     end
 
     def test_related_events
@@ -989,7 +1004,9 @@ class TC_Event < Test::Unit::TestCase
 
             mock.should_receive(:called_other_handler).once
             mock.should_receive(:called_other_once_handler).once
-            assert_raises(EventHandlerError) { ev.call }
+            with_log_level(Roby, Logger::FATAL) do
+                assert_raises(EventHandlerError) { ev.call }
+            end
         end
     end
 
@@ -1002,7 +1019,9 @@ class TC_Event < Test::Unit::TestCase
 
             mock.should_receive(:called_other_handler).once
             mock.should_receive(:called_other_once_handler).once
-            assert_raises(EventHandlerError) { ev.call }
+            with_log_level(Roby, Logger::FATAL) do
+                assert_raises(EventHandlerError) { ev.call }
+            end
         end
     end
 
@@ -1012,10 +1031,12 @@ class TC_Event < Test::Unit::TestCase
                 pending?
             end
         end
-	plan.add(ev = model.new(true))
-        assert_raises(Roby::EventNotExecutable) { ev.call }
-	plan.add(ev = model.new(true))
-        assert_raises(Roby::EventNotExecutable) { ev.emit }
+        with_log_level(Roby, Logger::FATAL) do
+            plan.add(ev = model.new(true))
+            assert_raises(Roby::EventNotExecutable) { ev.call }
+            plan.add(ev = model.new(true))
+            assert_raises(Roby::EventNotExecutable) { ev.emit }
+        end
     end
 
     def test_forward_source_is_event_source
