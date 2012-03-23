@@ -346,15 +346,20 @@ module Roby
 			engine.add_event_propagation(false, engine.propagation_sources, self, (context unless context.empty?), nil)
                     end
 		    errors = engine.event_propagation_phase(seeds)
-		    if errors.size == 1
-			e = errors.first.exception
-			raise e.dup, e.message, e.backtrace
-		    elsif !errors.empty?
-			for e in errors
-			    pp e.exception
-			end
-			raise "multiple exceptions"
-		    end
+                    if !errors.empty?
+                        errors.each do |e|
+                            Roby.display_exception(STDOUT, e.exception)
+                        end
+                        if errors.size == 1
+                            e = errors.first.exception
+                            raise e.dup, e.message, e.backtrace
+                        elsif !errors.empty?
+                            for e in errors
+                                pp e.exception
+                            end
+                            raise "multiple exceptions"
+                        end
+                    end
 		end
 	    end
 	end
@@ -730,15 +735,20 @@ module Roby
 			engine.add_event_propagation(true, engine.propagation_sources, self, (context unless context.empty?), nil)
                     end
 		    errors = engine.event_propagation_phase(seeds)
-		    if errors.size == 1
-			e = errors.first.exception
-			raise e.dup, e.message, e.backtrace
-		    elsif !errors.empty?
-                        for e in errors
-                            pp e.exception
+                    if !errors.empty?
+                        errors.each do |e|
+                            Roby.display_exception(STDOUT, e.exception)
                         end
-			raise "multiple exceptions"
-		    end
+                        if errors.size == 1
+                            e = errors.first.exception
+                            raise e.dup, e.message, e.backtrace
+                        elsif !errors.empty?
+                            for e in errors
+                                pp e.exception
+                            end
+                            raise "multiple exceptions"
+                        end
+                    end
 		end
 	    end
 	end
