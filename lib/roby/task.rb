@@ -886,17 +886,26 @@ module Roby
         # should be passed to as_plan
         def self.with_arguments(arguments = Hash.new)
             if respond_to?(:as_plan)
-
                 AsPlanProxy.new(self, arguments)
             else
                 raise NoMethodError, "#with_arguments is invalid on #self, as #self does not have an #as_plan method"
             end
         end
 
-        # This method is used by the relation addition methods (e.g.
-        # #depends_on) to convert a task model into a subplan that can be run.
+        # Default implementation of the #as_plan method
         #
-        # By default, it simply calls new
+        # The #as_plan method is used to use task models as representation of
+        # abstract actions. For instance, if an #as_plan method is available on
+        # a particular MoveTo task model, one can do
+        #
+        #   root.depends_on(MoveTo)
+        #
+        # This default implementation looks for planning methods declared in the
+        # main Roby application planners that return the required task type or
+        # one of its subclasses. If one is found, it is using it to generate the
+        # action. Otherwise, it falls back to returning a new instance of this
+        # task model, unless the model is abstract in which case it raises
+        # ArgumentError.
         #
         # It can be used with
         #
@@ -911,8 +920,16 @@ module Roby
         #
         #   root = Roby::Task.new
         #   child = root.depends_on(TaskModel.with_arguments(:id => 200))
+        #
         def self.as_plan(arguments = Hash.new)
-            new(arguments)
+            Robot.prepare_action(nil, self, arguments).first
+        rescue ArgumentError
+            if abstract?
+                raise ArgumentError, "#{self} is abstract and no planning method exists that returns it"
+            else
+                Robot.warn "no planning method for #{self}, and #{self} is not abstract. Returning new instance"
+                new(arguments)
+            end
         end
 
         class << self

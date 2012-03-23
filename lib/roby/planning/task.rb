@@ -23,10 +23,10 @@ module Roby
 	    elsif !options[:planning_method]
 		raise ArgumentError, "missing required argument 'planning_method'"
             elsif !method_name
-                if options[:planning_method].kind_of?(Roby::Planning::MethodDefinition)
-                    method_name = options[:method_name] = options[:planning_method].name
+                if options[:planning_method]
+                    options[:method_name] = options[:planning_method].name
                 else
-                    raise ArgumentError, "the planning_method argument is neither a method object nor a name"
+                    raise ArgumentError, "the planning_method argument is neither a method object nor a name: got #{options[:planning_method]}"
                 end
 	    end
             options[:planned_model] ||= nil
@@ -45,7 +45,7 @@ module Roby
 
             task_options = validate_planning_options(task_options)
 	    task_options[:planned_model] ||= 
-                if task_options[:planning_method].kind_of?(Roby::Planning::MethodDefinition)
+                if !task_options[:planning_method].respond_to?(:to_str)
                     task_options[:planning_method].returns
                 elsif task_options[:method_name]
                     task_options[:planner_model].model_of(task_options[:method_name], method_options).returns
@@ -108,10 +108,10 @@ module Roby
         end
 
 	def planning_thread(context)
-	    result_task = if planning_method.kind_of?(Roby::Planning::MethodDefinition)
-                              planner.send(:call_planning_methods, Hash.new, method_options.merge(:context => context), planning_method)
-                          else
+	    result_task = if planning_method.respond_to?(:to_str)
                               planner.send(method_name, method_options.merge(:context => context))
+                          else
+                              planner.send(:call_planning_methods, Hash.new, method_options.merge(:context => context), planning_method)
                           end
 
 	    # Don't replace the planning task with ourselves if the
