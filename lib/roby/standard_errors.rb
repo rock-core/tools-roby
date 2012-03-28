@@ -53,9 +53,12 @@ module Roby
 
         def pp_failure_reason(pp, reason)
             reason.pretty_print(pp)
-            if reason.context.first.kind_of?(Exception)
-                pp.breakable
-                pp_exception(pp, reason.context[0])
+            if reason.respond_to?(:context) && reason.context
+                reason.context.each do |c|
+                    if c.kind_of?(Exception)
+                        pp_exception(pp, c)
+                    end
+                end
             end
         end
 
