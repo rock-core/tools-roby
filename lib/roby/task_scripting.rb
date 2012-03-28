@@ -414,6 +414,55 @@ module Roby
                 end
             end
 
+            @@child_count = 0
+
+            # Adds the specified task or action as a child of this task, and
+            # start it at this point in the script. The script will continue its
+            # execution only when the task is actually started
+            #
+            # The option hash is passed to #depends_on. See the documentation
+            # for the dependency relation for more information. Note that if a
+            # role is not explicitely given to this child, it will get an
+            # automatically generated one
+            #
+            # The child can be specified in the following manner(s):
+            #
+            # * as a string or symbol terminating with an exclamation mark. The
+            #   argument is interpreted as a planning method that will be called
+            #   right away to generate the child
+            # * as a task model. In this case, the #as_plan method gets called
+            #   on it to generate a child. The default Task#as_plan method
+            #   looks for a planning method that returns a task of that type and
+            #   returns it.
+            # * as a task instance, which is simply used.
+            def start(child, options = Hash.new)
+                options, planning_args = Kernel.filter_options options, Roby::TaskStructure::DEPENDENCY_RELATION_ARGUMENTS
+                if options[:roles]
+                    role_id = options[:roles].to_a.first
+                elsif options[:role]
+                    role_id = options[:role]
+                else
+                    role_id = options[:role] = "child#{@@child_count += 1}"
+                end
+
+                trigger_event = nil
+                prepare do
+                    if child.respond_to?(:to_sym) || child.respond_to?(:to_str)
+                        child, _ = Robot.prepare_action(nil, child, planning_args)
+                    end
+
+                    child = depends_on(child, options)
+
+                    trigger_event = Roby::EventGenerator.new(true)
+                    child.should_start_after trigger_event
+                end
+
+                child_proxy = Child.new([role_id])
+                execute { trigger_event.emit }
+                wait(Event.new(child_proxy, :start))
+                child_proxy
+            end
+
             # Implementation of the *_child and *_event handlers
             def method_missing(m, *args, &block)
                 if args.empty? && !block

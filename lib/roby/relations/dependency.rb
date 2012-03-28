@@ -7,6 +7,9 @@ module Roby::TaskStructure
         attr_accessor :fullfilled_model
     end
 
+    DEPENDENCY_RELATION_ARGUMENTS =
+        [:model, :success, :failure, :remove_when_done, :consider_in_pending, :roles, :role]
+
     relation :Dependency, :child_name => :child, :parent_name => :parent_task do
         # When Dependency support is included in a model (for instance
         # Roby::Task), add the model-level classes  

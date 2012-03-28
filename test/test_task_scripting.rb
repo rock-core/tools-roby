@@ -367,6 +367,39 @@ class TC_TaskScripting < Test::Unit::TestCase
         assert !task.done_script2?
     end
 
+    def test_start
+        mock = flexmock
+        mock.should_receive(:child_started).once.with(true)
+
+        model = Class.new(Roby::Tasks::Simple) do
+            event :start_child
+        end
+        child_model = Class.new(Roby::Tasks::Simple)
+
+        engine.run
+
+        task = nil
+        execute do
+            task = prepare_plan :permanent => 1, :model => model
+            task.script do
+                wait start_child_event
+                child_task = start(child_model, :role => "subtask")
+                execute do
+                    mock.child_started(child_task.running?)
+                end
+            end
+            task.start!
+        end
+
+        child = task.subtask_child
+        assert_kind_of(child_model, child)
+        assert(!child.running?)
+
+        assert_event_emission(child.start_event) do
+            task.emit :start_child
+        end
+    end
+
     def test_model_level_script
         engine.scheduler = nil
 
