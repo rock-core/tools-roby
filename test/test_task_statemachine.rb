@@ -120,6 +120,24 @@ class TC_TaskStateMachine < Test::Unit::TestCase
         task.emit :intermediate
         assert_equal 'one', task.state_machine.status
     end
+
+    def test_does_not_override_existing_events
+        model = Class.new(Roby::Task) do
+            terminates
+            event :intermediate
+            refine_running_state do
+                on(:intermediate) { transition :running => :one }
+            end
+        end
+        assert !model.event_model(:intermediate).controlable?
+
+        task = prepare_plan :add => 1, :model => model
+        task.start!
+        assert_equal 'running', task.state_machine.status
+        task.emit :intermediate
+        assert_equal 'one', task.state_machine.status
+    end
+
     def test_inheritance
 	derivedTask = DerivedTask.new
 	assert(derivedTask.state_machine.proxy.respond_to?(:one))
@@ -152,8 +170,10 @@ class TC_TaskStateMachine < Test::Unit::TestCase
             end
 
             refine_running_state do
-                state_poll :running do
-                    mock.one_called
+                state :running do
+                    define_method(:poll) do |task|
+                        mock.one_called
+                    end
                 end
             end
         end

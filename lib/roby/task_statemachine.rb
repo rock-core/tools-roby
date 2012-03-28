@@ -118,20 +118,12 @@ module TaskStateHelper
         # Roby requires the self to be the subclassed Roby::Task
         # Thus embed import into refine_running_state and using eval here
         machine.events.each do |e|
-	    # When event is called emit event
-	    self.send(:event, e.name.to_sym) do |context|
-		send(:emit, e.name.to_sym, context)
-	    end
-            
+            if !has_event?(e.name)
+                event e.name, :controlable => true
+            end
 	    # when event is called transition the state_machine
-	    self.send(:on , e.name.to_sym) do |event|
-		statemachine = send(:state_machine)
-		begin
-		    statemachine.send("#{e.name.to_sym}!".to_sym)
-		rescue StateMachine::InvalidTransition => detail
-		    puts "WARNING: invalid transition to #{e.name}"
-		    puts "#{detail.backtrace}"
-		end
+	    on(e.name) do |event|
+                state_machine.send("#{e.name.to_sym}!")
 	    end
         end
     end
