@@ -163,7 +163,15 @@ module Roby
                         return Event.new(self, $1)
                     end
                 end
-                super
+
+                if @task
+                    catch(:retry_block) do
+                        return resolve(@task).send(m, *args, &block)
+                    end
+                    raise NotMethodError, "child #{@chain.join(".")} does not yet exist on #{@task}"
+                else
+                    raise NotMethodError, "you cannot use this object outside scripting"
+                end
             end
 
             # Returns the specified child when applied on +task+
