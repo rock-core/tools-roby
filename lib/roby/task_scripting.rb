@@ -13,6 +13,8 @@ module Roby
             # The logger that should be used. It is Roby::TaskScripting by
             # default
             attr_reader :logger
+            # Set of Script objects bound to this engine
+            attr_reader :scripts
 
             # The task that holds this scripting engine 
             def __task__
@@ -22,11 +24,17 @@ module Roby
             def initialize
                 @elements = []
                 @logger = Roby::TaskScripting
+                @scripts = []
             end
 
             def initialize_copy(original)
                 super
-                @elements = original.dup
+
+                @scripts = []
+                @elements = []
+                original.scripts.each do |s|
+                    self.load(&s.definition_block)
+                end
             end
 
             # Changes the logger
@@ -50,13 +58,20 @@ module Roby
 
             attr_accessor :time_barrier
 
+            def validate_event_request(event_spec)
+                if event_spec.respond_to?(:resolve)
+                    event_spec.bind(@task)
+                else
+                    @task.event(event_spec)
+                end
+            end
+
             def resolve_event_request(event_spec)
-                event =
-                    if event_spec.kind_of?(Event)
-                        event_spec.resolve(@task)
-                    else
-                        @task.event(event_spec)
-                    end
+                if event_spec.respond_to?(:resolve)
+                    event_spec.resolve(@task)
+                else
+                    @task.event(event_spec)
+                end
             end
 
             def execute
@@ -82,6 +97,7 @@ module Roby
 
             def load(&block)
                 loader = Script.new(self)
+                @scripts << loader
                 loader.load(&block)
             end
 
@@ -112,6 +128,10 @@ module Roby
                 @child, @event_name = child, event_name
             end
 
+            def bind(task)
+                @child.bind(task)
+            end
+
             # Returns the specified event when applied on +task+
             def resolve(task)
                 child_task = @child.resolve(task)
@@ -128,6 +148,10 @@ module Roby
         class Child
             def initialize(chain)
                 @chain = chain
+            end
+
+            def bind(task)
+                @task = task
             end
 
             def method_missing(m, *args, &block)
@@ -198,11 +222,19 @@ module Roby
             # The ScriptEngine instance that is going to execute this script
             attr_reader :script_engine
 
+            # The block that has been used to define this script
+            attr_reader :definition_block
+
             def initialize(script_engine)
                 @script_engine = script_engine
             end
 
+            def rebind(script_engine)
+                @script_engine = script_engine
+            end
+
             def load(&block)
+                @definition_block = block
                 instance_eval(&block)
             end
 
@@ -248,6 +280,11 @@ module Roby
             # Execute the block once at this point in the script
             def execute(&block)
                 script_engine.elements << Execute.new(script_engine, &block)
+            end
+            
+            # Execute the block once at this point in the script
+            def prepare(&block)
+                script_engine.elements << Prepare.new(script_engine, &block)
             end
             
             # call-seq:
@@ -297,6 +334,9 @@ module Roby
 
                 with_description "PollUntil(#{event_spec}): #{caller(1).first}" do
                     done = false
+                    prepare do
+                        validate_event_request(event_spec)
+                    end
                     execute do
                         event = resolve_event_request(event_spec)
                         if !options.has_key?(:after)
@@ -325,6 +365,9 @@ module Roby
             # Use #wait to wait for a new emission
             def wait_any(event_spec)
                 with_description "WaitAny(#{event_spec}): #{caller(1).first}" do
+                    prepare do
+                        validate_event_request(event_spec)
+                    end
                     poll do
                         event = resolve_event_request(event_spec)
                         if event.happened?
@@ -361,6 +404,9 @@ module Roby
             # Emit the specified event
             def emit(event_spec)
                 with_description "Emit(#{event_spec}): #{caller(1).first}" do
+                    prepare do
+                        validate_event_request(event_spec)
+                    end
                     execute do
                         event = resolve_event_request(event_spec)
                         event.emit
@@ -389,24 +435,29 @@ module Roby
         # false if the block needs to be called again at the next execution cycle,
         # and false otherwise
         class Base
+            # Backtrace of the block's creation location
+            attr_reader :defined_at
             # Description of this block's purpose
             attr_accessor :description
+            # The underlying task
+            def task; @script_engine.__task__ end
 
             def initialize(script_engine, &block)
                 @script_engine = script_engine
                 if block
-                    @defined_at = caller(3).first
-                    singleton_class.class_eval do
+                    @defined_at = caller
+                    @definition = Module.new do
                         define_method(:do_execute, &block)
                     end
-                    @description = "#{self.class.name}: #{@defined_at}"
+                    extend @definition
+                    @description = "#{self.class.name}: #{@defined_at.first}"
                 end
             end
 
             def initialize_copy(original)
-                singleton_class.class_eval do
-                    define_method(:do_execute, &original.method(:do_execute))
-                end
+                super
+
+                extend @definition
             end
 
             def method_missing(m, *args, &block)
@@ -421,6 +472,17 @@ module Roby
 
             def to_s
                 description
+            end
+        end
+
+        # Implementation of Script#execute
+        class Prepare < Base
+            def prepare(task)
+                do_execute
+            end
+
+            def execute
+                true
             end
         end
 

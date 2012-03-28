@@ -2,12 +2,18 @@ $LOAD_PATH.unshift File.expand_path(File.join('..', 'lib'), File.dirname(__FILE_
 require 'flexmock'
 require 'roby/test/common'
 require 'roby/tasks/simple'
-require 'flexmock'
+require 'flexmock/test_unit'
 require 'roby/log'
+require 'roby/schedulers/temporal'
 
 class TC_TaskScripting < Test::Unit::TestCase
     include Roby::Test
     include Roby::Test::Assertions
+
+    def setup
+        super
+        engine.scheduler = Roby::Schedulers::Temporal.new(true, true, plan)
+    end
 
     def test_execute
         task = prepare_plan :missions => 1, :model => Roby::Tasks::Simple
@@ -147,7 +153,6 @@ class TC_TaskScripting < Test::Unit::TestCase
             execute { counter += 1 }
         end
         parent.start!
-        child.start!
 
         3.times { process_events }
         assert_equal 0, counter
@@ -198,7 +203,6 @@ class TC_TaskScripting < Test::Unit::TestCase
         3.times { process_events }
         assert_equal 1, counter
 
-        child.subsubtask_child.start!
         child.subsubtask_child.emit :intermediate
         3.times { process_events }
         assert_equal 2, counter
@@ -353,7 +357,6 @@ class TC_TaskScripting < Test::Unit::TestCase
         end
 
         process_events
-        task.start!
         process_events
         task.emit :start_script1
         process_events
@@ -362,6 +365,41 @@ class TC_TaskScripting < Test::Unit::TestCase
         task.stop!
         assert task.done_script1?
         assert !task.done_script2?
+    end
+
+    def test_model_level_script
+        engine.scheduler = nil
+
+        mock = flexmock
+        model = Class.new(Roby::Tasks::Simple) do
+            event :do_it
+            event :done
+            script do
+                execute { mock.before_called(task) }
+                wait :do_it
+                emit :done
+                execute { mock.after_called(task) }
+            end
+        end
+
+        task1, task2 = prepare_plan :permanent => 2, :model => model
+        mock.should_receive(:before_called).with(task1).once.ordered
+        mock.should_receive(:before_called).with(task2).once.ordered
+        mock.should_receive(:after_called).with(task1).once.ordered
+        mock.should_receive(:event_emitted).with(task1).once.ordered
+        mock.should_receive(:after_called).with(task2).once.ordered
+        mock.should_receive(:event_emitted).with(task2).once.ordered
+
+        task1.on(:done) { |ev| mock.event_emitted(ev.task) }
+        task2.on(:done) { |ev| mock.event_emitted(ev.task) }
+
+        task1.start!
+        task2.start!
+        task1.emit :do_it
+        process_events
+
+        task2.emit :do_it
+        process_events
     end
 end
 
