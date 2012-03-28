@@ -21,8 +21,56 @@ module TaskStateHelper
     StateMachine::Machine.class_eval do
         # Redefine the event signature to 
         # match Roby semantics
+    end
+
+    class StateMachineDefinitionContext
+        attr_reader :state_machine
+        attr_reader :scripts
+
+        def initialize(proxy, state_machine)
+            @state_machine = state_machine
+            @proxy = proxy
+            @scripts = []
+        end
+
+        def script_in_state(state, &block)
+            script_engine = Roby::TaskScripting::ScriptEngine.new
+            script_engine.load(&block)
+
+            state_machine.before_transition state_machine.any => state,
+                :do => lambda { |proxy|
+                    proxy.instance_variable_set :@script_engine, nil
+                }
+            state_machine.state(state) do
+                define_method(:poll) do |task|
+                    if !@script_engine
+                        @script_engine = script_engine.dup
+                        @script_engine.prepare(task)
+                    end
+
+                    begin
+                        @script_engine.execute
+                    rescue Exception => e
+                        Roby.display_exception(STDOUT, e)
+                        raise
+                    end
+                end
+            end
+
+        end
+
+        def poll_in_state(state, &block)
+            state_machine.state(state) do
+                define_method(:poll, &block)
+            end
+        end
+
         def on(event, &block)
 	    event(event, &block)
+        end
+
+        def method_missing(*args, &block)
+            state_machine.send(*args, &block)
         end
     end
 
@@ -59,7 +107,6 @@ module TaskStateHelper
     #     yourtask.state_machine.status 
     # 
     def refine_running_state (*args, &block)
-
         if args.last.kind_of?(Hash) 
             options = args.pop
         end
@@ -72,6 +119,7 @@ module TaskStateHelper
         TaskStateMachine.models ||= Hash.new
 
         name = self
+
         # Making sure we load each machine definition only once per class 
         if TaskStateMachine.models.has_key?(name)
             return
@@ -95,16 +143,27 @@ module TaskStateHelper
         # of the underlying library, e.g. status_transitions(:from => ..., :to => ...)
 
         if self.namespace 
-            machine = StateMachine::Machine.find_or_create(proxy_klass, :status, :initial => :running, :namespace => self.namespace , &block)
+            machine = StateMachine::Machine.find_or_create(proxy_klass, :status, :initial => :running, :namespace => self.namespace)
         else
-            machine = StateMachine::Machine.find_or_create(proxy_klass, :status, :initial => :running, &block)
+            machine = StateMachine::Machine.find_or_create(proxy_klass, :status, :initial => :running)
         end
 
+        proxy = proxy_klass.new
+
+        machine_loader = StateMachineDefinitionContext.new(proxy, machine)
+        machine_loader.instance_eval(&block)
+
         import_events_to_roby(machine)
-        task_state_machine = TaskStateMachine.new(proxy_klass, machine)
+        task_state_machine = TaskStateMachine.new(proxy, machine)
         
         # Add new state machine template
         TaskStateMachine.models[name] = task_state_machine
+
+        on :start do |event|
+            machine_loader.scripts.each do |script|
+                script.prepare(event.task)
+            end
+        end
 
         # Hook the state_machine function into the callee
         #self.send(:instance_variable_set, :@state_machine, nil)
@@ -114,7 +173,6 @@ module TaskStateHelper
     end
 
     def import_events_to_roby(machine)
-
         # Roby requires the self to be the subclassed Roby::Task
         # Thus embed import into refine_running_state and using eval here
         machine.events.each do |e|
@@ -175,12 +233,12 @@ class TaskStateMachine
     end
     @models = Hash.new
 
-    def initialize(name, machine)
+    def initialize(proxy, machine)
         # Required to initialize underlying state_machine
         super()
 
-        @name = name
-        @proxy = name.new
+        @name = proxy.class
+        @proxy = proxy
         @machine = machine.dup
 
         update
@@ -192,8 +250,7 @@ class TaskStateMachine
         # introspect to retrieve all transactions of the statemachine
         @transitions = []
         collection = @machine.states
-        collection_outer = @machine.states
-        collection_outer.each do |s_o|
+        collection.each do |s_o|
             collection.each do |s_i|
                 # status_transitions is added to TaskStateMachine using meta programming
                 transitions = proxy.status_transitions(:from => s_o.name.to_sym, :to => s_i.name.to_sym)

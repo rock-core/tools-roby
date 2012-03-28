@@ -181,4 +181,81 @@ class TC_TaskStateMachine < Test::Unit::TestCase
         task = prepare_plan :permanent => 1, :model => model
         task.start!
     end
+
+    def test_poll_in_state
+        mock = flexmock
+        mock.should_receive(:running_poll).at_least.once.ordered
+        mock.should_receive(:running_poll_event).at_least.once.ordered
+        mock.should_receive(:one_poll).at_least.once.ordered
+        mock.should_receive(:one_poll_event).at_least.once.ordered
+
+        model = Class.new(Roby::Task) do
+            terminates
+            event :intermediate
+            event :running_poll
+            event :one_poll
+
+            refine_running_state do
+                poll_in_state :running do |task|
+                    mock.running_poll
+                    task.emit :running_poll
+                end
+                on(:intermediate) { transition :running => :one }
+                poll_in_state :one do |task|
+                    mock.one_poll
+                    task.emit :one_poll
+                end
+            end
+        end
+
+        task = prepare_plan :permanent => 1, :model => model
+        task.start!
+        task.on(:running_poll) { |_| mock.running_poll_event }
+        process_events
+        assert task.running_poll?
+        task.emit :intermediate
+        task.on(:one_poll) { |_| mock.one_poll_event }
+        assert task.running_poll?
+    end
+
+    def test_script_in_state
+        mock = flexmock
+        mock.should_receive(:running_poll).at_least.once
+        mock.should_receive(:running_poll_event).at_least.once
+        mock.should_receive(:one_poll).at_least.once
+        mock.should_receive(:one_poll_event).at_least.once
+
+        model = Class.new(Roby::Task) do
+            terminates
+            event :intermediate
+            event :running_poll
+            event :one_poll
+
+            refine_running_state do
+                script_in_state :running do
+                    execute { mock.running_poll }
+                    emit :running_poll
+                end
+                on(:intermediate) { transition :running => :one }
+                script_in_state :one do
+                    execute { mock.one_poll }
+                    emit :one_poll
+                end
+                on(:one_poll) { transition :one => :running }
+            end
+        end
+
+        task = prepare_plan :permanent => 1, :model => model
+        task.start!
+        task.on(:running_poll) { |_| mock.running_poll_event }
+        process_events
+        assert task.running_poll?
+        task.emit :intermediate
+        task.on(:one_poll) { |_| mock.one_poll_event }
+        process_events
+        assert task.one_poll?, task.history.map(&:symbol).map(&:to_s).join(", ")
+
+        process_events
+        assert_equal [:start, :running_poll, :intermediate, :one_poll, :running_poll], task.history.map(&:symbol)
+    end
 end
