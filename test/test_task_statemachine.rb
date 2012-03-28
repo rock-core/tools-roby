@@ -93,6 +93,9 @@ class TC_TaskStateMachine < Test::Unit::TestCase
         
         assert(twoTask.state_machine.status == 'running')
         assert(scndTask.state_machine.status == 'running')
+
+        assert(twoTask.state_machine.status_name == :running)
+        assert(scndTask.state_machine.status_name == :running)
         
         assert( SecondTestTask.namespace == "test")
         eval("scndTask.state_machine.firstly_test!") #_#{SecondTestTask.namespace}!")

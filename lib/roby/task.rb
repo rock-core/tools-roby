@@ -1254,7 +1254,9 @@ module Roby
 	    # Started and not finished
 	    if running? 
 		if respond_to?("state_machine")
-		    return state_machine.status
+                    # state_machine.status # => String
+                    # state_machine.status_name # => Symbol
+		    return state_machine.status_name
 		else
 		    return :running
 		end

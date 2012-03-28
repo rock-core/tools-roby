@@ -73,7 +73,86 @@ one instance-level polling blocks.
 
 State machines
 --------------
-TBD
+Users can detail a Roby task using a state machine concept. The interface described in the following
+embeds the [state_machine gem](http://github.com/pluginaweek/state_machine). 
+When defining a Roby task the user can inject substates to the 'running' state. The initial state is 'running' by default.
+
+With each state a poll block can be associated. This block is repeatedly called, as long as the task remain in the corresponding state.
+{coderay:: ruby}
+class MyTask < Roby::Task
+    ..
+    refine_running_state do
+        state :running do
+            def poll(task)
+                # check for success condition and then
+                emit :success
+            end
+        end
+    
+        event :pause do 
+            transition [:running] => :paused
+        end
+    
+        event :resume do 
+            transition [:paused] => :running
+        end
+   
+        # In this simple example, 'pause' causes the task to sleep 4 second
+        # and then resumes
+        def :paused do
+            def poll(task)
+                sleep 4
+                task.emit :resume
+            end
+        end
+    end
+
+    on :pause do |ev|
+        # stop running actions
+    end
+    ....
+end
+{coderay}
+
+
+Events which are defined in the 'refine_running_state' are transparently converted to roby events. This allows you to apply the usual syntax to include event actions or to emit events. 
+{coderay:: ruby}
+on(:yourevent) do |ev|
+    # The event context will be a instance of StateMachine::Event
+end
+{coderay}
+
+
+Due to the current implementation you are required to call 'emit' on the task object within the poll block. 
+{: .warning}
+
+In order to define your statemachine behaviour you have to specify when to transition from one state to another (as a reaction to an event). These transitions should be specified in the event definition (alternatively in the event handler). See [state_machine documentation](https://github.com/pluginaweek/state_machine) for an detailed example on the syntax which can be used. A simple example is given in the following:
+
+{coderay:: ruby}
+event :repair do
+    # First transition which matches the current state applies
+    transition [:exception, :fatal] => :running
+    transition [:running] => :halted
+end
+
+event :halt do
+   transition all => :halted
+end
+{coderay}
+
+The current state of a task can be retrieved (as usual), however the list of states will be extended given the newly introduced substates of running:
+{coderay:: ruby}
+mytask = MyTask.new
+if mytask.current_state? == :paused
+    ...
+end
+{coderay}
+
+A statemachine transition will be only executed if it is a valid transition, otherwise an InvalidTransition error is raised.
+{: .note}
+
+
+
 
 Scripts
 -------
