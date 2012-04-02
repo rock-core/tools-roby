@@ -1408,6 +1408,7 @@ module Roby
 
         def reload_planners
             unload_features("planners", ".*\.rb$")
+            unload_features("models", "planners", ".*\.rb$")
             planners.each do |planner_model|
                 planner_model.clear_model
             end
