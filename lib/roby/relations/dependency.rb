@@ -81,15 +81,16 @@ module Roby::TaskStructure
         # costly operation of raising an exception in cases it is expected that
         # the role may not exist.
         def child_from_role(role_name, validate = true)
-            each_child do |child_task, info|
-                if info[:roles].include?(role_name)
-                    return child_task
+            merged_relations(:each_child_object, false, Dependency) do |myself, child|
+                roles = myself[child, Dependency][:roles]
+                if roles.include?(role_name)
+                    return plan[child]
                 end
             end
             if validate
                 roles = []
-                each_child do |child_task, info|
-                    roles << "#{child_task} => #{info[:roles]}"
+                merged_relations(:each_child_object, false, Dependency) do |myself, child|
+                    roles << "#{child} => #{myself[child, Dependency][:roles]}"
                 end
                 raise ArgumentError, "#{self} has no child with the role '#{role_name}'. Existing roles are #{roles.join(", ")}"
             end
