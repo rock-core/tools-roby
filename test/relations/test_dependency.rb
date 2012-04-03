@@ -519,6 +519,17 @@ class TC_RealizedBy < Test::Unit::TestCase
         assert_child_failed(child, child.failed_event.last, plan)
     end
 
+    def test_child_from_role_in_planless_tasks
+        parent, child = Roby::Task.new, Roby::Task.new
+        parent.depends_on(child, :role => 'child0')
+
+        assert_equal child, parent.child_from_role('child0')
+        assert_equal nil, parent.child_from_role('nonexist', false)
+        assert_raises(ArgumentError) { parent.child_from_role('nonexist', true) }
+    ensure
+	plan.add(parent) if parent
+    end
+
     def test_child_from_role
         parent, child = prepare_plan :add => 2
         parent.depends_on(child, :role => 'child0')

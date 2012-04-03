@@ -84,7 +84,11 @@ module Roby::TaskStructure
             merged_relations(:each_child_object, false, Dependency) do |myself, child|
                 roles = myself[child, Dependency][:roles]
                 if roles.include?(role_name)
-                    return plan[child]
+		    if plan
+			return plan[child]
+		    else
+			return child
+		    end
                 end
             end
             if validate
