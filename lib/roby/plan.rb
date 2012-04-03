@@ -620,7 +620,7 @@ module Roby
 
 	    if tasks
 		tasks = tasks.to_value_set
-		new_tasks = useful_task_component(nil, tasks, tasks)
+		new_tasks = connected_task_component(nil, tasks, tasks)
 		unless new_tasks.empty?
 		    old_task_events = task_events.dup
 		    new_tasks = add_task_set(new_tasks)
@@ -739,6 +739,31 @@ module Roby
 	end
 	# Hook called when a new transaction has been built on top of this plan
 	def removed_transaction(trsc); super if defined? super end
+
+	# Merges the set of tasks that are useful for +seeds+ into +useful_set+.
+	# Only the tasks that are in +complete_set+ are included.
+	def connected_task_component(complete_set, useful_set, seeds)
+	    old_useful_set = useful_set.dup
+	    for rel in TaskStructure.relations
+		next if !rel.root_relation?
+		for subgraph in rel.reverse.generated_subgraphs(seeds, false)
+		    useful_set.merge(subgraph)
+		end
+		for subgraph in rel.generated_subgraphs(seeds, false)
+		    useful_set.merge(subgraph)
+		end
+	    end
+
+	    if complete_set
+		useful_set &= complete_set
+	    end
+
+	    if useful_set.size == old_useful_set.size || (complete_set && useful_set.size == complete_set.size)
+		useful_set
+	    else
+		connected_task_component(complete_set, useful_set, (useful_set - old_useful_set))
+	    end
+	end
 
 	# Merges the set of tasks that are useful for +seeds+ into +useful_set+.
 	# Only the tasks that are in +complete_set+ are included.
