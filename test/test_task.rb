@@ -1587,6 +1587,39 @@ class TC_Task < Test::Unit::TestCase
         assert_kind_of EmissionFailed, task.failure_reason
     end
 
+    def test_emergency_termination_in_terminal_commands
+        mock = flexmock
+        mock.should_expect do |m|
+            m.cmd_stop.once.ordered
+            m.cmd_failed.once.ordered
+        end
+
+        model = Class.new(Tasks::Simple) do
+            event :failed, :terminal => true do |context|
+                mock.cmd_failed
+                raise ArgumentError
+            end
+            event :stop, :terminal => true do |context|
+                mock.cmd_stop
+                failed!
+            end
+        end
+	plan.add(task = model.new)
+        task.start!
+
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(Roby::TaskEmergencyTermination) do
+                task.stop!
+            end
+        end
+
+    ensure
+        if task
+            task.forcefully_terminate
+            plan.remove_object(task)
+        end
+    end
+
     def test_nil_default_argument
         model = Class.new(Tasks::Simple) do
             argument 'value', :default => nil

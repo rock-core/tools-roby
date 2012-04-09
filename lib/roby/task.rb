@@ -326,9 +326,9 @@ module Roby
             super do |error|
                 if symbol == :start
                     task.failed_to_start!(error)
-                elsif symbol != :stop && !task.event(:internal_error).happened?
+                elsif !terminal? && !task.event(:internal_error).happened?
                     task.emit :internal_error, error
-                    if !task.event(:stop).controlable?
+                    if task.event(:stop).pending? || !task.event(:stop).controlable?
                         # In this case, we can't "just" stop the task. We have
                         # to inject +error+ in the exception handling and kill
                         # everything that depends on it.
