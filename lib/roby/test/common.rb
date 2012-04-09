@@ -240,7 +240,7 @@ module Roby
             super if defined? super
 
 	rescue Exception => e
-	    STDERR.puts "failed teardown: #{e.full_message}"
+            raise
 
 	ensure
             if plan
