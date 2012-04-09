@@ -194,7 +194,7 @@ module TC_TransactionBehaviour
     end
 
     # Checks that model-level task relations are kept if a task is modified by a transaction
-    def test_commit_task
+    def test_commit_model_level_event_relations_in_tasks
 	t = prepare_plan :tasks => 1
 	transaction_commit(plan, t) do |trsc, p|
 	    trsc.add(p)
@@ -530,6 +530,18 @@ module TC_TransactionBehaviour
             assert_equal Hash[0, 5, 2, 3, 4, 5], t1[t2, rel]
         end
         assert_equal Hash[0, 5, 4, 5], t1[t2, rel]
+    end
+
+    def test_commit_new_events
+        e1, e2 = (1..4).map { |ev| Roby::EventGenerator.new }
+        transaction_commit(plan) do |trsc|
+            trsc.add(e1)
+            trsc.add_permanent(e2)
+        end
+        assert plan.include?(e1)
+        assert plan.include?(e2)
+        assert !plan.permanent?(e1)
+        assert plan.permanent?(e2)
     end
 
     def test_commit_event_relations

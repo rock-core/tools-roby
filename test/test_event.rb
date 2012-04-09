@@ -23,6 +23,23 @@ class TC_Event < Test::Unit::TestCase
         assert(event.executable?)
     end
 
+    def test_call_without_propagation_raises
+        plan.add(ev = Roby::EventGenerator.new { |_| raise ArgumentError })
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(Roby::CommandFailed) { ev.call }
+        end
+    end
+
+    def test_emit_without_propagation_raises
+        plan.add(ev = Roby::EventGenerator.new)
+        ev.on do |_|
+            raise ArgumentError
+        end
+        with_log_level(Roby, Logger::FATAL) do
+            assert_raises(Roby::EventHandlerError) { ev.emit }
+        end
+    end
+
     def test_controlable_events
 	event = EventGenerator.new(true)
 	assert(event.controlable?)
