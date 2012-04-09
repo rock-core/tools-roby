@@ -609,15 +609,16 @@ module Roby
 	# This method is always called in a propagation context
 	def fire(event)
 	    plan.engine.propagation_context([event]) do |result|
+		@happened = true
+                @pending = false
+		fired(event)
+
 		each_signal do |signalled|
 		    add_propagation(false, event, signalled, event.context, self[signalled, EventStructure::Signal])
 		end
 		each_forwarding do |signalled|
 		    add_propagation(true, event, signalled, event.context, self[signalled, EventStructure::Forwarding])
 		end
-
-		@happened = true
-		fired(event)
 
 		call_handlers(event)
 	    end

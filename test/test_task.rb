@@ -641,6 +641,67 @@ class TC_Task < Test::Unit::TestCase
 	assert(task.finished?)
     end
 
+    def test_status_precisely
+        status_flags = [:pending?, :starting?, :started?, :running?, :finishing?, :finished?, :success?]
+        expected_status = lambda do |true_flags|
+            result = true_flags.dup
+            status_flags.each do |fl|
+                if !true_flags.has_key?(fl)
+                    result[fl] = false
+                end
+            end
+            result
+        end
+
+        mock = flexmock
+	task = Class.new(Roby::Task) do
+            define_method(:complete_status) do
+                as_array = status_flags.map { |s| [s, send(s)] }
+                Hash[as_array]
+            end
+
+	    event :start do |context|
+                mock.cmd_start(complete_status)
+                emit :start
+	    end
+            on :start do |context|
+                mock.on_start(complete_status)
+            end
+	    event :failed, :terminal => true do |context|
+                mock.cmd_failed(complete_status)
+                emit :failed
+	    end
+            on :failed do |ev|
+                mock.on_failed(complete_status)
+            end
+	    event :stop do |context|
+                mock.cmd_stop(complete_status)
+                failed!
+	    end
+            on :stop do |context|
+                mock.on_stop(complete_status)
+            end
+	end.new
+        plan.add(task)
+        task.stop_event.when_unreachable do |_|
+            mock.stop_unreachable
+        end
+
+        mock.should_expect do |m|
+            m.cmd_start(expected_status[:starting? => true, :success? => nil]).once.ordered
+            m.on_start(expected_status[:started? => true, :running? => true, :success? => nil]).once.ordered
+            m.cmd_stop(expected_status[:started? => true, :running? => true, :success? => nil]).once.ordered
+            m.cmd_failed(expected_status[:started? => true, :running? => true, :finishing? => true, :success? => nil]).once.ordered
+            m.on_failed(expected_status[:started? => true, :running? => true, :finishing? => true, :success? => false]).once.ordered
+            m.stop_unreachable.once.ordered
+            m.on_stop(expected_status[:started? => true, :finished? => true, :success? => false]).once.ordered
+        end
+
+        assert(task.pending?)
+        task.start!
+        task.stop!
+    end
+
     def test_context_propagation
 	FlexMock.use do |mock|
 	    model = Class.new(Tasks::Simple) do

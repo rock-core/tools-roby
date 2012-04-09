@@ -316,7 +316,7 @@ module Roby
         # Actually emits the event. This should not be used directly.
         #
         # It forwards the call to Task#fire
-        def fire(event) # :nodoc:
+        def fired(event) # :nodoc:
             super if defined? super
             task.fired_event(event)
         end
@@ -1208,6 +1208,11 @@ module Roby
 	    super() if defined? super
 	    @model   = self.class
             @abstract = @model.abstract?
+            
+            @started = false
+            @finished = false
+            @finishing = false
+            @success = nil
 
 	    @arguments = TaskArguments.new(self)
             # First assign normal values
@@ -1226,8 +1231,6 @@ module Roby
             end
 
             @poll_handlers = []
-
-            @success = nil
 
             yield(self) if block_given?
 
@@ -2604,6 +2607,14 @@ module Roby
 	    end
 	    true
 	end
+
+        # "Simply" mark this task as terminated. This is meant to be used on
+        # quarantined tasks in tests.
+        #
+        # Do not use this unless you really know what you are doing
+        def forcefully_terminate
+            update_task_status(event(:stop).new([]))
+        end
 
 	include ExceptionHandlingObject
 	inherited_enumerable('exception_handler', 'exception_handlers') { Array.new }
