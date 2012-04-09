@@ -64,7 +64,7 @@ class TC_TaskScripting < Test::Unit::TestCase
         process_events
         process_events
         process_events
-        assert_equal 4, counter
+        assert_equal 3, counter
     end
 
     def test_poll_end_if
@@ -111,11 +111,11 @@ class TC_TaskScripting < Test::Unit::TestCase
             
             task.start!
             6.times { process_events }
-            assert_equal 7, counter
+            assert_equal 6, counter
 
             time += 3
             6.times { process_events }
-            assert_equal 8, counter
+            assert_equal 7, counter
         end
     end
 
@@ -432,6 +432,55 @@ class TC_TaskScripting < Test::Unit::TestCase
         process_events
 
         task2.emit :do_it
+        process_events
+    end
+
+    def test_transaction_commits_new_script_on_pending_task
+        task = prepare_plan :permanent => 1, :model => Roby::Tasks::Simple
+        task.executable = false
+
+        mock = flexmock
+        mock.should_receive(:executed).with(false).never.ordered
+        mock.should_receive(:barrier).once.ordered
+        mock.should_receive(:executed).with(true).once.ordered
+        plan.in_transaction do |trsc|
+            proxy = trsc[task]
+            proxy.script do
+                execute do
+                    mock.executed(task.executable?)
+                end
+            end
+            process_events
+            mock.barrier
+            trsc.commit_transaction
+        end
+        process_events
+        task.executable = true
+        task.start!
+        process_events
+        process_events
+    end
+
+    def test_transaction_commits_new_script_on_running_task
+        task = prepare_plan :permanent => 1, :model => Roby::Tasks::Simple
+        task.start!
+
+        mock = flexmock
+        mock.should_receive(:executed).with(false).never.ordered
+        mock.should_receive(:barrier).once.ordered
+        mock.should_receive(:executed).with(true).once.ordered
+        plan.in_transaction do |trsc|
+            proxy = trsc[task]
+            proxy.script do
+                execute do
+                    mock.executed(task.executable?)
+                end
+            end
+            process_events
+            mock.barrier
+            trsc.commit_transaction
+        end
+        process_events
         process_events
     end
 end
