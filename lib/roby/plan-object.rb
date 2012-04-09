@@ -107,6 +107,10 @@ module Roby
             plan
         end
 
+        # Used in plan management as a way to extract a plan object from any
+        # object
+        def as_plan; self end
+
         # If +self+ is a transaction proxy, returns the underlying plan object,
         # regardless of how many transactions there is on the stack. Otherwise,
         # return self.
