@@ -29,6 +29,11 @@ module Roby
                     raise ArgumentError, "the planning_method argument is neither a method object nor a name: got #{options[:planning_method]}"
                 end
 	    end
+
+            if options[:planning_method].respond_to?(:to_sym)
+                options[:planning_method] = options[:planning_method].to_s
+            end
+
             options[:planned_model] ||= nil
 	    options[:planning_owners] ||= nil
             options
