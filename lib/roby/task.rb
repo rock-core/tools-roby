@@ -1233,6 +1233,7 @@ module Roby
             end
 
             @poll_handlers = []
+            @execute_handlers = []
 
             yield(self) if block_given?
 
@@ -1353,6 +1354,7 @@ module Roby
                 end
 	    end
 	    @bound_events = bound_events
+            @execute_handlers = old.execute_handlers.dup
             @poll_handlers = old.poll_handlers.dup
             if m = old.instance_variable_get(:@fullfilled_model)
                 @fullfilled_model = m.dup
@@ -2433,10 +2435,22 @@ module Roby
 	    ancestors.find_all { |m| m.instance_of?(TaskModelTag) }
 	end
 
-        # Class used to encapsulate an instance-level poll handler along with
-        # its options
+        # The set of instance-level execute blocks (InstanceHandler instances)
+        attr_reader :execute_handlers
+
         # The set of instance-level poll blocks (InstanceHandler instances)
         attr_reader :poll_handlers
+
+        # Add a block that is going to be executed once, either at the next
+        # cycle if the task is already running, or when the task is started
+        def execute(options = Hash.new, &block)
+            default_on_replace = if abstract? then :copy else :drop end
+            options = InstanceHandler.validate_options(options, :on_replace => default_on_replace)
+
+            check_arity(block, 1)
+            @execute_handlers << InstanceHandler.new(block, (options[:on_replace] == :copy))
+            ensure_poll_handler_called
+        end
 
         # Adds a new poll block on this instance
         def poll(options = Hash.new, &block)
@@ -2445,6 +2459,13 @@ module Roby
             
             check_arity(block, 1)
             @poll_handlers << InstanceHandler.new(block, (options[:on_replace] == :copy))
+            ensure_poll_handler_called
+        end
+
+        def ensure_poll_handler_called
+            if !transaction_proxy? && running?
+                @poll_handler_id ||= engine.add_propagation_handler(:type => :external_events, &method(:do_poll))
+            end
         end
 
         # Internal method used to register the poll blocks in the engine
@@ -2457,6 +2478,10 @@ module Roby
             return if event(:internal_error).happened?
 
             begin
+                while execute_block = @execute_handlers.pop
+                    execute_block.block.call(self)
+                end
+
                 if respond_to?(:poll_handler)
                     poll_handler
                 end
@@ -2498,6 +2523,11 @@ module Roby
 
         on :start do |ev|
             engine = plan.engine
+
+            # Call all the execute handlers
+            while execute_block = @execute_handlers.pop
+                execute_block.block.call(self)
+            end
 
             # Register poll:
             #  - single class poll_handler add be class method Task#poll
@@ -2735,6 +2765,12 @@ module Roby
 
         def initialize_replacement(task)
             super
+
+            execute_handlers.each do |handler|
+                if handler.copy_on_replace?
+                    task.execute(handler.as_options, &handler.block)
+                end
+            end
 
             poll_handlers.each do |handler|
                 if handler.copy_on_replace?

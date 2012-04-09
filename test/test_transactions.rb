@@ -992,6 +992,23 @@ class TC_Transactions < Test::Unit::TestCase
 	t2.start!
     end
 
+    def test_commit_execute_handlers
+        model = Class.new(Roby::Task)
+	plan.add(t = model.new)
+
+        expected = []
+        t.execute { }
+        expected << t.execute_handlers[0]
+
+        transaction_commit(plan, t) do |trsc, p|
+            p.execute { }
+            assert_equal expected, t.execute_handlers
+            expected << p.execute_handlers[0]
+        end
+
+        assert_equal expected, t.execute_handlers
+    end
+
     def test_commit_poll_handlers
         model = Class.new(Roby::Task)
 	plan.add(t = model.new)
@@ -1002,6 +1019,7 @@ class TC_Transactions < Test::Unit::TestCase
 
         transaction_commit(plan, t) do |trsc, p|
             p.poll { }
+            assert_equal expected, t.poll_handlers
             expected << p.poll_handlers[0]
         end
 

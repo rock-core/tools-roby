@@ -316,6 +316,7 @@ module Roby
 	    super(object, transaction)
 
             @poll_handlers.clear
+            @execute_handlers.clear
 
 	    @arguments = Roby::TaskArguments.new(self)
 	    object.arguments.each do |key, value|
@@ -343,6 +344,9 @@ module Roby
 		__getobj__.arguments.update!(key, value)
 	    end
 
+            execute_handlers.each do |h|
+                __getobj__.execute(h.as_options, &h.block)
+            end
             poll_handlers.each do |h|
                 __getobj__.poll(h.as_options, &h.block)
             end
@@ -369,6 +373,11 @@ module Roby
             real_object = self
             while real_object.transaction_proxy?
                 real_object = real_object.__getobj__
+                real_object.execute_handlers.each do |h|
+                    if h.copy_on_replace?
+                        task.execute(h.as_options, &h.block)
+                    end
+                end
                 real_object.poll_handlers.each do |h|
                     if h.copy_on_replace?
                         task.poll(h.as_options, &h.block)

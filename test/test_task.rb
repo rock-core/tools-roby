@@ -1303,38 +1303,87 @@ class TC_Task < Test::Unit::TestCase
 	assert(g.success?)
     end
 
-    def test_poll
-	engine.run
+    def test_execute_on_pending_tasks
+        model = Class.new(Roby::Task) do
+            terminates
+        end
 
-	FlexMock.use do |mock|
-	    t = Class.new(Tasks::Simple) do
-		poll do
-		    mock.polled_from_model(running?, self)
-		end
-	    end.new
-            t.poll do
-                mock.polled_from_instance(t.running?, t)
+        mock = flexmock
+
+        task = prepare_plan :permanent => 1, :model => model
+        task.execute do |t|
+            mock.execute_called(t)
+        end
+        mock.should_receive(:execute_called).with(task).once
+
+        task.start!
+        process_events
+        process_events
+    end
+
+    def test_execute_on_running_tasks
+        model = Class.new(Roby::Task) do
+            terminates
+        end
+
+        mock = flexmock
+
+        task = prepare_plan :permanent => 1, :model => model
+        mock.should_receive(:execute_called).with(task).once
+        task.start!
+
+        process_events
+
+        task.execute do |t|
+            mock.execute_called(t)
+        end
+
+        process_events
+        process_events
+    end
+
+    def test_poll_on_pending_tasks
+        mock = flexmock
+
+        model = Class.new(Tasks::Simple) do
+            poll do
+                mock.polled_from_model(running?, self)
             end
-	    mock.should_receive(:polled_from_model).at_least.once.with(true, t)
-	    mock.should_receive(:polled_from_instance).at_least.once.with(true, t)
+        end
+        t = prepare_plan :permanent => 1, :model => model
+        t.poll do
+            mock.polled_from_instance(t.running?, t)
+        end
+        mock.should_receive(:polled_from_model).once.with(true, t)
+        mock.should_receive(:polled_from_instance).once.with(true, t)
 
-	    engine.execute do
-		plan.add_permanent(t)
-		t.start!
-	    end
-	    engine.wait_one_cycle
+        t.start!
+        process_events
 
-            # Verify that the poll block gets deregistered when  the task is
-            # finished
-	    engine.execute do
-		assert(t.running?, t.terminal_event.to_s)
-                plan.unmark_permanent(t) # avoid error handling
-		t.stop!
-	    end
-	    engine.wait_one_cycle
-            assert(!t.running?)
-	    engine.wait_one_cycle
-	end
+        # Verify that the poll block gets deregistered when  the task is
+        # finished
+        plan.unmark_permanent(t)
+        t.stop!
+        process_events
+    end
+
+    def test_poll_handler_on_running_task
+        mock = flexmock
+        t = prepare_plan :permanent => 1, :model => Roby::Tasks::Simple
+        mock.should_receive(:polled_from_instance).at_least.once.with(true, t)
+
+        t.start!
+        t.poll do
+            mock.polled_from_instance(t.running?, t)
+        end
+
+        process_events
+
+        # Verify that the poll block gets deregistered when  the task is
+        # finished
+        plan.unmark_permanent(t)
+        t.stop!
+        process_events
     end
 
     def test_error_in_polling
@@ -1785,6 +1834,31 @@ class TC_Task < Test::Unit::TestCase
         t1.arguments[:id] = 20
         assert(!t1.can_merge?(t2))
         assert(!t2.can_merge?(t1))
+    end
+
+    def test_execute_handlers_with_replacing
+        model = Class.new(Roby::Task) do
+            terminates
+        end
+        old, new = prepare_plan :missions => 2, :model => model
+
+        FlexMock.use do |mock|
+            old.execute { |task| mock.should_not_be_passed_on(task) }
+            old.execute(:on_replace => :copy) { |task| mock.should_be_passed_on(task) }
+
+            plan.replace(old, new)
+
+            assert_equal(1, new.execute_handlers.size)
+            assert_equal(new.execute_handlers[0].block, old.execute_handlers[1].block)
+
+            mock.should_receive(:should_not_be_passed_on).with(old).once
+            mock.should_receive(:should_be_passed_on).with(old).once
+            mock.should_receive(:should_be_passed_on).with(new).once
+            old.start!
+            new.start!
+
+            process_events
+        end
     end
 
     def test_poll_handlers_with_replacing
