@@ -1532,6 +1532,16 @@ class TC_Task < Test::Unit::TestCase
         assert_equal [task], plan.find_tasks.failed.to_a
     end
 
+    def test_cannot_call_event_on_task_that_failed_to_start
+	plan.add(task = Roby::Test::Tasks::Simple.new)
+        begin
+            task.event(:start).emit_failed
+        rescue Exception
+        end
+        assert task.failed_to_start?
+        assert_raises(Roby::CommandFailed) { task.stop! }
+    end
+
     def test_intermediate_emit_failed
         model = Class.new(Tasks::Simple) do
             event :intermediate

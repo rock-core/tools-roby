@@ -475,7 +475,10 @@ module Roby
 	def check_call_validity # :nodoc:
   	    super
 
-            if task.finished? && !terminal?
+            if task.failed_to_start?
+                raise CommandFailed.new(nil, self), 
+		    "#{symbol}! called by #{plan.engine.propagation_sources.to_a} but the task has failed to start."
+            elsif task.finished? && !terminal?
                 raise CommandFailed.new(nil, self), 
 		    "#{symbol}! called by #{plan.engine.propagation_sources.to_a} but the task has finished. Task has been terminated by #{task.event(:stop).history.first.sources}."
             elsif task.pending? && symbol != :start
