@@ -84,7 +84,10 @@ module Roby
         # The default policy is to mark all executed tasks as failed to start
         def execution_agent_failed_to_start(agent, tasks)
             tasks.each do |t|
-                t.failed_to_start!(agent.failure_reason || agent.terminal_event)
+                info = t[agent, Roby::TaskStructure::ExecutionAgent]
+                if !info[:respawn]
+                    t.failed_to_start!(agent.failure_reason || agent.terminal_event)
+                end
             end
         end
     end

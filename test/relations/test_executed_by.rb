@@ -29,7 +29,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	end
 	submodel = Class.new(model)
 
-	assert_equal([ExecutionAgentModel, {:id => 20}], submodel.execution_agent)
+	assert_equal([ExecutionAgentModel, {:id => 20}, {:respawn => false}], submodel.execution_agent)
     end
 
     def test_nominal
@@ -171,8 +171,8 @@ class TC_ExecutedBy < Test::Unit::TestCase
 
     def test_respawn
 	task_model = Class.new(Tasks::Simple)
-	task_model.executed_by ExecutionAgentModel
-	first, second = prepare_plan :add => 2, :model => task_model
+	task_model.executed_by ExecutionAgentModel, :respawn => true
+	first, second = prepare_plan :permanent => 2, :model => task_model
 	assert(first.execution_agent)
 	assert_kind_of(ExecutionAgentModel, first.execution_agent)
 	assert(second.execution_agent)
@@ -182,7 +182,7 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	first.start!
 	assert(first.running?)
 	first_agent = first.execution_agent
-	assert(first_agent.running?)
+	assert(first_agent.ready?)
 
 	plan.add(third = task_model.new)
 	assert_equal(first.execution_agent, third.execution_agent)
@@ -190,8 +190,12 @@ class TC_ExecutedBy < Test::Unit::TestCase
 	first.execution_agent.stop!
 	assert(first.event(:aborted).happened?)
 	assert(first_agent.finished?)
-	assert(second.execution_agent)
-	assert(second.execution_agent.running?)
+	assert_not_same(first_agent, second.execution_agent)
+	assert(second.execution_agent.pending?)
+
+        second.start!
+        assert(second.running?)
+        assert(second.execution_agent.ready?)
     end
 
     def test_cannot_respawn

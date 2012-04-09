@@ -26,7 +26,10 @@ module Roby::TaskStructure
 	# for all instances of TaskModel. The actual job is done in the
 	# ExecutionAgentSpawn module
 	def executed_by(agent_model, arguments = Hash.new)
-	    @execution_agent = [agent_model, arguments]
+            options, arguments = Kernel.filter_options arguments,
+                :respawn => false
+
+	    @execution_agent = [agent_model, arguments, options]
 	end
     end
 
@@ -58,10 +61,11 @@ module Roby::TaskStructure
         attr_predicate :used_as_execution_agent?, true
 
 	# Defines a new execution agent for this task.
-        def executed_by(agent)
+        def executed_by(agent, options = Hash.new)
             if agent.respond_to?(:as_plan)
                 agent = agent.as_plan
             end
+            options = Kernel.validate_options options, :respawn => false
 
 	    return if execution_agent == agent
 
@@ -79,7 +83,7 @@ module Roby::TaskStructure
 		remove_execution_agent old_agent
 	    end
 
-	    add_execution_agent(agent)
+	    add_execution_agent(agent, options)
             agent
         end
 
@@ -180,7 +184,7 @@ module Roby::TaskStructure
     # agent model (see ModelLevelExecutionAgent), either by reusing one
     # that is already in the plan, or by creating a new one.
     def ExecutionAgent.spawn(task)
-	agent_model, arguments = task.model.execution_agent
+	agent_model, arguments, options = task.model.execution_agent
 	candidates = task.plan.find_tasks.
 	    with_model(agent_model).
             with_arguments(arguments).
@@ -195,9 +199,10 @@ module Roby::TaskStructure
 		agent.on(:stop) do |ev|
                     respawn = []
 		    agent.each_executed_task do |task|
+                        info = task[agent, Roby::TaskStructure::ExecutionAgent]
 			if task.running?
 			    task.emit(:aborted, "execution agent #{self} failed") 
-			elsif task.pending?
+			elsif info[:respawn] && task.pending?
                             respawn << task
 			end
 		    end
@@ -215,7 +220,7 @@ module Roby::TaskStructure
 		    else running.first
 		    end
 	end
-	task.executed_by agent
+	task.executed_by agent, options
 	agent
     end
 
@@ -248,9 +253,6 @@ module Roby::TaskStructure
 	    elsif !agent.event(:ready).happened? && !agent.depends_on?(task)
 		postpone(agent.event(:ready), "spawning execution agent #{agent} for #{self}") do
 		    if agent.pending?
-			agent.event(:ready).if_unreachable(true) do |reason|
-			    self.emit_failed "execution agent #{agent} failed to initialize: #{reason}"
-			end
 			agent.start!
 		    end
 		end
