@@ -1,0 +1,23 @@
+---
+title: Plans
+sort_info: 20
+---
+
+Now that we have seen what the [reactor pattern](reactor.html) is about, we will
+dig a bit more into how things are managed inside Roby.
+
+The main issue with reactor frameworks in general is their inability to offer a
+high-level structure. Events are the only things that you deal with. This
+becomes tedious when errors happen, as tracking down what happened is very hard.
+
+In contrast, Roby tries very hard to provide a structure to what happens to the
+system. This page will describe how this is done
+
+The basic object is the __event__. Events are, obviously, a representation of
+what happens to the system. As we will see later, it is also a way to represent
+which commands can be sent to it.
+* *events*. They are both the basic command interface and the way to follow what
+  happens in and outside of the robot.
+* *tasks*. They represent the multiple processes that run on the robot: both the
+  robot physical actions and the robot's internal processing.
+
