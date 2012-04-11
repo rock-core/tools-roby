@@ -535,18 +535,29 @@ module Roby
 		
 		# Define the method enumerator and the method public interface
 		if !respond_to?("#{name}_methods")
-		    inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) { Hash.new }
+		    inherited_enumerable("#{name}_method", "#{name}_methods", :map => true) do
+                       if defined? superclass and superclass.respond_to?("#{name}_methods")
+                           return superclass.send("#{name}_methods")
+                       else
+                           return Hash.new
+                       end
+                    end
 		    class_eval <<-PLANNING_METHOD_END
 		    def #{name}(options = Hash.new)
 			plan_method("#{name}", options)
 		    end
 		    class << self
 		      cached_enum("#{name}_method", "#{name}_methods", true)
+	              def #{name}_description
+	                if @#{name}_description
+	                  return @#{name}_description
+	                elsif defined? superclass and superclass.respond_to?("#{name}_description")
+	                  return superclass.#{name}_description
+	                end
+                        nil
+	              end
 		    end
 		    PLANNING_METHOD_END
-                    singleton_class.class_eval do
-                        attr_reader "#{name}_description"
-                    end
 		end
                 if @next_method_description
                     if old_description = instance_variable_get("@#{name}_description")
@@ -634,7 +645,14 @@ module Roby
             end
             
             def self.planning_method_description(name)
-                return instance_variable_get("@#{name}_description") || MethodDescription.new
+                description = instance_variable_get("@#{name}_description") 
+                if description
+                    return description
+                elsif defined? superclass and superclass.respond_to?(:planning_method_description)
+                    return superclass.planning_method_description(name)
+                else
+                    return MethodDescription.new
+                end
             end
             def planning_method_description(name)
                 model.planning_method_description(name)
