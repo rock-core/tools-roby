@@ -1,14 +1,17 @@
 ---
 title: Demonstration Videos
 sort_info: 400
---- pipeline:tags,rdoc
-== Normal operations
+---
+
+Normal operations
+-----------------
 
 Those videos don't show what Roby itself does, only results showing
 robots (real and in simulation) acting as they are controlled by a
 Roby application.
 
-=== Single robot navigation
+Single robot navigation
+-----------------
 
 http://roby.rubyforge.org/videos/perception_loops.avi
 
@@ -17,7 +20,8 @@ building) being handled by Roby. The perception updates are triggered by Roby
 on the basis of state events: they are triggered by the translation of the
 robot and the change of heading, to reduce the number of times it is actually done.
 
-=== Bi-robot navigation
+Bi-robot navigation
+-----------------
 
 http://roby.rubyforge.org/videos/birobot.avi
 
@@ -34,8 +38,10 @@ regions are then considered by the UAV which decides how it will schedule its
 own perception. When the UAV does have perceived a zone, it informs the rover
 and sends it the relevant data. The rover can then update its own map.
 
-== Error handling
-=== Rflex repaired
+Error handling
+---------------
+Rflex repaired
+--------------
 
 http://roby.rubyforge.org/videos/rflex_repaired.avi
 
@@ -48,7 +54,8 @@ which wait for a few seconds and tests the <tt>BRAKES_ON</tt> state of the
 robot. If the brakes are reported as off, then the robot can start moving again.
 Otherwise, the error was a rightful one and should be handled by other means.
 
-=== P3d repaired
+P3d repaired
+------------
 
 http://roby.rubyforge.org/videos/p3d_repaired.avi.
 

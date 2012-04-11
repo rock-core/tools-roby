@@ -787,6 +787,18 @@ module Roby
         DelayedArgumentFromState.new(state_object)
     end
 
+    # Use to specify that a task argument should be initialized from a value in
+    # the Conf object. The value will be taken at the point in time where the
+    # task is executed.
+    #
+    # For instance:
+    #
+    #   task.new(:goal => Roby.from_state.pose.position))
+    #
+    def self.from_conf
+	from_state(Conf)
+    end
+
     # In a plan, Task objects represent the activities of the robot. 
     # 
     # === Task models
