@@ -1,15 +1,17 @@
 ---
 title: Installation
 sort_info: 100
---- pipeline:rdoc
+---
 
-== Installation in Rock
+Installation in Rock
+--------------------
 
 Roby is one of the underlying tools of the Rock robot development environment.
 It gets installed along with the rock toolchain. Check it out !
 (http://rock-robotics.org)
 
-== External dependencies
+External dependencies
+---------------------
 Roby requires ruby version 1.8.6 or 1.8.7. Ruby 1.9 is a work in progress, but
 will not work with this release
 
@@ -30,7 +32,8 @@ will not work with this release
 * finally, the GUI requires {QtRuby >= 1.4.9}[http://rubyforge.org/projects/korundum], SVG export requires QtRuby to
   be built with Qt >= 4.3
 
-== Before installation
+Before installation
+-------------------
 
 Before doing anything else, you will need to have the C++ dependencies listed
 above installed on your system:
@@ -41,7 +44,8 @@ See the next page for a step-by-step installation on Debian/Ubuntu.
 
 All the rest can be installed with RubyGems
 
-== Setting the environment
+Setting the environment
+-----------------------
 
 As a first step, you should set you environment variables. This is done by
 the following commands.
@@ -56,7 +60,8 @@ The +GEM_HOME+ and +ROBYHOME+ should be set to wherever you want these parts to
 be installed. It would be wise to append these lines to your ~/.bashrc so that
 they are executed each time you start a console.
 
-== Debian/Ubuntu: Installing binary dependencies with apt-get
+Debian/Ubuntu: Installing binary dependencies with apt-get
+----------------------------------------------------------
 
 You can install those packages with the following line.
 
@@ -66,7 +71,8 @@ You can install those packages with the following line.
 If you don't have administrative rights on your local pc, contact your system 
 administrator.
 
-== Install using RubyGems
+Install using RubyGems
+----------------------
 
 This is as simple as
 
@@ -77,7 +83,8 @@ the unit tests and/or to generate the user's guide, you will need to do
 
  gem install --development roby
 
-== Install the development code from Gitorious
+Install the development code from Gitorious
+-------------------------------------------
 
 To do this, you will need to install Roby's gems dependencies yourself. This is
 as simple as
@@ -105,7 +112,8 @@ to compile roby on your workstation and you're done. Additionally, you can run
 To generate HTML documentation of Roby and its core plugins. The documentation
 is generated in doc/html
 
-=== Staying up to date
+Staying up to date
+------------------
 
 To grab the newest updates of roby just change into your robyfolder and run
 
@@ -118,7 +126,8 @@ you must run
 
 again.
 
-== Generating the documentation
+Generating the documentation
+----------------------------
 
 To generate the documentation, you will need to install the following gems:
 

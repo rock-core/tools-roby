@@ -1,7 +1,7 @@
 ---
 title: Overview of Plan Objects
 sort_info: 50
---- pipeline:rdoc
+---
 
 There are two basic objects in Roby plans, both objects being equally important.
 * *events*. They are both the basic command interface and the way to follow what

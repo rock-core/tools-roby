@@ -1,7 +1,7 @@
 ---
 title: Overview of Plan Objects
 sort_info: 50
---- pipeline:rdoc
+---
 
 There are two basic objects in Roby plans, both objects being equally important.
 * *events*. They are both the basic command interface and the way to follow what
@@ -9,7 +9,8 @@ There are two basic objects in Roby plans, both objects being equally important.
 * *tasks*. They represent the multiple processes that run on the robot: both the
   robot physical actions and the robot's internal processing.
 
-== Events
+Events
+------
 The first use of events is the representation of milestones in the robot's
 execution. For instance, a +reached_waypoint+ event would be _emitted_ when the
 robot reaches its assigned waypoint. Accordingly, a +detected_object+ event
@@ -28,7 +29,8 @@ command. Then, by calling the command, the Roby controller would require the
 robot to "stop moving !". When the robot actually performed that action, it will
 inform the rest of the system that it stopped moving by emitting the event.
 
-== Tasks
+Tasks
+-----
 To represent more complex actions, that cannot be represented by the simple
 event command/emission scheme, Roby has a concept of <b>task</b>. A task
 represents a long-standing process, which can be supervised along its execution.

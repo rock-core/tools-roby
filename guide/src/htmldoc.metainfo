@@ -1,7 +1,15 @@
-/introduction:
+index.page:
+    sort_info: 0
+/concepts:
     sort_info: 50
-/basics:
+/tutorial:
     sort_info: 100
+/advanced_concepts:
+    sort_info: 150
+
+
+
+
 /plans:
     sort_info: 125
 /relations:
