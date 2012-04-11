@@ -55,6 +55,16 @@ class TC_TaskStateMachine < Test::Unit::TestCase
         terminates
     end
 
+    class ExceptionTask < Roby::Task
+        refine_running_state do
+            state(:exception) do
+                def poll(task)
+                    raise ArgumentError
+                end
+            end
+        end
+    end
+
     def setup
         super
         Roby.app.filter_backtraces = false
@@ -157,6 +167,16 @@ class TC_TaskStateMachine < Test::Unit::TestCase
 	rescue Exception => e
 	    flunk("Calling event '#{event} failed")
 	end
+    end
+
+    def test_exception
+        task = ExceptionTask.new
+        task.state_machine.status = 'exception'
+        assert(task.state_machine.respond_to?(:do_poll))
+
+        assert_raise(ArgumentError) do
+            task.state_machine.do_poll(task)
+        end
     end
 
     def test_has_no_interaction_with_regular_poll
