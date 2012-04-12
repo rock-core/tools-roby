@@ -1,0 +1,25 @@
+---
+title: Useful and useless tasks
+sort_info: 40
+---
+
+So far, we have seen that the plan is basically a bunch of tasks and events that
+are related to each other.
+
+What this page will detail is how Roby knows what is needed by the system and
+what is not. And what it does with the garbage ...
+
+Missions and permanent tasks
+----------------------------
+In any Roby plan, a certain (usually limited) number of tasks are marked either as
+__missions__ or as __permanent__ tasks. The missions are the current robot's
+main activities (i.e. what it should do). The permanent tasks are the tasks that
+the system's controller wants to keep around, but which are not essential to its
+function. This marking is done manually, usually when the system is given a
+high-level command
+
+The main effect of this marking is
+
+Garbage collection
+------------------
+

@@ -15,7 +15,7 @@ the systems _autonomously_ repair the errors, that's not acceptable.
 So, in contrast, Roby tries very hard to provide a structure to what happens to the
 system. This page will describe how this is done
 
-The root object is the plan. A plan is basically a collection of plan objects
+The root data structure is the __plan__. A plan is basically a collection of plan objects
 (events and tasks, see below) that are linked in different __relations__. Relations,
 in this context, are graphs that link two plan objects together, while adding some
 additional information to describe how they are related.
@@ -31,7 +31,8 @@ single-shot, i.e. represent one thing that happened to the system, tasks
 represent what the system (or other systems) do in the long run. For instance,
 one could represent the fact that the battery of a robot gets low with a single
 battery_low event, but would represent the fact that the robot moves to a certain
-position with a move_to_position task.
+position with a move_to_position task. In other words, the event represents a
+single point in time, while tasks represent processes that change in time.
 
 As mentionned, plans therefore contain _free events_, i.e. events that are not
 part of a task, and _task events_, i.e. events that are given meaning by the
@@ -61,3 +62,40 @@ Relations are not fixed, i.e. Roby can be augmented with additional relations.
 However, the most standard relations are predefined in the Roby core
 application.
 
+Example
+-------
+To put these concepts into play, let's represent what could be a Roby plan to
+represent the following scenario:
+ 
+ * go to position (10, 10)
+ * then, go to position (20, 10)
+ * both movements require localization to run
+ * if the battery is low, abort
+
+To match the Roby nomenclature, the task types are represented in CamelCase
+(i.e. MoveTo) and the events in snake_case (i.e. battery_low)
+
+![Simple plan example](simple_plan_example.png)
+{: .center}
+
+This example shows another aspect of the events: the event commands. Let's
+explain that.
+
+Events as commands
+------------------
+As mentionned earlier, events are both a way to represent what happen__ed__ to
+the system (past tense) and a way to __command__ the system. The command side of
+the events can be explained as follows: event commands are_a way to make sure
+that the event is going to be emitted_.
+
+For instance, in the above example, the stop events of MoveTo has a command.
+This command, when called, ensures that the task gets stopped, i.e. that the
+event is emitted. The __signals__ relation that is added between low_battery and
+stop represents that this command should be called whenever the low_battery
+event is emitted. In other words: the MoveTo tasks should be stopped when the
+battery is low.
+
+Conclusion
+----------
+That's all for the description of plans. The [next page](execution.html) will lead you to the
+execution, i.e. what code is executed when, and why.
