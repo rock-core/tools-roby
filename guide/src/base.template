@@ -7,15 +7,6 @@ template: ~
 <!-- Recommended XHTML-Editor: HTML-Kit 292 (Freeware) -->
 <!-- http://www.chami.com/html-kit/download/ -->
 
-<% # Get the root for this node %>
-<% root_page = context.node %>
-<% page_is_root = (root_page.parent == root_page.tree.root) %>
-<% if root_page.parent != root_page.tree.root %>
-<%   while root_page.parent != root_page.tree.root %>
-<%     root_page = root_page.parent %>
-<%   end %>
-<% end %>
-
 <head>
   <meta http-equiv="content-type" content="text/html; charset=iso-8859-1" />
   <meta name="description" content="The Robot Construction Kit - a robot software development environment" />
@@ -33,6 +24,39 @@ template: ~
       <div class="nav1-container">
           <div class="nav1">
               <webgen:block name="navbar" notfound="ignore"/>
+              <ul>
+                  <li><a href="{relocatable: /documentation/installation.html}">Installation</a></li>
+                  <li><a href="{relocatable: /documentation}">Documentation</a></li>
+                  <li><a href="{relocatable: /package_directory.html}">Browse Packages</a></li>
+                  <li><a href="http://blog.rock-robotics.org">News</a></li>
+                  <li><a href="{relocatable: /documentation/about/contributing.html}">Community</a></li>
+              </ul>
+          </div>
+          <div class="search">
+              <div id="cse-search-form" style="width: 100%;">Loading</div>
+              <script src="http://www.google.com/jsapi" type="text/javascript"></script>
+              <script type="text/javascript"> 
+                google.load('search', '1', {language : 'en'});
+                google.setOnLoadCallback(function() {
+                  var customSearchControl = new
+              google.search.CustomSearchControl('008757635177184297913:WMX139135563');
+                  customSearchControl.setResultSetSize(google.search.Search.LARGE_RESULTSET);
+                  var options = new google.search.DrawOptions();
+                  options.enableSearchboxOnly("{relocatable: /search_results.html}");
+                  customSearchControl.draw('cse-search-form', options);
+                }, true);
+              </script>
+              <link rel="stylesheet" href="//www.google.com/cse/style/look/default.css"
+              type="text/css" />
+              <style type="text/css">
+                input.gsc-input {
+                  border-color: #BCCDF0;
+                }
+                input.gsc-search-button {
+                  border-color: #CECECE;
+                  background-color: #E9E9E9;
+                }
+              </style>
           </div>
       </div>
 
@@ -55,7 +79,8 @@ template: ~
           <webgen:block name="leftbar" notfound="ignore"/>
       </div>
 
-      <div class="content2">
+    
+      <div class="content2" <%= 'style="margin-left: 110px;"' if context.node.meta_info['rock_page_style'] == 'centered' %>>
           <% if context.node.node_info[:page].meta_info.has_key?('page_title') %>
           <div class="content2-pagetitle"><%= context.node.node_info[:page].meta_info['page_title'] %></div>
           <% else %>
@@ -86,6 +111,14 @@ template: ~
           </div>
       </div>
 
+      <!-- FOOTER -->
+      <div class="footer">
+          <div class="nav1">
+              <ul>
+                  <li><a href="{relocatable: documentation/about/index.html}">About Rock</a></li>
+              </ul>
+          </div>
+      </div>
   </div>
 </body>
 </html>
