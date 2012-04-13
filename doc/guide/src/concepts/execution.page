@@ -49,7 +49,9 @@ therefore calls it, in effect making sure that we have a proper sequence.
 ------------
 Once initial events are gathered (and therefore emitted), corresponding code
 blocks called __event handlers__ get called. Identically, the scheduler's
-calling of commands causes other blocks, __event commands__ to be called.
+calling of commands causes other blocks, __event commands__ to be called. There
+are other constructs in which "user" code blocks can be attached so as to be
+called in specific situations during execution, but we won't detail them here.
 
 In both cases, these code blocks can decide to call or emit other events and
 therefore have the corresponding code blocks to be called and so on. Moreover,
