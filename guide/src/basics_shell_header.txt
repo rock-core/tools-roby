@@ -7,10 +7,7 @@ This page includes code samples that you can try out in Ruby or Unix shells. See
 Moreover, to run the examples on this page, you must first set up your ruby
 shell:
 
-     $ irb
+     $ irb -rroby/standalone
 {coderay:: ruby}
- >> require 'roby/standalone'
- >> include Roby
- >> plan = Roby.plan
+>> plan = Roby.plan
 {coderay}
-

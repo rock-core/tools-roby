@@ -24,10 +24,8 @@ Setting up the Ruby shell
 Moreover, before typing in the Roby shell, you will need to prepare it a bit. Do
 the following:
 
-     $ irb
+     $ irb -rroby/standalone
 {coderay:: ruby}
- >> require 'roby/standalone'
- >> include Roby
- >> plan = Roby.plan
+>> plan = Roby.plan
 {coderay}
 

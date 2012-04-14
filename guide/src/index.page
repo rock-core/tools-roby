@@ -8,5 +8,5 @@ is a representation of the past, present and future activities of a robot along
 with the information needed to verify that their execution is going well, and to
 manage errors.
 
-For a (slightly) more in-depth presentation, got to the
-[concepts](concepts/index.html) page. You could also jump directly to the [tutorial](tutorial/index.page)
+If you are new to Roby, go first to the [concepts](concepts/index.html) page.
+You can then go on with the [tutorial](tutorial/index.page)
