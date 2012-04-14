@@ -1,5 +1,7 @@
 index.page:
     sort_info: 0
+/installation:
+    sort_info: 25
 /concepts:
     sort_info: 50
 /tutorial:
@@ -30,3 +32,6 @@ index.page:
 /*/index.page:
     in_menu: false
 
+
+/attic:
+    in_menu: false

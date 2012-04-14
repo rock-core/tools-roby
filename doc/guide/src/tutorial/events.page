@@ -4,30 +4,40 @@ sort_info: 100
 ---
 
 This page will present the basic tools that allow to define and manipulate
-events. In , we saw that
-events are two sided objects: one the one hand, they represent the
-situations the system is in (event _emission_). On the other hand, they
-represent the commands that the system accepts (event _commands_).
- We'll see in this page how to associate a command with an event (event
-command), how to call code when an event is emitted (event handlers), how to
-call it and how to emit it.
+events. In [the concepts section](../concepts/plan_objects.html), we saw that
+events are two sided objects: one the one hand, they represent the situations
+the system is in (event _emission_). On the other hand, they represent the
+commands that the system accepts (event _commands_).  We'll see in this page
+how this is translated in the Roby API: how to add a command block to an event
+(event command), how to call code when an event is emitted (event handlers),
+how to call it and how to emit it.
 
 {include_file: {filename: src/basics_shell_header.txt, escape_html: false}}
 
 The basics
 ----------
+Two classes are used to represent "events". The first is the event generator
+{rdoc_class: EventGenerator}. Event generators are the objects that will emit
+events. In other words, they represent __the event sources__. When a generator
+does emit an event, an instance of {rdoc_class: Event} is created to represent
+this event, with timestamp and additional information.
 
-In the plan, events are represented through the {rdoc_class: EventGenerator}
-class. With the following code, you will create an event that has no command (it
-is called a _contingent_ event, or a _non-controllable_ event):
+To simplify the discourse, event generators and events are often both called
+events. We will try to make the difference in this tutorial, though, to ease
+the understanding.
+
+A free event generator that has no command, also called _contingent_ or
+_non-controllable_ generators are created with:
 
 {coderay:: ruby}
  >> ev1 = Roby::EventGenerator.new
 {coderay}
 
-Then, before using it, you need to include it in a plan, so do
+Then, before using it, you need to include it in a plan, which is simply done
+with
+
 {coderay:: ruby}
- >> plan.add(ev1)
+>> plan.add(ev1)
 {coderay}
 
 Finally, to be able to see the event's emission, we would display some text
@@ -35,32 +45,37 @@ using an _event handler_: a piece of code that is executed when the event is
 emitted.
 
 {coderay:: ruby}
- >> ev1.on { |e| puts "ev1 emitted with context=#{e.context.inspect}" }
+>> ev1.on { |e| puts "ev1 emitted with context=#{e.context.inspect}" }
 {coderay}
 
+The event handler's block gets an argument which is the actual event (the
+instance of {rdoc_class: Event}). See the API documentation for what you can
+get out of it.
+
 Let's try to emit it. The event _emission_ says "the event happened just now".
+
 {coderay:: ruby}
- >> ev1.emit
- ev1 emitted with context=nil
+>> ev1.emit
+ev1 emitted with context=nil
 {coderay}
 
 And if you would like to associate data with the event (what is called the event
 context), you would do
   
 {coderay:: ruby}
- >> ev1.emit(10)
- ev1 emitted with context=[10]
+>> ev1.emit(10)
+ev1 emitted with context=[10]
 {coderay}
 
 Let's now create a second event
 
 {coderay:: ruby}
- >> ev2 = Roby::EventGenerator.new do |argument|
- ?>   puts "ev2 called with argument=#{argument.inspect}"
- ?>   ev2.emit(argument.first + 1)
- >> end
- >> plan.add(ev2)
- >> ev2.on { |ev| puts "ev2 emitted with context=#{ev.context.inspect}" }
+>> ev2 = Roby::EventGenerator.new do |argument|
+?>   puts "ev2 called with argument=#{argument.inspect}"
+?>   ev2.emit(argument.first + 1)
+>> end
+>> plan.add(ev2)
+>> ev2.on { |ev| puts "ev2 emitted with context=#{ev.context.inspect}" }
 {coderay}
 
 This second event is _controllable_. It has a block of code associated to it
@@ -72,9 +87,9 @@ represented by tasks (that we will see later on).
 
 Let's try our controllable event
 {coderay:: ruby}
- >> ev2.call(10)
- ev2 called with argument=[10]
- ev2 emitted with context=[11]
+>> ev2.call(10)
+ev2 called with argument=[10]
+ev2 emitted with context=[11]
 {coderay}
 
 Reacting to events
@@ -84,16 +99,16 @@ what the system should do when something happens. The basic tool to do that,
 is to create a _signal_ between two events:
 
 {coderay:: ruby}
- >> ev1.signals ev2
+>> ev1.signals ev2
 {coderay}
 
 Try it:
 
 {coderay:: ruby}
- >> ev1.emit(10)
- ev1 emitted with context=10
- ev2 called with argument=10
- ev2 emitted with context=11
+>> ev1.emit(10)
+ev1 emitted with context=10
+ev2 called with argument=10
+ev2 emitted with context=11
 {coderay}
 
 You can therefore see that
@@ -129,7 +144,7 @@ __or__ ev2 have been emitted.
 
 You did not have to add the and\_ev and or\_ev events to the plan. This is because
 they are linked to ev1 and ev2, so Roby added them to the plan automatically.
-{.info}
+{: .info}
 
 You can see that the "OR" event is emitted only once. If you want it to be
 emitted every time one of its sources are, you would do:
@@ -156,11 +171,11 @@ plan (objects are included in plans through the #add call). In that case,
 the event is not executable and you will get the following error:
 
 {coderay:: ruby}
- >> ev = EventGenerator.new { }
- >> ev.call
- Roby::EventNotExecutable: #call called on #<Roby::EventGenerator:0x484aa3c0> which is a non-executable event
- >> ev.emit
- Roby::EventNotExecutable: #emit called on #<Roby::EventGenerator:0x484aa3c0> which is a non-executable event
+>> ev = EventGenerator.new { }
+>> ev.call
+Roby::EventNotExecutable: #call called on #<Roby::EventGenerator:0x484aa3c0> which is a non-executable event
+>> ev.emit
+Roby::EventNotExecutable: #emit called on #<Roby::EventGenerator:0x484aa3c0> which is a non-executable event
 {coderay}
 
 Another common error is to try to call (or signal) and event that is non
@@ -168,11 +183,11 @@ controllable. In that case, Roby raises a {rdoc_class: EventNotControlable}
 exception.
 
 {coderay:: ruby}
- >> plan.add(ev = EventGenerator.new)
- >> ev.call
- Roby::EventNotControlable: #call called on a non-controllable event
- >> source = EventGenerator.new
- >> source.signal(ev)
- Roby::EventNotControlable: trying to establish a signal from #<Roby::EventGenerator:0x484a77f8> to #<Roby::EventGenerator:0x484aab88> which is not controllable
+>> plan.add(ev = EventGenerator.new)
+>> ev.call
+Roby::EventNotControlable: #call called on a non-controllable event
+>> source = EventGenerator.new
+>> source.signal(ev)
+Roby::EventNotControlable: trying to establish a signal from #<Roby::EventGenerator:0x484a77f8> to #<Roby::EventGenerator:0x484aab88> which is not controllable
 {coderay}
 
