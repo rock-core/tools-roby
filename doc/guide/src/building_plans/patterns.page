@@ -1,0 +1,23 @@
+---
+title: Patterns and Protocols
+sort_info: 400
+---
+
+Ideally, when writing tasks, one should seek to write it in a way that has as
+as little assumptions as possible about the tasks that are around it. It can
+obviously require some functionalities / interfaces from them. But it should
+not assume, say, that "localization_child is a task of type X".
+
+Moreover, a good guideline when building plans is to avoid having a given task
+access other tasks that are at a distance of more than 1 in any given relation.
+I.e. a task should only access other tasks that are in its direct neighborhood.
+
+The most useful tool to achieve this is the forwarding relation: it allows to
+"forward" an event between tasks, making the child event an equivalent of the
+parent event.
+
+For instance:
+
+
+
+
