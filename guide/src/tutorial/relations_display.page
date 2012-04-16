@@ -78,7 +78,7 @@ asynchronous and as such the exact displays depend on the execution timing. Note
 that, even though it is the case, the robot _behaviour_ remains unchanged.
 {: .warning}
 
-Startup of the "planned\_move!" action
+Startup of the "planned\_move!" action {#planning}
 ---------------------------------------
 
 Let's get to the first task-related events. Click on the first element in
