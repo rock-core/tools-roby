@@ -49,6 +49,22 @@ module Roby::TaskStructure
 	def parents; parent_objects(Dependency) end
 	# The set of child objects in the Dependency relation
 	def children; child_objects(Dependency) end
+        # Returns the single parent task for this task
+        #
+        # If there is more than one parent or no parent at all, raise an exception
+        def parent_task
+            result = nil
+            each_parent_task do |p|
+                if result
+                    raise ArgumentError, "#{self} has more than one parent. A single parent was expected"
+                end
+                result = p
+            end
+            if !result
+                raise ArgumentError, "#{self} has no parents. A single parent was expected"
+            end
+            result
+        end
 
         # Returns the set of roles that +child+ has
         def roles_of(child)
