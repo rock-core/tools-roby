@@ -21,8 +21,6 @@ generating the plan needed to perform an action.
 
 This page presents the most important of them: the hierarchy relation.
 
-{include_file: {filename: src/basics_shell_header.txt, escape_html: false}}
-
 Semantics of task hierarchies
 -----------------------------
 The goal of that relation is to represent the hard dependencies between tasks.
@@ -49,8 +47,9 @@ following sections.
 {: .warning}
 
 Let's assume our robot's functional layer offers two services:
-* it has a way to compute a path from A to B (path planning)
-* it has a way to execute that path once its computed
+
+ * it has a way to compute a path from A to B (path planning)
+ * it has a way to execute that path once its computed
 
 What we want here is to build the plan that represents a _movement_ from the
 current robot's position to a goal position.  That aggregate action will
@@ -64,9 +63,10 @@ end
 {coderay}
 
 So, now, we would have two options:
-* either call the functional layer directly from the MoveTo task
-* or integrate both services independently (in two different tasks) and then
-  aggregate their functionality through the plan.
+
+ * either call the functional layer directly from the MoveTo task
+ * or integrate both services independently (in two different tasks) and then
+   aggregate their functionality through the plan.
 
 In Roby, we would usually use the second method, as it promotes reusability. The
 plan would therefore have to represent the following:
@@ -131,7 +131,7 @@ the ComputePath task to the ExecutePath task. In general, such an endeavour is
 done in Roby through the attributes on task objects. Here, we will simply define
 a 'path' attribute on the MoveTo class.  Given that the actual actions are
 performed by ComputePath and ExecutePath, the definition of the MoveTo task is
-actually quite simple:
+actually quite simple (add in models/tasks/move_to.rb)
 
 {coderay:: ruby}
 class MoveTo < Roby::Task
@@ -149,27 +149,25 @@ model point of view, it will require the 'goal' argument again, and also a
 'path\_task' argument which is the task holding the path data when computed.
 
 On the implementation side, we will use a standard task, the {rdoc_class:
-ThreadTask}. This task represents in Roby's plan a computation that is done in a
+Tasks::Thread}. This task represents in Roby's plan a computation that is done in a
 separate thread. To use this task, one simply needs to define an
 "implementation" block (see below). This block is ran in a separate thread by
-ThreadTask and, upon successful execution of the thread, the result value is
+Tasks::Thread and, upon successful execution of the thread, the result value is
 saved in the tasks's 'result' attribute (and success is emitted). The
 added value is that if the thread fails by raising an exception, the "failed"
 event is simply emitted with the exception as context. Now, open
-tasks/compute\_path.rb and add the following code to it:
+models/tasks/compute\_path.rb and add the following code to it:
 
 {coderay:: ruby}
-require 'roby/thread_task'
-class ComputePath < Roby::ThreadTask
-  # Where we should store the path when computed
-  argument :path_task
+require 'roby/tasks/thread'
+class ComputePath < Roby::Tasks::Thread
   # The movement goal
   argument :goal
 
   # The robot position at which we started planning the path
   attr_reader :start_point
 
-  # Initialize start_point and call ThreadTask's start command
+  # Initialize start_point and call Tasks::Thread's start command
   event :start do |context|
     @start_point = State.pos.dup
     super
@@ -189,33 +187,25 @@ class ComputePath < Roby::ThreadTask
     Robot.info "#{path.size} points between #{start_point} and #{goal}"
     path
   end
-
-  on :success do |ev|
-    path_task.path = result
-  end
 end
 {coderay}
 
-Finally, ExecutePath takes the path generated and follows it. In the same way than
-done with ComputePath, a "path\_task" argument represents the task that holds the
-path (which is everything the task needs). So, edit tasks/execute\_path.rb and
+Finally, ExecutePath takes the path generated and follows it. It assumes that
+its path is stored on its parent task. Edit models/tasks/execute\_path.rb and
 add the following:
 
 {coderay:: ruby}
 class ExecutePath < Roby::Task
   terminates
 
-  # The task holding the path data
-  argument :path_task
-
   # The current waypoint
-  def current_waypoint; path_task.task[@waypoint_index] end
+  def current_waypoint; parent_task.path[@waypoint_index] end
 
   poll do
     @waypoint_index ||= 0
     State.pos = current_waypoint
     @waypoint_index += 1
-    if @waypoint_index == path_task.data.size
+    if @waypoint_index == parent_task.path.size
       emit :success
     end
 
@@ -225,22 +215,27 @@ end
 {coderay}
 
 There are two things left to do: properly initializing the position and adding
-the planning method. For the first point, we will use the Pos::Vector3D class
-that Roby provides (a simple x,y,z tuple). Edit controllers/goForward.rb and
+the planning method. For the first point, we will use the Roby::Pos::Vector3D class
+that Roby provides (a simple x,y,z tuple). Edit scripts/controllers/goForward.rb and
 add:
 
 {coderay:: ruby}
-State.pos = Pos::Vector3D.new
+State.pos = Roby::Pos::Vector3D.new
 {coderay}
 
-Finally, edit planners/goForward/main.rb and add the following method:
+Finally, edit models/planners/goForward/main.rb and add the following method:
 
 {coderay:: ruby}
 method(:planned_move) do
- goal = Pos::Vector3D.new(*arguments.values_at(:x, :y))
+ goal = Roby::Pos::Vector3D.new(*arguments.values_at(:x, :y))
  move    = MoveTo.new :goal => goal
- compute = ComputePath.new :goal => goal, :path_task => move
- execute = ExecutePath.new :path_task => move
+ compute = ComputePath.new :goal => goal
+ execute = ExecutePath.new
+ # ExecutePath expects its target path from its parent. Make sure that it
+ # happens
+ compute.on :success do |event|
+   move.path = compute.result
+ end
  (compute + execute).to_task(move)
  move
 end
@@ -256,8 +251,6 @@ In one Unix shell, do
     344919:32:59.204 (goForward) loaded Roby 0.7.90 on ruby 1.8.7 (2008-08-11 patchlevel 72) [x86_64-linux]
     344919:32:59.272 (goForward) loading controller file /home/joyeux/dev/first_app/controllers/goForward.rb
     344919:32:59.273 (goForward) done initialization                                                        
-    0                                                                                                       
-    0                                                                                                       
 
 Then, **in another one**, start the Roby shell
 
@@ -267,9 +260,13 @@ Then, **in another one**, start the Roby shell
 And do
 
 {coderay:: ruby}
-localhost:48902 > task = planned_move! :x => 10, :y => 20
-=> MoveTo{goal => Vector3D(x=10.000000,y=20.000000,z=0.000000)}:0x7fd0ec1b1a38[]
-localhost:48902 >
-!task MoveTo{goal => Vector3D(x=10.000000,y=20.000000,z=0.000000)}:0x7fd0ec1b1a38[] finished successfully
+localhost:48902 > planned_move! :x => 10, :y => 20
+=> #<service Roby::Task:0x7f34d6dce5f8{}[]>
+localhost:48902 > 
+[1] planned_move! started to plan
+[1] planned_move!: Roby::Task:0x7f34d6dce5f8{}[] has been replaced by MoveTo:0x7f34d6db7358{goal => Vector3D(x=10.000000,y=20.000000,z=0.000000)}[]
+[1] planned_move!: task MoveTo:0x7f34d6db7358{goal => Vector3D(x=10.000000,y=20.000000,z=0.000000)}[] started
+[1] planned_move!: task MoveTo:0x7f34d6db7358{goal => Vector3D(x=10.000000,y=20.000000,z=0.000000)}[] finished successfully
+[1] planned_move!: task MoveTo:0x7f34d6db7358{goal => Vector3D(x=10.000000,y=20.000000,z=0.000000)}[] has been removed
 {coderay}
 
