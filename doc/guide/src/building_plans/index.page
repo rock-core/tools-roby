@@ -1,0 +1,11 @@
+---
+title: Building Plans
+---
+
+This section will deal with the issue of how to create a behaviour using Roby.
+In effect, it boils down to:
+
+ * how to write tasks
+ * how to write planning methods
+ * where to put what, between tasks and planning methods
+
