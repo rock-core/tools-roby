@@ -11,47 +11,47 @@ built.
 Getting a log file
 ------------------
 
-Plan execution logs are expensive from a CPU point of view, so they are disabled
-by default. Enable them back by editing config/app.yml and uncomment
-"events: true" around line 23. 
+Using logging is the most common case, so it is enabled by default. However, it
+is can be expensive from a CPU point of view. To disable, edit config/app.yml
+and comment "events: false" around line 23. 
 
-Now, run again the controller
+Run the controller again
 
-    # scripts/run goForward
+    # roby run goForward
 
 and in the shell, do
 
-    >> planned_move! :x => 10, :y => 10
-    => MoveTo{goal => Vector3D(x=10.000000,y=10.000000,z=0.000000)}:0x4840c8d8[]
-    >>
-    !task MoveTo{goal => Vector3D(x=10.000000,y=10.000000,z=0.000000)}:0x4840c8d8[] finished successfully
+    localhost:48902 > planned_move! :x => 10, :y => 20 => #<service Roby::Task:0x7f48f073d6e8{}[]>
+    localhost:48902 > 
+    [1] planned_move! started to plan
+    [1] planned_move!: Roby::Task:0x7f48f073d6e8{}[] has been replaced by MoveTo:0x7f48f0726448{goal => Vector3D(x=10.000000,y=20.000000,z=0.000000)}[]
+    [1] planned_move!: task MoveTo:0x7f48f0726448{goal => Vector3D(x=10.000000,y=20.000000,z=0.000000)}[] started
+    [1] planned_move!: task MoveTo:0x7f48f0726448{goal => Vector3D(x=10.000000,y=20.000000,z=0.000000)}[] finished successfully
+    [1] planned_move!: task MoveTo:0x7f48f0726448{goal => Vector3D(x=10.000000,y=20.000000,z=0.000000)}[] has been removed
 
-Finally, let's save the log files for further analysis (otherwise, one could
-destroy them by restarting the controller).
+The log files are saved in the logs/ folder with a name that represents the
+start time of the run (YYYYMMDD-HHMM). The last run (or the current run, if it
+is still running) is symlinked to logs/current. One can use
 
-    # scripts/results planned_move
-    moving /home/doudou/dev/first_app/log to /home/doudou/dev/roby-tutorials/results/20080502-planned_move
+    roby results plan_display_tutorial
 
-"scripts/results" copies all files in "log/" into a subdirectory
-of the result dir (by default APP\_DIR/results, but can be changed in
-"config/app.yml"). The target directory name is generated following a pattern of
-"current\_date-name\_provided\_on\_command\_line".
+to rename the folder to YYYYMMDD-HHMM_plan_display_tutorial, so that finding
+this particular dataset later is easier.
 
 Displaying the log file
 -----------------------
-Go in the directory where the results are (see <tt>scripts/results</tt> output).
-On my machine, the command would look like this:
+List the contents of the generated log directory:
 
-    $ cd /home/doudou/dev/roby-tutorials/results/20080502-planned_move
-    $ ls
+    $ cd /home/doudou/dev/roby-tutorials/
+    $ ls logs/current/
     goForward-events.log
     goForward-index.log
 
-If you look into it, two PathPlan files are present: <tt>PathPlan-events.log</tt> and
-"PathPlan-index.log".  The first one includes a trace of everything that
-happens in the Roby controller which has been traced. The second one can
-actually be generated from data in the first one. It is simply used to speed up
-operations.
+If you look into it, two goForward files are present:
+<tt>goForward-events.log</tt> and "goForward-index.log".  The first one includes
+a trace of everything that happens in the Roby controller which has been traced
+(which virtually includes everything). The second one can actually be generated
+from data in the first one. It is simply used to speed up operations.
 
 The data in the event log can be used to display the plan operations in a GUI.
 For that, you need to have installed [Ruby/Qt4](http://korundum.rubyforge.org), as
@@ -59,41 +59,18 @@ the GUI is written using Qt and Ruby.
 
 To start it, simply do the following in the directory of the log files:
 
-    $ roby-log replay goForward
+    $ roby display logs/current/goForward-events.log
 
-The following window should appear:
+The following two windows should appear:
 
 ![](log_replay/roby_log_main_window.png)
 
-This window is separated in three:
-
-* the toplevel part ("Data sources") is the list of data sources defined for
-  this project. It is for instance possible to have a synchronized display of
-  the logs of two different Roby controllers -- for multi-robot setup.
-* the second part ("Displays") is the set of displays defined. More about that later.
-* the third part ("Play") is the replay controls: play, fast forward, position, ...
-
-Right now, we will be looking at the plan structure and execution trace. The
-"Relations" display is designed for that. Let's add one by clicking on the
-"Add" button just next to the display type combo. The configuration options
-appear (including the data source associated with the display), and a new
-window:
-
-![](log_replay/roby_log_relation_window.png)
-
-This display will show two things: the task structure (i.e. how tasks are
-related to each other) and the event propagation (i.e. how events call and/or
-emit each other). The set of task relations to display has to be selected on
-the configuration part of the relation display, including the colors for each
-displayed relation. For our purposes, we only need the "Hierarchy" and the
-"PlannedBy" relations, so check them in the display configuration, as it is done
-one the image above.
-
-Moreover,
-* go in the "View" menu of the relation display and uncheck "Hide
-  finalized", that will be useful for later.
-* go in the "Task labels" and uncheck "Ownership". Ownership is only useful for
-  multi-robot plans.
+The right window is the replay control. It displays the execution cycles in
+which something happened (an event has been emitted or the plan got modified).
+The left window represents the plan structure at the currently selected cycle,
+the events that got emitted during this cycle as well as the propagation between
+these events. The set of task relations that should be displayed can be selected
+by going into View/Configure.
 
 **Very important note** your own display may not look exactly like the ones
 displayed here. Some of the features showed here (like threaded planning) are
@@ -104,19 +81,13 @@ that, even though it is the case, the robot _behaviour_ remains unchanged.
 Startup of the "planned\_move!" action
 ---------------------------------------
 
-Let's get to the first task-related events. Click on the 'Step' button until
-something appears on the display. It should look like the next image:
+Let's get to the first task-related events. Click on the first element in
+execution history (cycle @13 in the right window above). It should look like the
+next image:
 
 ![](log_replay/goForward_1.png)
 
-The displays shows two plans (black boxes). The left one is the plan as it is
-being executed. The right one is called a _transaction_ and allows to build a
-new plan without interfering with the execution. You don't really need to know
-how it works, only that it does the job. The task description includes the task
-model and the task owners (which is only useful in multi-robot setup). The
-_Task labels_ menu allows to customize that.
-
-The left part is a representation of the plan built when the planned\_move!
+What you see here is a representation of the plan built when the planned\_move!
 command is entered in the shell. It consists of a generic task (Roby::Task)
 which is planned\_by a Roby::PlanningTask. This is how Roby handles action
 requests from the shell: (i) it searches a planner defined for that robot with
@@ -134,15 +105,13 @@ signalling (plain) and forwarding (dotted):
 A note about propagation representation: it would be useless to represent all
 the event propagation from the beginning of the execution to the current point.
 The display therefore represents only the propagations that have taken place
-_since the last display point_. It means that, if you go forward 10
-seconds, it will display 10 seconds worth of propagation. In our case, we
-displayed only the first execution cycle and we see that, in this cycle, the
+_within the selected cycle_. In our case, we see that, in this cycle, the
 planning task "start" event has been called and emitted.
 
 The MoveTo plan
 ---------------
 
-Advance again using 'Step' until the display looks like this:
+Advance one step (to the next cycle)
 
 ![](log_replay/goForward_2.png)
 
@@ -170,34 +139,13 @@ event. Tasks whose "failed" event has been emitted are represented in red.
 To finish: the garbage collection process
 -----------------------------------------
 
-Advance a few steps further, until something more happens. You should see
-something like this:
+Advance a few more steps.
 
 ![](log_replay/goForward_5.png)
 
-Here, ExecutePath has finished its execution with success and MoveTo is therefore
-finished as well -- per the forwarding relation between those two events. Note
-that the tasks are now in a dark grey instead than a light one. 
-
-The mission of the robot, MoveTo, is therefore finished. From the plan
-management point of view, it makes keeping a reference to it useless. In the
-same way, the tasks that were in the plan for the purpose of fullfilling that
-mission are rendered useless as well and can also be removed. The process which
-removes those tasks is called the <i>garbage collection process</i> and runs at
-the end of the execution cycle.
-
-The general idea is to kill and remove from the plan the tasks that are not
-useful for the achievement of the robot's missions. The "important" tasks for
-the robot is defined by the set of its missions.  These are added by calling
-Plan#add\_mission instead of the Plan#add that we were using until now. Note
-that, by calling the action through the shell, #add\_mission has been called
-automatically by the framework.
-
-Then, the task relations are used to determine what are the tasks, in the plan,
-which are actually useful for those "important" tasks. This is based on the
-convention that if a <tt>a=>b</tt> relation exists, then "b" is useful for "a".
-
-The remaining tasks, i.e. the tasks that are not useful, are killed (if possible)
-and removed from the plan. When it is done, the task is said to be finalized and
-are displayed in dark grey (if they are not hidden in the View menu).
+Here, ExecutePath has finished its execution with success and MoveTo is
+therefore finished as well -- per the forwarding relation between those two
+events. Note that the tasks have this thick dark grey contour. It means that the
+task got [garbage collected](../concepts/garbage_collection.html) in this cycle,
+i.e. removed from the plan because it was not useful anymore.
 
