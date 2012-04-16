@@ -54,7 +54,8 @@ is the task returned by the block:
 {coderay:: ruby}
 class MainPlanner < Roby::Planning::Planner
   describe('follows a set of waypoints').
-    required_arg('waypoints', 'an array of points as a list of [x, y] pairs")
+    required_arg('waypoints',
+                 'an array of points as a list of [x, y] pairs')
   method :follow_waypoints do
     sequence = arguments[:waypoints].
 	map do |wp|
@@ -75,42 +76,8 @@ a new mission to the robot's plan. It is used as the shell interface:
 Robot.move_to! :target => [10, 20]
 {coderay}
 
-The return value is a __placeholder__ for the final task. Let's explain that.
-
-The Planning Pattern {#planning-pattern}
-----------------
-Generating plans can be a pretty expensive operation. This is why, in Roby, it
-is done __asynchronously__ whenever possible.
-
-Injecting new tasks-that-should-be-planned is a plan is done by actually adding
-two tasks:
-
- * an instance of Roby::Task or of one of its subclasses which is a placeholder
-   for the final task
- * a planning task, i.e. a Roby task that is the child of the placeholder in
-   the planned_by relation. When using the standard Roby planning interface,
-   the task used is Roby::PlanningTask .
-
-There is an example of that pattern in action [in the
-tutorial](../tutorial/relations_display.html#planning)
-
-To make the pattern more obvious, one would like to have the placeholder task to be
-of the right type, i.e. of the type that the method is going to return.
-
-This can be done in the method definition by adding the :returns option:
-
-{coderay:: ruby}
-  method :move_to, :returns => MoveTo do
-    target = arguments[:target]
-    MoveTo.new(:target => target)
-  end
-{coderay}
-
-Additionally, one can declare "some method" that users of a given planning
-class will have to define (i.e. define generic methods and let the user define
-the specific ones). This done by using Planner.method without a block:
-
-{coderay:: ruby}
-  method :move_to, :returns => MoveTo
-{coderay}
+The return value from Robot.move_to! is a __placeholder__ for the final task,
+which can be integrated in the current plan (i.e. used as parent, child, add
+event handlers, add event relations).  This is explained [on the next
+page](runtime.html)
 
