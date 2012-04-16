@@ -139,7 +139,7 @@ Using task events
 -----------------
 Task event generators are defined using a subclass of EventGenerator,
 {rdoc_class: TaskEventGenerator}. One can access them from the task by using
-either Task#event or the more widely used #<task_name>_event shortcuts. Then,
+either Task#event or the more widely used ${task_name}_event shortcuts. Then,
 you can manipulate them as for normal events:
 
 {coderay:: ruby}

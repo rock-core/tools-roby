@@ -58,6 +58,7 @@ end
 {coderay}
 
 This way:
+
 * if we want to display more information, changing one line does the trick
 * if a new event is added, it gets displayed automatically
 
