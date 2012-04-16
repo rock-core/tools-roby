@@ -4,14 +4,14 @@ sort_info: 30
 ---
 
 What should have understood by now is the concept of [reactor](reactor.html) and
-[plan](plan.html). This page will bind both concepts together to explain how the
+[plan](plans.html). This page will bind both concepts together to explain how the
 plans are interpreted to actually execute _something_.
 
 So, now, we have (1) a plan which represents the tasks and events that exist on
 our system and (2) a reactor that is supposed to handle gathering events and
 executing code. Let's see how these two get combined.
 
-This page is using the same example than [the previous page](plan.page). Let's
+This page is using the same example than [the previous page](plans.html). Let's
 repeat the corresponding plan:
 
 ![Simple plan example](simple_plan_example.png)

@@ -90,7 +90,7 @@ end
 Plugging into the constraint verification mechanism
 ---------------------------------------------------
 
-As presented on [this part](../cycle/index.html), the execution cycle is split
+As presented [in the concepts section](../concepts), the execution cycle is split
 into an event propagation phase (where things happen) and a constraint
 verification phase (where things are checked).
 

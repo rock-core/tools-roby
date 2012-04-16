@@ -53,5 +53,5 @@ What we have seen so far:
    the cleanup to automatic garbage collection handling
 
 The next step is to understand [how Roby represents and handles
-errors](error_handling.page)
+errors](error_handling.html)
 

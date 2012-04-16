@@ -37,7 +37,7 @@ because the event 'failed' was emitted) and who is the culprit (in the
 ChildFailedError, the child).
 
 Let's see an example of such an error. We'll cheat a bit and make our
-ComputePath task fail. Edit tasks/compute\_path.rb and add an error at the beginning of the implementation block. Make it so that it looks like the following:
+ComputePath task fail. Edit models/tasks/compute\_path.rb and add an error at the beginning of the implementation block. Make it so that it looks like the following:
 
 {coderay:: ruby}
 implementation do
@@ -51,7 +51,7 @@ Now, start the controller in one console and the roby shell in another and:
     !Roby::ChildFailedError
     !at [345013:53:51.812/109] in the failed event of ComputePath:0x7f6ff6a8f0a8
     !implementation failed ! (RuntimeError)
-    !  ./tasks/compute_path.rb:19,
+    !  ./models/tasks/compute_path.rb:19,
     !    /home/joyeux/dev/roby/lib/roby/thread_task.rb:63:in `value',
     !    /home/joyeux/dev/roby/lib/roby/thread_task.rb:63:in the polling handler,
     !    /usr/lib/ruby/1.8/rubygems/custom_require.rb:31:in `gem_original_require',
@@ -77,6 +77,7 @@ Now, start the controller in one console and the roby shell in another and:
     !task MoveTo{goal => Vector3D(x=10.000000,y=20.000000,z=0.000000)}:0x7f6ff6a8f198[] failed
 
 What information is there ?
+
 * we do have a ChildFailedError
 * the source is the emission at 345013:53:51.812/109 of the 'failed' event of
   ComputePath. Roby::ThreadTask will automatically emit _failed_ if the
@@ -86,7 +87,7 @@ What information is there ?
   its backtrace.
 
         !implementation failed ! (RuntimeError)
-        !  ./tasks/compute_path.rb:19,
+        !  ./models/tasks/compute_path.rb:19,
         !    /home/joyeux/dev/roby/lib/roby/thread_task.rb:63:in `value',
         !    /home/joyeux/dev/roby/lib/roby/thread_task.rb:63:in the polling handler,
         !    /usr/lib/ruby/1.8/rubygems/custom_require.rb:31:in `gem_original_require',
@@ -119,7 +120,7 @@ that we can't rely on it). In that case, Roby tries to hang up as cleanly as
 possible by killing all tasks that are being executed.
 
 Let's try one code error. Add the following event handler in the definition of
-MoveTo in tasks/move\_to.rb
+MoveTo in models/tasks/move\_to.rb
 
 {coderay:: ruby}
 on :start do
@@ -130,55 +131,30 @@ end
 Start (or restart) the controller and launch a planned\_move! action in
 the shell. The following should happen:
 
-    !Roby::EventHandlerError: user code raised an exception at [336641:28:04.607/23] in the start event of MoveTo:0x2b4330b4fae8
-    !
-    !
-    !the start handler failed ! (RuntimeError)
-    !./tasks/move_to.rb:10:in event handler for 'start',
-    !  /home/joyeux/system/rubygems/lib/rubygems/custom_require.rb:27:in `gem_original_require',
-    !  /home/joyeux/system/rubygems/lib/rubygems/custom_require.rb:27:in `require',
-    !  scripts/run:3
-    !
-    !The following tasks have been killed:
-    !  MoveTo:0x2b4330b4fae8
+    = fatal exception 1: uncaught exception in an event handler of the start event of MoveTo:0x7f2c665a24b0
+    | called during the propagation of [16:10:25.191 @2] MoveTo:0x7f2c665a24b0{goal => Vector3D(x=10.000000,y=20.000000,z=0.000000)}[]/start
+    | /media/Data/rock/imoby/tutorials/roby/models/tasks/move_to.rb:10:in `event_handler_start_7f2c67500010': bla (RuntimeError)
+    | ./models/tasks/move_to.rb:10:in event handler for 'start',
+    |   /media/Data/rock/imoby/tools/roby/bin/roby:7
+    | The following tasks have been killed:
+    | MoveTo:0x7f2c665a24b0
 
 Now, what happens during execution: how Roby does react to that error ? What we
-can see in the relation display is the following three successive steps. **Don't
-forget to uncheck _View/Hide finalized_**.
+can see in the relation display is that, just after the action got expanded, the
+following happens:
 
-![](log_replay/hierarchy_error_1.png)
-{.fullfigure}
+![](log_replay/moveto_code_error.png)
+{: .fullfigure}
 
-**Starting point**: the MoveTo is started and so is the ComputePath task, as it
-is an event handler that fails (i.e. the error appears _after_ the event is
-emitted).
-{.figurecaption}
-
-![](log_replay/hierarchy_error_2.png)
-{.fullfigure}
-
-**Next cycle**: MoveTo is killed because of the error in the previous cycle.
-ComputePath took only one cycle to complete, so ExecutePath is started as well.
-{.figurecaption}
-
-![](log_replay/hierarchy_error_3.png)
-{.fullfigure}
-
-**Killing useless tasks**: the now useless ExecutePath is killed as well.
-{.figurecaption}
-
-From Roby's point of view, the event has already happened when the event
-handlers get called. Therefore, the event propagation should go on even though
-one of the event handlers failed, and therefore ComputePath is started.
-
-However, since an error occured and has not been handled, the MoveTo task cannot
-keep running and is stopped at the next cycle. The tasks that are now useless
-are also stopped (in this particular execution, ComputePath took only one cycle
-to execute and therefore only ExecutePath is stopped).
+The MoveTo is started, and therefore the event handler is called. Note that the
+event is still propagated as it __already happened__. Because of the failure,
+the task is killed by the garbage collection mechanism and the children are
+stopped as well since they are not useful anymore
+{: .figurecaption}
 
 For event commands, all depends on where the exception actually appears. If
 'emit' has already been called, then the event will be emitted and propagated.
-Otherwise, it counts as a cancelling of the event command -- which is an error
+Otherwise, it counts as a cancelling of the event command -- which is also an error
 itself.
 
 Handling errors
@@ -262,8 +238,6 @@ Note that doing such a thing on the failed event is a bad idea, as failed is
 emitted when the task gets interrupted. You would, in general, do that on a more
 specific error event (i.e. an event that is forwarded to _failed_).
 
-TODO: figure.
-
 Asynchronous repairs
 --------------------
 
@@ -281,12 +255,13 @@ task.event(error_event_name).handle_with(my_repair_task)
 {coderay}
 
 Let's try it in our application. What we will do is the following:
+
 * add a _blocked_ fault event to the model of ExecutePath, and make the poll
   block of ExecutePath emit _blocked_ randomly.
 * have a repair task wait 2 seconds and either (randomly) respawn the path
   execution after those two seconds, or emit _failed_.
 
-The first point is straightforward: just change tasks/execute\_path.rb so that
+The first point is straightforward: just change models/tasks/execute\_path.rb so that
 the bottom of it looks like the following code. Changed lines are 4, 5, 10 and
 11.
 
@@ -304,7 +279,7 @@ the bottom of it looks like the following code. Changed lines are 4, 5, 10 and
 end
 {coderay}
 
-A new RepairTask model has to be added. Open tasks/repair\_task.rb and add the
+A new RepairTask model has to be added. Open models/tasks/repair\_task.rb and add the
 following:
 
 {coderay:: ruby}
@@ -321,10 +296,10 @@ class RepairTask < Roby::Task
     current   = failed_task.current_waypoint
     execute   = plan.respawn(failed_task)
     repair    = plan.recreate(self)
+    execute.blocked_event.handle_with(repair)
 
-    # Get the path object, and remove from the points that have already been
-    # done
-    path = execute.path_task.path
+    # Get the path object, and remove the points that have already been done
+    path = execute.parent_task.path
     while !path.empty? && path[0] != current
         path.shift
     end
@@ -381,30 +356,30 @@ more details in the plan display (note that this time, you need to display the
 ErrorHandling relation as well).
 
 ![](log_replay/plan_repair_1.png)
-{.fullfigure}
+{: .fullfigure}
 
 **Nominal execution**: the plan repair (in blue) is not executed yet and the ExecutePath is running
 {.figurecaption}
 
 ![](log_replay/plan_repair_2.png)
-{.fullfigure}
+{: .fullfigure}
 
 **ExecutePath fails**: the plan repair is queued for starting, and will actually start in the next cycle
 {.figurecaption}
 
 ![](log_replay/plan_repair_3.png)
-{.fullfigure}
+{: .fullfigure}
 
 **Repair started**
 {.figurecaption}
 
 ![](log_replay/plan_repair_4.png)
-{.fullfigure}
+{: .fullfigure}
 
 **Repair successful**: a new ExecutePath task is added with a new repair. The
 new task's start event is queued, and will therefore start at the beginning of
 the next cycle.
-{.figurecaption}
+{: .figurecaption}
 
 A simple real-world example is
 [here](http://roby.rubyforge.org/videos/rflex_repaired.avi) In this video, the

@@ -16,20 +16,21 @@ Roby requires ruby version 1.8.6 or 1.8.7. Ruby 1.9 is a work in progress, but
 will not work with this release
 
 * The Roby engine needs 
-  * +utilrb+, which is available on RubyForge[http://utilrb.rubyforge.org] as a gem
-  * Facets, available on RubyForge[http://rubyforge.org/projects/facets] or as a gem
-  * ActiveSupport, available on RubyForge[http://rubyforge.org/projects/activesupport] or as a gem
-  * the {Boost C++ library}[www.boost.org], including Boost/Graph
+  * +utilrb+, which is available as a RubyGem or on
+    [gitorious](git://gitorious.org/orocos-toolchain/utilrb.git)
+  * Facets, available as a RubyGem
+  * ActiveSupport, available as a RubyGem
+  * the [Boost C++ library](http://www.boost.org), including Boost/Graph
 
 * the documentation generation requires
   * the RDoc gem (not the default RDoc) for the generation of the API
-  * the webgen gem with coderay and maruku for the generation of the user's
+  * the webgen gem with coderay for the generation of the user's
     guide
 
 * the test suite needs also
-  * FlexMock, available on RubyForge[http://rubyforge.org/projects/flexmock]
+  * FlexMock, available as a RubyGem
 
-* finally, the GUI requires {QtRuby >= 1.4.9}[http://rubyforge.org/projects/korundum], SVG export requires QtRuby to
+* finally, the GUI requires [QtRuby >= 1.4.9](http://rubyforge.org/projects/korundum), SVG export requires QtRuby to
   be built with Qt >= 4.3
 
 Before installation

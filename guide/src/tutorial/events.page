@@ -4,7 +4,7 @@ sort_info: 100
 ---
 
 This page will present the basic tools that allow to define and manipulate
-events. In [the concepts section](../concepts/plan_objects.html), we saw that
+events. In [the concepts section](../concepts/plans.html), we saw that
 events are two sided objects: one the one hand, they represent the situations
 the system is in (event _emission_). On the other hand, they represent the
 commands that the system accepts (event _commands_).  We'll see in this page
