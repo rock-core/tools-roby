@@ -34,7 +34,7 @@ system's battery and emits the battery_low event when that reaches a certain
 threshold. Another routine would monitor the system's position and emit the
 success event on the corresponding MoveTo task when the destination is reached.
 
-2: Scheduling
+2: Scheduling {#scheduling}
 -------------
 The scheduler is a source of commands. Essentially, given a plan, its job is to
 decide which task can be started, and start them.

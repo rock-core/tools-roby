@@ -101,7 +101,7 @@ localhost:48902 >
 The __intent__ to run the move is first added to the plan. Then, it gets
 developped by calling the planning method (the "started to plan" stanza), and
 the result replaces the placeholder task ("has been replaced by ..."). It then
-becomes eligible for [scheduling](../concepts/execution.html) and is started.
+becomes eligible for [scheduling](../concepts/execution.html#scheduling) and is started.
 
 The value returned by the move! call can also be manipulated as if it was a task itself. For instance:
 
