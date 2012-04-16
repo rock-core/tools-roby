@@ -1,5 +1,6 @@
 ---
 title: Associating code and tasks
+sort_info: 100
 ---
 
 Roby allows you to mix model-based descriptions (the tasks, the plan, ...) with
