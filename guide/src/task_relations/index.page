@@ -1,12 +1,12 @@
 ---
-title: Task and Event Relations
+title: Task Relations
 sort_info: 0
 --- name:content pipeline:tags,markdown,blocks
 
-This section is a reference for the task and event relations. As you should
-already know now, these relations are used to build the plans that are executed
-by Roby.
+This section is a reference for the task relations. As you should already know
+now, these relations are used to build the plans that are executed by Roby.
 
-Look at the main menu on the right, and pick the relation you more information
-on !
+The objects representing each of these relations are stored in
+Roby::TaskStructure. New relations are defined with Roby::TaskStructure.relation
+(whose documentation is in {rdoc_class: RelationGraph}).
 
