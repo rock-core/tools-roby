@@ -678,3 +678,10 @@ font-size: 80%;
 font-style: italic;
 }
 
+.caption {
+    margin-left: 50px;
+    margin-right: 50px;
+    font-size: 90%;
+    font-style: italic;
+}
+
