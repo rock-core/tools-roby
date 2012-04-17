@@ -1,7 +1,9 @@
 ---
-title: TaskStructure::Dependency
+title: Dependency
 sort_info: 100
 --- name:content
+
+Available as Roby::TaskStructure::Dependency
 
 Semantics
 ---------
@@ -78,15 +80,8 @@ failure anymore. In a same way, as soon as +:success+ is emitted then the
 emission of +:updated+ will not be considered as a success anymore. If both
 events are emitted in the same cycle, the success event takes precedence.
 
-Common Use-Cases
-----------------
-
-The most common use case is the default dependency relation behaviour: success
-is \[:success] and failure is empty.
-
-
-
-== Manipulation
+Manipulation
+------------
 A dependency relation is added with the #depends_on call. Apart from the
 +:success+ and +:failure+ options described above, one other option is
 available: the +:remove_when_done+ option. If set to true, as for instance
@@ -120,10 +115,14 @@ returns true if t1 directly depends on t2: t1 is a direct parent of t2.
 
 The two types of errors that can occur in the context of a dependency relation
 are:
-* no success event will ever be emitted
-* one of the failure events is emitted
+
+ * no success event will ever be emitted
+ * one of the failure events is emitted
 
 In both cases, a {rdoc_class: ChildFailedError} exception is generated. In the
 first case, the failure point is the success event generator that is
-unreachable. In the second case, it is the event that triggered the failure.
+unreachable. In the second case, it is the event that triggered the failure. In
+both cases, the explanation field contains the
+Roby::EventConstraints::Explanation object that explains why the event condition
+has been triggered.
 
