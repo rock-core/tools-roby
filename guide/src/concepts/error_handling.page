@@ -68,8 +68,8 @@ the task's event mechanism).
 As stated before, localized errors are all assigned a source. This source can be
 an event or a task. They are handled by looking for __exception handlers__
 across the task hierarchy. This propagation involves the
-[dependency](../relations/dependency.html) and
-[planned_by](../relations/planned_by.html) relations. The lookup goes up in the
+[dependency](../task_relations/dependency.html) and
+[planned_by](../task_relations/planned_by.html) relations. The lookup goes up in the
 dependency relation and looks for each task it finds for (1) a handler in the
 task itself or (2) a handler in the planning task of that task (i.e. in the
 child in the planned_by relation).

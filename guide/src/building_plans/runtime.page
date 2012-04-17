@@ -43,7 +43,7 @@ method :move_to, :returns => MoveTo
 Failures in the planning methods
 --------------------------------
 The failures in the planning methods are handled through [the planned_by
-relation](../relations/planned_by.html)
+relation](../task_relations/planned_by.html)
 
 Accessing other tasks
 ---------------------
