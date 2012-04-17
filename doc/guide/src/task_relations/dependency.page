@@ -46,7 +46,7 @@ t1.depends_on t2, :success => [], :failure => [:stop]
 {coderay}
 
 Both the :sucess and :failure options accept [event
-predicates](../advanced_concepts/event_predicates.html) as values. Moreover, the
+predicates](../advanced_concepts/recognizing_patterns.html#event-predicates) as values. Moreover, the
 [unreachability](../advanced_concepts/unreachability.html) of all success events
 is also an error (unless the success set is empty, of course). Therefore, the
 default parameters of :success => \[:success], :failure => [] both specify that
