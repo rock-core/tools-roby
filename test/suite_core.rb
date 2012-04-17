@@ -5,6 +5,7 @@ require 'test_relations'
 require 'test_event'
 require 'test_task'
 require 'test_state'
+require 'test_event_constraints'
 
 require 'test_execution_engine'
 require 'test_exceptions'
