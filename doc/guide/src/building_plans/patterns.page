@@ -55,7 +55,7 @@ Of course, for reusability, one might offer class methods in tasks that build
 "patterns", and that are called from within planning methods. But that is
 different from having __instance methods__ in tasks that build plans.
 
-Embedding placeholders in the plan
+Embedding placeholders in the plan {#abstract-tasks}
 ----------------------------------
 If, at any point in execution, one wants to represent that a task __will__ be
 there and executed, but without explaining __how__, it is possible, in Roby, to

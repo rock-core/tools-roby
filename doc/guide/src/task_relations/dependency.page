@@ -1,9 +1,13 @@
 ---
 title: Dependency
 sort_info: 100
---- name:content
+---
 
 Available as Roby::TaskStructure::Dependency
+
+See {rdoc_class: Roby::TaskStructure::Dependency::InstanceMethods} for the list
+of methods that are defined on Roby::Task and Roby::TaskStructure::Dependency
+for the methods accessible on the relation graph.
 
 Semantics
 ---------
@@ -47,82 +51,48 @@ instance, if it is required that +t2+ does not stop while +t1+ is running, do
 t1.depends_on t2, :success => [], :failure => [:stop]
 {coderay}
 
-Both the :sucess and :failure options accept [event
-predicates](../advanced_concepts/recognizing_patterns.html#event-predicates) as values. Moreover, the
-[unreachability](../advanced_concepts/unreachability.html) of all success events
-is also an error (unless the success set is empty, of course). Therefore, the
-default parameters of :success => \[:success], :failure => [] both specify that
-:success is a success event __and__ that :stop without :sucess is an error (as,
-once :stop is emitted, :success becomes unreachable)
+Moreover, it is possible to refine what the parent task actually needs by
+specifying a __fullfilled model__ explicitely. I.e. by adding the :model
+option, one can specifically tell what tasks are acceptable as children in this
+particular relation. This can be used during plan transformations to replace tasks
+by other tasks.
 
-Runtime Behaviour
------------------
-The dependency relation does _not_ specify that +t2+ should run as long as +t1+
-runs: to do that, you would need to specify that +t2+ must be started when +t1+
-is started with (for instance):
-  t1.should_start_after t2
-
-However, both the [basic and temporal schedulers](../schedulers) use the
-dependency relation to order the start of tasks. In both these schedulers, if no
-other constraints apply, a task can only be scheduled if one of its parent has
-been started.
-
-The relation constraint is one-shot: if the success predicate is true, the
-relation is ignored for the rest of the execution.
-For instance, if the following relation is added:
+For instance:
 
 {coderay:: ruby}
-t1.depends_on t2, :success => [:updated], :failure => [:success]
+# Tells that t1 needs a task that fullfills the Localization model with the
+# given mode argument. Other arguments are left free.
+t1.depends_on t2, :model => [Localization, :mode => :icp]
 {coderay}
 
-Then as soon as +:updated+ is emitted, the emission of +:success+ is not a
-failure anymore. In a same way, as soon as +:success+ is emitted then the
-emission of +:updated+ will not be considered as a success anymore. If both
-events are emitted in the same cycle, the success event takes precedence.
+Both the :success and :failure options accept [event
+predicates](../advanced_concepts/recognizing_patterns.html#event-predicates) as
+values. 
 
-Manipulation
-------------
-A dependency relation is added with the #depends_on call. Apart from the
-+:success+ and +:failure+ options described above, one other option is
-available: the +:remove_when_done+ option. If set to true, as for instance
-  t1.depends_on t2, :remove_when_done => true
-
-then the relation is automatically removed as soon as it is not useful anymore
-(i.e. one of the success events is emitted).
-
-A dependency relation is removed with #remove_child
-  t1.remove_child t2
-
-Children are enumerated with
-  t1.each_child { |t2, options| ... }
-  t1.children => enumerator
-
-and parents with
-  t2.each_parent { |t1| ... }
-  t2.parents => enumerator
-
-Moreover, dependency relationship between two tasks can be tested with the
-following predicates:
-  t2.depended_upon_by?(t1)
-returns true if t2 is a dependency of t1: t2 is a direct child of t1.
-  t1.depends_on?(t2)
-returns true if t1 depends on t2 in one way or the other, i.e. that t2 is a
-child or a grandchild or a grand-grandchild or ... of t1.
-  t1.depends_on?(t2, false)
-returns true if t1 directly depends on t2: t1 is a direct parent of t2.
-
-== Errors
-
+Error Conditions
+----------------
 The two types of errors that can occur in the context of a dependency relation
 are:
 
  * no success event will ever be emitted
  * one of the failure events is emitted
 
+The first condition is reached when the event predicate given for :success is
+(1) static and has a "false" value. When giving simple events, it means that the
+events have never been emitted and are marked [as
+unreachable](../advanced_concepts/unreachability.html). For instance, the
+default parameters of :success => \[:success], :failure => [] both specify that
+:success is a success event __and__ that :stop without :sucess is an error (as,
+once :stop is emitted, :success becomes unreachable)
+
 In both cases, a {rdoc_class: ChildFailedError} exception is generated. In the
-first case, the failure point is the success event generator that is
-unreachable. In the second case, it is the event that triggered the failure. In
-both cases, the explanation field contains the
-Roby::EventConstraints::Explanation object that explains why the event condition
-has been triggered.
+first case, the failure point is the event generator that is unreachable. In the
+second case, it is the event that triggered the failure. In both cases, the
+explanation field contains the Roby::EventConstraints::Explanation object that
+explains why the event condition has been triggered.
+
+Relationship to Scheduling
+--------------------------
+The planned_by relation has an influence on both [the basic and
+temporal schedulers](../scheduling).
 
