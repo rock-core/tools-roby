@@ -8,6 +8,11 @@ index.page:
     sort_info: 100
 /building_plans:
     sort_info: 150
+/advanced_concepts:
+    sort_info: 170
+    draft: true
+/advanced_concepts/*:
+    draft: true
 /relations:
     sort_info: 200
 
