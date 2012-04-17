@@ -1,6 +1,7 @@
 $LOAD_PATH.unshift File.expand_path('lib', File.dirname(__FILE__))
 require 'enumerator'
 require 'roby/config'
+require 'utilrb/doc/rake'
 
 task :default => :setup
 begin
@@ -139,7 +140,6 @@ end
 # This is for the user's guide
 begin
     require 'webgen/webgentask'
-    require 'rdoc/task'
     do_doc = true
 rescue LoadError => e
     STDERR.puts "webgen and/or the rdoc Gem are not available, documentation generation disabled"
@@ -148,14 +148,11 @@ end
 
 if do_doc
     namespace 'doc' do
-        require 'roby/app/rake'
-        RDoc::Task.new("api") do |rdoc|
-          rdoc.rdoc_dir = 'doc/html/api'
-          rdoc.title    = "Roby Core"
-          rdoc.options << '--show-hash'
-          rdoc.rdoc_files.include('lib/**/*.rb', 'ext/**/*.cc')
-          rdoc.rdoc_files.exclude('lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*')
-        end
+        Utilrb.doc 'api', :include => ['lib/**/*.rb', 'ext/**/*.cc'],
+            :exclude => ['lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*'],
+            :target_dir => 'doc/html/api',
+            :title => 'Rock Core',
+            :plugins => 'utilrb'
 
         Webgen::WebgenTask.new('guide') do |website|
             website.clobber_outdir = true
