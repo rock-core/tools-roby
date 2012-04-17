@@ -103,7 +103,8 @@ class TC_EventConstraints_UnboundPredicate < Test::Unit::TestCase
         assert_equal(nil, pred.explain_static(task))
         task.stop!
         assert(pred.static?(task))
-        assert_explained_by(nil, pred, task.terminal_event, pred.explain_static(task))
+        assert_explained_by(nil, pred, task.first_event, pred.explain_static(task))
+        assert_equal task.terminal_event, task.first_event.unreachability_reason
     end
 
     def test_negate
