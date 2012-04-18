@@ -732,14 +732,17 @@ module Roby
 	    # Check if this relation is already defined. If it is the case, reuse it.
 	    # This is needed mostly by the reloading code
             graph = define_or_reuse(options[:const_name]) do
-		graph = options[:graph].new "#{self.name}::#{options[:const_name]}", options
+                klass = Class.new(options[:graph])
+		graph = klass.new "#{self.name}::#{options[:const_name]}", options
 		mod = Module.new do
 		    singleton_class.class_eval do
 			define_method("__r_#{relation_name}__") { graph }
 		    end
 		    class_eval "@@__r_#{relation_name}__ = __r_#{relation_name}__"
 		end
-                const_set("#{options[:const_name]}SupportModule", mod)
+                const_set("#{options[:const_name]}GraphClass", klass)
+                klass.const_set("Extension", mod)
+                mod.const_set("ClassExtension", Module.new)
 		relations << graph
                 graph.support = mod
                 graph
