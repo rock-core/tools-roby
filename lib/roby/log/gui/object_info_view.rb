@@ -34,7 +34,7 @@ module Roby
                     sections << section
 
                 elsif obj.kind_of?(Roby::LogReplay::RelationsDisplay::DisplayTask)
-                    sections << ["Model", obj.class.name]
+                    sections << ["Model", [obj.class.name]]
                     # Add general task information (owner, arguments, ...)
                     text = obj.arguments.map do |key, value|
                         "#{key}: #{value}"

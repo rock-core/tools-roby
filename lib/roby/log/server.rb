@@ -252,7 +252,7 @@ module Roby
                         break
                     end
 
-                    data_size = *buffer.unpack('I')
+                    data_size = buffer.unpack('I').first
                     if buffer.size > data_size + 4
                         data = Marshal.load_with_missing_constants(buffer[4, data_size])
                         if data.kind_of?(Hash)
