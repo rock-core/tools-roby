@@ -152,7 +152,7 @@ if do_doc
             :exclude => ['lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*'],
             :target_dir => 'doc/html/api',
             :title => 'Rock Core',
-            :plugins => 'utilrb'
+            :plugins => ['utilrb']
 
         Webgen::WebgenTask.new('guide') do |website|
             website.clobber_outdir = true
