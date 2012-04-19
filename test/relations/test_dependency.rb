@@ -551,7 +551,7 @@ class TC_RealizedBy < Test::Unit::TestCase
             child = parent.child_from_role('child0')
             assert_equal trsc[child], child
 
-            assert([[child, info]], parent.each_child.to_a)
+            assert_equal([[child, info]], parent.each_child.to_a)
         end
     end
 end
