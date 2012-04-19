@@ -11,13 +11,13 @@ begin
             self.developer 'Sylvain Joyeux', 'sylvain.joyeux@m4x.org'
 
             self.summary = 'A plan-based control framework for autonomous systems'
-            self.url         = paragraphs_of('README.txt', 1).join("\n\n")
-            self.description = paragraphs_of('README.txt', 3..5).join("\n\n")
+            self.url         = paragraphs_of('README.rd', 1).join("\n\n")
+            self.description = paragraphs_of('README.rd', 3..5).join("\n\n")
             self.description +=
 "\n\nSee doudou.github.com/roby for more informations, including links to
 tutorials and demonstration videos"
             self.changes     = paragraphs_of('History.txt', 0..1).join("\n\n")
-            self.post_install_message = paragraphs_of('README.txt', 2).join("\n\n")
+            self.post_install_message = paragraphs_of('README.rd', 2).join("\n\n")
 
             self.extra_deps <<
                 ['facets', '>= 2.0'] <<
@@ -39,7 +39,7 @@ tutorials and demonstration videos"
         hoe.spec.description = hoe.summary
             
         hoe.spec.rdoc_options << 
-            '--main' << 'README.txt' <<
+            '--main' << 'README.rd' <<
             "--accessor" << "attribute" << 
             "--accessor" << "attr_predicate"
 
@@ -152,7 +152,7 @@ if do_doc
             :exclude => ['lib/roby/test/**/*', 'lib/roby/app/**/*', 'lib/roby/log/gui/*'],
             :target_dir => 'doc/html/api',
             :title => 'Rock Core',
-            :plugins => ['utilrb']
+            :plugins => ['utilrb', 'roby']
 
         Webgen::WebgenTask.new('guide') do |website|
             website.clobber_outdir = true
