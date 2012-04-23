@@ -1,7 +1,7 @@
 ---
 title: Defining new relations
-sort_info: 100
---- name:content pipeline:tags,markdown,blocks
+sort_info: 1000
+---
 
 This page will detail the mechanisms Roby has to define new relations (tasks or
 events), as well as how relations can be plugged into the overall execution
