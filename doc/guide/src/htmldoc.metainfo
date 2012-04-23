@@ -10,7 +10,7 @@ index.page:
     sort_info: 150
 /advanced_concepts:
     sort_info: 170
-/relations:
+/task_relations:
     sort_info: 200
 
 /plugins:
