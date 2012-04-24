@@ -423,10 +423,6 @@ module Roby
 
 	# Loads the plugins whose name are listed in +names+
 	def using(*names)
-            if available_plugins.empty?
-                register_plugins
-            end
-
 	    names.map do |name|
 		name = name.to_s
 		unless plugin = plugin_definition(name)
@@ -752,6 +748,7 @@ module Roby
             load_config_yaml
 
 	    # Get the application-wide configuration
+            register_plugins
             if initfile = find_file('config', 'init.rb', :order => :specific_first)
                 Application.info "loading init file #{initfile}"
                 require initfile
