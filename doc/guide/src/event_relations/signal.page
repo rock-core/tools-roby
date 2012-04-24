@@ -1,6 +1,6 @@
 ---
 title: The Signal relation
-sort_info: 100
+sort_info: 90
 ---
 
 Available as Roby::EventStructure::Signal
