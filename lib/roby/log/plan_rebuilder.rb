@@ -243,12 +243,19 @@ module Roby
             # filters applied on the event stream
             attr_reader :event_filters
 
-	    def initialize(main_manager = true)
-                @plan = Roby::Plan.new
+	    def initialize(options = Hash.new)
+                if !options.kind_of?(Hash)
+                    options = { :main => options }
+                end
+                options = Kernel.validate_options options,
+                    :plan => Roby::Plan.new,
+                    :main => true
+
+                @plan = options[:plan]
                 @plan.extend ReplayPlan
                 @plans = [@plan]
                 @manager = create_remote_object_manager
-                if main_manager
+                if options[:main]
                     Distributed.setup_log_replay(manager)
                 end
                 Distributed.disable_ownership
@@ -258,6 +265,7 @@ module Roby
                 @filter_matches = Array.new
                 @filter_exclusions = Array.new
                 @all_relations = Set.new
+                @stats = Hash.new
 	    end
 
             attr_reader :all_relations
@@ -271,8 +279,8 @@ module Roby
                 end
             end
 
-            def analyze_stream(event_stream)
-                while !event_stream.eof?
+            def analyze_stream(event_stream, until_cycle = nil)
+                while !event_stream.eof? && (!until_cycle || (cycle_index && cycle_index == until_cycle))
                     begin
                         data = event_stream.read
                         interesting = process(data)
@@ -287,6 +295,7 @@ module Roby
                                 
                             history << snapshot(relations)
                         end
+
                     ensure
                         clear_integrated
                     end
@@ -299,8 +308,16 @@ module Roby
             end
 
             # The starting time of the last processed cycle
-            def time
+            def cycle_start_time
                 Time.at(*stats[:start])
+            end
+
+            # The time of the last processed log item
+            attr_reader :current_time
+
+            # The starting time of the last processed cycle
+            def cycle_end_time
+                Time.at(*stats[:start]) + stats[:end]
             end
 
             # The cycle index of the last processed cycle
@@ -383,19 +400,6 @@ module Roby
                 history.clear
 	    end
 
-	    def rewind
-		clear
-	    end
-
-            def eof?
-                event_stream.eof?
-            end
-
-            def step
-                data = event_stream.read
-                process(data)
-            end
-	    
             # Processes one cycle worth of data coming from an EventStream, and
             # builds the corresponding plan representation
             #
@@ -404,6 +408,7 @@ module Roby
 	    def process(data)
 		data.each_slice(4) do |m, sec, usec, args|
 		    time = Time.at(sec, usec)
+                    @current_time = time
 		    reason = catch :ignored do
 			begin
 			    if respond_to?(m)
@@ -435,6 +440,7 @@ module Roby
 	    end
 
 	    def clear_integrated
+                clear_changes
                 if plans.any? { |p| !p.garbage.empty? }
                     announce_structure_update
                     announce_state_update
@@ -442,8 +448,11 @@ module Roby
                 plans.each(&:clear_integrated)
                 filter_matches.clear
                 filter_exclusions.clear
-                @changes.clear
 	    end
+
+            def clear_changes
+                @changes.clear
+            end
 
 	    def inserted_tasks(time, plan, task)
 		plan = local_object(plan)
@@ -466,8 +475,10 @@ module Roby
                     ev = local_object(ev)
 		    plan.add(ev)
                     ev.addition_time = ev
+                    if ev.root_object?
+                        announce_structure_update
+                    end
 		end
-                announce_structure_update
 	    end
 	    def added_tasks(time, plan, tasks)
 		plan = local_object(plan)
@@ -580,7 +591,6 @@ module Roby
 		rel    = local_object(rel)
                 all_relations << rel
 		parent.add_child_object(child, rel, info)
-                announce_structure_update
 	    end
 	    def removed_event_child(time, parent, rel, child)
 		parent = local_object(parent)
@@ -588,7 +598,6 @@ module Roby
                 rel    = local_object(rel)
                 if !plan.garbage.include?(parent) && !plan.garbage.include?(child)
                     parent.remove_child_object(child, rel.first)
-                    announce_structure_update
                 end
 	    end
 	    def added_owner(time, object, peer)
@@ -603,7 +612,7 @@ module Roby
             def cycle_end(time, timings)
                 @state = timings.delete(:state)
                 @stats = timings
-                @start_time ||= self.time
+                @start_time ||= self.cycle_start_time
                 announce_state_update
             end
 

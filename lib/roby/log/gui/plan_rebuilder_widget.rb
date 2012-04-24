@@ -27,6 +27,22 @@ module Roby
                 @list    = Qt::ListWidget.new(self)
                 @layout  = Qt::VBoxLayout.new(self)
 
+                def list.mouseReleaseEvent(event)
+                    if event.button == Qt::RightButton
+                        event.accept
+
+                        menu = Qt::Menu.new
+                        inspect_cycle = menu.add_action("Step-by-step from there")
+                        if action = menu.exec(event.globalPos)
+                            cycle_index = currentItem.data(Qt::UserRole).toInt
+
+                            rebuilder_widget = self.parentWidget
+                            stepping = Stepping.new(rebuilder_widget, rebuilder_widget.current_plan, rebuilder_widget.stream, cycle_index)
+                            stepping.exec
+                        end
+                    end
+                end
+
                 @layout.add_widget(@btn_create_display)
                 @history = Hash.new
                 @plan_rebuilder = plan_rebuilder
@@ -91,17 +107,16 @@ module Roby
             end
             slots 'seek(QDateTime)'
 
-
+            attr_reader :stream
             attr_reader :last_cycle
             attr_reader :last_cycle_snapshotted
 
-            def push_data(data)
-                needs_snapshot = plan_rebuilder.push_data(data)
+            def push_data(needs_snapshot, data, do_snapshot = true)
                 cycle = plan_rebuilder.stats[:cycle_index]
                 if last_cycle && (cycle != last_cycle + 1)
                     add_missing_cycles(cycle - last_cycle - 1)
                 end
-                if needs_snapshot
+                if needs_snapshot && do_snapshot
                     append_to_history(plan_rebuilder.history.last)
                 end
                 @last_cycle = cycle
@@ -109,10 +124,10 @@ module Roby
 
             # Opens +filename+ and reads the data from there
             def open(filename)
-                stream = Roby::LogReplay::EventFileStream.open(filename)
+                @stream = Roby::LogReplay::EventFileStream.open(filename)
                 self.window_title = "roby-display: #{filename}"
                 emit sourceChanged
-                analyze(stream)
+                analyze
                 if !history.empty?
                     apply(history[history.keys.sort.first][1])
                 end
@@ -120,25 +135,41 @@ module Roby
 
             signals 'sourceChanged()'
 
-            def analyze(stream, display_progress = true)
-                start = Time.now
+            def rewind
+                stream.rewind
+            end
+
+            def self.analyze(plan_rebuilder, stream, until_cycle = nil)
+                stream.rewind
+
                 start_time, end_time = stream.range
 
+                start = Time.now
                 dialog = Qt::ProgressDialog.new("Analyzing log file", "Quit", 0, (end_time - start_time))
                 dialog.setWindowModality(Qt::WindowModal)
                 dialog.show
 
-                @last_cycle = nil
-                while !stream.eof?
+                while !stream.eof? && (!until_cycle || !plan_rebuilder.cycle_index || plan_rebuilder.cycle_index < until_cycle)
                     data = stream.read
-                    push_data(data)
-                    dialog.setValue(plan_rebuilder.time - start_time)
+                    needs_snapshot = plan_rebuilder.push_data(data)
+                    yield(needs_snapshot, data) if block_given?
+                    dialog.setValue(plan_rebuilder.cycle_start_time - start_time)
                     if dialog.wasCanceled
                         Kernel.raise Interrupt
                     end
                 end
                 dialog.dispose
                 puts "analyzed log file in %.2fs" % [Time.now - start]
+            end
+
+            def analyze(options = Hash.new)
+                options = Kernel.validate_options options,
+                    :until => nil
+
+                @last_cycle = nil
+                PlanRebuilderWidget.analyze(plan_rebuilder, stream, options[:until]) do |needs_snapshot, data|
+                    push_data(needs_snapshot, data)
+                end
             end
 
             # Called when the connection to the log server failed, either
@@ -195,10 +226,11 @@ module Roby
 
                 @client = client
                 client.add_listener do |data|
-                    push_data(data)
+                    needs_snapshot = plan_rebuilder.push_data(data)
+                    push_data(needs_snapshot, data)
 
                     cycle = plan_rebuilder.cycle_index
-                    time = plan_rebuilder.time
+                    time = plan_rebuilder.cycle_start_time
                     emit info("@#{cycle} - #{time.strftime('%H:%M:%S')}.#{'%.03i' % [time.tv_usec / 1000]}")
                 end
                 @connection_pull = timer = Qt::Timer.new(self)
@@ -226,8 +258,12 @@ module Roby
                 @connection_pull = nil
             end
 
-            def time
-                plan_rebuilder.time
+            def cycle_start_time
+                plan_rebuilder.cycle_start_time
+            end
+
+            def current_time
+                plan_rebuilder.current_time
             end
 
             def start_time

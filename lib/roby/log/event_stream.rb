@@ -18,6 +18,12 @@ module Roby
                 end
             end
 
+            def cycle_count
+                if index = logfile.index_data
+                    index.size
+                end
+            end
+
             def self.open(filename)
                 stream = EventFileStream.new
                 stream.open(filename)
