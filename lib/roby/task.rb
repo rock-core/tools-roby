@@ -2755,7 +2755,7 @@ module Roby
             end
             each_event do |name, event_model|
                 if !model.has_event?(name) || (model.find_event_model(name).controlable? != event_model.controlable?)
-                    model.event name, :controlable => event_model.controlable?
+                    model.event name, :controlable => event_model.controlable?, :terminal => event_model.terminal?
                 end
             end
             @simulation_model ||= model
