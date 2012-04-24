@@ -2,7 +2,7 @@ $LOAD_PATH.unshift File.expand_path( '..', File.dirname(__FILE__))
 require 'test/unit'
 require 'roby'
 require 'roby/test/common'
-require 'roby/test/tasks/simple_task'
+require 'roby/tasks/simple'
 require 'fault_injection'
 
 class TC_FaultInjection < Test::Unit::TestCase
@@ -10,7 +10,7 @@ class TC_FaultInjection < Test::Unit::TestCase
     include Roby::Test::Assertions
 
     def test_inject_fault
-        model = Class.new(Roby::Test::SimpleTask) do
+        model = Class.new(Roby::Tasks::Simple) do
             event :specialized_fault
             forward :specialized_fault => :failed
         end
@@ -36,15 +36,15 @@ class TC_FaultInjection < Test::Unit::TestCase
     end
 
     def test_apply
-	model = Class.new(Roby::Test::SimpleTask) do
+	model = Class.new(Roby::Tasks::Simple) do
 	    event :specialized_fault
 	    forward :specialized_fault => :failed
 	end
 
 	fault_models = Hash.new { |h, k| h[k] = Hash.new }
 	fault_models[model][:specialized_fault] = FaultInjection::Rate.new(0.01, 1.0)
-	fault_models[Roby::Test::SimpleTask][:stop] = FaultInjection::Rate.new(1_000_000, 1.0)
-        plan.add_permanent(simple = Roby::Test::SimpleTask.new)
+	fault_models[Roby::Tasks::Simple][:stop] = FaultInjection::Rate.new(1_000_000, 1.0)
+        plan.add_permanent(simple = Roby::Tasks::Simple.new)
         plan.add_permanent(specialized = model.new)
         both_started = simple.start_event & specialized.start_event
 	
@@ -69,7 +69,7 @@ class TC_FaultInjection < Test::Unit::TestCase
     end
 
     def test_task_lifetime
-	plan.discover(task = Roby::Test::SimpleTask.new)
+	plan.discover(task = Roby::Tasks::Simple.new)
 	task.start!
 	sleep(0.5)
 	assert(task.lifetime > 0.5)

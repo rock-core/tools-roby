@@ -39,14 +39,25 @@ module Roby
 		    fault_models[task_model][ev.to_sym] = fault_model
 		end
 	    end
+
+            # Called by the Roby application when it starts
+            def self.start(app)
+                @handler = Roby.engine.add_propagation_handler(:type => :external_events) do |plan|
+                    FaultInjection.apply(app.fault_models, plan)
+                end
+            end
+
+            # Called by the Roby application when it starts
+            def self.cleanup(app)
+                if @handler
+                    Roby.engine.remove_propagation_handler(@handler)
+                end
+            end
 	end
     end
 
     Application.register_plugin('fault_injection', Roby::FaultInjection::Application) do
 	require 'fault_injection'
-	Roby.every(1) do
-	    FaultInjection.apply(Roby.app.fault_models, Roby.plan)
-	end
     end
 end
 
