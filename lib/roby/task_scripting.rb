@@ -386,25 +386,33 @@ module Roby
                 end
             end
 
-            # If given a time (as numeric), will wait for that many seconds
+            # Given an event, will wait for the specified event to be emitted.
+            # It will return only for new emissions of the event
             #
-            # If given an event, will wait for the specified event to be
-            # emitted. It will return only for new emissions of the event
+            # Use #wait_any if you want to make sure that the event got emitted
+            # at least once
             def wait(event_spec_or_time, options = Hash.new)
                 options = Kernel.validate_options options, :after => nil
 
                 if event_spec_or_time.kind_of?(Numeric)
-                    with_description "Wait(#{event_spec_or_time}): : #{caller(1).first}" do
-                        start_time = nil
-                        execute { start_time = Time.now }
-                        poll do
-                            main { }
-                            end_if { (Time.now - start_time) > event_spec_or_time }
-                        end
-                    end
+                    Roby.warn_deprecated "wait(time_in_seconds) is deprecated in task scripting. Use sleep(time_in_seconds) instead"
+                    sleep(event_spec_or_time)
                 else
                     with_description "Wait(#{event_spec_or_time}): #{caller(1).first}" do
                         poll_until(event_spec_or_time, options) { }
+                    end
+                end
+            end
+
+            # Wait that many seconds before continuing to the next 
+            def sleep(time)
+                time = Float(time)
+                with_description "Sleep(#{time}): : #{caller(1).first}" do
+                    start_time = nil
+                    execute { start_time = Time.now }
+                    poll do
+                        main { }
+                        end_if { (Time.now - start_time) > time }
                     end
                 end
             end
