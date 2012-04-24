@@ -926,7 +926,7 @@ module Roby
 	    options = { :cycle => engine_config['cycle'] || 0.1 }
 	    
 	    engine.run options
-	    plugins = self.plugins.map { |_, mod| mod if mod.respond_to?(:run) }.compact
+	    plugins = self.plugins.map { |_, mod| mod if (mod.respond_to?(:start) || mod.respond_to?(:run)) }.compact
 	    run_plugins(plugins, &block)
 
         ensure
