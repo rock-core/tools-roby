@@ -69,7 +69,7 @@ class TC_FaultInjection < Test::Unit::TestCase
     end
 
     def test_task_lifetime
-	plan.discover(task = Roby::Tasks::Simple.new)
+	plan.add(task = Roby::Tasks::Simple.new)
 	task.start!
 	sleep(0.5)
 	assert(task.lifetime > 0.5)
