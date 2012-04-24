@@ -620,7 +620,7 @@ module Roby
 
 	    if tasks
 		tasks = tasks.to_value_set
-		new_tasks = connected_task_component(nil, tasks, tasks)
+		new_tasks = connected_task_component(nil, known_tasks.dup, tasks)
 		unless new_tasks.empty?
 		    old_task_events = task_events.dup
 		    new_tasks = add_task_set(new_tasks)
@@ -742,14 +742,23 @@ module Roby
 
 	# Merges the set of tasks that are useful for +seeds+ into +useful_set+.
 	# Only the tasks that are in +complete_set+ are included.
-	def connected_task_component(complete_set, useful_set, seeds)
+	def connected_task_component(complete_set, useful_set, seeds, explored_relations = Hash.new)
 	    old_useful_set = useful_set.dup
+            useful_set.merge(seeds.to_value_set)
 	    for rel in TaskStructure.relations
 		next if !rel.root_relation?
-		for subgraph in rel.reverse.generated_subgraphs(seeds, false)
+
+                explored_relations[rel] ||= [ValueSet.new, ValueSet.new]
+
+                reverse_seeds = seeds - explored_relations[rel][0]
+		for subgraph in rel.reverse.generated_subgraphs(reverse_seeds, false)
+                    explored_relations[rel][0].merge(subgraph)
 		    useful_set.merge(subgraph)
 		end
-		for subgraph in rel.generated_subgraphs(seeds, false)
+
+                direct_seeds = seeds - explored_relations[rel][1]
+		for subgraph in rel.generated_subgraphs(direct_seeds, false)
+                    explored_relations[rel][1].merge(subgraph)
 		    useful_set.merge(subgraph)
 		end
 	    end
@@ -761,7 +770,7 @@ module Roby
 	    if useful_set.size == old_useful_set.size || (complete_set && useful_set.size == complete_set.size)
 		useful_set
 	    else
-		connected_task_component(complete_set, useful_set, (useful_set - old_useful_set))
+		connected_task_component(complete_set, useful_set, (useful_set - old_useful_set), explored_relations)
 	    end
 	end
 
