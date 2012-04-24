@@ -119,15 +119,13 @@ module Roby
             # shell can work anyway (but possibly in a degraded mode)
             @interface.loaded_plugins.each do |plugin|
                 begin
-                    mods = Roby.app.using(plugin)
-                    mods.each do |m|
-                        m.setup(Roby.app)
-                    end
+                    Roby.app.using(plugin)
                 rescue ArgumentError
                     Robot.warn "the remote controller is using the '#{plugin}' Roby plugin, but it does not seem to be available on this machine. The shell functionality might be degraded by that"
                 end
             end
 
+            Roby.app.call_plugins(:setup, Roby.app)
 
             remote_models = @interface.task_models
             remote_models.each do |klass|
