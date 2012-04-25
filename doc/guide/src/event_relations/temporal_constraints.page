@@ -14,7 +14,7 @@ Semantics
 ---------
 This relation allows to encode two type of related constraints:
 
-  * temporal relationships such as _emission of event 1 should happen within 2
+  * temporal relationships such as __emission of event 1 should happen within 2
     minutes of emission of event 2__.
   * constraints of occurence, such as __event 1 should be emitted at least twice
     before event 2 is emitted__

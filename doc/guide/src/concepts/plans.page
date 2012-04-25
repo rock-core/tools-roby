@@ -83,8 +83,8 @@ explain that.
 
 Events as commands
 ------------------
-As mentionned earlier, events are both a way to represent what happen__ed__ to
-the system (past tense) and a way to __command__ the system. The command side of
+As mentionned earlier, events are both a way to represent what happened __(past
+tense)__ to the system and a way to __command__ the system. The command side of
 the events can be explained as follows: event commands are_a way to make sure
 that the event is going to be emitted_.
 
