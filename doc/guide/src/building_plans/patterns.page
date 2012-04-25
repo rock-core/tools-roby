@@ -29,6 +29,10 @@ event instead of explicitely looking at the children. If the PipelineRepair is
 implemented in a different way, the rest of the behaviour will stay unchanged.
 {: .caption}
 
+This pattern is commonly used to forward failure and/or success up in the
+dependency hierarchy: the success event of one child task is forwarded to the
+success event of the parent task(s).
+
 Don't put too much assumptions in
 ---------------------------------
 Ideally, when writing tasks, one should seek to write it in a way that has as

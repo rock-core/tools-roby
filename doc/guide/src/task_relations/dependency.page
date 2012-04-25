@@ -70,6 +70,14 @@ Both the :success and :failure options accept [event
 predicates](../advanced_concepts/recognizing_patterns.html#event-predicates) as
 values. 
 
+__Important__ The dependency relation does not express any assumption on the
+_succcess_ of the parent task, only (1) the conditions in which a child is not
+needed anymore (the success events) and (2) the conditions in which the child
+did not achieve what the parent task required (the failure events and the
+unreachability of the success events). To represent e.g. a relationship between
+the success of a child and the success of a parent, use the forward relation
+{: .warning}
+
 Error Conditions
 ----------------
 The two types of errors that can occur in the context of a dependency relation
