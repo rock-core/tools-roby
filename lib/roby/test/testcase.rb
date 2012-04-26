@@ -60,36 +60,19 @@ module Roby
 	    # of this particular test case
 	    def self.robot(name, kind = name, &block)
 		@app_setup = [name, kind, block]
-		apply_robot_setup
 	    end
 
-	    @@first_time = true
 	    # Loads the configuration as specified by TestCase.robot
 	    def self.apply_robot_setup
 		app = Roby.app
-		if @@first_time
-		    # Make sure the log directory is empty
-		    if File.exists?(app.log_dir)
-			if !Dir.new(app.log_dir).empty?
-			    if !STDIN.ask("#{app.log_dir} still exists and must be cleaned before starting. Proceed ? [N,y]", false)
-				raise "user abort"
-			    end
-			end
-			FileUtils.rm_rf app.log_dir
-		    end
-		    @@first_time = false
-		end
 
 		name, kind, block = app_setup
-		# Silently ignore the test suites which use a different robot
-		if app.robot_name && 
-		    (app.robot_name != name || app.robot_type != kind)
+		# Ignore the test suites which use a different robot
+		if name || kind && (app.robot_name && 
+		    (app.robot_name != name || app.robot_type != kind))
+                    Test.info "ignoring #{self} as it is for robot #{name} and we are running for #{app.robot_name}:#{app.robot_type}"
 		    return
 		end
-		app.robot name, kind
-		app.reset
-		app.single
-		app.setup
 		if block
 		    block.call
 		end
@@ -110,10 +93,6 @@ module Roby
 		super
 	    end
 
-	    def method_config # :nodoc:
-		self.class.case_config.merge(self.class.methods_config[method_name] || Hash.new)
-	    end
-
 	    # Returns true if user interaction is to be disabled during this test
 	    def automatic_testing?
 		Roby.app.automatic_testing?
@@ -124,9 +103,9 @@ module Roby
 	    # is a float value between 0 and 1 and is displayed as a percentage.
 	    def progress(value, max = nil)
 		if max
-		    print "\r#{@method_name} progress: #{value}/#{max}"
+		    print "\rprogress: #{value}/#{max}"
 		else
-		    print "\r#{@method_name} progress: #{"%.2f %%" % [value * 100]}"
+		    print "\rprogress: #{"%.2f %%" % [value * 100]}"
 		end
 		STDOUT.flush
 	    end
@@ -188,23 +167,6 @@ module Roby
 		end
 	    end
 
-	    def self.suite # :nodoc:
-		method_names = public_instance_methods(true)
-		tests = method_names.delete_if {|method_name| method_name !~ /^(dataset|test)./}
-		suite = Test::Unit::TestSuite.new(name)
-		tests.sort.each do |test|
-		    catch(:invalid_test) do
-			suite << new(test)
-		    end
-		end
-		if (suite.empty?)
-		    catch(:invalid_test) do
-			suite << new("default_test")
-		    end
-		end
-		return suite
-	    end
-
 	    def run(result) # :nodoc:
                 if self.class == TestCase
                     return
@@ -213,18 +175,9 @@ module Roby
 		self.class.apply_robot_setup do
 		    yield if block_given?
 
-		    case method_config[:mode]
-		    when :nosim
-			return if Roby.app.simulation?
-		    when :sim
-			return unless Roby.app.simulation?
-		    end
-
 		    @failed_test = false
 		    begin
-			Roby.app.run do
-			    super
-			end
+                        super
 		    rescue Exception => e
 			if @_result
 			    add_error(e)
@@ -252,8 +205,6 @@ module Roby
 		    end
 		end
 
-	    rescue Exception
-		puts "testcase #{method_name} teardown failed with\n#{$!.full_message}"
 	    end
 
 	    def add_error(*args, &block) # :nodoc:

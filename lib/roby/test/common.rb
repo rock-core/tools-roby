@@ -155,12 +155,11 @@ module Roby
 		Roby.logger.level = Logger::DEBUG
 	    end
 
-	    if !engine.running?
-		engine.run
+	    if engine.running?
+                engine.quit
+                engine.join
 	    end
 
-	    engine.quit
-	    engine.join
 	    plan.clear
 
 	ensure
@@ -754,6 +753,31 @@ module Roby
 	    end
 	end
 
+        def develop_planning_method(method_name, args = Hash.new)
+            options, args = Kernel.filter_options args,
+                :planner_model => MainPlanner
+
+            planner = options[:planner_model].new(plan)
+            planner.send(method_name, args)
+        end
+
+        module ClassExtension
+            attr_reader :planning_method_tests
+
+            def test_planning_method(method_name, args = Hash.new)
+                @planning_method_tests ||= Hash.new { |h, k| h[k] = Array.new }
+                @planning_method_tests[method_name.to_sym] << args
+
+                if !instance_method?("test_planning_method_#{method_name}")
+                    define_method("test_planning_method_#{method_name}") do
+                        tests = self.class.planning_method_tests[method_name.to_sym]
+                        tests.each do |t|
+                            develop_planning_method(method_name, t)
+                        end
+                    end
+                end
+            end
+        end
     end
 end
 

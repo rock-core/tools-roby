@@ -1,6 +1,8 @@
 require 'roby'
 require 'optparse'
 
+app = Roby.app
+
 testrb_args = []
 parser = OptionParser.new do |opt|
     opt.on("-s", "--sim", "run tests in simulation mode") do |val|
@@ -18,23 +20,20 @@ parser = OptionParser.new do |opt|
     opt.on("-n", "--name NAME", String, "run tests matching NAME") do |name|
 	testrb_args << "-n" << name
     end
+    opt.on("-r NAME[:TYPE]", String, "the robot name and type") do |name|
+        name, type = name.split(':')
+        app.robot name, (type || name)
+    end
 end
-parser.parse! ARGV
-Roby.app.testing = true
+
+app.testing = true
 require 'roby/test/testcase'
 
-app = Roby.app
-app.setup
+parser.parse! ARGV
 
 r = Test::Unit::AutoRunner.new(true)
 r.process_args(ARGV + testrb_args) or
   abort r.options.banner + " tests..."
-
-if r.filters.empty?
-    r.filters << lambda do |t|
-	t.class != Roby::Test::TestCase
-    end
-end
 
 exit r.run
 
