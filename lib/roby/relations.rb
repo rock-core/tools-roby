@@ -751,7 +751,7 @@ module Roby
             mod.scoped_eval(:module_eval, &block) if block
 
 	    if parent_enumerator = options[:parent_name]
-		mod.class_eval <<-EOD
+		mod.class_eval <<-EOD,  __FILE__, __LINE__ + 1
 		def each_#{parent_enumerator}(&iterator)
                     if !block_given?
                         return enum_parent_objects(@@__r_#{relation_name}__)
@@ -763,7 +763,7 @@ module Roby
 	    end
 
 	    if options[:noinfo]
-		mod.class_eval <<-EOD
+		mod.class_eval <<-EOD,  __FILE__, __LINE__ + 1
 		def each_#{options[:child_name]}
                     if !block_given?
                         return enum_child_objects(@@__r_#{relation_name}__)
@@ -779,7 +779,7 @@ module Roby
 		end
 		EOD
 	    else
-		mod.class_eval <<-EOD
+		mod.class_eval <<-EOD,  __FILE__, __LINE__ + 1
                 cached_enum("#{options[:child_name]}", "#{options[:child_name]}", true)
 		def each_#{options[:child_name]}(with_info = true)
                     if !block_given?
@@ -804,7 +804,7 @@ module Roby
 		end
 		EOD
 	    end
-	    mod.class_eval <<-EOD
+	    mod.class_eval <<-EOD,  __FILE__, __LINE__ + 1
 	    def add_#{options[:child_name]}(to, info = nil)
 		add_child_object(to, @@__r_#{relation_name}__, info)
 		self
@@ -820,7 +820,7 @@ module Roby
                 has_add_child_hook    = existing_methods.include?(:added_child_object)
                 has_remove_child_hook = existing_methods.include?(:removed_child_object)
 
-		mod.class_eval <<-EOD
+		mod.class_eval <<-EOD,  __FILE__, __LINE__ + 1
 		attr_reader :#{options[:child_name]}
 
                 #{"alias __added_child_object__ added_child_object" if has_add_child_hook}

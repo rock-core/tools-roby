@@ -63,7 +63,7 @@ module Roby
                 for name in mod.instance_methods(false)
                     next if name =~ /^__.*__$/
                     next if name == :object_id
-                    class_eval <<-EOD
+                    class_eval <<-EOD, __FILE__, __LINE__+1
                     def #{name}(*args, &block)
                         __getobj__.send("#{name}", *args, &block)
                     end

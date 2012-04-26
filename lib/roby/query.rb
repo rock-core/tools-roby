@@ -182,7 +182,7 @@ module Roby
             # opposite will be done.
 	    def match_predicates(*names)
 		names.each do |name|
-		    class_eval <<-EOD
+		    class_eval <<-EOD, __FILE__, __LINE__+1
 		    def #{name}
 			if neg_predicates.include?(:#{name}?)
 			    raise ArgumentError, "trying to match (#{name}? & !#{name}?)"
@@ -649,7 +649,7 @@ module Roby
             # task to match.
 	    def match_plan_predicates(*names)
 		names.each do |name|
-		    class_eval <<-EOD
+		    class_eval <<-EOD, __FILE__, __LINE__+1
 		    def #{name}
 			if neg_plan_predicates.include?(:#{name}?)
 			    raise ArgumentError, "trying to match (#{name}? & !#{name}?)"

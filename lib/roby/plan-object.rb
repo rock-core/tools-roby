@@ -316,7 +316,7 @@ module Roby
         #       child_plan_object :task
         #   end
 	def self.child_plan_object(attribute)
-	    class_eval <<-EOD
+	    class_eval <<-EOD, __FILE__, __LINE__+1
 	    def root_object; #{attribute} end
 	    def root_object?; false end
 	    def owners; #{attribute}.owners end

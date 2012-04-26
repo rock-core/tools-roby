@@ -994,7 +994,7 @@ module Roby
         #   
 	def self.model_attribute_list(name) # :nodoc:
 	    inherited_enumerable("#{name}_set", "#{name}_sets", :map => true) { Hash.new { |h, k| h[k] = ValueSet.new } }
-	    class_eval <<-EOD
+	    class_eval <<-EOD, __FILE__, __LINE__+1
 		def self.each_#{name}(model)
 		    for obj in #{name}s(model)
 			yield(obj)

@@ -243,7 +243,7 @@ module Roby
                 end.join("\n")
 
                 compiled_predicate = CompiledPredicate.new
-                eval <<-END
+                eval <<-END, binding, __FILE__, __LINE__+1
 def compiled_predicate.evaluate(task)
 #{prelude}
     #{code}

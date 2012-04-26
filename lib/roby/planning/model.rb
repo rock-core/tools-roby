@@ -414,7 +414,7 @@ module Roby
 		    return old_model.merge(options)
 		else
 		    unless respond_to?("#{name}_model")
-			singleton_class.class_eval <<-EOD
+			singleton_class.class_eval <<-EOD, __FILE__, __LINE__+1
 			    def #{name}_model
 				@#{name}_model || superclass.#{name}_model
 			    end
@@ -542,7 +542,7 @@ module Roby
                            return Hash.new
                        end
                     end
-		    class_eval <<-PLANNING_METHOD_END
+		    class_eval <<-PLANNING_METHOD_END, __FILE__, __LINE__+1
 		    def #{name}(options = Hash.new)
 			plan_method("#{name}", options)
 		    end
@@ -717,7 +717,7 @@ module Roby
 
 		if !respond_to?("#{name}_filters")
 		    inherited_enumerable("#{name}_filter", "#{name}_filters") { Array.new }
-		    class_eval <<-EOD
+		    class_eval <<-EOD, __FILE__, __LINE__+1
 			class << self
 			    cached_enum("#{name}_filter", "#{name}_filters", false)
 			end
