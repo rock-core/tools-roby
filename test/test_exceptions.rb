@@ -489,25 +489,6 @@ class TC_Exceptions < Test::Unit::TestCase
 	plan.unmark_mission(mission)
     end
 
-    def test_filter_command_errors
-        model = Class.new(Tasks::Simple) do
-            event :start do |ev|
-                raise ArgumentError
-            end
-        end
-
-        task = prepare_plan :permanent => 1, :model => model
-        task.start!
-        error = task.failure_reason
-        assert_kind_of CodeError, error
-        check_exception_formatting(error)
-
-        trace = error.error.backtrace
-        filtered = Roby.filter_backtrace(trace, :force => true)
-        assert(filtered[0] =~ /command for 'start'/, filtered[0])
-        assert(filtered[1] =~ /test_filter_command_errors/,   filtered[1])
-    end
-
     def test_code_error_formatting
         model = Class.new(Tasks::Simple) do
             event :start do |context|
