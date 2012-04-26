@@ -170,7 +170,7 @@ module Roby
 	end
 
         def sorted_relations
-            Roby.all_relations.
+            @sorted_relations ||= Roby.all_relations.
                 find_all { |rel| rel.include?(self) }
         end
 
@@ -178,10 +178,8 @@ module Roby
         # specialized relations
         def each_relation_sorted
             # Remove from the set of relations the ones that are not leafs
-            Roby.all_relations.each do |rel|
-                if rel.include?(self)
-                    yield(rel)
-                end
+            for rel in sorted_relations
+                yield(rel)
             end
         end
 
