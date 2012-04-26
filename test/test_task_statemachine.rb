@@ -203,6 +203,7 @@ class TC_TaskStateMachine < Test::Unit::TestCase
 
         task = prepare_plan :permanent => 1, :model => model
         task.start!
+        process_events
     end
 
     def test_poll_in_state
@@ -239,6 +240,7 @@ class TC_TaskStateMachine < Test::Unit::TestCase
         task.emit :intermediate
         task.on(:one_poll) { |_| mock.one_poll_event }
         assert task.running_poll?
+        process_events
     end
 
     def test_script_in_state
