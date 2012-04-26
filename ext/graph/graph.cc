@@ -110,7 +110,7 @@ VALUE graph_each_vertex(VALUE self)
     {
 	VALUE vertex = graph[*it];
 	++it;
-	rb_yield(vertex);
+	rb_yield_values(1, vertex);
     }
     return self;
 }
@@ -369,7 +369,7 @@ static VALUE vertex_each_graph(VALUE self)
 	// increment before calling rb_yield since the block
 	// can call Graph#remove for instance
 	++it;
-	rb_yield(graph);
+	rb_yield_values(1, graph);
     }
     return self;
 }
@@ -433,6 +433,11 @@ static VALUE vertex_related_p(int argc, VALUE* argv, VALUE self)
     return vertex_child_p(argc, argv, self);
 }
 
+static inline VALUE yield_single_value(VALUE value)
+{
+    return rb_yield_values(1, value);
+}
+
 template <bool directed>
 static VALUE vertex_each_related(int argc, VALUE* argv, VALUE self)
 {
@@ -452,7 +457,7 @@ static VALUE vertex_each_related(int argc, VALUE* argv, VALUE self)
 	    return self;
 
 	RubyGraph& g = graph_wrapped(graph);
-	for_each_value(::details::vertex_range<RubyGraph, directed>::get(v, g), g, rb_yield);
+	for_each_value(::details::vertex_range<RubyGraph, directed>::get(v, g), g, yield_single_value);
     }
     return self;
 }

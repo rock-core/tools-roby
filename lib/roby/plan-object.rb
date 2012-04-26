@@ -192,7 +192,7 @@ module Roby
                 # them. Those that are included in +next_plan+ are handled
                 # later.
                 new_objects = Array.new
-                object.send(enumerator, *args) do |related_object, _|
+                object.send(enumerator, *args) do |related_object|
                     next if next_plan[related_object, false]
 
                     if !intrusive
@@ -223,7 +223,7 @@ module Roby
                     yield(self.plan[related_object])
                 end
             else
-                send(enumerator, *args) do |related_object, _|
+                send(enumerator, *args) do |related_object|
                     yield(self, related_object)
                 end
             end

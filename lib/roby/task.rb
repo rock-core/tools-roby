@@ -2527,23 +2527,20 @@ module Roby
 	#   * +args+ is included in the task arguments
 	def fullfills?(models, args = nil)
             if !models.respond_to?(:each)
-                models = [*models]
-            elsif !models.respond_to?(:to_ary)
-                models = models.to_a
+                models = [models]
             end
 
-            models.map! do |m|
-                if m.kind_of?(Task)
-                    if !args
-                        args = m.meaningful_arguments
-                    end
-                    m = m.provided_services
-                elsif m.respond_to?(:provided_services)
-                    m.provided_services
-                else
-                    m
+            models = models.inject([]) do |models, m|
+                if !args && m.kind_of?(Task)
+                    args = m.meaningful_arguments
                 end
-            end.flatten!
+
+                if m.respond_to?(:provided_services)
+                    models.concat(m.provided_services.to_a)
+                else
+                    models << m
+                end
+            end
 
 	    self_model = self.model
 	    self_args  = self.arguments
