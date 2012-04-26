@@ -409,8 +409,7 @@ module Roby
 
             if !task.invalidated_terminal_flag?
                 if (relations.include?(EventStructure::Forwarding) || relations.include?(EventStructure::Signal)) && 
-                    child.respond_to?(:task) && child.task == task &&
-                        child.terminal_flag != terminal_flag
+                    child.respond_to?(:task) && child.task == task
 
                     task.invalidate_terminal_flag
                 end
@@ -424,8 +423,7 @@ module Roby
 
             if !task.invalidated_terminal_flag?
                 if (relations.include?(EventStructure::Forwarding) || relations.include?(EventStructure::Signal)) && 
-                    child.respond_to?(:task) && child.task == task &&
-                        terminal_flag
+                    child.respond_to?(:task) && child.task == task
 
                     task.invalidate_terminal_flag
                 end
