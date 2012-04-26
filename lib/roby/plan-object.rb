@@ -515,6 +515,10 @@ module Roby
             end
         end
 
+        class << self
+            attr_predicate :debug_finalization_place?, true
+        end
+
         # Called when a particular object has been removed from its plan
         def finalized!(timestamp = nil)
             if self.plan.executable?
@@ -525,7 +529,11 @@ module Roby
             end
 
 	    self.plan = nil
-	    self.removed_at = caller
+            if EventGenerator.debug_finalization_place?
+                self.removed_at = caller
+            else
+                self.removed_at = []
+            end
             self.finalization_time = timestamp || Time.now
             self.finalized = true
         end
