@@ -158,13 +158,11 @@ module Roby
                 return
             end
 
-            parents = parent_objects(relation).to_a
-            for parent in parents
+            each_parent_object(relation) do |parent|
                 relation.remove_relation(parent, self)
             end
 
-            children = child_objects(relation).to_a
-            for child in children
+            each_child_object(relation) do |child|
                 relation.remove_relation(self, child)
             end
 	end
